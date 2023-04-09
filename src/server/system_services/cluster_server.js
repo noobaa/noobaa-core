@@ -134,13 +134,13 @@ function pre_add_member_to_cluster(req) {
             my_address = response.caller_address || os_utils.get_local_ipv4_ips()[0];
             if (!is_clusterized && response.caller_address) {
                 dbg.log0('updating adding server ip in db');
-                let shard_idx = cutil.find_shard_index(req.rpc_params.shard);
-                let server_idx = _.findIndex(topology.shards[shard_idx].servers,
+                const shard_idx = cutil.find_shard_index(req.rpc_params.shard);
+                const server_idx = _.findIndex(topology.shards[shard_idx].servers,
                     server => net_utils.is_localhost(server.address));
                 if (server_idx === -1) {
                     dbg.warn("db does not contain internal ip of master server");
                 } else {
-                    let new_shards = topology.shards;
+                    const new_shards = topology.shards;
                     new_shards[shard_idx].servers[server_idx] = {
                         address: response.caller_address
                     };
@@ -265,7 +265,7 @@ function verify_join_conditions(req) {
     return P.resolve()
         .then(() => os_utils.os_info())
         .then(os_info => {
-            let hostname = os_info.hostname;
+            const hostname = os_info.hostname;
             let caller_address;
             if (req.connection && req.connection.url) {
                 caller_address = req.connection.url.hostname.includes('ffff') ?
@@ -428,14 +428,14 @@ function join_to_cluster(req) {
             dbg.log0('server new role is', req.rpc_params.role);
             if (req.rpc_params.role === 'SHARD') {
                 //Server is joining as a new shard, update the shard topology
-                let shards = cutil.get_topology().shards;
+                const shards = cutil.get_topology().shards;
                 shards.push({
                     shardname: req.rpc_params.shard,
                     servers: [{
                         address: req.rpc_params.ip
                     }]
                 });
-                let cluster_info = {
+                const cluster_info = {
                     owner_address: req.rpc_params.ip,
                     shards: shards
                 };
@@ -463,7 +463,7 @@ function join_to_cluster(req) {
         //.then(() => _attach_server_configuration({}))
         //.then((res_params) => _update_cluster_info(res_params))
         .then(function() {
-            var topology_to_send = _.omit(cutil.get_topology(), 'dns_servers', 'timezone');
+            const topology_to_send = _.omit(cutil.get_topology(), 'dns_servers', 'timezone');
             dbg.log0('Added member, publishing updated topology', cutil.pretty_topology(topology_to_send));
             //Mongo servers are up, update entire cluster with the new topology
             return _publish_to_cluster('news_updated_topology', {
@@ -559,13 +559,13 @@ function update_member_of_cluster(req) {
             if (shard_index === -1 || server_idx === -1) {
                 throw new Error(`could not find address:${req.rpc_params.secret} in any shard`);
             }
-            let new_shard = topology.shards[shard_index];
+            const new_shard = topology.shards[shard_index];
             old_address = new_shard.servers[server_idx].address;
             new_shard.servers[server_idx] = {
                 address: req.rpc_params.new_address
             };
 
-            let new_rs_params = {
+            const new_rs_params = {
                 name: new_shard.shardname,
                 IPs: cutil.extract_servers_ip(
                     new_shard.servers
@@ -581,7 +581,7 @@ function update_member_of_cluster(req) {
         .then(() => _update_cluster_info(topology))
         .then(() => {
             topology = cutil.get_topology();
-            var topology_to_send = _.omit(topology, 'dns_servers', 'timezone');
+            const topology_to_send = _.omit(topology, 'dns_servers', 'timezone');
             dbg.log0('Added member, publishing updated topology', cutil.pretty_topology(topology_to_send));
             // Mongo servers are up, update entire cluster with the new topology
             // Notice that we send additional parameters which will be used for the changed server
@@ -669,13 +669,13 @@ function news_updated_topology(req) {
 
 
 function redirect_to_cluster_master(req) {
-    let current_clustering = system_store.get_local_cluster_info();
+    const current_clustering = system_store.get_local_cluster_info();
     if (!current_clustering) {
-        let address = system_store.data.systems[0].base_address || os_utils.get_local_ipv4_ips()[0];
+        const address = system_store.data.systems[0].base_address || os_utils.get_local_ipv4_ips()[0];
         return address;
     }
     if (!current_clustering.is_clusterized) {
-        let address = system_store.data.systems[0].base_address || current_clustering.owner_address;
+        const address = system_store.data.systems[0].base_address || current_clustering.owner_address;
         return address;
     }
     return P.fcall(function() {
@@ -683,12 +683,12 @@ function redirect_to_cluster_master(req) {
         })
         .catch(err => {
             dbg.log0('redirect_to_cluster_master caught error', err);
-            let topology = cutil.get_topology();
+            const topology = cutil.get_topology();
             let res_host;
             if (topology && topology.shards) {
                 _.forEach(topology.shards, shard => {
                     if (String(shard.shardname) === String(topology.owner_shardname)) {
-                        let hosts_excluding_current = _.difference(shard.servers, [{
+                        const hosts_excluding_current = _.difference(shard.servers, [{
                             address: topology.owner_address
                         }]);
                         if (hosts_excluding_current.length > 0) {
@@ -708,12 +708,12 @@ function redirect_to_cluster_master(req) {
 
 function set_debug_level(req) {
     dbg.log0('Recieved set_debug_level req', req.rpc_params);
-    var debug_params = req.rpc_params;
-    var target_servers = [];
+    const debug_params = req.rpc_params;
+    const target_servers = [];
     let audit_activity = {};
     return P.fcall(function() {
             if (debug_params.target_secret) {
-                let cluster_server = system_store.data.cluster_by_server[debug_params.target_secret];
+                const cluster_server = system_store.data.cluster_by_server[debug_params.target_secret];
                 if (!cluster_server) {
                     throw new RpcError('CLUSTER_SERVER_NOT_FOUND',
                         `Server with secret key: ${debug_params.target_secret} was not found`
@@ -758,7 +758,7 @@ function set_debug_level(req) {
 function apply_set_debug_level(req) {
     dbg.log0('Recieved apply_set_debug_level req', req.rpc_params);
     if (req.rpc_params.target_secret) {
-        let cluster_server = system_store.data.cluster_by_server[req.rpc_params.target_secret];
+        const cluster_server = system_store.data.cluster_by_server[req.rpc_params.target_secret];
         if (!cluster_server) {
             throw new RpcError('CLUSTER_SERVER_NOT_FOUND', `Server with secret key: ${req.rpc_params.target_secret} was not found`);
         }
@@ -813,11 +813,11 @@ function _set_debug_level_internal(req, level) {
         }))
         .then(() => MongoCtrl.set_debug_level(level ? 5 : 0))
         .then(() => {
-            var update_object = {};
-            var debug_mode = level > 0 ? Date.now() : undefined;
+            const update_object = {};
+            const debug_mode = level > 0 ? Date.now() : undefined;
 
             if (req.rpc_params.target_secret) {
-                let cluster_server = system_store.data.cluster_by_server[req.rpc_params.target_secret];
+                const cluster_server = system_store.data.cluster_by_server[req.rpc_params.target_secret];
                 if (!cluster_server) {
                     throw new RpcError('CLUSTER_SERVER_NOT_FOUND',
                         `Server with secret key: ${req.rpc_params.target_secret} was not found`);
@@ -865,14 +865,14 @@ function _set_debug_level_internal(req, level) {
 
 
 function diagnose_system(req) {
-    var target_servers = [];
+    const target_servers = [];
     const TMP_WORK_DIR = `/tmp/cluster_diag`;
     const INNER_PATH = `${process.cwd()}/build`;
     const OUT_PATH = '/public/' + req.system.name + '_cluster_diagnostics.tgz';
     const WORKING_PATH = `${INNER_PATH}${OUT_PATH}`;
     if (req.rpc_params.target_secret) {
 
-        let cluster_server = system_store.data.cluster_by_server[req.rpc_params.target_secret];
+        const cluster_server = system_store.data.cluster_by_server[req.rpc_params.target_secret];
         if (!cluster_server) {
             throw new RpcError('CLUSTER_SERVER_NOT_FOUND',
                 `Server with secret key: ${req.rpc_params.target_secret} was not found`
@@ -927,8 +927,8 @@ function collect_server_diagnostics(req) {
         .then(() => os_utils.os_info())
         .then(os_info => {
             dbg.log0('Recieved diag req');
-            var out_path = '/public/' + os_info.hostname + '_srv_diagnostics.tgz';
-            var inner_path = process.cwd() + '/build' + out_path;
+            const out_path = '/public/' + os_info.hostname + '_srv_diagnostics.tgz';
+            const inner_path = process.cwd() + '/build' + out_path;
             return P.resolve()
                 .then(() => diag.collect_server_diagnostics(req))
                 .then(() => diag.pack_diagnostics(inner_path))
@@ -963,7 +963,7 @@ function collect_server_diagnostics(req) {
 
 
 function read_server_time(req) {
-    let cluster_server = system_store.data.cluster_by_server[req.rpc_params.target_secret];
+    const cluster_server = system_store.data.cluster_by_server[req.rpc_params.target_secret];
     if (!cluster_server) {
         throw new RpcError('CLUSTER_SERVER_NOT_FOUND',
             `Server with secret key: ${req.rpc_params.target_secret} was not found`);
@@ -985,8 +985,8 @@ function apply_read_server_time(req) {
 //
 
 function read_server_config(req) {
-    let using_dhcp = false;
-    let srvconf = {};
+    const using_dhcp = false;
+    const srvconf = {};
 
     return P.resolve()
         .then(() => _attach_server_configuration(srvconf))
@@ -1011,7 +1011,7 @@ function update_server_conf(req) {
     }
 
     let audit_desc = ``;
-    let audit_server = {};
+    const audit_server = {};
     return P.resolve()
         .then(() => {
             audit_server.hostname = _.get(cluster_server, 'heartbeat.health.os_info.hostname');
@@ -1123,7 +1123,7 @@ function _verify_join_preconditons(req) {
                     }
                 })
                 .then(() => {
-                    let system = system_store.data.systems[0];
+                    const system = system_store.data.systems[0];
                     if (system) {
                         //Verify we are not already joined to a cluster
                         //TODO:: think how do we want to handle it, if at all
@@ -1157,8 +1157,8 @@ function _verify_join_preconditons(req) {
 function _add_new_shard_on_server(shardname, ip, params) {
     // "cache" current topology until all changes take affect, since we are about to lose mongo
     // until the process is done
-    let current_topology = cutil.get_topology();
-    var config_updates = {};
+    const current_topology = cutil.get_topology();
+    const config_updates = {};
     dbg.log0('Adding shard, new topology', cutil.pretty_topology(current_topology));
 
     //Actually add a new mongo shard instance
@@ -1212,9 +1212,8 @@ function _add_new_shard_on_server(shardname, ip, params) {
 
 function _initiate_replica_set(shardname) {
     dbg.log0('Adding first RS server to', shardname);
-    var new_topology = cutil.get_topology();
-    var shard_idx;
-    shard_idx = cutil.find_shard_index(shardname);
+    const new_topology = cutil.get_topology();
+    const shard_idx = cutil.find_shard_index(shardname);
     //No Such shard
     if (shard_idx === -1) {
         dbg.log0('Cannot add RS member to non-existing shard');
@@ -1242,7 +1241,7 @@ function _update_cluster_info(params) {
         })
         .then(new_clustering => {
             current_clustering = current_clustering || new_clustering;
-            var update = _.defaults(_.pick(params, _.keys(current_clustering)), current_clustering);
+            const update = _.defaults(_.pick(params, _.keys(current_clustering)), current_clustering);
             update.owner_secret = system_store.get_server_secret(); //Keep original owner_secret
             update.owner_address = params.owner_address || current_clustering.owner_address;
             update._id = current_clustering._id;
@@ -1281,8 +1280,8 @@ function _add_new_server_to_replica_set(params) {
     const shardname = params.shardname;
     const ip = params.ip;
     dbg.log0('Adding RS server to', shardname);
-    var new_topology = cutil.get_topology();
-    var shard_idx = cutil.find_shard_index(shardname);
+    const new_topology = cutil.get_topology();
+    const shard_idx = cutil.find_shard_index(shardname);
 
     //No Such shard
     if (shard_idx === -1) {
@@ -1322,7 +1321,7 @@ function _add_new_server_to_replica_set(params) {
         })
         .then(() => {
             dbg.log0('Adding new replica set member to the set');
-            let new_rs_params = {
+            const new_rs_params = {
                 name: shardname,
                 IPs: cutil.extract_servers_ip(
                     cutil.get_topology().shards[shard_idx].servers
@@ -1355,7 +1354,7 @@ function _add_new_config_on_server(cfg_array, params) {
 }
 
 function _publish_to_cluster(apiname, req_params) {
-    var servers = [];
+    const servers = [];
     _.each(cutil.get_topology().shards, function(shard) {
         _.each(shard.servers, function(single_srv) {
             servers.push(single_srv.address);
@@ -1372,7 +1371,7 @@ function _publish_to_cluster(apiname, req_params) {
 }
 
 function _update_rs_if_needed(IPs, name, is_config) {
-    var config_changes = cutil.rs_array_changes(IPs, name, is_config);
+    const config_changes = cutil.rs_array_changes(IPs, name, is_config);
     if (config_changes) {
         return P.resolve()
             .then(() => {
@@ -1442,7 +1441,7 @@ async function _attach_server_configuration(cluster_server) {
 }
 
 function check_cluster_status() {
-    var servers = system_store.data.clusters;
+    const servers = system_store.data.clusters;
     dbg.log2('check_cluster_status', servers);
     const other_servers = _.filter(servers,
         server => server.owner_secret !== system_store.get_server_secret());

@@ -1,11 +1,11 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-var _ = require('lodash');
-var P = require('../../util/promise');
-var mocha = require('mocha');
+const _ = require('lodash');
+const P = require('../../util/promise');
+const mocha = require('mocha');
 // var assert = require('assert');
-var Prefetch = require('../../util/prefetch');
+const Prefetch = require('../../util/prefetch');
 
 function log(...args) {
     if (process.env.SUPPRESS_LOGS) return;
@@ -21,7 +21,7 @@ mocha.describe('prefetch', function() {
             low_length: 30,
             high_length: 32,
             load: async count => {
-                var n = count;
+                const n = count;
                 log('... LOAD', n, '(' + count + ')', 'length', pr.length);
                 await P.delay(5);
                 log('>>> LOAD', n, '(' + count + ')', 'length', pr.length);

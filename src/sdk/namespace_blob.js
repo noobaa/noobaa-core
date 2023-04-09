@@ -567,7 +567,7 @@ class NamespaceBlob {
 
         const obj_id = Buffer.from(params.obj_id, 'base64').toString();
         if (schema_utils.is_object_id(obj_id)) {
-            let obj_md = await object_sdk.rpc_client.object.read_object_md({
+            const obj_md = await object_sdk.rpc_client.object.read_object_md({
                 obj_id,
                 bucket: params.bucket,
                 key: params.key

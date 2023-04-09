@@ -150,11 +150,11 @@ class Quota {
      * @returns - is quota exceeded
      */
     is_quota_exceeded(bucket) {
-        var exceeded = {
+        const exceeded = {
             is_quota_exceeded: false,
             is_quota_low: false
         };
-        let {size_used_percent, quantity_used_percent} = this.get_bucket_quota_usages_percent(bucket);
+        const {size_used_percent, quantity_used_percent} = this.get_bucket_quota_usages_percent(bucket);
         exceeded.is_quota_exceeded = (size_used_percent >= 100 || quantity_used_percent >= 100);
         exceeded.is_quota_low = !exceeded.is_quota_exceeded &&
             (size_used_percent >= config.QUOTA_LOW_THRESHOLD || quantity_used_percent >= config.QUOTA_LOW_THRESHOLD);
@@ -170,7 +170,7 @@ class Quota {
      get_available_size_for_upload(total_size, used) {
         let available_size_for_upload = total_size;
          if (this.get_quota_by_size() > 0) {
-            let quota_size_free = size_utils.json_to_bigint(this.get_quota_by_size())
+            const quota_size_free = size_utils.json_to_bigint(this.get_quota_by_size())
                 .minus(size_utils.json_to_bigint(used));
             available_size_for_upload = size_utils.size_min([
                 size_utils.bigint_to_json(quota_size_free),
@@ -188,7 +188,7 @@ class Quota {
      get_available_quantity_for_upload(used) {
         let available_quantity_for_upload = config.QUOTA_MAX_OBJECTS;
          if (this.get_quota_by_quantity() > 0) {
-            let quota_quantity_free = size_utils.json_to_bigint(this.get_quota_by_quantity())
+            const quota_quantity_free = size_utils.json_to_bigint(this.get_quota_by_quantity())
                 .minus(size_utils.json_to_bigint(used));
             available_quantity_for_upload = size_utils.bigint_to_json(quota_quantity_free);
         }

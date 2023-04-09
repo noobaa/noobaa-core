@@ -218,7 +218,7 @@ class NodesMonitor extends EventEmitter {
 
         // initialize nodes stats in prometheus
         if (config.PROMETHEUS_ENABLED && system_store.data.systems[0]) {
-            let nodes_stats = await this._get_nodes_stats_by_service(
+            const nodes_stats = await this._get_nodes_stats_by_service(
                 system_store.data.systems[0]._id,
                 0,
                 Date.now(),
@@ -330,7 +330,7 @@ class NodesMonitor extends EventEmitter {
         // new node heartbeat
         // create the node and then update the heartbeat
         if (!node_id && (req.role === 'create_node' || req.role === 'admin')) {
-            let agent_config = (extra.agent_config_id && system_store.data.get_by_id(extra.agent_config_id)) || {};
+            const agent_config = (extra.agent_config_id && system_store.data.get_by_id(extra.agent_config_id)) || {};
             this._add_new_node(req.connection, req.system._id, agent_config, req.rpc_params.pool_name);
             dbg.log0('connecting new node with agent_config =', {
                 ...agent_config,
@@ -695,7 +695,7 @@ class NodesMonitor extends EventEmitter {
     }
 
     _remove_node_to_hosts_map(host_id, item) {
-        let host_nodes = this._map_host_id.get(host_id);
+        const host_nodes = this._map_host_id.get(host_id);
         if (host_nodes) {
             _.pull(host_nodes, item);
             if (!host_nodes.length) {
@@ -731,7 +731,7 @@ class NodesMonitor extends EventEmitter {
     }
 
     _get_nodes_by_host_id(host_id) {
-        let host_nodes = this._map_host_id.get(host_id);
+        const host_nodes = this._map_host_id.get(host_id);
         if (!host_nodes) {
             throw new RpcError('BAD_REQUEST', 'No such host ' + host_id);
         }
@@ -1036,7 +1036,7 @@ class NodesMonitor extends EventEmitter {
         if (item.node.deleted) return;
         if (!item.connection) return;
         dbg.log1('_get_agent_info:', item.node.name);
-        let potential_masters = clustering_utils.get_potential_masters().map(addr => ({
+        const potential_masters = clustering_utils.get_potential_masters().map(addr => ({
             address: url.format({
                 protocol: 'wss',
                 slashes: true,
@@ -1141,7 +1141,7 @@ class NodesMonitor extends EventEmitter {
             updates.name = info.name;
             updates.host_id = info.host_id;
             this._map_node_name.delete(String(item.node.name));
-            let base_name = updates.name || 'node';
+            const base_name = updates.name || 'node';
             let counter = 1;
             while (this._map_node_name.has(updates.name)) {
                 updates.name = base_name + '-' + counter;
@@ -1162,9 +1162,9 @@ class NodesMonitor extends EventEmitter {
                 this._add_node_to_hosts_map(updates.host_id, item);
                 item.added_host = true;
             }
-            let agent_config = system_store.data.get_by_id(item.node.agent_config) || {};
+            const agent_config = system_store.data.get_by_id(item.node.agent_config) || {};
             // on first call to get_agent_info enable\disable the node according to the configuration
-            let should_start_service = this._should_enable_agent(info, agent_config);
+            const should_start_service = this._should_enable_agent(info, agent_config);
             dbg.log1(`first call to get_agent_info. storage agent ${item.node.name}. should_start_service=${should_start_service}. `);
             if (!should_start_service) {
                 item.node.decommissioned = Date.now();
@@ -1278,12 +1278,12 @@ class NodesMonitor extends EventEmitter {
                 return;
             }
             dbg.log0('node does not have a valid create_node_token. creating new one and sending to agent');
-            let auth_parmas = {
+            const auth_parmas = {
                 system_id: String(item.node.system),
                 account_id: system_store.data.get_by_id(item.node.system).owner._id,
                 role: 'create_node',
             };
-            let token = auth_server.make_auth_token(auth_parmas);
+            const token = auth_server.make_auth_token(auth_parmas);
             dbg.log0(`new create_node_token: ${token}`);
 
             await P.timeout(AGENT_RESPONSE_TIMEOUT,
@@ -1789,7 +1789,7 @@ class NodesMonitor extends EventEmitter {
     }
 
     _should_enable_agent(info, agent_config) {
-        let { use_storage = true, exclude_drives = [] } = agent_config;
+        const { use_storage = true, exclude_drives = [] } = agent_config;
         if (info.node_type === 'BLOCK_STORE_FS') {
             if (!use_storage) return false; // if storage disable if configured to exclud storage
             if (info.storage.total < config.MINIMUM_AGENT_TOTAL_STORAGE) return false; // disable if not enough storage
@@ -1800,7 +1800,7 @@ class NodesMonitor extends EventEmitter {
 
     _should_include_drives(mount, os_info, exclude_drives) {
         if (os_info.ostype.startsWith('Windows_NT')) {
-            let win_drives = exclude_drives.map(drv => {
+            const win_drives = exclude_drives.map(drv => {
                 let ret = drv;
                 if (drv.length === 1) {
                     ret = drv + ':';
@@ -1845,7 +1845,7 @@ class NodesMonitor extends EventEmitter {
 
         if (item.node.issues_report) {
             // only print to log if the node had issues in the last hour
-            let last_issue = item.node.issues_report[item.node.issues_report.length - 1];
+            const last_issue = item.node.issues_report[item.node.issues_report.length - 1];
             if (now - last_issue.time < 60 * 60 * 1000) {
                 dbg.log0('_update_status:', item.node.name, 'issues:', item.node.issues_report);
             }
@@ -2488,7 +2488,7 @@ class NodesMonitor extends EventEmitter {
             host_item.untrusted_reasons = _.map(
                 _.filter(host_nodes, item => !item.trusted),
                 untrusted_item => {
-                    let reason = {
+                    const reason = {
                         events: [],
                         drive: untrusted_item.node.drives[0]
                     };
@@ -2525,7 +2525,7 @@ class NodesMonitor extends EventEmitter {
         host_item.avg_disk_write = _.mean(host_nodes.map(item => item.avg_disk_write));
 
 
-        let host_aggragate = this._aggregate_nodes_list(host_nodes);
+        const host_aggragate = this._aggregate_nodes_list(host_nodes);
         host_item.node.storage = host_aggragate.storage;
         host_item.storage_nodes.data_activities = host_aggragate.data_activities;
         host_item.node.drives = _.flatMap(host_nodes, item => item.node.drives);
@@ -2949,7 +2949,7 @@ class NodesMonitor extends EventEmitter {
             error_read_bytes: 0,
             error_write_bytes: 0,
         };
-        let storage = {
+        const storage = {
             total: 0,
             free: 0,
             used: 0,
@@ -3028,7 +3028,7 @@ class NodesMonitor extends EventEmitter {
         const by_mode = {};
         const storage_by_mode = {};
         const by_service = { STORAGE: 0 };
-        let storage = {
+        const storage = {
             total: 0,
             free: 0,
             used: 0,
@@ -3130,7 +3130,7 @@ class NodesMonitor extends EventEmitter {
 
 
     _get_host_info(host_item, adminfo) {
-        let info = {
+        const info = {
             storage_nodes_info: {
                 nodes: host_item.storage_nodes
                     .filter(item => Boolean(item.node_from_store))
@@ -3684,7 +3684,7 @@ function progress_by_time(time, now) {
 }
 
 function is_localhost(address) {
-    let addr_url = url.parse(address);
+    const addr_url = url.parse(address);
     return net_utils.is_localhost(addr_url.hostname);
 }
 

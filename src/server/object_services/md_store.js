@@ -76,7 +76,7 @@ class MDStore {
         const hex_time = Math.floor(time / 1000).toString(16);
         assert(hex_time.length <= 8);
         const padded_hex_time = '0'.repeat(8 - hex_time.length) + hex_time;
-        var suffix;
+        let suffix;
         if (zero_suffix) {
             suffix = '0'.repeat(16);
         } else {

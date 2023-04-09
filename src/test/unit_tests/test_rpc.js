@@ -177,7 +177,7 @@ mocha.describe('RPC', function() {
     };
 
     // test data
-    var PARAMS = {
+    const PARAMS = {
         param1: '1',
         param2: 2,
         param3: true,
@@ -200,20 +200,20 @@ mocha.describe('RPC', function() {
             }
         })),
     };
-    var REPLY = {
+    const REPLY = {
         rest: ['IS', {
             fucking: 'aWeSoMe'
         }]
     };
-    var ERROR_MESSAGE = 'THIS IS AN EXPECTED TEST ERROR';
-    var ERROR_CODE = 'TEST_CODE';
-    var schema = new RpcSchema();
+    const ERROR_MESSAGE = 'THIS IS AN EXPECTED TEST ERROR';
+    const ERROR_CODE = 'TEST_CODE';
+    const schema = new RpcSchema();
     schema.register_api(test_api);
     schema.register_api(common_test_api);
     schema.compile();
 
-    var rpc;
-    var client;
+    let rpc;
+    let client;
 
     function make_server() {
         const server = {
@@ -266,7 +266,7 @@ mocha.describe('RPC', function() {
 
         mocha.it('should detect api with bad method', function() {
             assert.throws(function() {
-                var bad_schema = new RpcSchema();
+                const bad_schema = new RpcSchema();
                 bad_schema.register_api({
                     $id: 'test_bad_api',
                     methods: {
@@ -310,7 +310,7 @@ mocha.describe('RPC', function() {
         });
 
         mocha.it('should work on mock server', function() {
-            var server = {
+            const server = {
                 get: function() { /* Empty Func */ },
                 put: function() { /* Empty Func */ },
                 post: function() { /* Empty Func */ },
@@ -449,7 +449,7 @@ mocha.describe('RPC', function() {
         return rpc.register_tcp_transport(0)
             .then(tcp_server_arg => {
                 tcp_server = tcp_server_arg;
-                var tcp_client = rpc.new_client({
+                const tcp_client = rpc.new_client({
                     address: 'tcp://localhost:' + tcp_server.port
                 });
                 return tcp_client.test.get(_.cloneDeep(PARAMS));
@@ -466,7 +466,7 @@ mocha.describe('RPC', function() {
             .then(() => rpc.register_tcp_transport(0, ssl_utils.generate_ssl_certificate()))
             .then(tls_server_arg => {
                 tls_server = tls_server_arg;
-                var tls_client = rpc.new_client({
+                const tls_client = rpc.new_client({
                     address: 'tls://localhost:' + tls_server.port
                 });
                 return tls_client.test.get(_.cloneDeep(PARAMS));
@@ -508,13 +508,13 @@ mocha.describe('RPC', function() {
             rpc.register_service(test_api, make_server());
             let tcp_server;
             const ADDR = 'n2n://testrpc';
-            let n2n_agent = rpc.register_n2n_agent(params => rpc.accept_n2n_signal(params));
+            const n2n_agent = rpc.register_n2n_agent(params => rpc.accept_n2n_signal(params));
             n2n_agent.set_rpc_address(ADDR);
             n2n_agent.update_n2n_config(n2n_config);
             return rpc.register_tcp_transport(0)
                 .then(tcp_server_arg => {
                     tcp_server = tcp_server_arg;
-                    var n2n_client = rpc.new_client({
+                    const n2n_client = rpc.new_client({
                         address: ADDR
                     });
                     return n2n_client.test.get(_.cloneDeep(PARAMS));

@@ -72,7 +72,7 @@ async function create_account(req) {
         account.next_password_change = new Date();
     }
 
-    let sys_id = req.rpc_params.new_system_parameters ?
+    const sys_id = req.rpc_params.new_system_parameters ?
         system_store.parse_system_store_id(req.rpc_params.new_system_parameters.new_system_id) :
         req.system._id;
 
@@ -154,13 +154,13 @@ async function create_account(req) {
         }
     });
 
-    var created_account = system_store.data.get_by_id(account._id);
-    var auth = {
+    const created_account = system_store.data.get_by_id(account._id);
+    const auth = {
         account_id: created_account._id
     };
     // since we created the first system for this account
     // we expect just one system, but use _.each to get it from the map
-    var current_system = (req.system && req.system._id) || sys_id;
+    const current_system = (req.system && req.system._id) || sys_id;
     _.each(created_account.roles_by_system, (sys_roles, system_id) => {
         //we cannot assume only one system.
         if (current_system.toString() === system_id) {
@@ -225,9 +225,9 @@ function create_external_user_account(req) {
  *
  */
 function read_account(req) {
-    let email = req.rpc_params.email || req.account.email;
+    const email = req.rpc_params.email || req.account.email;
 
-    let account = system_store.get_account_by_email(email);
+    const account = system_store.get_account_by_email(email);
     if (!account) {
         throw new RpcError('NO_SUCH_ACCOUNT', 'No such account email: ' + email);
     }
@@ -305,7 +305,7 @@ async function generate_account_keys(req) {
  *
  */
 function update_account_s3_access(req) {
-    let account = _.cloneDeep(system_store.get_account_by_email(req.rpc_params.email));
+    const account = _.cloneDeep(system_store.get_account_by_email(req.rpc_params.email));
     if (!account) {
         throw new RpcError('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
     }
@@ -377,9 +377,9 @@ function update_account_s3_access(req) {
             const pool = system.pools_by_name[req.rpc_params.default_resource] ||
                 (system.namespace_resources_by_name && system.namespace_resources_by_name[req.rpc_params.default_resource]);
             const original_pool = pool && pool.name;
-            let desc_string = [];
-            let added_buckets = [];
-            let removed_buckets = [];
+            const desc_string = [];
+            const added_buckets = [];
+            const removed_buckets = [];
             desc_string.push(`${account.email.unwrap()} S3 access was updated by ${req.account && req.account.email.unwrap()}`);
             if (req.rpc_params.s3_access) {
                 if (original_pool !== req.rpc_params.default_resource) {
@@ -442,7 +442,7 @@ function update_account(req) {
     if (params.ips && !_.every(params.ips, ip_range => (net.isIP(ip_range.start) && net.isIP(ip_range.end)))) {
         throw new RpcError('FORBIDDEN', 'Non valid IPs');
     }
-    let updates = {
+    const updates = {
         name: params.name,
         email: params.new_email,
         next_password_change: params.must_change_password === true ? new Date() : undefined,
@@ -455,7 +455,7 @@ function update_account(req) {
         updates.role_config = req.rpc_params.role_config;
     }
 
-    let removals = {
+    const removals = {
         next_password_change: params.must_change_password === false ? true : undefined,
         allowed_ips: params.ips === null ? true : undefined
     };
@@ -503,7 +503,7 @@ async function reset_password(req) {
     if (!is_authorized_account) {
         throw new RpcError('UNAUTHORIZED', 'Invalid verification password');
     }
-    let account = system_store.data.accounts_by_email[req.rpc_params.email.unwrap()];
+    const account = system_store.data.accounts_by_email[req.rpc_params.email.unwrap()];
     if (!account) {
         throw new RpcError('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
     }
@@ -572,10 +572,10 @@ async function get_account_usage(req) {
  *
  */
 function delete_account(req) {
-    let account_to_delete = system_store.get_account_by_email(req.rpc_params.email);
+    const account_to_delete = system_store.get_account_by_email(req.rpc_params.email);
     _verify_can_delete_account(req, account_to_delete);
 
-    let roles_to_delete = system_store.data.roles
+    const roles_to_delete = system_store.data.roles
         .filter(
             role => String(role.account._id) === String(account_to_delete._id)
         )
@@ -623,7 +623,7 @@ function delete_account(req) {
  */
 function delete_account_by_property(req) {
     let roles_to_delete = [];
-    let accounts_to_delete = system_store.get_accounts_by_nsfs_account_config(req.rpc_params.nsfs_account_config)
+    const accounts_to_delete = system_store.get_accounts_by_nsfs_account_config(req.rpc_params.nsfs_account_config)
         .map(account_to_delete => {
             _verify_can_delete_account(req, account_to_delete);
             roles_to_delete = roles_to_delete.concat(system_store.data.roles
@@ -682,7 +682,7 @@ function list_accounts(req) {
  *
  */
 function accounts_status(req) {
-    var any_non_support_account = _.find(system_store.data.accounts, function(account) {
+    const any_non_support_account = _.find(system_store.data.accounts, function(account) {
         return !account.is_support;
     });
     return {
@@ -711,7 +711,7 @@ async function add_external_connection(req) {
         throw new RpcError(res.error.code, res.error.message);
     }
 
-    var info = _.pick(req.rpc_params, 'name', 'endpoint', 'endpoint_type', 'aws_sts_arn');
+    let info = _.pick(req.rpc_params, 'name', 'endpoint', 'endpoint_type', 'aws_sts_arn');
     if (!info.endpoint_type) info.endpoint_type = 'AWS';
     info.access_key = req.rpc_params.identity;
     info.secret_key = system_store.master_key_manager.encrypt_sensitive_string_with_master_key_id(
@@ -1094,10 +1094,10 @@ function check_net_storage_connection(params) {
 }
 
 function delete_external_connection(req) {
-    var params = _.pick(req.rpc_params, 'connection_name');
-    let account = req.account;
+    const params = _.pick(req.rpc_params, 'connection_name');
+    const account = req.account;
 
-    let connection_to_delete = cloud_utils.find_cloud_connection(account, params.connection_name);
+    const connection_to_delete = cloud_utils.find_cloud_connection(account, params.connection_name);
 
     if (_.find(system_store.data.pools, pool => (
             pool.cloud_pool_info &&
@@ -1135,7 +1135,7 @@ function delete_external_connection(req) {
 // UTILS //////////////////////////////////////////////////////////
 
 function get_account_info(account, include_connection_cache) {
-    let info = _.pick(account,
+    const info = _.pick(account,
         'name',
         'email',
         'is_external',
@@ -1169,7 +1169,7 @@ function get_account_info(account, include_connection_cache) {
 
     info.nsfs_account_config = account.nsfs_account_config;
     info.systems = _.compact(_.map(account.roles_by_system, function(roles, system_id) {
-        var system = system_store.data.get_by_id(system_id);
+        const system = system_store.data.get_by_id(system_id);
         if (!system) {
             return null;
         }
@@ -1215,7 +1215,7 @@ function get_account_info(account, include_connection_cache) {
 function ensure_support_account() {
     return system_store.refresh()
         .then(function() {
-            var existing_support_account = _.find(system_store.data.accounts, function(account) {
+            const existing_support_account = _.find(system_store.data.accounts, function(account) {
                 return Boolean(account.is_support);
             });
             if (existing_support_account) {
@@ -1225,7 +1225,7 @@ function ensure_support_account() {
             console.log('CREATING SUPPORT ACCOUNT...');
             return bcrypt_password(system_store.get_server_secret())
                 .then(password => {
-                    let support_account = {
+                    const support_account = {
                         _id: system_store.new_system_store_id(),
                         name: new SensitiveString('Support'),
                         email: new SensitiveString('support@noobaa.com'),
@@ -1350,7 +1350,7 @@ async function verify_authorized_account(req) {
 
 function _list_connection_usage(account, credentials) {
 
-    let cloud_pool_usage = _.map(
+    const cloud_pool_usage = _.map(
         _.filter(system_store.data.pools, pool => (
             pool.cloud_pool_info &&
             !pool.cloud_pool_info.pending_delete &&
@@ -1363,7 +1363,7 @@ function _list_connection_usage(account, credentials) {
             entity: pool.name,
             external_entity: pool.cloud_pool_info.target_bucket
         }));
-    let namespace_resource_usage = _.map(
+        const namespace_resource_usage = _.map(
         _.filter(system_store.data.namespace_resources, ns => (
             ns.connection &&
             ns.connection.endpoint_type === credentials.endpoint_type &&

@@ -34,7 +34,7 @@ class BlockStoreFs extends BlockStoreBase {
         const num_dirs = 16 ** num_digits;
         const dir_list = [];
         for (let i = 0; i < num_dirs; ++i) {
-            let dir_str = string_utils.left_pad_zeros(i.toString(16), num_digits) + '.blocks';
+            const dir_str = string_utils.left_pad_zeros(i.toString(16), num_digits) + '.blocks';
             dir_list.push(path.join(this.blocks_path_root, dir_str));
         }
         dir_list.push(path.join(this.blocks_path_root, 'other.blocks'));
@@ -147,8 +147,8 @@ class BlockStoreFs extends BlockStoreBase {
                         md_overwrite_stat.size : 0);
                     overwrite_count = 1;
                 }
-                let size = (block_md.is_preallocated ? 0 : data.length) + block_md_data.length - overwrite_size;
-                let count = (block_md.is_preallocated ? 0 : 1) - overwrite_count;
+                const size = (block_md.is_preallocated ? 0 : data.length) + block_md_data.length - overwrite_size;
+                const count = (block_md.is_preallocated ? 0 : 1) - overwrite_count;
                 if (size || count) this._update_usage({ size, count });
             });
     }
@@ -159,7 +159,7 @@ class BlockStoreFs extends BlockStoreBase {
 
 
     _delete_blocks(block_ids) {
-        let failed_to_delete_block_ids = [];
+        const failed_to_delete_block_ids = [];
         return P.map_with_concurrency(10, block_ids, block_id =>
                 this._delete_block(block_id)
                 .catch(err => {
@@ -200,7 +200,7 @@ class BlockStoreFs extends BlockStoreBase {
             ])
             .then(() => {
                 if (this._usage && del_stat) {
-                    let usage = {
+                    const usage = {
                         size: -(del_stat.size + ((md_del_stat && md_del_stat.size) ? md_del_stat.size : 0)),
                         count: -1
                     };
@@ -219,7 +219,7 @@ class BlockStoreFs extends BlockStoreBase {
                 dbg.log0('counted disk usage', usage);
                 this._usage = usage; // object with properties size and count
                 // update usage file
-                let usage_data = JSON.stringify(this._usage);
+                const usage_data = JSON.stringify(this._usage);
                 return fs.promises.writeFile(this.usage_path, usage_data)
                     .then(() => usage);
             });
@@ -251,17 +251,17 @@ class BlockStoreFs extends BlockStoreBase {
     }
 
     _get_block_data_path(block_id) {
-        let block_dir = get_block_internal_dir(block_id);
+        const block_dir = get_block_internal_dir(block_id);
         return path.join(this.blocks_path_root, block_dir, block_id + '.data');
     }
 
     _get_block_meta_path(block_id) {
-        let block_dir = get_block_internal_dir(block_id);
+        const block_dir = get_block_internal_dir(block_id);
         return path.join(this.blocks_path_root, block_dir, block_id + '.meta');
     }
 
     _get_block_other_path(file) {
-        let block_dir = get_block_internal_dir('other');
+        const block_dir = get_block_internal_dir('other');
         return path.join(this.blocks_path_root, block_dir, file);
     }
 

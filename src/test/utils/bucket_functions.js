@@ -42,7 +42,7 @@ class BucketFunctions {
             throw new Error('Both erasure coding and replicas cannot be empty');
         }
 
-        let chunk_coder_config = {};
+        const chunk_coder_config = {};
         if (replicas) {
             chunk_coder_config.replicas = replicas;
         } else {

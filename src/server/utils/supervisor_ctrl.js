@@ -1,11 +1,11 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-var _ = require('lodash');
-var fs = require('fs');
-var P = require('../../util/promise');
-var os_utils = require('../../util/os_utils');
-var config = require('../../../config.js');
+const _ = require('lodash');
+const fs = require('fs');
+const P = require('../../util/promise');
+const os_utils = require('../../util/os_utils');
+const config = require('../../../config.js');
 
 class SupervisorCtrl {
     constructor() {
@@ -103,7 +103,7 @@ class SupervisorCtrl {
                 if (!this._supervised) {
                     return;
                 }
-                let ind = _.findIndex(this._programs, function(prog) {
+                const ind = _.findIndex(this._programs, function(prog) {
                     return prog.name === (prog_name);
                 });
                 //don't fail on removing non existent program
@@ -138,7 +138,7 @@ class SupervisorCtrl {
     }
 
     get_mongo_services() {
-        let mongo_progs = [];
+        const mongo_progs = [];
         return P.resolve()
             .then(() => this.init())
             .then(() => {
@@ -164,7 +164,7 @@ class SupervisorCtrl {
     }
 
     add_agent(agent_name, args_str) {
-        let prog = {};
+        const prog = {};
         prog.directory = config.SUPERVISOR_DEFAULTS.DIRECTORY;
         prog.stopsignal = config.SUPERVISOR_DEFAULTS.STOPSIGNAL;
         prog.command = '/usr/local/bin/node src/agent/agent_cli.js ' + args_str;
@@ -217,17 +217,17 @@ class SupervisorCtrl {
         }
         this._programs = [];
         //run target by target and create the services structure
-        var programs = _.split(data, config.SUPERVISOR_PROGRAM_SEPERATOR);
+        const programs = _.split(data, config.SUPERVISOR_PROGRAM_SEPERATOR);
         _.each(programs, p => {
-            let program_obj = {};
-            let lines = _.split(p, '\n');
+            const program_obj = {};
+            const lines = _.split(p, '\n');
             _.each(lines, function(l) {
                 // For non empty lines
                 if (l.length !== 0) {
                     if (l[0] === '[') {
                         program_obj.name = l.slice(l.indexOf(':') + 1, l.indexOf(']'));
                     } else {
-                        let parts = _.split(l, '=');
+                        const parts = _.split(l, '=');
                         program_obj[parts[0]] = parts[1];
                     }
                 }

@@ -1,20 +1,20 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-var AWS = require('aws-sdk');
-var api = require('../../api');
-var rpc = api.new_rpc();
-var argv = require('minimist')(process.argv);
-var P = require('../../util/promise');
-var basic_server_ops = require('../utils/basic_server_ops');
+const AWS = require('aws-sdk');
+const api = require('../../api');
+const rpc = api.new_rpc();
+const argv = require('minimist')(process.argv);
+const P = require('../../util/promise');
+const basic_server_ops = require('../utils/basic_server_ops');
 // var _ = require('lodash');
 // var assert = require('assert');
 // var promise_utils = require('../../util/promise_utils');
-var dotenv = require('../../util/dotenv');
-var http = require('http');
+const dotenv = require('../../util/dotenv');
+const http = require('http');
 dotenv.load();
 
-let TEST_PARAMS = {
+const TEST_PARAMS = {
     ip: argv.ip || 'localhost',
     bucket: argv.bucket || 'first.bucket',
     port: argv.target_port || process.env.PORT,
@@ -22,7 +22,7 @@ let TEST_PARAMS = {
     secret_key: argv.secret_key || 'abc',
 };
 
-var client = rpc.new_client({
+const client = rpc.new_client({
     address: 'ws://localhost:' + process.env.PORT
 });
 
@@ -31,7 +31,7 @@ module.exports = {
 };
 
 function authenticate() {
-    let auth_params = {
+    const auth_params = {
         email: 'demo@noobaa.com',
         password: 'DeMo1',
         system: 'demo'
@@ -43,7 +43,7 @@ function authenticate() {
 
 function test_s3_connection() {
     return P.fcall(function() {
-            var s3 = new AWS.S3({
+            const s3 = new AWS.S3({
                 endpoint: TEST_PARAMS.ip,
                 accessKeyId: TEST_PARAMS.access_key,
                 secretAccessKey: TEST_PARAMS.secret_key,
@@ -88,7 +88,7 @@ function list_buckets() {
 function getSignedUrl(bucket, obj, expiry) {
     console.log('GENERATE SIGNED_URL OBJECT: ', obj, ' FROM BUCKET: ', bucket);
     return P.fcall(function() {
-            var s3 = new AWS.S3({
+            const s3 = new AWS.S3({
                 endpoint: TEST_PARAMS.ip,
                 accessKeyId: TEST_PARAMS.access_key,
                 secretAccessKey: TEST_PARAMS.secret_key,
@@ -128,7 +128,7 @@ function httpGetAsPromise(url) {
 function create_bucket(name) {
     console.log('CREATE BUCKET: ', name);
     return P.fcall(function() {
-        var s3 = new AWS.S3({
+        const s3 = new AWS.S3({
             endpoint: TEST_PARAMS.ip,
             accessKeyId: TEST_PARAMS.access_key,
             secretAccessKey: TEST_PARAMS.secret_key,
@@ -153,7 +153,7 @@ function create_bucket(name) {
 function create_folder(bucket, folder) {
     console.log('CREATE FOLDER: ', folder, ' IN BUCKET: ', bucket);
     return P.fcall(function() {
-        var s3 = new AWS.S3({
+        const s3 = new AWS.S3({
             endpoint: TEST_PARAMS.ip,
             accessKeyId: TEST_PARAMS.access_key,
             secretAccessKey: TEST_PARAMS.secret_key,
@@ -179,7 +179,7 @@ function create_folder(bucket, folder) {
 function head_object(bucket, key) {
     console.log('HEAD OBJECT: ', key, ' FROM BUCKET: ', bucket);
     return P.fcall(function() {
-        var s3 = new AWS.S3({
+        const s3 = new AWS.S3({
             endpoint: TEST_PARAMS.ip,
             accessKeyId: TEST_PARAMS.access_key,
             secretAccessKey: TEST_PARAMS.secret_key,
@@ -205,7 +205,7 @@ function head_object(bucket, key) {
 function get_object(bucket, key) {
     console.log('GET OBJECT: ', key, ' FROM BUCKET: ', bucket);
     return P.fcall(function() {
-        var s3 = new AWS.S3({
+        const s3 = new AWS.S3({
             endpoint: TEST_PARAMS.ip,
             accessKeyId: TEST_PARAMS.access_key,
             secretAccessKey: TEST_PARAMS.secret_key,
@@ -231,7 +231,7 @@ function get_object(bucket, key) {
 function delete_object(bucket, key) {
     console.log('DELETE OBJECT: ', key, ' FROM BUCKET: ', bucket);
     return P.fcall(function() {
-        var s3 = new AWS.S3({
+        const s3 = new AWS.S3({
             endpoint: TEST_PARAMS.ip,
             accessKeyId: TEST_PARAMS.access_key,
             secretAccessKey: TEST_PARAMS.secret_key,
@@ -258,7 +258,7 @@ function delete_object(bucket, key) {
 function delete_bucket(name) {
     console.log('DELETE BUCKET: ', name);
     return P.fcall(function() {
-        var s3 = new AWS.S3({
+        const s3 = new AWS.S3({
             endpoint: TEST_PARAMS.ip,
             accessKeyId: TEST_PARAMS.access_key,
             secretAccessKey: TEST_PARAMS.secret_key,
@@ -283,7 +283,7 @@ function delete_bucket(name) {
 function delete_folder(bucket, folder) {
     console.log('DELETE FOLDER: ', folder, ' FROM BUCKET: ', bucket);
     return P.fcall(function() {
-        var s3 = new AWS.S3({
+        const s3 = new AWS.S3({
             endpoint: TEST_PARAMS.ip,
             accessKeyId: TEST_PARAMS.access_key,
             secretAccessKey: TEST_PARAMS.secret_key,
@@ -317,8 +317,8 @@ function main() {
 }
 
 function run_test() {
-    let file_sizes = [1, 2, 3];
-    let file_names = ['c3_нуба_1', 'c3_нуба_2', 'c3_нуба_3'];
+    const file_sizes = [1, 2, 3];
+    const file_names = ['c3_нуба_1', 'c3_нуба_2', 'c3_нуба_3'];
     let fkey;
     let signed_url;
     return authenticate().then(() => test_s3_connection())

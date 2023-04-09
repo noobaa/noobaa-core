@@ -151,10 +151,9 @@ class BlockStoreGoogle extends BlockStoreBase {
     }
 
     async _write_block(block_md, data, options) {
-        let encoded_md;
         const key = this._block_key(block_md.id);
         const target_file = this.bucket.file(key);
-        encoded_md = this._encode_block_md(block_md);
+        const encoded_md = this._encode_block_md(block_md);
         const write_stream = target_file.createWriteStream({
             metadata: {
                 metadata: {
@@ -225,11 +224,11 @@ class BlockStoreGoogle extends BlockStoreBase {
 
     async _delete_blocks(block_ids) {
         // Todo: Assuming that all requested blocks were deleted, which a bit naive
-        let deleted_storage = {
+        const deleted_storage = {
             size: 0,
             count: 0
         };
-        let failed_to_delete_block_ids = [];
+        const failed_to_delete_block_ids = [];
         // limit concurrency to 10
         await P.map_with_concurrency(10, block_ids, async block_id => {
             const block_key = this._block_key(block_id);

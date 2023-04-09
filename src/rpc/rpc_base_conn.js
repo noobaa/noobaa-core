@@ -85,7 +85,7 @@ class RpcBaseConnection extends events.EventEmitter {
 
         this.on('message', encoded_msg => {
             try {
-                var decoded_message = this._decode_message(encoded_msg);
+                const decoded_message = this._decode_message(encoded_msg);
                 this.emit('decoded_message', decoded_message);
             } catch (err) {
                 dbg.error(`RPC decode message failed, got: ${err.message}`);
@@ -192,7 +192,7 @@ class RpcBaseConnection extends events.EventEmitter {
     }
 
     _alloc_reqid() {
-        let reqid = this._rpc_req_seq + '@' + this.connid;
+        const reqid = this._rpc_req_seq + '@' + this.connid;
         this._rpc_req_seq += 1;
         return reqid;
     }

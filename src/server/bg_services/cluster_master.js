@@ -10,7 +10,7 @@ const bg_workers = require('../bg_workers');
 // const auth_server = require('../common_services/auth_server');
 const cutil = require('../utils/clustering_utils');
 
-var is_cluster_master = false;
+let is_cluster_master = false;
 
 exports.background_worker = background_worker;
 

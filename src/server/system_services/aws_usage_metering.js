@@ -40,7 +40,7 @@ function background_worker() {
         .divide(size_utils.TERABYTE)
         .toJSON();
 
-    var params = {
+    const params = {
         DryRun: false,
         ProductCode: process.env.AWS_PRODUCT_CODE,
         Timestamp: new Date(),

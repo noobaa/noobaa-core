@@ -40,8 +40,8 @@ if (cloud_list.length === 0) {
     process.exit(0);
 }
 
-let errors = [];
-let failures_in_test = false;
+const errors = [];
+const failures_in_test = false;
 
 //define colors
 // const YELLOW = "\x1b[33;1m";
@@ -82,7 +82,7 @@ if (help) {
 const rpc = api.new_rpc_from_base_address(`wss://${mgmt_ip}:${mgmt_port_https}`, 'EXTERNAL');
 const client = rpc.new_client({});
 
-let report = new Report();
+const report = new Report();
 
 const cases = [
     'read via namespace AWS',
@@ -110,7 +110,7 @@ const cases = [
 ];
 report.init_reporter({ suite: test_name, conf: { aws: true, azure: true }, mongo_report: true, cases: cases });
 
-let cf = new CloudFunction(client);
+const cf = new CloudFunction(client);
 const bucket_functions = new BucketFunctions(client);
 
 const AWSDefaultConnection = cf.getAWSConnection();
@@ -257,7 +257,7 @@ async function isFilesAvailableInNooBaaBucket(gateway, files, type) {
 }
 
 async function uploadFileToNoobaaS3(bucket, file_name) {
-    let { data_multiplier } = unit_mapping.KB;
+    const { data_multiplier } = unit_mapping.KB;
     try {
         await s3ops.put_file_with_md5(bucket, file_name, 15, data_multiplier);
     } catch (err) {
@@ -277,7 +277,7 @@ async function _delete_namesapace_bucket(bucket) {
 }
 
 async function set_rpc_and_create_auth_token() {
-    let auth_params = {
+    const auth_params = {
         email: 'demo@noobaa.com',
         password: 'DeMo1',
         system: 'demo'

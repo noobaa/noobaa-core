@@ -33,7 +33,7 @@ class BucketChunksBuilder {
 
     // run iteration for given buckets array. buckets can change between iterations
     async run_batch(buckets) {
-        let res = { successful: true, chunk_ids: [] };
+        const res = { successful: true, chunk_ids: [] };
         if (!buckets || !buckets.length) {
             return res;
         }

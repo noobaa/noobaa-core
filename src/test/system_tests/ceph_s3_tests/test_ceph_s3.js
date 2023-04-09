@@ -17,7 +17,7 @@ const argv = require('minimist')(process.argv.slice(2));
 delete argv._;
 const { S3_CEPH_TEST_STEMS, S3_CEPH_TEST_SIGV4, CEPH_TEST, DEFAULT_NUMBER_OF_WORKERS } = require('./test_ceph_s3_constants.js');
 
-let testing_status = {
+const testing_status = {
     pass: [],
     fail: [],
     skip: [],

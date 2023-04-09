@@ -104,8 +104,8 @@ function main() {
         verbose: argv.verbose,
     });
 
-    var total_size = 0;
-    var num_parts = 0;
+    let total_size = 0;
+    let num_parts = 0;
     const reporter = new stream.Transform({
         objectMode: true,
         allowHalfOpen: false,
@@ -149,7 +149,7 @@ function main() {
         })
         .catch(err => {
             if (!err.chunks) throw err;
-            var message = '';
+            let message = '';
             for (const chunk of err.chunks) {
                 message += 'CHUNK ERRORS: ' + chunk.errors.join(',') + '\n';
             }

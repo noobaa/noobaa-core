@@ -413,7 +413,7 @@ class RPC extends EventEmitter {
      * @param {RpcRequest} req 
      */
     _get_remote_address(req, options) {
-        var address = options.address;
+        let address = options.address;
         if (!address) {
             const domain = options.domain || this.api_routes[req.api.$id] || 'default';
             address = this.router[domain];
@@ -421,7 +421,7 @@ class RPC extends EventEmitter {
         }
         assert(address, 'No RPC Address/Domain');
         address = address.toLowerCase();
-        var addr_url = this._address_to_url_cache.get(address);
+        let addr_url = this._address_to_url_cache.get(address);
         if (!addr_url) {
             addr_url = url_utils.quick_parse(address, true);
             this._address_to_url_cache.set(address, addr_url);
@@ -434,7 +434,7 @@ class RPC extends EventEmitter {
      * @returns {RpcBaseConnection}
      */
     _assign_connection(req, options) {
-        var conn = options.connection;
+        let conn = options.connection;
         if (!conn) {
             const addr_url = this._get_remote_address(req, options);
             conn = this._get_connection(addr_url, req.srv);
@@ -465,7 +465,7 @@ class RPC extends EventEmitter {
      * @returns {RpcBaseConnection}
      */
     _get_connection(addr_url, srv) {
-        var conn = this._connection_by_address.get(addr_url.href);
+        let conn = this._connection_by_address.get(addr_url.href);
 
         if (conn) {
             if (conn.is_closed()) {
@@ -507,7 +507,7 @@ class RPC extends EventEmitter {
      */
     _new_connection(addr_url) {
         dbg.log1('RPC _new_connection:', addr_url);
-        var conn;
+        let conn;
         switch (addr_url.protocol) {
             // order protocols by popularity
             case 'n2n:': {

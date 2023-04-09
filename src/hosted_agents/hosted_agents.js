@@ -138,7 +138,7 @@ class HostedAgents {
             const existing_token = info.agent_info ? info.agent_info.node_token : null;
             const pool_agent_path = pool.resource_type === 'INTERNAL' ?
                 'mongo_pool_info' : 'cloud_pool_info';
-            let update = {
+            const update = {
                 pools: [{
                     _id: pool._id,
                     [`${pool_agent_path}.agent_info`]: {
@@ -246,8 +246,8 @@ class HostedAgents {
             dbg.warn(`${node_name} is not started. ignoring stop`);
             return;
         }
-        let agent = this._started_agents[node_name].agent;
-        let agent_pool = this._started_agents[node_name].pool;
+        const agent = this._started_agents[node_name].agent;
+        const agent_pool = this._started_agents[node_name].pool;
         if (agent) {
             agent.stop();
             try {

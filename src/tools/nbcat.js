@@ -1,21 +1,21 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-var moment = require('moment');
-var size_utils = require('../util/size_utils');
-var api = require('../api');
-var ObjectIO = require('../sdk/object_io');
-var dbg = require('../util/debug_module')(__filename);
+const moment = require('moment');
+const size_utils = require('../util/size_utils');
+const api = require('../api');
+const ObjectIO = require('../sdk/object_io');
+const dbg = require('../util/debug_module')(__filename);
 dbg.set_module_level(5);
 
-var bkt = process.argv[2];
-var key = process.argv[3];
-var start = Number(process.argv[4]) || 0;
-var end = Number(process.argv[5]) || Infinity;
-var output = process.stdout;
-var rpc = api.new_rpc();
-var client = rpc.new_client();
-var object_io = new ObjectIO();
+const bkt = process.argv[2];
+const key = process.argv[3];
+const start = Number(process.argv[4]) || 0;
+const end = Number(process.argv[5]) || Infinity;
+const output = process.stdout;
+const rpc = api.new_rpc();
+const client = rpc.new_client();
+const object_io = new ObjectIO();
 
 if (!bkt) {
     init_api().then(function() {

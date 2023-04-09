@@ -11,8 +11,8 @@ const dbg = require('../../util/debug_module')(__filename);
 const { BucketFunctions } = require('../utils/bucket_functions');
 dbg.set_process_name('rebuild_replicas');
 
-let files = [];
-let errors = [];
+const files = [];
+const errors = [];
 const POOL_NAME = "first-pool";
 
 //defining the required parameters
@@ -62,7 +62,7 @@ if (help) {
 const rpc = api.new_rpc_from_base_address(`wss://${mgmt_ip}:${mgmt_port_https}`, 'EXTERNAL');
 const client = rpc.new_client({});
 
-let report = new Report();
+const report = new Report();
 //Define test cases
 const cases = [
     'correct num replicas after node failure',
@@ -115,17 +115,17 @@ function saveErrorAndResume(message) {
 }
 
 async function uploadAndVerifyFiles(num_agents) {
-    let { data_multiplier } = unit_mapping.MB;
+    const { data_multiplier } = unit_mapping.MB;
     // 1/2 GB per agent. 1 GB seems like too much memory for the lg to handle
-    let dataset_size = num_agents * 128;
-    let parts = 20;
-    let partSize = dataset_size / parts;
-    let file_size = Math.floor(partSize);
+    const dataset_size = num_agents * 128;
+    const parts = 20;
+    const partSize = dataset_size / parts;
+    const file_size = Math.floor(partSize);
     let part = 0;
     console.log('Writing and deleting data till size amount to grow ' + num_agents + ' GB');
     try {
         while (part < parts) {
-            let file_name = 'file_part_' + part + file_size + (Math.floor(Date.now() / 1000));
+            const file_name = 'file_part_' + part + file_size + (Math.floor(Date.now() / 1000));
             files.push(file_name);
             console.log('files list is ' + files);
             part += 1;
@@ -141,7 +141,7 @@ async function uploadAndVerifyFiles(num_agents) {
 
 async function readFiles() {
     try {
-        for (let file of files) {
+        for (const file of files) {
             await s3ops.get_file_check_md5(bucket, file);
         }
     } catch (err) {
@@ -252,7 +252,7 @@ async function stopAgentAndCheckRebuildReplicas() {
 }
 
 async function set_rpc_and_create_auth_token() {
-    let auth_params = {
+    const auth_params = {
         email: 'demo@noobaa.com',
         password: 'DeMo1',
         system: 'demo'

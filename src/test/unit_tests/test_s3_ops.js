@@ -18,7 +18,7 @@ const P = require('../../util/promise');
 // If any of these variables are not defined,
 // use the noobaa endpoint to create buckets
 // for namespace cache bucket testing.
-let USE_REMOTE_ENDPOINT = process.env.USE_REMOTE_ENDPOINT === 'true';
+const USE_REMOTE_ENDPOINT = process.env.USE_REMOTE_ENDPOINT === 'true';
 const { rpc_client, EMAIL } = coretest;
 const BKT1 = 'test-s3-ops-bucket-ops';
 const BKT2 = 'test-s3-ops-object-ops';
@@ -213,7 +213,7 @@ mocha.describe('s3_ops', function() {
                 }
             };
             let httpStatus;
-            var notSupported = false;
+            let notSupported = false;
             try {
                 await s3.putObjectTagging(params).on('complete', function(response) {
                     httpStatus = response.httpResponse.statusCode;
@@ -271,7 +271,7 @@ mocha.describe('s3_ops', function() {
                     }
                 };
                 let httpStatus;
-                var notSupported = false;
+                let notSupported = false;
 
                 try {
                     await s3.putObjectTagging(params).on('complete', function(response) {
@@ -461,7 +461,7 @@ mocha.describe('s3_ops', function() {
             const res6 = await s3.listMultipartUploads({
                 Bucket: bucket_name
             }).promise();
-            var UploadId = _.result(_.find(res6.Uploads, function(obj) {
+            const UploadId = _.result(_.find(res6.Uploads, function(obj) {
                 return obj.UploadId === res1.UploadId;
             }), 'UploadId');
             if (!is_namespace_blob_bucket(bucket_type, remote_endpoint_options && remote_endpoint_options.endpoint_type)) {
@@ -515,7 +515,7 @@ mocha.describe('s3_ops', function() {
             const res6 = await s3.listMultipartUploads({
                 Bucket: bucket_name
             }).promise();
-            var UploadId = _.result(_.find(res6.Uploads, function(obj) {
+            const UploadId = _.result(_.find(res6.Uploads, function(obj) {
                 return obj.UploadId === res1.UploadId;
             }), 'UploadId');
             if (!is_namespace_blob_bucket(bucket_type, remote_endpoint_options && remote_endpoint_options.endpoint_type)) {

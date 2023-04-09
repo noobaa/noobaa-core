@@ -170,7 +170,7 @@ function aws_parse_log_object(logs, log_object, ignore_fn) {
 
     for (const line of log_array) {
         if (line !== '') {
-            let log = parse_aws_log_entry(line);
+            const log = parse_aws_log_entry(line);
             if (log.operation) {
                 // ignore the log entry if it should be ignored
                 if (ignore_fn(log)) continue;

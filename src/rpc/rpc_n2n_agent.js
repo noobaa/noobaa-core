@@ -59,10 +59,10 @@ class RpcN2NAgent extends EventEmitter {
         // send_signal is function(info) that sends over a signal channel
         // and delivers the info to info.target,
         // and returns back the info that was returned by the peer.
-        let send_signal = options.send_signal;
+        const send_signal = options.send_signal;
 
         // lazy loading of nb_native to use Nudp
-        let Nudp = nb_native().Nudp;
+        const Nudp = nb_native().Nudp;
 
         // initialize the default config structure
         this.n2n_config = {
@@ -107,7 +107,7 @@ class RpcN2NAgent extends EventEmitter {
             // callback to create and bind nudp socket
             // TODO implement nudp dtls
             udp_socket: (udp_port, dtls) => {
-                let nudp = new Nudp();
+                const nudp = new Nudp();
                 return P.ninvoke(nudp, 'bind', 0, '0.0.0.0').then(port => {
                     nudp.port = port;
                     return nudp;
@@ -166,7 +166,7 @@ class RpcN2NAgent extends EventEmitter {
 
         // emit 'reset_n2n' to notify all existing connections to close
         this.emit('reset_n2n');
-        let remaining_listeners = this.listenerCount('reset_n2n');
+        const remaining_listeners = this.listenerCount('reset_n2n');
         if (remaining_listeners) {
             dbg.warn('update_n2n_config: remaining listeners on reset_n2n event',
                 remaining_listeners, '(probably a connection that forgot to call close)');
@@ -174,7 +174,7 @@ class RpcN2NAgent extends EventEmitter {
     }
 
     disconnect() {
-        let conf = this.n2n_config.tcp_permanent_passive;
+        const conf = this.n2n_config.tcp_permanent_passive;
         if (conf.server) {
             dbg.log0('close tcp_permanent_passive old server');
             conf.server.close();
@@ -198,14 +198,14 @@ class RpcN2NAgent extends EventEmitter {
 
         // target address is me, source is you.
         // the special case if rpc_address='n2n://*' allows testing code to accept for any target
-        let source = url_utils.quick_parse(params.source);
-        let target = url_utils.quick_parse(params.target);
+        const source = url_utils.quick_parse(params.source);
+        const target = url_utils.quick_parse(params.target);
         if (!this.rpc_address || !target ||
             (this.rpc_address !== N2N_STAR && this.rpc_address !== target.href)) {
             throw new Error('N2N MISMATCHING PEER ID ' + params.target +
                 ' my rpc_address ' + this.rpc_address);
         }
-        let conn = new RpcN2NConnection(source, this);
+        const conn = new RpcN2NConnection(source, this);
         conn.once('connect', () => this.emit('connection', conn));
         return conn.accept(params.info);
     }

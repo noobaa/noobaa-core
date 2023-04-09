@@ -4,12 +4,12 @@
 const crypto = require('crypto');
 const argv = require('minimist')(process.argv);
 const size = argv.size_mb;
-var cipher = crypto.createCipheriv('aes-128-gcm', crypto.randomBytes(16), crypto.randomBytes(12));
-var zero_buf = Buffer.alloc(1024 * 1024);
+const cipher = crypto.createCipheriv('aes-128-gcm', crypto.randomBytes(16), crypto.randomBytes(12));
+const zero_buf = Buffer.alloc(1024 * 1024);
 
-let arr = [];
+const arr = [];
 for (let index = 0; index < size; index++) {
-    var buffer = cipher.update(zero_buf);
+    const buffer = cipher.update(zero_buf);
     arr.push(buffer);
 }
 

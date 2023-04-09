@@ -169,6 +169,11 @@ module.exports = {
         // instead of expression (foo = function() {})
         'func-style': ['error', 'declaration', { allowArrowFunctions: true }],
 
+        "prefer-const": ["error", {
+            "destructuring": "all",
+            "ignoreReadBeforeAssign": false
+        }],
+
         //////////////////////////////////////////////////////////////////////
         //                                                                  //
         // WARN                                                             //
@@ -295,9 +300,6 @@ module.exports = {
         // we do allow _name or name_ as identifiers
         'no-underscore-dangle': 'off',
 
-        // prefer to use let/const instead of var
-        'no-var': 'off',
-
         // turn off todo/fixme comments - will grep it to a different report
         'no-warning-comments': 'off',
 
@@ -318,9 +320,6 @@ module.exports = {
 
         // prefer using arrow functions for callbacks, but too much to fix
         'prefer-named-capture-group': 'off',
-
-        // we prefer using const, but too much to fix
-        'prefer-const': 'off',
 
         // we prefer using destructuring, but too much to fix
         'prefer-destructuring': 'off',
@@ -356,5 +355,8 @@ module.exports = {
 
         //Allow spacing between template tags and their literals
         'template-tag-spacing': 'off',
+
+        // we prefer not to adopt the logical assignment operators from ES2020
+        'logical-assignment-operators': 'off'
     }
 };

@@ -32,8 +32,8 @@ async function ping(target, options) {
 
     options = options || DEFAULT_PING_OPTIONS;
     _.defaults(options, DEFAULT_PING_OPTIONS);
-    let session = net_ping.createSession(options);
-    let candidate_ip = url.parse(target).hostname || target;
+    const session = net_ping.createSession(options);
+    const candidate_ip = url.parse(target).hostname || target;
 
     if (net.isIP(candidate_ip)) {
         await _ping_ip(session, candidate_ip);

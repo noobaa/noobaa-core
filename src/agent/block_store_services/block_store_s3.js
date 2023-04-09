@@ -362,11 +362,11 @@ class BlockStoreS3 extends BlockStoreBase {
     }
 
     async _delete_blocks(block_ids) {
-        let deleted_storage = {
+        const deleted_storage = {
             size: 0,
             count: 0
         };
-        let failed_block_ids = [];
+        const failed_block_ids = [];
         // Todo: Assuming that all requested blocks were deleted, which a bit naive
         try {
             if (this.cloud_info.aws_sts_arn) {

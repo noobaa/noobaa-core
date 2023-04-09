@@ -32,7 +32,7 @@ class ConsolidateReports {
     }
 
     async _fetch_data() {
-        let start_date = new Date();
+        const start_date = new Date();
         start_date.setDate(start_date.getDate() - this._date_back_offset_days);
         try {
             const raw_data = await this._db.collection('reports').aggregate([

@@ -62,7 +62,7 @@ const additional_properties = { a: 1, b: '2', c: 3.14 };
 
 
 async function get_postgres_client(params) {
-    let pgc = new PostgresClient(params);
+    const pgc = new PostgresClient(params);
     await pgc.connect();
     console.log('deleting old database', params.database);
     await pgc.dropDatabase();
@@ -181,7 +181,7 @@ mocha.describe('postgres_client', function() {
 
 
     mocha.it('should insert a single doc on multiple parallel upserts', async function() {
-        let upsert_table = postgres_client.define_collection({
+        const upsert_table = postgres_client.define_collection({
             name: `upsert_${test_table_name}`,
             schema: test_schema,
             // db_indexes: test_indexes,
@@ -195,7 +195,7 @@ mocha.describe('postgres_client', function() {
         const num_upserts = 40;
         await P.map(_.times(num_upserts), async i => upsert_table.findOneAndUpdate(query, update, options));
         // check that there is only one doc and the int_field is as num_upserts
-        let find_res = await upsert_table.find({});
+        const find_res = await upsert_table.find({});
         assert.strictEqual(find_res.length, 1, 'number of inserted documents must be 1');
     });
 

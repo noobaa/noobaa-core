@@ -1,12 +1,12 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-var fs = require('fs');
-var net = require('net');
-var cluster = require('cluster');
-var child_process = require('child_process');
+const fs = require('fs');
+const net = require('net');
+const cluster = require('cluster');
+const child_process = require('child_process');
 
-var fname = '/tmp/spawn_lsof';
+const fname = '/tmp/spawn_lsof';
 
 if (cluster.isMaster) {
     fs.unlinkSync(fname);
@@ -14,7 +14,7 @@ if (cluster.isMaster) {
     show_spawn_fds('MASTER BEFORE FORK');
     cluster.fork();
 
-    var server = net.createServer();
+    const server = net.createServer();
     server.listen(function() {
         console.log('LISTENING ON PORT', server.address().port);
     });
@@ -28,8 +28,8 @@ if (cluster.isMaster) {
 
 function show_spawn_fds(who) {
     console.log(who);
-    var stdout = fs.openSync(fname, 'a');
-    var ret = child_process.spawn('bash', ['-c', 'echo "' + who + '"; lsof -p $$ | grep TCP'], {
+    const stdout = fs.openSync(fname, 'a');
+    const ret = child_process.spawn('bash', ['-c', 'echo "' + who + '"; lsof -p $$ | grep TCP'], {
         detached: true,
         stdio: ['ignore', stdout, stdout],
         cwd: '/tmp'

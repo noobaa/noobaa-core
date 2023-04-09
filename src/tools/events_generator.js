@@ -1,7 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-var dotenv = require('../util/dotenv');
+const dotenv = require('../util/dotenv');
 dotenv.load();
 
 const _ = require('lodash');
@@ -91,7 +91,7 @@ let has_objects = false;
 
 const events = new EventsGenerator();
 
-let entities = {
+const entities = {
     bucket: {
         _id: ''
     },
@@ -199,7 +199,7 @@ EventsGenerator.prototype.generate_alerts = function(num, pri) {
 };
 
 EventsGenerator.prototype.generate_audit = function(num, cat) {
-    let events_pool = [];
+    const events_pool = [];
     if (cat === 'ALL') {
         _.map(_.keys(EXISTING_AUDIT_LOGS), c => {
             //Skip nodes / objects if no entities exist
@@ -211,7 +211,7 @@ EventsGenerator.prototype.generate_audit = function(num, cat) {
                 return;
             }
             //Update entity ID/name for later audit generation
-            let ent = events._get_entity(c);
+            const ent = events._get_entity(c);
             events_pool.concat(_.map(EXISTING_AUDIT_LOGS[c], function(ev) {
                 events_pool.push(_.defaults({
                     level: 'info',
@@ -227,7 +227,7 @@ EventsGenerator.prototype.generate_audit = function(num, cat) {
             events.print_usage();
         }
         _.map(EXISTING_AUDIT_LOGS[cat], function(ev) {
-            let ent = events._get_entity(cat);
+            const ent = events._get_entity(cat);
             events_pool.push(_.defaults({
                 level: 'info',
                 event: cat + '.' + ev,

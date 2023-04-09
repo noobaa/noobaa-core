@@ -146,7 +146,7 @@ function format_csv(info) {
     ].map(x => `"${x || ''}"`).join(',') + '\n');
     info.licenses.forEach(l => {
         if (l.name || l.url) {
-            var k = `${l.name}\0${l.version}\0${l.url}`;
+            const k = `${l.name}\0${l.version}\0${l.url}`;
             if (dups.has(k)) return;
             dups.set(k, l);
         }

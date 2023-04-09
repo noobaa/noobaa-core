@@ -1,14 +1,14 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-// let _ = require('lodash');
-let P = require('../util/promise');
-// let url = require('url');
-let RpcBaseConnection = require('./rpc_base_conn');
-let nb_native = require('../util/nb_native');
-let stun = require('./stun');
-// let promise_utils = require('../util/promise_utils');
-// let dbg = require('../util/debug_module')(__filename);
+// const _ = require('lodash');
+const P = require('../util/promise');
+// const url = require('url');
+const RpcBaseConnection = require('./rpc_base_conn');
+const nb_native = require('../util/nb_native');
+const stun = require('./stun');
+// const promise_utils = require('../util/promise_utils');
+// const dbg = require('../util/debug_module')(__filename);
 
 /**
  *
@@ -20,7 +20,7 @@ class RpcNudpConnection extends RpcBaseConnection {
     // constructor(addr_url) { super(addr_url); }
 
     _connect() {
-        let Nudp = nb_native().Nudp;
+        const Nudp = nb_native().Nudp;
         this.nudp = new Nudp();
         this._init_nudp();
         return P.ninvoke(this.nudp, 'bind', 0, '0.0.0.0')
@@ -42,7 +42,7 @@ class RpcNudpConnection extends RpcBaseConnection {
     }
 
     accept(port) {
-        let Nudp = nb_native().Nudp;
+        const Nudp = nb_native().Nudp;
         this.nudp = new Nudp();
         this._init_nudp();
         return P.ninvoke(this.nudp, 'bind', port, '0.0.0.0')
@@ -53,7 +53,7 @@ class RpcNudpConnection extends RpcBaseConnection {
     }
 
     _init_nudp() {
-        let nudp = this.nudp;
+        const nudp = this.nudp;
         nudp.on('close', () => this.emit('error', new Error('NUDP CLOSED')));
         nudp.on('error', err => this.emit('error', err));
         nudp.on('message', msg => this.emit('message', [msg]));

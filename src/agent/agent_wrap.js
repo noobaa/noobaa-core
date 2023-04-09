@@ -84,7 +84,7 @@ async function run_agent_cli(agent_args = []) {
             if (!promise_handled) {
                 dbg.error(`agent_cli exited for unknown reason. code=${code}, signal=${signal}`);
                 promise_handled = true;
-                let e = new Error(`agent_cli exited for unknown reason. code=${code}, signal=${signal}`);
+                const e = new Error(`agent_cli exited for unknown reason. code=${code}, signal=${signal}`);
                 e.code = code;
                 reject(e);
             }

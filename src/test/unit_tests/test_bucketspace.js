@@ -23,7 +23,7 @@ const MAC_PLATFORM = 'darwin';
 
 const inspect = (x, max_arr = 5) => util.inspect(x, { colors: true, depth: null, maxArrayLength: max_arr });
 
-let new_account_params = {
+const new_account_params = {
     has_login: false,
     s3_access: true,
 };
@@ -49,7 +49,7 @@ mocha.describe('bucket operations - namespace_fs', function() {
     let s3_correct_uid;
     let s3_correct_uid_default_nsr;
 
-    let s3_creds = {
+    const s3_creds = {
         s3ForcePathStyle: true,
         signatureVersion: 'v4',
         computeChecksums: true,
@@ -574,10 +574,10 @@ mocha.describe('bucket operations - namespace_fs', function() {
         await fs_utils.file_must_exist(path.join(tmp_fs_root, '/new_s3_buckets_dir'));
     });
     mocha.it('delete account by uid, gid', async function() {
-        let read_account_resp1 = await rpc_client.account.read_account({ email: 'account_wrong_uid0@noobaa.com' });
+        const read_account_resp1 = await rpc_client.account.read_account({ email: 'account_wrong_uid0@noobaa.com' });
         assert.ok(read_account_resp1);
         // create another account with the same uid gid
-        let account_wrong_uid1 = await rpc_client.account.create_account({
+        const account_wrong_uid1 = await rpc_client.account.create_account({
             ...new_account_params,
             email: 'account_wrong_uid1@noobaa.com',
             name: 'account_wrong_uid1',
@@ -599,17 +599,17 @@ mocha.describe('bucket operations - namespace_fs', function() {
         // check that both accounts deleted
         for (let i = 0; i < 2; i++) {
             try {
-                let deleted_account_exist = await rpc_client.account.read_account({ email: `account_wrong_uid${i}@noobaa.com` });
+                const deleted_account_exist = await rpc_client.account.read_account({ email: `account_wrong_uid${i}@noobaa.com` });
                 assert.fail(`found account: ${deleted_account_exist} - account should be deleted`);
             } catch (err) {
                 assert.ok(err.rpc_code === 'NO_SUCH_ACCOUNT');
             }
         }
-        let list_account_resp2 = (await rpc_client.account.list_accounts({})).accounts;
+        const list_account_resp2 = (await rpc_client.account.list_accounts({})).accounts;
         assert.ok(list_account_resp2.length > 0);
     });
     mocha.it('delete account by uid, gid - no such account', async function() {
-        let list_account_resp1 = (await rpc_client.account.list_accounts({})).accounts;
+        const list_account_resp1 = (await rpc_client.account.list_accounts({})).accounts;
         assert.ok(list_account_resp1.length > 0);
         try {
             await rpc_client.account.delete_account_by_property({ nsfs_account_config: { uid: 26041993, gid: 26041993 } });
@@ -641,8 +641,8 @@ function create_random_body() {
 
 function bucket_in_list(exist_buckets, not_exist_buckets, s3_buckets_list_response) {
     const bucket_names = s3_buckets_list_response.map(bucket => bucket.Name);
-    let exist_checker = exist_buckets.every(v => bucket_names.includes(v));
-    let doesnt_exist_checker = not_exist_buckets.every(v => !bucket_names.includes(v));
+    const exist_checker = exist_buckets.every(v => bucket_names.includes(v));
+    const doesnt_exist_checker = not_exist_buckets.every(v => !bucket_names.includes(v));
     return exist_checker && doesnt_exist_checker;
 }
 
@@ -682,7 +682,7 @@ mocha.describe('list objects - namespace_fs', function() {
     let s3_uid26041993;
     let s3_uid6;
 
-    let s3_creds = {
+    const s3_creds = {
         s3ForcePathStyle: true,
         signatureVersion: 'v4',
         computeChecksums: true,
@@ -911,7 +911,7 @@ mocha.describe('nsfs account configurations', function() {
     const regular_bucket_name = ['regular-bucket', 'regular-bucket1', 'regular-bucket2'];
     const regular_bucket_fail = ['regular-bucket-fail', 'regular-bucket-fail1', 'regular-bucket-fail2'];
     const data_bucket = 'data-bucket';
-    let s3_creds = {
+    const s3_creds = {
         s3ForcePathStyle: true,
         signatureVersion: 'v4',
         computeChecksums: true,
@@ -983,8 +983,8 @@ mocha.describe('nsfs account configurations', function() {
             account_nsfs_only3: { default_resource: nsr1, nsfs_only: true }
         };
         for (const name of Object.keys(names_and_default_resources)) {
-            let config1 = names_and_default_resources[name];
-            let cur_account = await rpc_client.account.create_account({
+            const config1 = names_and_default_resources[name];
+            const cur_account = await rpc_client.account.create_account({
                 ...new_account_params,
                 email: `${name}@noobaa.io`,
                 name: name,
@@ -999,7 +999,7 @@ mocha.describe('nsfs account configurations', function() {
             s3_creds.accessKeyId = cur_account.access_keys[0].access_key.unwrap();
             s3_creds.secretAccessKey = cur_account.access_keys[0].secret_key.unwrap();
             s3_creds.endpoint = coretest.get_http_address();
-            let cur_s3_account = new AWS.S3(s3_creds);
+            const cur_s3_account = new AWS.S3(s3_creds);
             accounts[name] = cur_s3_account;
         }
     });

@@ -41,7 +41,7 @@ async function test_case_range_read_initial_read_size_not_across_blocks({ type, 
             start: time_start,
         }
     });
-    let time_end = (new Date()).getTime();
+    const time_end = (new Date()).getTime();
 
     // Expect block1 will be cached, so we will have block1 and block3 cached
     // blocks     :  |       b0        | b1(to be cached) |       b2      |    b3(cached)     |   .....
@@ -163,7 +163,7 @@ async function test_case_range_read_range_variations({ type, ns_context }) {
     const { block_size, block_size_kb } = ns_context;
     const size_block_count = 4;
     const file_name = `${prefix}_${block_size_kb * size_block_count}_KB`;
-    let time_start = (new Date()).getTime();
+    const time_start = (new Date()).getTime();
 
     // Expect block3 will be cached
     // blocks     :  |       b0        | b1(to be cached) | b2(to be cached) |         b3       |
@@ -302,7 +302,7 @@ async function test_case_range_read_from_entire_object_to_partial({ type, ns_con
     // blocks     :  |       b0        | b1(to be cached) |        b2       |
     // read range :                      <-->
     let range_size = 100;
-    let start = block_size + 100;
+    const start = block_size + 100;
     let end = start + range_size - 1;
     // Read the same range twice.
     for (let i = 0; i < 2; i++) {
@@ -360,12 +360,12 @@ async function test_case_range_read_from_partial_to_entire_object({ type, ns_con
     // Expect block1 to be cached
     // blocks     :  |       b0        |  b1(to be cached)  |      b2          |
     // read range :                      <-->
-    let range_size = 100;
+    const range_size = 100;
     let start = block_size + 100;
     let end = start + range_size - 1;
     const time_start = (new Date()).getTime();
     await ns_context.upload_directly_to_cloud(type, file_name);
-    let cloud_obj_md = await ns_context.get_via_cloud(type, file_name);
+    const cloud_obj_md = await ns_context.get_via_cloud(type, file_name);
 
     await ns_context.validate_range_read({
         type, file_name, cloud_obj_md,
@@ -452,7 +452,7 @@ async function test_case_range_read_small_file({ type, ns_context }) {
     let range_size = 100;
     let start = config.INLINE_MAX_SIZE;
     let end = start + range_size - 1;
-    let time_start = (new Date()).getTime();
+    const time_start = (new Date()).getTime();
     await ns_context.upload_directly_to_cloud(type, file_name);
     const cloud_obj_md = await ns_context.get_via_cloud(type, file_name);
 
@@ -510,7 +510,7 @@ async function test_case_range_read_if_match_etag_failure({ type, ns_context }) 
     // Expect block1 to be cached
     // blocks     :  |       b0        |  b1(to be cached)  |       b2        |
     // read range :                      <-->
-    let range_size = 100;
+    const range_size = 100;
     let start = block_size + 100;
     let end = start + range_size - 1;
     let time_start = (new Date()).getTime();

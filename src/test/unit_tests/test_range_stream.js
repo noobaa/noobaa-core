@@ -96,8 +96,8 @@ mocha.describe('range_stream', function() {
 
 function _range_stream(start, end, in_bufs) {
     return new Promise((resolve, reject) => {
-        let bufs = [];
-        let stm = new RangeStream(start, end);
+        const bufs = [];
+        const stm = new RangeStream(start, end);
         stm.on('data', data => bufs.push(data));
         stm.on('error', reject);
         stm.on('end', () => resolve(bufs));

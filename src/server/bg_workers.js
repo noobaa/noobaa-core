@@ -57,7 +57,7 @@ const MASTER_BG_WORKERS = [
 ];
 
 if (process.env.NOOBAA_LOG_LEVEL) {
-    let dbg_conf = debug_config.get_debug_config(process.env.NOOBAA_LOG_LEVEL);
+    const dbg_conf = debug_config.get_debug_config(process.env.NOOBAA_LOG_LEVEL);
     dbg_conf.core.map(module => dbg.set_module_level(dbg_conf.level, module));
 }
 

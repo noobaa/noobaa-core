@@ -87,7 +87,7 @@ class MongoSequence {
         const query = {};
         const update = { $inc: { object_version_seq: 1 } };
         const options = { upsert: true, returnOriginal: false };
-        let res = await this._collection.findOneAndUpdate(query, update, options);
+        const res = await this._collection.findOneAndUpdate(query, update, options);
         return res.value.object_version_seq;
     }
 }
@@ -631,9 +631,9 @@ class MongoClient extends EventEmitter {
     }
 
     initiate_replica_set(set, members, is_config_set) {
-        var port = is_config_set ? config.MONGO_DEFAULTS.CFG_PORT : config.MONGO_DEFAULTS.SHARD_SRV_PORT;
-        var rep_config = this._build_replica_config(set, members, port, is_config_set);
-        var command = {
+        const port = is_config_set ? config.MONGO_DEFAULTS.CFG_PORT : config.MONGO_DEFAULTS.SHARD_SRV_PORT;
+        const rep_config = this._build_replica_config(set, members, port, is_config_set);
+        const command = {
             replSetInitiate: rep_config
         };
         dbg.log0('Calling initiate_replica_set', util.inspect(command, false, null));
@@ -647,10 +647,10 @@ class MongoClient extends EventEmitter {
     }
 
     replica_update_members(set, members, is_config_set) {
-        var port = is_config_set ? config.MONGO_DEFAULTS.CFG_PORT : config.MONGO_DEFAULTS.SHARD_SRV_PORT;
-        var rep_config = this._build_replica_config(set, members, port, is_config_set);
+        const port = is_config_set ? config.MONGO_DEFAULTS.CFG_PORT : config.MONGO_DEFAULTS.SHARD_SRV_PORT;
+        const rep_config = this._build_replica_config(set, members, port, is_config_set);
 
-        var command = {
+        const command = {
             replSetReconfig: rep_config
         };
         return P.resolve(this.get_rs_version(is_config_set))
@@ -705,12 +705,12 @@ class MongoClient extends EventEmitter {
         if (!this.mongo_client) {
             throw new Error('db is not initialized');
         }
-        let options = params || {};
+        const options = params || {};
 
         const is_config_set = options.is_config_set;
         const COMMAND_TIMEOUT = options.timeout || 5000;
 
-        var command = {
+        const command = {
             replSetGetStatus: 1
         };
 
@@ -734,7 +734,7 @@ class MongoClient extends EventEmitter {
     }
 
     async get_rs_version(is_config_set) {
-        var command = {
+        const command = {
             replSetGetConfig: 1
         };
         let res;
@@ -758,7 +758,7 @@ class MongoClient extends EventEmitter {
     }
 
     async set_debug_level(level) {
-        var command = {
+        const command = {
             setParameter: 1,
             logLevel: level
         };
@@ -795,7 +795,7 @@ class MongoClient extends EventEmitter {
                 // eslint-disable-next-line no-unmodified-loop-condition
                 while (db_is_down && !waiting_exhausted) {
                     try {
-                        let stats = this.mongo_client && await this.mongo_client.db().stats();
+                        const stats = this.mongo_client && await this.mongo_client.db().stats();
                         db_is_down = _.get(stats, 'ok') !== 1;
                     } catch (err) {
                         dbg.error('db is still down. got error on db.stats():', err.message);
@@ -845,7 +845,7 @@ class MongoClient extends EventEmitter {
     }
 
     async force_mongo_sync_journal() {
-        var command = {
+        const command = {
             fsync: 1,
             async: false,
 
@@ -879,12 +879,12 @@ class MongoClient extends EventEmitter {
     }
 
     _build_replica_config(set, members, port, is_config_set) {
-        var rep_config = {
+        const rep_config = {
             _id: set,
             configsvr: (_.isUndefined(is_config_set)) ? false : is_config_set,
             members: []
         };
-        var id = 0;
+        let id = 0;
         _.each(members, function(m) {
             rep_config.members.push({
                 _id: id,

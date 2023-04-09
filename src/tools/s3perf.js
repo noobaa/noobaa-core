@@ -35,14 +35,14 @@ if (argv.upload && data_size < argv.part_size * 1024 * 1024) {
 
 const start_time = Date.now();
 
-var op_lat_sum = 0;
-var op_count = 0;
-var op_size = 0;
-var last_reported = start_time;
-var last_op_count = 0;
-var last_op_lat_sum = 0;
+let op_lat_sum = 0;
+let op_count = 0;
+let op_size = 0;
+let last_reported = start_time;
+let last_op_count = 0;
+let last_op_lat_sum = 0;
 
-var op_func;
+let op_func;
 
 if (argv.help) {
     print_usage();
@@ -204,7 +204,7 @@ async function run_worker_loop() {
     }
 }
 
-let _object_keys = [];
+const _object_keys = [];
 let _object_keys_next = 0;
 let _object_keys_done = false;
 let _object_keys_promise = null;

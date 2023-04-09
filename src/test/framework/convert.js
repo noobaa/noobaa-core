@@ -8,7 +8,7 @@ const argv = require('minimist')(process.argv);
 
 let res_files = [];
 
-let {
+const {
     result,
     output_file = `./out_test.csv`
 } = argv;

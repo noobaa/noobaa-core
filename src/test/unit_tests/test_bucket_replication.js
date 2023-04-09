@@ -247,7 +247,7 @@ mocha.describe('replication configuration bg worker tests', function() {
     //const namespace_buckets = [];
     let s3_owner;
     let scanner;
-    let s3_creds = {
+    const s3_creds = {
         s3ForcePathStyle: true,
         signatureVersion: 'v4',
         computeChecksums: true,
@@ -395,8 +395,8 @@ mocha.describe('replication configuration bg worker tests', function() {
     });
 
     mocha.it('run replication scanner and wait - no prefix - all objects should be uploaded', async function() {
-        let contents = await list_objects_and_wait(s3_owner, bucket_for_replications, 5);
-        for (let content of contents) {
+        const contents = await list_objects_and_wait(s3_owner, bucket_for_replications, 5);
+        for (const content of contents) {
             const key = content.Key;
             await s3_owner.deleteObject({ Bucket: bucket_for_replications, Key: key }).promise();
         }
@@ -459,7 +459,7 @@ mocha.describe('replication pagination tests', function() {
     //const namespace_buckets = [];
     let s3_owner;
     let scanner;
-    let s3_creds = {
+    const s3_creds = {
         s3ForcePathStyle: true,
         signatureVersion: 'v4',
         computeChecksums: true,
@@ -485,7 +485,7 @@ mocha.describe('replication pagination tests', function() {
 
         // populate bucket2
         for (let i = 0; i < 5; i++) {
-            let key = create_random_body();
+            const key = create_random_body();
             bucket2_keys.push(key);
             await put_object(s3_owner, bucket2, key);
         }
@@ -539,8 +539,8 @@ mocha.describe('replication pagination tests', function() {
     });
 
     mocha.it('list_buckets_and_compare - 1 ', async function() {
-        let src_keys = ['a1', 'a2', 'b1', 'b2', 'b3', 'b4'];
-        let dst_keys = ['a1', 'a2', 'a3', 'a4', 'a5', 'b1', 'b2', 'b4'];
+        const src_keys = ['a1', 'a2', 'b1', 'b2', 'b3', 'b4'];
+        const dst_keys = ['a1', 'a2', 'a3', 'a4', 'a5', 'b1', 'b2', 'b4'];
         bucket1_keys = src_keys;
         bucket2_keys = dst_keys;
         for (let i = 0; i < src_keys.length; i++) {
@@ -569,8 +569,8 @@ mocha.describe('replication pagination tests', function() {
     });
 
     mocha.it('list_buckets_and_compare - 2 ', async function() {
-        let src_keys = ['b1', 'b2', 'b3', 'b4', 'b5', 'b6', 'b7', 'b8'];
-        let dst_keys = ['a1', 'a2', 'a3', 'a4', 'a5', 'b6', 'b7'];
+        const src_keys = ['b1', 'b2', 'b3', 'b4', 'b5', 'b6', 'b7', 'b8'];
+        const dst_keys = ['a1', 'a2', 'a3', 'a4', 'a5', 'b6', 'b7'];
         bucket1_keys = src_keys;
         bucket2_keys = dst_keys;
         for (let i = 0; i < src_keys.length; i++) {
@@ -599,8 +599,8 @@ mocha.describe('replication pagination tests', function() {
     });
 
     mocha.it('list_buckets_and_compare - 3 ', async function() {
-        let src_keys = ['a1', 'a2', 'a3', 'a4', 'a5', 'a6', 'z1', 'z2', 'z3', 'z4'];
-        let dst_keys = ['a1', 'a2', 'a3', 'a4', 'a5', 'a6', 'c1', 'c2', 'c3', 'c4'];
+        const src_keys = ['a1', 'a2', 'a3', 'a4', 'a5', 'a6', 'z1', 'z2', 'z3', 'z4'];
+        const dst_keys = ['a1', 'a2', 'a3', 'a4', 'a5', 'a6', 'c1', 'c2', 'c3', 'c4'];
         for (let i = 0; i < src_keys.length; i++) {
             await put_object(s3_owner, bucket1, src_keys[i], src_keys[i]);
         }
@@ -630,8 +630,8 @@ mocha.describe('replication pagination tests', function() {
     });
 
     mocha.it('list_buckets_and_compare - 4 ', async function() {
-        let src_keys = ['a1', 'a2', 'a3', 'a4', 'a5'];
-        let dst_keys = ['a5', 'a6', 'a7', 'a8', 'a9', 'a10', 'a11', 'a12', 'a13', 'a14'];
+        const src_keys = ['a1', 'a2', 'a3', 'a4', 'a5'];
+        const dst_keys = ['a5', 'a6', 'a7', 'a8', 'a9', 'a10', 'a11', 'a12', 'a13', 'a14'];
         for (let i = 0; i < src_keys.length; i++) {
             await put_object(s3_owner, bucket1, src_keys[i], src_keys[i]);
         }
@@ -655,11 +655,11 @@ mocha.describe('replication pagination tests', function() {
 
 
     mocha.it('list_buckets_and_compare - 5 ', async function() {
-        let src_keys = ['a1', 'a2', 'a3', 'a4', 'a5',
+        const src_keys = ['a1', 'a2', 'a3', 'a4', 'a5',
             'c1', 'c2', 'c3', 'c4', 'c5',
             'd1', 'd2', 'd3', 'd4', 'd5'
         ];
-        let dst_keys = ['a1', 'a2', 'a3', 'a4', 'a5',
+        const dst_keys = ['a1', 'a2', 'a3', 'a4', 'a5',
             'b1', 'b2', 'b3', 'b4', 'b5',
             'c1', 'c2', 'c3', 'c4', 'c5',
             'd1', 'd2', 'd3', 'd4', 'd5'
@@ -703,8 +703,8 @@ mocha.describe('replication pagination tests', function() {
     });
 
     mocha.it('list_buckets_and_compare - 6 ', async function() {
-        let src_keys = ['a1', 'a2', 'a3', 'a4', 'a5'];
-        let dst_keys = ['b1', 'b2', 'b3', 'b4', 'b5', 'b6', 'b7', 'b8'];
+        const src_keys = ['a1', 'a2', 'a3', 'a4', 'a5'];
+        const dst_keys = ['b1', 'b2', 'b3', 'b4', 'b5', 'b6', 'b7', 'b8'];
         bucket1_keys = src_keys;
         bucket2_keys = dst_keys;
         for (let i = 0; i < src_keys.length; i++) {
@@ -810,7 +810,7 @@ async function list_all_objs_in_bucket(s3owner, bucket, prefix) {
     let marker;
     const elements = [];
     while (isTruncated) {
-      let params = { Bucket: bucket };
+      const params = { Bucket: bucket };
       if (prefix) params.Prefix = prefix;
       if (marker) params.Marker = marker;
         const response = await s3owner.listObjects(params).promise();
@@ -849,7 +849,7 @@ mocha.describe('Replication pagination test', function() {
     const buckets = [src_bucket, target_bucket];
     let s3_owner;
     let scanner;
-    let s3_creds = {
+    const s3_creds = {
         s3ForcePathStyle: true,
         signatureVersion: 'v4',
         computeChecksums: true,
@@ -857,8 +857,8 @@ mocha.describe('Replication pagination test', function() {
         region: 'us-east-1',
         httpOptions: { agent: new http.Agent({ keepAlive: false }) },
     };
-    let src_bucket_keys = [];
-    let target_bucket_keys = [];
+    const src_bucket_keys = [];
+    const target_bucket_keys = [];
     mocha.before('init scanner & populate buckets', async function() {
         process.env.REPLICATION_MAX_KEYS = "6";
         // create buckets
@@ -878,7 +878,7 @@ mocha.describe('Replication pagination test', function() {
 
         // populate source bucket
         for (let i = 0; i < obj_amount; i++) {
-            let key = create_random_body();
+            const key = create_random_body();
             src_bucket_keys.push(key);
             await put_object(s3_owner, src_bucket, key);
         }

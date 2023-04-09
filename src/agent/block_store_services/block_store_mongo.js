@@ -186,7 +186,7 @@ class BlockStoreMongo extends BlockStoreBase {
     }
 
     _delete_blocks(block_ids) {
-        let failed_to_delete_block_ids = [];
+        const failed_to_delete_block_ids = [];
         const block_names = _.map(block_ids, block_id => this._block_key(block_id));
         return sem_delete.surround(() =>
             P.map_with_concurrency(10, block_names, block_name =>

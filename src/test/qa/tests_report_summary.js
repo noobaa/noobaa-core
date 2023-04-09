@@ -33,7 +33,7 @@ function debug(...msg) {
 
 function arg_to_date(arg) {
     if (!arg) return;
-    let moment_date = moment.utc(arg, DATE_FORMAT);
+    const moment_date = moment.utc(arg, DATE_FORMAT);
     if (!moment_date.isValid()) error(`Invalid date format: ${arg}`);
     return moment_date.toDate();
 }

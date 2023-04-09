@@ -31,7 +31,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 const fs = require('fs');
 const _ = require('lodash');
 
-var DROPPED_LINES = {
+const DROPPED_LINES = {
     LINES: [],
     INDICES: [],
 };
@@ -45,11 +45,11 @@ module.exports = {
      */
     config: function(options) {
         const paths = ['.env', '/data/.env'];
-        let encoding = 'utf8';
+        const encoding = 'utf8';
 
         paths.forEach(env_file => {
             try {
-                let parsedObj = this.parse(fs.readFileSync(env_file, {
+                const parsedObj = this.parse(fs.readFileSync(env_file, {
                     encoding: encoding
                 }));
 
@@ -83,27 +83,27 @@ module.exports = {
                 });
             }
         }
-        var obj = {};
-        var idx = 0;
+        const obj = {};
+        let idx = 0;
 
         // convert Buffers before splitting into lines and processing
         src.toString().split('\n')
             .forEach(function(line) {
                 // matching "KEY' and 'VAL' in 'KEY=VAL'
-                var keyValueArr = line.match(/^\s*([\w\.\-]+)\s*=\s*(.*)?\s*$/);
+                const keyValueArr = line.match(/^\s*([\w\.\-]+)\s*=\s*(.*)?\s*$/);
                 // matched?
                 if (keyValueArr === null) {
                     DROPPED_LINES.INDICES.push(idx);
                     DROPPED_LINES.LINES.push(line);
                     // console.warn('line', line);
                 } else {
-                    var key = keyValueArr[1];
+                    const key = keyValueArr[1];
 
                     // default undefined or missing values to empty string
-                    var value = keyValueArr[2] ? keyValueArr[2] : '';
+                    let value = keyValueArr[2] ? keyValueArr[2] : '';
 
                     // expand newlines in quoted values
-                    var len = value ? value.length : 0;
+                    const len = value ? value.length : 0;
                     if (len > 0 && value.charAt(0) === '"' && value.charAt(len - 1) === '"') {
                         value = value.replace(/\\n/gm, '\n');
                     }
@@ -128,13 +128,13 @@ module.exports = {
      * @param {Object} newVal - param name and new value of param
      */
     set: function(newVal) {
-        var path = '/data/.env';
-        var encoding = 'utf8';
-        var silent = false;
+        const path = '/data/.env';
+        const encoding = 'utf8';
+        const silent = false;
 
         try {
             // specifying an encoding returns a string instead of a buffer
-            var newObj = this.replace(fs.readFileSync(path, {
+            const newObj = this.replace(fs.readFileSync(path, {
                 encoding: encoding
             }), newVal);
 
@@ -161,18 +161,18 @@ module.exports = {
      * @returns {Object}
      */
     replace: function(src, newVal) {
-        var obj = {};
-        var found = false;
+        const obj = {};
+        let found = false;
 
         // convert Buffers before splitting into lines and processing
         src.toString().split('\n')
             .forEach(function(line) {
                 // matching "KEY' and 'VAL' in 'KEY=VAL'
-                var keyValueArr = line.match(/^\s*([\w\.\-]+)\s*=\s*(.*)?\s*$/);
+                const keyValueArr = line.match(/^\s*([\w\.\-]+)\s*=\s*(.*)?\s*$/);
                 // matched?
                 if (keyValueArr !== null) {
-                    var key = keyValueArr[1];
-                    var value;
+                    const key = keyValueArr[1];
+                    let value;
                     if (key === newVal.key) {
                         value = newVal.value;
                         found = true;

@@ -98,7 +98,7 @@ function archive_diagnostics_pack(dst) {
                 //Delete the oldest pack
                 console.log('archive_diagnostics_pack4');
 
-                var sorted_files = _.orderBy(files);
+                const sorted_files = _.orderBy(files);
                 return fs.promises.unlink(config.central_stats.previous_diag_packs_dir + '/' + sorted_files[0]);
             } else {
                 console.log('archive_diagnostics_pack5');
@@ -107,8 +107,8 @@ function archive_diagnostics_pack(dst) {
         .then(function() {
             console.log('archive_diagnostics_pack6');
             //Archive the current pack
-            var now = new Date();
-            var tail = now.getDate() + '-' + (now.getMonth() + 1) + '_' + now.getHours() + '-' + now.getMinutes();
+            const now = new Date();
+            const tail = now.getDate() + '-' + (now.getMonth() + 1) + '_' + now.getHours() + '-' + now.getMinutes();
             return fs_utils.file_copy(dst, config.central_stats.previous_diag_packs_dir + '/DiagPack_' + tail + '.tgz');
         })
         .then(null, function(err) {
@@ -117,7 +117,7 @@ function archive_diagnostics_pack(dst) {
 }
 
 function get_tmp_workdir() {
-    let is_windows = (process.platform === "win32");
+    const is_windows = (process.platform === "win32");
     return is_windows ? process.env.ProgramData + '/diag' : '/tmp/diag';
 }
 

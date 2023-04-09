@@ -157,7 +157,7 @@ let remote_bucket_names = [];
 const cloudPoolForCompatible = 'AZURE-for-compatible';
 
 async function set_rpc_and_create_auth_token(client_to_auth) {
-    let auth_params = {
+    const auth_params = {
         email: 'demo@noobaa.com',
         password: 'DeMo1',
         system: 'demo'

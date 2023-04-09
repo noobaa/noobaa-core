@@ -111,7 +111,7 @@ class RpcSchema {
                 }
 
                 method_api.validate_params = (params, desc) => {
-                    let result = method_api.params_validator(params);
+                    const result = method_api.params_validator(params);
                     if (!result) {
                         dbg.error('INVALID_SCHEMA_PARAMS', desc, method_api.fullname,
                             'ERRORS:', util.inspect(method_api.params_validator.errors, true, null, true),
@@ -121,7 +121,7 @@ class RpcSchema {
                 };
 
                 method_api.validate_reply = (reply, desc) => {
-                    let result = method_api.reply_validator(reply);
+                    const result = method_api.reply_validator(reply);
                     if (!result) {
                         dbg.error('INVALID_SCHEMA_REPLY', desc, method_api.fullname,
                             'ERRORS:', util.inspect(method_api.reply_validator.errors, true, null, true),

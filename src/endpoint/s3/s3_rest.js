@@ -357,7 +357,7 @@ function parse_op_name(req) {
 }
 
 function handle_error(req, res, err) {
-    var s3err =
+    let s3err =
         ((err instanceof S3Error) && err) ||
         new S3Error(S3Error.RPC_ERRORS_TO_S3[err.rpc_code] || S3Error.InternalError);
 
@@ -407,7 +407,7 @@ function handle_error(req, res, err) {
 }
 
 async function _handle_html_response(req, res, err) {
-    var s3err =
+    let s3err =
         ((err instanceof S3Error) && err) ||
         new S3Error(S3Error.RPC_ERRORS_TO_S3[err.rpc_code] || S3Error.InternalError);
 

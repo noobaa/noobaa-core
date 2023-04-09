@@ -152,8 +152,8 @@ async function _create_resources_and_buckets() {
 
     //Create bucket with various RP & Placement
     console.info('Creating Buckets');
-    let buck1 = await TEST_CTX.bucketfunc.createBucket(TEST_CTX.bucket_mirror);
-    let buck2 = await TEST_CTX.bucketfunc.createBucket(TEST_CTX.bucket_spread);
+    const buck1 = await TEST_CTX.bucketfunc.createBucket(TEST_CTX.bucket_mirror);
+    const buck2 = await TEST_CTX.bucketfunc.createBucket(TEST_CTX.bucket_spread);
 
     console.info('Updating Tier to EC & Mirror');
     await TEST_CTX.bucketfunc.changeTierSetting(TEST_CTX.bucket_mirror, 4, 2); //EC 4+2

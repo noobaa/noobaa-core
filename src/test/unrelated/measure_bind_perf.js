@@ -1,8 +1,8 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-var _ = require('lodash');
-var js_utils = require('../util/js_utils');
+const _ = require('lodash');
+const js_utils = require('../util/js_utils');
 
 function Clazz() { /* Clazz? */ }
 
@@ -11,13 +11,13 @@ Clazz.prototype.func = function() {
 };
 
 Clazz.prototype.measure = function() {
-    var self = this;
-    var start = Date.now();
-    var now = Date.now();
-    var count = 0;
-    var run = true;
+    const self = this;
+    const start = Date.now();
+    let now = Date.now();
+    let count = 0;
+    let run = true;
     while (run) {
-        for (var i = 0; i < 100000; ++i) {
+        for (let i = 0; i < 100000; ++i) {
             if (self.func() !== self) {
                 throw new Error('HUH');
             }
@@ -34,23 +34,23 @@ Clazz.prototype.measure = function() {
 };
 
 console.log('\nBIND');
-var binded = new Clazz();
+const binded = new Clazz();
 binded.func = binded.func.bind(binded);
 binded.measure();
 
 console.log('\nLODASH (_.bindAll)');
-var lodasher = new Clazz();
+const lodasher = new Clazz();
 _.bindAll(lodasher);
 binded.measure();
 
 console.log('\nCLOSURE');
-var closure = new Clazz();
+const closure = new Clazz();
 closure.func = function() {
     return Clazz.prototype.func.apply(closure, arguments);
 };
 closure.measure();
 
 console.log('\nSELF BIND (js_utils.self_bind)');
-var selfbind = new Clazz();
+const selfbind = new Clazz();
 js_utils.self_bind(selfbind);
 selfbind.measure();

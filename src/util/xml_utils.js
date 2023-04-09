@@ -54,8 +54,8 @@ function append_object(append, object) {
         for (const key of object_own_keys) {
 
             // undefined values skip encoding the key tag altogether
-            let val = object[key];
-            let val_type = typeof(val);
+            const val = object[key];
+            const val_type = typeof(val);
             if (val_type === 'undefined') continue;
 
             // keys starting with _ are not considered tag names

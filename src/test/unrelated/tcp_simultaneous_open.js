@@ -1,11 +1,11 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-var net = require('net');
-var tls = require('tls');
+const net = require('net');
+const tls = require('tls');
 // var fs = require('fs');
 
-var delay = 1;
+let delay = 1;
 
 if (process.argv[1]) {
     tcp_simultaneous_open(5555, 5556);
@@ -16,7 +16,7 @@ if (process.argv[1]) {
 
 function tcp_simultaneous_open(local_port, remote_port, attempts) {
     attempts = attempts || 0;
-    var conn = net.connect({
+    let conn = net.connect({
         port: remote_port,
         localPort: local_port
     });
@@ -46,14 +46,14 @@ function tcp_simultaneous_open(local_port, remote_port, attempts) {
 }
 
 function tcp_normal_open(listen_port) {
-    var server = net.createServer(function(conn) {
+    const server = net.createServer(function(conn) {
         server.close();
         conn.on('readable', function() {
             on_readable(conn, true);
         });
     });
     server.listen(listen_port, function() {
-        var conn = net.connect(listen_port, function() {
+        const conn = net.connect(listen_port, function() {
             conn.write(new_seq_buffer(1));
         });
         conn.on('readable', function() {
@@ -63,7 +63,7 @@ function tcp_normal_open(listen_port) {
 }
 
 function new_seq_buffer(seq) {
-    var buffer = Buffer.alloc(4);
+    const buffer = Buffer.alloc(4);
     buffer.writeInt32BE(seq, 0);
     return buffer;
 }
@@ -73,11 +73,11 @@ function get_seq_buffer(buffer) {
 }
 
 function on_readable(conn, is_server) {
-    var run = true;
+    let run = true;
     while (run) {
-        var buffer = conn.read(4);
+        const buffer = conn.read(4);
         if (!buffer) return;
-        var seq = get_seq_buffer(buffer);
+        const seq = get_seq_buffer(buffer);
         console.log(is_server ? 'SERVER:' : 'CLIENT:', seq);
         if (seq >= 100) {
             setImmediate(do_upgrade);
@@ -97,8 +97,8 @@ function on_readable(conn, is_server) {
 }
 
 function upgrade_to_tls(conn, is_server) {
-    var looper;
-    var sconn;
+    let looper;
+    let sconn;
     // conn.removeAllListeners();
     if (is_server) {
         sconn = new tls.TLSSocket(conn, {

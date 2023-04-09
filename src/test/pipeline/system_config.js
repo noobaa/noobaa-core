@@ -17,7 +17,7 @@ let rpc;
 let client;
 let failures_in_test = false;
 
-let errors = [];
+const errors = [];
 
 const {
     mgmt_ip,
@@ -47,7 +47,7 @@ if (help) {
     process.exit(1);
 }
 
-let report = new Report();
+const report = new Report();
 const cases = [
     'set_maintenance_mode',
     'update_n2n_config_single_port',
@@ -110,9 +110,9 @@ async function update_n2n_config_and_check_single_port(port) {
             tcp_permanent_passive: { port }
         }
     });
-    let system_info = await client.system.read_system({});
+    const system_info = await client.system.read_system({});
     const tcp_port = system_info.n2n_config.tcp_permanent_passive.port;
-    let n2n_config = JSON.stringify(system_info.n2n_config);
+    const n2n_config = JSON.stringify(system_info.n2n_config);
     if (tcp_port === port) {
         console.log(`The single tcp port is: ${port} - as should`);
         await report.success(`update_n2n_config_single_port`);

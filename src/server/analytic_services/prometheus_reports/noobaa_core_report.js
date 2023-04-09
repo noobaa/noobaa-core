@@ -512,7 +512,7 @@ class NooBaaCoreReport extends BasePrometheusReport {
     set_providers_physical_logical(providers_stats) {
         if (!this._metrics) return;
 
-        for (let [type, value] of Object.entries(providers_stats)) {
+        for (const [type, value] of Object.entries(providers_stats)) {
             const { logical_size, physical_size } = value;
             this._metrics.providers_physical_size.set({ type }, physical_size);
             this._metrics.providers_logical_size.set({ type }, logical_size);

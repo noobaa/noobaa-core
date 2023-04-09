@@ -205,10 +205,10 @@ class ReplicationScanner {
     async get_keys_diff(src_keys, dst_keys, dst_next_cont_token, src_bucket_name, dst_bucket_name) {
         dbg.log1('replication_server.get_keys_diff: src contents', src_keys.map(c => c.Key), 'dst contents', dst_keys.map(c => c.Key));
 
-        let to_replicate_map = {};
+        const to_replicate_map = {};
         const dst_map = _.keyBy(dst_keys, 'Key');
 
-        for (let [i, src_content] of src_keys.entries()) {
+        for (const [i, src_content] of src_keys.entries()) {
             const cur_src_key = src_content.Key;
             dbg.log1('replication_server.get_keys_diff, src_key: ', i, cur_src_key);
 

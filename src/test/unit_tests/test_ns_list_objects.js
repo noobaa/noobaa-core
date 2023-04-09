@@ -386,7 +386,7 @@ function test_ns_list_objects(ns, object_sdk, bucket) {
     async function truncated_listing(params, use_upload_id_marker, upload_mode) {
 
         // Initialization of IsTruncated in order to perform the first while cycle
-        var res = {
+        const res = {
             is_truncated: true,
             objects: [],
             common_prefixes: [],

@@ -156,20 +156,20 @@ const PARTIAL_SINGLE_SYS_DEFAULTS = {
 
 //Aggregate bucket configuration and policies
 function _aggregate_buckets_config(system) {
-    let bucket_config = [];
+    const bucket_config = [];
     const sorted_1k_buckets = system.buckets
         .sort((bucket_a, bucket_b) => bucket_b.num_objects.value - bucket_a.num_objects.value)
         .slice(0, 1000);
 
     for (const cbucket of sorted_1k_buckets) {
-        let current_config = {};
+        const current_config = {};
         current_config.num_objects = cbucket.num_objects.value;
         current_config.versioning = cbucket.versioning;
         current_config.quota = Boolean(cbucket.quota);
         current_config.tiers = [];
         if (cbucket.tiering) {
             for (const ctier of cbucket.tiering.tiers) {
-                let current_tier = _.find(system.tiers, t => ctier.tier === t.name);
+                const current_tier = _.find(system.tiers, t => ctier.tier === t.name);
                 if (current_tier) {
                     current_config.tiers.push({
                         placement_type: current_tier.data_placement,
@@ -189,12 +189,12 @@ function _aggregate_buckets_config(system) {
 
 //Collect systems related stats and usage
 async function get_systems_stats(req) {
-    var sys_stats = _.cloneDeep(SYSTEM_STATS_DEFAULTS);
+    const sys_stats = _.cloneDeep(SYSTEM_STATS_DEFAULTS);
     sys_stats.agent_version = process.env.AGENT_VERSION || 'Unknown';
     sys_stats.count = system_store.data.systems.length;
     sys_stats.os_release = (await fs.promises.readFile('/etc/redhat-release').catch(fs_utils.ignore_enoent) || 'unkonwn').toString();
     sys_stats.platform = process.env.PLATFORM;
-    var cluster = system_store.data.clusters[0];
+    const cluster = system_store.data.clusters[0];
     if (cluster && cluster.cluster_id) {
         sys_stats.clusterid = cluster.cluster_id;
     }
@@ -300,7 +300,7 @@ async function get_partial_providers_stats(req) {
             if (bucket.deleting) continue;
             const { pools, objects_size } = bucket.storage_stats;
             const types_mapped = new Map();
-            for (let [key, value] of Object.entries(pools)) {
+            for (const [key, value] of Object.entries(pools)) {
                 const pool = system_store.data.pools.find(pool_rec => String(pool_rec._id) === String(key));
                 // TODO: Handle deleted pools
                 if (!pool) continue;
@@ -546,7 +546,7 @@ async function _partial_buckets_info(req) {
 }
 
 
-var NODES_STATS_DEFAULTS = {
+const NODES_STATS_DEFAULTS = {
     count: 0,
     hosts_count: 0,
     os: {},
@@ -588,8 +588,8 @@ const NAMESPACE_RESOURCE_STATS_DEFAULTS = {
 
 //Collect nodes related stats and usage
 function get_nodes_stats(req) {
-    var nodes_stats = _.cloneDeep(NODES_STATS_DEFAULTS);
-    var nodes_histo = get_empty_nodes_histo();
+    const nodes_stats = _.cloneDeep(NODES_STATS_DEFAULTS);
+    const nodes_histo = get_empty_nodes_histo();
     //Per each system fill out the needed info
     const system = system_store.data.systems[0];
     const support_account = _.find(system_store.data.accounts, account => account.is_support);
@@ -651,7 +651,7 @@ function get_ops_stats(req) {
 }
 
 function get_bucket_sizes_stats(req) {
-    let ret = [];
+    const ret = [];
     for (const b of system_store.data.buckets) {
         if (b.deleting) continue;
         if (b.storage_stats.objects_hist &&
@@ -816,7 +816,7 @@ function get_tier_stats(req) {
 }
 
 async function get_all_stats(req) {
-    var stats_payload = {
+    const stats_payload = {
         systems_stats: null,
         nodes_stats: null,
         cloud_pool_stats: null,
@@ -992,14 +992,14 @@ function partial_cycle_parse_prometheus_metrics(payload) {
     const { unhealthy_namespace_resource_count, namespace_resource_count, namespace_resources } = namespace_resource_stats;
     const { logical_size, physical_size } = savings;
 
-    let percentage_of_unhealthy_buckets = unhealthy_buckets / buckets_num;
+    const percentage_of_unhealthy_buckets = unhealthy_buckets / buckets_num;
 
     // 0 - Everything is fine (BE wise not means that there is no NooBaa CR errors, default status for working system)
     // 1 - All resources are unhealthy
     // 2 - Object bucket has an issue
     // 3 - Many buckets have issues
     // 4 - Some buckets have issues
-    let health_status = (unhealthy_pool_count === pool_count && 1) ||
+    const health_status = (unhealthy_pool_count === pool_count && 1) ||
         (unhealthy_buckets === 1 && 2) ||
         (percentage_of_unhealthy_buckets > 0.5 && 4) ||
         (percentage_of_unhealthy_buckets > 0.3 && 3) || 0;
@@ -1086,7 +1086,7 @@ function add_sample_point(opname, duration) {
 }
 
 async function object_usage_scrubber(req) {
-    let new_req = req;
+    const new_req = req;
     new_req.rpc_params.till_time = req.system.last_stats_report;
     await object_server.reset_s3_ops_counters(new_req);
     new_req.rpc_params.last_stats_report = Date.now();
@@ -1096,7 +1096,7 @@ async function object_usage_scrubber(req) {
 
 function get_empty_nodes_histo() {
     //TODO: Add histogram for limit, once implemented
-    var empty_nodes_histo = {};
+    const empty_nodes_histo = {};
     empty_nodes_histo.histo_allocation = new Histogram('AllocationSizes(GB)', [{
         label: 'low',
         start_val: 0
@@ -1156,8 +1156,8 @@ function get_empty_nodes_histo() {
 }
 
 function _handle_payload() {
-    let system = system_store.data.systems[0];
-    let support_account = _.find(system_store.data.accounts, account => account.is_support);
+    const system = system_store.data.systems[0];
+    const support_account = _.find(system_store.data.accounts, account => account.is_support);
     return server_rpc.client.stats.object_usage_scrubber({}, {
         auth_token: auth_server.make_auth_token({
             system_id: system._id,

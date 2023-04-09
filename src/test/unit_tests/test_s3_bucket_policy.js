@@ -365,7 +365,6 @@ mocha.describe('s3_bucket_policy', function() {
     mocha.it('should be able to put versionning when bucket policy permits', async function() {
         const self = this; // eslint-disable-line no-invalid-this
         self.timeout(15000);
-        let version_id;
         const policy = {
             Version: '2012-10-17',
             Statement: [{
@@ -399,7 +398,7 @@ mocha.describe('s3_bucket_policy', function() {
                 Status: 'Enabled'
             }
         }).promise();
-        version_id = (await s3_a.putObject({
+        const version_id = (await s3_a.putObject({
             Body: 'Some data for the file... bla bla bla... version II',
             Bucket: BKT,
             Key: KEY

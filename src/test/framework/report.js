@@ -166,7 +166,7 @@ Didn't Run: ${JSON.stringify(
                 await this._mongo_client.db().collection('reports').insert(payload);
                 console.info('report sent to remote mongo');
             } else if (process.env.SEND_REPORT) {
-                var options = {
+                const options = {
                     uri: 'http://' + this.host + ':' + this.port,
                     method: 'POST',
                     json: payload

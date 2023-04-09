@@ -333,7 +333,7 @@ class ObjectSDK {
      * @returns {nb.Namespace}
      */
     _setup_merge_namespace(bucket) {
-        let rr = _.cloneDeep(bucket.namespace.read_resources);
+        const rr = _.cloneDeep(bucket.namespace.read_resources);
 
         /** @type {nb.Namespace} */
         let wr = bucket.namespace.write_resource && this._setup_single_namespace(bucket.namespace.write_resource);

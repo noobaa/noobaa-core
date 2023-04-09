@@ -50,8 +50,8 @@ const api = require('../../api');
 const rpc = api.new_rpc_from_base_address(`wss://${mgmt_ip}:${mgmt_port}`, 'EXTERNAL');
 const client = rpc.new_client({});
 
-let nodes = [];
-let errors = [];
+const nodes = [];
+const errors = [];
 
 function saveErrorAndExit(message) {
     console.error(message);

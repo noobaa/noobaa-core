@@ -2,7 +2,7 @@
 'use strict';
 
 
-var PREFIX;
+let PREFIX;
 
 PREFIX = 'BoomBaLoomBa';
 console.log('');
@@ -26,9 +26,9 @@ test(114467);
 test(114468);
 
 function test(n) {
-    var i;
-    var obj = {};
-    var map = new Map();
+    let i;
+    const obj = {};
+    const map = new Map();
     console.log('Testing', n, 'items ...');
     compare('[set]   ', function() {
         for (i = 0; i < n; ++i) {
@@ -40,13 +40,13 @@ function test(n) {
         }
     });
     compare('[get]   ', function() {
-        var sum = 0;
+        let sum = 0;
         for (i = 0; i < n; ++i) {
             sum += map.get(PREFIX + i);
         }
         return sum;
     }, function() {
-        var sum = 0;
+        let sum = 0;
         for (i = 0; i < n; ++i) {
             sum += obj[PREFIX + i];
         }
@@ -65,21 +65,21 @@ function test(n) {
 }
 
 function compare(name, func1, func2) {
-    var sum1 = 0;
-    var sum2 = 0;
-    var count = 0;
+    let sum1 = 0;
+    let sum2 = 0;
+    let count = 0;
     while (sum1 < 200 || sum2 < 200) {
-        var time1 = Date.now();
+        const time1 = Date.now();
         func1();
-        var time2 = Date.now();
+        const time2 = Date.now();
         func2();
-        var time3 = Date.now();
+        const time3 = Date.now();
         sum1 += time2 - time1;
         sum2 += time3 - time2;
         count += 1;
     }
-    var avg1 = sum1 / count;
-    var avg2 = sum2 / count;
+    const avg1 = sum1 / count;
+    const avg2 = sum2 / count;
     console.log(name,
         'MAP is ' + (100 * (avg2 - avg1) / avg2).toFixed(0) + '% faster than OBJ',
         '  (' + avg1.toFixed(6) + ' ms vs. ' + avg2.toFixed(6) + ' ms)');

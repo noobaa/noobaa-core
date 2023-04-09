@@ -24,7 +24,7 @@ function main() {
     const hasher = crypto.createHash(argv.hash);
     const buf = crypto.randomBytes(1024 * 1024);
     const speedometer = new Speedometer('CPU Speed');
-    var size = argv.size * 1024 * 1024;
+    let size = argv.size * 1024 * 1024;
     console.log(`Crunching ${argv.size} MB with ${argv.hash}...`);
     run();
 

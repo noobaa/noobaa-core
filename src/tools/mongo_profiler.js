@@ -17,30 +17,30 @@
 //  > mongo nbcore src/tools/mongo_profiler.js
 //
 
-var res = {};
+const res = {};
 db.system.profile.find({
     ns: {
         $ne: 'nbcore.system.profile'
     }
 }, {}).forEach(function(p) {
-    var col = p.ns.split('.')[1];
-    var key = col + '.' + p.op;
-    var info = res[key] || { items: [] };
+    const col = p.ns.split('.')[1];
+    const key = col + '.' + p.op;
+    const info = res[key] || { items: [] };
     res[key] = info;
     info.items.push(p);
 });
 
-for (var key of Object.keys(res)) {
-    var info = res[key];
-    var items = info.items;
+for (const key of Object.keys(res)) {
+    const info = res[key];
+    const items = info.items;
     items.sort(function(a, b) {
         return a.millis - b.millis;
     });
-    var count = items.length;
-    var min = info.items[0];
-    var med = items[Math.floor(count * 0.5)];
-    var p90 = items[Math.floor(count * 0.9)];
-    var max = items[count - 1];
+    const count = items.length;
+    const min = info.items[0];
+    const med = items[Math.floor(count * 0.5)];
+    const p90 = items[Math.floor(count * 0.9)];
+    const max = items[count - 1];
     print();
     print('profile:', key);
     print('    count:', count);
@@ -53,21 +53,21 @@ for (var key of Object.keys(res)) {
 
 function profify(p, sep) {
     sep = sep || '';
-    var max_line = 300;
-    var s = '';
-    var keys = Object.keys(p);
-    var order = ['millis', 'op', 'ns', 'ts', '*', 'locks', 'command', 'query', 'execStats'];
-    var omit = ['user', 'allUsers', 'client', 'protocol'];
+    const max_line = 300;
+    let s = '';
+    const keys = Object.keys(p);
+    const order = ['millis', 'op', 'ns', 'ts', '*', 'locks', 'command', 'query', 'execStats'];
+    const omit = ['user', 'allUsers', 'client', 'protocol'];
     keys.sort(function(a, b) {
-        var ao = (order.indexOf(a) + 1) || (order.indexOf('*') + 1);
-        var bo = (order.indexOf(b) + 1) || (order.indexOf('*') + 1);
+        const ao = (order.indexOf(a) + 1) || (order.indexOf('*') + 1);
+        const bo = (order.indexOf(b) + 1) || (order.indexOf('*') + 1);
         return ao - bo;
     });
-    for (var k of keys) {
+    for (const k of keys) {
         if (omit.indexOf(k) >= 0) continue;
         if (k === 'command' && p[k].map) p[k].map = p[k].map.slice(0, p[k].map.indexOf('{'));
         if (k === 'command' && p[k].reduce) p[k].reduce = p[k].reduce.slice(0, p[k].reduce.indexOf('{'));
-        var v = JSON.stringify(p[k]) || '';
+        let v = JSON.stringify(p[k]) || '';
         if (v.length > max_line) {
             v = v.slice(0, max_line) + ' (truncated)';
         }

@@ -12,8 +12,8 @@ const { BucketFunctions } = require('../utils/bucket_functions');
 const test_name = 'reclaim';
 dbg.set_process_name(test_name);
 
-let files = [];
-let errors = [];
+const files = [];
+const errors = [];
 let current_size = 0;
 const POOL_NAME = "first-pool";
 
@@ -52,7 +52,7 @@ if (argv.help) {
 const rpc = api.new_rpc_from_base_address(`wss://${mgmt_ip}:${mgmt_port_https}`, 'EXTERNAL');
 const client = rpc.new_client({});
 
-let report = new Report();
+const report = new Report();
 //Define test cases
 const cases = [
     'reclaimed blocks',
@@ -67,7 +67,7 @@ report.init_reporter({
     cases: cases
 });
 
-let bucket_functions = new BucketFunctions(client);
+const bucket_functions = new BucketFunctions(client);
 
 const baseUnit = 1024;
 const unit_mapping = {
@@ -92,13 +92,13 @@ function saveErrorAndResume(message) {
 
 async function uploadAndVerifyFiles(bucket) {
     current_size = 0;
-    let { data_multiplier } = unit_mapping.MB;
+    const { data_multiplier } = unit_mapping.MB;
     console.log('Writing and deleting data till size amount to grow ' + dataset_size + ' MB');
     while (current_size < dataset_size) {
         try {
             console.log('Uploading files till data size grow to ' + dataset_size + ', current size is ' + current_size);
-            let file_size = set_fileSize();
-            let file_name = 'file_part_' + file_size + (Math.floor(Date.now() / 1000));
+            const file_size = set_fileSize();
+            const file_name = 'file_part_' + file_size + (Math.floor(Date.now() / 1000));
             files.push(file_name);
             current_size += file_size;
             console.log('Uploading file with size ' + file_size + ' MB');
@@ -155,7 +155,7 @@ async function reclaimCycle(agents_num) {
 }
 
 async function set_rpc_and_create_auth_token() {
-    let auth_params = {
+    const auth_params = {
         email: 'demo@noobaa.com',
         password: 'DeMo1',
         system: 'demo'

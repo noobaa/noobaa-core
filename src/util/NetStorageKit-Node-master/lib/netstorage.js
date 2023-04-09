@@ -161,9 +161,9 @@ class Netstorage {
     }
 
     buildRequestOptions(vmethod, vopts) {
-        var method = vmethod;
-        var opts = vopts;
-        var baseActions = `${method}&format=xml`;
+        const method = vmethod;
+        const opts = vopts;
+        const baseActions = `${method}&format=xml`;
         if (typeof opts === 'object') {
             if (opts.path) {
                 if (opts.actions instanceof Object && Object.keys(opts.actions).length > 0) {
@@ -190,8 +190,8 @@ class Netstorage {
     }
 
     buildRequestActions(vactions) {
-        var actions = vactions;
-        var parsedActions = '';
+        const actions = vactions;
+        let parsedActions = '';
         Object.keys(actions).forEach(action => {
             parsedActions += `&${action}=${actions[action]}`;
         });

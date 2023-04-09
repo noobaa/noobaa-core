@@ -1,9 +1,9 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-let _ = require('lodash');
-let child_process = require('child_process');
-let argv = require('minimist')(process.argv);
+const _ = require('lodash');
+const child_process = require('child_process');
+const argv = require('minimist')(process.argv);
 
 /**
  *
@@ -38,7 +38,7 @@ if (require.main === module) {
 }
 
 function main() {
-    let excludes = argv.exclude ? argv.exclude.split(',') : [];
+    const excludes = argv.exclude ? argv.exclude.split(',') : [];
     console.log('Excluding services:', excludes.join(' '));
     _.each(SERVICES, service => {
         if (excludes.indexOf(service.name) === -1) run_service(service);

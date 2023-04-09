@@ -85,7 +85,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
         if (!fs_root) return print_usage();
         const versioning = argv.versioning || 'DISABLED';
 
-        let fs_config = {
+        const fs_config = {
             uid: Number(argv.uid) || process.getuid(),
             gid: Number(argv.gid) || process.getgid(),
             backend,

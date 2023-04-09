@@ -88,7 +88,7 @@ const s3ops = new S3OPS({
 
 update_dataset_sizes();
 
-let report = new Report();
+const report = new Report();
 const cases = [
     'RANDOM',
     'UPLOAD_NEW',
@@ -184,7 +184,7 @@ const ACTION_TYPES = [{
     randomizer: multi_delete_randomizer
 }];
 
-let RANDOM_SELECTION = [];
+const RANDOM_SELECTION = [];
 
 /*
     Populate array for random selection according to desired weights
@@ -193,7 +193,7 @@ function populate_random_selection() {
     for (let i = 0; i < ACTION_TYPES.length; ++i) {
         const selected = ACTION_TYPES[i];
         if (selected.include_random) {
-            let calc_weight = Math.floor(selected.weight);
+            const calc_weight = Math.floor(selected.weight);
             if (!selected.randomizer) {
                 console.error(`ACTION ${selected.name} does not include a randomizer, cannot create setup`);
             }
@@ -296,7 +296,7 @@ function get_filename() {
     } else if (TEST_CFG.max_depth === 0) {
         file_name = `${DATASET_NAME}_`;
     } else {
-        let random_max_depth = Math.floor(Math.random() * (TEST_CFG.max_depth + 1));
+        const random_max_depth = Math.floor(Math.random() * (TEST_CFG.max_depth + 1));
         console.log(`random_max_depth: ${random_max_depth}`);
         if (random_max_depth <= TEST_CFG.min_depth) {
             if (random_max_depth === 0) {
@@ -392,7 +392,7 @@ async function read(params) {
 }
 
 async function read_range_randomizer() {
-    let rand_parts = (Math.floor(Math.random() * (TEST_CFG.part_num_high - TEST_CFG.part_num_low)) +
+    const rand_parts = (Math.floor(Math.random() * (TEST_CFG.part_num_high - TEST_CFG.part_num_low)) +
         TEST_CFG.part_num_low);
     const randomFile = await get_random_file();
     console.info(`Selected to read_range: ${randomFile.filename}, size: ${randomFile.extra && randomFile.extra.size}, with ${
@@ -409,7 +409,7 @@ async function read_range(params) {
 
 async function upload_new_randomizer() {
     let is_multi_part = Math.floor(Math.random() * 2) === 0;
-    let rand_size = set_fileSize();
+    const rand_size = set_fileSize();
     let file_name;
     let rand_parts;
     if (is_multi_part) {
@@ -430,7 +430,7 @@ async function upload_new_randomizer() {
         console.log('Uploading a new key');
         file_name = get_filename();
     }
-    let res = {
+    const res = {
         is_multi_part,
         rand_size,
         file_name,
@@ -488,8 +488,8 @@ async function upload_new(params) {
 }
 
 function upload_abort_randomizer() {
-    let file_name = get_filename(); //No versionid for uploads, no need to handle versioning
-    let res = {
+    const file_name = get_filename(); //No versionid for uploads, no need to handle versioning
+    const res = {
         is_multi_part: true,
         file_name,
     };
@@ -508,7 +508,7 @@ async function upload_and_abort(params) {
 
 async function upload_overwrite_randomizer() {
     //upload overwrite in a versioning case would simply create a new version, no need for special handling
-    let rand_size = set_fileSize();
+    const rand_size = set_fileSize();
     let is_multi_part = Math.floor(Math.random() * 2) === 0;
     let rand_parts;
     if (is_multi_part) {
@@ -520,7 +520,7 @@ async function upload_overwrite_randomizer() {
         is_multi_part = false;
     }
     const rfile = await s3ops.get_a_random_file(TEST_CFG.bucket, DATASET_NAME);
-    let res = {
+    const res = {
         is_multi_part,
         rand_size,
         filename: rfile.Key,
@@ -634,7 +634,7 @@ async function set_attribute_randomizer() {
     // putObjectTagging - 50%
     // copyObject - 50%
     // let useCopy = Math.floor(Math.random() * 2) === 0;
-    let useCopy = true; //currently doing only copy due to bug #3228
+    const useCopy = true; //currently doing only copy due to bug #3228
 
     const randomFile = await get_random_file();
     return {
@@ -776,7 +776,7 @@ function run_test(throw_on_fail) {
 }
 
 function run_replay() {
-    let journal = [];
+    const journal = [];
     const readfile = readline.createInterface({
         input: fs.createReadStream(argv.replay),
         terminal: false

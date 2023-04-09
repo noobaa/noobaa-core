@@ -15,8 +15,8 @@ class Auth {
     }
 
     auth(netstoragePath, actionHeaders) {
-        var acs_auth_data = '';
-        var acs_auth_sign = '';
+        let acs_auth_data = '';
+        let acs_auth_sign = '';
 
         try {
             acs_auth_data = `5, 0.0.0.0, 0.0.0.0, ${Math.floor(Date.now() / 1000)}, ${Math.floor((Math.random() * 100000))}, ${this.opts.keyName}`;

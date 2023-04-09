@@ -499,10 +499,10 @@ function aggregate_by_content_type({
 
 function get_hist_array_from_aggregate(agg, key) {
     const key_prefix = key + '_pow2_';
-    let bins_arr = [];
-    for (var prop in agg) {
+    const bins_arr = [];
+    for (const prop in agg) {
         if (prop.startsWith(key_prefix)) {
-            let index = parseInt(prop.replace(key_prefix, ''), 10);
+            const index = parseInt(prop.replace(key_prefix, ''), 10);
             bins_arr[index] = agg[prop];
         }
     }
@@ -511,13 +511,13 @@ function get_hist_array_from_aggregate(agg, key) {
 
 function build_objects_hist(bucket, existing_agg, deleted_agg) {
     // get the current histogram from DB
-    let current_objects_hist = (bucket.storage_stats && bucket.storage_stats.objects_hist) || [];
+    const current_objects_hist = (bucket.storage_stats && bucket.storage_stats.objects_hist) || [];
 
     // get the latest additions\deletions in an array form
-    let existing_size_hist = get_hist_array_from_aggregate(existing_agg[bucket._id], 'size');
-    let deleted_size_hist = get_hist_array_from_aggregate(deleted_agg[bucket._id], 'size');
-    let existing_count_hist = get_hist_array_from_aggregate(existing_agg[bucket._id], 'count');
-    let deleted_count_hist = get_hist_array_from_aggregate(deleted_agg[bucket._id], 'count');
+    const existing_size_hist = get_hist_array_from_aggregate(existing_agg[bucket._id], 'size');
+    const deleted_size_hist = get_hist_array_from_aggregate(deleted_agg[bucket._id], 'size');
+    const existing_count_hist = get_hist_array_from_aggregate(existing_agg[bucket._id], 'count');
+    const deleted_count_hist = get_hist_array_from_aggregate(deleted_agg[bucket._id], 'count');
 
     // size and count should have the same length, since they are emitted together in mongo mapreduce
     if (deleted_size_hist.length !== deleted_count_hist.length ||
@@ -529,11 +529,11 @@ function build_objects_hist(bucket, existing_agg, deleted_agg) {
             'existing_count_hist.length =', existing_count_hist.length);
     }
 
-    let num_bins = Math.max(deleted_size_hist.length, existing_size_hist.length, current_objects_hist.length);
+    const num_bins = Math.max(deleted_size_hist.length, existing_size_hist.length, current_objects_hist.length);
     if (num_bins === 0) return current_objects_hist;
-    let new_size_hist = [];
-    for (var i = 0; i < num_bins; i++) {
-        let bin = {
+    const new_size_hist = [];
+    for (let i = 0; i < num_bins; i++) {
+        const bin = {
             label: (current_objects_hist[i] && current_objects_hist[i].label) || get_hist_label(i),
             aggregated_sum: get_new_bin(
                 existing_size_hist[i] || 0,
@@ -561,11 +561,11 @@ function get_new_bin(existing, deleted, current) {
     if (!existing && !deleted) {
         return current;
     }
-    let bigint_existing_size_bin = size_utils.json_to_bigint(existing);
-    let bigint_deleted_size_bin = size_utils.json_to_bigint(deleted);
-    let delta_size_bin = bigint_existing_size_bin
+    const bigint_existing_size_bin = size_utils.json_to_bigint(existing);
+    const bigint_deleted_size_bin = size_utils.json_to_bigint(deleted);
+    const delta_size_bin = bigint_existing_size_bin
         .minus(bigint_deleted_size_bin);
-    let new_bin = size_utils.json_to_bigint(current)
+        const new_bin = size_utils.json_to_bigint(current)
         .plus(delta_size_bin)
         .toJSON();
     return new_bin;

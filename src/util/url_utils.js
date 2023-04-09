@@ -1,11 +1,11 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-var _ = require('lodash');
-var url = require('url');
-var querystring = require('querystring');
+const _ = require('lodash');
+const url = require('url');
+const querystring = require('querystring');
 
-var QUICK_PARSE_REGEXP = /^\s*(\w+:)?(\/\/)?(([^:/[\]]*)|\[([a-fA-F0-9:.]*)\])?(:\d*)?(\/[^?#]*)?(\?[^#]*)?(#.*)?\s*$/;
+const QUICK_PARSE_REGEXP = /^\s*(\w+:)?(\/\/)?(([^:/[\]]*)|\[([a-fA-F0-9:.]*)\])?(:\d*)?(\/[^?#]*)?(\?[^#]*)?(#.*)?\s*$/;
 
 /**
  * parse url string much faster than url.parse() - reduce the time to 1/10.
@@ -23,8 +23,8 @@ function quick_parse(url_string, parse_query_string) {
     // we do it to avoid complexity, and since we use quick_parse on very specific places it doesn't matter for now.
     // we need to review it again if neccessary.
     url_string = url_string.toLowerCase();
-    var match = url_string.match(QUICK_PARSE_REGEXP);
-    var u = new url.Url();
+    const match = url_string.match(QUICK_PARSE_REGEXP);
+    const u = new url.Url();
     if (!match) return u;
     u.href = url_string;
     u.protocol = match[1] || null;
@@ -59,29 +59,29 @@ function construct_url(def) {
 }
 
 function benchmark() {
-    var testing_url = process.argv[2] || "http://localhost:4545/";
-    var url_parse_res = url.parse(testing_url, true);
-    var quick_parse_res = quick_parse(testing_url, true);
+    const testing_url = process.argv[2] || "http://localhost:4545/";
+    const url_parse_res = url.parse(testing_url, true);
+    const quick_parse_res = quick_parse(testing_url, true);
     console.log('\nurl.parse("' + testing_url + '") = ', url_parse_res);
     console.log('\nquick_parse("' + testing_url + '") = ', quick_parse_res);
     console.log(' ');
     _.forIn(url_parse_res, function(v1, k) {
-        var v2 = quick_parse_res[k];
+        const v2 = quick_parse_res[k];
         if (!_.isEqual(v1, v2)) {
             console.log('!!! Bad value quick_parse()',
                 k + ': ' + JSON.stringify(v2),
                 'expected', JSON.stringify(v1));
         }
     });
-    var url_parse_fmt = url.format(url_parse_res);
-    var quick_parse_fmt = url.format(quick_parse_res);
+    const url_parse_fmt = url.format(url_parse_res);
+    const quick_parse_fmt = url.format(quick_parse_res);
     if (url_parse_fmt !== testing_url) {
         console.log('!!! Bad format(url.parse) =', url_parse_fmt, 'expected', testing_url);
     }
     if (quick_parse_fmt !== testing_url) {
         console.log('!!! Bad format(quick_parse) =', quick_parse_fmt, 'expected', testing_url);
     }
-    var tests = [
+    const tests = [
         function test_url_parse() {
             return url.parse(testing_url, true);
         },
@@ -89,17 +89,17 @@ function benchmark() {
             return quick_parse(testing_url, true);
         }
     ];
-    for (var t = 0; t < tests.length; ++t) {
-        var test = tests[t];
+    for (let t = 0; t < tests.length; ++t) {
+        const test = tests[t];
         console.log('\nbenchmarking', test.name, '...');
-        var count = 0;
-        var start = Date.now();
-        var now = start;
-        var last_print = start;
-        var last_count = 0;
-        var speed;
+        let count = 0;
+        const start = Date.now();
+        let now = start;
+        let last_print = start;
+        let last_count = 0;
+        let speed;
         do {
-            for (var i = 0; i < 5000; ++i) test();
+            for (let i = 0; i < 5000; ++i) test();
             count += 5000;
             now = Date.now();
             if (now - last_print > 1000) {

@@ -44,7 +44,7 @@ const hosts = {};
 class AgentCLI {
     constructor(params) {
         this.params = params;
-        var rpc = api.new_rpc();
+        const rpc = api.new_rpc();
         this.client = rpc.new_client();
         this.s3 = new S3Auth();
         this.agents = {};
@@ -78,7 +78,7 @@ class AgentCLI {
      *
      */
     init() {
-        var self = this;
+        const self = this;
         if (self.params.access_key) {
             self.params.access_key = self.params.access_key.toString();
         }
@@ -134,20 +134,20 @@ class AgentCLI {
                 self.params.all_storage_paths = mount_points;
                 if (self.params.cleanup) {
                     return P.all(_.map(self.params.all_storage_paths, storage_path_info => {
-                        var storage_path = storage_path_info.mount;
-                        var path_modification = storage_path.replace('/noobaa_storage/', '')
+                        const storage_path = storage_path_info.mount;
+                        const path_modification = storage_path.replace('/noobaa_storage/', '')
                             .replace('/', '')
                             .replace('.', '');
                         return fs_utils.folder_delete(path_modification);
                     }));
                 } else if (self.params.duplicate || self.params.notfound) {
-                    let reason = self.params.duplicate ? 'duplicate' : 'notfound';
-                    let target_noobaa_storage = reason + '_noobaa_storage_' + Date.now();
+                    const reason = self.params.duplicate ? 'duplicate' : 'notfound';
+                    const target_noobaa_storage = reason + '_noobaa_storage_' + Date.now();
                     dbg.log0(`got ${reason} flag - renaming noobaa_storage to ${target_noobaa_storage}`);
                     return P.all(_.map(self.params.all_storage_paths, storage_path_info => {
                             // move noobaa_storage in all drives to an alternate location
-                            let storage_path = storage_path_info.mount;
-                            let target_path = storage_path.replace('noobaa_storage', target_noobaa_storage);
+                            const storage_path = storage_path_info.mount;
+                            const target_path = storage_path.replace('noobaa_storage', target_noobaa_storage);
                             dbg.log0('moving', storage_path, 'to', target_path);
                             return fs.promises.rename(storage_path, target_path);
                         }))
@@ -179,7 +179,7 @@ class AgentCLI {
     }
 
     detect_new_drives() {
-        var self = this;
+        const self = this;
         const retry = () => {
             setTimeout(() => self.detect_new_drives(), DETECT_NEW_DRIVES_INTERVAL);
         };
@@ -247,14 +247,14 @@ class AgentCLI {
      *
      */
     load(added_storage_paths) {
-        var self = this;
-        let paths_to_work_on = added_storage_paths || self.params.all_storage_paths;
-        let internal_agent_prefix = 'noobaa-internal-agent-';
+        const self = this;
+        const paths_to_work_on = added_storage_paths || self.params.all_storage_paths;
+        const internal_agent_prefix = 'noobaa-internal-agent-';
         // TODO: This has to work on partitial relevant paths only
         // handle regular agents
         dbg.log0('Loading agents', paths_to_work_on);
         return P.all(_.map(paths_to_work_on, function(storage_path_info) {
-                var storage_path = storage_path_info.mount;
+                const storage_path = storage_path_info.mount;
                 dbg.log0('root_path', storage_path);
                 return P.resolve()
                     .then(() => fs_utils.create_path(storage_path, fs_utils.PRIVATE_DIR_PERMISSIONS))
@@ -272,15 +272,15 @@ class AgentCLI {
                         dbg.log0('nodes_names:', regular_node_names);
                         return P.map(regular_node_names, node_name => {
                             dbg.log0('node_name', node_name, 'storage_path', storage_path);
-                            var node_path = path.join(storage_path, node_name);
+                            const node_path = path.join(storage_path, node_name);
                             return self.start(node_name, node_path);
                         });
                     });
             }))
             .then(storage_path_nodes => {
-                var nodes_scale = 0;
-                var number_of_new_paths = 0;
-                var existing_nodes_count = 0;
+                const nodes_scale = 0;
+                let number_of_new_paths = 0;
+                let existing_nodes_count = 0;
                 _.each(storage_path_nodes, function(nodes) {
                     // assumes same amount of nodes per each HD. we will take the last one.
                     if (nodes.length) {
@@ -294,7 +294,7 @@ class AgentCLI {
                 // which asks to create at least that number of total nodes.
                 // Please note that the scale is per storage path. if the scale is 2 and there are two HD
                 // we will have 4 nodes. In addition, we will always scale to at least 1 node
-                var nodes_to_add = 0;
+                let nodes_to_add = 0;
                 dbg.log0('AGENTS SCALE TO', nodes_scale);
                 dbg.log0('AGENTS EXISTING', existing_nodes_count);
                 dbg.log0('AGENTS NEW PATHS', number_of_new_paths);
@@ -318,10 +318,10 @@ class AgentCLI {
     }
 
     hide_storage_folder(current_storage_path) {
-        var self = this;
+        const self = this;
         dbg.log0('os:', os.type());
         if (os.type().indexOf('Windows') >= 0) {
-            var current_path = current_storage_path;
+            let current_path = current_storage_path;
             current_path = current_path.substring(0, current_path.length - 1);
             current_path = current_path.replace('./', '');
             //hiding storage folder
@@ -357,13 +357,13 @@ class AgentCLI {
     }
 
     create_node_helper(current_node_path_info) {
-        var self = this;
+        const self = this;
         return P.fcall(function() {
             dbg.log0('create_node_helper called with self.params', self.params);
-            var current_node_path = current_node_path_info.mount;
-            var node_name = self.params.hostname;
+            const current_node_path = current_node_path_info.mount;
+            let node_name = self.params.hostname;
             const noobaa_storage_dir_name = self.params.test_hostname ? 'noobaa_storage_' + self.params.test_hostname : 'noobaa_storage';
-            var path_modification = current_node_path.replace('/' + noobaa_storage_dir_name + '/', '').replace(/\//g, '')
+            let path_modification = current_node_path.replace('/' + noobaa_storage_dir_name + '/', '').replace(/\//g, '')
                 .replace('.', '');
             //windows
             path_modification = path_modification.replace('\\' + noobaa_storage_dir_name + '\\', '');
@@ -374,21 +374,21 @@ class AgentCLI {
                 node_name = node_name + '-' + path_modification.replace('/', '');
             }
             node_name += '-' + self.params.host_id.split('-')[0];
-            var node_path = path.join(current_node_path, node_name);
-            var token_path = path.join(node_path, 'token');
+            const node_path = path.join(current_node_path, node_name);
+            const token_path = path.join(node_path, 'token');
             dbg.log0('create new node for node name', node_name, ' path:', node_path, ' token path:', token_path);
             return fs_utils.file_must_not_exist(token_path)
                 .then(function() {
                     if (self.params.create_node_token) return;
                     // authenticate and create a token for new nodes
-                    var basic_auth_params = _.pick(self.params, 'system', 'role');
+                    const basic_auth_params = _.pick(self.params, 'system', 'role');
                     if (_.isEmpty(basic_auth_params)) {
                         throw new Error("No credentials");
                     } else {
-                        var secret_key = self.params.secret_key;
-                        var auth_params_str = JSON.stringify(basic_auth_params);
-                        var signature = self.s3.sign(secret_key, auth_params_str);
-                        var auth_params = {
+                        const secret_key = self.params.secret_key;
+                        const auth_params_str = JSON.stringify(basic_auth_params);
+                        const signature = self.s3.sign(secret_key, auth_params_str);
+                        const auth_params = {
                             access_key: self.params.access_key,
                             string_to_sign: auth_params_str,
                             signature: signature,
@@ -439,8 +439,8 @@ class AgentCLI {
      *
      */
     create(number_of_nodes, paths_to_work_on) {
-        var self = this;
-        let storage_paths_to_add = paths_to_work_on || self.params.all_storage_paths;
+        const self = this;
+        const storage_paths_to_add = paths_to_work_on || self.params.all_storage_paths;
         //create root path last. First, create all other.
         // for internal_agents only use root path
         return P.all(_.map(_.drop(storage_paths_to_add, 1), function(current_storage_path) {
@@ -483,12 +483,12 @@ class AgentCLI {
      *
      */
     create_some(n, paths_to_work_on) {
-        var self = this;
+        const self = this;
         //special case, new HD introduction to the system. adding only these new HD nodes
         if (n === 0) {
             return self.create(0, paths_to_work_on);
         } else {
-            var sem = new Semaphore(5);
+            const sem = new Semaphore(5);
             return P.all(_.times(n, function() {
                 return sem.surround(function() {
                     return self.create(n, paths_to_work_on);
@@ -505,9 +505,9 @@ class AgentCLI {
      *
      */
     async start(node_name, node_path) {
-        var self = this;
+        const self = this;
         dbg.log0('agent started ', node_path, node_name);
-        var agent = self.agents[node_name];
+        let agent = self.agents[node_name];
 
         if (!self.params.address) {
             self.params.address = addr_utils.format_base_address();
@@ -515,12 +515,12 @@ class AgentCLI {
 
         if (!agent) {
             // token wrapper is used by agent to read\write token
-            let token_path = path.join(node_path, 'token');
-            let token_wrapper = {
+            const token_path = path.join(node_path, 'token');
+            const token_wrapper = {
                 read: () => fs.promises.readFile(token_path),
                 write: token => fs_utils.replace_file(token_path, token),
             };
-            let create_node_token_wrapper = {
+            const create_node_token_wrapper = {
                 read: () => this.agent_conf.read()
                     .then(agent_conf => agent_conf.create_node_token),
                 write: new_token => this.agent_conf.update({
@@ -572,8 +572,8 @@ class AgentCLI {
      *
      */
     stop(node_name) {
-        var self = this;
-        var agent = self.agents[node_name];
+        const self = this;
+        const agent = self.agents[node_name];
         if (!agent) {
             dbg.log0('agent not found', node_name);
             return;
@@ -605,8 +605,8 @@ class AgentCLI {
      *
      */
     show(func_name) {
-        var func = this[func_name];
-        var helper = func && func.helper;
+        const func = this[func_name];
+        const helper = func && func.helper;
         // in the common case the helper is a function - so call it
         if (typeof(helper) === 'function') {
             return helper.call(this);
@@ -641,7 +641,7 @@ class AgentCLI {
 
 function agent_cli_repl() {
     // start a Read-Eval-Print-Loop
-    var repl_srv = repl.start({
+    const repl_srv = repl.start({
         prompt: 'agent-cli > ',
         useGlobal: false
     });
@@ -724,15 +724,15 @@ function main() {
 
     if (argv.scale) {
         return P.map(_.range(0, argv.scale), i => {
-                let params = _.clone(argv);
+                const params = _.clone(argv);
                 params.test_hostname = `${os.hostname()}-${i}`;
-                let test_agent_cli = new AgentCLI(params);
+                const test_agent_cli = new AgentCLI(params);
                 hosts[params.test_hostname] = { params, host: test_agent_cli, running: true };
                 return test_agent_cli.init();
             })
             .then(() => argv.repl && agent_cli_repl());
     } else {
-        var cli = new AgentCLI(argv);
+        const cli = new AgentCLI(argv);
         return cli.init()
             .then(() => argv.repl && agent_cli_repl());
     }

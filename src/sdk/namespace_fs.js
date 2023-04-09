@@ -93,7 +93,7 @@ async function is_directory_or_symlink_to_directory(stat, fs_context, entry_path
     try {
         let r = isDirectory(stat);
         if (!r && is_symbolic_link(stat)) {
-            let targetStat = await nb_native().fs.stat(fs_context, entry_path);
+            const targetStat = await nb_native().fs.stat(fs_context, entry_path);
             if (!targetStat) throw new Error('is_directory_or_symlink_to_directory: targetStat is empty');
             r = isDirectory(targetStat);
         }
@@ -595,7 +595,7 @@ class NamespaceFS {
 
             let num_bytes = 0;
             let num_buffers = 0;
-            let log2_size_histogram = {};
+            const log2_size_histogram = {};
             let drain_promise = null;
 
             dbg.log0('NamespaceFS: read_object_stream', { file_path, start, end });
@@ -759,7 +759,7 @@ class NamespaceFS {
         }
         let open_path = upload_path || file_path;
 
-        let copy_res = params.copy_source && (await this._try_copy_file(fs_context, params, file_path, upload_path));
+        const copy_res = params.copy_source && (await this._try_copy_file(fs_context, params, file_path, upload_path));
         if (copy_res) {
             if (copy_res === copy_status_enum.FALLBACK) {
                 params.copy_source.nsfs_copy_fallback();
@@ -884,7 +884,7 @@ class NamespaceFS {
 
     async _wrap_safe_op_with_retries(fs_context, handler, params, retry_err_msg, success_err_codes) {
         let retries = config.NSFS_RENAME_RETRIES;
-        let { from_path, to_path = undefined, mtimeNsBigint, ino } = params;
+        const { from_path, to_path = undefined, mtimeNsBigint, ino } = params;
         for (;;) {
             try {
                 dbg.log1('Namespace_fs.wrap_safe_with_retries: ', handler, fs_context, from_path, to_path, mtimeNsBigint, ino);
@@ -1125,7 +1125,7 @@ class NamespaceFS {
         const fs_context = this.prepare_fs_context(object_sdk);
         const open_mode = 'w';
         try {
-            let MD5Async = config.NSFS_CALCULATE_MD5 ? new (nb_native().crypto.MD5Async)() : undefined;
+            const MD5Async = config.NSFS_CALCULATE_MD5 ? new (nb_native().crypto.MD5Async)() : undefined;
             const { multiparts = [] } = params;
             multiparts.sort((a, b) => a.num - b.num);
             await this._load_multipart(params, fs_context);
@@ -1594,10 +1594,10 @@ class NamespaceFS {
     }
 
     async _folder_delete(dir, fs_context) {
-        let entries = await nb_native().fs.readdir(fs_context, dir);
-        let results = await Promise.all(entries.map(entry => {
-            let fullPath = path.join(dir, entry.name);
-            let task = isDirectory(entry) ? this._folder_delete(fullPath, fs_context) :
+        const entries = await nb_native().fs.readdir(fs_context, dir);
+        const results = await Promise.all(entries.map(entry => {
+            const fullPath = path.join(dir, entry.name);
+            const task = isDirectory(entry) ? this._folder_delete(fullPath, fs_context) :
                 nb_native().fs.unlink(fs_context, fullPath);
             return task.catch(error => ({ error }));
         }));
@@ -1674,7 +1674,7 @@ class NamespaceFS {
         try {
             // Returns the real path of the entry.
             // The entry path may point to regular file or directory, but can have symbolic links  
-            let full_path = await nb_native().fs.realpath(fs_context, entry_path);
+            const full_path = await nb_native().fs.realpath(fs_context, entry_path);
             if (!full_path.startsWith(this.bucket_path)) {
                 dbg.log0('check_bucket_boundaries: the path', entry_path, 'is not in the bucket', this.bucket_path, 'boundaries');
                 return false;
@@ -1835,7 +1835,7 @@ class NamespaceFS {
     //    1.2 if version exists - unlink version
     // 2. try promote second latest to latest if one of the deleted versions is the latest version (with version id specified) or a delete marker
     async _delete_objects_versioning_enabled(fs_context, key, versions) {
-        let res = [];
+        const res = [];
         let deleted_delete_marker = false;
         let delete_marker_created = false;
         let latest_ver_info;

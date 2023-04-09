@@ -89,8 +89,8 @@ class CloudFunction {
                     throw new Error('Failed to get healthy status');
                 } else {
                     const system_info = await this._client.system.read_system({});
-                    let poolIndex = system_info.pools.findIndex(pool => pool.name === 'cloud-resource-aws');
-                    let status = system_info.pools[poolIndex].mode;
+                    const poolIndex = system_info.pools.findIndex(pool => pool.name === 'cloud-resource-aws');
+                    const status = system_info.pools[poolIndex].mode;
                     if (system_info.pools[poolIndex].mode === 'OPTIMAL') {
                         console.log('Pool ' + poolName + ' is healthy');
                         break;

@@ -8,13 +8,13 @@ if (argv.log_file) {
 }
 dbg.set_process_name('test_bucket_placement');
 
-var basic_server_ops = require('../utils/basic_server_ops');
-var P = require('../../util/promise');
-var api = require('../../api');
-var _ = require('lodash');
+const basic_server_ops = require('../utils/basic_server_ops');
+const P = require('../../util/promise');
+const api = require('../../api');
+const _ = require('lodash');
 const test_utils = require('./test_utils');
 
-var dotenv = require('../../util/dotenv');
+const dotenv = require('../../util/dotenv');
 dotenv.load();
 
 
@@ -26,8 +26,8 @@ const {
 
 argv.access_key = argv.access_key || '123';
 argv.secret_key = argv.secret_key || 'abc';
-var rpc = api.new_rpc();
-var client = rpc.new_client({
+const rpc = api.new_rpc();
+const client = rpc.new_client({
     address: 'ws://' + mgmt_ip + ':' + mgmt_port
 });
 
@@ -40,7 +40,7 @@ module.exports = {
 
 // Does the Auth and returns the nodes in the system
 async function create_auth() {
-    var auth_params = {
+    const auth_params = {
         email: 'demo@noobaa.com',
         password: 'DeMo1',
         system: 'demo'
@@ -130,8 +130,8 @@ async function perform_placement_tests() {
             key: fkey,
         });
         _.each(chunks, chunk => {
-            var pool1_count = 0;
-            var pool2_count = 0;
+            let pool1_count = 0;
+            let pool2_count = 0;
             _.each(chunk.frags, frag => {
                 _.each(frag.blocks, block => {
                     if (block.adminfo.pool_name === 'pool1') {

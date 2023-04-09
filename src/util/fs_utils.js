@@ -146,7 +146,7 @@ function find_all_lines_in_file(file_name, line_sub_string) {
 function get_last_line_in_file(file_name) {
     return fs.promises.readFile(file_name, 'utf8')
         .then(data => {
-            let lines = data.split('\n');
+            const lines = data.split('\n');
             let idx = lines.length - 1;
             while (!lines[idx] && idx > 0) {
                 idx -= 1;
@@ -193,11 +193,11 @@ async function file_delete(file_name) {
 function full_dir_copy(src, dst, filter_regex) {
     return P.fromCallback(callback => {
         ncp.limit = 10;
-        let ncp_options = {};
+        const ncp_options = {};
         if (filter_regex) {
             //this regexp will filter out files that matches, except path.
-            var ncp_filter_regex = new RegExp(filter_regex);
-            var ncp_filter_function = input => {
+            const ncp_filter_regex = new RegExp(filter_regex);
+            const ncp_filter_function = input => {
                 if (input.indexOf('/') > 0) {
                     return false;
                 } else if (ncp_filter_regex.test(input)) {

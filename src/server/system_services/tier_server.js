@@ -107,15 +107,15 @@ function read_tier(req) {
             nodes_client.instance().aggregate_data_free_by_tier([String(tier._id)], req.system._id)
         ])
         .then(function(res) {
-            let nodes_aggregate_pool = res[0];
-            let available_to_upload = res[1];
+            const nodes_aggregate_pool = res[0];
+            const available_to_upload = res[1];
             return get_tier_info(tier, nodes_aggregate_pool, { mirror_storage: available_to_upload[String(tier._id)] });
         });
 }
 
 
 function _convert_pools_to_data_placement_structure(pool_ids, data_placement) {
-    let mirrors = [];
+    const mirrors = [];
     if (data_placement === 'MIRROR') {
         _.forEach(pool_ids, pool_id => mirrors.push({
             _id: system_store.new_system_store_id(),
@@ -200,10 +200,10 @@ function update_tier(req) {
             if (bucket) {
                 if (req.rpc_params.data_placement) { //Placement policy changes
                     const desc_string = [];
-                    let policy_type_change = String(tier.data_placement) === String(req.rpc_params.data_placement) ? 'No changes' :
+                    const policy_type_change = String(tier.data_placement) === String(req.rpc_params.data_placement) ? 'No changes' :
                         `Changed to ${req.rpc_params.data_placement} from ${tier.data_placement}`;
-                    let removed_pools = _.difference(old_pool_names, req.rpc_params.attached_pools || []);
-                    let added_pools = _.difference(req.rpc_params.attached_pools || [], old_pool_names);
+                    const removed_pools = _.difference(old_pool_names, req.rpc_params.attached_pools || []);
+                    const added_pools = _.difference(req.rpc_params.attached_pools || [], old_pool_names);
                     desc_string.push(`Bucket policy was changed by: ${req.account && req.account.email.unwrap()}`);
                     desc_string.push(`Policy type: ${policy_type_change}`);
                     if (removed_pools.length) {
@@ -454,7 +454,7 @@ function _is_change_in_tier(old_tier, new_tier) {
 }
 
 function update_chunk_config_for_bucket(req) { // please remove when CCC is per tier and not per policy
-    var bucket = req.system.buckets_by_name && req.system.buckets_by_name[req.rpc_params.bucket_name];
+    const bucket = req.system.buckets_by_name && req.system.buckets_by_name[req.rpc_params.bucket_name];
     if (!bucket || bucket.deleting) {
         dbg.error('BUCKET NOT FOUND', req.rpc_params.bucket_name);
         throw new RpcError('NO_SUCH_BUCKET', 'No such bucket: ' + req.rpc_params.bucket_name);
@@ -478,7 +478,7 @@ function update_chunk_config_for_bucket(req) { // please remove when CCC is per 
 }
 
 function add_tier_to_bucket(req) {
-    var bucket = req.system.buckets_by_name && req.system.buckets_by_name[req.rpc_params.bucket_name];
+    const bucket = req.system.buckets_by_name && req.system.buckets_by_name[req.rpc_params.bucket_name];
     if (!bucket || bucket.deleting) {
         dbg.error('BUCKET NOT FOUND', req.rpc_params.bucket_name);
         throw new RpcError('NO_SUCH_BUCKET', 'No such bucket: ' + req.rpc_params.bucket_name);
@@ -492,7 +492,7 @@ function add_tier_to_bucket(req) {
     const mirrors = _convert_pools_to_data_placement_structure(policy_pool_ids, req.rpc_params.data_placement);
     const info = req.system.tiering_policies_by_name[policy.name.unwrap()];
     const tier0_ccc = info.tiers[0].tier.chunk_config.chunk_coder_config;
-    let chunk_config = chunk_config_utils.resolve_chunk_config(
+    const chunk_config = chunk_config_utils.resolve_chunk_config(
         req.rpc_params.chunk_coder_config || tier0_ccc, req.account, req.system);
 
     const new_tier_name = bucket.name + '#' + Date.now().toString(36);
@@ -549,8 +549,8 @@ function read_policy(req) {
             nodes_client.instance().aggregate_hosts_by_pool(pool_names, req.system._id),
         ])
         .then(function(res) {
-            let nodes_aggregate_pool = res[0];
-            let hosts_aggregate_pool = res[1];
+            const nodes_aggregate_pool = res[0];
+            const hosts_aggregate_pool = res[1];
             return get_tiering_policy_info(policy,
                 node_allocator.get_tiering_status(policy),
                 nodes_aggregate_pool,
@@ -691,7 +691,6 @@ function get_tier_info(tier, nodes_aggregate_pool, tiering_tier_status) {
     const mirror_groups = [];
 
     _.forEach(tier.mirrors, mirror => {
-        let spread_storage;
         const pools_storage = _.map(mirror.spread_pools, pool =>
             _.defaults(_.get(nodes_aggregate_pool, ['groups', String(pool._id), 'storage']), {
                 used: 0,
@@ -703,7 +702,7 @@ function get_tier_info(tier, nodes_aggregate_pool, tiering_tier_status) {
                 reserved: 0
             })
         );
-        spread_storage = size_utils.reduce_storage(size_utils.reduce_sum, pools_storage);
+        const spread_storage = size_utils.reduce_storage(size_utils.reduce_sum, pools_storage);
         _.defaults(spread_storage, {
             used: 0,
             total: 0,
@@ -798,7 +797,7 @@ function calc_tier_policy_status(tier, tier_info, extra_info) {
     if (tier_free.isZero()) {
         is_no_storage = true;
     } else {
-        let free_percent = tier_free.multiply(100).divide(tier_total);
+        const free_percent = tier_free.multiply(100).divide(tier_total);
         if (free_percent < 30) {
             is_storage_low = true;
         }

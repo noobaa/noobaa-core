@@ -79,10 +79,10 @@ class ChunkSplitter extends stream.Transform {
                 if (err) return callback(err);
                 this.pending_split = input_buf ? [] : null;
                 this.pending_split_len = 0;
-                var index = 0;
+                let index = 0;
                 split_points.forEach(size => {
                     const data = [];
-                    var pos = 0;
+                    let pos = 0;
                     while (pos < size) {
                         const needed = size - pos;
                         const buf = this.pending_encode[index];

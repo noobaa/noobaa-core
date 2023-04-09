@@ -111,9 +111,9 @@ function _initialize_debug_level(system) {
         .then(() => {
             // The purpose of this code is to initialize the debug level
             // on server's startup, to synchronize the db with the actual value
-            let current_clustering = system_store.get_local_cluster_info();
+            const current_clustering = system_store.get_local_cluster_info();
             if (current_clustering) {
-                var update_object = {};
+                const update_object = {};
                 update_object.clusters = [{
                     _id: current_clustering._id,
                     debug_level: 0
@@ -126,7 +126,7 @@ function _initialize_debug_level(system) {
 }
 
 function new_system_defaults(name, owner_account_id) {
-    var system = {
+    const system = {
         _id: system_store.new_system_store_id(),
         name: name,
         owner: owner_account_id,
@@ -184,7 +184,7 @@ function new_system_changes(name, owner_account_id) {
     const bucket_with_suffix = default_bucket_name + '#' + Date.now().toString(36);
 
 
-    let system = new_system_defaults(name, owner_account_id);
+    const system = new_system_defaults(name, owner_account_id);
 
     const m_key = system_store.master_key_manager.new_master_key({
         description: `master key of ${system._id} system`,
@@ -233,7 +233,7 @@ function new_system_changes(name, owner_account_id) {
         }]
     );
 
-    let bucket = bucket_server.new_bucket_defaults(
+    const bucket = bucket_server.new_bucket_defaults(
         default_bucket_name,
         system._id,
         policy._id,
@@ -546,12 +546,12 @@ async function read_system(req) {
         maintenance_mode.time_left = Math.max(0, system.maintenance_mode - now);
     }
 
-    let phone_home_config = {};
+    const phone_home_config = {};
     if (system.freemium_cap.phone_home_unable_comm) {
         phone_home_config.phone_home_unable_comm = true;
     }
 
-    let system_cap = system.freemium_cap.cap_terabytes ? system.freemium_cap.cap_terabytes : Number.MAX_SAFE_INTEGER;
+    const system_cap = system.freemium_cap.cap_terabytes ? system.freemium_cap.cap_terabytes : Number.MAX_SAFE_INTEGER;
 
     // TODO use n2n_config.stun_servers ?
     // var stun_address = 'stun://' + ip_address + ':' + stun.PORT;
@@ -562,7 +562,7 @@ async function read_system(req) {
     //     dbg.log0('read_system: n2n_config.stun_servers', n2n_config.stun_servers);
     // }
 
-    let last_upgrade = system.upgrade_history.successful_upgrades[0] && {
+    const last_upgrade = system.upgrade_history.successful_upgrades[0] && {
         timestamp: system.upgrade_history.successful_upgrades[0].timestamp
     };
 
@@ -576,7 +576,7 @@ async function read_system(req) {
         name: system.name,
         objects: objects_sys.count.toJSNumber(),
         roles: _.map(system.roles_by_account, function(roles, account_id) {
-            var account = system_store.data.get_by_id(account_id);
+            const account = system_store.data.get_by_id(account_id);
             if (!account) return;
             return {
                 roles: roles,
@@ -588,7 +588,7 @@ async function read_system(req) {
                 const tiering_pools_status = node_allocator.get_tiering_status(bucket.tiering);
                 Object.assign(tiering_status_by_tier, tiering_pools_status);
                 const func_configs = funcs.map(func => func.config);
-                let b = bucket_server.get_bucket_info({
+                const b = bucket_server.get_bucket_info({
                     bucket,
                     nodes_aggregate_pool: nodes_aggregate_pool_with_cloud_and_mongo,
                     hosts_aggregate_pool,
@@ -650,7 +650,7 @@ async function read_system(req) {
 }
 
 function update_system(req) {
-    var updates = _.pick(req.rpc_params, 'name');
+    const updates = _.pick(req.rpc_params, 'name');
     updates._id = req.system._id;
     return system_store.make_changes({
         update: {
@@ -660,7 +660,7 @@ function update_system(req) {
 }
 
 function set_maintenance_mode(req) {
-    var updates = {};
+    const updates = {};
     let audit_desc = '';
     const send_event = req.rpc_params.duration ?
         'dbg.maintenance_mode' : 'dbg.maintenance_mode_stopped';
@@ -743,7 +743,7 @@ function list_systems(req) {
  */
 function list_systems_int(account, get_ids) {
     // support gets to see all systems
-    var roles;
+    let roles;
     if (account) {
         roles = _.filter(system_store.data.roles, function(role) {
             return String(role.account._id) === String(account._id);
@@ -765,7 +765,7 @@ function list_systems_int(account, get_ids) {
  *
  */
 function add_role(req) {
-    var account = find_account_by_email(req);
+    const account = find_account_by_email(req);
     return system_store.make_changes({
         insert: {
             roles: [{
@@ -786,13 +786,13 @@ function add_role(req) {
  *
  */
 function remove_role(req) {
-    var account = find_account_by_email(req);
-    var roles = _.filter(system_store.data.roles,
+    const account = find_account_by_email(req);
+    const roles = _.filter(system_store.data.roles,
         role => String(role.system._id) === String(req.system._id) &&
         String(role.account._id) === String(account._id) &&
         role.role === req.rpc_params.role);
     if (!roles.length) return;
-    var roles_ids = _.map(roles, '_id');
+    const roles_ids = _.map(roles, '_id');
     return system_store.make_changes({
         remove: {
             roles: roles_ids
@@ -801,7 +801,7 @@ function remove_role(req) {
 }
 
 async function set_last_stats_report_time(req) {
-    var updates = {};
+    const updates = {};
     updates._id = req.system._id;
     updates.last_stats_report = req.rpc_params.last_stats_report;
     await system_store.make_changes({
@@ -1203,7 +1203,7 @@ function get_system_info(system, get_id) {
 }
 
 function find_account_by_email(req) {
-    var account = system_store.get_account_by_email(req.rpc_params.email);
+    const account = system_store.get_account_by_email(req.rpc_params.email);
     if (!account) {
         throw new RpcError('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
     }
@@ -1501,8 +1501,8 @@ async function upsert_master_key(params) {
 // find and set the account's pools and namespace resources and 
 // set the new secrets by the new sync creds 
 function get_pools_and_ns_resources_changes(sync_creds, account_id) {
-    let pools_updates = [];
-    let ns_resources_updates = [];
+    const pools_updates = [];
+    const ns_resources_updates = [];
 
     _.map(sync_creds, creds => {
         const pool_update = system_store.data.pools
@@ -1548,11 +1548,11 @@ function get_entity_info(entity, entity_type) {
 }
 
 async function upgrade_master_keys() {
-    let master_keys = [];
-    let buckets_updates = [];
-    let accounts_updates = [];
-    let pools_updates = [];
-    let namespace_resources_updates = [];
+    const master_keys = [];
+    const buckets_updates = [];
+    const accounts_updates = [];
+    const pools_updates = [];
+    const namespace_resources_updates = [];
     let system_master_key = system_store.data.systems[0].master_key_id;
     // upgrade system master key if it doesn't exist
     if (!system_master_key) {

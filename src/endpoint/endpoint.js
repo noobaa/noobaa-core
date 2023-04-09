@@ -43,7 +43,7 @@ const endpoint_stats_collector = require('../sdk/endpoint_stats_collector');
 const { NamespaceMonitor } = require('../server/bg_services/namespace_monitor');
 
 if (process.env.NOOBAA_LOG_LEVEL) {
-    let dbg_conf = debug_config.get_debug_config(process.env.NOOBAA_LOG_LEVEL);
+    const dbg_conf = debug_config.get_debug_config(process.env.NOOBAA_LOG_LEVEL);
     dbg_conf.endpoint.map(module => dbg.set_module_level(dbg_conf.level, module));
 }
 

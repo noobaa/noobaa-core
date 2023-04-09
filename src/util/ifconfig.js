@@ -1,8 +1,8 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-var _ = require('lodash');
-var os = require('os');
+const _ = require('lodash');
+const os = require('os');
 
 module.exports = {
     get_main_external_ipv4: get_main_external_ipv4,
@@ -20,7 +20,7 @@ module.exports = {
  *
  */
 function get_main_external_ipv4() {
-    var ips = get_external_ipv4();
+    const ips = get_external_ipv4();
     if (!_.isArray(ips)) {
         return ips;
     }
@@ -41,7 +41,7 @@ function get_main_external_ipv4() {
  *
  */
 function get_external_ipv4() {
-    var ips;
+    let ips;
     _.each(os.networkInterfaces(), function(ifcs, name) {
         _.each(ifcs, function(ifc) {
             if (ifc.internal || !ifc.address || ifc.family !== 'IPv4') {

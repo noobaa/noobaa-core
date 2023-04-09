@@ -598,13 +598,13 @@ mocha.describe('namespace caching: read scenarios and fresh objects', () => {
         const size = block_size * 5;
         const obj = random_object(size);
         hub.add_obj(obj);
-        let params = {
+        const params = {
             bucket: obj.bucket,
             key: obj.key,
             md_conditions: { if_match_etag: 'match etag' },
         };
 
-        let object_md = await ns_cache.read_object_md(params, object_sdk);
+        const object_md = await ns_cache.read_object_md(params, object_sdk);
         params.object_md = object_md;
         await ns_cache.read_object_stream(params, object_sdk);
 
@@ -987,17 +987,17 @@ mocha.describe('namespace caching: range read scenarios', () => {
         const size = block_size * 5;
         const obj = random_object(size);
         hub.add_obj(obj);
-        let start = block_size + 100;
+        const start = block_size + 100;
         // end is exclusive
-        let end = start + 100;
-        let params = {
+        const end = start + 100;
+        const params = {
             bucket: obj.bucket,
             key: obj.key,
             start,
             end,
         };
 
-        let object_md = await ns_cache.read_object_md(params, object_sdk);
+        const object_md = await ns_cache.read_object_md(params, object_sdk);
         params.object_md = object_md;
         try {
             await ns_cache.read_object_stream(params, object_sdk);
@@ -1027,10 +1027,10 @@ mocha.describe('namespace caching: range read scenarios', () => {
         const size = block_size * 5;
         const obj = random_object(size);
         hub.add_obj(obj);
-        let start = block_size + 100;
+        const start = block_size + 100;
         // end is exclusive
-        let end = start + 100;
-        let params = {
+        const end = start + 100;
+        const params = {
             bucket: obj.bucket,
             key: obj.key,
             start,
@@ -1038,7 +1038,7 @@ mocha.describe('namespace caching: range read scenarios', () => {
             md_conditions: { if_match_etag: obj.etag },
         };
 
-        let object_md = await ns_cache.read_object_md(params, object_sdk);
+        const object_md = await ns_cache.read_object_md(params, object_sdk);
         params.object_md = object_md;
         await ns_cache.read_object_stream(params, object_sdk);
 
@@ -1061,10 +1061,10 @@ mocha.describe('namespace caching: range read scenarios', () => {
         const size = block_size * 5;
         const obj = random_object(size);
         hub.add_obj(obj);
-        let start = block_size + 100;
+        const start = block_size + 100;
         // end is exclusive
-        let end = start + 100;
-        let params = {
+        const end = start + 100;
+        const params = {
             bucket: obj.bucket,
             key: obj.key,
             start,
@@ -1072,7 +1072,7 @@ mocha.describe('namespace caching: range read scenarios', () => {
             md_conditions: { if_match_etag: 'non match etag' },
         };
 
-        let object_md = await ns_cache.read_object_md(params, object_sdk);
+        const object_md = await ns_cache.read_object_md(params, object_sdk);
         params.object_md = object_md;
         await ns_cache.read_object_stream(params, object_sdk);
 
@@ -1094,10 +1094,10 @@ mocha.describe('namespace caching: range read scenarios', () => {
         const size = block_size * 5;
         const obj = random_object(size);
         hub.add_obj(obj);
-        let start = block_size + 100;
+        const start = block_size + 100;
         // end is exclusive
-        let end = start + 100;
-        let params = {
+        const end = start + 100;
+        const params = {
             bucket: obj.bucket,
             key: obj.key,
             start,
@@ -1105,7 +1105,7 @@ mocha.describe('namespace caching: range read scenarios', () => {
             md_conditions: { if_unmodified_since: obj.last_modified },
         };
 
-        let object_md = await ns_cache.read_object_md(params, object_sdk);
+        const object_md = await ns_cache.read_object_md(params, object_sdk);
         params.object_md = object_md;
         await ns_cache.read_object_stream(params, object_sdk);
 

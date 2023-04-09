@@ -116,7 +116,7 @@ class Agent {
                     this.node_type = 'BLOCK_STORE_S3';
                     this.block_store = new BlockStoreS3(block_store_options);
                 } else if (params.cloud_info.endpoint_type === 'AZURE') {
-                    let connection_string = cloud_utils.get_azure_new_connection_string({
+                    const connection_string = cloud_utils.get_azure_new_connection_string({
                         endpoint: params.cloud_info.endpoint,
                         access_key: params.cloud_info.access_keys.access_key,
                         secret_key: params.cloud_info.access_keys.secret_key
@@ -326,8 +326,8 @@ class Agent {
                 address: this.base_address
             });
         }
-        let sorted_new = _.sortBy(new_list, srv => srv.address);
-        let sorted_old = _.sortBy(this.servers, srv => srv.address);
+        const sorted_new = _.sortBy(new_list, srv => srv.address);
+        const sorted_old = _.sortBy(this.servers, srv => srv.address);
         if (_.isEqual(sorted_new, sorted_old)) return P.resolve();
         this.servers = new_list;
         return this.agent_conf.update({

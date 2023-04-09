@@ -91,7 +91,7 @@ class RpcHttpConnection extends RpcBaseConnection {
      *
      */
     send_http_response(msg, req) {
-        let res = this.res;
+        const res = this.res;
         if (!res) {
             throw new Error('HTTP RESPONSE ALREADY SENT ' + req.reqid);
         }
@@ -112,16 +112,16 @@ class RpcHttpConnection extends RpcBaseConnection {
      *
      */
     send_http_request(msg, rpc_req) {
-        let headers = {};
+        const headers = {};
 
         // set the url path only for logging to show it
-        let path = BASE_PATH + rpc_req.srv;
+        const path = BASE_PATH + rpc_req.srv;
 
         extract_meta_buffer(msg, headers);
         headers['content-length'] = _.sumBy(msg, 'length');
         headers['content-type'] = 'application/json';
 
-        let http_options = {
+        const http_options = {
             protocol: this.url.protocol,
             hostname: this.url.hostname,
             port: this.url.port,
@@ -140,7 +140,7 @@ class RpcHttpConnection extends RpcBaseConnection {
             agent: http_utils.get_unsecured_agent(this.url.href)
         };
 
-        let http_req =
+        const http_req =
             (http_options.protocol === 'https:') ?
             https.request(http_options) :
             http.request(http_options);
@@ -148,7 +148,7 @@ class RpcHttpConnection extends RpcBaseConnection {
 
         dbg.log3('HTTP request', http_req.method, http_req.path, http_req._headers);
 
-        let send_defer = new P.Defer();
+        const send_defer = new P.Defer();
 
         // reject on send errors
         http_req.on('error', send_defer.reject);

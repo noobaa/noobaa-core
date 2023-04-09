@@ -84,7 +84,7 @@ function set_pool_controller_factory(pool_controller_factory) {
 }
 
 function new_pool_defaults(name, system_id, resource_type, pool_node_type) {
-    let now = Date.now();
+    const now = Date.now();
     return {
         _id: system_store.new_system_store_id(),
         system: system_id,
@@ -317,12 +317,12 @@ async function create_namespace_resource(req) {
 }
 
 async function create_cloud_pool(req) {
-    var name = req.rpc_params.name;
-    var connection = cloud_utils.find_cloud_connection(req.account, req.rpc_params.connection);
+    const name = req.rpc_params.name;
+    const connection = cloud_utils.find_cloud_connection(req.account, req.rpc_params.connection);
     const secret_key = system_store.master_key_manager.encrypt_sensitive_string_with_master_key_id(
         connection.secret_key, req.account.master_key_id._id);
 
-    var cloud_info = _.omitBy({
+    const cloud_info = _.omitBy({
         endpoint: connection.endpoint,
         target_bucket: req.rpc_params.target_bucket,
         auth_method: connection.auth_method,
@@ -382,7 +382,7 @@ async function create_cloud_pool(req) {
     };
 
     const pool_node_type = map_pool_type[connection.endpoint_type];
-    var pool = new_pool_defaults(name, req.system._id, 'CLOUD', pool_node_type);
+    const pool = new_pool_defaults(name, req.system._id, 'CLOUD', pool_node_type);
     dbg.log0('Creating new cloud_pool', pool);
     pool.cloud_pool_info = cloud_info;
 
@@ -465,8 +465,8 @@ async function update_cloud_pool(req) {
 }
 
 function create_mongo_pool(req) {
-    var name = req.rpc_params.name;
-    var mongo_info = {};
+    const name = req.rpc_params.name;
+    const mongo_info = {};
 
     if (config.DB_TYPE === 'postgres') {
         dbg.error('Cannot create mongo pool on PostgreSQL');
@@ -478,7 +478,7 @@ function create_mongo_pool(req) {
         throw new Error('System already has mongo pool');
     }
 
-    var pool = new_pool_defaults(name, req.system._id, 'INTERNAL', 'BLOCK_STORE_MONGO');
+    const pool = new_pool_defaults(name, req.system._id, 'INTERNAL', 'BLOCK_STORE_MONGO');
     dbg.log0('Creating new mongo_pool', pool);
     pool.mongo_pool_info = mongo_info;
 
@@ -505,7 +505,7 @@ function create_mongo_pool(req) {
 }
 
 async function read_pool(req) {
-    var pool = find_pool_by_name(req);
+    const pool = find_pool_by_name(req);
     const nodes_aggregate_pool = await nodes_client.instance().aggregate_nodes_by_pool([pool.name], req.system._id);
     const hosts_aggregate_pool = await nodes_client.instance().aggregate_hosts_by_pool([pool.name], req.system._id);
     return get_pool_info(pool, nodes_aggregate_pool, hosts_aggregate_pool);
@@ -698,7 +698,7 @@ async function delete_hosts_pool(req, pool) {
         });
         const related_funcs = await func_store.instance().list_funcs_by_pool(req.system._id, pool._id);
         for (const func of related_funcs) {
-            let new_pools_arr = func.pools.filter(function(obj) {
+            const new_pools_arr = func.pools.filter(function(obj) {
                 return obj.toString() !== (pool._id).toString();
             });
             await func_store.instance().update_func(func._id, { 'pools': new_pools_arr });
@@ -717,7 +717,7 @@ async function get_current_hosts_count(pool_name, system_id) {
 function delete_resource_pool(req, pool) {
     dbg.log0('Deleting resource pool', pool.name);
 
-    var pool_name = pool.name;
+    const pool_name = pool.name;
     return P.resolve()
         .then(() => {
             const reason = check_resource_pool_deletion(pool);
@@ -748,7 +748,7 @@ function delete_resource_pool(req, pool) {
                 .then(function() {
                     // rename the deleted pool to avoid an edge case where there are collisions
                     // with a new resource pool name
-                    let db_update = {
+                    const db_update = {
                         _id: pool._id,
                         name: pool.name + '#' + pool._id
                     };
@@ -783,7 +783,7 @@ function delete_resource_pool(req, pool) {
 }
 
 function get_associated_buckets(req) {
-    var pool = find_pool_by_name(req);
+    const pool = find_pool_by_name(req);
     return get_associated_buckets_int(pool);
 }
 
@@ -859,7 +859,7 @@ async function get_cloud_services_stats(req) {
 }
 
 function get_pool_history(req) {
-    let pool_list = req.rpc_params.pool_list;
+    const pool_list = req.rpc_params.pool_list;
     return HistoryDataStore.instance().get_pool_history()
         .then(history_records => history_records.map(history_record => ({
             timestamp: history_record.time_stamp.getTime(),
@@ -888,7 +888,7 @@ function get_pool_history(req) {
 // TODO: Notice that does not include pools in disabled tiers
 // What should we do in that case? Shall we delete the pool or not?
 function get_associated_buckets_int(pool) {
-    var associated_buckets = _.filter(pool.system.buckets_by_name, function(bucket) {
+    const associated_buckets = _.filter(pool.system.buckets_by_name, function(bucket) {
         if (bucket.deleting) return false;
         return _.find(bucket.tiering.tiers, function(tier_and_order) {
             return _.find(tier_and_order.tier.mirrors, function(mirror) {
@@ -928,8 +928,8 @@ function get_associated_accounts(pool) {
 }
 
 function find_pool_by_name(req) {
-    var name = req.rpc_params.name;
-    var pool = req.system.pools_by_name[name];
+    const name = req.rpc_params.name;
+    const pool = req.system.pools_by_name[name];
     if (!pool) {
         throw new RpcError('NO_SUCH_POOL', 'No such pool: ' + name);
     }
@@ -994,7 +994,7 @@ function find_namespace_resource_by_name(req) {
 function get_pool_info(pool, nodes_aggregate_pool, hosts_aggregate_pool) {
     const p_nodes = _.get(nodes_aggregate_pool, ['groups', String(pool._id)], {});
     const p_hosts = _.get(hosts_aggregate_pool, ['groups', String(pool._id)], { nodes: {} });
-    var info = {
+    const info = {
         name: pool.name,
         resource_type: pool.resource_type,
         pool_node_type: pool.pool_node_type,
@@ -1252,7 +1252,7 @@ function check_pool_deletion(pool) {
     }
 
     //Verify pool is not defined as default for any account
-    var accounts = get_associated_accounts(pool);
+    const accounts = get_associated_accounts(pool);
     if (accounts.length) {
         return 'DEFAULT_RESOURCE';
     }
@@ -1284,7 +1284,7 @@ function check_resource_pool_deletion(pool) {
     }
 
     //Verify pool is not defined as default for any account
-    var accounts = get_associated_accounts(pool);
+    const accounts = get_associated_accounts(pool);
     if (accounts.length) {
         return 'DEFAULT_RESOURCE';
     }

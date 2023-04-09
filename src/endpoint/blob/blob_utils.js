@@ -25,10 +25,10 @@ function set_response_object_md(res, object_md) {
 const X_MS_META = 'x-ms-meta-';
 
 function get_request_xattr(req) {
-    let xattr = {};
+    const xattr = {};
     _.each(req.headers, (val, hdr) => {
         if (!hdr.startsWith(X_MS_META)) return;
-        let key = hdr.slice(X_MS_META.length);
+        const key = hdr.slice(X_MS_META.length);
         if (!key) return;
         xattr[key] = val;
     });
@@ -101,9 +101,9 @@ async function list_objects(params, account_name, container, sasToken) {
         blobs = parsed.EnumerationResults.Blobs[0].Blob;
         dirs = parsed.EnumerationResults.Blobs[0].BlobPrefix;
         next_marker = parsed.EnumerationResults.NextMarker[0];
-        let parse_blobs = key => {
+        const parse_blobs = key => {
             const props = key.Properties[0];
-            let obj = Object.keys(props).reduce((acc, p) => {
+            const obj = Object.keys(props).reduce((acc, p) => {
                 acc[(_.lowerFirst(_.camelCase(p)))] = props[p][0];
                 return acc;
             }, { name: key.Name[0] });

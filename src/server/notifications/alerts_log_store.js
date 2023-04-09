@@ -44,8 +44,8 @@ class AlertsLogStore {
 
     get_unread_alerts_count(sysid) {
         return P.resolve().then(async () => {
-            let severities = ['CRIT', 'MAJOR', 'INFO'];
-            let unread_alerts = {};
+            const severities = ['CRIT', 'MAJOR', 'INFO'];
+            const unread_alerts = {};
             await Promise.all(severities.map(async sev => {
                 const count = await this._alertslogs.countDocuments({
                     system: sysid,
@@ -60,7 +60,7 @@ class AlertsLogStore {
 
     async update_alerts_state(sysid, query, state) {
         const selector = this._create_selector(sysid, query);
-        let update = {
+        const update = {
             $set: {
                 read: state
             }
@@ -94,7 +94,7 @@ class AlertsLogStore {
 
         let _id;
         if (ids) {
-            let obj_ids = ids.map(id => new mongodb.ObjectID(id));
+            const obj_ids = ids.map(id => new mongodb.ObjectID(id));
             _id = { $in: obj_ids };
         } else if (till) {
             _id = { $lt: new mongodb.ObjectID(till) };

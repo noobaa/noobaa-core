@@ -132,9 +132,9 @@ _.each(stun.PUBLIC_SERVERS, function(stun_url) {
  * detect stun packet according to header first byte
  */
 function is_stun_packet(buffer) {
-    var block = buffer.readUInt8(0);
-    var bit1 = block & 0x80;
-    var bit2 = block & 0x40;
+    const block = buffer.readUInt8(0);
+    const bit1 = block & 0x80;
+    const bit2 = block & 0x40;
     return bit1 === 0 && bit2 === 0;
 }
 
@@ -142,8 +142,8 @@ function is_stun_packet(buffer) {
  * create and initialize a new stun packet buffer
  */
 function new_packet(method_code, attrs, req_buffer) {
-    var attrs_len = attrs ? encoded_attrs_len(attrs) : 0;
-    var buffer = Buffer.alloc(stun.HEADER_LENGTH + attrs_len);
+    const attrs_len = attrs ? encoded_attrs_len(attrs) : 0;
+    const buffer = Buffer.alloc(stun.HEADER_LENGTH + attrs_len);
     set_method_field(buffer, method_code);
     set_attrs_len_field(buffer, attrs_len);
     set_magic_and_tid_field(buffer, req_buffer);
@@ -164,7 +164,7 @@ function get_method_field(buffer) {
  * decode the stun method field
  */
 function get_method_name(buffer) {
-    var code = get_method_field(buffer);
+    const code = get_method_field(buffer);
     return stun.METHOD_NAMES[code];
 }
 
@@ -173,7 +173,7 @@ function get_method_name(buffer) {
  * set binding class which is the only option for stun.
  */
 function set_method_field(buffer, method_code) {
-    var val = stun.BINDING_TYPE | (method_code & stun.METHOD_MASK);
+    const val = stun.BINDING_TYPE | (method_code & stun.METHOD_MASK);
     buffer.writeUInt16BE(val, 0);
 }
 
@@ -185,7 +185,7 @@ function set_method_name(buffer, method_name) {
     if (!(method_name in stun.METHODS)) {
         throw new Error('bad stun method');
     }
-    var method_code = stun.METHODS[method_name];
+    const method_code = stun.METHODS[method_name];
     set_method_field(buffer, method_code);
 }
 
@@ -229,8 +229,8 @@ function get_tid_field(buffer) {
  * dup keys will be overriden by last value.
  */
 function get_attrs_map(buffer) {
-    var attrs = decode_attrs(buffer);
-    var map = {};
+    const attrs = decode_attrs(buffer);
+    const map = {};
     _.each(attrs, function(attr) {
         switch (attr.type) {
             case stun.ATTRS.XOR_MAPPED_ADDRESS:
@@ -271,9 +271,9 @@ function decode_attrs(buffer) {
         throw new Error('STUN PACKET TOO LONG, dropping buffer ' + buffer.length);
     }
 
-    var attrs = [];
-    var offset = stun.HEADER_LENGTH;
-    var end = offset + get_attrs_len_field(buffer);
+    const attrs = [];
+    let offset = stun.HEADER_LENGTH;
+    const end = offset + get_attrs_len_field(buffer);
 
     while (offset < end) {
 
@@ -283,9 +283,9 @@ function decode_attrs(buffer) {
             throw new Error('STUN PACKET TOO MANY ATTRS dropping buffer ' + buffer.length);
         }
 
-        var type = buffer.readUInt16BE(offset);
+        const type = buffer.readUInt16BE(offset);
         offset += 2;
-        var length = buffer.readUInt16BE(offset);
+        const length = buffer.readUInt16BE(offset);
         offset += 2;
 
         if (length > 256) {
@@ -293,8 +293,8 @@ function decode_attrs(buffer) {
                 ' length=' + length + ' dropping buffer ' + buffer.length);
         }
 
-        var next = offset + length;
-        var value;
+        const next = offset + length;
+        let value;
         switch (type) {
             case stun.ATTRS.MAPPED_ADDRESS:
             case stun.ATTRS.RESPONSE_ADDRESS:
@@ -343,8 +343,8 @@ function decode_attrs(buffer) {
  *
  */
 function encoded_attrs_len(attrs) {
-    var len = 0;
-    for (var i = 0; i < attrs.length; ++i) {
+    let len = 0;
+    for (let i = 0; i < attrs.length; ++i) {
         if (!attrs[i]) continue;
         // every attr requires type and len 16bit each
         len = align_offset(len + 4 + encoded_attr_len(attrs[i]));
@@ -383,16 +383,16 @@ function encoded_attr_len(attr) {
  *
  */
 function encode_attrs(buffer, attrs) {
-    var offset = stun.HEADER_LENGTH;
-    for (var i = 0; i < attrs.length; ++i) {
-        var attr = attrs[i];
+    let offset = stun.HEADER_LENGTH;
+    for (let i = 0; i < attrs.length; ++i) {
+        const attr = attrs[i];
         if (!attr) continue;
         buffer.writeUInt16BE(attr.type, offset);
         offset += 2;
-        var length = encoded_attr_len(attr);
+        const length = encoded_attr_len(attr);
         buffer.writeUInt16BE(length, offset);
         offset += 2;
-        var next = offset + length;
+        const next = offset + length;
 
         switch (attr.type) {
             case stun.ATTRS.MAPPED_ADDRESS:
@@ -433,9 +433,9 @@ function encode_attrs(buffer, attrs) {
  * though XOR-MAPPED-ADDRESS is preferred to avoid routers messing with it
  */
 function decode_attr_mapped_addr(buffer, start, end) {
-    var family = (buffer.readUInt16BE(start) === 0x02) ? 6 : 4;
-    var port = buffer.readUInt16BE(start + 2);
-    var address = ip_module.toString(buffer, start + 4, family);
+    const family = (buffer.readUInt16BE(start) === 0x02) ? 6 : 4;
+    const port = buffer.readUInt16BE(start + 2);
+    const address = ip_module.toString(buffer, start + 4, family);
 
     return {
         family: 'IPv' + family,
@@ -449,21 +449,21 @@ function decode_attr_mapped_addr(buffer, start, end) {
  * this is the main reply to stun request.
  */
 function decode_attr_xor_mapped_addr(buffer, start, end) {
-    var family = (buffer.readUInt16BE(start) === 0x02) ? 6 : 4;
+    const family = (buffer.readUInt16BE(start) === 0x02) ? 6 : 4;
 
     // xor the port against the magic key
-    var port = buffer.readUInt16BE(start + 2) ^
+    const port = buffer.readUInt16BE(start + 2) ^
         buffer.readUInt16BE(stun.XOR_KEY_OFFSET);
 
     // xor the address against magic key and tid
-    var addr_buf = buffer.slice(start + 4, end);
-    var xor_buf = Buffer.allocUnsafe(addr_buf.length);
-    var k = stun.XOR_KEY_OFFSET;
-    for (var i = 0; i < xor_buf.length; ++i) {
+    const addr_buf = buffer.slice(start + 4, end);
+    const xor_buf = Buffer.allocUnsafe(addr_buf.length);
+    let k = stun.XOR_KEY_OFFSET;
+    for (let i = 0; i < xor_buf.length; ++i) {
         xor_buf[i] = addr_buf[i] ^ buffer[k];
         k += 1;
     }
-    var address = ip_module.toString(xor_buf, 0, family);
+    const address = ip_module.toString(xor_buf, 0, family);
 
     return {
         family: 'IPv' + family,
@@ -476,9 +476,9 @@ function decode_attr_xor_mapped_addr(buffer, start, end) {
  * decode ERROR-CODE attribute
  */
 function decode_attr_error_code(buffer, start, end) {
-    var block = buffer.readUInt32BE(start);
-    var code = ((block & 0x700) * 100) + block & 0xff;
-    var reason = buffer.readUInt32BE(start + 4);
+    const block = buffer.readUInt32BE(start);
+    const code = ((block & 0x700) * 100) + block & 0xff;
+    const reason = buffer.readUInt32BE(start + 4);
     return {
         code: code,
         reason: reason
@@ -489,8 +489,8 @@ function decode_attr_error_code(buffer, start, end) {
  * decode UNKNOWN-ATTRIBUTES attribute
  */
 function decode_attr_unknown_attr(buffer, start, end) {
-    var unknown_attrs = [];
-    var offset = start;
+    const unknown_attrs = [];
+    let offset = start;
     while (offset < end) {
         unknown_attrs.push(buffer.readUInt16BE(offset));
         offset += 2;
@@ -525,8 +525,8 @@ function encode_attr_xor_mapped_addr(addr, buffer, offset, end) {
     buffer.writeUInt16BE(addr.port ^ buffer.readUInt16BE(stun.XOR_KEY_OFFSET), offset + 2);
 
     ip_module.toBuffer(addr.address, buffer, offset + 4);
-    var k = stun.XOR_KEY_OFFSET;
-    for (var i = offset + 4; i < end; ++i) {
+    let k = stun.XOR_KEY_OFFSET;
+    for (let i = offset + 4; i < end; ++i) {
         buffer[i] ^= buffer[k];
         k += 1;
     }
@@ -538,7 +538,7 @@ function encode_attr_xor_mapped_addr(addr, buffer, offset, end) {
  */
 function encode_attr_error_code(err, buffer, start, end) {
     // eslint-disable-next-line no-bitwise
-    var code = (((err.code / 100) | 0) << 8) | ((err.code % 100) & 0xff);
+    const code = (((err.code / 100) | 0) << 8) | ((err.code % 100) & 0xff);
     buffer.writeUInt32BE(code, start);
     buffer.writeUInt32BE(err.reason, start + 4);
 }
@@ -548,7 +548,7 @@ function encode_attr_error_code(err, buffer, start, end) {
  * offsets are aligned up to 4 bytes
  */
 function align_offset(offset) {
-    var rem = offset % 4;
+    const rem = offset % 4;
     if (rem) {
         return offset + 4 - rem;
     } else {
@@ -560,9 +560,9 @@ function align_offset(offset) {
  *
  */
 function test() {
-    var argv = require('minimist')(process.argv); // eslint-disable-line global-require
-    var socket = dgram.createSocket('udp4');
-    var stun_url = stun.PUBLIC_SERVERS[0];
+    const argv = require('minimist')(process.argv); // eslint-disable-line global-require
+    const socket = dgram.createSocket('udp4');
+    let stun_url = stun.PUBLIC_SERVERS[0];
     if (argv.stun_host) {
         stun_url = {
             hostname: argv.stun_host,
@@ -578,7 +578,7 @@ function test() {
             return;
         }
         console.log('STUN', get_method_name(buffer), 'from', rinfo.address + ':' + rinfo.port);
-        var attrs = decode_attrs(buffer);
+        const attrs = decode_attrs(buffer);
         _.each(attrs, function(attr) {
             console.log('  *',
                 attr.attr,
@@ -586,9 +586,9 @@ function test() {
                 '[len ' + attr.length + ']',
                 util.inspect(attr.value, { depth: null }));
         });
-        var method = get_method_field(buffer);
+        const method = get_method_field(buffer);
         if (method === stun.METHODS.REQUEST) {
-            var reply = new_packet(stun.METHODS.SUCCESS, [{
+            const reply = new_packet(stun.METHODS.SUCCESS, [{
                 type: stun.ATTRS.XOR_MAPPED_ADDRESS,
                 value: {
                     family: 'IPv4',
@@ -605,8 +605,8 @@ function test() {
             }
         })
         .then(function() {
-            var req = new_packet(stun.METHODS.REQUEST);
-            var ind = new_packet(stun.METHODS.INDICATION);
+            const req = new_packet(stun.METHODS.REQUEST);
+            const ind = new_packet(stun.METHODS.INDICATION);
             return loop();
 
             function loop() {

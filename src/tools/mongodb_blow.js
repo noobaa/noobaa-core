@@ -10,7 +10,7 @@
  *
  */
 function random_hex_char() {
-    let hexchars = "0123456789abcdef";
+    const hexchars = "0123456789abcdef";
     return hexchars[Math.floor(_rand() * 16)];
 }
 
@@ -22,13 +22,13 @@ function random_hex_string(n) {
     return s;
 }
 
-let system = db.systems.findOne()._id;
-let bucket = db.buckets.findOne()._id;
+const system = db.systems.findOne()._id;
+const bucket = db.buckets.findOne()._id;
 
 for (let j = 0; j < 10000; ++j) {
-    let array_of_chunks = [];
+    const array_of_chunks = [];
     for (let i = 0; i < 1000; ++i) {
-        let digest_b64 = new HexData(0, random_hex_string(96)).base64();
+        const digest_b64 = new HexData(0, random_hex_string(96)).base64();
         array_of_chunks.push({
             _id: new ObjectId(),
             system,

@@ -11,8 +11,8 @@ dbg.set_process_name('data_availability');
 
 let failures_in_test = false;
 const POOL_NAME = "first-pool";
-let errors = [];
-let files = [];
+const errors = [];
+const files = [];
 let current_size = 0;
 
 //defining the required parameters
@@ -120,13 +120,13 @@ function set_fileSize() {
 }
 
 async function _uploadAndVerifyFiles() {
-    let { data_multiplier } = unit_mapping.MB;
+    const { data_multiplier } = unit_mapping.MB;
     console.log('Writing and deleting data till size amount to grow ' + dataset_size + ' MB');
     while (current_size < dataset_size) {
         try {
             console.log('Uploading files till data size grow to ' + dataset_size + ', current size is ' + current_size);
-            let file_size = set_fileSize();
-            let file_name = 'file_part_' + file_size + (Math.floor(Date.now() / 1000));
+            const file_size = set_fileSize();
+            const file_name = 'file_part_' + file_size + (Math.floor(Date.now() / 1000));
             files.push(file_name);
             current_size += file_size;
             console.log('Uploading file with size ' + file_size + ' MB');

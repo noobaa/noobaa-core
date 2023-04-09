@@ -71,7 +71,7 @@ if (argv.help) {
 const rpc = api.new_rpc_from_base_address(`wss://${mgmt_ip}:${mgmt_port_https}`, 'EXTERNAL');
 const client = rpc.new_client({});
 
-let report = new Report();
+const report = new Report();
 
 const cases = [
     'fail upload over quota',

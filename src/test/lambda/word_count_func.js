@@ -1,12 +1,12 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-var http = require('http');
-var https = require('https');
-var crypto = require('crypto');
+const http = require('http');
+const https = require('https');
+const crypto = require('crypto');
 
 exports.handler = function(event, context, callback) {
-    var text = '';
+    let text = '';
 
     if (event.random) {
         text = random_text(event.random);
@@ -26,7 +26,7 @@ exports.handler = function(event, context, callback) {
                     text += data;
                 })
                 .once('end', () => {
-                    var reply = count_text(text, event.return_text);
+                    const reply = count_text(text, event.return_text);
                     reply.status_code = res.statusCode;
                     reply.headers = res.headers;
                     callback(null, reply);
@@ -40,8 +40,8 @@ exports.handler = function(event, context, callback) {
 };
 
 function count_text(text, return_text) {
-    var words = text.match(/\S+/g);
-    var lines = text.match(/\n/g);
+    const words = text.match(/\S+/g);
+    const lines = text.match(/\n/g);
     return {
         bytes: Buffer.byteLength(text),
         chars: text.length,
@@ -52,15 +52,15 @@ function count_text(text, return_text) {
 }
 
 function random_text(length) {
-    var str = '';
-    var WORDSET = 'abcdefghijklmnopqrstuvwxyz';
-    var CHARSET = WORDSET + ' '.repeat(0.2 * WORDSET.length) + '\n'.repeat(0.1 * WORDSET.length);
-    var cipher = crypto.createCipheriv('aes-128-gcm', crypto.randomBytes(16), crypto.randomBytes(12));
-    var zero_buf = Buffer.alloc(Math.min(1024, length));
+    let str = '';
+    const WORDSET = 'abcdefghijklmnopqrstuvwxyz';
+    const CHARSET = WORDSET + ' '.repeat(0.2 * WORDSET.length) + '\n'.repeat(0.1 * WORDSET.length);
+    const cipher = crypto.createCipheriv('aes-128-gcm', crypto.randomBytes(16), crypto.randomBytes(12));
+    const zero_buf = Buffer.alloc(Math.min(1024, length));
     while (length > 0) {
-        var rand_buf = cipher.update(zero_buf);
-        for (var i = 0; i < rand_buf.length; ++i) {
-            var b = rand_buf[i];
+        const rand_buf = cipher.update(zero_buf);
+        for (let i = 0; i < rand_buf.length; ++i) {
+            const b = rand_buf[i];
             str += CHARSET[b % CHARSET.length];
         }
         length -= zero_buf.length;

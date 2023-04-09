@@ -27,7 +27,7 @@ mocha.describe('wait_queue', function() {
         function do_wake() {
             woke += 1;
         }
-        var item = {
+        const item = {
             foo: 'bar',
         };
         return P.fcall(function() {
@@ -75,7 +75,7 @@ mocha.describe('wait_queue', function() {
         function do_wake() {
             woke += 1;
         }
-        var item = {
+        const item = {
             foo: 'bar!',
         };
         return P.fcall(function() {

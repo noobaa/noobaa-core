@@ -32,9 +32,8 @@ class BucketsReclaimer {
         await P.all(deleting_buckets.map(async bucket => {
             try {
                 dbg.log0(`emptying bucket ${bucket.name}. deleting next ${config.BUCKET_RECLAIMER_BATCH_SIZE} objects`);
-                const { is_empty } = await this.client.object.delete_multiple_objects_by_filter({
+                const { is_empty } = await this.client.object.delete_multiple_objects_unordered({
                     bucket: bucket.name,
-                    prefix: "",
                     limit: config.BUCKET_RECLAIMER_BATCH_SIZE
                 }, {
                     auth_token: auth_server.make_auth_token({

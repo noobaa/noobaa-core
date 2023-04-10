@@ -245,6 +245,24 @@ class MDStore {
         db_client.instance().check_update_one(res, 'object');
     }
 
+    async remove_objects_and_unset_latest(objs) {
+        if (!objs || !objs.length) return;
+
+        await this._objects.updateMany(
+            {
+                _id: {
+                    $in: objs.map(obj => obj._id),
+                }
+            },
+            {
+                $set: {
+                    deleted: new Date(),
+                    version_past: true,
+                },
+            }
+        );
+    }
+
     // 2, 3, 4
     async remove_object_move_latest(old_latest_obj, new_latest_obj) {
         const bulk = this._objects.initializeOrderedBulkOp();
@@ -854,7 +872,10 @@ class MDStore {
 
     async find_deleted_objects(max_delete_time, limit) {
         const objects = await this._objects.find({
-            deleted: { $lt: new Date(max_delete_time) },
+            deleted: {
+                $lt: new Date(max_delete_time),
+                $exists: true // This forces the index to be used
+            },
         }, {
             limit: Math.min(limit, 1000),
             projection: {
@@ -1741,7 +1762,8 @@ class MDStore {
     find_deleted_blocks(max_delete_time, limit) {
         const query = {
             deleted: {
-                $lt: new Date(max_delete_time)
+                $lt: new Date(max_delete_time),
+                $exists: true // Force index usage
             },
         };
         return this._blocks.find(query, {
@@ -1767,6 +1789,10 @@ class MDStore {
 
     count_total_objects() {
         return this._objects.countDocuments({}); // maybe estimatedDocumentCount()
+    }
+
+    estimated_total_objects() {
+        return this._objects.estimatedDocumentCount();
     }
 }
 

@@ -51,7 +51,7 @@ async function background_worker() {
 }
 
 async function clean_md_store(last_date_to_remove) {
-    const total_objects_count = await MDStore.instance().count_total_objects();
+    const total_objects_count = await MDStore.instance().estimated_total_objects();
     if (total_objects_count < config.DB_CLEANER.MAX_TOTAL_DOCS) {
         dbg.log0(`DB_CLEANER: found less than ${config.DB_CLEANER.MAX_TOTAL_DOCS} objects in MD-STORE 
         ${total_objects_count} objects - Skipping...`);

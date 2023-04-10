@@ -1,7 +1,8 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-module.exports = [{
+module.exports = [
+    {
         fields: {
             // this index is used for index prefix for queries on the object without start offset
             obj: 1,
@@ -31,4 +32,18 @@ module.exports = [{
             }
         }
     },
+    {
+        // This index is used for queries where we want to find all the chunks of a specific object
+        // which are already marked deleted.
+        fields: {
+            obj: 1,
+        },
+        options: {
+            unique: false,
+            partialFilterExpression: {
+                obj: { $exists: true },
+                deleted: { $exists: true },
+            }
+        }
+    }
 ];

@@ -10,7 +10,7 @@
 * This guide describes developer steps to run Ceph S3 on a noobaa system on minikube.
 
 ## General Settings For Ceph S3 Tests
-We assume that it is not your first deployment of noobaa system, and you already succeeded with it (If not, please see the guide Deploy Noobaa On Minikube).
+We assume that it is not your first deployment of noobaa system, and you already succeeded with it (If not, please see the guide [Deploy Noobaa On Minikube](../deply_noobaa_on_minikube.md)).
 We will run the commands in the terminal, you may work with at least two tabs:
 1) For noobaa-core repository
 2) For noobaa-operator repository

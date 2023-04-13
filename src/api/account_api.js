@@ -266,7 +266,7 @@ module.exports = {
             method: 'PUT',
             params: {
                 type: 'object',
-                required: ['email', 's3_access'],
+                required: ['email'],
                 properties: {
                     email: { $ref: 'common_api#/definitions/email' },
                     s3_access: {

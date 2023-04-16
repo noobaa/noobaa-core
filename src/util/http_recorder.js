@@ -25,7 +25,7 @@ class HTTPRecorder extends stream.Writable {
         this._parser.reinitialize(HTTPParser.REQUEST, true);
 
         let slow_url = '';
-        let slow_headers = [];
+        const slow_headers = [];
 
         // `headers` and `url` are set only if .onHeaders() has not been called for
         // this request.
@@ -92,7 +92,7 @@ class HTTPRecorder extends stream.Writable {
     }
 
     _write(data, encoding, next) {
-        let buf = encoding ? Buffer.from(data, encoding) : data;
+        const buf = encoding ? Buffer.from(data, encoding) : data;
         if (this._out_file) {
             this._out_file.write(buf);
         } else {

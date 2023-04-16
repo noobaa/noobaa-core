@@ -14,7 +14,7 @@ const P = require('../../util/promise');
 const ObjectIO = require('../../sdk/object_io');
 
 const { rpc_client } = coretest;
-let object_io = new ObjectIO();
+const object_io = new ObjectIO();
 object_io.set_verification_mode();
 const assert = require('assert');
 
@@ -22,18 +22,18 @@ const BKT = 'first.bucket'; // the default bucket name
 
 mocha.describe('s3_list_objects', function() {
 
-    let files_without_folders_to_upload = [];
-    let folders_to_upload = [];
-    let files_in_folders_to_upload = [];
-    let files_in_utf_diff_delimiter = [];
-    let max_keys_objects = [];
-    let files_in_multipart_folders_to_upload = [];
-    let same_multipart_file1 = [];
-    let same_multipart_file2 = [];
-    let small_folder_with_multipart = [];
-    let prefix_infinite_loop_test = [];
+    const files_without_folders_to_upload = [];
+    const folders_to_upload = [];
+    const files_in_folders_to_upload = [];
+    const files_in_utf_diff_delimiter = [];
+    const max_keys_objects = [];
+    const files_in_multipart_folders_to_upload = [];
+    const same_multipart_file1 = [];
+    const same_multipart_file2 = [];
+    const small_folder_with_multipart = [];
+    const prefix_infinite_loop_test = [];
 
-    var i = 0;
+    let i = 0;
     for (i = 0; i < 264; i++) {
         folders_to_upload.push(`folder${i}/`);
     }
@@ -70,8 +70,8 @@ mocha.describe('s3_list_objects', function() {
     mocha.it('issue use case', function() {
         const self = this; // eslint-disable-line no-invalid-this
         self.timeout(10 * 60 * 1000);
-        let issue_files_folders_to_upload = ['20220323/99/test.txt', '20220323/990/test.txt'];
-        let expected_files_uploaded = ['20220323/99/', '20220323/990/'];
+        const issue_files_folders_to_upload = ['20220323/99/test.txt', '20220323/990/test.txt'];
+        const expected_files_uploaded = ['20220323/99/', '20220323/990/'];
 
         return run_case(issue_files_folders_to_upload,
             async function(server_upload_response) {
@@ -359,12 +359,12 @@ mocha.describe('s3_list_objects', function() {
                 same_multipart_file2),
             async function(server_upload_response) {
                 // Uploading zero size objects from the key arrays that were provided
-                let list_reply = await rpc_client.object.list_uploads({
+                const list_reply = await rpc_client.object.list_uploads({
                     bucket: BKT,
                     delimiter: '/',
                     limit: 25
                 });
-                let objects = _.map(list_reply.objects, obj => obj.key);
+                const objects = _.map(list_reply.objects, obj => obj.key);
                 assert.strictEqual(_.difference(['multipart2/'], list_reply.common_prefixes).length, 0,
                     'prefixes: ' + list_reply.common_prefixes);
                 assert.strictEqual(_.difference(_.concat(same_multipart_file1, same_multipart_file2),
@@ -384,13 +384,13 @@ mocha.describe('s3_list_objects', function() {
             prefix_infinite_loop_test,
             async function(server_upload_response) {
                 // Uploading zero size objects from the key arrays that were provided
-                let list_reply = await truncated_listing({
+                const list_reply = await truncated_listing({
                     bucket: BKT,
                     prefix: 'd/',
                     delimiter: '/',
                     limit: 1,
                 }, /* use_upload_id_marker = */ false, /* upload_mode = */ false);
-                let objects = _.map(list_reply.objects, obj => obj.key);
+                const objects = _.map(list_reply.objects, obj => obj.key);
                 assert.strictEqual(_.difference(['d/d/'], list_reply.common_prefixes).length, 0, 'prefixes: ' + list_reply.common_prefixes);
                 assert.strictEqual(_.difference(['d/f'], objects).length, 0, 'objects:' + objects);
                 assert.strictEqual((list_reply.common_prefixes.length + objects.length), 2);
@@ -471,14 +471,14 @@ async function run_case(array_of_names, case_func, only_initiate) {
 
 async function truncated_listing(params, use_upload_id_marker, upload_mode) {
         // Initialization of IsTruncated in order to perform the first while cycle
-        var listObjectsResponse = {
+        const listObjectsResponse = {
             is_truncated: true,
             objects: [],
             common_prefixes: [],
             key_marker: ''
         };
 
-        var query_obj = {
+        const query_obj = {
             key_marker: listObjectsResponse.key_marker
         };
 
@@ -495,7 +495,7 @@ async function truncated_listing(params, use_upload_id_marker, upload_mode) {
                 await rpc_client.object.list_objects(func_params);
 
             listObjectsResponse.is_truncated = res.is_truncated;
-            let res_list = {
+            const res_list = {
                 objects: res.objects,
                 common_prefixes: res.common_prefixes
             };

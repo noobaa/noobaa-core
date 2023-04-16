@@ -44,14 +44,14 @@ function show_usage() {
 }
 
 function pre_generation() {
-    var dirs = Math.ceil(UL_TEST.num_files / UL_TEST.files_per_dir);
+    const dirs = Math.ceil(UL_TEST.num_files / UL_TEST.files_per_dir);
     console.log('Creating directory structure');
     return os_utils.exec('mkdir -p ' + UL_TEST.base_dir)
         .then(function() {
             return os_utils.exec('rm -rf ' + UL_TEST.base_dir + '/*');
         })
         .then(function() {
-            var i = 0;
+            let i = 0;
             return P.pwhile(
                 function() {
                     return i < dirs;
@@ -67,16 +67,16 @@ function pre_generation() {
         })
         .then(function() {
             console.log('Generating files (this might take some time) ...');
-            var d = 0;
+            let d = 0;
             return P.pwhile(
                 function() {
                     return d < dirs;
                 },
                 function() {
                     d += 1;
-                    var files = (d === dirs) ? UL_TEST.num_files % UL_TEST.files_per_dir : UL_TEST.files_per_dir;
+                    const files = (d === dirs) ? UL_TEST.num_files % UL_TEST.files_per_dir : UL_TEST.files_per_dir;
                     console.log(' generating batch', d, 'of', files, 'files');
-                    for (var i = 1; i <= files; ++i) {
+                    for (let i = 1; i <= files; ++i) {
                         UL_TEST.files.push(UL_TEST.base_dir + '/dir' + d + '/file_' + i);
                     }
                     return os_utils.exec('for i in `seq 1 ' + files + '` ; do' +
@@ -97,7 +97,7 @@ function upload_test() {
         Bucket: UL_TEST.bucket_name
     });
 
-    var upload_semaphore = new Semaphore(UL_TEST.num_threads);
+    const upload_semaphore = new Semaphore(UL_TEST.num_threads);
     return P.all(_.map(UL_TEST.files, function(f) {
         return upload_semaphore.surround(function() {
             return upload_file(f);
@@ -106,15 +106,15 @@ function upload_test() {
 }
 
 function upload_file(test_file) {
-    var start_ts;
+    let start_ts;
     console.log('Called upload_file with param', test_file);
     return P.fcall(function() {
-            var s3bucket = new AWS.S3({
+            const s3bucket = new AWS.S3({
                 endpoint: UL_TEST.target,
                 s3ForcePathStyle: true,
                 sslEnabled: false,
             });
-            var params = {
+            const params = {
                 Bucket: UL_TEST.bucket_name,
                 Key: test_file,
                 Body: fs.createReadStream(test_file),
@@ -157,7 +157,7 @@ function print_summary() {
     //}
 
     console.log('Test results, breakdown per each 1K uploads:');
-    var i = 0;
+    let i = 0;
     _.each(UL_TEST.measurement.mid, function(m) {
         console.log('  for files', (i * 1000) + 1, 'to', (i + 1) * 1000, 'avg ul time', m);
         i += 1;
@@ -167,7 +167,7 @@ function print_summary() {
 }
 
 function main() {
-    var missing_params = false;
+    let missing_params = false;
 
     //Verify Input Parameters
     if (_.isUndefined(argv.ip)) {

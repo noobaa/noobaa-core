@@ -32,7 +32,7 @@ const {
 } = argv;
 
 
-let TEST_CTX = {
+const TEST_CTX = {
     ip: 'localhost',
     s3_endpoint: `http://${s3_ip}:${s3_port}/`,
     default_bucket: 'first.bucket',
@@ -44,11 +44,11 @@ let TEST_CTX = {
     accounts_default_resource: 'accounts_default_resource'
 };
 
-let rpc = api.new_rpc(); //'ws://' + argv.ip + ':8080');
-let client = rpc.new_client({
+const rpc = api.new_rpc(); //'ws://' + argv.ip + ':8080');
+const client = rpc.new_client({
     address: `ws://${mgmt_ip}:${mgmt_port}`
 });
-let n2n_agent = rpc.register_n2n_agent((...args) => client.node.n2n_signal(...args));
+const n2n_agent = rpc.register_n2n_agent((...args) => client.node.n2n_signal(...args));
 n2n_agent.set_any_rpc_address();
 
 /////// Aux Functions ////////
@@ -192,7 +192,7 @@ async function verify_object_health(
     test_corruption
 ) {
     console.log(`verifying object ${filename} health. expected num of blocks: ${expected_num_blocks}`);
-    let start_ts = Date.now();
+    const start_ts = Date.now();
     let obj_is_valid = false;
     let obj_is_verified = !test_corruption;
 

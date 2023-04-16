@@ -74,11 +74,11 @@ class RpcHttpServer extends events.EventEmitter {
                 return;
             }
 
-            let host = req.connection.remoteAddress;
-            let port = req.connection.remotePort;
-            let proto = req.connection.ssl ? 'https' : 'http';
-            let address = proto + '://' + host + ':' + port;
-            let conn = new RpcHttpConnection(url_utils.quick_parse(address));
+            const host = req.connection.remoteAddress;
+            const port = req.connection.remotePort;
+            const proto = req.connection.ssl ? 'https' : 'http';
+            const address = proto + '://' + host + ':' + port;
+            const conn = new RpcHttpConnection(url_utils.quick_parse(address));
             conn.req = req;
             conn.res = res;
             conn.emit('connect');

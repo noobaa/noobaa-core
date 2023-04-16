@@ -1,8 +1,8 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-var _ = require('lodash');
-var LRU = require('./lru');
+const _ = require('lodash');
+const LRU = require('./lru');
 
 /**
  * @template T params
@@ -101,8 +101,8 @@ class LRUCache {
      * @returns {V | undefined}
      */
     peek_cache(params) {
-        let key = this.make_key(params);
-        let item = this.lru.find_item(key);
+        const key = this.make_key(params);
+        const item = this.lru.find_item(key);
         if (item && item.d) {
             return this.make_val(item.d, params);
         }
@@ -113,11 +113,11 @@ class LRUCache {
      * @param {V} data
      */
     put_in_cache(params, data) {
-        var key = this.make_key(params);
-        var item = this.lru.find_or_add_item(key);
+        const key = this.make_key(params);
+        const item = this.lru.find_or_add_item(key);
         item.d = data;
         if (this.item_usage) {
-            let usage = this.item_usage(data, params);
+            const usage = this.item_usage(data, params);
             this.lru.set_usage(item, usage);
         }
     }
@@ -143,7 +143,7 @@ class LRUCache {
      * @param {T} params
      */
     invalidate(params) {
-        var key = this.make_key(params);
+        const key = this.make_key(params);
         return this.invalidate_key(key);
     }
 
@@ -152,7 +152,7 @@ class LRUCache {
      * @param {K} key
      */
     invalidate_key(key) {
-        var item = this.lru.remove_item(key);
+        const item = this.lru.remove_item(key);
         if (item && item.val) {
             return item.val;
         }

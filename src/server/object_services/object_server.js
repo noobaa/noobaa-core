@@ -62,7 +62,7 @@ async function create_object_upload(req) {
 
     const encryption = _get_encryption_for_object(req);
     const obj_id = MDStore.instance().make_md_id();
-    var info = {
+    const info = {
         _id: obj_id,
         system: req.system._id,
         bucket: req.bucket._id,
@@ -204,7 +204,7 @@ function calc_retention(req) {
         const retention_conf = get_default_lock_config(req.bucket);
         if (!retention_conf) return;
 
-        let today = new Date();
+        const today = new Date();
         const retain_until_date = retention_conf.days ? new Date(today.setDate(today.getDate() + retention_conf.days)) :
             new Date(today.setFullYear(today.getFullYear() + retention_conf.years));
 
@@ -1373,7 +1373,7 @@ function report_endpoint_problems(req) {
  * @returns {nb.ObjectInfo}
  */
 function get_object_info(md, options = {}) {
-    var bucket = system_store.data.get_by_id(md.bucket);
+    const bucket = system_store.data.get_by_id(md.bucket);
     return {
         obj_id: md._id.toHexString(),
         bucket: bucket.name,
@@ -1409,7 +1409,7 @@ function get_object_info(md, options = {}) {
 }
 
 function load_bucket(req, { include_deleting } = {}) {
-    var bucket = req.system.buckets_by_name && req.system.buckets_by_name[req.rpc_params.bucket.unwrap()];
+    const bucket = req.system.buckets_by_name && req.system.buckets_by_name[req.rpc_params.bucket.unwrap()];
     if (!bucket || (bucket.deleting && !include_deleting)) {
         throw new RpcError('NO_SUCH_BUCKET', 'No such bucket: ' + req.rpc_params.bucket);
     }

@@ -1,12 +1,12 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
-let Ntcp = require('../util/nb_native')().Ntcp;
-let Speedometer = require('../util/speedometer');
-let argv = require('minimist')(process.argv);
+const Ntcp = require('../util/nb_native')().Ntcp;
+const Speedometer = require('../util/speedometer');
+const argv = require('minimist')(process.argv);
 argv.size = argv.size || 1024 * 1024;
 argv.port = Number(argv.port) || 50505;
-let g_servers = [];
-let g_connections = [];
+const g_servers = [];
+const g_connections = [];
 main();
 
 function main() {
@@ -30,7 +30,7 @@ function usage() {
 
 function run_server(port) {
     console.log('SERVER', port, 'size', argv.size);
-    let server = new Ntcp();
+    const server = new Ntcp();
     g_servers.push(server);
     server.on('connection', conn => {
         setup_conn(conn);
@@ -48,7 +48,7 @@ function run_server(port) {
 
 function run_client(port, host) {
     console.log('CLIENT', host + ':' + port, 'size', argv.size);
-    let conn = new Ntcp();
+    const conn = new Ntcp();
     conn.connect(port, host, () => run_sender(conn));
     setup_conn(conn);
 }
@@ -66,11 +66,11 @@ function setup_conn(conn) {
 
 function run_sender(conn) {
     console.log('client connected');
-    let send_speedometer = new Speedometer('Send Speed');
+    const send_speedometer = new Speedometer('Send Speed');
     send();
 
     function send() {
-        let buf = Buffer.allocUnsafe(argv.size);
+        const buf = Buffer.allocUnsafe(argv.size);
         conn.write(buf, () => {
             send_speedometer.update(buf.length);
             setImmediate(send);
@@ -79,6 +79,6 @@ function run_sender(conn) {
 }
 
 function run_receiver(conn) {
-    let recv_speedometer = new Speedometer('Receive Speed');
+    const recv_speedometer = new Speedometer('Receive Speed');
     conn.on('message', data => recv_speedometer.update(data.length));
 }

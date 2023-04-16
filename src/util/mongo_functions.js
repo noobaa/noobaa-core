@@ -18,9 +18,9 @@
 
 // declare names that these functions expect to have in scope
 // so that lint tools will not give warnings.
-let emit = (key, value) => value;
-let prefix = '';
-let delimiter = '';
+const emit = (key, value) => value;
+const prefix = '';
+const delimiter = '';
 
 /**
  * @this mongodb doc being mapped
@@ -29,8 +29,8 @@ let delimiter = '';
  * In case of an object it will emit the object key with the object itself.
  */
 function map_common_prefixes() {
-    var suffix = this.key.slice(prefix.length);
-    var pos = suffix.indexOf(delimiter);
+    const suffix = this.key.slice(prefix.length);
+    const pos = suffix.indexOf(delimiter);
     if (pos >= 0) {
         emit([suffix.slice(0, pos + 1), 'common_prefix'], 1);
     } else {
@@ -47,8 +47,8 @@ function reduce_common_prefixes(key, values) {
     if (key[1] === 'common_prefix') {
         // For common prefixes we count the number of objects that were emitted on that prefix
         // This count is not really used, so we could also just return 1, but we count it anyway.
-        var count = 0;
-        for (var i = 0; i < values.length; ++i) count += values[i];
+        let count = 0;
+        for (let i = 0; i < values.length; ++i) count += values[i];
         return count;
     } else {
         // Objects are uniquely emitted with their _id, so we do not expect multiple values.
@@ -68,7 +68,7 @@ function map_aggregate_objects() {
     emit([this.bucket, 'count'], 1);
 
     // map for histogram calcs - emit the size and count with a key that is the log2 of the size
-    var pow = 0;
+    let pow = 0;
     if (this.size > 1) {
         pow = Math.ceil(Math.log2(this.size));
     }
@@ -101,8 +101,8 @@ function map_aggregate_blocks() {
  * @this mongodb doc being mapped
  */
 function map_key_with_prefix_delimiter() {
-    var suffix = this.key.slice(prefix.length);
-    var pos = suffix.indexOf(delimiter);
+    const suffix = this.key.slice(prefix.length);
+    const pos = suffix.indexOf(delimiter);
     if (pos >= 0) {
         emit(suffix.slice(0, pos), undefined);
     }
@@ -114,9 +114,9 @@ function map_key_with_prefix_delimiter() {
 // this function must be self contained to be able to send to mongo mapReduce()
 // so not using any functions or constants from above.
 function reduce_sum(key, values) {
-    var PETABYTE = 1024 * 1024 * 1024 * 1024 * 1024;
-    var n = 0;
-    var peta = 0;
+    const PETABYTE = 1024 * 1024 * 1024 * 1024 * 1024;
+    let n = 0;
+    let peta = 0;
     values.forEach(function(v) {
         if (typeof(v) === 'number') {
             n += v;
@@ -142,7 +142,7 @@ const func_stats_exports = (function() {
     // the map/reduce/finalize function below and prevent lint errors.
     let step;
     let max_samples;
-    let percentiles = [];
+    const percentiles = [];
 
     /**
      * @this mongodb doc being mapped

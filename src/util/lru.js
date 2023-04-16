@@ -1,11 +1,11 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-let _ = require('lodash');
-let assert = require('assert');
-let LinkedList = require('./linked_list');
+const _ = require('lodash');
+const assert = require('assert');
+const LinkedList = require('./linked_list');
 
-let DEFAULT_PARAMS = {
+const DEFAULT_PARAMS = {
     max_usage: 32,
     expiry_ms: 0,
     name: '',
@@ -43,7 +43,7 @@ class LRU {
         let item = this.find_item(id);
         if (!item) {
             // miss - insert new item on front
-            let now = this.params.expiry_ms ? Date.now() : 0;
+            const now = this.params.expiry_ms ? Date.now() : 0;
             item = new LRUItem(this, id, now);
             this._add_item(item);
         }
@@ -52,8 +52,8 @@ class LRU {
 
     // return the item from the LRU cache, create it if missing.
     find_item(id) {
-        let item = this.map.get(id);
-        let now = this.params.expiry_ms ? Date.now() : 0;
+        const item = this.map.get(id);
+        const now = this.params.expiry_ms ? Date.now() : 0;
         if (item) {
             // check if not expired
             if (!this.params.expiry_ms || (now < item.time + this.params.expiry_ms)) {
@@ -81,7 +81,7 @@ class LRU {
         // setting the item usage before updating
         // so that if the update will decides to discard this
         // current item it will be able to account it.
-        let diff = usage - item.usage;
+        const diff = usage - item.usage;
         item.usage = usage;
         if (this.list.is_linked(item)) {
             this._update_usage(diff);
@@ -95,7 +95,7 @@ class LRU {
     _update_usage(diff) {
         this.usage += diff;
         while (this.usage > this.params.max_usage && this.list.length) {
-            let item = this.list.get_back();
+            const item = this.list.get_back();
             this._remove_item(item);
         }
     }

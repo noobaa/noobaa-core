@@ -5,7 +5,7 @@ const api = require('../../api');
 const Report = require('../framework/report');
 const P = require('../../util/promise');
 
-let report = new Report();
+const report = new Report();
 
 //Enable reporter and set parameters
 function init_reporter(report_params) {

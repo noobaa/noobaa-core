@@ -83,11 +83,11 @@ async function exec(command, options) {
  */
 function fork(command, input_args, opts, ignore_rc) {
     return new Promise((resolve, reject) => {
-        let options = opts || {};
-        let args = input_args || [];
+        const options = opts || {};
+        const args = input_args || [];
         dbg.log0('fork:', command, args.join(' '), options, ignore_rc);
         options.stdio = options.stdio || 'inherit';
-        var proc = child_process.fork(command, args, options);
+        const proc = child_process.fork(command, args, options);
         proc.on('exit', code => {
             if (code === 0 || ignore_rc) {
                 resolve();
@@ -124,7 +124,7 @@ function spawn(command, args, options, ignore_rc, unref, timeout_ms) {
         args = args || [];
         dbg.log0('spawn:', command, args.join(' '), options, ignore_rc);
         options.stdio = options.stdio || 'inherit';
-        var proc = child_process.spawn(command, args, options);
+        const proc = child_process.spawn(command, args, options);
         proc.on('exit', code => {
             if (code === 0 || ignore_rc) {
                 resolve();
@@ -162,12 +162,12 @@ function spawn(command, args, options, ignore_rc, unref, timeout_ms) {
 function os_info() {
 
     //Convert X.Y eth name style to X-Y as mongo doesn't accept . in it's keys
-    var orig_ifaces = os.networkInterfaces();
-    var interfaces = _.clone(orig_ifaces);
+    const orig_ifaces = os.networkInterfaces();
+    const interfaces = _.clone(orig_ifaces);
 
     _.each(orig_ifaces, function(iface, name) {
         if (name.indexOf('.') !== -1) {
-            var new_name = name.replace(/\./g, '-');
+            const new_name = name.replace(/\./g, '-');
             interfaces[new_name] = iface;
             delete interfaces[name];
         }
@@ -253,7 +253,7 @@ function get_raw_storage() {
     } else {
         return read_drives()
             .then(drives => {
-                let root = drives.find(drive => drive.mount === '/');
+                const root = drives.find(drive => drive.mount === '/');
                 if (root) {
                     return root.storage.total;
                 } else {
@@ -287,7 +287,7 @@ function get_distro() {
 // calculate cpu)
 function calc_cpu_usage(current_cpus, previous_cpus) {
     previous_cpus = previous_cpus || [{ times: { user: 0, nice: 0, sys: 0, idle: 0, irq: 0, } }];
-    let previous_cpus_reduced = previous_cpus.map(cpu => cpu.times).reduce((prev, curr) => ({
+    const previous_cpus_reduced = previous_cpus.map(cpu => cpu.times).reduce((prev, curr) => ({
         user: prev.user + curr.user,
         nice: prev.nice + curr.nice,
         sys: prev.sys + curr.sys,
@@ -295,7 +295,7 @@ function calc_cpu_usage(current_cpus, previous_cpus) {
         irq: prev.irq + curr.irq
     }));
     // sum current cpus, and subtract the sum of previous cpus (take negative of prev_sum as initial val)
-    let current_cpus_reduced = current_cpus.map(cpu => cpu.times).reduce((prev, curr) => ({
+    const current_cpus_reduced = current_cpus.map(cpu => cpu.times).reduce((prev, curr) => ({
             user: prev.user + curr.user,
             nice: prev.nice + curr.nice,
             sys: prev.sys + curr.sys,
@@ -303,8 +303,8 @@ function calc_cpu_usage(current_cpus, previous_cpus) {
             irq: prev.irq + curr.irq
         }),
         _.mapValues(previous_cpus_reduced, val => (-1) * val));
-    let total = _.reduce(current_cpus_reduced, (a, b) => a + b);
-    let usage = 1 - (current_cpus_reduced.idle / total); // return the time not in idle
+    const total = _.reduce(current_cpus_reduced, (a, b) => a + b);
+    const usage = 1 - (current_cpus_reduced.idle / total); // return the time not in idle
 
     return usage;
 }
@@ -377,15 +377,15 @@ async function get_drive_of_path(file_path) {
 function remove_linux_readonly_drives(volumes) {
     if (IS_MAC) return volumes;
     // grep command to get read only filesystems from /proc/mount
-    let grep_command = 'grep "\\sro[\\s,]" /proc/mounts';
+    const grep_command = 'grep "\\sro[\\s,]" /proc/mounts';
     return exec(grep_command, {
             ignore_rc: true,
             return_stdout: true,
         })
         .then(grep_res => {
-            let ro_drives = grep_res.split('\n').map(drive => drive.split(' ')[0]);
+            const ro_drives = grep_res.split('\n').map(drive => drive.split(' ')[0]);
             // only use volumes that are not one of the ro_drives.
-            let ret_vols = volumes.filter(vol => ro_drives.indexOf(vol.drive_id) === -1);
+            const ret_vols = volumes.filter(vol => ro_drives.indexOf(vol.drive_id) === -1);
             return ret_vols;
         });
 }
@@ -443,7 +443,7 @@ function linux_volume_to_drive(vol, size_by_bd, skip) {
 }
 
 function top_single(dst) {
-    var file_redirect = dst ? ' &> ' + dst : '';
+    const file_redirect = dst ? ' &> ' + dst : '';
     if (IS_MAC) {
         return exec('top -c -l 1' + file_redirect);
     } else if (IS_LINUX) {
@@ -505,7 +505,7 @@ function _set_dns_server(servers) {
 }
 
 function get_time_config() {
-    var reply = {
+    const reply = {
         srv_time: 0,
         timezone: '',
         status: false
@@ -516,7 +516,7 @@ function get_time_config() {
             return_stdout: true,
         })
         .then(tzone => {
-            var symlink = tzone.split('>')[1].split('/zoneinfo/')[1].trim();
+            const symlink = tzone.split('>')[1].split('/zoneinfo/')[1].trim();
             reply.srv_time = moment().tz(symlink)
                 .format();
             reply.timezone = symlink;
@@ -525,8 +525,8 @@ function get_time_config() {
 }
 
 function get_local_ipv4_ips() {
-    var ifaces = os.networkInterfaces();
-    var ips = [];
+    const ifaces = os.networkInterfaces();
+    const ips = [];
     _.each(ifaces, function(iface) {
         _.each(iface, function(ifname) {
             //Don't count non IPv4 or Internals
@@ -541,7 +541,7 @@ function get_local_ipv4_ips() {
 }
 
 function get_networking_info() {
-    var ifaces = os.networkInterfaces();
+    const ifaces = os.networkInterfaces();
     return ifaces;
 }
 
@@ -642,9 +642,9 @@ function restart_noobaa_services() {
 
     dbg.warn('RESTARTING SERVICES!!!', (new Error()).stack);
 
-    var fname = '/tmp/spawn.log';
-    var stdout = fs.openSync(fname, 'a');
-    var stderr = fs.openSync(fname, 'a');
+    const fname = '/tmp/spawn.log';
+    const stdout = fs.openSync(fname, 'a');
+    const stderr = fs.openSync(fname, 'a');
     spawn('nohup', [
         '/usr/bin/supervisorctl',
         'restart',
@@ -726,7 +726,7 @@ function _check_ports_on_linux(dest_ips, start_port, end_port) {
                 return true;
             }
 
-            let ports_groups = _.groupBy(_.range(start_port, end_port + 1), port => {
+            const ports_groups = _.groupBy(_.range(start_port, end_port + 1), port => {
                 // go over all relevant rules, and look for the first matching rule (maybe partial match)
                 for (const rule of filtered_rules) {
                     if (port >= rule.start_port && port <= rule.end_port) {
@@ -754,14 +754,14 @@ function get_iptables_rules() {
         })
         .then(output => {
             // split output to lines, and remove first two lines (title lines) and empty lines
-            let raw_rules = output.split('\n')
+            const raw_rules = output.split('\n')
                 .slice(2)
                 .filter(line => Boolean(line.length));
             return raw_rules.map(line => {
                 line = line.trim();
                 // split by spaces to different attributes, but limit to 9. the last attribute
                 // can contain spaces, so we will extract it separately
-                let attributes = line.split(/\s+/, 9);
+                const attributes = line.split(/\s+/, 9);
                 if (attributes.length !== 9) {
                     throw new Error('Failed parsing iptables output. expected split to return 9 fields');
                 }

@@ -121,11 +121,11 @@ async function list_objects() {
             console.log('Prefix:', prefix.Prefix);
         }
         for (const obj of res.Contents) {
-            let key = obj.Key;
+            const key = obj.Key;
             let size = size_utils.human_size(obj.Size);
             size = '        '.slice(size.length) + size;
-            let mtime = moment(new Date(obj.LastModified)).format('MMM DD HH:mm');
-            let owner = (obj.Owner && (obj.Owner.DisplayName || obj.Owner.ID)) || '?';
+            const mtime = moment(new Date(obj.LastModified)).format('MMM DD HH:mm');
+            const owner = (obj.Owner && (obj.Owner.DisplayName || obj.Owner.ID)) || '?';
             if (argv.ll) {
                 console.log(owner, size, mtime, key,
                     JSON.stringify(_.omit(obj, 'Key', 'Size', 'Owner', 'LastModified')));
@@ -162,11 +162,11 @@ async function list_objects_v2() {
             console.log('Prefix:', prefix.Prefix);
         }
         for (const obj of res.Contents) {
-            let key = obj.Key;
+            const key = obj.Key;
             let size = size_utils.human_size(obj.Size);
             size = '        '.slice(size.length) + size;
-            let mtime = moment(new Date(obj.LastModified)).format('MMM DD HH:mm');
-            let owner = (obj.Owner && (obj.Owner.DisplayName || obj.Owner.ID)) || '?';
+            const mtime = moment(new Date(obj.LastModified)).format('MMM DD HH:mm');
+            const owner = (obj.Owner && (obj.Owner.DisplayName || obj.Owner.ID)) || '?';
             if (argv.ll_v2) {
                 console.log(owner, size, mtime, key,
                     JSON.stringify(_.omit(obj, 'Key', 'Size', 'Owner', 'LastModified')));
@@ -234,7 +234,7 @@ function delete_objects() {
 }
 
 function upload_object() {
-    let file_path = argv.file || '';
+    const file_path = argv.file || '';
     let upload_key =
         (_.isString(argv.upload) && argv.upload) ||
         (_.isString(argv.put) && argv.put) ||
@@ -244,7 +244,7 @@ function upload_object() {
     argv.part_size = argv.part_size || 32;
     let data_source;
     let data_size;
-    let part_size = argv.part_size * 1024 * 1024;
+    const part_size = argv.part_size * 1024 * 1024;
     if (file_path) {
         upload_key = upload_key || file_path + '-' + Date.now().toString(36);
         data_source = fs.createReadStream(file_path, {
@@ -279,9 +279,9 @@ function upload_object() {
             console.error('UPLOAD ERROR:', err);
             return;
         }
-        let end_time = Date.now();
-        let total_seconds = (end_time - start_time) / 1000;
-        let speed_str = (data_size / total_seconds / 1024 / 1024).toFixed(0);
+        const end_time = Date.now();
+        const total_seconds = (end_time - start_time) / 1000;
+        const speed_str = (data_size / total_seconds / 1024 / 1024).toFixed(0);
         console.log('upload done.', speed_str, 'MB/sec');
     }
 
@@ -324,7 +324,7 @@ function upload_object() {
     }
 
     if (argv.perf) {
-        let progress = {
+        const progress = {
             loaded: 0
         };
         s3.createMultipartUpload({
@@ -371,8 +371,8 @@ function upload_object() {
                     data_source.pause();
                 }
                 //console.log('uploadPart');
-                let data_start_time = Date.now();
-                let part_num = next_part_num;
+                const data_start_time = Date.now();
+                const part_num = next_part_num;
                 s3.uploadPart({
                     Bucket: argv.bucket,
                     Key: upload_key,
@@ -386,7 +386,7 @@ function upload_object() {
                         console.error('s3.uploadPart ERROR', err2);
                         return;
                     }
-                    let took = Date.now() - data_start_time;
+                    const took = Date.now() - data_start_time;
                     // console.log('Part', part_num, 'Took', took, 'ms');
                     latency_avg += took;
                     data_source.resume();
@@ -431,9 +431,9 @@ function get_object() {
                 console.error('GET ERROR:', err2);
                 return;
             }
-            let end_time = Date.now();
-            let total_seconds = (end_time - start_time) / 1000;
-            let speed_str = (data_size / total_seconds / 1024 / 1024).toFixed(0);
+            const end_time = Date.now();
+            const total_seconds = (end_time - start_time) / 1000;
+            const speed_str = (data_size / total_seconds / 1024 / 1024).toFixed(0);
             console.log('get done.', speed_str, 'MB/sec');
         }
 

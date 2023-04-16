@@ -33,7 +33,7 @@ MongoCtrl.prototype.init = function() {
 //TODO:: for detaching: add remove member from replica set & destroy shard
 
 MongoCtrl.prototype.add_replica_set_member = function(name, first_server, servers) {
-    let self = this;
+    const self = this;
     return self._remove_single_mongo_program()
         .then(() => self._add_replica_set_member_program(name, first_server))
         .then(() => SupervisorCtl.apply_changes())
@@ -50,7 +50,7 @@ MongoCtrl.prototype.add_replica_set_member = function(name, first_server, server
 };
 
 MongoCtrl.prototype.add_new_shard_server = function(name, first_shard) {
-    let self = this;
+    const self = this;
     return self._remove_single_mongo_program()
         .then(() => self._add_new_shard_program(name, first_shard))
         .then(() => SupervisorCtl.apply_changes())
@@ -58,7 +58,7 @@ MongoCtrl.prototype.add_new_shard_server = function(name, first_shard) {
 };
 
 MongoCtrl.prototype.add_new_mongos = function(cfg_array) {
-    let self = this;
+    const self = this;
     return P.resolve()
         .then(() => self._add_new_mongos_program(cfg_array))
         .then(() => SupervisorCtl.apply_changes())
@@ -66,7 +66,7 @@ MongoCtrl.prototype.add_new_mongos = function(cfg_array) {
 };
 
 MongoCtrl.prototype.add_new_config = function() {
-    let self = this;
+    const self = this;
     return self._add_new_config_program()
         .then(() => SupervisorCtl.apply_changes())
         .then(() => P.delay(5000)); // TODO: find better solution
@@ -114,10 +114,10 @@ MongoCtrl.prototype.get_hb_rs_status = function() {
             dbg.log0('got rs status from mongo:', status);
             if (status.ok) {
                 // return rs status fields specified in HB schema (cluster_schema)
-                let rs_status = {
+                const rs_status = {
                     set: status.set,
                     members: status.members.map(member => {
-                        let member_status = {
+                        const member_status = {
                             name: member.name,
                             health: member.health,
                             uptime: member.uptime,
@@ -135,7 +135,7 @@ MongoCtrl.prototype.get_hb_rs_status = function() {
 };
 
 MongoCtrl.prototype.add_mongo_monitor_program = function() {
-    let program_obj = {};
+    const program_obj = {};
     program_obj.name = 'mongo_monitor';
     program_obj.stopsignal = 'KILL';
     program_obj.killasgroup = 'true';
@@ -152,12 +152,12 @@ MongoCtrl.prototype.update_dotenv = function(name, IPs) {
     if (!process.env.MONGO_SSL_USER) {
         throw new Error('MONGO_SSL_USER is missing in .env');
     }
-    let user_name = encodeURIComponent(process.env.MONGO_SSL_USER) + '@';
+    const user_name = encodeURIComponent(process.env.MONGO_SSL_USER) + '@';
     dbg.log0('will update dotenv for replica set', name, 'with IPs', IPs);
-    let servers_str = IPs.map(ip => ip + ':' + config.MONGO_DEFAULTS.SHARD_SRV_PORT).join(',');
-    let url = 'mongodb://' + user_name + servers_str + '/nbcore?replicaSet=' + name +
+    const servers_str = IPs.map(ip => ip + ':' + config.MONGO_DEFAULTS.SHARD_SRV_PORT).join(',');
+    const url = 'mongodb://' + user_name + servers_str + '/nbcore?replicaSet=' + name +
         '&readPreference=primaryPreferred&authMechanism=MONGODB-X509';
-    let old_url = process.env.MONGO_RS_URL || '';
+    const old_url = process.env.MONGO_RS_URL || '';
     dbg.log0('updating MONGO_RS_URL in .env from', old_url, 'to', url);
     dotenv.set({
         key: 'MONGO_RS_URL',
@@ -183,8 +183,8 @@ MongoCtrl.prototype.force_mongo_sync_journal = function() {
 //Internals
 //
 MongoCtrl.prototype._init_replica_set_from_shell = function(ip) {
-    let host = ip + ':' + config.MONGO_DEFAULTS.SHARD_SRV_PORT;
-    let mongo_shell_command = `mongo nbcore --port ${config.MONGO_DEFAULTS.SHARD_SRV_PORT}` +
+    const host = ip + ':' + config.MONGO_DEFAULTS.SHARD_SRV_PORT;
+    const mongo_shell_command = `mongo nbcore --port ${config.MONGO_DEFAULTS.SHARD_SRV_PORT}` +
         ` --eval "rs.initiate({_id: 'shard1',members: [{_id: 0,host: '${host}'}]})"`;
     dbg.log0(`init replica set: running command ${mongo_shell_command}`);
     return os_utils.exec(mongo_shell_command, {
@@ -199,8 +199,8 @@ MongoCtrl.prototype._add_replica_set_member_program = async function(name, first
         throw new Error('port and name must be supplied to add new shard');
     }
 
-    let program_obj = {};
-    let dbpath = config.MONGO_DEFAULTS.COMMON_PATH + '/' + name + (first_server ? '' : 'rs');
+    const program_obj = {};
+    const dbpath = config.MONGO_DEFAULTS.COMMON_PATH + '/' + name + (first_server ? '' : 'rs');
     // get uid and gid of common path, to set for new dbpath
     let stats;
     try {
@@ -250,8 +250,8 @@ MongoCtrl.prototype._add_new_shard_program = function(name, first_shard) {
         throw new Error('port and name must be supplied to add new shard');
     }
 
-    var program_obj = {};
-    let dbpath = config.MONGO_DEFAULTS.COMMON_PATH + '/' + name;
+    const program_obj = {};
+    const dbpath = config.MONGO_DEFAULTS.COMMON_PATH + '/' + name;
     program_obj.name = 'mongoshard-' + name;
     program_obj.command = 'mongod  --shardsvr' +
         ' --replSet ' + name +
@@ -287,7 +287,7 @@ MongoCtrl.prototype._add_new_mongos_program = function(cfg_array) {
         });
     }
 
-    let program_obj = {};
+    const program_obj = {};
     program_obj.name = 'mongos';
     program_obj.command = 'mongos --configdb ' + config_string;
     program_obj.directory = '/usr/bin';
@@ -301,8 +301,8 @@ MongoCtrl.prototype._add_new_mongos_program = function(cfg_array) {
 };
 
 MongoCtrl.prototype._init_replica_set_from_shell = function(ip) {
-    let host = ip + ':' + config.MONGO_DEFAULTS.SHARD_SRV_PORT;
-    let mongo_shell_command = `mongo nbcore --port ${config.MONGO_DEFAULTS.SHARD_SRV_PORT} --ssl` +
+    const host = ip + ':' + config.MONGO_DEFAULTS.SHARD_SRV_PORT;
+    const mongo_shell_command = `mongo nbcore --port ${config.MONGO_DEFAULTS.SHARD_SRV_PORT} --ssl` +
         ` --sslPEMKeyFile ${config.MONGO_DEFAULTS.CLIENT_CERT_PATH}` +
         ` --sslCAFile ${config.MONGO_DEFAULTS.ROOT_CA_PATH} --sslAllowInvalidHostnames` +
         ` --eval "var host='${host}', user='${process.env.MONGO_SSL_USER}'"` +
@@ -315,8 +315,8 @@ MongoCtrl.prototype._init_replica_set_from_shell = function(ip) {
 };
 
 MongoCtrl.prototype._add_new_config_program = function() {
-    let program_obj = {};
-    let dbpath = config.MONGO_DEFAULTS.CFG_DB_PATH;
+    const program_obj = {};
+    const dbpath = config.MONGO_DEFAULTS.CFG_DB_PATH;
     program_obj.name = 'mongocfg';
     program_obj.command = 'mongod --configsvr ' +
         ' --replSet ' + config.MONGO_DEFAULTS.CFG_RSET_NAME +

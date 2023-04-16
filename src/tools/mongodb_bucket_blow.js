@@ -9,19 +9,19 @@
  *
  */
 
-let system_id = db.systems.findOne()._id;
-let pool_id = db.pools.findOne({ resource_type: { $ne: "INTERNAL" } })._id;
-let ccc = db.chunk_configs.findOne()._id;
-let now = Date.now();
+const system_id = db.systems.findOne()._id;
+const pool_id = db.pools.findOne({ resource_type: { $ne: "INTERNAL" } })._id;
+const ccc = db.chunk_configs.findOne()._id;
+const now = Date.now();
 
 for (let j = 0; j < 5; ++j) {
-    let array_of_tiers = [];
-    let array_of_policies = [];
-    let array_of_buckets = [];
+    const array_of_tiers = [];
+    const array_of_policies = [];
+    const array_of_buckets = [];
     for (let i = 0; i < 1000; ++i) {
-        let tier_id = new ObjectId();
-        let policy_id = new ObjectId();
-        let bucket_id = new ObjectId();
+        const tier_id = new ObjectId();
+        const policy_id = new ObjectId();
+        const bucket_id = new ObjectId();
         array_of_tiers.push({
             _id: tier_id,
             name: 'tier' + ((j * 1000) + i),

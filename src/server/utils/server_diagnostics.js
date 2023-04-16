@@ -217,7 +217,7 @@ function collect_statistics(req) {
         })
         .then(function(restats) {
             if (stats_aggregator) {
-                var stats_data = JSON.stringify(restats);
+                const stats_data = JSON.stringify(restats);
                 return fs.promises.writeFile(TMP_WORK_DIR + '/phone_home_stats.out', stats_data);
             }
         })

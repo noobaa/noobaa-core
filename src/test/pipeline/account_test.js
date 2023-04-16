@@ -14,7 +14,7 @@ dbg.set_process_name(test_name);
 
 let rpc;
 let client;
-let errors = [];
+const errors = [];
 let failures_in_test = false;
 const DEFAULT_EMAIL = 'demo@noobaa.com';
 
@@ -45,10 +45,10 @@ const YELLOW = "\x1b[33;1m";
 const RED = "\x1b[31;1m";
 const NC = "\x1b[0m";
 
-let TEST_CFG = _.defaults(_.pick(argv, _.keys(TEST_CFG_DEFAULTS)), TEST_CFG_DEFAULTS);
+const TEST_CFG = _.defaults(_.pick(argv, _.keys(TEST_CFG_DEFAULTS)), TEST_CFG_DEFAULTS);
 Object.freeze(TEST_CFG);
 
-let report = new Report();
+const report = new Report();
 
 function usage() {
     console.log(`
@@ -151,8 +151,8 @@ function set_account_details(has_login, account_name, email, s3_access) {
 async function create_account(has_login, account_name) {
     //building an account parameters object.
     console.log(`Creating account: ${account_name} with access login: ${has_login} s3 access: ${TEST_CFG.s3_access}`);
-    let email = account_name + TEST_CFG.emailSuffix;
-    let accountData = set_account_details(has_login, account_name, email, TEST_CFG.s3_access);
+    const email = account_name + TEST_CFG.emailSuffix;
+    const accountData = set_account_details(has_login, account_name, email, TEST_CFG.s3_access);
     try {
         await client.account.create_account(accountData);
         await report.success('create_account');

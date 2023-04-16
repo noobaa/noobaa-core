@@ -85,7 +85,7 @@ class S3OPS {
             });
 
             console.log(`>>> UPLOAD - About to upload object... name: ${file_name}, size: ${actual_size}, bucket: ${bucket}`);
-            let start_ts = Date.now();
+            const start_ts = Date.now();
             await this.s3.putObject({
                 Bucket: bucket,
                 Key: file_name,
@@ -107,7 +107,7 @@ class S3OPS {
         try {
             destination_bucket = destination_bucket || 'first.bucket';
 
-            let params = {
+            const params = {
                 Bucket: destination_bucket,
                 CopySource: source_bucket + '/' + source + (versionid ? `?versionId=${versionid}` : ''),
                 Key: destination,
@@ -115,7 +115,7 @@ class S3OPS {
             };
             const psource = source + (versionid ? ' v' + versionid : '');
             console.log('>>> SS COPY - About to copy object... from: ' + psource + ' to: ' + destination);
-            let start_ts = Date.now();
+            const start_ts = Date.now();
             await this.s3.copyObject(params).promise();
             const file_md5 = verify_md5_map.get(`${this.system_verify_name}/${source_bucket}/${source}`);
             verify_md5_map.set(`${this.system_verify_name}/${destination_bucket}/${destination}`, file_md5);
@@ -209,10 +209,9 @@ class S3OPS {
             VersionId: versionid ? versionid : undefined,
         }).promise();
         let start_byte = 0;
-        let file_md5;
-        let md5 = crypto.createHash('md5');
+        const md5 = crypto.createHash('md5');
         // file_md5 = res.Metadata.md5;
-        file_md5 = verify_md5_map.get(`${this.system_verify_name}/${bucket}/${file_name}`);
+        const file_md5 = verify_md5_map.get(`${this.system_verify_name}/${bucket}/${file_name}`);
         const file_size = res.ContentLength;
         const jump = Math.floor(file_size / parts);
         let finish_byte = start_byte + jump;
@@ -240,7 +239,7 @@ class S3OPS {
 
     async check_MD5_all_objects(bucket, prefix) {
 
-        let params = {
+        const params = {
             Bucket: bucket,
             Prefix: prefix,
         };
@@ -262,7 +261,7 @@ class S3OPS {
             if (list.length === 0) {
                 throw new Error('No files with prefix in bucket');
             }
-            let rand = Math.floor(Math.random() * list.length);
+            const rand = Math.floor(Math.random() * list.length);
             return list[rand];
         } catch (err) {
             this.log_error(`get_a_random_file:: listObjects - Bucket: ${bucket}, Prefix: ${prefix} failed!`, err);
@@ -279,7 +278,7 @@ class S3OPS {
             if (list.length === 0) {
                 throw new Error('No files with prefix in bucket');
             }
-            let rand = Math.floor(Math.random() * list.length); //Take a random version , not delete marker and return key and versionid
+            const rand = Math.floor(Math.random() * list.length); //Take a random version , not delete marker and return key and versionid
             return list[rand];
         } catch (err) {
             this.log_error(`get_a_random_file:: listObjectVersions - Bucket: ${bucket}, Prefix: ${prefix} failed!`, err);
@@ -291,13 +290,13 @@ class S3OPS {
         const suppress_logs = param.suppress_logs;
         const MaxKeys = param.maxKeys;
         let ops = 'listObjects';
-        let params = {
+        const params = {
             Bucket: bucket,
             Prefix: prefix,
             MaxKeys,
         };
         let list = [];
-        let listFiles = [];
+        const listFiles = [];
         if (param.version) {
             ops = 'listObjectVersions';
         }
@@ -330,7 +329,7 @@ class S3OPS {
     }
 
     async get_list_multipart_uploads(bucket) {
-        let listFiles = [];
+        const listFiles = [];
         try {
             const { Uploads: list } = await this.s3.listMultipartUploads({ Bucket: bucket }).promise();
             if (list.length === 0) {
@@ -358,7 +357,7 @@ class S3OPS {
             UploadIdMarker: uploadIdMarker
         };
         let list = [];
-        let listFiles = [];
+        const listFiles = [];
         try {
             const listMultipartUploads = await this.s3.listMultipartUploads(params).promise();
             console.log(JSON.stringify(listMultipartUploads));
@@ -379,7 +378,7 @@ class S3OPS {
     }
 
     async get_list_prefixes(bucket) {
-        let listPrefixes = [];
+        const listPrefixes = [];
         try {
             const { CommonPrefixes: list } = await this.s3.listObjects({
                 Bucket: bucket,
@@ -415,7 +414,7 @@ class S3OPS {
 
     async delete_file(bucket, file_name, versionid) {
         try {
-            let start_ts = Date.now();
+            const start_ts = Date.now();
             const psource = file_name + (versionid ? 'v' + versionid : '');
             console.log('>>> DELETE - About to delete object...' + psource);
             await this.s3.deleteObject({
@@ -440,7 +439,7 @@ class S3OPS {
         };
 
         for (const file of files) {
-            let item = {
+            const item = {
                 Key: file.filename,
             };
             if (file.versionid) {
@@ -473,7 +472,7 @@ class S3OPS {
                 run_list = false;
             }
             await this.delete_multiple_files(bucket, _.map(list, item => {
-                let i = { filename: item.Key };
+                const i = { filename: item.Key };
                 if (item.VersionId) {
                     i.versionid = item.VersionId;
                 }
@@ -545,7 +544,7 @@ class S3OPS {
     }
 
     async get_list_buckets(print_error = true) {
-        let listBuckets = [];
+        const listBuckets = [];
         try {
             const buckets = await this.s3.listBuckets({}).promise();
             const list = buckets.Buckets;

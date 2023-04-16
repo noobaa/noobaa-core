@@ -81,7 +81,7 @@ function strictify(schema, options, base) {
 }
 
 function check_schema_extra_keywords(schema, base, keywords) {
-    let remain = _.omit(schema, COMMON_SCHEMA_KEYWORDS, keywords);
+    const remain = _.omit(schema, COMMON_SCHEMA_KEYWORDS, keywords);
     if (!_.isEmpty(remain)) {
         illegal_json_schema(schema, base, 'extra keywords in schema - ' + _.keys(remain));
     }

@@ -3,8 +3,8 @@
 
 'use strict';
 
-var host;
-var user;
+let host;
+let user;
 
 // authenticate
 db.getSiblingDB("$external").auth({
@@ -12,7 +12,7 @@ db.getSiblingDB("$external").auth({
     user: user
 });
 
-var rs_config = {
+const rs_config = {
     _id: 'shard1',
     members: [{
         _id: 0,

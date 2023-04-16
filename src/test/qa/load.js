@@ -16,7 +16,7 @@ mocha.describe('UPLOAD TESTS:', function() {
     let index = 0;
 
     [basic_size, 10 * basic_size, 100 * basic_size].forEach(function(file_size) {
-        let file_name = basic_name + index;
+        const file_name = basic_name + index;
         index += 1;
 
         mocha.it('Upload single file of size:' + file_size + ' MB in one thread', async function() {
@@ -35,10 +35,10 @@ mocha.describe('UPLOAD TESTS:', function() {
 
     let file_name = 'file_' + (Math.floor(Date.now() / 1000) + 1);
     let file_size = 10;
-    let num_of_files = 10;
+    const num_of_files = 10;
 
     mocha.it('Upload multiple file of size:' + file_size + ' MB in different threads', function() {
-        let promises = [];
+        const promises = [];
         console.info('> Uploading ' + num_of_files + ' files to Noobaa in differnet threads');
         for (let i = 0; i < num_of_files; i++) {
             console.info('* Uploading file number ' + (i + 1) + ' out of ' + num_of_files + ' named: ' + (file_name + i));
@@ -50,7 +50,7 @@ mocha.describe('UPLOAD TESTS:', function() {
                 return_stdout: true
             }))
             .then(reply => {
-                var num_of_created = reply.split(/\r\n|\r|\n/).length - 1;
+                const num_of_created = reply.split(/\r\n|\r|\n/).length - 1;
                 assert.equal(num_of_created, num_of_files, 'Not all the files were created!, only ' + num_of_created);
                 console.info('> Found ' + num_of_created + ' new files in NooBaa as should');
             });
@@ -61,8 +61,8 @@ mocha.describe('UPLOAD TESTS:', function() {
 
     file_name = 'file_' + (Math.floor(Date.now() / 1000) + 2);
     file_size = 512; // 1/2GB
-    let concur = 10; // number of multiparts used
-    let part_size = Math.floor(file_size / concur);
+    const concur = 10; // number of multiparts used
+    const part_size = Math.floor(file_size / concur);
 
     mocha.it('Upload one big file ' + file_size + ' using multi part', async function() {
         console.info('> Uploading file: ' + file_name + ' to Noobaa with size of:' + file_size + ' MB');

@@ -27,7 +27,7 @@ class Requestor {
         const netstoragePath = this.validatePath(requestArgs.path);
         const authData = this.auth.auth(netstoragePath, acs_action);
 
-        var options = {
+        const options = {
             method: requestArgs.method,
             host: this.requestorOptions.hostname,
             path: netstoragePath,
@@ -47,7 +47,7 @@ class Requestor {
             if (requestArgs.action === 'download' && ok) {
                 return callback(null, res);
             } else {
-                var buffers = [];
+                const buffers = [];
                 res.on('data', data => buffers.push(data))
                     .on('end', () => {
                         res.body = Buffer.concat(buffers).toString('binary');

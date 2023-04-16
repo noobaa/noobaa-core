@@ -1,11 +1,11 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-// let _ = require('lodash');
-// let P = require('../util/promise');
-let RpcBaseConnection = require('./rpc_base_conn');
-let nb_native = require('../util/nb_native');
-// let dbg = require('../util/debug_module')(__filename);
+// const _ = require('lodash');
+// const P = require('../util/promise');
+const RpcBaseConnection = require('./rpc_base_conn');
+const nb_native = require('../util/nb_native');
+// const dbg = require('../util/debug_module')(__filename);
 
 
 /**
@@ -23,7 +23,7 @@ class RpcNtcpConnection extends RpcBaseConnection {
      *
      */
     _connect() {
-        let Ntcp = nb_native().Ntcp;
+        const Ntcp = nb_native().Ntcp;
         this.ntcp = new Ntcp();
         this.ntcp.connect(this.url.port, this.url.hostname,
             () => this.emit('connect'));
@@ -51,9 +51,9 @@ class RpcNtcpConnection extends RpcBaseConnection {
     }
 
     _init_tcp() {
-        let ntcp = this.ntcp;
+        const ntcp = this.ntcp;
         ntcp.on('close', () => {
-            let closed_err = new Error('TCP CLOSED');
+            const closed_err = new Error('TCP CLOSED');
             closed_err.stack = '';
             this.emit('error', closed_err);
         });

@@ -49,7 +49,7 @@ function join(buffers, total_length) {
  */
 function extract(buffers, len) {
     const res = [];
-    var pos = 0;
+    let pos = 0;
     while (pos < len && buffers.length) {
         const b = buffers[0];
         const n = Math.min(b.length, len - pos);
@@ -155,8 +155,8 @@ function write_stream() {
  * @returns {number}
  */
 function count_length(buffers) {
-    var l = 0;
-    for (var i = 0; i < buffers.length; ++i) {
+    let l = 0;
+    for (let i = 0; i < buffers.length; ++i) {
         l += buffers[i].length;
     }
     return l;

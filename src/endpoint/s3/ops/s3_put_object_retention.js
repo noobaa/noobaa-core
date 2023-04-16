@@ -19,7 +19,7 @@ async function put_object_retention(req) {
     if (!mode || !retain_until_date) throw new S3Error(S3Error.MalformedXML);
     retain_until_date = new Date(req.body.Retention.RetainUntilDate[0]);
 
-    let bypass_governance = req.headers['x-amz-bypass-governance-retention'] && req.headers['x-amz-bypass-governance-retention'].toUpperCase() === 'TRUE';
+    const bypass_governance = req.headers['x-amz-bypass-governance-retention'] && req.headers['x-amz-bypass-governance-retention'].toUpperCase() === 'TRUE';
 
     if (s3_utils._is_valid_retention(mode, retain_until_date)) {
         await req.object_sdk.put_object_retention({

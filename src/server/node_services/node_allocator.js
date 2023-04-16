@@ -38,11 +38,11 @@ const nodes_alloc_round_robin_symbol = Symbol('nodes_alloc_round_robin_symbol');
  */
 
 /** @type {{ [pool_id: string]: PoolAllocGroup }} */
-let alloc_group_by_pool = {};
+const alloc_group_by_pool = {};
 /** @type {{ [pool_set: string]: PoolSetAllocGroup }} */
-let alloc_group_by_pool_set = {};
+const alloc_group_by_pool_set = {};
 /** @type {{ [tiering_id: string]: TieringAllocGroup }} */
-let alloc_group_by_tiering = {};
+const alloc_group_by_tiering = {};
 
 /**
  * @param {nb.System} system
@@ -297,7 +297,7 @@ function _get_tier_pools_status(pools, required_valid_nodes) {
     const pools_status_by_id = {};
     _.each(pools, pool => {
         let valid_for_allocation = true;
-        let alloc_group = alloc_group_by_pool[String(pool._id)];
+        const alloc_group = alloc_group_by_pool[String(pool._id)];
         const num_nodes = alloc_group ? _.sumBy(alloc_group.latency_groups, 'nodes.length') : 0;
         if (pool.cloud_pool_info) {
             if (num_nodes !== config.NODES_PER_CLOUD_POOL) {
@@ -329,7 +329,7 @@ function _get_tier_pools_status(pools, required_valid_nodes) {
  * @returns {nb.NodeAPI}
  */
 function allocate_node({ avoid_nodes, allocated_hosts, pools = [] }) {
-    let pool_set = _.map(pools, pool => String(pool._id)).sort().join(',');
+    const pool_set = _.map(pools, pool => String(pool._id)).sort().join(',');
     let alloc_group = alloc_group_by_pool_set[pool_set];
 
     if (!alloc_group) {
@@ -344,7 +344,7 @@ function allocate_node({ avoid_nodes, allocated_hosts, pools = [] }) {
         // Since we will merge the two groups we will eventually have two average groups
         // This is bad since we will have two groups with each having fast and slow drives
         pools.forEach(pool => {
-            let group = alloc_group_by_pool[pool._id.toHexString()];
+            const group = alloc_group_by_pool[pool._id.toHexString()];
             if (group && group.latency_groups) {
                 group.latency_groups.forEach((value, index) => {
                     if (pools_latency_groups[index]) {
@@ -403,8 +403,8 @@ function allocate_node({ avoid_nodes, allocated_hosts, pools = [] }) {
  * @param {Object} options
  */
 function allocate_from_list(nodes, avoid_nodes, allocated_hosts, options) {
-    for (var i = 0; i < nodes.length; ++i) {
-        var node = get_round_robin(nodes);
+    for (let i = 0; i < nodes.length; ++i) {
+        const node = get_round_robin(nodes);
         if (Boolean(options.use_nodes_with_errors) ===
             Boolean(node[report_error_on_node_alloc_symbol]) &&
             !_.includes(avoid_nodes, String(node._id)) &&
@@ -421,7 +421,7 @@ function allocate_from_list(nodes, avoid_nodes, allocated_hosts, options) {
  * @returns {nb.NodeAPI}
  */
 function get_round_robin(nodes) {
-    var rr = (nodes[nodes_alloc_round_robin_symbol] || 0) % nodes.length;
+    const rr = (nodes[nodes_alloc_round_robin_symbol] || 0) % nodes.length;
     nodes[nodes_alloc_round_robin_symbol] = rr + 1;
     return nodes[rr];
 }

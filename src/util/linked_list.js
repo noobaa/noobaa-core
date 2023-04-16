@@ -17,7 +17,7 @@ class LinkedList {
     insert_after(item, new_item) {
         this.check_item(item);
         this.check_new_item(new_item);
-        var next = item[this.next];
+        const next = item[this.next];
         new_item[this.next] = next;
         new_item[this.prev] = item;
         new_item[this.head] = this;
@@ -30,7 +30,7 @@ class LinkedList {
     insert_before(item, new_item) {
         this.check_item(item);
         this.check_new_item(new_item);
-        var prev = item[this.prev];
+        const prev = item[this.prev];
         new_item[this.next] = item;
         new_item[this.prev] = prev;
         new_item[this.head] = this;
@@ -41,8 +41,8 @@ class LinkedList {
     }
 
     remove(item) {
-        var next = item[this.next];
-        var prev = item[this.prev];
+        const next = item[this.next];
+        const prev = item[this.prev];
         if (!next || !prev) {
             return false; // already removed
         }
@@ -57,12 +57,12 @@ class LinkedList {
     }
 
     get_next(item) {
-        var next = item[this.next];
+        const next = item[this.next];
         return next === this ? null : next;
     }
 
     get_prev(item) {
-        var prev = item[this.prev];
+        const prev = item[this.prev];
         return prev === this ? null : prev;
     }
 
@@ -87,7 +87,7 @@ class LinkedList {
     }
 
     pop_front() {
-        var item = this.get_front();
+        const item = this.get_front();
         if (item) {
             this.remove(item);
             return item;
@@ -95,7 +95,7 @@ class LinkedList {
     }
 
     pop_back() {
-        var item = this.get_back();
+        const item = this.get_back();
         if (item) {
             this.remove(item);
             return item;
@@ -123,8 +123,8 @@ class LinkedList {
             return '';
         }
 
-        var cur = this.get_front();
-        var str = String(cur);
+        let cur = this.get_front();
+        let str = String(cur);
         while (cur) {
             cur = this.get_next(cur);
             str += ', ' + cur;

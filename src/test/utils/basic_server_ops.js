@@ -13,7 +13,7 @@ const api = require('../../api');
 
 const request_promise = util.promisify(request);
 
-var test_file = '/tmp/test_upgrade';
+const test_file = '/tmp/test_upgrade';
 let rpc_validation_disabled = false;
 const ext_regex = /^\.[A-Za-z0-9_]{1,4}$/;
 
@@ -130,8 +130,8 @@ function download_file(ip, path) {
 }
 
 function verify_upload_download(ip, path) {
-    var orig_md5;
-    var down_path = path + '_download';
+    let orig_md5;
+    const down_path = path + '_download';
     return P.resolve(calc_md5(path))
         .then(function(md5) {
             orig_md5 = md5;
@@ -165,9 +165,9 @@ async function generate_random_file(size_mb, extension) {
     extension = extension || '.dat';
     if (!extension.startsWith('.')) extension = '.' + extension;
     if (!ext_regex.test(extension)) throw new Error('bad extension');
-    var suffix = Date.now() + '.' + Math.round(Math.random() * 1000) + extension;
-    var fname = test_file + suffix;
-    var dd_cmd;
+    const suffix = Date.now() + '.' + Math.round(Math.random() * 1000) + extension;
+    const fname = test_file + suffix;
+    let dd_cmd;
 
     if (process.platform === 'darwin') {
         dd_cmd = 'dd if=/dev/urandom of=' + fname + ' count=' + size_mb + ' bs=1m';
@@ -180,11 +180,11 @@ async function generate_random_file(size_mb, extension) {
 }
 
 function get_rpc_client(ip) {
-    let rpc = api.new_rpc();
+    const rpc = api.new_rpc();
     if (rpc_validation_disabled) {
         rpc.disable_validation();
     }
-    let client = rpc.new_client({
+    const client = rpc.new_client({
         address: 'ws://' + ip + ':8080'
     });
     return client;
@@ -192,10 +192,10 @@ function get_rpc_client(ip) {
 
 function wait_on_agents_upgrade(ip) {
     const client = get_rpc_client(ip);
-    var sys_ver;
+    let sys_ver;
 
     return P.fcall(function() {
-            var auth_params = {
+            const auth_params = {
                 email: 'demo@noobaa.com',
                 password: 'DeMo1',
                 system: 'demo'
@@ -215,8 +215,8 @@ function wait_on_agents_upgrade(ip) {
         .then(function() {
             //Loop on list_agents until all agents version was updated
             //Timeout at 10 minutes
-            var old_agents = true;
-            var wait_time = 0;
+            let old_agents = true;
+            let wait_time = 0;
             return P.delay(5000).then(function() {
                 return P.pwhile(
                     function() {

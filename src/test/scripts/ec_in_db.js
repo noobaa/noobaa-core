@@ -2,11 +2,11 @@
 /* eslint-env mongo */
 'use strict';
 
-var system = db.systems.findOne();
-var replicas_chunk_config = db.chunk_configs.findOne({ 'chunk_coder_config.parity_frags': 0 });
-var ec_chunk_config = db.chunk_configs.findOne({ 'chunk_coder_config.parity_frags': { $gt: 0 } });
+const system = db.systems.findOne();
+const replicas_chunk_config = db.chunk_configs.findOne({ 'chunk_coder_config.parity_frags': 0 });
+const ec_chunk_config = db.chunk_configs.findOne({ 'chunk_coder_config.parity_frags': { $gt: 0 } });
 
-var chunk_config;
+let chunk_config;
 if (system.default_chunk_config.toString() === ec_chunk_config._id.toString()) {
     chunk_config = replicas_chunk_config;
 } else {

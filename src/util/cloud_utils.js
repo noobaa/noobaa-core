@@ -15,7 +15,7 @@ const defaultRoleSessionName = 'default_noobaa_s3_ops';
 const defaultSTSCredsValidity = 3600;
 
 function find_cloud_connection(account, conn_name) {
-    let conn = (account.sync_credentials_cache || [])
+    const conn = (account.sync_credentials_cache || [])
         .filter(sync_conn => sync_conn.name === conn_name)[0];
 
     if (!conn) {
@@ -59,7 +59,7 @@ async function generate_aws_sts_creds(params, roleSessionName) {
 }
 
 function get_signed_url(params) {
-    let s3 = new AWS.S3({
+    const s3 = new AWS.S3({
         endpoint: params.endpoint,
         credentials: {
             accessKeyId: params.access_key.unwrap(),
@@ -88,7 +88,7 @@ function get_signed_url(params) {
 // TODO: remove it after removed all old library code
 // and rename get_azure_new_connection_string to get_azure_connection_string
 function get_azure_connection_string(params) {
-    let endpoint_url = url.parse(params.endpoint);
+    const endpoint_url = url.parse(params.endpoint);
     let protocol = (endpoint_url.protocol ? endpoint_url.protocol : 'http:');
     protocol = protocol.slice(0, protocol.length - 1);
     let connection_string = 'DefaultEndpointsProtocol=' + protocol + ';';

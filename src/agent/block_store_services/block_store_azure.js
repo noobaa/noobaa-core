@@ -175,11 +175,11 @@ class BlockStoreAzure extends BlockStoreBase {
 
     _delete_blocks(block_ids) {
         // Todo: Assuming that all requested blocks were deleted, which a bit naive
-        let deleted_storage = {
+        const deleted_storage = {
             size: 0,
             count: 0
         };
-        let failed_to_delete_block_ids = [];
+        const failed_to_delete_block_ids = [];
         dbg.log1('block_store_azure._delete_blocks block_ids: ', block_ids);
 
         return P.map_with_concurrency(10, block_ids, async block_id => {

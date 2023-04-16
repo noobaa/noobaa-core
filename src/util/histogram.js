@@ -1,11 +1,11 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-var _ = require('lodash');
+const _ = require('lodash');
 
 module.exports = Histogram;
 
-var SINGLE_BIN_DEFAULTS = {
+const SINGLE_BIN_DEFAULTS = {
     start_val: 0,
     count: 0,
     aggregated_sum: 0,
@@ -30,7 +30,7 @@ function Histogram(master_label, structure) {
     }
 
     this._bins = [];
-    for (var i = 0; i < structure.length; ++i) {
+    for (let i = 0; i < structure.length; ++i) {
         this._bins.push(_.cloneDeep(SINGLE_BIN_DEFAULTS));
         this._bins[i].label = structure[i].label;
         this._bins[i].count = 0;
@@ -40,7 +40,7 @@ function Histogram(master_label, structure) {
 }
 
 Histogram.prototype.add_value = function(value) {
-    for (var i = this._bins.length - 1; i >= 0; --i) {
+    for (let i = this._bins.length - 1; i >= 0; --i) {
         if (value >= this._bins[i].start_val) {
             this._bins[i].count += 1;
             this._bins[i].aggregated_sum += value;
@@ -51,7 +51,7 @@ Histogram.prototype.add_value = function(value) {
 
 
 Histogram.prototype.add_aggregated_values = function(values) {
-    for (var i = this._bins.length - 1; i >= 0; --i) {
+    for (let i = this._bins.length - 1; i >= 0; --i) {
         this._bins[i].count += values.count[i];
         this._bins[i].aggregated_sum += values.aggregated_sum[i];
     }
@@ -59,11 +59,11 @@ Histogram.prototype.add_aggregated_values = function(values) {
 
 
 Histogram.prototype.get_object_data = function(skip_master_label) {
-    var ret = {
+    const ret = {
         master_label: skip_master_label ? this._master_label : '',
         bins: [],
     };
-    for (var i = 0; i < this._bins.length; ++i) {
+    for (let i = 0; i < this._bins.length; ++i) {
         ret.bins.push({});
         ret.bins[i].label = this._bins[i].label;
         ret.bins[i].range = this._bins[i].start_val + (i === this._bins.length - 1 ? '+' : '-' + this._bins[i + 1].start_val);
@@ -77,8 +77,8 @@ Histogram.prototype.get_object_data = function(skip_master_label) {
 };
 
 Histogram.prototype.get_string_data = function() {
-    var str = (typeof(this._master_label) === 'undefined' ? '' : this._master_label + '  ');
-    for (var i = 0; i < this._bins.length; ++i) {
+    let str = (typeof(this._master_label) === 'undefined' ? '' : this._master_label + '  ');
+    for (let i = 0; i < this._bins.length; ++i) {
         str += this._bins[i].label +
             ' (' + this._bins[i].start_val +
             (i === this._bins.length - 1 ? '+' : '-' + this._bins[i + 1].start_val) +

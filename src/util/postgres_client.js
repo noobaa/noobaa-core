@@ -134,7 +134,7 @@ function handle_ops_encoding(schema, val) {
 
     if (!val) return;
 
-    let obj = {};
+    const obj = {};
 
     // handle $all
     if (val.$all) {
@@ -283,7 +283,7 @@ function buildPostgresArrayQuery(table_name, update, find) {
     let latest_set;
     _.map(Object.keys(update), to_set => {
 
-        let arr_and_property = to_set.split('.$.');
+        const arr_and_property = to_set.split('.$.');
         if (arr_and_property.length > 1) {
             arr_to_update = arr_and_property[0];
             latest_set = `jsonb_set(${latest_set || 'data'}, array['${arr_to_update}', elem_index::text,` +
@@ -464,13 +464,13 @@ class BulkOp {
     }
 
     findAndUpdateOne(find, update) {
-        let encoded_update = encode_json(this.schema, update);
+        const encoded_update = encode_json(this.schema, update);
         const pg_update = mongo_to_pg.convertUpdate('data', encoded_update);
 
-        let encoded_find = encode_json(this.schema, find);
+        const encoded_find = encode_json(this.schema, find);
         const pg_selector = mongo_to_pg('data', encoded_find, { disableContainmentQuery: true });
 
-        let dollar_array_query = convert_array_query(this.name, encoded_update, encoded_find);
+        const dollar_array_query = convert_array_query(this.name, encoded_update, encoded_find);
         const query = dollar_array_query || `UPDATE ${this.name} SET data = ${pg_update} WHERE ${pg_selector}`;
 
         this.add_query(query);
@@ -755,7 +755,7 @@ class PostgresTable {
         const encoded_find = encode_json(this.schema, selector);
         const pg_selector = mongo_to_pg('data', encoded_find, { disableContainmentQuery: true });
 
-        let dollar_array_query = convert_array_query(this.name, encoded_update, encoded_find);
+        const dollar_array_query = convert_array_query(this.name, encoded_update, encoded_find);
         const query = (dollar_array_query || `UPDATE ${this.name} SET data = ${pg_update} WHERE ${pg_selector}`) + ' RETURNING _id, data';
 
         try {
@@ -773,7 +773,7 @@ class PostgresTable {
         // console.warn('JENIA updateOne', selector, update, options);
         const pg_update = mongo_to_pg.convertUpdate('data', encode_json(this.schema, update));
         const pg_selector = mongo_to_pg('data', encode_json(this.schema, selector), { disableContainmentQuery: true });
-        let query = `UPDATE ${this.name} SET data = ${pg_update} WHERE ${pg_selector} RETURNING _id, data`;
+        const query = `UPDATE ${this.name} SET data = ${pg_update} WHERE ${pg_selector} RETURNING _id, data`;
         try {
             const res = await this.single_query(query, null, client);
             assert(res.rowCount <= 1, `_id must be unique. found ${res.rowCount} rows with _id=${selector._id} in table ${this.name}`);
@@ -1236,7 +1236,7 @@ class PostgresTable {
                         // lock was already taken which means that another call to findOneAndUpdate should have inserted.
                         // throw and retry
                         dbg.log0(`advisory lock is taken. throwing and retrying`);
-                        let err = new Error(`retry update after advisory lock release ${this.name}`);
+                        const err = new Error(`retry update after advisory lock release ${this.name}`);
                         err.retry = true;
                         throw err;
                     }

@@ -38,7 +38,7 @@ class S3SelectStream extends Transform {
 
     async _transform(chunk, encoding, cb) {
         //console.log("got chunk ", chunk.length);
-        let res = await this.s3select.write(chunk);
+        const res = await this.s3select.write(chunk);
         if (res) {
             this.push(res.select);
         }
@@ -47,7 +47,7 @@ class S3SelectStream extends Transform {
 
     async _flush(cb) {
         //console.log("in flush");
-        let res = await this.s3select.flush();
+        const res = await this.s3select.flush();
         if (res) {
             this.push(res.select);
         }

@@ -1,18 +1,18 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-var dotenv = require('../util/dotenv');
+const dotenv = require('../util/dotenv');
 dotenv.load();
 
-var _ = require('lodash');
-var repl = require('repl');
-var util = require('util');
-var api = require('../api');
-var P = require('../util/promise');
-var argv = require('minimist')(process.argv);
+const _ = require('lodash');
+const repl = require('repl');
+const util = require('util');
+const api = require('../api');
+const P = require('../util/promise');
+const argv = require('minimist')(process.argv);
 
-var repl_srv;
-var rpcshell = new RPCShell();
+let repl_srv;
+const rpcshell = new RPCShell();
 
 argv.email = argv.email || 'demo@noobaa.com';
 argv.password = argv.password || 'DeMo1';
@@ -25,7 +25,7 @@ function RPCShell() {
 }
 
 function construct_rpc_arguments(str_args) {
-    var ret_json;
+    let ret_json;
     try {
         ret_json = JSON.parse(str_args);
     } catch (err) {
@@ -37,9 +37,9 @@ function construct_rpc_arguments(str_args) {
 
 //Construct a map of different API topics and their functions
 RPCShell.prototype.init = function() {
-    var self = this;
+    const self = this;
     this.APIs = {};
-    var ignore_keys = [
+    const ignore_keys = [
         'options',
         'common',
         'create_auth_token',
@@ -47,7 +47,7 @@ RPCShell.prototype.init = function() {
     ];
 
     return P.fcall(function() {
-            var auth_params = {
+            const auth_params = {
                 email: argv.email,
                 password: argv.password,
                 system: argv.system
@@ -73,7 +73,7 @@ RPCShell.prototype.list = function() {
 
 //List of commands
 RPCShell.prototype.list_functions = function() {
-    var list_str = '\nAvailable commands are:\n' +
+    let list_str = '\nAvailable commands are:\n' +
         '    .list - show available API\n' +
         '    .show - show all functions under a specific API\n' +
         '    .call <API> <FUNC> [args] - invokes the RPC call API.FUNC and passes args as arguments\n' +
@@ -110,9 +110,9 @@ RPCShell.prototype.show = function(apiname) {
 };
 
 RPCShell.prototype.call = function(str_args) {
-    var args = [];
-    var params;
-    var self = this;
+    let args = [];
+    let params;
+    const self = this;
     if (argv.run) {
         args[0] = argv.api;
         args[1] = argv.func;
@@ -138,7 +138,7 @@ RPCShell.prototype.call = function(str_args) {
     if (!args[1]) {
         console.warn('Function name not supplied for', args[0]);
     }
-    var func_ind = _.indexOf(this.APIs[args[0]], args[1]);
+    const func_ind = _.indexOf(this.APIs[args[0]], args[1]);
     if (func_ind === -1) {
         console.log(args[1], 'Function does not exist for', args[0]);
         if (argv.run) {
@@ -147,9 +147,9 @@ RPCShell.prototype.call = function(str_args) {
         return;
     }
 
-    var apiname = args[0];
-    var func = this.APIs[args[0]][func_ind];
-    var rpc_args = construct_rpc_arguments(params);
+    const apiname = args[0];
+    const func = this.APIs[args[0]][func_ind];
+    const rpc_args = construct_rpc_arguments(params);
     if (rpc_args === null) {
         console.error('Invalid JSON String', params);
         if (argv.run) {
@@ -185,8 +185,8 @@ RPCShell.prototype.call = function(str_args) {
 };
 
 RPCShell.prototype.params = function(str_args) {
-    var args = [];
-    var self = this;
+    let args = [];
+    const self = this;
 
     if (argv.run) {
         args[0] = argv.api;
@@ -211,7 +211,7 @@ RPCShell.prototype.params = function(str_args) {
     if (!args[1]) {
         console.warn('Function name not supplied for', args[0]);
     }
-    var func_ind = _.indexOf(this.APIs[args[0]], args[1]);
+    const func_ind = _.indexOf(this.APIs[args[0]], args[1]);
     if (func_ind === -1) {
         console.log(args[1], 'Function does not exist for', args[0]);
         if (argv.run) {
@@ -220,8 +220,8 @@ RPCShell.prototype.params = function(str_args) {
         return;
     }
 
-    var apiname = args[0];
-    var func = this.APIs[args[0]][func_ind];
+    const apiname = args[0];
+    const func = this.APIs[args[0]][func_ind];
     return P.fcall(function() {
             console.log(`Parameters of ${apiname}.${func} are:`, self.rpc.schema[apiname + '_api'].methods[func].params);
             if (!argv.run) {
@@ -254,7 +254,7 @@ function main() {
                 //Bind RPCshell functions to repl
                 _.forIn(rpcshell, function(val, key) {
                     if (typeof(val) === 'function') {
-                        var action = val.bind(rpcshell);
+                        const action = val.bind(rpcshell);
                         repl_srv.defineCommand(key, {
                             action: action
                         });

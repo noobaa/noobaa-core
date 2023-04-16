@@ -65,7 +65,7 @@ async function blow_object(index) {
     const create_reply = await client.object.create_object_upload(params);
     params.obj_id = create_reply.obj_id;
     await blow_parts(params);
-    let complete_params = _.pick(params, 'bucket', 'key', 'size', 'obj_id');
+    const complete_params = _.pick(params, 'bucket', 'key', 'size', 'obj_id');
     complete_params.etag = 'bla';
     dbg.log0('complete_object_upload', params.key);
     await client.object.complete_object_upload(complete_params);

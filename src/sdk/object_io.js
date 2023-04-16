@@ -765,7 +765,7 @@ function slice_buffers_in_range(chunks, start, end) {
     const buffers = [];
     for (const chunk of chunks) {
         const part = chunk.parts[0];
-        let part_range = range_utils.intersection(part.start, part.end, pos, end);
+        const part_range = range_utils.intersection(part.start, part.end, pos, end);
         if (!part_range) {
             if (end <= part.start) {
                 // --- start ------------- pos --------- end ---

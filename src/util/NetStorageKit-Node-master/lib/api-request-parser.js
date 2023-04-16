@@ -16,7 +16,7 @@ class Parser {
             }
 
             const parsedResults = _.mergeWith({}, results, function(a, b) {
-                var obj = {};
+                const obj = {};
                 Object.keys(b).forEach(function(key) {
                     if (key === '$') {
                         obj.attribs = b[key];

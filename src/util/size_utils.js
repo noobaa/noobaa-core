@@ -75,8 +75,8 @@ function bigint_to_json(bi) {
  * take a json format {peta:.., n: ..} and convert to BigInteger
  */
 function json_to_bigint(x) {
-    var n = 0;
-    var peta = 0;
+    let n = 0;
+    let peta = 0;
     if (x && typeof(x) === 'object' && 'n' in x && 'peta' in x) {
         n = Math.floor(x.n) || 0;
         peta = Math.floor(x.peta) || 0;
@@ -155,7 +155,7 @@ function size_unit_to_bigint(size, unit) {
  * mult_factor & div_factor must be positive integers.
  */
 function reduce_storage(reducer, storage_items, mult_factor, div_factor) {
-    let accumulator = _.reduce(storage_items,
+    const accumulator = _.reduce(storage_items,
         (acc, item) => {
             _.each(SOTRAGE_OBJ_KEYS, key => {
                 if (item && !_.isUndefined(item[key])) {
@@ -191,11 +191,11 @@ function sum_bigint_json(a, b) {
 
 
 function size_min(values) {
-    var n_min = PETABYTE;
-    var peta_min = 100000;
+    let n_min = PETABYTE;
+    let peta_min = 100000;
     values.forEach(function(v) {
-        var n = 0;
-        var peta = 0;
+        let n = 0;
+        let peta = 0;
         if (typeof(v) === 'number') {
             n = v;
         } else if (v) {
@@ -219,11 +219,11 @@ function size_min(values) {
 }
 
 function size_max(values) {
-    var n_max = 0;
-    var peta_max = 0;
+    let n_max = 0;
+    let peta_max = 0;
     values.forEach(function(v) {
-        var n = 0;
-        var peta = 0;
+        let n = 0;
+        let peta = 0;
         if (typeof(v) === 'number') {
             n = v;
         } else if (v) {
@@ -263,8 +263,8 @@ function reduce_maximum(key, values) {
  *  { n: bytes, peta: petabytes }
  */
 function human_size(bytes) {
-    var x;
-    var i = 0;
+    let x;
+    let i = 0;
     if (typeof(bytes) === 'object') {
         if (bytes.peta) {
             x = bytes.peta + (bytes.n / PETABYTE);
@@ -304,12 +304,12 @@ function human_size(bytes) {
  *
  */
 function human_offset(offset) {
-    var res = '';
-    var sign = '';
-    var i;
-    var n;
-    var peta;
-    var mod;
+    let res = '';
+    let sign = '';
+    let i;
+    let n;
+    let peta;
+    let mod;
 
     if (typeof(offset) === 'object') {
         peta = offset.peta;

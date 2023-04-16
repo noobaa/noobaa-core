@@ -233,7 +233,7 @@ function setup(options = {}) {
 
             if (_incomplete_rpc_coverage) {
                 let had_missing = false;
-                for (let srv of api_coverage) {
+                for (const srv of api_coverage) {
                     console.warn('API was not covered:', srv);
                     had_missing = true;
                 }

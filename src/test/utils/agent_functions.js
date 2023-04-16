@@ -48,7 +48,7 @@ class AgentFunctions {
         const listNods = await this.list_nodes(mgmt_ip, mgmt_port_https);
         for (const node of listNods) {
             if (node.name.includes(suffix)) {
-                let name = node.name.split('-noobaa_storage-')[0];
+                const name = node.name.split('-noobaa_storage-')[0];
                 if (!name.startsWith('s3-agent')) {
                     test_nodes_names.push(name);
                 }
@@ -108,7 +108,7 @@ class AgentFunctions {
         await client.create_auth_token(auth_params);
         const listHosts = await client.host.list_hosts({});
         for (const names of listHosts.hosts.filter(node => node.mode === 'DECOMMISSIONED')) {
-            let params = {
+            const params = {
                 name: names.name,
                 services: {
                     s3: undefined,
@@ -126,7 +126,7 @@ class AgentFunctions {
         await client.create_auth_token(auth_params);
         const list_hosts = await client.host.list_hosts({});
         for (const names of list_hosts.hosts.filter(node => node.mode === 'OPTIMAL')) {
-            let params = {
+            const params = {
                 name: names.name,
                 services: {
                     s3: undefined,

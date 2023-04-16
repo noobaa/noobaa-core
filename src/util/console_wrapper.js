@@ -6,11 +6,11 @@
 
 "use strict";
 
-var _ = require('lodash');
+const _ = require('lodash');
 
-var wrapperConsole = _.create(console);
-var origConsole = console;
-var dbg_logger;
+const wrapperConsole = _.create(console);
+const origConsole = console;
+let dbg_logger;
 
 /*
  *
@@ -44,7 +44,7 @@ wrapperConsole.warn = function() {
  * Switching between original console and wrapped one
  *
  */
-var syslog_levels = ["trace", "log", "info", "error", "warn"];
+const syslog_levels = ["trace", "log", "info", "error", "warn"];
 exports.syslog_levels = syslog_levels;
 // var log_once_exception = false;
 

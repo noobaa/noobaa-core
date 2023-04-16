@@ -32,7 +32,7 @@ function crypto_random_string(len, charset = ALPHA_NUMERIC_CHARSET) {
 }
 
 function left_pad_zeros(str, to_length) {
-    let num_zeros = to_length - str.length;
+    const num_zeros = to_length - str.length;
     let zeros = '';
     if (num_zeros > 0) {
         zeros = '0'.repeat(num_zeros);
@@ -79,13 +79,13 @@ function levenshtein_distance(s, t, fuzzy, stop_marker) {
 
         // use formula to fill in the rest of the row
         for (let j = 0; j < t.length; ++j) {
-            var cost = (s[i] === t[j]) ? 0 : 1;
+            const cost = (s[i] === t[j]) ? 0 : 1;
             v1[j + 1] = Math.min(v1[j] + 1, v0[j + 1] + 1, v0[j] + cost);
         }
 
         // copy v1 (current row) to v0 (previous row) for next iteration
         // bail if we already passed the stop marker, to allow to drop matches faster
-        var min = Infinity;
+        let min = Infinity;
         for (let j = 0; j < v0.length; ++j) {
             v0[j] = v1[j];
             if (min > v1[j]) {

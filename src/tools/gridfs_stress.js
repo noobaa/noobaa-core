@@ -3,7 +3,7 @@
 
 const mongodb = require('mongodb');
 
-var global_id = 0;
+let global_id = 0;
 const WRITE_SIZE = 4 * 1024 * 1024;
 const COLL = 'gridfs_stress';
 const CHUNKS_COLL = `${COLL}.chunks`;

@@ -28,7 +28,7 @@ function _new_monitring_stats() {
 }
 
 function get_block_internal_dir(block_id) {
-    let internal_dir = hex_str_regex.test(block_id) ?
+    const internal_dir = hex_str_regex.test(block_id) ?
         block_id.substring(block_id.length - 3) + '.blocks' :
         'other.blocks';
     return internal_dir;
@@ -262,7 +262,7 @@ class BlockStoreBase {
         dbg.log0('preallocate_block', block_md.id, block_md.size, block_md.digest_b64, 'node', this.node_name);
         this._check_write_space(block_md.size);
         const block_size = block_md.size;
-        let usage = {
+        const usage = {
             size: block_size,
             count: 1
         };

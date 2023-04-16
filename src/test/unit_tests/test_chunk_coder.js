@@ -306,7 +306,7 @@ async function test_stream({ erase, decode, generator, input_size, chunk_split_c
             }
         });
 
-        let transforms = [input,
+        const transforms = [input,
             splitter,
             coder,
         ];
@@ -334,7 +334,7 @@ function call_chunk_coder_must_succeed(coder, chunk) {
 }
 
 function call_chunk_coder_must_fail(coder, chunk) {
-    var err;
+    let err;
     try {
         nb_native().chunk_coder(coder, chunk);
     } catch (err1) {
@@ -350,7 +350,7 @@ function call_chunk_coder_must_fail(coder, chunk) {
 
 function throw_chunk_err(err) {
     if (!err.chunks) throw err;
-    var message = '';
+    let message = '';
     for (const chunk of err.chunks) {
         message += 'CHUNK ERRORS: ' + chunk.errors.join(',') + '\n';
     }

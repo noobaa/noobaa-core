@@ -49,7 +49,7 @@ const qm_regex = /\?/g;
 const ar_regex = /\*/g;
 
 function new_bucket_defaults(name, system_id, tiering_policy_id, owner_account_id, tag, lock_enabled) {
-    let now = Date.now();
+    const now = Date.now();
     return {
         _id: system_store.new_system_store_id(),
         name: name,
@@ -157,7 +157,7 @@ async function create_bucket(req) {
         validate_non_nsfs_bucket_creation(req);
         validate_nsfs_bucket(req);
 
-        let bucket = new_bucket_defaults(req.rpc_params.name, req.system._id,
+        const bucket = new_bucket_defaults(req.rpc_params.name, req.system._id,
             tiering_policy && tiering_policy._id, req.account._id, req.rpc_params.tag, req.rpc_params.lock_enabled);
 
         const bucket_m_key = system_store.master_key_manager.new_master_key({
@@ -236,7 +236,7 @@ async function create_bucket(req) {
                 dbg.error('create_bucket: get_partial_stats failed with', error);
             }
         }
-        let created_bucket = find_bucket(req);
+        const created_bucket = find_bucket(req);
         return get_bucket_info({ bucket: created_bucket });
     });
 }
@@ -505,7 +505,7 @@ async function read_bucket(req) {
 
 async function read_bucket_sdk_info(req) {
     const bucket = find_bucket(req);
-    var pools = [];
+    let pools = [];
 
     _.forEach(bucket.tiering && bucket.tiering.tiers, tier_and_order => {
         _.forEach(tier_and_order.tier.mirrors, mirror_object => {
@@ -513,7 +513,7 @@ async function read_bucket_sdk_info(req) {
         });
     });
     pools = _.compact(pools);
-    let pool_names = pools.map(pool => pool.name);
+    const pool_names = pools.map(pool => pool.name);
 
     const system = req.system;
 
@@ -581,10 +581,10 @@ function get_bucket_changes(req, update_request, bucket, tiering_policy) {
         events: [],
         alerts: []
     };
-    let quota = update_request.quota;
+    const quota = update_request.quota;
     // const spillover_sent = !_.isUndefined(update_request.spillover);
 
-    let single_bucket_update = {
+    const single_bucket_update = {
         _id: bucket._id
     };
     changes.updates.buckets = [single_bucket_update];
@@ -760,7 +760,7 @@ function check_for_lambda_permission_issue(req, bucket, removed_accounts) {
 
 
 async function delete_bucket_and_objects(req) {
-    var bucket = find_bucket(req);
+    const bucket = find_bucket(req);
 
     const now = new Date();
     // mark the bucket as deleting. it will be excluded from system_store indexes
@@ -803,9 +803,9 @@ async function delete_bucket_and_objects(req) {
 async function delete_bucket(req) {
     return bucket_semaphore.surround_key(String(req.rpc_params.name), async () => {
         req.load_auth();
-        var bucket = find_bucket(req);
+        const bucket = find_bucket(req);
         // TODO before deleting tier and tiering_policy need to check they are not in use
-        let tiering_policy = bucket.tiering;
+        const tiering_policy = bucket.tiering;
         const reason = await can_delete_bucket(bucket);
         if (reason) {
             throw new RpcError(reason, 'Cannot delete bucket');
@@ -894,7 +894,7 @@ async function delete_bucket_lifecycle(req) {
  *
  */
 async function list_buckets(req) {
-    var buckets_by_name = _.filter(
+    const buckets_by_name = _.filter(
         req.system.buckets_by_name,
         bucket => req.has_s3_bucket_permission(bucket, "s3:listbucket") && !bucket.deleting
     );
@@ -1041,7 +1041,7 @@ function get_bucket_lifecycle_configuration_rules(req) {
 function get_cloud_buckets(req) {
     dbg.log0('get cloud buckets', req.rpc_params);
     return P.fcall(async function() {
-            var connection = cloud_utils.find_cloud_connection(
+            const connection = cloud_utils.find_cloud_connection(
                 req.account,
                 req.rpc_params.connection
             );
@@ -1062,7 +1062,7 @@ function get_cloud_buckets(req) {
                     return result;
                 }()));
             } else if (connection.endpoint_type === 'NET_STORAGE') {
-                let used_cloud_buckets = cloud_utils.get_used_cloud_targets(['NET_STORAGE'],
+                const used_cloud_buckets = cloud_utils.get_used_cloud_targets(['NET_STORAGE'],
                     system_store.data.buckets, system_store.data.pools, system_store.data.namespace_resources);
 
                 const ns = new NetStorage({
@@ -1085,7 +1085,7 @@ function get_cloud_buckets(req) {
                         return buckets.map(bucket => _inject_usage_to_cloud_bucket(bucket.name, connection.endpoint, used_cloud_buckets));
                     });
             } else if (connection.endpoint_type === 'GOOGLE') {
-                let used_cloud_buckets = cloud_utils.get_used_cloud_targets(['GOOGLE'],
+                const used_cloud_buckets = cloud_utils.get_used_cloud_targets(['GOOGLE'],
                     system_store.data.buckets, system_store.data.pools, system_store.data.namespace_resources);
                 let key_file;
                 try {
@@ -1102,8 +1102,8 @@ function get_cloud_buckets(req) {
                     .then(data => data[0].map(bucket =>
                         _inject_usage_to_cloud_bucket(bucket.name, connection.endpoint, used_cloud_buckets)));
             } else { // else if AWS(s3-compatible/aws/sts-aws)/Flashblade/IBM_COS
-                var access_key;
-                var secret_key;
+                let access_key;
+                let secret_key;
                 if (connection.aws_sts_arn) {
                     const creds = await cloud_utils.generate_aws_sts_creds(connection, "get_cloud_buckets_session");
                     access_key = creds.accessKeyId;
@@ -1113,7 +1113,7 @@ function get_cloud_buckets(req) {
                     access_key = connection.access_key.unwrap();
                     secret_key = connection.secret_key.unwrap();
                 }
-                var s3 = new AWS.S3({
+                const s3 = new AWS.S3({
                     endpoint: connection.endpoint,
                     accessKeyId: access_key,
                     secretAccessKey: secret_key,
@@ -1181,7 +1181,7 @@ async function add_bucket_lambda_trigger(req) {
 async function delete_bucket_lambda_trigger(req) {
     dbg.log0('delete bucket lambda trigger', req.rpc_params);
     const trigger_id = req.rpc_params.id;
-    var bucket = find_bucket(req, req.rpc_params.bucket_name);
+    const bucket = find_bucket(req, req.rpc_params.bucket_name);
     const trigger = bucket.lambda_triggers.find(trig => trig._id.toString() === trigger_id);
     if (!trigger) {
         throw new RpcError('NO_SUCH_TRIGGER', 'This trigger does not exists: ' + trigger_id);
@@ -1205,7 +1205,7 @@ async function update_bucket_lambda_trigger(req) {
     const updates = _.pick(req.rpc_params, 'event_name', 'func_name', 'func_version', 'enabled', 'object_prefix', 'object_suffix', 'attempts');
     if (_.isEmpty(updates)) return;
     updates.func_version = updates.func_version || '$LATEST';
-    var bucket = find_bucket(req, req.rpc_params.bucket_name);
+    const bucket = find_bucket(req, req.rpc_params.bucket_name);
     const trigger = _.find(bucket.lambda_triggers, trig => trig._id.toString() === req.rpc_params.id);
     if (!trigger) {
         throw new RpcError('NO_SUCH_TRIGGER', 'This trigger does not exists: ' + req.rpc_params._id);
@@ -1318,10 +1318,10 @@ function validate_trigger_update(bucket, validated_trigger) {
 }
 
 function _inject_usage_to_cloud_bucket(target_name, endpoint, usage_list) {
-    let res = {
+    const res = {
         name: target_name
     };
-    let using_target = usage_list.find(candidate_target => (target_name === candidate_target.target_name &&
+    const using_target = usage_list.find(candidate_target => (target_name === candidate_target.target_name &&
         endpoint === candidate_target.endpoint));
     if (using_target) {
         res.used_by = {
@@ -1333,7 +1333,7 @@ function _inject_usage_to_cloud_bucket(target_name, endpoint, usage_list) {
 }
 
 function find_bucket(req, bucket_name = req.rpc_params.name) {
-    var bucket = req.system.buckets_by_name && req.system.buckets_by_name[bucket_name.unwrap()];
+    const bucket = req.system.buckets_by_name && req.system.buckets_by_name[bucket_name.unwrap()];
     if (!bucket) {
         dbg.error('BUCKET NOT FOUND', bucket_name);
         throw new RpcError('NO_SUCH_BUCKET', 'No such bucket: ' + bucket_name);
@@ -1495,7 +1495,7 @@ function _calc_metrics({
     let has_any_pool_configured = false;
     let has_enough_healthy_nodes_for_tiering = false;
     let has_enough_total_nodes_for_tiering = false;
-    let any_rebuilds = false;
+    const any_rebuilds = false;
     const internal_pool = pool_server.get_internal_mongo_pool(bucket.system);
 
     const objects_aggregate = {
@@ -1565,13 +1565,13 @@ function _calc_metrics({
     const actual_free = size_utils.json_to_bigint(_.get(info, 'tiering.data.free') || 0);
 
     const quota = new Quota(bucket.quota);
-    let available_size_for_upload = quota.get_available_size_for_upload(actual_free, objects_aggregate.size);
-    let available_quantity_for_upload = quota.get_available_quantity_for_upload(objects_aggregate.count);
+    const available_size_for_upload = quota.get_available_size_for_upload(actual_free, objects_aggregate.size);
+    const available_quantity_for_upload = quota.get_available_quantity_for_upload(objects_aggregate.count);
 
     if (bucket_free.isZero()) {
         is_no_storage = true;
     } else {
-        let free_percent = bucket_free.multiply(100).divide(bucket_total);
+        const free_percent = bucket_free.multiply(100).divide(bucket_total);
         if (free_percent < 30) {
             is_storage_low = true;
         }
@@ -1707,7 +1707,7 @@ function calc_quota_status(metrics) {
 }
 
 function resolve_tiering_policy(req, policy_name) {
-    var tiering_policy = req.system.tiering_policies_by_name[policy_name.unwrap()];
+    const tiering_policy = req.system.tiering_policies_by_name[policy_name.unwrap()];
     if (!tiering_policy) {
         dbg.error('TIER POLICY NOT FOUND', policy_name);
         throw new RpcError('INVALID_BUCKET_STATE', 'Bucket tiering policy not found');
@@ -1802,7 +1802,7 @@ async function get_bucket_replication(req) {
 
     const replication = await replication_store.instance().get_replication_by_id(replication_id);
     const bucket_names_replication = _.map(replication, rule => {
-        let named_rule = { ...rule, destination_bucket: system_store.data.get_by_id(rule.destination_bucket).name };
+        const named_rule = { ...rule, destination_bucket: system_store.data.get_by_id(rule.destination_bucket).name };
         delete named_rule.rule_status;
         return named_rule;
     });
@@ -1839,8 +1839,8 @@ function validate_replication(req) {
     if (replication_rules.length > config.BUCKET_REPLICATION_MAX_RULES ||
         replication_rules.length < 1) throw new RpcError('INVALID_REPLICATION_POLICY', 'Number of rules is invalid');
 
-    let rule_ids = [];
-    let pref_by_dst_bucket = {};
+    const rule_ids = [];
+    const pref_by_dst_bucket = {};
 
     for (const rule of replication_rules) {
         const { destination_bucket, filter, rule_id } = rule;
@@ -1885,7 +1885,7 @@ function normalize_replication(req) {
     });
 
 
-    let { log_replication_info } = req.rpc_params.replication_policy;
+    const { log_replication_info } = req.rpc_params.replication_policy;
     if (log_replication_info && !log_replication_info.logs_location.logs_bucket) {
         const logs_bucket = find_bucket(req);
         const logs_bucket_info = get_bucket_info({ bucket: logs_bucket });

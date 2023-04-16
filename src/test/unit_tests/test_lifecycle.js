@@ -98,7 +98,7 @@ mocha.describe('lifecycle', () => {
             console.log('completeUploadResult', completeUploadResult);
 
             // go back in time
-            let create_time = new Date();
+            const create_time = new Date();
             create_time.setDate(create_time.getDate() - age);
             const update = {
                 create_time,

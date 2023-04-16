@@ -1,8 +1,8 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-var P = require('../../util/promise');
-var _ = require('lodash');
+const P = require('../../util/promise');
+const _ = require('lodash');
 
 /**
  * 
@@ -14,11 +14,11 @@ var _ = require('lodash');
  */
 function blocks_exist_on_cloud(need_to_exist, pool_id, bucket_name, blocks, s3) {
     console.log('blocks_exist_on_cloud::', need_to_exist, pool_id, bucket_name);
-    var isDone = true;
+    let isDone = true;
     // Time in seconds to wait, notice that it will only check once a second.
     // This is done in order to lower the amount of checking requests.
-    var MAX_RETRIES = 10 * 60;
-    var wait_counter = 1;
+    const MAX_RETRIES = 10 * 60;
+    let wait_counter = 1;
 
     return P.pwhile(
             () => isDone,

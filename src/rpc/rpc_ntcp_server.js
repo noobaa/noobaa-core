@@ -19,7 +19,7 @@ class RpcNtcpServer extends EventEmitter {
     constructor(tls_options) {
         super();
         this.protocol = (tls_options ? 'ntls:' : 'ntcp:');
-        let Ntcp = nb_native().Ntcp;
+        const Ntcp = nb_native().Ntcp;
         this.server = new Ntcp();
         this.server.on('connection', ntcp => this._on_connection(ntcp));
         this.server.on('close', err => {
@@ -58,8 +58,8 @@ class RpcNtcpServer extends EventEmitter {
                 hostname: ntcp.remoteAddress,
                 port: ntcp.remotePort
             });
-            let addr_url = url.parse(address);
-            let conn = new RpcNtcpConnection(addr_url);
+            const addr_url = url.parse(address);
+            const conn = new RpcNtcpConnection(addr_url);
             dbg.log0('NTCP ACCEPT CONNECTION', conn.connid + ' ' + conn.url.href);
             conn.ntcp = ntcp;
             conn._init_tcp();

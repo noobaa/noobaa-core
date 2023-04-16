@@ -14,7 +14,7 @@ const fs_utils = require('../../util/fs_utils');
 
 mocha.describe('zip_utils', function() {
 
-    var temp_dir;
+    let temp_dir;
 
     mocha.before(async function() {
         temp_dir = await fs.promises.mkdtemp('/tmp/test_zip_utils_');
@@ -98,7 +98,7 @@ function check_files(files, files2) {
     const files_sorted = _.sortBy(files, 'path');
     const files2_sorted = _.sortBy(files2.filter(f => !f.path.endsWith('/')), 'path');
     const l = Math.max(files_sorted.length, files2_sorted.length);
-    for (var i = 0; i < l; ++i) {
+    for (let i = 0; i < l; ++i) {
         const file = files_sorted[i];
         const file2 = files2_sorted[i];
         assert.strictEqual(typeof file.path, 'string');
@@ -129,11 +129,11 @@ function random_file_name(len) {
  * @returns {string}
  */
 function charset_range(range) {
-    var charset = '';
+    let charset = '';
     const start = range.charCodeAt(0);
     const end = range.charCodeAt(2);
     assert(start <= end);
-    for (var i = start; i <= end; ++i) {
+    for (let i = start; i <= end; ++i) {
         charset += String.fromCharCode(i);
     }
     return charset;

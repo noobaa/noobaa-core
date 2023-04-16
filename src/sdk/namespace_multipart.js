@@ -139,7 +139,7 @@ class NamespaceMultipart {
     }
 
     _ns_get(func) {
-        var i = -1;
+        let i = -1;
         const try_next = err => {
             i += 1;
             if (i >= this.total_resources.length) {
@@ -186,10 +186,10 @@ class NamespaceMultipart {
     _handle_list(res, params) {
         res = this._throw_if_all_failed_or_get_succeeded(res);
         if (res.length === 1) return res[0];
-        var i;
-        var j;
+        let i;
+        let j;
         const map = {};
-        var is_truncated;
+        let is_truncated;
         for (i = 0; i < res.length; ++i) {
             for (j = 0; j < res[i].objects.length; ++j) {
                 const obj = res[i].objects[j];

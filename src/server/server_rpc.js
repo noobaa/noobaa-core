@@ -24,8 +24,8 @@ class ServerRpc {
     }
 
     get_server_options() {
-        let system_store = require('./system_services/system_store').get_instance();
-        let auth_server = require('./common_services/auth_server');
+        const system_store = require('./system_services/system_store').get_instance();
+        const auth_server = require('./common_services/auth_server');
         return {
             middleware: [
                 // refresh the system_store on request arrival
@@ -68,9 +68,9 @@ class ServerRpc {
     }
 
     register_system_services() {
-        let rpc = this.rpc;
-        let schema = rpc.schema;
-        let options = this.get_server_options();
+        const rpc = this.rpc;
+        const schema = rpc.schema;
+        const options = this.get_server_options();
         rpc.register_service(schema.account_api,
             require('./system_services/account_server'), options);
         rpc.register_service(schema.system_api,
@@ -103,9 +103,9 @@ class ServerRpc {
     }
 
     register_node_services() {
-        let rpc = this.rpc;
-        let schema = rpc.schema;
-        let options = this.get_server_options();
+        const rpc = this.rpc;
+        const schema = rpc.schema;
+        const options = this.get_server_options();
         rpc.register_service(schema.node_api,
             require('./node_services/node_server'), options);
         rpc.register_service(schema.host_api,
@@ -113,25 +113,25 @@ class ServerRpc {
     }
 
     register_object_services() {
-        let rpc = this.rpc;
-        let schema = rpc.schema;
-        let options = this.get_server_options();
+        const rpc = this.rpc;
+        const schema = rpc.schema;
+        const options = this.get_server_options();
         rpc.register_service(schema.object_api,
             require('./object_services/object_server'), options);
     }
 
     register_func_services() {
-        let rpc = this.rpc;
-        let schema = rpc.schema;
-        let options = this.get_server_options();
+        const rpc = this.rpc;
+        const schema = rpc.schema;
+        const options = this.get_server_options();
         rpc.register_service(schema.func_api,
             require('./func_services/func_server'), options);
     }
 
     register_bg_services() {
-        let rpc = this.rpc;
-        let schema = rpc.schema;
-        let options = this.get_server_options();
+        const rpc = this.rpc;
+        const schema = rpc.schema;
+        const options = this.get_server_options();
         rpc.register_service(schema.scrubber_api,
             require('./bg_services/scrubber'), options);
         rpc.register_service(schema.replication_api,
@@ -139,17 +139,17 @@ class ServerRpc {
     }
 
     register_hosted_agents_services() {
-        let rpc = this.rpc;
-        let schema = rpc.schema;
-        let options = this.get_server_options();
+        const rpc = this.rpc;
+        const schema = rpc.schema;
+        const options = this.get_server_options();
         rpc.register_service(schema.hosted_agents_api,
             require('../hosted_agents/hosted_agents'), options);
     }
 
     register_common_services() {
-        let rpc = this.rpc;
-        let schema = rpc.schema;
-        let options = this.get_server_options();
+        const rpc = this.rpc;
+        const schema = rpc.schema;
+        const options = this.get_server_options();
         rpc.register_service(schema.auth_api,
             require('./common_services/auth_server'), options);
         rpc.register_service(schema.debug_api,

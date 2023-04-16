@@ -37,11 +37,11 @@ const TIME_FOR_SDK_TO_UPDATE = 60000;
 const NUM_OF_RETRIES = 10;
 const POOL_NAME = 'test-pool';
 
-var client = rpc.new_client({
+const client = rpc.new_client({
     address: `ws://${mgmt_ip}:${mgmt_port}`
 });
 
-let full_access_user = {
+const full_access_user = {
     name: 'full_access',
     email: 'full_access@noobaa.com',
     password: 'master',
@@ -50,7 +50,7 @@ let full_access_user = {
     default_resource: POOL_NAME,
 };
 
-let bucket1_user = {
+const bucket1_user = {
     name: 'bucket1_access',
     email: 'bucket1_access@noobaa.com',
     password: 'onlyb1',
@@ -122,7 +122,7 @@ const trigger_based_func_read = {
 /***         Utils         ***/
 
 async function authenticate() {
-    let auth_params = {
+    const auth_params = {
         email: 'demo@noobaa.com',
         password: 'DeMo1',
         system: 'demo'
@@ -143,8 +143,8 @@ function prepare_func(fn) {
 }
 
 function get_new_server(user) {
-    let access_key = user.access_keys.access_key.unwrap();
-    let secret_key = user.access_keys.secret_key.unwrap();
+    const access_key = user.access_keys.access_key.unwrap();
+    const secret_key = user.access_keys.secret_key.unwrap();
     return new AWS.S3({
         endpoint: `http://${s3_ip}:${s3_port}`,
         s3ForcePathStyle: true,
@@ -155,8 +155,8 @@ function get_new_server(user) {
 }
 
 function get_new_lambda(user) {
-    let access_key = user.access_keys.access_key.unwrap();
-    let secret_key = user.access_keys.secret_key.unwrap();
+    const access_key = user.access_keys.access_key.unwrap();
+    const secret_key = user.access_keys.secret_key.unwrap();
     return new AWS.Lambda({
         region: 'us-east-1',
         endpoint: `http://${s3_ip}:${s3_port}`,
@@ -329,7 +329,7 @@ async function run_test() {
 }
 
 async function test_add_function(user, func) {
-    let lambda = get_new_lambda(user);
+    const lambda = get_new_lambda(user);
     await prepare_func(func);
 
     try {
@@ -356,18 +356,18 @@ async function test_add_bucket_trigger(type, func, bucketname) {
 
 async function test_trigger_run_when_should(user, file_param, bucketname) {
     console.log(`test trigger run for ${bucketname}`);
-    let s3 = get_new_server(user);
+    const s3 = get_new_server(user);
     let file_not_created = true;
     let retries = 0;
     const fname = await ops.generate_random_file(1);
-    let params1 = {
+    const params1 = {
         Bucket: bucketname,
         Key: file_param,
         Body: fs.createReadStream(fname)
     };
     await s3.upload(params1).promise();
     while (retries < NUM_OF_RETRIES && file_not_created) {
-        let params2 = {
+        const params2 = {
             Bucket: bucketname,
             Key: file_param + '.json'
         };
@@ -391,10 +391,10 @@ async function test_trigger_run_when_should(user, file_param, bucketname) {
 
 async function test_trigger_dont_run_when_shouldnt(user, file_param, bucketname) {
     console.log(`test trigger should not run for ${bucketname}`);
-    let s3 = get_new_server(user);
+    const s3 = get_new_server(user);
     const fname = await ops.generate_random_file(1);
 
-    let params1 = {
+    const params1 = {
         Bucket: bucketname,
         Key: file_param,
         Body: fs.createReadStream(fname)
@@ -402,7 +402,7 @@ async function test_trigger_dont_run_when_shouldnt(user, file_param, bucketname)
     await s3.upload(params1).promise();
     await P.delay(TIME_FOR_FUNC_TO_RUN);
 
-    let params2 = {
+    const params2 = {
         Bucket: bucketname,
         Key: file_param + '.json'
     };
@@ -418,12 +418,12 @@ async function test_trigger_dont_run_when_shouldnt(user, file_param, bucketname)
 
 async function test_delete_trigger_run(user, file_param, bucketname, multiple) {
     console.log(`test delete trigger run for ${bucketname}`);
-    let s3 = get_new_server(user);
-    let params = {
+    const s3 = get_new_server(user);
+    const params = {
         Bucket: bucketname,
         Key: file_param
     };
-    let params2 = {
+    const params2 = {
         Bucket: bucketname,
         Key: file_param + '.json'
     };
@@ -466,7 +466,7 @@ async function test_delete_trigger_run(user, file_param, bucketname, multiple) {
 
 async function test_trigger_run_when_should_multi(user, bucketname, files_prefix, suffix, num_of_files) {
     console.log(`test multi delete trigger should run for ${bucketname}`);
-    let s3 = get_new_server(user);
+    const s3 = get_new_server(user);
     const names = [];
     for (let i = 0; i < num_of_files; ++i) {
         names.push(files_prefix + '_no_' + i + suffix);
@@ -474,7 +474,7 @@ async function test_trigger_run_when_should_multi(user, bucketname, files_prefix
     const fname = await ops.generate_random_file(1);
 
     await P.map(names, name => {
-        let params1 = {
+        const params1 = {
             Bucket: bucketname,
             Key: name,
             Body: fs.createReadStream(fname)
@@ -483,7 +483,7 @@ async function test_trigger_run_when_should_multi(user, bucketname, files_prefix
     });
     await P.delay(TIME_FOR_FUNC_TO_RUN * 2); // wait for the functions to run...
 
-    let params2 = {
+    const params2 = {
         Bucket: bucketname,
         Prefix: files_prefix
     };

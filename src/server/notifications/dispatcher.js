@@ -51,7 +51,7 @@ class Dispatcher {
 
     //Activity Log
     activity(item) {
-        var self = this;
+        const self = this;
         item.desc = new SensitiveString(item.desc);
         dbg.log0('Adding ActivityLog entry', item);
         item.time = item.time || new Date();
@@ -60,7 +60,7 @@ class Dispatcher {
                 if (!config.SEND_EVENTS_REMOTESYS) {
                     return P.resolve();
                 }
-                var l = {
+                const l = {
                     id: String(item._id),
                     level: item.level,
                     event: item.event,
@@ -71,9 +71,9 @@ class Dispatcher {
     }
 
     read_activity_log(req) {
-        var self = this;
+        const self = this;
 
-        let query = _.pick(req.rpc_params, ['till', 'since', 'skip', 'limit']);
+        const query = _.pick(req.rpc_params, ['till', 'since', 'skip', 'limit']);
         if (req.rpc_params.event) {
             query.event = new RegExp(req.rpc_params.event);
         }
@@ -81,7 +81,7 @@ class Dispatcher {
 
         return ActivityLogStore.instance().read_activity_log(query)
             .then(logs => P.map(logs, function(log_item) {
-                var l = {
+                const l = {
                     id: String(log_item._id),
                     level: log_item.level,
                     event: log_item.event,

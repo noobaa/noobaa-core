@@ -175,7 +175,7 @@ function parse_op_name(req, action) {
 }
 
 function handle_error(req, res, err) {
-    let stserr =
+    const stserr =
         ((err instanceof StsError) && err) ||
         new StsError(RPC_ERRORS_TO_STS[err.rpc_code] || StsError.InternalFailure);
 

@@ -1,7 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-var stream = require('stream');
+const stream = require('stream');
 
 /**
  * SliceReader is a Readable stream that uses slice on a source object.

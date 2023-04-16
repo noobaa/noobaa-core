@@ -477,8 +477,8 @@ coretest.describe_mapper_test_case({
     }
 
     function intersection(start1, end1, start2, end2) {
-        var start = start1 > start2 ? start1 : start2;
-        var end = end1 < end2 ? end1 : end2;
+        const start = start1 > start2 ? start1 : start2;
+        const end = end1 < end2 ? end1 : end2;
         return (end <= start) ? null : {
             start: start,
             end: end,
@@ -500,7 +500,7 @@ coretest.describe_mapper_test_case({
         const generated_missing_parts = [];
         cached_parts.sort((a, b) => a.start - b.end);
         for (const part of cached_parts) {
-            let part_range = intersection(part.start, part.end, pos, end);
+            const part_range = intersection(part.start, part.end, pos, end);
             console.log('create_missing_parts:', { part: _.omit(part, 'data'), part_range, pos });
             if (!part_range) {
                 if (end <= part.start) {
@@ -519,8 +519,8 @@ coretest.describe_mapper_test_case({
                 generated_missing_parts.push({ start: pos, end: part_range.start, data });
             }
 
-            let buffer_start = part_range.start - part.start;
-            let buffer_end = part_range.end - part.start;
+            const buffer_start = part_range.start - part.start;
+            const buffer_end = part_range.end - part.start;
 
             pos = part_range.end;
             buffers.push(part.data.slice(buffer_start, buffer_end));

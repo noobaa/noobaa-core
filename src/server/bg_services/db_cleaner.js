@@ -30,7 +30,7 @@ async function background_worker() {
     if (!system || system_utils.system_in_maintenance(system._id)) return;
     const now = Date.now();
 
-    let last_date_to_remove = now - config.DB_CLEANER.BACK_TIME;
+    const last_date_to_remove = now - config.DB_CLEANER.BACK_TIME;
     if (this.last_check && now - this.last_check < config.DB_CLEANER.CYCLE) return config.DB_CLEANER.CYCLE;
     this.last_check = now;
     const { from_time } = md_aggregator.find_minimal_range({

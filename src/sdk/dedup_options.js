@@ -1,10 +1,10 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-var js_utils = require('../util/js_utils');
+const js_utils = require('../util/js_utils');
 
 // DO NOT CHANGE UNLESS YOU *KNOW* RABIN CHUNKING
-var dedup_config = js_utils.deep_freeze({
+const dedup_config = js_utils.deep_freeze({
 
     // min_chunk bytes are skipped before looking for new boundary.
     // max_chunk is the length which will be chunked if not chunked by context.

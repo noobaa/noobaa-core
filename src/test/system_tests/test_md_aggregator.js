@@ -21,15 +21,15 @@ const SERVICES_WAIT_IN_SECONDS = 30;
 argv.ip = argv.ip || 'localhost';
 argv.access_key = argv.access_key || '123';
 argv.secret_key = argv.secret_key || 'abc';
-var rpc = api.new_rpc();
-var client = rpc.new_client({
+const rpc = api.new_rpc();
+const client = rpc.new_client({
     address: 'ws://' + argv.ip + ':' + process.env.PORT
 });
 
 
 // Does the Auth and returns the nodes in the system
 function create_auth() {
-    var auth_params = {
+    const auth_params = {
         email: 'demo@noobaa.com',
         password: 'DeMo1',
         system: 'demo'
@@ -123,7 +123,7 @@ async function prepare_buckets_with_objects() {
 function calculate_expected_storage_stats_for_buckets(buckets_array, storage_read_by_bucket) {
     console.log('calculate_expected_storage_stats_for_buckets started');
     return P.map_one_by_one(buckets_array, bucket => {
-        let current_bucket_storage = {
+        const current_bucket_storage = {
             chunks_capacity: 0,
             objects_size: 0,
             blocks_size: 0
@@ -171,7 +171,7 @@ function run_test() {
         .then(() => P.delay(5 * 60 * 1000))
         .then(() => client.system.read_system({}))
         .then(sys_res => {
-            let storage_by_bucket = {};
+            const storage_by_bucket = {};
 
             sys_res.buckets.forEach(bucket => {
                 if (String(bucket.name.unwrap()) !== 'first.bucket') {
@@ -223,9 +223,9 @@ function wait_for_s3_and_web(max_seconds_to_wait) {
 }
 
 function wait_for_mongodb_to_start(max_seconds_to_wait) {
-    var isNotListening = true;
-    var MAX_RETRIES = max_seconds_to_wait;
-    var wait_counter = 1;
+    let isNotListening = true;
+    const MAX_RETRIES = max_seconds_to_wait;
+    let wait_counter = 1;
     //wait up to 10 seconds
     console.log('waiting for mongodb to start (1)');
 
@@ -262,9 +262,9 @@ function wait_for_mongodb_to_start(max_seconds_to_wait) {
 }
 
 function wait_for_server_to_start(max_seconds_to_wait, port) {
-    var isNotListening = true;
-    var MAX_RETRIES = max_seconds_to_wait;
-    var wait_counter = 1;
+    let isNotListening = true;
+    const MAX_RETRIES = max_seconds_to_wait;
+    let wait_counter = 1;
     //wait up to 10 seconds
     console.log('waiting for server to start (1)');
 

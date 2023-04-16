@@ -150,7 +150,7 @@ const COLLECTIONS = [{
 
 const COLLECTIONS_BY_NAME = _.keyBy(COLLECTIONS, 'name');
 
-let accounts_by_email_lowercase = [];
+const accounts_by_email_lowercase = [];
 
 
 /**
@@ -248,10 +248,10 @@ class SystemStoreData {
     rebuild_idmap() {
         this.idmap = {};
         _.each(COLLECTIONS, col => {
-            let items = this[col.name];
+            const items = this[col.name];
             _.each(items, item => {
-                let idstr = String(item._id);
-                let existing = this.idmap[idstr];
+                const idstr = String(item._id);
+                const existing = this.idmap[idstr];
                 if (existing) {
                     dbg.error('SystemStoreData: id collision', item, existing);
                 } else {
@@ -263,7 +263,7 @@ class SystemStoreData {
 
     rebuild_object_links() {
         _.each(COLLECTIONS, col => {
-            let items = this[col.name];
+            const items = this[col.name];
             _.each(items, item => this.resolve_object_ids_recursive(item));
         });
     }
@@ -279,9 +279,9 @@ class SystemStoreData {
                         return;
                     }
                     const key = field.valueOf();
-                    let val = index.val ? _.get(item, index.val) : item;
-                    let context = index.context ? _.get(item, index.context) : this;
-                    let map = context[index.name] || {};
+                    const val = index.val ? _.get(item, index.val) : item;
+                    const context = index.context ? _.get(item, index.context) : this;
+                    const map = context[index.name] || {};
                     context[index.name] = map;
                     if (index.val_array) {
                         map[key] = map[key] || [];
@@ -306,12 +306,12 @@ class SystemStoreData {
 
     check_indexes(col, item) {
         _.each(col.mem_indexes, index => {
-            let key = _.get(item, index.key || '_id');
-            let context = index.context ? _.get(item, index.context) : this;
+            const key = _.get(item, index.key || '_id');
+            const context = index.context ? _.get(item, index.context) : this;
             if (!context) return;
-            let map = context[index.name];
+            const map = context[index.name];
             if (!index.val_array) {
-                let existing = map && map[key];
+                const existing = map && map[key];
                 if (existing && String(existing._id) !== String(item._id)) {
                     throw new RpcError('CONFLICT', index.name + ' collision on key ' + key);
                 }
@@ -384,7 +384,7 @@ class SystemStore extends EventEmitter {
         if (this.data) {
             load_time = this.data.time;
         }
-        let since_load = Date.now() - load_time;
+        const since_load = Date.now() - load_time;
         if (since_load < this.START_REFRESH_THRESHOLD) {
             return this.data;
         } else if (since_load < this.FORCE_REFRESH_THRESHOLD) {
@@ -412,7 +412,7 @@ class SystemStore extends EventEmitter {
                 }
 
                 this.master_key_manager.load_root_key();
-                let new_data = new SystemStoreData();
+                const new_data = new SystemStoreData();
                 let millistamp = time_utils.millistamp();
                 await this._register_for_changes();
                 await this._read_new_data_from_db(new_data);
@@ -477,7 +477,7 @@ class SystemStore extends EventEmitter {
     }
 
     async _read_data_from_db(target) {
-        let non_deleted_query = {
+        const non_deleted_query = {
             deleted: null
         };
         await db_client.instance().connect();
@@ -492,7 +492,7 @@ class SystemStore extends EventEmitter {
 
     async _read_new_data_from_db(target) {
         const now = Date.now();
-        let newly_updated_query = {
+        const newly_updated_query = {
             last_update: {
                 $gte: this.last_update_time,
             }
@@ -654,13 +654,13 @@ class SystemStore extends EventEmitter {
             const col = get_collection(name);
             _.each(list, item => {
                 data.check_indexes(col, item);
-                let dont_change_last_update = Boolean(item.dont_change_last_update);
+                const dont_change_last_update = Boolean(item.dont_change_last_update);
                 let updates = _.omit(item, '_id', '$find', 'dont_change_last_update');
-                let find_id = _.pick(item, '_id');
-                let finds = item.$find || (db_client.instance().is_object_id(find_id._id) && find_id);
+                const find_id = _.pick(item, '_id');
+                const finds = item.$find || (db_client.instance().is_object_id(find_id._id) && find_id);
                 if (_.isEmpty(updates)) return;
                 if (!finds) throw new Error(`SystemStore: make_changes id is not of type object_id: ${find_id._id}`);
-                let keys = _.keys(updates);
+                const keys = _.keys(updates);
 
                 if (_.first(keys)[0] === '$') {
                     for (const key of keys) {
@@ -763,7 +763,7 @@ class SystemStore extends EventEmitter {
         });
         if (!this.bg_timeout) {
             this.bg_timeout = setTimeout(() => {
-                let bg_changes = this.bg_changes;
+                const bg_changes = this.bg_changes;
                 this.bg_changes = null;
                 this.bg_timeout = null;
                 this.make_changes(bg_changes);
@@ -776,7 +776,7 @@ class SystemStore extends EventEmitter {
      * @returns {object}
      */
     get_local_cluster_info(get_hb) {
-        let owner_secret = this.get_server_secret();
+        const owner_secret = this.get_server_secret();
         let reply;
         _.each(this.data && this.data.clusters, function(cluster_info) {
             if (cluster_info.owner_secret === owner_secret) {

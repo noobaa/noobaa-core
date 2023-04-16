@@ -1,7 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-var stream = require('stream');
+const stream = require('stream');
 
 /**
  *
@@ -26,8 +26,8 @@ class ChunkStream extends stream.Transform {
     _transform(data, encoding, callback) {
         // console.log('ChunkStream transform', data.length);
         while (data && data.length) {
-            let room = this.chunk_size - this.pending_bytes;
-            let buf = (room < data.length) ? data.slice(0, room) : data;
+            const room = this.chunk_size - this.pending_bytes;
+            const buf = (room < data.length) ? data.slice(0, room) : data;
             this.pending_buffers.push(buf);
             this.pending_bytes += buf.length;
             if (this.pending_bytes === this.chunk_size) {

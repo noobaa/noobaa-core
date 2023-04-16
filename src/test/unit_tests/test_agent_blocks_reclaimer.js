@@ -101,7 +101,7 @@ class ReclaimerMock extends AgentBlocksReclaimer {
         return P.resolve()
             .then(() => {
                 blocks.forEach(block_rec => {
-                    let block = this.blocks.find(mock_block => String(mock_block._id) === String(block_rec._id));
+                    const block = this.blocks.find(mock_block => String(mock_block._id) === String(block_rec._id));
                     // This allows us to mock failure of deletes
                     if (block && !block.fail_to_delete) {
                         block.reclaimed = new Date();

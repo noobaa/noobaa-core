@@ -26,10 +26,10 @@ const BKT = `bucket.example`;
 mocha.describe('Encryption tests', function() {
     const { rpc_client, EMAIL, SYSTEM } = coretest;
     let response_account;
-    let accounts = [];
-    let buckets = [];
-    let namespace_buckets = [];
-    let namespace_resources = [];
+    const accounts = [];
+    const buckets = [];
+    const namespace_buckets = [];
+    const namespace_resources = [];
 
     mocha.describe('Check master keys in system', async function() {
         mocha.it('load system store', async function() {
@@ -123,7 +123,7 @@ mocha.describe('Encryption tests', function() {
        mocha.it('create accounts and compare acount access keys succefully', async function() {
             this.timeout(600000); // eslint-disable-line no-invalid-this
             const db_system = await db_client.collection('systems').findOne({ name: SYSTEM });
-            let new_account_params = {
+            const new_account_params = {
                 has_login: false,
                 s3_access: true,
             };
@@ -618,7 +618,7 @@ mocha.describe('Rotation tests', function() {
     });
     mocha.it('create account after disable system master key test', async function() {
         this.timeout(600000); // eslint-disable-line no-invalid-this
-        let new_account_params = {
+        const new_account_params = {
             has_login: false,
             s3_access: true,
             email: 'account-after-disable-ststem',
@@ -734,9 +734,9 @@ mocha.describe('Rotation tests', function() {
             this.timeout(600000); // eslint-disable-line no-invalid-this
             await system_store.load();
             // collect old data
-            let old_accounts = [];
-            let old_buckets = [];
-            let old_pools = [];
+            const old_accounts = [];
+            const old_buckets = [];
+            const old_pools = [];
             await P.all(_.map(system_store.data.accounts, async account => {
                 if (!account.access_keys && account.email.unwrap() === "support@noobaa.com") {
                     return;
@@ -1013,10 +1013,10 @@ async function namespace_cache_tests(rpc_client, namespace_resources, sys_name, 
 }
 
 async function populate_system(rpc_client) {
-    let accounts = [];
-    let buckets = [];
+    const accounts = [];
+    const buckets = [];
 
-    let new_account_params = {
+    const new_account_params = {
         has_login: false,
         s3_access: true,
     };
@@ -1077,7 +1077,7 @@ async function populate_system(rpc_client) {
 }
 async function create_delete_external_connections(rpc_client) {
 
-    let new_account_params = {
+    const new_account_params = {
         has_login: false,
         s3_access: true,
     };

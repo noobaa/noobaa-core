@@ -12,7 +12,7 @@ const child_process = require('child_process');
 const async_exec = util.promisify(child_process.exec);
 const async_delay = util.promisify(setTimeout);
 
-var nb_native_napi;
+let nb_native_napi;
 
 function nb_native() {
 

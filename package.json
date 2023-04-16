@@ -130,7 +130,7 @@
     "@types/node": "18.15.11",
     "@types/pg": "8.6.6",
     "@types/request": "2.48.8",
-    "eslint": "8.23.1",
+    "eslint": "8.38.0",
     "eslint-plugin-header": "3.1.1",
     "istanbul-lib-coverage": "3.2.0",
     "istanbul-lib-hook": "3.0.0",

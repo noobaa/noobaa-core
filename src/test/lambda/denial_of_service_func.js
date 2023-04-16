@@ -4,19 +4,19 @@
 const AWS = require('aws-sdk');
 
 exports.handler = function(event, context, callback) {
-    var start = Date.now();
-    var end = start + event.time;
-    var num_calls = 0;
-    var num_errors = 0;
-    var took = 0;
-    var lambda = new AWS.Lambda(event.lambda_conf);
+    const start = Date.now();
+    const end = start + event.time;
+    let num_calls = 0;
+    let num_errors = 0;
+    let took = 0;
+    const lambda = new AWS.Lambda(event.lambda_conf);
 
-    for (var i = 0; i < event.concur; ++i) {
+    for (let i = 0; i < event.concur; ++i) {
         worker();
     }
 
     function worker() {
-        var now = Date.now();
+        const now = Date.now();
         if (now >= end) {
             return callback(null, {
                 num_calls: num_calls,

@@ -35,13 +35,13 @@ function export_activity_log(req) {
     req.rpc_params.limit = req.rpc_params.limit || 100000;
     return Dispatcher.instance().read_activity_log(req)
         .then(logs => {
-            let out_lines = logs.logs.reduce(
+            const out_lines = logs.logs.reduce(
                 (lines, entry) => {
-                    let time = (new Date(entry.time)).toISOString();
-                    let entity_type = entry.event.split('.')[0];
-                    let account = entry.actor ? entry.actor.email : '';
-                    let entity = entry[entity_type];
-                    let description = entry.desc ? entry.desc.join(' ') : '';
+                    const time = (new Date(entry.time)).toISOString();
+                    const entity_type = entry.event.split('.')[0];
+                    const account = entry.actor ? entry.actor.email : '';
+                    const entity = entry[entity_type];
+                    const description = entry.desc ? entry.desc.join(' ') : '';
                     let entity_name = '';
                     if (entity) {
                         entity_name = entity_type === 'obj' ? entity.key : entity.name;

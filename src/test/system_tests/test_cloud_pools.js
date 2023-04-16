@@ -1,17 +1,17 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-var api = require('../../api');
-var rpc = api.new_rpc();
-var util = require('util');
-var _ = require('lodash');
-var AWS = require('aws-sdk');
-var argv = require('minimist')(process.argv);
-var P = require('../../util/promise');
-var basic_server_ops = require('../utils/basic_server_ops');
-var dotenv = require('../../util/dotenv');
+const api = require('../../api');
+const rpc = api.new_rpc();
+const util = require('util');
+const _ = require('lodash');
+const AWS = require('aws-sdk');
+const argv = require('minimist')(process.argv);
+const P = require('../../util/promise');
+const basic_server_ops = require('../utils/basic_server_ops');
+const dotenv = require('../../util/dotenv');
 dotenv.load();
-var test_utils = require('./test_utils');
+const test_utils = require('./test_utils');
 
 const s3 = new AWS.S3({
     // endpoint: 'https://s3.amazonaws.com',
@@ -25,7 +25,7 @@ const s3 = new AWS.S3({
     // region: 'eu-central-1'
 });
 
-let TEST_CTX = {
+const TEST_CTX = {
     source_ip: 'localhost',
     source_bucket: 'first.bucket',
     target_port: process.env.PORT || '5001',
@@ -34,10 +34,10 @@ let TEST_CTX = {
     cloud_pool_name: 'majesticsloth',
 };
 
-var file_sizes = [1];
-var file_names = ['нуба_1', 'нуба_2', 'нуба_3'];
+const file_sizes = [1];
+const file_names = ['нуба_1', 'нуба_2', 'нуба_3'];
 
-var client = rpc.new_client({
+const client = rpc.new_client({
     address: 'ws://' + TEST_CTX.source_ip + ':' + TEST_CTX.target_port
 });
 
@@ -56,7 +56,7 @@ function init_s3() {
                 return;
             }
 
-            let object_keys = _.map(objects_to_delete, obj => ({
+            const object_keys = _.map(objects_to_delete, obj => ({
                 Key: obj.Key
             }));
 
@@ -85,7 +85,7 @@ function init_s3() {
 
 function list_all_s3_objects(bucket_name) {
     // Initialization of IsTruncated in order to perform the first while cycle
-    var listObjectsResponse = {
+    const listObjectsResponse = {
         is_truncated: true,
         objects: [],
         common_prefixes: [],
@@ -104,14 +104,14 @@ function list_all_s3_objects(bucket_name) {
                     })
                     .then(function(res) {
                         listObjectsResponse.is_truncated = res.is_truncated;
-                        let res_list = {
+                        const res_list = {
                             objects: res.Contents,
                             common_prefixes: res.common_prefixes
                         };
                         if (res_list.objects.length) {
                             listObjectsResponse.objects = _.concat(listObjectsResponse.objects, res_list.objects);
                         }
-                        let last_obj = _.last(listObjectsResponse.objects);
+                        const last_obj = _.last(listObjectsResponse.objects);
                         listObjectsResponse.key_marker = last_obj && last_obj.key;
                     })
                     .catch(function(err) {
@@ -147,7 +147,7 @@ function put_object(s3_obj, bucket, key) {
 
 
 function authenticate() {
-    let auth_params = {
+    const auth_params = {
         email: 'demo@noobaa.com',
         password: 'DeMo1',
         system: 'demo'
@@ -161,7 +161,7 @@ function authenticate() {
 function verify_object_parts_on_cloud_nodes(replicas_in_tier, bucket_name, object_key, cloud_pool) {
     // TODO: Currently set high because there is a problem with cloud resource test block write
     // That blocks the whole replication process
-    let abort_timeout_sec = 10 * 60;
+    const abort_timeout_sec = 10 * 60;
     let first_iteration = true;
     let blocks_correct = false;
     let start_ts;
@@ -178,7 +178,7 @@ function verify_object_parts_on_cloud_nodes(replicas_in_tier, bucket_name, objec
                         key: object_key,
                     })
                     .then(function(obj_mapping_arg) {
-                        let blocks_by_cloud_pool_name = {
+                        const blocks_by_cloud_pool_name = {
                             blocks: []
                         };
                         _.forEach(obj_mapping_arg.parts, part => {
@@ -202,7 +202,7 @@ function verify_object_parts_on_cloud_nodes(replicas_in_tier, bucket_name, objec
                                 first_iteration = false;
                             }
 
-                            let diff = Date.now() - start_ts;
+                            const diff = Date.now() - start_ts;
                             if (diff > abort_timeout_sec * 1000) {
                                 throw new Error('aborted verify_object_parts_on_cloud_nodes after ' + abort_timeout_sec + ' seconds');
                             }
@@ -237,14 +237,14 @@ function run_test() {
             name: TEST_CTX.source_bucket
         }))
         .then(function(source_bucket) {
-            let tier_name = source_bucket.tiering.tiers[0].tier;
+            const tier_name = source_bucket.tiering.tiers[0].tier;
             return client.tier.read_tier({
                     name: tier_name
                 })
                 .then(function(tier) {
                     replicas_in_tier = tier.chunk_coder_config.replicas;
                     files_bucket_tier = tier;
-                    let new_pools = tier.attached_pools.concat(TEST_CTX.cloud_pool_name);
+                    const new_pools = tier.attached_pools.concat(TEST_CTX.cloud_pool_name);
                     return client.tier.update_tier({
                         name: tier.name,
                         attached_pools: new_pools,
@@ -340,7 +340,7 @@ function run_test() {
                 .then(() => block_ids);
         })
         .then(function(block_ids) {
-            let new_pools = _.filter(files_bucket_tier.attached_pools, pool => String(pool) !== TEST_CTX.cloud_pool_name);
+            const new_pools = _.filter(files_bucket_tier.attached_pools, pool => String(pool) !== TEST_CTX.cloud_pool_name);
             // This is used in order to make sure that the blocks will be deleted from the cloud
             return client.tier.update_tier({
                     name: files_bucket_tier.name,

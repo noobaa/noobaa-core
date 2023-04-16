@@ -29,7 +29,7 @@ function self_bind(object, method_desc) {
         return;
     }
 
-    var func = object[method_desc];
+    const func = object[method_desc];
 
     // create a closure function that applies the original function on object
     function closure_func() {
@@ -43,7 +43,7 @@ function self_bind(object, method_desc) {
 
 
 // see http://jsperf.com/concat-vs-push-apply/39
-var _cached_array_push = Array.prototype.push;
+const _cached_array_push = Array.prototype.push;
 
 
 /**
@@ -67,7 +67,7 @@ function array_push_keep_latest(array, items, limit) {
  * add to array, create it in the object if doesnt exist
  */
 function named_array_push(obj, arr_name, item) {
-    var arr = obj[arr_name];
+    let arr = obj[arr_name];
     if (arr) {
         _cached_array_push.call(arr, item);
     } else {
@@ -96,7 +96,7 @@ function deep_freeze(obj) {
 
     // Freeze all properties
     const keys = Object.keys(obj);
-    for (var i = 0; i < keys.length; ++i) {
+    for (let i = 0; i < keys.length; ++i) {
         const k = keys[i];
         const v = obj[k];
         deep_freeze(v);
@@ -146,7 +146,7 @@ function sort_compare_by(key_getter, order) {
 class PackedObject {
     constructor(obj) {
         const keys = Object.keys(obj);
-        for (var i = 0; i < keys.length; ++i) {
+        for (let i = 0; i < keys.length; ++i) {
             this[keys[i]] = obj[keys[i]];
         }
     }

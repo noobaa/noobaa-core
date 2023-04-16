@@ -24,7 +24,7 @@ class KeysLock {
             throw new TypeError('Keys should be an array');
         }
 
-        let lock_item = {
+        const lock_item = {
             keys: keys,
             locked: false,
         };

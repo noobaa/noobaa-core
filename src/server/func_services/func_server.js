@@ -130,7 +130,7 @@ async function update_func(req) {
     await func_store.instance().update_func(func._id, config_updates);
     await _load_func(req);
 
-    let act = {
+    const act = {
         level: 'info',
         system: req.system._id,
         actor: req.account && req.account._id,

@@ -122,7 +122,7 @@ function authenticate_request(req) {
     const system_store = require('../../server/system_services/system_store').get_instance(); // eslint-disable-line global-require
     try {
         // TODO: fix authentication. currently autherizes everything.
-        let system = system_store.data.systems[0];
+        const system = system_store.data.systems[0];
         const auth_token = auth_server.make_auth_token({
             system_id: system._id,
             account_id: system.owner._id,

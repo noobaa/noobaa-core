@@ -36,7 +36,7 @@ class Speedometer {
                 }
             });
         }
-        for (var i = 0; i < count; ++i) {
+        for (let i = 0; i < count; ++i) {
             const worker = cluster.fork();
             console.warn('Worker start', worker.process.pid);
         }

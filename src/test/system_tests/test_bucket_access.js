@@ -340,7 +340,7 @@ async function test_delete_bucket_deletes_permissions() {
 
     await server.createBucket({ Bucket: unique_bucket_name }).promise();
 
-    let bucket = await client.bucket.read_bucket({ rpc_params: { name: unique_bucket_name } });
+    const bucket = await client.bucket.read_bucket({ rpc_params: { name: unique_bucket_name } });
     assert(bucket.owner_account.email.unwrap() === full_access_user.email, 'expecting full_access_user to have permissions to access ' + unique_bucket_name);
 
     await server.deleteBucket({ Bucket: unique_bucket_name }).promise();

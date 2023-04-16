@@ -1,14 +1,14 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-// let _ = require('lodash');
-// let P = require('../util/promise');
-let net = require('net');
-let tls = require('tls');
-let url = require('url');
-let events = require('events');
-let RpcTcpConnection = require('./rpc_tcp');
-let dbg = require('../util/debug_module')(__filename);
+// const _ = require('lodash');
+// const P = require('../util/promise');
+const net = require('net');
+const tls = require('tls');
+const url = require('url');
+const events = require('events');
+const RpcTcpConnection = require('./rpc_tcp');
+const dbg = require('../util/debug_module')(__filename);
 
 /**
  *
@@ -66,8 +66,8 @@ class RpcTcpServer extends events.EventEmitter {
                 hostname: tcp_conn.remoteAddress,
                 port: tcp_conn.remotePort
             });
-            let addr_url = url.parse(address);
-            let conn = new RpcTcpConnection(addr_url);
+            const addr_url = url.parse(address);
+            const conn = new RpcTcpConnection(addr_url);
             dbg.log0('TCP ACCEPT CONNECTION', conn.connid + ' ' + conn.url.href);
             conn.tcp_conn = tcp_conn;
             conn._init_tcp();

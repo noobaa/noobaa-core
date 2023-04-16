@@ -87,7 +87,7 @@ mocha.describe('lru', function() {
         });
         lru._sanity();
 
-        let item = lru.find_or_add_item(1);
+        const item = lru.find_or_add_item(1);
         assert(item);
         assert.strictEqual(lru.usage, 0);
         assert.strictEqual(item.usage, 1);
@@ -98,7 +98,7 @@ mocha.describe('lru', function() {
         assert.strictEqual(lru.usage, 0);
         lru._sanity();
 
-        let item1 = lru.find_or_add_item(1);
+        const item1 = lru.find_or_add_item(1);
         assert(item1 !== item);
         lru._sanity();
     });
@@ -111,8 +111,8 @@ mocha.describe('lru', function() {
         lru._sanity();
 
         for (let i = 0; i < 1000; ++i) {
-            let key = Math.floor(100 * Math.random());
-            let item = lru.find_or_add_item(key);
+            const key = Math.floor(100 * Math.random());
+            const item = lru.find_or_add_item(key);
             lru.set_usage(item, Math.floor(MAX_USAGE * Math.random()));
             lru._sanity();
         }

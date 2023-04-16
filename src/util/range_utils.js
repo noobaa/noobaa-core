@@ -16,8 +16,8 @@ module.exports = {
  * find the intersection between two ranges
  */
 function intersection(start1, end1, start2, end2) {
-    var start = start1 > start2 ? start1 : start2;
-    var end = end1 < end2 ? end1 : end2;
+    const start = start1 > start2 ? start1 : start2;
+    const end = end1 < end2 ? end1 : end2;
     return (end <= start) ? null : {
         start: start,
         end: end,
@@ -88,7 +88,7 @@ function align_up(offset, boundary) {
  * but only if such boundary exists between start and end.
  */
 function truncate_range_end_to_boundary(start, end, boundary) {
-    var new_end = align_down(end, boundary);
+    const new_end = align_down(end, boundary);
     return (new_end > start) ? new_end : end;
 }
 

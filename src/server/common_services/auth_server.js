@@ -38,13 +38,13 @@ const s3_utils = require('../../endpoint/s3/s3_utils');
  */
 function create_auth(req) {
 
-    var email = req.rpc_params.email;
-    var password = req.rpc_params.password;
-    var system_name = req.rpc_params.system;
-    var role_name = req.rpc_params.role;
-    var authenticated_account;
-    var target_account;
-    var system;
+    const email = req.rpc_params.email;
+    const password = req.rpc_params.password;
+    const system_name = req.rpc_params.system;
+    let role_name = req.rpc_params.role;
+    let authenticated_account;
+    let target_account;
+    let system;
 
     return P.resolve()
         .then(() => {
@@ -88,7 +88,7 @@ function create_auth(req) {
                     throw new RpcError('UNAUTHORIZED', 'credentials not found');
                 }
 
-                var account_arg = system_store.data.get_by_id(req.auth.account_id);
+                const account_arg = system_store.data.get_by_id(req.auth.account_id);
                 target_account = target_account || account_arg;
                 authenticated_account = authenticated_account || account_arg;
 
@@ -112,7 +112,7 @@ function create_auth(req) {
                 if (!system || system.deleted) throw new RpcError('UNAUTHORIZED', 'system not found');
 
                 // find the role of authenticated_account in the system
-                var roles = system.roles_by_account &&
+                const roles = system.roles_by_account &&
                     system.roles_by_account[authenticated_account._id];
 
                 // now approve the role -
@@ -171,7 +171,7 @@ async function create_k8s_auth(req) {
 
     // Currently I have no means to get the system name in the FE without an email and password.
     // So i default to the first (and currently only system)
-    let system = system_store.data.systems[0];
+    const system = system_store.data.systems[0];
     if (!system || system.deleted) {
         throw new RpcError('UNAUTHORIZED', 'system not found');
     }
@@ -316,15 +316,15 @@ function unauthorized_error(reason) {
  *
  */
 function create_access_key_auth(req) {
-    var access_key = req.rpc_params.access_key.unwrap();
-    var string_to_sign = req.rpc_params.string_to_sign;
-    var signature = req.rpc_params.signature;
+    const access_key = req.rpc_params.access_key.unwrap();
+    const string_to_sign = req.rpc_params.string_to_sign;
+    const signature = req.rpc_params.signature;
 
     if (_.isUndefined(string_to_sign) || _.isUndefined(signature)) {
         throw new RpcError('UNAUTHORIZED', 'signature error');
     }
 
-    var account = _.find(system_store.data.accounts, function(acc) {
+    const account = _.find(system_store.data.accounts, function(acc) {
         if (acc.access_keys) {
             return acc.access_keys[0].access_key.unwrap().toString() === access_key.toString();
         } else {
@@ -336,8 +336,8 @@ function create_access_key_auth(req) {
         throw new RpcError('UNAUTHORIZED', 'account not found');
     }
 
-    let secret = account.access_keys[0].secret_key.unwrap().toString();
-    let signature_test = signature_utils.get_signature_from_auth_token({ string_to_sign: string_to_sign }, secret);
+    const secret = account.access_keys[0].secret_key.unwrap().toString();
+    const signature_test = signature_utils.get_signature_from_auth_token({ string_to_sign: string_to_sign }, secret);
     if (signature_test !== signature) {
         throw new RpcError('UNAUTHORIZED', 'signature error');
     }
@@ -349,7 +349,7 @@ function create_access_key_auth(req) {
         'string_to_sign', string_to_sign,
         'signature', signature);
 
-    var role = _.find(system_store.data.roles, function(r) {
+    const role = _.find(system_store.data.roles, function(r) {
         return r.account._id.toString() === account._id.toString();
     });
 
@@ -357,13 +357,13 @@ function create_access_key_auth(req) {
         throw new RpcError('UNAUTHORIZED', 'role not found');
     }
 
-    var system = role.system;
+    const system = role.system;
 
     if (!system) {
         throw new RpcError('UNAUTHORIZED', 'system not found');
     }
 
-    var auth_extra;
+    let auth_extra;
     if (req.rpc_params.extra) {
         auth_extra = req.rpc_params.extra;
         auth_extra.signature = req.rpc_params.signature;
@@ -375,7 +375,7 @@ function create_access_key_auth(req) {
         };
     }
 
-    var token = make_auth_token({
+    const token = make_auth_token({
         system_id: system._id,
         account_id: account._id,
         role: 'admin',
@@ -641,7 +641,7 @@ function _get_auth_info(account, system, authorized_by, role, extra) {
             response.account.is_support = true;
         }
 
-        let next_password_change = account.next_password_change;
+        const next_password_change = account.next_password_change;
         if (next_password_change && next_password_change < Date.now()) {
             response.account.must_change_password = true;
         }
@@ -731,14 +731,14 @@ function has_bucket_anonymous_permission(bucket, action, bucket_path = "") {
  * @return <String> token
  */
 function make_auth_token(options) {
-    var auth = _.pick(options, 'account_id', 'system_id', 'role', 'extra', 'authorized_by');
+    let auth = _.pick(options, 'account_id', 'system_id', 'role', 'extra', 'authorized_by');
     auth.authorized_by = auth.authorized_by || 'noobaa';
 
     // don't incude keys if value is falsy, to minimize the token size
     auth = _.omitBy(auth, value => !value);
 
     // set expiry if provided
-    var jwt_options = {};
+    const jwt_options = {};
     if (options.expiry) {
         jwt_options.expiresIn = options.expiry;
     }

@@ -1,10 +1,10 @@
 /* Copyright (C) 2016 NooBaa */
 "use strict";
 
-var _ = require('lodash');
-var P = require('../../util/promise');
-var ops = require('../utils/basic_server_ops');
-var argv = require('minimist')(process.argv);
+const _ = require('lodash');
+const P = require('../../util/promise');
+const ops = require('../utils/basic_server_ops');
+const argv = require('minimist')(process.argv);
 
 function show_usage() {
     console.error('usage: node upgradeonly.js <--upgrade_pack path_to_upgrade_pack> <--target_ip ip>');

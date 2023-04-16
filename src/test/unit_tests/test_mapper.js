@@ -633,7 +633,7 @@ coretest.describe_mapper_test_case({
     }
 
     function make_block(params = {}, i = 0) {
-        let {
+        const {
             readable,
             writable,
             is_cloud_node,

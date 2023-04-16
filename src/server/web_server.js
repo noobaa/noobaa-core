@@ -43,7 +43,7 @@ const dev_mode = (process.env.DEV_MODE === 'true');
 const app = express();
 
 if (process.env.NOOBAA_LOG_LEVEL) {
-    let dbg_conf = debug_config.get_debug_config(process.env.NOOBAA_LOG_LEVEL);
+    const dbg_conf = debug_config.get_debug_config(process.env.NOOBAA_LOG_LEVEL);
     dbg_conf.core.map(module => dbg.set_module_level(dbg_conf.level, module));
 }
 
@@ -87,7 +87,7 @@ async function start_web_server() {
         // we register the rpc before listening on the port
         // in order for the rpc services to be ready immediately
         // with the http services like /version
-        var http_server = http.createServer(app);
+        const http_server = http.createServer(app);
         server_rpc.rpc.register_ws_transport(http_server);
         await P.ninvoke(http_server, 'listen', http_port);
 
@@ -124,12 +124,12 @@ app.use(function(req, res, next) {
     // however our nodejs server is always http so the flag is false,
     // and on heroku only the router does ssl,
     // so we need to pull the heroku router headers to check.
-    var fwd_proto = req.get('X-Forwarded-Proto');
+    const fwd_proto = req.get('X-Forwarded-Proto');
     // var fwd_port = req.get('X-Forwarded-Port');
     // var fwd_from = req.get('X-Forwarded-For');
     // var fwd_start = req.get('X-Request-Start');
     if (fwd_proto === 'http') {
-        var host = req.get('Host');
+        const host = req.get('Host');
         return res.redirect('https://' + host + req.originalUrl);
     }
     return next();
@@ -158,8 +158,8 @@ app.get('/', function(req, res) {
 app.get('/get_latest_version*', function(req, res) {
     if (req.params[0].indexOf('&curr=') !== -1) {
         try {
-            var query_version = req.params[0].substr(req.params[0].indexOf('&curr=') + 6);
-            var ret_version = '';
+            const query_version = req.params[0].substr(req.params[0].indexOf('&curr=') + 6);
+            let ret_version = '';
 
             if (!is_latest_version(query_version)) {
                 ret_version = config.on_premise.base_url + process.env.CURRENT_VERSION + '/' + config.on_premise.nva_part;
@@ -201,7 +201,7 @@ app.post('/set_log_level*', function(req, res) {
 
 //Log level getter
 app.get('/get_log_level', function(req, res) {
-    var all_modules = util.inspect(dbg.get_module_structure(), true, 20);
+    const all_modules = util.inspect(dbg.get_module_structure(), true, 20);
 
     res.status(200).send({
         all_levels: all_modules,
@@ -337,7 +337,7 @@ function _create_nsfs_report() {
 // since we usually have less routes then files, and the routes are in memory.
 
 function cache_control(seconds) {
-    var millis = 1000 * seconds;
+    const millis = 1000 * seconds;
     return function(req, res, next) {
         res.setHeader("Cache-Control", "public, max-age=" + seconds);
         res.setHeader("Expires", new Date(Date.now() + millis).toUTCString());
@@ -361,7 +361,7 @@ app.use('/public/audit.csv', express.static(path.join('/log', 'audit.csv')));
 app.use(error_404);
 app.use(function(err, req, res, next) {
     console.error('ERROR:', err);
-    var e;
+    let e;
     if (dev_mode) {
         // show internal info only on development
         e = err;
@@ -375,7 +375,7 @@ app.use(function(err, req, res, next) {
     res.status(e.statusCode);
 
     if (can_accept_html(req)) {
-        var ctx = { //common_api.common_server_data(req);
+        const ctx = { //common_api.common_server_data(req);
             data: {}
         };
         if (dev_mode) {
@@ -425,17 +425,17 @@ function can_accept_html(req) {
 // Check if given version is the latest version, or are there newer ones
 // Version is in the form of X.Y.Z, start checking from left to right
 function is_latest_version(query_version) {
-    var srv_version = process.env.CURRENT_VERSION;
+    const srv_version = process.env.CURRENT_VERSION;
     console.log('Checking version', query_version, 'against', srv_version);
 
     if (query_version === srv_version) {
         return true;
     }
 
-    var srv_version_parts = srv_version.toString().split('.');
-    var query_version_parts = query_version.split('.');
+    const srv_version_parts = srv_version.toString().split('.');
+    const query_version_parts = query_version.split('.');
 
-    var len = Math.min(srv_version_parts.length, query_version_parts.length);
+    const len = Math.min(srv_version_parts.length, query_version_parts.length);
 
     // Compare common parts
     for (let i = 0; i < len; i++) {

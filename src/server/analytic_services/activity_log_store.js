@@ -46,7 +46,7 @@ class ActivityLogStore {
 
     read_activity_log(query) {
         const { skip = 0, limit = 100 } = query;
-        let selector = this._create_selector(query);
+        const selector = this._create_selector(query);
         return P.resolve().then(async () => this._activitylogs.find(selector, { skip, limit, sort: { time: -1 } }));
     }
 

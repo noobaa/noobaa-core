@@ -7,7 +7,7 @@ const assert = require('assert');
 const { MongoSequence } = require('../../util/mongo_client');
 
 async function get_postgres_client(params) {
-    let pgc = new PostgresClient(params);
+    const pgc = new PostgresClient(params);
     await pgc.connect();
     return pgc;
 }

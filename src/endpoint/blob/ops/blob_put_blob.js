@@ -11,7 +11,7 @@ const mime = require('mime');
  * https://docs.microsoft.com/en-us/rest/api/storageservices/put-blob
  */
 async function put_blob(req, res) {
-    let copy_source = blob_utils.parse_copy_source(req);
+    const copy_source = blob_utils.parse_copy_source(req);
 
     const { etag } = await req.object_sdk.upload_object({
         bucket: req.params.bucket,

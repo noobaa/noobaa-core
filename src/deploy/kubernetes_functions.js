@@ -176,7 +176,7 @@ class KubernetesFunctions {
     }) {
         const server_details = {};
         try {
-            let resources_file_path = path.join(this.output_dir, `${this.namespace}.server_deployment.${Date.now()}.json`);
+            const resources_file_path = path.join(this.output_dir, `${this.namespace}.server_deployment.${Date.now()}.json`);
             // modify resources and write to temp yaml
             const resources = await this.read_resources(server_yaml);
             const statefulset = resources.find(res => res.kind === 'StatefulSet');

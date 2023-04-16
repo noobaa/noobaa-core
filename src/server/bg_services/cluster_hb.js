@@ -25,11 +25,11 @@ exports.do_heartbeat = do_heartbeat;
  *
  */
 function do_heartbeat({ skip_server_monitor } = {}) {
-    let current_clustering = system_store.get_local_cluster_info();
+    const current_clustering = system_store.get_local_cluster_info();
     let server_below_min_req = false;
     let server_name;
     if (current_clustering) {
-        let heartbeat = {
+        const heartbeat = {
             version: pkg.version,
             time: Date.now(),
             health: {
@@ -54,7 +54,7 @@ function do_heartbeat({ skip_server_monitor } = {}) {
                 os_utils.get_raw_storage()
             ]))
             .then(([drives, raw_storage]) => {
-                let root = drives.find(drive => drive.mount === '/');
+                const root = drives.find(drive => drive.mount === '/');
                 if (root) {
                     root.storage.total = raw_storage;
                 }
@@ -66,12 +66,12 @@ function do_heartbeat({ skip_server_monitor } = {}) {
                 if (info.storage) {
                     heartbeat.health.storage = info.storage;
                 }
-                let update = {
+                const update = {
                     _id: current_clustering._id,
                     heartbeat: heartbeat
                 };
                 //Check if server is below minimum requirements
-                let min_requirements = clustering_utils.get_min_requirements();
+                const min_requirements = clustering_utils.get_min_requirements();
                 if (info.storage.total < min_requirements.storage ||
                     heartbeat.health.os_info.totalmem < min_requirements.ram ||
                     heartbeat.health.os_info.cpus.length < min_requirements.cpu_count) {
@@ -98,7 +98,7 @@ function do_heartbeat({ skip_server_monitor } = {}) {
             })
             .then(() => {
                 if (server_below_min_req) {
-                    let name = server_name + '-' + current_clustering.owner_secret;
+                    const name = server_name + '-' + current_clustering.owner_secret;
                     return Dispatcher.instance().alert('MAJOR',
                         system_store.data.systems[0]._id,
                         `Server ${name} configuration is below minimum requirements. This can result in overall performance issues,

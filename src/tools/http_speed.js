@@ -180,14 +180,14 @@ function run_client_request() {
 function run_sender(writable) {
     const req_size = size_bytes;
     const buf_size = argv.buf;
-    var n = 0;
+    let n = 0;
 
     writable.on('drain', send);
     send();
 
     function send() {
         const buf = Buffer.allocUnsafe(Math.min(buf_size, req_size - n));
-        var ok = true;
+        let ok = true;
         while (ok && n < req_size) {
             ok = writable.write(buf);
             n += buf.length;

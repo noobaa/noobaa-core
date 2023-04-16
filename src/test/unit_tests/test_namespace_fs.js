@@ -264,7 +264,7 @@ mocha.describe('namespace_fs', function() {
         const dir2_version_dir = dir2 + `${version_dir}`;
         let s3_client;
         let s3_admin;
-        let accounts = [];
+        const accounts = [];
         const key = 'key';
         const body = 'AAAA';
         const version_key = 'version_key';
@@ -339,7 +339,7 @@ mocha.describe('namespace_fs', function() {
 
         mocha.after(async () => {
             fs_utils.folder_delete(tmp_fs_root);
-            for (let email of accounts) {
+            for (const email of accounts) {
                 await rpc_client.account.delete_account({ email });
             }
         });
@@ -375,7 +375,7 @@ mocha.describe('namespace_fs', function() {
         const versionID_3 = 'mtime-1i357k9-ino-13l57j9';
         let s3_client;
         let s3_admin;
-        let accounts = [];
+        const accounts = [];
         const dis_version_key = 'dis_version';
         const dis_version_body = 'AAAAA';
         const en_version_key = 'en_version';
@@ -464,7 +464,7 @@ mocha.describe('namespace_fs', function() {
         mocha.after(async () => {
             if (file_pointer) await file_pointer.close(DEFAULT_FS_CONFIG, get_obj_path);
             fs_utils.folder_delete(tmp_fs_root);
-            for (let email of accounts) {
+            for (const email of accounts) {
                 await rpc_client.account.delete_account({ email });
             }
         });
@@ -1036,7 +1036,7 @@ mocha.describe('namespace_fs copy object', function() {
 
     mocha.describe('upload_object (copy)', function() {
         const upload_key = 'upload_key_1';
-        let copy_xattr = {};
+        const copy_xattr = {};
         const copy_key_1 = 'copy_key_1';
         const data = crypto.randomBytes(100);
 

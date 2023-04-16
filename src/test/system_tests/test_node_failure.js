@@ -8,16 +8,16 @@ if (argv.log_file) {
 }
 dbg.set_process_name('test_node_failure');
 
-let _ = require('lodash');
-let P = require('../../util/promise');
-let api = require('../../api');
-let ops = require('../utils/basic_server_ops');
-var dotenv = require('../../util/dotenv');
+const _ = require('lodash');
+const P = require('../../util/promise');
+const api = require('../../api');
+const ops = require('../utils/basic_server_ops');
+const dotenv = require('../../util/dotenv');
 const { v4: uuid } = require('uuid');
 dotenv.load();
 
 
-let suffix = uuid().split('-')[0];
+const suffix = uuid().split('-')[0];
 
 const {
     mgmt_ip = 'localhost',
@@ -27,7 +27,7 @@ const {
 
 
 
-let TEST_CTX = {
+const TEST_CTX = {
     num_of_agents: 10,
     bucket: 'test-bucket-' + suffix,
     pool: 'test-pool-' + suffix,
@@ -38,8 +38,8 @@ let TEST_CTX = {
 };
 
 
-let rpc = api.new_rpc_from_base_address(`ws://${mgmt_ip}:${mgmt_port}`, 'INTERNAL'); //'ws://' + argv.ip + ':8080');
-let client = rpc.new_client();
+const rpc = api.new_rpc_from_base_address(`ws://${mgmt_ip}:${mgmt_port}`, 'INTERNAL'); //'ws://' + argv.ip + ':8080');
+const client = rpc.new_client();
 
 module.exports = {
     run_test: run_test
@@ -48,7 +48,7 @@ module.exports = {
 /////// Aux Functions ////////
 
 function authenticate() {
-    let auth_params = {
+    const auth_params = {
         email: 'demo@noobaa.com',
         password: 'DeMo1',
         system: 'demo'
@@ -86,7 +86,7 @@ async function remove_agents() {
 
 
 function _list_nodes(retries) {
-    let query = {
+    const query = {
         filter: TEST_CTX.nodes_name,
         skip_mongo_nodes: true
     };
@@ -98,9 +98,9 @@ function _list_nodes(retries) {
                 throw new Error('list nodes failed');
             }
             if (reply.total_count < TEST_CTX.num_of_agents || reply.filter_counts.by_mode.INITIALIZING) {
-                let msg = `list nodes returned ${reply.total_count} nodes and ${reply.filter_counts.by_mode.INITIALIZING} initializing. ` +
+                const msg = `list nodes returned ${reply.total_count} nodes and ${reply.filter_counts.by_mode.INITIALIZING} initializing. ` +
                     `expected (${TEST_CTX.num_of_agents}) nodes.`;
-                let total_tries = retries || 1;
+                const total_tries = retries || 1;
                 if (total_tries > TEST_CTX.max_init_retries) {
                     console.error(msg + `aborting after ${TEST_CTX.max_init_retries} retries`);
                     throw new Error(msg + `aborting after ${TEST_CTX.max_init_retries} retries`);
@@ -116,7 +116,7 @@ function _list_nodes(retries) {
 function create_test_pool() {
     return _list_nodes()
         .then(reply => {
-            let nodes = reply.nodes.map(node => ({
+            const nodes = reply.nodes.map(node => ({
                 name: node.name
             }));
             TEST_CTX.nodes = nodes;
@@ -213,7 +213,7 @@ function validate_mappings() {
 
 function test_node_fail_replicate() {
     // kill first node in the nodes array, and then test it's blocks
-    let node = _.keys(TEST_CTX.chunks_by_nodes)[0];
+    const node = _.keys(TEST_CTX.chunks_by_nodes)[0];
     return client.hosted_agents.remove_agent({
             name: node
         })

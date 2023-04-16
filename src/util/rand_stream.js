@@ -1,8 +1,8 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-let stream = require('stream');
-let crypto = require('crypto');
+const stream = require('stream');
+const crypto = require('crypto');
 
 /**
  *

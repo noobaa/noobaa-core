@@ -1,22 +1,22 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-// var _ = require('lodash');
-var P = require('../../util/promise');
-var mocha = require('mocha');
-var assert = require('assert');
-var KeysLock = require('../../util/keys_lock');
+// const _ = require('lodash');
+const P = require('../../util/promise');
+const mocha = require('mocha');
+const assert = require('assert');
+const KeysLock = require('../../util/keys_lock');
 
 mocha.describe('keys_lock', function() {
 
     mocha.it('should create ok', function() {
-        var kl = new KeysLock();
+        const kl = new KeysLock();
         assert.strictEqual(kl.length, 0);
     });
 
     mocha.it('should lock key', function() {
-        var kl;
-        var first_woke = false;
+        let kl;
+        let first_woke = false;
 
         function do_wake() {
             return P.resolve()
@@ -66,8 +66,8 @@ mocha.describe('keys_lock', function() {
 
 
     mocha.it('should work parallel keys', function() {
-        var kl;
-        var first_woke = false;
+        let kl;
+        let first_woke = false;
 
         function do_wake_first() {
             return P.resolve()

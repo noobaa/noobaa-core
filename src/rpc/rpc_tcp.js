@@ -68,10 +68,10 @@ class RpcTcpConnection extends RpcBaseConnection {
     }
 
     _init_tcp() {
-        let tcp_conn = this.tcp_conn;
+        const tcp_conn = this.tcp_conn;
 
         tcp_conn.on('close', () => {
-            let closed_err = new Error('TCP CLOSED');
+            const closed_err = new Error('TCP CLOSED');
             closed_err.stack = '';
             this.emit('error', closed_err);
         });
@@ -79,7 +79,7 @@ class RpcTcpConnection extends RpcBaseConnection {
         tcp_conn.on('error', err => this.emit('error', err));
 
         tcp_conn.on('timeout', () => {
-            let timeout_err = new Error('TCP IDLE TIMEOUT');
+            const timeout_err = new Error('TCP IDLE TIMEOUT');
             timeout_err.stack = '';
             this.emit('error', timeout_err);
         });

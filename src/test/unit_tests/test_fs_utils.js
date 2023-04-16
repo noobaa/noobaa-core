@@ -1,11 +1,11 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-// var _ = require('lodash');
-var mocha = require('mocha');
-var assert = require('assert');
+// const _ = require('lodash');
+const mocha = require('mocha');
+const assert = require('assert');
 
-var fs_utils = require('../../util/fs_utils');
+const fs_utils = require('../../util/fs_utils');
 
 function log(...args) {
     if (process.env.SUPPRESS_LOGS) return;

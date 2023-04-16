@@ -1,8 +1,8 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-var _ = require('lodash');
-var P = require('../util/promise');
+const _ = require('lodash');
+const P = require('../util/promise');
 
 module.exports = Barrier;
 
@@ -23,7 +23,7 @@ module.exports = Barrier;
  *
  */
 function Barrier(options) {
-    var self = this;
+    const self = this;
     options = options || {};
     self.max_length = options.max_length || 100;
     self.expiry_ms = options.expiry_ms || 1000; // default 1 second
@@ -44,12 +44,12 @@ function Barrier(options) {
  *
  */
 Barrier.prototype.call = function(item) {
-    var self = this;
+    const self = this;
     return P.fcall(function() {
 
         // add the item to the pending barrier and assign a defer
         // that will be resolved/rejected per this item.
-        var defer = new P.Defer();
+        const defer = new P.Defer();
         self.barrier.items.push(item);
         self.barrier.defers.push(defer);
 
@@ -77,8 +77,8 @@ Barrier.prototype.call = function(item) {
  *
  */
 Barrier.prototype.release = function() {
-    var self = this;
-    var barrier = self.barrier;
+    const self = this;
+    const barrier = self.barrier;
     clearTimeout(barrier.timeout);
 
     // reset a new pending barrier

@@ -26,7 +26,7 @@ function get_base_address(address_list, options = {}) {
         addr.api === api
     );
 
-    let default_port = api_default_ports[api];
+    const default_port = api_default_ports[api];
     if (hint === 'EXTERNAL') {
         const external_addrs = api_list.filter(addr =>
             addr.kind === 'EXTERNAL' &&

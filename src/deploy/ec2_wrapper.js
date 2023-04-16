@@ -1,15 +1,15 @@
 /* Copyright (C) 2016 NooBaa */
 "use strict";
 
-var _ = require('lodash');
-var P = require('../util/promise');
-var fs = require('fs');
-var path = require('path');
-var util = require('util');
-var dotenv = require('../util/dotenv');
-var argv = require('minimist')(process.argv);
-var AWS = require('aws-sdk');
-var moment = require('moment');
+const _ = require('lodash');
+const P = require('../util/promise');
+const fs = require('fs');
+const path = require('path');
+const util = require('util');
+const dotenv = require('../util/dotenv');
+const argv = require('minimist')(process.argv);
+const AWS = require('aws-sdk');
+const moment = require('moment');
 
 /**
  *
@@ -62,12 +62,12 @@ if (!process.env.AWS_ACCESS_KEY_ID) {
 
 
 // the heroku app name
-var app_name = '';
+let app_name = '';
 
-var _ec2 = new AWS.EC2();
-var _ec2_per_region = {};
+const _ec2 = new AWS.EC2();
+const _ec2_per_region = {};
 
-var _cached_ami_image_id;
+let _cached_ami_image_id;
 
 load_aws_config_env();
 
@@ -86,13 +86,13 @@ load_aws_config_env();
  *
  */
 function describe_instances(params, filter, verbose) {
-    var regions = [];
+    const regions = [];
     return foreach_region(function(region) {
             regions.push(region);
             return ec2_region_call(region.RegionName, 'describeInstances', params)
                 .then(function(res) {
                     // return a flat array of instances from res.Reservations[].Instances[]
-                    var instances = _.flatten(_.map(res.Reservations, 'Instances'));
+                    const instances = _.flatten(_.map(res.Reservations, 'Instances'));
                     // prepare instance extra fields and filter out irrelevant instances
                     return _.filter(instances, function(instance) {
                         instance.region = region;
@@ -134,7 +134,7 @@ function describe_instances(params, filter, verbose) {
         })
         .then(function(res) {
             // flatten again for all regions, remove regions without results
-            var instances = _.flatten(_.filter(res, function(r) {
+            const instances = _.flatten(_.filter(res, function(r) {
                 return r !== false;
             }));
             // also put the regions list as a "secret" property of the array
@@ -260,7 +260,7 @@ function create_instance_from_ami(ami_name, region, instance_type, name) {
             });
         })
         .then(function(res) {
-            var id = res.Instances[0].InstanceId;
+            const id = res.Instances[0].InstanceId;
             console.log('Got instanceID', id);
             if (name) {
                 add_instance_name(id, name, region);
@@ -295,7 +295,7 @@ function get_ip_address(instid) {
         .then(function(res) {
             //On pending instance state, still no public IP. Wait.
             if (res.State.Name === 'pending') {
-                var params = {
+                const params = {
                     InstanceIds: [instid],
                 };
 
@@ -331,8 +331,8 @@ function get_ip_address(instid) {
 function verify_demo_system(ip) {
     load_demo_config_env(); //switch to Demo system
 
-    var rest_endpoint = 'http://' + ip + ':80/';
-    var s3bucket = new AWS.S3({
+    const rest_endpoint = 'http://' + ip + ':80/';
+    const s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
         s3ForcePathStyle: true,
         sslEnabled: false,
@@ -355,8 +355,8 @@ function verify_demo_system(ip) {
 function put_object(ip, source, bucket, key, timeout, throw_on_error) {
     load_demo_config_env(); //switch to Demo system
 
-    var rest_endpoint = 'http://' + ip + ':80';
-    var s3bucket = new AWS.S3({
+    const rest_endpoint = 'http://' + ip + ':80';
+    const s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
         s3ForcePathStyle: true,
         sslEnabled: false,
@@ -367,22 +367,22 @@ function put_object(ip, source, bucket, key, timeout, throw_on_error) {
     bucket = bucket || 'first.bucket';
     key = key || 'ec2_wrapper_test_upgrade.dat';
 
-    var params = {
+    const params = {
         Bucket: bucket,
         Key: key,
         Body: fs.createReadStream(source),
     };
     console.log('about to upload object', params);
-    var start_ts = Date.now();
+    let start_ts = Date.now();
     return P.ninvoke(s3bucket, 'upload', params)
         .then(function(res) {
             console.log('Uploaded object took', (Date.now() - start_ts) / 1000, 'seconds, result', res);
             load_aws_config_env(); //back to EC2/S3
 
         }, function(err) {
-            var wait_limit_in_sec = timeout || 1200;
-            var start_moment = moment();
-            var wait_for_agents = (err.statusCode === 500 || err.statusCode === 403);
+            const wait_limit_in_sec = timeout || 1200;
+            const start_moment = moment();
+            let wait_for_agents = (err.statusCode === 500 || err.statusCode === 403);
             console.log('failed to upload object in loop', err.statusCode, wait_for_agents);
             return P.pwhile(
                 function() {
@@ -403,7 +403,7 @@ function put_object(ip, source, bucket, key, timeout, throw_on_error) {
 
                             }, function(err2) {
                                 console.log('failed to upload. Will wait 10 seconds and retry. err', err2.statusCode);
-                                var curr_time = moment();
+                                const curr_time = moment();
                                 if (curr_time.subtract(wait_limit_in_sec, 'second') > start_moment) {
                                     console.error('failed to upload. cannot wait any more', err2.statusCode);
                                     load_aws_config_env(); //back to EC2/S3
@@ -423,21 +423,21 @@ function put_object(ip, source, bucket, key, timeout, throw_on_error) {
 function get_object(ip, obj_path) {
     load_demo_config_env(); //switch to Demo system
 
-    var rest_endpoint = 'http://' + ip + ':80/';
-    var s3bucket = new AWS.S3({
+    const rest_endpoint = 'http://' + ip + ':80/';
+    const s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
         s3ForcePathStyle: true,
         sslEnabled: false,
     });
 
-    var params = {
+    const params = {
         Bucket: 'first.bucket',
         Key: 'ec2_wrapper_test_upgrade.dat',
     };
 
-    var file = obj_path && fs.createWriteStream(obj_path);
+    const file = obj_path && fs.createWriteStream(obj_path);
 
-    var start_ts = Date.now();
+    const start_ts = Date.now();
     console.log('about to download object');
     return P.fcall(function() {
             if (obj_path) {
@@ -479,10 +479,10 @@ function scale_agent_instances(count, allow_terminate, is_docker_host, number_of
     }, {
         match: app_name,
     }).then(function(instances) {
-        var instances_per_region = _.groupBy(instances, 'region_name');
-        var region_names = _.map(instances.regions, 'RegionName');
-        var target_region_count = 0;
-        var first_region_extra_count = 0;
+        const instances_per_region = _.groupBy(instances, 'region_name');
+        let region_names = _.map(instances.regions, 'RegionName');
+        let target_region_count = 0;
+        let first_region_extra_count = 0;
 
         if (filter_region !== '') {
             console.log('Filter and use only region:', filter_region);
@@ -514,10 +514,10 @@ function scale_agent_instances(count, allow_terminate, is_docker_host, number_of
         console.log('Scale:', target_region_count, 'per region');
         console.log('Scale:', first_region_extra_count, 'extra in first region');
 
-        var new_count = 0;
+        let new_count = 0;
         return P.all(_.map(region_names, function(region_name) {
-            var region_instances = instances_per_region[region_name] || [];
-            var region_count = 0;
+            const region_instances = instances_per_region[region_name] || [];
+            let region_count = 0;
             if (new_count < count) {
                 if (first_region_extra_count > 0 && region_name === region_names[0]) {
                     region_count = target_region_count + first_region_extra_count;
@@ -538,18 +538,18 @@ function scale_agent_instances(count, allow_terminate, is_docker_host, number_of
  *
  */
 function add_agent_region_instances(region_name, count, is_docker_host, number_of_dockers, is_win, agent_conf) {
-    var instance_type = 'c3.large';
+    let instance_type = 'c3.large';
     // the run script to send to started instances
-    var run_script = fs.readFileSync(path.join(__dirname, 'init_agent.sh'), 'UTF8');
+    let run_script = fs.readFileSync(path.join(__dirname, 'init_agent.sh'), 'UTF8');
 
-    var test_instances_counter;
+    let test_instances_counter;
 
     if (is_docker_host) {
         instance_type = 'm3.2xlarge';
         run_script = fs.readFileSync(path.join(__dirname, 'docker_setup.sh'), 'utf8');
         //replace 'test' with the correct env name
         test_instances_counter = (run_script.match(/test/g) || []).length;
-        var dockers_instances_counter = (run_script.match(/200/g) || []).length;
+        const dockers_instances_counter = (run_script.match(/200/g) || []).length;
 
         if (test_instances_counter !== 1 || dockers_instances_counter !== 1) {
             throw new Error('docker_setup.sh expected to contain default env "test" and default number of dockers - 200');
@@ -663,7 +663,7 @@ function ec2_call(func_name, params) {
 
 
 function ec2_region_call(region_name, func_name, params) {
-    var ec2 = _ec2_per_region[region_name] || new AWS.EC2({
+    const ec2 = _ec2_per_region[region_name] || new AWS.EC2({
         region: region_name
     });
     _ec2_per_region[region_name] = ec2;
@@ -676,7 +676,7 @@ function set_app_name(appname) {
 }
 
 function ec2_wait_for(region_name, state_name, params) {
-    var ec2 = _ec2_per_region[region_name] || new AWS.EC2({
+    const ec2 = _ec2_per_region[region_name] || new AWS.EC2({
         region: region_name
     });
     _ec2_per_region[region_name] = ec2;
@@ -732,9 +732,9 @@ function scale_region(region_name, count, instances, allow_terminate, is_docker_
                 }
                 console.log('ScaleRegion:', region_name, 'has', instances.length,
                     ' --- removing', instances.length - count);
-                var death_row = _.slice(instances, 0, instances.length - count);
+                const death_row = _.slice(instances, 0, instances.length - count);
                 console.log('death:', death_row.length);
-                var ids = _.map(death_row, 'InstanceId');
+                const ids = _.map(death_row, 'InstanceId');
                 return terminate_instances(region_name, ids);
             }
 
@@ -751,7 +751,7 @@ function scale_region(region_name, count, instances, allow_terminate, is_docker_
  *
  */
 function create_security_group(region_name) {
-    var ssh_and_http_v2 = 'ssh_and_http_v2';
+    const ssh_and_http_v2 = 'ssh_and_http_v2';
 
     // first find if the group exists
     return ec2_region_call(region_name, 'describeSecurityGroups', {

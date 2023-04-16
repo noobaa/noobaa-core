@@ -1,11 +1,11 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-// let _ = require('lodash');
-let P = require('../util/promise');
-let dbg = require('../util/debug_module')(__filename);
-let RpcBaseConnection = require('./rpc_base_conn');
-let Ice = require('./ice');
+// const _ = require('lodash');
+const P = require('../util/promise');
+const dbg = require('../util/debug_module')(__filename);
+const RpcBaseConnection = require('./rpc_base_conn');
+const Ice = require('./ice');
 
 /**
  *
@@ -23,7 +23,7 @@ class RpcN2NConnection extends RpcBaseConnection {
         this.ice = new Ice(this.connid, n2n_agent.n2n_config, this.url.href);
 
         this.ice.on('close', () => {
-            let closed_err = new Error('N2N ICE CLOSED');
+            const closed_err = new Error('N2N ICE CLOSED');
             closed_err.stack = '';
             this.emit('error', closed_err);
         });
@@ -31,7 +31,7 @@ class RpcN2NConnection extends RpcBaseConnection {
         this.ice.on('error', err => this.emit('error', err));
 
         this.reset_n2n_listener = () => {
-            let reset_err = new Error('N2N RESET');
+            const reset_err = new Error('N2N RESET');
             reset_err.stack = '';
             this.emit('error', reset_err);
         };

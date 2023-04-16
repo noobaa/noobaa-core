@@ -120,7 +120,7 @@ function decode_chunked_upload(source_stream) {
 }
 
 function format_s3_xml_date(input) {
-    let date = input ? new Date(input) : new Date();
+    const date = input ? new Date(input) : new Date();
     date.setMilliseconds(0);
     return date.toISOString();
 }
@@ -128,10 +128,10 @@ function format_s3_xml_date(input) {
 const X_AMZ_META = 'x-amz-meta-';
 
 function get_request_xattr(req) {
-    let xattr = {};
+    const xattr = {};
     _.each(req.headers, (val, hdr) => {
         if (!hdr.startsWith(X_AMZ_META)) return;
-        let key = hdr.slice(X_AMZ_META.length);
+        const key = hdr.slice(X_AMZ_META.length);
         if (!key) return;
         xattr[key] = val;
     });
@@ -475,18 +475,18 @@ function parse_body_object_lock_conf_xml(req) {
     };
 
     if (retention.Days) {
-        let days = parseInt(retention.Days[0], 10);
+        const days = parseInt(retention.Days[0], 10);
         if (days <= 0) {
-            let err = new S3Error(S3Error.InvalidArgument);
+            const err = new S3Error(S3Error.InvalidArgument);
             err.message = 'Default retention period must be a positive integer value';
             throw err;
         }
         conf.rule.default_retention.days = days;
     }
     if (retention.Years) {
-        let years = parseInt(retention.Years[0], 10);
+        const years = parseInt(retention.Years[0], 10);
         if (years <= 0) {
-            let err = new S3Error(S3Error.InvalidArgument);
+            const err = new S3Error(S3Error.InvalidArgument);
             err.message = 'Default retention period must be a positive integer value';
             throw err;
         }

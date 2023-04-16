@@ -96,7 +96,7 @@ async function load_required_scripts(server_version, container_version) {
         .sort(version_compare);
     dbg.log0(`found the following versions with upgrade scripts which are newer than server version (${server_version}):`, newer_versions);
     // get all scripts under new_versions
-    let upgrade_scripts = _.flatMap(newer_versions, ver => {
+    const upgrade_scripts = _.flatMap(newer_versions, ver => {
         const full_path = path.join(upgrade_scripts_dir, ver);
         const scripts = fs.readdirSync(full_path);
         return scripts.map(script => path.join(full_path, script));
@@ -127,7 +127,7 @@ async function run_upgrade() {
 
     let exit_code = 0;
     const container_version = pkg.version;
-    let server_version = _.get(system_store, 'data.systems.0.current_version');
+    const server_version = _.get(system_store, 'data.systems.0.current_version');
     let current_version = server_version;
     if (should_upgrade(server_version, container_version)) {
         const this_upgrade = {
@@ -136,7 +136,7 @@ async function run_upgrade() {
             from_version: server_version,
             to_version: container_version
         };
-        let upgrade_history = system_store.data.systems[0].upgrade_history;
+        const upgrade_history = system_store.data.systems[0].upgrade_history;
         try {
             const upgrade_scripts = await load_required_scripts(server_version, container_version);
             for (const script of upgrade_scripts) {

@@ -72,8 +72,8 @@ async function update_host_services(req) {
 function diagnose_host(req) {
     const { name } = req.rpc_params;
     const monitor = nodes_server.get_local_monitor();
-    var out_path = `/public/host_${name.replace('#', '_')}_diagnostics.tgz`;
-    var inner_path = `${process.cwd()}/build${out_path}`;
+    const out_path = `/public/host_${name.replace('#', '_')}_diagnostics.tgz`;
+    const inner_path = `${process.cwd()}/build${out_path}`;
 
     return P.resolve()
         .then(() => diag.collect_server_diagnostics(req))

@@ -259,7 +259,7 @@ class NamespaceMerge {
 
 
     _handle_single_namespace_deletes(params) {
-        let response = [];
+        const response = [];
         const { deleted_ns, head_ns } = params;
         for (let i = 0; i < deleted_ns.length; ++i) {
             const res = deleted_ns[i];
@@ -424,10 +424,10 @@ class NamespaceMerge {
     // Which is not what we wanted since we want to see all of the versions
     _handle_list(res, params) {
         if (res.length === 1) return res[0];
-        var i;
-        var j;
+        let i;
+        let j;
         const map = {};
-        var is_truncated;
+        let is_truncated;
         for (i = 0; i < res.length; ++i) {
             for (j = 0; j < res[i].objects.length; ++j) {
                 const obj = res[i].objects[j];
@@ -486,9 +486,9 @@ class NamespaceMerge {
             'NoSuchBucket': S3Error.NoSuchBucket,
             'ContainerNotFound': S3Error.NoSuchBucket,
         };
-        let exist = err_to_s3err_map[err.code];
+        const exist = err_to_s3err_map[err.code];
         if (!exist) return err;
-        let s3error = new S3Error(exist);
+        const s3error = new S3Error(exist);
         s3error.message = err.message;
         return s3error;
     }

@@ -12,7 +12,9 @@ const azure_storage = require('../util/new_azure_storage_wrap');
 const stream_utils = require('../util/stream_utils');
 const s3_utils = require('../endpoint/s3/s3_utils');
 const schema_utils = require('../util/schema_utils');
-const valid_attr_regex = /^[A-Za-z_][A-Za-z0-9_]+$/;
+const invalid_azure_md_regex = /[^a-zA-Z0-9_]/g;
+const XATTR_RENAME_PREFIX = 'rename_';
+const XATTR_RENAME_KEY_PREFIX = 'rename_key_';
 
 /**
  * @implements {nb.Namespace}
@@ -409,16 +411,38 @@ class NamespaceBlob {
         return { obj_id };
     }
 
+    // Adhere to azcopy's ResolveInvalidKey for handling of invalid metadata keys
+    _rename_invalid_md_key(xattr, md_key) {
+        const valid_key = md_key.replace(invalid_azure_md_regex, '_');
+        xattr[XATTR_RENAME_PREFIX + valid_key] = xattr[md_key];
+        xattr[XATTR_RENAME_KEY_PREFIX + valid_key] = md_key;
+        delete xattr[md_key];
+    }
+
+    _exclude_invalid_md_key(xattr, md_key) {
+            delete xattr[md_key];
+    }
+
     _check_valid_xattr(params) {
-        // This md validation check is a part of namespace blob because but Azure Blob 
-        // accepts C# identifiers only but S3 accepts other xattr too.
-        const is_invalid_attr = ([key, val]) => !valid_attr_regex.test(key);
-        const invalid_attr = Object.entries(params.xattr).find(is_invalid_attr);
-        if (invalid_attr) {
-            const err = new Error('InvalidMetadata: metadata keys are invalid.');
-            err.rpc_code = 'INVALID_REQUEST';
-            throw err;
-        }
+        const modified_xattr = _.cloneDeep(params.xattr);
+        for (const md_key of Object.keys(params.xattr)) {
+            invalid_azure_md_regex.lastIndex = 0;
+            if (invalid_azure_md_regex.test(md_key)) {
+                switch (params.azure_invalid_md_header) {
+                    case 'ExcludeIfInvalid':
+                        this._exclude_invalid_md_key(modified_xattr, md_key);
+                        break;
+                    case 'FailIfInvalid':
+                        throw new Error('Object metadata key ' + md_key + ' is invalid in Azure and the FailIfInvalid header value was provided, thus the upload has failed');
+                    case 'RenameIfInvalid':
+                        this._rename_invalid_md_key(modified_xattr, md_key);
+                        break;
+                    default:
+                        this._rename_invalid_md_key(modified_xattr, md_key);
+                    }
+                }
+            }
+        params.xattr = modified_xattr;
     }
 
     async upload_multipart(params, object_sdk) {
@@ -656,6 +680,19 @@ class NamespaceBlob {
         const xattr = _.extend(obj.metadata, {
             'noobaa-namespace-blob-container': this.container,
         });
+        const modified_xattr = _.cloneDeep(xattr);
+        // Restore invalid metadata keys
+        for (const md_key of Object.keys(xattr)) {
+            if (md_key.startsWith(XATTR_RENAME_KEY_PREFIX)) {
+                const restored_key = md_key.substring(11);
+                if (_.has(modified_xattr, XATTR_RENAME_PREFIX + restored_key)) {
+                    modified_xattr[modified_xattr[md_key]] = modified_xattr[XATTR_RENAME_PREFIX + restored_key];
+                    delete modified_xattr[md_key];
+                    delete modified_xattr[XATTR_RENAME_PREFIX + restored_key];
+                }
+            }
+        }
+
         return {
             obj_id: blob_etag,
             bucket,
@@ -664,7 +701,7 @@ class NamespaceBlob {
             etag,
             create_time: flat_obj.lastModified,
             content_type: flat_obj.contentType,
-            xattr
+            xattr: modified_xattr
         };
     }
 

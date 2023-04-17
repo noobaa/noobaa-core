@@ -49,7 +49,8 @@ async function put_object(req, res) {
         tagging,
         tagging_copy: s3_utils.is_copy_tagging_directive(req),
         encryption,
-        lock_settings
+        lock_settings,
+        azure_invalid_md_header: req.headers['azure-metadata-handling'] || undefined
     });
 
     if (reply.version_id && reply.version_id !== 'null') {

@@ -525,6 +525,11 @@ function check_headers(req, options) {
         throw new options.ErrorClass(options.error_bad_request);
     }
 
+    if (req.headers['azure-metadata-handling'] && !_.includes(['ExcludeIfInvalid', 'FailIfInvalid', 'RenameIfInvalid'], req.headers['azure-metadata-handling'])) {
+        throw new options.ErrorClass(options.error_bad_request);
+    }
+
+
     if (req.method === 'POST' || req.method === 'PUT') parse_content_length(req, options);
 
     const content_md5_b64 = req.headers['content-md5'];

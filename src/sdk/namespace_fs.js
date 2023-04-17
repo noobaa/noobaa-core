@@ -573,10 +573,17 @@ class NamespaceFS {
             await this._load_bucket(params, fs_context);
             file_path = await this._find_version_path(fs_context, params);
             await this._check_path_in_bucket_boundaries(fs_context, file_path);
-            await this._fail_if_archived_or_sparse_file(fs_context, file_path);
-            const stat = await nb_native().fs.stat(fs_context, file_path);
+
+            file = await nb_native().fs.open(
+                fs_context,
+                file_path,
+                config.NSFS_OPEN_READ_MODE,
+                get_umasked_mode(config.BASE_MODE_FILE),
+            );
+
+            const stat = await file.stat(fs_context);
             this._throw_if_delete_marker(stat);
-            file = await nb_native().fs.open(fs_context, file_path, undefined, get_umasked_mode(config.BASE_MODE_FILE));
+            // await this._fail_if_archived_or_sparse_file(fs_context, file_path, stat);
 
             const start = Number(params.start) || 0;
             const end = isNaN(Number(params.end)) ? Infinity : Number(params.end);
@@ -756,7 +763,7 @@ class NamespaceFS {
                 params.copy_source.nsfs_copy_fallback();
             } else {
                 // open file after copy link/same inode should use read open mode
-                open_mode = 'r';
+                open_mode = config.NSFS_OPEN_READ_MODE;
                 if (copy_res === copy_status_enum.SAME_INODE) open_path = file_path;
             }
         }
@@ -765,14 +772,16 @@ class NamespaceFS {
     }
 
     // opens open_path on POSIX, and on GPFS it will open open_path parent folder
-    async _open_file(fs_context, open_path, open_mode) {
-        if (open_mode === 'wt') {
-            open_path = path.dirname(open_path);
-            dbg.log1('NamespaceFS._open_file: wt creating dirs', open_path, this.bucket_path);
-            if (open_path !== this.bucket_path) await this._make_path_dirs(open_path, fs_context);
+    async _open_file(fs_context, open_path, open_mode = config.NSFS_OPEN_READ_MODE) {
+        const dir_path = path.dirname(open_path);
+        if ((open_mode === 'wt' || open_mode === 'w') && dir_path !== this.bucket_path) {
+            dbg.log1(`NamespaceFS._open_file: mode=${open_mode} creating dirs`, open_path, this.bucket_path);
+            await this._make_path_dirs(open_path, fs_context);
         }
-        dbg.log0('NamespaceFS._open_file:', open_path);
-        return nb_native().fs.open(fs_context, open_path, open_mode, get_umasked_mode(config.BASE_MODE_FILE));
+        dbg.log0(`NamespaceFS._open_file: mode=${open_mode}`, open_path);
+        // for 'wt' open the tmpfile with the parent dir path
+        const actual_open_path = open_mode === 'wt' ? dir_path : open_path;
+        return nb_native().fs.open(fs_context, actual_open_path, open_mode, get_umasked_mode(config.BASE_MODE_FILE));
     }
 
     // on server side copy - 
@@ -783,7 +792,7 @@ class NamespaceFS {
     async _try_copy_file(fs_context, params, file_path, upload_path) {
         const source_file_path = await this._find_version_path(fs_context, params.copy_source);
         await this._check_path_in_bucket_boundaries(fs_context, source_file_path);
-        await this._fail_if_archived_or_sparse_file(fs_context, source_file_path);
+        // await this._fail_if_archived_or_sparse_file(fs_context, source_file_path, stat);
         let res = copy_status_enum.FALLBACK;
         if (this._is_versioning_disabled()) {
             try {
@@ -1123,13 +1132,16 @@ class NamespaceFS {
             const upload_path = path.join(params.mpu_path, 'final');
             target_file = await this._open_file(fs_context, upload_path, open_mode);
             const upload_params = { fs_context, upload_path, open_mode, file_path, params, target_file };
+
             for (const { num, etag } of multiparts) {
                 const part_path = path.join(params.mpu_path, `part-${num}`);
-                const part_stat = await nb_native().fs.stat(fs_context, part_path);
-                read_file = await this._open_file(fs_context, part_path, undefined);
+                read_file = await this._open_file(fs_context, part_path, config.NSFS_OPEN_READ_MODE);
+                const part_stat = await read_file.stat(fs_context);
+
                 if (etag !== this._get_etag(part_stat)) {
                     throw new Error('mismatch part etag: ' + util.inspect({ num, etag, part_path, part_stat, params }));
                 }
+
                 let read_pos = 0;
                 for (;;) {
                     const { buffer, callback } = await buffers_pool.get_buffer();
@@ -1147,21 +1159,24 @@ class NamespaceFS {
                     buffer_pool_cleanup = null;
                     callback();
                 }
+
                 await read_file.close(fs_context);
                 read_file = null;
                 if (MD5Async) await MD5Async.update(Buffer.from(etag, 'hex'));
             }
+
             const create_params_buffer = await nb_native().fs.readFile(
                 fs_context,
                 path.join(params.mpu_path, 'create_object_upload')
             );
             upload_params.params.xattr = (JSON.parse(create_params_buffer)).xattr;
             upload_params.digest = MD5Async && (((await MD5Async.digest()).toString('hex')) + '-' + multiparts.length);
-
             const upload_info = await this._finish_upload(upload_params);
+
             await target_file.close(fs_context);
             target_file = null;
             if (config.NSFS_REMOVE_PARTS_ON_COMPLETE) await this._folder_delete(params.mpu_path, fs_context);
+
             return upload_info;
         } catch (err) {
             dbg.error(err);
@@ -1389,7 +1404,12 @@ class NamespaceFS {
     async _get_fs_xattr_from_path(fs_context, file_path) {
         let file;
         try {
-            file = await nb_native().fs.open(fs_context, file_path, undefined, get_umasked_mode(config.BASE_MODE_FILE));
+            file = await nb_native().fs.open(
+                fs_context,
+                file_path,
+                config.NSFS_OPEN_READ_MODE,
+                get_umasked_mode(config.BASE_MODE_FILE),
+            );
             const fs_xattr = await file.getxattr(fs_context);
             await file.close(fs_context);
             file = null;
@@ -1685,8 +1705,7 @@ class NamespaceFS {
     }
 
     // TODO: Return/Refactor check after handling of FSync
-    async _fail_if_archived_or_sparse_file(fs_context, file_path) {
-        // const stat = await nb_native().fs.stat(fs_context, file_path);
+    // async _fail_if_archived_or_sparse_file(fs_context, file_path, stat) {
         // if (isDirectory(stat)) return;
         // // In order to verify if the file is stored in tape we compare sizes
         // // Multiple number of blocks by default block size and verify we get the size of the object
@@ -1697,7 +1716,8 @@ class NamespaceFS {
         //     dbg.log0(`_fail_if_archived_or_sparse_file: ${file_path} rejected`, stat);
         //     throw new RpcError('INVALID_OBJECT_STATE', 'Attempted to access archived or sparse file');
         // }
-    }
+    // }
+
     //////////////////////////
     //// VERSIONING UTILS ////
     //////////////////////////

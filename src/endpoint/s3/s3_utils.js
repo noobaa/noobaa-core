@@ -59,6 +59,7 @@ const OP_NAME_TO_ACTION = Object.freeze({
     get_bucket_metrics: { regular: "s3:getmetricsconfiguration" },
     get_bucket_notification: { regular: "s3:getbucketnotification" },
     get_bucket_policy: { regular: "s3:getbucketpolicy" },
+    get_bucket_policy_status: { regular: "s3:getbucketpolicystatus" },
     get_bucket_replication: { regular: "s3:getreplicationconfiguration" },
     get_bucket_requestpayment: { regular: "s3:getbucketrequestpayment" },
     get_bucket_tagging: { regular: "s3:getbuckettagging" },

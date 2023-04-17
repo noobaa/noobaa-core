@@ -29,6 +29,7 @@ exports.get_bucket_metrics = require('./s3_get_bucket_metrics');
 exports.get_bucket_notification = require('./s3_get_bucket_notification');
 exports.get_bucket_object_lock = require('./s3_get_bucket_object_lock');
 exports.get_bucket_policy = require('./s3_get_bucket_policy');
+exports.get_bucket_policy_status = require('./s3_get_bucket_policy_status');
 exports.get_bucket_replication = require('./s3_get_bucket_replication');
 exports.get_bucket_requestPayment = require('./s3_get_bucket_requestPayment');
 exports.get_bucket_tagging = require('./s3_get_bucket_tagging');

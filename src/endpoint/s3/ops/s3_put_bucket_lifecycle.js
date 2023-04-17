@@ -94,16 +94,14 @@ async function put_bucket_lifecycle(req) {
         }
         current_rule.status = rule.Status[0];
 
-        if (rule.Prefix) {
-            dbg.error('Rule should not have prefix, it should be filter.prefix', rule);
+        if (rule.Prefix && rule.Prefix.length === 1) {
+            current_rule.filter = { prefix: rule.Prefix[0] };
+        } else if (rule.Filter && rule.Filter.length === 1) {
+            current_rule.filter = parse_filter(rule.Filter[0]);
+        } else {
+            dbg.error('Rule should have either a prefix or a filter', rule);
             throw new S3Error(S3Error.InvalidArgument);
         }
-
-        if (!(rule.Filter && rule.Filter.length === 1)) {
-            dbg.error('Rule should have filter', rule);
-            throw new S3Error(S3Error.InvalidArgument);
-        }
-        current_rule.filter = parse_filter(rule.Filter[0]);
 
         // Since other actions are not implemented, Expiration
         // is expected here

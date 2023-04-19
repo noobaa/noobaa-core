@@ -9,6 +9,8 @@ const db_client = require('../../util/db_client').instance();
 const dbg = require('../../util/debug_module')(__filename);
 const SensitiveString = require('../../util/sensitive_string');
 const LRUCache = require('../../util/lru_cache');
+const fs = require('fs');
+const path = require('path');
 
 // dummy object id of root key
 const ROOT_KEY = '00000000aaaabbbbccccdddd';
@@ -18,6 +20,9 @@ class MasterKeysManager {
         this.is_initialized = false;
         this.resolved_master_keys_by_id = {};
         this.master_keys_by_id = {};
+        this.root_keys_by_id = {};
+        this.active_root_key = undefined;
+        this.last_load_time = new Date(config.NOOBAA_EPOCH);
         this.secret_keys_cache = new LRUCache({
             name: 'SecretKeysCache',
             expiry_ms: Infinity,
@@ -43,7 +48,9 @@ class MasterKeysManager {
 
 
     get_root_key_id() {
-        return ROOT_KEY;
+        const { NOOBAA_ROOT_SECRET } = process.env;
+        if (NOOBAA_ROOT_SECRET) return ROOT_KEY;
+        return this.active_root_key && this.active_root_key.toString();
     }
 
     is_root_key(root_key_id) {
@@ -55,26 +62,55 @@ class MasterKeysManager {
      * @returns {Object} 
      */
     get_root_key() {
-        return this.resolved_master_keys_by_id[ROOT_KEY];
+        return this.resolved_master_keys_by_id[this.get_root_key_id()];
     }
 
     load_root_key() {
         if (this.is_initialized) return;
         const { NOOBAA_ROOT_SECRET } = process.env;
-        if (!NOOBAA_ROOT_SECRET) throw new Error('NON_EXISTING_ROOT_KEY');
-        this._update_root_key(NOOBAA_ROOT_SECRET);
+        if (!NOOBAA_ROOT_SECRET && !this.active_root_key) throw new Error('NON_EXISTING_ROOT_KEY');
+        if (NOOBAA_ROOT_SECRET) {
+            this._add_to_resolved_keys(ROOT_KEY, NOOBAA_ROOT_SECRET, false);
+            this.is_initialized = true;
+        }
+    }
+
+    async load_root_keys_from_mount() {
+        const dir_stat = await fs.promises.stat(config.ROOT_KEY_MOUNT);
+        const active_root_key_path = path.join(config.ROOT_KEY_MOUNT, 'active_root_key');
+        const active_key_stat = await fs.promises.stat(active_root_key_path);
+        dbg.log1(`load_root_keys_from_mount: Root keys was last updated at: ${this.last_load_time}. ` +
+            `dir last change is: ${dir_stat.ctime}; active_root_key last change is: ${active_key_stat.ctime}`);
+        // No new update in the file system since last read - nothing to update
+        if (dir_stat.ctime < this.last_load_time && active_key_stat.ctime < this.last_load_time) return;
+        this.last_load_time = new Date();
+        const root_keys = await fs.promises.readdir(config.ROOT_KEY_MOUNT);
+        const active_root_key_id = await fs.promises.readFile(active_root_key_path, 'utf8');
+        for (const key_id of root_keys) {
+            // skipping file named active_root_key - as we already handled it
+            // also skipping some garbage files k8s adding to the mount
+            if (key_id === 'active_root_key' || key_id.startsWith('..')) continue;
+            const current_key_path = path.join(config.ROOT_KEY_MOUNT, key_id);
+            const key_cipher = await fs.promises.readFile(current_key_path, 'utf8');
+            const r_key = this._add_to_resolved_keys(key_id, key_cipher, key_id !== active_root_key_id);
+            this.root_keys_by_id[key_id] = r_key;
+        }
+        this.active_root_key = active_root_key_id;
+        dbg.log0(`load_root_keys_from_mount: Root keys was updated at: ${this.last_load_time}. ` +
+            `active root key is: ${this.active_root_key}`);
         this.is_initialized = true;
     }
 
-    _update_root_key(new_root_key) {
+    _add_to_resolved_keys(_id, new_root_key, disabled) {
         const r_key = {
-            _id: ROOT_KEY,
+            _id,
             cipher_key: Buffer.from(new_root_key, 'base64'),
-            cipher_type: "aes-256-gcm",
-            description: "Root Master Key",
-            disabled: false
+            cipher_type: 'aes-256-gcm',
+            description: `Root Master Key ${_id}`,
+            disabled
         };
-        this.resolved_master_keys_by_id[ROOT_KEY] = r_key;
+        this.resolved_master_keys_by_id[_id] = r_key;
+        return r_key;
     }
 
     /**
@@ -95,20 +131,23 @@ class MasterKeysManager {
      * @returns {Object} 
      */
     new_master_key(options) {
-        const { description, master_key_id, cipher_type } = options;
+        const { description, master_key_id, root_key_id, cipher_type } = options;
         const _id = db_client.new_object_id();
+        const master_id = (master_key_id && db_client.parse_object_id(master_key_id)) || undefined;
         const m_key = _.omitBy({
             _id,
             description,
-            master_key_id: (master_key_id && db_client.parse_object_id(master_key_id)) || undefined,
+            master_key_id: master_id,
+            root_key_id: root_key_id,
             cipher_type: cipher_type || config.CHUNK_CODER_CIPHER_TYPE,
             cipher_key: crypto.randomBytes(32),
             cipher_iv: crypto.randomBytes(16),
-            disabled: this.is_m_key_disabled(master_key_id),
+            disabled: this.is_m_key_disabled(master_id || root_key_id)
         }, _.isUndefined);
 
+
         const encrypted_m_key = _.cloneDeep(m_key);
-        encrypted_m_key.cipher_key = this.encrypt_buffer_with_master_key_id(m_key.cipher_key, master_key_id);
+        encrypted_m_key.cipher_key = this.encrypt_buffer_with_master_key_id(m_key.cipher_key, root_key_id || master_key_id);
 
         this.resolved_master_keys_by_id[_id.toString()] = m_key;
         this.master_keys_by_id[_id.toString()] = encrypted_m_key;
@@ -122,8 +161,10 @@ class MasterKeysManager {
     get_master_key_by_id(_id) {
         if (this.is_root_key(_id)) return this.get_root_key();
         const mkey = this.master_keys_by_id[_id.toString()];
-        if (!mkey) throw new Error('NO_SUCH_KEY');
-        return this.resolved_master_keys_by_id[_id.toString()] || this._resolve_master_key(mkey);
+        const rkey = this.root_keys_by_id[_id.toString()];
+        if (!mkey && !rkey) throw new Error('NO_SUCH_KEY');
+        return this.resolved_master_keys_by_id[_id.toString()] ||
+            (mkey && this._resolve_master_key(mkey));
     }
 
     /**
@@ -132,10 +173,16 @@ class MasterKeysManager {
      * @returns {Object}  
      */
     _resolve_master_key(m_key) {
+        const { NOOBAA_ROOT_SECRET } = process.env;
+        // in case we are resolving an old structured root-key, we will update to the new format
+        if (!NOOBAA_ROOT_SECRET && this.is_root_key(m_key.master_key_id) && !m_key.root_key_id) {
+            m_key.root_key_id = this.get_root_key_id();
+            m_key.master_key_id = undefined;
+        }
         // m_key.master_key_id._id doesn't exist when encrypting account secret keys and the account 
         // not yet inserted to db (in create account) or when master_key_id is the ROOT_KEY
         const m_of_mkey_id = (m_key.master_key_id && m_key.master_key_id._id) || m_key.master_key_id;
-        const m_of_mkey = this.get_master_key_by_id(m_of_mkey_id || ROOT_KEY);
+        const m_of_mkey = this.get_master_key_by_id(m_key.root_key_id || m_of_mkey_id || ROOT_KEY);
         if (!m_of_mkey) throw new Error('NO_SUCH_KEY');
 
         const iv = m_of_mkey.cipher_iv || Buffer.alloc(16);
@@ -170,14 +217,16 @@ class MasterKeysManager {
     /**
      * 
      * @param {String} m_key_id 
-     * @param {SensitiveString} new_root_key 
      * @returns {Object}  
      */
-    _reencrypt_master_key_by_root(m_key_id, new_root_key) {
+    _reencrypt_master_key_by_current_root(m_key_id, new_root_key_id) {
         const decrypted_mkey = this.get_master_key_by_id(m_key_id); // returns the decrypted m_key
         if (!decrypted_mkey) throw new Error('NO_SUCH_KEY');
-        this._update_root_key(new_root_key.unwrap()); // update ROOT_KEY with new secret provided
-        return this.encrypt_buffer_with_master_key_id(decrypted_mkey.cipher_key, ROOT_KEY);
+        const encrypted_key = this.encrypt_buffer_with_master_key_id(decrypted_mkey.cipher_key,
+            new_root_key_id);
+        decrypted_mkey.root_key_id = new_root_key_id;
+        decrypted_mkey.master_key_id = undefined;
+        return encrypted_key;
     }
 
     /**
@@ -240,8 +289,9 @@ class MasterKeysManager {
 
     is_m_key_disabled(id) {
         const db_m_key = this.is_root_key(id) ? this.get_root_key() : this.master_keys_by_id[id.toString()];
-        if (!db_m_key) throw new Error(`is_m_key_disabled: master key id ${id} was not found`);
-        return db_m_key.disabled === true;
+        const db_r_key = this.root_keys_by_id[id.toString()];
+        if (!db_m_key && !db_r_key) throw new Error(`is_m_key_disabled: master/root key id ${id} was not found`);
+        return db_m_key ? db_m_key.disabled === true : db_r_key.disabled === true;
     }
 
     set_m_key_disabled_val(_id, val) {

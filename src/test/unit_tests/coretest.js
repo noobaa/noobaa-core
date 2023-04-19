@@ -7,13 +7,14 @@ const argv = require('minimist')(process.argv);
 const mocha = require('mocha');
 const assert = require('assert');
 const crypto = require('crypto');
+const fs = require('fs');
 
 // keep me first - this is setting envs that should be set before other modules are required.
 const CORETEST = 'coretest';
 process.env.DEBUG_MODE = 'true';
 process.env.CORETEST = CORETEST;
 process.env.JWT_SECRET = CORETEST;
-process.env.NOOBAA_ROOT_SECRET = crypto.randomBytes(32).toString('base64');
+const root_secret = crypto.randomBytes(32).toString('base64');
 process.env.ACCOUNTS_CACHE_EXPIRY = '1';
 
 console.log('loading .env file');
@@ -25,6 +26,8 @@ const config = require('../../../config.js');
 config.test_mode = true;
 config.NODES_FREE_SPACE_RESERVE = 10 * 1024 * 1024;
 config.NSFS_VERSIONING_ENABLED = true;
+
+config.ROOT_KEY_MOUNT = '/tmp/noobaa-server/root_keys';
 
 const dbg = require('../../util/debug_module')(__filename);
 const dbg_level =
@@ -150,8 +153,10 @@ function setup(options = {}) {
         this.timeout(600000); // eslint-disable-line no-invalid-this
         const start = Date.now();
 
-        await announce('db_client dropDatabase()');
-        await db_client.instance().dropDatabase();
+        await fs.promises.mkdir(config.ROOT_KEY_MOUNT, { recursive: true});
+        await fs.promises.writeFile(config.ROOT_KEY_MOUNT + '/active_root_key', 'key1');
+        await fs.promises.writeFile(config.ROOT_KEY_MOUNT + '/key1', root_secret);
+
         await announce('db_client createDatabase()');
         await db_client.instance().createDatabase();
         await announce('db_client reconnect()');

@@ -15,4 +15,4 @@ jobs:
       - name: Run Test
         run: |
           make test
-          docker run --privileged --rm --name test1 noobaa-tester ./src/test/unit_tests/run_npm_test_on_test_container.sh -s sudo_index.js
+          make privileged-test

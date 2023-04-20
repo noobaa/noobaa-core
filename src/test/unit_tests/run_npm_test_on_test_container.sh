@@ -4,12 +4,11 @@ export PS4='\e[36m+ ${FUNCNAME:-main}\e[0m@\e[32m${BASH_SOURCE}:\e[35m${LINENO} 
 
 function cleanup() {
     local rc
-    local pid=$1
-    if [ -z ${2} ]
+    if [ -z ${1} ]
     then
         rc=0
     else
-        rc=$2
+        rc=$1
     fi
     echo "$(date) return code was: ${rc}"
     exit ${rc}

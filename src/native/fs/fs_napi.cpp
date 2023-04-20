@@ -129,9 +129,11 @@ const static std::map<std::string, int> flags_to_case = {
     { "r", O_RDONLY },
     { "rs", O_RDONLY | O_SYNC },
     { "sr", O_RDONLY | O_SYNC },
+#ifdef O_DIRECT
     { "rd", O_RDONLY | O_DIRECT },
     { "dr", O_RDONLY | O_DIRECT },
     { "rds", O_RDONLY | O_DIRECT | O_SYNC },
+#endif
     { "r+", O_RDWR },
     { "rs+", O_RDWR | O_SYNC },
     { "sr+", O_RDWR | O_SYNC },

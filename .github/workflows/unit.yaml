@@ -15,4 +15,4 @@ jobs:
       - name: Run Test
         run: |
           make test
-          make privileged-test
+          make root-perm-test

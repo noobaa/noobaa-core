@@ -40,6 +40,7 @@ public:
 
     const static uid_t orig_uid;
     const static gid_t orig_gid;
+    const static std::vector<gid_t> orig_groups;
 
 private:
     void change_user();

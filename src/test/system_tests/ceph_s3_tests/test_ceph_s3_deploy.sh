@@ -24,6 +24,14 @@ if [ ! -d $DIRECTORY ]; then
     cd ${DIRECTORY}
     git checkout ${CEPH_TESTS_VERSION}
     echo "Finished Downloading Ceph S3 Tests"
+
+    # s3 tests for select uses the hard-coded bucket name "test".
+    # The automatic teardown that deletes buckets created by tests expects a name
+    # with a certain pattern like the bucket names get_new_bucket_name() generates.
+    # The following manual fix will be obsolete if and when https://github.com/ceph/s3-tests/pull/488 is merged.
+    echo "Manually Fixing S3select Tests"
+    sed -i '14 i from . import get_new_bucket_name' ./s3tests_boto3/functional/test_s3select.py
+    sed -i 's/bucket_name = \"test\"/bucket_name = get_new_bucket_name()/g' ./s3tests_boto3/functional/test_s3select.py
 fi
 
 commit_epoch=$(git show -s --format=%ci ${CEPH_TESTS_VERSION} | awk '{print $1}')

@@ -16,12 +16,17 @@ const mocha = require('mocha');
 const AWS = require('aws-sdk');
 const _ = require('lodash');
 const http = require('http');
+const fs = require('fs');
+const crypto = require('crypto');
+const config = require('../../../config.js');
+const { KeyRotator } = require('../../server/bg_services/key_rotator');
 
 let s3;
 let coretest_access_key;
 let coretest_secret_key;
 let wrapped_coretest_secret_key;
 const BKT = `bucket.example`;
+const key_rotator = new KeyRotator({ name: 'kr'});
 
 mocha.describe('Encryption tests', function() {
     const { rpc_client, EMAIL, SYSTEM } = coretest;
@@ -438,6 +443,9 @@ mocha.describe('Rotation tests', function() {
     mocha.after(async function() {
         this.timeout(600000); // eslint-disable-line no-invalid-this
         await unpopulate_system(rpc_client, accounts, buckets);
+        await fs.promises.writeFile(config.ROOT_KEY_MOUNT + '/active_root_key', 'key1');
+        await key_rotator.run_batch();
+        await system_store.load();
     });
     mocha.it('disable bucket master key test', async function() {
         const bucket = bucket_by_name(system_store.data.buckets, buckets[0].bucket_name);
@@ -815,37 +823,119 @@ mocha.describe('Rotation tests', function() {
             }));
         });
 
-        [true, false].forEach(update => {
-            mocha.it(`rotate root key test - UPDATE:${update} env root secret`, async function() {
-                this.timeout(600000); // eslint-disable-line no-invalid-this
-                await system_store.load();
-                // collect old data
-                const old_noobaa_root_secret = process.env.NOOBAA_ROOT_SECRET;
-                const system_store_system = system_by_name(system_store.data.systems, SYSTEM);
-                const master_key_id = system_store_system.master_key_id._id;
-                const old_res_master_key = system_store.master_key_manager.resolved_master_keys_by_id[master_key_id];
-                // rotating root key with new secret
-                await rpc_client.system.rotate_root_key({new_root_key: 'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB='});
-                // if update - setting the correct root secret before emulating restart
-                if (update) process.env.NOOBAA_ROOT_SECRET = 'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=';
-                system_store.master_key_manager.is_initialized = false;
-                system_store.master_key_manager.resolved_master_keys_by_id = {};
-                await system_store.load();
-                const new_res_master_key = system_store.master_key_manager.resolved_master_keys_by_id[master_key_id];
-                await is_master_key_disabled(master_key_id, false);
-                // encrypted keys be equal - if root secret was updated correctly
-                if (update) {
-                    assert.strictEqual(old_res_master_key.cipher_key.toString(), new_res_master_key.cipher_key.toString());
-                    const system_store_account = account_by_name(system_store.data.accounts, EMAIL);
-                    const secrets = await get_account_secrets_from_system_store_and_db(EMAIL, 's3_creds');
-                    compare_secrets(secrets, system_store_account.master_key_id._id);
-                } else {
-                    assert.notStrictEqual(old_res_master_key.cipher_key.toString(), new_res_master_key.cipher_key.toString());
+        mocha.it('test moving from ENV to files', async function() {
+            this.timeout(600000); // eslint-disable-line no-invalid-this
+            // collect old data
+            const old_system_store_system = system_by_name(system_store.data.systems, SYSTEM);
+            const master_key_id = old_system_store_system.master_key_id._id;
+            process.env.NOOBAA_ROOT_SECRET = await fs.promises.readFile(config.ROOT_KEY_MOUNT + '/key1', 'utf8');
+            await system_store.make_changes({
+                update: {
+                    master_keys: [{
+                        _id: master_key_id,
+                        $set: {
+                            master_key_id: '00000000aaaabbbbccccdddd',
+                        },
+                        $unset: { root_key_id: 1 }
+                    }]
                 }
-                // revert the system to use the initial root_key
-                await rpc_client.system.rotate_root_key({new_root_key: old_noobaa_root_secret});
-                if (update) process.env.NOOBAA_ROOT_SECRET = old_noobaa_root_secret;
             });
+            system_store.master_key_manager.is_initialized = false;
+            system_store.master_key_manager.resolved_master_keys_by_id = {};
+            await system_store.master_key_manager.load_root_key();
+            await system_store.load();
+            const old_cipher_key = old_system_store_system.master_key_id.cipher_key;
+            const old_res_master_key = system_store.master_key_manager.resolved_master_keys_by_id[master_key_id];
+            // restarting moving from env to files
+            delete process.env.NOOBAA_ROOT_SECRET;
+            await fs.promises.writeFile(config.ROOT_KEY_MOUNT + '/active_root_key', 'key1');
+            system_store.master_key_manager.is_initialized = false;
+            system_store.master_key_manager.resolved_master_keys_by_id = {};
+            await system_store.master_key_manager.load_root_keys_from_mount();
+            await system_store.load();
+            const new_system_store_system = system_by_name(system_store.data.systems, SYSTEM);
+            const new_cipher_key = new_system_store_system.master_key_id.cipher_key;
+            const new_res_master_key = system_store.master_key_manager.resolved_master_keys_by_id[master_key_id];
+            await is_master_key_disabled(master_key_id, false);
+            // encrypted keys be equal - as root key didn't change - just moved to file
+            assert.strictEqual(old_cipher_key.toString(), new_cipher_key.toString());
+            // decrypted keys be equal - if root secret was updated correctly
+            assert.strictEqual(old_res_master_key.cipher_key.toString(), new_res_master_key.cipher_key.toString());
+        });
+
+        mocha.it('rotate root key test - validate key rotation', async function() {
+            this.timeout(600000); // eslint-disable-line no-invalid-this
+            await system_store.load();
+            // collect old data
+            const old_system_store_system = system_by_name(system_store.data.systems, SYSTEM);
+            const master_key_id = old_system_store_system.master_key_id._id;
+            const old_cipher_key = old_system_store_system.master_key_id.cipher_key;
+            const old_res_master_key = system_store.master_key_manager.resolved_master_keys_by_id[master_key_id];
+            // rotating root key with new secret
+            await fs.promises.writeFile(config.ROOT_KEY_MOUNT + '/key2', crypto.randomBytes(32).toString('base64'));
+            await fs.promises.writeFile(config.ROOT_KEY_MOUNT + '/active_root_key', 'key2');
+            await system_store.load();
+            await key_rotator.run_batch();
+            const new_system_store_system = system_by_name(system_store.data.systems, SYSTEM);
+            const new_cipher_key = new_system_store_system.master_key_id.cipher_key;
+            const new_res_master_key = system_store.master_key_manager.resolved_master_keys_by_id[master_key_id];
+            await is_master_key_disabled(master_key_id, false);
+            // encrypted keys be unequal - if root secret was updated correctly
+            assert.notStrictEqual(old_cipher_key.toString(), new_cipher_key.toString());
+            // decrypted keys be equal - if root secret was updated correctly
+            assert.strictEqual(old_res_master_key.cipher_key.toString(), new_res_master_key.cipher_key.toString());
+            const system_store_account = account_by_name(system_store.data.accounts, EMAIL);
+            const secrets = await get_account_secrets_from_system_store_and_db(EMAIL, 's3_creds');
+            compare_secrets(secrets, system_store_account.master_key_id._id);
+        });
+
+        mocha.it('rotate root key test twice - validate no change', async function() {
+            this.timeout(600000); // eslint-disable-line no-invalid-this
+            await system_store.load();
+            // collect old data
+            const old_system_store_system = system_by_name(system_store.data.systems, SYSTEM);
+            const master_key_id = old_system_store_system.master_key_id._id;
+            const old_cipher_key = old_system_store_system.master_key_id.cipher_key;
+            const old_res_master_key = system_store.master_key_manager.resolved_master_keys_by_id[master_key_id];
+            await system_store.load();
+            await key_rotator.run_batch();
+            const new_system_store_system = system_by_name(system_store.data.systems, SYSTEM);
+            const new_cipher_key = new_system_store_system.master_key_id.cipher_key;
+            const new_res_master_key = system_store.master_key_manager.resolved_master_keys_by_id[master_key_id];
+            await is_master_key_disabled(master_key_id, false);
+            // encrypted keys be equal - as no change was made to active root-key
+            assert.strictEqual(old_cipher_key.toString(), new_cipher_key.toString());
+            // decrypted keys be equal - as always
+            assert.strictEqual(old_res_master_key.cipher_key.toString(), new_res_master_key.cipher_key.toString());
+            const system_store_account = account_by_name(system_store.data.accounts, EMAIL);
+            const secrets = await get_account_secrets_from_system_store_and_db(EMAIL, 's3_creds');
+            compare_secrets(secrets, system_store_account.master_key_id._id);
+        });
+
+        mocha.it('rotate root key test twice - validate key rotation as expected', async function() {
+            this.timeout(600000); // eslint-disable-line no-invalid-this
+            await system_store.load();
+            // collect old data
+            const old_system_store_system = system_by_name(system_store.data.systems, SYSTEM);
+            const master_key_id = old_system_store_system.master_key_id._id;
+            const old_cipher_key = old_system_store_system.master_key_id.cipher_key;
+            const old_res_master_key = system_store.master_key_manager.resolved_master_keys_by_id[master_key_id];
+            // rotating root key with new secret
+            await fs.promises.writeFile(config.ROOT_KEY_MOUNT + '/key3', crypto.randomBytes(32).toString('base64'));
+            await fs.promises.writeFile(config.ROOT_KEY_MOUNT + '/active_root_key', 'key3');
+            await system_store.load();
+            await key_rotator.run_batch();
+            const new_system_store_system = system_by_name(system_store.data.systems, SYSTEM);
+            const new_cipher_key = new_system_store_system.master_key_id.cipher_key;
+            const new_res_master_key = system_store.master_key_manager.resolved_master_keys_by_id[master_key_id];
+            await is_master_key_disabled(master_key_id, false);
+            // encrypted keys be unequal - if root secret was updated correctly
+            assert.notStrictEqual(old_cipher_key.toString(), new_cipher_key.toString());
+            // decrypted keys be equal - if root secret was updated correctly
+            assert.strictEqual(old_res_master_key.cipher_key.toString(), new_res_master_key.cipher_key.toString());
+            const system_store_account = account_by_name(system_store.data.accounts, EMAIL);
+            const secrets = await get_account_secrets_from_system_store_and_db(EMAIL, 's3_creds');
+            compare_secrets(secrets, system_store_account.master_key_id._id);
         });
 });
 // TODO: 

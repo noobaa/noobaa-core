@@ -258,7 +258,8 @@ S3SelectNapi::S3SelectNapi(const Napi::CallbackInfo& info)
         s3selectEngine::csv_object::csv_defintions csv_defs;
         csv_defs.row_delimiter = GetStringWithDefault(input_serialization_format, "RecordDelimiter", "\n").c_str()[0];
         csv_defs.column_delimiter = GetStringWithDefault(input_serialization_format, "FieldDelimiter", ",").c_str()[0];
-        csv_defs.use_header_info = (0 == GetStringWithDefault(input_serialization_format, "FileHeaderInfo", "IGNORE").compare("USE"));
+        csv_defs.ignore_header_info = (0 == GetStringWithDefault(input_serialization_format, "FileHeaderInfo", "").compare("IGNORE"));
+        csv_defs.use_header_info = (0 == GetStringWithDefault(input_serialization_format, "FileHeaderInfo", "").compare("USE"));
         csv_defs.quote_fields_always = false;
         csv_object = new s3selectEngine::csv_object(&s3select, csv_defs);
     } else {

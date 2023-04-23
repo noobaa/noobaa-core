@@ -123,6 +123,8 @@ config.JWT_SECRET = process.env.JWT_SECRET || _get_data_from_file(`/etc/noobaa-s
 config.SERVER_SECRET = process.env.SERVER_SECRET || _get_data_from_file(`/etc/noobaa-server/server_secret`);
 config.NOOBAA_AUTH_TOKEN = process.env.NOOBAA_AUTH_TOKEN || _get_data_from_file(`/etc/noobaa-auth-token/auth_token`);
 
+config.ROOT_KEY_MOUNT = '/etc/noobaa-server/root_keys';
+
 ///////////////
 // MD CONFIG //
 ///////////////
@@ -348,6 +350,7 @@ config.DEFAULT_S3_AUTH_METHOD = {
 //////////////////////
 
 config.LIFECYCLE_INTERVAL = 8 * 60 * 60 * 1000; // 8h
+config.LIFECYCLE_ENABLED = true;
 
 //////////////////////////
 // STATISTICS_COLLECTOR //
@@ -553,6 +556,14 @@ config.REPLICATION_ENABLED = true;
 config.LOG_REPLICATION_ENABLED = true;
 config.AWS_LOG_CANDIDATES_LIMIT = 10;
 config.BUCKET_LOG_REPLICATOR_DELAY = 5 * 60 * 1000;
+
+///////////////////////////
+//      KEY ROTATOR      //
+///////////////////////////
+
+config.KEY_ROTATOR_ENABLED = true;
+config.KEY_ROTATOR_RUN_INTERVAL = 24 * 60 * 60 * 1000; // Once a day,
+config.KEY_ROTATOR_ERROR_DELAY = 10 * 60 * 1000; // Run again in 10 minutes
 
 ///////////////////////
 // NAMESPACE CACHING //

@@ -12,18 +12,8 @@ ENV TEST_CONTAINER true
 #   Cache: rebuild when we adding/removing requirments
 ##############################################################
 
-# RUN dnf install -y ntpdate vim && \
-COPY ./src/deploy/NVA_build/set_mongo_repo.sh /tmp/
-RUN chmod +x /tmp/set_mongo_repo.sh && \
-    /bin/bash -xc "/tmp/set_mongo_repo.sh"
-
 RUN dnf group install -y -q "Development Tools" && \
     dnf install -y -q --nogpgcheck vim \
-    mongodb-org-3.6.3 \
-    mongodb-org-server-3.6.3 \
-    mongodb-org-shell-3.6.3 \
-    mongodb-org-mongos-3.6.3 \
-    mongodb-org-tools-3.6.3 \
     which python3-virtualenv python36-devel libevent-devel libffi-devel libxml2-devel libxslt-devel zlib-devel \ 
     git && \
     dnf clean all

@@ -31,34 +31,7 @@ Attached a table with tests that where investigated and their status (this table
 | test_block_public_put_bucket_acls                         | Not Implemented |                      |                      |
 | test_block_public_object_canned_acls                      | Not Implemented |                      |                      |
 | test_ignore_public_acls                                   | Not Implemented |                      |                      |
-| test_generate_where_clause                                | Not Implemented |                      |                      |
-| test_generate_projection                                  | Not Implemented |                      |                      |
-| test_count_operation                                      | Not Implemented |                      |                      |
-| test_column_sum_min_max                                   | Not Implemented |                      |                      |
-| test_nullif_expressions                                   | Not Implemented |                      |                      |
-| test_nulliftrue_expressions                               | Not Implemented |                      |                      |
-| test_lowerupper_expressions                               | Not Implemented |                      |                      |
-| test_in_expressions                                       | Not Implemented |                      |                      |
-| test_is_not_null_expressions                              | Not Implemented |                      |                      |
-| test_true_false_in_expressions                            | Not Implemented |                      |                      |
-| test_like_expressions                                     | Not Implemented |                      |                      |
-| test_truefalselike_expressions                            | Not Implemented |                      |                      |
-| test_alias                                                | Not Implemented |                      |                      |
-| test_complex_expressions                                  | Not Implemented |                      |                      |
-| test_datetime                                             | Not Implemented |                      |                      |
-| test_alias_cyclic_refernce                                | Not Implemented |                      |                      |
-| test_csv_parser                                           | Not Implemented |                      |                      |
-| test_csv_definition                                       | Not Implemented |                      |                      |
-| test_true_false_datetime                                  | Not Implemented |                      |                      |
-| test_schema_definition                                    | Not Implemented |                      |                      |
-| test_when_then_else_expressions                           | Not Implemented |                      |                      |
-| test_coalesce_expressions                                 | Not Implemented |                      |                      |
-| test_trim_expressions                                     | Not Implemented |                      |                      |
-| test_cast_expressions                                     | Not Implemented |                      |                      |
-| test_version                                              | Not Implemented |                      |                      |
-| test_truefalse_trim_expressions                           | Not Implemented |                      |                      |
-| test_escape_expressions                                   | Not Implemented |                      |                      |
-| test_bool_cast_expressions                                | Not Implemented |                      |                      |
-| test_case_value_expressions                               | Not Implemented |                      |                      |
-| test_progress_expressions                                 | Not Implemented |                      |                      |
-| test_output_serial_expressions                            | Not Implemented |                      |                      |
+| test_generate_projection                                  | Faulty Test     | [509](https://github.com/ceph/s3-tests/issues/509)                    |                      |
+| test_alias_cyclic_refernce                                | Faulty Test     |                      | Stops execution after failure is returned instead of parsing error. I'm not opening issue as it might be related to outdated tests.                     |
+| test_schema_definition                                    | Faulty Test     |                      | Same as test_alias_cyclic_refernce |
+| test_progress_expressions                                 | Faulty Test     | [508](https://github.com/ceph/s3-tests/issues/508)                    |                      |

@@ -91,7 +91,6 @@ async function _init() {
             dbg.error('system_server _init', 'UNCAUGHT ERROR', err, err.stack);
         }
     }
-
     _is_initialized = true;
 }
 
@@ -186,10 +185,11 @@ function new_system_changes(name, owner_account_id) {
 
     const system = new_system_defaults(name, owner_account_id);
 
+    const root_key = system_store.master_key_manager.get_root_key();
     const m_key = system_store.master_key_manager.new_master_key({
         description: `master key of ${system._id} system`,
-        master_key_id: system_store.master_key_manager.get_root_key_id(),
-        cipher_type: system_store.master_key_manager.get_root_key().cipher_type
+        root_key_id: root_key && root_key._id,
+        cipher_type: root_key && root_key.cipher_type
     });
     system.master_key_id = m_key._id;
 
@@ -1284,23 +1284,6 @@ async function _get_endpoint_groups() {
 
 /**
  *
- * ROTATE ROOT KEY
- *
- */
-async function rotate_root_key(req) {
-    const new_root_key = req.rpc_params.new_root_key;
-    const mkm = system_store.master_key_manager;
-    await P.all(_.map(system_store.data.systems, async function(system) {
-        const reencrypted = mkm._reencrypt_master_key_by_root(system.master_key_id._id, new_root_key);
-        await upsert_master_key({
-            _id: system.master_key_id._id,
-            update: { cipher_key: reencrypted }
-        });
-    }));
-}
-
-/**
- *
  * ROTATE MASTER KEY
  *
  */
@@ -1319,9 +1302,14 @@ async function rotate_master_key(req) {
         throw new Error(`rotate_master_key: can not rotate master key, current master key is ${old_master_key}`);
     }
     // create the new master key and update in db
-    const ROOT_KEY = system_store.master_key_manager.get_root_key_id();
+    const root_key_id = system_store.master_key_manager.get_root_key_id();
+    const mastr_key_id = system_store.master_key_manager.is_root_key(old_master_key.master_key_id) ?
+            root_key_id :
+            old_master_key.master_key_id && old_master_key.master_key_id._id;
+
     const master_key_base_props = {
-        'master_key_id': system_store.master_key_manager.is_root_key(old_master_key.master_key_id) ? ROOT_KEY : old_master_key.master_key_id._id,
+        'master_key_id': mastr_key_id,
+        'root_key_id': old_master_key.root_key_id,
         'description': old_master_key.description,
         'cipher_type': old_master_key.cipher_type
     };
@@ -1484,7 +1472,7 @@ async function upsert_master_key(params) {
             update: {
                 master_keys: [{
                     _id: params._id,
-                    $set: params.update
+                    $set: params.update,
                 }]
             }
         });
@@ -1556,10 +1544,11 @@ async function upgrade_master_keys() {
     let system_master_key = system_store.data.systems[0].master_key_id;
     // upgrade system master key if it doesn't exist
     if (!system_master_key) {
+        const root_key = system_store.master_key_manager.get_root_key();
         system_master_key = system_store.master_key_manager.new_master_key({
             description: `master key of ${system_store.data.systems[0]._id.toString()} system`,
-            master_key_id: system_store.master_key_manager.get_root_key_id(),
-            cipher_type: system_store.master_key_manager.get_root_key().cipher_type
+            root_key_id: root_key && root_key.id,
+            cipher_type: root_key && root_key.cipher_type
         });
         master_keys.push(system_master_key);
     }
@@ -1667,7 +1656,6 @@ exports.get_join_cluster_yaml = get_join_cluster_yaml;
 exports.update_endpoint_group = update_endpoint_group;
 exports.get_endpoints_history = get_endpoints_history;
 
-exports.rotate_root_key = rotate_root_key;
 exports.rotate_master_key = rotate_master_key;
 exports.disable_master_key = disable_master_key;
 exports.enable_master_key = enable_master_key;

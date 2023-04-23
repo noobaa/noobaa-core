@@ -540,7 +540,9 @@ class MongoClient extends EventEmitter {
 
     set_db_name(name) {
         if (this.is_connected()) throw new Error('Cannot set DB name to connected DB');
-        this.url = `mongodb://localhost/${name}`;
+        const u = new URL(this.url);
+        u.pathname = '/' + name;
+        this.url = u.href;
     }
 
     get_db_name(name) {

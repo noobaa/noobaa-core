@@ -1223,6 +1223,8 @@ class PostgresTable {
         };
     }
 
+
+
     async deleteOne(selector) {
 
         const pg_selector = mongo_to_pg('data', encode_json(this.schema, selector), { disableContainmentQuery: true });

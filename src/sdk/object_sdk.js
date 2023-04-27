@@ -184,9 +184,10 @@ class ObjectSDK {
         return bucket.bucket_info.data;
     }
 
-    async _load_requesting_account(req) {
+    async load_requesting_account(req) {
         try {
             const token = this.get_auth_token();
+            if (!token) return;
             this.requesting_account = await account_cache.get_with_cache({
                 rpc_client: this.internal_rpc_client,
                 access_key: token.access_key,
@@ -206,10 +207,11 @@ class ObjectSDK {
         const token = this.get_auth_token();
         // If the request is signed (authenticated)
         if (token) {
-            await this._load_requesting_account(req);
-            const signature_secret = token.temp_secret_key || this.requesting_account.access_keys[0].secret_key.unwrap();
-            const signature = signature_utils.get_signature_from_auth_token(token, signature_secret);
-            if (token.signature !== signature) throw new RpcError('SIGNATURE_DOES_NOT_MATCH', `Signature that was calculated did not match`);
+            const signature_secret = token.temp_secret_key || this.requesting_account?.access_keys?.[0]?.secret_key?.unwrap();
+            if (signature_secret) {
+                const signature = signature_utils.get_signature_from_auth_token(token, signature_secret);
+                if (token.signature !== signature) throw new RpcError('SIGNATURE_DOES_NOT_MATCH', `Signature that was calculated did not match`);
+            }
         }
         // check for a specific bucket
         if (bucket && req.op_name !== 'put_bucket') {
@@ -232,12 +234,12 @@ class ObjectSDK {
     }
 
     is_nsfs_bucket(ns) {
-        return ns && ns.write_resource.resource.fs_root_path;
+        return Boolean(ns?.write_resource?.resource?.fs_root_path);
     }
 
     // validates requests for non nsfs buckets from accounts which are nsfs_only 
     has_non_nsfs_bucket_access(account, ns) {
-        dbg.log1('validate_non_nsfs_bucket: ', account, ns && ns.write_resource.resource);
+        dbg.log1('validate_non_nsfs_bucket: ', account, ns?.write_resource?.resource);
         if (!account) return false;
         if (this.is_nsfs_bucket(ns) ||
             !account.nsfs_account_config || !account.nsfs_account_config.nsfs_only) return true;

@@ -175,6 +175,21 @@ function is_symbolic_link(stat) {
     }
 }
 
+/**
+ * NOTICE that even files that were written sequentially, can still be identified as sparse:
+ * 1. After writing, but before all the data is synced, the size is higher than blocks size.
+ * 2. For files that were moved to an archive tier.
+ * 3. For files that fetch and cache data from remote storage, which are still not in the cache.
+ * It's not good enough for avoiding recall storms as needed by _fail_if_archived_or_sparse_file.
+ * However, using this check is useful for guessing that a reads is going to take more time
+ * and avoid holding off large buffers from the buffers_pool.
+ * @param {nb.NativeFSStats} stat
+ * @returns {boolean}
+ */
+function is_sparse_file(stat) {
+    return (stat.blocks * 512 < stat.size);
+}
+
 function get_umasked_mode(mode) {
     // eslint-disable-next-line no-bitwise
     return mode & ~config.NSFS_UMASK;
@@ -342,6 +357,7 @@ class NamespaceFS {
         this.versioning = (config.NSFS_VERSIONING_ENABLED && versioning) || versioning_status_enum.VER_DISABLED;
         this.stats = stats;
         this.force_md5_etag = force_md5_etag;
+        this.warmup_buffer = nb_native().fs.dio_buffer_alloc(4096);
     }
 
     /**
@@ -790,11 +806,27 @@ class NamespaceFS {
             const log2_size_histogram = {};
             let drain_promise = null;
 
-            dbg.log0('NamespaceFS: read_object_stream', { file_path, start, end });
+            dbg.log0('NamespaceFS: read_object_stream', {
+                file_path, start, end, size: stat.size,
+            });
 
             let count = 1;
             for (let pos = start; pos < end;) {
                 object_sdk.throw_if_aborted();
+
+                // Our buffer pool keeps large buffers and we want to avoid spending
+                // all our large buffers and then have them waiting for high latency calls
+                // such as reading from archive/on-demand cache files.
+                // Instead, we detect the case where a file is "sparse",
+                // and then use just a small buffer to wait for a tiny read,
+                // which will recall the file from archive or load from remote into cache,
+                // and once it returns we can continue to the full fledged read.
+                if (config.NSFS_BUF_WARMUP_SPARSE_FILE_READS && is_sparse_file(stat)) {
+                    dbg.log0('NamespaceFS: read_object_stream - warmup sparse file', {
+                        file_path, pos, size: stat.size, blocks: stat.blocks,
+                    });
+                    await file.read(fs_context, this.warmup_buffer, 0, 1, pos);
+                }
 
                 // allocate or reuse buffer
                 // TODO buffers_pool and the underlying semaphore should support abort signal
@@ -1983,18 +2015,18 @@ class NamespaceFS {
         }
     }
 
-    // TODO: Return/Refactor check after handling of FSync
+    // TODO: without fsync this logic fails also for regular files because blocks take time to update after writing.
     // async _fail_if_archived_or_sparse_file(fs_context, file_path, stat) {
-        // if (isDirectory(stat)) return;
-        // // In order to verify if the file is stored in tape we compare sizes
-        // // Multiple number of blocks by default block size and verify we get the size of the object
-        // // If we get a size that is lower than the size of the object this means that it is taped or a spare file
-        // // We had to use this logic since we do not have a POSIX call in order to verify that the file is taped
-        // // This is why sparse files won't be accessible as well
-        // if (stat.blocks * 512 < stat.size) {
-        //     dbg.log0(`_fail_if_archived_or_sparse_file: ${file_path} rejected`, stat);
-        //     throw new RpcError('INVALID_OBJECT_STATE', 'Attempted to access archived or sparse file');
-        // }
+    //     if (isDirectory(stat)) return;
+    //     // In order to verify if the file is stored in tape we compare sizes
+    //     // Multiple number of blocks by default block size and verify we get the size of the object
+    //     // If we get a size that is lower than the size of the object this means that it is taped or a spare file
+    //     // We had to use this logic since we do not have a POSIX call in order to verify that the file is taped
+    //     // This is why sparse files won't be accessible as well
+    //     if (is_sparse_file(stat)) {
+    //         dbg.log0(`_fail_if_archived_or_sparse_file: ${file_path} rejected`, stat);
+    //         throw new RpcError('INVALID_OBJECT_STATE', 'Attempted to access archived or sparse file');
+    //     }
     // }
 
     // when obj is a directory and size === 0 folder content (.folder) should not be created

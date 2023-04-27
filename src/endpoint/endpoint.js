@@ -71,6 +71,7 @@ dbg.log0('endpoint: replacing old umask: ', old_umask.toString(8), 'with new uma
  *  http_port?: number;
  *  https_port?: number;
  *  https_port_sts?: number;
+ *  metrics_port?: number;
  *  init_request_sdk?: EndpointHandler;
  *  forks?: number;
  * }} EndpointOptions
@@ -81,11 +82,13 @@ dbg.log0('endpoint: replacing old umask: ', old_umask.toString(8), 'with new uma
  */
 async function main(options = {}) {
     try {
-        fork_utils.start_workers(options.forks ?? config.ENDPOINT_FORKS);
+        // the primary just forks and returns, workers will continue to serve
+        if (fork_utils.start_workers(options.forks ?? config.ENDPOINT_FORKS)) return;
 
         const http_port = options.http_port || Number(process.env.ENDPOINT_PORT) || 6001;
         const https_port = options.https_port || Number(process.env.ENDPOINT_SSL_PORT) || 6443;
         const https_port_sts = options.https_port_sts || Number(process.env.ENDPOINT_SSL_PORT_STS) || 7443;
+        const metrics_port = options.metrics_port || config.EP_METRICS_SERVER_PORT;
         const endpoint_group_id = process.env.ENDPOINT_GROUP_ID || 'default-endpoint-group';
 
         const virtual_hosts = Object.freeze(
@@ -147,17 +150,26 @@ async function main(options = {}) {
         const https_server = https.createServer(ssl_options, endpoint_request_handler);
         const https_server_sts = https.createServer(ssl_options, endpoint_request_handler_sts);
 
-        dbg.log0('Starting HTTP', http_port);
-        await listen_http(http_port, http_server);
-        dbg.log0('Starting HTTPS', https_port);
-        await listen_http(https_port, https_server);
-        dbg.log0('S3 server started successfully');
-
-        dbg.log0('Starting HTTPS STS', https_port_sts);
-        await listen_http(https_port_sts, https_server_sts);
-        dbg.log0('STS server started successfully');
-
-        await prom_reporting.start_server(config.EP_METRICS_SERVER_PORT);
+        if (http_port > 0) {
+            dbg.log0('Starting S3 HTTP', http_port);
+            await listen_http(http_port, http_server);
+            dbg.log0('Started S3 HTTP successfully');
+        }
+        if (https_port > 0) {
+            dbg.log0('Starting S3 HTTPS', https_port);
+            await listen_http(https_port, https_server);
+            dbg.log0('Started S3 HTTPS successfully');
+        }
+        if (https_port_sts > 0) {
+            dbg.log0('Starting STS HTTPS', https_port_sts);
+            await listen_http(https_port_sts, https_server_sts);
+            dbg.log0('Started STS HTTPS successfully');
+        }
+        if (metrics_port > 0) {
+            dbg.log0('Starting metrics server', metrics_port);
+            await prom_reporting.start_server(metrics_port);
+            dbg.log0('Started metrics server successfully');
+        }
 
         if (internal_rpc_client) {
             endpoint_stats_collector.instance().set_rpc_client(internal_rpc_client);

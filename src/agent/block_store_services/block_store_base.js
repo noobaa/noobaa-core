@@ -41,6 +41,8 @@ class BlockStoreBase {
         this.client = options.rpc_client;
         this.storage_limit = options.storage_limit;
         this.usage_limit = options.storage_limit || Infinity;
+        this._usage = null;
+
         // semaphore to serialize writes\deletes of specific blocks
         this.block_modify_lock = new KeysLock();
         this.block_cache = new LRUCache({
@@ -52,7 +54,6 @@ class BlockStoreBase {
         });
 
         this.monitoring_stats = _new_monitring_stats();
-
         this.io_stats = this._new_io_stats();
 
         // BLOCK STORE API methods - bind to self
@@ -112,10 +113,6 @@ class BlockStoreBase {
     _get_block_store_info() {
         throw new Error('this block store does not support block_store_info');
     }
-
-
-
-
 
     _update_read_stats(size, is_err) {
         if (is_err) {
@@ -208,7 +205,7 @@ class BlockStoreBase {
      * @param {nb.BlockMD} block_md
      */
     async _read_block_md(block_md) {
-        const block = this._read_block(block_md);
+        const block = await this._read_block(block_md);
         if (block.data) this._update_read_stats(block.data.length);
         return block;
     }
@@ -311,7 +308,7 @@ class BlockStoreBase {
     /**
      * @param {nb.BlockMD} block_md
      * @param {Buffer} data
-     * @param {nb.BlockMD} block_md_from_store
+     * @param {nb.BlockMD} [block_md_from_store]
      */
     _verify_block(block_md, data, block_md_from_store) {
         // verify block md from store match
@@ -340,7 +337,7 @@ class BlockStoreBase {
 
     async cleanup_target_path() { _.noop(); }
 
-    _handle_delegator_error() {
+    _handle_delegator_error(error, usage, op_type) {
         throw new Error('this block store does not delegate');
     }
 
@@ -430,7 +427,7 @@ class BlockStoreBase {
      * @param {string} noobaablockmd
      */
     _decode_block_md(noobaablockmd) {
-        return JSON.parse(Buffer.from(noobaablockmd, 'base64'));
+        return JSON.parse(Buffer.from(noobaablockmd, 'base64').toString());
     }
 
     _block_key(block_id) {
@@ -440,6 +437,47 @@ class BlockStoreBase {
 
     _block_id_from_key(block_key) {
         return block_key.split('/').pop();
+    }
+
+    /**
+     * Abstract method - override me.
+     * 
+     * @param {nb.BlockMD} block_md
+     * @returns {Promise<{ block_md: nb.BlockMD, data: Buffer }>}
+     */
+    async _read_block(block_md) {
+        throw new Error('BlockStoreBase._read_block() is ABSTRACT');
+    }
+
+    /**
+     * Abstract method - override me.
+     * 
+     * @param {nb.BlockMD} block_md
+     * @param {Buffer} data
+     * @param {{ ignore_usage?: boolean }} [options]
+     * @returns {Promise<void>}
+     */
+    async _write_block(block_md, data, options) {
+        throw new Error('BlockStoreBase._write_block() is ABSTRACT');
+    }
+
+    /**
+     * Abstract method - override me.
+     * 
+     * @param {string[]} block_ids
+     * @returns {Promise<{ succeeded_block_ids: string[], failed_block_ids: string[] }>}
+     */
+    async _delete_blocks(block_ids) {
+        throw new Error('BlockStoreBase._delete_blocks() is ABSTRACT');
+    }
+
+    /**
+     * Abstract method - override me.
+     * 
+     * @returns {Promise<void>}
+     */
+    async _write_usage_internal() {
+        throw new Error('BlockStoreBase._write_usage_internal() is ABSTRACT');
     }
 
 }

@@ -14,6 +14,9 @@ const async_delay = util.promisify(setTimeout);
 
 let nb_native_napi;
 
+/**
+ * @returns {nb.Native}
+ */
 function nb_native() {
 
     if (nb_native_napi) return nb_native_napi;

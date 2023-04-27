@@ -81,7 +81,7 @@ class MapClient {
     /**
      * @param {Object} props
      * @param {nb.Chunk[]} [props.chunks]
-     * @param {nb.ObjectInfo} [props.object_md]
+     * @param {Partial<nb.ObjectInfo>} [props.object_md]
      * @param {number} [props.read_start]
      * @param {number} [props.read_end]
      * @param {nb.LocationInfo} [props.location_info]
@@ -217,6 +217,7 @@ class MapClient {
         if (frag.data) {
             const first_alloc = frag.allocations[0];
             const rest_allocs = frag.allocations.slice(1);
+            this.add_mapping_info_to_block_md(chunk, frag, first_alloc.block_md);
             await this.retry_write_block(first_alloc.block_md, frag.data);
             await P.map(rest_allocs, alloc => this.retry_replicate_blocks(alloc.block_md, first_alloc.block_md));
             return;
@@ -240,6 +241,33 @@ class MapClient {
         chunk.had_errors = true;
         this.had_errors = true;
         throw new Error(`No data source for frag ${frag._id}`);
+    }
+
+    /**
+     * We add mapping info to block_md before sending to block_store
+     * in order to provide recovery info in case the database is not available.
+     * @param {nb.Chunk} chunk 
+     * @param {nb.Frag} frag 
+     * @param {nb.BlockMD} block_md 
+     */
+    add_mapping_info_to_block_md(chunk, frag, block_md) {
+        if (!config.BLOCK_STORE_FS_MAPPING_INFO_ENABLED) return;
+        const part = chunk.parts[0];
+        block_md.mapping_info = {
+            obj_id: this.object_md.obj_id,
+            multipart_id: part.multipart_id?.toHexString(),
+            part_id: part._id?.toHexString(),
+            chunk_id: chunk._id?.toHexString(),
+            frag_id: frag._id?.toHexString(),
+            bucket: this.object_md.bucket,
+            key: this.object_md.key,
+            part_start: part.start,
+            part_end: part.end,
+            part_seq: part.seq,
+            data_index: frag.data_index,
+            parity_index: frag.parity_index,
+            lrc_index: frag.lrc_index,
+        };
     }
 
     /**

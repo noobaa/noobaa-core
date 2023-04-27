@@ -8,6 +8,7 @@ var config = exports;
 
 const os = require('os');
 const fs = require('fs');
+const path = require('path');
 const assert = require('assert');
 const dbg = require('./src/util/debug_module')(__filename);
 
@@ -634,12 +635,29 @@ config.QUOTA_MAX_OBJECTS = Number.MAX_SAFE_INTEGER;
 //////////////////////////
 //      STS CONFIG      //
 //////////////////////////
+
 config.STS_DEFAULT_SESSION_TOKEN_EXPIRY_MS = 60 * 60 * 1000; // 1 hour
 
 ///////////////////////////////////////////
 //      PostgreSQL client pool size      //
 ///////////////////////////////////////////
+
 config.POSTGRES_MAX_CLIENTS = (process.env.LOCAL_MD_SERVER === 'true') ? 80 : 10;
+
+/////////////////////////
+// BLOCK STORE FS      //
+/////////////////////////
+
+config.BLOCK_STORE_FS_TIER2_ENABLED = false;
+config.BLOCK_STORE_FS_MAPPING_INFO_ENABLED = false;
+
+config.BLOCK_STORE_FS_XATTR_BLOCK_MD = 'user.noobaa.block_md';
+config.BLOCK_STORE_FS_XATTR_QUERY_MIGSTAT = 'user._query.migstat';
+config.BLOCK_STORE_FS_XATTR_TRIGGER_RECALL = 'user._trigger.recall';
+config.BLOCK_STORE_FS_XATTR_TRIGGER_MIGRATE = 'user._trigger.migrate';
+config.BLOCK_STORE_FS_XATTR_TRIGGER_PREMIGRATE = 'user._trigger.premigrate';
+
+
 
 /////////////////////
 //                 //
@@ -652,8 +670,11 @@ config.POSTGRES_MAX_CLIENTS = (process.env.LOCAL_MD_SERVER === 'true') ? 80 : 10
 // load a local config file that overwrites some of the config
 function load_config_local() {
     try {
+        // looking up config-local module using process.cwd() to allow pkg to find it
+        // outside the binary package - see https://github.com/vercel/pkg#snapshot-filesystem
+        // @ts-ignore
         // eslint-disable-next-line global-require
-        const local_config = require('./config-local');
+        const local_config = require(path.join(process.cwd(), 'config-local'));
         if (!local_config) return;
         console.log('load_config_local: LOADED', local_config);
         if (typeof local_config === 'function') {

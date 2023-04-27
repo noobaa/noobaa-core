@@ -376,3 +376,5 @@ function get_continuation_token_for_rule(rule_id, replication_config) {
 
 // EXPORTS
 exports.get_log_candidates = get_log_candidates;
+exports.aws_parse_log_object = aws_parse_log_object;
+exports.create_candidates = create_candidates;

@@ -221,6 +221,17 @@ function test_ns_list_objects(ns, object_sdk, bucket) {
             assert.deepStrictEqual(r.objects.map(it => it.key), [...fd, ...files_in_utf_diff_delimiter]);
         });
 
+        mocha.it('key_marker=folder229', async function() {
+            const r = await ns.list_objects({
+                bucket,
+                key_marker: 'folder229'
+            }, object_sdk);
+            assert.deepStrictEqual(r.is_truncated, false);
+            assert.deepStrictEqual(r.common_prefixes, []);
+            const fd = folders_to_upload.filter(folder => folder >= 'folder229/');
+            assert.deepStrictEqual(r.objects.map(it => it.key), [...fd, ...files_in_utf_diff_delimiter]);
+        });
+
         mocha.it('key_marker=folder1/', async function() {
             const r = await ns.list_objects({
                 bucket,
@@ -371,7 +382,8 @@ function test_ns_list_objects(ns, object_sdk, bucket) {
                 bucket,
                 key,
                 content_type: 'application/octet-stream',
-                source_stream: buffer_utils.buffer_to_read_stream(null)
+                source_stream: buffer_utils.buffer_to_read_stream(null),
+                size: 0
             }, object_sdk);
         }));
     }

@@ -157,7 +157,7 @@ const static std::map<std::string, int> flags_to_case = {
 };
 
 const static std::vector<std::string> GPFS_XATTRS{ GPFS_ENCRYPTION_XATTR_NAME };
-const static std::vector<std::string> USER_XATTRS{ "user.content_md5", "user.version_id", "user.prev_version_id", "user.delete_marker"};
+const static std::vector<std::string> USER_XATTRS{ "user.content_md5", "user.version_id", "user.prev_version_id", "user.delete_marker", "user.dir_content"};
 
 struct Entry
 {

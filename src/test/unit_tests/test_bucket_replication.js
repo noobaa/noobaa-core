@@ -13,7 +13,7 @@ const http = require('http');
 const SensitiveString = require('../../util/sensitive_string');
 const cloud_utils = require('../../util/cloud_utils');
 const { ReplicationScanner } = require('../../server/bg_services/replication_scanner');
-
+const log_parser = require('../../server/bg_services/replication_log_parser');
 
 const db_client = require('../../util/db_client').instance();
 coretest.setup({ pools_to_create: [coretest.POOL_LIST[0]] });
@@ -919,5 +919,46 @@ mocha.describe('Replication pagination test', function() {
         await scanner.run_batch();
         // Make sure all 11 objects were replicated
         await list_objects_and_wait(s3_owner, target_bucket, obj_amount);
+    });
+});
+
+mocha.describe('AWS S3 server log parsing tests', function() {
+    // Pagination test
+    mocha.it('Test AWS S3 server log parsing for BATCH.DELETE and REST.PUT actions', async function() {
+        const logs = [];
+        const example_log = {Body: `
+        aaa test.bucket [13/Feb/2023:15:08:28 +0000] 1.1.1.1 arn:aws:iam::111:user/user AAA BATCH.DELETE.OBJECT test - 204 - - 1 - - - - - AAA SigV4 ECDHE-RSA-AES128-GCM-SHA256 AuthHeader s3.us-east-2.amazonaws.com TLSv1.2 - -
+        aaa test.bucket [13/Feb/2023:15:08:28 +0000] 1.1.1.1 arn:aws:iam::111:user/user AAA BATCH.DELETE.OBJECT test.js - 204 - - 1 - - - - - AAA SigV4 ECDHE-RSA-AES128-GCM-SHA256 AuthHeader s3.us-east-2.amazonaws.com TLSv1.2 - -
+        aaa test.bucket [13/Feb/2023:16:08:56 +0000] 0.0.0.0 arn:aws:iam::111:user/user AAA REST.PUT.OBJECT code2 "PUT /test.bucket/code2?X-Amz-Security-Token=AAAAAAAAAAAAAAA=20230213T160856Z&X-Amz-AAAAAA HTTP/1.1" 200 - - 1 1 1 "https://s3.console.aws.amazon.com/s3/upload/test.bucket?region=us-east-2" "AAA/5.0 (AAA 1.1; AAA; AAA) AAA/1.1 (KHTML, like Gecko) AAA/1.1 AAA/1.1" - AAAA SigV4 ECDHE-RSA-AES128-GCM-SHA256 QueryString s3.us-east-2.amazonaws.com TLSv1.2 - -
+        aaa test.bucket [13/Feb/2023:15:08:28 +0000] 1.1.1.1 arn:aws:iam::111:user/user AAA BATCH.DELETE.OBJECT test2 - 204 - - 1 - - - - - AAA SigV4 ECDHE-RSA-AES128-GCM-SHA256 AuthHeader s3.us-east-2.amazonaws.com TLSv1.2 - -
+        aaa test.bucket [13/Feb/2023:15:08:28 +0000] 1.1.1.1 arn:aws:iam::111:user/user AAA BATCH.DELETE.OBJECT testfile.js - 204 - - 1 - - - - - AAA SigV4 ECDHE-RSA-AES128-GCM-SHA256 AuthHeader s3.us-east-2.amazonaws.com TLSv1.2 - -
+        aaa test.bucket [13/Feb/2023:15:25:00 +0000] 0.0.0.0 arn:aws:iam::111:user/user AAA REST.PUT.OBJECT empty "PUT /test.bucket/empty?X-Amz-Security-Token=AAAAAAAAAAAAAAA=20230213T152500Z&X-Amz-AAAAAA HTTP/1.1" 200 - - 1 1 1 "https://s3.console.aws.amazon.com/s3/upload/test.bucket?region=us-east-2" "AAA/5.0 (AAA 1.1; AAA; AAA) AAA/1.1 (KHTML, like Gecko) AAA/1.1 AAA/1.1" - AAAA SigV4 ECDHE-RSA-AES128-GCM-SHA256 QueryString s3.us-east-2.amazonaws.com TLSv1.2 - -
+        aaa test.bucket [13/Feb/2023:15:08:28 +0000] 1.1.1.1 arn:aws:iam::111:user/user AAA BATCH.DELETE.OBJECT text.txt - 204 - - 1 - - - - - AAA SigV4 ECDHE-RSA-AES128-GCM-SHA256 AuthHeader s3.us-east-2.amazonaws.com TLSv1.2 - -
+        `};
+        const action_dictionary = {'test': 'delete', 'test.js': 'delete', 'code2': 'copy', 'test2': 'delete', 'testfile.js': 'delete', 'empty': 'copy', 'text.txt': 'delete'};
+        log_parser.aws_parse_log_object(
+            logs, example_log, function() { return false; }
+        );
+        // Make sure the test doesn't pass in case the parsing fails
+        assert.equal(logs.length, Object.keys(action_dictionary).length);
+        // Make sure all expected actions are mapped to the appropriate keys
+        logs.forEach(function(item) {
+            assert.equal(item.action, action_dictionary[item.key]);
+        });
+    });
+
+    mocha.it('Test AWS S3 server log parsing when a DELETE is logged before a PUT, but occurs after it', async function() {
+        const logs = [];
+        const example_log = {Body: `
+        aaa test.bucket [13/Feb/2023:19:08:28 +0000] 1.1.1.1 arn:aws:iam::111:user/user AAA BATCH.DELETE.OBJECT test - 204 - - 1 - - - - - AAA SigV4 ECDHE-RSA-AES128-GCM-SHA256 AuthHeader s3.us-east-2.amazonaws.com TLSv1.2 - -
+        aaa test.bucket [13/Feb/2023:09:08:28 +0000] 1.1.1.1 arn:aws:iam::111:user/user AAA BATCH.DELETE.OBJECT other_obj - 204 - - 1 - - - - - AAA SigV4 ECDHE-RSA-AES128-GCM-SHA256 AuthHeader s3.us-east-2.amazonaws.com TLSv1.2 - -
+        aaa test.bucket [13/Feb/2023:09:08:56 +0000] 0.0.0.0 arn:aws:iam::111:user/user AAA REST.PUT.OBJECT test "PUT /test.bucket/test?X-Amz-Security-Token=AAAAAAAAAAAAAAA=20230213T160856Z&X-Amz-AAAAAA HTTP/1.1" 200 - - 1 1 1 "https://s3.console.aws.amazon.com/s3/upload/test.bucket?region=us-east-2" "AAA/5.0 (AAA 1.1; AAA; AAA) AAA/1.1 (KHTML, like Gecko) AAA/1.1 AAA/1.1" - AAAA SigV4 ECDHE-RSA-AES128-GCM-SHA256 QueryString s3.us-east-2.amazonaws.com TLSv1.2 - -
+        `};
+        log_parser.aws_parse_log_object(
+            logs, example_log, function() { return false; }
+        );
+        const candidates = log_parser.create_candidates(logs);
+        assert.equal(candidates.test[0].action, 'copy');
+        assert.equal(candidates.test[1].action, 'delete');
     });
 });

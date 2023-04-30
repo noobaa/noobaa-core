@@ -34,12 +34,12 @@ jobs:
 
       - name: Get Current Date
         id: date
-        run: echo "::set-output name=date::$(date +'%Y%m%d')"
+        run: echo "date=$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
       
       - name: Prepare Suffix
         id: suffix
         if: ${{ github.event.inputs.tag != '' }}
-        run: echo ::set-output name=suffix::"-${{ github.event.inputs.tag }}"
+        run: echo suffix="-${{ github.event.inputs.tag }}" >> $GITHUB_OUTPUT
 
       - name: Prepare Tags
         id: prep
@@ -54,10 +54,10 @@ jobs:
           CORE_TAGS="${DOCKER_CORE_IMAGE}:${{ github.event.inputs.branch }}-${VERSION}${{ steps.suffix.outputs.suffix }}"
           CORE_OCS_DEV_TAG="ocs-dev/noobaa-core:${{ github.event.inputs.branch }}-latest"
           echo "::warning ${CORE_TAGS}"
-          echo ::set-output name=basetags::${BASE_TAGS}
-          echo ::set-output name=buildertags::${BUILDER_TAGS}
-          echo ::set-output name=coretags::${CORE_TAGS}
-          echo ::set-output name=ocsdevlatest::${CORE_OCS_DEV_TAG}
+          echo "basetags=${BASE_TAGS}" >> $GITHUB_OUTPUT
+          echo "buildertags=${BUILDER_TAGS}" >> $GITHUB_OUTPUT
+          echo "coretags=${CORE_TAGS}" >> $GITHUB_OUTPUT
+          echo "ocsdevlatest=${CORE_OCS_DEV_TAG}" >> $GITHUB_OUTPUT
 
       - name: Build Builder Images
         run: |

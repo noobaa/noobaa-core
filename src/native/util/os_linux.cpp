@@ -34,17 +34,17 @@ const std::vector<gid_t> ThreadScope::orig_groups = [] {
 }();
 
 /**
- * set the effective uid/gid of the current thread using direct syscalls -
+ * set the effective uid/gid of the current thread using direct syscalls
+ * unsets the supplementary group IDs for the current thread using direct syscall 
  * we have to bypass the libc wrappers because posix requires it to syncronize
  * uid & gid to all threads which is undesirable in our case.
- * setgroups(0, NULL) - unsets the supplementary group IDs for the current thread
  */
 void
 ThreadScope::change_user()
 {
     if (_uid != orig_uid || _gid != orig_gid) {
         // must change gid first otherwise will fail on permission
-        setgroups(0, NULL);
+        MUST_SYS(syscall(SYS_setgroups, 0, NULL));
         MUST_SYS(syscall(SYS_setresgid, -1, _gid, -1));
         MUST_SYS(syscall(SYS_setresuid, -1, _uid, -1));
     }
@@ -60,7 +60,7 @@ ThreadScope::restore_user()
         // must restore uid first otherwise will fail on permission
         MUST_SYS(syscall(SYS_setresuid, -1, orig_uid, -1));
         MUST_SYS(syscall(SYS_setresgid, -1, orig_gid, -1));
-        setgroups(ThreadScope::orig_groups.size(), &ThreadScope::orig_groups[0]);
+        MUST_SYS(syscall(SYS_setgroups, ThreadScope::orig_groups.size(), &ThreadScope::orig_groups[0]));
     }
 }
 

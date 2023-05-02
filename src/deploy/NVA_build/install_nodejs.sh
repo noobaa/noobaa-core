@@ -11,27 +11,54 @@ then
     exit 1
 fi
 
-MACHINE=$(uname -m)
-if [ "$MACHINE" = "aarch64" ]; then
-    ARCH="arm64"
-elif [ "$MACHINE" = "s390x" ]; then
-    ARCH="s390x"
-elif [ "$MACHINE" = "ppc64le" ]; then
-    ARCH="ppc64le"
-else
-    ARCH="x64"
+NODE_PATH="${NODE_PATH:-/usr/local/node}"
+
+function get_arch() {
+    local MACHINE=$(uname -m)
+    local ARCH
+
+    if [ "$MACHINE" = "aarch64" ]; then
+        ARCH="arm64"
+    elif [ "$MACHINE" = "s390x" ]; then
+        ARCH="s390x"
+    elif [ "$MACHINE" = "ppc64le" ]; then
+        ARCH="ppc64le"
+    else
+        ARCH="x64"
+    fi
+
+    echo ${ARCH}
+}
+
+function download_node() {
+    local arch=$(get_arch)
+
+    local node_version="v${NODEJS_VERSION}"
+    local filename="node-${node_version}-linux-${arch}.tar.xz"
+
+    curl -O https://nodejs.org/dist/${node_version}/${filename}
+
+    echo ${filename}
+}
+
+function install_node() {
+    local arch=$(get_arch)
+    local node_version="v${NODEJS_VERSION}"
+    local filename="node-${node_version}-linux-${arch}.tar.xz"
+
+    mkdir -p ${NODE_PATH}
+    cd ${NODE_PATH}
+    download_node
+    tar -xf ${filename}
+
+    ln -s ${NODE_PATH}/node-${node_version}-linux-${arch}/bin/node /usr/local/bin/node
+    ln -s ${NODE_PATH}/node-${node_version}-linux-${arch}/bin/npm /usr/local/bin/npm
+    ln -s ${NODE_PATH}/node-${node_version}-linux-${arch}/bin/npm /usr/local/bin/npx
+
+    rm ${filename}
+}
+
+if [ -z "${SKIP_NODE_INSTALL}" ]
+then
+    install_node
 fi
-NODEJS_VERSION=v${NODEJS_VERSION}
-FILE_NAME=node-${NODEJS_VERSION}-linux-${ARCH}.tar.xz
-NODE_PATH="/usr/local/node"
-
-mkdir -p ${NODE_PATH}
-cd ${NODE_PATH}
-curl -O https://nodejs.org/dist/${NODEJS_VERSION}/${FILE_NAME}
-tar -xf ${FILE_NAME}
-
-ln -s ${NODE_PATH}/node-${NODEJS_VERSION}-linux-${ARCH}/bin/node /usr/local/bin/node
-ln -s ${NODE_PATH}/node-${NODEJS_VERSION}-linux-${ARCH}/bin/npm /usr/local/bin/npm
-ln -s ${NODE_PATH}/node-${NODEJS_VERSION}-linux-${ARCH}/bin/npm /usr/local/bin/npx
-
-rm ${FILE_NAME} 

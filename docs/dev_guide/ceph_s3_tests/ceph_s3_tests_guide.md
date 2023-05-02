@@ -46,6 +46,9 @@ docker tag noobaa:latest noobaa-core:s3-tests
 ### 4) Deploy Noobaa (Noobaa-Operator Tab)
 ```bash
 nb install --mini --noobaa-image='noobaa-core:s3-tests'
+# or use dev flag for higher resources
+nb install --dev --noobaa-image='noobaa-core:s3-tests'
+
 ```
 _Note: We have the alias to `nb` from the step 'Build Operator'._
 
@@ -73,7 +76,7 @@ kubectl wait --for=condition=available backingstore/noobaa-default-backing-store
 
 ## Run All Ceph S3 Tests
 
-### 1) Requisitions:
+### 1) Prerequisites:
 Following the 'General Settings For Ceph S3 Tests' steps.
 
 ### 2) Deploy The Tests Job (Noobaa-Core Tab):
@@ -89,7 +92,7 @@ We run all the tests except the tests that appear in the lists `src/test/system_
 
 ## Run a Single Ceph S3 Test
 
-### 1) Requisitions:
+### 1) Prerequisites:
 Following the 'General Settings For Ceph S3 Tests' steps.
 
 ### 2) Increasing Debug Level (Noobaa-Operator)
@@ -119,9 +122,9 @@ Once the tester pod is up, we can go into it and prepare the environment to run 
 both `kubectl` and `oc` can be used:
 ```bash
 # if you have kubectl 
-kubectl exec -it [noobaa-tester pod] -- bash
+kubectl exec -it <noobaa-tester pod> -- bash
 # or with oc
-oc rsh [noobaa-tester pod] bash
+oc rsh <noobaa-tester pod> bash
 ```
 
 In the tester pod, go to noobaa working directory:
@@ -150,10 +153,10 @@ This should run the test on the noobaa deployment we've set up.
 You can find a list of tests in the doc inside the file `ceph_s3_tests_list_single_test.txt`. Please notice that the test name has a certain structure <directory_name> are separated with `.` and the function to run (usually with a prefix `test_`) appears after the `:` sign.
 ## Debug a Single Test (Inside The Tester Pod)
 
-### 1) Requisitions:
+### 1) Prerequisites:
 Following the 'Run a Single Ceph S3 Test' steps.
 ### 2) View The Test Content 
-You can view the test by going to the test file and searching for the test function. e.g. if you are working on test `s3tests_boto3.functional.test_s3:test_set_bucket_tagging` then you should `vim ./src/test/system_tests/ceph_s3_tests/s3-tests/s3tests_boto3/functional/test_s3.py` and search for the function `test_set_bucket_tagging`.
+You can view the test by going to the test file and searching for the test function. e.g. if you are working on test `s3tests_boto3.functional.test_s3:test_set_bucket_tagging` then you should `vi ./src/test/system_tests/ceph_s3_tests/s3-tests/s3tests_boto3/functional/test_s3.py` and search for the function `test_set_bucket_tagging`.
 
 The best place to start investigating is noobaa endpoint pod logs. if you are running with debug level that is higher than 1, you should see log messages of the S3 requests with the prefix `S3 REQUEST`. S3 replies will be with the prefix `HTTP REPLY`.
 
@@ -174,11 +177,35 @@ Since the file `./src/test/system_tests/ceph_s3_tests/s3-tests/s3tests_boto3/fun
 2) Enter container as the root user: `minikube ssh "docker container exec -it -u 0 <Container ID> /bin/bash"`
 3) Change file permissions: `chmod 777 ./src/test/system_tests/ceph_s3_tests/s3-tests/s3tests_boto3/functional/test_s3.py`
 
+## Compare to AWS Response (Inside Tester Pod)
+Prerequisites:
+Following the 'Run a Single Ceph S3 Test' steps until 'Deploy The Tester Deployment (Noobaa-Core Tab)'.
+
+In this section we will do some manual changes that will allow you to check AWS response for a specific test (tests that do not use neither ACL nor tenant group).
+1) Find container ID: `minikube ssh docker container ls | grep test`
+2) Enter container as the root user: `minikube ssh "docker container exec -it -u 0 <Container ID> /bin/bash"` (We use root user because we want to change content of read-only files).
+3) Go to noobaa working directory: `cd /root/node_modules/noobaa-core/`
+4) Run the script that will create the necessary accounts in noobaa and update the Ceph S3 tests config file accordingly: `node ./src/test/system_tests/ceph_s3_tests/test_ceph_s3_config_setup.js`
+5) Change the configuration file to match AWS details, `vi ./src/test/system_tests/ceph_s3_tests/test_ceph_s3_config_setup.js`:
+* host = s3.amazonaws.com
+* bucket prefix = choose_name (for example: `bucket prefix = foo-bucket` you will need to manually delete it from AWS, and its name will be `foo-bucket1`, it adds suffix of 1).
+* access_key, secret_key appears 3 times each in the file.
+6) Since we changed the name of the bucket and we will manually delete the bucket we will remove it from the code (add comments lines) by `vi ./src/test/system_tests/ceph_s3_tests/s3-tests/s3tests_boto3/functional/__init__.py` inside `teardown` and `setup` functions:
+```python
+# nuke_prefixed_buckets(prefix=prefix)
+# nuke_prefixed_buckets(prefix=prefix, client=alt_client)
+# nuke_prefixed_buckets(prefix=prefix, client=tenant_client)
+```
+7) Run a single test:
+```bash
+S3TEST_CONF=src/test/system_tests/ceph_s3_tests/test_ceph_s3_config.conf ./src/test/system_tests/ceph_s3_tests/s3-tests/virtualenv/bin/nosetests <test_name>
+```
+8) Manually delete the bucket that was created in you AWS account (for example `foo-bucket1`).
 ## Examples
 
 ## Running All the Tests
 
-### Requisitions:
+### Prerequisites:
 Following the 'Run All Ceph S3 Tests' steps.
 
 ### 1) All Running Tested Passed
@@ -194,7 +221,7 @@ CEPH TEST SUMMARY: Suite contains 812, ran 387 tests, Passed: 387, Skipped: 0, F
 ```
 ## Running a Single Test
 
-### Requisitions:
+### Prerequisites:
 Following the 'Run a Single Ceph S3 Test' steps.
 
 ### 1) Test Pass

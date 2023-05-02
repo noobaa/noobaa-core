@@ -71,7 +71,7 @@ async function background_worker() {
         dbg.log0('LIFECYCLE READ BUCKETS configuration buckets:', system_store.data.buckets.map(e => e.name));
         for (const bucket of system_store.data.buckets) {
             dbg.log0('LIFECYCLE READ BUCKETS configuration bucket name:', bucket.name, "rules", bucket.lifecycle_configuration_rules);
-            if (!bucket.lifecycle_configuration_rules || bucket.deleting) return;
+            if (!bucket.lifecycle_configuration_rules || bucket.deleting) continue;
 
             await P.all(_.map(bucket.lifecycle_configuration_rules,
                 async (lifecycle_rule, j) => {

@@ -1158,6 +1158,30 @@ module.exports = {
             },
             auth: { system: 'admin' }
         },
+
+        delete_multiple_objects_unordered: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['bucket'],
+                properties: {
+                    bucket: { $ref: 'common_api#/definitions/bucket_name' },
+                    limit: {
+                        type: 'integer'
+                    }
+                }
+            },
+            reply: {
+                type: 'object',
+                properties: {
+                    is_empty: {
+                        type: 'boolean'
+                    }
+                }
+            },
+            auth: { system: 'admin' }
+        },
+
         put_object_legal_hold: {
             method: 'PUT',
             params: {

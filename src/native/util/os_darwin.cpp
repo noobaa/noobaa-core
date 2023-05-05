@@ -11,6 +11,7 @@ namespace noobaa
  * get the effective uid/gid of the current thread using pthread_getugid_np()
  * this is the only per-thread api to do so, and although it is deprecated,
  * we don't seem to have another way.
+ * pthread_setugid_np sets the effective uid/gid and clears the supplementary groups of the current thread
  * See https://www.unix.com/man-page/osx/2/pthread_setugid_np/
  */
 #pragma GCC diagnostic push

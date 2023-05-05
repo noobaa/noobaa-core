@@ -1,6 +1,8 @@
 export as namespace nb;
 
+import * as fs from 'fs';
 import * as mongodb from 'mongodb';
+import { EventEmitter } from 'events';
 import { Readable, Writable } from 'stream';
 
 type Semaphore = import('../util/semaphore');
@@ -494,6 +496,21 @@ interface BlockMD {
     digest_b64?: string;
     node_type?: string;
     is_preallocated?: boolean;
+    mapping_info?: {
+        obj_id: string;
+        multipart_id?: string;
+        part_id?: string;
+        chunk_id?: string;
+        frag_id?: string;
+        bucket: string;
+        key: string;
+        part_start: number;
+        part_end: number;
+        part_seq: number;
+        data_index?: number;
+        parity_index?: number;
+        lrc_index?: number;
+    };
 }
 
 interface AllocationInfo {
@@ -806,3 +823,202 @@ interface BucketSpace {
     get_object_lock_configuration(params: object, object_sdk: ObjectSDK): Promise<any>;
     put_object_lock_configuration(params: object, object_sdk: ObjectSDK): Promise<any>;
 }
+
+
+/**********************************************************
+ *
+ * NATIVE ADDONS
+ *
+ **********************************************************/
+
+interface Native {
+    chunk_splitter(state: ChunkSplitterState, buffers?: Buffer[], callback?: NodeCallback<number[]>);
+    chunk_coder(coder: 'enc' | 'dec', chunk: Chunk, callback?: NodeCallback);
+
+    b64_encode(input: Buffer): string;
+    b64_decode(input_b64: string): Buffer;
+
+    rand_seed(buffer: Buffer): void;
+    set_fips_mode(is_fips_mode: boolean): void;
+
+    x509(options?: X509Options): X509Cert;
+    x509_verify(certificate: X509Cert): { owner: X509Name, issuer: X509Name }; // throws if invalid
+
+    syslog(level: number, message: string, facility?: 'LOG_LOCAL0' | 'LOG_LOCAL1');
+    openlog(ident: string);
+    closelog(): void;
+    
+    Nudp: { new(): Nudp };
+    Ntcp: { new(): Ntcp };
+
+    MD5_MB: { new(): HasherSync };
+    SHA1_MB: { new(): HasherSync };
+    crypto: { MD5Async: { new(): HasherAsync } };
+    
+    fs: NativeFS;
+
+    S3Select: { new(options: S3SelectOptions): S3Select };
+}
+
+interface NativeFS {
+    open(fs_context: NativeFSContext, path: string, flags?: string, mode?: number): Promise<NativeFile>;
+    opendir(fs_context: NativeFSContext, path: string, flags?: string, mode?: number): Promise<NativeDir>;
+
+    stat(
+        fs_context: NativeFSContext,
+        path: string,
+        options?: {
+            use_lstat?: boolean;
+            skip_user_xattr?: boolean;
+        },
+    ): Promise<NativeFSStats>;
+    statfs(fs_context: NativeFSContext, path: string): Promise<object>;
+    realpath(fs_context: NativeFSContext, path: string): Promise<string>;
+    checkAccess(fs_context: NativeFSContext, path: string): Promise<void>;
+    getsinglexattr(fs_context: NativeFSContext, path: string, key: string): Promise<string>;
+
+    readFile(
+        fs_context: NativeFSContext,
+        path: string,
+        options?: {
+            read_xattr?: boolean;
+            skip_user_xattr?: boolean;
+        },
+    ): Promise<{
+        data: Buffer;
+        stat: NativeFSStats;
+    }>;
+    writeFile(fs_context: NativeFSContext, path: string, buffer: Buffer, options?: {
+        mode?: number;
+        xattr?: NativeFSXattr;
+        xattr_need_fsync?: boolean;
+        xattr_clear_prefix?: string;
+    }): Promise<void>;
+    fsync(fs_context: NativeFSContext, path: string): Promise<void>;
+
+    rename(fs_context: NativeFSContext, from_path: string, to_path: string): Promise<void>;
+    link(fs_context: NativeFSContext, from_path: string, to_path: string): Promise<void>;
+    linkat(fs_context: NativeFSContext, from_path: string, to_path: string): Promise<void>;
+    unlink(fs_context: NativeFSContext, path: string): Promise<void>;
+    unlinkat(fs_context: NativeFSContext, path: string): Promise<void>;
+    safe_link(fs_context: NativeFSContext, from_path: string, to_path: string, expect_mtime: bigint, expect_ino: number): Promise<void>;
+    safe_unlink(fs_context: NativeFSContext, from_path: string, to_path: string, expect_mtime: bigint, expect_ino: number): Promise<void>;
+
+    readdir(fs_context: NativeFSContext, path: string): Promise<fs.Dirent[]>;
+    mkdir(fs_context: NativeFSContext, path: string, mode?: number): Promise<void>;
+    rmdir(fs_context: NativeFSContext, path: string): Promise<void>;
+
+    S_IFMT: number;
+    S_IFDIR: number;
+    S_IFLNK: number;
+    DT_DIR: number;
+    DT_LNK: number;
+    PLATFORM_IOV_MAX: number;
+
+    gpfs?: object;
+
+    set_debug_level(level: number);
+}
+
+interface NativeFile {
+    close(fs_context: NativeFSContext): Promise<void>;
+    stat(fs_context: NativeFSContext): Promise<NativeFSStats>;
+    read(fs_context: NativeFSContext, buffer: Buffer, offset: number, length: number, pos: number): Promise<number>;
+    write(fs_context: NativeFSContext, buffer: Buffer): Promise<void>;
+    writev(fs_context: NativeFSContext, buffers: Buffer[]): Promise<void>;
+    replacexattr(fs_context: NativeFSContext, xattr: NativeFSXattr, clear_prefix?: string): Promise<void>;
+    linkfileat(fs_context: NativeFSContext): Promise<void>;
+    fsync(fs_context: NativeFSContext): Promise<void>;
+}
+
+interface NativeDir {
+    close(fs_context: NativeFSContext): Promise<void>;
+    read(fs_context: NativeFSContext): Promise<fs.Dirent>;
+    // TODO
+}
+
+interface NativeFSContext {
+    uid?: number;
+    gid?: number;
+    backend?: 'GPFS';
+    warn_threshold_ms?: number;
+    report_fs_stats?: Function;
+}
+
+type NativeFSXattr = { [key: string]: string };
+type NativeFSStats = fs.Stats & {
+    atimeNsBigint: bigint;
+    ctimeNsBigint: bigint;
+    mtimeNsBigint: bigint;
+    xattr?: NativeFSXattr;
+};
+
+interface HasherSync {
+    update(buffer: Buffer): this;
+    digest(): Buffer;
+}
+
+interface HasherAsync {
+    update(buffer: Buffer): Promise<void>;
+    digest(): Promise<Buffer>;
+}
+
+interface Nudp extends EventEmitter {
+    close(): void;
+    bind(port: number, address: string, callback: NodeCallback): void;
+    send(msg: Buffer, callback: NodeCallback): void;
+}
+
+interface Ntcp extends EventEmitter {
+    close(): void;
+    bind(port: number, address: string, callback: NodeCallback): void;
+    send(msg: Buffer, callback: NodeCallback): void;
+}
+
+interface ChunkSplitterState {
+    min_chunk: number;
+    max_chunk: number;
+    avg_chunk_bits: number;
+    calc_md5: boolean;
+    calc_sha256: boolean;
+}
+
+interface X509Cert {
+    key: string;
+    cert: string;
+}
+
+interface X509Options {
+    days?: number;
+    dns?: string;
+    owner?: X509Name;
+    issuer?: X509Name;
+    private?: string;
+    public?: string;
+    
+}
+
+interface X509Name {
+    CN: string;
+    C: string;
+    ST: string;
+    O: string;
+}
+
+interface S3SelectOptions {
+    query: string;
+    input_format: 'CSV' | 'JSON';
+    input_serialization_format: {
+        FieldDelimiter: string;
+        RecordDelimiter: string;
+        FileHeaderInfo: string;
+    };
+    records_header_buf: Buffer;
+}
+
+interface S3Select {
+    write(data: Buffer): Promise<Buffer>;
+    flush(): Promise<Buffer>;
+}
+
+type NodeCallback<T = void> = (err: Error | null, res?: T) => void;

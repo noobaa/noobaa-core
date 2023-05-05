@@ -494,7 +494,20 @@ class ObjectIO {
 
                 return chunk;
             });
+
+            /** 
+             * passing partial object info we have in this context which will be sent to block_stores
+             * as block_md.mapping_info so it can be used for recovery in case the db is not available.
+             * @type {Partial<nb.ObjectInfo>}
+             */
+            const object_md = {
+                obj_id: params.obj_id,
+                bucket: params.bucket,
+                key: params.key,
+            };
+
             const mc = new MapClient({
+                object_md,
                 chunks: map_chunks,
                 location_info: params.location_info,
                 check_dups: !is_using_encryption,

@@ -162,7 +162,7 @@ function to_fs_xattr(xattr) {
 /**
  * @typedef {{
  *  time: number,
- *  stat: fs.Stats,
+ *  stat: nb.NativeFSStats,
  *  usage: number,
  *  sorted_entries?: fs.Dirent[],
  * }} ReaddirCacheItem
@@ -230,6 +230,10 @@ class NamespaceFS {
         this.stats = stats;
     }
 
+    /**
+     * @param {nb.ObjectSDK} object_sdk 
+     * @returns {nb.NativeFSContext}
+     */
     prepare_fs_context(object_sdk) {
         const fs_context = object_sdk?.requesting_account?.nsfs_account_config;
         if (!fs_context) throw new RpcError('UNAUTHORIZED', 'nsfs_account_config is missing');
@@ -329,7 +333,7 @@ class NamespaceFS {
              * @typedef {{
              *  key: string,
              *  common_prefix: boolean,
-             *  stat?: fs.Stats,
+             *  stat?: nb.NativeFSStats,
              * }} Result
              */
 
@@ -1108,8 +1112,9 @@ class NamespaceFS {
             await nb_native().fs.writeFile(
                 fs_context,
                 path.join(params.mpu_path, 'create_object_upload'),
-                Buffer.from(create_params),
-                get_umasked_mode(config.BASE_MODE_FILE)
+                Buffer.from(create_params), {
+                    mode: get_umasked_mode(config.BASE_MODE_FILE)
+                }
             );
             return { obj_id: params.obj_id };
         } catch (err) {
@@ -1226,11 +1231,11 @@ class NamespaceFS {
                 if (MD5Async) await MD5Async.update(Buffer.from(etag, 'hex'));
             }
 
-            const create_params_buffer = await nb_native().fs.readFile(
+            const { data: create_params_buffer } = await nb_native().fs.readFile(
                 fs_context,
                 path.join(params.mpu_path, 'create_object_upload')
             );
-            upload_params.params.xattr = (JSON.parse(create_params_buffer)).xattr;
+            upload_params.params.xattr = (JSON.parse(create_params_buffer.toString())).xattr;
             upload_params.digest = MD5Async && (((await MD5Async.digest()).toString('hex')) + '-' + multiparts.length);
             const upload_info = await this._finish_upload(upload_params);
 
@@ -1481,33 +1486,6 @@ class NamespaceFS {
 
     /**
      * 
-     * @param {*} fs_context - fs context using to check symbolic links
-     * @param {*} file_path - path to file
-     * @returns 
-     */
-    // TODO: Can be changed to get MD5 attributes only
-    async _get_fs_xattr_from_path(fs_context, file_path) {
-        let file;
-        try {
-            file = await nb_native().fs.open(
-                fs_context,
-                file_path,
-                config.NSFS_OPEN_READ_MODE,
-                get_umasked_mode(config.BASE_MODE_FILE),
-            );
-            const fs_xattr = await file.getxattr(fs_context);
-            await file.close(fs_context);
-            file = null;
-            return fs_xattr;
-        } catch (error) {
-            throw this._translate_object_error_codes(error);
-        } finally {
-            if (file) await file.close(fs_context);
-        }
-    }
-
-    /**
-     * 
      * @param {*} fs_context - fs context object
      * @param {string} file_path - path to file
      * @param {*} set - the xattr object to be set
@@ -1610,6 +1588,7 @@ class NamespaceFS {
     /**
      * @param {string} bucket 
      * @param {string} key 
+     * @param {nb.NativeFSStats} stat 
      * @returns {nb.ObjectInfo}
      */
     _get_object_info(bucket, key, stat, return_version_id) {
@@ -2020,7 +1999,7 @@ class NamespaceFS {
                         latest_ver_info = version_info;
                     } else {
                         await nb_native().fs.unlink(fs_context, file_path);
-                        if (!deleted_delete_marker) deleted_delete_marker = version_info.delete_marker;
+                        if (!deleted_delete_marker) deleted_delete_marker = Boolean(version_info.delete_marker);
                     }
                     res.push({ deleted_delete_marker: version_info.delete_marker });
                 } else {

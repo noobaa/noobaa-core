@@ -621,6 +621,24 @@ module.exports = {
                 digest_b64: { type: 'string' },
                 node_type: { $ref: '#/definitions/node_type' },
                 is_preallocated: { type: 'boolean' },
+                mapping_info: {
+                    type: 'object',
+                    properties: {
+                        obj_id: { type: 'string' },
+                        multipart_id: { type: 'string' },
+                        part_id: { type: 'string' },
+                        chunk_id: { type: 'string' },
+                        frag_id: { type: 'string' },
+                        bucket: { type: 'string' },
+                        key: { type: 'string' },
+                        part_start: { type: 'integer' },
+                        part_end: { type: 'integer' },
+                        part_seq: { type: 'integer' },
+                        data_index: { type: 'integer' },
+                        parity_index: { type: 'integer' },
+                        lrc_index: { type: 'integer' },
+                    }
+                },
             }
         },
 

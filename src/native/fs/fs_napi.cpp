@@ -129,9 +129,11 @@ const static std::map<std::string, int> flags_to_case = {
     { "r", O_RDONLY },
     { "rs", O_RDONLY | O_SYNC },
     { "sr", O_RDONLY | O_SYNC },
+#ifdef O_DIRECT
     { "rd", O_RDONLY | O_DIRECT },
     { "dr", O_RDONLY | O_DIRECT },
     { "rds", O_RDONLY | O_DIRECT | O_SYNC },
+#endif
     { "r+", O_RDWR },
     { "rs+", O_RDWR | O_SYNC },
     { "sr+", O_RDWR | O_SYNC },
@@ -371,6 +373,46 @@ get_fd_gpfs_xattr(int fd, XattrMap& xattr, int& gpfs_error)
     }
     return 0;
 }
+
+static void
+get_xattr_from_object(XattrMap& xattr, Napi::Object obj)
+{
+    auto keys = obj.GetPropertyNames();
+    for (uint32_t i = 0; i < keys.Length(); ++i) {
+        auto key = keys.Get(i).ToString().Utf8Value();
+        auto value = obj.Get(key).ToString().Utf8Value();
+        xattr[key] = value;
+    }
+}
+
+/**
+ * TODO: Not atomic and might cause partial updates of MD
+ * need to be tested
+ */
+static int
+clear_xattr(int fd, std::string _prefix)
+{
+    ssize_t buf_len = flistxattr(fd, NULL, 0);
+    // No xattr, nothing to do
+    if (buf_len == 0) return 0;
+    if (buf_len == -1) return -1;
+    Buf buf(buf_len);
+    buf_len = flistxattr(fd, buf.cdata(), buf_len);
+    // No xattr, nothing to do
+    if (buf_len == 0) return 0;
+    if (buf_len == -1) return -1;
+    while (buf.length()) {
+        std::string key(buf.cdata());
+        // remove xattr only if its key starts with prefix
+        if (key.rfind(_prefix, 0) == 0) {
+            ssize_t value_len = fremovexattr(fd, key.c_str());
+            if (value_len == -1) return -1;
+        }
+        buf.slice(key.size() + 1, buf.length());
+    }
+    return 0;
+}
+
 
 /**
  * FSWorker is a general async worker for our fs operations
@@ -856,11 +898,16 @@ struct Rename : public FSWorker
 struct Writefile : public FSWorker
 {
     std::string _path;
+    XattrMap _xattr;
+    bool _set_xattr;
+    bool _xattr_need_fsync;
+    std::string _xattr_clear_prefix;
     const uint8_t* _data;
     size_t _len;
     mode_t _mode;
     Writefile(const Napi::CallbackInfo& info)
         : FSWorker(info)
+        , _set_xattr(false)
         , _mode(0666)
     {
         _path = info[1].As<Napi::String>();
@@ -868,7 +915,14 @@ struct Writefile : public FSWorker
         _data = buf.Data();
         _len = buf.Length();
         if (info.Length() > 3 && !info[3].IsUndefined()) {
-            _mode = info[3].As<Napi::Number>().Uint32Value();
+            Napi::Object options = info[3].As<Napi::Object>();
+            if (options.Has("mode")) _mode = options.Get("mode").As<Napi::Number>().Uint32Value();
+            if (options.Has("xattr_need_fsync")) _xattr_need_fsync = options.Get("xattr_need_fsync").ToBoolean();
+            if (options.Has("xattr_clear_prefix")) _xattr_clear_prefix = options.Get("xattr_clear_prefix").As<Napi::String>();
+            if (options.Has("xattr")) {
+                _set_xattr = true;
+                get_xattr_from_object(_xattr, options.Get("xattr").As<Napi::Object>());
+            }
         }
         Begin(XSTR() << "Writefile " << DVAL(_path) << DVAL(_len) << DVAL(_mode));
     }
@@ -883,6 +937,18 @@ struct Writefile : public FSWorker
         } else if ((size_t)len != _len) {
             SetError(XSTR() << "Writefile: partial write error " << DVAL(len) << DVAL(_len));
         }
+
+        if (_set_xattr) {
+            if (_xattr_need_fsync) {
+                SYSCALL_OR_RETURN(fsync(fd));
+            }
+            if (_xattr_clear_prefix != "") {
+                SYSCALL_OR_RETURN(clear_xattr(fd, _xattr_clear_prefix));
+            }
+            for (auto it = _xattr.begin(); it != _xattr.end(); ++it) {
+                SYSCALL_OR_RETURN(fsetxattr(fd, it->first.c_str(), it->second.c_str(), it->second.length(), 0));
+            }
+        }
     }
 };
 
@@ -892,14 +958,24 @@ struct Writefile : public FSWorker
 struct Readfile : public FSWorker
 {
     std::string _path;
+    bool _read_xattr;
+    bool _skip_user_xattr;
+    struct stat _stat_res;
+    XattrMap _xattr;
     uint8_t* _data;
     int _len;
     Readfile(const Napi::CallbackInfo& info)
         : FSWorker(info)
+        , _read_xattr(false)
         , _data(0)
         , _len(0)
     {
         _path = info[1].As<Napi::String>();
+        if ((int)info.Length() == 3) {
+            Napi::Object options = info[2].As<Napi::Object>();
+            if (options.Has("read_xattr")) _read_xattr = options.Get("read_xattr").ToBoolean();
+            if (options.Has("skip_user_xattr")) _skip_user_xattr = options.Get("skip_user_xattr").ToBoolean();
+        }
         Begin(XSTR() << "Readfile " << DVAL(_path));
     }
     virtual ~Readfile()
@@ -913,11 +989,15 @@ struct Readfile : public FSWorker
     {
         int fd = open(_path.c_str(), O_RDONLY);
         CHECK_OPEN_FD(fd);
+        SYSCALL_OR_RETURN(fstat(fd, &_stat_res));
+        if (_read_xattr) {
+            SYSCALL_OR_RETURN(get_fd_xattr(fd, _xattr, _skip_user_xattr));
+            if (_backend == GPFS_BACKEND) {
+                GPFS_FCNTL_OR_RETURN(get_fd_gpfs_xattr(fd, _xattr, gpfs_error));
+            }
+        }
 
-        struct stat stat_res;
-        SYSCALL_OR_RETURN(fstat(fd, &stat_res));
-
-        _len = stat_res.st_size;
+        _len = _stat_res.st_size;
         _data = new uint8_t[_len];
 
         uint8_t* p = _data;
@@ -931,13 +1011,25 @@ struct Readfile : public FSWorker
             remain -= len;
             p += len;
         }
+
+        CHECK_CTIME_CHANGE(fd, _stat_res, _path);
     }
     virtual void OnOK()
     {
         DBG1("FS::FSWorker::OnOK: Readfile " << DVAL(_path));
         Napi::Env env = Env();
-        auto buf = Napi::Buffer<uint8_t>::Copy(env, _data, _len);
-        _deferred.Resolve(buf);
+
+        auto res_stat = Napi::Object::New(env);
+        set_stat_res(res_stat, env, _stat_res, _xattr);
+
+        auto data = _data;
+        _data = 0;
+        auto buf = Napi::Buffer<uint8_t>::New(env, data, _len);
+
+        auto res = Napi::Object::New(env);
+        res["stat"] = res_stat;
+        res["data"] = buf;
+        _deferred.Resolve(res);
         ReportWorkerStats(0);
     }
 };
@@ -1246,34 +1338,6 @@ struct FileWritev : public FSWrapWorker<FileWrap>
 
 /**
  * TODO: Not atomic and might cause partial updates of MD
- * need to be tested
- */
-static int
-clear_xattr(int fd, std::string _prefix)
-{
-    ssize_t buf_len = flistxattr(fd, NULL, 0);
-    // No xattr, nothing to do
-    if (buf_len == 0) return 0;
-    if (buf_len == -1) return -1;
-    Buf buf(buf_len);
-    buf_len = flistxattr(fd, buf.cdata(), buf_len);
-    // No xattr, nothing to do
-    if (buf_len == 0) return 0;
-    if (buf_len == -1) return -1;
-    while (buf.length()) {
-        std::string key(buf.cdata());
-        // remove xattr only if its key starts with prefix
-        if (key.rfind(_prefix, 0) == 0) {
-            ssize_t value_len = fremovexattr(fd, key.c_str());
-            if (value_len == -1) return -1;
-        }
-        buf.slice(key.size() + 1, buf.length());
-    }
-    return 0;
-}
-
-/**
- * TODO: Not atomic and might cause partial updates of MD
  */
 struct FileReplacexattr : public FSWrapWorker<FileWrap>
 {
@@ -1284,13 +1348,7 @@ struct FileReplacexattr : public FSWrapWorker<FileWrap>
         , _prefix("")
     {
         if (info.Length() > 1 && !info[1].IsUndefined()) {
-            auto md = info[1].As<Napi::Object>();
-            auto keys = md.GetPropertyNames();
-            for (uint32_t i = 0; i < keys.Length(); ++i) {
-                auto key = keys.Get(i).ToString().Utf8Value();
-                auto value = md.Get(key).ToString().Utf8Value();
-                _xattr[key] = value;
-            }
+            get_xattr_from_object(_xattr, info[1].As<Napi::Object>());
         }
         if (info.Length() > 2 && !info[2].IsUndefined()) {
             _prefix = info[2].As<Napi::String>();

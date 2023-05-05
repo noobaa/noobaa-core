@@ -59,7 +59,7 @@ mocha.describe('bucket operations - namespace_fs', function() {
         httpOptions: { agent: new http.Agent({ keepAlive: false }) },
     };
 
-    mocha.before(async () => {
+    mocha.before(async function() {
         if (test_utils.invalid_nsfs_root_permissions()) this.skip(); // eslint-disable-line no-invalid-this
         await fs_utils.create_fresh_path(tmp_fs_root + '/new_s3_buckets_dir', 0o770);
         await fs_utils.create_fresh_path(tmp_fs_root + bucket_path, 0o770);

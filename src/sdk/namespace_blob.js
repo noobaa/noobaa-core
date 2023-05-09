@@ -13,6 +13,7 @@ const stream_utils = require('../util/stream_utils');
 const s3_utils = require('../endpoint/s3/s3_utils');
 const schema_utils = require('../util/schema_utils');
 const invalid_azure_md_regex = /[^a-zA-Z0-9_]/g;
+const invalid_azure_tag_regex = /[^a-zA-Z0-9 +-.:=_/]/g;
 const XATTR_RENAME_PREFIX = 'rename_';
 const XATTR_RENAME_KEY_PREFIX = 'rename_key_';
 
@@ -254,13 +255,19 @@ class NamespaceBlob {
         );
         let obj;
         const blob_client = this._get_blob_client(params.key);
+        const tagging = params.tagging && Object.fromEntries(params.tagging.map(tag => ([tag.key, tag.value])));
         if (params.copy_source) {
             if (params.copy_source.ranges) {
                 throw new Error('NamespaceBlob.upload_object: copy source range not supported');
             }
-            const sasToken = await this._get_sas_token(params.copy_source.bucket, params.copy_source.key, 'r'); // read permission
+            const tag_permision = params.tagging_copy || params.tagging ? 't' : ''; //tag permission
+            const sasToken = await this._get_sas_token(params.copy_source.bucket, params.copy_source.key, 'r' + tag_permision); // read permission + tag permission(if needed)
             const url = this._generate_blob_url(params.copy_source.bucket, params.copy_source.key, sasToken);
-            obj = await blob_client.syncUploadFromURL(url);
+            obj = await blob_client.syncUploadFromURL(url, {
+                ...(params.tagging_copy ?
+                    {copySourceTags: 'COPY'} :
+                    {tags: tagging}
+            )});
         } else {
             let count = 1;
             const count_stream = stream_utils.get_tap_stream(data => {
@@ -274,6 +281,7 @@ class NamespaceBlob {
             });
 
             this._check_valid_xattr(params);
+            if (params.tagging) this._check_valid_tagging(params);
             try {
                 const { new_stream, md5_buf } = azure_storage.calc_body_md5(params.source_stream);
                 const headers = {
@@ -288,7 +296,8 @@ class NamespaceBlob {
                     params.size,
                     undefined, {
                         metadata: params.xattr,
-                        blobHTTPHeaders: headers
+                        blobHTTPHeaders: headers,
+                        tags: tagging
                     }
                 );
                 obj.contentMD5 = md5_buf();
@@ -443,6 +452,30 @@ class NamespaceBlob {
                 }
             }
         params.xattr = modified_xattr;
+    }
+
+    // This tagging validation check is a part of namespace blob because Azure Blob 
+    // has limitations that s3 does not have.
+    _check_valid_tagging(params) {
+        for (const tag of params.tagging) {
+            if (tag.key === "" || tag.key.length > 128 || tag.value.length > 256) {
+                const err = new Error('InvalidTags: tag keys must be between 1 and 128 characters, and tag values must be between 0 and 256 characters');
+                err.rpc_code = 'INVALID_REQUEST';
+                throw err;
+            }
+            invalid_azure_tag_regex.lastIndex = 0;
+            if (invalid_azure_tag_regex.test(tag.key)) {
+                const err = new Error('InvalidTags: tag key ' + tag.key + ' has invalid charecters');
+                err.rpc_code = 'INVALID_REQUEST';
+                throw err;
+            }
+            invalid_azure_tag_regex.lastIndex = 0;
+            if (invalid_azure_tag_regex.test(tag.value)) {
+                const err = new Error('InvalidTags: tag value ' + tag.value + ' has invalid charecters');
+                err.rpc_code = 'INVALID_REQUEST';
+                throw err;
+            }
+        }
     }
 
     async upload_multipart(params, object_sdk) {
@@ -664,7 +697,6 @@ class NamespaceBlob {
     }
 
     // TODO: check contentSettings replcae etc
-    // TODO: Implement tagging on objects
     /**
      * @returns {nb.ObjectInfo}
      */
@@ -677,6 +709,7 @@ class NamespaceBlob {
         const md5_hex = Buffer.from(md5_b64, 'base64').toString('hex');
         const etag = md5_hex || blob_etag;
         const size = parseInt(flat_obj.contentLength, 10);
+        const tag_count = parseInt(flat_obj.tagCount, 10);
         const xattr = _.extend(obj.metadata, {
             'noobaa-namespace-blob-container': this.container,
         });
@@ -701,7 +734,8 @@ class NamespaceBlob {
             etag,
             create_time: flat_obj.lastModified,
             content_type: flat_obj.contentType,
-            xattr: modified_xattr
+            xattr: modified_xattr,
+            tag_count: tag_count
         };
     }
 
@@ -745,13 +779,45 @@ class NamespaceBlob {
     ///////////////////
 
     async get_object_tagging(params, object_sdk) {
-        throw new Error('TODO');
+        dbg.log0('NamespaceBlob.get_object_tagging:', this.container, inspect(params));
+
+        const blob_client = this._get_blob_client(params.key);
+        const res = await blob_client.getTags();
+
+        dbg.log0('NamespaceBlob.get_object_tagging:', this.container, inspect(params), 'res', inspect(res));
+
+        const TagSet = Object.keys(res.tags).map(key => ({
+            key: key,
+            value: res.tags[key]
+        }));
+
+        return {
+            tagging: TagSet
+        };
     }
     async delete_object_tagging(params, object_sdk) {
-        throw new Error('TODO');
+        dbg.log0('NamespaceBlob.delete_object_tagging:', this.container, inspect(params));
+        const blob_client = this._get_blob_client(params.key);
+
+        //set tags with empty set removes all current tags from the blob
+        const res = await blob_client.setTags({});
+
+        dbg.log0('NamespaceBlob.delete_object_tagging:', this.container, inspect(params), 'res', inspect(res));
+
+        return {};
     }
     async put_object_tagging(params, object_sdk) {
-        throw new Error('TODO');
+        dbg.log0('NamespaceBlob.put_object_tagging:', this.container, inspect(params));
+        const blob_client = this._get_blob_client(params.key);
+
+        this._check_valid_tagging(params);
+        const tagging = Object.fromEntries(params.tagging.map(tag => ([tag.key, tag.value])));
+
+        const res = await blob_client.setTags(tagging);
+
+        dbg.log0('NamespaceBlob.put_object_tagging:', this.container, inspect(params), 'res', inspect(res));
+
+        return {};
     }
 
     ///////////////////

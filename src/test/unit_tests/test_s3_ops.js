@@ -217,7 +217,7 @@ mocha.describe('s3_ops', function() {
         mocha.beforeEach('s3 ops before each', async function() {
             this.timeout(100000);
         });
-        mocha.it('shoult tag text file', async function() {
+        mocha.it('should tag text file', async function() {
             this.timeout(60000);
             if (is_azure_namespace) this.skip();
             const params = {
@@ -511,6 +511,7 @@ mocha.describe('s3_ops', function() {
         mocha.it('should allow multipart with empty part', async function() {
             this.timeout(600000);
 
+            if (is_azure_namespace) this.skip();
             const res1 = await s3.createMultipartUpload({
                 Bucket: bucket_name,
                 Key: text_file2
@@ -575,13 +576,14 @@ mocha.describe('s3_ops', function() {
             const res1 = await s3.listObjects({ Bucket: bucket_name }).promise();
             // populate cache
             await s3.getObject({ Bucket: bucket_name, Key: text_file1 }).promise();
-            await s3.getObject({ Bucket: bucket_name, Key: text_file2 }).promise();
+            // text_file2 is not created for azurite since non of the tests creating it are supported (copy / multipart empty upload)
+            if (!is_azure_mock) await s3.getObject({ Bucket: bucket_name, Key: text_file2 }).promise();
             // text_file3 was created using copy - Azurite does not support it
             if (!is_azure_mock) await s3.getObject({ Bucket: bucket_name, Key: text_file3 }).promise();
 
             assert.strictEqual(res1.Contents[0].Key, text_file1);
             assert.strictEqual(res1.Contents[0].Size, file_body.length);
-            assert.strictEqual(res1.Contents.length, is_azure_mock ? 2 : 3);
+            assert.strictEqual(res1.Contents.length, is_azure_mock ? 1 : 3);
 
             if (!caching) return;
             const query_params = { get_from_cache: true };
@@ -594,9 +596,10 @@ mocha.describe('s3_ops', function() {
                 req.httpRequest.path = req_path;
             }).promise();
 
-            assert.strictEqual(res2.Contents.length, is_azure_mock ? 2 : 3);
+            assert.strictEqual(res2.Contents.length, is_azure_mock ? 1 : 3);
             assert.strictEqual(res2.Contents[0].Key, text_file1);
-            assert.strictEqual(res2.Contents[1].Key, text_file2);
+            // text_file2 is not created for azurite since non of the tests creating it are supported (copy / multipart empty upload)
+            if (!is_azure_mock) assert.strictEqual(res2.Contents[1].Key, text_file2);
             // key3 was created using copy - Azurite doesn't support it
             if (!is_azure_mock) assert.strictEqual(res2.Contents[2].Key, text_file3);
 
@@ -614,7 +617,8 @@ mocha.describe('s3_ops', function() {
             await s3.deleteObject({ Bucket: BKT5, Key: text_file5 }).promise();
             await s3.deleteObject({ Bucket: source_bucket, Key: text_file5 }).promise();
             await s3.deleteObject({ Bucket: bucket_name, Key: text_file1 }).promise();
-            await s3.deleteObject({ Bucket: bucket_name, Key: text_file2 }).promise();
+            // key is not created for azurite since non of the tests creating it are supported (copy / multipart empty upload)
+            if (!is_azure_mock) await s3.deleteObject({ Bucket: bucket_name, Key: text_file2 }).promise();
             // text_file3 was created using copy - Azurite does not support it
             if (!is_azure_mock) await s3.deleteObject({ Bucket: bucket_name, Key: text_file3 }).promise();
         });

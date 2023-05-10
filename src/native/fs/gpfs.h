@@ -1194,15 +1194,19 @@ gpfs_stat(const char *pathname, /* File pathname */
 
 
 /*-------------------------------------------------------------------------
- * NAME:        gpfs_linkat()
+ * NAME:        gpfs_linkatif()
  *
  * FUNCTION:    Link file to a directory name.
- *              Atomically replace the destination, if it exists.
+ *              Atomically replace the destination, if it exists, and
+ *              the destination inode is still the same as the one
+ *              passed in replace fd.
  *
  *              Same interface as the linkat(2) system call and
  *              with similar functionality with these differences:
  *               - When newpath specifies an existing file, it is
- *                 atomically replaced; EEXIST is never returned.
+ *                 atomically replaced; EEXIST returned if current
+ *                 inode is not the same as the one passed in.
+ *                 If the inode passed in is zero skip the check.
  *               - AT_EMPTY_PATH does not require CAP_DAC_READ_SEARCH.
  *
  * Returns:      0      Successful
@@ -1215,10 +1219,64 @@ gpfs_stat(const char *pathname, /* File pathname */
  *              EBADF   Bad file desc
  *              EINVAL  Not a GPFS file
  *              ESTALE  cached fs information was invalid
+ *              EEXIST  Destination file already exists and not the same as
+ *                      in replace fd
+ *-------------------------------------------------------------------------*/
+int GPFS_API
+gpfs_linkatif(gpfs_file_t olddirfd, const char *oldpath,
+              gpfs_file_t newdirfd, const char *newpath, int flags,
+              gpfs_file_t replacefd);
+
+
+/*-------------------------------------------------------------------------
+ * NAME:        gpfs_linkat()
+ *
+ * FUNCTION:    Link file to a directory name.
+ *
+ *              Same interface as the linkat(2) system call and
+ *              with similar functionality with these differences:
+ *               - When newpath specifies an existing file, it is
+ *                 replaced;
+ *               - AT_EMPTY_PATH does not require CAP_DAC_READ_SEARCH.
+ *
+ * Returns:      0      Successful
+ *              -1      Failure
+ *
+ * Errno:       ENOSYS  function not available
+ *              ENOMEM  Out of memory
+ *              ENOENT  invalid pathname
+ *              EISDIR  pathname is a directory
+ *              EBADF   Bad file desc
+ *              EINVAL  Not a GPFS file
+ *              ESTALE  cached fs information was invalid
+ *              EEXIST  Destination file already exists and not the same as
+ *                      in replace fd
  *-------------------------------------------------------------------------*/
 int GPFS_API
 gpfs_linkat(gpfs_file_t olddirfd, const char *oldpath,
             gpfs_file_t newdirfd, const char *newpath, int flags);
+
+/*-------------------------------------------------------------------------
+ * NAME:        gpfs_unlinkat()
+ *
+ * FUNCTION:    Unlink file from directory.
+ *              Unlink the file given by dirfd and path, but only if it
+ *              refers to the same file as fd (same inode number).
+ *
+ * Returns:      0      Successful
+ *              -1      Failure
+ *
+ * Errno:       ENOSYS  function not available
+ *              ENOMEM  Out of memory
+ *              ENOENT  invalid pathname
+ *              EISDIR  pathname is a directory
+ *              EBADF   Bad file desc
+ *              EINVAL  Not a GPFS file
+ *              ESTALE  cached fs information was invalid
+ *              EEXIST  file exists and not the same as old inode
+ *-------------------------------------------------------------------------*/
+int GPFS_API
+gpfs_unlinkat(gpfs_file_t dirfd, const char *path, gpfs_file_t fd);
 
 #ifndef AT_EMPTY_PATH
 #define AT_EMPTY_PATH 0x1000

@@ -12,7 +12,7 @@ const coretest = require('./coretest');
 const { rpc_client, EMAIL, PASSWORD, SYSTEM } = coretest;
 
 const fs_utils = require('../../util/fs_utils');
-coretest.setup({ pools_to_create: [coretest.POOL_LIST[1]] });
+coretest.setup({});
 const { stat } = require('../../util/nb_native')().fs;
 const path = require('path');
 const _ = require('lodash');

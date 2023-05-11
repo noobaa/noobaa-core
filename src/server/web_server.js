@@ -12,7 +12,8 @@ require('../util/panic');
 require('../util/fips');
 
 const dbg = require('../util/debug_module')(__filename);
-dbg.set_process_name('WebServer');
+if (!dbg.get_process_name()) dbg.set_process_name('WebServer');
+
 const debug_config = require('../util/debug_config');
 
 const _ = require('lodash');
@@ -37,53 +38,54 @@ const stats_aggregator = require('./system_services/stats_aggregator');
 const addr_utils = require('../util/addr_utils');
 const kube_utils = require('../util/kube_utils');
 const http_utils = require('../util/http_utils');
+const server_rpc = require('./server_rpc');
 
 const rootdir = path.join(__dirname, '..', '..');
 const dev_mode = (process.env.DEV_MODE === 'true');
+const http_port = process.env.PORT || '5001';
+const https_port = process.env.SSL_PORT || '5443';
 const app = express();
 
-if (process.env.NOOBAA_LOG_LEVEL) {
-    const dbg_conf = debug_config.get_debug_config(process.env.NOOBAA_LOG_LEVEL);
-    dbg_conf.core.map(module => dbg.set_module_level(dbg_conf.level, module));
-}
-
-db_client.instance().connect();
-
-//Set KeepAlive to all http/https agents in webserver
-http_utils.update_http_agents({ keepAlive: true });
-http_utils.update_https_agents({ keepAlive: true });
-
-const server_rpc = require('./server_rpc');
-server_rpc.register_system_services();
-server_rpc.register_node_services();
-server_rpc.register_object_services();
-server_rpc.register_func_services();
-server_rpc.register_common_services();
-server_rpc.rpc.register_http_app(app);
-server_rpc.rpc.router.default = 'fcall://fcall';
-
-const http_port = process.env.PORT || 5001;
-const https_port = process.env.SSL_PORT || 5443;
-process.env.PORT = http_port;
-process.env.SSL_PORT = https_port;
-
-
-system_store.once('load', async () => {
-    await account_server.ensure_support_account();
-    if (process.env.CREATE_SYS_NAME && process.env.CREATE_SYS_EMAIL &&
-        system_store.data.systems.length === 0) {
-        dbg.log0(`creating system for kubernetes: ${process.env.CREATE_SYS_NAME}. email: ${process.env.CREATE_SYS_EMAIL}`);
-        await server_rpc.client.system.create_system({
-            name: process.env.CREATE_SYS_NAME,
-            email: process.env.CREATE_SYS_EMAIL,
-            password: process.env.CREATE_SYS_PASSWD || 'DeMo1',
-            must_change_password: true
-        });
-    }
-});
-
-async function start_web_server() {
+async function main() {
     try {
+
+        if (process.env.NOOBAA_LOG_LEVEL) {
+            const dbg_conf = debug_config.get_debug_config(process.env.NOOBAA_LOG_LEVEL);
+            dbg_conf.core.map(module => dbg.set_module_level(dbg_conf.level, module));
+        }
+
+
+        //Set KeepAlive to all http/https agents in webserver
+        http_utils.update_http_agents({ keepAlive: true });
+        http_utils.update_https_agents({ keepAlive: true });
+
+        server_rpc.register_system_services();
+        server_rpc.register_node_services();
+        server_rpc.register_object_services();
+        server_rpc.register_func_services();
+        server_rpc.register_common_services();
+        server_rpc.rpc.register_http_app(app);
+        server_rpc.rpc.router.default = 'fcall://fcall';
+
+        process.env.PORT = http_port;
+        process.env.SSL_PORT = https_port;
+
+        system_store.once('load', async () => {
+            await account_server.ensure_support_account();
+            if (process.env.CREATE_SYS_NAME && process.env.CREATE_SYS_EMAIL &&
+                system_store.data.systems.length === 0) {
+                dbg.log0(`creating system for kubernetes: ${process.env.CREATE_SYS_NAME}. email: ${process.env.CREATE_SYS_EMAIL}`);
+                await server_rpc.client.system.create_system({
+                    name: process.env.CREATE_SYS_NAME,
+                    email: process.env.CREATE_SYS_EMAIL,
+                    password: process.env.CREATE_SYS_PASSWD || 'DeMo1',
+                    must_change_password: true
+                });
+            }
+        });
+
+        await db_client.instance().connect();
+
         // we register the rpc before listening on the port
         // in order for the rpc services to be ready immediately
         // with the http services like /version
@@ -96,13 +98,13 @@ async function start_web_server() {
         server_rpc.rpc.register_ws_transport(https_server);
         await P.ninvoke(https_server, 'listen', https_port);
 
+        // Try to start the metrics server.
+        await prom_reporting.start_server(config.WS_METRICS_SERVER_PORT);
+
     } catch (err) {
         dbg.error('Web Server FAILED TO START', err.stack || err);
         process.exit(1);
     }
-
-    // Try to start the metrics server.
-    await prom_reporting.start_server(config.WS_METRICS_SERVER_PORT);
 }
 
 ////////////////
@@ -186,14 +188,14 @@ app.post('/set_log_level*', function(req, res) {
     dbg.set_module_level(req.param('level'), req.param('module'));
 
     return server_rpc.client.redirector.publish_to_cluster({
-            target: '', // required but irrelevant
-            method_api: 'debug_api',
-            method_name: 'set_debug_level',
-            request_params: {
-                level: req.param('level'),
-                module: req.param('module')
-            }
-        })
+        target: '', // required but irrelevant
+        method_api: 'debug_api',
+        method_name: 'set_debug_level',
+        request_params: {
+            level: req.param('level'),
+            module: req.param('module')
+        }
+    })
         .then(function() {
             res.status(200).end();
         });
@@ -270,7 +272,7 @@ app.get('/oauth/authorize', async (req, res) => {
     authorization_endpoint.searchParams.set('client_id', client_id);
     authorization_endpoint.searchParams.set('response_type', 'code');
     authorization_endpoint.searchParams.set('scope', config.OAUTH_REQUIRED_SCOPE);
-    authorization_endpoint.searchParams.set('redirect_uri', redirect_uri);
+    authorization_endpoint.searchParams.set('redirect_uri', redirect_uri.toString());
     authorization_endpoint.searchParams.set('state', decodeURIComponent(return_url));
 
     res.redirect(authorization_endpoint);
@@ -465,5 +467,6 @@ function is_latest_version(query_version) {
     return true;
 }
 
+exports.main = main;
 
-if (require.main === module) start_web_server();
+if (require.main === module) main();

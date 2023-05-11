@@ -10,7 +10,7 @@ require('../util/panic');
 require('../util/fips');
 
 const dbg = require('../util/debug_module')(__filename);
-dbg.set_process_name('BGWorkers');
+if (!dbg.get_process_name()) dbg.set_process_name('BGWorkers');
 const debug_config = require('../util/debug_config');
 
 const url = require('url');
@@ -58,18 +58,6 @@ const MASTER_BG_WORKERS = [
     'key_rotator'
 ];
 
-if (process.env.NOOBAA_LOG_LEVEL) {
-    const dbg_conf = debug_config.get_debug_config(process.env.NOOBAA_LOG_LEVEL);
-    dbg_conf.core.map(module => dbg.set_module_level(dbg_conf.level, module));
-}
-
-db_client.instance().connect();
-register_rpc();
-
-//Set KeepAlive to all http/https agents in bg_workers
-http_utils.update_http_agents({ keepAlive: true });
-http_utils.update_https_agents({ keepAlive: true });
-
 function register_rpc() {
     server_rpc.register_bg_services();
     server_rpc.register_common_services();
@@ -83,7 +71,7 @@ function register_rpc() {
 
 const register_bg_worker =
     (worker, run_batch_function) =>
-    background_scheduler.register_bg_worker(worker, run_batch_function);
+        background_scheduler.register_bg_worker(worker, run_batch_function);
 
 function remove_master_workers() {
     MASTER_BG_WORKERS.forEach(worker_name => {
@@ -241,7 +229,19 @@ function run_master_workers() {
     }
 }
 
-async function start_bg_workers_server() {
+async function main() {
+    if (process.env.NOOBAA_LOG_LEVEL) {
+        const dbg_conf = debug_config.get_debug_config(process.env.NOOBAA_LOG_LEVEL);
+        dbg_conf.core.map(module => dbg.set_module_level(dbg_conf.level, module));
+    }
+
+    db_client.instance().connect();
+    register_rpc();
+
+    //Set KeepAlive to all http/https agents in bg_workers
+    http_utils.update_http_agents({ keepAlive: true });
+    http_utils.update_https_agents({ keepAlive: true });
+
     register_bg_worker({
         name: 'cluster_master_publish',
         delay: config.CLUSTER_MASTER_INTERVAL,
@@ -260,8 +260,8 @@ async function start_bg_workers_server() {
     dbg.log('BG Workers Server started');
 }
 
-start_bg_workers_server();
-
-// EXPORTS
+exports.main = main;
 exports.run_master_workers = run_master_workers;
 exports.remove_master_workers = remove_master_workers;
+
+if (require.main === module) main();

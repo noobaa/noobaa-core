@@ -9,7 +9,7 @@ require('../util/panic');
 require('../util/fips');
 
 const dbg = require('../util/debug_module')(__filename);
-dbg.set_process_name('Endpoint');
+if (!dbg.get_process_name()) dbg.set_process_name('Endpoint');
 
 const util = require('util');
 const http = require('http');
@@ -80,7 +80,7 @@ dbg.log0('endpoint: replacing old umask: ', old_umask.toString(8), 'with new uma
 /**
  * @param {EndpointOptions} options
  */
-async function start_endpoint(options = {}) {
+async function main(options = {}) {
     try {
         fork_utils.start_workers(options.forks ?? config.ENDPOINT_FORKS);
 
@@ -405,6 +405,8 @@ function setup_http_server(server) {
     // });
 }
 
-exports.start_endpoint = start_endpoint;
+exports.main = main;
 exports.create_endpoint_handler = create_endpoint_handler;
 exports.create_init_request_sdk = create_init_request_sdk;
+
+if (require.main === module) main();

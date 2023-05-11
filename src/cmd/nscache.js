@@ -56,10 +56,10 @@ WARNING:
 
 function print_usage() {
     console.warn(HELP);
-    console.warn(USAGE.trimLeft());
-    console.warn(ARGUMENTS.trimLeft());
-    console.warn(OPTIONS.trimLeft());
-    console.warn(WARNINGS.trimLeft());
+    console.warn(USAGE.trimStart());
+    console.warn(ARGUMENTS.trimStart());
+    console.warn(OPTIONS.trimStart());
+    console.warn(WARNINGS.trimStart());
     process.exit(1);
 }
 
@@ -75,9 +75,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
         console.warn(WARNINGS);
         console.log('nscache: setting up ...', argv);
 
-        const noop = /** @type {any} */ () => {
-            // TODO
-        };
+        const noop = () => undefined;
         const s3_params = {
             // TODO
             endpoint: hub_endpoint,
@@ -125,7 +123,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
         object_sdk.read_bucket_usage_info = noop;
 
         const endpoint = require('../endpoint/endpoint');
-        await endpoint.start_endpoint({
+        await endpoint.main({
             http_port,
             https_port,
             init_request_sdk: (req, res) => { req.object_sdk = object_sdk; },

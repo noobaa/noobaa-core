@@ -56,13 +56,29 @@ ifeq ($(CONTAINER_ENGINE), podman)
 	DOCKER_BUILDKIT=
 endif
 
-export
+default: build
+.PHNOY: default
+
+# this target builds incrementally
+build:
+	npm run build
+.PHONY: build
+
+# this target cleans and rebuilds
+rebuild:
+	npm run rebuild
+.PHONY: rebuild
+
+pkg: build
+	npm run pkg
+.PHONY: pkg
 
 assert-container-engine:
 	@ if [ "${CONTAINER_ENGINE}" = "" ]; then \
 		echo "\n  Error: You must have container engine installed\n"; \
 		exit 1; \
 	fi
+.PHONY: assert-container-engine
 
 all: tester noobaa
 	@echo "\033[1;32mAll done.\033[0m"

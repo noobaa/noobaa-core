@@ -4,10 +4,10 @@ build/
 coverage/
 logs/
 *.log
-metadata_storage/
+storage/
 noobaa_storage/
 heapdump-*
 .vscode/
-*.STASH
+*.IGNORE
 .nyc_output/
 *Dockerfile

@@ -1,31 +1,35 @@
 # BUILD
-/node_modules/
-/build/
-/coverage/
-/.nyc_output/
+node_modules
+/build
 /noobaa.rpm
 
-## TEST
-/metadata_storage*
+# TEST
+*.log
+/logs
+/coverage
+npm-debug.log*
+.nyc_output
+
+## RUNTIME CONFIG
+.env
+config-local.js
+
+## STORAGE
+/storage/
 /agent_storage*
 /noobaa_storage*
 /agent_conf*.json*
 
-## LOGS
-/logs/
-/npm-debug.log*
-*.log
-
-## IDE
-/.vscode/
-/.idea/
-/*.sublime*
-
 ## DEVELOPER
-/config-local.js
-/.env
-/heapdump-*
-*.pem
+.vscode
+.idea
+*.sublime*
 .DS_Store
-# custom ignored files - use .IGNORE or any prefix.IGNORE dir/file name to remove from git
+heapdump-*
+
+## PRIVATE
+*.pem
+*.key
+
+# custom ignored files - add .IGNORE to the file or dir name to un-git it.
 *.IGNORE 

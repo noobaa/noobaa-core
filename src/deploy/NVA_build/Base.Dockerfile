@@ -26,7 +26,7 @@ ARG BUILD_S3SELECT=1
 RUN ./src/deploy/NVA_build/clone_s3select_submodules.sh
 #Pass BUILD_S3SELECT down to GYP native build.
 #S3Select will be built only if this parameter is equal to "1".
-RUN GYP_DEFINES=BUILD_S3SELECT=$BUILD_S3SELECT npm run build:native
+RUN GYP_DEFINES=BUILD_S3SELECT=$BUILD_S3SELECT npm run build
 
 ##############################################################
 # Layers:

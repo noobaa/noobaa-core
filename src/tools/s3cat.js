@@ -4,7 +4,7 @@
 const _ = require('lodash');
 const fs = require('fs');
 const AWS = require('aws-sdk');
-const argv = require('minimist')(process.argv);
+const minimist = require('minimist');
 const mime = require('mime');
 const http = require('http');
 const https = require('https');
@@ -15,78 +15,85 @@ const size_utils = require('../util/size_utils');
 const RandStream = require('../util/rand_stream');
 const Speedometer = require('../util/speedometer');
 
-// @ts-ignore
-http.globalAgent.keepAlive = true;
-// @ts-ignore
-https.globalAgent.keepAlive = true;
+let argv;
+let s3;
 
-if (argv.presign && !_.isNumber(argv.presign)) {
-    argv.presign = 3600;
-}
+async function main() {
+    argv = minimist(process.argv);
 
-const s3 = new AWS.S3({
-    endpoint: argv.endpoint,
-    accessKeyId: argv.access_key && String(argv.access_key),
-    secretAccessKey: argv.secret_key && String(argv.secret_key),
-    s3ForcePathStyle: !argv.vhost,
-    s3BucketEndpoint: argv.vhost || false,
-    signatureVersion: argv.sig, // s3 or v4
-    computeChecksums: argv.checksum || false, // disabled by default for performance
-    s3DisableBodySigning: !argv.signing || true, // disabled by default for performance
-    region: argv.region || 'us-east-1',
-});
+    // @ts-ignore
+    http.globalAgent.keepAlive = true;
+    // @ts-ignore
+    https.globalAgent.keepAlive = true;
 
-// AWS config does not use https.globalAgent
-// so for https we need to set the agent manually
-if (s3.endpoint.protocol === 'https:') {
-    s3.config.update({
-        httpOptions: {
-            agent: new https.Agent({
-                keepAlive: true,
-                rejectUnauthorized: !argv.selfsigned,
-            })
-        }
+    if (argv.presign && !_.isNumber(argv.presign)) {
+        argv.presign = 3600;
+    }
+
+    s3 = new AWS.S3({
+        endpoint: argv.endpoint,
+        accessKeyId: argv.access_key && String(argv.access_key),
+        secretAccessKey: argv.secret_key && String(argv.secret_key),
+        s3ForcePathStyle: !argv.vhost,
+        s3BucketEndpoint: argv.vhost || false,
+        signatureVersion: argv.sig, // s3 or v4
+        computeChecksums: argv.checksum || false, // disabled by default for performance
+        s3DisableBodySigning: !argv.signing || true, // disabled by default for performance
+        region: argv.region || 'us-east-1',
     });
-    if (!argv.selfsigned) {
-        // @ts-ignore
-        AWS.events.on('error', err => {
-            if (err.message === 'self signed certificate') {
-                setTimeout(() => console.log(
-                    '\n*** You can accept self signed certificates with: --selfsigned\n'
-                ), 10);
+
+    // AWS config does not use https.globalAgent
+    // so for https we need to set the agent manually
+    if (s3.endpoint.protocol === 'https:') {
+        s3.config.update({
+            httpOptions: {
+                agent: new https.Agent({
+                    keepAlive: true,
+                    rejectUnauthorized: !argv.selfsigned,
+                })
             }
         });
+        if (!argv.selfsigned) {
+            // @ts-ignore
+            AWS.events.on('error', err => {
+                if (err.message === 'self signed certificate') {
+                    setTimeout(() => console.log(
+                        '\n*** You can accept self signed certificates with: --selfsigned\n'
+                    ), 10);
+                }
+            });
+        }
     }
-}
 
-if (argv.help) {
-    print_usage();
-} else if (argv.lb) {
-    list_buckets();
-} else if (argv.ls || argv.ll) {
-    list_objects();
-} else if (argv.ls_v2 || argv.ll_v2) {
-    list_objects_v2();
-} else if (argv.head) {
-    if (_.isString(argv.head)) {
-        head_object();
+    if (argv.help) {
+        print_usage();
+    } else if (argv.lb) {
+        list_buckets();
+    } else if (argv.ls || argv.ll) {
+        list_objects();
+    } else if (argv.ls_v2 || argv.ll_v2) {
+        list_objects_v2();
+    } else if (argv.head) {
+        if (_.isString(argv.head)) {
+            head_object();
+        } else {
+            head_bucket();
+        }
+    } else if (argv.get) {
+        get_object();
+    } else if (argv.upload || argv.put) {
+        upload_object();
+    } else if (argv.rm) {
+        delete_objects();
+    } else if (argv.mb) {
+        create_bucket();
+    } else if (argv.rb) {
+        delete_bucket();
     } else {
-        head_bucket();
+        list_buckets();
     }
-} else if (argv.get) {
-    get_object();
-} else if (argv.upload || argv.put) {
-    upload_object();
-} else if (argv.rm) {
-    delete_objects();
-} else if (argv.mb) {
-    create_bucket();
-} else if (argv.rb) {
-    delete_bucket();
-} else {
-    list_buckets();
-}
 
+}
 
 async function make_simple_request(op, params) {
     try {
@@ -490,3 +497,7 @@ General S3 Flags:
   --presign <sec>      print a presigned url instead of sending the request, value is expiry in seconds (default 3600 if not set).
 `);
 }
+
+exports.main = main;
+
+if (require.main === module) main();

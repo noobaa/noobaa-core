@@ -14,6 +14,7 @@ const mocha = require('mocha');
 const assert = require('assert');
 const querystring = require('querystring');
 const P = require('../../util/promise');
+const azure_storage = require('@azure/storage-blob');
 
 // If any of these variables are not defined,
 // use the noobaa endpoint to create buckets
@@ -30,7 +31,7 @@ const BKT7 = 'test7-s3-ops-objects-ops';
 const CONNECTION_NAME = 's3_connection';
 const NAMESPACE_RESOURCE_SOURCE = 'namespace_target_bucket';
 const NAMESPACE_RESOURCE_TARGET = 'namespace_source_bucket';
-const TARGET_BUCKET = 's3-ops-target'; // these 2 buckets needs to be exist in the external cloud provider
+const TARGET_BUCKET = 's3-ops-target'; // these 2 buckets should exist in the external cloud provider before running the test
 const SOURCE_BUCKET = 's3-ops-source';
 const file_body = "TEXT-FILE-YAY!!!!-SO_COOL";
 const file_body2 = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
@@ -40,6 +41,13 @@ const text_file1 = 'text-file1';
 const text_file2 = 'text-file2';
 const text_file3 = 'text-file3';
 const text_file5 = 'text-file5';
+
+// azurite mock constants
+const blob_mock_host = process.env.BLOB_HOST;
+const azure_mock_account = 'devstoreaccount1';
+const azure_mock_key = 'Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==';
+const azure_mock_endpoint = `http://${blob_mock_host}:10000/${azure_mock_account}`;
+const azure_mock_connection_string = `DefaultEndpointsProtocol=http;AccountName=${azure_mock_account};AccountKey=${azure_mock_key};BlobEndpoint=${azure_mock_endpoint};`;
 
 mocha.describe('s3_ops', function() {
 
@@ -101,6 +109,9 @@ mocha.describe('s3_ops', function() {
 
     async function test_object_ops(bucket_name, bucket_type, caching, remote_endpoint_options) {
 
+        const is_azure_namespace = is_namespace_blob_bucket(bucket_type, remote_endpoint_options && remote_endpoint_options.endpoint_type);
+        const is_azure_mock = is_namespace_blob_mock(bucket_type, remote_endpoint_options && remote_endpoint_options.endpoint_type);
+
         mocha.before(async function() {
             this.timeout(100000);
             source_bucket = bucket_name + '-source';
@@ -115,8 +126,15 @@ mocha.describe('s3_ops', function() {
                 const ENDPOINT_TYPE = USE_REMOTE_ENDPOINT ? process.env.ENDPOINT_TYPE : 'S3_COMPATIBLE';
                 const AWS_ACCESS_KEY_ID = USE_REMOTE_ENDPOINT ? process.env.AWS_ACCESS_KEY_ID : s3.config.accessKeyId;
                 const AWS_SECRET_ACCESS_KEY = USE_REMOTE_ENDPOINT ? process.env.AWS_SECRET_ACCESS_KEY : s3.config.secretAccessKey;
-
-                coretest.log("Using endpoint: ", ENDPOINT);
+                coretest.log("before creating azure target bucket: ", source_namespace_bucket, target_namespace_bucket);
+                if (is_azure_mock) {
+                    coretest.log("creating azure target bucket: ", source_namespace_bucket, target_namespace_bucket);
+                    // create containers only on mock usage
+                    const blob_service = azure_storage.BlobServiceClient.fromConnectionString(azure_mock_connection_string);
+                    await blob_service.createContainer(TARGET_BUCKET);
+                    await blob_service.createContainer(SOURCE_BUCKET);
+                }
+                coretest.log("after creating azure target bucket: Using endpoint: ", ENDPOINT);
                 const ns_remote_conn = remote_endpoint_options && { ...remote_endpoint_options, name: CONNECTION_NAME };
                 await rpc_client.account.add_external_connection(ns_remote_conn || {
                     name: CONNECTION_NAME,
@@ -201,7 +219,7 @@ mocha.describe('s3_ops', function() {
         });
         mocha.it('shoult tag text file', async function() {
             this.timeout(60000);
-            if (is_namespace_blob_bucket(bucket_type, remote_endpoint_options && remote_endpoint_options.endpoint_type)) this.skip();
+            if (is_azure_namespace) this.skip();
             const params = {
                 Bucket: bucket_name,
                 Key: text_file1,
@@ -258,7 +276,7 @@ mocha.describe('s3_ops', function() {
 
         mocha.it('should head text-file', async function() {
             this.timeout(60000);
-            if (!is_namespace_blob_bucket(bucket_type, remote_endpoint_options && remote_endpoint_options.endpoint_type)) {
+            if (!is_azure_namespace) {
 
                 const params = {
                     Bucket: bucket_name,
@@ -389,6 +407,7 @@ mocha.describe('s3_ops', function() {
             assert.strictEqual(res.ContentLength, file_body.length);
         });
         mocha.it('should copy text-file', async function() {
+            if (is_azure_mock) this.skip();
             this.timeout(120000);
             const res1 = await s3.listObjects({ Bucket: bucket_name }).promise();
             await s3.copyObject({
@@ -405,8 +424,8 @@ mocha.describe('s3_ops', function() {
             assert.strictEqual(res2.Contents.length, (res1.Contents.length + 2));
         });
         mocha.it('should copy text-file multi-part', async function() {
+            if (is_azure_mock) this.skip();
             this.timeout(600000);
-
             const res1 = await s3.createMultipartUpload({
                 Bucket: bucket_name,
                 Key: text_file2
@@ -464,9 +483,8 @@ mocha.describe('s3_ops', function() {
             const UploadId = _.result(_.find(res6.Uploads, function(obj) {
                 return obj.UploadId === res1.UploadId;
             }), 'UploadId');
-            if (!is_namespace_blob_bucket(bucket_type, remote_endpoint_options && remote_endpoint_options.endpoint_type)) {
-                assert.strictEqual(UploadId, res1.UploadId);
-            }
+            if (!is_azure_namespace) assert.strictEqual(UploadId, res1.UploadId);
+
 
             // list_multiparts
             const res5 = await s3.listParts({
@@ -518,9 +536,7 @@ mocha.describe('s3_ops', function() {
             const UploadId = _.result(_.find(res6.Uploads, function(obj) {
                 return obj.UploadId === res1.UploadId;
             }), 'UploadId');
-            if (!is_namespace_blob_bucket(bucket_type, remote_endpoint_options && remote_endpoint_options.endpoint_type)) {
-                assert.strictEqual(UploadId, res1.UploadId);
-            }
+            if (!is_azure_namespace) assert.strictEqual(UploadId, res1.UploadId);
 
             // list_multiparts
             const res5 = await s3.listParts({
@@ -560,11 +576,12 @@ mocha.describe('s3_ops', function() {
             // populate cache
             await s3.getObject({ Bucket: bucket_name, Key: text_file1 }).promise();
             await s3.getObject({ Bucket: bucket_name, Key: text_file2 }).promise();
-            await s3.getObject({ Bucket: bucket_name, Key: text_file3 }).promise();
+            // text_file3 was created using copy - Azurite does not support it
+            if (!is_azure_mock) await s3.getObject({ Bucket: bucket_name, Key: text_file3 }).promise();
 
             assert.strictEqual(res1.Contents[0].Key, text_file1);
             assert.strictEqual(res1.Contents[0].Size, file_body.length);
-            assert.strictEqual(res1.Contents.length, 3);
+            assert.strictEqual(res1.Contents.length, is_azure_mock ? 2 : 3);
 
             if (!caching) return;
             const query_params = { get_from_cache: true };
@@ -577,10 +594,12 @@ mocha.describe('s3_ops', function() {
                 req.httpRequest.path = req_path;
             }).promise();
 
-            assert.strictEqual(res2.Contents.length, 3);
+            assert.strictEqual(res2.Contents.length, is_azure_mock ? 2 : 3);
             assert.strictEqual(res2.Contents[0].Key, text_file1);
             assert.strictEqual(res2.Contents[1].Key, text_file2);
-            assert.strictEqual(res2.Contents[2].Key, text_file3);
+            // key3 was created using copy - Azurite doesn't support it
+            if (!is_azure_mock) assert.strictEqual(res2.Contents[2].Key, text_file3);
+
             config.INLINE_MAX_SIZE = ORIG_INLINE_MAX_SIZE;
         });
 
@@ -596,7 +615,8 @@ mocha.describe('s3_ops', function() {
             await s3.deleteObject({ Bucket: source_bucket, Key: text_file5 }).promise();
             await s3.deleteObject({ Bucket: bucket_name, Key: text_file1 }).promise();
             await s3.deleteObject({ Bucket: bucket_name, Key: text_file2 }).promise();
-            await s3.deleteObject({ Bucket: bucket_name, Key: text_file3 }).promise();
+            // text_file3 was created using copy - Azurite does not support it
+            if (!is_azure_mock) await s3.deleteObject({ Bucket: bucket_name, Key: text_file3 }).promise();
         });
         mocha.it('should list objects after no objects left', async function() {
             this.timeout(100000);
@@ -604,6 +624,7 @@ mocha.describe('s3_ops', function() {
             assert.strictEqual(res.Contents.length, 0);
         });
         mocha.after(async function() {
+            this.timeout(100000);
             if (bucket_type === "regular") {
                 await s3.deleteBucket({ Bucket: source_bucket }).promise();
                 await s3.deleteBucket({ Bucket: bucket_name }).promise();
@@ -637,12 +658,11 @@ mocha.describe('s3_ops', function() {
     });
 
     mocha.describe('azure-namespace-bucket-object-ops', function() {
-        if (!process.env.NEWAZUREPROJKEY || !process.env.NEWAZUREPROJSECRET) return;
         const options = {
-            endpoint: 'https://blob.core.windows.net',
+            endpoint: process.env.NEWAZUREPROJKEY ? 'https://blob.core.windows.net' : azure_mock_endpoint,
             endpoint_type: 'AZURE',
-            identity: process.env.NEWAZUREPROJKEY,
-            secret: process.env.NEWAZUREPROJSECRET
+            identity: process.env.NEWAZUREPROJKEY || azure_mock_account,
+            secret: process.env.NEWAZUREPROJSECRET || azure_mock_key
         };
         test_object_ops(BKT6, 'namespace', undefined, options);
     });
@@ -661,4 +681,10 @@ mocha.describe('s3_ops', function() {
 
 function is_namespace_blob_bucket(bucket_type, remote_endpoint_type) {
     return remote_endpoint_type === 'AZURE' && bucket_type === 'namespace';
+}
+
+// currently azurite does not support StageBlockFromURI - https://github.com/Azure/Azurite/issues/699
+// so we would skip copy tests and deletions of objects created by copy
+function is_namespace_blob_mock(bucket_type, remote_endpoint_type) {
+    return remote_endpoint_type === 'AZURE' && bucket_type === 'namespace' && !process.env.NEWAZUREPROJKEY;
 }

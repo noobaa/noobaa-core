@@ -30,7 +30,6 @@
     "cmd": "node --unhandled-rejections=warn src/cmd",
     "api": "node --unhandled-rejections=warn src/cmd api",
     "nsfs": "node --unhandled-rejections=warn src/cmd nsfs",
-    "nscache": "node --unhandled-rejections=warn src/cmd nscache",
     "backingstore": "node --unhandled-rejections=warn src/cmd/backingstore",
     "-----": "----------------------------------------------------------------",
     "web": "node --unhandled-rejections=warn src/server/web_server",
@@ -41,8 +40,8 @@
     "agent": "node --unhandled-rejections=warn src/agent/agent_cli",
     "agents": "node --unhandled-rejections=warn src/agent/agent_cli --scale 10",
     "------": "---------------------------------------------------------------",
-    "db": "postgres -D storage/postgres",
-    "db:init": "initdb -D storage/postgres -E UTF-8 --locale=C",
+    "db": "postgres -D ./storage/postgres",
+    "db:init": "initdb -D ./storage/postgres -E UTF-8 --locale=C",
     "db:create": "npm run db:createuser && npm run db:createdb",
     "db:createuser": "createuser postgres && psql postgres -c 'ALTER USER postgres CREATEDB'",
     "db:createdb": "createdb -U postgres nbcore",
@@ -54,7 +53,7 @@
     "clean:build": "rm -rf ./build",
     "clean:test": "rm -rf ./coverage ./logs",
     "clean:garbage": "find . -name .DS_Store -print -delete",
-    "clean:storage": "rm -rf ./storage/* ./noobaa_storage* ./agent_conf*.json"
+    "clean:storage": "rm -rf ./storage"
   },
   "config": {
     "covdir": "coverage"

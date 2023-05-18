@@ -111,7 +111,7 @@ test: tester
 	@$(call run_mongo)
 	@$(call run_blob_mock)
 	@echo "\033[1;34mRunning tests\033[0m"
-	$(CONTAINER_ENGINE) run $(CPUSET) --network noobaa-net --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) --env "SUPPRESS_LOGS=$(SUPPRESS_LOGS)" --env "MONGODB_URL=mongodb://noobaa:noobaa@coretest-mongo-$(GIT_COMMIT)-$(NAME_POSTFIX)" --env "BLOB_HOST=blob-mock-$(GIT_COMMIT)-$(NAME_POSTFIX)" $(TESTER_TAG)
+	$(CONTAINER_ENGINE) run $(CPUSET) --network noobaa-net --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) --env "SUPPRESS_LOGS=$(SUPPRESS_LOGS)" --env "DB_TYPE=mongodb" --env "MONGODB_URL=mongodb://noobaa:noobaa@coretest-mongo-$(GIT_COMMIT)-$(NAME_POSTFIX)" --env "BLOB_HOST=blob-mock-$(GIT_COMMIT)-$(NAME_POSTFIX)" $(TESTER_TAG)
 	@$(call stop_noobaa)
 	@$(call stop_blob_mock)
 	@$(call stop_mongo)
@@ -123,7 +123,7 @@ root-perm-test: tester
 	@$(call create_docker_network)
 	@$(call run_mongo)
 	@echo "\033[1;34mRunning root permission tests\033[0m"
-	$(CONTAINER_ENGINE) run $(CPUSET) --network noobaa-net --privileged --user root --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) --env "SUPPRESS_LOGS=$(SUPPRESS_LOGS)" --env "MONGODB_URL=mongodb://noobaa:noobaa@coretest-mongo-$(GIT_COMMIT)-$(NAME_POSTFIX)" $(TESTER_TAG) ./src/test/unit_tests/run_npm_test_on_test_container.sh -s sudo_index.js
+	$(CONTAINER_ENGINE) run $(CPUSET) --network noobaa-net --privileged --user root --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) --env "SUPPRESS_LOGS=$(SUPPRESS_LOGS)" --env "DB_TYPE=mongodb" --env "MONGODB_URL=mongodb://noobaa:noobaa@coretest-mongo-$(GIT_COMMIT)-$(NAME_POSTFIX)" $(TESTER_TAG) ./src/test/unit_tests/run_npm_test_on_test_container.sh -s sudo_index.js
 	@$(call stop_noobaa)
 	@$(call stop_mongo)
 	@$(call remove_docker_network)
@@ -135,7 +135,7 @@ run-single-test: tester
 	@$(call run_mongo)
 	@$(call run_blob_mock)
 	@echo "\033[1;34mRunning tests\033[0m"
-	$(CONTAINER_ENGINE) run $(CPUSET) --network noobaa-net --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) --env "SUPPRESS_LOGS=$(SUPPRESS_LOGS)" --env "MONGODB_URL=mongodb://noobaa:noobaa@coretest-mongo-$(GIT_COMMIT)-$(NAME_POSTFIX)" --env "BLOB_HOST=blob-mock-$(GIT_COMMIT)-$(NAME_POSTFIX)" $(TESTER_TAG) ./src/test/unit_tests/run_npm_test_on_test_container.sh -s $(testname)
+	$(CONTAINER_ENGINE) run $(CPUSET) --network noobaa-net --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) --env "SUPPRESS_LOGS=$(SUPPRESS_LOGS)" --env "DB_TYPE=mongodb" --env "MONGODB_URL=mongodb://noobaa:noobaa@coretest-mongo-$(GIT_COMMIT)-$(NAME_POSTFIX)" --env "BLOB_HOST=blob-mock-$(GIT_COMMIT)-$(NAME_POSTFIX)" $(TESTER_TAG) ./src/test/unit_tests/run_npm_test_on_test_container.sh -s $(testname)
 	@$(call stop_noobaa)
 	@$(call stop_blob_mock)
 	@$(call stop_mongo)

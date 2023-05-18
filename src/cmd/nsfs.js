@@ -2,17 +2,19 @@
 'use strict';
 
 require('../util/dotenv').load();
+require('aws-sdk/lib/maintenance_mode_message').suppress = true;
 
 const dbg = require('../util/debug_module')(__filename);
 if (!dbg.get_process_name()) dbg.set_process_name('nsfs');
 dbg.original_console();
 
 const config = require('../../config');
-config.NSFS_VERSIONING_ENABLED = true;
 
 const fs = require('fs');
 const util = require('util');
 const minimist = require('minimist');
+
+require('../server/system_services/system_store').get_instance({ standalone: true });
 
 const nb_native = require('../util/nb_native');
 const ObjectSDK = require('../sdk/object_sdk');
@@ -75,6 +77,9 @@ function print_usage() {
 
 async function main(argv = minimist(process.argv.slice(2))) {
     try {
+        config.DB_TYPE = 'none';
+        config.NSFS_VERSIONING_ENABLED = true;
+
         if (argv.help || argv.h) return print_usage();
         if (argv.debug) {
             const debug_level = Number(argv.debug) || 5;

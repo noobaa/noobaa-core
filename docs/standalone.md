@@ -27,7 +27,8 @@ git clone https://github.com/noobaa/noobaa-core
 cd noobaa-core
 npm install
 npm run build
-npm run pkg # optional create a single-executable build/noobaa-core
+# optional package everything into a single-executable at build/noobaa-core
+npm run pkg 
 ```
 
 ### 3. Quick test
@@ -107,6 +108,7 @@ config.IO_CALC_SHA256_ENABLED = false;
 
 config.MAX_OBJECT_PART_SIZE = 1024 * 1024 * 1024;
 config.IO_CHUNK_READ_CACHE_SIZE = 4 * 1024 * 1024 * 1024;
+
 config.CHUNK_SPLIT_AVG_CHUNK = 256 * 1024 * 1024;
 config.CHUNK_SPLIT_DELTA_CHUNK = 0;
 
@@ -118,7 +120,7 @@ config.CHUNK_CODER_CIPHER_TYPE = 'none';
 config.CHUNK_CODER_REPLICAS = 1;
 config.CHUNK_CODER_EC_DATA_FRAGS = 2;
 config.CHUNK_CODER_EC_PARITY_FRAGS = 2;
-config.CHUNK_CODER_EC_PARITY_TYPE = 'isa-c1';
+config.CHUNK_CODER_EC_PARITY_TYPE = 'cm256';
 config.CHUNK_CODER_EC_TOLERANCE_THRESHOLD = 2;
 config.CHUNK_CODER_EC_IS_DEFAULT = true;
 
@@ -173,6 +175,12 @@ POSTGRES_HOST=ip \
 
 ## STORAGE
 
+### Create a pool
+
+```sh
+npm run api -- pool_api create_hosts_pool '{ "name":"backingstores", "is_managed": false, "host_count": 9999 }'
+```
+
 ### Start backingstores
 
 ```sh
@@ -193,7 +201,7 @@ npm run api -- node aggregate_nodes '{}'
 ### Check local storage
 
 ```sh
-du -sh storage/backingstores
+du -sh storage/backingstores/*
 find storage/backingstores -name '*.data' -type f -ls
 ```
 
@@ -204,51 +212,51 @@ find storage/backingstores -name '*.data' -type f -ls
 ### Get access and secret keys
 
 ```sh
-export AWS_ACCESS_KEY_ID=$(npm run api -- account read_account '{}' --json | jq -r '.access_keys[0].access_key')
-export AWS_SECRET_ACCESS_KEY=$(npm run api -- account read_account '{}' --json | jq -r '.access_keys[0].secret_key')
+export AWS_ACCESS_KEY_ID=$(npm run api -- account read_account '{}' --json | tail -1 | jq -r '.access_keys[0].access_key')
+export AWS_SECRET_ACCESS_KEY=$(npm run api -- account read_account '{}' --json | tail -1 | jq -r '.access_keys[0].secret_key')
+```
+
+### Create bucket
+
+```sh
+aws --endpoint http://localhost:6001 s3 mb s3://testbucket
 ```
 
 ### Listing
 
 ```sh
 node src/tools/s3cat --endpoint http://localhost:6001
-node src/tools/s3cat --endpoint http://localhost:6001 --bucket first.bucket --ls
+node src/tools/s3cat --endpoint http://localhost:6001 --bucket testbucket --ls
 aws --endpoint http://localhost:6001 s3 ls
-aws --endpoint http://localhost:6001 s3 ls s3://first.bucket
-```
-
-### Create bucket
-
-```sh
-aws --endpoint http://localhost:6001 s3 mb s3://lala
+aws --endpoint http://localhost:6001 s3 ls s3://testbucket
 ```
 
 ### Read/Write
 
 ```sh
-node src/tools/s3cat --endpoint http://localhost:6001 --sig s3 --bucket first.bucket --put ggg --size 4096
-node src/tools/s3cat --endpoint http://localhost:6001 --sig s3 --bucket first.bucket --get ggg
-dd if=/dev/zero bs=1M count=1024 | aws --endpoint http://localhost:6001 s3 cp - s3://first.bucket/ggg
-aws --endpoint http://localhost:6001 s3 cp s3://first.bucket/ggg - | xxd -a
-aws --endpoint http://localhost:6001 s3 rm s3://first.bucket/ggg
+node src/tools/s3cat --endpoint http://localhost:6001 --sig s3 --bucket testbucket --put testobject --size 4096
+node src/tools/s3cat --endpoint http://localhost:6001 --sig s3 --bucket testbucket --get testobject
+dd if=/dev/zero bs=1M count=1024 | aws --endpoint http://localhost:6001 s3 cp - s3://testbucket/testobject
+aws --endpoint http://localhost:6001 s3 cp s3://testbucket/testobject - | xxd -a
+aws --endpoint http://localhost:6001 s3 rm s3://testbucket/testobject
 ```
 
 ## Multipart uploads
 
 ```sh
-node src/tools/s3cat --endpoint http://localhost:6001 --sig s3 --bucket first.bucket --upload ggg --size 4096 --part_size 1024 --concur 4 
+node src/tools/s3cat --endpoint http://localhost:6001 --sig s3 --bucket testbucket --upload testobject --size 4096 --part_size 1024 --concur 4 
 ```
 
 ### Perf tools
 
 ```sh
-node src/tools/s3perf --endpoint http://localhost:6001 --sig s3 --bucket first.bucket --put s3perf/ --concur 4 --size 128 --size_units MB --time 5
-node src/tools/s3perf --endpoint http://localhost:6001 --sig s3 --bucket first.bucket --get s3perf/ --concur 4 --size 128 --size_units MB --time 5
+node src/tools/s3perf --endpoint http://localhost:6001 --sig s3 --bucket testbucket --put s3perf/ --concur 4 --size 128 --size_units MB --time 5
+node src/tools/s3perf --endpoint http://localhost:6001 --sig s3 --bucket testbucket --get s3perf/ --concur 4 --size 128 --size_units MB --time 5
 ```
 
 ### Using sigv4 for streaming requires https endpoint 6443 (selfsigned)
 
 ```sh
-node src/tools/s3cat --endpoint https://localhost:6443 --selfsigned --bucket first.bucket --put ggg --size 4096
-node src/tools/s3cat --endpoint https://localhost:6443 --selfsigned --bucket first.bucket --upload ggg --size 4096 --part_size 1024 --concur 4
+node src/tools/s3cat --endpoint https://localhost:6443 --selfsigned --bucket testbucket --put testobject --size 4096
+node src/tools/s3cat --endpoint https://localhost:6443 --selfsigned --bucket testbucket --upload testobject --size 4096 --part_size 1024 --concur 4
 ```

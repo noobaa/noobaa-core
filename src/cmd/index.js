@@ -3,6 +3,7 @@
 
 // load envs first
 require('../util/dotenv').load();
+require('aws-sdk/lib/maintenance_mode_message').suppress = true;
 
 // set the console output to raw
 const dbg = require('../util/debug_module')(__filename);

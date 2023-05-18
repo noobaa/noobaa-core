@@ -5,7 +5,6 @@ coverage/
 logs/
 *.log
 storage/
-noobaa_storage/
 heapdump-*
 .vscode/
 *.IGNORE

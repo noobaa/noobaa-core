@@ -1731,6 +1731,9 @@ class PostgresClient extends EventEmitter {
     is_err_duplicate_key(err) {
         return err && err.code === '23505';
     }
+    is_err_namespace_exists(err) {
+        return false;
+    }
 
     check_duplicate_key_conflict(err, entity) {
         if (this.is_err_duplicate_key(err)) {

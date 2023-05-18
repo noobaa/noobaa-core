@@ -2,6 +2,7 @@
 'use strict';
 
 require('../util/dotenv').load();
+require('aws-sdk/lib/maintenance_mode_message').suppress = true;
 
 const dbg = require('../util/debug_module')(__filename);
 if (!dbg.get_process_name()) dbg.set_process_name('nsfs');
@@ -51,6 +52,7 @@ function print_usage() {
 
 async function main(argv = minimist(process.argv.slice(2))) {
     try {
+        dbg.original_console();
         if (argv.help || argv.h) return print_usage();
         if (argv.debug) {
             const debug_level = Number(argv.debug) || 5;

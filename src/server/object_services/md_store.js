@@ -546,7 +546,7 @@ class MDStore {
         const sort = { bucket: 1, key: 1 };
 
         // for mongodb add version_past to the sort
-        if (process.env.DB_TYPE === 'mongodb') {
+        if (config.DB_TYPE === 'mongodb') {
             sort.version_past = 1;
         }
 

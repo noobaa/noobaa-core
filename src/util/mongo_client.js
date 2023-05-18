@@ -13,7 +13,6 @@ const dbg = require('./debug_module')(__filename);
 const config = require('../../config.js');
 const js_utils = require('./js_utils');
 const common_api = require('../api/common_api');
-const db_client = require('./db_client');
 const schema_utils = require('./schema_utils');
 const schema_keywords = require('./schema_keywords');
 const { RpcError } = require('../rpc');
@@ -467,7 +466,7 @@ class MongoClient extends EventEmitter {
         try {
             await db.createCollection(col.name);
         } catch (err) {
-            if (!db_client.instance().is_err_namespace_exists(err)) throw err;
+            if (!this.is_err_namespace_exists(err)) throw err;
         }
         dbg.log0('_init_collection: created collection', col.name);
         if (col.db_indexes) {

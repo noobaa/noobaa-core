@@ -142,6 +142,8 @@ spec:
             - mountPath: /log
               name: logdir
           env:
+            - name: DB_TYPE
+              value: mongodb
             - name: CONTAINER_PLATFORM
               value: KUBERNETES
             - name: ENDPOINT_FORKS_NUMBER
@@ -247,6 +249,8 @@ spec:
             - containerPort: 6001
             - containerPort: 6443
           env:
+            - name: DB_TYPE
+              value: mongodb
             - name: JWT_SECRET
               valueFrom:
                 secretKeyRef:

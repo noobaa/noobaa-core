@@ -1,6 +1,8 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+require('aws-sdk/lib/maintenance_mode_message').suppress = true;
+
 const _ = require('lodash');
 const fs = require('fs');
 const AWS = require('aws-sdk');

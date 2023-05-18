@@ -662,6 +662,7 @@ interface APIClient {
  *
  **********************************************************/
 
+type DBType = 'postgres' | 'mongodb' | 'none';
 
 interface DBClient {
     operators: Set<string>;

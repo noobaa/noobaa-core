@@ -16,9 +16,6 @@ config-local.js
 
 ## STORAGE
 /storage/
-/agent_storage*
-/noobaa_storage*
-/agent_conf*.json*
 
 ## DEVELOPER
 .vscode

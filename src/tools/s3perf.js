@@ -1,6 +1,8 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+require('aws-sdk/lib/maintenance_mode_message').suppress = true;
+
 const AWS = require('aws-sdk');
 const argv = require('minimist')(process.argv);
 const http = require('http');

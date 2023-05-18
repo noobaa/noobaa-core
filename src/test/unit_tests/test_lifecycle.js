@@ -4,18 +4,20 @@
 'use strict';
 
 const AWS = require('aws-sdk');
-const P = require('../../util/promise');
-const http_utils = require('../../util/http_utils');
-const mocha = require('mocha');
-const { v4: uuid } = require('uuid');
-const assert = require('assert');
 const util = require('util');
-const lifecycle = require('../../server/bg_services/lifecycle');
-const MDStore = require('../../server/object_services/md_store').MDStore;
+const mocha = require('mocha');
+const assert = require('assert');
 const mongodb = require('mongodb');
+const { v4: uuid } = require('uuid');
 
-const commonTests = require('../lifecycle/common');
+const P = require('../../util/promise');
+const config = require('../../../config');
+const MDStore = require('../../server/object_services/md_store').MDStore;
 const coretest = require('./coretest');
+const lifecycle = require('../../server/bg_services/lifecycle');
+const http_utils = require('../../util/http_utils');
+const commonTests = require('../lifecycle/common');
+
 const { rpc_client, EMAIL } = coretest;
 const Bucket = 'first.bucket';
 const Key = `test-get-lifecycle-object-${Date.now()}`;
@@ -129,7 +131,7 @@ mocha.describe('lifecycle', () => {
             /* read_activity_log fails w/postgres
                see https://github.com/noobaa/noobaa-core/runs/5750698669
             */
-            if (process.env.DB_TYPE !== 'postgres') {
+            if (config.DB_TYPE === 'mongodb') {
                 const eventLogs = await rpc_client.events.read_activity_log({limit: 32});
                 console.log('read_activity_log logs: ', util.inspect(eventLogs));
                 const found = eventLogs.logs.find(e => (e.event === 'obj.deleted') && (e.obj.key === key));

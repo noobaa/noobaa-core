@@ -468,9 +468,9 @@ function create_mongo_pool(req) {
     const name = req.rpc_params.name;
     const mongo_info = {};
 
-    if (config.DB_TYPE === 'postgres') {
-        dbg.error('Cannot create mongo pool on PostgreSQL');
-        throw new Error('Cannot create mongo pool on PostgreSQL');
+    if (config.DB_TYPE !== 'mongodb') {
+        dbg.error(`Cannot create mongo pool with DB_TYPE=${config.DB_TYPE}`);
+        throw new Error(`Cannot create mongo pool with DB_TYPE=${config.DB_TYPE}`);
     }
 
     if (get_internal_mongo_pool(req.system)) {

@@ -359,7 +359,7 @@ class AgentCLI {
     create_node_helper(current_node_path_info) {
         const self = this;
         return P.fcall(function() {
-            dbg.log0('create_node_helper called with self.params', self.params);
+            dbg.log0('create_node_helper called with self.params', _.omit(self.params, ['access_key', 'secret_key']));
             const current_node_path = current_node_path_info.mount;
             let node_name = self.params.hostname;
             const noobaa_storage_dir_name = self.params.test_hostname ? 'noobaa_storage_' + self.params.test_hostname : 'noobaa_storage';

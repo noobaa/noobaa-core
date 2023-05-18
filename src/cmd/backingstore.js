@@ -8,17 +8,16 @@ const path = require('path');
 const minimist = require('minimist');
 
 const dbg = require('../util/debug_module')(__filename);
-dbg.set_process_name('backingstore');
+if (!dbg.get_process_name()) dbg.set_process_name('backingstore');
+dbg.original_console();
 
-const system_store = require('../server/system_services/system_store');
-system_store.get_instance({ standalone: true });
-
-const Agent = require('./agent');
+const Agent = require('../agent/agent');
 const fs_utils = require('../util/fs_utils');
 const db_client = require('../util/db_client');
 const nb_native = require('../util/nb_native');
 const json_utils = require('../util/json_utils');
 const auth_server = require('../server/common_services/auth_server');
+const system_store = require('../server/system_services/system_store');
 
 const HELP = `
 Help:

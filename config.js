@@ -4,7 +4,7 @@
 // we populate the exports object but prefer to keep name referencing
 // with config.NAME so that it will be consistent with the code that imports it
 // and will make searching easier.
-var config = exports;
+const config = exports;
 
 const os = require('os');
 const fs = require('fs');
@@ -401,7 +401,7 @@ config.LONG_DB_QUERY_THRESHOLD = parseInt(process.env.LONG_DB_QUERY_THRESHOLD, 1
   Central Stats Collection & Diagnostics
 */
 
-var is_windows = (process.platform === "win32");
+const is_windows = (process.platform === 'win32');
 
 if (!is_windows) {
     process.env.ProgramData = '/tmp';
@@ -535,7 +535,7 @@ config.WORM_ENABLED = false;
 // Should we allow the creation of buckets on internal storage
 config.ALLOW_BUCKET_CREATE_ON_INTERNAL = true;
 
-config.DB_TYPE = process.env.DB_TYPE || 'mongodb';
+config.DB_TYPE = /** @type {nb.DBType} */ (process.env.DB_TYPE || 'postgres');
 
 ////////////////////////////////
 //      NAMESPACE MONITOR     //

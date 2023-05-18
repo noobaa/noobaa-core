@@ -41,7 +41,7 @@ const VERIFY_RESPONSE = [
 ];
 
 async function _init() {
-    if (config.DB_TYPE === 'postgres') return;
+    if (config.DB_TYPE !== 'mongodb') return;
     return MongoCtrl.init();
 }
 

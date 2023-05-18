@@ -1,21 +1,26 @@
 /* Copyright (C) 2020 NooBaa */
 'use strict';
 
-const fs = require('fs');
-const util = require('util');
-const minimist = require('minimist');
-const SensitiveString = require('../util/sensitive_string');
+require('../util/dotenv').load();
+require('aws-sdk/lib/maintenance_mode_message').suppress = true;
 
 const dbg = require('../util/debug_module')(__filename);
 if (!dbg.get_process_name()) dbg.set_process_name('nsfs');
 dbg.original_console();
 
 const config = require('../../config');
-config.NSFS_VERSIONING_ENABLED = true;
+
+const fs = require('fs');
+const util = require('util');
+const minimist = require('minimist');
+
+require('../server/system_services/system_store').get_instance({ standalone: true });
+
 const nb_native = require('../util/nb_native');
 const ObjectSDK = require('../sdk/object_sdk');
 const NamespaceFS = require('../sdk/namespace_fs');
 const BucketSpaceFS = require('../sdk/bucketspace_fs');
+const SensitiveString = require('../util/sensitive_string');
 const endpoint_stats_collector = require('../sdk/endpoint_stats_collector');
 
 const HELP = `
@@ -63,15 +68,18 @@ WARNING:
 
 function print_usage() {
     console.warn(HELP);
-    console.warn(USAGE.trimLeft());
-    console.warn(ARGUMENTS.trimLeft());
-    console.warn(OPTIONS.trimLeft());
-    console.warn(WARNINGS.trimLeft());
+    console.warn(USAGE.trimStart());
+    console.warn(ARGUMENTS.trimStart());
+    console.warn(OPTIONS.trimStart());
+    console.warn(WARNINGS.trimStart());
     process.exit(1);
 }
 
 async function main(argv = minimist(process.argv.slice(2))) {
     try {
+        config.DB_TYPE = 'none';
+        config.NSFS_VERSIONING_ENABLED = true;
+
         if (argv.help || argv.h) return print_usage();
         if (argv.debug) {
             const debug_level = Number(argv.debug) || 5;
@@ -101,7 +109,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
         console.log('nsfs: setting up ...', { fs_root, http_port, https_port, backend });
 
         const endpoint = require('../endpoint/endpoint');
-        await endpoint.start_endpoint({
+        await endpoint.main({
             http_port,
             https_port,
             init_request_sdk: (req, res) => init_request_sdk(req, res, fs_root, fs_config, versioning),

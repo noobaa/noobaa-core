@@ -371,7 +371,9 @@ class SystemStore extends EventEmitter {
                 func: () => this.master_key_manager.load_root_keys_from_mount()
             });
         }
-        return this.load();
+        if (db_client.instance().is_connected()) {
+            return this.load();
+        }
     }
 
     initial_load() {

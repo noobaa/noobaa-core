@@ -934,7 +934,7 @@ async function _ensure_internal_structure(system_id) {
     const support_account = _.find(system_store.data.accounts, account => account.is_support);
     if (!support_account) throw new Error('SUPPORT ACCOUNT DOES NOT EXIST');
     // Skip creation of agent on PostgreSQL
-    if (config.DB_TYPE === 'postgres') return;
+    if (config.DB_TYPE !== 'mongodb') return;
     try {
         server_rpc.client.hosted_agents.create_pool_agent({
             pool_name: `${config.INTERNAL_STORAGE_POOL_NAME}-${system_id}`

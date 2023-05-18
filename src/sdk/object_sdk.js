@@ -678,7 +678,8 @@ class ObjectSDK {
         // In NooBaa namespace we already populate the tags
         if (source_md.tagging) return;
         // In case of other namespace we need to read the tags
-        source_md.tagging = await source_ns.get_object_tagging(source_params, this);
+        const object_tagging = await source_ns.get_object_tagging(source_params, this);
+        source_md.tagging = object_tagging.tagging;
     }
 
     async upload_object(params) {

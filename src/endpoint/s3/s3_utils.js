@@ -410,15 +410,15 @@ function parse_tagging_header(req) {
         dbg.error('parse_tagging_header failed', err);
         throw new S3Error(S3Error.MalformedXML);
     }
-    const tag_set = new Set();
+    const tag_map = new Map();
     tagging_params.forEach((value, key) => {
         const tag = { key, value };
         if (!_is_valid_tag_values(tag)) throw new S3Error(S3Error.InvalidTag);
-        if (tag_set.has(tag.key)) throw new S3Error(S3Error.InvalidTag);
-        tag_set.add(tag.key);
+        if (tag_map.has(tag.key)) throw new S3Error(S3Error.InvalidTag);
+        tag_map.set(tag.key, tag);
     });
-    if (tag_set.size > 10) throw new S3Error(S3Error.InvalidTag);
-    return Array.from(tag_set);
+    if (tag_map.size > 10) throw new S3Error(S3Error.InvalidTag);
+    return Array.from(tag_map.values());
 }
 
 /*

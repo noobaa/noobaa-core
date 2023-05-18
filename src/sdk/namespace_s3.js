@@ -247,6 +247,8 @@ class NamespaceS3 {
                     req.removeListener('httpData', AWS.EventListeners.Core.HTTP_DATA);
                     req.removeListener('httpError', AWS.EventListeners.Core.HTTP_ERROR);
                     let count = 1;
+                    // on s3 read_object_md might not return x-amz-tagging-count header, so we get it here
+                    params.tag_count = headers['x-amz-tagging-count'];
                     const count_stream = stream_utils.get_tap_stream(data => {
                         this.stats?.update_namespace_read_stats({
                             namespace_resource_id: this.namespace_resource_id,

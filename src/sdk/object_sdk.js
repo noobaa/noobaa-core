@@ -590,7 +590,6 @@ class ObjectSDK {
         // get the namespace for source bucket
         const source_ns = await this._get_bucket_namespace(bucket);
         const source_md = await source_ns.read_object_md(source_params, this);
-        if (params.tagging_copy) await this._populate_source_object_tagging({ source_params, source_ns, source_md });
         const ranges = http_utils.normalize_http_ranges(
             params.copy_source.ranges, source_md.size, true);
         // For ranged copy we don't have the specific range hashes
@@ -660,6 +659,10 @@ class ObjectSDK {
                 dbg.warn(`upload_object with copy_sources - copying by reading source first (not server side)
                 so it can take some time and cause client timeouts`);
             }
+            if (params.tagging_copy) {
+                await this._populate_source_object_tagging({ source_params, source_ns, source_md });
+                params.tagging = source_md.tagging;
+            }
             // reset the copy_source param
             params.copy_source = null;
         }
@@ -675,10 +678,9 @@ class ObjectSDK {
         params.source_stream = read_stream;
     }
 
-    // TODO: Does not work when source namespace is s3 (s3 sdk head-object doesn't return TagCount). Issue #5341.
     async _populate_source_object_tagging({ source_ns, source_md, source_params }) {
         // This is a quick way of knowing if we should load any tags
-        if (!source_md.tag_count) return;
+        if (!source_md.tag_count && !source_params.tag_count) return;
         // In NooBaa namespace we already populate the tags
         if (source_md.tagging) return;
         // In case of other namespace we need to read the tags

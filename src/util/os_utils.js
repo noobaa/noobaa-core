@@ -45,6 +45,7 @@ if (!process.env.PLATFORM) {
 const exec_async = util.promisify(child_process.exec);
 // const fork_async = util.promisify(child_process.fork);
 // const spawn_async = util.promisify(child_process.spawn);
+const warn_once = _.once((...args) => dbg.warn(...args));
 
 /**
  * @param {string} command
@@ -462,46 +463,25 @@ function slabtop(dst) {
     }
 }
 
-function _get_dns_servers_in_forwarders_file() {
-    return P.resolve()
-        .then(() => {
-            if (!IS_LINUX_VM) return [];
-            return fs_utils.find_line_in_file(config.NAMED_DEFAULTS.FORWARDERS_OPTION_FILE, 'forwarders')
-                .then(line => {
-                    if (!line) return [];
-                    const dns_servers = line.match(/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g);
-                    return dns_servers || [];
-                });
-        });
+async function _get_dns_servers_in_forwarders_file() {
+    if (!IS_LINUX) return [];
+
+    try {
+        const line = await fs_utils.find_line_in_file(config.NAMED_DEFAULTS.FORWARDERS_OPTION_FILE, 'forwarders');
+        if (!line) return [];
+
+        const dns_servers = line.match(/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g);
+        return dns_servers || [];
+    } catch (err) {
+        warn_once('_get_dns_servers_in_forwarders_file got error:', err);
+        return [];
+    }
 }
 
 function get_dns_config() {
     // return dns configuration set in /etc/sysconfig/network
     return _get_dns_servers_in_forwarders_file()
         .then(dns => ({ dns_servers: dns }));
-}
-
-function set_dns_config(dns_servers) {
-    return P.resolve()
-        .then(() => {
-            if (!IS_LINUX) return;
-            return P.resolve(_set_dns_server(dns_servers));
-        });
-}
-
-function _set_dns_server(servers) {
-    if (!servers) return;
-    if (IS_DOCKER) return;
-    const forwarders_str = (servers.length ? `forwarders { ${servers.join('; ')}; };` : `forwarders { };`) + '\nforward only;\n';
-    dbg.log0('setting dns servers in named forwarders configuration');
-    dbg.log0('writing', forwarders_str, 'to', config.NAMED_DEFAULTS.FORWARDERS_OPTION_FILE);
-    return fs_utils.replace_file(config.NAMED_DEFAULTS.FORWARDERS_OPTION_FILE, forwarders_str)
-        .then(() => {
-            // perform named restart in the background
-            exec('systemctl restart named')
-                .then(() => dbg.log0('successfully restarted named after setting dns servers to', servers))
-                .catch(err => dbg.error('failed on systemctl restart named when setting dns servers to', servers, err));
-        });
 }
 
 function get_time_config() {
@@ -1006,7 +986,6 @@ exports.get_networking_info = get_networking_info;
 exports.read_server_secret = read_server_secret;
 exports.is_supervised_env = is_supervised_env;
 exports.is_folder_permissions_set = is_folder_permissions_set;
-exports.set_dns_config = set_dns_config;
 exports.get_dns_config = get_dns_config;
 exports.restart_noobaa_services = restart_noobaa_services;
 exports.set_hostname = set_hostname;

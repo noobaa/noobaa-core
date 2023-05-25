@@ -52,7 +52,8 @@ async function create_account(req) {
         email: req.rpc_params.email,
         has_login: req.rpc_params.has_login,
         is_external: req.rpc_params.is_external,
-        nsfs_account_config: req.rpc_params.nsfs_account_config
+        nsfs_account_config: req.rpc_params.nsfs_account_config,
+        force_md5_etag: req.rpc_params.force_md5_etag
     };
 
     const { roles: account_roles = ['admin'] } = req.rpc_params;
@@ -445,6 +446,7 @@ function update_account(req) {
     const updates = {
         name: params.name,
         email: params.new_email,
+        force_md5_etag: params.force_md5_etag,
         next_password_change: params.must_change_password === true ? new Date() : undefined,
         allowed_ips: (!_.isUndefined(params.ips) && params.ips !== null) ? params.ips : undefined,
         preferences: _.isUndefined(params.preferences) ? undefined : params.preferences,
@@ -1203,6 +1205,7 @@ function get_account_info(account, include_connection_cache) {
         ...account.preferences
     };
     info.role_config = account.role_config;
+    info.force_md5_etag = account.force_md5_etag;
     return info;
 }
 

@@ -193,6 +193,33 @@ mocha.describe('system_servers', function() {
         await rpc_client.events.read_activity_log({ limit: 2016 });
     });
 
+    mocha.it('Calculate md5_etag for account works', async function() {
+        await rpc_client.account.create_account({
+            name: EMAIL1,
+            email: EMAIL1,
+            has_login: false,
+            s3_access: true,
+            force_md5_etag: true,
+        });
+        let info = await rpc_client.account.read_account({
+            email: EMAIL1,
+        });
+        assert(info.force_md5_etag === true);
+
+        await rpc_client.account.update_account({
+            email: EMAIL1,
+            force_md5_etag: false,
+        });
+        info = await rpc_client.account.read_account({
+            email: EMAIL1,
+        });
+        assert(info.force_md5_etag === false);
+
+        await rpc_client.account.delete_account({
+            email: EMAIL1,
+        });
+    });
+
     ////////////
     //  AUTH  //
     ////////////

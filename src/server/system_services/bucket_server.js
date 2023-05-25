@@ -210,6 +210,7 @@ async function create_bucket(req) {
             // TODO: Should implement validity checks
             bucket.bucket_claim = req.rpc_params.bucket_claim;
         }
+        bucket.force_md5_etag = req.rpc_params.force_md5_etag;
         changes.insert.buckets = [bucket];
         changes.insert.master_keys = [bucket_m_key];
 
@@ -606,6 +607,10 @@ function get_bucket_changes(req, update_request, bucket, tiering_policy) {
         get_bucket_changes_versioning(req, bucket, update_request, single_bucket_update, changes);
     }
 
+    if (!_.isUndefined(update_request.force_md5_etag)) {
+        single_bucket_update.force_md5_etag = update_request.force_md5_etag;
+    }
+
     if (!_.isUndefined(quota)) {
         get_bucket_changes_quota(req, bucket, quota, single_bucket_update, changes);
     }
@@ -719,7 +724,7 @@ async function update_buckets(req) {
     };
     let update_events = [];
     let update_alerts = [];
-    dbg.log0(`update buckets: updating wit params:`, req.rpc_params);
+    dbg.log0(`update buckets: updating with params:`, req.rpc_params);
     for (const update_request of req.rpc_params) {
         const bucket = find_bucket(req, update_request.name);
         const tiering_policy = update_request.tiering &&
@@ -1400,6 +1405,7 @@ function get_bucket_info({
         versioning: bucket.versioning,
         object_lock_configuration: config.WORM_ENABLED ? bucket.object_lock_configuration : undefined,
         tagging: bucket.tagging,
+        force_md5_etag: bucket.force_md5_etag,
         logging: bucket.logging,
         encryption: bucket.encryption,
         bucket_claim: bucket.bucket_claim,

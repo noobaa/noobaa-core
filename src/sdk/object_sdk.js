@@ -301,7 +301,10 @@ class ObjectSDK {
                         ns: this._setup_single_namespace(
                             bucket.namespace.read_resources[0],
                             bucket._id,
-                            { versioning: bucket.bucket_info.versioning }
+                            {
+                                versioning: bucket.bucket_info.versioning,
+                                force_md5_etag: bucket.force_md5_etag
+                            },
                         ),
                         bucket,
                         valid_until: time + config.OBJECT_SDK_BUCKET_CACHE_EXPIRY_MS,
@@ -436,6 +439,7 @@ class ObjectSDK {
                 access_mode: r.access_mode,
                 versioning: options && options.versioning,
                 stats: this.stats,
+                force_md5_etag: options && options.force_md5_etag,
             });
         }
         // TODO: Should convert to cp_code and target_bucket as folder inside

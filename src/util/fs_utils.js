@@ -44,6 +44,15 @@ async function file_exists(file_path) {
     }
 }
 
+async function file_not_exists(file_path) {
+    try {
+        await file_must_not_exist(file_path);
+        return true;
+    } catch (err) {
+        return false;
+    }
+}
+
 /**
  * options.on_entry - function({path, stat})
  *      returning false from on_entry will stop recursing to entry
@@ -302,3 +311,4 @@ exports.ignore_eexist = ignore_eexist;
 exports.ignore_enoent = ignore_enoent;
 exports.PRIVATE_DIR_PERMISSIONS = PRIVATE_DIR_PERMISSIONS;
 exports.file_exists = file_exists;
+exports.file_not_exists = file_not_exists;

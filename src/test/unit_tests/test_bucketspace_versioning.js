@@ -1,5 +1,6 @@
 /* Copyright (C) 2020 NooBaa */
 /* eslint-disable max-lines-per-function */
+/*eslint max-lines: ["error", 2500]*/
 'use strict';
 
 const fs = require('fs');
@@ -20,6 +21,7 @@ const MAC_PLATFORM = 'darwin';
 const XATTR_VERSION_ID = 'user.version_id';
 const XATTR_PREV_VERSION_ID = 'user.prev_version_id';
 const XATTR_DELETE_MARKER = 'user.delete_marker';
+const NULL_VERSION_ID = 'null';
 
 const DEFAULT_FS_CONFIG = {
     uid: process.getuid(),
@@ -30,8 +32,9 @@ const DEFAULT_FS_CONFIG = {
 
 mocha.describe('bucketspace namespace_fs - versioning', function() {
     const nsr = 'versioned-nsr';
-    const bucket_name = 'versioned-bucket';
-    const disabled_bucket_name = 'disabled-bucket';
+    const bucket_name = 'versioned-enabled-bucket';
+    const disabled_bucket_name = 'disabled-bucket'; // be aware that this bucket would become versioned in the copy object tests
+    const suspended_bucket_name = 'suspended-bucket';
 
     let tmp_fs_root = '/tmp/test_bucket_namespace_fs_versioning';
     if (process.platform === MAC_PLATFORM) {
@@ -41,12 +44,16 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
     const full_path = tmp_fs_root + bucket_path;
     const disabled_bucket_path = '/disabled_bucket';
     const disabled_full_path = tmp_fs_root + disabled_bucket_path;
+    const suspended_bucket_path = '/suspended_bucket';
+    const suspended_full_path = tmp_fs_root + suspended_bucket_path;
     const versions_path = path.join(full_path, '.versions/');
+    const suspended_versions_path = path.join(suspended_full_path, '.versions/');
     let s3_uid5;
     let s3_uid6;
     let s3_admin;
     const accounts = [];
     const disabled_key = 'disabled_key.txt';
+    const disabled_key2 = 'disabled_key2.txt';
     const key1 = 'key1.txt';
     const copied_key1 = 'copied_key1.txt';
     const copied_key5 = 'copied_key5.txt';
@@ -61,6 +68,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
     let key1_cur_ver;
     const mpu_key1 = 'mpu_key1.txt';
     const dir1_versions_path = path.join(full_path, dir1, '.versions/');
+    const suspended_dir1_versions_path = path.join(suspended_full_path, dir1, '.versions/');
 
     mocha.before(async function() {
         if (test_utils.invalid_nsfs_root_permissions()) this.skip(); // eslint-disable-line no-invalid-this
@@ -70,6 +78,8 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
         await fs_utils.file_must_exist(full_path);
         await fs_utils.create_fresh_path(disabled_full_path, 0o770);
         await fs_utils.file_must_exist(disabled_full_path);
+        await fs_utils.create_fresh_path(suspended_full_path, 0o770);
+        await fs_utils.file_must_exist(suspended_full_path);
 
         // export dir as a bucket
         await rpc_client.pool.create_namespace_resource({
@@ -92,6 +102,14 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             namespace: {
                 read_resources: [disabled_nsr],
                 write_resource: disabled_nsr
+            }
+        });
+        const suspended_nsr = { resource: nsr, path: suspended_bucket_path };
+        await rpc_client.bucket.create_bucket({
+            name: suspended_bucket_name,
+            namespace: {
+                read_resources: [suspended_nsr],
+                write_resource: suspended_nsr
             }
         });
 
@@ -119,6 +137,11 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             Policy: JSON.stringify(policy)
         }).promise();
 
+        await s3_admin.putBucketPolicy({
+            Bucket: suspended_bucket_name,
+            Policy: JSON.stringify(policy)
+        }).promise();
+
         res = await generate_nsfs_account({ uid: 5, gid: 5 });
         s3_uid5 = generate_s3_client(res.access_key, res.secret_key);
         accounts.push(res.email);
@@ -134,9 +157,15 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             await rpc_client.account.delete_account({ email });
         }
     });
+
     mocha.describe('put/get versioning', function() {
         mocha.it('put object - versioning disabled - to be enabled', async function() {
             await s3_uid6.putObject({ Bucket: bucket_name, Key: disabled_key, Body: body1 }).promise();
+        });
+
+        mocha.it('put object - versioning disabled - to be suspended', async function() {
+            await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: disabled_key, Body: body1 }).promise();
+            await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: disabled_key2, Body: body1 }).promise();
         });
 
         mocha.it('put object - versioning disabled bucket', async function() {
@@ -151,6 +180,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                 assert.equal(err.code, 'AccessDenied');
             }
         });
+
         mocha.it('set bucket versioning - Enabled - admin - should fail - no permissions', async function() {
             try {
                 await s3_admin.putBucketVersioning({ Bucket: bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
@@ -165,7 +195,32 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             const res = await s3_uid6.getBucketVersioning({ Bucket: bucket_name }).promise();
             assert.equal(res.Status, 'Enabled');
         });
+
+        mocha.it('set bucket versioning - Suspended - should fail - no permissions', async function() {
+            try {
+                await s3_uid5.putBucketVersioning({ Bucket: suspended_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
+                assert.fail(`put bucket versioning succeeded for account without permissions`);
+            } catch (err) {
+                assert.equal(err.code, 'AccessDenied');
+            }
+         });
+
+        mocha.it('set bucket versioning - Suspended - admin - should fail - no permissions', async function() {
+            try {
+                await s3_admin.putBucketVersioning({ Bucket: suspended_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
+                assert.fail(`put bucket versioning succeeded for account without permissions`);
+            } catch (err) {
+                assert.equal(err.code, 'AccessDenied');
+            }
+        });
+
+        mocha.it('set bucket versioning - Suspended', async function() {
+            await s3_uid6.putBucketVersioning({ Bucket: suspended_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
+            const res = await s3_uid6.getBucketVersioning({ Bucket: suspended_bucket_name }).promise();
+            assert.equal(res.Status, 'Suspended');
+        });
     });
+
     mocha.describe('versioning enabled', function() {
 
         mocha.describe('put object', function() {
@@ -273,6 +328,180 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                 const exist = await version_file_exists(full_path, mpu_key1, '', prev_version_id);
                 assert.ok(exist);
             });
+        });
+    });
+
+    // The res of putBucketVersioning is different depends on the versioning state:
+    // * Enabled - Etag and VersionId;
+    // * Disabled and Suspended - only Etag.
+    // Hence, 'res.VersionId' would be undefined when versioning is Suspended.
+    // (We would still prefer using it as a parameter instead of explicitly send undefined to function compare_version_ids).
+    mocha.describe('put object - versioning suspended - simple cases', function() {
+        const is_enabled = false;
+        const key2 = 'water.txt';
+
+        // It was already set to Suspended in previous test (just to be on the safe side)
+        mocha.before('set bucket versioning - Suspended', async function() {
+            await s3_uid6.putBucketVersioning({ Bucket: suspended_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
+        });
+
+        mocha.describe('put object', function() {
+
+            mocha.it('put object 1st time - versioning suspended', async function() {
+                const res = await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: key2, Body: body1 }).promise();
+                const comp_res = await compare_version_ids(suspended_full_path, key2, res.VersionId, undefined, is_enabled);
+                assert.ok(comp_res);
+                const exist = await fs_utils.file_not_exists(suspended_versions_path);
+                assert.ok(exist);
+            });
+
+            mocha.it('put object 2nd time - versioning suspended', async function() {
+                const res = await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: key2, Body: body2 }).promise();
+                const comp_res = await compare_version_ids(suspended_full_path, key2, res.VersionId, undefined, is_enabled);
+                assert.ok(comp_res);
+                const exist = await fs_utils.file_not_exists(suspended_versions_path);
+                assert.ok(exist);
+            });
+
+            mocha.it('put object 2nd time - versioning suspended - disabled key', async function() {
+                const res = await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: disabled_key, Body: body2 }).promise();
+                const comp_res = await compare_version_ids(suspended_full_path, disabled_key, res.VersionId, undefined, is_enabled);
+                assert.ok(comp_res);
+                const exist = await fs_utils.file_not_exists(suspended_versions_path);
+                assert.ok(exist);
+            });
+
+            mocha.it('put object 1st time - versioning suspended - nested', async function() {
+                const res = await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: nested_key1, Body: body1 }).promise();
+                const exist = await fs_utils.file_not_exists(suspended_dir1_versions_path);
+                assert.ok(exist);
+                const comp_res = await compare_version_ids(suspended_full_path, nested_key1, res.VersionId, undefined, is_enabled);
+                assert.ok(comp_res);
+            });
+
+            mocha.it('put object 2nd time - versioning suspended - nested', async function() {
+                const res = await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: nested_key1, Body: body2 }).promise();
+                const exist = await fs_utils.file_not_exists(suspended_dir1_versions_path);
+                assert.ok(exist);
+                const comp_res = await compare_version_ids(suspended_full_path, nested_key1, res.VersionId, undefined, is_enabled);
+                assert.ok(comp_res);
+            });
+        });
+
+        // mpu = multipart upload
+        mocha.describe('mpu object', function() {
+
+            mocha.it('mpu object 1st time - versioning suspended', async function() {
+                const mpu_res = await s3_uid6.createMultipartUpload({ Bucket: suspended_bucket_name, Key: mpu_key1 }).promise();
+                const upload_id = mpu_res.UploadId;
+                const part1 = await s3_uid6.uploadPart({
+                    Bucket: suspended_bucket_name, Key: mpu_key1, Body: body1, UploadId: upload_id, PartNumber: 1 }).promise();
+                const res = await s3_uid6.completeMultipartUpload({
+                    Bucket: suspended_bucket_name,
+                    Key: mpu_key1,
+                    UploadId: upload_id,
+                    MultipartUpload: {
+                        Parts: [{
+                            ETag: part1.ETag,
+                            PartNumber: 1
+                        }]
+                    }
+                }).promise();
+                const comp_res = await compare_version_ids(suspended_full_path, mpu_key1, res.VersionId, undefined, is_enabled);
+                assert.ok(comp_res);
+            });
+
+            mocha.it('mpu object 2nd time - versioning suspended', async function() {
+                const prev_version_id = await stat_and_get_version_id(suspended_full_path, mpu_key1);
+                const mpu_res = await s3_uid6.createMultipartUpload({ Bucket: suspended_bucket_name, Key: mpu_key1 }).promise();
+                const upload_id = mpu_res.UploadId;
+                const part1 = await s3_uid6.uploadPart({
+                    Bucket: suspended_bucket_name, Key: mpu_key1, Body: body1, UploadId: upload_id, PartNumber: 1 }).promise();
+                const part2 = await s3_uid6.uploadPart({
+                    Bucket: suspended_bucket_name, Key: mpu_key1, Body: body2, UploadId: upload_id, PartNumber: 2 }).promise();
+                const res = await s3_uid6.completeMultipartUpload({
+                    Bucket: suspended_bucket_name,
+                    Key: mpu_key1,
+                    UploadId: upload_id,
+                    MultipartUpload: {
+                        Parts: [{
+                            ETag: part1.ETag,
+                            PartNumber: 1
+                        },
+                        {
+                            ETag: part2.ETag,
+                            PartNumber: 2
+                        }]
+                    }
+                }).promise();
+                const comp_res = await compare_version_ids(suspended_full_path, mpu_key1, res.VersionId, prev_version_id, is_enabled);
+                assert.ok(comp_res);
+                const exist = await version_file_must_not_exists(suspended_full_path, mpu_key1, '', prev_version_id);
+                assert.ok(exist);
+            });
+        });
+    });
+
+    mocha.describe('put object - versioning suspended - should have only one null version ID', function() {
+
+        mocha.before('put object 2nd time - versioning enabled', async function() {
+            await s3_uid6.putBucketVersioning({ Bucket: suspended_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
+            await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: disabled_key2, Body: body2 }).promise();
+        });
+
+        // Start with null version ID in .versions/ directory (this version that was created when versioning was disabled)
+        // and unique version ID as latest version (this version that was created when versioning was enabled).
+        mocha.it('put object 3rd time - versioning suspended', async function() {
+            await s3_uid6.putBucketVersioning({ Bucket: suspended_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
+            const is_enabled = false;
+            let exist = await version_file_exists(suspended_full_path, disabled_key2, '', 'null');
+            assert.ok(exist);
+            const prev_version_id = await stat_and_get_version_id(suspended_full_path, disabled_key2);
+            const res = await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: disabled_key2, Body: body3 }).promise();
+            const comp_res = await compare_version_ids(suspended_full_path, disabled_key2, res.VersionId, prev_version_id, is_enabled);
+            assert.ok(comp_res);
+            // unique version ID should move to .versions/ directory
+            exist = await version_file_exists(suspended_full_path, disabled_key2, '', prev_version_id);
+            assert.ok(exist);
+            // latest version is null, we cannot have another null in .versions/ directory
+            exist = await version_file_must_not_exists(suspended_full_path, disabled_key2, '', 'null');
+            assert.ok(exist);
+        });
+    });
+
+    mocha.describe('put object - versioning suspended - unique version ID should move to .version/ directory', function() {
+        const key2 = 'soda.txt';
+
+        mocha.before('put object - versioning enabled', async function() {
+            await s3_uid6.putBucketVersioning({ Bucket: suspended_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
+            await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: key2, Body: body1 }).promise();
+            await s3_uid6.putBucketVersioning({ Bucket: suspended_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
+        });
+
+        mocha.it('put object 2nd time - versioning suspended', async function() {
+            const is_enabled = false;
+            const prev_version_id = await stat_and_get_version_id(suspended_full_path, key2);
+            const comp_prev = check_enable_version_format(prev_version_id);
+            assert.ok(comp_prev);
+            const res = await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: key2, Body: body2 }).promise();
+            const comp_res = await compare_version_ids(suspended_full_path, key2, res.VersionId, prev_version_id, is_enabled);
+            assert.ok(comp_res);
+            // unique version ID should move to .versions/ directory
+            const exist = await version_file_exists(suspended_full_path, key2, '', prev_version_id);
+            assert.ok(exist);
+        });
+
+        mocha.it('put object 3rd time - versioning suspended', async function() {
+            const is_enabled = false;
+            const prev_version_id = await stat_and_get_version_id(suspended_full_path, key2);
+            const comp_prev = check_null_version_id(prev_version_id);
+            assert.ok(comp_prev);
+            const res = await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: key2, Body: body3 }).promise();
+            const comp_res = await compare_version_ids(suspended_full_path, key2, res.VersionId, prev_version_id, is_enabled);
+            assert.ok(comp_res);
+            // the new version is with a null version ID (the previous was overridden)
+            const exist = await version_file_must_not_exists(suspended_full_path, key2, '', prev_version_id);
+            assert.ok(exist);
         });
     });
 
@@ -410,8 +639,8 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             const is_dm = await is_delete_marker(full_path, '', disabled_key, max_version2);
             assert.ok(is_dm);
             assert.equal(res.VersionId, max_version2);
-
         });
+
         mocha.it('delete object - create dm & move latest -> .versions/ - 1st', async function() {
             const prev_version_id = await stat_and_get_version_id(full_path, key1);
             const max_version1 = await find_max_version_past(full_path, key1, '');
@@ -426,7 +655,6 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             const is_dm = await is_delete_marker(full_path, '', key1, max_version2);
             assert.ok(is_dm);
             assert.equal(res.VersionId, max_version2);
-
         });
 
         mocha.it('delete object - create dm & move latest -> .versions/ - 2nd time', async function() {
@@ -442,6 +670,124 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             assert.equal(max_version2, res.VersionId);
             const is_dm = await is_delete_marker(full_path, '', key1, max_version2);
             assert.ok(is_dm);
+        });
+    });
+
+    mocha.describe('copy object (latest version) - versioning suspended - nsfs copy fallback flow', function() {
+        const is_enabled = false;
+        const key_to_copy = 'orange.txt';
+        const body_of_copied_key = 'drink orange juice';
+        let copied_key = 'copied_orange.txt';
+
+        // It was already set to Suspended in previous test (just to be on the safe side)
+        mocha.before('set bucket versioning - Suspended', async function() {
+            await s3_uid6.putBucketVersioning({ Bucket: suspended_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
+            await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: key_to_copy, Body: body_of_copied_key }).promise();
+        });
+
+        mocha.it('copy object - target bucket versioning suspended - 1st', async function() {
+            const res = await s3_uid6.copyObject({ Bucket: suspended_bucket_name, Key: copied_key,
+                CopySource: `${suspended_bucket_name}/${key_to_copy}` }).promise();
+            const comp_res = await compare_version_ids(suspended_full_path, copied_key, res.VersionId, undefined, is_enabled);
+            assert.ok(comp_res);
+        });
+
+        mocha.it('copy object - target bucket versioning suspended - 2nd', async function() {
+            const prev_version_id = await stat_and_get_version_id(suspended_full_path, copied_key);
+            const res = await s3_uid6.copyObject({ Bucket: suspended_bucket_name, Key: copied_key,
+                CopySource: `${suspended_bucket_name}/${key_to_copy}` }).promise();
+            const comp_res = await compare_version_ids(suspended_full_path, copied_key, res.VersionId, prev_version_id, is_enabled);
+            assert.ok(comp_res);
+            const exist = await version_file_must_not_exists(suspended_full_path, copied_key, '', prev_version_id);
+            assert.ok(exist);
+        });
+
+        mocha.it('copy object latest - source bucket versioning suspended', async function() {
+            copied_key = 'copied_orange2.txt';
+            const res = await s3_uid6.copyObject({ Bucket: suspended_bucket_name, Key: copied_key,
+                CopySource: `${suspended_bucket_name}/${key_to_copy}`}).promise();
+            const body_comp_res = await get_obj_and_compare_data(s3_uid6, suspended_bucket_name, copied_key, body_of_copied_key);
+            assert.ok(body_comp_res);
+            const comp_res = await compare_version_ids(suspended_full_path, copied_key, res.VersionId, undefined, is_enabled);
+            assert.ok(comp_res);
+        });
+    });
+
+    mocha.describe('copy object by version id - versioning suspended - nsfs copy fallback flow', function() {
+        const is_enabled = false;
+        const key_to_copy = 'lemon.txt';
+        const key_to_copy2 = 'lime.txt';
+        const key_to_copy3 = 'avocado.txt';
+        const body_of_copied_key = 'make the lemon lemonade';
+        const body_of_copied_key_latest = 'lemons are yellow';
+        let copied_key;
+        let version_id_to_copy;
+        let version_id_to_copy_latest;
+
+        mocha.before('set bucket versioning - Enabled and then Suspended', async function() {
+            await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: key_to_copy3, Body: body1 }).promise();
+            await s3_uid6.putBucketVersioning({ Bucket: suspended_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
+            const res_put = await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: key_to_copy,
+                Body: body_of_copied_key }).promise();
+            version_id_to_copy = res_put.VersionId;
+            const res_put_latest = await s3_uid6.putObject({ Bucket: suspended_bucket_name,
+                Key: key_to_copy, Body: body_of_copied_key_latest }).promise();
+            version_id_to_copy_latest = res_put_latest.VersionId;
+            await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: key_to_copy2, Body: body_of_copied_key }).promise();
+            await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: key_to_copy3, Body: body2 }).promise();
+            await s3_uid6.putBucketVersioning({ Bucket: suspended_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
+        });
+
+        mocha.it('copy object latest & versionId - source bucket versioning suspended', async function() {
+            copied_key = 'copied_lemon.txt';
+            const res = await s3_uid6.copyObject({ Bucket: suspended_bucket_name, Key: copied_key,
+                CopySource: `${suspended_bucket_name}/${key_to_copy}?versionId=${version_id_to_copy_latest}`}).promise();
+            const body_comp_res = await get_obj_and_compare_data(s3_uid6, suspended_bucket_name, copied_key, body_of_copied_key_latest);
+            assert.ok(body_comp_res);
+            const comp_res = await compare_version_ids(suspended_full_path, copied_key, res.VersionId, undefined, is_enabled);
+            assert.ok(comp_res);
+        });
+
+        mocha.it('copy object version id - source bucket versioning suspended', async function() {
+            copied_key = 'copied_lemon2.txt';
+            const res = await s3_uid6.copyObject({ Bucket: suspended_bucket_name, Key: copied_key,
+                CopySource: `${suspended_bucket_name}/${key_to_copy}?versionId=${version_id_to_copy}`}).promise();
+            const body_comp_res = await get_obj_and_compare_data(s3_uid6, suspended_bucket_name, copied_key, body_of_copied_key);
+            assert.ok(body_comp_res);
+            const comp_res = await compare_version_ids(suspended_full_path, copied_key, res.VersionId, undefined, is_enabled);
+            assert.ok(comp_res);
+        });
+
+        mocha.it('copy object version null - versioning suspended - no version null - should fail', async function() {
+            copied_key = 'copied_lime.txt';
+            try {
+                await s3_uid6.copyObject({ Bucket: suspended_bucket_name, Key: copied_key,
+                    CopySource: `${suspended_bucket_name}/${key_to_copy2}?versionId=null`}).promise();
+                assert.fail('should have failed');
+            } catch (err) {
+                assert.equal(err.code, 'NoSuchKey');
+            }
+        });
+
+        mocha.it('copy object - version does not exist - should fail', async function() {
+            copied_key = 'copied_lime2.txt';
+            try {
+                await s3_uid6.copyObject({ Bucket: suspended_bucket_name, Key: copied_key,
+                    CopySource: `${suspended_bucket_name}/${key_to_copy2}?versionId=mtime-123-ino-123`}).promise();
+                assert.fail('should have failed');
+            } catch (err) {
+                assert.equal(err.code, 'NoSuchKey');
+            }
+        });
+
+        mocha.it('copy object version null - version is in .versions/ - versioning suspended', async function() {
+            copied_key = 'copied_avocado.txt';
+            const res = await s3_uid6.copyObject({ Bucket: suspended_bucket_name, Key: copied_key,
+                CopySource: `${suspended_bucket_name}/${key_to_copy3}?versionId=null`}).promise();
+            const body_comp_res = await get_obj_and_compare_data(s3_uid6, suspended_bucket_name, copied_key, body1);
+            assert.ok(body_comp_res);
+            const comp_res = await compare_version_ids(suspended_full_path, copied_key, res.VersionId, undefined, is_enabled);
+            assert.ok(comp_res);
         });
     });
 
@@ -752,6 +1098,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
         });
     });
 });
+
     mocha.describe('delete multiple objects', function() {
         const delete_multi_object_test_bucket = 'delete-multi-object-test-bucket';
         const full_multi_delete_path = tmp_fs_root + '/' + delete_multi_object_test_bucket;
@@ -1436,7 +1783,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
 
 
 
-/////// UTILS ///////
+///// UTILS ///////
 
 async function delete_object_versions(bucket_path, key) {
     // delete past versions
@@ -1515,7 +1862,6 @@ function _extract_version_info_from_xattr(version_id_str) {
     return { mtimeNsBigint: size_utils.string_to_bigint(arr[0], 36), ino: parseInt(arr[1], 36) };
 }
 
-
 async function version_file_exists(full_path, key, dir, version_id) {
     const version_path = path.join(full_path, dir, '.versions', key + '_' + version_id);
     await fs_utils.file_must_exist(version_path);
@@ -1552,20 +1898,31 @@ async function stat_and_get_all(full_path, key) {
     return stat;
 }
 
-async function compare_version_ids(full_path, key, put_result_version_id, prev_version_id) {
+async function compare_version_ids(full_path, key, put_result_version_id, prev_version_id, is_enabled = true) {
     const key_path = path.join(full_path, key);
     const stat = await nb_native().fs.stat(DEFAULT_FS_CONFIG, key_path);
-    const new_version_id = get_version_id_by_stat(stat);
+    const new_version_id = is_enabled ? get_version_id_by_stat(stat) : NULL_VERSION_ID;
     const xattr_version_id = get_version_id_by_xattr(stat);
-    assert.equal(new_version_id, put_result_version_id);
+    if (is_enabled) {
+        assert.equal(new_version_id, put_result_version_id);
+    } else {
+        // When versioning is Suspended or Disabled the response of put object will include only Etag.
+        // Hence, put_result_version_id should be undefined.
+        assert.notEqual(new_version_id, put_result_version_id);
+    }
     assert.equal(new_version_id, xattr_version_id);
     if (prev_version_id) {
         const xattr_prev_version_id = get_version_id_by_xattr(stat, true);
-        assert.notEqual(new_version_id, prev_version_id);
+        if (is_enabled) {
+            // When versioning is Enabled the version IDs are unique.
+            // Hence, the new version ID must be different than the previous one.
+            assert.notEqual(new_version_id, prev_version_id);
+        }
         assert.equal(xattr_prev_version_id, prev_version_id);
     }
     return true;
 }
+
 function get_version_id_by_stat(stat) {
     return 'mtime-' + stat.mtimeNsBigint.toString(36) + '-ino-' + stat.ino.toString(36);
 }
@@ -1573,6 +1930,23 @@ function get_version_id_by_stat(stat) {
 function get_version_id_by_xattr(stat, prev) {
     if (prev) return stat && stat.xattr[XATTR_PREV_VERSION_ID];
     return (stat && stat.xattr[XATTR_VERSION_ID]) || 'null';
+}
+
+function check_enable_version_format(version_id) {
+    const v_parts = version_id.split('-');
+    if (v_parts[0] !== 'mtime' || v_parts[2] !== 'ino') {
+        return false;
+    }
+
+    const version_format = /^[a-z0-9]+$/;
+    if (!version_format.test(v_parts[1]) || !version_format.test(v_parts[3])) {
+        return false;
+    }
+    return true;
+}
+
+function check_null_version_id(version_id) {
+    return version_id === NULL_VERSION_ID;
 }
 
 async function put_allow_all_bucket_policy(s3_client, bucket) {

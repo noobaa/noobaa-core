@@ -85,7 +85,31 @@ class BlockStoreFs extends BlockStoreBase {
         const fs_context = this.fs_context;
         const block_path = this._get_block_data_path(block_md.id);
 
+        // block_file holds reference to the block file, and is used to close it in case of error.
+        let block_file;
+
         try {
+            if (config.BLOCK_STORE_FS_TIER2_ENABLED) {
+                block_file = await nb_native().fs.open(fs_context, block_path);
+                const stat = await block_file.stat(
+                    fs_context,
+                    { xattr_get_keys: [config.BLOCK_STORE_FS_XATTR_QUERY_MIGSTAT] }
+                );
+
+                const migstat = JSON.parse(stat.xattr[config.BLOCK_STORE_FS_XATTR_QUERY_MIGSTAT] || '{}');
+
+                if (migstat.State === 'MIGRATED') {
+                    // if not yet trying to premigrate, try now.
+                    if (migstat.TargetState !== 'PREMIGRATED') {
+                        await block_file.replacexattr(fs_context, {
+                            [config.BLOCK_STORE_FS_XATTR_TRIGGER_RECALL]: 'now'
+                        });
+                    }
+
+                    throw new RpcError('MIGRATED', `block is migrated`);
+                }
+            }
+
             const { data, stat } = await nb_native().fs.readFile(fs_context, block_path, { read_xattr: true });
 
             // read md from xattr
@@ -105,7 +129,11 @@ class BlockStoreFs extends BlockStoreBase {
             return { block_md: block_md_from_fs || block_md, data };
 
         } catch (err) {
+            if (err.rpc_code === 'MIGRATED') throw err; // Don't want to catch this error
+
             this._test_root_path_exists(err);
+        } finally {
+            if (block_file) await block_file.close(fs_context);
         }
     }
 

@@ -871,6 +871,7 @@ interface NativeFS {
         options?: {
             use_lstat?: boolean;
             skip_user_xattr?: boolean;
+            xattr_get_keys?: string[];
         },
     ): Promise<NativeFSStats>;
     statfs(fs_context: NativeFSContext, path: string): Promise<object>;
@@ -884,6 +885,7 @@ interface NativeFS {
         options?: {
             read_xattr?: boolean;
             skip_user_xattr?: boolean;
+            xattr_get_keys?: string[];
         },
     ): Promise<{
         data: Buffer;
@@ -923,7 +925,7 @@ interface NativeFS {
 
 interface NativeFile {
     close(fs_context: NativeFSContext): Promise<void>;
-    stat(fs_context: NativeFSContext): Promise<NativeFSStats>;
+    stat(fs_context: NativeFSContext, options?: { skip_user_xattr?: boolean, xattr_get_keys?: string[] } ): Promise<NativeFSStats>;
     read(fs_context: NativeFSContext, buffer: Buffer, offset: number, length: number, pos: number): Promise<number>;
     write(fs_context: NativeFSContext, buffer: Buffer): Promise<void>;
     writev(fs_context: NativeFSContext, buffers: Buffer[]): Promise<void>;

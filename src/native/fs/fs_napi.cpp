@@ -328,10 +328,10 @@ get_single_user_xattr(int fd, std::string key, std::string& value)
 }
 
 static int
-get_fd_xattr(int fd, XattrMap& xattr, bool skip_user_xattr)
+get_fd_xattr(int fd, XattrMap& xattr, const std::vector<std::string>& xattr_keys)
 {
-    if (skip_user_xattr) { // we won't list the attributes just return the prefefined list
-        for (auto const& key : USER_XATTRS) {
+    if (xattr_keys.size() > 0) { // we won't list the attributes just return the prefefined list
+        for (auto const& key : xattr_keys) {
             std::string value;
             int r = get_single_user_xattr(fd, key, value);
             if (r) {
@@ -419,6 +419,22 @@ clear_xattr(int fd, std::string _prefix)
     return 0;
 }
 
+static void
+load_xattr_get_keys(Napi::Object& options, std::vector<std::string>& _xattr_get_keys)
+{
+    if (options.Has("xattr_get_keys")) {
+        Napi::Array keys = options.Get("xattr_get_keys").As<Napi::Array>();
+        auto keys_length = keys.Length();
+
+        _xattr_get_keys.clear();
+        _xattr_get_keys.reserve(keys_length);
+        for (uint32_t i = 0; i < keys_length; i++) {
+            _xattr_get_keys.push_back(keys.Get(i).As<Napi::String>());
+        }
+    } else if (options.Has("skip_user_xattr") && options.Get("skip_user_xattr").ToBoolean()) {
+        _xattr_get_keys = USER_XATTRS;
+    }
+}
 
 /**
  * FSWorker is a general async worker for our fs operations
@@ -567,9 +583,9 @@ struct Stat : public FSWorker
 {
     std::string _path;
     bool _use_lstat = false;
-    bool _skip_user_xattr = false;
     struct stat _stat_res;
     XattrMap _xattr;
+    std::vector<std::string> _xattr_get_keys;
 
     Stat(const Napi::CallbackInfo& info)
         : FSWorker(info)
@@ -578,7 +594,7 @@ struct Stat : public FSWorker
         if ((int)info.Length() == 3) {
             Napi::Object options = info[2].As<Napi::Object>();
             if (options.Has("use_lstat")) _use_lstat = options.Get("use_lstat").ToBoolean();
-            if (options.Has("skip_user_xattr")) _skip_user_xattr = options.Get("skip_user_xattr").ToBoolean();
+            load_xattr_get_keys(options, _xattr_get_keys);
         }
         Begin(XSTR() << "Stat " << DVAL(_path));
     }
@@ -598,7 +614,7 @@ struct Stat : public FSWorker
         // With O_PATH The file itself is not opened, and other file operations (e.g., fgetxattr(2) - in our case),
         // fail with the error EBADF. https://man7.org/linux/man-pages/man2/open.2.html
         if (!_use_lstat) {
-            SYSCALL_OR_RETURN(get_fd_xattr(fd, _xattr, _skip_user_xattr));
+            SYSCALL_OR_RETURN(get_fd_xattr(fd, _xattr, _xattr_get_keys));
             if (_backend == GPFS_BACKEND) {
                 GPFS_FCNTL_OR_RETURN(get_fd_gpfs_xattr(fd, _xattr, gpfs_error));
             }
@@ -965,11 +981,11 @@ struct Readfile : public FSWorker
 {
     std::string _path;
     bool _read_xattr;
-    bool _skip_user_xattr;
     struct stat _stat_res;
     XattrMap _xattr;
     uint8_t* _data;
     int _len;
+    std::vector<std::string> _xattr_get_keys;
     Readfile(const Napi::CallbackInfo& info)
         : FSWorker(info)
         , _read_xattr(false)
@@ -980,7 +996,7 @@ struct Readfile : public FSWorker
         if ((int)info.Length() == 3) {
             Napi::Object options = info[2].As<Napi::Object>();
             if (options.Has("read_xattr")) _read_xattr = options.Get("read_xattr").ToBoolean();
-            if (options.Has("skip_user_xattr")) _skip_user_xattr = options.Get("skip_user_xattr").ToBoolean();
+            load_xattr_get_keys(options, _xattr_get_keys);
         }
         Begin(XSTR() << "Readfile " << DVAL(_path));
     }
@@ -997,7 +1013,7 @@ struct Readfile : public FSWorker
         CHECK_OPEN_FD(fd);
         SYSCALL_OR_RETURN(fstat(fd, &_stat_res));
         if (_read_xattr) {
-            SYSCALL_OR_RETURN(get_fd_xattr(fd, _xattr, _skip_user_xattr));
+            SYSCALL_OR_RETURN(get_fd_xattr(fd, _xattr, _xattr_get_keys));
             if (_backend == GPFS_BACKEND) {
                 GPFS_FCNTL_OR_RETURN(get_fd_gpfs_xattr(fd, _xattr, gpfs_error));
             }
@@ -1430,15 +1446,16 @@ struct FileStat : public FSWrapWorker<FileWrap>
 {
     struct stat _stat_res;
     XattrMap _xattr;
-    bool _skip_user_xattr = false;
+    std::vector<std::string> _xattr_get_keys;
 
     FileStat(const Napi::CallbackInfo& info)
         : FSWrapWorker<FileWrap>(info)
     {
         if ((int)info.Length() == 2) {
             Napi::Object options = info[1].As<Napi::Object>();
-            if (options.Has("skip_user_xattr")) _skip_user_xattr = options.Get("skip_user_xattr").ToBoolean();
+            load_xattr_get_keys(options, _xattr_get_keys);
         }
+
         Begin(XSTR() << "FileStat " << DVAL(_wrap->_path));
     }
     virtual void Work()
@@ -1446,7 +1463,7 @@ struct FileStat : public FSWrapWorker<FileWrap>
         int fd = _wrap->_fd;
         CHECK_WRAP_FD(fd);
         SYSCALL_OR_RETURN(fstat(fd, &_stat_res));
-        SYSCALL_OR_RETURN(get_fd_xattr(fd, _xattr, _skip_user_xattr));
+        SYSCALL_OR_RETURN(get_fd_xattr(fd, _xattr, _xattr_get_keys));
         if (_backend == GPFS_BACKEND) {
             GPFS_FCNTL_OR_RETURN(get_fd_gpfs_xattr(fd, _xattr, gpfs_error));
         }

@@ -61,9 +61,9 @@ function get_copy_type() {
     return 'MIX';
 }
 
-async function move_objects(scanner_sem, client, copy_type, src_bucket_name, dst_bucket_name, keys) {
+async function move_objects(scanner_semaphore, client, copy_type, src_bucket_name, dst_bucket_name, keys) {
     try {
-        const res = await scanner_sem.surround_count(keys.length,
+        const res = await scanner_semaphore.surround_count(keys.length,
             async () => {
                 try {
                     const res1 = await client.replication.move_objects_by_type({
@@ -92,9 +92,9 @@ async function move_objects(scanner_sem, client, copy_type, src_bucket_name, dst
     }
 }
 
-async function delete_objects(scanner_sem, client, bucket_name, keys) {
+async function delete_objects(scanner_semaphore, client, bucket_name, keys) {
     try {
-        const res = await scanner_sem.surround_count(keys.length,
+        const res = await scanner_semaphore.surround_count(keys.length,
             async () => {
                 try {
                     const res1 = await client.replication.delete_objects({

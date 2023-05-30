@@ -717,9 +717,7 @@ module.exports = {
             method: 'PUT',
             params: {
                 type: 'object',
-                required: [
-                    'name', 'replication_policy'
-                ],
+                required: ['name', 'replication_policy'],
                 properties: {
                     name: { $ref: 'common_api#/definitions/bucket_name' },
                     replication_policy: { $ref: '#/definitions/replication_policy' },
@@ -734,9 +732,7 @@ module.exports = {
             method: 'GET',
             params: {
                 type: 'object',
-                required: [
-                    'name'
-                ],
+                required: ['name'],
                 properties: {
                     name: { $ref: 'common_api#/definitions/bucket_name' },
                 },
@@ -753,9 +749,7 @@ module.exports = {
             method: 'DELETE',
             params: {
                 type: 'object',
-                required: [
-                    'name'
-                ],
+                required: ['name'],
                 properties: {
                     name: { $ref: 'common_api#/definitions/bucket_name' },
                 },
@@ -770,9 +764,7 @@ module.exports = {
             method: 'GET',
             params: {
                 type: 'object',
-                required: [
-                    'name', 'replication_policy'
-                ],
+                required: ['name', 'replication_policy'],
                 properties: {
                     name: { $ref: 'common_api#/definitions/bucket_name' },
                     replication_policy: { $ref: '#/definitions/replication_policy' },
@@ -874,7 +866,7 @@ module.exports = {
                 versioning: { $ref: '#/definitions/versioning' },
                 namespace: { $ref: '#/definitions/namespace_bucket_config' },
                 bucket_claim: { $ref: '#/definitions/bucket_claim' },
-                logging: {$ref: '#/definitions/logging'},
+                logging: { $ref: '#/definitions/logging' },
                 force_md5_etag: {
                     type: 'boolean'
                 },
@@ -1425,6 +1417,7 @@ module.exports = {
                                 }
                             },
                             sync_deletions: { type: 'boolean' },
+                            sync_versions: { type: 'boolean' },
                         }
                     }
                 },

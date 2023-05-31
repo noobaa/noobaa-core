@@ -227,9 +227,9 @@ function parse_sse(req) {
         }
     }
 
-    if (algorithm !== 'AES256' && algorithm !== 'aws:kms') throw new S3Error(S3Error.InvalidDigest);
+    if (algorithm !== 'AES256' && algorithm !== 'aws:kms') throw new S3Error(S3Error.InvalidArgument);
 
-    if (algorithm === 'aws:kms' && !kms_key_id) throw new S3Error(S3Error.InvalidDigest);
+    if (algorithm === 'aws:kms' && !kms_key_id) throw new S3Error(S3Error.InvalidArgument);
     // const md5_regex = new RegExp('/^[a-f0-9]{32}$/');
     // if (kms_key_id && !md5_regex.test(kms_key_id)) throw new S3Error(S3Error.InvalidDigest);
 

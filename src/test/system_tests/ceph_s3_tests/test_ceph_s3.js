@@ -28,7 +28,7 @@ let tests_list;
 
 const OUT_OF_SCOPE_TESTS = create_out_of_scope_tests_list() || [];
 //Regexp match will be tested per each entry
-const S3_CEPH_TEST_OUT_OF_SCOPE_REGEXP = new RegExp(`(${OUT_OF_SCOPE_TESTS.join(')|(')})`);
+const S3_CEPH_TEST_OUT_OF_SCOPE_REGEXP = new RegExp(`(${OUT_OF_SCOPE_TESTS.join('\\b)|(')}\\b)`);
 const S3_CEPH_TEST_STEMS_REGEXP = new RegExp(`(${S3_CEPH_TEST_STEMS.join(')|(')})`);
 
 async function main() {

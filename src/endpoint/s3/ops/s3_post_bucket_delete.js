@@ -3,6 +3,7 @@
 
 const _ = require('lodash');
 const dbg = require('../../../util/debug_module')(__filename);
+const S3Error = require('../s3_errors').S3Error;
 
 /**
  * http://docs.aws.amazon.com/AmazonS3/latest/API/multiobjectdeleteapi.html
@@ -15,6 +16,12 @@ async function post_bucket_delete(req) {
         key: obj.Key && obj.Key[0],
         version_id: obj.VersionId && obj.VersionId[0],
     }));
+
+    if (objects.length > 1000) {
+        dbg.error('The request can not contain a list of more than 1000 keys');
+        throw new S3Error(S3Error.MalformedXML);
+    }
+
     dbg.log3('post_bucket_delete: objects', objects);
 
     const reply = await req.object_sdk.delete_multiple_objects({

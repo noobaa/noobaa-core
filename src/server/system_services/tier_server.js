@@ -18,7 +18,7 @@ const system_store = require('./system_store').get_instance();
 const chunk_config_utils = require('../utils/chunk_config_utils');
 const SensitiveString = require('../../util/sensitive_string');
 
-function new_tier_defaults(name, system_id, chunk_config, mirrors) {
+function new_tier_defaults(name, system_id, chunk_config, mirrors, storage_class) {
     return {
         _id: system_store.new_system_store_id(),
         name: name,
@@ -26,6 +26,7 @@ function new_tier_defaults(name, system_id, chunk_config, mirrors) {
         chunk_config,
         data_placement: 'SPREAD',
         mirrors,
+        storage_class: storage_class,
     };
 }
 
@@ -48,7 +49,7 @@ function new_policy_defaults(name, system_id, chunk_split_config, tiers_orders) 
  *
  */
 function create_tier(req) {
-    const { attached_pools = [] } = req.rpc_params;
+    const { attached_pools = [], storage_class } = req.rpc_params;
     const pools = attached_pools.map(pool_name =>
         req.system.pools_by_name[pool_name]
     );
@@ -71,7 +72,8 @@ function create_tier(req) {
         req.rpc_params.name,
         req.system._id,
         chunk_config._id,
-        mirrors
+        mirrors,
+        storage_class
     );
     if (req.rpc_params.data_placement) tier.data_placement = req.rpc_params.data_placement;
     changes.insert.tiers = [tier];
@@ -373,7 +375,8 @@ async function update_bucket_class(req) {
                     new_name,
                     req.system._id,
                     chunk_config._id,
-                    mirrors
+                    mirrors,
+                    tier.storage_class
                 );
                 if (tier.data_placement) new_tier.data_placement = tier.data_placement;
                 if (old_tier) {
@@ -501,7 +504,8 @@ function add_tier_to_bucket(req) {
         new_tier_name,
         req.system._id,
         chunk_config._id,
-        mirrors
+        mirrors,
+        tier_params.storage_class,
     );
     changes.insert.tiers = [tier];
     const order = req.rpc_params.tier.order || policy.tiers.length;

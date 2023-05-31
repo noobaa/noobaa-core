@@ -80,6 +80,19 @@ class BlockStoreMem extends BlockStoreBase {
             succeeded_block_ids: _.difference(block_ids, [])
         };
     }
+    /**
+     * @param {string[]} block_ids
+     * @param {string} storage_class
+     * @returns {Promise<{ moved_block_ids: string[] }>}
+     */
+    async _move_blocks_to_storage_class(block_ids, storage_class) {
+        block_ids.forEach(block_id => {
+            const block_data = this._blocks.get(block_id);
+            block_data.storage_class = storage_class;
+        });
+
+        return { moved_block_ids: block_ids };
+    }
 }
 
 // EXPORTS

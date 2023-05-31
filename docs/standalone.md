@@ -135,7 +135,7 @@ config.DEFAULT_POOL_TYPE = 'HOSTS';
 config.AGENT_RPC_PORT = '9999';
 config.AGENT_RPC_PROTOCOL = 'tcp';
 
-config.BLOCK_STORE_FS_TIER2_ENABLED = true;
+config.BLOCK_STORE_FS_TMFS_ENABLED = true;
 config.BLOCK_STORE_FS_MAPPING_INFO_ENABLED = true;
 
 config.DEDUP_ENABLED = false;
@@ -166,6 +166,7 @@ config.SCRUBBER_ENABLED = false;
 config.REBUILD_NODE_ENABLED = false;
 config.AWS_METERING_ENABLED = false;
 config.AGENT_BLOCKS_VERIFIER_ENABLED = false;
+config.TIERING_TTL_WORKER_ENABLED = true;
 EOF
 ```
 
@@ -251,6 +252,21 @@ export AWS_SECRET_ACCESS_KEY=$(npm -- run api account read_account '{}' --json |
 
 ```sh
 aws --endpoint http://localhost:6001 s3 mb s3://testbucket
+```
+
+Add additional second tier to the bucket so that TTL worker can do the cache eviction.Note that here:
+1. The `bucket_name` is the same as the name of the bucket we created in the previous step.
+2. The `attached_pools` is the same as the name of the pool we created in the [above](#create-a-pool) section.
+```sh
+node src/cmd/api.js tiering_policy add_tier_to_bucket '{
+  "bucket_name": "testbucket", 
+  "tier":{
+    "attached_pools": ["backingstores"],
+    "order": 1, 
+    "data_placement":"SPREAD",
+    "storage_class": "GLACIER"
+  }
+}'
 ```
 
 ### Listing

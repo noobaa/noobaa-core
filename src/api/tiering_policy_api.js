@@ -84,6 +84,7 @@ module.exports = {
                             data_placement: { $ref: 'tier_api#/definitions/data_placement_enum' },
                             attached_pools: { $ref: 'tier_api#/definitions/pool_info' },
                             order: { type: 'integer' },
+                            storage_class: { $ref: 'common_api#/definitions/storage_class_enum' },
                         }
                     }
                 }
@@ -202,6 +203,7 @@ module.exports = {
                             chunk_coder_config: { $ref: 'common_api#/definitions/chunk_coder_config' },
                             data_placement: { $ref: 'tier_api#/definitions/data_placement_enum' },
                             attached_pools: { $ref: 'tier_api#/definitions/pool_info' },
+                            storage_class: { $ref: 'common_api#/definitions/storage_class_enum' },
                         }
                     }
                 }

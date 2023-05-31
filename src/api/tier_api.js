@@ -25,6 +25,7 @@ module.exports = {
                     chunk_coder_config: { $ref: 'common_api#/definitions/chunk_coder_config' },
                     data_placement: { $ref: '#/definitions/data_placement_enum' },
                     attached_pools: { $ref: '#/definitions/pool_info' },
+                    storage_class: { $ref: 'common_api#/definitions/storage_class_enum' },
                 }
             },
             reply: {
@@ -65,6 +66,7 @@ module.exports = {
                     chunk_coder_config: { $ref: 'common_api#/definitions/chunk_coder_config' },
                     attached_pools: { $ref: '#/definitions/pool_info' },
                     data_placement: { $ref: '#/definitions/data_placement_enum' },
+                    storage_class: { $ref: 'common_api#/definitions/storage_class_enum' },
                 }
             },
             auth: {
@@ -107,6 +109,7 @@ module.exports = {
                 mirror_groups: { $ref: '#/definitions/mirror_groups_info' },
                 storage: { $ref: 'common_api#/definitions/storage_info' },
                 data: { $ref: 'common_api#/definitions/storage_info' },
+                storage_class: { $ref: 'common_api#/definitions/storage_class_enum' },
             }
         },
 

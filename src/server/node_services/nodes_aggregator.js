@@ -54,6 +54,15 @@ async function aggregate_data_free_by_tier(req) {
 function _aggregate_data_free_for_tier(tier, nodes_by_pool) {
     const num_blocks_per_chunk = mapper.get_num_blocks_per_chunk(tier);
     return tier.mirrors.map(({ spread_pools }) => {
+        // If the tier is glacier, we don't want to calculate the free space - Assume it's 1PB
+        if (tier.storage_class === 'GLACIER') {
+            return {
+                free: size_utils.bigint_to_json(BigInteger.PETABYTE),
+                redundant_free: size_utils.bigint_to_json(BigInteger.zero),
+                regular_free: size_utils.bigint_to_json(BigInteger.PETABYTE),
+            };
+        }
+
         const nodes = _.flatMap(spread_pools, pool => nodes_by_pool[pool.name] || []);
         let redundant_free = BigInteger.zero;
         const spread_free = [];

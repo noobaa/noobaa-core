@@ -16,6 +16,10 @@ const BlockStoreBase = require('./block_store_base').BlockStoreBase;
 const get_block_internal_dir = require('./block_store_base').get_block_internal_dir;
 const { RpcError } = require('../../rpc');
 
+const TMFS_STATE_MIGRATED = 'MIGRATED';
+const TMFS_STATE_PREMIGRATED = 'PREMIGRATED';
+const TMFS_STATE_RESIDENT = 'RESIDENT';
+
 class BlockStoreFs extends BlockStoreBase {
 
     constructor(options) {
@@ -27,7 +31,7 @@ class BlockStoreFs extends BlockStoreBase {
         this.usage_path = path.join(this.root_path, 'usage');
 
         this.fs_context = {
-            disable_ctime_check: config.BLOCK_STORE_FS_TIER2_ENABLED
+            disable_ctime_check: config.BLOCK_STORE_FS_TMFS_ENABLED
         };
     }
 
@@ -92,7 +96,7 @@ class BlockStoreFs extends BlockStoreBase {
         let block_file;
 
         try {
-            if (config.BLOCK_STORE_FS_TIER2_ENABLED) {
+            if (config.BLOCK_STORE_FS_TMFS_ENABLED) {
                 block_file = await nb_native().fs.open(fs_context, block_path);
                 const stat = await block_file.stat(
                     fs_context,
@@ -101,9 +105,9 @@ class BlockStoreFs extends BlockStoreBase {
 
                 const migstat = JSON.parse(stat.xattr[config.BLOCK_STORE_FS_XATTR_QUERY_MIGSTAT] || '{}');
 
-                if (migstat.State === 'MIGRATED') {
+                if (migstat.State === TMFS_STATE_MIGRATED) {
                     // if not yet trying to premigrate, try now.
-                    if (migstat.TargetState !== 'PREMIGRATED') {
+                    if (migstat.TargetState !== TMFS_STATE_PREMIGRATED) {
                         await block_file.replacexattr(fs_context, {
                             [config.BLOCK_STORE_FS_XATTR_TRIGGER_RECALL]: 'now'
                         });
@@ -111,7 +115,7 @@ class BlockStoreFs extends BlockStoreBase {
 
                     // if not allowed to read migrated blocks, throw error - temporary fix until
                     // we move to migstat polling.
-                    if (!config.BLOCK_STORE_FS_TIER2_ALLOW_MIGRATED_READS) {
+                    if (!config.BLOCK_STORE_FS_TMFS_ALLOW_MIGRATED_READS) {
                         throw new RpcError('MIGRATED', `block is migrated`);
                     }
                 }
@@ -174,7 +178,7 @@ class BlockStoreFs extends BlockStoreBase {
         if (!is_test_block) {
 
             // set xattr to trigger migration of file to underlying tier
-            if (config.BLOCK_STORE_FS_TIER2_ENABLED) {
+            if (config.BLOCK_STORE_FS_TMFS_ENABLED) {
                 xattr[config.BLOCK_STORE_FS_XATTR_TRIGGER_MIGRATE] = 'now';
                 xattr_need_fsync = true;
             }
@@ -254,6 +258,86 @@ class BlockStoreFs extends BlockStoreBase {
             };
             this._update_usage(usage);
         }
+    }
+
+
+    /**
+     * @param {string[]} block_ids
+     * @param {string} storage_class
+     * @returns {Promise<{ moved_block_ids: string[] }>}
+     */
+    async _move_blocks_to_storage_class(block_ids, storage_class) {
+        if (storage_class === 'GLACIER') {
+            return this._move_blocks_to_glacier(block_ids);
+        }
+        if (storage_class === 'STANDARD') {
+            // Nothing to do for now
+            return Promise.resolve({ moved_block_ids: [] });
+        }
+
+        throw new Error(`unsupported storage class ${storage_class}`);
+    }
+
+    /**
+     * @param {string[]} block_ids
+     * @returns {Promise<{ moved_block_ids: string[] }>}
+     */
+    async _move_blocks_to_glacier(block_ids) {
+        const moved_block_ids = [];
+        if (!config.BLOCK_STORE_FS_TMFS_ENABLED) return { moved_block_ids };
+
+        await P.map_with_concurrency(10, block_ids, async block_id => {
+            try {
+                if (await this._move_block_to_glacier(block_id)) moved_block_ids.push(block_id);
+            } catch (err) {
+                dbg.warn(`_move_block_to_glacier block ${block_id} failed due to`, err);
+            }
+        });
+
+        return { moved_block_ids };
+    }
+
+    /**
+     * @note Supports only Tier2/TMFS FS_ARCHIVE for others will 
+     * simply return false
+     * @param {string} block_id 
+     * @returns {Promise<boolean>}
+     */
+    async _move_block_to_glacier(block_id) {
+        return this._move_block_to_tmfs(block_id);
+    }
+
+    async _move_block_to_tmfs(block_id) {
+        const fs_context = this.fs_context;
+        const block_path = this._get_block_data_path(block_id);
+        let evicting = false;
+        let file = null;
+
+        try {
+            file = await nb_native().fs.open(fs_context, block_path);
+            const stat = await file.stat(fs_context, { xattr_get_keys: [config.BLOCK_STORE_FS_XATTR_QUERY_MIGSTAT] });
+            const migstat = JSON.parse(stat?.xattr?.[config.BLOCK_STORE_FS_XATTR_QUERY_MIGSTAT] || '{}');
+
+            // If the block is in PREMIGRATED state or is in RESIDENT state, we need to MIGRATE it back to the
+            // tape storage (eviction).
+            if (migstat.State === TMFS_STATE_PREMIGRATED || migstat.State === TMFS_STATE_RESIDENT) {
+                // it is possible that we requested this in the previous run
+                // as well so we need to make sure we do not trigger it again
+                if (migstat.TargetState !== TMFS_STATE_MIGRATED) {
+                    await file.replacexattr(fs_context, {
+                        [config.BLOCK_STORE_FS_XATTR_TRIGGER_MIGRATE]: 'now'
+                    });
+
+                    evicting = true;
+                }
+            }
+        } catch (err) {
+            ignore_not_found(err);
+        } finally {
+            if (file) await file.close(fs_context);
+        }
+
+        return evicting;
     }
 
     _get_usage() {

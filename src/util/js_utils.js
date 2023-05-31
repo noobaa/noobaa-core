@@ -224,19 +224,41 @@ function hasOwnProperty(obj, prop_name_or_sym) {
  * @param {symbol} sym
  * @returns {Omit<T,symbol> | T}
  */
- function omit_symbol(maybe_obj, sym) {
-     if (
-         !_.isObjectLike(maybe_obj) ||
-         Array.isArray(maybe_obj) ||
-         !hasOwnProperty(maybe_obj, sym)
-     ) {
-         return maybe_obj;
-     }
+function omit_symbol(maybe_obj, sym) {
+    if (
+        !_.isObjectLike(maybe_obj) ||
+        Array.isArray(maybe_obj) ||
+        !hasOwnProperty(maybe_obj, sym)
+    ) {
+        return maybe_obj;
+    }
 
-     const obj = /** @type {object} */ (maybe_obj);
-     return _.omit(obj, sym);
- }
+    const obj = /** @type {object} */ (maybe_obj);
+    return _.omit(obj, sym);
+}
 
+/**
+ * compare_unordered takes two arrays and returns true 
+ * if they contain the same elements, regardless of order.
+ * @param {Array<any>} arr1 
+ * @param {Array<any>} arr2 
+ * @param {boolean} ignore_frequency
+ */
+function compare_unordered(arr1, arr2, ignore_frequency = false) {
+    if (!ignore_frequency && (arr1.length !== arr2.length)) return false;
+
+    const fc = arr1.reduce((acc, val) => {
+        acc[val] = (acc[val] || 0) + 1;
+        return acc;
+    }, {});
+
+    for (const val of arr2) {
+        if (!fc[val]) return false;
+        if (!ignore_frequency) fc[val] -= 1;
+    }
+
+    return true;
+}
 
 exports.self_bind = self_bind;
 exports.array_push_all = array_push_all;
@@ -251,3 +273,4 @@ exports.inspect_lazy = inspect_lazy;
 exports.make_array = make_array;
 exports.map_get_or_create = map_get_or_create;
 exports.omit_symbol = omit_symbol;
+exports.compare_unordered = compare_unordered;

@@ -69,6 +69,7 @@ class BlockStoreBase {
             'verify_blocks',
             'get_block_store_info',
             'update_store_usage',
+            'move_blocks_to_storage_class',
         ]);
     }
 
@@ -303,6 +304,29 @@ class BlockStoreBase {
             block_ids.map(block_id => String(block_id)),
             async () => this._delete_blocks(block_ids)
         );
+    }
+
+    async move_blocks_to_storage_class(req) {
+        const block_ids = req.rpc_params.block_ids;
+        const storage_class = req.rpc_params.storage_class;
+        dbg.log1('move_blocks_to_storage_class', block_ids, 'node', this.node_name, 'storage_class', storage_class);
+        // Do not invalidate the cache here, as we don't necessarily have to lose the data
+        // if we are moving it to another storage class.
+        return this.block_modify_lock.surround_keys(
+            block_ids.map(block_id => String(block_id)),
+            async () => this._move_blocks_to_storage_class(block_ids, storage_class)
+        );
+    }
+
+    /**
+     * Abstract method - override me.
+     * 
+     * @param {string[]} block_ids
+     * @param {string} storage_class
+     * @returns {Promise<{ moved_block_ids: string[] }>}
+     */
+    async _move_blocks_to_storage_class(block_ids, storage_class) {
+        throw new Error('BlockStoreBase._move_blocks_to_storage_class is ABSTRACT');
     }
 
     /**

@@ -1361,22 +1361,40 @@ class MDStore {
             }));
     }
 
-    find_oldest_tier_chunk_ids(tier, limit, sort_direction) {
+    /**
+     * 
+     * @param {{
+     *  tier: nb.ID,
+     *  limit: number,
+     *  sort_direction: 1 | -1,
+     *  max_tier_lru?: Date,
+     * }} params
+     * @returns {Promise<nb.ID[]>}
+     */
+    find_oldest_tier_chunk_ids({ tier, limit, sort_direction = 1, max_tier_lru }) {
         const sort = {
             tier: sort_direction * -1,
-            tier_lru: sort_direction
+            tier_lru: sort_direction,
         };
-        return this._chunks.find({
-                tier: { $eq: tier, $exists: true },
-                deleted: null,
-            }, {
-                projection: { _id: 1 },
-                hint: 'tiering_index',
-                sort,
-                limit,
-            })
 
-            .then(chunks => db_client.instance().uniq_ids(chunks, '_id'));
+        const selectors = {
+            tier: { $eq: tier, $exists: true },
+            deleted: null,
+        };
+
+        if (max_tier_lru) {
+            selectors.tier_lru = { $lte: max_tier_lru };
+        }
+
+        return this._chunks
+          .find(selectors, {
+            projection: { _id: 1 },
+            hint: "tiering_index",
+            sort,
+            limit,
+          })
+
+          .then(chunks => db_client.instance().uniq_ids(chunks, "_id"));
     }
 
 

@@ -29,6 +29,7 @@ module.exports = {
                         }
                     },
                     sync_deletions: { type: 'boolean' },
+                    sync_versions: { type: 'boolean' },
                     rule_status: {
                         type: 'object',
                         required: ['src_cont_token', 'dst_cont_token', 'last_cycle_start', 'last_cycle_end'],

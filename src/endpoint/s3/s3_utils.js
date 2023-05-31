@@ -67,10 +67,13 @@ const OP_NAME_TO_ACTION = Object.freeze({
     get_bucket_versioning: { regular: "s3:getbucketversioning" },
     get_bucket_versions: { regular: "s3:listbucketversions" },
     get_bucket_website: { regular: "s3:getbucketwebsite" },
+    get_bucket_object_lock: { regular: "s3:getbucketobjectlockconfiguration" },
     get_bucket: { regular: "s3:listbucket" },
     get_object_acl: { regular: "s3:getobjectacl" },
     get_object_tagging: { regular: "s3:getobjecttagging", versioned: "s3:getobjectversiontagging" },
     get_object_uploadId: { regular: "s3:listmultipartuploadparts" },
+    get_object_retention: { regular: "s3:getobjectretention"},
+    get_object_legal_hold: { regular: "s3:getobjectlegalhold" },
     get_object: { regular: "s3:getobject", versioned: "s3:getobjectversion" },
     get_service: { regular: "s3:listallmybuckets" },
 
@@ -99,10 +102,13 @@ const OP_NAME_TO_ACTION = Object.freeze({
     put_bucket_tagging: { regular: "s3:putbuckettagging" },
     put_bucket_versioning: { regular: "s3:putbucketversioning" },
     put_bucket_website: { regular: "s3:putbucketwebsite" },
+    put_bucket_object_lock: { regular: "s3:putbucketobjectlockconfiguration" },
     put_bucket: { regular: "s3:createbucket" },
     put_object_acl: { regular: "s3:putobjectacl" },
     put_object_tagging: { regular: "s3:putobjecttagging", versioned: "s3:putobjectversiontagging" },
     put_object_uploadId: { regular: "s3:putobject" },
+    put_object_retention: { regular: "s3:putobjectretention" },
+    put_object_legal_hold: { regular: "s3:getobjectlegalhold"},
     put_object: { regular: "s3:putobject" },
 });
 

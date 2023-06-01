@@ -29,8 +29,10 @@ const BKT5 = 'test5-s3-ops-objects-ops';
 const BKT6 = 'test6-s3-ops-object-ops';
 const BKT7 = 'test7-s3-ops-objects-ops';
 const CONNECTION_NAME = 's3_connection';
+const CONNECTION_NAME_OTHER_PLATFORM = 's3_connection_other_platform';
 const NAMESPACE_RESOURCE_SOURCE = 'namespace_target_bucket';
 const NAMESPACE_RESOURCE_TARGET = 'namespace_source_bucket';
+const NAMESPACE_RESOURCE_OTHER_PLATFORM = 'namespace_other_platform_bucket';
 const TARGET_BUCKET = 's3-ops-target'; // these 2 buckets should exist in the external cloud provider before running the test
 const SOURCE_BUCKET = 's3-ops-source';
 const file_body = "TEXT-FILE-YAY!!!!-SO_COOL";
@@ -49,6 +51,7 @@ const azure_mock_key = 'Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErC
 const azure_mock_endpoint = `http://${blob_mock_host}:10000/${azure_mock_account}`;
 const azure_mock_connection_string = `DefaultEndpointsProtocol=http;AccountName=${azure_mock_account};AccountKey=${azure_mock_key};BlobEndpoint=${azure_mock_endpoint};`;
 
+/*eslint max-lines-per-function: ["error", 780]*/
 mocha.describe('s3_ops', function() {
 
     let s3;
@@ -57,6 +60,8 @@ mocha.describe('s3_ops', function() {
     // Bucket name for the target namespace resource
     let target_namespace_bucket;
     let source_bucket;
+    let other_platform_bucket;
+    let is_other_platform_bucket_created = false;
 
     mocha.before(async function() {
         const self = this;
@@ -115,9 +120,36 @@ mocha.describe('s3_ops', function() {
         mocha.before(async function() {
             this.timeout(100000);
             source_bucket = bucket_name + '-source';
+            other_platform_bucket = bucket_name + '-other-platform';
             if (bucket_type === "regular") {
                 await s3.createBucket({ Bucket: bucket_name }).promise();
                 await s3.createBucket({ Bucket: source_bucket }).promise();
+                //create aws bucket to test copy from other server
+                if (process.env.NEWAWSPROJKEY && process.env.NEWAWSPROJSECRET) {
+                    source_namespace_bucket = caching ? SOURCE_BUCKET + '-caching' : SOURCE_BUCKET;
+                    await rpc_client.account.add_external_connection({
+                        endpoint: 'https://s3.amazonaws.com',
+                        endpoint_type: 'AWS',
+                        identity: process.env.NEWAWSPROJKEY,
+                        secret: process.env.NEWAWSPROJSECRET,
+                        name: CONNECTION_NAME_OTHER_PLATFORM
+                    });
+                    await rpc_client.pool.create_namespace_resource({
+                        name: NAMESPACE_RESOURCE_OTHER_PLATFORM,
+                        connection: CONNECTION_NAME_OTHER_PLATFORM,
+                        target_bucket: source_namespace_bucket // use source_namespace_bucket as it should already exist
+                    });
+                    const trgt_nsr = { resource: NAMESPACE_RESOURCE_OTHER_PLATFORM };
+                    await rpc_client.bucket.create_bucket({
+                        name: other_platform_bucket,
+                        namespace: {
+                            read_resources: [trgt_nsr],
+                            write_resource: trgt_nsr,
+                            caching: caching
+                        }
+                    });
+                    is_other_platform_bucket_created = true;
+                }
             } else {
                 source_namespace_bucket = caching ? SOURCE_BUCKET + '-caching' : SOURCE_BUCKET;
                 target_namespace_bucket = caching ? TARGET_BUCKET + '-caching' : TARGET_BUCKET;
@@ -186,6 +218,10 @@ mocha.describe('s3_ops', function() {
                         caching
                     }
                 });
+                await s3.createBucket({
+                    Bucket: other_platform_bucket
+                }).promise();
+                is_other_platform_bucket_created = true;
             }
 
             await s3.createBucket({
@@ -212,6 +248,15 @@ mocha.describe('s3_ops', function() {
                 Body: file_body,
                 ContentType: 'text/plain'
             }).promise();
+
+            if (is_other_platform_bucket_created) {
+                await s3.putObject({
+                    Bucket: other_platform_bucket,
+                    Key: text_file1,
+                    Body: file_body,
+                    ContentType: 'text/plain',
+                }).promise();
+            }
 
         });
         mocha.beforeEach('s3 ops before each', async function() {
@@ -406,6 +451,7 @@ mocha.describe('s3_ops', function() {
             assert.strictEqual(res.ContentType, 'text/plain');
             assert.strictEqual(res.ContentLength, file_body.length);
         });
+
         mocha.it('should copy text-file', async function() {
             if (is_azure_mock) this.skip();
             this.timeout(120000);
@@ -422,6 +468,60 @@ mocha.describe('s3_ops', function() {
             }).promise();
             const res2 = await s3.listObjects({ Bucket: bucket_name }).promise();
             assert.strictEqual(res2.Contents.length, (res1.Contents.length + 2));
+        });
+
+        mocha.it('should copy text-file tagging', async function() {
+            if (is_azure_mock) this.skip();
+            this.timeout(120000);
+            const params = {
+                Bucket: bucket_name,
+                Key: text_file1,
+                Tagging: {
+                    TagSet: [{
+                        Key: 's3ops',
+                        Value: 'copy_tagging'
+                    }]
+                }
+            };
+
+            await s3.putObjectTagging(params).promise();
+            await s3.copyObject({
+                Bucket: bucket_name,
+                Key: text_file2,
+                CopySource: `/${bucket_name}/${text_file1}`,
+            }).promise();
+
+            const res = await s3.getObjectTagging({Bucket: bucket_name, Key: text_file2}).promise();
+
+            assert.strictEqual(res.TagSet.length, params.Tagging.TagSet.length, 'Should be 1');
+            assert.strictEqual(res.TagSet[0].Value, params.Tagging.TagSet[0].Value);
+            assert.strictEqual(res.TagSet[0].Key, params.Tagging.TagSet[0].Key);
+        });
+
+        mocha.it('should copy text-file tagging different platform', async function() {
+            if (is_azure_mock) this.skip();
+            if (!is_other_platform_bucket_created) this.skip();
+            this.timeout(120000);
+            const params = {
+                Bucket: other_platform_bucket,
+                Key: text_file1,
+                Tagging: {
+                    TagSet: [{
+                        Key: 's3ops',
+                        Value: 'copy_tagging_different_platform'
+                    }]
+                }
+            };
+            await s3.putObjectTagging(params).promise();
+            await s3.copyObject({
+                Bucket: bucket_name,
+                Key: text_file2,
+                CopySource: `/${other_platform_bucket}/${text_file1}`,
+            }).promise();
+            const res = await s3.getObjectTagging({Bucket: bucket_name, Key: text_file2}).promise();
+            assert.strictEqual(res.TagSet.length, 1, 'Should be 1');
+            assert.strictEqual(res.TagSet[0].Value, params.Tagging.TagSet[0].Value);
+            assert.strictEqual(res.TagSet[0].Key, params.Tagging.TagSet[0].Key);
         });
         mocha.it('should copy text-file multi-part', async function() {
             if (is_azure_mock) this.skip();
@@ -621,6 +721,9 @@ mocha.describe('s3_ops', function() {
             if (!is_azure_mock) await s3.deleteObject({ Bucket: bucket_name, Key: text_file2 }).promise();
             // text_file3 was created using copy - Azurite does not support it
             if (!is_azure_mock) await s3.deleteObject({ Bucket: bucket_name, Key: text_file3 }).promise();
+            if (is_other_platform_bucket_created) {
+                await s3.deleteObject({ Bucket: other_platform_bucket, Key: text_file1 }).promise();
+            }
         });
         mocha.it('should list objects after no objects left', async function() {
             this.timeout(100000);
@@ -633,6 +736,11 @@ mocha.describe('s3_ops', function() {
                 await s3.deleteBucket({ Bucket: source_bucket }).promise();
                 await s3.deleteBucket({ Bucket: bucket_name }).promise();
                 await s3.deleteBucket({ Bucket: BKT5 }).promise();
+                if (is_other_platform_bucket_created) {
+                    await s3.deleteBucket({ Bucket: other_platform_bucket }).promise();
+                    await rpc_client.pool.delete_namespace_resource({ name: NAMESPACE_RESOURCE_OTHER_PLATFORM });
+                    await rpc_client.account.delete_external_connection({ connection_name: CONNECTION_NAME_OTHER_PLATFORM });
+                }
             } else {
                 if (!USE_REMOTE_ENDPOINT) {
                     await s3.deleteBucket({ Bucket: source_namespace_bucket }).promise();
@@ -645,6 +753,7 @@ mocha.describe('s3_ops', function() {
                 await s3.deleteBucket({ Bucket: source_bucket }).promise();
                 await rpc_client.pool.delete_namespace_resource({ name: NAMESPACE_RESOURCE_TARGET });
                 await rpc_client.account.delete_external_connection({ connection_name: CONNECTION_NAME });
+                await s3.deleteBucket({ Bucket: other_platform_bucket }).promise();
             }
         });
     }

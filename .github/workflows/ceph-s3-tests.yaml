@@ -34,7 +34,7 @@ jobs:
          # Freeze the version of operator
          # to avoid a failed run due to code changes in the operator repo.
          # Need to update the commit once in a while
-          ref: f7358501716816250702d9a4c96f2526f98534e7
+          ref: ca12ff9e360220bb50bb9a2b645846e4b241fa39
 
       - name: Change settings for k8s and minikube
         run: |
@@ -70,10 +70,11 @@ jobs:
           set -x
           cd ./noobaa-core
           kubectl apply -f ./src/test/system_tests/ceph_s3_tests/test_ceph_s3_job.yml
-          kubectl wait --for=condition=complete job/noobaa-tests-s3 --timeout=30m || TIMEOUT=true
+          kubectl wait --for=condition=complete job/noobaa-tests-s3 --timeout=45m || TIMEOUT=true
           kubectl logs job/noobaa-tests-s3 --tail 10000 -f
           if kubectl logs job/noobaa-tests-s3 | grep -q "Ceph Test Failed:"; then
             echo "At least one test failed!"
+            kubectl get pods
             exit 1
           fi
           if [ ${TIMEOUT} ]; then

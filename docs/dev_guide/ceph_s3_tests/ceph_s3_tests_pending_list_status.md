@@ -37,3 +37,4 @@ Attached a table with tests that where investigated and their status (this table
 | test_progress_expressions                                 | Faulty Test     | [508](https://github.com/ceph/s3-tests/issues/508)                    |                      |
 | test_lifecycle_set_date                                   | Faulty Test     | [510](https://github.com/ceph/s3-tests/issues/510)                    |                      |
 | test_lifecycle_transition_set_invalid_date                | Not Implemented |                      |    added because of the following PR [7270](https://github.com/noobaa/noobaa-core/pull/7270#discussion_r1175123422)   |
+| All aws4 tests (e.g test_bucket_create_bad_amz_date_before_epoch_aws4)                                   | Faulty Test     | [520](https://github.com/ceph/s3-tests/issues/520)                    |                      |

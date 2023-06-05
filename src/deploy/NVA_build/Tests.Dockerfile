@@ -15,7 +15,8 @@ ENV TEST_CONTAINER true
 RUN dnf group install -y -q "Development Tools" && \
     dnf install -y -q --nogpgcheck vim \
     which python3-virtualenv python36-devel libevent-devel libffi-devel libxml2-devel libxslt-devel zlib-devel \ 
-    git && \
+    git  \
+    tox && \
     dnf clean all
 
 WORKDIR /root/node_modules/noobaa-core/
@@ -26,9 +27,11 @@ WORKDIR /root/node_modules/noobaa-core/
 #   Size: ~ 83.9 MB
 #
 ##############################################################
-RUN ./src/test/system_tests/ceph_s3_tests/test_ceph_s3_deploy.sh $(pwd)
-RUN cd ./src/test/system_tests/ceph_s3_tests/s3-tests/ && \
-    ./bootstrap
+RUN ./src/test/system_tests/ceph_s3_tests/test_ceph_s3_deploy.sh $(pwd) 
+# add group permissions to s3-tests directory (tox needs it in order to run)
+RUN cd ./src/test/system_tests/ceph_s3_tests/ && \
+    chgrp -R 0 s3-tests && \
+    chmod -R g=u s3-tests
 
 ##############################################################
 # Layers:

@@ -1806,6 +1806,16 @@ mocha.describe('List-objects', function() {
         assert.equal(count, 2);
     });
 
+    mocha.it('list object versions - should fail because of missing key_marker', async function() {
+        try {
+            await s3_client.listObjectVersions({Bucket: bucket_name,
+                                                MaxKeys: 2, VersionIdMarker: version_key_3}).promise();
+            assert.fail(`list object versions passed though key marker is missing`);
+        } catch (err) {
+            assert.equal(err.code, 'InvalidArgument');
+        }
+    });
+
     mocha.it('list objects - deleted object should not be listed', async function() {
         const xattr_delete_marker = { 'user.delete_marker': 'true' };
         file_pointer.replacexattr(DEFAULT_FS_CONFIG, xattr_delete_marker);

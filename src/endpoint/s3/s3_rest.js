@@ -146,6 +146,7 @@ async function handle_request(req, res) {
     await http_utils.read_and_parse_body(req, options);
     const reply = await op.handler(req, res);
     http_utils.send_reply(req, res, reply, options);
+    collect_and_upload_bucket_logs(req, res, reply, options);
     collect_bucket_usage(op, req, res);
 }
 
@@ -522,6 +523,10 @@ function collect_bucket_usage(op, req, res) {
         bucket_usage_info.write_bytes += write_bytes;
         bucket_usage_info.write_count += write_count;
     }
+}
+
+function collect_and_upload_bucket_logs(req, res, reply, options) {
+    console.log("function definition");
 }
 
 function consume_usage_report() {

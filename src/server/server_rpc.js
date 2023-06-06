@@ -136,6 +136,8 @@ class ServerRpc {
             require('./bg_services/scrubber'), options);
         rpc.register_service(schema.replication_api,
             require('./bg_services/replication_server'), options);
+        rpc.register_service(schema.bucket_log_api,
+            require('./bg_services/bucket_log_server'), options);
     }
 
     register_hosted_agents_services() {

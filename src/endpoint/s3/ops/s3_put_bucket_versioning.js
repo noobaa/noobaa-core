@@ -11,7 +11,7 @@ async function put_bucket_versioning(req) {
         req.body.VersioningConfiguration.Status[0];
     if (!versioning) return;
     if (versioning !== 'Suspended' && versioning !== 'Enabled') {
-        throw new S3Error(S3Error.InvalidArgument);
+        throw new S3Error(S3Error.MalformedXML);
     }
     await req.object_sdk.set_bucket_versioning({
         name: req.params.bucket,

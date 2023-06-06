@@ -28,10 +28,44 @@ cd noobaa-core
 npm install
 npm run build
 # optional package everything into a single-executable at build/noobaa-core
-npm run pkg 
+npm run pkg
 ```
 
-### 3. Quick test
+### 3. Various system setting (optional)
+
+You can use the configuration for `rsyslog` and `logrotate` for RHEL8. The logs of the NooBaa shall be stored into `/var/log/noobaa.log` if you make the instruction below. And the log file shall be rotated automatically by the `logrotate`.
+
+```
+sudo cp src/deploy/standalone/noobaa_syslog.conf /etc/rsyslog.d/
+sudo cp src/deploy/standalone/logrotate_noobaa.conf /etc/logrotate.d/
+sudo systemctl restart systemd-journald rsyslog
+```
+
+#### 3.1 Additional syslog configuration for RHEL8
+
+Additionally, it would be helpful if you configure to disable the rate limit of the log system.
+
+1. Add the 2 lines below into `/etc/systemd/journald.conf`
+
+```
+RateLimitInterva]lSec=0s
+RateLimitBurst=0
+```
+
+2. Add teh 2 lines below into `/etc/rsyslog.conf` (Just after the comment line `#### GLOBAL DIRECTIVES ####`)
+
+```
+$imjournalRatelimitInterval 0
+$imjournalRatelimitBurst 0
+```
+
+3. Restart log system
+
+```
+sudo systemctl restart systemd-journald rsyslog
+```
+
+### 4. Quick test
 
 This tool invokes key functions (e.g erasure coding), and should be able to run to completion without failures:
 
@@ -244,7 +278,7 @@ aws --endpoint http://localhost:6001 s3 rm s3://testbucket/testobject
 ## Multipart uploads
 
 ```sh
-node src/tools/s3cat --endpoint http://localhost:6001 --sig s3 --bucket testbucket --upload testobject --size 4096 --part_size 1024 --concur 4 
+node src/tools/s3cat --endpoint http://localhost:6001 --sig s3 --bucket testbucket --upload testobject --size 4096 --part_size 1024 --concur 4
 ```
 
 ### Perf tools

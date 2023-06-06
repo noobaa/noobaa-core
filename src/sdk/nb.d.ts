@@ -947,6 +947,7 @@ interface NativeFSContext {
     backend?: 'GPFS';
     warn_threshold_ms?: number;
     report_fs_stats?: Function;
+    disable_ctime_check?: boolean;
 }
 
 type NativeFSXattr = { [key: string]: string };

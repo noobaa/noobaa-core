@@ -105,6 +105,21 @@
         }                                                         \
     } while (0)
 
+// This macro is similar to `CHECK_CTIME_CHANGE` but it is used when we want to
+// instead use mtime instead of ctime. Using mtime instead of ctime is useful
+// when the inode data may change but should not interfere with the operations
+// NooBaa is doing.
+#define CHECK_MTIME_CHANGE(fd, stat_res, path)                    \
+    do {                                                          \
+        auto start_mtime = stat_res.st_mtime;                     \
+        SYSCALL_OR_RETURN(fstat(fd, &stat_res));                  \
+        auto end_mtime = stat_res.st_mtime;                       \
+        if (start_mtime != end_mtime) {                           \
+            SetError(XSTR() << "FileStat: " << DVAL(path)         \
+                            << " cancelled due to mtime change"); \
+        }                                                         \
+    } while (0)
+
 #ifdef __APPLE__
 #define flistxattr(a, b, c) ::flistxattr(a, b, c, 0)
 #define getxattr(a, b, c, d) ::getxattr(a, b, c, d, 0, 0)
@@ -459,6 +474,11 @@ struct FSWorker : public Napi::AsyncWorker
     double _took_time;
     Napi::FunctionReference _report_fs_stats;
 
+    // diable_ctime_check disables the ctime check in the stat and read file fuctions
+    //
+    // NOTE: If this is enabled then some functions will fallback to using mtime check
+    bool disable_ctime_check;
+
     FSWorker(const Napi::CallbackInfo& info)
         : AsyncWorker(info.Env())
         , _deferred(Napi::Promise::Deferred::New(info.Env()))
@@ -469,6 +489,7 @@ struct FSWorker : public Napi::AsyncWorker
         , _errno(0)
         , _warn_threshold_ms(0)
         , _took_time(0)
+        , disable_ctime_check(false)
     {
         for (int i = 0; i < (int)info.Length(); ++i) _args_ref.Set(i, info[i]);
         Napi::Object fs_context = info[0].As<Napi::Object>();
@@ -477,6 +498,7 @@ struct FSWorker : public Napi::AsyncWorker
         if (fs_context.Has("backend")) _backend = fs_context.Get("backend").ToString();
         if (fs_context.Has("warn_threshold_ms")) _warn_threshold_ms = fs_context.Get("warn_threshold_ms").ToNumber();
         if (fs_context.Has("report_fs_stats")) _report_fs_stats = Napi::Persistent(fs_context.Get("report_fs_stats").As<Napi::Function>());
+        if (fs_context.Has("disable_ctime_check")) disable_ctime_check = fs_context.Get("disable_ctime_check").ToBoolean();
     }
     void Begin(std::string desc)
     {
@@ -619,7 +641,10 @@ struct Stat : public FSWorker
                 GPFS_FCNTL_OR_RETURN(get_fd_gpfs_xattr(fd, _xattr, gpfs_error));
             }
         }
-        CHECK_CTIME_CHANGE(fd, _stat_res, _path);
+
+        if (!disable_ctime_check) {
+            CHECK_CTIME_CHANGE(fd, _stat_res, _path);
+        }
     }
     virtual void OnOK()
     {
@@ -1034,7 +1059,11 @@ struct Readfile : public FSWorker
             p += len;
         }
 
-        CHECK_CTIME_CHANGE(fd, _stat_res, _path);
+        if (disable_ctime_check) {
+            CHECK_MTIME_CHANGE(fd, _stat_res, _path);
+        } else {
+            CHECK_CTIME_CHANGE(fd, _stat_res, _path);
+        }
     }
     virtual void OnOK()
     {
@@ -1467,7 +1496,10 @@ struct FileStat : public FSWrapWorker<FileWrap>
         if (_backend == GPFS_BACKEND) {
             GPFS_FCNTL_OR_RETURN(get_fd_gpfs_xattr(fd, _xattr, gpfs_error));
         }
-        CHECK_CTIME_CHANGE(fd, _stat_res, _wrap->_path);
+
+        if (!disable_ctime_check) {
+            CHECK_CTIME_CHANGE(fd, _stat_res, _wrap->_path);
+        }
     }
     virtual void OnOK()
     {

@@ -25,7 +25,10 @@ class BlockStoreFs extends BlockStoreBase {
         this.old_blocks_path = path.join(this.root_path, 'blocks');
         this.config_path = path.join(this.root_path, 'config');
         this.usage_path = path.join(this.root_path, 'usage');
-        this.fs_context = {};
+
+        this.fs_context = {
+            disable_ctime_check: config.BLOCK_STORE_FS_TIER2_ENABLED
+        };
     }
 
     async init() {

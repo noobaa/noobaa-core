@@ -79,8 +79,15 @@ function sort_entries_by_name(a, b) {
     return 0;
 }
 
+function _is_version_object(filename) {
+    const mtime_substr_index = filename.indexOf('_mtime-');
+    if (mtime_substr_index < 0) return false;
+    const ino_substr_index = filename.indexOf('-ino-');
+    return ino_substr_index > mtime_substr_index;
+}
+
 function _get_mtime_from_filename(filename) {
-    if (!filename.includes('_mtime-')) {
+    if (!_is_version_object(filename)) {
         // Latest file wont have time suffix which will push the latest
         // object last in the list. So to keep the order maintained,
         // returning the latest time. Multiplying with 1e6 to provide
@@ -92,7 +99,7 @@ function _get_mtime_from_filename(filename) {
 }
 
 function _get_filename(file_name) {
-    if (file_name.includes('_mtime-')) {
+    if (_is_version_object(file_name)) {
         return file_name.substring(0, file_name.indexOf('_mtime-'));
     }
     return file_name;
@@ -549,7 +556,7 @@ class NamespaceFS {
                     const isDir = await is_directory_or_symlink_to_directory(ent, fs_context, path.join(dir_path, ent.name));
 
                     let r;
-                    if (list_versions && ent.name.includes('_mtime-')) {
+                    if (list_versions && _is_version_object(ent.name)) {
                         r = {
                             key: this._get_version_entry_key(dir_key, ent),
                             common_prefix: isDir,
@@ -594,6 +601,8 @@ class NamespaceFS {
                     //    FindIndex() is called since sortedLastIndexBy() expects sorted order by name
                     // 2. When marker_dir above dir_path: sortedLastIndexBy() is called since entries are
                     //     sorted by name
+                    // 3. One of the below conditions, marker_curr.includes('/') checks whether
+                    //    the call is for the directory that contains marker_curr
                     if (list_versions && marker_curr && !marker_curr.includes('/')) {
                         let start_marker = marker_curr;
                         if (version_id_marker) start_marker = version_id_marker;
@@ -628,7 +637,7 @@ class NamespaceFS {
                     for (let i = marker_index; i < sorted_entries.length; ++i) {
                         const ent = sorted_entries[i];
                         if (list_versions && marker_curr) {
-                            const ent_name = ent.name.substring(0, ent.name.indexOf('_mtime-'));
+                            const ent_name = _get_filename(ent.name);
                             if (ent_name !== marker_curr) break;
                         }
                         // when entry is NSFS_FOLDER_OBJECT_NAME=.folder file,
@@ -697,15 +706,15 @@ class NamespaceFS {
                     }
                     if (this._is_hidden_version_path(obj_info.key)) {
                         obj_info.key = path.normalize(obj_info.key.replace(HIDDEN_VERSIONS_PATH + '/', ''));
-                        obj_info.key = obj_info.key.substring(0, obj_info.key.indexOf('_mtime-'));
+                        obj_info.key = _get_filename(obj_info.key);
                     }
                     res.objects.push(obj_info);
                 }
                 if (res.is_truncated) {
-                    if (list_versions && r.key.includes('_mtime-')) {
+                    if (list_versions && _is_version_object(r.key)) {
                         const next_version_id_marker = r.key.substring(r.key.lastIndexOf('/') + 1);
                         res.next_version_id_marker = next_version_id_marker;
-                        res.next_marker = next_version_id_marker.substring(0, next_version_id_marker.indexOf('_mtime'));
+                        res.next_marker = _get_filename(next_version_id_marker);
                     } else {
                         res.next_marker = r.key;
                     }

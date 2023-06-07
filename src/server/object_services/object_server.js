@@ -112,16 +112,16 @@ async function create_object_upload(req) {
         info.content_encoding = req.rpc_params.content_encoding;
     }
 
-    const tier = await map_server.select_tier_for_write(req.bucket);
+    const tier = req.bucket.tiering && await map_server.select_tier_for_write(req.bucket);
     await MDStore.instance().insert_object(info);
     object_md_cache.put_in_cache(String(info._id), info);
 
     return {
         obj_id: info._id,
         bucket_id: req.bucket._id,
-        tier_id: tier._id,
-        chunk_split_config: req.bucket.tiering.chunk_split_config,
-        chunk_coder_config: tier.chunk_config.chunk_coder_config,
+        tier_id: tier?._id,
+        chunk_split_config: req.bucket.tiering ? req.bucket.tiering.chunk_split_config : {},
+        chunk_coder_config: req.bucket.tiering ? tier.chunk_config.chunk_coder_config : {},
         encryption,
         bucket_master_key_id: (req.bucket.master_key_id.disabled === false && req.bucket.master_key_id._id) || undefined,
     };

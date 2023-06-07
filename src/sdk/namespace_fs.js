@@ -1,5 +1,6 @@
 /* Copyright (C) 2020 NooBaa */
-/*eslint max-lines: ["error", 2500]*/
+/*eslint max-lines: ["error", 3000]*/
+/*eslint max-statements: ["error", 80, { "ignoreTopLevelFunctions": true }]*/
 'use strict';
 
 const _ = require('lodash');
@@ -8,7 +9,6 @@ const path = require('path');
 const util = require('util');
 const mime = require('mime');
 const { v4: uuidv4 } = require('uuid');
-
 const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
 const config = require('../../config');
@@ -77,6 +77,54 @@ function sort_entries_by_name(a, b) {
     if (a.name < b.name) return -1;
     if (a.name > b.name) return 1;
     return 0;
+}
+
+function _is_version_object(filename) {
+    const mtime_substr_index = filename.indexOf('_mtime-');
+    if (mtime_substr_index < 0) return false;
+    const ino_substr_index = filename.indexOf('-ino-');
+    return ino_substr_index > mtime_substr_index;
+}
+
+function _get_mtime_from_filename(filename) {
+    if (!_is_version_object(filename)) {
+        // Latest file wont have time suffix which will push the latest
+        // object last in the list. So to keep the order maintained,
+        // returning the latest time. Multiplying with 1e6 to provide
+        // nano second precision
+        return BigInt(Date.now() * 1e6);
+    }
+    const file_parts = filename.split('-');
+    return size_utils.string_to_bigint(file_parts[file_parts.length - 3], 36);
+}
+
+function _get_filename(file_name) {
+    if (_is_version_object(file_name)) {
+        return file_name.substring(0, file_name.indexOf('_mtime-'));
+    }
+    return file_name;
+}
+/**
+ * @param {fs.Dirent} first_entry
+ * @param {fs.Dirent} second_entry
+ * @returns {Number}
+ */
+function sort_entries_by_name_and_time(first_entry, second_entry) {
+    const first_entry_name = _get_filename(first_entry.name);
+    const second_entry_name = _get_filename(second_entry.name);
+    if (first_entry_name === second_entry_name) {
+        const first_entry_mtime = _get_mtime_from_filename(first_entry.name);
+        const second_entry_mtime = _get_mtime_from_filename(second_entry.name);
+        // To sort the versions in the latest first order,
+        // below logic is followed
+        if (second_entry_mtime < first_entry_mtime) return -1;
+        if (second_entry_mtime > first_entry_mtime) return 1;
+        return 0;
+    } else {
+        if (first_entry_name < second_entry_name) return -1;
+        if (first_entry_name > second_entry_name) return 1;
+        return 0;
+    }
 }
 
 function isDirectory(ent) {
@@ -185,6 +233,62 @@ const dir_cache = new LRUCache({
         if (stat.size <= config.NSFS_DIR_CACHE_MAX_DIR_SIZE) {
             sorted_entries = await nb_native().fs.readdir(fs_context, dir_path);
             sorted_entries.sort(sort_entries_by_name);
+            for (const ent of sorted_entries) {
+                usage += ent.name.length + 4;
+            }
+        }
+        return { time, stat, sorted_entries, usage };
+    },
+    validate: async ({ stat }, { dir_path, fs_context }) => {
+        const new_stat = await nb_native().fs.stat(fs_context, dir_path);
+        return (new_stat.ino === stat.ino && new_stat.mtimeNsBigint === stat.mtimeNsBigint);
+    },
+    item_usage: ({ usage }, dir_path) => usage,
+    max_usage: config.NSFS_DIR_CACHE_MAX_TOTAL_SIZE,
+});
+
+/**
+ * @typedef {{
+ *  time: number,
+ *  stat: nb.NativeFSStats,
+ *  usage: number,
+ *  sorted_entries?: fs.Dirent[],
+ * }} ReaddirVersionsCacheItem
+ * @type {LRUCache<object, string, ReaddirCacheItem>}
+ */
+const versions_dir_cache = new LRUCache({
+    name: 'nsfs-versions-dir-cache',
+    make_key: ({ dir_path }) => dir_path,
+    load: async ({ dir_path, fs_context }) => {
+        const time = Date.now();
+        const stat = await nb_native().fs.stat(fs_context, dir_path);
+        const version_path = dir_path + "/" + HIDDEN_VERSIONS_PATH;
+        let ver_dir_stat_size;
+        let is_version_path_exists = false;
+        try {
+            const ver_dir_stat = await nb_native().fs.stat(fs_context, version_path);
+            ver_dir_stat_size = ver_dir_stat.size;
+            is_version_path_exists = true;
+        } catch (err) {
+            if (err.code === 'ENOENT') {
+                dbg.log0('NamespaceFS: Version dir not found, ', version_path);
+            } else {
+                throw err;
+            }
+            ver_dir_stat_size = 0;
+        }
+        let sorted_entries;
+        let usage = config.NSFS_DIR_CACHE_MIN_DIR_SIZE;
+        if (stat.size + ver_dir_stat_size <= config.NSFS_DIR_CACHE_MAX_DIR_SIZE) {
+            const latest_versions = await nb_native().fs.readdir(fs_context, dir_path);
+            if (is_version_path_exists) {
+                const old_versions = await nb_native().fs.readdir(fs_context, version_path);
+                const entries = latest_versions.concat(old_versions);
+                sorted_entries = entries.sort(sort_entries_by_name_and_time);
+            } else {
+                sorted_entries = latest_versions.sort(sort_entries_by_name);
+            }
+            /*eslint no-unused-expressions: ["error", { "allowTernary": true }]*/
             for (const ent of sorted_entries) {
                 usage += ent.name.length + 4;
             }
@@ -315,6 +419,27 @@ class NamespaceFS {
      * @param {ListParams} params
      */
     async list_objects(params, object_sdk) {
+        return this._list_objects(params, object_sdk, false);
+    }
+
+    /**
+     * @typedef {{
+     *  bucket: string,
+     *  prefix?: string,
+     *  delimiter?: string,
+     *  key_marker?: string,
+     *  version_id_marker?: string,
+     *  limit?: number,
+     * }} ListVersionsParams
+     */
+    /**
+     * @param {ListVersionsParams} params
+     */
+    async list_object_versions(params, object_sdk) {
+        return this._list_objects(params, object_sdk, true);
+    }
+
+    async _list_objects(params, object_sdk, list_versions) {
         try {
             const fs_context = this.prepare_fs_context(object_sdk);
             await this._load_bucket(params, fs_context);
@@ -323,13 +448,13 @@ class NamespaceFS {
                 bucket,
                 delimiter = '',
                 prefix = '',
+                version_id_marker = '',
                 key_marker = '',
             } = params;
 
             if (delimiter && delimiter !== '/') {
                 throw new Error('NamespaceFS: Invalid delimiter ' + delimiter);
             }
-
             const limit = Math.min(1000, _.isUndefined(params.limit) ? 1000 : params.limit);
             if (limit < 0) throw new Error('Limit must be a positive Integer');
             // In case that we've received max-keys 0, we should return an empty reply without is_truncated
@@ -354,25 +479,20 @@ class NamespaceFS {
              * @returns {Promise<void>}
              */
             const process_dir = async dir_key => {
-                if (this._skip_version_dir(dir_key)) {
+                if (this._is_hidden_version_path(dir_key)) {
                     return;
                 }
-
                 // /** @type {fs.Dir} */
                 let dir_handle;
-
                 /** @type {ReaddirCacheItem} */
                 let cached_dir;
-
                 const dir_path = path.join(this.bucket_path, dir_key);
-
                 const prefix_dir = prefix.slice(0, dir_key.length);
                 const prefix_ent = prefix.slice(dir_key.length);
                 if (!dir_key.startsWith(prefix_dir)) {
                     // dbg.log0(`prefix dir does not match so no keys in this dir can apply: dir_key=${dir_key} prefix_dir=${prefix_dir}`);
                     return;
                 }
-
                 const marker_dir = key_marker.slice(0, dir_key.length);
                 const marker_ent = key_marker.slice(dir_key.length);
                 // marker is after dir so no keys in this dir can apply
@@ -383,7 +503,6 @@ class NamespaceFS {
                 // when the dir portion of the marker is completely below the current dir
                 // then every key in this dir satisfies the marker and marker_ent should not be used.
                 const marker_curr = (marker_dir < dir_key) ? '' : marker_ent;
-
                 // dbg.log0(`process_dir: dir_key=${dir_key} prefix_ent=${prefix_ent} marker_curr=${marker_curr}`);
                 /**
                  * @typedef {{
@@ -393,7 +512,11 @@ class NamespaceFS {
                  */
                 const insert_entry_to_results_arr = async r => {
                     let pos;
-                    if (results.length && r.key < results[results.length - 1].key) {
+                    // Since versions are arranged next to latest object in the latest first order,
+                    // no need to find the sorted last index. Push the ".versions/#VERSION_OBJECT" as
+                    // they are in order
+                    if (results.length && r.key < results[results.length - 1].key &&
+                        !this._is_hidden_version_path(r.key)) {
                         pos = _.sortedLastIndexBy(results, r, a => a.key);
                     } else {
                         pos = results.length;
@@ -403,7 +526,6 @@ class NamespaceFS {
                         is_truncated = true;
                         return; // not added
                     }
-
                     if (!delimiter && r.common_prefix) {
                         await process_dir(r.key);
                     } else {
@@ -424,26 +546,37 @@ class NamespaceFS {
                  */
                 const process_entry = async ent => {
                     // dbg.log0('process_entry', dir_key, ent.name);
-                    if (!ent.name.startsWith(prefix_ent) ||
+                    if ((!ent.name.startsWith(prefix_ent) ||
                         ent.name < marker_curr ||
                         ent.name === this.get_bucket_tmpdir() ||
-                        ent.name === config.NSFS_FOLDER_OBJECT_NAME) {
+                        ent.name === config.NSFS_FOLDER_OBJECT_NAME) &&
+                        !this._is_hidden_version_path(ent.name)) {
                         return;
                     }
-
                     const isDir = await is_directory_or_symlink_to_directory(ent, fs_context, path.join(dir_path, ent.name));
 
-                    const r = {
-                        key: this._get_entry_key(dir_key, ent, isDir),
-                        common_prefix: isDir,
-                    };
+                    let r;
+                    if (list_versions && _is_version_object(ent.name)) {
+                        r = {
+                            key: this._get_version_entry_key(dir_key, ent),
+                            common_prefix: isDir,
+                        };
+                    } else {
+                        r = {
+                            key: this._get_entry_key(dir_key, ent, isDir),
+                            common_prefix: isDir,
+                        };
+                    }
                     await insert_entry_to_results_arr(r);
                 };
 
                 if (!(await this.check_access(fs_context, dir_path))) return;
-
                 try {
-                    cached_dir = await dir_cache.get_with_cache({ dir_path, fs_context });
+                    if (list_versions) {
+                        cached_dir = await versions_dir_cache.get_with_cache({ dir_path, fs_context });
+                    } else {
+                        cached_dir = await dir_cache.get_with_cache({ dir_path, fs_context });
+                    }
                 } catch (err) {
                     if (err.code === 'ENOENT') {
                         dbg.log0('NamespaceFS: no keys for non existing dir', dir_path);
@@ -462,11 +595,29 @@ class NamespaceFS {
 
                 if (cached_dir.sorted_entries) {
                     const sorted_entries = cached_dir.sorted_entries;
-                    const marker_index = _.sortedLastIndexBy(
-                        sorted_entries,
-                        make_named_dirent(marker_curr),
-                        get_entry_name
-                    );
+                    let marker_index;
+                    // Two ways followed here to find the index.
+                    // 1. When inside marker_dir: Here the entries are sorted based on time. Here
+                    //    FindIndex() is called since sortedLastIndexBy() expects sorted order by name
+                    // 2. When marker_dir above dir_path: sortedLastIndexBy() is called since entries are
+                    //     sorted by name
+                    // 3. One of the below conditions, marker_curr.includes('/') checks whether
+                    //    the call is for the directory that contains marker_curr
+                    if (list_versions && marker_curr && !marker_curr.includes('/')) {
+                        let start_marker = marker_curr;
+                        if (version_id_marker) start_marker = version_id_marker;
+                        marker_index = _.findIndex(
+                            sorted_entries,
+                            {name: start_marker}
+                        ) + 1;
+                    } else {
+                        marker_index = _.sortedLastIndexBy(
+                            sorted_entries,
+                            make_named_dirent(marker_curr),
+                            get_entry_name
+                        );
+                    }
+
                     // handling a scenario in which key_marker points to an object inside a directory
                     // since there can be entries inside the directory that will need to be pushed
                     // to results array
@@ -485,6 +636,10 @@ class NamespaceFS {
                     }
                     for (let i = marker_index; i < sorted_entries.length; ++i) {
                         const ent = sorted_entries[i];
+                        if (list_versions && marker_curr) {
+                            const ent_name = _get_filename(ent.name);
+                            if (ent_name !== marker_curr) break;
+                        }
                         // when entry is NSFS_FOLDER_OBJECT_NAME=.folder file,
                         // and the dir key marker is the name of the curr directory - skip on adding it
                         if (ent.name === config.NSFS_FOLDER_OBJECT_NAME && dir_key === marker_dir) {
@@ -497,7 +652,6 @@ class NamespaceFS {
                     }
                     return;
                 }
-
                 // for large dirs we cannot keep all entries in memory
                 // so we have to stream the entries one by one while filtering only the needed ones.
                 try {
@@ -539,26 +693,37 @@ class NamespaceFS {
                 common_prefixes: [],
                 is_truncated,
                 next_marker: undefined,
+                next_version_id_marker: undefined,
             };
             for (const r of results) {
+                let obj_info;
                 if (r.common_prefix) {
                     res.common_prefixes.push(r.key);
                 } else {
-                    res.objects.push(this._get_object_info(bucket, r.key, r.stat, 'null'));
+                    obj_info = this._get_object_info(bucket, r.key, r.stat, 'null', true);
+                    if (!list_versions && obj_info.delete_marker) {
+                        continue;
+                    }
+                    if (this._is_hidden_version_path(obj_info.key)) {
+                        obj_info.key = path.normalize(obj_info.key.replace(HIDDEN_VERSIONS_PATH + '/', ''));
+                        obj_info.key = _get_filename(obj_info.key);
+                    }
+                    res.objects.push(obj_info);
                 }
                 if (res.is_truncated) {
-                    res.next_marker = r.key;
+                    if (list_versions && _is_version_object(r.key)) {
+                        const next_version_id_marker = r.key.substring(r.key.lastIndexOf('/') + 1);
+                        res.next_version_id_marker = next_version_id_marker;
+                        res.next_marker = _get_filename(next_version_id_marker);
+                    } else {
+                        res.next_marker = r.key;
+                    }
                 }
             }
             return res;
         } catch (err) {
             throw this._translate_object_error_codes(err);
         }
-    }
-
-    async list_object_versions(params, object_sdk) {
-        // for now we do not support versioning, so returning the same as list objects
-        return this.list_objects(params, object_sdk);
     }
 
     /////////////////
@@ -1547,6 +1712,16 @@ class NamespaceFS {
         return dir_key + ent.name + (isDir ? '/' : '');
     }
 
+    /**
+     * @param {string} dir_key
+     * @param {fs.Dirent} ent
+     * @returns {string}
+     */
+     _get_version_entry_key(dir_key, ent) {
+        if (ent.name === config.NSFS_FOLDER_OBJECT_NAME) return dir_key;
+        return dir_key + HIDDEN_VERSIONS_PATH + '/' + ent.name;
+    }
+
     async _make_path_dirs(file_path, fs_context) {
         const last_dir_pos = file_path.lastIndexOf('/');
         if (last_dir_pos > 0) return this._create_path(file_path.slice(0, last_dir_pos), fs_context);
@@ -1579,10 +1754,11 @@ class NamespaceFS {
      * @param {nb.NativeFSStats} stat 
      * @returns {nb.ObjectInfo}
      */
-    _get_object_info(bucket, key, stat, return_version_id) {
+     _get_object_info(bucket, key, stat, return_version_id, is_latest = true) {
         const etag = this._get_etag(stat);
         const encryption = this._get_encryption_info(stat);
         const version_id = return_version_id && this._is_versioning_enabled() && this._get_version_id_by_xattr(stat);
+
         return {
             obj_id: etag,
             bucket,
@@ -1593,8 +1769,8 @@ class NamespaceFS {
             content_type: mime.getType(key) || 'application/octet-stream',
             // temp:
             version_id: version_id,
-            is_latest: true,
-            delete_marker: false,
+            is_latest: is_latest,
+            delete_marker: stat.xattr[XATTR_DELETE_MARKER] === 'true',
             tag_count: 0,
             encryption,
             xattr: to_xattr(stat.xattr),
@@ -2216,7 +2392,7 @@ class NamespaceFS {
        }
     }
 
-    _skip_version_dir(dir_key) {
+    _is_hidden_version_path(dir_key) {
         const idx = dir_key.indexOf(HIDDEN_VERSIONS_PATH);
         return ((idx === 0) || (idx > 0 && dir_key[idx - 1] === '/'));
     }

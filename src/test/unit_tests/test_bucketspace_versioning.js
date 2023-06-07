@@ -1642,6 +1642,221 @@ async function generate_nsfs_account(options = {}) {
     };
 }
 
+mocha.describe('List-objects', function() {
+    const nsr = 'noobaa-nsr-object-vesions';
+    const bucket_name = 'noobaa-bucket-object-vesions';
+    let tmp_fs_root = '/tmp/test_bucketspace_list_object_versions';
+    if (process.platform === MAC_PLATFORM) {
+        tmp_fs_root = '/private/' + tmp_fs_root;
+    }
+    const bucket_path = '/bucket';
+    const full_path = tmp_fs_root + bucket_path;
+    const version_dir = '/.versions';
+    const full_path_version_dir = full_path + `${version_dir}`;
+    const dir1 = full_path + '/dir1';
+    const dir1_version_dir = dir1 + `${version_dir}`;
+
+    let s3_client;
+    let s3_admin;
+    const accounts = [];
+    const key = 'search_key';
+    const body = 'AAAA';
+    const version_key_1 = 'search_key_mtime-crh3783sxk3k-ino-guty';
+    const version_key_2 = 'search_key_mtime-crkfjum9883k-ino-guu7';
+    const version_key_3 = 'search_key_mtime-crkfjx1hui2o-ino-guu9';
+
+    const dir_key = 'dir1/delete_marker_key';
+    const dir_version_key_1 = 'delete_marker_key_mtime-crkfjknr7xmo-ino-guu4';
+    const dir_version_key_2 = 'delete_marker_key_mtime-crkfjr98uiv4-ino-guu6';
+    const version_body = 'A1A1A1A';
+
+    let file_pointer;
+
+    mocha.before(async function() {
+        if (process.getgid() !== 0 || process.getuid() !== 0) {
+            console.log('No Root permissions found in env. Skipping test');
+            this.skip(); // eslint-disable-line no-invalid-this
+        }
+        // create paths
+        await fs_utils.create_fresh_path(tmp_fs_root, 0o777);
+        await fs_utils.create_fresh_path(full_path, 0o770);
+        await fs_utils.file_must_exist(full_path);
+        await fs_utils.create_fresh_path(full_path_version_dir, 0o770);
+        await fs_utils.file_must_exist(full_path_version_dir);
+        await fs_utils.create_fresh_path(dir1, 0o770);
+        await fs_utils.file_must_exist(dir1);
+        await fs_utils.create_fresh_path(dir1_version_dir, 0o770);
+        await fs_utils.file_must_exist(dir1_version_dir);
+
+        // export dir as a bucket
+        await rpc_client.pool.create_namespace_resource({
+            name: nsr,
+            nsfs_config: {
+                fs_root_path: tmp_fs_root,
+            }
+        });
+        const obj_nsr = { resource: nsr, path: bucket_path };
+        await rpc_client.bucket.create_bucket({
+            name: bucket_name,
+            namespace: {
+                read_resources: [obj_nsr],
+                write_resource: obj_nsr
+            }
+        });
+        const policy = {
+            Version: '2012-10-17',
+            Statement: [{
+                Sid: 'id-1',
+                Effect: 'Allow',
+                Principal: { AWS: "*" },
+                Action: ['s3:*'],
+                Resource: [`arn:aws:s3:::*`]
+            },
+        ]
+        };
+        // create accounts
+        let res = await generate_nsfs_account({ admin: true });
+        s3_admin = generate_s3_client(res.access_key, res.secret_key);
+        await s3_admin.putBucketPolicy({
+            Bucket: bucket_name,
+            Policy: JSON.stringify(policy)
+        }).promise();
+        // create nsfs account
+        res = await generate_nsfs_account();
+        s3_client = generate_s3_client(res.access_key, res.secret_key);
+        accounts.push(res.email);
+        await s3_client.putBucketVersioning({ Bucket: bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
+        const bucket_ver = await s3_client.getBucketVersioning({ Bucket: bucket_name }).promise();
+        assert.equal(bucket_ver.Status, 'Enabled');
+        await create_object(`${full_path}/${key}`, body, 'null');
+        await create_object(`${full_path_version_dir}/${version_key_1}`, version_body, 'null');
+        await create_object(`${full_path_version_dir}/${version_key_2}`, version_body, 'null');
+        await create_object(`${full_path_version_dir}/${version_key_3}`, version_body, 'null');
+        file_pointer = await create_object(`${full_path}/${dir_key}`, version_body, 'null', true);
+        await create_object(`${dir1_version_dir}/${dir_version_key_1}`, version_body, 'null');
+        await create_object(`${dir1_version_dir}/${dir_version_key_2}`, version_body, 'null');
+    });
+
+    mocha.after(async () => {
+        await file_pointer.close(DEFAULT_FS_CONFIG);
+        fs_utils.folder_delete(tmp_fs_root);
+        for (const email of accounts) {
+            await rpc_client.account.delete_account({ email });
+        }
+    });
+
+    mocha.it('list objects - should return only latest object', async function() {
+        const res = await s3_client.listObjects({Bucket: bucket_name}).promise();
+        let count = 0;
+        res.Contents.forEach(val => {
+            if (val.Key === key) {
+                count += 1;
+            }
+        });
+        assert.equal(count, 1);
+    });
+
+    mocha.it('list object versions - should return all versions of all the object', async function() {
+        const res = await s3_client.listObjectVersions({Bucket: bucket_name}).promise();
+        let count = 0;
+        res.Versions.forEach(val => {
+           count += 1;
+        });
+        assert.equal(count, 7);
+    });
+
+    mocha.it('list object versions - should return all the versions of the requested object', async function() {
+        const res = await s3_client.listObjectVersions({Bucket: bucket_name, KeyMarker: key}).promise();
+        let count = 0;
+        res.Versions.forEach(val => {
+            count += 1;
+        });
+        assert.equal(count, 3);
+    });
+
+    mocha.it('list object versions - should return only max_key number of elements', async function() {
+        const res = await s3_client.listObjectVersions({Bucket: bucket_name, MaxKeys: 2}).promise();
+        let count = 0;
+        res.Versions.forEach(val => {
+           count += 1;
+        });
+        assert.equal(count, 2);
+    });
+
+    mocha.it('list object versions - should return only max keys of the versions of the requested object and nextKeyMarker should point to the next version', async function() {
+        const res = await s3_client.listObjectVersions({Bucket: bucket_name, KeyMarker: key, MaxKeys: 2}).promise();
+        let count = 0;
+        assert(res.KeyMarker, key);
+        assert(res.NextKeyMarker, key);
+        assert(res.NextVersionIdMarker, version_key_2);
+        res.Versions.forEach(val => {
+            count += 1;
+        });
+        assert.equal(count, 2);
+    });
+
+    mocha.it('list object versions - should return only max keys of the versions of the requested object from the version id marker', async function() {
+        const res = await s3_client.listObjectVersions({Bucket: bucket_name,
+                                                        KeyMarker: key, MaxKeys: 2,
+                                                        VersionIdMarker: version_key_3}).promise();
+        let count = 0;
+        res.Versions.forEach(val => {
+            count += 1;
+        });
+        assert.equal(count, 2);
+    });
+
+    mocha.it('list object versions - should fail because of missing key_marker', async function() {
+        try {
+            await s3_client.listObjectVersions({Bucket: bucket_name,
+                                                MaxKeys: 2, VersionIdMarker: version_key_3}).promise();
+            assert.fail(`list object versions passed though key marker is missing`);
+        } catch (err) {
+            assert.equal(err.code, 'InvalidArgument');
+        }
+    });
+
+    mocha.it('list objects - deleted object should not be listed', async function() {
+        const xattr_delete_marker = { 'user.delete_marker': 'true' };
+        file_pointer.replacexattr(DEFAULT_FS_CONFIG, xattr_delete_marker);
+        const res = await s3_client.listObjects({Bucket: bucket_name}).promise();
+        let count = 0;
+        res.Contents.forEach(val => {
+            if (val.Key === dir_key) {
+                count += 1;
+            }
+        });
+        assert.equal(count, 0);
+    });
+
+    mocha.it('list object versions - All versions of the object should be listed', async function() {
+        const xattr_delete_marker = { 'user.delete_marker': 'true' };
+        file_pointer.replacexattr(DEFAULT_FS_CONFIG, xattr_delete_marker);
+        const res = await s3_client.listObjectVersions({Bucket: bucket_name}).promise();
+        let count = 0;
+        res.Versions.forEach(val => {
+            if (val.Key === dir_key) {
+                count += 1;
+            }
+        });
+        assert.equal(count, 2);
+    });
+
+    mocha.it('list object versions - Check whether the deleted object is the latest and should be present under delete markers as well', async function() {
+        const xattr_delete_marker = { 'user.delete_marker': 'true' };
+        file_pointer.replacexattr(DEFAULT_FS_CONFIG, xattr_delete_marker);
+        const res = await s3_client.listObjectVersions({Bucket: bucket_name}).promise();
+
+        res.Versions.forEach(val => {
+            if (val.Key === dir_key) {
+                assert.equal(val.IsLatest, true);
+                assert.equal(res.DeleteMarkers[0].IsLatest, true);
+                assert.equal(res.DeleteMarkers[0].Key, dir_key);
+            }
+        });
+    });
+});
+
 async function create_object(object_path, data, version_id, return_fd) {
     const target_file = await nb_native().fs.open(DEFAULT_FS_CONFIG, object_path, 'w+');
     await fs.promises.writeFile(object_path, data);
@@ -1653,3 +1868,5 @@ async function create_object(object_path, data, version_id, return_fd) {
     await target_file.close(DEFAULT_FS_CONFIG);
 }
 
+exports.generate_nsfs_account = generate_nsfs_account;
+exports.generate_s3_client = generate_s3_client;

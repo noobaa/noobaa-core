@@ -116,6 +116,38 @@ config.ENDPOINT_MONITOR_INTERVAL = 10 * 60 * 1000; // 10min
 config.S3_KEEP_ALIVE_WHITESPACE_INTERVAL = 15 * 1000;
 config.S3_MD_SIZE_LIMIT = 2 * 1024;
 
+// For now we enable fixed CORS for all buckets
+// but this should become a setting per bucket which is configurable
+// with the s3 put-bucket-cors api.
+// note that browsers do not really allow origin=* with credentials,
+// but we just allow both from our side for simplicity.
+config.S3_CORS_ENABLED = true;
+config.S3_CORS_ALLOW_ORIGIN = '*';
+config.S3_CORS_ALLOW_CREDENTIAL = 'true';
+config.S3_CORS_ALLOW_METHODS = [
+    'GET',
+    'POST',
+    'PUT',
+    'DELETE',
+    'OPTIONS'
+].join(',');
+config.S3_CORS_ALLOW_HEADERS = [
+    'Content-Type',
+    'Content-MD5',
+    'Authorization',
+    'X-Amz-User-Agent',
+    'X-Amz-Date',
+    'ETag',
+    'X-Amz-Content-Sha256',
+    'amz-sdk-invocation-id',
+    'amz-sdk-request',
+].join(',');
+config.S3_CORS_EXPOSE_HEADERS = [
+    'ETag',
+    'X-Amz-Version-Id'
+].join(',');
+config.STS_CORS_EXPOSE_HEADERS = 'ETag';
+
 /////////////////////
 // SECRETS CONFIG  //
 /////////////////////

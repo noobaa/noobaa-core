@@ -7,7 +7,9 @@ const argv = require('minimist')(process.argv);
 const crypto = require('crypto');
 const cluster = require('cluster');
 const ssl_utils = require('../util/ssl_utils');
+const Semaphore = require('../util/semaphore');
 const Speedometer = require('../util/speedometer');
+const buffer_utils = require('../util/buffer_utils');
 
 require('../util/console_wrapper').original_console();
 
@@ -21,6 +23,17 @@ argv.buf = argv.buf || 128 * 1024; // in Bytes
 argv.concur = argv.concur || 1;
 // server
 argv.hash = argv.hash ? String(argv.hash) : '';
+
+const buffers_pool_sem = new Semaphore(1024 * 1024 * 1024, {
+    timeout: 2 * 60 * 1000,
+    timeout_error_code: 'HTTP_SPEED_BUFFER_POOL_TIMEOUT',
+    warning_timeout: 10 * 60 * 1000,
+});
+const buffers_pool = new buffer_utils.BuffersPool({
+    buf_size: argv.buf,
+    sem: buffers_pool_sem,
+    warning_timeout: 2 * 60 * 1000,
+});
 
 const send_speedometer = new Speedometer('Send Speed');
 const recv_speedometer = new Speedometer('Receive Speed');
@@ -100,6 +113,7 @@ function run_client() {
 }
 
 function run_client_conn() {
+    /** @type {net.Socket} */
     const conn = (argv.ssl ? tls : net).connect({
             port: argv.port,
             host: argv.client,
@@ -125,34 +139,47 @@ function run_client_conn() {
     return conn;
 }
 
+/** 
+ * @param {net.Socket} conn
+ */
 function run_sender(conn) {
-    const buf = Buffer.allocUnsafe(argv.buf);
-    conn.on('drain', () => {
+    conn.on('drain', send);
+    send();
+
+    async function send() {
         let ok = true;
         while (ok) {
-            ok = conn.write(buf);
-            send_speedometer.update(buf.length);
+            const { buffer, callback } = await buffers_pool.get_buffer();
+            ok = conn.write(buffer, callback);
+            send_speedometer.update(buffer.length);
         }
-    });
-    conn.emit('drain');
+    }
 }
 
+/** 
+ * @param {net.Socket} conn
+ */
 function run_sender_frame(conn) {
-    const buf = Buffer.allocUnsafe(argv.buf);
-    const hdr = Buffer.allocUnsafe(4);
-    conn.on('drain', () => {
+    conn.on('drain', send);
+    send();
+
+    async function send() {
         let ok = true;
         while (ok) {
-            hdr.writeUInt32BE(buf.length, 0);
+            const { buffer, callback } = await buffers_pool.get_buffer();
+            const hdr = Buffer.allocUnsafe(4);
+            hdr.writeUInt32BE(buffer.length, 0);
             const w1 = conn.write(hdr);
-            const w2 = conn.write(buf);
+            const w2 = conn.write(buffer, callback);
             ok = w1 && w2;
-            send_speedometer.update(buf.length);
+            send_speedometer.update(buffer.length);
         }
-    });
-    conn.emit('drain');
+    }
 }
 
+/** 
+ * @param {net.Socket} conn
+ */
 function run_receiver(conn) {
     const hasher = argv.hash && crypto.createHash(argv.hash);
     conn.on('readable', () => {
@@ -169,6 +196,9 @@ function run_receiver(conn) {
     });
 }
 
+/** 
+ * @param {net.Socket} conn
+ */
 function run_receiver_frame(conn) {
     const hasher = argv.hash && crypto.createHash(argv.hash);
     let hdr = null;

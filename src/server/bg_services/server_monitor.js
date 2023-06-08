@@ -18,7 +18,6 @@ const dotenv = require('../../util/dotenv');
 let monitoring_status = {};
 
 if (!process.env.PLATFORM) {
-    console.log('loading .env file...');
     dotenv.load();
 }
 

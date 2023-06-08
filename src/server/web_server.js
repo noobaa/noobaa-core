@@ -3,17 +3,13 @@
 
 // load .env file before any other modules so that it will contain
 // all the arguments even when the modules are loading.
-console.log('loading .env file');
-const dotenv = require('../util/dotenv');
-dotenv.load();
-
+require('../util/dotenv').load();
 require('../util/coverage_utils');
 require('../util/panic');
 require('../util/fips');
 
 const dbg = require('../util/debug_module')(__filename);
 if (!dbg.get_process_name()) dbg.set_process_name('WebServer');
-
 const debug_config = require('../util/debug_config');
 
 const _ = require('lodash');

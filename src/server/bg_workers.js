@@ -3,7 +3,6 @@
 
 // load .env file before any other modules so that it will contain
 // all the arguments even when the modules are loading.
-console.log('loading .env file');
 require('../util/dotenv').load();
 require('../util/coverage_utils');
 require('../util/panic');

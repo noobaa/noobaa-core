@@ -264,7 +264,7 @@ function upload_object() {
             'of size', size_utils.human_size(data_size));
     } else {
         upload_key = upload_key || 'upload-' + Date.now().toString(36);
-        data_size = argv.size * 1024 * 1024;
+        data_size = Math.round(argv.size * 1024 * 1024);
         data_source = argv.buf ?
             crypto.randomBytes(data_size) :
             new RandStream(data_size, {

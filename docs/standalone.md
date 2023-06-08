@@ -213,24 +213,24 @@ POSTGRES_HOST=ip \
 ### Create a pool
 
 ```sh
-npm run api -- pool_api create_hosts_pool '{ "name":"backingstores", "is_managed": false, "host_count": 9999 }'
+npm -- run api pool_api create_hosts_pool '{ "name":"backingstores", "is_managed": false, "host_count": 9999 }'
 ```
 
 ### Start backingstores
 
 ```sh
 for i in 1 2 3 4; do mkdir -p storage/backingstores/drive${i}; done
-npm run backingstore -- storage/backingstores/drive1 --port 9991
-npm run backingstore -- storage/backingstores/drive2 --port 9992
-npm run backingstore -- storage/backingstores/drive3 --port 9993
-npm run backingstore -- storage/backingstores/drive4 --port 9994
+npm -- run backingstore storage/backingstores/drive1 --port 9991
+npm -- run backingstore storage/backingstores/drive2 --port 9992
+npm -- run backingstore storage/backingstores/drive3 --port 9993
+npm -- run backingstore storage/backingstores/drive4 --port 9994
 ```
 
 ### Check storage status
 
 ```sh
-npm run api -- node sync_monitor_to_store
-npm run api -- node aggregate_nodes '{}'
+npm -- run api node sync_monitor_to_store
+npm -- run api node aggregate_nodes '{}'
 ```
 
 ### Check local storage
@@ -247,8 +247,8 @@ find storage/backingstores -name '*.data' -type f -ls
 ### Get access and secret keys
 
 ```sh
-export AWS_ACCESS_KEY_ID=$(npm run api -- account read_account '{}' --json | tail -1 | jq -r '.access_keys[0].access_key')
-export AWS_SECRET_ACCESS_KEY=$(npm run api -- account read_account '{}' --json | tail -1 | jq -r '.access_keys[0].secret_key')
+export AWS_ACCESS_KEY_ID=$(npm -- run api account read_account '{}' --json | tail -1 | jq -r '.access_keys[0].access_key')
+export AWS_SECRET_ACCESS_KEY=$(npm -- run api account read_account '{}' --json | tail -1 | jq -r '.access_keys[0].secret_key')
 ```
 
 ### Create bucket

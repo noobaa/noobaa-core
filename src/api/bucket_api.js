@@ -39,7 +39,7 @@ module.exports = {
                 $ref: '#/definitions/bucket_info'
             },
             auth: {
-                system: 'admin'
+                system: ['admin', 'user']
             }
         },
 
@@ -56,7 +56,7 @@ module.exports = {
                 $ref: '#/definitions/bucket_info'
             },
             auth: {
-                system: 'admin'
+                system: ['admin', 'user']
             }
         },
 
@@ -313,7 +313,7 @@ module.exports = {
                 $ref: '#/definitions/bucket_sdk_info'
             },
             auth: {
-                system: 'admin',
+                system: ['admin', 'user'],
                 anonymous: true,
             }
         },
@@ -324,7 +324,7 @@ module.exports = {
                 $ref: '#/definitions/update_bucket_params'
             },
             auth: {
-                system: 'admin'
+                system: ['admin', 'user']
             }
         },
 
@@ -353,7 +353,7 @@ module.exports = {
                 }
             },
             auth: {
-                system: 'admin'
+                system: ['admin', 'user']
             }
         },
 
@@ -405,7 +405,7 @@ module.exports = {
                 }
             },
             auth: {
-                system: 'admin'
+                system: ['admin', 'user']
             }
         },
 

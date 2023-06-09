@@ -38,6 +38,7 @@ const DEFAULT_FS_CONFIG = {
 function make_dummy_object_sdk() {
     return {
         requesting_account: {
+            force_md5_etag: false,
             nsfs_account_config: {
                 uid: process.getuid(),
                 gid: process.getgid(),
@@ -71,6 +72,7 @@ mocha.describe('namespace_fs', function() {
         namespace_resource_id: undefined,
         access_mode: undefined,
         versioning: undefined,
+        force_md5_etag: false,
         stats: endpoint_stats_collector.instance(),
     });
     const ns_tmp = new NamespaceFS({
@@ -79,6 +81,7 @@ mocha.describe('namespace_fs', function() {
         namespace_resource_id: undefined,
         access_mode: undefined,
         versioning: undefined,
+        force_md5_etag: false,
         stats: endpoint_stats_collector.instance(),
     });
 
@@ -214,7 +217,8 @@ mocha.describe('namespace_fs', function() {
                 source_stream: buffer_utils.buffer_to_read_stream(data)
             }, dummy_object_sdk);
             console.log('upload_object response', inspect(upload_res));
-            if (config.NSFS_CALCULATE_MD5) xattr[XATTR_MD5_KEY] = upload_res.etag;
+            if (config.NSFS_CALCULATE_MD5 ||
+                ns_tmp.force_md5_etag || dummy_object_sdk.requesting_account.force_md5_etag) xattr[XATTR_MD5_KEY] = upload_res.etag;
 
             const read_res = buffer_utils.write_stream();
             await ns_tmp.read_object_stream({
@@ -245,6 +249,9 @@ mocha.describe('namespace_fs', function() {
         const mpu_key = 'mpu_upload';
         const xattr = { key: 'value', key2: 'value2' };
         xattr[s3_utils.XATTR_SORT_SYMBOL] = true;
+        ns_tmp.force_md5_etag = true;
+        ns_src.force_md5_etag = true;
+        dummy_object_sdk.requesting_account.force_md5_etag = true;
 
         mocha.it('upload, read, delete a small multipart object', async function() {
             this.timeout(20000); // eslint-disable-line no-invalid-this
@@ -295,7 +302,8 @@ mocha.describe('namespace_fs', function() {
                 multiparts,
             }, dummy_object_sdk);
             console.log('complete_object_upload response', inspect(complete_res));
-            if (config.NSFS_CALCULATE_MD5) xattr[XATTR_MD5_KEY] = complete_res.etag;
+            if (config.NSFS_CALCULATE_MD5 ||
+                ns_tmp.force_md5_etag || dummy_object_sdk.requesting_account.force_md5_etag) xattr[XATTR_MD5_KEY] = complete_res.etag;
 
             const list2_res = await ns_src.list_uploads({
                 bucket: mpu_bkt,

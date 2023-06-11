@@ -1151,13 +1151,13 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             }
             const delete_res = await account_with_access.deleteObjects({
                     Bucket: delete_multi_object_test_bucket, Delete: { Objects: arr } }).promise();
-            assert.equal(delete_res.Deleted.length, 200);
+            assert.equal(delete_res.Deleted.length, 1);
             for (const res of delete_res.Deleted) {
                 assert.equal(res.DeleteMarker, true);
             }
             const versions_dir = path.join(full_multi_delete_path, '.versions');
             const versions = await nb_native().fs.readdir(DEFAULT_FS_CONFIG, versions_dir);
-            assert.equal(versions.length, 501);
+            assert.equal(versions.length, 302); // 1 null version + 30 dm and versions + 1 new dm
             await delete_object_versions(full_multi_delete_path, key1);
             await delete_object_versions(full_multi_delete_path, 'a');
         });
@@ -1306,19 +1306,19 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
 
             const delete_res = await account_with_access.deleteObjects({
                     Bucket: delete_multi_object_test_bucket, Delete: { Objects: arr } }).promise();
-            assert.equal(delete_res.Deleted.length, 150);
-            for (let i = 0; i < 50; i++) {
+            assert.equal(delete_res.Deleted.length, 101); // 100 dm and versions + 1 new dm
+            for (let i = 0; i < 1; i++) {
                 assert.notEqual(delete_res.Deleted[i].DeleteMarkerVersionId, undefined);
                 assert.equal(delete_res.Deleted[i].DeleteMarker, true);
             }
-            for (let i = 50; i < 150; i++) {
-                if (i % 2 === 1) assert.equal(delete_res.Deleted[i].DeleteMarker, true);
-                if (i % 2 === 0) assert.equal(delete_res.Deleted[i].DeleteMarker, undefined);
+            for (let i = 1; i < 101; i++) {
+                if (i % 2 === 0) assert.equal(delete_res.Deleted[i].DeleteMarker, true);
+                if (i % 2 === 1) assert.equal(delete_res.Deleted[i].DeleteMarker, undefined);
             }
             const versions_dir = path.join(full_multi_delete_path, '.versions');
             const versions = await nb_native().fs.readdir(DEFAULT_FS_CONFIG, versions_dir);
 
-            assert.equal(versions.length, 250);
+            assert.equal(versions.length, 201); // 200 dm and versions + 1 new dm
             await fs_utils.file_must_not_exist(path.join(full_multi_delete_path, key1));
             await delete_object_versions(full_multi_delete_path, key1);
         });
@@ -1342,19 +1342,19 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             }
             const delete_res = await account_with_access.deleteObjects({
                     Bucket: delete_multi_object_test_bucket, Delete: { Objects: arr } }).promise();
-            assert.equal(delete_res.Deleted.length, 150);
+            assert.equal(delete_res.Deleted.length, 101);
             for (let i = 0; i < 100; i++) {
                 if (i % 2 === 1) assert.equal(delete_res.Deleted[i].DeleteMarker, undefined);
                 if (i % 2 === 0) assert.equal(delete_res.Deleted[i].DeleteMarker, true);
             }
-            for (let i = 100; i < 150; i++) {
+            for (let i = 100; i < 101; i++) {
                 assert.notEqual(delete_res.Deleted[i].DeleteMarkerVersionId, undefined);
                 assert.equal(delete_res.Deleted[i].DeleteMarker, true);
             }
             const versions_dir = path.join(full_multi_delete_path, '.versions');
             const versions = await nb_native().fs.readdir(DEFAULT_FS_CONFIG, versions_dir);
 
-            assert.equal(versions.length, 250);
+            assert.equal(versions.length, 201); // 200 dm and versions + dm + new dm
             await fs_utils.file_must_not_exist(path.join(full_multi_delete_path, key1));
             await delete_object_versions(full_multi_delete_path, key1);
         });

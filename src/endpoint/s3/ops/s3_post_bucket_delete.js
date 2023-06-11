@@ -1,7 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const _ = require('lodash');
 const dbg = require('../../../util/debug_module')(__filename);
 const S3Error = require('../s3_errors').S3Error;
 
@@ -11,18 +10,31 @@ const S3Error = require('../s3_errors').S3Error;
  */
 async function post_bucket_delete(req) {
 
-    const quiet = req.body.Delete.Quiet && req.body.Delete.Quiet[0];
-    const objects = _.map(req.body.Delete.Object, obj => ({
-        key: obj.Key && obj.Key[0],
-        version_id: obj.VersionId && obj.VersionId[0],
-    }));
+    // The request body XML format:
+    // Delete (Required), Object (Required), Quiet (Not Required)
+    // Parsing the XML and throw an error in case the required part are not included
+    const delete_data = req.body.Delete;
+    if (!delete_data) throw new S3Error(S3Error.MalformedXML);
+    const delete_list = req.body.Delete.Object;
+    if (!delete_list) throw new S3Error(S3Error.MalformedXML);
+    const quiet = req.body.Delete.Quiet?.[0];
 
-    if (objects.length > 1000) {
+    if (delete_list.length > 1000) {
         dbg.error('The request can not contain a list of more than 1000 keys');
         throw new S3Error(S3Error.MalformedXML);
     }
 
-    dbg.log3('post_bucket_delete: objects', objects);
+    // Removing duplicated entries
+    // note: it was intentionally that first we check the list length and only then remove duplications
+    const uniq_map = new Map();
+    for (const item of delete_list) {
+        const key = item.Key?.[0];
+        const version_id = item.VersionId?.[0];
+        const key_version = (key || '') + '\0' + (version_id || ''); // using null char (\x00) as separator
+        uniq_map.set(key_version, { key, version_id });
+    }
+    const objects = Array.from(uniq_map.values());
+    dbg.log3('post_bucket_delete: objects without duplications', objects);
 
     const reply = await req.object_sdk.delete_multiple_objects({
         bucket: req.params.bucket,

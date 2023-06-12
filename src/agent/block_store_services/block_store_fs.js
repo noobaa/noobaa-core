@@ -109,7 +109,11 @@ class BlockStoreFs extends BlockStoreBase {
                         });
                     }
 
-                    throw new RpcError('MIGRATED', `block is migrated`);
+                    // if not allowed to read migrated blocks, throw error - temporary fix until
+                    // we move to migstat polling.
+                    if (!config.BLOCK_STORE_FS_TIER2_ALLOW_MIGRATED_READS) {
+                        throw new RpcError('MIGRATED', `block is migrated`);
+                    }
                 }
             }
 

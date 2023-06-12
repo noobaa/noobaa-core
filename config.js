@@ -650,6 +650,7 @@ config.POSTGRES_MAX_CLIENTS = (process.env.LOCAL_MD_SERVER === 'true') ? 80 : 10
 
 config.BLOCK_STORE_FS_TIER2_ENABLED = false;
 config.BLOCK_STORE_FS_MAPPING_INFO_ENABLED = false;
+config.BLOCK_STORE_FS_TIER2_ALLOW_MIGRATED_READS = true;
 
 config.BLOCK_STORE_FS_XATTR_BLOCK_MD = 'user.noobaa.block_md';
 config.BLOCK_STORE_FS_XATTR_QUERY_MIGSTAT = 'user._query.migstat';

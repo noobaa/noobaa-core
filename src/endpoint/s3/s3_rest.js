@@ -2,14 +2,14 @@
 'use strict';
 
 const _ = require('lodash');
+const net = require('net');
 
 const dbg = require('../../util/debug_module')(__filename);
 const s3_ops = require('./ops');
 const S3Error = require('./s3_errors').S3Error;
+const s3_utils = require('./s3_utils');
 const time_utils = require('../../util/time_utils');
 const http_utils = require('../../util/http_utils');
-const s3_utils = require('./s3_utils');
-const net = require('net');
 const signature_utils = require('../../util/signature_utils');
 
 const S3_MAX_BODY_LEN = 4 * 1024 * 1024;
@@ -73,7 +73,8 @@ async function s3_rest(req, res) {
 
 async function handle_request(req, res) {
 
-    http_utils.set_response_headers(req, res, { expose_headers: 'ETag,X-Amz-Version-Id' });
+    http_utils.set_amz_headers(req, res);
+    http_utils.set_cors_headers_s3(req, res);
 
     if (req.method === 'OPTIONS') {
         dbg.log1('OPTIONS!');

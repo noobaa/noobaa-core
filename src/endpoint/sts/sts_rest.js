@@ -45,7 +45,8 @@ async function sts_rest(req, res) {
 
 async function handle_request(req, res) {
 
-    http_utils.set_response_headers(req, res, { expose_headers: 'ETag' });
+    http_utils.set_amz_headers(req, res);
+    http_utils.set_cors_headers_sts(req, res);
 
     if (req.method === 'OPTIONS') {
         dbg.log1('OPTIONS!');

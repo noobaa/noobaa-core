@@ -574,18 +574,66 @@ function check_headers(req, options) {
     }
 }
 
-function set_response_headers(req, res, options) {
+/**
+ * @param {http.IncomingMessage & {request_id: string}} req
+ * @param {http.ServerResponse} res
+ */
+function set_amz_headers(req, res) {
     res.setHeader('x-amz-request-id', req.request_id);
     res.setHeader('x-amz-id-2', req.request_id);
+}
 
-    // note that browsers will not allow origin=* with credentials
-    // but anyway we allow it by the agent server.
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Credentials', true);
-    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers',
-        'Content-Type,Content-MD5,Authorization,X-Amz-User-Agent,X-Amz-Date,ETag,X-Amz-Content-Sha256');
-    res.setHeader('Access-Control-Expose-Headers', options.expose_headers);
+/**
+ * @typedef {{
+ *      allow_origin: string;
+ *      allow_credentials: string;
+ *      allow_methods: string;
+ *      allow_headers: string;
+ *      expose_headers: string;
+ * }} CORSConfig
+ * @param {http.IncomingMessage} req
+ * @param {http.ServerResponse} res
+ * @param {CORSConfig} cors
+ */
+function set_cors_headers(req, res, cors) {
+    res.setHeader('Access-Control-Allow-Origin', cors.allow_origin);
+    res.setHeader('Access-Control-Allow-Credentials', cors.allow_credentials);
+    res.setHeader('Access-Control-Allow-Methods', cors.allow_methods);
+    res.setHeader('Access-Control-Allow-Headers', cors.allow_headers);
+    res.setHeader('Access-Control-Expose-Headers', cors.expose_headers);
+}
+
+/**
+ * @param {http.IncomingMessage} req
+ * @param {http.ServerResponse} res
+ */
+function set_cors_headers_s3(req, res) {
+    if (config.S3_CORS_ENABLED) {
+        set_cors_headers(req, res, {
+            allow_origin: config.S3_CORS_ALLOW_ORIGIN,
+            allow_credentials: config.S3_CORS_ALLOW_CREDENTIAL,
+            allow_methods: config.S3_CORS_ALLOW_METHODS,
+            allow_headers: config.S3_CORS_ALLOW_HEADERS,
+            expose_headers: config.S3_CORS_EXPOSE_HEADERS,
+        });
+    }
+}
+
+/**
+ * same as set_cors_headers_s3 besides expose_headers
+ * @param {http.IncomingMessage} req
+ * @param {http.ServerResponse} res
+ */
+function set_cors_headers_sts(req, res) {
+    if (config.S3_CORS_ENABLED) {
+        set_cors_headers(req, res, {
+            allow_origin: config.S3_CORS_ALLOW_ORIGIN,
+            allow_credentials: config.S3_CORS_ALLOW_CREDENTIAL,
+            allow_methods: config.S3_CORS_ALLOW_METHODS,
+            allow_headers: config.S3_CORS_ALLOW_HEADERS,
+            expose_headers: config.STS_CORS_EXPOSE_HEADERS,
+        });
+    }
 }
 
 function parse_content_length(req, options) {
@@ -629,6 +677,9 @@ exports.make_https_request = make_https_request;
 exports.set_keep_alive_whitespace_interval = set_keep_alive_whitespace_interval;
 exports.parse_xml_to_js = parse_xml_to_js;
 exports.check_headers = check_headers;
-exports.set_response_headers = set_response_headers;
+exports.set_amz_headers = set_amz_headers;
+exports.set_cors_headers = set_cors_headers;
+exports.set_cors_headers_s3 = set_cors_headers_s3;
+exports.set_cors_headers_sts = set_cors_headers_sts;
 exports.parse_content_length = parse_content_length;
 exports.authorize_session_token = authorize_session_token;

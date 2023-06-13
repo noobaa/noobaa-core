@@ -16,7 +16,6 @@ const fs_utils = require('../util/fs_utils');
 const db_client = require('../util/db_client');
 const nb_native = require('../util/nb_native');
 const json_utils = require('../util/json_utils');
-const auth_server = require('../server/common_services/auth_server');
 const system_store = require('../server/system_services/system_store');
 
 const HELP = `
@@ -93,9 +92,13 @@ async function main(argv = minimist(process.argv.slice(2))) {
 }
 
 async function run_backingstore(storage_path, address, port) {
+    // the intention here is to not really use `system_store` as standalone but rather
+    // ensure that we can take advantage of the `system_store` load() method to load
+    // the info without registering the agent.
+    const standalone = true;
 
     await db_client.instance().connect();
-    await system_store.get_instance().load();
+    await system_store.get_instance({ standalone }).load();
     const get_system = () => system_store.get_instance().data.systems[0];
 
     const conf_path = path.join(storage_path, 'agent_conf.json');
@@ -106,7 +109,9 @@ async function run_backingstore(storage_path, address, port) {
         const system = get_system();
         await fs_utils.replace_file(
             token_path,
-            auth_server.make_auth_token({
+            // Require is delayed to ensure it doesn't run before out manual
+            // `get_instance()` call above.
+            require('../server/common_services/auth_server').make_auth_token({
                 system_id: String(system._id),
                 account_id: system.owner._id,
                 role: 'create_node',

@@ -64,6 +64,9 @@ module.exports = {
                             },
                         },
                     },
+                    force_md5_etag: {
+                        type: 'boolean'
+                    },
                     nsfs_account_config: {
                         $ref: 'common_api#/definitions/nsfs_account_config'
                     },
@@ -197,6 +200,9 @@ module.exports = {
                                 enum: ['DARK', 'LIGHT']
                             }
                         }
+                    },
+                    force_md5_etag: {
+                        type: 'boolean'
                     },
                     role_config: {
                         $ref: 'common_api#/definitions/role_config'
@@ -707,6 +713,9 @@ module.exports = {
                             enum: ['DARK', 'LIGHT']
                         }
                     }
+                },
+                force_md5_etag: {
+                    type: 'boolean'
                 },
                 nsfs_account_config: {
                     $ref: 'common_api#/definitions/nsfs_account_config'

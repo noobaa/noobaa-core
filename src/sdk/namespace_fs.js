@@ -1218,7 +1218,8 @@ class NamespaceFS {
         const { source_stream } = params;
         try {
             // Not using async iterators with ReadableStreams due to unsettled promises issues on abort/destroy
-            const md5_enabled = config.NSFS_CALCULATE_MD5 || this.force_md5_etag;
+            const md5_enabled = config.NSFS_CALCULATE_MD5 || (this.force_md5_etag ||
+                object_sdk?.requesting_account?.force_md5_etag);
             const chunk_fs = new ChunkFS({
                 target_file,
                 fs_context,
@@ -1340,7 +1341,8 @@ class NamespaceFS {
         const fs_context = this.prepare_fs_context(object_sdk);
         const open_mode = 'w';
         try {
-            const md5_enabled = config.NSFS_CALCULATE_MD5 || this.force_md5_etag;
+            const md5_enabled = config.NSFS_CALCULATE_MD5 || (this.force_md5_etag ||
+                object_sdk?.requesting_account?.force_md5_etag);
             const MD5Async = md5_enabled ? new (nb_native().crypto.MD5Async)() : undefined;
             const { multiparts = [] } = params;
             multiparts.sort((a, b) => a.num - b.num);

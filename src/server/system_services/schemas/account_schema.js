@@ -86,6 +86,10 @@ module.exports = {
             }
         },
 
+        force_md5_etag: {
+            type: 'boolean' // enable md5 calculation per account
+        },
+
         preferences: {
             type: 'object',
             properties: {

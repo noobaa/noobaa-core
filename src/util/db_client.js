@@ -26,7 +26,7 @@ class NoneDBClient extends EventEmitter {
     async get_db_stats() { return { fsUsedSize: 0, fsTotalSize: 0 }; }
     set_db_name(name) { return this.noop(); }
     get_db_name() { return 'none'; }
-    is_connected() { return true; }
+    is_connected() { return false; }
     define_collection(params) { return this.noop_obj(); }
     define_sequence(params) { return this.noop_obj(); }
     collection(name) { return this.noop_obj(); }

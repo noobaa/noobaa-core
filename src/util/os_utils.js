@@ -38,7 +38,6 @@ const IS_LINUX_VM = IS_LINUX && !IS_DOCKER;
 const IS_TEST_CONTAINER = process.env.TEST_CONTAINER;
 
 if (!process.env.PLATFORM) {
-    console.log('loading .env file...');
     dotenv.load();
 }
 

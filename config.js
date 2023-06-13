@@ -677,7 +677,7 @@ function load_config_local() {
         // eslint-disable-next-line global-require
         const local_config = require(path.join(process.cwd(), 'config-local'));
         if (!local_config) return;
-        console.log('load_config_local: LOADED', local_config);
+        console.warn('load_config_local: LOADED', local_config);
         if (typeof local_config === 'function') {
             const local_config_func = /** @type {function} */ (local_config);
             local_config_func(config);
@@ -689,7 +689,6 @@ function load_config_local() {
         }
     } catch (err) {
         if (err.code !== 'MODULE_NOT_FOUND') throw err;
-        console.log('load_config_local: NO LOCAL CONFIG');
     }
 }
 
@@ -706,30 +705,30 @@ function load_config_env_overrides() {
             if (type === 'number') {
                 const n = Number(val);
                 if (isNaN(n)) throw new Error(`${val} should be a number`);
-                console.log(`Overriding config.js from ENV with ${conf_name}=${n} (number)`);
+                console.warn(`Overriding config.js from ENV with ${conf_name}=${n} (number)`);
                 config[conf_name] = n;
 
             } else if (type === 'boolean') {
                 if (val === 'true') {
-                    console.log(`Overriding config.js from ENV with ${conf_name}=true (bool)`);
+                    console.warn(`Overriding config.js from ENV with ${conf_name}=true (bool)`);
                     config[conf_name] = true;
                 } else if (val === 'false') {
-                    console.log(`Overriding config.js from ENV with ${conf_name}=false (bool)`);
+                    console.warn(`Overriding config.js from ENV with ${conf_name}=false (bool)`);
                     config[conf_name] = false;
                 } else {
                     throw new Error(`${val} should be true|false`);
                 }
 
             } else if (type === 'string' || type === 'undefined') {
-                console.log(`Overriding config.js from ENV with ${conf_name}=${val} (string)`);
+                console.warn(`Overriding config.js from ENV with ${conf_name}=${val} (string)`);
                 config[conf_name] = val;
 
             } else if (type === 'object') {
                 // TODO: Validation checks, more complex type casting for values if needed
                 config[conf_name] = Array.isArray(prev_val) ? val.split(',') : JSON.parse(val);
-                console.log(`Overriding config.js from ENV with ${conf_name}=${val} (object of type ${Array.isArray(prev_val) ? 'array' : 'json'})`);
+                console.warn(`Overriding config.js from ENV with ${conf_name}=${val} (object of type ${Array.isArray(prev_val) ? 'array' : 'json'})`);
             } else {
-                console.log(`Unknown type or mismatch between existing ${type} and provided type for ${conf_name}, skipping ...`);
+                console.warn(`Unknown type or mismatch between existing ${type} and provided type for ${conf_name}, skipping ...`);
             }
 
         } catch (err) {

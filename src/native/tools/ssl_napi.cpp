@@ -26,6 +26,8 @@
 namespace noobaa
 {
 
+DBG_INIT(0);
+
 bool fips_mode = false;
 
 static Napi::Value set_fips_mode(const Napi::CallbackInfo& info);
@@ -152,7 +154,8 @@ typedef Hasher<
 void
 ssl_napi(Napi::Env env, Napi::Object exports)
 {
-    printf("%s setting up\n", SSLeay_version(SSLEAY_VERSION));
+    DBG(1, SSLeay_version(SSLEAY_VERSION) << " setting up");
+
     OpenSSL_add_all_algorithms();
     OpenSSL_add_all_ciphers();
     OpenSSL_add_all_digests();

@@ -8,7 +8,9 @@ const stream = require('stream');
 const crypto = require('crypto');
 const cluster = require('cluster');
 const ssl_utils = require('../util/ssl_utils');
+const Semaphore = require('../util/semaphore');
 const Speedometer = require('../util/speedometer');
+const buffer_utils = require('../util/buffer_utils');
 
 require('../util/console_wrapper').original_console();
 
@@ -39,6 +41,17 @@ http.globalAgent.keepAlive = true;
 const http_agent = argv.ssl ?
     new https.Agent({ keepAlive: true }) :
     new http.Agent({ keepAlive: true });
+
+const buffers_pool_sem = new Semaphore(1024 * 1024 * 1024, {
+    timeout: 2 * 60 * 1000,
+    timeout_error_code: 'HTTP_SPEED_BUFFER_POOL_TIMEOUT',
+    warning_timeout: 10 * 60 * 1000,
+});
+const buffers_pool = new buffer_utils.BuffersPool({
+    buf_size: argv.buf,
+    sem: buffers_pool_sem,
+    warning_timeout: 2 * 60 * 1000,
+});
 
 const send_speedometer = new Speedometer('Send Speed');
 const recv_speedometer = new Speedometer('Receive Speed');
@@ -179,19 +192,20 @@ function run_client_request() {
  */
 function run_sender(writable) {
     const req_size = size_bytes;
-    const buf_size = argv.buf;
     let n = 0;
 
     writable.on('drain', send);
     send();
 
-    function send() {
-        const buf = Buffer.allocUnsafe(Math.min(buf_size, req_size - n));
+    async function send() {
         let ok = true;
         while (ok && n < req_size) {
-            ok = writable.write(buf);
-            n += buf.length;
-            send_speedometer.update(buf.length);
+            // const buffer = Buffer.allocUnsafe(Math.min(buf_size, req_size - n));
+            let { buffer, callback } = await buffers_pool.get_buffer();
+            if (buffer.length > req_size - n) buffer = buffer.subarray(0, req_size - n);
+            ok = writable.write(buffer, callback);
+            n += buffer.length;
+            send_speedometer.update(buffer.length);
         }
         if (n >= req_size) writable.end();
     }

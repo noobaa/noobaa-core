@@ -17,7 +17,6 @@ process.env.JWT_SECRET = CORETEST;
 const root_secret = crypto.randomBytes(32).toString('base64');
 process.env.ACCOUNTS_CACHE_EXPIRY = '1';
 
-console.log('loading .env file');
 require('../../util/dotenv').load();
 require('../../util/panic');
 require('../../util/fips');

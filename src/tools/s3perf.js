@@ -4,7 +4,7 @@
 require('aws-sdk/lib/maintenance_mode_message').suppress = true;
 
 const AWS = require('aws-sdk');
-const argv = require('minimist')(process.argv);
+const minimist = require('minimist');
 const http = require('http');
 const https = require('https');
 const size_utils = require('../util/size_utils');
@@ -16,6 +16,21 @@ const size_units_mult = {
     MB: 1024 * 1024,
     GB: 1024 * 1024 * 1024
 };
+
+const argv = minimist(process.argv.slice(2), {
+    string: [
+        'endpoint',
+        'access_key',
+        'secret_key',
+        'bucket',
+        'head',
+        'get',
+        'put',
+        'upload',
+        'delete',
+        'mb',
+    ],
+});
 
 argv.sig = argv.sig || 's3';
 argv.time = argv.time || 0;
@@ -37,34 +52,33 @@ if (argv.upload && data_size < argv.part_size * 1024 * 1024) {
 
 const start_time = Date.now();
 
-let op_lat_sum = 0;
 let op_count = 0;
-let op_size = 0;
+let total_size = 0;
+let op_lat_sum = 0;
 let last_reported = start_time;
 let last_op_count = 0;
+let last_total_size = 0;
 let last_op_lat_sum = 0;
 
+/**
+ * @type {() => Promise<number>}
+ */
 let op_func;
 
 if (argv.help) {
     print_usage();
-} else if (argv.head) {
+} else if (typeof argv.head === 'string') {
     op_func = head_object;
-    op_size = 0;
-} else if (argv.get) {
+} else if (typeof argv.get === 'string') {
     op_func = get_object;
-    op_size = data_size;
-} else if (argv.put) {
+} else if (typeof argv.put === 'string') {
     op_func = put_object;
-    op_size = data_size;
-} else if (argv.upload) {
+} else if (typeof argv.upload === 'string') {
     op_func = upload_object;
-    op_size = data_size;
-} else if (argv.delete) {
-    op_func = delete_all_objects;
-} else if (argv.mb) {
+} else if (typeof argv.delete === 'string') {
+    op_func = delete_object;
+} else if (typeof argv.mb === 'string') {
     op_func = create_bucket;
-    op_size = 0;
 } else {
     print_usage();
 }
@@ -115,6 +129,7 @@ if (cluster.isPrimary) {
 }
 
 async function run_master() {
+    console.log(argv);
     if (argv.forks > 1) {
         for (let i = 0; i < argv.forks; i++) {
             const worker = cluster.fork();
@@ -138,9 +153,10 @@ function run_reporter() {
     const time = now - last_reported;
     const time_total = now - start_time;
     const ops = op_count - last_op_count;
+    const size = total_size - last_total_size;
     const lat = op_lat_sum - last_op_lat_sum;
-    const tx = ops * op_size / time * 1000;
-    const tx_total = op_count * op_size / time_total * 1000;
+    const tx = size / time * 1000;
+    const tx_total = total_size / time_total * 1000;
 
     console.log(`TOTAL: Throughput ${
         size_utils.human_size(tx_total)
@@ -158,6 +174,7 @@ function run_reporter() {
 
     last_reported = now;
     last_op_count = op_count;
+    last_total_size = total_size;
     last_op_lat_sum = op_lat_sum;
 
     if (now - start_time > argv.time * 1000) {
@@ -171,12 +188,29 @@ function exit_all() {
     process.exit();
 }
 
+/**
+ * @typedef {{
+ *  ops: number;
+ *  size: number;
+ *  took_ms: number;
+ * }} Msg
+ * @param {Msg|'exit'} msg 
+ */
 function handle_message(msg) {
     if (msg === 'exit') {
         process.exit();
     } else if (msg.took_ms >= 0) {
+        op_count += msg.ops;
+        total_size += msg.size;
         op_lat_sum += msg.took_ms;
-        op_count += 1;
+    }
+}
+
+function send_message(msg) {
+    if (process.send) {
+        process.send(msg);
+    } else {
+        handle_message(msg);
     }
 }
 
@@ -191,14 +225,10 @@ async function run_worker_loop() {
     try {
         for (;;) {
             const hrtime = process.hrtime();
-            await op_func();
+            const size = await op_func();
             const hrtook = process.hrtime(hrtime);
             const took_ms = (hrtook[0] * 1e-3) + (hrtook[1] * 1e-6);
-            if (process.send) {
-                process.send({ took_ms });
-            } else {
-                handle_message({ took_ms });
-            }
+            send_message({ ops: 1, size, took_ms });
         }
     } catch (err) {
         console.error('WORKER', process.pid, 'ERROR', err.stack || err);
@@ -206,86 +236,81 @@ async function run_worker_loop() {
     }
 }
 
-const _object_keys = [];
-let _object_keys_next = 0;
-let _object_keys_done = false;
-let _object_keys_promise = null;
+/** @type {AWS.S3.ListObjectsOutput} */
+let _list_objects = { Contents: [], IsTruncated: true };
+let _list_objects_next = 0;
+let _list_objects_promise = null;
 
 /**
- * This function returns the next key to be used for head/get/delete.
- * It has few modes depending on the value of the --head/--get/--delete arg (provided as `key_arg`):
- * If key_arg is provided as a string that does not end with '/' it is assumed to be a fixed key to be used for all calls.
- * Otherwise, it will list objects and keep the list in memory, returning the objects in list order,
+ * This function returns the next object to be used for head/get/delete.
+ * It will list objects and keep the list in memory, returning the objects in list order,
  * while fetching the next list pages on demand.
- * If key_arg ends with '/' it will be used as a prefix for the list objects request to filter objects.
+ * If prefix is provided it will be used to filter objects keys.
  * 
- * @param {string} key_arg 
- * @returns string
+ * @param {string} [prefix]
+ * @returns {Promise<AWS.S3.Object>}
  */
-async function get_object_key(key_arg) {
-    if (typeof key_arg === 'string' && !key_arg.endsWith('/')) {
-        return key_arg;
-    }
-
-    while (_object_keys_next >= _object_keys.length) {
-        if (_object_keys_done) {
-            if (!_object_keys_next) throw new Error('no objects');
-            _object_keys_next = 0;
-            console.log('get_object_key: Restart object list with', _object_keys.length, 'items');
-        } else if (_object_keys_promise) {
-            console.log('get_object_key: wait for promise');
-            await _object_keys_promise;
+async function get_next_object(prefix) {
+    while (_list_objects_next >= _list_objects.Contents.length) {
+        if (_list_objects_promise) {
+            console.log('get_next_object: wait for promise');
+            await _list_objects_promise;
         } else {
-            const marker = _object_keys[_object_keys.length - 1];
-            const prefix = typeof key_arg === 'string' ? String(key_arg) : undefined;
-            _object_keys_promise = s3.listObjects({ Bucket: argv.bucket, Prefix: prefix, Marker: marker }).promise();
-            const res = await _object_keys_promise;
-            _object_keys_promise = null;
-            _object_keys_done = !res.IsTruncated;
-            _object_keys.push(...res.Contents.map(entry => entry.Key));
-            console.log('get_object_key: got', res.Contents.length, 'objects from marker', marker);
+            const marker = _list_objects.IsTruncated ?
+                (_list_objects.NextMarker || _list_objects.Contents[_list_objects.Contents.length - 1]?.Key) :
+                undefined;
+            _list_objects_promise = s3.listObjects({
+                Bucket: argv.bucket,
+                Prefix: prefix,
+                Marker: marker,
+            }).promise();
+            _list_objects = await _list_objects_promise;
+            _list_objects_promise = null;
+            _list_objects_next = 0;
+            console.log('get_next_object: got', _list_objects.Contents.length, 'objects from marker', marker);
         }
     }
 
-    const key = _object_keys[_object_keys_next];
-    _object_keys_next += 1;
-    return key;
+    const obj = _list_objects.Contents[_list_objects_next];
+    _list_objects_next += 1;
+    return obj;
 }
 
 async function head_object() {
-    const key = await get_object_key(argv.head);
-    // console.log('HEAD', key);
-    return s3.headObject({ Bucket: argv.bucket, Key: key }).promise();
+    const obj = await get_next_object(argv.head);
+    await s3.headObject({ Bucket: argv.bucket, Key: obj.Key }).promise();
+    return 0;
 }
 
 async function get_object() {
-    const key = await get_object_key(argv.get);
-    return new Promise((resolve, reject) => {
+    const obj = await get_next_object(argv.get);
+    await new Promise((resolve, reject) => {
         s3.getObject({
                 Bucket: argv.bucket,
-                Key: key,
-                Range: `bytes=0-${data_size}`
+                Key: obj.Key,
             })
             .createReadStream()
             .on('finish', resolve)
             .on('error', reject)
             .on('data', data => {
-                // noop
+                send_message({ ops: 0, size: data.length, took_ms: 0 });
             });
     });
+    return 0;
 }
 
-async function delete_all_objects() {
-    const key = await get_object_key(argv.delete);
+async function delete_object() {
+    const obj = await get_next_object(argv.delete);
     await s3.deleteObject({
         Bucket: argv.bucket,
-        Key: key
+        Key: obj.Key
     }).promise();
+    return 0;
 }
 
 async function put_object() {
     const upload_key = argv.put + '-' + Date.now().toString(36);
-    return s3.putObject({
+    await s3.putObject({
             Bucket: argv.bucket,
             Key: upload_key,
             ContentLength: data_size,
@@ -293,12 +318,16 @@ async function put_object() {
                 highWaterMark: 1024 * 1024,
             })
         })
+        .on('httpUploadProgress', progress => {
+            send_message({ ops: 0, size: progress.loaded, took_ms: 0 });
+        })
         .promise();
+    return 0;
 }
 
 async function upload_object() {
     const upload_key = argv.upload + '-' + Date.now().toString(36);
-    return s3.upload({
+    await s3.upload({
             Bucket: argv.bucket,
             Key: upload_key,
             ContentLength: data_size,
@@ -309,12 +338,17 @@ async function upload_object() {
             partSize: argv.part_size * 1024 * 1024,
             queueSize: argv.part_concur
         })
+        .on('httpUploadProgress', progress => {
+            send_message({ ops: 0, size: progress.loaded, took_ms: 0 });
+        })
         .promise();
+    return 0;
 }
 
 async function create_bucket() {
     const new_bucket = argv.mb + '-' + Date.now().toString(36);
-    return s3.createBucket({ Bucket: new_bucket }).promise();
+    await s3.createBucket({ Bucket: new_bucket }).promise();
+    return 0;
 }
 
 function print_usage() {
@@ -322,12 +356,12 @@ function print_usage() {
 Usage:
   --help                 show this usage
   --time <sec>           running time in seconds (0 seconds by default)
-  --head <key>           head key name
-  --get <key>            get key name (key can be omitted)
+  --head <prefix>        head objects (prefix can be omitted)
+  --get <prefix>         get objects (prefix can be omitted)
+  --delete <prefix>      delete objects (prefix can be omitted)
   --put <key>            put (single) to key (key can be omitted)
   --upload <key>         upload (multipart) to key (key can be omitted)
   --mb <bucket>          creates a new bucket (bucket can be omitted)
-  --delete               iterates and delete all objects in the bucket (passed by --bucket or default)
 Upload Flags:
   --concur <num>         concurrent operations to run from each process (default is 1)
   --forks <num>          number of forked processes to run (default is 1)

@@ -11,13 +11,11 @@ const dbg = require('../util/debug_module')(__filename);
 if (!dbg.get_process_name()) dbg.set_process_name('backingstore');
 dbg.original_console();
 
+const api = require('../api');
 const Agent = require('../agent/agent');
 const fs_utils = require('../util/fs_utils');
-const db_client = require('../util/db_client');
 const nb_native = require('../util/nb_native');
 const json_utils = require('../util/json_utils');
-const auth_server = require('../server/common_services/auth_server');
-const system_store = require('../server/system_services/system_store');
 
 const HELP = `
 Help:
@@ -43,6 +41,7 @@ Options:
 
     --port <port>       (required!)                      Listening port for backingstore incoming requests
     --address <url>     (default wss://localhost:5443)   The address of the base core server
+    --pool_name <name>  (default backingstores)          The pool to add this backingstore
     --debug <level>     (default 0)                      Increase debug level
 `;
 
@@ -71,6 +70,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
         }
         const port = String(argv.port || '');
         const address = argv.address || 'wss://localhost:5443';
+        const pool_name = argv.pool_name || 'backingstores';
         const storage_path = argv._[0];
 
         if (!port) print_usage();
@@ -84,7 +84,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
             print_usage();
         }
 
-        await run_backingstore(storage_path, address, port);
+        await run_backingstore(storage_path, address, port, pool_name);
 
     } catch (err) {
         console.error('backingstore: exit on error', err.stack || err);
@@ -92,26 +92,23 @@ async function main(argv = minimist(process.argv.slice(2))) {
     }
 }
 
-async function run_backingstore(storage_path, address, port) {
-
-    await db_client.instance().connect();
-    await system_store.get_instance().load();
-    const get_system = () => system_store.get_instance().data.systems[0];
+async function run_backingstore(storage_path, address, port, pool_name) {
 
     const conf_path = path.join(storage_path, 'agent_conf.json');
     const token_path = path.join(storage_path, 'token');
     const agent_conf = new json_utils.JsonFileWrapper(conf_path);
 
     if (!fs.existsSync(token_path)) {
-        const system = get_system();
-        await fs_utils.replace_file(
-            token_path,
-            auth_server.make_auth_token({
-                system_id: String(system._id),
-                account_id: system.owner._id,
-                role: 'create_node',
-            })
-        );
+        const rpc = api.new_rpc();
+        const client = rpc.new_client({ address });
+        await client.create_auth_token({
+            system: process.env.CREATE_SYS_NAME,
+            email: process.env.CREATE_SYS_EMAIL,
+            password: process.env.CREATE_SYS_PASSWD,
+        });
+        const install_string = await client.pool.get_hosts_pool_agent_config({ name: pool_name });
+        const install_conf = JSON.parse(Buffer.from(install_string, 'base64').toString());
+        await fs_utils.replace_file(token_path, install_conf.create_node_token);
     }
 
     const token_wrapper = {

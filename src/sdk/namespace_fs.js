@@ -267,10 +267,11 @@ const dir_cache = new LRUCache({
  * @typedef {{
  *  time: number,
  *  stat: nb.NativeFSStats,
+ *  ver_dir_stat: nb.NativeFSStats,
  *  usage: number,
  *  sorted_entries?: fs.Dirent[],
  * }} ReaddirVersionsCacheItem
- * @type {LRUCache<object, string, ReaddirCacheItem>}
+ * @type {LRUCache<object, string, ReaddirVersionsCacheItem>}
  */
 const versions_dir_cache = new LRUCache({
     name: 'nsfs-versions-dir-cache',
@@ -281,8 +282,9 @@ const versions_dir_cache = new LRUCache({
         const version_path = dir_path + "/" + HIDDEN_VERSIONS_PATH;
         let ver_dir_stat_size;
         let is_version_path_exists = false;
+        let ver_dir_stat;
         try {
-            const ver_dir_stat = await nb_native().fs.stat(fs_context, version_path);
+            ver_dir_stat = await nb_native().fs.stat(fs_context, version_path);
             ver_dir_stat_size = ver_dir_stat.size;
             is_version_path_exists = true;
         } catch (err) {
@@ -291,6 +293,7 @@ const versions_dir_cache = new LRUCache({
             } else {
                 throw err;
             }
+            ver_dir_stat = null;
             ver_dir_stat_size = 0;
         }
         let sorted_entries;
@@ -309,11 +312,21 @@ const versions_dir_cache = new LRUCache({
                 usage += ent.name.length + 4;
             }
         }
-        return { time, stat, sorted_entries, usage };
+        return { time, stat, ver_dir_stat, sorted_entries, usage };
     },
-    validate: async ({ stat }, { dir_path, fs_context }) => {
+    validate: async ({ stat, ver_dir_stat }, { dir_path, fs_context }) => {
         const new_stat = await nb_native().fs.stat(fs_context, dir_path);
-        return (new_stat.ino === stat.ino && new_stat.mtimeNsBigint === stat.mtimeNsBigint);
+        if (ver_dir_stat) {
+            const versions_dir_path = path.normalize(path.join(dir_path, '/', HIDDEN_VERSIONS_PATH));
+            const new_versions_stat = await nb_native().fs.stat(fs_context, versions_dir_path);
+            return (new_stat.ino === stat.ino &&
+                    new_stat.mtimeNsBigint === stat.mtimeNsBigint &&
+                    new_versions_stat.ino === ver_dir_stat.ino &&
+                    new_versions_stat.mtimeNsBigint === ver_dir_stat.mtimeNsBigint);
+        } else {
+            return (new_stat.ino === stat.ino &&
+            new_stat.mtimeNsBigint === stat.mtimeNsBigint);
+        }
     },
     item_usage: ({ usage }, dir_path) => usage,
     max_usage: config.NSFS_DIR_CACHE_MAX_TOTAL_SIZE,

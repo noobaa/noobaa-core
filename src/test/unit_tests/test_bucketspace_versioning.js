@@ -1664,6 +1664,7 @@ mocha.describe('List-objects', function() {
     const version_key_1 = 'search_key_mtime-crh3783sxk3k-ino-guty';
     const version_key_2 = 'search_key_mtime-crkfjum9883k-ino-guu7';
     const version_key_3 = 'search_key_mtime-crkfjx1hui2o-ino-guu9';
+    const version_key_4 = 'search_key_mtime-crkfjx1hui2o-ino-guuh';
 
     const dir_key = 'dir1/delete_marker_key';
     const dir_version_key_1 = 'delete_marker_key_mtime-crkfjknr7xmo-ino-guu4';
@@ -1759,6 +1760,25 @@ mocha.describe('List-objects', function() {
     mocha.it('list object versions - should return all versions of all the object', async function() {
         const res = await s3_client.listObjectVersions({Bucket: bucket_name}).promise();
         let count = 0;
+        res.Versions.forEach(val => {
+           count += 1;
+        });
+        assert.equal(count, 7);
+    });
+
+    mocha.it('list object versions - should by pass the dir cache and load the objects from the disk', async function() {
+        // Creation of version under HIDDER_VERSION_PATH will trigger load() call
+        await create_object(`${full_path_version_dir}/${version_key_4}`, version_body, 'null');
+        let res = await s3_client.listObjectVersions({Bucket: bucket_name}).promise();
+        let count = 0;
+        res.Versions.forEach(val => {
+           count += 1;
+        });
+        assert.equal(count, 8);
+        // Deletion of version under HIDDER_VERSION_PATH will trigger load() call
+        await fs_utils.file_delete(path.join(full_path_version_dir, version_key_4));
+        res = await s3_client.listObjectVersions({Bucket: bucket_name}).promise();
+        count = 0;
         res.Versions.forEach(val => {
            count += 1;
         });

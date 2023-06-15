@@ -1977,6 +1977,7 @@ class NamespaceFS {
      * @param {*} entry_path
      */
     async _check_path_in_bucket_boundaries(fs_context, entry_path) {
+        if (!config.NSFS_CHECK_BUCKET_BOUNDARIES) return;
         if (!(await this._is_path_in_bucket_boundaries(fs_context, entry_path))) {
             throw error_utils.new_error_code('EACCES', 'Entry ' + entry_path + ' is not in bucket boundaries');
         }

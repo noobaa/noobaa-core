@@ -638,7 +638,7 @@ config.NSFS_DIR_CACHE_MAX_DIR_SIZE = 64 * 1024 * 1024;
 config.NSFS_DIR_CACHE_MIN_DIR_SIZE = 64;
 config.NSFS_DIR_CACHE_MAX_TOTAL_SIZE = 24 * config.NSFS_DIR_CACHE_MAX_DIR_SIZE;
 
-config.NSFS_OPEN_READ_MODE = 'r'; // use 'rd' for direct, or 'rs' for sync, or 'rds' for both
+config.NSFS_OPEN_READ_MODE = 'r'; // use 'rd' for direct io
 
 config.BASE_MODE_FILE = 0o666;
 config.BASE_MODE_DIR = 0o777;

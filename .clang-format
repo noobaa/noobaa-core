@@ -17,7 +17,7 @@ BinPackParameters: false
 FixNamespaceComments: true
 NamespaceIndentation: Inner
 PointerAlignment: Left
-# IndentPPDirectives: AfterHash
+IndentPPDirectives: BeforeHash
 
 AlignOperands: DontAlign
 AlignAfterOpenBracket: DontAlign

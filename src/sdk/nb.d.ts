@@ -911,16 +911,19 @@ interface NativeFS {
     mkdir(fs_context: NativeFSContext, path: string, mode?: number): Promise<void>;
     rmdir(fs_context: NativeFSContext, path: string): Promise<void>;
 
+    dio_buffer_alloc(size: number): Buffer;
+    set_debug_level(level: number);
+
     S_IFMT: number;
     S_IFDIR: number;
     S_IFLNK: number;
     DT_DIR: number;
     DT_LNK: number;
     PLATFORM_IOV_MAX: number;
+    O_DIRECT?: number;
+    O_TMPFILE?: number;
 
     gpfs?: object;
-
-    set_debug_level(level: number);
 }
 
 interface NativeFile {

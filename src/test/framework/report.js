@@ -176,7 +176,6 @@ Didn't Run: ${JSON.stringify(
                 );
             } else {
                 console.info('skip report send');
-                return;
             }
         } catch (err) {
             console.error('failed sending report', err);

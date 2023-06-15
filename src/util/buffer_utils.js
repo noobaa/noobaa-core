@@ -176,11 +176,20 @@ function write_to_stream(writable, buf) {
 
 class BuffersPool {
 
-    constructor({ buf_size, sem, warning_timeout }) {
+    /**
+     * @param {{
+     *      buf_size: number;
+     *      sem: import('./semaphore');
+     *      warning_timeout: number;
+     *      buffer_alloc?: (size: number) => Buffer;
+     * }} params
+     */
+    constructor({ buf_size, sem, warning_timeout, buffer_alloc }) {
         this.buf_size = buf_size;
         this.buffers = [];
         this.sem = sem;
         this.warning_timeout = warning_timeout;
+        this.buffer_alloc = buffer_alloc || Buffer.allocUnsafeSlow;
     }
 
     /**
@@ -200,7 +209,7 @@ class BuffersPool {
         if (this.buffers.length) {
             buffer = this.buffers.shift();
         } else {
-            buffer = Buffer.allocUnsafeSlow(this.buf_size);
+            buffer = this.buffer_alloc(this.buf_size);
         }
         if (this.warning_timeout) {
             const err = new Error('Warning stuck buffer_pool buffer');

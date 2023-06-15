@@ -7,6 +7,7 @@
 #include "./gpfs_fcntl.h"
 
 #include <dirent.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
 #include <map>
@@ -22,17 +23,16 @@
 #include <unistd.h>
 #include <uv.h>
 #include <vector>
-#include <errno.h>
 
 #ifdef __APPLE__
-#include <sys/mount.h>
-#include <sys/param.h>
+    #include <sys/mount.h>
+    #include <sys/param.h>
 #else
-#include <sys/statfs.h>
+    #include <sys/statfs.h>
 #endif
 
 #ifndef __APPLE__
-#define ENOATTR ENODATA
+    #define ENOATTR ENODATA
 #endif
 
 #define ROUNDUP(X, Y) ((Y) * (((X) + (Y)-1) / (Y)))
@@ -121,11 +121,11 @@
     } while (0)
 
 #ifdef __APPLE__
-#define flistxattr(a, b, c) ::flistxattr(a, b, c, 0)
-#define getxattr(a, b, c, d) ::getxattr(a, b, c, d, 0, 0)
-#define fgetxattr(a, b, c, d) ::fgetxattr(a, b, c, d, 0, 0)
-#define fsetxattr(a, b, c, d, e) ::fsetxattr(a, b, c, d, e, 0)
-#define fremovexattr(a, b) ::fremovexattr(a, b, 0)
+    #define flistxattr(a, b, c) ::flistxattr(a, b, c, 0)
+    #define getxattr(a, b, c, d) ::getxattr(a, b, c, d, 0, 0)
+    #define fgetxattr(a, b, c, d) ::fgetxattr(a, b, c, d, 0, 0)
+    #define fsetxattr(a, b, c, d, e) ::fsetxattr(a, b, c, d, e, 0)
+    #define fremovexattr(a, b) ::fremovexattr(a, b, 0)
 #endif
 
 namespace noobaa
@@ -146,41 +146,56 @@ static int (*dlsym_gpfs_linkatif)(
 static int (*dlsym_gpfs_unlinkat)(
     gpfs_file_t fileDesc, const char* path, gpfs_file_t fd) = 0;
 
-const static std::map<std::string, int> flags_to_case = {
-    { "r", O_RDONLY },
-    { "rs", O_RDONLY | O_SYNC },
-    { "sr", O_RDONLY | O_SYNC },
-#ifdef O_DIRECT
-    { "rd", O_RDONLY | O_DIRECT },
-    { "dr", O_RDONLY | O_DIRECT },
-    { "rds", O_RDONLY | O_DIRECT | O_SYNC },
-#endif
-    { "r+", O_RDWR },
-    { "rs+", O_RDWR | O_SYNC },
-    { "sr+", O_RDWR | O_SYNC },
-    { "w", O_TRUNC | O_CREAT | O_WRONLY },
+static int
+parse_open_flags(std::string flags)
+{
+    int bits = 0;
+    for (char ch : flags) {
+        switch (ch) {
+        case 'r':
+            bits |= O_RDONLY;
+            break;
+        case 'w':
+            bits |= O_TRUNC | O_CREAT | O_WRONLY;
+            break;
+        case 'a':
+            bits |= O_APPEND | O_CREAT | O_WRONLY;
+            break;
+        case '+':
+            bits |= O_RDWR;
+            bits &= ~(O_RDONLY | O_WRONLY);
+            break;
+        case 's':
+            bits |= O_SYNC;
+            break;
+        case 'x':
+            bits |= O_EXCL;
+            break;
+        case 't':
 #ifdef O_TMPFILE
-    { "wt", O_RDWR | O_TMPFILE },
+            bits |= O_TMPFILE | O_RDWR;
+            bits &= ~(O_RDONLY | O_WRONLY);
+#else
+            LOG("FS: Unsupported O_TMPFILE " << flags);
 #endif
-    { "wx", O_TRUNC | O_CREAT | O_WRONLY | O_EXCL },
-    { "xw", O_TRUNC | O_CREAT | O_WRONLY | O_EXCL },
-    { "w+", O_TRUNC | O_CREAT | O_RDWR },
-    { "wx+", O_TRUNC | O_CREAT | O_RDWR | O_EXCL },
-    { "xw+", O_TRUNC | O_CREAT | O_RDWR | O_EXCL },
-    { "a", O_APPEND | O_CREAT | O_WRONLY },
-    { "ax", O_APPEND | O_CREAT | O_WRONLY | O_EXCL },
-    { "xa", O_APPEND | O_CREAT | O_WRONLY | O_EXCL },
-    { "as", O_APPEND | O_CREAT | O_WRONLY | O_SYNC },
-    { "sa", O_APPEND | O_CREAT | O_WRONLY | O_SYNC },
-    { "a+", O_APPEND | O_CREAT | O_RDWR },
-    { "ax+", O_APPEND | O_CREAT | O_RDWR | O_EXCL },
-    { "xa+", O_APPEND | O_CREAT | O_RDWR | O_EXCL },
-    { "as+", O_APPEND | O_CREAT | O_RDWR | O_SYNC },
-    { "sa+", O_APPEND | O_CREAT | O_RDWR | O_SYNC },
-};
+            break;
+        case 'd':
+#ifdef O_DIRECT
+            bits |= O_DIRECT;
+#else
+            LOG("FS: Unsupported O_DIRECT " << flags);
+#endif
+            break;
+        default:
+            LOG("FS: Unexpected open flags " << flags);
+            return -1;
+        }
+    }
+    return bits;
+}
 
 const static std::vector<std::string> GPFS_XATTRS{ GPFS_ENCRYPTION_XATTR_NAME };
-const static std::vector<std::string> USER_XATTRS{ "user.content_md5", "user.version_id", "user.prev_version_id", "user.delete_marker", "user.dir_content"};
+const static std::vector<std::string> USER_XATTRS{ "user.content_md5", "user.version_id", "user.prev_version_id", "user.delete_marker", "user.dir_content" };
 
 struct Entry
 {
@@ -196,7 +211,7 @@ struct gpfsRequest_t
     char buffer[GPFS_XATTR_BUFFER_SIZE];
 };
 
-void
+static void
 build_gpfs_get_ea_request(gpfsRequest_t* reqP, std::string key)
 {
     int nameLen = key.size();
@@ -224,7 +239,7 @@ api(const Napi::CallbackInfo& info)
     return promise;
 }
 
-void
+static void
 set_stat_res(Napi::Object res, Napi::Env env, struct stat& stat_res, XattrMap& xattr_res)
 {
     res["dev"] = Napi::Number::New(env, stat_res.st_dev);
@@ -278,7 +293,7 @@ set_stat_res(Napi::Object res, Napi::Env env, struct stat& stat_res, XattrMap& x
     }
 }
 
-void
+static void
 set_statfs_res(Napi::Object res, Napi::Env env, struct statfs& statfs_res)
 {
     res["type"] = Napi::Number::New(env, statfs_res.f_type);
@@ -302,7 +317,7 @@ set_statfs_res(Napi::Object res, Napi::Env env, struct statfs& statfs_res)
 #endif
 }
 
-void
+static void
 set_fs_worker_stats(Napi::Env env, Napi::Object fs_worker_stats, std::string work_name, double took_time, int error)
 {
     fs_worker_stats["name"] = Napi::String::New(env, work_name);
@@ -310,18 +325,18 @@ set_fs_worker_stats(Napi::Env env, Napi::Object fs_worker_stats, std::string wor
     fs_worker_stats["error"] = Napi::Number::New(env, error);
 }
 
-bool
+static bool
 cmp_ver_id(int64_t link_expected_mtime, int64_t link_expected_inode, struct stat& _stat_res)
 {
     // extract actual stat ino and mtime
     int64_t stat_actual_ino = _stat_res.st_ino;
-    #ifdef __APPLE__
-        auto actual_mtime_sec = _stat_res.st_mtimespec.tv_sec;
-        auto actual_mtime_nsec = _stat_res.st_mtimespec.tv_nsec;
-    #else
-        auto actual_mtime_sec = _stat_res.st_mtim.tv_sec;
-        auto actual_mtime_nsec = _stat_res.st_mtim.tv_nsec;
-    #endif
+#ifdef __APPLE__
+    auto actual_mtime_sec = _stat_res.st_mtimespec.tv_sec;
+    auto actual_mtime_nsec = _stat_res.st_mtimespec.tv_nsec;
+#else
+    auto actual_mtime_sec = _stat_res.st_mtim.tv_sec;
+    auto actual_mtime_nsec = _stat_res.st_mtim.tv_nsec;
+#endif
     auto actual_mtimeNs = int64_t(round((double(1e9) * actual_mtime_sec)) + actual_mtime_nsec);
     return link_expected_mtime == actual_mtimeNs && link_expected_inode == stat_actual_ino;
 }
@@ -512,7 +527,7 @@ struct FSWorker : public Napi::AsyncWorker
         DBG1("FS::FSWorker::Execute: " << _desc << DVAL(_uid) << DVAL(_gid) << DVAL(_backend));
         ThreadScope tx;
         tx.set_user(_uid, _gid);
-        DBG1("FS::FSWorker::Execute: " << _desc  << DVAL(_uid) << DVAL(_gid) << DVAL(geteuid()) << DVAL(getegid()) << DVAL(getuid()) << DVAL(getgid()));
+        DBG1("FS::FSWorker::Execute: " << _desc << DVAL(_uid) << DVAL(_gid) << DVAL(geteuid()) << DVAL(getegid()) << DVAL(getuid()) << DVAL(getgid()));
 
         auto start_time = std::chrono::high_resolution_clock::now();
         Work();
@@ -838,11 +853,10 @@ struct Rmdir : public FSWorker
     }
 };
 
-
 /**
  * SafeLink is an fs op
  * 1. link
- * 2. check if the target has the expected version 
+ * 2. check if the target has the expected version
  *   2.1. if yes - return
  *   2.2. else - unlink and retry
  */
@@ -864,16 +878,15 @@ struct SafeLink : public FSWorker
         Begin(XSTR() << "SafeLink " << DVAL(_link_from.c_str()) << DVAL(_link_to.c_str()) << DVAL(_link_expected_mtime) << DVAL(_link_expected_inode));
     }
     virtual void Work()
-    {   
+    {
         SYSCALL_OR_RETURN(link(_link_from.c_str(), _link_to.c_str()));
         struct stat _stat_res;
         SYSCALL_OR_RETURN(stat(_link_to.c_str(), &_stat_res));
         if (cmp_ver_id(_link_expected_mtime, _link_expected_inode, _stat_res) == true) return;
         SYSCALL_OR_RETURN(unlink(_link_to.c_str()));
-        DBG0("FS::SafeLink::Execute: ERROR link target doesn't match the expected inode + mtime" << DVAL(_link_to) 
-            << DVAL(_link_expected_mtime) << DVAL(_link_expected_inode));
+        DBG0("FS::SafeLink::Execute: ERROR link target doesn't match the expected inode + mtime" << DVAL(_link_to)
+                                                                                                 << DVAL(_link_expected_mtime) << DVAL(_link_expected_inode));
         SetError(XSTR() << "FS::SafeLink ERROR link target doesn't match expected inode and mtime");
-
     }
 };
 
@@ -895,7 +908,7 @@ struct SafeUnlink : public FSWorker
     {
         _to_unlink = info[1].As<Napi::String>();
         _mv_to = info[2].As<Napi::String>();
-        if (info.Length() > 4 && !info[3].IsUndefined() && !info[4].IsUndefined()) { 
+        if (info.Length() > 4 && !info[3].IsUndefined() && !info[4].IsUndefined()) {
             // TODO: handle lossless
             bool lossless = true;
             _unlink_expected_mtime = info[3].As<Napi::BigInt>().Int64Value(&lossless);
@@ -908,13 +921,13 @@ struct SafeUnlink : public FSWorker
         SYSCALL_OR_RETURN(rename(_to_unlink.c_str(), _mv_to.c_str()));
         struct stat _stat_res;
         SYSCALL_OR_RETURN(stat(_mv_to.c_str(), &_stat_res));
-        if (cmp_ver_id(_unlink_expected_mtime, _unlink_expected_inode, _stat_res) == true){
+        if (cmp_ver_id(_unlink_expected_mtime, _unlink_expected_inode, _stat_res) == true) {
             SYSCALL_OR_RETURN(unlink(_mv_to.c_str()));
             return;
         }
         SYSCALL_OR_RETURN(link(_mv_to.c_str(), _to_unlink.c_str()));
-        DBG0("FS::SafeUnlink::Execute: ERROR unlink target doesn't match the expected inode + mtime, retry" <<  DVAL(_to_unlink) 
-            << DVAL(_unlink_expected_mtime) << DVAL(_unlink_expected_inode));
+        DBG0("FS::SafeUnlink::Execute: ERROR unlink target doesn't match the expected inode + mtime, retry"
+            << DVAL(_to_unlink) << DVAL(_unlink_expected_mtime) << DVAL(_unlink_expected_inode));
         SetError(XSTR() << "FS::SafeUnlink ERROR unlink target doesn't match expected inode and mtime");
     }
 };
@@ -1245,7 +1258,8 @@ struct FileOpen : public FSWorker
     {
         _path = info[1].As<Napi::String>();
         if (info.Length() > 2 && !info[2].IsUndefined()) {
-            _flags = flags_to_case.at(info[2].As<Napi::String>());
+            _flags = parse_open_flags(info[2].As<Napi::String>());
+            if (_flags < 0) SetError("Unexpected open flags");
         }
         if (info.Length() > 3 && !info[3].IsUndefined()) {
             _mode = info[3].As<Napi::Number>().Uint32Value();
@@ -1442,7 +1456,7 @@ struct LinkFileAt : public FSWrapWorker<FileWrap>
     {
         // gpfs_linkat() is the same as Linux linkat() but we need a new function because
         // Linux will fail the linkat() if the file already exist and we want to replace it if it existed.
-        if (_replace_fd == 0){
+        if (_replace_fd == 0) {
             SYSCALL_OR_RETURN(dlsym_gpfs_linkat(_wrap->_fd, "", AT_FDCWD, _filepath.c_str(), AT_EMPTY_PATH));
         } else {
             SYSCALL_OR_RETURN(dlsym_gpfs_linkatif(_wrap->_fd, "", AT_FDCWD, _filepath.c_str(), AT_EMPTY_PATH, _replace_fd));
@@ -1465,11 +1479,10 @@ struct UnlinkFileAt : public FSWrapWorker<FileWrap>
         Begin(XSTR() << "UnlinkFileAt" << DVAL(_wrap->_path.c_str()) << DVAL(_wrap->_fd) << DVAL(_filepath) << DVAL(_delete_fd));
     }
     virtual void Work()
-    {   
+    {
         SYSCALL_OR_RETURN(dlsym_gpfs_unlinkat(_wrap->_fd, _filepath.c_str(), _delete_fd));
     }
 };
-
 
 struct FileStat : public FSWrapWorker<FileWrap>
 {
@@ -1612,7 +1625,6 @@ struct GetSingleXattr : public FSWorker
         ReportWorkerStats(0);
     }
 };
-
 
 Napi::Value
 FileWrap::close(const Napi::CallbackInfo& info)
@@ -1825,13 +1837,36 @@ DirWrap::read(const Napi::CallbackInfo& info)
     return api<DirReadEntry>(info);
 }
 
-Napi::Value
+static Napi::Value
 set_debug_level(const Napi::CallbackInfo& info)
 {
     int level = info[0].As<Napi::Number>();
     LOG("FS::set_debug_level " << level);
     DBG_SET_LEVEL(level);
     return info.Env().Undefined();
+}
+
+static const int DIO_BUFFER_MEMALIGN = 4096;
+
+static void
+dio_buffer_free(Napi::Env env, uint8_t* buf)
+{
+    if (buf) free(buf);
+}
+
+/**
+ * Allocate memory aligned buffer for direct IO.
+ */
+static Napi::Value
+dio_buffer_alloc(const Napi::CallbackInfo& info)
+{
+    int size = info[0].As<Napi::Number>();
+    uint8_t* buf = 0;
+    int r = posix_memalign((void**)&buf, DIO_BUFFER_MEMALIGN, size);
+    if (r || !buf) {
+        throw Napi::Error::New(info.Env(), "FS::dio_buffer_alloc: failed to allocate memory");
+    }
+    return Napi::Buffer<uint8_t>::New(info.Env(), buf, size, dio_buffer_free);
 }
 
 void
@@ -1906,6 +1941,14 @@ fs_napi(Napi::Env env, Napi::Object exports)
     exports_fs["DT_LNK"] = Napi::Number::New(env, DT_LNK);
     exports_fs["PLATFORM_IOV_MAX"] = Napi::Number::New(env, IOV_MAX);
 
+#ifdef O_DIRECT
+    exports_fs["O_DIRECT"] = Napi::Number::New(env, O_DIRECT);
+#endif
+#ifdef O_TMPFILE
+    exports_fs["O_TMPFILE"] = Napi::Number::New(env, O_TMPFILE);
+#endif
+
+    exports_fs["dio_buffer_alloc"] = Napi::Function::New(env, dio_buffer_alloc);
     exports_fs["set_debug_level"] = Napi::Function::New(env, set_debug_level);
 
     exports["fs"] = exports_fs;

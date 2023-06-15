@@ -31,7 +31,8 @@ const buffers_pool_sem = new Semaphore(config.NSFS_BUF_POOL_MEM_LIMIT, {
 const buffers_pool = new buffer_utils.BuffersPool({
     buf_size: config.NSFS_BUF_SIZE,
     sem: buffers_pool_sem,
-    warning_timeout: config.NSFS_BUF_POOL_WARNING_TIMEOUT
+    warning_timeout: config.NSFS_BUF_POOL_WARNING_TIMEOUT,
+    buffer_alloc: size => nb_native().fs.dio_buffer_alloc(size),
 });
 
 const XATTR_USER_PREFIX = 'user.';
@@ -744,24 +745,6 @@ class NamespaceFS {
             throw this._translate_object_error_codes(err);
         }
     }
-
-    /*
-    async read_object_stream_SLOW(params, object_sdk, res) {
-        try {
-            const fs_context = this.prepare_fs_context(object_sdk);
-            await this._load_bucket(params, fs_context);
-            const file_path = await this._find_version_path(fs_context, params);
-            return fs.createReadStream(file_path, {
-                highWaterMark: config.NSFS_BUF_SIZE,
-                start: Number.isInteger(params.start) ? params.start : undefined,
-                // end offset for files is inclusive, so need to adjust our exclusive end
-                end: Number.isInteger(params.end) ? params.end - 1 : undefined,
-            });
-        } catch (err) {
-            throw this._translate_object_error_codes(err);
-        }
-    }
-    */
 
     // eslint-disable-next-line max-statements
     async read_object_stream(params, object_sdk, res) {
@@ -1650,7 +1633,7 @@ class NamespaceFS {
     async set_fs_xattr_op(fs_context, file_path, set, clear) {
         let file;
         try {
-            file = await nb_native().fs.open(fs_context, file_path, undefined, get_umasked_mode(config.BASE_MODE_FILE));
+            file = await nb_native().fs.open(fs_context, file_path, config.NSFS_OPEN_READ_MODE, get_umasked_mode(config.BASE_MODE_FILE));
             await file.replacexattr(fs_context, set, clear);
             await file.close(fs_context);
             file = null;

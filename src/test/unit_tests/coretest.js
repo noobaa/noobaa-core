@@ -25,6 +25,7 @@ const config = require('../../../config.js');
 config.test_mode = true;
 config.NODES_FREE_SPACE_RESERVE = 10 * 1024 * 1024;
 config.NSFS_VERSIONING_ENABLED = true;
+config.OBJECT_SDK_BUCKET_CACHE_EXPIRY_MS = 1;
 
 config.ROOT_KEY_MOUNT = '/tmp/noobaa-server/root_keys';
 

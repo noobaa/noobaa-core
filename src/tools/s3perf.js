@@ -253,7 +253,7 @@ let _list_objects_promise = null;
 async function get_next_object(prefix) {
     while (_list_objects_next >= _list_objects.Contents.length) {
         if (_list_objects_promise) {
-            console.log('get_next_object: wait for promise');
+            // console.log('get_next_object: wait for promise');
             await _list_objects_promise;
         } else {
             const marker = _list_objects.IsTruncated ?

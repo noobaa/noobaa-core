@@ -147,7 +147,7 @@ class ObjectSDK {
     }
 
     async read_bucket_sdk_policy_info(name) {
-        const { bucket } = await bucket_namespace_cache.get_with_cache({ sdk: this, name }, 'cache_miss');
+        const { bucket } = await bucket_namespace_cache.get_with_cache({ sdk: this, name });
         const policy_info = {
             s3_policy: bucket.s3_policy,
             system_owner: bucket.system_owner,

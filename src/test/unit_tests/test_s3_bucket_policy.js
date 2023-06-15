@@ -6,7 +6,7 @@
 const coretest = require('./coretest');
 const { rpc_client, EMAIL, POOL_LIST, anon_rpc_client } = coretest;
 const MDStore = require('../../server/object_services/md_store').MDStore;
-coretest.setup({ pools_to_create: POOL_LIST });
+coretest.setup({ pools_to_create: [POOL_LIST[1]] });
 
 const AWS = require('aws-sdk');
 const http = require('http');
@@ -62,7 +62,7 @@ async function setup() {
     const account = {
         has_login: false,
         s3_access: true,
-        default_resource: POOL_LIST[0].name
+        default_resource: POOL_LIST[1].name
     };
     const admin_keys = (await rpc_client.account.read_account({
         email: EMAIL,
@@ -365,6 +365,7 @@ mocha.describe('s3_bucket_policy', function() {
     mocha.it('should be able to put versionning when bucket policy permits', async function() {
         const self = this; // eslint-disable-line no-invalid-this
         self.timeout(15000);
+        const new_key = 'file101.txt';
         const policy = {
             Version: '2012-10-17',
             Statement: [{
@@ -391,6 +392,11 @@ mocha.describe('s3_bucket_policy', function() {
             Bucket: BKT,
             Policy: JSON.stringify(policy)
         }).promise();
+        await s3_a.putObject({
+            Body: 'Some data for the file... bla bla bla... version I',
+            Bucket: BKT,
+            Key: new_key
+        }).promise();
         await s3_b.putBucketVersioning({
             Bucket: BKT,
             VersioningConfiguration: {
@@ -398,24 +404,25 @@ mocha.describe('s3_bucket_policy', function() {
                 Status: 'Enabled'
             }
         }).promise();
-        const version_id = (await s3_a.putObject({
-            Body: 'Some data for the file... bla bla bla... version II',
+        const res = await s3_a.putObject({
+            Body: 'Some data for the file... bla bla bla bla... version II',
             Bucket: BKT,
-            Key: KEY
-        }).promise()).VersionId;
+            Key: new_key
+        }).promise();
+        const seq = Number(res.VersionId.split('-')[1]);
         await assert_throws_async(s3_a.deleteObject({
             Bucket: BKT,
-            Key: KEY,
+            Key: new_key,
         }).promise());
         await s3_a.deleteObject({ // delete the file versions
             Bucket: BKT,
-            Key: KEY,
-            VersionId: version_id
+            Key: new_key,
+            VersionId: 'nbver-' + seq
         }).promise();
         await s3_a.deleteObject({
             Bucket: BKT,
-            Key: KEY,
-            VersionId: 'nbver-1'
+            Key: new_key,
+            VersionId: 'nbver-' + (seq - 1)
         }).promise();
     });
 

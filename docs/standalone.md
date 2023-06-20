@@ -130,6 +130,8 @@ cat >config-local.js <<EOF
 /** @type {import('./config')} */
 const config = exports;
 
+config.DEFAULT_POOL_TYPE = 'HOSTS';
+
 config.AGENT_RPC_PORT = '9999';
 config.AGENT_RPC_PROTOCOL = 'tcp';
 
@@ -209,12 +211,6 @@ POSTGRES_HOST=ip \
 ---
 
 ## STORAGE
-
-### Create a pool
-
-```sh
-npm -- run api pool_api create_hosts_pool '{ "name":"backingstores", "is_managed": false, "host_count": 9999 }'
-```
 
 ### Start backingstores
 

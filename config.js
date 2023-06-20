@@ -159,16 +159,27 @@ config.NOOBAA_AUTH_TOKEN = process.env.NOOBAA_AUTH_TOKEN || _get_data_from_file(
 config.ROOT_KEY_MOUNT = '/etc/noobaa-server/root_keys';
 
 ///////////////
-// MD CONFIG //
+// DB CONFIG //
 ///////////////
 
-config.DEDUP_ENABLED = true;
+config.DB_TYPE = /** @type {nb.DBType} */ (process.env.DB_TYPE || 'postgres');
 
-// Date was chosen as default NooBaa epoch date 2015
-config.NOOBAA_EPOCH = 1430006400000;
-config.NEW_SYSTEM_POOL_NAME = 'first-pool';
+config.POSTGRES_MAX_CLIENTS = (process.env.LOCAL_MD_SERVER === 'true') ? 80 : 10;
+
+///////////////////
+// SYSTEM CONFIG //
+///////////////////
+
+config.DEFAULT_POOL_TYPE = 'INTERNAL'; // use 'HOSTS' for setting up a pool of FS backingstores instead
+config.DEFAULT_POOL_NAME = 'backingstores'; // only used when config.DEFAULT_POOL_TYPE = 'HOSTS'
+config.DEFAULT_BUCKET_NAME = 'first.bucket';
 config.INTERNAL_STORAGE_POOL_NAME = 'system-internal-storage-pool';
 // config.SPILLOVER_TIER_NAME = 'bucket-spillover-tier';
+config.ALLOW_BUCKET_CREATE_ON_INTERNAL = true;
+
+//////////////////////////
+// MD AGGREGATOR CONFIG //
+//////////////////////////
 
 config.MD_AGGREGATOR_INTERVAL = 30000;
 // the max cycles limits how many intervals the aggregator will split the gap
@@ -179,6 +190,8 @@ config.MD_AGGREGATOR_MAX_CYCLES = 2880; // 1 day / 30 seconds
 // Which will mean that it will be pushed later on with a previous date
 config.MD_GRACE_IN_MILLISECONDS = config.MD_AGGREGATOR_INTERVAL * 3;
 config.MD_AGGREGATOR_BATCH = 100;
+// Date was chosen as default NooBaa epoch date 2015
+config.NOOBAA_EPOCH = 1430006400000;
 
 ///////////////
 // IO CONFIG //
@@ -221,6 +234,7 @@ config.IO_SEMAPHORE_CAP = Math.max(
     config.IO_STREAM_SEMAPHORE_SIZE_CAP, // minimal size needed to complete jobs in object_io
 );
 
+config.DEDUP_ENABLED = true;
 config.IO_CALC_MD5_ENABLED = true;
 config.IO_CALC_SHA256_ENABLED = true;
 
@@ -564,14 +578,10 @@ config.OPERATOR_ACCOUNT_EMAIL = 'operator@noobaa.io';
 
 config.WORM_ENABLED = false;
 
-// Should we allow the creation of buckets on internal storage
-config.ALLOW_BUCKET_CREATE_ON_INTERNAL = true;
-
-config.DB_TYPE = /** @type {nb.DBType} */ (process.env.DB_TYPE || 'postgres');
-
 ////////////////////////////////
 //      NAMESPACE MONITOR     //
 ////////////////////////////////
+
 config.NAMESPACE_MONITOR_DELAY = 3 * 60 * 1000;
 
 
@@ -672,12 +682,6 @@ config.QUOTA_MAX_OBJECTS = Number.MAX_SAFE_INTEGER;
 //////////////////////////
 
 config.STS_DEFAULT_SESSION_TOKEN_EXPIRY_MS = 60 * 60 * 1000; // 1 hour
-
-///////////////////////////////////////////
-//      PostgreSQL client pool size      //
-///////////////////////////////////////////
-
-config.POSTGRES_MAX_CLIENTS = (process.env.LOCAL_MD_SERVER === 'true') ? 80 : 10;
 
 /////////////////////////
 // BLOCK STORE FS      //

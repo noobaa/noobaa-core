@@ -667,9 +667,13 @@ class NamespaceBlob {
 
     async delete_object(params, object_sdk) {
         dbg.log0('NamespaceBlob.delete_object:', this.container, inspect(params));
-
-        const res = await this.container_client.deleteBlob(params.key);
-
+        let res;
+        try {
+            res = await this.container_client.deleteBlob(params.key);
+        } catch (err) {
+            this._translate_error_code(err);
+            if (err.rpc_code !== 'NO_SUCH_OBJECT') throw err;
+        }
         dbg.log0('NamespaceBlob.delete_object:',
             this.container,
             inspect(params),
@@ -685,7 +689,11 @@ class NamespaceBlob {
         const res = await P.map_with_concurrency(10, params.objects, obj =>
             this.container_client.deleteBlob(obj.key)
             .then(() => ({}))
-            .catch(err => ({ err_code: 'InternalError', err_message: err.message || 'InternalError' })));
+            .catch(err => {
+                this._translate_error_code(err);
+                if (err.rpc_code === 'NO_SUCH_OBJECT') return {};
+                return { err_code: err.rpc_code || 'InternalError', err_message: err.message || 'InternalError' };
+            }));
 
         dbg.log0('NamespaceBlob.delete_multiple_objects:',
             this.container,
@@ -740,8 +748,8 @@ class NamespaceBlob {
     }
 
     _translate_error_code(err) {
-        if (err.code || (err.details && err.details.errorCode) === 'BlobNotFound') err.rpc_code = 'NO_SUCH_OBJECT';
-        if (err.code || (err.details && err.details.errorCode) === 'InvalidMetadata') err.rpc_code = 'INVALID_REQUEST';
+        if ((err.code || (err.details && err.details.errorCode)) === 'BlobNotFound') err.rpc_code = 'NO_SUCH_OBJECT';
+        if ((err.code || (err.details && err.details.errorCode)) === 'InvalidMetadata') err.rpc_code = 'INVALID_REQUEST';
     }
 
     //////////

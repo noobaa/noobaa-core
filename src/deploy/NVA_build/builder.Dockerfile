@@ -35,9 +35,8 @@ RUN version="2.15.05" && \
 COPY ./.nvmrc ./.nvmrc
 COPY ./src/deploy/NVA_build/install_nodejs.sh ./
 RUN chmod +x ./install_nodejs.sh && \
-    ./install_nodejs.sh $(cat .nvmrc) && \
-    npm config set unsafe-perm true 
-
+    ./install_nodejs.sh $(cat .nvmrc)
+    
 ##############################################################
 # Layers:
 #   Title: installing kubectl 

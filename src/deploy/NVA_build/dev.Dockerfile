@@ -23,10 +23,8 @@ WORKDIR /noobaa
 COPY ./.nvmrc ./.nvmrc
 COPY ./src/deploy/NVA_build/install_nodejs.sh ./
 RUN chmod +x ./install_nodejs.sh && \
-    ./install_nodejs.sh $(cat .nvmrc) && \
-    npm config set unsafe-perm true && \
-    echo '{ "allow_root": true }' > /root/.bowerrc
-
+    ./install_nodejs.sh $(cat .nvmrc)
+    
 COPY ./package*.json ./
 RUN npm install && \
     npm cache clean --force

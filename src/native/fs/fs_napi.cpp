@@ -146,6 +146,14 @@ static int (*dlsym_gpfs_linkatif)(
 static int (*dlsym_gpfs_unlinkat)(
     gpfs_file_t fileDesc, const char* path, gpfs_file_t fd) = 0;
 
+static const int DIO_BUFFER_MEMALIGN = 4096;
+
+static void
+buffer_releaser(Napi::Env env, uint8_t* buf)
+{
+    if (buf) free(buf);
+}
+
 static int
 parse_open_flags(std::string flags)
 {
@@ -1040,10 +1048,8 @@ struct Readfile : public FSWorker
     }
     virtual ~Readfile()
     {
-        if (_data) {
-            delete[] _data;
-            _data = 0;
-        }
+        buffer_releaser(NULL, _data);
+        _data = 0;
     }
     virtual void Work()
     {
@@ -1058,7 +1064,11 @@ struct Readfile : public FSWorker
         }
 
         _len = _stat_res.st_size;
-        _data = new uint8_t[_len];
+        int r = posix_memalign((void**)&_data, DIO_BUFFER_MEMALIGN, _len);
+        if (r || (!_data && _len > 0)) {
+            SetError(XSTR() << "FS::readFile: failed to allocate memory " << DVAL(_len) << DVAL(_path));
+            return;
+        }
 
         uint8_t* p = _data;
         int remain = _len;
@@ -1087,8 +1097,8 @@ struct Readfile : public FSWorker
         set_stat_res(res_stat, env, _stat_res, _xattr);
 
         auto data = _data;
-        _data = 0;
-        auto buf = Napi::Buffer<uint8_t>::New(env, data, _len);
+        _data = 0; // nullify so dtor will ignore, GC will call buffer_releaser
+        auto buf = Napi::Buffer<uint8_t>::New(env, data, _len, buffer_releaser);
 
         auto res = Napi::Object::New(env);
         res["stat"] = res_stat;
@@ -1846,14 +1856,6 @@ set_debug_level(const Napi::CallbackInfo& info)
     return info.Env().Undefined();
 }
 
-static const int DIO_BUFFER_MEMALIGN = 4096;
-
-static void
-dio_buffer_free(Napi::Env env, uint8_t* buf)
-{
-    if (buf) free(buf);
-}
-
 /**
  * Allocate memory aligned buffer for direct IO.
  */
@@ -1863,10 +1865,10 @@ dio_buffer_alloc(const Napi::CallbackInfo& info)
     int size = info[0].As<Napi::Number>();
     uint8_t* buf = 0;
     int r = posix_memalign((void**)&buf, DIO_BUFFER_MEMALIGN, size);
-    if (r || !buf) {
+    if (r || (!buf && size > 0)) {
         throw Napi::Error::New(info.Env(), "FS::dio_buffer_alloc: failed to allocate memory");
     }
-    return Napi::Buffer<uint8_t>::New(info.Env(), buf, size, dio_buffer_free);
+    return Napi::Buffer<uint8_t>::New(info.Env(), buf, size, buffer_releaser);
 }
 
 void

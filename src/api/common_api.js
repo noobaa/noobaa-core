@@ -1188,5 +1188,10 @@ module.exports = {
                 }
             },
         },
+
+        storage_class_enum: {
+            type: 'string',
+            enum: ['STANDARD', 'GLACIER']
+        },
     }
 };

@@ -28,6 +28,7 @@ type ReplicationLogAction = 'copy' | 'delete' | 'conflict';
 type ReplicationLog = { key: string, action: ReplicationLogAction, time: Date };
 type ReplicationLogs = Array<ReplicationLog>;
 type ReplicationLogCandidates = Record<string, { action: ReplicationLogAction, time: Date }[]>;
+type StorageClass = 'STANDARD' | 'GLACIER';
 
 interface MapByID<T> {
     [id: string]: T;
@@ -122,6 +123,7 @@ interface Tier extends Base {
     chunk_config: ChunkConfig;
     data_placement: 'MIRROR' | 'SPREAD';
     mirrors: TierMirror[];
+    storage_class?: StorageClass;
 }
 
 interface TierMirror {

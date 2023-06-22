@@ -252,6 +252,36 @@ module.exports = {
             },
         },
 
+        move_blocks_to_storage_class: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['block_ids', 'storage_class'],
+                properties: {
+                    block_ids: {
+                        type: 'array',
+                        items: {
+                            type: 'string'
+                        }
+                    },
+                    storage_class: {
+                        $ref: 'common_api#/definitions/storage_class_enum'
+                    }
+                },
+            },
+            reply: {
+                type: 'object',
+                required: ['moved_block_ids'],
+                properties: {
+                    moved_block_ids: {
+                        type: 'array',
+                        items: {
+                            type: 'string'
+                        }
+                    },
+                },
+            },
+        },
     },
 
 };

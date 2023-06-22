@@ -57,5 +57,8 @@ module.exports = {
             }
         },
 
+        storage_class: {
+            $ref: 'common_api#/definitions/storage_class_enum'
+        }
     }
 };

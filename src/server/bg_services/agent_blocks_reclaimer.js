@@ -63,7 +63,7 @@ class AgentBlocksReclaimer {
 
     /**
      * 
-     * @param {nb.BlockSchemaDB} blocks 
+     * @param {nb.BlockSchemaDB[]} blocks 
      */
     async populate_agent_blocks_reclaimer_blocks(blocks) {
 

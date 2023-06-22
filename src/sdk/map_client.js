@@ -6,6 +6,7 @@
 const util = require('util');
 const crypto = require('crypto');
 const assert = require('assert');
+const _ = require('lodash');
 
 const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
@@ -15,6 +16,8 @@ const LRUCache = require('../util/lru_cache');
 const Semaphore = require('../util/semaphore');
 const KeysSemaphore = require('../util/keys_semaphore');
 const block_store_client = require('../agent/block_store_services/block_store_client').instance();
+const system_store = require('../server/system_services/system_store').get_instance();
+const js_utils = require('../util/js_utils');
 
 const { ChunkAPI } = require('./map_api_types');
 const { RpcError, RPC_BUFFERS } = require('../rpc');
@@ -90,6 +93,7 @@ class MapClient {
      * @param {boolean} [props.verification_mode]
      * @param {Object} props.rpc_client
      * @param {string} [props.desc]
+     * @param {nb.Tier[]} [props.current_tiers]
      * @param { (block_md: nb.BlockMD, action: 'write'|'replicate'|'read', err: Error) => Promise<void> } props.report_error
      */
     constructor(props) {
@@ -104,6 +108,7 @@ class MapClient {
         this.desc = props.desc;
         this.report_error = props.report_error;
         this.had_errors = false;
+        this.current_tiers = props.current_tiers;
         this.verification_mode = props.verification_mode || false;
         Object.seal(this);
     }
@@ -112,6 +117,7 @@ class MapClient {
         const chunks = await this.get_mapping();
         this.chunks = chunks;
         await this.process_mapping();
+        await this.move_blocks_to_storage_class();
         await this.put_mapping();
     }
 
@@ -131,7 +137,7 @@ class MapClient {
             check_dups: this.check_dups,
         });
         /** @type {nb.Chunk[]} */
-        const res_chunks = res.chunks.map(chunk_info => new ChunkAPI(chunk_info));
+        const res_chunks = res.chunks.map(chunk_info => new ChunkAPI(chunk_info, system_store));
         map_frag_data(res_chunks, chunks);
         return res_chunks;
     }
@@ -555,6 +561,53 @@ class MapClient {
 
                 return data;
             }));
+    }
+
+    async move_blocks_to_storage_class() {
+        // Block movement is not done if move_to_tier was not requested or if insufficient
+        // previous tier information is provided.
+        if (!this.move_to_tier || !this.current_tiers || this.current_tiers?.length === 0) return;
+        if (this.current_tiers.length !== this.chunks.length) throw new Error('current_tiers length does not match chunks length');
+
+        const blocks = [];
+        const target_storage_class = this.move_to_tier.storage_class;
+        const target_attached_pools = this.move_to_tier.mirrors.map(mirror => mirror.spread_pools.map(pool => String(pool._id))).flat();
+
+        for (const [idx, chunk] of this.chunks.entries()) {
+            const tier_before_move = this.current_tiers[idx];
+            const current_attached_pools = tier_before_move.mirrors.map(mirror => mirror.spread_pools.map(pool => String(pool._id))).flat();
+
+            if (
+                !js_utils.compare_unordered(target_attached_pools, current_attached_pools, true) ||
+                tier_before_move.storage_class === target_storage_class
+            ) continue;
+
+            for (const frag of chunk.frags) {
+                for (const block of frag.blocks) {
+                    blocks.push(block);
+                }
+            }
+        }
+
+        if (blocks.length === 0) return;
+
+        const blocks_by_agent = _.groupBy(blocks, 'address');
+        await P.map(_.keys(blocks_by_agent), async agent_address => {
+            const blocks_for_agent = blocks_by_agent[agent_address];
+            const block_ids = _.map(blocks_for_agent, block => block._id?.toString()).filter(Boolean);
+
+            try {
+                const moved = await this.rpc_client.block_store.move_blocks_to_storage_class({
+                    block_ids,
+                    storage_class: target_storage_class
+                }, {
+                    address: agent_address
+                });
+                dbg.log1('MapClient: move_blocks_to_storage_class SUCCEEDED', 'ADDR:', agent_address, 'MOVED:', moved);
+            } catch (err) {
+                dbg.error('MapClient: move_blocks_to_storage_class FAILED', 'ADDR:', agent_address, 'ERROR', err,);
+            }
+        });
     }
 
     _error_injection_on_write() {

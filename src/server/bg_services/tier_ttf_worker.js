@@ -139,7 +139,11 @@ class TieringTTFWorker {
 
             const next_tier_id = next_tier ? next_tier._id : undefined;
 
-            const chunk_ids = await MDStore.instance().find_oldest_tier_chunk_ids(previous_tier._id, chunks_to_rebuild, 1);
+            const chunk_ids = await MDStore.instance().find_oldest_tier_chunk_ids({
+                tier: previous_tier._id,
+                limit: chunks_to_rebuild,
+                sort_direction: 1
+            });
             if (!chunk_ids.length) continue;
 
             if (cache_evict) {

@@ -41,6 +41,7 @@ const dedup_indexer = require('./bg_services/dedup_indexer');
 const db_cleaner = require('./bg_services/db_cleaner');
 const { KeyRotator } = require('./bg_services/key_rotator');
 const prom_reporting = require('./analytic_services/prometheus_reporting');
+const { TieringTTLWorker } = require('./bg_services/tier_ttl_worker');
 
 const MASTER_BG_WORKERS = [
     'scrubber',
@@ -225,6 +226,13 @@ function run_master_workers() {
         register_bg_worker(new KeyRotator({ name: 'key rotator' }));
     } else {
         dbg.warn('KEY ROATATION NOT ENABLED');
+    }
+
+    if (config.TIERING_TTL_WORKER_ENABLED) {
+        register_bg_worker(new TieringTTLWorker({
+            name: 'tiering_ttl_worker',
+            client: server_rpc.client
+        }));
     }
 }
 

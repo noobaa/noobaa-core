@@ -419,7 +419,11 @@ async function make_room_in_tier(tier_id, bucket_id) {
             return;
         }
 
-        const chunk_ids = await MDStore.instance().find_oldest_tier_chunk_ids(tier._id, config.CHUNK_MOVE_LIMIT, 1);
+        const chunk_ids = await MDStore.instance().find_oldest_tier_chunk_ids({
+            tier: tier._id,
+            limit: config.CHUNK_MOVE_LIMIT,
+            sort_direction: 1
+        });
         const start_alloc_time = Date.now();
         await server_rpc.client.scrubber.build_chunks({
             chunk_ids,

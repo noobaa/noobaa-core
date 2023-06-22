@@ -63,8 +63,11 @@ class TieringSpillbackWorker {
                 selected_tier.system._id);
             const tier_storage_free = size_utils.json_to_bigint(storage[String(selected_tier._id)][0].free);
             if (tier_storage_free.greater(new size_utils.BigInteger(config.TIER_SPILLBACK_MIN_FREE))) {
-                const chunk_ids = await MDStore.instance().find_oldest_tier_chunk_ids(spillback_tier._id,
-                    config.TIER_SPILLBACK_BATCH_SIZE, -1); // newest
+                const chunk_ids = await MDStore.instance().find_oldest_tier_chunk_ids({
+                    tier: spillback_tier._id,
+                    limit: config.TIER_SPILLBACK_BATCH_SIZE,
+                    sort_direction: -1
+                }); // newest
                 if (chunk_ids.length === 0) break;
                 await this._build_chunks(chunk_ids, selected_tier._id);
                 return config.TIER_SPILLBACK_BATCH_DELAY;

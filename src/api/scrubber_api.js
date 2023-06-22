@@ -26,6 +26,10 @@ module.exports = {
                     evict: {
                         type: 'boolean',
                     },
+                    current_tiers: {
+                        type: 'array',
+                        items: { objectid: true }
+                    },
                 }
             },
             auth: { system: 'admin' }

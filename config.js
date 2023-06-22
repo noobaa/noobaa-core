@@ -687,9 +687,9 @@ config.STS_DEFAULT_SESSION_TOKEN_EXPIRY_MS = 60 * 60 * 1000; // 1 hour
 // BLOCK STORE FS      //
 /////////////////////////
 
-config.BLOCK_STORE_FS_TIER2_ENABLED = false;
+config.BLOCK_STORE_FS_TMFS_ENABLED = false;
 config.BLOCK_STORE_FS_MAPPING_INFO_ENABLED = false;
-config.BLOCK_STORE_FS_TIER2_ALLOW_MIGRATED_READS = true;
+config.BLOCK_STORE_FS_TMFS_ALLOW_MIGRATED_READS = true;
 
 config.BLOCK_STORE_FS_XATTR_BLOCK_MD = 'user.noobaa.block_md';
 config.BLOCK_STORE_FS_XATTR_QUERY_MIGSTAT = 'user._query.migstat';
@@ -697,7 +697,10 @@ config.BLOCK_STORE_FS_XATTR_TRIGGER_RECALL = 'user._trigger.recall';
 config.BLOCK_STORE_FS_XATTR_TRIGGER_MIGRATE = 'user._trigger.migrate';
 config.BLOCK_STORE_FS_XATTR_TRIGGER_PREMIGRATE = 'user._trigger.premigrate';
 
-
+config.TIERING_TTL_WORKER_ENABLED = false;
+config.TIERING_TTL_WORKER_BATCH_SIZE = 1000;
+config.TIERING_TTL_WORKER_BATCH_DELAY = 1 * 60 * 1000; // 1 minutes
+config.TIERING_TTL_MS = 30 * 60 * 1000; // 30 minutes
 
 /////////////////////
 //                 //

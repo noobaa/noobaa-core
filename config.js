@@ -176,6 +176,7 @@ config.DEFAULT_BUCKET_NAME = 'first.bucket';
 config.INTERNAL_STORAGE_POOL_NAME = 'system-internal-storage-pool';
 // config.SPILLOVER_TIER_NAME = 'bucket-spillover-tier';
 config.ALLOW_BUCKET_CREATE_ON_INTERNAL = true;
+config.BUCKET_AUTOCONF_TIER2_ENABLED = false;
 
 //////////////////////////
 // MD AGGREGATOR CONFIG //

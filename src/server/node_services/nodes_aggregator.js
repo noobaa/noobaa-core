@@ -7,6 +7,7 @@ const mapper = require('../object_services/mapper');
 const size_utils = require('../../util/size_utils');
 const server_rpc = require('../server_rpc');
 const system_store = require('../system_services/system_store').get_instance();
+const { STORAGE_CLASS_GLACIER } = require('../../endpoint/s3/s3_utils');
 
 const { BigInteger } = size_utils;
 
@@ -55,7 +56,7 @@ function _aggregate_data_free_for_tier(tier, nodes_by_pool) {
     const num_blocks_per_chunk = mapper.get_num_blocks_per_chunk(tier);
     return tier.mirrors.map(({ spread_pools }) => {
         // If the tier is glacier, we don't want to calculate the free space - Assume it's 1PB
-        if (tier.storage_class === 'GLACIER') {
+        if (tier.storage_class === STORAGE_CLASS_GLACIER) {
             return {
                 free: size_utils.bigint_to_json(BigInteger.PETABYTE),
                 redundant_free: size_utils.bigint_to_json(BigInteger.zero),

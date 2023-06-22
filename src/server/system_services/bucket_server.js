@@ -38,6 +38,7 @@ const path = require('path');
 const KeysSemaphore = require('../../util/keys_semaphore');
 const bucket_semaphore = new KeysSemaphore(1);
 const Quota = require('../system_services/objects/quota');
+const { STORAGE_CLASS_GLACIER } = require('../../endpoint/s3/s3_utils');
 
 const VALID_BUCKET_NAME_REGEXP =
     /^(([a-z0-9]|[a-z0-9][a-z0-9-]*[a-z0-9])\.)*([a-z0-9]|[a-z0-9][a-z0-9-]*[a-z0-9])$/;
@@ -74,6 +75,66 @@ function new_bucket_defaults(name, system_id, tiering_policy_id, owner_account_i
             object_lock_enabled: lock_enabled ? 'Enabled' : 'Disabled',
         } : undefined,
     };
+}
+
+function auto_setup_tier2(req, changes, skip_check = false) {
+    if (!config.BUCKET_AUTOCONF_TIER2_ENABLED) return;
+    if (!changes.insert) return;
+
+    const tiering_policies = changes.insert.tieringpolicies;
+    if (!tiering_policies) return;
+
+    const initial_tier = changes.insert.tiers?.[0];
+    if (!initial_tier) return;
+
+    // Assume that chunk_config_id will always be present.
+    const chunk_config_id = initial_tier?.chunk_config;
+
+    // Assume default pool to be assigned to the initial tier.
+    const default_pool_id = initial_tier.mirrors?.[0]?.spread_pools?.[0];
+
+    // Tiers must have name => that initial tier will always have a name.
+    const initial_tier_name = initial_tier.name;
+
+    const tier2_name = `${initial_tier_name}_auto_tier2`;
+
+    const system_id = initial_tier.system;
+    if (!system_id) return;
+
+    const tier2_mirrors = [{
+        _id: system_store.new_system_store_id(),
+        spread_pools: [default_pool_id]
+    }];
+
+    // skip_check can be set to true in the cases where there is no system
+    // consequently, chances of tier2 name collision are -> 0 as well in such cases.
+    if (!skip_check) {
+        tier_server.check_tier_exists(req, tier2_name);
+    }
+
+    const init_tiering_policy = tiering_policies?.[0];
+    if (!init_tiering_policy) return;
+
+    const init_tier_order = init_tiering_policy.tiers?.[0]?.order;
+    if (_.isUndefined(init_tier_order)) return;
+
+    // No conditionals beyond this, failing is better than creating a broken
+    // bucket.
+    const tier2 = tier_server.new_tier_defaults(
+        tier2_name,
+        system_id,
+        chunk_config_id,
+        tier2_mirrors,
+        STORAGE_CLASS_GLACIER,
+    );
+
+    changes.insert.tiers.push(tier2);
+    init_tiering_policy.tiers.push({
+        tier: tier2._id,
+        order: init_tier_order + 1,
+        spillover: false,
+        disabled: false
+    });
 }
 
 /**
@@ -142,7 +203,8 @@ async function create_bucket(req) {
             tiering_policy = tier_server.new_policy_defaults(
                 bucket_with_suffix,
                 req.system._id,
-                req.rpc_params.chunk_split_config, [{
+                req.rpc_params.chunk_split_config,
+                [{
                     tier: tier._id,
                     order: 0,
                     spillover: false,
@@ -151,6 +213,12 @@ async function create_bucket(req) {
             );
             changes.insert.tieringpolicies = [tiering_policy];
             changes.insert.tiers = [tier];
+
+            // Attach a `GLACIER` tier to the bucket if it is not namespace.caching
+            // and appropriate configuration is set
+            if (!req.rpc_params.namespace?.caching) {
+                auto_setup_tier2(req, changes);
+            }
         }
 
         validate_non_nsfs_bucket_creation(req);
@@ -1911,6 +1979,7 @@ function normalize_replication(req) {
 // EXPORTS
 exports.new_bucket_defaults = new_bucket_defaults;
 exports.get_bucket_info = get_bucket_info;
+exports.auto_setup_tier2 = auto_setup_tier2;
 //Bucket Management
 exports.create_bucket = create_bucket;
 exports.read_bucket = read_bucket;

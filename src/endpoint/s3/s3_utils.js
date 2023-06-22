@@ -14,6 +14,7 @@ const ChunkedContentDecoder = require('../../util/chunked_content_decoder');
 const stream_utils = require('../../util/stream_utils');
 
 const STORAGE_CLASS_STANDARD = 'STANDARD';
+const STORAGE_CLASS_GLACIER = 'GLACIER';
 
 const DEFAULT_S3_USER = Object.freeze({
     ID: '123',
@@ -677,6 +678,7 @@ function response_field_encoder_url(value) {
 }
 
 exports.STORAGE_CLASS_STANDARD = STORAGE_CLASS_STANDARD;
+exports.STORAGE_CLASS_GLACIER = STORAGE_CLASS_GLACIER;
 exports.DEFAULT_S3_USER = DEFAULT_S3_USER;
 exports.DEFAULT_OBJECT_ACL = DEFAULT_OBJECT_ACL;
 exports.OP_NAME_TO_ACTION = OP_NAME_TO_ACTION;

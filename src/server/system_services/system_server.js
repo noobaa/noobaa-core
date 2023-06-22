@@ -339,6 +339,8 @@ async function create_system(req) {
     try {
         const account_id = system_store.new_system_store_id();
         const changes = new_system_changes(name, account_id);
+        bucket_server.auto_setup_tier2(req, changes, true);
+
         system_id = changes.insert.systems[0]._id;
         const cluster_info = await _get_cluster_info();
         if (cluster_info) {

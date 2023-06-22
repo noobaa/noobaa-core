@@ -177,7 +177,7 @@ function new_system_defaults(name, owner_account_id) {
     return system;
 }
 
-function new_system_changes(name, owner_account_id) {
+function new_system_changes(req, name, owner_account_id) {
     const system = new_system_defaults(name, owner_account_id);
     const default_bucket_name = config.DEFAULT_BUCKET_NAME;
     const bucket_with_suffix = default_bucket_name + '#' + Date.now().toString(36);
@@ -255,7 +255,7 @@ function new_system_changes(name, owner_account_id) {
     });
     bucket.master_key_id = first_bucket_m_key._id;
 
-    return {
+    const changes = {
         insert: {
             systems: [system],
             buckets: [bucket],
@@ -266,6 +266,16 @@ function new_system_changes(name, owner_account_id) {
             master_keys: [m_key, first_bucket_m_key]
         }
     };
+
+    bucket_server.auto_setup_tier2(
+        req,
+        tier,
+        policy,
+        changes,
+        true
+    );
+
+    return changes;
 }
 
 /**
@@ -338,8 +348,7 @@ async function create_system(req) {
 
     try {
         const account_id = system_store.new_system_store_id();
-        const changes = new_system_changes(name, account_id);
-        bucket_server.auto_setup_tier2(req, changes, true);
+        const changes = new_system_changes(req, name, account_id);
 
         system_id = changes.insert.systems[0]._id;
         const cluster_info = await _get_cluster_info();

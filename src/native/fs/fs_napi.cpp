@@ -76,6 +76,18 @@
         }                      \
     } while (0)
 
+// This macro should be used after calling any syscall/gpfs-syscall that uses errno
+// in case of failures - it will warn and continue
+#define SYSCALL_OR_WARN(x)                                                                \
+    do {                                                                                  \
+        int r = (x);                                                                      \
+        if (r) {                                                                          \
+            int current_errno = errno;                                                    \
+            std::string errmsg = strerror(current_errno);                                 \
+            LOG("FS::FSWorker:: WARN " << _desc << DVAL(current_errno) << " " << errmsg); \
+        }                                                                                 \
+    } while (0)
+
 // This macro should be used after calling any gpfs-fcntl which doesn't use errno
 // It will handle error which number will be saved under gpfs_error
 #define GPFS_FCNTL_OR_RETURN(x)                                              \
@@ -973,6 +985,7 @@ struct Writefile : public FSWorker
 {
     std::string _path;
     XattrMap _xattr;
+    XattrMap _xattr_try;
     bool _set_xattr;
     bool _xattr_need_fsync;
     std::string _xattr_clear_prefix;
@@ -996,6 +1009,10 @@ struct Writefile : public FSWorker
             if (options.Has("xattr")) {
                 _set_xattr = true;
                 get_xattr_from_object(_xattr, options.Get("xattr").As<Napi::Object>());
+            }
+            if (options.Has("xattr_try")) {
+                _set_xattr = true;
+                get_xattr_from_object(_xattr_try, options.Get("xattr_try").As<Napi::Object>());
             }
         }
         Begin(XSTR() << "Writefile " << DVAL(_path) << DVAL(_len) << DVAL(_mode));
@@ -1021,6 +1038,9 @@ struct Writefile : public FSWorker
             }
             for (auto it = _xattr.begin(); it != _xattr.end(); ++it) {
                 SYSCALL_OR_RETURN(fsetxattr(fd, it->first.c_str(), it->second.c_str(), it->second.length(), 0));
+            }
+            for (auto it = _xattr_try.begin(); it != _xattr_try.end(); ++it) {
+                SYSCALL_OR_WARN(fsetxattr(fd, it->first.c_str(), it->second.c_str(), it->second.length(), 0));
             }
         }
     }

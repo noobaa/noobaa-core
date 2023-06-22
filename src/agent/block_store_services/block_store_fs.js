@@ -162,24 +162,27 @@ class BlockStoreFs extends BlockStoreBase {
         const usage = {
             size: block_md.is_preallocated ? 0 : data.length,
             count: block_md.is_preallocated ? 0 : 1,
-         };
-
-        /** @type {nb.NativeFSXattr} */
-        const xattr = {};
-
-        // fsync is needed before actually setting the migrate trigger
-        let xattr_need_fsync = false;
+        };
 
         // set the block md xattr
         const block_md_to_store = _.pick(block_md, 'id', 'digest_type', 'digest_b64', 'mapping_info');
         const block_md_data = JSON.stringify(block_md_to_store);
-        xattr[config.BLOCK_STORE_FS_XATTR_BLOCK_MD] = block_md_data;
+
+        /** @type {nb.NativeFSXattr} */
+        const xattr = { [config.BLOCK_STORE_FS_XATTR_BLOCK_MD]: block_md_data };
+
+        // a map of xattrs which will not fail the operation, but only warn
+        /** @type {nb.NativeFSXattr} */
+        let xattr_try;
+
+        // fsync is needed before actually setting the migrate trigger
+        let xattr_need_fsync = false;
 
         if (!is_test_block) {
 
             // set xattr to trigger migration of file to underlying tier
             if (config.BLOCK_STORE_FS_TMFS_ENABLED) {
-                xattr[config.BLOCK_STORE_FS_XATTR_TRIGGER_MIGRATE] = 'now';
+                xattr_try = { [config.BLOCK_STORE_FS_XATTR_TRIGGER_MIGRATE]: 'now' };
                 xattr_need_fsync = true;
             }
 
@@ -202,6 +205,7 @@ class BlockStoreFs extends BlockStoreBase {
         try {
             await nb_native().fs.writeFile(fs_context, block_path, data, {
                 xattr,
+                xattr_try,
                 xattr_need_fsync,
             });
         } catch (err) {

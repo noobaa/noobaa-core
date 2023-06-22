@@ -896,6 +896,7 @@ interface NativeFS {
     writeFile(fs_context: NativeFSContext, path: string, buffer: Buffer, options?: {
         mode?: number;
         xattr?: NativeFSXattr;
+        xattr_try?: NativeFSXattr;
         xattr_need_fsync?: boolean;
         xattr_clear_prefix?: string;
     }): Promise<void>;

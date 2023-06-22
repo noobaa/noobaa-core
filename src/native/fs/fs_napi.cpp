@@ -474,7 +474,7 @@ clear_xattr(int fd, std::string _prefix)
 static void
 load_xattr_get_keys(Napi::Object& options, std::vector<std::string>& _xattr_get_keys)
 {
-    if (options.Has("xattr_get_keys")) {
+    if (options.Get("xattr_get_keys").ToBoolean()) {
         Napi::Array keys = options.Get("xattr_get_keys").As<Napi::Array>();
         auto keys_length = keys.Length();
 
@@ -483,7 +483,7 @@ load_xattr_get_keys(Napi::Object& options, std::vector<std::string>& _xattr_get_
         for (uint32_t i = 0; i < keys_length; i++) {
             _xattr_get_keys.push_back(keys.Get(i).As<Napi::String>());
         }
-    } else if (options.Has("skip_user_xattr") && options.Get("skip_user_xattr").ToBoolean()) {
+    } else if (options.Get("skip_user_xattr").ToBoolean()) {
         _xattr_get_keys = USER_XATTRS;
     }
 }
@@ -511,10 +511,9 @@ struct FSWorker : public Napi::AsyncWorker
     double _took_time;
     Napi::FunctionReference _report_fs_stats;
 
-    // diable_ctime_check disables the ctime check in the stat and read file fuctions
-    //
+    // disables the ctime check in the stat and read file fuctions
     // NOTE: If this is enabled then some functions will fallback to using mtime check
-    bool disable_ctime_check;
+    bool _disable_ctime_check;
 
     FSWorker(const Napi::CallbackInfo& info)
         : AsyncWorker(info.Env())
@@ -526,16 +525,24 @@ struct FSWorker : public Napi::AsyncWorker
         , _errno(0)
         , _warn_threshold_ms(0)
         , _took_time(0)
-        , disable_ctime_check(false)
+        , _disable_ctime_check(false)
     {
         for (int i = 0; i < (int)info.Length(); ++i) _args_ref.Set(i, info[i]);
-        Napi::Object fs_context = info[0].As<Napi::Object>();
-        if (fs_context.Has("uid")) _uid = fs_context.Get("uid").ToNumber();
-        if (fs_context.Has("gid")) _gid = fs_context.Get("gid").ToNumber();
-        if (fs_context.Has("backend")) _backend = fs_context.Get("backend").ToString();
-        if (fs_context.Has("warn_threshold_ms")) _warn_threshold_ms = fs_context.Get("warn_threshold_ms").ToNumber();
-        if (fs_context.Has("report_fs_stats")) _report_fs_stats = Napi::Persistent(fs_context.Get("report_fs_stats").As<Napi::Function>());
-        if (fs_context.Has("disable_ctime_check")) disable_ctime_check = fs_context.Get("disable_ctime_check").ToBoolean();
+        if (info[0].ToBoolean()) {
+            Napi::Object fs_context = info[0].As<Napi::Object>();
+            if (fs_context.Get("uid").IsNumber()) _uid = fs_context.Get("uid").ToNumber();
+            if (fs_context.Get("gid").IsNumber()) _gid = fs_context.Get("gid").ToNumber();
+            if (fs_context.Get("backend").ToBoolean()) {
+                _backend = fs_context.Get("backend").ToString();
+            }
+            if (fs_context.Get("warn_threshold_ms").ToBoolean()) {
+                _warn_threshold_ms = fs_context.Get("warn_threshold_ms").ToNumber();
+            }
+            if (fs_context.Get("report_fs_stats").ToBoolean()) {
+                _report_fs_stats = Napi::Persistent(fs_context.Get("report_fs_stats").As<Napi::Function>());
+            }
+            _disable_ctime_check = fs_context.Get("disable_ctime_check").ToBoolean();
+        }
     }
     void Begin(std::string desc)
     {
@@ -654,9 +661,9 @@ struct Stat : public FSWorker
         : FSWorker(info)
     {
         _path = info[1].As<Napi::String>();
-        if ((int)info.Length() == 3) {
+        if (info[2].ToBoolean()) {
             Napi::Object options = info[2].As<Napi::Object>();
-            if (options.Has("use_lstat")) _use_lstat = options.Get("use_lstat").ToBoolean();
+            _use_lstat = options.Get("use_lstat").ToBoolean();
             load_xattr_get_keys(options, _xattr_get_keys);
         }
         Begin(XSTR() << "Stat " << DVAL(_path));
@@ -683,7 +690,7 @@ struct Stat : public FSWorker
             }
         }
 
-        if (!disable_ctime_check) {
+        if (!_disable_ctime_check) {
             CHECK_CTIME_CHANGE(fd, _stat_res, _path);
         }
     }
@@ -1001,16 +1008,18 @@ struct Writefile : public FSWorker
         auto buf = info[2].As<Napi::Buffer<uint8_t>>();
         _data = buf.Data();
         _len = buf.Length();
-        if (info.Length() > 3 && !info[3].IsUndefined()) {
+        if (info[3].ToBoolean()) {
             Napi::Object options = info[3].As<Napi::Object>();
-            if (options.Has("mode")) _mode = options.Get("mode").As<Napi::Number>().Uint32Value();
-            if (options.Has("xattr_need_fsync")) _xattr_need_fsync = options.Get("xattr_need_fsync").ToBoolean();
-            if (options.Has("xattr_clear_prefix")) _xattr_clear_prefix = options.Get("xattr_clear_prefix").As<Napi::String>();
-            if (options.Has("xattr")) {
+            if (options.Get("mode").IsNumber()) _mode = options.Get("mode").As<Napi::Number>().Uint32Value();
+            _xattr_need_fsync = options.Get("xattr_need_fsync").ToBoolean();
+            if (options.Get("xattr_clear_prefix").ToBoolean()) {
+                _xattr_clear_prefix = options.Get("xattr_clear_prefix").ToString();
+            }
+            if (options.Get("xattr").ToBoolean()) {
                 _set_xattr = true;
                 get_xattr_from_object(_xattr, options.Get("xattr").As<Napi::Object>());
             }
-            if (options.Has("xattr_try")) {
+            if (options.Get("xattr_try").ToBoolean()) {
                 _set_xattr = true;
                 get_xattr_from_object(_xattr_try, options.Get("xattr_try").As<Napi::Object>());
             }
@@ -1065,9 +1074,9 @@ struct Readfile : public FSWorker
         , _len(0)
     {
         _path = info[1].As<Napi::String>();
-        if ((int)info.Length() == 3) {
+        if (info[2].ToBoolean()) {
             Napi::Object options = info[2].As<Napi::Object>();
-            if (options.Has("read_xattr")) _read_xattr = options.Get("read_xattr").ToBoolean();
+            _read_xattr = options.Get("read_xattr").ToBoolean();
             load_xattr_get_keys(options, _xattr_get_keys);
         }
         Begin(XSTR() << "Readfile " << DVAL(_path));
@@ -1108,7 +1117,7 @@ struct Readfile : public FSWorker
             p += len;
         }
 
-        if (disable_ctime_check) {
+        if (_disable_ctime_check) {
             CHECK_MTIME_CHANGE(fd, _stat_res, _path);
         } else {
             CHECK_CTIME_CHANGE(fd, _stat_res, _path);
@@ -1529,7 +1538,7 @@ struct FileStat : public FSWrapWorker<FileWrap>
     FileStat(const Napi::CallbackInfo& info)
         : FSWrapWorker<FileWrap>(info)
     {
-        if ((int)info.Length() == 2) {
+        if (info[1].ToBoolean()) {
             Napi::Object options = info[1].As<Napi::Object>();
             load_xattr_get_keys(options, _xattr_get_keys);
         }
@@ -1546,7 +1555,7 @@ struct FileStat : public FSWrapWorker<FileWrap>
             GPFS_FCNTL_OR_RETURN(get_fd_gpfs_xattr(fd, _xattr, gpfs_error));
         }
 
-        if (!disable_ctime_check) {
+        if (!_disable_ctime_check) {
             CHECK_CTIME_CHANGE(fd, _stat_res, _wrap->_path);
         }
     }

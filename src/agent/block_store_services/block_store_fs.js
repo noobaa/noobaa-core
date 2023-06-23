@@ -15,6 +15,7 @@ const string_utils = require('../../util/string_utils');
 const BlockStoreBase = require('./block_store_base').BlockStoreBase;
 const get_block_internal_dir = require('./block_store_base').get_block_internal_dir;
 const { RpcError } = require('../../rpc');
+const { STORAGE_CLASS_GLACIER, STORAGE_CLASS_STANDARD } = require('../../endpoint/s3/s3_utils');
 
 const TMFS_STATE_MIGRATED = 'MIGRATED';
 const TMFS_STATE_PREMIGRATED = 'PREMIGRATED';
@@ -271,10 +272,12 @@ class BlockStoreFs extends BlockStoreBase {
      * @returns {Promise<{ moved_block_ids: string[] }>}
      */
     async _move_blocks_to_storage_class(block_ids, storage_class) {
-        if (storage_class === 'GLACIER') {
-            return this._move_blocks_to_glacier(block_ids);
+        if (storage_class === STORAGE_CLASS_GLACIER) {
+            if (config.BLOCK_STORE_FS_TMFS_ENABLED) {
+                return this._move_blocks_to_tmfs(block_ids);
+            }
         }
-        if (storage_class === 'STANDARD') {
+        if (storage_class === STORAGE_CLASS_STANDARD) {
             // Nothing to do for now
             return Promise.resolve({ moved_block_ids: [] });
         }
@@ -286,29 +289,18 @@ class BlockStoreFs extends BlockStoreBase {
      * @param {string[]} block_ids
      * @returns {Promise<{ moved_block_ids: string[] }>}
      */
-    async _move_blocks_to_glacier(block_ids) {
+    async _move_blocks_to_tmfs(block_ids) {
         const moved_block_ids = [];
-        if (!config.BLOCK_STORE_FS_TMFS_ENABLED) return { moved_block_ids };
 
         await P.map_with_concurrency(10, block_ids, async block_id => {
             try {
-                if (await this._move_block_to_glacier(block_id)) moved_block_ids.push(block_id);
+                if (await this._move_block_to_tmfs(block_id)) moved_block_ids.push(block_id);
             } catch (err) {
-                dbg.warn(`_move_block_to_glacier block ${block_id} failed due to`, err);
+                dbg.warn(`_move_block_to_tmfs block ${block_id} failed due to`, err);
             }
         });
 
         return { moved_block_ids };
-    }
-
-    /**
-     * @note Supports only Tier2/TMFS FS_ARCHIVE for others will 
-     * simply return false
-     * @param {string} block_id 
-     * @returns {Promise<boolean>}
-     */
-    async _move_block_to_glacier(block_id) {
-        return this._move_block_to_tmfs(block_id);
     }
 
     async _move_block_to_tmfs(block_id) {

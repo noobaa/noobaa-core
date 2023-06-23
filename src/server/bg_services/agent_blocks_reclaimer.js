@@ -45,7 +45,7 @@ class AgentBlocksReclaimer {
             const blocks_to_reclaim = await this.populate_agent_blocks_reclaimer_blocks(blocks);
             if (!blocks_to_reclaim || !blocks_to_reclaim.length) return;
             dbg.log0('AGENT_BLOCKS_RECLAIMER:',
-                'DELETING:', blocks_to_reclaim);
+                'DELETING:', blocks_to_reclaim.length);
             await this.delete_blocks_from_nodes(blocks_to_reclaim);
             // return the delay before next batch
             if (this.marker) {

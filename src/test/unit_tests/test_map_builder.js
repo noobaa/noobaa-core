@@ -24,6 +24,7 @@ const map_deleter = require('../../server/object_services/map_deleter');
 const map_reader = require('../../server/object_services/map_reader');
 const SliceReader = require('../../util/slice_reader');
 const system_store = require('../../server/system_services/system_store').get_instance();
+const { STORAGE_CLASS_GLACIER } = require('../../endpoint/s3/s3_utils');
 
 const { rpc_client } = coretest;
 const object_io = new ObjectIO();
@@ -312,7 +313,7 @@ mocha.describe('map_builder', function() {
                 attached_pools: [current_tier.mirrors[0].spread_pools[0].name],
                 order: 1,
                 data_placement: 'SPREAD',
-                storage_class: 'GLACIER'
+                storage_class: STORAGE_CLASS_GLACIER,
             }
         });
 

@@ -17,7 +17,6 @@ const Semaphore = require('../util/semaphore');
 const KeysSemaphore = require('../util/keys_semaphore');
 const block_store_client = require('../agent/block_store_services/block_store_client').instance();
 const system_store = require('../server/system_services/system_store').get_instance();
-const js_utils = require('../util/js_utils');
 
 const { ChunkAPI } = require('./map_api_types');
 const { RpcError, RPC_BUFFERS } = require('../rpc');
@@ -578,7 +577,7 @@ class MapClient {
             const current_attached_pools = tier_before_move.mirrors.map(mirror => mirror.spread_pools.map(pool => String(pool._id))).flat();
 
             if (
-                !js_utils.compare_unordered(target_attached_pools, current_attached_pools, true) ||
+                _.xor(target_attached_pools, current_attached_pools).length ||
                 tier_before_move.storage_class === target_storage_class
             ) continue;
 

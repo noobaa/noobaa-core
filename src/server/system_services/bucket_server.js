@@ -2,6 +2,8 @@
 /* eslint max-lines: ['error', 2500] */
 'use strict';
 
+/** @typedef {typeof import('../../sdk/nb')} nb */
+
 const _ = require('lodash');
 const AWS = require('aws-sdk');
 const net = require('net');
@@ -38,6 +40,7 @@ const path = require('path');
 const KeysSemaphore = require('../../util/keys_semaphore');
 const bucket_semaphore = new KeysSemaphore(1);
 const Quota = require('../system_services/objects/quota');
+const { STORAGE_CLASS_GLACIER } = require('../../endpoint/s3/s3_utils');
 
 const VALID_BUCKET_NAME_REGEXP =
     /^(([a-z0-9]|[a-z0-9][a-z0-9-]*[a-z0-9])\.)*([a-z0-9]|[a-z0-9][a-z0-9-]*[a-z0-9])$/;
@@ -74,6 +77,77 @@ function new_bucket_defaults(name, system_id, tiering_policy_id, owner_account_i
             object_lock_enabled: lock_enabled ? 'Enabled' : 'Disabled',
         } : undefined,
     };
+}
+
+/**
+ * auto_setup_tier2 is a helper function which consumes an initial tier
+ * and a tiering policy and creates a tier2 based on the initial tier
+ * and the tiering policy by copying the intial tier's data altering
+ * the tiering policy to point to the new tier2.
+ * 
+ * @param {*} req 
+ * @param {{
+ *   _id: nb.ID,
+ *   name: string,
+ *   system: nb.ID,
+ *   chunk_config: nb.ChunkConfig,
+ *   data_placement: string,
+ *   mirrors: nb.TierMirror[],
+ *   storage_class: nb.StorageClass,
+ * }} initial_tier 
+ * @param {{
+ *   _id: nb.ID,
+ *   name: string,
+ *   tiers: Array<{
+ *     order: number;
+ *     tier: nb.ID;
+ *     spillover?: boolean;
+ *     disabled?: boolean;
+ *  }>,
+ *   chunk_split_config: { avg_chunk: number, delta_chunk: number }
+ * }} tiering_policy
+ * @param {{ insert: { tiers: Array<any> } }} changes 
+ * @param {boolean} skip_check
+ */
+function auto_setup_tier2(req, initial_tier, tiering_policy, changes, skip_check = false) {
+    if (!config.BUCKET_AUTOCONF_TIER2_ENABLED) return;
+
+    const initial_tier_name = initial_tier.name;
+
+    const system_id = initial_tier.system;
+
+    const tier2_mirrors = [{
+        _id: system_store.new_system_store_id(),
+        spread_pools: [initial_tier.mirrors[0].spread_pools[0]]
+    }];
+
+    const tier2_name = `${initial_tier_name}_auto_tier2`;
+
+    // skip_check can be set to true in the cases where there is no system
+    // consequently, chances of tier2 name collision are -> 0 as well in such cases.
+    if (!skip_check) {
+        tier_server.check_tier_exists(req, tier2_name);
+    }
+
+    const init_tier_order = tiering_policy.tiers.find(tier => String(tier.tier) === String(initial_tier._id)).order;
+
+    const tier2_order = init_tier_order + 1;
+
+    const tier2 = tier_server.new_tier_defaults(
+        tier2_name,
+        system_id,
+        initial_tier.chunk_config,
+        tier2_mirrors,
+        STORAGE_CLASS_GLACIER,
+    );
+
+    changes.insert.tiers.push(tier2);
+    tiering_policy.tiers.push({
+        tier: tier2._id,
+        order: tier2_order,
+        spillover: false,
+        disabled: false,
+    });
 }
 
 /**
@@ -142,7 +216,8 @@ async function create_bucket(req) {
             tiering_policy = tier_server.new_policy_defaults(
                 bucket_with_suffix,
                 req.system._id,
-                req.rpc_params.chunk_split_config, [{
+                req.rpc_params.chunk_split_config,
+                [{
                     tier: tier._id,
                     order: 0,
                     spillover: false,
@@ -151,6 +226,18 @@ async function create_bucket(req) {
             );
             changes.insert.tieringpolicies = [tiering_policy];
             changes.insert.tiers = [tier];
+
+            // Attach a `GLACIER` tier to the bucket if it is not namespace.caching
+            // and appropriate configuration is set
+            if (!req.rpc_params.namespace?.caching) {
+                auto_setup_tier2(
+                    req,
+                    tier,
+                    tiering_policy,
+                    // @ts-ignore
+                    changes,
+                );
+            }
         }
 
         validate_non_nsfs_bucket_creation(req);
@@ -1911,6 +1998,7 @@ function normalize_replication(req) {
 // EXPORTS
 exports.new_bucket_defaults = new_bucket_defaults;
 exports.get_bucket_info = get_bucket_info;
+exports.auto_setup_tier2 = auto_setup_tier2;
 //Bucket Management
 exports.create_bucket = create_bucket;
 exports.read_bucket = read_bucket;

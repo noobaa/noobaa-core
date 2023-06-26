@@ -92,6 +92,7 @@ require('./test_bucket_replication');
 require('./test_sts');
 require('./test_cloud_utils');
 require('./test_upgrade_scripts.js');
+require('./test_tiering_ttl_worker');
 // require('./test_tiering_upload');
 //require('./test_s3_worm');
 

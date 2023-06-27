@@ -6,11 +6,11 @@ const system_store = require('../system_services/system_store').get_instance();
 const P = require('../../util/promise');
 const cloud_utils = require('../../util/cloud_utils');
 
-async function move_objects_by_type(req) {
+async function copy_objects(req) {
     const { copy_type } = req.rpc_params;
     switch (copy_type) {
         case 'MIX': {
-            const res = await move_object_mixed_types(req);
+            const res = await copy_objects_mixed_types(req);
             console.log('move_objects_by_type: res', res);
             return res;
         }
@@ -64,9 +64,9 @@ async function delete_objects(req) {
     return delete_done_list;
 }
 
-async function move_object_mixed_types(req) {
+async function copy_objects_mixed_types(req) {
     const { src_bucket_name, dst_bucket_name, keys } = req.rpc_params;
-    dbg.log1('replication_server _move_object: params:', src_bucket_name, dst_bucket_name, keys);
+    dbg.log1('replication_server copy_objects_mixed_types: params:', src_bucket_name, dst_bucket_name, keys);
     const copy_done_list = [];
 
     const noobaa_con = cloud_utils.set_noobaa_s3_connection(system_store.data.systems[0]);
@@ -81,10 +81,10 @@ async function move_object_mixed_types(req) {
             await noobaa_con.copyObject(params).promise();
             copy_done_list.push(key);
         } catch (err) {
-            dbg.error('replication_server _move_object: got error:', err);
+            dbg.error('replication_server copy_objects_mixed_types: got error:', err);
         }
     });
-    dbg.log1('replication_server _move_object: finished successfully');
+    dbg.log1('replication_server copy_objects_mixed_types: finished successfully');
     return copy_done_list;
 }
 
@@ -105,5 +105,6 @@ async function _move_objects_azure(src_bucket, dst_bucket, objects_list) {
 }*/
 
 
-exports.move_objects_by_type = move_objects_by_type;
+exports.copy_objects = copy_objects;
+exports.copy_objects_mixed_types = copy_objects_mixed_types;
 exports.delete_objects = delete_objects;

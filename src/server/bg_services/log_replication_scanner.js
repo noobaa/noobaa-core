@@ -142,8 +142,7 @@ class LogReplicationScanner {
 
         for (const item of items) {
             if (item.action === 'copy') {
-                // TODO: Cannot do it yet because it seems that the AWS logs
-                // are not ordered by time
+                await this.process_copy_candidate(src_bucket, dst_bucket, candidate);
             }
 
             if (item.action === 'delete') {
@@ -153,6 +152,15 @@ class LogReplicationScanner {
             if (item.action === 'conflict') {
                 await this.process_conflict_candidate(src_bucket, dst_bucket, candidate);
             }
+        }
+    }
+
+    async process_copy_candidate(src_bucket, dst_bucket, candidate) {
+        const src_object_info = candidate.src_object_info;
+        const dst_object_info = candidate.dst_object_info;
+        if (src_object_info && (!dst_object_info || (src_object_info.LastModified > dst_object_info.LastModified &&
+            src_object_info.ETag !== dst_object_info.ETag))) {
+            await this.copy_object(src_bucket.name, dst_bucket.name, candidate.key);
         }
     }
 
@@ -186,6 +194,19 @@ class LogReplicationScanner {
                 dst_object_info: candidate.dst_object_info,
             });
         }
+    }
+
+    async copy_object(src_bucket_name, dst_bucket_name, key) {
+        const copy_type = replication_utils.get_copy_type();
+        await replication_utils.copy_objects(
+            this._scanner_sem,
+            this.client,
+            copy_type,
+            src_bucket_name.unwrap(),
+            dst_bucket_name.unwrap(),
+            [key],
+        );
+        dbg.log2('log_replication_scanner: scan copy_object: ', key);
     }
 
     async delete_object(bucket_name, key) {

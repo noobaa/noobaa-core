@@ -192,6 +192,7 @@ function authenticate_request(req) {
 }
 
 async function authorize_request(req) {
+    await req.object_sdk.load_requesting_account(req);
     await Promise.all([
         req.object_sdk.authorize_request_account(req),
         // authorize_request_policy(req) is supposed to
@@ -215,7 +216,7 @@ async function authorize_request_policy(req) {
         return;
     }
 
-    const account = await req.object_sdk.rpc_client.account.read_account({});
+    const account = req.object_sdk.requesting_account;
     const is_system_owner = account.email.unwrap() === system_owner.unwrap();
 
     // @TODO: System owner as a construct should be removed - Temporary

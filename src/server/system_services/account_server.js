@@ -719,10 +719,10 @@ async function add_external_connection(req) {
     info.secret_key = system_store.master_key_manager.encrypt_sensitive_string_with_master_key_id(
         req.rpc_params.secret, req.account.master_key_id._id);
 
-    info.azure_tenant_id = req.rpc_params.azure_log_access_keys.azure_tenant_id || undefined;
-    info.azure_client_id = req.rpc_params.azure_log_access_keys.azure_client_id || undefined;
-    info.azure_client_secret = req.rpc_params.azure_log_access_keys.azure_client_secret || undefined;
-    info.azure_logs_analytics_workspace_id = req.rpc_params.azure_log_access_keys.azure_logs_analytics_workspace_id || undefined;
+    info.azure_tenant_id = req.rpc_params?.azure_log_access_keys?.azure_tenant_id;
+    info.azure_client_id = req.rpc_params?.azure_log_access_keys?.azure_client_id;
+    info.azure_client_secret = req.rpc_params?.azure_log_access_keys?.azure_client_secret;
+    info.azure_logs_analytics_workspace_id = req.rpc_params?.azure_log_access_keys?.azure_logs_analytics_workspace_id;
 
     info.cp_code = req.rpc_params.cp_code || undefined;
     info.auth_method = req.rpc_params.auth_method || config.DEFAULT_S3_AUTH_METHOD[info.endpoint_type] || undefined;

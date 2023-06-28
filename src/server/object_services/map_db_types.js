@@ -60,6 +60,7 @@ class ChunkDB {
     get cipher_iv_b64() { return to_b64(this.chunk_db.cipher_iv); }
     get cipher_auth_tag_b64() { return to_b64(this.chunk_db.cipher_auth_tag); }
     get chunk_coder_config() { return this.chunk_config.chunk_coder_config; }
+    get storage_class() { return this.tier.storage_class; }
 
     /** @returns {nb.Bucket} */
     get bucket() { return system_store.data.get_by_id(this.chunk_db.bucket); }
@@ -139,6 +140,7 @@ class ChunkDB {
             is_building_frags: this.is_building_frags,
             frags: this.frags.map(frag => frag.to_api(adminfo)),
             parts: this.parts.map(part => part.to_api()),
+            storage_class: this.storage_class,
         };
     }
 
@@ -369,7 +371,7 @@ class BlockDB {
 
 
 /**
- * @implements {nb.Frag}
+ * @implements {nb.Part}
  */
 class PartDB {
 

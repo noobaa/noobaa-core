@@ -40,7 +40,7 @@ const path = require('path');
 const KeysSemaphore = require('../../util/keys_semaphore');
 const bucket_semaphore = new KeysSemaphore(1);
 const Quota = require('../system_services/objects/quota');
-const { STORAGE_CLASS_GLACIER } = require('../../endpoint/s3/s3_utils');
+const { STORAGE_CLASS_GLACIER_IR } = require('../../endpoint/s3/s3_utils');
 
 const VALID_BUCKET_NAME_REGEXP =
     /^(([a-z0-9]|[a-z0-9][a-z0-9-]*[a-z0-9])\.)*([a-z0-9]|[a-z0-9][a-z0-9-]*[a-z0-9])$/;
@@ -138,7 +138,7 @@ function auto_setup_tier2(req, initial_tier, tiering_policy, changes, skip_check
         system_id,
         initial_tier.chunk_config,
         tier2_mirrors,
-        STORAGE_CLASS_GLACIER,
+        STORAGE_CLASS_GLACIER_IR,
     );
 
     changes.insert.tiers.push(tier2);

@@ -60,6 +60,7 @@ module.exports = {
                     last_modified_time: {
                         idate: true
                     },
+                    storage_class: { $ref: 'common_api#/definitions/storage_class_enum' },
                 }
             },
             reply: {
@@ -1442,6 +1443,7 @@ module.exports = {
                 capacity_size: { type: 'integer' },
                 s3_signed_url: { type: 'string' },
                 lock_settings: { $ref: 'common_api#/definitions/lock_settings' },
+                storage_class: { $ref: 'common_api#/definitions/storage_class_enum' },
             }
         },
 
@@ -1495,6 +1497,7 @@ module.exports = {
                 is_accessible: { type: 'boolean' },
                 is_building_blocks: { type: 'boolean' },
                 is_building_frags: { type: 'boolean' },
+                storage_class: { $ref: 'common_api#/definitions/storage_class_enum' },
             }
         },
 

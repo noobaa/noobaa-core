@@ -1162,10 +1162,6 @@ module.exports = {
             }
         },
 
-        storage_class_enum: {
-            enum: ['STANDARD_IA', 'GLACIER'],
-            type: 'string'
-        },
         update_bucket_params: {
             type: 'object',
             required: ['name'],

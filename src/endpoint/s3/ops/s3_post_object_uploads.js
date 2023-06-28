@@ -11,12 +11,14 @@ const mime = require('mime');
 async function post_object_uploads(req, res) {
     const tagging = s3_utils.parse_tagging_header(req);
     const encryption = s3_utils.parse_encryption(req);
+    const storage_class = s3_utils.parse_storage_class_header(req);
     const reply = await req.object_sdk.create_object_upload({
         bucket: req.params.bucket,
         key: req.params.key,
         content_type: req.headers['content-type'] || mime.getType(req.params.key) || 'application/octet-stream',
         content_encoding: req.headers['content-encoding'],
         xattr: s3_utils.get_request_xattr(req),
+        storage_class,
         tagging,
         encryption
     });

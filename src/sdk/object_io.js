@@ -14,6 +14,7 @@ const buffer_utils = require('../util/buffer_utils');
 const stream_utils = require('../util/stream_utils');
 const ChunkSplitter = require('../util/chunk_splitter');
 const CoalesceStream = require('../util/coalesce_stream');
+const system_store = require('../server/system_services/system_store').get_instance();
 
 const { MapClient } = require('./map_client');
 const { ChunkAPI } = require('./map_api_types');
@@ -202,6 +203,7 @@ class ObjectIO {
             'tagging',
             'encryption',
             'lock_settings',
+            'storage_class',
             'last_modified_time',
         );
         const complete_params = _.pick(params,
@@ -479,7 +481,7 @@ class ObjectIO {
                 chunk_info.parts = [part];
                 chunk_info.master_key_id = params.bucket_master_key_id;
                 for (const frag of chunk_info.frags) frag.blocks = [];
-                const chunk = new ChunkAPI(chunk_info);
+                const chunk = new ChunkAPI(chunk_info, system_store);
                 params.seq += 1;
                 params.start += chunk.size;
                 params.range.end = params.start;

@@ -360,7 +360,7 @@ coretest.describe_mapper_test_case({
             };
 
             const temporary_tier = generate_mock_tier({
-                storage_class: 'MOCKED',
+                storage_class: 'GLACIER_IR',
                 mirrors: [
                     {
                         spread_pools: bucket.tiering.tiers[0].tier.mirrors[0].spread_pools,

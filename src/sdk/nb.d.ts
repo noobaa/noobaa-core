@@ -4,6 +4,7 @@ import * as fs from 'fs';
 import * as mongodb from 'mongodb';
 import { EventEmitter } from 'events';
 import { Readable, Writable } from 'stream';
+import { IncomingMessage, ServerResponse } from 'http';
 
 type Semaphore = import('../util/semaphore');
 type KeysSemaphore = import('../util/keys_semaphore');
@@ -15,6 +16,7 @@ type DigestType = 'sha1' | 'sha256' | 'sha384' | 'sha512';
 type CompressType = 'snappy' | 'zlib';
 type CipherType = 'aes-256-gcm';
 type ParityType = 'isa-c1' | 'isa-rs' | 'cm256';
+type StorageClass = 'STANDARD' | 'GLACIER' | 'GLACIER_IR';
 type ResourceType = 'HOSTS' | 'CLOUD' | 'INTERNAL';
 type NodeType =
     'BLOCK_STORE_S3' |
@@ -23,16 +25,18 @@ type NodeType =
     'BLOCK_STORE_GOOGLE' |
     'BLOCK_STORE_FS' |
     'ENDPOINT_S3';
+    
+type S3Response = ServerResponse;
+type S3Request = IncomingMessage & {
+    object_sdk: ObjectSDK;
+};
 
 type ReplicationLogAction = 'copy' | 'delete' | 'conflict';
 type ReplicationLog = { key: string, action: ReplicationLogAction, time: Date };
 type ReplicationLogs = Array<ReplicationLog>;
 type ReplicationLogCandidates = Record<string, { action: ReplicationLogAction, time: Date }[]>;
-type StorageClass = 'STANDARD' | 'GLACIER';
 
-interface MapByID<T> {
-    [id: string]: T;
-}
+interface MapByID<T> { [id: string]: T }
 
 interface Base {
     toJSON?(): object | string;
@@ -252,6 +256,7 @@ interface Chunk {
     readonly cipher_iv_b64: string;
     readonly cipher_auth_tag_b64: string;
     readonly chunk_coder_config: ChunkCoderConfig;
+    readonly storage_class?: StorageClass;
     master_key_id?: ID;
 
     dup_chunk_id?: ID;
@@ -384,6 +389,7 @@ interface ObjectMD {
     etag: string;
     md5_b64: string;
     sha256_b64: string;
+    storage_class?: StorageClass;
     xattr: {};
     stats: { reads: number; last_read: Date; };
     encryption: { algorithm: string; kms_key_id: string; context_b64: string; key_md5_b64: string; key_b64: string; };
@@ -423,6 +429,7 @@ interface ObjectInfo {
     content_length?: number;
     content_range?: string;
     ns?: Namespace;
+    storage_class?: StorageClass;
 }
 
 
@@ -452,6 +459,7 @@ interface ChunkInfo {
     is_building_blocks?: boolean;
     is_building_frags?: boolean;
     master_key_id?: ID;
+    storage_class?: StorageClass;
 
     // Properties not in the API but used in memory
     data?: Buffer;
@@ -850,14 +858,14 @@ interface Native {
     syslog(level: number, message: string, facility?: 'LOG_LOCAL0' | 'LOG_LOCAL1');
     openlog(ident: string);
     closelog(): void;
-    
+
     Nudp: { new(): Nudp };
     Ntcp: { new(): Ntcp };
 
     MD5_MB: { new(): HasherSync };
     SHA1_MB: { new(): HasherSync };
     crypto: { MD5Async: { new(): HasherAsync } };
-    
+
     fs: NativeFS;
 
     S3Select: { new(options: S3SelectOptions): S3Select };
@@ -931,7 +939,7 @@ interface NativeFS {
 
 interface NativeFile {
     close(fs_context: NativeFSContext): Promise<void>;
-    stat(fs_context: NativeFSContext, options?: { skip_user_xattr?: boolean, xattr_get_keys?: string[] } ): Promise<NativeFSStats>;
+    stat(fs_context: NativeFSContext, options?: { skip_user_xattr?: boolean, xattr_get_keys?: string[] }): Promise<NativeFSStats>;
     read(fs_context: NativeFSContext, buffer: Buffer, offset: number, length: number, pos: number): Promise<number>;
     write(fs_context: NativeFSContext, buffer: Buffer): Promise<void>;
     writev(fs_context: NativeFSContext, buffers: Buffer[]): Promise<void>;
@@ -1006,7 +1014,7 @@ interface X509Options {
     issuer?: X509Name;
     private?: string;
     public?: string;
-    
+
 }
 
 interface X509Name {

@@ -747,6 +747,7 @@ function get_tier_info(tier, nodes_aggregate_pool, tiering_tier_status) {
         name: tier.name,
         chunk_coder_config: tier.chunk_config.chunk_coder_config,
         data_placement: tier.data_placement,
+        storage_class: tier.storage_class,
         attached_pools,
         mirror_groups,
         storage,

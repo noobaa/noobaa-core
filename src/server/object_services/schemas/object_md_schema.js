@@ -95,6 +95,8 @@ module.exports = {
         md5_b64: { type: 'string' },
         sha256_b64: { type: 'string' },
 
+        storage_class: { $ref: 'common_api#/definitions/storage_class_enum' },
+
         // xattr saved as free form object
         xattr: {
             type: 'object',

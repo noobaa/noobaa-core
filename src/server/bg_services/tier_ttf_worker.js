@@ -155,7 +155,8 @@ class TieringTTFWorker {
             await this._build_chunks(
                 chunk_ids,
                 next_tier_id,
-                cache_evict
+                cache_evict,
+                chunk_ids.map(() => previous_tier._id),
             );
         }
         this.last_run = undefined;
@@ -166,8 +167,13 @@ class TieringTTFWorker {
         return bucket.tiering.tiers.find(t => String(t.tier._id) === String(tier._id)).order;
     }
 
-    async _build_chunks(chunk_ids, next_tier, cache_evict) {
-        return this.client.scrubber.build_chunks({ chunk_ids, tier: next_tier, evict: cache_evict }, {
+    async _build_chunks(chunk_ids, next_tier, cache_evict, current_tiers) {
+        return this.client.scrubber.build_chunks({
+            chunk_ids,
+            tier: next_tier,
+            evict: cache_evict,
+            current_tiers,
+        }, {
             auth_token: auth_server.make_auth_token({
                 system_id: system_store.data.systems[0]._id,
                 role: 'admin'

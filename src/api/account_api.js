@@ -408,10 +408,7 @@ module.exports = {
                     },
                     identity: { $ref: 'common_api#/definitions/access_key' },
                     secret: { $ref: 'common_api#/definitions/secret_key' },
-                    azure_tenant_id: { $ref: 'common_api#/definitions/azure_tenant_id' },
-                    azure_client_id: { $ref: 'common_api#/definitions/azure_client_id' },
-                    azure_client_secret: { $ref: 'common_api#/definitions/azure_client_secret' },
-                    azure_logs_analytics_workspace_id: { $ref: 'common_api#/definitions/azure_logs_analytics_workspace_id' },
+                    azure_log_access_keys: { $ref: 'common_api#/definitions/azure_log_access_keys' },
                     aws_sts_arn: {
                         type: 'string'
                     },
@@ -447,10 +444,7 @@ module.exports = {
                     },
                     identity: { $ref: 'common_api#/definitions/access_key' },
                     secret: { $ref: 'common_api#/definitions/secret_key' },
-                    azure_tenant_id: { $ref: 'common_api#/definitions/azure_tenant_id' },
-                    azure_client_id: { $ref: 'common_api#/definitions/azure_client_id' },
-                    azure_client_secret: { $ref: 'common_api#/definitions/azure_client_secret' },
-                    azure_logs_analytics_workspace_id: { $ref: 'common_api#/definitions/azure_logs_analytics_workspace_id' },
+                    azure_log_access_keys: { $ref: 'common_api#/definitions/azure_log_access_keys' },
                 }
             },
             auth: {
@@ -472,10 +466,7 @@ module.exports = {
                     },
                     identity: { $ref: 'common_api#/definitions/access_key' },
                     secret: { $ref: 'common_api#/definitions/secret_key' },
-                    azure_tenant_id: { $ref: 'common_api#/definitions/azure_tenant_id' },
-                    azure_client_id: { $ref: 'common_api#/definitions/azure_client_id' },
-                    azure_client_secret: { $ref: 'common_api#/definitions/azure_client_secret' },
-                    azure_logs_analytics_workspace_id: { $ref: 'common_api#/definitions/azure_logs_analytics_workspace_id' },
+                    azure_log_access_keys: { $ref: 'common_api#/definitions/azure_log_access_keys' },
                     aws_sts_arn: {
                         type: 'string'
                     },

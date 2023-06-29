@@ -452,6 +452,28 @@ mocha.describe('bucket operations - namespace_fs', function() {
         const res = await s3_correct_uid_default_nsr.deleteObject({ Bucket: bucket_name + '-s3', Key: 'ob1.txt' }).promise();
         console.log(inspect(res));
     });
+    mocha.it('delete non existing object without failing', async function() {
+        const key_to_delete = 'non-existing-obj';
+        const res = await s3_correct_uid_default_nsr.deleteObject({ Bucket: bucket_name + '-s3', Key: key_to_delete}).promise();
+        assert.deepEqual(res, {});
+    });
+
+    mocha.it('delete multiple non existing objects without failing', async function() {
+        const keys_to_delete = [
+            { Key: 'non-existing-obj1' },
+            { Key: 'non-existing-obj2' },
+            { Key: 'non-existing-obj3' }
+        ];
+        const res = await s3_correct_uid_default_nsr.deleteObjects({ Bucket: bucket_name + '-s3',
+            Delete: {
+                Objects: keys_to_delete
+            }
+        }).promise();
+        assert.deepEqual(res.Deleted, keys_to_delete);
+        assert.equal(res.Errors.length, 0);
+
+    });
+
     mocha.it('delete bucket without uid, gid - bucket is empty', async function() {
         try {
             const res = await s3_owner.deleteBucket({ Bucket: bucket_name + '-s3' }).promise();

@@ -51,7 +51,7 @@ const azure_mock_key = 'Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErC
 const azure_mock_endpoint = `http://${blob_mock_host}:10000/${azure_mock_account}`;
 const azure_mock_connection_string = `DefaultEndpointsProtocol=http;AccountName=${azure_mock_account};AccountKey=${azure_mock_key};BlobEndpoint=${azure_mock_endpoint};`;
 
-/*eslint max-lines-per-function: ["error", 780]*/
+/*eslint max-lines-per-function: ["error", 800]*/
 mocha.describe('s3_ops', function() {
 
     let s3;
@@ -730,6 +730,53 @@ mocha.describe('s3_ops', function() {
             const res = await s3.listObjects({ Bucket: bucket_name }).promise();
             assert.strictEqual(res.Contents.length, 0);
         });
+
+        mocha.it('Should create DeleteObjects as the number of the keys (different keys)', async function() {
+            this.timeout(100000);
+            await s3.putObject({
+                Bucket: bucket_name,
+                Key: text_file1,
+                Body: file_body2,
+                ContentType: 'text/plain'
+            }).promise();
+            await s3.putObject({
+                Bucket: bucket_name,
+                Key: text_file2,
+                Body: file_body2,
+                ContentType: 'text/plain'
+            }).promise();
+            await s3.putObject({
+                Bucket: bucket_name,
+                Key: text_file3,
+                Body: file_body2,
+                ContentType: 'text/plain'
+            }).promise();
+            const delete_res = await s3.deleteObjects({
+                Bucket: bucket_name,
+                Delete: {
+                    Objects: [{ Key: text_file1 }, { Key: text_file2 }, { Key: text_file3 }] // different keys
+                }
+            }).promise();
+            assert.equal(delete_res.Deleted.length, 3);
+        });
+
+        mocha.it('Should create one DeleteObjects (same key)', async function() {
+            this.timeout(100000);
+            await s3.putObject({
+                Bucket: bucket_name,
+                Key: text_file1,
+                Body: file_body2,
+                ContentType: 'text/plain'
+            }).promise();
+            const delete_res = await s3.deleteObjects({
+                Bucket: bucket_name,
+                Delete: {
+                    Objects: [{ Key: text_file1 }, { Key: text_file1 }, { Key: text_file1 }] // same key
+                }
+            }).promise();
+            assert.equal(delete_res.Deleted.length, 1);
+        });
+
         mocha.after(async function() {
             this.timeout(100000);
             if (bucket_type === "regular") {

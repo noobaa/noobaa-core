@@ -1226,8 +1226,7 @@ class NamespaceFS {
             dbg.log0('NamespaceFS: delete_object', file_path);
             let res;
             if (this._is_versioning_disabled()) {
-                await nb_native().fs.unlink(fs_context, file_path);
-                await this._delete_path_dirs(file_path, fs_context);
+                await this._delete_single_object(fs_context, file_path, params);
             } else if (this._is_versioning_enabled()) {
                 res = params.version_id ?
                     await this._delete_version_id(fs_context, file_path, params) :
@@ -1256,8 +1255,7 @@ class NamespaceFS {
                         const file_path = this._get_file_path({ key });
                         await this._check_path_in_bucket_boundaries(fs_context, file_path);
                         dbg.log0('NamespaceFS: delete_multiple_objects', file_path);
-                        await nb_native().fs.unlink(fs_context, file_path);
-                        await this._delete_path_dirs(file_path, fs_context);
+                        await this._delete_single_object(fs_context, file_path, { key });
                         res.push({ key });
                     } catch (err) {
                         res.push({ err_code: err.code, err_message: err.message });
@@ -1285,6 +1283,15 @@ class NamespaceFS {
         } catch (err) {
             throw this._translate_object_error_codes(err);
         }
+    }
+
+    async _delete_single_object(fs_context, file_path, params) {
+        try {
+            await nb_native().fs.unlink(fs_context, file_path);
+        } catch (err) {
+            if (err.code !== 'ENOENT') throw err;
+        }
+        await this._delete_path_dirs(file_path, fs_context);
     }
 
     ///////////////////////

@@ -120,6 +120,8 @@ DBG_INIT(0);
 
 typedef std::map<std::string, std::string> XattrMap;
 
+static const char* gpfs_dl_path = std::getenv("GPFS_DL_PATH");
+
 static int (*dlsym_gpfs_fcntl)(gpfs_file_t file, void* arg) = 0;
 
 static int (*dlsym_gpfs_linkat)(
@@ -454,6 +456,10 @@ struct FSWorker : public Napi::AsyncWorker
         set_fs_worker_stats(env, fs_worker_stats, _work_name, _took_time, error);
         if (!_report_fs_stats.IsEmpty()) _report_fs_stats.Call({ fs_worker_stats });
     }
+    bool use_gpfs_lib()
+    {
+        return gpfs_dl_path != NULL && _backend == GPFS_BACKEND;
+    }
     virtual void OnOK() override
     {
         DBG1("FS::FSWorker::OnOK: undefined " << _desc);
@@ -547,7 +553,7 @@ struct Stat : public FSWorker
         // fail with the error EBADF. https://man7.org/linux/man-pages/man2/open.2.html
         if (!_use_lstat) {
             SYSCALL_OR_RETURN(get_fd_xattr(fd, _xattr, _skip_user_xattr));
-            if (_backend == GPFS_BACKEND) {
+            if (use_gpfs_lib()) {
                 GPFS_FCNTL_OR_RETURN(get_fd_gpfs_xattr(fd, _xattr, gpfs_error));
             }
         }
@@ -1346,7 +1352,7 @@ struct FileStat : public FSWrapWorker<FileWrap>
         CHECK_WRAP_FD(fd);
         SYSCALL_OR_RETURN(fstat(fd, &_stat_res));
         SYSCALL_OR_RETURN(get_fd_xattr(fd, _xattr, _skip_user_xattr));
-        if (_backend == GPFS_BACKEND) {
+        if (use_gpfs_lib()) {
             GPFS_FCNTL_OR_RETURN(get_fd_gpfs_xattr(fd, _xattr, gpfs_error));
         }
         CHECK_CTIME_CHANGE(fd, _stat_res, _wrap->_path);
@@ -1676,7 +1682,6 @@ void
 fs_napi(Napi::Env env, Napi::Object exports)
 {
     auto exports_fs = Napi::Object::New(env);
-    const char* gpfs_dl_path = std::getenv("GPFS_DL_PATH");
     if (gpfs_dl_path != NULL) {
         uv_lib_t* lib = (uv_lib_t*)malloc(sizeof(uv_lib_t));
         LOG("FS::GPFS GPFS_DL_PATH=" << gpfs_dl_path);

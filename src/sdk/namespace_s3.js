@@ -291,6 +291,7 @@ class NamespaceS3 {
                 Key: params.key,
                 CopySource: copy_source,
                 ContentType: params.content_type,
+                StorageClass: params.storage_class,
                 Metadata: params.xattr,
                 MetadataDirective: params.xattr_copy ? 'COPY' : 'REPLACE',
                 Tagging,
@@ -373,6 +374,7 @@ class NamespaceS3 {
             Bucket: this.bucket,
             Key: params.key,
             ContentType: params.content_type,
+            StorageClass: params.storage_class,
             Metadata: params.xattr,
             Tagging
         };
@@ -752,6 +754,7 @@ class NamespaceS3 {
             is_latest: res.IsLatest,
             delete_marker: res.DeleteMarker,
             content_type: res.ContentType,
+            storage_class: s3_utils.parse_storage_class(res.StorageClass),
             xattr,
             tag_count: res.TagCount,
             first_range_data: Buffer.isBuffer(res.Body) ? res.Body : undefined,

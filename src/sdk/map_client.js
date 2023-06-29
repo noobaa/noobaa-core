@@ -11,8 +11,11 @@ const _ = require('lodash');
 const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
 const config = require('../../config');
-const nb_native = require('../util/nb_native');
+const MDStore = require('../server/object_services/md_store').MDStore;
 const LRUCache = require('../util/lru_cache');
+const s3_utils = require('../endpoint/s3/s3_utils');
+const db_client = require('../util/db_client');
+const nb_native = require('../util/nb_native');
 const Semaphore = require('../util/semaphore');
 const KeysSemaphore = require('../util/keys_semaphore');
 const block_store_client = require('../agent/block_store_services/block_store_client').instance();
@@ -113,6 +116,7 @@ class MapClient {
     }
 
     async run() {
+        await system_store.refresh();
         const chunks = await this.get_mapping();
         this.chunks = chunks;
         await this.process_mapping();
@@ -395,7 +399,7 @@ class MapClient {
             if (this.object_md.encryption && this.object_md.encryption.key_b64) {
                 chunk_info.cipher_key_b64 = this.object_md.encryption.key_b64;
             }
-            return new ChunkAPI(chunk_info);
+            return new ChunkAPI(chunk_info, system_store);
         });
     }
     /**
@@ -565,31 +569,75 @@ class MapClient {
     async move_blocks_to_storage_class() {
         // Block movement is not done if move_to_tier was not requested or if insufficient
         // previous tier information is provided.
+        dbg.log1('MapClient.move_blocks_to_storage_class',
+            'chunks.length', this.chunks.length,
+            'move_to_tier', this.move_to_tier?.name, this.move_to_tier?.storage_class,
+            'current_tiers.length', this.current_tiers?.length,
+        );
         if (!this.move_to_tier || !this.current_tiers || this.current_tiers?.length === 0) return;
-        if (this.current_tiers.length !== this.chunks.length) throw new Error('current_tiers length does not match chunks length');
+        if (this.current_tiers.length !== this.chunks.length) {
+            throw new Error('current_tiers length does not match chunks length');
+        }
 
         const blocks = [];
-        const target_storage_class = this.move_to_tier.storage_class;
+        const parts = [];
+
+        const target_storage_class = s3_utils.parse_storage_class(this.move_to_tier.storage_class);
         const target_attached_pools = this.move_to_tier.mirrors.map(mirror => mirror.spread_pools.map(pool => String(pool._id))).flat();
 
         for (const [idx, chunk] of this.chunks.entries()) {
-            const tier_before_move = this.current_tiers[idx];
-            const current_attached_pools = tier_before_move.mirrors.map(mirror => mirror.spread_pools.map(pool => String(pool._id))).flat();
+            const current_tier = this.current_tiers[idx];
+            const current_storage_class = s3_utils.parse_storage_class(current_tier.storage_class);
+            const is_same_class = current_storage_class === target_storage_class;
 
-            if (
-                _.xor(target_attached_pools, current_attached_pools).length ||
-                tier_before_move.storage_class === target_storage_class
-            ) continue;
+            // skip if the same class and no change is needed
+            if (is_same_class) continue;
 
-            for (const frag of chunk.frags) {
-                for (const block of frag.blocks) {
-                    blocks.push(block);
+            // we need to update the object(s) class anyhow, so collect the parts
+            for (const part of chunk.parts) {
+                parts.push(part);
+            }
+
+            const current_attached_pools = current_tier.mirrors.map(mirror => mirror.spread_pools.map(pool => String(pool._id))).flat();
+            const is_same_pools = _.xor(target_attached_pools, current_attached_pools).length === 0;
+
+            // only update the blocks storage class if the new tier uses the same pools,
+            // because when moving to different pools the blocks will eventually be replaced anyway.
+            if (is_same_pools) {
+                for (const frag of chunk.frags) {
+                    for (const block of frag.blocks) {
+                        blocks.push(block);
+                    }
                 }
             }
         }
 
-        if (blocks.length === 0) return;
+        await Promise.all([
+            this._move_blocks_to_storage_class(blocks, target_storage_class),
+            this._set_objects_storage_class(parts, target_storage_class),
+        ]);
+    }
 
+    /**
+     * @param {nb.Part[]} parts 
+     * @param {nb.StorageClass} storage_class 
+     */
+    async _set_objects_storage_class(parts, storage_class) {
+        const object_ids = db_client.instance().uniq_ids(parts, 'obj_id');
+        if (storage_class && storage_class !== s3_utils.STORAGE_CLASS_STANDARD) {
+            await MDStore.instance().update_objects_by_ids(object_ids, { storage_class });
+        } else {
+            // unset the storage_class field
+            await MDStore.instance().update_objects_by_ids(object_ids, undefined, { storage_class: 1 });
+        }
+    }
+
+    /**
+     * @param {nb.Block[]} blocks 
+     * @param {nb.StorageClass} storage_class 
+     */
+    async _move_blocks_to_storage_class(blocks, storage_class) {
+        if (!blocks.length) return;
         const blocks_by_agent = _.groupBy(blocks, 'address');
         await P.map(_.keys(blocks_by_agent), async agent_address => {
             const blocks_for_agent = blocks_by_agent[agent_address];
@@ -598,7 +646,7 @@ class MapClient {
             try {
                 const moved = await this.rpc_client.block_store.move_blocks_to_storage_class({
                     block_ids,
-                    storage_class: target_storage_class
+                    storage_class
                 }, {
                     address: agent_address
                 });

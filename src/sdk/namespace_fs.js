@@ -1808,6 +1808,8 @@ class NamespaceFS {
             size: stat.size,
             create_time: stat.mtime.getTime(),
             content_type: mime.getType(key) || 'application/octet-stream',
+            // storage_class: stat.xattr[...TODO...]
+
             // temp:
             version_id: version_id,
             is_latest: is_latest,

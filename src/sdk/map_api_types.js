@@ -55,6 +55,7 @@ class ChunkAPI {
     get cipher_iv_b64() { return this.chunk_info.cipher_iv_b64; }
     get cipher_auth_tag_b64() { return this.chunk_info.cipher_auth_tag_b64; }
     get chunk_coder_config() { return this.chunk_info.chunk_coder_config; }
+    get storage_class() { return this.tier.storage_class; }
 
     get data() { return this.chunk_info.data; }
     set data(buf) { this.chunk_info.data = buf; }
@@ -145,6 +146,7 @@ class ChunkAPI {
             cipher_iv_b64: this.chunk_info.cipher_iv_b64,
             cipher_auth_tag_b64: this.chunk_info.cipher_auth_tag_b64,
             dup_chunk: this.chunk_info.dup_chunk,
+            storage_class: this.storage_class,
             is_accessible: this.chunk_info.is_accessible,
             is_building_blocks: this.chunk_info.is_building_blocks,
             is_building_frags: this.chunk_info.is_building_frags,

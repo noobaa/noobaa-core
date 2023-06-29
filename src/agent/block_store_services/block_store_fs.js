@@ -15,7 +15,11 @@ const string_utils = require('../../util/string_utils');
 const BlockStoreBase = require('./block_store_base').BlockStoreBase;
 const get_block_internal_dir = require('./block_store_base').get_block_internal_dir;
 const { RpcError } = require('../../rpc');
-const { STORAGE_CLASS_GLACIER, STORAGE_CLASS_STANDARD } = require('../../endpoint/s3/s3_utils');
+const {
+    STORAGE_CLASS_STANDARD,
+    STORAGE_CLASS_GLACIER,
+    STORAGE_CLASS_GLACIER_IR,
+} = require('../../endpoint/s3/s3_utils');
 
 const TMFS_STATE_MIGRATED = 'MIGRATED';
 const TMFS_STATE_PREMIGRATED = 'PREMIGRATED';
@@ -272,7 +276,8 @@ class BlockStoreFs extends BlockStoreBase {
      * @returns {Promise<{ moved_block_ids: string[] }>}
      */
     async _move_blocks_to_storage_class(block_ids, storage_class) {
-        if (storage_class === STORAGE_CLASS_GLACIER) {
+        if (storage_class === STORAGE_CLASS_GLACIER ||
+            storage_class === STORAGE_CLASS_GLACIER_IR) {
             if (config.BLOCK_STORE_FS_TMFS_ENABLED) {
                 return this._move_blocks_to_tmfs(block_ids);
             }

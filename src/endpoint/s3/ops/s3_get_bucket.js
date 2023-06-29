@@ -72,7 +72,7 @@ async function get_bucket(req) {
                 ETag: `"${obj.etag}"`,
                 Size: obj.size,
                 Owner: (!list_type || req.query['fetch-owner']) && s3_utils.DEFAULT_S3_USER,
-                StorageClass: s3_utils.STORAGE_CLASS_STANDARD,
+                StorageClass: s3_utils.parse_storage_class(obj.storage_class),
             }
         })),
         _.map(reply.common_prefixes, prefix => ({

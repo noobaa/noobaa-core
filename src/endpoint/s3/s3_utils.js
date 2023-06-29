@@ -13,8 +13,12 @@ const config = require('../../.././config');
 const ChunkedContentDecoder = require('../../util/chunked_content_decoder');
 const stream_utils = require('../../util/stream_utils');
 
+/** @type {nb.StorageClass} */
 const STORAGE_CLASS_STANDARD = 'STANDARD';
-const STORAGE_CLASS_GLACIER = 'GLACIER';
+/** @type {nb.StorageClass} */
+const STORAGE_CLASS_GLACIER = 'GLACIER'; // "S3 Glacier Flexible Retrieval"
+/** @type {nb.StorageClass} */
+const STORAGE_CLASS_GLACIER_IR = 'GLACIER_IR'; // "S3 Glacier Instant Retrieval"
 
 const DEFAULT_S3_USER = Object.freeze({
     ID: '123',
@@ -307,6 +311,10 @@ function format_copy_source(copy_source) {
     };
 }
 
+/**
+ * @param {nb.S3Response} res 
+ * @param {nb.ObjectInfo} object_md 
+ */
 function set_response_object_md(res, object_md) {
     res.setHeader('ETag', '"' + object_md.etag + '"');
 
@@ -333,7 +341,31 @@ function set_response_object_md(res, object_md) {
     if (object_md.tag_count) res.setHeader('x-amz-tagging-count', object_md.tag_count);
     if (object_md.num_multiparts) res.setHeader('x-amz-mp-parts-count', object_md.num_multiparts);
     if (object_md.content_range) res.setHeader('Content-Range', object_md.content_range);
-    return object_md;
+    const storage_class = parse_storage_class(object_md.storage_class);
+    if (storage_class !== STORAGE_CLASS_STANDARD) {
+        res.setHeader('x-amz-storage-class', storage_class);
+    }
+}
+
+/**
+ * @param {nb.S3Request} req
+ * @returns {nb.StorageClass}
+ */
+function parse_storage_class_header(req) {
+    const header = /** @type {string} */ (req.headers['x-amz-storage-class']);
+    return parse_storage_class(header);
+}
+
+/**
+ * @param {string} storage_class
+ * @returns {nb.StorageClass}
+ */
+function parse_storage_class(storage_class) {
+    if (!storage_class) return STORAGE_CLASS_STANDARD;
+    if (storage_class === STORAGE_CLASS_STANDARD) return STORAGE_CLASS_STANDARD;
+    if (storage_class === STORAGE_CLASS_GLACIER) return STORAGE_CLASS_GLACIER;
+    if (storage_class === STORAGE_CLASS_GLACIER_IR) return STORAGE_CLASS_GLACIER_IR;
+    throw new Error(`No such s3 storage class ${storage_class}`);
 }
 
 // Source: https://docs.aws.amazon.com/AmazonS3/latest/dev/object-tagging.html
@@ -679,6 +711,7 @@ function response_field_encoder_url(value) {
 
 exports.STORAGE_CLASS_STANDARD = STORAGE_CLASS_STANDARD;
 exports.STORAGE_CLASS_GLACIER = STORAGE_CLASS_GLACIER;
+exports.STORAGE_CLASS_GLACIER_IR = STORAGE_CLASS_GLACIER_IR;
 exports.DEFAULT_S3_USER = DEFAULT_S3_USER;
 exports.DEFAULT_OBJECT_ACL = DEFAULT_OBJECT_ACL;
 exports.OP_NAME_TO_ACTION = OP_NAME_TO_ACTION;
@@ -691,6 +724,8 @@ exports.parse_part_number = parse_part_number;
 exports.parse_copy_source = parse_copy_source;
 exports.format_copy_source = format_copy_source;
 exports.set_response_object_md = set_response_object_md;
+exports.parse_storage_class = parse_storage_class;
+exports.parse_storage_class_header = parse_storage_class_header;
 exports.parse_encryption = parse_encryption;
 exports.parse_body_tagging_xml = parse_body_tagging_xml;
 exports.parse_tagging_header = parse_tagging_header;

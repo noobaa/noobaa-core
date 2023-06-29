@@ -20,6 +20,7 @@ async function put_object(req, res) {
     const encryption = s3_utils.parse_encryption(req);
     const copy_source = s3_utils.parse_copy_source(req);
     const tagging = s3_utils.parse_tagging_header(req);
+    const storage_class = s3_utils.parse_storage_class_header(req);
     const lock_settings = config.WORM_ENABLED ? s3_utils.parse_lock_header(req) : undefined;
     // Copy request sends empty content and not relevant to the object data
     const { size, md5_b64, sha256_b64 } = copy_source ? {} : {
@@ -50,6 +51,7 @@ async function put_object(req, res) {
         tagging_copy: s3_utils.is_copy_tagging_directive(req),
         encryption,
         lock_settings,
+        storage_class,
         azure_invalid_md_header: req.headers['azure-metadata-handling'] || undefined
     });
 

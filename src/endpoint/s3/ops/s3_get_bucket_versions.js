@@ -63,7 +63,7 @@ async function get_bucket_versions(req) {
                 ETag: `"${obj.etag}"`,
                 Size: obj.size,
                 Owner: s3_utils.DEFAULT_S3_USER,
-                StorageClass: s3_utils.STORAGE_CLASS_STANDARD,
+                StorageClass: s3_utils.parse_storage_class(obj.storage_class),
             }
         }))),
         _.map(reply.common_prefixes, prefix => ({

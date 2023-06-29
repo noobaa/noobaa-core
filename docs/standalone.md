@@ -119,6 +119,16 @@ CREATE_SYS_PASSWD=123456789
 JWT_SECRET=123456789
 NOOBAA_ROOT_SECRET='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA='
 LOCAL_MD_SERVER=true
+
+ENDPOINT_FORKS=4
+UV_THREADPOOL_SIZE=64
+
+# replace localhost with the hostname where postgres,web,bg,ha are running
+POSTGRES_HOST=localhost
+MGMT_ADDR=wss://localhost:5443
+BG_ADDR=wss://localhost:5445
+HOSTED_AGENTS_ADDR=wss://localhost:5446
+
 EOF
 ```
 
@@ -131,10 +141,11 @@ cat >config-local.js <<EOF
 const config = exports;
 
 config.DEFAULT_POOL_TYPE = 'HOSTS';
-
 config.AGENT_RPC_PORT = '9999';
 config.AGENT_RPC_PROTOCOL = 'tcp';
 
+// Enable auto tier2 for TMFS buckets
+config.BUCKET_AUTOCONF_TIER2_ENABLED = true;
 config.BLOCK_STORE_FS_TMFS_ENABLED = true;
 config.BLOCK_STORE_FS_MAPPING_INFO_ENABLED = true;
 
@@ -143,7 +154,7 @@ config.IO_CALC_MD5_ENABLED = false;
 config.IO_CALC_SHA256_ENABLED = false;
 
 config.MAX_OBJECT_PART_SIZE = 1024 * 1024 * 1024;
-config.IO_CHUNK_READ_CACHE_SIZE = 4 * 1024 * 1024 * 1024;
+config.IO_CHUNK_READ_CACHE_SIZE = 1024 * 1024 * 1024;
 config.IO_READ_BLOCK_TIMEOUT = 5 * 60 * 1000;
 
 config.CHUNK_SPLIT_AVG_CHUNK = 256 * 1024 * 1024;
@@ -167,9 +178,6 @@ config.REBUILD_NODE_ENABLED = false;
 config.AWS_METERING_ENABLED = false;
 config.AGENT_BLOCKS_VERIFIER_ENABLED = false;
 config.TIERING_TTL_WORKER_ENABLED = true;
-
-// Enable auto tier2 for TMFS buckets
-config.BUCKET_AUTOCONF_TIER2_ENABLED = true;
 EOF
 ```
 
@@ -194,22 +202,6 @@ Running a local endpoint alongside the database and other services is simple:
 
 ```sh
 npm run s3
-```
-
-In order to enable multiple forks of the endpoint serving on the same port use:
-
-```sh
-ENDPOINT_FORKS=4 npm run s3
-```
-
-For remote hosts, need to specify the addresses:
-
-```sh
-POSTGRES_HOST=ip \
-  MGMT_ADDR=wss://ip:5443 \
-  BG_ADDR=wss://ip:5445 \
-  HOSTED_AGENTS_ADDR=wss://ip:5446 \
-  npm run s3
 ```
 
 ---

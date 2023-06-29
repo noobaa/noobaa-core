@@ -147,7 +147,7 @@ class ObjectSDK {
     }
 
     async read_bucket_sdk_policy_info(name) {
-        const { bucket } = await bucket_namespace_cache.get_with_cache({ sdk: this, name }, 'cache_miss');
+        const { bucket } = await bucket_namespace_cache.get_with_cache({ sdk: this, name });
         const policy_info = {
             s3_policy: bucket.s3_policy,
             system_owner: bucket.system_owner,
@@ -167,27 +167,34 @@ class ObjectSDK {
         return this._setup_bucket_namespace(bucket);
     }
 
+    async load_requesting_account(req) {
+        try {
+            const token = this.get_auth_token();
+            if (!token) return;
+            this.requesting_account = await account_cache.get_with_cache({
+                rpc_client: this.internal_rpc_client,
+                access_key: token.access_key,
+            });
+        } catch (error) {
+            dbg.error('authorize_request_account error:', error);
+            if (error.rpc_code && error.rpc_code === 'NO_SUCH_ACCOUNT') {
+                throw new RpcError('INVALID_ACCESS_KEY_ID', `Account with access_key not found`);
+            } else {
+                throw error;
+            }
+        }
+    }
+
     async authorize_request_account(req) {
         const { bucket } = req.params;
         const token = this.get_auth_token();
         // If the request is signed (authenticated)
         if (token) {
-            try {
-                this.requesting_account = await account_cache.get_with_cache({
-                    rpc_client: this.internal_rpc_client,
-                    access_key: token.access_key
-                });
-            } catch (error) {
-                dbg.error('authorize_request_account error:', error);
-                if (error.rpc_code && error.rpc_code === 'NO_SUCH_ACCOUNT') {
-                    throw new RpcError('INVALID_ACCESS_KEY_ID', `Account with access_key not found`);
-                } else {
-                    throw error;
-                }
+            const signature_secret = token.temp_secret_key || this.requesting_account?.access_keys?.[0]?.secret_key?.unwrap();
+            if (signature_secret) {
+                const signature = signature_utils.get_signature_from_auth_token(token, signature_secret);
+                if (token.signature !== signature) throw new RpcError('SIGNATURE_DOES_NOT_MATCH', `Signature that was calculated did not match`);
             }
-            const signature_secret = token.temp_secret_key || this.requesting_account.access_keys[0].secret_key.unwrap();
-            const signature = signature_utils.get_signature_from_auth_token(token, signature_secret);
-            if (token.signature !== signature) throw new RpcError('SIGNATURE_DOES_NOT_MATCH', `Signature that was calculated did not match`);
         }
         // check for a specific bucket
         if (bucket && req.op_name !== 'put_bucket') {

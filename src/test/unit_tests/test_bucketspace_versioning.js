@@ -2097,6 +2097,88 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             await s3_uid6.putBucketVersioning({ Bucket: delete_multi_object_test_bucket, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
         });
     });
+
+    mocha.describe('list object version - check null version', function() {
+        const list_object_versions_test_bucket = 'list-object-versions-test-bucket';
+        // const full_path_list_object_versions_test_bucket = tmp_fs_root + '/' + list_object_versions_test_bucket;
+        let account_with_access;
+        const key_to_list1 = 'car.txt';
+        const key_to_list2 = 'bike.txt';
+        const key_to_list3 = 'ship.txt';
+
+        mocha.before(async function() {
+            const res = await generate_nsfs_account({ default_resource: nsr });
+            account_with_access = generate_s3_client(res.access_key, res.secret_key);
+            await account_with_access.createBucket({ Bucket: list_object_versions_test_bucket }).promise();
+            await put_allow_all_bucket_policy(s3_admin, list_object_versions_test_bucket);
+        });
+
+        mocha.it('list object versions - only null versions - versioning disabled', async function() {
+            await account_with_access.putObject({ Bucket: list_object_versions_test_bucket,
+                Key: key_to_list1, Body: body1 }).promise();
+            await account_with_access.putObject({ Bucket: list_object_versions_test_bucket,
+                Key: key_to_list2, Body: body1 }).promise();
+            const list_object_versions_res = await account_with_access.listObjectVersions({
+                Bucket: list_object_versions_test_bucket}).promise();
+            //bike.txt before car.txt (a-z sort)
+            assert.equal(list_object_versions_res.Versions[0].Key, key_to_list2);
+            assert.equal(list_object_versions_res.Versions[0].VersionId, NULL_VERSION_ID);
+            assert.equal(list_object_versions_res.Versions[1].Key, key_to_list1);
+            assert.equal(list_object_versions_res.Versions[1].VersionId, NULL_VERSION_ID);
+        });
+
+        mocha.it('list object versions - no null version id - with versioning enabled', async function() {
+            const versions_type_arr = [];
+            for (let i = 0; i < 3; i++) {
+                 versions_type_arr.push('regular');
+            }
+            const put_res = await upload_object_versions(account_with_access, list_object_versions_test_bucket,
+                key_to_list3, versions_type_arr);
+            const list_object_versions_res = await account_with_access.listObjectVersions(
+                {Bucket: list_object_versions_test_bucket, Prefix: key_to_list3}).promise();
+            // the order is from latest to oldest
+            assert.equal(list_object_versions_res.Versions[0].Key, key_to_list3);
+            assert.equal(list_object_versions_res.Versions[0].VersionId, put_res[2].VersionId);
+            assert.equal(list_object_versions_res.Versions[1].Key, key_to_list3);
+            assert.equal(list_object_versions_res.Versions[1].VersionId, put_res[1].VersionId);
+            assert.equal(list_object_versions_res.Versions[2].Key, key_to_list3);
+            assert.equal(list_object_versions_res.Versions[2].VersionId, put_res[0].VersionId);
+        });
+
+        mocha.it('list object versions - latest version is null version id', async function() {
+            await account_with_access.putBucketVersioning({ Bucket: list_object_versions_test_bucket,
+                VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
+            await account_with_access.putObject({ Bucket: list_object_versions_test_bucket,
+                Key: key_to_list3, Body: body1 }).promise();
+            const list_object_versions_res = await account_with_access.listObjectVersions(
+                {Bucket: list_object_versions_test_bucket, Prefix: key_to_list3}).promise();
+            // latest version is null (the order is from latest to oldest), hence null is first
+            assert.equal(list_object_versions_res.Versions[0].Key, key_to_list3);
+            assert.equal(list_object_versions_res.Versions[0].VersionId, NULL_VERSION_ID);
+        });
+
+        mocha.it('list object versions -  oldest version is null version id', async function() {
+            await account_with_access.putBucketVersioning({ Bucket: list_object_versions_test_bucket,
+                VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
+            const versions_type_arr = [];
+            for (let i = 0; i < 3; i++) {
+                 versions_type_arr.push('regular');
+            }
+            await upload_object_versions(account_with_access, list_object_versions_test_bucket,
+                key_to_list2, versions_type_arr);
+
+
+            const list_object_versions_res = await account_with_access.listObjectVersions(
+                {Bucket: list_object_versions_test_bucket, Prefix: key_to_list2}).promise();
+            for (let i = 0; i < 3; i++) {
+                assert.equal(list_object_versions_res.Versions[i].Key, key_to_list2);
+                assert.notEqual(list_object_versions_res.Versions[i].VersionId, NULL_VERSION_ID);
+            }
+            // oldest version is null (the order is from latest to oldest), hence null is last
+            assert.equal(list_object_versions_res.Versions[3].Key, key_to_list2);
+            assert.equal(list_object_versions_res.Versions[3].VersionId, NULL_VERSION_ID);
+        });
+    });
 });
 
 mocha.describe('bucketspace namespace_fs - versioning', function() {

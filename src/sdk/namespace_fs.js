@@ -45,6 +45,7 @@ const XATTR_DELETE_MARKER = XATTR_USER_PREFIX + 'delete_marker';
 const XATTR_DIR_CONTENT = XATTR_USER_PREFIX + 'dir_content';
 const HIDDEN_VERSIONS_PATH = '.versions';
 const NULL_VERSION_ID = 'null';
+const NULL_VERSION_SUFFIX = '_' + NULL_VERSION_ID;
 
 const INTERNAL_XATTR = [
     XATTR_CONTENT_TYPE,
@@ -88,6 +89,23 @@ function sort_entries_by_name(a, b) {
     return 0;
 }
 
+function _get_version_id_by_stat({ino, mtimeNsBigint}) {
+    // TODO: GPFS might require generation number to be added to version_id
+    return 'mtime-' + mtimeNsBigint.toString(36) + '-ino-' + ino.toString(36);
+}
+
+function _is_version_object_including_null_version(filename) {
+    const is_version_object = _is_version_object(filename);
+    if (!is_version_object) {
+        return _is_version_null_version(filename);
+    }
+    return is_version_object;
+}
+
+function _is_version_null_version(filename) {
+    return filename.endsWith(NULL_VERSION_SUFFIX);
+}
+
 function _is_version_object(filename) {
     const mtime_substr_index = filename.indexOf('_mtime-');
     if (mtime_substr_index < 0) return false;
@@ -110,6 +128,8 @@ function _get_mtime_from_filename(filename) {
 function _get_filename(file_name) {
     if (_is_version_object(file_name)) {
         return file_name.substring(0, file_name.indexOf('_mtime-'));
+    } else if (_is_version_null_version(file_name)) {
+        return file_name.substring(0, file_name.indexOf(NULL_VERSION_SUFFIX));
     }
     return file_name;
 }
@@ -134,6 +154,37 @@ function sort_entries_by_name_and_time(first_entry, second_entry) {
         if (first_entry_name > second_entry_name) return 1;
         return 0;
     }
+}
+
+// This is helper function for list object version
+// In order to sort the entries by name we would like to change the name of files with suffix of '_null'
+// to have the structure of _mtime-...-ino-... as version id.
+// This function returns a set that contains all file names that were changed (after change)
+// and an array old_versions_after_rename which is old_versions without the versions that stat failed on
+async function _rename_null_version(old_versions, fs_context, version_path) {
+    const renamed_null_versions_set = new Set();
+    const old_versions_after_rename = [];
+
+    for (const old_version of old_versions) {
+        if (_is_version_null_version(old_version.name)) {
+            try {
+                const stat = await nb_native().fs.stat(fs_context, path.join(version_path, old_version.name));
+                const mtime_ino = _get_version_id_by_stat(stat);
+                const original_name = _get_filename(old_version.name);
+                const version_with_mtime_ino = original_name + '_' + mtime_ino;
+                old_version.name = version_with_mtime_ino;
+                renamed_null_versions_set.add(version_with_mtime_ino);
+            } catch (err) {
+                // to cover an edge case where stat fails
+                // for example another process deleted an object and we get ENOENT
+                // just before executing this command but after the starting list object versions
+                dbg.error(`_rename_null_version of ${old_version.name} got error:`, err);
+                old_version.name = undefined;
+            }
+        }
+        if (old_version.name) old_versions_after_rename.push(old_version);
+    }
+    return { renamed_null_versions_set, old_versions_after_rename };
 }
 
 function isDirectory(ent) {
@@ -310,8 +361,25 @@ const versions_dir_cache = new LRUCache({
             const latest_versions = await nb_native().fs.readdir(fs_context, dir_path);
             if (is_version_path_exists) {
                 const old_versions = await nb_native().fs.readdir(fs_context, version_path);
-                const entries = latest_versions.concat(old_versions);
+                // In case we have a null version id inside .versions/ directory we will rename it
+                // Therefore, old_versions_after_rename will not include an entry with 'null' suffix
+                // (in case stat fails on a version we would remove it from the array)
+                const {
+                    renamed_null_versions_set,
+                    old_versions_after_rename
+                } = await _rename_null_version(old_versions, fs_context, version_path);
+                const entries = latest_versions.concat(old_versions_after_rename);
                 sorted_entries = entries.sort(sort_entries_by_name_and_time);
+                // rename back version to include 'null' suffix.
+                if (renamed_null_versions_set.size > 0) {
+                    for (const ent of sorted_entries) {
+                        if (renamed_null_versions_set.has(ent.name)) {
+                            const file_name = _get_filename(ent.name);
+                            const version_name_with_null = file_name + NULL_VERSION_SUFFIX;
+                            ent.name = version_name_with_null;
+                        }
+                    }
+                }
             } else {
                 sorted_entries = latest_versions.sort(sort_entries_by_name);
             }
@@ -594,7 +662,7 @@ class NamespaceFS {
                     const isDir = await is_directory_or_symlink_to_directory(ent, fs_context, path.join(dir_path, ent.name));
 
                     let r;
-                    if (list_versions && _is_version_object(ent.name)) {
+                    if (list_versions && _is_version_object_including_null_version(ent.name)) {
                         r = {
                             key: this._get_version_entry_key(dir_key, ent),
                             common_prefix: isDir,
@@ -1781,7 +1849,7 @@ class NamespaceFS {
         // IMPORTANT NOTICE - we must return an etag that contains a dash!
         // because this is the criteria of S3 SDK to decide if etag represents md5
         // and perform md5 validation of the data.
-        return this._get_version_id_by_stat(stat);
+        return _get_version_id_by_stat(stat);
     }
 
     _is_gpfs(fs_context) {
@@ -2085,13 +2153,8 @@ class NamespaceFS {
         return this.versioning === versioning_status_enum.VER_SUSPENDED;
     }
 
-    _get_version_id_by_stat({ino, mtimeNsBigint}) {
-        // TODO: GPFS might require generation number to be added to version_id
-        return 'mtime-' + mtimeNsBigint.toString(36) + '-ino-' + ino.toString(36);
-    }
-
     _get_version_id_by_mode(stat) {
-        if (this._is_versioning_enabled()) return this._get_version_id_by_stat(stat);
+        if (this._is_versioning_enabled()) return _get_version_id_by_stat(stat);
         if (this._is_versioning_suspended()) return NULL_VERSION_ID;
         throw new Error('_get_version_id_by_mode: Invalid versioning mode');
     }
@@ -2461,7 +2524,7 @@ class NamespaceFS {
                 const stat = await upload_params.target_file.stat(fs_context);
                 if (this._is_versioning_enabled()) {
                     // the delete marker path built from its version info (mtime + ino)
-                    delete_marker_version_id = this._get_version_id_by_stat(stat);
+                    delete_marker_version_id = _get_version_id_by_stat(stat);
                 } else {
                     // the delete marker file name would be with a 'null' suffix
                     delete_marker_version_id = NULL_VERSION_ID;

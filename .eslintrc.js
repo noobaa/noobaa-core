@@ -222,9 +222,6 @@ module.exports = {
         // and otherwise the expected behavior is to simply continue.
         'consistent-return': 'off',
 
-        // ending files with single EOL is overrated
-        'eol-last': 'off',
-
         // allowing anonymous functions, used a lot for promises
         'func-names': 'off',
 

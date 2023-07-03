@@ -6,11 +6,12 @@
      2) Run All Ceph S3 Tests
      3) Run a Single Ceph S3 Test
      4) Debug a Single Ceph S3 Test
-     5) Examples
-* This guide describes developer steps to run Ceph S3 on a noobaa system on minikube.
+     5) Compare to AWS Response (Inside Tester Pod)
+     6) Examples
+* This guide describes developer steps to run Ceph S3 on a Noobaa system on minikube.
 
 ## General Settings For Ceph S3 Tests
-We assume that it is not your first deployment of noobaa system, and you already succeeded with it (If not, please see the guide Deploy Noobaa On Minikube).
+We assume that it is not your first deployment of Noobaa system, and you already succeeded with it (If not, please see the guide Deploy Noobaa On Minikube).
 We will run the commands in the terminal, you may work with at least two tabs:
 1) For noobaa-core repository
 2) For noobaa-operator repository
@@ -46,14 +47,14 @@ docker tag noobaa:latest noobaa-core:s3-tests
 ### 4) Deploy Noobaa (Noobaa-Operator Tab)
 ```bash
 nb install --mini --noobaa-image='noobaa-core:s3-tests'
-# or use dev flag for higher resources
+# or use the dev flag for higher resources
 nb install --dev --noobaa-image='noobaa-core:s3-tests'
 
 ```
 _Note: We have the alias to `nb` from the step 'Build Operator'._
 
 The installation should take 5-10 minutes.
-Once noobaa is installed please notice that the phase is Ready, you will see it in the CLI logs:
+Once Noobaa is installed please notice that the phase is Ready, you will see it in the CLI logs:
 
 ✅ System Phase is "Ready".
 
@@ -65,7 +66,7 @@ noobaa-core-0                                      1/1     Running   0          
 noobaa-db-pg-0                                     1/1     Running   0          51m
 noobaa-default-backing-store-noobaa-pod-a586c55b   1/1     Running   0          47m
 noobaa-endpoint-6cf5cccfc6-rmdrd                   1/1     Running   0          47m
-noobaa-operator-5c959d5564-qzgqb                   1/1     Running   0          51m
+noobaa-operator-5c959d5564-qzgqb                   2/2     Running   0          51m
 ```
 
 ### 5) Wait For Default Backingstore to Be Ready (Noobaa-Operator Tab)
@@ -73,6 +74,8 @@ We will use the default backingstore pod to run the tests, we need it to be in p
 ```bash
 kubectl wait --for=condition=available backingstore/noobaa-default-backing-store --timeout=6m
 ```
+
+Note that the default backing store might not be up as soon as the noobaa installation completes. For this reason it is advised to run `kubectl get pods` to make sure the default backing store is up. In case its not, wait for it to be up. If you run kubectl wait on the backing store before its up, the command will fail. 
 
 ## Run All Ceph S3 Tests
 
@@ -88,7 +91,17 @@ kubectl apply -f src/test/system_tests/ceph_s3_tests/test_ceph_s3_job.yml
 kubectl logs job/noobaa-tests-s3 -f
 ```
 
+Running all the tests on a local machine takes about 20 minutes. With the current setting, all tests should pass, but there are cases where the endpoint restarts and causes a test to fail. You can also run a single test to be sure that it passes.
+
+#### Skipped tests
+
 We run all the tests except the tests that appear in the lists `src/test/system_tests/ceph_s3_tests/s3-tests-lists` if you would like to add or remove a test you can edit those files (and then repeat the steps starting from 'Build Core And Tester Images (Noobaa-Core)' above).
+
+Some tests are marked to be skipped in the code of ceph/s3-tests repository. Usually, because the environment doesn't support certain criteria. Those tests will appear with a `[WARN]` tag and will be marked as "Test Skipped", for example:
+`[WARN] CONSOLE:: Test skipped: s3tests_boto3/functional/test_s3.py::test_lifecycle_transition`
+
+In the test code the function:
+`pytest.skip("")` will mark them to be skipped.
 
 ## Run a Single Ceph S3 Test
 
@@ -96,13 +109,13 @@ We run all the tests except the tests that appear in the lists `src/test/system_
 Following the 'General Settings For Ceph S3 Tests' steps.
 
 ### 2) Increasing Debug Level (Noobaa-Operator)
-Before running a test, you can increase the debug level with noobaa CLI.
+Before running a test, you can increase the debug level with Noobaa CLI.
 ```bash
 nb system set-debug-level 1
 ```
 A good level to start with is 1, the higher you go the more verbose and noisy the logs will become (it is recommended using 3 level at the most for those tests).
 
-Tip: If there is an existing printing in higher level than 1 and you only want to see it (or you wish to add a certain printing) change the debug level of the printing in the code to 0 (repeat the steps starting from 'Build Core And Tester Images (Noobaa-Core)' above), for example:
+Tip: If there is an existing printing in a higher level than 1 and you only want to see it (or you wish to add a certain printing) change the debug level of the printing in the code to 0 (repeat the steps starting from 'Build Core And Tester Images (Noobaa-Core)' above), for example:
 
 ```diff
 -        dbg.log2('message');
@@ -137,70 +150,89 @@ Run the script that will create the necessary accounts in noobaa and update the 
 node ./src/test/system_tests/ceph_s3_tests/test_ceph_s3_config_setup.js
 ```
 
-Note: If you want to ignore PythonDeprecationWarnings use (which will then ignore all Python warnings, so keep that in mind):
+For example:
+
 ```bash
-export PYTHONWARNINGS="ignore"
+S3TEST_CONF=${PWD}/src/test/system_tests/ceph_s3_tests/test_ceph_s3_config.conf tox -c src/test/system_tests/ceph_s3_tests/s3-tests/tox.ini -- --disable-pytest-warnings ${PWD}/src/test/system_tests/ceph_s3_tests/s3-tests/s3tests/functional/test_headers.py::test_bucket_create_contentlength_none
 ```
 
 ### 5) Run a Test (Inside The Tester Pod)
 To run a test, from noobaa working directory:
 ```bash
-S3TEST_CONF=src/test/system_tests/ceph_s3_tests/test_ceph_s3_config.conf ./src/test/system_tests/ceph_s3_tests/s3-tests/virtualenv/bin/nosetests <test_name>
+S3TEST_CONF=${PWD}/src/test/system_tests/ceph_s3_tests/test_ceph_s3_config.conf tox -c src/test/system_tests/ceph_s3_tests/s3-tests/tox.ini ${PWD}/src/test/system_tests/ceph_s3_tests/s3-tests/<test_name>
 ```
 This should run the test on the noobaa deployment we've set up.
 
 #### Test Name
-You can find a list of tests in the doc inside the file `ceph_s3_tests_list_single_test.txt`. Please notice that the test name has a certain structure <directory_name> are separated with `.` and the function to run (usually with a prefix `test_`) appears after the `:` sign.
+You can find a list of tests in the doc inside the file `ceph_s3_tests_list_single_test.txt`. Please notice that the test name has a certain structure: directories are separated with `/`, the files end with the extension `.py` and the function to run (usually with a prefix `test_`) appears after the `::` sign.
+
+In case the test name is incorrect, for example if you add `:` instead of `::` to the test name, the command will fail.
+The error will be `file or directory not found` and pytest will exit with error code 4 (which means "pytest command line usage error")
+
+#### Disable pytest warnings
+If you want to disable summary warnings add the following flag to the test command:
+`-- --disable-pytest-warnings`
+
+Note that every flag that comes after `--` is passed to pytest from tox. so if there is already `--` in the command just put `--disable-pytest-warnings` as part of the flags after it, no need to add another `--` notation.
+
+for example to add --disable-pytest-warnings to the command:
+```bash
+S3TEST_CONF=${PWD}/src/test/system_tests/ceph_s3_tests/test_ceph_s3_config.conf tox -c src/test/system_tests/ceph_s3_tests/s3-tests/tox.ini -- -m 'not fails_on_rgw' ${PWD}/src/test/system_tests/ceph_s3_tests/s3-tests/s3tests/functional/test_headers.py::test_bucket_create_contentlength_none
+```
+
+it should be:
+```bash
+S3TEST_CONF=${PWD}/src/test/system_tests/ceph_s3_tests/test_ceph_s3_config.conf tox -c src/test/system_tests/ceph_s3_tests/s3-tests/tox.ini -- -m 'not fails_on_rgw' --disable-pytest-warnings ${PWD}/src/test/system_tests/ceph_s3_tests/s3-tests/s3tests/functional/test_headers.py::test_bucket_create_contentlength_none
+```
+
 ## Debug a Single Test (Inside The Tester Pod)
 
 ### 1) Prerequisites:
 Following the 'Run a Single Ceph S3 Test' steps.
 ### 2) View The Test Content 
-You can view the test by going to the test file and searching for the test function. e.g. if you are working on test `s3tests_boto3.functional.test_s3:test_set_bucket_tagging` then you should `vi ./src/test/system_tests/ceph_s3_tests/s3-tests/s3tests_boto3/functional/test_s3.py` and search for the function `test_set_bucket_tagging`.
+You can view the test by going to the test file and searching for the test function. e.g. if you are working on test `s3tests_boto3.functional.test_s3:test_set_bucket_tagging` then you should `vim ./src/test/system_tests/ceph_s3_tests/s3-tests/s3tests_boto3/functional/test_s3.py` and search for the function `test_set_bucket_tagging`.
 
 The best place to start investigating is noobaa endpoint pod logs. if you are running with debug level that is higher than 1, you should see log messages of the S3 requests with the prefix `S3 REQUEST`. S3 replies will be with the prefix `HTTP REPLY`.
 
 ### 3) Change a Test
 Sometimes you would like to change a test: add printing of variables, skip an assertion as needed, or you suspect that it has a faulty and you would like to change the code.
 
-Since the file `./src/test/system_tests/ceph_s3_tests/s3-tests/s3tests_boto3/functional/test_s3.py` is a read-only file, decide on one of the options:
+#### A. Temporary change - this change will be saved in the file inside the container, useful when you need a small change.
+You can edit a test by going to the test file and editing the test function. See [View The Test Content](#2-view-the-test-content) for how to find the test function.
 
-#### A. Permanent change - this change will be saved in a repo, it is for continues investigating. 
+
+#### B. Permanent change - this change will be saved in a repo, it is for continues investigating. 
 1) Fork and clone the repository [ceph/s3-test](https://github.com/ceph/s3-tests).
 2) Create a new branch from the hash number that was set in the file `./src/test/system_tests/ceph_s3_tests/test_ceph_s3_deploy.sh`.
 3) Change the code, commit, and push to the remote branch.
 4) Inside the file `test_ceph_s3_deploy.sh` (mentioned above) Change the values of `CEPH_LINK` to your remote repository and the `CEPH_TESTS_VERSION` to the newest commit in your repository.
 5) Build the tester image again, deploy noobaa, and run the test (repeat the steps starting from 'Build Core And Tester Images (Noobaa-Core)' above).
 
-#### B. Temporary change - this change will be saved in the file inside the container, useful when you need a small change.
-1) Find container ID: `minikube ssh docker container ls | grep test`
-2) Enter container as the root user: `minikube ssh "docker container exec -it -u 0 <Container ID> /bin/bash"`
-3) Change file permissions: `chmod 777 ./src/test/system_tests/ceph_s3_tests/s3-tests/s3tests_boto3/functional/test_s3.py`
 
 ## Compare to AWS Response (Inside Tester Pod)
 Prerequisites:
 Following the 'Run a Single Ceph S3 Test' steps until 'Deploy The Tester Deployment (Noobaa-Core Tab)'.
 
 In this section we will do some manual changes that will allow you to check AWS response for a specific test (tests that do not use neither ACL nor tenant group).
-1) Find container ID: `minikube ssh docker container ls | grep test`
-2) Enter container as the root user: `minikube ssh "docker container exec -it -u 0 <Container ID> /bin/bash"` (We use root user because we want to change content of read-only files).
-3) Go to noobaa working directory: `cd /root/node_modules/noobaa-core/`
-4) Run the script that will create the necessary accounts in noobaa and update the Ceph S3 tests config file accordingly: `node ./src/test/system_tests/ceph_s3_tests/test_ceph_s3_config_setup.js`
-5) Change the configuration file to match AWS details, `vi ./src/test/system_tests/ceph_s3_tests/test_ceph_s3_config_setup.js`:
-* host = s3.amazonaws.com
-* bucket prefix = choose_name (for example: `bucket prefix = foo-bucket` you will need to manually delete it from AWS, and its name will be `foo-bucket1`, it adds suffix of 1).
-* access_key, secret_key appears 3 times each in the file.
-6) Since we changed the name of the bucket and we will manually delete the bucket we will remove it from the code (add comments lines) by `vi ./src/test/system_tests/ceph_s3_tests/s3-tests/s3tests_boto3/functional/__init__.py` inside `teardown` and `setup` functions:
-```python
-# nuke_prefixed_buckets(prefix=prefix)
-# nuke_prefixed_buckets(prefix=prefix, client=alt_client)
-# nuke_prefixed_buckets(prefix=prefix, client=tenant_client)
-```
-7) Run a single test:
+1) Copy configuration file - this will allow us to run a test on AWS and then back to NooBaa just by changing the configuration file (we would have 2 configuration files: `test_ceph_s3_config.conf` and `test_ceph_s3_config_aws.conf`):
+  ```bash
+  cp src/test/system_tests/ceph_s3_tests/test_ceph_s3_config.conf src/test/system_tests/ceph_s3_tests/test_ceph_s3_config_aws.conf
+  ```
+2) Change the new configuration file to match AWS details:
 ```bash
-S3TEST_CONF=src/test/system_tests/ceph_s3_tests/test_ceph_s3_config.conf ./src/test/system_tests/ceph_s3_tests/s3-tests/virtualenv/bin/nosetests <test_name>
+vim src/test/system_tests/ceph_s3_tests/test_ceph_s3_config_aws.conf
 ```
-8) Manually delete the bucket that was created in you AWS account (for example `foo-bucket1`).
+* host = s3.amazonaws.com
+* bucket prefix = choose_name
+
+  For example:
+  `bucket prefix = foo-bucket` In case the test will fail to delete the bucket, you will need to manually delete it from AWS, and its name will be `foo-bucket1`, it adds suffix of 1.
+
+* access_key, secret_key appears 3 times each in the file.
+3) Running tests with the new configuration files will run against AWS:
+```bash
+S3TEST_CONF=${PWD}/src/test/system_tests/ceph_s3_tests/test_ceph_s3_config_aws.conf tox -c src/test/system_tests/ceph_s3_tests/s3-tests/tox.ini ${PWD}/src/test/system_tests/ceph_s3_tests/s3-tests/<test_name>
+```
 ## Examples
 
 ## Running All the Tests
@@ -209,15 +241,19 @@ S3TEST_CONF=src/test/system_tests/ceph_s3_tests/test_ceph_s3_config.conf ./src/t
 Following the 'Run All Ceph S3 Tests' steps.
 
 ### 1) All Running Tested Passed
-a snippet from the last part of running all the tests.
+a snippet from the last part of running all the tests, before the list of skipped and failed tests.
 You can see how many tests run and a status for each test.
 ```
 ...
-Test Passed: s3tests_boto3.functional.test_sts.test_assume_role_with_web_identity_resource_tag_copy_obj
-Test Passed: s3tests_boto3.functional.test_sts.test_assume_role_with_web_identity_role_resource_tag
-Test Passed: s3tests_boto3.functional.test_utils.test_generate
+Test Passed: s3tests_boto3/functional/test_s3select.py::test_bool_cast_expressions
+Test Passed: s3tests_boto3/functional/test_s3select.py::test_output_serial_expressions
+Test Passed: s3tests_boto3/functional/test_utils.py::test_generate
 Finished Running Ceph S3 Tests
-CEPH TEST SUMMARY: Suite contains 812, ran 387 tests, Passed: 387, Skipped: 0, Failed: 0
+CEPH TEST SUMMARY: Suite contains 779, ran 336 tests, Passed: 310, Skipped: 26, Failed: 0
+CEPH TEST SKIPPED TESTS SUMMARY:  26 skipped tests 
+s3tests/functional/test_s3.py::test_object_storage_class
+s3tests/functional/test_s3.py::test_object_storage_class_multipart
+...
 ```
 ## Running a Single Test
 
@@ -225,52 +261,30 @@ CEPH TEST SUMMARY: Suite contains 812, ran 387 tests, Passed: 387, Skipped: 0, F
 Following the 'Run a Single Ceph S3 Test' steps.
 
 ### 1) Test Pass
-For example: `s3tests_boto3.functional.test_s3:test_basic_key_count`
+For example: 
+```bash
+S3TEST_CONF=${PWD}/src/test/system_tests/ceph_s3_tests/test_ceph_s3_config.conf tox -c src/test/system_tests/ceph_s3_tests/s3-tests/tox.ini -- --disable-pytest-warnings ${PWD}/src/test/system_tests/ceph_s3_tests/s3-tests/s3tests/functional/test_headers.py::test_bucket_create_contentlength_none
 ```
-bash-4.4$ S3TEST_CONF=src/test/system_tests/ceph_s3_tests/test_ceph_s3_config.conf ./src/test/system_tests/ceph_s3_tests/s3-tests/virtualenv/bin/nosetests s3tests_boto3.functional.test_s3:test_basic_key_count
-.
-----------------------------------------------------------------------
-Ran 1 test in 4.914s
+![test pass screenshot](images/tox_test_pass.png)
 
-OK
-```
+Note that there is the warning:
+`WARNING: could not copy distfile to //.tox/distshare`
+this warning is for tox to use the same dependancies between projects. this feature is deprecated and not used on this project. In order to remove the warning you can modify `src/test/system_tests/ceph_s3_tests/s3-tests/tox.ini` to include the following line in the `[tox]` section: `distshare = /root/node_modules/noobaa-core/.tox/distshare`
+
 ### 2) Test Fail
-For example: `s3tests_boto3.functional.test_s3:test_account_usage`
-
+For example:
+```bash
+S3TEST_CONF=${PWD}/src/test/system_tests/ceph_s3_tests/test_ceph_s3_config.conf tox -c src/test/system_tests/ceph_s3_tests/s3-tests/tox.ini -- --disable-pytest-warnings ${PWD}/src/test/system_tests/ceph_s3_tests/s3-tests/s3tests_boto3/functional/test_s3.py::test_account_usage
 ```
-bash-4.4$ S3TEST_CONF=src/test/system_tests/ceph_s3_tests/test_ceph_s3_config.conf ./src/test/system_tests/ceph_s3_tests/s3-tests/virtualenv/bin/nosetests s3tests_boto3.functional.test_s3:test_account_usage
-E
-======================================================================
-ERROR: s3tests_boto3.functional.test_s3.test_account_usage
-----------------------------------------------------------------------
-Traceback (most recent call last):
-  File "/root/node_modules/noobaa-core/src/test/system_tests/ceph_s3_tests/s3-tests/virtualenv/lib/python3.6/site-packages/nose/case.py", line 198, in runTest
-    self.test(*self.arg)
-  File "/root/node_modules/noobaa-core/src/test/system_tests/ceph_s3_tests/s3-tests/s3tests_boto3/functional/test_s3.py", line 1325, in test_account_usage
-    summary = parsed['Summary']
-KeyError: 'Summary'
--------------------- >> begin captured logging << --------------------
-...
-<view the logs>
-...
---------------------- >> end captured logging << ---------------------
+![test failed screenshot](images/tox_test_failed.png)
 
-----------------------------------------------------------------------
-Ran 1 test in 0.391s
-
-FAILED (errors=1)
-
+### 3) Test Skipped
+For example:
+```bash
+S3TEST_CONF=${PWD}/src/test/system_tests/ceph_s3_tests/test_ceph_s3_config.conf tox -c src/test/system_tests/ceph_s3_tests/s3-tests/tox.ini -- --disable-pytest-warnings ${PWD}/src/test/system_tests/ceph_s3_tests/s3-tests/s3tests_boto3/functional/test_s3.py::test_bucket_get_location
 ```
-### 3) Wrong Test Name
-If you will use a test name that not written in the defined structure (as mentioned in 'Test Name' section) you will get a falsy OK.
+![test skipped screenshot](images/tox_test_skipped.png)
 
-For example: `s3tests_boto3.functional.test_s3.test_account_usage` instead of `s3tests_boto3.functional.test_s3:test_account_usage` (notice the use of the sign `:` before test).
-```
-bash-4.4$ S3TEST_CONF=src/test/system_tests/ceph_s3_tests/test_ceph_s3_config.conf ./src/test/system_tests/ceph_s3_tests/s3-tests/virtualenv/bin/nosetests s3tests_boto3.functional.test_s3.test_account_usage
+Notice that even though test commands succeeded the test itself was skipped. The test prints `1 skipped` meaning one test was skipped
 
-----------------------------------------------------------------------
-Ran 0 tests in 0.389s
 
-OK
-```
-You can avoid it by using the name according to the structure or copy the test name from the file `ceph_s3_tests_list_single_test.txt`.

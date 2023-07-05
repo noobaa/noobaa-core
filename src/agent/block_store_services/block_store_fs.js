@@ -299,7 +299,11 @@ class BlockStoreFs extends BlockStoreBase {
 
         await P.map_with_concurrency(10, block_ids, async block_id => {
             try {
-                if (await this._move_block_to_tmfs(block_id)) moved_block_ids.push(block_id);
+                await this._move_block_to_tmfs(block_id);
+                // verify_block_in_tmfs ensures that the TMFS state and NooBaa state
+                // are completely in sync, the drawback being that this can block
+                // for a very long time.
+                if (await this._verify_block_in_tmfs(block_id)) moved_block_ids.push(block_id);
             } catch (err) {
                 dbg.warn(`_move_block_to_tmfs block ${block_id} failed due to`, err);
             }
@@ -311,7 +315,6 @@ class BlockStoreFs extends BlockStoreBase {
     async _move_block_to_tmfs(block_id) {
         const fs_context = this.fs_context;
         const block_path = this._get_block_data_path(block_id);
-        let completed = false;
         let file = null;
 
         try {
@@ -329,23 +332,39 @@ class BlockStoreFs extends BlockStoreBase {
                         [config.BLOCK_STORE_FS_XATTR_TRIGGER_MIGRATE]: 'now'
                     });
                 }
-            } else if (migstat.State === TMFS_STATE_MIGRATED) {
-                // If the block is already MIGRATED then return true
-                // 
-                // It is unlikely that the first call to this function will find the block 
-                // in MIGRATED state but next calls might find it in migrated state.
-                //
-                // The primary caller of this function is TTL BG Worker which WILL call this function
-                // more than once for the same block because the tier will not change until this turns true.
-                completed = true;
             }
         } catch (err) {
             ignore_not_found(err);
         } finally {
             if (file) await file.close(fs_context);
         }
+    }
 
-        return completed;
+    async _verify_block_in_tmfs(block_id, timeout = Infinity) {
+        const fs_context = this.fs_context;
+        const block_path = this._get_block_data_path(block_id);
+        let file = null;
+
+        try {
+            const start = Date.now();
+            file = await nb_native().fs.open(fs_context, block_path);
+
+            while (Date.now() - start < timeout) {
+                const stat = await file.stat(fs_context, { xattr_get_keys: [config.BLOCK_STORE_FS_XATTR_QUERY_MIGSTAT] });
+                const migstat = JSON.parse(stat?.xattr?.[config.BLOCK_STORE_FS_XATTR_QUERY_MIGSTAT] || '{}');
+
+                if (migstat.State === TMFS_STATE_MIGRATED) {
+                    return true;
+                }
+
+                // Not a busy loop, let other things run
+                await P.delay(100);
+            }
+        } catch (err) {
+            ignore_not_found(err);
+        } finally {
+            if (file) await file.close(fs_context);
+        }
     }
 
     _get_usage() {

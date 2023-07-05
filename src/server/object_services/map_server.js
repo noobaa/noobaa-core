@@ -429,7 +429,6 @@ async function make_room_in_tier(tier_id, bucket_id) {
         await server_rpc.client.scrubber.build_chunks({
             chunk_ids,
             tier: next_tier._id,
-            current_tiers: chunk_ids.map(() => tier._id),
         }, {
             auth_token: auth_server.make_auth_token({
                 system_id: bucket.system._id,

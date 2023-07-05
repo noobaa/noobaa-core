@@ -38,13 +38,11 @@ class MapBuilder {
      * @param {nb.ID[]} chunk_ids
      * @param {nb.Tier} [move_to_tier]
      * @param {boolean} [evict]
-     * @param {nb.Tier[]} [current_tiers]
      */
-    constructor(chunk_ids, move_to_tier, evict, current_tiers) {
+    constructor(chunk_ids, move_to_tier, evict) {
         this.chunk_ids = chunk_ids;
         this.move_to_tier = move_to_tier;
         this.evict = evict;
-        this.current_tiers = current_tiers;
 
         // eviction and move to tier are mutually exclusive
         if (evict) assert.strictEqual(move_to_tier, undefined);
@@ -213,7 +211,6 @@ class MapBuilder {
                 })
             }),
             desc: 'MapBuilder',
-            current_tiers: this.current_tiers,
             report_error: async () => {
                 // TODO MApClient.report_error
             },

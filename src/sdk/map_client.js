@@ -112,6 +112,7 @@ class MapClient {
         this.had_errors = false;
         this.current_tiers = props.current_tiers;
         this.verification_mode = props.verification_mode || false;
+        this.moved_chunks_to_storage_class = [];
         Object.seal(this);
     }
 
@@ -606,16 +607,22 @@ class MapClient {
             if (is_same_pools) {
                 for (const frag of chunk.frags) {
                     for (const block of frag.blocks) {
+                        // @ts-ignore - Justification: need chunk_id later
+                        block.chunk_id = chunk._id;
                         blocks.push(block);
                     }
                 }
             }
         }
 
-        await Promise.all([
+        const [moved_blocks] = await Promise.all([
             this._move_blocks_to_storage_class(blocks, target_storage_class),
             this._set_objects_storage_class(parts, target_storage_class),
         ]);
+
+        this.moved_chunks_to_storage_class = blocks
+            .filter(block => moved_blocks.includes(String(block._id)))
+            .map(block => block.chunk_id);
     }
 
     /**
@@ -638,6 +645,8 @@ class MapClient {
      */
     async _move_blocks_to_storage_class(blocks, storage_class) {
         if (!blocks.length) return;
+        const moved_blocks = [];
+
         const blocks_by_agent = _.groupBy(blocks, 'address');
         await P.map(_.keys(blocks_by_agent), async agent_address => {
             const blocks_for_agent = blocks_by_agent[agent_address];
@@ -651,10 +660,13 @@ class MapClient {
                     address: agent_address
                 });
                 dbg.log1('MapClient: move_blocks_to_storage_class SUCCEEDED', 'ADDR:', agent_address, 'MOVED:', moved);
+                moved_blocks.push(...(moved?.moved_block_ids || []));
             } catch (err) {
                 dbg.error('MapClient: move_blocks_to_storage_class FAILED', 'ADDR:', agent_address, 'ERROR', err,);
             }
         });
+
+        return moved_blocks;
     }
 
     _error_injection_on_write() {

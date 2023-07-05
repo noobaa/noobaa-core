@@ -311,7 +311,7 @@ class BlockStoreFs extends BlockStoreBase {
     async _move_block_to_tmfs(block_id) {
         const fs_context = this.fs_context;
         const block_path = this._get_block_data_path(block_id);
-        let evicting = false;
+        let completed = false;
         let file = null;
 
         try {
@@ -328,9 +328,16 @@ class BlockStoreFs extends BlockStoreBase {
                     await file.replacexattr(fs_context, {
                         [config.BLOCK_STORE_FS_XATTR_TRIGGER_MIGRATE]: 'now'
                     });
-
-                    evicting = true;
                 }
+            } else if (migstat.State === TMFS_STATE_MIGRATED) {
+                // If the block is already MIGRATED then return true
+                // 
+                // It is unlikely that the first call to this function will find the block 
+                // in MIGRATED state but next calls might find it in migrated state.
+                //
+                // The primary caller of this function is TTL BG Worker which WILL call this function
+                // more than once for the same block because the tier will not change until this turns true.
+                completed = true;
             }
         } catch (err) {
             ignore_not_found(err);
@@ -338,7 +345,7 @@ class BlockStoreFs extends BlockStoreBase {
             if (file) await file.close(fs_context);
         }
 
-        return evicting;
+        return completed;
     }
 
     _get_usage() {

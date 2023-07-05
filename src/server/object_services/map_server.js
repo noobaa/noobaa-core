@@ -156,7 +156,7 @@ class GetMapping {
         const allocated_hosts = avoid_blocks.map(block => block.node.host_id);
         const preallocate_list = [];
 
-        const has_room = enough_room_in_tier(chunk.tier, chunk.bucket);
+        const has_room = enough_room_in_tier(this.move_to_tier || chunk.tier, chunk.bucket);
         for (const frag of chunk.frags) {
             for (const alloc of frag.allocations) {
                 const node = node_allocator.allocate_node({ pools: alloc.pools, avoid_nodes, allocated_hosts });
@@ -167,7 +167,8 @@ class GetMapping {
                     );
                     return false;
                 }
-                const pool = chunk.tier.system.pools_by_name[node.pool];
+                const target_tier = this.move_to_tier || chunk.tier;
+                const pool = target_tier.system.pools_by_name[node.pool];
                 alloc.block_md.node = node._id.toHexString();
                 alloc.block_md.pool = pool._id.toHexString();
                 alloc.block_md.address = node.rpc_address;

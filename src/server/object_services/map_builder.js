@@ -51,6 +51,9 @@ class MapBuilder {
 
         /** @type {nb.ID[]} */
         this.second_pass_chunk_ids = [];
+
+        /** @type {nb.ID[]} */
+        this.moved_chunks_to_storage_class = [];
     }
 
     async run() {
@@ -59,16 +62,22 @@ class MapBuilder {
         if (!this.chunk_ids.length) return;
 
         await builder_lock.surround_keys(_.map(this.chunk_ids, String), async () => {
-
-            if (this.move_to_tier) {
-                await MDStore.instance().update_chunks_by_ids(this.chunk_ids, { tier: this.move_to_tier._id });
-            }
             // we run the build twice. first time to perform all allocation, second time to perform deletions
             await this.run_build(this.chunk_ids);
 
             // run build a second time on chunks that had future_deletions before but now might delete them
             if (this.second_pass_chunk_ids.length) {
                 await this.run_build(this.second_pass_chunk_ids);
+            }
+
+            if (this.move_to_tier) {
+                const chunks = this.moved_chunks_to_storage_class;
+                dbg.log1(`MapBuilder.run: moved ${chunks} blocks to tier ${this.move_to_tier.name.unwrap()}`);
+
+                await MDStore.instance().update_chunks_by_ids(
+                    chunks,
+                    { tier: this.move_to_tier._id }
+                );
             }
         });
     }
@@ -210,6 +219,7 @@ class MapBuilder {
             },
         });
         await mc.run();
+        this.moved_chunks_to_storage_class = mc.moved_chunks_to_storage_class;
         if (mc.had_errors) throw new Error('MapBuilder map errors');
         for (const chunk of mc.chunks) {
             for (const frag of chunk.frags) {

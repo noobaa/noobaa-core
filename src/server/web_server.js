@@ -40,7 +40,6 @@ const rootdir = path.join(__dirname, '..', '..');
 const dev_mode = (process.env.DEV_MODE === 'true');
 const http_port = process.env.PORT || '5001';
 const https_port = process.env.SSL_PORT || '5443';
-const app = express();
 
 async function main() {
     try {
@@ -55,13 +54,16 @@ async function main() {
         http_utils.update_http_agents({ keepAlive: true });
         http_utils.update_https_agents({ keepAlive: true });
 
+        // register the rpc route first, and then the rest of the web server routes
+        const app = express();
         server_rpc.register_system_services();
         server_rpc.register_node_services();
         server_rpc.register_object_services();
         server_rpc.register_func_services();
         server_rpc.register_common_services();
-        server_rpc.rpc.register_http_app(app);
         server_rpc.rpc.router.default = 'fcall://fcall';
+        server_rpc.rpc.register_http_app(app);
+        setup_web_server_app(app);
 
         process.env.PORT = http_port;
         process.env.SSL_PORT = https_port;
@@ -103,17 +105,46 @@ async function main() {
     }
 }
 
-////////////////
-// MIDDLEWARE //
-////////////////
+function setup_web_server_app(app) {
 
-// copied from s3rver. not sure why. but copy.
-app.disable('x-powered-by');
+    // copied from s3rver. not sure why. but copy.
+    app.disable('x-powered-by');
+    app.use(express_morgan_logger(dev_mode ? 'dev' : 'combined'));
+    app.use(https_redirect_handler);
+    app.use(express_compress());
 
-// configure app middleware handlers in the order to use them
+    app.post('/set_log_level*', set_log_level_handler);
+    app.get('/get_log_level', get_log_level_handler);
 
-app.use(express_morgan_logger(dev_mode ? 'dev' : 'combined'));
-app.use(function(req, res, next) {
+    app.get('/get_latest_version*', get_latest_version_handler);
+    app.get('/version', get_version_handler);
+
+    app.get('/oauth/authorize', oauth_authorise_handler);
+
+    app.get('/metrics/nsfs_stats', metrics_nsfs_stats_handler);
+    if (config.PROMETHEUS_ENABLED) {
+        // Enable proxying for all metrics servers
+        app.use('/metrics/web_server', express_proxy(`localhost:${config.WS_METRICS_SERVER_PORT}`));
+        app.use('/metrics/bg_workers', express_proxy(`localhost:${config.BG_METRICS_SERVER_PORT}`));
+        app.use('/metrics/hosted_agents', express_proxy(`localhost:${config.HA_METRICS_SERVER_PORT}`));
+    }
+
+    app.use('/public/', cache_control(dev_mode ? 0 : 10 * 60)); // 10 minutes
+    app.use('/public/', express.static(path.join(rootdir, 'build', 'public')));
+    app.use('/public/images/', cache_control(dev_mode ? 3600 : 24 * 3600)); // 24 hours
+    app.use('/public/images/', express.static(path.join(rootdir, 'images')));
+    app.use('/public/eula', express.static(path.join(rootdir, 'EULA.pdf')));
+    app.use('/public/license-info', license_info.serve_http);
+    app.use('/public/audit.csv', express.static(path.join('/log', 'audit.csv')));
+
+    app.get('/', (req, res) => res.redirect(`/version`));
+
+    // error handlers should be last
+    app.use(error_404);
+    app.use(error_handler);
+}
+
+function https_redirect_handler(req, res, next) {
     // HTTPS redirect:
     // since we want to provide secure and certified connections
     // for the entire application, so once a request for http arrives,
@@ -131,29 +162,9 @@ app.use(function(req, res, next) {
         return res.redirect('https://' + host + req.originalUrl);
     }
     return next();
-});
-app.use(function(req, res, next) {
-    return next();
-});
-app.use(express_compress());
-
-
-////////////
-// ROUTES //
-////////////
-if (config.PROMETHEUS_ENABLED) {
-    // Enable proxying for all metrics servers
-    app.use('/metrics/web_server', express_proxy(`localhost:${config.WS_METRICS_SERVER_PORT}`));
-    app.use('/metrics/bg_workers', express_proxy(`localhost:${config.BG_METRICS_SERVER_PORT}`));
-    app.use('/metrics/hosted_agents', express_proxy(`localhost:${config.HA_METRICS_SERVER_PORT}`));
 }
 
-app.get('/', function(req, res) {
-    return res.redirect(`/version`);
-});
-
-// Upgrade checks
-app.get('/get_latest_version*', function(req, res) {
+function get_latest_version_handler(req, res) {
     if (req.params[0].indexOf('&curr=') !== -1) {
         try {
             const query_version = req.params[0].substr(req.params[0].indexOf('&curr=') + 6);
@@ -171,10 +182,9 @@ app.get('/get_latest_version*', function(req, res) {
         }
     }
     res.status(400).send({});
-});
+}
 
-//Log level setter
-app.post('/set_log_level*', function(req, res) {
+async function set_log_level_handler(req, res) {
     console.log('req.module', req.param('module'), 'req.level', req.param('level'));
     if (typeof req.param('module') === 'undefined' || typeof req.param('level') === 'undefined') {
         res.status(400).end();
@@ -183,7 +193,7 @@ app.post('/set_log_level*', function(req, res) {
     dbg.log0('Change log level requested for', req.param('module'), 'to', req.param('level'));
     dbg.set_module_level(req.param('level'), req.param('module'));
 
-    return server_rpc.client.redirector.publish_to_cluster({
+    await server_rpc.client.redirector.publish_to_cluster({
         target: '', // required but irrelevant
         method_api: 'debug_api',
         method_name: 'set_debug_level',
@@ -191,20 +201,25 @@ app.post('/set_log_level*', function(req, res) {
             level: req.param('level'),
             module: req.param('module')
         }
-    })
-        .then(function() {
-            res.status(200).end();
-        });
-});
+    });
 
-//Log level getter
-app.get('/get_log_level', function(req, res) {
+    res.status(200).end();
+}
+
+async function get_log_level_handler(req, res) {
     const all_modules = util.inspect(dbg.get_module_structure(), true, 20);
 
     res.status(200).send({
         all_levels: all_modules,
     });
-});
+}
+
+async function get_version_handler(req, res) {
+    const { status, version } = await getVersion(req.url);
+    if (version) res.send(version);
+    if (status !== 200) res.status(status);
+    res.end();
+}
 
 async function getVersion(route) {
     const registered = server_rpc.is_service_registered('system_api.read_system');
@@ -220,7 +235,7 @@ async function getVersion(route) {
 }
 
 // An oauth authorize endpoint that forwards to the OAuth authorization server.
-app.get('/oauth/authorize', async (req, res) => {
+async function oauth_authorise_handler(req, res) {
     const {
         KUBERNETES_SERVICE_HOST,
         KUBERNETES_SERVICE_PORT,
@@ -272,27 +287,9 @@ app.get('/oauth/authorize', async (req, res) => {
     authorization_endpoint.searchParams.set('state', decodeURIComponent(return_url));
 
     res.redirect(authorization_endpoint);
-});
+}
 
-
-// Get the current version
-app.get('/version', (req, res) => getVersion(req.url)
-    .then(({ status, version }) => {
-        if (version) res.send(version);
-        if (status !== 200) res.status(status);
-        res.end();
-    })
-);
-
-
-// Get the NSFS stats
-app.get('/metrics/nsfs_stats', async (req, res) => {
-    const report = _create_nsfs_report();
-    res.send(report);
-    res.status(200).end();
-});
-
-function _create_nsfs_report() {
+function metrics_nsfs_stats_handler(req, res) {
     let nsfs_report = '';
 
     const nsfs_counters = stats_aggregator.get_nsfs_io_stats();
@@ -324,40 +321,23 @@ function _create_nsfs_report() {
 
     dbg.log1(`_create_nsfs_report: nsfs_report ${nsfs_report}`);
 
-    return nsfs_report;
+    res.send(nsfs_report);
+    res.status(200).end();
 }
-
-////////////
-// STATIC //
-////////////
 
 // using router before static files to optimize -
 // since we usually have less routes then files, and the routes are in memory.
-
 function cache_control(seconds) {
     const millis = 1000 * seconds;
-    return function(req, res, next) {
+    return (req, res, next) => {
         res.setHeader("Cache-Control", "public, max-age=" + seconds);
         res.setHeader("Expires", new Date(Date.now() + millis).toUTCString());
         return next();
     };
 }
 
-app.use('/public/', cache_control(dev_mode ? 0 : 10 * 60)); // 10 minutes
-app.use('/public/', express.static(path.join(rootdir, 'build', 'public')));
-app.use('/public/images/', cache_control(dev_mode ? 3600 : 24 * 3600)); // 24 hours
-app.use('/public/images/', express.static(path.join(rootdir, 'images')));
-app.use('/public/eula', express.static(path.join(rootdir, 'EULA.pdf')));
-app.use('/public/license-info', license_info.serve_http);
-app.use('/public/audit.csv', express.static(path.join('/log', 'audit.csv')));
-
-// Serve the new frontend (management console)
-// app.use('/', express.static(path.join(rootdir, 'public')));
-
-// error handlers should be last
 // roughly based on express.errorHandler from connect's errorHandler.js
-app.use(error_404);
-app.use(function(err, req, res, next) {
+function error_handler(err, req, res, next) {
     console.error('ERROR:', err);
     let e;
     if (dev_mode) {
@@ -401,7 +381,7 @@ app.use(function(err, req, res, next) {
     } else {
         return res.type('txt').send(e.message || e.toString());
     }
-});
+}
 
 function error_404(req, res, next) {
     return next({

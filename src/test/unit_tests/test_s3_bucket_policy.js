@@ -93,6 +93,7 @@ async function setup() {
     });
 }
 
+/*eslint max-lines-per-function: ["error", 770]*/
 mocha.describe('s3_bucket_policy', function() {
     mocha.before(setup);
     mocha.it('should fail setting bucket policy when user doesn\'t exist', async function() {
@@ -640,5 +641,223 @@ mocha.describe('s3_bucket_policy', function() {
             key: KEY,
             obj_id: MDStore.instance().make_md_id(cross_test_store.obj.obj_id),
         });
+    });
+
+    mocha.it('should be able to deny based on server side encryption', async function() {
+        const auth_put_policy = {
+            Version: '2012-10-17',
+            Statement: [
+                {
+                    Effect: 'Allow',
+                    Principal: { AWS: "*" },
+                    Action: ['s3:PutObject'],
+                    Resource: [`arn:aws:s3:::${BKT}/${KEY}`]
+                },
+                {
+                    Effect: 'Deny',
+                    Principal: { AWS: "*"},
+                    Action: ['s3:PutObject'],
+                    Resource: [`arn:aws:s3:::${BKT}/${KEY}`],
+                    Condition: { "StringNotEquals": { "s3:x-amz-server-side-encryption": "AES256" }}
+                },
+            ]};
+        await s3_owner.putBucketPolicy({
+            Bucket: BKT,
+            Policy: JSON.stringify(auth_put_policy)
+        }).promise();
+
+        await s3_a.putObject({
+            Body: 'Some data for the file... bla bla bla... ',
+            Bucket: BKT,
+            Key: KEY,
+            ServerSideEncryption: "AES256"
+        }).promise();
+
+        await assert_throws_async(s3_a.putObject({
+            Body: 'Some data for the file... bla bla bla...',
+            Bucket: BKT,
+            Key: KEY,
+            ServerSideEncryption: "aws:kms",
+            SSEKMSKeyId: "dummy_key"
+        }).promise(), 'Access Denied');
+    });
+
+    mocha.it('should be able to deny unencrypted object uploads', async function() {
+        const auth_put_policy = {
+            Version: '2012-10-17',
+            Statement: [
+                {
+                    Effect: 'Allow',
+                    Principal: { AWS: "*" },
+                    Action: ['s3:PutObject'],
+                    Resource: [`arn:aws:s3:::${BKT}/${KEY}`]
+                },
+                {
+                    Effect: 'Deny',
+                    Principal: { AWS: "*"},
+                    Action: ['s3:PutObject'],
+                    Resource: [`arn:aws:s3:::${BKT}/${KEY}`],
+                    Condition: { "Null": { "s3:x-amz-server-side-encryption": "true" }
+                    }
+                },
+            ]};
+        await s3_owner.putBucketPolicy({
+            Bucket: BKT,
+            Policy: JSON.stringify(auth_put_policy)
+        }).promise();
+
+        await assert_throws_async(s3_a.putObject({
+            Body: 'Some data for the file... bla bla bla...',
+            Bucket: BKT,
+            Key: KEY,
+        }).promise(), 'Access Denied');
+
+        await s3_a.putObject({
+            Body: 'Some data for the file... bla bla bla... ',
+            Bucket: BKT,
+            Key: KEY,
+            ServerSideEncryption: "AES256"
+        }).promise();
+    });
+
+    mocha.it('should be able to add StringLike and StringEqualsIgnoreCase condition statements, ', async function() {
+        const ignore_case_policy = {
+            Version: '2012-10-17',
+            Statement: [
+                {
+                    Effect: 'Allow',
+                    Principal: { AWS: "*" },
+                    Action: ['s3:PutObject'],
+                    Resource: [`arn:aws:s3:::${BKT}/${KEY}`],
+                    Condition: { "StringEqualsIgnoreCase": { "s3:x-amz-server-side-encryption": "aes256" }}
+                },
+            ]};
+            const string_like_policy = {
+                Version: '2012-10-17',
+                Statement: [
+                    {
+                        Effect: 'Allow',
+                        Principal: { AWS: "*" },
+                        Action: ['s3:PutObject'],
+                        Resource: [`arn:aws:s3:::${BKT}/${KEY}`],
+                        Condition: { "StringLike": { "s3:x-amz-server-side-encryption": "AES*" }}
+                    },
+                ]};
+        await s3_owner.putBucketPolicy({
+            Bucket: BKT,
+            Policy: JSON.stringify(ignore_case_policy)
+        }).promise();
+
+        await s3_a.putObject({
+            Body: 'Some data for the file... bla bla bla... ',
+            Bucket: BKT,
+            Key: KEY,
+            ServerSideEncryption: "AES256"
+        }).promise();
+
+        await s3_owner.putBucketPolicy({
+            Bucket: BKT,
+            Policy: JSON.stringify(string_like_policy)
+        }).promise();
+
+        await s3_a.putObject({
+            Body: 'Some data for the file... bla bla bla... ',
+            Bucket: BKT,
+            Key: KEY,
+            ServerSideEncryption: "AES256"
+        }).promise();
+    });
+
+    mocha.it('should be able to deny based on object tag', async function() {
+        const allow_tag = {key: "key", value: "allow"};
+        const deny_tag = {key: "key", value: "deny"};
+        const auth_put_policy = {
+            Version: '2012-10-17',
+            Statement: [
+                {
+                    Effect: 'Allow',
+                    Principal: { AWS: "*" },
+                    Action: ['s3:PutObject'],
+                    Resource: [`arn:aws:s3:::${BKT}/*`]
+                },
+                {
+                    Effect: 'Allow',
+                    Principal: { AWS: "*"},
+                    Action: ['s3:GetObject'],
+                    Resource: [`arn:aws:s3:::${BKT}/*`],
+                    Condition: { 'StringEquals': { [`s3:ExistingObjectTag/${allow_tag.key}`]: allow_tag.value }
+                    }
+                },
+            ]};
+        await s3_owner.putBucketPolicy({
+            Bucket: BKT,
+            Policy: JSON.stringify(auth_put_policy)
+        }).promise();
+
+        await s3_a.putObject({
+            Body: 'Some data for the file... bla bla bla... ',
+            Bucket: BKT,
+            Key: KEY,
+            Tagging: `${allow_tag.key}=${allow_tag.value}`
+        }).promise();
+
+        await s3_a.getObject({
+            Bucket: BKT,
+            Key: KEY
+        }).promise();
+
+        await s3_a.putObject({
+            Body: 'Some data for the file... bla bla bla... ',
+            Bucket: BKT,
+            Key: KEY,
+            Tagging: `${deny_tag.key}=${deny_tag.value}`
+        }).promise();
+
+        await assert_throws_async(s3_a.getObject({
+            Bucket: BKT,
+            Key: KEY
+        }).promise());
+
+    });
+
+    mocha.it('get_bucket_policy should return correct condition values', async function() {
+       const encryption_policy = {
+        Version: '2012-10-17',
+        Statement: [
+            {
+                Effect: 'Allow',
+                Principal: { AWS: "*" },
+                Action: ['s3:GetBucketPolicy'],
+                Resource: [`arn:aws:s3:::${BKT}`]
+            },
+            {
+                Effect: 'Deny',
+                Principal: { AWS: "*"},
+                Action: ['s3:PutObject'],
+                Resource: [`arn:aws:s3:::${BKT}/${KEY}`],
+                Condition: { "StringNotEquals": { "s3:x-amz-server-side-encryption": "AES256" }}
+            },
+            {
+                Effect: 'Allow',
+                Principal: { AWS: "*"},
+                Action: ['s3:GetObject'],
+                Resource: [`arn:aws:s3:::${BKT}/${KEY}`],
+                Condition: { "StringEquals": { "s3:ExistingObjectTag/key": "value" }}
+            }
+        ]};
+       await s3_owner.putBucketPolicy({
+            Bucket: BKT,
+            Policy: JSON.stringify(encryption_policy)
+        }).promise();
+       const res = await s3_a.getBucketPolicy({Bucket: BKT}).promise();
+       const policy = JSON.parse(res.Policy);
+       const actualEncryptionCondition = policy.Statement[1].Condition;
+       assert.strictEqual(Object.keys(actualEncryptionCondition)[0], "StringNotEquals");
+       assert.strictEqual(Object.keys(actualEncryptionCondition.StringNotEquals)[0], "s3:x-amz-server-side-encryption");
+       assert.strictEqual(Object.values(actualEncryptionCondition.StringNotEquals)[0], "AES256");
+       const actualObjectTagCondition = policy.Statement[2].Condition;
+       assert.strictEqual(Object.keys(actualObjectTagCondition)[0], "StringEquals");
+       assert.strictEqual(Object.keys(actualObjectTagCondition.StringEquals)[0], "s3:ExistingObjectTag/key");
+       assert.strictEqual(actualObjectTagCondition.StringEquals["s3:ExistingObjectTag/key"], "value");
     });
 });

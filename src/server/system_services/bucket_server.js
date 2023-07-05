@@ -35,7 +35,7 @@ const azure_storage = require('../../util/azure_storage_wrap');
 const usage_aggregator = require('../bg_services/usage_aggregator');
 const chunk_config_utils = require('../utils/chunk_config_utils');
 const NetStorage = require('../../util/NetStorageKit-Node-master/lib/netstorage');
-const { OP_NAME_TO_ACTION } = require('../../endpoint/s3/s3_utils');
+const { OP_NAME_TO_ACTION, SUPPORTED_BUCKET_POLICY_CONDITIONS } = require('../../endpoint/s3/s3_bucket_policy_utils');
 const path = require('path');
 const KeysSemaphore = require('../../util/keys_semaphore');
 const bucket_semaphore = new KeysSemaphore(1);
@@ -511,6 +511,18 @@ function _validate_s3_policy(policy, bucket_name) {
         for (const action of _.flatten([statement.Action])) {
             if (action !== 's3:*' && !all_op_names.includes(action)) {
                 throw new RpcError('MALFORMED_POLICY', 'Policy has invalid action', { detail: action });
+            }
+        }
+        if (statement.Condition) {
+            for (const condition of Object.values(statement.Condition)) {
+                for (const condition_key of Object.keys(condition)) {
+                    // some condition keys have arguments in their names.(e.g. s3:ExistingObjectTag/<key>)
+                    // parse to get only the condition key itself
+                    const key_parts = condition_key.split("/");
+                    if (!SUPPORTED_BUCKET_POLICY_CONDITIONS.includes(key_parts[0])) {
+                        throw new RpcError('MALFORMED_POLICY', 'Policy has invalid condition key or unsupported condition key', { detail: condition_key });
+                    }
+                }
             }
         }
         // TODO: Need to validate that the resource comply with the action
@@ -991,7 +1003,7 @@ async function delete_bucket_lifecycle(req) {
 async function list_buckets(req) {
     const buckets_by_name = _.filter(
         req.system.buckets_by_name,
-        bucket => req.has_s3_bucket_permission(bucket, "s3:ListBucket") && !bucket.deleting
+        async bucket => await req.has_s3_bucket_permission(bucket, "s3:ListBucket", req) && !bucket.deleting
     );
     return {
         buckets: _.map(buckets_by_name, function(bucket) {

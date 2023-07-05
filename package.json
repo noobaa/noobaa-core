@@ -137,7 +137,7 @@
     "jest": "29.6.1",
     "mocha": "10.2.0",
     "pkg": "5.8.1",
-    "prebuild-install": "7.1.1",
+    "pkg-fetch": "3.4.2",
     "sinon": "15.2.0",
     "wtfnode": "0.9.1"
   }

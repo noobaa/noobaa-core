@@ -36,6 +36,10 @@ api_schema.register_api(require('./replication_api'));
 
 api_schema.compile();
 
+function get_schema(name) {
+    return api_schema._ajv.getSchema(name);
+}
+
 function get_protocol_port(protocol) {
     switch (protocol.toLowerCase()) {
         case 'http:':
@@ -146,3 +150,4 @@ exports.new_rpc_from_routing = new_rpc_from_routing;
 exports.new_rpc_default_only = new_rpc_default_only;
 exports.new_router_from_address_list = new_router_from_address_list;
 exports.new_router_from_base_address = new_router_from_base_address;
+exports.get_schema = get_schema;

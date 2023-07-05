@@ -14,6 +14,15 @@ class BucketSpaceS3 {
         this.s3 = new AWS.S3(s3_params);
     }
 
+    async read_account_by_access_key({ access_key }) {
+        return {};
+    }
+
+    async read_bucket_sdk_info({ name }) {
+        return {};
+    }
+
+
     ////////////
     // BUCKET //
     ////////////

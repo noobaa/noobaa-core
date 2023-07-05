@@ -25,15 +25,42 @@ function isDirectory(ent) {
  */
 class BucketSpaceFS {
 
-    constructor({ fs_root }) {
+    constructor({ fs_root, iam_dir }) {
         this.fs_root = fs_root;
+        this.iam_dir = iam_dir;
         this.fs_context = {
             uid: process.getuid(),
             gid: process.getgid(),
-            backend: '',
             warn_threshold_ms: config.NSFS_WARN_THRESHOLD_MS,
+            // backend: '',
         };
     }
+
+    async read_account_by_access_key({ access_key }) {
+        const iam_path = path.join(this.iam_dir, access_key);
+        const { data } = await nb_native().fs.readFile(this.fs_context, iam_path);
+        const account = JSON.parse(data.toString());
+        console.log('GGG read_account_by_access_key', access_key, account);
+        return account;
+    }
+
+    async read_bucket_sdk_info({ name }) {
+        return {
+            name,
+            system_owner: new SensitiveString('nsfs'),
+            bucket_owner: new SensitiveString('nsfs'),
+            s3_policy: {
+                version: '2012-10-17',
+                statement: [{
+                    effect: 'allow',
+                    action: ['*'],
+                    resource: ['*'],
+                    principal: [new SensitiveString('*')],
+                }]
+            },
+        };
+    }
+
 
     ////////////
     // BUCKET //

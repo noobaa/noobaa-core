@@ -35,22 +35,22 @@ class BlockStoreS3 extends BlockStoreBase {
         if (cloud_utils.is_aws_endpoint(endpoint)) {
             const is_aws_sts = Boolean(this.cloud_info.aws_sts_arn);
             if (is_aws_sts) {
-                 this.additionalS3Params = {
+                this.additionalS3Params = {
                     RoleSessionName: 'block_store_operations'
                 };
             } else {
-            this.s3cloud = new AWS.S3({
-                endpoint: endpoint,
-                accessKeyId: this.cloud_info.access_keys.access_key.unwrap(),
-                secretAccessKey: this.cloud_info.access_keys.secret_key.unwrap(),
-                s3ForcePathStyle: true,
-                signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(endpoint, this.cloud_info.auth_method),
-                region: DEFAULT_REGION,
-                httpOptions: {
-                    agent: http_utils.get_default_agent(endpoint)
-                }
-            });
-        }
+                this.s3cloud = new AWS.S3({
+                    endpoint: endpoint,
+                    accessKeyId: this.cloud_info.access_keys.access_key.unwrap(),
+                    secretAccessKey: this.cloud_info.access_keys.secret_key.unwrap(),
+                    s3ForcePathStyle: true,
+                    signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(endpoint, this.cloud_info.auth_method),
+                    region: DEFAULT_REGION,
+                    httpOptions: {
+                        agent: http_utils.get_default_agent(endpoint)
+                    }
+                });
+            }
         } else {
             this.disable_delegation = config.EXPERIMENTAL_DISABLE_S3_COMPATIBLE_DELEGATION[this.cloud_info.endpoint_type] ||
                 config.EXPERIMENTAL_DISABLE_S3_COMPATIBLE_DELEGATION.DEFAULT;
@@ -146,7 +146,7 @@ class BlockStoreS3 extends BlockStoreBase {
             s3DisableBodySigning: cloud_utils.disable_s3_compatible_bodysigning(endpoint),
         };
         if (this.cloud_info.aws_sts_arn) {
-             connection_params.aws_sts_arn = this.cloud_info.aws_sts_arn;
+            connection_params.aws_sts_arn = this.cloud_info.aws_sts_arn;
         }
         return {
             connection_params,
@@ -267,13 +267,17 @@ class BlockStoreS3 extends BlockStoreBase {
                 }).promise();
             }
         } catch (err) {
-            dbg.error('in _test_cloud_service - deleteObject failed:', err, _.omit(this.cloud_info, 'access_keys'));
-            if (err.code === 'NoSuchBucket') {
-                throw new RpcError('STORAGE_NOT_EXIST', `s3 bucket ${this.cloud_info.target_bucket} not found. got error ${err}`);
-            } else if (err.code === 'AccessDenied') {
-                throw new RpcError('AUTH_FAILED', `access denied to the s3 bucket ${this.cloud_info.target_bucket}. got error ${err}`);
+            // NoSuchKey is expected
+            if (err.code !== 'NoSuchKey') {
+                if (err.code === 'NoSuchBucket') {
+                    dbg.error(`s3 bucket ${this.cloud_info.target_bucket} not found`, err);
+                    throw new RpcError('STORAGE_NOT_EXIST', `s3 bucket ${this.cloud_info.target_bucket} not found. got error ${err}`);
+                } else if (err.code === 'AccessDenied') {
+                    dbg.error(`access denied to the s3 bucket ${this.cloud_info.target_bucket}`, err);
+                    throw new RpcError('AUTH_FAILED', `access denied to the s3 bucket ${this.cloud_info.target_bucket}. got error ${err}`);
+                }
+                dbg.warn(`unexpected error (code=${err.code}) from deleteObject during test. ignoring..`);
             }
-            dbg.warn(`unexpected error (code=${err.code}) from deleteObject during test. ignoring..`);
         }
     }
 

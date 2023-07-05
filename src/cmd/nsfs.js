@@ -132,12 +132,12 @@ class NsfsObjectSDK extends ObjectSDK {
     async read_bucket_sdk_policy_info(bucket_name) {
         return {
             s3_policy: {
-                version: '2012-10-17',
-                statement: [{
-                    effect: 'allow',
-                    action: ['*'],
-                    resource: ['*'],
-                    principal: [new SensitiveString('*')],
+                Version: '2012-10-17',
+                Statement: [{
+                    Effect: 'Allow',
+                    Action: ['*'],
+                    Resource: ['*'],
+                    Principal: new SensitiveString('*'),
                 }]
             },
             system_owner: new SensitiveString('nsfs'),

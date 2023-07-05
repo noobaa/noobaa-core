@@ -176,13 +176,13 @@ async function disable_accounts_s3_access(rpc_client, accounts_emails) {
 function generate_s3_policy(principal, bucket, action) {
     return {
         policy: {
-            version: '2012-10-17',
-            statement: [
+            Version: '2012-10-17',
+            Statement: [
                 {
-                    effect: 'allow',
-                    principal: [principal],
-                    action: action,
-                    resource: [
+                    Effect: 'Allow',
+                    Principal: { AWS: [principal] },
+                    Action: action,
+                    Resource: [
                         `arn:aws:s3:::${bucket}/*`,
                         `arn:aws:s3:::${bucket}`
                     ]

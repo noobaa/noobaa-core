@@ -110,12 +110,12 @@ mocha.describe('STS tests', function() {
             }]
         };
         const s3accesspolicy = {
-            version: '2012-10-17',
-            statement: [{
-                effect: 'allow',
-                principal: [user_a, user_b, user_c],
-                action: ['s3:*'],
-                resource: ['arn:aws:s3:::first.bucket/*', 'arn:aws:s3:::first.bucket'],
+            Version: '2012-10-17',
+            Statement: [{
+                Effect: 'Allow',
+                Principal: {AWS: [user_a, user_b, user_c]},
+                Action: ['s3:*'],
+                Resource: ['arn:aws:s3:::first.bucket/*', 'arn:aws:s3:::first.bucket'],
             }]
         };
         const user_a_keys = (await rpc_client.account.create_account(account)).access_keys;
@@ -505,12 +505,12 @@ mocha.describe('Session token tests', function() {
         }));
 
         const s3accesspolicy = {
-            version: '2012-10-17',
-            statement: [{
-                effect: 'allow',
-                principal: [alice2],
-                action: ['s3:*'],
-                resource: [
+            Version: '2012-10-17',
+            Statement: [{
+                Effect: 'Allow',
+                Principal: { AWS: alice2 },
+                Action: ['s3:*'],
+                Resource: [
                     'arn:aws:s3:::first.bucket/*',
                     'arn:aws:s3:::first.bucket',
                 ]

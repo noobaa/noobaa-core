@@ -103,7 +103,7 @@ class RpcMessage {
             throw new Error('RPC VERSION MISMATCH');
         }
         const body_length = meta_buffer.readUInt32BE(4);
-        const body = JSON.parse(buffer_utils.extract_join(msg_buffers, body_length));
+        const body = JSON.parse(buffer_utils.extract_join(msg_buffers, body_length).toString());
 
         return new RpcMessage(body, msg_buffers);
     }

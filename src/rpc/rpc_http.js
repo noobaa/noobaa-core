@@ -63,12 +63,9 @@ class RpcHttpConnection extends RpcBaseConnection {
      */
     _close() {
         // try to abort the connetion's running request
-        if (this.req) {
-            if (this.req.abort) {
-                dbg.warn('HTTP ABORT REQ', this.reqid);
-                this.req.abort();
-            }
-            this.req = null;
+        if (this.res) {
+            dbg.warn('HTTP CLOSE CONN', this.connid);
+            this.res?.destroy();
         }
     }
 

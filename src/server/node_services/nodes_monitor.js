@@ -37,12 +37,7 @@ const RUN_DELAY_MS = 60000;
 const RUN_NODE_CONCUR = 5;
 const MAX_NUM_LATENCIES = 20;
 const UPDATE_STORE_MIN_ITEMS = 30;
-const AGENT_HEARTBEAT_GRACE_TIME = 10 * 60 * 1000; // 10 minutes grace period before an agent is consideref offline
-const CLOUD_ALERT_GRACE_TIME = 3 * 60 * 1000; // 3 minutes grace period before dispatching alert on cloud node status
-const AGENT_RESPONSE_TIMEOUT = 1 * 60 * 1000;
-const AGENT_TEST_CONNECTION_TIMEOUT = 10 * 1000;
 const NO_NAME_PREFIX = 'a-node-has-no-name-';
-const STORE_PERF_TEST_INTERVAL = 60 * 60 * 1000; // perform test_store_perf every 1 hour
 
 const AGENT_INFO_FIELDS = [
     'version',
@@ -269,7 +264,7 @@ class NodesMonitor extends EventEmitter {
                 pool &&
                 pool.cloud_pool_info &&
                 pool.cloud_pool_info.available_capacity;
-            const info = await P.timeout(AGENT_RESPONSE_TIMEOUT,
+            const info = await P.timeout(config.AGENT_RESPONSE_TIMEOUT,
                 this.client.agent.get_agent_storage_info({
                     available_capacity
                 }, {
@@ -944,7 +939,7 @@ class NodesMonitor extends EventEmitter {
                     // if there is an alert wait some time before dispatching it
                     const now = Date.now();
                     if (item.dispatched_cloud_alert &&
-                        now > item.dispatched_cloud_alert + CLOUD_ALERT_GRACE_TIME) {
+                        now > item.dispatched_cloud_alert + config.CLOUD_ALERT_GRACE_TIME) {
                         // if grace time has passed cloud alert, dispatch it and reset indication
                         item.dispatched_cloud_alert = null;
                         this._cloud_node_alert(alert);
@@ -1052,7 +1047,7 @@ class NodesMonitor extends EventEmitter {
             pool.cloud_pool_info &&
             pool.cloud_pool_info.available_capacity;
 
-        return P.timeout(AGENT_RESPONSE_TIMEOUT,
+        return P.timeout(config.AGENT_RESPONSE_TIMEOUT,
                 this.client.agent.get_agent_info_and_update_masters({
                     addresses: potential_masters,
                     available_capacity
@@ -1286,7 +1281,7 @@ class NodesMonitor extends EventEmitter {
             const token = auth_server.make_auth_token(auth_parmas);
             dbg.log0(`new create_node_token: ${token}`);
 
-            await P.timeout(AGENT_RESPONSE_TIMEOUT,
+            await P.timeout(config.AGENT_RESPONSE_TIMEOUT,
                 this.client.agent.update_create_node_token({
                     create_node_token: token
                 }, {
@@ -1353,7 +1348,7 @@ class NodesMonitor extends EventEmitter {
             // skip the update when no changes detected
             if (_.isEmpty(rpc_config)) return;
             dbg.log0('_update_rpc_config:', item.node.name, rpc_config);
-            await P.timeout(AGENT_RESPONSE_TIMEOUT,
+            await P.timeout(config.AGENT_RESPONSE_TIMEOUT,
                 this.client.agent.update_rpc_config(rpc_config, {
                     connection: item.connection
                 })
@@ -1370,7 +1365,7 @@ class NodesMonitor extends EventEmitter {
 
     async _test_store_validity(item) {
         try {
-            await P.timeout(AGENT_RESPONSE_TIMEOUT,
+            await P.timeout(config.AGENT_RESPONSE_TIMEOUT,
                 this.client.agent.test_store_validity(null, {
                     connection: item.connection
                 })
@@ -1390,12 +1385,12 @@ class NodesMonitor extends EventEmitter {
 
     async _test_store_perf(item) {
         const now = Date.now();
-        if (item.last_store_perf_test && now < item.last_store_perf_test + STORE_PERF_TEST_INTERVAL) return;
+        if (item.last_store_perf_test && now < item.last_store_perf_test + config.STORE_PERF_TEST_INTERVAL) return;
         try {
 
 
             dbg.log1('running _test_store_perf::', item.node.name);
-            const res = await P.timeout(AGENT_RESPONSE_TIMEOUT,
+            const res = await P.timeout(config.AGENT_RESPONSE_TIMEOUT,
                 this.client.agent.test_store_perf({
                     count: 5
                 }, {
@@ -1459,7 +1454,7 @@ class NodesMonitor extends EventEmitter {
                 item.num_io_test_errors += 1;
                 return;
             }
-            if (!item.io_test_errors) {
+            if (!config.NODE_IO_DETENTION_DISABLE && !item.io_test_errors) {
                 dbg.error('_test_store:: node has io_test_errors', item.node.name, err);
                 item.io_test_errors = Date.now();
             }
@@ -1476,7 +1471,7 @@ class NodesMonitor extends EventEmitter {
         try {
             const start = Date.now();
             dbg.log1('_test_network_to_server::', item.node.name);
-            const req = await P.timeout(AGENT_TEST_CONNECTION_TIMEOUT,
+            const req = await P.timeout(config.AGENT_TEST_CONNECTION_TIMEOUT,
                 this.n2n_client.agent.test_network_perf({
                     source: this.n2n_agent.rpc_address,
                     target: item.node.rpc_address,
@@ -1500,7 +1495,7 @@ class NodesMonitor extends EventEmitter {
                 item.gateway_errors = 0;
             }
         } catch (err) {
-            if (!item.gateway_errors) {
+            if (!config.NODE_IO_DETENTION_DISABLE && !item.gateway_errors) {
                 dbg.error('_test_network_to_server:: node has gateway_errors', item.node.name, err);
                 item.gateway_errors = Date.now();
             }
@@ -1517,7 +1512,7 @@ class NodesMonitor extends EventEmitter {
         return P.map_one_by_one(items_without_issues, item_without_issues => {
                 dbg.log1('_test_network_perf::', item.node.name, item.io_detention,
                     item.node.rpc_address, item_without_issues.node.rpc_address);
-                return P.timeout(AGENT_TEST_CONNECTION_TIMEOUT,
+                return P.timeout(config.AGENT_TEST_CONNECTION_TIMEOUT,
                     this.client.agent.test_network_perf_to_peer({
                         source: item_without_issues.node.rpc_address,
                         target: item.node.rpc_address,
@@ -1538,7 +1533,7 @@ class NodesMonitor extends EventEmitter {
                 }
             })
             .catch(err => {
-                if (!item.n2n_errors) {
+                if (!config.NODE_IO_DETENTION_DISABLE && !item.n2n_errors) {
                     dbg.error('_test_network_perf:: node has n2n_errors', item.node.name, err);
                     item.n2n_errors = Date.now();
                 }
@@ -1661,7 +1656,7 @@ class NodesMonitor extends EventEmitter {
                     return;
                 }
                 dbg.log0('_update_new_nodes: update_auth_token', item.node.name);
-                return P.timeout(AGENT_RESPONSE_TIMEOUT,
+                return P.timeout(config.AGENT_RESPONSE_TIMEOUT,
                         this.client.agent.update_auth_token({
                             auth_token: auth_server.make_auth_token({
                                 system_id: String(item.node.system),
@@ -1826,12 +1821,12 @@ class NodesMonitor extends EventEmitter {
         dbg.log3('_update_status:', item.node.name);
 
         const now = Date.now();
-        item.online = Boolean(item.connection) && (now < item.node.heartbeat + AGENT_HEARTBEAT_GRACE_TIME);
+        item.online = Boolean(item.connection) && (now < item.node.heartbeat + config.AGENT_HEARTBEAT_GRACE_TIME);
 
         // if we still have a connection, but considered offline, close the connection
         if (!item.online && item.connection) {
             dbg.warn('node HB not received in the last',
-                AGENT_HEARTBEAT_GRACE_TIME / 60000,
+                config.AGENT_HEARTBEAT_GRACE_TIME / 60000,
                 'minutes. closing connection');
             this._disconnect_node(item);
         }
@@ -1867,7 +1862,7 @@ class NodesMonitor extends EventEmitter {
             }
         }
 
-        if (!item.io_reported_errors &&
+        if (!config.NODE_IO_DETENTION_DISABLE && !item.io_reported_errors &&
             io_detention_recent_issues >= config.NODE_IO_DETENTION_RECENT_ISSUES) {
             dbg.log0('_update_status:: Node has io_reported_errors', item.node.name);
             item.io_reported_errors = now;
@@ -1912,6 +1907,7 @@ class NodesMonitor extends EventEmitter {
     }
 
     _get_item_io_detention(item) {
+        if (config.NODE_IO_DETENTION_DISABLE) return 0;
         const io_detention_time = Math.min(
             item.n2n_errors || Number.POSITIVE_INFINITY,
             item.gateway_errors || Number.POSITIVE_INFINITY,
@@ -3394,7 +3390,7 @@ class NodesMonitor extends EventEmitter {
         const item = this._get_node({
             rpc_address: rpc_params.source
         });
-        return P.timeout(AGENT_RESPONSE_TIMEOUT,
+        return P.timeout(config.AGENT_RESPONSE_TIMEOUT,
                 this.client.agent.test_network_perf_to_peer(rpc_params, {
                     connection: item.connection
                 })

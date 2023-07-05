@@ -688,6 +688,8 @@ config.STS_DEFAULT_SESSION_TOKEN_EXPIRY_MS = 60 * 60 * 1000; // 1 hour
 // BLOCK STORE FS      //
 /////////////////////////
 
+config.BLOCK_STORE_CACHE_SIZE = 256 * 1024 * 1024;
+
 config.BLOCK_STORE_FS_TMFS_ENABLED = false;
 config.BLOCK_STORE_FS_MAPPING_INFO_ENABLED = false;
 config.BLOCK_STORE_FS_TMFS_ALLOW_MIGRATED_READS = true;

@@ -68,19 +68,31 @@ class EndpointStatsStore {
     async _update_s3_ops_counters(system, report) {
         const { usage = {}, errors = {} } = report.s3_ops;
         const selector = {
-            system: system._id
+            system: system._id,
         };
+        const options = {
+            upsert: true,
+            returnOriginal: false,
+
+            // Ineffective and not needed in mongo
+            //
+            // This is a postgres hack, this allows us to
+            // initialize the counters if the fields are missing
+            upsert_fields: {
+                s3_usage_info: usage,
+                s3_errors_info: errors
+            }
+        };
+
         const update = {
+            $set: {
+                system: system._id,
+            },
             $inc: {
                 ..._.mapKeys(usage, (unused, key) => `s3_usage_info.${key}`),
                 ..._.mapKeys(errors, (unused, key) => `s3_errors_info.${key}`)
             }
         };
-        const options = {
-            upsert: true,
-            returnOriginal: false
-        };
-
         const res = await this._s3_ops_counters
             .findOneAndUpdate(selector, update, options);
 
@@ -129,6 +141,7 @@ class EndpointStatsStore {
                 account: record.account
             };
             const update = {
+                $set: selector,
                 $inc: _.pick(record, [
                     'read_bytes',
                     'write_bytes',

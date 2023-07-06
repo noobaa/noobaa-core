@@ -103,7 +103,6 @@
     "ncp": "2.0.0",
     "net-ping": "1.2.3",
     "node-addon-api": "7.0.0",
-    "node-df": "0.1.4",
     "node-gyp": "9.4.0",
     "performance-now": "2.1.0",
     "pg": "8.11.0",

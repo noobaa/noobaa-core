@@ -8,7 +8,6 @@ const ps = require('ps-node');
 const util = require('util');
 const path = require('path');
 const moment = require('moment-timezone');
-const node_df = require('node-df');
 const blockutils = require('linux-blockutils');
 const child_process = require('child_process');
 const ip_module = require('ip');
@@ -341,15 +340,66 @@ function get_disk_mount_points() {
         });
 }
 
+//https://github.com/adriano-di-giovanni/node-df/blob/master/lib/parse.js
+function _df_parse(stdout) {
+    return stdout
+            .trim()
+            .split(/\r\n|\r|\n/) // split into rows
+            .slice(1) // strip column headers away
+            .map(row => {
+                const columns = row
+                // one or more whitespaces followed by one or more digits
+                // must be interpreted as column delimiter
+                .replace(/\s+(\d+)/g, '\t$1')
+                // one or more whitespaces followed by a slash
+                // must be interpreted as the last column delimiter
+                .replace(/\s+\//g, '\t/')
+                // split into columns
+                .split(/\t/);
 
-function get_mount_of_path(file_path) {
+        return {
+            filesystem: columns[0],
+            size: parseInt(columns[1], 10),
+            used: parseInt(columns[2], 10),
+            available: parseInt(columns[3], 10),
+            capacity: parseInt(columns[4], 10) * 0.01,
+            mount: columns.slice(5).join(' '),
+        };
+    });
+}
+
+//https://github.com/adriano-di-giovanni/node-df/blob/master/lib/index.js
+async function _df(file_path, flags = '') {
+    const file_name_regex = /[^-_./a-zA-Z0-9]/g;
+    const flags_argument = '-kP' + flags;
+    const args = [flags_argument];
+    if (file_path) {
+        // CVE-2019-15597 add '\' to special charecters to prevent command injection
+        file_path = file_path.replace(file_name_regex, match => '\\' + match);
+        args.push(file_path);
+    }
+    try {
+    const execFile = util.promisify(child_process.execFile);
+    const { stdout, stderr } = await execFile('/bin/df', args);
+    if (stderr) {
+        dbg.error("df command failed:", stderr);
+        throw new Error(stderr);
+    }
+    return _df_parse(stdout);
+    } catch (err) {
+        dbg.error('df command failed:', err);
+        throw err;
+    }
+}
+
+async function get_mount_of_path(file_path) {
     console.log('get_mount_of_path');
-    return P.fromCallback(callback => node_df({
-            file: file_path
-        }, callback))
-        .then(function(drives) {
-            return drives && drives[0] && drives[0].mount;
-        });
+    try {
+        const drives = await _df(file_path);
+        return drives?.[0]?.mount;
+    } catch (err) {
+        dbg.error(err);
+    }
 }
 
 
@@ -365,11 +415,15 @@ async function get_block_device_sizes() {
 }
 
 async function get_drive_of_path(file_path) {
-    const volumes = await P.fromCallback(callback => node_df({ file: file_path }, callback));
-    const vol = volumes && volumes[0];
-    if (vol) {
-        const size_by_bd = await get_block_device_sizes();
-        return linux_volume_to_drive(vol, size_by_bd);
+    try {
+        const volumes = await _df(file_path);
+        const vol = volumes?.[0];
+        if (vol) {
+            const size_by_bd = await get_block_device_sizes();
+            return linux_volume_to_drive(vol, size_by_bd);
+        }
+    } catch (err) {
+        dbg.error(err);
     }
 }
 
@@ -391,11 +445,7 @@ function remove_linux_readonly_drives(volumes) {
 }
 
 async function read_mac_linux_drives() {
-    const volumes = await P.fromCallback(callback => node_df({
-        // this is a hack to make node_df append the -l flag to the df command
-        // in order to get only local file systems.
-        file: '-l'
-    }, callback));
+    const volumes = await _df(null, 'l');
 
     if (!volumes) {
         return [];
@@ -418,11 +468,7 @@ async function read_mac_linux_drives() {
 }
 
 async function read_kubernetes_agent_drives() {
-    const volumes = await P.fromCallback(cb => node_df({
-        // this is a hack to make node_df append the -l flag to the df command
-        // in order to get only local file systems.
-        file: '-a'
-    }, cb));
+    const volumes = await _df(null, 'a');
 
     const size_by_bd = await get_block_device_sizes();
     return _.compact(volumes.map(vol =>
@@ -975,6 +1021,7 @@ exports.read_drives = read_drives;
 exports.get_raw_storage = get_raw_storage;
 exports.remove_linux_readonly_drives = remove_linux_readonly_drives;
 exports.get_main_drive_name = get_main_drive_name;
+exports._df = _df;
 exports.get_mount_of_path = get_mount_of_path;
 exports.get_drive_of_path = get_drive_of_path;
 exports.top_single = top_single;

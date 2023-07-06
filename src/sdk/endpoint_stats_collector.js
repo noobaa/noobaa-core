@@ -7,6 +7,7 @@ const mime = require('mime');
 const dbg = require('../util/debug_module')(__filename);
 const prom_report = require('../server/analytic_services/prometheus_reporting');
 const DelayedCollector = require('../util/delayed_collector');
+const config = require('../../config');
 
 /**
  * @typedef {{
@@ -83,6 +84,10 @@ class EndpointStatsCollector {
         this.update_fs_stats = fs_worker_stats => this._update_fs_stats(fs_worker_stats);
 
         this.prom_metrics_report = prom_report.get_endpoint_report();
+        this.semaphore_reports = {
+            object_io: [],
+            nsfs: [],
+        };
     }
 
     static instance() {
@@ -237,6 +242,35 @@ class EndpointStatsCollector {
         this.endpoint_stats_collector.update({
             bucket_counters: { [bucket_name]: { [content_type]: { write_count: 1 } } }
         });
+    }
+
+    update_semaphore_state(report, type, report_sample_sizes) {
+        if (!this.semaphore_reports[type]) {
+            throw new Error(`Semaphore report type ${type} is not valid`);
+        }
+        this.semaphore_reports[type].push(report);
+        if (this.semaphore_reports[type].length > report_sample_sizes[report_sample_sizes.length - 1]) {
+            this.semaphore_reports[type].shift();
+        }
+        const average_intervals = [];
+        for (const sample_size of report_sample_sizes) {
+            if (this.semaphore_reports[type].length < sample_size) {
+                return;
+            }
+            // Convert the sampling size to sampling average interval
+            const average_interval = (sample_size * config.SEMAPHORE_MONITOR_DELAY) / (60 * 1000);
+            average_intervals.push(average_interval);
+            const average_values = this.semaphore_reports[type].slice(this.semaphore_reports[type].length - sample_size);
+            this.update_semaphore_reports(average_values, { type, average_interval }, average_intervals);
+        }
+
+    }
+
+    update_semaphore_reports(reports, labels, average_intervals) {
+        this.prom_metrics_report.set('semaphore_value', labels, reports, average_intervals);
+        this.prom_metrics_report.set('semaphore_waiting_value', labels, reports, average_intervals);
+        this.prom_metrics_report.set('semaphore_waiting_time', labels, reports, average_intervals);
+        this.prom_metrics_report.set('semaphore_waiting_queue', labels, reports, average_intervals);
     }
 
     update_nsfs_read_stats({ namespace_resource_id, bucket_name = undefined, size = 0, count = 0, is_err = false }) {

@@ -69,10 +69,8 @@ config.NODES_FREE_SPACE_RESERVE = 100 * (1024 ** 2);
 // don't use agents with less than reserve + 5 GB
 config.MINIMUM_AGENT_TOTAL_STORAGE = config.NODES_FREE_SPACE_RESERVE + (5 * (1024 ** 3));
 
-config.LONG_GONE_THRESHOLD = 3600000;
-config.SHORT_GONE_THRESHOLD = 300000;
-config.LONG_BUILD_THRESHOLD = 300000;
-config.NODE_IO_DETENTION_THRESHOLD = 60000;
+config.NODE_IO_DETENTION_DISABLE = false;
+config.NODE_IO_DETENTION_THRESHOLD = 60 * 1000;
 config.NODE_IO_DETENTION_RECENT_ISSUES = 5;
 // Picked two because minimum of nodes per pool is three
 config.NODE_IO_DETENTION_TEST_NODES = 2;
@@ -80,6 +78,14 @@ config.NODE_IO_DETENTION_TEST_NODES = 2;
 config.HOSTED_AGENTS_HOST_ID = 'hosted_agents';
 
 config.NODE_ALLOCATOR_NUM_CLUSTERS = 2;
+
+config.AGENT_HEARTBEAT_GRACE_TIME = 10 * 60 * 1000; // grace period before an agent is considered offline
+config.CLOUD_ALERT_GRACE_TIME = 3 * 60 * 1000; // grace period before dispatching alert on cloud node status
+config.AGENT_RESPONSE_TIMEOUT = 1 * 60 * 1000;
+config.AGENT_TEST_CONNECTION_TIMEOUT = 1 * 60 * 1000;
+config.STORE_PERF_TEST_INTERVAL = 60 * 60 * 1000; // perform test_store_perf every 1 hour
+config.CLOUD_MAX_ALLOWED_IO_TEST_ERRORS = 3;
+
 
 ////////////////
 // RPC CONFIG //
@@ -241,12 +247,6 @@ config.IO_CALC_SHA256_ENABLED = true;
 
 config.ERROR_INJECTON_ON_WRITE = 0;
 config.ERROR_INJECTON_ON_READ = 0;
-
-/////////////////////
-//NODES MONITORING //
-/////////////////////
-
-config.CLOUD_MAX_ALLOWED_IO_TEST_ERRORS = 3;
 
 ///////////////////////////
 // AGENT BLOCKS VERIFIER //

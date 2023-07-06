@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/* eslint max-lines-per-function: ['error', 700] */
+/* eslint max-lines-per-function: ['error', 900] */
 /* eslint-disable no-invalid-this */
 
 'use strict';
@@ -51,7 +51,6 @@ const azure_mock_key = 'Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErC
 const azure_mock_endpoint = `http://${blob_mock_host}:10000/${azure_mock_account}`;
 const azure_mock_connection_string = `DefaultEndpointsProtocol=http;AccountName=${azure_mock_account};AccountKey=${azure_mock_key};BlobEndpoint=${azure_mock_endpoint};`;
 
-/*eslint max-lines-per-function: ["error", 800]*/
 mocha.describe('s3_ops', function() {
 
     let s3;
@@ -704,6 +703,31 @@ mocha.describe('s3_ops', function() {
             if (!is_azure_mock) assert.strictEqual(res2.Contents[2].Key, text_file3);
 
             config.INLINE_MAX_SIZE = ORIG_INLINE_MAX_SIZE;
+        });
+
+        mocha.it('should delete non existing object without failing', async function() {
+            this.timeout(60000);
+            const key_to_delete = 'non-existing-obj';
+            const res = await s3.deleteObject({ Bucket: bucket_name, Key: key_to_delete}).promise();
+            assert.deepEqual(res, {});
+
+        });
+
+        mocha.it('should delete multiple non existing objects without failing', async function() {
+            this.timeout(60000);
+            const keys_to_delete = [
+                { Key: 'non-existing-obj1' },
+                { Key: 'non-existing-obj2' },
+                { Key: 'non-existing-obj3' }
+            ];
+            const res = await s3.deleteObjects({ Bucket: bucket_name,
+                Delete: {
+                    Objects: keys_to_delete
+                }
+            }).promise();
+            assert.deepEqual(res.Deleted, keys_to_delete);
+            assert.equal(res.Errors.length, 0);
+
         });
 
         mocha.it('should delete text-file', async function() {

@@ -19,7 +19,17 @@ In general, the build prereqs for Linux are maintained in the builder container 
 - assembler
   - nasm on Linux - build from source [nasm-2.15.05.tar.gz](https://github.com/netwide-assembler/nasm/archive/nasm-2.15.05.tar.gz) (match the version and steps in latest `builder.Dockerfile`).
   - yasm on MacOS - `brew install yasm`
+- [jq](https://jqlang.github.io/jq/) 
+  - On Linux (Ubuntu) - `sudo apt-get install jq`
+  - On Linux (Centos/Red Hat) - `sudo dnf install jq`
+  - On MacOS - `brew install jq`
+- [aws-cli](https://aws.amazon.com/cli/) -
+  - visit [aws-cli-install-userguide](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) for the recommended installation paths
 
+  OR -
+  - On Linux (Ubuntu) - `sudo apt-get install awscli`
+  - On Linux (Centos/Red Hat) - `sudo dnf install epel-release ; sudo dnf install awscli`  // install extra packages and awscli
+  - On MacOS - `brew install awscli`
 ### 2. Build from source
 
 ```sh
@@ -230,6 +240,11 @@ Running a local endpoint alongside the database and other services is simple:
 npm run s3
 ```
 
+In order to use the NSFS feature, the s3 endpoint process should run with sudo permissions -
+```sh
+sudo npm run s3
+```
+
 ---
 
 ## STORAGE
@@ -313,3 +328,120 @@ node src/tools/s3perf --endpoint http://localhost:6001 --sig s3 --bucket testbuc
 node src/tools/s3cat --endpoint https://localhost:6443 --selfsigned --bucket testbucket --put testobject --size 4096
 node src/tools/s3cat --endpoint https://localhost:6443 --selfsigned --bucket testbucket --upload testobject --size 4096 --part_size 1024 --concur 4
 ```
+
+---
+
+## NSFS
+
+The followings are instructions to deploy NSFS buckets on top of a local folder in a standalone environment, similarly to [NSFS-on-Kubernetes](https://github.com/noobaa/noobaa-core/wiki/NSFS-on-Kubernetes) doc.
+### Important note - 
+NSFS feature won't work without running S3 endpoint using root permissions, check that on step 4, the endpoint process run had sudo - 
+```sh
+sudo npm run s3
+```
+
+### Create a file system folder to be used as the underlying storage of the exported bucket
+```sh
+sudo mkdir -p /tmp/nsfs/bucket-path
+sudo chmod -R 777 /tmp/nsfs/bucket-path
+```
+
+### Get admin user access key & secret key
+
+```sh
+export ADMIN_AWS_ACCESS_KEY_ID=$(node src/cmd/api account_api read_account '{}' --json | jq -r '.access_keys[0].access_key')
+export ADMIN_AWS_SECRET_ACCESS_KEY=$(node src/cmd/api account_api read_account '{}' --json | jq -r '.access_keys[0].secret_key')
+```
+
+### Create namespace FS resource -
+
+The following command will create a namespace FS resource on top of a pre-existing file system folder -
+
+```sh
+node src/cmd/api pool_api create_namespace_resource '{
+    "name": "fs1",
+    "nsfs_config": {
+        "fs_root_path": "/tmp/nsfs/bucket-path",
+        "fs_backend": "GPFS"
+    }
+}'
+```
+
+### Create an exported namespace FS bucket - via RPC - 
+
+The following command will create a namespace FS Bucket on top of the namespace resource of the previous step - 
+
+```sh
+node src/cmd/api bucket_api create_bucket '{
+  "name": "exported.bucket",
+  "namespace":{
+    "write_resource": { "resource": "fs1" },
+    "read_resources": [ { "resource": "fs1" }]
+  }
+}'
+```
+
+### Add bucket policy -
+
+The following command will apply an "Allow all" bucket policy on the namespace bucket that was created on the previous step -
+
+```sh
+echo '
+{
+"Version":"2012-10-17",
+"Statement":[
+    {
+    "Sid":"id-1",
+    "Effect":"Allow",
+    "Principal":"*",
+    "Action":["s3:*"],
+    "Resource":["arn:aws:s3:::*"]
+    }
+]
+}
+'>/tmp/policy.json
+
+AWS_ACCESS_KEY_ID=$ADMIN_AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY=$ADMIN_AWS_SECRET_ACCESS_KEY aws --endpoint-url=https://localhost:6443 --no-verify-ssl s3api put-bucket-policy --bucket exported.bucket  --policy file://policy.json
+
+```
+
+### Create account -
+
+The following command will create a NooBaa account having nsfs configuration and fs1 as its default resource - 
+
+```sh
+node src/cmd/api account_api create_account '{
+    "email": "s3-user1@noobaa.io",
+    "name": "s3-user1",
+    "has_login": false,
+    "s3_access": true,
+    "default_resource": "fs1",
+    "nsfs_account_config": {
+      "uid": 1001,
+      "gid": 0,
+      "new_buckets_path": "/",
+      "nsfs_only": false
+     }
+  }'
+```
+
+### Connect and configure S3 Client - 
+
+The following command will read and export the credentials of the NooBaa account created on the previous step  - 
+
+```sh
+export S3_USER1_AWS_ACCESS_KEY_ID=$(node src/cmd/api account_api read_account '{ "email": "s3-user1@noobaa.io" }' --json | jq -r '.access_keys[0].access_key')
+export S3_USER1_AWS_SECRET_ACCESS_KEY=$(node src/cmd/api account_api read_account '{ "email": "s3-user1@noobaa.io" }' --json | jq -r '.access_keys[0].secret_key')
+```
+
+### Create Bucket - via S3 -
+
+The following command will create a NooBaa Bucket using the account created on the previous step - 
+
+Note - Since fs1 is the account's default resource and new_buckets_path is "/", the new bucket path will be /tmp/nsfs/bucket-path/test-bucket2/ 
+
+```sh
+AWS_ACCESS_KEY_ID=$S3_USER1_AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY=$S3_USER1_AWS_SECRET_ACCESS_KEY aws --endpoint=https://localhost:6443 --no-verify-ssl s3 mb s3://test-bucket2/
+```
+
+---

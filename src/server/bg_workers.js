@@ -4,7 +4,6 @@
 // load .env file before any other modules so that it will contain
 // all the arguments even when the modules are loading.
 require('../util/dotenv').load();
-require('../util/coverage_utils');
 require('../util/panic');
 require('../util/fips');
 
@@ -71,7 +70,7 @@ function register_rpc() {
 
 const register_bg_worker =
     (worker, run_batch_function) =>
-        background_scheduler.register_bg_worker(worker, run_batch_function);
+    background_scheduler.register_bg_worker(worker, run_batch_function);
 
 function remove_master_workers() {
     MASTER_BG_WORKERS.forEach(worker_name => {

@@ -31,22 +31,5 @@ module.exports = {
             }
         },
 
-        get_coverage_data: {
-            method: 'GET',
-            reply: {
-                type: 'object',
-                properties: {
-                    coverage_data: {
-                        type: 'object',
-                        additionalProperties: true,
-                        properties: {}
-                    },
-                },
-            },
-            auth: {
-                system: 'admin'
-            }
-        },
-
     }
 };

@@ -4,7 +4,6 @@
 // load .env file before any other modules so that it will contain
 // all the arguments even when the modules are loading.
 require('../util/dotenv').load();
-require('../util/coverage_utils');
 require('../util/panic');
 require('../util/fips');
 

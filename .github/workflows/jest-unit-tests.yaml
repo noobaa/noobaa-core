@@ -1,0 +1,19 @@
+name: Jest Unit Tests
+on: [push, pull_request]
+
+jobs:
+  run-unit-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - name: checkout
+        uses: actions/checkout@v3
+
+      - name: Run Jest Unit Test
+        run: |
+          sudo apt-get -y install nasm
+          npm install
+          npm run jest

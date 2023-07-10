@@ -1980,15 +1980,22 @@ function normalize_replication(req) {
 
 
     const { log_replication_info } = req.rpc_params.replication_policy;
-    if (log_replication_info && !log_replication_info.logs_location.logs_bucket) {
-        const logs_bucket = find_bucket(req);
-        const logs_bucket_info = get_bucket_info({ bucket: logs_bucket });
-        log_replication_info.logs_location.logs_bucket = logs_bucket_info.namespace.write_resource.resource.connection.target_bucket;
-    }
 
+    let replication_info_dict;
+
+    // Check whether endpoint_type was supplied or not
+    // A default value of AWS is assumed if not supplied in order to ensure backward compatibility.
+    // No further checks are in place since endpoint_type is defined as an enum in the API spec, and is limited to AWS and AZURE at the moment.
+    if (req.rpc_params.replication_policy.log_replication_info?.endpoint_type) {
+        if (req.rpc_params.replication_policy.log_replication_info.endpoint_type === 'AZURE') {
+            replication_info_dict = { azure_log_replication_info: _.omit(log_replication_info, 'endpoint_type') };
+        }
+    } else {
+        replication_info_dict = { aws_log_replication_info: log_replication_info };
+    }
     const validated_replication = {
         rules: validated_replication_rules,
-        log_replication_info: { aws_log_replication_info: log_replication_info }
+        log_replication_info: replication_info_dict
     };
 
 

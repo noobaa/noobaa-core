@@ -27,6 +27,9 @@ const azure_storage = require('../../util/new_azure_storage_wrap');
 const NetStorage = require('../../util/NetStorageKit-Node-master/lib/netstorage');
 const usage_aggregator = require('../bg_services/usage_aggregator');
 const { OP_NAME_TO_ACTION } = require('../../endpoint/sts/sts_rest');
+const { Durations, LogsQueryClient } = require('@azure/monitor-query');
+const { ClientSecretCredential } = require("@azure/identity");
+
 
 const demo_access_keys = Object.freeze({
     access_key: new SensitiveString('123'),
@@ -719,6 +722,16 @@ async function add_external_connection(req) {
     info.secret_key = system_store.master_key_manager.encrypt_sensitive_string_with_master_key_id(
         req.rpc_params.secret, req.account.master_key_id._id);
 
+    if (req.rpc_params.azure_log_access_keys) {
+        info.azure_log_access_keys = {
+            azure_tenant_id: req.rpc_params.azure_log_access_keys.azure_tenant_id,
+            azure_client_id: req.rpc_params.azure_log_access_keys.azure_client_id,
+            azure_client_secret: system_store.master_key_manager.encrypt_sensitive_string_with_master_key_id(
+                req.rpc_params.azure_log_access_keys.azure_client_secret, req.account.master_key_id._id),
+            azure_logs_analytics_workspace_id: req.rpc_params.azure_log_access_keys.azure_logs_analytics_workspace_id,
+        };
+    }
+
     info.cp_code = req.rpc_params.cp_code || undefined;
     info.auth_method = req.rpc_params.auth_method || config.DEFAULT_S3_AUTH_METHOD[info.endpoint_type] || undefined;
     info = _.omitBy(info, _.isUndefined);
@@ -779,7 +792,7 @@ async function update_external_connection(req) {
             endpoint_type: connection.endpoint_type,
             endpoint: connection.endpoint,
             cp_code: connection.cp_code,
-            auth_method: connection.auth_method
+            auth_method: connection.auth_method,
         });
         check_failed = status !== 'SUCCESS';
 
@@ -969,7 +982,28 @@ async function _check_azure_connection_internal(params) {
         dbg.warn(`Error - connection for Premium account with params`, _.omit(params, 'secret'));
         throw err_to_status({}, 'NOT_SUPPORTED');
     }
-
+    // Check the initialization of a LogsQueryClient if the appropriate credentials are given
+    if (params.azure_log_access_keys) {
+        try {
+            const azure_token_credential = new ClientSecretCredential(
+                params.azure_log_access_keys.azure_tenant_id.unwrap(),
+                params.azure_log_access_keys.azure_client_id.unwrap(),
+                params.azure_log_access_keys.azure_client_secret.unwrap()
+            );
+            const logs_query_client = new LogsQueryClient(azure_token_credential);
+            await logs_query_client.queryWorkspace(
+                params.azure_log_access_keys.azure_logs_analytics_workspace_id.unwrap(),
+                "StorageBlobLogs",
+                { duration: Durations.oneHour },
+                {serverTimeoutInSeconds: 300}
+                );
+        } catch (err) {
+            dbg.warn('got error on LogsQueryClient init with params', _.omit(
+                params, ['secret', 'azure_log_access_keys.azure_client_secret']
+            ), ` error: ${err}`);
+            throw err_to_status(err, 'INVALID_CREDENTIALS');
+        }
+    }
     return { status: 'SUCCESS' };
 }
 

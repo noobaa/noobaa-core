@@ -845,6 +845,10 @@ module.exports = {
     },
 
     definitions: {
+        log_replication_endpoint_type: {
+            type: 'string',
+            enum: ['AWS', 'AZURE'],
+        },
 
         bucket_info: {
             type: 'object',
@@ -1418,18 +1422,35 @@ module.exports = {
                     }
                 },
                 log_replication_info: {
-                    type: 'object',
-                    required: ['logs_location'],
-                    properties: {
-                        logs_location: {
+                    oneOf: [
+                        // AWS - endpoint_type isn't required for backwards compatibility
+                        {
                             type: 'object',
-                            required: ['logs_bucket'],
+                            required: ['logs_location'],
                             properties: {
-                                logs_bucket: { type: 'string' },
-                                prefix: { type: 'string' }
+                                logs_location: {
+                                    type: 'object',
+                                    required: ['logs_bucket'],
+                                    properties: {
+                                        logs_bucket: { type: 'string' },
+                                        prefix: { type: 'string' },
+                                        endpoint_type: { $ref: '#/definitions/log_replication_endpoint_type' },
+                                    }
+                                }
                             }
-                        }
-                    }
+                        },
+                        // Azure
+                        {
+                            type: 'object',
+                            required: ['endpoint_type'],
+                            properties: {
+                                prefix: {
+                                    type: 'string',
+                                },
+                                endpoint_type: { $ref: '#/definitions/log_replication_endpoint_type' },
+                            }
+                        },
+                    ]
                 },
             }
         },

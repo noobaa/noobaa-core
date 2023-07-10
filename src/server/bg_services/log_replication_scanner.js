@@ -63,7 +63,7 @@ class LogReplicationScanner {
     async scan() {
         if (!this.noobaa_connection) throw new Error('noobaa endpoint connection is not started yet...');
         // Retrieve all replication policies with log-replication info from the DB
-        const replications = await replication_store.find_aws_log_based_replication_rules();
+        const replications = await replication_store.find_log_based_replication_rules();
 
         // Iterate over the policies in parallel
         await P.all(_.map(replications, async repl => {
@@ -92,15 +92,7 @@ class LogReplicationScanner {
                     rule.rule_id,
                     repl,
                     config.AWS_LOG_CANDIDATES_LIMIT,
-                    entry => {
-                        // If sync_deletions is true then nothing is to be ignored
-                        // hence return false
-                        if (rule.sync_deletions) return false;
-
-                        // If sync_deletions is false then we need to ignore
-                        // the DELETE.OBJECT operations
-                        return entry?.operation?.includes('DELETE.OBJECT');
-                    }
+                    rule.sync_deletions
                 );
                 if (!candidates.items || !candidates.done) return;
 

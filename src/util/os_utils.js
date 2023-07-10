@@ -343,11 +343,11 @@ function get_disk_mount_points() {
 //https://github.com/adriano-di-giovanni/node-df/blob/master/lib/parse.js
 function _df_parse(stdout) {
     return stdout
-            .trim()
-            .split(/\r\n|\r|\n/) // split into rows
-            .slice(1) // strip column headers away
-            .map(row => {
-                const columns = row
+        .trim()
+        .split(/\r\n|\r|\n/) // split into rows
+        .slice(1) // strip column headers away
+        .map(row => {
+            const columns = row
                 // one or more whitespaces followed by one or more digits
                 // must be interpreted as column delimiter
                 .replace(/\s+(\d+)/g, '\t$1')
@@ -357,15 +357,15 @@ function _df_parse(stdout) {
                 // split into columns
                 .split(/\t/);
 
-        return {
-            filesystem: columns[0],
-            size: parseInt(columns[1], 10),
-            used: parseInt(columns[2], 10),
-            available: parseInt(columns[3], 10),
-            capacity: parseInt(columns[4], 10) * 0.01,
-            mount: columns.slice(5).join(' '),
-        };
-    });
+            return {
+                filesystem: columns[0],
+                size: parseInt(columns[1], 10),
+                used: parseInt(columns[2], 10),
+                available: parseInt(columns[3], 10),
+                capacity: parseInt(columns[4], 10) * 0.01,
+                mount: columns.slice(5).join(' '),
+            };
+        });
 }
 
 //https://github.com/adriano-di-giovanni/node-df/blob/master/lib/index.js
@@ -374,18 +374,14 @@ async function _df(file_path, flags = '') {
     const flags_argument = '-kP' + flags;
     const args = [flags_argument];
     if (file_path) {
-        // CVE-2019-15597 add '\' to special charecters to prevent command injection
+        // CVE-2019-15597 add '\' to special characters to prevent command injection
         file_path = file_path.replace(file_name_regex, match => '\\' + match);
         args.push(file_path);
     }
     try {
-    const execFile = util.promisify(child_process.execFile);
-    const { stdout, stderr } = await execFile('/bin/df', args);
-    if (stderr) {
-        dbg.error("df command failed:", stderr);
-        throw new Error(stderr);
-    }
-    return _df_parse(stdout);
+        const execFile = util.promisify(child_process.execFile);
+        const { stdout } = await execFile('/bin/df', args);
+        return _df_parse(stdout);
     } catch (err) {
         dbg.error('df command failed:', err);
         throw err;

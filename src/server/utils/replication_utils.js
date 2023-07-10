@@ -61,12 +61,12 @@ function get_copy_type() {
     return 'MIX';
 }
 
-async function move_objects(scanner_semaphore, client, copy_type, src_bucket_name, dst_bucket_name, keys) {
+async function copy_objects(scanner_semaphore, client, copy_type, src_bucket_name, dst_bucket_name, keys) {
     try {
         const res = await scanner_semaphore.surround_count(keys.length,
             async () => {
                 try {
-                    const res1 = await client.replication.move_objects_by_type({
+                    const res1 = await client.replication.copy_objects({
                         copy_type,
                         src_bucket_name,
                         dst_bucket_name,
@@ -82,12 +82,12 @@ async function move_objects(scanner_semaphore, client, copy_type, src_bucket_nam
                 } catch (err) {
                     // no need to do retries, eventually the object will be uploaded
                     // TODO: serious error codes with metrics (auth_failed, storage not exist etc)
-                    dbg.error('replication_utils move_objects: error: ', err, src_bucket_name, dst_bucket_name, keys);
+                    dbg.error('replication_utils copy_objects: error: ', err, src_bucket_name, dst_bucket_name, keys);
                 }
             });
         return res;
     } catch (err) {
-        dbg.error('replication_utils move_objects: semaphore error:', err, err.stack);
+        dbg.error('replication_utils copy_objects: semaphore error:', err, err.stack);
         // no need to handle semaphore errors, eventually the object will be uploaded
     }
 }
@@ -123,5 +123,5 @@ exports.check_data_or_md_changed = check_data_or_md_changed;
 exports.get_object_md = get_object_md;
 exports.find_src_and_dst_buckets = find_src_and_dst_buckets;
 exports.get_copy_type = get_copy_type;
-exports.move_objects = move_objects;
+exports.copy_objects = copy_objects;
 exports.delete_objects = delete_objects;

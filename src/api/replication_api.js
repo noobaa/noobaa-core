@@ -14,11 +14,11 @@ module.exports = {
 
     methods: {
 
-        move_objects_by_type: {
+        copy_objects: {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['copy_type', 'src_bucket_name', 'dst_bucket_name', 'keys'],
+                required: ['src_bucket_name', 'dst_bucket_name', 'keys'],
                 properties: {
                     copy_type: {
                         type: 'string',

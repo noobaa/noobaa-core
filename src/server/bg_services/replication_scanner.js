@@ -108,7 +108,7 @@ class ReplicationScanner {
             const keys_to_copy = Object.keys(keys_sizes_map_to_copy);
             if (keys_to_copy.length) {
                 const copy_type = replication_utils.get_copy_type();
-                move_res = await replication_utils.move_objects(
+                move_res = await replication_utils.copy_objects(
                     this.scanner_semaphore,
                     this.client,
                     copy_type,

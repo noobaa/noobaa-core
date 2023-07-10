@@ -603,6 +603,7 @@ module.exports = {
                     type: 'string'
                 },
                 access_key: { $ref: 'common_api#/definitions/access_key' },
+                azure_log_access_keys: { $ref: 'common_api#/definitions/azure_log_access_keys' },
                 cp_code: {
                     type: 'string'
                 },

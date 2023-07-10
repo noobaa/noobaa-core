@@ -408,6 +408,7 @@ module.exports = {
                     },
                     identity: { $ref: 'common_api#/definitions/access_key' },
                     secret: { $ref: 'common_api#/definitions/secret_key' },
+                    azure_log_access_keys: { $ref: 'common_api#/definitions/azure_log_access_keys' },
                     aws_sts_arn: {
                         type: 'string'
                     },
@@ -464,6 +465,7 @@ module.exports = {
                     },
                     identity: { $ref: 'common_api#/definitions/access_key' },
                     secret: { $ref: 'common_api#/definitions/secret_key' },
+                    azure_log_access_keys: { $ref: 'common_api#/definitions/azure_log_access_keys' },
                     aws_sts_arn: {
                         type: 'string'
                     },

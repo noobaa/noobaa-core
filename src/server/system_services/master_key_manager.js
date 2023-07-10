@@ -306,6 +306,7 @@ class MasterKeysManager {
     }
 
     async decrypt_all_accounts_secret_keys({ accounts, pools, namespace_resources }) {
+        // Note that decipher CANNOT be reused for multiple decryptions. Each decryption requires a new decipher.
         for (const account of accounts) {
             if (account.master_key_id && account.master_key_id._id) {
                 const m_key = this.get_master_key_by_id(account.master_key_id._id);
@@ -324,11 +325,16 @@ class MasterKeysManager {
                 }
                 if (account.sync_credentials_cache) {
                     for (const keys of account.sync_credentials_cache) {
-                        const decipher = crypto.createDecipheriv(m_key.cipher_type, m_key.cipher_key, m_key.cipher_iv);
                         keys.secret_key = await this.secret_keys_cache.get_with_cache({
                             encrypted_value: keys.secret_key.unwrap(),
-                            decipher
+                            decipher: crypto.createDecipheriv(m_key.cipher_type, m_key.cipher_key, m_key.cipher_iv)
                         }, undefined);
+                        if (keys.azure_log_access_keys) {
+                            keys.azure_log_access_keys.azure_client_secret = await this.secret_keys_cache.get_with_cache({
+                                encrypted_value: keys.azure_log_access_keys.azure_client_secret.unwrap(),
+                                decipher: crypto.createDecipheriv(m_key.cipher_type, m_key.cipher_key, m_key.cipher_iv)
+                            }, undefined);
+                        }
                     }
                 }
             }
@@ -354,6 +360,13 @@ class MasterKeysManager {
                         undefined,
                         master_key_id: ns_resource.account.master_key_id._id
                     }, undefined);
+                    if (ns_resource.connection.azure_log_access_keys) {
+                        ns_resource.connection.azure_log_access_keys.azure_client_secret = await this.secret_keys_cache.get_with_cache({
+                            encrypted_value: ns_resource.connection.azure_log_access_keys.azure_client_secret.unwrap(),
+                            undefined,
+                            master_key_id: ns_resource.account.master_key_id._id
+                        }, undefined);
+                    }
                 }
             }
         }

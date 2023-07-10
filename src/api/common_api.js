@@ -731,7 +731,6 @@ module.exports = {
         },
 
         access_key: { wrapper: SensitiveString },
-
         secret_key: { wrapper: SensitiveString },
 
         access_keys: {
@@ -744,6 +743,22 @@ module.exports = {
         },
 
         secret_enc_key: { wrapper: SensitiveString },
+
+        azure_tenant_id: { wrapper: SensitiveString },
+        azure_client_id: { wrapper: SensitiveString },
+        azure_client_secret: { wrapper: SensitiveString },
+        azure_logs_analytics_workspace_id: { wrapper: SensitiveString },
+
+        azure_log_access_keys: {
+            type: 'object',
+            required: ['azure_tenant_id', 'azure_client_id', 'azure_client_secret', 'azure_logs_analytics_workspace_id'],
+            properties: {
+                azure_tenant_id: { $ref: '#/definitions/azure_tenant_id' },
+                azure_client_id: { $ref: '#/definitions/azure_client_id' },
+                azure_client_secret: { $ref: '#/definitions/azure_client_secret' },
+                azure_logs_analytics_workspace_id: { $ref: '#/definitions/azure_logs_analytics_workspace_id' },
+            }
+        },
 
         ip_range: {
             type: 'object',

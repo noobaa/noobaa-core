@@ -10,6 +10,8 @@ const pool_server = require('../system_services/pool_server');
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config');
 const moment = require('moment');
+const { LogsQueryClient, LogsQueryResultStatus } = require("@azure/monitor-query");
+const { ClientSecretCredential } = require("@azure/identity");
 
 /**
  * get_log_candidates will return an object which contains the log candidates
@@ -17,17 +19,25 @@ const moment = require('moment');
  * @param {string} rule_id ID of the replication rule
  * @param {Record<any, any>} replicationconfig Replication configuration
  * @param {Number} candidates_limit Candidates limit
- * @param {(log_entry: Record<string, any>) => boolean} ignore_fn - function that returns true if the log entry should be ignored
+ * @param {boolean} sync_deletions - Whether deletions should be synced or not
  * @returns {Promise<{
  *  items: nb.ReplicationLogCandidates,
  *  done: () => Promise<void>
  * }>} Candidates
  */
-async function get_log_candidates(source_bucket_id, rule_id, replicationconfig, candidates_limit, ignore_fn = () => false) {
-    return get_aws_log_candidates(source_bucket_id, rule_id, replicationconfig, candidates_limit, ignore_fn);
+async function get_log_candidates(source_bucket_id, rule_id, replicationconfig, candidates_limit, sync_deletions) {
+    const source_bucket = system_store.data.get_by_id(source_bucket_id);
+    const endpoint_type = source_bucket.namespace.write_resource.resource.connection.endpoint_type;
+    if (endpoint_type === "AWS") {
+        return get_aws_log_candidates(source_bucket_id, rule_id, replicationconfig, candidates_limit, sync_deletions);
+    } else if (endpoint_type === "AZURE") {
+        return get_azure_log_candidates(source_bucket_id, rule_id, replicationconfig, candidates_limit, sync_deletions);
+    } else {
+        throw new Error(`REPLICATION_LOG_PARSER: Unsupported endpoint type ${endpoint_type}`);
+    }
 }
 
-async function get_aws_log_candidates(source_bucket_id, rule_id, replication_config, candidates_limit, ignore_fn) {
+async function get_aws_log_candidates(source_bucket_id, rule_id, replication_config, candidates_limit, sync_deletions) {
     const aws_log_replication_info = replication_config.log_replication_info.aws_log_replication_info;
     const { logs_bucket, prefix } = aws_log_replication_info.logs_location;
     const s3 = get_source_bucket_aws_connection(source_bucket_id, aws_log_replication_info);
@@ -50,7 +60,7 @@ async function get_aws_log_candidates(source_bucket_id, rule_id, replication_con
         }
 
         const next_log_data = await aws_get_next_log(s3, logs_bucket, next_log_entry.Contents[0].Key);
-        aws_parse_log_object(logs, next_log_data, ignore_fn);
+        aws_parse_log_object(logs, next_log_data, sync_deletions);
 
         logs_retrieved_count -= 1;
     }
@@ -62,6 +72,79 @@ async function get_aws_log_candidates(source_bucket_id, rule_id, replication_con
             if (continuation_token) {
                 await replication_store.update_log_replication_marker_by_id(replication_config._id, rule_id, { continuation_token });
             }
+        },
+    };
+}
+
+async function get_azure_log_candidates(source_bucket_id, rule_id, replication_config, candidates_limit, sync_deletions) {
+    const source_bucket = system_store.data.get_by_id(source_bucket_id);
+    const namespace_resource = source_bucket.namespace.write_resource.resource;
+    const src_storage_account = namespace_resource.connection.access_key;
+    const src_container_name = namespace_resource.connection.target_bucket;
+    const prefix = replication_config.log_replication_info.azure_log_replication_info.prefix || '';
+    const { logs_query_client, monitor_workspace_id } = get_source_bucket_azure_connection(source_bucket_id);
+    let candidates;
+
+    //Our "continuation token" is the timestamp of the the last log retrieval
+    let continuation_token = get_continuation_token_for_rule(rule_id, replication_config);
+    let duration;
+    if (continuation_token) {
+        duration = `${parseInt(continuation_token, 10)}ms`;
+    } else {
+        duration = '1h';
+    }
+
+    const kusto_query =
+    `set truncationmaxsize=${config.AZURE_QUERY_TRUNCATION_MAX_SIZE_IN_BITS};
+    StorageBlobLogs
+    | where TimeGenerated > ago(${duration})
+    | project Time=TimeGenerated, Action=substring(Category, 7), Key=ObjectKey
+    | sort by Time desc
+    | where Action == "Write" or Action == "Delete"
+    | where Key startswith "/${src_storage_account.unwrap()}/${src_container_name}/${prefix}"
+    | where Key !contains "test-delete-non-existing-"
+    | parse Key with * "/" StorageAccount "/" Container "/" Key
+    | project Time, Action, Key`;
+
+    const query_result = await logs_query_client.queryWorkspace(
+        monitor_workspace_id.unwrap(),
+        kusto_query,
+        { duration: duration },
+        {serverTimeoutInSeconds: 300}
+    );
+
+    if (query_result.status === LogsQueryResultStatus.Success) {
+        const tables_from_result = query_result.tables;
+        if (tables_from_result && tables_from_result[0].rows.length > 0) {
+            // @ts-ignore - Needed since the format of `rows` is changed in the Kusto query - project Time, Action, Key
+            // So there's a mismatch between what the code expects and what it actually receives
+            continuation_token = (Date.now() - query_result.tables[0].rows[0][0]).toString();
+            dbg.log1("get_azure_log_candidates: Found new Azure logs:");
+            dbg.log1(tables_from_result[0]);
+            dbg.log1("get_azure_log_candidates: Parsing Azure logs");
+            const logs = [];
+            azure_parse_log_object(logs, query_result, sync_deletions);
+            dbg.log1("get_azure_log_candidates: logs", logs);
+            candidates = create_candidates(logs);
+            dbg.log1("get_azure_log_candidates: candsidates", candidates);
+        } else {
+            dbg.log1("get_azure_log_candidates: No new Azure logs found to process");
+        }
+        if (tables_from_result.length === 0) {
+            dbg.log1(`get_azure_log_candidates: No results for Azure replication query '${kusto_query}'`);
+            return;
+        }
+    } else {
+        dbg.error(`get_azure_log_candidates: Error processing the Azure replication query '${kusto_query}' - ${query_result.partialError}`);
+        if (query_result.partialTables.length > 0) {
+            console.warn(`get_azure_log_candidates: The Azure replication query has also returned partial data in the following table(s) - ${query_result.partialTables}`);
+            }
+    }
+
+    return {
+        items: candidates,
+        done: async () => {
+            await replication_store.update_log_replication_marker_by_id(replication_config._id, rule_id, { continuation_token });
         },
     };
 }
@@ -162,9 +245,9 @@ async function aws_get_next_log(s3, bucket, key) {
  * aws_parse_log_object will parse the log object and will return an array of candidates
  * @param {nb.ReplicationLogs} logs - Log array
  * @param {*} log_object  - AWS log object
- * @param {*} ignore_fn  - function that returns true if the log entry should be ignored
+ * @param {boolean} sync_deletions  - Whether deletions should be synced or not
  */
-function aws_parse_log_object(logs, log_object, ignore_fn) {
+function aws_parse_log_object(logs, log_object, sync_deletions) {
     const log_string = log_object.Body.toString();
     const log_array = log_string.split("\n");
 
@@ -172,8 +255,6 @@ function aws_parse_log_object(logs, log_object, ignore_fn) {
         if (line !== '') {
             const log = parse_aws_log_entry(line);
             if (log.operation) {
-                // ignore the log entry if it should be ignored
-                if (ignore_fn(log)) continue;
 
                 if (log.operation.includes('PUT.OBJECT') || log.operation.includes('POST.OBJECT')) {
                     logs.push({
@@ -182,7 +263,7 @@ function aws_parse_log_object(logs, log_object, ignore_fn) {
                         time: log.time,
                     });
                 }
-                if (log.operation.includes('DELETE.OBJECT') && log.http_status === 204) {
+                if (log.operation.includes('DELETE.OBJECT') && sync_deletions && log.http_status === 204) {
                     logs.push({
                         key: log.key,
                         action: 'delete',
@@ -192,6 +273,51 @@ function aws_parse_log_object(logs, log_object, ignore_fn) {
             }
         }
     }
+}
+
+/**
+ * azure_parse_log_object will parse the log object and will return an array of candidates
+ * @param {nb.ReplicationLogs} logs - Log array
+ * @param {*} query_result  - A Kusto query result
+ */
+function azure_parse_log_object(logs, query_result, sync_deletions) {
+    // The query's result format is a matrix.
+    // The index values of each row are as following:
+    // 0: Time of operation
+    // 1: Operation (can only ever be Write or Delete)
+    // 2: Object key
+    for (const row_array of query_result.tables[0].rows) {
+        const [ time, operation, key ] = row_array;
+        if (operation === "Write") {
+            logs.push({
+                key: key,
+                action: 'copy',
+                time: time,
+            });
+        // Anything that isn't Write, has to be Delete
+        // Any other action is filtered in the query level
+        // Regardless, keeping the if for readability
+        } else if (operation === "Delete" && sync_deletions) {
+            logs.push({
+                key: key,
+                action: 'delete',
+                time: time,
+            });
+        }
+    }
+}
+
+function get_source_bucket_azure_connection(source_bucket_id) {
+    const source_bucket = system_store.data.get_by_id(source_bucket_id);
+    const extended_ns_info = pool_server.get_namespace_resource_extended_info(source_bucket.namespace.write_resource.resource);
+    const azure_log_access_keys = extended_ns_info.azure_log_access_keys;
+    const { azure_tenant_id, azure_client_id, azure_client_secret, azure_logs_analytics_workspace_id } = azure_log_access_keys;
+    const azure_token_credential = new ClientSecretCredential(
+        azure_tenant_id.unwrap(),
+        azure_client_id.unwrap(),
+        azure_client_secret.unwrap()
+    );
+    return { logs_query_client: new LogsQueryClient(azure_token_credential), monitor_workspace_id: azure_logs_analytics_workspace_id };
 }
 
 function get_source_bucket_aws_connection(source_bucket_id, aws_log_replication_info) {
@@ -377,4 +503,5 @@ function get_continuation_token_for_rule(rule_id, replication_config) {
 // EXPORTS
 exports.get_log_candidates = get_log_candidates;
 exports.aws_parse_log_object = aws_parse_log_object;
+exports.azure_parse_log_object = azure_parse_log_object;
 exports.create_candidates = create_candidates;

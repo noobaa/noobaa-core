@@ -79,7 +79,13 @@ module.exports = {
                             }
                         },
                     }
-                }
+                },
+                azure_log_replication_info: {
+                    type: 'object',
+                    properties: {
+                        prefix: { type: 'string' }
+                    }
+                },
             },
         },
     }

@@ -1154,6 +1154,7 @@ function get_namespace_resource_extended_info(namespace_resource) {
         endpoint: namespace_resource.connection.endpoint,
         auth_method: namespace_resource.connection.auth_method,
         cp_code: namespace_resource.connection.cp_code || undefined,
+        azure_log_access_keys: namespace_resource.account.sync_credentials_cache[0].azure_log_access_keys || undefined,
         target_bucket: namespace_resource.connection.target_bucket,
         access_key: namespace_resource.connection.access_key,
         secret_key: namespace_resource.connection.secret_key,

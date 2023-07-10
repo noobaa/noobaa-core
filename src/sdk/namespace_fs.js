@@ -34,6 +34,7 @@ const buffers_pool = new buffer_utils.BuffersPool({
 
 const XATTR_USER_PREFIX = 'user.';
 // TODO: In order to verify validity add content_md5_mtime as well
+const XATTR_CONTENT_TYPE = XATTR_USER_PREFIX + 'content_type';
 const XATTR_MD5_KEY = XATTR_USER_PREFIX + 'content_md5';
 
 /**
@@ -698,6 +699,10 @@ class NamespaceFS {
         const can_use_temp_file = Boolean(fs_context.backend === 'GPFS' && nb_native().fs.gpfs);
         const file_path = this._get_file_path(params);
         let fs_xattr = to_fs_xattr(params.xattr);
+        if (params.content_type) {
+            fs_xattr = fs_xattr || {};
+            fs_xattr[XATTR_CONTENT_TYPE] = params.content_type;
+        }
         try {
             const upload_id = uuidv4();
             const upload_path = path.join(this.bucket_path, this.get_bucket_tmpdir(), 'uploads', upload_id);
@@ -1309,6 +1314,7 @@ class NamespaceFS {
      */
     _get_object_info(bucket, key, stat, fs_xattr) {
         const etag = this._get_etag(stat, fs_xattr);
+        const content_type = fs_xattr[XATTR_CONTENT_TYPE] || mime.getType(key) || 'application/octet-stream';
         return {
             obj_id: etag,
             bucket,
@@ -1316,7 +1322,7 @@ class NamespaceFS {
             etag,
             size: stat.size,
             create_time: stat.mtime.getTime(),
-            content_type: mime.getType(key) || 'application/octet-stream',
+            content_type,
             // temp:
             version_id: '1',
             is_latest: true,

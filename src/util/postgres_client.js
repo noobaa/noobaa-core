@@ -1171,6 +1171,22 @@ class PostgresTable {
         }
     }
 
+    /**
+     * findOneAndUpdate finds the first entry that matches the selector and applies the given update to it.
+     * 
+     * If upsert is true, it will create the entry if it doesn't exist - this will only create the entry
+     * with _id, if more fields are needed to be created "atomically" then `upsert_fields` should be used.
+     * 
+     * `upsert_fields` is not available in mongo as mongo by default creates even the nested fields if missing.
+     * @param {Record<string, any>} query aka Selector
+     * @param {Record<string, any>} update updates to apply
+     * @param {{
+     *   upsert: boolean,
+     *   returnOriginal: boolean,
+     *   upsert_fields: Record<string, any>
+     * }} options 
+     * @returns 
+     */
     async findOneAndUpdate(query, update, options) {
         if (options.returnOriginal !== false) {
             throw new Error('returnOriginal=true is not supported by the DB client API. must be set to false explicitly');
@@ -1226,7 +1242,7 @@ class PostgresTable {
                         // try update again to avoid race conditions
                         update_res = await this._updateOneWithClient(pg_client, query, update, options);
                         if (update_res.rowCount === 0) {
-                            const data = { _id: this.client.generate_id() };
+                            const data = { _id: this.client.generate_id(), ...(options.upsert_fields || {}) };
                             await this.insertOne(data);
                             update_res = await this.updateOne(data, update, options);
                         }

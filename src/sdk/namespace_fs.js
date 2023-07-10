@@ -37,12 +37,21 @@ const buffers_pool = new buffer_utils.BuffersPool({
 
 const XATTR_USER_PREFIX = 'user.';
 // TODO: In order to verify validity add content_md5_mtime as well
+const XATTR_CONTENT_TYPE = XATTR_USER_PREFIX + 'content_type';
 const XATTR_MD5_KEY = XATTR_USER_PREFIX + 'content_md5';
 const XATTR_VERSION_ID = XATTR_USER_PREFIX + 'version_id';
 const XATTR_PREV_VERSION_ID = XATTR_USER_PREFIX + 'prev_version_id';
 const XATTR_DELETE_MARKER = XATTR_USER_PREFIX + 'delete_marker';
+const XATTR_DIR_CONTENT = XATTR_USER_PREFIX + 'dir_content';
 const HIDDEN_VERSIONS_PATH = '.versions';
 const NULL_VERSION_ID = 'null';
+
+const INTERNAL_XATTR = [
+    XATTR_CONTENT_TYPE,
+    XATTR_DIR_CONTENT,
+    XATTR_PREV_VERSION_ID,
+    XATTR_DELETE_MARKER,
+];
 
 const versioning_status_enum = {
     VER_ENABLED: 'ENABLED',
@@ -67,8 +76,6 @@ const copy_status_enum = {
     FALLBACK: 'FALLBACK'
 };
 
-const XATTR_DIR_CONTENT = XATTR_USER_PREFIX + 'dir_content';
-const INTERNAL_XATTR = [XATTR_DIR_CONTENT, XATTR_PREV_VERSION_ID, XATTR_DELETE_MARKER];
 
 /**
  * @param {fs.Dirent} a
@@ -1074,6 +1081,10 @@ class NamespaceFS {
         // handle xattr
         if (!params.copy_source || !params.xattr_copy) {
             fs_xattr = to_fs_xattr(params.xattr);
+            if (params.content_type) {
+                fs_xattr = fs_xattr || {};
+                fs_xattr[XATTR_CONTENT_TYPE] = params.content_type;
+            }
             if (digest) {
                 const { md5_b64, key, bucket, upload_id } = params;
                 if (md5_b64) {
@@ -1797,26 +1808,30 @@ class NamespaceFS {
      */
      _get_object_info(bucket, key, stat, return_version_id, is_latest = true) {
         const etag = this._get_etag(stat);
+        const create_time = stat.mtime.getTime();
         const encryption = this._get_encryption_info(stat);
         const version_id = return_version_id && this._is_versioning_enabled() && this._get_version_id_by_xattr(stat);
+        const delete_marker = stat.xattr[XATTR_DELETE_MARKER] === 'true';
+        const content_type = stat.xattr[XATTR_CONTENT_TYPE] || mime.getType(key) || 'application/octet-stream';
 
         return {
             obj_id: etag,
             bucket,
             key,
-            etag,
             size: stat.size,
-            create_time: stat.mtime.getTime(),
-            content_type: mime.getType(key) || 'application/octet-stream',
-            // storage_class: stat.xattr[...TODO...]
+            etag,
+            create_time,
+            content_type,
+            encryption,
+            version_id,
+            is_latest,
+            delete_marker,
+            xattr: to_xattr(stat.xattr),
+
+            // TODO ? storage_class: stat.xattr[XATTR_STORAGE_CLASS_KEY],
 
             // temp:
-            version_id: version_id,
-            is_latest: is_latest,
-            delete_marker: stat.xattr[XATTR_DELETE_MARKER] === 'true',
             tag_count: 0,
-            encryption,
-            xattr: to_xattr(stat.xattr),
             lock_settings: undefined,
             md5_b64: undefined,
             num_parts: undefined,

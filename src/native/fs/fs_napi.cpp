@@ -217,7 +217,14 @@ parse_open_flags(std::string flags)
 }
 
 const static std::vector<std::string> GPFS_XATTRS{ GPFS_ENCRYPTION_XATTR_NAME };
-const static std::vector<std::string> USER_XATTRS{ "user.content_md5", "user.version_id", "user.prev_version_id", "user.delete_marker", "user.dir_content" };
+const static std::vector<std::string> USER_XATTRS{
+    "user.content_type",
+    "user.content_md5",
+    "user.version_id",
+    "user.prev_version_id",
+    "user.delete_marker",
+    "user.dir_content",
+};
 
 struct Entry
 {

@@ -1,21 +1,18 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const S3Error = require('../s3_errors').S3Error;
-
 /**
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectPUTacl.html
  */
 async function put_object_acl(req) {
-    if (!req.headers['x-amz-acl']) {
-        throw new S3Error(S3Error.AccessDenied);
-    }
-
+    // we only handle canned acl, the rest is deprecated in favor of bucket policy.
+    // however we do not fail the request because there are still clients that call it.
+    // we should still check that the object exists or else return the proper error.
     await req.object_sdk.put_object_acl({
         bucket: req.params.bucket,
         key: req.params.key,
         version_id: req.query.versionId,
-        acl: req.headers['x-amz-acl']
+        acl: req.headers['x-amz-acl'],
     });
 }
 

@@ -25,53 +25,38 @@ In general, the build prereqs for Linux are maintained in the builder container 
 ```sh
 git clone https://github.com/noobaa/noobaa-core
 cd noobaa-core
-npm install
-npm run build
-# optional package everything into a single-executable at build/noobaa-core
-npm run pkg
+make
 ```
 
-### 3. Various system setting (optional)
-
-You can use the configuration for `rsyslog` and `logrotate` for RHEL8. The logs of the NooBaa shall be stored into `/var/log/noobaa.log` if you make the instruction below. And the log file shall be rotated automatically by the `logrotate`.
-
-```
-sudo cp src/deploy/standalone/noobaa_syslog.conf /etc/rsyslog.d/
-sudo cp src/deploy/standalone/logrotate_noobaa.conf /etc/logrotate.d/
-sudo systemctl restart systemd-journald rsyslog
+optionally to package everything into a single-executable at build/noobaa-core
+```sh
+make pkg
 ```
 
-#### 3.1 Additional syslog configuration for RHEL8
-
-Additionally, it would be helpful if you configure to disable the rate limit of the log system.
-
-1. Add the 2 lines below into `/etc/systemd/journald.conf`
-
-```
-RateLimitInterva]lSec=0s
-RateLimitBurst=0
-```
-
-2. Add teh 2 lines below into `/etc/rsyslog.conf` (Just after the comment line `#### GLOBAL DIRECTIVES ####`)
-
-```
-$imjournalRatelimitInterval 0
-$imjournalRatelimitBurst 0
-```
-
-3. Restart log system
-
-```
-sudo systemctl restart systemd-journald rsyslog
-```
-
-### 4. Quick test
+### 3. Quick test
 
 This tool invokes key functions (e.g erasure coding), and should be able to run to completion without failures:
 
 ```sh
 node src/tools/coding_speed.js --ec --md5 --encode --erase --decode --size 2000
 ```
+
+### 4. Build executable inside container
+
+Sometimes it is desireable to build inside a build container in order, for example to avoid having to install prerequisites, or to get a linux x86_64 builds on Mac arm64. To build the executable inside the build container, use the following make command. Notice that the Makefile exposes options to set `CONTAINER_ENGINE` and `CONTAINER_PLATFORM` if needed.
+
+```sh
+make executable
+```
+
+
+
+The created binary is in /tmp/noobaa-core-executable on the container runtime host, e.g for lima use -
+
+```sh
+limactl copy 'default:/tmp/noobaa-core-executable/noobaa-core-*' ~/Downloads/
+```
+
 
 ---
 
@@ -188,7 +173,41 @@ config.TIERING_TTL_WORKER_ENABLED = true;
 EOF
 ```
 
-### 2. Run core services
+### 2. Various system setting (optional)
+
+You can use the configuration for `rsyslog` and `logrotate` for RHEL8. The logs of the NooBaa shall be stored into `/var/log/noobaa.log` if you make the instruction below. And the log file shall be rotated automatically by the `logrotate`.
+
+```
+sudo cp src/deploy/standalone/noobaa_syslog.conf /etc/rsyslog.d/
+sudo cp src/deploy/standalone/logrotate_noobaa.conf /etc/logrotate.d/
+sudo systemctl restart systemd-journald rsyslog
+```
+
+#### 3.1 Additional syslog configuration for RHEL8
+
+Additionally, it would be helpful if you configure to disable the rate limit of the log system.
+
+1. Add the 2 lines below into `/etc/systemd/journald.conf`
+
+```
+RateLimitInterva]lSec=0s
+RateLimitBurst=0
+```
+
+2. Add teh 2 lines below into `/etc/rsyslog.conf` (Just after the comment line `#### GLOBAL DIRECTIVES ####`)
+
+```
+$imjournalRatelimitInterval 0
+$imjournalRatelimitBurst 0
+```
+
+3. Restart log system
+
+```
+sudo systemctl restart systemd-journald rsyslog
+```
+
+### 3. Run core services
 
 These services should run once alongside the database:
 
@@ -203,7 +222,7 @@ Hosted agents is a special service needed only for cloud pools:
 npm run hosted_agents
 ```
 
-### 2. Run endpoints
+### 4. Run endpoints
 
 Running a local endpoint alongside the database and other services is simple:
 

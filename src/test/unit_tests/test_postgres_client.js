@@ -6,14 +6,10 @@
 const mocha = require('mocha');
 const { PostgresClient } = require('../../util/postgres_client');
 const SensitiveString = require('../../util/sensitive_string');
-// const db_client = require('../../util/db_client');
 const assert = require('assert');
-// const { find } = require('tslint/lib/utils');
 const _ = require('lodash');
 const wtf = require('wtfnode');
 const P = require('../../util/promise');
-// const { date } = require('azure-storage');
-
 
 const test_schema = {
     $id: 'test_postgres_client_schema',

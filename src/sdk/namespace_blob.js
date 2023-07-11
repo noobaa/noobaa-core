@@ -8,7 +8,7 @@ const crypto = require('crypto');
 const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
 const blob_utils = require('../endpoint/blob/blob_utils');
-const azure_storage = require('../util/new_azure_storage_wrap');
+const azure_storage = require('../util/azure_storage_wrap');
 const stream_utils = require('../util/stream_utils');
 const s3_utils = require('../endpoint/s3/s3_utils');
 const schema_utils = require('../util/schema_utils');
@@ -46,9 +46,6 @@ class NamespaceBlob {
         this.connection_string = connection_string;
         this.container = container;
         this.blob = azure_storage.BlobServiceClient.fromConnectionString(connection_string);
-        // needed only for generateBlockIdPrefix() and get_block_id() functions
-        // TODO: replace old lib functions with new impl of block_id getters
-        this.old_blob = azure_storage.get_old_blob_service_conn_string(connection_string);
         this.account_name = account_name;
         this.account_key = account_key;
         this.container_client = azure_storage.get_container_client(this.blob, this.container);
@@ -481,7 +478,7 @@ class NamespaceBlob {
     async upload_multipart(params, object_sdk) {
         // generating block ids in the form: '95342c3f-000005'
         // this is needed mostly since azure requires all the block_ids to have the same fixed length
-        const block_id = azure_storage.get_block_id(this.old_blob, params.obj_id, params.num);
+        const block_id = azure_storage.get_block_id(params.obj_id, params.num);
         const block_id_base64 = Buffer.from(block_id).toString('base64');
         let res;
         dbg.log0('NamespaceBlob.upload_multipart:',

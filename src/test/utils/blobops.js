@@ -3,6 +3,7 @@
 
 const P = require('../../util/promise');
 const azure_storage = require('../../util/azure_storage_wrap');
+const cloud_utils = require('../../util/cloud_utils');
 const RandStream = require('../../util/rand_stream');
 
 //TODO:: Remove and use cloud_functions::getAzureConnection ??
@@ -19,11 +20,13 @@ const AzureDefaultConnection = {
     secret: AZURE_STORAGE_ACCOUNT_KEY
 };
 
-const blobService = azure_storage.createBlobService(
-    AzureDefaultConnection.identity,
-    AzureDefaultConnection.secret,
-    AzureDefaultConnection.endpoint
-);
+const conn_str = cloud_utils.get_azure_new_connection_string({
+    endpoint: AzureDefaultConnection.endpoint,
+    access_key: AzureDefaultConnection.identity,
+    secret_key: AzureDefaultConnection.secret,
+});
+
+const blobService = azure_storage.BlobServiceClient.fromConnectionString(conn_str);
 
 async function uploadRandomFileDirectlyToAzure(container, file_name, size, err_handler) {
     const message = `Uploading random file ${file_name} to azure container ${container}`;

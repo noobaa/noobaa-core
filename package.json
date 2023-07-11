@@ -75,7 +75,6 @@
     "@azure/monitor-query": "1.1.0",
     "ajv": "8.12.0",
     "aws-sdk": "2.1413.0",
-    "azure-storage": "2.10.7",
     "bcrypt": "5.1.0",
     "big-integer": "1.6.51",
     "bindings": "1.5.0",

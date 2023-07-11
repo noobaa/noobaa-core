@@ -5,7 +5,7 @@ const AWS = require('aws-sdk');
 const _ = require('lodash');
 
 const Storage = require('../../util/google_storage_wrap');
-const azure_storage = require('../../util/new_azure_storage_wrap');
+const azure_storage = require('../../util/azure_storage_wrap');
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const buffer_utils = require('../../util/buffer_utils');
@@ -199,7 +199,7 @@ class BlockStoreClient {
                 const container = bs_info.target_bucket;
                 const block_key = `${bs_info.blocks_path}/${block_dir}/${block_id}`;
                 const encoded_md = Buffer.from(JSON.stringify(block_md)).toString('base64');
-                const container_client = azure_storage.get_container_client(blob, container);
+                const container_client = blob.getContainerClient(container);
                 const blob_client = azure_storage.get_blob_client(container_client, block_key);
                 dbg.log1('block_store_client._delegate_write_block_azure uploading block_key:', block_key, ' container: ', container, 'data_length: ', data.length);
 
@@ -246,7 +246,7 @@ class BlockStoreClient {
                 const blob = azure_storage.BlobServiceClient.fromConnectionString(azure_params.connection_string);
                 const container = bs_info.target_bucket;
                 const block_key = `${bs_info.blocks_path}/${block_dir}/${block_id}`;
-                const container_client = azure_storage.get_container_client(blob, container);
+                const container_client = blob.getContainerClient(container);
                 const blob_client = azure_storage.get_blob_client(container_client, block_key);
                 dbg.log1('block_store_client._delegate_read_block_azure starting download block_key:', block_key, ' container: ', container);
 

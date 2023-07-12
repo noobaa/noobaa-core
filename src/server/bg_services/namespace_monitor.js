@@ -4,7 +4,7 @@
 const system_store = require('../system_services/system_store').get_instance();
 //TODO: why do we what to use the wrap and not directly @google-cloud/storage ? 
 const GoogleCloudStorage = require('../../util/google_storage_wrap');
-const azure_storage = require('../../util/new_azure_storage_wrap');
+const azure_storage = require('../../util/azure_storage_wrap');
 const auth_server = require('../common_services/auth_server');
 const dbg = require('../../util/debug_module')(__filename);
 const system_utils = require('../utils/system_utils');

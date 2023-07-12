@@ -1,8 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-/** @typedef {import('azure-storage').BlobService} BlobService */
-
 const P = require('../../util/promise');
 const _ = require('lodash');
 const net = require('net');
@@ -23,7 +21,7 @@ const auth_server = require('../common_services/auth_server');
 const system_store = require('../system_services/system_store').get_instance();
 const bucket_server = require('../system_services/bucket_server');
 const pool_server = require('../system_services/pool_server');
-const azure_storage = require('../../util/new_azure_storage_wrap');
+const azure_storage = require('../../util/azure_storage_wrap');
 const NetStorage = require('../../util/NetStorageKit-Node-master/lib/netstorage');
 const usage_aggregator = require('../bg_services/usage_aggregator');
 const { OP_NAME_TO_ACTION } = require('../../endpoint/sts/sts_rest');
@@ -949,7 +947,7 @@ async function _check_azure_connection_internal(params) {
     try {
         blob = azure_storage.BlobServiceClient.fromConnectionString(conn_str);
     } catch (err) {
-        dbg.warn(`got error on createBlobService with params`, _.omit(params, 'secret'), ` error: ${err}`);
+        dbg.warn(`got error on BlobServiceClient.fromConnectionString with params`, _.omit(params, 'secret'), ` error: ${err}`);
         throw err_to_status(err, 'INVALID_CONNECTION_STRING');
     }
 

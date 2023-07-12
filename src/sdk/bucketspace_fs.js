@@ -6,6 +6,7 @@ const config = require('../../config');
 const nb_native = require('../util/nb_native');
 const SensitiveString = require('../util/sensitive_string');
 const { S3Error } = require('../endpoint/s3/s3_errors');
+const RpcError = require('../rpc/rpc_error');
 
 //TODO:  dup from namespace_fs - need to handle and not dup code
 function isDirectory(ent) {
@@ -37,16 +38,28 @@ class BucketSpaceFS {
     }
 
     async read_account_by_access_key({ access_key }) {
-        const iam_path = path.join(this.iam_dir, access_key);
-        const { data } = await nb_native().fs.readFile(this.fs_context, iam_path);
-        const account = JSON.parse(data.toString());
-        console.log('GGG read_account_by_access_key', access_key, account);
-        return account;
+        try {
+            console.log('GGG read_account_by_access_key', access_key);
+            if (!access_key) throw new Error('no access key');
+            const iam_path = path.join(this.iam_dir, access_key);
+            const { data } = await nb_native().fs.readFile(this.fs_context, iam_path);
+            const account = JSON.parse(data.toString());
+            account.name = new SensitiveString(account.name);
+            account.email = new SensitiveString(account.email);
+            for (const k of account.access_keys) {
+                k.access_key = new SensitiveString(k.access_key);
+                k.secret_key = new SensitiveString(k.secret_key);
+            }
+            console.log('GGG read_account_by_access_key', access_key, account);
+            return account;
+        } catch (err) {
+            throw new RpcError('NO_SUCH_ACCOUNT', `Account with access_key not found`);
+        }
     }
 
     async read_bucket_sdk_info({ name }) {
         return {
-            name,
+            name: new SensitiveString(name),
             system_owner: new SensitiveString('nsfs'),
             bucket_owner: new SensitiveString('nsfs'),
             s3_policy: {

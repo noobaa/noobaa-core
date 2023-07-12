@@ -51,11 +51,11 @@ const account_cache = new LRUCache({
      * Set type for the generic template
      * @param {{
      *      access_key: string;
-     *      rpc_client: nb.APIClient;
+     *      bucketspace: nb.BucketSpace;
      * }} params
      */
     make_key: ({ access_key }) => access_key,
-    load: async ({ rpc_client, access_key }) => rpc_client.account.read_account_by_access_key({ access_key }),
+    load: async ({ bucketspace, access_key }) => bucketspace.read_account_by_access_key({ access_key }),
 });
 
 const MULTIPART_NAMESPACES = [
@@ -189,7 +189,7 @@ class ObjectSDK {
             const token = this.get_auth_token();
             if (!token) return;
             this.requesting_account = await account_cache.get_with_cache({
-                rpc_client: this.internal_rpc_client,
+                bucketspace: this._get_bucketspace(),
                 access_key: token.access_key,
             });
         } catch (error) {
@@ -249,14 +249,14 @@ class ObjectSDK {
 
     async _load_bucket_namespace(params) {
         // params.bucket might be added by _validate_bucket_namespace
-        const bucket = params.bucket || await this.internal_rpc_client.bucket.read_bucket_sdk_info({ name: params.name });
+        const bucket = params.bucket || await this._get_bucketspace().read_bucket_sdk_info({ name: params.name });
         return this._setup_bucket_namespace(bucket);
     }
 
     async _validate_bucket_namespace(data, params) {
         const time = Date.now();
         if (time <= data.valid_until) return true;
-        const bucket = await this.internal_rpc_client.bucket.read_bucket_sdk_info({ name: params.name });
+        const bucket = await this._get_bucketspace().read_bucket_sdk_info({ name: params.name });
         if (_.isEqual(bucket, data.bucket)) {
             // namespace unchanged - extend validity for another period
             data.valid_until = time + config.OBJECT_SDK_BUCKET_CACHE_EXPIRY_MS;

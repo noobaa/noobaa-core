@@ -102,7 +102,7 @@ const IAM_JSON_SCHEMA = get_schema('account_api#/definitions/account_info');
 
 class NsfsObjectSDK extends ObjectSDK {
 
-    constructor(fs_root, fs_config, account, versioning) {
+    constructor(fs_root, fs_config, account, versioning, iam_dir) {
 
         // const rpc_client_hooks = new_rpc_client_hooks();
         // rpc_client_hooks.account.read_account_by_access_key = async ({ access_key }) => {
@@ -116,7 +116,7 @@ class NsfsObjectSDK extends ObjectSDK {
         //     }
         // };
 
-        const bucketspace = new BucketSpaceFS({ fs_root });
+        const bucketspace = new BucketSpaceFS({ fs_root, iam_dir });
 
         super({
             rpc_client: null,
@@ -132,22 +132,22 @@ class NsfsObjectSDK extends ObjectSDK {
         this.nsfs_namespaces = {};
     }
 
-    // async _get_bucket_namespace(bucket_name) {
-    //     const existing_ns = this.nsfs_namespaces[bucket_name];
-    //     if (existing_ns) return existing_ns;
-    //     const ns_fs = new NamespaceFS({
-    //         fs_backend: this.nsfs_fs_config.backend,
-    //         bucket_path: this.nsfs_fs_root + '/' + bucket_name,
-    //         bucket_id: 'nsfs',
-    //         namespace_resource_id: undefined,
-    //         access_mode: undefined,
-    //         versioning: this.nsfs_versioning,
-    //         stats: endpoint_stats_collector.instance(),
-    //         force_md5_etag: false,
-    //     });
-    //     this.nsfs_namespaces[bucket_name] = ns_fs;
-    //     return ns_fs;
-    // }
+    async _get_bucket_namespace(bucket_name) {
+        const existing_ns = this.nsfs_namespaces[bucket_name];
+        if (existing_ns) return existing_ns;
+        const ns_fs = new NamespaceFS({
+            fs_backend: this.nsfs_fs_config.backend,
+            bucket_path: this.nsfs_fs_root + '/' + bucket_name,
+            bucket_id: 'nsfs',
+            namespace_resource_id: undefined,
+            access_mode: undefined,
+            versioning: this.nsfs_versioning,
+            stats: endpoint_stats_collector.instance(),
+            force_md5_etag: false,
+        });
+        this.nsfs_namespaces[bucket_name] = ns_fs;
+        return ns_fs;
+    }
 
     // async load_requesting_account(auth_req) {
     //     const access_key = this.nsfs_account.access_keys?.[0]?.access_key;
@@ -263,8 +263,6 @@ async function main(argv = minimist(process.argv.slice(2))) {
             iam_ttl,
         });
 
-        const bucketspace = new BucketSpaceFS({ fs_root });
-
         const endpoint = require('../endpoint/endpoint');
         await endpoint.main({
             http_port,
@@ -273,7 +271,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
             metrics_port,
             forks,
             init_request_sdk: (req, res) => {
-                req.object_sdk = new NsfsObjectSDK(fs_root, fs_config, account, versioning);
+                req.object_sdk = new NsfsObjectSDK(fs_root, fs_config, account, versioning, iam_dir);
             }
         });
 

@@ -122,7 +122,7 @@ async function update_chunks_on_read(chunks, location_info) {
     const chunks_to_scrub = [];
     try {
         const bucket = chunks[0].bucket;
-        const selected_tier = await map_server.select_tier_for_write(bucket);
+        const selected_tier = await map_server.select_tier_for_read(bucket);
         for (const chunk of chunks) {
             if ((!chunk.tier._id || !_.isEqual(chunk.tier._id, selected_tier._id)) &&
                 map_server.enough_room_in_tier(selected_tier, bucket)) {

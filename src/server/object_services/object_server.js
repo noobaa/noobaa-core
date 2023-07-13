@@ -36,6 +36,7 @@ const { IoStatsStore } = require('../analytic_services/io_stats_store');
 const { ChunkAPI } = require('../../sdk/map_api_types');
 const config = require('../../../config');
 const Quota = require('../system_services/objects/quota');
+const { STORAGE_CLASS_STANDARD } = require('../../endpoint/s3/s3_utils');
 
 // short living cache for objects
 // the purpose is to reduce hitting the DB many many times per second during upload/download.
@@ -114,6 +115,10 @@ async function create_object_upload(req) {
     }
 
     const tier = req.bucket.tiering && await map_server.select_tier_for_write(req.bucket);
+    if (tier && tier.storage_class && tier.storage_class !== STORAGE_CLASS_STANDARD) {
+        info.storage_class = tier.storage_class;
+    }
+
     await MDStore.instance().insert_object(info);
     object_md_cache.put_in_cache(String(info._id), info);
 

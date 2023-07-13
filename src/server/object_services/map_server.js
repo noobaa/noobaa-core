@@ -24,6 +24,7 @@ const Barrier = require('../../util/barrier');
 const KeysSemaphore = require('../../util/keys_semaphore');
 const { ChunkDB, BlockDB } = require('./map_db_types');
 const { BlockAPI, get_all_chunks_blocks } = require('../../sdk/map_api_types');
+const { STORAGE_CLASS_STANDARD } = require('../../endpoint/s3/s3_utils');
 
 const map_reporter = new PeriodicReporter('map_reporter', false);
 const make_room_semaphore = new KeysSemaphore(1);
@@ -373,10 +374,34 @@ class PutMapping {
 }
 
 /**
+ * Select the tier to be used for writing new data.
  * @param {nb.Bucket} bucket
  * @returns {Promise<nb.Tier>}
  */
 async function select_tier_for_write(bucket) {
+    const tiering = bucket.tiering;
+    await node_allocator.refresh_tiering_alloc(tiering);
+    const tiering_status = node_allocator.get_tiering_status(tiering);
+
+    // the following handling is for the case of tier2 on TMFS
+    // in this case new writes are automatically assigned to the second tier
+    // right as blocks are written to TMFS in block_store_fs.
+    let start_tier_order;
+    if (config.BUCKET_AUTOCONF_TIER2_ENABLED && config.BLOCK_STORE_FS_TMFS_ENABLED) {
+        const tier_and_order = tiering.tiers.find(t =>
+            t.tier.storage_class && t.tier.storage_class !== STORAGE_CLASS_STANDARD);
+        start_tier_order = tier_and_order?.order;
+    }
+
+    return mapper.select_tier_for_write(tiering, tiering_status, start_tier_order);
+}
+
+/**
+ * Select the tier to be used for "lifting" data up the tiers on read.
+ * @param {nb.Bucket} bucket
+ * @returns {Promise<nb.Tier>}
+ */
+async function select_tier_for_read(bucket) {
     const tiering = bucket.tiering;
     await node_allocator.refresh_tiering_alloc(tiering);
     const tiering_status = node_allocator.get_tiering_status(tiering);
@@ -622,6 +647,7 @@ async function prepare_blocks_from_db(blocks) {
 exports.GetMapping = GetMapping;
 exports.PutMapping = PutMapping;
 exports.select_tier_for_write = select_tier_for_write;
+exports.select_tier_for_read = select_tier_for_read;
 exports.select_mirror_for_write = select_mirror_for_write;
 exports.enough_room_in_tier = enough_room_in_tier;
 exports.make_room_in_tier = make_room_in_tier;

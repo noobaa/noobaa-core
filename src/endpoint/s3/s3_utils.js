@@ -357,7 +357,7 @@ function parse_storage_class_header(req) {
 }
 
 /**
- * @param {string} storage_class
+ * @param {string} [storage_class]
  * @returns {nb.StorageClass}
  */
 function parse_storage_class(storage_class) {

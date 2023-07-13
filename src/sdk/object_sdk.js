@@ -160,6 +160,11 @@ class ObjectSDK {
         return bucket.namespace;
     }
 
+    async read_bucket_sdk_config_info(name) {
+        const { bucket } = await bucket_namespace_cache.get_with_cache({ sdk: this, name });
+        return bucket;
+    }
+
     async read_bucket_sdk_caching_info(name) {
         try {
             const { bucket } = await bucket_namespace_cache.get_with_cache({ sdk: this, name });
@@ -924,6 +929,25 @@ class ObjectSDK {
     async get_bucket_tagging(params) {
         const bs = this._get_bucketspace();
         return bs.get_bucket_tagging(params);
+    }
+
+    ////////////////////
+    // BUCKET LOGGING //
+    ////////////////////
+
+    async put_bucket_logging(params) {
+        const bs = this._get_bucketspace();
+        return bs.put_bucket_logging(params);
+    }
+
+    async delete_bucket_logging(params) {
+        const bs = this._get_bucketspace();
+        return bs.delete_bucket_logging(params);
+    }
+
+    async get_bucket_logging(req) {
+        const bs = this._get_bucketspace();
+        return bs.get_bucket_logging(req);
     }
 
     ///////////////////////

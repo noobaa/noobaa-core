@@ -391,27 +391,40 @@ async function delete_bucket_tagging(req) {
  */
 
 async function put_bucket_logging(req) {
+
     dbg.log0('put_bucket_logging:', req.rpc_params);
     const bucket = find_bucket(req);
+    const logging = {
+                        "name": bucket.name,
+                        "log_bucket": req.rpc_params.log_bucket,
+                        "log_prefix": req.rpc_params.log_prefix
+                    };
+
     await system_store.make_changes({
         update: {
             buckets: [{
                 _id: bucket._id,
-                logging: req.rpc_params.logging
+                logging
             }]
         }
     });
 }
 
 async function get_bucket_logging(req) {
+
     dbg.log0('get_bucket_logging:', req.rpc_params);
     const bucket = find_bucket(req);
-    return {
-        logging: bucket.logging,
+
+    const logging = {
+        "name": bucket.name,
+        "log_bucket": bucket.logging.log_bucket,
+        "log_prefix": bucket.logging.log_prefix
     };
+    return logging;
 }
 
 async function delete_bucket_logging(req) {
+
     dbg.log0('delete_bucket_logging:', req.rpc_params);
     const bucket = find_bucket(req);
     await system_store.make_changes({

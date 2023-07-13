@@ -706,6 +706,13 @@ config.TIERING_TTL_WORKER_BATCH_SIZE = 1000;
 config.TIERING_TTL_WORKER_BATCH_DELAY = 1 * 60 * 1000; // 1 minutes
 config.TIERING_TTL_MS = 30 * 60 * 1000; // 30 minutes
 
+/////////////////////////
+// AWS SDK VERSION     //
+/////////////////////////
+
+config.AWS_SDK_VERSION_3_DISABLED = true;
+config.DEFAULT_REGION = 'us-east-1';
+
 /////////////////////
 //                 //
 //    OVERRIDES    //

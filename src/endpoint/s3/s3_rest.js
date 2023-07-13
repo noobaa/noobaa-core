@@ -154,7 +154,6 @@ async function handle_request(req, res) {
     } catch (err) {
         dbg.error("Could not log bucket operation:", err);
     }
-
 }
 
 async function populate_request_additional_info_or_redirect(req) {

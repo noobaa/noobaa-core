@@ -1,6 +1,6 @@
 /* Copyright (C) 2020 NooBaa */
 /* eslint-disable max-lines-per-function */
-/*eslint max-lines: ["error", 2500]*/
+/*eslint max-lines: ["error",3100]*/
 'use strict';
 
 const fs = require('fs');
@@ -791,7 +791,87 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
         });
     });
 
-    mocha.describe('delete object', function() {
+    // dm = delete marker
+    mocha.describe('delete object latest - versioning suspended', function() {
+        const key_to_delete = 'mango.txt';
+        const key_to_delete2 = 'plum.txt';
+        const key_to_delete3 = 'kiwi.txt';
+
+        mocha.before('set bucket versioning - Enabled and then Suspended', async function() {
+            await s3_uid6.putBucketVersioning({ Bucket: suspended_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
+            await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: key_to_delete, Body: body1 }).promise();
+            await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: key_to_delete3, Body: body1 }).promise();
+            await s3_uid6.putBucketVersioning({ Bucket: suspended_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
+            await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: key_to_delete2, Body: body1 }).promise();
+        });
+
+        mocha.it('delete object latest - create dm & move latest -> .versions/', async function() {
+            const prev_version_id = await stat_and_get_version_id(suspended_full_path, key_to_delete);
+            const max_version_before_delete = await find_max_version_past(suspended_full_path, key_to_delete, '');
+            const res = await s3_uid6.deleteObject({ Bucket: suspended_bucket_name, Key: key_to_delete }).promise();
+            assert.equal(res.DeleteMarker, true);
+
+            let exist = await fs_utils.file_not_exists(path.join(suspended_full_path, key_to_delete));
+            assert.ok(exist);
+            exist = await version_file_exists(suspended_full_path, key_to_delete, '', prev_version_id);
+            assert.ok(exist);
+            const max_version_after_delete = await find_max_version_past(suspended_full_path, key_to_delete, '');
+            assert.notEqual(max_version_after_delete, max_version_before_delete);
+            const is_dm = await is_delete_marker(suspended_full_path, '', key_to_delete, max_version_after_delete);
+            assert.ok(is_dm);
+            assert.equal(res.VersionId, max_version_after_delete);
+        });
+
+        mocha.it('delete object - create dm & remove latest', async function() {
+            const prev_version_id = await stat_and_get_version_id(suspended_full_path, key_to_delete2);
+            const res = await s3_uid6.deleteObject({ Bucket: suspended_bucket_name, Key: key_to_delete2 }).promise();
+            assert.equal(res.DeleteMarker, true);
+
+            let exist = await fs_utils.file_not_exists(path.join(suspended_full_path, key_to_delete2));
+            assert.ok(exist);
+            exist = await version_file_exists(suspended_full_path, key_to_delete2, '', prev_version_id);
+            assert.ok(exist);
+            const max_version_after_delete = await find_max_version_past(suspended_full_path, key_to_delete2, '');
+            const is_dm = await is_delete_marker(suspended_full_path, '', key_to_delete2, max_version_after_delete);
+            assert.ok(is_dm);
+            assert.equal(res.VersionId, max_version_after_delete);
+        });
+
+        mocha.it('delete object latest - non existing key', async function() {
+            const non_existing_key = 'non_existing_key.txt';
+            const res = await s3_uid6.deleteObject({ Bucket: suspended_bucket_name, Key: non_existing_key }).promise();
+            assert.equal(res.DeleteMarker, true);
+
+            const max_version_after_delete = await find_max_version_past(suspended_full_path, key_to_delete, '');
+            const is_dm = await is_delete_marker(suspended_full_path, '', key_to_delete, max_version_after_delete);
+            assert.ok(is_dm);
+            assert.equal(res.VersionId, max_version_after_delete);
+        });
+
+        mocha.it('delete object when the latest is a dm with a unique version ID - should create another dm with null version ID', async function() {
+            await s3_uid6.putBucketVersioning({ Bucket: suspended_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
+            const prev_dm = await s3_uid6.deleteObject({ Bucket: suspended_bucket_name, Key: key_to_delete3 }).promise();
+            assert.equal(prev_dm.DeleteMarker, true);
+            const comp_prev = check_enable_version_format(prev_dm.VersionId);
+            assert.ok(comp_prev);
+
+            await s3_uid6.putBucketVersioning({ Bucket: suspended_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
+            const res = await s3_uid6.deleteObject({ Bucket: suspended_bucket_name, Key: key_to_delete3 }).promise();
+            assert.equal(res.DeleteMarker, true);
+            const comp_cur = check_null_version_id(res.VersionId);
+            assert.ok(comp_cur);
+            const latest_dm_version = await find_max_version_past(suspended_full_path, key_to_delete3, '');
+            assert.equal(res.VersionId, latest_dm_version);
+            const is_dm = await is_delete_marker(suspended_full_path, '', key_to_delete3, latest_dm_version);
+            assert.ok(is_dm);
+            const version_path = path.join(suspended_full_path, '.versions', key_to_delete3 + '_' + latest_dm_version);
+            const version_info = await stat_and_get_all(version_path, '');
+            assert.equal(version_info.xattr[XATTR_PREV_VERSION_ID], prev_dm.VersionId);
+            assert.equal(version_info.xattr[XATTR_VERSION_ID], NULL_VERSION_ID);
+        });
+    });
+
+    mocha.describe('delete object version id - versioning enabled', function() {
         const delete_object_test_bucket_reg = 'delete-object-test-bucket-reg';
         const delete_object_test_bucket_null = 'delete-object-test-bucket-null';
         const delete_object_test_bucket_dm = 'delete-object-test-bucket-dm';
@@ -1097,9 +1177,394 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             });
         });
     });
-});
+    });
 
-    mocha.describe('delete multiple objects', function() {
+    // Delete object version id is the same implementation to Enabled and Suspended.
+    // Thus, the tests are the same and their objective is only to validate that future code changes
+    // would not change the behavior of delete object version with suspended mode.
+    mocha.describe('delete object version id - versioning suspended', function() {
+        const delete_object_test_bucket_reg = 'delete-object-suspended-test-bucket-reg';
+        const delete_object_test_bucket_null = 'delete-object-suspended-test-bucket-null';
+        const delete_object_test_bucket_dm = 'delete-object-test-suspended-bucket-dm';
+
+        const full_delete_path = tmp_fs_root + '/' + delete_object_test_bucket_reg;
+        const full_delete_path_null = tmp_fs_root + '/' + delete_object_test_bucket_null;
+        const full_delete_path_dm = tmp_fs_root + '/' + delete_object_test_bucket_dm;
+
+        let account_with_access;
+        mocha.before(async function() {
+            const res = await generate_nsfs_account({ default_resource: nsr });
+            account_with_access = generate_s3_client(res.access_key, res.secret_key);
+            await account_with_access.createBucket({ Bucket: delete_object_test_bucket_reg }).promise();
+            await put_allow_all_bucket_policy(s3_admin, delete_object_test_bucket_reg);
+            await account_with_access.createBucket({ Bucket: delete_object_test_bucket_null }).promise();
+            await put_allow_all_bucket_policy(s3_admin, delete_object_test_bucket_null);
+            await account_with_access.createBucket({ Bucket: delete_object_test_bucket_dm }).promise();
+            await put_allow_all_bucket_policy(s3_admin, delete_object_test_bucket_dm);
+        });
+
+        mocha.describe('delete object - regular version - versioning suspended', async function() {
+
+            mocha.it('delete version id - fake id - nothing to remove - bucket will be suspended', async function() {
+                const max_version1 = await find_max_version_past(full_delete_path, key1, '');
+                assert.equal(max_version1, undefined);
+                await account_with_access.deleteObject({ Bucket: delete_object_test_bucket_reg, Key: key1, VersionId: 'mtime-123-ino-123'}).promise();
+                const max_version2 = await find_max_version_past(full_delete_path, key1, '');
+                assert.equal(max_version2, undefined);
+            });
+
+            mocha.it('delete object version id - latest - second latest is null version - versioning suspended', async function() {
+                const upload_res_arr = await upload_object_versions(account_with_access, delete_object_test_bucket_reg, key1, ['null', 'regular']);
+                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_reg, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
+                const cur_version_id1 = await stat_and_get_version_id(full_delete_path, key1);
+
+                const delete_res = await account_with_access.deleteObject({ Bucket: delete_object_test_bucket_reg,
+                    Key: key1, VersionId: upload_res_arr[1].VersionId }).promise();
+                assert.equal(delete_res.VersionId, cur_version_id1);
+
+                const cur_version_id2 = await stat_and_get_version_id(full_delete_path, key1);
+                assert.notEqual(cur_version_id1, cur_version_id2);
+                assert.equal('null', cur_version_id2);
+                const exist = await fs_utils.file_not_exists(path.join(full_delete_path, key1 + '_' + upload_res_arr[1].VersionId));
+                assert.ok(exist);
+                const max_version1 = await find_max_version_past(full_delete_path, key1, '');
+                assert.equal(max_version1, undefined);
+                await delete_object_versions(full_delete_path, key1);
+                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_reg, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
+            });
+
+            mocha.it('delete object version id - latest - second latest is delete marker version - versioning suspended', async function() {
+                const upload_res_arr = await upload_object_versions(account_with_access, delete_object_test_bucket_reg, key1, ['regular', 'delete_marker', 'regular']);
+                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_reg, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
+                const max_version0 = await find_max_version_past(full_delete_path, key1, '');
+
+                const cur_version_id1 = await stat_and_get_version_id(full_delete_path, key1);
+                assert.equal(upload_res_arr[2].VersionId, cur_version_id1);
+                const cur_ver_info = await stat_and_get_all(full_delete_path, key1);
+                assert.equal(cur_ver_info.xattr[XATTR_PREV_VERSION_ID], max_version0);
+                const is_dm = await is_delete_marker(full_delete_path, '', key1, max_version0);
+                assert.ok(is_dm);
+
+                const delete_res = await account_with_access.deleteObject({ Bucket: delete_object_test_bucket_reg,
+                    Key: key1, VersionId: upload_res_arr[2].VersionId }).promise();
+                assert.equal(delete_res.VersionId, cur_version_id1);
+                const exist = await fs_utils.file_not_exists(path.join(full_delete_path, key1));
+                assert.ok(exist);
+                const max_version1 = await find_max_version_past(full_delete_path, key1, '');
+                assert.equal(max_version1, max_version0);
+                await delete_object_versions(full_delete_path, key1);
+                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_reg, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
+            });
+
+            mocha.it('delete object version id - in .versions/ - versioning suspended', async function() {
+                const put_res = await account_with_access.putObject({
+                    Bucket: delete_object_test_bucket_reg, Key: key1, Body: body1 }).promise();
+                await account_with_access.putObject({ Bucket: delete_object_test_bucket_reg, Key: key1, Body: body1 }).promise();
+                const cur_version_id1 = await stat_and_get_version_id(full_delete_path, key1);
+                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_reg, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
+
+                const delete_res = await account_with_access.deleteObject({ Bucket: delete_object_test_bucket_reg,
+                    Key: key1, VersionId: put_res.VersionId }).promise();
+                assert.equal(put_res.VersionId, delete_res.VersionId);
+                const cur_version_id2 = await stat_and_get_version_id(full_delete_path, key1);
+                assert.equal(cur_version_id1, cur_version_id2);
+                const exist = await version_file_must_not_exists(full_delete_path, key1, '', put_res.VersionId);
+                assert.ok(exist);
+                const max_version1 = await find_max_version_past(full_delete_path, key1, '');
+                assert.equal(max_version1, undefined);
+            });
+
+            mocha.it('delete object version id - latest - no second latest - versioning suspended', async function() {
+                const cur_version_id = await stat_and_get_version_id(full_delete_path, key1);
+                await account_with_access.deleteObject({ Bucket: delete_object_test_bucket_reg,
+                    Key: key1, VersionId: cur_version_id }).promise();
+                const exist = await fs_utils.file_not_exists(path.join(full_delete_path, key1 + '_' + cur_version_id));
+                assert.ok(exist);
+                const max_version1 = await find_max_version_past(full_delete_path, key1, '');
+                assert.equal(max_version1, undefined);
+                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_reg, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
+            });
+
+            mocha.it('delete object version id - in .versions/ 2 - latest exist and it\'s a regular version - versioning suspended', async function() {
+                const upload_res_arr = await upload_object_versions(account_with_access, delete_object_test_bucket_reg, key1, ['regular', 'regular', 'regular']);
+                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_reg, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
+                const cur_version_id1 = await stat_and_get_version_id(full_delete_path, key1);
+                assert.equal(cur_version_id1, upload_res_arr[2].VersionId);
+
+                const delete_res = await account_with_access.deleteObject({ Bucket: delete_object_test_bucket_reg,
+                    Key: key1, VersionId: upload_res_arr[1].VersionId }).promise();
+                assert.equal(upload_res_arr[1].VersionId, delete_res.VersionId);
+                const cur_version_id2 = await stat_and_get_version_id(full_delete_path, key1);
+                assert.equal(cur_version_id1, cur_version_id2);
+                const exist = await version_file_must_not_exists(full_delete_path, key1, '', upload_res_arr[1].VersionId);
+                assert.ok(exist);
+                const max_version1 = await find_max_version_past(full_delete_path, key1, '');
+                assert.equal(max_version1, upload_res_arr[0].VersionId);
+                await delete_object_versions(full_delete_path, key1);
+                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_reg, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
+            });
+
+            mocha.it('delete object version id - in .versions/ 3 - latest exist and it\'s a delete marker - versioning suspended', async function() {
+                const upload_res_arr = await upload_object_versions(account_with_access, delete_object_test_bucket_reg, key1, ['regular', 'regular', 'delete_marker']);
+                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_reg, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
+
+                let exist = await fs_utils.file_not_exists(path.join(full_delete_path, key1));
+                assert.ok(exist);
+                const latest_dm_version_id1 = await find_max_version_past(full_delete_path, key1, '');
+                assert.equal(latest_dm_version_id1, upload_res_arr[2].VersionId);
+
+                const delete_res = await account_with_access.deleteObject({ Bucket: delete_object_test_bucket_reg,
+                    Key: key1, VersionId: upload_res_arr[1].VersionId }).promise();
+                assert.equal(upload_res_arr[1].VersionId, delete_res.VersionId);
+
+                exist = await fs_utils.file_not_exists(path.join(full_delete_path, key1));
+                assert.ok(exist);
+                const latest_dm_version_id2 = await find_max_version_past(full_delete_path, key1, '');
+                assert.equal(latest_dm_version_id1, latest_dm_version_id2);
+                const version_deleted = await version_file_must_not_exists(full_delete_path, key1, '', upload_res_arr[1].VersionId);
+                assert.ok(version_deleted);
+                await delete_object_versions(full_delete_path, key1);
+                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_reg, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
+            });
+
+            mocha.it('delete object version id - latest - second latest is regular version - versioning suspended', async function() {
+                const upload_res_arr = await upload_object_versions(account_with_access, delete_object_test_bucket_reg, key1, ['regular', 'regular']);
+                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_reg, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
+                const cur_version_id1 = await stat_and_get_version_id(full_delete_path, key1);
+
+                await account_with_access.deleteObject({ Bucket: delete_object_test_bucket_reg,
+                    Key: key1, VersionId: upload_res_arr[1].VersionId }).promise();
+
+                const cur_version_id2 = await stat_and_get_version_id(full_delete_path, key1);
+                assert.notEqual(cur_version_id1, cur_version_id2);
+                assert.equal(upload_res_arr[0].VersionId, cur_version_id2);
+                const exist = await fs_utils.file_not_exists(path.join(full_delete_path, key1 + '_' + upload_res_arr[1].VersionId));
+                assert.ok(exist);
+                const max_version1 = await find_max_version_past(full_delete_path, key1, '');
+                assert.equal(max_version1, undefined);
+                await delete_object_versions(full_delete_path, key1);
+                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_reg, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
+            });
+        });
+
+        mocha.describe('delete object - null version - versioning suspended', async function() {
+
+            mocha.it('delete object version null - latest, no second latest - versioning suspended', async function() {
+                const upload_res_arr = await upload_object_versions(account_with_access, delete_object_test_bucket_null, key1, ['null']);
+                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_null, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
+                const cur_version_id1 = await stat_and_get_version_id(full_delete_path_null, key1);
+                assert.equal(upload_res_arr[0].VersionId, undefined);
+                assert.equal(cur_version_id1, 'null');
+
+                await account_with_access.deleteObject({ Bucket: delete_object_test_bucket_null,
+                    Key: key1, VersionId: 'null' }).promise();
+
+                const exist = await fs_utils.file_not_exists(path.join(full_delete_path_null, key1));
+                assert.ok(exist);
+                const max_version1 = await find_max_version_past(full_delete_path_null, key1, '');
+                assert.equal(max_version1, undefined);
+                await delete_object_versions(full_delete_path_null, key1);
+            });
+
+            mocha.it('delete object version null - version is in .versions/ - versioning suspended', async function() {
+                const upload_res_arr = []; // would contain ['null', 'regular'] put_res
+                const put_res_null = await account_with_access.putObject({ Bucket: delete_object_test_bucket_null,
+                    Key: key1, Body: body1 }).promise();
+                upload_res_arr.push(put_res_null);
+                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_null, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
+                const put_res_regular = await account_with_access.putObject({ Bucket: delete_object_test_bucket_null,
+                        Key: key1, Body: body1 }).promise();
+                upload_res_arr.push(put_res_regular);
+                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_null, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
+
+                const cur_version_id1 = await stat_and_get_version_id(full_delete_path_null, key1);
+                assert.equal(upload_res_arr[0].VersionId, undefined);
+                assert.notEqual(cur_version_id1, 'null');
+                assert.equal(cur_version_id1, upload_res_arr[1].VersionId);
+
+                await account_with_access.deleteObject({ Bucket: delete_object_test_bucket_null,
+                    Key: key1, VersionId: 'null' }).promise();
+
+                const max_version1 = await find_max_version_past(full_delete_path_null, key1, '');
+                assert.equal(max_version1, undefined);
+                const cur_version_id2 = await stat_and_get_version_id(full_delete_path_null, key1);
+                assert.equal(cur_version_id1, cur_version_id2);
+
+                await delete_object_versions(full_delete_path_null, key1);
+                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_null, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
+            });
+        });
+
+        mocha.describe('delete object - delete marker version - versioning suspended', async function() {
+
+            mocha.it('delete object version delete marker - latest - second latest is a null version - versioning suspended', async function() {
+                await upload_object_versions(account_with_access, delete_object_test_bucket_dm, key1, ['null', 'delete_marker']);
+                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_dm, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
+
+                let exist = await fs_utils.file_not_exists(path.join(full_delete_path_dm, key1));
+                assert.ok(exist);
+                const max_version = await find_max_version_past(full_delete_path_dm, key1, '');
+                const second_max_version1 = await find_max_version_past(full_delete_path_dm, key1, '', [max_version]);
+
+
+                const delete_res = await account_with_access.deleteObject({ Bucket: delete_object_test_bucket_dm,
+                    Key: key1, VersionId: max_version }).promise();
+
+                assert.equal(delete_res.DeleteMarker, true);
+                assert.equal(delete_res.VersionId, max_version);
+
+                const max_version1 = await find_max_version_past(full_delete_path_dm, key1, '');
+                assert.equal(max_version1, undefined);
+                exist = await fs_utils.file_exists(path.join(full_delete_path_dm, key1));
+                assert.ok(exist);
+                exist = await version_file_must_not_exists(full_delete_path_dm, key1, '', second_max_version1);
+                assert.ok(exist);
+                const new_latest_ver_id = await stat_and_get_version_id(full_delete_path_dm, key1);
+                assert.equal(new_latest_ver_id, 'null');
+
+                await delete_object_versions(full_delete_path_dm, key1);
+                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_dm, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
+            });
+
+            mocha.it('delete object version delete marker - non latest - versioning suspended', async function() {
+                await upload_object_versions(account_with_access, delete_object_test_bucket_dm, key1, ['regular', 'delete_marker', 'delete_marker']);
+                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_dm, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
+                let exist = await fs_utils.file_not_exists(path.join(full_delete_path_dm, key1));
+                assert.ok(exist);
+                const max_version = await find_max_version_past(full_delete_path_dm, key1, '');
+                const second_max_version1 = await find_max_version_past(full_delete_path_dm, key1, '', [max_version]);
+
+
+                const delete_res = await account_with_access.deleteObject({ Bucket: delete_object_test_bucket_dm,
+                    Key: key1, VersionId: second_max_version1 }).promise();
+
+                assert.equal(delete_res.DeleteMarker, true);
+                assert.equal(delete_res.VersionId, second_max_version1);
+
+                exist = await fs_utils.file_not_exists(path.join(full_delete_path_dm, key1));
+                assert.ok(exist);
+                exist = await version_file_must_not_exists(full_delete_path_dm, key1, '', second_max_version1);
+                assert.ok(exist);
+                const max_version1 = await find_max_version_past(full_delete_path_dm, key1, '');
+                assert.equal(max_version1, max_version);
+
+                await delete_object_versions(full_delete_path_dm, key1);
+                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_dm, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
+            });
+
+            mocha.it('delete object version delete marker - latest - second latest is a delete marker - versioning suspended', async function() {
+                await upload_object_versions(account_with_access, delete_object_test_bucket_dm, key1, ['regular', 'delete_marker', 'delete_marker']);
+                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_dm, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
+
+                let exist = await fs_utils.file_not_exists(path.join(full_delete_path_dm, key1));
+                assert.ok(exist);
+                const max_version = await find_max_version_past(full_delete_path_dm, key1, '');
+                const second_max_version1 = await find_max_version_past(full_delete_path_dm, key1, '', [max_version]);
+
+                await account_with_access.deleteObject({ Bucket: delete_object_test_bucket_dm,
+                    Key: key1, VersionId: max_version }).promise();
+
+                exist = await fs_utils.file_not_exists(path.join(full_delete_path_dm, key1));
+                assert.ok(exist);
+                exist = await version_file_exists(full_delete_path_dm, key1, '', second_max_version1);
+                assert.ok(exist);
+                const max_version1 = await find_max_version_past(full_delete_path_dm, key1, '');
+                assert.equal(max_version1, second_max_version1);
+
+                await delete_object_versions(full_delete_path_dm, key1);
+                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_dm, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
+            });
+
+            mocha.it('delete object version delete marker - latest - second latest is a regular version - versioning suspended', async function() {
+                const put_res = await upload_object_versions(account_with_access, delete_object_test_bucket_dm, key1, ['regular', 'regular', 'delete_marker']);
+                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_dm, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
+                let exist = await fs_utils.file_not_exists(path.join(full_delete_path_dm, key1));
+                assert.ok(exist);
+                const max_version = await find_max_version_past(full_delete_path_dm, key1, '');
+                const second_max_version1 = await find_max_version_past(full_delete_path_dm, key1, '', [max_version]);
+
+                await account_with_access.deleteObject({ Bucket: delete_object_test_bucket_dm,
+                    Key: key1, VersionId: max_version }).promise();
+
+                exist = await fs_utils.file_exists(path.join(full_delete_path_dm, key1));
+                assert.ok(exist);
+                exist = await version_file_must_not_exists(full_delete_path_dm, key1, '', second_max_version1);
+                assert.ok(exist);
+                const max_version1 = await find_max_version_past(full_delete_path_dm, key1, '');
+                assert.notEqual(max_version1, second_max_version1);
+                assert.equal(put_res[0].VersionId, max_version1);
+
+                await delete_object_versions(full_delete_path_dm, key1);
+                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_dm, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
+            });
+
+            mocha.it('delete object version delete marker - latest - no second latest  - versioning suspended', async function() {
+                const put_res = await upload_object_versions(account_with_access, delete_object_test_bucket_dm, key1, ['delete_marker']);
+                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_dm, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
+                let exist = await fs_utils.file_not_exists(path.join(full_delete_path_dm, key1));
+                assert.ok(exist);
+                const max_version = await find_max_version_past(full_delete_path_dm, key1, '');
+                assert.equal(put_res[0].VersionId, max_version);
+
+                await account_with_access.deleteObject({ Bucket: delete_object_test_bucket_dm,
+                    Key: key1, VersionId: max_version }).promise();
+
+                exist = await fs_utils.file_not_exists(path.join(full_delete_path_dm, key1));
+                assert.ok(exist);
+                exist = await version_file_must_not_exists(full_delete_path_dm, key1, '', max_version);
+                assert.ok(exist);
+                const max_version1 = await find_max_version_past(full_delete_path_dm, key1, '');
+                assert.equal(max_version1, undefined);
+                await delete_object_versions(full_delete_path_dm, key1);
+                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_dm, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
+            });
+
+            mocha.it('delete object version delete marker - in .versions/ - latest exist', async function() {
+                const put_res = await upload_object_versions(account_with_access, delete_object_test_bucket_dm, key1, ['regular', 'delete_marker', 'regular']);
+                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_dm, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
+                const ltst_version_id1 = await stat_and_get_version_id(full_delete_path_dm, key1);
+                const max_version = await find_max_version_past(full_delete_path_dm, key1, '');
+                const second_max_version1 = await find_max_version_past(full_delete_path_dm, key1, '', [max_version]);
+
+                await account_with_access.deleteObject({ Bucket: delete_object_test_bucket_dm,
+                    Key: key1, VersionId: max_version }).promise();
+
+                let exist = await fs_utils.file_exists(path.join(full_delete_path_dm, key1));
+                assert.ok(exist);
+                const ltst_version_id2 = await stat_and_get_version_id(full_delete_path_dm, key1);
+                assert.equal(ltst_version_id1, ltst_version_id2);
+                exist = await version_file_exists(full_delete_path_dm, key1, '', second_max_version1);
+                assert.ok(exist);
+                const max_version1 = await find_max_version_past(full_delete_path_dm, key1, '');
+                assert.equal(max_version1, second_max_version1);
+                assert.equal(put_res[0].VersionId, max_version1);
+
+                await delete_object_versions(full_delete_path_dm, key1);
+                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_dm, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
+            });
+
+            mocha.it('delete object version delete marker - in .versions/ - latest is a delete marker', async function() {
+                const put_res = await upload_object_versions(account_with_access, delete_object_test_bucket_dm, key1, ['regular', 'delete_marker', 'delete_marker']);
+                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_dm, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
+
+                let exist = await fs_utils.file_not_exists(path.join(full_delete_path_dm, key1));
+                assert.ok(exist);
+                const latest_dm1 = await find_max_version_past(full_delete_path_dm, key1, '');
+
+                await account_with_access.deleteObject({ Bucket: delete_object_test_bucket_dm,
+                    Key: key1, VersionId: put_res[1].VersionId }).promise();
+
+                exist = await fs_utils.file_not_exists(path.join(full_delete_path_dm, key1));
+                assert.ok(exist);
+                const latest_dm2 = await find_max_version_past(full_delete_path_dm, key1, '');
+                assert.equal(latest_dm1, latest_dm2);
+                await delete_object_versions(full_delete_path_dm, key1);
+                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_dm, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
+            });
+        });
+    });
+
+    mocha.describe('delete multiple objects - versioning enabled', function() {
         const delete_multi_object_test_bucket = 'delete-multi-object-test-bucket';
         const full_multi_delete_path = tmp_fs_root + '/' + delete_multi_object_test_bucket;
         let account_with_access;
@@ -1206,6 +1671,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             }
             const delete_res = await account_with_access.deleteObjects({
                     Bucket: delete_multi_object_test_bucket, Delete: { Objects: arr } }).promise();
+
             assert.equal(delete_res.Deleted.length, 300);
             for (const res of delete_res.Deleted.slice(0, 150)) {
                 assert.equal(res.DeleteMarker, undefined);
@@ -1357,6 +1823,278 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             assert.equal(versions.length, 201); // 200 dm and versions + dm + new dm
             await fs_utils.file_must_not_exist(path.join(full_multi_delete_path, key1));
             await delete_object_versions(full_multi_delete_path, key1);
+        });
+    });
+
+    mocha.describe('delete multiple objects - versioning suspended', function() {
+        const delete_multi_object_test_bucket = 'delete-multi-object-test-bucket-suspended';
+        const full_multi_delete_path = tmp_fs_root + '/' + delete_multi_object_test_bucket;
+        let account_with_access;
+
+        mocha.before(async function() {
+            const res = await generate_nsfs_account({ default_resource: nsr });
+            account_with_access = generate_s3_client(res.access_key, res.secret_key);
+            await account_with_access.createBucket({ Bucket: delete_multi_object_test_bucket }).promise();
+            await put_allow_all_bucket_policy(s3_admin, delete_multi_object_test_bucket);
+        });
+
+        mocha.it('delete multiple objects - no version id - versioning disabled - will be suspended', async function() {
+            const self = this; // eslint-disable-line no-invalid-this
+            self.timeout(80000);
+            const keys = [];
+            for (let i = 0; i < 50; i++) {
+                const random_key = (Math.random() + 1).toString(36).substring(7);
+                keys.push(random_key);
+                await upload_object_versions(account_with_access, delete_multi_object_test_bucket, random_key, ['null']);
+            }
+            const to_delete_arr = keys.map(key => ({ Key: key }));
+            const delete_res = await account_with_access.deleteObjects({
+                    Bucket: delete_multi_object_test_bucket, Delete: { Objects: to_delete_arr } }).promise();
+            assert.equal(delete_res.Deleted.length, 50);
+            assert.deepStrictEqual(delete_res.Deleted, to_delete_arr);
+            for (const res of delete_res.Deleted) {
+                assert.equal(res.DeleteMarker, undefined);
+                assert.equal(res.VersionId, undefined);
+            }
+            const versions_dir = path.join(full_multi_delete_path, '.versions');
+            const exist = await fs_utils.file_not_exists(versions_dir);
+            assert.ok(exist);
+            const objects = await nb_native().fs.readdir(DEFAULT_FS_CONFIG, full_multi_delete_path);
+            assert.equal(objects.length, 1);
+            assert.ok(objects[0].name.startsWith('.noobaa-nsfs_'));
+        });
+
+        mocha.it('delete multiple objects - no version id - versioning suspended', async function() {
+            const self = this; // eslint-disable-line no-invalid-this
+            self.timeout(60000);
+            const versions_type_arr = ['null'];
+            for (let i = 0; i < 3; i++) {
+                 versions_type_arr.push(i % 2 === 0 ? 'regular' : 'delete_marker');
+            }
+            await upload_object_versions(account_with_access, delete_multi_object_test_bucket, key1, versions_type_arr);
+            await s3_uid6.putBucketVersioning({ Bucket: delete_multi_object_test_bucket, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
+            const arr = [];
+            for (let i = 0; i < 2; i++) {
+                arr.push({ Key: 'a' });
+            }
+            const delete_res = await account_with_access.deleteObjects({
+                    Bucket: delete_multi_object_test_bucket, Delete: { Objects: arr } }).promise();
+            assert.equal(delete_res.Deleted.length, 1);
+            for (const res of delete_res.Deleted) {
+                assert.equal(res.DeleteMarker, true);
+            }
+            const versions_dir = path.join(full_multi_delete_path, '.versions');
+            const versions = await nb_native().fs.readdir(DEFAULT_FS_CONFIG, versions_dir);
+            assert.equal(versions.length, 4); //key1 versions: null, regular and dm (3 total) + a versions: dm (1 total)
+            await delete_object_versions(full_multi_delete_path, key1);
+            await delete_object_versions(full_multi_delete_path, 'a');
+            await s3_uid6.putBucketVersioning({ Bucket: delete_multi_object_test_bucket, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
+        });
+
+        mocha.it('delete multiple objects - delete only delete markers - versioning suspended', async function() {
+            const self = this; // eslint-disable-line no-invalid-this
+            self.timeout(60000);
+            const versions_type_arr = [];
+            for (let i = 0; i < 5; i++) {
+                 versions_type_arr.push(i % 2 === 0 ? 'regular' : 'delete_marker');
+            }
+            const put_res = await upload_object_versions(account_with_access, delete_multi_object_test_bucket, key1, versions_type_arr);
+            await s3_uid6.putBucketVersioning({ Bucket: delete_multi_object_test_bucket, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
+            const arr = [];
+            for (let i = 0; i < 5; i++) {
+                if (i % 2 === 1) arr.push({ Key: key1, VersionId: put_res[i].VersionId });
+            }
+            const delete_res = await account_with_access.deleteObjects({
+                    Bucket: delete_multi_object_test_bucket, Delete: { Objects: arr } }).promise();
+            assert.equal(delete_res.Deleted.length, 2);
+            for (const res of delete_res.Deleted) {
+                assert.equal(res.DeleteMarker, true);
+            }
+            const versions_dir = path.join(full_multi_delete_path, '.versions');
+            const versions = await nb_native().fs.readdir(DEFAULT_FS_CONFIG, versions_dir);
+            assert.equal(versions.length, 2);
+            const exist = await fs_utils.file_exists(path.join(full_multi_delete_path, key1));
+            assert.ok(exist);
+            const latest_stat = await stat_and_get_all(full_multi_delete_path, key1);
+            assert.equal(latest_stat.xattr[XATTR_VERSION_ID], put_res[4].VersionId);
+            await delete_object_versions(full_multi_delete_path, key1);
+            await s3_uid6.putBucketVersioning({ Bucket: delete_multi_object_test_bucket, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
+        });
+
+        mocha.it('delete multiple objects - delete only regular versions key1, delete delete markers key2 - versioning suspended', async function() {
+            const self = this; // eslint-disable-line no-invalid-this
+            self.timeout(60000);
+            const key2 = 'key2';
+            const versions_type_arr = [];
+            for (let i = 0; i < 8; i++) {
+                 versions_type_arr.push(i % 2 === 0 ? 'regular' : 'delete_marker');
+            }
+            const put_res = await upload_object_versions(account_with_access, delete_multi_object_test_bucket, key1, versions_type_arr);
+            const put_res2 = await upload_object_versions(account_with_access, delete_multi_object_test_bucket, key2, versions_type_arr);
+            await s3_uid6.putBucketVersioning({ Bucket: delete_multi_object_test_bucket, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
+            const arr = [];
+            for (let i = 0; i < 8; i++) {
+                if (i % 2 === 0) arr.push({ Key: key1, VersionId: put_res[i].VersionId });
+                if (i % 2 === 1) arr.push({ Key: key2, VersionId: put_res2[i].VersionId });
+            }
+            const delete_res = await account_with_access.deleteObjects({
+                    Bucket: delete_multi_object_test_bucket, Delete: { Objects: arr } }).promise();
+            assert.equal(delete_res.Deleted.length, 8);
+            for (const res of delete_res.Deleted.slice(0, 4)) {
+                assert.equal(res.DeleteMarker, undefined);
+            }
+            for (const res of delete_res.Deleted.slice(4)) {
+                assert.equal(res.DeleteMarker, true);
+            }
+            const versions_dir = path.join(full_multi_delete_path, '.versions');
+            const versions = await nb_native().fs.readdir(DEFAULT_FS_CONFIG, versions_dir);
+            // 4 of key1 and 3 of key2 (latest version of key2 is in the parent dir)
+            assert.equal(versions.length, 7);
+            let exist = await fs_utils.file_not_exists(path.join(full_multi_delete_path, key1));
+            assert.ok(exist);
+            exist = await fs_utils.file_exists(path.join(full_multi_delete_path, key2));
+            assert.ok(exist);
+            const latest_dm_version = await find_max_version_past(full_multi_delete_path, key1);
+            const version_path = path.join(full_multi_delete_path, '.versions', key1 + '_' + latest_dm_version);
+            const version_info = await stat_and_get_all(version_path, '');
+            assert.equal(version_info.xattr[XATTR_DELETE_MARKER], 'true');
+            assert.equal(version_info.xattr[XATTR_VERSION_ID], put_res[7].VersionId);
+            await delete_object_versions(full_multi_delete_path, key1);
+            await delete_object_versions(full_multi_delete_path, key2);
+            await s3_uid6.putBucketVersioning({ Bucket: delete_multi_object_test_bucket, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
+        });
+
+        mocha.it('delete multiple objects - delete regular versions & delete markers - new latest is dm - versioning suspended', async function() {
+            const self = this; // eslint-disable-line no-invalid-this
+            self.timeout(60000);
+            const versions_type_arr = [];
+            for (let i = 0; i < 5; i++) {
+                 versions_type_arr.push(i % 2 === 0 ? 'regular' : 'delete_marker');
+            }
+            const put_res = await upload_object_versions(account_with_access, delete_multi_object_test_bucket, key1, versions_type_arr);
+            await s3_uid6.putBucketVersioning({ Bucket: delete_multi_object_test_bucket, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
+            const arr = [];
+            for (let i = 2; i < 5; i++) {
+                arr.push({ Key: key1, VersionId: put_res[i].VersionId });
+            }
+            const delete_res = await account_with_access.deleteObjects({
+                    Bucket: delete_multi_object_test_bucket, Delete: { Objects: arr } }).promise();
+            assert.equal(delete_res.Deleted.length, 3);
+            for (let i = 0; i < 3; i++) {
+                if (i % 2 === 1) assert.equal(delete_res.Deleted[i].DeleteMarker, true);
+                if (i % 2 === 0) assert.equal(delete_res.Deleted[i].DeleteMarker, undefined);
+            }
+            const versions_dir = path.join(full_multi_delete_path, '.versions');
+            const versions = await nb_native().fs.readdir(DEFAULT_FS_CONFIG, versions_dir);
+            assert.equal(versions.length, 2);
+            const exist = await fs_utils.file_not_exists(path.join(full_multi_delete_path, key1));
+            assert.ok(exist);
+            const latest_dm_version = await find_max_version_past(full_multi_delete_path, key1);
+            const version_path = path.join(full_multi_delete_path, '.versions', key1 + '_' + latest_dm_version);
+            const version_info = await stat_and_get_all(version_path, '');
+            assert.equal(version_info.xattr[XATTR_VERSION_ID], put_res[1].VersionId);
+            await delete_object_versions(full_multi_delete_path, key1);
+            await s3_uid6.putBucketVersioning({ Bucket: delete_multi_object_test_bucket, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
+        });
+
+        mocha.it('delete multiple objects - delete regular versions & delete markers - new latest is regular version - versioning suspended', async function() {
+            const self = this; // eslint-disable-line no-invalid-this
+            self.timeout(60000);
+            const versions_type_arr = [];
+            for (let i = 0; i < 5; i++) {
+                 versions_type_arr.push(i % 2 === 0 ? 'regular' : 'delete_marker');
+            }
+            const put_res = await upload_object_versions(account_with_access, delete_multi_object_test_bucket, key1, versions_type_arr);
+            await s3_uid6.putBucketVersioning({ Bucket: delete_multi_object_test_bucket, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
+            const arr = [];
+            for (let i = 0; i < 4; i++) {
+                arr.push({ Key: key1, VersionId: put_res[i].VersionId });
+            }
+            const delete_res = await account_with_access.deleteObjects({
+                    Bucket: delete_multi_object_test_bucket, Delete: { Objects: arr } }).promise();
+            assert.equal(delete_res.Deleted.length, 4);
+            for (let i = 0; i < 4; i++) {
+                if (i % 2 === 0) assert.equal(delete_res.Deleted[i].DeleteMarker, undefined);
+                if (i % 2 === 1) assert.equal(delete_res.Deleted[i].DeleteMarker, true);
+            }
+
+            const exist = await fs_utils.file_exists(path.join(full_multi_delete_path, key1));
+            assert.ok(exist);
+            const latest_stat = await stat_and_get_all(full_multi_delete_path, key1);
+            assert.equal(latest_stat.xattr[XATTR_VERSION_ID], put_res[4].VersionId);
+            await delete_object_versions(full_multi_delete_path, key1);
+            await s3_uid6.putBucketVersioning({ Bucket: delete_multi_object_test_bucket, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
+        });
+
+        mocha.it('delete multiple objects - delete keys & regular versions & delete markers - versioning suspended', async function() {
+            const self = this; // eslint-disable-line no-invalid-this
+            self.timeout(60000);
+            const versions_type_arr = [];
+            for (let i = 0; i < 30; i++) {
+                 versions_type_arr.push(i % 2 === 0 ? 'regular' : 'delete_marker');
+            }
+            const put_res = await upload_object_versions(account_with_access, delete_multi_object_test_bucket, key1, versions_type_arr);
+            await s3_uid6.putBucketVersioning({ Bucket: delete_multi_object_test_bucket, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
+            const arr = [];
+            for (let i = 0; i < 5; i++) {
+                arr.push({ Key: key1 });
+            }
+            for (let i = 10; i < 20; i++) {
+                arr.push({ Key: key1, VersionId: put_res[i].VersionId });
+            }
+
+            const delete_res = await account_with_access.deleteObjects({
+                    Bucket: delete_multi_object_test_bucket, Delete: { Objects: arr } }).promise();
+            assert.equal(delete_res.Deleted.length, 11);
+            assert.equal(delete_res.Deleted[0].DeleteMarker, true);
+            assert.equal(delete_res.Deleted[0].DeleteMarkerVersionId, 'null');
+            for (let i = 1; i < 11; i++) {
+                if (i % 2 === 0) assert.equal(delete_res.Deleted[i].DeleteMarker, true);
+                if (i % 2 === 1) assert.equal(delete_res.Deleted[i].DeleteMarker, undefined);
+            }
+
+            const versions_dir = path.join(full_multi_delete_path, '.versions');
+            const versions = await nb_native().fs.readdir(DEFAULT_FS_CONFIG, versions_dir);
+            assert.equal(versions.length, 21); // 30 - 10 (deleted id-versions) + 1 (null dm on the key delete)
+            const exist = await fs_utils.file_not_exists(path.join(full_multi_delete_path, key1));
+            assert.ok(exist);
+            await delete_object_versions(full_multi_delete_path, key1);
+            await s3_uid6.putBucketVersioning({ Bucket: delete_multi_object_test_bucket, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
+        });
+
+        mocha.it('delete multiple objects - delete regular versions & delete markers & latest & keys- - versioning suspended', async function() {
+            const self = this; // eslint-disable-line no-invalid-this
+            self.timeout(60000);
+            const versions_type_arr = [];
+            for (let i = 0; i < 30; i++) {
+                 versions_type_arr.push(i % 2 === 0 ? 'regular' : 'delete_marker');
+            }
+            const put_res = await upload_object_versions(account_with_access, delete_multi_object_test_bucket, key1, versions_type_arr);
+            await s3_uid6.putBucketVersioning({ Bucket: delete_multi_object_test_bucket, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
+            const arr = [];
+            for (let i = 20; i < 30; i++) {
+                arr.push({ Key: key1, VersionId: put_res[i].VersionId });
+            }
+            for (let i = 0; i < 5; i++) {
+                arr.push({ Key: key1 });
+            }
+            const delete_res = await account_with_access.deleteObjects({
+                    Bucket: delete_multi_object_test_bucket, Delete: { Objects: arr } }).promise();
+            assert.equal(delete_res.Deleted.length, 11);
+            for (let i = 0; i < 10; i++) {
+                if (i % 2 === 0) assert.equal(delete_res.Deleted[i].DeleteMarker, undefined);
+                if (i % 2 === 1) assert.equal(delete_res.Deleted[i].DeleteMarker, true);
+            }
+            assert.equal(delete_res.Deleted[10].DeleteMarkerVersionId, NULL_VERSION_ID);
+            assert.equal(delete_res.Deleted[10].DeleteMarker, true);
+
+            const versions_dir = path.join(full_multi_delete_path, '.versions');
+            const versions = await nb_native().fs.readdir(DEFAULT_FS_CONFIG, versions_dir);
+            assert.equal(versions.length, 21); // 30 - 10 (deleted id-versions) + 1 (null dm on the key delete)
+            const exist = await fs_utils.file_not_exists(path.join(full_multi_delete_path, key1));
+            assert.ok(exist);
+            await delete_object_versions(full_multi_delete_path, key1);
+            await s3_uid6.putBucketVersioning({ Bucket: delete_multi_object_test_bucket, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
         });
     });
 });
@@ -1803,6 +2541,12 @@ async function delete_object_versions(bucket_path, key) {
     await fs_utils.file_delete(path.join(bucket_path, key));
 }
 
+// upload_object_versions
+// object_types_arr:
+// 1. Would contain strings 'regular', 'null', and 'delete_marker'.
+// 2. If array contains n elements then:
+//    at index 0 is the version that was put first (oldest version)
+//    at index n-1 is the version that was put last (newest version)
 async function upload_object_versions(s3_client, bucket, key, object_types_arr) {
     const res = [];
     const versioning_status = await s3_client.getBucketVersioning({ Bucket: bucket }).promise();

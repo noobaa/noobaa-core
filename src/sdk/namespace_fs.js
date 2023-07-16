@@ -1175,8 +1175,8 @@ class NamespaceFS {
     //     versioning is enabled
     //     OR
     //     versioning is suspended AND latest version is a unique id (not null version)
-    //       2.1.1 create .versions/ if it doesn't exist
-    //       2.1.2 move latest version to .versions/
+    //       3.2 create .versions/ if it doesn't exist
+    //       3.3 move latest version to .versions/
     // 4. move new version to latest_ver_path (key path)
     // retry safe linking a file in case of parallel put/delete of the source path
     async _move_to_dest_version(fs_context, new_ver_tmp_path, latest_ver_path, upload_file, key, open_mode) {
@@ -1195,7 +1195,7 @@ class NamespaceFS {
                 gpfs_options = is_gpfs ?
                     await this._open_files_gpfs(fs_context, new_ver_tmp_path, latest_ver_path, upload_file,
                         latest_ver_info, open_mode, undefined, versioned_info) :
-                        undefined;
+                    undefined;
 
                 dbg.log1('Namespace_fs._move_to_dest_version:', latest_ver_info, new_ver_info, gpfs_options);
 
@@ -1204,13 +1204,13 @@ class NamespaceFS {
                         dbg.log1('NamespaceFS._move_to_dest_version suspended: version ID of the latest version is null - the file will be unlinked');
                         await this.safe_unlink(fs_context, latest_ver_path, latest_ver_info, gpfs_options);
                     } else {
-                    // remove a version (or delete marker) with null version ID from .versions/ (if exists)
-                    await this._delete_null_version_from_versions_directory(key, fs_context);
+                        // remove a version (or delete marker) with null version ID from .versions/ (if exists)
+                        await this._delete_null_version_from_versions_directory(key, fs_context);
                     }
                 }
                 if (latest_ver_info &&
                     ((this._is_versioning_enabled()) ||
-                    (this._is_versioning_suspended() && latest_ver_info.version_id_str !== NULL_VERSION_ID))) {
+                        (this._is_versioning_suspended() && latest_ver_info.version_id_str !== NULL_VERSION_ID))) {
                     dbg.log1('NamespaceFS._move_to_dest_version version ID of the latest version is a unique ID - the file will be moved it to .versions/ directory');
                     await this._make_path_dirs(versioned_path, fs_context);
                     await this.safe_move(fs_context, latest_ver_path, versioned_path, latest_ver_info,
@@ -1496,12 +1496,10 @@ class NamespaceFS {
             let res;
             if (this._is_versioning_disabled()) {
                 await this._delete_single_object(fs_context, file_path, params);
-            } else if (this._is_versioning_enabled()) {
+            } else {
                 res = params.version_id ?
                     await this._delete_version_id(fs_context, file_path, params) :
                     await this._delete_latest_version(fs_context, file_path, params);
-            } else {
-                throw new Error('TODO');
             }
             return res || {};
         } catch (err) {
@@ -1539,14 +1537,9 @@ class NamespaceFS {
                     else versions_by_key_map[key] = [version_id];
                 }
                 dbg.log3('NamespaceFS: versions_by_key_map', versions_by_key_map);
-
-                if (this._is_versioning_enabled()) {
-                    for (const key of Object.keys(versions_by_key_map)) {
-                        const key_res = await this._delete_objects_versioning_enabled(fs_context, key, versions_by_key_map[key]);
-                        res = res.concat(key_res);
-                    }
-                } else {
-                    throw new Error('TODO');
+                for (const key of Object.keys(versions_by_key_map)) {
+                    const key_res = await this._delete_objects_versioned(fs_context, key, versions_by_key_map[key]);
+                    res = res.concat(key_res);
                 }
             }
             return res;
@@ -2147,7 +2140,9 @@ class NamespaceFS {
 
             const version_id_str = this._get_version_id_by_xattr(stat);
             const ver_info_by_xattr = this._extract_version_info_from_xattr(version_id_str);
-            return { ...(ver_info_by_xattr || stat), version_id_str,
+            return {
+                ...(ver_info_by_xattr || stat),
+                version_id_str,
                 delete_marker: stat.xattr[XATTR_DELETE_MARKER],
                 prev_version_id: stat.xattr[XATTR_PREV_VERSION_ID],
                 path: version_path
@@ -2210,7 +2205,8 @@ class NamespaceFS {
      *   latest?: boolean;
      * }>}
      */
-    async _delete_single_object_version_enabled(fs_context, key, version_id) {
+    // we can use this function when versioning is enabled or suspended
+    async _delete_single_object_versioned(fs_context, key, version_id) {
         let retries = config.NSFS_RENAME_RETRIES;
         const is_gpfs = this._is_gpfs(fs_context);
         const latest_version_path = this._get_file_path({ key });
@@ -2237,7 +2233,7 @@ class NamespaceFS {
             } catch (err) {
                 retries -= 1;
                 if (retries <= 0 || !this.should_retry_link_unlink(is_gpfs, err)) throw err;
-                dbg.warn(`NamespaceFS.delete_single_object_version_enabled retrying retries=${retries} file_path=${file_path}`, err);
+                dbg.warn(`NamespaceFS._delete_single_object_versioned: retrying retries=${retries} file_path=${file_path}`, err);
             } finally {
                 if (gpfs_options) await this._close_files_gpfs(fs_context, gpfs_options.delete_version, undefined, true);
             }
@@ -2248,7 +2244,8 @@ class NamespaceFS {
     //    1.1 if version_id is undefined, delete latest
     //    1.2 if version exists - unlink version
     // 2. try promote second latest to latest if one of the deleted versions is the latest version (with version id specified) or a delete marker
-    async _delete_objects_versioning_enabled(fs_context, key, versions) {
+    async _delete_objects_versioned(fs_context, key, versions) {
+        dbg.log1('NamespaceFS._delete_objects_versioned', key, versions);
         const res = [];
         let deleted_delete_marker;
         let delete_marker_created;
@@ -2258,7 +2255,7 @@ class NamespaceFS {
         for (const version_id of versions) {
             try {
                 if (version_id) {
-                    const del_ver_info = await this._delete_single_object_version_enabled(fs_context, key, version_id);
+                    const del_ver_info = await this._delete_single_object_versioned(fs_context, key, version_id);
                     if (!del_ver_info) {
                         res.push({});
                         continue;
@@ -2295,7 +2292,7 @@ class NamespaceFS {
     // 3. if version is latest version - promote second latest -> latest
     async _delete_version_id(fs_context, file_path, params) {
         // TODO optimization - GPFS link overrides, no need to unlink before promoting, but if there is nothing to promote we should unlink
-        const del_obj_version_info = await this._delete_single_object_version_enabled(fs_context, params.key, params.version_id);
+        const del_obj_version_info = await this._delete_single_object_versioned(fs_context, params.key, params.version_id);
         if (!del_obj_version_info) return {};
 
         // we try promote only if the latest version was deleted or we deleted a delete marker
@@ -2353,40 +2350,67 @@ class NamespaceFS {
         }
     }
 
-    // delete latest version -
-    // 1. if latest version exist - safe move key .versions/key_{version_id}
-    // 2. else - latest version is a delete marker / doesn't exist - nothing to move
+    // delete latest version
+    // 1. if latest version exists on the regular directory (not .versions/)
+    //   1.2 if versioning is enabled OR
+    //       versioning is suspended AND the latest version on the regular directory has a unique version id (not null)
+    //     1.2.1 create .versions/ if it doesn't exist
+    //     1.2.2 move latest version to .versions/
+    //     1.2.3 if versioning is suspended AND the latest version on the regular directory has a unique version id (not null)
+    //       1.2.3.1 remove latest version
+    //    1.3. else (versioning is suspended AND the latest version on the regular directory is null)
+    //      1.3.1 remove a version (or delete marker) with null version ID from .versions/ (if exists)
+    // 2. else - latest version is a delete marker (inside .versions/) / doesn't exist - nothing to do
+    //    * in case the latest version doesn't exist - we would still want to create the delete marker
     // 3. create delete marker and move it to .versions/key_{delete_marker_version_id}
+    // retry safe linking a file in case of parallel put/delete of the source path
     async _delete_latest_version(fs_context, latest_ver_path, params) {
+        dbg.log0('Namespace_fs._delete_latest_version:', latest_ver_path, params);
+
+        let gpfs_options;
         const is_gpfs = this._is_gpfs(fs_context);
         let retries = config.NSFS_RENAME_RETRIES;
         let latest_ver_info;
-        let gpfs_options;
         for (;;) {
             try {
+                // get latest version_id if exists
                 latest_ver_info = await this._get_version_info(fs_context, latest_ver_path);
-                if (latest_ver_info) { // 1
-                    dbg.log1('NamespaceFS._delete_latest_version latest version exist - moving existing latest version to .versions/');
-                    const versioned_path = this._get_version_path(params.key, latest_ver_info.version_id_str);
-                    const versioned_info = await this._get_version_info(fs_context, versioned_path);
-                    await this._make_path_dirs(versioned_path, fs_context);
+                const versioned_path = latest_ver_info && this._get_version_path(params.key, latest_ver_info.version_id_str);
+                const versioned_info = latest_ver_info && await this._get_version_info(fs_context, versioned_path);
 
-                    gpfs_options = is_gpfs && await this._open_files_gpfs(fs_context, latest_ver_path,
-                        undefined, undefined, undefined, undefined, true, versioned_info);
+                gpfs_options = is_gpfs ?
+                    await this._open_files_gpfs(fs_context, latest_ver_path,
+                        undefined, undefined, undefined, undefined, true, versioned_info) :
+                    undefined;
 
-                    await this.safe_move(fs_context, latest_ver_path, versioned_path, latest_ver_info,
-                        gpfs_options && gpfs_options.delete_version);
+                dbg.log1('Namespace_fs._delete_latest_version:', latest_ver_info, versioned_path, versioned_info, gpfs_options);
+                if (latest_ver_info) {
+                    const suspended_and_latest_is_not_null = this._is_versioning_suspended() &&
+                        latest_ver_info.version_id_str !== NULL_VERSION_ID;
+                    if (this._is_versioning_enabled() || suspended_and_latest_is_not_null) {
+                         await this._make_path_dirs(versioned_path, fs_context);
+                         await this.safe_move(fs_context, latest_ver_path, versioned_path, latest_ver_info,
+                            gpfs_options && gpfs_options.delete_version);
+                         if (suspended_and_latest_is_not_null) {
+                            // remove a version (or delete marker) with null version ID from .versions/ (if exists)
+                            await this._delete_null_version_from_versions_directory(params.key, fs_context);
+                        }
+                    } else {
+                        // versioning suspended and version_id is null
+                        dbg.log1('NamespaceFS._delete_latest_version: suspended mode version ID of the latest version is null - file will be unlinked');
+                        await this.safe_unlink(fs_context, latest_ver_path, latest_ver_info, gpfs_options);
+                    }
                 }
                 break;
             } catch (err) {
                 retries -= 1;
                 if (retries <= 0 || !this.should_retry_link_unlink(is_gpfs, err)) throw err;
-                dbg.warn(`NamespaceFS._delete_latest_version Retrying retries=${retries} latest_ver_path=${latest_ver_path}`, err);
+                dbg.warn(`NamespaceFS._delete_latest_version: Retrying retries=${retries} latest_ver_path=${latest_ver_path}`, err);
             } finally {
                 if (gpfs_options) await this._close_files_gpfs(fs_context, gpfs_options.delete_version, undefined, true);
             }
         }
-        // 3
+        // create delete marker and move it to .versions/key_{delete_marker_version_id}
         const created_version_id = await this._create_delete_marker(fs_context, params, latest_ver_info);
         return {
             created_delete_marker: true,
@@ -2434,15 +2458,29 @@ class NamespaceFS {
             try {
                 upload_params = await this._start_upload(fs_context, undefined, undefined, params, 'w');
 
-                // the delete marker path built from its version info (mtime + ino)
                 const stat = await upload_params.target_file.stat(fs_context);
-                delete_marker_version_id = this._get_version_id_by_stat(stat);
+                if (this._is_versioning_enabled()) {
+                    // the delete marker path built from its version info (mtime + ino)
+                    delete_marker_version_id = this._get_version_id_by_stat(stat);
+                } else {
+                    // the delete marker file name would be with a 'null' suffix
+                    delete_marker_version_id = NULL_VERSION_ID;
+                }
                 const file_path = this._get_version_path(params.key, delete_marker_version_id);
 
-                // finish upload part
-                const fs_xattr = await this._assign_versions_to_fs_xattr(fs_context, deleted_version_info,
+                let fs_xattr;
+                if (this._is_versioning_suspended() &&
+                    (deleted_version_info?.version_id_str === NULL_VERSION_ID)) {
+                    fs_xattr = await this._assign_versions_to_fs_xattr(fs_context, undefined,
                         stat, params.key, undefined, true);
+                } else {
+                    // the previous version will be the deleted version
+                    fs_xattr = await this._assign_versions_to_fs_xattr(fs_context, deleted_version_info,
+                        stat, params.key, undefined, true);
+                }
                 if (fs_xattr) await upload_params.target_file.replacexattr(fs_context, fs_xattr);
+                // create .version in case we don't have it yet
+                await this._make_path_dirs(file_path, fs_context);
                 await nb_native().fs.rename(fs_context, upload_params.upload_path, file_path);
                 return delete_marker_version_id;
             } catch (err) {

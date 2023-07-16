@@ -9,6 +9,7 @@ const auth_server = require('../common_services/auth_server');
 const dbg = require('../../util/debug_module')(__filename);
 const system_utils = require('../utils/system_utils');
 const cloud_utils = require('../../util/cloud_utils');
+const http_utils = require('../../util/http_utils');
 const nb_native = require('../../util/nb_native');
 const config = require('../../../config');
 const P = require('../../util/promise');
@@ -114,7 +115,8 @@ class NamespaceMonitor {
     async test_s3_resource(nsr) {
         let conn = this.nsr_connections_obj[nsr._id];
         if (!conn) {
-            const { endpoint, access_key, secret_key } = nsr.connection;
+            const { endpoint, access_key, secret_key, auth_method } = nsr.connection;
+            const agent = http_utils.get_agent_by_endpoint(endpoint);
             conn = new AWS.S3({
                 endpoint: endpoint,
                 credentials: {
@@ -122,7 +124,11 @@ class NamespaceMonitor {
                     secretAccessKey: secret_key.unwrap()
                 },
                 s3ForcePathStyle: true,
-                sslEnabled: false
+                sslEnabled: false,
+                signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(endpoint, auth_method),
+                httpOptions: {
+                    agent,
+                },
             });
             this.nsr_connections_obj[nsr._id] = conn;
         }

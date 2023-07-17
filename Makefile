@@ -13,9 +13,19 @@ ifeq ($(CONTAINER_ENGINE),)
 	CONTAINER_ENGINE=$(shell lima nerdctl version >/dev/null 2>&1 && echo lima nerdctl)
 endif
 
+# If CONTAINER_PLATFORM is not set, then set automatically based on the host.
+ifeq ($(CONTAINER_PLATFORM),)
 # see https://github.com/containerd/nerdctl/blob/main/docs/multi-platform.md
 # e.g use CONTAINER_PLATFORM=amd64 for building x86_64 on arm.
-CONTAINER_PLATFORM?=$(shell [ "`arch`" = "arm64" ] || [ "`arch`" = "aarch64" ] && echo amd64)
+	CONTAINER_PLATFORM=$(shell [ "`arch`" = "arm64" ] || [ "`arch`" = "aarch64" ] && echo amd64)
+
+	ifneq ($(strip $(CONTAINER_PLATFORM)),)
+		ifeq ($(CONTAINER_ENGINE),$(filter $(CONTAINER_ENGINE), docker podman))
+			CONTAINER_PLATFORM:=linux/$(CONTAINER_PLATFORM)
+		endif
+	endif
+endif
+
 CONTAINER_PLATFORM_FLAG=
 ifneq ($(CONTAINER_PLATFORM),)
 	CONTAINER_PLATFORM_FLAG="--platform=$(CONTAINER_PLATFORM)"

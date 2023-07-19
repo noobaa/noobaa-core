@@ -772,11 +772,10 @@ async function add_external_connection(req) {
 
 async function update_external_connection(req) {
     const connection = cloud_utils.find_cloud_connection(req.account, req.rpc_params.name);
-    const {
-        name,
-        identity = connection.access_key,
-        secret
-    } = req.rpc_params;
+    const name = req.rpc_params.name;
+    const identity = req.rpc_params.identity || connection.access_key;
+    const secret = req.rpc_params.secret;
+    const azure_log_access_keys = req.rpc_params.azure_log_access_keys;
 
     const encrypted_secret = system_store.master_key_manager.encrypt_sensitive_string_with_master_key_id(
         secret, req.account.master_key_id._id);
@@ -791,6 +790,7 @@ async function update_external_connection(req) {
             endpoint: connection.endpoint,
             cp_code: connection.cp_code,
             auth_method: connection.auth_method,
+            azure_log_access_keys: azure_log_access_keys,
         });
         check_failed = status !== 'SUCCESS';
 
@@ -803,15 +803,29 @@ async function update_external_connection(req) {
         throw new RpcError('INVALID_CREDENTIALS', `Credentials are not valid ${name}`);
     }
 
+    const set_obj = {
+        "sync_credentials_cache.$.access_key": identity,
+        "sync_credentials_cache.$.secret_key": encrypted_secret,
+    };
+
+    if (azure_log_access_keys) {
+        const encrypted_azure_client_secret = system_store.master_key_manager.encrypt_sensitive_string_with_master_key_id(
+            azure_log_access_keys.azure_client_secret, req.account.master_key_id._id
+        );
+        set_obj["sync_credentials_cache.$.azure_log_access_keys"] = {
+                "azure_tenant_id": azure_log_access_keys.azure_tenant_id,
+                "azure_client_id": azure_log_access_keys.azure_client_id,
+                "azure_client_secret": encrypted_azure_client_secret,
+                "azure_logs_analytics_workspace_id": azure_log_access_keys.azure_logs_analytics_workspace_id
+        };
+    }
+
     const accounts_updates = [{
         $find: {
             _id: req.account._id,
             "sync_credentials_cache.name": name
         },
-        $set: {
-            "sync_credentials_cache.$.access_key": identity,
-            "sync_credentials_cache.$.secret_key": encrypted_secret
-        }
+        $set: set_obj
     }];
 
     const pools_updates = system_store.data.pools

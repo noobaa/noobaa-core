@@ -99,7 +99,7 @@ async function get_azure_log_candidates(source_bucket_id, rule_id, replication_c
     StorageBlobLogs
     | where TimeGenerated > ago(${duration})
     | project Time=TimeGenerated, Action=substring(Category, 7), Key=ObjectKey
-    | sort by Time desc
+    | sort by Time asc
     | where Action == "Write" or Action == "Delete"
     | where Key startswith "/${src_storage_account.unwrap()}/${src_container_name}/${prefix}"
     | where Key !contains "test-delete-non-existing-"
@@ -116,9 +116,11 @@ async function get_azure_log_candidates(source_bucket_id, rule_id, replication_c
     if (query_result.status === LogsQueryResultStatus.Success) {
         const tables_from_result = query_result.tables;
         if (tables_from_result && tables_from_result[0].rows.length > 0) {
+            const result_rows = query_result.tables[0].rows;
             // @ts-ignore - Needed since the format of `rows` is changed in the Kusto query - project Time, Action, Key
             // So there's a mismatch between what the code expects and what it actually receives
-            continuation_token = (Date.now() - query_result.tables[0].rows[0][0]).toString();
+            // The continuation token is the timestamp of the latest entry that was processed
+            continuation_token = (Date.now() - result_rows[result_rows.length - 1][0]).toString();
             dbg.log1("get_azure_log_candidates: Found new Azure logs:");
             dbg.log1(tables_from_result[0]);
             dbg.log1("get_azure_log_candidates: Parsing Azure logs");

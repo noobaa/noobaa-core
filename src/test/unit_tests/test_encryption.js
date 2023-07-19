@@ -287,6 +287,55 @@ mocha.describe('Encryption tests', function() {
                     system_store_account.sync_credentials_cache[0].secret_key.unwrap());
             }));
         });
+
+        mocha.it('Update connection with Azure log credentials', async function() {
+            const new_azure_client_id = "new_clientid";
+            const new_azure_tenant_id = "new_tenantid";
+            const new_azure_client_secret = "new_clientsecret";
+            const new_azure_logs_analytics_workspace_id = "new_workspaceid";
+            this.timeout(600000); // eslint-disable-line no-invalid-this
+            await P.all(_.map(accounts, async cur_account => {
+                await rpc_client.account.update_external_connection(
+                    {
+                        name: "conn1",
+                        identity: coretest_access_key,
+                        secret: coretest_secret_key,
+                        azure_log_access_keys: {
+                            azure_client_id: new_azure_client_id,
+                            azure_tenant_id: new_azure_tenant_id,
+                            azure_client_secret: new_azure_client_secret,
+                            azure_logs_analytics_workspace_id: new_azure_logs_analytics_workspace_id}},
+                { auth_token: cur_account.create_account_result.token });
+            }));
+
+            await system_store.load();
+
+            // Check that the secrets of sync creds accounts in were updated in the database
+            await P.all(_.map(accounts.slice(10), async cur_account => {
+                const db_account = await db_client.collection('accounts').findOne({ email: cur_account.email });
+                const system_store_account = account_by_name(system_store.data.accounts, cur_account.email);
+
+                // Verify that the Azure secret key in the database is encrypted
+                assert.notStrictEqual(
+                    db_account.sync_credentials_cache[0].azure_log_access_keys.azure_client_secret,
+                    system_store_account.sync_credentials_cache[0].azure_log_access_keys.azure_client_secret.unwrap()
+                );
+
+                // Verify that the Azure credentials were properly updated in the DB
+                assert.strictEqual(
+                    db_account.sync_credentials_cache[0].azure_log_access_keys.azure_client_id,
+                    system_store_account.sync_credentials_cache[0].azure_log_access_keys.azure_client_id.unwrap()
+                );
+                assert.strictEqual(
+                    db_account.sync_credentials_cache[0].azure_log_access_keys.azure_tenant_id,
+                    system_store_account.sync_credentials_cache[0].azure_log_access_keys.azure_tenant_id.unwrap()
+                );
+                assert.strictEqual(
+                    db_account.sync_credentials_cache[0].azure_log_access_keys.azure_logs_analytics_workspace_id,
+                    system_store_account.sync_credentials_cache[0].azure_log_access_keys.azure_logs_analytics_workspace_id.unwrap()
+                );
+            }));
+        });
         mocha.it('create namespace buckets succefully', async function() {
             this.timeout(600000); // eslint-disable-line no-invalid-this
             await namespace_cache_tests(rpc_client, namespace_resources, SYSTEM, namespace_buckets);

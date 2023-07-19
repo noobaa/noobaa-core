@@ -13,9 +13,19 @@ ifeq ($(CONTAINER_ENGINE),)
 	CONTAINER_ENGINE=$(shell lima nerdctl version >/dev/null 2>&1 && echo lima nerdctl)
 endif
 
+# If CONTAINER_PLATFORM is not set, then set automatically based on the host.
+ifeq ($(CONTAINER_PLATFORM),)
 # see https://github.com/containerd/nerdctl/blob/main/docs/multi-platform.md
 # e.g use CONTAINER_PLATFORM=amd64 for building x86_64 on arm.
-CONTAINER_PLATFORM?=$(shell [ "`arch`" = "arm64" ] || [ "`arch`" = "aarch64" ] && echo amd64)
+	CONTAINER_PLATFORM=$(shell [ "`arch`" = "arm64" ] || [ "`arch`" = "aarch64" ] && echo amd64)
+
+	ifneq ($(strip $(CONTAINER_PLATFORM)),)
+		ifeq ($(CONTAINER_ENGINE),$(filter $(CONTAINER_ENGINE), docker podman))
+			CONTAINER_PLATFORM:=linux/$(CONTAINER_PLATFORM)
+		endif
+	endif
+endif
+
 CONTAINER_PLATFORM_FLAG=
 ifneq ($(CONTAINER_PLATFORM),)
 	CONTAINER_PLATFORM_FLAG="--platform=$(CONTAINER_PLATFORM)"
@@ -64,6 +74,7 @@ ifdef testname
 	endif
 endif
 
+BUILD_S3SELECT?=1
 
 ###############
 # BUILD LOCAL #
@@ -115,7 +126,7 @@ builder: assert-container-engine
 
 base: builder
 	@echo "\n##\033[1;32m Build image noobaa-base ...\033[0m"
-	$(CONTAINER_ENGINE) build $(CONTAINER_PLATFORM_FLAG) $(CPUSET) --build-arg BUILD_S3SELECT -f src/deploy/NVA_build/Base.Dockerfile $(CACHE_FLAG) $(NETWORK_FLAG) -t noobaa-base . $(REDIRECT_STDOUT)
+	$(CONTAINER_ENGINE) build $(CONTAINER_PLATFORM_FLAG) $(CPUSET) --build-arg BUILD_S3SELECT=$(BUILD_S3SELECT) -f src/deploy/NVA_build/Base.Dockerfile $(CACHE_FLAG) $(NETWORK_FLAG) -t noobaa-base . $(REDIRECT_STDOUT)
 	$(CONTAINER_ENGINE) tag noobaa-base $(NOOBAA_BASE_TAG)
 	@echo "##\033[1;32m Build image noobaa-base done.\033[0m"
 .PHONY: base
@@ -146,6 +157,16 @@ nbdev:
 	@echo ""
 .PHONY: nbdev
 
+rpm: base
+	@PLATFORM=$(shell echo ${CONTAINER_PLATFORM} | tr '/' '-') && \
+	echo "\033[1;34mStarting RPM build for $${CONTAINER_PLATFORM}.\033[0m" && \
+	mkdir -p build/rpm && \
+	$(CONTAINER_ENGINE) build $(CONTAINER_PLATFORM_FLAG) $(CPUSET) -f src/deploy/RPM_build/RPM.Dockerfile $(CACHE_FLAG) -t noobaa-rpm-build:$${PLATFORM} --build-arg GIT_COMMIT=$(GIT_COMMIT) . $(REDIRECT_STDOUT) && \
+	echo "\033[1;32mImage 'noobaa-rpm-build' is ready.\033[0m" && \
+	echo "Generating RPM..." && \
+	$(CONTAINER_ENGINE) run --rm -v $(PWD)/build/rpm:/export -it noobaa-rpm-build:$${PLATFORM} && \
+	echo "\033[1;32mRPM for platform \"$${PLATFORM}\" is ready in build/rpm.\033[0m";
+.PHONY: rpm
 
 ###############
 # TEST IMAGES #

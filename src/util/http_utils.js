@@ -437,6 +437,12 @@ function _get_http_agent(endpoint, request_unsecured) {
     }
 }
 
+function get_agent_by_endpoint(endpoint) {
+    return cloud_utils.is_aws_endpoint(endpoint) ?
+        get_default_agent(endpoint) :
+        get_unsecured_agent(endpoint);
+}
+
 function update_http_agents(options) {
     Object.assign(http.globalAgent, options);
     Object.assign(http_agent, options);
@@ -683,3 +689,4 @@ exports.set_cors_headers_s3 = set_cors_headers_s3;
 exports.set_cors_headers_sts = set_cors_headers_sts;
 exports.parse_content_length = parse_content_length;
 exports.authorize_session_token = authorize_session_token;
+exports.get_agent_by_endpoint = get_agent_by_endpoint;

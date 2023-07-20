@@ -138,13 +138,17 @@ function format_s3_xml_date(input) {
 }
 
 const X_AMZ_META = 'x-amz-meta-';
+const HTTP_NB_DOT_CHAR = '__dot__';
 
 function get_request_xattr(req) {
     const xattr = {};
     _.each(req.headers, (val, hdr) => {
         if (!hdr.startsWith(X_AMZ_META)) return;
-        const key = hdr.slice(X_AMZ_META.length);
+        let key = hdr.slice(X_AMZ_META.length);
         if (!key) return;
+
+        // we encode unacceptable characters in the header name, reverting that here
+        key = key.replaceAll(HTTP_NB_DOT_CHAR, '.');
         xattr[key] = val;
     });
     return xattr;
@@ -162,7 +166,10 @@ function set_response_xattr(res, xattr) {
         keys.sort();
     }
     let returned_keys = 0;
-    for (const key of keys) {
+    for (let key of keys) {
+        // replace characters not allowed by RFC 7230 Section 3.2 with custom strings
+        key = key.replaceAll('.', HTTP_NB_DOT_CHAR);
+
         const md_header_size =
             X_AMZ_META.length +
             4 + // for ': ' and '\r\n'

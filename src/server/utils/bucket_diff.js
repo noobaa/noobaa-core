@@ -13,17 +13,31 @@ class BucketDiff {
      *   first_bucket: string;
      *   second_bucket: string;
      *   version: boolean;
-     *   s3_params: AWS.S3.ClientConfiguration
+     *   s3_params?: AWS.S3.ClientConfiguration
+     *   connection?: AWS.S3
      *   for_replication: boolean
      * }} params
      */
-    constructor({ first_bucket, second_bucket, version, s3_params, for_replication }) {
+    constructor(params) {
+        const {
+            first_bucket,
+            second_bucket,
+            version,
+            s3_params,
+            connection,
+            for_replication,
+        } = params;
         this.first_bucket = first_bucket;
         this.second_bucket = second_bucket;
         this.version = version;
         //We will assume at this stage that first_bucket and second_bucket are accessible via the same s3
         // If we want to do a diff on none s3 we should use noobaa namespace buckets.
-        this.s3 = new AWS.S3(s3_params);
+        if (connection) {
+            this.s3 = connection;
+        } else {
+            if (!s3_params) throw new Error('Expected s3_params');
+            this.s3 = new AWS.S3(s3_params);
+        }
         // special treatment when we want the diff for replication purpose.
         this.for_replication = for_replication;
     }

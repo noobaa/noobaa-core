@@ -8,6 +8,18 @@ const { BucketDiff } = require('../../../server/utils/bucket_diff.js');
 // @ts-ignore
 const mock_fn = jest.fn();
 
+describe('fail on improper constructor call', () => {
+    it('should fail when there is no connection and no s3_params', () => {
+        const params = {
+            first_bucket: 'first-bucket',
+            second_bucket: 'second-bucket',
+            version: true,
+            for_replication: false
+        };
+        expect(() => new BucketDiff(params)).toThrow('Expected s3_params');
+    });
+});
+
 describe('BucketDiff', () => {
     describe('get_objects', () => {
         describe('get_objects with version', () => {

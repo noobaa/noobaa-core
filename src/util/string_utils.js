@@ -144,6 +144,14 @@ function escape_reg_exp(str) {
     return str.replace(escape_regexp, '\\$&');
 }
 
+// indexOfEnd is the index of of string_to_search including it
+// Based on this: https://stackoverflow.com/a/18893403
+// Didn't use it as is since it creates eslint error: no-extend-native error
+function index_of_end(original_string, string_to_search) {
+    const index = original_string.indexOf(string_to_search);
+    return index === -1 ? -1 : index + string_to_search.length;
+}
+
 exports.ALPHA_NUMERIC_CHARSET = ALPHA_NUMERIC_CHARSET;
 exports.crypto_random_string = crypto_random_string;
 exports.left_pad_zeros = left_pad_zeros;
@@ -152,3 +160,5 @@ exports.rolling_hash = rolling_hash;
 exports.equal_case_insensitive = equal_case_insensitive;
 exports.is_email_address = is_email_address;
 exports.escape_reg_exp = escape_reg_exp;
+exports.index_of_end = index_of_end;
+

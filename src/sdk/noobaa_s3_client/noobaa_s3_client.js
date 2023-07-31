@@ -6,10 +6,12 @@ const https = require('https');
 const { HttpProxyAgent } = require('http-proxy-agent');
 const { HttpsProxyAgent } = require('https-proxy-agent');
 const { S3ClientSDKV2 } = require('./noobaa_s3_client_sdkv2');
-const { S3 } = require("@aws-sdk/client-s3");
-const { NodeHttpHandler } = require("@aws-sdk/node-http-handler");
+const { S3 } = require('@aws-sdk/client-s3');
+const { NodeHttpHandler } = require('@aws-sdk/node-http-handler');
 const config = require('../../../config');
 const http_utils = require('../../util/http_utils');
+const cloud_utils = require('../../util/cloud_utils');
+const string_utils = require('../../util/string_utils');
 
 // The params are the AWS SDK V3 params.
 // params = a map of parameters that are passed to the constructor of S3 Object in order to to bind to every request
@@ -98,9 +100,85 @@ function check_error_code(err, code) {
     return err.code === code || err.Code === code;
 }
 
+// We need to pass region for aws in the s3 client when using aws sdk v3.
+// The region must match the bucket that we will run actions on.
+// we will return the region if:
+// 1. we have the region in the params.
+// 2. we can extract it from the endpoint.
+// 3. send a request with a default region using the target bucket:
+//    3.1 no error - we have the region.
+//    3.2 error - extract the region from the error parameters.
+async function get_region(params, target_bucket) {
+    let region;
+    const endpoint = params.endpoint;
+    if (!endpoint || !cloud_utils.is_aws_endpoint(endpoint) || should_use_sdk_v2(params)) {
+        return;
+    }
+    if (params.region) {
+        return params.region;
+    }
+
+    const endpoint_url = new URL(endpoint);
+    // The endpoint host is a string like '{service}.{region}.amazonaws.com' (our case s3.{region}.amazonaws.com)
+    region = endpoint_url.host.slice(string_utils.index_of_end(endpoint_url.host, 's3.'), endpoint_url.host.indexOf('.amazonaws.com'));
+    if (region) {
+        return region;
+    }
+    if (!target_bucket) {
+        return;
+    }
+
+    // we would run an action with a default region and check if it works
+    const { credentials } = params;
+    // we use the minimum parameters needed to run an action on AWS.
+    const s3_params_with_region = {
+        credentials: credentials,
+        region: config.DEFAULT_REGION
+    };
+    const s3_client_with_region = new S3(s3_params_with_region);
+    try {
+        // use an action that only needs a bucket
+        await s3_client_with_region.listObjectsV2({
+            Bucket: target_bucket,
+            MaxKeys: 1
+        });
+        region = config.DEFAULT_REGION;
+    } catch (err) {
+        region = get_region_from_aws_error(err);
+    }
+    return region;
+}
+
+function get_region_from_aws_error(err) {
+    let region;
+
+    if (err.Code === 'AuthorizationHeaderMalformed') {
+        region = err.Region;
+    } else if (err.Code === 'TemporaryRedirect' || err.Code === 'PermanentRedirect') {
+        const endpoint_in_error = err.Endpoint; // structure: {bucket}.s3-{region}.amazonaws.com
+        region = endpoint_in_error.slice(string_utils.index_of_end(endpoint_in_error, '.s3-'), endpoint_in_error.indexOf('.amazonaws.com'));
+    } else {
+        throw new Error('Could not get bucket AWS S3 region, please add the region explicitly when passing AWS S3 connection details');
+    }
+
+    return region;
+}
+
+// in case we set a region and explicitly add the aws endpoint address it needs to contain the region
+function get_non_global_aws_endpoint(endpoint, region) {
+    if (region && (endpoint === 'https://s3.amazonaws.com' || endpoint === 'http://s3.amazonaws.com')) {
+        const part_endpoint = endpoint.slice(0, endpoint.indexOf('.amazonaws.com'));
+        const full_endpoint_with_region = `${part_endpoint}.${region}.${'amazonaws.com'}`;
+        return full_endpoint_with_region;
+    }
+    return endpoint;
+}
+
 // EXPORTS
 exports.get_s3_client_v3_params = get_s3_client_v3_params;
 exports.change_s3_client_params_to_v2_structure = change_s3_client_params_to_v2_structure;
 exports.get_sdk_class_str = get_sdk_class_str;
 exports.check_error_code = check_error_code;
 exports.get_requestHandler_with_suitable_agent = get_requestHandler_with_suitable_agent;
+exports.get_region = get_region;
+exports.get_non_global_aws_endpoint = get_non_global_aws_endpoint;

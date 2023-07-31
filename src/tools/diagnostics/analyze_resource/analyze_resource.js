@@ -24,7 +24,7 @@ async function main() {
     try {
         const resource_type = process.env.RESOURCE_TYPE;
         check_supported_resource_type(resource_type);
-        const cloud_vendor = get_cloud_vendor(resource_type, connection_basic_details);
+        const cloud_vendor = await get_cloud_vendor(resource_type, connection_basic_details);
         await test_resource(cloud_vendor, connection_basic_details.bucket);
     } catch (err) {
         // we use this string as a summary in the file (in the operator repo)
@@ -46,7 +46,7 @@ function check_supported_resource_type(resource_type) {
 
 async function test_resource(cloud_vendor, bucket) {
     check_arguments(cloud_vendor, bucket);
-    console.info(`We will have several tests to check the status of the resource and permission of the bucket ${bucket}`);
+    console.info(`We will have several tests to check the status of the resource and permissions of the bucket ${bucket}`);
     let head_object_executed;
     let head_skip_reason;
     const key_to_head = await list_objects_and_get_one_key(cloud_vendor, bucket);

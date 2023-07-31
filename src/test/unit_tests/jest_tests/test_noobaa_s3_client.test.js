@@ -2,11 +2,11 @@
 /* eslint-disable no-undef */
 'use strict';
 
-const { S3 } = require("@aws-sdk/client-s3");
-const { NodeHttpHandler } = require("@aws-sdk/node-http-handler");
-const { Agent } = require("http");
-const { S3ClientSDKV2 } = require("../../../sdk/noobaa_s3_client/noobaa_s3_client_sdkv2");
-const noobaa_s3_client = require("../../../sdk/noobaa_s3_client/noobaa_s3_client");
+const { S3 } = require('@aws-sdk/client-s3');
+const { NodeHttpHandler } = require('@aws-sdk/node-http-handler');
+const { Agent } = require('http');
+const { S3ClientSDKV2 } = require('../../../sdk/noobaa_s3_client/noobaa_s3_client_sdkv2');
+const noobaa_s3_client = require('../../../sdk/noobaa_s3_client/noobaa_s3_client');
 const config = require('../../../../config');
 
 describe('noobaa_s3_client get_s3_client_v3_params', () => {
@@ -99,5 +99,51 @@ describe('noobaa_s3_client change_s3_client_params_to_v2_structure', () => {
             expect(params).toHaveProperty('httpOptions');
             expect(params.requestHandler).toBeUndefined();
         });
+
+});
+
+describe('noobaa_s3_client get_region', () => {
+    // global endpoint is 's3.amazonaws.com'
+    it('aws non-global endpoint without region', async () => {
+        const params = {
+            endpoint: 'https://s3.us-west-1.amazonaws.com',
+        };
+        const region = await noobaa_s3_client.get_region(params);
+        expect(region).toBe('us-west-1');
+    });
+
+    it('aws global endpoint with region', async () => {
+        const params = {
+            endpoint: 'https://s3.amazonaws.com',
+            region: 'us-west-1'
+        };
+        const region = await noobaa_s3_client.get_region(params);
+        expect(region).toBe('us-west-1');
+    });
+
+});
+
+describe('noobaa_s3_client edit_global_aws_endpoint', () => {
+    // global endpoint is 's3.amazonaws.com'
+    it('aws non-global endpoint', () => {
+        const endpoint = 'https://s3.us-west-1.amazonaws.com';
+        const region = 'us-west-1';
+        const endpoint_non_global = noobaa_s3_client.get_non_global_aws_endpoint(endpoint, region);
+        expect(endpoint_non_global).toBe('https://s3.us-west-1.amazonaws.com');
+    });
+
+    it('aws non-global endpoint (https)', () => {
+        const endpoint = 'https://s3.amazonaws.com';
+        const region = 'us-west-1';
+        const endpoint_non_global = noobaa_s3_client.get_non_global_aws_endpoint(endpoint, region);
+        expect(endpoint_non_global).toBe('https://s3.us-west-1.amazonaws.com');
+    });
+
+    it('aws non-global endpoint (http)', () => {
+        const endpoint = 'http://s3.amazonaws.com';
+        const region = 'us-west-1';
+        const endpoint_non_global = noobaa_s3_client.get_non_global_aws_endpoint(endpoint, region);
+        expect(endpoint_non_global).toBe('http://s3.us-west-1.amazonaws.com');
+    });
 
 });

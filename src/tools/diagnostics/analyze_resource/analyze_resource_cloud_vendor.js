@@ -2,33 +2,42 @@
 'use strict';
 
 const fs = require('fs');
-const http_utils = require('../../../util/http_utils');
 const SensitiveString = require('../../../util/sensitive_string');
 const AnalyzeAws = require('./analyze_resource_aws');
 const AnalyzeGcp = require('./analyze_resource_gcp');
 const AnalyzeAzure = require('./analyze_resource_azure');
+const noobaa_s3_client = require('../../../sdk/noobaa_s3_client/noobaa_s3_client');
 
 const secret_path = '/etc/cloud-credentials';
 
-function get_cloud_vendor(resource_type, connection_basic_details) {
+async function get_cloud_vendor(resource_type, connection_basic_details) {
     let cloud_vendor;
     const credentials = get_credentials(resource_type);
 
     switch (resource_type) {
         case 'aws-s3':
+                /* eslint-disable no-case-declarations*/
+            const params = {
+                endpoint: connection_basic_details.endpoint,
+                credentials: {
+                    accessKeyId: credentials.access_key instanceof SensitiveString ?
+                        credentials.access_key.unwrap() : credentials.access_key,
+                    secretAccessKey: credentials.secret_access_key instanceof SensitiveString ?
+                        credentials.secret_access_key.unwrap() : credentials.secret_access_key,
+                },
+                signatureVersion: connection_basic_details.signature_version
+            };
+            const region = await noobaa_s3_client.get_region(params, connection_basic_details.bucket);
             cloud_vendor = new AnalyzeAws(credentials.access_key, credentials.secret_access_key,
-                connection_basic_details.endpoint, connection_basic_details.signature_version,
-                http_utils.get_default_agent(connection_basic_details.endpoint));
+                connection_basic_details.endpoint, connection_basic_details.signature_version, region);
             break;
         case 's3-compatible':
             cloud_vendor = new AnalyzeAws(credentials.access_key, credentials.secret_access_key,
-                connection_basic_details.endpoint, connection_basic_details.signature_version,
-                http_utils.get_unsecured_agent(connection_basic_details.endpoint));
+                connection_basic_details.endpoint, connection_basic_details.signature_version);
             break;
         case 'ibm-cos':
             cloud_vendor = new AnalyzeAws(credentials.access_key, credentials.secret_access_key,
-                connection_basic_details.endpoint, connection_basic_details.signature_version,
-                http_utils.get_unsecured_agent(connection_basic_details.endpoint));
+                connection_basic_details.endpoint, connection_basic_details.signature_version);
             break;
         case 'azure-blob':
             cloud_vendor = new AnalyzeAzure(credentials.access_key, credentials.secret_access_key, // Azure storage account name is stored as the access key

@@ -964,8 +964,8 @@ mocha.describe('AWS S3 server log parsing tests', function() {
         `};
         log_parser.aws_parse_log_object(logs, example_log, true);
         const candidates = log_parser.create_candidates(logs);
-        assert.equal(candidates.test[0].action, 'copy');
-        assert.equal(candidates.test[1].action, 'delete');
+        // DELETE log should be the latest log present inside the candidate, as candidate storing only latest log per key
+        assert.equal(candidates.test.action, 'delete');
     });
 });
 

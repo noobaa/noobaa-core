@@ -122,73 +122,91 @@ class LogReplicationScanner {
     async process_candidates(src_bucket, dst_bucket, candidates) {
         const src_dst_objects_list = await this.head_objects(src_bucket.name, dst_bucket.name, candidates);
 
+        dbg.log1('log_replication_scanner: process_candidates src_dst_objects_list: ', src_dst_objects_list);
+
+        const copy_keys = [];
+        const delete_keys = [];
+
         for (const candidate of src_dst_objects_list) {
-            await this.process_candidate(src_bucket, dst_bucket, candidate);
+            const action = this.process_candidate(candidate);
+            if (action === 'copy') {
+                copy_keys.push(candidate.key);
+            } else if (action === 'delete') {
+                delete_keys.push(candidate.key);
+            } else {
+                // Log skipped candidate key
+                dbg.log1('process_candidates: skipped_key: ', candidates.key);
+            }
+        }
+
+        dbg.log1('log_replication_scanner: process_candidates copy_keys: ', copy_keys);
+        dbg.log1('log_replication_scanner: process_candidates delete_keys: ', delete_keys);
+
+        // calling copy_objects and delete_objects by passing batch of keys
+        await Promise.all([
+            this.copy_objects(src_bucket, dst_bucket, copy_keys),
+            this.delete_objects(dst_bucket, delete_keys)
+        ]);
+
+        // returning copy_keys and delete_keys after processing candidates
+        return { copy_keys, delete_keys };
+    }
+
+    process_candidate(candidate) {
+        // if there is no log for candidate then we should skip
+        if (!candidate.data) {
+            return 'skip';
+        }
+
+        // each candidate represents latest action per key
+        const item = candidate.data;
+
+        if (item.action === 'copy') {
+            return this.process_copy_candidate(candidate);
+        }
+
+        if (item.action === 'delete') {
+            return this.process_delete_candidate(candidate);
+        }
+
+        if (item.action === 'conflict') {
+            return this.process_conflict_candidate(candidate);
         }
     }
 
-    async process_candidate(src_bucket, dst_bucket, candidate) {
-        // each candidate represents several action over the same key
-        // that are sorted by time.
-        const items = candidate.data || [];
-
-        for (const item of items) {
-            if (item.action === 'copy') {
-                await this.process_copy_candidate(src_bucket, dst_bucket, candidate);
-            }
-
-            if (item.action === 'delete') {
-                await this.process_delete_candidate(src_bucket, dst_bucket, candidate);
-            }
-
-            if (item.action === 'conflict') {
-                await this.process_conflict_candidate(src_bucket, dst_bucket, candidate);
-            }
-        }
-    }
-
-    async process_copy_candidate(src_bucket, dst_bucket, candidate) {
+    process_copy_candidate(candidate) {
         const src_object_info = candidate.src_object_info;
         const dst_object_info = candidate.dst_object_info;
         if (src_object_info && (!dst_object_info || (src_object_info.LastModified > dst_object_info.LastModified &&
             src_object_info.ETag !== dst_object_info.ETag))) {
-            await this.copy_object(src_bucket.name, dst_bucket.name, candidate.key);
+            return 'copy';
         }
+        return 'skip';
     }
 
-    async process_delete_candidate(src_bucket, dst_bucket, candidate) {
+    process_delete_candidate(candidate) {
         if (!candidate.src_object_info && candidate.dst_object_info) {
-            await this.delete_object(dst_bucket.name, candidate.key);
+            return 'delete';
         }
+        return 'skip';
     }
 
-    async process_conflict_candidate(src_bucket, dst_bucket, candidate) {
+    process_conflict_candidate(candidate) {
         // If the item is present in the source bucket but not in the destination bucket
         // then it is 'copy' action
         if (candidate.src_object_info && !candidate.dst_object_info) {
-            // call the process_candidate again but with the 'copy' action
-            await this.process_candidate(src_bucket, dst_bucket, {
-                key: candidate.key,
-                data: { action: 'copy', time: candidate.data.time },
-                src_object_info: candidate.src_object_info,
-                dst_object_info: candidate.dst_object_info,
-            });
+            return 'copy';
         }
 
         // If the item is present in the destination bucket but not in the source bucket
         // then it is 'delete' action
         if (!candidate.src_object_info && candidate.dst_object_info) {
-            // call the process_candidate again but with the 'delete' action
-            await this.process_candidate(src_bucket, dst_bucket, {
-                key: candidate.key,
-                data: { action: 'delete', time: candidate.data.time },
-                src_object_info: candidate.src_object_info,
-                dst_object_info: candidate.dst_object_info,
-            });
+            return 'delete';
         }
+        return 'skip';
     }
 
-    async copy_object(src_bucket_name, dst_bucket_name, key) {
+    async copy_objects(src_bucket_name, dst_bucket_name, keys) {
         const copy_type = replication_utils.get_copy_type();
         await replication_utils.copy_objects(
             this._scanner_sem,
@@ -196,19 +214,19 @@ class LogReplicationScanner {
             copy_type,
             src_bucket_name.unwrap(),
             dst_bucket_name.unwrap(),
-            [key],
+            keys,
         );
-        dbg.log2('log_replication_scanner: scan copy_object: ', key);
+        dbg.log2('log_replication_scanner: scan copy_objects: ', keys);
     }
 
-    async delete_object(bucket_name, key) {
+    async delete_objects(bucket_name, keys) {
         await replication_utils.delete_objects(
             this._scanner_sem,
             this.client,
             bucket_name.unwrap(),
-            [key],
+            keys,
         );
-        dbg.log2('log_replication_scanner: scan delete_object: ', key);
+        dbg.log2('log_replication_scanner: scan delete_objects: ', keys);
     }
 
     /**
@@ -220,7 +238,7 @@ class LogReplicationScanner {
      * @param {nb.ReplicationLogCandidates} candidates 
      * @returns {Promise<Array<{
      *  key: string,
-     *  data: { action: nb.ReplicationLogAction, time: Date }[],
+     *  data: { action: nb.ReplicationLogAction, time: Date },
      *  src_object_info: AWS.S3.HeadObjectOutput | null,
      *  dst_object_info: AWS.S3.HeadObjectOutput | null
      * }>>}

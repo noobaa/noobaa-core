@@ -153,8 +153,8 @@ class LRUCache {
      */
     invalidate_key(key) {
         const item = this.lru.remove_item(key);
-        if (item && item.val) {
-            return item.val;
+        if (item && item.d) {
+            return item.d;
         }
     }
 

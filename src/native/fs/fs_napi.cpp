@@ -187,6 +187,9 @@ parse_open_flags(std::string flags)
             bits |= O_RDWR;
             bits &= ~(O_RDONLY | O_WRONLY);
             break;
+        case '*':
+            bits &= ~(O_TRUNC);
+            break;
         case 's':
             bits |= O_SYNC;
             break;
@@ -220,10 +223,13 @@ const static std::vector<std::string> GPFS_XATTRS{ GPFS_ENCRYPTION_XATTR_NAME };
 const static std::vector<std::string> USER_XATTRS{
     "user.content_type",
     "user.content_md5",
-    "user.version_id",
-    "user.prev_version_id",
-    "user.delete_marker",
-    "user.dir_content",
+    "user.noobaa.version_id",
+    "user.noobaa.prev_version_id",
+    "user.noobaa.delete_marker",
+    "user.noobaa.dir_content",
+    "user.noobaa.part_offset",
+    "user.noobaa.part_size",
+    "user.noobaa.part_etag",
     "user.storage_class",
     "user.noobaa.restore.request",
     "user.noobaa.restore.ongoing",
@@ -1401,22 +1407,31 @@ struct FileWrite : public FSWrapWorker<FileWrap>
 {
     const uint8_t* _buf;
     size_t _len;
+    off_t _offset;
     FileWrite(const Napi::CallbackInfo& info)
         : FSWrapWorker<FileWrap>(info)
         , _buf(0)
         , _len(0)
+        , _offset(-1)
     {
         auto buf = info[1].As<Napi::Buffer<uint8_t>>();
         _buf = buf.Data();
         _len = buf.Length();
-        Begin(XSTR() << "FileWrite " << DVAL(_wrap->_path) << DVAL(_len));
+        if (info.Length() > 3 && !info[3].IsUndefined()) {
+            _offset = info[3].As<Napi::Number>();
+        }
+        Begin(XSTR() << "FileWrite " << DVAL(_wrap->_path) << DVAL(_len) << DVAL(_offset));
     }
     virtual void Work()
     {
         int fd = _wrap->_fd;
         CHECK_WRAP_FD(fd);
-        // TODO: Switch to pwrite when needed
-        ssize_t bw = write(fd, _buf, _len);
+        ssize_t bw = -1;
+        if (_offset >= 0) {
+            bw = pwrite(fd, _buf, _len, _offset);
+        } else {
+            bw = write(fd, _buf, _len);
+        }
         if (bw < 0) {
             SetSyscallError();
         } else if ((size_t)bw != _len) {
@@ -1429,9 +1444,11 @@ struct FileWritev : public FSWrapWorker<FileWrap>
 {
     std::vector<struct iovec> iov_vec;
     ssize_t _total_len;
+    off_t _offset;
     FileWritev(const Napi::CallbackInfo& info)
         : FSWrapWorker<FileWrap>(info)
         , _total_len(0)
+        , _offset(-1)
     {
         auto buffers = info[1].As<Napi::Array>();
         const int buffers_len = buffers.Length();
@@ -1445,13 +1462,21 @@ struct FileWritev : public FSWrapWorker<FileWrap>
             iov_vec[i] = iov;
             _total_len += iov.iov_len;
         }
-        Begin(XSTR() << "FileWritev " << DVAL(_wrap->_path) << DVAL(_total_len) << DVAL(buffers_len));
+        if (info.Length() > 2 && !info[2].IsUndefined()) {
+            _offset = info[2].As<Napi::Number>();
+        }
+        Begin(XSTR() << "FileWritev " << DVAL(_wrap->_path) << DVAL(_total_len) << DVAL(buffers_len) << DVAL(_offset));
     }
     virtual void Work()
     {
         int fd = _wrap->_fd;
         CHECK_WRAP_FD(fd);
-        ssize_t bw = writev(fd, iov_vec.data(), iov_vec.size());
+        ssize_t bw = -1;
+        if (_offset >= 0) {
+            bw = pwritev(fd, iov_vec.data(), iov_vec.size(), _offset);
+        } else {
+            bw = writev(fd, iov_vec.data(), iov_vec.size());
+        }
         if (bw < 0) {
             SetSyscallError();
         } else if (bw != _total_len) {

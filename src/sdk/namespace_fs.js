@@ -1,5 +1,5 @@
 /* Copyright (C) 2020 NooBaa */
-/*eslint max-lines: ["error", 3000]*/
+/*eslint max-lines: ["error", 4000]*/
 /*eslint max-statements: ["error", 80, { "ignoreTopLevelFunctions": true }]*/
 'use strict';
 
@@ -17,6 +17,7 @@ const error_utils = require('../util/error_utils');
 const stream_utils = require('../util/stream_utils');
 const buffer_utils = require('../util/buffer_utils');
 const size_utils = require('../util/size_utils');
+const native_fs_utils = require('../util/native_fs_utils');
 const ChunkFS = require('../util/chunk_fs');
 const LRUCache = require('../util/lru_cache');
 const Semaphore = require('../util/semaphore');
@@ -37,13 +38,17 @@ const buffers_pool = new buffer_utils.BuffersPool({
 });
 
 const XATTR_USER_PREFIX = 'user.';
+const XATTR_NOOBAA_INTERNAL_PREFIX = XATTR_USER_PREFIX + 'noobaa.';
 // TODO: In order to verify validity add content_md5_mtime as well
 const XATTR_CONTENT_TYPE = XATTR_USER_PREFIX + 'content_type';
 const XATTR_MD5_KEY = XATTR_USER_PREFIX + 'content_md5';
-const XATTR_VERSION_ID = XATTR_USER_PREFIX + 'version_id';
-const XATTR_PREV_VERSION_ID = XATTR_USER_PREFIX + 'prev_version_id';
-const XATTR_DELETE_MARKER = XATTR_USER_PREFIX + 'delete_marker';
-const XATTR_DIR_CONTENT = XATTR_USER_PREFIX + 'dir_content';
+const XATTR_PART_OFFSET = XATTR_NOOBAA_INTERNAL_PREFIX + 'part_offset';
+const XATTR_PART_SIZE = XATTR_NOOBAA_INTERNAL_PREFIX + 'part_size';
+const XATTR_PART_ETAG = XATTR_NOOBAA_INTERNAL_PREFIX + 'part_etag';
+const XATTR_VERSION_ID = XATTR_NOOBAA_INTERNAL_PREFIX + 'version_id';
+const XATTR_PREV_VERSION_ID = XATTR_NOOBAA_INTERNAL_PREFIX + 'prev_version_id';
+const XATTR_DELETE_MARKER = XATTR_NOOBAA_INTERNAL_PREFIX + 'delete_marker';
+const XATTR_DIR_CONTENT = XATTR_NOOBAA_INTERNAL_PREFIX + 'dir_content';
 const HIDDEN_VERSIONS_PATH = '.versions';
 const NULL_VERSION_ID = 'null';
 const NULL_VERSION_SUFFIX = '_' + NULL_VERSION_ID;
@@ -77,17 +82,6 @@ const XATTR_RESTORE_ONGOING = XATTR_USER_PREFIX + 'noobaa.restore.ongoing';
  * assuming that restore request for already restored objects fails gracefully.
  */
 const XATTR_RESTORE_EXPIRY = XATTR_USER_PREFIX + 'noobaa.restore.expiry';
-
-const INTERNAL_XATTR = [
-    XATTR_CONTENT_TYPE,
-    XATTR_DIR_CONTENT,
-    XATTR_PREV_VERSION_ID,
-    XATTR_DELETE_MARKER,
-    XATTR_STORAGE_CLASS_KEY,
-    XATTR_RESTORE_REQUEST,
-    XATTR_RESTORE_ONGOING,
-    XATTR_RESTORE_EXPIRY,
-];
 
 const versioning_status_enum = {
     VER_ENABLED: 'ENABLED',
@@ -308,7 +302,7 @@ function make_named_dirent(name) {
 
 function to_xattr(fs_xattr) {
     const xattr = _.mapKeys(fs_xattr, (val, key) =>
-        (key.startsWith(XATTR_USER_PREFIX) && !INTERNAL_XATTR.includes(key) ? key.slice(XATTR_USER_PREFIX.length) : '')
+        (key.startsWith(XATTR_USER_PREFIX) && !key.startsWith(XATTR_NOOBAA_INTERNAL_PREFIX) ? key.slice(XATTR_USER_PREFIX.length) : '')
     );
     // keys which do not start with prefix will all map to the empty string key, so we remove it once
     delete xattr[''];
@@ -1084,8 +1078,9 @@ class NamespaceFS {
             if (!params.copy_source || upload_params.copy_res === copy_status_enum.FALLBACK) {
             // TODO: Take up only as much as we need (requires fine-tune of the semaphore inside the _upload_stream)
             // Currently we are taking config.NSFS_BUF_SIZE for any sized upload (1KB upload will take a full buffer from semaphore)
-                upload_params.digest = await buffers_pool_sem.surround_count(
+                const upload_res = await buffers_pool_sem.surround_count(
                     config.NSFS_BUF_SIZE, async () => this._upload_stream(upload_params));
+                upload_params.digest = upload_res.digest;
             }
 
             const upload_info = await this._finish_upload(upload_params);
@@ -1137,7 +1132,7 @@ class NamespaceFS {
             dbg.log1(`NamespaceFS._open_file: mode=${open_mode} creating dirs`, open_path, this.bucket_path);
             await this._make_path_dirs(open_path, fs_context);
         }
-        dbg.log0(`NamespaceFS._open_file: mode=${open_mode}`, open_path);
+        dbg.log1(`NamespaceFS._open_file: mode=${open_mode}`, open_path);
         // for 'wt' open the tmpfile with the parent dir path
         const actual_open_path = open_mode === 'wt' ? dir_path : open_path;
         return nb_native().fs.open(fs_context, actual_open_path, open_mode, get_umasked_mode(config.BASE_MODE_FILE));
@@ -1175,7 +1170,7 @@ class NamespaceFS {
     // xattr_copy = false implies on non server side copy fallback copy (copy status = FALLBACK)
     // target file can be undefined when it's a folder created and size is 0
     async _finish_upload({ fs_context, params, open_mode, target_file, upload_path, file_path, digest = undefined,
-            copy_res = undefined }) {
+            copy_res = undefined, offset }) {
         const part_upload = file_path === upload_path;
         const same_inode = params.copy_source && copy_res === copy_status_enum.SAME_INODE;
         const is_dir_content = this._is_directory_content(file_path, params.key);
@@ -1198,6 +1193,9 @@ class NamespaceFS {
                     if (md5_hex !== digest) throw new Error('_upload_stream mismatch etag: ' + util.inspect({ key, bucket, upload_id, md5_hex, digest }));
                 }
                 fs_xattr = this._assign_md5_to_fs_xattr(digest, fs_xattr);
+            }
+            if (part_upload) {
+                fs_xattr = await this._assign_part_props_to_fs_xattr(fs_context, params.size, digest, offset, fs_xattr);
             }
             if (!part_upload && (this._is_versioning_enabled() || this._is_versioning_suspended())) {
                 const cur_ver_info = await this._get_version_info(fs_context, file_path);
@@ -1374,7 +1372,7 @@ class NamespaceFS {
     // This is due to MD5 calculation and data buffers
     // Can be finetuned further on if needed and inserting the Semaphore logic inside
     // Instead of wrapping the whole _upload_stream function (q_buffers lives outside of the data scope of the stream)
-    async _upload_stream({ fs_context, params, target_file, object_sdk }) {
+    async _upload_stream({ fs_context, params, target_file, object_sdk, offset }) {
         const { source_stream } = params;
         try {
             // Not using async iterators with ReadableStreams due to unsettled promises issues on abort/destroy
@@ -1385,12 +1383,13 @@ class NamespaceFS {
                 fs_context,
                 stats: this.stats,
                 namespace_resource_id: this.namespace_resource_id,
-                md5_enabled
+                md5_enabled,
+                offset
             });
             chunk_fs.on('error', err1 => dbg.error('namespace_fs._upload_stream: error occured on stream ChunkFS: ', err1));
             await stream_utils.pipeline([source_stream, chunk_fs]);
             await stream_utils.wait_finished(chunk_fs);
-            return chunk_fs.digest;
+            return { digest: chunk_fs.digest, total_bytes: chunk_fs.total_bytes };
         } catch (error) {
             dbg.error('_upload_stream had error: ', error);
             throw error;
@@ -1437,34 +1436,76 @@ class NamespaceFS {
         }
     }
 
+    _get_part_data_path(params) {
+        return path.join(params.mpu_path, `parts-size-${params.size}`);
+    }
+
+    _get_part_md_path(params) {
+        return path.join(params.mpu_path, `part-${params.num}`);
+    }
+
+    // optimized version of upload_multipart - 
+    // 1. if size is pre known -
+    //    1.1. calc offset
+    //    1.2. upload data to by_size file in offset position
+    //    1.3. set on the part_md_file size, offset and etag xattr
+    // 2. else -
+    //    2.1. upload data to part_md_file
+    //    2.2. calc offset
+    //    2.3. copy the bytes to by_size file
+    //    2.4. set on the part_md_file size, offset and etag xattr
     async upload_multipart(params, object_sdk) {
-        // We can use 'wt' for open mode like we do for upload_object() when
-        // we figure out how to create multipart upload using temp files.
-        const open_mode = 'w';
+        const data_open_mode = 'w*';
+        const md_open_mode = 'w+';
         const fs_context = this.prepare_fs_context(object_sdk);
         let target_file;
+        let part_md_file;
         try {
             await this._load_multipart(params, fs_context);
-            const upload_path = path.join(params.mpu_path, `part-${params.num}`);
-            // Will get populated in _upload_stream with the MD5 (if MD5 calculation is enabled)
-            target_file = await this._open_file(fs_context, upload_path, open_mode);
-            const upload_params = { fs_context, params, object_sdk, upload_path, open_mode, target_file, file_path: upload_path };
 
-            await buffers_pool_sem.surround_count(config.NSFS_BUF_SIZE, async () => this._upload_stream(upload_params));
+            const md_upload_path = this._get_part_md_path(params);
+            part_md_file = await this._open_file(fs_context, md_upload_path, md_open_mode);
+            let md_upload_params = {
+                fs_context, params, object_sdk, upload_path: md_upload_path, open_mode: md_open_mode,
+                target_file: part_md_file, file_path: md_upload_path
+            };
 
-            const upload_info = await this._finish_upload(upload_params);
+            let upload_res;
+            const pre_known_size = (params.size >= 0);
+            if (!pre_known_size) {
+                // 2.1
+                upload_res = await buffers_pool_sem.surround_count(config.NSFS_BUF_SIZE, async () => this._upload_stream(md_upload_params));
+                params.size = upload_res.total_bytes;
+            }
+            const offset = params.size * (params.num - 1);
+            const upload_path = this._get_part_data_path(params);
+            dbg.log1(`NamespaceFS: upload_multipart, data path=${upload_path} offset=${offset} data_open_mode=${data_open_mode}`);
+
+            target_file = await this._open_file(fs_context, upload_path, data_open_mode);
+            const data_upload_params = {
+                fs_context, params, object_sdk, upload_path, data_open_mode, target_file,
+                file_path: upload_path, offset
+            };
+
+            if (pre_known_size) {
+                upload_res = await buffers_pool_sem.surround_count(config.NSFS_BUF_SIZE,
+                    async () => this._upload_stream(data_upload_params));
+            } else {
+                // 2.3 if size was not pre known, copy data from part_md_file to by_size file
+                await native_fs_utils.copy_bytes(buffers_pool, fs_context, part_md_file, target_file, params.size, offset, 0);
+            }
+
+            md_upload_params = { ...md_upload_params, offset, digest: upload_res.digest };
+            const upload_info = await this._finish_upload(md_upload_params);
             return upload_info;
         } catch (err) {
             this.run_update_issues_report(object_sdk, err);
             throw this._translate_object_error_codes(err);
         } finally {
-            try {
-                if (target_file) await target_file.close(fs_context);
-            } catch (err) {
-                dbg.warn('NamespaceFS: _upload_stream file close error', err);
-            }
+            await native_fs_utils.finally_close_files(fs_context, [target_file, part_md_file]);
         }
     }
+
 
     async list_multiparts(params, object_sdk) {
         try {
@@ -1497,12 +1538,21 @@ class NamespaceFS {
         }
     }
 
+    // iterate over multiparts array - 
+    // 1. if num of unique sizes is 1
+    //    1.1. if this is the last part - link the size file and break the loop
+    //    1.2. else, continue the loop
+    // 2. if num of unique sizes is 2
+    //    2.1. if should_copy_file_prefix
+    //         2.1.1. if the cur part is the last, link the previous part file to upload_path and copy the last part (tail) to upload_path  
+    //         2.1.2. else - copy the prev part size file prefix to upload_path
+    // 3. copy bytes of the current's part size file
     async complete_object_upload(params, object_sdk) {
+        const part_size_to_fd_map = new Map(); // { size: fd }
         let read_file;
         let target_file;
-        let buffer_pool_cleanup = null;
         const fs_context = this.prepare_fs_context(object_sdk);
-        const open_mode = 'w';
+        const open_mode = 'w*';
         try {
             const md5_enabled = config.NSFS_CALCULATE_MD5 || (this.force_md5_etag ||
                 object_sdk?.requesting_account?.force_md5_etag);
@@ -1511,48 +1561,69 @@ class NamespaceFS {
             multiparts.sort((a, b) => a.num - b.num);
             await this._load_multipart(params, fs_context);
             const file_path = this._get_file_path(params);
+
             await this._check_path_in_bucket_boundaries(fs_context, file_path);
             const upload_path = path.join(params.mpu_path, 'final');
-            target_file = await this._open_file(fs_context, upload_path, open_mode);
-            const upload_params = { fs_context, upload_path, open_mode, file_path, params, target_file };
 
+            target_file = null;
+            let prev_part_size = 0;
+            let should_copy_file_prefix = true;
+            let total_size = 0;
             for (const { num, etag } of multiparts) {
-                const part_path = path.join(params.mpu_path, `part-${num}`);
-                read_file = await this._open_file(fs_context, part_path, config.NSFS_OPEN_READ_MODE);
-                const part_stat = await read_file.stat(fs_context);
-
-                if (etag !== this._get_etag(part_stat)) {
-                    throw new Error('mismatch part etag: ' + util.inspect({ num, etag, part_path, part_stat, params }));
+                const md_part_path = this._get_part_md_path({ ...params, num });
+                const md_part_stat = await nb_native().fs.stat(fs_context, md_part_path);
+                const part_size = Number(md_part_stat.xattr[XATTR_PART_SIZE]);
+                const part_offset = Number(md_part_stat.xattr[XATTR_PART_OFFSET]);
+                if (etag !== this._get_etag(md_part_stat)) {
+                    throw new Error('mismatch part etag: ' + util.inspect({ num, etag, md_part_path, md_part_stat, params }));
                 }
-
-                let read_pos = 0;
-                for (;;) {
-                    const { buffer, callback } = await buffers_pool.get_buffer();
-                    buffer_pool_cleanup = callback;
-                    const bytesRead = await read_file.read(fs_context, buffer, 0, config.NSFS_BUF_SIZE, read_pos);
-                    if (!bytesRead) {
-                        buffer_pool_cleanup = null;
-                        callback();
-                        break;
-                    }
-                    read_pos += bytesRead;
-                    const data = buffer.slice(0, bytesRead);
-                    await target_file.write(fs_context, data);
-                    // Returns the buffer to pool to avoid starvation
-                    buffer_pool_cleanup = null;
-                    callback();
-                }
-
-                await read_file.close(fs_context);
-                read_file = null;
                 if (MD5Async) await MD5Async.update(Buffer.from(etag, 'hex'));
+
+                const data_part_path = this._get_part_data_path({ ...params, size: part_size });
+                if (part_size_to_fd_map.has(part_size)) {
+                    read_file = part_size_to_fd_map.get(part_size);
+                } else {
+                    read_file = await this._open_file(fs_context, data_part_path, config.NSFS_OPEN_READ_MODE);
+                    part_size_to_fd_map.set(part_size, read_file);
+                }
+
+                // 1
+                if (part_size_to_fd_map.size === 1) {
+                    if (num === multiparts.length) {
+                        await nb_native().fs.link(fs_context, data_part_path, upload_path);
+                        break;
+                    } else {
+                        prev_part_size = part_size;
+                        total_size += part_size;
+                        continue;
+                    }
+                } else if (part_size_to_fd_map.size === 2 && should_copy_file_prefix) { // 2
+                    if (num === multiparts.length) {
+                        const prev_data_part_path = this._get_part_data_path({ ...params, size: prev_part_size });
+                        await nb_native().fs.link(fs_context, prev_data_part_path, upload_path);
+                    } else {
+                        const prev_read_file = part_size_to_fd_map.get(prev_part_size);
+                        if (!target_file) target_file = await this._open_file(fs_context, upload_path, open_mode);
+                        // copy (num - 1) parts, all the same size of the prev part
+                        const copy_size = prev_part_size * (num - 1);
+                        await native_fs_utils.copy_bytes(buffers_pool, fs_context, prev_read_file, target_file, copy_size, 0, 0);
+                    }
+                    should_copy_file_prefix = false;
+                }
+                // 3
+                if (!target_file) target_file = await this._open_file(fs_context, upload_path, open_mode);
+                await native_fs_utils.copy_bytes(buffers_pool, fs_context, read_file, target_file, part_size, total_size, part_offset);
+                prev_part_size = part_size;
+                total_size += part_size;
             }
+            if (!target_file) target_file = await this._open_file(fs_context, upload_path, open_mode);
 
             const { data: create_params_buffer } = await nb_native().fs.readFile(
                 fs_context,
                 path.join(params.mpu_path, 'create_object_upload')
             );
 
+            const upload_params = { fs_context, upload_path, open_mode, file_path, params, target_file };
             const create_params_parsed = JSON.parse(create_params_buffer.toString());
             upload_params.params.xattr = create_params_parsed.xattr;
             upload_params.params.storage_class = create_params_parsed.storage_class;
@@ -1563,29 +1634,25 @@ class NamespaceFS {
             await target_file.close(fs_context);
             target_file = null;
             if (config.NSFS_REMOVE_PARTS_ON_COMPLETE) await this._folder_delete(params.mpu_path, fs_context);
-
             return upload_info;
         } catch (err) {
             dbg.error(err);
             throw this._translate_object_error_codes(err);
         } finally {
-            await this.complete_object_upload_finally(buffer_pool_cleanup, read_file, target_file, fs_context);
+            await this.complete_object_upload_finally(undefined, [...part_size_to_fd_map.values()], target_file, fs_context);
         }
     }
 
+
     // complete_object_upload method has too many statements
-    async complete_object_upload_finally(buffer_pool_cleanup, read_file, write_file, fs_context) {
+    async complete_object_upload_finally(buffer_pool_cleanup, read_file_arr, write_file, fs_context) {
         try {
             // release buffer back to pool if needed
             if (buffer_pool_cleanup) buffer_pool_cleanup();
         } catch (err) {
             dbg.warn('NamespaceFS: complete_object_upload buffer pool cleanup error', err);
         }
-        try {
-            if (read_file) await read_file.close(fs_context);
-        } catch (err) {
-            dbg.warn('NamespaceFS: complete_object_upload read file close error', err);
-        }
+        await native_fs_utils.finally_close_files(fs_context, read_file_arr);
         try {
             if (write_file) await write_file.close(fs_context);
         } catch (err) {
@@ -1893,6 +1960,16 @@ class NamespaceFS {
         if (prev_ver_info) fs_xattr[XATTR_PREV_VERSION_ID] = prev_ver_info.version_id_str;
         if (delete_marker) fs_xattr[XATTR_DELETE_MARKER] = delete_marker;
 
+        return fs_xattr;
+    }
+
+    async _assign_part_props_to_fs_xattr(fs_context, size, digest, offset, fs_xattr) {
+        fs_xattr = Object.assign(fs_xattr || {}, {
+            [XATTR_PART_SIZE]: size,
+            [XATTR_PART_OFFSET]: offset,
+            [XATTR_PART_ETAG]: digest
+
+        });
         return fs_xattr;
     }
 

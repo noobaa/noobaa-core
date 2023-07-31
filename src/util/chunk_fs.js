@@ -4,6 +4,7 @@
 const stream = require('stream');
 const config = require('../../config');
 const nb_native = require('./nb_native');
+const dbg = require('../util/debug_module')(__filename);
 
 /**
  *
@@ -21,9 +22,10 @@ class ChunkFS extends stream.Transform {
      *      namespace_resource_id: string,
      *      md5_enabled: boolean,
      *      stats: import('../sdk/endpoint_stats_collector').EndpointStatsCollector,
+     *      offset?: number,
      * }} params
      */
-    constructor({ target_file, fs_context, namespace_resource_id, md5_enabled, stats }) {
+    constructor({ target_file, fs_context, namespace_resource_id, md5_enabled, stats, offset }) {
         super();
         this.q_buffers = [];
         this.q_size = 0;
@@ -31,6 +33,8 @@ class ChunkFS extends stream.Transform {
         this.target_file = target_file;
         this.fs_context = fs_context;
         this.count = 1;
+        this.total_bytes = 0;
+        this.offset = offset;
         this.namespace_resource_id = namespace_resource_id;
         this.stats = stats;
         this._total_num_buffers = 0;
@@ -75,11 +79,15 @@ class ChunkFS extends stream.Transform {
         try {
             if (this.q_buffers.length) {
                 const buffers_to_write = this.q_buffers;
+                const size_to_write = this.q_size;
                 this.q_buffers = [];
                 this.q_size = 0;
-                await this.target_file.writev(this.fs_context, buffers_to_write);
+                dbg.log1(`Chunk_fs._flush_buffers: writing ${buffers_to_write.length} buffers, total size is ${size_to_write}`);
+                await this.target_file.writev(this.fs_context, buffers_to_write, this.offset);
                 // Hold the ref on the buffers from the JS side
                 this._total_num_buffers += buffers_to_write.length;
+                this.total_bytes += size_to_write;
+                if (this.offset >= 0) this.offset += size_to_write;
             }
             if (callback) {
                 if (this.MD5Async) this.digest = (await this.MD5Async.digest()).toString('hex');

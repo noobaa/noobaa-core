@@ -953,8 +953,8 @@ interface NativeFile {
     close(fs_context: NativeFSContext): Promise<void>;
     stat(fs_context: NativeFSContext, options?: { skip_user_xattr?: boolean, xattr_get_keys?: string[] }): Promise<NativeFSStats>;
     read(fs_context: NativeFSContext, buffer: Buffer, offset: number, length: number, pos: number): Promise<number>;
-    write(fs_context: NativeFSContext, buffer: Buffer): Promise<void>;
-    writev(fs_context: NativeFSContext, buffers: Buffer[]): Promise<void>;
+    write(fs_context: NativeFSContext, buffer: Buffer, len: number, offset?: number): Promise<void>;
+    writev(fs_context: NativeFSContext, buffers: Buffer[], offset?: number): Promise<void>;
     replacexattr(fs_context: NativeFSContext, xattr: NativeFSXattr, clear_prefix?: string): Promise<void>;
     linkfileat(fs_context: NativeFSContext): Promise<void>;
     fsync(fs_context: NativeFSContext): Promise<void>;

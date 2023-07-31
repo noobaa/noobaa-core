@@ -14,9 +14,9 @@ const path = require('path');
 const nb_native = require('../../util/nb_native');
 const size_utils = require('../../util/size_utils');
 
-const XATTR_VERSION_ID = 'user.version_id';
-const XATTR_PREV_VERSION_ID = 'user.prev_version_id';
-//const XATTR_DELETE_MARKER = 'user.delete_marker';
+const XATTR_VERSION_ID = 'user.noobaa.version_id';
+const XATTR_PREV_VERSION_ID = 'user.noobaa.prev_version_id';
+//const XATTR_DELETE_MARKER = 'user.noobaa.delete_marker';
 
 const DEFAULT_FS_CONFIG = {
     uid: process.getuid(),

@@ -18,9 +18,10 @@ const test_utils = require('../system_tests/test_utils');
 coretest.setup({});
 
 const MAC_PLATFORM = 'darwin';
-const XATTR_VERSION_ID = 'user.version_id';
-const XATTR_PREV_VERSION_ID = 'user.prev_version_id';
-const XATTR_DELETE_MARKER = 'user.delete_marker';
+const XATTR_INTERNAL_NOOBAA_PREFIX = 'user.noobaa.';
+const XATTR_VERSION_ID = XATTR_INTERNAL_NOOBAA_PREFIX + 'version_id';
+const XATTR_PREV_VERSION_ID = XATTR_INTERNAL_NOOBAA_PREFIX + 'prev_version_id';
+const XATTR_DELETE_MARKER = XATTR_INTERNAL_NOOBAA_PREFIX + 'delete_marker';
 const NULL_VERSION_ID = 'null';
 
 const DEFAULT_FS_CONFIG = {
@@ -2478,7 +2479,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
         });
 
         mocha.it('get object, with version enabled, delete marker placed on latest object - should return NoSuchKey', async function() {
-            const xattr_delete_marker = { 'user.delete_marker': 'true' };
+            const xattr_delete_marker = { [XATTR_DELETE_MARKER]: 'true' };
             await file_pointer.replacexattr(DEFAULT_FS_CONFIG, xattr_delete_marker);
             try {
                 await s3_client.getObject({Bucket: bucket_name, Key: en_version_key}).promise();
@@ -2489,14 +2490,14 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
         });
 
         mocha.it('get object, with version enabled, delete marker placed on latest object, version id specified - should return the version object', async function() {
-            const xattr_delete_marker = { 'user.delete_marker': 'true' };
+            const xattr_delete_marker = { [XATTR_DELETE_MARKER]: 'true' };
             await file_pointer.replacexattr(DEFAULT_FS_CONFIG, xattr_delete_marker);
             const res = await s3_client.getObject({Bucket: bucket_name, Key: en_version_key, VersionId: versionID_2}).promise();
             assert.equal(res.Body, en_version_body_v1);
         });
 
         mocha.it('head object, with version enabled, delete marked xattr placed on latest object - should return ENOENT', async function() {
-            const xattr_delete_marker = { 'user.delete_marker': 'true' };
+            const xattr_delete_marker = { [XATTR_DELETE_MARKER]: 'true' };
             await file_pointer.replacexattr(DEFAULT_FS_CONFIG, xattr_delete_marker);
             try {
                 await s3_client.headObject({Bucket: bucket_name, Key: en_version_key}).promise();
@@ -2507,7 +2508,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
         });
 
         mocha.it('head object, with version enabled, delete marked xattr placed on latest object, version id specified - should return the version object', async function() {
-            const xattr_delete_marker = { 'user.delete_marker': 'true' };
+            const xattr_delete_marker = { [XATTR_DELETE_MARKER]: 'true' };
             await file_pointer.replacexattr(DEFAULT_FS_CONFIG, xattr_delete_marker);
             try {
                 await s3_client.headObject({Bucket: bucket_name, Key: en_version_key, VersionId: versionID_2}).promise();
@@ -2955,7 +2956,7 @@ mocha.describe('List-objects', function() {
     });
 
     mocha.it('list objects - deleted object should not be listed', async function() {
-        const xattr_delete_marker = { 'user.delete_marker': 'true' };
+        const xattr_delete_marker = { [XATTR_DELETE_MARKER]: 'true' };
         file_pointer.replacexattr(DEFAULT_FS_CONFIG, xattr_delete_marker);
         const res = await s3_client.listObjects({Bucket: bucket_name}).promise();
         let count = 0;
@@ -2968,7 +2969,7 @@ mocha.describe('List-objects', function() {
     });
 
     mocha.it('list object versions - All versions of the object should be listed', async function() {
-        const xattr_delete_marker = { 'user.delete_marker': 'true' };
+        const xattr_delete_marker = { [XATTR_DELETE_MARKER]: 'true' };
         file_pointer.replacexattr(DEFAULT_FS_CONFIG, xattr_delete_marker);
         const res = await s3_client.listObjectVersions({Bucket: bucket_name}).promise();
         let count = 0;
@@ -2981,7 +2982,7 @@ mocha.describe('List-objects', function() {
     });
 
     mocha.it('list object versions - Check whether the deleted object is the latest and should be present under delete markers as well', async function() {
-        const xattr_delete_marker = { 'user.delete_marker': 'true' };
+        const xattr_delete_marker = { [XATTR_DELETE_MARKER]: 'true' };
         file_pointer.replacexattr(DEFAULT_FS_CONFIG, xattr_delete_marker);
         const res = await s3_client.listObjectVersions({Bucket: bucket_name}).promise();
 
@@ -2999,7 +3000,7 @@ async function create_object(object_path, data, version_id, return_fd) {
     const target_file = await nb_native().fs.open(DEFAULT_FS_CONFIG, object_path, 'w+');
     await fs.promises.writeFile(object_path, data);
     if (version_id !== 'null') {
-        const xattr_version_id = { 'user.version_id': `${version_id}` };
+        const xattr_version_id = { [XATTR_VERSION_ID]: `${version_id}` };
         await target_file.replacexattr(DEFAULT_FS_CONFIG, xattr_version_id);
     }
     if (return_fd) return target_file;

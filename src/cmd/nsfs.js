@@ -26,7 +26,7 @@ const BucketSpaceFS = require('../sdk/bucketspace_fs');
 const SensitiveString = require('../util/sensitive_string');
 const endpoint_stats_collector = require('../sdk/endpoint_stats_collector');
 const { get_schema } = require('../api');
-const { RPC_BUFFERS } = require('../rpc');
+//const { RPC_BUFFERS } = require('../rpc');
 
 const HELP = `
 Help:

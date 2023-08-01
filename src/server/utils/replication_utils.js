@@ -26,7 +26,7 @@ function check_data_or_md_changed(src_info, dst_info) {
     return false;
 }
 
-async function get_object_md(noobaa_connection, bucket_name, key) {
+async function get_object_md(noobaa_connection, bucket_name, key) { //TODO: need to remove it once removing from replication scanner
     try {
         dbg.log1('replication_utils get_object_md: params:', bucket_name.unwrap(), key);
         const head = await noobaa_connection.headObject({

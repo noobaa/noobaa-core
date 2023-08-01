@@ -112,8 +112,8 @@ class BucketDiff {
             }
         }
 
-        dbg.log2('BucketDiff get_buckets_diff', diff);
         diff.second_bucket_cont_token = (first_bucket_cont_token && second_bucket_cont_token) ? new_second_bucket_cont_token : '';
+        dbg.log2('BucketDiff get_buckets_diff', diff);
         return diff;
     }
 
@@ -162,6 +162,8 @@ class BucketDiff {
      * @returns {{ [key: string]: Array<object> }}
      */
     _object_grouped_by_key_and_omitted(list) {
+        if (!list) return {};
+        dbg.log1('_object_grouped_by_key_and_omitted list:', list);
         const field = this.version ? "Versions" : "Contents";
         let grouped_by_key = _.groupBy(list[field], "Key");
         // We should not omit if this is a list object and not list versions
@@ -200,6 +202,7 @@ class BucketDiff {
     async get_objects(bucket, prefix, max_keys, curr_bucket_cont_token) {
         dbg.log2('BucketDiff get_objects::', bucket, prefix, max_keys, this.version, curr_bucket_cont_token);
         const list_objects_response = await this._list_objects(bucket, prefix, max_keys, curr_bucket_cont_token);
+        if (!list_objects_response) return { bucket_contents_left: {}, bucket_cont_token: '' };
         dbg.log2('BucketDiff get_objects:: bucket_response', list_objects_response);
         const bucket_contents_left = this._object_grouped_by_key_and_omitted(list_objects_response);
         const bucket_cont_token = this._get_next_key_marker(list_objects_response, bucket_contents_left);
@@ -224,7 +227,7 @@ class BucketDiff {
         const stop_compare = this._process_keys_out_of_range(ans, second_bucket_keys);
         if (stop_compare) return ans;
 
-        this._process_keys_in_range(ans, second_bucket_keys, second_bucket_cont_token);
+        await this._process_keys_in_range(ans, second_bucket_keys, second_bucket_cont_token);
 
         return ans;
     }
@@ -254,7 +257,7 @@ class BucketDiff {
      * @param {{ [x: string]: any; }} second_bucket_keys
      * @param {string} second_bucket_cont_token
      */
-    _process_keys_in_range(ans, second_bucket_keys, second_bucket_cont_token) {
+    async _process_keys_in_range(ans, second_bucket_keys, second_bucket_cont_token) {
         const first_bucket_key_array = Object.keys(ans.keys_contents_left);
         const second_bucket_key_array = Object.keys(second_bucket_keys);
         const second_bucket_key_in_last_pos = second_bucket_key_array[second_bucket_key_array.length - 1];
@@ -296,21 +299,30 @@ class BucketDiff {
                 //     pos 0 Etag is on the latest, we just need to omit this key
                 //     n > 0  all n are diff.    
                 // if there is more then one index then:
+                //    We took the decision that it will act as only one Etag, if we will want to reevaluate it we can do:
                 //    if it is consecutive we treat it as one, 
                 //    if it is not we search the earliest intersection, and assume the diff from it.
-                if (etag_pos_on_first_bucket.length === 1) {
-                    if (etag_pos_on_first_bucket[0] > 0) { // can happen only in version
-                        const first_bucket_diff = first_bucket_curr_obj.slice(0, etag_pos_on_first_bucket[0]);
-                        ans.keys_diff_map[cur_first_bucket_key] = first_bucket_diff;
+                // as we treat it as one we open a Gap:
+                // The ETags are the same but it is not ensuring that the metadata is also the same
+                // Gap: we might want to go over all of the same ETags and check for each version if the metadata is the same. 
+                //      currently we choose to treat multiple same Etag as the same object and slice to the latest we found. 
+                if (etag_pos_on_first_bucket.length >= 1) {
+                    const pos = etag_pos_on_first_bucket[0];
+                    if (pos > 0) { // can happen only in version
+                        const same_md = await this._is_same_metadata(
+                            pos, cur_first_bucket_key, first_bucket_curr_obj, second_bucket_curr_obj);
+                        if (same_md) {
+                            const first_bucket_diff = first_bucket_curr_obj.slice(0, pos);
+                            ans.keys_diff_map[cur_first_bucket_key] = first_bucket_diff;
+                        } else {
+                            this._populate_diff_map_and_omit_contents_left(ans, cur_first_bucket_key, first_bucket_curr_obj);
+                        }
                     } else {
+                        // We will check if the metadata is the same. if it is not then it is a diff.
                         dbg.log1('The same file with the same ETag found in both buckets on the latest versions', second_bucket_curr_obj);
-                    }
-                } else if (etag_pos_on_first_bucket.length > 1) { // can happen only in version
-                    if (etag_pos_on_first_bucket[0] > 0) {
-                        const first_bucket_diff = first_bucket_curr_obj.slice(0, etag_pos_on_first_bucket[0]);
-                        ans.keys_diff_map[cur_first_bucket_key] = first_bucket_diff;
-                    } else {
-                        dbg.log1('The same file with the same ETag found in both buckets on the latest versions', second_bucket_curr_obj);
+                        const same_md = await this._is_same_metadata(
+                            0, cur_first_bucket_key, first_bucket_curr_obj, second_bucket_curr_obj);
+                        if (!same_md) this._populate_diff_map_and_omit_contents_left(ans, cur_first_bucket_key, first_bucket_curr_obj);
                     }
                 }
                 ans.keys_contents_left = _.omit(ans.keys_contents_left, cur_first_bucket_key);
@@ -337,7 +349,7 @@ class BucketDiff {
     }
 
     /**
-     * @param {{ keys_diff_map: any; keys_contents_left: any; keep_listing_second_bucket?: boolean; }} ans
+     * @param {{ keys_diff_map: any; keys_contents_left: any; keep_listing_second_bucket: boolean; }} ans
      * @param {string | any[]} etag_pos_on_first_bucket
      * @param {string} cur_first_bucket_key
      * @param {any[]} first_bucket_curr_obj
@@ -370,11 +382,22 @@ class BucketDiff {
         return { should_continue, etag_pos_on_first_bucket };
     }
 
+    /**
+     * @param {{ keys_diff_map: any; keys_contents_left: any; keep_listing_second_bucket: boolean; }} ans
+     * @param {string} cur_bucket_key
+     * @param {any} bucket_curr_obj
+     */
     _populate_diff_map_and_omit_contents_left(ans, cur_bucket_key, bucket_curr_obj) {
         ans.keys_diff_map[cur_bucket_key] = bucket_curr_obj;
         ans.keys_contents_left = _.omit(ans.keys_contents_left, cur_bucket_key);
     }
 
+    /**
+     * @param {{ keys_diff_map: any; keys_contents_left: any; keep_listing_second_bucket: boolean; }} ans
+     * @param {string} cur_first_bucket_key
+     * @param {any[]} first_bucket_curr_obj
+     * @param {any[]} second_bucket_curr_obj
+     */
     _check_last_modified_for_replication(ans, cur_first_bucket_key, first_bucket_curr_obj, second_bucket_curr_obj) {
         // In the case that we use the diff for replication, we dont want to consider a diff on if the latest version in the
         //    second bucket (destination) is newer.
@@ -383,6 +406,28 @@ class BucketDiff {
         } else {
             this._populate_diff_map_and_omit_contents_left(ans, cur_first_bucket_key, first_bucket_curr_obj);
         }
+    }
+
+    /**
+     * @param {number} pos
+     * @param {string} cur_first_bucket_key
+     * @param {any[]} first_bucket_curr_obj
+     * @param {any[]} second_bucket_curr_obj
+     */
+    async _is_same_metadata(pos, cur_first_bucket_key, first_bucket_curr_obj, second_bucket_curr_obj) {
+        let first_bucket_obj_version_id;
+        let second_bucket_obj_version_id;
+        if (this.version) {
+            first_bucket_obj_version_id = first_bucket_curr_obj[pos].VersionId;
+            second_bucket_obj_version_id = second_bucket_curr_obj[0].VersionId;
+        }
+        const first_bucket_curr_obj_metadata = await this._get_object_md(
+            this.first_bucket, cur_first_bucket_key, first_bucket_obj_version_id);
+        const second_bucket_curr_obj_metadata = await this._get_object_md(
+            this.second_bucket, cur_first_bucket_key, second_bucket_obj_version_id);
+        dbg.log1('_is_same_metadata: first_bucket_curr_obj_metadata', first_bucket_curr_obj_metadata,
+            'second_bucket_curr_obj_metadata', second_bucket_curr_obj_metadata);
+        return first_bucket_curr_obj_metadata === second_bucket_curr_obj_metadata;
     }
 
     /**
@@ -401,6 +446,28 @@ class BucketDiff {
             return indexes;
         }, []);
         return target_pos;
+    }
+
+    /**
+     * @param {string} bucket_name
+     * @param {string} key
+     * @param {string} version_id
+     */
+    async _get_object_md(bucket_name, key, version_id) {
+        const params = {
+            Bucket: bucket_name,
+            Key: key,
+        };
+        if (version_id) params.VersionId = version_id;
+        try {
+            dbg.log1('BucketDiff _get_object_md: params:', params);
+            const head = await this.s3.headObject(params).promise();
+            dbg.log1('BucketDiff _get_object_md: finished successfully', head);
+            return head;
+        } catch (err) {
+            dbg.error('BucketDiff _get_object_md: error:', err);
+            throw err;
+        }
     }
 
 }

@@ -284,51 +284,50 @@ async function main(argv = minimist(process.argv.slice(2))) {
     }
 }
 
-// TODO: uncomment  
-/*
-/**
- * @returns {nb.APIClient}
- */
-function new_rpc_client_hooks() {
-    return {
-        account: {},
-        bucket: {},
-        auth: {},
-        system: {},
-        tier: {},
-        node: {},
-        host: {},
-        object: {},
-        events: {},
-        agent: {},
-        block_store: {},
-        stats: {},
-        scrubber: {},
-        debug: {},
-        redirector: {},
-        tiering_policy: {},
-        pool: {},
-        cluster_server: {},
-        cluster_internal: {},
-        server_inter_process: {},
-        hosted_agents: {},
-        func: {},
-        func_node: {},
-        replication: {},
-        options: {},
-        RPC_BUFFERS,
-        async create_auth_token(params) {
-            return {};
-        },
-        async create_access_key_auth(params) {
-            return {};
-        },
-        async create_k8s_auth(params) {
-            return {};
-        },
-    };
-}
-*/
+// TODO: uncomment
+// /**
+//  * @returns {nb.APIClient}
+//  */
+// function new_rpc_client_hooks() {
+//     return {
+//         account: {},
+//         bucket: {},
+//         auth: {},
+//         system: {},
+//         tier: {},
+//         node: {},
+//         host: {},
+//         object: {},
+//         events: {},
+//         agent: {},
+//         block_store: {},
+//         stats: {},
+//         scrubber: {},
+//         debug: {},
+//         redirector: {},
+//         tiering_policy: {},
+//         pool: {},
+//         cluster_server: {},
+//         cluster_internal: {},
+//         server_inter_process: {},
+//         hosted_agents: {},
+//         func: {},
+//         func_node: {},
+//         replication: {},
+//         options: {},
+//         RPC_BUFFERS,
+//         async create_auth_token(params) {
+//             return {};
+//         },
+//         async create_access_key_auth(params) {
+//             return {};
+//         },
+//         async create_k8s_auth(params) {
+//             return {};
+//         },
+//     };
+// }
+// 
 
 exports.main = main;
 

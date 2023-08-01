@@ -16,10 +16,10 @@ const minimist = require('minimist');
 
 require('../server/system_services/system_store').get_instance({ standalone: true });
 
-const js_utils = require('../util/js_utils');
+//const js_utils = require('../util/js_utils');
 const nb_native = require('../util/nb_native');
-const schema_utils = require('../util/schema_utils');
-const RpcError = require('../rpc/rpc_error');
+//const schema_utils = require('../util/schema_utils');
+//const RpcError = require('../rpc/rpc_error');
 const ObjectSDK = require('../sdk/object_sdk');
 const NamespaceFS = require('../sdk/namespace_fs');
 const BucketSpaceFS = require('../sdk/bucketspace_fs');
@@ -284,7 +284,8 @@ async function main(argv = minimist(process.argv.slice(2))) {
     }
 }
 
-
+// TODO: uncomment  
+/*
 /**
  * @returns {nb.APIClient}
  */
@@ -327,6 +328,7 @@ function new_rpc_client_hooks() {
         },
     };
 }
+*/
 
 exports.main = main;
 

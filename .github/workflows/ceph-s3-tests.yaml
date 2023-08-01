@@ -15,89 +15,10 @@ jobs:
           repository: 'noobaa/noobaa-core'
           path: 'noobaa-core'
 
-      - name: Deploy minikube
-        run: |
-         cd ./noobaa-core
-         sudo bash ./.travis/deploy_minikube.sh
-
-      - name: Build noobaa tester
-        run: |
-         cd ./noobaa-core
-         make tester TESTER_TAG=noobaa-tester:s3-tests
-         docker tag noobaa:latest noobaa-core:s3-tests
-
-      - name: Checkout noobaa-operator
-        uses: actions/checkout@v3
-        with:
-          repository: 'noobaa/noobaa-operator'
-          path: 'noobaa-operator'
-         # Freeze the version of operator
-         # to avoid a failed run due to code changes in the operator repo.
-         # Need to update the commit once in a while
-          ref: ca12ff9e360220bb50bb9a2b645846e4b241fa39
-
-      - name: Change settings for k8s and minikube
-        run: |
-          sudo mv /root/.kube /root/.minikube $HOME
-          sudo chown -R $USER $HOME/.kube $HOME/.minikube
-          sed "s/root/home\/$USER/g" $HOME/.kube/config > tmp; mv tmp $HOME/.kube/config
-
-      - name: Build operator
-        run: |
-         cd ./noobaa-operator
-         make all
-
-      - name: Install noobaa system
-        run: |
-         cd ./noobaa-operator
-         ./build/_output/bin/noobaa-operator crd create
-         ./build/_output/bin/noobaa-operator operator install
-         ./build/_output/bin/noobaa-operator system create  \
-         --db-resources='{ "limits": {"cpu": "200m","memory": "2G"}, "requests": {"cpu": "200m","memory": "2G"}}' \
-         --core-resources='{ "limits": {"cpu": "200m","memory": "1G"}, "requests": {"cpu": "200m","memory": "1G"}}' \
-         --endpoint-resources='{ "limits": {"cpu": "200m","memory": "1G"}, "requests": {"cpu": "200m","memory": "1G"}}' \
-         --noobaa-image='noobaa-core:s3-tests'
-         ./build/_output/bin/noobaa-operator status
-
-      - name: Wait for phase Ready in the backingstore pod
-        run: |
-          cd ./noobaa-operator
-          ./.travis/number_of_pods_in_system.sh --pods 5
-          kubectl wait --for=condition=available backingstore/noobaa-default-backing-store --timeout=5m
-
       - name: Run Ceph s3-tests
         run: |
           set -x
           cd ./noobaa-core
-          kubectl apply -f ./src/test/system_tests/ceph_s3_tests/test_ceph_s3_job.yml
-          kubectl wait --for=condition=complete job/noobaa-tests-s3 --timeout=45m || TIMEOUT=true
-          kubectl logs job/noobaa-tests-s3 --tail 10000 -f
-          if kubectl logs job/noobaa-tests-s3 | grep -q "Ceph Test Failed:"; then
-            echo "At least one test failed!"
-            kubectl get pods
-            exit 1
-          fi
-          if [ ${TIMEOUT} ]; then
-            echo "Timed out waiting for the condition on jobs/noobaa-tests-s3"
-            exit 1
-          fi
-          if kubectl logs job/noobaa-tests-s3 | grep -q "ran 0 tests"; then
-            echo "The s3 tests did not run!"
-            exit 1
-          fi
-
-      - name: Collect logs
-        if: ${{ failure() }}         
-        run: |
-         set -x
-         echo "K8S Events"
-         kubectl get events --sort-by='.metadata.creationTimestamp' -A
-         cd ./noobaa-operator
-         ./build/_output/bin/noobaa-operator diagnose --db-dump --dir=ceph-s3-tests-logs
-
-      - name: Save logs
-        if: ${{ failure() }}    
-        uses: actions/upload-artifact@v3
-        with:
-          name: ceph-s3-tests-logs
-          path: noobaa-operator/ceph-s3-tests-logs
+          mkdir -p logs/ceph-test-logs
+          chmod 777 logs/ceph-test-logs
+          make test-cephs3

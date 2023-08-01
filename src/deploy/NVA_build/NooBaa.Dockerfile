@@ -40,6 +40,7 @@ RUN tar \
 
 FROM quay.io/centos/centos:stream8
 
+# The ports are overridden for Ceph Test later
 ENV container docker
 ENV PORT 8080
 ENV SSL_PORT 8443

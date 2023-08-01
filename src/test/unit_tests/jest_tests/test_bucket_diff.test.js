@@ -2,11 +2,11 @@
 /* eslint-disable no-undef */
 'use strict';
 
-// const { BucketDiff } = require('./bucket_diff.js');
 const { BucketDiff } = require('../../../server/utils/bucket_diff.js');
 
 // @ts-ignore
 const mock_fn = jest.fn();
+const mock_fn2 = jest.fn();
 
 describe('fail on improper constructor call', () => {
     it('should fail when there is no connection and no s3_params', () => {
@@ -282,9 +282,11 @@ describe('_process_keys_in_range with version', () => {
             keep_listing_second_bucket: false,
         };
         second_bucket_cont_token = '';
+
+        bucketDiff._get_object_md = mock_fn2.mockReturnValueOnce('metadata').mockReturnValueOnce('metadata');
     });
 
-    it('case 3: should update keys_diff_map and keys_contents_left when etag appear only once in earlier version', () => {
+    it('case 3: should update keys_diff_map and keys_contents_left when etag appear only once in earlier version', async () => {
         ans.keys_contents_left = {
             "1": [
                 { ETag: 'etag1.1', Size: 24599, Key: '1', VersionId: 'v1.1', IsLatest: true, },
@@ -298,7 +300,7 @@ describe('_process_keys_in_range with version', () => {
             "2": [{ ETag: 'etag2', Size: 24599, Key: '2', VersionId: 'v2', IsLatest: true, }],
         };
 
-        const result = bucketDiff._process_keys_in_range(ans, second_bucket_keys, second_bucket_cont_token);
+        const result = await bucketDiff._process_keys_in_range(ans, second_bucket_keys, second_bucket_cont_token);
 
         expect(result).toEqual({
             keys_diff_map: {
@@ -312,7 +314,7 @@ describe('_process_keys_in_range with version', () => {
         });
     });
 
-    it('case 3: should not update keys_diff_map when etag (not in pos 0) appear only once in the latest version', () => {
+    it('case 3: should not update keys_diff_map when etag (not in pos 0) appear only once in the latest version', async () => {
         ans.keys_contents_left = {
             "1": [
                 { ETag: 'etag1.3', Size: 89317, Key: '1', VersionId: 'v1.3', IsLatest: true, },
@@ -333,7 +335,7 @@ describe('_process_keys_in_range with version', () => {
             "3": [{ ETag: 'etag3', Size: 24599, Key: '3', VersionId: 'v3', IsLatest: true, }],
         };
 
-        const result = bucketDiff._process_keys_in_range(ans, second_bucket_keys, second_bucket_cont_token);
+        const result = await bucketDiff._process_keys_in_range(ans, second_bucket_keys, second_bucket_cont_token);
 
         expect(result).toEqual({
             keys_diff_map: {},
@@ -342,7 +344,7 @@ describe('_process_keys_in_range with version', () => {
         });
     });
 
-    it('case 3: should update keys_diff_map when etag (not in pos 0) appear only once in the not in the latest version', () => {
+    it('case 3: should update keys_diff_map when etag (not in pos 0) appear only once in the not in the latest version', async () => {
         ans.keys_contents_left = {
             "1": [
                 { ETag: 'etag1.6', Size: 89317, Key: '1', VersionId: 'v1.6', IsLatest: true, },
@@ -364,7 +366,7 @@ describe('_process_keys_in_range with version', () => {
             "3": [{ ETag: 'etag3', Size: 24599, Key: '3', VersionId: 'v3', IsLatest: true, }],
         };
 
-        const result = bucketDiff._process_keys_in_range(ans, second_bucket_keys, second_bucket_cont_token);
+        const result = await bucketDiff._process_keys_in_range(ans, second_bucket_keys, second_bucket_cont_token);
 
         expect(result).toEqual({
             keys_diff_map: {
@@ -377,7 +379,7 @@ describe('_process_keys_in_range with version', () => {
         });
     });
 
-    it('case 3: should update keys_diff_map when non of the etag appear in the second bucket', () => {
+    it('case 3: should update keys_diff_map when non of the etag appear in the second bucket', async () => {
         ans.keys_contents_left = {
             "1": [
                 { ETag: 'etag1.8', Size: 89317, Key: '1', VersionId: 'v1.8', IsLatest: true, },
@@ -398,7 +400,7 @@ describe('_process_keys_in_range with version', () => {
             "3": [{ ETag: 'etag3', Size: 24599, Key: '3', VersionId: 'v3', IsLatest: true, }],
         };
 
-        const result = bucketDiff._process_keys_in_range(ans, second_bucket_keys, second_bucket_cont_token);
+        const result = await bucketDiff._process_keys_in_range(ans, second_bucket_keys, second_bucket_cont_token);
 
         expect(result).toEqual({
             keys_diff_map: {
@@ -413,7 +415,7 @@ describe('_process_keys_in_range with version', () => {
         });
     });
 
-    it('case 3: multiple ETags, only consecutive, latest is latest in the first bucket', () => {
+    it('case 3: multiple ETags, only consecutive, latest is latest in the first bucket', async () => {
         ans.keys_contents_left = {
             "1": [
                 { ETag: 'etag1.5', Size: 89317, Key: '1', VersionId: 'v1.5', IsLatest: true, },
@@ -436,7 +438,7 @@ describe('_process_keys_in_range with version', () => {
             "3": [{ ETag: 'etag3', Size: 24599, Key: '3', VersionId: 'v3', IsLatest: true, }],
         };
 
-        const result = bucketDiff._process_keys_in_range(ans, second_bucket_keys, second_bucket_cont_token);
+        const result = await bucketDiff._process_keys_in_range(ans, second_bucket_keys, second_bucket_cont_token);
 
         expect(result).toEqual({
             keys_diff_map: {},
@@ -445,7 +447,7 @@ describe('_process_keys_in_range with version', () => {
         });
     });
 
-    it('case 3: multiple ETags, only consecutive, latest is not the latest in the first bucket', () => {
+    it('case 3: multiple ETags, only consecutive, latest is not the latest in the first bucket', async () => {
         ans.keys_contents_left = {
             "1": [
                 { ETag: 'etag1.6', Size: 89317, Key: '1', VersionId: 'v1.6', IsLatest: true, },
@@ -468,7 +470,7 @@ describe('_process_keys_in_range with version', () => {
             "3": [{ ETag: 'etag3', Size: 24599, Key: '3', VersionId: 'v3', IsLatest: true, }],
         };
 
-        const result = bucketDiff._process_keys_in_range(ans, second_bucket_keys, second_bucket_cont_token);
+        const result = await bucketDiff._process_keys_in_range(ans, second_bucket_keys, second_bucket_cont_token);
 
         expect(result).toEqual({
             keys_diff_map: {
@@ -481,7 +483,7 @@ describe('_process_keys_in_range with version', () => {
         });
     });
 
-    it('case 3: should update on process_non_consecutive_etags', () => {
+    it('case 3: should update on process_non_consecutive_etags', async () => {
         ans.keys_contents_left = {
             "1": [
                 { ETag: 'etag1.8', Size: 89317, Key: '1', VersionId: 'v1.8', IsLatest: true, },
@@ -505,7 +507,7 @@ describe('_process_keys_in_range with version', () => {
             ],
         };
 
-        const result = bucketDiff._process_keys_in_range(ans, second_bucket_keys, second_bucket_cont_token);
+        const result = await bucketDiff._process_keys_in_range(ans, second_bucket_keys, second_bucket_cont_token);
 
         expect(result).toEqual({
             keys_diff_map: {
@@ -520,7 +522,7 @@ describe('_process_keys_in_range with version', () => {
         });
     });
 
-    it('case 3: should not update on process_non_consecutive_etags', () => {
+    it('case 3: should not update on process_non_consecutive_etags', async () => {
         ans.keys_contents_left = {
             "1": [
                 { ETag: 'etag1.5', Size: 89317, Key: '1', VersionId: 'v1.5', IsLatest: true, },
@@ -541,7 +543,7 @@ describe('_process_keys_in_range with version', () => {
             ],
         };
 
-        const result = bucketDiff._process_keys_in_range(ans, second_bucket_keys, second_bucket_cont_token);
+        const result = await bucketDiff._process_keys_in_range(ans, second_bucket_keys, second_bucket_cont_token);
 
         expect(result).toEqual({
             keys_diff_map: {},
@@ -550,7 +552,7 @@ describe('_process_keys_in_range with version', () => {
         });
     });
 
-    it('case 3: should update keys_diff_map and keys_contents_left when LastModified in the first bucket is newer', () => {
+    it('case 3: should update keys_diff_map and keys_contents_left when LastModified in the first bucket is newer', async () => {
         bucketDiff = new BucketDiff({
             first_bucket: 'first-bucket',
             second_bucket: 'second-bucket',
@@ -571,7 +573,7 @@ describe('_process_keys_in_range with version', () => {
             ],
         };
 
-        const result = bucketDiff._process_keys_in_range(ans, second_bucket_keys, second_bucket_cont_token);
+        const result = await bucketDiff._process_keys_in_range(ans, second_bucket_keys, second_bucket_cont_token);
 
         expect(result).toEqual({
             keys_diff_map: {
@@ -584,7 +586,7 @@ describe('_process_keys_in_range with version', () => {
         });
     });
 
-    it('case 3: should update only keys_contents_left when LastModified in the second bucket is newer', () => {
+    it('case 3: should update only keys_contents_left when LastModified in the second bucket is newer', async () => {
         bucketDiff = new BucketDiff({
             first_bucket: 'first-bucket',
             second_bucket: 'second-bucket',
@@ -605,7 +607,7 @@ describe('_process_keys_in_range with version', () => {
             ],
         };
 
-        const result = bucketDiff._process_keys_in_range(ans, second_bucket_keys, second_bucket_cont_token);
+        const result = await bucketDiff._process_keys_in_range(ans, second_bucket_keys, second_bucket_cont_token);
 
         expect(result).toEqual({
             keys_diff_map: {},
@@ -641,7 +643,7 @@ describe('_process_keys_in_range without version', () => {
         second_bucket_cont_token = '';
     });
 
-    it('case 1: should retain ans and return keep_listing_second_bucket true when second_bucket_cont_token exist', () => {
+    it('case 1: should retain ans and return keep_listing_second_bucket true when second_bucket_cont_token exist', async () => {
         ans.keys_contents_left = {
             "3": [{ ETag: "etag3", Key: "3", Size: 300 }],
             "4": [{ ETag: "etag4", Key: "4", Size: 400 }]
@@ -652,7 +654,7 @@ describe('_process_keys_in_range without version', () => {
         };
         second_bucket_cont_token = 'second_bucket_cont_token';
 
-        const result = bucketDiff._process_keys_in_range(ans, second_bucket_keys, second_bucket_cont_token);
+        const result = await bucketDiff._process_keys_in_range(ans, second_bucket_keys, second_bucket_cont_token);
 
         expect(result).toEqual({
             keys_diff_map: {},
@@ -664,7 +666,7 @@ describe('_process_keys_in_range without version', () => {
         });
     });
 
-    it('case 1: should replace keys_diff_map and keys_contents_left when second_bucket_cont_token does not exist', () => {
+    it('case 1: should replace keys_diff_map and keys_contents_left when second_bucket_cont_token does not exist', async () => {
         ans.keys_diff_map = { "a": [{ ETag: "etag_a", Key: "a", Size: 150 }] };
         ans.keys_contents_left = {
             "3": [{ ETag: "etag3", Key: "3", Size: 300 }],
@@ -675,7 +677,7 @@ describe('_process_keys_in_range without version', () => {
             "2": [{ ETag: "etag2", Key: "2", Size: 200 }]
         };
 
-        const result = bucketDiff._process_keys_in_range(ans, second_bucket_keys, second_bucket_cont_token);
+        const result = await bucketDiff._process_keys_in_range(ans, second_bucket_keys, second_bucket_cont_token);
 
         expect(result).toEqual({
             keys_diff_map: {
@@ -688,7 +690,7 @@ describe('_process_keys_in_range without version', () => {
         });
     });
 
-    it('case 2: should replace keys_diff_map and keys_contents_left', () => {
+    it('case 2: should replace keys_diff_map and keys_contents_left', async () => {
         ans.keys_contents_left = {
             "1": [{ ETag: "etag1", Key: "1", Size: 100 }],
             "2": [{ ETag: "etag2", Key: "2", Size: 200 }]
@@ -698,7 +700,7 @@ describe('_process_keys_in_range without version', () => {
             "4": [{ ETag: "etag4", Key: "4", Size: 400 }]
         };
 
-        const result = bucketDiff._process_keys_in_range(ans, second_bucket_keys, second_bucket_cont_token);
+        const result = await bucketDiff._process_keys_in_range(ans, second_bucket_keys, second_bucket_cont_token);
 
         expect(result).toEqual({
             keys_diff_map: {
@@ -710,7 +712,7 @@ describe('_process_keys_in_range without version', () => {
         });
     });
 
-    it('case 3: should update keys_diff_map and keys_contents_left when the key is in the second bucket but with different etag in non version', () => {
+    it('case 3: should update keys_diff_map and keys_contents_left when the key is in the second bucket but with different etag in non version', async () => {
         ans.keys_contents_left = {
             "2": [{ ETag: "etag2", Key: "2", Size: 200 }],
         };
@@ -719,7 +721,7 @@ describe('_process_keys_in_range without version', () => {
             "4": [{ ETag: "etag4", Key: "4", Size: 400 }]
         };
 
-        const result = bucketDiff._process_keys_in_range(ans, second_bucket_keys, second_bucket_cont_token);
+        const result = await bucketDiff._process_keys_in_range(ans, second_bucket_keys, second_bucket_cont_token);
 
         expect(result).toEqual({
             keys_diff_map: { "2": [{ ETag: "etag2", Key: "2", Size: 200 }] },
@@ -728,7 +730,7 @@ describe('_process_keys_in_range without version', () => {
         });
     });
 
-    it('case 3: should update keys_diff_map and keys_contents_left when the key is not in the second bucket', () => {
+    it('case 3: should update keys_diff_map and keys_contents_left when the key is not in the second bucket', async () => {
         ans.keys_contents_left = {
             "2": [{ ETag: "etag2", Key: "2", Size: 200 }],
             "3": [{ ETag: "etag3", Key: "3", Size: 300 }],
@@ -738,7 +740,8 @@ describe('_process_keys_in_range without version', () => {
             "4": [{ ETag: "etag4", Key: "4", Size: 400 }]
         };
 
-        const result = bucketDiff._process_keys_in_range(ans, second_bucket_keys, second_bucket_cont_token);
+        bucketDiff._get_object_md = mock_fn2.mockReturnValueOnce('metadata').mockReturnValueOnce('metadata');
+        const result = await bucketDiff._process_keys_in_range(ans, second_bucket_keys, second_bucket_cont_token);
 
         expect(result).toEqual({
             keys_diff_map: { "3": [{ ETag: "etag3", Key: "3", Size: 300 }] },
@@ -747,7 +750,7 @@ describe('_process_keys_in_range without version', () => {
         });
     });
 
-    it('case 3: should update keys_diff_map and keys_contents_left when LastModified in the first bucket is newer', () => {
+    it('case 3: should update keys_diff_map and keys_contents_left when LastModified in the first bucket is newer', async () => {
         bucketDiff = new BucketDiff({
             first_bucket: 'first-bucket',
             second_bucket: 'second-bucket',
@@ -759,7 +762,7 @@ describe('_process_keys_in_range without version', () => {
         ans.keys_contents_left = { "2": [{ ETag: "etag2", Key: "2", Size: 200, LastModified: '2023-06-25T10:49:16.000Z' }], };
         const second_bucket_keys = { "2": [{ ETag: "etag2.1", Key: "2", Size: 200, LastModified: '2023-06-25T10:49:13.000Z' }], };
 
-        const result = bucketDiff._process_keys_in_range(ans, second_bucket_keys, second_bucket_cont_token);
+        const result = await bucketDiff._process_keys_in_range(ans, second_bucket_keys, second_bucket_cont_token);
 
         expect(result).toEqual({
             keys_diff_map: { "2": [{ ETag: "etag2", Key: "2", Size: 200, LastModified: '2023-06-25T10:49:16.000Z' }] },
@@ -768,7 +771,7 @@ describe('_process_keys_in_range without version', () => {
         });
     });
 
-    it('case 3: should update only keys_contents_left when LastModified in the second bucket is newer', () => {
+    it('case 3: should update only keys_contents_left when LastModified in the second bucket is newer', async () => {
         bucketDiff = new BucketDiff({
             first_bucket: 'first-bucket',
             second_bucket: 'second-bucket',
@@ -780,7 +783,7 @@ describe('_process_keys_in_range without version', () => {
         ans.keys_contents_left = { "2": [{ ETag: "etag2", Key: "2", Size: 200, LastModified: '2023-06-25T10:49:12.000Z' }], };
         const second_bucket_keys = { "2": [{ ETag: "etag2.1", Key: "2", Size: 200, LastModified: '2023-06-25T10:49:13.000Z' }], };
 
-        const result = bucketDiff._process_keys_in_range(ans, second_bucket_keys, second_bucket_cont_token);
+        const result = await bucketDiff._process_keys_in_range(ans, second_bucket_keys, second_bucket_cont_token);
 
         expect(result).toEqual({
             keys_diff_map: {},
@@ -1030,6 +1033,72 @@ describe('BucketDiff aiding functions', () => {
         });
     });
 
+    describe('_is_same_metadata', () => {
+        let bucketDiff;
+        const pos = 0;
+        const cur_first_bucket_key = 'key';
+        const first_bucket_curr_obj = {};
+        const second_bucket_curr_obj = {};
+        beforeEach(() => {
+            const s3_params = {
+                accessKeyId: 'YOUR_ACCESS_KEY_ID',
+                secretAccessKey: 'YOUR_SECRET_ACCESS_KEY'
+            };
+            bucketDiff = new BucketDiff({
+                first_bucket: 'first-bucket',
+                second_bucket: 'second-bucket',
+                version: false,
+                s3_params: s3_params,
+                for_replication: false
+            });
+
+        });
+
+        afterEach(() => {
+            mock_fn2.mockRestore();
+        });
+
+        it('should return true when metadata is the same', async () => {
+            const first_metadata = undefined;
+            const second_metadata = 'metadata';
+            bucketDiff._get_object_md = mock_fn2.mockReturnValueOnce(first_metadata).mockReturnValueOnce(second_metadata);
+            const result = await bucketDiff._is_same_metadata(pos, cur_first_bucket_key, first_bucket_curr_obj, second_bucket_curr_obj);
+            expect(result).toBe(true);
+        });
+
+        it('should return true when both metadata are undefined', async () => {
+            const first_metadata = undefined;
+            const second_metadata = undefined;
+            bucketDiff._get_object_md = mock_fn2.mockReturnValueOnce(first_metadata).mockReturnValueOnce(second_metadata);
+            const result = await bucketDiff._is_same_metadata(pos, cur_first_bucket_key, first_bucket_curr_obj, second_bucket_curr_obj);
+            expect(result).toBe(true);
+        });
+
+        it('should return false when only the first metadata is undefined', async () => {
+            const first_metadata = undefined;
+            const second_metadata = 'metadata';
+            bucketDiff._get_object_md = mock_fn2.mockReturnValueOnce(first_metadata).mockReturnValueOnce(second_metadata);
+            const result = await bucketDiff._is_same_metadata(pos, cur_first_bucket_key, first_bucket_curr_obj, second_bucket_curr_obj);
+            expect(result).toBe(false);
+        });
+
+        it('should return false when only second metadata is undefined', async () => {
+            const first_metadata = 'metadata';
+            const second_metadata = undefined;
+            bucketDiff._get_object_md = mock_fn2.mockReturnValueOnce(first_metadata).mockReturnValueOnce(second_metadata);
+            const result = await bucketDiff._is_same_metadata(pos, cur_first_bucket_key, first_bucket_curr_obj, second_bucket_curr_obj);
+            expect(result).toBe(false);
+        });
+
+        it('should return false when metadata objects have different values', async () => {
+            const first_metadata = 'metadata';
+            const second_metadata = 'metadata2';
+            bucketDiff._get_object_md = mock_fn2.mockReturnValueOnce(first_metadata).mockReturnValueOnce(second_metadata);
+            const result = await bucketDiff._is_same_metadata(pos, cur_first_bucket_key, first_bucket_curr_obj, second_bucket_curr_obj);
+            expect(result).toBe(false);
+        });
+    });
+
 });
 
 describe('BucketDiff get_keys_diff case 3 with version', () => {
@@ -1049,6 +1118,11 @@ describe('BucketDiff get_keys_diff case 3 with version', () => {
             for_replication: false
         });
         second_bucket_cont_token = '';
+        bucketDiff._get_object_md = mock_fn2.mockReturnValueOnce('metadata').mockReturnValueOnce('metadata');
+    });
+
+    afterEach(() => {
+        mock_fn2.mockRestore();
     });
 
     it('case 3: etag appear only once in earlier version', async () => {
@@ -1064,12 +1138,45 @@ describe('BucketDiff get_keys_diff case 3 with version', () => {
             "1": [{ ETag: 'etag1.3', Size: 89317, Key: '1', VersionId: 'v1.3', IsLatest: false, }, ],
             "2": [{ ETag: 'etag2', Size: 24599, Key: '2', VersionId: 'v2', IsLatest: true, }],
         };
+
         const result = await bucketDiff.get_keys_diff(first_bucket_keys, second_bucket_keys, second_bucket_cont_token);
         expect(result.keys_diff_map).toEqual({
             "1": [
                 { ETag: 'etag1.1', Size: 24599, Key: '1', VersionId: 'v1.1', IsLatest: true, },
                 { ETag: 'etag1.2', Size: 89317, Key: '1', VersionId: 'v1.2', IsLatest: false, }
             ]
+        });
+        expect(result.keys_contents_left).toEqual({});
+        expect(result.keep_listing_second_bucket).toEqual(false);
+    });
+
+    it('case 3: etag appear only once in earlier version but metadata is different', async () => {
+        const first_bucket_keys = {
+            "1": [
+                { ETag: 'etag1.1', Size: 24599, Key: '1', VersionId: 'v1.1', IsLatest: true, },
+                { ETag: 'etag1.2', Size: 89317, Key: '1', VersionId: 'v1.2', IsLatest: false, },
+                { ETag: 'etag1.3', Size: 89317, Key: '1', VersionId: 'v1.3', IsLatest: false, },
+            ],
+            "2": [{ ETag: 'etag2', Size: 24599, Key: '2', VersionId: 'v2', IsLatest: true, }],
+        };
+        const second_bucket_keys = {
+            "1": [{ ETag: 'etag1.3', Size: 89317, Key: '1', VersionId: 'v1.3', IsLatest: false, }, ],
+            "2": [{ ETag: 'etag2', Size: 24599, Key: '2', VersionId: 'v2', IsLatest: true, }],
+        };
+        mock_fn2.mockRestore();
+        bucketDiff._get_object_md = mock_fn2
+            .mockReturnValueOnce('metadata')
+            .mockReturnValueOnce('metadata2')
+            .mockReturnValueOnce('metadata')
+            .mockReturnValueOnce('metadata2');
+        const result = await bucketDiff.get_keys_diff(first_bucket_keys, second_bucket_keys, second_bucket_cont_token);
+        expect(result.keys_diff_map).toEqual({
+            "1": [
+                { ETag: 'etag1.1', Size: 24599, Key: '1', VersionId: 'v1.1', IsLatest: true, },
+                { ETag: 'etag1.2', Size: 89317, Key: '1', VersionId: 'v1.2', IsLatest: false, },
+                { ETag: 'etag1.3', Size: 89317, Key: '1', VersionId: 'v1.3', IsLatest: false, }
+            ],
+            "2": [{ ETag: 'etag2', Size: 24599, Key: '2', VersionId: 'v2', IsLatest: true, }]
         });
         expect(result.keys_contents_left).toEqual({});
         expect(result.keep_listing_second_bucket).toEqual(false);
@@ -1280,6 +1387,7 @@ describe('BucketDiff get_keys_diff', () => {
             for_replication: false
         });
         second_bucket_cont_token = '';
+        bucketDiff._get_object_md = mock_fn2.mockReturnValueOnce('metadata').mockReturnValueOnce('metadata');
     });
 
     describe('get_keys_diff _process_keys_out_of_range flow', () => {
@@ -1417,7 +1525,7 @@ describe('BucketDiff get_buckets_diff', () => {
             second_bucket: 'second-bucket',
             version: false,
             s3_params: s3_params,
-            for_replication: false
+            for_replication: true
         });
 
         params = {
@@ -1427,6 +1535,7 @@ describe('BucketDiff get_buckets_diff', () => {
             current_first_bucket_cont_token: '',
             current_second_bucket_cont_token: '',
         };
+        bucketDiff._get_object_md = mock_fn2.mockReturnValueOnce('metadata').mockReturnValueOnce('metadata');
 
     });
 
@@ -1549,7 +1658,24 @@ describe('BucketDiff get_buckets_diff', () => {
             NextContinuationToken: 'next-token'
         });
 
+        //this is not needed actually as the jest call will iterate on the to results above
+        // We are adding this for better visibility/readability 
+        mock_fn.mockResolvedValueOnce({
+            Contents: [
+                { Key: 'key3', Size: 300 },
+                { Key: 'key4', Size: 400 }
+            ],
+            IsTruncated: false,
+            NextContinuationToken: '',
+        });
+
         bucketDiff._list_objects = mock_fn;
+        bucketDiff._get_object_md = mock_fn2
+            .mockResolvedValueOnce('metadata_key3')
+            .mockResolvedValueOnce('metadata_key3')
+            .mockResolvedValueOnce('metadata_key4')
+            .mockResolvedValueOnce('metadata_key4');
+
         const result = await bucketDiff.get_buckets_diff(params);
 
         expect(result.keys_diff_map).toEqual({});

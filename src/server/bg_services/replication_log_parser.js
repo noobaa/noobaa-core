@@ -85,19 +85,24 @@ async function get_azure_log_candidates(source_bucket_id, rule_id, replication_c
     const { logs_query_client, monitor_workspace_id } = get_source_bucket_azure_connection(source_bucket_id);
     let candidates;
 
-    //Our "continuation token" is the timestamp of the the last log retrieval
+    // Our "continuation token" is the timestamp of the the last log retrieval
     let continuation_token = get_continuation_token_for_rule(rule_id, replication_config);
-    let duration;
+    let continuation_time;
+    let start_duration;
     if (continuation_token) {
-        duration = `${parseInt(continuation_token, 10)}ms`;
+        continuation_time = `unixtime_milliseconds_todatetime(${continuation_token})`;
+        start_duration = new Date(parseInt(continuation_token, 10));
     } else {
-        duration = '1h';
+        // If no token could be found, we look for logs from the last hour
+        continuation_time = 'ago(1h)';
+        const one_hour_ago = Date.now() - (1000 * 60 * 60);
+        start_duration = new Date(one_hour_ago);
     }
 
     const kusto_query =
     `set truncationmaxsize=${config.AZURE_QUERY_TRUNCATION_MAX_SIZE_IN_BITS};
     StorageBlobLogs
-    | where TimeGenerated > ago(${duration})
+    | where TimeGenerated > ${continuation_time}
     | project Time=TimeGenerated, Action=substring(Category, 7), Key=ObjectKey
     | sort by Time asc
     | where Action == "Write" or Action == "Delete"
@@ -109,7 +114,7 @@ async function get_azure_log_candidates(source_bucket_id, rule_id, replication_c
     const query_result = await logs_query_client.queryWorkspace(
         monitor_workspace_id.unwrap(),
         kusto_query,
-        { duration: duration },
+        { startTime: start_duration, endTime: new Date(Date.now()) },
         {serverTimeoutInSeconds: 300}
     );
 
@@ -120,7 +125,8 @@ async function get_azure_log_candidates(source_bucket_id, rule_id, replication_c
             // @ts-ignore - Needed since the format of `rows` is changed in the Kusto query - project Time, Action, Key
             // So there's a mismatch between what the code expects and what it actually receives
             // The continuation token is the timestamp of the latest entry that was processed
-            continuation_token = (Date.now() - result_rows[result_rows.length - 1][0]).toString();
+            // We add 1 millisecond to the timestamp to make sure we don't process the same entry again
+            continuation_token = (result_rows[result_rows.length - 1][0].getTime() + 1).toString();
             dbg.log1("get_azure_log_candidates: Found new Azure logs:");
             dbg.log1(tables_from_result[0]);
             dbg.log1("get_azure_log_candidates: Parsing Azure logs");

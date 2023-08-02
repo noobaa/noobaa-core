@@ -265,6 +265,18 @@ async function create_namespace_resource(req) {
         const secret_key = system_store.master_key_manager.encrypt_sensitive_string_with_master_key_id(
             connection.secret_key, req.account.master_key_id._id);
 
+        let azure_log_access_keys;
+        if (connection.azure_log_access_keys) {
+            azure_log_access_keys = {
+                azure_client_id: connection.azure_log_access_keys.azure_client_id,
+                azure_client_secret: system_store.master_key_manager.encrypt_sensitive_string_with_master_key_id(
+                    connection.azure_log_access_keys.azure_client_secret, req.account.master_key_id._id
+                ),
+                azure_tenant_id: connection.azure_log_access_keys.azure_tenant_id,
+                azure_logs_analytics_workspace_id: connection.azure_log_access_keys.azure_logs_analytics_workspace_id
+            };
+        }
+
         namespace_resource = new_namespace_resource_defaults(name, req.system._id, req.account._id, _.omitBy({
             aws_sts_arn: connection.aws_sts_arn,
             endpoint: connection.endpoint,
@@ -273,7 +285,8 @@ async function create_namespace_resource(req) {
             auth_method: connection.auth_method,
             cp_code: connection.cp_code || undefined,
             secret_key,
-            endpoint_type: connection.endpoint_type || 'AWS'
+            endpoint_type: connection.endpoint_type || 'AWS',
+            azure_log_access_keys,
         }, _.isUndefined), undefined, req.rpc_params.access_mode);
 
         const cloud_buckets = await server_rpc.client.bucket.get_cloud_buckets({
@@ -1154,7 +1167,7 @@ function get_namespace_resource_extended_info(namespace_resource) {
         endpoint: namespace_resource.connection.endpoint,
         auth_method: namespace_resource.connection.auth_method,
         cp_code: namespace_resource.connection.cp_code || undefined,
-        azure_log_access_keys: namespace_resource.account.sync_credentials_cache[0].azure_log_access_keys || undefined,
+        azure_log_access_keys: namespace_resource.connection.azure_log_access_keys,
         target_bucket: namespace_resource.connection.target_bucket,
         access_key: namespace_resource.connection.access_key,
         secret_key: namespace_resource.connection.secret_key,

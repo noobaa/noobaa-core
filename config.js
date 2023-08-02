@@ -122,6 +122,9 @@ config.ENDPOINT_MONITOR_INTERVAL = 10 * 60 * 1000; // 10min
 config.S3_KEEP_ALIVE_WHITESPACE_INTERVAL = 15 * 1000;
 config.S3_MD_SIZE_LIMIT = 2 * 1024;
 
+config.ENDPOINT_HTTP_SERVER_REQUEST_TIMEOUT = 300 * 1000;
+config.ENDPOINT_HTTP_SERVER_KEEPALIVE_TIMEOUT = 5 * 1000;
+
 // For now we enable fixed CORS for all buckets
 // but this should become a setting per bucket which is configurable
 // with the s3 put-bucket-cors api.

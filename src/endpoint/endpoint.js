@@ -406,6 +406,9 @@ function setup_http_server(server) {
         socket.destroy();
     });
 
+    server.keepAliveTimeout = config.ENDPOINT_HTTP_SERVER_KEEPALIVE_TIMEOUT;
+    server.requestTimeout = config.ENDPOINT_HTTP_SERVER_REQUEST_TIMEOUT;
+
     server.on('error', handle_server_error);
 
     // This was an attempt to read from the socket in large chunks,

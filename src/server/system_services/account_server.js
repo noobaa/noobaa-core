@@ -803,21 +803,27 @@ async function update_external_connection(req) {
         throw new RpcError('INVALID_CREDENTIALS', `Credentials are not valid ${name}`);
     }
 
-    const set_obj = {
+    const acc_update_set_obj = {
         "sync_credentials_cache.$.access_key": identity,
         "sync_credentials_cache.$.secret_key": encrypted_secret,
+    };
+    const ns_resource_update_map_obj = {
+        'connection.access_key': identity,
+        'connection.secret_key': encrypted_secret
     };
 
     if (azure_log_access_keys) {
         const encrypted_azure_client_secret = system_store.master_key_manager.encrypt_sensitive_string_with_master_key_id(
             azure_log_access_keys.azure_client_secret, req.account.master_key_id._id
         );
-        set_obj["sync_credentials_cache.$.azure_log_access_keys"] = {
-                "azure_tenant_id": azure_log_access_keys.azure_tenant_id,
-                "azure_client_id": azure_log_access_keys.azure_client_id,
-                "azure_client_secret": encrypted_azure_client_secret,
-                "azure_logs_analytics_workspace_id": azure_log_access_keys.azure_logs_analytics_workspace_id
+        const azure_creds_obj = {
+            "azure_tenant_id": azure_log_access_keys.azure_tenant_id,
+            "azure_client_id": azure_log_access_keys.azure_client_id,
+            "azure_client_secret": encrypted_azure_client_secret,
+            "azure_logs_analytics_workspace_id": azure_log_access_keys.azure_logs_analytics_workspace_id
         };
+        acc_update_set_obj["sync_credentials_cache.$.azure_log_access_keys"] = azure_creds_obj;
+        ns_resource_update_map_obj["connection.azure_log_access_keys"] = azure_creds_obj;
     }
 
     const accounts_updates = [{
@@ -825,7 +831,7 @@ async function update_external_connection(req) {
             _id: req.account._id,
             "sync_credentials_cache.name": name
         },
-        $set: set_obj
+        $set: acc_update_set_obj
     }];
 
     const pools_updates = system_store.data.pools
@@ -852,8 +858,7 @@ async function update_external_connection(req) {
         )
         .map(ns_resource => ({
             _id: ns_resource._id,
-            'connection.access_key': identity,
-            'connection.secret_key': encrypted_secret
+            ...ns_resource_update_map_obj
         }));
 
     await system_store.make_changes({

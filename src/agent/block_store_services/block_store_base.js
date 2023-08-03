@@ -211,7 +211,13 @@ class BlockStoreBase {
         return block;
     }
 
-    _check_write_space(data_length) {
+    /**
+     * throws error if `data_length` cannot fit into the block store
+     * 
+     * NOTE: This method may get overridden by block store implementations (eg. block_store_fs)
+     * @param {*} data_length 
+     */
+    async _check_write_space(data_length) {
         const required_space = data_length + (1024 * 1024); // require some spare space
         if (this.usage_limit - this._usage.size < required_space) {
             throw new RpcError('NO_BLOCK_STORE_SPACE', 'used space exceeded the total capacity of ' +
@@ -232,7 +238,7 @@ class BlockStoreBase {
     async write_block_internal(block_md, data) {
         dbg.log1('write_block', block_md.id, data.length, block_md.digest_b64, 'node', this.node_name);
         if (!block_md.is_preallocated) { // no need to verify space
-            this._check_write_space(data.length);
+            await this._check_write_space(data.length);
         }
         this._verify_block(block_md, data);
         this.block_cache.invalidate(block_md);
@@ -258,7 +264,7 @@ class BlockStoreBase {
     async preallocate_block(req) {
         const block_md = req.rpc_params.block_md;
         dbg.log0('preallocate_block', block_md.id, block_md.size, block_md.digest_b64, 'node', this.node_name);
-        this._check_write_space(block_md.size);
+        await this._check_write_space(block_md.size);
         const block_size = block_md.size;
         const usage = {
             size: block_size,

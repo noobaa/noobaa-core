@@ -35,6 +35,9 @@ class BlockStoreFs extends BlockStoreBase {
         this.config_path = path.join(this.root_path, 'config');
         this.usage_path = path.join(this.root_path, 'usage');
 
+        // stores the cached df data for the root path
+        this.cached_df_data = null;
+
         this.fs_context = {
             disable_ctime_check: config.BLOCK_STORE_FS_TMFS_ENABLED
         };
@@ -74,10 +77,12 @@ class BlockStoreFs extends BlockStoreBase {
 
     async get_storage_info() {
         try {
+            const now = Date.now();
             const [usage, drive] = await Promise.all([
                 this._get_usage(),
                 os_utils.get_drive_of_path(this.root_path),
             ]);
+            this.cached_df_data = { ...drive.storage, timestamp: now };
             const storage = drive.storage;
             storage.used = usage.size;
             const total_unreserved = Math.max(storage.total - config.NODES_FREE_SPACE_RESERVE, 0);
@@ -88,6 +93,33 @@ class BlockStoreFs extends BlockStoreBase {
         }
     }
 
+    /**
+     * _check_write_space throws if there is not enough space to write the data, it
+     * uses cache df data to avoid calling df too often.
+     * 
+     * See `config.BLOCK_STORE_FS_CACHED_*` to configure the df caching behavior.
+     * 
+     * NOTE: overrides the base class implementation to use the cached df data
+     * @param {*} data_length 
+     */
+    async _check_write_space(data_length) {
+        const now = Date.now();
+        if (!this.cached_df_data ||
+            (now - this.cached_df_data.timestamp >= config.BLOCK_STORE_FS_CACHED_DF_MAX_TIME) ||
+            (now - this.cached_df_data.timestamp >= config.BLOCK_STORE_FS_CACHED_DF_MIN_TIME &&
+                this.cached_df_data.free <= config.BLOCK_STORE_FS_CACHED_DF_MIN_SPACE)
+        ) {
+            const drive = await os_utils.get_drive_of_path(this.root_path);
+            this.cached_df_data = { ...drive.storage, timestamp: now };
+        }
+
+        const required_space = data_length + (1024 * 1024); // require some spare space
+        const free_space = this.cached_df_data.free;
+        if (free_space < required_space) {
+            throw new RpcError('NO_BLOCK_STORE_SPACE', 'used space exceeded the total capacity of ' +
+                this.usage_limit + ' bytes');
+        }
+    }
 
     /**
      * @param {nb.BlockMD} block_md

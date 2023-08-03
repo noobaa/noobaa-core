@@ -130,7 +130,7 @@ class LogReplicationScanner {
         for (const candidate of src_dst_objects_list) {
             const action = this.process_candidate(candidate);
             if (action === 'copy') {
-                copy_keys.push(candidate.key);
+                copy_keys.push({ key: candidate.key, content_length: candidate.src_object_info.ContentLength });
             } else if (action === 'delete') {
                 delete_keys.push(candidate.key);
             } else {

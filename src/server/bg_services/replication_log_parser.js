@@ -62,6 +62,8 @@ async function get_aws_log_candidates(source_bucket_id, rule_id, replication_con
         const next_log_data = await aws_get_next_log(s3, logs_bucket, next_log_entry.Contents[0].Key);
         aws_parse_log_object(logs, next_log_data, sync_deletions);
 
+        dbg.log1("get_aws_log_candidates: parsed logs ", logs);
+
         logs_retrieved_count -= 1;
     }
     while ((logs.length < candidates_limit) && logs_retrieved_count !== 0 && continuation_token);
@@ -168,40 +170,40 @@ async function get_azure_log_candidates(source_bucket_id, rule_id, replication_c
  */
 function create_candidates(logs) {
     /**
-     * @type {Record<string, Map<Date, nb.ReplicationLog>>}
+     * @type {Record<string, Map<string, nb.ReplicationLog>>}
      */
     const logs_per_key = {};
-
-    for (const log of logs) {
-        const { key } = log;
-        if (!logs_per_key[key]) {
-            logs_per_key[key] = new Map();
-        }
-
-        const logs_for_key_time_map = logs_per_key[key];
-
-        // if there is already a candidate for the same key, then we have a conflict
-        if (logs_for_key_time_map.has(log.time)) {
-            // TODO: Object versioning will raise false alarms here
-            const conflict_log = logs_for_key_time_map.get(log.time);
-            conflict_log.action = 'conflict';
-        } else {
-            logs_for_key_time_map.set(log.time, log);
-        }
-    }
 
     /**
      * @type {nb.ReplicationLogCandidates}
      */
     const candidates = {};
 
-    Object.keys(logs_per_key).forEach(key => {
-        const logs_for_key_time_map = logs_per_key[key];
-        const logs_for_key = Array.from(logs_for_key_time_map.values());
-        const sorted_logs_for_key = logs_for_key.sort((a, b) => a.time.getTime() - b.time.getTime());
+    for (const log of logs) {
+        const { key, time } = log;
+        if (!logs_per_key[key]) {
+            logs_per_key[key] = new Map();
+        }
 
-        candidates[key] = sorted_logs_for_key;
-    });
+        // convert log time to string for map comparison
+        const log_time = time.toString();
+        const logs_for_key_time_map = logs_per_key[key];
+        // If there is already a candidate for the same key and having different action then current log, then we have a conflict
+        if (logs_for_key_time_map.has(log_time) && (logs_for_key_time_map.get(log_time).action !== log.action)) {
+            // TODO: Object versioning will raise false alarms here
+            const conflict_log = logs_for_key_time_map.get(log_time);
+            conflict_log.action = 'conflict';
+        } else {
+            logs_for_key_time_map.set(log_time, log);
+
+            // Update the latest log per key
+            if (!candidates[key] || time > candidates[key].time) {
+                candidates[key] = log;
+            }
+        }
+    }
+
+    dbg.log1("ceate_candidates: candidates ", candidates);
 
     return candidates;
 }

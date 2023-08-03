@@ -4,13 +4,16 @@ LABEL maintainer="Liran Mauda (lmauda@redhat.com)"
 ##############################################################
 # Layers:
 #   Title: Installing pre requirments
-#   Size: ~ 613 MB
+#   Size: ~ 613 MB (1324 MB with s3select for Parquet)
 #   Cache: Rebuild when we adding/removing requirments
 ##############################################################
 # RUN dnf --enablerepo=PowerTools install -y -q nasm && \
 #     dnf clean all
 RUN dnf update -y -q --nobest && \
     dnf clean all
+COPY ./src/deploy/NVA_build/install_arrow_build.sh ./src/deploy/NVA_build/install_arrow_build.sh
+ARG BUILD_S3SELECT_PARQUET=0
+RUN ./src/deploy/NVA_build/install_arrow_build.sh $BUILD_S3SELECT_PARQUET
 RUN dnf install -y -q wget unzip which vim python2 python3 boost-devel && \
     dnf group install -y -q "Development Tools" && \
     dnf clean all

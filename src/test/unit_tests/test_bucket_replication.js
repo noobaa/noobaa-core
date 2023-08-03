@@ -10,7 +10,6 @@ const { rpc_client, EMAIL } = coretest; //, PASSWORD, SYSTEM
 const util = require('util');
 const AWS = require('aws-sdk');
 const http = require('http');
-const SensitiveString = require('../../util/sensitive_string');
 const cloud_utils = require('../../util/cloud_utils');
 const { ReplicationScanner } = require('../../server/bg_services/replication_scanner');
 const log_parser = require('../../server/bg_services/replication_log_parser');
@@ -37,51 +36,60 @@ mocha.describe('replication configuration validity tests', function() {
         await rpc_client.bucket.delete_bucket_replication({ name: first_bucket });
     });
 
-    mocha.it('put_replication - same dst bucket & no prefixes - should fail', async function() {
-        await put_replication(bucket1,
-            [{ rule_id: 'rule-1', destination_bucket: first_bucket }, { rule_id: 'rule-2', destination_bucket: first_bucket }], true);
+    mocha.it('_put_replication - same dst bucket & no prefixes - should fail', async function() {
+        await _put_replication(bucket1,
+            [
+                { rule_id: 'rule-1', destination_bucket: first_bucket, sync_versions: false },
+                { rule_id: 'rule-2', destination_bucket: first_bucket, sync_versions: false }
+            ], true);
     });
 
-    mocha.it('put_replication - same dst bucket & 1 prefix - should fail ', async function() {
-        await put_replication(bucket1,
-            [{ rule_id: 'rule-1', destination_bucket: first_bucket, filter: { prefix: 'lala' } }, { rule_id: 'rule-2', destination_bucket: first_bucket }], true);
+    mocha.it('_put_replication - same dst bucket & 1 prefix - should fail ', async function() {
+        await _put_replication(bucket1,
+            [
+                { rule_id: 'rule-1', destination_bucket: first_bucket, sync_versions: false, filter: { prefix: 'lala' } },
+                { rule_id: 'rule-2', destination_bucket: first_bucket, sync_versions: false }
+            ], true);
     });
 
-    mocha.it('put_replication - 2 replication rules same rule_id - should fail', async function() {
-        await put_replication(bucket1,
-            [{ rule_id: 'rule-1', destination_bucket: first_bucket }, { rule_id: 'rule-1', destination_bucket: bucket1 }], true);
+    mocha.it('_put_replication - 2 replication rules same rule_id - should fail', async function() {
+        await _put_replication(bucket1,
+            [
+                { rule_id: 'rule-1', destination_bucket: first_bucket, sync_versions: false },
+                { rule_id: 'rule-1', destination_bucket: bucket1, sync_versions: false }
+            ], true);
     });
 
-    mocha.it('put_replication 1 - valid', async function() {
-        await put_replication(bucket1, [{ rule_id: 'rule-1', destination_bucket: first_bucket }], false);
+    mocha.it('_put_replication 1 - valid', async function() {
+        await _put_replication(bucket1, [{ rule_id: 'rule-1', destination_bucket: first_bucket, sync_versions: false }], false);
     });
 
 
-    mocha.it('put_replication - same dst bucket & prefix is a prefix of prefix 1 - should fail', async function() {
-        await put_replication(bucket2, [
-            { rule_id: 'rule-1', destination_bucket: bucket1, filter: { prefix: 'a' } },
-            { rule_id: 'rule-2', destination_bucket: bucket1, filter: { prefix: '' } }
+    mocha.it('_put_replication - same dst bucket & prefix is a prefix of prefix 1 - should fail', async function() {
+        await _put_replication(bucket2, [
+            { rule_id: 'rule-1', destination_bucket: bucket1, sync_versions: false, filter: { prefix: 'a' } },
+            { rule_id: 'rule-2', destination_bucket: bucket1, sync_versions: false, filter: { prefix: '' } }
         ], true);
     });
 
-    mocha.it('put_replication - same dst bucket & prefix is a prefix of prefix 2 - should fail', async function() {
-        await put_replication(bucket2, [
-            { rule_id: 'rule-1', destination_bucket: bucket1, filter: { prefix: 'a' } },
-            { rule_id: 'rule-2', destination_bucket: bucket1, filter: { prefix: 'ab' } }
+    mocha.it('_put_replication - same dst bucket & prefix is a prefix of prefix 2 - should fail', async function() {
+        await _put_replication(bucket2, [
+            { rule_id: 'rule-1', destination_bucket: bucket1, sync_versions: false, filter: { prefix: 'a' } },
+            { rule_id: 'rule-2', destination_bucket: bucket1, sync_versions: false, filter: { prefix: 'ab' } }
         ], true);
     });
 
-    mocha.it('put_replication 2 - valid', async function() {
-        await put_replication(bucket2, [
-            { rule_id: 'rule-1', destination_bucket: first_bucket, filter: { prefix: 'a' } },
-            { rule_id: 'rule-2', destination_bucket: bucket1, filter: { prefix: 'ba' } }
+    mocha.it('_put_replication 2 - valid', async function() {
+        await _put_replication(bucket2, [
+            { rule_id: 'rule-1', destination_bucket: first_bucket, sync_versions: false, filter: { prefix: 'a' } },
+            { rule_id: 'rule-2', destination_bucket: bucket1, sync_versions: false, filter: { prefix: 'ba' } }
         ], false);
     });
 
-    mocha.it('put_replication 3 - valid', async function() {
-        await put_replication(bucket2, [
-            { rule_id: 'rule-1', destination_bucket: bucket1, filter: { prefix: '' } },
-            { rule_id: 'rule-2', destination_bucket: first_bucket, filter: { prefix: 'ab' } }
+    mocha.it('_put_replication 3 - valid', async function() {
+        await _put_replication(bucket2, [
+            { rule_id: 'rule-1', destination_bucket: bucket1, sync_versions: false, filter: { prefix: '' } },
+            { rule_id: 'rule-2', destination_bucket: first_bucket, sync_versions: false, filter: { prefix: 'ab' } }
         ], false);
         const res = await rpc_client.bucket.get_bucket_replication({ name: bucket2 });
 
@@ -89,24 +97,24 @@ mocha.describe('replication configuration validity tests', function() {
         assert.ok(res.rules[1].rule_id === 'rule-2' && res.rules[1].destination_bucket.unwrap() === first_bucket && res.rules[1].filter.prefix === 'ab');
     });
 
-    mocha.it('put_replication 4 - valid', async function() {
-        await put_replication(bucket1, [
-            { rule_id: 'rule-1', destination_bucket: first_bucket, filter: { prefix: '' } }
+    mocha.it('_put_replication 4 - valid', async function() {
+        await _put_replication(bucket1, [
+            { rule_id: 'rule-1', destination_bucket: first_bucket, sync_versions: false, filter: { prefix: '' } }
         ], false);
         const res = await rpc_client.bucket.get_bucket_replication({ name: bucket1 });
         assert.ok(res.rules[0].rule_id === 'rule-1' && res.rules[0].destination_bucket.unwrap() === first_bucket && res.rules[0].filter.prefix === '');
     });
 
-    mocha.it('put_replication 5 - valid', async function() {
-        await put_replication(bucket1, [{ rule_id: 'rule-1', destination_bucket: first_bucket }], false);
+    mocha.it('_put_replication 5 - valid', async function() {
+        await _put_replication(bucket1, [{ rule_id: 'rule-1', destination_bucket: first_bucket, sync_versions: false }], false);
         const res = await rpc_client.bucket.get_bucket_replication({ name: bucket1 });
         assert.ok(res.rules[0].rule_id === 'rule-1' && res.rules[0].destination_bucket.unwrap() === first_bucket);
     });
 
-    mocha.it('put_replication - same rule_id - should fail ', async function() {
-        await put_replication(bucket1, [
-            { rule_id: 'rule-1', destination_bucket: first_bucket, filter: { prefix: 'b' } },
-            { rule_id: 'rule-1', destination_bucket: bucket2, filter: { prefix: 'a' } }
+    mocha.it('_put_replication - same rule_id - should fail ', async function() {
+        await _put_replication(bucket1, [
+            { rule_id: 'rule-1', destination_bucket: first_bucket, sync_versions: false, filter: { prefix: 'b' } },
+            { rule_id: 'rule-1', destination_bucket: bucket2, sync_versions: false, filter: { prefix: 'a' } }
         ], true);
     });
 
@@ -150,9 +158,9 @@ mocha.describe('replication collection tests', function() {
         await rpc_client.bucket.delete_bucket_replication({ name: first_bucket });
     });
 
-    mocha.it('put_replication on both buckets 1', async function() {
+    mocha.it('_put_replication on both buckets 1', async function() {
         await P.all(_.map(buckets, async bucket_name => {
-            await put_replication(bucket_name, [{ rule_id: 'rule-1', destination_bucket: first_bucket }], false);
+            await _put_replication(bucket_name, [{ rule_id: 'rule-1', destination_bucket: first_bucket, sync_versions: false }], false);
             const res = await rpc_client.bucket.get_bucket_replication({ name: bucket_name });
             assert.ok(res.rules[0].rule_id === 'rule-1' && res.rules[0].destination_bucket.unwrap() === first_bucket);
         }));
@@ -189,16 +197,16 @@ mocha.describe('replication collection tests', function() {
         assert.ok(!replication);
     });
 
-    mocha.it('put_replication on both buckets 2', async function() {
+    mocha.it('_put_replication on both buckets 2', async function() {
         await P.all(_.map(buckets, async bucket_name => {
-            await put_replication(bucket_name, [{ rule_id: 'rule-2', destination_bucket: first_bucket }], false);
+            await _put_replication(bucket_name, [{ rule_id: 'rule-2', destination_bucket: first_bucket, sync_versions: false }], false);
             const res = await rpc_client.bucket.get_bucket_replication({ name: bucket_name });
             assert.ok(res.rules[0].rule_id === 'rule-2' && res.rules[0].destination_bucket.unwrap() === first_bucket);
         }));
     });
 
     mocha.it('update bucket replication of bucket1', async function() {
-        await put_replication(bucket1, [{ rule_id: 'rule-3', destination_bucket: first_bucket }], false);
+        await _put_replication(bucket1, [{ rule_id: 'rule-3', destination_bucket: first_bucket, sync_versions: false }], false);
         const repl_buck1 = await rpc_client.bucket.get_bucket_replication({ name: bucket1 });
         const repl_buck2 = await rpc_client.bucket.get_bucket_replication({ name: bucket2 });
         assert.ok(repl_buck1.rules[0].rule_id === 'rule-3');
@@ -210,7 +218,7 @@ mocha.describe('replication collection tests', function() {
     });
 
     mocha.it('update bucket replication of bucket2', async function() {
-        await put_replication(bucket2, [{ rule_id: 'rule-3', destination_bucket: first_bucket }], false);
+        await _put_replication(bucket2, [{ rule_id: 'rule-3', destination_bucket: first_bucket, sync_versions: false }], false);
         const repl_buck1 = await rpc_client.bucket.get_bucket_replication({ name: bucket1 });
         const repl_buck2 = await rpc_client.bucket.get_bucket_replication({ name: bucket2 });
         assert.ok(repl_buck1.rules[0].rule_id === 'rule-3');
@@ -300,12 +308,12 @@ mocha.describe('replication configuration bg worker tests', function() {
     mocha.it('run replication scanner and wait - no replication - nothing to upload', async function() {
         const res1 = await scanner.run_batch();
         console.log('waiting for replication objects no objects to upload', res1);
-        await list_objects_and_wait(s3_owner, bucket_for_replications, 0);
+        await _list_objects_and_wait(s3_owner, bucket_for_replications, 0);
     });
 
     mocha.it('run replication scanner and delete bucket', async function() {
-        await put_replication(bucket1,
-            [{ rule_id: 'rule-1', destination_bucket: bucket_to_delete, filter: { prefix: bucket1 } }], false);
+        await _put_replication(bucket1,
+            [{ rule_id: 'rule-1', destination_bucket: bucket_to_delete, sync_versions: false, filter: { prefix: bucket1 } }], false);
 
         await rpc_client.bucket.delete_bucket({ name: bucket_to_delete });
         const res1 = await scanner.run_batch();
@@ -314,20 +322,20 @@ mocha.describe('replication configuration bg worker tests', function() {
     });
 
     mocha.it('run replication scanner and wait - prefix - prefixed objects should be uploaded', async function() {
-        await put_replication(bucket1,
-            [{ rule_id: 'rule-1', destination_bucket: bucket_for_replications, filter: { prefix: 'pref' } }], false);
+        await _put_replication(bucket1,
+            [{ rule_id: 'rule-1', destination_bucket: bucket_for_replications, sync_versions: false, filter: { prefix: 'pref' } }], false);
         let res1 = await scanner.run_batch();
         console.log('waiting for replication objects - one rule one prefix', res1);
-        let contents = await list_objects_and_wait(s3_owner, bucket_for_replications, 5);
+        let contents = await _list_objects_and_wait(s3_owner, bucket_for_replications, 5); //Check that the 5 objects were replicated
         console.log('contents', contents);
 
         // delete object from dst
         await s3_owner.deleteObject({ Bucket: bucket_for_replications, Key: contents[0].Key }).promise();
-        await list_objects_and_wait(s3_owner, bucket_for_replications, 4);
+        await _list_objects_and_wait(s3_owner, bucket_for_replications, 4); //Verify that the object was deleted 
         // sync again
         res1 = await scanner.run_batch();
         console.log('waiting for replication objects - one rule one prefix', res1);
-        contents = await list_objects_and_wait(s3_owner, bucket_for_replications, 5);
+        contents = await _list_objects_and_wait(s3_owner, bucket_for_replications, 5); //Check that the delete object was replicate again
         const key1 = contents[0].Key;
         // override object in dst
         const dst_obj1 = await s3_owner.getObject({ Bucket: bucket_for_replications, Key: key1 }).promise();
@@ -347,31 +355,30 @@ mocha.describe('replication configuration bg worker tests', function() {
 
         console.log('objs override dst2', src_obj, dst_obj3, src_obj.Body.toString(), dst_obj3.Body.toString());
         assert.notDeepStrictEqual(src_obj.Body.toString(), dst_obj3.Body.toString()); // object in src !== object in dst 
-        assert.deepStrictEqual(dst_obj3.Body.toString(), 'lalalala'); //  dst object was not overriden
+        assert.deepStrictEqual(dst_obj3.Body.toString(), 'lalalala'); //  dst object was not overridden by the object in the source
 
 
         // override object data in src
-        const obj_src_before_ovverride = await s3_owner.getObject({ Bucket: bucket1, Key: key1 }).promise();
+        const obj_src_before_override = await s3_owner.getObject({ Bucket: bucket1, Key: key1 }).promise();
         await s3_owner.putObject({ Bucket: bucket1, Key: key1, Body: 'lalalala1' }).promise();
 
         // sync again - should replicate since src bucket is last modified
         res1 = await scanner.run_batch();
         console.log('waiting for replication objects - one rule one prefix 1', res1);
         const obj_dst_after_repl = await s3_owner.getObject({ Bucket: bucket_for_replications, Key: key1 }).promise();
-        const obj_src_after_ovverride = await s3_owner.getObject({ Bucket: bucket1, Key: key1 }).promise();
+        const obj_src_after_override = await s3_owner.getObject({ Bucket: bucket1, Key: key1 }).promise();
 
-        console.log('objs ovverride src obj_src_before_ovverride:',
-            obj_src_before_ovverride, obj_src_after_ovverride,
-            obj_dst_after_repl, obj_src_before_ovverride.Body.toString(),
-            obj_dst_after_repl.Body.toString(), obj_src_after_ovverride.Body.toString());
+        console.log('objs override src obj_src_before_override:',
+            obj_src_before_override, obj_src_after_override,
+            obj_dst_after_repl, obj_src_before_override.Body.toString(),
+            obj_dst_after_repl.Body.toString(), obj_src_after_override.Body.toString());
 
-        assert.deepStrictEqual(obj_src_after_ovverride.Body.toString(), 'lalalala1');
-        assert.notDeepStrictEqual(obj_src_after_ovverride.Body.toString(), obj_src_before_ovverride.Body.toString());
-        assert.deepStrictEqual(obj_src_after_ovverride.Body.toString(), obj_dst_after_repl.Body.toString());
-
+        assert.deepStrictEqual(obj_src_after_override.Body.toString(), 'lalalala1');
+        assert.notDeepStrictEqual(obj_src_after_override.Body.toString(), obj_src_before_override.Body.toString());
+        assert.deepStrictEqual(obj_src_after_override.Body.toString(), obj_dst_after_repl.Body.toString());
 
         // override object md in src
-        const obj_src_before_ovverride_md = await s3_owner.getObject({ Bucket: bucket1, Key: key1 }).promise();
+        const obj_src_before_override_md = await s3_owner.getObject({ Bucket: bucket1, Key: key1 }).promise();
         await s3_owner.putObject({ Bucket: bucket1, Key: key1, Body: 'lalalala1', Metadata: { key1: 'val1' } }).promise();
         const obj_dst_before_repl_md = await s3_owner.getObject({ Bucket: bucket_for_replications, Key: key1 }).promise();
 
@@ -379,355 +386,76 @@ mocha.describe('replication configuration bg worker tests', function() {
         res1 = await scanner.run_batch();
         console.log('waiting for replication objects - one rule one prefix 2', res1);
         const obj_dst_after_repl_md = await s3_owner.getObject({ Bucket: bucket_for_replications, Key: key1 }).promise();
-        const obj_src_after_ovverride_md = await s3_owner.getObject({ Bucket: bucket1, Key: key1 }).promise();
+        const obj_src_after_override_md = await s3_owner.getObject({ Bucket: bucket1, Key: key1 }).promise();
 
-        console.log('objs ovverride src obj_src_before_ovverride1:',
-            obj_src_before_ovverride_md, obj_src_after_ovverride_md,
-            obj_dst_after_repl_md, obj_src_before_ovverride_md.Body.toString(),
-            obj_dst_after_repl_md.Body.toString(), obj_src_after_ovverride_md.Body.toString());
+        console.log('objs override src obj_src_before_override1:',
+            obj_src_before_override_md, obj_src_after_override_md,
+            obj_dst_after_repl_md, obj_src_before_override_md.Body.toString(),
+            obj_dst_after_repl_md.Body.toString(), obj_src_after_override_md.Body.toString());
 
-        assert.deepStrictEqual(obj_src_after_ovverride_md.Body.toString(), 'lalalala1');
-        assert.deepStrictEqual(obj_src_after_ovverride_md.Metadata, { key1: 'val1' });
-        assert.deepStrictEqual(obj_src_after_ovverride_md.Body.toString(), obj_src_before_ovverride_md.Body.toString());
-        assert.deepStrictEqual(obj_dst_after_repl_md.Body.toString(), obj_src_before_ovverride_md.Body.toString());
+        assert.deepStrictEqual(obj_src_after_override_md.Body.toString(), 'lalalala1');
+        assert.deepStrictEqual(obj_src_after_override_md.Metadata, { key1: 'val1' });
+        assert.deepStrictEqual(obj_src_after_override_md.Body.toString(), obj_src_before_override_md.Body.toString());
+        assert.deepStrictEqual(obj_dst_after_repl_md.Body.toString(), obj_src_before_override_md.Body.toString());
         assert.notDeepStrictEqual(obj_dst_before_repl_md.Metadata, obj_dst_after_repl_md.Metadata);
-        assert.deepStrictEqual(obj_src_after_ovverride_md.Metadata, obj_dst_after_repl_md.Metadata);
+        assert.deepStrictEqual(obj_src_after_override_md.Metadata, obj_dst_after_repl_md.Metadata);
     });
 
     mocha.it('run replication scanner and wait - no prefix - all objects should be uploaded', async function() {
-        const contents = await list_objects_and_wait(s3_owner, bucket_for_replications, 5);
+        const contents = await _list_objects_and_wait(s3_owner, bucket_for_replications, 5);
         for (const content of contents) {
             const key = content.Key;
             await s3_owner.deleteObject({ Bucket: bucket_for_replications, Key: key }).promise();
         }
-        await put_replication(bucket1,
-            [{ rule_id: 'rule-1', destination_bucket: bucket_for_replications }], false);
+        await _put_replication(bucket1,
+            [{ rule_id: 'rule-1', destination_bucket: bucket_for_replications, sync_versions: false }], false);
         const res1 = await scanner.run_batch();
         console.log('waiting for replication objects - one rule no prefix', res1);
-        await list_objects_and_wait(s3_owner, bucket_for_replications, 10);
+        await _list_objects_and_wait(s3_owner, bucket_for_replications, 10);
     });
 
     mocha.it('run replication scanner and wait - 2 prefixes - all objects should be uploaded', async function() {
-        await put_replication(bucket1,
-            [{ rule_id: 'rule-1', destination_bucket: bucket2, filter: { prefix: 'key' } },
-                { rule_id: 'rule-2', destination_bucket: bucket2, filter: { prefix: 'pref' } }
+        await _put_replication(bucket1,
+            [
+                { rule_id: 'rule-1', destination_bucket: bucket2, sync_versions: false, filter: { prefix: 'key' } },
+                { rule_id: 'rule-2', destination_bucket: bucket2, sync_versions: false, filter: { prefix: 'pref' } }
             ], false);
 
-        const res = await list_objects_and_wait(s3_owner, bucket1, 10);
+        const res = await _list_objects_and_wait(s3_owner, bucket1, 10);
         console.log('waiting for replication objects original bucket ', res);
         let res1 = await scanner.run_batch();
         console.log('waiting for replication objects - 2 rules 1 prefix1 ', res1);
-        await list_objects_and_wait(s3_owner, bucket2, 5);
+        await _list_objects_and_wait(s3_owner, bucket2, 5);
         res1 = await scanner.run_batch();
         console.log('waiting for replication objects - 2 rules 1 prefix2 ', res1);
-        await list_objects_and_wait(s3_owner, bucket2, 10);
+        await _list_objects_and_wait(s3_owner, bucket2, 10);
     });
 
     mocha.it('run replication scanner and wait - 2 buckets - all objects should be uploaded', async function() {
-        await put_replication(bucket1,
-            [{ rule_id: 'rule-1', destination_bucket: bucket3, filter: { prefix: 'key' } },
-                { rule_id: 'rule-2', destination_bucket: bucket4, filter: { prefix: 'pref' } }
+        await _put_replication(bucket1,
+            [
+                { rule_id: 'rule-1', destination_bucket: bucket3, sync_versions: false, filter: { prefix: 'key' } },
+                { rule_id: 'rule-2', destination_bucket: bucket4, sync_versions: false, filter: { prefix: 'pref' } }
             ], false);
 
-        await put_replication(bucket2,
-            [{ rule_id: 'rule-1', destination_bucket: bucket4, filter: { prefix: 'key' } },
-                { rule_id: 'rule-2', destination_bucket: bucket3, filter: { prefix: 'pref' } }
+        await _put_replication(bucket2,
+            [{ rule_id: 'rule-1', destination_bucket: bucket4, sync_versions: false, filter: { prefix: 'key' } },
+                { rule_id: 'rule-2', destination_bucket: bucket3, sync_versions: false, filter: { prefix: 'pref' } }
             ], false);
         let res1 = await scanner.run_batch();
         console.log('waiting for replication objects - 2 rules 1 prefix1 ', res1);
-        await list_objects_and_wait(s3_owner, bucket3, 5);
-        await list_objects_and_wait(s3_owner, bucket4, 5);
+        await _list_objects_and_wait(s3_owner, bucket3, 5);
+        await _list_objects_and_wait(s3_owner, bucket4, 5);
 
         res1 = await scanner.run_batch();
         console.log('waiting for replication objects - 2 rules 1 prefix2 ', res1);
-        await list_objects_and_wait(s3_owner, bucket3, 10);
-        await list_objects_and_wait(s3_owner, bucket4, 10);
+        await _list_objects_and_wait(s3_owner, bucket3, 10);
+        await _list_objects_and_wait(s3_owner, bucket4, 10);
     });
 
 });
 
-
-mocha.describe('replication pagination tests', function() {
-    const self = this; // eslint-disable-line no-invalid-this
-    self.timeout(60000);
-    const bucket1 = 'bucket1-pg';
-    const bucket2 = 'bucket2-pg';
-    const bucket3 = 'bucket3-pg';
-    const bucket4 = 'bucket4-pg';
-    const bucket_for_replications = 'bucket5-pg';
-    const buckets = [bucket1, bucket2, bucket3, bucket4, bucket_for_replications];
-    //const namespace_buckets = [];
-    let s3_owner;
-    let scanner;
-    const s3_creds = {
-        s3ForcePathStyle: true,
-        signatureVersion: 'v4',
-        computeChecksums: true,
-        s3DisableBodySigning: false,
-        region: 'us-east-1',
-        httpOptions: { agent: new http.Agent({ keepAlive: false }) },
-    };
-    let bucket2_keys = [];
-    let bucket1_keys = [];
-    mocha.before('init scanner & populate buckets', async function() {
-        // create buckets
-        await P.all(_.map(buckets, async bucket_name => {
-            await rpc_client.bucket.create_bucket({ name: bucket_name });
-        }));
-        const admin_account = await rpc_client.account.read_account({ email: EMAIL });
-        const admin_keys = admin_account.access_keys;
-        //await create_namespace_buckets(admin_account);
-
-        s3_creds.accessKeyId = admin_keys[0].access_key.unwrap();
-        s3_creds.secretAccessKey = admin_keys[0].secret_key.unwrap();
-        s3_creds.endpoint = coretest.get_http_address();
-        s3_owner = new AWS.S3(s3_creds);
-
-        // populate bucket2
-        for (let i = 0; i < 5; i++) {
-            const key = create_random_body();
-            bucket2_keys.push(key);
-            await put_object(s3_owner, bucket2, key);
-        }
-
-        cloud_utils.set_noobaa_s3_connection = () => {
-            console.log('setting connection to coretest endpoint and access key');
-            return s3_owner;
-        };
-        // init scanner
-        scanner = new ReplicationScanner({
-            name: 'replication_scanner',
-            client: rpc_client
-        });
-        scanner.noobaa_connection = s3_owner; // needed when not calling batch
-    });
-
-    mocha.after('delete buckets', async function() {
-        await P.all(_.map(buckets, async bucket_name => {
-            for (let i = 0; i < bucket2_keys.length; i++) {
-                await delete_object(s3_owner, bucket_name, bucket2_keys[i]);
-            }
-            for (let i = 0; i < bucket1_keys.length; i++) {
-                await delete_object(s3_owner, bucket_name, bucket1_keys[i]);
-            }
-            await rpc_client.bucket.delete_bucket({ name: bucket_name });
-        }));
-    });
-
-    // Pagination tests
-    mocha.it('list_buckets_and_compare - to_replicate_arr = [], tokens undefined', async function() {
-        process.env.REPLICATION_MAX_KEYS = "5";
-        // bucket1 is empty - nothing to replicate
-        const { keys_sizes_map_to_copy, src_cont_token, dst_cont_token } = await
-        scanner.list_buckets_and_compare(new SensitiveString(bucket1), new SensitiveString(bucket2), '', '', '');
-        console.log('check pagination1: ', keys_sizes_map_to_copy, src_cont_token, dst_cont_token);
-        assert.deepStrictEqual(keys_sizes_map_to_copy, {});
-        assert.deepStrictEqual(src_cont_token, '');
-        assert.deepStrictEqual(dst_cont_token, '');
-    });
-
-    mocha.it('list_buckets_and_compare - to_replicate_arr = all objects in src bucket, tokens undefined', async function() {
-        // bucket2 is empty - replicate all objects in bucket1
-        const { keys_sizes_map_to_copy, src_cont_token, dst_cont_token } = await
-        scanner.list_buckets_and_compare(new SensitiveString(bucket2), new SensitiveString(bucket1), '', '', '');
-        console.log('check pagination2: ', keys_sizes_map_to_copy, src_cont_token, dst_cont_token);
-        assert.deepStrictEqual(Object.keys(keys_sizes_map_to_copy), bucket2_keys.sort());
-        assert.deepStrictEqual(src_cont_token, '');
-        assert.deepStrictEqual(dst_cont_token, '');
-
-        await empty_bucket(s3_owner, bucket2, bucket2_keys);
-    });
-
-    mocha.it('list_buckets_and_compare - 1 ', async function() {
-        const src_keys = ['a1', 'a2', 'b1', 'b2', 'b3', 'b4'];
-        const dst_keys = ['a1', 'a2', 'a3', 'a4', 'a5', 'b1', 'b2', 'b4'];
-        bucket1_keys = src_keys;
-        bucket2_keys = dst_keys;
-        for (let i = 0; i < src_keys.length; i++) {
-            await put_object(s3_owner, bucket1, src_keys[i], src_keys[i]);
-        }
-        for (let i = 0; i < dst_keys.length; i++) {
-            await put_object(s3_owner, bucket2, dst_keys[i], dst_keys[i]);
-        }
-
-        const diff1 = await scanner.list_buckets_and_compare(
-            new SensitiveString(bucket1), new SensitiveString(bucket2), '', '', '');
-        console.log('check pagination3: ', diff1.keys_sizes_map_to_copy, diff1.src_cont_token, diff1.dst_cont_token);
-        assert.deepStrictEqual(Object.keys(diff1.keys_sizes_map_to_copy), ['b3']);
-        assert.notDeepStrictEqual(diff1.src_cont_token, '');
-        assert.notDeepStrictEqual(diff1.dst_cont_token, '');
-
-        const diff2 = await scanner.list_buckets_and_compare(
-            new SensitiveString(bucket1), new SensitiveString(bucket2), '', diff1.src_cont_token, diff1.dst_cont_token);
-        console.log('check pagination4: ', diff2.keys_sizes_map_to_copy, diff2.src_cont_token, diff2.dst_cont_token);
-        assert.deepStrictEqual(diff2.keys_sizes_map_to_copy, {});
-        assert.deepStrictEqual(diff2.src_cont_token, '');
-        assert.deepStrictEqual(diff2.dst_cont_token, '');
-
-        await empty_bucket(s3_owner, bucket1, bucket1_keys);
-        await empty_bucket(s3_owner, bucket2, bucket2_keys);
-    });
-
-    mocha.it('list_buckets_and_compare - 2 ', async function() {
-        const src_keys = ['b1', 'b2', 'b3', 'b4', 'b5', 'b6', 'b7', 'b8'];
-        const dst_keys = ['a1', 'a2', 'a3', 'a4', 'a5', 'b6', 'b7'];
-        bucket1_keys = src_keys;
-        bucket2_keys = dst_keys;
-        for (let i = 0; i < src_keys.length; i++) {
-            await put_object(s3_owner, bucket1, src_keys[i], src_keys[i]);
-        }
-        for (let i = 0; i < dst_keys.length; i++) {
-            await put_object(s3_owner, bucket2, dst_keys[i], dst_keys[i]);
-        }
-
-        const diff1 = await scanner.list_buckets_and_compare(
-            new SensitiveString(bucket1), new SensitiveString(bucket2), '', '', '');
-        console.log('check pagination3: ', diff1.keys_sizes_map_to_copy, diff1.src_cont_token, diff1.dst_cont_token);
-        assert.deepStrictEqual(Object.keys(diff1.keys_sizes_map_to_copy), ['b1', 'b2', 'b3', 'b4', 'b5']);
-        assert.notDeepStrictEqual(diff1.src_cont_token, '');
-        assert.notDeepStrictEqual(diff1.dst_cont_token, '');
-
-        const diff2 = await scanner.list_buckets_and_compare(
-            new SensitiveString(bucket1), new SensitiveString(bucket2), '', diff1.src_cont_token, diff1.dst_cont_token);
-        console.log('check pagination4: ', diff2.keys_sizes_map_to_copy, diff2.src_cont_token, diff2.dst_cont_token);
-        assert.deepStrictEqual(Object.keys(diff2.keys_sizes_map_to_copy), ['b8']);
-        assert.deepStrictEqual(diff2.src_cont_token, '');
-        assert.deepStrictEqual(diff2.dst_cont_token, '');
-
-        await empty_bucket(s3_owner, bucket1, bucket1_keys);
-        await empty_bucket(s3_owner, bucket2, bucket2_keys);
-    });
-
-    mocha.it('list_buckets_and_compare - 3 ', async function() {
-        const src_keys = ['a1', 'a2', 'a3', 'a4', 'a5', 'a6', 'z1', 'z2', 'z3', 'z4'];
-        const dst_keys = ['a1', 'a2', 'a3', 'a4', 'a5', 'a6', 'c1', 'c2', 'c3', 'c4'];
-        for (let i = 0; i < src_keys.length; i++) {
-            await put_object(s3_owner, bucket1, src_keys[i], src_keys[i]);
-        }
-        for (let i = 0; i < dst_keys.length; i++) {
-            bucket1_keys.push(dst_keys[i]);
-            await put_object(s3_owner, bucket2, dst_keys[i], dst_keys[i]);
-        }
-        bucket1_keys = src_keys;
-        bucket2_keys = dst_keys;
-
-        const diff1 = await scanner.list_buckets_and_compare(
-            new SensitiveString(bucket1), new SensitiveString(bucket2), '', '', '');
-        console.log('check pagination3: ', diff1.keys_sizes_map_to_copy, diff1.src_cont_token, diff1.dst_cont_token);
-        assert.deepStrictEqual(diff1.keys_sizes_map_to_copy, {});
-        assert.notDeepStrictEqual(diff1.src_cont_token, '');
-        assert.notDeepStrictEqual(diff1.dst_cont_token, '');
-
-        const diff2 = await scanner.list_buckets_and_compare(
-            new SensitiveString(bucket1), new SensitiveString(bucket2), '', diff1.src_cont_token, diff1.dst_cont_token);
-        console.log('check pagination4: ', diff2.keys_sizes_map_to_copy, diff2.src_cont_token, diff2.dst_cont_token);
-        assert.deepStrictEqual(Object.keys(diff2.keys_sizes_map_to_copy), ['z1', 'z2', 'z3', 'z4']);
-        assert.deepStrictEqual(diff2.src_cont_token, '');
-        assert.deepStrictEqual(diff2.dst_cont_token, '');
-
-        await empty_bucket(s3_owner, bucket1, bucket1_keys);
-        await empty_bucket(s3_owner, bucket2, bucket2_keys);
-    });
-
-    mocha.it('list_buckets_and_compare - 4 ', async function() {
-        const src_keys = ['a1', 'a2', 'a3', 'a4', 'a5'];
-        const dst_keys = ['a5', 'a6', 'a7', 'a8', 'a9', 'a10', 'a11', 'a12', 'a13', 'a14'];
-        for (let i = 0; i < src_keys.length; i++) {
-            await put_object(s3_owner, bucket1, src_keys[i], src_keys[i]);
-        }
-        for (let i = 0; i < dst_keys.length; i++) {
-            bucket1_keys.push(dst_keys[i]);
-            await put_object(s3_owner, bucket2, dst_keys[i], dst_keys[i]);
-        }
-        bucket1_keys = src_keys;
-        bucket2_keys = dst_keys;
-
-        const diff1 = await scanner.list_buckets_and_compare(
-            new SensitiveString(bucket1), new SensitiveString(bucket2), '', '', '');
-        console.log('check pagination3: ', diff1.keys_sizes_map_to_copy, diff1.src_cont_token, diff1.dst_cont_token);
-        assert.deepStrictEqual(Object.keys(diff1.keys_sizes_map_to_copy), ['a1', 'a2', 'a3', 'a4']);
-        assert.deepStrictEqual(diff1.src_cont_token, '');
-        assert.deepStrictEqual(diff1.dst_cont_token, '');
-
-        await empty_bucket(s3_owner, bucket1, bucket1_keys);
-        await empty_bucket(s3_owner, bucket2, bucket2_keys);
-    });
-
-
-    mocha.it('list_buckets_and_compare - 5 ', async function() {
-        const src_keys = ['a1', 'a2', 'a3', 'a4', 'a5',
-            'c1', 'c2', 'c3', 'c4', 'c5',
-            'd1', 'd2', 'd3', 'd4', 'd5'
-        ];
-        const dst_keys = ['a1', 'a2', 'a3', 'a4', 'a5',
-            'b1', 'b2', 'b3', 'b4', 'b5',
-            'c1', 'c2', 'c3', 'c4', 'c5',
-            'd1', 'd2', 'd3', 'd4', 'd5'
-        ];
-        for (let i = 0; i < src_keys.length; i++) {
-            await put_object(s3_owner, bucket1, src_keys[i], src_keys[i]);
-        }
-        for (let i = 0; i < dst_keys.length; i++) {
-            bucket1_keys.push(dst_keys[i]);
-            await put_object(s3_owner, bucket2, dst_keys[i], dst_keys[i]);
-        }
-        bucket1_keys = src_keys;
-        bucket2_keys = dst_keys;
-
-        const diff1 = await scanner.list_buckets_and_compare(
-            new SensitiveString(bucket1), new SensitiveString(bucket2), '', '', '');
-        console.log('check pagination33: ', diff1.keys_sizes_map_to_copy, diff1.src_cont_token, diff1.dst_cont_token);
-        assert.deepStrictEqual(diff1.keys_sizes_map_to_copy, {});
-        assert.notDeepStrictEqual(diff1.src_cont_token, '');
-        assert.notDeepStrictEqual(diff1.dst_cont_token, '');
-
-        const diff2 = await scanner.list_buckets_and_compare(
-            new SensitiveString(bucket1), new SensitiveString(bucket2), '', diff1.src_cont_token, diff1.dst_cont_token);
-        console.log('check pagination44: ', diff2.keys_sizes_map_to_copy, diff2.src_cont_token, diff2.dst_cont_token);
-        assert.deepStrictEqual(diff2.keys_sizes_map_to_copy, {});
-        assert.notDeepStrictEqual(diff2.src_cont_token, '');
-        assert.notDeepStrictEqual(diff2.dst_cont_token, '');
-        assert.ok(diff1.src_cont_token !== diff2.src_cont_token);
-        assert.ok(diff1.dst_cont_token !== diff2.dst_cont_token);
-        // list object with  diff2.dst_cont_token and check that first item is d1
-
-        const diff3 = await scanner.list_buckets_and_compare(
-            new SensitiveString(bucket1), new SensitiveString(bucket2), '', diff2.src_cont_token, diff2.dst_cont_token);
-        console.log('check pagination44: ', diff3.keys_sizes_map_to_copy, diff3.src_cont_token, diff3.dst_cont_token);
-        assert.deepStrictEqual(diff3.keys_sizes_map_to_copy, {});
-        assert.deepStrictEqual(diff3.src_cont_token, '');
-        assert.deepStrictEqual(diff3.dst_cont_token, '');
-
-        await empty_bucket(s3_owner, bucket1, bucket1_keys);
-        await empty_bucket(s3_owner, bucket2, bucket2_keys);
-    });
-
-    mocha.it('list_buckets_and_compare - 6 ', async function() {
-        const src_keys = ['a1', 'a2', 'a3', 'a4', 'a5'];
-        const dst_keys = ['b1', 'b2', 'b3', 'b4', 'b5', 'b6', 'b7', 'b8'];
-        bucket1_keys = src_keys;
-        bucket2_keys = dst_keys;
-        for (let i = 0; i < src_keys.length; i++) {
-            await put_object(s3_owner, bucket1, src_keys[i], src_keys[i]);
-        }
-        for (let i = 0; i < dst_keys.length; i++) {
-            await put_object(s3_owner, bucket2, dst_keys[i], dst_keys[i]);
-        }
-
-        const diff1 = await scanner.list_buckets_and_compare(
-            new SensitiveString(bucket1), new SensitiveString(bucket2), '', '', '');
-        console.log('check pagination456: ', diff1.keys_sizes_map_to_copy, diff1.src_cont_token, diff1.dst_cont_token);
-        assert.deepStrictEqual(Object.keys(diff1.keys_sizes_map_to_copy), src_keys);
-        assert.deepStrictEqual(diff1.src_cont_token, '');
-        assert.deepStrictEqual(diff1.dst_cont_token, '');
-
-        await empty_bucket(s3_owner, bucket1, bucket1_keys);
-        await empty_bucket(s3_owner, bucket2, bucket2_keys);
-    });
-
-});
-
-async function put_replication(bucket_name, replication_policy, should_fail) {
+async function _put_replication(bucket_name, replication_policy, should_fail) {
     try {
         await rpc_client.bucket.put_bucket_replication({ name: bucket_name, replication_policy: { rules: replication_policy } });
         if (should_fail) {
@@ -783,12 +511,6 @@ async function put_replication(bucket_name, replication_policy, should_fail) {
     }
 }*/
 
-async function empty_bucket(s3_owner, bucket_name, keys_to_delete) {
-    for (let i = 0; i < keys_to_delete.length; i++) {
-        await delete_object(s3_owner, bucket_name, keys_to_delete[i]);
-    }
-}
-
 function create_random_body() {
     return Math.random().toString(36).slice(7);
 }
@@ -805,29 +527,29 @@ async function delete_object(s3_owner, bucket_name, key) {
 }
 
 // The function lists *all* objects in a given bucket, including buckets that have more than 1k objs
-async function list_all_objs_in_bucket(s3owner, bucket, prefix) {
+async function _list_all_objs_in_bucket(s3owner, bucket, prefix) {
     let isTruncated = true;
     let marker;
     const elements = [];
     while (isTruncated) {
-      const params = { Bucket: bucket };
-      if (prefix) params.Prefix = prefix;
-      if (marker) params.Marker = marker;
+        const params = { Bucket: bucket };
+        if (prefix) params.Prefix = prefix;
+        if (marker) params.Marker = marker;
         const response = await s3owner.listObjects(params).promise();
         elements.push.apply(elements, response.Contents);
         isTruncated = response.IsTruncated;
         if (isTruncated) {
-          marker = response.Contents.slice(-1)[0].Key;
+            marker = response.Contents.slice(-1)[0].Key;
         }
     }
     return elements;
-  }
+}
 
-async function list_objects_and_wait(s3_owner, bucket, expected_num_of_objects) {
+async function _list_objects_and_wait(s3_owner, bucket, expected_num_of_objects) {
     let res;
     for (let retries = 1; retries <= 3; retries++) {
         try {
-            res = await list_all_objs_in_bucket(s3_owner, bucket);
+            res = await _list_all_objs_in_bucket(s3_owner, bucket);
             console.log('list_objects_and_wait: ', res);
             assert.deepStrictEqual(res.length, expected_num_of_objects);
             console.log(`list_objects contents: expected: ${expected_num_of_objects} actual: ${res.length} ${res}`);
@@ -865,8 +587,8 @@ mocha.describe('Replication pagination test', function() {
         await P.all(_.map(buckets, async bucket_name => {
             await rpc_client.bucket.create_bucket({ name: bucket_name });
         }));
-        await put_replication(src_bucket, [
-            { rule_id: '11obj-replication-rule', destination_bucket: target_bucket, filter: { prefix: '' } }
+        await _put_replication(src_bucket, [
+            { rule_id: '11obj-replication-rule', destination_bucket: target_bucket, sync_versions: false, filter: { prefix: '' } }
         ], false);
         const admin_account = await rpc_client.account.read_account({ email: EMAIL });
         const admin_keys = admin_account.access_keys;
@@ -914,11 +636,11 @@ mocha.describe('Replication pagination test', function() {
         // Copy the first 6
         await scanner.run_batch();
         // Make sure that only 6 were copied
-        await list_objects_and_wait(s3_owner, target_bucket, 6);
+        await _list_objects_and_wait(s3_owner, target_bucket, 6);
         // Copy the remaining 5
         await scanner.run_batch();
         // Make sure all 11 objects were replicated
-        await list_objects_and_wait(s3_owner, target_bucket, obj_amount);
+        await _list_objects_and_wait(s3_owner, target_bucket, obj_amount);
     });
 });
 
@@ -926,7 +648,7 @@ mocha.describe('AWS S3 server log parsing tests', function() {
     // Pagination test
     mocha.it('Test AWS S3 server log parsing for BATCH.DELETE and REST.PUT actions', async function() {
         const logs = [];
-        const example_log = {Body: `
+        const example_log = { Body: `
         aaa test.bucket [13/Feb/2023:15:08:28 +0000] 1.1.1.1 arn:aws:iam::111:user/user AAA BATCH.DELETE.OBJECT test - 204 - - 1 - - - - - AAA SigV4 ECDHE-RSA-AES128-GCM-SHA256 AuthHeader s3.us-east-2.amazonaws.com TLSv1.2 - -
         aaa test.bucket [13/Feb/2023:15:08:28 +0000] 1.1.1.1 arn:aws:iam::111:user/user AAA BATCH.DELETE.OBJECT test.js - 204 - - 1 - - - - - AAA SigV4 ECDHE-RSA-AES128-GCM-SHA256 AuthHeader s3.us-east-2.amazonaws.com TLSv1.2 - -
         aaa test.bucket [13/Feb/2023:16:08:56 +0000] 0.0.0.0 arn:aws:iam::111:user/user AAA REST.PUT.OBJECT code2 "PUT /test.bucket/code2?X-Amz-Security-Token=AAAAAAAAAAAAAAA=20230213T160856Z&X-Amz-AAAAAA HTTP/1.1" 200 - - 1 1 1 "https://s3.console.aws.amazon.com/s3/upload/test.bucket?region=us-east-2" "AAA/5.0 (AAA 1.1; AAA; AAA) AAA/1.1 (KHTML, like Gecko) AAA/1.1 AAA/1.1" - AAAA SigV4 ECDHE-RSA-AES128-GCM-SHA256 QueryString s3.us-east-2.amazonaws.com TLSv1.2 - -
@@ -934,8 +656,8 @@ mocha.describe('AWS S3 server log parsing tests', function() {
         aaa test.bucket [13/Feb/2023:15:08:28 +0000] 1.1.1.1 arn:aws:iam::111:user/user AAA BATCH.DELETE.OBJECT testfile.js - 204 - - 1 - - - - - AAA SigV4 ECDHE-RSA-AES128-GCM-SHA256 AuthHeader s3.us-east-2.amazonaws.com TLSv1.2 - -
         aaa test.bucket [13/Feb/2023:15:25:00 +0000] 0.0.0.0 arn:aws:iam::111:user/user AAA REST.PUT.OBJECT empty "PUT /test.bucket/empty?X-Amz-Security-Token=AAAAAAAAAAAAAAA=20230213T152500Z&X-Amz-AAAAAA HTTP/1.1" 200 - - 1 1 1 "https://s3.console.aws.amazon.com/s3/upload/test.bucket?region=us-east-2" "AAA/5.0 (AAA 1.1; AAA; AAA) AAA/1.1 (KHTML, like Gecko) AAA/1.1 AAA/1.1" - AAAA SigV4 ECDHE-RSA-AES128-GCM-SHA256 QueryString s3.us-east-2.amazonaws.com TLSv1.2 - -
         aaa test.bucket [13/Feb/2023:15:08:28 +0000] 1.1.1.1 arn:aws:iam::111:user/user AAA BATCH.DELETE.OBJECT text.txt - 204 - - 1 - - - - - AAA SigV4 ECDHE-RSA-AES128-GCM-SHA256 AuthHeader s3.us-east-2.amazonaws.com TLSv1.2 - -
-        `};
-        const action_dictionary = {'test': 'delete', 'test.js': 'delete', 'code2': 'copy', 'test2': 'delete', 'testfile.js': 'delete', 'empty': 'copy', 'text.txt': 'delete'};
+        ` };
+        const action_dictionary = { 'test': 'delete', 'test.js': 'delete', 'code2': 'copy', 'test2': 'delete', 'testfile.js': 'delete', 'empty': 'copy', 'text.txt': 'delete' };
         log_parser.aws_parse_log_object(logs, example_log, true);
         // Make sure the test doesn't pass in case the parsing fails
         assert.equal(logs.length, Object.keys(action_dictionary).length);
@@ -957,11 +679,11 @@ mocha.describe('AWS S3 server log parsing tests', function() {
 
     mocha.it('Test AWS S3 server log parsing when a DELETE is logged before a PUT, but occurs after it', async function() {
         const logs = [];
-        const example_log = {Body: `
+        const example_log = { Body: `
         aaa test.bucket [13/Feb/2023:19:08:28 +0000] 1.1.1.1 arn:aws:iam::111:user/user AAA BATCH.DELETE.OBJECT test - 204 - - 1 - - - - - AAA SigV4 ECDHE-RSA-AES128-GCM-SHA256 AuthHeader s3.us-east-2.amazonaws.com TLSv1.2 - -
         aaa test.bucket [13/Feb/2023:09:08:28 +0000] 1.1.1.1 arn:aws:iam::111:user/user AAA BATCH.DELETE.OBJECT other_obj - 204 - - 1 - - - - - AAA SigV4 ECDHE-RSA-AES128-GCM-SHA256 AuthHeader s3.us-east-2.amazonaws.com TLSv1.2 - -
         aaa test.bucket [13/Feb/2023:09:08:56 +0000] 0.0.0.0 arn:aws:iam::111:user/user AAA REST.PUT.OBJECT test "PUT /test.bucket/test?X-Amz-Security-Token=AAAAAAAAAAAAAAA=20230213T160856Z&X-Amz-AAAAAA HTTP/1.1" 200 - - 1 1 1 "https://s3.console.aws.amazon.com/s3/upload/test.bucket?region=us-east-2" "AAA/5.0 (AAA 1.1; AAA; AAA) AAA/1.1 (KHTML, like Gecko) AAA/1.1 AAA/1.1" - AAAA SigV4 ECDHE-RSA-AES128-GCM-SHA256 QueryString s3.us-east-2.amazonaws.com TLSv1.2 - -
-        `};
+        ` };
         log_parser.aws_parse_log_object(logs, example_log, true);
         const candidates = log_parser.create_candidates(logs);
         // DELETE log should be the latest log present inside the candidate, as candidate storing only latest log per key
@@ -974,14 +696,18 @@ mocha.describe('Azure blob log parsing tests', function() {
     // Pagination test
     mocha.it('Test Azure blob log parsing for Write and Delete actions', async function() {
         const logs = [];
-        const example_log = {"tables": [{"rows": [
-            [new Date(1), 'Write', 'mt/folder1/nmt.txt'],
-            [new Date(2), 'Delete', 'Final Revision - including fixes (2) - FINAL.txt'],
-            [new Date(3), 'Write', 'noobaa_blocks/646bdc5e46ce2a0028749d7e/blocks_tree/other.blocks/_test_store_perf'],
-            [new Date(4), 'Delete', 'mt/folder1/nmt.txt'],
-            [new Date(5), 'Write', 'noobaa_blocks/646bdc5e46ce2a0028749d7e/blocks_tree/other.blocks/_test_store_perf']
-        ]}]};
-        const action_dictionary = {'mt/folder1/nmt.txt': 'delete', 'Final Revision - including fixes (2) - FINAL.txt': 'delete', 'noobaa_blocks/646bdc5e46ce2a0028749d7e/blocks_tree/other.blocks/_test_store_perf': 'copy'};
+        const example_log = {
+            "tables": [{
+                "rows": [
+                    [new Date(1), 'Write', 'mt/folder1/nmt.txt'],
+                    [new Date(2), 'Delete', 'Final Revision - including fixes (2) - FINAL.txt'],
+                    [new Date(3), 'Write', 'noobaa_blocks/646bdc5e46ce2a0028749d7e/blocks_tree/other.blocks/_test_store_perf'],
+                    [new Date(4), 'Delete', 'mt/folder1/nmt.txt'],
+                    [new Date(5), 'Write', 'noobaa_blocks/646bdc5e46ce2a0028749d7e/blocks_tree/other.blocks/_test_store_perf']
+                ]
+            }]
+        };
+        const action_dictionary = { 'mt/folder1/nmt.txt': 'delete', 'Final Revision - including fixes (2) - FINAL.txt': 'delete', 'noobaa_blocks/646bdc5e46ce2a0028749d7e/blocks_tree/other.blocks/_test_store_perf': 'copy' };
         log_parser.azure_parse_log_object(logs, example_log, true);
         // Verify that test doesn't pass in case the parsing fails
         assert.equal(logs.length, example_log.tables[0].rows.length);

@@ -38,6 +38,7 @@ const buffers_pool = new buffer_utils.BuffersPool({
 
 const XATTR_USER_PREFIX = 'user.';
 // TODO: In order to verify validity add content_md5_mtime as well
+const XATTR_CONTENT_TYPE = XATTR_USER_PREFIX + 'content_type';
 const XATTR_MD5_KEY = XATTR_USER_PREFIX + 'content_md5';
 const XATTR_VERSION_ID = XATTR_USER_PREFIX + 'version_id';
 const XATTR_PREV_VERSION_ID = XATTR_USER_PREFIX + 'prev_version_id';
@@ -825,6 +826,10 @@ class NamespaceFS {
         // handle xattr
         if (!params.copy_source || !params.xattr_copy) {
             fs_xattr = to_fs_xattr(params.xattr);
+            if (params.content_type) {
+                fs_xattr = fs_xattr || {};
+                fs_xattr[XATTR_CONTENT_TYPE] = params.content_type;
+            }
             if (digest) {
                 const { md5_b64, key, bucket, upload_id } = params;
                 if (md5_b64) {
@@ -1473,6 +1478,7 @@ class NamespaceFS {
         const etag = this._get_etag(stat);
         const encryption = this._get_encryption_info(stat);
         const version_id = return_version_id && this._is_versioning_enabled() && this._get_version_id_by_xattr(stat);
+        const content_type = stat.xattr[XATTR_CONTENT_TYPE] || mime.getType(key) || 'application/octet-stream';
         return {
             obj_id: etag,
             bucket,
@@ -1480,7 +1486,7 @@ class NamespaceFS {
             etag,
             size: stat.size,
             create_time: stat.mtime.getTime(),
-            content_type: mime.getType(key) || 'application/octet-stream',
+            content_type,
             // temp:
             version_id: version_id,
             is_latest: true,

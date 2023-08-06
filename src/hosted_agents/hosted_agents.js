@@ -164,6 +164,7 @@ class HostedAgents {
                 secret_key: pool.cloud_pool_info.access_keys.secret_key
             },
             aws_sts_arn: pool.cloud_pool_info.aws_sts_arn,
+            region: pool.cloud_pool_info.region,
             pool_name: pool.name
         } : {
             pool_name: pool.name

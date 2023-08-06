@@ -44,6 +44,9 @@ module.exports = {
                 endpoint: {
                     type: 'string'
                 },
+                region: {
+                    type: 'string'
+                },
                 target_bucket: {
                     type: 'string'
                 },

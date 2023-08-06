@@ -714,7 +714,7 @@ async function add_external_connection(req) {
         throw new RpcError(res.error.code, res.error.message);
     }
 
-    let info = _.pick(req.rpc_params, 'name', 'endpoint', 'endpoint_type', 'aws_sts_arn');
+    let info = _.pick(req.rpc_params, 'name', 'endpoint', 'endpoint_type', 'aws_sts_arn', 'region');
     if (!info.endpoint_type) info.endpoint_type = 'AWS';
     info.access_key = req.rpc_params.identity;
     info.secret_key = system_store.master_key_manager.encrypt_sensitive_string_with_master_key_id(
@@ -776,6 +776,7 @@ async function update_external_connection(req) {
     const identity = req.rpc_params.identity || connection.access_key;
     const secret = req.rpc_params.secret;
     const azure_log_access_keys = req.rpc_params.azure_log_access_keys;
+    const region = req.rpc_params.region || connection.region;
 
     const encrypted_secret = system_store.master_key_manager.encrypt_sensitive_string_with_master_key_id(
         secret, req.account.master_key_id._id);
@@ -788,6 +789,7 @@ async function update_external_connection(req) {
             secret,
             endpoint_type: connection.endpoint_type,
             endpoint: connection.endpoint,
+            region: region,
             cp_code: connection.cp_code,
             auth_method: connection.auth_method,
             azure_log_access_keys: azure_log_access_keys,
@@ -1075,7 +1077,7 @@ async function check_aws_connection(params) {
     if (!params.endpoint.startsWith('http://') && !params.endpoint.startsWith('https://')) {
         params.endpoint = 'http://' + params.endpoint;
     }
-    const s3 = new AWS.S3({
+    const s3_params = {
         endpoint: params.endpoint,
         accessKeyId: params.identity.unwrap(),
         secretAccessKey: params.secret.unwrap(),
@@ -1085,7 +1087,9 @@ async function check_aws_connection(params) {
         httpOptions: {
             agent: http_utils.get_unsecured_agent(params.endpoint)
         }
-    });
+    };
+    if (params.region) s3_params.region = params.region;
+    const s3 = new AWS.S3(s3_params);
 
     const timeoutError = Object.assign(
         new Error('Operation timeout'), { code: 'OperationTimeout' }

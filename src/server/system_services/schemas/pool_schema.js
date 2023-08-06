@@ -94,6 +94,9 @@ module.exports = {
                 target_bucket: {
                     type: 'string'
                 },
+                region: {
+                    type: 'string'
+                },
                 auth_method: {
                     type: 'string',
                     enum: ['AWS_V2', 'AWS_V4']

@@ -258,6 +258,17 @@ test-cephs3: tester
 	@$(call remove_docker_network)
 .PHONY: test-cephs3
 
+test-sanity: tester
+	@echo "\033[1;34mRunning tests with Postgres.\033[0m"
+	@$(call create_docker_network)
+	@$(call run_postgres)
+	@echo "\033[1;34mRunning sanity tests\033[0m"
+	$(CONTAINER_ENGINE) run $(CPUSET) --network noobaa-net --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) --env "SUPPRESS_LOGS=$(SUPPRESS_LOGS)" --env "POSTGRES_HOST=coretest-postgres-$(GIT_COMMIT)-$(NAME_POSTFIX)" --env "POSTGRES_USER=noobaa" --env "DB_TYPE=postgres" --env "POSTGRES_DBNAME=coretest" -v $(PWD)/logs:/logs $(TESTER_TAG) "./src/test/system_tests/run_sanity_test_on_test_container.sh"
+	@$(call stop_noobaa)
+	@$(call stop_postgres)
+	@$(call remove_docker_network)
+.PHONY: test-sanity
+
 clean:
 	@echo Stopping and Deleting containers
 	@$(CONTAINER_ENGINE) ps -a | grep noobaa_ | awk '{print $1}' | xargs $(CONTAINER_ENGINE) stop &> /dev/null

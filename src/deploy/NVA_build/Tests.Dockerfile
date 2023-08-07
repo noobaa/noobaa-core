@@ -49,6 +49,7 @@ RUN npm install
 ##############################################################
 COPY ./src/deploy/NVA_build/standalone_deploy.sh ./src/deploy/NVA_build/standalone_deploy.sh
 COPY ./src/test/system_tests/ceph_s3_tests/run_ceph_test_on_test_container.sh ./src/test/system_tests/ceph_s3_tests/run_ceph_test_on_test_container.sh
+COPY ./src/test/system_tests/run_sanity_test_on_test_container.sh ./src/test/system_tests/run_sanity_test_on_test_container.sh
 
 COPY .eslintrc.js /root/node_modules/noobaa-core
 COPY .eslintignore /root/node_modules/noobaa-core

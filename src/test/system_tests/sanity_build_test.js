@@ -95,7 +95,8 @@ async function init_test() {
     TEST_CTX.compatible_v2 = {
         name: 'compatible_V2',
         endpoint_type: 'S3_COMPATIBLE',
-        endpoint: 'http://noobaa-server-0:6001',
+        // here we are just using the same noobaa s3 endpoint
+        endpoint: TEST_CTX.s3_endpoint,
         identity: '123',
         secret: 'abc',
         auth_method: 'AWS_V2'
@@ -103,7 +104,9 @@ async function init_test() {
     TEST_CTX.compatible_v4 = {
         name: 'compatible_V4',
         endpoint_type: 'S3_COMPATIBLE',
-        endpoint: `http://127.0.0.1:6001`,
+        // doing the same as above but with https to have a different
+        // endpoint for testing
+        endpoint: TEST_CTX.s3_endpoint_https,
         identity: '123',
         secret: 'abc',
         auth_method: 'AWS_V4'

@@ -282,8 +282,13 @@ describe('_process_keys_in_range with version', () => {
             keep_listing_second_bucket: false,
         };
         second_bucket_cont_token = '';
-
-        bucketDiff._get_object_md = mock_fn2.mockReturnValueOnce('metadata').mockReturnValueOnce('metadata');
+        const metadata = {
+            Metadata: {
+                custom_key: "metadata",
+            }
+        };
+        mock_fn2.mockRestore();
+        bucketDiff._get_object_md = mock_fn2.mockReturnValueOnce(metadata).mockReturnValueOnce(metadata);
     });
 
     it('case 3: should update keys_diff_map and keys_contents_left when etag appear only once in earlier version', async () => {
@@ -1033,7 +1038,7 @@ describe('BucketDiff aiding functions', () => {
         });
     });
 
-    describe('_is_same_metadata', () => {
+    describe('_is_same_user_metadata', () => {
         let bucketDiff;
         const pos = 0;
         const cur_first_bucket_key = 'key';
@@ -1059,42 +1064,72 @@ describe('BucketDiff aiding functions', () => {
         });
 
         it('should return true when metadata is the same', async () => {
-            const first_metadata = undefined;
-            const second_metadata = 'metadata';
+            const first_metadata = {
+                Metadata: {
+                    custom_key: "metadata",
+                }
+            };
+            const second_metadata = {
+                Metadata: {
+                    custom_key: "metadata",
+                }
+            };
+            mock_fn2.mockRestore();
             bucketDiff._get_object_md = mock_fn2.mockReturnValueOnce(first_metadata).mockReturnValueOnce(second_metadata);
-            const result = await bucketDiff._is_same_metadata(pos, cur_first_bucket_key, first_bucket_curr_obj, second_bucket_curr_obj);
+            const result = await bucketDiff._is_same_user_metadata(
+                pos, cur_first_bucket_key, first_bucket_curr_obj, second_bucket_curr_obj);
             expect(result).toBe(true);
         });
 
         it('should return true when both metadata are undefined', async () => {
-            const first_metadata = undefined;
-            const second_metadata = undefined;
+            const first_metadata = { Metadata: {} };
+            const second_metadata = { Metadata: {} };
             bucketDiff._get_object_md = mock_fn2.mockReturnValueOnce(first_metadata).mockReturnValueOnce(second_metadata);
-            const result = await bucketDiff._is_same_metadata(pos, cur_first_bucket_key, first_bucket_curr_obj, second_bucket_curr_obj);
+            const result = await bucketDiff._is_same_user_metadata(
+                pos, cur_first_bucket_key, first_bucket_curr_obj, second_bucket_curr_obj);
             expect(result).toBe(true);
         });
 
         it('should return false when only the first metadata is undefined', async () => {
-            const first_metadata = undefined;
-            const second_metadata = 'metadata';
+            const first_metadata = { Metadata: {} };
+            const second_metadata = {
+                Metadata: {
+                    custom_key: "metadata",
+                }
+            };
             bucketDiff._get_object_md = mock_fn2.mockReturnValueOnce(first_metadata).mockReturnValueOnce(second_metadata);
-            const result = await bucketDiff._is_same_metadata(pos, cur_first_bucket_key, first_bucket_curr_obj, second_bucket_curr_obj);
+            const result = await bucketDiff._is_same_user_metadata(
+                pos, cur_first_bucket_key, first_bucket_curr_obj, second_bucket_curr_obj);
             expect(result).toBe(false);
         });
 
         it('should return false when only second metadata is undefined', async () => {
-            const first_metadata = 'metadata';
-            const second_metadata = undefined;
+            const first_metadata = {
+                Metadata: {
+                    custom_key: "metadata",
+                }
+            };
+            const second_metadata = { Metadata: {} };
             bucketDiff._get_object_md = mock_fn2.mockReturnValueOnce(first_metadata).mockReturnValueOnce(second_metadata);
-            const result = await bucketDiff._is_same_metadata(pos, cur_first_bucket_key, first_bucket_curr_obj, second_bucket_curr_obj);
+            const result = await bucketDiff._is_same_user_metadata(
+                pos, cur_first_bucket_key, first_bucket_curr_obj, second_bucket_curr_obj);
             expect(result).toBe(false);
         });
 
         it('should return false when metadata objects have different values', async () => {
-            const first_metadata = 'metadata';
-            const second_metadata = 'metadata2';
+            const first_metadata = {
+                Metadata: {
+                    custom_key: "metadata",
+                }
+            };
+            const second_metadata = {
+                Metadata: {
+                    custom_key: "metadata2",
+                }
+            };
             bucketDiff._get_object_md = mock_fn2.mockReturnValueOnce(first_metadata).mockReturnValueOnce(second_metadata);
-            const result = await bucketDiff._is_same_metadata(pos, cur_first_bucket_key, first_bucket_curr_obj, second_bucket_curr_obj);
+            const result = await bucketDiff._is_same_user_metadata(
+                pos, cur_first_bucket_key, first_bucket_curr_obj, second_bucket_curr_obj);
             expect(result).toBe(false);
         });
     });
@@ -1164,11 +1199,21 @@ describe('BucketDiff get_keys_diff case 3 with version', () => {
             "2": [{ ETag: 'etag2', Size: 24599, Key: '2', VersionId: 'v2', IsLatest: true, }],
         };
         mock_fn2.mockRestore();
+        const first_metadata = {
+            Metadata: {
+                custom_key: "metadata",
+            }
+        };
+        const second_metadata = {
+            Metadata: {
+                custom_key: "metadata2",
+            }
+        };
         bucketDiff._get_object_md = mock_fn2
-            .mockReturnValueOnce('metadata')
-            .mockReturnValueOnce('metadata2')
-            .mockReturnValueOnce('metadata')
-            .mockReturnValueOnce('metadata2');
+            .mockReturnValueOnce(first_metadata)
+            .mockReturnValueOnce(second_metadata)
+            .mockReturnValueOnce(first_metadata)
+            .mockReturnValueOnce(second_metadata);
         const result = await bucketDiff.get_keys_diff(first_bucket_keys, second_bucket_keys, second_bucket_cont_token);
         expect(result.keys_diff_map).toEqual({
             "1": [

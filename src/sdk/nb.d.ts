@@ -36,6 +36,8 @@ type ReplicationLog = { key: string, action: ReplicationLogAction, time: Date };
 type ReplicationLogs = Array<ReplicationLog>;
 type ReplicationLogCandidates = Record<string, { action: ReplicationLogAction, time: Date }>;
 
+type BucketDiffKeysDiff = { [key: string]: Array<object> };
+
 interface MapByID<T> { [id: string]: T }
 
 interface Base {

@@ -1,3 +1,5 @@
+#!/bin/bash
+
 enabled=`printf '%s\n' "${!4}"`
 echo $enabled
 if [ -z "$enabled" ]; then

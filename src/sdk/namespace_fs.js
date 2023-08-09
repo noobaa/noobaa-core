@@ -1178,7 +1178,6 @@ class NamespaceFS {
 
         // when object is a dir, xattr are set on the folder itself and the content is in .folder file
         if (is_dir_content) await this._assign_dir_content_to_xattr(fs_context, fs_xattr, { ...params, size: stat.size });
-
         stat = await nb_native().fs.stat(fs_context, file_path);
         const upload_info = this._get_upload_info(stat, fs_xattr && fs_xattr[XATTR_VERSION_ID]);
         return upload_info;
@@ -1506,6 +1505,7 @@ class NamespaceFS {
                 fs_context,
                 path.join(params.mpu_path, 'create_object_upload')
             );
+
             upload_params.params.xattr = (JSON.parse(create_params_buffer.toString())).xattr;
             upload_params.digest = MD5Async && (((await MD5Async.digest()).toString('hex')) + '-' + multiparts.length);
             const upload_info = await this._finish_upload(upload_params);
@@ -2761,3 +2761,5 @@ class NamespaceFS {
 }
 
 module.exports = NamespaceFS;
+module.exports.buffers_pool = buffers_pool;
+

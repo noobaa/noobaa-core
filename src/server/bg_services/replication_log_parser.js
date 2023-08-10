@@ -91,21 +91,37 @@ async function get_azure_log_candidates(source_bucket_id, rule_id, replication_c
     let continuation_token = get_continuation_token_for_rule(rule_id, replication_config);
     let continuation_time;
     let start_duration;
+    const one_hour = 1000 * 60 * 60;
     if (continuation_token) {
+        /*
+        We do not save or use the "TimeGenerated" field, since we observed that Azure sometimes
+        adds log entries with a timestamp that is older than the last entry we processed,
+        which would lead to missed replications if we depended on it for tokenization.
+        We save the "_TimeReceived" field as the continuation token.
+        The field represents the time in which the log was received by the Azure Monitor ingestion point.
+        We cannot use this timestamp for defining the duration upon which the query is executed,
+        since the duration filter applies to the time in which the action was performed, and not the time
+        in which the log was received. Using it will cause the query to skip all the actions that
+        *performed* (not logged) between the previous timestamp and the new one.
+        In order to prevent that, we use a query duration of
+        {startTime: <one hour before _TimeReceived of the last processed log>, endTime: <now>}
+        While also filtering the results by the "_TimeReceived" field to make sure we don't receive any duplicates -
+        (_TimeReceived > (_TimeReceived of the last processed log))
+        */
         continuation_time = `unixtime_milliseconds_todatetime(${continuation_token})`;
-        start_duration = new Date(parseInt(continuation_token, 10));
+        start_duration = new Date(parseInt(continuation_token, 10) - one_hour);
     } else {
         // If no token could be found, we look for logs from the last hour
         continuation_time = 'ago(1h)';
-        const one_hour_ago = Date.now() - (1000 * 60 * 60);
+        const one_hour_ago = Date.now() - one_hour;
         start_duration = new Date(one_hour_ago);
     }
 
     const kusto_query =
     `set truncationmaxsize=${config.AZURE_QUERY_TRUNCATION_MAX_SIZE_IN_BITS};
     StorageBlobLogs
-    | where TimeGenerated > ${continuation_time}
-    | project Time=TimeGenerated, Action=substring(Category, 7), Key=ObjectKey
+    | where _TimeReceived > ${continuation_time}
+    | project Time=_TimeReceived, Action=substring(Category, 7), Key=ObjectKey
     | sort by Time asc
     | where Action == "Write" or Action == "Delete"
     | where Key startswith "/${src_storage_account.unwrap()}/${src_container_name}/${prefix}"

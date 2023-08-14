@@ -339,7 +339,7 @@ class ObjectIO {
                     object_md,
                 });
             }
-            return this._upload_stream(params, complete_params);
+            return this._upload_stream(params, complete_params, true);
         }
     }
 
@@ -353,10 +353,11 @@ class ObjectIO {
      * @param {UploadParams} params
      * @param {Object} complete_params
      */
-    async _upload_stream(params, complete_params) {
+    async _upload_stream(params, complete_params, is_copy) {
         try {
+            // on non server side copy the buffer will be taken when called to read_object_stream
             const res = await this._io_buffers_sem.surround_count(
-                _get_io_semaphore_size(params.size),
+                _get_io_semaphore_size(is_copy ? 0 : params.size),
                 () => this._upload_stream_internal(params, complete_params)
             );
             return res;
@@ -634,6 +635,9 @@ class ObjectIO {
                     dbg.error('READ reader error', err.stack || err);
                     reader.emit('error', err || 'reader error');
                 }
+            }).catch(err => {
+                dbg.error('Semaphore reader error', (err && err.stack) || err);
+                reader.emit('error', err || 'Semaphore reader error');
             });
 
             // when starting to stream also prefrech the last part of the file

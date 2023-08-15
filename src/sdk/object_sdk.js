@@ -81,7 +81,7 @@ class ObjectSDK {
         this.internal_rpc_client = internal_rpc_client;
         this.object_io = object_io;
         this.stats = stats;
-        this.bucketspace = bucketspace || new BucketSpaceNB({ rpc_client });
+        this.bucketspace = bucketspace || new BucketSpaceNB({ rpc_client, internal_rpc_client });
         this.abort_controller = new AbortController();
     }
 
@@ -193,7 +193,7 @@ class ObjectSDK {
                 access_key: token.access_key,
             });
         } catch (error) {
-            dbg.error('authorize_request_account error:', error);
+            dbg.error('load_requesting_account error:', error);
             if (error.rpc_code && error.rpc_code === 'NO_SUCH_ACCOUNT') {
                 throw new RpcError('INVALID_ACCESS_KEY_ID', `Account with access_key not found`);
             } else {

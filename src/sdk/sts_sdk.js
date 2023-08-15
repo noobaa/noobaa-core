@@ -6,21 +6,50 @@ const dbg = require('../util/debug_module')(__filename);
 const { RpcError } = require('../rpc');
 const signature_utils = require('../util/signature_utils');
 const { account_cache } = require('./object_sdk');
+const BucketSpaceNB = require('./bucketspace_nb');
 
 class StsSDK {
 
-    constructor(rpc_client, internal_rpc_client) {
+    constructor(rpc_client, internal_rpc_client, bucketspace) {
         this.rpc_client = rpc_client;
         this.internal_rpc_client = internal_rpc_client;
         this.requesting_account = undefined;
+        this.auth_token = undefined;
+        this.bucketspace = bucketspace || new BucketSpaceNB({ rpc_client, internal_rpc_client });
     }
 
     set_auth_token(auth_token) {
+        this.auth_token = auth_token;
         this.rpc_client.options.auth_token = auth_token;
     }
 
     get_auth_token() {
-        return this.rpc_client.options.auth_token;
+        return this.auth_token;
+    }
+
+     /**
+     * @returns {nb.BucketSpace}
+     */
+    _get_bucketspace() {
+        return this.bucketspace;
+    }
+
+    async load_requesting_account(req) {
+        try {
+            const token = this.get_auth_token();
+            if (!token) return;
+            this.requesting_account = await account_cache.get_with_cache({
+                bucketspace: this._get_bucketspace(),
+                access_key: token.access_key,
+            });
+        } catch (error) {
+            dbg.error('authorize_request_account error:', error);
+            if (error.rpc_code && error.rpc_code === 'NO_SUCH_ACCOUNT') {
+                throw new RpcError('INVALID_ACCESS_KEY_ID', `Account with access_key not found`);
+            } else {
+                throw error;
+            }
+        }
     }
 
     async get_assumed_role(req) {
@@ -31,8 +60,8 @@ class StsSDK {
         const access_key = req.body.role_arn.split(':')[4];
 
         const account = await account_cache.get_with_cache({
-            rpc_client: this.internal_rpc_client,
-            access_key
+            bucketspace: this._get_bucketspace(),
+            access_key: access_key,
         });
         if (!account) {
             throw new RpcError('NO_SUCH_ACCOUNT', 'No such account with access_key: ' + access_key);
@@ -59,20 +88,7 @@ class StsSDK {
         const token = this.get_auth_token();
         // If the request is signed (authenticated)
         if (token) {
-            try {
-                this.requesting_account = await account_cache.get_with_cache({
-                    rpc_client: this.internal_rpc_client,
-                    access_key: token.access_key
-                });
-            } catch (error) {
-                dbg.error('authorize_request_account error:', error);
-                if (error.rpc_code && error.rpc_code === 'NO_SUCH_ACCOUNT') {
-                    throw new RpcError('INVALID_ACCESS_KEY_ID', `Account with access_key not found`);
-                } else {
-                    throw error;
-                }
-            }
-            const signature_secret = token.temp_secret_key || this.requesting_account.access_keys[0].secret_key.unwrap();
+            const signature_secret = token.temp_secret_key || this.requesting_account?.access_keys?.[0]?.secret_key?.unwrap();
             const signature = signature_utils.get_signature_from_auth_token(token, signature_secret);
             if (token.signature !== signature) throw new RpcError('SIGNATURE_DOES_NOT_MATCH', `Signature that was calculated did not match`);
             return;

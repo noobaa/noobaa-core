@@ -2,10 +2,10 @@
 /* eslint-disable no-undef */
 'use strict';
 
-const { S3 } = require("@aws-sdk/client-s3");
 const { NodeHttpHandler } = require("@aws-sdk/node-http-handler");
 const { Agent } = require("http");
 const { S3ClientSDKV2 } = require("../../../sdk/noobaa_s3_client/noobaa_s3_client_sdkv2");
+const { S3ClientAutoRegion } = require("../../../sdk/noobaa_s3_client/noobaa_s3_client_sdkv3");
 const noobaa_s3_client = require("../../../sdk/noobaa_s3_client/noobaa_s3_client");
 const config = require('../../../../config');
 
@@ -40,7 +40,7 @@ describe('noobaa_s3_client get_s3_client_v3_params', () => {
             config.AWS_SDK_VERSION_3_DISABLED = false;
             const params = {};
             const s3 = noobaa_s3_client.get_s3_client_v3_params(params);
-            expect(s3).toBeInstanceOf(S3);
+            expect(s3).toBeInstanceOf(S3ClientAutoRegion);
         });
 
         it('should choose by signatureVersion v4', () => {
@@ -50,7 +50,7 @@ describe('noobaa_s3_client get_s3_client_v3_params', () => {
                 signatureVersion: signature_version,
             };
             const s3 = noobaa_s3_client.get_s3_client_v3_params(params);
-            expect(s3).toBeInstanceOf(S3);
+            expect(s3).toBeInstanceOf(S3ClientAutoRegion);
         });
 
     });

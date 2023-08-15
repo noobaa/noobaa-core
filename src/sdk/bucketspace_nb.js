@@ -16,14 +16,15 @@ class BucketSpaceNB {
 
     constructor(options) {
         this.rpc_client = options.rpc_client;
+        this.internal_rpc_client = options.internal_rpc_client;
     }
 
     async read_account_by_access_key({ access_key }) {
-        return this.rpc_client.account.read_account_by_access_key({ access_key });
+        return this.internal_rpc_client.account.read_account_by_access_key({ access_key });
     }
 
     async read_bucket_sdk_info({ name }) {
-        return this.rpc_client.bucket.read_bucket_sdk_info({ name });
+        return this.internal_rpc_client.bucket.read_bucket_sdk_info({ name });
     }
 
 

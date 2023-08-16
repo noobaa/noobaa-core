@@ -621,6 +621,9 @@ module.exports = {
                 aws_sts_arn: {
                     type: 'string'
                 },
+                region: {
+                    type: 'string'
+                },
             }
         },
 

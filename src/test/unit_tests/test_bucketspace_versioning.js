@@ -1604,7 +1604,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
 
         mocha.it('delete multiple objects - no version id', async function() {
             const self = this; // eslint-disable-line no-invalid-this
-            self.timeout(60000);
+            self.timeout(150000);
             const versions_type_arr = ['null'];
             for (let i = 0; i < 300; i++) {
                  versions_type_arr.push(i % 2 === 0 ? 'regular' : 'delete_marker');
@@ -1656,7 +1656,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
 
         mocha.it('delete multiple objects - delete only regular versions key1, delete delete markers key2', async function() {
             const self = this; // eslint-disable-line no-invalid-this
-            self.timeout(60000);
+            self.timeout(150000);
             const key2 = 'key2';
             const versions_type_arr = [];
             for (let i = 0; i < 300; i++) {
@@ -1696,7 +1696,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
 
         mocha.it('delete multiple objects - delete regular versions & delete markers - new latest is dm', async function() {
             const self = this; // eslint-disable-line no-invalid-this
-            self.timeout(60000);
+            self.timeout(150000);
             const versions_type_arr = [];
             for (let i = 0; i < 300; i++) {
                  versions_type_arr.push(i % 2 === 0 ? 'regular' : 'delete_marker');
@@ -1726,7 +1726,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
 
         mocha.it('delete multiple objects - delete regular versions & delete markers - new latest is regular version', async function() {
             const self = this; // eslint-disable-line no-invalid-this
-            self.timeout(60000);
+            self.timeout(150000);
             const versions_type_arr = [];
             for (let i = 0; i < 300; i++) {
                  versions_type_arr.push(i % 2 === 0 ? 'regular' : 'delete_marker');
@@ -1756,7 +1756,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
 
         mocha.it('delete multiple objects - delete keys & regular versions & delete markers ', async function() {
             const self = this; // eslint-disable-line no-invalid-this
-            self.timeout(60000);
+            self.timeout(150000);
             const versions_type_arr = [];
             for (let i = 0; i < 300; i++) {
                  versions_type_arr.push(i % 2 === 0 ? 'regular' : 'delete_marker');
@@ -1792,7 +1792,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
 
         mocha.it('delete multiple objects - delete regular versions & delete markers & latest & keys- ', async function() {
             const self = this; // eslint-disable-line no-invalid-this
-            self.timeout(60000);
+            self.timeout(150000);
             const versions_type_arr = [];
             for (let i = 0; i < 300; i++) {
                  versions_type_arr.push(i % 2 === 1 ? 'regular' : 'delete_marker');

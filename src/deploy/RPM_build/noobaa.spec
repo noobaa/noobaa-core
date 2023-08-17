@@ -22,6 +22,8 @@ Recommends: jemalloc
 
 %global __os_install_post %{nil}
 
+%global __requires_exclude ^/usr/bin/python$
+
 %description
 NooBaa is a data service for cloud environments, providing S3 object-store interface with flexible tiering, mirroring, and spread placement policies, over any storage resource that allows GET/PUT including S3, GCS, Azure Blob, Filesystems, etc.
 

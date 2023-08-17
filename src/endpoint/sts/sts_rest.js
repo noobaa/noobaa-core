@@ -131,6 +131,7 @@ function authenticate_request(req) {
 // authorize_request_policy checks that the requester is allowed to assume a role 
 // by the role's assume role policy permissions
 async function authorize_request(req) {
+    await req.sts_sdk.load_requesting_account(req);
     await req.sts_sdk.authorize_request_account(req);
     await authorize_request_policy(req);
 }

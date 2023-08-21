@@ -7,6 +7,11 @@ const nb_native = require('../util/nb_native');
 const SensitiveString = require('../util/sensitive_string');
 const { S3Error } = require('../endpoint/s3/s3_errors');
 const RpcError = require('../rpc/rpc_error');
+const net = require('net');
+const js_utils = require('../util/js_utils');
+
+const VALID_BUCKET_NAME_REGEXP =
+    /^(([a-z0-9]|[a-z0-9][a-z0-9-]*[a-z0-9])\.)*([a-z0-9]|[a-z0-9][a-z0-9-]*[a-z0-9])$/;
 
 //TODO:  dup from namespace_fs - need to handle and not dup code
 function isDirectory(ent) {
@@ -53,25 +58,26 @@ class BucketSpaceFS {
             console.log('GGG read_account_by_access_key', access_key, account);
             return account;
         } catch (err) {
-            throw new RpcError('NO_SUCH_ACCOUNT', `Account with access_key not found`);
+            throw new RpcError('NO_SUCH_ACCOUNT', `Account with access_key not found`, err);
         }
     }
 
     async read_bucket_sdk_info({ name }) {
-        return {
-            name: new SensitiveString(name),
-            system_owner: new SensitiveString('nsfs'),
-            bucket_owner: new SensitiveString('nsfs'),
-            s3_policy: {
-                version: '2012-10-17',
-                statement: [{
-                    effect: 'allow',
-                    action: ['*'],
-                    resource: ['*'],
-                    principal: [new SensitiveString('*')],
-                }]
-            },
+        const bucket_path = path.join(this.fs_root, name);
+        const { data } = await nb_native().fs.readFile(this.fs_context, bucket_path + ".json");
+        const bucket = JSON.parse(data.toString());
+        bucket.bucket.s3_policy = {
+            version: '2012-10-17',
+            statement: [{
+                effect: 'allow',
+                action: ['*'],
+                resource: ['*'],
+                principal: [new SensitiveString('*')],
+            }]
         };
+        bucket.bucket.system_owner = new SensitiveString(bucket.bucket.system_owner);
+        bucket.bucket.bucket_owner = new SensitiveString(bucket.bucket.bucket_owner);
+        return bucket.bucket;
     }
 
 
@@ -142,14 +148,51 @@ class BucketSpaceFS {
         }
     }
 
-    async create_bucket(params) {
+    async create_bucket(params, sdk) {
         try {
+            let should_create_underlying_storage = false;
+            if (!sdk.requesting_account.nsfs_account_config || !sdk.requesting_account.nsfs_account_config.new_buckets_path) {
+                throw new RpcError('MISSING_NSFS_ACCOUNT_CONFIGURATION');
+            }
+            this.validate_bucket_creation(params);
             const { name } = params;
             const bucket_path = path.join(this.fs_root, name);
             console.log(`BucketSpaceFS: create_bucket ${bucket_path}`);
             // eslint-disable-next-line no-bitwise
             const unmask_mode = config.BASE_MODE_DIR & ~config.NSFS_UMASK;
             await nb_native().fs.mkdir(this.fs_context, bucket_path, unmask_mode);
+
+            // bucket configuration file start
+            console.log('creating bucket on default namespace resource', sdk.requesting_account.nsfs_account_config);
+            if (!sdk.requesting_account.nsfs_account_config || !sdk.requesting_account.nsfs_account_config.new_buckets_path) {
+                throw new RpcError('MISSING_NSFS_ACCOUNT_CONFIGURATION');
+            }
+
+            const nsr = {
+                resource: {
+                    fs_root_path: sdk.nsfs_fs_root,
+                },
+                path: path.join(sdk.requesting_account.nsfs_account_config.new_buckets_path, params.name)
+            };
+            should_create_underlying_storage = true;
+
+            const bucket = this.new_bucket_defaults(params.name, sdk.requesting_account._id, params.tag, params.lock_enabled);
+            bucket.system_owner = new SensitiveString(sdk.requesting_account.email);
+            bucket.bucket_owner = new SensitiveString(sdk.requesting_account.email);
+            bucket.namespace = {
+                read_resources: [nsr],
+                write_resource: nsr,
+                should_create_underlying_storage
+            };
+            bucket.force_md5_etag = params.force_md5_etag;
+            const create_bucket = JSON.stringify({ bucket });
+            await nb_native().fs.writeFile(
+                this.fs_context,
+                bucket_path + ".json",
+                Buffer.from(create_bucket), {
+                    mode: this.get_umasked_mode(config.BASE_MODE_FILE)
+                }
+            );
         } catch (err) {
             if (err.code === 'ENOENT') {
                 console.error('BucketSpaceFS: root dir not found', err);
@@ -157,6 +200,37 @@ class BucketSpaceFS {
             }
             throw err;
         }
+    }
+
+    get_umasked_mode(mode) {
+        // eslint-disable-next-line no-bitwise
+        return mode & ~config.NSFS_UMASK;
+    }
+
+
+    new_bucket_defaults(name, owner_account_id, tag, lock_enabled) {
+        const now = Date.now();
+        return {
+            name: name,
+            tag: js_utils.default_value(tag, ''),
+            owner_account: owner_account_id,
+            storage_stats: {
+                chunks_capacity: 0,
+                blocks_size: 0,
+                pools: {},
+                objects_size: 0,
+                objects_count: 0,
+                objects_hist: [],
+                // new buckets creation date will be rounded down to config.MD_AGGREGATOR_INTERVAL (30 seconds)
+                last_update: (Math.floor(now / config.MD_AGGREGATOR_INTERVAL) * config.MD_AGGREGATOR_INTERVAL) -
+                    (2 * config.MD_GRACE_IN_MILLISECONDS),
+            },
+            lambda_triggers: [],
+            versioning: config.WORM_ENABLED && lock_enabled ? 'ENABLED' : 'DISABLED',
+            object_lock_configuration: config.WORM_ENABLED ? {
+                object_lock_enabled: lock_enabled ? 'Enabled' : 'Disabled',
+            } : undefined,
+        };
     }
 
     async delete_bucket(params) {
@@ -172,6 +246,28 @@ class BucketSpaceFS {
             }
             throw err;
         }
+    }
+
+    validate_bucket_creation(params) {
+        if (params.name.length < 3 ||
+            params.name.length > 63 ||
+            net.isIP(params.name) ||
+            !VALID_BUCKET_NAME_REGEXP.test(params.name)) {
+            throw new RpcError('INVALID_BUCKET_NAME');
+        }
+       /*const bucket = req.system.buckets_by_name && req.system.buckets_by_name[req.rpc_params.name.unwrap()];
+    
+        if (bucket) {
+            if (system_store.has_same_id(bucket.owner_account, req.account)) {
+                throw new RpcError('BUCKET_ALREADY_OWNED_BY_YOU');
+            } else {
+                throw new RpcError('BUCKET_ALREADY_EXISTS');
+            }
+        }
+    
+        if (req.account.allow_bucket_creation === false) {
+            throw new RpcError('UNAUTHORIZED', 'Not allowed to create new buckets');
+        }*/
     }
 
     //////////////////////

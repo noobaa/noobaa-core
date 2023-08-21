@@ -14,7 +14,7 @@ describe('noobaa_s3_client get_s3_client_v3_params', () => {
     describe('use AWS SDK V2', () => {
 
         it('should choose by signatureVersion v2', () => {
-            config.AWS_SDK_VERSION_3_DISABLED = false;
+            config.AWS_SDK_VERSION_3_ENABLED = true;
             const signature_version = 'v2';
             const params = {
                 signatureVersion: signature_version,
@@ -24,7 +24,7 @@ describe('noobaa_s3_client get_s3_client_v3_params', () => {
         });
 
         it('should choose by workaround config', () => {
-            config.AWS_SDK_VERSION_3_DISABLED = true;
+            config.AWS_SDK_VERSION_3_ENABLED = false;
             const signature_version = 'v4';
             const params = {
                 signatureVersion: signature_version,
@@ -37,14 +37,14 @@ describe('noobaa_s3_client get_s3_client_v3_params', () => {
     describe('use AWS SDK V3', () => {
 
         it('should choose by default', () => {
-            config.AWS_SDK_VERSION_3_DISABLED = false;
+            config.AWS_SDK_VERSION_3_ENABLED = true;
             const params = {};
             const s3 = noobaa_s3_client.get_s3_client_v3_params(params);
             expect(s3).toBeInstanceOf(S3ClientAutoRegion);
         });
 
         it('should choose by signatureVersion v4', () => {
-            config.AWS_SDK_VERSION_3_DISABLED = false;
+            config.AWS_SDK_VERSION_3_ENABLED = true;
             const signature_version = 'v4';
             const params = {
                 signatureVersion: signature_version,

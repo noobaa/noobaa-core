@@ -9,11 +9,10 @@ const auth_server = require('../common_services/auth_server');
 const dbg = require('../../util/debug_module')(__filename);
 const system_utils = require('../utils/system_utils');
 const cloud_utils = require('../../util/cloud_utils');
-const http_utils = require('../../util/http_utils');
 const nb_native = require('../../util/nb_native');
 const config = require('../../../config');
 const P = require('../../util/promise');
-const AWS = require('aws-sdk');
+const noobaa_s3_client = require('../../sdk/noobaa_s3_client/noobaa_s3_client');
 
 class NamespaceMonitor {
 
@@ -115,21 +114,21 @@ class NamespaceMonitor {
     async test_s3_resource(nsr) {
         let conn = this.nsr_connections_obj[nsr._id];
         if (!conn) {
-            const { endpoint, access_key, secret_key, auth_method } = nsr.connection;
-            const agent = http_utils.get_agent_by_endpoint(endpoint);
-            conn = new AWS.S3({
-                endpoint: endpoint,
+            const { endpoint, access_key, secret_key, auth_method, region } = nsr.connection;
+
+            const params = {
                 credentials: {
                     accessKeyId: access_key.unwrap(),
-                    secretAccessKey: secret_key.unwrap()
+                    secretAccessKey: secret_key.unwrap(),
                 },
-                s3ForcePathStyle: true,
-                sslEnabled: false,
+                endpoint: endpoint,
+                region: region ?? config.DEFAULT_REGION,
+                forcePathStyle: true,
+                tls: false,
                 signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(endpoint, auth_method),
-                httpOptions: {
-                    agent,
-                },
-            });
+                requestHandler: noobaa_s3_client.get_requestHandler_with_suitable_agent(endpoint),
+            };
+            conn = noobaa_s3_client.get_s3_client_v3_params(params);
             this.nsr_connections_obj[nsr._id] = conn;
         }
 
@@ -140,13 +139,13 @@ class NamespaceMonitor {
             await conn.deleteObjectTagging({
                 Bucket: target_bucket,
                 Key: block_key
-            }).promise();
+            });
         } catch (err) {
-            if (err.code === 'AccessDenied' && nsr.is_readonly_namespace()) {
+            if (noobaa_s3_client.check_error_code(err, 'AccessDenied') && nsr.is_readonly_namespace()) {
                 return;
             }
             dbg.log1('test_s3_resource: got error:', err);
-            if (err.code !== 'NoSuchKey') throw err;
+            if (!noobaa_s3_client.check_error_code(err, 'NoSuchKey')) throw err;
         }
 
     }

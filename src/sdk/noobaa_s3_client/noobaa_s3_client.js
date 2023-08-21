@@ -1,6 +1,7 @@
 /* Copyright (C) 2023 NooBaa */
 'use strict';
 
+const _ = require('lodash');
 const http = require('http');
 const https = require('https');
 const { HttpProxyAgent } = require('http-proxy-agent');
@@ -10,6 +11,7 @@ const { S3ClientAutoRegion } = require('./noobaa_s3_client_sdkv3');
 const { NodeHttpHandler } = require("@smithy/node-http-handler");
 const config = require('../../../config');
 const http_utils = require('../../util/http_utils');
+const cloud_utils = require('../../util/cloud_utils');
 
 // The params are the AWS SDK V3 params.
 // params = a map of parameters that are passed to the constructor of S3 Object in order to to bind to every request
@@ -19,17 +21,22 @@ function get_s3_client_v3_params(params) {
     if (should_use_sdk_v2(params)) {
         change_s3_client_params_to_v2_structure(params);
         s3_client = new S3ClientSDKV2(params);
+    } else if (params.endpoint && cloud_utils.is_aws_endpoint(params.endpoint)) {
+        // to avoid redirection in case of aws endpoint we will omit the endpoint when creating the s3-client.
+        const params_without_endpoint = _.omit(params, 'endpoint');
+        s3_client = new S3ClientAutoRegion(params_without_endpoint);
     } else {
         s3_client = new S3ClientAutoRegion(params);
     }
+
     return s3_client;
 }
 
 // Here we decide which version of the sdk should we use:
-// 1. by the flag AWS_SDK_VERSION_3_DISABLED (we use it as a workaround in case we want to use only AWS SDK V2).
+// 1. by the flag AWS_SDK_VERSION_3_ENABLED (we use it as a workaround in case we want to use only AWS SDK V2 - set to false).
 // 2. signatureVersion defined? if it is 'v2' (signature version v2 is only supported in AWS SDK V2)
 function should_use_sdk_v2(params) {
-    return config.AWS_SDK_VERSION_3_DISABLED || (params.signatureVersion && params.signatureVersion === 'v2');
+    return !config.AWS_SDK_VERSION_3_ENABLED || (params.signatureVersion && params.signatureVersion === 'v2');
 }
 
 // we will use this function in debugging to print the class type easily

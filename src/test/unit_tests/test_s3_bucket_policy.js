@@ -372,7 +372,7 @@ mocha.describe('s3_bucket_policy', function() {
                 Sid: 'id-1',
                 Effect: 'Allow',
                 Principal: { AWS: user_a },
-                Action: ['s3:PutObject', 's3:deleteObjectVersion'],
+                Action: ['s3:PutObject', 's3:DeleteObjectVersion'],
                 Resource: [`arn:aws:s3:::${BKT}/*`]
             }, {
                 Sid: 'id-2',
@@ -384,7 +384,7 @@ mocha.describe('s3_bucket_policy', function() {
                 Sid: 'id-3',
                 Effect: 'Deny',
                 Principal: { AWS: user_a },
-                Action: ['s3:deleteObject'],
+                Action: ['s3:DeleteObject'],
                 Resource: [`arn:aws:s3:::${BKT}/*`]
             }]
         };
@@ -502,7 +502,7 @@ mocha.describe('s3_bucket_policy', function() {
             Version: '2012-10-17',
             Statement: [
                 {
-                    Effect: 'DENY',
+                    Effect: 'Deny',
                     Principal: { AWS: "*" },
                     Action: ['s3:GetObject', 's3:ListBucket'],
                     Resource: [`arn:aws:s3:::*`]
@@ -539,7 +539,7 @@ mocha.describe('s3_bucket_policy', function() {
             Statement: [
                 {
                     Effect: 'Allow',
-                    Principal: { AWS: "*" },
+                    Principal: "*",
                     Action: ['s3:GetObject'],
                     Resource: [`arn:aws:s3:::*`]
                 },

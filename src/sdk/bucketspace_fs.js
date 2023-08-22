@@ -339,11 +339,11 @@ class BucketSpaceFS {
 
     async put_bucket_policy(params) {
         const { name, policy } = params;
-        console.log("name, policy GGGGGGGGGG", name, policy)
+        console.log("name, policy GGGGGGGGGG", name, policy);
         const bucket_path = path.join(this.fs_root, name);
         const { data } = await nb_native().fs.readFile(this.fs_context, bucket_path + ".json");
         const bucket = JSON.parse(data.toString());
-        bucket.s3_policy = policy
+        bucket.s3_policy = policy;
         const update_bucket = JSON.stringify(bucket);
         await nb_native().fs.writeFile(
             this.fs_context,

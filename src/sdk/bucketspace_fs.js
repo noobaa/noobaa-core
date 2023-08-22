@@ -66,18 +66,9 @@ class BucketSpaceFS {
         const bucket_path = path.join(this.fs_root, name);
         const { data } = await nb_native().fs.readFile(this.fs_context, bucket_path + ".json");
         const bucket = JSON.parse(data.toString());
-        bucket.bucket.s3_policy = {
-            version: '2012-10-17',
-            statement: [{
-                effect: 'allow',
-                action: ['*'],
-                resource: ['*'],
-                principal: [new SensitiveString('*')],
-            }]
-        };
-        bucket.bucket.system_owner = new SensitiveString(bucket.bucket.system_owner);
-        bucket.bucket.bucket_owner = new SensitiveString(bucket.bucket.bucket_owner);
-        return bucket.bucket;
+        bucket.system_owner = new SensitiveString(bucket.system_owner);
+        bucket.bucket_owner = new SensitiveString(bucket.bucket_owner);
+        return bucket;
     }
 
 
@@ -185,7 +176,7 @@ class BucketSpaceFS {
                 should_create_underlying_storage
             };
             bucket.force_md5_etag = params.force_md5_etag;
-            const create_bucket = JSON.stringify({ bucket });
+            const create_bucket = JSON.stringify(bucket);
             await nb_native().fs.writeFile(
                 this.fs_context,
                 bucket_path + ".json",
@@ -347,7 +338,20 @@ class BucketSpaceFS {
     ////////////////////
 
     async put_bucket_policy(params) {
-        // TODO
+        const { name, policy } = params;
+        console.log("name, policy GGGGGGGGGG", name, policy)
+        const bucket_path = path.join(this.fs_root, name);
+        const { data } = await nb_native().fs.readFile(this.fs_context, bucket_path + ".json");
+        const bucket = JSON.parse(data.toString());
+        bucket.s3_policy = policy
+        const update_bucket = JSON.stringify(bucket);
+        await nb_native().fs.writeFile(
+            this.fs_context,
+            bucket_path + ".json",
+            Buffer.from(update_bucket), {
+                mode: this.get_umasked_mode(config.BASE_MODE_FILE)
+            }
+        );
     }
 
     async delete_bucket_policy(params) {

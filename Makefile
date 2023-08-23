@@ -291,6 +291,11 @@ test-cephs3: tester
 	@$(call remove_docker_network)
 .PHONY: test-cephs3
 
+test-nsfs-cephs3: tester
+	@echo "\033[1;34mRunning Ceph S3 tests on NSFS Standalone platform\033[0m"
+	$(CONTAINER_ENGINE) run $(CPUSET) --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) --env "SUPPRESS_LOGS=$(SUPPRESS_LOGS)" -v $(PWD)/logs:/logs $(TESTER_TAG) "./src/test/system_tests/ceph_s3_tests/run_ceph_nsfs_test_on_test_container.sh"
+.PHONY: test-nsfs-cephs3
+
 test-sanity: tester
 	@echo "\033[1;34mRunning tests with Postgres.\033[0m"
 	@$(call create_docker_network)

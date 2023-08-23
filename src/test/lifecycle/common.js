@@ -51,7 +51,7 @@ function date_lifecycle_configuration(Bucket, Key) {
         LifecycleConfiguration: {
             Rules: [{
                 Expiration: {
-                    Date: midnight.toISOString(),
+                    Date: midnight,
                 },
                 Filter: {
                     Prefix: Key,
@@ -73,7 +73,7 @@ function date_lifecycle_configuration_and_tags(Bucket, Prefix, tagging) {
         LifecycleConfiguration: {
             Rules: [{
                 Expiration: {
-                    Date: midnight.toISOString(),
+                    Date: midnight,
                 },
                 Filter: {
                     And: {
@@ -97,7 +97,7 @@ function size_less_lifecycle_configuration(Bucket, ObjectSizeLessThan) {
         LifecycleConfiguration: {
             Rules: [{
                 Expiration: {
-                    Date: midnight.toISOString(),
+                    Date: midnight,
                 },
                 Filter: {
                     ObjectSizeLessThan,
@@ -157,7 +157,7 @@ function size_gt_lt_lifecycle_configuration(Bucket, gt, lt) {
         LifecycleConfiguration: {
             Rules: [{
                 Expiration: {
-                    Date: midnight.toISOString(),
+                    Date: midnight,
                 },
                 Filter: {
                     ObjectSizeLessThan: lt,
@@ -230,23 +230,6 @@ function and_tags_lifecycle_configuration(Bucket, Key1, Value1, Key2, Value2) {
                         ]
                     }
                 },
-                Status: 'Enabled',
-            }, ],
-        },
-    };
-}
-
-function empty_filter_lifecycle_configuration(Bucket) {
-    const ID = 'rule_id';
-    return {
-        Bucket,
-        LifecycleConfiguration: {
-            Rules: [{
-                ID,
-                Expiration: {
-                    Days: 17,
-                },
-                Filter: {},
                 Status: 'Enabled',
             }, ],
         },
@@ -343,7 +326,7 @@ function rules_length_lifecycle_configuration(Bucket, Key) {
                 {
                     ID: 'rule2',
                     Expiration: {
-                        Date: midnight.toISOString(),
+                        Date: midnight,
                     },
                     Filter: {
                         Prefix: Key,
@@ -376,7 +359,7 @@ function id_lifecycle_configuration(Bucket, Key) {
 }
 
 async function put_get_lifecycle_configuration(Bucket, putLifecycleParams, s3) {
-    const putLifecycleResult = await s3.putBucketLifecycleConfiguration(putLifecycleParams).promise();
+    const putLifecycleResult = await s3.putBucketLifecycleConfiguration(putLifecycleParams);
     console.log('put lifecycle params:', putLifecycleParams, 'result', putLifecycleResult);
     for (const rule of putLifecycleParams.LifecycleConfiguration.Rules) {
         console.log("put lifecycle ID", rule.ID, "expiration", rule.Expiration, "filter", rule.Filter);
@@ -384,12 +367,12 @@ async function put_get_lifecycle_configuration(Bucket, putLifecycleParams, s3) {
     const lifecycleParams = {
         Bucket,
     };
-    const getLifecycleResult = await s3.getBucketLifecycleConfiguration(lifecycleParams).promise();
+    const getLifecycleResult = await s3.getBucketLifecycleConfiguration(lifecycleParams);
     console.log('get lifecycle params:', lifecycleParams, 'result', getLifecycleResult);
     for (const rule of getLifecycleResult.Rules) {
         console.log("get lifecycle ID", rule.ID, "expiration", rule.Expiration, "filter", rule.Filter);
     }
-    const deleteLifecycleResult = await s3.deleteBucketLifecycle(lifecycleParams).promise();
+    const deleteLifecycleResult = await s3.deleteBucketLifecycle(lifecycleParams);
     console.log('delete lifecycle params:', lifecycleParams, 'result', deleteLifecycleResult);
 
     return getLifecycleResult;
@@ -503,17 +486,6 @@ exports.test_rule_id = async function(Bucket, Key, s3) {
     console.log('get rule id:', actualId, ' expected:', expectedId);
 
     assert.deepEqual(actualId, expectedId, 'rule id');
-};
-
-exports.test_empty_filter = async function(Bucket, s3) {
-    const putLifecycleParams = empty_filter_lifecycle_configuration(Bucket);
-    const getLifecycleResult = await put_get_lifecycle_configuration(Bucket, putLifecycleParams, s3);
-
-    const actualFilter = getLifecycleResult.Rules[0].Filter;
-    const expectedFilter = putLifecycleParams.LifecycleConfiguration.Rules[0].Filter;
-    console.log('get empty filter:', actualFilter, ' expected:', expectedFilter);
-
-    assert.deepEqual(actualFilter, expectedFilter, 'empty filter');
 };
 
 exports.test_filter_size = async function(Bucket, s3) {

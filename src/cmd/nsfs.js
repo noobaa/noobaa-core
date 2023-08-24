@@ -23,6 +23,7 @@ const nb_native = require('../util/nb_native');
 const ObjectSDK = require('../sdk/object_sdk');
 const NamespaceFS = require('../sdk/namespace_fs');
 const BucketSpaceFS = require('../sdk/bucketspace_fs');
+const BucketSpaceMultiFS = require('../sdk/bucketspace_multi_fs');
 const SensitiveString = require('../util/sensitive_string');
 const endpoint_stats_collector = require('../sdk/endpoint_stats_collector');
 const { get_schema } = require('../api');
@@ -70,8 +71,9 @@ Options:
 
     --iam_json_schema                           Print the json schema of the identity files in iam dir.
     --iam_ttl <seconds>     (default 60)        Identities expire after this amount of time, and re-read from the FS.
-    --iam_dir <dir>         (default none)      Authenticate incoming requests with iam directory on the FS,
-                                                each identity is a json file "<iam_dir>/<access_key>.json"
+    --config_root <dir>     (default none)      Configuration files for Noobaa standalon NSFS. It includes config files for environment variables(<config-root>/.env), 
+                                                local configuration(<config-root>/config-local.js), authentication (<config-root>/accounts/<access-key>.json) and 
+                                                bucket schema (<config-root>/buckets/<bucket-name>.json).
 
     ## features
 
@@ -102,7 +104,7 @@ const IAM_JSON_SCHEMA = get_schema('account_api#/definitions/account_info');
 
 class NsfsObjectSDK extends ObjectSDK {
 
-    constructor(fs_root, fs_config, account, versioning, iam_dir) {
+    constructor(fs_root, fs_config, account, versioning, config_root) {
 
         // const rpc_client_hooks = new_rpc_client_hooks();
         // rpc_client_hooks.account.read_account_by_access_key = async ({ access_key }) => {
@@ -115,9 +117,12 @@ class NsfsObjectSDK extends ObjectSDK {
         //         return { name };
         //     }
         // };
-
-        const bucketspace = new BucketSpaceFS({ fs_root, iam_dir });
-
+        let bucketspace;
+        if (config_root) {
+            bucketspace = new BucketSpaceMultiFS({ fs_root, config_root });
+        } else {
+            bucketspace = new BucketSpaceFS({ fs_root });
+        }
         super({
             rpc_client: null,
             internal_rpc_client: null,
@@ -211,7 +216,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
         const gid = Number(argv.gid) || process.getgid();
         const access_key = argv.access_key && new SensitiveString(String(argv.access_key));
         const secret_key = argv.secret_key && new SensitiveString(String(argv.secret_key));
-        const iam_dir = argv.iam_dir ? String(argv.iam_dir) : '';
+        const config_root = argv.config_root ? String(argv.config_root) : '';
         const iam_ttl = Number(argv.iam_ttl ?? 60);
         const backend = argv.backend || (process.env.GPFS_DL_PATH ? 'GPFS' : '');
         const versioning = argv.versioning || 'DISABLED';
@@ -235,7 +240,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
             console.error('Error: Root path not found', fs_root);
             return print_usage();
         }
-        if (iam_dir && access_key) {
+        if (config_root && access_key) {
             console.error('Error: Access key and IAM dir cannot be used together');
             return print_usage();
         }
@@ -243,7 +248,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
             console.error('Error: Access and secret keys should be either both set or else both unset');
             return print_usage();
         }
-        if (!access_key && !iam_dir) {
+        if (!access_key && !config_root) {
             console.log(ANONYMOUS_AUTH_WARNING);
         }
 
@@ -259,7 +264,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
             secret_key,
             uid,
             gid,
-            iam_dir,
+            config_root,
             iam_ttl,
         });
 
@@ -271,7 +276,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
             metrics_port,
             forks,
             init_request_sdk: (req, res) => {
-                req.object_sdk = new NsfsObjectSDK(fs_root, fs_config, account, versioning, iam_dir);
+                req.object_sdk = new NsfsObjectSDK(fs_root, fs_config, account, versioning, config_root);
             }
         });
 

@@ -6,7 +6,6 @@ const config = require('../../config');
 const nb_native = require('../util/nb_native');
 const SensitiveString = require('../util/sensitive_string');
 const { S3Error } = require('../endpoint/s3/s3_errors');
-const RpcError = require('../rpc/rpc_error');
 
 //TODO:  dup from namespace_fs - need to handle and not dup code
 function isDirectory(ent) {
@@ -26,52 +25,22 @@ function isDirectory(ent) {
  */
 class BucketSpaceFS {
 
-    constructor({ fs_root, iam_dir }) {
+    constructor({fs_root}) {
         this.fs_root = fs_root;
-        this.iam_dir = iam_dir;
         this.fs_context = {
             uid: process.getuid(),
             gid: process.getgid(),
             warn_threshold_ms: config.NSFS_WARN_THRESHOLD_MS,
-            // backend: '',
+            //backend: '',
         };
     }
 
     async read_account_by_access_key({ access_key }) {
-        try {
-            console.log('GGG read_account_by_access_key', access_key);
-            if (!access_key) throw new Error('no access key');
-            const iam_path = path.join(this.iam_dir, access_key);
-            const { data } = await nb_native().fs.readFile(this.fs_context, iam_path);
-            const account = JSON.parse(data.toString());
-            account.name = new SensitiveString(account.name);
-            account.email = new SensitiveString(account.email);
-            for (const k of account.access_keys) {
-                k.access_key = new SensitiveString(k.access_key);
-                k.secret_key = new SensitiveString(k.secret_key);
-            }
-            console.log('GGG read_account_by_access_key', access_key, account);
-            return account;
-        } catch (err) {
-            throw new RpcError('NO_SUCH_ACCOUNT', `Account with access_key not found`);
-        }
+        return {};
     }
 
     async read_bucket_sdk_info({ name }) {
-        return {
-            name: new SensitiveString(name),
-            system_owner: new SensitiveString('nsfs'),
-            bucket_owner: new SensitiveString('nsfs'),
-            s3_policy: {
-                version: '2012-10-17',
-                statement: [{
-                    effect: 'allow',
-                    action: ['*'],
-                    resource: ['*'],
-                    principal: [new SensitiveString('*')],
-                }]
-            },
-        };
+        return {};
     }
 
 

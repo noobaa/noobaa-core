@@ -23,6 +23,7 @@ const nb_native = require('../util/nb_native');
 const ObjectSDK = require('../sdk/object_sdk');
 const NamespaceFS = require('../sdk/namespace_fs');
 const BucketSpaceFS = require('../sdk/bucketspace_fs');
+const BucketSpaceMultiFS = require('../sdk/bucketspace_multi_fs');
 const SensitiveString = require('../util/sensitive_string');
 const endpoint_stats_collector = require('../sdk/endpoint_stats_collector');
 const { get_schema } = require('../api');
@@ -72,6 +73,7 @@ Options:
     --iam_ttl <seconds>     (default 60)        Identities expire after this amount of time, and re-read from the FS.
     --iam_dir <dir>         (default none)      Authenticate incoming requests with iam directory on the FS,
                                                 each identity is a json file "<iam_dir>/<access_key>.json"
+    --multi_fs_config_dir <dir>                 multi_fs_config_dir
 
     ## features
 
@@ -102,7 +104,7 @@ const IAM_JSON_SCHEMA = get_schema('account_api#/definitions/account_info');
 
 class NsfsObjectSDK extends ObjectSDK {
 
-    constructor(fs_root, fs_config, account, versioning, iam_dir) {
+    constructor(fs_root, fs_config, account, versioning, iam_dir, multi_fs_config_dir) {
 
         // const rpc_client_hooks = new_rpc_client_hooks();
         // rpc_client_hooks.account.read_account_by_access_key = async ({ access_key }) => {
@@ -115,9 +117,12 @@ class NsfsObjectSDK extends ObjectSDK {
         //         return { name };
         //     }
         // };
-
-        const bucketspace = new BucketSpaceFS({ fs_root, iam_dir });
-
+        let bucketspace;
+        if (multi_fs_config_dir) {
+            bucketspace = new BucketSpaceMultiFS({ fs_root, iam_dir, multi_fs_config_dir });
+        } else {
+            bucketspace = new BucketSpaceFS({ fs_root });
+        }
         super({
             rpc_client: null,
             internal_rpc_client: null,
@@ -212,6 +217,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
         const access_key = argv.access_key && new SensitiveString(String(argv.access_key));
         const secret_key = argv.secret_key && new SensitiveString(String(argv.secret_key));
         const iam_dir = argv.iam_dir ? String(argv.iam_dir) : '';
+        const multi_fs_config_dir = argv.multi_fs_config_dir ? String(argv.multi_fs_config_dir) : '';
         const iam_ttl = Number(argv.iam_ttl ?? 60);
         const backend = argv.backend || (process.env.GPFS_DL_PATH ? 'GPFS' : '');
         const versioning = argv.versioning || 'DISABLED';
@@ -261,6 +267,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
             gid,
             iam_dir,
             iam_ttl,
+            multi_fs_config_dir,
         });
 
         const endpoint = require('../endpoint/endpoint');
@@ -271,7 +278,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
             metrics_port,
             forks,
             init_request_sdk: (req, res) => {
-                req.object_sdk = new NsfsObjectSDK(fs_root, fs_config, account, versioning, iam_dir);
+                req.object_sdk = new NsfsObjectSDK(fs_root, fs_config, account, versioning, iam_dir, multi_fs_config_dir);
             }
         });
 

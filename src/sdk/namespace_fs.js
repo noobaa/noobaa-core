@@ -1314,7 +1314,7 @@ class NamespaceFS {
      */
     _get_object_info(bucket, key, stat, fs_xattr) {
         const etag = this._get_etag(stat, fs_xattr);
-        const content_type = fs_xattr[XATTR_CONTENT_TYPE] || mime.getType(key) || 'application/octet-stream';
+        const content_type = (fs_xattr && fs_xattr[XATTR_CONTENT_TYPE]) || mime.getType(key) || 'application/octet-stream';
         return {
             obj_id: etag,
             bucket,

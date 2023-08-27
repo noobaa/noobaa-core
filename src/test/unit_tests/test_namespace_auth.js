@@ -5,7 +5,8 @@
 const coretest = require('./coretest');
 const buffer_utils = require('../../util/buffer_utils');
 coretest.setup({ pools_to_create: coretest.POOL_LIST });
-const AWS = require('aws-sdk');
+const { S3 } = require('@aws-sdk/client-s3');
+const { NodeHttpHandler } = require("@smithy/node-http-handler");
 const http_utils = require('../../util/http_utils');
 const mocha = require('mocha');
 const assert = require('assert');
@@ -17,6 +18,7 @@ const NAMESPACE_RESOURCE_NAME = 'nsr_auth';
 const NS_BUCKET = 'nsb';
 const BODY = "THE_MAJESTIC_SLOTH";
 const FKEY = 'ns_auth_file';
+const config = require('../../../config');
 
 mocha.describe('Namespace Auth', function() {
 
@@ -26,16 +28,17 @@ mocha.describe('Namespace Auth', function() {
         self.timeout(60000);
 
         const account_info = await rpc_client.account.read_account({ email: EMAIL, });
-        s3 = new AWS.S3({
+        s3 = new S3({
             endpoint: coretest.get_http_address(),
-            accessKeyId: account_info.access_keys[0].access_key.unwrap(),
-            secretAccessKey: account_info.access_keys[0].secret_key.unwrap(),
-            s3ForcePathStyle: true,
-            signatureVersion: 'v4',
-            computeChecksums: true,
-            s3DisableBodySigning: false,
-            region: 'us-east-1',
-            httpOptions: { agent: http_utils.get_unsecured_agent(coretest.get_http_address()) },
+            credentials: {
+                accessKeyId: account_info.access_keys[0].access_key.unwrap(),
+                secretAccessKey: account_info.access_keys[0].secret_key.unwrap(),
+            },
+            forcePathStyle: true,
+            region: config.DEFAULT_REGION,
+            requestHandler: new NodeHttpHandler({
+                httpAgent: http_utils.get_unsecured_agent(coretest.get_http_address())
+            }),
         });
         coretest.log('S3 CONFIG', s3.config);
         const nsr = { resource: NAMESPACE_RESOURCE_NAME };
@@ -57,11 +60,11 @@ mocha.describe('Namespace Auth', function() {
     });
 
     mocha.it('Put object', async function() {
-        await s3.putObject({ Bucket: NS_BUCKET, Key: FKEY, Body: BODY }).promise();
+        await s3.putObject({ Bucket: NS_BUCKET, Key: FKEY, Body: BODY });
     });
 
     mocha.it('Get object', async function() {
-        await s3.getObject({ Bucket: NS_BUCKET, Key: FKEY }).promise();
+        await s3.getObject({ Bucket: NS_BUCKET, Key: FKEY });
     });
 
     mocha.it('Get object without auth', async function() {

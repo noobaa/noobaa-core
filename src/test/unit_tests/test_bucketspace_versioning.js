@@ -1,13 +1,15 @@
 /* Copyright (C) 2020 NooBaa */
 /* eslint-disable max-lines-per-function */
-/*eslint max-lines: ["error",3100]*/
+/*eslint max-lines: ["error",3200]*/
 'use strict';
 
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const mocha = require('mocha');
-const AWS = require('aws-sdk');
+const { S3 } = require('@aws-sdk/client-s3');
+const { NodeHttpHandler } = require("@smithy/node-http-handler");
+const config = require('../../../config');
 const assert = require('assert');
 const coretest = require('./coretest');
 const { rpc_client, EMAIL } = coretest;
@@ -130,17 +132,17 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
         await s3_admin.putBucketPolicy({
             Bucket: bucket_name,
             Policy: JSON.stringify(policy)
-        }).promise();
+        });
 
         await s3_admin.putBucketPolicy({
             Bucket: disabled_bucket_name,
             Policy: JSON.stringify(policy)
-        }).promise();
+        });
 
         await s3_admin.putBucketPolicy({
             Bucket: suspended_bucket_name,
             Policy: JSON.stringify(policy)
-        }).promise();
+        });
 
         res = await generate_nsfs_account({ uid: 5, gid: 5 });
         s3_uid5 = generate_s3_client(res.access_key, res.secret_key);
@@ -160,63 +162,63 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
 
     mocha.describe('put/get versioning', function() {
         mocha.it('put object - versioning disabled - to be enabled', async function() {
-            await s3_uid6.putObject({ Bucket: bucket_name, Key: disabled_key, Body: body1 }).promise();
+            await s3_uid6.putObject({ Bucket: bucket_name, Key: disabled_key, Body: body1 });
         });
 
         mocha.it('put object - versioning disabled - to be suspended', async function() {
-            await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: disabled_key, Body: body1 }).promise();
-            await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: disabled_key2, Body: body1 }).promise();
+            await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: disabled_key, Body: body1 });
+            await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: disabled_key2, Body: body1 });
         });
 
         mocha.it('put object - versioning disabled bucket', async function() {
-            await s3_uid6.putObject({ Bucket: disabled_bucket_name, Key: disabled_key, Body: body1 }).promise();
+            await s3_uid6.putObject({ Bucket: disabled_bucket_name, Key: disabled_key, Body: body1 });
         });
 
         mocha.it('set bucket versioning - Enabled - should fail - no permissions', async function() {
             try {
-                await s3_uid5.putBucketVersioning({ Bucket: bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
+                await s3_uid5.putBucketVersioning({ Bucket: bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
                 assert.fail(`put bucket versioning succeeded for account without permissions`);
             } catch (err) {
-                assert.equal(err.code, 'AccessDenied');
+                assert.equal(err.Code, 'AccessDenied');
             }
         });
 
         mocha.it('set bucket versioning - Enabled - admin - should fail - no permissions', async function() {
             try {
-                await s3_admin.putBucketVersioning({ Bucket: bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
+                await s3_admin.putBucketVersioning({ Bucket: bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
                 assert.fail(`put bucket versioning succeeded for account without permissions`);
             } catch (err) {
-                assert.equal(err.code, 'AccessDenied');
+                assert.equal(err.Code, 'AccessDenied');
             }
         });
 
         mocha.it('set bucket versioning - Enabled', async function() {
-            await s3_uid6.putBucketVersioning({ Bucket: bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
-            const res = await s3_uid6.getBucketVersioning({ Bucket: bucket_name }).promise();
+            await s3_uid6.putBucketVersioning({ Bucket: bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
+            const res = await s3_uid6.getBucketVersioning({ Bucket: bucket_name });
             assert.equal(res.Status, 'Enabled');
         });
 
         mocha.it('set bucket versioning - Suspended - should fail - no permissions', async function() {
             try {
-                await s3_uid5.putBucketVersioning({ Bucket: suspended_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
+                await s3_uid5.putBucketVersioning({ Bucket: suspended_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } });
                 assert.fail(`put bucket versioning succeeded for account without permissions`);
             } catch (err) {
-                assert.equal(err.code, 'AccessDenied');
+                assert.equal(err.Code, 'AccessDenied');
             }
          });
 
         mocha.it('set bucket versioning - Suspended - admin - should fail - no permissions', async function() {
             try {
-                await s3_admin.putBucketVersioning({ Bucket: suspended_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
+                await s3_admin.putBucketVersioning({ Bucket: suspended_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } });
                 assert.fail(`put bucket versioning succeeded for account without permissions`);
             } catch (err) {
-                assert.equal(err.code, 'AccessDenied');
+                assert.equal(err.Code, 'AccessDenied');
             }
         });
 
         mocha.it('set bucket versioning - Suspended', async function() {
-            await s3_uid6.putBucketVersioning({ Bucket: suspended_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
-            const res = await s3_uid6.getBucketVersioning({ Bucket: suspended_bucket_name }).promise();
+            await s3_uid6.putBucketVersioning({ Bucket: suspended_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } });
+            const res = await s3_uid6.getBucketVersioning({ Bucket: suspended_bucket_name });
             assert.equal(res.Status, 'Suspended');
         });
     });
@@ -226,7 +228,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
         mocha.describe('put object', function() {
 
             mocha.it('put object 1st time - no existing objects in bucket', async function() {
-                const res = await s3_uid6.putObject({ Bucket: bucket_name, Key: key1, Body: body1 }).promise();
+                const res = await s3_uid6.putObject({ Bucket: bucket_name, Key: key1, Body: body1 });
                 const comp_res = await compare_version_ids(full_path, key1, res.VersionId);
                 assert.ok(comp_res);
                 await fs_utils.file_must_not_exist(versions_path);
@@ -235,7 +237,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
 
             mocha.it('put object 2nd time - versioning enabled', async function() {
                 const prev_version_id = await stat_and_get_version_id(full_path, key1);
-                const res = await s3_uid6.putObject({ Bucket: bucket_name, Key: key1, Body: body2 }).promise();
+                const res = await s3_uid6.putObject({ Bucket: bucket_name, Key: key1, Body: body2 });
                 const comp_res = await compare_version_ids(full_path, key1, res.VersionId, prev_version_id);
                 assert.ok(comp_res);
                 const exist = await version_file_exists(full_path, key1, '', prev_version_id);
@@ -245,7 +247,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
 
             mocha.it('put object 2nd time - versioning enabled - disabled key', async function() {
                 const prev_version_id = await stat_and_get_version_id(full_path, disabled_key);
-                const res = await s3_uid6.putObject({ Bucket: bucket_name, Key: disabled_key, Body: body2 }).promise();
+                const res = await s3_uid6.putObject({ Bucket: bucket_name, Key: disabled_key, Body: body2 });
                 const comp_res = await compare_version_ids(full_path, disabled_key, res.VersionId, prev_version_id);
                 assert.ok(comp_res);
                 const exist = await version_file_exists(full_path, disabled_key, '', 'null');
@@ -254,7 +256,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
 
             mocha.it('put object 3rd time - versioning enabled - disabled key', async function() {
                 const prev_version_id = await stat_and_get_version_id(full_path, disabled_key);
-                const res = await s3_uid6.putObject({ Bucket: bucket_name, Key: disabled_key, Body: body3 }).promise();
+                const res = await s3_uid6.putObject({ Bucket: bucket_name, Key: disabled_key, Body: body3 });
                 const comp_res = await compare_version_ids(full_path, disabled_key, res.VersionId, prev_version_id);
                 assert.ok(comp_res);
                 let exist = await version_file_exists(full_path, disabled_key, '', prev_version_id);
@@ -263,7 +265,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                 assert.ok(exist);
             });
             mocha.it('put object 1st time - versioning enabled - nested', async function() {
-                const res = await s3_uid6.putObject({ Bucket: bucket_name, Key: nested_key1, Body: body1 }).promise();
+                const res = await s3_uid6.putObject({ Bucket: bucket_name, Key: nested_key1, Body: body1 });
                 await fs_utils.file_must_not_exist(dir1_versions_path);
                 const comp_res = await compare_version_ids(full_path, nested_key1, res.VersionId);
                 assert.ok(comp_res);
@@ -271,7 +273,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
 
             mocha.it('put object 2nd time - versioning enabled - nested', async function() {
                 const prev_version_id = await stat_and_get_version_id(full_path, nested_key1);
-                const res = await s3_uid6.putObject({ Bucket: bucket_name, Key: nested_key1, Body: body2 }).promise();
+                const res = await s3_uid6.putObject({ Bucket: bucket_name, Key: nested_key1, Body: body2 });
                 const comp_res = await compare_version_ids(full_path, nested_key1, res.VersionId, prev_version_id);
                 assert.ok(comp_res);
                 const exist = await version_file_exists(full_path, key1, dir1, prev_version_id);
@@ -281,10 +283,10 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
 
         mocha.describe('mpu object', function() {
             mocha.it('mpu object 1st time - versioning enabled', async function() {
-                const mpu_res = await s3_uid6.createMultipartUpload({ Bucket: bucket_name, Key: mpu_key1 }).promise();
+                const mpu_res = await s3_uid6.createMultipartUpload({ Bucket: bucket_name, Key: mpu_key1 });
                 const upload_id = mpu_res.UploadId;
                 const part1 = await s3_uid6.uploadPart({
-                    Bucket: bucket_name, Key: mpu_key1, Body: body1, UploadId: upload_id, PartNumber: 1 }).promise();
+                    Bucket: bucket_name, Key: mpu_key1, Body: body1, UploadId: upload_id, PartNumber: 1 });
                 const res = await s3_uid6.completeMultipartUpload({
                     Bucket: bucket_name,
                     Key: mpu_key1,
@@ -295,19 +297,19 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                             PartNumber: 1
                         }]
                     }
-                }).promise();
+                });
                 const comp_res = await compare_version_ids(full_path, mpu_key1, res.VersionId);
                 assert.ok(comp_res);
             });
 
             mocha.it('mpu object 2nd time - versioning enabled', async function() {
                 const prev_version_id = await stat_and_get_version_id(full_path, mpu_key1);
-                const mpu_res = await s3_uid6.createMultipartUpload({ Bucket: bucket_name, Key: mpu_key1 }).promise();
+                const mpu_res = await s3_uid6.createMultipartUpload({ Bucket: bucket_name, Key: mpu_key1 });
                 const upload_id = mpu_res.UploadId;
                 const part1 = await s3_uid6.uploadPart({
-                    Bucket: bucket_name, Key: mpu_key1, Body: body1, UploadId: upload_id, PartNumber: 1 }).promise();
+                    Bucket: bucket_name, Key: mpu_key1, Body: body1, UploadId: upload_id, PartNumber: 1 });
                 const part2 = await s3_uid6.uploadPart({
-                    Bucket: bucket_name, Key: mpu_key1, Body: body2, UploadId: upload_id, PartNumber: 2 }).promise();
+                    Bucket: bucket_name, Key: mpu_key1, Body: body2, UploadId: upload_id, PartNumber: 2 });
                 const res = await s3_uid6.completeMultipartUpload({
                     Bucket: bucket_name,
                     Key: mpu_key1,
@@ -322,7 +324,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                             PartNumber: 2
                         }]
                     }
-                }).promise();
+                });
                 const comp_res = await compare_version_ids(full_path, mpu_key1, res.VersionId, prev_version_id);
                 assert.ok(comp_res);
                 const exist = await version_file_exists(full_path, mpu_key1, '', prev_version_id);
@@ -342,13 +344,13 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
 
         // It was already set to Suspended in previous test (just to be on the safe side)
         mocha.before('set bucket versioning - Suspended', async function() {
-            await s3_uid6.putBucketVersioning({ Bucket: suspended_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
+            await s3_uid6.putBucketVersioning({ Bucket: suspended_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } });
         });
 
         mocha.describe('put object', function() {
 
             mocha.it('put object 1st time - versioning suspended', async function() {
-                const res = await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: key2, Body: body1 }).promise();
+                const res = await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: key2, Body: body1 });
                 const comp_res = await compare_version_ids(suspended_full_path, key2, res.VersionId, undefined, is_enabled);
                 assert.ok(comp_res);
                 const exist = await fs_utils.file_not_exists(suspended_versions_path);
@@ -356,7 +358,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             });
 
             mocha.it('put object 2nd time - versioning suspended', async function() {
-                const res = await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: key2, Body: body2 }).promise();
+                const res = await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: key2, Body: body2 });
                 const comp_res = await compare_version_ids(suspended_full_path, key2, res.VersionId, undefined, is_enabled);
                 assert.ok(comp_res);
                 const exist = await fs_utils.file_not_exists(suspended_versions_path);
@@ -364,7 +366,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             });
 
             mocha.it('put object 2nd time - versioning suspended - disabled key', async function() {
-                const res = await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: disabled_key, Body: body2 }).promise();
+                const res = await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: disabled_key, Body: body2 });
                 const comp_res = await compare_version_ids(suspended_full_path, disabled_key, res.VersionId, undefined, is_enabled);
                 assert.ok(comp_res);
                 const exist = await fs_utils.file_not_exists(suspended_versions_path);
@@ -372,7 +374,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             });
 
             mocha.it('put object 1st time - versioning suspended - nested', async function() {
-                const res = await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: nested_key1, Body: body1 }).promise();
+                const res = await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: nested_key1, Body: body1 });
                 const exist = await fs_utils.file_not_exists(suspended_dir1_versions_path);
                 assert.ok(exist);
                 const comp_res = await compare_version_ids(suspended_full_path, nested_key1, res.VersionId, undefined, is_enabled);
@@ -380,7 +382,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             });
 
             mocha.it('put object 2nd time - versioning suspended - nested', async function() {
-                const res = await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: nested_key1, Body: body2 }).promise();
+                const res = await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: nested_key1, Body: body2 });
                 const exist = await fs_utils.file_not_exists(suspended_dir1_versions_path);
                 assert.ok(exist);
                 const comp_res = await compare_version_ids(suspended_full_path, nested_key1, res.VersionId, undefined, is_enabled);
@@ -392,10 +394,10 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
         mocha.describe('mpu object', function() {
 
             mocha.it('mpu object 1st time - versioning suspended', async function() {
-                const mpu_res = await s3_uid6.createMultipartUpload({ Bucket: suspended_bucket_name, Key: mpu_key1 }).promise();
+                const mpu_res = await s3_uid6.createMultipartUpload({ Bucket: suspended_bucket_name, Key: mpu_key1 });
                 const upload_id = mpu_res.UploadId;
                 const part1 = await s3_uid6.uploadPart({
-                    Bucket: suspended_bucket_name, Key: mpu_key1, Body: body1, UploadId: upload_id, PartNumber: 1 }).promise();
+                    Bucket: suspended_bucket_name, Key: mpu_key1, Body: body1, UploadId: upload_id, PartNumber: 1 });
                 const res = await s3_uid6.completeMultipartUpload({
                     Bucket: suspended_bucket_name,
                     Key: mpu_key1,
@@ -406,19 +408,19 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                             PartNumber: 1
                         }]
                     }
-                }).promise();
+                });
                 const comp_res = await compare_version_ids(suspended_full_path, mpu_key1, res.VersionId, undefined, is_enabled);
                 assert.ok(comp_res);
             });
 
             mocha.it('mpu object 2nd time - versioning suspended', async function() {
                 const prev_version_id = await stat_and_get_version_id(suspended_full_path, mpu_key1);
-                const mpu_res = await s3_uid6.createMultipartUpload({ Bucket: suspended_bucket_name, Key: mpu_key1 }).promise();
+                const mpu_res = await s3_uid6.createMultipartUpload({ Bucket: suspended_bucket_name, Key: mpu_key1 });
                 const upload_id = mpu_res.UploadId;
                 const part1 = await s3_uid6.uploadPart({
-                    Bucket: suspended_bucket_name, Key: mpu_key1, Body: body1, UploadId: upload_id, PartNumber: 1 }).promise();
+                    Bucket: suspended_bucket_name, Key: mpu_key1, Body: body1, UploadId: upload_id, PartNumber: 1 });
                 const part2 = await s3_uid6.uploadPart({
-                    Bucket: suspended_bucket_name, Key: mpu_key1, Body: body2, UploadId: upload_id, PartNumber: 2 }).promise();
+                    Bucket: suspended_bucket_name, Key: mpu_key1, Body: body2, UploadId: upload_id, PartNumber: 2 });
                 const res = await s3_uid6.completeMultipartUpload({
                     Bucket: suspended_bucket_name,
                     Key: mpu_key1,
@@ -433,7 +435,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                             PartNumber: 2
                         }]
                     }
-                }).promise();
+                });
                 const comp_res = await compare_version_ids(suspended_full_path, mpu_key1, res.VersionId, prev_version_id, is_enabled);
                 assert.ok(comp_res);
                 const exist = await version_file_must_not_exists(suspended_full_path, mpu_key1, '', prev_version_id);
@@ -445,19 +447,19 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
     mocha.describe('put object - versioning suspended - should have only one null version ID', function() {
 
         mocha.before('put object 2nd time - versioning enabled', async function() {
-            await s3_uid6.putBucketVersioning({ Bucket: suspended_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
-            await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: disabled_key2, Body: body2 }).promise();
+            await s3_uid6.putBucketVersioning({ Bucket: suspended_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
+            await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: disabled_key2, Body: body2 });
         });
 
         // Start with null version ID in .versions/ directory (this version that was created when versioning was disabled)
         // and unique version ID as latest version (this version that was created when versioning was enabled).
         mocha.it('put object 3rd time - versioning suspended', async function() {
-            await s3_uid6.putBucketVersioning({ Bucket: suspended_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
+            await s3_uid6.putBucketVersioning({ Bucket: suspended_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } });
             const is_enabled = false;
             let exist = await version_file_exists(suspended_full_path, disabled_key2, '', 'null');
             assert.ok(exist);
             const prev_version_id = await stat_and_get_version_id(suspended_full_path, disabled_key2);
-            const res = await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: disabled_key2, Body: body3 }).promise();
+            const res = await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: disabled_key2, Body: body3 });
             const comp_res = await compare_version_ids(suspended_full_path, disabled_key2, res.VersionId, prev_version_id, is_enabled);
             assert.ok(comp_res);
             // unique version ID should move to .versions/ directory
@@ -473,9 +475,9 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
         const key2 = 'soda.txt';
 
         mocha.before('put object - versioning enabled', async function() {
-            await s3_uid6.putBucketVersioning({ Bucket: suspended_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
-            await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: key2, Body: body1 }).promise();
-            await s3_uid6.putBucketVersioning({ Bucket: suspended_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
+            await s3_uid6.putBucketVersioning({ Bucket: suspended_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
+            await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: key2, Body: body1 });
+            await s3_uid6.putBucketVersioning({ Bucket: suspended_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } });
         });
 
         mocha.it('put object 2nd time - versioning suspended', async function() {
@@ -483,7 +485,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             const prev_version_id = await stat_and_get_version_id(suspended_full_path, key2);
             const comp_prev = check_enable_version_format(prev_version_id);
             assert.ok(comp_prev);
-            const res = await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: key2, Body: body2 }).promise();
+            const res = await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: key2, Body: body2 });
             const comp_res = await compare_version_ids(suspended_full_path, key2, res.VersionId, prev_version_id, is_enabled);
             assert.ok(comp_res);
             // unique version ID should move to .versions/ directory
@@ -496,7 +498,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             const prev_version_id = await stat_and_get_version_id(suspended_full_path, key2);
             const comp_prev = check_null_version_id(prev_version_id);
             assert.ok(comp_prev);
-            const res = await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: key2, Body: body3 }).promise();
+            const res = await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: key2, Body: body3 });
             const comp_res = await compare_version_ids(suspended_full_path, key2, res.VersionId, prev_version_id, is_enabled);
             assert.ok(comp_res);
             // the new version is with a null version ID (the previous was overridden)
@@ -508,14 +510,14 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
     mocha.describe('copy object - versioning enabled - nsfs copy fallback flow', function() {
 
         mocha.it('copy object - target bucket versioning enabled - 1st', async function() {
-            const res = await s3_uid6.copyObject({ Bucket: bucket_name, Key: copied_key1, CopySource: `${bucket_name}/${key1}` }).promise();
+            const res = await s3_uid6.copyObject({ Bucket: bucket_name, Key: copied_key1, CopySource: `${bucket_name}/${key1}` });
             const comp_res = await compare_version_ids(full_path, copied_key1, res.VersionId);
             assert.ok(comp_res);
         });
 
         mocha.it('copy object - target bucket versioning enabled - 2nd', async function() {
             const prev_version_id = await stat_and_get_version_id(full_path, copied_key1);
-            const res = await s3_uid6.copyObject({ Bucket: bucket_name, Key: copied_key1, CopySource: `${bucket_name}/${key1}` }).promise();
+            const res = await s3_uid6.copyObject({ Bucket: bucket_name, Key: copied_key1, CopySource: `${bucket_name}/${key1}` });
             const comp_res = await compare_version_ids(full_path, copied_key1, res.VersionId, prev_version_id);
             assert.ok(comp_res);
             const exist = await version_file_exists(full_path, copied_key1, '', prev_version_id);
@@ -525,7 +527,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
         mocha.it('copy object latest - source bucket versioning enabled', async function() {
             const key = 'copied_key2.txt';
             const res = await s3_uid6.copyObject({ Bucket: bucket_name, Key: key,
-                CopySource: `${bucket_name}/${key1}`}).promise();
+                CopySource: `${bucket_name}/${key1}`});
             const body_comp_res = await get_obj_and_compare_data(s3_uid6, bucket_name, key, body2);
             assert.ok(body_comp_res);
             const comp_res = await compare_version_ids(full_path, key, res.VersionId);
@@ -537,17 +539,17 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             const non_exist_version = 'mtime-dsbfjb-ino-sjfhjsa';
             try {
                 await s3_uid6.copyObject({ Bucket: bucket_name, Key: key,
-                    CopySource: `${bucket_name}/${key1}?versionId=${non_exist_version}`}).promise();
+                    CopySource: `${bucket_name}/${key1}?versionId=${non_exist_version}`});
                 assert.fail('copy non existing version should have failed');
             } catch (err) {
-                assert.equal(err.code, 'NoSuchKey');
+                assert.equal(err.Code, 'NoSuchKey');
             }
         });
 
         mocha.it('copy object latest & versionId - source bucket versioning enabled', async function() {
             const key = 'copied_key3.txt';
             const res = await s3_uid6.copyObject({ Bucket: bucket_name, Key: key,
-                CopySource: `${bucket_name}/${key1}?versionId=${key1_cur_ver}`}).promise();
+                CopySource: `${bucket_name}/${key1}?versionId=${key1_cur_ver}`});
             const body_comp_res = await get_obj_and_compare_data(s3_uid6, bucket_name, key, body2);
             assert.ok(body_comp_res);
             const comp_res = await compare_version_ids(full_path, key, res.VersionId);
@@ -557,7 +559,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
         mocha.it('copy object version id - source bucket versioning enabled', async function() {
             const key = 'copied_key4.txt';
             const res = await s3_uid6.copyObject({ Bucket: bucket_name, Key: key,
-                CopySource: `${bucket_name}/${key1}?versionId=${key1_ver1}`}).promise();
+                CopySource: `${bucket_name}/${key1}?versionId=${key1_ver1}`});
             const body_comp_res = await get_obj_and_compare_data(s3_uid6, bucket_name, key, body1);
             assert.ok(body_comp_res);
             const comp_res = await compare_version_ids(full_path, key, res.VersionId);
@@ -566,7 +568,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
 
         mocha.it('copy object version null - version is in .versions/', async function() {
             const res = await s3_uid6.copyObject({ Bucket: bucket_name, Key: copied_key5,
-                CopySource: `${bucket_name}/${disabled_key}?versionId=null`}).promise();
+                CopySource: `${bucket_name}/${disabled_key}?versionId=null`});
             const body_comp_res = await get_obj_and_compare_data(s3_uid6, bucket_name, copied_key5, body1);
             assert.ok(body_comp_res);
             const comp_res = await compare_version_ids(full_path, copied_key5, res.VersionId);
@@ -576,27 +578,27 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
         mocha.it('copy object version null - no version null - should fail', async function() {
             try {
                 await s3_uid6.copyObject({ Bucket: bucket_name, Key: copied_key5,
-                    CopySource: `${bucket_name}/${key1}?versionId=null`}).promise();
+                    CopySource: `${bucket_name}/${key1}?versionId=null`});
                 assert.fail('should have failed');
             } catch (err) {
-                assert.equal(err.code, 'NoSuchKey');
+                assert.equal(err.Code, 'NoSuchKey');
             }
         });
 
         mocha.it('copy object - version does not exist - should fail', async function() {
             try {
                 await s3_uid6.copyObject({ Bucket: bucket_name, Key: copied_key5,
-                    CopySource: `${bucket_name}/${key1}?versionId=mtime-123-ino-123`}).promise();
+                    CopySource: `${bucket_name}/${key1}?versionId=mtime-123-ino-123`});
                 assert.fail('should have failed');
             } catch (err) {
-                assert.equal(err.code, 'NoSuchKey');
+                assert.equal(err.Code, 'NoSuchKey');
             }
         });
 
         mocha.it('copy object version null from disabled bucket - version is in parent', async function() {
             const key = 'copied_key6.txt';
             const res = await s3_uid6.copyObject({ Bucket: bucket_name, Key: key,
-                CopySource: `${disabled_bucket_name}/${disabled_key}?versionId=null`}).promise();
+                CopySource: `${disabled_bucket_name}/${disabled_key}?versionId=null`});
             const body_comp_res = await get_obj_and_compare_data(s3_uid6, bucket_name, key, body1);
             assert.ok(body_comp_res);
             const comp_res = await compare_version_ids(full_path, key, res.VersionId);
@@ -604,15 +606,15 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
         });
 
         mocha.it('set bucket versioning - Enabled', async function() {
-            await s3_uid6.putBucketVersioning({ Bucket: disabled_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
-            const res = await s3_uid6.getBucketVersioning({ Bucket: disabled_bucket_name }).promise();
+            await s3_uid6.putBucketVersioning({ Bucket: disabled_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
+            const res = await s3_uid6.getBucketVersioning({ Bucket: disabled_bucket_name });
             assert.equal(res.Status, 'Enabled');
         });
 
         mocha.it('copy object version null from enabled bucket - version is in parent', async function() {
             const key = 'copied_key7.txt';
             const res = await s3_uid6.copyObject({ Bucket: bucket_name, Key: key,
-                CopySource: `${disabled_bucket_name}/${disabled_key}?versionId=null`}).promise();
+                CopySource: `${disabled_bucket_name}/${disabled_key}?versionId=null`});
             const body_comp_res = await get_obj_and_compare_data(s3_uid6, bucket_name, key, body1);
             assert.ok(body_comp_res);
             const comp_res = await compare_version_ids(full_path, key, res.VersionId);
@@ -621,14 +623,14 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
 
         mocha.it('delete object latest - non existing version', async function() {
             const non_exist_version = 'mtime-dsad-ino-sdfasd';
-            const res = await s3_uid6.deleteObject({ Bucket: bucket_name, Key: disabled_key, VersionId: non_exist_version }).promise();
+            const res = await s3_uid6.deleteObject({ Bucket: bucket_name, Key: disabled_key, VersionId: non_exist_version });
             assert.equal(res.VersionId, non_exist_version);
         });
 
         mocha.it('delete object latest - create dm & move latest -> .versions/', async function() {
             const prev_version_id = await stat_and_get_version_id(full_path, disabled_key);
             const max_version1 = await find_max_version_past(full_path, disabled_key, '');
-            const res = await s3_uid6.deleteObject({ Bucket: bucket_name, Key: disabled_key }).promise();
+            const res = await s3_uid6.deleteObject({ Bucket: bucket_name, Key: disabled_key });
             assert.equal(res.DeleteMarker, true);
 
             await fs_utils.file_must_not_exist(path.join(full_path, disabled_key));
@@ -644,7 +646,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
         mocha.it('delete object - create dm & move latest -> .versions/ - 1st', async function() {
             const prev_version_id = await stat_and_get_version_id(full_path, key1);
             const max_version1 = await find_max_version_past(full_path, key1, '');
-            const res = await s3_uid6.deleteObject({ Bucket: bucket_name, Key: key1 }).promise();
+            const res = await s3_uid6.deleteObject({ Bucket: bucket_name, Key: key1 });
             assert.equal(res.DeleteMarker, true);
 
             await fs_utils.file_must_not_exist(path.join(full_path, key1));
@@ -659,7 +661,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
 
         mocha.it('delete object - create dm & move latest -> .versions/ - 2nd time', async function() {
             const max_version1 = await find_max_version_past(full_path, key1, '');
-            const res = await s3_uid6.deleteObject({ Bucket: bucket_name, Key: key1 }).promise();
+            const res = await s3_uid6.deleteObject({ Bucket: bucket_name, Key: key1 });
             assert.equal(res.DeleteMarker, true);
 
             await fs_utils.file_must_not_exist(path.join(full_path, key1));
@@ -681,13 +683,13 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
 
         // It was already set to Suspended in previous test (just to be on the safe side)
         mocha.before('set bucket versioning - Suspended', async function() {
-            await s3_uid6.putBucketVersioning({ Bucket: suspended_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
-            await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: key_to_copy, Body: body_of_copied_key }).promise();
+            await s3_uid6.putBucketVersioning({ Bucket: suspended_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } });
+            await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: key_to_copy, Body: body_of_copied_key });
         });
 
         mocha.it('copy object - target bucket versioning suspended - 1st', async function() {
             const res = await s3_uid6.copyObject({ Bucket: suspended_bucket_name, Key: copied_key,
-                CopySource: `${suspended_bucket_name}/${key_to_copy}` }).promise();
+                CopySource: `${suspended_bucket_name}/${key_to_copy}` });
             const comp_res = await compare_version_ids(suspended_full_path, copied_key, res.VersionId, undefined, is_enabled);
             assert.ok(comp_res);
         });
@@ -695,7 +697,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
         mocha.it('copy object - target bucket versioning suspended - 2nd', async function() {
             const prev_version_id = await stat_and_get_version_id(suspended_full_path, copied_key);
             const res = await s3_uid6.copyObject({ Bucket: suspended_bucket_name, Key: copied_key,
-                CopySource: `${suspended_bucket_name}/${key_to_copy}` }).promise();
+                CopySource: `${suspended_bucket_name}/${key_to_copy}` });
             const comp_res = await compare_version_ids(suspended_full_path, copied_key, res.VersionId, prev_version_id, is_enabled);
             assert.ok(comp_res);
             const exist = await version_file_must_not_exists(suspended_full_path, copied_key, '', prev_version_id);
@@ -705,7 +707,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
         mocha.it('copy object latest - source bucket versioning suspended', async function() {
             copied_key = 'copied_orange2.txt';
             const res = await s3_uid6.copyObject({ Bucket: suspended_bucket_name, Key: copied_key,
-                CopySource: `${suspended_bucket_name}/${key_to_copy}`}).promise();
+                CopySource: `${suspended_bucket_name}/${key_to_copy}`});
             const body_comp_res = await get_obj_and_compare_data(s3_uid6, suspended_bucket_name, copied_key, body_of_copied_key);
             assert.ok(body_comp_res);
             const comp_res = await compare_version_ids(suspended_full_path, copied_key, res.VersionId, undefined, is_enabled);
@@ -725,23 +727,23 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
         let version_id_to_copy_latest;
 
         mocha.before('set bucket versioning - Enabled and then Suspended', async function() {
-            await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: key_to_copy3, Body: body1 }).promise();
-            await s3_uid6.putBucketVersioning({ Bucket: suspended_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
+            await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: key_to_copy3, Body: body1 });
+            await s3_uid6.putBucketVersioning({ Bucket: suspended_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
             const res_put = await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: key_to_copy,
-                Body: body_of_copied_key }).promise();
+                Body: body_of_copied_key });
             version_id_to_copy = res_put.VersionId;
             const res_put_latest = await s3_uid6.putObject({ Bucket: suspended_bucket_name,
-                Key: key_to_copy, Body: body_of_copied_key_latest }).promise();
+                Key: key_to_copy, Body: body_of_copied_key_latest });
             version_id_to_copy_latest = res_put_latest.VersionId;
-            await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: key_to_copy2, Body: body_of_copied_key }).promise();
-            await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: key_to_copy3, Body: body2 }).promise();
-            await s3_uid6.putBucketVersioning({ Bucket: suspended_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
+            await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: key_to_copy2, Body: body_of_copied_key });
+            await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: key_to_copy3, Body: body2 });
+            await s3_uid6.putBucketVersioning({ Bucket: suspended_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } });
         });
 
         mocha.it('copy object latest & versionId - source bucket versioning suspended', async function() {
             copied_key = 'copied_lemon.txt';
             const res = await s3_uid6.copyObject({ Bucket: suspended_bucket_name, Key: copied_key,
-                CopySource: `${suspended_bucket_name}/${key_to_copy}?versionId=${version_id_to_copy_latest}`}).promise();
+                CopySource: `${suspended_bucket_name}/${key_to_copy}?versionId=${version_id_to_copy_latest}`});
             const body_comp_res = await get_obj_and_compare_data(s3_uid6, suspended_bucket_name, copied_key, body_of_copied_key_latest);
             assert.ok(body_comp_res);
             const comp_res = await compare_version_ids(suspended_full_path, copied_key, res.VersionId, undefined, is_enabled);
@@ -751,7 +753,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
         mocha.it('copy object version id - source bucket versioning suspended', async function() {
             copied_key = 'copied_lemon2.txt';
             const res = await s3_uid6.copyObject({ Bucket: suspended_bucket_name, Key: copied_key,
-                CopySource: `${suspended_bucket_name}/${key_to_copy}?versionId=${version_id_to_copy}`}).promise();
+                CopySource: `${suspended_bucket_name}/${key_to_copy}?versionId=${version_id_to_copy}`});
             const body_comp_res = await get_obj_and_compare_data(s3_uid6, suspended_bucket_name, copied_key, body_of_copied_key);
             assert.ok(body_comp_res);
             const comp_res = await compare_version_ids(suspended_full_path, copied_key, res.VersionId, undefined, is_enabled);
@@ -762,10 +764,10 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             copied_key = 'copied_lime.txt';
             try {
                 await s3_uid6.copyObject({ Bucket: suspended_bucket_name, Key: copied_key,
-                    CopySource: `${suspended_bucket_name}/${key_to_copy2}?versionId=null`}).promise();
+                    CopySource: `${suspended_bucket_name}/${key_to_copy2}?versionId=null`});
                 assert.fail('should have failed');
             } catch (err) {
-                assert.equal(err.code, 'NoSuchKey');
+                assert.equal(err.Code, 'NoSuchKey');
             }
         });
 
@@ -773,17 +775,17 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             copied_key = 'copied_lime2.txt';
             try {
                 await s3_uid6.copyObject({ Bucket: suspended_bucket_name, Key: copied_key,
-                    CopySource: `${suspended_bucket_name}/${key_to_copy2}?versionId=mtime-123-ino-123`}).promise();
+                    CopySource: `${suspended_bucket_name}/${key_to_copy2}?versionId=mtime-123-ino-123`});
                 assert.fail('should have failed');
             } catch (err) {
-                assert.equal(err.code, 'NoSuchKey');
+                assert.equal(err.Code, 'NoSuchKey');
             }
         });
 
         mocha.it('copy object version null - version is in .versions/ - versioning suspended', async function() {
             copied_key = 'copied_avocado.txt';
             const res = await s3_uid6.copyObject({ Bucket: suspended_bucket_name, Key: copied_key,
-                CopySource: `${suspended_bucket_name}/${key_to_copy3}?versionId=null`}).promise();
+                CopySource: `${suspended_bucket_name}/${key_to_copy3}?versionId=null`});
             const body_comp_res = await get_obj_and_compare_data(s3_uid6, suspended_bucket_name, copied_key, body1);
             assert.ok(body_comp_res);
             const comp_res = await compare_version_ids(suspended_full_path, copied_key, res.VersionId, undefined, is_enabled);
@@ -798,17 +800,17 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
         const key_to_delete3 = 'kiwi.txt';
 
         mocha.before('set bucket versioning - Enabled and then Suspended', async function() {
-            await s3_uid6.putBucketVersioning({ Bucket: suspended_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
-            await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: key_to_delete, Body: body1 }).promise();
-            await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: key_to_delete3, Body: body1 }).promise();
-            await s3_uid6.putBucketVersioning({ Bucket: suspended_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
-            await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: key_to_delete2, Body: body1 }).promise();
+            await s3_uid6.putBucketVersioning({ Bucket: suspended_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
+            await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: key_to_delete, Body: body1 });
+            await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: key_to_delete3, Body: body1 });
+            await s3_uid6.putBucketVersioning({ Bucket: suspended_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } });
+            await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: key_to_delete2, Body: body1 });
         });
 
         mocha.it('delete object latest - create dm & move latest -> .versions/', async function() {
             const prev_version_id = await stat_and_get_version_id(suspended_full_path, key_to_delete);
             const max_version_before_delete = await find_max_version_past(suspended_full_path, key_to_delete, '');
-            const res = await s3_uid6.deleteObject({ Bucket: suspended_bucket_name, Key: key_to_delete }).promise();
+            const res = await s3_uid6.deleteObject({ Bucket: suspended_bucket_name, Key: key_to_delete });
             assert.equal(res.DeleteMarker, true);
 
             let exist = await fs_utils.file_not_exists(path.join(suspended_full_path, key_to_delete));
@@ -824,7 +826,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
 
         mocha.it('delete object - create dm & remove latest', async function() {
             const prev_version_id = await stat_and_get_version_id(suspended_full_path, key_to_delete2);
-            const res = await s3_uid6.deleteObject({ Bucket: suspended_bucket_name, Key: key_to_delete2 }).promise();
+            const res = await s3_uid6.deleteObject({ Bucket: suspended_bucket_name, Key: key_to_delete2 });
             assert.equal(res.DeleteMarker, true);
 
             let exist = await fs_utils.file_not_exists(path.join(suspended_full_path, key_to_delete2));
@@ -839,7 +841,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
 
         mocha.it('delete object latest - non existing key', async function() {
             const non_existing_key = 'non_existing_key.txt';
-            const res = await s3_uid6.deleteObject({ Bucket: suspended_bucket_name, Key: non_existing_key }).promise();
+            const res = await s3_uid6.deleteObject({ Bucket: suspended_bucket_name, Key: non_existing_key });
             assert.equal(res.DeleteMarker, true);
 
             const max_version_after_delete = await find_max_version_past(suspended_full_path, key_to_delete, '');
@@ -849,14 +851,14 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
         });
 
         mocha.it('delete object when the latest is a dm with a unique version ID - should create another dm with null version ID', async function() {
-            await s3_uid6.putBucketVersioning({ Bucket: suspended_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
-            const prev_dm = await s3_uid6.deleteObject({ Bucket: suspended_bucket_name, Key: key_to_delete3 }).promise();
+            await s3_uid6.putBucketVersioning({ Bucket: suspended_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
+            const prev_dm = await s3_uid6.deleteObject({ Bucket: suspended_bucket_name, Key: key_to_delete3 });
             assert.equal(prev_dm.DeleteMarker, true);
             const comp_prev = check_enable_version_format(prev_dm.VersionId);
             assert.ok(comp_prev);
 
-            await s3_uid6.putBucketVersioning({ Bucket: suspended_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
-            const res = await s3_uid6.deleteObject({ Bucket: suspended_bucket_name, Key: key_to_delete3 }).promise();
+            await s3_uid6.putBucketVersioning({ Bucket: suspended_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } });
+            const res = await s3_uid6.deleteObject({ Bucket: suspended_bucket_name, Key: key_to_delete3 });
             assert.equal(res.DeleteMarker, true);
             const comp_cur = check_null_version_id(res.VersionId);
             assert.ok(comp_cur);
@@ -886,17 +888,17 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                 mocha.before(async function() {
                     const res = await generate_nsfs_account({ default_resource: nsr });
                     account_with_access = generate_s3_client(res.access_key, res.secret_key);
-                    await account_with_access.createBucket({ Bucket: delete_object_test_bucket_reg }).promise();
+                    await account_with_access.createBucket({ Bucket: delete_object_test_bucket_reg });
                     await put_allow_all_bucket_policy(s3_admin, delete_object_test_bucket_reg);
-                    await account_with_access.createBucket({ Bucket: delete_object_test_bucket_null }).promise();
+                    await account_with_access.createBucket({ Bucket: delete_object_test_bucket_null });
                     await put_allow_all_bucket_policy(s3_admin, delete_object_test_bucket_null);
-                    await account_with_access.createBucket({ Bucket: delete_object_test_bucket_dm }).promise();
+                    await account_with_access.createBucket({ Bucket: delete_object_test_bucket_dm });
                     await put_allow_all_bucket_policy(s3_admin, delete_object_test_bucket_dm);
                 });
 
             mocha.it('delete version id - fake id - nothing to remove', async function() {
                 const max_version1 = await find_max_version_past(full_path, key1, '');
-                await account_with_access.deleteObject({ Bucket: delete_object_test_bucket_reg, Key: key1, VersionId: 'mtime-123-ino-123'}).promise();
+                await account_with_access.deleteObject({ Bucket: delete_object_test_bucket_reg, Key: key1, VersionId: 'mtime-123-ino-123'});
                 const max_version2 = await find_max_version_past(full_path, key1, '');
                 assert.equal(max_version1, max_version2);
             });
@@ -906,7 +908,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                 const cur_version_id1 = await stat_and_get_version_id(full_delete_path, key1);
 
                 const delete_res = await account_with_access.deleteObject({ Bucket: delete_object_test_bucket_reg,
-                    Key: key1, VersionId: upload_res_arr[1].VersionId }).promise();
+                    Key: key1, VersionId: upload_res_arr[1].VersionId });
                 assert.equal(delete_res.VersionId, cur_version_id1);
 
                 const cur_version_id2 = await stat_and_get_version_id(full_delete_path, key1);
@@ -929,7 +931,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                 assert.ok(is_dm);
 
                 const delete_res = await account_with_access.deleteObject({ Bucket: delete_object_test_bucket_reg,
-                    Key: key1, VersionId: upload_res_arr[2].VersionId }).promise();
+                    Key: key1, VersionId: upload_res_arr[2].VersionId });
                 assert.equal(delete_res.VersionId, cur_version_id1);
                 await fs_utils.file_must_not_exist(path.join(full_delete_path, key1));
                 const max_version1 = await find_max_version_past(full_delete_path, key1, '');
@@ -939,11 +941,11 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
 
             mocha.it('delete object version id - in .versions/', async function() {
                 const put_res = await account_with_access.putObject({
-                    Bucket: delete_object_test_bucket_reg, Key: key1, Body: body1 }).promise();
-                await account_with_access.putObject({ Bucket: delete_object_test_bucket_reg, Key: key1, Body: body1 }).promise();
+                    Bucket: delete_object_test_bucket_reg, Key: key1, Body: body1 });
+                await account_with_access.putObject({ Bucket: delete_object_test_bucket_reg, Key: key1, Body: body1 });
                 const cur_version_id1 = await stat_and_get_version_id(full_delete_path, key1);
                 const delete_res = await account_with_access.deleteObject({ Bucket: delete_object_test_bucket_reg,
-                    Key: key1, VersionId: put_res.VersionId }).promise();
+                    Key: key1, VersionId: put_res.VersionId });
                 assert.equal(put_res.VersionId, delete_res.VersionId);
                 const cur_version_id2 = await stat_and_get_version_id(full_delete_path, key1);
                 assert.equal(cur_version_id1, cur_version_id2);
@@ -956,7 +958,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             mocha.it('delete object version id - latest - no second latest', async function() {
                 const cur_version_id = await stat_and_get_version_id(full_delete_path, key1);
                 await account_with_access.deleteObject({ Bucket: delete_object_test_bucket_reg,
-                    Key: key1, VersionId: cur_version_id }).promise();
+                    Key: key1, VersionId: cur_version_id });
                 await fs_utils.file_must_not_exist(path.join(full_delete_path, key1 + '_' + cur_version_id));
                 const max_version1 = await find_max_version_past(full_delete_path, key1, '');
                 assert.equal(max_version1, undefined);
@@ -969,7 +971,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                 assert.equal(cur_version_id1, upload_res_arr[2].VersionId);
 
                 const delete_res = await account_with_access.deleteObject({ Bucket: delete_object_test_bucket_reg,
-                    Key: key1, VersionId: upload_res_arr[1].VersionId }).promise();
+                    Key: key1, VersionId: upload_res_arr[1].VersionId });
                 assert.equal(upload_res_arr[1].VersionId, delete_res.VersionId);
                 const cur_version_id2 = await stat_and_get_version_id(full_delete_path, key1);
                 assert.equal(cur_version_id1, cur_version_id2);
@@ -988,7 +990,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                 assert.equal(latest_dm_version_id1, upload_res_arr[2].VersionId);
 
                 const delete_res = await account_with_access.deleteObject({ Bucket: delete_object_test_bucket_reg,
-                    Key: key1, VersionId: upload_res_arr[1].VersionId }).promise();
+                    Key: key1, VersionId: upload_res_arr[1].VersionId });
                 assert.equal(upload_res_arr[1].VersionId, delete_res.VersionId);
 
                 await fs_utils.file_must_not_exist(path.join(full_delete_path, key1));
@@ -1004,7 +1006,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                 const cur_version_id1 = await stat_and_get_version_id(full_delete_path, key1);
 
                 await account_with_access.deleteObject({ Bucket: delete_object_test_bucket_reg,
-                    Key: key1, VersionId: upload_res_arr[1].VersionId }).promise();
+                    Key: key1, VersionId: upload_res_arr[1].VersionId });
 
                 const cur_version_id2 = await stat_and_get_version_id(full_delete_path, key1);
 
@@ -1023,7 +1025,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                 assert.equal(cur_version_id1, 'null');
 
                 await account_with_access.deleteObject({ Bucket: delete_object_test_bucket_null,
-                    Key: key1, VersionId: 'null' }).promise();
+                    Key: key1, VersionId: 'null' });
 
                 await fs_utils.file_must_not_exist(path.join(full_delete_path_null, key1));
                 const max_version1 = await find_max_version_past(full_delete_path_null, key1, '');
@@ -1039,7 +1041,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                 assert.equal(cur_version_id1, upload_res_arr[1].VersionId);
 
                 await account_with_access.deleteObject({ Bucket: delete_object_test_bucket_null,
-                    Key: key1, VersionId: 'null' }).promise();
+                    Key: key1, VersionId: 'null' });
 
                 const max_version1 = await find_max_version_past(full_delete_path_null, key1, '');
                 assert.equal(max_version1, undefined);
@@ -1056,7 +1058,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                 const second_max_version1 = await find_max_version_past(full_delete_path_dm, key1, '', [max_version]);
 
                 const delete_res = await account_with_access.deleteObject({ Bucket: delete_object_test_bucket_dm,
-                    Key: key1, VersionId: max_version }).promise();
+                    Key: key1, VersionId: max_version });
 
                 assert.equal(delete_res.DeleteMarker, true);
                 assert.equal(delete_res.VersionId, max_version);
@@ -1078,7 +1080,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                 const second_max_version1 = await find_max_version_past(full_delete_path_dm, key1, '', [max_version]);
 
                 const delete_res = await account_with_access.deleteObject({ Bucket: delete_object_test_bucket_dm,
-                    Key: key1, VersionId: second_max_version1 }).promise();
+                    Key: key1, VersionId: second_max_version1 });
 
                 assert.equal(delete_res.DeleteMarker, true);
                 assert.equal(delete_res.VersionId, second_max_version1);
@@ -1098,7 +1100,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                 const second_max_version1 = await find_max_version_past(full_delete_path_dm, key1, '', [max_version]);
 
                 await account_with_access.deleteObject({ Bucket: delete_object_test_bucket_dm,
-                    Key: key1, VersionId: max_version }).promise();
+                    Key: key1, VersionId: max_version });
 
                 await fs_utils.file_must_not_exist(path.join(full_delete_path_dm, key1));
                 await version_file_exists(full_delete_path_dm, key1, '', second_max_version1);
@@ -1115,7 +1117,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                 const second_max_version1 = await find_max_version_past(full_delete_path_dm, key1, '', [max_version]);
 
                 await account_with_access.deleteObject({ Bucket: delete_object_test_bucket_dm,
-                    Key: key1, VersionId: max_version }).promise();
+                    Key: key1, VersionId: max_version });
 
                 await fs_utils.file_must_exist(path.join(full_delete_path_dm, key1));
                 await version_file_must_not_exists(full_delete_path_dm, key1, '', second_max_version1);
@@ -1133,7 +1135,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                 assert.equal(put_res[0].VersionId, max_version);
 
                 await account_with_access.deleteObject({ Bucket: delete_object_test_bucket_dm,
-                    Key: key1, VersionId: max_version }).promise();
+                    Key: key1, VersionId: max_version });
 
                 await fs_utils.file_must_not_exist(path.join(full_delete_path_dm, key1));
                 await version_file_must_not_exists(full_delete_path_dm, key1, '', max_version);
@@ -1149,7 +1151,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                 const second_max_version1 = await find_max_version_past(full_delete_path_dm, key1, '', [max_version]);
 
                 await account_with_access.deleteObject({ Bucket: delete_object_test_bucket_dm,
-                    Key: key1, VersionId: max_version }).promise();
+                    Key: key1, VersionId: max_version });
 
                 await fs_utils.file_must_exist(path.join(full_delete_path_dm, key1));
                 const ltst_version_id2 = await stat_and_get_version_id(full_delete_path_dm, key1);
@@ -1168,7 +1170,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                 const latest_dm1 = await find_max_version_past(full_delete_path_dm, key1, '');
 
                 await account_with_access.deleteObject({ Bucket: delete_object_test_bucket_dm,
-                    Key: key1, VersionId: put_res[1].VersionId }).promise();
+                    Key: key1, VersionId: put_res[1].VersionId });
 
                 await fs_utils.file_must_not_exist(path.join(full_delete_path_dm, key1));
                 const latest_dm2 = await find_max_version_past(full_delete_path_dm, key1, '');
@@ -1195,11 +1197,11 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
         mocha.before(async function() {
             const res = await generate_nsfs_account({ default_resource: nsr });
             account_with_access = generate_s3_client(res.access_key, res.secret_key);
-            await account_with_access.createBucket({ Bucket: delete_object_test_bucket_reg }).promise();
+            await account_with_access.createBucket({ Bucket: delete_object_test_bucket_reg });
             await put_allow_all_bucket_policy(s3_admin, delete_object_test_bucket_reg);
-            await account_with_access.createBucket({ Bucket: delete_object_test_bucket_null }).promise();
+            await account_with_access.createBucket({ Bucket: delete_object_test_bucket_null });
             await put_allow_all_bucket_policy(s3_admin, delete_object_test_bucket_null);
-            await account_with_access.createBucket({ Bucket: delete_object_test_bucket_dm }).promise();
+            await account_with_access.createBucket({ Bucket: delete_object_test_bucket_dm });
             await put_allow_all_bucket_policy(s3_admin, delete_object_test_bucket_dm);
         });
 
@@ -1208,18 +1210,18 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             mocha.it('delete version id - fake id - nothing to remove - bucket will be suspended', async function() {
                 const max_version1 = await find_max_version_past(full_delete_path, key1, '');
                 assert.equal(max_version1, undefined);
-                await account_with_access.deleteObject({ Bucket: delete_object_test_bucket_reg, Key: key1, VersionId: 'mtime-123-ino-123'}).promise();
+                await account_with_access.deleteObject({ Bucket: delete_object_test_bucket_reg, Key: key1, VersionId: 'mtime-123-ino-123'});
                 const max_version2 = await find_max_version_past(full_delete_path, key1, '');
                 assert.equal(max_version2, undefined);
             });
 
             mocha.it('delete object version id - latest - second latest is null version - versioning suspended', async function() {
                 const upload_res_arr = await upload_object_versions(account_with_access, delete_object_test_bucket_reg, key1, ['null', 'regular']);
-                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_reg, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
+                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_reg, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } });
                 const cur_version_id1 = await stat_and_get_version_id(full_delete_path, key1);
 
                 const delete_res = await account_with_access.deleteObject({ Bucket: delete_object_test_bucket_reg,
-                    Key: key1, VersionId: upload_res_arr[1].VersionId }).promise();
+                    Key: key1, VersionId: upload_res_arr[1].VersionId });
                 assert.equal(delete_res.VersionId, cur_version_id1);
 
                 const cur_version_id2 = await stat_and_get_version_id(full_delete_path, key1);
@@ -1230,12 +1232,12 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                 const max_version1 = await find_max_version_past(full_delete_path, key1, '');
                 assert.equal(max_version1, undefined);
                 await delete_object_versions(full_delete_path, key1);
-                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_reg, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
+                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_reg, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
             });
 
             mocha.it('delete object version id - latest - second latest is delete marker version - versioning suspended', async function() {
                 const upload_res_arr = await upload_object_versions(account_with_access, delete_object_test_bucket_reg, key1, ['regular', 'delete_marker', 'regular']);
-                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_reg, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
+                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_reg, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } });
                 const max_version0 = await find_max_version_past(full_delete_path, key1, '');
 
                 const cur_version_id1 = await stat_and_get_version_id(full_delete_path, key1);
@@ -1246,25 +1248,25 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                 assert.ok(is_dm);
 
                 const delete_res = await account_with_access.deleteObject({ Bucket: delete_object_test_bucket_reg,
-                    Key: key1, VersionId: upload_res_arr[2].VersionId }).promise();
+                    Key: key1, VersionId: upload_res_arr[2].VersionId });
                 assert.equal(delete_res.VersionId, cur_version_id1);
                 const exist = await fs_utils.file_not_exists(path.join(full_delete_path, key1));
                 assert.ok(exist);
                 const max_version1 = await find_max_version_past(full_delete_path, key1, '');
                 assert.equal(max_version1, max_version0);
                 await delete_object_versions(full_delete_path, key1);
-                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_reg, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
+                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_reg, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
             });
 
             mocha.it('delete object version id - in .versions/ - versioning suspended', async function() {
                 const put_res = await account_with_access.putObject({
-                    Bucket: delete_object_test_bucket_reg, Key: key1, Body: body1 }).promise();
-                await account_with_access.putObject({ Bucket: delete_object_test_bucket_reg, Key: key1, Body: body1 }).promise();
+                    Bucket: delete_object_test_bucket_reg, Key: key1, Body: body1 });
+                await account_with_access.putObject({ Bucket: delete_object_test_bucket_reg, Key: key1, Body: body1 });
                 const cur_version_id1 = await stat_and_get_version_id(full_delete_path, key1);
-                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_reg, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
+                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_reg, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } });
 
                 const delete_res = await account_with_access.deleteObject({ Bucket: delete_object_test_bucket_reg,
-                    Key: key1, VersionId: put_res.VersionId }).promise();
+                    Key: key1, VersionId: put_res.VersionId });
                 assert.equal(put_res.VersionId, delete_res.VersionId);
                 const cur_version_id2 = await stat_and_get_version_id(full_delete_path, key1);
                 assert.equal(cur_version_id1, cur_version_id2);
@@ -1277,22 +1279,22 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             mocha.it('delete object version id - latest - no second latest - versioning suspended', async function() {
                 const cur_version_id = await stat_and_get_version_id(full_delete_path, key1);
                 await account_with_access.deleteObject({ Bucket: delete_object_test_bucket_reg,
-                    Key: key1, VersionId: cur_version_id }).promise();
+                    Key: key1, VersionId: cur_version_id });
                 const exist = await fs_utils.file_not_exists(path.join(full_delete_path, key1 + '_' + cur_version_id));
                 assert.ok(exist);
                 const max_version1 = await find_max_version_past(full_delete_path, key1, '');
                 assert.equal(max_version1, undefined);
-                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_reg, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
+                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_reg, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
             });
 
             mocha.it('delete object version id - in .versions/ 2 - latest exist and it\'s a regular version - versioning suspended', async function() {
                 const upload_res_arr = await upload_object_versions(account_with_access, delete_object_test_bucket_reg, key1, ['regular', 'regular', 'regular']);
-                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_reg, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
+                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_reg, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } });
                 const cur_version_id1 = await stat_and_get_version_id(full_delete_path, key1);
                 assert.equal(cur_version_id1, upload_res_arr[2].VersionId);
 
                 const delete_res = await account_with_access.deleteObject({ Bucket: delete_object_test_bucket_reg,
-                    Key: key1, VersionId: upload_res_arr[1].VersionId }).promise();
+                    Key: key1, VersionId: upload_res_arr[1].VersionId });
                 assert.equal(upload_res_arr[1].VersionId, delete_res.VersionId);
                 const cur_version_id2 = await stat_and_get_version_id(full_delete_path, key1);
                 assert.equal(cur_version_id1, cur_version_id2);
@@ -1301,12 +1303,12 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                 const max_version1 = await find_max_version_past(full_delete_path, key1, '');
                 assert.equal(max_version1, upload_res_arr[0].VersionId);
                 await delete_object_versions(full_delete_path, key1);
-                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_reg, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
+                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_reg, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
             });
 
             mocha.it('delete object version id - in .versions/ 3 - latest exist and it\'s a delete marker - versioning suspended', async function() {
                 const upload_res_arr = await upload_object_versions(account_with_access, delete_object_test_bucket_reg, key1, ['regular', 'regular', 'delete_marker']);
-                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_reg, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
+                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_reg, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } });
 
                 let exist = await fs_utils.file_not_exists(path.join(full_delete_path, key1));
                 assert.ok(exist);
@@ -1314,7 +1316,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                 assert.equal(latest_dm_version_id1, upload_res_arr[2].VersionId);
 
                 const delete_res = await account_with_access.deleteObject({ Bucket: delete_object_test_bucket_reg,
-                    Key: key1, VersionId: upload_res_arr[1].VersionId }).promise();
+                    Key: key1, VersionId: upload_res_arr[1].VersionId });
                 assert.equal(upload_res_arr[1].VersionId, delete_res.VersionId);
 
                 exist = await fs_utils.file_not_exists(path.join(full_delete_path, key1));
@@ -1324,16 +1326,16 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                 const version_deleted = await version_file_must_not_exists(full_delete_path, key1, '', upload_res_arr[1].VersionId);
                 assert.ok(version_deleted);
                 await delete_object_versions(full_delete_path, key1);
-                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_reg, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
+                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_reg, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
             });
 
             mocha.it('delete object version id - latest - second latest is regular version - versioning suspended', async function() {
                 const upload_res_arr = await upload_object_versions(account_with_access, delete_object_test_bucket_reg, key1, ['regular', 'regular']);
-                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_reg, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
+                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_reg, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } });
                 const cur_version_id1 = await stat_and_get_version_id(full_delete_path, key1);
 
                 await account_with_access.deleteObject({ Bucket: delete_object_test_bucket_reg,
-                    Key: key1, VersionId: upload_res_arr[1].VersionId }).promise();
+                    Key: key1, VersionId: upload_res_arr[1].VersionId });
 
                 const cur_version_id2 = await stat_and_get_version_id(full_delete_path, key1);
                 assert.notEqual(cur_version_id1, cur_version_id2);
@@ -1343,7 +1345,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                 const max_version1 = await find_max_version_past(full_delete_path, key1, '');
                 assert.equal(max_version1, undefined);
                 await delete_object_versions(full_delete_path, key1);
-                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_reg, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
+                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_reg, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
             });
         });
 
@@ -1351,13 +1353,13 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
 
             mocha.it('delete object version null - latest, no second latest - versioning suspended', async function() {
                 const upload_res_arr = await upload_object_versions(account_with_access, delete_object_test_bucket_null, key1, ['null']);
-                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_null, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
+                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_null, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } });
                 const cur_version_id1 = await stat_and_get_version_id(full_delete_path_null, key1);
                 assert.equal(upload_res_arr[0].VersionId, undefined);
                 assert.equal(cur_version_id1, 'null');
 
                 await account_with_access.deleteObject({ Bucket: delete_object_test_bucket_null,
-                    Key: key1, VersionId: 'null' }).promise();
+                    Key: key1, VersionId: 'null' });
 
                 const exist = await fs_utils.file_not_exists(path.join(full_delete_path_null, key1));
                 assert.ok(exist);
@@ -1369,13 +1371,13 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             mocha.it('delete object version null - version is in .versions/ - versioning suspended', async function() {
                 const upload_res_arr = []; // would contain ['null', 'regular'] put_res
                 const put_res_null = await account_with_access.putObject({ Bucket: delete_object_test_bucket_null,
-                    Key: key1, Body: body1 }).promise();
+                    Key: key1, Body: body1 });
                 upload_res_arr.push(put_res_null);
-                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_null, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
+                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_null, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
                 const put_res_regular = await account_with_access.putObject({ Bucket: delete_object_test_bucket_null,
-                        Key: key1, Body: body1 }).promise();
+                        Key: key1, Body: body1 });
                 upload_res_arr.push(put_res_regular);
-                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_null, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
+                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_null, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } });
 
                 const cur_version_id1 = await stat_and_get_version_id(full_delete_path_null, key1);
                 assert.equal(upload_res_arr[0].VersionId, undefined);
@@ -1383,7 +1385,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                 assert.equal(cur_version_id1, upload_res_arr[1].VersionId);
 
                 await account_with_access.deleteObject({ Bucket: delete_object_test_bucket_null,
-                    Key: key1, VersionId: 'null' }).promise();
+                    Key: key1, VersionId: 'null' });
 
                 const max_version1 = await find_max_version_past(full_delete_path_null, key1, '');
                 assert.equal(max_version1, undefined);
@@ -1391,7 +1393,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                 assert.equal(cur_version_id1, cur_version_id2);
 
                 await delete_object_versions(full_delete_path_null, key1);
-                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_null, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
+                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_null, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
             });
         });
 
@@ -1399,7 +1401,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
 
             mocha.it('delete object version delete marker - latest - second latest is a null version - versioning suspended', async function() {
                 await upload_object_versions(account_with_access, delete_object_test_bucket_dm, key1, ['null', 'delete_marker']);
-                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_dm, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
+                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_dm, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } });
 
                 let exist = await fs_utils.file_not_exists(path.join(full_delete_path_dm, key1));
                 assert.ok(exist);
@@ -1408,7 +1410,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
 
 
                 const delete_res = await account_with_access.deleteObject({ Bucket: delete_object_test_bucket_dm,
-                    Key: key1, VersionId: max_version }).promise();
+                    Key: key1, VersionId: max_version });
 
                 assert.equal(delete_res.DeleteMarker, true);
                 assert.equal(delete_res.VersionId, max_version);
@@ -1423,12 +1425,12 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                 assert.equal(new_latest_ver_id, 'null');
 
                 await delete_object_versions(full_delete_path_dm, key1);
-                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_dm, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
+                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_dm, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
             });
 
             mocha.it('delete object version delete marker - non latest - versioning suspended', async function() {
                 await upload_object_versions(account_with_access, delete_object_test_bucket_dm, key1, ['regular', 'delete_marker', 'delete_marker']);
-                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_dm, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
+                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_dm, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } });
                 let exist = await fs_utils.file_not_exists(path.join(full_delete_path_dm, key1));
                 assert.ok(exist);
                 const max_version = await find_max_version_past(full_delete_path_dm, key1, '');
@@ -1436,7 +1438,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
 
 
                 const delete_res = await account_with_access.deleteObject({ Bucket: delete_object_test_bucket_dm,
-                    Key: key1, VersionId: second_max_version1 }).promise();
+                    Key: key1, VersionId: second_max_version1 });
 
                 assert.equal(delete_res.DeleteMarker, true);
                 assert.equal(delete_res.VersionId, second_max_version1);
@@ -1449,12 +1451,12 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                 assert.equal(max_version1, max_version);
 
                 await delete_object_versions(full_delete_path_dm, key1);
-                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_dm, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
+                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_dm, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
             });
 
             mocha.it('delete object version delete marker - latest - second latest is a delete marker - versioning suspended', async function() {
                 await upload_object_versions(account_with_access, delete_object_test_bucket_dm, key1, ['regular', 'delete_marker', 'delete_marker']);
-                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_dm, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
+                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_dm, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } });
 
                 let exist = await fs_utils.file_not_exists(path.join(full_delete_path_dm, key1));
                 assert.ok(exist);
@@ -1462,7 +1464,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                 const second_max_version1 = await find_max_version_past(full_delete_path_dm, key1, '', [max_version]);
 
                 await account_with_access.deleteObject({ Bucket: delete_object_test_bucket_dm,
-                    Key: key1, VersionId: max_version }).promise();
+                    Key: key1, VersionId: max_version });
 
                 exist = await fs_utils.file_not_exists(path.join(full_delete_path_dm, key1));
                 assert.ok(exist);
@@ -1472,19 +1474,19 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                 assert.equal(max_version1, second_max_version1);
 
                 await delete_object_versions(full_delete_path_dm, key1);
-                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_dm, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
+                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_dm, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
             });
 
             mocha.it('delete object version delete marker - latest - second latest is a regular version - versioning suspended', async function() {
                 const put_res = await upload_object_versions(account_with_access, delete_object_test_bucket_dm, key1, ['regular', 'regular', 'delete_marker']);
-                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_dm, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
+                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_dm, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } });
                 let exist = await fs_utils.file_not_exists(path.join(full_delete_path_dm, key1));
                 assert.ok(exist);
                 const max_version = await find_max_version_past(full_delete_path_dm, key1, '');
                 const second_max_version1 = await find_max_version_past(full_delete_path_dm, key1, '', [max_version]);
 
                 await account_with_access.deleteObject({ Bucket: delete_object_test_bucket_dm,
-                    Key: key1, VersionId: max_version }).promise();
+                    Key: key1, VersionId: max_version });
 
                 exist = await fs_utils.file_exists(path.join(full_delete_path_dm, key1));
                 assert.ok(exist);
@@ -1495,19 +1497,19 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                 assert.equal(put_res[0].VersionId, max_version1);
 
                 await delete_object_versions(full_delete_path_dm, key1);
-                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_dm, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
+                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_dm, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
             });
 
             mocha.it('delete object version delete marker - latest - no second latest  - versioning suspended', async function() {
                 const put_res = await upload_object_versions(account_with_access, delete_object_test_bucket_dm, key1, ['delete_marker']);
-                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_dm, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
+                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_dm, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } });
                 let exist = await fs_utils.file_not_exists(path.join(full_delete_path_dm, key1));
                 assert.ok(exist);
                 const max_version = await find_max_version_past(full_delete_path_dm, key1, '');
                 assert.equal(put_res[0].VersionId, max_version);
 
                 await account_with_access.deleteObject({ Bucket: delete_object_test_bucket_dm,
-                    Key: key1, VersionId: max_version }).promise();
+                    Key: key1, VersionId: max_version });
 
                 exist = await fs_utils.file_not_exists(path.join(full_delete_path_dm, key1));
                 assert.ok(exist);
@@ -1516,18 +1518,18 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                 const max_version1 = await find_max_version_past(full_delete_path_dm, key1, '');
                 assert.equal(max_version1, undefined);
                 await delete_object_versions(full_delete_path_dm, key1);
-                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_dm, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
+                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_dm, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
             });
 
             mocha.it('delete object version delete marker - in .versions/ - latest exist', async function() {
                 const put_res = await upload_object_versions(account_with_access, delete_object_test_bucket_dm, key1, ['regular', 'delete_marker', 'regular']);
-                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_dm, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
+                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_dm, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } });
                 const ltst_version_id1 = await stat_and_get_version_id(full_delete_path_dm, key1);
                 const max_version = await find_max_version_past(full_delete_path_dm, key1, '');
                 const second_max_version1 = await find_max_version_past(full_delete_path_dm, key1, '', [max_version]);
 
                 await account_with_access.deleteObject({ Bucket: delete_object_test_bucket_dm,
-                    Key: key1, VersionId: max_version }).promise();
+                    Key: key1, VersionId: max_version });
 
                 let exist = await fs_utils.file_exists(path.join(full_delete_path_dm, key1));
                 assert.ok(exist);
@@ -1540,26 +1542,26 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                 assert.equal(put_res[0].VersionId, max_version1);
 
                 await delete_object_versions(full_delete_path_dm, key1);
-                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_dm, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
+                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_dm, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
             });
 
             mocha.it('delete object version delete marker - in .versions/ - latest is a delete marker', async function() {
                 const put_res = await upload_object_versions(account_with_access, delete_object_test_bucket_dm, key1, ['regular', 'delete_marker', 'delete_marker']);
-                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_dm, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
+                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_dm, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } });
 
                 let exist = await fs_utils.file_not_exists(path.join(full_delete_path_dm, key1));
                 assert.ok(exist);
                 const latest_dm1 = await find_max_version_past(full_delete_path_dm, key1, '');
 
                 await account_with_access.deleteObject({ Bucket: delete_object_test_bucket_dm,
-                    Key: key1, VersionId: put_res[1].VersionId }).promise();
+                    Key: key1, VersionId: put_res[1].VersionId });
 
                 exist = await fs_utils.file_not_exists(path.join(full_delete_path_dm, key1));
                 assert.ok(exist);
                 const latest_dm2 = await find_max_version_past(full_delete_path_dm, key1, '');
                 assert.equal(latest_dm1, latest_dm2);
                 await delete_object_versions(full_delete_path_dm, key1);
-                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_dm, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
+                await s3_uid6.putBucketVersioning({ Bucket: delete_object_test_bucket_dm, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
             });
         });
     });
@@ -1572,7 +1574,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
         mocha.before(async function() {
             const res = await generate_nsfs_account({ default_resource: nsr });
             account_with_access = generate_s3_client(res.access_key, res.secret_key);
-            await account_with_access.createBucket({ Bucket: delete_multi_object_test_bucket }).promise();
+            await account_with_access.createBucket({ Bucket: delete_multi_object_test_bucket });
             await put_allow_all_bucket_policy(s3_admin, delete_multi_object_test_bucket);
         });
 
@@ -1587,7 +1589,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             }
             const to_delete_arr = keys.map(key => ({ Key: key }));
             const delete_res = await account_with_access.deleteObjects({
-                    Bucket: delete_multi_object_test_bucket, Delete: { Objects: to_delete_arr } }).promise();
+                    Bucket: delete_multi_object_test_bucket, Delete: { Objects: to_delete_arr } });
             assert.equal(delete_res.Deleted.length, 50);
             assert.deepStrictEqual(delete_res.Deleted, to_delete_arr);
             for (const res of delete_res.Deleted) {
@@ -1615,7 +1617,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                 arr.push({ Key: 'a' });
             }
             const delete_res = await account_with_access.deleteObjects({
-                    Bucket: delete_multi_object_test_bucket, Delete: { Objects: arr } }).promise();
+                    Bucket: delete_multi_object_test_bucket, Delete: { Objects: arr } });
             assert.equal(delete_res.Deleted.length, 1);
             for (const res of delete_res.Deleted) {
                 assert.equal(res.DeleteMarker, true);
@@ -1640,7 +1642,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                 if (i % 2 === 1) arr.push({ Key: key1, VersionId: put_res[i].VersionId });
             }
             const delete_res = await account_with_access.deleteObjects({
-                    Bucket: delete_multi_object_test_bucket, Delete: { Objects: arr } }).promise();
+                    Bucket: delete_multi_object_test_bucket, Delete: { Objects: arr } });
             assert.equal(delete_res.Deleted.length, 150);
             for (const res of delete_res.Deleted) {
                 assert.equal(res.DeleteMarker, true);
@@ -1670,7 +1672,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                 if (i % 2 === 1) arr.push({ Key: key2, VersionId: put_res2[i].VersionId });
             }
             const delete_res = await account_with_access.deleteObjects({
-                    Bucket: delete_multi_object_test_bucket, Delete: { Objects: arr } }).promise();
+                    Bucket: delete_multi_object_test_bucket, Delete: { Objects: arr } });
 
             assert.equal(delete_res.Deleted.length, 300);
             for (const res of delete_res.Deleted.slice(0, 150)) {
@@ -1707,7 +1709,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                 arr.push({ Key: key1, VersionId: put_res[i].VersionId });
             }
             const delete_res = await account_with_access.deleteObjects({
-                    Bucket: delete_multi_object_test_bucket, Delete: { Objects: arr } }).promise();
+                    Bucket: delete_multi_object_test_bucket, Delete: { Objects: arr } });
             assert.equal(delete_res.Deleted.length, 100);
             for (let i = 0; i < 100; i++) {
                 if (i % 2 === 1) assert.equal(delete_res.Deleted[i].DeleteMarker, true);
@@ -1738,7 +1740,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             }
             arr.push({ Key: key1, VersionId: put_res[299].VersionId });
             const delete_res = await account_with_access.deleteObjects({
-                    Bucket: delete_multi_object_test_bucket, Delete: { Objects: arr } }).promise();
+                    Bucket: delete_multi_object_test_bucket, Delete: { Objects: arr } });
             assert.equal(delete_res.Deleted.length, 101);
             for (let i = 0; i < 100; i++) {
                 if (i % 2 === 1) assert.equal(delete_res.Deleted[i].DeleteMarker, true);
@@ -1771,7 +1773,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             }
 
             const delete_res = await account_with_access.deleteObjects({
-                    Bucket: delete_multi_object_test_bucket, Delete: { Objects: arr } }).promise();
+                    Bucket: delete_multi_object_test_bucket, Delete: { Objects: arr } });
             assert.equal(delete_res.Deleted.length, 101); // 100 dm and versions + 1 new dm
             for (let i = 0; i < 1; i++) {
                 assert.notEqual(delete_res.Deleted[i].DeleteMarkerVersionId, undefined);
@@ -1807,7 +1809,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                 arr.push({ Key: key1 });
             }
             const delete_res = await account_with_access.deleteObjects({
-                    Bucket: delete_multi_object_test_bucket, Delete: { Objects: arr } }).promise();
+                    Bucket: delete_multi_object_test_bucket, Delete: { Objects: arr } });
             assert.equal(delete_res.Deleted.length, 101);
             for (let i = 0; i < 100; i++) {
                 if (i % 2 === 1) assert.equal(delete_res.Deleted[i].DeleteMarker, undefined);
@@ -1834,7 +1836,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
         mocha.before(async function() {
             const res = await generate_nsfs_account({ default_resource: nsr });
             account_with_access = generate_s3_client(res.access_key, res.secret_key);
-            await account_with_access.createBucket({ Bucket: delete_multi_object_test_bucket }).promise();
+            await account_with_access.createBucket({ Bucket: delete_multi_object_test_bucket });
             await put_allow_all_bucket_policy(s3_admin, delete_multi_object_test_bucket);
         });
 
@@ -1849,7 +1851,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             }
             const to_delete_arr = keys.map(key => ({ Key: key }));
             const delete_res = await account_with_access.deleteObjects({
-                    Bucket: delete_multi_object_test_bucket, Delete: { Objects: to_delete_arr } }).promise();
+                    Bucket: delete_multi_object_test_bucket, Delete: { Objects: to_delete_arr } });
             assert.equal(delete_res.Deleted.length, 50);
             assert.deepStrictEqual(delete_res.Deleted, to_delete_arr);
             for (const res of delete_res.Deleted) {
@@ -1872,13 +1874,13 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                  versions_type_arr.push(i % 2 === 0 ? 'regular' : 'delete_marker');
             }
             await upload_object_versions(account_with_access, delete_multi_object_test_bucket, key1, versions_type_arr);
-            await s3_uid6.putBucketVersioning({ Bucket: delete_multi_object_test_bucket, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
+            await s3_uid6.putBucketVersioning({ Bucket: delete_multi_object_test_bucket, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } });
             const arr = [];
             for (let i = 0; i < 2; i++) {
                 arr.push({ Key: 'a' });
             }
             const delete_res = await account_with_access.deleteObjects({
-                    Bucket: delete_multi_object_test_bucket, Delete: { Objects: arr } }).promise();
+                    Bucket: delete_multi_object_test_bucket, Delete: { Objects: arr } });
             assert.equal(delete_res.Deleted.length, 1);
             for (const res of delete_res.Deleted) {
                 assert.equal(res.DeleteMarker, true);
@@ -1888,7 +1890,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             assert.equal(versions.length, 4); //key1 versions: null, regular and dm (3 total) + a versions: dm (1 total)
             await delete_object_versions(full_multi_delete_path, key1);
             await delete_object_versions(full_multi_delete_path, 'a');
-            await s3_uid6.putBucketVersioning({ Bucket: delete_multi_object_test_bucket, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
+            await s3_uid6.putBucketVersioning({ Bucket: delete_multi_object_test_bucket, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
         });
 
         mocha.it('delete multiple objects - delete only delete markers - versioning suspended', async function() {
@@ -1899,13 +1901,13 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                  versions_type_arr.push(i % 2 === 0 ? 'regular' : 'delete_marker');
             }
             const put_res = await upload_object_versions(account_with_access, delete_multi_object_test_bucket, key1, versions_type_arr);
-            await s3_uid6.putBucketVersioning({ Bucket: delete_multi_object_test_bucket, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
+            await s3_uid6.putBucketVersioning({ Bucket: delete_multi_object_test_bucket, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } });
             const arr = [];
             for (let i = 0; i < 5; i++) {
                 if (i % 2 === 1) arr.push({ Key: key1, VersionId: put_res[i].VersionId });
             }
             const delete_res = await account_with_access.deleteObjects({
-                    Bucket: delete_multi_object_test_bucket, Delete: { Objects: arr } }).promise();
+                    Bucket: delete_multi_object_test_bucket, Delete: { Objects: arr } });
             assert.equal(delete_res.Deleted.length, 2);
             for (const res of delete_res.Deleted) {
                 assert.equal(res.DeleteMarker, true);
@@ -1918,7 +1920,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             const latest_stat = await stat_and_get_all(full_multi_delete_path, key1);
             assert.equal(latest_stat.xattr[XATTR_VERSION_ID], put_res[4].VersionId);
             await delete_object_versions(full_multi_delete_path, key1);
-            await s3_uid6.putBucketVersioning({ Bucket: delete_multi_object_test_bucket, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
+            await s3_uid6.putBucketVersioning({ Bucket: delete_multi_object_test_bucket, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
         });
 
         mocha.it('delete multiple objects - delete only regular versions key1, delete delete markers key2 - versioning suspended', async function() {
@@ -1931,14 +1933,14 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             }
             const put_res = await upload_object_versions(account_with_access, delete_multi_object_test_bucket, key1, versions_type_arr);
             const put_res2 = await upload_object_versions(account_with_access, delete_multi_object_test_bucket, key2, versions_type_arr);
-            await s3_uid6.putBucketVersioning({ Bucket: delete_multi_object_test_bucket, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
+            await s3_uid6.putBucketVersioning({ Bucket: delete_multi_object_test_bucket, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } });
             const arr = [];
             for (let i = 0; i < 8; i++) {
                 if (i % 2 === 0) arr.push({ Key: key1, VersionId: put_res[i].VersionId });
                 if (i % 2 === 1) arr.push({ Key: key2, VersionId: put_res2[i].VersionId });
             }
             const delete_res = await account_with_access.deleteObjects({
-                    Bucket: delete_multi_object_test_bucket, Delete: { Objects: arr } }).promise();
+                    Bucket: delete_multi_object_test_bucket, Delete: { Objects: arr } });
             assert.equal(delete_res.Deleted.length, 8);
             for (const res of delete_res.Deleted.slice(0, 4)) {
                 assert.equal(res.DeleteMarker, undefined);
@@ -1961,7 +1963,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             assert.equal(version_info.xattr[XATTR_VERSION_ID], put_res[7].VersionId);
             await delete_object_versions(full_multi_delete_path, key1);
             await delete_object_versions(full_multi_delete_path, key2);
-            await s3_uid6.putBucketVersioning({ Bucket: delete_multi_object_test_bucket, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
+            await s3_uid6.putBucketVersioning({ Bucket: delete_multi_object_test_bucket, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
         });
 
         mocha.it('delete multiple objects - delete regular versions & delete markers - new latest is dm - versioning suspended', async function() {
@@ -1972,13 +1974,13 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                  versions_type_arr.push(i % 2 === 0 ? 'regular' : 'delete_marker');
             }
             const put_res = await upload_object_versions(account_with_access, delete_multi_object_test_bucket, key1, versions_type_arr);
-            await s3_uid6.putBucketVersioning({ Bucket: delete_multi_object_test_bucket, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
+            await s3_uid6.putBucketVersioning({ Bucket: delete_multi_object_test_bucket, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } });
             const arr = [];
             for (let i = 2; i < 5; i++) {
                 arr.push({ Key: key1, VersionId: put_res[i].VersionId });
             }
             const delete_res = await account_with_access.deleteObjects({
-                    Bucket: delete_multi_object_test_bucket, Delete: { Objects: arr } }).promise();
+                    Bucket: delete_multi_object_test_bucket, Delete: { Objects: arr } });
             assert.equal(delete_res.Deleted.length, 3);
             for (let i = 0; i < 3; i++) {
                 if (i % 2 === 1) assert.equal(delete_res.Deleted[i].DeleteMarker, true);
@@ -1994,7 +1996,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             const version_info = await stat_and_get_all(version_path, '');
             assert.equal(version_info.xattr[XATTR_VERSION_ID], put_res[1].VersionId);
             await delete_object_versions(full_multi_delete_path, key1);
-            await s3_uid6.putBucketVersioning({ Bucket: delete_multi_object_test_bucket, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
+            await s3_uid6.putBucketVersioning({ Bucket: delete_multi_object_test_bucket, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
         });
 
         mocha.it('delete multiple objects - delete regular versions & delete markers - new latest is regular version - versioning suspended', async function() {
@@ -2005,13 +2007,13 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                  versions_type_arr.push(i % 2 === 0 ? 'regular' : 'delete_marker');
             }
             const put_res = await upload_object_versions(account_with_access, delete_multi_object_test_bucket, key1, versions_type_arr);
-            await s3_uid6.putBucketVersioning({ Bucket: delete_multi_object_test_bucket, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
+            await s3_uid6.putBucketVersioning({ Bucket: delete_multi_object_test_bucket, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } });
             const arr = [];
             for (let i = 0; i < 4; i++) {
                 arr.push({ Key: key1, VersionId: put_res[i].VersionId });
             }
             const delete_res = await account_with_access.deleteObjects({
-                    Bucket: delete_multi_object_test_bucket, Delete: { Objects: arr } }).promise();
+                    Bucket: delete_multi_object_test_bucket, Delete: { Objects: arr } });
             assert.equal(delete_res.Deleted.length, 4);
             for (let i = 0; i < 4; i++) {
                 if (i % 2 === 0) assert.equal(delete_res.Deleted[i].DeleteMarker, undefined);
@@ -2023,7 +2025,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             const latest_stat = await stat_and_get_all(full_multi_delete_path, key1);
             assert.equal(latest_stat.xattr[XATTR_VERSION_ID], put_res[4].VersionId);
             await delete_object_versions(full_multi_delete_path, key1);
-            await s3_uid6.putBucketVersioning({ Bucket: delete_multi_object_test_bucket, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
+            await s3_uid6.putBucketVersioning({ Bucket: delete_multi_object_test_bucket, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
         });
 
         mocha.it('delete multiple objects - delete keys & regular versions & delete markers - versioning suspended', async function() {
@@ -2034,7 +2036,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                  versions_type_arr.push(i % 2 === 0 ? 'regular' : 'delete_marker');
             }
             const put_res = await upload_object_versions(account_with_access, delete_multi_object_test_bucket, key1, versions_type_arr);
-            await s3_uid6.putBucketVersioning({ Bucket: delete_multi_object_test_bucket, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
+            await s3_uid6.putBucketVersioning({ Bucket: delete_multi_object_test_bucket, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } });
             const arr = [];
             for (let i = 0; i < 5; i++) {
                 arr.push({ Key: key1 });
@@ -2044,7 +2046,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             }
 
             const delete_res = await account_with_access.deleteObjects({
-                    Bucket: delete_multi_object_test_bucket, Delete: { Objects: arr } }).promise();
+                    Bucket: delete_multi_object_test_bucket, Delete: { Objects: arr } });
             assert.equal(delete_res.Deleted.length, 11);
             assert.equal(delete_res.Deleted[0].DeleteMarker, true);
             assert.equal(delete_res.Deleted[0].DeleteMarkerVersionId, 'null');
@@ -2059,7 +2061,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             const exist = await fs_utils.file_not_exists(path.join(full_multi_delete_path, key1));
             assert.ok(exist);
             await delete_object_versions(full_multi_delete_path, key1);
-            await s3_uid6.putBucketVersioning({ Bucket: delete_multi_object_test_bucket, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
+            await s3_uid6.putBucketVersioning({ Bucket: delete_multi_object_test_bucket, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
         });
 
         mocha.it('delete multiple objects - delete regular versions & delete markers & latest & keys- - versioning suspended', async function() {
@@ -2070,7 +2072,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                  versions_type_arr.push(i % 2 === 0 ? 'regular' : 'delete_marker');
             }
             const put_res = await upload_object_versions(account_with_access, delete_multi_object_test_bucket, key1, versions_type_arr);
-            await s3_uid6.putBucketVersioning({ Bucket: delete_multi_object_test_bucket, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
+            await s3_uid6.putBucketVersioning({ Bucket: delete_multi_object_test_bucket, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } });
             const arr = [];
             for (let i = 20; i < 30; i++) {
                 arr.push({ Key: key1, VersionId: put_res[i].VersionId });
@@ -2079,7 +2081,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                 arr.push({ Key: key1 });
             }
             const delete_res = await account_with_access.deleteObjects({
-                    Bucket: delete_multi_object_test_bucket, Delete: { Objects: arr } }).promise();
+                    Bucket: delete_multi_object_test_bucket, Delete: { Objects: arr } });
             assert.equal(delete_res.Deleted.length, 11);
             for (let i = 0; i < 10; i++) {
                 if (i % 2 === 0) assert.equal(delete_res.Deleted[i].DeleteMarker, undefined);
@@ -2094,7 +2096,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             const exist = await fs_utils.file_not_exists(path.join(full_multi_delete_path, key1));
             assert.ok(exist);
             await delete_object_versions(full_multi_delete_path, key1);
-            await s3_uid6.putBucketVersioning({ Bucket: delete_multi_object_test_bucket, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
+            await s3_uid6.putBucketVersioning({ Bucket: delete_multi_object_test_bucket, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
         });
     });
 
@@ -2109,17 +2111,17 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
         mocha.before(async function() {
             const res = await generate_nsfs_account({ default_resource: nsr });
             account_with_access = generate_s3_client(res.access_key, res.secret_key);
-            await account_with_access.createBucket({ Bucket: list_object_versions_test_bucket }).promise();
+            await account_with_access.createBucket({ Bucket: list_object_versions_test_bucket });
             await put_allow_all_bucket_policy(s3_admin, list_object_versions_test_bucket);
         });
 
         mocha.it('list object versions - only null versions - versioning disabled', async function() {
             await account_with_access.putObject({ Bucket: list_object_versions_test_bucket,
-                Key: key_to_list1, Body: body1 }).promise();
+                Key: key_to_list1, Body: body1 });
             await account_with_access.putObject({ Bucket: list_object_versions_test_bucket,
-                Key: key_to_list2, Body: body1 }).promise();
+                Key: key_to_list2, Body: body1 });
             const list_object_versions_res = await account_with_access.listObjectVersions({
-                Bucket: list_object_versions_test_bucket}).promise();
+                Bucket: list_object_versions_test_bucket});
             //bike.txt before car.txt (a-z sort)
             assert.equal(list_object_versions_res.Versions[0].Key, key_to_list2);
             assert.equal(list_object_versions_res.Versions[0].VersionId, NULL_VERSION_ID);
@@ -2135,7 +2137,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             const put_res = await upload_object_versions(account_with_access, list_object_versions_test_bucket,
                 key_to_list3, versions_type_arr);
             const list_object_versions_res = await account_with_access.listObjectVersions(
-                {Bucket: list_object_versions_test_bucket, Prefix: key_to_list3}).promise();
+                {Bucket: list_object_versions_test_bucket, Prefix: key_to_list3});
             // the order is from latest to oldest
             assert.equal(list_object_versions_res.Versions[0].Key, key_to_list3);
             assert.equal(list_object_versions_res.Versions[0].VersionId, put_res[2].VersionId);
@@ -2147,11 +2149,11 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
 
         mocha.it('list object versions - latest version is null version id', async function() {
             await account_with_access.putBucketVersioning({ Bucket: list_object_versions_test_bucket,
-                VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } }).promise();
+                VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } });
             await account_with_access.putObject({ Bucket: list_object_versions_test_bucket,
-                Key: key_to_list3, Body: body1 }).promise();
+                Key: key_to_list3, Body: body1 });
             const list_object_versions_res = await account_with_access.listObjectVersions(
-                {Bucket: list_object_versions_test_bucket, Prefix: key_to_list3}).promise();
+                {Bucket: list_object_versions_test_bucket, Prefix: key_to_list3});
             // latest version is null (the order is from latest to oldest), hence null is first
             assert.equal(list_object_versions_res.Versions[0].Key, key_to_list3);
             assert.equal(list_object_versions_res.Versions[0].VersionId, NULL_VERSION_ID);
@@ -2159,7 +2161,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
 
         mocha.it('list object versions -  oldest version is null version id', async function() {
             await account_with_access.putBucketVersioning({ Bucket: list_object_versions_test_bucket,
-                VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
+                VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
             const versions_type_arr = [];
             for (let i = 0; i < 3; i++) {
                  versions_type_arr.push('regular');
@@ -2169,7 +2171,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
 
 
             const list_object_versions_res = await account_with_access.listObjectVersions(
-                {Bucket: list_object_versions_test_bucket, Prefix: key_to_list2}).promise();
+                {Bucket: list_object_versions_test_bucket, Prefix: key_to_list2});
             for (let i = 0; i < 3; i++) {
                 assert.equal(list_object_versions_res.Versions[i].Key, key_to_list2);
                 assert.notEqual(list_object_versions_res.Versions[i].VersionId, NULL_VERSION_ID);
@@ -2253,13 +2255,13 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             await s3_admin.putBucketPolicy({
                 Bucket: bucket_name,
                 Policy: JSON.stringify(policy)
-            }).promise();
+            });
             // create nsfs account
             res = await generate_nsfs_account();
             s3_client = generate_s3_client(res.access_key, res.secret_key);
             accounts.push(res.email);
-            await s3_client.putBucketVersioning({ Bucket: bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
-            const bucket_ver = await s3_client.getBucketVersioning({ Bucket: bucket_name }).promise();
+            await s3_client.putBucketVersioning({ Bucket: bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
+            const bucket_ver = await s3_client.getBucketVersioning({ Bucket: bucket_name });
             assert.equal(bucket_ver.Status, 'Enabled');
             await create_object(`${full_path}/${key}`, body, 'null');
             await create_object(`${full_path_version_dir}/${version_key}`, version_body, 'null');
@@ -2277,7 +2279,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
         });
 
         mocha.it('list objects - should return only latest object', async function() {
-            const res = await s3_client.listObjects({Bucket: bucket_name}).promise();
+            const res = await s3_client.listObjects({Bucket: bucket_name});
             res.Contents.forEach(val => {
                 if (val.Key.includes('version') === true) {
                     assert.fail('Not Expected: list objects returned contents fo .version dir');
@@ -2369,11 +2371,11 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             await s3_admin.putBucketPolicy({
                 Bucket: bucket_name,
                 Policy: JSON.stringify(policy)
-            }).promise();
+            });
             await s3_admin.putBucketPolicy({
                 Bucket: disabled_bucket_name,
                 Policy: JSON.stringify(policy)
-            }).promise();
+            });
             // create nsfs account
             res = await generate_nsfs_account();
             s3_client = generate_s3_client(res.access_key, res.secret_key);
@@ -2382,8 +2384,8 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             await create_object(`${disabled_full_path}/${dis_version_key}`, dis_version_body, 'null');
             // create a file after when versioning not enabled
             await create_object(`${full_path}/${dis_version_key}`, dis_version_body, 'null');
-            await s3_client.putBucketVersioning({ Bucket: bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
-            const bucket_ver = await s3_client.getBucketVersioning({ Bucket: bucket_name }).promise();
+            await s3_client.putBucketVersioning({ Bucket: bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
+            const bucket_ver = await s3_client.getBucketVersioning({ Bucket: bucket_name });
             assert.equal(bucket_ver.Status, 'Enabled');
             // create base file after versioning enabled
             file_pointer = await create_object(`${full_path}/${en_version_key}`, en_version_body, versionID_1, true);
@@ -2398,70 +2400,75 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
         });
 
         mocha.it('get object, versioning not enabled - should return latest object', async function() {
-            const res = await s3_client.getObject({Bucket: disabled_bucket_name, Key: dis_version_key}).promise();
-            assert.equal(res.Body, dis_version_body);
+            const res = await s3_client.getObject({Bucket: disabled_bucket_name, Key: dis_version_key});
+            const body_as_string = await res.Body.transformToString();
+            assert.equal(body_as_string, dis_version_body);
         });
 
         mocha.it('get object, versioning not enabled, version id specified - should return NoSuchKey', async function() {
             try {
-                await s3_client.getObject({Bucket: disabled_bucket_name, Key: dis_version_key, VersionId: versionID_1}).promise();
+                await s3_client.getObject({Bucket: disabled_bucket_name, Key: dis_version_key, VersionId: versionID_1});
                 assert.fail('Should fail');
             } catch (err) {
-                    assert.equal(err.code, 'NoSuchKey');
+                    assert.equal(err.Code, 'NoSuchKey');
             }
         });
 
         mocha.it('get object, file created before the version is enabled - should return latest object', async function() {
-            const res = await s3_client.getObject({Bucket: bucket_name, Key: dis_version_key}).promise();
-            assert.equal(res.Body, dis_version_body);
+            const res = await s3_client.getObject({Bucket: bucket_name, Key: dis_version_key});
+            const body_as_string = await res.Body.transformToString();
+            assert.equal(body_as_string, dis_version_body);
         });
 
         mocha.it('get object, file created before the version is enabled, version id specified - should return ENOENT', async function() {
             try {
-                    await s3_client.getObject({Bucket: bucket_name, Key: dis_version_key, VersionId: versionID_1}).promise();
+                    await s3_client.getObject({Bucket: bucket_name, Key: dis_version_key, VersionId: versionID_1});
                     assert.fail('Should fail');
             } catch (err) {
-                    assert.equal(err.code, 'NoSuchKey');
+                    assert.equal(err.Code, 'NoSuchKey');
             }
         });
 
         mocha.it('get object, with version enabled, no version id specified - should return latest object', async function() {
-            const res = await s3_client.getObject({Bucket: bucket_name, Key: en_version_key}).promise();
-            assert.equal(res.Body, en_version_body);
+            const res = await s3_client.getObject({Bucket: bucket_name, Key: en_version_key});
+            const body_as_string = await res.Body.transformToString();
+            assert.equal(body_as_string, en_version_body);
         });
 
         mocha.it('get object, with version enabled, with version id specified and matching with main file - should return latest object', async function() {
-            const res = await s3_client.getObject({Bucket: bucket_name, Key: en_version_key, VersionId: versionID_1}).promise();
-            assert.equal(res.Body, en_version_body);
+            const res = await s3_client.getObject({Bucket: bucket_name, Key: en_version_key, VersionId: versionID_1});
+            const body_as_string = await res.Body.transformToString();
+            assert.equal(body_as_string, en_version_body);
         });
 
         mocha.it('get object, with version enabled, with version id specified and not matching with main file - should return $VersionId object', async function() {
             await create_object(`${version_dir_path}/${key_version}`, en_version_body_v1, versionID_2);
-            const res = await s3_client.getObject({Bucket: bucket_name, Key: en_version_key, VersionId: versionID_2}).promise();
-            assert.equal(res.Body, en_version_body_v1);
+            const res = await s3_client.getObject({Bucket: bucket_name, Key: en_version_key, VersionId: versionID_2});
+            const body_as_string = await res.Body.transformToString();
+            assert.equal(body_as_string, en_version_body_v1);
         });
 
         mocha.it('get object, with version enabled, with version id specified and versioned object not present - should return NoSuchKey', async function() {
             try {
-                await s3_client.getObject({Bucket: bucket_name, Key: en_version_key, VersionId: versionID_3}).promise();
+                await s3_client.getObject({Bucket: bucket_name, Key: en_version_key, VersionId: versionID_3});
                 assert.fail('Should fail');
             } catch (err) {
-                assert.equal(err.code, 'NoSuchKey');
+                assert.equal(err.Code, 'NoSuchKey');
             }
         });
 
         mocha.it('get object, with version enabled, with wrong version id specified - should return Bad Request', async function() {
             try {
-                await s3_client.getObject({Bucket: bucket_name, Key: en_version_key, VersionId: 'ctime-12-ino-12a'}).promise();
+                await s3_client.getObject({Bucket: bucket_name, Key: en_version_key, VersionId: 'ctime-12-ino-12a'});
                 assert.fail('Should fail');
             } catch (err) {
-                assert.equal(err.code, 'BadRequest');
+                assert.equal(err.Code, 'BadRequest');
             }
         });
 
         mocha.it('head object, version not enabled - should return latest object md', async function() {
             try {
-                await s3_client.headObject({Bucket: disabled_bucket_name, Key: dis_version_key}).promise();
+                await s3_client.headObject({Bucket: disabled_bucket_name, Key: dis_version_key});
                 assert.ok('Expected latest head object returned');
             } catch (err) {
                 assert.fail('Latest head object not found');
@@ -2470,16 +2477,16 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
 
         mocha.it('head object, version not enabled, version specified - should return object NotFound', async function() {
             try {
-                await s3_client.headObject({Bucket: disabled_bucket_name, Key: dis_version_key, VersionId: versionID_1}).promise();
+                await s3_client.headObject({Bucket: disabled_bucket_name, Key: dis_version_key, VersionId: versionID_1});
                 assert.fail('Should fail');
             } catch (err) {
-                assert.equal(err.code, 'NotFound');
+                assert.equal(err.name, 'NotFound');
             }
         });
 
         mocha.it('head object, file created before the version is enabled - should return latest object md', async function() {
             try {
-                await s3_client.headObject({Bucket: bucket_name, Key: dis_version_key}).promise();
+                await s3_client.headObject({Bucket: bucket_name, Key: dis_version_key});
                 assert.ok('Expected latest head object returned');
             } catch (err) {
                 assert.fail('Latest head object not found');
@@ -2488,103 +2495,106 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
 
         mocha.it('head object, file created before the version is enabled, version specified - should return NotFound', async function() {
             try {
-                await s3_client.headObject({Bucket: bucket_name, Key: dis_version_key, VersionId: versionID_1}).promise();
+                await s3_client.headObject({Bucket: bucket_name, Key: dis_version_key, VersionId: versionID_1});
                 assert.ok('Expected latest head object returned');
             } catch (err) {
-                assert.equal(err.code, 'NotFound');
+                assert.equal(err.name, 'NotFound');
             }
         });
 
         mocha.it('head object, with version enabled, no version id specified - should return latest object md', async function() {
             try {
-                await s3_client.headObject({Bucket: bucket_name, Key: en_version_key}).promise();
+                await s3_client.headObject({Bucket: bucket_name, Key: en_version_key});
                 assert.ok('Expected latest head object returned');
             } catch (err) {
-                assert.fail(`Failed with an error: ${err.code}`);
+                assert.fail(`Failed with an error: ${err.Code}`);
             }
         });
 
         mocha.it('head object, with version enabled, with version id specified and matching with main file - should return latest object md', async function() {
             try {
-                await s3_client.headObject({Bucket: bucket_name, Key: en_version_key, VersionId: versionID_1}).promise();
+                await s3_client.headObject({Bucket: bucket_name, Key: en_version_key, VersionId: versionID_1});
                 assert.ok('Expected latest head object returned');
             } catch (err) {
-                assert.fail(`Failed with an error: ${err.code}`);
+                assert.fail(`Failed with an error: ${err.Code}`);
             }
         });
 
         mocha.it('head object, with version enabled, with version id specified and not matching with main file - should return $VersionId object md', async function() {
             await create_object(`${version_dir_path}/${key_version}`, en_version_body_v1, versionID_2);
             try {
-                await s3_client.headObject({Bucket: bucket_name, Key: en_version_key, VersionId: versionID_2}).promise();
+                await s3_client.headObject({Bucket: bucket_name, Key: en_version_key, VersionId: versionID_2});
                 assert.ok('Expected versioned object returned');
             } catch (err) {
-                assert.fail(`Failed with an error: ${err.code}`);
+                assert.fail(`Failed with an error: ${err.Code}`);
             }
         });
 
         mocha.it('head object, with version enabled, versioned object not created - should return NotFound', async function() {
             try {
-                await s3_client.headObject({Bucket: bucket_name, Key: en_version_key, VersionId: versionID_3}).promise();
+                await s3_client.headObject({Bucket: bucket_name, Key: en_version_key, VersionId: versionID_3});
                 assert.fail('Should fail');
             } catch (err) {
-                assert.equal(err.code, 'NotFound');
+                assert.equal(err.name, 'NotFound');
             }
         });
 
         mocha.it('head object, with version enabled, wrong version id specified - should return NotFound', async function() {
             try {
-                await s3_client.headObject({Bucket: bucket_name, Key: en_version_key, VersionId: versionID_3}).promise();
+                await s3_client.headObject({Bucket: bucket_name, Key: en_version_key, VersionId: versionID_3});
                 assert.fail('Should fail');
             } catch (err) {
-                assert.equal(err.code, 'NotFound');
+                assert.equal(err.name, 'NotFound');
             }
         });
         mocha.it('Put object when version disbled and do put on the same object when version enabled - get object should return versioned object', async function() {
-            let res = await s3_client.getObject({Bucket: disabled_bucket_name, Key: dis_version_key}).promise();
-            assert.equal(res.Body, dis_version_body);
+            let res = await s3_client.getObject({Bucket: disabled_bucket_name, Key: dis_version_key});
+            let body_as_string = await res.Body.transformToString();
+            assert.equal(body_as_string, dis_version_body);
             const version_obj_path = disabled_full_path + '/.versions';
             const version_key = dis_version_key + '_null';
             const version_body = 'DDDDD';
             const version_body_new_version = 'EEEEE';
-            await s3_client.putBucketVersioning({ Bucket: disabled_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
-            const bucket_ver = await s3_client.getBucketVersioning({ Bucket: disabled_bucket_name }).promise();
+            await s3_client.putBucketVersioning({ Bucket: disabled_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
+            const bucket_ver = await s3_client.getBucketVersioning({ Bucket: disabled_bucket_name });
             assert.equal(bucket_ver.Status, 'Enabled');
             // May be below 3 steps can be replaced with put_object() to create versioned object
             await fs_utils.create_fresh_path(version_obj_path, 0o770);
             await fs_utils.file_must_exist(version_obj_path);
             await create_object(`${version_obj_path}/${version_key}`, version_body, 'null');
             await create_object(`${disabled_full_path}/${dis_version_key}`, version_body_new_version, 'mtime-jhdfbkjsd-ino-bnsdf7f');
-            res = await s3_client.getObject({Bucket: disabled_bucket_name, Key: dis_version_key, VersionId: 'null'}).promise();
-            assert.equal(res.Body, version_body);
+            res = await s3_client.getObject({Bucket: disabled_bucket_name, Key: dis_version_key, VersionId: 'null'});
+            body_as_string = await res.Body.transformToString();
+            assert.equal(body_as_string, version_body);
         });
 
         mocha.it('get object, with version enabled, delete marker placed on latest object - should return NoSuchKey', async function() {
             const xattr_delete_marker = { 'user.delete_marker': 'true' };
             await file_pointer.replacexattr(DEFAULT_FS_CONFIG, xattr_delete_marker);
             try {
-                await s3_client.getObject({Bucket: bucket_name, Key: en_version_key}).promise();
+                await s3_client.getObject({Bucket: bucket_name, Key: en_version_key});
                 assert.fail('Should fail');
             } catch (err) {
-                assert.equal(err.code, 'NoSuchKey');
+                assert.equal(err.Code, 'NoSuchKey');
             }
         });
 
         mocha.it('get object, with version enabled, delete marker placed on latest object, version id specified - should return the version object', async function() {
             const xattr_delete_marker = { 'user.delete_marker': 'true' };
             await file_pointer.replacexattr(DEFAULT_FS_CONFIG, xattr_delete_marker);
-            const res = await s3_client.getObject({Bucket: bucket_name, Key: en_version_key, VersionId: versionID_2}).promise();
-            assert.equal(res.Body, en_version_body_v1);
+            const res = await s3_client.getObject({Bucket: bucket_name, Key: en_version_key, VersionId: versionID_2});
+            const body_as_string = await res.Body.transformToString();
+            assert.equal(body_as_string, en_version_body_v1);
         });
 
         mocha.it('head object, with version enabled, delete marked xattr placed on latest object - should return ENOENT', async function() {
             const xattr_delete_marker = { 'user.delete_marker': 'true' };
             await file_pointer.replacexattr(DEFAULT_FS_CONFIG, xattr_delete_marker);
             try {
-                await s3_client.headObject({Bucket: bucket_name, Key: en_version_key}).promise();
+                await s3_client.headObject({Bucket: bucket_name, Key: en_version_key});
                 assert.fail('Should fail');
             } catch (err) {
-                assert.equal(err.code, 'NotFound');
+                assert.equal(err.name, 'NotFound');
             }
         });
 
@@ -2592,10 +2602,10 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             const xattr_delete_marker = { 'user.delete_marker': 'true' };
             await file_pointer.replacexattr(DEFAULT_FS_CONFIG, xattr_delete_marker);
             try {
-                await s3_client.headObject({Bucket: bucket_name, Key: en_version_key, VersionId: versionID_2}).promise();
+                await s3_client.headObject({Bucket: bucket_name, Key: en_version_key, VersionId: versionID_2});
                 assert.ok('Expected versioned object returned');
             } catch (err) {
-                assert.fail(`Failed with an error: ${err.code}`);
+                assert.fail(`Failed with an error: ${err.Code}`);
             }
         });
     });
@@ -2631,20 +2641,20 @@ async function delete_object_versions(bucket_path, key) {
 //    at index n-1 is the version that was put last (newest version)
 async function upload_object_versions(s3_client, bucket, key, object_types_arr) {
     const res = [];
-    const versioning_status = await s3_client.getBucketVersioning({ Bucket: bucket }).promise();
+    const versioning_status = await s3_client.getBucketVersioning({ Bucket: bucket });
     for (const obj_type of object_types_arr) {
         if (obj_type === 'regular' || obj_type === 'null') {
             if (!versioning_status.Status && obj_type === 'regular') {
-                await s3_client.putBucketVersioning({ Bucket: bucket, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
+                await s3_client.putBucketVersioning({ Bucket: bucket, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
             }
             const random_body = (Math.random() + 1).toString(36).substring(7);
-            const put_res = await s3_client.putObject({ Bucket: bucket, Key: key, Body: random_body }).promise();
+            const put_res = await s3_client.putObject({ Bucket: bucket, Key: key, Body: random_body });
             res.push(put_res);
         } else if (obj_type === 'delete_marker') {
             if (!versioning_status.Status) {
-                await s3_client.putBucketVersioning({ Bucket: bucket, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
+                await s3_client.putBucketVersioning({ Bucket: bucket, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
             }
-            const delete_res = await s3_client.deleteObject({ Bucket: bucket, Key: key }).promise();
+            const delete_res = await s3_client.deleteObject({ Bucket: bucket, Key: key });
             res.push(delete_res);
         }
     }
@@ -2701,8 +2711,9 @@ async function version_file_must_not_exists(full_path, key, dir, version_id) {
 }
 
 async function get_obj_and_compare_data(s3, bucket_name, key, expected_body) {
-    const get_res = await s3.getObject({ Bucket: bucket_name, Key: key }).promise();
-    assert.equal(get_res.Body.toString(), expected_body);
+    const get_res = await s3.getObject({ Bucket: bucket_name, Key: key });
+    const body_as_string = await get_res.Body.transformToString();
+    assert.equal(body_as_string, expected_body);
     return true;
 }
 
@@ -2791,19 +2802,20 @@ async function put_allow_all_bucket_policy(s3_client, bucket) {
     await s3_client.putBucketPolicy({
         Bucket: bucket,
         Policy: JSON.stringify(policy)
-    }).promise();
+    });
 }
 
 function generate_s3_client(access_key, secret_key) {
-    return new AWS.S3({
-        s3ForcePathStyle: true,
-        signatureVersion: 'v4',
-        computeChecksums: true,
-        s3DisableBodySigning: false,
-        region: 'us-east-1',
-        httpOptions: { agent: new http.Agent({ keepAlive: false }) },
-        accessKeyId: access_key,
-        secretAccessKey: secret_key,
+    return new S3({
+        forcePathStyle: true,
+        region: config.DEFAULT_REGION,
+        requestHandler: new NodeHttpHandler({
+            httpAgent: new http.Agent({ keepAlive: false })
+        }),
+        credentials: {
+            accessKeyId: access_key,
+            secretAccessKey: secret_key,
+        },
         endpoint: coretest.get_http_address()
     });
 }
@@ -2921,13 +2933,13 @@ mocha.describe('List-objects', function() {
         await s3_admin.putBucketPolicy({
             Bucket: bucket_name,
             Policy: JSON.stringify(policy)
-        }).promise();
+        });
         // create nsfs account
         res = await generate_nsfs_account();
         s3_client = generate_s3_client(res.access_key, res.secret_key);
         accounts.push(res.email);
-        await s3_client.putBucketVersioning({ Bucket: bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } }).promise();
-        const bucket_ver = await s3_client.getBucketVersioning({ Bucket: bucket_name }).promise();
+        await s3_client.putBucketVersioning({ Bucket: bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
+        const bucket_ver = await s3_client.getBucketVersioning({ Bucket: bucket_name });
         assert.equal(bucket_ver.Status, 'Enabled');
         await create_object(`${full_path}/${key}`, body, 'null');
         await create_object(`${full_path_version_dir}/${version_key_1}`, version_body, 'null');
@@ -2947,7 +2959,7 @@ mocha.describe('List-objects', function() {
     });
 
     mocha.it('list objects - should return only latest object', async function() {
-        const res = await s3_client.listObjects({Bucket: bucket_name}).promise();
+        const res = await s3_client.listObjects({Bucket: bucket_name});
         let count = 0;
         res.Contents.forEach(val => {
             if (val.Key === key) {
@@ -2958,7 +2970,7 @@ mocha.describe('List-objects', function() {
     });
 
     mocha.it('list object versions - should return all versions of all the object', async function() {
-        const res = await s3_client.listObjectVersions({Bucket: bucket_name}).promise();
+        const res = await s3_client.listObjectVersions({Bucket: bucket_name});
         let count = 0;
         res.Versions.forEach(val => {
            count += 1;
@@ -2969,7 +2981,7 @@ mocha.describe('List-objects', function() {
     mocha.it('list object versions - should by pass the dir cache and load the objects from the disk', async function() {
         // Creation of version under HIDDER_VERSION_PATH will trigger load() call
         await create_object(`${full_path_version_dir}/${version_key_4}`, version_body, 'null');
-        let res = await s3_client.listObjectVersions({Bucket: bucket_name}).promise();
+        let res = await s3_client.listObjectVersions({Bucket: bucket_name});
         let count = 0;
         res.Versions.forEach(val => {
            count += 1;
@@ -2977,7 +2989,7 @@ mocha.describe('List-objects', function() {
         assert.equal(count, 8);
         // Deletion of version under HIDDER_VERSION_PATH will trigger load() call
         await fs_utils.file_delete(path.join(full_path_version_dir, version_key_4));
-        res = await s3_client.listObjectVersions({Bucket: bucket_name}).promise();
+        res = await s3_client.listObjectVersions({Bucket: bucket_name});
         count = 0;
         res.Versions.forEach(val => {
            count += 1;
@@ -2986,7 +2998,7 @@ mocha.describe('List-objects', function() {
     });
 
     mocha.it('list object versions - should return all the versions of the requested object', async function() {
-        const res = await s3_client.listObjectVersions({Bucket: bucket_name, KeyMarker: key}).promise();
+        const res = await s3_client.listObjectVersions({Bucket: bucket_name, KeyMarker: key});
         let count = 0;
         res.Versions.forEach(val => {
             count += 1;
@@ -2995,7 +3007,7 @@ mocha.describe('List-objects', function() {
     });
 
     mocha.it('list object versions - should return only max_key number of elements', async function() {
-        const res = await s3_client.listObjectVersions({Bucket: bucket_name, MaxKeys: 2}).promise();
+        const res = await s3_client.listObjectVersions({Bucket: bucket_name, MaxKeys: 2});
         let count = 0;
         res.Versions.forEach(val => {
            count += 1;
@@ -3004,7 +3016,7 @@ mocha.describe('List-objects', function() {
     });
 
     mocha.it('list object versions - should return only max keys of the versions of the requested object and nextKeyMarker should point to the next version', async function() {
-        const res = await s3_client.listObjectVersions({Bucket: bucket_name, KeyMarker: key, MaxKeys: 2}).promise();
+        const res = await s3_client.listObjectVersions({Bucket: bucket_name, KeyMarker: key, MaxKeys: 2});
         let count = 0;
         assert(res.KeyMarker, key);
         assert(res.NextKeyMarker, key);
@@ -3018,7 +3030,7 @@ mocha.describe('List-objects', function() {
     mocha.it('list object versions - should return only max keys of the versions of the requested object from the version id marker', async function() {
         const res = await s3_client.listObjectVersions({Bucket: bucket_name,
                                                         KeyMarker: key, MaxKeys: 2,
-                                                        VersionIdMarker: version_key_3}).promise();
+                                                        VersionIdMarker: version_key_3});
         let count = 0;
         res.Versions.forEach(val => {
             count += 1;
@@ -3029,17 +3041,17 @@ mocha.describe('List-objects', function() {
     mocha.it('list object versions - should fail because of missing key_marker', async function() {
         try {
             await s3_client.listObjectVersions({Bucket: bucket_name,
-                                                MaxKeys: 2, VersionIdMarker: version_key_3}).promise();
+                                                MaxKeys: 2, VersionIdMarker: version_key_3});
             assert.fail(`list object versions passed though key marker is missing`);
         } catch (err) {
-            assert.equal(err.code, 'InvalidArgument');
+            assert.equal(err.Code, 'InvalidArgument');
         }
     });
 
     mocha.it('list objects - deleted object should not be listed', async function() {
         const xattr_delete_marker = { 'user.delete_marker': 'true' };
         file_pointer.replacexattr(DEFAULT_FS_CONFIG, xattr_delete_marker);
-        const res = await s3_client.listObjects({Bucket: bucket_name}).promise();
+        const res = await s3_client.listObjects({Bucket: bucket_name});
         let count = 0;
         res.Contents.forEach(val => {
             if (val.Key === dir_key) {
@@ -3052,7 +3064,7 @@ mocha.describe('List-objects', function() {
     mocha.it('list object versions - All versions of the object should be listed', async function() {
         const xattr_delete_marker = { 'user.delete_marker': 'true' };
         file_pointer.replacexattr(DEFAULT_FS_CONFIG, xattr_delete_marker);
-        const res = await s3_client.listObjectVersions({Bucket: bucket_name}).promise();
+        const res = await s3_client.listObjectVersions({Bucket: bucket_name});
         let count = 0;
         res.Versions.forEach(val => {
             if (val.Key === dir_key) {
@@ -3065,7 +3077,7 @@ mocha.describe('List-objects', function() {
     mocha.it('list object versions - Check whether the deleted object is the latest and should be present under delete markers as well', async function() {
         const xattr_delete_marker = { 'user.delete_marker': 'true' };
         file_pointer.replacexattr(DEFAULT_FS_CONFIG, xattr_delete_marker);
-        const res = await s3_client.listObjectVersions({Bucket: bucket_name}).promise();
+        const res = await s3_client.listObjectVersions({Bucket: bucket_name});
 
         res.Versions.forEach(val => {
             if (val.Key === dir_key) {

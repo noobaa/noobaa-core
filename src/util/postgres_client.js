@@ -27,6 +27,7 @@ const { RpcError } = require('../rpc');
 const SensitiveString = require('./sensitive_string');
 const time_utils = require('./time_utils');
 const config = require('../../config');
+const ssl_utils = require('./ssl_utils');
 
 const DB_CONNECT_ERROR_MESSAGE = 'Could not acquire client from DB connection pool';
 mongodb.Binary.prototype[util.inspect.custom] = function custom_inspect_binary() {
@@ -1357,6 +1358,7 @@ class PostgresClient extends EventEmitter {
     async dropDatabase() {
         let pg_client;
         try {
+            if (process.env.POSTGRES_SSL_REQUIRED) await this._load_ssl_certs();
             pg_client = new Client({ ...this.new_pool_params, database: undefined });
             await pg_client.connect();
             await pg_client.query(`DROP DATABASE ${this.new_pool_params.database}`);
@@ -1371,6 +1373,7 @@ class PostgresClient extends EventEmitter {
     async createDatabase() {
         let pg_client;
         try {
+            if (process.env.POSTGRES_SSL_REQUIRED) await this._load_ssl_certs();
             pg_client = new Client({ ...this.new_pool_params, database: undefined });
             await pg_client.connect();
             await pg_client.query(`CREATE DATABASE ${this.new_pool_params.database} WITH LC_COLLATE = 'C' TEMPLATE template0`);
@@ -1412,19 +1415,25 @@ class PostgresClient extends EventEmitter {
         this.sequences = [];
         const postgres_port = parseInt(process.env.POSTGRES_PORT || '5432', 10);
 
-        // TODO: This need to move to another function
-        this.new_pool_params = {
-
-            // TODO: check the effect of max clients. default is 10
-            max: config.POSTGRES_MAX_CLIENTS,
-
-            host: process.env.POSTGRES_HOST || 'localhost',
-            user: process.env.POSTGRES_USER || 'postgres',
-            password: process.env.POSTGRES_PASSWORD || 'noobaa',
-            database: process.env.POSTGRES_DBNAME || 'nbcore',
-            port: postgres_port,
-            ...params,
-        };
+        if (process.env.POSTGRES_CONNECTION_STRING) {
+            /** @type {import('pg').PoolConfig} */
+            this.new_pool_params = {
+                connectionString: process.env.POSTGRES_CONNECTION_STRING,
+                ...params,
+            };
+        } else {
+            // TODO: This need to move to another function
+            this.new_pool_params = {
+                host: process.env.POSTGRES_HOST || '127.0.0.1',
+                user: process.env.POSTGRES_USER || 'postgres',
+                password: process.env.POSTGRES_PASSWORD || 'noobaa',
+                database: process.env.POSTGRES_DBNAME || 'nbcore',
+                port: postgres_port,
+                ...params,
+            };
+        }
+        // TODO: check the effect of max clients. default is 10
+        this.new_pool_params.max = config.POSTGRES_MAX_CLIENTS;
 
         PostgresClient.implements_interface(this);
         this._ajv = new Ajv({ verbose: true, allErrors: true });
@@ -1579,6 +1588,7 @@ class PostgresClient extends EventEmitter {
 
         let pool;
         let is_connected = false;
+        if (process.env.POSTGRES_SSL_REQUIRED) await this._load_ssl_certs();
         while (!is_connected) {
             try {
                 if (this._disconnected_state) return;
@@ -1612,6 +1622,12 @@ class PostgresClient extends EventEmitter {
                 await P.delay(3000);
             }
         }
+    }
+
+    async _load_ssl_certs() {
+        const ssl_cert = await ssl_utils.get_ssl_certificate('EXTERNAL_DB');
+        /** @type {import('tls').ConnectionOptions} */
+        this.new_pool_params.ssl = { ...ssl_cert, rejectUnauthorized: !process.env.POSTGRES_SSL_UNAUTHORIZED };
     }
 
     define_gridfs(bucket) {

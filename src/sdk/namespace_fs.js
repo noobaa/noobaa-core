@@ -2177,7 +2177,7 @@ class NamespaceFS {
     }
 
     _throw_if_delete_marker(stat) {
-        if (this.versioning === versioning_status_enum.VER_ENABLED || this.versioning === versioning_status_enum.VER_SUSPENDED) {
+        if (this._is_versioning_enabled() || this._is_versioning_suspended()) {
             const xattr_delete_marker = stat.xattr[native_fs_utils.XATTR_DELETE_MARKER];
             if (xattr_delete_marker) {
                 throw error_utils.new_error_code('ENOENT', 'Entry is a delete marker');

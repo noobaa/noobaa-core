@@ -612,7 +612,7 @@ class NamespaceFS {
                 if (r.common_prefix) {
                     res.common_prefixes.push(r.key);
                 } else {
-                    obj_info = this._get_object_info(bucket, r.key, r.stat, 'null', true);
+                    obj_info = this._get_object_info(bucket, r.key, r.stat, native_fs_utils.NULL_VERSION_ID, true);
                     if (!list_versions && obj_info.delete_marker) {
                         continue;
                     }
@@ -650,7 +650,7 @@ class NamespaceFS {
             await this._load_bucket(params, fs_context);
             const stat = await nb_native().fs.stat(fs_context, file_path);
             this._throw_if_delete_marker(stat);
-            return this._get_object_info(params.bucket, params.key, stat, params.version_id || 'null');
+            return this._get_object_info(params.bucket, params.key, stat, params.version_id || native_fs_utils.NULL_VERSION_ID);
         } catch (err) {
             this.run_update_issues_report(object_sdk, err);
             throw this._translate_object_error_codes(err);
@@ -2108,14 +2108,14 @@ class NamespaceFS {
     // version_id_str - mtime-{mtimeNsBigint}-ino-{ino} | explicit null
     // returns mtimeNsBigint, ino (inode_number)
     _extract_version_info_from_xattr(version_id_str) {
-        if (version_id_str === 'null') return;
+        if (version_id_str === native_fs_utils.NULL_VERSION_ID) return;
         const arr = version_id_str.split('mtime-').join('').split('-ino-');
         if (arr.length < 2) throw new Error('Invalid version_id_string, cannot extract version info');
         return { mtimeNsBigint: size_utils.string_to_bigint(arr[0], 36), ino: parseInt(arr[1], 36) };
     }
 
     _get_version_id_by_xattr(stat) {
-       return (stat && stat.xattr[native_fs_utils.XATTR_VERSION_ID]) || 'null';
+       return (stat && stat.xattr[native_fs_utils.XATTR_VERSION_ID]) || native_fs_utils.NULL_VERSION_ID;
     }
 
     // returns version path of the form bucket_path/dir/.versions/{key}_{version_id}
@@ -2186,7 +2186,7 @@ class NamespaceFS {
     }
 
     _throw_if_wrong_version_format(version_id) {
-        if (version_id === 'null') {
+        if (version_id === native_fs_utils.NULL_VERSION_ID) {
             return;
         }
         const v_parts = version_id.split('-');

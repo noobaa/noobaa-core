@@ -17,7 +17,7 @@ const { ClientSecretCredential } = require("@azure/identity");
  * get_log_candidates will return an object which contains the log candidates
  * @param {*} source_bucket_id ID of the source bucket
  * @param {string} rule_id ID of the replication rule
- * @param {Record<any, any>} replicationconfig Replication configuration
+ * @param {Record<any, any>} replication_config Replication configuration
  * @param {Number} candidates_limit Candidates limit
  * @param {boolean} sync_deletions - Whether deletions should be synced or not
  * @returns {Promise<{
@@ -25,13 +25,13 @@ const { ClientSecretCredential } = require("@azure/identity");
  *  done: () => Promise<void>
  * }>} Candidates
  */
-async function get_log_candidates(source_bucket_id, rule_id, replicationconfig, candidates_limit, sync_deletions) {
+async function get_log_candidates(source_bucket_id, rule_id, replication_config, candidates_limit, sync_deletions) {
     const source_bucket = system_store.data.get_by_id(source_bucket_id);
     const endpoint_type = source_bucket.namespace.write_resource.resource.connection.endpoint_type;
     if (endpoint_type === "AWS") {
-        return get_aws_log_candidates(source_bucket_id, rule_id, replicationconfig, candidates_limit, sync_deletions);
+        return get_aws_log_candidates(source_bucket_id, rule_id, replication_config, candidates_limit, sync_deletions);
     } else if (endpoint_type === "AZURE") {
-        return get_azure_log_candidates(source_bucket_id, rule_id, replicationconfig, candidates_limit, sync_deletions);
+        return get_azure_log_candidates(source_bucket_id, rule_id, replication_config, candidates_limit, sync_deletions);
     } else {
         throw new Error(`REPLICATION_LOG_PARSER: Unsupported endpoint type ${endpoint_type}`);
     }
@@ -40,17 +40,17 @@ async function get_log_candidates(source_bucket_id, rule_id, replicationconfig, 
 async function get_aws_log_candidates(source_bucket_id, rule_id, replication_config, candidates_limit, sync_deletions) {
     const aws_log_replication_info = replication_config.log_replication_info.aws_log_replication_info;
     const { logs_bucket, prefix } = aws_log_replication_info.logs_location;
-    const s3 = get_source_bucket_aws_connection(source_bucket_id, aws_log_replication_info);
-    let continuation_token = get_continuation_token_for_rule(rule_id, replication_config);
+    const s3 = _get_source_bucket_aws_connection(source_bucket_id, aws_log_replication_info);
+    let log_object_continuation_token = _get_log_object_continuation_token_for_rule(rule_id, replication_config);
 
     const logs = [];
     let logs_retrieved_count = config.AWS_LOG_CANDIDATES_LIMIT;
 
     do {
-        const next_log_entry = await aws_get_next_log_entry(s3, logs_bucket, prefix, continuation_token);
+        const next_log_entry = await aws_get_next_log_entry(s3, logs_bucket, prefix, log_object_continuation_token);
 
         // save the continuation token for the next iteration
-        continuation_token = next_log_entry.NextContinuationToken;
+        log_object_continuation_token = next_log_entry.NextContinuationToken;
 
         // Check if there is any log entry - if there are no more log entries
         // then no need to process anything
@@ -59,20 +59,22 @@ async function get_aws_log_candidates(source_bucket_id, rule_id, replication_con
             break;
         }
 
-        const next_log_data = await aws_get_next_log(s3, logs_bucket, next_log_entry.Contents[0].Key);
+        const next_log_data = await _aws_get_next_log(s3, logs_bucket, next_log_entry.Contents[0].Key);
         aws_parse_log_object(logs, next_log_data, sync_deletions);
 
         dbg.log1("get_aws_log_candidates: parsed logs ", logs);
 
         logs_retrieved_count -= 1;
     }
-    while ((logs.length < candidates_limit) && logs_retrieved_count !== 0 && continuation_token);
+    while ((logs.length < candidates_limit) && logs_retrieved_count !== 0 && log_object_continuation_token);
 
     return {
         items: create_candidates(logs),
         done: async () => {
-            if (continuation_token) {
-                await replication_store.update_log_replication_marker_by_id(replication_config._id, rule_id, { continuation_token });
+            if (log_object_continuation_token) {
+                await replication_store.update_log_replication_marker_by_id(
+                    replication_config._id, rule_id, { continuation_token: log_object_continuation_token }
+                );
             }
         },
     };
@@ -84,11 +86,11 @@ async function get_azure_log_candidates(source_bucket_id, rule_id, replication_c
     const src_storage_account = namespace_resource.connection.access_key;
     const src_container_name = namespace_resource.connection.target_bucket;
     const prefix = replication_config.log_replication_info.azure_log_replication_info.prefix || '';
-    const { logs_query_client, monitor_workspace_id } = get_source_bucket_azure_connection(source_bucket_id);
+    const { logs_query_client, monitor_workspace_id } = _get_source_bucket_azure_connection(source_bucket_id);
     let candidates;
 
     // Our "continuation token" is the timestamp of the the last log retrieval
-    let continuation_token = get_continuation_token_for_rule(rule_id, replication_config);
+    let continuation_token = _get_log_object_continuation_token_for_rule(rule_id, replication_config);
     let continuation_time;
     let start_duration;
     const one_hour = 1000 * 60 * 60;
@@ -118,7 +120,7 @@ async function get_azure_log_candidates(source_bucket_id, rule_id, replication_c
     }
 
     const kusto_query =
-    `set truncationmaxsize=${config.AZURE_QUERY_TRUNCATION_MAX_SIZE_IN_BITS};
+        `set truncationmaxsize=${config.AZURE_QUERY_TRUNCATION_MAX_SIZE_IN_BITS};
     StorageBlobLogs
     | where _TimeReceived > ${continuation_time}
     | project Time=_TimeReceived, Action=substring(Category, 7), Key=ObjectKey
@@ -133,7 +135,7 @@ async function get_azure_log_candidates(source_bucket_id, rule_id, replication_c
         monitor_workspace_id.unwrap(),
         kusto_query,
         { startTime: start_duration, endTime: new Date(Date.now()) },
-        {serverTimeoutInSeconds: 300}
+        { serverTimeoutInSeconds: 300 }
     );
 
     if (query_result.status === LogsQueryResultStatus.Success) {
@@ -164,7 +166,7 @@ async function get_azure_log_candidates(source_bucket_id, rule_id, replication_c
         dbg.error(`get_azure_log_candidates: Error processing the Azure replication query '${kusto_query}' - ${query_result.partialError}`);
         if (query_result.partialTables.length > 0) {
             console.warn(`get_azure_log_candidates: The Azure replication query has also returned partial data in the following table(s) - ${query_result.partialTables}`);
-            }
+        }
     }
 
     return {
@@ -230,16 +232,17 @@ async function aws_get_next_log_entry(s3, logs_bucket, logs_prefix, continuation
         start_after += '/';
     }
 
-    try {
-        dbg.log1('log_parser aws_get_next_log_entry: params:', logs_bucket, logs_prefix, continuation_token);
-        const res = await s3.listObjectsV2({
-            Bucket: logs_bucket,
-            Prefix: logs_prefix,
-            ContinuationToken: continuation_token,
-            MaxKeys: 1,
-            StartAfter: start_after,
-        }).promise();
+    const params = {
+        Bucket: logs_bucket,
+        Prefix: logs_prefix,
+        ContinuationToken: continuation_token,
+        MaxKeys: 1,
+        StartAfter: start_after,
+    };
 
+    try {
+        dbg.log1('log_parser aws_get_next_log_entry: params:', params);
+        const res = await s3.listObjectsV2(params).promise();
         dbg.log1('log_parser aws_get_next_log_entry: finished successfully ', res);
         return res;
 
@@ -249,20 +252,26 @@ async function aws_get_next_log_entry(s3, logs_bucket, logs_prefix, continuation
     }
 }
 
-async function aws_get_next_log(s3, bucket, key) {
+/**
+ *  _aws_get_next_log will get the log object
+ * @param {AWS.S3} s3
+ * @param {string} bucket
+ * @param {string} key
+ */
+async function _aws_get_next_log(s3, bucket, key) {
     try {
-        dbg.log1('log_parser aws_get_next_log: params:', bucket, key);
+        dbg.log1('log_parser _aws_get_next_log: params:', bucket, key);
         const res = await s3.getObject({
             Bucket: bucket,
             Key: key,
             ResponseContentType: 'json'
         }).promise();
 
-        dbg.log1('log_parser aws_get_next_log: finished successfully ', res);
+        dbg.log1('log_parser _aws_get_next_log: finished successfully ', res);
         return res;
 
     } catch (err) {
-        dbg.error('log_parser aws_get_next_log: error:', err);
+        dbg.error('log_parser _aws_get_next_log: error:', err);
         throw err;
     }
 }
@@ -279,9 +288,8 @@ function aws_parse_log_object(logs, log_object, sync_deletions) {
 
     for (const line of log_array) {
         if (line !== '') {
-            const log = parse_aws_log_entry(line);
+            const log = _parse_aws_log_entry(line);
             if (log.operation) {
-
                 if (log.operation.includes('PUT.OBJECT') || log.operation.includes('POST.OBJECT')) {
                     logs.push({
                         key: log.key,
@@ -313,16 +321,16 @@ function azure_parse_log_object(logs, query_result, sync_deletions) {
     // 1: Operation (can only ever be Write or Delete)
     // 2: Object key
     for (const row_array of query_result.tables[0].rows) {
-        const [ time, operation, key ] = row_array;
+        const [time, operation, key] = row_array;
         if (operation === "Write") {
             logs.push({
                 key: key,
                 action: 'copy',
                 time: time,
             });
-        // Anything that isn't Write, has to be Delete
-        // Any other action is filtered in the query level
-        // Regardless, keeping the if for readability
+            // Anything that isn't Write, has to be Delete
+            // Any other action is filtered in the query level
+            // Regardless, keeping the if for readability
         } else if (operation === "Delete" && sync_deletions) {
             logs.push({
                 key: key,
@@ -333,7 +341,7 @@ function azure_parse_log_object(logs, query_result, sync_deletions) {
     }
 }
 
-function get_source_bucket_azure_connection(source_bucket_id) {
+function _get_source_bucket_azure_connection(source_bucket_id) {
     const source_bucket = system_store.data.get_by_id(source_bucket_id);
     const extended_ns_info = pool_server.get_namespace_resource_extended_info(source_bucket.namespace.write_resource.resource);
     const azure_log_access_keys = extended_ns_info.azure_log_access_keys;
@@ -346,7 +354,7 @@ function get_source_bucket_azure_connection(source_bucket_id) {
     return { logs_query_client: new LogsQueryClient(azure_token_credential), monitor_workspace_id: azure_logs_analytics_workspace_id };
 }
 
-function get_source_bucket_aws_connection(source_bucket_id, aws_log_replication_info) {
+function _get_source_bucket_aws_connection(source_bucket_id, aws_log_replication_info) {
     const source_bucket = system_store.data.get_by_id(source_bucket_id);
     const logs_location = aws_log_replication_info.logs_location;
     const { logs_bucket } = logs_location;
@@ -404,7 +412,7 @@ function get_source_bucket_aws_connection(source_bucket_id, aws_log_replication_
  *  acl_required: Boolean | null,
  * } | Record<string, any>}
  */
-function parse_aws_log_entry(log_entry) {
+function _parse_aws_log_entry(log_entry) {
     console.log('entry:', log_entry);
 
     if (typeof log_entry === "undefined") return;
@@ -413,7 +421,7 @@ function parse_aws_log_entry(log_entry) {
         const log_object_structure = {
             'bucket_owner': null,
             'bucket': null,
-            'time': parse_aws_log_date,
+            'time': _parse_aws_log_date,
             'remote_ip': null,
             'requester': null,
             'request_id': null,
@@ -439,49 +447,49 @@ function parse_aws_log_entry(log_entry) {
             'acl_required': Boolean
         };
 
-        const ParseStates = {
+        const parse_states = {
             START: 0,
             IN_VALUE: 1,
             IN_VALUE_BRACKETS: 2,
             IN_VALUE_QUOTED: 3,
         };
 
-        let state = ParseStates.START;
+        let state = parse_states.START;
         let value = "";
         const values = [];
         for (const c of log_entry) {
-            if (state === ParseStates.START) {
+            if (state === parse_states.START) {
                 if (c === " ") {
                     value = "";
                 } else if (c === "[") {
-                    state = ParseStates.IN_VALUE_BRACKETS;
+                    state = parse_states.IN_VALUE_BRACKETS;
                 } else if (c === '"') {
-                    state = ParseStates.IN_VALUE_QUOTED;
+                    state = parse_states.IN_VALUE_QUOTED;
                 } else {
                     value += c;
-                    state = ParseStates.IN_VALUE;
+                    state = parse_states.IN_VALUE;
                 }
-            } else if (state === ParseStates.IN_VALUE) {
+            } else if (state === parse_states.IN_VALUE) {
                 if (c === " ") {
                     values.push(value);
                     value = "";
-                    state = ParseStates.START;
+                    state = parse_states.START;
                 } else {
                     value += c;
                 }
-            } else if (state === ParseStates.IN_VALUE_BRACKETS) {
+            } else if (state === parse_states.IN_VALUE_BRACKETS) {
                 if (c === "]") {
                     values.push(`[${value}]`);
                     value = "";
-                    state = ParseStates.START;
+                    state = parse_states.START;
                 } else {
                     value += c;
                 }
-            } else if (state === ParseStates.IN_VALUE_QUOTED) {
+            } else if (state === parse_states.IN_VALUE_QUOTED) {
                 if (c === '"') {
                     values.push(value);
                     value = "";
-                    state = ParseStates.START;
+                    state = parse_states.START;
                 } else {
                     value += c;
                 }
@@ -500,12 +508,12 @@ function parse_aws_log_entry(log_entry) {
 
         return result;
     } catch (err) {
-        dbg.error('parse_aws_log_entry: failed to parse log entry - unexpected structure', err);
+        dbg.error('_parse_aws_log_entry: failed to parse log entry - unexpected structure', err);
         return {};
     }
 }
 
-function parse_aws_log_date(log_date) {
+function _parse_aws_log_date(log_date) {
     return moment(log_date, 'DD/MMM/YYYY:HH:mm:ss Z').toDate();
 }
 
@@ -521,7 +529,7 @@ function parse_potentially_empty_log_value(log_value, custom_parser) {
     return log_value;
 }
 
-function get_continuation_token_for_rule(rule_id, replication_config) {
+function _get_log_object_continuation_token_for_rule(rule_id, replication_config) {
     const replication_rule = replication_config.rules.find(rule => rule.rule_id === rule_id);
     return replication_rule?.rule_log_status?.log_marker?.continuation_token;
 }

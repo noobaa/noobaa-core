@@ -5,6 +5,7 @@ const _ = require('lodash');
 const AWS = require('aws-sdk');
 
 const SensitiveString = require('../../util/sensitive_string');
+const replication_utils = require('../utils/replication_utils');
 const dbg = require('../../util/debug_module')(__filename);
 
 class BucketDiff {
@@ -425,8 +426,8 @@ class BucketDiff {
         }
 
         const [first_bucket_curr_obj_metadata, second_bucket_curr_obj_metadata] = await Promise.all([
-            this._get_object_md(this.first_bucket, cur_first_bucket_key, first_bucket_obj_version_id),
-            this._get_object_md(this.second_bucket, cur_first_bucket_key, second_bucket_obj_version_id),
+            replication_utils.get_object_md(this.first_bucket, cur_first_bucket_key, this.s3, first_bucket_obj_version_id),
+            replication_utils.get_object_md(this.second_bucket, cur_first_bucket_key, this.s3, second_bucket_obj_version_id),
         ]);
 
         const first_bucket_curr_obj_user_metadata = first_bucket_curr_obj_metadata?.Metadata;
@@ -451,31 +452,6 @@ class BucketDiff {
             return indexes;
         }, []);
         return target_pos;
-    }
-
-    /**
-     * @param {any} bucket_name
-     * @param {string} key
-     * @param {string} version_id
-     */
-    async _get_object_md(bucket_name, key, version_id) {
-        if (bucket_name instanceof SensitiveString) bucket_name = bucket_name.unwrap();
-        const params = {
-            Bucket: bucket_name,
-            Key: key,
-            VersionId: version_id,
-        };
-
-        try {
-            const head = await this.s3.headObject(params).promise();
-            //for namespace s3 we are omitting the 'noobaa-namespace-s3-bucket' as it will be defer between buckets
-            if (head?.Metadata) head.Metadata = _.omit(head.Metadata, 'noobaa-namespace-s3-bucket');
-            dbg.log1('BucketDiff _get_object_md: finished successfully', head);
-            return head;
-        } catch (err) {
-            dbg.error('BucketDiff _get_object_md: error:', err);
-            throw err;
-        }
     }
 
 }

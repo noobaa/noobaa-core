@@ -12,6 +12,7 @@ const buffer_utils = require('../../util/buffer_utils');
 const util = require('util');
 const path = require('path');
 const test_utils = require('../system_tests/test_utils');
+const endpoint_stats_collector = require('../../sdk/endpoint_stats_collector');
 
 const MAC_PLATFORM = 'darwin';
 
@@ -50,7 +51,15 @@ mocha.describe('namespace_fs - versioning', function() {
     const dummy_object_sdk = make_dummy_object_sdk(true);
     const dummy_object_sdk_no_nsfs_config = make_dummy_object_sdk(false);
     const dummy_object_sdk_no_nsfs_permissions = make_dummy_object_sdk(true, 5, 5);
-    const ns_tmp = new NamespaceFS({ bucket_path: ns_tmp_bucket_path, bucket_id: '1', namespace_resource_id: undefined });
+    const ns_tmp = new NamespaceFS({
+        bucket_path: ns_tmp_bucket_path,
+        bucket_id: '1',
+        namespace_resource_id: undefined,
+        access_mode: undefined,
+        versioning: undefined,
+        force_md5_etag: false,
+        stats: endpoint_stats_collector.instance(),
+    });
 
     mocha.it('set bucket versioning - Enabled - should fail - no permissions', async function() {
         try {

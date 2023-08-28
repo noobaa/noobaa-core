@@ -4,7 +4,6 @@
 'use strict';
 
 const _ = require('lodash');
-const fs = require('fs');
 const path = require('path');
 const util = require('util');
 const mime = require('mime');
@@ -17,6 +16,7 @@ const error_utils = require('../util/error_utils');
 const stream_utils = require('../util/stream_utils');
 const buffer_utils = require('../util/buffer_utils');
 const size_utils = require('../util/size_utils');
+const native_fs_utils = require('../util/native_fs_utils');
 const ChunkFS = require('../util/chunk_fs');
 const LRUCache = require('../util/lru_cache');
 const Semaphore = require('../util/semaphore');
@@ -36,18 +36,10 @@ const buffers_pool = new buffer_utils.BuffersPool({
     buffer_alloc: size => nb_native().fs.dio_buffer_alloc(size),
 });
 
-const XATTR_USER_PREFIX = 'user.';
-// TODO: In order to verify validity add content_md5_mtime as well
-const XATTR_CONTENT_TYPE = XATTR_USER_PREFIX + 'content_type';
-const XATTR_MD5_KEY = XATTR_USER_PREFIX + 'content_md5';
-const XATTR_VERSION_ID = XATTR_USER_PREFIX + 'version_id';
-const XATTR_PREV_VERSION_ID = XATTR_USER_PREFIX + 'prev_version_id';
-const XATTR_DELETE_MARKER = XATTR_USER_PREFIX + 'delete_marker';
-const XATTR_DIR_CONTENT = XATTR_USER_PREFIX + 'dir_content';
 const HIDDEN_VERSIONS_PATH = '.versions';
-const NULL_VERSION_ID = 'null';
-const NULL_VERSION_SUFFIX = '_' + NULL_VERSION_ID;
-const XATTR_STORAGE_CLASS_KEY = XATTR_USER_PREFIX + 'storage_class';
+const NULL_VERSION_ID = native_fs_utils.NULL_VERSION_ID;
+const NULL_VERSION_SUFFIX = native_fs_utils.NULL_VERSION_SUFFIX;
+const XATTR_STORAGE_CLASS_KEY = native_fs_utils.XATTR_USER_PREFIX + 'storage_class';
 
 /**
  * XATTR_RESTORE_REQUEST is set to a NUMBER (expiry days) by `restore_object` when 
@@ -55,14 +47,14 @@ const XATTR_STORAGE_CLASS_KEY = XATTR_USER_PREFIX + 'storage_class';
  * it picks up the request, this  is to ensure that the same object is not queued 
  * for restoration multiple times.
  */
-const XATTR_RESTORE_REQUEST = XATTR_USER_PREFIX + 'noobaa.restore.request';
+const XATTR_RESTORE_REQUEST = native_fs_utils.XATTR_USER_PREFIX + 'noobaa.restore.request';
 
 /**
  * XATTR_RESTORE_ONGOING is set to a BOOL by the underlying restore process when it picks up
  * a restore request. This is unset by the underlying restore process when it finishes
  * restoring the object.
  */
-const XATTR_RESTORE_ONGOING = XATTR_USER_PREFIX + 'noobaa.restore.ongoing';
+const XATTR_RESTORE_ONGOING = native_fs_utils.XATTR_USER_PREFIX + 'noobaa.restore.ongoing';
 
 /**
  * XATTR_RESTORE_EXPIRY is set to a ISO DATE by the underlying restore process or by
@@ -76,18 +68,7 @@ const XATTR_RESTORE_ONGOING = XATTR_USER_PREFIX + 'noobaa.restore.ongoing';
  * state of the object on disk, but is probably good enough for NooBaa's purposes
  * assuming that restore request for already restored objects fails gracefully.
  */
-const XATTR_RESTORE_EXPIRY = XATTR_USER_PREFIX + 'noobaa.restore.expiry';
-
-const INTERNAL_XATTR = [
-    XATTR_CONTENT_TYPE,
-    XATTR_DIR_CONTENT,
-    XATTR_PREV_VERSION_ID,
-    XATTR_DELETE_MARKER,
-    XATTR_STORAGE_CLASS_KEY,
-    XATTR_RESTORE_REQUEST,
-    XATTR_RESTORE_ONGOING,
-    XATTR_RESTORE_EXPIRY,
-];
+const XATTR_RESTORE_EXPIRY = native_fs_utils.XATTR_USER_PREFIX + 'noobaa.restore.expiry';
 
 const versioning_status_enum = {
     VER_ENABLED: 'ENABLED',
@@ -112,223 +93,12 @@ const copy_status_enum = {
     FALLBACK: 'FALLBACK'
 };
 
-
-/**
- * @param {fs.Dirent} a
- * @param {fs.Dirent} b
- * @returns {1|-1|0}
- */
-function sort_entries_by_name(a, b) {
-    if (a.name < b.name) return -1;
-    if (a.name > b.name) return 1;
-    return 0;
-}
-
-function _get_version_id_by_stat({ino, mtimeNsBigint}) {
-    // TODO: GPFS might require generation number to be added to version_id
-    return 'mtime-' + mtimeNsBigint.toString(36) + '-ino-' + ino.toString(36);
-}
-
-function _is_version_object_including_null_version(filename) {
-    const is_version_object = _is_version_object(filename);
-    if (!is_version_object) {
-        return _is_version_null_version(filename);
-    }
-    return is_version_object;
-}
-
-function _is_version_null_version(filename) {
-    return filename.endsWith(NULL_VERSION_SUFFIX);
-}
-
-function _is_version_object(filename) {
-    const mtime_substr_index = filename.indexOf('_mtime-');
-    if (mtime_substr_index < 0) return false;
-    const ino_substr_index = filename.indexOf('-ino-');
-    return ino_substr_index > mtime_substr_index;
-}
-
-function _get_mtime_from_filename(filename) {
-    if (!_is_version_object(filename)) {
-        // Latest file wont have time suffix which will push the latest
-        // object last in the list. So to keep the order maintained,
-        // returning the latest time. Multiplying with 1e6 to provide
-        // nano second precision
-        return BigInt(Date.now() * 1e6);
-    }
-    const file_parts = filename.split('-');
-    return size_utils.string_to_bigint(file_parts[file_parts.length - 3], 36);
-}
-
-function _get_filename(file_name) {
-    if (_is_version_object(file_name)) {
-        return file_name.substring(0, file_name.indexOf('_mtime-'));
-    } else if (_is_version_null_version(file_name)) {
-        return file_name.substring(0, file_name.indexOf(NULL_VERSION_SUFFIX));
-    }
-    return file_name;
-}
-/**
- * @param {fs.Dirent} first_entry
- * @param {fs.Dirent} second_entry
- * @returns {Number}
- */
-function sort_entries_by_name_and_time(first_entry, second_entry) {
-    const first_entry_name = _get_filename(first_entry.name);
-    const second_entry_name = _get_filename(second_entry.name);
-    if (first_entry_name === second_entry_name) {
-        const first_entry_mtime = _get_mtime_from_filename(first_entry.name);
-        const second_entry_mtime = _get_mtime_from_filename(second_entry.name);
-        // To sort the versions in the latest first order,
-        // below logic is followed
-        if (second_entry_mtime < first_entry_mtime) return -1;
-        if (second_entry_mtime > first_entry_mtime) return 1;
-        return 0;
-    } else {
-        if (first_entry_name < second_entry_name) return -1;
-        if (first_entry_name > second_entry_name) return 1;
-        return 0;
-    }
-}
-
-// This is helper function for list object version
-// In order to sort the entries by name we would like to change the name of files with suffix of '_null'
-// to have the structure of _mtime-...-ino-... as version id.
-// This function returns a set that contains all file names that were changed (after change)
-// and an array old_versions_after_rename which is old_versions without the versions that stat failed on
-async function _rename_null_version(old_versions, fs_context, version_path) {
-    const renamed_null_versions_set = new Set();
-    const old_versions_after_rename = [];
-
-    for (const old_version of old_versions) {
-        if (_is_version_null_version(old_version.name)) {
-            try {
-                const stat = await nb_native().fs.stat(fs_context, path.join(version_path, old_version.name));
-                const mtime_ino = _get_version_id_by_stat(stat);
-                const original_name = _get_filename(old_version.name);
-                const version_with_mtime_ino = original_name + '_' + mtime_ino;
-                old_version.name = version_with_mtime_ino;
-                renamed_null_versions_set.add(version_with_mtime_ino);
-            } catch (err) {
-                // to cover an edge case where stat fails
-                // for example another process deleted an object and we get ENOENT
-                // just before executing this command but after the starting list object versions
-                dbg.error(`_rename_null_version of ${old_version.name} got error:`, err);
-                old_version.name = undefined;
-            }
-        }
-        if (old_version.name) old_versions_after_rename.push(old_version);
-    }
-    return { renamed_null_versions_set, old_versions_after_rename };
-}
-
-function isDirectory(ent) {
-    if (!ent) throw new Error('isDirectory: ent is empty');
-    if (ent.mode) {
-        // eslint-disable-next-line no-bitwise
-        return (((ent.mode) & nb_native().fs.S_IFMT) === nb_native().fs.S_IFDIR);
-    } else if (ent.type) {
-        return ent.type === nb_native().fs.DT_DIR;
-    } else {
-        throw new Error(`isDirectory: ent ${ent} is not supported`);
-    }
-}
-
-/**
- *
- * @param {*} stat - entity stat yo check
- * @param {*} fs_context - account config using to check symbolic links
- * @param {*} entry_path - path of symbolic link
- * @returns
- */
-async function is_directory_or_symlink_to_directory(stat, fs_context, entry_path) {
-    try {
-        let r = isDirectory(stat);
-        if (!r && is_symbolic_link(stat)) {
-            const targetStat = await nb_native().fs.stat(fs_context, entry_path);
-            if (!targetStat) throw new Error('is_directory_or_symlink_to_directory: targetStat is empty');
-            r = isDirectory(targetStat);
-        }
-        return r;
-    } catch (err) {
-        if (err.code !== 'ENOENT') {
-            throw err;
-        }
-    }
-}
-
-function is_symbolic_link(stat) {
-    if (!stat) throw new Error('isSymbolicLink: stat is empty');
-    if (stat.mode) {
-        // eslint-disable-next-line no-bitwise
-        return (((stat.mode) & nb_native().fs.S_IFMT) === nb_native().fs.S_IFLNK);
-    } else if (stat.type) {
-        return stat.type === nb_native().fs.DT_LNK;
-    } else {
-        throw new Error(`isSymbolicLink: stat ${stat} is not supported`);
-    }
-}
-
-/**
- * NOTICE that even files that were written sequentially, can still be identified as sparse:
- * 1. After writing, but before all the data is synced, the size is higher than blocks size.
- * 2. For files that were moved to an archive tier.
- * 3. For files that fetch and cache data from remote storage, which are still not in the cache.
- * It's not good enough for avoiding recall storms as needed by _fail_if_archived_or_sparse_file.
- * However, using this check is useful for guessing that a reads is going to take more time
- * and avoid holding off large buffers from the buffers_pool.
- * @param {nb.NativeFSStats} stat
- * @returns {boolean}
- */
-function is_sparse_file(stat) {
-    return (stat.blocks * 512 < stat.size);
-}
-
-function get_umasked_mode(mode) {
-    // eslint-disable-next-line no-bitwise
-    return mode & ~config.NSFS_UMASK;
-}
-/**
- * @param {fs.Dirent} e
- * @returns {string}
- */
-function get_entry_name(e) {
-    return e.name;
-}
-
-/**
- * @param {string} name
- * @returns {fs.Dirent}
- */
-function make_named_dirent(name) {
-    const entry = new fs.Dirent();
-    entry.name = name;
-    return entry;
-}
-
-function to_xattr(fs_xattr) {
-    const xattr = _.mapKeys(fs_xattr, (val, key) =>
-        (key.startsWith(XATTR_USER_PREFIX) && !INTERNAL_XATTR.includes(key) ? key.slice(XATTR_USER_PREFIX.length) : '')
-    );
-    // keys which do not start with prefix will all map to the empty string key, so we remove it once
-    delete xattr[''];
-    // @ts-ignore
-    xattr[s3_utils.XATTR_SORT_SYMBOL] = true;
-    return xattr;
-}
-
-function to_fs_xattr(xattr) {
-    if (_.isEmpty(xattr)) return undefined;
-    return _.mapKeys(xattr, (val, key) => XATTR_USER_PREFIX + key);
-}
-
-
 /**
  * @typedef {{
  *  time: number,
  *  stat: nb.NativeFSStats,
  *  usage: number,
- *  sorted_entries?: fs.Dirent[],
+ *  sorted_entries?: import('fs').Dirent[],
  * }} ReaddirCacheItem
  * @type {LRUCache<object, string, ReaddirCacheItem>}
  */
@@ -342,7 +112,7 @@ const dir_cache = new LRUCache({
         let usage = config.NSFS_DIR_CACHE_MIN_DIR_SIZE;
         if (stat.size <= config.NSFS_DIR_CACHE_MAX_DIR_SIZE) {
             sorted_entries = await nb_native().fs.readdir(fs_context, dir_path);
-            sorted_entries.sort(sort_entries_by_name);
+            sorted_entries.sort(native_fs_utils.sort_entries_by_name);
             for (const ent of sorted_entries) {
                 usage += ent.name.length + 4;
             }
@@ -363,7 +133,7 @@ const dir_cache = new LRUCache({
  *  stat: nb.NativeFSStats,
  *  ver_dir_stat: nb.NativeFSStats,
  *  usage: number,
- *  sorted_entries?: fs.Dirent[],
+ *  sorted_entries?: import('fs').Dirent[],
  * }} ReaddirVersionsCacheItem
  * @type {LRUCache<object, string, ReaddirVersionsCacheItem>}
  */
@@ -402,21 +172,21 @@ const versions_dir_cache = new LRUCache({
                 const {
                     renamed_null_versions_set,
                     old_versions_after_rename
-                } = await _rename_null_version(old_versions, fs_context, version_path);
+                } = await native_fs_utils._rename_null_version(old_versions, fs_context, version_path);
                 const entries = latest_versions.concat(old_versions_after_rename);
-                sorted_entries = entries.sort(sort_entries_by_name_and_time);
+                sorted_entries = entries.sort(native_fs_utils.sort_entries_by_name_and_time);
                 // rename back version to include 'null' suffix.
                 if (renamed_null_versions_set.size > 0) {
                     for (const ent of sorted_entries) {
                         if (renamed_null_versions_set.has(ent.name)) {
-                            const file_name = _get_filename(ent.name);
+                            const file_name = native_fs_utils.get_filename(ent.name);
                             const version_name_with_null = file_name + NULL_VERSION_SUFFIX;
                             ent.name = version_name_with_null;
                         }
                     }
                 }
             } else {
-                sorted_entries = latest_versions.sort(sort_entries_by_name);
+                sorted_entries = latest_versions.sort(native_fs_utils.sort_entries_by_name);
             }
             /*eslint no-unused-expressions: ["error", { "allowTernary": true }]*/
             for (const ent of sorted_entries) {
@@ -683,7 +453,7 @@ class NamespaceFS {
                 };
 
                 /**
-                 * @param {fs.Dirent} ent
+                 * @param {import('fs').Dirent} ent
                  */
                 const process_entry = async ent => {
                     // dbg.log0('process_entry', dir_key, ent.name);
@@ -694,10 +464,11 @@ class NamespaceFS {
                         !this._is_hidden_version_path(ent.name)) {
                         return;
                     }
-                    const isDir = await is_directory_or_symlink_to_directory(ent, fs_context, path.join(dir_path, ent.name));
+                    const isDir = await native_fs_utils.is_directory_or_symlink_to_directory(ent,
+                        fs_context, path.join(dir_path, ent.name));
 
                     let r;
-                    if (list_versions && _is_version_object_including_null_version(ent.name)) {
+                    if (list_versions && native_fs_utils.is_version_str_including_null_version(ent.name)) {
                         r = {
                             key: this._get_version_entry_key(dir_key, ent),
                             common_prefix: isDir,
@@ -728,7 +499,7 @@ class NamespaceFS {
 
                 // insert dir object to objects list if its key is lexicographicly bigger than the key marker &&
                 // no delimiter OR prefix is the current directory entry
-                const is_dir_content = cached_dir.stat.xattr && cached_dir.stat.xattr[XATTR_DIR_CONTENT];
+                const is_dir_content = cached_dir.stat.xattr && cached_dir.stat.xattr[native_fs_utils.XATTR_DIR_CONTENT];
                 if (is_dir_content && dir_key > key_marker && (!delimiter || dir_key === prefix)) {
                     const r = { key: dir_key, common_prefix: false };
                     await insert_entry_to_results_arr(r);
@@ -754,8 +525,8 @@ class NamespaceFS {
                     } else {
                         marker_index = _.sortedLastIndexBy(
                             sorted_entries,
-                            make_named_dirent(marker_curr),
-                            get_entry_name
+                            native_fs_utils.make_named_dirent(marker_curr),
+                            native_fs_utils.get_entry_name
                         );
                     }
 
@@ -767,7 +538,7 @@ class NamespaceFS {
                         const prev_dir_name = prev_dir.name;
                         if (marker_curr.startsWith(prev_dir_name) && dir_key !== prev_dir.name) {
                             if (!delimiter) {
-                                const isDir = await is_directory_or_symlink_to_directory(
+                                const isDir = await native_fs_utils.is_directory_or_symlink_to_directory(
                                     prev_dir, fs_context, path.join(dir_path, prev_dir_name, '/'));
                                 if (isDir) {
                                     await process_dir(path.join(dir_key, prev_dir_name, '/'));
@@ -778,7 +549,7 @@ class NamespaceFS {
                     for (let i = marker_index; i < sorted_entries.length; ++i) {
                         const ent = sorted_entries[i];
                         if (list_versions && marker_curr) {
-                            const ent_name = _get_filename(ent.name);
+                            const ent_name = native_fs_utils.get_filename(ent.name);
                             if (ent_name !== marker_curr) break;
                         }
                         // when entry is NSFS_FOLDER_OBJECT_NAME=.folder file,
@@ -847,15 +618,15 @@ class NamespaceFS {
                     }
                     if (this._is_hidden_version_path(obj_info.key)) {
                         obj_info.key = path.normalize(obj_info.key.replace(HIDDEN_VERSIONS_PATH + '/', ''));
-                        obj_info.key = _get_filename(obj_info.key);
+                        obj_info.key = native_fs_utils.get_filename(obj_info.key);
                     }
                     res.objects.push(obj_info);
                 }
                 if (res.is_truncated) {
-                    if (list_versions && _is_version_object(r.key)) {
+                    if (list_versions && native_fs_utils.is_version_string(r.key)) {
                         const next_version_id_marker = r.key.substring(r.key.lastIndexOf('/') + 1);
                         res.next_version_id_marker = next_version_id_marker;
-                        res.next_marker = _get_filename(next_version_id_marker);
+                        res.next_marker = native_fs_utils.get_filename(next_version_id_marker);
                     } else {
                         res.next_marker = r.key;
                     }
@@ -905,7 +676,7 @@ class NamespaceFS {
                 try {
                     const md_path = this._get_file_md_path(params);
                     const dir_stat = await nb_native().fs.stat(fs_context, md_path);
-                    if (dir_stat && dir_stat.xattr[XATTR_DIR_CONTENT] === '0') return null;
+                    if (dir_stat && dir_stat.xattr[native_fs_utils.XATTR_DIR_CONTENT] === '0') return null;
                 } catch (err) {
                     dbg.log0('NamespaceFS: read_object_stream couldnt find dir content xattr', err);
                 }
@@ -915,7 +686,7 @@ class NamespaceFS {
                 fs_context,
                 file_path,
                 config.NSFS_OPEN_READ_MODE,
-                get_umasked_mode(config.BASE_MODE_FILE),
+                native_fs_utils.get_umasked_mode(config.BASE_MODE_FILE),
             );
 
             const stat = await file.stat(fs_context);
@@ -945,7 +716,7 @@ class NamespaceFS {
                 // and then use just a small buffer to wait for a tiny read,
                 // which will recall the file from archive or load from remote into cache,
                 // and once it returns we can continue to the full fledged read.
-                if (config.NSFS_BUF_WARMUP_SPARSE_FILE_READS && is_sparse_file(stat)) {
+                if (config.NSFS_BUF_WARMUP_SPARSE_FILE_READS && native_fs_utils.is_sparse_file(stat)) {
                     dbg.log0('NamespaceFS: read_object_stream - warmup sparse file', {
                         file_path, pos, size: stat.size, blocks: stat.blocks,
                     });
@@ -1140,7 +911,7 @@ class NamespaceFS {
         dbg.log0(`NamespaceFS._open_file: mode=${open_mode}`, open_path);
         // for 'wt' open the tmpfile with the parent dir path
         const actual_open_path = open_mode === 'wt' ? dir_path : open_path;
-        return nb_native().fs.open(fs_context, actual_open_path, open_mode, get_umasked_mode(config.BASE_MODE_FILE));
+        return nb_native().fs.open(fs_context, actual_open_path, open_mode, native_fs_utils.get_umasked_mode(config.BASE_MODE_FILE));
     }
 
     // on server side copy -
@@ -1186,10 +957,10 @@ class NamespaceFS {
         let fs_xattr;
         // handle xattr
         if (!params.copy_source || !params.xattr_copy) {
-            fs_xattr = to_fs_xattr(params.xattr);
+            fs_xattr = native_fs_utils.to_fs_xattr(params.xattr);
             if (params.content_type) {
                 fs_xattr = fs_xattr || {};
-                fs_xattr[XATTR_CONTENT_TYPE] = params.content_type;
+                fs_xattr[native_fs_utils.XATTR_CONTENT_TYPE] = params.content_type;
             }
             if (digest) {
                 const { md5_b64, key, bucket, upload_id } = params;
@@ -1223,14 +994,14 @@ class NamespaceFS {
         // when object is a dir, xattr are set on the folder itself and the content is in .folder file
         if (is_dir_content) await this._assign_dir_content_to_xattr(fs_context, fs_xattr, { ...params, size: stat.size });
         stat = await nb_native().fs.stat(fs_context, file_path);
-        const upload_info = this._get_upload_info(stat, fs_xattr && fs_xattr[XATTR_VERSION_ID]);
+        const upload_info = this._get_upload_info(stat, fs_xattr && fs_xattr[native_fs_utils.XATTR_VERSION_ID]);
         return upload_info;
     }
 
     async _create_empty_dir_content(fs_context, params, file_path) {
         await this._make_path_dirs(file_path, fs_context);
 
-        const fs_xattr = to_fs_xattr(params.xattr);
+        const fs_xattr = native_fs_utils.to_fs_xattr(params.xattr);
         await this._assign_dir_content_to_xattr(fs_context, fs_xattr, params);
         // when .folder exist and it's no upload flow - .folder should be deleted if it exists
         try {
@@ -1241,7 +1012,7 @@ class NamespaceFS {
         }
         const dir_path = this._get_file_md_path(params);
         const stat = await nb_native().fs.stat(fs_context, dir_path);
-        const upload_info = this._get_upload_info(stat, fs_xattr && fs_xattr[XATTR_VERSION_ID]);
+        const upload_info = this._get_upload_info(stat, fs_xattr && fs_xattr[native_fs_utils.XATTR_VERSION_ID]);
         return upload_info;
     }
 
@@ -1428,7 +1199,7 @@ class NamespaceFS {
                 fs_context,
                 path.join(params.mpu_path, 'create_object_upload'),
                 Buffer.from(create_params), {
-                    mode: get_umasked_mode(config.BASE_MODE_FILE),
+                    mode: native_fs_utils.get_umasked_mode(config.BASE_MODE_FILE)
                 },
             );
             return { obj_id: params.obj_id };
@@ -1878,7 +1649,7 @@ class NamespaceFS {
     _assign_md5_to_fs_xattr(md5_digest, fs_xattr) {
         // TODO: Assign content_md5_mtime
         fs_xattr = Object.assign(fs_xattr || {}, {
-            [XATTR_MD5_KEY]: md5_digest
+            [native_fs_utils.XATTR_MD5_KEY]: md5_digest
         });
         return fs_xattr;
     }
@@ -1887,11 +1658,11 @@ class NamespaceFS {
         if (!prev_ver_info) prev_ver_info = await this.find_max_version_past(fs_context, key);
 
         fs_xattr = Object.assign(fs_xattr || {}, {
-            [XATTR_VERSION_ID]: this._get_version_id_by_mode(new_ver_stat)
+            [native_fs_utils.XATTR_VERSION_ID]: this._get_version_id_by_mode(new_ver_stat)
         });
 
-        if (prev_ver_info) fs_xattr[XATTR_PREV_VERSION_ID] = prev_ver_info.version_id_str;
-        if (delete_marker) fs_xattr[XATTR_DELETE_MARKER] = delete_marker;
+        if (prev_ver_info) fs_xattr[native_fs_utils.XATTR_PREV_VERSION_ID] = prev_ver_info.version_id_str;
+        if (delete_marker) fs_xattr[native_fs_utils.XATTR_DELETE_MARKER] = delete_marker;
 
         return fs_xattr;
     }
@@ -1907,7 +1678,8 @@ class NamespaceFS {
     async set_fs_xattr_op(fs_context, file_path, set, clear) {
         let file;
         try {
-            file = await nb_native().fs.open(fs_context, file_path, config.NSFS_OPEN_READ_MODE, get_umasked_mode(config.BASE_MODE_FILE));
+            file = await nb_native().fs.open(fs_context, file_path, config.NSFS_OPEN_READ_MODE,
+                native_fs_utils.get_umasked_mode(config.BASE_MODE_FILE));
             await file.replacexattr(fs_context, set, clear);
             await file.close(fs_context);
             file = null;
@@ -1927,7 +1699,7 @@ class NamespaceFS {
     */
     async _clear_user_xattr(fs_context, file_path) {
         try {
-            await this.set_fs_xattr_op(fs_context, file_path, undefined, XATTR_USER_PREFIX);
+            await this.set_fs_xattr_op(fs_context, file_path, undefined, native_fs_utils.XATTR_USER_PREFIX);
         } catch (err) {
             if (err.code !== 'ENOENT') throw err;
             dbg.log0(`namespace_fs._clear_user_xattr: dir ${file_path} was already deleted`);
@@ -1946,9 +1718,9 @@ class NamespaceFS {
     async _assign_dir_content_to_xattr(fs_context, fs_xattr, params) {
         const dir_path = this._get_file_md_path(params);
         fs_xattr = Object.assign(fs_xattr || {}, {
-            [XATTR_DIR_CONTENT]: params.size || 0
+            [native_fs_utils.XATTR_DIR_CONTENT]: params.size || 0
         });
-        await this.set_fs_xattr_op(fs_context, dir_path, fs_xattr, XATTR_USER_PREFIX);
+        await this.set_fs_xattr_op(fs_context, dir_path, fs_xattr, native_fs_utils.XATTR_USER_PREFIX);
     }
 
     /**
@@ -1963,7 +1735,7 @@ class NamespaceFS {
 
     /**
      * @param {string} dir_key
-     * @param {fs.Dirent} ent
+     * @param {import('fs').Dirent} ent
      * @returns {string}
      */
     _get_entry_key(dir_key, ent, isDir) {
@@ -1973,7 +1745,7 @@ class NamespaceFS {
 
     /**
      * @param {string} dir_key
-     * @param {fs.Dirent} ent
+     * @param {import('fs').Dirent} ent
      * @returns {string}
      */
      _get_version_entry_key(dir_key, ent) {
@@ -1995,7 +1767,7 @@ class NamespaceFS {
         // IMPORTANT NOTICE - we must return an etag that contains a dash!
         // because this is the criteria of S3 SDK to decide if etag represents md5
         // and perform md5 validation of the data.
-        return _get_version_id_by_stat(stat);
+        return native_fs_utils.get_version_id_by_stat(stat);
     }
 
     _is_gpfs(fs_context) {
@@ -2004,7 +1776,7 @@ class NamespaceFS {
 
     _etag_from_fs_xattr(xattr) {
         if (_.isEmpty(xattr)) return undefined;
-        return xattr[XATTR_MD5_KEY];
+        return xattr[native_fs_utils.XATTR_MD5_KEY];
     }
 
     /**
@@ -2018,10 +1790,10 @@ class NamespaceFS {
         const create_time = stat.mtime.getTime();
         const encryption = this._get_encryption_info(stat);
         const version_id = return_version_id && this._is_versioning_enabled() && this._get_version_id_by_xattr(stat);
-        const delete_marker = stat.xattr[XATTR_DELETE_MARKER] === 'true';
-        const content_type = stat.xattr[XATTR_CONTENT_TYPE] || mime.getType(key) || 'application/octet-stream';
-        const storage_class = s3_utils.parse_storage_class(stat.xattr[XATTR_STORAGE_CLASS_KEY]);
+        const delete_marker = stat.xattr[native_fs_utils.XATTR_DELETE_MARKER] === 'true';
+        const content_type = stat.xattr[native_fs_utils.XATTR_CONTENT_TYPE] || mime.getType(key) || 'application/octet-stream';
 
+        const storage_class = s3_utils.parse_storage_class(stat.xattr[XATTR_STORAGE_CLASS_KEY]);
         let restore_status;
         if (storage_class === s3_utils.STORAGE_CLASS_GLACIER) {
             const restore_request = stat.xattr[XATTR_RESTORE_REQUEST] ? parseInt(stat.xattr[XATTR_RESTORE_REQUEST], 10) : null;
@@ -2061,7 +1833,7 @@ class NamespaceFS {
             delete_marker,
             storage_class,
             restore_status,
-            xattr: to_xattr(stat.xattr),
+            xattr: native_fs_utils.to_xattr(stat.xattr),
 
             // temp:
             tag_count: 0,
@@ -2148,7 +1920,7 @@ class NamespaceFS {
         for (const item of dir.split(path.sep)) {
             dir_path = path.join(dir_path, item);
             try {
-                await nb_native().fs.mkdir(fs_context, dir_path, get_umasked_mode(config.BASE_MODE_DIR));
+                await nb_native().fs.mkdir(fs_context, dir_path, native_fs_utils.get_umasked_mode(config.BASE_MODE_DIR));
             } catch (err) {
                 const ERR_CODES = ['EISDIR', 'EEXIST'];
                 if (!ERR_CODES.includes(err.code)) throw err;
@@ -2179,7 +1951,7 @@ class NamespaceFS {
         const entries = await nb_native().fs.readdir(fs_context, dir);
         const results = await Promise.all(entries.map(entry => {
             const fullPath = path.join(dir, entry.name);
-            const task = isDirectory(entry) ? this._folder_delete(fullPath, fs_context) :
+            const task = native_fs_utils.isDirectory(entry) ? this._folder_delete(fullPath, fs_context) :
                 nb_native().fs.unlink(fs_context, fullPath);
             return task.catch(error => ({ error }));
         }));
@@ -2194,7 +1966,7 @@ class NamespaceFS {
         const fs_context = this.prepare_fs_context(object_sdk);
         dbg.log0('NamespaceFS: create_uls fs_context:', fs_context, 'new_dir_path: ', params.full_path);
         try {
-            await nb_native().fs.mkdir(fs_context, params.full_path, get_umasked_mode(0o777));
+            await nb_native().fs.mkdir(fs_context, params.full_path, native_fs_utils.get_umasked_mode(0o777));
         } catch (err) {
             throw this._translate_object_error_codes(err);
         }
@@ -2291,7 +2063,7 @@ class NamespaceFS {
 
     // TODO: without fsync this logic fails also for regular files because blocks take time to update after writing.
     // async _fail_if_archived_or_sparse_file(fs_context, file_path, stat) {
-    //     if (isDirectory(stat)) return;
+    //     if (native_fs_utils.isDirectory(stat)) return;
     //     // In order to verify if the file is stored in tape we compare sizes
     //     // Multiple number of blocks by default block size and verify we get the size of the object
     //     // If we get a size that is lower than the size of the object this means that it is taped or a spare file
@@ -2326,7 +2098,7 @@ class NamespaceFS {
     }
 
     _get_version_id_by_mode(stat) {
-        if (this._is_versioning_enabled()) return _get_version_id_by_stat(stat);
+        if (this._is_versioning_enabled()) return native_fs_utils.get_version_id_by_stat(stat);
         if (this._is_versioning_suspended()) return NULL_VERSION_ID;
         throw new Error('_get_version_id_by_mode: Invalid versioning mode');
     }
@@ -2343,7 +2115,7 @@ class NamespaceFS {
     }
 
     _get_version_id_by_xattr(stat) {
-       return (stat && stat.xattr[XATTR_VERSION_ID]) || 'null';
+       return (stat && stat.xattr[native_fs_utils.XATTR_VERSION_ID]) || 'null';
     }
 
     // returns version path of the form bucket_path/dir/.versions/{key}_{version_id}
@@ -2378,8 +2150,8 @@ class NamespaceFS {
             return {
                 ...(ver_info_by_xattr || stat),
                 version_id_str,
-                delete_marker: stat.xattr[XATTR_DELETE_MARKER],
-                prev_version_id: stat.xattr[XATTR_PREV_VERSION_ID],
+                delete_marker: stat.xattr[native_fs_utils.XATTR_DELETE_MARKER],
+                prev_version_id: stat.xattr[native_fs_utils.XATTR_PREV_VERSION_ID],
                 path: version_path
             };
         } catch (err) {
@@ -2406,7 +2178,7 @@ class NamespaceFS {
 
     _throw_if_delete_marker(stat) {
         if (this.versioning === versioning_status_enum.VER_ENABLED || this.versioning === versioning_status_enum.VER_SUSPENDED) {
-            const xattr_delete_marker = stat.xattr[XATTR_DELETE_MARKER];
+            const xattr_delete_marker = stat.xattr[native_fs_utils.XATTR_DELETE_MARKER];
             if (xattr_delete_marker) {
                 throw error_utils.new_error_code('ENOENT', 'Entry is a delete marker');
             }
@@ -2696,7 +2468,7 @@ class NamespaceFS {
                 const stat = await upload_params.target_file.stat(fs_context);
                 if (this._is_versioning_enabled()) {
                     // the delete marker path built from its version info (mtime + ino)
-                    delete_marker_version_id = _get_version_id_by_stat(stat);
+                    delete_marker_version_id = native_fs_utils.get_version_id_by_stat(stat);
                 } else {
                     // the delete marker file name would be with a 'null' suffix
                     delete_marker_version_id = NULL_VERSION_ID;

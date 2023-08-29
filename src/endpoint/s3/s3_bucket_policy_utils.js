@@ -145,33 +145,52 @@ async function has_bucket_policy_permission(policy, account, method, arn_path, r
     return 'IMPLICIT_DENY';
 }
 
+function _is_action_fit(method, statement) {
+    const statement_action = statement.Action || statement.NotAction;
+    let action_fit = false;
+    for (const action of _.flatten([statement_action])) {
+        dbg.log1('bucket_policy: ', statement.Action ? 'Action' : 'NotAction', ' fit?', action, method);
+        if ((action === '*') || (action === 's3:*') || (action === method)) {
+            action_fit = true;
+        }
+    }
+    return statement.Action ? action_fit : !action_fit;
+}
+
+function _is_principal_fit(account, statement) {
+    let statement_principal = statement.Principal || statement.NotPrincipal;
+
+    let principal_fit = false;
+    statement_principal = statement_principal.AWS ? statement_principal.AWS : statement_principal;
+    for (const principal of _.flatten([statement_principal])) {
+        dbg.log1('bucket_policy: ', statement.Principal ? 'Principal' : 'NotPrincipal', ' fit?', principal, account);
+        if ((principal.unwrap() === '*') || (principal.unwrap() === account)) {
+            principal_fit = true;
+        }
+    }
+    return statement.Principal ? principal_fit : !principal_fit;
+}
+
+function _is_resource_fit(arn_path, statement) {
+    const statement_resource = statement.Resource || statement.NotResource;
+    let resource_fit = false;
+    for (const resource of _.flatten([statement_resource])) {
+        //convert aws resource regex to javascript regex 
+        const resource_regex = RegExp(`^${resource.replace(qm_regex, '.?').replace(ar_regex, '.*')}$`);
+        dbg.log1('bucket_policy: ', statement.Resource ? 'Resource' : 'NotResource', ' fit?', resource_regex, arn_path);
+        if (resource_regex.test(arn_path)) {
+            resource_fit = true;
+        }
+    }
+    return statement.Resource ? resource_fit : !resource_fit;
+}
+
 async function _is_statements_fit(statements, account, method, arn_path, req) {
     for (const statement of statements) {
-        let action_fit = false;
-        let principal_fit = false;
-        let resource_fit = false;
-        let condition_fit = true;
-        for (const action of _.flatten([statement.Action])) {
-            dbg.log1('bucket_policy: action fit?', action, method);
-            if ((action === '*') || (action === 's3:*') || (action === method)) {
-                action_fit = true;
-            }
-        }
-        const statement_principal = statement.Principal.AWS ? statement.Principal.AWS : statement.Principal;
-        for (const principal of _.flatten([statement_principal])) {
-            dbg.log1('bucket_policy: principal fit?', principal, account);
-            if ((principal.unwrap() === '*') || (principal.unwrap() === account)) {
-                principal_fit = true;
-            }
-        }
-        for (const resource of _.flatten([statement.Resource])) {
-            const resource_regex = RegExp(`^${resource.replace(qm_regex, '.?').replace(ar_regex, '.*')}$`);
-            dbg.log1('bucket_policy: resource fit?', resource_regex, arn_path);
-            if (resource_regex.test(arn_path)) {
-                resource_fit = true;
-            }
-        }
-        condition_fit = await _is_condition_fit(statement, req, method);
+        const action_fit = _is_action_fit(method, statement);
+        const principal_fit = _is_principal_fit(account, statement);
+        const resource_fit = _is_resource_fit(arn_path, statement);
+        const condition_fit = await _is_condition_fit(statement, req, method);
 
         dbg.log1('bucket_policy: is_statements_fit', action_fit, principal_fit, resource_fit, condition_fit);
         if (action_fit && principal_fit && resource_fit && condition_fit) return true;

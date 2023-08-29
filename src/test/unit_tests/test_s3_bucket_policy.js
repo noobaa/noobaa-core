@@ -12,6 +12,7 @@ const AWS = require('aws-sdk');
 const http = require('http');
 const mocha = require('mocha');
 const assert = require('assert');
+const { S3Error } = require('../../endpoint/s3/s3_errors');
 
 async function assert_throws_async(promise, expected_message = 'Access Denied') {
     try {
@@ -28,6 +29,7 @@ const BKT_B = 'test2-bucket-policy-ops-1';
 const KEY = 'file1.txt';
 const user_a = 'alice';
 const user_b = 'bob';
+const BODY = "Some data for the file... bla bla bla... ";
 let s3_a;
 let s3_b;
 let s3_owner;
@@ -93,7 +95,7 @@ async function setup() {
     });
 }
 
-/*eslint max-lines-per-function: ["error", 770]*/
+/*eslint max-lines-per-function: ["error", 1100]*/
 mocha.describe('s3_bucket_policy', function() {
     mocha.before(setup);
     mocha.it('should fail setting bucket policy when user doesn\'t exist', async function() {
@@ -234,17 +236,17 @@ mocha.describe('s3_bucket_policy', function() {
             Policy: JSON.stringify(policy)
         }).promise();
         await assert_throws_async(s3_a.putObject({
-            Body: 'Some data for the file... bla bla bla...',
+            Body: BODY,
             Bucket: BKT,
             Key: KEY
         }).promise(), 'Access Denied');
         await assert_throws_async(s3_a.putObject({
-            Body: 'Some data for the file... bla bla bla...',
+            Body: BODY,
             Bucket: BKT,
             Key: KEY
         }).promise());
         await s3_b.putObject({
-            Body: 'Some data for the file... bla bla bla...',
+            Body: BODY,
             Bucket: BKT,
             Key: KEY
         }).promise();
@@ -286,7 +288,7 @@ mocha.describe('s3_bucket_policy', function() {
             Policy: JSON.stringify(policy)
         }).promise();
         await s3_b.putObject({
-            Body: 'Some data for the file... bla bla bla... ',
+            Body: BODY,
             Bucket: BKT,
             Key: file_in_user_b_dir
         }).promise();
@@ -334,22 +336,22 @@ mocha.describe('s3_bucket_policy', function() {
             Policy: JSON.stringify(policy)
         }).promise();
         await assert_throws_async(s3_a.putObject({
-            Body: 'Some data for the file... bla bla bla... ',
+            Body: BODY,
             Bucket: BKT,
             Key: apply_to_rule1
         }).promise());
         await assert_throws_async(s3_a.putObject({
-            Body: 'Some data for the file... bla bla bla... ',
+            Body: BODY,
             Bucket: BKT,
             Key: apply_to_rule2
         }).promise());
         await s3_a.putObject({
-            Body: 'Some data for the file... bla bla bla... ',
+            Body: BODY,
             Bucket: BKT,
             Key: not_apply_to_rule1
         }).promise();
         await s3_a.putObject({
-            Body: 'Some data for the file... bla bla bla... ',
+            Body: BODY,
             Bucket: BKT,
             Key: not_apply_to_rule2
         }).promise();
@@ -667,14 +669,14 @@ mocha.describe('s3_bucket_policy', function() {
         }).promise();
 
         await s3_a.putObject({
-            Body: 'Some data for the file... bla bla bla... ',
+            Body: BODY,
             Bucket: BKT,
             Key: KEY,
             ServerSideEncryption: "AES256"
         }).promise();
 
         await assert_throws_async(s3_a.putObject({
-            Body: 'Some data for the file... bla bla bla...',
+            Body: BODY,
             Bucket: BKT,
             Key: KEY,
             ServerSideEncryption: "aws:kms",
@@ -707,13 +709,13 @@ mocha.describe('s3_bucket_policy', function() {
         }).promise();
 
         await assert_throws_async(s3_a.putObject({
-            Body: 'Some data for the file... bla bla bla...',
+            Body: BODY,
             Bucket: BKT,
             Key: KEY,
         }).promise(), 'Access Denied');
 
         await s3_a.putObject({
-            Body: 'Some data for the file... bla bla bla... ',
+            Body: BODY,
             Bucket: BKT,
             Key: KEY,
             ServerSideEncryption: "AES256"
@@ -749,7 +751,7 @@ mocha.describe('s3_bucket_policy', function() {
         }).promise();
 
         await s3_a.putObject({
-            Body: 'Some data for the file... bla bla bla... ',
+            Body: BODY,
             Bucket: BKT,
             Key: KEY,
             ServerSideEncryption: "AES256"
@@ -761,7 +763,7 @@ mocha.describe('s3_bucket_policy', function() {
         }).promise();
 
         await s3_a.putObject({
-            Body: 'Some data for the file... bla bla bla... ',
+            Body: BODY,
             Bucket: BKT,
             Key: KEY,
             ServerSideEncryption: "AES256"
@@ -795,7 +797,7 @@ mocha.describe('s3_bucket_policy', function() {
         }).promise();
 
         await s3_a.putObject({
-            Body: 'Some data for the file... bla bla bla... ',
+            Body: BODY,
             Bucket: BKT,
             Key: KEY,
             Tagging: `${allow_tag.key}=${allow_tag.value}`
@@ -807,7 +809,7 @@ mocha.describe('s3_bucket_policy', function() {
         }).promise();
 
         await s3_a.putObject({
-            Body: 'Some data for the file... bla bla bla... ',
+            Body: BODY,
             Bucket: BKT,
             Key: KEY,
             Tagging: `${deny_tag.key}=${deny_tag.value}`
@@ -859,5 +861,238 @@ mocha.describe('s3_bucket_policy', function() {
        assert.strictEqual(Object.keys(actualObjectTagCondition)[0], "StringEquals");
        assert.strictEqual(Object.keys(actualObjectTagCondition.StringEquals)[0], "s3:ExistingObjectTag/key");
        assert.strictEqual(actualObjectTagCondition.StringEquals["s3:ExistingObjectTag/key"], "value");
+    });
+
+    mocha.it('should be able to use notAction', async function() {
+        const auth_put_policy = {
+        Version: '2012-10-17',
+        Statement: [
+            {
+                Effect: 'Allow',
+                Principal: { AWS: "*" },
+                NotAction: ['s3:GetObject'],
+                Resource: [`arn:aws:s3:::${BKT}/*`]
+            }
+        ]};
+        await s3_owner.putBucketPolicy({
+            Bucket: BKT,
+            Policy: JSON.stringify(auth_put_policy)
+        }).promise();
+
+        await s3_a.putObject({
+            Body: BODY,
+            Bucket: BKT,
+            Key: KEY,
+        }).promise();
+
+        await assert_throws_async(s3_a.getObject({
+            Bucket: BKT,
+            Key: KEY
+        }).promise());
+    });
+
+    mocha.it('should be able to use notPrincipal', async function() {
+        const auth_put_policy = {
+        Version: '2012-10-17',
+        Statement: [
+            {
+                Effect: 'Allow',
+                NotPrincipal: { AWS: user_a },
+                Action: ['s3:PutObject'],
+                Resource: [`arn:aws:s3:::${BKT}/*`]
+            }
+        ]};
+        await s3_owner.putBucketPolicy({
+            Bucket: BKT,
+            Policy: JSON.stringify(auth_put_policy)
+        }).promise();
+
+        await s3_b.putObject({
+            Body: BODY,
+            Bucket: BKT,
+            Key: KEY,
+        }).promise();
+
+        await assert_throws_async(s3_a.putObject({
+            Body: BODY,
+            Bucket: BKT,
+            Key: KEY,
+        }).promise());
+    });
+
+    mocha.it('should be able to use notResource', async function() {
+        const auth_put_policy = {
+        Version: '2012-10-17',
+        Statement: [
+            {
+                Effect: 'Allow',
+                Principal: { AWS: user_a },
+                Action: ['s3:PutObject'],
+                NotResource: [`arn:aws:s3:::${BKT}/*`]
+            }
+        ]};
+        await s3_owner.putBucketPolicy({
+            Bucket: BKT,
+            Policy: JSON.stringify(auth_put_policy)
+        }).promise();
+
+        await s3_b.putObject({
+            Body: BODY,
+            Bucket: BKT_B,
+            Key: KEY,
+        }).promise();
+
+        await assert_throws_async(s3_a.putObject({
+            Body: BODY,
+            Bucket: BKT,
+            Key: KEY,
+        }).promise());
+    });
+
+    mocha.describe('should only one of Argument or NotArgument', async function() {
+
+        mocha.it('should not allow both Action and NotAction', async function() {
+            const s3_policy = {
+                Version: '2012-10-17',
+                Statement: [
+                    {
+                        Effect: 'Allow',
+                        Principal: { AWS: user_a },
+                        Action: ['s3:PutObject'],
+                        NotAction: ['s3:GetObject'],
+                        Resource: [`arn:aws:s3:::${BKT}/*`]
+                    }
+                ]};
+            try {
+                await s3_owner.putBucketPolicy({
+                    Bucket: BKT,
+                    Policy: JSON.stringify(s3_policy)
+                }).promise();
+                assert.fail('Test was suppose to fail on ' + S3Error.MalformedPolicy.code);
+            } catch (err) {
+                if (err.code !== S3Error.MalformedPolicy.code) {
+                    throw err;
+                }
+            }
+        });
+
+        mocha.it('should not allow both Principal and NotPrincipal', async function() {
+            const s3_policy = {
+                Version: '2012-10-17',
+                Statement: [
+                    {
+                        Effect: 'Allow',
+                        Principal: { AWS: user_a },
+                        NotPrincipal: { AWS: user_a },
+                        Action: ['s3:PutObject'],
+                        Resource: [`arn:aws:s3:::${BKT}/*`]
+                    }
+                ]};
+            try {
+                await s3_owner.putBucketPolicy({
+                    Bucket: BKT,
+                    Policy: JSON.stringify(s3_policy)
+                }).promise();
+                assert.fail('Test was suppose to fail on ' + S3Error.MalformedPolicy.code);
+            } catch (err) {
+                if (err.code !== S3Error.MalformedPolicy.code) {
+                    throw err;
+                }
+            }
+        });
+
+        mocha.it('should not allow both Resource and NotResource', async function() {
+            const s3_policy = {
+                Version: '2012-10-17',
+                Statement: [
+                    {
+                        Effect: 'Allow',
+                        Principal: { AWS: user_a },
+                        Action: ['s3:PutObject'],
+                        Resource: [`arn:aws:s3:::${BKT}/*`],
+                        NotResource: [`arn:aws:s3:::${BKT}/*`]
+                    }
+                ]};
+            try {
+                await s3_owner.putBucketPolicy({
+                    Bucket: BKT,
+                    Policy: JSON.stringify(s3_policy)
+                }).promise();
+                assert.fail('Test was suppose to fail on ' + S3Error.MalformedPolicy.code);
+            } catch (err) {
+                if (err.code !== S3Error.MalformedPolicy.code) {
+                    throw err;
+                }
+            }
+        });
+
+        mocha.it('should not allow policy without Principal or notPrincipal', async function() {
+            const s3_policy = {
+                Version: '2012-10-17',
+                Statement: [
+                    {
+                        Effect: 'Allow',
+                        Action: ['s3:PutObject'],
+                        Resource: [`arn:aws:s3:::${BKT}/*`],
+                    }
+                ]};
+            try {
+                await s3_owner.putBucketPolicy({
+                    Bucket: BKT,
+                    Policy: JSON.stringify(s3_policy)
+                }).promise();
+                assert.fail('Test was suppose to fail on ' + S3Error.MalformedPolicy.code);
+            } catch (err) {
+                if (err.code !== S3Error.MalformedPolicy.code) {
+                    throw err;
+                }
+            }
+        });
+
+        mocha.it('should not allow policy without Resource or notResource', async function() {
+            const s3_policy = {
+                Version: '2012-10-17',
+                Statement: [
+                    {
+                        Effect: 'Allow',
+                        Principal: { AWS: user_a },
+                        Action: ['s3:PutObject'],
+                    }
+                ]};
+            try {
+                await s3_owner.putBucketPolicy({
+                    Bucket: BKT,
+                    Policy: JSON.stringify(s3_policy)
+                }).promise();
+                assert.fail('Test was suppose to fail on ' + S3Error.MalformedPolicy.code);
+            } catch (err) {
+                if (err.code !== S3Error.MalformedPolicy.code) {
+                    throw err;
+                }
+            }
+        });
+
+        mocha.it('should not allow policy without action or notAction', async function() {
+            const s3_policy = {
+                Version: '2012-10-17',
+                Statement: [
+                    {
+                        Effect: 'Allow',
+                        Principal: { AWS: user_a },
+                        Resource: [`arn:aws:s3:::${BKT}/*`],
+                    }
+                ]};
+            try {
+                await s3_owner.putBucketPolicy({
+                    Bucket: BKT,
+                    Policy: JSON.stringify(s3_policy)
+                }).promise();
+                assert.fail('Test was suppose to fail on ' + S3Error.MalformedPolicy.code);
+            } catch (err) {
+                if (err.code !== S3Error.MalformedPolicy.code) {
+                    throw err;
+                }
+            }
+        });
     });
 });

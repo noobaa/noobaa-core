@@ -181,17 +181,6 @@ tester: noobaa
 	@echo "##\033[1;32m Build image noobaa-tester done.\033[0m"
 .PHONY: tester
 
-build-ssl-postgres: tester
-	@echo "\n##\033[1;32m Cretaing SSL CA for image ...\033[0m"
-	mkdir -p -m 755 certs
-	openssl ecparam -name prime256v1 -genkey -noout -out certs/ca.key
-	openssl req -new -x509 -sha256 -key certs/ca.key -out certs/ca.crt -subj "/CN=ca.noobaa.com"
-	@echo "\n##\033[1;32m Build image for SSL Postgres ...\033[0m"
-	$(CONTAINER_ENGINE) build $(CONTAINER_PLATFORM_FLAG) $(CPUSET) --build-arg HOST=ssl-pg-$(GIT_COMMIT)-$(NAME_POSTFIX) -f src/deploy/NVA_build/SSLPostgres.Dockerfile $(CACHE_FLAG) $(NETWORK_FLAG) -t postgres:ssl . $(REDIRECT_STDOUT)
-	@echo "\033[1;32mBuild SSL Postgres done.\033[0m"
-	@echo "##\033[1;32m Build image postgres:ssl done.\033[0m"
-.PHONY: build-postgres
-
 test: tester
 	@echo "\033[1;34mRunning tests with Mongo.\033[0m"
 	@$(call create_docker_network)
@@ -255,23 +244,6 @@ test-postgres: tester
 	@$(call remove_docker_network)
 .PHONY: test-postgres
 
-test-external-postgres: build-ssl-postgres
-	@echo "\033[1;34mRunning tests with Postgres.\033[0m"
-	@$(call create_docker_network)
-	@$(call run_external_postgres)
-	@$(call run_blob_mock)
-	@$(call create_ssl_certs)
-	@echo "\033[1;34mRunning tests on SSL PG(15)\033[0m"
-	$(CONTAINER_ENGINE) run $(CPUSET) --network noobaa-net --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) --env "SUPPRESS_LOGS=$(SUPPRESS_LOGS)" \
-	--env "POSTGRES_HOST=ssl-pg-$(GIT_COMMIT)-$(NAME_POSTFIX)" --env "POSTGRES_USER=postgres" --env "POSTGRES_DBNAME=coretest" \
-	--env "NODE_EXTRA_CA_CERTS=/tmp/ca.crt" --env "POSTGRES_SSL_REQUIRED=true" --env "DB_TYPE=postgres" --env "BLOB_HOST=blob-mock-$(GIT_COMMIT)-$(NAME_POSTFIX)" \
-	-v $(PWD)/logs:/logs -v $(PWD)/certs:/etc/external-db-secret -v $(PWD)/certs/ca.crt:/tmp/ca.crt $(TESTER_TAG)
-	@$(call stop_noobaa)
-	@$(call stop_external_postgres)
-	@$(call stop_blob_mock)
-	@$(call remove_docker_network)
-.PHONY: test-external-postgres
-
 tests: test #alias for test
 .PHONY: tests
 
@@ -296,22 +268,6 @@ test-sanity: tester
 	@$(call stop_postgres)
 	@$(call remove_docker_network)
 .PHONY: test-sanity
-
-test-external-pg-sanity: build-ssl-postgres
-	@echo "\033[1;34mRunning tests with External Postgres (v15).\033[0m"
-	@$(call create_docker_network)
-	@$(call run_external_postgres)
-	@$(call create_ssl_certs)
-	@echo "\033[1;34mRunning sanity tests on SSL PG(15)\033[0m"
-	$(CONTAINER_ENGINE) run $(CPUSET) --network noobaa-net --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) --env "SUPPRESS_LOGS=$(SUPPRESS_LOGS)" \
-	--env "POSTGRES_HOST=ssl-pg-$(GIT_COMMIT)-$(NAME_POSTFIX)" --env "POSTGRES_USER=postgres" --env "POSTGRES_DBNAME=postgres" \
-	--env "NODE_EXTRA_CA_CERTS=/tmp/ca.crt" --env "POSTGRES_SSL_REQUIRED=true" --env "DB_TYPE=postgres" \
-	-v $(PWD)/logs:/logs -v $(PWD)/certs:/etc/external-db-secret -v $(PWD)/certs/ca.crt:/tmp/ca.crt $(TESTER_TAG) \
-	"./src/test/system_tests/run_sanity_test_on_test_container.sh"
-	@$(call stop_noobaa)
-	@$(call stop_external_postgres)
-	@$(call remove_docker_network)
-.PHONY: test-external-pg-sanity
 
 clean:
 	@echo Stopping and Deleting containers
@@ -388,34 +344,6 @@ define stop_postgres
 	$(CONTAINER_ENGINE) stop coretest-postgres-$(GIT_COMMIT)-$(NAME_POSTFIX)
 	$(CONTAINER_ENGINE) rm coretest-postgres-$(GIT_COMMIT)-$(NAME_POSTFIX)
 	@echo "\033[1;32mStop postgres done.\033[0m"
-endef
-
-#########################
-# SSL EXTERNAL POSTGRES #
-#########################
-
-define run_external_postgres
-	@echo "\033[1;34mRunning Postgres container\033[0m"
-	$(CONTAINER_ENGINE) run -d $(CPUSET) --network noobaa-net --name ssl-pg-$(GIT_COMMIT)-$(NAME_POSTFIX) --env "POSTGRES_PASSWORD=noobaa" --env "LC_COLLATE=C" -v $(PWD)/certs/ca.crt:/etc/ssl/certs/ca.crt postgres:ssl
-	@echo "\033[1;34mWaiting for postgres to start..\033[0m"
-	sleep 20
-	@echo "\033[1;32mRun postgres done.\033[0m"
-endef
-
-define stop_external_postgres
-	@echo "\033[1;34mStopping/removing Postgres container\033[0m"
-	$(CONTAINER_ENGINE) network disconnect noobaa-net ssl-pg-$(GIT_COMMIT)-$(NAME_POSTFIX)
-	$(CONTAINER_ENGINE) stop ssl-pg-$(GIT_COMMIT)-$(NAME_POSTFIX)
-	$(CONTAINER_ENGINE) rm ssl-pg-$(GIT_COMMIT)-$(NAME_POSTFIX)
-	@echo "\033[1;32mStop postgres done.\033[0m"
-endef
-
-define create_ssl_certs
-	@echo "\033[1;34mCreating ssl client certificates for NooBaa container\033[0m"
-	openssl ecparam -name prime256v1 -genkey -noout -out certs/tls.key
-	openssl req -new -sha256 -key certs/tls.key -out certs/tls.csr -subj "/CN=postgres"
-	openssl x509 -req -in certs/tls.csr -CA certs/ca.crt -CAkey certs/ca.key -CAcreateserial -out certs/tls.crt -days 365 -sha256
-	chmod +r certs/tls.key
 endef
 
 #############

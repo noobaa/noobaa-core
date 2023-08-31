@@ -4,7 +4,6 @@
 const _ = require('lodash');
 const AWS = require('aws-sdk');
 
-const SensitiveString = require('../../util/sensitive_string');
 const dbg = require('../../util/debug_module')(__filename);
 
 class BucketDiff {
@@ -119,15 +118,14 @@ class BucketDiff {
     }
 
     /**
-     * @param {any} bucket_name
+     * @param {string} bucket_name
      * @param {string} prefix
      * @param {number} max_keys
      * @param {string} continuation_token
      */
     async _list_objects(bucket_name, prefix, max_keys, continuation_token) {
-        dbg.log1('BucketDiff _list_objects::', bucket_name, prefix, max_keys, continuation_token);
-        if (bucket_name instanceof SensitiveString) bucket_name = bucket_name.unwrap();
         try {
+            dbg.log1('BucketDiff _list_objects::', bucket_name, prefix, max_keys, continuation_token);
             const params = {
                 Bucket: bucket_name,
                 Prefix: prefix,
@@ -161,7 +159,7 @@ class BucketDiff {
      *                { ETag: 'etag1.2', Size: 89317, Key: '1', VersionId: 'v1.2', IsLatest: false, }
      *            ]
      *        }
-     * @returns {nb.BucketDiffKeysDiff}
+     * @returns {{ [key: string]: Array<object> }}
      */
     _object_grouped_by_key_and_omitted(list) {
         if (!list) return {};
@@ -214,7 +212,7 @@ class BucketDiff {
 
     /**
      * @param {any} first_bucket_keys
-     * @param {nb.BucketDiffKeysDiff} second_bucket_keys
+     * @param {{ [key: string]: Array<object> }} second_bucket_keys
      * @param {string} second_bucket_cont_token
      * 
      * get_keys_version_diff finds the object keys and versions that the first bucket contains but second bucket doesn't
@@ -235,7 +233,7 @@ class BucketDiff {
     }
 
     /**
-     * @param {{ keys_diff_map: nb.BucketDiffKeysDiff; keys_contents_left: any; keep_listing_second_bucket?: boolean; }} ans
+     * @param {{ keys_diff_map: any; keys_contents_left: any; keep_listing_second_bucket?: boolean; }} ans
      * @param {{}} second_bucket_keys
      */
     _process_keys_out_of_range(ans, second_bucket_keys) {
@@ -255,8 +253,8 @@ class BucketDiff {
     }
 
     /**
-     * @param {{ keys_diff_map: nb.BucketDiffKeysDiff; keys_contents_left: any; keep_listing_second_bucket: boolean; }} ans
-     * @param {nb.BucketDiffKeysDiff} second_bucket_keys
+     * @param {{ keys_diff_map: any; keys_contents_left: any; keep_listing_second_bucket: boolean; }} ans
+     * @param {{ [x: string]: any; }} second_bucket_keys
      * @param {string} second_bucket_cont_token
      */
     async _process_keys_in_range(ans, second_bucket_keys, second_bucket_cont_token) {
@@ -311,7 +309,7 @@ class BucketDiff {
                 if (etag_pos_on_first_bucket.length >= 1) {
                     const pos = etag_pos_on_first_bucket[0];
                     if (pos > 0) { // can happen only in version
-                        const same_md = await this._is_same_user_metadata(
+                        const same_md = await this._is_same_metadata(
                             pos, cur_first_bucket_key, first_bucket_curr_obj, second_bucket_curr_obj);
                         if (same_md) {
                             const first_bucket_diff = first_bucket_curr_obj.slice(0, pos);
@@ -322,7 +320,7 @@ class BucketDiff {
                     } else {
                         // We will check if the metadata is the same. if it is not then it is a diff.
                         dbg.log1('The same file with the same ETag found in both buckets on the latest versions', second_bucket_curr_obj);
-                        const same_md = await this._is_same_user_metadata(
+                        const same_md = await this._is_same_metadata(
                             0, cur_first_bucket_key, first_bucket_curr_obj, second_bucket_curr_obj);
                         if (!same_md) this._populate_diff_map_and_omit_contents_left(ans, cur_first_bucket_key, first_bucket_curr_obj);
                     }
@@ -337,7 +335,7 @@ class BucketDiff {
     }
 
     /**
-     * @param {{ keys_diff_map: nb.BucketDiffKeysDiff; keys_contents_left: any; keep_listing_second_bucket: any; }} ans
+     * @param {{ keys_diff_map: any; keys_contents_left: any; keep_listing_second_bucket: any; }} ans
      * @param {string} second_bucket_cont_token
      */
     _keep_listing_or_return_ans(ans, second_bucket_cont_token) {
@@ -351,7 +349,7 @@ class BucketDiff {
     }
 
     /**
-     * @param {{ keys_diff_map: nb.BucketDiffKeysDiff; keys_contents_left: any; keep_listing_second_bucket: boolean; }} ans
+     * @param {{ keys_diff_map: any; keys_contents_left: any; keep_listing_second_bucket: boolean; }} ans
      * @param {string | any[]} etag_pos_on_first_bucket
      * @param {string} cur_first_bucket_key
      * @param {any[]} first_bucket_curr_obj
@@ -385,7 +383,7 @@ class BucketDiff {
     }
 
     /**
-     * @param {{ keys_diff_map: nb.BucketDiffKeysDiff; keys_contents_left: any; keep_listing_second_bucket: boolean; }} ans
+     * @param {{ keys_diff_map: any; keys_contents_left: any; keep_listing_second_bucket: boolean; }} ans
      * @param {string} cur_bucket_key
      * @param {any} bucket_curr_obj
      */
@@ -395,7 +393,7 @@ class BucketDiff {
     }
 
     /**
-     * @param {{ keys_diff_map: nb.BucketDiffKeysDiff; keys_contents_left: any; keep_listing_second_bucket: boolean; }} ans
+     * @param {{ keys_diff_map: any; keys_contents_left: any; keep_listing_second_bucket: boolean; }} ans
      * @param {string} cur_first_bucket_key
      * @param {any[]} first_bucket_curr_obj
      * @param {any[]} second_bucket_curr_obj
@@ -416,23 +414,20 @@ class BucketDiff {
      * @param {any[]} first_bucket_curr_obj
      * @param {any[]} second_bucket_curr_obj
      */
-    async _is_same_user_metadata(pos, cur_first_bucket_key, first_bucket_curr_obj, second_bucket_curr_obj) {
+    async _is_same_metadata(pos, cur_first_bucket_key, first_bucket_curr_obj, second_bucket_curr_obj) {
         let first_bucket_obj_version_id;
         let second_bucket_obj_version_id;
         if (this.version) {
             first_bucket_obj_version_id = first_bucket_curr_obj[pos].VersionId;
             second_bucket_obj_version_id = second_bucket_curr_obj[0].VersionId;
         }
-
-        const [first_bucket_curr_obj_metadata, second_bucket_curr_obj_metadata] = await Promise.all([
-            this._get_object_md(this.first_bucket, cur_first_bucket_key, first_bucket_obj_version_id),
-            this._get_object_md(this.second_bucket, cur_first_bucket_key, second_bucket_obj_version_id),
-        ]);
-
-        const first_bucket_curr_obj_user_metadata = first_bucket_curr_obj_metadata?.Metadata;
-        const second_bucket_curr_obj_user_metadata = second_bucket_curr_obj_metadata?.Metadata;
-        return _.isEqual(first_bucket_curr_obj_user_metadata, second_bucket_curr_obj_user_metadata);
-
+        const first_bucket_curr_obj_metadata = await this._get_object_md(
+            this.first_bucket, cur_first_bucket_key, first_bucket_obj_version_id);
+        const second_bucket_curr_obj_metadata = await this._get_object_md(
+            this.second_bucket, cur_first_bucket_key, second_bucket_obj_version_id);
+        dbg.log1('_is_same_metadata: first_bucket_curr_obj_metadata', first_bucket_curr_obj_metadata,
+            'second_bucket_curr_obj_metadata', second_bucket_curr_obj_metadata);
+        return first_bucket_curr_obj_metadata === second_bucket_curr_obj_metadata;
     }
 
     /**
@@ -454,18 +449,18 @@ class BucketDiff {
     }
 
     /**
-     * @param {any} bucket_name
+     * @param {string} bucket_name
      * @param {string} key
      * @param {string} version_id
      */
     async _get_object_md(bucket_name, key, version_id) {
-        if (bucket_name instanceof SensitiveString) bucket_name = bucket_name.unwrap();
         const params = {
             Bucket: bucket_name,
             Key: key,
         };
         if (version_id) params.VersionId = version_id;
         try {
+            dbg.log1('BucketDiff _get_object_md: params:', params);
             const head = await this.s3.headObject(params).promise();
             dbg.log1('BucketDiff _get_object_md: finished successfully', head);
             return head;

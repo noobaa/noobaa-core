@@ -7,7 +7,7 @@ const { HttpProxyAgent } = require('http-proxy-agent');
 const { HttpsProxyAgent } = require('https-proxy-agent');
 const { S3ClientSDKV2 } = require('./noobaa_s3_client_sdkv2');
 const { S3ClientAutoRegion } = require('./noobaa_s3_client_sdkv3');
-const { NodeHttpHandler } = require("@smithy/node-http-handler");
+const { NodeHttpHandler } = require("@aws-sdk/node-http-handler");
 const config = require('../../../config');
 const http_utils = require('../../util/http_utils');
 

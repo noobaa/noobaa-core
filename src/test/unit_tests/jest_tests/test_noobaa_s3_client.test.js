@@ -2,7 +2,7 @@
 /* eslint-disable no-undef */
 'use strict';
 
-const { NodeHttpHandler } = require("@smithy/node-http-handler");
+const { NodeHttpHandler } = require("@aws-sdk/node-http-handler");
 const { Agent } = require("http");
 const { S3ClientSDKV2 } = require("../../../sdk/noobaa_s3_client/noobaa_s3_client_sdkv2");
 const { S3ClientAutoRegion } = require("../../../sdk/noobaa_s3_client/noobaa_s3_client_sdkv3");

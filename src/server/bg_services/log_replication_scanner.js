@@ -144,8 +144,8 @@ class LogReplicationScanner {
 
         // calling copy_objects and delete_objects by passing batch of keys
         await Promise.all([
-            this.copy_objects(src_bucket.name, dst_bucket.name, copy_keys),
-            this.delete_objects(dst_bucket.name, delete_keys)
+            this.copy_objects(src_bucket, dst_bucket, copy_keys),
+            this.delete_objects(dst_bucket, delete_keys)
         ]);
 
         // returning copy_keys and delete_keys after processing candidates

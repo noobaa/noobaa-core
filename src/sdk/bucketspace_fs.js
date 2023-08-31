@@ -25,15 +25,24 @@ function isDirectory(ent) {
  */
 class BucketSpaceFS {
 
-    constructor({ fs_root }) {
+    constructor({fs_root}) {
         this.fs_root = fs_root;
         this.fs_context = {
             uid: process.getuid(),
             gid: process.getgid(),
-            backend: '',
             warn_threshold_ms: config.NSFS_WARN_THRESHOLD_MS,
+            //backend: '',
         };
     }
+
+    async read_account_by_access_key({ access_key }) {
+        return {};
+    }
+
+    async read_bucket_sdk_info({ name }) {
+        return {};
+    }
+
 
     ////////////
     // BUCKET //

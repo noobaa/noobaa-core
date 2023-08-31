@@ -621,7 +621,11 @@ interface PartSchemaDB {
  *
  **********************************************************/
 
-type APIMethod = (params?: object, options?: object) => Promise<any>;
+interface APIParams {
+    [key: string]: any;
+}
+
+type APIMethod = (params?: APIParams, options?: object) => Promise<any>;
 
 interface APIGroup {
     [key: string]: APIMethod;
@@ -662,9 +666,9 @@ interface APIClient {
 
     RPC_BUFFERS: symbol;
 
-    create_auth_token(params: object): Promise<object>;
-    create_access_key_auth(params: object): Promise<object>;
-    create_k8s_auth(params: object): Promise<object>;
+    create_auth_token(params: APIParams): Promise<object>;
+    create_access_key_auth(params: APIParams): Promise<object>;
+    create_k8s_auth(params: APIParams): Promise<object>;
 }
 
 
@@ -805,6 +809,9 @@ interface Namespace {
 }
 
 interface BucketSpace {
+
+    read_account_by_access_key({ access_key: string }): Promise<any>;
+    read_bucket_sdk_info({ name: string }): Promise<any>;
 
     list_buckets(object_sdk: ObjectSDK): Promise<any>;
     read_bucket(params: object): Promise<any>;

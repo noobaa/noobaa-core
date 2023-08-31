@@ -304,7 +304,7 @@ class ObjectSDK {
                             bucket.namespace.read_resources[0],
                             bucket._id,
                             {
-                                versioning: bucket.bucket_info.versioning,
+                                versioning: bucket.bucket_info && bucket.bucket_info.versioning,
                                 force_md5_etag: bucket.force_md5_etag
                             },
                         ),

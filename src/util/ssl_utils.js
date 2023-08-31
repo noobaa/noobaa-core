@@ -20,7 +20,6 @@ const init_cert_info = dir => ({
 const certs = {
     MGMT: init_cert_info('/etc/mgmt-secret'),
     S3: init_cert_info('/etc/s3-secret'),
-    EXTERNAL_DB: init_cert_info('/etc/external-db-secret'),
 };
 
 function generate_ssl_certificate() {

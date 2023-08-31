@@ -609,7 +609,6 @@ config.LOG_REPLICATION_ENABLED = true;
 config.AWS_LOG_CANDIDATES_LIMIT = 10;
 config.BUCKET_LOG_REPLICATOR_DELAY = 5 * 60 * 1000;
 config.AZURE_QUERY_TRUNCATION_MAX_SIZE_IN_BITS = 10 * 1024 * 1024;
-config.BUCKET_DIFF_FOR_REPLICATION = true;
 
 ///////////////////////////
 //      KEY ROTATOR      //

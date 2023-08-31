@@ -18,7 +18,7 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['src_bucket_name', 'dst_bucket_name', 'keys_diff_map'],
+                required: ['src_bucket_name', 'dst_bucket_name', 'keys'],
                 properties: {
                     copy_type: {
                         type: 'string',
@@ -26,28 +26,19 @@ module.exports = {
                     },
                     src_bucket_name: { $ref: 'common_api#/definitions/bucket_name' },
                     dst_bucket_name: { $ref: 'common_api#/definitions/bucket_name' },
-                    keys_diff_map: {
-                        type: 'object',
-                        patternProperties: {
-                            '.*': {
-                                type: 'array',
-                                items: {
-                                    type: 'object',
-                                    additionalProperties: true,
-                                    properties: {}
-                                }
-                            }
+                    keys: {
+                        type: 'array',
+                        items: {
+                            type: 'string'
                         }
                     },
                 }
             },
             reply: {
-                type: 'object',
-                required: ['num_of_objects', 'size_of_objects'],
-                properties: {
-                    num_of_objects: { type: 'integer' },
-                    size_of_objects: { type: 'integer' }
-                },
+                type: 'array',
+                items: {
+                    type: 'string'
+                }
             },
             auth: {
                 system: 'admin'

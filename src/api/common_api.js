@@ -252,65 +252,41 @@ module.exports = {
             }
         },
 
-        bucket_policy_principal: {
-            anyOf: [{
-                    wrapper: SensitiveString,
-                }, {
-                    type: 'object',
-                    required: ['AWS'],
-                    properties: {
-                        AWS: {
-                            anyOf: [{
-                                    wrapper: SensitiveString
-                                }, {
-                                    type: 'array',
-                                    items: {
-                                        wrapper: SensitiveString
-                                    }
-                                }]
-                        }
-                    }
-                }
-            ]},
-        string_or_string_array: {
-            anyOf: [
-                {
-                    type: 'string'
-                },
-                {
-                    type: 'array',
-                    items: {
-                        type: 'string'
-                    }
-                }
-              ]
-        },
         bucket_policy: {
             type: 'object',
-            required: ['Statement'],
+            required: ['statement'],
             properties: {
-                Version: { type: 'string' },
-                Statement: {
+                version: { type: 'string' },
+                statement: {
                     type: 'array',
                     items: {
                         type: 'object',
-                        required: ['Effect', 'Action', 'Principal', 'Resource'],
+                        required: ['effect', 'action', 'principal', 'resource'],
                         properties: {
-                            Sid: {
+                            sid: {
                                 type: 'string'
                             },
-                            Effect: {
-                                enum: ['Allow', 'Deny'],
+                            effect: {
+                                enum: ['allow', 'deny'],
                                 type: 'string'
                             },
-                            Action: {
-                                $ref: '#/definitions/string_or_string_array'
+                            action: {
+                                type: 'array',
+                                items: {
+                                    type: 'string'
+                                }
                             },
-                            Principal: {
-                                $ref: '#/definitions/bucket_policy_principal'
+                            principal: {
+                                type: 'array',
+                                items: {
+                                    wrapper: SensitiveString,
+                                }
                             },
-                            Resource: {
-                                $ref: '#/definitions/string_or_string_array'
+                            resource: {
+                                type: 'array',
+                                items: {
+                                    type: 'string'
+                                }
                             }
                         }
                     }

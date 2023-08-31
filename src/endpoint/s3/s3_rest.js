@@ -364,7 +364,7 @@ function handle_error(req, res, err) {
         ((err instanceof S3Error) && err) ||
         new S3Error(S3Error.RPC_ERRORS_TO_S3[err.rpc_code] || S3Error.InternalError);
 
-    if (!(err instanceof S3Error) && s3err.code === 'MalformedPolicy') {
+    if (s3err.code === 'MalformedPolicy') {
         s3err.message = err.message;
         s3err.detail = err.rpc_data.detail;
     }

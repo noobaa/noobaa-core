@@ -488,27 +488,23 @@ async function put_bucket_policy(req) {
 
 function _validate_s3_policy(policy, bucket_name) {
     const all_op_names = _.compact(_.flatMap(OP_NAME_TO_ACTION, action => [action.regular, action.versioned]));
-    for (const statement of policy.Statement) {
-        if (statement.Principal.AWS) {
-            for (const principal of _.flatten([statement.Principal.AWS])) {
-                if (principal.unwrap() !== '*') {
-                    const account = system_store.get_account_by_email(principal);
-                    if (!account) {
-                        throw new RpcError('MALFORMED_POLICY', 'Invalid principal in policy', { detail: principal });
-                    }
+    for (const statement of policy.statement) {
+        for (const principal of statement.principal) {
+            if (principal.unwrap() !== '*') {
+                const account = system_store.get_account_by_email(principal);
+                if (!account) {
+                    throw new RpcError('MALFORMED_POLICY', 'Invalid principal in policy', { detail: principal });
                 }
             }
-        } else if (statement.Principal.unwrap() !== '*') {
-            throw new RpcError('MALFORMED_POLICY', 'Invalid principal in policy', { detail: statement.Principal });
         }
-        for (const resource of _.flatten([statement.Resource])) {
+        for (const resource of statement.resource) {
             const resource_bucket_part = resource.split('/')[0];
             const resource_regex = RegExp(`^${resource_bucket_part.replace(qm_regex, '.?').replace(ar_regex, '.*')}$`);
             if (!resource_regex.test('arn:aws:s3:::' + bucket_name)) {
                 throw new RpcError('MALFORMED_POLICY', 'Policy has invalid resource', { detail: resource });
             }
         }
-        for (const action of _.flatten([statement.Action])) {
+        for (const action of statement.action) {
             if (action !== 's3:*' && !all_op_names.includes(action)) {
                 throw new RpcError('MALFORMED_POLICY', 'Policy has invalid action', { detail: action });
             }
@@ -991,7 +987,7 @@ async function delete_bucket_lifecycle(req) {
 async function list_buckets(req) {
     const buckets_by_name = _.filter(
         req.system.buckets_by_name,
-        bucket => req.has_s3_bucket_permission(bucket, "s3:ListBucket") && !bucket.deleting
+        bucket => req.has_s3_bucket_permission(bucket, "s3:listbucket") && !bucket.deleting
     );
     return {
         buckets: _.map(buckets_by_name, function(bucket) {

@@ -6,7 +6,7 @@ const https = require('https');
 const { HttpProxyAgent } = require('http-proxy-agent');
 const { HttpsProxyAgent } = require('https-proxy-agent');
 const { S3ClientSDKV2 } = require('./noobaa_s3_client_sdkv2');
-const { S3ClientAutoRegion } = require('./noobaa_s3_client_sdkv3');
+const { S3 } = require("@aws-sdk/client-s3");
 const { NodeHttpHandler } = require("@aws-sdk/node-http-handler");
 const config = require('../../../config');
 const http_utils = require('../../util/http_utils');
@@ -20,7 +20,7 @@ function get_s3_client_v3_params(params) {
         change_s3_client_params_to_v2_structure(params);
         s3_client = new S3ClientSDKV2(params);
     } else {
-        s3_client = new S3ClientAutoRegion(params);
+        s3_client = new S3(params);
     }
     return s3_client;
 }

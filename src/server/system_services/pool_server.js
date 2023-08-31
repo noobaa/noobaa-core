@@ -286,7 +286,6 @@ async function create_namespace_resource(req) {
             cp_code: connection.cp_code || undefined,
             secret_key,
             endpoint_type: connection.endpoint_type || 'AWS',
-            region: connection.region,
             azure_log_access_keys,
         }, _.isUndefined), undefined, req.rpc_params.access_mode);
 
@@ -346,7 +345,6 @@ async function create_cloud_pool(req) {
             account_id: req.account._id
         },
         aws_sts_arn: connection.aws_sts_arn,
-        region: connection.region,
         endpoint_type: connection.endpoint_type || 'AWS',
         backingstore: req.rpc_params.backingstore,
         available_capacity: req.rpc_params.available_capacity,

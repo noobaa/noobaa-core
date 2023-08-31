@@ -78,7 +78,6 @@ module.exports = {
                         enum: ['AWS_V2', 'AWS_V4']
                     },
                     endpoint: { type: 'string' },
-                    region: { type: 'string' },
                     cp_code: { type: 'string' },
                     endpoint_type: {
                         type: 'string',

@@ -48,12 +48,17 @@ ln -s /usr/local/node/bin/node $RPM_BUILD_ROOT/usr/bin/node
 ln -s /usr/local/node/bin/npm $RPM_BUILD_ROOT/usr/bin/npm
 ln -s /usr/local/node/bin/npx $RPM_BUILD_ROOT/usr/bin/npx
 
+mkdir -p $RPM_BUILD_ROOT/etc/systemd/system/
+ln %{_builddir}/%{name}-%{version}-%{revision}/noobaa/src/deploy/nsfs.service $RPM_BUILD_ROOT/etc/systemd/system/nsfs.service
+
+
 %files
 /usr/local/noobaa-core
 /usr/local/node
 /usr/bin/node
 /usr/bin/npm
 /usr/bin/npx
+/etc/systemd/system/nsfs.service
 %doc
 
 %post

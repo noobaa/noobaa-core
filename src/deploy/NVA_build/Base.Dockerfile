@@ -19,6 +19,7 @@ RUN npm install --production && \
 ##############################################################
 COPY ./binding.gyp .
 COPY ./src/native ./src/native/
+COPY ./src/deploy/nsfs.service ./src/deploy/
 COPY ./src/deploy/NVA_build/clone_submodule.sh ./src/deploy/NVA_build/
 COPY ./src/deploy/NVA_build/clone_s3select_submodules.sh ./src/deploy/NVA_build/
 ARG BUILD_S3SELECT=1

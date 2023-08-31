@@ -10,7 +10,6 @@ const js_utils = require('../../../util/js_utils');
 // come next to add endpoint metrics reporting.
 // -----------------------------------------
 
-const nsfs_suffix = "_nsfs";
 const NOOBAA_ENDPOINT_METRICS = js_utils.deep_freeze([{
         type: 'Counter',
         name: 'hub_read_bytes',
@@ -162,71 +161,7 @@ const NOOBAA_ENDPOINT_METRICS = js_utils.deep_freeze([{
                 10000, 20000, 50000,
             ],
         }
-    },
-    {
-        type: 'Gauge',
-        name: 'semaphore_waiting_value',
-        configuration: {
-            help: 'Namespace semaphore waiting value',
-            labelNames: ['type', 'average_interval']
-        },
-        collect: function(prom_instance, labels, values) {
-            let total_values = 0;
-            for (const value of values) {
-                total_values += value.semaphore_state.waiting_value;
-            }
-            prom_instance.set(labels, total_values / values.length);
-            total_values = 0;
-        },
-    },
-    {
-        type: 'Gauge',
-        name: 'semaphore_waiting_time',
-        configuration: {
-            help: 'Namespace semaphore waiting time',
-            labelNames: ['type', 'average_interval']
-        },
-        collect: function(prom_instance, labels, values) {
-            let total_values = 0;
-            for (const value of values) {
-                total_values += value.semaphore_state.waiting_time;
-            }
-            prom_instance.set(labels, total_values / values.length);
-            total_values = 0;
-        },
-    },
-    {
-        type: 'Gauge',
-        name: 'semaphore_waiting_queue',
-        configuration: {
-            help: 'Namespace semaphore waiting queue size',
-            labelNames: ['type', 'average_interval']
-        },
-        collect: function(prom_instance, labels, values) {
-            let total_values = 0;
-            for (const value of values) {
-                total_values += value.semaphore_state.waiting_queue;
-            }
-            prom_instance.set(labels, total_values / values.length);
-            total_values = 0;
-        },
-    },
-    {
-        type: 'Gauge',
-        name: 'semaphore_value',
-        configuration: {
-            help: 'Namespace semaphore value',
-            labelNames: ['type', 'average_interval']
-        },
-        collect(prom_instance, labels, values) {
-            let total_values = 0;
-            for (const value of values) {
-                total_values += value.semaphore_state.value;
-            }
-            prom_instance.set(labels, total_values / values.length);
-            total_values = 0;
-        },
-    },
+    }
 ]);
 
 class NooBaaEndpointReport extends BasePrometheusReport {
@@ -238,24 +173,10 @@ class NooBaaEndpointReport extends BasePrometheusReport {
             for (const m of NOOBAA_ENDPOINT_METRICS) {
                 this._metrics[m.name] = {
                     type: m.type,
-                    collect: m.collect,
                     prom_instance: new this.prom_client[m.type]({
                         name: this.get_prefixed_name(m.name),
                         registers: [this.registry],
                         ...m.configuration,
-                        collect() {
-                            if (m.collect && this.average_intervals) {
-                                for (const average_interval of this.average_intervals) {
-                                    if (this[average_interval]) {
-                                        m.collect(this, this[average_interval].labels, this[average_interval].value);
-                                    }
-                                    if (this[average_interval + nsfs_suffix]) {
-                                        m.collect(this, this[average_interval + nsfs_suffix].labels,
-                                            this[average_interval + nsfs_suffix].value);
-                                    }
-                                }
-                            }
-                        }
                     }),
                 };
             }
@@ -269,21 +190,6 @@ class NooBaaEndpointReport extends BasePrometheusReport {
         if (!metric) throw new Error(`Unknown metric ${name}`);
         if (metric.type !== 'Counter') throw new Error(`Metric ${name} is not Counter`);
         metric.prom_instance.inc(labels, value);
-    }
-
-    // Set value metric
-    set(name, labels, value, average_intervals) {
-        if (!this._metrics) return;
-        const metric = this._metrics[name];
-        if (!metric) throw new Error(`Unknown metric ${name}`);
-        if (metric.type !== 'Gauge') throw new Error(`Metric ${name} is not Gauge`);
-        if (labels.type === 'object_io') {
-            metric.prom_instance[labels.average_interval] = { labels, value };
-        } else {
-            // Adding suffix to distinguish between object_io and nsfs semaphore
-            metric.prom_instance[labels.average_interval + nsfs_suffix] = { labels, value };
-        }
-        metric.prom_instance.average_intervals = average_intervals;
     }
 
     // Update histogram metric

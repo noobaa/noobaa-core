@@ -40,7 +40,6 @@ const prom_reporting = require('../server/analytic_services/prometheus_reporting
 const background_scheduler = require('../util/background_scheduler').get_instance();
 const endpoint_stats_collector = require('../sdk/endpoint_stats_collector');
 const { NamespaceMonitor } = require('../server/bg_services/namespace_monitor');
-const { SemaphoreMonitor } = require('../server/bg_services/semaphore_monitor');
 
 if (process.env.NOOBAA_LOG_LEVEL) {
     const dbg_conf = debug_config.get_debug_config(process.env.NOOBAA_LOG_LEVEL);
@@ -108,7 +107,6 @@ async function main(options = {}) {
         process.on('warning', e => dbg.warn(e.stack));
 
         let internal_rpc_client;
-        let object_io;
 
         let init_request_sdk = options.init_request_sdk;
         if (!init_request_sdk) {
@@ -133,7 +131,8 @@ async function main(options = {}) {
                 const n2n_agent = rpc.register_n2n_agent(((...args) => signal_client.node.n2n_signal(...args)));
                 n2n_agent.set_any_rpc_address();
             }
-            object_io = new ObjectIO(location_info);
+
+            const object_io = new ObjectIO(location_info);
 
             internal_rpc_client = rpc.new_client({
                 auth_token: await get_auth_token(process.env)
@@ -182,16 +181,9 @@ async function main(options = {}) {
                 should_monitor: nsr => Boolean(nsr.nsfs_config),
             }));
         }
-
-        if (config.ENABLE_SEMAPHORE_MONITOR) {
-            background_scheduler.register_bg_worker(new SemaphoreMonitor({
-                name: 'semaphore_monitor',
-                object_io: object_io,
-            }));
-        }
-
         // Start a monitor to send periodic endpoint reports about endpoint usage.
         start_monitor(internal_rpc_client, endpoint_group_id);
+
     } catch (err) {
         handle_server_error(err);
     }

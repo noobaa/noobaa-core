@@ -133,6 +133,7 @@ class ObjectIO {
             BUFFERS_MEM_LIMIT: config.BUFFERS_MEM_LIMIT,
             IO_SEMAPHORE_CAP: config.IO_SEMAPHORE_CAP,
         }));
+
     }
 
     set_verification_mode() {
@@ -336,7 +337,7 @@ class ObjectIO {
             } else {
                 params.source_stream = this.read_object_stream({
                     client: params.client,
-                    object_md,
+                    object_md
                 });
             }
             return this._upload_stream(params, complete_params);

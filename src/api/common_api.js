@@ -254,7 +254,7 @@ module.exports = {
 
         bucket_policy_principal: {
             anyOf: [{
-                    wrapper: SensitiveString
+                    wrapper: SensitiveString,
                 }, {
                     type: 'object',
                     required: ['AWS'],
@@ -285,22 +285,6 @@ module.exports = {
                 }
               ]
         },
-
-        bucket_policy_string_condition: {
-            type: 'object',
-            additionalProperties: {
-                type: 'string'
-            }
-        },
-
-        bucket_policy_null_condition: {
-            type: 'object',
-            additionalProperties: {
-                enum: ['true', 'false'],
-                type: 'string'
-            }
-        },
-
         bucket_policy: {
             type: 'object',
             required: ['Statement'],
@@ -327,32 +311,6 @@ module.exports = {
                             },
                             Resource: {
                                 $ref: '#/definitions/string_or_string_array'
-                            },
-                            Condition: {
-                                type: 'object',
-                                properties: {
-                                    StringEquals: {
-                                        $ref: '#/definitions/bucket_policy_string_condition'
-                                    },
-                                    StringNotEquals: {
-                                        $ref: '#/definitions/bucket_policy_string_condition'
-                                    },
-                                    StringEqualsIgnoreCase: {
-                                        $ref: '#/definitions/bucket_policy_string_condition'
-                                    },
-                                    StringNotEqualsIgnoreCase: {
-                                        $ref: '#/definitions/bucket_policy_string_condition'
-                                    },
-                                    StringLike: {
-                                        $ref: '#/definitions/bucket_policy_string_condition'
-                                    },
-                                    StringNotLike: {
-                                        $ref: '#/definitions/bucket_policy_string_condition'
-                                    },
-                                    Null: {
-                                        $ref: '#/definitions/bucket_policy_null_condition'
-                                    }
-                                }
                             }
                         }
                     }

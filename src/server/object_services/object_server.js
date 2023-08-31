@@ -703,7 +703,7 @@ async function read_object_mapping(req) {
     const obj = await find_object_md(req);
 
     // Check if the requesting account is authorized to read the object
-    if (!await req.has_s3_bucket_permission(req.bucket, 's3:GetObject', '/' + obj.key)) {
+    if (!req.has_s3_bucket_permission(req.bucket, 's3:GetObject', '/' + obj.key)) {
         throw new RpcError('UNAUTHORIZED', 'requesting account is not authorized to read the object');
     }
 
@@ -791,7 +791,7 @@ async function read_object_md(req) {
     const obj = await find_object_md(req);
 
     // Check if the requesting account is authorized to read the object
-    if (!await req.has_s3_bucket_permission(req.bucket, 's3:GetObject', '/' + obj.key)) {
+    if (!req.has_s3_bucket_permission(req.bucket, 's3:GetObject', '/' + obj.key)) {
         throw new RpcError('UNAUTHORIZED', 'requesting account is not authorized to read the object');
     }
 
@@ -1060,7 +1060,7 @@ async function list_objects(req) {
     dbg.log1('object_server.list_objects', req.rpc_params);
     load_bucket(req);
 
-    if (!await req.has_s3_bucket_permission(req.bucket, "s3:ListBucket")) {
+    if (!req.has_s3_bucket_permission(req.bucket, "s3:ListBucket")) {
         throw new RpcError('UNAUTHORIZED', 'requesting account is not authorized to list objects');
     }
 

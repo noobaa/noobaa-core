@@ -7,7 +7,7 @@ const net = require('net');
 const dbg = require('../../util/debug_module')(__filename);
 const s3_ops = require('./ops');
 const S3Error = require('./s3_errors').S3Error;
-const s3_bucket_policy_utils = require('./s3_bucket_policy_utils');
+const s3_utils = require('./s3_utils');
 const time_utils = require('../../util/time_utils');
 const http_utils = require('../../util/http_utils');
 const signature_utils = require('../../util/signature_utils');
@@ -213,7 +213,7 @@ async function authorize_request_policy(req) {
 
     const is_anon = !(auth_token && auth_token.access_key);
     if (is_anon) {
-        authorize_anonymous_access(s3_policy, method, arn_path, req);
+        authorize_anonymous_access(s3_policy, method, arn_path);
         return;
     }
 
@@ -234,26 +234,24 @@ async function authorize_request_policy(req) {
         throw new S3Error(S3Error.AccessDenied);
     }
 
-    const permission = await s3_bucket_policy_utils.has_bucket_policy_permission(
-        s3_policy, account.email.unwrap(), method, arn_path, req);
+    const permission = s3_utils.has_bucket_policy_permission(s3_policy, account.email.unwrap(), method, arn_path);
     if (permission === "DENY") throw new S3Error(S3Error.AccessDenied);
     if (permission === "ALLOW" || is_owner) return;
 
     throw new S3Error(S3Error.AccessDenied);
 }
 
-async function authorize_anonymous_access(s3_policy, method, arn_path, req) {
+function authorize_anonymous_access(s3_policy, method, arn_path) {
     if (!s3_policy) throw new S3Error(S3Error.AccessDenied);
 
-    const permission = await s3_bucket_policy_utils.has_bucket_policy_permission(
-        s3_policy, undefined, method, arn_path, req);
+    const permission = s3_utils.has_bucket_policy_permission(s3_policy, undefined, method, arn_path);
     if (permission === "ALLOW") return;
 
     throw new S3Error(S3Error.AccessDenied);
 }
 
 function _get_method_from_req(req) {
-    const s3_op = s3_bucket_policy_utils.OP_NAME_TO_ACTION[req.op_name];
+    const s3_op = s3_utils.OP_NAME_TO_ACTION[req.op_name];
     if (!s3_op) {
         dbg.error(`Got a not supported S3 op ${req.op_name} - doesn't suppose to happen`);
         throw new S3Error(S3Error.InternalError);

@@ -36,6 +36,87 @@ const DEFAULT_OBJECT_ACL = Object.freeze({
 const XATTR_SORT_SYMBOL = Symbol('XATTR_SORT_SYMBOL');
 const base64_regex = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
 
+const OP_NAME_TO_ACTION = Object.freeze({
+    delete_bucket_analytics: { regular: "s3:PutAnalyticsConfiguration" },
+    delete_bucket_cors: { regular: "s3:PutBucketCORS" },
+    delete_bucket_encryption: { regular: "s3:PutEncryptionConfiguration" },
+    delete_bucket_inventory: { regular: "s3:PutInventoryConfiguration" },
+    delete_bucket_lifecycle: { regular: "s3:PutLifecycleConfiguration" },
+    delete_bucket_metrics: { regular: "s3:PutMetricsConfiguration" },
+    delete_bucket_policy: { regular: "s3:DeleteBucketPolicy" },
+    delete_bucket_replication: { regular: "s3:PutReplicationConfiguration" },
+    delete_bucket_tagging: { regular: "s3:PutBucketTagging" },
+    delete_bucket_website: { regular: "s3:DeleteBucketWebsite" },
+    delete_bucket: { regular: "s3:DeleteBucket" },
+    delete_object_tagging: { regular: "s3:DeleteObjectTagging", versioned: "s3:DeleteObjectVersionTagging" },
+    delete_object_uploadId: { regular: "s3:AbortMultipartUpload" },
+    delete_object: { regular: "s3:DeleteObject", versioned: "s3:DeleteObjectVersion" },
+
+    get_bucket_accelerate: { regular: "s3:GetAccelerateConfiguration" },
+    get_bucket_acl: { regular: "s3:GetBucketAcl" },
+    get_bucket_analytics: { regular: "s3:GetAnalyticsConfiguration" },
+    get_bucket_cors: { regular: "s3:GetBucketCORS" },
+    get_bucket_encryption: { regular: "s3:GetEncryptionConfiguration" },
+    get_bucket_inventory: { regular: "s3:GetInventoryConfiguration" },
+    get_bucket_lifecycle: { regular: "s3:GetLifecycleConfiguration" },
+    get_bucket_location: { regular: "s3:GetBucketLocation" },
+    get_bucket_logging: { regular: "s3:GetBucketLogging" },
+    get_bucket_metrics: { regular: "s3:GetMetricsConfiguration" },
+    get_bucket_notification: { regular: "s3:GetBucketNotification" },
+    get_bucket_policy: { regular: "s3:GetBucketPolicy" },
+    get_bucket_policy_status: { regular: "s3:GetBucketPolicyStatus" },
+    get_bucket_replication: { regular: "s3:GetReplicationConfiguration" },
+    get_bucket_requestpayment: { regular: "s3:GetBucketRequestPayment" },
+    get_bucket_tagging: { regular: "s3:GetBucketTagging" },
+    get_bucket_uploads: { regular: "s3:ListBucketMultipartUploads" },
+    get_bucket_versioning: { regular: "s3:GetBucketVersioning" },
+    get_bucket_versions: { regular: "s3:ListBucketVersions" },
+    get_bucket_website: { regular: "s3:GetBucketWebsite" },
+    get_bucket_object_lock: { regular: "s3:GetBucketObjectLockConfiguration" },
+    get_bucket: { regular: "s3:ListBucket" },
+    get_object_acl: { regular: "s3:GetObjectAcl" },
+    get_object_tagging: { regular: "s3:GetObjectTagging", versioned: "s3:GetObjectVersionTagging" },
+    get_object_uploadId: { regular: "s3:ListMultipartUploadParts" },
+    get_object_retention: { regular: "s3:GetObjectRetention"},
+    get_object_legal_hold: { regular: "s3:GetObjectLegalHold" },
+    get_object: { regular: "s3:GetObject", versioned: "s3:GetObjectVersion" },
+    get_service: { regular: "s3:ListAllMyBuckets" },
+
+    head_bucket: { regular: "s3:ListBucket" },
+    head_object: { regular: "s3:GetObject", versioned: "s3:GetObjectVersion" },
+
+    post_bucket_delete: { regular: "s3:DeleteObject" },
+    post_object: { regular: "s3:PutObject" },
+    post_object_uploadId: { regular: "s3:PutObject" },
+    post_object_uploads: { regular: "s3:PutObject" },
+    post_object_select: { regular: "s3:GetObject" },
+
+    put_bucket_accelerate: { regular: "s3:PutAccelerateConfiguration" },
+    put_bucket_acl: { regular: "s3:PutBucketAcl" },
+    put_bucket_analytics: { regular: "s3:PutAnalyticsConfiguration" },
+    put_bucket_cors: { regular: "s3:PutBucketCORS" },
+    put_bucket_encryption: { regular: "s3:PutEncryptionConfiguration" },
+    put_bucket_inventory: { regular: "s3:PutInventoryConfiguration" },
+    put_bucket_lifecycle: { regular: "s3:PutLifecycleConfiguration" },
+    put_bucket_logging: { regular: "s3:PutBucketLogging" },
+    put_bucket_metrics: { regular: "s3:PutMetricsConfiguration" },
+    put_bucket_notification: { regular: "s3:PutBucketNotification" },
+    put_bucket_policy: { regular: "s3:PutBucketPolicy" },
+    put_bucket_replication: { regular: "s3:PutReplicationConfiguration" },
+    put_bucket_requestpayment: { regular: "s3:PutBucketRequestPayment" },
+    put_bucket_tagging: { regular: "s3:PutBucketTagging" },
+    put_bucket_versioning: { regular: "s3:PutBucketVersioning" },
+    put_bucket_website: { regular: "s3:PutBucketWebsite" },
+    put_bucket_object_lock: { regular: "s3:PutBucketObjectLockConfiguration" },
+    put_bucket: { regular: "s3:CreateBucket" },
+    put_object_acl: { regular: "s3:PutObjectAcl" },
+    put_object_tagging: { regular: "s3:PutObjectTagging", versioned: "s3:PutObjectVersionTagging" },
+    put_object_uploadId: { regular: "s3:PutObject" },
+    put_object_retention: { regular: "s3:PutObjectRetention" },
+    put_object_legal_hold: { regular: "s3:GetObjectLegalHold"},
+    put_object: { regular: "s3:PutObject" },
+});
+
 function decode_chunked_upload(source_stream) {
     const decoder = new ChunkedContentDecoder();
     // pipeline will back-propagate errors from the decoder to stop streaming from the source,
@@ -570,6 +651,52 @@ function get_http_response_from_resp(res) {
     return r;
 }
 
+function has_bucket_policy_permission(policy, account, method, arn_path) {
+    const [allow_statements, deny_statements] = _.partition(policy.Statement, statement => statement.Effect === 'Allow');
+
+    // look for explicit denies
+    if (_is_statements_fit(deny_statements, account, method, arn_path)) return 'DENY';
+
+    // look for explicit allows
+    if (_is_statements_fit(allow_statements, account, method, arn_path)) return 'ALLOW';
+
+    // implicit deny
+    return 'IMPLICIT_DENY';
+}
+
+const qm_regex = /\?/g;
+const ar_regex = /\*/g;
+function _is_statements_fit(statements, account, method, arn_path) {
+    for (const statement of statements) {
+        let action_fit = false;
+        let principal_fit = false;
+        let resource_fit = false;
+        for (const action of _.flatten([statement.Action])) {
+            dbg.log1('bucket_policy: action fit?', action, method);
+            if ((action === '*') || (action === 's3:*') || (action === method)) {
+                action_fit = true;
+            }
+        }
+        const statement_principal = statement.Principal.AWS || statement.Principal;
+        for (const principal of _.flatten([statement_principal])) {
+            dbg.log1('bucket_policy: principal fit?', principal, account);
+            if ((principal.unwrap() === '*') || (principal.unwrap() === account)) {
+                principal_fit = true;
+            }
+        }
+        for (const resource of _.flatten([statement.Resource])) {
+            const resource_regex = RegExp(`^${resource.replace(qm_regex, '.?').replace(ar_regex, '.*')}$`);
+            dbg.log1('bucket_policy: resource fit?', resource_regex, arn_path);
+            if (resource_regex.test(arn_path)) {
+                resource_fit = true;
+            }
+        }
+        dbg.log1('bucket_policy: is_statements_fit', action_fit, principal_fit, resource_fit);
+        if (action_fit && principal_fit && resource_fit) return true;
+    }
+    return false;
+}
+
 function get_response_field_encoder(req) {
     const encoding_type = req.query['encoding-type'];
     if ((typeof encoding_type === 'undefined') || (encoding_type === null)) return response_field_encoder_none;
@@ -595,6 +722,7 @@ exports.STORAGE_CLASS_GLACIER = STORAGE_CLASS_GLACIER;
 exports.STORAGE_CLASS_GLACIER_IR = STORAGE_CLASS_GLACIER_IR;
 exports.DEFAULT_S3_USER = DEFAULT_S3_USER;
 exports.DEFAULT_OBJECT_ACL = DEFAULT_OBJECT_ACL;
+exports.OP_NAME_TO_ACTION = OP_NAME_TO_ACTION;
 exports.decode_chunked_upload = decode_chunked_upload;
 exports.format_s3_xml_date = format_s3_xml_date;
 exports.get_request_xattr = get_request_xattr;
@@ -620,5 +748,6 @@ exports.parse_to_camel_case = parse_to_camel_case;
 exports._is_valid_retention = _is_valid_retention;
 exports.get_http_response_from_resp = get_http_response_from_resp;
 exports.get_http_response_date = get_http_response_date;
+exports.has_bucket_policy_permission = has_bucket_policy_permission;
 exports.XATTR_SORT_SYMBOL = XATTR_SORT_SYMBOL;
 exports.get_response_field_encoder = get_response_field_encoder;

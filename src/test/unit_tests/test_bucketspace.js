@@ -5,7 +5,10 @@
 
 const mocha = require('mocha');
 const util = require('util');
-const AWS = require('aws-sdk');
+const AWS = require('aws-sdk'); // GAP upload is still using AWS SDK V2
+const { S3 } = require('@aws-sdk/client-s3');
+const { NodeHttpHandler } = require("@smithy/node-http-handler");
+// const { Upload } = require('@aws-sdk/lib-storage'); // GAP upload is still using AWS SDK V2
 const http = require('http');
 const assert = require('assert');
 const coretest = require('./coretest');
@@ -47,16 +50,17 @@ mocha.describe('bucket operations - namespace_fs', function() {
     let account_correct_uid;
     let s3_owner;
     let s3_wrong_uid;
+    let s3_wrong_uid_aws_sdk_v2_temp; // GAP upload is still using AWS SDK V2
+    let s3_wrong_id_endpoint_address; // GAP upload is still using AWS SDK V2
     let s3_correct_uid;
     let s3_correct_uid_default_nsr;
 
     const s3_creds = {
-        s3ForcePathStyle: true,
-        signatureVersion: 'v4',
-        computeChecksums: true,
-        s3DisableBodySigning: false,
-        region: 'us-east-1',
-        httpOptions: { agent: new http.Agent({ keepAlive: false }) },
+        forcePathStyle: true,
+        region: config.DEFAULT_REGION,
+        requestHandler: new NodeHttpHandler({
+            httpAgent: new http.Agent({ keepAlive: false })
+        }),
     };
 
     mocha.before(async function() {
@@ -132,10 +136,12 @@ mocha.describe('bucket operations - namespace_fs', function() {
 
     mocha.it('Init S3 owner connection', async function() {
         const admin_keys = (await rpc_client.account.read_account({ email: EMAIL, })).access_keys;
-        s3_creds.accessKeyId = admin_keys[0].access_key.unwrap();
-        s3_creds.secretAccessKey = admin_keys[0].secret_key.unwrap();
+        s3_creds.credentials = {
+            accessKeyId: admin_keys[0].access_key.unwrap(),
+            secretAccessKey: admin_keys[0].secret_key.unwrap(),
+        };
         s3_creds.endpoint = coretest.get_http_address();
-        s3_owner = new AWS.S3(s3_creds);
+        s3_owner = new S3(s3_creds);
     });
 
     mocha.it('list buckets without uid, gid', async function() {
@@ -150,7 +156,7 @@ mocha.describe('bucket operations - namespace_fs', function() {
                 })
             )
         );
-        const res = await s3_owner.listBuckets().promise();
+        const res = await s3_owner.listBuckets({});
         console.log(inspect(res));
         const list_ok = bucket_in_list(['first.bucket'], [bucket_name], res.Buckets);
         assert.ok(list_ok);
@@ -168,10 +174,13 @@ mocha.describe('bucket operations - namespace_fs', function() {
             }
         });
         console.log(inspect(account_wrong_uid));
-        s3_creds.accessKeyId = account_wrong_uid.access_keys[0].access_key.unwrap();
-        s3_creds.secretAccessKey = account_wrong_uid.access_keys[0].secret_key.unwrap();
-        s3_creds.endpoint = coretest.get_http_address();
-        s3_wrong_uid = new AWS.S3(s3_creds);
+        s3_creds.credentials = {
+            accessKeyId: account_wrong_uid.access_keys[0].access_key.unwrap(),
+            secretAccessKey: account_wrong_uid.access_keys[0].secret_key.unwrap(),
+        };
+        s3_wrong_id_endpoint_address = coretest.get_http_address();
+        s3_creds.endpoint = s3_wrong_id_endpoint_address;
+        s3_wrong_uid = new S3(s3_creds);
     });
     mocha.it('list buckets with wrong uid, gid', async function() {
         // Give s3_wrong_uid access to the required buckets
@@ -185,7 +194,7 @@ mocha.describe('bucket operations - namespace_fs', function() {
                 })
             )
         );
-        const res = await s3_wrong_uid.listBuckets().promise();
+        const res = await s3_wrong_uid.listBuckets({});
         console.log(inspect(res));
         const list_ok = bucket_in_list(['first.bucket'], [bucket_name], res.Buckets);
         assert.ok(list_ok);
@@ -224,10 +233,12 @@ mocha.describe('bucket operations - namespace_fs', function() {
             }
         });
         console.log(inspect(account_correct_uid));
-        s3_creds.accessKeyId = account_correct_uid.access_keys[0].access_key.unwrap();
-        s3_creds.secretAccessKey = account_correct_uid.access_keys[0].secret_key.unwrap();
+        s3_creds.credentials = {
+            accessKeyId: account_correct_uid.access_keys[0].access_key.unwrap(),
+            secretAccessKey: account_correct_uid.access_keys[0].secret_key.unwrap(),
+        };
         s3_creds.endpoint = coretest.get_http_address();
-        s3_correct_uid = new AWS.S3(s3_creds);
+        s3_correct_uid = new S3(s3_creds);
     });
     // s3 workflow 
     mocha.it('create account with namespace resource as default pool but without nsfs_account_config', async function() {
@@ -258,19 +269,21 @@ mocha.describe('bucket operations - namespace_fs', function() {
                 nsfs_only: false
             }
         });
-        s3_creds.accessKeyId = account_s3_correct_uid1.access_keys[0].access_key.unwrap();
-        s3_creds.secretAccessKey = account_s3_correct_uid1.access_keys[0].secret_key.unwrap();
+        s3_creds.credentials = {
+            accessKeyId: account_s3_correct_uid1.access_keys[0].access_key.unwrap(),
+            secretAccessKey: account_s3_correct_uid1.access_keys[0].secret_key.unwrap(),
+        };
         s3_creds.endpoint = coretest.get_http_address();
-        s3_correct_uid_default_nsr = new AWS.S3(s3_creds);
+        s3_correct_uid_default_nsr = new S3(s3_creds);
         const buck1 = 'buck1';
         fs_utils.create_fresh_path(tmp_fs_root + '/buck1');
         try {
             const res = await s3_correct_uid_default_nsr.createBucket({
                 Bucket: buck1,
-            }).promise();
+            });
             assert.fail(inspect(res));
         } catch (err) {
-            assert.strictEqual(err.code, 'BucketAlreadyExists');
+            assert.strictEqual(err.Code, 'BucketAlreadyExists');
         }
         await fs_utils.file_must_exist(path.join(tmp_fs_root, '/buck1'));
     });
@@ -288,11 +301,13 @@ mocha.describe('bucket operations - namespace_fs', function() {
                 nsfs_only: false
             }
         });
-        s3_creds.accessKeyId = account_s3_correct_uid.access_keys[0].access_key.unwrap();
-        s3_creds.secretAccessKey = account_s3_correct_uid.access_keys[0].secret_key.unwrap();
+        s3_creds.credentials = {
+            accessKeyId: account_s3_correct_uid.access_keys[0].access_key.unwrap(),
+            secretAccessKey: account_s3_correct_uid.access_keys[0].secret_key.unwrap(),
+        };
         s3_creds.endpoint = coretest.get_http_address();
-        s3_correct_uid_default_nsr = new AWS.S3(s3_creds);
-        const res = await s3_correct_uid_default_nsr.createBucket({ Bucket: bucket_name + '-s3', }).promise();
+        s3_correct_uid_default_nsr = new S3(s3_creds);
+        const res = await s3_correct_uid_default_nsr.createBucket({ Bucket: bucket_name + '-s3', });
         console.log(inspect(res));
         await fs_utils.file_must_exist(path.join(tmp_fs_root, '/new_s3_buckets_dir', bucket_name + '-s3'));
     });
@@ -311,18 +326,20 @@ mocha.describe('bucket operations - namespace_fs', function() {
             }
         };
         const account_s3_incorrect_uid = await rpc_client.account.create_account(incorrect_params);
-        s3_creds.accessKeyId = account_s3_incorrect_uid.access_keys[0].access_key.unwrap();
-        s3_creds.secretAccessKey = account_s3_incorrect_uid.access_keys[0].secret_key.unwrap();
+        s3_creds.credentials = {
+            accessKeyId: account_s3_incorrect_uid.access_keys[0].access_key.unwrap(),
+            secretAccessKey: account_s3_incorrect_uid.access_keys[0].secret_key.unwrap(),
+        };
         s3_creds.endpoint = coretest.get_http_address();
-        const s3_incorrect_uid_default_nsr = new AWS.S3(s3_creds);
+        const s3_incorrect_uid_default_nsr = new S3(s3_creds);
         try {
             await s3_incorrect_uid_default_nsr.createBucket({
                 Bucket: bucket_name + '-s3-should-fail',
-            }).promise();
+            });
             assert.fail('unpreviliged account could create bucket on nsfs: ');
         } catch (err) {
             assert.ok(err + '- failed as it should');
-            assert.strictEqual(err.code, 'AccessDenied');
+            assert.strictEqual(err.Code, 'AccessDenied');
         }
         await fs_utils.file_must_not_exist(path.join(tmp_fs_root, '/new_s3_buckets_dir', bucket_name + '-s3-should-fail'));
     });
@@ -339,23 +356,37 @@ mocha.describe('bucket operations - namespace_fs', function() {
                 })
             )
         );
-        const res = await s3_correct_uid.listBuckets().promise();
+        const res = await s3_correct_uid.listBuckets({});
         console.log(inspect(res));
         const list_ok = bucket_in_list([bucket_name], [], res.Buckets);
         assert.ok(list_ok);
     });
     mocha.it('put object with out uid gid', async function() {
         try {
-            const res = await s3_owner.putObject({ Bucket: bucket_name + '-s3', Key: 'ob1.txt', Body: 'AAAABBBBBCCCCCCDDDDD' }).promise();
+            const res = await s3_owner.putObject({ Bucket: bucket_name + '-s3', Key: 'ob1.txt', Body: 'AAAABBBBBCCCCCCDDDDD' });
             console.log(inspect(res));
             assert.fail('unpreviliged account could put object on nsfs bucket');
         } catch (err) {
-            assert.strictEqual(err.code, 'AccessDenied');
+            assert.strictEqual(err.Code, 'AccessDenied');
         }
     });
+    // GAP upload is still using AWS SDK V2
     mocha.it('upload object with wrong uid gid', async function() {
+        const s3_creds_aws_sdk_v2 = {
+            s3ForcePathStyle: true,
+            signatureVersion: 'v4',
+            computeChecksums: true,
+            s3DisableBodySigning: false,
+            region: 'us-east-1',
+            httpOptions: { agent: new http.Agent({ keepAlive: false }) },
+        };
+        s3_creds_aws_sdk_v2.accessKeyId = account_wrong_uid.access_keys[0].access_key.unwrap();
+        s3_creds_aws_sdk_v2.secretAccessKey = account_wrong_uid.access_keys[0].secret_key.unwrap();
+        s3_creds_aws_sdk_v2.endpoint = s3_wrong_id_endpoint_address;
+        s3_wrong_uid_aws_sdk_v2_temp = new AWS.S3(s3_creds_aws_sdk_v2);
+
         try {
-            const res = await s3_wrong_uid.upload({ Bucket: bucket_name + '-s3', Key: 'ob1.txt', Body: 'AAAABBBBBCCCCCCDDDDD' }).promise();
+            const res = await s3_wrong_uid_aws_sdk_v2_temp.upload({ Bucket: bucket_name + '-s3', Key: 'ob1.txt', Body: 'AAAABBBBBCCCCCCDDDDD' }).promise();
             console.log(inspect(res));
             assert.fail('unpreviliged account could upload object on nsfs bucket');
         } catch (err) {
@@ -381,21 +412,21 @@ mocha.describe('bucket operations - namespace_fs', function() {
         const res1 = await s3_correct_uid.createMultipartUpload({
             Bucket: bucket_name,
             Key: 'ob1.txt'
-        }).promise();
+        });
         await s3_correct_uid.uploadPart({
             Bucket: bucket_name,
             Key: 'ob1.txt',
             UploadId: res1.UploadId,
             PartNumber: 1,
             Body: 'AAAABBBBBCCCCCCDDDDD',
-        }).promise();
+        });
         try {
             // list_multiparts
-            const res = await s3_wrong_uid.listParts({ Bucket: bucket_name + '-s3', Key: 'ob1.txt', UploadId: res1.UploadId }).promise();
+            const res = await s3_wrong_uid.listParts({ Bucket: bucket_name + '-s3', Key: 'ob1.txt', UploadId: res1.UploadId });
             console.log(inspect(res));
             assert.fail('unpreviliged account could not list object parts on nsfs bucket');
         } catch (err) {
-            assert.strictEqual(err.code, 'AccessDenied');
+            assert.strictEqual(err.Code, 'AccessDenied');
         }
     });
     mocha.it('put object with correct uid gid', async function() {
@@ -410,25 +441,25 @@ mocha.describe('bucket operations - namespace_fs', function() {
                 })
             )
         );
-        const res = await s3_correct_uid.putObject({ Bucket: bucket_name + '-s3', Key: 'ob1.txt', Body: 'AAAABBBBBCCCCCCDDDDD' }).promise();
+        const res = await s3_correct_uid.putObject({ Bucket: bucket_name + '-s3', Key: 'ob1.txt', Body: 'AAAABBBBBCCCCCCDDDDD' });
         assert.ok(res && res.ETag);
     });
     mocha.it('delete bucket without uid, gid - bucket is not empty', async function() {
         try {
-            const res = await s3_owner.deleteBucket({ Bucket: bucket_name + '-s3' }).promise();
+            const res = await s3_owner.deleteBucket({ Bucket: bucket_name + '-s3' });
             console.log(inspect(res));
             assert.fail('unpreviliged account could delete bucket on nsfs: ');
         } catch (err) {
-            assert.strictEqual(err.code, 'AccessDenied');
+            assert.strictEqual(err.Code, 'AccessDenied');
         }
     });
     mocha.it('copy objects with wrong uid gid', async function() {
         try {
-            const res = await s3_wrong_uid.copyObject({ Bucket: bucket_name + '-s3', Key: 'ob2.txt', CopySource: bucket_name + '-s3/ob1.txt' }).promise();
+            const res = await s3_wrong_uid.copyObject({ Bucket: bucket_name + '-s3', Key: 'ob2.txt', CopySource: bucket_name + '-s3/ob1.txt' });
             console.log(inspect(res));
             assert.fail('unpreviliged account could copy objects on nsfs bucket');
         } catch (err) {
-            assert.strictEqual(err.code, 'AccessDenied');
+            assert.strictEqual(err.Code, 'AccessDenied');
         }
     });
 
@@ -437,9 +468,9 @@ mocha.describe('bucket operations - namespace_fs', function() {
         config.NSFS_CALCULATE_MD5 = true;
         const key = 'ob11.txt';
         const source_key = key;
-        const put_res = await s3_correct_uid.putObject({ Bucket: bucket_name + '-s3', Key: source_key, Body: 'AAAABBBBBCCCCCCDDDDD' }).promise();
+        const put_res = await s3_correct_uid.putObject({ Bucket: bucket_name + '-s3', Key: source_key, Body: 'AAAABBBBBCCCCCCDDDDD' });
         assert.ok(put_res && put_res.ETag);
-        await s3_correct_uid.copyObject({ Bucket: bucket_name + '-s3', Key: key, CopySource: bucket_name + `-s3/${source_key}` }).promise();
+        await s3_correct_uid.copyObject({ Bucket: bucket_name + '-s3', Key: key, CopySource: bucket_name + `-s3/${source_key}` });
         config.NSFS_CALCULATE_MD5 = false;
 
         const p = path.join(tmp_fs_root, '/new_s3_buckets_dir', bucket_name + '-s3', key);
@@ -449,7 +480,7 @@ mocha.describe('bucket operations - namespace_fs', function() {
 
         assert.equal(stat1.nlink, 1);
         assert.deepEqual(stat1, stat_source);
-        await s3_correct_uid.deleteObject({ Bucket: bucket_name + '-s3', Key: key }).promise();
+        await s3_correct_uid.deleteObject({ Bucket: bucket_name + '-s3', Key: key });
     });
 
     mocha.it('copy objects with correct uid gid - non server side copy - fallback', async function() {
@@ -459,7 +490,7 @@ mocha.describe('bucket operations - namespace_fs', function() {
             Key: key,
             CopySource: bucket_name + `-s3/${source_key}`,
             MetadataDirective: 'REPLACE',
-            Metadata: { 'new_xattr': 'new_xattr_val' } }).promise();
+            Metadata: { 'new_xattr': 'new_xattr_val' } });
 
         const p = path.join(tmp_fs_root, '/new_s3_buckets_dir', bucket_name + '-s3', key);
         const stat1 = await stat(DEFAULT_FS_CONFIG, p);
@@ -467,7 +498,7 @@ mocha.describe('bucket operations - namespace_fs', function() {
         const p_source = path.join(tmp_fs_root, '/new_s3_buckets_dir', bucket_name + '-s3', source_key);
         const stat_source = await stat(DEFAULT_FS_CONFIG, p_source);
 
-        await s3_correct_uid.deleteObject({ Bucket: bucket_name + '-s3', Key: 'ob22.txt' }).promise();
+        await s3_correct_uid.deleteObject({ Bucket: bucket_name + '-s3', Key: 'ob22.txt' });
 
         assert.equal(stat1.nlink, 1);
         assert.notEqual(stat1.ino, stat_source.ino);
@@ -483,7 +514,7 @@ mocha.describe('bucket operations - namespace_fs', function() {
             Bucket: bucket_name + '-s3',
             Key: key,
             CopySource: bucket_name + `-s3/${source_key}`,
-            Metadata: {'wont_replace': 'wont'} }).promise();
+            Metadata: {'wont_replace': 'wont'} });
 
         const p = path.join(tmp_fs_root, '/new_s3_buckets_dir', bucket_name + '-s3', key);
         const stat1 = await stat(DEFAULT_FS_CONFIG, p);
@@ -491,7 +522,7 @@ mocha.describe('bucket operations - namespace_fs', function() {
         const p_source = path.join(tmp_fs_root, '/new_s3_buckets_dir', bucket_name + '-s3', source_key);
         const stat_source = await stat(DEFAULT_FS_CONFIG, p_source);
 
-        await s3_correct_uid.deleteObject({ Bucket: bucket_name + '-s3', Key: key }).promise();
+        await s3_correct_uid.deleteObject({ Bucket: bucket_name + '-s3', Key: key });
 
         assert.equal(stat1.nlink, 2);
         assert.equal(stat1.ino, stat_source.ino);
@@ -503,39 +534,40 @@ mocha.describe('bucket operations - namespace_fs', function() {
 
     mocha.it('list objects with wrong uid gid', async function() {
         try {
-            const res = await s3_wrong_uid.listObjects({ Bucket: bucket_name + '-s3' }).promise();
+            const res = await s3_wrong_uid.listObjects({ Bucket: bucket_name + '-s3' });
             console.log(inspect(res));
             assert.fail('unpreviliged account could list objects on nsfs bucket');
         } catch (err) {
-            assert.strictEqual(err.code, 'AccessDenied');
+            assert.strictEqual(err.Code, 'AccessDenied');
         }
     });
     mocha.it('delete bucket with uid, gid - bucket is not empty', async function() {
         try {
-            const res = await s3_correct_uid_default_nsr.deleteBucket({ Bucket: bucket_name + '-s3' }).promise();
+            const res = await s3_correct_uid_default_nsr.deleteBucket({ Bucket: bucket_name + '-s3' });
             console.log(inspect(res));
             assert.fail('should fail deletion od bucket, bucket is not empty');
         } catch (err) {
-            assert.strictEqual(err.code, 'BucketNotEmpty');
+            assert.strictEqual(err.Code, 'BucketNotEmpty');
         }
     });
     mocha.it('delete object without uid, gid - bucket is empty', async function() {
         try {
-            const res = await s3_owner.deleteObject({ Bucket: bucket_name + '-s3', Key: 'ob1.txt' }).promise();
+            const res = await s3_owner.deleteObject({ Bucket: bucket_name + '-s3', Key: 'ob1.txt' });
             console.log(inspect(res));
             assert.fail('unpreviliged account could delete object on nsfs bucket ');
         } catch (err) {
-            assert.strictEqual(err.code, 'AccessDenied');
+            assert.strictEqual(err.Code, 'AccessDenied');
         }
     });
     mocha.it('delete object with uid, gid', async function() {
-        const res = await s3_correct_uid_default_nsr.deleteObject({ Bucket: bucket_name + '-s3', Key: 'ob1.txt' }).promise();
+        const res = await s3_correct_uid_default_nsr.deleteObject({ Bucket: bucket_name + '-s3', Key: 'ob1.txt' });
         console.log(inspect(res));
     });
     mocha.it('delete non existing object without failing', async function() {
         const key_to_delete = 'non-existing-obj';
-        const res = await s3_correct_uid_default_nsr.deleteObject({ Bucket: bucket_name + '-s3', Key: key_to_delete}).promise();
-        assert.deepEqual(res, {});
+        const res = await s3_correct_uid_default_nsr.deleteObject({ Bucket: bucket_name + '-s3', Key: key_to_delete});
+        const res_without_metadata = _.omit(res, '$metadata');
+        assert.deepEqual(res_without_metadata, {});
     });
 
     mocha.it('delete multiple non existing objects without failing', async function() {
@@ -548,22 +580,22 @@ mocha.describe('bucket operations - namespace_fs', function() {
             Delete: {
                 Objects: keys_to_delete
             }
-        }).promise();
+        });
         assert.deepEqual(res.Deleted, keys_to_delete);
-        assert.equal(res.Errors.length, 0);
+        assert.equal(res.Errors, undefined);
 
     });
     mocha.it('delete bucket without uid, gid - bucket is empty', async function() {
         try {
-            const res = await s3_owner.deleteBucket({ Bucket: bucket_name + '-s3' }).promise();
+            const res = await s3_owner.deleteBucket({ Bucket: bucket_name + '-s3' });
             console.log(inspect(res));
             assert.fail('unpreviliged account could delete bucket on nsfs: ');
         } catch (err) {
-            assert.strictEqual(err.code, 'AccessDenied');
+            assert.strictEqual(err.Code, 'AccessDenied');
         }
     });
     mocha.it('delete account by uid, gid - account has buckets - should fail', async function() {
-        await s3_correct_uid_default_nsr.createBucket({ Bucket: 'bucket-to-delete123' }).promise();
+        await s3_correct_uid_default_nsr.createBucket({ Bucket: 'bucket-to-delete123' });
         try {
             await rpc_client.account.delete_account({ email: 'account_s3_correct_uid@noobaa.com' });
             assert.fail(`delete account succeeded for account that has buckets`);
@@ -577,16 +609,16 @@ mocha.describe('bucket operations - namespace_fs', function() {
         } catch (err) {
             assert.equal(err.rpc_code, 'FORBIDDEN');
         }
-       await s3_correct_uid_default_nsr.deleteBucket({ Bucket: 'bucket-to-delete123' }).promise();
+       await s3_correct_uid_default_nsr.deleteBucket({ Bucket: 'bucket-to-delete123' });
 
     });
 
     mocha.it('delete bucket with uid, gid - bucket is empty', async function() {
-        const res = await s3_correct_uid_default_nsr.deleteBucket({ Bucket: bucket_name + '-s3' }).promise();
+        const res = await s3_correct_uid_default_nsr.deleteBucket({ Bucket: bucket_name + '-s3' });
         console.log(inspect(res));
     });
     mocha.it('list buckets after deletion', async function() {
-        const res = await s3_correct_uid.listBuckets().promise();
+        const res = await s3_correct_uid.listBuckets({});
         console.log(inspect(res));
         const list_ok = bucket_in_list([], [bucket_name + '-s3'], res.Buckets);
         assert.ok(list_ok);
@@ -652,8 +684,8 @@ mocha.describe('bucket operations - namespace_fs', function() {
                 })
             )
         );
-        await s3_correct_uid_default_nsr.deleteBucket({ Bucket: bucket_name }).promise();
-        await s3_correct_uid_default_nsr.deleteBucket({ Bucket: bucket_name + '-other1' }).promise();
+        await s3_correct_uid_default_nsr.deleteBucket({ Bucket: bucket_name });
+        await s3_correct_uid_default_nsr.deleteBucket({ Bucket: bucket_name + '-other1' });
     });
 });
 
@@ -669,8 +701,10 @@ function bucket_in_list(exist_buckets, not_exist_buckets, s3_buckets_list_respon
 }
 
 function object_in_list(res, key) {
-    const ans = res.Contents.find(obj => obj.Key === key);
-    if (ans) return true;
+    if (res.Contents) {
+        const ans = res.Contents.find(obj => obj.Key === key);
+        if (ans) return true;
+    }
     return false;
 }
 
@@ -760,7 +794,7 @@ mocha.describe('list objects - namespace_fs', function() {
 
     mocha.it('list buckets - uid & gid mismatch - should fail', async function() {
         const { s3_client } = accounts.account1;
-        const res = await s3_client.listBuckets().promise();
+        const res = await s3_client.listBuckets({});
         assert.equal(res.Buckets.length, 1);
         assert.equal(res.Buckets[0].Name, 'first.bucket');
     });
@@ -768,26 +802,26 @@ mocha.describe('list objects - namespace_fs', function() {
     mocha.it('put object 1 account_with_access - uid & gid mismatch - should fail', async function() {
         try {
             const { s3_client } = accounts.account1;
-            await s3_client.putObject({ Bucket: bucket_name, Key: 'key1', Body: body }).promise();
+            await s3_client.putObject({ Bucket: bucket_name, Key: 'key1', Body: body });
             assert.fail(`put object succeeded for account without permissions`);
         } catch (err) {
-            assert.equal(err.code, 'AccessDenied');
+            assert.equal(err.Code, 'AccessDenied');
         }
     });
 
     mocha.it('list objects - no access to bucket - uid & gid mismatch - should fail', async function() {
         try {
             const { s3_client } = accounts.account3;
-            await s3_client.listObjects({ Bucket: bucket_name }).promise();
+            await s3_client.listObjects({ Bucket: bucket_name });
             assert.fail(`list objects succeeded for account without permissions`);
         } catch (err) {
-            assert.equal(err.code, 'AccessDenied');
+            assert.equal(err.Code, 'AccessDenied');
         }
     });
 
     mocha.it('create s3 bucket', async function() {
         const { s3_client } = accounts.account1;
-        await s3_client.createBucket({ Bucket: s3_b_name}).promise();
+        await s3_client.createBucket({ Bucket: s3_b_name});
         const s3_policy = test_utils.generate_s3_policy('*', s3_b_name, ['s3:*']);
         await rpc_client.bucket.put_bucket_policy({ name: s3_b_name, policy: s3_policy.policy });
     });
@@ -796,38 +830,37 @@ mocha.describe('list objects - namespace_fs', function() {
     mocha.it('list objects s3_b_name - uid & gid mismatch - should fail', async function() {
         try {
             const { s3_client } = accounts.account3;
-            await s3_client.listObjects({ Bucket: s3_b_name }).promise();
+            await s3_client.listObjects({ Bucket: s3_b_name });
             assert.fail(`list objects succeeded for account without permissions`);
         } catch (err) {
-            assert.equal(err.code, 'AccessDenied');
+            assert.equal(err.Code, 'AccessDenied');
         }
     });
 
     mocha.it('list buckets - uid & gid mismatch - account1', async function() {
         const { s3_client } = accounts.account1;
-        const res = await s3_client.listBuckets().promise();
+        const res = await s3_client.listBuckets({});
         assert.equal(res.Buckets.length, 2);
         assert.deepStrictEqual(res.Buckets.map(bucket => bucket.Name), [s3_b_name, 'first.bucket']);
-
     });
 
     mocha.it('list buckets - uid & gid mismatch - account2', async function() {
         const { s3_client } = accounts.account2;
-        const res = await s3_client.listBuckets().promise();
+        const res = await s3_client.listBuckets({});
         assert.equal(res.Buckets.length, 1);
         assert.equal(res.Buckets[0].Name, 'first.bucket');
     });
 
     mocha.it('create s3 bucket by root', async function() {
         const { s3_client } = accounts.account4;
-        await s3_client.createBucket({ Bucket: s3_root_b_name}).promise();
+        await s3_client.createBucket({ Bucket: s3_root_b_name});
         const s3_policy = test_utils.generate_s3_policy('*', s3_root_b_name, ['s3:*']);
         await rpc_client.bucket.put_bucket_policy({ name: s3_root_b_name, policy: s3_policy.policy });
     });
 
     mocha.it('list buckets - uid & gid match - account with permission', async function() {
         const { s3_client } = accounts.account4;
-        const res = await s3_client.listBuckets().promise();
+        const res = await s3_client.listBuckets({});
         assert.equal(res.Buckets.length, 4);
     });
 
@@ -839,33 +872,34 @@ mocha.describe('list objects - namespace_fs', function() {
 
     mocha.it('put object 1 account1', async function() {
         const { s3_client } = accounts.account1;
-        await s3_client.putObject({ Bucket: bucket_name, Key: 'dir1/key1', Body: body }).promise();
+        await s3_client.putObject({ Bucket: bucket_name, Key: 'dir1/key1', Body: body });
     });
 
     mocha.it('list objects - account1', async function() {
         const { s3_client } = accounts.account1;
-        const res = await s3_client.listObjects({ Bucket: bucket_name }).promise();
+        const res = await s3_client.listObjects({ Bucket: bucket_name });
         assert.equal(object_in_list(res, 'dir1/key1'), true);
     });
 
     mocha.it('list objects - account2', async function() {
         const { s3_client } = accounts.account2;
-        const res = await s3_client.listObjects({ Bucket: bucket_name }).promise();
+        const res = await s3_client.listObjects({ Bucket: bucket_name });
         assert.equal(object_in_list(res, 'dir1/key1'), false);
     });
 });
 
 
 function generate_s3_client(access_key, secret_key) {
-    return new AWS.S3({
-        s3ForcePathStyle: true,
-        signatureVersion: 'v4',
-        computeChecksums: true,
-        s3DisableBodySigning: false,
-        region: 'us-east-1',
-        httpOptions: { agent: new http.Agent({ keepAlive: false }) },
-        accessKeyId: access_key,
-        secretAccessKey: secret_key,
+    return new S3({
+        forcePathStyle: true,
+        region: config.DEFAULT_REGION,
+        requestHandler: new NodeHttpHandler({
+            httpAgent: new http.Agent({ keepAlive: false })
+        }),
+        credentials: {
+            accessKeyId: access_key,
+            secretAccessKey: secret_key,
+        },
         endpoint: coretest.get_http_address()
     });
 }
@@ -911,13 +945,13 @@ async function put_and_delete_objects(s3_account, bucket, key, body, should_fail
             Bucket: bucket,
             Key: key,
             Body: body
-        }).promise();
+        });
         if (should_fail) {
             assert.fail(`put_object - action should fail but it didn't`);
         }
     } catch (err) {
         if (should_fail) {
-            assert.ok(err.code === 'AccessDenied');
+            assert.ok(err.Code === 'AccessDenied');
             return;
         }
         assert.fail(`put_object failed ${err}, ${err.stack}`);
@@ -926,7 +960,7 @@ async function put_and_delete_objects(s3_account, bucket, key, body, should_fail
     await s3_account.deleteObject({
         Bucket: bucket,
         Key: key,
-    }).promise();
+    });
 }
 
 mocha.describe('nsfs account configurations', function() {
@@ -944,12 +978,11 @@ mocha.describe('nsfs account configurations', function() {
     const regular_bucket_fail = ['regular-bucket-fail', 'regular-bucket-fail1', 'regular-bucket-fail2'];
     const data_bucket = 'data-bucket';
     const s3_creds = {
-        s3ForcePathStyle: true,
-        signatureVersion: 'v4',
-        computeChecksums: true,
-        s3DisableBodySigning: false,
-        region: 'us-east-1',
-        httpOptions: { agent: new http.Agent({ keepAlive: false }) },
+        forcePathStyle: true,
+        region: config.DEFAULT_REGION,
+        requestHandler: new NodeHttpHandler({
+            httpAgent: new http.Agent({ keepAlive: false })
+        }),
     };
     mocha.before(function() {
         if (test_utils.invalid_nsfs_root_permissions()) this.skip(); // eslint-disable-line no-invalid-this
@@ -1025,10 +1058,12 @@ mocha.describe('nsfs account configurations', function() {
                     nsfs_only: config1.nsfs_only
                 }
             });
-            s3_creds.accessKeyId = cur_account.access_keys[0].access_key.unwrap();
-            s3_creds.secretAccessKey = cur_account.access_keys[0].secret_key.unwrap();
+            s3_creds.credentials = {
+                accessKeyId: cur_account.access_keys[0].access_key.unwrap(),
+                secretAccessKey: cur_account.access_keys[0].secret_key.unwrap(),
+            };
             s3_creds.endpoint = coretest.get_http_address();
-            const cur_s3_account = new AWS.S3(s3_creds);
+            const cur_s3_account = new S3(s3_creds);
             accounts[name] = cur_s3_account;
         }
     });
@@ -1040,7 +1075,7 @@ mocha.describe('nsfs account configurations', function() {
     // default pool
     mocha.it('s3 put bucket allowed non nsfs buckets - default pool', async function() {
         const s3_account = accounts.account1;
-        await s3_account.createBucket({ Bucket: regular_bucket_name[0] }).promise();
+        await s3_account.createBucket({ Bucket: regular_bucket_name[0] });
         // Give account access to the required buckets
         await Promise.all(
             [bucket_name1, non_nsfs_bucket1, non_nsfs_bucket2, regular_bucket_name[0]]
@@ -1052,7 +1087,7 @@ mocha.describe('nsfs account configurations', function() {
                 })
             )
         );
-        const res = await s3_account.listBuckets().promise();
+        const res = await s3_account.listBuckets({});
         console.log(inspect(res));
         const list_ok = bucket_in_list([bucket_name1, non_nsfs_bucket1, non_nsfs_bucket2, regular_bucket_name[0]], [], res.Buckets);
         assert.ok(list_ok);
@@ -1061,7 +1096,7 @@ mocha.describe('nsfs account configurations', function() {
     // default nsr - nsfs 
     mocha.it('s3 put bucket allowed non nsfs buckets - default nsr - nsfs', async function() {
         const s3_account = accounts.account3;
-        await s3_account.createBucket({ Bucket: regular_bucket_name[1] }).promise();
+        await s3_account.createBucket({ Bucket: regular_bucket_name[1] });
         // Give account access to the required buckets
         await Promise.all(
             [bucket_name1, non_nsfs_bucket1, non_nsfs_bucket2, regular_bucket_name[1]]
@@ -1073,7 +1108,7 @@ mocha.describe('nsfs account configurations', function() {
                 })
             )
         );
-        const res = await s3_account.listBuckets().promise();
+        const res = await s3_account.listBuckets({});
         console.log(inspect(res));
         const list_ok = bucket_in_list([bucket_name1, non_nsfs_bucket1, non_nsfs_bucket2, regular_bucket_name[1]], [], res.Buckets);
         assert.ok(list_ok);
@@ -1081,7 +1116,7 @@ mocha.describe('nsfs account configurations', function() {
 
     mocha.it('s3 put bucket not allowed non nsfs buckets - default nsr - nsfs', async function() {
         const s3_account = accounts.account_nsfs_only3;
-        await s3_account.createBucket({ Bucket: regular_bucket_name[2] }).promise();
+        await s3_account.createBucket({ Bucket: regular_bucket_name[2] });
         // Give account access to the required buckets
         await Promise.all(
             [bucket_name1, regular_bucket_name[2]]
@@ -1093,7 +1128,7 @@ mocha.describe('nsfs account configurations', function() {
                 })
             )
         );
-        const res = await s3_account.listBuckets().promise();
+        const res = await s3_account.listBuckets({});
         console.log(inspect(res));
         const list_ok = bucket_in_list([bucket_name1, regular_bucket_name[2]], [non_nsfs_bucket1, non_nsfs_bucket2], res.Buckets);
         assert.ok(list_ok);
@@ -1102,10 +1137,10 @@ mocha.describe('nsfs account configurations', function() {
     mocha.it('s3 put bucket not allowed non nsfs buckets - default pool', async function() {
         try {
             const s3_account = accounts.account_nsfs_only1;
-            await s3_account.createBucket({ Bucket: regular_bucket_fail[0] }).promise();
+            await s3_account.createBucket({ Bucket: regular_bucket_fail[0] });
             assert.fail('account should not be allowed to create bucket');
         } catch (err) {
-            assert.ok(err.code === 'AccessDenied');
+            assert.ok(err.Code === 'AccessDenied');
         }
     });
 
@@ -1113,20 +1148,20 @@ mocha.describe('nsfs account configurations', function() {
     mocha.it('s3 put bucket allowed non nsfs buckets - default nsr - s3 compatible', async function() {
         try {
             const s3_account = accounts.account2;
-            await s3_account.createBucket({ Bucket: regular_bucket_fail[1] }).promise();
+            await s3_account.createBucket({ Bucket: regular_bucket_fail[1] });
         } catch (err) {
             // create uls in namespace s3 compatible is not implement yet - but the error is not access denied
-            assert.ok(err.code === 'InternalError');
+            assert.ok(err.Code === 'InternalError');
         }
     });
 
     mocha.it('s3 put bucket not allowed non nsfs buckets - default nsr - s3 compatible', async function() {
         try {
             const s3_account = accounts.account_nsfs_only2;
-            await s3_account.createBucket({ Bucket: regular_bucket_fail[2] }).promise();
+            await s3_account.createBucket({ Bucket: regular_bucket_fail[2] });
             assert.fail('account should not be allowed to create bucket');
         } catch (err) {
-            assert.ok(err.code === 'AccessDenied');
+            assert.ok(err.Code === 'AccessDenied');
         }
     });
 
@@ -1148,7 +1183,7 @@ mocha.describe('nsfs account configurations', function() {
                 })
             )
         );
-        const res = await s3_account.listBuckets().promise();
+        const res = await s3_account.listBuckets({});
         console.log(inspect(res));
         const list_ok = bucket_in_list([bucket_name1, non_nsfs_bucket1, non_nsfs_bucket2], [], res.Buckets);
         assert.ok(list_ok);
@@ -1168,7 +1203,7 @@ mocha.describe('nsfs account configurations', function() {
                 })
             )
         );
-        const res = await s3_account.listBuckets().promise();
+        const res = await s3_account.listBuckets({});
         console.log(inspect(res));
         const list_ok = bucket_in_list([bucket_name1], [non_nsfs_bucket1, non_nsfs_bucket2], res.Buckets);
         assert.ok(list_ok);

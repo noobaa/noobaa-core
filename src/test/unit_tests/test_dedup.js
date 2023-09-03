@@ -4,11 +4,13 @@
 // setup coretest first to prepare the env
 const coretest = require('./coretest');
 coretest.setup({ pools_to_create: coretest.POOL_LIST });
-const AWS = require('aws-sdk');
+const { S3 } = require('@aws-sdk/client-s3');
+const { NodeHttpHandler } = require("@smithy/node-http-handler");
 const http_utils = require('../../util/http_utils');
 const mocha = require('mocha');
 const MDStore = require('../../server/object_services/md_store').MDStore;
 const assert = require('assert');
+const config = require('../../../config');
 
 const { rpc_client, EMAIL } = coretest;
 const BKT = 'dedup-sloth-bucket';
@@ -23,24 +25,25 @@ mocha.describe('test_dedup', function() {
         self.timeout(60000);
 
         const account_info = await rpc_client.account.read_account({ email: EMAIL });
-        s3 = new AWS.S3({
+        s3 = new S3({
             endpoint: coretest.get_http_address(),
-            accessKeyId: account_info.access_keys[0].access_key.unwrap(),
-            secretAccessKey: account_info.access_keys[0].secret_key.unwrap(),
-            s3ForcePathStyle: true,
-            signatureVersion: 'v4',
-            computeChecksums: true,
-            s3DisableBodySigning: false,
-            region: 'us-east-1',
-            httpOptions: { agent: http_utils.get_unsecured_agent(coretest.get_http_address()) },
+            credentials: {
+                accessKeyId: account_info.access_keys[0].access_key.unwrap(),
+                secretAccessKey: account_info.access_keys[0].secret_key.unwrap(),
+            },
+            forcePathStyle: true,
+            region: config.DEFAULT_REGION,
+            requestHandler: new NodeHttpHandler({
+                httpAgent: http_utils.get_unsecured_agent(coretest.get_http_address()),
+            }),
         });
         coretest.log('S3 CONFIG', s3.config);
     });
 
     mocha.it('Should create one chunk', async function() {
-        await s3.createBucket({ Bucket: BKT }).promise();
-        await s3.putObject({ Bucket: BKT, Key: 'FILE0', Body: FBODY }).promise();
-        await s3.putObject({ Bucket: BKT, Key: 'FILE1', Body: FBODY }).promise();
+        await s3.createBucket({ Bucket: BKT });
+        await s3.putObject({ Bucket: BKT, Key: 'FILE0', Body: FBODY });
+        await s3.putObject({ Bucket: BKT, Key: 'FILE1', Body: FBODY });
         const chunks = await MDStore.instance().iterate_all_chunks();
         assert(chunks.chunk_ids.length === 1, 'Dedup did not happen and more than one chunk is created');
     });

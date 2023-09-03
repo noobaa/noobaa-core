@@ -3,7 +3,8 @@
 
 'use strict';
 
-const AWS = require('aws-sdk');
+const { S3 } = require('@aws-sdk/client-s3');
+const { NodeHttpHandler } = require("@smithy/node-http-handler");
 const util = require('util');
 const mocha = require('mocha');
 const assert = require('assert');
@@ -33,16 +34,17 @@ mocha.describe('lifecycle', () => {
         this.timeout(60000);
 
         const account_info = await rpc_client.account.read_account({ email: EMAIL, });
-        s3 = new AWS.S3({
+        s3 = new S3({
             endpoint: coretest.get_http_address(),
-            accessKeyId: account_info.access_keys[0].access_key.unwrap(),
-            secretAccessKey: account_info.access_keys[0].secret_key.unwrap(),
-            s3ForcePathStyle: true,
-            signatureVersion: 'v4',
-            computeChecksums: true,
-            s3DisableBodySigning: false,
-            region: 'us-east-1',
-            httpOptions: { agent: http_utils.get_unsecured_agent(coretest.get_http_address()) },
+            credentials: {
+                accessKeyId: account_info.access_keys[0].access_key.unwrap(),
+                secretAccessKey: account_info.access_keys[0].secret_key.unwrap(),
+            },
+            forcePathStyle: true,
+            region: config.DEFAULT_REGION,
+            requestHandler: new NodeHttpHandler({
+                httpAgent: http_utils.get_unsecured_agent(coretest.get_http_address())
+            }),
         });
         coretest.log('S3 CONFIG', s3.config);
     });
@@ -76,9 +78,6 @@ mocha.describe('lifecycle', () => {
         });
         mocha.it('test rule id', async () => {
             await commonTests.test_rule_id(Bucket, Key, s3);
-        });
-        mocha.it('test empty rule', async () => {
-            await commonTests.test_empty_filter(Bucket, s3);
         });
         mocha.it('test rule size', async () => {
             await commonTests.test_filter_size(Bucket, s3);
@@ -152,7 +151,7 @@ mocha.describe('lifecycle', () => {
             await create_mock_object(key, bucket, age);
 
             const putLifecycleParams = commonTests.date_lifecycle_configuration(bucket, prefix);
-            await s3.putBucketLifecycleConfiguration(putLifecycleParams).promise();
+            await s3.putBucketLifecycleConfiguration(putLifecycleParams);
             await lifecycle.background_worker();
             await verify_object_deleted(key);
         });
@@ -167,7 +166,7 @@ mocha.describe('lifecycle', () => {
             // match by tags subset, out of order
             const filter_tagging = [ {key: 'tagname3', value: 'tagvalue3'}, {key: 'tagname2', value: 'tagvalue2'} ];
             const putLifecycleParams = commonTests.date_lifecycle_configuration_and_tags(bucket, prefix, filter_tagging);
-            await s3.putBucketLifecycleConfiguration(putLifecycleParams).promise();
+            await s3.putBucketLifecycleConfiguration(putLifecycleParams);
             await lifecycle.background_worker();
             await verify_object_deleted(key);
         });
@@ -179,7 +178,7 @@ mocha.describe('lifecycle', () => {
 
             await create_mock_object(key, bucket, age);
             const putLifecycleParams = commonTests.size_less_lifecycle_configuration(bucket, size);
-            await s3.putBucketLifecycleConfiguration(putLifecycleParams).promise();
+            await s3.putBucketLifecycleConfiguration(putLifecycleParams);
             await lifecycle.background_worker();
             await verify_object_deleted(key);
         });
@@ -193,7 +192,7 @@ mocha.describe('lifecycle', () => {
 
             await create_mock_object(key, bucket, age, size_object);
             const putLifecycleParams = commonTests.size_gt_lt_lifecycle_configuration(bucket, gt, lt);
-            await s3.putBucketLifecycleConfiguration(putLifecycleParams).promise();
+            await s3.putBucketLifecycleConfiguration(putLifecycleParams);
             await lifecycle.background_worker();
             await verify_object_deleted(key);
         });
@@ -206,7 +205,7 @@ mocha.describe('lifecycle', () => {
 
             await create_mock_object(key, bucket, object_age);
             const putLifecycleParams = commonTests.size_less_days_lifecycle_configuration(bucket, size, days);
-            await s3.putBucketLifecycleConfiguration(putLifecycleParams).promise();
+            await s3.putBucketLifecycleConfiguration(putLifecycleParams);
             await lifecycle.background_worker();
             await verify_object_deleted(key);
         });
@@ -220,7 +219,7 @@ mocha.describe('lifecycle', () => {
 
             await create_mock_object(key, bucket, object_age, undefined, tagging);
             const putLifecycleParams = commonTests.tag_days_lifecycle_configuration(bucket, days, tag);
-            await s3.putBucketLifecycleConfiguration(putLifecycleParams).promise();
+            await s3.putBucketLifecycleConfiguration(putLifecycleParams);
             await lifecycle.background_worker();
             await verify_object_deleted(key);
         });

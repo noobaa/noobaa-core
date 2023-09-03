@@ -228,7 +228,9 @@ class BucketSpaceFS {
     }
 
     async get_bucket_policy(params) {
-        // TODO
+        return {
+            policy: undefined
+        };
     }
 
     /////////////////////////

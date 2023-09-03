@@ -135,9 +135,13 @@ class NsfsObjectSDK extends ObjectSDK {
         this.nsfs_account = account;
         this.nsfs_versioning = versioning;
         this.nsfs_namespaces = {};
+        if (!config_root) {
+            this._get_bucket_namespace = bucket_name => this._get_single_bucket_namespace(bucket_name);
+        }
+
     }
 
-    async _get_bucket_namespace(bucket_name) {
+    async _get_single_bucket_namespace(bucket_name) {
         const existing_ns = this.nsfs_namespaces[bucket_name];
         if (existing_ns) return existing_ns;
         const ns_fs = new NamespaceFS({

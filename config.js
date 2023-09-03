@@ -723,7 +723,7 @@ config.TIERING_TTL_MS = 30 * 60 * 1000; // 30 minutes
 // AWS SDK VERSION     //
 /////////////////////////
 
-config.AWS_SDK_VERSION_3_DISABLED = true;
+config.AWS_SDK_VERSION_3_ENABLED = true;
 config.DEFAULT_REGION = 'us-east-1';
 
 /////////////////////

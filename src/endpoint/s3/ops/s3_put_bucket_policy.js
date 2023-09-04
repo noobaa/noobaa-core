@@ -18,7 +18,7 @@ async function put_bucket_policy(req) {
         await req.object_sdk.put_bucket_policy({ name: req.params.bucket, policy });
     } catch (error) {
         let err = error;
-        if (error.rpc_code === "INVALID_SCHEMA") {
+        if (error.rpc_code === "INVALID_SCHEMA" || error.rpc_code === "INVALID_SCHEMA_PARAMS") {
             err = new S3Error(S3Error.MalformedPolicy);
             err.message = "Policy was not well formed or did not validate against the published schema";
         }

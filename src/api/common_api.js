@@ -309,52 +309,118 @@ module.exports = {
                 Statement: {
                     type: 'array',
                     items: {
-                        type: 'object',
-                        required: ['Effect', 'Action', 'Principal', 'Resource'],
-                        properties: {
-                            Sid: {
-                                type: 'string'
-                            },
-                            Effect: {
-                                enum: ['Allow', 'Deny'],
-                                type: 'string'
-                            },
-                            Action: {
-                                $ref: '#/definitions/string_or_string_array'
-                            },
-                            Principal: {
-                                $ref: '#/definitions/bucket_policy_principal'
-                            },
-                            Resource: {
-                                $ref: '#/definitions/string_or_string_array'
-                            },
-                            Condition: {
+                        allOf: [
+                            {
                                 type: 'object',
+                                required: ['Effect'],
                                 properties: {
-                                    StringEquals: {
-                                        $ref: '#/definitions/bucket_policy_string_condition'
+                                    Sid: {
+                                        type: 'string'
                                     },
-                                    StringNotEquals: {
-                                        $ref: '#/definitions/bucket_policy_string_condition'
+                                    Principal: {
+                                        $ref: '#/definitions/bucket_policy_principal'
                                     },
-                                    StringEqualsIgnoreCase: {
-                                        $ref: '#/definitions/bucket_policy_string_condition'
+                                    NotPrincipal: {
+                                        $ref: '#/definitions/bucket_policy_principal'
                                     },
-                                    StringNotEqualsIgnoreCase: {
-                                        $ref: '#/definitions/bucket_policy_string_condition'
+                                    Action: {
+                                        $ref: '#/definitions/string_or_string_array'
                                     },
-                                    StringLike: {
-                                        $ref: '#/definitions/bucket_policy_string_condition'
+                                    NotAction: {
+                                        $ref: '#/definitions/string_or_string_array'
                                     },
-                                    StringNotLike: {
-                                        $ref: '#/definitions/bucket_policy_string_condition'
+                                    Resource: {
+                                        $ref: '#/definitions/string_or_string_array'
                                     },
-                                    Null: {
-                                        $ref: '#/definitions/bucket_policy_null_condition'
+                                    NotResource: {
+                                        $ref: '#/definitions/string_or_string_array'
+                                    },
+                                    Effect: {
+                                        enum: ['Allow', 'Deny'],
+                                        type: 'string'
+                                    },
+                                    Condition: {
+                                        type: 'object',
+                                        properties: {
+                                            StringEquals: {
+                                                $ref: '#/definitions/bucket_policy_string_condition'
+                                            },
+                                            StringNotEquals: {
+                                                $ref: '#/definitions/bucket_policy_string_condition'
+                                            },
+                                            StringEqualsIgnoreCase: {
+                                                $ref: '#/definitions/bucket_policy_string_condition'
+                                            },
+                                            StringNotEqualsIgnoreCase: {
+                                                $ref: '#/definitions/bucket_policy_string_condition'
+                                            },
+                                            StringLike: {
+                                                $ref: '#/definitions/bucket_policy_string_condition'
+                                            },
+                                            StringNotLike: {
+                                                $ref: '#/definitions/bucket_policy_string_condition'
+                                            },
+                                            Null: {
+                                                $ref: '#/definitions/bucket_policy_null_condition'
+                                            }
+                                        }
                                     }
                                 }
-                            }
-                        }
+                            },
+                            // these schemas accept every object that has oneof the argument in the required field (e.g. Action / notAction, Principal/ NotPrincipal),
+                            // the additionalProperties field was added to fit all of the statement properties without rewriting them.
+                            // since the allOf directive requires the object to validate against all schemas, the object will have to validate against
+                            // the schema above. these schemas are only here to validate the mutually exclusive required fields
+                            // they should be replaced once we support allOf for individual fields
+                            {
+                                oneOf: [
+                                    {
+                                        type: 'object',
+                                        required: ["Principal"],
+                                        additionalProperties: true,
+                                        properties: {}
+                                    },
+                                    {
+                                        type: 'object',
+                                        required: ["NotPrincipal"],
+                                        additionalProperties: true,
+                                        properties: {}
+                                    }
+                                ],
+                            },
+                            {
+                                oneOf: [
+                                    {
+                                        type: 'object',
+                                        required: ["Action"],
+                                        additionalProperties: true,
+                                        properties: {}
+                                    },
+                                    {
+                                        type: 'object',
+                                        required: ["NotAction"],
+                                        additionalProperties: true,
+                                        properties: {}
+                                    }
+                                    ],
+                            },
+                            {
+                                oneOf: [
+                                    {
+                                        type: 'object',
+                                        required: ["Resource"],
+                                        additionalProperties: true,
+                                        properties: {}
+                                    },
+                                    {
+                                        type: 'object',
+                                        required: ["NotResource"],
+                                        additionalProperties: true,
+                                        properties: {}
+                                    }
+                                ],
+                            },
+                        ]
                     }
                 },
             }

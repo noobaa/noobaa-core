@@ -489,8 +489,10 @@ async function put_bucket_policy(req) {
 function _validate_s3_policy(policy, bucket_name) {
     const all_op_names = _.compact(_.flatMap(OP_NAME_TO_ACTION, action => [action.regular, action.versioned]));
     for (const statement of policy.Statement) {
-        if (statement.Principal.AWS) {
-            for (const principal of _.flatten([statement.Principal.AWS])) {
+
+        const statement_principal = statement.Principal || statement.NotPrincipal;
+        if (statement_principal.AWS) {
+            for (const principal of _.flatten([statement_principal.AWS])) {
                 if (principal.unwrap() !== '*') {
                     const account = system_store.get_account_by_email(principal);
                     if (!account) {
@@ -498,17 +500,17 @@ function _validate_s3_policy(policy, bucket_name) {
                     }
                 }
             }
-        } else if (statement.Principal.unwrap() !== '*') {
+        } else if (statement_principal.unwrap() !== '*') {
             throw new RpcError('MALFORMED_POLICY', 'Invalid principal in policy', { detail: statement.Principal });
         }
-        for (const resource of _.flatten([statement.Resource])) {
+        for (const resource of _.flatten([statement.Resource || statement.NotResource])) {
             const resource_bucket_part = resource.split('/')[0];
             const resource_regex = RegExp(`^${resource_bucket_part.replace(qm_regex, '.?').replace(ar_regex, '.*')}$`);
             if (!resource_regex.test('arn:aws:s3:::' + bucket_name)) {
                 throw new RpcError('MALFORMED_POLICY', 'Policy has invalid resource', { detail: resource });
             }
         }
-        for (const action of _.flatten([statement.Action])) {
+        for (const action of _.flatten([statement.Action || statement.NotAction])) {
             if (action !== 's3:*' && !all_op_names.includes(action)) {
                 throw new RpcError('MALFORMED_POLICY', 'Policy has invalid action', { detail: action });
             }

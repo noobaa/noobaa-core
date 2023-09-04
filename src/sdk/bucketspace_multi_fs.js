@@ -12,6 +12,8 @@ const js_utils = require('../util/js_utils');
 const P = require('../util/promise');
 const BucketSpaceFS = require('./bucketspace_fs');
 const _ = require('lodash');
+const util = require('util');
+
 const dbg = require('../util/debug_module')(__filename);
 
 const VALID_BUCKET_NAME_REGEXP =
@@ -19,7 +21,22 @@ const VALID_BUCKET_NAME_REGEXP =
 const ACCOUNT_PATH = 'accounts';
 const BUCKET_PATH = 'buckets';
 
+
 //TODO:  dup from namespace_fs - need to handle and not dup code
+
+/**
+ * @param {nb.ObjectSDK} object_sdk 
+ * @returns {nb.NativeFSContext}
+ */
+function prepare_fs_context(object_sdk) {
+    const fs_context = object_sdk?.requesting_account?.nsfs_account_config;
+    if (!fs_context) throw new RpcError('UNAUTHORIZED', 'nsfs_account_config is missing');
+    fs_context.warn_threshold_ms = config.NSFS_WARN_THRESHOLD_MS;
+    // TODO: 
+    //fs_context.backend = this.fs_backend || '';
+    //if (this.stats) fs_context.report_fs_stats = this.stats.update_fs_stats;
+    return fs_context;
+}
 function isDirectory(ent) {
     if (!ent) throw new Error('isDirectory: ent is empty');
     if (ent.mode) {
@@ -47,11 +64,29 @@ class BucketSpaceMultiFS extends BucketSpaceFS {
         };
     }
 
+    _get_bucket_config_path(bucket_name) {
+       return path.join(this.bucket_schema_dir, bucket_name + '.json');
+    }
+
+    _get_account_config_path(access_key) {
+        return path.join(this.iam_dir, access_key + '.json');
+    }
+
+    _translate_object_error_codes(err) {
+        if (err.rpc_code) return err;
+        if (err.code === 'ENOENT') err.rpc_code = 'NO_SUCH_BUCKET';
+        if (err.code === 'EEXIST') err.rpc_code = 'BUCKET_ALREADY_EXISTS';
+        if (err.code === 'EPERM' || err.code === 'EACCES') err.rpc_code = 'UNAUTHORIZED';
+        if (err.code === 'IO_STREAM_ITEM_TIMEOUT') err.rpc_code = 'IO_STREAM_ITEM_TIMEOUT';
+        if (err.code === 'INTERNAL_ERROR') err.rpc_code = 'INTERNAL_ERROR';
+        return err;
+    }
+
     async read_account_by_access_key({ access_key }) {
         try {
             if (!access_key) throw new Error('no access key');
-            const iam_path = path.join(this.iam_dir, access_key);
-            const { data } = await nb_native().fs.readFile(this.fs_context, iam_path + ".json");
+            const iam_path = this._get_account_config_path(access_key);
+            const { data } = await nb_native().fs.readFile(this.fs_context, iam_path);
             const account = JSON.parse(data.toString());
             account.name = new SensitiveString(account.name);
             account.email = new SensitiveString(account.email);
@@ -61,36 +96,48 @@ class BucketSpaceMultiFS extends BucketSpaceFS {
             }
             return account;
         } catch (err) {
+            dbg.error('BucketSpaceMultiFS.read_account_by_access_key: failed with error', err);
             throw new RpcError('NO_SUCH_ACCOUNT', `Account with access_key not found`, err);
         }
     }
 
     async read_bucket_sdk_info({ name }) {
-        const bucket_path = path.join(this.bucket_schema_dir, name);
-        const { data } = await nb_native().fs.readFile(this.fs_context, bucket_path + ".json");
-        const bucket = JSON.parse(data.toString());
-        const is_valid = await this.check_bucket_config(bucket);
-        if (!is_valid) {
-            console.warn('BucketSpaceMultiFS: one or more bucket config check is failed for bucket : ', name);
-        }
-        const nsr = {
-            resource: {
-                fs_root_path: this.fs_root,
-            },
-            path: bucket.path
-        };
-        bucket.namespace = {
-            read_resources: [nsr],
-            write_resource: nsr,
-        };
+        try {
+            const bucket_config_path = this._get_bucket_config_path(name);
+            dbg.log0('BucketSpaceMultiFS.read_bucket_sdk_info: bucket_config_path', bucket_config_path);
+            const { data } = await nb_native().fs.readFile(this.fs_context, bucket_config_path);
+            const bucket = JSON.parse(data.toString());
+            const is_valid = await this.check_bucket_config(bucket);
+            if (!is_valid) {
+                console.warn('BucketSpaceMultiFS: one or more bucket config check is failed for bucket : ', name);
+            }
+            const nsr = {
+                resource: {
+                    fs_root_path: this.fs_root,
+                },
+                path: bucket.path
+            };
+            bucket.namespace = {
+                read_resources: [nsr],
+                write_resource: nsr,
+                should_create_underlying_storage: bucket.should_create_underlying_storage,
+            };
 
-        bucket.system_owner = new SensitiveString(bucket.system_owner);
-        bucket.bucket_owner = new SensitiveString(bucket.bucket_owner);
-        return bucket;
+            bucket.bucket_info = {
+                versioning: bucket.versioning
+            };
+
+            bucket.system_owner = new SensitiveString(bucket.system_owner);
+            bucket.bucket_owner = new SensitiveString(bucket.bucket_owner);
+            return bucket;
+        } catch (err) {
+            throw this._translate_object_error_codes(err);
+        }
     }
 
     async check_bucket_config(bucket) {
-        const bucket_dir_stat = await nb_native().fs.stat(this.fs_context, path.join(this.fs_root, bucket.path || ''));
+        const bucket_storage_path = path.join(this.fs_root, bucket.path);
+        const bucket_dir_stat = await nb_native().fs.stat(this.fs_context, bucket_storage_path);
         if (!bucket_dir_stat) {
             return false;
         }
@@ -106,7 +153,7 @@ class BucketSpaceMultiFS extends BucketSpaceFS {
     async list_buckets(object_sdk) {
         try {
             const entries = await nb_native().fs.readdir(this.fs_context, this.bucket_schema_dir);
-            const bucket_config_files = entries.filter(entree => !isDirectory(entree));
+            const bucket_config_files = entries.filter(entree => !isDirectory(entree) && entree.name.endsWith('.json'));
             //TODO : we need to add pagination support to list buckets for more than 1000 buckets.
             let buckets = await P.map(bucket_config_files, bucket_config_file => this.get_bucket_name(bucket_config_file.name));
             buckets = buckets.filter(bucket => bucket.name.unwrap());
@@ -116,9 +163,10 @@ class BucketSpaceMultiFS extends BucketSpaceFS {
                 console.error('BucketSpaceMultiFS: root dir not found', err);
                 throw new S3Error(S3Error.NoSuchBucket);
             }
-            throw err;
+            throw this._translate_object_error_codes(err);
         }
     }
+
     async validate_bucket_access(buckets, object_sdk) {
         const has_access_buckets = (await P.all(_.map(
             buckets,
@@ -162,92 +210,51 @@ class BucketSpaceMultiFS extends BucketSpaceFS {
     }
 
     async read_bucket(params) {
-        try {
-            const { name } = params;
-            //TODO : use this.config_root to resolve the bucket json localtion
-            const bucket_path = path.join(this.fs_root, name);
-            console.log(`BucketSpaceMultiFS: read_bucket ${bucket_path}`);
-            const bucket_dir_stat = await nb_native().fs.stat(this.fs_context, bucket_path);
-            if (!isDirectory(bucket_dir_stat)) {
-                throw new S3Error(S3Error.NoSuchBucket);
-            }
-            const owner_account = {
-                email: new SensitiveString('nsfs@noobaa.io'),
-                id: '12345678',
-            };
-            const nsr = {
-                resource: 'nsfs',
-                path: '',
-            };
-            return {
-                name,
-                owner_account,
-                namespace: {
-                    read_resources: [nsr],
-                    write_resource: nsr,
-                    should_create_underlying_storage: true,
-                },
-                tiering: { name, tiers: [] },
-                usage_by_pool: { last_update: 0, pools: [] },
-                num_objects: { last_update: 0, value: 0 },
-                storage: { last_update: 0, values: {} },
-                data: { last_update: 0 },
-                host_tolerance: undefined,
-                node_tolerance: undefined,
-                writable: true,
-                tag: '',
-                bucket_type: 'NAMESPACE',
-                versioning: 'DISABLED',
-                mode: 'OPTIMAL',
-                undeletable: 'NOT_EMPTY',
-            };
-        } catch (err) {
-            if (err.code === 'ENOENT') {
-                console.error('BucketSpaceMultiFS: bucket dir not found', err);
-                throw new S3Error(S3Error.NoSuchBucket);
-            }
-            throw err;
-        }
+        return this.read_bucket_sdk_info(params);
     }
 
     async create_bucket(params, sdk) {
-        try {
-            if (!sdk.requesting_account.nsfs_account_config || !sdk.requesting_account.nsfs_account_config.new_buckets_path) {
-                throw new RpcError('MISSING_NSFS_ACCOUNT_CONFIGURATION');
+        if (!sdk.requesting_account.nsfs_account_config || !sdk.requesting_account.nsfs_account_config.new_buckets_path) {
+            throw new RpcError('MISSING_NSFS_ACCOUNT_CONFIGURATION');
+        }
+        this.validate_bucket_creation(params);
+        const { name } = params;
+        const bucket_config_path = this._get_bucket_config_path(name);
+        const bucket_path = path.join(sdk.requesting_account.nsfs_account_config.new_buckets_path, name);
+        const bucket_storage_path = path.join(this.fs_root, sdk.requesting_account.nsfs_account_config.new_buckets_path, name);
+
+        dbg.log0(`BucketSpaceMultiFS.create_bucket 
+            requesting_account=${util.inspect(sdk.requesting_account)},
+            bucket_config_path=${bucket_config_path},
+            bucket_storage_path=${bucket_storage_path}`);
+
+        // create bucket configuration file
+        const bucket = this.new_bucket_defaults(params.name, sdk.requesting_account.email,
+            sdk.requesting_account._id, params.tag, params.lock_enabled);
+        bucket.path = bucket_path;
+        bucket.should_create_underlying_storage = true;
+        bucket.force_md5_etag = params.force_md5_etag;
+        bucket.bucket_owner = sdk.requesting_account.email;
+        const create_bucket = JSON.stringify(bucket);
+
+        await nb_native().fs.writeFile(
+            this.fs_context,
+            bucket_config_path,
+            Buffer.from(create_bucket), {
+                mode: this.get_umasked_mode(config.BASE_MODE_FILE)
             }
-            this.validate_bucket_creation(params);
-            const { name } = params;
-            const bucket_path = path.join(this.fs_root, name);
-            console.log(`BucketSpaceMultiFS: create_bucket ${bucket_path}`);
+        );
+
+        // create bucket's underlying storage directory
+        try {
+            const fs_context = prepare_fs_context(sdk);
             // eslint-disable-next-line no-bitwise
             const unmask_mode = config.BASE_MODE_DIR & ~config.NSFS_UMASK;
-            await nb_native().fs.mkdir(this.fs_context, bucket_path, unmask_mode);
-
-            // bucket configuration file start
-            console.log('creating bucket on default namespace resource', sdk.requesting_account.nsfs_account_config);
-            if (!sdk.requesting_account.nsfs_account_config || !sdk.requesting_account.nsfs_account_config.new_buckets_path) {
-                throw new RpcError('MISSING_NSFS_ACCOUNT_CONFIGURATION');
-            }
-            const bucket = this.new_bucket_defaults(params.name, sdk.requesting_account.email,
-                sdk.requesting_account._id, params.tag, params.lock_enabled);
-            bucket.path = path.join(params.name);
-            bucket.should_create_underlying_storage = true;
-            bucket.force_md5_etag = params.force_md5_etag;
-            const create_bucket = JSON.stringify(bucket);
-            const bucket_schema_path = path.join(this.bucket_schema_dir, name);
-            await nb_native().fs.writeFile(
-                this.fs_context,
-                bucket_schema_path + ".json",
-                Buffer.from(create_bucket), {
-                    mode: this.get_umasked_mode(config.BASE_MODE_FILE)
-                }
-            );
+            await nb_native().fs.mkdir(fs_context, bucket_storage_path, unmask_mode);
         } catch (err) {
-            if (err.code === 'ENOENT') {
-                console.error('BucketSpaceMultiFS: root dir not found', err);
-                throw new S3Error(S3Error.NoSuchBucket);
-            }
-            throw err;
+            dbg.error('BucketSpaceMultiFS: create_bucket could not create underlying directory - nsfs, deleting bucket', err);
+            await nb_native().fs.unlink(this.fs_context, bucket_config_path);
+            throw this._translate_object_error_codes(err);
         }
     }
 
@@ -264,28 +271,39 @@ class BucketSpaceMultiFS extends BucketSpaceFS {
             owner_account: owner_account_id,
             system_owner: new SensitiveString(email),
             bucket_owner: new SensitiveString(email),
-            versioning: config.WORM_ENABLED && lock_enabled ? 'ENABLED' : 'DISABLED',
+            versioning: config.NSFS_VERSIONING_ENABLED && lock_enabled ? 'ENABLED' : 'DISABLED',
             object_lock_configuration: config.WORM_ENABLED ? {
                 object_lock_enabled: lock_enabled ? 'Enabled' : 'Disabled',
             } : undefined,
         };
     }
 
-    async delete_bucket(params) {
+    async delete_bucket(params, object_sdk) {
         try {
             const { name } = params;
-            const bucket_path = path.join(this.fs_root, name);
-            console.log(`BucketSpaceMultiFS: delete_fs_bucket ${bucket_path}`);
-            // TODO we want to have the logic from bucketspace_nb to separate between two cases:
-            // - either we should_create_underlying_storage (uls) and then we delete the bucket itself
-            // - or we just remove the bucket.json and keep the bucket files as is.
-            await nb_native().fs.rmdir(this.fs_context, bucket_path);
+            const namespace_bucket_config = await object_sdk.read_bucket_sdk_namespace_info(params.name);
+            dbg.log1('BucketSpaceMultiFS.delete_bucket: namespace_bucket_config', namespace_bucket_config);
+            if (namespace_bucket_config && namespace_bucket_config.should_create_underlying_storage) {
+                const ns = await object_sdk._get_bucket_namespace(params.name);
+                // delete underlying storage = the directory which represents the bucket
+                dbg.log1('BucketSpaceMultiFS.delete_bucket: deleting uls', namespace_bucket_config.write_resource.path);
+
+                await ns.delete_uls({
+                    name,
+                    full_path: path.join(this.fs_root, namespace_bucket_config.write_resource.path) // includes write_resource.path + bucket name (s3 flow)
+                }, object_sdk);
+            }
+            const bucket_path = this._get_bucket_config_path(name);
+            dbg.log1(`BucketSpaceMultiFS: delete_fs_bucket ${bucket_path}`);
+
+            // delete bucket config json file
+            await nb_native().fs.unlink(this.fs_context, bucket_path);
         } catch (err) {
             if (err.code === 'ENOENT') {
                 console.error('BucketSpaceMultiFS: root dir not found', err);
                 throw new S3Error(S3Error.NoSuchBucket);
             }
-            throw err;
+            throw this._translate_object_error_codes(err);
         }
     }
 
@@ -318,8 +336,27 @@ class BucketSpaceMultiFS extends BucketSpaceFS {
     // BUCKET VERSIONING //
     ///////////////////////
 
-    async set_bucket_versioning(params) {
-        // TODO
+    async set_bucket_versioning(params, object_sdk) {
+        try {
+            const ns = await object_sdk._get_bucket_namespace(params.name);
+            await ns.set_bucket_versioning(params.versioning, object_sdk);
+            const { name, versioning } = params;
+            dbg.log0('BucketSpaceMultiFS.put_bucket_policy: Bucket name, policy', name);
+            const bucket_config_path = this._get_bucket_config_path(name);
+            const { data } = await nb_native().fs.readFile(this.fs_context, bucket_config_path);
+            const bucket = JSON.parse(data.toString());
+            bucket.versioning = versioning;
+            const update_bucket = JSON.stringify(bucket);
+            await nb_native().fs.writeFile(
+                this.fs_context,
+                bucket_config_path,
+                Buffer.from(update_bucket), {
+                    mode: this.get_umasked_mode(config.BASE_MODE_FILE)
+                }
+            );
+        } catch (err) {
+            throw this._translate_object_error_codes(err);
+        }
     }
 
     ////////////////////
@@ -343,15 +380,58 @@ class BucketSpaceMultiFS extends BucketSpaceFS {
     ///////////////////////
 
     async put_bucket_encryption(params) {
-        // TODO
+        try {
+            const { name, encryption } = params;
+            dbg.log0('BucketSpaceMultiFS.put_bucket_encryption: Bucket name, encryption', name, encryption);
+            const bucket_config_path = this._get_bucket_config_path(name);
+            const { data } = await nb_native().fs.readFile(this.fs_context, bucket_config_path);
+            const bucket = JSON.parse(data.toString());
+            bucket.encryption = encryption;
+            const update_bucket = JSON.stringify(bucket);
+            await nb_native().fs.writeFile(
+                this.fs_context,
+                bucket_config_path,
+                Buffer.from(update_bucket), {
+                    mode: this.get_umasked_mode(config.BASE_MODE_FILE)
+                }
+            );
+        } catch (err) {
+            throw this._translate_object_error_codes(err);
+        }
     }
 
     async get_bucket_encryption(params) {
-        // TODO
+        try {
+            const { name } = params;
+            dbg.log0('BucketSpaceMultiFS.get_bucket_encryption: Bucket name', name);
+            const bucket_config_path = this._get_bucket_config_path(name);
+            const { data } = await nb_native().fs.readFile(this.fs_context, bucket_config_path);
+            const bucket = JSON.parse(data.toString());
+            return bucket.encryption;
+        } catch (err) {
+            throw this._translate_object_error_codes(err);
+        }
     }
 
     async delete_bucket_encryption(params) {
-        // TODO
+        try {
+            const { name } = params;
+            dbg.log0('BucketSpaceMultiFS.delete_bucket_encryption: Bucket name', name);
+            const bucket_config_path = this._get_bucket_config_path(name);
+            const { data } = await nb_native().fs.readFile(this.fs_context, bucket_config_path);
+            const bucket = JSON.parse(data.toString());
+            bucket.encryption = undefined;
+            const update_bucket = JSON.stringify(bucket);
+            await nb_native().fs.writeFile(
+                this.fs_context,
+                bucket_config_path,
+                Buffer.from(update_bucket), {
+                    mode: this.get_umasked_mode(config.BASE_MODE_FILE)
+                }
+            );
+        } catch (err) {
+            throw this._translate_object_error_codes(err);
+        }
     }
 
     ////////////////////
@@ -359,15 +439,58 @@ class BucketSpaceMultiFS extends BucketSpaceFS {
     ////////////////////
 
     async put_bucket_website(params) {
-        // TODO
+        try {
+            const { name, website } = params;
+            dbg.log0('BucketSpaceMultiFS.put_bucket_website: Bucket name, website', name, website);
+            const bucket_config_path = this._get_bucket_config_path(name);
+            const { data } = await nb_native().fs.readFile(this.fs_context, bucket_config_path);
+            const bucket = JSON.parse(data.toString());
+            bucket.website = website;
+            const update_bucket = JSON.stringify(bucket);
+            await nb_native().fs.writeFile(
+                this.fs_context,
+                bucket_config_path,
+                Buffer.from(update_bucket), {
+                    mode: this.get_umasked_mode(config.BASE_MODE_FILE)
+                }
+            );
+        } catch (err) {
+            throw this._translate_object_error_codes(err);
+        }
     }
 
     async delete_bucket_website(params) {
-        // TODO
+        try {
+            const { name } = params;
+            dbg.log0('BucketSpaceMultiFS.delete_bucket_website: Bucket name', name);
+            const bucket_config_path = this._get_bucket_config_path(name);
+            const { data } = await nb_native().fs.readFile(this.fs_context, bucket_config_path);
+            const bucket = JSON.parse(data.toString());
+            bucket.website = undefined;
+            const update_bucket = JSON.stringify(bucket);
+            await nb_native().fs.writeFile(
+                this.fs_context,
+                bucket_config_path,
+                Buffer.from(update_bucket), {
+                    mode: this.get_umasked_mode(config.BASE_MODE_FILE)
+                }
+            );
+        } catch (err) {
+            throw this._translate_object_error_codes(err);
+        }
     }
 
     async get_bucket_website(params) {
-        // TODO
+        try {
+            const { name } = params;
+            dbg.log0('BucketSpaceMultiFS.get_bucket_website: Bucket name', name);
+            const bucket_config_path = this._get_bucket_config_path(name);
+            const { data } = await nb_native().fs.readFile(this.fs_context, bucket_config_path);
+            const bucket = JSON.parse(data.toString());
+            return bucket.website;
+        } catch (err) {
+            throw this._translate_object_error_codes(err);
+        }
     }
 
     ////////////////////
@@ -375,28 +498,61 @@ class BucketSpaceMultiFS extends BucketSpaceFS {
     ////////////////////
 
     async put_bucket_policy(params) {
-        const { name, policy } = params;
-        console.log("BucketSpaceMultiFS: Bucket name, policy", name, policy);
-        const bucket_path = path.join(this.bucket_schema_dir, name);
-        const { data } = await nb_native().fs.readFile(this.fs_context, bucket_path + ".json");
-        const bucket = JSON.parse(data.toString());
-        bucket.s3_policy = policy;
-        const update_bucket = JSON.stringify(bucket);
-        await nb_native().fs.writeFile(
-            this.fs_context,
-            bucket_path + ".json",
-            Buffer.from(update_bucket), {
-                mode: this.get_umasked_mode(config.BASE_MODE_FILE)
-            }
-        );
+        try {
+            const { name, policy } = params;
+            dbg.log0('BucketSpaceMultiFS.put_bucket_policy: Bucket name, policy', name, policy);
+            const bucket_config_path = this._get_bucket_config_path(name);
+            const { data } = await nb_native().fs.readFile(this.fs_context, bucket_config_path);
+            const bucket = JSON.parse(data.toString());
+            bucket.s3_policy = policy;
+            const update_bucket = JSON.stringify(bucket);
+            await nb_native().fs.writeFile(
+                this.fs_context,
+                bucket_config_path,
+                Buffer.from(update_bucket), {
+                    mode: this.get_umasked_mode(config.BASE_MODE_FILE)
+                }
+            );
+        } catch (err) {
+            throw this._translate_object_error_codes(err);
+        }
     }
 
     async delete_bucket_policy(params) {
-        // TODO
+        try {
+            const { name } = params;
+            dbg.log0('BucketSpaceMultiFS.delete_bucket_policy: Bucket name', name);
+            const bucket_config_path = this._get_bucket_config_path(name);
+            const { data } = await nb_native().fs.readFile(this.fs_context, bucket_config_path);
+            const bucket = JSON.parse(data.toString());
+            bucket.s3_policy = undefined;
+            const update_bucket = JSON.stringify(bucket);
+            await nb_native().fs.writeFile(
+                this.fs_context,
+                bucket_config_path,
+                Buffer.from(update_bucket), {
+                    mode: this.get_umasked_mode(config.BASE_MODE_FILE)
+                }
+            );
+        } catch (err) {
+            throw this._translate_object_error_codes(err);
+        }
     }
 
     async get_bucket_policy(params) {
-        // TODO
+        try {
+            const { name } = params;
+            dbg.log0('BucketSpaceMultiFS.get_bucket_policy: Bucket name', name);
+            const bucket_path = this._get_bucket_config_path(name);
+            const { data } = await nb_native().fs.readFile(this.fs_context, bucket_path);
+            const bucket = JSON.parse(data.toString());
+            dbg.log0('BucketSpaceMultiFS.get_bucket_policy: policy', bucket.s3_policy);
+            return {
+                policy: bucket.s3_policy
+            };
+        } catch (err) {
+            throw this._translate_object_error_codes(err);
+        }
     }
 
     /////////////////////////

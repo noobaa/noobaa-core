@@ -46,16 +46,18 @@ function install_node() {
     local node_version="v${NODEJS_VERSION}"
     local filename="node-${node_version}-linux-${arch}.tar.xz"
 
-    mkdir -p ${NODE_PATH}
-    cd ${NODE_PATH}
-    download_node
-    tar -xf ${filename}
+    if [ ! -f ${NODE_PATH}/${filename} ]
+    then
+        mkdir -p ${NODE_PATH}
+        cd ${NODE_PATH}
+        download_node
+        tar -xf ${filename}
 
-    ln -s ${NODE_PATH}/node-${node_version}-linux-${arch}/bin/node /usr/local/bin/node
-    ln -s ${NODE_PATH}/node-${node_version}-linux-${arch}/bin/npm /usr/local/bin/npm
-    ln -s ${NODE_PATH}/node-${node_version}-linux-${arch}/bin/npm /usr/local/bin/npx
+        ln -s ${NODE_PATH}/node-${node_version}-linux-${arch}/bin/node /usr/local/bin/node
+        ln -s ${NODE_PATH}/node-${node_version}-linux-${arch}/bin/npm /usr/local/bin/npm
+        ln -s ${NODE_PATH}/node-${node_version}-linux-${arch}/bin/npm /usr/local/bin/npx
+    fi
 
-    rm ${filename}
 }
 
 if [ -z "${SKIP_NODE_INSTALL}" ]

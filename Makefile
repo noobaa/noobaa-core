@@ -2,6 +2,7 @@ BUILDER_TAG?="noobaa-builder"
 NOOBAA_BASE_TAG?="noobaa-base"
 NOOBAA_TAG?="noobaa"
 TESTER_TAG?="noobaa-tester"
+NOOBAA_RPM_TAG?="noobaa-rpm-build"
 POSTGRES_IMAGE?="centos/postgresql-12-centos7"
 MONGO_IMAGE?="centos/mongodb-36-centos7"
 
@@ -29,6 +30,11 @@ endif
 CONTAINER_PLATFORM_FLAG=
 ifneq ($(CONTAINER_PLATFORM),)
 	CONTAINER_PLATFORM_FLAG="--platform=$(CONTAINER_PLATFORM)"
+endif
+
+PLATFORM=$(shell echo ${CONTAINER_PLATFORM} | tr '/' '-')
+ifneq ($(PLATFORM),)
+	NOOBAA_RPM_TAG := "$(NOOBAA_RPM_TAG):$(PLATFORM)"
 endif
 
 GIT_COMMIT?="$(shell git rev-parse HEAD | head -c 7)"
@@ -159,14 +165,13 @@ nbdev:
 .PHONY: nbdev
 
 rpm: base
-	@PLATFORM=$(shell echo ${CONTAINER_PLATFORM} | tr '/' '-') && \
-	echo "\033[1;34mStarting RPM build for $${CONTAINER_PLATFORM}.\033[0m" && \
-	mkdir -p build/rpm && \
-	$(CONTAINER_ENGINE) build $(CONTAINER_PLATFORM_FLAG) $(CPUSET) -f src/deploy/RPM_build/RPM.Dockerfile $(CACHE_FLAG) -t noobaa-rpm-build:$${PLATFORM} --build-arg GIT_COMMIT=$(GIT_COMMIT) . $(REDIRECT_STDOUT) && \
-	echo "\033[1;32mImage 'noobaa-rpm-build' is ready.\033[0m" && \
-	echo "Generating RPM..." && \
-	$(CONTAINER_ENGINE) run --rm -v $(PWD)/build/rpm:/export -it noobaa-rpm-build:$${PLATFORM} && \
-	echo "\033[1;32mRPM for platform \"$${PLATFORM}\" is ready in build/rpm.\033[0m";
+	echo "\033[1;34mStarting RPM build for $${CONTAINER_PLATFORM}.\033[0m"
+	mkdir -p build/rpm
+	$(CONTAINER_ENGINE) build $(CONTAINER_PLATFORM_FLAG) $(CPUSET) -f src/deploy/RPM_build/RPM.Dockerfile $(CACHE_FLAG) -t $(NOOBAA_RPM_TAG) --build-arg GIT_COMMIT=$(GIT_COMMIT) . $(REDIRECT_STDOUT)
+	echo "\033[1;32mImage \"$(NOOBAA_RPM_TAG)\" is ready.\033[0m"
+	echo "Generating RPM..."
+	$(CONTAINER_ENGINE) run --rm -v $(PWD)/build/rpm:/export -it $(NOOBAA_RPM_TAG)
+	echo "\033[1;32mRPM for platform \"$(NOOBAA_RPM_TAG)\" is ready in build/rpm.\033[0m";
 .PHONY: rpm
 
 ###############

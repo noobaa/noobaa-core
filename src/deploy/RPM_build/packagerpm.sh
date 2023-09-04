@@ -6,6 +6,7 @@ set -x
 dir=$(dirname "$0")
 
 SKIP_NODE_INSTALL=1 source $dir/../install_nodejs.sh
+NODE_PATH="${NODE_PATH:-/usr/local/node}"
 
 noobaaver="$(npm pkg get version | tr -d '"')"
 revision="1"
@@ -33,9 +34,17 @@ function move_builds() {
 }
 
 function get_node_tar() {
+    local arch=$(get_arch)
+    local filename="node-v${nodever}-linux-${arch}.tar.xz"
+
     pushd ~/rpmbuild/SOURCES/
-    local path=$(NODEJS_VERSION=${nodever} download_node)
-    mv ${path} node-${nodever}.tar.xz
+    if [ -f ${NODE_PATH}/${filename} ]
+    then
+        mv ${NODE_PATH}/${filename} node-${nodever}.tar.xz
+    else 
+        local path=$(NODEJS_VERSION=${nodever} download_node)
+        mv ${path} node-${nodever}.tar.xz
+    fi
     popd
 }
 

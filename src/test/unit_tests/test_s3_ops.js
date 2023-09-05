@@ -8,11 +8,11 @@ const _ = require('lodash');
 const coretest = require('./coretest');
 coretest.setup({ pools_to_create: coretest.POOL_LIST });
 const config = require('../../../config');
-const AWS = require('aws-sdk');
+const { S3 } = require('@aws-sdk/client-s3');
+const { NodeHttpHandler } = require("@smithy/node-http-handler");
 const http_utils = require('../../util/http_utils');
 const mocha = require('mocha');
 const assert = require('assert');
-const querystring = require('querystring');
 const P = require('../../util/promise');
 const azure_storage = require('@azure/storage-blob');
 
@@ -54,6 +54,7 @@ const azure_mock_connection_string = `DefaultEndpointsProtocol=http;AccountName=
 mocha.describe('s3_ops', function() {
 
     let s3;
+    let s3_client_params;
     // Bucket name for the source namespace resource
     let source_namespace_bucket;
     // Bucket name for the target namespace resource
@@ -67,46 +68,48 @@ mocha.describe('s3_ops', function() {
         self.timeout(60000);
 
         const account_info = await rpc_client.account.read_account({ email: EMAIL, });
-        s3 = new AWS.S3({
+        s3_client_params = {
             endpoint: coretest.get_http_address(),
-            accessKeyId: account_info.access_keys[0].access_key.unwrap(),
-            secretAccessKey: account_info.access_keys[0].secret_key.unwrap(),
-            s3ForcePathStyle: true,
-            signatureVersion: 'v4',
-            computeChecksums: true,
-            s3DisableBodySigning: false,
-            region: 'us-east-1',
-            httpOptions: { agent: http_utils.get_unsecured_agent(coretest.get_http_address()) },
-        });
+            credentials: {
+                accessKeyId: account_info.access_keys[0].access_key.unwrap(),
+                secretAccessKey: account_info.access_keys[0].secret_key.unwrap(),
+            },
+            forcePathStyle: true,
+            region: config.DEFAULT_REGION,
+            requestHandler: new NodeHttpHandler({
+                httpAgent: http_utils.get_unsecured_agent(coretest.get_http_address()),
+            }),
+        };
+        s3 = new S3(s3_client_params);
         coretest.log('S3 CONFIG', s3.config);
     });
 
     mocha.describe('bucket-ops', function() {
         this.timeout(60000);
         mocha.it('should create bucket', async function() {
-            await s3.createBucket({ Bucket: BKT1 }).promise();
+            await s3.createBucket({ Bucket: BKT1 });
         });
         mocha.it('should not recreate bucket', async function() {
-            const func = async () => s3.createBucket({ Bucket: BKT1 }).promise();
-            const expected_err_props = {
-                name: 'BucketAlreadyOwnedByYou',
-                code: 'BucketAlreadyOwnedByYou',
-                statusCode: 409,
-            };
-            await assert.rejects(func, expected_err_props);
+            try {
+                await s3.createBucket({ Bucket: BKT1 });
+                assert.fail('should not recreate bucket');
+            } catch (err) {
+                assert.strictEqual(err.Code, 'BucketAlreadyOwnedByYou');
+                assert.strictEqual(err.$metadata.httpStatusCode, 409);
+            }
         });
         mocha.it('should head bucket', async function() {
-            await s3.headBucket({ Bucket: BKT1 }).promise();
+            await s3.headBucket({ Bucket: BKT1 });
         });
         mocha.it('should list buckets with one bucket', async function() {
-            const res = await s3.listBuckets().promise();
+            const res = await s3.listBuckets({});
             assert(res.Buckets.find(bucket => bucket.Name === BKT1));
         });
         mocha.it('should delete bucket', async function() {
-            await s3.deleteBucket({ Bucket: BKT1 }).promise();
+            await s3.deleteBucket({ Bucket: BKT1 });
         });
         mocha.it('should list buckets after no buckets left', async function() {
-            const res = await s3.listBuckets().promise();
+            const res = await s3.listBuckets({});
             assert(!res.Buckets.find(bucket => bucket.Name === BKT1));
         });
     });
@@ -121,8 +124,8 @@ mocha.describe('s3_ops', function() {
             source_bucket = bucket_name + '-source';
             other_platform_bucket = bucket_name + '-other-platform';
             if (bucket_type === "regular") {
-                await s3.createBucket({ Bucket: bucket_name }).promise();
-                await s3.createBucket({ Bucket: source_bucket }).promise();
+                await s3.createBucket({ Bucket: bucket_name });
+                await s3.createBucket({ Bucket: source_bucket });
                 //create aws bucket to test copy from other server
                 if (process.env.NEWAWSPROJKEY && process.env.NEWAWSPROJSECRET) {
                     source_namespace_bucket = caching ? SOURCE_BUCKET + '-caching' : SOURCE_BUCKET;
@@ -155,8 +158,9 @@ mocha.describe('s3_ops', function() {
 
                 const ENDPOINT = USE_REMOTE_ENDPOINT ? process.env.ENDPOINT : coretest.get_https_address();
                 const ENDPOINT_TYPE = USE_REMOTE_ENDPOINT ? process.env.ENDPOINT_TYPE : 'S3_COMPATIBLE';
-                const AWS_ACCESS_KEY_ID = USE_REMOTE_ENDPOINT ? process.env.AWS_ACCESS_KEY_ID : s3.config.accessKeyId;
-                const AWS_SECRET_ACCESS_KEY = USE_REMOTE_ENDPOINT ? process.env.AWS_SECRET_ACCESS_KEY : s3.config.secretAccessKey;
+                const AWS_ACCESS_KEY_ID = USE_REMOTE_ENDPOINT ? process.env.AWS_ACCESS_KEY_ID : s3_client_params.credentials.accessKeyId;
+                const AWS_SECRET_ACCESS_KEY = USE_REMOTE_ENDPOINT ? process.env.AWS_SECRET_ACCESS_KEY :
+                                                                    s3_client_params.credentials.secretAccessKey;
                 coretest.log("before creating azure target bucket: ", source_namespace_bucket, target_namespace_bucket);
                 if (is_azure_mock) {
                     coretest.log("creating azure target bucket: ", source_namespace_bucket, target_namespace_bucket);
@@ -186,8 +190,8 @@ mocha.describe('s3_ops', function() {
                  */
                 if (!USE_REMOTE_ENDPOINT) {
                     // Create buckets for the source and target namespaces
-                    await s3.createBucket({ Bucket: target_namespace_bucket }).promise();
-                    await s3.createBucket({ Bucket: source_namespace_bucket }).promise();
+                    await s3.createBucket({ Bucket: target_namespace_bucket });
+                    await s3.createBucket({ Bucket: source_namespace_bucket });
                 }
                 await rpc_client.pool.create_namespace_resource({
                     name: NAMESPACE_RESOURCE_SOURCE,
@@ -219,34 +223,34 @@ mocha.describe('s3_ops', function() {
                 });
                 await s3.createBucket({
                     Bucket: other_platform_bucket
-                }).promise();
+                });
                 is_other_platform_bucket_created = true;
             }
 
             await s3.createBucket({
                 Bucket: BKT5
-            }).promise();
+            });
 
             await s3.putObject({
                 Bucket: BKT5,
                 Key: text_file5,
                 Body: file_body2,
                 ContentType: 'text/plain'
-            }).promise();
+            });
 
             await s3.putObject({
                 Bucket: source_bucket,
                 Key: text_file5,
                 Body: file_body2,
                 ContentType: 'text/plain'
-            }).promise();
+            });
 
             await s3.putObject({
                 Bucket: bucket_name,
                 Key: text_file1,
                 Body: file_body,
                 ContentType: 'text/plain'
-            }).promise();
+            });
 
             if (is_other_platform_bucket_created) {
                 await s3.putObject({
@@ -254,7 +258,7 @@ mocha.describe('s3_ops', function() {
                     Key: text_file1,
                     Body: file_body,
                     ContentType: 'text/plain',
-                }).promise();
+                });
             }
 
         });
@@ -274,46 +278,51 @@ mocha.describe('s3_ops', function() {
                     }]
                 }
             };
+            let res;
             let httpStatus;
             let notSupported = false;
+
             try {
-                await s3.putObjectTagging(params).on('complete', function(response) {
-                    httpStatus = response.httpResponse.statusCode;
-                }).on('error', err => {
-                    httpStatus = err.statusCode;
-                    notSupported = true;
-                }).promise();
+                res = await s3.putObjectTagging(params);
+                httpStatus = res.$metadata.httpStatusCode;
                 assert.strictEqual(httpStatus, 200, 'Should be 200');
             } catch (err) {
+                notSupported = true;
+                httpStatus = err.$metadata.httpStatusCode;
                 assert.strictEqual(httpStatus, 500, 'Should be 200');
             }
 
-            const query_params = { get_from_cache: true };
-            const res = await s3.getObjectTagging({
+            const params_req = {
                 Bucket: bucket_name,
                 Key: params.Key,
-            }).on('build', req => {
-                if (!caching) return;
-                const sep = req.httpRequest.search() ? '&' : '?';
-                const query_string = querystring.stringify(query_params);
-                const req_path = `${req.httpRequest.path}${sep}${query_string}`;
-                req.httpRequest.path = req_path;
-            }).promise();
-            assert.strictEqual(res.TagSet.length, notSupported ? 0 : params.Tagging.TagSet.length, 'Should be 1');
+            };
+            if (caching) {
+                s3.middlewareStack.add(next => args => {
+                    args.request.query.get_from_cache = 'true'; // represents query_params = { get_from_cache: true }
+                    return next(args);
+                }, {step: 'build', name: 'getFromCache'});
+                res = await s3.getObjectTagging(params_req);
+                s3.middlewareStack.remove('getFromCache');
+            } else {
+                res = await s3.getObjectTagging(params_req);
+            }
 
-            if (!notSupported) {
+            if (notSupported) {
+                assert.strictEqual(res.TagSet, undefined);
+            } else {
+                assert.strictEqual(res.TagSet.length, params.Tagging.TagSet.length, 'Should be 1');
                 assert.strictEqual(res.TagSet[0].Key, params.Tagging.TagSet[0].Key, 'Should be s3ops');
-                assert.strictEqual(res.TagSet[0].Value, params.Tagging.TagSet[0].Value, 'Should be s3ops');
+                assert.strictEqual(res.TagSet[0].Value, params.Tagging.TagSet[0].Value, 'Should be set_file_attribute');
             }
             try {
-                await s3.deleteObjectTagging({
+                res = await s3.deleteObjectTagging({
                     Bucket: bucket_name,
                     Key: params.Key,
-                }).on('complete', function(response) {
-                    httpStatus = response.httpResponse.statusCode;
-                }).promise();
+                });
+                httpStatus = res.$metadata.httpStatusCode;
                 assert.strictEqual(httpStatus, 204, 'Should be 200');
             } catch (err) {
+                httpStatus = err.$metadata.httpStatusCode;
                 assert.strictEqual(httpStatus, 500, 'Should be 500');
             }
         });
@@ -334,73 +343,77 @@ mocha.describe('s3_ops', function() {
                 };
                 let httpStatus;
                 let notSupported = false;
+                let res;
 
                 try {
-                    await s3.putObjectTagging(params).on('complete', function(response) {
-                        httpStatus = response.httpResponse.statusCode;
-                    }).on('error', err => {
-                        httpStatus = err.statusCode;
-                        notSupported = true;
-                    }).promise();
+                    res = await s3.putObjectTagging(params);
+                    httpStatus = res.$metadata.httpStatusCode;
                     assert.strictEqual(httpStatus, 200, 'Should be 200');
                 } catch (err) {
-                    assert.strictEqual(notSupported, true);
+                    httpStatus = err.$metadata.httpStatusCode;
+                    notSupported = true;
+                    assert.strictEqual(httpStatus, 500, 'Should be 200');
                 }
 
-                const query_params = { get_from_cache: true };
-                const res = await s3.getObjectTagging({
+                const params_req = {
                     Bucket: bucket_name,
                     Key: params.Key,
-                }).on('build', req => {
-                    if (!caching) return;
-                    const sep = req.httpRequest.search() ? '&' : '?';
-                    const query_string = querystring.stringify(query_params);
-                    const req_path = `${req.httpRequest.path}${sep}${query_string}`;
-                    req.httpRequest.path = req_path;
-                }).promise();
-                assert.strictEqual(res.TagSet.length, notSupported ? 0 : params.Tagging.TagSet.length, 'Should be 1');
-
-                if (!notSupported) {
-                    assert.strictEqual(res.TagSet[0].Key, params.Tagging.TagSet[0].Key, 'Should be s3ops');
-                    assert.strictEqual(res.TagSet[0].Value, params.Tagging.TagSet[0].Value, 'Should be s3ops');
+                };
+                if (caching) {
+                    s3.middlewareStack.add(next => args => {
+                        args.request.query.get_from_cache = 'true'; // represents query_params = { get_from_cache: true }
+                        return next(args);
+                    }, {step: 'build', name: 'getFromCache'});
+                    res = await s3.getObjectTagging(params_req);
+                    s3.middlewareStack.remove('getFromCache');
+                } else {
+                    res = await s3.getObjectTagging(params_req);
                 }
+                if (notSupported) {
+                    assert.strictEqual(res.TagSet, undefined);
+                } else {
+                    assert.strictEqual(res.TagSet.length, params.Tagging.TagSet.length, 'Should be 1');
+                    assert.strictEqual(res.TagSet[0].Key, params.Tagging.TagSet[0].Key, 'Should be s3ops');
+                    assert.strictEqual(res.TagSet[0].Value, params.Tagging.TagSet[0].Value, 'Should be set_file_attribute');
+                }
+
                 try {
-                    await s3.deleteObjectTagging({
+                    res = await s3.deleteObjectTagging({
                         Bucket: bucket_name,
                         Key: params.Key,
-                    }).on('complete', function(response) {
-                        httpStatus = response.httpResponse.statusCode;
-                    }).promise();
+                    });
+                    httpStatus = res.$metadata.httpStatusCode;
                     assert.strictEqual(httpStatus, 204, 'Should be 200');
                 } catch (err) {
+                    httpStatus = err.$metadata.httpStatusCode;
                     assert.strictEqual(httpStatus, 500, 'Should be 500');
                 }
             }
-            await s3.headObject({ Bucket: bucket_name, Key: text_file1 }).promise();
+            await s3.headObject({ Bucket: bucket_name, Key: text_file1 });
         });
 
         mocha.it('should version head text-file', async function() {
             try {
-                const query_params = { versionId: "rasWWGpgk9E4s0LyTJgusGeRQKLVIAFf" };
-                await s3.headObject({ Bucket: bucket_name, Key: text_file1 }).on('build', req => {
-                    if (!caching) return;
-                    const sep = req.httpRequest.search() ? '&' : '?';
-                    const query_string = querystring.stringify(query_params);
-                    const req_path = `${req.httpRequest.path}${sep}${query_string}`;
-                    req.httpRequest.path = req_path;
-                }).promise();
-                assert.notStrictEqual(caching, undefined, { statusCode: 400, text: 'Versioning not supported when caching is enabled' });
+                const params_req = {
+                    Bucket: bucket_name,
+                    Key: text_file1,
+                };
+                if (caching) params_req.vesionId = 'rasWWGpgk9E4s0LyTJgusGeRQKLVIAFf';
+                await s3.headObject(params_req);
+                assert.notStrictEqual(caching, undefined, 'Versioning not supported when caching is enabled');
             } catch (err) {
                 if (!(err instanceof assert.AssertionError)) {
-                    assert.strictEqual(err.statusCode, 501);
+                    const statusCode = err.$metadata.httpStatusCode;
+                    assert.strictEqual(statusCode, 501);
                 }
             }
         });
 
         mocha.it('should get text-file', async function() {
             this.timeout(100000);
-            const res = await s3.getObject({ Bucket: bucket_name, Key: text_file1 }).promise();
-            assert.strictEqual(res.Body.toString(), file_body);
+            const res = await s3.getObject({ Bucket: bucket_name, Key: text_file1 });
+            const body_as_string = await res.Body.transformToString();
+            assert.strictEqual(body_as_string, file_body);
             assert.strictEqual(res.ContentType, 'text/plain');
             assert.strictEqual(res.ContentLength, file_body.length);
         });
@@ -410,9 +423,10 @@ mocha.describe('s3_ops', function() {
             const ORIG_INLINE_MAX_SIZE = config.INLINE_MAX_SIZE;
             // Change the inline max size so the objects get cached.
             config.INLINE_MAX_SIZE = 1;
-            const res = await s3.getObject({ Bucket: bucket_name, Key: text_file1 }).promise();
+            const res = await s3.getObject({ Bucket: bucket_name, Key: text_file1 });
             config.INLINE_MAX_SIZE = ORIG_INLINE_MAX_SIZE;
-            assert.strictEqual(res.Body.toString(), file_body);
+            const body_as_string = await res.Body.transformToString();
+            assert.strictEqual(body_as_string, file_body);
             assert.strictEqual(res.ContentType, 'text/plain');
             assert.strictEqual(res.ContentLength, file_body.length);
         });
@@ -422,31 +436,34 @@ mocha.describe('s3_ops', function() {
             const ORIG_INLINE_MAX_SIZE = config.INLINE_MAX_SIZE;
             // Change the inline max size so the objects get cached.
             config.INLINE_MAX_SIZE = 1;
-            const res = await s3.headObject({ Bucket: bucket_name, Key: text_file1 }).promise();
+            const res = await s3.headObject({ Bucket: bucket_name, Key: text_file1 });
             config.INLINE_MAX_SIZE = ORIG_INLINE_MAX_SIZE;
             assert.strictEqual(res.ContentType, 'text/plain');
             assert.strictEqual(res.ContentLength, file_body.length);
         });
 
         mocha.it('should get text-file sliced 1', async function() {
-            const res = await s3.getObject({ Bucket: bucket_name, Key: text_file1, Range: 'bytes=0-5' }).promise();
-            assert.strictEqual(res.Body.toString(), sliced_file_body);
+            const res = await s3.getObject({ Bucket: bucket_name, Key: text_file1, Range: 'bytes=0-5' });
+            const body_as_string = await res.Body.transformToString();
+            assert.strictEqual(body_as_string, sliced_file_body);
             assert.strictEqual(res.ContentType, 'text/plain');
             assert.strictEqual(res.ContentLength, sliced_file_body.length);
         });
 
         mocha.it('should get text-file sliced 2', async function() {
             this.timeout(100000);
-            const res = await s3.getObject({ Bucket: bucket_name, Key: text_file1, Range: 'bytes=-5' }).promise();
-            assert.strictEqual(res.Body.toString(), sliced_file_body1);
+            const res = await s3.getObject({ Bucket: bucket_name, Key: text_file1, Range: 'bytes=-5' });
+            const body_as_string = await res.Body.transformToString();
+            assert.strictEqual(body_as_string, sliced_file_body1);
             assert.strictEqual(res.ContentType, 'text/plain');
             assert.strictEqual(res.ContentLength, sliced_file_body1.length);
         });
 
         mocha.it('should get text-file sliced 3', async function() {
             this.timeout(120000);
-            const res = await s3.getObject({ Bucket: bucket_name, Key: text_file1, Range: 'bytes=0-' }).promise();
-            assert.strictEqual(res.Body.toString(), file_body);
+            const res = await s3.getObject({ Bucket: bucket_name, Key: text_file1, Range: 'bytes=0-' });
+            const body_as_string = await res.Body.transformToString();
+            assert.strictEqual(body_as_string, file_body);
             assert.strictEqual(res.ContentType, 'text/plain');
             assert.strictEqual(res.ContentLength, file_body.length);
         });
@@ -454,18 +471,18 @@ mocha.describe('s3_ops', function() {
         mocha.it('should copy text-file', async function() {
             if (is_azure_mock) this.skip();
             this.timeout(120000);
-            const res1 = await s3.listObjects({ Bucket: bucket_name }).promise();
+            const res1 = await s3.listObjects({ Bucket: bucket_name });
             await s3.copyObject({
                 Bucket: bucket_name,
                 Key: text_file2,
                 CopySource: `/${bucket_name}/${text_file1}`,
-            }).promise();
+            });
             await s3.copyObject({
                 Bucket: bucket_name,
                 Key: text_file3,
                 CopySource: `/${BKT5}/${text_file5}`,
-            }).promise();
-            const res2 = await s3.listObjects({ Bucket: bucket_name }).promise();
+            });
+            const res2 = await s3.listObjects({ Bucket: bucket_name });
             assert.strictEqual(res2.Contents.length, (res1.Contents.length + 2));
         });
 
@@ -483,14 +500,14 @@ mocha.describe('s3_ops', function() {
                 }
             };
 
-            await s3.putObjectTagging(params).promise();
+            await s3.putObjectTagging(params);
             await s3.copyObject({
                 Bucket: bucket_name,
                 Key: text_file2,
                 CopySource: `/${bucket_name}/${text_file1}`,
-            }).promise();
+            });
 
-            const res = await s3.getObjectTagging({Bucket: bucket_name, Key: text_file2}).promise();
+            const res = await s3.getObjectTagging({Bucket: bucket_name, Key: text_file2});
 
             assert.strictEqual(res.TagSet.length, params.Tagging.TagSet.length, 'Should be 1');
             assert.strictEqual(res.TagSet[0].Value, params.Tagging.TagSet[0].Value);
@@ -511,24 +528,25 @@ mocha.describe('s3_ops', function() {
                     }]
                 }
             };
-            await s3.putObjectTagging(params).promise();
+            await s3.putObjectTagging(params);
             await s3.copyObject({
                 Bucket: bucket_name,
                 Key: text_file2,
                 CopySource: `/${other_platform_bucket}/${text_file1}`,
-            }).promise();
-            const res = await s3.getObjectTagging({Bucket: bucket_name, Key: text_file2}).promise();
+            });
+            const res = await s3.getObjectTagging({Bucket: bucket_name, Key: text_file2});
             assert.strictEqual(res.TagSet.length, 1, 'Should be 1');
             assert.strictEqual(res.TagSet[0].Value, params.Tagging.TagSet[0].Value);
             assert.strictEqual(res.TagSet[0].Key, params.Tagging.TagSet[0].Key);
         });
+
         mocha.it('should copy text-file multi-part', async function() {
             if (is_azure_mock) this.skip();
             this.timeout(600000);
             const res1 = await s3.createMultipartUpload({
                 Bucket: bucket_name,
                 Key: text_file2
-            }).promise();
+            });
 
             await s3.uploadPartCopy({
                 Bucket: bucket_name,
@@ -536,7 +554,7 @@ mocha.describe('s3_ops', function() {
                 UploadId: res1.UploadId,
                 PartNumber: 1,
                 CopySource: `/${bucket_name}/${text_file1}`,
-            }).promise();
+            });
             await s3.uploadPartCopy({
                 Bucket: bucket_name,
                 Key: text_file2,
@@ -544,14 +562,14 @@ mocha.describe('s3_ops', function() {
                 PartNumber: 1,
                 CopySource: `/${bucket_name}/${text_file1}`,
                 CopySourceRange: "bytes=1-5",
-            }).promise();
+            });
             await s3.uploadPartCopy({
                 Bucket: bucket_name,
                 Key: text_file2,
                 UploadId: res1.UploadId,
                 PartNumber: 1,
                 CopySource: `/${BKT5}/${text_file5}`,
-            }).promise();
+            });
             await s3.uploadPartCopy({
                 Bucket: bucket_name,
                 Key: text_file2,
@@ -559,14 +577,14 @@ mocha.describe('s3_ops', function() {
                 PartNumber: 1,
                 CopySource: `/${BKT5}/${text_file5}`,
                 CopySourceRange: "bytes=1-5",
-            }).promise();
+            });
             await s3.uploadPartCopy({
                 Bucket: bucket_name,
                 Key: text_file2,
                 UploadId: res1.UploadId,
                 PartNumber: 1,
                 CopySource: `/${source_bucket}/${text_file5}`,
-            }).promise();
+            });
             const res7 = await s3.uploadPartCopy({
                 Bucket: bucket_name,
                 Key: text_file2,
@@ -574,11 +592,11 @@ mocha.describe('s3_ops', function() {
                 PartNumber: 1,
                 CopySource: `/${source_bucket}/${text_file5}`,
                 CopySourceRange: "bytes=1-5",
-            }).promise();
+            });
             // list_uploads
             const res6 = await s3.listMultipartUploads({
                 Bucket: bucket_name
-            }).promise();
+            });
             const UploadId = _.result(_.find(res6.Uploads, function(obj) {
                 return obj.UploadId === res1.UploadId;
             }), 'UploadId');
@@ -590,7 +608,7 @@ mocha.describe('s3_ops', function() {
                 Bucket: bucket_name,
                 Key: text_file2,
                 UploadId: res1.UploadId,
-            }).promise();
+            });
             assert.strictEqual(res5.Parts.length, 1);
             assert.strictEqual(res5.Parts[0].ETag, res7.CopyPartResult.ETag);
 
@@ -604,7 +622,7 @@ mocha.describe('s3_ops', function() {
                         PartNumber: 1
                     }]
                 }
-            }).promise();
+            });
         });
 
         mocha.it('should allow multipart with empty part', async function() {
@@ -614,7 +632,7 @@ mocha.describe('s3_ops', function() {
             const res1 = await s3.createMultipartUpload({
                 Bucket: bucket_name,
                 Key: text_file2
-            }).promise();
+            });
 
             const res2 = await s3.uploadPart({
                 Bucket: bucket_name,
@@ -622,17 +640,17 @@ mocha.describe('s3_ops', function() {
                 Key: text_file2,
                 UploadId: res1.UploadId,
                 PartNumber: 1,
-            }).promise();
+            });
             const res3 = await s3.uploadPart({
                 Bucket: bucket_name,
                 Key: text_file2, // No Body - use to fail - BZ2040682
                 UploadId: res1.UploadId,
                 PartNumber: 2,
-            }).promise();
+            });
             // list_uploads
             const res6 = await s3.listMultipartUploads({
                 Bucket: bucket_name
-            }).promise();
+            });
             const UploadId = _.result(_.find(res6.Uploads, function(obj) {
                 return obj.UploadId === res1.UploadId;
             }), 'UploadId');
@@ -643,7 +661,7 @@ mocha.describe('s3_ops', function() {
                 Bucket: bucket_name,
                 Key: text_file2,
                 UploadId: res1.UploadId,
-            }).promise();
+            });
             assert.strictEqual(res5.Parts.length, 2);
             assert.strictEqual(res5.Parts[0].ETag, res2.ETag);
             assert.strictEqual(res5.Parts[1].ETag, res3.ETag);
@@ -661,7 +679,7 @@ mocha.describe('s3_ops', function() {
                         PartNumber: 2
                     }]
                 }
-            }).promise();
+            });
         });
 
         mocha.it('should list objects with text-file', async function() {
@@ -672,28 +690,30 @@ mocha.describe('s3_ops', function() {
                 config.INLINE_MAX_SIZE = 1;
             }
 
-            const res1 = await s3.listObjects({ Bucket: bucket_name }).promise();
+            const res1 = await s3.listObjects({ Bucket: bucket_name });
             // populate cache
-            await s3.getObject({ Bucket: bucket_name, Key: text_file1 }).promise();
+            await s3.getObject({ Bucket: bucket_name, Key: text_file1 });
             // text_file2 is not created for azurite since non of the tests creating it are supported (copy / multipart empty upload)
-            if (!is_azure_mock) await s3.getObject({ Bucket: bucket_name, Key: text_file2 }).promise();
+            if (!is_azure_mock) await s3.getObject({ Bucket: bucket_name, Key: text_file2 });
             // text_file3 was created using copy - Azurite does not support it
-            if (!is_azure_mock) await s3.getObject({ Bucket: bucket_name, Key: text_file3 }).promise();
+            if (!is_azure_mock) await s3.getObject({ Bucket: bucket_name, Key: text_file3 });
 
             assert.strictEqual(res1.Contents[0].Key, text_file1);
             assert.strictEqual(res1.Contents[0].Size, file_body.length);
             assert.strictEqual(res1.Contents.length, is_azure_mock ? 1 : 3);
 
             if (!caching) return;
-            const query_params = { get_from_cache: true };
             await P.delay(300);
-            const res2 = await s3.listObjects({ Bucket: bucket_name }).on('build', req => {
-                if (!caching) return;
-                const sep = req.httpRequest.search() ? '&' : '?';
-                const query_string = querystring.stringify(query_params);
-                const req_path = `${req.httpRequest.path}${sep}${query_string}`;
-                req.httpRequest.path = req_path;
-            }).promise();
+
+            const params_req = {
+                Bucket: bucket_name,
+            };
+            s3.middlewareStack.add(next => args => {
+                args.request.query.get_from_cache = 'true'; // represents query_params = { get_from_cache: true }
+                return next(args);
+            }, {step: 'build', name: 'getFromCache'});
+            const res2 = await s3.listObjects(params_req);
+            s3.middlewareStack.remove('getFromCache');
 
             assert.strictEqual(res2.Contents.length, is_azure_mock ? 1 : 3);
             assert.strictEqual(res2.Contents[0].Key, text_file1);
@@ -708,8 +728,9 @@ mocha.describe('s3_ops', function() {
         mocha.it('should delete non existing object without failing', async function() {
             this.timeout(60000);
             const key_to_delete = 'non-existing-obj';
-            const res = await s3.deleteObject({ Bucket: bucket_name, Key: key_to_delete}).promise();
-            assert.deepEqual(res, {});
+            const res = await s3.deleteObject({ Bucket: bucket_name, Key: key_to_delete});
+            const res_without_metadata = _.omit(res, '$metadata');
+            assert.deepEqual(res_without_metadata, {});
 
         });
 
@@ -724,9 +745,9 @@ mocha.describe('s3_ops', function() {
                 Delete: {
                     Objects: keys_to_delete
                 }
-            }).promise();
+            });
             assert.deepEqual(res.Deleted, keys_to_delete);
-            assert.equal(res.Errors.length, 0);
+            assert.equal(res.Errors, undefined);
 
         });
 
@@ -737,22 +758,22 @@ mocha.describe('s3_ops', function() {
             //     Delete: {
             //         Objects: [{ Key: text_file1 }, { Key: text_file2 }]
             //     }
-            // }).promise();
-            await s3.deleteObject({ Bucket: BKT5, Key: text_file5 }).promise();
-            await s3.deleteObject({ Bucket: source_bucket, Key: text_file5 }).promise();
-            await s3.deleteObject({ Bucket: bucket_name, Key: text_file1 }).promise();
+            // });
+            await s3.deleteObject({ Bucket: BKT5, Key: text_file5 });
+            await s3.deleteObject({ Bucket: source_bucket, Key: text_file5 });
+            await s3.deleteObject({ Bucket: bucket_name, Key: text_file1 });
             // key is not created for azurite since non of the tests creating it are supported (copy / multipart empty upload)
-            if (!is_azure_mock) await s3.deleteObject({ Bucket: bucket_name, Key: text_file2 }).promise();
+            if (!is_azure_mock) await s3.deleteObject({ Bucket: bucket_name, Key: text_file2 });
             // text_file3 was created using copy - Azurite does not support it
-            if (!is_azure_mock) await s3.deleteObject({ Bucket: bucket_name, Key: text_file3 }).promise();
+            if (!is_azure_mock) await s3.deleteObject({ Bucket: bucket_name, Key: text_file3 });
             if (is_other_platform_bucket_created) {
-                await s3.deleteObject({ Bucket: other_platform_bucket, Key: text_file1 }).promise();
+                await s3.deleteObject({ Bucket: other_platform_bucket, Key: text_file1 });
             }
         });
         mocha.it('should list objects after no objects left', async function() {
             this.timeout(100000);
-            const res = await s3.listObjects({ Bucket: bucket_name }).promise();
-            assert.strictEqual(res.Contents.length, 0);
+            const res = await s3.listObjects({ Bucket: bucket_name });
+            assert.strictEqual(res.Contents, undefined);
         });
 
         mocha.it('Should create DeleteObjects as the number of the keys (different keys)', async function() {
@@ -762,25 +783,25 @@ mocha.describe('s3_ops', function() {
                 Key: text_file1,
                 Body: file_body2,
                 ContentType: 'text/plain'
-            }).promise();
+            });
             await s3.putObject({
                 Bucket: bucket_name,
                 Key: text_file2,
                 Body: file_body2,
                 ContentType: 'text/plain'
-            }).promise();
+            });
             await s3.putObject({
                 Bucket: bucket_name,
                 Key: text_file3,
                 Body: file_body2,
                 ContentType: 'text/plain'
-            }).promise();
+            });
             const delete_res = await s3.deleteObjects({
                 Bucket: bucket_name,
                 Delete: {
                     Objects: [{ Key: text_file1 }, { Key: text_file2 }, { Key: text_file3 }] // different keys
                 }
-            }).promise();
+            });
             assert.equal(delete_res.Deleted.length, 3);
         });
 
@@ -791,40 +812,40 @@ mocha.describe('s3_ops', function() {
                 Key: text_file1,
                 Body: file_body2,
                 ContentType: 'text/plain'
-            }).promise();
+            });
             const delete_res = await s3.deleteObjects({
                 Bucket: bucket_name,
                 Delete: {
                     Objects: [{ Key: text_file1 }, { Key: text_file1 }, { Key: text_file1 }] // same key
                 }
-            }).promise();
+            });
             assert.equal(delete_res.Deleted.length, 1);
         });
 
         mocha.after(async function() {
             this.timeout(100000);
             if (bucket_type === "regular") {
-                await s3.deleteBucket({ Bucket: source_bucket }).promise();
-                await s3.deleteBucket({ Bucket: bucket_name }).promise();
-                await s3.deleteBucket({ Bucket: BKT5 }).promise();
+                await s3.deleteBucket({ Bucket: source_bucket });
+                await s3.deleteBucket({ Bucket: bucket_name });
+                await s3.deleteBucket({ Bucket: BKT5 });
                 if (is_other_platform_bucket_created) {
-                    await s3.deleteBucket({ Bucket: other_platform_bucket }).promise();
+                    await s3.deleteBucket({ Bucket: other_platform_bucket });
                     await rpc_client.pool.delete_namespace_resource({ name: NAMESPACE_RESOURCE_OTHER_PLATFORM });
                     await rpc_client.account.delete_external_connection({ connection_name: CONNECTION_NAME_OTHER_PLATFORM });
                 }
             } else {
                 if (!USE_REMOTE_ENDPOINT) {
-                    await s3.deleteBucket({ Bucket: source_namespace_bucket }).promise();
-                    await s3.deleteBucket({ Bucket: target_namespace_bucket }).promise();
+                    await s3.deleteBucket({ Bucket: source_namespace_bucket });
+                    await s3.deleteBucket({ Bucket: target_namespace_bucket });
                 }
-                await s3.deleteBucket({ Bucket: BKT5 }).promise();
+                await s3.deleteBucket({ Bucket: BKT5 });
                 await rpc_client.bucket.delete_bucket({ name: bucket_name });
                 await rpc_client.pool.delete_namespace_resource({ name: NAMESPACE_RESOURCE_SOURCE });
 
-                await s3.deleteBucket({ Bucket: source_bucket }).promise();
+                await s3.deleteBucket({ Bucket: source_bucket });
                 await rpc_client.pool.delete_namespace_resource({ name: NAMESPACE_RESOURCE_TARGET });
                 await rpc_client.account.delete_external_connection({ connection_name: CONNECTION_NAME });
-                await s3.deleteBucket({ Bucket: other_platform_bucket }).promise();
+                await s3.deleteBucket({ Bucket: other_platform_bucket });
             }
         });
     }

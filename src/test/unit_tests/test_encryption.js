@@ -13,7 +13,8 @@ const db_client = require('../../util/db_client').instance();
 const P = require('../../util/promise');
 const assert = require('assert');
 const mocha = require('mocha');
-const AWS = require('aws-sdk');
+const { S3 } = require('@aws-sdk/client-s3');
+const { NodeHttpHandler } = require("@smithy/node-http-handler");
 const _ = require('lodash');
 const http = require('http');
 const fs = require('fs');
@@ -82,7 +83,7 @@ mocha.describe('Encryption tests', function() {
             this.timeout(600000); // eslint-disable-line no-invalid-this
             let i;
             for (i = 0; i < 5; i++) {
-                await s3.createBucket({ Bucket: `bucket${i}` }).promise();
+                await s3.createBucket({ Bucket: `bucket${i}` });
                 const db_bucket = await db_client.collection('buckets').findOne({ name: `bucket${i}` });
                 const db_system = await db_client.collection('systems').findOne({ name: SYSTEM });
                 buckets.push({bucket_name: `bucket${i}`});
@@ -91,7 +92,7 @@ mocha.describe('Encryption tests', function() {
                 await compare_master_keys({db_master_key_id: db_bucket.master_key_id,
                 father_master_key_id: db_system.master_key_id});
             }
-            await s3.createBucket({ Bucket: BKT }).promise();
+            await s3.createBucket({ Bucket: BKT });
         });
 
         mocha.it('upload objects succefully and compare chunks cipher keys', async function() {
@@ -666,7 +667,7 @@ mocha.describe('Rotation tests', function() {
         this.timeout(600000); // eslint-disable-line no-invalid-this
         const bucket_name = 'bucket-after-disable-system';
         const key = 'object-after-disable-system';
-        await s3.createBucket({ Bucket: bucket_name }).promise();
+        await s3.createBucket({ Bucket: bucket_name });
         const sys_store_bucket = bucket_by_name(system_store.data.buckets, bucket_name);
         await is_master_key_disabled(sys_store_bucket.master_key_id._id, true);
         await put_object(bucket_name, key, s3);
@@ -993,17 +994,17 @@ mocha.describe('Rotation tests', function() {
 ////////////// HELPERS 
 
 async function multipart_upload(bucket, key, s3_conf) {
-    let res = await s3_conf.createMultipartUpload({Bucket: bucket, Key: key, ContentType: 'text/plain'}).promise();
+    let res = await s3_conf.createMultipartUpload({Bucket: bucket, Key: key, ContentType: 'text/plain'});
     const upload_id = res.UploadId;
 
-    res = await s3_conf.uploadPart({ Bucket: bucket, Key: key, UploadId: upload_id, PartNumber: 1, Body: "TEST OF MULTIPART UPLOAD"}).promise();
+    res = await s3_conf.uploadPart({ Bucket: bucket, Key: key, UploadId: upload_id, PartNumber: 1, Body: "TEST OF MULTIPART UPLOAD"});
 
     await s3_conf.completeMultipartUpload({ Bucket: bucket, Key: key, UploadId: upload_id,
     MultipartUpload: {
         Parts: [{
             PartNumber: 1,
             ETag: res.ETag }]
-    }}).promise();
+    }});
 }
 
 async function put_object(bucket, key, s3_conf) {
@@ -1012,27 +1013,28 @@ async function put_object(bucket, key, s3_conf) {
         Key: key,
         Body: 'CHECKING CIPHER KEYS OF CHUNKS ON REGULAR UPLOADS',
         ContentType: 'text/plain'
-    }).promise();
+    });
 }
 
 async function delete_object(bucket, key, s3_conf) {
     await s3_conf.deleteObject({
         Bucket: bucket,
         Key: key,
-    }).promise();
+    });
 }
 
 function configure_s3(acc_key, sec_key) {
-    return new AWS.S3({
+    return new S3({
         endpoint: coretest.get_http_address(),
-        accessKeyId: acc_key,
-        secretAccessKey: sec_key,
-        s3ForcePathStyle: true,
-        signatureVersion: 'v4',
-        computeChecksums: true,
-        s3DisableBodySigning: false,
-        region: 'us-east-1',
-        httpOptions: { agent: new http.Agent({ keepAlive: false }) }
+        credentials: {
+            accessKeyId: acc_key,
+            secretAccessKey: sec_key,
+        },
+        forcePathStyle: true,
+        region: config.DEFAULT_REGION,
+        requestHandler: new NodeHttpHandler({
+            httpAgent: new http.Agent({ keepAlive: false })
+        }),
     });
 }
 
@@ -1171,11 +1173,11 @@ async function populate_system(rpc_client) {
     // create buckets
     let i;
     for (i = 0; i < 5; i++) {
-        await s3.createBucket({ Bucket: `rotate.bucket${i}` }).promise();
+        await s3.createBucket({ Bucket: `rotate.bucket${i}` });
         buckets.push({bucket_name: `rotate.bucket${i}`});
     }
-    await s3.createBucket({ Bucket: `second.bucket` }).promise();
-    await s3.createBucket({ Bucket: `third.bucket` }).promise();
+    await s3.createBucket({ Bucket: `second.bucket` });
+    await s3.createBucket({ Bucket: `third.bucket` });
     // create accounts
     for (i = 0; i < 10; i++) {
         const response_account = await rpc_client.account.create_account({...new_account_params,
@@ -1409,10 +1411,10 @@ async function unpopulate_system(rpc_client, accounts, buckets) {
     // delete buckets
     let i;
     for (i = 0; i < 5; i++) {
-        await s3.deleteBucket({ Bucket: `rotate.bucket${i}` }).promise();
+        await s3.deleteBucket({ Bucket: `rotate.bucket${i}` });
     }
-    await s3.deleteBucket({ Bucket: 'second.bucket' }).promise();
-    await s3.deleteBucket({ Bucket: 'third.bucket' }).promise();
+    await s3.deleteBucket({ Bucket: 'second.bucket' });
+    await s3.deleteBucket({ Bucket: 'third.bucket' });
     // delete namespace_resources
     await P.all(_.map(accounts.slice(2, 4), async cur_account => {
         const namespace_resource_name = `${cur_account.email}-namespace-resource`;

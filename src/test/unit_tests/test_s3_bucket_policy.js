@@ -8,11 +8,13 @@ const { rpc_client, EMAIL, POOL_LIST, anon_rpc_client } = coretest;
 const MDStore = require('../../server/object_services/md_store').MDStore;
 coretest.setup({ pools_to_create: [POOL_LIST[1]] });
 
-const AWS = require('aws-sdk');
+const { S3 } = require('@aws-sdk/client-s3');
+const { NodeHttpHandler } = require("@smithy/node-http-handler");
 const http = require('http');
 const mocha = require('mocha');
 const assert = require('assert');
 const { S3Error } = require('../../endpoint/s3/s3_errors');
+const config = require('../../../config');
 
 async function assert_throws_async(promise, expected_message = 'Access Denied') {
     try {
@@ -54,12 +56,11 @@ async function setup() {
     self.timeout(60000);
     const s3_creds = {
         endpoint: coretest.get_http_address(),
-        s3ForcePathStyle: true,
-        signatureVersion: 'v4',
-        computeChecksums: true,
-        s3DisableBodySigning: false,
-        region: 'us-east-1',
-        httpOptions: { agent: new http.Agent({ keepAlive: false }) },
+        forcePathStyle: true,
+        region: config.DEFAULT_REGION,
+        requestHandler: new NodeHttpHandler({
+            httpAgent: new http.Agent({ keepAlive: false })
+        }),
     };
     const account = {
         has_login: false,
@@ -75,23 +76,33 @@ async function setup() {
     account.name = user_b;
     account.email = user_b;
     const user_b_keys = (await rpc_client.account.create_account(account)).access_keys;
-    s3_creds.accessKeyId = user_a_keys[0].access_key.unwrap();
-    s3_creds.secretAccessKey = user_a_keys[0].secret_key.unwrap();
-    s3_a = new AWS.S3(s3_creds);
-    s3_creds.accessKeyId = user_b_keys[0].access_key.unwrap();
-    s3_creds.secretAccessKey = user_b_keys[0].secret_key.unwrap();
-    s3_b = new AWS.S3(s3_creds);
-    s3_creds.accessKeyId = admin_keys[0].access_key.unwrap();
-    s3_creds.secretAccessKey = admin_keys[0].secret_key.unwrap();
-    await s3_b.createBucket({ Bucket: BKT_B }).promise();
-    s3_creds.accessKeyId = admin_keys[0].access_key.unwrap();
-    s3_creds.secretAccessKey = admin_keys[0].secret_key.unwrap();
-    s3_owner = new AWS.S3(s3_creds);
-    await s3_owner.createBucket({ Bucket: BKT }).promise();
-    s3_anon = new AWS.S3({
+    s3_creds.credentials = {
+        accessKeyId: user_a_keys[0].access_key.unwrap(),
+        secretAccessKey: user_a_keys[0].secret_key.unwrap(),
+    };
+    s3_a = new S3(s3_creds);
+    s3_creds.credentials = {
+        accessKeyId: user_b_keys[0].access_key.unwrap(),
+        secretAccessKey: user_b_keys[0].secret_key.unwrap(),
+    };
+    s3_b = new S3(s3_creds);
+    await s3_b.createBucket({ Bucket: BKT_B });
+    s3_creds.credentials = {
+        accessKeyId: admin_keys[0].access_key.unwrap(),
+        secretAccessKey: admin_keys[0].secret_key.unwrap(),
+    };
+    s3_owner = new S3(s3_creds);
+    await s3_owner.createBucket({ Bucket: BKT });
+    s3_anon = new S3({
         ...s3_creds,
-        accessKeyId: undefined,
-        secretAccessKey: undefined,
+        credentials: {
+            accessKeyId: undefined,
+            secretAccessKey: undefined,
+        },
+        // workaround for makeUnauthenticatedRequest that doesn't exist in AWS SDK V3
+        // taken form here: https://github.com/aws/aws-sdk-js-v3/issues/2321#issuecomment-916336230
+        // It is a custom signer that returns the request as is (not modifying the request)
+        signer: { sign: async request => request },
     });
 }
 
@@ -113,7 +124,7 @@ mocha.describe('s3_bucket_policy', function() {
         await assert_throws_async(s3_owner.putBucketPolicy({ // should fail - no such user
             Bucket: BKT,
             Policy: JSON.stringify(policy)
-        }).promise(), 'Invalid principal in policy');
+        }), 'Invalid principal in policy');
     });
 
     mocha.it('should fail setting bucket policy when resource doesn\'t exist', async function() {
@@ -130,7 +141,7 @@ mocha.describe('s3_bucket_policy', function() {
         await assert_throws_async(s3_owner.putBucketPolicy({ // should fail - no such user
             Bucket: BKT,
             Policy: JSON.stringify(policy)
-        }).promise(), 'Policy has invalid resource');
+        }), 'Policy has invalid resource');
     });
 
     mocha.it('should fail setting bucket policy when action is illeagel', async function() {
@@ -148,7 +159,7 @@ mocha.describe('s3_bucket_policy', function() {
         await assert_throws_async(s3_owner.putBucketPolicy({ // should fail - no such user
             Bucket: BKT,
             Policy: JSON.stringify(policy)
-        }).promise(), 'Policy has invalid action');
+        }), 'Policy has invalid action');
     });
 
     mocha.it('should only read bucket policy when have permission to', async function() {
@@ -170,14 +181,14 @@ mocha.describe('s3_bucket_policy', function() {
         await s3_owner.putBucketPolicy({
             Bucket: BKT,
             Policy: JSON.stringify(policy)
-        }).promise();
+        });
         const res_a = await s3_a.getBucketPolicy({ // should work - user a has get_bucket_policy permission
             Bucket: BKT,
-        }).promise();
+        });
         console.log('Policy set', res_a);
         await assert_throws_async(s3_b.getBucketPolicy({ // should fail - user b has no permissions
             Bucket: BKT,
-        }).promise());
+        }));
     });
 
     mocha.it('should be able to set bucket policy when none set', async function() {
@@ -193,11 +204,11 @@ mocha.describe('s3_bucket_policy', function() {
         };
         await s3_owner.deleteBucketPolicy({ // should work - owner can always delete the buckets policy
             Bucket: BKT,
-        }).promise();
+        });
         await s3_owner.putBucketPolicy({ // s3_owner can set the policy
             Bucket: BKT,
             Policy: JSON.stringify(policy)
-        }).promise();
+        });
     });
 
     mocha.it('should be able to put and list files when bucket policy permits', async function() {
@@ -234,28 +245,28 @@ mocha.describe('s3_bucket_policy', function() {
         await s3_owner.putBucketPolicy({
             Bucket: BKT,
             Policy: JSON.stringify(policy)
-        }).promise();
+        });
         await assert_throws_async(s3_a.putObject({
             Body: BODY,
             Bucket: BKT,
             Key: KEY
-        }).promise(), 'Access Denied');
+        }), 'Access Denied');
         await assert_throws_async(s3_a.putObject({
             Body: BODY,
             Bucket: BKT,
             Key: KEY
-        }).promise());
+        }));
         await s3_b.putObject({
             Body: BODY,
             Bucket: BKT,
             Key: KEY
-        }).promise();
+        });
         await s3_a.listObjects({ // should succeed - user a has can list
             Bucket: BKT,
-        }).promise();
+        });
         await assert_throws_async(s3_b.listObjects({ // should fail - user b can't
             Bucket: BKT,
-        }).promise());
+        }));
     });
 
     mocha.it('should be able to deny write some file but not other', async function() {
@@ -286,20 +297,20 @@ mocha.describe('s3_bucket_policy', function() {
         await s3_owner.putBucketPolicy({
             Bucket: BKT,
             Policy: JSON.stringify(policy)
-        }).promise();
+        });
         await s3_b.putObject({
             Body: BODY,
             Bucket: BKT,
             Key: file_in_user_b_dir
-        }).promise();
+        });
         await assert_throws_async(s3_a.getObject({
             Bucket: BKT,
             Key: file_in_user_b_dir
-        }).promise());
+        }));
         await s3_b.deleteObject({
             Bucket: BKT,
             Key: file_in_user_b_dir
-        }).promise();
+        });
     });
 
     mocha.it('should be able to support write * and ? in resource', async function() {
@@ -334,35 +345,35 @@ mocha.describe('s3_bucket_policy', function() {
         await s3_owner.putBucketPolicy({
             Bucket: BKT,
             Policy: JSON.stringify(policy)
-        }).promise();
+        });
         await assert_throws_async(s3_a.putObject({
             Body: BODY,
             Bucket: BKT,
             Key: apply_to_rule1
-        }).promise());
+        }));
         await assert_throws_async(s3_a.putObject({
             Body: BODY,
             Bucket: BKT,
             Key: apply_to_rule2
-        }).promise());
+        }));
         await s3_a.putObject({
             Body: BODY,
             Bucket: BKT,
             Key: not_apply_to_rule1
-        }).promise();
+        });
         await s3_a.putObject({
             Body: BODY,
             Bucket: BKT,
             Key: not_apply_to_rule2
-        }).promise();
+        });
         await s3_b.deleteObject({
             Bucket: BKT,
             Key: not_apply_to_rule1
-        }).promise();
+        });
         await s3_b.deleteObject({
             Bucket: BKT,
             Key: not_apply_to_rule2
-        }).promise();
+        });
     });
 
     mocha.it('should be able to put versionning when bucket policy permits', async function() {
@@ -394,39 +405,39 @@ mocha.describe('s3_bucket_policy', function() {
         await s3_owner.putBucketPolicy({
             Bucket: BKT,
             Policy: JSON.stringify(policy)
-        }).promise();
+        });
         await s3_a.putObject({
             Body: 'Some data for the file... bla bla bla... version I',
             Bucket: BKT,
             Key: new_key
-        }).promise();
+        });
         await s3_b.putBucketVersioning({
             Bucket: BKT,
             VersioningConfiguration: {
                 MFADelete: 'Disabled',
                 Status: 'Enabled'
             }
-        }).promise();
+        });
         const res = await s3_a.putObject({
             Body: 'Some data for the file... bla bla bla bla... version II',
             Bucket: BKT,
             Key: new_key
-        }).promise();
+        });
         const seq = Number(res.VersionId.split('-')[1]);
         await assert_throws_async(s3_a.deleteObject({
             Bucket: BKT,
             Key: new_key,
-        }).promise());
+        }));
         await s3_a.deleteObject({ // delete the file versions
             Bucket: BKT,
             Key: new_key,
             VersionId: 'nbver-' + seq
-        }).promise();
+        });
         await s3_a.deleteObject({
             Bucket: BKT,
             Key: new_key,
             VersionId: 'nbver-' + (seq - 1)
-        }).promise();
+        });
     });
 
     mocha.it('should deny bucket owner access', async function() {
@@ -443,21 +454,21 @@ mocha.describe('s3_bucket_policy', function() {
         await s3_b.putBucketPolicy({ // should work - owner can update the buckets policy unless explicitly denied
             Bucket: BKT_B,
             Policy: JSON.stringify(policy)
-        }).promise();
+        });
 
         await assert_throws_async(s3_b.listObjects({ // should fail - bucket owner cwas explicitly denied
             Bucket: BKT_B,
-        }).promise());
+        }));
     });
 
     mocha.it('should allow acces after adding anonymous access', async function() {
         await s3_owner.putBucketPolicy({ // should work - system owner can always update the buckets policy
             Bucket: BKT,
             Policy: JSON.stringify(anon_access_policy)
-        }).promise();
+        });
         await s3_a.listObjects({
             Bucket: BKT,
-        }).promise();
+        });
     });
 
     mocha.it('should set and delete bucket policy when system owner', async function() {
@@ -474,30 +485,27 @@ mocha.describe('s3_bucket_policy', function() {
         await s3_owner.putBucketPolicy({ // should work - owner can always update the buckets policy
             Bucket: BKT,
             Policy: JSON.stringify(policy)
-        }).promise();
+        });
         await s3_owner.deleteBucketPolicy({ // should work - owner can always delete the buckets policy
             Bucket: BKT,
-        }).promise();
+        });
     });
 
     mocha.it('anonymous user should be able to list bucket objects', async function() {
         await s3_owner.putBucketPolicy({
             Bucket: BKT,
             Policy: JSON.stringify(anon_access_policy)
-        }).promise();
+        });
 
-        await s3_anon.makeUnauthenticatedRequest('listObjects', { Bucket: BKT }).promise();
+        await s3_anon.listObjects({ Bucket: BKT });
     });
 
     mocha.it('anonymous user should not be able to list bucket objects when there is no policy', async function() {
         await s3_owner.deleteBucketPolicy({
             Bucket: BKT,
-        }).promise();
+        });
 
-        await assert_throws_async(s3_anon.makeUnauthenticatedRequest(
-            'listObjects',
-            { Bucket: BKT }
-        ).promise());
+        await assert_throws_async(s3_anon.listObjects({ Bucket: BKT }));
     });
 
     mocha.it('anonymous user should not be able to list bucket objects when policy doesn\'t allow', async function() {
@@ -516,19 +524,16 @@ mocha.describe('s3_bucket_policy', function() {
         await s3_owner.putBucketPolicy({
             Bucket: BKT,
             Policy: JSON.stringify(anon_deny_policy)
-        }).promise();
+        });
 
-        await assert_throws_async(s3_anon.makeUnauthenticatedRequest(
-            'listObjects',
-            { Bucket: BKT }
-        ).promise());
+        await assert_throws_async(s3_anon.listObjects({ Bucket: BKT }));
     });
 
     mocha.it('[RPC TEST]: anonymous user should not be able to read_object_md when not explicitly allowed', async function() {
         // Ensure that the bucket has no policy
         await s3_owner.deleteBucketPolicy({
             Bucket: BKT,
-        }).promise();
+        });
 
         await assert_throws_async(anon_rpc_client.object.read_object_md({
             bucket: BKT,
@@ -551,7 +556,7 @@ mocha.describe('s3_bucket_policy', function() {
         await s3_owner.putBucketPolicy({
             Bucket: BKT,
             Policy: JSON.stringify(anon_read_policy)
-        }).promise();
+        });
 
         cross_test_store.obj = await anon_rpc_client.object.read_object_md({
             bucket: BKT,
@@ -574,7 +579,7 @@ mocha.describe('s3_bucket_policy', function() {
         await s3_owner.putBucketPolicy({
             Bucket: BKT,
             Policy: JSON.stringify(anon_read_policy_2)
-        }).promise();
+        });
 
         cross_test_store.obj = await anon_rpc_client.object.read_object_md({
             bucket: BKT,
@@ -587,7 +592,7 @@ mocha.describe('s3_bucket_policy', function() {
         // Ensure that the bucket has no policy
         await s3_owner.deleteBucketPolicy({
             Bucket: BKT,
-        }).promise();
+        });
 
         await assert_throws_async(anon_rpc_client.object.read_object_mapping({
             bucket: BKT,
@@ -611,7 +616,7 @@ mocha.describe('s3_bucket_policy', function() {
         await s3_owner.putBucketPolicy({
             Bucket: BKT,
             Policy: JSON.stringify(anon_read_policy)
-        }).promise();
+        });
 
         await anon_rpc_client.object.read_object_mapping({
             bucket: BKT,
@@ -636,7 +641,7 @@ mocha.describe('s3_bucket_policy', function() {
         await s3_owner.putBucketPolicy({
             Bucket: BKT,
             Policy: JSON.stringify(anon_read_policy_2)
-        }).promise();
+        });
 
         await anon_rpc_client.object.read_object_mapping({
             bucket: BKT,
@@ -666,14 +671,14 @@ mocha.describe('s3_bucket_policy', function() {
         await s3_owner.putBucketPolicy({
             Bucket: BKT,
             Policy: JSON.stringify(auth_put_policy)
-        }).promise();
+        });
 
         await s3_a.putObject({
             Body: BODY,
             Bucket: BKT,
             Key: KEY,
             ServerSideEncryption: "AES256"
-        }).promise();
+        });
 
         await assert_throws_async(s3_a.putObject({
             Body: BODY,
@@ -681,7 +686,7 @@ mocha.describe('s3_bucket_policy', function() {
             Key: KEY,
             ServerSideEncryption: "aws:kms",
             SSEKMSKeyId: "dummy_key"
-        }).promise(), 'Access Denied');
+        }), 'Access Denied');
     });
 
     mocha.it('should be able to deny unencrypted object uploads', async function() {
@@ -706,20 +711,20 @@ mocha.describe('s3_bucket_policy', function() {
         await s3_owner.putBucketPolicy({
             Bucket: BKT,
             Policy: JSON.stringify(auth_put_policy)
-        }).promise();
+        });
 
         await assert_throws_async(s3_a.putObject({
             Body: BODY,
             Bucket: BKT,
             Key: KEY,
-        }).promise(), 'Access Denied');
+        }), 'Access Denied');
 
         await s3_a.putObject({
             Body: BODY,
             Bucket: BKT,
             Key: KEY,
             ServerSideEncryption: "AES256"
-        }).promise();
+        });
     });
 
     mocha.it('should be able to add StringLike and StringEqualsIgnoreCase condition statements, ', async function() {
@@ -748,26 +753,26 @@ mocha.describe('s3_bucket_policy', function() {
         await s3_owner.putBucketPolicy({
             Bucket: BKT,
             Policy: JSON.stringify(ignore_case_policy)
-        }).promise();
+        });
 
         await s3_a.putObject({
             Body: BODY,
             Bucket: BKT,
             Key: KEY,
             ServerSideEncryption: "AES256"
-        }).promise();
+        });
 
         await s3_owner.putBucketPolicy({
             Bucket: BKT,
             Policy: JSON.stringify(string_like_policy)
-        }).promise();
+        });
 
         await s3_a.putObject({
             Body: BODY,
             Bucket: BKT,
             Key: KEY,
             ServerSideEncryption: "AES256"
-        }).promise();
+        });
     });
 
     mocha.it('should be able to deny based on object tag', async function() {
@@ -794,31 +799,31 @@ mocha.describe('s3_bucket_policy', function() {
         await s3_owner.putBucketPolicy({
             Bucket: BKT,
             Policy: JSON.stringify(auth_put_policy)
-        }).promise();
+        });
 
         await s3_a.putObject({
             Body: BODY,
             Bucket: BKT,
             Key: KEY,
             Tagging: `${allow_tag.key}=${allow_tag.value}`
-        }).promise();
+        });
 
         await s3_a.getObject({
             Bucket: BKT,
             Key: KEY
-        }).promise();
+        });
 
         await s3_a.putObject({
             Body: BODY,
             Bucket: BKT,
             Key: KEY,
             Tagging: `${deny_tag.key}=${deny_tag.value}`
-        }).promise();
+        });
 
         await assert_throws_async(s3_a.getObject({
             Bucket: BKT,
             Key: KEY
-        }).promise());
+        }));
 
     });
 
@@ -850,8 +855,8 @@ mocha.describe('s3_bucket_policy', function() {
        await s3_owner.putBucketPolicy({
             Bucket: BKT,
             Policy: JSON.stringify(encryption_policy)
-        }).promise();
-       const res = await s3_a.getBucketPolicy({Bucket: BKT}).promise();
+        });
+       const res = await s3_a.getBucketPolicy({Bucket: BKT});
        const policy = JSON.parse(res.Policy);
        const actualEncryptionCondition = policy.Statement[1].Condition;
        assert.strictEqual(Object.keys(actualEncryptionCondition)[0], "StringNotEquals");
@@ -877,18 +882,18 @@ mocha.describe('s3_bucket_policy', function() {
         await s3_owner.putBucketPolicy({
             Bucket: BKT,
             Policy: JSON.stringify(auth_put_policy)
-        }).promise();
+        });
 
         await s3_a.putObject({
             Body: BODY,
             Bucket: BKT,
             Key: KEY,
-        }).promise();
+        });
 
         await assert_throws_async(s3_a.getObject({
             Bucket: BKT,
             Key: KEY
-        }).promise());
+        }));
     });
 
     mocha.it('should be able to use notPrincipal', async function() {
@@ -905,19 +910,19 @@ mocha.describe('s3_bucket_policy', function() {
         await s3_owner.putBucketPolicy({
             Bucket: BKT,
             Policy: JSON.stringify(auth_put_policy)
-        }).promise();
+        });
 
         await s3_b.putObject({
             Body: BODY,
             Bucket: BKT,
             Key: KEY,
-        }).promise();
+        });
 
         await assert_throws_async(s3_a.putObject({
             Body: BODY,
             Bucket: BKT,
             Key: KEY,
-        }).promise());
+        }));
     });
 
     mocha.it('should be able to use notResource', async function() {
@@ -934,19 +939,19 @@ mocha.describe('s3_bucket_policy', function() {
         await s3_owner.putBucketPolicy({
             Bucket: BKT,
             Policy: JSON.stringify(auth_put_policy)
-        }).promise();
+        });
 
         await s3_b.putObject({
             Body: BODY,
             Bucket: BKT_B,
             Key: KEY,
-        }).promise();
+        });
 
         await assert_throws_async(s3_a.putObject({
             Body: BODY,
             Bucket: BKT,
             Key: KEY,
-        }).promise());
+        }));
     });
 
     mocha.describe('should only one of Argument or NotArgument', async function() {
@@ -967,10 +972,10 @@ mocha.describe('s3_bucket_policy', function() {
                 await s3_owner.putBucketPolicy({
                     Bucket: BKT,
                     Policy: JSON.stringify(s3_policy)
-                }).promise();
+                });
                 assert.fail('Test was suppose to fail on ' + S3Error.MalformedPolicy.code);
             } catch (err) {
-                if (err.code !== S3Error.MalformedPolicy.code) {
+                if (err.Code !== S3Error.MalformedPolicy.code) {
                     throw err;
                 }
             }
@@ -992,10 +997,10 @@ mocha.describe('s3_bucket_policy', function() {
                 await s3_owner.putBucketPolicy({
                     Bucket: BKT,
                     Policy: JSON.stringify(s3_policy)
-                }).promise();
+                });
                 assert.fail('Test was suppose to fail on ' + S3Error.MalformedPolicy.code);
             } catch (err) {
-                if (err.code !== S3Error.MalformedPolicy.code) {
+                if (err.Code !== S3Error.MalformedPolicy.code) {
                     throw err;
                 }
             }
@@ -1017,10 +1022,10 @@ mocha.describe('s3_bucket_policy', function() {
                 await s3_owner.putBucketPolicy({
                     Bucket: BKT,
                     Policy: JSON.stringify(s3_policy)
-                }).promise();
+                });
                 assert.fail('Test was suppose to fail on ' + S3Error.MalformedPolicy.code);
             } catch (err) {
-                if (err.code !== S3Error.MalformedPolicy.code) {
+                if (err.Code !== S3Error.MalformedPolicy.code) {
                     throw err;
                 }
             }
@@ -1040,10 +1045,10 @@ mocha.describe('s3_bucket_policy', function() {
                 await s3_owner.putBucketPolicy({
                     Bucket: BKT,
                     Policy: JSON.stringify(s3_policy)
-                }).promise();
+                });
                 assert.fail('Test was suppose to fail on ' + S3Error.MalformedPolicy.code);
             } catch (err) {
-                if (err.code !== S3Error.MalformedPolicy.code) {
+                if (err.Code !== S3Error.MalformedPolicy.code) {
                     throw err;
                 }
             }
@@ -1063,10 +1068,10 @@ mocha.describe('s3_bucket_policy', function() {
                 await s3_owner.putBucketPolicy({
                     Bucket: BKT,
                     Policy: JSON.stringify(s3_policy)
-                }).promise();
+                });
                 assert.fail('Test was suppose to fail on ' + S3Error.MalformedPolicy.code);
             } catch (err) {
-                if (err.code !== S3Error.MalformedPolicy.code) {
+                if (err.Code !== S3Error.MalformedPolicy.code) {
                     throw err;
                 }
             }
@@ -1086,10 +1091,10 @@ mocha.describe('s3_bucket_policy', function() {
                 await s3_owner.putBucketPolicy({
                     Bucket: BKT,
                     Policy: JSON.stringify(s3_policy)
-                }).promise();
+                });
                 assert.fail('Test was suppose to fail on ' + S3Error.MalformedPolicy.code);
             } catch (err) {
-                if (err.code !== S3Error.MalformedPolicy.code) {
+                if (err.Code !== S3Error.MalformedPolicy.code) {
                     throw err;
                 }
             }

@@ -362,9 +362,9 @@ exports.resolve = val => Promise.resolve(val);
 exports.reject = err => Promise.reject(err);
 exports.all = arr => Promise.all(arr);
 // deprecated
-exports.fromCallback = fromCallback; // 96 occurences
-exports.fcall = fcall; // 64 occurences
-exports.ninvoke = ninvoke; // 32 occurences
-exports.wait_until = wait_until; // 21 occurences
-exports.Defer = Defer; // 18 occurences
-exports.pwhile = pwhile; // 17 occurences
+exports.fromCallback = fromCallback; // 50 occurrences
+exports.fcall = fcall; // 60 occurrences
+exports.ninvoke = ninvoke; // 31 occurrences
+exports.wait_until = wait_until; // 21 occurrences
+exports.Defer = Defer; // 18 occurrences
+exports.pwhile = pwhile; // 16 occurrences

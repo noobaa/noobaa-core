@@ -58,6 +58,10 @@ class S3ClientSDKV2 {
         return this.s3.headObject(params).promise();
     }
 
+    listBuckets(params) {
+        return this.s3.listBuckets(params).promise();
+    }
+
     listMultipartUploads(params) {
         return this.s3.listMultipartUploads(params).promise();
     }

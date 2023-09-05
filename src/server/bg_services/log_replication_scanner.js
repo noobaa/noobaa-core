@@ -68,17 +68,6 @@ class LogReplicationScanner {
         // Iterate over the policies in parallel
         await P.all(_.map(replications, async repl => {
             _.map(repl.rules, async rule => {
-                // At the moment this scanner just supports deletions
-                // hence if sync_deletions is false we can skip the entire
-                // rule completely
-                //
-                // NOTE: Should be removed once we support other operations
-                // as well
-                if (!rule.sync_deletions) {
-                    dbg.log0('log_replication_scanner: skipping rule', rule.rule_id, 'because sync_deletions is false');
-                    return;
-                }
-
                 const replication_id = repl._id;
 
                 const { src_bucket, dst_bucket } = replication_utils.find_src_and_dst_buckets(rule.destination_bucket, replication_id);
@@ -178,7 +167,7 @@ class LogReplicationScanner {
         const src_object_info = candidate.src_object_info;
         const dst_object_info = candidate.dst_object_info;
         if (src_object_info && (!dst_object_info || (src_object_info.LastModified > dst_object_info.LastModified &&
-            src_object_info.ETag !== dst_object_info.ETag))) {
+                src_object_info.ETag !== dst_object_info.ETag))) {
             return 'copy';
         }
         return 'skip';

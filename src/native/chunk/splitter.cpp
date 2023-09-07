@@ -44,8 +44,9 @@ Splitter::Splitter(
     if (_calc_md5) {
         extern bool fips_mode;
         if (fips_mode) {
-            posix_memalign((void**)&_md5_mb_mgr, 16, sizeof(MD5_HASH_CTX_MGR));
-            posix_memalign((void**)&_md5_mb_ctx, 16, sizeof(MD5_HASH_CTX));
+            [[maybe_unused]] int result;
+            result = posix_memalign((void**)&_md5_mb_mgr, 16, sizeof(MD5_HASH_CTX_MGR));
+            result = posix_memalign((void**)&_md5_mb_ctx, 16, sizeof(MD5_HASH_CTX));
             md5_ctx_mgr_init(_md5_mb_mgr);
             hash_ctx_init(_md5_mb_ctx);
             md5_mb_submit_and_flush(0, 0, HASH_FIRST);

@@ -2,20 +2,19 @@
 /* eslint-disable no-undef */
 'use strict';
 
-//Mocking it as random seed does not finish before the tests, and it failing the suit. 
-jest.mock('../../../server/system_services/system_store', () => ({
-    get_instance: jest.fn(() => ({
-        save_data: jest.fn(),
-    })),
-}));
-jest.mock('../../../server/system_services/replication_store', () => ({
-    instance: jest.fn(() => ({
-        save_data: jest.fn(),
-    })),
-}));
-jest.mock('../../../server/system_services/pool_server', () => ({}));
+// disabling init_rand_seed as it takes longer than the actual test execution
+process.env.DISABLE_INIT_RANDOM_SEED = "true";
 
 const log_parser = require('../../../server/bg_services/replication_log_parser');
+const server_rpc = require('../../../server/server_rpc');
+const auth_server = require('../../../server/common_services/auth_server');
+const rpc_client = server_rpc.rpc.new_client({
+    auth_token: auth_server.make_auth_token({}),
+});
+const { LogReplicationScanner } = require('../../../server/bg_services/log_replication_scanner.js');
+
+// @ts-ignore
+const mock_fn = jest.fn();
 
 describe('AWS S3 server log parsing tests', () => {
     // Pagination test
@@ -86,5 +85,211 @@ describe('Azure blob log parsing tests', () => {
         // Verify that create_candidates parses the logs correctly
         const candidates = log_parser.create_candidates(logs);
         expect(Object.keys(candidates).length).toBe(Object.keys(action_dictionary).length);
+    });
+});
+
+describe('AWS S3 server logs parsing/processing tests', () => {
+    let log_scanner;
+    let response;
+    beforeEach(() => {
+        log_scanner = new LogReplicationScanner({
+            name: "log_replication_scanner",
+            client: rpc_client
+        });
+        response = [
+            {
+                key: "test",
+                data: {
+                    action: 'conflict',
+                    time: '2023-02-13T19:08:28.000Z'
+                },
+                src_object_info: {
+                    AcceptRanges: 'bytes',
+                    LastModified: '2023-06-30T12:34:56.000Z',
+                    ContentLength: 1024,
+                    ETag: "\"abcdef1234567890\"",
+                    ContentType: "text/plain",
+                    Metadata: {
+                      "custom-metadata-key": "custom-metadata-value"
+                    }
+                },
+                dst_object_info: null
+            },
+            {
+                key: "other_obj",
+                data: {
+                    action: 'delete',
+                    time: '2023-02-13T09:08:28.000Z'
+                },
+                src_object_info: null,
+                dst_object_info: {
+                    "AcceptRanges": "bytes",
+                    "LastModified": "2023-06-30T12:34:56.000Z",
+                    "ContentLength": 1024,
+                    "ETag": "\"abcdef1234567890\"",
+                    "ContentType": "text/plain",
+                    "Metadata": {
+                      "custom-metadata-key": "custom-metadata-value"
+                    }
+                }
+            },
+            {
+                key: "test.js",
+                data: {
+                    action: 'conflict',
+                    time: '2023-02-13T15:08:28.000Z'
+                },
+                src_object_info: {
+                    "AcceptRanges": "bytes",
+                    "LastModified": "2023-06-30T12:34:56.000Z",
+                    "ContentLength": 1024,
+                    "ETag": "\"abcdef1234567890\"",
+                    "ContentType": "text/plain",
+                    "Metadata": {
+                      "custom-metadata-key": "custom-metadata-value"
+                    }
+                },
+                dst_object_info: null
+            },
+            {
+                key: "code2",
+                data: {
+                    action: 'conflict',
+                    time: '2023-02-13T16:08:56.000Z'
+                },
+                src_object_info: {
+                    "AcceptRanges": "bytes",
+                    "LastModified": "2023-06-30T12:34:56.000Z",
+                    "ContentLength": 1024,
+                    "ETag": "\"abcdef1234567890\"",
+                    "ContentType": "text/plain",
+                    "Metadata": {
+                      "custom-metadata-key": "custom-metadata-value"
+                    }
+                },
+                dst_object_info: null
+            },
+            {
+                key: "test2",
+                data: {
+                    action: 'delete',
+                    time: '2023-02-13T15:08:28.000Z'
+                },
+                src_object_info: null,
+                dst_object_info: {
+                    "AcceptRanges": "bytes",
+                    "LastModified": "2023-06-30T12:34:56.000Z",
+                    "ContentLength": 1024,
+                    "ETag": "\"abcdef1234567890\"",
+                    "ContentType": "text/plain",
+                    "Metadata": {
+                      "custom-metadata-key": "custom-metadata-value"
+                    }
+                }
+            },
+            {
+                key: "testfile.js",
+                data: {
+                    action: 'delete',
+                    time: '2023-02-13T15:08:28.000Z'
+                },
+                src_object_info: null,
+                dst_object_info: {
+                    "AcceptRanges": "bytes",
+                    "LastModified": "2023-06-30T12:34:56.000Z",
+                    "ContentLength": 1024,
+                    "ETag": "\"abcdef1234567890\"",
+                    "ContentType": "text/plain",
+                    "Metadata": {
+                      "custom-metadata-key": "custom-metadata-value"
+                    }
+                }
+            },
+            {
+                key: "empty",
+                data: {
+                    action: 'copy',
+                    time: '2023-02-13T15:25:00.000Z'
+                },
+                src_object_info: {
+                    AcceptRanges: 'bytes',
+                    LastModified: new Date('2021-06-30T12:34:56.000Z'),
+                    ContentLength: 1024,
+                    ETag: "\"abcdef1234567890\"",
+                    ContentType: "text/plain",
+                    Metadata: {
+                      "custom-metadata-key": "custom-metadata-value"
+                    }
+                },
+                dst_object_info: null
+            },
+            {
+                key: "text.txt",
+                data: {
+                    action: 'delete',
+                    time: '2023-02-13T15:08:28.000Z'
+                },
+                src_object_info: null,
+                dst_object_info: {
+                    "AcceptRanges": "bytes",
+                    "LastModified": "2023-06-30T12:34:56.000Z",
+                    "ContentLength": 1024,
+                    "ETag": "\"abcdef1234567890\"",
+                    "ContentType": "text/plain",
+                    "Metadata": {
+                      "custom-metadata-key": "custom-metadata-value"
+                    }
+                }
+            }
+        ];
+    });
+    it('Test AWS S3 server log parsing and processing', async () => {
+        const logs = [];
+        const src_bucket = "src-bucket";
+        const dst_bucket = "dst-bucket";
+        const example_log = {Body: `
+            aaa test.bucket [13/Feb/2023:19:08:28 +0000] 1.1.1.1 arn:aws:iam::111:user/user AAA BATCH.DELETE.OBJECT test - 204 - - 1 - - - - - AAA SigV4 ECDHE-RSA-AES128-GCM-SHA256 AuthHeader s3.us-east-2.amazonaws.com TLSv1.2 - -
+            aaa test.bucket [13/Feb/2023:09:08:28 +0000] 1.1.1.1 arn:aws:iam::111:user/user AAA BATCH.DELETE.OBJECT other_obj - 204 - - 1 - - - - - AAA SigV4 ECDHE-RSA-AES128-GCM-SHA256 AuthHeader s3.us-east-2.amazonaws.com TLSv1.2 - -
+            aaa test.bucket [13/Feb/2023:19:08:28 +0000] 0.0.0.0 arn:aws:iam::111:user/user AAA REST.PUT.OBJECT test "PUT /test.bucket/code2?X-Amz-Security-Token=AAAAAAAAAAAAAAA=20230213T160856Z&X-Amz-AAAAAA HTTP/1.1" 200 - - 1 1 1 "https://s3.console.aws.amazon.com/s3/upload/test.bucket?region=us-east-2" "AAA/5.0 (AAA 1.1; AAA; AAA) AAA/1.1 (KHTML, like Gecko) AAA/1.1 AAA/1.1" - AAAA SigV4 ECDHE-RSA-AES128-GCM-SHA256 QueryString s3.us-east-2.amazonaws.com TLSv1.2 - -
+            aaa test.bucket [13/Feb/2023:15:08:28 +0000] 1.1.1.1 arn:aws:iam::111:user/user AAA BATCH.DELETE.OBJECT test - 204 - - 1 - - - - - AAA SigV4 ECDHE-RSA-AES128-GCM-SHA256 AuthHeader s3.us-east-2.amazonaws.com TLSv1.2 - -
+            aaa test.bucket [13/Feb/2023:15:08:28 +0000] 1.1.1.1 arn:aws:iam::111:user/user AAA BATCH.DELETE.OBJECT test.js - 204 - - 1 - - - - - AAA SigV4 ECDHE-RSA-AES128-GCM-SHA256 AuthHeader s3.us-east-2.amazonaws.com TLSv1.2 - -
+            aaa test.bucket [13/Feb/2023:16:08:56 +0000] 0.0.0.0 arn:aws:iam::111:user/user AAA REST.PUT.OBJECT code2 "PUT /test.bucket/code2?X-Amz-Security-Token=AAAAAAAAAAAAAAA=20230213T160856Z&X-Amz-AAAAAA HTTP/1.1" 200 - - 1 1 1 "https://s3.console.aws.amazon.com/s3/upload/test.bucket?region=us-east-2" "AAA/5.0 (AAA 1.1; AAA; AAA) AAA/1.1 (KHTML, like Gecko) AAA/1.1 AAA/1.1" - AAAA SigV4 ECDHE-RSA-AES128-GCM-SHA256 QueryString s3.us-east-2.amazonaws.com TLSv1.2 - -
+            aaa test.bucket [13/Feb/2023:15:08:28 +0000] 1.1.1.1 arn:aws:iam::111:user/user AAA BATCH.DELETE.OBJECT test2 - 204 - - 1 - - - - - AAA SigV4 ECDHE-RSA-AES128-GCM-SHA256 AuthHeader s3.us-east-2.amazonaws.com TLSv1.2 - -
+            aaa test.bucket [13/Feb/2023:15:08:28 +0000] 1.1.1.1 arn:aws:iam::111:user/user AAA BATCH.DELETE.OBJECT testfile.js - 204 - - 1 - - - - - AAA SigV4 ECDHE-RSA-AES128-GCM-SHA256 AuthHeader s3.us-east-2.amazonaws.com TLSv1.2 - -
+            aaa test.bucket [13/Feb/2023:15:25:00 +0000] 0.0.0.0 arn:aws:iam::111:user/user AAA REST.PUT.OBJECT empty "PUT /test.bucket/empty?X-Amz-Security-Token=AAAAAAAAAAAAAAA=20230213T152500Z&X-Amz-AAAAAA HTTP/1.1" 200 - - 1 1 1 "https://s3.console.aws.amazon.com/s3/upload/test.bucket?region=us-east-2" "AAA/5.0 (AAA 1.1; AAA; AAA) AAA/1.1 (KHTML, like Gecko) AAA/1.1 AAA/1.1" - AAAA SigV4 ECDHE-RSA-AES128-GCM-SHA256 QueryString s3.us-east-2.amazonaws.com TLSv1.2 - -
+            aaa test.bucket [13/Feb/2023:15:08:28 +0000] 1.1.1.1 arn:aws:iam::111:user/user AAA BATCH.DELETE.OBJECT text.txt - 204 - - 1 - - - - - AAA SigV4 ECDHE-RSA-AES128-GCM-SHA256 AuthHeader s3.us-east-2.amazonaws.com TLSv1.2 - -
+            aaa test.bucket [12/Feb/2023:09:08:28 +0000] 1.1.1.1 arn:aws:iam::111:user/user AAA BATCH.DELETE.OBJECT test - 204 - - 1 - - - - - AAA SigV4 ECDHE-RSA-AES128-GCM-SHA256 AuthHeader s3.us-east-2.amazonaws.com TLSv1.2 - -            aaa test.bucket [13/Feb/2023:09:08:56 +0000] 0.0.0.0 arn:aws:iam::111:user/user AAA REST.PUT.OBJECT test "PUT /test.bucket/test?X-Amz-Security-Token=AAAAAAAAAAAAAAA=20230213T160856Z&X-Amz-AAAAAA HTTP/1.1" 200 - - 1 1 1 "https://s3.console.aws.amazon.com/s3/upload/test.bucket?region=us-east-2" "AAA/5.0 (AAA 1.1; AAA; AAA) AAA/1.1 (KHTML, like Gecko) AAA/1.1 AAA/1.1" - AAAA SigV4 ECDHE-RSA-AES128-GCM-SHA256 QueryString s3.us-east-2.amazonaws.com TLSv1.2 - -
+            aaa test.bucket [12/Feb/2023:15:08:28 +0000] 1.1.1.1 arn:aws:iam::111:user/user AAA BATCH.DELETE.OBJECT test - 204 - - 1 - - - - - AAA SigV4 ECDHE-RSA-AES128-GCM-SHA256 AuthHeader s3.us-east-2.amazonaws.com TLSv1.2 - -
+            aaa test.bucket [13/Feb/2023:15:08:28 +0000] 1.1.1.1 arn:aws:iam::111:user/user AAA BATCH.DELETE.OBJECT test.js - 204 - - 1 - - - - - AAA SigV4 ECDHE-RSA-AES128-GCM-SHA256 AuthHeader s3.us-east-2.amazonaws.com TLSv1.2 - -
+            aaa test.bucket [13/Feb/2023:16:08:56 +0000] 0.0.0.0 arn:aws:iam::111:user/user AAA REST.PUT.OBJECT code2 "PUT /test.bucket/code2?X-Amz-Security-Token=AAAAAAAAAAAAAAA=20230213T160856Z&X-Amz-AAAAAA HTTP/1.1" 200 - - 1 1 1 "https://s3.console.aws.amazon.com/s3/upload/test.bucket?region=us-east-2" "AAA/5.0 (AAA 1.1; AAA; AAA) AAA/1.1 (KHTML, like Gecko) AAA/1.1 AAA/1.1" - AAAA SigV4 ECDHE-RSA-AES128-GCM-SHA256 QueryString s3.us-east-2.amazonaws.com TLSv1.2 - -            aaa test.bucket [13/Feb/2023:15:08:28 +0000] 1.1.1.1 arn:aws:iam::111:user/user AAA BATCH.DELETE.OBJECT testfile.js - 204 - - 1 - - - - - AAA SigV4 ECDHE-RSA-AES128-GCM-SHA256 AuthHeader s3.us-east-2.amazonaws.com TLSv1.2 - -            aaa test.bucket [13/Feb/2023:15:08:28 +0000] 1.1.1.1 arn:aws:iam::111:user/user AAA BATCH.DELETE.OBJECT text.txt - 204 - - 1 - - - - - AAA SigV4 ECDHE-RSA-AES128-GCM-SHA256 AuthHeader s3.us-east-2.amazonaws.com TLSv1.2 - -
+        `};
+
+
+        log_parser.aws_parse_log_object(logs, example_log, true);
+        // Make sure the test doesn't pass in case the parsing fails
+        expect(logs.length).toEqual(14);
+
+        const candidates = log_parser.create_candidates(logs);
+
+        // Make sure all expected action candidates are mapped to appropriate candidates action
+        const action_candidates = {'test': 'conflict', 'other_obj': 'delete', 'test.js': 'conflict', 'code2': 'conflict', 'test2': 'delete', 'testfile.js': 'delete', 'empty': 'copy', 'text.txt': 'delete'};
+        for (const key in candidates) {
+            if (candidates[key][0]) {
+                expect(candidates[key][0].action).toEqual(action_candidates[key]);
+            }
+        }
+
+        // Mocking head_objects to return expected response
+        jest.spyOn(log_scanner, 'head_objects').mockResolvedValue(response);
+
+        // Mocking both copy_objects and delete_objects method as we are not copying or deleting actual object here
+        log_scanner.copy_objects = mock_fn.mockReturnThis();
+        log_scanner.delete_objects = mock_fn.mockReturnThis();
+
+        // Make sure processing of all the candidates working as expected
+        const { copy_keys, delete_keys } = await log_scanner.process_candidates(src_bucket, dst_bucket, candidates);
+
+        expect(copy_keys.length).toEqual(4);
+        expect(delete_keys.length).toEqual(4);
     });
 });

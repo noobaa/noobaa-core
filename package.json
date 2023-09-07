@@ -72,6 +72,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.400.0",
+    "@aws-sdk/client-sts": "3.405.0",
     "@aws-sdk/lib-storage": "3.400.0",
     "@azure/identity": "3.3.0",
     "@azure/monitor-query": "1.1.1",

@@ -280,6 +280,10 @@ class PutMapping {
                 this.add_new_chunk(chunk);
             }
         }
+        //commit single part
+        if (this.chunks.length === 1 && this.new_parts.length === 1) {
+            this.new_parts[0].uncommitted = undefined;
+        }
     }
 
     /**

@@ -691,7 +691,9 @@ async function copy_object_mapping(req) {
         part.obj = obj._id;
         part.bucket = req.bucket._id;
         part.multipart = multipart ? multipart._id : undefined;
-        part.uncommitted = true;
+        if (parts.length > 1) {
+            part.uncommitted = true;
+        }
     }
     await MDStore.instance().insert_parts(parts);
     return {

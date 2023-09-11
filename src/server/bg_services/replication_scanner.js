@@ -126,7 +126,7 @@ class ReplicationScanner {
                     dst_bucket.name,
                     keys_diff_map,
                 );
-                dbg.log0(`replication_scanner: scan copy_res: ${copy_res}`);
+                dbg.log0('replication_scanner: scan copy_res:', copy_res);
             }
 
             await replication_store.update_replication_status_by_id(replication_id,

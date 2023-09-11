@@ -406,17 +406,10 @@ async function complete_object_upload(req) {
         set_updates.sha256_b64 = req.rpc_params.sha256_b64;
     }
 
-    let map_res;
-
-    if (req.rpc_params.multiparts) {
-        map_res = await _complete_object_multiparts(obj, req.rpc_params.multiparts);
-    } else if (req?.params?.num_parts === 1) {
-        //skip db access for small objects
-        dbg.log1("skipped _complete_object_multiparts");
-        map_res = {size: req.rpc_params.size, num_parts: 1};
-    } else {
-        map_res = await _complete_object_parts(obj);
-    }
+    const map_res =
+        req.rpc_params.multiparts ?
+        await _complete_object_multiparts(obj, req.rpc_params.multiparts) :
+        await _complete_object_parts(obj, req?.params?.num_parts);
 
     if (req.rpc_params.size !== map_res.size) {
         if (req.rpc_params.size >= 0) {
@@ -1978,7 +1971,14 @@ async function update_endpoint_stats(req) {
 /**
  * @param {nb.ObjectMD} obj
  */
-async function _complete_object_parts(obj) {
+async function _complete_object_parts(obj, num_parts) {
+
+    if (num_parts === 1) {
+        //skip db access if only one part
+        //(this part is already ok in db, no need to fix it)
+        return {size: obj.size,
+                num_parts: 1};
+    }
     const context = {
         pos: 0,
         seq: 0,

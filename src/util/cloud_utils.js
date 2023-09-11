@@ -170,7 +170,6 @@ function set_noobaa_s3_connection(sys) {
     const endpoint = system_address[0] && system_address[0].hostname;
     const access_key = sys.owner && sys.owner.access_keys && sys.owner.access_keys[0].access_key.unwrap();
     const secret_key = sys.owner && sys.owner.access_keys && sys.owner.access_keys[0].secret_key.unwrap();
-    dbg.log0('replication_server.set_noobaa_s3_connection: ', endpoint, access_key, secret_key);
     if (!endpoint || !access_key || !secret_key) {
         dbg.error('set_noobaa_s3_connection: temporary error: invalid noobaa s3 connection details');
         return;

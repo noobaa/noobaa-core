@@ -463,10 +463,13 @@ class BucketDiff {
         const params = {
             Bucket: bucket_name,
             Key: key,
+            VersionId: version_id,
         };
-        if (version_id) params.VersionId = version_id;
+
         try {
             const head = await this.s3.headObject(params).promise();
+            //for namespace s3 we are omitting the 'noobaa-namespace-s3-bucket' as it will be defer between buckets
+            if (head?.Metadata) head.Metadata = _.omit(head.Metadata, 'noobaa-namespace-s3-bucket');
             dbg.log1('BucketDiff _get_object_md: finished successfully', head);
             return head;
         } catch (err) {

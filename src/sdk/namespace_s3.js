@@ -179,6 +179,7 @@ class NamespaceS3 {
                 Bucket: this.bucket,
                 Key: params.key,
                 PartNumber: params.part_number,
+                VersionId: params.version_id,
             };
             // If set, part_number is positive integer from 1 to 10000.
             // Usually part number is not provided and then we read a small "inline" range

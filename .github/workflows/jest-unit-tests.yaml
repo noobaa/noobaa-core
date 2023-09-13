@@ -16,4 +16,5 @@ jobs:
         run: |
           sudo apt-get -y install nasm
           npm install
+          npm run build
           npm run jest

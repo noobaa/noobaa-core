@@ -328,7 +328,7 @@ function update_account_s3_access(req) {
         _id: account._id
     };
 
-    //If s3_access is on, update allowed buckets and default_resource
+    //If s3_access is on, update allowed buckets, default_resource and force_md5_etag
     if (req.rpc_params.s3_access) {
         if (!req.rpc_params.default_resource) {
             const pools = _.filter(req.system.pools_by_name, p => (!_.get(p, 'mongo_pool_info'))); // find none-internal pools
@@ -351,6 +351,10 @@ function update_account_s3_access(req) {
             update.allow_bucket_creation = req.rpc_params.allow_bucket_creation;
         }
 
+        if (!_.isUndefined(req.rpc_params.force_md5_etag)) {
+            update.force_md5_etag = req.rpc_params.force_md5_etag;
+        }
+
         if (req.rpc_params.nsfs_account_config) {
             if (_.isUndefined(req.rpc_params.nsfs_account_config.uid) &&
                 _.isUndefined(req.rpc_params.nsfs_account_config.gid) && !req.rpc_params.nsfs_account_config.new_buckets_path &&
@@ -366,7 +370,8 @@ function update_account_s3_access(req) {
     } else {
         update.$unset = {
             default_resource: true,
-            allow_bucket_creation: true
+            allow_bucket_creation: true,
+            force_md5_etag: false
         };
     }
 
@@ -447,7 +452,6 @@ function update_account(req) {
     const updates = {
         name: params.name,
         email: params.new_email,
-        force_md5_etag: params.force_md5_etag,
         next_password_change: params.must_change_password === true ? new Date() : undefined,
         allowed_ips: (!_.isUndefined(params.ips) && params.ips !== null) ? params.ips : undefined,
         preferences: _.isUndefined(params.preferences) ? undefined : params.preferences,

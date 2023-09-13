@@ -206,7 +206,7 @@ mocha.describe('system_servers', function() {
         });
         assert(info.force_md5_etag === true);
 
-        await rpc_client.account.update_account({
+        await rpc_client.account.update_account_s3_access({
             email: EMAIL1,
             force_md5_etag: false,
         });

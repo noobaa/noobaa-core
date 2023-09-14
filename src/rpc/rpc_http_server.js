@@ -48,10 +48,17 @@ class RpcHttpServer extends events.EventEmitter {
         const logging = options.logging;
         dbg.log0('HTTP SERVER:', 'port', port, 'secure', secure, 'logging', logging);
 
-        const ssl_cert = await ssl_utils.get_ssl_certificate('MGMT');
-        const server = secure ?
-            https.createServer({ ...ssl_cert, honorCipherOrder: true }) :
-            http.createServer();
+        let server;
+        if (secure) {
+            const ssl_cert_info = await ssl_utils.get_ssl_cert_info('MGMT');
+            server = https.createServer({ ...ssl_cert_info.cert, honorCipherOrder: true });
+            ssl_cert_info.on('update', updated_cert_info => {
+                dbg.log0("Setting updated MGMT ssl certs for rpc server.");
+                server.setSecureContext({ ...updated_cert_info.cert, honorCipherOrder: true });
+            });
+        } else {
+            server = http.createServer();
+        }
         this.install_on_server(server, options.default_handler);
         return P.fromCallback(callback => server.listen(port, callback))
             .then(() => server);

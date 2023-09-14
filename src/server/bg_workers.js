@@ -31,7 +31,6 @@ const stats_aggregator = require('./system_services/stats_aggregator');
 const { NamespaceMonitor } = require('./bg_services/namespace_monitor');
 const { ReplicationScanner } = require('./bg_services/replication_scanner');
 const { LogReplicationScanner } = require('./bg_services/log_replication_scanner');
-const aws_usage_metering = require('./system_services/aws_usage_metering');
 const usage_aggregator = require('./bg_services/usage_aggregator');
 const md_aggregator = require('./bg_services/md_aggregator');
 const background_scheduler = require('../util/background_scheduler').get_instance();
@@ -51,7 +50,6 @@ const MASTER_BG_WORKERS = [
     'usage_aggregator',
     'dedup_indexer',
     'db_cleaner',
-    'aws_usage_metering',
     'agent_blocks_verifier',
     'agent_blocks_reclaimer',
     'key_rotator'
@@ -212,13 +210,6 @@ function run_master_workers() {
             name: 'statistics_collector',
             delay: config.STATISTICS_COLLECTOR_INTERVAL
         }, stats_collector.collect_all_stats);
-    }
-
-    if (config.AWS_METERING_ENABLED && process.env.PLATFORM === 'aws') {
-        register_bg_worker({
-            name: 'aws_usage_metering',
-            delay: config.AWS_METERING_INTERVAL
-        }, aws_usage_metering.background_worker);
     }
 
     if (config.KEY_ROTATOR_ENABLED) {

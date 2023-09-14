@@ -170,7 +170,6 @@ config.CHUNK_CODER_EC_IS_DEFAULT = true;
 // bg workers
 config.SCRUBBER_ENABLED = false;
 config.REBUILD_NODE_ENABLED = false;
-config.AWS_METERING_ENABLED = false;
 config.AGENT_BLOCKS_VERIFIER_ENABLED = false;
 config.TIERING_TTL_WORKER_ENABLED = true;
 EOF

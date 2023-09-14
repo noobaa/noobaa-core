@@ -8,18 +8,41 @@ const https = require('https');
 const Semaphore = require('../util/semaphore');
 const dbg = require('./debug_module')(__filename);
 const nb_native = require('./nb_native');
+const { EventEmitter } = require('events');
 
-const init_cert_info = dir => ({
-    dir,
-    cert: null,
-    is_loaded: false,
-    is_generated: false,
-    sem: new Semaphore(1)
-});
+class CertInfo extends EventEmitter {
+
+    constructor(dir) {
+        super();
+        this.dir = dir;
+        this.cert = null;
+        this.is_loaded = false;
+        this.is_generated = false;
+        this.sem = new Semaphore(1);
+    }
+
+    async file_notification(event, filename) {
+        try {
+            const cert_on_disk = await _read_ssl_certificate(this.dir);
+            if (this.cert.key === cert_on_disk.key) {
+                return;
+            }
+
+            this.cert = cert_on_disk;
+            this.is_generated = false;
+
+            this.emit('update', this);
+        } catch (err) {
+            if (err.code !== 'ENOENT') {
+                dbg.warn(`SSL certificate failed to update from dir ${this.dir}:`, err.message);
+            }
+        }
+    }
+}
 
 const certs = {
-    MGMT: init_cert_info('/etc/mgmt-secret'),
-    S3: init_cert_info('/etc/s3-secret'),
+    MGMT: new CertInfo('/etc/mgmt-secret'),
+    S3: new CertInfo('/etc/s3-secret'),
 };
 
 function generate_ssl_certificate() {
@@ -36,19 +59,19 @@ function verify_ssl_certificate(certificate) {
 }
 
 // Get SSL certificate (load once then serve from cache)
-function get_ssl_certificate(service) {
+function get_ssl_cert_info(service) {
     const cert_info = certs[service];
     if (!cert_info) {
         throw new Error(`Invalid service name, got: ${service}`);
     }
 
     if (cert_info.is_loaded) {
-        return cert_info.cert;
+        return cert_info;
     }
 
     return cert_info.sem.surround(async () => {
         if (cert_info.is_loaded) {
-            return cert_info.cert;
+            return cert_info;
         }
 
         try {
@@ -68,40 +91,19 @@ function get_ssl_certificate(service) {
         }
 
         cert_info.is_loaded = true;
-        return cert_info.cert;
+
+        try {
+            fs.watch(cert_info.dir, {}, cert_info.file_notification.bind(cert_info));
+        } catch (err) {
+            if (err.code === 'ENOENT') {
+                dbg.warn("Certificate folder ", cert_info.dir, " does not exist. New certificate won't be loaded.");
+            } else {
+                dbg.error("Failed to watch certificate dir ", cert_info.dir, ". err = ", err);
+            }
+        }
+
+        return cert_info;
     });
-}
-
-// For each cert that was loaded into memory we check if the cert was changed on disk.
-// If so we update it. If any of the certs was updated we return true else we return false.
-async function update_certs_from_disk() {
-    const promiseList = Object.values(certs).map(cert_info =>
-        cert_info.sem.surround(async () => {
-            if (!cert_info.is_loaded) {
-                return false;
-            }
-
-            try {
-                const cert_on_disk = await _read_ssl_certificate(cert_info.dir);
-                if (cert_info.cert.key === cert_on_disk.key) {
-                    return false;
-                }
-
-                cert_info.cert = cert_on_disk;
-                cert_info.is_generated = false;
-                return true;
-
-            } catch (err) {
-                if (err.code !== 'ENOENT') {
-                    dbg.warn(`SSL certificate failed to update from dir ${cert_info.dir}:`, err.message);
-                }
-                return false;
-            }
-        })
-    );
-
-    const updatedList = await Promise.all(promiseList);
-    return updatedList.some(Boolean);
 }
 
 // Read SSL certificate form disk
@@ -125,6 +127,15 @@ function is_using_generated_certs() {
     );
 }
 
+function get_cert_dir(service) {
+    const cert_info = certs[service];
+    if (!cert_info) {
+        throw new Error(`Invalid service name, got: ${service}`);
+    }
+
+    return cert_info.dir;
+}
+
 // create a default certificate and start an https server to test it in the browser
 function run_https_test_server() {
     const server = https.createServer(generate_ssl_certificate());
@@ -144,8 +155,8 @@ function run_https_test_server() {
 
 exports.generate_ssl_certificate = generate_ssl_certificate;
 exports.verify_ssl_certificate = verify_ssl_certificate;
-exports.get_ssl_certificate = get_ssl_certificate;
+exports.get_ssl_cert_info = get_ssl_cert_info;
 exports.is_using_generated_certs = is_using_generated_certs;
-exports.update_certs_from_disk = update_certs_from_disk;
+exports.get_cert_dir = get_cert_dir;
 
 if (require.main === module) run_https_test_server();

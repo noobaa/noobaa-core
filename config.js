@@ -424,13 +424,6 @@ config.USAGE_AGGREGATOR_INTERVAL = 24 * 60 * 60 * 1000; // 24 hours
 
 config.BLOCK_STORE_USAGE_INTERVAL = 1 * 60 * 1000; // 1 minute
 
-///////////////////
-// AWS REPORTING //
-///////////////////
-config.AWS_METERING_ENABLED = true;
-config.AWS_METERING_INTERVAL = 60 * 60 * 1000; // 1 hour
-config.AWS_METERING_USAGE_DIMENSION = 'noobaa_usage';
-
 
 //////////////////
 // DEBUG CONFIG //

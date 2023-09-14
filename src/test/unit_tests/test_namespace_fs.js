@@ -25,8 +25,11 @@ const inspect = (x, max_arr = 5) => util.inspect(x, { colors: true, depth: null,
 // TODO: In order to verify validity add content_md5_mtime as well
 const XATTR_MD5_KEY = 'content_md5';
 const XATTR_DIR_CONTENT = 'user.noobaa.dir_content';
+const XATTR_CONTENT_TYPE = 'user.noobaa.content_type';
 
 const MAC_PLATFORM = 'darwin';
+const dir_content_type = 'application/x-directory';
+const stream_content_type = 'application/octet-stream';
 
 const DEFAULT_FS_CONFIG = {
     uid: process.getuid(),
@@ -155,12 +158,17 @@ mocha.describe('namespace_fs', function() {
         console.log(inspect(res));
     });
 
-    mocha.it('read_object_md succeed on directory head', async function() {
-        const res = await ns_src.read_object_md({
-            bucket: src_bkt,
-            key: src_key.substr(0, src_key.lastIndexOf('/')),
-        }, dummy_object_sdk);
-        console.log(inspect(res));
+    mocha.it('read_object_md succeed on directory head - not directory object - should fail', async function() {
+        try {
+            const res = await ns_src.read_object_md({
+                bucket: src_bkt,
+                key: src_key.substr(0, src_key.lastIndexOf('/')),
+            }, dummy_object_sdk);
+            console.log(inspect(res));
+            assert.fail('head should have failed with no such key');
+        } catch (err) {
+            assert.equal(err.code, 'ENOENT');
+        }
     });
 
     mocha.describe('read_object_stream', function() {
@@ -448,6 +456,7 @@ mocha.describe('namespace_fs', function() {
 
 });
 
+const add_user_prefix = user_xattr => _.mapKeys(user_xattr, (val, key) => 'user.' + key);
 
 
 mocha.describe('namespace_fs folders tests', function() {
@@ -649,7 +658,6 @@ mocha.describe('namespace_fs folders tests', function() {
             }, dummy_object_sdk, read_res);
             assert.equal(read_res.buffers.length, 1);
             assert.equal(read_res.total_length, 100);
-
             if (Object.keys(not_user_xattr).length) await set_xattr(DEFAULT_FS_CONFIG, ns_tmp_bucket_path + '/' + upload_key_2, not_user_xattr);
 
             const new_size = 0;
@@ -728,15 +736,27 @@ mocha.describe('namespace_fs folders tests', function() {
             await fs_utils.file_must_not_exist(p);
         });
 
+        mocha.it(`get folder object md - should fail, not a directory object`, async function() {
+            try {
+                await ns_tmp.read_object_md({
+                    bucket: upload_bkt,
+                    key: dir_1,
+                }, dummy_object_sdk);
+                assert.fail('get object should have failed with no such key');
+            } catch (err) {
+                assert.equal(err.code, 'ENOENT');
+            }
+        });
+
         mocha.it(`read folder object md missing md`, async function() {
-            const dir_path = ns_tmp_bucket_path + '/' + dir_1;
+            const dir_path = ns_tmp_bucket_path + '/' + upload_key_1;
             const get_md_res = await ns_tmp.read_object_md({
                 bucket: upload_bkt,
-                key: dir_1,
+                key: upload_key_1,
             }, dummy_object_sdk);
-            assert.equal(Object.keys(get_md_res.xattr).length, 0);
+            assert.deepEqual(get_md_res.xattr, md);
             const full_xattr = await get_xattr(dir_path);
-            assert.equal(Object.keys(full_xattr).length, 0);
+            assert.deepEqual(full_xattr, { ...user_md_and_dir_content_xattr, [XATTR_DIR_CONTENT]: obj_sizes_map[upload_key_1] });
         });
 
         mocha.it(`put /a/b/c folder object md exists`, async function() {
@@ -895,6 +915,7 @@ mocha.describe('namespace_fs folders tests', function() {
 //     }, dummy_object_sdk);
 //     console.log('delete_object with trailing / (key 2) response', inspect(delete_res));
 // });
+
 
 async function get_xattr(file_path) {
     const stat = await nb_native().fs.stat(DEFAULT_FS_CONFIG, file_path);
@@ -1066,6 +1087,8 @@ mocha.describe('namespace_fs copy object', function() {
     if (process.platform === MAC_PLATFORM) {
         tmp_fs_path = '/private/' + tmp_fs_path;
     }
+    const md1 = { key123: 'val123', key234: 'val234' };
+
     const dummy_object_sdk = make_dummy_object_sdk();
 
     const ns_tmp_bucket_path = `${tmp_fs_path}/${src_bkt}`;
@@ -1087,6 +1110,7 @@ mocha.describe('namespace_fs copy object', function() {
         const copy_xattr = {};
         const copy_key_1 = 'copy_key_1';
         const data = crypto.randomBytes(100);
+        const empty_data = crypto.randomBytes(0);
 
         mocha.before(async function() {
             const upload_res = await ns_tmp.upload_object({
@@ -1154,6 +1178,262 @@ mocha.describe('namespace_fs copy object', function() {
                 key: copy_key_1,
             }, dummy_object_sdk);
             console.log('delete_object: copy twice to the same file name response', inspect(delete_copy_res));
+        });
+
+
+        mocha.it(`copy directory object to same dir - size 100`, async function() {
+            const key = 'dir_to_copy_to_itself0/';
+            const res = await ns_tmp.upload_object({
+                bucket: upload_bkt,
+                key: key,
+                xattr: md1,
+                source_stream: buffer_utils.buffer_to_read_stream(data),
+                size: 100
+            }, dummy_object_sdk);
+            const file_path = ns_tmp_bucket_path + '/' + key;
+            let xattr = await get_xattr(file_path);
+            let read_md_res = await ns_tmp.read_object_md({
+                bucket: upload_bkt,
+                key: key
+            }, dummy_object_sdk);
+            assert.equal(stream_content_type, read_md_res.content_type);
+            assert.equal(res.etag, read_md_res.etag);
+            assert.deepStrictEqual(xattr, { ...add_user_prefix(read_md_res.xattr), [XATTR_DIR_CONTENT]: `${read_md_res.size}` });
+            md1[s3_utils.XATTR_SORT_SYMBOL] = true;
+            assert.deepStrictEqual(md1, read_md_res.xattr);
+
+            const new_content_type = 'application/x-directory1';
+            const copy_res = await ns_tmp.upload_object({
+                bucket: upload_bkt,
+                key,
+                copy_source: { bucket: upload_bkt, key},
+                size: 100,
+                content_type: new_content_type,
+                xattr_copy: true
+            }, dummy_object_sdk);
+            xattr = await get_xattr(file_path);
+            read_md_res = await ns_tmp.read_object_md({
+                bucket: upload_bkt,
+                key: key
+            }, dummy_object_sdk);
+            assert.equal(new_content_type, read_md_res.content_type);
+            assert.equal(copy_res.etag, read_md_res.etag);
+            assert.deepStrictEqual(md1, read_md_res.xattr);
+            assert.deepStrictEqual(xattr, {
+                ...add_user_prefix(read_md_res.xattr),
+                [XATTR_DIR_CONTENT]: `${read_md_res.size}`,
+                [XATTR_CONTENT_TYPE]: new_content_type
+            });
+        });
+
+        mocha.it(`override directory object - size 100 -> size 0`, async function() {
+            const key = 'dir_to_override0/';
+            let res = await ns_tmp.upload_object({
+                bucket: upload_bkt,
+                key: key,
+                xattr: md1,
+                source_stream: buffer_utils.buffer_to_read_stream(data),
+                size: 100
+            }, dummy_object_sdk);
+            const file_path = ns_tmp_bucket_path + '/' + key;
+            let xattr = await get_xattr(file_path);
+            let read_md_res = await ns_tmp.read_object_md({
+                bucket: upload_bkt,
+                key: key
+            }, dummy_object_sdk);
+            assert.equal(stream_content_type, read_md_res.content_type);
+            assert.equal(res.etag, read_md_res.etag);
+            assert.deepStrictEqual(xattr, { ...add_user_prefix(read_md_res.xattr), [XATTR_DIR_CONTENT]: `${read_md_res.size}` });
+            md1[s3_utils.XATTR_SORT_SYMBOL] = true;
+            assert.deepStrictEqual(md1, read_md_res.xattr);
+
+            res = await ns_tmp.upload_object({
+                bucket: upload_bkt,
+                key,
+                source_stream: buffer_utils.buffer_to_read_stream(empty_data),
+                size: 0,
+            }, dummy_object_sdk);
+            xattr = await get_xattr(file_path);
+            read_md_res = await ns_tmp.read_object_md({
+                bucket: upload_bkt,
+                key: key
+            }, dummy_object_sdk);
+            assert.equal(read_md_res.size, 0);
+            assert.equal(dir_content_type, read_md_res.content_type);
+            assert.equal(res.etag, read_md_res.etag);
+            assert.deepStrictEqual(0, Object.keys(read_md_res.xattr).length);
+            assert.deepStrictEqual(xattr, {
+                ...add_user_prefix(read_md_res.xattr),
+                [XATTR_DIR_CONTENT]: `${read_md_res.size}`
+            });
+        });
+
+
+        mocha.it(`copy directory object to same dir - size 0`, async function() {
+            const key = 'dir_to_copy_to_itself1/';
+            const new_content_type = 'application/x-directory2';
+
+            const res = await ns_tmp.upload_object({
+                bucket: upload_bkt,
+                key: key,
+                xattr: md1,
+                source_stream: buffer_utils.buffer_to_read_stream(empty_data),
+                size: 0
+            }, dummy_object_sdk);
+            const file_path = ns_tmp_bucket_path + '/' + key;
+            let xattr = await get_xattr(file_path);
+            let read_md_res = await ns_tmp.read_object_md({
+                bucket: upload_bkt,
+                key: key
+            }, dummy_object_sdk);
+            assert.equal(dir_content_type, read_md_res.content_type);
+            assert.equal(res.etag, read_md_res.etag);
+            assert.deepStrictEqual(xattr, { ...add_user_prefix(read_md_res.xattr), [XATTR_DIR_CONTENT]: `${read_md_res.size}` });
+            md1[s3_utils.XATTR_SORT_SYMBOL] = true;
+            assert.deepStrictEqual(md1, read_md_res.xattr);
+
+            const copy_res = await ns_tmp.upload_object({
+                bucket: upload_bkt,
+                key,
+                copy_source: { bucket: upload_bkt, key},
+                size: 0,
+                xattr: { k1: 'v1', k2: 'v2', k3: 'v3' },
+                content_type: new_content_type,
+            }, dummy_object_sdk);
+            xattr = await get_xattr(file_path);
+            read_md_res = await ns_tmp.read_object_md({
+                bucket: upload_bkt,
+                key
+            }, dummy_object_sdk);
+            assert.equal(new_content_type, read_md_res.content_type);
+            assert.equal(copy_res.etag, read_md_res.etag);
+            assert.deepStrictEqual(xattr, {
+                ...add_user_prefix(read_md_res.xattr),
+                [XATTR_DIR_CONTENT]: `${read_md_res.size}`,
+                [XATTR_CONTENT_TYPE]: new_content_type
+            });
+        });
+
+        mocha.it(`copy directory object to another dir`, async function() {
+            const key1 = 'dir_to_copy_to_itself2/';
+            const key2 = 'dir_to_copy_to_itself3/';
+
+            await ns_tmp.upload_object({
+                bucket: upload_bkt,
+                key: key1,
+                source_stream: buffer_utils.buffer_to_read_stream(data),
+                size: 100,
+                xattr: md1
+            }, dummy_object_sdk);
+            const file_path1 = ns_tmp_bucket_path + '/' + key1;
+            let xattr = await get_xattr(file_path1);
+            let read_md_res = await ns_tmp.read_object_md({
+                bucket: upload_bkt,
+                key: key1
+            }, dummy_object_sdk);
+            assert.deepStrictEqual(md1, read_md_res.xattr);
+            assert.deepStrictEqual(xattr, { ...add_user_prefix(read_md_res.xattr), [XATTR_DIR_CONTENT]: `${read_md_res.size}` });
+            assert.equal(stream_content_type, read_md_res.content_type);
+
+            await ns_tmp.upload_object({
+                bucket: upload_bkt,
+                key: key2,
+                copy_source: { bucket: upload_bkt, key: key1 },
+                size: 100,
+                xattr_copy: true
+            }, dummy_object_sdk);
+            const file_path2 = ns_tmp_bucket_path + '/' + key2;
+            xattr = await get_xattr(file_path2);
+            read_md_res = await ns_tmp.read_object_md({
+                bucket: upload_bkt,
+                key: key2
+            }, dummy_object_sdk);
+            assert.deepStrictEqual(xattr, { ...add_user_prefix(read_md_res.xattr), [XATTR_DIR_CONTENT]: `${read_md_res.size}` });
+            assert.deepStrictEqual(md1, read_md_res.xattr);
+            assert.equal(stream_content_type, read_md_res.content_type);
+
+        });
+
+        mocha.it(`copy object to a directory dir - size 100`, async function() {
+            const src_key = 'obj_to_copy1';
+            const dst_key = 'dir_obj_dst1/';
+
+            await ns_tmp.upload_object({
+                bucket: upload_bkt,
+                key: src_key,
+                source_stream: buffer_utils.buffer_to_read_stream(data),
+                size: 100,
+                xattr: md1
+            }, dummy_object_sdk);
+            const file_path1 = ns_tmp_bucket_path + '/' + src_key;
+            let xattr = await get_xattr(file_path1);
+            let read_md_res = await ns_tmp.read_object_md({
+                bucket: upload_bkt,
+                key: src_key
+            }, dummy_object_sdk);
+            assert.deepStrictEqual(md1, read_md_res.xattr);
+            assert.deepStrictEqual(xattr, { ...add_user_prefix(read_md_res.xattr) });
+            assert.equal(stream_content_type, read_md_res.content_type);
+
+            await ns_tmp.upload_object({
+                bucket: upload_bkt,
+                key: dst_key,
+                copy_source: { bucket: upload_bkt, key: src_key },
+                size: 100,
+                xattr_copy: true,
+            }, dummy_object_sdk);
+            const file_path2 = ns_tmp_bucket_path + '/' + dst_key;
+            xattr = await get_xattr(file_path2);
+            read_md_res = await ns_tmp.read_object_md({
+                bucket: upload_bkt,
+                key: dst_key
+            }, dummy_object_sdk);
+            assert.deepStrictEqual(xattr, { ...add_user_prefix(read_md_res.xattr), [XATTR_DIR_CONTENT]: `${read_md_res.size}` });
+            assert.deepStrictEqual(md1, read_md_res.xattr);
+            assert.equal(stream_content_type, read_md_res.content_type);
+
+        });
+
+        mocha.it(`copy object to a directory dir - size 0`, async function() {
+            const src_key = 'obj_to_copy2';
+            const dst_key = 'dir_obj_dst2/';
+
+            await ns_tmp.upload_object({
+                bucket: upload_bkt,
+                key: src_key,
+                source_stream: buffer_utils.buffer_to_read_stream(empty_data),
+                size: 0,
+                xattr: md1
+            }, dummy_object_sdk);
+            const file_path1 = ns_tmp_bucket_path + '/' + src_key;
+            let xattr = await get_xattr(file_path1);
+            const read_md_res = await ns_tmp.read_object_md({
+                bucket: upload_bkt,
+                key: src_key
+            }, dummy_object_sdk);
+
+            assert.deepStrictEqual(md1, read_md_res.xattr);
+            assert.deepStrictEqual(xattr, { ...add_user_prefix(read_md_res.xattr) });
+            assert.equal(stream_content_type, read_md_res.content_type);
+
+            await ns_tmp.upload_object({
+                bucket: upload_bkt,
+                key: dst_key,
+                copy_source: { bucket: upload_bkt, key: src_key },
+                size: 0,
+                xattr_copy: true
+            }, dummy_object_sdk);
+            const file_path2 = ns_tmp_bucket_path + '/' + dst_key;
+            xattr = await get_xattr(file_path2);
+            const copy_read_md_res = await ns_tmp.read_object_md({
+                bucket: upload_bkt,
+                key: dst_key
+            }, dummy_object_sdk);
+
+            assert.deepStrictEqual(xattr, { ...add_user_prefix(copy_read_md_res.xattr), [XATTR_DIR_CONTENT]: `${copy_read_md_res.size}` });
+            assert.deepStrictEqual(md1, copy_read_md_res.xattr);
+            assert.equal(dir_content_type, copy_read_md_res.content_type);
+
         });
 
         mocha.after(async function() {

@@ -27,7 +27,10 @@ const BucketSpaceFS = require('../sdk/bucketspace_fs');
 const SensitiveString = require('../util/sensitive_string');
 const endpoint_stats_collector = require('../sdk/endpoint_stats_collector');
 const { get_schema } = require('../api');
+const path = require('path');
+const json_utils = require('../util/json_utils');
 //const { RPC_BUFFERS } = require('../rpc');
+const pkg = require('../../package.json');
 
 const HELP = `
 Help:
@@ -104,9 +107,7 @@ function print_usage() {
 const IAM_JSON_SCHEMA = get_schema('account_api#/definitions/account_info');
 
 class NsfsObjectSDK extends ObjectSDK {
-
     constructor(fs_root, fs_config, account, versioning, config_root) {
-
         // const rpc_client_hooks = new_rpc_client_hooks();
         // rpc_client_hooks.account.read_account_by_access_key = async ({ access_key }) => {
         //     if (access_key) {
@@ -139,7 +140,6 @@ class NsfsObjectSDK extends ObjectSDK {
         if (!config_root) {
             this._get_bucket_namespace = bucket_name => this._get_single_bucket_namespace(bucket_name);
         }
-
     }
 
     async _get_single_bucket_namespace(bucket_name) {
@@ -193,7 +193,29 @@ class NsfsObjectSDK extends ObjectSDK {
     // async read_bucket_sdk_website_info() { return undefined; }
     // async read_bucket_sdk_namespace_info() { return undefined; }
     // async read_bucket_sdk_caching_info() { return undefined; }
+}
 
+async function init_nsfs_system(config_root) {
+    const system_data_path = path.join(config_root, 'system.json');
+    const system_data = new json_utils.JsonFileWrapper(system_data_path);
+
+    const data = await system_data.read();
+
+    // If the system data already exists, we should not create it again
+    if (data.current_version) return;
+
+    try {
+        await system_data.update({
+            current_version: pkg.version,
+            upgrade_history: {
+                successful_upgrades: [],
+                last_failure: undefined
+            },
+        });
+        console.log('created NSFS system data with version: ', pkg.version);
+    } catch (err) {
+        console.error('failed to create NSFS system data', err);
+    }
 }
 
 async function main(argv = minimist(process.argv.slice(2))) {
@@ -275,6 +297,8 @@ async function main(argv = minimist(process.argv.slice(2))) {
             config_root,
             iam_ttl,
         });
+
+        if (!simple_mode) await init_nsfs_system(config_root);
 
         const endpoint = require('../endpoint/endpoint');
         await endpoint.main({

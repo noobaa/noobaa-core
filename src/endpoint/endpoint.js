@@ -41,6 +41,8 @@ const background_scheduler = require('../util/background_scheduler').get_instanc
 const endpoint_stats_collector = require('../sdk/endpoint_stats_collector');
 const { NamespaceMonitor } = require('../server/bg_services/namespace_monitor');
 const { SemaphoreMonitor } = require('../server/bg_services/semaphore_monitor');
+const { CertWorker } = require('./cert_worker');
+
 
 if (process.env.NOOBAA_LOG_LEVEL) {
     const dbg_conf = debug_config.get_debug_config(process.env.NOOBAA_LOG_LEVEL);
@@ -81,6 +83,7 @@ dbg.log0('endpoint: replacing old umask: ', old_umask.toString(8), 'with new uma
 /**
  * @param {EndpointOptions} options
  */
+/* eslint-disable max-statements */
 async function main(options = {}) {
     try {
         // the primary just forks and returns, workers will continue to serve
@@ -189,6 +192,12 @@ async function main(options = {}) {
                 object_io: object_io,
             }));
         }
+
+        background_scheduler.register_bg_worker(new CertWorker({
+            name: 'certificate_worker',
+            https_server: https_server,
+            sts_server: https_server_sts,
+        }));
 
         // Start a monitor to send periodic endpoint reports about endpoint usage.
         start_monitor(internal_rpc_client, endpoint_group_id);

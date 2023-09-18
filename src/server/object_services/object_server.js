@@ -409,7 +409,7 @@ async function complete_object_upload(req) {
     const map_res =
         req.rpc_params.multiparts ?
         await _complete_object_multiparts(obj, req.rpc_params.multiparts) :
-        await _complete_object_parts(obj, req?.params?.num_parts);
+        await _complete_object_parts(obj, req.rpc_params.num_parts);
 
     if (req.rpc_params.size !== map_res.size) {
         if (req.rpc_params.size >= 0) {
@@ -1976,8 +1976,7 @@ async function _complete_object_parts(obj, num_parts) {
     if (num_parts === 1) {
         //skip db access if only one part
         //(this part is already ok in db, no need to fix it)
-        return {size: obj.size,
-                num_parts: 1};
+        return {size: obj.size, num_parts: 1};
     }
     const context = {
         pos: 0,

@@ -1,9 +1,9 @@
 /* Copyright (C) 2023 NooBaa */
 'use strict';
 
-const dbg = require('../util/debug_module')(__filename);
-const config = require('../../config.js');
-const ssl_utils = require('../util/ssl_utils');
+const dbg = require('../../util/debug_module')(__filename);
+const config = require('../../../config.js');
+const ssl_utils = require('../../util/ssl_utils');
 
 /**
  * Updates s3 https server(s) when certificate files are updated.
@@ -27,10 +27,10 @@ class CertWorker {
     }
 
     async run_batch() {
-        dbg.log2('certificate bg worker: running check for certificate update');
+        dbg.log2('cert_worker: running check for certificate update');
         if (await ssl_utils.update_certs_from_disk()) {
             //certificate were updated. give new cert to https servers.
-            dbg.log0('certificate bg worker: updating certs');
+            dbg.log0('cert_worker: updating certs');
             const ssl_cert = await ssl_utils.get_ssl_certificate('S3');
             const ssl_options = { ...ssl_cert, honorCipherOrder: true };
             this.https_server.setSecureContext(ssl_options);

@@ -41,7 +41,7 @@ const background_scheduler = require('../util/background_scheduler').get_instanc
 const endpoint_stats_collector = require('../sdk/endpoint_stats_collector');
 const { NamespaceMonitor } = require('../server/bg_services/namespace_monitor');
 const { SemaphoreMonitor } = require('../server/bg_services/semaphore_monitor');
-const { CertWorker } = require('./cert_worker');
+const { CertWorker } = require('../server/bg_services/cert_worker');
 
 
 if (process.env.NOOBAA_LOG_LEVEL) {
@@ -194,7 +194,7 @@ async function main(options = {}) {
         }
 
         background_scheduler.register_bg_worker(new CertWorker({
-            name: 'certificate_worker',
+            name: 'cert_worker',
             https_server: https_server,
             sts_server: https_server_sts,
         }));

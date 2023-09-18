@@ -2085,7 +2085,7 @@ class NamespaceFS {
      * @returns
      */
     async _is_path_in_bucket_boundaries(fs_context, entry_path) {
-        dbg.log1('check_bucket_boundaries: fs_context', fs_context, 'file_path', entry_path);
+        dbg.log1('check_bucket_boundaries: fs_context', fs_context, 'file_path', entry_path, 'this.bucket_path', this.bucket_path);
         if (!entry_path.startsWith(this.bucket_path)) {
             dbg.log0('check_bucket_boundaries: the path', entry_path, 'is not in the bucket', this.bucket_path, 'boundaries');
             return false;

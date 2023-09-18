@@ -22,8 +22,8 @@ const nb_native = require('../util/nb_native');
 //const RpcError = require('../rpc/rpc_error');
 const ObjectSDK = require('../sdk/object_sdk');
 const NamespaceFS = require('../sdk/namespace_fs');
+const BucketSpaceSimpleFS = require('../sdk/bucketspace_simple_fs');
 const BucketSpaceFS = require('../sdk/bucketspace_fs');
-const BucketSpaceMultiFS = require('../sdk/bucketspace_multi_fs');
 const SensitiveString = require('../util/sensitive_string');
 const endpoint_stats_collector = require('../sdk/endpoint_stats_collector');
 const { get_schema } = require('../api');
@@ -119,9 +119,9 @@ class NsfsObjectSDK extends ObjectSDK {
         // };
         let bucketspace;
         if (config_root) {
-            bucketspace = new BucketSpaceMultiFS({ fs_root, config_root });
+            bucketspace = new BucketSpaceFS({ config_root });
         } else {
-            bucketspace = new BucketSpaceFS({ fs_root });
+            bucketspace = new BucketSpaceSimpleFS({ fs_root });
         }
         super({
             rpc_client: null,
@@ -225,8 +225,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
         const backend = argv.backend || (process.env.GPFS_DL_PATH ? 'GPFS' : '');
         const versioning = argv.versioning || 'DISABLED';
 
-        const fs_root = argv._[0];
-        if (!fs_root) return print_usage();
+        const fs_root = argv._[0] || '';
 
         const fs_config = {
             uid,
@@ -240,7 +239,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
             access_keys: access_key && [{ access_key, secret_key }],
         };
 
-        if (!fs.existsSync(fs_root)) {
+        if (fs_root !== '' && !fs.existsSync(fs_root)) {
             console.error('Error: Root path not found', fs_root);
             return print_usage();
         }

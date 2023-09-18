@@ -10,7 +10,7 @@ const P = require('../../util/promise');
 const config = require('../../../config');
 const fs_utils = require('../../util/fs_utils');
 
-const BucketSpaceMultiFS = require('../../sdk/bucketspace_multi_fs');
+const BucketSpaceFS = require('../../sdk/bucketspace_fs');
 const NamespaceFS = require('../../sdk/namespace_fs');
 const nb_native = require('../../util/nb_native');
 
@@ -18,6 +18,15 @@ const nb_native = require('../../util/nb_native');
 const MAC_PLATFORM = 'darwin';
 const test_bucket = 'bucket1';
 const test_bucket_invalid = 'bucket_invalid';
+let tmp_fs_path = '/tmp/test_bucketspace_fs';
+if (process.platform === MAC_PLATFORM) {
+    tmp_fs_path = '/private/' + tmp_fs_path;
+}
+const config_root = path.join(tmp_fs_path, 'config_root');
+const buckets = 'buckets';
+const accounts = 'accounts';
+const new_buckets_path = path.join(tmp_fs_path, 'new_buckets_path', '/');
+const new_buckets_path_user1 = path.join(tmp_fs_path, 'new_buckets_path_user1', '/');
 
 const ACCOUNT_FS_CONFIG = {
     uid: 0,
@@ -44,36 +53,28 @@ const account_user1 = {
     nsfs_account_config: {
         uid: 0,
         gid: 0,
-        new_buckets_path: '/',
+        new_buckets_path: new_buckets_path_user1,
         nsfs_only: 'true'
     }
 };
-let tmp_fs_path = '/tmp/test_multi_fs';
-if (process.platform === MAC_PLATFORM) {
-    tmp_fs_path = '/private/' + tmp_fs_path;
-}
-const fs_root = path.join(tmp_fs_path, 'fs_root');
-const config_root = path.join(tmp_fs_path, 'config_root');
-const buckets = 'buckets';
-const accounts = 'accounts';
-const bucket_multi_fs = new BucketSpaceMultiFS({ fs_root, config_root });
+
+const bucketspace_fs = new BucketSpaceFS({ config_root });
 const dummy_object_sdk = make_dummy_object_sdk();
 const dummy_ns = {
     read_resources: [
       {
         resource: {
-            fs_root_path: fs_root,
+            fs_root_path: '',
         }
       },
     ],
     write_resource: {
         resource: {
-            fs_root_path: fs_root,
+            fs_root_path: '',
         },
       },
       should_create_underlying_storage: true
 };
-
 function make_dummy_object_sdk() {
     return {
         requesting_account: {
@@ -81,7 +82,7 @@ function make_dummy_object_sdk() {
             nsfs_account_config: {
                 uid: 0,
                 gid: 0,
-                new_buckets_path: '/',
+                new_buckets_path: new_buckets_path
             }
         },
         abort_controller: new AbortController(),
@@ -89,45 +90,44 @@ function make_dummy_object_sdk() {
             if (this.abort_controller.signal.aborted) throw new Error('request aborted signal');
         },
         read_bucket_sdk_namespace_info(name) {
-            dummy_ns.write_resource.path = name.toString();
+            dummy_ns.write_resource.path = path.join(new_buckets_path, name.toString());
             dummy_ns.read_resources[0].resource.name = name.toString();
             return dummy_ns;
         },
         _get_bucket_namespace(name) {
-            const buck_path = path.join(fs_root, name);
+            const buck_path = path.join(new_buckets_path, name);
             const dummy_nsfs = new NamespaceFS({ bucket_path: buck_path, bucket_id: '1', namespace_resource_id: undefined });
             return dummy_nsfs;
         },
         is_nsfs_bucket(ns) {
-            return Boolean(ns?.write_resource?.resource?.fs_root_path);
+            const fs_root_path = ns?.write_resource?.resource?.fs_root_path;
+            return Boolean(fs_root_path || fs_root_path === '');
         }
     };
 }
 
-mocha.describe('bucketspace_multi_fs', function() {
+mocha.describe('bucketspace_fs', function() {
     const dummy_data = {
         test: 'test',
     };
 
     mocha.before(async () => {
         await P.all(_.map([accounts, buckets], async dir =>
-           fs_utils.create_fresh_path(`${config_root}/${dir}`)));
-
-        await P.all(_.map([fs_root], async dir =>
-            fs_utils.create_fresh_path(`${dir}`)));
+            fs_utils.create_fresh_path(`${config_root}/${dir}`)));
+        await fs_utils.create_fresh_path(new_buckets_path);
         await fs.promises.writeFile(path.join(config_root, accounts,
             account_user1.access_keys[0].access_key + '.json'), JSON.stringify(account_user1));
     });
     mocha.after(async () => {
         fs_utils.folder_delete(`${config_root}`);
-        fs_utils.folder_delete(`${fs_root}`);
+        fs_utils.folder_delete(`${new_buckets_path}`);
     });
 
 
     mocha.describe('read_account_by_access_key', function() {
         mocha.it('read account by valid access key', async function() {
             const access_key = account_user1.access_keys[0].access_key.toString();
-            const res = await bucket_multi_fs.read_account_by_access_key({ access_key });
+            const res = await bucketspace_fs.read_account_by_access_key({ access_key });
             assert.strictEqual(res.email.unwrap(), account_user1.email);
             assert.strictEqual(res.access_keys[0].access_key.unwrap(), account_user1.access_keys[0].access_key);
         });
@@ -135,7 +135,7 @@ mocha.describe('bucketspace_multi_fs', function() {
         mocha.it('read account by invalid access key', async function() {
             try {
                 const access_key = account_user1.access_keys[0].access_key.toString() + 'invalid';
-                await bucket_multi_fs.read_account_by_access_key({ access_key });
+                await bucketspace_fs.read_account_by_access_key({ access_key });
             } catch (err) {
                 assert.ok(err.rpc_code === 'NO_SUCH_ACCOUNT');
             }
@@ -145,18 +145,18 @@ mocha.describe('bucketspace_multi_fs', function() {
     mocha.describe('create_bucket', function() {
         mocha.it('creat bucket and validate bucket folder and schema config', async function() {
             const param = { name: test_bucket};
-            await bucket_multi_fs.create_bucket(param, dummy_object_sdk);
+            await bucketspace_fs.create_bucket(param, dummy_object_sdk);
             const bucket_config_path = path.join(config_root, buckets, param.name + '.json');
             const stat1 = await fs.promises.stat(bucket_config_path);
             assert.equal(stat1.nlink, 1);
-            const objects = await nb_native().fs.readdir(ACCOUNT_FS_CONFIG, fs_root);
+            const objects = await nb_native().fs.readdir(ACCOUNT_FS_CONFIG, new_buckets_path);
             assert.equal(objects.length, 1);
             assert.ok(objects[0].name.startsWith(param.name));
         });
         mocha.it('validate bucket access with default context', async function() {
             try {
             const param = { name: test_bucket};
-            const invalid_objects = await nb_native().fs.readdir(DEFAULT_FS_CONFIG, path.join(fs_root, param.name));
+            const invalid_objects = await nb_native().fs.readdir(DEFAULT_FS_CONFIG, path.join(new_buckets_path, param.name));
             assert.equal(invalid_objects.length, 0);
             } catch (err) {
                 assert.ok(err.code === 'EACCES');
@@ -165,16 +165,15 @@ mocha.describe('bucketspace_multi_fs', function() {
         });
         mocha.it('validate bucket access with account specific context', async function() {
             const param = { name: test_bucket};
-            await await nb_native().fs.writeFile(ACCOUNT_FS_CONFIG, path.join(fs_root, param.name, 'dummy_data.json'),
+            await await nb_native().fs.writeFile(ACCOUNT_FS_CONFIG, path.join(new_buckets_path, param.name, 'dummy_data.json'),
             Buffer.from(JSON.stringify(dummy_data)), {
                 mode: config.BASE_MODE_FILE,
             });
-            const objects = await nb_native().fs.readdir(ACCOUNT_FS_CONFIG, path.join(fs_root, param.name));
+            const objects = await nb_native().fs.readdir(ACCOUNT_FS_CONFIG, path.join(new_buckets_path, param.name));
             assert.equal(objects.length, 1);
         });
         mocha.after(async function() {
-            await P.all(_.map([fs_root], async dir =>
-                await fs_utils.folder_delete(`${dir}/${test_bucket}`)));
+            await fs_utils.folder_delete(`${new_buckets_path}/${test_bucket}`);
             const file_path = path.join(config_root, buckets, test_bucket + '.json');
             await fs_utils.file_delete(file_path);
         });
@@ -185,36 +184,37 @@ mocha.describe('bucketspace_multi_fs', function() {
             await create_bucket(test_bucket);
         });
         mocha.it('list buckets', async function() {
-            const objects = await bucket_multi_fs.list_buckets(dummy_object_sdk);
+            const objects = await bucketspace_fs.list_buckets(dummy_object_sdk);
             assert.equal(objects.buckets.length, 1);
             assert.equal(objects.buckets[0].name.unwrap(), 'bucket1');
         });
         mocha.it('list buckets - only for bucket with config', async function() {
-            await fs_utils.create_path(`${fs_root}/${test_bucket_invalid}`);
-            const objects = await bucket_multi_fs.list_buckets(dummy_object_sdk);
+            await fs_utils.create_path(`${new_buckets_path}/${test_bucket_invalid}`);
+            const objects = await bucketspace_fs.list_buckets(dummy_object_sdk);
             assert.equal(objects.buckets.length, 1);
         });
         mocha.after(async function() {
-            await P.all(_.map([fs_root], async dir =>
-                await fs_utils.folder_delete(`${dir}/${test_bucket}`)));
+            await fs_utils.folder_delete(`${new_buckets_path}/${test_bucket}`);
             const file_path = path.join(config_root, buckets, test_bucket + '.json');
             await fs_utils.file_delete(file_path);
         });
     });
     mocha.describe('delete_bucket', function() {
         mocha.before(async function() {
-            create_bucket(test_bucket);
+            await create_bucket(test_bucket);
+            await fs_utils.file_must_exist(path.join(new_buckets_path, test_bucket));
+
         });
         mocha.it('delete_bucket with valid bucket name ', async function() {
-            const param = { name: test_bucket};
-            await bucket_multi_fs.delete_bucket(param, dummy_object_sdk);
-            const objects = await bucket_multi_fs.list_buckets(dummy_object_sdk);
+            const param = { name: test_bucket };
+            await bucketspace_fs.delete_bucket(param, dummy_object_sdk);
+            const objects = await bucketspace_fs.list_buckets(dummy_object_sdk);
             assert.equal(objects.buckets.length, 0);
         });
         mocha.it('delete_bucket with invalid bucket name ', async function() {
             try {
                 const param = { name: test_bucket_invalid};
-                await bucket_multi_fs.delete_bucket(param, dummy_object_sdk);
+                await bucketspace_fs.delete_bucket(param, dummy_object_sdk);
             } catch (err) {
                 assert.ok(err.code === 'NoSuchBucket');
             }
@@ -226,7 +226,7 @@ mocha.describe('bucketspace_multi_fs', function() {
         });
         mocha.it('set_bucket_versioning ', async function() {
             const param = {name: test_bucket, versioning: 'ENABLED'};
-            await bucket_multi_fs.set_bucket_versioning(param, dummy_object_sdk);
+            await bucketspace_fs.set_bucket_versioning(param, dummy_object_sdk);
             const data = await fs.promises.readFile(path.join(config_root, buckets, param.name + '.json'));
             const bucket = JSON.parse(data.toString());
             assert.equal(bucket.versioning, 'ENABLED');
@@ -241,9 +241,9 @@ mocha.describe('bucketspace_multi_fs', function() {
                 kms_key_id: 'kms-123'
             };
             const param = {name: test_bucket, encryption: encryption};
-            await bucket_multi_fs.put_bucket_encryption(param);
+            await bucketspace_fs.put_bucket_encryption(param);
 
-            const output_encryption = await bucket_multi_fs.get_bucket_encryption(param);
+            const output_encryption = await bucketspace_fs.get_bucket_encryption(param);
             assert.deepEqual(output_encryption, encryption);
         });
         mocha.it('delete_bucket_encryption ', async function() {
@@ -252,10 +252,10 @@ mocha.describe('bucketspace_multi_fs', function() {
                 kms_key_id: 'kms-123'
             };
             const param = {name: test_bucket};
-            const output_encryption = await bucket_multi_fs.get_bucket_encryption(param);
+            const output_encryption = await bucketspace_fs.get_bucket_encryption(param);
             assert.deepEqual(output_encryption, encryption);
-            await bucket_multi_fs.delete_bucket_encryption(param);
-            const empty_encryption = await bucket_multi_fs.get_bucket_encryption(param);
+            await bucketspace_fs.delete_bucket_encryption(param);
+            const empty_encryption = await bucketspace_fs.get_bucket_encryption(param);
             assert.ok(empty_encryption === undefined);
         });
     });
@@ -273,14 +273,14 @@ mocha.describe('bucketspace_multi_fs', function() {
                 ]
             };
             const param = {name: test_bucket, website: website};
-            await bucket_multi_fs.put_bucket_website(param);
-            const output_web = await bucket_multi_fs.get_bucket_website(param);
+            await bucketspace_fs.put_bucket_website(param);
+            const output_web = await bucketspace_fs.get_bucket_website(param);
             assert.deepEqual(output_web, website);
         });
         mocha.it('delete_bucket_website ', async function() {
             const param = {name: test_bucket};
-            await bucket_multi_fs.delete_bucket_website(param);
-            const output_web = await bucket_multi_fs.get_bucket_website(param);
+            await bucketspace_fs.delete_bucket_website(param);
+            const output_web = await bucketspace_fs.get_bucket_website(param);
             assert.ok(output_web === undefined);
         });
     });
@@ -299,14 +299,14 @@ mocha.describe('bucketspace_multi_fs', function() {
                     ]
                 };
             const param = {name: test_bucket, policy: policy};
-            await bucket_multi_fs.put_bucket_policy(param);
-            const output_web = await bucket_multi_fs.get_bucket_policy(param);
+            await bucketspace_fs.put_bucket_policy(param);
+            const output_web = await bucketspace_fs.get_bucket_policy(param);
             assert.deepEqual(output_web.policy, policy);
         });
         mocha.it('delete_bucket_policy ', async function() {
             const param = {name: test_bucket};
-            await bucket_multi_fs.delete_bucket_policy(param);
-            const output_web = await bucket_multi_fs.get_bucket_policy(param);
+            await bucketspace_fs.delete_bucket_policy(param);
+            const output_web = await bucketspace_fs.get_bucket_policy(param);
             assert.ok(output_web.policy === undefined);
         });
     });
@@ -314,7 +314,7 @@ mocha.describe('bucketspace_multi_fs', function() {
 
 async function create_bucket(bucket_name) {
     const param = { name: bucket_name};
-    await bucket_multi_fs.create_bucket(param, dummy_object_sdk);
+    await bucketspace_fs.create_bucket(param, dummy_object_sdk);
     const bucket_config_path = path.join(config_root, buckets, param.name + '.json');
     const stat1 = await fs.promises.stat(bucket_config_path);
     assert.equal(stat1.nlink, 1);

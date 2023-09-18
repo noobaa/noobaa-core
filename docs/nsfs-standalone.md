@@ -1,11 +1,11 @@
-# NSFS Multi FS Standalone
+# NSFS FS Standalone
 
-Running noobaa-core standalone is useful for development, testing, or deploying in Linux without depending on Kubernetes, NSFS multi FS is different from the normal standalone in such a way that it doesn't depend on the Noobaa postgres db. All the Global configurations, Accounts, and Bucket related schemas are saved in FS. And it gives a more lightweight flavor to the Noobaa standalone version. Permissions are handled by uid and gid.
+Running noobaa-core standalone is useful for development, testing, or deploying in Linux without depending on Kubernetes, NSFS FS is different from the simple standalone in such a way that it doesn't depend on the Noobaa postgres db. All the Global configurations, Accounts, and Bucket related schemas are saved in FS. And it gives a more lightweight flavor to the Noobaa standalone version. Permissions are handled by uid and gid.
 
-Users can switch between Noobaa standalone and NSFS multi FS standalone by adding/removing the argument `multi_fs_config_dir`.
+Users can switch between Noobaa standalone and NSFS FS standalone by adding/removing the argument `config_dir`.
 
 ```
-node src/cmd/nsfs ../standalon/nsfs_root --multi_fs_config_dir ../standalon/multi_fs_config
+node src/cmd/nsfs ../standalon/nsfs_root --config_dir ../standalon/fs_config
 
 ```
 
@@ -112,13 +112,13 @@ node src/cmd/nsfs ../standalon/nsfs_root --multi_fs_config_dir ../standalon/mult
     - Check uid/gid access to the bucket path
 
 ## Code Structure
-To simplify the flow new SDK `BucketSpaceMultiFS` is added for the NSFS multi FS standalone by extending the `BucketSpaceFS`. `BucketSpaceMultiFS` will handle all the multi FS related functionalities on the other hand `BucketSpaceFS` keeps serving existing NSFS standalone functionalities.
+To simplify the flow new SDK `BucketSpaceFS` is added for the NSFS FS standalone by extending the `BucketSpaceSimpleFS`. `BucketSpaceFS` will handle all the FS related functionalities on the other hand `BucketSpaceSimpleFS` keeps serving existing NSFS simple standalone functionalities.
 
-### BucketSpaceFS
+### BucketSpaceSimpleFS
 - simplified nsfs bucket manager - single root dir for all buckets under it, and a single account.
 - CLI: node nsfs /fsroot/
 
-### BucketSpaceMultiFS
-- Reuse the simple `BucketSpaceFS` code by extending it.
+### BucketSpaceFS
+- Reuse the simple `BucketSpaceSimpleFS` code by extending it.
 - Implements the requirements from the top.
-- CLI: node nsfs --multi_fs_config_directory /fs-config-root/
+- CLI: node nsfs --config_dir /fs-config-root/

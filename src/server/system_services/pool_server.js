@@ -1171,6 +1171,7 @@ function get_namespace_resource_extended_info(namespace_resource) {
         cp_code: namespace_resource.connection.cp_code || undefined,
         azure_log_access_keys: namespace_resource.connection.azure_log_access_keys,
         target_bucket: namespace_resource.connection.target_bucket,
+        region: namespace_resource.connection.region,
         access_key: namespace_resource.connection.access_key,
         secret_key: namespace_resource.connection.secret_key,
         access_mode: namespace_resource.access_mode,

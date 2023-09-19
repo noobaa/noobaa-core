@@ -467,7 +467,7 @@ class ObjectIO {
                     start: params.start,
                     end: params.start + chunk_info.size,
                     seq: params.seq,
-                    uncommitted: !params.complete_upload && (chunks.length > 1 || typeof params.multipart_id !== 'undefined'),
+                    uncommitted: typeof params.multipart_id === 'undefined' ? undefined : true,
                     // millistamp: time_utils.millistamp(),
                     // bucket: params.bucket,
                     // key: params.key,

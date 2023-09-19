@@ -201,9 +201,6 @@ module.exports = {
                             }
                         }
                     },
-                    force_md5_etag: {
-                        type: 'boolean'
-                    },
                     role_config: {
                         $ref: 'common_api#/definitions/role_config'
                     },
@@ -282,6 +279,9 @@ module.exports = {
                         type: 'string'
                     },
                     allow_bucket_creation: {
+                        type: 'boolean'
+                    },
+                    force_md5_etag: {
                         type: 'boolean'
                     },
                     nsfs_account_config: {

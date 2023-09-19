@@ -77,3 +77,9 @@ The following is an expected valid response -
 ```xml
 <?xml version="1.0" encoding="UTF-8"?><ListAllMyBucketsResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Owner><ID>123</ID><DisplayName>NooBaa</DisplayName></Owner><Buckets><Bucket><Name>bucket1</Name><CreationDate>2023-08-30T17:12:29.000Z</CreationDate></Bucket></Buckets></ListAllMyBucketsResult>
 ```
+
+## health
+Health status of the NSFS can be fetched using the command line.
+ ```
+ node usr/local/noobaa-core/src/cmd/health
+ ```

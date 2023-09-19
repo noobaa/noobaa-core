@@ -2,7 +2,11 @@
 /* eslint-disable no-undef */
 'use strict';
 
+// disabling init_rand_seed as it takes longer than the actual test execution
+process.env.DISABLE_INIT_RANDOM_SEED = "true";
+
 const { BucketDiff } = require('../../../server/utils/bucket_diff.js');
+const replication_utils = require('../../../server/utils/replication_utils');
 
 // @ts-ignore
 const mock_fn = jest.fn();
@@ -288,7 +292,7 @@ describe('_process_keys_in_range with version', () => {
             }
         };
         mock_fn2.mockRestore();
-        bucketDiff._get_object_md = mock_fn2.mockReturnValueOnce(metadata).mockReturnValueOnce(metadata);
+        replication_utils.get_object_md = mock_fn2.mockReturnValueOnce(metadata).mockReturnValueOnce(metadata);
     });
 
     it('case 3: should update keys_diff_map and keys_contents_left when etag appear only once in earlier version', async () => {
@@ -745,7 +749,7 @@ describe('_process_keys_in_range without version', () => {
             "4": [{ ETag: "etag4", Key: "4", Size: 400 }]
         };
 
-        bucketDiff._get_object_md = mock_fn2.mockReturnValueOnce('metadata').mockReturnValueOnce('metadata');
+        replication_utils.get_object_md = mock_fn2.mockReturnValueOnce('metadata').mockReturnValueOnce('metadata');
         const result = await bucketDiff._process_keys_in_range(ans, second_bucket_keys, second_bucket_cont_token);
 
         expect(result).toEqual({
@@ -1075,7 +1079,7 @@ describe('BucketDiff aiding functions', () => {
                 }
             };
             mock_fn2.mockRestore();
-            bucketDiff._get_object_md = mock_fn2.mockReturnValueOnce(first_metadata).mockReturnValueOnce(second_metadata);
+            replication_utils.get_object_md = mock_fn2.mockReturnValueOnce(first_metadata).mockReturnValueOnce(second_metadata);
             const result = await bucketDiff._is_same_user_metadata(
                 pos, cur_first_bucket_key, first_bucket_curr_obj, second_bucket_curr_obj);
             expect(result).toBe(true);
@@ -1084,7 +1088,7 @@ describe('BucketDiff aiding functions', () => {
         it('should return true when both metadata are undefined', async () => {
             const first_metadata = { Metadata: {} };
             const second_metadata = { Metadata: {} };
-            bucketDiff._get_object_md = mock_fn2.mockReturnValueOnce(first_metadata).mockReturnValueOnce(second_metadata);
+            replication_utils.get_object_md = mock_fn2.mockReturnValueOnce(first_metadata).mockReturnValueOnce(second_metadata);
             const result = await bucketDiff._is_same_user_metadata(
                 pos, cur_first_bucket_key, first_bucket_curr_obj, second_bucket_curr_obj);
             expect(result).toBe(true);
@@ -1097,7 +1101,7 @@ describe('BucketDiff aiding functions', () => {
                     custom_key: "metadata",
                 }
             };
-            bucketDiff._get_object_md = mock_fn2.mockReturnValueOnce(first_metadata).mockReturnValueOnce(second_metadata);
+            replication_utils.get_object_md = mock_fn2.mockReturnValueOnce(first_metadata).mockReturnValueOnce(second_metadata);
             const result = await bucketDiff._is_same_user_metadata(
                 pos, cur_first_bucket_key, first_bucket_curr_obj, second_bucket_curr_obj);
             expect(result).toBe(false);
@@ -1110,7 +1114,7 @@ describe('BucketDiff aiding functions', () => {
                 }
             };
             const second_metadata = { Metadata: {} };
-            bucketDiff._get_object_md = mock_fn2.mockReturnValueOnce(first_metadata).mockReturnValueOnce(second_metadata);
+            replication_utils.get_object_md = mock_fn2.mockReturnValueOnce(first_metadata).mockReturnValueOnce(second_metadata);
             const result = await bucketDiff._is_same_user_metadata(
                 pos, cur_first_bucket_key, first_bucket_curr_obj, second_bucket_curr_obj);
             expect(result).toBe(false);
@@ -1127,7 +1131,7 @@ describe('BucketDiff aiding functions', () => {
                     custom_key: "metadata2",
                 }
             };
-            bucketDiff._get_object_md = mock_fn2.mockReturnValueOnce(first_metadata).mockReturnValueOnce(second_metadata);
+            replication_utils.get_object_md = mock_fn2.mockReturnValueOnce(first_metadata).mockReturnValueOnce(second_metadata);
             const result = await bucketDiff._is_same_user_metadata(
                 pos, cur_first_bucket_key, first_bucket_curr_obj, second_bucket_curr_obj);
             expect(result).toBe(false);
@@ -1153,7 +1157,7 @@ describe('BucketDiff get_keys_diff case 3 with version', () => {
             for_replication: false
         });
         second_bucket_cont_token = '';
-        bucketDiff._get_object_md = mock_fn2.mockReturnValueOnce('metadata').mockReturnValueOnce('metadata');
+        replication_utils.get_object_md = mock_fn2.mockReturnValueOnce('metadata').mockReturnValueOnce('metadata');
     });
 
     afterEach(() => {
@@ -1209,7 +1213,7 @@ describe('BucketDiff get_keys_diff case 3 with version', () => {
                 custom_key: "metadata2",
             }
         };
-        bucketDiff._get_object_md = mock_fn2
+        replication_utils.get_object_md = mock_fn2
             .mockReturnValueOnce(first_metadata)
             .mockReturnValueOnce(second_metadata)
             .mockReturnValueOnce(first_metadata)
@@ -1432,7 +1436,7 @@ describe('BucketDiff get_keys_diff', () => {
             for_replication: false
         });
         second_bucket_cont_token = '';
-        bucketDiff._get_object_md = mock_fn2.mockReturnValueOnce('metadata').mockReturnValueOnce('metadata');
+        replication_utils.get_object_md = mock_fn2.mockReturnValueOnce('metadata').mockReturnValueOnce('metadata');
     });
 
     describe('get_keys_diff _process_keys_out_of_range flow', () => {
@@ -1580,7 +1584,7 @@ describe('BucketDiff get_buckets_diff', () => {
             current_first_bucket_cont_token: '',
             current_second_bucket_cont_token: '',
         };
-        bucketDiff._get_object_md = mock_fn2.mockReturnValueOnce('metadata').mockReturnValueOnce('metadata');
+        replication_utils.get_object_md = mock_fn2.mockReturnValueOnce('metadata').mockReturnValueOnce('metadata');
 
     });
 
@@ -1715,7 +1719,7 @@ describe('BucketDiff get_buckets_diff', () => {
         });
 
         bucketDiff._list_objects = mock_fn;
-        bucketDiff._get_object_md = mock_fn2
+        replication_utils.get_object_md = mock_fn2
             .mockResolvedValueOnce('metadata_key3')
             .mockResolvedValueOnce('metadata_key3')
             .mockResolvedValueOnce('metadata_key4')

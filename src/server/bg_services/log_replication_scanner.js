@@ -13,7 +13,6 @@ const cloud_utils = require('../../util/cloud_utils');
 const log_parser = require('./replication_log_parser');
 const replication_utils = require('../utils/replication_utils');
 
-// eslint-disable-next-line no-unused-vars
 class LogReplicationScanner {
 
     /**
@@ -87,7 +86,9 @@ class LogReplicationScanner {
 
                 dbg.log1('log_replication_scanner: candidates: ', candidates.items);
 
-                await this.process_candidates(src_bucket, dst_bucket, candidates.items);
+                const sync_versions = rule.sync_versions || false;
+
+                await this.process_candidates(src_bucket, dst_bucket, candidates.items, sync_versions);
 
                 // Commit will save the continuation token for the next scan
                 // This needs to be done only after the candidates were processed.
@@ -107,19 +108,32 @@ class LogReplicationScanner {
      * @param {*} src_bucket source bucket
      * @param {*} dst_bucket destination bucket
      * @param {nb.ReplicationLogCandidates} candidates 
+     * @param {boolean} sync_versions should we sync object versions
      */
-    async process_candidates(src_bucket, dst_bucket, candidates) {
+    async process_candidates(src_bucket, dst_bucket, candidates, sync_versions) {
+        return sync_versions ? this.process_candidates_sync_version(src_bucket, dst_bucket, candidates) :
+            this.process_candidates_not_sync_version(src_bucket, dst_bucket, candidates);
+    }
+
+    async process_candidates_sync_version(src_bucket, dst_bucket, candidates) {
+        // process_candidates_sync_version will redirect to process_candidates_not_sync_version 
+        // till we implement sync_version for log-based replication
+        dbg.warn('process_candidates_sync_version is not yet supported, replicating without sync_version');
+        return this.process_candidates_not_sync_version(src_bucket, dst_bucket, candidates);
+    }
+
+    async process_candidates_not_sync_version(src_bucket, dst_bucket, candidates) {
         const src_dst_objects_list = await this.head_objects(src_bucket.name, dst_bucket.name, candidates);
 
         dbg.log1('log_replication_scanner: process_candidates src_dst_objects_list: ', src_dst_objects_list);
 
-        const copy_keys = [];
+        const copy_keys = {};
         const delete_keys = [];
 
         for (const candidate of src_dst_objects_list) {
             const action = this.process_candidate(candidate);
             if (action === 'copy') {
-                copy_keys.push(candidate.key);
+                copy_keys[candidate.key] = candidate.src_object_info;
             } else if (action === 'delete') {
                 delete_keys.push(candidate.key);
             } else {
@@ -195,7 +209,14 @@ class LogReplicationScanner {
         return 'skip';
     }
 
-    async copy_objects(src_bucket_name, dst_bucket_name, keys) {
+    /**
+     * @param {any} src_bucket_name
+     * @param {any} dst_bucket_name
+     * @param {nb.BucketDiffKeysDiff | {}} keys_diff_map
+     */
+    async copy_objects(src_bucket_name, dst_bucket_name, keys_diff_map) {
+        if (!Object.keys(keys_diff_map).length) return;
+
         const copy_type = replication_utils.get_copy_type();
         await replication_utils.copy_objects(
             this._scanner_sem,
@@ -203,9 +224,9 @@ class LogReplicationScanner {
             copy_type,
             src_bucket_name.unwrap(),
             dst_bucket_name.unwrap(),
-            keys,
+            keys_diff_map,
         );
-        dbg.log2('log_replication_scanner: scan copy_objects: ', keys);
+        dbg.log2('log_replication_scanner: scan copy_objects: ', keys_diff_map);
     }
 
     async delete_objects(bucket_name, keys) {
@@ -239,33 +260,8 @@ class LogReplicationScanner {
 
                 const src_dst_object_info = await P.all(
                     [
-                        await this.noobaa_connection.headObject({
-                            Bucket: src_bucket_name.unwrap(),
-                            Key: key
-                        })
-                        .promise()
-                        .catch(err => {
-                            // We do expect to get NotFound error if the object was deleted
-                            if (err.code === 'NotFound') {
-                                return null;
-                            }
-
-                            throw err;
-                        }),
-
-                        await this.noobaa_connection.headObject({
-                            Bucket: dst_bucket_name.unwrap(),
-                            Key: key
-                        })
-                        .promise()
-                        .catch(err => {
-                            // We do expect to get NotFound error if the object hasn't been copied yet
-                            if (err.code === 'NotFound') {
-                                return null;
-                            }
-
-                            throw err;
-                        }),
+                        await replication_utils.get_object_md(src_bucket_name, key, this.noobaa_connection, undefined),
+                        await replication_utils.get_object_md(dst_bucket_name, key, this.noobaa_connection, undefined),
                     ]
                 );
 

@@ -164,12 +164,38 @@ class NamespaceGCP {
         return this._get_gcp_object_info(metadata);
     }
 
-    /**
-     * @returns {Promise<import('stream').Readable>}
-     */
     async read_object_stream(params, object_sdk) {
         dbg.log0('NamespaceGCP.read_object_stream:', this.bucket, inspect(_.omit(params, 'object_md.ns')));
-        throw new S3Error(S3Error.NotImplemented);
+        return new Promise((resolve, reject) => {
+            const file = this.gcs.bucket(this.bucket).file(params.key);
+            // https://googleapis.dev/nodejs/storage/latest/File.html#createReadStream
+            // for the options of createReadStream: 
+            // https://googleapis.dev/nodejs/storage/latest/global.html#CreateReadStreamOptions
+            const options = {
+                start: params.start,
+                end: params.end,
+            };
+            const read_stream = file.createReadStream(options);
+
+            // upon error reject the promise
+            read_stream.on('error', reject);
+            // upon response resolve the promise using the count_stream piped from read_stream
+            read_stream.on('response', () => {
+                let count = 1;
+                const count_stream = stream_utils.get_tap_stream(data => {
+                    this.stats_collector.update_namespace_write_stats({
+                        namespace_resource_id: this.namespace_resource_id,
+                        bucket_name: params.bucket,
+                        size: data.length,
+                        count
+                    });
+                    // clear count for next updates
+                    count = 0;
+                });
+                stream_utils.pipeline([read_stream, count_stream], true);
+                resolve(count_stream);
+            });
+        });
     }
 
 

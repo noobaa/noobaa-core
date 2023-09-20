@@ -234,7 +234,8 @@ class ObjectSDK {
     }
 
     is_nsfs_bucket(ns) {
-        return Boolean(ns?.write_resource?.resource?.fs_root_path);
+        const fs_root_path = ns?.write_resource?.resource?.fs_root_path;
+        return Boolean(fs_root_path || fs_root_path === '');
     }
 
     // validates requests for non nsfs buckets from accounts which are nsfs_only 
@@ -432,7 +433,7 @@ class ObjectSDK {
                 stats: this.stats,
             });
         }
-        if (r.fs_root_path) {
+        if (r.fs_root_path || r.fs_root_path === '') {
             return new NamespaceFS({
                 fs_backend: r.fs_backend,
                 bucket_path: path.join(r.fs_root_path, p || ''),

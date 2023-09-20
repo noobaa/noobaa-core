@@ -12,6 +12,7 @@ const azure_storage = require('../util/azure_storage_wrap');
 const stream_utils = require('../util/stream_utils');
 const s3_utils = require('../endpoint/s3/s3_utils');
 const schema_utils = require('../util/schema_utils');
+const S3Error = require('../endpoint/s3/s3_errors').S3Error;
 const invalid_azure_md_regex = /[^a-zA-Z0-9_]/g;
 const invalid_azure_tag_regex = /[^a-zA-Z0-9 +-.:=_/]/g;
 const XATTR_RENAME_PREFIX = 'rename_';
@@ -823,6 +824,14 @@ class NamespaceBlob {
         dbg.log0('NamespaceBlob.put_object_tagging:', this.container, inspect(params), 'res', inspect(res));
 
         return {};
+    }
+
+    ////////////////////
+    // OBJECT RESTORE //
+    ////////////////////
+
+    async restore_object(params, object_sdk) {
+        throw new S3Error(S3Error.NotImplemented);
     }
 
     ///////////////////

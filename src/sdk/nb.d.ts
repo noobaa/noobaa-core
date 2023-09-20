@@ -806,6 +806,7 @@ interface Namespace {
     commit_blob_block_list(params: object, object_sdk: ObjectSDK): Promise<any>;
     get_blob_block_lists(params: object, object_sdk: ObjectSDK): Promise<any>;
 
+    restore_object(params: object, object_sdk: ObjectSDK): Promise<any>;
 }
 
 interface BucketSpace {

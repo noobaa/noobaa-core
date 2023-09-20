@@ -1705,6 +1705,15 @@ class NamespaceFS {
         throw new Error('TODO');
     }
 
+    ////////////////////
+    // OBJECT RESTORE //
+    ////////////////////
+
+    async restore_object(params, object_sdk) {
+        dbg.log0('restore_object', params);
+        throw new Error('TODO');
+    }
+
     ///////////////
     // INTERNALS //
     ///////////////

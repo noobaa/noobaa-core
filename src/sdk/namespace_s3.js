@@ -11,6 +11,7 @@ const s3_utils = require('../endpoint/s3/s3_utils');
 const cloud_utils = require('../util/cloud_utils');
 const stream_utils = require('../util/stream_utils');
 const blob_translator = require('./blob_translator');
+const S3Error = require('../endpoint/s3/s3_errors').S3Error;
 
 /**
  * @implements {nb.Namespace}
@@ -716,6 +717,14 @@ class NamespaceS3 {
     }
     async delete_uls() {
         throw new Error('TODO');
+    }
+
+    ////////////////////
+    // OBJECT RESTORE //
+    ////////////////////
+
+    async restore_object(params, object_sdk) {
+        throw new S3Error(S3Error.NotImplemented);
     }
 
     ///////////////

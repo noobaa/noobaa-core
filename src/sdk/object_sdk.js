@@ -830,6 +830,15 @@ class ObjectSDK {
         return ns.get_object_tagging(params, this);
     }
 
+    ////////////////////
+    // OBJECT RESTORE //
+    ////////////////////
+
+    async restore_object(params) {
+        const ns = await this._get_bucket_namespace(params.bucket);
+        return ns.restore_object(params, this);
+    }
+
     ////////////
     // BUCKET //
     ////////////

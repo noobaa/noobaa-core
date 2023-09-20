@@ -389,6 +389,14 @@ class NamespaceGCP {
         throw new Error('TODO');
     }
 
+    ////////////////////
+    // OBJECT RESTORE //
+    ////////////////////
+
+    async restore_object(params, object_sdk) {
+        throw new S3Error(S3Error.NotImplemented);
+    }
+
     ///////////////
     // INTERNALS //
     ///////////////

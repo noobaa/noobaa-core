@@ -344,6 +344,14 @@ class NamespaceMerge {
         throw new Error('TODO');
     }
 
+    ////////////////////
+    // OBJECT RESTORE //
+    ////////////////////
+
+    async restore_object(params, object_sdk) {
+        // Instead of iterating over the namespaces, directly throw the error for now
+        throw new S3Error(S3Error.NotImplemented);
+    }
 
     //////////////
     // INTERNAL //

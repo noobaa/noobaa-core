@@ -51,6 +51,7 @@ exports.post_bucket_delete = require('./s3_post_bucket_delete');
 exports.post_object_uploadId = require('./s3_post_object_uploadId');
 exports.post_object_uploads = require('./s3_post_object_uploads');
 exports.post_object_select = require('./s3_post_object_select');
+exports.post_object_restore = require('./s3_post_object_restore');
 exports.put_bucket = require('./s3_put_bucket');
 exports.put_bucket_accelerate = require('./s3_put_bucket_accelerate');
 exports.put_bucket_acl = require('./s3_put_bucket_acl');

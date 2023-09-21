@@ -29,6 +29,13 @@ function get_tap_stream(func) {
 }
 
 const async_pipeline = util.promisify(stream.pipeline);
+
+/**
+ * 
+ * @param {(stream.Readable | stream.Writable | stream.Duplex)[]} streams 
+ * @param {boolean} reuse_last_stream 
+ * @returns {Promise<void>}
+ */
 async function pipeline(streams, reuse_last_stream) {
     if (!streams || !streams.length) throw new Error('Pipeline called without streams');
     if (streams.find(strm => strm.destroyed)) {

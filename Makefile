@@ -195,7 +195,7 @@ build-ssl-postgres: tester
 	$(CONTAINER_ENGINE) build $(CONTAINER_PLATFORM_FLAG) $(CPUSET) --build-arg HOST=ssl-pg-$(GIT_COMMIT)-$(NAME_POSTFIX) -f src/deploy/NVA_build/SSLPostgres.Dockerfile $(CACHE_FLAG) $(NETWORK_FLAG) -t postgres:ssl . $(REDIRECT_STDOUT)
 	@echo "\033[1;32mBuild SSL Postgres done.\033[0m"
 	@echo "##\033[1;32m Build image postgres:ssl done.\033[0m"
-.PHONY: build-postgres
+.PHONY: build-ssl-postgres
 
 test: tester
 	@echo "\033[1;34mRunning tests with Mongo.\033[0m"

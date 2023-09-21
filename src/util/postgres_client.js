@@ -1434,6 +1434,14 @@ class PostgresClient extends EventEmitter {
         }
         // TODO: check the effect of max clients. default is 10
         this.new_pool_params.max = config.POSTGRES_MAX_CLIENTS;
+        // As we now also support external DB we don't want to print secret user data
+        // so this code will mask out passwords from the printed pool params
+        this.print_pool_params = _.omit(this.print_pool_params, 'password');
+        if (this.new_pool_params.connectionString) {
+            const original = this.new_pool_params.connectionString;
+            const masked = original.replace(/\/\/(.*?):(.*?)@/, '//$1:*****@');
+            this.print_pool_params.connectionString = masked;
+        }
 
         PostgresClient.implements_interface(this);
         this._ajv = new Ajv({ verbose: true, allErrors: true });
@@ -1573,7 +1581,7 @@ class PostgresClient extends EventEmitter {
     async connect(skip_init_db) {
         this._disconnected_state = false;
         if (this._connect_promise) return this._connect_promise;
-        dbg.log0('connect called, current url', this.new_pool_params);
+        dbg.log0('connect called, current url', this.print_pool_params);
         this._connect_promise = this._connect(skip_init_db);
         return this._connect_promise;
     }
@@ -1593,14 +1601,14 @@ class PostgresClient extends EventEmitter {
             try {
                 if (this._disconnected_state) return;
                 if (this.pool) return;
-                dbg.log0('_connect: called with', this.new_pool_params);
+                dbg.log0('_connect: called with', this.print_pool_params);
                 // this._set_connect_timeout();
                 // client = await mongodb.MongoClient.connect(this.url, this.config);
                 pool = new Pool(this.new_pool_params);
                 if (skip_init_db !== 'skip_init_db') {
                     await this._init_collections(pool);
                 }
-                dbg.log0('_connect: connected', this.new_pool_params);
+                dbg.log0('_connect: connected', this.print_pool_params);
                 // this._reset_connect_timeout();
                 this.pool = pool;
                 this.pool.on('error', err => {
@@ -1625,9 +1633,11 @@ class PostgresClient extends EventEmitter {
     }
 
     async _load_ssl_certs() {
-        const ssl_cert = await ssl_utils.get_ssl_certificate('EXTERNAL_DB');
+        const ssl_cert = await ssl_utils.get_ssl_certificate('EXTERNAL_DB') || {};
         /** @type {import('tls').ConnectionOptions} */
         this.new_pool_params.ssl = { ...ssl_cert, rejectUnauthorized: !process.env.POSTGRES_SSL_UNAUTHORIZED };
+        // this will mask out unwanted prints of user certificate
+        this.print_pool_params.ssl = { rejectUnauthorized: !process.env.POSTGRES_SSL_UNAUTHORIZED };
     }
 
     define_gridfs(bucket) {

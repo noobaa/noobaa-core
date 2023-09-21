@@ -235,6 +235,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
         bucket.should_create_underlying_storage = true;
         bucket.force_md5_etag = params.force_md5_etag;
         bucket.bucket_owner = sdk.requesting_account.email;
+        bucket.creation_date = new Date().toISOString();
         const create_bucket = JSON.stringify(bucket);
 
         // TODO: handle both bucket config json and directory creation atomically 

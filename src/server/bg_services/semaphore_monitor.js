@@ -34,7 +34,7 @@ class SemaphoreMonitor {
 
     run_semaphore_monitor() {
         try {
-            this.sample_object_io_semaphore();
+            if (config.ENABLE_OBJECT_IO_SEMAPHORE_MONITOR) this.sample_object_io_semaphore();
             this.sample_nsfs_semaphore();
         } catch (err) {
             dbg.error('semaphore_monitor:', err, err.stack);

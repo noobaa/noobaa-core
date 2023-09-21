@@ -222,6 +222,8 @@ async function main(argv = minimist(process.argv.slice(2))) {
     try {
         config.DB_TYPE = 'none';
         config.NSFS_VERSIONING_ENABLED = true;
+        // when using data buckets on noobaa standalone we should set it to true
+        config.ENABLE_OBJECT_IO_SEMAPHORE_MONITOR = false;
 
         if (argv.help || argv.h) return print_usage();
         if (argv.debug) {

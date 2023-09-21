@@ -63,9 +63,11 @@ function get_ssl_certificate(service) {
             } else {
                 dbg.error(`SSL certificate failed to load from dir ${cert_info.dir}:`, err.message);
             }
-            dbg.warn(`Generating self-signed SSL certificate for ${service}`);
-            cert_info.cert = generate_ssl_certificate();
-            cert_info.is_generated = true;
+            if (service !== 'EXTERNAL_DB') {
+                dbg.warn(`Generating self-signed SSL certificate for ${service}`);
+                cert_info.cert = generate_ssl_certificate();
+                cert_info.is_generated = true;
+            }
         }
 
         cert_info.is_loaded = true;

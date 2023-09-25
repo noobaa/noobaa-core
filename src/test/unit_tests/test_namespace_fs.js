@@ -19,6 +19,7 @@ const NamespaceFS = require('../../sdk/namespace_fs');
 const buffer_utils = require('../../util/buffer_utils');
 const test_ns_list_objects = require('./test_ns_list_objects');
 const endpoint_stats_collector = require('../../sdk/endpoint_stats_collector');
+const { S3Error } = require('../../endpoint/s3/s3_errors');
 
 const inspect = (x, max_arr = 5) => util.inspect(x, { colors: true, depth: null, maxArrayLength: max_arr });
 
@@ -446,6 +447,154 @@ mocha.describe('namespace_fs', function() {
         });
     });
 
+    mocha.describe('restore_object', function() {
+        const restore_key = 'restore_key_1';
+        const data = crypto.randomBytes(100);
+
+        mocha.describe('GLACIER storage class not supported', function() {
+            mocha.before(async function() {
+                const upload_res = await ns_tmp.upload_object({
+                    bucket: upload_bkt,
+                    key: restore_key,
+                    source_stream: buffer_utils.buffer_to_read_stream(data)
+                }, dummy_object_sdk);
+
+                console.log('upload_object response', inspect(upload_res));
+            });
+
+            mocha.it('fails to issue restore-object', async function() {
+                try {
+                    await ns_tmp.restore_object({
+                        bucket: upload_bkt,
+                        key: restore_key,
+                        days: 1,
+                    }, dummy_object_sdk);
+
+                    assert.fail('restore_object should fail');
+                } catch (err) {
+                    assert.strictEqual(err instanceof S3Error, true);
+                    assert.strictEqual(err.code, S3Error.StorageClassNotImplemented.code);
+                    assert.strictEqual(err.message, S3Error.StorageClassNotImplemented.message);
+                    assert.strictEqual(err.http_code, S3Error.StorageClassNotImplemented.http_code);
+                }
+            });
+
+            mocha.after(async function() {
+                const delete_res = await ns_tmp.delete_object({
+                    bucket: upload_bkt,
+                    key: restore_key,
+                }, dummy_object_sdk);
+
+                console.log('delete_object response', inspect(delete_res));
+            });
+        });
+
+        mocha.describe('GLACIER storage class supported', function() {
+            const temp_restore_key = 'restore_key_1_glacier';
+
+            mocha.before(async function() {
+                // Monkey patch the _is_storage_class_supported function to return true
+                ns_tmp._is_storage_class_supported = async () => true;
+
+                const upload_res = await ns_tmp.upload_object({
+                    bucket: upload_bkt,
+                    key: restore_key,
+                    source_stream: buffer_utils.buffer_to_read_stream(data)
+                }, dummy_object_sdk);
+
+                console.log('upload_object response', inspect(upload_res));
+                const upload_res_2 = await ns_tmp.upload_object({
+                    bucket: upload_bkt,
+                    key: temp_restore_key,
+                    source_stream: buffer_utils.buffer_to_read_stream(data),
+                    storage_class: s3_utils.STORAGE_CLASS_GLACIER,
+                }, dummy_object_sdk);
+
+                console.log('upload_object response 2', inspect(upload_res_2));
+            });
+
+            mocha.it('fails when the uploaded object is not in GLACIER storage class', async function() {
+                try {
+                    await ns_tmp.restore_object({
+                        bucket: upload_bkt,
+                        key: restore_key,
+                        days: 1,
+                    }, dummy_object_sdk);
+
+                    assert.fail('restore_object should fail');
+                } catch (err) {
+                    assert.strictEqual(err instanceof S3Error, true);
+                    assert.strictEqual(err.code, S3Error.InvalidObjectStorageClass.code);
+                    assert.strictEqual(err.message, S3Error.InvalidObjectStorageClass.message);
+                    assert.strictEqual(err.http_code, S3Error.InvalidObjectStorageClass.http_code);
+                }
+            });
+
+            mocha.it('succeeds when object is in GLACIER storage class', async function() {
+                const restore_res = await ns_tmp.restore_object({
+                    bucket: upload_bkt,
+                    key: temp_restore_key,
+                    days: 1,
+                }, dummy_object_sdk);
+
+                console.log('restore_object response', inspect(restore_res));
+
+                const restore_objectmd = await ns_tmp.read_object_md({
+                    bucket: upload_bkt,
+                    key: temp_restore_key,
+                    days: 1,
+                }, dummy_object_sdk);
+
+                assert.strictEqual(restore_objectmd.storage_class, s3_utils.STORAGE_CLASS_GLACIER);
+                assert.strictEqual(restore_objectmd.restore_status.ongoing, true);
+                assert.strictEqual(restore_objectmd.restore_status.expiry_time, undefined);
+
+                // Don't leak the xattrs to the user
+                assert.strictEqual(restore_objectmd.xattr['user.noobaa.restore.request'], undefined);
+                assert.strictEqual(restore_objectmd.xattr['user.noobaa.restore.ongoing'], undefined);
+                assert.strictEqual(restore_objectmd.xattr['user.noobaa.restore.expiry'], undefined);
+
+                const xattr = await get_xattr(path.join(ns_tmp_bucket_path, temp_restore_key));
+                assert.strictEqual(xattr['user.noobaa.restore.request'], '1');
+                assert.strictEqual(xattr['user.noobaa.restore.ongoing'], undefined);
+                assert.strictEqual(xattr['user.noobaa.restore.expiry'], undefined);
+
+                // disallows duplicate restore requests
+                try {
+                    await ns_tmp.restore_object({
+                        bucket: upload_bkt,
+                        key: temp_restore_key,
+                        days: 1,
+                    }, dummy_object_sdk);
+
+                    assert.fail('restore_object should fail');
+                } catch (err) {
+                    assert.strictEqual(err instanceof S3Error, true);
+                    assert.strictEqual(err.code, S3Error.RestoreAlreadyInProgress.code);
+                    assert.strictEqual(err.message, S3Error.RestoreAlreadyInProgress.message);
+                    assert.strictEqual(err.http_code, S3Error.RestoreAlreadyInProgress.http_code);
+                }
+            });
+
+
+            mocha.after(async function() {
+                const delete_res = await ns_tmp.delete_object({
+                    bucket: upload_bkt,
+                    key: restore_key,
+                }, dummy_object_sdk);
+                console.log('delete_object response', inspect(delete_res));
+
+                const delete_res_2 = await ns_tmp.delete_object({
+                        bucket: upload_bkt,
+                        key: temp_restore_key,
+                }, dummy_object_sdk);
+                console.log('delete_object response 2', inspect(delete_res_2));
+
+                // Restore the _is_storage_class_supported function
+                ns_tmp._is_storage_class_supported = NamespaceFS.prototype._is_storage_class_supported;
+            });
+        });
+    });
 });
 
 

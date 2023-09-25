@@ -224,6 +224,10 @@ const static std::vector<std::string> USER_XATTRS{
     "user.prev_version_id",
     "user.delete_marker",
     "user.dir_content",
+    "user.storage_class",
+    "user.noobaa.restore.request",
+    "user.noobaa.restore.ongoing",
+    "user.noobaa.restore.expiry",
 };
 
 struct Entry

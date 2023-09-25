@@ -271,6 +271,17 @@ function set_response_object_md(res, object_md) {
     if (storage_class !== STORAGE_CLASS_STANDARD) {
         res.setHeader('x-amz-storage-class', storage_class);
     }
+    if (object_md.restore_status) {
+        const restore = [`ongoing-request="${object_md.restore_status.ongoing}"`];
+        if (!object_md.restore_status.ongoing && object_md.restore_status.expiry_time) {
+            // Expiry time is in UTC format
+            const expiry_date = new Date(object_md.restore_status.expiry_time).toUTCString();
+
+            restore.push(`expiry-date="${expiry_date}"`);
+        }
+
+        res.setHeader('x-amz-restore', restore);
+    }
 }
 
 /**
@@ -590,6 +601,21 @@ function response_field_encoder_url(value) {
     return new URLSearchParams({ 'a': value }).toString().slice(2); // slice the leading 'a='
 }
 
+/**
+ * parse_decimal_int consumes a string a returns a decimal integer if
+ * the string represents a valid decimal integer.
+ * @param {string} str
+ * @returns {number}
+ */
+function parse_decimal_int(str) {
+    const parsed = parseInt(str, 10);
+    // If both return NaN or if parseInt tries to parse a string like '123abc'
+    // or if Number tries to parse an empty string, then parsed !== Number(str)
+    if (parsed !== Number(str)) throw new Error(`invalid decimal int ${str}`);
+
+    return parsed;
+}
+
 exports.STORAGE_CLASS_STANDARD = STORAGE_CLASS_STANDARD;
 exports.STORAGE_CLASS_GLACIER = STORAGE_CLASS_GLACIER;
 exports.STORAGE_CLASS_GLACIER_IR = STORAGE_CLASS_GLACIER_IR;
@@ -622,3 +648,4 @@ exports.get_http_response_from_resp = get_http_response_from_resp;
 exports.get_http_response_date = get_http_response_date;
 exports.XATTR_SORT_SYMBOL = XATTR_SORT_SYMBOL;
 exports.get_response_field_encoder = get_response_field_encoder;
+exports.parse_decimal_int = parse_decimal_int;

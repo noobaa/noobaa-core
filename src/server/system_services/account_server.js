@@ -4,7 +4,6 @@
 const P = require('../../util/promise');
 const _ = require('lodash');
 const net = require('net');
-const AWS = require('aws-sdk');
 const chance = require('chance')();
 const GoogleStorage = require('../../util/google_storage_wrap');
 const bcrypt = require('bcrypt');
@@ -14,7 +13,6 @@ const config = require('../../../config');
 const dbg = require('../../util/debug_module')(__filename);
 const { RpcError } = require('../../rpc');
 const Dispatcher = require('../notifications/dispatcher');
-const http_utils = require('../../util/http_utils');
 const SensitiveString = require('../../util/sensitive_string');
 const cloud_utils = require('../../util/cloud_utils');
 const auth_server = require('../common_services/auth_server');
@@ -27,6 +25,7 @@ const usage_aggregator = require('../bg_services/usage_aggregator');
 const { OP_NAME_TO_ACTION } = require('../../endpoint/sts/sts_rest');
 const { Durations, LogsQueryClient } = require('@azure/monitor-query');
 const { ClientSecretCredential } = require("@azure/identity");
+const noobaa_s3_client = require('../../sdk/noobaa_s3_client/noobaa_s3_client');
 
 
 const demo_access_keys = Object.freeze({
@@ -1083,34 +1082,33 @@ async function check_aws_connection(params) {
     }
     const s3_params = {
         endpoint: params.endpoint,
-        accessKeyId: params.identity.unwrap(),
-        secretAccessKey: params.secret.unwrap(),
-        sessionToken: params.sessionToken,
+        credentials: {
+            accessKeyId: params.identity.unwrap(),
+            secretAccessKey: params.secret.unwrap(),
+            sessionToken: params.sessionToken,
+        },
         signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(params.endpoint, params.auth_method),
-        s3DisableBodySigning: cloud_utils.disable_s3_compatible_bodysigning(params.endpoint),
-        httpOptions: {
-            agent: http_utils.get_unsecured_agent(params.endpoint)
-        }
+        requestHandler: noobaa_s3_client.get_requestHandler_with_suitable_agent(params.endpoint),
+        region: params.region || config.DEFAULT_REGION
     };
-    if (params.region) s3_params.region = params.region;
-    const s3 = new AWS.S3(s3_params);
-
+    const s3 = noobaa_s3_client.get_s3_client_v3_params(s3_params);
     const timeoutError = Object.assign(
         new Error('Operation timeout'), { code: 'OperationTimeout' }
     );
 
     try {
-        await P.timeout(check_connection_timeout, s3.listBuckets().promise(), () => timeoutError);
+        await P.timeout(check_connection_timeout, s3.listBuckets({}), () => timeoutError);
         return { status: 'SUCCESS' };
     } catch (err) {
+        const error_code = err.Code || err.code;
         dbg.warn(`got error on listBuckets with params`, _.omit(params, 'secret'),
-            ` error: ${err}, code: ${err.code}, message: ${err.message}`
+            ` error: ${err}, code: ${error_code}, message: ${err.message}`
         );
-        const status = aws_error_mapping[err.code] || 'UNKNOWN_FAILURE';
+        const status = aws_error_mapping[error_code] || 'UNKNOWN_FAILURE';
         return {
             status,
             error: {
-                code: err.code,
+                code: error_code,
                 message: err.message || 'Unknown Error'
             }
         };

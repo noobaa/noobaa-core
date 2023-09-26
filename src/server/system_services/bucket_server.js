@@ -5,7 +5,6 @@
 /** @typedef {typeof import('../../sdk/nb')} nb */
 
 const _ = require('lodash');
-const AWS = require('aws-sdk');
 const net = require('net');
 const fs = require('fs');
 const GoogleStorage = require('../../util/google_storage_wrap');
@@ -23,7 +22,6 @@ const size_utils = require('../../util/size_utils');
 const BigInteger = size_utils.BigInteger;
 const server_rpc = require('../server_rpc');
 const tier_server = require('./tier_server');
-const http_utils = require('../../util/http_utils');
 const cloud_utils = require('../../util/cloud_utils');
 const nodes_client = require('../node_services/nodes_client');
 const pool_server = require('../system_services/pool_server');
@@ -41,6 +39,7 @@ const KeysSemaphore = require('../../util/keys_semaphore');
 const bucket_semaphore = new KeysSemaphore(1);
 const Quota = require('../system_services/objects/quota');
 const { STORAGE_CLASS_GLACIER_IR } = require('../../endpoint/s3/s3_utils');
+const noobaa_s3_client = require('../../sdk/noobaa_s3_client/noobaa_s3_client');
 
 const VALID_BUCKET_NAME_REGEXP =
     /^(([a-z0-9]|[a-z0-9][a-z0-9-]*[a-z0-9])\.)*([a-z0-9]|[a-z0-9][a-z0-9-]*[a-z0-9])$/;
@@ -1147,108 +1146,107 @@ function get_bucket_lifecycle_configuration_rules(req) {
  * GET_CLOUD_BUCKETS
  *
  */
-function get_cloud_buckets(req) {
-    dbg.log0('get cloud buckets', req.rpc_params);
-    return P.fcall(async function() {
-            const connection = cloud_utils.find_cloud_connection(
-                req.account,
-                req.rpc_params.connection
-            );
-            if (connection.endpoint_type === 'AZURE') {
-                const blob_svc = azure_storage.BlobServiceClient.fromConnectionString(
-                    cloud_utils.get_azure_new_connection_string(connection));
-                const used_cloud_buckets = cloud_utils.get_used_cloud_targets(['AZURE'],
-                    system_store.data.buckets, system_store.data.pools, system_store.data.namespace_resources);
-                return P.timeout(EXTERNAL_BUCKET_LIST_TO, (async function() {
-                    const result = [];
-                    for await (const response of blob_svc.listContainers().byPage({ maxPageSize: 100 })) {
-                        if (response.containerItems) {
-                            for (const container of response.containerItems) {
-                                result.push(_inject_usage_to_cloud_bucket(container.name, connection.endpoint, used_cloud_buckets));
-                            }
+async function get_cloud_buckets(req) {
+    try {
+        dbg.log0('get cloud buckets', req.rpc_params);
+        const connection = cloud_utils.find_cloud_connection(
+            req.account,
+            req.rpc_params.connection
+        );
+        if (connection.endpoint_type === 'AZURE') {
+            const blob_svc = azure_storage.BlobServiceClient.fromConnectionString(
+                cloud_utils.get_azure_new_connection_string(connection));
+            const used_cloud_buckets = cloud_utils.get_used_cloud_targets(['AZURE'],
+                system_store.data.buckets, system_store.data.pools, system_store.data.namespace_resources);
+            return P.timeout(EXTERNAL_BUCKET_LIST_TO, (async function() {
+                const result = [];
+                for await (const response of blob_svc.listContainers().byPage({ maxPageSize: 100 })) {
+                    if (response.containerItems) {
+                        for (const container of response.containerItems) {
+                            result.push(_inject_usage_to_cloud_bucket(container.name, connection.endpoint, used_cloud_buckets));
                         }
                     }
-                    return result;
-                }()));
-            } else if (connection.endpoint_type === 'NET_STORAGE') {
-                const used_cloud_buckets = cloud_utils.get_used_cloud_targets(['NET_STORAGE'],
-                    system_store.data.buckets, system_store.data.pools, system_store.data.namespace_resources);
-
-                const ns = new NetStorage({
-                    hostname: connection.endpoint,
-                    keyName: connection.access_key.unwrap(),
-                    key: connection.secret_key.unwrap(),
-                    cpCode: connection.cp_code,
-                    // Just used that in order to not handle certificate mess
-                    // TODO: Should I use SSL with HTTPS instead of HTTP?
-                    ssl: false
-                });
-
-                // TODO: Shall I use any other method istead of listing the root cpCode dir?
-                return P.timeout(EXTERNAL_BUCKET_LIST_TO, P.fromCallback(callback => {
-                        ns.dir(connection.cp_code, callback);
-                    }))
-                    .then(data => {
-                        const files = data.body.stat.file;
-                        const buckets = _.map(files.filter(f => f.type === 'dir'), prefix => ({ name: prefix.name }));
-                        return buckets.map(bucket => _inject_usage_to_cloud_bucket(bucket.name, connection.endpoint, used_cloud_buckets));
-                    });
-            } else if (connection.endpoint_type === 'GOOGLE') {
-                const used_cloud_buckets = cloud_utils.get_used_cloud_targets(['GOOGLE'],
-                    system_store.data.buckets, system_store.data.pools, system_store.data.namespace_resources);
-                let key_file;
-                try {
-                    key_file = JSON.parse(connection.secret_key.unwrap());
-                } catch (err) {
-                    throw new RpcError('BAD_REQUEST', 'connection does not contain a key_file in json format');
                 }
-                const credentials = _.pick(key_file, 'client_email', 'private_key');
-                const storage = new GoogleStorage({
-                    projectId: key_file.project_id,
-                    credentials
+                return result;
+            }()));
+        } else if (connection.endpoint_type === 'NET_STORAGE') {
+            const used_cloud_buckets = cloud_utils.get_used_cloud_targets(['NET_STORAGE'],
+                system_store.data.buckets, system_store.data.pools, system_store.data.namespace_resources);
+
+            const ns = new NetStorage({
+                hostname: connection.endpoint,
+                keyName: connection.access_key.unwrap(),
+                key: connection.secret_key.unwrap(),
+                cpCode: connection.cp_code,
+                // Just used that in order to not handle certificate mess
+                // TODO: Should I use SSL with HTTPS instead of HTTP?
+                ssl: false
+            });
+
+            // TODO: Shall I use any other method istead of listing the root cpCode dir?
+            return P.timeout(EXTERNAL_BUCKET_LIST_TO, P.fromCallback(callback => {
+                    ns.dir(connection.cp_code, callback);
+                }))
+                .then(data => {
+                    const files = data.body.stat.file;
+                    const buckets = _.map(files.filter(f => f.type === 'dir'), prefix => ({ name: prefix.name }));
+                    return buckets.map(bucket => _inject_usage_to_cloud_bucket(bucket.name, connection.endpoint, used_cloud_buckets));
                 });
-                return storage.getBuckets()
-                    .then(data => data[0].map(bucket =>
-                        _inject_usage_to_cloud_bucket(bucket.name, connection.endpoint, used_cloud_buckets)));
-            } else { // else if AWS(s3-compatible/aws/sts-aws)/Flashblade/IBM_COS
-                let access_key;
-                let secret_key;
-                if (connection.aws_sts_arn) {
-                    const creds = await cloud_utils.generate_aws_sts_creds(connection, "get_cloud_buckets_session");
-                    access_key = creds.accessKeyId;
-                    secret_key = creds.secretAccessKey;
-                    connection.sessionToken = creds.sessionToken;
-                } else {
-                    access_key = connection.access_key.unwrap();
-                    secret_key = connection.secret_key.unwrap();
-                }
-                const s3 = new AWS.S3({
-                    endpoint: connection.endpoint,
+        } else if (connection.endpoint_type === 'GOOGLE') {
+            const used_cloud_buckets = cloud_utils.get_used_cloud_targets(['GOOGLE'],
+                system_store.data.buckets, system_store.data.pools, system_store.data.namespace_resources);
+            let key_file;
+            try {
+                key_file = JSON.parse(connection.secret_key.unwrap());
+            } catch (err) {
+                throw new RpcError('BAD_REQUEST', 'connection does not contain a key_file in json format');
+            }
+            const credentials = _.pick(key_file, 'client_email', 'private_key');
+            const storage = new GoogleStorage({
+                projectId: key_file.project_id,
+                credentials
+            });
+            return storage.getBuckets()
+                .then(data => data[0].map(bucket =>
+                    _inject_usage_to_cloud_bucket(bucket.name, connection.endpoint, used_cloud_buckets)));
+        } else { // else if AWS(s3-compatible/aws/sts-aws)/Flashblade/IBM_COS
+            let access_key;
+            let secret_key;
+            if (connection.aws_sts_arn) {
+                const creds = await cloud_utils.generate_aws_sts_creds(connection, "get_cloud_buckets_session");
+                access_key = creds.accessKeyId;
+                secret_key = creds.secretAccessKey;
+                connection.sessionToken = creds.sessionToken;
+            } else {
+                access_key = connection.access_key.unwrap();
+                secret_key = connection.secret_key.unwrap();
+            }
+            const s3_params = {
+                endpoint: connection.endpoint,
+                credentials: {
                     accessKeyId: access_key,
                     secretAccessKey: secret_key,
                     sessionToken: connection.sessionToken,
-                    signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(connection.endpoint, connection.auth_method),
-                    s3DisableBodySigning: cloud_utils.disable_s3_compatible_bodysigning(connection.endpoint),
-                    httpOptions: {
-                        agent: http_utils.get_unsecured_agent(connection.endpoint)
-                    }
-                });
-                const used_cloud_buckets = cloud_utils.get_used_cloud_targets(['AWS', 'AWSSTS', 'AWS_STS', 'S3_COMPATIBLE', 'FLASHBLADE', 'IBM_COS'],
-                    system_store.data.buckets, system_store.data.pools, system_store.data.namespace_resources);
-                return P.timeout(EXTERNAL_BUCKET_LIST_TO, P.ninvoke(s3, 'listBuckets'))
-                    .then(data => data.Buckets.map(bucket =>
-                        _inject_usage_to_cloud_bucket(bucket.Name, connection.endpoint, used_cloud_buckets)
-                    ));
-            }
-        })
-        .catch(err => {
-            if (err instanceof P.TimeoutError) {
-                dbg.log0('failed reading (t/o) external buckets list', req.rpc_params);
-            } else {
-                dbg.error("get_cloud_buckets ERROR", err.stack || err);
-            }
-            throw err;
-        });
+                },
+                signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(connection.endpoint, connection.auth_method),
+                requestHandler: noobaa_s3_client.get_requestHandler_with_suitable_agent(connection.endpoint),
+                region: connection.region || config.DEFAULT_REGION
+            };
+            const s3 = noobaa_s3_client.get_s3_client_v3_params(s3_params);
+            const used_cloud_buckets = cloud_utils.get_used_cloud_targets(['AWS', 'AWSSTS', 'AWS_STS', 'S3_COMPATIBLE', 'FLASHBLADE', 'IBM_COS'],
+                system_store.data.buckets, system_store.data.pools, system_store.data.namespace_resources);
+            const res = await P.timeout(EXTERNAL_BUCKET_LIST_TO, s3.listBuckets({}));
+            const buckets = res.Buckets ?? [];
+            return buckets.map(bucket => _inject_usage_to_cloud_bucket(bucket.Name, connection.endpoint, used_cloud_buckets));
+        }
+    } catch (err) {
+        if (err instanceof P.TimeoutError) {
+            dbg.log0('failed reading (t/o) external buckets list', req.rpc_params);
+        } else {
+            dbg.error("get_cloud_buckets ERROR", err.stack || err);
+        }
+        throw err;
+    }
 }
 
 /**

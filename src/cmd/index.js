@@ -16,6 +16,7 @@ const CORE_COMMANDS = Object.freeze({
     s3: () => require('../endpoint/endpoint'),
     bg: () => require('../server/bg_workers'),
     s3cat: () => require('../tools/s3cat'),
+    health: () => require('./health'),
 });
 
 const HELP = `

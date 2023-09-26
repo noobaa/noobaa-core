@@ -7,9 +7,10 @@ RestartSec=2
 User=root
 Group=root
 Environment=
-ExecStart=/usr/local/node/bin/node /usr/local/noobaa-core/src/cmd/nsfs.js /tmp/test/
-ExecStop=/bin/kill QUIT $MAINPID
+ExecStart=/usr/local/node/bin/node /usr/local/noobaa-core/src/cmd/nsfs.js --config_root /tmp/config
+ExecStop=/bin/kill $MAINPID
 WorkingDirectory=/usr/local/noobaa-core/
 LimitNOFILE=65536
 
 [Install]
+WantedBy=multi-user.target

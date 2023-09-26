@@ -71,9 +71,9 @@ Options:
 
     --iam_json_schema                           Print the json schema of the identity files in iam dir.
     --iam_ttl <seconds>     (default 60)        Identities expire after this amount of time, and re-read from the FS.
-    --config_root <dir>     (default none)      Configuration files for Noobaa standalon NSFS. It includes config files for environment variables(<config-root>/.env), 
-                                                local configuration(<config-root>/config-local.js), authentication (<config-root>/accounts/<access-key>.json) and 
-                                                bucket schema (<config-root>/buckets/<bucket-name>.json).
+    --config_root <dir>     (default none)      Configuration files for Noobaa standalon NSFS. It includes config files for environment variables(<config_root>/.env), 
+                                                local configuration(<config_root>/config-local.js), authentication (<config_root>/accounts/<access-key>.json) and 
+                                                bucket schema (<config_root>/buckets/<bucket-name>.json).
 
     ## features
 

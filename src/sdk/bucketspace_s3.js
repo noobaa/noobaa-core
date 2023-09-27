@@ -1,9 +1,9 @@
 /* Copyright (C) 2020 NooBaa */
 'use strict';
 
-const AWS = require('aws-sdk');
 const SensitiveString = require('../util/sensitive_string');
 // const { S3Error } = require('../endpoint/s3/s3_errors');
+const noobaa_s3_client = require('../sdk/noobaa_s3_client/noobaa_s3_client');
 
 /**
  * @implements {nb.BucketSpace}
@@ -11,7 +11,7 @@ const SensitiveString = require('../util/sensitive_string');
 class BucketSpaceS3 {
 
     constructor({ s3_params }) {
-        this.s3 = new AWS.S3(s3_params);
+        this.s3 = noobaa_s3_client.get_s3_client_v3_params(s3_params);
     }
 
     async read_account_by_access_key({ access_key }) {
@@ -30,9 +30,10 @@ class BucketSpaceS3 {
     async list_buckets() {
         try {
             console.log(`bss3: list_buckets`);
-            const res = await this.s3.listBuckets().promise();
-            const buckets = res.Buckets.map(b => ({ name: new SensitiveString(b.Name) }));
-            return { buckets };
+            const res = await this.s3.listBuckets({});
+            const buckets = res.Buckets ?? [];
+            const buckets_with_name_change = buckets.map(b => ({ name: new SensitiveString(b.Name) }));
+            return { buckets_with_name_change };
         } catch (err) {
             this._translate_error_code(err);
             throw err;
@@ -43,7 +44,7 @@ class BucketSpaceS3 {
         try {
             const { name } = params;
             console.log(`bss3: read_bucket ${name}`);
-            await this.s3.headBucket({ Bucket: name }).promise();
+            await this.s3.headBucket({ Bucket: name });
             return {
                 name,
                 bucket_type: 'NAMESPACE',
@@ -70,7 +71,7 @@ class BucketSpaceS3 {
         try {
             const { name } = params;
             console.log(`bss3: create_bucket ${name}`);
-            await this.s3.createBucket({ Bucket: name }).promise();
+            await this.s3.createBucket({ Bucket: name });
         } catch (err) {
             this._translate_error_code(err);
             throw err;
@@ -81,7 +82,7 @@ class BucketSpaceS3 {
         try {
             const { name } = params;
             console.log(`bss3: delete_fs_bucket ${name}`);
-            await this.s3.deleteBucket({ Bucket: name }).promise();
+            await this.s3.deleteBucket({ Bucket: name });
         } catch (err) {
             this._translate_error_code(err);
             throw err;

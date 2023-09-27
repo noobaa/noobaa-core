@@ -30,6 +30,14 @@ class S3ClientSDKV2 {
         return this.s3.createMultipartUpload(params).promise();
     }
 
+    createBucket(params) {
+        return this.s3.createBucket(params).promise();
+    }
+
+    deleteBucket(params) {
+        return this.s3.deleteBucket(params).promise();
+    }
+
     deleteObject(params) {
         return this.s3.deleteObject(params).promise();
     }
@@ -52,6 +60,10 @@ class S3ClientSDKV2 {
 
     getObjectTagging(params) {
         return this.s3.getObjectTagging(params).promise();
+    }
+
+    headBucket(params) {
+        return this.s3.headBucket(params).promise();
     }
 
     headObject(params) {

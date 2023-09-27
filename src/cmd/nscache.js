@@ -14,6 +14,7 @@ const NamespaceS3 = require('../sdk/namespace_s3');
 const BucketSpaceS3 = require('../sdk/bucketspace_s3');
 const NamespaceNB = require('../sdk/namespace_nb');
 const endpoint_stats_collector = require('../sdk/endpoint_stats_collector');
+const config = require('../../config');
 
 const HELP = `
 Help:
@@ -40,6 +41,7 @@ Options:
 
     --access_key <key>
     --secret_key <key>
+    --region <region>      (default us-east-1) Set the S3 region of the bucket in case it is AWS endpoint.
     --http_port <port>     (default 6001)   Set the S3 endpoint listening HTTP port to serve.
     --https_port <port>    (default 6443)   Set the S3 endpoint listening HTTPS port to serve.
 `;
@@ -79,8 +81,11 @@ async function main(argv = minimist(process.argv.slice(2))) {
         const s3_params = {
             // TODO
             endpoint: hub_endpoint,
-            accessKeyId: argv.access_key,
-            secretAccessKey: argv.secret_key,
+            region: argv.region || config.DEFAULT_REGION, // notice: we don't validate the region input
+            credentials: {
+                accessKeyId: argv.access_key,
+                secretAccessKey: argv.secret_key,
+            },
         };
         const bs = new BucketSpaceS3({ s3_params });
         const ns_nb = new NamespaceNB(); // TODO need to setup rpc_client

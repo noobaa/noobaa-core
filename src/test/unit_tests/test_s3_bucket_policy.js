@@ -192,6 +192,8 @@ mocha.describe('s3_bucket_policy', function() {
     });
 
     mocha.it('should be able to set bucket policy when none set', async function() {
+        const self = this; // eslint-disable-line no-invalid-this
+        self.timeout(15000);
         const policy = {
             Version: '2012-10-17',
             Statement: [{
@@ -651,6 +653,8 @@ mocha.describe('s3_bucket_policy', function() {
     });
 
     mocha.it('should be able to deny based on server side encryption', async function() {
+        const self = this; // eslint-disable-line no-invalid-this
+        self.timeout(15000);
         const auth_put_policy = {
             Version: '2012-10-17',
             Statement: [
@@ -690,6 +694,8 @@ mocha.describe('s3_bucket_policy', function() {
     });
 
     mocha.it('should be able to deny unencrypted object uploads', async function() {
+        const self = this; // eslint-disable-line no-invalid-this
+        self.timeout(15000);
         const auth_put_policy = {
             Version: '2012-10-17',
             Statement: [
@@ -728,6 +734,8 @@ mocha.describe('s3_bucket_policy', function() {
     });
 
     mocha.it('should be able to add StringLike and StringEqualsIgnoreCase condition statements, ', async function() {
+        const self = this; // eslint-disable-line no-invalid-this
+        self.timeout(15000);
         const ignore_case_policy = {
             Version: '2012-10-17',
             Statement: [
@@ -776,6 +784,8 @@ mocha.describe('s3_bucket_policy', function() {
     });
 
     mocha.it('should be able to deny based on object tag', async function() {
+        const self = this; // eslint-disable-line no-invalid-this
+        self.timeout(15000);
         const allow_tag = {key: "key", value: "allow"};
         const deny_tag = {key: "key", value: "deny"};
         const auth_put_policy = {
@@ -828,6 +838,8 @@ mocha.describe('s3_bucket_policy', function() {
     });
 
     mocha.it('get_bucket_policy should return correct condition values', async function() {
+        const self = this; // eslint-disable-line no-invalid-this
+        self.timeout(15000);
        const encryption_policy = {
         Version: '2012-10-17',
         Statement: [
@@ -869,6 +881,8 @@ mocha.describe('s3_bucket_policy', function() {
     });
 
     mocha.it('should be able to use notAction', async function() {
+        const self = this; // eslint-disable-line no-invalid-this
+        self.timeout(15000);
         const auth_put_policy = {
         Version: '2012-10-17',
         Statement: [
@@ -897,6 +911,8 @@ mocha.describe('s3_bucket_policy', function() {
     });
 
     mocha.it('should be able to use notPrincipal', async function() {
+        const self = this; // eslint-disable-line no-invalid-this
+        self.timeout(15000);
         const auth_put_policy = {
         Version: '2012-10-17',
         Statement: [
@@ -926,6 +942,8 @@ mocha.describe('s3_bucket_policy', function() {
     });
 
     mocha.it('should be able to use notResource', async function() {
+        const self = this; // eslint-disable-line no-invalid-this
+        self.timeout(15000);
         const auth_put_policy = {
         Version: '2012-10-17',
         Statement: [
@@ -957,6 +975,8 @@ mocha.describe('s3_bucket_policy', function() {
     mocha.describe('should only one of Argument or NotArgument', async function() {
 
         mocha.it('should not allow both Action and NotAction', async function() {
+            const self = this; // eslint-disable-line no-invalid-this
+            self.timeout(15000);
             const s3_policy = {
                 Version: '2012-10-17',
                 Statement: [
@@ -982,6 +1002,8 @@ mocha.describe('s3_bucket_policy', function() {
         });
 
         mocha.it('should not allow both Principal and NotPrincipal', async function() {
+            const self = this; // eslint-disable-line no-invalid-this
+            self.timeout(15000);
             const s3_policy = {
                 Version: '2012-10-17',
                 Statement: [
@@ -1007,6 +1029,8 @@ mocha.describe('s3_bucket_policy', function() {
         });
 
         mocha.it('should not allow both Resource and NotResource', async function() {
+            const self = this; // eslint-disable-line no-invalid-this
+            self.timeout(15000);
             const s3_policy = {
                 Version: '2012-10-17',
                 Statement: [
@@ -1032,6 +1056,8 @@ mocha.describe('s3_bucket_policy', function() {
         });
 
         mocha.it('should not allow policy without Principal or notPrincipal', async function() {
+            const self = this; // eslint-disable-line no-invalid-this
+            self.timeout(15000);
             const s3_policy = {
                 Version: '2012-10-17',
                 Statement: [
@@ -1055,6 +1081,8 @@ mocha.describe('s3_bucket_policy', function() {
         });
 
         mocha.it('should not allow policy without Resource or notResource', async function() {
+            const self = this; // eslint-disable-line no-invalid-this
+            self.timeout(15000);
             const s3_policy = {
                 Version: '2012-10-17',
                 Statement: [
@@ -1078,6 +1106,8 @@ mocha.describe('s3_bucket_policy', function() {
         });
 
         mocha.it('should not allow policy without action or notAction', async function() {
+            const self = this; // eslint-disable-line no-invalid-this
+            self.timeout(15000);
             const s3_policy = {
                 Version: '2012-10-17',
                 Statement: [

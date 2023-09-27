@@ -17,6 +17,7 @@ const CORE_COMMANDS = Object.freeze({
     bg: () => require('../server/bg_workers'),
     s3cat: () => require('../tools/s3cat'),
     health: () => require('./health'),
+    manage_nsfs: () => require('./manage_nsfs'),
 });
 
 const HELP = `

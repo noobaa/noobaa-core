@@ -62,6 +62,7 @@ Options:
 
     ## single user mode
 
+    --simple <boolean>   (default false)        Starts a single user/fs mode
     --uid <uid>          (default as process)   Send requests to the Filesystem with uid.
     --gid <gid>          (default as process)   Send requests to the Filesystem with gid.
     --access_key <key>      (default none)      Authenticate incoming requests for this access key only (default is no auth).
@@ -69,11 +70,11 @@ Options:
 
     ## multi user mode
 
-    --iam_json_schema                           Print the json schema of the identity files in iam dir.
-    --iam_ttl <seconds>     (default 60)        Identities expire after this amount of time, and re-read from the FS.
-    --config_root <dir>     (default none)      Configuration files for Noobaa standalon NSFS. It includes config files for environment variables(<config_root>/.env), 
-                                                local configuration(<config_root>/config-local.js), authentication (<config_root>/accounts/<access-key>.json) and 
-                                                bucket schema (<config_root>/buckets/<bucket-name>.json).
+    --iam_json_schema                                       Print the json schema of the identity files in iam dir.
+    --iam_ttl <seconds>     (default 60)                    Identities expire after this amount of time, and re-read from the FS.
+    --config_root <dir>     (default ${config.NSFS_NC_DEFAULT_CONF_DIR})    Configuration files for Noobaa standalon NSFS. It includes config files for environment variables(<config_root>/.env), 
+                                                            local configuration(<config_root>/config-local.js), authentication (<config_root>/accounts/<access-key>.json) and 
+                                                            bucket schema (<config_root>/buckets/<bucket-name>.json).
 
     ## features
 
@@ -220,7 +221,11 @@ async function main(argv = minimist(process.argv.slice(2))) {
         const gid = Number(argv.gid) || process.getgid();
         const access_key = argv.access_key && new SensitiveString(String(argv.access_key));
         const secret_key = argv.secret_key && new SensitiveString(String(argv.secret_key));
-        const config_root = argv.config_root ? String(argv.config_root) : '';
+        const simple_mode = Boolean(argv.simple);
+        let config_root = '';
+        if (!simple_mode) {
+            config_root = argv.config_root ? String(argv.config_root) : config.NSFS_NC_DEFAULT_CONF_DIR;
+        }
         const iam_ttl = Number(argv.iam_ttl ?? 60);
         const backend = argv.backend || (process.env.GPFS_DL_PATH ? 'GPFS' : '');
         const versioning = argv.versioning || 'DISABLED';

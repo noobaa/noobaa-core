@@ -181,9 +181,9 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
 
     async _has_access_to_nsfs_dir(ns, object_sdk) {
         const account = object_sdk.requesting_account;
-        dbg.log0('_has_access_to_nsfs_dir: nsr: ', ns, 'account.nsfs_account_config: ', account.nsfs_account_config);
+        dbg.log0('_has_access_to_nsfs_dir: nsr: ', ns, 'account.nsfs_account_config: ', account && account.nsfs_account_config);
         // nsfs bucket
-        if (!account.nsfs_account_config || _.isUndefined(account.nsfs_account_config.uid) ||
+        if (!account || !account.nsfs_account_config || _.isUndefined(account.nsfs_account_config.uid) ||
             _.isUndefined(account.nsfs_account_config.gid)) return false;
         try {
             dbg.log0('_has_access_to_nsfs_dir: checking access:', ns.write_resource, account.nsfs_account_config.uid, account.nsfs_account_config.gid);
@@ -236,6 +236,14 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
         bucket.force_md5_etag = params.force_md5_etag;
         bucket.bucket_owner = sdk.requesting_account.email;
         const create_bucket = JSON.stringify(bucket);
+
+        // TODO: handle both bucket config json and directory creation atomically 
+        try {
+            await nb_native().fs.stat(this.fs_context, bucket_config_path);
+            throw new RpcError('BUCKET_ALREADY_EXISTS', 'bucket configuration file already exists');
+        } catch (err) {
+            if (err.code !== 'ENOENT') throw this._translate_object_error_codes(err);
+        }
 
         await nb_native().fs.writeFile(
             this.fs_context,

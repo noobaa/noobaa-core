@@ -676,6 +676,13 @@ config.NSFS_RENAME_RETRIES = 3;
 
 config.NSFS_VERSIONING_ENABLED = true;
 
+////////////////////////////
+// NSFS NON CONTAINERIZED //
+////////////////////////////
+
+config.NSFS_NC_DEFAULT_CONF_DIR = '/etc/noobaa.conf.d';
+
+
 //Quota
 config.QUOTA_LOW_THRESHOLD = 80;
 config.QUOTA_MAX_OBJECTS = Number.MAX_SAFE_INTEGER;

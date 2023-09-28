@@ -507,6 +507,26 @@ class NamespaceS3 {
         dbg.log0('NamespaceS3.abort_object_upload:', this.bucket, inspect(params), 'res', inspect(res));
     }
 
+    ///////////////////////
+    // BUCKET VERSIONING //
+    ///////////////////////
+
+    async set_bucket_versioning(params) {
+        dbg.log0('NamespaceS3.set_bucket_versioning:', this.bucket, inspect(params));
+        const { versioning } = params;
+        await this.s3.putBucketVersioning({Bucket: this.bucket, VersioningConfiguration: {Status: versioning}}).promise();
+    }
+
+    async get_bucket_versioning() {
+        dbg.log0('NamespaceS3.get_bucket_versioning:', this.bucket);
+        const res = await this.s3.getBucketVersioning({Bucket: this.bucket}).promise();
+        return {
+            VersioningConfiguration: {
+                Status: res.Status
+            }
+        };
+    }
+
     ////////////////////
     // OBJECT TAGGING //
     ////////////////////

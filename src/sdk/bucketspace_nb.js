@@ -8,6 +8,7 @@ const dbg = require('../util/debug_module')(__filename);
 const path = require('path');
 const config = require('../../config.js');
 const NamespaceFS = require('./namespace_fs');
+const NamespaceS3 = require('./namespace_s3');
 
 /**
  * @implements {nb.BucketSpace}
@@ -106,13 +107,38 @@ class BucketSpaceNB {
 
     async set_bucket_versioning(params, object_sdk) {
         const ns = await object_sdk._get_bucket_namespace(params.name);
+        if (ns instanceof NamespaceS3) {
+            return await ns.set_bucket_versioning(params);
+        }
         if (ns instanceof NamespaceFS) {
-            await ns.set_bucket_versioning(params.versioning, object_sdk);
+            await ns.set_bucket_versioning(params.versioning.toUpperCase(), object_sdk);
         }
         return this.rpc_client.bucket.update_bucket({
             name: params.name,
-            versioning: params.versioning
+            versioning: params.versioning.toUpperCase()
         });
+    }
+
+    async get_bucket_versioning(params, object_sdk) {
+
+        const ns = await object_sdk._get_bucket_namespace(params.name);
+        if (ns instanceof NamespaceS3) {
+            return await ns.get_bucket_versioning();
+        }
+
+        const GET_VERSIONING_STATUS_MAP = Object.freeze({
+            ENABLED: 'Enabled',
+            SUSPENDED: 'Suspended',
+        });
+
+        // TODO: There is also MFA Delete configuration that we do not support
+        const bucket_info = await object_sdk.read_bucket(params);
+
+        return {
+            VersioningConfiguration: {
+                Status: GET_VERSIONING_STATUS_MAP[bucket_info.versioning]
+            }
+        };
     }
 
     ////////////////////

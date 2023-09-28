@@ -118,6 +118,7 @@ mocha.describe('s3_ops', function() {
 
         const is_azure_namespace = is_namespace_blob_bucket(bucket_type, remote_endpoint_options && remote_endpoint_options.endpoint_type);
         const is_azure_mock = is_namespace_blob_mock(bucket_type, remote_endpoint_options && remote_endpoint_options.endpoint_type);
+        const is_s3_namespace = is_namespace_s3_bucket(bucket_type, remote_endpoint_options && remote_endpoint_options.endpoint_type);
 
         mocha.before(async function() {
             this.timeout(100000);
@@ -751,6 +752,52 @@ mocha.describe('s3_ops', function() {
 
         });
 
+        mocha.it('should be able to set versioning', async function() {
+            if (!is_s3_namespace) this.skip();
+            this.timeout(600000);
+            await s3.putBucketVersioning({
+                Bucket: bucket_name,
+                VersioningConfiguration: {Status: "Enabled"}
+            });
+
+            let res = await s3.getBucketVersioning({Bucket: bucket_name});
+            assert.strictEqual(res.Status, "Enabled");
+
+            await s3.putBucketVersioning({
+                Bucket: bucket_name,
+                VersioningConfiguration: {Status: "Suspended"}
+            });
+            res = await s3.getBucketVersioning({Bucket: bucket_name});
+            assert.strictEqual(res.Status, "Suspended");
+        });
+
+        mocha.it('should be able to put/get object by version', async function() {
+            if (!is_s3_namespace) this.skip();
+            this.timeout(600000);
+            await s3.putBucketVersioning({
+                Bucket: bucket_name,
+                VersioningConfiguration: {Status: "Enabled"}
+            });
+
+            const put_res = await s3.putObject({
+                Bucket: bucket_name,
+                Key: text_file1,
+                Body: file_body2,
+                ContentType: 'text/plain'
+            });
+
+            //should work, object exist
+            await s3.getObject({ Bucket: bucket_name, Key: text_file1, VersionId: put_res.VersionId});
+
+            // clean up versioning products
+            await s3.deleteObject({ Bucket: bucket_name, Key: text_file1, VersionId: put_res.VersionId});
+
+            await s3.putBucketVersioning({
+                Bucket: bucket_name,
+                VersioningConfiguration: {Status: "Suspended"}
+            });
+        });
+
         mocha.it('should delete text-file', async function() {
             this.timeout(60000);
             // await s3.deleteObjects({
@@ -759,7 +806,7 @@ mocha.describe('s3_ops', function() {
             //         Objects: [{ Key: text_file1 }, { Key: text_file2 }]
             //     }
             // });
-            await s3.deleteObject({ Bucket: BKT5, Key: text_file5 });
+            await s3.deleteObject({ Bucket: BKT5, Key: text_file5});
             await s3.deleteObject({ Bucket: source_bucket, Key: text_file5 });
             await s3.deleteObject({ Bucket: bucket_name, Key: text_file1 });
             // key is not created for azurite since non of the tests creating it are supported (copy / multipart empty upload)
@@ -767,7 +814,15 @@ mocha.describe('s3_ops', function() {
             // text_file3 was created using copy - Azurite does not support it
             if (!is_azure_mock) await s3.deleteObject({ Bucket: bucket_name, Key: text_file3 });
             if (is_other_platform_bucket_created) {
-                await s3.deleteObject({ Bucket: other_platform_bucket, Key: text_file1 });
+                await s3.deleteObject({ Bucket: other_platform_bucket, Key: text_file1});
+            }
+
+            //versioning cannot be disabled once enabled. 
+            //in versioned bucket an object can only be permantly deleted by specifying its VersionId
+            if (is_s3_namespace) {
+                await s3.deleteObject({ Bucket: bucket_name, Key: text_file1, VersionId: 'null' });
+                await s3.deleteObject({ Bucket: bucket_name, Key: text_file2, VersionId: 'null' });
+                await s3.deleteObject({ Bucket: bucket_name, Key: text_file3, VersionId: 'null' });
             }
         });
         mocha.it('should list objects after no objects left', async function() {
@@ -892,4 +947,8 @@ function is_namespace_blob_bucket(bucket_type, remote_endpoint_type) {
 // so we would skip copy tests and deletions of objects created by copy
 function is_namespace_blob_mock(bucket_type, remote_endpoint_type) {
     return remote_endpoint_type === 'AZURE' && bucket_type === 'namespace' && !process.env.NEWAZUREPROJKEY;
+}
+
+function is_namespace_s3_bucket(bucket_type, remote_endpoint_type) {
+    return remote_endpoint_type === 'AWS' && bucket_type === 'namespace';
 }

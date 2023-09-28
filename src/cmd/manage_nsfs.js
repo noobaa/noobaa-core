@@ -427,7 +427,9 @@ async function validate_account_add_args(data) {
         console.error('Error: Access key should not be empty');
         return false;
     }
-    if (!data.nsfs_account_config.uid || !data.nsfs_account_config.gid || !data.nsfs_account_config.new_buckets_path) {
+    if (data.nsfs_account_config.uid === undefined ||
+        data.nsfs_account_config.gid === undefined ||
+        !data.nsfs_account_config.new_buckets_path) {
         console.error('Error: Account config should not be empty');
         return false;
     }

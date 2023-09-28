@@ -76,6 +76,7 @@ function get_copy_type() {
 async function copy_objects(scanner_semaphore, client, copy_type, src_bucket_name, dst_bucket_name, keys_diff_map) {
     try {
         const keys_length = Object.keys(keys_diff_map);
+        if (!keys_length.length) return;
         const res = await scanner_semaphore.surround_count(keys_length, //We will do key by key even when a key have more then one version
             async () => {
                 try {
@@ -109,6 +110,7 @@ async function copy_objects(scanner_semaphore, client, copy_type, src_bucket_nam
 //TODO: probably need to handle it also, getting an objects and not keys array
 //      as delete_objects is not being called in the replication scanner, we will handle it later.
 async function delete_objects(scanner_semaphore, client, bucket_name, keys) {
+    if (!keys.length) return;
     try {
         const res = await scanner_semaphore.surround_count(keys.length,
             async () => {

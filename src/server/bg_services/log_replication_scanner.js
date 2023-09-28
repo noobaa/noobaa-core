@@ -12,6 +12,7 @@ const replication_store = require('../system_services/replication_store').instan
 const cloud_utils = require('../../util/cloud_utils');
 const log_parser = require('./replication_log_parser');
 const replication_utils = require('../utils/replication_utils');
+const { BucketDiff } = require('../../server/utils/bucket_diff');
 
 class LogReplicationScanner {
 
@@ -111,15 +112,66 @@ class LogReplicationScanner {
      * @param {boolean} sync_versions should we sync object versions
      */
     async process_candidates(src_bucket, dst_bucket, candidates, sync_versions) {
-        return sync_versions ? this.process_candidates_sync_version(src_bucket, dst_bucket, candidates) :
-            this.process_candidates_not_sync_version(src_bucket, dst_bucket, candidates);
+        let copy_keys;
+        let delete_keys;
+        if (sync_versions) {
+            ({ copy_keys, delete_keys } = await this.process_candidates_sync_version(src_bucket, dst_bucket, candidates));
+        } else {
+            ({ copy_keys, delete_keys } = await this.process_candidates_not_sync_version(src_bucket, dst_bucket, candidates));
+        }
+
+        dbg.log1('log_replication_scanner: process_candidates copy_keys: ', copy_keys);
+        dbg.log1('log_replication_scanner: process_candidates delete_keys: ', delete_keys);
+
+        // calling copy_objects and delete_objects by passing batch of keys
+        await Promise.all([
+            this.copy_objects(src_bucket.name, dst_bucket.name, copy_keys),
+            this.delete_objects(dst_bucket.name, delete_keys)
+        ]);
+
+        // Returning for testing purpose 
+        return { copy_keys, delete_keys };
     }
 
     async process_candidates_sync_version(src_bucket, dst_bucket, candidates) {
-        // process_candidates_sync_version will redirect to process_candidates_not_sync_version 
-        // till we implement sync_version for log-based replication
-        dbg.warn('process_candidates_sync_version is not yet supported, replicating without sync_version');
-        return this.process_candidates_not_sync_version(src_bucket, dst_bucket, candidates);
+        const bucketDiff = new BucketDiff({
+            first_bucket: src_bucket.name,
+            second_bucket: dst_bucket.name,
+            version: true,
+            connection: this.noobaa_connection,
+            for_replication: config.BUCKET_DIFF_FOR_REPLICATION
+        });
+
+        let copy_keys = {};
+        // TODO: support delete flow in object versions replication
+        // const delete_keys = [];
+
+        for (const candidate of Object.values(candidates)) {
+            const action = candidate.action;
+            if (action === 'skip') {
+                // Log skipped candidate key
+                dbg.log1('process_candidates: skipped_key: ', candidates.key);
+            } else {
+                // The action should not matter to get_buckets_diff, we will evaluate the action inside.
+                // This is because the order of the versions matter.  hance we just need the hint from the logs
+                // regarding which key was touched
+                const { keys_diff_map } = await bucketDiff.get_buckets_diff({
+                    prefix: candidates.key,
+                    max_keys: Number(process.env.REPLICATION_MAX_KEYS) || 1000, //max_keys refers her to the max number of versions (+deletes)
+                    current_first_bucket_cont_token: '',
+                    current_second_bucket_cont_token: '',
+                });
+                // Currently, as get_buckets_diff is not supporting deletions, we will just pass the keys_diff_map as copy
+                // This needs to be reevaluated once the delete is supported.
+                copy_keys = { ...copy_keys, ...keys_diff_map };
+            }
+        }
+
+        dbg.log1('process_candidates_sync_version:: copy_keys', copy_keys);
+        //TODO support delete flow and return also the delete
+        // returning copy_keys and delete_keys after processing candidates
+        // return { copy_keys, delete_keys };
+        return { copy_keys, delete_keys: [] };
     }
 
     async process_candidates_not_sync_version(src_bucket, dst_bucket, candidates) {
@@ -141,15 +193,6 @@ class LogReplicationScanner {
                 dbg.log1('process_candidates: skipped_key: ', candidates.key);
             }
         }
-
-        dbg.log1('log_replication_scanner: process_candidates copy_keys: ', copy_keys);
-        dbg.log1('log_replication_scanner: process_candidates delete_keys: ', delete_keys);
-
-        // calling copy_objects and delete_objects by passing batch of keys
-        await Promise.all([
-            this.copy_objects(src_bucket.name, dst_bucket.name, copy_keys),
-            this.delete_objects(dst_bucket.name, delete_keys)
-        ]);
 
         // returning copy_keys and delete_keys after processing candidates
         return { copy_keys, delete_keys };

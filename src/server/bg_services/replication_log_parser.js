@@ -221,7 +221,7 @@ function create_candidates(logs) {
         }
     }
 
-    dbg.log1("ceate_candidates: candidates ", candidates);
+    dbg.log1("create_candidates: candidates ", candidates);
 
     return candidates;
 }
@@ -241,7 +241,7 @@ async function aws_get_next_log_entry(s3, logs_bucket, logs_prefix, continuation
     };
 
     try {
-        dbg.log1('log_parser aws_get_next_log_entry: params:', params);
+        dbg.log2('log_parser aws_get_next_log_entry: params:', params);
         const res = await s3.listObjectsV2(params).promise();
         dbg.log1('log_parser aws_get_next_log_entry: finished successfully ', res);
         return res;
@@ -296,6 +296,7 @@ function aws_parse_log_object(logs, log_object, sync_deletions) {
                         action: 'copy',
                         time: log.time,
                     });
+                    dbg.log2('aws_parse_log_object:: key', log.key, 'contain copy (PUT or POST) entry');
                 }
                 if (log.operation.includes('DELETE.OBJECT') && sync_deletions && log.http_status === 204) {
                     logs.push({
@@ -303,6 +304,7 @@ function aws_parse_log_object(logs, log_object, sync_deletions) {
                         action: 'delete',
                         time: log.time,
                     });
+                    dbg.log2('aws_parse_log_object:: key', log.key, 'contain delete (DELETE) entry');
                 }
             }
         }
@@ -530,6 +532,7 @@ function parse_potentially_empty_log_value(log_value, custom_parser) {
 }
 
 function _get_log_object_continuation_token_for_rule(rule_id, replication_config) {
+    dbg.log1('_get_log_object_continuation_token_for_rule:: rule_id', rule_id, 'replication_config', replication_config);
     const replication_rule = replication_config.rules.find(rule => rule.rule_id === rule_id);
     return replication_rule?.rule_log_status?.log_marker?.continuation_token;
 }

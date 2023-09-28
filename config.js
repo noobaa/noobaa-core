@@ -125,7 +125,8 @@ config.S3_MD_SIZE_LIMIT = 2 * 1024;
 config.SEMAPHORE_MONITOR_DELAY = 10 * 1000;
 // Semaphore metrics average calculation intervals in minutes, values need to be in ascending order
 config.SEMAPHORE_METRICS_AVERAGE_INTERVALS = Object.freeze(['1', '5', '10']);
-config.ENABLE_SEMAPHORE_MONITOR = true
+config.ENABLE_SEMAPHORE_MONITOR = true;
+config.ENABLE_OBJECT_IO_SEMAPHORE_MONITOR = true;
 
 config.ENDPOINT_HTTP_SERVER_REQUEST_TIMEOUT = 300 * 1000;
 config.ENDPOINT_HTTP_SERVER_KEEPALIVE_TIMEOUT = 5 * 1000;

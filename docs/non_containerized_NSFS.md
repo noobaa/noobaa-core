@@ -57,19 +57,51 @@ rpm -i noobaa-core-5.14.0-1.el8.x86_64.rpm
 
 After installing NooBaa RPM, it's expected to have noobaa-core source code under /usr/local/noobaa-core and an nsfs systemd example script under /etc/systemd/system/.
 
+## Create configuration files -
+**IMPORTANT NOTE** - It's not recommended to create the config_root under /tmp/ since the contents of /tmp/ can be deleted occasionaly, In the following instruction we use it just as an example. 
+
+**1. Create buckets and accounts directories -**
+```sh
+mkdir -p /tmp/noobaa_config_root/
+mkdir -p /tmp/noobaa_config_root/buckets/
+mkdir -p /tmp/noobaa_config_root/accounts/
+```
+
+**2. Create accounts and exported buckets configuration files -**
+
+Find instruction at - https://github.com/noobaa/noobaa-core/blob/master/docs/nsfs-standalone.md. <br />
+**Note** - All required paths on the configuration files (bucket - path, account - new_buckets_path) must be absolute paths.
+
+
+## Create FS -
+If it's not already existing, create the fs root path in which buckets (directories) and objects (files) will be created.
+
+```sh
+mkdir -p /tmp/fs1/
+```
+
+
 ## Run the nsfs service - 
-This systemd example script runs noobaa non containerized (currently) single mode, while /tmp/test/ is the fs root path directory.
+The systemd script runs noobaa non containerized, and requires config_root in order to find the location of the system/accounts/buckets configuration file.
 
 ```sh
 systemctl start nsfs
 ```
 
-## Test 
-1. create a bucket directory -
+## NSFS service logs -
+Run the following command in order to get the nsfs service logs - 
+
 ```sh
-mkdir -p /tmp/test/bucket1/
+journalctl -u nsfs.service
 ```
-2. try list the buckets - 
+
+## Test 
+#### 1. Create a bucket directory -
+```sh
+mkdir -p /tmp/fs1/bucket1/
+```
+
+#### 2. List the buckets -
 ```sh
  curl http://localhost:6001
 ```
@@ -77,6 +109,108 @@ The following is an expected valid response -
 ```xml
 <?xml version="1.0" encoding="UTF-8"?><ListAllMyBucketsResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Owner><ID>123</ID><DisplayName>NooBaa</DisplayName></Owner><Buckets><Bucket><Name>bucket1</Name><CreationDate>2023-08-30T17:12:29.000Z</CreationDate></Bucket></Buckets></ListAllMyBucketsResult>
 ```
+
+## S3 Test
+
+#### 1. Create account configuration file -
+
+```sh
+account1_json='
+{
+    "name": "account1",
+    "email": "account1@noobaa.io",
+    "has_login": "false",
+    "has_s3_access": "true",
+    "allow_bucket_creation": "true",
+    "access_keys": [{
+        "access_key": "abc",
+        "secret_key": "123"
+    }],
+    "nsfs_account_config": {
+        "uid": 0,
+        "gid": 0,
+        "new_buckets_path": "/tmp/fs1/",
+        "nsfs_only": "true"
+    }
+}'
+
+cat $account1_json >/tmp/noobaa_config_dir/accounts/abc.json
+```
+
+#### 2. Install aws cli -
+see https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html
+
+
+#### 3. Create s3 alias for account1 -
+```sh
+alias s3-account1='AWS_ACCESS_KEY_ID=abc AWS_SECRET_ACCESS_KEY=123 aws --endpoint https://localhost:6443 --no-verify-ssl s3'
+```
+
+
+#### 4. S3 Create bucket -
+
+4.1. Create  a bucket called s3bucket using account1 - 
+```sh
+s3-account1 mb s3://s3bucket
+
+Output - 
+make_bucket: s3bucket
+```
+
+4.2. Check that the bucket configuration file was created successfully -
+```sh
+cat /tmp/noobaa_config_dir/buckets/s3bucket.json
+
+Output - 
+{"name":"s3bucket","tag":"","system_owner":"account1@noobaa.io","bucket_owner":"account1@noobaa.io","versioning":"DISABLED","path":"/tmp/fs1/s3bucket","should_create_underlying_storage":true,"creation_date":"2023-09-26T05:56:16.252Z"}
+```
+
+4.3. Check that the file system bucket directory was created successfully -
+
+```sh
+ls -l /tmp/fs1/s3bucket/
+
+Output - 
+total 0
+```
+
+#### 5. S3 List buckets -
+```sh
+s3-account1 ls
+
+Output - 
+2023-09-21 11:50:26 s3bucket
+```
+
+
+#### 6. S3 Upload objects -
+
+6.1. Copy an object to the S3 bucket - 
+
+```sh
+echo  "This is the content of object1" | s3-account1 cp - s3://s3bucket/object1.txt
+```
+
+6.2. Check the object was created on the file system - 
+
+```sh
+cat /tmp/fs1/s3bucket/object1.txt
+
+Output - 
+This is the content of object1
+```
+
+
+#### 7. S3 List objects -
+
+```sh
+s3-account1 ls s3://s3bucket
+
+Output - 
+2023-09-21 11:55:01         31 object1.txt
+```
+
+
 
 ## health
 Health status of the NSFS can be fetched using the command line.

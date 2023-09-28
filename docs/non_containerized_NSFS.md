@@ -83,3 +83,40 @@ Health status of the NSFS can be fetched using the command line.
  ```
  node usr/local/noobaa-core/src/cmd/health
  ```
+
+## Bucket and Account Manage CLI
+Users can create, update, delete, and list buckets and accounts using CLI. If the config directory is missing CLI will create one and also create accounts and buckets sub-directories in it and default config directory is `/etc/noobaa.conf.d`. 
+
+CLI will never create or delete a bucket directory for the user if a bucket directory is missing CLI will return with error.
+ 
+ Bucket Commands
+ ```
+ node src/cmd/manage_nsfs bucket add --config_root ../standalon/config_root --name bucket1 --email noobaa@gmail.com --path ../standalon/nsfs_root/1
+
+node src/cmd/manage_nsfs bucket update --config_root ../standalon/config_root --name bucket1 --email noobaa@gmail.com
+
+node src/cmd/manage_nsfs bucket list --config_root ../standalon/config_root
+
+node src/cmd/manage_nsfs bucket delete --config_root ../standalon/config_root --name bucket1
+
+```
+
+ Account Commands
+ ```
+node src/cmd/manage_nsfs account add --config_root ../standalon/config_root --name noobaa --email noobaa@gmail.com --new_buckets_path ../standalon/nsfs_root/ --access_key abc --secret_key abc
+
+node src/cmd/manage_nsfs account update --config_root ../standalon/config_root --name noobaa --access_key abc --secret_key abc123
+
+node src/cmd/manage_nsfs account delete --config_root ../standalon/config_root --access_key abc
+
+node src/cmd/manage_nsfs account list --config_root ../standalon/config_root
+
+ ```
+
+Users can also pass account and bucket/account values in JSON file instead of passing them in cli as arguments.
+
+
+```
+node src/cmd/manage_nsfs bucket add --config_root ../standalon/config_root --from_file /json_file/path
+```
+NSFS management CLI command will create both account and bucket dir if it's missing in the config_root path.

@@ -683,6 +683,9 @@ config.NSFS_VERSIONING_ENABLED = true;
 
 config.NSFS_NC_DEFAULT_CONF_DIR = '/etc/noobaa.conf.d';
 
+// NSFS_RESTORE_ENABLED can override internal autodetection and will force
+// the use of restore for all objects.
+config.NSFS_RESTORE_ENABLED = false;
 
 //Quota
 config.QUOTA_LOW_THRESHOLD = 80;

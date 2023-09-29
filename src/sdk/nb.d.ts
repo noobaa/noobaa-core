@@ -432,6 +432,7 @@ interface ObjectInfo {
     content_range?: string;
     ns?: Namespace;
     storage_class?: StorageClass;
+    restore_status?: { ongoing?: boolean; expiry_time?: Date; };
 }
 
 

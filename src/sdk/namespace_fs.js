@@ -22,6 +22,7 @@ const LRUCache = require('../util/lru_cache');
 const Semaphore = require('../util/semaphore');
 const nb_native = require('../util/nb_native');
 const RpcError = require('../rpc/rpc_error');
+const { S3Error } = require('../endpoint/s3/s3_errors');
 
 const buffers_pool_sem = new Semaphore(config.NSFS_BUF_POOL_MEM_LIMIT, {
     timeout: config.IO_STREAM_SEMAPHORE_TIMEOUT,
@@ -46,12 +47,46 @@ const XATTR_DIR_CONTENT = XATTR_USER_PREFIX + 'dir_content';
 const HIDDEN_VERSIONS_PATH = '.versions';
 const NULL_VERSION_ID = 'null';
 const NULL_VERSION_SUFFIX = '_' + NULL_VERSION_ID;
+const XATTR_STORAGE_CLASS_KEY = XATTR_USER_PREFIX + 'storage_class';
+
+/**
+ * XATTR_RESTORE_REQUEST is set to a NUMBER (expiry days) by `restore_object` when 
+ * a restore request is made. This is unset by the underlying restore process when 
+ * it picks up the request, this  is to ensure that the same object is not queued 
+ * for restoration multiple times.
+ */
+const XATTR_RESTORE_REQUEST = XATTR_USER_PREFIX + 'noobaa.restore.request';
+
+/**
+ * XATTR_RESTORE_ONGOING is set to a BOOL by the underlying restore process when it picks up
+ * a restore request. This is unset by the underlying restore process when it finishes
+ * restoring the object.
+ */
+const XATTR_RESTORE_ONGOING = XATTR_USER_PREFIX + 'noobaa.restore.ongoing';
+
+/**
+ * XATTR_RESTORE_EXPIRY is set to a ISO DATE by the underlying restore process or by
+ * NooBaa (in case restore is issued again while the object is on disk).
+ * This is read by the underlying "disk evict" process to determine if the object
+ * should be evicted from the disk or not.
+ * 
+ * NooBaa will use this date to determine if the object is on disk or not, if the
+ * expiry date is in the future, the object is on disk, if the expiry date is in
+ * the past, the object is not on disk. This may or may not represent the actual
+ * state of the object on disk, but is probably good enough for NooBaa's purposes
+ * assuming that restore request for already restored objects fails gracefully.
+ */
+const XATTR_RESTORE_EXPIRY = XATTR_USER_PREFIX + 'noobaa.restore.expiry';
 
 const INTERNAL_XATTR = [
     XATTR_CONTENT_TYPE,
     XATTR_DIR_CONTENT,
     XATTR_PREV_VERSION_ID,
     XATTR_DELETE_MARKER,
+    XATTR_STORAGE_CLASS_KEY,
+    XATTR_RESTORE_REQUEST,
+    XATTR_RESTORE_ONGOING,
+    XATTR_RESTORE_EXPIRY,
 ];
 
 const versioning_status_enum = {
@@ -1042,6 +1077,8 @@ class NamespaceFS {
                 return content_dir_info;
             }
 
+            await this._throw_if_storage_class_not_supported(params.storage_class);
+
             upload_params = await this._start_upload(fs_context, object_sdk, file_path, params, open_mode);
 
             if (!params.copy_source || upload_params.copy_res === copy_status_enum.FALLBACK) {
@@ -1050,6 +1087,7 @@ class NamespaceFS {
                 upload_params.digest = await buffers_pool_sem.surround_count(
                     config.NSFS_BUF_SIZE, async () => this._upload_stream(upload_params));
             }
+
             const upload_info = await this._finish_upload(upload_params);
             return upload_info;
         } catch (err) {
@@ -1165,6 +1203,12 @@ class NamespaceFS {
                 const cur_ver_info = await this._get_version_info(fs_context, file_path);
                 fs_xattr = await this._assign_versions_to_fs_xattr(fs_context, cur_ver_info, stat, params.key, fs_xattr);
             }
+            if (!part_upload && params.storage_class) {
+                fs_xattr = Object.assign(fs_xattr || {}, {
+                    [XATTR_STORAGE_CLASS_KEY]: params.storage_class
+                });
+            }
+
             if (fs_xattr && !is_dir_content) await target_file.replacexattr(fs_context, fs_xattr);
         }
         // fsync
@@ -1377,12 +1421,15 @@ class NamespaceFS {
             params.mpu_path = this._mpu_path(params);
             await this._create_path(params.mpu_path, fs_context);
             const create_params = JSON.stringify({ ...params, source_stream: null });
+
+            await this._throw_if_storage_class_not_supported(params.storage_class);
+
             await nb_native().fs.writeFile(
                 fs_context,
                 path.join(params.mpu_path, 'create_object_upload'),
                 Buffer.from(create_params), {
-                    mode: get_umasked_mode(config.BASE_MODE_FILE)
-                }
+                    mode: get_umasked_mode(config.BASE_MODE_FILE),
+                },
             );
             return { obj_id: params.obj_id };
         } catch (err) {
@@ -1506,8 +1553,11 @@ class NamespaceFS {
                 path.join(params.mpu_path, 'create_object_upload')
             );
 
-            upload_params.params.xattr = (JSON.parse(create_params_buffer.toString())).xattr;
+            const create_params_parsed = JSON.parse(create_params_buffer.toString());
+            upload_params.params.xattr = create_params_parsed.xattr;
+            upload_params.params.storage_class = create_params_parsed.storage_class;
             upload_params.digest = MD5Async && (((await MD5Async.digest()).toString('hex')) + '-' + multiparts.length);
+
             const upload_info = await this._finish_upload(upload_params);
 
             await target_file.close(fs_context);
@@ -1709,9 +1759,96 @@ class NamespaceFS {
     // OBJECT RESTORE //
     ////////////////////
 
+    /**
+     * restore_object simply sets the restore request xattr
+     * which should be picked by another mechanism.
+     * 
+     * restore_object internally relies on 3 xattrs:
+     * - XATTR_RESTORE_REQUEST
+     * - XATTR_RESTORE_ONGOING
+     * - XATTR_RESTORE_EXPIRY
+     * @param {*} params 
+     * @param {nb.ObjectSDK} object_sdk 
+     * @returns {Promise<boolean>}
+     */
     async restore_object(params, object_sdk) {
-        dbg.log0('restore_object', params);
-        throw new Error('TODO');
+        dbg.log0('namespace_fs.restore_object:', params);
+
+        await this._throw_if_storage_class_not_supported(s3_utils.STORAGE_CLASS_GLACIER);
+
+        const fs_context = this.prepare_fs_context(object_sdk);
+        const file_path = await this._find_version_path(fs_context, params, false);
+        let file = null;
+        try {
+            file = await nb_native().fs.open(fs_context, file_path);
+            const stat = await file.stat(fs_context);
+
+            if (stat.xattr[XATTR_STORAGE_CLASS_KEY] !== s3_utils.STORAGE_CLASS_GLACIER) {
+                throw new S3Error(S3Error.InvalidObjectStorageClass);
+            }
+
+            // Total 8 states
+            const restore_request = stat.xattr[XATTR_RESTORE_REQUEST] ? parseInt(stat.xattr[XATTR_RESTORE_REQUEST], 10) : null;
+            const restore_ongoing = stat.xattr[XATTR_RESTORE_ONGOING] === 'true';
+            const restore_expiry = stat.xattr[XATTR_RESTORE_EXPIRY] ? new Date(stat.xattr[XATTR_RESTORE_EXPIRY]) : null;
+
+            // 5 Valid States
+            if (restore_request) {
+                // It is possible that the restore request was made but we haven't yet
+                // started the restore process. Batching is an implementation detail
+                // and need not be leaked to the client.
+                if (!restore_ongoing && !restore_expiry) {
+                    dbg.log0('namespace_fs.restore_object: state - (restore_request, !restore_ongoing, !restore_expiry)');
+                    throw new S3Error(S3Error.RestoreAlreadyInProgress);
+                }
+            } else if (restore_ongoing) {
+                if (!restore_expiry) {
+                    dbg.log0('namespace_fs.restore_object: state - (!restore_request, restore_ongoing, !restore_expiry)');
+                    throw new S3Error(S3Error.RestoreAlreadyInProgress);
+                }
+            } else {
+                const now = new Date();
+
+                // The only entity that can remove the restore request is the underlying
+                // restore mechanism, implying that at some point it must have picked
+                // up the request to restore and finished the process.
+                if (restore_expiry && restore_expiry > now) {
+                    dbg.log0('namespace_fs.restore_object: state - (!restore_request, !restore_ongoing, restore_expiry > now)');
+
+                    const expires_on = now;
+                    expires_on.setDate(expires_on.getDate() + params.days);
+
+                    await file.replacexattr(fs_context, {
+                        [XATTR_RESTORE_EXPIRY]: expires_on.toISOString(),
+                    });
+
+                    // Should result in HTTP: 200 OK
+                    return false;
+                }
+
+                // If neither the restore is ongoing nor a restore expiry is set, we can set the xattr
+                // essentially adding the object to the batch.
+                if (!restore_expiry || restore_expiry <= now) {
+                    dbg.log0('namespace_fs.restore_object: state - (!restore_request, !restore_ongoing, !restore_expiry or restore_expiry <= now)');
+                    await file.replacexattr(fs_context, {
+                        [XATTR_RESTORE_REQUEST]: params.days.toString(),
+                    });
+
+                    // Should result in HTTP: 202 Accepted
+                    return true;
+                }
+            }
+
+            // 3 Invalid States
+            // 1. Restore request is set along with 1 or more than 1 attribute (2 different states)
+            // 2. Restore request is unset but both request ongoing and expiry are set
+            throw new RpcError('INTERNAL_ERROR');
+        } catch (error) {
+            dbg.error('namespace_fs.restore_object: failed with error: ', error, file_path);
+            throw this._translate_object_error_codes(error);
+        } finally {
+            if (file) await file.close(fs_context);
+        }
     }
 
     ///////////////
@@ -1883,6 +2020,32 @@ class NamespaceFS {
         const version_id = return_version_id && this._is_versioning_enabled() && this._get_version_id_by_xattr(stat);
         const delete_marker = stat.xattr[XATTR_DELETE_MARKER] === 'true';
         const content_type = stat.xattr[XATTR_CONTENT_TYPE] || mime.getType(key) || 'application/octet-stream';
+        const storage_class = s3_utils.parse_storage_class(stat.xattr[XATTR_STORAGE_CLASS_KEY]);
+
+        let restore_status;
+        if (storage_class === s3_utils.STORAGE_CLASS_GLACIER) {
+            const restore_request = stat.xattr[XATTR_RESTORE_REQUEST] ? parseInt(stat.xattr[XATTR_RESTORE_REQUEST], 10) : null;
+            const restore_ongoing = stat.xattr[XATTR_RESTORE_ONGOING] === 'true';
+            const restore_expiry = stat.xattr[XATTR_RESTORE_EXPIRY] ? new Date(stat.xattr[XATTR_RESTORE_EXPIRY]) : null;
+
+            // Assume the state invariants to hold true
+
+            // Restore is ongoing if,
+            // 1. Restore request is set
+            // 2. Restore ongoing is set to true
+            // Restore completed if
+            // 1. Expiry is set and expiry is in the future
+            if (restore_request || restore_ongoing) {
+                restore_status = {
+                    ongoing: true,
+                };
+            } else if (restore_expiry && restore_expiry > new Date()) {
+                restore_status = {
+                    ongoing: false,
+                    expiry_time: restore_expiry,
+                };
+            }
+        }
 
         return {
             obj_id: etag,
@@ -1896,9 +2059,9 @@ class NamespaceFS {
             version_id,
             is_latest,
             delete_marker,
+            storage_class,
+            restore_status,
             xattr: to_xattr(stat.xattr),
-
-            // TODO ? storage_class: stat.xattr[XATTR_STORAGE_CLASS_KEY],
 
             // temp:
             tag_count: 0,
@@ -2767,6 +2930,19 @@ class NamespaceFS {
         }
     }
 
+    async _throw_if_storage_class_not_supported(storage_class) {
+        if (!await this._is_storage_class_supported(storage_class)) {
+            throw new S3Error(S3Error.StorageClassNotImplemented);
+        }
+    }
+
+    async _is_storage_class_supported(storage_class) {
+        if (!storage_class || storage_class === s3_utils.STORAGE_CLASS_STANDARD) return true;
+
+        // TODO: Upon integration with underlying systems, we should
+        // check if archiving is actually supported or not
+        return config.NSFS_RESTORE_ENABLED || false;
+    }
 }
 
 module.exports = NamespaceFS;

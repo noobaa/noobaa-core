@@ -39,6 +39,14 @@ async function get_object(req, res) {
 
     s3_utils.set_response_object_md(res, object_md);
     s3_utils.set_encryption_response_headers(req, res, object_md.encryption);
+    if (object_md.storage_class === s3_utils.STORAGE_CLASS_GLACIER) {
+        if (object_md.restore_status?.ongoing || !object_md.restore_status?.expiry_time) {
+            // Don't try to read the object if it's not restored yet
+            dbg.warn('Object is not restored yet', req.path, object_md.restore_status);
+            throw new S3Error(S3Error.InvalidObjectState);
+        }
+    }
+
     const obj_size = object_md.size;
     const params = {
         object_md,

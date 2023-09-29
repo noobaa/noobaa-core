@@ -537,6 +537,21 @@ S3Error.OutputInputFormatMismatch = Object.freeze({
     http_code: 501,
 });
 
+////////////////////////////////////////////////////////////////
+// S3 Restore Object
+////////////////////////////////////////////////////////////////
+
+S3Error.InvalidObjectStorageClass = Object.freeze({
+    code: 'InvalidObjectState',
+    message: 'Restore is not allowed for the object\'s current storage class.',
+    http_code: 403,
+});
+S3Error.StorageClassNotImplemented = Object.freeze({
+    code: 'NotImplemented',
+    message: 'This storage class is not implemented.',
+    http_code: 501,
+});
+
 S3Error.RPC_ERRORS_TO_S3 = Object.freeze({
     UNAUTHORIZED: S3Error.AccessDenied,
     BAD_REQUEST: S3Error.BadRequest,

@@ -19,7 +19,7 @@ require('../server/system_services/system_store').get_instance({ standalone: tru
 //const js_utils = require('../util/js_utils');
 const nb_native = require('../util/nb_native');
 //const schema_utils = require('../util/schema_utils');
-//const RpcError = require('../rpc/rpc_error');
+const RpcError = require('../rpc/rpc_error');
 const ObjectSDK = require('../sdk/object_sdk');
 const NamespaceFS = require('../sdk/namespace_fs');
 const BucketSpaceSimpleFS = require('../sdk/bucketspace_simple_fs');
@@ -138,11 +138,17 @@ class NsfsObjectSDK extends ObjectSDK {
         this.nsfs_versioning = versioning;
         this.nsfs_namespaces = {};
         if (!config_root) {
-            this._get_bucket_namespace = bucket_name => this._get_single_bucket_namespace(bucket_name);
+            this._get_bucket_namespace = bucket_name => this._simple_get_single_bucket_namespace(bucket_name);
+            this.load_requesting_account = auth_req => this._simple_load_requesting_account(auth_req);
+            this.read_bucket_sdk_policy_info = bucket_name => this._simple_read_bucket_sdk_policy_info(bucket_name);
+            this.read_bucket_usage_info = () => undefined;
+            this.read_bucket_sdk_website_info = () => undefined;
+            this.read_bucket_sdk_namespace_info = () => undefined;
+            this.read_bucket_sdk_caching_info = () => undefined;
         }
     }
 
-    async _get_single_bucket_namespace(bucket_name) {
+    async _simple_get_single_bucket_namespace(bucket_name) {
         const existing_ns = this.nsfs_namespaces[bucket_name];
         if (existing_ns) return existing_ns;
         const ns_fs = new NamespaceFS({
@@ -159,40 +165,35 @@ class NsfsObjectSDK extends ObjectSDK {
         return ns_fs;
     }
 
-    // async load_requesting_account(auth_req) {
-    //     const access_key = this.nsfs_account.access_keys?.[0]?.access_key;
-    //     if (access_key) {
-    //         const token = this.get_auth_token();
-    //         if (!token) {
-    //             throw new RpcError('UNAUTHORIZED', `Anonymous access to bucket not allowed`);
-    //         }
-    //         if (token.access_key !== access_key.unwrap()) {
-    //             throw new RpcError('INVALID_ACCESS_KEY_ID', `Account with access_key not found`);
-    //         }
-    //     }
-    //     this.requesting_account = this.nsfs_account;
-    // }
+    async _simple_load_requesting_account(auth_req) {
+        const access_key = this.nsfs_account.access_keys?.[0]?.access_key;
+        if (access_key) {
+            const token = this.get_auth_token();
+            if (!token) {
+                throw new RpcError('UNAUTHORIZED', `Anonymous access to bucket not allowed`);
+            }
+            if (token.access_key !== access_key.unwrap()) {
+                throw new RpcError('INVALID_ACCESS_KEY_ID', `Account with access_key not found`);
+            }
+        }
+        this.requesting_account = this.nsfs_account;
+    }
 
-    // async read_bucket_sdk_policy_info(bucket_name) {
-    //     return {
-    //         s3_policy: {
-    //             version: '2012-10-17',
-    //             statement: [{
-    //                 effect: 'allow',
-    //                 action: ['*'],
-    //                 resource: ['*'],
-    //                 principal: [new SensitiveString('*')],
-    //             }]
-    //         },
-    //         system_owner: new SensitiveString('nsfs'),
-    //         bucket_owner: new SensitiveString('nsfs'),
-    //     };
-    // }
-
-    // async read_bucket_usage_info() { return undefined; }
-    // async read_bucket_sdk_website_info() { return undefined; }
-    // async read_bucket_sdk_namespace_info() { return undefined; }
-    // async read_bucket_sdk_caching_info() { return undefined; }
+    async _simple_read_bucket_sdk_policy_info(bucket_name) {
+        return {
+            s3_policy: {
+                Version: '2012-10-17',
+                Statement: [{
+                    Effect: 'Allow',
+                    Action: ['*'],
+                    Resource: ['*'],
+                    Principal: [new SensitiveString('*')],
+                }]
+            },
+            system_owner: new SensitiveString('nsfs'),
+            bucket_owner: new SensitiveString('nsfs'),
+        };
+    }
 }
 
 async function init_nsfs_system(config_root) {

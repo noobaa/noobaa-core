@@ -13,6 +13,7 @@ const util = require('util');
 const path = require('path');
 const nb_native = require('../../util/nb_native');
 const size_utils = require('../../util/size_utils');
+const endpoint_stats_collector = require('../../sdk/endpoint_stats_collector');
 
 const XATTR_VERSION_ID = 'user.version_id';
 const XATTR_PREV_VERSION_ID = 'user.prev_version_id';
@@ -51,7 +52,16 @@ mocha.describe('namespace_fs gpfs- versioning', async function() {
     const versions_path = path.join(gpfs_bucket_path, '.versions/');
     let second_put_ver_id;
     const dummy_object_sdk = make_dummy_object_sdk(true);
-    const ns_obj = new NamespaceFS({ bucket_path: gpfs_bucket_path, bucket_id: '1', namespace_resource_id: undefined, fs_backend: 'GPFS' });
+    const ns_obj = new NamespaceFS({
+        bucket_path: gpfs_bucket_path,
+        bucket_id: '1',
+        namespace_resource_id: undefined,
+        fs_backend: 'GPFS',
+        access_mode: undefined,
+        versioning: undefined,
+        force_md5_etag: false,
+        stats: endpoint_stats_collector.instance(),
+    });
 
     mocha.before(async function() {
         if (process.getgid() !== 0 || process.getuid() !== 0) {

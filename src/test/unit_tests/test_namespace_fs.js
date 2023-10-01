@@ -618,7 +618,15 @@ mocha.describe('namespace_fs folders tests', function() {
     }
     const dummy_object_sdk = make_dummy_object_sdk();
     const ns_tmp_bucket_path = `${tmp_fs_path}/${src_bkt}`;
-    const ns_tmp = new NamespaceFS({ bucket_path: ns_tmp_bucket_path, bucket_id: '2', namespace_resource_id: undefined });
+    const ns_tmp = new NamespaceFS({
+        bucket_path: ns_tmp_bucket_path,
+        bucket_id: '2',
+        namespace_resource_id: undefined,
+        access_mode: undefined,
+        versioning: undefined,
+        force_md5_etag: false,
+        stats: endpoint_stats_collector.instance(),
+    });
 
     mocha.before(async () => {
         await P.all(_.map([src_bkt, upload_bkt, mpu_bkt], async buck =>
@@ -1060,7 +1068,7 @@ async function set_xattr(fs_account_config, file_path, fs_xattr) {
         console.log('ERROR: test_namespace_fs set_xattr', err);
         throw err;
     } finally {
-        file.close(DEFAULT_FS_CONFIG, file_path);
+        await file.close(DEFAULT_FS_CONFIG);
     }
 }
 
@@ -1082,7 +1090,15 @@ mocha.describe('nsfs_symlinks_validations', function() {
     const expected_links = [{ t: 'f1', n: 'lf1' }, { t: '/etc', n: 'ld2' }];
     const dummy_object_sdk = make_dummy_object_sdk();
 
-    const ns = new NamespaceFS({ bucket_path: bucket_full_path, bucket_id: '1', namespace_resource_id: undefined });
+    const ns = new NamespaceFS({
+        bucket_path: bucket_full_path,
+        bucket_id: '1',
+        namespace_resource_id: undefined,
+        access_mode: undefined,
+        versioning: undefined,
+        force_md5_etag: false,
+        stats: endpoint_stats_collector.instance(),
+    });
 
     mocha.before(async () => {
         await fs_utils.create_fresh_path(`${bucket_full_path}`);
@@ -1219,7 +1235,15 @@ mocha.describe('namespace_fs copy object', function() {
 
     const ns_tmp_bucket_path = `${tmp_fs_path}/${src_bkt}`;
 
-    const ns_tmp = new NamespaceFS({ bucket_path: ns_tmp_bucket_path, bucket_id: '3', namespace_resource_id: undefined });
+    const ns_tmp = new NamespaceFS({
+        bucket_path: ns_tmp_bucket_path,
+        bucket_id: '3',
+        namespace_resource_id: undefined,
+        access_mode: undefined,
+        versioning: undefined,
+        force_md5_etag: false,
+        stats: endpoint_stats_collector.instance(),
+    });
 
     mocha.before(async () => {
         await P.all(_.map([src_bkt, upload_bkt], async buck =>

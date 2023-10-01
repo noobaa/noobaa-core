@@ -10,22 +10,8 @@ const P = require('../../util/promise');
 const Semaphore = require('../../util/semaphore');
 const replication_store = require('../system_services/replication_store').instance();
 const cloud_utils = require('../../util/cloud_utils');
-const prom_reporting = require('../analytic_services/prometheus_reporting');
 const replication_utils = require('../utils/replication_utils');
 const { BucketDiff } = require('../../server/utils/bucket_diff');
-
-
-
-const PARTIAL_SINGLE_BUCKET_REPLICATION_DEFAULTS = {
-    replication_id: '',
-    last_cycle_rule_id: '',
-    bucket_name: '',
-    last_cycle_src_cont_token: '',
-    last_cycle_writes_num: 0,
-    last_cycle_writes_size: 0,
-    last_cycle_error_writes_num: 0,
-    last_cycle_error_writes_size: 0,
-};
 
 class ReplicationScanner {
 
@@ -140,46 +126,11 @@ class ReplicationScanner {
 
             // update the prometheus metrics only if we have diff
             if (Object.keys(keys_diff_map).length) {
-                const replication_status = this._get_rule_status(rule.rule_id, src_cont_token, keys_diff_map, copy_res);
+                const replication_status = replication_utils.get_rule_status(rule.rule_id, src_cont_token, keys_diff_map, copy_res);
 
-                this.update_replication_prom_report(src_bucket.name, replication_id, replication_status);
+                replication_utils.update_replication_prom_report(src_bucket.name, replication_id, replication_status);
             }
         }));
-    }
-
-    _get_rule_status(rule, src_cont_token, keys_diff_map, copy_res) {
-        const { num_keys_to_copy, num_bytes_to_copy } = Object.entries(keys_diff_map).reduce(
-            (acc, [key, value]) => {
-                acc.num_keys_to_copy += value.length;
-                acc.num_bytes_to_copy += value.reduce((key_bytes, obj) => key_bytes + obj.Size, 0);
-                return acc;
-            }, { num_keys_to_copy: 0, num_bytes_to_copy: 0 }
-        );
-
-        const num_keys_moved = copy_res.num_of_objects;
-        const num_bytes_moved = copy_res.size_of_objects;
-
-        const status = {
-            last_cycle_rule_id: rule,
-            last_cycle_src_cont_token: src_cont_token,
-            last_cycle_writes_num: num_keys_moved,
-            last_cycle_writes_size: num_bytes_moved,
-            last_cycle_error_writes_num: num_keys_to_copy - num_keys_moved,
-            last_cycle_error_writes_size: num_bytes_to_copy - num_bytes_moved,
-        };
-        dbg.log0('_get_rule_status: ', status);
-        return status;
-    }
-
-    update_replication_prom_report(bucket_name, replication_policy_id, replication_status) {
-        const core_report = prom_reporting.get_core_report();
-        const last_cycle_status = _.defaults({
-            ...replication_status,
-            bucket_name: bucket_name.unwrap(),
-            replication_id: replication_policy_id
-        }, PARTIAL_SINGLE_BUCKET_REPLICATION_DEFAULTS);
-
-        core_report.set_replication_status(last_cycle_status);
     }
 }
 

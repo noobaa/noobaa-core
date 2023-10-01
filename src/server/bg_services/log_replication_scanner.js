@@ -69,6 +69,7 @@ class LogReplicationScanner {
         await P.all(_.map(replications, async repl => {
             _.map(repl.rules, async rule => {
                 const replication_id = repl._id;
+                const rule_id = rule.rule_id;
 
                 const { src_bucket, dst_bucket } = replication_utils.find_src_and_dst_buckets(rule.destination_bucket, replication_id);
                 if (!src_bucket || !dst_bucket) {
@@ -78,7 +79,7 @@ class LogReplicationScanner {
 
                 const candidates = await log_parser.get_log_candidates(
                     src_bucket._id,
-                    rule.rule_id,
+                    rule_id,
                     repl,
                     config.AWS_LOG_CANDIDATES_LIMIT,
                     rule.sync_deletions
@@ -89,7 +90,7 @@ class LogReplicationScanner {
 
                 const sync_versions = rule.sync_versions || false;
 
-                await this.process_candidates(src_bucket, dst_bucket, candidates.items, sync_versions);
+                await this.process_candidates(src_bucket, dst_bucket, candidates.items, sync_versions, rule_id, replication_id);
 
                 // Commit will save the continuation token for the next scan
                 // This needs to be done only after the candidates were processed.
@@ -108,10 +109,12 @@ class LogReplicationScanner {
      * and process them depending upon the kind of candidate.
      * @param {*} src_bucket source bucket
      * @param {*} dst_bucket destination bucket
-     * @param {nb.ReplicationLogCandidates} candidates 
+     * @param {nb.ReplicationLogCandidates} candidates
      * @param {boolean} sync_versions should we sync object versions
+     * @param {string} rule_id
+     * @param {string} replication_id
      */
-    async process_candidates(src_bucket, dst_bucket, candidates, sync_versions) {
+    async process_candidates(src_bucket, dst_bucket, candidates, sync_versions, rule_id, replication_id) {
         let copy_keys;
         let delete_keys;
         if (sync_versions) {
@@ -125,7 +128,7 @@ class LogReplicationScanner {
 
         // calling copy_objects and delete_objects by passing batch of keys
         await Promise.all([
-            this.copy_objects(src_bucket.name, dst_bucket.name, copy_keys),
+            this.copy_objects(src_bucket.name, dst_bucket.name, copy_keys, rule_id, replication_id),
             this.delete_objects(dst_bucket.name, delete_keys)
         ]);
 
@@ -185,7 +188,10 @@ class LogReplicationScanner {
         for (const candidate of src_dst_objects_list) {
             const action = this.process_candidate(candidate);
             if (action === 'copy') {
-                copy_keys[candidate.key] = candidate.src_object_info;
+                if (!Object.hasOwn(copy_keys, candidate.key)) {
+                    copy_keys[candidate.key] = [];
+                }
+                copy_keys[candidate.key].push(candidate.src_object_info);
             } else if (action === 'delete') {
                 delete_keys.push(candidate.key);
             } else {
@@ -256,12 +262,13 @@ class LogReplicationScanner {
      * @param {any} src_bucket_name
      * @param {any} dst_bucket_name
      * @param {nb.BucketDiffKeysDiff | {}} keys_diff_map
+     * @param {string} rule_id
+     * @param {string} replication_id
      */
-    async copy_objects(src_bucket_name, dst_bucket_name, keys_diff_map) {
+    async copy_objects(src_bucket_name, dst_bucket_name, keys_diff_map, rule_id, replication_id) {
         if (!Object.keys(keys_diff_map).length) return;
-
         const copy_type = replication_utils.get_copy_type();
-        await replication_utils.copy_objects(
+        const copy_res = await replication_utils.copy_objects(
             this._scanner_sem,
             this.client,
             copy_type,
@@ -270,6 +277,10 @@ class LogReplicationScanner {
             keys_diff_map,
         );
         dbg.log2('log_replication_scanner: scan copy_objects: ', keys_diff_map);
+        // in case of log-based replication there is no need for the src_cont_token, hance the undefined.
+        const replication_status = replication_utils.get_rule_status(rule_id, undefined, keys_diff_map, copy_res);
+
+        replication_utils.update_replication_prom_report(src_bucket_name, replication_id, replication_status);
     }
 
     async delete_objects(bucket_name, keys) {

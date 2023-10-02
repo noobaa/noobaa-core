@@ -25,7 +25,7 @@ const inspect = (x, max_arr = 5) => util.inspect(x, { colors: true, depth: null,
 
 // TODO: In order to verify validity add content_md5_mtime as well
 const XATTR_MD5_KEY = 'content_md5';
-const XATTR_DIR_CONTENT = 'user.dir_content';
+const XATTR_DIR_CONTENT = 'user.noobaa.dir_content';
 
 const MAC_PLATFORM = 'darwin';
 

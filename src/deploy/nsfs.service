@@ -1,13 +1,14 @@
 [Unit]
 Description=The NooBaa nsfs service.
+After=gpfs-wait-mount.service
 
 [Service]
 Restart=always
 RestartSec=2
 User=root
 Group=root
-Environment=
 ExecStart=/usr/local/noobaa-core/bin/node /usr/local/noobaa-core/src/cmd/nsfs.js
+EnvironmentFile=/etc/noobaa.conf.d/.env
 ExecStop=/bin/kill $MAINPID
 WorkingDirectory=/usr/local/noobaa-core/
 LimitNOFILE=65536

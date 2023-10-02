@@ -73,6 +73,15 @@ Find instruction at - https://github.com/noobaa/noobaa-core/blob/master/docs/nsf
 **Note** - All required paths on the configuration files (bucket - path, account - new_buckets_path) must be absolute paths.
 
 
+**3. Create env file under the configuration directory -**
+
+nsfs_env.env is the default .env file, link it to /etc/noobaa.conf.d/.env and edit it as you wish before starting the service - 
+
+```sh
+ln /usr/local/noobaa-core/nsfs_env.env  /etc/noobaa.conf.d/.env
+```
+**Note** - If another /usr/local/noobaa-core/.env exists it should be merged into /etc/noobaa.conf.d/.env carefully.
+
 ## Create FS -
 If it's not already existing, create the fs root path in which buckets (directories) and objects (files) will be created.
 

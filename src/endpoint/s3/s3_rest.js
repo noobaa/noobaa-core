@@ -263,7 +263,7 @@ async function authorize_anonymous_access(s3_policy, method, arn_path, req) {
 function _get_method_from_req(req) {
     const s3_op = s3_bucket_policy_utils.OP_NAME_TO_ACTION[req.op_name];
     if (!s3_op) {
-        dbg.error(`Got a not supported S3 op ${req.op_name} - doesn't suppose to happen`);
+        dbg.error(`ERROR: ${req.op_name} - unsupported s3 operation`);
         throw new S3Error(S3Error.InternalError);
     }
     if (req.query && req.query.versionId && s3_op.versioned) {

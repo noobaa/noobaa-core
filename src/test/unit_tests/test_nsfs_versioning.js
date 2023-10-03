@@ -12,6 +12,7 @@ const buffer_utils = require('../../util/buffer_utils');
 const util = require('util');
 const path = require('path');
 const test_utils = require('../system_tests/test_utils');
+const native_fs_utils = require('../../util/native_fs_utils');
 
 const MAC_PLATFORM = 'darwin';
 
@@ -92,11 +93,13 @@ mocha.describe('namespace_fs - versioning', function() {
         const to_path = path.join(ns_tmp_bucket_path, file_key + '_mtime-1-ino-2');
         const fake_mtime_ino = { mtimeNsBigint: BigInt(0), ino: 0 };
         try {
-            await ns_tmp.safe_move_posix(
+            const bucket_tmp_dir_path = path.join(ns_tmp.bucket_path, ns_tmp.get_bucket_tmpdir());
+            await native_fs_utils.safe_move_posix(
                 dummy_object_sdk.requesting_account.nsfs_account_config,
                 from_path,
                 to_path,
-                fake_mtime_ino
+                fake_mtime_ino,
+                bucket_tmp_dir_path
             );
             assert.fail(`safe_move_posix succeeded but should have failed`);
         } catch (err) {
@@ -110,11 +113,13 @@ mocha.describe('namespace_fs - versioning', function() {
         const to_path = path.join(ns_tmp_bucket_path, file_key2 + '_mtime-1-ino-2');
         const fake_mtime_ino = { mtimeNsBigint: BigInt(0), ino: 0 };
         try {
-            await ns_tmp.safe_move_posix(
+            const bucket_tmp_dir_path = path.join(ns_tmp.bucket_path, ns_tmp.get_bucket_tmpdir());
+            await native_fs_utils.safe_move_posix(
                 dummy_object_sdk.requesting_account.nsfs_account_config,
                 from_path,
                 to_path,
-                fake_mtime_ino
+                fake_mtime_ino,
+                bucket_tmp_dir_path
             );
             assert.fail(`safe_move_posix succeeded but should have failed`);
         } catch (err) {

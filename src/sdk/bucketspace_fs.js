@@ -18,6 +18,8 @@ const { default: Ajv } = require('ajv');
 const bucket_schema = require('../server/object_services/schemas/nsfs_bucket_schema');
 const account_schema = require('../server/object_services/schemas/nsfs_account_schema');
 
+const KeysSemaphore = require('../util/keys_semaphore');
+const native_fs_utils = require('../util/native_fs_utils');
 
 const dbg = require('../util/debug_module')(__filename);
 
@@ -27,6 +29,7 @@ const ACCOUNT_PATH = 'accounts';
 const BUCKET_PATH = 'buckets';
 const ajv = new Ajv({ verbose: true, allErrors: true });
 
+const bucket_semaphore = new KeysSemaphore(1);
 
 //TODO:  dup from namespace_fs - need to handle and not dup code
 
@@ -43,6 +46,7 @@ function prepare_fs_context(object_sdk) {
     //if (this.stats) fs_context.report_fs_stats = this.stats.update_fs_stats;
     return fs_context;
 }
+
 function isDirectory(ent) {
     if (!ent) throw new Error('isDirectory: ent is empty');
     if (ent.mode) {
@@ -54,6 +58,7 @@ function isDirectory(ent) {
         throw new Error(`isDirectory: ent ${ent} is not supported`);
     }
 }
+
 
 
 class BucketSpaceFS extends BucketSpaceSimpleFS {
@@ -78,7 +83,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
         return path.join(this.iam_dir, access_key + '.json');
     }
 
-    _translate_object_error_codes(err) {
+    _translate_bucket_error_codes(err) {
         if (err.rpc_code) return err;
         if (err.code === 'ENOENT') err.rpc_code = 'NO_SUCH_BUCKET';
         if (err.code === 'EEXIST') err.rpc_code = 'BUCKET_ALREADY_EXISTS';
@@ -129,7 +134,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             this.validate_bucket_schema(bucket);
             const is_valid = await this.check_bucket_config(bucket);
             if (!is_valid) {
-                console.warn('BucketSpaceFS: one or more bucket config check is failed for bucket : ', name);
+                dbg.warn('BucketSpaceFS: one or more bucket config check is failed for bucket : ', name);
             }
             const nsr = {
                 resource: {
@@ -163,7 +168,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             }
             return bucket;
         } catch (err) {
-            throw this._translate_object_error_codes(err);
+            throw this._translate_bucket_error_codes(err);
         }
     }
 
@@ -192,10 +197,10 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             return this.validate_bucket_access(buckets, object_sdk);
         } catch (err) {
             if (err.code === 'ENOENT') {
-                console.error('BucketSpaceFS: root dir not found', err);
+                dbg.error('BucketSpaceFS: root dir not found', err);
                 throw new S3Error(S3Error.NoSuchBucket);
             }
-            throw this._translate_object_error_codes(err);
+            throw this._translate_bucket_error_codes(err);
         }
     }
 
@@ -245,106 +250,93 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
         return this.read_bucket_sdk_info(params);
     }
 
+
     async create_bucket(params, sdk) {
-        if (!sdk.requesting_account.nsfs_account_config || !sdk.requesting_account.nsfs_account_config.new_buckets_path) {
-            throw new RpcError('MISSING_NSFS_ACCOUNT_CONFIGURATION');
-        }
-        this.validate_bucket_creation(params);
-        const { name } = params;
-        const bucket_config_path = this._get_bucket_config_path(name);
-        const bucket_path = path.join(sdk.requesting_account.nsfs_account_config.new_buckets_path, name);
-        const bucket_storage_path = path.join(this.fs_root, sdk.requesting_account.nsfs_account_config.new_buckets_path, name);
-
-        dbg.log0(`BucketSpaceFS.create_bucket 
-            requesting_account=${util.inspect(sdk.requesting_account)},
-            bucket_config_path=${bucket_config_path},
-            bucket_storage_path=${bucket_storage_path}`);
-
-        // create bucket configuration file
-        const bucket = this.new_bucket_defaults(params.name, sdk.requesting_account.email,
-            sdk.requesting_account._id, params.tag, params.lock_enabled);
-        bucket.path = bucket_path;
-        bucket.should_create_underlying_storage = true;
-        bucket.force_md5_etag = params.force_md5_etag;
-        bucket.creation_date = new Date().toISOString();
-        this.validate_bucket_schema(bucket);
-        const create_bucket = JSON.stringify(bucket);
-
-        // TODO: handle both bucket config json and directory creation atomically 
-        try {
-            await nb_native().fs.stat(this.fs_context, bucket_config_path);
-            throw new RpcError('BUCKET_ALREADY_EXISTS', 'bucket configuration file already exists');
-        } catch (err) {
-            if (err.code !== 'ENOENT') throw this._translate_object_error_codes(err);
-        }
-
-        await nb_native().fs.writeFile(
-            this.fs_context,
-            bucket_config_path,
-            Buffer.from(create_bucket), {
-                mode: this.get_umasked_mode(config.BASE_MODE_FILE)
+        return bucket_semaphore.surround_key(String(params.name), async () => {
+            if (!sdk.requesting_account.nsfs_account_config || !sdk.requesting_account.nsfs_account_config.new_buckets_path) {
+                throw new RpcError('MISSING_NSFS_ACCOUNT_CONFIGURATION');
             }
-        );
-
-        // create bucket's underlying storage directory
-        try {
             const fs_context = prepare_fs_context(sdk);
-            // eslint-disable-next-line no-bitwise
-            const unmask_mode = config.BASE_MODE_DIR & ~config.NSFS_UMASK;
-            await nb_native().fs.mkdir(fs_context, bucket_storage_path, unmask_mode);
-        } catch (err) {
-            dbg.error('BucketSpaceFS: create_bucket could not create underlying directory - nsfs, deleting bucket', err);
-            await nb_native().fs.unlink(this.fs_context, bucket_config_path);
-            throw this._translate_object_error_codes(err);
-        }
+            this.validate_bucket_creation(params);
+
+            const { name } = params;
+            const bucket_config_path = this._get_bucket_config_path(name);
+            const bucket_storage_path = path.join(sdk.requesting_account.nsfs_account_config.new_buckets_path, name);
+
+            dbg.log0(`BucketSpaceFS.create_bucket 
+                requesting_account=${util.inspect(sdk.requesting_account)},
+                bucket_config_path=${bucket_config_path},
+                bucket_storage_path=${bucket_storage_path}`);
+
+            // initiate bucket defaults
+            const create_uls = true;
+            const bucket = this.new_bucket_defaults(sdk.requesting_account, params, create_uls, bucket_storage_path);
+            const bucket_config = JSON.stringify(bucket);
+
+            // create bucket configuration file
+            try {
+                await native_fs_utils.create_config_file(fs_context, this.bucket_schema_dir, bucket_config_path, bucket_config);
+            } catch (err) {
+                throw this._translate_bucket_error_codes(err);
+            }
+
+            // create bucket's underlying storage directory
+            try {
+                await nb_native().fs.mkdir(fs_context, bucket_storage_path, native_fs_utils.get_umasked_mode(config.BASE_MODE_DIR));
+            } catch (err) {
+                dbg.error('BucketSpaceFS: create_bucket could not create underlying directory - nsfs, deleting bucket', err);
+                await nb_native().fs.unlink(fs_context, bucket_config_path);
+                throw this._translate_bucket_error_codes(err);
+            }
+        });
     }
 
-    get_umasked_mode(mode) {
-        // eslint-disable-next-line no-bitwise
-        return mode & ~config.NSFS_UMASK;
-    }
 
-
-    new_bucket_defaults(name, email, owner_account_id, tag, lock_enabled) {
+    new_bucket_defaults(account, { name, tag, lock_enabled, force_md5_etag }, create_uls, bucket_storage_path) {
         return {
-            name: name,
+            name,
             tag: js_utils.default_value(tag, ''),
-            owner_account: owner_account_id,
-            system_owner: new SensitiveString(email),
-            bucket_owner: new SensitiveString(email),
+            owner_account: account._id,
+            system_owner: new SensitiveString(account.email),
+            bucket_owner: new SensitiveString(account.email),
             versioning: config.NSFS_VERSIONING_ENABLED && lock_enabled ? 'ENABLED' : 'DISABLED',
             object_lock_configuration: config.WORM_ENABLED ? {
                 object_lock_enabled: lock_enabled ? 'Enabled' : 'Disabled',
             } : undefined,
+            creation_date: new Date().toISOString(),
+            force_md5_etag: force_md5_etag,
+            path: bucket_storage_path,
+            should_create_underlying_storage: create_uls,
         };
     }
 
-    async delete_bucket(params, object_sdk) {
-        try {
-            const { name } = params;
-            const namespace_bucket_config = await object_sdk.read_bucket_sdk_namespace_info(params.name);
-            dbg.log1('BucketSpaceFS.delete_bucket: namespace_bucket_config', namespace_bucket_config);
-            if (namespace_bucket_config && namespace_bucket_config.should_create_underlying_storage) {
-                const ns = await object_sdk._get_bucket_namespace(params.name);
-                // delete underlying storage = the directory which represents the bucket
-                dbg.log1('BucketSpaceFS.delete_bucket: deleting uls', this.fs_root, namespace_bucket_config.write_resource.path);
-                await ns.delete_uls({
-                    name,
-                    full_path: path.join(this.fs_root, namespace_bucket_config.write_resource.path) // includes write_resource.path + bucket name (s3 flow)
-                }, object_sdk);
-            }
-            const bucket_path = this._get_bucket_config_path(name);
-            dbg.log1(`BucketSpaceFS: delete_fs_bucket ${bucket_path}`);
 
-            // delete bucket config json file
-            await nb_native().fs.unlink(this.fs_context, bucket_path);
-        } catch (err) {
-            if (err.code === 'ENOENT') {
-                console.error('BucketSpaceFS: root dir not found', err);
-                throw new S3Error(S3Error.NoSuchBucket);
+    async delete_bucket(params, object_sdk) {
+        return bucket_semaphore.surround_key(String(params.name), async () => {
+            try {
+                const { name } = params;
+                const namespace_bucket_config = await object_sdk.read_bucket_sdk_namespace_info(params.name);
+                dbg.log1('BucketSpaceFS.delete_bucket: namespace_bucket_config', namespace_bucket_config);
+                if (namespace_bucket_config && namespace_bucket_config.should_create_underlying_storage) {
+                    const ns = await object_sdk._get_bucket_namespace(params.name);
+                    // delete underlying storage = the directory which represents the bucket
+                    dbg.log1('BucketSpaceFS.delete_bucket: deleting uls', this.fs_root, namespace_bucket_config.write_resource.path);
+                    await ns.delete_uls({
+                        name,
+                        full_path: path.join(this.fs_root, namespace_bucket_config.write_resource.path) // includes write_resource.path + bucket name (s3 flow)
+                    }, object_sdk);
+                }
+                const bucket_path = this._get_bucket_config_path(name);
+                dbg.log1(`BucketSpaceFS: delete_fs_bucket ${bucket_path}`);
+
+                // delete bucket config json file
+                const fs_context = prepare_fs_context(object_sdk);
+                await native_fs_utils.delete_config_file(fs_context, this.bucket_schema_dir, bucket_path);
+            } catch (err) {
+                dbg.error('BucketSpaceFS: delete_bucket error', err);
+                throw this._translate_bucket_error_codes(err);
             }
-            throw this._translate_object_error_codes(err);
-        }
+        });
     }
 
     validate_bucket_creation(params) {
@@ -391,11 +383,11 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                 this.fs_context,
                 bucket_config_path,
                 Buffer.from(update_bucket), {
-                    mode: this.get_umasked_mode(config.BASE_MODE_FILE)
+                    mode: native_fs_utils.get_umasked_mode(config.BASE_MODE_FILE)
                 }
             );
         } catch (err) {
-            throw this._translate_object_error_codes(err);
+            throw this._translate_bucket_error_codes(err);
         }
     }
 
@@ -432,11 +424,11 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                 this.fs_context,
                 bucket_config_path,
                 Buffer.from(update_bucket), {
-                    mode: this.get_umasked_mode(config.BASE_MODE_FILE)
+                    mode: native_fs_utils.get_umasked_mode(config.BASE_MODE_FILE)
                 }
             );
         } catch (err) {
-            throw this._translate_object_error_codes(err);
+            throw this._translate_bucket_error_codes(err);
         }
     }
 
@@ -449,7 +441,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             const bucket = JSON.parse(data.toString());
             return bucket.encryption;
         } catch (err) {
-            throw this._translate_object_error_codes(err);
+            throw this._translate_bucket_error_codes(err);
         }
     }
 
@@ -466,11 +458,11 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                 this.fs_context,
                 bucket_config_path,
                 Buffer.from(update_bucket), {
-                    mode: this.get_umasked_mode(config.BASE_MODE_FILE)
+                    mode: native_fs_utils.get_umasked_mode(config.BASE_MODE_FILE)
                 }
             );
         } catch (err) {
-            throw this._translate_object_error_codes(err);
+            throw this._translate_bucket_error_codes(err);
         }
     }
 
@@ -491,11 +483,11 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                 this.fs_context,
                 bucket_config_path,
                 Buffer.from(update_bucket), {
-                    mode: this.get_umasked_mode(config.BASE_MODE_FILE)
+                    mode: native_fs_utils.get_umasked_mode(config.BASE_MODE_FILE)
                 }
             );
         } catch (err) {
-            throw this._translate_object_error_codes(err);
+            throw this._translate_bucket_error_codes(err);
         }
     }
 
@@ -512,11 +504,11 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                 this.fs_context,
                 bucket_config_path,
                 Buffer.from(update_bucket), {
-                    mode: this.get_umasked_mode(config.BASE_MODE_FILE)
+                    mode: native_fs_utils.get_umasked_mode(config.BASE_MODE_FILE)
                 }
             );
         } catch (err) {
-            throw this._translate_object_error_codes(err);
+            throw this._translate_bucket_error_codes(err);
         }
     }
 
@@ -529,7 +521,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             const bucket = JSON.parse(data.toString());
             return bucket.website;
         } catch (err) {
-            throw this._translate_object_error_codes(err);
+            throw this._translate_bucket_error_codes(err);
         }
     }
 
@@ -551,11 +543,11 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                 this.fs_context,
                 bucket_config_path,
                 Buffer.from(update_bucket), {
-                    mode: this.get_umasked_mode(config.BASE_MODE_FILE)
+                    mode: native_fs_utils.get_umasked_mode(config.BASE_MODE_FILE)
                 }
             );
         } catch (err) {
-            throw this._translate_object_error_codes(err);
+            throw this._translate_bucket_error_codes(err);
         }
     }
 
@@ -572,11 +564,11 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                 this.fs_context,
                 bucket_config_path,
                 Buffer.from(update_bucket), {
-                    mode: this.get_umasked_mode(config.BASE_MODE_FILE)
+                    mode: native_fs_utils.get_umasked_mode(config.BASE_MODE_FILE)
                 }
             );
         } catch (err) {
-            throw this._translate_object_error_codes(err);
+            throw this._translate_bucket_error_codes(err);
         }
     }
 
@@ -592,7 +584,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                 policy: bucket.s3_policy
             };
         } catch (err) {
-            throw this._translate_object_error_codes(err);
+            throw this._translate_bucket_error_codes(err);
         }
     }
 

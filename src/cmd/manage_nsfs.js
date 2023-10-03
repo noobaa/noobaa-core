@@ -9,6 +9,7 @@ const fs = require('fs');
 const P = require('../util/promise');
 const _ = require('lodash');
 const config = require('../../config');
+const native_fs_utils = require('../util/native_fs_utils');
 
 const HELP = `
 Help:
@@ -36,8 +37,9 @@ const ACCOUNT_OPTIONS = `
 Account Options:
 
     # Read account details from json file, no need to mention all the propery one by one in CLI
-    --from_file <dir>           (default none)          Set buckt/account schema full path.
-                                                        Get bucket and account details from json file                
+    --from_file <dir>                       (default none)          Set buckt/account schema full path.
+                                                                    Get bucket and account details from json file                
+    --config_root_backend <none | GPFS >    (default none)          Set the config_root FS type to be GPFS
 
     # required for add, replace 
     --name <name>               (default none)          Set the name for account/bucket.
@@ -56,8 +58,10 @@ const BUCKET_OPTIONS = `
 Bucket Options:
 
     # Read Bucket details from json file, no need to mention all the propery one by one in CLI
-    --from_file <dir>           (default none)          Set buckt/account schema full path.
-                                                        Get bucket and account details from json file
+    --from_file <dir>                       (default none)          Set buckt/account schema full path.
+                                                                    Get bucket and account details from json file
+    --config_root_backend <none | GPFS >    (default none)          Set the config_root FS type to be GPFS
+
     # required for add, replace 
     --email <email>             (default none)          Set the email for account/bucket.
     --path <dir>                (default none)          Set the bucket path.
@@ -111,10 +115,10 @@ async function main(argv = minimist(process.argv.slice(2))) {
         }
         const from_file = argv.from_file ? String(argv.from_file) : '';
         if (resources_type === 'account') {
-            account_management(argv, config_root, from_file);
+            await account_management(argv, config_root, from_file);
         }
         if (resources_type === 'bucket') {
-            bucket_management(argv, config_root, from_file);
+            await bucket_management(argv, config_root, from_file);
         }
     } catch (err) {
       console.error('NSFS Manage command: exit on error', err.stack || err);
@@ -122,10 +126,20 @@ async function main(argv = minimist(process.argv.slice(2))) {
     }
 }
 
+function get_root_fs_context(config_root_backend) {
+    return {
+        uid: process.getuid(),
+        gid: process.getgid(),
+        warn_threshold_ms: config.NSFS_WARN_THRESHOLD_MS,
+        backend: config_root_backend
+    };
+}
+
 async function bucket_management(argv, config_root, from_file) {
     const action = argv._[1] || '';
+    const config_root_backend = String(argv.config_root_backend);
     const data = await fetch_bucket_data(argv, config_root, from_file);
-    manage_bucket_operations(action, data, config_root);
+    await manage_bucket_operations(action, data, config_root, config_root_backend);
 }
 
 async function fetch_bucket_data(argv, config_root, from_file) {
@@ -147,7 +161,7 @@ async function fetch_bucket_data(argv, config_root, from_file) {
             tag: '',
             versioning: 'DISABLED',
             path: bucket_path,
-            should_create_underlying_storage: true,
+            should_create_underlying_storage: false,
         };
     }
     data.creation_date = new Date().toISOString();
@@ -166,24 +180,30 @@ async function update_bucket_object(config_root, target) {
         source = JSON.parse(source_raw.toString());
     } catch (err) {
         console.error('NSFS Manage command: Could not find bucket ' + target.name + ' to update');
-        print_account_usage();
+        print_bucket_usage();
     }
     const data = _.merge({}, source, target);
-    data.path = source.path;
     return data;
 }
 
-async function add_bucket_config_file(data, bucket_config_path) {
-    const is_valid = await validate_bucket_add_args(data);
-    const file_exist = await is_file_exist(path.join(bucket_config_path, data.name + '.json'));
-        if (!is_valid || file_exist) {
-            print_bucket_usage();
-            return;
-        }
-        create_config_file(data.name, bucket_config_path, data);
+function get_config_file_path(config_type_path, file_name) {
+    return path.join(config_type_path, file_name + '.json');
 }
 
-async function get_bucket_config_file_status(data, bucket_config_path) {
+async function add_bucket_config_file(data, buckets_config_path, config_root_backend) {
+    const is_valid = await validate_bucket_add_args(data);
+    if (!is_valid) {
+        print_bucket_usage();
+        return;
+    }
+    // TODO: support non root fs context
+    const fs_context = get_root_fs_context(config_root_backend);
+    const full_bucket_config_path = get_config_file_path(buckets_config_path, data.name);
+    data = JSON.stringify(data);
+    await native_fs_utils.create_config_file(fs_context, buckets_config_path, full_bucket_config_path, data);
+}
+
+async function get_bucket_config_file_status(data, bucket_config_path, config_root_backend) {
     const is_valid = await validate_minimum_bucket_args(data);
     if (!is_valid) {
         print_bucket_usage();
@@ -202,42 +222,42 @@ async function get_bucket_config_file_status(data, bucket_config_path) {
     }
 }
 
-async function update_bucket_config_file(data, bucket_config_path) {
+async function update_bucket_config_file(data, bucket_config_path, config_root_backend) {
     const is_valid = await validate_bucket_add_args(data);
-        if (!is_valid) {
-            print_bucket_usage();
-            return;
-        }
-        update_config_file(data.name, bucket_config_path, data);
-}
-
-async function is_file_exist(file_path) {
-    const file_exist = await fs_utils.file_exists(file_path);
-    if (file_exist) {
-        console.error('file already exist: ' + file_path);
+    if (!is_valid) {
+        print_bucket_usage();
+        return;
     }
-    return file_exist;
+    // TODO: support non root fs context
+    const fs_context = get_root_fs_context(config_root_backend);
+    const full_bucket_config_path = get_config_file_path(bucket_config_path, data.name);
+    data = JSON.stringify(data);
+    await native_fs_utils.update_config_file(fs_context, bucket_config_path, full_bucket_config_path, data);
 }
 
-async function delete_bucket_config_file(data, bucket_config_path) {
+
+async function delete_bucket_config_file(data, buckets_config_path, config_root_backend) {
     const is_valid = await validate_minimum_bucket_args(data);
         if (!is_valid) {
             print_bucket_usage();
             return;
         }
-        delete_config_file(data.name, bucket_config_path);
+        // TODO: support non root fs context
+        const fs_context = get_root_fs_context(config_root_backend);
+        const full_bucket_config_path = get_config_file_path(buckets_config_path, data.name);
+        await native_fs_utils.delete_config_file(fs_context, buckets_config_path, full_bucket_config_path);
 }
 
-async function manage_bucket_operations(action, data, config_root) {
+async function manage_bucket_operations(action, data, config_root, config_root_backend) {
     const bucket_config_path = config_root + '/buckets';
     if (action === 'add') {
-        add_bucket_config_file(data, bucket_config_path);
+        await add_bucket_config_file(data, bucket_config_path, config_root_backend);
     } else if (action === 'status') {
-        get_bucket_config_file_status(data, bucket_config_path);
+        await get_bucket_config_file_status(data, bucket_config_path, config_root_backend);
     } else if (action === 'update') {
-        update_bucket_config_file(data, bucket_config_path);
+        await update_bucket_config_file(data, bucket_config_path, config_root_backend);
     } else if (action === 'delete') {
-        delete_bucket_config_file(data, bucket_config_path);
+        await delete_bucket_config_file(data, bucket_config_path, config_root_backend);
     } else if (action === 'list') {
         const buckets = await list_config_file(bucket_config_path);
         console.log(buckets);
@@ -248,8 +268,9 @@ async function manage_bucket_operations(action, data, config_root) {
 
 async function account_management(argv, config_root, from_file) {
     const action = argv._[1] || '';
+    const config_root_backend = String(argv.config_root_backend);
     const data = await fetch_account_data(argv, config_root, from_file);
-    manage_account_operations(action, data, config_root);
+    await manage_account_operations(action, data, config_root, config_root_backend);
 }
 
 async function fetch_account_data(argv, config_root, from_file) {
@@ -309,35 +330,45 @@ async function update_account_object(config_root, target) {
     return data;
 }
 
-async function add_account_config_file(data, account_path) {
-    const is_valid = await validate_account_add_args(data);
-    const file_exist = await is_file_exist(path.join(account_path, data.access_keys[0].access_key + '.json'));
-    if (!is_valid || file_exist) {
-        print_account_usage();
-        return;
-    }
-    create_config_file(data.access_keys[0].access_key, account_path, data);
-}
-
-async function update_account_config_file(data, account_path) {
+async function add_account_config_file(data, accounts_config_path, config_root_backend) {
     const is_valid = await validate_account_add_args(data);
     if (!is_valid) {
         print_account_usage();
         return;
     }
-    update_config_file(data.access_keys[0].access_key, account_path, data);
+    // TODO: support non root fs context
+    const fs_context = get_root_fs_context(config_root_backend);
+    const full_account_config_path = get_config_file_path(accounts_config_path, data.access_keys[0].access_key);
+    data = JSON.stringify(data);
+    await native_fs_utils.create_config_file(fs_context, accounts_config_path, full_account_config_path, data);
 }
 
-async function delete_account_config_file(data, account_path) {
+async function update_account_config_file(data, accounts_config_path, config_root_backend) {
+    const is_valid = await validate_account_add_args(data);
+    if (!is_valid) {
+        print_account_usage();
+        return;
+    }
+    // TODO: support non root fs context
+    const fs_context = get_root_fs_context(config_root_backend);
+    const full_account_config_path = get_config_file_path(accounts_config_path, data.access_keys[0].access_key);
+    data = JSON.stringify(data);
+    await native_fs_utils.update_config_file(fs_context, accounts_config_path, full_account_config_path, data);
+}
+
+async function delete_account_config_file(data, accounts_config_path, config_root_backend) {
     const is_valid = await validate_minimum_account_args(data);
     if (!is_valid) {
         print_account_usage();
         return;
     }
-    delete_config_file(data.access_keys[0].access_key, account_path);
+    // TODO: support non root fs context
+    const fs_context = get_root_fs_context(config_root_backend);
+    const full_account_config_path = get_config_file_path(accounts_config_path, data.access_keys[0].access_key);
+    await native_fs_utils.delete_config_file(fs_context, accounts_config_path, full_account_config_path);
 }
 
-async function get_account_config_file_status(data, account_path) {
+async function get_account_config_file_status(data, account_path, config_root_backend) {
     const is_valid = await validate_minimum_account_args(data);
     if (!is_valid) {
         print_account_usage();
@@ -356,16 +387,16 @@ async function get_account_config_file_status(data, account_path) {
     }
 }
 
-async function manage_account_operations(action, data, config_root) {
+async function manage_account_operations(action, data, config_root, config_root_backend) {
     const account_path = config_root + '/accounts';
     if (action === 'add') {
-        add_account_config_file(data, account_path);
+        await add_account_config_file(data, account_path, config_root_backend);
     } else if (action === 'status') {
-        get_account_config_file_status(data, account_path);
+        await get_account_config_file_status(data, account_path, config_root_backend);
     } else if (action === 'update') {
-        update_account_config_file(data, account_path);
+        await update_account_config_file(data, account_path, config_root_backend);
     } else if (action === 'delete') {
-        delete_account_config_file(data, account_path);
+        await delete_account_config_file(data, account_path, config_root_backend);
     } else if (action === 'list') {
         const accounts = await list_config_file(account_path);
         console.log(accounts);
@@ -375,25 +406,6 @@ async function manage_account_operations(action, data, config_root) {
     }
 }
 
-async function create_config_file(file_name, file_path, data) {
-    data = JSON.stringify(data);
-    const full_path = path.join(file_path, file_name.unwrap() + '.json');
-    await fs_utils.replace_file(full_path, data);
-    console.log('Resource created : ', file_name.unwrap());
-}
-
-async function update_config_file(file_name, file_path, data) {
-    data = JSON.stringify(data);
-    const full_path = path.join(file_path, file_name.unwrap() + '.json');
-    await fs_utils.replace_file(full_path, data);
-    console.log('Resource updated : ', file_name.unwrap());
-}
-
-async function delete_config_file(file_name, file_path) {
-    const full_path = path.join(file_path, file_name.unwrap() + '.json');
-    fs_utils.file_delete(full_path);
-    console.log('Resource deleted : ', file_name.unwrap());
-}
 
 async function list_config_file(full_path) {
     const entries = await fs.promises.readdir(full_path);
@@ -422,13 +434,9 @@ async function validate_bucket_add_args(data) {
         console.error('Error: User data and bucket path should not be empty');
         return false;
     }
-    if (!data.path.includes(data.name.unwrap())) {
-        console.error('Error: Bucket name should be same as dir name');
-        return false;
-    }
     const bucket_dir_stat = await fs_utils.file_exists(data.path);
     if (!bucket_dir_stat) {
-        console.error('Error: Path should be a valid dir path');
+        console.error('Error: Path should be a valid dir path', data.path);
         return false;
     }
     return true;

@@ -682,6 +682,7 @@ config.NSFS_VERSIONING_ENABLED = true;
 ////////////////////////////
 
 config.NSFS_NC_DEFAULT_CONF_DIR = '/etc/noobaa.conf.d';
+config.NSFS_TEMP_CONF_DIR_NAME = '.noobaa-config-nsfs';
 
 // NSFS_RESTORE_ENABLED can override internal autodetection and will force
 // the use of restore for all objects.

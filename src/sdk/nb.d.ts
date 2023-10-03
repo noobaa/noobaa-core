@@ -960,9 +960,9 @@ interface NativeFile {
     write(fs_context: NativeFSContext, buffer: Buffer, len: number, offset?: number): Promise<void>;
     writev(fs_context: NativeFSContext, buffers: Buffer[], offset?: number): Promise<void>;
     replacexattr(fs_context: NativeFSContext, xattr: NativeFSXattr, clear_prefix?: string): Promise<void>;
-    linkfileat(fs_context: NativeFSContext): Promise<void>;
+    linkfileat(fs_context: NativeFSContext, path: string, fd?: number): Promise<void>;
     fsync(fs_context: NativeFSContext): Promise<void>;
-    fd(fs_context: NativeFSContext): Promise<number>;
+    fd: number
 }
 
 interface NativeDir {

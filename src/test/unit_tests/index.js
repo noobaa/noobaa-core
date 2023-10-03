@@ -60,8 +60,8 @@ require('./test_ns_list_objects');
 require('./test_chunk_fs');
 require('./test_namespace_fs_mpu');
 require('./test_nb_native_fs');
-require('./test_nsfs_versioning');
 require('./test_s3select');
+require('./test_nc_nsfs_cli');
 
 // // SERVERS
 require('./test_agent');

@@ -90,11 +90,6 @@ const versioning_status_enum = {
 };
 const version_format = /^[a-z0-9]+$/;
 
-const posix_link_retry_err = 'FS::SafeLink ERROR link target doesn\'t match expected inode and mtime';
-const posix_unlink_retry_err = 'FS::SafeUnlink ERROR unlink target doesn\'t match expected inode and mtime';
-const gpfs_link_unlink_retry_err = 'EEXIST';
-const gpfs_unlink_retry_catch = 'GPFS_UNLINK_RETRY';
-
 // describes the status of the copy that was done, default is fallback
 // LINKED = the file was linked on the server side
 // IS_SAME_INODE = source and target are the same inode, nothing to copy
@@ -278,10 +273,6 @@ function is_sparse_file(stat) {
     return (stat.blocks * 512 < stat.size);
 }
 
-function get_umasked_mode(mode) {
-    // eslint-disable-next-line no-bitwise
-    return mode & ~config.NSFS_UMASK;
-}
 /**
  * @param {fs.Dirent} e
  * @returns {string}
@@ -923,7 +914,7 @@ class NamespaceFS {
                 fs_context,
                 file_path,
                 config.NSFS_OPEN_READ_MODE,
-                get_umasked_mode(config.BASE_MODE_FILE),
+                native_fs_utils.get_umasked_mode(config.BASE_MODE_FILE),
             );
 
             const stat = await file.stat(fs_context);
@@ -1074,7 +1065,7 @@ class NamespaceFS {
     async upload_object(params, object_sdk) {
         const fs_context = this.prepare_fs_context(object_sdk);
         await this._load_bucket(params, fs_context);
-        const open_mode = this._is_gpfs(fs_context) ? 'wt' : 'w';
+        const open_mode = native_fs_utils._is_gpfs(fs_context) ? 'wt' : 'w';
         const file_path = this._get_file_path(params);
         let upload_params;
         try {
@@ -1121,7 +1112,7 @@ class NamespaceFS {
         if (open_mode === 'w' || params.copy_source) {
             const upload_id = uuidv4();
             upload_path = path.join(this.bucket_path, this.get_bucket_tmpdir(), 'uploads', upload_id);
-            await this._make_path_dirs(upload_path, fs_context);
+            await native_fs_utils._make_path_dirs(upload_path, fs_context);
         }
         let open_path = upload_path || file_path;
 
@@ -1135,22 +1126,10 @@ class NamespaceFS {
                 if (copy_res === copy_status_enum.SAME_INODE) open_path = file_path;
             }
         }
-        const target_file = await this._open_file(fs_context, open_path, open_mode);
+        const target_file = await native_fs_utils.open_file(fs_context, this.bucket_path, open_path, open_mode);
         return { fs_context, params, object_sdk, open_mode, file_path, upload_path, target_file, copy_res };
     }
 
-    // opens open_path on POSIX, and on GPFS it will open open_path parent folder
-    async _open_file(fs_context, open_path, open_mode = config.NSFS_OPEN_READ_MODE) {
-        const dir_path = path.dirname(open_path);
-        if ((open_mode === 'wt' || open_mode === 'w') && dir_path !== this.bucket_path) {
-            dbg.log1(`NamespaceFS._open_file: mode=${open_mode} creating dirs`, open_path, this.bucket_path);
-            await this._make_path_dirs(open_path, fs_context);
-        }
-        dbg.log1(`NamespaceFS._open_file: mode=${open_mode}`, open_path);
-        // for 'wt' open the tmpfile with the parent dir path
-        const actual_open_path = open_mode === 'wt' ? dir_path : open_path;
-        return nb_native().fs.open(fs_context, actual_open_path, open_mode, get_umasked_mode(config.BASE_MODE_FILE));
-    }
 
     // on server side copy -
     // 1. check if source and target is same inode and return if do nothing if true, status is SAME_INODE
@@ -1242,7 +1221,7 @@ class NamespaceFS {
     }
 
     async _create_empty_dir_content(fs_context, params, file_path) {
-        await this._make_path_dirs(file_path, fs_context);
+        await native_fs_utils._make_path_dirs(file_path, fs_context);
         const copy_xattr = params.copy_source && params.xattr_copy;
 
         let fs_xattr = copy_xattr ? {} : to_fs_xattr(params.xattr) || {};
@@ -1279,7 +1258,7 @@ class NamespaceFS {
         // will retry renaming a file in case of parallel deleting of the destination path
         for (;;) {
             try {
-                await this._make_path_dirs(dest_path, fs_context);
+                await native_fs_utils._make_path_dirs(dest_path, fs_context);
                 if (this._is_versioning_disabled()) {
                     if (open_mode === 'wt') {
                         await target_file.linkfileat(fs_context, dest_path);
@@ -1320,7 +1299,7 @@ class NamespaceFS {
     async _move_to_dest_version(fs_context, new_ver_tmp_path, latest_ver_path, upload_file, key, open_mode) {
         dbg.log1('Namespace_fs._move_to_dest_version:', new_ver_tmp_path, latest_ver_path, upload_file);
         let gpfs_options;
-        const is_gpfs = this._is_gpfs(fs_context);
+        const is_gpfs = native_fs_utils._is_gpfs(fs_context);
         let retries = config.NSFS_RENAME_RETRIES;
         for (;;) {
             try {
@@ -1334,13 +1313,13 @@ class NamespaceFS {
                     await this._open_files_gpfs(fs_context, new_ver_tmp_path, latest_ver_path, upload_file,
                         latest_ver_info, open_mode, undefined, versioned_info) :
                     undefined;
-
+                const bucket_tmp_dir_path = path.join(this.bucket_path, this.get_bucket_tmpdir());
                 dbg.log1('Namespace_fs._move_to_dest_version:', latest_ver_info, new_ver_info, gpfs_options);
 
                 if (this._is_versioning_suspended()) {
                     if (latest_ver_info?.version_id_str === NULL_VERSION_ID) {
                         dbg.log1('NamespaceFS._move_to_dest_version suspended: version ID of the latest version is null - the file will be unlinked');
-                        await this.safe_unlink(fs_context, latest_ver_path, latest_ver_info, gpfs_options);
+                        await native_fs_utils.safe_unlink(fs_context, latest_ver_path, latest_ver_info, gpfs_options, bucket_tmp_dir_path);
                     } else {
                         // remove a version (or delete marker) with null version ID from .versions/ (if exists)
                         await this._delete_null_version_from_versions_directory(key, fs_context);
@@ -1350,22 +1329,23 @@ class NamespaceFS {
                     ((this._is_versioning_enabled()) ||
                         (this._is_versioning_suspended() && latest_ver_info.version_id_str !== NULL_VERSION_ID))) {
                     dbg.log1('NamespaceFS._move_to_dest_version version ID of the latest version is a unique ID - the file will be moved it to .versions/ directory');
-                    await this._make_path_dirs(versioned_path, fs_context);
-                    await this.safe_move(fs_context, latest_ver_path, versioned_path, latest_ver_info,
-                        gpfs_options && gpfs_options.move_to_versions);
+                    await native_fs_utils._make_path_dirs(versioned_path, fs_context);
+                    await native_fs_utils.safe_move(fs_context, latest_ver_path, versioned_path, latest_ver_info,
+                        gpfs_options && gpfs_options.move_to_versions, bucket_tmp_dir_path);
                 }
                 try {
                     // move new version to latest_ver_path (key path)
-                    await this.safe_move(fs_context, new_ver_tmp_path, latest_ver_path, new_ver_info,
-                        gpfs_options && gpfs_options.move_to_dst);
+                    await native_fs_utils.safe_move(fs_context, new_ver_tmp_path, latest_ver_path, new_ver_info,
+                        gpfs_options && gpfs_options.move_to_dst, bucket_tmp_dir_path);
                 } catch (err) {
-                    if (err.message !== posix_unlink_retry_err && err.code !== gpfs_unlink_retry_catch) throw err;
+                    if (err.message !== native_fs_utils.posix_unlink_retry_err &&
+                        err.code !== native_fs_utils.gpfs_unlink_retry_catch) throw err;
                     dbg.warn('Namespace_fs._move_to_dest_version: unable to delete new version tmp file, ignoring...');
                 }
                 break;
             } catch (err) {
                 retries -= 1;
-                if (retries <= 0 || !this.should_retry_link_unlink(is_gpfs, err)) throw err;
+                if (retries <= 0 || !native_fs_utils.should_retry_link_unlink(is_gpfs, err)) throw err;
                 dbg.warn(`NamespaceFS._move_to_dest_version retrying retries=${retries}` +
                     ` new_ver_tmp_path=${new_ver_tmp_path} latest_ver_path=${latest_ver_path}`, err);
             } finally {
@@ -1447,7 +1427,7 @@ class NamespaceFS {
             await this._load_bucket(params, fs_context);
             params.obj_id = uuidv4();
             params.mpu_path = this._mpu_path(params);
-            await this._create_path(params.mpu_path, fs_context);
+            await native_fs_utils._create_path(params.mpu_path, fs_context);
             const create_params = JSON.stringify({ ...params, source_stream: null });
 
             await this._throw_if_storage_class_not_supported(params.storage_class);
@@ -1456,7 +1436,7 @@ class NamespaceFS {
                 fs_context,
                 path.join(params.mpu_path, 'create_object_upload'),
                 Buffer.from(create_params), {
-                    mode: get_umasked_mode(config.BASE_MODE_FILE),
+                    mode: native_fs_utils.get_umasked_mode(config.BASE_MODE_FILE),
                 },
             );
             return { obj_id: params.obj_id };
@@ -1493,7 +1473,7 @@ class NamespaceFS {
             await this._load_multipart(params, fs_context);
 
             const md_upload_path = this._get_part_md_path(params);
-            part_md_file = await this._open_file(fs_context, md_upload_path, md_open_mode);
+            part_md_file = await native_fs_utils.open_file(fs_context, this.bucket_path, md_upload_path, md_open_mode);
             let md_upload_params = {
                 fs_context, params, object_sdk, upload_path: md_upload_path, open_mode: md_open_mode,
                 target_file: part_md_file, file_path: md_upload_path
@@ -1510,7 +1490,7 @@ class NamespaceFS {
             const upload_path = this._get_part_data_path(params);
             dbg.log1(`NamespaceFS: upload_multipart, data path=${upload_path} offset=${offset} data_open_mode=${data_open_mode}`);
 
-            target_file = await this._open_file(fs_context, upload_path, data_open_mode);
+            target_file = await native_fs_utils.open_file(fs_context, this.bucket_path, upload_path, data_open_mode);
             const data_upload_params = {
                 fs_context, params, object_sdk, upload_path, data_open_mode, target_file,
                 file_path: upload_path, offset
@@ -1612,7 +1592,7 @@ class NamespaceFS {
                 if (part_size_to_fd_map.has(part_size)) {
                     read_file = part_size_to_fd_map.get(part_size);
                 } else {
-                    read_file = await this._open_file(fs_context, data_part_path, config.NSFS_OPEN_READ_MODE);
+                    read_file = await native_fs_utils.open_file(fs_context, this.bucket_path, data_part_path, config.NSFS_OPEN_READ_MODE);
                     part_size_to_fd_map.set(part_size, read_file);
                 }
 
@@ -1632,7 +1612,9 @@ class NamespaceFS {
                         await nb_native().fs.link(fs_context, prev_data_part_path, upload_path);
                     } else {
                         const prev_read_file = part_size_to_fd_map.get(prev_part_size);
-                        if (!target_file) target_file = await this._open_file(fs_context, upload_path, open_mode);
+                        if (!target_file) {
+                            target_file = await native_fs_utils.open_file(fs_context, this.bucket_path, upload_path, open_mode);
+                        }
                         // copy (num - 1) parts, all the same size of the prev part
                         const copy_size = prev_part_size * (num - 1);
                         await native_fs_utils.copy_bytes(buffers_pool, fs_context, prev_read_file, target_file, copy_size, 0, 0);
@@ -1640,12 +1622,12 @@ class NamespaceFS {
                     should_copy_file_prefix = false;
                 }
                 // 3
-                if (!target_file) target_file = await this._open_file(fs_context, upload_path, open_mode);
+                if (!target_file) target_file = await native_fs_utils.open_file(fs_context, this.bucket_path, upload_path, open_mode);
                 await native_fs_utils.copy_bytes(buffers_pool, fs_context, read_file, target_file, part_size, total_size, part_offset);
                 prev_part_size = part_size;
                 total_size += part_size;
             }
-            if (!target_file) target_file = await this._open_file(fs_context, upload_path, open_mode);
+            if (!target_file) target_file = await native_fs_utils.open_file(fs_context, this.bucket_path, upload_path, open_mode);
 
             const { data: create_params_buffer } = await nb_native().fs.readFile(
                 fs_context,
@@ -2013,7 +1995,8 @@ class NamespaceFS {
     async set_fs_xattr_op(fs_context, file_path, set, clear) {
         let file;
         try {
-            file = await nb_native().fs.open(fs_context, file_path, config.NSFS_OPEN_READ_MODE, get_umasked_mode(config.BASE_MODE_FILE));
+            file = await nb_native().fs.open(fs_context, file_path, config.NSFS_OPEN_READ_MODE,
+                native_fs_utils.get_umasked_mode(config.BASE_MODE_FILE));
             await file.replacexattr(fs_context, set, clear);
             await file.close(fs_context);
             file = null;
@@ -2089,11 +2072,6 @@ class NamespaceFS {
         return dir_key + HIDDEN_VERSIONS_PATH + '/' + ent.name;
     }
 
-    async _make_path_dirs(file_path, fs_context) {
-        const last_dir_pos = file_path.lastIndexOf('/');
-        if (last_dir_pos > 0) return this._create_path(file_path.slice(0, last_dir_pos), fs_context);
-    }
-
     /**
      * @returns {string}
      */
@@ -2104,10 +2082,6 @@ class NamespaceFS {
         // because this is the criteria of S3 SDK to decide if etag represents md5
         // and perform md5 validation of the data.
         return _get_version_id_by_stat(stat);
-    }
-
-    _is_gpfs(fs_context) {
-        return Boolean(fs_context.backend === 'GPFS' && nb_native().fs.gpfs);
     }
 
     _etag_from_fs_xattr(xattr) {
@@ -2254,20 +2228,6 @@ class NamespaceFS {
         }
     }
 
-    async _create_path(dir, fs_context) {
-        let dir_path = path.isAbsolute(dir) ? path.sep : '';
-        for (const item of dir.split(path.sep)) {
-            dir_path = path.join(dir_path, item);
-            try {
-                await nb_native().fs.mkdir(fs_context, dir_path, get_umasked_mode(config.BASE_MODE_DIR));
-            } catch (err) {
-                const ERR_CODES = ['EISDIR', 'EEXIST'];
-                if (!ERR_CODES.includes(err.code)) throw err;
-            }
-        }
-        if (config.NSFS_TRIGGER_FSYNC) await nb_native().fs.fsync(fs_context, dir_path);
-    }
-
     async _delete_path_dirs(file_path, fs_context) {
         try {
             let dir = path.dirname(file_path);
@@ -2305,7 +2265,7 @@ class NamespaceFS {
         const fs_context = this.prepare_fs_context(object_sdk);
         dbg.log0('NamespaceFS: create_uls fs_context:', fs_context, 'new_dir_path: ', params.full_path);
         try {
-            await nb_native().fs.mkdir(fs_context, params.full_path, get_umasked_mode(0o777));
+            await nb_native().fs.mkdir(fs_context, params.full_path, native_fs_utils.get_umasked_mode(0o777));
         } catch (err) {
             throw this._translate_object_error_codes(err);
         }
@@ -2463,13 +2423,6 @@ class NamespaceFS {
         return path.normalize(path.join(this.bucket_path, path.dirname(key), HIDDEN_VERSIONS_PATH, key_version));
     }
 
-    async _generate_unique_path(fs_context) {
-        const rand_id = uuidv4();
-        const unique_temp_path = path.join(this.bucket_path, this.get_bucket_tmpdir(), 'lost+found', rand_id);
-        await this._make_path_dirs(unique_temp_path, fs_context);
-        return unique_temp_path;
-    }
-
     // this function returns the following version information -
     // version_id_str - mtime-{mtimeNsBigint}-ino-{ino} | explicit null
     // mtimeNsBigint - modified timestmap in bigint - last time the content of the file was modified
@@ -2554,7 +2507,7 @@ class NamespaceFS {
     // we can use this function when versioning is enabled or suspended
     async _delete_single_object_versioned(fs_context, key, version_id) {
         let retries = config.NSFS_RENAME_RETRIES;
-        const is_gpfs = this._is_gpfs(fs_context);
+        const is_gpfs = native_fs_utils._is_gpfs(fs_context);
         const latest_version_path = this._get_file_path({ key });
         for (;;) {
             let file_path;
@@ -2570,7 +2523,8 @@ class NamespaceFS {
                     gpfs_options = is_gpfs ?
                         await this._open_files_gpfs(fs_context, file_path, undefined, undefined, undefined, undefined, true) :
                         undefined;
-                    await this.safe_unlink(fs_context, file_path, version_info, gpfs_options);
+                    const bucket_tmp_dir_path = path.join(this.bucket_path, this.get_bucket_tmpdir());
+                    await native_fs_utils.safe_unlink(fs_context, file_path, version_info, gpfs_options, bucket_tmp_dir_path);
                     return { ...version_info, latest: true };
                 } else {
                     await nb_native().fs.unlink(fs_context, file_path);
@@ -2578,7 +2532,7 @@ class NamespaceFS {
                 return version_info;
             } catch (err) {
                 retries -= 1;
-                if (retries <= 0 || !this.should_retry_link_unlink(is_gpfs, err)) throw err;
+                if (retries <= 0 || !native_fs_utils.should_retry_link_unlink(is_gpfs, err)) throw err;
                 dbg.warn(`NamespaceFS._delete_single_object_versioned: retrying retries=${retries} file_path=${file_path}`, err);
             } finally {
                 if (gpfs_options) await this._close_files_gpfs(fs_context, gpfs_options.delete_version, undefined, true);
@@ -2681,12 +2635,14 @@ class NamespaceFS {
                     deleted_version_info.mtimeNsBigint < max_past_ver_info.mtimeNsBigint) return;
                 dbg.log1('Namespace_fs._promote_version_to_latest ', max_past_ver_info.path, latest_ver_path, max_past_ver_info, latest_version_info);
                 // on concurrent put, safe_move_gpfs might override new coming latest (no fd verification, gpfs linkfileat will override)
-                await this.safe_move_posix(fs_context, max_past_ver_info.path, latest_ver_path, max_past_ver_info);
+                const bucket_tmp_dir_path = path.join(this.bucket_path, this.get_bucket_tmpdir());
+                await native_fs_utils.safe_move_posix(fs_context, max_past_ver_info.path, latest_ver_path,
+                    max_past_ver_info, bucket_tmp_dir_path);
                 break;
             } catch (err) {
                 retries -= 1;
                 if (retries <= 0) throw err;
-                if (!this._is_gpfs(fs_context) && err.code === 'EEXIST') {
+                if (!native_fs_utils._is_gpfs(fs_context) && err.code === 'EEXIST') {
                     dbg.warn('Namespace_fs._delete_version_id: latest version exist - skipping');
                     return;
                 }
@@ -2714,7 +2670,7 @@ class NamespaceFS {
         dbg.log0('Namespace_fs._delete_latest_version:', latest_ver_path, params);
 
         let gpfs_options;
-        const is_gpfs = this._is_gpfs(fs_context);
+        const is_gpfs = native_fs_utils._is_gpfs(fs_context);
         let retries = config.NSFS_RENAME_RETRIES;
         let latest_ver_info;
         for (;;) {
@@ -2733,10 +2689,11 @@ class NamespaceFS {
                 if (latest_ver_info) {
                     const suspended_and_latest_is_not_null = this._is_versioning_suspended() &&
                         latest_ver_info.version_id_str !== NULL_VERSION_ID;
+                    const bucket_tmp_dir_path = path.join(this.bucket_path, this.get_bucket_tmpdir());
                     if (this._is_versioning_enabled() || suspended_and_latest_is_not_null) {
-                         await this._make_path_dirs(versioned_path, fs_context);
-                         await this.safe_move(fs_context, latest_ver_path, versioned_path, latest_ver_info,
-                            gpfs_options && gpfs_options.delete_version);
+                        await native_fs_utils._make_path_dirs(versioned_path, fs_context);
+                         await native_fs_utils.safe_move(fs_context, latest_ver_path, versioned_path, latest_ver_info,
+                            gpfs_options && gpfs_options.delete_version, bucket_tmp_dir_path);
                          if (suspended_and_latest_is_not_null) {
                             // remove a version (or delete marker) with null version ID from .versions/ (if exists)
                             await this._delete_null_version_from_versions_directory(params.key, fs_context);
@@ -2744,13 +2701,13 @@ class NamespaceFS {
                     } else {
                         // versioning suspended and version_id is null
                         dbg.log1('NamespaceFS._delete_latest_version: suspended mode version ID of the latest version is null - file will be unlinked');
-                        await this.safe_unlink(fs_context, latest_ver_path, latest_ver_info, gpfs_options);
+                        await native_fs_utils.safe_unlink(fs_context, latest_ver_path, latest_ver_info, gpfs_options, bucket_tmp_dir_path);
                     }
                 }
                 break;
             } catch (err) {
                 retries -= 1;
-                if (retries <= 0 || !this.should_retry_link_unlink(is_gpfs, err)) throw err;
+                if (retries <= 0 || !native_fs_utils.should_retry_link_unlink(is_gpfs, err)) throw err;
                 dbg.warn(`NamespaceFS._delete_latest_version: Retrying retries=${retries} latest_ver_path=${latest_ver_path}`, err);
             } finally {
                 if (gpfs_options) await this._close_files_gpfs(fs_context, gpfs_options.delete_version, undefined, true);
@@ -2768,7 +2725,7 @@ class NamespaceFS {
     // It can be latest version, old version in .version/ directory or delete marker
     // This function removes an object version or delete marker with a null version ID inside .version/ directory 
     async _delete_null_version_from_versions_directory(key, fs_context) {
-        const is_gpfs = this._is_gpfs(fs_context);
+        const is_gpfs = native_fs_utils._is_gpfs(fs_context);
         let retries = config.NSFS_RENAME_RETRIES;
         const null_versioned_path = this._get_version_path(key, NULL_VERSION_ID);
         await this._check_path_in_bucket_boundaries(fs_context, null_versioned_path);
@@ -2781,15 +2738,16 @@ class NamespaceFS {
                     const gpfs_options = is_gpfs ?
                         await this._open_files_gpfs(fs_context, null_versioned_path, undefined, undefined, undefined, undefined, true) :
                         undefined;
-
-                    await this.safe_unlink(fs_context, null_versioned_path, null_versioned_path_info, gpfs_options);
+                    const bucket_tmp_dir_path = path.join(this.bucket_path, this.get_bucket_tmpdir());
+                    await native_fs_utils.safe_unlink(fs_context, null_versioned_path, null_versioned_path_info,
+                        gpfs_options, bucket_tmp_dir_path);
 
                     if (gpfs_options) await this._close_files_gpfs(fs_context, gpfs_options.delete_version, undefined, true);
                 }
                 break;
             } catch (err) {
                 retries -= 1;
-                if (retries <= 0 || !this.should_retry_link_unlink(is_gpfs, err)) throw err;
+                if (retries <= 0 || !native_fs_utils.should_retry_link_unlink(is_gpfs, err)) throw err;
                 dbg.warn(`NamespaceFS._delete_null_version_from_versions_directory Retrying retries=${retries} null_versioned_path=${null_versioned_path}`, err);
             }
         }
@@ -2826,7 +2784,7 @@ class NamespaceFS {
                 }
                 if (fs_xattr) await upload_params.target_file.replacexattr(fs_context, fs_xattr);
                 // create .version in case we don't have it yet
-                await this._make_path_dirs(file_path, fs_context);
+                await native_fs_utils._make_path_dirs(file_path, fs_context);
                 await nb_native().fs.rename(fs_context, upload_params.upload_path, file_path);
                 return delete_marker_version_id;
             } catch (err) {
@@ -2882,96 +2840,6 @@ class NamespaceFS {
     /// MOVE & LINK & UNLINK ///
     ////////////////////////////
 
-    async safe_move(fs_context, src_path, dst_path, src_ver_info, gpfs_options) {
-        if (this._is_gpfs(fs_context)) {
-            await this.safe_move_gpfs(fs_context, src_path, dst_path, gpfs_options);
-        } else {
-            await this.safe_move_posix(fs_context, src_path, dst_path, src_ver_info);
-        }
-    }
-
-    async safe_unlink(fs_context, src_path, src_ver_info, gpfs_options) {
-        if (this._is_gpfs(fs_context)) {
-            const { src_file = undefined, dir_file = undefined } = gpfs_options;
-            if (dir_file) {
-                await this.safe_unlink_gpfs(fs_context, src_path, src_file, dir_file);
-            } else {
-                dbg.error(`safe_unlink: dir_file is ${dir_file}, cannot use it to call safe_unlink_gpfs`);
-                throw new Error(`dir_file is ${dir_file}, need a value to safe unlink GPFS`);
-            }
-        } else {
-            await this.safe_unlink_posix(fs_context, src_path, src_ver_info);
-        }
-    }
-
-    // this function handles best effort of files move in posix file systems
-    // 1. safe_link
-    // 2. safe_unlink
-    async safe_move_posix(fs_context, src_path, dst_path, src_ver_info) {
-        dbg.log1('Namespace_fs.safe_move_posix', src_path, dst_path, src_ver_info);
-        await this.safe_link_posix(fs_context, src_path, dst_path, src_ver_info);
-        await this.safe_unlink_posix(fs_context, src_path, src_ver_info);
-    }
-
-    // safe_link_posix links src_path to dst_path while verifing dst_path has the expected ino and mtimeNsBigint values
-    // src_file exists on uploads (open mode = 'w' ) or deletions
-    // on uploads (open mode 'wt') the dir_file is used as the link source
-    async safe_move_gpfs(fs_context, src_path, dst_path, gpfs_options) {
-        const { src_file = undefined, dst_file = undefined, dir_file = undefined, should_unlink = false } = gpfs_options;
-        dbg.log1('Namespace_fs.safe_move_gpfs', src_path, dst_path, dst_file, should_unlink);
-        await this.safe_link_gpfs(fs_context, dst_path, src_file || dir_file, dst_file);
-        if (should_unlink) await this.safe_unlink_gpfs(fs_context, src_path, src_file, dir_file);
-    }
-
-    // safe_link_posix links src_path to dst_path while verifing dst_path has the expected ino and mtimeNsBigint values
-    async safe_link_posix(fs_context, src_path, dst_path, src_version_info) {
-        dbg.log1('Namespace_fs.safe_link_posix:', src_path, dst_path, src_version_info);
-        await nb_native().fs.safe_link(fs_context, src_path, dst_path, src_version_info.mtimeNsBigint, src_version_info.ino);
-    }
-
-    // 1. create unique temp path
-    // 2. safe unlink path_to_delete while verifing the file to be deleted has the expected mtimeNsBigint and ino values
-    async safe_unlink_posix(fs_context, to_delete_path, to_delete_version_info) {
-        dbg.log1('Namespace_fs.safe_unlink_posix:', to_delete_path, to_delete_version_info);
-        try {
-            const unique_temp_path = await this._generate_unique_path(fs_context);
-            const { mtimeNsBigint, ino } = to_delete_version_info;
-            await nb_native().fs.safe_unlink(fs_context, to_delete_path, unique_temp_path, mtimeNsBigint, ino);
-        } catch (err) {
-            if (err.code === 'ENOENT') {
-                dbg.warn('Namespace_fs.safe_unlink_posix unlink: file already deleted, ignoring..');
-                return;
-            }
-            throw err;
-        }
-    }
-
-    // safe_link_gpfs links source_path to dest_path while verifing dest.fd
-    async safe_link_gpfs(fs_context, dst_path, src_file, dst_file) {
-        dbg.log1('Namespace_fs.safe_link_gpfs source_file:', src_file, src_file.fd, dst_file, dst_file && dst_file.fd);
-        await src_file.linkfileat(fs_context, dst_path, dst_file && dst_file.fd);
-    }
-
-    // safe_unlink_gpfs unlinks to_delete_path while verifing to_delete_path.fd
-    async safe_unlink_gpfs(fs_context, to_delete_path, to_delete_file, dir_file) {
-        dbg.log1('Namespace_fs._delete_version_id unlink:', dir_file, dir_file.fd, to_delete_path, to_delete_file, to_delete_file && to_delete_file.fd);
-        try {
-            await dir_file.unlinkfileat(fs_context, path.basename(to_delete_path), to_delete_file && to_delete_file.fd);
-        } catch (err) {
-            if (err.code === 'ENOENT') {
-                dbg.warn('Namespace_fs.safe_unlink_gpfs unlink: file already deleted, ignoring..');
-                return;
-            }
-            if (err.code === gpfs_link_unlink_retry_err) err.code = gpfs_unlink_retry_catch;
-            throw err;
-        }
-    }
-
-    should_retry_link_unlink(is_gpfs, err) {
-        return is_gpfs ?
-            [gpfs_link_unlink_retry_err, gpfs_unlink_retry_catch].includes(err.code) :
-            [posix_link_retry_err, posix_unlink_retry_err].includes(err.message);
-    }
 
     // opens the unopened files involved in the version move during upload/deletion
     // returns an object contains the relevant options for the move/unlink flow
@@ -2985,12 +2853,12 @@ class NamespaceFS {
         let versioned_file;
         try {
             // open /versions/key_ver file if exists
-            versioned_file = versioned_info && await this._open_file(fs_context, versioned_info.path, 'r');
+            versioned_file = versioned_info && await native_fs_utils.open_file(fs_context, this.bucket_path, versioned_info.path, 'r');
 
             // open files for deletion flow
             if (delete_version) {
-                src_file = await this._open_file(fs_context, src_path, 'r');
-                dir_file = await this._open_file(fs_context, path.dirname(src_path), 'r');
+                src_file = await native_fs_utils.open_file(fs_context, this.bucket_path, src_path, 'r');
+                dir_file = await native_fs_utils.open_file(fs_context, this.bucket_path, path.dirname(src_path), 'r');
                 return { delete_version: { src_file, dir_file, dst_file: versioned_file, should_unlink: true } };
             }
 
@@ -2999,11 +2867,11 @@ class NamespaceFS {
                 dir_file = upload_or_dir_file;
             } else {
                 src_file = upload_or_dir_file;
-                dir_file = await this._open_file(fs_context, path.dirname(src_path), 'r');
+                dir_file = await native_fs_utils.open_file(fs_context, this.bucket_path, path.dirname(src_path), 'r');
             }
             if (dst_ver_info) {
                 dbg.log1('NamespaceFS._open_files_gpfs dst version exist - opening dst version file...');
-                dst_file = await this._open_file(fs_context, dst_path, 'r');
+                dst_file = await native_fs_utils.open_file(fs_context, this.bucket_path, dst_path, 'r');
             }
             return {
                 move_to_versions: { src_file: dst_file, dir_file, dst_file: versioned_file },

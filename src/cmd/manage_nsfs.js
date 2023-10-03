@@ -152,7 +152,7 @@ async function fetch_bucket_data(argv, config_root, from_file) {
     }
     if (action === 'update') {
         data = _.omitBy(data, _.isUndefined);
-        data = update_bucket_object(config_root, data);
+        data = await update_bucket_object(config_root, data);
     }
     return data;
 }
@@ -168,12 +168,14 @@ async function update_bucket_object(config_root, target) {
         print_account_usage();
     }
     const data = _.merge({}, source, target);
+    data.path = source.path;
     return data;
 }
 
 async function add_bucket_config_file(data, bucket_config_path) {
     const is_valid = await validate_bucket_add_args(data);
-        if (!is_valid) {
+    const file_exist = await is_file_exist(path.join(bucket_config_path, data.name + '.json'));
+        if (!is_valid || file_exist) {
             print_bucket_usage();
             return;
         }
@@ -206,6 +208,14 @@ async function update_bucket_config_file(data, bucket_config_path) {
             return;
         }
         update_config_file(data.name, bucket_config_path, data);
+}
+
+async function is_file_exist(file_path) {
+    const file_exist = await fs_utils.file_exists(file_path);
+    if (file_exist) {
+        console.error('file already exist: ' + file_path);
+    }
+    return file_exist;
 }
 
 async function delete_bucket_config_file(data, bucket_config_path) {
@@ -290,16 +300,17 @@ async function update_account_object(config_root, target) {
         target.nsfs_account_config.new_buckets_path = target.nsfs_account_config.new_buckets_path ||
                                                         source.nsfs_account_config.new_buckets_path;
     } catch (err) {
-        console.error('NSFS Manage command: Could not find account ' + target.access_keys[0].access_key + ' to update');
+        console.error('NSFS Manage command: Could not find account to update');
         print_account_usage();
     }
-        const data = _.merge({}, source, target);
+    const data = _.merge({}, source, target);
     return data;
 }
 
 async function add_account_config_file(data, account_path) {
     const is_valid = await validate_account_add_args(data);
-    if (!is_valid) {
+    const file_exist = await is_file_exist(path.join(account_path, data.access_keys[0].access_key + '.json'));
+    if (!is_valid || file_exist) {
         print_account_usage();
         return;
     }

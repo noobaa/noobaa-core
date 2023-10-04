@@ -60,6 +60,16 @@ class ReplicationStore {
         return repl && repl.rules;
     }
 
+    async get_replication_by_prefix_and_destination_bucket(prefix, destination_bucket) {
+        dbg.log1('get_replication_by_prefix_and_destination_bucket: ', prefix, destination_bucket);
+        const query = {
+            "rules.filter.prefix": prefix,
+            "rules.destination_bucket": destination_bucket
+        };
+        const repl = await this._replicationconfigs.findOne(query, { deleted: null });
+        return repl && repl.rules;
+    }
+
     async delete_replication_by_id(_id) {
         dbg.log1('delete_replication_by_id: ', _id);
         const ans = await this._replicationconfigs.updateOne({

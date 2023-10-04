@@ -1943,7 +1943,7 @@ async function delete_bucket_replication(req) {
     await replication_store.instance().delete_replication_by_id(replication_id);
 }
 
-function validate_replication(req) {
+async function validate_replication(req) {
     const replication_rules = req.rpc_params.replication_policy.rules;
     // num of rules in configuration must be in defined limits
     if (replication_rules.length > config.BUCKET_REPLICATION_MAX_RULES ||
@@ -1951,9 +1951,18 @@ function validate_replication(req) {
 
     const rule_ids = [];
     const pref_by_dst_bucket = {};
+    const src_bucket = req.system.buckets_by_name && req.system.buckets_by_name[req.name];
 
     for (const rule of replication_rules) {
         const { destination_bucket, filter, rule_id } = rule;
+
+        // check for bidirectional replication
+        const repl_rules = filter &&
+                        await replication_store.instance().get_replication_by_prefix_and_destination_bucket(filter.prefix, src_bucket.id);
+        if (repl_rules !== null) {
+            throw new RpcError('INVALID_REPLICATION_POLICY', 'found bidirectional replication');
+        }
+
         const dst_bucket = req.system.buckets_by_name && req.system.buckets_by_name[destination_bucket.unwrap()];
         // rule's destination bucket must exist and not equal to the replicated bucket
         if (req.rpc_params.name.unwrap() === destination_bucket.unwrap() || !dst_bucket) {

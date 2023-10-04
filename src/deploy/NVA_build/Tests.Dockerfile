@@ -61,6 +61,9 @@ ENV SPAWN_WRAP_SHIM_ROOT /data
 RUN mkdir -p /data && \
     chgrp -R 0 /data && \
     chmod -R g=u /data 
+RUN mkdir -p /.npm && \
+    chgrp -R 0 /.npm && \
+    chmod -R g=u /.npm 
 
 USER 10001:0
 CMD ["./src/test/unit_tests/run_npm_test_on_test_container.sh"]

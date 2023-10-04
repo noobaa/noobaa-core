@@ -78,6 +78,26 @@ mocha.describe('replication configuration validity tests', function() {
         ], true);
     });
 
+    mocha.it('_put_replication - bidirectional replication for matching prefix - should fail', async function() {
+        await _put_replication(bucket1, [{ rule_id: 'rule-1', destination_bucket: first_bucket, sync_versions: false, filter: { prefix: 'ab' }}], false);
+        await _put_replication(first_bucket, [{ rule_id: 'rule-1', destination_bucket: bucket1, sync_versions: false, filter: { prefix: 'ab' } }], true);
+    });
+
+    mocha.it('_put_replication - bidirectional replication for matching prefix subset 1 - should fail', async function() {
+        await _put_replication(bucket1, [{ rule_id: 'rule-1', destination_bucket: first_bucket, sync_versions: false, filter: { prefix: 'ab' }}], false);
+        await _put_replication(first_bucket, [{ rule_id: 'rule-1', destination_bucket: bucket1, sync_versions: false, filter: { prefix: 'a' } }], true);
+    });
+
+    mocha.it('_put_replication - bidirectional replication for matching prefix subset 2 - should fail', async function() {
+        await _put_replication(bucket1, [{ rule_id: 'rule-1', destination_bucket: first_bucket, sync_versions: false, filter: { prefix: 'a' }}], false);
+        await _put_replication(first_bucket, [{ rule_id: 'rule-1', destination_bucket: bucket1, sync_versions: false, filter: { prefix: 'ab' } }], true);
+    });
+
+    mocha.it('_put_replication - bidirectional replication for no prefix - should fail', async function() {
+        await _put_replication(bucket1, [{ rule_id: 'rule-1', destination_bucket: first_bucket, sync_versions: false, filter: { prefix: 'ab' }}], false);
+        await _put_replication(first_bucket, [{ rule_id: 'rule-1', destination_bucket: bucket1, sync_versions: false }], true);
+    });
+
     mocha.it('_put_replication 2 - valid', async function() {
         await _put_replication(bucket2, [
             { rule_id: 'rule-1', destination_bucket: first_bucket, sync_versions: false, filter: { prefix: 'a' } },

@@ -54,6 +54,11 @@ class ReplicationStore {
         return parsed_id;
     }
 
+    async get_replication_rules() {
+        const repl = await this._replicationconfigs.find({ deleted: null });
+        return repl;
+    }
+
     async get_replication_by_id(replication_id) {
         dbg.log1('get_replication_by_id: ', replication_id);
         const repl = await this._replicationconfigs.findOne({ _id: db_client.instance().parse_object_id(replication_id), deleted: null });

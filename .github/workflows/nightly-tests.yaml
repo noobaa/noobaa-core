@@ -1,5 +1,4 @@
 name: Nightly Tests
-
 on: workflow_dispatch
 
 jobs:
@@ -7,14 +6,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Run Nightly Tests
-        id: run-nightly-tests
         run: |
-          make test || exit 1
+          make test
           docker run --rm -e NEWAWSPROJKEY=${{ secrets.NEWAWSPROJKEY }} \
           -e NEWAWSPROJSECRET=${{ secrets.NEWAWSPROJSECRET }} \
           -e NEWAZUREPROJKEY=${{ secrets.NEWAZUREPROJKEY }} \
           -e NEWAZUREPROJSECRET=${{ secrets.NEWAZUREPROJSECRET }} \
-          --name test1 noobaa-tester ./src/test/unit_tests/run_npm_test_on_test_container.sh -s test_s3_ops.js || exit 1
+          --name test1 noobaa-tester ./src/test/unit_tests/run_npm_test_on_test_container.sh -s test_s3_ops.js

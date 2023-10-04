@@ -1,5 +1,4 @@
 name: Current Version Build on Changes
-
 # Run on Backports
 on: 
   push:
@@ -9,6 +8,7 @@ on:
 jobs:
   publish-image:
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     steps:
       - name: Invoke Build on Operator Repo
         uses: benc-uk/workflow-dispatch@v1

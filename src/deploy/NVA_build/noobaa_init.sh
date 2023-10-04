@@ -187,7 +187,7 @@ init_endpoint() {
   fi
 
   cd /root/node_modules/noobaa-core/
-  run_internal_process node ./src/s3/s3rver_starter.js
+  run_internal_process node --unhandled-rejections=warn ./src/s3/s3rver_starter.js
 }
 
 init_noobaa_server() {
@@ -214,14 +214,14 @@ init_noobaa_agent() {
 
   cd /root/node_modules/noobaa-core/
   prepare_agent_conf
-  run_internal_process node ./src/agent/agent_cli
+  run_internal_process node --unhandled-rejections=warn ./src/agent/agent_cli
 }
 
 migrate_dbs() {
   fix_non_root_user
   
   cd /root/node_modules/noobaa-core/
-  /usr/local/bin/node src/upgrade/migration_to_postgres.js
+  /usr/local/bin/node --unhandled-rejections=warn src/upgrade/migration_to_postgres.js
 }
 
 if [ "${RUN_INIT}" == "agent" ]

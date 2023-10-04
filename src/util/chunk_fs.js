@@ -59,7 +59,8 @@ class ChunkFS extends stream.Transform {
     }
 
     async _flush(callback) {
-        this._flush_buffers(callback);
+        // wait before the last writev to finish
+        await this._flush_buffers(callback);
     }
 
     // callback will be passed only at the end of the stream by _flush()

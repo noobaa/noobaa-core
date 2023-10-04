@@ -1,17 +1,18 @@
 name: Unit Tests
-
-# Run on each new PR and each new push to existing PR
 on: [push, pull_request]
 
 jobs:
   run-unit-tests:
     runs-on: ubuntu-latest
+    timeout-minutes: 90
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
     steps:
       - name: checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Run Test
-        id: run-test
         run: |
-          make test || exit 1
-          docker run --privileged --rm --name test1 noobaa-tester ./src/test/unit_tests/run_npm_test_on_test_container.sh -s sudo_index.js || exit 1
+          make test
+          docker run --privileged --rm --name test1 noobaa-tester ./src/test/unit_tests/run_npm_test_on_test_container.sh -s sudo_index.js

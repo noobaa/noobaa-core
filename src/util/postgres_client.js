@@ -1564,7 +1564,7 @@ class PostgresClient extends EventEmitter {
     async connect(skip_init_db) {
         this._disconnected_state = false;
         if (this._connect_promise) return this._connect_promise;
-        dbg.log0('connect called, current url', this.new_pool_params);
+        dbg.log0('connect called, current url', _.omit(this.new_pool_params, 'password'));
         this._connect_promise = this._connect(skip_init_db);
         return this._connect_promise;
     }
@@ -1583,14 +1583,14 @@ class PostgresClient extends EventEmitter {
             try {
                 if (this._disconnected_state) return;
                 if (this.pool) return;
-                dbg.log0('_connect: called with', this.new_pool_params);
+                dbg.log0('_connect: called with', _.omit(this.new_pool_params, 'password'));
                 // this._set_connect_timeout();
                 // client = await mongodb.MongoClient.connect(this.url, this.config);
                 pool = new Pool(this.new_pool_params);
                 if (skip_init_db !== 'skip_init_db') {
                     await this._init_collections(pool);
                 }
-                dbg.log0('_connect: connected', this.new_pool_params);
+                dbg.log0('_connect: connected', _.omit(this.new_pool_params, 'password'));
                 // this._reset_connect_timeout();
                 this.pool = pool;
                 this.pool.on('error', err => {

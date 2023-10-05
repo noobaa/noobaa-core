@@ -41,12 +41,12 @@ rm -rf $RPM_BUILD_ROOT
 mkdir -p $RPM_BUILD_ROOT/usr/local/
 
 cp -R %{_builddir}/%{name}-%{version}-%{revision}/noobaa $RPM_BUILD_ROOT/usr/local/noobaa-core
-cp -R %{_builddir}/node-%{nodever}/* $RPM_BUILD_ROOT/usr/local/node
+cp -R %{_builddir}/node-%{nodever}/* $RPM_BUILD_ROOT/usr/local/noobaa-core/node
 
-mkdir -p $RPM_BUILD_ROOT/usr/bin/
-ln -s /usr/local/node/bin/node $RPM_BUILD_ROOT/usr/bin/node
-ln -s /usr/local/node/bin/npm $RPM_BUILD_ROOT/usr/bin/npm
-ln -s /usr/local/node/bin/npx $RPM_BUILD_ROOT/usr/bin/npx
+mkdir -p $RPM_BUILD_ROOT/usr/local/noobaa-core/bin
+ln -s /usr/local/noobaa-core/node/bin/node $RPM_BUILD_ROOT/usr/local/noobaa-core/bin/node
+ln -s /usr/local/noobaa-core/node/bin/npm $RPM_BUILD_ROOT/usr/local/noobaa-core/bin/npm
+ln -s /usr/local/noobaa-core/node/bin/npx $RPM_BUILD_ROOT/usr/local/noobaa-core/bin/npx
 
 mkdir -p $RPM_BUILD_ROOT/etc/systemd/system/
 ln %{_builddir}/%{name}-%{version}-%{revision}/noobaa/src/deploy/nsfs.service $RPM_BUILD_ROOT/etc/systemd/system/nsfs.service
@@ -54,10 +54,6 @@ ln %{_builddir}/%{name}-%{version}-%{revision}/noobaa/src/deploy/nsfs.service $R
 
 %files
 /usr/local/noobaa-core
-/usr/local/node
-/usr/bin/node
-/usr/bin/npm
-/usr/bin/npx
 /etc/systemd/system/nsfs.service
 %doc
 
@@ -75,7 +71,7 @@ if [ $1 -gt 1 ]; then
   rc=$?
   if [ "${rc}" -eq 0 ]; then
     echo "Found NSFS deployment"
-    /usr/local/node/bin/node src/upgrade/upgrade_manager.js --nsfs_config_root /etc/noobaa.conf.d --upgrade_scripts_dir ${NSFS_UPGRADE_SCRIPTS_DIR}
+    /usr/local/noobaa-core/bin/node src/upgrade/upgrade_manager.js --nsfs_config_root /etc/noobaa.conf.d --upgrade_scripts_dir ${NSFS_UPGRADE_SCRIPTS_DIR}
     rccmd=$?
   else
     echo "Looking for non-NSFS deployment"
@@ -83,7 +79,7 @@ if [ $1 -gt 1 ]; then
     rc=$?
     if [ "${rc}" -eq 0 ]; then
       echo "Found non-NSFS deployment"
-      /usr/local/node/bin/node src/upgrade/upgrade_manager.js --upgrade_scripts_dir ${UPGRADE_SCRIPTS_DIR}
+      /usr/local/noobaa-core/bin/node src/upgrade/upgrade_manager.js --upgrade_scripts_dir ${UPGRADE_SCRIPTS_DIR}
       rccmd=$?
     else
       echo "No deployments found, skipping upgrade"

@@ -237,8 +237,8 @@ async function main(argv = minimist(process.argv.slice(2))) {
             return;
         }
 
-        const http_port = Number(argv.http_port) || 6001;
-        const https_port = Number(argv.https_port) || 6443;
+        const http_port = Number(argv.http_port) || Number(process.env.ENDPOINT_PORT) || 6001;
+        const https_port = Number(argv.https_port) || Number(process.env.ENDPOINT_SSL_PORT) || 6443;
         const https_port_sts = Number(argv.https_port_sts) || -1;
         const metrics_port = Number(argv.metrics_port) || -1;
         const forks = Number(argv.forks) || 0;

@@ -5,6 +5,7 @@ ARG BUILD_S3SELECT=0
 COPY ./src/agent ./src/agent
 COPY ./src/api ./src/api
 COPY ./src/cmd ./src/cmd
+COPY ./src/deploy/spectrum_archive ./src/deploy/spectrum_archive
 COPY ./src/endpoint ./src/endpoint
 COPY ./src/hosted_agents ./src/hosted_agents
 COPY ./src/rpc ./src/rpc

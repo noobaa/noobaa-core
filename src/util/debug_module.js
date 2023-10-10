@@ -21,6 +21,7 @@ const path = require('path');
 const util = require('util');
 const os = require('os');
 const debug_config = require('./debug_config');
+const config = require('../../config.js');
 
 const nb_native = require('./nb_native');
 const LRU = require('./lru');
@@ -32,16 +33,6 @@ if (process.env.NOOBAA_LOG_LEVEL) {
     if (process.env.NOOBAA_LOG_LEVEL !== 'nsfs') {
         LOG_LEVEL = dbg_conf.level;
     }
-}
-
-let config = {
-    dbg_log_level: 0,
-};
-
-try {
-    config = require('../../config.js');
-} catch (err) {
-    // ignore
 }
 
 function _should_log_to_file() {
@@ -407,7 +398,7 @@ class InternalDebugLogger {
     log_internal(msg_info) {
         if (syslog) {
             // syslog path
-            syslog(this._levels_to_syslog[msg_info.level], msg_info.message_syslog, 'LOG_LOCAL0');
+            syslog(this._levels_to_syslog[msg_info.level], msg_info.message_syslog, config.DEBUG_FACILITY);
         } else if (this._log_file) {
             // rotating file steam path (non browser)
             this._log_file.write(msg_info.message_file + os.EOL);

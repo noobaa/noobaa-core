@@ -39,6 +39,7 @@ tar -xJf %{SOURCE1} -C node-%{nodever}/
 %install
 rm -rf $RPM_BUILD_ROOT
 mkdir -p $RPM_BUILD_ROOT/usr/local/
+mkdir -p $RPM_BUILD_ROOT/etc/logrotate.d/noobaa
 
 cp -R %{_builddir}/%{name}-%{version}-%{revision}/noobaa $RPM_BUILD_ROOT/usr/local/noobaa-core
 cp -R %{_builddir}/node-%{nodever}/* $RPM_BUILD_ROOT/usr/local/noobaa-core/node
@@ -51,13 +52,24 @@ ln -s /usr/local/noobaa-core/node/bin/npx $RPM_BUILD_ROOT/usr/local/noobaa-core/
 mkdir -p $RPM_BUILD_ROOT/etc/systemd/system/
 ln %{_builddir}/%{name}-%{version}-%{revision}/noobaa/src/deploy/nsfs.service $RPM_BUILD_ROOT/etc/systemd/system/nsfs.service
 
+cp -R /etc/rsyslog.d $RPM_BUILD_ROOT/etc/rsyslog.d
+cp -R /etc/logrotate.d/noobaa $RPM_BUILD_ROOT/etc/logrotate.d/
+
 
 %files
 /usr/local/noobaa-core
 /etc/systemd/system/nsfs.service
+/etc/logrotate.d/noobaa/logrotate_noobaa.conf
+/etc/rsyslog.d/noobaa_rsyslog.conf
+/etc/rsyslog.d/noobaa_syslog.conf
 %doc
 
 %post
+state=$(systemctl show -p ActiveState --value rsyslog)
+if [ "${state}" == "active" ]; then
+  service rsyslog restart
+fi
+
 if [ $1 -gt 1 ]; then
   UPGRADE_SCRIPTS_DIR=/root/node_modules/noobaa-core/src/upgrade/upgrade_scripts
   NSFS_UPGRADE_SCRIPTS_DIR=/root/node_modules/noobaa-core/src/upgrade/nsfs_upgrade_scripts

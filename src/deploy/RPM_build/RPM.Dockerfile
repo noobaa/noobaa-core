@@ -2,6 +2,8 @@ FROM noobaa-base
 ARG TARGETARCH
 ARG BUILD_S3SELECT=0
 
+RUN mkdir -p /etc/logrotate.d/noobaa/
+
 COPY ./src/agent ./src/agent
 COPY ./src/api ./src/api
 COPY ./src/cmd ./src/cmd
@@ -19,6 +21,10 @@ COPY ./config.js ./
 COPY ./platform_restrictions.json ./
 COPY ./Makefile ./
 COPY ./package*.json ./
+
+COPY ./src/deploy/standalone/noobaa_rsyslog.conf /etc/rsyslog.d/
+COPY ./src/deploy/standalone/noobaa_syslog.conf /etc/rsyslog.d/
+COPY ./src/deploy/standalone/logrotate_noobaa.conf /etc/logrotate.d/noobaa/
 
 WORKDIR /build
 

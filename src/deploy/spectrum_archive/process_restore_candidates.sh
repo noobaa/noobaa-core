@@ -13,9 +13,10 @@ function get_expiry() {
 		exit 1
 	fi
 
-	# This ugly piece of code converts the ISO 8601 date to a format that is similar
-	# to NodeJS's Date.toISOString() output
-	local expiry=$(date -u -Ins -d "+$requested_days days" | sed s/+00:00/Z/ | sed s/,/./)
+	# Take the current date and add "requested_days" to it and strip away the time
+	# bits just like AWS does
+	# This format is ISO 8601
+	local expiry=$(date -u -d "+${requested_days} days" +"%Y-%m-%dT00:00:00.000Z")
 
 	echo "$expiry"
 }

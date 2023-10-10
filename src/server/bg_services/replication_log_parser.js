@@ -415,7 +415,7 @@ function _get_source_bucket_aws_connection(source_bucket_id, aws_log_replication
  * } | Record<string, any>}
  */
 function _parse_aws_log_entry(log_entry) {
-    console.log('entry:', log_entry);
+    dbg.log1('entry:', log_entry);
 
     if (typeof log_entry === "undefined") return;
 

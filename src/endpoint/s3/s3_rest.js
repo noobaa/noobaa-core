@@ -8,6 +8,7 @@ const dbg = require('../../util/debug_module')(__filename);
 const s3_ops = require('./ops');
 const S3Error = require('./s3_errors').S3Error;
 const s3_bucket_policy_utils = require('./s3_bucket_policy_utils');
+const s3_logging = require('./s3_bucket_logging');
 const time_utils = require('../../util/time_utils');
 const http_utils = require('../../util/http_utils');
 const signature_utils = require('../../util/signature_utils');
@@ -148,6 +149,12 @@ async function handle_request(req, res) {
     const reply = await op.handler(req, res);
     http_utils.send_reply(req, res, reply, options);
     collect_bucket_usage(op, req, res);
+    try {
+        await s3_logging.send_bucket_op_logs(req);
+    } catch (err) {
+        dbg.error("Could not log bucket operation:", err);
+    }
+
 }
 
 async function populate_request_additional_info_or_redirect(req) {

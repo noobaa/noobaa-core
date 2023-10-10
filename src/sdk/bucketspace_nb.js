@@ -137,6 +137,28 @@ class BucketSpaceNB {
             name: params.name
         });
     }
+    ////////////////////
+    // BUCKET LOGGING //
+    ////////////////////
+
+    async put_bucket_logging(params) {
+        return this.rpc_client.bucket.put_bucket_logging({
+            name: params.name,
+            logging: params.logging
+        });
+    }
+
+    async delete_bucket_logging(params) {
+        return this.rpc_client.bucket.delete_bucket_logging({
+            name: params.name
+        });
+    }
+
+    async get_bucket_logging(req) {
+        return this.rpc_client.bucket.get_bucket_logging({
+            name: req.params.bucket
+        });
+    }
 
     ///////////////////////
     // BUCKET ENCRYPTION //

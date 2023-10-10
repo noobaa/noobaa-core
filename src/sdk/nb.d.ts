@@ -25,7 +25,7 @@ type NodeType =
     'BLOCK_STORE_GOOGLE' |
     'BLOCK_STORE_FS' |
     'ENDPOINT_S3';
-    
+
 type S3Response = ServerResponse;
 type S3Request = IncomingMessage & {
     object_sdk: ObjectSDK;
@@ -829,6 +829,10 @@ interface BucketSpace {
     put_bucket_tagging(params: object): Promise<any>;
     delete_bucket_tagging(params: object): Promise<any>;
     get_bucket_tagging(params: object): Promise<any>;
+
+    put_bucket_logging(params: object): Promise<any>;
+    delete_bucket_logging(params: object): Promise<any>;
+    get_bucket_logging(params: object): Promise<any>;
 
     put_bucket_encryption(params: object): Promise<any>;
     get_bucket_encryption(params: object): Promise<any>;

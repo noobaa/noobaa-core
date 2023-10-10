@@ -779,9 +779,9 @@ module.exports = {
             method: 'PUT',
             params: {
                 type: 'object',
-                required: ['source_bucket', 'log_bucket', 'log_prefix'],
+                required: ['name', 'log_bucket', 'log_prefix'],
                 properties: {
-                    source_bucket: {
+                    name: {
                         $ref: 'common_api#/definitions/bucket_name'
                     },
                     log_bucket: {
@@ -801,9 +801,9 @@ module.exports = {
             method: 'DELETE',
             params: {
                 type: 'object',
-                required: ['source_bucket'],
+                required: ['name'],
                 properties: {
-                    source_bucket: {
+                    name: {
                         $ref: 'common_api#/definitions/bucket_name'
                     },
                 },
@@ -817,9 +817,9 @@ module.exports = {
             method: 'GET',
             params: {
                 type: 'object',
-                required: ['source_bucket'],
+                required: ['name'],
                 properties: {
-                    source_bucket: {
+                    name: {
                         $ref: 'common_api#/definitions/bucket_name'
                     },
                 },
@@ -827,7 +827,7 @@ module.exports = {
             reply: {
                 type: 'object',
                 properties: {
-                    source_bucket: {
+                    name: {
                         $ref: 'common_api#/definitions/bucket_name'
                     },
                     log_bucket: {
@@ -1068,9 +1068,9 @@ module.exports = {
 
         logging: {
             type: 'object',
-            required: ['source_bucket', 'log_bucket', 'log_prefix'],
+            required: ['name', 'log_bucket', 'log_prefix'],
             properties: {
-                source_bucket: {
+                name: {
                     $ref: 'common_api#/definitions/bucket_name',
                 },
                 log_bucket: {

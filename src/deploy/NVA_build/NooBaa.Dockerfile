@@ -120,6 +120,7 @@ RUN chmod 775 /noobaa_init_files && \
     chgrp -R 0 /noobaa_init_files/ && \
     chmod -R g=u /noobaa_init_files/
 
+
 COPY --from=server_builder /kubectl /usr/local/bin/kubectl
 COPY --from=server_builder ./noobaa_init_files/kube_pv_chown /noobaa_init_files
 RUN mkdir -m 777 /root/node_modules && \

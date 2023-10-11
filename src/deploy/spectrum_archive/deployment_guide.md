@@ -1,16 +1,23 @@
 # NooBaa Spectrum Scale/Archive Deployment Guide
 This deployment guide goes over the steps that needs to be taken to get NooBaa running on GPFS filesystem. The steps in this guide should be followed in the same order as mentioned in the guide.
 
+## NooBaa Prerequisites
+NooBaa has the following prerequisites and expects them to be in place before proceeding with its installation and deployment.
+1. Host is a Red Hat OS like Centos/RHEL.
+2. Spectrum Scale along with Spectrum Archive must be in installed on the host machine.
+3. libboost RPM packages must be already installed. In particular, `boost-system` and `boost-thread` packages are required. Without them in place, NooBaa installation will fail.
+
 ## NooBaa Installation
 NooBaa is packaged as a RPM which needs to be installed in order to be able to use NooBaa.
 
 1. Install by using `dnf`, `yum` or `rpm`.
-	1. Have Node already installed? <-- FIX THIS
+   - Example: `rpm -i noobaa-core-5.15.0-1.el8.x86_64.20231009`.
 2. NooBaa RPM installation should provide the following things
 	1. `nsfs.service` file located (soft link) at `/etc/systemd/systemd/nsfs.service`.
 	2. NooBaa source available at `/usr/local/noobaa-core`.
 
 ## NooBaa Configuration
+NooBaa needs some configurations to be in place before we start up the NooBaa process and it is important to ensure that this is done before starting up the service.
 
 ### Configure NooBaa User
 In order to be able to access NooBaa, the user should create a account. This can be done in the following way.
@@ -60,6 +67,7 @@ The following will setup appropriate spectrum scale policies which will assist N
 
 ```console
 $ cd /usr/local/noobaa-core
+$ chmod +x ./src/deploy/spectrum_archive/setup_policies.sh
 $ ./src/deploy/spectrum_archive/setup_policies.sh <device-or-directory-name> <noobaa-bucket-data-path> <tape-pool-name>
 ```
 Here,
@@ -70,6 +78,7 @@ Here,
 #### Example
 ```console
 $ cd /usr/local/noobaa-core
+$ chmod +x ./src/deploy/spectrum_archive/setup_policies.sh
 $ ./src/deploy/spectrum_archive/setup_policies.sh /ibm/gpfs /ibm/gpfs/noobaadata pool1
 ```
 
@@ -77,13 +86,22 @@ $ ./src/deploy/spectrum_archive/setup_policies.sh /ibm/gpfs /ibm/gpfs/noobaadata
 ```console
 $ systemctl start nsfs
 $ systemctl enable nsfs #optional
-$ systemctl status nsfs
+$ systemctl status nsfs # You should see status "Active" in green color
 ```
 
-## Test NooBaa
+## Test NooBaa Installation
+Now that NooBaa has been installed and is active, we can test out the deployment.
+These AWS commands will read `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` from the environment, ensure that these are available in the environment and should be the same that we used in [configure NooBaa user](#configure-noobaa-user).
+
 ```console
-$ aws s3 mb s3://first.bucket # Create a bucket named first.bucket
+$ aws s3 --endpoint https://localhost:443 --no-verify-ssl mb s3://first.bucket # Create a bucket named first.bucket
 make_bucket: first.bucket
-$ aws s3 ls
+$ aws s3 --endpoint https://localhost:443 --no-verify-ssl ls # List all of the buckets
 2023-10-05 21:18:45 first.bucket
 ```
+
+# FAQ
+- What happens if I forget the credentials used to generate NooBaa User?
+  - You can find all of the NooBaa accounts details here: `/etc/noobaa.conf.d/accounts`.
+- How do I add new users?
+  - You can repeat the command that we ran in the section [configure NooBaa User](#configure-noobaa-user). You need to make sure that the access key **must not be reused**.

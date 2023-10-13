@@ -10,7 +10,6 @@ const os = require('os');
 const fs = require('fs');
 const path = require('path');
 const assert = require('assert');
-const dbg = require('./src/util/debug_module')(__filename);
 
 /////////////////////////
 // CONTAINER RESOURCES //
@@ -433,6 +432,7 @@ config.BLOCK_STORE_USAGE_INTERVAL = 1 * 60 * 1000; // 1 minute
 config.DEBUG_MODE_PERIOD = 10 * 60 * 1000; // 10 minutes for increased debug level
 
 config.dbg_log_level = 0;
+config.DEBUG_FACILITY = 'LOG_LOCAL0';
 
 // TEST Mode
 config.test_mode = false;
@@ -811,7 +811,7 @@ function _get_data_from_file(file_name) {
     try {
         data = fs.readFileSync(file_name).toString();
     } catch (e) {
-        dbg.log1(`Error accrued while getting the data from ${file_name}: ${e}`);
+        console.warn(`Error accrued while getting the data from ${file_name}: ${e}`);
         return;
     }
     return data;

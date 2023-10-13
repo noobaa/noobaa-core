@@ -31,7 +31,7 @@ _syslog(const Napi::CallbackInfo& info)
 #ifndef WIN32
     int priority = info[0].As<Napi::Number>();
     std::string message = info[1].As<Napi::String>().Utf8Value();
-    int facility = 0;
+    int facility = LOG_LOCAL0;
     if (info.Length() == 3) {
         std::string facility_str = info[2].As<Napi::String>().Utf8Value();
         if (facility_str == "LOG_LOCAL0") {

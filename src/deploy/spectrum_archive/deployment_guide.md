@@ -100,6 +100,24 @@ $ aws s3 --endpoint https://localhost:443 --no-verify-ssl ls # List all of the b
 2023-10-05 21:18:45 first.bucket
 ```
 
+## Log and Logrotate
+Noobaa logs are configured using rsyslog and logrotate. RPM will configure rsyslog and logrotate if both are already running. 
+
+Rsyslog status check
+```
+systemctl status rsyslog
+```
+
+Noobaa logs are pushed to `var/log/noobaa.log` and the log is rotated and compressed daily.
+
+Verify the rsyslog and logrotate rpm configuration is complete by checking the files `etc/rsyslog.d/noobaa_syslog.conf` and `etc/rsyslog.d/noobaa_rsyslog.conf` for rsyslog and `etc/logrotate.d/noobaa/logrotate_noobaa.conf` for logrotate.These files contain the noobaa specific configuration for rsyslog and logrotate.
+
+Rotate the logs manually.
+
+```
+logrotate /etc/logrotate.d/noobaa/logrotate_noobaa.conf 
+```
+
 # FAQ
 - What happens if I forget the credentials used to generate NooBaa User?
   - You can find all of the NooBaa accounts details here: `/etc/noobaa.conf.d/accounts`.

@@ -1393,6 +1393,9 @@ class PostgresClient extends EventEmitter {
             this.pool.end();
             this.pool = null;
         }
+        if (this.ssl_cert_info) {
+            this.ssl_cert_info.removeListener(this._update_ssl_cert);
+        }
     }
 
     async reconnect() {
@@ -1633,9 +1636,13 @@ class PostgresClient extends EventEmitter {
     }
 
     async _load_ssl_certs() {
-        const ssl_cert = await ssl_utils.get_ssl_certificate('EXTERNAL_DB') || {};
+        this.ssl_cert_info = await ssl_utils.get_ssl_cert_info('EXTERNAL_DB') || {};
         /** @type {import('tls').ConnectionOptions} */
-        this.new_pool_params.ssl = { ...ssl_cert, rejectUnauthorized: !process.env.POSTGRES_SSL_UNAUTHORIZED };
+        this.new_pool_params.ssl = { ...this.ssl_cert_info.cert, rejectUnauthorized: !process.env.POSTGRES_SSL_UNAUTHORIZED };
+        this.ssl_cert_info.on('update', () => {
+            dbg.log("EXTERNAL_DB ssl certs have changed. Reconnecting.");
+            this.reconnect();
+        });
         // this will mask out unwanted prints of user certificate
         this.print_pool_params.ssl = { rejectUnauthorized: !process.env.POSTGRES_SSL_UNAUTHORIZED };
     }

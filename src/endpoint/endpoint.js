@@ -85,7 +85,7 @@ dbg.log0('endpoint: replacing old umask: ', old_umask.toString(8), 'with new uma
 async function main(options = {}) {
     try {
         // the primary just forks and returns, workers will continue to serve
-        if (fork_utils.start_workers(options.forks ?? config.ENDPOINT_FORKS)) return;
+        if (fork_utils.start_workers((options.forks ?? config.ENDPOINT_FORKS))) return;
 
         const http_port = options.http_port || Number(process.env.ENDPOINT_PORT) || 6001;
         const https_port = options.https_port || Number(process.env.ENDPOINT_SSL_PORT) || 6443;

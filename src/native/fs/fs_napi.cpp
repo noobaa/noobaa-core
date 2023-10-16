@@ -147,7 +147,8 @@ DBG_INIT(0);
 
 typedef std::map<std::string, std::string> XattrMap;
 
-static const char* gpfs_dl_path = std::getenv("GPFS_DL_PATH");
+const char* gpfs_dl_path = std::getenv("GPFS_DL_PATH");
+int gpfs_lib_file_exists = -1;
 
 static int (*dlsym_gpfs_fcntl)(gpfs_file_t file, void* arg) = 0;
 
@@ -607,7 +608,7 @@ struct FSWorker : public Napi::AsyncWorker
     }
     bool use_gpfs_lib()
     {
-        return gpfs_dl_path != NULL && _backend == GPFS_BACKEND;
+        return gpfs_dl_path != NULL && gpfs_lib_file_exists > -1 && _backend == GPFS_BACKEND;
     }
     virtual void OnOK() override
     {
@@ -1947,38 +1948,47 @@ fs_napi(Napi::Env env, Napi::Object exports)
 {
     auto exports_fs = Napi::Object::New(env);
     if (gpfs_dl_path != NULL) {
-        uv_lib_t* lib = (uv_lib_t*)malloc(sizeof(uv_lib_t));
         LOG("FS::GPFS GPFS_DL_PATH=" << gpfs_dl_path);
-        if (uv_dlopen(gpfs_dl_path, lib)) {
-            PANIC("Error: %s\n"
-                << uv_dlerror(lib));
+        struct stat _stat_res;
+        gpfs_lib_file_exists = stat(gpfs_dl_path, &_stat_res); //SYSCALL_OR_RETURN
+        if (gpfs_lib_file_exists == -1) {
+            LOG("FS::GPFS WARN couldn't find GPFS lib file GPFS_DL_PATH=" << gpfs_dl_path);
+        } else {
+            LOG("FS::GPFS found GPFS lib file GPFS_DL_PATH=" << gpfs_dl_path);
+            uv_lib_t* lib = (uv_lib_t*)malloc(sizeof(uv_lib_t));
+            if (uv_dlopen(gpfs_dl_path, lib)) {
+                PANIC("Error: %s\n"
+                    << uv_dlerror(lib));
+            }
+            if (uv_dlsym(lib, "gpfs_linkat", (void**)&dlsym_gpfs_linkat)) {
+                PANIC("Error: %s\n"
+                    << uv_dlerror(lib));
+            }
+            if (uv_dlsym(lib, "gpfs_linkatif", (void**)&dlsym_gpfs_linkatif)) {
+                PANIC("Error: %s\n"
+                    << uv_dlerror(lib));
+            }
+            if (uv_dlsym(lib, "gpfs_unlinkat", (void**)&dlsym_gpfs_unlinkat)) {
+                PANIC("Error: %s\n"
+                    << uv_dlerror(lib));
+            }
+            if (uv_dlsym(lib, "gpfs_fcntl", (void**)&dlsym_gpfs_fcntl)) {
+                PANIC("Error: %s\n"
+                    << uv_dlerror(lib));
+            }
+            if (sizeof(struct gpfsRequest_t) != 256) {
+                PANIC("The gpfs get extended attributes is of wrong size" << sizeof(struct gpfsRequest_t));
+            }
+            auto gpfs = Napi::Object::New(env);
+            // for now we export an (empty) object, which can be checked to indicate that
+            // gpfs lib was loaded and its api's can be used.
+            // e.g: gpfs["version"] = Napi::String::New(env,  gpfs_get_version());
+            // e.g: gpfs["foo"] = Napi::Function::New(env, api<Foo>);
+            // gpfs.Freeze();
+            exports_fs["gpfs"] = gpfs;
         }
-        if (uv_dlsym(lib, "gpfs_linkat", (void**)&dlsym_gpfs_linkat)) {
-            PANIC("Error: %s\n"
-                << uv_dlerror(lib));
-        }
-        if (uv_dlsym(lib, "gpfs_linkatif", (void**)&dlsym_gpfs_linkatif)) {
-            PANIC("Error: %s\n"
-                << uv_dlerror(lib));
-        }
-        if (uv_dlsym(lib, "gpfs_unlinkat", (void**)&dlsym_gpfs_unlinkat)) {
-            PANIC("Error: %s\n"
-                << uv_dlerror(lib));
-        }
-        if (uv_dlsym(lib, "gpfs_fcntl", (void**)&dlsym_gpfs_fcntl)) {
-            PANIC("Error: %s\n"
-                << uv_dlerror(lib));
-        }
-        if (sizeof(struct gpfsRequest_t) != 256) {
-            PANIC("The gpfs get extended attributes is of wrong size" << sizeof(struct gpfsRequest_t));
-        }
-        auto gpfs = Napi::Object::New(env);
-        // for now we export an (empty) object, which can be checked to indicate that
-        // gpfs lib was loaded and its api's can be used.
-        // e.g: gpfs["version"] = Napi::String::New(env,  gpfs_get_version());
-        // e.g: gpfs["foo"] = Napi::Function::New(env, api<Foo>);
-        // gpfs.Freeze();
-        exports_fs["gpfs"] = gpfs;
+    } else {
+        LOG("FS::GPFS GPFS_DL_PATH=NULL, fs_napi will call default posix system calls");
     }
 
     exports_fs["stat"] = Napi::Function::New(env, api<Stat>);

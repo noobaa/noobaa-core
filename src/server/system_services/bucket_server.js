@@ -1899,7 +1899,10 @@ async function put_bucket_replication(req) {
     dbg.log0('put_bucket_replication:', req.rpc_params);
     const bucket = find_bucket(req);
 
-    validate_replication(req);
+    // fetching all the replication rules already present in the DB
+    const db_repl_rules = await replication_store.instance().get_replication_rules();
+
+    validate_replication(req, db_repl_rules);
     const replication_rules = normalize_replication(req);
 
     const bucket_replication_id = bucket.replication_policy_id;
@@ -1956,7 +1959,7 @@ async function delete_bucket_replication(req) {
     await replication_store.instance().delete_replication_by_id(replication_id);
 }
 
-function validate_replication(req) {
+function validate_replication(req, db_repl_rules) {
     const replication_rules = req.rpc_params.replication_policy.rules;
     // num of rules in configuration must be in defined limits
     if (replication_rules.length > config.BUCKET_REPLICATION_MAX_RULES ||
@@ -1964,13 +1967,36 @@ function validate_replication(req) {
 
     const rule_ids = [];
     const pref_by_dst_bucket = {};
+    const src_bucket = req.system.buckets_by_name && req.system.buckets_by_name[req.rpc_params.name.unwrap()];
 
     for (const rule of replication_rules) {
         const { destination_bucket, filter, rule_id } = rule;
+
         const dst_bucket = req.system.buckets_by_name && req.system.buckets_by_name[destination_bucket.unwrap()];
         // rule's destination bucket must exist and not equal to the replicated bucket
         if (req.rpc_params.name.unwrap() === destination_bucket.unwrap() || !dst_bucket) {
             throw new RpcError('INVALID_REPLICATION_POLICY', `Rule ${rule_id} destination bucket is invalid`);
+        }
+
+        // validation for bidirectional replication - blocking bidirectional replication only for matching prefixes
+        if (destination_bucket.unwrap() !== req.rpc_params.name.unwrap()) {
+            const prefix = filter?.prefix || '';
+            // checking if there already a rule consisting of src_bucket as destination_bucket for matching prefix
+            for (const db_rules of db_repl_rules) {
+                // checking if db_rules belongs to dst_bucket as source_bucket
+                if (_.isEqual(db_rules._id, dst_bucket.replication_policy_id)) {
+                    const matching_rule = db_rules.rules.find(
+                        db_rule =>
+                            _.isEqual(src_bucket._id, db_rule.destination_bucket) &&
+                            (!db_rule.filter || db_rule.filter.prefix.toString().startsWith(prefix) ||
+                             prefix.toString().startsWith(db_rule.filter.prefix.toString()))
+                    );
+                    if (matching_rule) {
+                        throw new RpcError('INVALID_REPLICATION_POLICY',
+                            `Bidirectional replication found for bucket "${destination_bucket.unwrap()}" and prefix is "${prefix}"`);
+                    }
+                }
+            }
         }
 
         rule_ids.push(rule_id);

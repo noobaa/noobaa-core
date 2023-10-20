@@ -73,6 +73,7 @@ dbg.log0('endpoint: replacing old umask: ', old_umask.toString(8), 'with new uma
  *  https_port?: number;
  *  https_port_sts?: number;
  *  metrics_port?: number;
+ *  nsfs_config_root?: string;
  *  init_request_sdk?: EndpointHandler;
  *  forks?: number;
  * }} EndpointOptions
@@ -146,9 +147,9 @@ async function main(options = {}) {
         const endpoint_request_handler = create_endpoint_handler(init_request_sdk, virtual_hosts);
         const endpoint_request_handler_sts = create_endpoint_handler(init_request_sdk, virtual_hosts, true);
 
-        const ssl_cert_info = await ssl_utils.get_ssl_cert_info('S3');
+        const nsfs_ssl_cert_dir = await endpoint_utils.get_nsfs_system_property('nsfs_ssl_cert_dir', options.nsfs_config_root);
+        const ssl_cert_info = await ssl_utils.get_ssl_cert_info('S3', nsfs_ssl_cert_dir);
         const ssl_options = { ...ssl_cert_info.cert, honorCipherOrder: true };
-        const http_server = http.createServer(endpoint_request_handler);
         const https_server = https.createServer(ssl_options, endpoint_request_handler);
         const https_server_sts = https.createServer(ssl_options, endpoint_request_handler_sts);
         ssl_cert_info.on('update', updated_ssl_cert_info => {
@@ -157,11 +158,16 @@ async function main(options = {}) {
             https_server.setSecureContext(updated_ssl_options);
             https_server_sts.setSecureContext(updated_ssl_options);
         });
-
-        if (http_port > 0) {
-            dbg.log0('Starting S3 HTTP', http_port);
-            await listen_http(http_port, http_server);
-            dbg.log0('Started S3 HTTP successfully');
+        const allow_http = await endpoint_utils.get_nsfs_system_property('allow_http', options.nsfs_config_root);
+        if (options.nsfs_config_root && !allow_http) {
+            dbg.log0('HTTP is not allowed for NSFS.');
+        } else {
+            const http_server = http.createServer(endpoint_request_handler);
+            if (http_port > 0) {
+                dbg.log0('Starting S3 HTTP', http_port);
+                await listen_http(http_port, http_server);
+                dbg.log0('Started S3 HTTP successfully');
+            }
         }
         if (https_port > 0) {
             dbg.log0('Starting S3 HTTPS', https_port);

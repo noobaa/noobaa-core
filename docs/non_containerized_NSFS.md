@@ -264,6 +264,12 @@ node src/cmd/manage_nsfs bucket add --config_root ../standalon/config_root --fro
 ```
 NSFS management CLI command will create both account and bucket dir if it's missing in the config_root path.
 
+## NSFS Certificate
+
+Non containerized NSFS certificate location is configured in system.json file under the property `nsfs_ssl_cert_dir` and the path should contain SSL files tls.key and tls.crt. System will use a cert from this dir to create a valid HTTPS connection. If cert is missing in this dir a self-signed SSL certificate will be generated. Make sure the path mentioned in `nsfs_ssl_cert_dir` is valid before running nsfs command, If the path is invalid then cert flow will fail.
+
+Non containerized NSFS allow nonsecure HTTP connection only when `allow_http` in system.json is true.
+
 ## Log and Logrotate
 Noobaa logs are configured using rsyslog and logrotate. RPM will configure rsyslog and logrotate if both are already running. 
 

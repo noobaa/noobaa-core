@@ -60,8 +60,13 @@ function verify_ssl_certificate(certificate) {
 }
 
 // Get SSL certificate (load once then serve from cache)
-function get_ssl_cert_info(service) {
-    const cert_info = certs[service];
+async function get_ssl_cert_info(service, nsfs_ssl_cert_dir) {
+    let cert_info;
+    if (service === 'S3' && nsfs_ssl_cert_dir) {
+        cert_info = new CertInfo(nsfs_ssl_cert_dir);
+    } else {
+        cert_info = certs[service];
+    }
     if (!cert_info) {
         throw new Error(`Invalid service name, got: ${service}`);
     }

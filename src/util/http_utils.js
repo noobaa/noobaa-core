@@ -375,8 +375,10 @@ function send_reply(req, res, reply, options) {
  */
 function should_proxy(hostname) {
     const isIp = ip.isV4Format(hostname) || ip.isV6Format(hostname);
+    dbg.log2(`should_proxy: hostname ${hostname} isIp ${isIp}`);
 
     for (const { kind, addr } of no_proxy_list) {
+        dbg.log3(`should_proxy: an item from no_proxy_list: kind ${kind} addr ${addr}`);
         if (isIp) {
             if (kind === 'IP' && ip.isEqual(addr, hostname)) {
                 return false;
@@ -417,9 +419,14 @@ function get_unsecured_agent(endpoint) {
 
 function _get_http_agent(endpoint, request_unsecured) {
     const { protocol, hostname } = url.parse(endpoint);
+    const should_proxy_by_hostname = should_proxy(hostname);
+    dbg.log2(`_get_http_agent: ` +
+     `endpoint ${endpoint} request_unsecured ${request_unsecured} ` +
+     `protocol ${protocol} hostname ${hostname} should_proxy(hostname) ${should_proxy_by_hostname} ` +
+     `Boolean(HTTPS_PROXY) ${Boolean(HTTPS_PROXY)} Boolean(HTTP_PROXY) ${Boolean(HTTP_PROXY)}`);
 
     if (protocol === "https:" || protocol === "wss:") {
-        if (HTTPS_PROXY && should_proxy(hostname)) {
+        if (HTTPS_PROXY && should_proxy_by_hostname) {
             if (request_unsecured) {
                 return unsecured_https_proxy_agent;
             } else {
@@ -430,7 +437,7 @@ function _get_http_agent(endpoint, request_unsecured) {
         } else {
             return https_agent;
         }
-    } else if (HTTP_PROXY && should_proxy(hostname)) {
+    } else if (HTTP_PROXY && should_proxy_by_hostname) {
         return http_proxy_agent;
     } else {
         return http_agent;

@@ -13,6 +13,7 @@ const P = require('../util/promise');
 const BucketSpaceSimpleFS = require('./bucketspace_simple_fs');
 const _ = require('lodash');
 const util = require('util');
+const bucket_policy_utils = require('../endpoint/s3/s3_bucket_policy_utils');
 
 const dbg = require('../util/debug_module')(__filename);
 
@@ -129,6 +130,18 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
 
             bucket.system_owner = new SensitiveString(bucket.system_owner);
             bucket.bucket_owner = new SensitiveString(bucket.bucket_owner);
+            if (bucket.s3_policy) {
+                for (const [s_index, statement] of bucket.s3_policy.Statement.entries()) {
+                    const statement_principal = statement.Principal || statement.NotPrincipal;
+                    if (statement_principal.AWS) {
+                        const sensitive_arr = _.flatten([statement_principal.AWS]).map(principal => new SensitiveString(principal));
+                        if (statement.Principal) bucket.s3_policy.Statement[s_index].Principal.AWS = sensitive_arr;
+                        if (statement.NotPrincipal) bucket.s3_policy.Statement[s_index].NotPrincipal.AWS = sensitive_arr;
+                    } else {
+                        bucket.s3_policy.Statement = new SensitiveString(statement_principal);
+                    }
+                }
+            }
             return bucket;
         } catch (err) {
             throw this._translate_object_error_codes(err);
@@ -512,6 +525,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             const bucket_config_path = this._get_bucket_config_path(name);
             const { data } = await nb_native().fs.readFile(this.fs_context, bucket_config_path);
             const bucket = JSON.parse(data.toString());
+            bucket_policy_utils.validate_s3_policy(policy, bucket.name, () => true);
             bucket.s3_policy = policy;
             const update_bucket = JSON.stringify(bucket);
             await nb_native().fs.writeFile(

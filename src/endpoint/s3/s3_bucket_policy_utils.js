@@ -4,6 +4,7 @@
 const _ = require('lodash');
 const dbg = require('../../util/debug_module')(__filename);
 const s3_utils = require('./s3_utils');
+const RpcError = require('../../rpc/rpc_error');
 
 const OP_NAME_TO_ACTION = Object.freeze({
     delete_bucket_analytics: { regular: "s3:PutAnalyticsConfiguration" },
@@ -115,6 +116,8 @@ const supported_actions = {
     's3:ExistingObjectTag': ['s3:DeleteObjectTagging', 's3:DeleteObjectVersionTagging', 's3:GetObject', 's3:GetObjectAcl', 's3:GetObjectTagging', 's3:GetObjectVersion', 's3:GetObjectVersionTagging', 's3:PutObjectAcl', 's3:PutObjectTagging', 's3:PutObjectVersionTagging'],
     's3:x-amz-server-side-encryption': ['s3:PutObject']
 };
+
+const SUPPORTED_BUCKET_POLICY_CONDITIONS = Object.keys(supported_actions);
 
 async function _is_server_side_encryption_fit(req, predicate, value) {
     const encryption = s3_utils.parse_encryption(req);
@@ -233,7 +236,51 @@ function _parse_condition_keys(condition_statement) {
     }
 }
 
+function validate_s3_policy(policy, bucket_name, get_account_handler) {
+    const all_op_names = _.compact(_.flatMap(OP_NAME_TO_ACTION, action => [action.regular, action.versioned]));
+    for (const statement of policy.Statement) {
+
+        const statement_principal = statement.Principal || statement.NotPrincipal;
+        if (statement_principal.AWS) {
+            for (const principal of _.flatten([statement_principal.AWS])) {
+                if ((typeof principal === 'string') ? principal !== '*' : principal.unwrap() !== '*') {
+                    const account = get_account_handler(principal);
+                    if (!account) {
+                        throw new RpcError('MALFORMED_POLICY', 'Invalid principal in policy', { detail: principal });
+                    }
+                }
+            }
+        } else if ((typeof statement_principal === 'string') ? statement_principal !== '*' : statement_principal.unwrap() !== '*') {
+            throw new RpcError('MALFORMED_POLICY', 'Invalid principal in policy', { detail: statement.Principal });
+        }
+        for (const resource of _.flatten([statement.Resource || statement.NotResource])) {
+            const resource_bucket_part = resource.split('/')[0];
+            const resource_regex = RegExp(`^${resource_bucket_part.replace(qm_regex, '.?').replace(ar_regex, '.*')}$`);
+            if (!resource_regex.test('arn:aws:s3:::' + bucket_name)) {
+                throw new RpcError('MALFORMED_POLICY', 'Policy has invalid resource', { detail: resource });
+            }
+        }
+        for (const action of _.flatten([statement.Action || statement.NotAction])) {
+            if (action !== 's3:*' && !all_op_names.includes(action)) {
+                throw new RpcError('MALFORMED_POLICY', 'Policy has invalid action', { detail: action });
+            }
+        }
+        if (statement.Condition) {
+            for (const condition of Object.values(statement.Condition)) {
+                for (const condition_key of Object.keys(condition)) {
+                    // some condition keys have arguments in their names.(e.g. s3:ExistingObjectTag/<key>)
+                    // parse to get only the condition key itself
+                    const key_parts = condition_key.split("/");
+                    if (!SUPPORTED_BUCKET_POLICY_CONDITIONS.includes(key_parts[0])) {
+                        throw new RpcError('MALFORMED_POLICY', 'Policy has invalid condition key or unsupported condition key', { detail: condition_key });
+                    }
+                }
+            }
+        }
+        // TODO: Need to validate that the resource comply with the action
+    }
+}
 
 exports.OP_NAME_TO_ACTION = OP_NAME_TO_ACTION;
-exports.SUPPORTED_BUCKET_POLICY_CONDITIONS = Object.keys(supported_actions);
 exports.has_bucket_policy_permission = has_bucket_policy_permission;
+exports.validate_s3_policy = validate_s3_policy;

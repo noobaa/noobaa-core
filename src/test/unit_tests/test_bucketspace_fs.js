@@ -309,6 +309,48 @@ mocha.describe('bucketspace_fs', function() {
             const output_web = await bucketspace_fs.get_bucket_policy(param);
             assert.ok(output_web.policy === undefined);
         });
+
+        mocha.it('put_bucket_policy other account object', async function() {
+            const policy = {
+                    Version: '2012-10-17',
+                    Statement: [{
+                        Sid: 'id-22',
+                        Effect: 'Allow',
+                        Principal: { AWS: 'noobaa@noobaa.io' },
+                        Action: ['s3:*'],
+                        Resource: ['arn:aws:s3:::*']
+                        }
+                    ]
+                };
+            const param = {name: test_bucket, policy: policy};
+            await bucketspace_fs.put_bucket_policy(param);
+            const bucket_policy = await bucketspace_fs.get_bucket_policy(param);
+            assert.deepEqual(bucket_policy.policy, policy);
+        });
+
+        mocha.it('put_bucket_policy other account array', async function() {
+            const policy = {
+                    Version: '2012-10-17',
+                    Statement: [{
+                        Sid: 'id-22',
+                        Effect: 'Allow',
+                        Principal: { AWS: ['noobaa@noobaa.io', 'noobaa1@noobaa.io'] },
+                        Action: ['s3:*'],
+                        Resource: ['arn:aws:s3:::*']
+                        }
+                    ]
+                };
+            const param = {name: test_bucket, policy: policy};
+            await bucketspace_fs.put_bucket_policy(param);
+            const bucket_policy = await bucketspace_fs.get_bucket_policy(param);
+            assert.deepEqual(bucket_policy.policy, policy);
+        });
+        mocha.it('delete_bucket_policy ', async function() {
+            const param = {name: test_bucket};
+            await bucketspace_fs.delete_bucket_policy(param);
+            const bucket_policy = await bucketspace_fs.get_bucket_policy(param);
+            assert.ok(bucket_policy.policy === undefined);
+        });
     });
 });
 

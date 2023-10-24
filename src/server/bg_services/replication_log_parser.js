@@ -49,28 +49,32 @@ async function get_aws_log_candidates(source_bucket_id, rule_id, replication_con
     do {
         const next_log_entry = await aws_get_next_log_entry(s3, logs_bucket, prefix, log_object_continuation_token);
 
-        // save the continuation token for the next iteration
-        log_object_continuation_token = next_log_entry.NextContinuationToken;
-
         // Check if there is any log entry - if there are no more log entries
         // then no need to process anything
-        if (!next_log_entry.Contents || next_log_entry.Contents.length === 0) {
-            dbg.log0('log_parser: no more log entries');
+        if (!next_log_entry.Versions || next_log_entry.Versions.length === 0) {
+            dbg.log1('log_parser: no more log entries');
             break;
         }
 
-        const next_log_data = await _aws_get_next_log(s3, logs_bucket, next_log_entry.Contents[0].Key);
+        const log_key_name = next_log_entry.Versions[0].Key;
+
+        // as we use listObjectVersions, we will use the log_key_name as KeyMarker.
+        log_object_continuation_token = log_key_name;
+
+        const next_log_data = await _aws_get_next_log(s3, logs_bucket, log_key_name);
         aws_parse_log_object(logs, next_log_data, sync_deletions);
 
         dbg.log1("get_aws_log_candidates: parsed logs ", logs);
 
         logs_retrieved_count -= 1;
     }
-    while ((logs.length < candidates_limit) && logs_retrieved_count !== 0 && log_object_continuation_token);
+    while ((logs.length < candidates_limit) && logs_retrieved_count !== 0);
 
     return {
         items: create_candidates(logs),
         done: async () => {
+            //this can happen when there are no logs and never were, 
+            // also need to handle update_log_replication and not return a handler 
             if (log_object_continuation_token) {
                 await replication_store.update_log_replication_marker_by_id(
                     replication_config._id, rule_id, { continuation_token: log_object_continuation_token }
@@ -227,22 +231,16 @@ function create_candidates(logs) {
 }
 
 async function aws_get_next_log_entry(s3, logs_bucket, logs_prefix, continuation_token) {
-    let start_after = logs_prefix;
-    if (start_after && !start_after.endsWith('/')) {
-        start_after += '/';
-    }
-
     const params = {
         Bucket: logs_bucket,
         Prefix: logs_prefix,
-        ContinuationToken: continuation_token,
         MaxKeys: 1,
-        StartAfter: start_after,
+        KeyMarker: continuation_token
     };
 
     try {
         dbg.log2('log_parser aws_get_next_log_entry: params:', params);
-        const res = await s3.listObjectsV2(params).promise();
+        const res = await s3.listObjectVersions(params).promise();
         dbg.log1('log_parser aws_get_next_log_entry: finished successfully ', res);
         return res;
 
@@ -531,6 +529,15 @@ function parse_potentially_empty_log_value(log_value, custom_parser) {
     return log_value;
 }
 
+/**
+ * @param {string} rule_id ID of the replication rule
+ * @param {Record<any, any>} replication_config Replication configuration
+ * 
+ * In s3 we will use listObjectVersions and KeyMarker, 
+ * In Azure we will use the timestamp of the the last log retrieval
+ * The Reason we call it continuation_token is to pass the notion of what this field in the DB should stand for
+ * 
+ */
 function _get_log_object_continuation_token_for_rule(rule_id, replication_config) {
     dbg.log1('_get_log_object_continuation_token_for_rule:: rule_id', rule_id, 'replication_config', replication_config);
     const replication_rule = replication_config.rules.find(rule => rule.rule_id === rule_id);

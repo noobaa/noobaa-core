@@ -317,7 +317,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
             }
         });
         if (await endpoint.is_http_allowed(nsfs_config_root)) {
-            dbg.log0('nsfs: listening on', util.inspect(`http://localhost:${http_port}`));
+            console.log('nsfs: listening on', util.inspect(`http://localhost:${http_port}`));
         }
         console.log('nsfs: listening on', util.inspect(`https://localhost:${https_port}`));
 

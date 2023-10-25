@@ -14,8 +14,9 @@ const fs = require('fs');
 const util = require('util');
 const minimist = require('minimist');
 
-require('../server/system_services/system_store').get_instance({ standalone: true });
-
+if (process.env.LOCAL_MD_SERVER === 'true') {
+    require('../server/system_services/system_store').get_instance({ standalone: true });
+}
 //const js_utils = require('../util/js_utils');
 const nb_native = require('../util/nb_native');
 //const schema_utils = require('../util/schema_utils');

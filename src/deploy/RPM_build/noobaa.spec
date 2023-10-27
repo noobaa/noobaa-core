@@ -39,7 +39,6 @@ tar -xJf %{SOURCE1} -C node-%{nodever}/
 %install
 rm -rf $RPM_BUILD_ROOT
 mkdir -p $RPM_BUILD_ROOT/usr/local/
-mkdir -p $RPM_BUILD_ROOT/etc/logrotate.d/noobaa
 
 cp -R %{_builddir}/%{name}-%{version}-%{revision}/noobaa $RPM_BUILD_ROOT/usr/local/noobaa-core
 cp -R %{_builddir}/node-%{nodever}/* $RPM_BUILD_ROOT/usr/local/noobaa-core/node
@@ -50,12 +49,15 @@ ln -s /usr/local/noobaa-core/node/bin/npm $RPM_BUILD_ROOT/usr/local/noobaa-core/
 ln -s /usr/local/noobaa-core/node/bin/npx $RPM_BUILD_ROOT/usr/local/noobaa-core/bin/npx
 
 mkdir -p $RPM_BUILD_ROOT/etc/systemd/system/
-ln %{_builddir}/%{name}-%{version}-%{revision}/noobaa/src/deploy/nsfs.service $RPM_BUILD_ROOT/etc/systemd/system/nsfs.service
-ln %{_builddir}/%{name}-%{version}-%{revision}/noobaa/src/deploy/nsfs_env.env $RPM_BUILD_ROOT/usr/local/noobaa-core/nsfs_env.env
+ln -s /usr/local/noobaa-core/src/deploy/nsfs.service $RPM_BUILD_ROOT/etc/systemd/system/nsfs.service
+ln -s /usr/local/noobaa-core/src/deploy/nsfs_env.env $RPM_BUILD_ROOT/usr/local/noobaa-core/nsfs_env.env
 
-cp -R /etc/rsyslog.d $RPM_BUILD_ROOT/etc/rsyslog.d
-cp -R /etc/logrotate.d/noobaa $RPM_BUILD_ROOT/etc/logrotate.d/
+mkdir -p $RPM_BUILD_ROOT/etc/rsyslog.d/
+ln -s /usr/local/noobaa-core/src/deploy/standalone/noobaa_syslog.conf $RPM_BUILD_ROOT/etc/rsyslog.d/noobaa_syslog.conf
+ln -s /usr/local/noobaa-core/src/deploy/standalone/noobaa_rsyslog.conf $RPM_BUILD_ROOT/etc/rsyslog.d/noobaa_rsyslog.conf
 
+mkdir -p $RPM_BUILD_ROOT/etc/logrotate.d/noobaa
+ln -s /usr/local/noobaa-core/src/deploy/standalone/logrotate_noobaa.conf $RPM_BUILD_ROOT/etc/logrotate.d/noobaa/logrotate_noobaa.conf
 
 %files
 /usr/local/noobaa-core

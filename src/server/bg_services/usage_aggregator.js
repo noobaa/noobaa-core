@@ -112,6 +112,9 @@ async function background_worker() {
     const till = moment().subtract(8, 'weeks').valueOf();
     dbg.log0('Deleting reports older than', new Date(till));
     await EndpointStatsStore.instance.clean_bandwidth_reports({ till });
+
+    // Clean endpoint group reports here as well?
+    await EndpointStatsStore.instance.clean_endpoint_group_reports({ till });
 }
 
 function _accumulate_bandwidth(acc, update) {

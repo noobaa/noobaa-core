@@ -316,8 +316,9 @@ async function main(argv = minimist(process.argv.slice(2))) {
                 req.object_sdk = new NsfsObjectSDK(fs_root, fs_config, account, versioning, nsfs_config_root);
             }
         });
-
-        console.log('nsfs: listening on', util.inspect(`http://localhost:${http_port}`));
+        if (await endpoint.is_http_allowed(nsfs_config_root)) {
+            dbg.log0('nsfs: listening on', util.inspect(`http://localhost:${http_port}`));
+        }
         console.log('nsfs: listening on', util.inspect(`https://localhost:${https_port}`));
 
     } catch (err) {

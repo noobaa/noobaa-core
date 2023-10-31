@@ -19,4 +19,5 @@ require('./test_nsfs_access');
 require('./test_bucketspace');
 require('./test_bucketspace_versioning');
 require('./test_bucketspace_fs');
+require('./test_nsfs_versioning');
 

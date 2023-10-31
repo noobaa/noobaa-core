@@ -200,7 +200,7 @@ parse_open_flags(std::string flags)
         case 't':
 #ifdef O_TMPFILE
             bits |= O_TMPFILE | O_RDWR;
-            bits &= ~(O_RDONLY | O_WRONLY);
+            bits &= ~(O_RDONLY | O_WRONLY | O_TRUNC | O_CREAT);
 #else
             LOG("FS: Unsupported O_TMPFILE " << flags);
 #endif

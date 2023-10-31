@@ -218,7 +218,7 @@ mocha.describe('bucketspace_fs', function() {
                 const param = { name: test_bucket_invalid};
                 await bucketspace_fs.delete_bucket(param, dummy_object_sdk);
             } catch (err) {
-                assert.ok(err.code === 'NoSuchBucket');
+                assert.ok(err.code === 'ENOENT');
             }
         });
     });

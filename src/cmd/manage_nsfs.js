@@ -150,6 +150,7 @@ async function fetch_bucket_data(argv, config_root, from_file) {
             should_create_underlying_storage: true,
         };
     }
+    data.creation_date = new Date().toISOString();
     if (action === 'update') {
         data = _.omitBy(data, _.isUndefined);
         data = await update_bucket_object(config_root, data);
@@ -284,6 +285,7 @@ async function fetch_account_data(argv, config_root, from_file) {
             }
         };
     }
+    data.creation_date = new Date().toISOString();
     if (action === 'update') {
         data = _.omitBy(data, _.isUndefined);
         data = update_account_object(config_root, data);
@@ -421,7 +423,7 @@ async function validate_bucket_add_args(data) {
         return false;
     }
     if (!data.path.includes(data.name.unwrap())) {
-        console.error('Error: bucket name should be same as dir name');
+        console.error('Error: Bucket name should be same as dir name');
         return false;
     }
     const bucket_dir_stat = await fs_utils.file_exists(data.path);

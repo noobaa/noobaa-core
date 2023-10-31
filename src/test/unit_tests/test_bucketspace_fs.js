@@ -55,7 +55,8 @@ const account_user1 = {
         gid: 0,
         new_buckets_path: new_buckets_path_user1,
         nsfs_only: 'true'
-    }
+    },
+    creation_date: '2023-10-30T04:46:33.815Z',
 };
 
 const bucketspace_fs = new BucketSpaceFS({ config_root });
@@ -79,10 +80,11 @@ function make_dummy_object_sdk() {
     return {
         requesting_account: {
             force_md5_etag: false,
+            email: 'user2@noobaa.io',
             nsfs_account_config: {
                 uid: 0,
                 gid: 0,
-                new_buckets_path: new_buckets_path
+                new_buckets_path: new_buckets_path,
             }
         },
         abort_controller: new AbortController(),

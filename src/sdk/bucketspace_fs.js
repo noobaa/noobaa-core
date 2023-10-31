@@ -14,6 +14,10 @@ const BucketSpaceSimpleFS = require('./bucketspace_simple_fs');
 const _ = require('lodash');
 const util = require('util');
 const bucket_policy_utils = require('../endpoint/s3/s3_bucket_policy_utils');
+const { default: Ajv } = require('ajv');
+const bucket_schema = require('../server/object_services/schemas/nsfs_bucket_schema');
+const account_schema = require('../server/object_services/schemas/nsfs_account_schema');
+
 
 const dbg = require('../util/debug_module')(__filename);
 
@@ -21,6 +25,7 @@ const VALID_BUCKET_NAME_REGEXP =
     /^(([a-z0-9]|[a-z0-9][a-z0-9-]*[a-z0-9])\.)*([a-z0-9]|[a-z0-9][a-z0-9-]*[a-z0-9])$/;
 const ACCOUNT_PATH = 'accounts';
 const BUCKET_PATH = 'buckets';
+const ajv = new Ajv({ verbose: true, allErrors: true });
 
 
 //TODO:  dup from namespace_fs - need to handle and not dup code
@@ -89,6 +94,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             const iam_path = this._get_account_config_path(access_key);
             const { data } = await nb_native().fs.readFile(this.fs_context, iam_path);
             const account = JSON.parse(data.toString());
+            this.validate_account_schema(account);
             account.name = new SensitiveString(account.name);
             account.email = new SensitiveString(account.email);
             for (const k of account.access_keys) {
@@ -98,16 +104,29 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             return account;
         } catch (err) {
             dbg.error('BucketSpaceFS.read_account_by_access_key: failed with error', err);
-            throw new RpcError('NO_SUCH_ACCOUNT', `Account with access_key not found`, err);
+            if (err.code === 'ENOENT') {
+                throw new RpcError('NO_SUCH_ACCOUNT', `Account with access_key not found.`, err);
+            }
+            throw new RpcError('NO_SUCH_ACCOUNT', err.message);
         }
     }
 
+    validate_account_schema(account) {
+        const valid = ajv.validate(account_schema, account);
+        if (!valid) throw new RpcError('INVALID_SCHEMA', ajv.errors[0]?.message);
+    }
+
+    validate_bucket_schema(bucket) {
+        const valid = ajv.validate(bucket_schema, bucket);
+        if (!valid) throw new RpcError('INVALID_SCHEMA', ajv.errors[0]?.message);
+    }
     async read_bucket_sdk_info({ name }) {
         try {
             const bucket_config_path = this._get_bucket_config_path(name);
             dbg.log0('BucketSpaceFS.read_bucket_sdk_info: bucket_config_path', bucket_config_path);
             const { data } = await nb_native().fs.readFile(this.fs_context, bucket_config_path);
             const bucket = JSON.parse(data.toString());
+            this.validate_bucket_schema(bucket);
             const is_valid = await this.check_bucket_config(bucket);
             if (!is_valid) {
                 console.warn('BucketSpaceFS: one or more bucket config check is failed for bucket : ', name);
@@ -247,8 +266,8 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
         bucket.path = bucket_path;
         bucket.should_create_underlying_storage = true;
         bucket.force_md5_etag = params.force_md5_etag;
-        bucket.bucket_owner = sdk.requesting_account.email;
         bucket.creation_date = new Date().toISOString();
+        this.validate_bucket_schema(bucket);
         const create_bucket = JSON.stringify(bucket);
 
         // TODO: handle both bucket config json and directory creation atomically 

@@ -91,5 +91,6 @@ mv ${OUTPUT_FILE} ~/rpmbuild/SPECS/
 # Build the RPM package
 rpmbuild -ba ~/rpmbuild/SPECS/noobaa.final.spec
 
-# Move the RPM package to the current directory
+# Move the RPM and SRPM package to the target directory
 mv ~/rpmbuild/RPMS/${ARCHITECTURE}/noobaa-core-${noobaaver}-${revision}.*.rpm ${TARGET_DIR}
+mv ~/rpmbuild/SRPMS/noobaa-core-${noobaaver}-${revision}.*.rpm ${TARGET_DIR}

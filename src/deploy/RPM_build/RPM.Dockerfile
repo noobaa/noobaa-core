@@ -21,10 +21,9 @@ COPY ./config.js ./
 COPY ./platform_restrictions.json ./
 COPY ./Makefile ./
 COPY ./package*.json ./
-
-COPY ./src/deploy/standalone/noobaa_rsyslog.conf /etc/rsyslog.d/
-COPY ./src/deploy/standalone/noobaa_syslog.conf /etc/rsyslog.d/
-COPY ./src/deploy/standalone/logrotate_noobaa.conf /etc/logrotate.d/noobaa/
+COPY ./src/deploy/standalone/noobaa_rsyslog.conf ./src/deploy/standalone/noobaa_rsyslog.conf
+COPY ./src/deploy/standalone/noobaa_syslog.conf ./src/deploy/standalone/noobaa_syslog.conf
+COPY ./src/deploy/standalone/logrotate_noobaa.conf ./src/deploy/standalone/logrotate_noobaa.conf
 
 WORKDIR /build
 

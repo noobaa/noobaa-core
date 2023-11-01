@@ -1285,14 +1285,24 @@ module.exports = {
             }
         },
         nsfs_account_config: {
-            type: 'object',
-            required: ['uid', 'gid', 'new_buckets_path', 'nsfs_only'],
-            properties: {
-                uid: { type: 'number' },
-                gid: { type: 'number' },
-                new_buckets_path: { type: 'string' },
-                nsfs_only: { type: 'boolean' }
-            }
+            oneOf: [{
+                type: 'object',
+                required: ['uid', 'gid', 'new_buckets_path', 'nsfs_only'],
+                properties: {
+                    uid: { type: 'number' },
+                    gid: { type: 'number' },
+                    new_buckets_path: { type: 'string' },
+                    nsfs_only: { type: 'boolean' }
+                }
+            }, {
+                type: 'object',
+                required: [ 'distinguished_name', 'new_buckets_path', 'nsfs_only'],
+                properties: {
+                    distinguished_name: { wrapper: SensitiveString },
+                    new_buckets_path: { type: 'string' },
+                    nsfs_only: { type: 'boolean' }
+                }
+            }]
         },
         quota_config: {
             type: 'object',

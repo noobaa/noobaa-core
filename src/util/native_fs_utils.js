@@ -7,6 +7,7 @@ const path = require('path');
 const nb_native = require('../util/nb_native');
 const { v4: uuidv4 } = require('uuid');
 const config = require('../../config');
+const RpcError = require('../rpc/rpc_error');
 
 const gpfs_link_unlink_retry_err = 'EEXIST';
 const gpfs_unlink_retry_catch = 'GPFS_UNLINK_RETRY';
@@ -377,6 +378,22 @@ async function update_config_file(fs_context, schema_dir, config_path, config_da
     }
 }
 
+async function get_user_by_distinguished_name({ distinguished_name }) {
+    try {
+        if (!distinguished_name) throw new Error('no distinguished name');
+        const context = {
+            uid: process.getuid(),
+            gid: process.getgid(),
+        };
+        const user = await nb_native().fs.getpwname(context, distinguished_name);
+        return user;
+    } catch (err) {
+        dbg.error('native_fs_utils.get_user_by_distinguished_name: failed with error', err);
+        if (err.code !== undefined) throw err;
+        throw new RpcError('NO_SUCH_USER', 'User with distinguished_name not found', err);
+    }
+}
+
 exports.get_umasked_mode = get_umasked_mode;
 exports._make_path_dirs = _make_path_dirs;
 exports._create_path = _create_path;
@@ -384,6 +401,7 @@ exports._generate_unique_path = _generate_unique_path;
 exports.open_file = open_file;
 exports.copy_bytes = copy_bytes;
 exports.finally_close_files = finally_close_files;
+exports.get_user_by_distinguished_name = get_user_by_distinguished_name;
 
 exports._is_gpfs = _is_gpfs;
 exports.safe_move = safe_move;

@@ -10,6 +10,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <pwd.h>
 #include <map>
 #include <math.h>
 #include <stdlib.h>
@@ -363,6 +364,14 @@ set_fs_worker_stats(Napi::Env env, Napi::Object fs_worker_stats, std::string wor
     fs_worker_stats["name"] = Napi::String::New(env, work_name);
     fs_worker_stats["took_time"] = Napi::Number::New(env, took_time);
     fs_worker_stats["error"] = Napi::Number::New(env, error);
+}
+
+static void
+set_getpwnam_res(Napi::Env env, Napi::Object getpwnam_res, struct passwd& _getpwnam_res)
+{
+    getpwnam_res["name"] = Napi::String::New(env, _getpwnam_res.pw_name);
+    getpwnam_res["uid"] = Napi::Number::New(env, _getpwnam_res.pw_uid);
+    getpwnam_res["gid"] = Napi::Number::New(env, _getpwnam_res.pw_gid);
 }
 
 static bool
@@ -1255,6 +1264,35 @@ struct Fsync : public FSWorker
     }
 };
 
+/**
+ * GetPwName is an os op 
+ */
+struct GetPwName : public FSWorker
+{
+    std::string _user;
+    struct passwd *_getpwnam_res;
+    GetPwName(const Napi::CallbackInfo& info)
+        : FSWorker(info)
+    {
+        _user = info[1].As<Napi::String>();
+        Begin(XSTR() << "GetPwName " << DVAL(_user));
+    }
+    virtual void Work()
+    {
+        _getpwnam_res = getpwnam(_user.c_str());
+        if (_getpwnam_res == NULL) SetSyscallError();
+    }
+
+    virtual void OnOK()
+    {
+        DBG1("FS::GetPwName::OnOK: " << DVAL(_user) << DVAL(_getpwnam_res->pw_uid) << DVAL(_getpwnam_res->pw_gid));
+        Napi::Env env = Env();
+        auto res = Napi::Object::New(env);
+        set_getpwnam_res(env, res, *_getpwnam_res);
+        _deferred.Resolve(res);
+    }
+};
+
 struct FileWrap : public Napi::ObjectWrap<FileWrap>
 {
     std::string _path;
@@ -2009,6 +2047,7 @@ fs_napi(Napi::Env env, Napi::Object exports)
     exports_fs["fsync"] = Napi::Function::New(env, api<Fsync>);
     exports_fs["realpath"] = Napi::Function::New(env, api<RealPath>);
     exports_fs["getsinglexattr"] = Napi::Function::New(env, api<GetSingleXattr>);
+    exports_fs["getpwname"] = Napi::Function::New(env, api<GetPwName>);
 
     FileWrap::init(env);
     exports_fs["open"] = Napi::Function::New(env, api<FileOpen>);

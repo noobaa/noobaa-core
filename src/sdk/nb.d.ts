@@ -904,6 +904,7 @@ interface NativeFS {
     realpath(fs_context: NativeFSContext, path: string): Promise<string>;
     checkAccess(fs_context: NativeFSContext, path: string): Promise<void>;
     getsinglexattr(fs_context: NativeFSContext, path: string, key: string): Promise<string>;
+    getpwname(fs_context: NativeFSContext, user: string): Promise<object>;
 
     readFile(
         fs_context: NativeFSContext,

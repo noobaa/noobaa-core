@@ -46,6 +46,7 @@ Account Options:
     --email <email>             (default none)          Set the email for account/bucket.
     --uid <uid>                 (default as process)    Send requests to the Filesystem with uid.
     --gid <gid>                 (default as process)    Send requests to the Filesystem with gid.
+    --user <distinguished_name> (default none)          Send requests to the Filesystem with distinguished_name (overrides uid/gid).
     --secret_key <key>          (default none)          The secret key pair for the access key.
     --new_buckets_path <dir>    (default none)          Set the root of the filesystem where each subdir is a bucket.
     
@@ -287,12 +288,13 @@ async function fetch_account_data(argv, config_root, from_file) {
     if (!data) {
         const name = argv.name && new SensitiveString(String(argv.name));
         const email = argv.email && new SensitiveString(String(argv.email));
-        const uid = Number(argv.uid) || process.getuid();
-        const gid = Number(argv.gid) || process.getgid();
+        const distinguished_name = argv.user && new SensitiveString(String(argv.user));
+        const uid = argv.user ? undefined : Number(argv.uid) || process.getuid();
+        const gid = argv.user ? undefined : Number(argv.gid) || process.getgid();
         const access_key = argv.access_key && new SensitiveString(String(argv.access_key));
         const secret_key = argv.secret_key && new SensitiveString(String(argv.secret_key));
         const new_buckets_path = argv.new_buckets_path ? String(argv.new_buckets_path) : '';
-        data = {
+        data = _.omitBy({
             name: name,
             email: email,
             access_keys: [{
@@ -300,11 +302,11 @@ async function fetch_account_data(argv, config_root, from_file) {
                 secret_key: secret_key
             }],
             nsfs_account_config: {
+                distinguished_name,
                 uid: uid,
                 gid: gid,
                 new_buckets_path: new_buckets_path
-            }
-        };
+            }}, _.isUndefined);
     }
     data.creation_date = new Date().toISOString();
     if (action === 'update') {
@@ -448,8 +450,9 @@ async function validate_account_add_args(data) {
         console.error('Error: Access key should not be empty');
         return false;
     }
-    if (data.nsfs_account_config.uid === undefined ||
-        data.nsfs_account_config.gid === undefined ||
+    if ((data.nsfs_account_config.distinguished_name === undefined &&
+        (data.nsfs_account_config.uid === undefined ||
+        data.nsfs_account_config.gid === undefined)) ||
         !data.nsfs_account_config.new_buckets_path) {
         console.error('Error: Account config should not be empty');
         return false;

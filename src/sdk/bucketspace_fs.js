@@ -125,6 +125,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
         const valid = ajv.validate(bucket_schema, bucket);
         if (!valid) throw new RpcError('INVALID_SCHEMA', ajv.errors[0]?.message);
     }
+
     async read_bucket_sdk_info({ name }) {
         try {
             const bucket_config_path = this._get_bucket_config_path(name);

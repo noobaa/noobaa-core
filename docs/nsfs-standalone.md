@@ -1,6 +1,6 @@
 # NSFS FS Standalone
 
-Running noobaa-core standalone is useful for development, testing, or deploying in Linux without depending on Kubernetes, NSFS FS is different from the simple standalone in such a way that it doesn't depend on the Noobaa postgres db. All the Global configurations, Accounts, and Bucket related schemas are saved in FS. And it gives a more lightweight flavor to the Noobaa standalone version. Permissions are handled by uid and gid.
+Running noobaa-core standalone is useful for development, testing, or deploying in Linux without depending on Kubernetes, NSFS FS is different from the simple standalone in such a way that it doesn't depend on the Noobaa postgres db. All the Global configurations, Accounts, and Bucket related schemas are saved in FS. And it gives a more lightweight flavor to the Noobaa standalone version. Permissions are handled by uid and gid, or by providing a distinguished name (LDAP/AD) that will be resolved to uid/gid by the operating system.
 
 Users can switch between Noobaa standalone and NSFS FS standalone by adding/removing the argument `config_dir`.
 
@@ -34,9 +34,9 @@ node src/cmd/nsfs ../standalon/nsfs_root --config_dir ../standalon/fs_config
 		"secret_key": "ss-abcdefghijklmn123456"
 	}],
 	"nsfs_account_config": {
-		"uid": 10,
-		"gid": 10,
-		"new_buckets_path": "/",
+		"uid": 10,   // Both can also be replaced with "distingished_name": "unique_user1_name",
+		"gid": 10,   // 
+ 		"new_buckets_path": "/",
 		"nsfs_only": "true"
 	}
 }

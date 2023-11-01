@@ -1,6 +1,8 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+const SensitiveString = require('../util/sensitive_string');
+
 /**
  *
  * ACCOUNT API
@@ -287,6 +289,7 @@ module.exports = {
                     nsfs_account_config: {
                         type: 'object',
                         properties: {
+                            distinguished_name: { wrapper: SensitiveString },
                             uid: { type: 'number' },
                             gid: { type: 'number' },
                             new_buckets_path: { type: 'string' },
@@ -323,12 +326,20 @@ module.exports = {
                 required: ['nsfs_account_config'],
                 properties: {
                     nsfs_account_config: {
-                        type: 'object',
-                        required: ['uid', 'gid'],
-                        properties: {
-                            uid: { type: 'number' },
-                            gid: { type: 'number' },
-                        }
+                        oneOf: [{
+                            type: 'object',
+                            required: ['uid', 'gid'],
+                            properties: {
+                                uid: { type: 'number' },
+                                gid: { type: 'number' },
+                            }
+                        }, {
+                            type: 'object',
+                            required: ['distinguished_name'],
+                            properties: {
+                                distinguished_name: { wrapper: SensitiveString },
+                            }
+                        }]
                     }
                 }
             },
@@ -347,12 +358,20 @@ module.exports = {
                         type: 'object',
                         properties: {
                             fs_identity: {
-                                type: 'object',
-                                required: ['uid', 'gid'],
-                                properties: {
-                                    uid: { type: 'number' },
-                                    gid: { type: 'number' },
-                                }
+                                oneOf: [{
+                                    type: 'object',
+                                    required: ['uid', 'gid'],
+                                    properties: {
+                                        uid: { type: 'number' },
+                                        gid: { type: 'number' },
+                                    }
+                                }, {
+                                    type: 'object',
+                                    required: ['distinguished_name'],
+                                    properties: {
+                                        distinguished_name: { wrapper: SensitiveString },
+                                    }
+                                }]
                             }
                         }
                     }

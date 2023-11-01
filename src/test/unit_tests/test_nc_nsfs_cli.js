@@ -134,6 +134,49 @@ mocha.describe('manage_nsfs cli', function() {
         });
     });
 
+    mocha.describe('cli account flow distinguished_name - happy path', async function() {
+        const type = nc_nsfs_manage_entity_types.ACCOUNT;
+        const name = 'account2';
+        const email = 'account2@noobaa.io';
+        const new_buckets_path = `${root_path}new_buckets_path_user2/`;
+        const distinguished_name = 'moti1003';
+        const access_key = 'bcd';
+        const secret_key = '234';
+        const account_options = { config_root, name, email, new_buckets_path, distinguished_name, access_key, secret_key };
+        const schema_dir = 'accounts';
+
+        mocha.it('cli account create', async function() {
+            const action = nc_nsfs_manage_actions.ADD;
+            await fs_utils.create_fresh_path(new_buckets_path);
+            await fs_utils.file_must_exist(new_buckets_path);
+            await exec_manage_cli(type, action, account_options);
+            const account = await read_config_file(config_root, schema_dir, access_key);
+            assert_account(account, account_options);
+        });
+
+        mocha.it('cli account update', async function() {
+            const action = nc_nsfs_manage_actions.UPDATE;
+            account_options.account_email = 'account3@noobaa.io';
+            account_options.distinguished_name = 'moti1004';
+            await exec_manage_cli(type, action, account_options);
+            const account = await read_config_file(config_root, schema_dir, access_key);
+            assert_account(account, account_options);
+        });
+
+        mocha.it('cli account delete', async function() {
+            const action = nc_nsfs_manage_actions.DELETE;
+            await exec_manage_cli(type, action, { config_root, access_key });
+            try {
+                await read_config_file(config_root, schema_dir, access_key);
+                throw new Error('cli account delete failed - account config file exists after deletion');
+            } catch (err) {
+                if (err.code !== 'ENOENT') {
+                    throw new Error('cli account delete failed - read file failed with the following error - ', err.code);
+                }
+            }
+        });
+    });
+
 });
 
 async function read_config_file(config_root, schema_dir, config_file_name) {
@@ -165,9 +208,12 @@ function assert_account(account, account_options) {
 }
 
 async function exec_manage_cli(type, action, options) {
-    const flags = type === 'bucket' ?
+    let flags = type === 'bucket' ?
         `--name ${options.bucket_name} --email ${options.owner_email} --path ${options.bucket_path}` :
-        `--name ${options.name} --email ${options.email} --new_buckets_path ${options.new_buckets_path} --access_key ${options.access_key} --secret_key ${options.secret_key} --uid ${options.uid} --gid ${options.gid}`;
+        `--name ${options.name} --email ${options.email} --new_buckets_path ${options.new_buckets_path} ` +
+        `--access_key ${options.access_key} --secret_key ${options.secret_key}`;
+    if (options.uid && options.gid) flags += ` --uid ${options.uid} --gid ${options.gid}`;
+    if (options.distinguished_name) flags += ` --user ${options.distinguished_name}`;
     const add_res = await os_util.exec(`node src/cmd/manage_nsfs ${type} ${action} --config_root ${options.config_root} ${flags}`, { return_stdout: true });
     return add_res;
 }

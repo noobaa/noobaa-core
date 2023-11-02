@@ -235,6 +235,23 @@ ManageCLIError.InvalidNewAccessKeyIdentifier = Object.freeze({
     http_code: 400,
 });
 
+ManageCLIError.InaccessibleAccountNewBucketsPath = Object.freeze({
+    code: 'InaccessibleAccountNewBucketsPath',
+    message: 'Account should have read & write access to the specified new_buckets_path',
+    http_code: 400,
+});
+
+ManageCLIError.InvalidAccountDistinguishedName = Object.freeze({
+    code: 'InvalidAccountDistinguishedName',
+    message: 'Account distinguished name was not found',
+    http_code: 400,
+});
+ManageCLIError.InvalidGlacierOperation = Object.freeze({
+    code: 'InvalidGlacierOperation',
+    message: 'only "migrate", "restore" and "expiry" subcommands are supported',
+    http_code: 400,
+});
+
 
 ////////////////////////
 //// BUCKET ERRORS /////

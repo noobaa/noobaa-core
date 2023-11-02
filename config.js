@@ -722,6 +722,30 @@ config.NSFS_RENAME_RETRIES = 3;
 config.NSFS_VERSIONING_ENABLED = true;
 config.NSFS_UPDATE_ISSUES_REPORT_ENABLED = true;
 
+config.NSFS_GLACIER_LOGS_DIR = '/var/run/noobaa-nsfs/wal';
+config.NSFS_GLACIER_LOGS_MAX_INTERVAL = 15 * 60 * 1000;
+
+// NSFS_GLACIER_ENABLED can override internal autodetection and will force
+// the use of restore for all objects.
+config.NSFS_GLACIER_ENABLED = false;
+config.NSFS_GLACIER_LOGS_ENABLED = true;
+config.NSFS_GLACIER_BACKEND = 'TAPECLOUD';
+
+// TAPECLOUD Glacier backend specific configs
+config.NSFS_GLACIER_TAPECLOUD_BIN_DIR = '/opt/ibm/tapecloud/bin';
+
+// NSFS_GLACIER_MIGRATE_INTERVAL indicates the interval between runs
+// of `manage_nsfs glacier migrate`
+config.NSFS_GLACIER_MIGRATE_INTERVAL = 15 * 60 * 1000;
+
+// NSFS_GLACIER_RESTORE_INTERVAL indicates the interval between runs
+// of `manage_nsfs glacier restore`
+config.NSFS_GLACIER_RESTORE_INTERVAL = 15 * 60 * 1000;
+
+// NSFS_GLACIER_EXPIRY_INTERVAL indicates the interval between runs
+// of `manage_nsfs glacier expiry`
+config.NSFS_GLACIER_EXPIRY_INTERVAL = 12 * 60 * 60 * 1000;
+
 ////////////////////////////
 // NSFS NON CONTAINERIZED //
 ////////////////////////////
@@ -742,11 +766,8 @@ config.BASE_MODE_CONFIG_DIR = 0o700;
 
 config.NSFS_WHITELIST = [];
 
-// NSFS_RESTORE_ENABLED can override internal autodetection and will force
-// the use of restore for all objects.
-config.NSFS_RESTORE_ENABLED = false;
-config.NSFS_HEALTH_ENDPOINT_RETRY_COUNT = 3
-config.NSFS_HEALTH_ENDPOINT_RETRY_DELAY = 10
+config.NSFS_HEALTH_ENDPOINT_RETRY_COUNT = 3;
+config.NSFS_HEALTH_ENDPOINT_RETRY_DELAY = 10;
 
 //Quota
 config.QUOTA_LOW_THRESHOLD = 80;

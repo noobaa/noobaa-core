@@ -4,7 +4,8 @@
 const TYPES = {
     ACCOUNT: 'account',
     BUCKET: 'bucket',
-    IP_WHITELIST: 'whitelist'
+    IP_WHITELIST: 'whitelist',
+    GLACIER: 'glacier',
 };
 
 const ACTIONS = {
@@ -13,6 +14,12 @@ const ACTIONS = {
     DELETE: 'delete',
     LIST: 'list',
     STATUS: 'status'
+};
+
+const GLACIER_ACTIONS = {
+    MIGRATE: 'migrate',
+    RESTORE: 'restore',
+    EXPIRY: 'expiry',
 };
 
 const GLOBAL_CONFIG_ROOT = 'config_root';
@@ -34,11 +41,18 @@ const VALID_OPTIONS_BUCKET = {
     'status': new Set(['name', GLOBAL_CONFIG_ROOT]),
 };
 
+const VALID_OPTIONS_GLACIER = {
+    'migrate': new Set([ GLOBAL_CONFIG_ROOT]),
+    'restore': new Set([ GLOBAL_CONFIG_ROOT]),
+    'expiry': new Set([ GLOBAL_CONFIG_ROOT]),
+};
+
 const VALID_OPTIONS_WHITELIST = new Set(['ips', GLOBAL_CONFIG_ROOT]);
 
 const VALID_OPTIONS = {
     account_options: VALID_OPTIONS_ACCOUNT,
     bucket_options: VALID_OPTIONS_BUCKET,
+    glacier_options: VALID_OPTIONS_GLACIER,
     whitelist_options: VALID_OPTIONS_WHITELIST,
 };
 
@@ -71,6 +85,7 @@ const LIST_BUCKET_FILTERS = ['name'];
 // EXPORTS
 exports.TYPES = TYPES;
 exports.ACTIONS = ACTIONS;
+exports.GLACIER_ACTIONS = GLACIER_ACTIONS;
 exports.VALID_OPTIONS = VALID_OPTIONS;
 exports.OPTION_TYPE = OPTION_TYPE;
 exports.TYPE_STRING_OR_NUMBER = TYPE_STRING_OR_NUMBER;

@@ -19,6 +19,7 @@
 #include <sys/types.h>
 #include <sys/uio.h>
 #include <sys/xattr.h>
+#include <sys/file.h>
 #include <thread>
 #include <typeinfo>
 #include <unistd.h>
@@ -1333,6 +1334,7 @@ struct FileWrap : public Napi::ObjectWrap<FileWrap>
                 InstanceMethod<&FileWrap::unlinkfileat>("unlinkfileat"),
                 InstanceMethod<&FileWrap::stat>("stat"),
                 InstanceMethod<&FileWrap::fsync>("fsync"),
+                InstanceMethod<&FileWrap::flock>("flock"),
                 InstanceAccessor<&FileWrap::getfd>("fd"),
             }));
         constructor.SuppressDestruct();
@@ -1361,6 +1363,7 @@ struct FileWrap : public Napi::ObjectWrap<FileWrap>
     Napi::Value stat(const Napi::CallbackInfo& info);
     Napi::Value fsync(const Napi::CallbackInfo& info);
     Napi::Value getfd(const Napi::CallbackInfo& info);
+    Napi::Value flock(const Napi::CallbackInfo& info);
 };
 
 Napi::FunctionReference FileWrap::constructor;
@@ -1680,6 +1683,34 @@ struct FileFsync : public FSWrapWorker<FileWrap>
     }
 };
 
+struct FileFlock : public FSWrapWorker<FileWrap>
+{
+	int lock_mode;
+    FileFlock(const Napi::CallbackInfo& info)
+        : FSWrapWorker<FileWrap>(info)
+        , lock_mode(LOCK_SH)
+    {
+        if (info.Length() > 1 && !info[1].IsUndefined()) {
+            auto mode = info[1].As<Napi::String>().Utf8Value();
+            if (mode == "EXCLUSIVE") {
+                lock_mode = LOCK_EX;
+            } else if (mode == "UNLOCK") {
+                lock_mode = LOCK_UN;
+            } else {
+                lock_mode = LOCK_SH;
+            }
+        }
+
+        Begin(XSTR() << "FileFlock " << DVAL(_wrap->_path));
+    }
+    virtual void Work()
+    {
+        int fd = _wrap->_fd;
+        CHECK_WRAP_FD(fd);
+        SYSCALL_OR_RETURN(flock(fd, lock_mode));
+    }
+};
+
 struct RealPath : public FSWorker
 {
     std::string _path;
@@ -1824,6 +1855,12 @@ Napi::Value
 FileWrap::fsync(const Napi::CallbackInfo& info)
 {
     return api<FileFsync>(info);
+}
+
+Napi::Value
+FileWrap::flock(const Napi::CallbackInfo& info)
+{
+    return api<FileFlock>(info);
 }
 
 /**

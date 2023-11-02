@@ -9,6 +9,7 @@ const path = require('path');
 const mocha = require('mocha');
 const crypto = require('crypto');
 const assert = require('assert');
+const os = require('os');
 
 const P = require('../../util/promise');
 const config = require('../../../config');
@@ -22,6 +23,8 @@ const endpoint_stats_collector = require('../../sdk/endpoint_stats_collector');
 const { S3Error } = require('../../endpoint/s3/s3_errors');
 
 const inspect = (x, max_arr = 5) => util.inspect(x, { colors: true, depth: null, maxArrayLength: max_arr });
+
+const mkdtemp = util.promisify(fs.mkdtemp);
 
 // TODO: In order to verify validity add content_md5_mtime as well
 const XATTR_MD5_KEY = 'content_md5';
@@ -458,6 +461,11 @@ mocha.describe('namespace_fs', function() {
     mocha.describe('restore_object', function() {
         const restore_key = 'restore_key_1';
         const data = crypto.randomBytes(100);
+
+        mocha.before(async function() {
+            const dir = await mkdtemp(`${os.tmpdir()}${path.sep}`);
+            config.NSFS_GLACIER_LOGS_DIR = dir;
+        });
 
         mocha.describe('GLACIER storage class not supported', function() {
             mocha.before(async function() {

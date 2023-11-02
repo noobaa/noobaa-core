@@ -1,7 +1,7 @@
 /* Copyright (C) 2024 NooBaa */
 'use strict';
 
-const { TYPES, ACTIONS } = require('./manage_nsfs_constants');
+const { TYPES, ACTIONS, GLACIER_ACTIONS } = require('./manage_nsfs_constants');
 
 const HELP = `
 Help:
@@ -183,6 +183,26 @@ Flags:
 --name <string>                                           (optional)                        Filter the list based on the provided bucket name
 `;
 
+const GLACIER_OPTIONS = `
+Usage:
+    manage_nsfs glacier <migrate | restore | expiry> [options]
+`;
+
+const GLACIER_MIGRATE_OPTIONS = `
+Glacier Migrate Options:
+    --interval <interval>                         (default none)            Run the operation if "interval" milliseconds have passed since last run
+`;
+
+const GLACIER_RESTORE_OPTIONS = `
+Glacier Restore Options:
+    --interval <interval>                         (default none)            Run the operation if "interval" milliseconds have passed since last run
+`;
+
+const GLACIER_EXPIRY_OPTIONS = `
+Glacier Expiry Options:
+    --interval <interval>                         (default none)            Run the operation if "interval" milliseconds have passed since last run
+`;
+
 /** 
  * print_usage would print the help according to the arguments that were passed
  * @param {string} type
@@ -198,6 +218,9 @@ function print_usage(type, action) {
             break;
         case TYPES.IP_WHITELIST:
             process.stdout.write(WHITELIST_FLAGS.trimStart());
+            break;
+        case TYPES.GLACIER:
+            print_help_glacier(action);
             break;
         default:
             process.stdout.write(HELP + '\n');
@@ -263,6 +286,22 @@ function print_help_bucket(action) {
             process.stdout.write(BUCKET_ACTIONS.trimStart());
     }
     process.exit(0);
+}
+
+function print_help_glacier(action) {
+    switch (action) {
+        case GLACIER_ACTIONS.MIGRATE:
+            process.stdout.write(GLACIER_MIGRATE_OPTIONS.trimStart());
+            break;
+        case GLACIER_ACTIONS.RESTORE:
+            process.stdout.write(GLACIER_RESTORE_OPTIONS.trimStart());
+            break;
+        case GLACIER_ACTIONS.EXPIRY:
+            process.stdout.write(GLACIER_EXPIRY_OPTIONS.trimStart());
+            break;
+        default:
+            process.stdout.write(GLACIER_OPTIONS.trimStart());
+    }
 }
 
 // EXPORTS

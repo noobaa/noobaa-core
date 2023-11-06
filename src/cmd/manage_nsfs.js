@@ -23,7 +23,7 @@ Help:
 const USAGE = `
 Usage:
 
-    node src/cmd/manage_nsfs <action> <type> [options...]
+    node src/cmd/manage_nsfs <type> <action> [options...]
 `;
 
 const ARGUMENTS = `
@@ -36,41 +36,50 @@ Arguments:
 const ACCOUNT_OPTIONS = `
 Account Options:
 
-    # Read account details from json file, no need to mention all the propery one by one in CLI
-    --from_file <dir>                       (default none)          Set buckt/account schema full path.
-                                                                    Get bucket and account details from json file                
-    --config_root_backend <none | GPFS >    (default none)          Set the config_root FS type to be GPFS
+    # Read account details from the JSON file, there is no need to mention all the properties one by one in the CLI
+    --from_file <dir>                       (default none)                  Set account schema full path.
+                                                                            Get account details from JSON file                
+    --config_root_backend <none | GPFS >    (default none)                  Set the config_root FS type to be GPFS
 
     # required for add, replace 
-    --name <name>               (default none)          Set the name for account/bucket.
-    --email <email>             (default none)          Set the email for account/bucket.
-    --uid <uid>                 (default as process)    Send requests to the Filesystem with uid.
-    --gid <gid>                 (default as process)    Send requests to the Filesystem with gid.
-    --user <distinguished_name> (default none)          Send requests to the Filesystem with distinguished_name (overrides uid/gid).
-    --secret_key <key>          (default none)          The secret key pair for the access key.
-    --new_buckets_path <dir>    (default none)          Set the root of the filesystem where each subdir is a bucket.
+    --name <name>               (default none)                              Set the name for the account.
+    --email <email>             (default none)                              Set the email for the account.
+    --uid <uid>                 (default as process)                        Send requests to the Filesystem with uid.
+    --gid <gid>                 (default as process)                        Send requests to the Filesystem with gid.
+    --user <distinguished_name> (default none)                              Send requests to the Filesystem with distinguished_name (overrides uid/gid).
+    --secret_key <key>          (default none)                              The secret key pair for the access key.
+    --new_buckets_path <dir>    (default none)                              Set the filesystem's root where each subdir is a bucket.
     
-    # required for add, replace and delete
-    --access_key <key>          (default none)                                     Authenticate incoming requests for this access key only (default is no auth).
-    --config_root <dir>         (default config.NSFS_NC_DEFAULT_CONF_DIR)          Configuration files path for Noobaa standalon NSFS.
+    # required for add, replace, and delete
+    --access_key <key>          (default none)                              Authenticate incoming requests for this access key only (default is no auth).
+    --config_root <dir>         (default config.NSFS_NC_DEFAULT_CONF_DIR)   Configuration files path for Noobaa standalon NSFS.
 `;
 
 const BUCKET_OPTIONS = `
 Bucket Options:
 
-    # Read Bucket details from json file, no need to mention all the propery one by one in CLI
-    --from_file <dir>                       (default none)          Set buckt/account schema full path.
-                                                                    Get bucket and account details from json file
-    --config_root_backend <none | GPFS >    (default none)          Set the config_root FS type to be GPFS
+    # Read Bucket details from JSON file, no need to mention all the properties one by one in CLI
+    --from_file <dir>                       (default none)                  Set bucket schema full path.
+                                                                            Get bucket details from the JSON file
+    --config_root_backend <none | GPFS >    (default none)                  Set the config_root FS type to be GPFS
 
     # required for add, replace 
-    --email <email>             (default none)          Set the email for account/bucket.
-    --path <dir>                (default none)          Set the bucket path.
+    --email <email>             (default none)                              Set the email for the bucket.
+    --path <dir>                (default none)                              Set the bucket path.
 
-    # required for add, replace and delete
-    --name <name>               (default none)          Set the name for account/bucket.
-    --config_root <dir>         (default config.NSFS_NC_DEFAULT_CONF_DIR)          Configuration files path for Noobaa standalon NSFS.
+    # required for add, replace, and delete
+    --name <name>               (default none)                              Set the name for the bucket.
+    --config_root <dir>         (default config.NSFS_NC_DEFAULT_CONF_DIR)   Configuration files path for Noobaa standalon NSFS.
 `;
+
+function print_usage() {
+    console.warn(HELP);
+    console.warn(USAGE.trimStart());
+    console.warn(ARGUMENTS.trimStart());
+    console.warn(ACCOUNT_OPTIONS.trimStart());
+    console.warn(BUCKET_OPTIONS.trimStart());
+    process.exit(1);
+}
 
 function print_account_usage() {
     console.warn(HELP);
@@ -102,8 +111,14 @@ async function check_and_create_config_dirs(config_root) {
 async function main(argv = minimist(process.argv.slice(2))) {
     try {
         const resources_type = argv._[0] || '';
-        if ((argv.help || argv.h) && resources_type === 'account') return print_account_usage();
-        if ((argv.help || argv.h) && resources_type === 'bucket') return print_bucket_usage();
+        if (argv.help || argv.h) {
+            if (resources_type === 'account') {
+                return print_account_usage();
+            } else if (resources_type === 'bucket') {
+                return print_bucket_usage();
+            }
+            return print_usage();
+        }
         const config_root = argv.config_root ? String(argv.config_root) : config.NSFS_NC_DEFAULT_CONF_DIR;
         if (!config_root) {
             console.error('Error: Config dir should not be empty');
@@ -122,8 +137,8 @@ async function main(argv = minimist(process.argv.slice(2))) {
             await bucket_management(argv, config_root, from_file);
         }
     } catch (err) {
-      console.error('NSFS Manage command: exit on error', err.stack || err);
-      process.exit(2);
+        console.error('NSFS Manage command: exit on error', err.stack || err);
+        process.exit(2);
     }
 }
 
@@ -239,14 +254,14 @@ async function update_bucket_config_file(data, bucket_config_path, config_root_b
 
 async function delete_bucket_config_file(data, buckets_config_path, config_root_backend) {
     const is_valid = await validate_minimum_bucket_args(data);
-        if (!is_valid) {
-            print_bucket_usage();
-            return;
-        }
-        // TODO: support non root fs context
-        const fs_context = get_root_fs_context(config_root_backend);
-        const full_bucket_config_path = get_config_file_path(buckets_config_path, data.name);
-        await native_fs_utils.delete_config_file(fs_context, buckets_config_path, full_bucket_config_path);
+    if (!is_valid) {
+        print_bucket_usage();
+        return;
+    }
+    // TODO: support non root fs context
+    const fs_context = get_root_fs_context(config_root_backend);
+    const full_bucket_config_path = get_config_file_path(buckets_config_path, data.name);
+    await native_fs_utils.delete_config_file(fs_context, buckets_config_path, full_bucket_config_path);
 }
 
 async function manage_bucket_operations(action, data, config_root, config_root_backend) {
@@ -306,7 +321,8 @@ async function fetch_account_data(argv, config_root, from_file) {
                 uid: uid,
                 gid: gid,
                 new_buckets_path: new_buckets_path
-            }}, _.isUndefined);
+            }
+        }, _.isUndefined);
     }
     data.creation_date = new Date().toISOString();
     if (action === 'update') {
@@ -323,7 +339,7 @@ async function update_account_object(config_root, target) {
         const source_raw = await fs.promises.readFile(path.join(account_path, target.access_keys[0].access_key + '.json'));
         source = JSON.parse(source_raw.toString());
         target.nsfs_account_config.new_buckets_path = target.nsfs_account_config.new_buckets_path ||
-                                                        source.nsfs_account_config.new_buckets_path;
+            source.nsfs_account_config.new_buckets_path;
     } catch (err) {
         console.error('NSFS Manage command: Could not find account to update');
         print_account_usage();
@@ -403,8 +419,8 @@ async function manage_account_operations(action, data, config_root, config_root_
         const accounts = await list_config_file(account_path);
         console.log(accounts);
     } else {
-        console.log('Account action not found.');
-        print_account_usage();
+        console.error('Account action not found.');
+        console.warn(ARGUMENTS.trimStart());
     }
 }
 
@@ -432,8 +448,14 @@ async function validate_minimum_bucket_args(data) {
 }
 
 async function validate_bucket_add_args(data) {
-    if (!data.name || !data.system_owner || !data.path) {
-        console.error('Error: User data and bucket path should not be empty');
+    if (!data.name) {
+        console.error('Error: bucket name is mandatory, please use the --name flag');
+        return false;
+    } else if (!data.system_owner) {
+        console.error('Error: The email for the bucket is mandatory, please use the --email flag');
+        return false;
+    } else if (!data.path) {
+        console.error('Error: bucket path is mandatory, please use the --path flag');
         return false;
     }
     const bucket_dir_stat = await fs_utils.file_exists(data.path);
@@ -446,19 +468,25 @@ async function validate_bucket_add_args(data) {
 }
 
 async function validate_account_add_args(data) {
-    if (!data.access_keys[0].secret_key || !data.access_keys[0].access_key) {
-        console.error('Error: Access key should not be empty');
+    if (!data.access_keys[0].secret_key) {
+        console.error('Error: Secret key is mandatory, please use the --secret_key flag');
+        return false;
+    } else if (!data.access_keys[0].access_key) {
+        console.error('Error: Access key is mandatory, please use the --access_key flag');
         return false;
     }
     if ((data.nsfs_account_config.distinguished_name === undefined &&
-        (data.nsfs_account_config.uid === undefined ||
-        data.nsfs_account_config.gid === undefined)) ||
+            (data.nsfs_account_config.uid === undefined ||
+                data.nsfs_account_config.gid === undefined)) ||
         !data.nsfs_account_config.new_buckets_path) {
         console.error('Error: Account config should not be empty');
         return false;
     }
-    if (!data.name || !data.email) {
-        console.error('Error: Account data should not be empty.');
+    if (!data.name) {
+        console.error('Error: Account name is mandatory, please use the --name flag');
+        return false;
+    } else if (!data.email) {
+        console.error('Error: The email for the account  is mandatory, please use the --email flag');
         return false;
     }
     const bucket_dir_stat = await fs_utils.file_exists(data.nsfs_account_config.new_buckets_path);

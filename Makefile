@@ -170,7 +170,7 @@ rpm: base
 	$(CONTAINER_ENGINE) build $(CONTAINER_PLATFORM_FLAG) $(CPUSET) -f src/deploy/RPM_build/RPM.Dockerfile $(CACHE_FLAG) -t $(NOOBAA_RPM_TAG) --build-arg GIT_COMMIT=$(GIT_COMMIT) . $(REDIRECT_STDOUT)
 	echo "\033[1;32mImage \"$(NOOBAA_RPM_TAG)\" is ready.\033[0m"
 	echo "Generating RPM..."
-	$(CONTAINER_ENGINE) run --rm -v $(PWD)/build/rpm:/export:z -it $(NOOBAA_RPM_TAG)
+	$(CONTAINER_ENGINE) run --rm -v $(PWD)/build/rpm:/export:z -t $(NOOBAA_RPM_TAG)
 	echo "\033[1;32mRPM for platform \"$(NOOBAA_RPM_TAG)\" is ready in build/rpm.\033[0m";
 .PHONY: rpm
 

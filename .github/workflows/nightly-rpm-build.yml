@@ -1,0 +1,49 @@
+name: Nightly RPM Build Dispatch
+on: 
+  schedule:
+    - cron: "0 23 * * *"
+
+
+jobs:
+  nightly-rpm-build-and-upload-artifact:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          ref: master
+     
+      - name: Build RPM
+        id: build_rpm
+        run: |
+          echo "Starting make rpm"
+          make rpm
+          echo "Make rpm completed"
+
+      - name: Finalize RPM
+        id: finalize_full_rpm_path
+        run: |
+          DATE=$(date +'%Y%m%d')
+          VERSION=$(jq -r '.version' < ./package.json)
+          RPM_BASE_VERSION=noobaa-core-${VERSION}-1.el8.x86_64
+          RPM_FULL_PATH="${RPM_BASE_VERSION}_${{ github.event.inputs.branch }}_${DATE}${{ steps.suffix.outputs.suffix }}.rpm"
+          echo "RPM FULL PATH=${RPM_FULL_PATH}"
+          cp ./build/rpm/${RPM_BASE_VERSION}.rpm ${RPM_FULL_PATH}
+          echo "rpm_full_path=${RPM_FULL_PATH}" >> $GITHUB_OUTPUT
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v1.0.0
+        with:
+          name: noobaa_rpm
+          path: ${{ steps.finalize_full_rpm_path.outputs.rpm_full_path }}
+
+      - name: Setup AWS CLI
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.NEWAWSPROJKEY }}
+          aws-secret-access-key: ${{ secrets.NEWAWSPROJSECRET }}
+          aws-region: us-east-1
+
+      - name: Copy RPM to S3 bucket
+        run: aws s3 cp ${{ steps.finalize_full_rpm_path.outputs.rpm_full_path }} s3://noobaa-core-rpms/

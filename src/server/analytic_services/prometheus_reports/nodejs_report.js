@@ -14,7 +14,7 @@ class NodeJsReport extends BasePrometheusReport {
 
         if (this.enabled) {
             this.prom_client.collectDefaultMetrics({
-                register: this.registry,
+                register: this.register,
                 prefix: this.metric_prefix
             });
         }

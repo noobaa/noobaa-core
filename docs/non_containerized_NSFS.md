@@ -436,6 +436,13 @@ NSFS management CLI command will create both account and bucket dir if it's miss
 
 Non containerized NSFS certificates/ directory location will be under the config_root path. The certificates/ directory should contain SSL files tls.key and tls.crt. System will use a cert from this dir to create a valid HTTPS connection. If cert is missing in this dir a self-signed SSL certificate will be generated. Make sure the path to certificates/ directory is valid before running nsfs command, If the path is invalid then cert flow will fail.
 
+Non containerized NSFS restrict insecure HTTP connections when `allow_http` is set to false in cofig.json. This is not the default behaviour.
+
+## Monitoring
+
+Prometheus metrics port can be passed through the argument `--metrics_port` while executing the nsfs command. 
+NSFS state and output metrics can be fetched from URL `http:{host}:{metrics_port}/metrics/nsfs_stats`.
+
 ## Log and Logrotate
 Noobaa logs are configured using rsyslog and logrotate. RPM will configure rsyslog and logrotate if both are already running. 
 

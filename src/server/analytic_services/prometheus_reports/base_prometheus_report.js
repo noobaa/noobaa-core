@@ -6,15 +6,15 @@ const config = require('../../../../config.js');
 
 class BasePrometheusReport {
     constructor() {
-        this._registry = new this.prom_client.Registry();
+        this._register = this.prom_client.register;
     }
 
     get prom_client() {
         return prom_client;
     }
 
-    get registry() {
-        return this._registry;
+    get register() {
+        return this._register;
     }
 
     get metric_prefix() {
@@ -30,7 +30,7 @@ class BasePrometheusReport {
     }
 
     export_metrics() {
-        return this.registry.metrics();
+        return this.register.metrics();
     }
 }
 

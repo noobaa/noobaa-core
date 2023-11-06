@@ -36,11 +36,11 @@ const server_rpc = require('../server/server_rpc');
 const debug_config = require('../util/debug_config');
 const auth_server = require('../server/common_services/auth_server');
 const system_store = require('../server/system_services/system_store');
-const prom_reporting = require('../server/analytic_services/prometheus_reporting');
 const background_scheduler = require('../util/background_scheduler').get_instance();
 const endpoint_stats_collector = require('../sdk/endpoint_stats_collector');
 const { NamespaceMonitor } = require('../server/bg_services/namespace_monitor');
 const { SemaphoreMonitor } = require('../server/bg_services/semaphore_monitor');
+const prom_reporting = require('../server/analytic_services/prometheus_reporting');
 const cluster = /** @type {import('node:cluster').Cluster} */ (
     /** @type {unknown} */ (require('node:cluster'))
 );
@@ -91,12 +91,12 @@ async function main(options = {}) {
     try {
         // the primary just forks and returns, workers will continue to serve
         fork_count = options.forks ?? config.ENDPOINT_FORKS;
-        if (fork_utils.start_workers(fork_count)) return;
+        const metrics_port = options.metrics_port || config.EP_METRICS_SERVER_PORT;
+        if (fork_utils.start_workers(metrics_port, fork_count)) return;
 
         const http_port = options.http_port || Number(process.env.ENDPOINT_PORT) || 6001;
         const https_port = options.https_port || Number(process.env.ENDPOINT_SSL_PORT) || 6443;
-        const https_port_sts = options.https_port_sts || Number(process.env.ENDPOINT_SSL_STS_PORT) || 7443;
-        const metrics_port = options.metrics_port || config.EP_METRICS_SERVER_PORT;
+        const https_port_sts = options.https_port_sts || Number(process.env.ENDPOINT_SSL_PORT_STS) || 7443;
         const endpoint_group_id = process.env.ENDPOINT_GROUP_ID || 'default-endpoint-group';
 
         const virtual_hosts = Object.freeze(
@@ -182,9 +182,9 @@ async function main(options = {}) {
             await listen_http(https_port_sts, https_server_sts);
             dbg.log0('Started STS HTTPS successfully');
         }
-        if (metrics_port > 0) {
+        if (metrics_port > 0 && cluster.isPrimary) {
             dbg.log0('Starting metrics server', metrics_port);
-            await prom_reporting.start_server(metrics_port);
+            await prom_reporting.start_server(metrics_port, false);
             dbg.log0('Started metrics server successfully');
         }
 

@@ -1,5 +1,6 @@
 /* Copyright (C) 2020 NooBaa */
 'use strict';
+/* eslint-disable complexity */
 
 require('../util/dotenv').load();
 require('aws-sdk/lib/maintenance_mode_message').suppress = true;
@@ -243,7 +244,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
         const https_port = Number(argv.https_port) || Number(process.env.ENDPOINT_SSL_PORT) || 6443;
         const https_port_sts = Number(argv.https_port_sts) || -1;
         const metrics_port = Number(argv.metrics_port) || -1;
-        const forks = Number(argv.forks);
+        const forks = Number(argv.forks) || config.ENDPOINT_FORKS;
         const uid = Number(argv.uid) || process.getuid();
         const gid = Number(argv.gid) || process.getgid();
         const access_key = argv.access_key && new SensitiveString(String(argv.access_key));

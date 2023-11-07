@@ -873,6 +873,26 @@ struct Linkat : public FSWorker
 };
 
 /**
+ * Symlink is an fs op
+ */
+struct Symlink : public FSWorker
+{
+    std::string _target;
+    std::string _linkpath;
+    Symlink(const Napi::CallbackInfo& info)
+        : FSWorker(info)
+    {
+        _target = info[1].As<Napi::String>();
+        _linkpath = info[2].As<Napi::String>();
+        Begin(XSTR() << "Symlink " << DVAL(_target) << DVAL(_linkpath));
+    }
+    virtual void Work()
+    {
+        SYSCALL_OR_RETURN(symlink(_target.c_str(), _linkpath.c_str()));
+    }
+};
+
+/**
  * Mkdir is an fs op
  */
 struct Mkdir : public FSWorker
@@ -2048,6 +2068,7 @@ fs_napi(Napi::Env env, Napi::Object exports)
     exports_fs["realpath"] = Napi::Function::New(env, api<RealPath>);
     exports_fs["getsinglexattr"] = Napi::Function::New(env, api<GetSingleXattr>);
     exports_fs["getpwname"] = Napi::Function::New(env, api<GetPwName>);
+    exports_fs["symlink"]  = Napi::Function::New(env, api<Symlink>);
 
     FileWrap::init(env);
     exports_fs["open"] = Napi::Function::New(env, api<FileOpen>);

@@ -485,7 +485,8 @@ async function get_bucket_policy(req) {
 async function put_bucket_policy(req) {
     dbg.log0('put_bucket_policy:', req.rpc_params);
     const bucket = find_bucket(req, req.rpc_params.name);
-    bucket_policy_utils.validate_s3_policy(req.rpc_params.policy, bucket.name, principal => system_store.get_account_by_email(principal));
+    await bucket_policy_utils.validate_s3_policy(req.rpc_params.policy, bucket.name,
+        principal => system_store.get_account_by_email(principal));
     await system_store.make_changes({
         update: {
             buckets: [{

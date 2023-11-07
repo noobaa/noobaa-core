@@ -934,6 +934,7 @@ interface NativeFS {
     unlinkat(fs_context: NativeFSContext, path: string): Promise<void>;
     safe_link(fs_context: NativeFSContext, from_path: string, to_path: string, expect_mtime: bigint, expect_ino: number): Promise<void>;
     safe_unlink(fs_context: NativeFSContext, from_path: string, to_path: string, expect_mtime: bigint, expect_ino: number): Promise<void>;
+    symlink(fs_context: NativeFSContext, target: string, linkpath: string): Promise<void>;
 
     readdir(fs_context: NativeFSContext, path: string): Promise<fs.Dirent[]>;
     mkdir(fs_context: NativeFSContext, path: string, mode?: number): Promise<void>;

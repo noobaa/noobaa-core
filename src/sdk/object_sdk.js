@@ -12,6 +12,7 @@ const LRUCache = require('../util/lru_cache');
 const cloud_utils = require('../util/cloud_utils');
 const http_utils = require('../util/http_utils');
 const size_utils = require('../util/size_utils');
+const native_fs_utils = require('../util/native_fs_utils');
 const signature_utils = require('../util/signature_utils');
 const NamespaceNB = require('./namespace_nb');
 const NamespaceFS = require('./namespace_fs');
@@ -57,6 +58,20 @@ const account_cache = new LRUCache({
     make_key: ({ access_key }) => access_key,
     load: async ({ bucketspace, access_key }) => bucketspace.read_account_by_access_key({ access_key }),
 });
+
+const dn_cache = new LRUCache({
+    name: 'DistinguishedNameCache',
+    // TODO: Decide on a time that we want to invalidate, 1M for now
+    expiry_ms: Number(process.env.DN_CACHE_EXPIRY) || 1 * 60 * 1000,
+    /**
+     * Set type for the generic template
+     * @param {{
+    *      distinguished_name: string;
+    * }} params
+    */
+    make_key: ({ distinguished_name }) => distinguished_name,
+    load: async ({ distinguished_name }) => native_fs_utils.get_user_by_distinguished_name({ distinguished_name }),
+ });
 
 const MULTIPART_NAMESPACES = [
     'NET_STORAGE'
@@ -197,10 +212,20 @@ class ObjectSDK {
                 bucketspace: this._get_bucketspace(),
                 access_key: token.access_key,
             });
+            if (this.requesting_account?.nsfs_account_config?.distinguished_name) {
+                const distinguished_name = this.requesting_account.nsfs_account_config.distinguished_name.unwrap();
+                const user = await dn_cache.get_with_cache({
+                    bucketspace: this._get_bucketspace(),
+                    distinguished_name,
+                });
+                this.requesting_account.nsfs_account_config.uid = user.uid;
+                this.requesting_account.nsfs_account_config.gid = user.gid;
+            }
         } catch (error) {
             dbg.error('load_requesting_account error:', error);
-            if (error.rpc_code && error.rpc_code === 'NO_SUCH_ACCOUNT') {
-                throw new RpcError('INVALID_ACCESS_KEY_ID', `Account with access_key not found`);
+            if (error.rpc_code) {
+                if (error.rpc_code === 'NO_SUCH_ACCOUNT') throw new RpcError('INVALID_ACCESS_KEY_ID', `Account with access_key not found`);
+                if (error.rpc_code === 'NO_SUCH_USER') throw new RpcError('UNAUTHORIZED', `Distingushed name associated with access_key not found`);
             } else {
                 throw error;
             }

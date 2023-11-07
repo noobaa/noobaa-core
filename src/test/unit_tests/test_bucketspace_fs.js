@@ -3,12 +3,14 @@
 
 const _ = require('lodash');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const mocha = require('mocha');
 const assert = require('assert');
 const P = require('../../util/promise');
 const config = require('../../../config');
 const fs_utils = require('../../util/fs_utils');
+const native_fs_utils = require('../../util/native_fs_utils');
 
 const BucketSpaceFS = require('../../sdk/bucketspace_fs');
 const NamespaceFS = require('../../sdk/namespace_fs');
@@ -27,6 +29,7 @@ const buckets = 'buckets';
 const accounts = 'accounts';
 const new_buckets_path = path.join(tmp_fs_path, 'new_buckets_path', '/');
 const new_buckets_path_user1 = path.join(tmp_fs_path, 'new_buckets_path_user1', '/');
+const new_buckets_path_user2 = path.join(tmp_fs_path, 'new_buckets_path_user2', '/');
 
 const ACCOUNT_FS_CONFIG = {
     uid: 0,
@@ -54,6 +57,38 @@ const account_user1 = {
         uid: 0,
         gid: 0,
         new_buckets_path: new_buckets_path_user1,
+        nsfs_only: 'true'
+    },
+    creation_date: '2023-10-30T04:46:33.815Z',
+};
+
+const account_user2 = {
+    name: 'user2',
+    email: 'user2@noobaa.io',
+    has_s3_access: 'true',
+    access_keys: [{
+        access_key: 'a-abcdefghijklmn123457',
+        secret_key: 's-abcdefghijklmn123457'
+    }],
+    nsfs_account_config: {
+        distinguished_name: "root",
+        new_buckets_path: new_buckets_path_user2,
+        nsfs_only: 'true'
+    },
+    creation_date: '2023-10-30T04:46:33.815Z',
+};
+
+const account_user3 = {
+    name: 'user3',
+    email: 'user3@noobaa.io',
+    has_s3_access: 'true',
+    access_keys: [{
+        access_key: 'a-abcdefghijklmn123458',
+        secret_key: 's-abcdefghijklmn123458'
+    }],
+    nsfs_account_config: {
+        distinguished_name: os.userInfo().username,
+        new_buckets_path: new_buckets_path_user2,
         nsfs_only: 'true'
     },
     creation_date: '2023-10-30T04:46:33.815Z',
@@ -119,6 +154,10 @@ mocha.describe('bucketspace_fs', function() {
         await fs_utils.create_fresh_path(new_buckets_path);
         await fs.promises.writeFile(path.join(config_root, accounts,
             account_user1.access_keys[0].access_key + '.json'), JSON.stringify(account_user1));
+        await fs.promises.writeFile(path.join(config_root, accounts,
+            account_user2.access_keys[0].access_key + '.json'), JSON.stringify(account_user2));
+        await fs.promises.writeFile(path.join(config_root, accounts,
+            account_user3.access_keys[0].access_key + '.json'), JSON.stringify(account_user3));
     });
     mocha.after(async () => {
         fs_utils.folder_delete(`${config_root}`);
@@ -133,6 +172,29 @@ mocha.describe('bucketspace_fs', function() {
             assert.strictEqual(res.email.unwrap(), account_user1.email);
             assert.strictEqual(res.access_keys[0].access_key.unwrap(), account_user1.access_keys[0].access_key);
         });
+
+        mocha.it('check uid/gid from distinguished name (root)', async function() {
+            const access_key = account_user2.access_keys[0].access_key.toString();
+            const res = await bucketspace_fs.read_account_by_access_key({ access_key });
+            assert.strictEqual(res.email.unwrap(), account_user2.email);
+            assert.strictEqual(res.access_keys[0].access_key.unwrap(), account_user2.access_keys[0].access_key);
+            const distinguished_name = res.nsfs_account_config.distinguished_name;
+            assert.strictEqual(res.nsfs_account_config.distinguished_name, "root");
+            const res2 = await native_fs_utils.get_user_by_distinguished_name({ distinguished_name });
+            assert.strictEqual(res2.uid, 0);
+        });
+
+        mocha.it('check uid/gid from distinguished name (none root)', async function() {
+            const access_key = account_user3.access_keys[0].access_key.toString();
+            const res = await bucketspace_fs.read_account_by_access_key({ access_key });
+            assert.strictEqual(res.email.unwrap(), account_user3.email);
+            assert.strictEqual(res.access_keys[0].access_key.unwrap(), account_user3.access_keys[0].access_key);
+            const distinguished_name = res.nsfs_account_config.distinguished_name;
+            assert.strictEqual(res.nsfs_account_config.distinguished_name, os.userInfo().username);
+            const res2 = await native_fs_utils.get_user_by_distinguished_name({ distinguished_name });
+            assert.strictEqual(res2.uid, process.getuid());
+        });
+
 
         mocha.it('read account by invalid access key', async function() {
             try {

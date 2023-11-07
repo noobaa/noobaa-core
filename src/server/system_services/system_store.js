@@ -807,8 +807,9 @@ class SystemStore extends EventEmitter {
     get_accounts_by_nsfs_account_config(nsfs_account_config) {
         if (this.data && !_.isEmpty(this.data.accounts)) {
             return this.data.accounts.filter(account => account.nsfs_account_config &&
-                account.nsfs_account_config.uid === nsfs_account_config.uid &&
-                account.nsfs_account_config.gid === nsfs_account_config.gid);
+                    _.isEqual(account.nsfs_account_config.distinguished_name, nsfs_account_config.distinguished_name) &&
+                    account.nsfs_account_config.uid === nsfs_account_config.uid &&
+                    account.nsfs_account_config.gid === nsfs_account_config.gid);
         }
     }
 

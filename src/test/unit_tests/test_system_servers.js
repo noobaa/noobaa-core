@@ -31,6 +31,7 @@ mocha.describe('system_servers', function() {
     const EMAIL1 = `${PREFIX}-${EMAIL}`;
     const EMAIL2 = `${PREFIX}-${EMAIL}2`;
     const EMAIL3 = `${PREFIX}-${EMAIL}3`;
+    const EMAIL4 = `${PREFIX}-${EMAIL}4`;
     const NAMESPACE_RESOURCE_CONNECTION = 'Majestic Namespace Sloth';
     const NAMESPACE_RESOURCE_NAME = `${PREFIX}-namespace-resource`;
     const NAMESPACE_RESOURCE_NAME_2 = `${PREFIX}-namespace-resource-2`;
@@ -148,6 +149,18 @@ mocha.describe('system_servers', function() {
                 nsfs_only: false
             }
         });
+        await rpc_client.account.create_account({
+            name: EMAIL4,
+            email: EMAIL4,
+            has_login: false,
+            s3_access: true,
+            default_resource: DEFAULT_POOL_NAME,
+            nsfs_account_config: {
+                distinguished_name: 'rami11',
+                new_buckets_path: '/test1',
+                nsfs_only: false
+            }
+        });
         const account_params = {
             name: EMAIL3,
             email: EMAIL3,
@@ -177,7 +190,7 @@ mocha.describe('system_servers', function() {
         }
         await rpc_client.system.read_system();
         const accountlistnofilter = await rpc_client.account.list_accounts({});
-        await assert(accountlistnofilter.accounts.length === 5, 'should return 5 accounts');
+        await assert(accountlistnofilter.accounts.length === 6, 'should return 6 accounts');
         const accountlistfilter = await rpc_client.account.list_accounts({
             filter: {
                 fs_identity: {
@@ -187,9 +200,18 @@ mocha.describe('system_servers', function() {
             }
         });
         await assert(accountlistfilter.accounts.length === 1, 'should return 1 account');
+        const accountlistfilter2 = await rpc_client.account.list_accounts({
+            filter: {
+                fs_identity: {
+                    distinguished_name: 'rami11',
+                }
+            }
+        });
+        await assert(accountlistfilter2.accounts.length === 1, 'should return 1 account');
         await rpc_client.account.delete_account({ email: EMAIL1 });
         await rpc_client.account.delete_account({ email: EMAIL2 });
         await rpc_client.account.delete_account({ email: EMAIL3 });
+        await rpc_client.account.delete_account({ email: EMAIL4 });
         await rpc_client.events.read_activity_log({ limit: 2016 });
     });
 

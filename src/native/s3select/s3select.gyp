@@ -13,7 +13,7 @@
             's3select_napi.cpp'
         ],
 	'link_settings': {
-		'libraries': ['/lib64/libboost_thread.so.1.66.0']
+		'libraries': ['/lib64/libboost_thread.so.1.75.0']
         },
 	'variables': {
             'BUILD_S3SELECT_PARQUET%':0

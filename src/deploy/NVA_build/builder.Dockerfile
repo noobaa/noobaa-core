@@ -1,4 +1,4 @@
-FROM quay.io/centos/centos:stream8
+FROM quay.io/centos/centos:stream9
 LABEL maintainer="Liran Mauda (lmauda@redhat.com)"
 
 ##############################################################
@@ -14,10 +14,9 @@ RUN dnf update -y -q --nobest && \
 COPY ./src/deploy/NVA_build/install_arrow_build.sh ./src/deploy/NVA_build/install_arrow_build.sh
 ARG BUILD_S3SELECT_PARQUET=0
 RUN ./src/deploy/NVA_build/install_arrow_build.sh $BUILD_S3SELECT_PARQUET
-RUN dnf install -y -q wget unzip which vim python2 python3 boost-devel && \
+RUN dnf install -y -q wget unzip which vim python3 boost-devel && \
     dnf group install -y -q "Development Tools" && \
     dnf clean all
-RUN alternatives --set python /usr/bin/python3
 RUN version="2.15.05" && \
     wget -q -O nasm-${version}.tar.gz https://github.com/netwide-assembler/nasm/archive/nasm-${version}.tar.gz && \
     tar -xf nasm-${version}.tar.gz && \

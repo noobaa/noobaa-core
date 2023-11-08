@@ -38,7 +38,7 @@ RUN tar \
 #   Cache: Rebuild when any layer is changing
 ##############################################################
 
-FROM quay.io/centos/centos:stream8
+FROM quay.io/centos/centos:stream9
 
 # The ports are overridden for Ceph Test later
 ENV container docker
@@ -67,20 +67,18 @@ RUN dnf install -y -q bash \
     rsyslog \
     strace \
     wget \
-    curl \
     nc \
     less \
     bash-completion \
     python3-setuptools \
     jemalloc \
-    xz && \
+    xz \
+    pip && \
     dnf clean all
 
 COPY ./src/deploy/NVA_build/install_arrow_run.sh ./src/deploy/NVA_build/install_arrow_run.sh
 ARG BUILD_S3SELECT_PARQUET=0
 RUN ./src/deploy/NVA_build/install_arrow_run.sh $BUILD_S3SELECT_PARQUET
-
-RUN mkdir -p /usr/local/lib/python3.6/site-packages
 
 ##############################################################
 # Layers:

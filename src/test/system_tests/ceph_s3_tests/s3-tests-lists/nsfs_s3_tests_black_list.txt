@@ -246,9 +246,7 @@ s3tests_boto3/functional/test_s3.py::test_bucket_policy_set_condition_operator_e
 s3tests_boto3/functional/test_s3.py::test_post_object_tags_anonymous_request
 s3tests_boto3/functional/test_s3.py::test_post_object_tags_authenticated_request
 s3tests_boto3/functional/test_s3.py::test_put_obj_with_tags
-s3tests_boto3/functional/test_s3.py::test_get_tags_acl_public
-s3tests_boto3/functional/test_s3.py::test_delete_tags_obj_public
-s3tests_boto3/functional/test_s3.py::test_put_tags_acl_public
+s3tests_boto3/functional/test_s3.py::test_put_max_kvsize_tags
 s3tests_boto3/functional/test_s3.py::test_bucket_policy_get_obj_tagging_existing_tag
 s3tests_boto3/functional/test_s3.py::test_bucket_policy_get_obj_existing_tag
 s3tests_boto3/functional/test_s3.py::test_bucket_policy_put_obj_tagging_existing_tag

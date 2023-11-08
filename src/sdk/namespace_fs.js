@@ -39,6 +39,7 @@ const buffers_pool = new buffer_utils.BuffersPool({
 
 const XATTR_USER_PREFIX = 'user.';
 const XATTR_NOOBAA_INTERNAL_PREFIX = XATTR_USER_PREFIX + 'noobaa.';
+const XATTR_NOOBAA_CUSTOM_PREFIX = XATTR_NOOBAA_INTERNAL_PREFIX + 'tag.';
 // TODO: In order to verify validity add content_md5_mtime as well
 const XATTR_MD5_KEY = XATTR_USER_PREFIX + 'content_md5';
 const XATTR_CONTENT_TYPE = XATTR_NOOBAA_INTERNAL_PREFIX + 'content_type';
@@ -1803,7 +1804,9 @@ class NamespaceFS {
         await this._delete_path_dirs(file_path, fs_context);
         // when deleting the data of a directory object, we need to remove the directory dir object xattr
         // if the dir still exists - occurs when deleting dir while the dir still has entries in it
-        if (this._is_directory_content(file_path, params.key)) await this._clear_user_xattr(fs_context, this._get_file_md_path(params));
+        if (this._is_directory_content(file_path, params.key)) {
+            await this._clear_user_xattr(fs_context, this._get_file_md_path(params), XATTR_USER_PREFIX);
+        }
     }
 
     ///////////////////////
@@ -1826,16 +1829,72 @@ class NamespaceFS {
     ////////////////////
 
     async get_object_tagging(params, object_sdk) {
-        // TODO
-        return { tagging: [] };
+        const tag_set = [];
+        let file_path;
+        if (params.version_id && this._is_versioning_enabled()) {
+            file_path = this._get_version_path(params.key, params.version_id);
+        } else {
+            file_path = this._get_file_path(params);
+        }
+        try {
+            const fs_context = this.prepare_fs_context(object_sdk);
+            dbg.log0('NamespaceFS.get_object_tagging: param ', params, 'file_path :', file_path);
+            const file = await nb_native().fs.open(fs_context, file_path);
+            const stat = await file.stat(fs_context);
+            if (stat.xattr) {
+                for (const [xattr_key, xattr_value] of Object.entries(stat.xattr)) {
+                    if (xattr_key.includes(XATTR_NOOBAA_CUSTOM_PREFIX)) {
+                        tag_set.push({
+                            key: xattr_key.replace(XATTR_NOOBAA_CUSTOM_PREFIX, ''),
+                            value: xattr_value,
+                        });
+                    }
+                }
+            }
+        } catch (err) {
+            dbg.error(`NamespaceFS.get_object_tagging: failed in dir ${file_path} with error: `, err);
+            throw this._translate_object_error_codes(err);
+        }
+        dbg.log0('NamespaceFS.get_object_tagging: return tagging ', tag_set, 'file_path :', file_path);
+        return { tagging: tag_set };
     }
+
     async delete_object_tagging(params, object_sdk) {
-        // TODO
-        return {};
+        dbg.log0('NamespaceFS.delete_object_tagging:', params);
+        let file_path;
+        if (params.version_id && this._is_versioning_enabled()) {
+            file_path = this._get_version_path(params.key, params.version_id);
+        } else {
+            file_path = this._get_file_path(params);
+        }
+        const fs_context = this.prepare_fs_context(object_sdk);
+        try {
+            await this._clear_user_xattr(fs_context, file_path, XATTR_NOOBAA_CUSTOM_PREFIX);
+        } catch (err) {
+            dbg.error(`NamespaceFS.delete_object_tagging: failed in dir ${file_path} with error: `, err);
+            throw this._translate_object_error_codes(err);
+        }
+        return {version_id: params.version_id};
     }
+
     async put_object_tagging(params, object_sdk) {
-        // TODO
-        return { tagging: [] };
+        const fs_xattr = {};
+        const tagging = params.tagging && Object.fromEntries(params.tagging.map(tag => ([tag.key, tag.value])));
+        for (const [xattr_key, xattr_value] of Object.entries(tagging)) {
+              fs_xattr[XATTR_NOOBAA_CUSTOM_PREFIX + xattr_key] = xattr_value;
+        }
+        const file_path = this._get_file_path(params);
+        const fs_context = this.prepare_fs_context(object_sdk);
+        dbg.log0('NamespaceFS.put_object_tagging: fs_xattr ', fs_xattr, 'file_path :', file_path);
+        try {
+            // remove existng tag before putting new tags
+            await this._clear_user_xattr(fs_context, file_path, XATTR_NOOBAA_CUSTOM_PREFIX);
+            await this.set_fs_xattr_op(fs_context, file_path, fs_xattr, undefined);
+        } catch (err) {
+            dbg.error(`NamespaceFS.put_object_tagging: failed in dir ${file_path} with error: `, err);
+            throw this._translate_object_error_codes(err);
+        }
+        return { tagging: [], version_id: params.version_id };
     }
 
     //////////////////////////
@@ -2050,7 +2109,7 @@ class NamespaceFS {
             await file.close(fs_context);
             file = null;
         } catch (error) {
-            dbg.error('namespace_fs.handle_fs_xattr_op: failed with error: ', error, file_path);
+            dbg.error('NamespaceFS.handle_fs_xattr_op: failed with error: ', error, file_path);
             throw this._translate_object_error_codes(error);
         } finally {
             if (file) await file.close(fs_context);
@@ -2063,12 +2122,12 @@ class NamespaceFS {
      * @param {string} file_path - file to path to be xattr cleared
      * @returns {Promise<void>}
     */
-    async _clear_user_xattr(fs_context, file_path) {
+    async _clear_user_xattr(fs_context, file_path, prefix) {
         try {
-            await this.set_fs_xattr_op(fs_context, file_path, undefined, XATTR_USER_PREFIX);
+            await this.set_fs_xattr_op(fs_context, file_path, undefined, prefix);
         } catch (err) {
             if (err.code !== 'ENOENT') throw err;
-            dbg.log0(`namespace_fs._clear_user_xattr: dir ${file_path} was already deleted`);
+            dbg.log0(`NamespaceFS._clear_user_xattr: dir ${file_path} was already deleted`);
         }
     }
 

@@ -3,6 +3,8 @@
 
 const dbg = require('../../util/debug_module')(__filename);
 const http_utils = require('../../util/http_utils');
+const dgram = require('node:dgram');
+const { Buffer } = require('node:buffer');
 
 
 async function send_bucket_op_logs(req, res) {
@@ -26,13 +28,50 @@ function is_bucket_logging_enabled(source_bucket) {
     return true;
 }
 
+// UDP socket
+
+const create_syslog_udp_socket = (() => {
+    let client;
+    let url;
+    let port;
+    let hostname;
+    return function(syslog) {
+        if (!client) {
+            client = dgram.createSocket('udp4');
+            process.on('SIGINT', () => {
+                client.close();
+                process.exit();
+            });
+        }
+        if (!url) {
+            url = new URL(syslog);
+            port = parseInt(url.port, 10);
+            hostname = url.hostname;
+        }
+        return {client, port, hostname};
+    };
+
+})();
+
+
 function endpoint_bucket_op_logs(op_name, req, res, source_bucket) {
 
-    dbg.log2("Sending op logs for op name = ", op_name);
     // 1 - Get all the information to be logged in a log message.
     // 2 - Format it and send it to log bucket/syslog.
     const s3_log = get_bucket_log_record(op_name, source_bucket, req, res);
     dbg.log1("Bucket operation logs = ", s3_log);
+
+    const buffer = Buffer.from(JSON.stringify(s3_log));
+    const {client, port, hostname} = create_syslog_udp_socket(req.object_sdk.rpc_client.rpc.router.syslog);
+    if (client && port && hostname) {
+        client.send(buffer, port, hostname, err => {
+            if (err) {
+                dbg.log0("failed to send udp err = ", err);
+            }
+        });
+    } else {
+        dbg.log0(`Could not send bucket logs: client: ${client} port: ${port} hostname:${hostname}`);
+    }
 
 }
 
@@ -44,6 +83,7 @@ function get_bucket_log_record(op_name, source_bucket, req, res) {
         status_code = res.statusCode;
     }
     const log = {
+        noobaa_bucket_logging: "true",
         op: req.method,
         bucket_owner: source_bucket.bucket_owner,
         source_bucket: req.params.bucket,

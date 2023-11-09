@@ -1853,10 +1853,7 @@ async function put_bucket_replication(req) {
     dbg.log0('put_bucket_replication:', req.rpc_params);
     const bucket = find_bucket(req);
 
-    // fetching all the replication rules already present in the DB
-    const db_repl_rules = await replication_store.instance().get_replication_rules();
-
-    validate_replication(req, db_repl_rules);
+    await validate_replication(req);
     const replication_rules = normalize_replication(req);
 
     const bucket_replication_id = bucket.replication_policy_id;
@@ -1913,7 +1910,7 @@ async function delete_bucket_replication(req) {
     await replication_store.instance().delete_replication_by_id(replication_id);
 }
 
-function validate_replication(req, db_repl_rules) {
+async function validate_replication(req) {
     const replication_rules = req.rpc_params.replication_policy.rules;
     // num of rules in configuration must be in defined limits
     if (replication_rules.length > config.BUCKET_REPLICATION_MAX_RULES ||
@@ -1922,6 +1919,8 @@ function validate_replication(req, db_repl_rules) {
     const rule_ids = [];
     const pref_by_dst_bucket = {};
     const src_bucket = req.system.buckets_by_name && req.system.buckets_by_name[req.rpc_params.name.unwrap()];
+    // fetching all the replication rules already present in the DB
+    const db_repl_rules = await replication_store.instance().get_replication_rules();
 
     for (const rule of replication_rules) {
         const { destination_bucket, filter, rule_id } = rule;
@@ -1933,7 +1932,10 @@ function validate_replication(req, db_repl_rules) {
         }
 
         // validation for bidirectional replication - blocking bidirectional replication only for matching prefixes
-        if (destination_bucket.unwrap() !== req.rpc_params.name.unwrap()) {
+        // Note: This condition check is specific to OBC, validateReplication() is invoked twice within the OBC
+        // lifecycle: once prior to creating the source bucket and once after the source bucket has been created.
+        // The condition check only executes if the source bucket is already present.
+        if (destination_bucket.unwrap() !== req.rpc_params.name.unwrap() && src_bucket) {
             const prefix = filter?.prefix || '';
             // checking if there already a rule consisting of src_bucket as destination_bucket for matching prefix
             for (const db_rules of db_repl_rules) {

@@ -297,14 +297,16 @@ class BlockStoreClient {
                 s3_params.httpOptions = {
                     agent: http_utils.get_unsecured_agent(s3_params.endpoint)
                 };
-                if (bs_info.aws_sts_arn) {
+                if (bs_info.connection_params.aws_sts_arn) {
                     const creds = await cloud_utils.generate_aws_sts_creds(s3_params, "_delegate_write_block_s3_session");
                     s3_params.accessKeyId = creds.accessKeyId;
                     s3_params.secretAccessKey = creds.secretAccessKey;
                     s3_params.sessionToken = creds.sessionToken;
                 }
-                dbg.log1('got s3_params from block_store. writing using S3 sdk. s3_params =',
-                    _.omit(s3_params, 'secretAccessKey'));
+                dbg.log1('_delegate_write_block_s3:',
+                    'got s3_params from block_store. writing using S3 sdk. s3_params =',
+                    _.omit(s3_params, 'secretAccessKey'),
+                    'aws_sts_arn', bs_info.connection_params.aws_sts_arn);
                 const s3 = new AWS.S3(s3_params);
                 write_params.Body = data;
                 await s3.putObject(write_params).promise();
@@ -348,14 +350,16 @@ class BlockStoreClient {
                 s3_params.httpOptions = {
                     agent: http_utils.get_unsecured_agent(s3_params.endpoint)
                 };
-                if (bs_info.aws_sts_arn) {
+                if (bs_info.connection_params.aws_sts_arn) {
                     const creds = await cloud_utils.generate_aws_sts_creds(s3_params, "_delegate_read_block_s3_session");
                     s3_params.accessKeyId = creds.accessKeyId;
                     s3_params.secretAccessKey = creds.secretAccessKey;
                     s3_params.sessionToken = creds.sessionToken;
                 }
-                dbg.log1('got s3_params from block_store. writing using S3 sdk. s3_params =',
-                    _.omit(s3_params, 'secretAccessKey'));
+                dbg.log1('_delegate_read_block_s3:',
+                    'got s3_params from block_store. writing using S3 sdk. s3_params =',
+                    _.omit(s3_params, 'secretAccessKey'),
+                    'aws_sts_arn', bs_info.connection_params.aws_sts_arn);
                 const s3 = new AWS.S3(s3_params);
                 const data = await s3.getObject(read_params).promise();
                 const noobaablockmd = data.Metadata.noobaablockmd || data.Metadata.noobaa_block_md;

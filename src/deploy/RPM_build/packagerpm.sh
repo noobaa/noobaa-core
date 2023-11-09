@@ -9,8 +9,8 @@ SKIP_NODE_INSTALL=1 source $dir/../install_nodejs.sh
 NODE_PATH="${NODE_PATH:-/usr/local/node}"
 
 noobaaver="$(npm pkg get version | tr -d '"')"
-revision="1"
 releasedate=$(date '+%a %b %d %Y')
+revision="$(date -u '+%Y%m%d')"
 nodever=$(node --version | tr -d 'v')
 changelogdata="Initial release of NooBaa ${noobaaver}"
 ARCHITECTURE=$(uname -m)

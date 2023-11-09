@@ -26,10 +26,8 @@ jobs:
         run: |
           DATE=$(date +'%Y%m%d')
           VERSION=$(jq -r '.version' < ./package.json)
-          RPM_BASE_VERSION=noobaa-core-${VERSION}-1.el8.x86_64
-          RPM_FULL_PATH="${RPM_BASE_VERSION}_${DATE}.rpm"
+          RPM_FULL_PATH=noobaa-core-${VERSION}-${DATE}.el8.x86_64
           echo "RPM FULL PATH=${RPM_FULL_PATH}"
-          cp ./build/rpm/${RPM_BASE_VERSION}.rpm ${RPM_FULL_PATH}
           echo "rpm_full_path=${RPM_FULL_PATH}" >> $GITHUB_OUTPUT
 
       - name: Upload artifact

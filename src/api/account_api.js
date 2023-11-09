@@ -206,6 +206,9 @@ module.exports = {
                     role_config: {
                         $ref: 'common_api#/definitions/role_config'
                     },
+                    remove_role_config: {
+                        type: 'boolean'
+                    },
                 }
             },
             auth: {

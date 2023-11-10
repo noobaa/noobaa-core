@@ -464,7 +464,8 @@ function update_account(req) {
 
     const removals = {
         next_password_change: params.must_change_password === false ? true : undefined,
-        allowed_ips: params.ips === null ? true : undefined
+        allowed_ips: params.ips === null ? true : undefined,
+        role_config: params.remove_role_config,
     };
 
     //Create the event description according to the changes performed

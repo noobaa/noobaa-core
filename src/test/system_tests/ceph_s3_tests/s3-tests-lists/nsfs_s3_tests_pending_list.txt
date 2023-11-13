@@ -207,3 +207,8 @@ s3tests_boto3/functional/test_s3.py::test_sse_s3_encrypted_upload_8mb
 s3tests/functional/test_s3.py::test_atomic_write_bucket_gone
 s3tests_boto3/functional/test_s3.py::test_bucket_create_delete
 s3tests_boto3/functional/test_s3.py::test_atomic_write_bucket_gone
+s3tests_boto3/functional/test_s3.py::test_object_raw_get_x_amz_expires_not_expired
+s3tests_boto3/functional/test_s3.py::test_object_raw_get_x_amz_expires_not_expired_tenant
+s3tests_boto3/functional/test_s3.py::test_cors_presigned_get_object
+s3tests_boto3/functional/test_s3.py::test_cors_presigned_get_object_tenant
+s3tests_boto3/functional/test_s3.py::test_encryption_sse_c_unaligned_multipart_upload

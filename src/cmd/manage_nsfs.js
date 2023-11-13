@@ -41,7 +41,7 @@ Account Options:
                                                                             Get account details from JSON file                
     --config_root_backend <none | GPFS >    (default none)                  Set the config_root FS type to be GPFS
 
-    # required for add, replace 
+    # required for add, update 
     --name <name>               (default none)                              Set the name for the account.
     --email <email>             (default none)                              Set the email for the account.
     --uid <uid>                 (default as process)                        Send requests to the Filesystem with uid.
@@ -50,9 +50,12 @@ Account Options:
     --secret_key <key>          (default none)                              The secret key pair for the access key.
     --new_buckets_path <dir>    (default none)                              Set the filesystem's root where each subdir is a bucket.
     
-    # required for add, replace, and delete
+    # required for add, update, and delete
     --access_key <key>          (default none)                              Authenticate incoming requests for this access key only (default is no auth).
     --config_root <dir>         (default config.NSFS_NC_DEFAULT_CONF_DIR)   Configuration files path for Noobaa standalon NSFS.
+
+    # Used for list
+    --wide                      (default none)                              Will print the list with details (same as status but for all accounts)
 `;
 
 const BUCKET_OPTIONS = `
@@ -63,11 +66,11 @@ Bucket Options:
                                                                             Get bucket details from the JSON file
     --config_root_backend <none | GPFS >    (default none)                  Set the config_root FS type to be GPFS
 
-    # required for add, replace 
+    # required for add, update 
     --email <email>             (default none)                              Set the email for the bucket.
     --path <dir>                (default none)                              Set the bucket path.
 
-    # required for add, replace, and delete
+    # required for add, update, and delete
     --name <name>               (default none)                              Set the name for the bucket.
     --config_root <dir>         (default config.NSFS_NC_DEFAULT_CONF_DIR)   Configuration files path for Noobaa standalon NSFS.
 `;
@@ -118,6 +121,16 @@ async function main(argv = minimist(process.argv.slice(2))) {
                 return print_bucket_usage();
             }
             return print_usage();
+        }
+        if (resources_type === 'account') {
+            if (argv.uid && typeof argv.uid !== 'number') {
+                console.error('Error: UID  must be a number');
+                return;
+            }
+            if (argv.gid && typeof argv.gid !== 'number') {
+                console.error('Error: GIT must be a number');
+                return;
+            }
         }
         const config_root = argv.config_root ? String(argv.config_root) : config.NSFS_NC_DEFAULT_CONF_DIR;
         if (!config_root) {
@@ -192,8 +205,7 @@ async function update_bucket_object(config_root, target) {
     const account_path = config_root + '/buckets';
     let source;
     try {
-        const source_raw = await fs.promises.readFile(path.join(account_path, target.name + '.json'));
-        source = JSON.parse(source_raw.toString());
+        source = await get_config_data(account_path, target.name);
     } catch (err) {
         console.error('NSFS Manage command: Could not find bucket ' + target.name + ' to update');
         print_bucket_usage();
@@ -226,13 +238,8 @@ async function get_bucket_config_file_status(data, bucket_config_path, config_ro
         return;
     }
     try {
-        const raw_data = await fs.promises.readFile(path.join(bucket_config_path, data.name + '.json'));
-        const config_data = JSON.parse(raw_data.toString());
-        if (config_data) {
-            console.log(config_data);
-        } else {
-            console.log('Bucket do not exists with name : ' + data.name);
-        }
+        const config_data = await get_config_data(bucket_config_path, data.name);
+        console.log(config_data);
     } catch (err) {
         console.log('Bucket do not exists with name: ' + data.name);
     }
@@ -276,7 +283,8 @@ async function manage_bucket_operations(action, data, config_root, config_root_b
         await delete_bucket_config_file(data, bucket_config_path, config_root_backend);
     } else if (action === 'list') {
         const buckets = await list_config_file(bucket_config_path);
-        console.log(buckets);
+        const bucket_names = buckets.map(item => (item.name));
+        console.log('Bucket list', bucket_names);
     } else {
         print_bucket_usage();
     }
@@ -309,9 +317,11 @@ async function fetch_account_data(argv, config_root, from_file) {
         const access_key = argv.access_key && new SensitiveString(String(argv.access_key));
         const secret_key = argv.secret_key && new SensitiveString(String(argv.secret_key));
         const new_buckets_path = argv.new_buckets_path ? String(argv.new_buckets_path) : '';
+        const wide = argv.wide;
         data = _.omitBy({
             name: name,
             email: email,
+            wide,
             access_keys: [{
                 access_key: access_key,
                 secret_key: secret_key
@@ -336,8 +346,7 @@ async function update_account_object(config_root, target) {
     const account_path = config_root + '/accounts';
     let source;
     try {
-        const source_raw = await fs.promises.readFile(path.join(account_path, target.access_keys[0].access_key + '.json'));
-        source = JSON.parse(source_raw.toString());
+        source = await get_config_data(account_path, target.access_keys[0].access_key);
         target.nsfs_account_config.new_buckets_path = target.nsfs_account_config.new_buckets_path ||
             source.nsfs_account_config.new_buckets_path;
     } catch (err) {
@@ -393,13 +402,8 @@ async function get_account_config_file_status(data, account_path, config_root_ba
         return;
     }
     try {
-        const raw_data = await fs.promises.readFile(path.join(account_path, data.access_keys[0].access_key + '.json'));
-        const config_data = JSON.parse(raw_data.toString());
-        if (config_data) {
-            console.log(config_data);
-        } else {
-            console.log('Account do not exists with access key : ' + data.access_keys[0].access_key);
-        }
+        const config_data = await get_config_data(account_path, data.access_keys[0].access_key);
+        console.log(config_data);
     } catch (err) {
         console.log('Account do not exists with access key : ' + data.access_keys[0].access_key);
     }
@@ -416,8 +420,9 @@ async function manage_account_operations(action, data, config_root, config_root_
     } else if (action === 'delete') {
         await delete_account_config_file(data, account_path, config_root_backend);
     } else if (action === 'list') {
-        const accounts = await list_config_file(account_path);
-        console.log(accounts);
+        let accounts = await list_config_file(account_path);
+        if (!data.wide) accounts = accounts.map(item => (item.name));
+        console.log('Account list:', accounts);
     } else {
         console.error('Account action not found.');
         console.warn(ARGUMENTS.trimStart());
@@ -425,18 +430,31 @@ async function manage_account_operations(action, data, config_root, config_root_
 }
 
 
+/**
+ * list_config_file will list all the config files (json) in a given path
+ * @param {fs.PathLike} full_path
+ */
 async function list_config_file(full_path) {
     const entries = await fs.promises.readdir(full_path);
-    const bucket_config_files = entries.filter(entree => entree.endsWith('.json'));
-    const resources = await P.map(bucket_config_files, bucket_config_file => get_create_config_file(full_path, bucket_config_file));
+    const config_files = entries.filter(entree => entree.endsWith('.json'));
+    const resources = await P.map(config_files, config_file => get_config_data(full_path, config_file));
     return resources;
 }
 
-async function get_create_config_file(resources_path, bucket_config_file_name) {
-    const full_path = path.join(resources_path, bucket_config_file_name);
+/**
+ * get_config_data will get a json file and get the resource data from it
+ * @param {fs.PathLike} config_file_path
+ * @param {string} config_file_name
+ */
+async function get_config_data(config_file_path, config_file_name) {
+    const full_path = get_config_file_path(config_file_path.toString(), config_file_name);
     const data = await fs.promises.readFile(full_path);
-    const resources = JSON.parse(data.toString());
-    return { name: resources.name };
+    const resources = _.omit(JSON.parse(data.toString()), ['access_keys']);
+    if (resources.nsfs_account_config) {
+        resources.new_buckets_path = resources.nsfs_account_config.new_buckets_path;
+        delete resources.nsfs_account_config;
+    }
+    return resources;
 }
 
 async function validate_minimum_bucket_args(data) {

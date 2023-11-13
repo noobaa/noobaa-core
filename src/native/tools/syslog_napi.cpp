@@ -38,6 +38,8 @@ _syslog(const Napi::CallbackInfo& info)
             facility = LOG_LOCAL0;
         } else if (facility_str == "LOG_LOCAL1") {
             facility = LOG_LOCAL1;
+        } else if (facility_str == "LOG_LOCAL2") {
+            facility = LOG_LOCAL2;
         } else {
             throw Napi::Error::New(info.Env(), "Syslog facility not supported");
         }

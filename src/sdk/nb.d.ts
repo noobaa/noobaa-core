@@ -870,7 +870,7 @@ interface Native {
     x509(options?: X509Options): X509Cert;
     x509_verify(certificate: X509Cert): { owner: X509Name, issuer: X509Name }; // throws if invalid
 
-    syslog(level: number, message: string, facility?: 'LOG_LOCAL0' | 'LOG_LOCAL1');
+    syslog(level: number, message: string, facility?: 'LOG_LOCAL0' | 'LOG_LOCAL1' | 'LOG_LOCAL2');
     openlog(ident: string);
     closelog(): void;
 

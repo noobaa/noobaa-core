@@ -433,6 +433,9 @@ config.DEBUG_MODE_PERIOD = 10 * 60 * 1000; // 10 minutes for increased debug lev
 
 config.dbg_log_level = 0;
 config.DEBUG_FACILITY = 'LOG_LOCAL0';
+config.EVENT_FACILITY = 'LOG_LOCAL2';
+config.EVENT_LOGGING_ENABLED = true;
+config.EVENT_LEVEL = 5;
 
 // TEST Mode
 config.test_mode = false;

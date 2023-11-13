@@ -13,8 +13,8 @@ ENV TEST_CONTAINER true
 ##############################################################
 
 RUN dnf group install -y -q "Development Tools" && \
-    dnf install -y -q --nogpgcheck vim \
-    which python3-virtualenv python36-devel libevent-devel libffi-devel libxml2-devel libxslt-devel zlib-devel \ 
+    dnf install -y -q --nogpgcheck --enablerepo=crb vim \
+    which python3-virtualenv python3-devel libevent-devel libffi-devel libxml2-devel libxslt-devel zlib-devel \
     git  \
     tox && \
     dnf clean all

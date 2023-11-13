@@ -21,12 +21,11 @@ function install_supervisor {
     if [ ${ID} == "centos" ] || [ ${ID} == "fedora" ]
     then
         deploy_log install_supervisor start
-        # easy_install is for Supervisord and comes from python-setuptools
-        /usr/bin/easy_install-3.6 supervisor
-	    deploy_log install_supervisor done
+        pip install supervisor
+        deploy_log install_supervisor done
     fi
 
-	deploy_log "setup_supervisors start"
+    deploy_log "setup_supervisors start"
     mkdir -p /log/supervisor
 
     # Generate default supervisord config

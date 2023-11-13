@@ -1,5 +1,5 @@
 # dev.Dockerfile is meant to be used manually for developer testing
-FROM quay.io/centos/centos:stream8
+FROM quay.io/centos/centos:stream9
 
 ENV container docker
 
@@ -7,7 +7,6 @@ RUN dnf update -y -q && \
     dnf install -y -q \
         bash bash-completion \
         wget curl nc unzip which less vim \
-        python2 python2-setuptools \
         python3 python3-setuptools \
         gdb strace lsof \
         openssl && \

@@ -1,6 +1,6 @@
 {
   "name": "noobaa-core",
-  "version": "5.12.1",
+  "version": "5.12.10",
   "private": true,
   "license": "SEE LICENSE IN LICENSE",
   "description": "",
@@ -73,7 +73,7 @@
     "@google-cloud/storage": "5.18.3",
     "ajv": "8.11.2",
     "aws-sdk": "2.1127.0",
-    "azure-storage": "2.10.5",
+    "azure-storage": "2.10.7",
     "bcrypt": "5.0.1",
     "big-integer": "1.6.51",
     "bindings": "1.5.0",

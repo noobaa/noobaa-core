@@ -19,7 +19,7 @@ const chunk_config_utils = require('../utils/chunk_config_utils');
 const SensitiveString = require('../../util/sensitive_string');
 
 function new_tier_defaults(name, system_id, chunk_config, mirrors, storage_class) {
-    return {
+    return _.omitBy({
         _id: system_store.new_system_store_id(),
         name: name,
         system: system_id,
@@ -27,7 +27,7 @@ function new_tier_defaults(name, system_id, chunk_config, mirrors, storage_class
         data_placement: 'SPREAD',
         mirrors,
         storage_class: storage_class,
-    };
+    }, _.isUndefined);
 }
 
 function new_policy_defaults(name, system_id, chunk_split_config, tiers_orders) {

@@ -5,7 +5,8 @@
             '-W',
             '-Wall',
             '-Wextra',
-            '-Werror',
+#Re-introduce when https://github.com/nodejs/nan/issues/953 is resolved.
+#            '-Werror',
             '-Wpedantic',
         ],
         # see https://nodejs.org/docs/latest-v12.x/api/process.html#process_process_arch

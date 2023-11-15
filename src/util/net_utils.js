@@ -8,6 +8,7 @@ const net = require('net');
 const dns = require('dns');
 const request = require('request');
 const ip_module = require('ip');
+const ping_pkg = require('ping');
 
 const P = require('./promise');
 const dbg = require('./debug_module')(__filename);
@@ -24,28 +25,22 @@ const DEFAULT_PING_OPTIONS = {
 async function ping(target, options) {
     dbg.log1('pinging', target);
 
-    // the reason we require inside this function is that
-    // net-ping has a native module and we don't want to require it
-    // when building standalone binaries.
-    // eslint-disable-next-line global-require
-    const net_ping = require('net-ping');
-
     options = options || DEFAULT_PING_OPTIONS;
     _.defaults(options, DEFAULT_PING_OPTIONS);
-    const session = net_ping.createSession(options);
+    //const session = net_ping.createSession(options);
     const candidate_ip = url.parse(target).hostname || target;
 
     if (net.isIP(candidate_ip)) {
-        await _ping_ip(session, candidate_ip);
+        await _ping_ip(candidate_ip);
     } else {
         const ip_table = await dns_resolve(target);
-        await P.map_any(ip_table, ip => _ping_ip(session, ip));
+        await P.map_any(ip_table, ip => _ping_ip(ip));
     }
 }
 
 function _ping_ip(session, ip) {
     return new Promise((resolve, reject) => {
-        session.pingHost(ip, error => {
+        ping_pkg.sys.probe(ip, (is_alive, error) => {
             if (error) {
                 reject(error);
             } else {

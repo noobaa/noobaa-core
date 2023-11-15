@@ -201,10 +201,29 @@ async function main(options = {}) {
                 object_io: object_io,
             }));
         }
-
+        //noobaa started
+        dbg.event({
+            code: "noobaa_started",
+            entity_type: "NODE",
+            event_type: "STATE_CHANGE",
+            message: "Noobaa started",
+            scope: "NODE",
+            severity: "INFO",
+            state: "HEALTHY"
+        });
         // Start a monitor to send periodic endpoint reports about endpoint usage.
         start_monitor(internal_rpc_client, endpoint_group_id);
     } catch (err) {
+        //noobaa crashed event
+        dbg.event({
+            code: "noobaa_endpoint_crashed",
+            entity_type: "NODE",
+            event_type: "STATE_CHANGE",
+            message: String("Noobaa crashed with error :" + err),
+            scope: "NODE",
+            severity: "ERROR",
+            state: "STOPPED"
+        });
         handle_server_error(err);
     }
 }

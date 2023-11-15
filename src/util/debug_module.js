@@ -176,6 +176,7 @@ class InternalDebugLogger {
             L2: 7,
             L3: 8,
             L4: 9,
+            EVENT: 10,
             LAST: 100
         };
         // map the levels we use to syslog protocol levels
@@ -192,7 +193,8 @@ class InternalDebugLogger {
             L1: 5,
             L2: 5,
             L3: 5,
-            L4: 5
+            L4: 5,
+            EVENT: 5,
         };
         // this.mod_list = {
 
@@ -344,7 +346,8 @@ class InternalDebugLogger {
             message_console: prefix + msg,
             message_file: prefix + msg_oneline,
             message_syslog: proc + msg_oneline,
-            message_browser: browser_args
+            message_browser: browser_args,
+            message: msg_oneline,
         };
     }
 
@@ -512,11 +515,21 @@ function log_syslog_builder(syslevel) {
     };
 }
 
+function log_event(event) {
+    if (!config.EVENT_LOGGING_ENABLED) {
+        console.info('Event logging not enabled');
+        return;
+    }
+    event.pid = process.pid;
+    syslog(config.EVENT_LEVEL, JSON.stringify(event), config.EVENT_FACILITY);
+}
+
 DebugLogger.prototype.error = log_syslog_builder('error');
 DebugLogger.prototype.warn = log_syslog_builder('warn');
 DebugLogger.prototype.info = log_syslog_builder('info');
 DebugLogger.prototype.log = log_syslog_builder('log');
 DebugLogger.prototype.trace = log_syslog_builder('trace');
+DebugLogger.prototype.event = log_event;
 DebugLogger.prototype.log0 = log_builder(0, { throttled: false });
 DebugLogger.prototype.log0_throttled = log_builder(0, { throttled: true });
 DebugLogger.prototype.log1 = log_builder(1, { throttled: false });

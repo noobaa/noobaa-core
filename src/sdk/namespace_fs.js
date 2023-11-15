@@ -906,6 +906,18 @@ class NamespaceFS {
                     const dir_stat = await nb_native().fs.stat(fs_context, md_path);
                     if (dir_stat && dir_stat.xattr[XATTR_DIR_CONTENT] === '0') return null;
                 } catch (err) {
+                    //failed to get object
+                    dbg.event({
+                        code: "noobaa_object_get_failed",
+                        entity_type: "NODE",
+                        event_type: "ERROR",
+                        message: String("Error while getting object :" + params.key),
+                        description: String("NamespaceFS: read_object_stream couldnt find dir content xattr : " + err),
+                        scope: "NODE",
+                        severity: "ERROR",
+                        state: "DEGRADED",
+                        arguments: {bucket_path: this.bucket_path, object_name: params.key}
+                    });
                     dbg.log0('NamespaceFS: read_object_stream couldnt find dir content xattr', err);
                 }
             }
@@ -1034,6 +1046,18 @@ class NamespaceFS {
 
         } catch (err) {
             dbg.log0('NamespaceFS: read_object_stream error file', file_path, err);
+            //failed to get object
+            dbg.event({
+                code: "noobaa_object_get_failed",
+                entity_type: "NODE",
+                event_type: "ERROR",
+                message: String("Error while reading the object " + params.key),
+                description: String("NamespaceFS: read_object_stream error file : " + err),
+                scope: "NODE",
+                severity: "ERROR",
+                state: "DEGRADED",
+                arguments: {bucket_path: this.bucket_path, object_name: params.key}
+            });
             throw this._translate_object_error_codes(err);
 
         } finally {
@@ -1052,6 +1076,18 @@ class NamespaceFS {
                     buffer_pool_cleanup();
                 }
             } catch (err) {
+                //failed to get object
+                dbg.event({
+                    code: "noobaa_object_get_failed",
+                    entity_type: "NODE",
+                    event_type: "ERROR",
+                    message: String("Error while read_object_stream clean up for bucket: " + params.key),
+                    description: String("NamespaceFS: read_object_stream buffer pool cleanup error : " + err),
+                    scope: "NODE",
+                    severity: "ERROR",
+                    state: "DEGRADED",
+                    arguments: {bucket_path: this.bucket_path, object_name: params.key}
+                });
                 dbg.warn('NamespaceFS: read_object_stream buffer pool cleanup error', err);
             }
         }
@@ -1092,6 +1128,19 @@ class NamespaceFS {
             return upload_info;
         } catch (err) {
             this.run_update_issues_report(object_sdk, err);
+            //filed to put object
+            dbg.event({
+                code: "noobaa_object_uplaod_failed",
+                entity_type: "NODE",
+                event_type: "ERROR",
+                message: String("Error while uploading object : " + params.key),
+                description: String("NamespaceFS: upload_object failed with  error : " + err),
+                scope: "NODE",
+                severity: "ERROR",
+                state: "DEGRADED",
+                arguments: {bucket_path: this.bucket_path, object_name: params.key}
+            });
+            dbg.warn('NamespaceFS: upload_object buffer pool cleanup error', err);
             throw this._translate_object_error_codes(err);
         } finally {
             try {

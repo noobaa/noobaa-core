@@ -521,7 +521,9 @@ function log_event(event) {
         return;
     }
     event.pid = process.pid;
-    syslog(config.EVENT_LEVEL, JSON.stringify(event), config.EVENT_FACILITY);
+    if (syslog) {
+        syslog(config.EVENT_LEVEL, JSON.stringify(event), config.EVENT_FACILITY);
+    }
 }
 
 DebugLogger.prototype.error = log_syslog_builder('error');

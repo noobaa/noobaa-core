@@ -10,8 +10,8 @@ function execute() {
 
 function main() {
     # Add accounts to run ceph tests
-    execute "node src/cmd/manage_nsfs account add --config_root ./standalone/config_root --name cephalt --email ceph.alt@noobaa.com --new_buckets_path ./standalone/nsfs_root --access_key abcd --secret_key abcd" nsfs_cephalt.log
-    execute "node src/cmd/manage_nsfs account add --config_root ./standalone/config_root --name cephtenant --email ceph.tenant@noobaa.com --new_buckets_path ./standalone/nsfs_root --access_key efgh --secret_key efgh" nsfs_cephtenant.log
+    execute "node src/cmd/manage_nsfs account add --config_root ./standalone/config_root --name cephalt --email ceph.alt@noobaa.com --new_buckets_path ./standalone/nsfs_root --access_key abcd --secret_key abcd --uid 100 --gid 100" nsfs_cephalt.log
+    execute "node src/cmd/manage_nsfs account add --config_root ./standalone/config_root --name cephtenant --email ceph.tenant@noobaa.com --new_buckets_path ./standalone/nsfs_root --access_key efgh --secret_key efgh --uid 200 --gid 200" nsfs_cephtenant.log
     # Start nsfs server
     execute "node src/cmd/nsfs --config_root ./standalone/config_root" nsfs.log
     # Wait for sometime to process to start

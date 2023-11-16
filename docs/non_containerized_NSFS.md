@@ -216,31 +216,176 @@ Output -
 2023-09-21 11:55:01         31 object1.txt
 ```
 
-
-
 ## Health script
-Health status of the NSFS can be fetched using the command line.
+NSFS Health status can be fetched using the command line. Run `--help` to get all the available options. 
  ```
- node usr/local/noobaa-core/src/cmd/health
+ node usr/local/noobaa-core/src/cmd/health [--https_port,--all_account_details,  --all_bucket_details]
  ```
 
- Valid example output of a health script run - 
+ output:
  ```
- {
-  service_name: 'nsfs', 
-  status: 'OK', 
-  memory: '137.9M', 
-  checks: { 
-    service: { 
-      service_status: 'active', 
-      pid: '90743' 
-    }, 
-    endpoint: { 
-      endpoint_response: 200 
-    } 
-  } 
+{
+  "service_name": "nsfs",
+  "status": "NOTOK",
+  "memory": "88.6M",
+  "error": {
+    "error_code": "RSYSLOG_SERVICE_FAILED",
+    "error_message": "RSYSLOG service is not started properly, Please verify the service with status command."
+  },
+  "checks": {
+    "services": [
+      {
+        "name": "nsfs",
+        "service_status": "active",
+        "pid": "1204"
+      },
+      {
+        "name": "rsyslog",
+        "service_status": "inactive",
+        "pid": "0"
+      }
+    ],
+    "endpoint": {
+      "endpoint_state": {
+        "response": {
+          "response_code": 200,
+          "response_message": "Endpoint running successfuly."
+        },
+        "total_fork_count": 0,
+        "running_workers": []
+      }
+    },
+    "invalid_accounts": [
+      {
+        "name": "naveen",
+        "storage_path": "/tmp/nsfs_root_invalid/",
+        "code": "STORAGE_NOT_EXIST"
+      }
+    ],
+    "valid_accounts": [
+      {
+        "name": "naveen",
+        "storage_path": "/tmp/nsfs_root"
+      }
+    ],
+    "invalid_buckets": [
+      {
+        "name": "bucket1.json",
+        "config_path": "/etc/noobaa.conf.d/buckets/bucket1.json",
+        "code": "INVALID_CONFIG"
+      },
+      {
+        "name": "bucket3",
+        "storage_path": "/tmp/nsfs_root/bucket3",
+        "code": "STORAGE_NOT_EXIST"
+      }
+    ],
+    "valid_buckets": [
+      {
+        "name": "bucket2",
+        "storage_path": "/tmp/nsfs_root/bucket2"
+      }
+    ]
+  }
 }
  ```
+`status`: overall status of the system.
+
+`error_code`: Error code for specific issue in health.
+
+`error_message`: Message explaining the issue with the health script.
+
+`service_status`: NSFS systemd status. Check for nsfs/rsyslog service up and running.
+
+`pid`: NSFS/Rsyslog systemd process id.
+
+`endpoint_response`: Noobaa endpoint web service response code.
+
+`total_fork_count`: Total number of forks in NSFS.
+
+`running_workers`: Running endpoint workers ids in list.
+
+`invalid_buckets`: List of buckets missing valid storage path and invalid JSON schema definition.
+
+`invalid_accounts`: List of account missing valid storage path and invalid JSON schema definition.
+
+`valid_accounts`: List all the valid accounts if `all_account_details` flag is `true`.
+
+`valid_buckets`: List all the valid buckets if `all_bucket_details` flag is `true`.
+
+In this health output, `bucket2`'s storage path is invalid and the directory mentioned in `new_buckets_path` for `user1` is missing or not accessible. Endpoint curl command returns an error response(`"endpoint_response":404`) if one or more buckets point to an invalid bucket storage path.
+
+### Health Error Codes
+These are the error codes populated in the health output if the system is facing some issues. If any of these error codes are present in health status then the overall status will be in `NOTOK` state.
+#### 1. `NSFS_SERVICE_FAILED`
+#### Reasons
+- NSFS service is not started properly.
+- Stopped NSFS service is not removed.
+
+#### Resolutions
+- Verify the NSFS service is running by checking the status and logs command.
+```
+systemctl status nsfs
+journalctl -xeu nsfs.service
+```
+If the NSFS is not started, start the service
+```
+systemctl enable nsfs
+systemctl start nsfs
+```
+#### 2. `RSYSLOG_SERVICE_FAILED`
+#### Reasons
+- Rsysog service is not started properly.
+- Stopped Rsyslog service is not removed.
+
+#### Resolutions
+- Verify the Rsyslog service is running by checking the status and logs command.
+```
+systemctl status rsyslog
+journalctl -xeu rsyslog.service
+```
+If the rsyslog is not started, start the service
+```
+systemctl enable rsyslog
+systemctl start rsyslog
+```
+
+#### 3. `NSFS_ENDPOINT_FORK_MISSING`
+#### Reasons
+- One or more endpoint fork is not started properly.
+- Number of workers running is less than the configured `forks` value.
+
+#### Resolutions
+- Restart the NSFS service and also verify NSFS fork/s is exited with error in logs.
+```
+systemctl status rsyslog
+journalctl -xeu rsyslog.service
+```
+
+#### 4. `NSFS_ENDPOINT_FAILED`
+#### Reasons
+- NSFS endpoint process is not running and Its not able to respond to any requests.
+
+#### Resolutions
+- Restart the NSFS service and verify NSFS process is exited with errors in logs.
+```
+systemctl status rsyslog
+journalctl -xeu rsyslog.service
+```
+### Health Schema Error Codes
+These error codes will get attached with a specific Bucket or Account schema inside `invalid_buckets` or `invalid_accounts` property.
+#### 1. `STORAGE_NOT_EXIST`
+#### Reasons
+- Storage path mentioned in Bucket/Account schema pointing to the invalid directory.
+#### Resolutions
+- Make sure the path mentioned in Bucket/Account schema is a valid directory path.
+- User has sufficient access.
+
+#### . `INVALID_CONFIG`
+#### Reasons
+- Bucket/Account Schema JSON is not valid or not in JSON format.
+#### Resolutions
+- Check for any JSON syntax error in the schema structure for Bucket/Account.
 
 ## Bucket and Account Manage CLI
 Users can create, update, delete, and list buckets and accounts using CLI. If the config directory is missing CLI will create one and also create accounts and buckets sub-directories in it and default config directory is `/etc/noobaa.conf.d`. 

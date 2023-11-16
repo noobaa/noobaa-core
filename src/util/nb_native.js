@@ -46,8 +46,9 @@ function inherits(target, source) {
 // https://wiki.openssl.org/index.php/Random_Numbers#Entropy
 // doing as suggested and seeding with /dev/random
 async function init_rand_seed() {
-
-    console.log('init_rand_seed: starting ...');
+    if (process.env.LOCAL_MD_SERVER) {
+        console.log('init_rand_seed: starting ...');
+    }
     let still_reading = true;
     const promise = generate_entropy(() => still_reading);
 
@@ -83,7 +84,9 @@ async function read_rand_seed(seed_bytes) {
             const count = buf.length - offset;
             const random_dev = process.env.DISABLE_DEV_RANDOM_SEED ? '/dev/urandom' : '/dev/random';
             if (!fh) {
-                console.log(`read_rand_seed: opening ${random_dev} ...`);
+                if (process.env.LOCAL_MD_SERVER) {
+                    console.log(`read_rand_seed: opening ${random_dev} ...`);
+                }
                 fh = await fs.promises.open(random_dev, 'r');
                 // Ignore seed in standalone due to pkg issue: https://github.com/noobaa/noobaa-core/issues/6476
                 if (Number.isInteger(fh)) break;

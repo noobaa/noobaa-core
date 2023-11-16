@@ -41,6 +41,9 @@ const background_scheduler = require('../util/background_scheduler').get_instanc
 const endpoint_stats_collector = require('../sdk/endpoint_stats_collector');
 const { NamespaceMonitor } = require('../server/bg_services/namespace_monitor');
 const { SemaphoreMonitor } = require('../server/bg_services/semaphore_monitor');
+const cluster = /** @type {import('node:cluster').Cluster} */ (
+    /** @type {unknown} */ (require('node:cluster'))
+);
 
 if (process.env.NOOBAA_LOG_LEVEL) {
     const dbg_conf = debug_config.get_debug_config(process.env.NOOBAA_LOG_LEVEL);
@@ -49,6 +52,7 @@ if (process.env.NOOBAA_LOG_LEVEL) {
 
 const new_umask = process.env.NOOBAA_ENDPOINT_UMASK || 0o000;
 const old_umask = process.umask(new_umask);
+let fork_count;
 dbg.log0('endpoint: replacing old umask: ', old_umask.toString(8), 'with new umask: ', new_umask.toString(8));
 
 /**
@@ -86,7 +90,8 @@ dbg.log0('endpoint: replacing old umask: ', old_umask.toString(8), 'with new uma
 async function main(options = {}) {
     try {
         // the primary just forks and returns, workers will continue to serve
-        if (fork_utils.start_workers((options.forks ?? config.ENDPOINT_FORKS))) return;
+        fork_count = options.forks ?? config.ENDPOINT_FORKS;
+        if (fork_utils.start_workers(fork_count)) return;
 
         const http_port = options.http_port || Number(process.env.ENDPOINT_PORT) || 6001;
         const https_port = options.https_port || Number(process.env.ENDPOINT_SSL_PORT) || 6443;
@@ -257,6 +262,10 @@ function create_endpoint_handler(init_request_sdk, virtual_hosts, sts) {
             return lambda_rest_handler(req, res);
         } else if (req.headers['x-ms-version']) {
             return blob_rest_handler(req, res);
+        } else if (req.url.startsWith('/total_fork_count')) {
+            return fork_count_handler(req, res);
+        } else if (req.url.startsWith('/endpoint_fork_id')) {
+            return endpoint_fork_id_handler(req, res);
         } else {
             return s3_rest.handler(req, res);
         }
@@ -269,6 +278,30 @@ function create_endpoint_handler(init_request_sdk, virtual_hosts, sts) {
     };
 
     return sts ? endpoint_sts_request_handler : endpoint_request_handler;
+}
+
+function endpoint_fork_id_handler(req, res) {
+    let reply = {};
+    if (cluster.isWorker) {
+        reply = {
+            worker_id: cluster.worker.id,
+        };
+    }
+    P.delay(500);
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Length', Buffer.byteLength(JSON.stringify(reply)));
+    res.end(JSON.stringify(reply));
+}
+
+function fork_count_handler(req, res) {
+    const reply = {
+        fork_count: fork_count,
+    };
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Length', Buffer.byteLength(JSON.stringify(reply)));
+    res.end(JSON.stringify(reply));
 }
 
 /**

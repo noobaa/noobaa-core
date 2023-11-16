@@ -212,17 +212,6 @@ async function _rename_null_version(old_versions, fs_context, version_path) {
     return { renamed_null_versions_set, old_versions_after_rename };
 }
 
-function isDirectory(ent) {
-    if (!ent) throw new Error('isDirectory: ent is empty');
-    if (ent.mode) {
-        // eslint-disable-next-line no-bitwise
-        return (((ent.mode) & nb_native().fs.S_IFMT) === nb_native().fs.S_IFDIR);
-    } else if (ent.type) {
-        return ent.type === nb_native().fs.DT_DIR;
-    } else {
-        throw new Error(`isDirectory: ent ${ent} is not supported`);
-    }
-}
 
 /**
  *
@@ -233,11 +222,11 @@ function isDirectory(ent) {
  */
 async function is_directory_or_symlink_to_directory(stat, fs_context, entry_path) {
     try {
-        let r = isDirectory(stat);
+        let r = native_fs_utils.isDirectory(stat);
         if (!r && is_symbolic_link(stat)) {
             const targetStat = await nb_native().fs.stat(fs_context, entry_path);
             if (!targetStat) throw new Error('is_directory_or_symlink_to_directory: targetStat is empty');
-            r = isDirectory(targetStat);
+            r = native_fs_utils.isDirectory(targetStat);
         }
         return r;
     } catch (err) {
@@ -864,7 +853,7 @@ class NamespaceFS {
             await this._check_path_in_bucket_boundaries(fs_context, file_path);
             await this._load_bucket(params, fs_context);
             let stat = await nb_native().fs.stat(fs_context, file_path);
-            const isDir = isDirectory(stat);
+            const isDir = native_fs_utils.isDirectory(stat);
             if (isDir) {
                 if (!stat.xattr?.[XATTR_DIR_CONTENT]) {
                     throw error_utils.new_error_code('ENOENT', 'NoSuchKey');
@@ -2359,7 +2348,7 @@ class NamespaceFS {
         const entries = await nb_native().fs.readdir(fs_context, dir);
         const results = await Promise.all(entries.map(entry => {
             const fullPath = path.join(dir, entry.name);
-            const task = isDirectory(entry) ? this._folder_delete(fullPath, fs_context) :
+            const task = native_fs_utils.isDirectory(entry) ? this._folder_delete(fullPath, fs_context) :
                 nb_native().fs.unlink(fs_context, fullPath);
             return task.catch(error => ({ error }));
         }));

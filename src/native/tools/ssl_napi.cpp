@@ -191,7 +191,7 @@ rand_seed(const Napi::CallbackInfo& info)
 {
     Napi::Env env = info.Env();
 
-    printf("rand_seed: %s seeding randomness\n", SSLeay_version(SSLEAY_VERSION));
+    DBG1("rand_seed: %s seeding randomness\n" <<  SSLeay_version(SSLEAY_VERSION));
 
     if (!info[0].IsBuffer()) {
         Napi::TypeError::New(env, "rand_seed: expected buffer").ThrowAsJavaScriptException();

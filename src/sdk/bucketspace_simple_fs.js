@@ -6,19 +6,8 @@ const config = require('../../config');
 const nb_native = require('../util/nb_native');
 const SensitiveString = require('../util/sensitive_string');
 const { S3Error } = require('../endpoint/s3/s3_errors');
+const native_fs_utils = require('../util/native_fs_utils');
 
-//TODO:  dup from namespace_fs - need to handle and not dup code
-function isDirectory(ent) {
-    if (!ent) throw new Error('isDirectory: ent is empty');
-    if (ent.mode) {
-        // eslint-disable-next-line no-bitwise
-        return (((ent.mode) & nb_native().fs.S_IFMT) === nb_native().fs.S_IFDIR);
-    } else if (ent.type) {
-        return ent.type === nb_native().fs.DT_DIR;
-    } else {
-        throw new Error(`isDirectory: ent ${ent} is not supported`);
-    }
-}
 
 /**
  * @implements {nb.BucketSpace}
@@ -51,7 +40,7 @@ class BucketSpaceSimpleFS {
     async list_buckets() {
         try {
             const entries = await nb_native().fs.readdir(this.fs_context, this.fs_root);
-            const dirs_only = entries.filter(entree => isDirectory(entree));
+            const dirs_only = entries.filter(entree => native_fs_utils.isDirectory(entree));
             const buckets = dirs_only.map(e => ({ name: new SensitiveString(e.name) }));
             return { buckets };
         } catch (err) {
@@ -69,7 +58,7 @@ class BucketSpaceSimpleFS {
             const bucket_path = path.join(this.fs_root, name);
             console.log(`BucketSpaceSimpleFS: read_bucket ${bucket_path}`);
             const bucket_dir_stat = await nb_native().fs.stat(this.fs_context, bucket_path);
-            if (!isDirectory(bucket_dir_stat)) {
+            if (!native_fs_utils.isDirectory(bucket_dir_stat)) {
                 throw new S3Error(S3Error.NoSuchBucket);
             }
             const owner_account = {

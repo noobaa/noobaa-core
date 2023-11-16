@@ -165,9 +165,11 @@ config.STS_CORS_EXPOSE_HEADERS = 'ETag';
 /////////////////////
 // SECRETS CONFIG  //
 /////////////////////
-config.JWT_SECRET = process.env.JWT_SECRET || _get_data_from_file(`/etc/noobaa-server/jwt`);
-config.SERVER_SECRET = process.env.SERVER_SECRET || _get_data_from_file(`/etc/noobaa-server/server_secret`);
-config.NOOBAA_AUTH_TOKEN = process.env.NOOBAA_AUTH_TOKEN || _get_data_from_file(`/etc/noobaa-auth-token/auth_token`);
+if (process.env.CONTAINER_PLATFORM || process.env.LOCAL_MD_SERVER) {
+    config.JWT_SECRET = process.env.JWT_SECRET || _get_data_from_file(`/etc/noobaa-server/jwt`);
+    config.SERVER_SECRET = process.env.SERVER_SECRET || _get_data_from_file(`/etc/noobaa-server/server_secret`);
+    config.NOOBAA_AUTH_TOKEN = process.env.NOOBAA_AUTH_TOKEN || _get_data_from_file(`/etc/noobaa-auth-token/auth_token`);
+}
 
 config.ROOT_KEY_MOUNT = '/etc/noobaa-server/root_keys';
 

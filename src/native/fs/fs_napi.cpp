@@ -1981,8 +1981,8 @@ static Napi::Value
 set_debug_level(const Napi::CallbackInfo& info)
 {
     int level = info[0].As<Napi::Number>();
-    LOG("FS::set_debug_level " << level);
     DBG_SET_LEVEL(level);
+    DBG1("FS::set_debug_level " << level);
     return info.Env().Undefined();
 }
 
@@ -2046,7 +2046,7 @@ fs_napi(Napi::Env env, Napi::Object exports)
             exports_fs["gpfs"] = gpfs;
         }
     } else {
-        LOG("FS::GPFS GPFS_DL_PATH=NULL, fs_napi will call default posix system calls");
+        DBG1("FS::GPFS GPFS_DL_PATH=NULL, fs_napi will call default posix system calls");
     }
 
     exports_fs["stat"] = Napi::Function::New(env, api<Stat>);

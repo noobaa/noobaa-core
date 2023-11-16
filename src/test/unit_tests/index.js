@@ -62,6 +62,7 @@ require('./test_namespace_fs_mpu');
 require('./test_nb_native_fs');
 require('./test_s3select');
 require('./test_nc_nsfs_cli');
+require('./test_nc_nsfs_health');
 
 // // SERVERS
 require('./test_agent');

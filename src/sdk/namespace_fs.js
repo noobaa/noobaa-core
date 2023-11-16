@@ -1443,7 +1443,8 @@ class NamespaceFS {
                 stats: this.stats,
                 namespace_resource_id: this.namespace_resource_id,
                 md5_enabled,
-                offset
+                offset,
+                bucket: params.bucket
             });
             chunk_fs.on('error', err1 => dbg.error('namespace_fs._upload_stream: error occured on stream ChunkFS: ', err1));
             await stream_utils.pipeline([source_stream, chunk_fs]);

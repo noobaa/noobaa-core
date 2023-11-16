@@ -23,9 +23,10 @@ class ChunkFS extends stream.Transform {
      *      md5_enabled: boolean,
      *      stats: import('../sdk/endpoint_stats_collector').EndpointStatsCollector,
      *      offset?: number,
+     *      bucket?: string,
      * }} params
      */
-    constructor({ target_file, fs_context, namespace_resource_id, md5_enabled, stats, offset }) {
+    constructor({ target_file, fs_context, namespace_resource_id, md5_enabled, stats, offset, bucket }) {
         super();
         this.q_buffers = [];
         this.q_size = 0;
@@ -40,6 +41,7 @@ class ChunkFS extends stream.Transform {
         this._total_num_buffers = 0;
         const platform_iov_max = nb_native().fs.PLATFORM_IOV_MAX;
         this.iov_max = platform_iov_max ? Math.min(platform_iov_max, config.NSFS_DEFAULT_IOV_MAX) : config.NSFS_DEFAULT_IOV_MAX;
+        this.bucket = bucket;
     }
 
     async _transform(chunk, encoding, callback) {
@@ -48,7 +50,8 @@ class ChunkFS extends stream.Transform {
             this.stats?.update_nsfs_write_stats({
                 namespace_resource_id: this.namespace_resource_id,
                 size: chunk.length,
-                count: this.count
+                count: this.count,
+                bucket_name: this.bucket,
             });
             this.count = 0;
             while (chunk && chunk.length) {

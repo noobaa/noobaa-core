@@ -26,7 +26,7 @@ jobs:
         run: |
           DATE=$(date +'%Y%m%d')
           VERSION=$(jq -r '.version' < ./package.json)
-          RPM_FULL_PATH=noobaa-core-${VERSION}-${DATE}.el8.x86_64
+          RPM_FULL_PATH=noobaa-core-${VERSION}-${DATE}.el9.x86_64
           echo "RPM FULL PATH=${RPM_FULL_PATH}"
           echo "rpm_full_path=${RPM_FULL_PATH}" >> $GITHUB_OUTPUT
 

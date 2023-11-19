@@ -22,7 +22,7 @@ jobs:
       - name: Prepare Suffix
         id: suffix
         if: ${{ github.event.inputs.tag != '' }}
-        run: echo suffix="_${{ github.event.inputs.tag }}" >> $GITHUB_OUTPUT
+        run: echo suffix="-${{ github.event.inputs.tag }}" >> $GITHUB_OUTPUT
       
       - name: Build RPM
         id: build_rpm
@@ -37,9 +37,9 @@ jobs:
           DATE=$(date +'%Y%m%d')
           VERSION=$(jq -r '.version' < ./package.json)
           RPM_BASE_VERSION=noobaa-core-${VERSION}-${DATE}
-          RPM_FULL_PATH="${RPM_BASE_VERSION}-${{ github.event.inputs.branch }}_${{ steps.suffix.outputs.suffix }}.el8.x86_64.rpm"
+          RPM_FULL_PATH="${RPM_BASE_VERSION}-${{ github.event.inputs.branch }}${{ steps.suffix.outputs.suffix }}.el9.x86_64.rpm"
           echo "RPM FULL PATH=${RPM_FULL_PATH}"
-          cp ./build/rpm/${RPM_BASE_VERSION}.el8.x86_64.rpm ${RPM_FULL_PATH}
+          cp ./build/rpm/${RPM_BASE_VERSION}.el9.x86_64.rpm ${RPM_FULL_PATH}
           echo "rpm_full_path=${RPM_FULL_PATH}" >> $GITHUB_OUTPUT
 
       - name: Upload artifact

@@ -3,6 +3,7 @@ ARG TARGETARCH
 ARG BUILD_S3SELECT=0
 
 RUN mkdir -p /etc/logrotate.d/noobaa/
+RUN mkdir -p /etc/noobaa.conf.d/
 
 COPY ./src/agent ./src/agent
 COPY ./src/api ./src/api

@@ -685,6 +685,7 @@ config.NSFS_VERSIONING_ENABLED = true;
 // NSFS NON CONTAINERIZED //
 ////////////////////////////
 
+config.NSFS_NC_CONF_DIR_REDIRECT_FILE = 'config_dir_redirect';
 config.NSFS_NC_DEFAULT_CONF_DIR = '/etc/noobaa.conf.d';
 config.NSFS_TEMP_CONF_DIR_NAME = '.noobaa-config-nsfs';
 

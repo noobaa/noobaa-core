@@ -14,6 +14,7 @@ const config = require('../../config');
 const fs = require('fs');
 const util = require('util');
 const minimist = require('minimist');
+const native_fs_utils = require('../util/native_fs_utils');
 
 if (process.env.LOCAL_MD_SERVER === 'true') {
     require('../server/system_services/system_store').get_instance({ standalone: true });
@@ -250,13 +251,9 @@ async function main(argv = minimist(process.argv.slice(2))) {
         const access_key = argv.access_key && new SensitiveString(String(argv.access_key));
         const secret_key = argv.secret_key && new SensitiveString(String(argv.secret_key));
         const simple_mode = Boolean(argv.simple);
-        if (!simple_mode) {
-            nsfs_config_root = argv.config_root ? String(argv.config_root) : config.NSFS_NC_DEFAULT_CONF_DIR;
-        }
         const iam_ttl = Number(argv.iam_ttl ?? 60);
         const backend = argv.backend || (process.env.GPFS_DL_PATH ? 'GPFS' : '');
         const versioning = argv.versioning || 'DISABLED';
-
         const fs_root = argv._[0] || '';
 
         const fs_config = {
@@ -266,6 +263,10 @@ async function main(argv = minimist(process.argv.slice(2))) {
             warn_threshold_ms: config.NSFS_WARN_THRESHOLD_MS,
         };
         verify_gpfslib();
+
+        if (!simple_mode) {
+            nsfs_config_root = await native_fs_utils.get_config_root(argv, fs_config);
+        }
         const account = {
             email: new SensitiveString('nsfs@noobaa.io'),
             nsfs_account_config: fs_config,

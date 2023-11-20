@@ -42,36 +42,51 @@ yum install wget
 ```
 2. Download and install boost -
 ```sh
+// RHEL8/centos:stream8
 wget https://rpmfind.net/linux/centos/8-stream/AppStream/x86_64/os/Packages/boost-system-1.66.0-13.el8.x86_64.rpm
 wget https://rpmfind.net/linux/centos/8-stream/AppStream/x86_64/os/Packages/boost-thread-1.66.0-13.el8.x86_64.rpm
 rpm -i boost-system-1.66.0-13.el8.x86_64.rpm
 rpm -i boost-thread-1.66.0-13.el8.x86_64.rpm
 ```
 
-### Install NooBaa RPM - 
-Download the RPM to the machine and install it by running the following command - 
+```sh
+// RHEL9/centos:stream9
+wget https://rpmfind.net/linux/centos-stream/9-stream/AppStream/x86_64/os/Packages/boost-system-1.75.0-8.el9.x86_64.rpm
+wget https://rpmfind.net/linux/centos-stream/9-stream/AppStream/x86_64/os/Packages/boost-thread-1.75.0-8.el9.x86_64.rpm
+rpm -i boost-system-1.75.0-8.el9.x86_64.rpm
+rpm -i boost-thread-1.75.0-8.el9.x86_64.rpm
+```
+
+### Download NooBaa RPM - 
+Nightly RPM builds of the upstream master branch can be downloaded from a public S3 bucket by running the following command - 
 
 ```sh
-rpm -i noobaa-core-5.14.0-1.el8.x86_64.rpm
+wget  noobaa-core-{VERSION}-{DATE}.el9.x86_64.rpm // Replace the VERSION and DATE
+
+Example:
+wget https://noobaa-core-rpms.s3.amazonaws.com/noobaa-core-5.15.0-20231106.el9.x86_64.rpm
+```
+
+### Install NooBaa RPM - 
+Install NooBaa RPM by running the following command - 
+
+```sh
+rpm -i <rpm_file_name>.rpm
 ```
 
 After installing NooBaa RPM, it's expected to have noobaa-core source code under /usr/local/noobaa-core and an nsfs systemd example script under /etc/systemd/system/.
 
 ## Create configuration files -
-**IMPORTANT NOTE** - It's not recommended to create the config_root under /tmp/ since the contents of /tmp/ can be deleted occasionaly, In the following instruction we use it just as an example. 
+**IMPORTANT NOTE** - It's not mendatory to create the config_root under /etc/noobaa.conf.d/. config_dir path can be set using an CONFIG_JS_NSFS_NC_DEFAULT_CONF_DIR.
 
 **1. Create buckets and accounts directories -**
 ```sh
-mkdir -p /tmp/noobaa_config_root/
-mkdir -p /tmp/noobaa_config_root/buckets/
-mkdir -p /tmp/noobaa_config_root/accounts/
+mkdir -p /etc/noobaa.conf.d/
+mkdir -p /etc/noobaa.conf.d/buckets/
+mkdir -p /etc/noobaa.conf.d/accounts/
+mkdir -p /etc/noobaa.conf.d/access_keys/
+
 ```
-
-**2. Create accounts and exported buckets configuration files -**
-
-Find instruction at - https://github.com/noobaa/noobaa-core/blob/master/docs/nsfs-standalone.md. <br />
-**Note** - All required paths on the configuration files (bucket - path, account - new_buckets_path) must be absolute paths.
-
 
 **3. Create env file under the configuration directory -**
 
@@ -97,6 +112,22 @@ The systemd script runs noobaa non containerized, and requires config_root in or
 systemctl start nsfs
 ```
 
+## Developer customization of the nsfs service (OPTIONAL) - 
+The following list consists of supported optional developer customization -
+1. Number of forks 
+2. Log debug level
+3. Ports
+4. Allow http
+
+For more details see - [Non Containerized NSFS Developer Customization](https://github.com/noobaa/noobaa-core/blob/master/docs/dev_guide/NonContainerizedDeveloperCustomizations.md)
+
+## Create accounts and exported buckets configuration files - ##
+
+In order to create accounts and exported buckets see the management CLI instructions - [Bucket and Account Manage CLI](#bucket-and-account-manage-cli) <br />
+Design of Accounts and buckets configuration entities - [NonContainerizedNSFS](https://github.com/noobaa/noobaa-core/blob/master/docs/design/NonContainerizedNSFSDesign.md). <br />
+**Note** - All required paths on the configuration files (bucket - path, account - new_buckets_path) must be absolute paths.
+
+
 ## NSFS service logs -
 Run the following command in order to get the nsfs service logs - 
 
@@ -104,53 +135,17 @@ Run the following command in order to get the nsfs service logs -
 journalctl -u nsfs.service
 ```
 
-## Test 
-#### 1. Create a bucket directory -
-```sh
-mkdir -p /tmp/fs1/bucket1/
-```
-
-#### 2. List the buckets -
-```sh
- curl http://localhost:6001
-```
-The following is an expected valid response - 
-```xml
-<?xml version="1.0" encoding="UTF-8"?><ListAllMyBucketsResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Owner><ID>123</ID><DisplayName>NooBaa</DisplayName></Owner><Buckets><Bucket><Name>bucket1</Name><CreationDate>2023-08-30T17:12:29.000Z</CreationDate></Bucket></Buckets></ListAllMyBucketsResult>
-```
 
 ## S3 Test
 
-#### 1. Create account configuration file -
-
-```sh
-account1_json='
-{
-    "name": "account1",
-    "email": "account1@noobaa.io",
-    "has_login": "false",
-    "has_s3_access": "true",
-    "allow_bucket_creation": "true",
-    "access_keys": [{
-        "access_key": "abc",
-        "secret_key": "123"
-    }],
-    "nsfs_account_config": {
-        "uid": 0,
-        "gid": 0,
-        "new_buckets_path": "/tmp/fs1/",
-        "nsfs_only": "true"
-    }
-}'
-
-cat $account1_json >/tmp/noobaa_config_dir/accounts/abc.json
-```
+#### 1. Create account -
+see the management CLI instructions for creating an account - [Bucket and Account Manage CLI](#bucket-and-account-manage-cli)
 
 #### 2. Install aws cli -
 see https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html
 
 
-#### 3. Create s3 alias for account1 -
+#### 3. Create s3 alias for the new account (to be referenced as account1) -
 ```sh
 alias s3-account1='AWS_ACCESS_KEY_ID=abc AWS_SECRET_ACCESS_KEY=123 aws --endpoint https://localhost:6443 --no-verify-ssl s3'
 ```
@@ -221,10 +216,28 @@ Output -
 
 
 
-## health
+## Health script
 Health status of the NSFS can be fetched using the command line.
  ```
  node usr/local/noobaa-core/src/cmd/health
+ ```
+
+ Valid example output of a health script run - 
+ ```
+ {
+  service_name: 'nsfs', 
+  status: 'OK', 
+  memory: '137.9M', 
+  checks: { 
+    service: { 
+      service_status: 'active', 
+      pid: '90743' 
+    }, 
+    endpoint: { 
+      endpoint_response: 200 
+    } 
+  } 
+}
  ```
 
 ## Bucket and Account Manage CLI

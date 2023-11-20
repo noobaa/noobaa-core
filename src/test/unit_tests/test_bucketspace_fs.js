@@ -27,6 +27,8 @@ if (process.platform === MAC_PLATFORM) {
 const config_root = path.join(tmp_fs_path, 'config_root');
 const buckets = 'buckets';
 const accounts = 'accounts';
+const access_keys = 'access_keys';
+
 const new_buckets_path = path.join(tmp_fs_path, 'new_buckets_path', '/');
 const new_buckets_path_user1 = path.join(tmp_fs_path, 'new_buckets_path_user1', '/');
 const new_buckets_path_user2 = path.join(tmp_fs_path, 'new_buckets_path_user2', '/');
@@ -149,15 +151,16 @@ mocha.describe('bucketspace_fs', function() {
     };
 
     mocha.before(async () => {
-        await P.all(_.map([accounts, buckets], async dir =>
-            fs_utils.create_fresh_path(`${config_root}/${dir}`)));
+        await P.all(_.map([accounts, access_keys, buckets], async dir =>
+            await fs_utils.create_fresh_path(`${config_root}/${dir}`))
+        );
         await fs_utils.create_fresh_path(new_buckets_path);
-        await fs.promises.writeFile(path.join(config_root, accounts,
-            account_user1.access_keys[0].access_key + '.json'), JSON.stringify(account_user1));
-        await fs.promises.writeFile(path.join(config_root, accounts,
-            account_user2.access_keys[0].access_key + '.json'), JSON.stringify(account_user2));
-        await fs.promises.writeFile(path.join(config_root, accounts,
-            account_user3.access_keys[0].access_key + '.json'), JSON.stringify(account_user3));
+        for (const account of [account_user1, account_user2, account_user3]) {
+            const account_path = get_config_file_path(accounts, account.name);
+            const account_access_path = get_access_key_symlink_path(access_keys, account.access_keys[0].access_key);
+            await fs.promises.writeFile(account_path, JSON.stringify(account));
+            await fs.promises.symlink(account_path, account_access_path);
+        }
     });
     mocha.after(async () => {
         fs_utils.folder_delete(`${config_root}`);
@@ -179,7 +182,7 @@ mocha.describe('bucketspace_fs', function() {
             assert.strictEqual(res.email.unwrap(), account_user2.email);
             assert.strictEqual(res.access_keys[0].access_key.unwrap(), account_user2.access_keys[0].access_key);
             const distinguished_name = res.nsfs_account_config.distinguished_name;
-            assert.strictEqual(res.nsfs_account_config.distinguished_name, "root");
+            assert.strictEqual(res.nsfs_account_config.distinguished_name, 'root');
             const res2 = await native_fs_utils.get_user_by_distinguished_name({ distinguished_name });
             assert.strictEqual(res2.uid, 0);
         });
@@ -207,10 +210,10 @@ mocha.describe('bucketspace_fs', function() {
     });
 
     mocha.describe('create_bucket', function() {
-        mocha.it('creat bucket and validate bucket folder and schema config', async function() {
+        mocha.it('create bucket and validate bucket folder and schema config', async function() {
             const param = { name: test_bucket};
             await bucketspace_fs.create_bucket(param, dummy_object_sdk);
-            const bucket_config_path = path.join(config_root, buckets, param.name + '.json');
+            const bucket_config_path = get_config_file_path(buckets, param.name);
             const stat1 = await fs.promises.stat(bucket_config_path);
             assert.equal(stat1.nlink, 1);
             const objects = await nb_native().fs.readdir(ACCOUNT_FS_CONFIG, new_buckets_path);
@@ -238,7 +241,7 @@ mocha.describe('bucketspace_fs', function() {
         });
         mocha.after(async function() {
             await fs_utils.folder_delete(`${new_buckets_path}/${test_bucket}`);
-            const file_path = path.join(config_root, buckets, test_bucket + '.json');
+            const file_path = get_config_file_path(buckets, test_bucket);
             await fs_utils.file_delete(file_path);
         });
     });
@@ -259,7 +262,7 @@ mocha.describe('bucketspace_fs', function() {
         });
         mocha.after(async function() {
             await fs_utils.folder_delete(`${new_buckets_path}/${test_bucket}`);
-            const file_path = path.join(config_root, buckets, test_bucket + '.json');
+            const file_path = get_config_file_path(buckets, test_bucket);
             await fs_utils.file_delete(file_path);
         });
     });
@@ -291,7 +294,8 @@ mocha.describe('bucketspace_fs', function() {
         mocha.it('set_bucket_versioning ', async function() {
             const param = {name: test_bucket, versioning: 'ENABLED'};
             await bucketspace_fs.set_bucket_versioning(param, dummy_object_sdk);
-            const data = await fs.promises.readFile(path.join(config_root, buckets, param.name + '.json'));
+            const bucket_config_path = get_config_file_path(buckets, param.name);
+            const data = await fs.promises.readFile(bucket_config_path);
             const bucket = JSON.parse(data.toString());
             assert.equal(bucket.versioning, 'ENABLED');
 
@@ -380,7 +384,7 @@ mocha.describe('bucketspace_fs', function() {
                     Statement: [{
                         Sid: 'id-22',
                         Effect: 'Allow',
-                        Principal: { AWS: 'noobaa@noobaa.io' },
+                        Principal: { AWS: 'user1' },
                         Action: ['s3:*'],
                         Resource: ['arn:aws:s3:::*']
                         }
@@ -392,13 +396,35 @@ mocha.describe('bucketspace_fs', function() {
             assert.deepEqual(bucket_policy.policy, policy);
         });
 
+        mocha.it('put_bucket_policy other account object - account does not exist', async function() {
+            const policy = {
+                    Version: '2012-10-17',
+                    Statement: [{
+                        Sid: 'id-22',
+                        Effect: 'Allow',
+                        Principal: { AWS: 'user10' },
+                        Action: ['s3:*'],
+                        Resource: ['arn:aws:s3:::*']
+                        }
+                    ]
+                };
+            const param = { name: test_bucket, policy: policy };
+            try {
+                await bucketspace_fs.put_bucket_policy(param);
+                assert.fail('should have failed with invalid principal in policy');
+            } catch (err) {
+                assert.equal(err.rpc_code, 'MALFORMED_POLICY');
+                assert.equal(err.message, 'Invalid principal in policy');
+            }
+        });
+
         mocha.it('put_bucket_policy other account array', async function() {
             const policy = {
                     Version: '2012-10-17',
                     Statement: [{
                         Sid: 'id-22',
                         Effect: 'Allow',
-                        Principal: { AWS: ['noobaa@noobaa.io', 'noobaa1@noobaa.io'] },
+                        Principal: { AWS: ['user1', 'user2'] },
                         Action: ['s3:*'],
                         Resource: ['arn:aws:s3:::*']
                         }
@@ -421,7 +447,17 @@ mocha.describe('bucketspace_fs', function() {
 async function create_bucket(bucket_name) {
     const param = { name: bucket_name};
     await bucketspace_fs.create_bucket(param, dummy_object_sdk);
-    const bucket_config_path = path.join(config_root, buckets, param.name + '.json');
+    const bucket_config_path = get_config_file_path(buckets, param.name);
     const stat1 = await fs.promises.stat(bucket_config_path);
     assert.equal(stat1.nlink, 1);
+}
+
+
+function get_config_file_path(config_type_path, file_name) {
+    return path.join(config_root, config_type_path, file_name + '.json');
+}
+
+// returns the path of the access_key symlink to the config file json
+function get_access_key_symlink_path(config_type_path, file_name) {
+    return path.join(config_root, config_type_path, file_name + '.symlink');
 }

@@ -25,8 +25,9 @@ const dbg = require('../util/debug_module')(__filename);
 
 const VALID_BUCKET_NAME_REGEXP =
     /^(([a-z0-9]|[a-z0-9][a-z0-9-]*[a-z0-9])\.)*([a-z0-9]|[a-z0-9][a-z0-9-]*[a-z0-9])$/;
-const ACCOUNT_PATH = 'accounts';
 const BUCKET_PATH = 'buckets';
+const ACCOUNT_PATH = 'accounts';
+const ACCESS_KEYS_PATH = 'access_keys';
 const ajv = new Ajv({ verbose: true, allErrors: true });
 
 const bucket_semaphore = new KeysSemaphore(1);
@@ -65,7 +66,8 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
     constructor({config_root}) {
         super({ fs_root: ''});
         this.fs_root = '';
-        this.iam_dir = path.join(config_root, ACCOUNT_PATH);
+        this.accounts_dir = path.join(config_root, ACCOUNT_PATH);
+        this.access_keys_dir = path.join(config_root, ACCESS_KEYS_PATH);
         this.bucket_schema_dir = path.join(config_root, BUCKET_PATH);
         this.config_root = config_root;
         this.fs_context = {
@@ -79,8 +81,22 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
        return path.join(this.bucket_schema_dir, bucket_name + '.json');
     }
 
-    _get_account_config_path(access_key) {
-        return path.join(this.iam_dir, access_key + '.json');
+    _get_account_config_path(name) {
+        return path.join(this.accounts_dir, name + '.json');
+    }
+
+    _get_access_keys_config_path(access_key) {
+        return path.join(this.access_keys_dir, access_key + '.symlink');
+    }
+
+    async _get_account_by_name(name) {
+        const access_key_config_path = this._get_account_config_path(name);
+        try {
+            await nb_native().fs.stat(this.fs_context, access_key_config_path);
+            return true;
+        } catch (err) {
+            return false;
+        }
     }
 
     _translate_bucket_error_codes(err) {
@@ -96,7 +112,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
     async read_account_by_access_key({ access_key }) {
         try {
             if (!access_key) throw new Error('no access key');
-            const iam_path = this._get_account_config_path(access_key);
+            const iam_path = this._get_access_keys_config_path(access_key);
             const { data } = await nb_native().fs.readFile(this.fs_context, iam_path);
             const account = JSON.parse(data.toString());
             this.validate_account_schema(account);
@@ -431,7 +447,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             const ns = await object_sdk._get_bucket_namespace(params.name);
             await ns.set_bucket_versioning(params.versioning, object_sdk);
             const { name, versioning } = params;
-            dbg.log0('BucketSpaceFS.put_bucket_policy: Bucket name, policy', name);
+            dbg.log0('BucketSpaceFS.set_bucket_versioning: Bucket name, versioning', name, versioning);
             const bucket_config_path = this._get_bucket_config_path(name);
             const { data } = await nb_native().fs.readFile(this.fs_context, bucket_config_path);
             const bucket = JSON.parse(data.toString());
@@ -587,6 +603,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
     // BUCKET POLICY  //
     ////////////////////
 
+
     async put_bucket_policy(params) {
         try {
             const { name, policy } = params;
@@ -594,7 +611,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             const bucket_config_path = this._get_bucket_config_path(name);
             const { data } = await nb_native().fs.readFile(this.fs_context, bucket_config_path);
             const bucket = JSON.parse(data.toString());
-            bucket_policy_utils.validate_s3_policy(policy, bucket.name, () => true);
+            await bucket_policy_utils.validate_s3_policy(policy, bucket.name, async principal => this._get_account_by_name(principal));
             bucket.s3_policy = policy;
             const update_bucket = JSON.stringify(bucket);
             await nb_native().fs.writeFile(

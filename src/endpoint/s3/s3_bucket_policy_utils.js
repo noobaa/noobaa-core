@@ -236,7 +236,7 @@ function _parse_condition_keys(condition_statement) {
     }
 }
 
-function validate_s3_policy(policy, bucket_name, get_account_handler) {
+async function validate_s3_policy(policy, bucket_name, get_account_handler) {
     const all_op_names = _.compact(_.flatMap(OP_NAME_TO_ACTION, action => [action.regular, action.versioned]));
     for (const statement of policy.Statement) {
 
@@ -244,7 +244,7 @@ function validate_s3_policy(policy, bucket_name, get_account_handler) {
         if (statement_principal.AWS) {
             for (const principal of _.flatten([statement_principal.AWS])) {
                 if ((typeof principal === 'string') ? principal !== '*' : principal.unwrap() !== '*') {
-                    const account = get_account_handler(principal);
+                    const account = await get_account_handler(principal);
                     if (!account) {
                         throw new RpcError('MALFORMED_POLICY', 'Invalid principal in policy', { detail: principal });
                     }

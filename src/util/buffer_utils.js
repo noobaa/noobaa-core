@@ -2,7 +2,9 @@
 'use strict';
 
 const stream = require('stream');
+const Semaphore = require('./semaphore');
 const dbg = require('./debug_module')(__filename);
+const util = require('util');
 
 const EMPTY_BUFFER = Buffer.allocUnsafeSlow(0);
 
@@ -225,8 +227,61 @@ class BuffersPool {
         };
         return { buffer, callback };
     }
+
+    [util.inspect.custom]() {
+        return 'BufferPool.get_buffer: sem value: ' + this.sem._value +
+            ' waiting_value: ' + this.sem._waiting_value +
+            ' buffers length: ' +  this.buffers.length;
+    }
 }
 
+class MultiSizeBuffersPool {
+    /**
+     * @param {{
+    *      sorted_buf_sizes: Array<{
+    *           size: number;
+    *           sem_size: number;
+    *      }>;
+    *      warning_timeout?: number;
+    *      sem_timeout?: number,
+    *      sem_timeout_error_code?: string;
+    *      sem_warning_timeout?: number;
+    *      buffer_alloc?: (size: number) => Buffer;
+    * }} params
+    */
+    constructor({ sorted_buf_sizes, warning_timeout, sem_timeout, sem_timeout_error_code, sem_warning_timeout, buffer_alloc}) {
+        this.pools = sorted_buf_sizes.map(({ size, sem_size }) =>
+            new BuffersPool({
+                buf_size: size,
+                sem: new Semaphore(sem_size, {
+                    timeout: sem_timeout,
+                    timeout_error_code: sem_timeout_error_code,
+                    warning_timeout: sem_warning_timeout,
+                }),
+                warning_timeout: warning_timeout,
+                buffer_alloc
+        }));
+    }
+
+    /**
+     * @returns BuffersPool
+    */
+    get_buffers_pool(size) {
+        const largest = this.pools[this.pools.length - 1];
+        if (typeof size !== 'number' || size < 0) {
+            dbg.log1('MultiSizeBuffersPool.get_buffers_pool: sem value', largest.sem._value, 'waiting_value', largest.sem._waiting_value, 'buffers length', largest.buffers.length);
+            return largest;
+        }
+        for (const bp of this.pools) {
+            if (size <= bp.buf_size) {
+                dbg.log1('MultiSizeBuffersPool.get_buffers_pool: sem value', bp.sem._value, 'waiting_value', bp.sem._waiting_value, 'buffers length', bp.buffers.length);
+                return bp;
+            }
+        }
+        dbg.log1('MultiSizeBuffersPool.get_buffers_pool: sem value', largest.sem._value, 'waiting_value', largest.sem._waiting_value, 'buffers length', largest.buffers.length);
+        return largest;
+    }
+}
 
 exports.eq = eq;
 exports.neq = neq;
@@ -240,3 +295,4 @@ exports.count_length = count_length;
 exports.buffer_to_read_stream = buffer_to_read_stream;
 exports.write_to_stream = write_to_stream;
 exports.BuffersPool = BuffersPool;
+exports.MultiSizeBuffersPool = MultiSizeBuffersPool;

@@ -4,10 +4,15 @@
 const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config');
 const endpoint_stats_collector = require('../../sdk/endpoint_stats_collector').instance();
-const { buffers_pool } = require('../../sdk/namespace_fs');
+const { multi_buffer_pool } = require('../../sdk/namespace_fs');
 
+const nsfs_semaphores = {
+    "nsfs_l": config.NSFS_BUF_SIZE_L,
+    "nsfs_m": config.NSFS_BUF_SIZE_M,
+    "nsfs_s": config.NSFS_BUF_SIZE_S,
+    "nsfs_xs": config.NSFS_BUF_SIZE_XS,
+};
 class SemaphoreMonitor {
-
     /**
      * @param {{
      *   name: string;
@@ -35,7 +40,7 @@ class SemaphoreMonitor {
     run_semaphore_monitor() {
         try {
             if (config.ENABLE_OBJECT_IO_SEMAPHORE_MONITOR) this.sample_object_io_semaphore();
-            this.sample_nsfs_semaphore();
+            Object.keys(nsfs_semaphores).forEach(s => this.sample_nsfs_semaphore(s));
         } catch (err) {
             dbg.error('semaphore_monitor:', err, err.stack);
         }
@@ -72,8 +77,9 @@ class SemaphoreMonitor {
         }
     }
 
-    sample_nsfs_semaphore() {
-        const buffers_pool_sem = buffers_pool.sem;
+    sample_nsfs_semaphore(name) {
+        const buffer_size = nsfs_semaphores[name];
+        const buffers_pool_sem = multi_buffer_pool.get_buffers_pool(buffer_size).sem;
         if (!buffers_pool_sem) {
             dbg.log0('semaphore_monitor: buffers_pool_sem is invalid', this.object_io);
             return;
@@ -82,14 +88,14 @@ class SemaphoreMonitor {
             const semaphore_report = {
                 timestamp: Date.now(),
                 semaphore_state: {
-                    semaphore_cap: config.NSFS_BUF_POOL_MEM_LIMIT,
+                    semaphore_cap: buffers_pool_sem._initial,
                     value: buffers_pool_sem.value,
                     waiting_value: buffers_pool_sem.waiting_value,
                     waiting_time: buffers_pool_sem.waiting_time,
                     waiting_queue: buffers_pool_sem._wq.length,
                 }
             };
-           endpoint_stats_collector.update_semaphore_state(semaphore_report, "nsfs", this.report_sample_sizes);
+           endpoint_stats_collector.update_semaphore_state(semaphore_report, name, this.report_sample_sizes);
         } catch (err) {
             dbg.error('Could not submit nsfs endpoint monitor report, got:', err);
         }

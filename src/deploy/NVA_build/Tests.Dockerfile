@@ -12,8 +12,10 @@ ENV TEST_CONTAINER true
 #   Cache: rebuild when we adding/removing requirments
 ##############################################################
 
+RUN dnf config-manager --enable crb || true
+
 RUN dnf group install -y -q "Development Tools" && \
-    dnf install -y -q --nogpgcheck --enablerepo=crb vim \
+    dnf install -y -q --nogpgcheck vim \
     which python3-virtualenv python3-devel libevent-devel libffi-devel libxml2-devel libxslt-devel zlib-devel \
     git  \
     tox && \

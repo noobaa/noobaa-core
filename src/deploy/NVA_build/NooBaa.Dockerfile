@@ -1,3 +1,4 @@
+ARG CENTOS_VER=9
 FROM noobaa-base as server_builder
 
 RUN mkdir -p /noobaa_init_files && \
@@ -38,7 +39,7 @@ RUN tar \
 #   Cache: Rebuild when any layer is changing
 ##############################################################
 
-FROM quay.io/centos/centos:stream9
+FROM quay.io/centos/centos:stream${CENTOS_VER}
 
 # The ports are overridden for Ceph Test later
 ENV container docker
@@ -73,7 +74,7 @@ RUN dnf install -y -q bash \
     python3-setuptools \
     jemalloc \
     xz \
-    pip && \
+    python3-pip && \
     dnf clean all
 
 COPY ./src/deploy/NVA_build/install_arrow_run.sh ./src/deploy/NVA_build/install_arrow_run.sh

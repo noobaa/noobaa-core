@@ -1,4 +1,5 @@
-FROM quay.io/centos/centos:stream9
+ARG CENTOS_VER=9
+FROM quay.io/centos/centos:stream${CENTOS_VER}
 LABEL maintainer="Liran Mauda (lmauda@redhat.com)"
 
 ##############################################################

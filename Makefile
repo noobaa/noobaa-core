@@ -5,6 +5,7 @@ TESTER_TAG?="noobaa-tester"
 NOOBAA_RPM_TAG?="noobaa-rpm-build"
 POSTGRES_IMAGE?="centos/postgresql-12-centos7"
 MONGO_IMAGE?="centos/mongodb-36-centos7"
+CENTOS_VER?=9
 
 CONTAINER_ENGINE?=$(shell docker version >/dev/null 2>&1 && echo docker)
 ifeq ($(CONTAINER_ENGINE),)
@@ -126,7 +127,7 @@ all: tester noobaa
 
 builder: assert-container-engine
 	@echo "\n##\033[1;32m Build image noobaa-builder ...\033[0m"
-	$(CONTAINER_ENGINE) build $(CONTAINER_PLATFORM_FLAG) $(CPUSET) --build-arg BUILD_S3SELECT=$(BUILD_S3SELECT) --build-arg BUILD_S3SELECT_PARQUET=$(BUILD_S3SELECT_PARQUET) -f src/deploy/NVA_build/builder.Dockerfile $(CACHE_FLAG) $(NETWORK_FLAG) -t noobaa-builder .
+	$(CONTAINER_ENGINE) build $(CONTAINER_PLATFORM_FLAG) $(CPUSET) --build-arg CENTOS_VER=$(CENTOS_VER) --build-arg BUILD_S3SELECT=$(BUILD_S3SELECT) --build-arg BUILD_S3SELECT_PARQUET=$(BUILD_S3SELECT_PARQUET) -f src/deploy/NVA_build/builder.Dockerfile $(CACHE_FLAG) $(NETWORK_FLAG) -t noobaa-builder .
 	$(CONTAINER_ENGINE) tag noobaa-builder $(BUILDER_TAG)
 	@echo "##\033[1;32m Build image noobaa-builder done.\033[0m"
 .PHONY: builder
@@ -141,7 +142,7 @@ base: builder
 noobaa: base
 	@echo "\n##\033[1;32m Build image noobaa ...\033[0m"
 	@echo "$(CONTAINER_ENGINE) build $(CONTAINER_PLATFORM_FLAG)"
-	$(CONTAINER_ENGINE) build $(CONTAINER_PLATFORM_FLAG) $(CPUSET) --build-arg BUILD_S3SELECT=$(BUILD_S3SELECT) --build-arg BUILD_S3SELECT_PARQUET=$(BUILD_S3SELECT_PARQUET) -f src/deploy/NVA_build/NooBaa.Dockerfile $(CACHE_FLAG) $(NETWORK_FLAG) -t noobaa --build-arg GIT_COMMIT=$(GIT_COMMIT) . $(REDIRECT_STDOUT)
+	$(CONTAINER_ENGINE) build $(CONTAINER_PLATFORM_FLAG) $(CPUSET) --build-arg CENTOS_VER=$(CENTOS_VER) --build-arg BUILD_S3SELECT=$(BUILD_S3SELECT) --build-arg BUILD_S3SELECT_PARQUET=$(BUILD_S3SELECT_PARQUET) -f src/deploy/NVA_build/NooBaa.Dockerfile $(CACHE_FLAG) $(NETWORK_FLAG) -t noobaa --build-arg GIT_COMMIT=$(GIT_COMMIT) . $(REDIRECT_STDOUT)
 	$(CONTAINER_ENGINE) tag noobaa $(NOOBAA_TAG)
 	@echo "##\033[1;32m Build image noobaa done.\033[0m"
 .PHONY: noobaa
@@ -157,7 +158,7 @@ executable: base
 # which allows to build and debug the project.
 nbdev:
 	@echo "\n##\033[1;32m Build image nbdev ...\033[0m"
-	$(CONTAINER_ENGINE) build $(CONTAINER_PLATFORM_FLAG) $(CPUSET) -f src/deploy/NVA_build/dev.Dockerfile $(CACHE_FLAG) -t nbdev --build-arg GIT_COMMIT=$(GIT_COMMIT) . $(REDIRECT_STDOUT)
+	$(CONTAINER_ENGINE) build $(CONTAINER_PLATFORM_FLAG) $(CPUSET) -f src/deploy/NVA_build/dev.Dockerfile $(CACHE_FLAG) -t nbdev --build-arg CENTOS_VER=$(CENTOS_VER) --build-arg GIT_COMMIT=$(GIT_COMMIT) . $(REDIRECT_STDOUT)
 	@echo "##\033[1;32m Build image nbdev done.\033[0m"
 	@echo ""
 	@echo "Usage: docker run -it nbdev"

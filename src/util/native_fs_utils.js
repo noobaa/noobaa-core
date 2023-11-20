@@ -238,7 +238,13 @@ function get_config_files_tmpdir() {
     return config.NSFS_TEMP_CONF_DIR_NAME;
 }
 
-
+/**
+ * create_config_file created the config file at config_path under schema_dir containig config_data
+ * @param {nb.NativeFSContext} fs_context 
+ * @param {string} schema_dir
+ * @param {string} config_path 
+ * @param {string} config_data 
+ */
 async function create_config_file(fs_context, schema_dir, config_path, config_data) {
     const is_gpfs = _is_gpfs(fs_context);
     const open_mode = is_gpfs ? 'wt' : 'w';
@@ -255,6 +261,8 @@ async function create_config_file(fs_context, schema_dir, config_path, config_da
             if (err.code !== 'ENOENT') throw err;
         }
         dbg.log0('native_fs_utils: create_config_file config_path:', config_path, 'config_data:', config_data, 'is_gpfs:', open_mode);
+        // create config dir if it does not exist
+        await _create_path(schema_dir, fs_context);
         // when using GPFS open dst file as soon as possible for later linkat validation
         if (is_gpfs) gpfs_dst_file = await open_file(fs_context, schema_dir, config_path, 'w*');
 
@@ -289,6 +297,12 @@ async function create_config_file(fs_context, schema_dir, config_path, config_da
     }
 }
 
+/**
+ * delete_config_file deletes the config file at config_path under schema_dir
+ * @param {nb.NativeFSContext} fs_context 
+ * @param {string} schema_dir
+ * @param {string} config_path 
+ */
 async function delete_config_file(fs_context, schema_dir, config_path) {
     const is_gpfs = _is_gpfs(fs_context);
     let gpfs_dir_file;
@@ -321,6 +335,13 @@ async function delete_config_file(fs_context, schema_dir, config_path) {
     }
 }
 
+/**
+ * update_config_file updated the config file at config_path under schema_dir with the new config_data
+ * @param {nb.NativeFSContext} fs_context 
+ * @param {string} schema_dir
+ * @param {string} config_path 
+ * @param {string} config_data 
+ */
 async function update_config_file(fs_context, schema_dir, config_path, config_data) {
     const is_gpfs = _is_gpfs(fs_context);
     let upload_tmp_file;

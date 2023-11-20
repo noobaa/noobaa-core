@@ -24,9 +24,10 @@ class ChunkFS extends stream.Transform {
      *      stats: import('../sdk/endpoint_stats_collector').EndpointStatsCollector,
      *      offset?: number,
      *      bucket?: string,
+     *      large_buf_size?: number,
      * }} params
      */
-    constructor({ target_file, fs_context, namespace_resource_id, md5_enabled, stats, offset, bucket }) {
+    constructor({ target_file, fs_context, namespace_resource_id, md5_enabled, stats, offset, bucket, large_buf_size }) {
         super();
         this.q_buffers = [];
         this.q_size = 0;
@@ -42,6 +43,7 @@ class ChunkFS extends stream.Transform {
         const platform_iov_max = nb_native().fs.PLATFORM_IOV_MAX;
         this.iov_max = platform_iov_max ? Math.min(platform_iov_max, config.NSFS_DEFAULT_IOV_MAX) : config.NSFS_DEFAULT_IOV_MAX;
         this.bucket = bucket;
+        this.large_buf_size = large_buf_size || config.NSFS_BUF_SIZE_L;
     }
 
     async _transform(chunk, encoding, callback) {
@@ -55,13 +57,13 @@ class ChunkFS extends stream.Transform {
             });
             this.count = 0;
             while (chunk && chunk.length) {
-                const available_size = config.NSFS_BUF_SIZE - this.q_size;
+                const available_size = this.large_buf_size - this.q_size;
                 const buf = (available_size < chunk.length) ? chunk.slice(0, available_size) : chunk;
                 this.q_buffers.push(buf);
                 this.q_size += buf.length;
                 // Should flush when num of chunks equals to max iov which is the limit according to https://linux.die.net/man/2/writev
-                // or when q_size equals to config.NSFS_BUF_SIZE, but added greater than just in case
-                if (this.q_buffers.length === this.iov_max || this.q_size >= config.NSFS_BUF_SIZE) await this._flush_buffers();
+                // or when q_size equals to config.NSFS_BUF_SIZE_L, but added greater than just in case
+                if (this.q_buffers.length === this.iov_max || this.q_size >= config.NSFS_BUF_SIZE_L) await this._flush_buffers();
                 chunk = (available_size < chunk.length) ? chunk.slice(available_size) : null;
             }
             return callback();

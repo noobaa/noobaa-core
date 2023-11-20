@@ -16,7 +16,7 @@ const posix_link_retry_err = 'FS::SafeLink ERROR link target doesn\'t match expe
 const posix_unlink_retry_err = 'FS::SafeUnlink ERROR unlink target doesn\'t match expected inode and mtime';
 const VALID_BUCKET_NAME_REGEXP = /^(([a-z0-9]|[a-z0-9][a-z0-9-]*[a-z0-9])\.)*([a-z0-9]|[a-z0-9][a-z0-9-]*[a-z0-9])$/;
 
-/** @typedef {import('../util/buffer_utils').BuffersPool} BuffersPool */
+/** @typedef {import('../util/buffer_utils').MultiSizeBuffersPool} MultiSizeBuffersPool */
 
 function get_umasked_mode(mode) {
     // eslint-disable-next-line no-bitwise
@@ -71,7 +71,7 @@ async function open_file(fs_context, bucket_path, open_path, open_mode = config.
 }
 
 /**
- * @param {BuffersPool} buffers_pool 
+ * @param {MultiSizeBuffersPool} multi_buffers_pool 
  * @param {nb.NativeFSContext} fs_context 
  * @param {nb.NativeFile} src_file
  * @param {nb.NativeFile} dst_file 
@@ -79,7 +79,7 @@ async function open_file(fs_context, bucket_path, open_path, open_mode = config.
  * @param {number} write_offset 
  * @param {number} read_offset 
  */
-async function copy_bytes(buffers_pool, fs_context, src_file, dst_file, size, write_offset, read_offset) {
+async function copy_bytes(multi_buffers_pool, fs_context, src_file, dst_file, size, write_offset, read_offset) {
     dbg.log1(`Native_fs_utils.copy_bytes size=${size} read_offset=${read_offset} write_offset=${write_offset}`);
     let buffer_pool_cleanup = null;
     try {
@@ -90,7 +90,7 @@ async function copy_bytes(buffers_pool, fs_context, src_file, dst_file, size, wr
         for (;;) {
             const total_bytes_left = total_bytes_to_write - bytes_written;
             if (total_bytes_left <= 0) break;
-            const { buffer, callback } = await buffers_pool.get_buffer();
+            const { buffer, callback } = await multi_buffers_pool.get_buffers_pool(total_bytes_left).get_buffer();
             buffer_pool_cleanup = callback;
             const bytesRead = await src_file.read(fs_context, buffer, 0, buffer.length, read_pos);
             if (!bytesRead) {

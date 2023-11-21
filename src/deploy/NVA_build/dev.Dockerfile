@@ -1,5 +1,6 @@
 # dev.Dockerfile is meant to be used manually for developer testing
-FROM quay.io/centos/centos:stream9
+ARG CENTOS_VER=9
+FROM quay.io/centos/centos:stream${CENTOS_VER}
 
 ENV container docker
 

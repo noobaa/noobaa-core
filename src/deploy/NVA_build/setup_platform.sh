@@ -21,7 +21,7 @@ function install_supervisor {
     if [ ${ID} == "centos" ] || [ ${ID} == "fedora" ]
     then
         deploy_log install_supervisor start
-        pip install supervisor
+        pip3 install supervisor
         deploy_log install_supervisor done
     fi
 

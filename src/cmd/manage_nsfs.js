@@ -108,15 +108,25 @@ const accounts_dir_name = '/accounts';
 const access_keys_dir_name = '/access_keys';
 
 async function check_and_create_config_dirs(config_root) {
-    const bucket_dir_stat = await fs_utils.file_exists(config_root);
-    if (!bucket_dir_stat) {
-        await fs_utils.create_path(config_root);
-        await fs_utils.create_path(config_root + buckets_dir_name);
-        await fs_utils.create_path(config_root + accounts_dir_name);
-        await fs_utils.create_path(config_root + access_keys_dir_name);
-        return true;
+    const pre_req_paths = [
+        config_root,
+        path.join(config_root, buckets_dir_name),
+        path.join(config_root, accounts_dir_name),
+        path.join(config_root, access_keys_dir_name)
+    ];
+    for (const p of pre_req_paths) {
+        try {
+            const dir_exists = await fs_utils.file_exists(p);
+            if (dir_exists) {
+                console.log('NSFS config root dir exists:', p);
+            } else {
+                await fs_utils.create_path(p);
+                console.log('NSFS config root dir was created:', p);
+            }
+        } catch (err) {
+            console.error('nsfs.check_and_create_config_dirs could not create pre requisite path', p);
+        }
     }
-    return false;
 }
 
 async function main(argv = minimist(process.argv.slice(2))) {
@@ -146,10 +156,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
             print_account_usage();
             return;
         }
-        const state = await check_and_create_config_dirs(config_root);
-        if (state) {
-            console.log('NSFS config root dirs are created in :' + config_root);
-        }
+        await check_and_create_config_dirs(config_root);
         const from_file = argv.from_file ? String(argv.from_file) : '';
         if (resources_type === 'account') {
             await account_management(argv, config_root, from_file);
@@ -448,6 +455,7 @@ async function add_account_config_file(data, accounts_path, access_keys_path, co
 
     data = JSON.stringify(data);
     await native_fs_utils.create_config_file(fs_context, accounts_path, full_account_config_path, data);
+    await native_fs_utils._create_path(access_keys_path, fs_context);
     await nb_native().fs.symlink(fs_context, full_account_config_path, full_account_config_access_key_path);
 }
 

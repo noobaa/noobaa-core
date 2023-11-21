@@ -51,22 +51,30 @@ const warn_once = _.once((...args) => dbg.warn(...args));
  *  timeout?: number,
  *  ignore_rc?: boolean,
  *  return_stdout?: boolean,
+ *  return_stderr?: boolean,
  *  trim_stdout?: boolean,
+ *  trim_stderr?: boolean,
  * }} [options]
  */
 async function exec(command, options) {
     const timeout_ms = (options && options.timeout) || 0;
     const ignore_rc = (options && options.ignore_rc) || false;
     const return_stdout = (options && options.return_stdout) || false;
+    const return_stderr = (options && options.return_stderr) || false;
     const trim_stdout = (options && options.trim_stdout) || false;
+    const trim_stderr = (options && options.trim_stdout) || false;
     try {
         dbg.log2('promise exec', command, ignore_rc);
         const res = await exec_async(command, {
             maxBuffer: 5000 * 1024, //5MB, should be enough
             timeout: timeout_ms,
         });
-        if (return_stdout) {
+        // Assuming that if there is stderr, the stdout is empty or irrelevant 
+        if (return_stdout && res.stderr === '') {
             return trim_stdout ? res.stdout.trim() : res.stdout;
+        }
+        if (return_stderr) {
+            return trim_stderr ? res.stderr.trim() : res.stderr;
         }
     } catch (err) {
         if (ignore_rc) {

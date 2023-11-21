@@ -9,6 +9,7 @@ const fs = require('fs');
 const P = require('../util/promise');
 const _ = require('lodash');
 const config = require('../../config');
+const cloud_utils = require('../util/cloud_utils');
 const native_fs_utils = require('../util/native_fs_utils');
 const nb_native = require('../util/nb_native');
 
@@ -46,14 +47,15 @@ Account Options:
     --name <name>               (default none)                              Set the name for the account.
     --email <email>             (default none)                              Set the email for the account.
     --new_name <name>           (default none)                              Set a new name for the account (update).
-    --uid <uid>                 (default as process)                        Send requests to the Filesystem with uid.
-    --gid <gid>                 (default as process)                        Send requests to the Filesystem with gid.
+    --uid <uid>                 (default none)                              Send requests to the Filesystem with uid.
+    --gid <gid>                 (default none)                              Send requests to the Filesystem with gid.
     --secret_key <key>          (default none)                              The secret key pair for the access key.
     --new_buckets_path <dir>    (default none)                              Set the filesystem's root where each subdir is a bucket.
     
     # required for add, update, and delete
     --access_key <key>          (default none)                              Authenticate incoming requests for this access key only (default is no auth).
     --new_access_key <key>      (default none)                              Set a new access key for the account.
+    --regenerate                (default none)                              When set and new_access_key is not set, will regenerate the access_key
     --config_root <dir>         (default config.NSFS_NC_DEFAULT_CONF_DIR)   Configuration files path for Noobaa standalon NSFS.
 
     # Used for list
@@ -78,28 +80,13 @@ Bucket Options:
     --config_root <dir>         (default config.NSFS_NC_DEFAULT_CONF_DIR)   Configuration files path for Noobaa standalon NSFS.
 `;
 
-function print_usage() {
-    console.warn(HELP);
-    console.warn(USAGE.trimStart());
-    console.warn(ARGUMENTS.trimStart());
-    console.warn(ACCOUNT_OPTIONS.trimStart());
-    console.warn(BUCKET_OPTIONS.trimStart());
-    process.exit(1);
-}
 
-function print_account_usage() {
+function usage({ print_account = false, print_bucket = false }) {
     console.warn(HELP);
     console.warn(USAGE.trimStart());
     console.warn(ARGUMENTS.trimStart());
-    console.warn(ACCOUNT_OPTIONS.trimStart());
-    process.exit(1);
-}
-
-function print_bucket_usage() {
-    console.warn(HELP);
-    console.warn(USAGE.trimStart());
-    console.warn(ARGUMENTS.trimStart());
-    console.warn(BUCKET_OPTIONS.trimStart());
+    if (print_account) console.warn(ACCOUNT_OPTIONS.trimStart());
+    if (print_bucket) console.warn(BUCKET_OPTIONS.trimStart());
     process.exit(1);
 }
 
@@ -134,26 +121,26 @@ async function main(argv = minimist(process.argv.slice(2))) {
         const resources_type = argv._[0] || '';
         if (argv.help || argv.h) {
             if (resources_type === 'account') {
-                return print_account_usage();
+                return usage({ print_account: true });
             } else if (resources_type === 'bucket') {
-                return print_bucket_usage();
+                return usage({ print_bucket: true });
             }
-            return print_usage();
+            return usage({ print_account: true, print_bucket: true });
         }
         if (resources_type === 'account') {
             if (argv.uid && typeof argv.uid !== 'number') {
-                console.error('Error: UID  must be a number');
+                console.error('Error: UID must be a number');
                 return;
             }
             if (argv.gid && typeof argv.gid !== 'number') {
-                console.error('Error: GIT must be a number');
+                console.error('Error: GID must be a number');
                 return;
             }
         }
         const config_root = argv.config_root ? String(argv.config_root) : config.NSFS_NC_DEFAULT_CONF_DIR;
         if (!config_root) {
             console.error('Error: Config dir should not be empty');
-            print_account_usage();
+            usage({ print_account: true });
             return;
         }
         await check_and_create_config_dirs(config_root);
@@ -229,7 +216,7 @@ async function fetch_existing_bucket_data(config_root, target) {
         source = await get_config_data(full_bucket_config_path);
     } catch (err) {
         console.error('NSFS Manage command: Could not find bucket ' + target.name + ' to update');
-        print_bucket_usage();
+        usage({ print_bucket: true });
     }
     const data = _.merge({}, source, target);
     return data;
@@ -246,7 +233,7 @@ function get_symlink_config_file_path(config_type_path, file_name) {
 async function add_bucket_config_file(data, buckets_config_path, config_root_backend) {
     const is_valid = await validate_bucket_add_args(data);
     if (!is_valid) {
-        print_bucket_usage();
+        usage({ print_bucket: true });
         return;
     }
     // TODO: support non root fs context
@@ -255,7 +242,7 @@ async function add_bucket_config_file(data, buckets_config_path, config_root_bac
     const exists = await config_file_exists(fs_context, full_bucket_config_path);
     if (exists) {
         console.error('Error: Bucket already exists');
-        print_bucket_usage();
+        usage({ print_bucket: true });
         return;
     }
     data = JSON.stringify(data);
@@ -265,7 +252,7 @@ async function add_bucket_config_file(data, buckets_config_path, config_root_bac
 async function get_bucket_config_file_status(data, bucket_config_path, config_root_backend) {
     const is_valid = await validate_minimum_bucket_args(data);
     if (!is_valid) {
-        print_bucket_usage();
+        usage({ print_bucket: true });
         return;
     }
     try {
@@ -280,7 +267,7 @@ async function get_bucket_config_file_status(data, bucket_config_path, config_ro
 async function update_bucket_config_file(data, bucket_config_path, config_root_backend) {
     const is_valid = await validate_bucket_add_args(data, true);
     if (!is_valid) {
-        print_bucket_usage();
+        usage({ print_bucket: true });
         return;
     }
     // TODO: support non root fs context
@@ -304,7 +291,7 @@ async function update_bucket_config_file(data, bucket_config_path, config_root_b
     const exists = await config_file_exists(fs_context, new_bucket_config_path);
     if (exists) {
         console.error('Error: Bucket already exists');
-        print_bucket_usage();
+        usage({ print_bucket: true });
         return;
     }
 
@@ -318,7 +305,7 @@ async function update_bucket_config_file(data, bucket_config_path, config_root_b
 async function delete_bucket_config_file(data, buckets_config_path, config_root_backend) {
     const is_valid = await validate_minimum_bucket_args(data);
     if (!is_valid) {
-        print_bucket_usage();
+        usage({ print_bucket: true });
         return;
     }
     // TODO: support non root fs context
@@ -342,7 +329,7 @@ async function manage_bucket_operations(action, data, config_root, config_root_b
         const bucket_names = buckets.map(item => (item.name));
         console.log('Bucket list', bucket_names);
     } else {
-        print_bucket_usage();
+        usage({ print_bucket: true });
     }
 }
 
@@ -353,13 +340,55 @@ async function account_management(argv, config_root, from_file) {
     await manage_account_operations(action, data, config_root, config_root_backend);
 }
 
+/**
+ * set_access_keys will set the access keys either given as args or generated.
+ * @param {{ access_key: any; secret_key: any; }} argv
+ * @param {boolean} generate a flag for generating the access_keys automatically
+ */
+function set_access_keys(argv, generate) {
+    const { access_key, secret_key } = argv;
+    let generated_access_key;
+    let generated_secret_key;
+    if (generate) {
+        ({ access_key: generated_access_key, secret_key: generated_secret_key } = cloud_utils.generate_access_keys());
+        generated_access_key = generated_access_key.unwrap();
+        generated_secret_key = generated_secret_key.unwrap();
+    }
+
+    return [{
+        access_key: access_key || generated_access_key,
+        secret_key: secret_key || generated_secret_key,
+    }];
+}
+
+/**
+ * Will print the access_keys
+ * @param {{ access_keys: any[]; }} data
+ */
+function print_access_keys(data) {
+    const access_keys = data.access_keys[0];
+    console.log(`\n\n`);
+    console.log('access_key:', access_keys.access_key.unwrap());
+    console.log('secret_key:', access_keys.secret_key.unwrap());
+}
+
 async function fetch_account_data(argv, config_root, from_file) {
     let data;
+    let generate_access_keys = true;
     const action = argv._[1] || '';
     if (from_file) {
         const raw_data = await fs.promises.readFile(from_file);
         data = JSON.parse(raw_data.toString());
     }
+    let new_access_key = argv.new_access_key;
+    if (action === 'update') {
+        generate_access_keys = false;
+        if (argv.regenerate) {
+            const keys = set_access_keys(argv, true);
+            new_access_key = keys[0].access_key;
+        }
+    }
+    if (action === 'delete') generate_access_keys = false;
     if (!data) {
         data = _.omitBy({
             name: argv.name,
@@ -367,11 +396,8 @@ async function fetch_account_data(argv, config_root, from_file) {
             creation_date: new Date().toISOString(),
             wide: argv.wide,
             new_name: argv.new_name,
-            new_access_key: argv.new_access_key,
-            access_keys: [{
-                access_key: argv.access_key,
-                secret_key: argv.secret_key
-            }],
+            new_access_key,
+            access_keys: set_access_keys(argv, generate_access_keys),
             nsfs_account_config: {
                 distinguished_name: argv.user,
                 uid: !argv.user && argv.uid,
@@ -416,7 +442,7 @@ async function fetch_existing_account_data(config_root, target) {
         source = await get_config_data(account_path);
     } catch (err) {
         console.error('NSFS Manage command: Could not find account to update', target, err);
-        print_account_usage();
+        usage({ print_account: true });
     }
     const data = _.merge({}, source, target);
     return data;
@@ -434,7 +460,7 @@ async function config_file_exists(fs_context, config_path) {
 async function add_account_config_file(data, accounts_path, access_keys_path, config_root_backend) {
     const is_valid = await validate_account_add_args(data);
     if (!is_valid) {
-        print_account_usage();
+        usage({ print_account: true });
         return;
     }
     // TODO: support non root fs context
@@ -449,7 +475,7 @@ async function add_account_config_file(data, accounts_path, access_keys_path, co
     if (name_exists || access_key_exists) {
         if (name_exists) console.error('Error: Account having the same name already exists');
         if (access_key_exists) console.error('Error: Account having the same access key already exists');
-        print_account_usage();
+        usage({ print_account: true });
         return;
     }
 
@@ -462,7 +488,7 @@ async function add_account_config_file(data, accounts_path, access_keys_path, co
 async function update_account_config_file(data, accounts_path, access_keys_path, config_root_backend) {
     const is_valid = await validate_account_add_args(data, true);
     if (!is_valid) {
-        print_account_usage();
+        usage({ print_account: true });
         return;
     }
     // TODO: support non root fs context
@@ -493,7 +519,7 @@ async function update_account_config_file(data, accounts_path, access_keys_path,
     if (name_exists || access_key_exists) {
         if (name_exists) console.error('Error: Account having the same name already exists');
         if (access_key_exists) console.error('Error: Account having the same access key already exists');
-        print_account_usage();
+        usage({ print_account: true });
         return;
     }
 
@@ -516,7 +542,7 @@ async function update_account_config_file(data, accounts_path, access_keys_path,
 async function delete_account_config_file(data, accounts_path, access_keys_path, config_root_backend) {
     const is_valid = await validate_minimum_account_args(data);
     if (!is_valid) {
-        print_account_usage();
+        usage({ print_account: true });
         return;
     }
     // TODO: support non root fs context
@@ -530,7 +556,7 @@ async function delete_account_config_file(data, accounts_path, access_keys_path,
 async function get_account_config_file_status(data, accounts_path, access_keys_path) {
     const is_valid = await validate_minimum_account_args(data);
     if (!is_valid) {
-        print_account_usage();
+        usage({ print_account: true });
         return;
     }
     try {
@@ -544,16 +570,17 @@ async function get_account_config_file_status(data, accounts_path, access_keys_p
     }
 }
 
-
 async function manage_account_operations(action, data, config_root, config_root_backend) {
     const accounts_path = path.join(config_root, accounts_dir_name);
     const access_keys_path = path.join(config_root, access_keys_dir_name);
     if (action === 'add') {
         await add_account_config_file(data, accounts_path, access_keys_path, config_root_backend);
+        print_access_keys(data);
     } else if (action === 'status') {
         await get_account_config_file_status(data, accounts_path, access_keys_path);
     } else if (action === 'update') {
         await update_account_config_file(data, accounts_path, access_keys_path, config_root_backend);
+        print_access_keys(data);
     } else if (action === 'delete') {
         await delete_account_config_file(data, accounts_path, access_keys_path, config_root_backend);
     } else if (action === 'list') {

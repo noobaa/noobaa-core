@@ -8,6 +8,13 @@ on:
       tag:
         description: 'Additional tag for the build (such as alpha, beta, etc.) - Optional'
         default: ''
+      centos_ver:
+        type: choice
+        description: 'Centos Base image (options: 8/9) - Optional, default is 9'
+        default: '9'
+        options: 
+          - '8'
+          - '9'
 
 jobs:
   manual-rpm-build-and-upload-artifact:
@@ -24,11 +31,15 @@ jobs:
         if: ${{ github.event.inputs.tag != '' }}
         run: echo suffix="-${{ github.event.inputs.tag }}" >> $GITHUB_OUTPUT
       
+      - name: Prepare CENTOS base image version
+        id: centos_ver
+        run: echo "centos_ver=${{ github.event.inputs.centos_ver }}" >> $GITHUB_OUTPUT
+      
       - name: Build RPM
         id: build_rpm
         run: |
           echo "Starting make rpm"
-          make rpm
+          make rpm CENTOS_VER=${{ steps.centos_ver.outputs.centos_ver }}
           echo "Make rpm completed"
 
       - name: Finalize RPM
@@ -36,10 +47,12 @@ jobs:
         run: |
           DATE=$(date +'%Y%m%d')
           VERSION=$(jq -r '.version' < ./package.json)
+          CENTOS_VER=${{ steps.centos_ver.outputs.centos_ver }}
+          RPM_SUFFIX=el${CENTOS_VER}.x86_64.rpm
           RPM_BASE_VERSION=noobaa-core-${VERSION}-${DATE}
-          RPM_FULL_PATH="${RPM_BASE_VERSION}-${{ github.event.inputs.branch }}${{ steps.suffix.outputs.suffix }}.el9.x86_64.rpm"
-          echo "RPM FULL PATH=${RPM_FULL_PATH}"
-          cp ./build/rpm/${RPM_BASE_VERSION}.el9.x86_64.rpm ${RPM_FULL_PATH}
+          RPM_FULL_PATH=${RPM_BASE_VERSION}-${{ github.event.inputs.branch }}${{ steps.suffix.outputs.suffix }}.${RPM_SUFFIX}
+          echo "rpm_full_path=${RPM_FULL_PATH}"
+          cp ./build/rpm/${RPM_BASE_VERSION}.${RPM_SUFFIX} ${RPM_FULL_PATH}
           echo "rpm_full_path=${RPM_FULL_PATH}" >> $GITHUB_OUTPUT
 
       - name: Upload artifact

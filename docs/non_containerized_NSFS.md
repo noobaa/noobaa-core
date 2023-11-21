@@ -8,6 +8,8 @@ Running nsfs non containerized is useful for deploying in linux without dependin
 ### Build options - 
 1. noobaa-core S3 Select is enabled. This requires boost shared objects to be present on the machine where noobaa is supposed to be installed. This feature can be disabled if not required (due to additional dependency) by running make rpm BUILD_S3SELECT=0.
 2. In order to build RPM packages for other architectures simply run make rpm CONTAINER_PLATFORM=linux/amd64 or make rpm CONTAINER_PLATFORM=linux/ppc64le
+3. Building RPM packages is available on top of centos:9 / centos:8 base images, The default base image is centos:9.
+In order to build RPM packages for centos:8 simply run `make rpm CENTOS_VER=8`.
 
 Running the following command will result with an RPM file -
 ```sh

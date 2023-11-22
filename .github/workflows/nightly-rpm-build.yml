@@ -14,27 +14,40 @@ jobs:
         with:
           ref: master
      
-      - name: Build RPM
-        id: build_rpm
+      - name: Build RPM CENTOS8
+        id: build_rpm_centos8
         run: |
-          echo "Starting make rpm"
-          make rpm
-          echo "Make rpm completed"
+          echo "Starting make rpm - CENTOS8"
+          make rpm CENTOS_VER=8
+          echo "Make rpm completed - CENTOS8"
 
-      - name: Finalize RPM
-        id: finalize_full_rpm_path
+      - name: Build RPM CENTOS9
+        id: build_rpm_centos9
+        run: |
+          echo "Starting make rpm - CENTOS9"
+          make rpm CENTOS_VER=9
+          echo "Make rpm completed - CENTOS9"
+
+      - name: Finalize RPM full paths
+        id: finalize_rpm
         run: |
           DATE=$(date +'%Y%m%d')
           VERSION=$(jq -r '.version' < ./package.json)
-          RPM_FULL_PATH=noobaa-core-${VERSION}-${DATE}.el9.x86_64
-          echo "RPM FULL PATH=${RPM_FULL_PATH}"
-          echo "rpm_full_path=${RPM_FULL_PATH}" >> $GITHUB_OUTPUT
+          RPM_BASE_VERSION_CENTOS8=noobaa-core-${VERSION}-${DATE}.el8.x86_64.rpm
+          RPM_BASE_VERSION_CENTOS9=noobaa-core-${VERSION}-${DATE}.el9.x86_64.rpm
+          echo "RPM_BASE_VERSION_CENTOS8=${RPM_BASE_VERSION_CENTOS8} RPM_BASE_VERSION_CENTOS9=${RPM_BASE_VERSION_CENTOS9}"
+          cp ./build/rpm/${RPM_BASE_VERSION_CENTOS8} ${RPM_BASE_VERSION_CENTOS8}
+          cp ./build/rpm/${RPM_BASE_VERSION_CENTOS9} ${RPM_BASE_VERSION_CENTOS9}
+          echo "rpm_full_path_centos8=${RPM_BASE_VERSION_CENTOS8}" >> $GITHUB_OUTPUT
+          echo "rpm_full_path_centos9=${RPM_BASE_VERSION_CENTOS9}" >> $GITHUB_OUTPUT
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v1.0.0
+        uses: actions/upload-artifact@v3
         with:
           name: noobaa_rpm
-          path: ${{ steps.finalize_full_rpm_path.outputs.rpm_full_path }}
+          path: |
+            ${{ steps.finalize_rpm.outputs.rpm_full_path_centos8 }}
+            ${{ steps.finalize_rpm.outputs.rpm_full_path_centos9 }}
 
       - name: Setup AWS CLI
         uses: aws-actions/configure-aws-credentials@v1
@@ -44,4 +57,6 @@ jobs:
           aws-region: us-east-1
 
       - name: Copy RPM to S3 bucket
-        run: aws s3 cp ${{ steps.finalize_full_rpm_path.outputs.rpm_full_path }} s3://noobaa-core-rpms/
+        run: |
+          aws s3 cp ${{ steps.finalize_rpm.outputs.rpm_full_path_centos8 }} s3://noobaa-core-rpms/
+          aws s3 cp ${{ steps.finalize_rpm.outputs.rpm_full_path_centos9 }} s3://noobaa-core-rpms/

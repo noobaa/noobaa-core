@@ -3,9 +3,6 @@
 
 const querystring = require('querystring');
 const http_utils = require('../util/http_utils');
-const path = require('path');
-const json_utils = require('../util/json_utils');
-const dbg = require('../util/debug_module')(__filename);
 
 function prepare_rest_request(req) {
     // generate request id, this is lighter than uuid
@@ -38,24 +35,6 @@ function parse_source_url(source_url) {
     return { query, bucket, key };
 }
 
-async function get_nsfs_system_property(property, nsfs_config_root) {
-    let system_data_path;
-    try {
-        if (nsfs_config_root) {
-            system_data_path = path.join(nsfs_config_root, 'system.json');
-            const system_data = new json_utils.JsonFileWrapper(system_data_path);
-            const data = await system_data.read();
-            return data[property];
-        }
-    } catch (err) {
-        if (err.code === 'ENOENT') {
-            dbg.log0(`System file not found in path ${system_data_path}`);
-        } else {
-            dbg.error(`Error while loading system file ${system_data_path}:`, err.message);
-        }
-    }
-}
 
 exports.prepare_rest_request = prepare_rest_request;
 exports.parse_source_url = parse_source_url;
-exports.get_nsfs_system_property = get_nsfs_system_property;

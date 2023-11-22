@@ -241,10 +241,10 @@ async function main(argv = minimist(process.argv.slice(2))) {
             return;
         }
 
-        const http_port = Number(argv.http_port) || Number(process.env.ENDPOINT_PORT) || 6001;
-        const https_port = Number(argv.https_port) || Number(process.env.ENDPOINT_SSL_PORT) || 6443;
-        const https_port_sts = Number(argv.https_port_sts) || -1;
-        const metrics_port = Number(argv.metrics_port) || -1;
+        const http_port = Number(argv.http_port) || config.ENDPOINT_PORT;
+        const https_port = Number(argv.https_port) || config.ENDPOINT_SSL_PORT;
+        const https_port_sts = Number(argv.https_port_sts) || config.ENDPOINT_SSL_STS_PORT;
+        const metrics_port = Number(argv.metrics_port) || config.EP_METRICS_SERVER_PORT;
         const forks = Number(argv.forks) || config.ENDPOINT_FORKS;
         const uid = Number(argv.uid) || process.getuid();
         const gid = Number(argv.gid) || process.getgid();
@@ -266,6 +266,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
 
         if (!simple_mode) {
             nsfs_config_root = await native_fs_utils.get_config_root(argv, fs_config);
+            config.NSFS_NC_CONF_DIR = nsfs_config_root;
         }
         const account = {
             email: new SensitiveString('nsfs@noobaa.io'),
@@ -319,7 +320,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
                 req.object_sdk = new NsfsObjectSDK(fs_root, fs_config, account, versioning, nsfs_config_root);
             }
         });
-        if (await endpoint.is_http_allowed(nsfs_config_root)) {
+        if (config.NSFS_NC_ALLOW_HTTP) {
             console.log('nsfs: listening on', util.inspect(`http://localhost:${http_port}`));
         }
         console.log('nsfs: listening on', util.inspect(`https://localhost:${https_port}`));

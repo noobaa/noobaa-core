@@ -265,7 +265,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
             backend,
             warn_threshold_ms: config.NSFS_WARN_THRESHOLD_MS,
         };
-        verify_gpfslib(backend, fs_config);
+        verify_gpfslib();
         const account = {
             email: new SensitiveString('nsfs@noobaa.io'),
             nsfs_account_config: fs_config,
@@ -339,21 +339,18 @@ async function main(argv = minimist(process.argv.slice(2))) {
     }
 }
 
-async function verify_gpfslib(backend, fs_config) {
-    if (nb_native().fs.gpfs) {
-        const stat = await nb_native().fs.stat(fs_config, process.env.GPFS_DL_PATH);
-        if (!stat) {
-            dbg.event({
-                code: "noobaa_gpfslib_missing",
-                entity_type: "NODE",
-                event_type: "STATE_CHANGE",
-                message: "Noobaa GPFS library file is missing",
-                scope: "NODE",
-                severity: "ERROR",
-                state: "DEGRADED",
-                arguments: {gpfs_dl_path: process.env.GPFS_DL_PATH},
-            });
-        }
+async function verify_gpfslib() {
+    if (!nb_native().fs.gpfs) {
+        dbg.event({
+            code: "noobaa_gpfslib_missing",
+            entity_type: "NODE",
+            event_type: "STATE_CHANGE",
+            message: "Noobaa GPFS library file is missing",
+            scope: "NODE",
+            severity: "ERROR",
+            state: "DEGRADED",
+            arguments: { gpfs_dl_path: process.env.GPFS_DL_PATH },
+        });
     }
 }
 

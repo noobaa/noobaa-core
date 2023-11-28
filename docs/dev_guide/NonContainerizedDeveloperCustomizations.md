@@ -1,5 +1,8 @@
 # Non Containerized NSFS - Developer customization (OPTIONAL)
 
+One can customize noobaa nsfs service by creation of config.json file under the config_dir/ directory.
+In this file you will find the available customizable properties and a [config.json example file](#configjson-example).
+
 The following list consists of supported optional developer customization  -
 
 ## 1. Number of forks - 
@@ -228,4 +231,23 @@ Example:
 2. Set the config key -
 Example:
 "NSFS_TRIGGER_FSYNC": false
+```
+
+
+## Config.json example - 
+```
+> cat /path/to/config_dir/config.json
+{
+    "ENDPOINT_PORT": 80,
+    "ENDPOINT_SSL_PORT": 443,
+    "ENDPOINT_FORKS": 16,
+    "UV_THREADPOOL_SIZE": 256,
+    "GPFS_DL_PATH": "/usr/lpp/mmfs/lib/libgpfs.so",
+    "NSFS_BUF_POOL_MEM_LIMIT": 4294967296,
+    "NSFS_BUF_SIZE": 16777216,
+    "NSFS_OPEN_READ_MODE": "rd",
+    "NSFS_CHECK_BUCKET_BOUNDARIES": false,
+    "ALLOW_HTTP": true
+}
+
 ```

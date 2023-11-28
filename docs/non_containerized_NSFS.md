@@ -109,14 +109,16 @@ mkdir -p /tmp/fs1/
 ```
 
 ## Developer customization of the nsfs service (OPTIONAL) - 
-The following list consists of supported optional developer customization -
+One can customize noobaa nsfs service by creation of config.json file under the config_dir/ directory (/path/to/config_dir/config.json).
+The following are some of the properties that can be customized -
 1. Number of forks 
 2. Log debug level
 3. Ports
 4. Allow http
+5. GPFS library path
 etc...
 
-For more details see - [Non Containerized NSFS Developer Customization](https://github.com/noobaa/noobaa-core/blob/master/docs/dev_guide/NonContainerizedDeveloperCustomizations.md)
+For more details about the available properties and an example see - [Non Containerized NSFS Developer Customization](https://github.com/noobaa/noobaa-core/blob/master/docs/dev_guide/NonContainerizedDeveloperCustomizations.md)
 
 ## Create accounts and exported buckets configuration files - ##
 

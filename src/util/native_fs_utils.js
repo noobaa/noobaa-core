@@ -8,11 +8,13 @@ const nb_native = require('../util/nb_native');
 const { v4: uuidv4 } = require('uuid');
 const config = require('../../config');
 const RpcError = require('../rpc/rpc_error');
+const net = require('net');
 
 const gpfs_link_unlink_retry_err = 'EEXIST';
 const gpfs_unlink_retry_catch = 'GPFS_UNLINK_RETRY';
 const posix_link_retry_err = 'FS::SafeLink ERROR link target doesn\'t match expected inode and mtime';
 const posix_unlink_retry_err = 'FS::SafeUnlink ERROR unlink target doesn\'t match expected inode and mtime';
+const VALID_BUCKET_NAME_REGEXP = /^(([a-z0-9]|[a-z0-9][a-z0-9-]*[a-z0-9])\.)*([a-z0-9]|[a-z0-9][a-z0-9-]*[a-z0-9])$/;
 
 /** @typedef {import('../util/buffer_utils').BuffersPool} BuffersPool */
 
@@ -26,12 +28,12 @@ async function _make_path_dirs(file_path, fs_context) {
     if (last_dir_pos > 0) return _create_path(file_path.slice(0, last_dir_pos), fs_context);
 }
 
-async function _create_path(dir, fs_context) {
+async function _create_path(dir, fs_context, dir_permissions = config.BASE_MODE_DIR) {
     let dir_path = path.isAbsolute(dir) ? path.sep : '';
     for (const item of dir.split(path.sep)) {
         dir_path = path.join(dir_path, item);
         try {
-            await nb_native().fs.mkdir(fs_context, dir_path, get_umasked_mode(config.BASE_MODE_DIR));
+            await nb_native().fs.mkdir(fs_context, dir_path, get_umasked_mode(dir_permissions));
         } catch (err) {
             const ERR_CODES = ['EISDIR', 'EEXIST'];
             if (!ERR_CODES.includes(err.code)) throw err;
@@ -55,7 +57,8 @@ async function _generate_unique_path(fs_context, tmp_dir_path) {
  * @param {string} open_mode 
  */
 // opens open_path on POSIX, and on GPFS it will open open_path parent folder
-async function open_file(fs_context, bucket_path, open_path, open_mode = config.NSFS_OPEN_READ_MODE) {
+async function open_file(fs_context, bucket_path, open_path, open_mode = config.NSFS_OPEN_READ_MODE,
+        file_permissions = config.BASE_MODE_FILE) {
     const dir_path = path.dirname(open_path);
     if ((open_mode === 'wt' || open_mode === 'w') && dir_path !== bucket_path) {
         dbg.log1(`NamespaceFS._open_file: mode=${open_mode} creating dirs`, open_path, bucket_path);
@@ -64,7 +67,7 @@ async function open_file(fs_context, bucket_path, open_path, open_mode = config.
     dbg.log1(`NamespaceFS._open_file: mode=${open_mode}`, open_path);
     // for 'wt' open the tmpfile with the parent dir path
     const actual_open_path = open_mode === 'wt' ? dir_path : open_path;
-    return nb_native().fs.open(fs_context, actual_open_path, open_mode, get_umasked_mode(config.BASE_MODE_FILE));
+    return nb_native().fs.open(fs_context, actual_open_path, open_mode, get_umasked_mode(file_permissions));
 }
 
 /**
@@ -262,14 +265,14 @@ async function create_config_file(fs_context, schema_dir, config_path, config_da
         }
         dbg.log0('native_fs_utils: create_config_file config_path:', config_path, 'config_data:', config_data, 'is_gpfs:', open_mode);
         // create config dir if it does not exist
-        await _create_path(schema_dir, fs_context);
+        await _create_path(schema_dir, fs_context, config.BASE_MODE_CONFIG_DIR);
         // when using GPFS open dst file as soon as possible for later linkat validation
-        if (is_gpfs) gpfs_dst_file = await open_file(fs_context, schema_dir, config_path, 'w*');
+        if (is_gpfs) gpfs_dst_file = await open_file(fs_context, schema_dir, config_path, 'w*', config.BASE_MODE_CONFIG_FILE);
 
         // open tmp file (in GPFS we open the parent dir using wt open mode)
         const tmp_dir_path = path.join(schema_dir, get_config_files_tmpdir());
         let open_path = is_gpfs ? config_path : await _generate_unique_path(fs_context, tmp_dir_path);
-        upload_tmp_file = await open_file(fs_context, schema_dir, open_path, open_mode);
+        upload_tmp_file = await open_file(fs_context, schema_dir, open_path, open_mode, config.BASE_MODE_CONFIG_FILE);
 
         // write tmp file data
         await upload_tmp_file.writev(fs_context, [Buffer.from(config_data)], 0);
@@ -364,7 +367,7 @@ async function update_config_file(fs_context, schema_dir, config_path, config_da
             stat = await nb_native().fs.stat(fs_context, config_path);
             await safe_unlink(fs_context, config_path, stat, undefined, tmp_dir_path);
             open_path = await _generate_unique_path(fs_context, tmp_dir_path);
-            upload_tmp_file = await open_file(fs_context, schema_dir, open_path, 'w');
+            upload_tmp_file = await open_file(fs_context, schema_dir, open_path, 'w', config.BASE_MODE_CONFIG_FILE);
         }
         dbg.log0('native_fs_utils: update_config_file config_path:', config_path, 'config_data:', config_data);
 
@@ -431,7 +434,7 @@ function isDirectory(ent) {
  * @param {string} [config_root_backend]
  * @returns {nb.NativeFSContext}
  */
-function get_root_fs_context(config_root_backend) {
+function get_process_fs_context(config_root_backend) {
     return {
         uid: process.getuid(),
         gid: process.getgid(),
@@ -440,6 +443,14 @@ function get_root_fs_context(config_root_backend) {
     };
 }
 
+function validate_bucket_creation(params) {
+    if (params.name.length < 3 ||
+        params.name.length > 63 ||
+        net.isIP(params.name) ||
+        !VALID_BUCKET_NAME_REGEXP.test(params.name)) {
+        throw new RpcError('INVALID_BUCKET_NAME');
+    }
+}
 
 exports.get_umasked_mode = get_umasked_mode;
 exports._make_path_dirs = _make_path_dirs;
@@ -467,4 +478,5 @@ exports.create_config_file = create_config_file;
 exports.delete_config_file = delete_config_file;
 exports.update_config_file = update_config_file;
 exports.isDirectory = isDirectory;
-exports.get_root_fs_context = get_root_fs_context;
+exports.get_process_fs_context = get_process_fs_context;
+exports.validate_bucket_creation = validate_bucket_creation;

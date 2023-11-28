@@ -347,7 +347,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
     }
 }
 
-async function verify_gpfslib() {
+function verify_gpfslib() {
     if (!nb_native().fs.gpfs) {
         dbg.event({
             code: "noobaa_gpfslib_missing",

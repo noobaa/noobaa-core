@@ -10,7 +10,7 @@ const url = require('url');
 const _ = require('lodash');
 const SensitiveString = require('./sensitive_string');
 
-const projectedServiceAccountToken = "/var/run/secrets/openshift/serviceaccount/oidc-token";
+const projectedServiceAccountToken = "/var/run/secrets/openshift/serviceaccount/token";
 const defaultRoleSessionName = 'default_noobaa_s3_ops';
 const defaultSTSCredsValidity = 3600;
 

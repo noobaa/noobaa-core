@@ -456,7 +456,8 @@ async function add_account_config_file(data, accounts_path, access_keys_path, co
     data = JSON.stringify(data);
     await native_fs_utils.create_config_file(fs_context, accounts_path, full_account_config_path, data);
     await native_fs_utils._create_path(access_keys_path, fs_context);
-    await nb_native().fs.symlink(fs_context, full_account_config_path, full_account_config_access_key_path);
+    //await nb_native().fs.symlink(fs_context, full_account_config_path, full_account_config_access_key_path);
+    await copy_config_data_to_path(full_account_config_path, full_account_config_access_key_path);
 }
 
 async function update_account_config_file(data, accounts_path, access_keys_path, config_root_backend) {
@@ -592,6 +593,10 @@ async function get_config_data(config_file_path) {
     return resources;
 }
 
+async function copy_config_data_to_path(source, dest) {
+    const data = await fs.promises.readFile(source);
+    await fs.promises.writeFile(dest, data.toString());
+}
 /**
  * get_view_config_data will read a config file and return its content ready to be printed
  * @param {fs.PathLike} config_file_path

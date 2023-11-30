@@ -5,7 +5,7 @@ This document will list all the possible Noobaa non-containerized NSFS events an
 ## Events
 
 ### 1. noobaa_nsfs_crashed
-#### Reseason
+#### Reasons
 - Noobaa endpoint module failed to load.
 - High Noobaa resource utilization.
 
@@ -14,27 +14,27 @@ This document will list all the possible Noobaa non-containerized NSFS events an
 
 ### 2. noobaa_gpfslib_missing
 arguments: `gpfs_dl_path`
-#### Reseason
+#### Reasons
 - Missing gpfslib in `GPFS_DL_PATH` path.
 #### Resolutions
 - Add gpfslib in `GPFS_DL_PATH` path.
 
 ### 3. noobaa_started
-#### Reseason
+#### Reasons
 - Noobaa started without any issues.
 #### Resolutions
 - Nil
 
 ### 4. noobaa_account_created
 arguments: `account_name`
-#### Reseason
+#### Reasons
 - Noobaa user account created.
 #### Resolutions
 - Nil
 
 ### 5. noobaa_bucket_creation_failed
 arguments: `bucket_name`
-#### Reseason
+#### Reasons
 - User does not have permission to update `noobaa.conf.d` dir and its redirect path if present.
 - User does not have permission to create the bucket's underlying storage directory.
 
@@ -44,7 +44,7 @@ arguments: `bucket_name`
 
 ### 6. noobaa_bucket_delete_failed
 arguments: `bucket_name`, `bucket_path`
-#### Reseason
+#### Reasons
 - User does not have permission to delete the bucket config file from `noobaa.conf.d` dir and its redirect path if present.
 - User does not have permission to delete the bucket's underlying storage directory.
 - Bucket storage dir is missing.
@@ -56,7 +56,7 @@ arguments: `bucket_name`, `bucket_path`
 
 ### 7. noobaa_bucket_not_found
 arguments: `bucket_name`
-#### Reseason
+#### Reasons
 - Bucket config file in config_root path is missing.
 - Bucket config JSON schema validation failed.
 - Bucket's underlying storage directory not found 
@@ -67,7 +67,7 @@ arguments: `bucket_name`
 
 ### 8. noobaa_object_get_failed
 arguments : `bucket_path`, `object_name`
-#### Reseason
+#### Reasons
 - Noobaa bucket path is missing.
 - Bucket I/O operation is failed.
 #### Resolutions
@@ -75,7 +75,7 @@ arguments : `bucket_path`, `object_name`
 
 ### 9. noobaa_object_uplaod_failed
 arguments : `bucket_path`, `object_name`
-#### Reseason
+#### Reasons
 - Bucket path is outside the bucket boundaries.
 - Bucket storage class is not supported.
 - Object I/O operation is failed.

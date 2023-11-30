@@ -415,6 +415,18 @@ async function get_user_by_distinguished_name({ distinguished_name }) {
     }
 }
 
+function isDirectory(ent) {
+    if (!ent) throw new Error('isDirectory: ent is empty');
+    if (ent.mode) {
+        // eslint-disable-next-line no-bitwise
+        return (((ent.mode) & nb_native().fs.S_IFMT) === nb_native().fs.S_IFDIR);
+    } else if (ent.type) {
+        return ent.type === nb_native().fs.DT_DIR;
+    } else {
+        throw new Error(`isDirectory: ent ${ent} is not supported`);
+    }
+}
+
 exports.get_umasked_mode = get_umasked_mode;
 exports._make_path_dirs = _make_path_dirs;
 exports._create_path = _create_path;
@@ -440,3 +452,4 @@ exports.gpfs_unlink_retry_catch = gpfs_unlink_retry_catch;
 exports.create_config_file = create_config_file;
 exports.delete_config_file = delete_config_file;
 exports.update_config_file = update_config_file;
+exports.isDirectory = isDirectory;

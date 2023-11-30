@@ -48,19 +48,6 @@ function prepare_fs_context(object_sdk) {
     return fs_context;
 }
 
-function isDirectory(ent) {
-    if (!ent) throw new Error('isDirectory: ent is empty');
-    if (ent.mode) {
-        // eslint-disable-next-line no-bitwise
-        return (((ent.mode) & nb_native().fs.S_IFMT) === nb_native().fs.S_IFDIR);
-    } else if (ent.type) {
-        return ent.type === nb_native().fs.DT_DIR;
-    } else {
-        throw new Error(`isDirectory: ent ${ent} is not supported`);
-    }
-}
-
-
 
 class BucketSpaceFS extends BucketSpaceSimpleFS {
     constructor({config_root}) {
@@ -229,7 +216,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
     async list_buckets(object_sdk) {
         try {
             const entries = await nb_native().fs.readdir(this.fs_context, this.bucket_schema_dir);
-            const bucket_config_files = entries.filter(entree => !isDirectory(entree) && entree.name.endsWith('.json'));
+            const bucket_config_files = entries.filter(entree => !native_fs_utils.isDirectory(entree) && entree.name.endsWith('.json'));
             //TODO : we need to add pagination support to list buckets for more than 1000 buckets.
             let buckets = await P.map(bucket_config_files, bucket_config_file => this.get_bucket_name(bucket_config_file.name));
             buckets = buckets.filter(bucket => bucket.name.unwrap());

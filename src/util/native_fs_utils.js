@@ -260,7 +260,7 @@ async function create_config_file(fs_context, schema_dir, config_path, config_da
         } catch (err) {
             if (err.code !== 'ENOENT') throw err;
         }
-        dbg.log0('native_fs_utils: create_config_file config_path:', config_path, 'config_data:', config_data, 'is_gpfs:', open_mode);
+        dbg.log1('native_fs_utils: create_config_file config_path:', config_path, 'config_data:', config_data, 'is_gpfs:', open_mode);
         // create config dir if it does not exist
         await _create_path(schema_dir, fs_context);
         // when using GPFS open dst file as soon as possible for later linkat validation
@@ -284,11 +284,11 @@ async function create_config_file(fs_context, schema_dir, config_path, config_da
         } else {
             src_stat = await nb_native().fs.stat(fs_context, open_path);
         }
-        dbg.log0('native_fs_utils: create_config_file moving from:', open_path, 'to:', config_path, 'is_gpfs=', is_gpfs);
+        dbg.log1('native_fs_utils: create_config_file moving from:', open_path, 'to:', config_path, 'is_gpfs=', is_gpfs);
 
         await safe_move(fs_context, open_path, config_path, src_stat, gpfs_options, tmp_dir_path);
 
-        dbg.log0('native_fs_utils: create_config_file done', config_path);
+        dbg.log1('native_fs_utils: create_config_file done', config_path);
     } catch (err) {
         dbg.error('native_fs_utils: create_config_file error', err);
         throw err;
@@ -318,17 +318,17 @@ async function delete_config_file(fs_context, schema_dir, config_path) {
         } else {
             stat = await nb_native().fs.stat(fs_context, config_path);
         }
-        dbg.log0('native_fs_utils: delete_config_file config_path:', config_path, 'is_gpfs:', is_gpfs);
+        dbg.log1('native_fs_utils: delete_config_file config_path:', config_path, 'is_gpfs:', is_gpfs);
 
         // moving tmp file to config path atomically
-        dbg.log0('native_fs_utils: delete_config_file unlinking:', config_path, 'is_gpfs=', is_gpfs);
+        dbg.log1('native_fs_utils: delete_config_file unlinking:', config_path, 'is_gpfs=', is_gpfs);
         const tmp_dir_path = path.join(schema_dir, get_config_files_tmpdir());
         // TODO: add retry? should we fail deletion if the config file was updated at the same time?
         await safe_unlink(fs_context, config_path, stat, gpfs_options, tmp_dir_path);
 
-        dbg.log0('native_fs_utils: delete_config_file done', config_path);
+        dbg.log1('native_fs_utils: delete_config_file done', config_path);
     } catch (err) {
-        dbg.error('native_fs_utils: delete_config_file error', err);
+        dbg.log1('native_fs_utils: delete_config_file error', err);
         throw err;
     } finally {
         await finally_close_files(fs_context, [gpfs_dir_file, gpfs_src_file]);
@@ -366,19 +366,19 @@ async function update_config_file(fs_context, schema_dir, config_path, config_da
             open_path = await _generate_unique_path(fs_context, tmp_dir_path);
             upload_tmp_file = await open_file(fs_context, schema_dir, open_path, 'w');
         }
-        dbg.log0('native_fs_utils: update_config_file config_path:', config_path, 'config_data:', config_data);
+        dbg.log1('native_fs_utils: update_config_file config_path:', config_path, 'config_data:', config_data);
 
         // write tmp file data
         await upload_tmp_file.writev(fs_context, [Buffer.from(config_data)], 0);
 
         // moving tmp file to config path atomically
-        dbg.log0('native_fs_utils: update_config_file moving from:', open_path, 'to:', config_path, 'is_gpfs=', is_gpfs);
+        dbg.log1('native_fs_utils: update_config_file moving from:', open_path, 'to:', config_path, 'is_gpfs=', is_gpfs);
         let retries = config.NSFS_RENAME_RETRIES;
         for (;;) {
             try {
                 const src_stat = is_gpfs ? undefined : await nb_native().fs.stat(fs_context, open_path);
                 await safe_move(fs_context, open_path, config_path, src_stat, gpfs_options, tmp_dir_path);
-                dbg.log0('native_fs_utils: update_config_file done', config_path);
+                dbg.log1('native_fs_utils: update_config_file done', config_path);
                 break;
             } catch (err) {
                 retries -= 1;

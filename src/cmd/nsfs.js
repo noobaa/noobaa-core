@@ -265,6 +265,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
         const iam_ttl = Number(argv.iam_ttl ?? 60);
         const backend = argv.backend || (process.env.GPFS_DL_PATH ? 'GPFS' : '');
         const versioning = argv.versioning || 'DISABLED';
+
         const fs_root = argv._[0] || '';
 
         const fs_config = {
@@ -326,7 +327,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
                 req.object_sdk = new NsfsObjectSDK(fs_root, fs_config, account, versioning, nsfs_config_root);
             }
         });
-        if (config.NSFS_NC_ALLOW_HTTP) {
+        if (await endpoint.is_http_allowed(nsfs_config_root)) {
             console.log('nsfs: listening on', util.inspect(`http://localhost:${http_port}`));
         }
         console.log('nsfs: listening on', util.inspect(`https://localhost:${https_port}`));

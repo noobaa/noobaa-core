@@ -60,10 +60,9 @@ function verify_ssl_certificate(certificate) {
 }
 
 // Get SSL certificate (load once then serve from cache)
-async function get_ssl_cert_info(service, nsfs_config_root) {
+async function get_ssl_cert_info(service, nsfs_ssl_cert_dir) {
     let cert_info;
-    if (service === 'S3' && nsfs_config_root) {
-        const nsfs_ssl_cert_dir = path.join(nsfs_config_root, 'certificates/');
+    if (service === 'S3' && nsfs_ssl_cert_dir) {
         cert_info = new CertInfo(nsfs_ssl_cert_dir);
     } else {
         cert_info = certs[service];

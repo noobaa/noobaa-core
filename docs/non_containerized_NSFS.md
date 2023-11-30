@@ -43,18 +43,16 @@ Error: Unable to find a match: epel-release
 yum install wget
 ```
 2. Download and install boost -
-
-RHEL8 / centos:stream8 - 
 ```sh
+// RHEL8/centos:stream8
 wget https://rpmfind.net/linux/centos/8-stream/AppStream/x86_64/os/Packages/boost-system-1.66.0-13.el8.x86_64.rpm
 wget https://rpmfind.net/linux/centos/8-stream/AppStream/x86_64/os/Packages/boost-thread-1.66.0-13.el8.x86_64.rpm
 rpm -i boost-system-1.66.0-13.el8.x86_64.rpm
 rpm -i boost-thread-1.66.0-13.el8.x86_64.rpm
 ```
 
-RHEL9 / centos:stream9 - 
-
 ```sh
+// RHEL9/centos:stream9
 wget https://rpmfind.net/linux/centos-stream/9-stream/AppStream/x86_64/os/Packages/boost-system-1.75.0-8.el9.x86_64.rpm
 wget https://rpmfind.net/linux/centos-stream/9-stream/AppStream/x86_64/os/Packages/boost-thread-1.75.0-8.el9.x86_64.rpm
 rpm -i boost-system-1.75.0-8.el9.x86_64.rpm
@@ -79,15 +77,6 @@ rpm -i <rpm_file_name>.rpm
 ```
 
 After installing NooBaa RPM, it's expected to have noobaa-core source code under /usr/local/noobaa-core and an nsfs systemd example script under /etc/systemd/system/.
-
-## Create config dir redirect file -
-NooBaa will try locate a text file that contains a path to the configuration directory, the user should create the redirect file in the fixed location - /etc/noobaa.conf.d/config_dir_redirect
-
-```sh
-echo "/path/to/config/dir" > /etc/noobaa.conf.d/config_dir_redirect
-```
-
-If config_root flag was not provided to the nsfs service and /etc/noobaa.conf.d/config_dir_redirect file does not exist, nsfs service will use /etc/noobaa.conf.d/ as its default config_dir.
 
 ## Create configuration files -
 **IMPORTANT NOTE** - It's not mendatory to create the config_root under /etc/noobaa.conf.d/. config_dir path can be set using an CONFIG_JS_NSFS_NC_DEFAULT_CONF_DIR.
@@ -114,7 +103,6 @@ The following list consists of supported optional developer customization -
 2. Log debug level
 3. Ports
 4. Allow http
-etc...
 
 For more details see - [Non Containerized NSFS Developer Customization](https://github.com/noobaa/noobaa-core/blob/master/docs/dev_guide/NonContainerizedDeveloperCustomizations.md)
 
@@ -136,7 +124,7 @@ systemctl start noobaa_nsfs
 Run the following command in order to get the nsfs service logs - 
 
 ```sh
-journalctl -u noobaa_nsfs.service
+journalctl -u nsfs.service
 ```
 
 
@@ -390,7 +378,7 @@ These error codes will get attached with a specific Bucket or Account schema ins
 - Check for any JSON syntax error in the schema structure for Bucket/Account.
 
 ## Bucket and Account Manage CLI
-Users can create, update, delete, and list buckets and accounts using CLI. If the config directory is missing CLI will create one and also create accounts and buckets sub-directories in it and default config directory is `${config.NSFS_NC_DEFAULT_CONF_DIR}`. 
+Users can create, update, delete, and list buckets and accounts using CLI. If the config directory is missing CLI will create one and also create accounts and buckets sub-directories in it and default config directory is `/etc/noobaa.conf.d`. 
 
 CLI will never create or delete a bucket directory for the user if a bucket directory is missing CLI will return with error.
  

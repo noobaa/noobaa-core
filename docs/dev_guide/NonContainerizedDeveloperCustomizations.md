@@ -4,21 +4,16 @@ The following list consists of supported optional developer customization  -
 
 ## 1. Number of forks - 
  
-**Description -** Adjust the number of forks in order to increase the S3 endpoints number. This will enable NooBaa to handle a higher scale of S3 requests concurrently.
+**Description -** Adjust the number of forks in order to increase the S3 endpoints number. This will enable NooBaa  to handle a higher scale of S3 requests concurrently.
 
-**Configuration Key -** ENDPOINT_FORKS
-
-**Type -** number  
-
-**Default -** 0
+**Environemnt Variable -** ENDPOINT_FORKS
 
 **Steps -**
 ```
-1. Open /path/to/config_dir/config.json file.
-2. Set the ENDPOINT_FORKS key to the desired level.
+1. Open the /etc/noobaa.conf.d/.env file.
+2. Set the ENDPOINT_FORKS variable to the desired level.
 Example:
-"ENDPOINT_FORKS":8
-3. systemctl restart noobaa_nsfs
+ENDPOINT_FORKS=8
 ```
 
 ## 2. Log debug level -
@@ -32,19 +27,14 @@ Supported log debug levels:
 4. all - for all detailed debugging.
 
 
-**Configuration Key -** NOOBAA_LOG_LEVEL
-
-**Type -** string
-
-**Default -** "default"
+**Environemnt Variable -** NOOBAA_LOG_LEVEL
 
 **Steps -**
 ```
-1. Open /path/to/config_dir/config.json file.
-2. Set the NOOBAA_LOG_LEVEL key to the desired level.
+1. Open the /etc/noobaa.conf.d/.env file.
+2. Set the NOOBAA_LOG_LEVEL variable to the desired level.
 Example:
-"NOOBAA_LOG_LEVEL": "nsfs"
-3. systemctl restart noobaa_nsfs
+NOOBAA_LOG_LEVEL=nsfs
 ```
 
 ## 3. Ports -
@@ -54,178 +44,21 @@ Example:
 The following S3 endpoint ports can be customized:
 1. ENDPOINT_PORT - S3 HTTP port 
 2. ENDPOINT_SSL_PORT - S3 HTTPS port 
-3. ENDPOINT_SSL_STS_PORT - STS HTTPS port 
+3. ENDPOINT_SSL_PORT_STS - STS HTTPS port 
 4. EP_METRICS_SERVER_PORT - prometheus metrics port 
 
 
-**Configuration Keys -** ENDPOINT_PORT, ENDPOINT_SSL_PORT, ENDPOINT_SSL_STS_PORT, EP_METRICS_SERVER_PORT
-
-**Type -** number
-
-**Default -** ENDPOINT_PORT=6001, ENDPOINT_SSL_PORT=6443, ENDPOINT_SSL_STS_PORT=7443, EP_METRICS_SERVER_PORT=-1
+**Environemnt Variables -** ENDPOINT_PORT, ENDPOINT_SSL_PORT, ENDPOINT_SSL_PORT_STS, EP_METRICS_SERVER_PORT
 
 **Steps -**
 ```
-1. Open /path/to/config_dir/config.json file.
-2. Set the config key -
+1. Open the /etc/noobaa.conf.d/.env file.
+2. Set the environment variable.
 Example:
-"ENDPOINT_PORT": 5555
-3. systemctl restart noobaa_nsfs
+ENDPOINT_PORT=5555
 ```
 
-## 4. Allow http requests-
-**Description -** Enable or disable listenting HTTP requests.
+## 4. Allow http -
+**Description -** Enable or disable HTTP support for your application. 
 
-**Configuration Key -** ALLOW_HTTP
-
-**Type -** boolean
-
-**Default -** false
-
-**Steps -**
-```
-1. Open /path/to/config_dir/config.json file.
-2. Set the config key -
-Example:
-"ALLOW_HTTP": false
-3. systemctl restart noobaa_nsfs
-```
-
-## 5. MD5 calculation -
-**Description -** Enable or disable MD5 calculation on PUT object or Multipart upload requests.
-
-**Configuration Key -** NSFS_CALCULATE_MD5
-
-**Type -** boolean
-
-**Default -** false
-
-**Steps -**
-```
-1. Open /path/to/config_dir/config.json file.
-2. Set the config key -
-Example:
-"NSFS_CALCULATE_MD5": true
-```
-
-## 6. UV_THREADPOOL_SIZE -
-**Description -** Set UV_THREADPOOL_SIZE in order to increase the performance of NooBaa - https://docs.libuv.org/en/v1.x/threadpool.html.
-
-**Configuration Key -** UV_THREADPOOL_SIZE
-
-**Type -** number
-
-**Default -** 4
-
-**Steps -**
-```
-1. Open /path/to/config_dir/config.json file.
-2. Set the config key -
-Example:
-"UV_THREADPOOL_SIZE": 8
-3. systemctl restart noobaa_nsfs
-```
-
-## 7. GPFS library path -
-**Description -** Set GPFS library path location.
-
-**Configuration Key -** GPFS_DL_PATH
-
-**Type -** string
-
-**Default -** ''
-
-**Steps -**
-```
-1. Open /path/to/config_dir/config.json file.
-2. Set the config key -
-Example:
-"GPFS_DL_PATH": "/usr/lib64/libgpfs.so"
-3. systemctl restart noobaa_nsfs
-```
-
-## 8. Buffer pool memory limit -
-**Description -** Set Buffer pool memory limit in order to increase performance. suggested values 1-4GB, service restart required.
-**Configuration Key -** NSFS_BUF_POOL_MEM_LIMIT
-
-**Type -** number
-
-**Default -** 32MB = 33554432 bytes = 32 * 1024 * 1024
-
-**Steps -**
-```
-1. Open /path/to/config_dir/config.json file.
-2. Set the config key in bytes-
-Example: 
-"NSFS_BUF_POOL_MEM_LIMIT" : 52428800
-3. systemctl restart noobaa_nsfs
-```
-
-## 9. Buffer size -
-**Description -** Set Buffer size in order to increase performance of small/large objects requests, service restart required.
-
-**Configuration Key -** NSFS_BUF_SIZE
-
-**Type -** number
-
-**Default -** 8MB = 8388608 bytes = 8 * 1024 * 1024
-
-**Steps -**
-```
-1. Open /path/to/config_dir/config.json file.
-2. Set the config key in bytes-
-Example:
-"NSFS_BUF_SIZE": 10485760
-3. systemctl restart noobaa_nsfs
-```
-
-## 10. Open read mode -
-**Description -** Set the mode of open for read, use 'rd' for direct-io reads.
-
-**Configuration Key -** NSFS_OPEN_READ_MODE
-
-**Type -** string
-
-**Default -** 'r'
-
-**Steps -**
-```
-1. Open /path/to/config_dir/config.json file.
-2. Set the config key -
-Example:
-"NSFS_OPEN_READ_MODE": "rd"
-```
-
-## 11. Trigger Check bucket boundaries -
-**Description -** Enable/Disable bucket boundaries checks.
-
-**Configuration Key -** NSFS_CHECK_BUCKET_BOUNDARIES
-
-**Type -** boolean
-
-**Default -** true
-
-**Steps -**
-```
-1. Open /path/to/config_dir/config.json file.
-2. Set the config key -
-Example:
-"NSFS_CHECK_BUCKET_BOUNDARIES": false
-```
-
-## 12. Trigger Fsync -
-**Description -** Enable/Disable fsync triggers, changing value to false is unsafe for production envs.
-
-**Configuration Key -** NSFS_TRIGGER_FSYNC
-
-**Type -** boolean
-
-**Default -** true
-
-**Steps -**
-```
-1. Open /path/to/config_dir/config.json file.
-2. Set the config key -
-Example:
-"NSFS_TRIGGER_FSYNC": false
-```
+// TODO: step should move from system.json to config.json

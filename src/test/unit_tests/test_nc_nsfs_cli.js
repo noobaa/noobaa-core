@@ -74,9 +74,8 @@ mocha.describe('manage_nsfs cli', function() {
                 await exec_manage_cli(type, action, bucket_options);
                 assert.fail('should have failed with bucket already exists');
             } catch (err) {
-                assert.ok(err.stderr.includes(`Error: Bucket already exists`));
+                assert.ok(err.stdout.includes(`Error: Bucket already exists with name : ${bucket_options.bucket_name}`));
             }
-
         });
 
         mocha.it('cli bucket update owner_email', async function() {
@@ -99,14 +98,14 @@ mocha.describe('manage_nsfs cli', function() {
 
         mocha.it('cli bucket2 update - new_name already exists', async function() {
             let action = nc_nsfs_manage_actions.ADD;
-            const bucket_name2 = 'bucket3';
-            await exec_manage_cli(type, action, { ...bucket_options, bucket_name: bucket_name2});
+            const bucket_name3 = 'bucket3';
+            await exec_manage_cli(type, action, { ...bucket_options, bucket_name: bucket_name3});
             action = nc_nsfs_manage_actions.UPDATE;
             try {
-                await exec_manage_cli(type, action, { ...bucket_options, bucket_name: bucket_name2, new_name: 'bucket2' });
+                await exec_manage_cli(type, action, { ...bucket_options, bucket_name: bucket_name3, new_name: 'bucket2' });
                 assert.fail('should have failed with bucket name already exists');
             } catch (err) {
-                assert.ok(err.stderr && err.stderr.includes('Error: Bucket already exists'));
+                assert.ok(err.stdout && err.stdout.includes(`Error: Bucket already exists with name : bucket2`));
             }
         });
 
@@ -154,7 +153,7 @@ mocha.describe('manage_nsfs cli', function() {
                 await exec_manage_cli(type, action, { config_root, access_key, secret_key, email: 'bla' });
                 assert.fail('should have failed with account config should not be empty');
             } catch (err) {
-                assert.ok(err.stderr.includes('Error: Account config should not be empty'));
+                assert.ok(err.stdout.includes('Error: Account config should not be empty'));
             }
         });
 
@@ -164,7 +163,7 @@ mocha.describe('manage_nsfs cli', function() {
                 await exec_manage_cli(type, action, { ...account_options, new_buckets_path: 'path_does/not_exist' });
                 assert.fail('should have failed with new_buckets_path should be a valid dir path');
             } catch (err) {
-                assert.ok(err.stderr.includes('Error: new_buckets_path should be a valid dir path'));
+                assert.ok(err.stdout.includes('Error: new_buckets_path should be a valid dir path : path_does/not_exist'));
             }
         });
 
@@ -174,7 +173,7 @@ mocha.describe('manage_nsfs cli', function() {
                 await exec_manage_cli(type, action, { ...account_options, access_key: 'random' });
                 assert.fail('should have failed with account name already exists');
             } catch (err) {
-                assert.ok(err.stderr.includes('Error: Account having the same name already exists'));
+                assert.ok(err.stdout.includes('Error: Account having the same name already exists'));
             }
         });
 
@@ -184,7 +183,7 @@ mocha.describe('manage_nsfs cli', function() {
                 await exec_manage_cli(type, action, { ...account_options, name: 'random' });
                 assert.fail('should have failed with account access key already exists');
             } catch (err) {
-                assert.ok(err.stderr.includes('Error: Account having the same access key already exists'));
+                assert.ok(err.stdout.includes('Error: Account having the same access key already exists'));
             }
         });
 
@@ -301,6 +300,7 @@ mocha.describe('manage_nsfs cli', function() {
     });
 
     mocha.describe('cli account flow - updates', async function() {
+        this.timeout(50000); // eslint-disable-line no-invalid-this
         const type = nc_nsfs_manage_entity_types.ACCOUNT;
         const name = 'account1';
         const email = 'account1@noobaa.io';
@@ -319,7 +319,7 @@ mocha.describe('manage_nsfs cli', function() {
             await exec_manage_cli(type, action, account2_options);
         });
         mocha.after(async () => {
-            fs_utils.folder_delete(new_buckets_path);
+            await fs_utils.folder_delete(new_buckets_path);
             const action = nc_nsfs_manage_actions.DELETE;
             await exec_manage_cli(type, action, account1_options);
             await exec_manage_cli(type, action, account2_options);
@@ -331,7 +331,7 @@ mocha.describe('manage_nsfs cli', function() {
                 await exec_manage_cli(type, action, { ...account2_options, new_name: 'account1' });
                 assert.fail('should have failed with account name already exists');
             } catch (err) {
-                assert.ok(err.stderr.includes('Error: Account having the same name already exists'));
+                assert.ok(err.stdout.includes('Error: Account having the same name already exists'));
             }
         });
 
@@ -341,12 +341,13 @@ mocha.describe('manage_nsfs cli', function() {
                 await exec_manage_cli(type, action, { ...account2_options, new_access_key: 'abc' });
                 assert.fail('should have failed with account access key already exists');
             } catch (err) {
-                assert.ok(err.stderr.includes('Error: Account having the same access key already exists'));
+                assert.ok(err.stdout.includes('Error: Account having the same access key already exists'));
             }
         });
     });
 
     mocha.describe('cli account flow distinguished_name - happy path', async function() {
+        this.timeout(50000); // eslint-disable-line no-invalid-this
         const type = nc_nsfs_manage_entity_types.ACCOUNT;
         const name = 'account2';
         const email = 'account2@noobaa.io';
@@ -480,7 +481,9 @@ async function exec_manage_cli(type, action, options) {
     const update_identity_flags = (options.new_name ? ` --new_name ${options.new_name}` : ``) +
         (options.new_access_key ? ` --new_access_key ${options.new_access_key}` : ``);
     const flags = (type === 'bucket' ? bucket_flags : account_flags) + update_identity_flags;
-    const res = await os_util.exec(`node src/cmd/manage_nsfs ${type} ${action} --config_root ${options.config_root} ${flags}`, { return_stdout: true });
+
+    const cmd = `node src/cmd/manage_nsfs ${type} ${action} --config_root ${options.config_root} ${flags}`;
+    const res = await os_util.exec(cmd, { return_stdout: true });
     return res;
 }
 

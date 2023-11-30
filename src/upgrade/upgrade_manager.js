@@ -18,7 +18,7 @@ function parse_ver(ver) {
     return stripped_ver.split('.').map(i => Number.parseInt(i, 10));
 }
 
-const { upgrade_scripts_dir, nsfs } = argv;
+const { upgrade_scripts_dir, nsfs_config_root } = argv;
 
 // compares 2 versions. returns positive if ver1 is larger, negative if ver2, 0 if equal
 function version_compare(ver1, ver2) {
@@ -240,7 +240,7 @@ async function upgrade_nsfs() {
 }
 
 async function run_upgrade() {
-    if (nsfs) {
+    if (nsfs_config_root) {
         return upgrade_nsfs();
     }
 

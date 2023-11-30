@@ -326,7 +326,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
     if (argv.help || argv.h) return print_usage();
     const config_root = argv.config_root ? String(argv.config_root) : config.NSFS_NC_DEFAULT_CONF_DIR;
     // disable console log to avoid unwanted logs in console.
-    await disable_console_log();
+    dbg.set_console_output(false);
     const https_port = Number(argv.https_port) || 6443;
     const deployment_type = argv.deployment_type || 'nc';
     const all_account_details = argv.all_account_details || false;
@@ -342,18 +342,6 @@ async function main(argv = minimist(process.argv.slice(2))) {
     dbg.error('Helath: exit on error', err.stack || err);
     process.exit(2);
   }
-}
-
-async function disable_console_log() {
-    console.log = function() {
-      //empty function, lint fix
-    };
-    console.error = function() {
-      //empty function, lint fix
-    };
-    console.warn = function() {
-      //empty function, lint fix
-    };
 }
 
 exports.main = main;

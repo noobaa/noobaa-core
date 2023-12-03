@@ -101,35 +101,11 @@ mkdir -p /etc/noobaa.conf.d/access_keys/
 
 ```
 
-**3. Create env file under the configuration directory -**
-
-In order to apply env variables changes on the service, edit /etc/sysconfig/noobaa_nsfs env file as you wish before starting the service, notice that the env file format is key-value pair - 
-
-```sh
-vim  /etc/sysconfig/noobaa_nsfs
-```
-**Note** - If another /usr/local/noobaa-core/.env exists it should be merged into /etc/sysconfig/noobaa_nsfs carefully.
-
-In order to apply env changes after the service was started, edit the /etc/sysconfig/noobaa_nsfs env file and restart the service - 
-```sh
-vim  /etc/sysconfig/noobaa_nsfs
-systemctl restart noobaa_nsfs
-```
-
-
 ## Create FS -
 If it's not already existing, create the fs root path in which buckets (directories) and objects (files) will be created.
 
 ```sh
 mkdir -p /tmp/fs1/
-```
-
-
-## Run the nsfs service - 
-The systemd script runs noobaa non containerized, and requires config_root in order to find the location of the system/accounts/buckets configuration file.
-
-```sh
-systemctl start nsfs
 ```
 
 ## Developer customization of the nsfs service (OPTIONAL) - 
@@ -148,6 +124,13 @@ In order to create accounts and exported buckets see the management CLI instruct
 Design of Accounts and buckets configuration entities - [NonContainerizedNSFS](https://github.com/noobaa/noobaa-core/blob/master/docs/design/NonContainerizedNSFSDesign.md). <br />
 **Note** - All required paths on the configuration files (bucket - path, account - new_buckets_path) must be absolute paths.
 
+
+## Run the nsfs service - 
+The systemd script runs noobaa non containerized, and requires config_root in order to find the location of the system/accounts/buckets configuration file.
+Limitation - In a cluster each host should have a unique name.
+```sh
+systemctl start noobaa_nsfs
+```
 
 ## NSFS service logs -
 Run the following command in order to get the nsfs service logs - 
@@ -445,9 +428,7 @@ NSFS management CLI command will create both account and bucket dir if it's miss
 
 ## NSFS Certificate
 
-Non containerized NSFS certificate location is configured in system.json file under the property `nsfs_ssl_cert_dir` and the path should contain SSL files tls.key and tls.crt. System will use a cert from this dir to create a valid HTTPS connection. If cert is missing in this dir a self-signed SSL certificate will be generated. Make sure the path mentioned in `nsfs_ssl_cert_dir` is valid before running nsfs command, If the path is invalid then cert flow will fail.
-
-Non containerized NSFS allow nonsecure HTTP connection only when `allow_http` in system.json is true.
+Non containerized NSFS certificates/ directory location will be under the config_root path. The certificates/ directory should contain SSL files tls.key and tls.crt. System will use a cert from this dir to create a valid HTTPS connection. If cert is missing in this dir a self-signed SSL certificate will be generated. Make sure the path to certificates/ directory is valid before running nsfs command, If the path is invalid then cert flow will fail.
 
 ## Log and Logrotate
 Noobaa logs are configured using rsyslog and logrotate. RPM will configure rsyslog and logrotate if both are already running. 
@@ -465,4 +446,19 @@ Rotate the logs manually.
 
 ```
 logrotate /etc/logrotate.d/noobaa/logrotate_noobaa.conf 
+```
+
+**Create env file under the configuration directory (OPTIONAL) -**
+
+In order to apply env variables changes on the service, edit /etc/sysconfig/noobaa_nsfs env file as you wish before starting the service, notice that the env file format is key-value pair - 
+
+```sh
+vim  /etc/sysconfig/noobaa_nsfs
+```
+**Note** - If another /usr/local/noobaa-core/.env exists it should be merged into /etc/sysconfig/noobaa_nsfs carefully.
+
+In order to apply env changes after the service was started, edit the /etc/sysconfig/noobaa_nsfs env file and restart the service - 
+```sh
+vim  /etc/sysconfig/noobaa_nsfs
+systemctl restart noobaa_nsfs
 ```

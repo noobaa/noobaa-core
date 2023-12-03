@@ -141,7 +141,9 @@ High level configuration -
 3.3. buckets/ - directory that contains buckets configurations, each bucket configuration file called {bucket_name}.json and fits the bucket schema.
 
 3.4. system.json - json file that contains information about the system deployed on the machine, the specified information has the following format: 
-`{"current_version":"5.15.0","upgrade_history":{"successful_upgrades":[]}}` 
+`{ [hostname1]: { "current_version":"5.15.0","upgrade_history":{"successful_upgrades":[]}},
+   [hostname2]: { "current_version":"5.15.0","upgrade_history":{"successful_upgrades":[]}}
+}` 
 
 3.5. config.json - json file that contains shared configurations of the node cluster, and machine specific configurations, the configuration has the following format: 
 {

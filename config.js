@@ -11,6 +11,7 @@ const fs = require('fs');
 const path = require('path');
 const assert = require('assert');
 const _ = require('lodash');
+const util = require('util');
 const { default: Ajv } = require('ajv');
 const nsfs_config_schema = require('./src/server/object_services/schemas/nsfs_config_schema');
 const ajv = new Ajv({ verbose: true, allErrors: true });
@@ -691,7 +692,7 @@ config.NSFS_VERSIONING_ENABLED = true;
 
 config.NSFS_NC_CONF_DIR_REDIRECT_FILE = 'config_dir_redirect';
 config.NSFS_NC_DEFAULT_CONF_DIR = '/etc/noobaa.conf.d';
-config.NSFS_NC_CONF_DIR = config.NSFS_NC_DEFAULT_CONF_DIR;
+config.NSFS_NC_CONF_DIR = process.env.NSFS_NC_CONF_DIR || '';
 config.NSFS_TEMP_CONF_DIR_NAME = '.noobaa-config-nsfs';
 config.ENDPOINT_PORT = Number(process.env.ENDPOINT_PORT) || 6001;
 config.ENDPOINT_SSL_PORT = Number(process.env.ENDPOINT_SSL_PORT) || 6443;
@@ -833,11 +834,31 @@ function _get_data_from_file(file_name) {
 }
 
 /**
+ * @returns {string}
+ */
+function _get_config_root() {
+    let config_root = config.NSFS_NC_DEFAULT_CONF_DIR;
+    try {
+        const redirect_path = path.join(config.NSFS_NC_DEFAULT_CONF_DIR, config.NSFS_NC_CONF_DIR_REDIRECT_FILE);
+        const data = _get_data_from_file(redirect_path);
+        config_root = data.toString().trim();
+    } catch (err) {
+        console.warn('config.get_config_root - could not find custom config_root, will use the default config_root ', config_root);
+    }
+    return config_root;
+}
+
+
+/**
  * load_nsfs_nc_config loads on non containerized env the config.json file and sets the configurations
  */
 function load_nsfs_nc_config() {
     if (process.env.CONTAINER_PLATFORM) return;
     try {
+        if (!config.NSFS_NC_CONF_DIR) {
+            config.NSFS_NC_CONF_DIR = _get_config_root();
+            console.log('load_nsfs_nc_config.setting config.NSFS_NC_CONF_DIR', config.NSFS_NC_CONF_DIR);
+        }
         const config_path = path.join(config.NSFS_NC_CONF_DIR, 'config.json');
         const config_data = require(config_path);
         const valid = ajv.validate(nsfs_config_schema, config_data);
@@ -856,7 +877,7 @@ function load_nsfs_nc_config() {
             config[key] = merged_config[key];
         });
 
-        console.log(`nsfs: config_dir_path=${config.NSFS_NC_CONF_DIR} config.json= ${merged_config}`);
+        console.log(`nsfs: config_dir_path=${config.NSFS_NC_CONF_DIR} config.json= ${util.inspect(merged_config)}`);
 
     } catch (err) {
         if (err.code !== 'MODULE_NOT_FOUND' && err.code !== 'ENOENT') throw err;
@@ -889,6 +910,9 @@ function reload_nsfs_nc_config() {
         throw e;
     }
 }
+
+module.exports.load_nsfs_nc_config = load_nsfs_nc_config;
+module.exports.reload_nsfs_nc_config = reload_nsfs_nc_config;
 
 load_nsfs_nc_config();
 reload_nsfs_nc_config();

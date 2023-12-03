@@ -43,16 +43,18 @@ Error: Unable to find a match: epel-release
 yum install wget
 ```
 2. Download and install boost -
+
+RHEL8 / centos:stream8 - 
 ```sh
-// RHEL8/centos:stream8
 wget https://rpmfind.net/linux/centos/8-stream/AppStream/x86_64/os/Packages/boost-system-1.66.0-13.el8.x86_64.rpm
 wget https://rpmfind.net/linux/centos/8-stream/AppStream/x86_64/os/Packages/boost-thread-1.66.0-13.el8.x86_64.rpm
 rpm -i boost-system-1.66.0-13.el8.x86_64.rpm
 rpm -i boost-thread-1.66.0-13.el8.x86_64.rpm
 ```
 
+RHEL9 / centos:stream9 - 
+
 ```sh
-// RHEL9/centos:stream9
 wget https://rpmfind.net/linux/centos-stream/9-stream/AppStream/x86_64/os/Packages/boost-system-1.75.0-8.el9.x86_64.rpm
 wget https://rpmfind.net/linux/centos-stream/9-stream/AppStream/x86_64/os/Packages/boost-thread-1.75.0-8.el9.x86_64.rpm
 rpm -i boost-system-1.75.0-8.el9.x86_64.rpm
@@ -136,6 +138,7 @@ The following list consists of supported optional developer customization -
 2. Log debug level
 3. Ports
 4. Allow http
+etc...
 
 For more details see - [Non Containerized NSFS Developer Customization](https://github.com/noobaa/noobaa-core/blob/master/docs/dev_guide/NonContainerizedDeveloperCustomizations.md)
 

@@ -122,3 +122,39 @@ To simplify the flow new SDK `BucketSpaceFS` is added for the NSFS FS standalone
 - Reuse the simple `BucketSpaceSimpleFS` code by extending it.
 - Implements the requirements from the top.
 - CLI: node nsfs --config_dir /fs-config-root/
+
+
+### Configuration Structure
+
+High level configuration - 
+
+1. /etc/noobaa.conf.d/config_dir_redirect - a fixed starting point, the noobaa nsfs service will try to read this file, and if this file does not exist it will use /etc/noobaa.conf.d/ as the wanted config_dir
+
+2. /etc/sysconfig/noobaa_nsfs - env file, one should avoid using it, should be used only for configurations that can not be set using config.json
+
+3. /path/to/config_dir - the user's config_dir, contains the following files/subdirectories - 
+
+3.1. accounts/ - directory that contains accounts configurations, each account configuration file is called {account_name}.json and fits to the account schema.
+
+3.2. access_keys/ - directory that contains symlinks to accounts configurations, each symlink called {access_key}.symlink and links to an account under accounts/ directory.
+
+3.3. buckets/ - directory that contains buckets configurations, each bucket configuration file called {bucket_name}.json and fits the bucket schema.
+
+3.4. system.json - json file that contains information about the system deployed on the machine, the specified information has the following format: 
+`{"current_version":"5.15.0","upgrade_history":{"successful_upgrades":[]}}` 
+
+3.5. config.json - json file that contains shared configurations of the node cluster, and machine specific configurations, the configuration has the following format: 
+{
+	"ENDPOINT_FORKS": 2,
+  "host_customization": {
+    "{node_name}" : {
+      "ENDPOINT_FORKS": 3, 
+    }
+  },
+}
+
+* Please be aware that when a node is designated in the host_customization, Noobaa will combine the shared configuration with the node's configuration. If a configuration value is provided under the node's configuration, it will take precedence as the final configuration value applied to the noobaa_nsds service on that specific node.
+
+#### config.json schema - 
+See [NSFS config.json schema](https://github.com/noobaa/noobaa-core/src/server/object_services/schemas/nsfs_config_schema.js)
+config.json will be reloaded every 10 seconds automatically, please notice that some config.json properties require restart of the service, for more details check the schema.

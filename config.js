@@ -10,6 +10,10 @@ const os = require('os');
 const fs = require('fs');
 const path = require('path');
 const assert = require('assert');
+const _ = require('lodash');
+const { default: Ajv } = require('ajv');
+const nsfs_config_schema = require('./src/server/object_services/schemas/nsfs_config_schema');
+const ajv = new Ajv({ verbose: true, allErrors: true });
 
 /////////////////////////
 // CONTAINER RESOURCES //
@@ -687,7 +691,12 @@ config.NSFS_VERSIONING_ENABLED = true;
 
 config.NSFS_NC_CONF_DIR_REDIRECT_FILE = 'config_dir_redirect';
 config.NSFS_NC_DEFAULT_CONF_DIR = '/etc/noobaa.conf.d';
+config.NSFS_NC_CONF_DIR = config.NSFS_NC_DEFAULT_CONF_DIR;
 config.NSFS_TEMP_CONF_DIR_NAME = '.noobaa-config-nsfs';
+config.ENDPOINT_PORT = Number(process.env.ENDPOINT_PORT) || 6001;
+config.ENDPOINT_SSL_PORT = Number(process.env.ENDPOINT_SSL_PORT) || 6443;
+config.ENDPOINT_SSL_STS_PORT = Number(process.env.ENDPOINT_SSL_STS_PORT) || -1;
+config.NSFS_NC_ALLOW_HTTP = false;
 
 // NSFS_RESTORE_ENABLED can override internal autodetection and will force
 // the use of restore for all objects.
@@ -823,5 +832,65 @@ function _get_data_from_file(file_name) {
     return data;
 }
 
+/**
+ * load_nsfs_nc_config loads on non containerized env the config.json file and sets the configurations
+ */
+function load_nsfs_nc_config() {
+    if (process.env.CONTAINER_PLATFORM) return;
+    try {
+        const config_path = path.join(config.NSFS_NC_CONF_DIR, 'config.json');
+        const config_data = require(config_path);
+        const valid = ajv.validate(nsfs_config_schema, config_data);
+        if (!valid) throw new Error('INVALID_SCHEMA' + ajv.errors[0]?.message);
+
+        const shared_config = _.omit(config_data, 'host_customization');
+        const node_name = os.hostname();
+        const node_config = config_data.host_customization?.[node_name];
+        const merged_config = _.merge(shared_config, node_config || {});
+
+        Object.keys(merged_config).forEach(function(key) {
+            if (key === 'NOOBAA_LOG_LEVEL' || key === 'UV_THREADPOOL_SIZE' || key === 'GPFS_DL_PATH') {
+                process.env[key] = merged_config[key];
+                return;
+            }
+            config[key] = merged_config[key];
+        });
+
+        console.log(`nsfs: config_dir_path=${config.NSFS_NC_CONF_DIR} config.json= ${merged_config}`);
+
+    } catch (err) {
+        if (err.code !== 'MODULE_NOT_FOUND' && err.code !== 'ENOENT') throw err;
+        console.warn('config.load_nsfs_nc_config could not find config.json... skipping');
+    }
+}
+/**
+ * reload_nsfs_nc_config reloads on non containerized env the config.json file every 10 seconfs
+ */
+function reload_nsfs_nc_config() {
+    if (process.env.CONTAINER_PLATFORM) return;
+    try {
+        const config_path = path.join(config.NSFS_NC_CONF_DIR, 'config.json');
+        fs.watchFile(config_path, {
+            interval: 10 * 1000
+        }, () => {
+            delete require.cache[config_path];
+            try {
+                load_nsfs_nc_config();
+            } catch (err) {
+                // we cannot rethrow, next watch event will try to load again
+            }
+        }).unref();
+    } catch (e) {
+        if (e.code === 'ENOENT') {
+            console.warn('config.load_nsfs_nc_config could not find config.json... skipping');
+            return;
+        }
+        console.warn('config.load_nsfs_nc_config failed to set config.json to config.js ', e);
+        throw e;
+    }
+}
+
+load_nsfs_nc_config();
+reload_nsfs_nc_config();
 load_config_local();
 load_config_env_overrides();

@@ -49,8 +49,9 @@ ln -s /usr/local/noobaa-core/node/bin/npm $RPM_BUILD_ROOT/usr/local/noobaa-core/
 ln -s /usr/local/noobaa-core/node/bin/npx $RPM_BUILD_ROOT/usr/local/noobaa-core/bin/npx
 
 mkdir -p $RPM_BUILD_ROOT/etc/systemd/system/
-ln -s /usr/local/noobaa-core/src/deploy/nsfs.service $RPM_BUILD_ROOT/etc/systemd/system/nsfs.service
+ln -s /usr/local/noobaa-core/src/deploy/noobaa_nsfs.service $RPM_BUILD_ROOT/etc/systemd/system/noobaa_nsfs.service
 ln -s /usr/local/noobaa-core/src/deploy/nsfs_env.env $RPM_BUILD_ROOT/usr/local/noobaa-core/nsfs_env.env
+mkdir -p $RPM_BUILD_ROOT/etc/noobaa.conf.d/
 
 mkdir -p $RPM_BUILD_ROOT/etc/rsyslog.d/
 ln -s /usr/local/noobaa-core/src/deploy/standalone/noobaa_syslog.conf $RPM_BUILD_ROOT/etc/rsyslog.d/noobaa_syslog.conf
@@ -61,10 +62,11 @@ ln -s /usr/local/noobaa-core/src/deploy/standalone/logrotate_noobaa.conf $RPM_BU
 
 %files
 /usr/local/noobaa-core
-/etc/systemd/system/nsfs.service
+/etc/systemd/system/noobaa_nsfs.service
 /etc/logrotate.d/noobaa/logrotate_noobaa.conf
 /etc/rsyslog.d/noobaa_rsyslog.conf
 /etc/rsyslog.d/noobaa_syslog.conf
+/etc/noobaa.conf.d/
 %doc
 
 %post
@@ -86,7 +88,7 @@ if [ $1 -gt 1 ]; then
   rc=$?
   if [ "${rc}" -eq 0 ]; then
     echo "Found NSFS deployment"
-    /usr/local/noobaa-core/bin/node src/upgrade/upgrade_manager.js --nsfs_config_root /etc/noobaa.conf.d --upgrade_scripts_dir ${NSFS_UPGRADE_SCRIPTS_DIR}
+    /usr/local/noobaa-core/bin/node src/upgrade/upgrade_manager.js --nsfs true --upgrade_scripts_dir ${NSFS_UPGRADE_SCRIPTS_DIR}
     rccmd=$?
   else
     echo "Looking for non-NSFS deployment"

@@ -170,15 +170,6 @@ async function main(argv = minimist(process.argv.slice(2))) {
     }
 }
 
-function get_root_fs_context(config_root_backend) {
-    return {
-        uid: process.getuid(),
-        gid: process.getgid(),
-        warn_threshold_ms: config.NSFS_WARN_THRESHOLD_MS,
-        backend: config_root_backend
-    };
-}
-
 async function bucket_management(argv, config_root, from_file) {
     const action = argv._[1] || '';
     const config_root_backend = String(argv.config_root_backend);
@@ -250,7 +241,7 @@ async function add_bucket_config_file(data, buckets_config_path, config_root_bac
         return;
     }
     // TODO: support non root fs context
-    const fs_context = get_root_fs_context(config_root_backend);
+    const fs_context = native_fs_utils.get_root_fs_context(config_root_backend);
     const full_bucket_config_path = get_config_file_path(buckets_config_path, data.name);
     const exists = await config_file_exists(fs_context, full_bucket_config_path);
     if (exists) {
@@ -284,7 +275,7 @@ async function update_bucket_config_file(data, bucket_config_path, config_root_b
         return;
     }
     // TODO: support non root fs context
-    const fs_context = get_root_fs_context(config_root_backend);
+    const fs_context = native_fs_utils.get_root_fs_context(config_root_backend);
 
     const cur_name = data.name;
     const update_name = data.new_name && cur_name && data.new_name.unwrap() !== cur_name.unwrap();
@@ -322,7 +313,7 @@ async function delete_bucket_config_file(data, buckets_config_path, config_root_
         return;
     }
     // TODO: support non root fs context
-    const fs_context = get_root_fs_context(config_root_backend);
+    const fs_context = native_fs_utils.get_root_fs_context(config_root_backend);
     const full_bucket_config_path = get_config_file_path(buckets_config_path, data.name);
     await native_fs_utils.delete_config_file(fs_context, buckets_config_path, full_bucket_config_path);
 }
@@ -438,7 +429,7 @@ async function add_account_config_file(data, accounts_path, access_keys_path, co
         return;
     }
     // TODO: support non root fs context
-    const fs_context = get_root_fs_context(config_root_backend);
+    const fs_context = native_fs_utils.get_root_fs_context(config_root_backend);
     const access_key = data.access_keys[0].access_key;
     const full_account_config_path = get_config_file_path(accounts_path, data.name);
     const full_account_config_access_key_path = get_symlink_config_file_path(access_keys_path, access_key);
@@ -466,7 +457,7 @@ async function update_account_config_file(data, accounts_path, access_keys_path,
         return;
     }
     // TODO: support non root fs context
-    const fs_context = get_root_fs_context(config_root_backend);
+    const fs_context = native_fs_utils.get_root_fs_context(config_root_backend);
     const cur_name = data.name;
     const cur_access_key = data.access_keys[0].access_key;
     const update_name = data.new_name && cur_name && data.new_name.unwrap() !== cur_name.unwrap();
@@ -520,7 +511,7 @@ async function delete_account_config_file(data, accounts_path, access_keys_path,
         return;
     }
     // TODO: support non root fs context
-    const fs_context = get_root_fs_context(config_root_backend);
+    const fs_context = native_fs_utils.get_root_fs_context(config_root_backend);
     const account_config_path = get_config_file_path(accounts_path, data.name);
     const access_key_config_path = get_symlink_config_file_path(access_keys_path, data.access_keys[0].access_key.unwrap());
     await native_fs_utils.delete_config_file(fs_context, accounts_path, account_config_path);

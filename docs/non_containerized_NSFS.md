@@ -78,6 +78,15 @@ rpm -i <rpm_file_name>.rpm
 
 After installing NooBaa RPM, it's expected to have noobaa-core source code under /usr/local/noobaa-core and an nsfs systemd example script under /etc/systemd/system/.
 
+## Create config dir redirect file -
+NooBaa will try locate a text file that contains a path to the configuration directory, the user should create the redirect file in the fixed location - /etc/noobaa.conf.d/config_dir_redirect
+
+```sh
+echo "/path/to/config/dir" > /etc/noobaa.conf.d/config_dir_redirect
+```
+
+If config_root flag was not provided to the nsfs service and /etc/noobaa.conf.d/config_dir_redirect file does not exist, nsfs service will use /etc/noobaa.conf.d/ as its default config_dir.
+
 ## Create configuration files -
 **IMPORTANT NOTE** - It's not mendatory to create the config_root under /etc/noobaa.conf.d/. config_dir path can be set using an CONFIG_JS_NSFS_NC_DEFAULT_CONF_DIR.
 
@@ -92,12 +101,19 @@ mkdir -p /etc/noobaa.conf.d/access_keys/
 
 **3. Create env file under the configuration directory -**
 
-nsfs_env.env is the default .env file, link it to /etc/noobaa.conf.d/.env and edit it as you wish before starting the service - 
+In order to apply env variables changes on the service, edit /etc/sysconfig/noobaa_nsfs env file as you wish before starting the service, notice that the env file format is key-value pair - 
 
 ```sh
-ln /usr/local/noobaa-core/nsfs_env.env  /etc/noobaa.conf.d/.env
+vim  /etc/sysconfig/noobaa_nsfs
 ```
-**Note** - If another /usr/local/noobaa-core/.env exists it should be merged into /etc/noobaa.conf.d/.env carefully.
+**Note** - If another /usr/local/noobaa-core/.env exists it should be merged into /etc/sysconfig/noobaa_nsfs carefully.
+
+In order to apply env changes after the service was started, edit the /etc/sysconfig/noobaa_nsfs env file and restart the service - 
+```sh
+vim  /etc/sysconfig/noobaa_nsfs
+systemctl restart noobaa_nsfs
+```
+
 
 ## Create FS -
 If it's not already existing, create the fs root path in which buckets (directories) and objects (files) will be created.
@@ -134,7 +150,7 @@ Design of Accounts and buckets configuration entities - [NonContainerizedNSFS](h
 Run the following command in order to get the nsfs service logs - 
 
 ```sh
-journalctl -u nsfs.service
+journalctl -u noobaa_nsfs.service
 ```
 
 
@@ -388,7 +404,7 @@ These error codes will get attached with a specific Bucket or Account schema ins
 - Check for any JSON syntax error in the schema structure for Bucket/Account.
 
 ## Bucket and Account Manage CLI
-Users can create, update, delete, and list buckets and accounts using CLI. If the config directory is missing CLI will create one and also create accounts and buckets sub-directories in it and default config directory is `/etc/noobaa.conf.d`. 
+Users can create, update, delete, and list buckets and accounts using CLI. If the config directory is missing CLI will create one and also create accounts and buckets sub-directories in it and default config directory is `${config.NSFS_NC_DEFAULT_CONF_DIR}`. 
 
 CLI will never create or delete a bucket directory for the user if a bucket directory is missing CLI will return with error.
  

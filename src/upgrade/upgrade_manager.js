@@ -7,6 +7,7 @@ const pkg = require('../../package.json');
 const fs = require('fs');
 const path = require('path');
 const json_utils = require('../util/json_utils');
+const native_fs_utils = require('../util/native_fs_utils');
 
 const dbg = require('../util/debug_module')('UPGRADE');
 dbg.set_process_name('Upgrade');
@@ -16,7 +17,7 @@ function parse_ver(ver) {
     return stripped_ver.split('.').map(i => Number.parseInt(i, 10));
 }
 
-const { upgrade_scripts_dir, nsfs_config_root } = argv;
+const { upgrade_scripts_dir, nsfs } = argv;
 
 // compares 2 versions. returns positive if ver1 is larger, negative if ver2, 0 if equal
 function version_compare(ver1, ver2) {
@@ -175,7 +176,9 @@ async function load_required_scripts(server_version, container_version) {
 }
 
 async function upgrade_nsfs() {
-    const system_data_path = path.join(nsfs_config_root, 'system.json');
+    const root_fs_config = native_fs_utils.get_root_fs_context();
+    const config_dir_path = await native_fs_utils.get_config_root({}, root_fs_config);
+    const system_data_path = path.join(config_dir_path, 'system.json');
     const system_data = new json_utils.JsonFileWrapper(system_data_path);
 
     const system = await system_data.read();
@@ -234,7 +237,7 @@ async function upgrade_nsfs() {
 }
 
 async function run_upgrade() {
-    if (nsfs_config_root) {
+    if (nsfs) {
         return upgrade_nsfs();
     }
 

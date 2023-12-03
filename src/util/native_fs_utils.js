@@ -427,6 +427,41 @@ function isDirectory(ent) {
     }
 }
 
+/**
+ * @param {string} [config_root_backend]
+ * @returns {nb.NativeFSContext}
+ */
+function get_root_fs_context(config_root_backend) {
+    return {
+        uid: process.getuid(),
+        gid: process.getgid(),
+        warn_threshold_ms: config.NSFS_WARN_THRESHOLD_MS,
+        backend: config_root_backend
+    };
+}
+
+/**
+ * @param {object} argv
+ * @param {nb.NativeFSContext} fs_config
+ * @returns {Promise<string>}
+ */
+async function get_config_root(argv, fs_config) {
+    let config_root = config.NSFS_NC_DEFAULT_CONF_DIR;
+    if (argv.config_root) {
+        config_root = String(argv.config_root);
+    } else {
+        try {
+            const redirect_path = path.join(config.NSFS_NC_DEFAULT_CONF_DIR, config.NSFS_NC_CONF_DIR_REDIRECT_FILE);
+            const { data } = await nb_native().fs.readFile(fs_config, redirect_path);
+            config_root = data.toString().trim();
+        } catch (err) {
+            dbg.warn('native_fs_utils.get_config_root - could not find custom config_root, will use the default config_root ', config_root);
+        }
+    }
+    return config_root;
+}
+
+
 exports.get_umasked_mode = get_umasked_mode;
 exports._make_path_dirs = _make_path_dirs;
 exports._create_path = _create_path;
@@ -453,3 +488,5 @@ exports.create_config_file = create_config_file;
 exports.delete_config_file = delete_config_file;
 exports.update_config_file = update_config_file;
 exports.isDirectory = isDirectory;
+exports.get_root_fs_context = get_root_fs_context;
+exports.get_config_root = get_config_root;

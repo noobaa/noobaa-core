@@ -7,7 +7,8 @@ const pkg = require('../../package.json');
 const fs = require('fs');
 const path = require('path');
 const json_utils = require('../util/json_utils');
-const native_fs_utils = require('../util/native_fs_utils');
+const config = require('../../config');
+const os = require('os');
 
 const dbg = require('../util/debug_module')('UPGRADE');
 dbg.set_process_name('Upgrade');
@@ -176,14 +177,13 @@ async function load_required_scripts(server_version, container_version) {
 }
 
 async function upgrade_nsfs() {
-    const root_fs_config = native_fs_utils.get_root_fs_context();
-    const config_dir_path = await native_fs_utils.get_config_root({}, root_fs_config);
-    const system_data_path = path.join(config_dir_path, 'system.json');
+    const system_data_path = path.join(config.NSFS_NC_CONF_DIR, 'system.json');
     const system_data = new json_utils.JsonFileWrapper(system_data_path);
 
     const system = await system_data.read();
-    const upgrade_history = system.upgrade_history;
-    let current_version = system.current_version;
+    const hostname = os.hostname();
+    const upgrade_history = system?.[hostname]?.upgrade_history;
+    let current_version = system?.[hostname]?.current_version;
 
     const new_version = pkg.version;
 
@@ -225,8 +225,11 @@ async function upgrade_nsfs() {
     // update upgrade_history
     try {
         await system_data.update({
-            current_version,
-            upgrade_history
+            ...system,
+            [hostname]: {
+                current_version,
+                upgrade_history
+            }
         });
     } catch (error) {
         dbg.error('failed to update system_store with upgrade information');

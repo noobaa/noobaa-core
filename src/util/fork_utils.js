@@ -35,12 +35,23 @@ function start_workers(metrics_port, count = 0) {
         }
 
         // We don't want to leave the process with a partial set of workers,
-        // so if any worker exits, we exit the primary process and the entire group will be killed.
-        // We prefer to rely on the controller that executed this process to recover from such a crash.
+        // so if any worker exits, we will print an error message in the logs and start a new one.
         cluster.on('exit', (worker, code, signal) => {
-            console.warn('WORKER exit', { id: worker.id, pid: worker.process.pid, code, signal });
-            console.error('EXIT ON WORKER ERROR');
-            process.exit(1);
+            console.warn('WORKER exit', { id: worker.id, pid: worker.process.pid, code, signal }, 'starting a new one.');
+            dbg.event({
+                code: "noobaa_fork_exit",
+                entity_type: "NODE",
+                event_type: "STATE_CHANGE",
+                message: `Noobaa fork exit with { id: ${worker.id}, 
+                    pid: ${worker.process.pid}, 
+                    code: ${code}, 
+                    signal: ${signal} }`,
+                scope: "NODE",
+                severity: "ERROR",
+                state: "DEGRADED",
+            });
+            const new_worker = cluster.fork();
+            console.warn('WORKER started', { id: new_worker.id, pid: new_worker.process.pid });
         });
         for (const id in cluster.workers) {
             if (id) {

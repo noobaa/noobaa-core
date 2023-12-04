@@ -20,6 +20,11 @@ const ajv = new Ajv({ verbose: true, allErrors: true });
 // CONTAINER RESOURCES //
 /////////////////////////
 
+config.ENDPOINT_FORKS = Number(process.env.ENDPOINT_FORKS) || 0;
+config.OS_MEM_RESERVED = 2 * 1024 * 1024 * 1024;
+config.OS_MEM_LIMIT_TOTAL = os.totalmem() - config.OS_MEM_RESERVED;
+config.OS_MEM_LIMIT = config.ENDPOINT_FORKS > 0 ? config.OS_MEM_LIMIT_TOTAL / config.ENDPOINT_FORKS : config.OS_MEM_LIMIT_TOTAL;
+
 // The REQUEST is the "minimal" or "guaranteed" amount required for the container's operation.
 // The LIMIT is the "maximal" or "burst" amount that the container can use for extended operations.
 // In Kubernetes for "guaranteed" QOS class REQUEST and LIMIT both have to be provided and equal.
@@ -36,7 +41,7 @@ const ajv = new Ajv({ verbose: true, allErrors: true });
 // - Less common and is currently unused
 // - Might be needed when limiting pinned memory like DB caches.
 
-config.CONTAINER_MEM_LIMIT = Number(process.env.CONTAINER_MEM_LIMIT || '') || os.totalmem();
+config.CONTAINER_MEM_LIMIT = Number(process.env.CONTAINER_MEM_LIMIT || '') || config.OS_MEM_LIMIT;
 config.CONTAINER_CPU_LIMIT = Number(process.env.CONTAINER_CPU_LIMIT || '') || os.cpus().length;
 config.CONTAINER_MEM_REQUEST = Number(process.env.CONTAINER_MEM_REQUEST || '');
 config.CONTAINER_CPU_REQUEST = Number(process.env.CONTAINER_CPU_REQUEST || '');
@@ -53,9 +58,11 @@ config.CONTAINER_CPU_REQUEST = Number(process.env.CONTAINER_CPU_REQUEST || '');
 // This constant is currently used for semaphores in object_io and namespace_cache.
 //
 // TODO we need a central buffer manager to handle all cases (other namespaces too)
-config.BUFFERS_MEM_LIMIT = Math.max(
-    Math.floor(config.CONTAINER_MEM_LIMIT / 4),
-    32 * 1024 * 1024, // just some workable minimum size in case the container mem limit is too low.
+config.BUFFERS_MEM_LIMIT_MIN = 32 * 1024 * 1024; // just some workable minimum size in case the container mem limit is too low.
+config.BUFFERS_MEM_LIMIT_MAX = 4 * 1024 * 1024 * 1024;
+config.BUFFERS_MEM_LIMIT = Math.min(
+    config.BUFFERS_MEM_LIMIT_MAX,
+    Math.max(Math.floor(config.CONTAINER_MEM_LIMIT / 4), config.BUFFERS_MEM_LIMIT_MIN,)
 );
 
 
@@ -119,7 +126,6 @@ config.N2N_OFFER_INTERNAL = false;
 // ENDPOINT CONFIG //
 /////////////////////
 
-config.ENDPOINT_FORKS = Number(process.env.ENDPOINT_FORKS) || 0;
 config.AMZ_DATE_MAX_TIME_SKEW_MILLIS = 15 * 60 * 1000;
 config.ENDPOINT_MONITOR_INTERVAL = 10 * 60 * 1000; // 10min
 // Keep connection on long requests

@@ -225,64 +225,6 @@ coretest.describe_mapper_test_case({
             await mc.move_blocks_to_storage_class();
         });
 
-        mocha.it('should not attempt movement when current_tiers is not set', async function() {
-            let movement_attempted = false;
-
-            // mock rpc_client
-            const mock_rpc_client = {
-                block_store: {
-                    move_blocks_to_storage_class: () => {
-                        movement_attempted = true;
-
-                        return ["mocked_response"];
-                    }
-                }
-            };
-
-            const temporary_tier = generate_mock_tier();
-
-            // @ts-ignore
-            const mc = new MapClient({
-                chunks: generate_mock_chunks(1),
-                rpc_client: mock_rpc_client,
-                move_to_tier: temporary_tier
-            });
-
-            await mc.move_blocks_to_storage_class();
-
-            assert.strictEqual(movement_attempted, false);
-        });
-
-        mocha.it('should throw error when attempt movement when len(current_tiers) does not match len(chunks)', async function() {
-            // mock rpc_client
-            const mock_rpc_client = {
-                block_store: {
-                    move_blocks_to_storage_class: () => ["mocked_response"]
-                }
-            };
-
-            const temporary_tier = generate_mock_tier();
-
-            // @ts-ignore
-            const mc = new MapClient({
-                chunks: generate_mock_chunks(2),
-                rpc_client: mock_rpc_client,
-                move_to_tier: temporary_tier,
-                current_tiers: [bucket.tiering.tiers[0].tier]
-            });
-
-            let errored = false;
-
-            try {
-                await mc.move_blocks_to_storage_class();
-            } catch (err) {
-                errored = true;
-            }
-
-
-            assert.strictEqual(errored, true);
-        });
-
         mocha.it('should not attempt movement when storage classes are same', async function() {
             let movement_attempted = false;
 
@@ -302,7 +244,6 @@ coretest.describe_mapper_test_case({
                 chunks: generate_mock_chunks(1),
                 rpc_client: mock_rpc_client,
                 move_to_tier: bucket.tiering.tiers[0].tier,
-                current_tiers: [bucket.tiering.tiers[0].tier]
             });
 
             await mc.move_blocks_to_storage_class();
@@ -331,7 +272,6 @@ coretest.describe_mapper_test_case({
                 chunks: generate_mock_chunks(1),
                 rpc_client: mock_rpc_client,
                 move_to_tier: temporary_tier,
-                current_tiers: [bucket.tiering.tiers[0].tier]
             });
 
             await mc.move_blocks_to_storage_class();
@@ -375,7 +315,6 @@ coretest.describe_mapper_test_case({
                 chunks,
                 rpc_client: mock_rpc_client,
                 move_to_tier: temporary_tier,
-                current_tiers: [bucket.tiering.tiers[0].tier]
             });
 
             await mc.move_blocks_to_storage_class();

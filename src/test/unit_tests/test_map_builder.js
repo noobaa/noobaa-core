@@ -323,7 +323,7 @@ mocha.describe('map_builder', function() {
 
         const obj = await create_object({ bucket: test_bucket_name, key: "test-map-builder-storage-class-key", size: 128 });
 
-        const builder = new MapBuilder(obj.chunk_ids, target_tier, false, obj.chunk_ids.map(() => current_tier));
+        const builder = new MapBuilder(obj.chunk_ids, target_tier, false);
         await builder.run();
 
         const after_chunks = await MDStore.instance().find_chunks_by_ids(obj.chunk_ids);

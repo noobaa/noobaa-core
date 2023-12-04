@@ -140,12 +140,10 @@ async function update_chunks_on_read(chunks, location_info) {
         }
         if (chunks_to_scrub.length) {
             const chunk_ids = chunks_to_scrub.map(chunk => chunk._id);
-            const current_tiers = chunks_to_scrub.map(chunk => chunk.tier._id);
             dbg.log1('Chunks wasn\'t found in local pool/upper tier - the following will be rebuilt:', util.inspect(chunks_to_scrub));
             await server_rpc.client.scrubber.build_chunks({
                 chunk_ids,
                 tier: selected_tier._id,
-                current_tiers,
             }, {
                 auth_token: auth_server.make_auth_token({
                     system_id: bucket.system._id,

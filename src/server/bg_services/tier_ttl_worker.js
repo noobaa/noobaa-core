@@ -87,12 +87,7 @@ class TieringTTLWorker {
             });
             if (!chunk_ids.length) continue;
 
-            await this._build_chunks(
-                chunk_ids,
-                next_tier_id,
-                false,
-                chunk_ids.map(() => previous_tier._id)
-            );
+            await this._build_chunks(chunk_ids, next_tier_id, false);
         }
 
         this.last_run = undefined;
@@ -103,12 +98,11 @@ class TieringTTLWorker {
         return bucket.tiering.tiers.find(t => String(t.tier._id) === String(tier._id)).order;
     }
 
-    async _build_chunks(chunk_ids, next_tier, cache_evict, current_tiers) {
+    async _build_chunks(chunk_ids, next_tier, cache_evict) {
         return this.client.scrubber.build_chunks({
             chunk_ids,
             tier: next_tier,
             evict: cache_evict,
-            current_tiers,
         }, {
             auth_token: auth_server.make_auth_token({
                 system_id: system_store.data.systems[0]._id,

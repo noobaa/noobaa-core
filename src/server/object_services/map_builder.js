@@ -38,19 +38,20 @@ class MapBuilder {
      * @param {nb.ID[]} chunk_ids
      * @param {nb.Tier} [move_to_tier]
      * @param {boolean} [evict]
-     * @param {nb.Tier[]} [current_tiers]
      */
-    constructor(chunk_ids, move_to_tier, evict, current_tiers) {
+    constructor(chunk_ids, move_to_tier, evict) {
         this.chunk_ids = chunk_ids;
         this.move_to_tier = move_to_tier;
         this.evict = evict;
-        this.current_tiers = current_tiers;
 
         // eviction and move to tier are mutually exclusive
         if (evict) assert.strictEqual(move_to_tier, undefined);
 
         /** @type {nb.ID[]} */
         this.second_pass_chunk_ids = [];
+
+        /** @type {nb.ID[]} */
+        this.moved_chunks_to_storage_class = [];
     }
 
     async run() {
@@ -59,16 +60,22 @@ class MapBuilder {
         if (!this.chunk_ids.length) return;
 
         await builder_lock.surround_keys(_.map(this.chunk_ids, String), async () => {
-
-            if (this.move_to_tier) {
-                await MDStore.instance().update_chunks_by_ids(this.chunk_ids, { tier: this.move_to_tier._id });
-            }
             // we run the build twice. first time to perform all allocation, second time to perform deletions
             await this.run_build(this.chunk_ids);
 
             // run build a second time on chunks that had future_deletions before but now might delete them
             if (this.second_pass_chunk_ids.length) {
                 await this.run_build(this.second_pass_chunk_ids);
+            }
+
+            if (this.move_to_tier) {
+                const chunks = this.moved_chunks_to_storage_class;
+                dbg.log1(`MapBuilder.run: moved ${chunks} blocks to tier ${this.move_to_tier.name.unwrap()}`);
+
+                await MDStore.instance().update_chunks_by_ids(
+                    chunks,
+                    { tier: this.move_to_tier._id }
+                );
             }
         });
     }
@@ -204,12 +211,12 @@ class MapBuilder {
                 })
             }),
             desc: 'MapBuilder',
-            current_tiers: this.current_tiers,
             report_error: async () => {
                 // TODO MApClient.report_error
             },
         });
         await mc.run();
+        this.moved_chunks_to_storage_class = mc.moved_chunks_to_storage_class;
         if (mc.had_errors) throw new Error('MapBuilder map errors');
         for (const chunk of mc.chunks) {
             for (const frag of chunk.frags) {

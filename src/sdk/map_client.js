@@ -95,7 +95,6 @@ class MapClient {
      * @param {boolean} [props.verification_mode]
      * @param {Object} props.rpc_client
      * @param {string} [props.desc]
-     * @param {nb.Tier[]} [props.current_tiers]
      * @param { (block_md: nb.BlockMD, action: 'write'|'replicate'|'read', err: Error) => Promise<void> } props.report_error
      */
     constructor(props) {
@@ -110,8 +109,8 @@ class MapClient {
         this.desc = props.desc;
         this.report_error = props.report_error;
         this.had_errors = false;
-        this.current_tiers = props.current_tiers;
         this.verification_mode = props.verification_mode || false;
+        this.moved_chunks_to_storage_class = [];
         Object.seal(this);
     }
 
@@ -572,12 +571,8 @@ class MapClient {
         dbg.log1('MapClient.move_blocks_to_storage_class',
             'chunks.length', this.chunks.length,
             'move_to_tier', this.move_to_tier?.name, this.move_to_tier?.storage_class,
-            'current_tiers.length', this.current_tiers?.length,
         );
-        if (!this.move_to_tier || !this.current_tiers || this.current_tiers?.length === 0) return;
-        if (this.current_tiers.length !== this.chunks.length) {
-            throw new Error('current_tiers length does not match chunks length');
-        }
+        if (!this.move_to_tier) return;
 
         const blocks = [];
         const parts = [];
@@ -585,13 +580,13 @@ class MapClient {
         const target_storage_class = s3_utils.parse_storage_class(this.move_to_tier.storage_class);
         const target_attached_pools = this.move_to_tier.mirrors.map(mirror => mirror.spread_pools.map(pool => String(pool._id))).flat();
 
-        for (const [idx, chunk] of this.chunks.entries()) {
-            const current_tier = this.current_tiers[idx];
+        this.chunks.forEach(chunk => {
+            const current_tier = chunk.tier;
             const current_storage_class = s3_utils.parse_storage_class(current_tier.storage_class);
             const is_same_class = current_storage_class === target_storage_class;
 
             // skip if the same class and no change is needed
-            if (is_same_class) continue;
+            if (is_same_class) return;
 
             // we need to update the object(s) class anyhow, so collect the parts
             for (const part of chunk.parts) {
@@ -606,16 +601,26 @@ class MapClient {
             if (is_same_pools) {
                 for (const frag of chunk.frags) {
                     for (const block of frag.blocks) {
+                        // @ts-ignore - Justification: need chunk_id later
+                        block.chunk_id = chunk._id;
                         blocks.push(block);
                     }
                 }
             }
-        }
+        });
 
-        await Promise.all([
+        const [moved_blocks] = await Promise.all([
             this._move_blocks_to_storage_class(blocks, target_storage_class),
             this._set_objects_storage_class(parts, target_storage_class),
         ]);
+
+        this.moved_chunks_to_storage_class = blocks
+            .filter(block => moved_blocks.includes(String(block._id)))
+            .map(block => block.chunk_id);
+
+        dbg.log1('MapClient.move_blocks_to_storage_class',
+            'moved_chunks_to_storage_class', this.moved_chunks_to_storage_class.length,
+        );
     }
 
     /**
@@ -638,6 +643,8 @@ class MapClient {
      */
     async _move_blocks_to_storage_class(blocks, storage_class) {
         if (!blocks.length) return;
+        const moved_blocks = [];
+
         const blocks_by_agent = _.groupBy(blocks, 'address');
         await P.map(_.keys(blocks_by_agent), async agent_address => {
             const blocks_for_agent = blocks_by_agent[agent_address];
@@ -651,10 +658,13 @@ class MapClient {
                     address: agent_address
                 });
                 dbg.log1('MapClient: move_blocks_to_storage_class SUCCEEDED', 'ADDR:', agent_address, 'MOVED:', moved);
+                moved_blocks.push(...(moved?.moved_block_ids || []));
             } catch (err) {
                 dbg.error('MapClient: move_blocks_to_storage_class FAILED', 'ADDR:', agent_address, 'ERROR', err,);
             }
         });
+
+        return moved_blocks;
     }
 
     _error_injection_on_write() {

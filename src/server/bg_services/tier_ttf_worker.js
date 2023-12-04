@@ -152,12 +152,7 @@ class TieringTTFWorker {
                 console.log(`TieringTTFWorker: Moving the following ${chunks_to_rebuild} from ${previous_tier._id} to chunks to next tier ${next_tier_id}`, chunk_ids);
             }
 
-            await this._build_chunks(
-                chunk_ids,
-                next_tier_id,
-                cache_evict,
-                chunk_ids.map(() => previous_tier._id),
-            );
+            await this._build_chunks(chunk_ids, next_tier_id, cache_evict);
         }
         this.last_run = undefined;
         return config.TIER_TTF_WORKER_BATCH_DELAY;
@@ -167,18 +162,16 @@ class TieringTTFWorker {
         return bucket.tiering.tiers.find(t => String(t.tier._id) === String(tier._id)).order;
     }
 
-    async _build_chunks(chunk_ids, next_tier, cache_evict, current_tiers) {
-        return this.client.scrubber.build_chunks({
-            chunk_ids,
-            tier: next_tier,
-            evict: cache_evict,
-            current_tiers,
-        }, {
-            auth_token: auth_server.make_auth_token({
-                system_id: system_store.data.systems[0]._id,
-                role: 'admin'
-            })
-        });
+    async _build_chunks(chunk_ids, next_tier, cache_evict) {
+        return this.client.scrubber.build_chunks(
+            { chunk_ids, tier: next_tier, evict: cache_evict },
+            {
+                auth_token: auth_server.make_auth_token({
+                    system_id: system_store.data.systems[0]._id,
+                    role: 'admin'
+                })
+            }
+        );
     }
 }
 

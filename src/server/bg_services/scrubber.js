@@ -73,8 +73,7 @@ async function build_chunks(req) {
     const chunk_ids = _.map(req.rpc_params.chunk_ids, id => MDStore.instance().make_md_id(id));
     const tier = req.rpc_params.tier && system_store.data.get_by_id(req.rpc_params.tier);
     const evict = req.rpc_params.evict;
-    const current_tiers = _.map(req.rpc_params.current_tiers, id => system_store.data.get_by_id(id));
-    const builder = new MapBuilder(chunk_ids, tier, evict, current_tiers);
+    const builder = new MapBuilder(chunk_ids, tier, evict);
     await builder.run();
 }
 

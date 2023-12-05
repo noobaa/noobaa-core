@@ -129,9 +129,7 @@ prepare_agent_conf() {
     exit 1
   else
     echo "Got base64 agent_conf: ${AGENT_CONFIG}"
-    if [ ! -f $AGENT_CONF_FILE ]; then
-      openssl enc -base64 -d -A <<<${AGENT_CONFIG} >${AGENT_CONF_FILE}
-    fi
+    openssl enc -base64 -d -A <<<${AGENT_CONFIG} >${AGENT_CONF_FILE}
     echo "Written agent_conf.json: $(cat ${AGENT_CONF_FILE})"
   fi
 }

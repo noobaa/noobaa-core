@@ -1,5 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
+/* eslint-disable max-lines-per-function */
 
 const _ = require('lodash');
 const path = require('path');
@@ -30,7 +31,9 @@ const nc_nsfs_manage_entity_types = {
 const nc_nsfs_manage_actions = {
     ADD: 'add',
     UPDATE: 'update',
-    DELETE: 'delete'
+    DELETE: 'delete',
+    LIST: 'list',
+    STATUS: 'status'
 };
 
 mocha.describe('manage_nsfs cli', function() {
@@ -66,6 +69,13 @@ mocha.describe('manage_nsfs cli', function() {
             await exec_manage_cli(type, action, bucket_options);
             const bucket = await read_config_file(config_root, schema_dir, bucket_name);
             assert_bucket(bucket, bucket_options);
+            await assert_config_file_permissions(config_root, schema_dir, bucket_name);
+        });
+
+        mocha.it('cli bucket list', async function() {
+            const action = nc_nsfs_manage_actions.LIST;
+            const bucket_list = await exec_manage_cli(type, action, { config_root });
+            assert.ok(bucket_list.includes(`${[bucket_name]}`));
         });
 
         mocha.it('cli bucket create - should fail on already exists', async function() {
@@ -76,7 +86,26 @@ mocha.describe('manage_nsfs cli', function() {
             } catch (err) {
                 assert.ok(err.stderr.includes(`Error: Bucket already exists`));
             }
+        });
 
+        mocha.it('cli bucket create - should fail on invalid bucket name', async function() {
+            const action = nc_nsfs_manage_actions.ADD;
+            try {
+                await exec_manage_cli(type, action, { ...bucket_options, bucket_name: '!123bucket' });
+                assert.fail('should have failed with invalid bucket name');
+            } catch (err) {
+                assert.ok(err.stderr.includes(`Error: Invalid bucket name`));
+            }
+        });
+
+        mocha.it('cli bucket update - should fail on invalid bucket name', async function() {
+            const action = nc_nsfs_manage_actions.UPDATE;
+            try {
+                await exec_manage_cli(type, action, { ...bucket_options, new_name: '!123bucket' });
+                assert.fail('should have failed with invalid bucket name');
+            } catch (err) {
+                assert.ok(err.stderr.includes(`Error: Invalid bucket name`));
+            }
         });
 
         mocha.it('cli bucket update owner_email', async function() {
@@ -86,6 +115,7 @@ mocha.describe('manage_nsfs cli', function() {
             bucket_options = { ...bucket_options, ...update_options};
             const bucket = await read_config_file(config_root, schema_dir, bucket_name);
             assert_bucket(bucket, bucket_options);
+            await assert_config_file_permissions(config_root, schema_dir, bucket_name);
         });
 
         mocha.it('cli bucket update bucket name', async function() {
@@ -95,6 +125,7 @@ mocha.describe('manage_nsfs cli', function() {
             bucket_options = { ...bucket_options, ...update_options, new_name: undefined, bucket_name: update_options.new_name };
             const bucket = await read_config_file(config_root, schema_dir, bucket_options.bucket_name);
             assert_bucket(bucket, bucket_options);
+            await assert_config_file_permissions(config_root, schema_dir, bucket_options.bucket_name);
         });
 
         mocha.it('cli bucket2 update - new_name already exists', async function() {
@@ -124,6 +155,42 @@ mocha.describe('manage_nsfs cli', function() {
         });
     });
 
+    mocha.describe('cli invalid actions and types', async function() {
+
+        mocha.it('cli account invalid_action', async function() {
+            const type = nc_nsfs_manage_entity_types.ACCOUNT;
+            const action = 'invalid_action';
+            try {
+                await exec_manage_cli(type, action, { config_root });
+                assert.fail('should have failed with invalid action');
+            } catch (err) {
+                assert.ok(err.stderr.includes('Invalid action, available actions are add, status, update, delete, list'));
+            }
+        });
+
+        mocha.it('cli bucket invalid_action', async function() {
+            const type = nc_nsfs_manage_entity_types.BUCKET;
+            const action = 'invalid_action';
+            try {
+                await exec_manage_cli(type, action, { config_root });
+                assert.fail('should have failed with invalid action');
+            } catch (err) {
+                assert.ok(err.stderr.includes('Invalid action, available actions are add, status, update, delete, list'));
+            }
+        });
+
+        mocha.it('cli invalid_type', async function() {
+            const type = 'invalid_type';
+            const action = nc_nsfs_manage_actions.ADD;
+            try {
+                await exec_manage_cli(type, action, { config_root });
+                assert.fail('should have failed with invalid type');
+            } catch (err) {
+                assert.ok(err.stderr.includes('Error: Invalid config type, available config types are account/bucket'));
+            }
+        });
+
+    });
     mocha.describe('cli account flow', async function() {
         const type = nc_nsfs_manage_entity_types.ACCOUNT;
         const name = 'account1';
@@ -146,6 +213,7 @@ mocha.describe('manage_nsfs cli', function() {
             assert_account(account_symlink, account_options);
             const account = await read_config_file(config_root, accounts_schema_dir, name);
             assert_account(account, account_options);
+            await assert_config_file_permissions(config_root, accounts_schema_dir, name);
         });
 
         mocha.it('cli account create - no uid gid - should fail', async function() {
@@ -188,6 +256,12 @@ mocha.describe('manage_nsfs cli', function() {
             }
         });
 
+        mocha.it('cli account list', async function() {
+            const action = nc_nsfs_manage_actions.LIST;
+            const bucket_list = await exec_manage_cli(type, action, { config_root });
+            assert.ok(bucket_list.includes(`${[name]}`));
+        });
+
         mocha.it('cli account update uid by access key', async function() {
             const action = nc_nsfs_manage_actions.UPDATE;
             const update_options = {
@@ -203,6 +277,7 @@ mocha.describe('manage_nsfs cli', function() {
             assert_account(account_symlink, account_options);
             const account = await read_config_file(config_root, accounts_schema_dir, name);
             assert_account(account, account_options);
+            await assert_config_file_permissions(config_root, accounts_schema_dir, name);
         });
 
         mocha.it('cli account update uid by name', async function() {
@@ -437,6 +512,14 @@ async function read_config_file(config_root, schema_dir, config_file_name, is_sy
     const config = JSON.parse(data.toString());
     return config;
 }
+
+async function assert_config_file_permissions(config_root, schema_dir, config_file_name, is_symlink) {
+    const config_path = path.join(config_root, schema_dir, config_file_name + (is_symlink ? '.symlink' : '.json'));
+    const { stat } = await nb_native().fs.readFile(DEFAULT_FS_CONFIG, config_path);
+    // 33152 means 600 (only owner has read and write permissions)
+    assert.ok(stat.mode, 33152);
+}
+
 
 function assert_bucket(bucket, bucket_options) {
     assert.strictEqual(bucket.name, bucket_options.bucket_name);

@@ -1,6 +1,6 @@
-# NSFS FS Standalone
+# NSFS Non Containerized
 
-Running noobaa-core standalone is useful for development, testing, or deploying in Linux without depending on Kubernetes, NSFS FS is different from the simple standalone in such a way that it doesn't depend on the Noobaa postgres db. All the Global configurations, Accounts, and Bucket related schemas are saved in FS. And it gives a more lightweight flavor to the Noobaa standalone version. Permissions are handled by uid and gid, or by providing a distinguished name (LDAP/AD) that will be resolved to uid/gid by the operating system.
+Running noobaa-core non containerized is useful for development, testing, or deploying in Linux without depending on Kubernetes, NSFS FS is different from the simple standalone in such a way that it doesn't depend on the Noobaa postgres db. All the Global configurations, Accounts, and Bucket related schemas are saved in FS. And it gives a more lightweight flavor to the Noobaa standalone version. Permissions are handled by uid and gid, or by providing a distinguished name (LDAP/AD) that will be resolved to uid/gid by the operating system.
 
 Users can switch between Noobaa standalone and NSFS FS standalone by adding/removing the argument `config_dir`.
 
@@ -160,3 +160,7 @@ High level configuration -
 #### config.json schema - 
 See [NSFS config.json schema](https://github.com/noobaa/noobaa-core/src/server/object_services/schemas/nsfs_config_schema.js)
 config.json will be reloaded every 10 seconds automatically, please notice that some config.json properties require restart of the service, for more details check the schema.
+
+### Configuration files (accounts/buckets) permissions
+- Configuration files created under accounts/ or buckets/ will have 600 permissions (read, write, execute) for the owner of the config file only. 
+- config_file created by manage_nsfs.js CLI tool will be owned by the user who ran the command. 

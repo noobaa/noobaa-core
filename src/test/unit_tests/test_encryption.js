@@ -2,6 +2,8 @@
 /*eslint max-lines-per-function: ["error", 550]*/
 'use strict';
 
+const {setTimeout} = require("timers/promises");
+
 // setup coretest first to prepare the env
 const coretest = require('./coretest');
 coretest.setup({ pools_to_create: [coretest.POOL_LIST[1]] });
@@ -92,6 +94,9 @@ mocha.describe('Encryption tests', function() {
                 await compare_master_keys({db_master_key_id: db_bucket.master_key_id,
                 father_master_key_id: db_system.master_key_id});
             }
+            for (i = 0; i < 20; i++) {
+                await s3.createBucket({ Bucket: `${BKT}-${i}` });
+            }
             await s3.createBucket({ Bucket: BKT });
         });
 
@@ -137,7 +142,7 @@ mocha.describe('Encryption tests', function() {
             for (i = 0; i < 20; i++) {
                 response_account = await rpc_client.account.create_account({...new_account_params,
                      email: `email${i}`, name: `name${i}`});
-                accounts.push({email: `email${i}`, create_account_result: response_account});
+                accounts.push({email: `email${i}`, create_account_result: response_account, index: i});
                 const db_account = await db_client.collection('accounts').findOne({ email: `email${i}` });
                 const system_store_account = account_by_name(system_store.data.accounts, `email${i}`);
 
@@ -189,17 +194,17 @@ mocha.describe('Encryption tests', function() {
             this.timeout(600000); // eslint-disable-line no-invalid-this
             await P.all(_.map(accounts.slice(10), async cur_account => {
                 const namespace_resource_name = `${cur_account.email}-namespace-resource`;
-                const target_bucket = BKT;
+                const target_bucket = `${BKT}-${cur_account.index}`;
                 await rpc_client.pool.create_namespace_resource({
                     name: namespace_resource_name,
                     connection: 'conn1',
-                    target_bucket,
+                    target_bucket
                 }, { auth_token: cur_account.create_account_result.token });
                 namespace_resources.push({name: namespace_resource_name,
                     auth_token: cur_account.create_account_result.token,
                     access_key: cur_account.create_account_result.access_keys[0].access_key.unwrap(),
                     secret_key: cur_account.create_account_result.access_keys[0].secret_key.unwrap(),
-                    target_bucket });
+                    target_bucket});
             }));
             await system_store.load();
             await P.all(_.map(accounts.slice(10), async cur_account => {
@@ -252,6 +257,8 @@ mocha.describe('Encryption tests', function() {
                 identity: coretest_access_key, secret: coretest_secret_key },
                 { auth_token: cur_account.create_account_result.token });
             }));
+
+            await setTimeout(1000);
 
             await system_store.load();
 
@@ -530,7 +537,7 @@ mocha.describe('Rotation tests', function() {
         await compare_secrets_disabled(secrets, system_store_account.master_key_id._id, original_secrets.system_store_secret);
         await P.all(_.map(system_store.data.pools, async pool => {
             if (!pool.cloud_pool_info) return;
-            if (pool.cloud_pool_info.target_bucket === BKT) return;
+            if (pool.cloud_pool_info.target_bucket.startsWith(BKT)) return;
             const pools_secrets = await get_pools_secrets_from_system_store_and_db(pool);
             if (is_connection_is_account_s3_creds(
                     pool, 'pool', system_store_account._id, system_store_account.access_keys[0])) {
@@ -539,7 +546,7 @@ mocha.describe('Rotation tests', function() {
             }
         }));
         await P.all(_.map(system_store.data.namespace_resources, async ns_resource => {
-            if (!ns_resource.connection || ns_resource.connection.target_bucket === BKT) return;
+            if (!ns_resource.connection || ns_resource.connection.target_bucket.startsWith(BKT)) return;
             const ns_resources_secrets = await get_ns_resources_secrets_from_system_store_and_db(ns_resource);
             if (is_connection_is_account_s3_creds(
                 ns_resource, 'ns', system_store_account._id, system_store_account.access_keys[0])) {
@@ -559,7 +566,7 @@ mocha.describe('Rotation tests', function() {
         compare_secrets(secrets, system_store_account.master_key_id._id);
         await P.all(_.map(system_store.data.pools, async pool => {
             if (!pool.cloud_pool_info) return;
-            if (pool.cloud_pool_info.target_bucket === BKT) return;
+            if (pool.cloud_pool_info.target_bucket.startsWith(BKT)) return;
             if (is_connection_is_account_s3_creds(
                     pool, 'pool', system_store_account._id, system_store_account.access_keys[0])) {
                 const pools_secrets = await get_pools_secrets_from_system_store_and_db(pool);
@@ -568,7 +575,7 @@ mocha.describe('Rotation tests', function() {
             }
         }));
         await P.all(_.map(system_store.data.namespace_resources, async ns_resource => {
-            if (!ns_resource.connection || ns_resource.connection.target_bucket === BKT) return;
+            if (!ns_resource.connection || ns_resource.connection.target_bucket.startsWith(BKT)) return;
             const ns_resources_secrets = await get_ns_resources_secrets_from_system_store_and_db(ns_resource);
             if (is_connection_is_account_s3_creds(
                 ns_resource, 'ns', system_store_account._id, system_store_account.access_keys[0])) {
@@ -589,7 +596,7 @@ mocha.describe('Rotation tests', function() {
         const secrets = await get_account_secrets_from_system_store_and_db(accounts[0].email, 's3_creds');
         await compare_secrets_disabled(secrets, system_store_account.master_key_id._id, original_secrets.system_store_secret);
         await P.all(_.map(system_store.data.pools, async pool => {
-            if (!pool.cloud_pool_info || pool.cloud_pool_info.target_bucket === BKT) return;
+            if (!pool.cloud_pool_info || pool.cloud_pool_info.target_bucket.startsWith(BKT)) return;
             const pools_secrets = await get_pools_secrets_from_system_store_and_db(pool);
             if (is_pool_of_account(pool, 'pool', system_store_account._id)) {
                 await compare_secrets_disabled(pools_secrets.secrets, pools_secrets.owner_account_master_key_id);
@@ -612,7 +619,7 @@ mocha.describe('Rotation tests', function() {
         const secrets = await get_account_secrets_from_system_store_and_db(accounts[2].email, 's3_creds');
         await compare_secrets_disabled(secrets, system_store_account.master_key_id._id, original_secrets.system_store_secret);
         await P.all(_.map(system_store.data.namespace_resources, async ns_resource => {
-            if (!ns_resource.connection || ns_resource.connection.target_bucket === BKT) return;
+            if (!ns_resource.connection || ns_resource.connection.target_bucket.startsWith(BKT)) return;
             const ns_resources_secrets = await get_ns_resources_secrets_from_system_store_and_db(ns_resource);
             if (is_pool_of_account(ns_resource, 'ns', system_store_account._id)) {
                 await compare_secrets_disabled(ns_resources_secrets.secrets, ns_resources_secrets.owner_account_master_key_id);
@@ -645,14 +652,14 @@ mocha.describe('Rotation tests', function() {
         }));
         await P.all(_.map(system_store.data.pools, async pool => {
             if (pool.cloud_pool_info) {
-                if (pool.cloud_pool_info.target_bucket === BKT) return;
+                if (pool.cloud_pool_info.target_bucket.startsWith(BKT)) return;
                 const pools_secrets = await get_pools_secrets_from_system_store_and_db(pool);
                 await compare_secrets_disabled(pools_secrets.secrets, pools_secrets.owner_account_master_key_id);
             }
         }));
 
         await P.all(_.map(system_store.data.namespace_resources, async ns_resource => {
-            if (!ns_resource.connection || ns_resource.connection.target_bucket === BKT) return;
+            if (!ns_resource.connection || ns_resource.connection.target_bucket.startsWith(BKT)) return;
             const ns_resources_secrets = await get_ns_resources_secrets_from_system_store_and_db(ns_resource);
             await compare_secrets_disabled(ns_resources_secrets.secrets, ns_resources_secrets.owner_account_master_key_id);
         }));
@@ -717,7 +724,7 @@ mocha.describe('Rotation tests', function() {
 
             await P.all(_.map(system_store.data.pools, async pool => {
                 if (pool.cloud_pool_info) {
-                    if (pool.cloud_pool_info.target_bucket === BKT) return;
+                    if (pool.cloud_pool_info.target_bucket.startsWith(BKT)) return;
                     const pools_secrets = await get_pools_secrets_from_system_store_and_db(pool);
                     await compare_secrets_disabled(pools_secrets.secrets, pools_secrets.owner_account_master_key_id);
                 }
@@ -754,7 +761,7 @@ mocha.describe('Rotation tests', function() {
 
             await P.all(_.map(system_store.data.pools, async pool => {
                 if (!pool.cloud_pool_info) return;
-                if (pool.cloud_pool_info.target_bucket === BKT) return;
+                if (pool.cloud_pool_info.target_bucket.startsWith(BKT)) return;
                 const pools_secrets = await get_pools_secrets_from_system_store_and_db(pool);
                 if (is_connection_is_account_s3_creds(
                         pool, 'pool', system_store_account._id, system_store_account.access_keys[0])) {
@@ -778,7 +785,7 @@ mocha.describe('Rotation tests', function() {
 
             await P.all(_.map(system_store.data.pools, async pool => {
                 if (!pool.cloud_pool_info) return;
-                if (pool.cloud_pool_info.target_bucket === BKT) return;
+                if (pool.cloud_pool_info.target_bucket.startsWith(BKT)) return;
                 if (is_connection_is_account_s3_creds(
                     pool, 'pool', system_store_account._id, system_store_account.access_keys[0])) {
                     const pools_secrets = await get_pools_secrets_from_system_store_and_db(pool);
@@ -812,7 +819,7 @@ mocha.describe('Rotation tests', function() {
             }));
             await P.all(_.map(system_store.data.pools, async pool => {
                 if (pool.cloud_pool_info) {
-                    if (pool.cloud_pool_info.target_bucket === BKT) return;
+                    if (pool.cloud_pool_info.target_bucket.startsWith(BKT)) return;
                     const sys_account = account_by_id(system_store.data.accounts, pool.cloud_pool_info.access_keys.account_id._id);
                     old_pools.push({pool_name: pool.pool_name, master_key: sys_account.master_key_id});
                 }
@@ -866,7 +873,7 @@ mocha.describe('Rotation tests', function() {
             }));
             await P.all(_.map(system_store.data.pools, async pool => {
                 if (pool.cloud_pool_info) {
-                    if (pool.cloud_pool_info.target_bucket === BKT) return;
+                    if (pool.cloud_pool_info.target_bucket.startsWith(BKT)) return;
                     const pools_secrets = await get_pools_secrets_from_system_store_and_db(pool);
                     await compare_secrets_disabled(pools_secrets.secrets, pools_secrets.owner_account_master_key_id);
                 }

@@ -860,7 +860,7 @@ function load_nsfs_nc_config() {
     try {
         if (!config.NSFS_NC_CONF_DIR) {
             config.NSFS_NC_CONF_DIR = _get_config_root();
-            console.log('load_nsfs_nc_config.setting config.NSFS_NC_CONF_DIR', config.NSFS_NC_CONF_DIR);
+            console.warn('load_nsfs_nc_config.setting config.NSFS_NC_CONF_DIR', config.NSFS_NC_CONF_DIR);
         }
         const config_path = path.join(config.NSFS_NC_CONF_DIR, 'config.json');
         const config_data = require(config_path);
@@ -880,7 +880,7 @@ function load_nsfs_nc_config() {
             config[key] = merged_config[key];
         });
 
-        console.log(`nsfs: config_dir_path=${config.NSFS_NC_CONF_DIR} config.json= ${util.inspect(merged_config)}`);
+        console.warn(`nsfs: config_dir_path=${config.NSFS_NC_CONF_DIR} config.json= ${util.inspect(merged_config)}`);
 
     } catch (err) {
         if (err.code !== 'MODULE_NOT_FOUND' && err.code !== 'ENOENT') throw err;

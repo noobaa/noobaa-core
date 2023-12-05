@@ -28,7 +28,7 @@ namespace noobaa
 
 #define DVAL(x) #x "=" << x << " "
 
-#define LOG(x) std::cout << LOG_PREFIX() << x << std::endl
+#define LOG(x) std::cerr << LOG_PREFIX() << x << std::endl
 
 // to use DBG the module/file should use either DBG_INIT or DBG_INIT_VAR.
 #define DBG_INIT(level) static int __module_debug_var__ = level

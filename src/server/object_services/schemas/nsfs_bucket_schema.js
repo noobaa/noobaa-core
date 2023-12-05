@@ -17,6 +17,12 @@ module.exports = {
         name: {
             type: 'string',
         },
+        system_owner: {
+            type: 'string',
+        },
+        bucket_owner: {
+            type: 'string',
+        },
         tag: {
             type: 'string',
         },

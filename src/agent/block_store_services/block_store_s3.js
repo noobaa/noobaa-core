@@ -255,6 +255,9 @@ class BlockStoreS3 extends BlockStoreBase {
         try {
             const endpoint = this.cloud_info.endpoint;
             if (cloud_utils.is_aws_endpoint(endpoint)) {
+                if (this.cloud_info.aws_sts_arn) {
+                    this.s3cloud = await cloud_utils.createSTSS3Client(this.cloud_info, this.additionalS3Params);
+                }
                 // in s3 there is no error for non-existing object
                 await this.s3cloud.deleteObjectTagging({
                     Bucket: this.cloud_info.target_bucket,
@@ -291,7 +294,8 @@ class BlockStoreS3 extends BlockStoreBase {
     }
 
     async _delete_past_versions(key) {
-        if (this.cloud_info.endpoint_type !== 'AWS') return;
+        if ((this.cloud_info.endpoint_type !== 'AWS') &&
+            (this.cloud_info.endpoint_type !== 'AWSSTS')) return;
         let is_truncated = true;
         let key_marker;
         let version_marker;

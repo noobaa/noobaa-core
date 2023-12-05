@@ -740,7 +740,7 @@ async function add_external_connection(req) {
     info.cp_code = req.rpc_params.cp_code || undefined;
     info.auth_method = req.rpc_params.auth_method || config.DEFAULT_S3_AUTH_METHOD[info.endpoint_type] || undefined;
     info = _.omitBy(info, _.isUndefined);
-    if ((info.endpoint_type === 'AWS' || info.endpoint_type === 'S3_COMPATIBLE') &&
+    if ((info.endpoint_type === 'AWS' || info.endpoint_type === 'AWSSTS' || info.endpoint_type === 'S3_COMPATIBLE') &&
         (!info.endpoint.startsWith('http://') && !info.endpoint.startsWith('https://'))) {
         info.endpoint = 'http://' + info.endpoint;
     }

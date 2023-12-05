@@ -324,7 +324,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
   try {
 
     if (argv.help || argv.h) return print_usage();
-    const config_root = argv.config_root ? String(argv.config_root) : config.NSFS_NC_DEFAULT_CONF_DIR;
+    const config_root = argv.config_root ? String(argv.config_root) : config.NSFS_NC_CONF_DIR;
     // disable console log to avoid unwanted logs in console.
     await disable_console_log();
     const https_port = Number(argv.https_port) || 6443;

@@ -148,7 +148,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
                 return;
             }
         }
-        const config_root = argv.config_root ? String(argv.config_root) : config.NSFS_NC_DEFAULT_CONF_DIR;
+        const config_root = argv.config_root ? String(argv.config_root) : config.NSFS_NC_CONF_DIR;
         if (!config_root) {
             console.error('Error: Config dir should not be empty');
             print_account_usage();

@@ -11,22 +11,22 @@ const nsfs_node_config_schema = {
             description: 'number of concurrent endpoint forks allowed, suggested values are 2-64, service restart required'
         },
         ENDPOINT_PORT: {
-            type: 'string',
+            type: 'number',
             default: 6001,
             description: 'http port number designated for s3 incoming requests, service restart required'
         },
         ENDPOINT_SSL_PORT: {
-            type: 'string',
+            type: 'number',
             default: 6443,
             description: 'https port number designated for s3 incoming requests, service restart required'
         },
         ENDPOINT_SSL_STS_PORT: {
-            type: 'string',
+            type: 'number',
             default: 7443,
             description: 'https port number designated for sts incoming requests, service restart required'
         },
         EP_METRICS_SERVER_PORT: {
-            type: 'string',
+            type: 'number',
             default: -1,
             description: 'http port number designated for metrics incoming requests, service restart required'
         },

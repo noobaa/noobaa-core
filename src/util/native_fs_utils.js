@@ -452,6 +452,15 @@ function validate_bucket_creation(params) {
     }
 }
 
+async function config_file_exists(fs_context, config_path) {
+    try {
+        await nb_native().fs.stat(fs_context, config_path);
+    } catch (err) {
+        if (err.code === 'ENOENT') return false;
+    }
+    return true;
+}
+
 exports.get_umasked_mode = get_umasked_mode;
 exports._make_path_dirs = _make_path_dirs;
 exports._create_path = _create_path;
@@ -480,3 +489,4 @@ exports.update_config_file = update_config_file;
 exports.isDirectory = isDirectory;
 exports.get_process_fs_context = get_process_fs_context;
 exports.validate_bucket_creation = validate_bucket_creation;
+exports.config_file_exists = config_file_exists;

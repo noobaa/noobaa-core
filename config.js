@@ -702,6 +702,8 @@ config.NSFS_NC_ALLOW_HTTP = false;
 config.BASE_MODE_CONFIG_FILE = 0o600;
 config.BASE_MODE_CONFIG_DIR = 0o700;
 
+config.NSFS_WHITELIST = [];
+
 // NSFS_RESTORE_ENABLED can override internal autodetection and will force
 // the use of restore for all objects.
 config.NSFS_RESTORE_ENABLED = false;

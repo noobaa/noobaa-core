@@ -10,6 +10,7 @@ const P = require('../../util/promise');
 const fs_utils = require('../../util/fs_utils');
 const os_util = require('../../util/os_utils');
 const nb_native = require('../../util/nb_native');
+const config_module = require('../../../config');
 
 const MAC_PLATFORM = 'darwin';
 let tmp_fs_path = '/tmp/test_bucketspace_fs';
@@ -25,7 +26,8 @@ const DEFAULT_FS_CONFIG = {
 
 const nc_nsfs_manage_entity_types = {
     BUCKET: 'bucket',
-    ACCOUNT: 'account'
+    ACCOUNT: 'account',
+    WHITELIST: 'whitelist',
 };
 
 const nc_nsfs_manage_actions = {
@@ -186,7 +188,7 @@ mocha.describe('manage_nsfs cli', function() {
                 await exec_manage_cli(type, action, { config_root });
                 assert.fail('should have failed with invalid type');
             } catch (err) {
-                assert.ok(err.stdout.includes('Error: Invalid config type, available config types are account/bucket'));
+                assert.ok(err.stdout.includes('Error: Invalid config type, available config types are account, bucket or whitelist.'));
             }
         });
 
@@ -506,6 +508,55 @@ mocha.describe('manage_nsfs cli', function() {
         });
     });
 
+    mocha.describe('cli whitelist flow', async function() {
+        this.timeout(50000); // eslint-disable-line no-invalid-this
+        const config_options = { ENDPOINT_FORKS: 1, UV_THREADPOOL_SIZE: 4};
+        const ips = ['127.0.0.1', '192.000.10.000', '3002:0bd6:0000:0000:0000:ee00:0033:999'];
+        mocha.before(async () => {
+            await write_config_file(config_root, '', 'config', config_options);
+        });
+        mocha.after(async () => {
+            fs_utils.file_delete(path.join(config_root, 'config.json'));
+        });
+
+        mocha.it('cli add whitelist ips first time', async function() {
+                const res = await exec_manage_cli(nc_nsfs_manage_entity_types.WHITELIST, '', { config_root, ips: JSON.stringify(ips) });
+                config_options.NSFS_WHITELIST = ips;
+                const config_data = await read_config_file(config_root, '', 'config');
+                assert.ok(res.includes('Whitelist IPs updated successfully.'));
+                assert_whitelist(config_data, config_options);
+        });
+
+        mocha.it('cli update whitelist ips', async function() {
+            ips.push('100.000.00.000');
+            const res = await exec_manage_cli(nc_nsfs_manage_entity_types.WHITELIST, '', { config_root, ips: JSON.stringify(ips) });
+            config_options.NSFS_WHITELIST = ips;
+            const config_data = await read_config_file(config_root, '', 'config');
+            assert.ok(res.includes('Whitelist IPs updated successfully.'));
+            assert_whitelist(config_data, config_options);
+        });
+
+        mocha.it('cli whitelist ips is empty', async function() {
+            try {
+                await exec_manage_cli(nc_nsfs_manage_entity_types.WHITELIST, '', { config_root, ips: '' });
+                config_options.NSFS_WHITELIST = ips;
+                assert.fail('should have failed withwhitelist ips should not be empty.');
+            } catch (err) {
+                assert.ok(err.stdout.includes('Error: Whitelist ips should not be empty.'));
+            }
+        });
+
+        mocha.it('cli whitelist formate is invalid', async function() {
+            try {
+                await exec_manage_cli(nc_nsfs_manage_entity_types.WHITELIST, '', { config_root, ips: JSON.stringify(ips) + 'invalid' });
+                config_options.NSFS_WHITELIST = ips;
+                assert.fail('should have failed with whitelist ips with invalid body format');
+            } catch (err) {
+                assert.ok(err.stdout.includes('Error: Whitelist ips with invalid body format'));
+            }
+        });
+    });
+
 });
 
 async function read_config_file(config_root, schema_dir, config_file_name, is_symlink) {
@@ -513,6 +564,14 @@ async function read_config_file(config_root, schema_dir, config_file_name, is_sy
     const { data } = await nb_native().fs.readFile(DEFAULT_FS_CONFIG, config_path);
     const config = JSON.parse(data.toString());
     return config;
+}
+
+async function write_config_file(config_root, schema_dir, config_file_name, data,  is_symlink) {
+    const config_path = path.join(config_root, schema_dir, config_file_name + (is_symlink ? '.symlink' : '.json'));
+    await nb_native().fs.writeFile(DEFAULT_FS_CONFIG, config_path,
+        Buffer.from(JSON.stringify(data)), {
+            mode: config_module.BASE_MODE_FILE,
+        });
 }
 
 async function assert_config_file_permissions(config_root, schema_dir, config_file_name, is_symlink) {
@@ -548,6 +607,13 @@ function assert_account(account, account_options) {
     return true;
 }
 
+function assert_whitelist(config_data, config_options) {
+    assert.strictEqual(config_data.ENDPOINT_FORKS, config_options.ENDPOINT_FORKS);
+    assert.strictEqual(config_data.UV_THREADPOOL_SIZE, config_options.UV_THREADPOOL_SIZE);
+    assert.strictEqual(config_data.NSFS_WHITELIST.length, config_options.NSFS_WHITELIST.length);
+    return true;
+}
+
 async function exec_manage_cli(type, action, options) {
     const bucket_flags = (options.bucket_name ? `--name ${options.bucket_name}` : ``) +
         (options.owner_email ? ` --email ${options.owner_email}` : ``) +
@@ -562,9 +628,12 @@ async function exec_manage_cli(type, action, options) {
         (options.gid ? ` --gid ${options.gid}` : ``) +
         (options.distinguished_name ? ` --user ${options.distinguished_name}` : ``);
 
+    const whiteist_flags = (options.ips ? ` --ips '${options.ips}'` : ``);
+
     const update_identity_flags = (options.new_name ? ` --new_name ${options.new_name}` : ``) +
         (options.new_access_key ? ` --new_access_key ${options.new_access_key}` : ``);
-    const flags = (type === 'bucket' ? bucket_flags : account_flags) + update_identity_flags;
+    let flags = (type === 'bucket' ? bucket_flags : account_flags) + update_identity_flags;
+    flags = (type === 'whitelist' ? whiteist_flags : flags);
     const cmd = `node src/cmd/manage_nsfs ${type} ${action} --config_root ${options.config_root} ${flags}`;
     const res = await os_util.exec(cmd, { return_stdout: true });
     return res;

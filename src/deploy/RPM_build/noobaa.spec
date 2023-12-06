@@ -49,7 +49,7 @@ ln -s /usr/local/noobaa-core/node/bin/npm $RPM_BUILD_ROOT/usr/local/noobaa-core/
 ln -s /usr/local/noobaa-core/node/bin/npx $RPM_BUILD_ROOT/usr/local/noobaa-core/bin/npx
 
 mkdir -p $RPM_BUILD_ROOT/etc/systemd/system/
-ln -s /usr/local/noobaa-core/src/deploy/noobaa_nsfs.service $RPM_BUILD_ROOT/etc/systemd/system/noobaa_nsfs.service
+cp -R %{_builddir}/%{name}-%{version}-%{revision}/noobaa/src/deploy/noobaa_nsfs.service $RPM_BUILD_ROOT/etc/systemd/system/noobaa_nsfs.service
 ln -s /usr/local/noobaa-core/src/deploy/nsfs_env.env $RPM_BUILD_ROOT/usr/local/noobaa-core/nsfs_env.env
 mkdir -p $RPM_BUILD_ROOT/etc/noobaa.conf.d/
 

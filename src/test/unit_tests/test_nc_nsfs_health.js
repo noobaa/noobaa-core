@@ -97,7 +97,7 @@ mocha.describe('nsfs nc health', function() {
             get_endpoint_response.onFirstCall().returns(Promise.resolve({response: {response_code: 'RUNNING', total_fork_count: 0}}));
             const health_status = await health.nc_nsfs_health();
             assert.strictEqual(health_status.status, 'NOTOK');
-            assert.strictEqual(health_status.error.error_code, 'NSFS_SERVICE_FAILED');
+            assert.strictEqual(health_status.error.error_code, 'NOOBAA_NSFS_SERVICE_FAILED');
         });
 
         mocha.it('NSFS rsyslog service is inactive', async function() {

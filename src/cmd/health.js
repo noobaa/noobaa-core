@@ -1,6 +1,7 @@
 /* Copyright (C) 2020 NooBaa */
 'use strict';
 
+const dbg = require('../util/debug_module')(__filename);
 const os_util = require('../util/os_utils');
 const { make_https_request } = require('../util/http_utils');
 const minimist = require('minimist');
@@ -8,7 +9,6 @@ const config = require('../../config');
 const path = require('path');
 const nb_native = require('../util/nb_native');
 const native_fs_utils = require('../util/native_fs_utils');
-const dbg = require('../util/debug_module')(__filename);
 const { read_stream_join } = require('../util/buffer_utils');
 const P = require('../util/promise');
 
@@ -45,11 +45,11 @@ function print_usage() {
 }
 
 const HOSTNAME = "localhost";
-const NSFS_SERVICE = "nsfs";
+const NSFS_SERVICE = "noobaa_nsfs";
 const RSYSLOG_SERVICE = "rsyslog";
 const health_errors = {
   NSFS_SERVICE_FAILED: {
-        error_code: 'NSFS_SERVICE_FAILED',
+        error_code: 'NOOBAA_NSFS_SERVICE_FAILED',
         error_message: 'NSFS service is not started properly, Please verify the service with status command.',
     },
     RSYSLOG_SERVICE_FAILED: {
@@ -325,8 +325,6 @@ async function main(argv = minimist(process.argv.slice(2))) {
 
     if (argv.help || argv.h) return print_usage();
     const config_root = argv.config_root ? String(argv.config_root) : config.NSFS_NC_CONF_DIR;
-    // disable console log to avoid unwanted logs in console.
-    await disable_console_log();
     const https_port = Number(argv.https_port) || 6443;
     const deployment_type = argv.deployment_type || 'nc';
     const all_account_details = argv.all_account_details || false;
@@ -342,18 +340,6 @@ async function main(argv = minimist(process.argv.slice(2))) {
     dbg.error('Helath: exit on error', err.stack || err);
     process.exit(2);
   }
-}
-
-async function disable_console_log() {
-    console.log = function() {
-      //empty function, lint fix
-    };
-    console.error = function() {
-      //empty function, lint fix
-    };
-    console.warn = function() {
-      //empty function, lint fix
-    };
 }
 
 exports.main = main;

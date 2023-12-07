@@ -321,7 +321,7 @@ In this health output, `bucket2`'s storage path is invalid and the directory men
 
 ### Health Error Codes
 These are the error codes populated in the health output if the system is facing some issues. If any of these error codes are present in health status then the overall status will be in `NOTOK` state.
-#### 1. `NSFS_SERVICE_FAILED`
+#### 1. `NOOBAA_NSFS_SERVICE_FAILED`
 #### Reasons
 - NSFS service is not started properly.
 - Stopped NSFS service is not removed.
@@ -395,30 +395,34 @@ These error codes will get attached with a specific Bucket or Account schema ins
 Users can create, update, delete, and list buckets and accounts using CLI. If the config directory is missing CLI will create one and also create accounts and buckets sub-directories in it and default config directory is `${config.NSFS_NC_DEFAULT_CONF_DIR}`. 
 
 CLI will never create or delete a bucket directory for the user if a bucket directory is missing CLI will return with error.
+
+
  
  Bucket Commands
  ```
- node src/cmd/manage_nsfs bucket add --config_root ../standalon/config_root --name bucket1 --email noobaa@gmail.com --path ../standalon/nsfs_root/1
+ node src/cmd/manage_nsfs bucket add --config_root ../standalon/config_root --name bucket1 --email noobaa@gmail.com --path ../standalon/nsfs_root/1 2>/dev/null
 
-node src/cmd/manage_nsfs bucket update --config_root ../standalon/config_root --name bucket1 --email noobaa@gmail.com
+node src/cmd/manage_nsfs bucket update --config_root ../standalon/config_root --name bucket1 --email noobaa@gmail.com 2>/dev/null
 
-node src/cmd/manage_nsfs bucket list --config_root ../standalon/config_root
+node src/cmd/manage_nsfs bucket list --config_root ../standalon/config_root 2>/dev/null
 
-node src/cmd/manage_nsfs bucket delete --config_root ../standalon/config_root --name bucket1
+node src/cmd/manage_nsfs bucket delete --config_root ../standalon/config_root --name bucket1 2>/dev/null
 
 ```
 
  Account Commands
  ```
-node src/cmd/manage_nsfs account add --config_root ../standalon/config_root --name noobaa --email noobaa@gmail.com --new_buckets_path ../standalon/nsfs_root/ --access_key abc --secret_key abc
+node src/cmd/manage_nsfs account add --config_root ../standalon/config_root --name noobaa --email noobaa@gmail.com --new_buckets_path ../standalon/nsfs_root/ --access_key abc --secret_key abc 2>/dev/null
 
-node src/cmd/manage_nsfs account update --config_root ../standalon/config_root --name noobaa --access_key abc --secret_key abc123
+node src/cmd/manage_nsfs account update --config_root ../standalon/config_root --name noobaa --access_key abc --secret_key abc123 2>/dev/null
 
-node src/cmd/manage_nsfs account delete --config_root ../standalon/config_root --access_key abc
+node src/cmd/manage_nsfs account delete --config_root ../standalon/config_root --access_key abc 2>/dev/null
 
-node src/cmd/manage_nsfs account list --config_root ../standalon/config_root
+node src/cmd/manage_nsfs account list --config_root ../standalon/config_root 2>/dev/null
 
  ```
+
+`Important`:  All the Account/Bucket commands end with `2>/dev/null` to make sure there are no unwanted logs.
 
 Users can also pass account and bucket/account values in JSON file instead of passing them in cli as arguments.
 

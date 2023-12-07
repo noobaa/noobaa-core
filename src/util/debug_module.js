@@ -412,7 +412,7 @@ class InternalDebugLogger {
         if (this._log_console_silent) {
             // noop
         } else if (console_wrapper) {
-            console[logfunc](msg_info.message_console);
+            process.stderr.write(msg_info.message_console + '\n');
         } else {
             console[logfunc](...msg_info.message_browser);
         }

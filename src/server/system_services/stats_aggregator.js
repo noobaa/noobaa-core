@@ -28,6 +28,10 @@ const prom_reporting = require('../analytic_services/prometheus_reporting');
 const { HistoryDataStore } = require('../analytic_services/history_data_store');
 const addr_utils = require('../../util/addr_utils');
 const Quota = require('../system_services/objects/quota');
+// these type hacks are needed because the type info from require('node:cluster') is incorrect
+const cluster_module = /** @type {import('node:cluster').Cluster} */ (
+    /** @type {unknown} */ (require('node:cluster'))
+);
 
 
 const ops_aggregation = {};
@@ -1246,6 +1250,16 @@ async function update_nsfs_stats(req) {
     if (_nsfs_counters.fs_workers_stats) _update_fs_stats(_nsfs_counters.fs_workers_stats);
 }
 
+async function standalon_update_nsfs_stats(_nsfs_counters = {}) {
+    dbg.log1(`standalon_update_nsfs_stats. nsfs_stats =`, _nsfs_counters);
+    if (_nsfs_counters.io_stats) _update_io_stats(_nsfs_counters.io_stats);
+    if (_nsfs_counters.op_stats) _update_ops_stats(_nsfs_counters.op_stats);
+    if (cluster_module.isWorker) {
+        process.send({ io_stats: _nsfs_counters.io_stats });
+        process.send({ op_stats: _nsfs_counters.op_stats });
+    }
+}
+
 function _update_io_stats(io_stats) {
     //Go over the io_stats and count
     for (const [key, value] of Object.entries(io_stats)) {
@@ -1355,23 +1369,29 @@ function _new_namespace_nsfs_stats() {
 }
 
 // Will return the current nsfs_io_counters and reset it.
-function get_nsfs_io_stats() {
+function get_nsfs_io_stats(reset_nsfs_counters = true) {
     const nsfs_io_stats = nsfs_io_counters;
-    nsfs_io_counters = _new_namespace_nsfs_stats();
+    if (reset_nsfs_counters) {
+        nsfs_io_counters = _new_namespace_nsfs_stats();
+    }
     return nsfs_io_stats;
 }
 
 // Will return the current op_stats and reset it.
-function get_op_stats() {
+function get_op_stats(reset_nsfs_counters = true) {
     const nsfs_op_stats = op_stats;
-    op_stats = {};
+    if (reset_nsfs_counters) {
+        op_stats = {};
+    }
     return nsfs_op_stats;
 }
 
 // Will return the current fs_workers_stats and reset it.
-function get_fs_workers_stats() {
+function get_fs_workers_stats(reset_nsfs_counters = true) {
     const nsfs_fs_workers_stats = fs_workers_stats;
-    fs_workers_stats = {};
+    if (reset_nsfs_counters) {
+        fs_workers_stats = {};
+    }
     return nsfs_fs_workers_stats;
 }
 
@@ -1401,3 +1421,4 @@ exports.object_usage_scrubber = object_usage_scrubber;
 exports.send_stats = background_worker;
 exports.background_worker = background_worker;
 exports.update_nsfs_stats = update_nsfs_stats;
+exports.standalon_update_nsfs_stats = standalon_update_nsfs_stats;

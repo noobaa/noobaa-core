@@ -6,8 +6,12 @@ const mime = require('mime');
 
 const dbg = require('../util/debug_module')(__filename);
 const prom_report = require('../server/analytic_services/prometheus_reporting');
+const stats_aggregator = require('../server/system_services/stats_aggregator');
 const DelayedCollector = require('../util/delayed_collector');
 const config = require('../../config');
+const cluster = /** @type {import('node:cluster').Cluster} */ (
+    /** @type {unknown} */ (require('node:cluster'))
+);
 
 /**
  * @typedef {{
@@ -154,13 +158,14 @@ class EndpointStatsCollector {
         for (const [k, v] of Object.entries(data.fs_workers_stats ?? {})) {
             dbg.log0(`nsfs stats - FS op=${k} :`, v);
         }
-
         if (this.rpc_client) {
             await this.rpc_client.stats.update_nsfs_stats({
                 nsfs_stats: data
             }, {
                 timeout: SEND_STATS_TIMEOUT
             });
+        } else {
+            await stats_aggregator.standalon_update_nsfs_stats(data);
         }
     }
 
@@ -350,6 +355,14 @@ class EndpointStatsCollector {
             this.prom_metrics_report.observe('hub_write_latency', { bucket_name }, hub_write_latency);
         }
     }
+    update_fork_counter() {
+        // add fork related metrics to prometheus
+        const code = `worker_${cluster.worker.id}`;
+        this.prom_metrics_report.inc('fork_counter', {code});
+    }
+}
+if (cluster.isWorker) {
+    EndpointStatsCollector.instance().update_fork_counter();
 }
 
 EndpointStatsCollector._instance = null;

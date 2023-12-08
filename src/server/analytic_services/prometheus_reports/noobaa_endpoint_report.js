@@ -227,6 +227,15 @@ const NOOBAA_ENDPOINT_METRICS = js_utils.deep_freeze([{
             total_values = 0;
         },
     },
+    {
+        type: 'Counter',
+        name: 'fork_counter',
+        configuration: {
+            help: 'Counter on number of fork hit',
+            labelNames: ['code']
+        },
+        aggregator: 'average',
+    }
 ]);
 
 class NooBaaEndpointReport extends BasePrometheusReport {
@@ -241,7 +250,7 @@ class NooBaaEndpointReport extends BasePrometheusReport {
                     collect: m.collect,
                     prom_instance: new this.prom_client[m.type]({
                         name: this.get_prefixed_name(m.name),
-                        registers: [this.registry],
+                        registers: [this.register],
                         ...m.configuration,
                         collect() {
                             if (m.collect && this.average_intervals) {

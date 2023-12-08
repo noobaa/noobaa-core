@@ -407,7 +407,7 @@ class NooBaaCoreReport extends BasePrometheusReport {
                 }
                 this._metrics[m.name] = new this.prom_client[m.type]({
                     name: this.get_prefixed_name(m.name),
-                    registers: [this.registry],
+                    registers: [this.register],
                     ...m.configuration,
                 });
             }

@@ -1,8 +1,9 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const P = require('../../util/promise');
 const _ = require('lodash');
+const P = require('../../util/promise');
+const os_utils = require('../../util/os_utils');
 
 /**
  * 
@@ -205,6 +206,69 @@ function invalid_nsfs_root_permissions() {
     return false;
 }
 
+/**
+ * get_coretest_path returns coretest path according to process.env.NC_CORETEST value
+ * @returns {string} 
+ */
+function get_coretest_path() {
+    return process.env.NC_CORETEST ? './nc_coretest' : './coretest';
+}
+
+
+const nc_nsfs_manage_entity_types = {
+    BUCKET: 'bucket',
+    ACCOUNT: 'account',
+    IPWHITELIST: 'whitelist',
+};
+
+const nc_nsfs_manage_actions = {
+    ADD: 'add',
+    UPDATE: 'update',
+    DELETE: 'delete',
+    LIST: 'list',
+    STATUS: 'status'
+};
+
+/**
+ * exec_manage_cli runs the manage_nsfs cli
+ * @param {string} type
+ * @param {string} action
+ * @param {object} options
+ * @returns {Promise<string>}
+ */
+async function exec_manage_cli(type, action, options) {
+    let flags = ``;
+    for (const key in options) {
+        if (options[key] !== undefined) {
+            let value = options[key];
+            if (typeof options[key] === 'boolean') {
+                flags += `--${key} `;
+                continue;
+            }
+            if (key === 'distinguished_name') {
+                flags += `--user ${options[key]} `;
+                continue;
+            }
+            if (key === 'bucket_policy') {
+                value = typeof options[key] === 'string' ? `'${options[key]}'` : `'${JSON.stringify(options[key])}'`;
+            } else if (key === 'fs_backend' || key === 'ips') {
+                value = `'${options[key]}'`;
+            }
+            flags += `--${key} ${value} `;
+        }
+    }
+    flags = flags.trim();
+
+    const command = `node src/cmd/manage_nsfs ${type} ${action} ${flags}`;
+    try {
+        const res = await os_utils.exec(command, { return_stdout: true });
+        return res;
+    } catch (err) {
+        console.error('test_utils.exec_manage_cli error', err);
+        throw err;
+    }
+}
+
 exports.blocks_exist_on_cloud = blocks_exist_on_cloud;
 exports.create_hosts_pool = create_hosts_pool;
 exports.delete_hosts_pool = delete_hosts_pool;
@@ -212,3 +276,7 @@ exports.empty_and_delete_buckets = empty_and_delete_buckets;
 exports.disable_accounts_s3_access = disable_accounts_s3_access;
 exports.generate_s3_policy = generate_s3_policy;
 exports.invalid_nsfs_root_permissions = invalid_nsfs_root_permissions;
+exports.get_coretest_path = get_coretest_path;
+exports.exec_manage_cli = exec_manage_cli;
+exports.nc_nsfs_manage_entity_types = nc_nsfs_manage_entity_types;
+exports.nc_nsfs_manage_actions = nc_nsfs_manage_actions;

@@ -8,12 +8,11 @@ const mocha = require('mocha');
 const assert = require('assert');
 const P = require('../../util/promise');
 const fs_utils = require('../../util/fs_utils');
-const os_util = require('../../util/os_utils');
 const nb_native = require('../../util/nb_native');
 const config_module = require('../../../config');
 const { ManageCLIError } = require('../../manage_nsfs/manage_nsfs_cli_errors');
 const { ManageCLIResponse } = require('../../manage_nsfs/manage_nsfs_cli_responses');
-const test_utils = require('../system_tests/test_utils');
+const { exec_manage_cli, generate_s3_policy, nc_nsfs_manage_actions, nc_nsfs_manage_entity_types } = require('../system_tests/test_utils');
 
 const MAC_PLATFORM = 'darwin';
 let tmp_fs_path = '/tmp/test_bucketspace_fs';
@@ -25,20 +24,6 @@ const DEFAULT_FS_CONFIG = {
     gid: process.getgid(),
     backend: '',
     warn_threshold_ms: 100,
-};
-
-const nc_nsfs_manage_entity_types = {
-    BUCKET: 'bucket',
-    ACCOUNT: 'account',
-    IPWHITELIST: 'whitelist',
-};
-
-const nc_nsfs_manage_actions = {
-    ADD: 'add',
-    UPDATE: 'update',
-    DELETE: 'delete',
-    LIST: 'list',
-    STATUS: 'status'
 };
 
 mocha.describe('manage_nsfs cli', function() {
@@ -63,18 +48,18 @@ mocha.describe('manage_nsfs cli', function() {
         const type = nc_nsfs_manage_entity_types.BUCKET;
         const name = 'bucket1';
         const bucket_on_gpfs = 'bucketgpfs1';
-        const owner_email = 'user1@noobaa.io';
+        const email = 'user1@noobaa.io';
         const bucket_path = `${root_path}${name}/`;
         const bucket_with_policy = 'bucket-with-policy';
-        const bucket_policy = test_utils.generate_s3_policy('*', bucket_with_policy, ['s3:*']).policy;
-        const bucket1_policy = test_utils.generate_s3_policy('*', name, ['s3:*']).policy;
-        const invalid_bucket_policy = test_utils.generate_s3_policy('invalid_account', name, ['s3:*']).policy;
+        const bucket_policy = generate_s3_policy('*', bucket_with_policy, ['s3:*']).policy;
+        const bucket1_policy = generate_s3_policy('*', name, ['s3:*']).policy;
+        const invalid_bucket_policy = generate_s3_policy('invalid_account', name, ['s3:*']).policy;
         const empty_bucket_policy = '';
         let add_res;
 
         const schema_dir = 'buckets';
-        let bucket_options = { config_root, name, owner_email, bucket_path };
-        const gpfs_bucket_options = { config_root, name: bucket_on_gpfs, owner_email, bucket_path, fs_backend: 'GPFS' };
+        let bucket_options = { config_root, name, email, path: bucket_path };
+        const gpfs_bucket_options = { config_root, name: bucket_on_gpfs, email, path: bucket_path, fs_backend: 'GPFS' };
         const bucket_with_policy_options = { ...bucket_options, bucket_policy: bucket_policy, name: bucket_with_policy };
 
         mocha.it('cli bucket create with invalid bucket policy - should fail', async function() {
@@ -168,9 +153,9 @@ mocha.describe('manage_nsfs cli', function() {
             }
         });
 
-        mocha.it('cli bucket update owner_email', async function() {
+        mocha.it('cli bucket update owner email', async function() {
             const action = nc_nsfs_manage_actions.UPDATE;
-            const update_options = { config_root, owner_email: 'user2@noobaa.io', name };
+            const update_options = { config_root, email: 'user2@noobaa.io', name };
             const update_res = await exec_manage_cli(type, action, update_options);
             bucket_options = { ...bucket_options, ...update_options };
             const bucket = await read_config_file(config_root, schema_dir, name);
@@ -257,7 +242,7 @@ mocha.describe('manage_nsfs cli', function() {
 
         mocha.it('cli bucket update owner', async function() {
             const action = nc_nsfs_manage_actions.UPDATE;
-            gpfs_bucket_options.owner_email = 'blalal';
+            gpfs_bucket_options.email = 'blalal';
             const bucket_status = await exec_manage_cli(type, action, gpfs_bucket_options);
             assert_response(action, type, bucket_status, gpfs_bucket_options);
             const bucket = await read_config_file(config_root, schema_dir, gpfs_bucket_options.name);
@@ -796,9 +781,9 @@ function assert_response(action, type, actual_res, expected_res, show_secrets, w
 
 function assert_bucket(bucket, bucket_options) {
     assert.strictEqual(bucket.name, bucket_options.name);
-    assert.strictEqual(bucket.system_owner, bucket_options.owner_email);
-    assert.strictEqual(bucket.bucket_owner, bucket_options.owner_email);
-    assert.strictEqual(bucket.path, bucket_options.bucket_path);
+    assert.strictEqual(bucket.system_owner, bucket_options.email);
+    assert.strictEqual(bucket.bucket_owner, bucket_options.email);
+    assert.strictEqual(bucket.path, bucket_options.path);
     assert.strictEqual(bucket.should_create_underlying_storage, false);
     assert.strictEqual(bucket.versioning, 'DISABLED');
     assert.strictEqual(bucket.fs_backend, bucket_options.fs_backend === '' ? undefined : bucket_options.fs_backend);
@@ -835,36 +820,3 @@ function assert_whitelist(config_data, config_options) {
     return true;
 }
 
-async function exec_manage_cli(type, action, options) {
-    const bucket_flags = (options.name ? `--name ${options.name}` : ``) +
-        (options.owner_email ? ` --email ${options.owner_email}` : ``) +
-        (options.fs_backend === undefined ? `` : ` --fs_backend '${options.fs_backend}'`) +
-        // eslint-disable-next-line no-nested-ternary
-        (options.bucket_policy === undefined ? `` :
-            options.bucket_policy === '' ?
-            ` --bucket_policy ''` : ` --bucket_policy '${JSON.stringify(options.bucket_policy)}'`) +
-        (options.bucket_path ? ` --path ${options.bucket_path}` : ``);
-
-    const account_flags = (options.name ? ` --name ${options.name}` : ``) +
-        (options.email ? ` --email ${options.email}` : ``) +
-        (options.new_buckets_path ? ` --new_buckets_path ${options.new_buckets_path}` : ``) +
-        (options.access_key ? ` --access_key ${options.access_key}` : ``) +
-        (options.secret_key ? ` --secret_key ${options.secret_key}` : ``) +
-        (options.uid ? ` --uid ${options.uid}` : ``) +
-        (options.gid ? ` --gid ${options.gid}` : ``) +
-        (options.distinguished_name ? ` --user ${options.distinguished_name}` : ` `) +
-        (options.fs_backend === undefined ? `` : ` --fs_backend '${options.fs_backend}'`) +
-        (options.show_secrets ? ` --show_secrets ${options.show_secrets}` : ``);
-
-
-    const whitelist_flags = (options.ips ? ` --ips '${options.ips}'` : ``);
-
-    const update_identity_flags = (options.new_name ? ` --new_name ${options.new_name}` : ``) +
-        (options.new_access_key ? ` --new_access_key ${options.new_access_key}` : ``);
-    let flags = (type === nc_nsfs_manage_entity_types.BUCKET ? bucket_flags : account_flags) + update_identity_flags;
-    flags = (type === nc_nsfs_manage_entity_types.IPWHITELIST ? whitelist_flags : flags);
-    const wide_list = (options.wide ? ` --wide ${options.wide}` : ``);
-    const cmd = `node src/cmd/manage_nsfs ${type} ${action} --config_root ${options.config_root} ${flags} ${wide_list}`;
-    const res = await os_util.exec(cmd, { return_stdout: true });
-    return res;
-}

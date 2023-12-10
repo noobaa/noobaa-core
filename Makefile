@@ -235,6 +235,14 @@ run-single-test: tester
 	@$(call remove_docker_network)
 .PHONY: run-single-test
 
+run-nc-tests: tester
+	@$(call create_docker_network)
+	@echo "\033[1;34mRunning nc tests\033[0m"
+	$(CONTAINER_ENGINE) run $(CPUSET) --network noobaa-net --privileged --user root --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) --env "NC_CORETEST=true" $(TESTER_TAG) ./src/test/unit_tests/run_npm_test_on_test_container.sh -s nc_index.js
+	@$(call stop_noobaa)
+	@$(call remove_docker_network)
+.PHONY: run-nc-tests
+
 run-single-test-postgres: tester
 	@echo "\033[1;34mRunning single test with Postgres.\033[0m"
 	@$(call create_docker_network)

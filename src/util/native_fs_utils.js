@@ -452,11 +452,12 @@ function validate_bucket_creation(params) {
     }
 }
 
-async function config_file_exists(fs_context, config_path) {
+async function config_file_exists(fs_context, config_path, use_lstat) {
     try {
-        await nb_native().fs.stat(fs_context, config_path);
+        await nb_native().fs.stat(fs_context, config_path, { use_lstat });
     } catch (err) {
         if (err.code === 'ENOENT') return false;
+        throw err;
     }
     return true;
 }

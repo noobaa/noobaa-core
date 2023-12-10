@@ -11,6 +11,8 @@ const fs_utils = require('../../util/fs_utils');
 const os_util = require('../../util/os_utils');
 const nb_native = require('../../util/nb_native');
 const config_module = require('../../../config');
+const { ManageCLIError } = require('../../manage_nsfs/manage_nsfs_cli_errors');
+const { ManageCLIResponse } = require('../../manage_nsfs/manage_nsfs_cli_responses');
 
 const MAC_PLATFORM = 'darwin';
 let tmp_fs_path = '/tmp/test_bucketspace_fs';
@@ -27,7 +29,7 @@ const DEFAULT_FS_CONFIG = {
 const nc_nsfs_manage_entity_types = {
     BUCKET: 'bucket',
     ACCOUNT: 'account',
-    WHITELIST: 'whitelist',
+    IPWHITELIST: 'whitelist',
 };
 
 const nc_nsfs_manage_actions = {
@@ -58,26 +60,53 @@ mocha.describe('manage_nsfs cli', function() {
 
     mocha.describe('cli bucket flow - happy path', async function() {
         const type = nc_nsfs_manage_entity_types.BUCKET;
-        const bucket_name = 'bucket1';
+        const name = 'bucket1';
         const owner_email = 'user1@noobaa.io';
-        const bucket_path = `${root_path}${bucket_name}/`;
+        const bucket_path = `${root_path}${name}/`;
         const schema_dir = 'buckets';
-        let bucket_options = { config_root, bucket_name, owner_email, bucket_path };
+        let bucket_options = { config_root, name, owner_email, bucket_path };
 
         mocha.it('cli bucket create', async function() {
             const action = nc_nsfs_manage_actions.ADD;
             await fs_utils.create_fresh_path(bucket_path);
             await fs_utils.file_must_exist(bucket_path);
-            await exec_manage_cli(type, action, bucket_options);
-            const bucket = await read_config_file(config_root, schema_dir, bucket_name);
+            const bucket_status = await exec_manage_cli(type, action, bucket_options);
+            assert_response(action, type, bucket_status, bucket_options);
+            const bucket = await read_config_file(config_root, schema_dir, name);
             assert_bucket(bucket, bucket_options);
-            await assert_config_file_permissions(config_root, schema_dir, bucket_name);
+            await assert_config_file_permissions(config_root, schema_dir, name);
+        });
+
+        mocha.it('cli bucket status', async function() {
+            const action = nc_nsfs_manage_actions.STATUS;
+            const bucket_status = await exec_manage_cli(type, action, { config_root, name });
+            assert_response(action, type, bucket_status, bucket_options);
+            const bucket = await read_config_file(config_root, schema_dir, name);
+            assert_bucket(bucket, bucket_options);
+        });
+
+        mocha.it('cli bucket status - bucket does not exist - should fail', async function() {
+            const action = nc_nsfs_manage_actions.STATUS;
+            try {
+                await exec_manage_cli(type, action, { config_root, name: 'invalid_bucket' });
+                assert.fail('should have failed with bucket does not exist');
+            } catch (err) {
+                assert_error(err, ManageCLIError.NoSuchBucket);
+            }
         });
 
         mocha.it('cli bucket list', async function() {
             const action = nc_nsfs_manage_actions.LIST;
             const bucket_list = await exec_manage_cli(type, action, { config_root });
-            assert.ok(bucket_list.includes(`${[bucket_name]}`));
+            const expected_list = [{ name }];
+            assert_response(action, type, bucket_list, expected_list);
+        });
+
+        mocha.it('cli bucket list - wide', async function() {
+            const action = nc_nsfs_manage_actions.LIST;
+            const bucket_list = await exec_manage_cli(type, action, { config_root, wide: true });
+            const expected_list = [bucket_options];
+            assert_response(action, type, bucket_list, expected_list, undefined, true);
         });
 
         mocha.it('cli bucket create - should fail on already exists', async function() {
@@ -86,17 +115,17 @@ mocha.describe('manage_nsfs cli', function() {
                 await exec_manage_cli(type, action, bucket_options);
                 assert.fail('should have failed with bucket already exists');
             } catch (err) {
-                assert.ok(err.stdout.includes(`Error: Bucket already exists with name : ${bucket_options.bucket_name}`));
+                assert_error(err, ManageCLIError.BucketAlreadyExists);
             }
         });
 
         mocha.it('cli bucket create - should fail on invalid bucket name', async function() {
             const action = nc_nsfs_manage_actions.ADD;
             try {
-                await exec_manage_cli(type, action, { ...bucket_options, bucket_name: '!123bucket' });
+                await exec_manage_cli(type, action, { ...bucket_options, name: '!123bucket' });
                 assert.fail('should have failed with invalid bucket name');
             } catch (err) {
-                assert.ok(err.stdout.includes(`Error: Invalid bucket name`));
+                assert_error(err, ManageCLIError.InvalidBucketName);
             }
         });
 
@@ -106,53 +135,52 @@ mocha.describe('manage_nsfs cli', function() {
                 await exec_manage_cli(type, action, { ...bucket_options, new_name: '!123bucket' });
                 assert.fail('should have failed with invalid bucket name');
             } catch (err) {
-                assert.ok(err.stdout.includes(`Error: Invalid bucket name`));
+                assert_error(err, ManageCLIError.InvalidBucketName);
             }
         });
 
         mocha.it('cli bucket update owner_email', async function() {
             const action = nc_nsfs_manage_actions.UPDATE;
-            const update_options = { config_root, owner_email: 'user2@noobaa.io', bucket_name };
+            const update_options = { config_root, owner_email: 'user2@noobaa.io', name };
             await exec_manage_cli(type, action, update_options);
             bucket_options = { ...bucket_options, ...update_options};
-            const bucket = await read_config_file(config_root, schema_dir, bucket_name);
+            const bucket = await read_config_file(config_root, schema_dir, name);
             assert_bucket(bucket, bucket_options);
-            await assert_config_file_permissions(config_root, schema_dir, bucket_name);
+            await assert_config_file_permissions(config_root, schema_dir, name);
         });
 
         mocha.it('cli bucket update bucket name', async function() {
             const action = nc_nsfs_manage_actions.UPDATE;
-            const update_options = { config_root, new_name: 'bucket2', bucket_name };
+            const update_options = { config_root, new_name: 'bucket2', name };
             await exec_manage_cli(type, action, update_options);
-            bucket_options = { ...bucket_options, ...update_options, new_name: undefined, bucket_name: update_options.new_name };
-            const bucket = await read_config_file(config_root, schema_dir, bucket_options.bucket_name);
+            bucket_options = { ...bucket_options, ...update_options, new_name: undefined, name: update_options.new_name };
+            const bucket = await read_config_file(config_root, schema_dir, bucket_options.name);
             assert_bucket(bucket, bucket_options);
-            await assert_config_file_permissions(config_root, schema_dir, bucket_options.bucket_name);
+            await assert_config_file_permissions(config_root, schema_dir, bucket_options.name);
         });
 
         mocha.it('cli bucket2 update - new_name already exists', async function() {
             let action = nc_nsfs_manage_actions.ADD;
             const bucket_name3 = 'bucket3';
-            await exec_manage_cli(type, action, { ...bucket_options, bucket_name: bucket_name3});
+            await exec_manage_cli(type, action, { ...bucket_options, name: bucket_name3});
             action = nc_nsfs_manage_actions.UPDATE;
             try {
-                await exec_manage_cli(type, action, { ...bucket_options, bucket_name: bucket_name3, new_name: 'bucket2' });
+                await exec_manage_cli(type, action, { ...bucket_options, name: bucket_name3, new_name: 'bucket2' });
                 assert.fail('should have failed with bucket name already exists');
             } catch (err) {
-                assert.ok(err.stdout && err.stdout.includes(`Error: Bucket already exists with name : bucket2`));
+                assert_error(err, ManageCLIError.BucketAlreadyExists);
             }
         });
 
         mocha.it('cli bucket delete', async function() {
             const action = nc_nsfs_manage_actions.DELETE;
-            await exec_manage_cli(type, action, { config_root, bucket_name: bucket_options.bucket_name });
             try {
-                await read_config_file(config_root, schema_dir, bucket_options.bucket_name);
-                throw new Error('cli bucket delete failed - bucket config file exists after deletion');
+                const res = await exec_manage_cli(type, action, { config_root, name: bucket_options.name });
+                assert_response(action, type, res);
+                await read_config_file(config_root, schema_dir, bucket_options.name);
+                assert.fail('cli bucket delete failed - bucket config file exists after deletion');
             } catch (err) {
-                if (err.code !== 'ENOENT') {
-                    throw new Error('cli bucket delete failed - read file failed with the following error - ', err.code);
-                }
+                assert.equal(err.code, 'ENOENT');
             }
         });
     });
@@ -166,7 +194,7 @@ mocha.describe('manage_nsfs cli', function() {
                 await exec_manage_cli(type, action, { config_root });
                 assert.fail('should have failed with invalid action');
             } catch (err) {
-                assert.ok(err.stdout.includes('Error: Invalid action, available actions are add, status, update, delete, list'));
+                assert_error(err, ManageCLIError.InvalidAction);
             }
         });
 
@@ -177,7 +205,7 @@ mocha.describe('manage_nsfs cli', function() {
                 await exec_manage_cli(type, action, { config_root });
                 assert.fail('should have failed with invalid action');
             } catch (err) {
-                assert.ok(err.stdout.includes('Error: Invalid action, available actions are add, status, update, delete, list'));
+                assert_error(err, ManageCLIError.InvalidAction);
             }
         });
 
@@ -188,7 +216,7 @@ mocha.describe('manage_nsfs cli', function() {
                 await exec_manage_cli(type, action, { config_root });
                 assert.fail('should have failed with invalid type');
             } catch (err) {
-                assert.ok(err.stdout.includes('Error: Invalid config type, available config types are account, bucket or whitelist.'));
+                assert_error(err, ManageCLIError.InvalidConfigType);
             }
         });
 
@@ -205,17 +233,49 @@ mocha.describe('manage_nsfs cli', function() {
         let account_options = { config_root, name, email, new_buckets_path, uid, gid, access_key, secret_key };
         const accounts_schema_dir = 'accounts';
         const access_keys_schema_dir = 'access_keys';
+        let updating_options = account_options;
 
         mocha.it('cli account create', async function() {
             const action = nc_nsfs_manage_actions.ADD;
             await fs_utils.create_fresh_path(new_buckets_path);
             await fs_utils.file_must_exist(new_buckets_path);
-            await exec_manage_cli(type, action, account_options);
+            const res = await exec_manage_cli(type, action, account_options);
+            assert_response(action, type, res, account_options);
             const account_symlink = await read_config_file(config_root, access_keys_schema_dir, access_key, true);
             assert_account(account_symlink, account_options);
             const account = await read_config_file(config_root, accounts_schema_dir, name);
             assert_account(account, account_options);
             await assert_config_file_permissions(config_root, accounts_schema_dir, name);
+        });
+
+        mocha.it('cli account status', async function() {
+            const action = nc_nsfs_manage_actions.STATUS;
+            const account_status = await exec_manage_cli(type, action, { config_root, name: account_options.name });
+            assert_response(action, type, account_status, account_options);
+            const account_symlink = await read_config_file(config_root, access_keys_schema_dir, access_key, true);
+            assert_account(account_symlink, account_options);
+            const account = await read_config_file(config_root, accounts_schema_dir, name);
+            assert_account(account, account_options);
+        });
+
+        mocha.it('cli account status - account does not exist - should fail', async function() {
+            const action = nc_nsfs_manage_actions.STATUS;
+            try {
+                await exec_manage_cli(type, action, { config_root, name: 'invalid_account' });
+                assert.fail('should have failed with account does not exist');
+            } catch (err) {
+                assert_error(err, ManageCLIError.NoSuchAccountName);
+            }
+        });
+
+        mocha.it('cli account status show_secrets', async function() {
+            const action = nc_nsfs_manage_actions.STATUS;
+            const account_status = await exec_manage_cli(type, action, { config_root, name: account_options.name, show_secrets: true });
+            assert_response(action, type, account_status, account_options, true);
+            const account_symlink = await read_config_file(config_root, access_keys_schema_dir, access_key, true);
+            assert_account(account_symlink, account_options);
+            const account = await read_config_file(config_root, accounts_schema_dir, name);
+            assert_account(account, account_options);
         });
 
         mocha.it('cli account create - no uid gid - should fail', async function() {
@@ -224,7 +284,7 @@ mocha.describe('manage_nsfs cli', function() {
                 await exec_manage_cli(type, action, { config_root, access_key, secret_key, email: 'bla' });
                 assert.fail('should have failed with account config should not be empty');
             } catch (err) {
-                assert.ok(err.stdout.includes('Error: Account config should not be empty'));
+                assert_error(err, ManageCLIError.InvalidAccountNSFSConfig);
             }
         });
 
@@ -234,7 +294,7 @@ mocha.describe('manage_nsfs cli', function() {
                 await exec_manage_cli(type, action, { ...account_options, new_buckets_path: 'path_does/not_exist' });
                 assert.fail('should have failed with new_buckets_path should be a valid dir path');
             } catch (err) {
-                assert.ok(err.stdout.includes('Error: new_buckets_path should be a valid dir path : path_does/not_exist'));
+                assert_error(err, ManageCLIError.InvalidAccountNewBucketsPath);
             }
         });
 
@@ -244,7 +304,7 @@ mocha.describe('manage_nsfs cli', function() {
                 await exec_manage_cli(type, action, { ...account_options, access_key: 'random' });
                 assert.fail('should have failed with account name already exists');
             } catch (err) {
-                assert.ok(err.stdout.includes('Error: Account having the same name already exists'));
+                assert_error(err, ManageCLIError.AccountNameAlreadyExists);
             }
         });
 
@@ -254,14 +314,22 @@ mocha.describe('manage_nsfs cli', function() {
                 await exec_manage_cli(type, action, { ...account_options, name: 'random' });
                 assert.fail('should have failed with account access key already exists');
             } catch (err) {
-                assert.ok(err.stdout.includes('Error: Account having the same access key already exists'));
+                assert_error(err, ManageCLIError.AccountAccessKeyAlreadyExists);
             }
         });
 
         mocha.it('cli account list', async function() {
             const action = nc_nsfs_manage_actions.LIST;
             const bucket_list = await exec_manage_cli(type, action, { config_root });
-            assert.ok(bucket_list.includes(`${[name]}`));
+            const expect_list = [{ name }];
+            assert_response(action, type, bucket_list, expect_list);
+        });
+
+        mocha.it('cli account list - wide', async function() {
+            const action = nc_nsfs_manage_actions.LIST;
+            const account_list = await exec_manage_cli(type, action, { config_root, wide: true });
+            const expected_list = [account_options];
+            assert_response(action, type, account_list, expected_list, undefined, true);
         });
 
         mocha.it('cli account update uid by access key', async function() {
@@ -273,7 +341,9 @@ mocha.describe('manage_nsfs cli', function() {
                 uid: 222,
                 gid: 222
             };
-            await exec_manage_cli(type, action, update_options);
+            const update_response = await exec_manage_cli(type, action, update_options);
+            updating_options = { ...updating_options, ...update_options };
+            assert_response(action, type, update_response, updating_options);
             const account_symlink = await read_config_file(config_root, access_keys_schema_dir, access_key, true);
             account_options = { ...account_options, ...update_options };
             assert_account(account_symlink, account_options);
@@ -294,7 +364,9 @@ mocha.describe('manage_nsfs cli', function() {
             };
             await fs_utils.create_fresh_path(update_options.new_buckets_path);
             await fs_utils.file_must_exist(update_options.new_buckets_path);
-            await exec_manage_cli(type, action, update_options);
+            const update_response = await exec_manage_cli(type, action, update_options);
+            updating_options = { ...updating_options, ...update_options };
+            assert_response(action, type, update_response, updating_options);
             account_options = { ...account_options, ...update_options };
             const account_symlink = await read_config_file(config_root, access_keys_schema_dir, access_key, true);
             assert_account(account_symlink, account_options);
@@ -310,7 +382,9 @@ mocha.describe('manage_nsfs cli', function() {
                 access_key: account_options.access_key
             };
             account_options.new_name = 'account1_new_name';
-            await exec_manage_cli(type, action, update_options);
+            const update_response = await exec_manage_cli(type, action, update_options);
+            updating_options = { ...updating_options, name: update_options.new_name };
+            assert_response(action, type, update_response, updating_options);
             account_options = { ...account_options, new_name: undefined, name: update_options.new_name };
             const account_symlink = await read_config_file(config_root, access_keys_schema_dir, access_key, true);
             assert_account(account_symlink, account_options);
@@ -325,7 +399,9 @@ mocha.describe('manage_nsfs cli', function() {
                 new_access_key: 'abcd',
                 name: account_options.name
             };
-            await exec_manage_cli(type, action, update_options);
+            const update_response = await exec_manage_cli(type, action, update_options);
+            updating_options = { ...updating_options, access_key: update_options.new_access_key };
+            assert_response(action, type, update_response, updating_options);
             account_options = { ...account_options, new_access_key: undefined, access_key: update_options.new_access_key };
             const account_symlink = await read_config_file(config_root, access_keys_schema_dir, account_options.access_key, true);
             assert_account(account_symlink, account_options);
@@ -357,7 +433,8 @@ mocha.describe('manage_nsfs cli', function() {
 
         mocha.it('cli account delete by name', async function() {
             const action = nc_nsfs_manage_actions.DELETE;
-            await exec_manage_cli(type, action, { config_root, name: account_options.name});
+            const res = await exec_manage_cli(type, action, { config_root, name: account_options.name });
+            assert_response(action, type, res);
             try {
                 await read_config_file(config_root, access_keys_schema_dir, account_options.access_key, true);
                 throw new Error('cli account delete failed - account config link file exists after deletion');
@@ -409,7 +486,7 @@ mocha.describe('manage_nsfs cli', function() {
                 await exec_manage_cli(type, action, { ...account2_options, new_name: 'account1' });
                 assert.fail('should have failed with account name already exists');
             } catch (err) {
-                assert.ok(err.stdout.includes('Error: Account having the same name already exists'));
+                assert_error(err, ManageCLIError.AccountNameAlreadyExists);
             }
         });
 
@@ -419,7 +496,7 @@ mocha.describe('manage_nsfs cli', function() {
                 await exec_manage_cli(type, action, { ...account2_options, new_access_key: 'abc' });
                 assert.fail('should have failed with account access key already exists');
             } catch (err) {
-                assert.ok(err.stdout.includes('Error: Account having the same access key already exists'));
+                assert_error(err, ManageCLIError.AccountAccessKeyAlreadyExists);
             }
         });
     });
@@ -441,7 +518,8 @@ mocha.describe('manage_nsfs cli', function() {
             const action = nc_nsfs_manage_actions.ADD;
             await fs_utils.create_fresh_path(new_buckets_path);
             await fs_utils.file_must_exist(new_buckets_path);
-            await exec_manage_cli(type, action, account_options);
+            const res = await exec_manage_cli(type, action, account_options);
+            assert_response(action, type, res, account_options);
             const account_symlink = await read_config_file(config_root, access_keys_schema_dir, access_key, true);
             assert_account(account_symlink, account_options);
             const account = await read_config_file(config_root, accounts_schema_dir, name);
@@ -455,8 +533,9 @@ mocha.describe('manage_nsfs cli', function() {
                 name,
                 distinguished_name: 'moti1004',
             };
-            await exec_manage_cli(type, action, update_options);
+            const res = await exec_manage_cli(type, action, update_options);
             account_options = { ...account_options, ...update_options };
+            assert_response(action, type, res, account_options);
             const account_symlink = await read_config_file(config_root, access_keys_schema_dir, access_key, true);
             assert_account(account_symlink, account_options);
             const account = await read_config_file(config_root, accounts_schema_dir, name);
@@ -465,7 +544,8 @@ mocha.describe('manage_nsfs cli', function() {
 
         mocha.it('cli account delete by access key', async function() {
             const action = nc_nsfs_manage_actions.DELETE;
-            await exec_manage_cli(type, action, { config_root, access_key });
+            const res = await exec_manage_cli(type, action, { config_root, access_key });
+            assert_response(action, type, res);
             try {
                 await read_config_file(config_root, access_keys_schema_dir, access_key, true);
                 throw new Error('cli account delete failed - account config file exists after deletion');
@@ -488,7 +568,8 @@ mocha.describe('manage_nsfs cli', function() {
             let action = nc_nsfs_manage_actions.ADD;
             await exec_manage_cli(type, action, account_options);
             action = nc_nsfs_manage_actions.DELETE;
-            await exec_manage_cli(type, action, { config_root, name: account_options.name });
+            const res = await exec_manage_cli(type, action, { config_root, name: account_options.name });
+            assert_response(action, type, res);
             try {
                 await read_config_file(config_root, access_keys_schema_dir, access_key, true);
                 throw new Error('cli account delete failed - account config file exists after deletion');
@@ -510,6 +591,7 @@ mocha.describe('manage_nsfs cli', function() {
 
     mocha.describe('cli whitelist flow', async function() {
         this.timeout(50000); // eslint-disable-line no-invalid-this
+        const type = nc_nsfs_manage_entity_types.IPWHITELIST;
         const config_options = { ENDPOINT_FORKS: 1, UV_THREADPOOL_SIZE: 4};
         const ips = ['127.0.0.1', '192.000.10.000', '3002:0bd6:0000:0000:0000:ee00:0033:999'];
         mocha.before(async () => {
@@ -520,39 +602,39 @@ mocha.describe('manage_nsfs cli', function() {
         });
 
         mocha.it('cli add whitelist ips first time', async function() {
-                const res = await exec_manage_cli(nc_nsfs_manage_entity_types.WHITELIST, '', { config_root, ips: JSON.stringify(ips) });
+                const res = await exec_manage_cli(type, '', { config_root, ips: JSON.stringify(ips) });
                 config_options.NSFS_WHITELIST = ips;
                 const config_data = await read_config_file(config_root, '', 'config');
-                assert.ok(res.includes('Whitelist IPs updated successfully.'));
+                assert_response('', type, res, ips);
                 assert_whitelist(config_data, config_options);
         });
 
         mocha.it('cli update whitelist ips', async function() {
             ips.push('100.000.00.000');
-            const res = await exec_manage_cli(nc_nsfs_manage_entity_types.WHITELIST, '', { config_root, ips: JSON.stringify(ips) });
+            const res = await exec_manage_cli(type, '', { config_root, ips: JSON.stringify(ips) });
             config_options.NSFS_WHITELIST = ips;
             const config_data = await read_config_file(config_root, '', 'config');
-            assert.ok(res.includes('Whitelist IPs updated successfully.'));
+            assert_response('', type, res, ips);
             assert_whitelist(config_data, config_options);
         });
 
         mocha.it('cli whitelist ips is empty', async function() {
             try {
-                await exec_manage_cli(nc_nsfs_manage_entity_types.WHITELIST, '', { config_root, ips: '' });
+                await exec_manage_cli(type, '', { config_root, ips: '' });
                 config_options.NSFS_WHITELIST = ips;
                 assert.fail('should have failed withwhitelist ips should not be empty.');
             } catch (err) {
-                assert.ok(err.stdout.includes('Error: Whitelist ips should not be empty.'));
+                assert_error(err, ManageCLIError.MissingWhiteListIPFlag);
             }
         });
 
         mocha.it('cli whitelist formate is invalid', async function() {
             try {
-                await exec_manage_cli(nc_nsfs_manage_entity_types.WHITELIST, '', { config_root, ips: JSON.stringify(ips) + 'invalid' });
+                await exec_manage_cli(type, '', { config_root, ips: JSON.stringify(ips) + 'invalid' });
                 config_options.NSFS_WHITELIST = ips;
                 assert.fail('should have failed with whitelist ips with invalid body format');
             } catch (err) {
-                assert.ok(err.stdout.includes('Error: Whitelist ips with invalid body format'));
+                assert_error(err, ManageCLIError.InvalidWhiteListIPFormat);
             }
         });
     });
@@ -566,7 +648,7 @@ async function read_config_file(config_root, schema_dir, config_file_name, is_sy
     return config;
 }
 
-async function write_config_file(config_root, schema_dir, config_file_name, data,  is_symlink) {
+async function write_config_file(config_root, schema_dir, config_file_name, data, is_symlink) {
     const config_path = path.join(config_root, schema_dir, config_file_name + (is_symlink ? '.symlink' : '.json'));
     await nb_native().fs.writeFile(DEFAULT_FS_CONFIG, config_path,
         Buffer.from(JSON.stringify(data)), {
@@ -581,9 +663,59 @@ async function assert_config_file_permissions(config_root, schema_dir, config_fi
     assert.ok(stat.mode, 33152);
 }
 
+function assert_error(err, expect_error) {
+    const parsed_err = JSON.parse(err.stdout);
+    assert.ok(parsed_err.error.code, expect_error.code);
+}
+
+function assert_response(action, type, actual_res, expected_res, show_secrets, wide) {
+    const parsed = JSON.parse(actual_res);
+    if (type === nc_nsfs_manage_entity_types.IPWHITELIST) {
+        assert.equal(parsed.response.code, ManageCLIResponse.WhiteListIPUpdated.code);
+        assert.deepStrictEqual(parsed.response.reply, expected_res);
+    } else if (type === nc_nsfs_manage_entity_types.BUCKET) {
+        if (action === nc_nsfs_manage_actions.STATUS ||
+            action === nc_nsfs_manage_actions.ADD ||
+            action === nc_nsfs_manage_actions.UPDATE) {
+            assert_bucket(parsed.response.reply, expected_res);
+        } else if (action === nc_nsfs_manage_actions.DELETE) {
+            assert.equal(parsed.response.code, ManageCLIResponse.BucketDeleted.code);
+        } else if (action === nc_nsfs_manage_actions.LIST) {
+            if (wide) {
+                for (let i = 0; i < parsed.response.reply.length; i++) {
+                    assert_bucket(parsed.response.reply[i], expected_res[i]);
+                }
+            } else {
+                assert.deepEqual(parsed.response.reply, expected_res);
+            }
+        } else {
+            assert.fail(`Invalid command action - ${action}`);
+        }
+    } else if (type === nc_nsfs_manage_entity_types.ACCOUNT) {
+        if (action === nc_nsfs_manage_actions.STATUS ||
+            action === nc_nsfs_manage_actions.ADD ||
+            action === nc_nsfs_manage_actions.UPDATE) {
+            assert_account(parsed.response.reply, expected_res, !show_secrets);
+        } else if (action === nc_nsfs_manage_actions.DELETE) {
+            assert.equal(parsed.response.code, ManageCLIResponse.AccountDeleted.code);
+        } else if (action === nc_nsfs_manage_actions.LIST) {
+            if (wide) {
+                for (let i = 0; i < parsed.response.reply.length; i++) {
+                    assert_account(parsed.response.reply[i], expected_res[i], !show_secrets);
+                }
+            } else {
+                assert.deepEqual(parsed.response.reply, expected_res);
+            }
+        } else {
+            assert.fail(`Invalid command action - ${action}`);
+        }
+    } else {
+        assert.fail(`Invalid command type - ${type}`);
+    }
+}
 
 function assert_bucket(bucket, bucket_options) {
-    assert.strictEqual(bucket.name, bucket_options.bucket_name);
+    assert.strictEqual(bucket.name, bucket_options.name);
     assert.strictEqual(bucket.system_owner, bucket_options.owner_email);
     assert.strictEqual(bucket.bucket_owner, bucket_options.owner_email);
     assert.strictEqual(bucket.path, bucket_options.bucket_path);
@@ -592,9 +724,11 @@ function assert_bucket(bucket, bucket_options) {
     return true;
 }
 
-function assert_account(account, account_options) {
-    assert.deepStrictEqual(account.access_keys[0].access_key, account_options.access_key);
-    assert.deepStrictEqual(account.access_keys[0].secret_key, account_options.secret_key);
+function assert_account(account, account_options, skip_secrets) {
+    if (!skip_secrets) {
+        assert.deepStrictEqual(account.access_keys[0].access_key, account_options.access_key);
+        assert.deepStrictEqual(account.access_keys[0].secret_key, account_options.secret_key);
+    }
     assert.equal(account.email, account_options.email);
     assert.equal(account.name, account_options.name);
     if (account_options.distinguished_name) {
@@ -615,7 +749,7 @@ function assert_whitelist(config_data, config_options) {
 }
 
 async function exec_manage_cli(type, action, options) {
-    const bucket_flags = (options.bucket_name ? `--name ${options.bucket_name}` : ``) +
+    const bucket_flags = (options.name ? `--name ${options.name}` : ``) +
         (options.owner_email ? ` --email ${options.owner_email}` : ``) +
         (options.bucket_path ? ` --path ${options.bucket_path}` : ``);
 
@@ -626,15 +760,18 @@ async function exec_manage_cli(type, action, options) {
         (options.secret_key ? ` --secret_key ${options.secret_key}` : ``) +
         (options.uid ? ` --uid ${options.uid}` : ``) +
         (options.gid ? ` --gid ${options.gid}` : ``) +
-        (options.distinguished_name ? ` --user ${options.distinguished_name}` : ``);
+        (options.distinguished_name ? ` --user ${options.distinguished_name}` : ` `) +
+        (options.show_secrets ? ` --show_secrets ${options.show_secrets}` : ``);
+
 
     const whiteist_flags = (options.ips ? ` --ips '${options.ips}'` : ``);
 
     const update_identity_flags = (options.new_name ? ` --new_name ${options.new_name}` : ``) +
         (options.new_access_key ? ` --new_access_key ${options.new_access_key}` : ``);
-    let flags = (type === 'bucket' ? bucket_flags : account_flags) + update_identity_flags;
-    flags = (type === 'whitelist' ? whiteist_flags : flags);
-    const cmd = `node src/cmd/manage_nsfs ${type} ${action} --config_root ${options.config_root} ${flags}`;
+    let flags = (type === nc_nsfs_manage_entity_types.BUCKET ? bucket_flags : account_flags) + update_identity_flags;
+    flags = (type === nc_nsfs_manage_entity_types.IPWHITELIST ? whiteist_flags : flags);
+    const wide_list = (options.wide ? ` --wide ${options.wide}` : ``);
+    const cmd = `node src/cmd/manage_nsfs ${type} ${action} --config_root ${options.config_root} ${flags} ${wide_list}`;
     const res = await os_util.exec(cmd, { return_stdout: true });
     return res;
 }

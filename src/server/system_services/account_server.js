@@ -779,6 +779,7 @@ async function add_external_connection(req) {
 
 async function update_external_connection(req) {
     const connection = cloud_utils.find_cloud_connection(req.account, req.rpc_params.name);
+    dbg.log0("BBBBBBBBBBBBB req.rpc_params.name = ", req.rpc_params.name, ",account._id = ", req.account._id, ", connection = ", connection);
     const name = req.rpc_params.name;
     const identity = req.rpc_params.identity || connection.access_key;
     const secret = req.rpc_params.secret;
@@ -848,7 +849,7 @@ async function update_external_connection(req) {
             pool.cloud_pool_info &&
             pool.cloud_pool_info.endpoint_type === connection.endpoint_type &&
             pool.cloud_pool_info.endpoint === connection.endpoint &&
-            pool.cloud_pool_info.access_keys.account_id._id === req.account._id &&
+            pool.cloud_pool_info.access_keys.account_id._id.toString() === req.account._id.toString() &&
             pool.cloud_pool_info.access_keys.access_key.unwrap() === connection.access_key.unwrap()
         )
         .map(pool => ({
@@ -857,12 +858,21 @@ async function update_external_connection(req) {
             'cloud_pool_info.access_keys.secret_key': encrypted_secret,
         }));
 
+    dbg.log0("FFFFFFFFFFFFFFFFFFFFF pool_updated = ", pools_updates);
+
     const ns_resources_updates = system_store.data.namespace_resources
+        .map(ns => {dbg.log0("DDDDDDDDDDD ns.connection = ", ns.connection, ", ns_resource.account.name = ", ns.account.name, ", ns.account.id", ns.account._id, ", req.account._id", req.account._id,
+            "typeof = ns.account._id", typeof ns.account._id, ", typeof  req.account._id = ", typeof  req.account._id,
+            " ns_resource.connection.endpoint_type === connection.endpoint_type ", ns.connection.endpoint_type === connection.endpoint_type,
+            " ns_resource.connection.endpoint === connection.endpoint ", ns.connection.endpoint === connection.endpoint,
+            " ns_resource.account._id === req.account._id ", ns.account._id.toString() === req.account._id.toString(),
+            " ns_resource.connection.access_key.unwrap() === connection.access_key.unwrap()", ns.connection.access_key.unwrap() === connection.access_key.unwrap()
+            ); return ns})
         .filter(ns_resource =>
             ns_resource.connection &&
             ns_resource.connection.endpoint_type === connection.endpoint_type &&
             ns_resource.connection.endpoint === connection.endpoint &&
-            ns_resource.account._id === req.account._id &&
+            ns_resource.account._id.toString() === req.account._id.toString() &&
             ns_resource.connection.access_key.unwrap() === connection.access_key.unwrap()
         )
         .map(ns_resource => ({
@@ -870,6 +880,8 @@ async function update_external_connection(req) {
             ...ns_resource_update_map_obj
         }));
 
+
+    dbg.log0("EEEEEEEEEE found ns = ", ns_resources_updates);
     await system_store.make_changes({
         update: {
             accounts: accounts_updates,

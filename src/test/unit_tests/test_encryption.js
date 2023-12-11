@@ -2,8 +2,6 @@
 /*eslint max-lines-per-function: ["error", 550]*/
 'use strict';
 
-const {setTimeout} = require("timers/promises");
-
 // setup coretest first to prepare the env
 const coretest = require('./coretest');
 coretest.setup({ pools_to_create: [coretest.POOL_LIST[1]] });
@@ -257,8 +255,6 @@ mocha.describe('Encryption tests', function() {
                 identity: coretest_access_key, secret: coretest_secret_key },
                 { auth_token: cur_account.create_account_result.token });
             }));
-
-            await setTimeout(1000);
 
             await system_store.load();
 

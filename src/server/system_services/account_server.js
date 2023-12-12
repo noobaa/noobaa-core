@@ -839,7 +839,7 @@ async function update_external_connection(req) {
             pool.cloud_pool_info &&
             pool.cloud_pool_info.endpoint_type === connection.endpoint_type &&
             pool.cloud_pool_info.endpoint === connection.endpoint &&
-            pool.cloud_pool_info.access_keys.account_id._id === req.account._id &&
+            pool.cloud_pool_info.access_keys.account_id._id.toString() === req.account._id.toString() &&
             pool.cloud_pool_info.access_keys.access_key.unwrap() === connection.access_key.unwrap()
         )
         .map(pool => ({
@@ -853,7 +853,7 @@ async function update_external_connection(req) {
             ns_resource.connection &&
             ns_resource.connection.endpoint_type === connection.endpoint_type &&
             ns_resource.connection.endpoint === connection.endpoint &&
-            ns_resource.account._id === req.account._id &&
+            ns_resource.account._id.toString() === req.account._id.toString() &&
             ns_resource.connection.access_key.unwrap() === connection.access_key.unwrap()
         )
         .map(ns_resource => ({

@@ -322,7 +322,9 @@ class NSFSHealth {
 
 async function main(argv = minimist(process.argv.slice(2))) {
   try {
-
+    if (process.getuid() !== 0 || process.getgid() !== 0) {
+        throw new Error('Root permissions required for NSFS Health execution.');
+    }
     if (argv.help || argv.h) return print_usage();
     const config_root = argv.config_root ? String(argv.config_root) : config.NSFS_NC_CONF_DIR;
     const https_port = Number(argv.https_port) || 6443;

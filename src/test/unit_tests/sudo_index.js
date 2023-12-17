@@ -20,4 +20,6 @@ require('./test_bucketspace');
 require('./test_bucketspace_versioning');
 require('./test_bucketspace_fs');
 require('./test_nsfs_versioning');
+require('./test_nc_nsfs_cli');
+require('./test_nc_nsfs_health');
 

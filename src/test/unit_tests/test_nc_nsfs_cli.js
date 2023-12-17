@@ -13,6 +13,7 @@ const nb_native = require('../../util/nb_native');
 const config_module = require('../../../config');
 const { ManageCLIError } = require('../../manage_nsfs/manage_nsfs_cli_errors');
 const { ManageCLIResponse } = require('../../manage_nsfs/manage_nsfs_cli_responses');
+const test_utils = require('../system_tests/test_utils');
 
 const MAC_PLATFORM = 'darwin';
 let tmp_fs_path = '/tmp/test_bucketspace_fs';
@@ -64,14 +65,39 @@ mocha.describe('manage_nsfs cli', function() {
         const bucket_on_gpfs = 'bucketgpfs1';
         const owner_email = 'user1@noobaa.io';
         const bucket_path = `${root_path}${name}/`;
+        const bucket_with_policy = 'bucket-with-policy';
+        const bucket_policy = test_utils.generate_s3_policy('*', bucket_with_policy, ['s3:*']).policy;
+        const bucket1_policy = test_utils.generate_s3_policy('*', name, ['s3:*']).policy;
+        const invalid_bucket_policy = test_utils.generate_s3_policy('invalid_account', name, ['s3:*']).policy;
+        const empty_bucket_policy = '';
+
         const schema_dir = 'buckets';
         let bucket_options = { config_root, name, owner_email, bucket_path };
         const gpfs_bucket_options = { config_root, name: bucket_on_gpfs, owner_email, bucket_path, fs_backend: 'GPFS' };
+        const bucket_with_policy_options = { ...bucket_options, bucket_policy: bucket_policy, name: bucket_with_policy };
+
+        mocha.it('cli bucket create with invalid bucket policy - should fail', async function() {
+            const action = nc_nsfs_manage_actions.ADD;
+            try {
+                await fs_utils.create_fresh_path(bucket_path);
+                await fs_utils.file_must_exist(bucket_path);
+                await exec_manage_cli(type, action, { ...bucket_options, bucket_policy: invalid_bucket_policy});
+                assert.fail('should have failed with invalid bucket policy');
+            } catch (err) {
+                assert_error(err, ManageCLIError.MalformedPolicy);
+            }
+        });
+
+        mocha.it('cli bucket create - bucket_with_policy', async function() {
+            const action = nc_nsfs_manage_actions.ADD;
+            await exec_manage_cli(type, action, bucket_with_policy_options);
+            const bucket = await read_config_file(config_root, schema_dir, bucket_with_policy);
+            assert_bucket(bucket, bucket_with_policy_options);
+            await assert_config_file_permissions(config_root, schema_dir, bucket_with_policy);
+        });
 
         mocha.it('cli bucket create', async function() {
             const action = nc_nsfs_manage_actions.ADD;
-            await fs_utils.create_fresh_path(bucket_path);
-            await fs_utils.file_must_exist(bucket_path);
             const bucket_status = await exec_manage_cli(type, action, bucket_options);
             assert_response(action, type, bucket_status, bucket_options);
             const bucket = await read_config_file(config_root, schema_dir, name);
@@ -100,14 +126,14 @@ mocha.describe('manage_nsfs cli', function() {
         mocha.it('cli bucket list', async function() {
             const action = nc_nsfs_manage_actions.LIST;
             const bucket_list = await exec_manage_cli(type, action, { config_root });
-            const expected_list = [{ name }];
+            const expected_list = [{ name }, { name: bucket_with_policy }];
             assert_response(action, type, bucket_list, expected_list);
         });
 
         mocha.it('cli bucket list - wide', async function() {
             const action = nc_nsfs_manage_actions.LIST;
             const bucket_list = await exec_manage_cli(type, action, { config_root, wide: true });
-            const expected_list = [bucket_options];
+            const expected_list = [bucket_options, bucket_with_policy_options];
             assert_response(action, type, bucket_list, expected_list, undefined, true);
         });
 
@@ -149,6 +175,35 @@ mocha.describe('manage_nsfs cli', function() {
             const bucket = await read_config_file(config_root, schema_dir, name);
             assert_bucket(bucket, bucket_options);
             await assert_config_file_permissions(config_root, schema_dir, name);
+        });
+
+        mocha.it('cli bucket update invalid bucket policy - should fail', async function() {
+            const action = nc_nsfs_manage_actions.UPDATE;
+            const update_options = { config_root, bucket_policy: invalid_bucket_policy, name };
+            try {
+                await exec_manage_cli(type, action, update_options);
+                assert.fail('should have failed with invalid bucket policy');
+            } catch (err) {
+                assert_error(err, ManageCLIError.MalformedPolicy);
+            }
+        });
+
+        mocha.it('cli bucket update bucket policy', async function() {
+            const action = nc_nsfs_manage_actions.UPDATE;
+            bucket_options = { ...bucket_options, bucket_policy: bucket1_policy };
+            await exec_manage_cli(type, action, bucket_options);
+            const bucket = await read_config_file(config_root, schema_dir, bucket_options.name);
+            assert_bucket(bucket, bucket_options);
+            await assert_config_file_permissions(config_root, schema_dir, bucket_options.name);
+        });
+
+        mocha.it('cli bucket update bucket policy - delete bucket policy', async function() {
+            const action = nc_nsfs_manage_actions.UPDATE;
+            bucket_options = { ...bucket_options, bucket_policy: empty_bucket_policy };
+            await exec_manage_cli(type, action, bucket_options);
+            const bucket = await read_config_file(config_root, schema_dir, bucket_options.name);
+            assert_bucket(bucket, bucket_options);
+            await assert_config_file_permissions(config_root, schema_dir, bucket_options.name);
         });
 
         mocha.it('cli bucket update bucket name', async function() {
@@ -748,7 +803,7 @@ async function assert_config_file_permissions(config_root, schema_dir, config_fi
     const config_path = path.join(config_root, schema_dir, config_file_name + (is_symlink ? '.symlink' : '.json'));
     const { stat } = await nb_native().fs.readFile(DEFAULT_FS_CONFIG, config_path);
     // 33152 means 600 (only owner has read and write permissions)
-    assert.ok(stat.mode, 33152);
+    assert.equal(stat.mode, 33152);
 }
 
 function assert_error(err, expect_error) {
@@ -769,12 +824,16 @@ function assert_response(action, type, actual_res, expected_res, show_secrets, w
         } else if (action === nc_nsfs_manage_actions.DELETE) {
             assert.equal(parsed.response.code, ManageCLIResponse.BucketDeleted.code);
         } else if (action === nc_nsfs_manage_actions.LIST) {
-            if (wide) {
-                for (let i = 0; i < parsed.response.reply.length; i++) {
-                    assert_bucket(parsed.response.reply[i], expected_res[i]);
+            assert.equal(parsed.response.reply.length, expected_res.length);
+            for (let i = 0; i < parsed.response.reply.length; i++) {
+                const name = parsed.response.reply[i].name;
+                const expected_res_by_name = expected_res.find(expected => expected.name === name);
+                if (wide) {
+                    assert_bucket(parsed.response.reply[i], expected_res_by_name);
+                } else {
+                    assert.deepEqual(parsed.response.reply[i], expected_res_by_name);
+
                 }
-            } else {
-                assert.deepEqual(parsed.response.reply, expected_res);
             }
         } else {
             assert.fail(`Invalid command action - ${action}`);
@@ -810,6 +869,7 @@ function assert_bucket(bucket, bucket_options) {
     assert.strictEqual(bucket.should_create_underlying_storage, false);
     assert.strictEqual(bucket.versioning, 'DISABLED');
     assert.strictEqual(bucket.fs_backend, bucket_options.fs_backend);
+    assert.deepStrictEqual(bucket.s3_policy, bucket_options.bucket_policy);
     return true;
 }
 
@@ -842,6 +902,7 @@ async function exec_manage_cli(type, action, options) {
     const bucket_flags = (options.name ? `--name ${options.name}` : ``) +
         (options.owner_email ? ` --email ${options.owner_email}` : ``) +
         (options.fs_backend === undefined ? `` : ` --fs_backend '${options.fs_backend}'`) +
+        (options.bucket_policy === undefined ? `` : ` --bucket_policy '${JSON.stringify(options.bucket_policy)}'`) +
         (options.bucket_path ? ` --path ${options.bucket_path}` : ``);
 
     const account_flags = (options.name ? ` --name ${options.name}` : ``) +

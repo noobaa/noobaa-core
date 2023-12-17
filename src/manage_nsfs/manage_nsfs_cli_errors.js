@@ -282,6 +282,13 @@ ManageCLIError.InvalidFSBackend = Object.freeze({
     http_code: 400,
 });
 
+ManageCLIError.MalformedPolicy = Object.freeze({
+    code: 'MalformedPolicy',
+    message: 'Invalid bucket policy',
+    http_code: 400,
+});
+
+
 ManageCLIError.FS_ERRORS_TO_MANAGE = Object.freeze({
     EACCES: ManageCLIError.AccessDenied,
     EPERM: ManageCLIError.AccessDenied,

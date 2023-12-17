@@ -16,6 +16,7 @@ const bucket_policy_utils = require('../endpoint/s3/s3_bucket_policy_utils');
 const { default: Ajv } = require('ajv');
 const bucket_schema = require('../server/object_services/schemas/nsfs_bucket_schema');
 const account_schema = require('../server/object_services/schemas/nsfs_account_schema');
+const { KEYWORDS } = require('../util/schema_keywords');
 const common_api = require('../api/common_api');
 
 const KeysSemaphore = require('../util/keys_semaphore');
@@ -27,6 +28,13 @@ const BUCKET_PATH = 'buckets';
 const ACCOUNT_PATH = 'accounts';
 const ACCESS_KEYS_PATH = 'access_keys';
 const ajv = new Ajv({ verbose: true, allErrors: true });
+ajv.addKeyword(KEYWORDS.methods);
+ajv.addKeyword(KEYWORDS.doc);
+ajv.addKeyword(KEYWORDS.date);
+ajv.addKeyword(KEYWORDS.idate);
+ajv.addKeyword(KEYWORDS.objectid);
+ajv.addKeyword(KEYWORDS.binary);
+ajv.addKeyword(KEYWORDS.wrapper);
 ajv.addSchema(common_api);
 const bucket_semaphore = new KeysSemaphore(1);
 
@@ -76,9 +84,9 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
     }
 
     async _get_account_by_name(name) {
-        const access_key_config_path = this._get_account_config_path(name);
+        const account_config_path = this._get_account_config_path(name);
         try {
-            await nb_native().fs.stat(this.fs_context, access_key_config_path);
+            await nb_native().fs.stat(this.fs_context, account_config_path);
             return true;
         } catch (err) {
             return false;
@@ -282,7 +290,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
     async create_bucket(params, sdk) {
         return bucket_semaphore.surround_key(String(params.name), async () => {
             if (!sdk.requesting_account.allow_bucket_creation) {
-                throw new RpcError('UNAUTHORIZED', 'Not allowed to create new buckets')
+                throw new RpcError('UNAUTHORIZED', 'Not allowed to create new buckets');
             }
             if (!sdk.requesting_account.nsfs_account_config || !sdk.requesting_account.nsfs_account_config.new_buckets_path) {
                 throw new RpcError('MISSING_NSFS_ACCOUNT_CONFIGURATION');

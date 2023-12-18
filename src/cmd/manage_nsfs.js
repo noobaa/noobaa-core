@@ -33,6 +33,13 @@ Arguments:
     <action>  Action could be add, update, list, status and delete for accounts/buckets.
 `;
 
+const WHITELIST_OPTIONS = `
+Whitelist Options:
+
+    # Read Whitelist IPs and update the configurations.
+    --ips <ips>                       (default none)          Set whitelist ips in array format : '["127.0.0.1", "192.000.10.000", "3002:0bd6:0000:0000:0000:ee00:0033:6778"]'
+`;
+
 const ACCOUNT_OPTIONS = `
 Account Options:
 
@@ -103,6 +110,12 @@ function print_bucket_usage() {
     process.exit(1);
 }
 
+function print_whitelist_usage() {
+    process.stdout.write(HELP);
+    process.stdout.write(WHITELIST_OPTIONS.trimStart());
+    process.exit(1);
+}
+
 const buckets_dir_name = '/buckets';
 const accounts_dir_name = '/accounts';
 const access_keys_dir_name = '/access_keys';
@@ -117,7 +130,7 @@ async function check_and_create_config_dirs(config_root) {
     for (const dir_path of pre_req_dirs) {
         try {
             const fs_context = native_fs_utils.get_process_fs_context();
-            const dir_exists = await config_file_exists(fs_context, dir_path);
+            const dir_exists = await native_fs_utils.config_file_exists(fs_context, dir_path);
             if (dir_exists) {
                 dbg.log1('nsfs.check_and_create_config_dirs: config dir exists:', dir_path);
             } else {
@@ -141,6 +154,8 @@ async function main(argv = minimist(process.argv.slice(2))) {
                 return print_account_usage();
             } else if (resources_type === 'bucket') {
                 return print_bucket_usage();
+            } else if (resources_type === 'whitelist') {
+                return print_whitelist_usage();
             }
             return print_usage();
         }
@@ -166,8 +181,10 @@ async function main(argv = minimist(process.argv.slice(2))) {
             await account_management(argv, config_root, from_file);
         } else if (resources_type === 'bucket') {
             await bucket_management(argv, config_root, from_file);
+        } else if (resources_type === 'whitelist') {
+            await whitelist_ips_management(argv, config_root);
         } else {
-            process.stdout.write('Error: Invalid config type, available config types are account/bucket');
+            process.stdout.write('Error: Invalid config type, available config types are account, bucket or whitelist.');
             print_account_usage();
         }
     } catch (err) {
@@ -259,7 +276,7 @@ async function add_bucket_config_file(data, buckets_config_path, config_root_bac
 
     const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
     const full_bucket_config_path = get_config_file_path(buckets_config_path, data.name);
-    const exists = await config_file_exists(fs_context, full_bucket_config_path);
+    const exists = await native_fs_utils.config_file_exists(fs_context, full_bucket_config_path);
     if (exists) {
         process.stdout.write('Error: Bucket already exists with name : ' + data.name + '\n');
         process.exit(1);
@@ -322,7 +339,7 @@ async function update_bucket_config_file(data, bucket_config_path, config_root_b
     const cur_bucket_config_path = get_config_file_path(bucket_config_path, cur_name.unwrap());
     const new_bucket_config_path = get_config_file_path(bucket_config_path, data.name.unwrap());
 
-    const exists = await config_file_exists(fs_context, new_bucket_config_path);
+    const exists = await native_fs_utils.config_file_exists(fs_context, new_bucket_config_path);
     if (exists) {
         process.stdout.write('Error: Bucket already exists with name : ' + data.name.unwrap() + '\n');
         process.exit(1);
@@ -457,14 +474,6 @@ async function fetch_existing_account_data(config_root, target) {
     return data;
 }
 
-async function config_file_exists(fs_context, config_path) {
-    try {
-        await nb_native().fs.stat(fs_context, config_path);
-    } catch (err) {
-        if (err.code === 'ENOENT') return false;
-    }
-    return true;
-}
 
 async function add_account_config_file(data, accounts_path, access_keys_path, config_root_backend) {
     const is_valid = await validate_account_add_args(data);
@@ -478,8 +487,8 @@ async function add_account_config_file(data, accounts_path, access_keys_path, co
     const full_account_config_path = get_config_file_path(accounts_path, data.name);
     const full_account_config_access_key_path = get_symlink_config_file_path(access_keys_path, access_key);
 
-    const name_exists = await config_file_exists(fs_context, full_account_config_path);
-    const access_key_exists = await config_file_exists(fs_context, full_account_config_access_key_path);
+    const name_exists = await native_fs_utils.config_file_exists(fs_context, full_account_config_path);
+    const access_key_exists = await native_fs_utils.config_file_exists(fs_context, full_account_config_access_key_path);
 
     if (name_exists || access_key_exists) {
         if (name_exists) process.stdout.write('Error: Account having the same name already exists \n');
@@ -520,8 +529,10 @@ async function update_account_config_file(data, accounts_path, access_keys_path,
     const new_account_config_path = get_config_file_path(accounts_path, data.name.unwrap());
     const cur_access_key_config_path = get_symlink_config_file_path(access_keys_path, cur_access_key.unwrap());
     const new_access_key_config_path = get_symlink_config_file_path(access_keys_path, data.access_keys[0].access_key.unwrap());
-    const name_exists = update_name && await config_file_exists(fs_context, new_account_config_path);
-    const access_key_exists = update_access_key && await config_file_exists(fs_context, new_access_key_config_path);
+
+    const name_exists = update_name && await native_fs_utils.config_file_exists(fs_context, new_account_config_path);
+    const access_key_exists = update_access_key && await native_fs_utils.config_file_exists(fs_context, new_access_key_config_path);
+
     if (name_exists || access_key_exists) {
         if (name_exists) process.stdout.write('Error: Account having the same name already exists \n');
         if (access_key_exists) process.stdout.write('Error: Account having the same access key already exists \n');
@@ -674,7 +685,7 @@ async function validate_bucket_add_args(data, update) {
         return false;
     }
     const fs_context = native_fs_utils.get_process_fs_context();
-    const bucket_dir_stat = await config_file_exists(fs_context, data.path);
+    const bucket_dir_stat = await native_fs_utils.config_file_exists(fs_context, data.path);
     if (!bucket_dir_stat) {
         process.stdout.write('Error: Path should be a valid dir path : ' + data.path + '\n');
         process.exit(1);
@@ -714,13 +725,14 @@ async function validate_account_add_args(data, update) {
         return false;
     }
     const fs_context = native_fs_utils.get_process_fs_context();
-    const bucket_dir_stat = await config_file_exists(fs_context, data.nsfs_account_config.new_buckets_path);
+    const bucket_dir_stat = await native_fs_utils.config_file_exists(fs_context, data.nsfs_account_config.new_buckets_path);
     if (!bucket_dir_stat) {
         process.stdout.write('Error: new_buckets_path should be a valid dir path : ' + data.nsfs_account_config.new_buckets_path + '\n');
         process.exit(1);
     }
     return true;
 }
+
 
 async function validate_minimum_account_args(data) {
     if ((!data.access_keys[0].access_key || is_undefined(data.access_keys[0].access_key.unwrap())) &&
@@ -736,6 +748,42 @@ function is_undefined(value) {
     return false;
 }
 
+async function whitelist_ips_management(args, config_root) {
+    const ips = args.ips;
+    const is_valid = await validate_whitelist_arg(ips);
+    if (!is_valid) {
+        print_whitelist_usage();
+        return;
+    }
+    const whitelist_ips = JSON.parse(ips);
+    const config_path = path.join(config_root, 'config.json');
+    try {
+        const config_data = require(config_path);
+        config_data.NSFS_WHITELIST = whitelist_ips;
+        const fs_context = native_fs_utils.get_process_fs_context();
+        const data = JSON.stringify(config_data);
+        await native_fs_utils.update_config_file(fs_context, config_root, config_path, data);
+    } catch (err) {
+        dbg.error('manage_nsfs.whitelist_ips_management: Error while updation config.json,  path ' + config_path, err);
+        process.stdout.write(`Error: whitelist update failed, path :  ${config_path}  \n`);
+        return;
+    }
+    process.stdout.write('Whitelist IPs updated successfully. \n');
+}
+
+async function validate_whitelist_arg(ips) {
+    if (!ips || ips === true) {
+        process.stdout.write('Error: Whitelist ips should not be empty. \n');
+        return false;
+    }
+    try {
+       JSON.parse(ips);
+    } catch (err) {
+        process.stdout.write('Error: Whitelist ips with invalid body format. \n');
+        return false;
+    }
+    return true;
+}
 
 exports.main = main;
 if (require.main === module) main();

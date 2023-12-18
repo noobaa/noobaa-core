@@ -12,6 +12,7 @@ const xml2js = require('xml2js');
 const querystring = require('querystring');
 const {HttpProxyAgent} = require('http-proxy-agent');
 const {HttpsProxyAgent} = require('https-proxy-agent');
+const S3Error = require('../endpoint/s3/s3_errors').S3Error;
 
 const dbg = require('./debug_module')(__filename);
 const config = require('../../config');
@@ -671,6 +672,18 @@ function authorize_session_token(req, options) {
         throw new options.ErrorClass(options.error_invalid_token);
     }
 }
+function validate_nsfs_whitelist(req) {
+    // remove prefix for V4 IPs for whitelist validation
+    const client_ip = parse_client_ip(req).replace(/^::ffff:/, '');
+    if (config.NSFS_WHITELIST.length === 0) return;
+    for (const whitelist_ip of config.NSFS_WHITELIST) {
+        if (client_ip === whitelist_ip) {
+            return;
+        }
+    }
+    dbg.error(`Whitelist ip validation failed for ip : ${client_ip}`);
+    throw new S3Error(S3Error.AccessDenied);
+}
 
 exports.parse_url_query = parse_url_query;
 exports.parse_client_ip = parse_client_ip;
@@ -697,3 +710,4 @@ exports.set_cors_headers_sts = set_cors_headers_sts;
 exports.parse_content_length = parse_content_length;
 exports.authorize_session_token = authorize_session_token;
 exports.get_agent_by_endpoint = get_agent_by_endpoint;
+exports.validate_nsfs_whitelist = validate_nsfs_whitelist;

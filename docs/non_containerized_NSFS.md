@@ -478,3 +478,11 @@ In order to apply env changes after the service was started, edit the /etc/sysco
 vim  /etc/sysconfig/noobaa_nsfs
 systemctl restart noobaa_nsfs
 ```
+
+## WhiteList IPs
+
+Access is restricted to these whitelist IPs. If there are no IPs mentioned all IPs are allowed. WhiteList IPs are added to cnfig.json.
+
+```
+node src/cmd/manage_nsfs whitelist --ips '["127.0.0.1", "192.000.10.000", "3002:0bd6:0000:0000:0000:ee00:0033:000"]'  2>/dev/null
+```

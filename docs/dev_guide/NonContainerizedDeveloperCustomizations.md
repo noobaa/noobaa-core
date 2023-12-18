@@ -233,8 +233,22 @@ Example:
 "NSFS_TRIGGER_FSYNC": false
 ```
 
+## 13. Whitelist IPs -
+**Description -** List of whitelist IPs. Access is restricted to these IPs only. If there are no IPs mentioned all IPs are allowed.
 
-## Config.json example - 
+**Configuration Key -** NSFS_WHITELIST
+
+**Type -** array
+
+**Default -** false
+
+**Steps -**
+```
+1. run CLI command
+node src/cmd/manage_nsfs whitelist --ips '["127.0.0.1", "192.000.10.000", "3002:0bd6:0000:0000:0000:ee00:0033:000"]'  2>/dev/null
+```
+
+## Config.json example 
 ```
 > cat /path/to/config_dir/config.json
 {
@@ -247,7 +261,8 @@ Example:
     "NSFS_BUF_SIZE": 16777216,
     "NSFS_OPEN_READ_MODE": "rd",
     "NSFS_CHECK_BUCKET_BOUNDARIES": false,
-    "ALLOW_HTTP": true
+    "ALLOW_HTTP": true,
+    "NSFS_WHITELIST":["127.0.0.1","192.000.10.000","3002:0bd6:0000:0000:0000:ee00:0033:000"]
 }
 
 ```

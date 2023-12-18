@@ -8,6 +8,10 @@ const crypto = require('crypto');
 const ALPHA_NUMERIC_CHARSET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
 const email_regexp = /^((([a-z]|\d|[!#\$%&'\*\+\-\/=\?\^_`{\|}~]|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])+(\.([a-z]|\d|[!#\$%&'\*\+\-\/=\?\^_`{\|}~]|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])+)*)|((\x22)((((\x20|\x09)*(\x0d\x0a))?(\x20|\x09)+)?(([\x01-\x08\x0b\x0c\x0e-\x1f\x7f]|\x21|[\x23-\x5b]|[\x5d-\x7e]|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(\\([\x01-\x09\x0b\x0c\x0d-\x7f]|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF]))))*(((\x20|\x09)*(\x0d\x0a))?(\x20|\x09)+)?(\x22)))@((([a-z]|\d|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(([a-z]|\d|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])([a-z]|\d|-|\.|_|~|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])*([a-z]|\d|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])))\.)+(([a-z]|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(([a-z]|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])([a-z]|\d|-|\.|_|~|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])*([a-z]|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])))$/i;
 const escape_regexp = /[\\^$.*+?()[\]{}|]/g;
+const uppercase_regexp = /[A-Z]/;
+const lowercase_regexp = /[a-z]/;
+const numbers_regexp = /\d/;
+const symbols_regexp = /[!@#$%^&*(),.?":+-{}|<>]/;
 
 function crypto_random_string(len, charset = ALPHA_NUMERIC_CHARSET) {
     // In order to not favor any specific chars over others we limit the maximum random value
@@ -144,6 +148,99 @@ function escape_reg_exp(str) {
     return str.replace(escape_regexp, '\\$&');
 }
 
+/**
+ * 
+ * @param {string} string
+ * @param {number} require_length
+ */
+function validate_length(string, require_length) {
+    if (string.length !== require_length) {
+        return false;
+    }
+    return true;
+}
+
+/**
+ * @param {string} string
+ * @param {boolean} check_uppercase
+ */
+function validate_uppercase(string, check_uppercase) {
+    const uppercase_test = uppercase_regexp.test(string);
+    if (check_uppercase && !uppercase_test) {
+        return false;
+    }
+    return true;
+}
+
+/**
+ * @param {string} string
+ * @param {boolean} check_lowercase
+ */
+function validate_lowercase(string, check_lowercase) {
+    const lowercase_test = lowercase_regexp.test(string);
+    if (check_lowercase && !lowercase_test) {
+        return false;
+    }
+    return true;
+}
+
+/**
+ * @param {string} string
+ * @param {boolean} check_numbers
+ */
+function validate_numbers(string, check_numbers) {
+    const numbers_test = numbers_regexp.test(string);
+    if (check_numbers && !numbers_test) {
+        return false;
+    }
+    return true;
+}
+
+/**
+ * @param {string} string
+ * @param {boolean} check_symbols
+ */
+function validate_symbols(string, check_symbols) {
+    const symbols_test = symbols_regexp.test(string);
+    if (check_symbols && !symbols_test) {
+        return false;
+    }
+    return true;
+}
+
+
+/**
+ * validate_complexity will validate the complexity of a string
+ * 
+ * @param {string} string
+ * @param {{
+ *   require_length?: number,
+ *   check_uppercase?: boolean,
+ *   check_lowercase?: boolean,
+ *   check_numbers?: boolean,
+ *   check_symbols?: boolean,
+ * }} options - Options for complexity validation.
+ *
+ * @returns {boolean}
+ */
+function validate_complexity(string, options = {}) {
+    const {
+        require_length = 20,
+            check_uppercase = true,
+            check_lowercase = true,
+            check_numbers = true,
+            check_symbols = true,
+    } = options;
+
+    return (
+        validate_length(string, require_length) &&
+        validate_uppercase(string, check_uppercase) &&
+        validate_lowercase(string, check_lowercase) &&
+        validate_numbers(string, check_numbers) &&
+        validate_symbols(string, check_symbols)
+    );
+}
+
 exports.ALPHA_NUMERIC_CHARSET = ALPHA_NUMERIC_CHARSET;
 exports.crypto_random_string = crypto_random_string;
 exports.left_pad_zeros = left_pad_zeros;
@@ -152,3 +249,9 @@ exports.rolling_hash = rolling_hash;
 exports.equal_case_insensitive = equal_case_insensitive;
 exports.is_email_address = is_email_address;
 exports.escape_reg_exp = escape_reg_exp;
+exports.validate_length = validate_length;
+exports.validate_uppercase = validate_uppercase;
+exports.validate_lowercase = validate_lowercase;
+exports.validate_numbers = validate_numbers;
+exports.validate_symbols = validate_symbols;
+exports.validate_complexity = validate_complexity;

@@ -24,7 +24,7 @@
     "ts": "tsc",
     "lint": "eslint src --quiet",
     "mocha": "node --allow-natives-syntax ./node_modules/.bin/_mocha src/test/unit_tests/index.js",
-    "jest": "npx jest",
+    "jest": "sudo npx jest",
     "----": "-----------------------------------------------------------------",
     "start": "node --unhandled-rejections=warn src/cmd",
     "cmd": "node --unhandled-rejections=warn src/cmd",

@@ -143,7 +143,7 @@ mocha.describe('manage_nsfs cli', function() {
             const action = nc_nsfs_manage_actions.UPDATE;
             const update_options = { config_root, owner_email: 'user2@noobaa.io', name };
             await exec_manage_cli(type, action, update_options);
-            bucket_options = { ...bucket_options, ...update_options};
+            bucket_options = { ...bucket_options, ...update_options };
             const bucket = await read_config_file(config_root, schema_dir, name);
             assert_bucket(bucket, bucket_options);
             await assert_config_file_permissions(config_root, schema_dir, name);
@@ -162,7 +162,7 @@ mocha.describe('manage_nsfs cli', function() {
         mocha.it('cli bucket2 update - new_name already exists', async function() {
             let action = nc_nsfs_manage_actions.ADD;
             const bucket_name3 = 'bucket3';
-            await exec_manage_cli(type, action, { ...bucket_options, name: bucket_name3});
+            await exec_manage_cli(type, action, { ...bucket_options, name: bucket_name3 });
             action = nc_nsfs_manage_actions.UPDATE;
             try {
                 await exec_manage_cli(type, action, { ...bucket_options, name: bucket_name3, new_name: 'bucket2' });
@@ -228,8 +228,8 @@ mocha.describe('manage_nsfs cli', function() {
         const new_buckets_path = `${root_path}new_buckets_path_user1/`;
         const uid = 999;
         const gid = 999;
-        const access_key = 'abc';
-        const secret_key = '123';
+        const access_key = 'GIGiFAnjaaE7OKD5N7hA';
+        const secret_key = 'U2AYaMpU3zRDcRFWmvzgQr9MoHIAsDy3o+4h0oFR';
         let account_options = { config_root, name, email, new_buckets_path, uid, gid, access_key, secret_key };
         const accounts_schema_dir = 'accounts';
         const access_keys_schema_dir = 'access_keys';
@@ -396,7 +396,7 @@ mocha.describe('manage_nsfs cli', function() {
             const action = nc_nsfs_manage_actions.UPDATE;
             const update_options = {
                 config_root,
-                new_access_key: 'abcd',
+                new_access_key: 'BIGiFAnjaaE7OKD5N7hB',
                 name: account_options.name
             };
             const update_response = await exec_manage_cli(type, action, update_options);
@@ -413,7 +413,7 @@ mocha.describe('manage_nsfs cli', function() {
             const action = nc_nsfs_manage_actions.UPDATE;
             const update_options = {
                 config_root,
-                new_access_key: 'abcde',
+                new_access_key: 'BIGiFAnjaaE6OGD5N7hB',
                 new_name: 'account2_new_name',
                 name: account_options.name
             };
@@ -462,10 +462,10 @@ mocha.describe('manage_nsfs cli', function() {
         const new_buckets_path = `${root_path}new_buckets_path_user1/`;
         const uid = 999;
         const gid = 999;
-        const access_key = 'abc';
-        const secret_key = '123';
+        const access_key = 'GIGiFAnjaaE7OKD5N7hA';
+        const secret_key = 'U2AYaMpU3zRDcRFWmvzgQr9MoHIAsDy3o+4h0oFR';
         const account1_options = { config_root, name, email, new_buckets_path, uid, gid, access_key, secret_key };
-        const account2_options = { config_root, name: 'account2', email, new_buckets_path, uid, gid, access_key: 'abcd', secret_key };
+        const account2_options = { config_root, name: 'account2', email, new_buckets_path, uid, gid, access_key: 'BISiDSnjaaE7OKD5N7hB', secret_key };
         mocha.before(async () => {
             await fs_utils.create_fresh_path(new_buckets_path);
             await fs_utils.file_must_exist(new_buckets_path);
@@ -493,7 +493,7 @@ mocha.describe('manage_nsfs cli', function() {
         mocha.it('cli account2 update - new_access_key already exists', async function() {
             const action = nc_nsfs_manage_actions.UPDATE;
             try {
-                await exec_manage_cli(type, action, { ...account2_options, new_access_key: 'abc' });
+                await exec_manage_cli(type, action, { ...account2_options, new_access_key: 'GIGiFAnjaaE7OKD5N7hA' });
                 assert.fail('should have failed with account access key already exists');
             } catch (err) {
                 assert_error(err, ManageCLIError.AccountAccessKeyAlreadyExists);
@@ -508,8 +508,8 @@ mocha.describe('manage_nsfs cli', function() {
         const email = 'account2@noobaa.io';
         const new_buckets_path = `${root_path}new_buckets_path_user2/`;
         const distinguished_name = 'moti1003';
-        const access_key = 'bcd';
-        const secret_key = '234';
+        const access_key = 'GIGiFAnjaaE7OKD5N7hB';
+        const secret_key = 'U2AYaMpU3zRDcRFWmvzgQr9MoHIAsDy3o+4h0oFr';
         let account_options = { config_root, name, email, new_buckets_path, distinguished_name, access_key, secret_key };
         const accounts_schema_dir = 'accounts';
         const access_keys_schema_dir = 'access_keys';
@@ -592,7 +592,7 @@ mocha.describe('manage_nsfs cli', function() {
     mocha.describe('cli whitelist flow', async function() {
         this.timeout(50000); // eslint-disable-line no-invalid-this
         const type = nc_nsfs_manage_entity_types.IPWHITELIST;
-        const config_options = { ENDPOINT_FORKS: 1, UV_THREADPOOL_SIZE: 4};
+        const config_options = { ENDPOINT_FORKS: 1, UV_THREADPOOL_SIZE: 4 };
         const ips = ['127.0.0.1', '192.000.10.000', '3002:0bd6:0000:0000:0000:ee00:0033:999'];
         mocha.before(async () => {
             await write_config_file(config_root, '', 'config', config_options);
@@ -602,11 +602,11 @@ mocha.describe('manage_nsfs cli', function() {
         });
 
         mocha.it('cli add whitelist ips first time', async function() {
-                const res = await exec_manage_cli(type, '', { config_root, ips: JSON.stringify(ips) });
-                config_options.NSFS_WHITELIST = ips;
-                const config_data = await read_config_file(config_root, '', 'config');
-                assert_response('', type, res, ips);
-                assert_whitelist(config_data, config_options);
+            const res = await exec_manage_cli(type, '', { config_root, ips: JSON.stringify(ips) });
+            config_options.NSFS_WHITELIST = ips;
+            const config_data = await read_config_file(config_root, '', 'config');
+            assert_response('', type, res, ips);
+            assert_whitelist(config_data, config_options);
         });
 
         mocha.it('cli update whitelist ips', async function() {

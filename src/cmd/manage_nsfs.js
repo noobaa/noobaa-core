@@ -7,6 +7,8 @@ const path = require('path');
 const minimist = require('minimist');
 const config = require('../../config');
 const nb_native = require('../util/nb_native');
+const cloud_utils = require('../util/cloud_utils');
+const string_utils = require('../util/string_utils');
 const native_fs_utils = require('../util/native_fs_utils');
 const SensitiveString = require('../util/sensitive_string');
 const ManageCLIError = require('../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
@@ -79,14 +81,15 @@ Account Options:
     --name <name>               (default none)                              Set the name for the account.
     --email <email>             (default none)                              Set the email for the account.
     --new_name <name>           (default none)                              Set a new name for the account (update).
-    --uid <uid>                 (default as process)                        Send requests to the Filesystem with uid.
-    --gid <gid>                 (default as process)                        Send requests to the Filesystem with gid.
+    --uid <uid>                 (default none)                              Send requests to the Filesystem with uid.
+    --gid <gid>                 (default none)                              Send requests to the Filesystem with gid.
     --secret_key <key>          (default none)                              The secret key pair for the access key.
     --new_buckets_path <dir>    (default none)                              Set the filesystem's root where each subdir is a bucket.
     
     # required for add, update, and delete
     --access_key <key>          (default none)                              Authenticate incoming requests for this access key only (default is no auth).
     --new_access_key <key>      (default none)                              Set a new access key for the account.
+    --regenerate                (default none)                              When set and new_access_key is not set, will regenerate the access_key and secret_key
     --config_root <dir>         (default config.NSFS_NC_DEFAULT_CONF_DIR)   Configuration files path for Noobaa standalon NSFS.
 
     # Used for list
@@ -158,10 +161,10 @@ async function main(argv = minimist(process.argv.slice(2))) {
         const type = argv._[0] || '';
         if (argv.help || argv.h) {
             return print_usage({
-                    print_bucket: type === TYPES.BUCKET,
-                    print_account: type === TYPES.ACCOUNT,
-                    print_white_list: type === TYPES.IPWHITELIST
-                });
+                print_bucket: type === TYPES.BUCKET,
+                print_account: type === TYPES.ACCOUNT,
+                print_white_list: type === TYPES.IPWHITELIST
+            });
         }
         const config_root = argv.config_root ? String(argv.config_root) : config.NSFS_NC_CONF_DIR;
         if (!config_root) throw_cli_error(ManageCLIError.MissingConfigDirPath);
@@ -181,7 +184,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
         dbg.log1('NSFS Manage command: exit on error', err.stack || err);
         const manage_err = ((err instanceof ManageCLIError) && err) ||
             new ManageCLIError(ManageCLIError.FS_ERRORS_TO_MANAGE[err.code] ||
-            ManageCLIError.InternalError);
+                ManageCLIError.InternalError);
         throw_cli_error(manage_err, err.stack || err);
     }
 }
@@ -349,14 +352,46 @@ async function account_management(argv, config_root, from_file) {
     await manage_account_operations(action, data, config_root, config_root_backend, show_secrets);
 }
 
+/**
+ * set_access_keys will set the access keys either given as args or generated.
+ * @param {{ access_key: any; secret_key: any; }} argv
+ * @param {boolean} generate a flag for generating the access_keys automatically
+ */
+function set_access_keys(argv, generate) {
+    const { access_key, secret_key } = argv;
+    let generated_access_key;
+    let generated_secret_key;
+    if (generate) {
+        ({ access_key: generated_access_key, secret_key: generated_secret_key } = cloud_utils.generate_access_keys());
+        generated_access_key = generated_access_key.unwrap();
+        generated_secret_key = generated_secret_key.unwrap();
+    }
+
+    return [{
+        access_key: access_key || generated_access_key,
+        secret_key: secret_key || generated_secret_key,
+    }];
+}
+
 async function fetch_account_data(argv, config_root, from_file) {
     let data;
+    let generate_access_keys = true;
     const action = argv._[1] || '';
     if (from_file) {
         const fs_context = native_fs_utils.get_process_fs_context();
         const raw_data = (await nb_native().fs.readFile(fs_context, from_file)).data;
         data = JSON.parse(raw_data.toString());
     }
+    _validate_access_keys(argv);
+    let new_access_key = argv.new_access_key;
+    if (action === 'update') {
+        generate_access_keys = false;
+        if (argv.regenerate) {
+            const keys = set_access_keys(argv, true);
+            new_access_key = keys[0].access_key;
+        }
+    }
+    if (action === 'delete') generate_access_keys = false;
     if (!data) {
         data = _.omitBy({
             name: argv.name,
@@ -364,11 +399,8 @@ async function fetch_account_data(argv, config_root, from_file) {
             creation_date: new Date().toISOString(),
             wide: argv.wide,
             new_name: argv.new_name,
-            new_access_key: argv.new_access_key,
-            access_keys: [{
-                access_key: argv.access_key,
-                secret_key: argv.secret_key
-            }],
+            new_access_key,
+            access_keys: set_access_keys(argv, generate_access_keys),
             nsfs_account_config: {
                 distinguished_name: argv.user,
                 uid: !argv.user && argv.uid,
@@ -634,9 +666,9 @@ async function validate_account_args(data, action) {
         if (is_undefined(data.access_keys[0].secret_key)) throw_cli_error(ManageCLIError.MissingAccountSecretKeyFlag);
         if (is_undefined(data.access_keys[0].access_key)) throw_cli_error(ManageCLIError.MissingAccountAccessKeyFlag);
         if ((is_undefined(data.nsfs_account_config.distinguished_name) &&
-            (data.nsfs_account_config.uid === undefined || data.nsfs_account_config.gid === undefined)) ||
+                (data.nsfs_account_config.uid === undefined || data.nsfs_account_config.gid === undefined)) ||
             !data.nsfs_account_config.new_buckets_path) {
-                throw_cli_error(ManageCLIError.InvalidAccountNSFSConfig, data.nsfs_account_config);
+            throw_cli_error(ManageCLIError.InvalidAccountNSFSConfig, data.nsfs_account_config);
         }
 
         if (data.nsfs_account_config.uid && typeof data.nsfs_account_config.uid !== 'number') throw_cli_error(ManageCLIError.InvalidAccountUID);
@@ -685,10 +717,41 @@ function validate_whitelist_arg(ips) {
         throw_cli_error(ManageCLIError.MissingWhiteListIPFlag);
     }
     try {
-       JSON.parse(ips);
+        JSON.parse(ips);
     } catch (err) {
         throw_cli_error(ManageCLIError.InvalidWhiteListIPFormat);
     }
+}
+
+function _validate_access_keys(argv) {
+    // using the access_key flag requires also using the secret_key flag
+    // TODO: currently disabling it to avoid failing tests of update, we should talk if we want to remove this or readd it.
+    // if (!is_undefined(argv.access_key) && is_undefined(argv.secret_key)) throw_cli_error(ManageCLIError.MissingAccountSecretKeyFlag);
+    if (!is_undefined(argv.secret_key) && is_undefined(argv.access_key)) throw_cli_error(ManageCLIError.MissingAccountAccessKeyFlag);
+    // checking the complexity of access_key
+    if (!is_undefined(argv.access_key) && !string_utils.validate_complexity(argv.access_key, {
+            require_length: 20,
+            check_uppercase: true,
+            check_lowercase: false,
+            check_numbers: true,
+            check_symbols: false,
+        })) throw_cli_error(ManageCLIError.AccountAccessKeyFlagComplexity);
+    // checking the complexity of secret_key
+    if (!is_undefined(argv.secret_key) && !string_utils.validate_complexity(argv.secret_key, {
+            require_length: 40,
+            check_uppercase: true,
+            check_lowercase: true,
+            check_numbers: true,
+            check_symbols: true,
+        })) throw_cli_error(ManageCLIError.AccountSecretKeyFlagComplexity);
+    // checking the complexity of new_access_key 
+    if (!is_undefined(argv.new_access_key) && !string_utils.validate_complexity(argv.new_access_key, {
+            require_length: 20,
+            check_uppercase: true,
+            check_lowercase: false,
+            check_numbers: true,
+            check_symbols: false,
+        })) throw_cli_error(ManageCLIError.NewAccountAccessKeyFlagComplexity);
 }
 
 exports.main = main;

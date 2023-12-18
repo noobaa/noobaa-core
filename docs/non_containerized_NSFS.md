@@ -222,8 +222,11 @@ Output -
 
 ## Health script
 NSFS Health status can be fetched using the command line. Run `--help` to get all the available options. 
+
+NOTE - health script execution requires root permissions.
+
  ```
- node usr/local/noobaa-core/src/cmd/health [--https_port,--all_account_details,  --all_bucket_details]
+ sudo node usr/local/noobaa-core/src/cmd/health [--https_port,--all_account_details,  --all_bucket_details]
  ```
 
  output:
@@ -396,29 +399,29 @@ Users can create, update, delete, and list buckets and accounts using CLI. If th
 
 CLI will never create or delete a bucket directory for the user if a bucket directory is missing CLI will return with error.
 
-
+NOTE - manage_nsfs execution requires root permissions.
  
- Bucket Commands
- ```
- node src/cmd/manage_nsfs bucket add --config_root ../standalon/config_root --name bucket1 --email noobaa@gmail.com --path ../standalon/nsfs_root/1 2>/dev/null
+Bucket Commands
+```
+sudo node src/cmd/manage_nsfs bucket add --config_root ../standalon/config_root --name bucket1 --email noobaa@gmail.com --path ../standalon/nsfs_root/1 2>/dev/null
 
-node src/cmd/manage_nsfs bucket update --config_root ../standalon/config_root --name bucket1 --email noobaa@gmail.com 2>/dev/null
+sudo node src/cmd/manage_nsfs bucket update --config_root ../standalon/config_root --name bucket1 --email noobaa@gmail.com 2>/dev/null
 
-node src/cmd/manage_nsfs bucket list --config_root ../standalon/config_root 2>/dev/null
+sudo node src/cmd/manage_nsfs bucket list --config_root ../standalon/config_root 2>/dev/null
 
-node src/cmd/manage_nsfs bucket delete --config_root ../standalon/config_root --name bucket1 2>/dev/null
+sudo node src/cmd/manage_nsfs bucket delete --config_root ../standalon/config_root --name bucket1 2>/dev/null
 
 ```
 
- Account Commands
- ```
-node src/cmd/manage_nsfs account add --config_root ../standalon/config_root --name noobaa --email noobaa@gmail.com --new_buckets_path ../standalon/nsfs_root/ --access_key abc --secret_key abc 2>/dev/null
+Account Commands
+```
+sudo node src/cmd/manage_nsfs account add --config_root ../standalon/config_root --name noobaa --email noobaa@gmail.com --new_buckets_path ../standalon/nsfs_root/ --access_key abc --secret_key abc 2>/dev/null
 
-node src/cmd/manage_nsfs account update --config_root ../standalon/config_root --name noobaa --access_key abc --secret_key abc123 2>/dev/null
+sudo node src/cmd/manage_nsfs account update --config_root ../standalon/config_root --name noobaa --access_key abc --secret_key abc123 2>/dev/null
 
-node src/cmd/manage_nsfs account delete --config_root ../standalon/config_root --access_key abc 2>/dev/null
+sudo node src/cmd/manage_nsfs account delete --config_root ../standalon/config_root --access_key abc 2>/dev/null
 
-node src/cmd/manage_nsfs account list --config_root ../standalon/config_root 2>/dev/null
+sudo node src/cmd/manage_nsfs account list --config_root ../standalon/config_root 2>/dev/null
 
  ```
 
@@ -428,7 +431,7 @@ Users can also pass account and bucket/account values in JSON file instead of pa
 
 
 ```
-node src/cmd/manage_nsfs bucket add --config_root ../standalon/config_root --from_file /json_file/path
+sudo node src/cmd/manage_nsfs bucket add --config_root ../standalon/config_root --from_file /json_file/path
 ```
 NSFS management CLI command will create both account and bucket dir if it's missing in the config_root path.
 

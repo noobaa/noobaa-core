@@ -132,6 +132,9 @@ async function check_and_create_config_dirs(config_root) {
 
 async function main(argv = minimist(process.argv.slice(2))) {
     try {
+        if (process.getuid() !== 0 || process.getgid() !== 0) {
+            throw new Error('Root permissions required for Manage NSFS execution.');
+        }
         const resources_type = argv._[0] || '';
         if (argv.help || argv.h) {
             if (resources_type === 'account') {

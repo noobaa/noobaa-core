@@ -134,15 +134,33 @@ ManageCLIError.AccountNameAlreadyExists = Object.freeze({
 //// ACCOUNT ARGUMENTS ERRORS ////
 //////////////////////////////////
 
- ManageCLIError.MissingAccountSecretKeyFlag = Object.freeze({
+ManageCLIError.MissingAccountSecretKeyFlag = Object.freeze({
     code: 'MissingAccountSecretKeyFlag',
-    message: 'Account secret key is mandatory, please use the --secret_key flag',
+    message: 'Account secret key is mandatory, please use the --secret_key flag or --regenerate on update',
     http_code: 400,
 });
 
 ManageCLIError.MissingAccountAccessKeyFlag = Object.freeze({
     code: 'MissingAccountAccessKeyFlag',
-    message: 'Account access key is mandatory, please use the --access_key flag',
+    message: 'Account access key is mandatory, please use the --access_key flag or --regenerate on update on update',
+    http_code: 400,
+});
+
+ManageCLIError.AccountSecretKeyFlagComplexity = Object.freeze({
+    code: 'AccountSecretKeyFlagComplexity',
+    message: 'Account secret length must be 40, and must contain uppercase, lowercase, numbers and symbols',
+    http_code: 400,
+});
+
+ManageCLIError.AccountAccessKeyFlagComplexity = Object.freeze({
+    code: 'AccountAccessKeyFlagComplexity',
+    message: 'Account access key length must be 20, and must contain uppercase and numbers',
+    http_code: 400,
+});
+
+ManageCLIError.NewAccountAccessKeyFlagComplexity = Object.freeze({
+    code: 'NewAccountAccessKeyFlagComplexity',
+    message: 'Account new access key length must be 20, and must contain uppercase and numbers',
     http_code: 400,
 });
 

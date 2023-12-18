@@ -300,7 +300,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
 
             // create bucket configuration file
             try {
-                await native_fs_utils.create_config_file(fs_context, this.bucket_schema_dir, bucket_config_path, bucket_config);
+                await native_fs_utils.create_config_file(this.fs_context, this.bucket_schema_dir, bucket_config_path, bucket_config);
             } catch (err) {
                 dbg.event({
                     code: "noobaa_bucket_creation_failed",
@@ -332,7 +332,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                     state: "DEGRADED",
                     arguments: {bucket: name, path: bucket_storage_path}
                 });
-                await nb_native().fs.unlink(fs_context, bucket_config_path);
+                await nb_native().fs.unlink(this.fs_context, bucket_config_path);
                 throw this._translate_bucket_error_codes(err);
             }
         });
@@ -377,8 +377,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                 dbg.log1(`BucketSpaceFS: delete_fs_bucket ${bucket_path}`);
 
                 // delete bucket config json file
-                const fs_context = prepare_fs_context(object_sdk);
-                await native_fs_utils.delete_config_file(fs_context, this.bucket_schema_dir, bucket_path);
+                await native_fs_utils.delete_config_file(this.fs_context, this.bucket_schema_dir, bucket_path);
             } catch (err) {
                 dbg.event({
                     code: "noobaa_bucket_delete_failed",
@@ -425,13 +424,12 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             const { name, versioning } = params;
             dbg.log0('BucketSpaceFS.set_bucket_versioning: Bucket name, versioning', name, versioning);
             const bucket_config_path = this._get_bucket_config_path(name);
-            const fs_context = prepare_fs_context(object_sdk);
-            const { data } = await nb_native().fs.readFile(fs_context, bucket_config_path);
+            const { data } = await nb_native().fs.readFile(this.fs_context, bucket_config_path);
             const bucket = JSON.parse(data.toString());
             bucket.versioning = versioning;
             const update_bucket = JSON.stringify(bucket);
             await nb_native().fs.writeFile(
-                fs_context,
+                this.fs_context,
                 bucket_config_path,
                 Buffer.from(update_bucket), {
                     mode: native_fs_utils.get_umasked_mode(config.BASE_MODE_CONFIG_FILE)

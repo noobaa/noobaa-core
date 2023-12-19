@@ -7,6 +7,8 @@
             '-Wextra',
             '-Werror',
             '-Wpedantic',
+#Can be removed when https://github.com/nodejs/nan/issues/953 is resolved.
+            '-Wno-error=deprecated-declarations'
         ],
         # see https://nodejs.org/docs/latest-v12.x/api/process.html#process_process_arch
         # Possible values are: 

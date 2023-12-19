@@ -1323,13 +1323,21 @@ class PostgresTable {
         if (!validator(doc)) {
             const msg = `INVALID_SCHEMA_DB ${this.name}`;
             if (warn === 'warn') {
-                dbg.warn(msg,
-                    'ERRORS', util.inspect(validator.errors, true, null, true),
-                    'DOC', util.inspect(doc, true, null, true));
+                if (config.INVALID_SCHEMA_DB_INSPECT_ENABLED) {
+                    dbg.warn(msg,
+                        'ERRORS', util.inspect(validator.errors, true, null, true),
+                        'DOC', util.inspect(doc, true, null, true));
+                } else {
+                    dbg.warn(msg);
+                }
             } else {
-                dbg.error(msg,
-                    'ERRORS', util.inspect(validator.errors, true, null, true),
-                    'DOC', util.inspect(doc, true, null, true));
+                if (config.INVALID_SCHEMA_DB_INSPECT_ENABLED) {
+                    dbg.error(msg,
+                        'ERRORS', util.inspect(validator.errors, true, null, true),
+                        'DOC', util.inspect(doc, true, null, true));
+                } else {
+                    dbg.error(msg);
+                }
                 throw new Error(msg);
             }
         }
@@ -1532,13 +1540,21 @@ class PostgresClient extends EventEmitter {
         if (!validator(doc)) {
             const msg = `INVALID_SCHEMA_DB ${table_name}`;
             if (warn === 'warn') {
-                dbg.warn(msg,
-                    'ERRORS', util.inspect(validator.errors, true, null, true),
-                    'DOC', util.inspect(doc, true, null, true));
+                if (config.INVALID_SCHEMA_DB_INSPECT_ENABLED) {
+                    dbg.warn(msg,
+                        'ERRORS', util.inspect(validator.errors, true, null, true),
+                        'DOC', util.inspect(doc, true, null, true));
+                } else {
+                    dbg.warn(msg);
+                }
             } else {
-                dbg.error(msg,
-                    'ERRORS', util.inspect(validator.errors, true, null, true),
-                    'DOC', util.inspect(doc, true, null, true));
+                if (config.INVALID_SCHEMA_DB_INSPECT_ENABLED) {
+                    dbg.error(msg,
+                        'ERRORS', util.inspect(validator.errors, true, null, true),
+                        'DOC', util.inspect(doc, true, null, true));
+                } else {
+                    dbg.error(msg);
+                }
                 throw new Error(msg);
             }
         }

@@ -97,12 +97,15 @@ function run_master_workers() {
         run_immediate: true
     }, stats_aggregator.background_worker);
 
-    register_bg_worker(new NamespaceMonitor({
-        name: 'namespace_monitor',
-        client: server_rpc.client,
-        should_monitor: nsr => !nsr.nsfs_config,
-    }));
-
+    if (config.NAMESPACE_MONITOR_ENABLED) {
+        register_bg_worker(new NamespaceMonitor({
+            name: 'namespace_monitor',
+            client: server_rpc.client,
+            should_monitor: nsr => !nsr.nsfs_config,
+        }));
+    } else {
+        dbg.warn('NAMESPACE_MONITOR NOT ENABLED');
+    }
     if (config.REPLICATION_ENABLED) {
         register_bg_worker(new ReplicationScanner({
             name: 'replication scanner',
@@ -119,7 +122,7 @@ function run_master_workers() {
     } else {
         dbg.warn('LOG REPLICATION NOT ENABLED');
     }
-    if (process.env.NOOBAA_DISABLE_AGGREGATOR !== "true") {
+    if (process.env.NOOBAA_DISABLE_AGGREGATOR !== "true" && config.MD_AGGREGATOR_ENABLED) {
         register_bg_worker({
             name: 'md_aggregator',
             delay: config.MD_AGGREGATOR_INTERVAL

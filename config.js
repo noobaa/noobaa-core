@@ -202,6 +202,7 @@ config.BUCKET_AUTOCONF_TIER2_ENABLED = false;
 // MD AGGREGATOR CONFIG //
 //////////////////////////
 
+config.MD_AGGREGATOR_ENABLED = true;
 config.MD_AGGREGATOR_INTERVAL = 30000;
 // the max cycles limits how many intervals the aggregator will split the gap
 // the higher this value the higher the time intervals it will scan when trying to close time gaps
@@ -454,6 +455,7 @@ config.on_premise = {
 
 // the threshold in ms for logging long running queries
 config.LONG_DB_QUERY_THRESHOLD = parseInt(process.env.LONG_DB_QUERY_THRESHOLD, 10) || 5000;
+config.INVALID_SCHEMA_DB_INSPECT_ENABLED = true;
 
 /*
   Central Stats Collection & Diagnostics
@@ -594,6 +596,7 @@ config.WORM_ENABLED = false;
 //      NAMESPACE MONITOR     //
 ////////////////////////////////
 
+config.NAMESPACE_MONITOR_ENABLED = true;
 config.NAMESPACE_MONITOR_DELAY = 3 * 60 * 1000;
 
 
@@ -685,6 +688,7 @@ config.NSFS_SEM_WARNING_TIMEOUT = 10 * 60 * 1000;
 config.NSFS_RENAME_RETRIES = 3;
 
 config.NSFS_VERSIONING_ENABLED = true;
+config.NSFS_UPDATE_ISSUES_REPORT_ENABLED = true;
 
 ////////////////////////////
 // NSFS NON CONTAINERIZED //

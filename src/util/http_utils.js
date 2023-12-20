@@ -10,8 +10,8 @@ const https = require('https');
 const crypto = require('crypto');
 const xml2js = require('xml2js');
 const querystring = require('querystring');
-const createHttpProxyAgent = require('http-proxy-agent');
-const createHttpsProxyAgent = require('https-proxy-agent');
+const {HttpProxyAgent} = require('http-proxy-agent');
+const {HttpsProxyAgent} = require('https-proxy-agent');
 
 const dbg = require('./debug_module')(__filename);
 const config = require('../../config');
@@ -28,11 +28,11 @@ const http_agent = new http.Agent();
 const https_agent = new https.Agent();
 const unsecured_https_agent = new https.Agent({ rejectUnauthorized: false });
 const http_proxy_agent = HTTP_PROXY ?
-    createHttpProxyAgent(url.parse(HTTP_PROXY)) : null;
+    new HttpProxyAgent(HTTP_PROXY) : null;
 const https_proxy_agent = HTTPS_PROXY ?
-    createHttpsProxyAgent(url.parse(HTTPS_PROXY)) : null;
+    new HttpsProxyAgent(HTTPS_PROXY) : null;
 const unsecured_https_proxy_agent = HTTPS_PROXY ?
-    createHttpsProxyAgent({ ...url.parse(HTTPS_PROXY), rejectUnauthorized: false }) : null;
+    new HttpsProxyAgent(HTTPS_PROXY, {rejectUnauthorized: false}) : null;
 
 const no_proxy_list =
     (NO_PROXY ? NO_PROXY.split(',') : []).map(addr => {

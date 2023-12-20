@@ -171,7 +171,7 @@ async function main(options = {}) {
             dbg.log0('Started metrics server successfully');
         }
 
-        if (internal_rpc_client) {
+        if (internal_rpc_client && config.NAMESPACE_MONITOR_ENABLED) {
             endpoint_stats_collector.instance().set_rpc_client(internal_rpc_client);
 
             // Register a bg monitor on the endpoint

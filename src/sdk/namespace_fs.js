@@ -498,6 +498,10 @@ class NamespaceFS {
     }
 
     run_update_issues_report(object_sdk, err) {
+        if (!config.NSFS_UPDATE_ISSUES_REPORT_ENABLED) {
+            dbg.log0('update_issues_report disabled:', this.namespace_resource_id, err);
+            return;
+        }
         //We want to avoid the report when we have no error code.
         if (!err.code) return;
         //In standalone, we want to avoid the report.

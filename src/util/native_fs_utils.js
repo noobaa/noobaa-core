@@ -263,7 +263,7 @@ async function create_config_file(fs_context, schema_dir, config_path, config_da
         } catch (err) {
             if (err.code !== 'ENOENT') throw err;
         }
-        dbg.log1('native_fs_utils: create_config_file config_path:', config_path, 'config_data:', config_data, 'is_gpfs:', open_mode);
+        dbg.log1('create_config_file:: config_path:', config_path, 'config_data:', config_data, 'is_gpfs:', open_mode);
         // create config dir if it does not exist
         await _create_path(schema_dir, fs_context, config.BASE_MODE_CONFIG_DIR);
         // when using GPFS open dst file as soon as possible for later linkat validation
@@ -287,13 +287,13 @@ async function create_config_file(fs_context, schema_dir, config_path, config_da
         } else {
             src_stat = await nb_native().fs.stat(fs_context, open_path);
         }
-        dbg.log1('native_fs_utils: create_config_file moving from:', open_path, 'to:', config_path, 'is_gpfs=', is_gpfs);
+        dbg.log1('create_config_file:: moving from:', open_path, 'to:', config_path, 'is_gpfs=', is_gpfs);
 
         await safe_move(fs_context, open_path, config_path, src_stat, gpfs_options, tmp_dir_path);
 
-        dbg.log1('native_fs_utils: create_config_file done', config_path);
+        dbg.log1('create_config_file:: done', config_path);
     } catch (err) {
-        dbg.error('native_fs_utils: create_config_file error', err);
+        dbg.error('create_config_file:: error', err);
         throw err;
     } finally {
         await finally_close_files(fs_context, [upload_tmp_file, gpfs_dst_file]);

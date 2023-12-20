@@ -132,6 +132,7 @@ config.NEW_SYSTEM_POOL_NAME = 'first-pool';
 config.INTERNAL_STORAGE_POOL_NAME = 'system-internal-storage-pool';
 // config.SPILLOVER_TIER_NAME = 'bucket-spillover-tier';
 
+config.MD_AGGREGATOR_ENABLED = true;
 config.MD_AGGREGATOR_INTERVAL = 30000;
 // the max cycles limits how many intervals the aggregator will split the gap
 // the higher this value the higher the time intervals it will scan when trying to close time gaps
@@ -381,6 +382,7 @@ config.on_premise = {
 
 // the threshold in ms for logging long running queries
 config.LONG_DB_QUERY_THRESHOLD = parseInt(process.env.LONG_DB_QUERY_THRESHOLD, 10) || 5000;
+config.INVALID_SCHEMA_DB_INSPECT_ENABLED = true;
 
 /*
   Central Stats Collection & Diagnostics
@@ -525,6 +527,8 @@ config.DB_TYPE = process.env.DB_TYPE || 'mongodb';
 ////////////////////////////////
 //      NAMESPACE MONITOR     //
 ////////////////////////////////
+
+config.NAMESPACE_MONITOR_ENABLED = true;
 config.NAMESPACE_MONITOR_DELAY = 3 * 60 * 1000;
 
 
@@ -604,6 +608,7 @@ config.NSFS_RENAME_RETRIES = 3;
 
 // TODO: change it to true when all versioning PRs are in
 config.NSFS_VERSIONING_ENABLED = false;
+config.NSFS_UPDATE_ISSUES_REPORT_ENABLED = true;
 
 //Quota
 config.QUOTA_LOW_THRESHOLD = 80;

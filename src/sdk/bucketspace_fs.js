@@ -174,7 +174,9 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                         if (statement.Principal) bucket.s3_policy.Statement[s_index].Principal.AWS = sensitive_arr;
                         if (statement.NotPrincipal) bucket.s3_policy.Statement[s_index].NotPrincipal.AWS = sensitive_arr;
                     } else {
-                        bucket.s3_policy.Statement = new SensitiveString(statement_principal);
+                        const sensitive_principal = new SensitiveString(statement_principal);
+                        if (statement.Principal) bucket.s3_policy.Statement[s_index].Principal = sensitive_principal;
+                        if (statement.NotPrincipal) bucket.s3_policy.Statement[s_index].NotPrincipal = sensitive_principal;
                     }
                 }
             }

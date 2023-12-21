@@ -16,6 +16,7 @@ const bucket_policy_utils = require('../endpoint/s3/s3_bucket_policy_utils');
 const { default: Ajv } = require('ajv');
 const bucket_schema = require('../server/object_services/schemas/nsfs_bucket_schema');
 const account_schema = require('../server/object_services/schemas/nsfs_account_schema');
+const common_api = require('../api/common_api');
 
 const KeysSemaphore = require('../util/keys_semaphore');
 const native_fs_utils = require('../util/native_fs_utils');
@@ -26,7 +27,7 @@ const BUCKET_PATH = 'buckets';
 const ACCOUNT_PATH = 'accounts';
 const ACCESS_KEYS_PATH = 'access_keys';
 const ajv = new Ajv({ verbose: true, allErrors: true });
-
+ajv.addSchema(common_api);
 const bucket_semaphore = new KeysSemaphore(1);
 
 //TODO:  dup from namespace_fs - need to handle and not dup code
@@ -40,7 +41,6 @@ function prepare_fs_context(object_sdk) {
     if (!fs_context) throw new RpcError('UNAUTHORIZED', 'nsfs_account_config is missing');
     fs_context.warn_threshold_ms = config.NSFS_WARN_THRESHOLD_MS;
     // TODO: 
-    //fs_context.backend = this.fs_backend || '';
     //if (this.stats) fs_context.report_fs_stats = this.stats.update_fs_stats;
     return fs_context;
 }
@@ -58,6 +58,8 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             uid: process.getuid(),
             gid: process.getgid(),
             warn_threshold_ms: config.NSFS_WARN_THRESHOLD_MS,
+            fs_backend: config.NSFS_NC_CONFIG_DIR_BACKEND
+            //fs_context.report_fs_stats = this.stats.update_fs_stats;
         };
     }
 
@@ -151,6 +153,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             const nsr = {
                 resource: {
                     fs_root_path: this.fs_root,
+                    fs_backend: bucket.fs_backend
                 },
                 path: bucket.path
             };
@@ -356,6 +359,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             force_md5_etag: force_md5_etag,
             path: bucket_storage_path,
             should_create_underlying_storage: create_uls,
+            fs_backend: account.nsfs_account_config.fs_backend
         };
     }
 

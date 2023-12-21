@@ -61,10 +61,12 @@ mocha.describe('manage_nsfs cli', function() {
     mocha.describe('cli bucket flow - happy path', async function() {
         const type = nc_nsfs_manage_entity_types.BUCKET;
         const name = 'bucket1';
+        const bucket_on_gpfs = 'bucketgpfs1';
         const owner_email = 'user1@noobaa.io';
         const bucket_path = `${root_path}${name}/`;
         const schema_dir = 'buckets';
         let bucket_options = { config_root, name, owner_email, bucket_path };
+        const gpfs_bucket_options = { config_root, name: bucket_on_gpfs, owner_email, bucket_path, fs_backend: 'GPFS' };
 
         mocha.it('cli bucket create', async function() {
             const action = nc_nsfs_manage_actions.ADD;
@@ -183,6 +185,47 @@ mocha.describe('manage_nsfs cli', function() {
                 assert.equal(err.code, 'ENOENT');
             }
         });
+
+        mocha.it('cli bucket create on GPFS', async function() {
+            const action = nc_nsfs_manage_actions.ADD;
+            const bucket_status = await exec_manage_cli(type, action, gpfs_bucket_options);
+            assert_response(action, type, bucket_status, gpfs_bucket_options);
+            const bucket = await read_config_file(config_root, schema_dir, gpfs_bucket_options.name);
+            assert_bucket(bucket, gpfs_bucket_options);
+            await assert_config_file_permissions(config_root, schema_dir, gpfs_bucket_options.name);
+        });
+
+        mocha.it('cli bucket update owner', async function() {
+            const action = nc_nsfs_manage_actions.UPDATE;
+            gpfs_bucket_options.owner_email = 'blalal';
+            const bucket_status = await exec_manage_cli(type, action, gpfs_bucket_options);
+            assert_response(action, type, bucket_status, gpfs_bucket_options);
+            const bucket = await read_config_file(config_root, schema_dir, gpfs_bucket_options.name);
+            assert_bucket(bucket, gpfs_bucket_options);
+            await assert_config_file_permissions(config_root, schema_dir, gpfs_bucket_options.name);
+        });
+
+        mocha.it('cli bucket update to non GPFS', async function() {
+            const action = nc_nsfs_manage_actions.UPDATE;
+            gpfs_bucket_options.fs_backend = '';
+            const bucket_status = await exec_manage_cli(type, action, gpfs_bucket_options);
+            assert_response(action, type, bucket_status, gpfs_bucket_options);
+            const bucket = await read_config_file(config_root, schema_dir, gpfs_bucket_options.name);
+            assert_bucket(bucket, gpfs_bucket_options);
+            await assert_config_file_permissions(config_root, schema_dir, gpfs_bucket_options.name);
+        });
+
+        mocha.it('cli GPFS bucket delete', async function() {
+            const action = nc_nsfs_manage_actions.DELETE;
+            try {
+                const res = await exec_manage_cli(type, action, { config_root, name: gpfs_bucket_options.name });
+                assert_response(action, type, res);
+                await read_config_file(config_root, schema_dir, gpfs_bucket_options.name);
+                assert.fail('cli bucket delete failed - bucket config file exists after deletion');
+            } catch (err) {
+                assert.equal(err.code, 'ENOENT');
+            }
+        });
     });
 
     mocha.describe('cli invalid actions and types', async function() {
@@ -225,12 +268,14 @@ mocha.describe('manage_nsfs cli', function() {
         const type = nc_nsfs_manage_entity_types.ACCOUNT;
         const name = 'account1';
         const email = 'account1@noobaa.io';
+        const gpfs_account = 'gpfs_account';
         const new_buckets_path = `${root_path}new_buckets_path_user1/`;
         const uid = 999;
         const gid = 999;
         const access_key = 'GIGiFAnjaaE7OKD5N7hA';
         const secret_key = 'U2AYaMpU3zRDcRFWmvzgQr9MoHIAsDy3o+4h0oFR';
         let account_options = { config_root, name, email, new_buckets_path, uid, gid, access_key, secret_key };
+        const gpfs_account_options = { ...account_options, name: gpfs_account, email: gpfs_account, fs_backend: 'GPFS' };
         const accounts_schema_dir = 'accounts';
         const access_keys_schema_dir = 'access_keys';
         let updating_options = account_options;
@@ -452,6 +497,47 @@ mocha.describe('manage_nsfs cli', function() {
                 if (err.code !== 'ENOENT') {
                     throw new Error('cli account delete failed - read file failed with the following error - ', err.code);
                 }
+            }
+        });
+
+        mocha.it('cli account create on GPFS', async function() {
+            const action = nc_nsfs_manage_actions.ADD;
+            const account_status = await exec_manage_cli(type, action, gpfs_account_options);
+            assert_response(action, type, account_status, gpfs_account_options);
+            const account = await read_config_file(config_root, accounts_schema_dir, gpfs_account_options.name);
+            assert_account(account, gpfs_account_options);
+            await assert_config_file_permissions(config_root, accounts_schema_dir, gpfs_account_options.name);
+        });
+
+        mocha.it('cli account update owner', async function() {
+            const action = nc_nsfs_manage_actions.UPDATE;
+            gpfs_account_options.email = 'blalal';
+            const account_status = await exec_manage_cli(type, action, gpfs_account_options);
+            assert_response(action, type, account_status, gpfs_account_options);
+            const account = await read_config_file(config_root, accounts_schema_dir, gpfs_account_options.name);
+            assert_account(account, gpfs_account_options);
+            await assert_config_file_permissions(config_root, accounts_schema_dir, gpfs_account_options.name);
+        });
+
+        mocha.it('cli account update to non GPFS', async function() {
+            const action = nc_nsfs_manage_actions.UPDATE;
+            gpfs_account_options.fs_backend = '';
+            const account_status = await exec_manage_cli(type, action, gpfs_account_options);
+            assert_response(action, type, account_status, gpfs_account_options);
+            const account = await read_config_file(config_root, accounts_schema_dir, gpfs_account_options.name);
+            assert_account(account, gpfs_account_options);
+            await assert_config_file_permissions(config_root, accounts_schema_dir, gpfs_account_options.name);
+        });
+
+        mocha.it('cli account delete', async function() {
+            const action = nc_nsfs_manage_actions.DELETE;
+            try {
+                const res = await exec_manage_cli(type, action, { config_root, name: gpfs_account_options.name });
+                assert_response(action, type, res);
+                await read_config_file(config_root, accounts_schema_dir, gpfs_account_options.name);
+                assert.fail('cli account delete failed - account config file exists after deletion');
+            } catch (err) {
+                assert.equal(err.code, 'ENOENT');
             }
         });
     });
@@ -723,6 +809,7 @@ function assert_bucket(bucket, bucket_options) {
     assert.strictEqual(bucket.path, bucket_options.bucket_path);
     assert.strictEqual(bucket.should_create_underlying_storage, false);
     assert.strictEqual(bucket.versioning, 'DISABLED');
+    assert.strictEqual(bucket.fs_backend, bucket_options.fs_backend);
     return true;
 }
 
@@ -740,6 +827,7 @@ function assert_account(account, account_options, skip_secrets) {
         assert.equal(account.nsfs_account_config.gid, account_options.gid);
     }
     assert.equal(account.nsfs_account_config.new_buckets_path, account_options.new_buckets_path);
+    assert.equal(account.nsfs_account_config.fs_backend, account_options.fs_backend);
     return true;
 }
 
@@ -753,6 +841,7 @@ function assert_whitelist(config_data, config_options) {
 async function exec_manage_cli(type, action, options) {
     const bucket_flags = (options.name ? `--name ${options.name}` : ``) +
         (options.owner_email ? ` --email ${options.owner_email}` : ``) +
+        (options.fs_backend === undefined ? `` : ` --fs_backend '${options.fs_backend}'`) +
         (options.bucket_path ? ` --path ${options.bucket_path}` : ``);
 
     const account_flags = (options.name ? ` --name ${options.name}` : ``) +
@@ -763,6 +852,7 @@ async function exec_manage_cli(type, action, options) {
         (options.uid ? ` --uid ${options.uid}` : ``) +
         (options.gid ? ` --gid ${options.gid}` : ``) +
         (options.distinguished_name ? ` --user ${options.distinguished_name}` : ` `) +
+        (options.fs_backend === undefined ? `` : ` --fs_backend '${options.fs_backend}'`) +
         (options.show_secrets ? ` --show_secrets ${options.show_secrets}` : ``);
 
 

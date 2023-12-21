@@ -85,7 +85,8 @@ Account Options:
     --gid <gid>                 (default none)                              Send requests to the Filesystem with gid.
     --secret_key <key>          (default none)                              The secret key pair for the access key.
     --new_buckets_path <dir>    (default none)                              Set the filesystem's root where each subdir is a bucket.
-    
+    --fs_backend <none | GPFS > (default none)                              Set fs_backend of new_buckets_path to be GPFS
+
     # required for add, update, and delete
     --access_key <key>          (default none)                              Authenticate incoming requests for this access key only (default is no auth).
     --new_access_key <key>      (default none)                              Set a new access key for the account.
@@ -110,6 +111,7 @@ Bucket Options:
     # required for add, update 
     --email <email>             (default none)                              Set the email for the bucket.
     --path <dir>                (default none)                              Set the bucket path.
+    --fs_backend <none | GPFS > (default none)                              Set fs_backend to be GPFS
 
     # required for add, update, and delete
     --name <name>               (default none)                              Set the name for the bucket.
@@ -193,7 +195,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
 
 async function bucket_management(argv, config_root, from_file) {
     const action = argv._[1] || '';
-    const config_root_backend = String(argv.config_root_backend);
+    const config_root_backend = String(argv.config_root_backend) || config.NSFS_NC_CONFIG_DIR_BACKEND;
     const data = await fetch_bucket_data(argv, config_root, from_file);
     await manage_bucket_operations(action, data, config_root, config_root_backend);
 }
@@ -217,7 +219,8 @@ async function fetch_bucket_data(argv, config_root, from_file) {
             versioning: 'DISABLED',
             path: argv.path,
             should_create_underlying_storage: false,
-            new_name: argv.new_name
+            new_name: argv.new_name,
+            fs_backend: argv.fs_backend === undefined ? undefined : String(argv.fs_backend)
         };
     }
     if (action === ACTIONS.UPDATE) {
@@ -349,7 +352,7 @@ async function manage_bucket_operations(action, data, config_root, config_root_b
 async function account_management(argv, config_root, from_file) {
     const action = argv._[1] || '';
     const show_secrets = Boolean(argv.show_secrets) || false;
-    const config_root_backend = String(argv.config_root_backend);
+    const config_root_backend = String(argv.config_root_backend) || config.NSFS_NC_CONFIG_DIR_BACKEND;
     const data = await fetch_account_data(argv, config_root, from_file);
     await manage_account_operations(action, data, config_root, config_root_backend, show_secrets, argv);
 }
@@ -407,7 +410,8 @@ async function fetch_account_data(argv, config_root, from_file) {
                 distinguished_name: argv.user,
                 uid: !argv.user && argv.uid,
                 gid: !argv.user && argv.gid,
-                new_buckets_path: argv.new_buckets_path
+                new_buckets_path: argv.new_buckets_path,
+                fs_backend: argv.fs_backend === undefined ? undefined : String(argv.fs_backend)
             }
         }, _.isUndefined);
     }
@@ -429,7 +433,8 @@ async function fetch_account_data(argv, config_root, from_file) {
                 new SensitiveString(String(data.nsfs_account_config.distinguished_name)),
             uid: data.nsfs_account_config.uid && Number(data.nsfs_account_config.uid),
             gid: data.nsfs_account_config.gid && Number(data.nsfs_account_config.gid),
-            new_buckets_path: data.nsfs_account_config.new_buckets_path
+            new_buckets_path: data.nsfs_account_config.new_buckets_path,
+            fs_backend: data.nsfs_account_config.fs_backend
         },
         // updates of account identifiers
         new_name: data.new_name && new SensitiveString(String(data.new_name)),
@@ -570,7 +575,7 @@ async function manage_account_operations(action, data, config_root, config_root_
         await delete_account(data, accounts_path, access_keys_path, config_root_backend);
     } else if (action === ACTIONS.LIST) {
         let accounts = await list_config_files(accounts_path, show_secrets);
-        accounts = filter_account_results(accounts, argv)
+        accounts = filter_account_results(accounts, argv);
         if (!data.wide) accounts = accounts.map(item => ({ name: item.name }));
         write_stdout_response(ManageCLIResponse.AccountList, accounts);
     } else {
@@ -668,6 +673,8 @@ async function validate_bucket_args(data, action) {
         if (!exists) {
             throw_cli_error(ManageCLIError.InvalidStoragePath, data.path);
         }
+        // fs_backend='' used for deletion of the fs_backend property
+        if (data.fs_backend !== undefined && data.fs_backend !== 'GPFS' && data.fs_backend !== '') throw_cli_error(ManageCLIError.InvalidFSBackend);
     }
 }
 
@@ -694,6 +701,9 @@ async function validate_account_args(data, action) {
             !data.nsfs_account_config.new_buckets_path) {
             throw_cli_error(ManageCLIError.InvalidAccountNSFSConfig, data.nsfs_account_config);
         }
+        // fs_backend='' used for deletion of the fs_backend property
+        if (data.nsfs_account_config.fs_backend !== undefined && data.nsfs_account_config.fs_backend !== 'GPFS' &&
+            data.nsfs_account_config.fs_backend !== '') throw_cli_error(ManageCLIError.InvalidFSBackend);
 
         if (data.nsfs_account_config.uid && typeof data.nsfs_account_config.uid !== 'number') throw_cli_error(ManageCLIError.InvalidAccountUID);
         if (data.nsfs_account_config.gid && typeof data.nsfs_account_config.gid !== 'number') throw_cli_error(ManageCLIError.InvalidAccountGID);

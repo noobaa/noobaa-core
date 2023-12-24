@@ -95,6 +95,8 @@ Account Options:
     # Used for list
     --wide                      (default none)                              Will print the list with details (same as status but for all accounts)
     --show_secrets              (default false)                             Will print the access_keys of the account
+    --uid <uid>                 (default none)                              filter the list by uid.
+    --gid <gid>                 (default none)                              filter the list by gid.
 `;
 
 const BUCKET_OPTIONS = `
@@ -349,7 +351,7 @@ async function account_management(argv, config_root, from_file) {
     const show_secrets = Boolean(argv.show_secrets) || false;
     const config_root_backend = String(argv.config_root_backend);
     const data = await fetch_account_data(argv, config_root, from_file);
-    await manage_account_operations(action, data, config_root, config_root_backend, show_secrets);
+    await manage_account_operations(action, data, config_root, config_root_backend, show_secrets, argv);
 }
 
 /**
@@ -382,7 +384,7 @@ async function fetch_account_data(argv, config_root, from_file) {
         const raw_data = (await nb_native().fs.readFile(fs_context, from_file)).data;
         data = JSON.parse(raw_data.toString());
     }
-    _validate_access_keys(argv);
+    if (action !== ACTIONS.LIST && action !== ACTIONS.STATUS) _validate_access_keys(argv);
     let new_access_key = argv.new_access_key;
     if (action === 'update') {
         generate_access_keys = false;
@@ -555,7 +557,7 @@ async function get_account_status(data, accounts_path, access_keys_path, show_se
     }
 }
 
-async function manage_account_operations(action, data, config_root, config_root_backend, show_secrets) {
+async function manage_account_operations(action, data, config_root, config_root_backend, show_secrets, argv) {
     const accounts_path = path.join(config_root, accounts_dir_name);
     const access_keys_path = path.join(config_root, access_keys_dir_name);
     if (action === ACTIONS.ADD) {
@@ -568,6 +570,7 @@ async function manage_account_operations(action, data, config_root, config_root_
         await delete_account(data, accounts_path, access_keys_path, config_root_backend);
     } else if (action === ACTIONS.LIST) {
         let accounts = await list_config_files(accounts_path, show_secrets);
+        accounts = filter_account_results(accounts, argv)
         if (!data.wide) accounts = accounts.map(item => ({ name: item.name }));
         write_stdout_response(ManageCLIResponse.AccountList, accounts);
     } else {
@@ -575,6 +578,27 @@ async function manage_account_operations(action, data, config_root, config_root_
     }
 }
 
+/**
+ * filter_account_results will filter the results based on supported given flags
+ * @param {any[]} accounts
+ * @param {{}} argv
+ */
+function filter_account_results(accounts, argv) {
+    //supported filters for list
+    const filters = _.pick(argv, ['uid', 'gid']); //if we add filters we should remove this comment and the comment 4 lines below (else)
+    return accounts.filter(item => {
+        for (const [key, val] of Object.entries(filters)) {
+            if (key === 'uid' || key === 'gid') {
+                if (item.nsfs_account_config && item.nsfs_account_config[key] !== val) {
+                    return false;
+                }
+            } else if (item[key] !== val) { // We will never reach here if we will not add an appropriate field to the filter 
+                return false;
+            }
+        }
+        return true;
+    });
+}
 
 /**
  * list_config_files will list all the config files (json) in a given config directory
@@ -725,8 +749,7 @@ function validate_whitelist_arg(ips) {
 
 function _validate_access_keys(argv) {
     // using the access_key flag requires also using the secret_key flag
-    // TODO: currently disabling it to avoid failing tests of update, we should talk if we want to remove this or readd it.
-    // if (!is_undefined(argv.access_key) && is_undefined(argv.secret_key)) throw_cli_error(ManageCLIError.MissingAccountSecretKeyFlag);
+    if (!is_undefined(argv.access_key) && is_undefined(argv.secret_key)) throw_cli_error(ManageCLIError.MissingAccountSecretKeyFlag);
     if (!is_undefined(argv.secret_key) && is_undefined(argv.access_key)) throw_cli_error(ManageCLIError.MissingAccountAccessKeyFlag);
     // checking the complexity of access_key
     if (!is_undefined(argv.access_key) && !string_utils.validate_complexity(argv.access_key, {

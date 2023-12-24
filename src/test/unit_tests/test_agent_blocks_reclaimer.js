@@ -125,7 +125,7 @@ mocha.describe('not mocked agent_blocks_reclaimer', function() {
     let nodes_list;
     const { rpc_client } = coretest;
 
-    mocha.it('should reclaim deleted blocks with alive nodes', function() {
+    mocha.it('should reclaim deleted blocks with alive nodes', async function() {
         const self = this; // eslint-disable-line no-invalid-this
         self.timeout(40000);
         const obj_key = 'sloth_obj';
@@ -133,61 +133,44 @@ mocha.describe('not mocked agent_blocks_reclaimer', function() {
         let blocks_uploaded = [];
         const agent_blocks_reclaimer =
             new AgentBlocksReclaimer(self.test.title);
-        return P.resolve()
-            .then(() => rpc_client.node.list_nodes({}))
-            .then(res => {
-                nodes_list = res.nodes;
-            })
-            .then(() => upload_object(obj_key, obj_data, obj_size))
-            .then(id => {
-                obj_id = id;
-                return MDStore.instance().find_parts_chunk_ids({ _id: db_client.instance().parse_object_id(id) });
-            })
-            .then(chunk_ids => MDStore.instance().find_blocks_of_chunks(chunk_ids))
-            .then(blocks => {
-                blocks_uploaded = blocks;
-                return MDStore.instance()._blocks.updateMany({
-                    _id: { $in: blocks.map(block => block._id) }
-                }, {
-                    $set: { deleted: new Date() }
-                });
-            })
-            .then(() => agent_blocks_reclaimer.run_batch())
-            .then(() => P.pwhile(
-                () => agent_blocks_reclaimer.marker,
-                () => agent_blocks_reclaimer.run_batch()
-            ))
-            .then(() => MDStore.instance()._blocks.find({
-                _id: { $in: blocks_uploaded.map(block => block._id) }
-            }))
-            .then(blocks => {
-                // Object read cache still keeps the data and we want to read from agents
-                object_io.set_verification_mode();
-                const all_reclaimed = _.every(blocks, block => block.reclaimed);
-                if (!all_reclaimed) throw new Error('NOT ALL BLOCKS WERE RECLAIMED');
-            })
-            .then(() => verify_read_data(obj_key, obj_data, obj_id)
-                .then(
-                    () => {
-                        throw new Error('verify_read_data BLOCKS WERE NOT DELETED');
-                    },
-                    err =>
-                    console.error('verify_read_data EXPECTED ERROR of deleted blocks:', err)
-                )
-            )
-            .then(() => verify_read_mappings(obj_key, obj_data)
-                .then(
-                    () => {
-                        throw new Error('verify_read_mappings BLOCKS WERE NOT DELETED');
-                    },
-                    err =>
-                    console.error('verify_read_mappings EXPECTED ERROR of deleted blocks:', err)
-                )
-            )
-            .catch(err => {
-                console.error(err, err.stack);
-                throw err;
+
+        try {
+            const res = await rpc_client.node.list_nodes({});
+            nodes_list = res.nodes;
+            const id = await upload_object(obj_key, obj_data, obj_size);
+            obj_id = id;
+            const chunk_ids = await MDStore.instance().find_parts_chunk_ids({ _id: db_client.instance().parse_object_id(id) });
+            let blocks = await MDStore.instance().find_blocks_of_chunks(chunk_ids);
+            blocks_uploaded = blocks;
+            await MDStore.instance()._blocks.updateMany({
+                _id: { $in: blocks.map(block => block._id) }
+            }, {
+                $set: { deleted: new Date() }
             });
+            await agent_blocks_reclaimer.run_batch();
+            while (agent_blocks_reclaimer.marker) {
+                await agent_blocks_reclaimer.run_batch();
+            }
+            blocks = await MDStore.instance()._blocks.find({
+                _id: { $in: blocks_uploaded.map(block => block._id) }
+            });
+            // Object read cache still keeps the data and we want to read from agents
+            object_io.set_verification_mode();
+            const all_reclaimed = _.every(blocks, block => block.reclaimed);
+            if (!all_reclaimed) throw new Error('NOT ALL BLOCKS WERE RECLAIMED');
+            try {
+                await verify_read_data(obj_key, obj_data, obj_id);
+            } catch (err) {
+                throw new Error('verify_read_data BLOCKS WERE NOT DELETED');
+            }
+        } catch (err) {
+            if (err.message === 'verify_read_data BLOCKS WERE NOT DELETED') {
+                console.error('verify_read_mappings EXPECTED ERROR of deleted blocks:', err);
+                return;
+            }
+            console.error(err, err.stack);
+            throw err;
+        }
     });
 
     async function upload_object(key, data, size) {

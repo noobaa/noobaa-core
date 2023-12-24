@@ -337,6 +337,7 @@ mocha.describe('manage_nsfs cli', function() {
             const update_options = {
                 config_root,
                 access_key: account_options.access_key,
+                secret_key: account_options.secret_key,
                 email: 'account2@noobaa.io',
                 uid: 222,
                 gid: 222
@@ -379,7 +380,8 @@ mocha.describe('manage_nsfs cli', function() {
             const update_options = {
                 config_root,
                 new_name: 'account1_new_name',
-                access_key: account_options.access_key
+                access_key: account_options.access_key,
+                secret_key: account_options.secret_key,
             };
             account_options.new_name = 'account1_new_name';
             const update_response = await exec_manage_cli(type, action, update_options);
@@ -544,7 +546,7 @@ mocha.describe('manage_nsfs cli', function() {
 
         mocha.it('cli account delete by access key', async function() {
             const action = nc_nsfs_manage_actions.DELETE;
-            const res = await exec_manage_cli(type, action, { config_root, access_key });
+            const res = await exec_manage_cli(type, action, { config_root, access_key, secret_key });
             assert_response(action, type, res);
             try {
                 await read_config_file(config_root, access_keys_schema_dir, access_key, true);

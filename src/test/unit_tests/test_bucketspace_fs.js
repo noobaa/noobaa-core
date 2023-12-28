@@ -51,6 +51,7 @@ const account_user1 = {
     name: 'user1',
     email: 'user1@noobaa.io',
     has_s3_access: 'true',
+    allow_bucket_creation: true,
     access_keys: [{
         access_key: 'a-abcdefghijklmn123456',
         secret_key: 's-abcdefghijklmn123456'
@@ -68,6 +69,7 @@ const account_user2 = {
     name: 'user2',
     email: 'user2@noobaa.io',
     has_s3_access: 'true',
+    allow_bucket_creation: true,
     access_keys: [{
         access_key: 'a-abcdefghijklmn123457',
         secret_key: 's-abcdefghijklmn123457'
@@ -84,6 +86,7 @@ const account_user3 = {
     name: 'user3',
     email: 'user3@noobaa.io',
     has_s3_access: 'true',
+    allow_bucket_creation: true,
     access_keys: [{
         access_key: 'a-abcdefghijklmn123458',
         secret_key: 's-abcdefghijklmn123458'
@@ -118,6 +121,7 @@ function make_dummy_object_sdk() {
         requesting_account: {
             force_md5_etag: false,
             email: 'user2@noobaa.io',
+            allow_bucket_creation: true,
             nsfs_account_config: {
                 uid: 0,
                 gid: 0,
@@ -143,6 +147,20 @@ function make_dummy_object_sdk() {
             return Boolean(fs_root_path || fs_root_path === '');
         }
     };
+}
+function make_invalid_dummy_object_sdk() {
+    return {
+        requesting_account: {
+            force_md5_etag: false,
+            email: 'user2@noobaa.io',
+            allow_bucket_creation: false,
+            nsfs_account_config: {
+                uid: 0,
+                gid: 0,
+                new_buckets_path: new_buckets_path,
+            }
+        },
+    }
 }
 
 mocha.describe('bucketspace_fs', function() {
@@ -238,6 +256,17 @@ mocha.describe('bucketspace_fs', function() {
             });
             const objects = await nb_native().fs.readdir(ACCOUNT_FS_CONFIG, path.join(new_buckets_path, param.name));
             assert.equal(objects.length, 1);
+        });
+        mocha.it('validate bucket access with user not allowed to create bucket', async function() {
+            try {
+                const test_bucket_not_allowed = 'bucket4';
+                const param = { name: test_bucket_not_allowed};
+                const local_object_sdk = make_invalid_dummy_object_sdk()
+                await bucketspace_fs.create_bucket(param, local_object_sdk);
+                assert.fail('should have failed with UNAUTHORIZED bucket creation');
+            } catch (err) {
+                assert.ok(err.rpc_code === 'UNAUTHORIZED');
+            }
         });
         mocha.after(async function() {
             await fs_utils.folder_delete(`${new_buckets_path}/${test_bucket}`);

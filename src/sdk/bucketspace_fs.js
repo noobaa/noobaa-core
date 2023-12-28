@@ -252,8 +252,6 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             _.isUndefined(account.nsfs_account_config.gid)) return false;
         try {
             dbg.log0('_has_access_to_nsfs_dir: checking access:', ns.write_resource, account.nsfs_account_config.uid, account.nsfs_account_config.gid);
-            //TODO:  Operation not permitted error on change_user() with non root user, and 
-            //proccess exit with error
             await nb_native().fs.checkAccess({
                 uid: account.nsfs_account_config.uid,
                 gid: account.nsfs_account_config.gid,
@@ -283,6 +281,9 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
 
     async create_bucket(params, sdk) {
         return bucket_semaphore.surround_key(String(params.name), async () => {
+            if (!sdk.requesting_account.allow_bucket_creation) {
+                throw new RpcError('UNAUTHORIZED', 'Not allowed to create new buckets')
+            }
             if (!sdk.requesting_account.nsfs_account_config || !sdk.requesting_account.nsfs_account_config.new_buckets_path) {
                 throw new RpcError('MISSING_NSFS_ACCOUNT_CONFIGURATION');
             }

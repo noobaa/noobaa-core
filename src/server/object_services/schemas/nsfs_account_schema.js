@@ -44,6 +44,9 @@ module.exports = {
                     uid: { type: 'number' },
                     gid: { type: 'number' },
                     new_buckets_path: { type: 'string' },
+                    fs_backend: {
+                        $ref: 'common_api#/definitions/fs_backend'
+                    }
                 }
             }, {
                 type: 'object',
@@ -51,6 +54,9 @@ module.exports = {
                 properties: {
                     distinguished_name: { type: 'string' },
                     new_buckets_path: { type: 'string' },
+                    fs_backend: {
+                        $ref: 'common_api#/definitions/fs_backend'
+                    }
                 }
             }]
         },

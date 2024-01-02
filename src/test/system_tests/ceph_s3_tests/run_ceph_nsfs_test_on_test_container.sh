@@ -3,6 +3,8 @@
 export PS4='\e[36m+ ${FUNCNAME:-main}\e[0m@\e[32m${BASH_SOURCE}:\e[35m${LINENO} \e[0m'
 
 set -e
+# It will add to the logs every line that we run
+set -x
 
 # ====================================================================================
 # Set the environment variables
@@ -19,14 +21,34 @@ export NOOBAA_MGMT_SERVICE_PROTO=wss
 export S3_SERVICE_HOST=localhost
 
 export CEPH_TEST_LOGS_DIR=/logs/ceph-nsfs-test-logs
+export FS_ROOT_1=/tmp/nsfs_root1
+export FS_ROOT_2=/tmp/nsfs_root2
+export CONFIG_DIR=/etc/noobaa.conf.d/
 
 # ====================================================================================
 
 # Create the logs directory
 mkdir -p ${CEPH_TEST_LOGS_DIR}
+
+# Create configuration directory
+mkdir -p ${CONFIG_DIR}
+
 # Create root directory for bucket creation
-mkdir -p ./standalone/nsfs_root
+mkdir -p ${FS_ROOT_1}
+mkdir -p ${FS_ROOT_2}
+
+# Add permission to all users
+# this will allow the new accounts to create directories (buckets),
+# else we would see [Error: Permission denied] { code: 'EACCES' }
+chmod 777 ${FS_ROOT_1}
+chmod 777 ${FS_ROOT_2}
+
+# Create config.json file
+config='{"ALLOW_HTTP":true}'
+echo "$config" > ${CONFIG_DIR}/config.json
+
 # Deploy standalone NooBaa on the test container
+# And create the accounts needed for the Ceph tests
 ./src/deploy/NVA_build/standalone_deploy_nsfs.sh
 
 # ====================================================================================

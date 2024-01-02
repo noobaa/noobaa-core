@@ -12,7 +12,7 @@ const dbg = require('../../../util/debug_module')(__filename);
 dbg.set_process_name('test_ceph_s3');
 
 const os_utils = require('../../../util/os_utils');
-const { CEPH_TEST } = require('./test_ceph_s3_constants.js');
+const { CEPH_TEST, account_path, account_tenant_path } = require('./test_ceph_s3_constants.js');
 
 async function main() {
     try {
@@ -43,11 +43,17 @@ async function ceph_test_setup() {
     console.log('conf file updated');
 
     console.info('CEPH TEST CONFIGURATION:', JSON.stringify(CEPH_TEST));
-    await os_utils.exec(`echo access_key = "abcd" >> ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`);
-    await os_utils.exec(`echo secret_key = "abcd" >> ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`);
+    let access_keys = await get_access_keys(account_path);
+    const access_key = access_keys.access_key;
+    const secret_key = access_keys.secret_key;
 
-    const [access_key_tenant, secret_key_tenant] = ["efgh", "efgh"];
-    const [access_key, secret_key] = [access_key_tenant, secret_key_tenant];
+    await os_utils.exec(`echo access_key = ${access_key} >> ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`);
+    await os_utils.exec(`echo secret_key = ${secret_key} >> ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`);
+
+    access_keys = await get_access_keys(account_tenant_path);
+    const access_key_tenant = access_keys.access_key;
+    const secret_key_tenant = access_keys.secret_key;
+
     if (process.platform === 'darwin') {
         await os_utils.exec(`sed -i "" "s|tenant_access_key|"${access_key_tenant}"|g" ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`);
         await os_utils.exec(`sed -i "" "s|tenant_secret_key|${secret_key_tenant}|g" ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`);
@@ -59,6 +65,14 @@ async function ceph_test_setup() {
         await os_utils.exec(`sed -i -e 's:s3_secret_key:${secret_key}:g' ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`);
     }
 
+}
+
+async function get_access_keys(path) {
+    const account_data = await fs.promises.readFile(path, 'utf8');
+    const data_json = JSON.parse(account_data);
+    const access_key = data_json.access_keys[0].access_key;
+    const secret_key = data_json.access_keys[0].secret_key;
+    return {access_key, secret_key};
 }
 
 if (require.main === module) {

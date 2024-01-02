@@ -8,12 +8,15 @@ function execute() {
     fi
 }
 
+# Please note that the command we use here are without "sudo" because we are running from the container with Root permissions
 function main() {
     # Add accounts to run ceph tests
-    execute "node src/cmd/manage_nsfs account add --config_root ./standalone/config_root --name cephalt --email ceph.alt@noobaa.com --new_buckets_path ./standalone/nsfs_root --access_key abcd --secret_key abcd --uid 100 --gid 100" nsfs_cephalt.log
-    execute "node src/cmd/manage_nsfs account add --config_root ./standalone/config_root --name cephtenant --email ceph.tenant@noobaa.com --new_buckets_path ./standalone/nsfs_root --access_key efgh --secret_key efgh --uid 200 --gid 200" nsfs_cephtenant.log
+    execute "node src/cmd/manage_nsfs account add --name cephalt --email ceph.alt@noobaa.com --new_buckets_path ${FS_ROOT_1} --uid 1000 --gid 1000" nsfs_cephalt.log
+    execute "node src/cmd/manage_nsfs account add --name cephtenant --email ceph.tenant@noobaa.com --new_buckets_path ${FS_ROOT_2} --uid 2000 --gid 2000" nsfs_cephtenant.log
+
     # Start nsfs server
-    execute "node src/cmd/nsfs --config_root ./standalone/config_root" nsfs.log
+    execute "node src/cmd/nsfs" nsfs.log
+
     # Wait for sometime to process to start
     sleep 10
 }

@@ -265,6 +265,7 @@ function read_request_body(req, options) {
                 }
             } else {
                 req.content_sha256_buf = sha256_buf;
+                req.content_sha256_sig ||= sha256_buf.toString('hex');
             }
             return resolve();
         });

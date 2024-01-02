@@ -1195,6 +1195,8 @@ mocha.describe('namespace caching: range read scenarios', () => {
         assert(read_etag === expect_etag);
 
         const read_hub_time = recorder.get_event('hub', obj.bucket, obj.key, EVENT_READ_OBJECT_STREAM);
+        console.log(`CHECK_VALUE: read_hub_time ${read_hub_time} err_trigger_time ${err_trigger_time}`);
+        // I noticed that we sometimes fail on this assertion in the CI, hence I added the printing above.
         assert(read_hub_time > err_trigger_time);
     });
 

@@ -90,7 +90,7 @@ Example:
 1. Open /path/to/config_dir/config.json file.
 2. Set the config key -
 Example:
-"ALLOW_HTTP": false
+"ALLOW_HTTP": true
 3. systemctl restart noobaa_nsfs
 ```
 

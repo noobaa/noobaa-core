@@ -439,7 +439,7 @@ NSFS management CLI command will create both account and bucket dir if it's miss
 
 Non containerized NSFS certificates/ directory location will be under the config_root path. The certificates/ directory should contain SSL files tls.key and tls.crt. System will use a cert from this dir to create a valid HTTPS connection. If cert is missing in this dir a self-signed SSL certificate will be generated. Make sure the path to certificates/ directory is valid before running nsfs command, If the path is invalid then cert flow will fail.
 
-Non containerized NSFS restrict insecure HTTP connections when `allow_http` is set to false in cofig.json. This is not the default behaviour.
+Non containerized NSFS restrict insecure HTTP connections when `ALLOW_HTTP` is set to false in cofig.json. This is the default behaviour.
 
 ## Monitoring
 

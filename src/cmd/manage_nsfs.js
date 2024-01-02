@@ -458,6 +458,10 @@ async function fetch_existing_account_data(config_root, target) {
             throw_cli_error(ManageCLIError.NoSuchAccountName, target.name);
         }
     }
+    if (source.access_keys[0].access_key && target.access_keys[0].access_key &&
+            source.access_keys[0].access_key !== target.access_keys[0].access_key) {
+        throw_cli_error(ManageCLIError.AccountAccessKeyAndNameMismatch, target.access_keys[0].access_key);
+    }
     const data = _.merge({}, source, target);
     return data;
 }

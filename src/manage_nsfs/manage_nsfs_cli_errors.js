@@ -113,7 +113,7 @@ ManageCLIError.NoSuchAccountAccessKey = Object.freeze({
 
 ManageCLIError.NoSuchAccountName = Object.freeze({
     code: 'NoSuchAccountName',
-    message: 'Account does not exist - access key',
+    message: 'Account does not exist - name',
     http_code: 404,
 });
 
@@ -129,6 +129,11 @@ ManageCLIError.AccountNameAlreadyExists = Object.freeze({
     http_code: 409,
 });
 
+ManageCLIError.AccountAccessKeyAndNameMismatch = Object.freeze({
+    code: 'AccountAccessKeyAndNameMismatch',
+    message: 'Account access key and name mismatch',
+    http_code: 403,
+});
 
 //////////////////////////////////
 //// ACCOUNT ARGUMENTS ERRORS ////

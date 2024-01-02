@@ -477,6 +477,21 @@ mocha.describe('manage_nsfs cli', function() {
             const account = await read_config_file(config_root, accounts_schema_dir, account_options.name);
             assert_account(account, account_options);
         });
+        mocha.it('cli account update with invalid set of name & access key', async function() {
+            const action = nc_nsfs_manage_actions.UPDATE;
+            const update_options = {
+                config_root,
+                new_access_key: 'BIGiFAnjaaE6OGD5N7hB_Invalid',
+                new_name: 'account2_new_name',
+                name: account_options.name
+            };
+            try {
+                await exec_manage_cli(type, action, update_options);
+                assert.fail('should have failed with account access and name mismatch');
+            } catch (err) {
+                assert_error(err, ManageCLIError.AccountAccessKeyAndNameMismatch);
+            }
+        });
 
         mocha.it('cli account delete by name', async function() {
             const action = nc_nsfs_manage_actions.DELETE;
@@ -856,12 +871,12 @@ async function exec_manage_cli(type, action, options) {
         (options.show_secrets ? ` --show_secrets ${options.show_secrets}` : ``);
 
 
-    const whiteist_flags = (options.ips ? ` --ips '${options.ips}'` : ``);
+    const whitelist_flags = (options.ips ? ` --ips '${options.ips}'` : ``);
 
     const update_identity_flags = (options.new_name ? ` --new_name ${options.new_name}` : ``) +
         (options.new_access_key ? ` --new_access_key ${options.new_access_key}` : ``);
     let flags = (type === nc_nsfs_manage_entity_types.BUCKET ? bucket_flags : account_flags) + update_identity_flags;
-    flags = (type === nc_nsfs_manage_entity_types.IPWHITELIST ? whiteist_flags : flags);
+    flags = (type === nc_nsfs_manage_entity_types.IPWHITELIST ? whitelist_flags : flags);
     const wide_list = (options.wide ? ` --wide ${options.wide}` : ``);
     const cmd = `node src/cmd/manage_nsfs ${type} ${action} --config_root ${options.config_root} ${flags} ${wide_list}`;
     const res = await os_util.exec(cmd, { return_stdout: true });

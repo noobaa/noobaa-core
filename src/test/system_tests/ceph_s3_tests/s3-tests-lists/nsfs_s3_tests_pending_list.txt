@@ -210,3 +210,5 @@ s3tests_boto3/functional/test_s3.py::test_object_raw_get_x_amz_expires_not_expir
 s3tests_boto3/functional/test_s3.py::test_cors_presigned_get_object
 s3tests_boto3/functional/test_s3.py::test_cors_presigned_get_object_tenant
 s3tests_boto3/functional/test_s3.py::test_encryption_sse_c_unaligned_multipart_upload
+s3tests_boto3/functional/test_s3.py::test_multipart_get_part
+s3tests_boto3/functional/test_s3.py::test_non_multipart_get_part

@@ -136,6 +136,7 @@ class NsfsObjectSDK extends ObjectSDK {
             bucketspace,
             stats: endpoint_stats_collector.instance(),
         });
+        this.nsfs_config_root = nsfs_config_root;
         this.nsfs_fs_root = fs_root;
         this.nsfs_fs_config = fs_config;
         this.nsfs_account = account;

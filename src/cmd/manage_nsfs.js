@@ -436,6 +436,7 @@ async function fetch_account_data(argv, config_root, from_file) {
             new_buckets_path: data.nsfs_account_config.new_buckets_path,
             fs_backend: data.nsfs_account_config.fs_backend
         },
+        allow_bucket_creation: !is_undefined(data.nsfs_account_config.new_buckets_path),
         // updates of account identifiers
         new_name: data.new_name && new SensitiveString(String(data.new_name)),
         new_access_key: data.new_access_key && new SensitiveString(String(data.new_access_key))
@@ -697,8 +698,7 @@ async function validate_account_args(data, action) {
         if (is_undefined(data.access_keys[0].secret_key)) throw_cli_error(ManageCLIError.MissingAccountSecretKeyFlag);
         if (is_undefined(data.access_keys[0].access_key)) throw_cli_error(ManageCLIError.MissingAccountAccessKeyFlag);
         if ((is_undefined(data.nsfs_account_config.distinguished_name) &&
-                (data.nsfs_account_config.uid === undefined || data.nsfs_account_config.gid === undefined)) ||
-            !data.nsfs_account_config.new_buckets_path) {
+                (data.nsfs_account_config.uid === undefined || data.nsfs_account_config.gid === undefined))) {
             throw_cli_error(ManageCLIError.InvalidAccountNSFSConfig, data.nsfs_account_config);
         }
         // fs_backend='' used for deletion of the fs_backend property
@@ -708,6 +708,9 @@ async function validate_account_args(data, action) {
         if (data.nsfs_account_config.uid && typeof data.nsfs_account_config.uid !== 'number') throw_cli_error(ManageCLIError.InvalidAccountUID);
         if (data.nsfs_account_config.gid && typeof data.nsfs_account_config.gid !== 'number') throw_cli_error(ManageCLIError.InvalidAccountGID);
 
+        if (is_undefined(data.nsfs_account_config.new_buckets_path)) {
+            return;
+        }
         const fs_context = native_fs_utils.get_process_fs_context();
         const exists = await native_fs_utils.config_file_exists(fs_context, data.nsfs_account_config.new_buckets_path);
         if (!exists) {

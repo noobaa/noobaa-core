@@ -10,6 +10,7 @@ module.exports = {
         'access_keys',
         'nsfs_account_config',
         'creation_date',
+        'allow_bucket_creation',
     ],
     properties: {
         name: {
@@ -20,6 +21,9 @@ module.exports = {
         },
         creation_date: {
             type: 'string',
+        },
+        allow_bucket_creation: {
+            type: 'boolean',
         },
         access_keys: {
             type: 'array',
@@ -39,7 +43,7 @@ module.exports = {
         nsfs_account_config: {
             oneOf: [{
                 type: 'object',
-                required: ['uid', 'gid', 'new_buckets_path'],
+                required: ['uid', 'gid'],
                 properties: {
                     uid: { type: 'number' },
                     gid: { type: 'number' },
@@ -50,7 +54,7 @@ module.exports = {
                 }
             }, {
                 type: 'object',
-                required: [ 'distinguished_name', 'new_buckets_path'],
+                required: [ 'distinguished_name'],
                 properties: {
                     distinguished_name: { type: 'string' },
                     new_buckets_path: { type: 'string' },

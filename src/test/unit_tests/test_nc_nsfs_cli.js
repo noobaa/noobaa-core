@@ -868,7 +868,7 @@ function assert_bucket(bucket, bucket_options) {
     assert.strictEqual(bucket.path, bucket_options.bucket_path);
     assert.strictEqual(bucket.should_create_underlying_storage, false);
     assert.strictEqual(bucket.versioning, 'DISABLED');
-    assert.strictEqual(bucket.fs_backend, bucket_options.fs_backend);
+    assert.strictEqual(bucket.fs_backend, bucket_options.fs_backend === '' ? undefined : bucket_options.fs_backend);
     assert.deepStrictEqual(bucket.s3_policy, bucket_options.bucket_policy);
     return true;
 }
@@ -887,7 +887,7 @@ function assert_account(account, account_options, skip_secrets) {
         assert.equal(account.nsfs_account_config.gid, account_options.gid);
     }
     assert.equal(account.nsfs_account_config.new_buckets_path, account_options.new_buckets_path);
-    assert.equal(account.nsfs_account_config.fs_backend, account_options.fs_backend);
+    assert.equal(account.nsfs_account_config.fs_backend, account_options.fs_backend === '' ? undefined : account_options.fs_backend);
     return true;
 }
 

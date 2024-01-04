@@ -158,12 +158,6 @@ ManageCLIError.AccountAccessKeyFlagComplexity = Object.freeze({
     http_code: 400,
 });
 
-ManageCLIError.NewAccountAccessKeyFlagComplexity = Object.freeze({
-    code: 'NewAccountAccessKeyFlagComplexity',
-    message: 'Account new access key length must be 20, and must contain uppercase and numbers',
-    http_code: 400,
-});
-
 ManageCLIError.MissingAccountNameFlag = Object.freeze({
     code: 'MissingAccountNameFlag',
     message: 'Account name is mandatory, please use the --name flag',
@@ -178,7 +172,7 @@ ManageCLIError.MissingAccountEmailFlag = Object.freeze({
 
 ManageCLIError.MissingIdentifier = Object.freeze({
     code: 'MissingIdentifier',
-    message: 'Account identifier is mandatory, please use the --acces_key or --name flag',
+    message: 'Account identifier is mandatory, please use the --access_key or --name flag',
     http_code: 400,
 });
 

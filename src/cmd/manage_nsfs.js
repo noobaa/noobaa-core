@@ -99,7 +99,6 @@ Account Options:
 
     # required for add, update, and delete
     --access_key <key>          (default none)                              Authenticate incoming requests for this access key only (default is no auth).
-    --new_access_key <key>      (default none)                              Set a new access key for the account.
     --regenerate                (default none)                              When set and new_access_key is not set, will regenerate the access_key and secret_key
     --config_root <dir>         (default config.NSFS_NC_DEFAULT_CONF_DIR)   Configuration files path for Noobaa standalon NSFS.
 
@@ -146,7 +145,7 @@ async function check_and_create_config_dirs() {
         config_root,
         buckets_dir_path,
         accounts_dir_path,
-       access_keys_dir_path
+        access_keys_dir_path
     ];
     for (const dir_path of pre_req_dirs) {
         try {
@@ -399,7 +398,11 @@ function set_access_keys(argv, generate) {
 
 async function fetch_account_data(argv, from_file) {
     let data;
-    let generate_access_keys = true;
+    let access_keys = [{
+        access_key: undefined,
+        secret_key: undefined,
+    }];
+    let new_access_key;
     const action = argv._[1] || '';
     if (from_file) {
         const fs_context = native_fs_utils.get_process_fs_context();
@@ -407,15 +410,14 @@ async function fetch_account_data(argv, from_file) {
         data = JSON.parse(raw_data.toString());
     }
     if (action !== ACTIONS.LIST && action !== ACTIONS.STATUS) _validate_access_keys(argv);
-    let new_access_key = argv.new_access_key;
-    if (action === 'update') {
-        generate_access_keys = false;
-        if (argv.regenerate) {
-            const keys = set_access_keys(argv, true);
-            new_access_key = keys[0].access_key;
-        }
+    if (action === ACTIONS.ADD || action === ACTIONS.STATUS) {
+        access_keys = set_access_keys(argv, true);
+    } else if (action === ACTIONS.UPDATE) {
+        access_keys = set_access_keys(argv, Boolean(argv.regenerate));
+        new_access_key = access_keys[0].access_key;
+        access_keys[0].access_key = undefined; //Setting it as undefined so we can replace the symlink
     }
-    if (action === 'delete') generate_access_keys = false;
+
     if (!data) {
         data = _.omitBy({
             name: argv.name,
@@ -424,7 +426,7 @@ async function fetch_account_data(argv, from_file) {
             wide: argv.wide,
             new_name: argv.new_name,
             new_access_key,
-            access_keys: set_access_keys(argv, generate_access_keys),
+            access_keys,
             nsfs_account_config: {
                 distinguished_name: argv.user,
                 uid: !argv.user && argv.uid,
@@ -817,14 +819,7 @@ function _validate_access_keys(argv) {
             check_numbers: true,
             check_symbols: true,
         })) throw_cli_error(ManageCLIError.AccountSecretKeyFlagComplexity);
-    // checking the complexity of new_access_key 
-    if (!is_undefined(argv.new_access_key) && !string_utils.validate_complexity(argv.new_access_key, {
-            require_length: 20,
-            check_uppercase: true,
-            check_lowercase: false,
-            check_numbers: true,
-            check_symbols: false,
-        })) throw_cli_error(ManageCLIError.NewAccountAccessKeyFlagComplexity);
+
 }
 
 exports.main = main;

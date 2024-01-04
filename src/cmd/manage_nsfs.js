@@ -84,19 +84,18 @@ const ACCOUNT_OPTIONS = `
 Account Options:
 
     # Read account details from the JSON file, there is no need to mention all the properties one by one in the CLI
-    --from_file <dir>                       (default none)                  Set account schema full path.
-                                                                            Get account details from JSON file                
-    --config_root_backend <none | GPFS >    (default none)                  Set the config_root FS type to be GPFS
+    --from_file <dir>                                         (default none)                                  Set account schema full path. Get account details from JSON file                
+    --config_root_backend <none | GPFS | CEPH_FS | NFV_V4>    (default config.NSFS_NC_CONFIG_DIR_BACKEND)     Set the config_root FS type to be GPFS
 
     # required for add, update 
-    --name <name>               (default none)                              Set the name for the account.
-    --email <email>             (default none)                              Set the email for the account.
-    --new_name <name>           (default none)                              Set a new name for the account (update).
-    --uid <uid>                 (default none)                              Send requests to the Filesystem with uid.
-    --gid <gid>                 (default none)                              Send requests to the Filesystem with gid.
-    --secret_key <key>          (default none)                              The secret key pair for the access key.
-    --new_buckets_path <dir>    (default none)                              Set the filesystem's root where each subdir is a bucket.
-    --fs_backend <none | GPFS > (default none)                              Set fs_backend of new_buckets_path to be GPFS
+    --name <name>                                   (default none)                              Set the name for the account.
+    --email <email>                                 (default none)                              Set the email for the account.
+    --new_name <name>                               (default none)                              Set a new name for the account (update).
+    --uid <uid>                                     (default none)                              Send requests to the Filesystem with uid.
+    --gid <gid>                                     (default none)                              Send requests to the Filesystem with gid.
+    --secret_key <key>                              (default none)                              The secret key pair for the access key.
+    --new_buckets_path <dir>                        (default none)                              Set the filesystem's root where each subdir is a bucket.
+    --fs_backend <none | GPFS | CEPH_FS | NFV_V4>   (default config.NSFS_NC_STORAGE_BACKEND)    Set fs_backend of new_buckets_path to be GPFS
 
     # required for add, update, and delete
     --access_key <key>          (default none)                              Authenticate incoming requests for this access key only (default is no auth).
@@ -115,14 +114,13 @@ const BUCKET_OPTIONS = `
 Bucket Options:
 
     # Read Bucket details from JSON file, no need to mention all the properties one by one in CLI
-    --from_file <dir>                       (default none)                  Set bucket schema full path.
-                                                                            Get bucket details from the JSON file
-    --config_root_backend <none | GPFS >    (default none)                  Set the config_root FS type to be GPFS
+    --from_file <dir>                                         (default none)                                  Set bucket schema full path. Get bucket details from the JSON file
+    --config_root_backend <none | GPFS | CEPH_FS | NFV_V4>    (default config.NSFS_NC_CONFIG_DIR_BACKEND)     Set the config_root FS type to be GPFS
 
     # required for add, update 
-    --email <email>             (default none)                              Set the email for the bucket.
-    --path <dir>                (default none)                              Set the bucket path.
-    --fs_backend <none | GPFS > (default none)                              Set fs_backend to be GPFS
+    --email <email>                                 (default none)                             Set the email for the bucket.
+    --path <dir>                                    (default none)                             Set the bucket path.
+    --fs_backend <none | GPFS | CEPH_FS | NFV_V4>   (default config.NSFS_NC_STORAGE_BACKEND)   Set fs_backend to be GPFS
 
     # required for add, update, and delete
     --name <name>               (default none)                              Set the name for the bucket.
@@ -233,7 +231,7 @@ async function fetch_bucket_data(argv, from_file) {
             path: argv.path,
             should_create_underlying_storage: false,
             new_name: argv.new_name,
-            fs_backend: argv.fs_backend === undefined ? undefined : String(argv.fs_backend)
+            fs_backend: argv.fs_backend ? String(argv.fs_backend) : config.NSFS_NC_STORAGE_BACKEND
         };
     }
 
@@ -256,7 +254,8 @@ async function fetch_bucket_data(argv, from_file) {
         system_owner: new SensitiveString(String(data.system_owner)),
         bucket_owner: new SensitiveString(String(data.bucket_owner)),
         // update bucket identifier
-        new_name: data.new_name && new SensitiveString(String(data.new_name))
+        new_name: data.new_name && new SensitiveString(String(data.new_name)),
+        fs_backend: data.fs_backend || undefined
     };
 
     return data;
@@ -431,7 +430,7 @@ async function fetch_account_data(argv, from_file) {
                 uid: !argv.user && argv.uid,
                 gid: !argv.user && argv.gid,
                 new_buckets_path: argv.new_buckets_path,
-                fs_backend: argv.fs_backend === undefined ? undefined : String(argv.fs_backend)
+                fs_backend: argv.fs_backend ? String(argv.fs_backend) : config.NSFS_NC_STORAGE_BACKEND
             }
         }, _.isUndefined);
     }
@@ -454,7 +453,7 @@ async function fetch_account_data(argv, from_file) {
             uid: data.nsfs_account_config.uid && Number(data.nsfs_account_config.uid),
             gid: data.nsfs_account_config.gid && Number(data.nsfs_account_config.gid),
             new_buckets_path: data.nsfs_account_config.new_buckets_path,
-            fs_backend: data.nsfs_account_config.fs_backend
+            fs_backend: data.nsfs_account_config.fs_backend || undefined
         },
         allow_bucket_creation: !is_undefined(data.nsfs_account_config.new_buckets_path),
         // updates of account identifiers
@@ -693,7 +692,9 @@ async function validate_bucket_args(data, action) {
             throw_cli_error(ManageCLIError.InvalidStoragePath, data.path);
         }
         // fs_backend='' used for deletion of the fs_backend property
-        if (data.fs_backend !== undefined && data.fs_backend !== 'GPFS' && data.fs_backend !== '') throw_cli_error(ManageCLIError.InvalidFSBackend);
+        if (data.fs_backend !== undefined && !['GPFS', 'CEPH_FS', 'NFSv4'].includes(data.fs_backend)) {
+            throw_cli_error(ManageCLIError.InvalidFSBackend);
+        }
         if (data.s3_policy) {
             try {
                 await bucket_policy_utils.validate_s3_policy(data.s3_policy, data.name.unwrap(),
@@ -737,8 +738,9 @@ async function validate_account_args(data, action) {
             throw_cli_error(ManageCLIError.InvalidAccountNSFSConfig, data.nsfs_account_config);
         }
         // fs_backend='' used for deletion of the fs_backend property
-        if (data.nsfs_account_config.fs_backend !== undefined && data.nsfs_account_config.fs_backend !== 'GPFS' &&
-            data.nsfs_account_config.fs_backend !== '') throw_cli_error(ManageCLIError.InvalidFSBackend);
+        if (data.nsfs_account_config.fs_backend !== undefined && !['GPFS', 'CEPH_FS', 'NFSv4'].includes(data.nsfs_account_config.fs_backend)) {
+            throw_cli_error(ManageCLIError.InvalidFSBackend);
+        }
 
         if (data.nsfs_account_config.uid && typeof data.nsfs_account_config.uid !== 'number') throw_cli_error(ManageCLIError.InvalidAccountUID);
         if (data.nsfs_account_config.gid && typeof data.nsfs_account_config.gid !== 'number') throw_cli_error(ManageCLIError.InvalidAccountGID);

@@ -13,11 +13,7 @@ const BucketSpaceSimpleFS = require('./bucketspace_simple_fs');
 const _ = require('lodash');
 const util = require('util');
 const bucket_policy_utils = require('../endpoint/s3/s3_bucket_policy_utils');
-const { default: Ajv } = require('ajv');
-const bucket_schema = require('../server/object_services/schemas/nsfs_bucket_schema');
-const account_schema = require('../server/object_services/schemas/nsfs_account_schema');
-const { KEYWORDS } = require('../util/schema_keywords');
-const common_api = require('../api/common_api');
+const nsfs_schema_utils = require('../manage_nsfs/nsfs_schema_utils');
 
 const KeysSemaphore = require('../util/keys_semaphore');
 const native_fs_utils = require('../util/native_fs_utils');
@@ -27,15 +23,6 @@ const dbg = require('../util/debug_module')(__filename);
 const BUCKET_PATH = 'buckets';
 const ACCOUNT_PATH = 'accounts';
 const ACCESS_KEYS_PATH = 'access_keys';
-const ajv = new Ajv({ verbose: true, allErrors: true });
-ajv.addKeyword(KEYWORDS.methods);
-ajv.addKeyword(KEYWORDS.doc);
-ajv.addKeyword(KEYWORDS.date);
-ajv.addKeyword(KEYWORDS.idate);
-ajv.addKeyword(KEYWORDS.objectid);
-ajv.addKeyword(KEYWORDS.binary);
-ajv.addKeyword(KEYWORDS.wrapper);
-ajv.addSchema(common_api);
 const bucket_semaphore = new KeysSemaphore(1);
 
 //TODO:  dup from namespace_fs - need to handle and not dup code
@@ -109,7 +96,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             const iam_path = this._get_access_keys_config_path(access_key);
             const { data } = await nb_native().fs.readFile(this.fs_context, iam_path);
             const account = JSON.parse(data.toString());
-            this.validate_account_schema(account);
+            nsfs_schema_utils.validate_account_schema(account);
             account.name = new SensitiveString(account.name);
             account.email = new SensitiveString(account.email);
             for (const k of account.access_keys) {
@@ -137,23 +124,13 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
         }
     }
 
-    validate_account_schema(account) {
-        const valid = ajv.validate(account_schema, account);
-        if (!valid) throw new RpcError('INVALID_SCHEMA', ajv.errors[0]?.message);
-    }
-
-    validate_bucket_schema(bucket) {
-        const valid = ajv.validate(bucket_schema, bucket);
-        if (!valid) throw new RpcError('INVALID_SCHEMA', ajv.errors[0]?.message);
-    }
-
     async read_bucket_sdk_info({ name }) {
         try {
             const bucket_config_path = this._get_bucket_config_path(name);
             dbg.log0('BucketSpaceFS.read_bucket_sdk_info: bucket_config_path', bucket_config_path);
             const { data } = await nb_native().fs.readFile(this.fs_context, bucket_config_path);
             const bucket = JSON.parse(data.toString());
-            this.validate_bucket_schema(bucket);
+            nsfs_schema_utils.validate_bucket_schema(bucket);
             const is_valid = await this.check_bucket_config(bucket);
             if (!is_valid) {
                 dbg.warn('BucketSpaceFS: one or more bucket config check is failed for bucket : ', name);

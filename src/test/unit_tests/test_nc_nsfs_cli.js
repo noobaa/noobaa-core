@@ -201,6 +201,9 @@ mocha.describe('manage_nsfs cli', function() {
             const action = nc_nsfs_manage_actions.UPDATE;
             bucket_options = { ...bucket_options, bucket_policy: empty_bucket_policy };
             await exec_manage_cli(type, action, bucket_options);
+            // in the CLI we use empty string to unset the s3_policy
+            // but as a parameter is it undefined property
+            bucket_options.bucket_policy = undefined;
             const bucket = await read_config_file(config_root, schema_dir, bucket_options.name);
             assert_bucket(bucket, bucket_options);
             await assert_config_file_permissions(config_root, schema_dir, bucket_options.name);
@@ -264,6 +267,9 @@ mocha.describe('manage_nsfs cli', function() {
             const action = nc_nsfs_manage_actions.UPDATE;
             gpfs_bucket_options.fs_backend = '';
             const bucket_status = await exec_manage_cli(type, action, gpfs_bucket_options);
+            // in the CLI we use empty string to unset the fs_backend
+            // but as a parameter is it undefined property
+            gpfs_bucket_options.fs_backend = undefined;
             assert_response(action, type, bucket_status, gpfs_bucket_options);
             const bucket = await read_config_file(config_root, schema_dir, gpfs_bucket_options.name);
             assert_bucket(bucket, gpfs_bucket_options);
@@ -335,6 +341,7 @@ mocha.describe('manage_nsfs cli', function() {
         const accounts_schema_dir = 'accounts';
         const access_keys_schema_dir = 'access_keys';
         let updating_options = account_options;
+        let compare_details; // we will use it for update account and compare the results
 
         mocha.it('cli account create', async function() {
             const action = nc_nsfs_manage_actions.ADD;
@@ -490,21 +497,41 @@ mocha.describe('manage_nsfs cli', function() {
 
         mocha.it('cli account update owner', async function() {
             const action = nc_nsfs_manage_actions.UPDATE;
-            gpfs_account_options.email = 'blalal';
-            const account_status = await exec_manage_cli(type, action, gpfs_account_options);
-            assert_response(action, type, account_status, gpfs_account_options);
+            const account_options_for_update_owner = {
+                config_root: gpfs_account_options.config_root, // needed for exec_manage_cli function
+                name: gpfs_account_options.name,
+                fs_backend: gpfs_account_options.fs_backend, // added this not to mess up the comparison
+                email: 'blalal' //update the name
+            };
+            const account_status = await exec_manage_cli(type, action, account_options_for_update_owner);
+            compare_details = {
+                ...gpfs_account_options,
+                ...account_options_for_update_owner,
+            };
+            assert_response(action, type, account_status, compare_details);
             const account = await read_config_file(config_root, accounts_schema_dir, gpfs_account_options.name);
-            assert_account(account, gpfs_account_options);
+            assert_account(account, compare_details);
             await assert_config_file_permissions(config_root, accounts_schema_dir, gpfs_account_options.name);
         });
 
         mocha.it('cli account update to non GPFS', async function() {
             const action = nc_nsfs_manage_actions.UPDATE;
-            gpfs_account_options.fs_backend = '';
-            const account_status = await exec_manage_cli(type, action, gpfs_account_options);
-            assert_response(action, type, account_status, gpfs_account_options);
+            const account_options_for_update_fs_backend = {
+                config_root: gpfs_account_options.config_root, // needed for exec_manage_cli function
+                name: gpfs_account_options.name,
+                fs_backend: '', // remove the 'GPFS'
+            };
+            const account_status = await exec_manage_cli(type, action, account_options_for_update_fs_backend);
+            compare_details = {
+                ...compare_details,
+                ...account_options_for_update_fs_backend,
+            };
+            // in the CLI we use empty string to unset the fs_backend
+            // but as a parameter is it undefined property
+            compare_details.fs_backend = undefined;
+            assert_response(action, type, account_status, compare_details);
             const account = await read_config_file(config_root, accounts_schema_dir, gpfs_account_options.name);
-            assert_account(account, gpfs_account_options);
+            assert_account(account, compare_details);
             await assert_config_file_permissions(config_root, accounts_schema_dir, gpfs_account_options.name);
         });
 
@@ -804,7 +831,10 @@ async function exec_manage_cli(type, action, options) {
     const bucket_flags = (options.name ? `--name ${options.name}` : ``) +
         (options.owner_email ? ` --email ${options.owner_email}` : ``) +
         (options.fs_backend === undefined ? `` : ` --fs_backend '${options.fs_backend}'`) +
-        (options.bucket_policy === undefined ? `` : ` --bucket_policy '${JSON.stringify(options.bucket_policy)}'`) +
+        // eslint-disable-next-line no-nested-ternary
+        (options.bucket_policy === undefined ? `` :
+            options.bucket_policy === '' ?
+            ` --bucket_policy ''` : ` --bucket_policy '${JSON.stringify(options.bucket_policy)}'`) +
         (options.bucket_path ? ` --path ${options.bucket_path}` : ``);
 
     const account_flags = (options.name ? ` --name ${options.name}` : ``) +

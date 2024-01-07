@@ -248,8 +248,8 @@ Example:
 node src/cmd/manage_nsfs whitelist --ips '["127.0.0.1", "192.000.10.000", "3002:0bd6:0000:0000:0000:ee00:0033:000"]'  2>/dev/null
 ```
 
-## 13. Config directory backend -
-**Description -** Set custom config directory backend. Set to GPFS in order to increase performance of creation/deletion of config files under the config directory.
+## 14. Config directory backend -
+**Description -** Set custom file system backend type of the config directory. Set to GPFS in order to increase performance of creation/deletion of config files under the config directory.
 
 **Configuration Key -** NSFS_NC_CONFIG_DIR_BACKEND
 
@@ -265,9 +265,23 @@ Example:
 "NSFS_NC_CONFIG_DIR_BACKEND": "GPFS"
 ```
 
+## 15. Storage Backend -
+**Description -** Set custom file system backend type of the storage file system. Set to GPFS in order to increase performance of creation/deletion of objects stored in the underlying file system.
 
+**Configuration Key -** NSFS_NC_STORAGE_BACKEND
 
+**Type -** string
 
+**Default -** ''
+
+**Steps -**
+```
+1. Open /path/to/config_dir/config.json file.
+2. Set the config key -
+Example:
+"NSFS_NC_STORAGE_BACKEND": "GPFS"
+3. systemctl restart noobaa_nsfs
+```
 
 ## Config.json example 
 ```

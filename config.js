@@ -699,6 +699,7 @@ config.NSFS_NC_DEFAULT_CONF_DIR = '/etc/noobaa.conf.d';
 config.NSFS_NC_CONF_DIR = process.env.NSFS_NC_CONF_DIR || '';
 config.NSFS_TEMP_CONF_DIR_NAME = '.noobaa-config-nsfs';
 config.NSFS_NC_CONFIG_DIR_BACKEND = '';
+config.NSFS_NC_STORAGE_BACKEND = '';
 config.ENDPOINT_PORT = Number(process.env.ENDPOINT_PORT) || 6001;
 config.ENDPOINT_SSL_PORT = Number(process.env.ENDPOINT_SSL_PORT) || 6443;
 config.ENDPOINT_SSL_STS_PORT = Number(process.env.ENDPOINT_SSL_STS_PORT) || -1;

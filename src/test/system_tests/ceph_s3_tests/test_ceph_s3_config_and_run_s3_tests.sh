@@ -14,4 +14,4 @@ NUMBER_OF_WORKERS=1
 
 cd /root/node_modules/noobaa-core/
 node ./${CEPH_S3_TESTS_CONFIG}
-node ./${CEPH_S3_RUN_TESTS} --ignore_lists ${S3_CEPH_TEST_BLACKLIST},${S3_CEPH_TEST_PENDING_LIST} --concurrency ${NUMBER_OF_WORKERS} || true
+node ./${CEPH_S3_RUN_TESTS} --ignore_lists ${S3_CEPH_TEST_BLACKLIST},${S3_CEPH_TEST_PENDING_LIST} --concurrency ${NUMBER_OF_WORKERS}

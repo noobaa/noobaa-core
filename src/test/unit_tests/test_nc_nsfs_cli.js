@@ -81,7 +81,7 @@ mocha.describe('manage_nsfs cli', function() {
             try {
                 await fs_utils.create_fresh_path(bucket_path);
                 await fs_utils.file_must_exist(bucket_path);
-                await exec_manage_cli(type, action, { ...bucket_options, bucket_policy: invalid_bucket_policy});
+                await exec_manage_cli(type, action, { ...bucket_options, bucket_policy: invalid_bucket_policy });
                 assert.fail('should have failed with invalid bucket policy');
             } catch (err) {
                 assert_error(err, ManageCLIError.MalformedPolicy);
@@ -432,27 +432,6 @@ mocha.describe('manage_nsfs cli', function() {
             assert_response(action, type, account_list, expected_list, undefined, true);
         });
 
-        mocha.it('cli account update uid by access key', async function() {
-            const action = nc_nsfs_manage_actions.UPDATE;
-            const update_options = {
-                config_root,
-                access_key: account_options.access_key,
-                secret_key: account_options.secret_key,
-                email: 'account2@noobaa.io',
-                uid: 222,
-                gid: 222
-            };
-            const update_response = await exec_manage_cli(type, action, update_options);
-            updating_options = { ...updating_options, ...update_options };
-            assert_response(action, type, update_response, updating_options);
-            const account_symlink = await read_config_file(config_root, access_keys_schema_dir, access_key, true);
-            account_options = { ...account_options, ...update_options };
-            assert_account(account_symlink, account_options);
-            const account = await read_config_file(config_root, accounts_schema_dir, name);
-            assert_account(account, account_options);
-            await assert_config_file_permissions(config_root, accounts_schema_dir, name);
-        });
-
         mocha.it('cli account update uid by name', async function() {
             const action = nc_nsfs_manage_actions.UPDATE;
             const update_options = {
@@ -472,64 +451,6 @@ mocha.describe('manage_nsfs cli', function() {
             const account_symlink = await read_config_file(config_root, access_keys_schema_dir, access_key, true);
             assert_account(account_symlink, account_options);
             const account = await read_config_file(config_root, accounts_schema_dir, name);
-            assert_account(account, account_options);
-        });
-
-        mocha.it('cli account update name by access key', async function() {
-            const action = nc_nsfs_manage_actions.UPDATE;
-            const update_options = {
-                config_root,
-                new_name: 'account1_new_name',
-                access_key: account_options.access_key,
-                secret_key: account_options.secret_key,
-            };
-            account_options.new_name = 'account1_new_name';
-            const update_response = await exec_manage_cli(type, action, update_options);
-            updating_options = { ...updating_options, name: update_options.new_name };
-            assert_response(action, type, update_response, updating_options);
-            account_options = { ...account_options, new_name: undefined, name: update_options.new_name };
-            const account_symlink = await read_config_file(config_root, access_keys_schema_dir, access_key, true);
-            assert_account(account_symlink, account_options);
-            const account = await read_config_file(config_root, accounts_schema_dir, account_options.name);
-            assert_account(account, account_options);
-        });
-
-        mocha.it('cli account update access key by name', async function() {
-            const action = nc_nsfs_manage_actions.UPDATE;
-            const update_options = {
-                config_root,
-                new_access_key: 'BIGiFAnjaaE7OKD5N7hB',
-                name: account_options.name
-            };
-            const update_response = await exec_manage_cli(type, action, update_options);
-            updating_options = { ...updating_options, access_key: update_options.new_access_key };
-            assert_response(action, type, update_response, updating_options);
-            account_options = { ...account_options, new_access_key: undefined, access_key: update_options.new_access_key };
-            const account_symlink = await read_config_file(config_root, access_keys_schema_dir, account_options.access_key, true);
-            assert_account(account_symlink, account_options);
-            const account = await read_config_file(config_root, accounts_schema_dir, account_options.name);
-            assert_account(account, account_options);
-        });
-
-        mocha.it('cli account update access key & new_name by name', async function() {
-            const action = nc_nsfs_manage_actions.UPDATE;
-            const update_options = {
-                config_root,
-                new_access_key: 'BIGiFAnjaaE6OGD5N7hB',
-                new_name: 'account2_new_name',
-                name: account_options.name
-            };
-            await exec_manage_cli(type, action, update_options);
-            account_options = {
-                ...account_options,
-                new_access_key: undefined,
-                new_name: undefined,
-                access_key: update_options.new_access_key,
-                name: update_options.new_name
-            };
-            const account_symlink = await read_config_file(config_root, access_keys_schema_dir, account_options.access_key, true);
-            assert_account(account_symlink, account_options);
-            const account = await read_config_file(config_root, accounts_schema_dir, account_options.name);
             assert_account(account, account_options);
         });
 
@@ -635,8 +556,10 @@ mocha.describe('manage_nsfs cli', function() {
 
         mocha.it('cli account2 update - new_access_key already exists', async function() {
             const action = nc_nsfs_manage_actions.UPDATE;
+            const options = { ...account2_options };
+            options.access_key = 'GIGiFAnjaaE7OKD5N7hA';
             try {
-                await exec_manage_cli(type, action, { ...account2_options, new_access_key: 'GIGiFAnjaaE7OKD5N7hA' });
+                await exec_manage_cli(type, action, options);
                 assert.fail('should have failed with account access key already exists');
             } catch (err) {
                 assert_error(err, ManageCLIError.AccountAccessKeyAlreadyExists);
@@ -685,32 +608,8 @@ mocha.describe('manage_nsfs cli', function() {
             assert_account(account, account_options);
         });
 
-        mocha.it('cli account delete by access key', async function() {
-            const action = nc_nsfs_manage_actions.DELETE;
-            const res = await exec_manage_cli(type, action, { config_root, access_key, secret_key });
-            assert_response(action, type, res);
-            try {
-                await read_config_file(config_root, access_keys_schema_dir, access_key, true);
-                throw new Error('cli account delete failed - account config file exists after deletion');
-            } catch (err) {
-                if (err.code !== 'ENOENT') {
-                    throw new Error('cli account delete failed - read file failed with the following error - ', err.code);
-                }
-            }
-            try {
-                await read_config_file(config_root, accounts_schema_dir, account_options.name);
-                throw new Error('cli account delete failed - account config file exists after deletion');
-            } catch (err) {
-                if (err.code !== 'ENOENT') {
-                    throw new Error('cli account delete failed - read file failed with the following error - ', err.code);
-                }
-            }
-        });
-
         mocha.it('cli account delete by name', async function() {
-            let action = nc_nsfs_manage_actions.ADD;
-            await exec_manage_cli(type, action, account_options);
-            action = nc_nsfs_manage_actions.DELETE;
+            const action = nc_nsfs_manage_actions.DELETE;
             const res = await exec_manage_cli(type, action, { config_root, name: account_options.name });
             assert_response(action, type, res);
             try {
@@ -868,7 +767,7 @@ function assert_bucket(bucket, bucket_options) {
     assert.strictEqual(bucket.path, bucket_options.bucket_path);
     assert.strictEqual(bucket.should_create_underlying_storage, false);
     assert.strictEqual(bucket.versioning, 'DISABLED');
-    assert.strictEqual(bucket.fs_backend, bucket_options.fs_backend);
+    assert.strictEqual(bucket.fs_backend, bucket_options.fs_backend === '' ? undefined : bucket_options.fs_backend);
     assert.deepStrictEqual(bucket.s3_policy, bucket_options.bucket_policy);
     return true;
 }
@@ -887,7 +786,7 @@ function assert_account(account, account_options, skip_secrets) {
         assert.equal(account.nsfs_account_config.gid, account_options.gid);
     }
     assert.equal(account.nsfs_account_config.new_buckets_path, account_options.new_buckets_path);
-    assert.equal(account.nsfs_account_config.fs_backend, account_options.fs_backend);
+    assert.equal(account.nsfs_account_config.fs_backend, account_options.fs_backend === '' ? undefined : account_options.fs_backend);
     return true;
 }
 

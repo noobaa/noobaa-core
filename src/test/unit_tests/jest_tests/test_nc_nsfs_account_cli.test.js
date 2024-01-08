@@ -190,29 +190,59 @@ describe('manage nsfs cli account flow', () => {
             assert_account(account_symlink, new_account_details);
         });
 
-        it('cli update account access_key', async () => {
+        it('cli account update name by name', async function() {
             const { type, name } = defaults;
-            const new_access_key = 'GIGiFAnjaaE7OKD5N7hB';
-            const account_options = { config_root, name, new_access_key: new_access_key };
-            const account_details = await read_config_file(config_root, accounts_schema_dir, name);
+            const new_name = 'account1_new_name'
+            const account_options = { config_root, name, new_name };
             const action = nc_nsfs_manage_actions.UPDATE;
+            account_options.new_name = 'account1_new_name';
             await exec_manage_cli(type, action, account_options);
-            let new_account_details = await read_config_file(config_root, accounts_schema_dir, name);
-            expect(account_details.access_keys[0].access_key).not.toBe(new_account_details.access_keys[0].access_key);
-            expect(new_account_details.access_keys[0].access_key).toBe(new_access_key);
-            const account_symlink = await read_config_file(config_root, access_keys_schema_dir, new_access_key, true);
+            let new_account_details = await read_config_file(config_root, accounts_schema_dir, new_name);
+            expect(new_account_details.name).toBe(new_name);
+            const access_key = new_account_details.access_keys[0].access_key;
+            const account_symlink = await read_config_file(config_root, access_keys_schema_dir, access_key, true);
             //fixing the new_account_details for compare. 
             new_account_details = { ...new_account_details, ...new_account_details.nsfs_account_config };
             assert_account(account_symlink, new_account_details);
         });
 
-        it('should fail - cli update account new access_key wrong complexity', async () => {
+        it('cli account update access key, secret_key & new_name by name', async function() {
             const { type, name } = defaults;
-            const new_access_key = 'new';
-            const account_options = { config_root, name, new_access_key: new_access_key };
+            const new_name = 'account1_new_name'
+            const access_key = 'GIGiFAnjaaE7OKD5N7hB';
+            const secret_key = 'U3AYaMpU3zRDcRFWmvzgQr9MoHIAsD+3oEXAMPLE';
+            const account_options = { config_root, name, new_name, access_key, secret_key };
+            const account_details = await read_config_file(config_root, accounts_schema_dir, name);
             const action = nc_nsfs_manage_actions.UPDATE;
-            const res = await exec_manage_cli(type, action, account_options);
-            expect(JSON.parse(res.stdout).error.message).toBe(ManageCLIError.NewAccountAccessKeyFlagComplexity.message);
+            account_options.new_name = 'account1_new_name';
+            await exec_manage_cli(type, action, account_options);
+            let new_account_details = await read_config_file(config_root, accounts_schema_dir, new_name);
+            expect(new_account_details.name).toBe(new_name);
+            expect(account_details.access_keys[0].access_key).not.toBe(new_account_details.access_keys[0].access_key);
+            expect(account_details.access_keys[0].secret_key).not.toBe(new_account_details.access_keys[0].secret_key);
+            expect(new_account_details.access_keys[0].access_key).toBe(access_key);
+            const account_symlink = await read_config_file(config_root, access_keys_schema_dir, access_key, true);
+            //fixing the new_account_details for compare. 
+            new_account_details = { ...new_account_details, ...new_account_details.nsfs_account_config };
+            assert_account(account_symlink, new_account_details);
+        });
+
+        it('cli update account access_key and secret_key using flags', async () => {
+            const { type, name } = defaults;
+            const access_key = 'GIGiFAnjaaE7OKD5N7hB';
+            const secret_key = 'U3AYaMpU3zRDcRFWmvzgQr9MoHIAsD+3oEXAMPLE';
+            const account_options = { config_root, name, access_key, secret_key };
+            const account_details = await read_config_file(config_root, accounts_schema_dir, name);
+            const action = nc_nsfs_manage_actions.UPDATE;
+            await exec_manage_cli(type, action, account_options);
+            let new_account_details = await read_config_file(config_root, accounts_schema_dir, name);
+            expect(account_details.access_keys[0].access_key).not.toBe(new_account_details.access_keys[0].access_key);
+            expect(account_details.access_keys[0].secret_key).not.toBe(new_account_details.access_keys[0].secret_key);
+            expect(new_account_details.access_keys[0].access_key).toBe(access_key);
+            const account_symlink = await read_config_file(config_root, access_keys_schema_dir, access_key, true);
+            //fixing the new_account_details for compare. 
+            new_account_details = { ...new_account_details, ...new_account_details.nsfs_account_config };
+            assert_account(account_symlink, new_account_details);
         });
 
     });

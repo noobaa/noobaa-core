@@ -411,7 +411,8 @@ async function fetch_account_data(argv, from_file) {
     }
     if (action !== ACTIONS.LIST && action !== ACTIONS.STATUS) _validate_access_keys(argv);
     if (action === ACTIONS.ADD || action === ACTIONS.STATUS) {
-        access_keys = set_access_keys(argv, true);
+        const regenerate = action === ACTIONS.ADD
+        access_keys = set_access_keys(argv, regenerate);
     } else if (action === ACTIONS.UPDATE) {
         access_keys = set_access_keys(argv, Boolean(argv.regenerate));
         new_access_key = access_keys[0].access_key;
@@ -577,9 +578,9 @@ async function get_account_status(data, show_secrets) {
         write_stdout_response(ManageCLIResponse.AccountStatus, config_data);
     } catch (err) {
         if (is_undefined(data.name)) {
-            throw_cli_error(ManageCLIError.AccountAccessKeyAlreadyExists, data.access_keys[0].access_key.unwrap());
+            throw_cli_error(ManageCLIError.NoSuchAccountAccessKey, data.access_keys[0].access_key.unwrap());
         } else {
-            throw_cli_error(ManageCLIError.AccountNameAlreadyExists, data.name.unwrap());
+            throw_cli_error(ManageCLIError.NoSuchAccountName, data.name.unwrap());
         }
     }
 }

@@ -276,6 +276,18 @@ ManageCLIError.InvalidNewNameBucketIdentifier = Object.freeze({
     http_code: 400,
 });
 
+ManageCLIError.InvalidFSBackend = Object.freeze({
+    code: 'InvalidFSBackend',
+    message: 'FS backend supported types is GPFS, default is POSIX',
+    http_code: 400,
+});
+
+ManageCLIError.MalformedPolicy = Object.freeze({
+    code: 'MalformedPolicy',
+    message: 'Invalid bucket policy',
+    http_code: 400,
+});
+
 
 ManageCLIError.FS_ERRORS_TO_MANAGE = Object.freeze({
     EACCES: ManageCLIError.AccessDenied,

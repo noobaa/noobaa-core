@@ -136,6 +136,7 @@ class NsfsObjectSDK extends ObjectSDK {
             bucketspace,
             stats: endpoint_stats_collector.instance(),
         });
+        this.nsfs_config_root = nsfs_config_root;
         this.nsfs_fs_root = fs_root;
         this.nsfs_fs_config = fs_config;
         this.nsfs_account = account;
@@ -326,7 +327,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
                 req.object_sdk = new NsfsObjectSDK(fs_root, fs_config, account, versioning, nsfs_config_root);
             }
         });
-        if (config.NSFS_NC_ALLOW_HTTP) {
+        if (config.ALLOW_HTTP) {
             console.log('nsfs: listening on', util.inspect(`http://localhost:${http_port}`));
         }
         console.log('nsfs: listening on', util.inspect(`https://localhost:${https_port}`));

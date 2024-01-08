@@ -51,6 +51,7 @@ const account_user1 = {
     name: 'user1',
     email: 'user1@noobaa.io',
     has_s3_access: 'true',
+    allow_bucket_creation: true,
     access_keys: [{
         access_key: 'a-abcdefghijklmn123456',
         secret_key: 's-abcdefghijklmn123456'
@@ -68,6 +69,7 @@ const account_user2 = {
     name: 'user2',
     email: 'user2@noobaa.io',
     has_s3_access: 'true',
+    allow_bucket_creation: true,
     access_keys: [{
         access_key: 'a-abcdefghijklmn123457',
         secret_key: 's-abcdefghijklmn123457'
@@ -84,6 +86,7 @@ const account_user3 = {
     name: 'user3',
     email: 'user3@noobaa.io',
     has_s3_access: 'true',
+    allow_bucket_creation: true,
     access_keys: [{
         access_key: 'a-abcdefghijklmn123458',
         secret_key: 's-abcdefghijklmn123458'
@@ -118,6 +121,7 @@ function make_dummy_object_sdk() {
         requesting_account: {
             force_md5_etag: false,
             email: 'user2@noobaa.io',
+            allow_bucket_creation: true,
             nsfs_account_config: {
                 uid: 0,
                 gid: 0,
@@ -143,6 +147,20 @@ function make_dummy_object_sdk() {
             return Boolean(fs_root_path || fs_root_path === '');
         }
     };
+}
+function make_invalid_dummy_object_sdk() {
+    return {
+        requesting_account: {
+            force_md5_etag: false,
+            email: 'user2@noobaa.io',
+            allow_bucket_creation: false,
+            nsfs_account_config: {
+                uid: 0,
+                gid: 0,
+                new_buckets_path: new_buckets_path,
+            }
+        },
+    }
 }
 
 mocha.describe('bucketspace_fs', function() {
@@ -238,6 +256,17 @@ mocha.describe('bucketspace_fs', function() {
             });
             const objects = await nb_native().fs.readdir(ACCOUNT_FS_CONFIG, path.join(new_buckets_path, param.name));
             assert.equal(objects.length, 1);
+        });
+        mocha.it('validate bucket access with user not allowed to create bucket', async function() {
+            try {
+                const test_bucket_not_allowed = 'bucket4';
+                const param = { name: test_bucket_not_allowed};
+                const local_object_sdk = make_invalid_dummy_object_sdk()
+                await bucketspace_fs.create_bucket(param, local_object_sdk);
+                assert.fail('should have failed with UNAUTHORIZED bucket creation');
+            } catch (err) {
+                assert.ok(err.rpc_code === 'UNAUTHORIZED');
+            }
         });
         mocha.after(async function() {
             await fs_utils.folder_delete(`${new_buckets_path}/${test_bucket}`);
@@ -368,14 +397,17 @@ mocha.describe('bucketspace_fs', function() {
                 };
             const param = {name: test_bucket, policy: policy};
             await bucketspace_fs.put_bucket_policy(param);
-            const output_web = await bucketspace_fs.get_bucket_policy(param);
-            assert.deepEqual(output_web.policy, policy);
+            const policy_res = await bucketspace_fs.get_bucket_policy(param);
+            assert.deepEqual(policy_res.policy, policy);
+            const info_res = await bucketspace_fs.read_bucket_sdk_info(param);
+            principle_unwrap(info_res.s3_policy);
+            assert.deepEqual(info_res.s3_policy, policy);
         });
         mocha.it('delete_bucket_policy ', async function() {
             const param = {name: test_bucket};
             await bucketspace_fs.delete_bucket_policy(param);
-            const output_web = await bucketspace_fs.get_bucket_policy(param);
-            assert.ok(output_web.policy === undefined);
+            const delete_res = await bucketspace_fs.get_bucket_policy(param);
+            assert.ok(delete_res.policy === undefined);
         });
 
         mocha.it('put_bucket_policy other account object', async function() {
@@ -394,6 +426,12 @@ mocha.describe('bucketspace_fs', function() {
             await bucketspace_fs.put_bucket_policy(param);
             const bucket_policy = await bucketspace_fs.get_bucket_policy(param);
             assert.deepEqual(bucket_policy.policy, policy);
+            const info_res = await bucketspace_fs.read_bucket_sdk_info(param);
+            principle_unwrap(info_res.s3_policy);
+            // on this case s3_policy principal will be converted to  Principal: { AWS: ['user1'] } on runtime
+            // @ts-ignore
+            policy.Statement[0].Principal.AWS = [policy.Statement[0].Principal.AWS];
+            assert.deepEqual(info_res.s3_policy, policy);
         });
 
         mocha.it('put_bucket_policy other account object - account does not exist', async function() {
@@ -434,7 +472,32 @@ mocha.describe('bucketspace_fs', function() {
             await bucketspace_fs.put_bucket_policy(param);
             const bucket_policy = await bucketspace_fs.get_bucket_policy(param);
             assert.deepEqual(bucket_policy.policy, policy);
+            const info_res = await bucketspace_fs.read_bucket_sdk_info(param);
+            principle_unwrap(info_res.s3_policy);
+            assert.deepEqual(info_res.s3_policy, policy);
         });
+
+        mocha.it('put_bucket_policy other account all', async function() {
+            const policy = {
+                    Version: '2012-10-17',
+                    Statement: [{
+                        Sid: 'id-22',
+                        Effect: 'Allow',
+                        Principal: '*',
+                        Action: ['s3:*'],
+                        Resource: ['arn:aws:s3:::*']
+                        }
+                    ]
+                };
+            const param = {name: test_bucket, policy: policy};
+            await bucketspace_fs.put_bucket_policy(param);
+            const bucket_policy = await bucketspace_fs.get_bucket_policy(param);
+            assert.deepEqual(bucket_policy.policy, policy);
+            const info_res = await bucketspace_fs.read_bucket_sdk_info(param);
+            principle_unwrap(info_res.s3_policy);
+            assert.deepEqual(info_res.s3_policy, policy);
+        });
+
         mocha.it('delete_bucket_policy ', async function() {
             const param = {name: test_bucket};
             await bucketspace_fs.delete_bucket_policy(param);
@@ -460,4 +523,19 @@ function get_config_file_path(config_type_path, file_name) {
 // returns the path of the access_key symlink to the config file json
 function get_access_key_symlink_path(config_type_path, file_name) {
     return path.join(config_root, config_type_path, file_name + '.symlink');
+}
+
+function principle_unwrap(policy) {
+    for (const [s_index, statement] of policy.Statement.entries()) {
+        const statement_principal = statement.Principal || statement.NotPrincipal;
+        if (statement_principal.AWS) {
+            const sensitive_arr = _.flatten([statement_principal.AWS]).map(principal => principal.unwrap());
+            if (statement.Principal) policy.Statement[s_index].Principal.AWS = sensitive_arr;
+            if (statement.NotPrincipal) policy.Statement[s_index].NotPrincipal.AWS = sensitive_arr;
+        } else {
+            const sensitive_principal = statement_principal.unwrap();
+            if (statement.Principal) policy.Statement[s_index].Principal = sensitive_principal;
+            if (statement.NotPrincipal) policy.Statement[s_index].NotPrincipal = sensitive_principal;
+        }
+    }
 }

@@ -698,10 +698,11 @@ config.NSFS_NC_CONF_DIR_REDIRECT_FILE = 'config_dir_redirect';
 config.NSFS_NC_DEFAULT_CONF_DIR = '/etc/noobaa.conf.d';
 config.NSFS_NC_CONF_DIR = process.env.NSFS_NC_CONF_DIR || '';
 config.NSFS_TEMP_CONF_DIR_NAME = '.noobaa-config-nsfs';
+config.NSFS_NC_CONFIG_DIR_BACKEND = '';
 config.ENDPOINT_PORT = Number(process.env.ENDPOINT_PORT) || 6001;
 config.ENDPOINT_SSL_PORT = Number(process.env.ENDPOINT_SSL_PORT) || 6443;
 config.ENDPOINT_SSL_STS_PORT = Number(process.env.ENDPOINT_SSL_STS_PORT) || -1;
-config.NSFS_NC_ALLOW_HTTP = false;
+config.ALLOW_HTTP = false;
 // config files should allow access to the owner of the files 
 config.BASE_MODE_CONFIG_FILE = 0o600;
 config.BASE_MODE_CONFIG_DIR = 0o700;

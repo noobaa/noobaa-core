@@ -241,9 +241,9 @@ async function authorize_request_policy(req) {
         if (is_owner) return;
         throw new S3Error(S3Error.AccessDenied);
     }
-
+    const account_identifier = req.object_sdk.nsfs_config_root ? account.name.unwrap() : account.email.unwrap();
     const permission = await s3_bucket_policy_utils.has_bucket_policy_permission(
-        s3_policy, account.email.unwrap(), method, arn_path, req);
+        s3_policy, account_identifier, method, arn_path, req);
     if (permission === "DENY") throw new S3Error(S3Error.AccessDenied);
     if (permission === "ALLOW" || is_owner) return;
 

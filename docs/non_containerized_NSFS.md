@@ -399,13 +399,15 @@ Users can create, update, delete, and list buckets and accounts using CLI. If th
 
 CLI will never create or delete a bucket directory for the user if a bucket directory is missing CLI will return with error.
 
-NOTE - manage_nsfs execution requires root permissions.
- 
+NOTES - 
+1. manage_nsfs execution requires root permissions.
+2. While path specifies a GPFS path, it's recommended to add fs_backend=GPFS in order to increase performance by ordering NooBaa to use GPFS library.
+
 Bucket Commands
 ```
-sudo node src/cmd/manage_nsfs bucket add --config_root ../standalon/config_root --name bucket1 --email noobaa@gmail.com --path ../standalon/nsfs_root/1 2>/dev/null
+sudo node src/cmd/manage_nsfs bucket add --config_root ../standalon/config_root --name bucket1 --email noobaa@gmail.com --path ../standalon/nsfs_root/1 --fs_backend GPFS 2>/dev/null
 
-sudo node src/cmd/manage_nsfs bucket update --config_root ../standalon/config_root --name bucket1 --email noobaa@gmail.com 2>/dev/null
+sudo node src/cmd/manage_nsfs bucket update --config_root ../standalon/config_root --name bucket1 --email noobaa@gmail.com --fs_backend GPFS 2>/dev/null
 
 sudo node src/cmd/manage_nsfs bucket list --config_root ../standalon/config_root 2>/dev/null
 
@@ -415,9 +417,9 @@ sudo node src/cmd/manage_nsfs bucket delete --config_root ../standalon/config_ro
 
 Account Commands
 ```
-sudo node src/cmd/manage_nsfs account add --config_root ../standalon/config_root --name noobaa --email noobaa@gmail.com --new_buckets_path ../standalon/nsfs_root/ --access_key abc --secret_key abc 2>/dev/null
+sudo node src/cmd/manage_nsfs account add --config_root ../standalon/config_root --name noobaa --email noobaa@gmail.com --new_buckets_path ../standalon/nsfs_root/ --fs_backend GPFS 2>/dev/null
 
-sudo node src/cmd/manage_nsfs account update --config_root ../standalon/config_root --name noobaa --access_key abc --secret_key abc123 2>/dev/null
+sudo node src/cmd/manage_nsfs account update --config_root ../standalon/config_root --name noobaa --fs_backend GPFS 2>/dev/null
 
 sudo node src/cmd/manage_nsfs account delete --config_root ../standalon/config_root --access_key abc 2>/dev/null
 
@@ -439,7 +441,7 @@ NSFS management CLI command will create both account and bucket dir if it's miss
 
 Non containerized NSFS certificates/ directory location will be under the config_root path. The certificates/ directory should contain SSL files tls.key and tls.crt. System will use a cert from this dir to create a valid HTTPS connection. If cert is missing in this dir a self-signed SSL certificate will be generated. Make sure the path to certificates/ directory is valid before running nsfs command, If the path is invalid then cert flow will fail.
 
-Non containerized NSFS restrict insecure HTTP connections when `allow_http` is set to false in cofig.json. This is not the default behaviour.
+Non containerized NSFS restrict insecure HTTP connections when `ALLOW_HTTP` is set to false in cofig.json. This is the default behaviour.
 
 ## Monitoring
 

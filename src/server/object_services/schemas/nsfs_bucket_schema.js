@@ -38,5 +38,11 @@ module.exports = {
         creation_date: {
             type: 'string',
         },
+        fs_backend: {
+            $ref: 'common_api#/definitions/fs_backend'
+        },
+        s3_policy: {
+            $ref: 'common_api#/definitions/bucket_policy',
+        }
     }
 };

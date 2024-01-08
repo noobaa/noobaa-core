@@ -162,8 +162,8 @@ async function main(options = {}) {
             https_server.setSecureContext(updated_ssl_options);
             https_server_sts.setSecureContext(updated_ssl_options);
         });
-        if (options.nsfs_config_root && !config.NSFS_NC_ALLOW_HTTP) {
-            dbg.log0('HTTP is not allowed for NC NSFS.');
+        if (options.nsfs_config_root && !config.ALLOW_HTTP) {
+            dbg.warn('HTTP is not allowed for NC NSFS.');
         } else {
             const http_server = http.createServer(endpoint_request_handler);
             if (http_port > 0) {

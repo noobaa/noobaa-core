@@ -16,6 +16,8 @@ const bucket_policy_utils = require('../endpoint/s3/s3_bucket_policy_utils');
 const { default: Ajv } = require('ajv');
 const bucket_schema = require('../server/object_services/schemas/nsfs_bucket_schema');
 const account_schema = require('../server/object_services/schemas/nsfs_account_schema');
+const { KEYWORDS } = require('../util/schema_keywords');
+const common_api = require('../api/common_api');
 
 const KeysSemaphore = require('../util/keys_semaphore');
 const native_fs_utils = require('../util/native_fs_utils');
@@ -26,7 +28,14 @@ const BUCKET_PATH = 'buckets';
 const ACCOUNT_PATH = 'accounts';
 const ACCESS_KEYS_PATH = 'access_keys';
 const ajv = new Ajv({ verbose: true, allErrors: true });
-
+ajv.addKeyword(KEYWORDS.methods);
+ajv.addKeyword(KEYWORDS.doc);
+ajv.addKeyword(KEYWORDS.date);
+ajv.addKeyword(KEYWORDS.idate);
+ajv.addKeyword(KEYWORDS.objectid);
+ajv.addKeyword(KEYWORDS.binary);
+ajv.addKeyword(KEYWORDS.wrapper);
+ajv.addSchema(common_api);
 const bucket_semaphore = new KeysSemaphore(1);
 
 //TODO:  dup from namespace_fs - need to handle and not dup code
@@ -40,7 +49,6 @@ function prepare_fs_context(object_sdk) {
     if (!fs_context) throw new RpcError('UNAUTHORIZED', 'nsfs_account_config is missing');
     fs_context.warn_threshold_ms = config.NSFS_WARN_THRESHOLD_MS;
     // TODO: 
-    //fs_context.backend = this.fs_backend || '';
     //if (this.stats) fs_context.report_fs_stats = this.stats.update_fs_stats;
     return fs_context;
 }
@@ -58,6 +66,8 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             uid: process.getuid(),
             gid: process.getgid(),
             warn_threshold_ms: config.NSFS_WARN_THRESHOLD_MS,
+            fs_backend: config.NSFS_NC_CONFIG_DIR_BACKEND
+            //fs_context.report_fs_stats = this.stats.update_fs_stats;
         };
     }
 
@@ -74,9 +84,9 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
     }
 
     async _get_account_by_name(name) {
-        const access_key_config_path = this._get_account_config_path(name);
+        const account_config_path = this._get_account_config_path(name);
         try {
-            await nb_native().fs.stat(this.fs_context, access_key_config_path);
+            await nb_native().fs.stat(this.fs_context, account_config_path);
             return true;
         } catch (err) {
             return false;
@@ -151,6 +161,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             const nsr = {
                 resource: {
                     fs_root_path: this.fs_root,
+                    fs_backend: bucket.fs_backend
                 },
                 path: bucket.path
             };
@@ -174,7 +185,9 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                         if (statement.Principal) bucket.s3_policy.Statement[s_index].Principal.AWS = sensitive_arr;
                         if (statement.NotPrincipal) bucket.s3_policy.Statement[s_index].NotPrincipal.AWS = sensitive_arr;
                     } else {
-                        bucket.s3_policy.Statement = new SensitiveString(statement_principal);
+                        const sensitive_principal = new SensitiveString(statement_principal);
+                        if (statement.Principal) bucket.s3_policy.Statement[s_index].Principal = sensitive_principal;
+                        if (statement.NotPrincipal) bucket.s3_policy.Statement[s_index].NotPrincipal = sensitive_principal;
                     }
                 }
             }
@@ -247,8 +260,6 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             _.isUndefined(account.nsfs_account_config.gid)) return false;
         try {
             dbg.log0('_has_access_to_nsfs_dir: checking access:', ns.write_resource, account.nsfs_account_config.uid, account.nsfs_account_config.gid);
-            //TODO:  Operation not permitted error on change_user() with non root user, and 
-            //proccess exit with error
             await nb_native().fs.checkAccess({
                 uid: account.nsfs_account_config.uid,
                 gid: account.nsfs_account_config.gid,
@@ -278,6 +289,9 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
 
     async create_bucket(params, sdk) {
         return bucket_semaphore.surround_key(String(params.name), async () => {
+            if (!sdk.requesting_account.allow_bucket_creation) {
+                throw new RpcError('UNAUTHORIZED', 'Not allowed to create new buckets');
+            }
             if (!sdk.requesting_account.nsfs_account_config || !sdk.requesting_account.nsfs_account_config.new_buckets_path) {
                 throw new RpcError('MISSING_NSFS_ACCOUNT_CONFIGURATION');
             }
@@ -354,6 +368,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             force_md5_etag: force_md5_etag,
             path: bucket_storage_path,
             should_create_underlying_storage: create_uls,
+            fs_backend: account.nsfs_account_config.fs_backend
         };
     }
 

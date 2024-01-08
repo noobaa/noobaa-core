@@ -30,7 +30,8 @@ const nc_nsfs_manage_actions = {
     ADD: 'add',
     UPDATE: 'update',
     LIST: 'list',
-    DELETE: 'delete'
+    DELETE: 'delete',
+    STATUS: 'status',
 };
 
 describe('manage nsfs cli account flow', () => {
@@ -345,6 +346,12 @@ describe('manage nsfs cli account flow', () => {
             const res = await exec_manage_cli('account', action, account_options);
             expect(JSON.parse(res).response.reply.map(item => item.name))
                 .toEqual(expect.arrayContaining(['account3']));
+        });
+
+        it('cli account status without name and access_key', async function() {
+            const action = nc_nsfs_manage_actions.STATUS;
+                const res = await exec_manage_cli('account', action, { config_root });
+                expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.MissingIdentifier.code);
         });
     });
 });

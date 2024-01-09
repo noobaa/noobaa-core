@@ -19,6 +19,7 @@ const nb_native = require('../../util/nb_native');
 
 const MAC_PLATFORM = 'darwin';
 const test_bucket = 'bucket1';
+const test_not_empty_bucketbucket = 'notemptybucket';
 const test_bucket_invalid = 'bucket_invalid';
 let tmp_fs_path = '/tmp/test_bucketspace_fs';
 if (process.platform === MAC_PLATFORM) {
@@ -313,6 +314,22 @@ mocha.describe('bucketspace_fs', function() {
                 await bucketspace_fs.delete_bucket(param, dummy_object_sdk);
             } catch (err) {
                 assert.ok(err.code === 'ENOENT');
+            }
+        });
+        mocha.it('delete_bucket for non empty buckets', async function() {
+            const param = { name: test_not_empty_bucketbucket};
+            await create_bucket(param.name);
+            const bucket_file_path = path.join(new_buckets_path, param.name, 'dummy.txt');
+            await nb_native().fs.writeFile(ACCOUNT_FS_CONFIG, bucket_file_path,
+                Buffer.from(JSON.stringify("data")), {
+                    mode: config.BASE_MODE_FILE,
+                });
+            try {
+                await bucketspace_fs.delete_bucket(param, dummy_object_sdk);
+                assert.fail('should have failed with NOT EMPTY')
+            } catch (err) {
+                assert.strictEqual(err.rpc_code, 'NOT_EMPTY');
+                assert.equal(err.message, 'underlying directory has files in it');
             }
         });
     });

@@ -380,17 +380,21 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             try {
                 const namespace_bucket_config = await object_sdk.read_bucket_sdk_namespace_info(params.name);
                 dbg.log1('BucketSpaceFS.delete_bucket: namespace_bucket_config', namespace_bucket_config);
+                const ns = await object_sdk._get_bucket_namespace(params.name);
                 if (namespace_bucket_config && namespace_bucket_config.should_create_underlying_storage) {
-                    const ns = await object_sdk._get_bucket_namespace(params.name);
                     // delete underlying storage = the directory which represents the bucket
                     dbg.log1('BucketSpaceFS.delete_bucket: deleting uls', this.fs_root, namespace_bucket_config.write_resource.path);
                     await ns.delete_uls({
                         name,
                         full_path: path.join(this.fs_root, namespace_bucket_config.write_resource.path) // includes write_resource.path + bucket name (s3 flow)
                     }, object_sdk);
+                } else if (namespace_bucket_config){
+                    const list = await ns.list_objects({ ...params, limit: 1 }, object_sdk);
+                    if (list && list.objects && list.objects.length > 0) {
+                        throw new RpcError('NOT_EMPTY', 'underlying directory has files in it');
+                    }
                 }
                 dbg.log1(`BucketSpaceFS: delete_fs_bucket ${bucket_path}`);
-
                 // delete bucket config json file
                 await native_fs_utils.delete_config_file(this.fs_context, this.bucket_schema_dir, bucket_path);
             } catch (err) {

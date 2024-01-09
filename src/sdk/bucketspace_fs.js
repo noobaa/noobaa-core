@@ -388,7 +388,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                         name,
                         full_path: path.join(this.fs_root, namespace_bucket_config.write_resource.path) // includes write_resource.path + bucket name (s3 flow)
                     }, object_sdk);
-                } else if (namespace_bucket_config){
+                } else if (namespace_bucket_config) {
                     const list = await ns.list_objects({ ...params, limit: 1 }, object_sdk);
                     if (list && list.objects && list.objects.length > 0) {
                         throw new RpcError('NOT_EMPTY', 'underlying directory has files in it');

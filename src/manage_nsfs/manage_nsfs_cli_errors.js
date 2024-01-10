@@ -72,6 +72,11 @@ ManageCLIError.MissingConfigDirPath = Object.freeze({
     message: 'Config dir path should not be empty',
     http_code: 400,
 });
+ManageCLIError.InvalidSchema = Object.freeze({
+    code: 'InvalidSchema',
+    message: 'Schema invalid, please use required properties',
+    http_code: 400,
+});
 
 //////////////////////////////
 //// IP WHITE LIST ERRORS ////
@@ -299,6 +304,10 @@ ManageCLIError.FS_ERRORS_TO_MANAGE = Object.freeze({
     NOT_EMPTY: ManageCLIError.BucketNotEmpty,
     MALFORMED_POLICY: ManageCLIError.MalformedPolicy,
     // EEXIST: ManageCLIError.BucketAlreadyExists,
+});
+
+ManageCLIError.RPC_ERROR_TO_MANAGE = Object.freeze({
+    INVALID_SCHEMA: ManageCLIError.InvalidSchema,
 });
 
 exports.ManageCLIError = ManageCLIError;

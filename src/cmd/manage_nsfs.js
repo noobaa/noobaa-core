@@ -14,6 +14,7 @@ const SensitiveString = require('../util/sensitive_string');
 const ManageCLIError = require('../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
 const ManageCLIResponse = require('../manage_nsfs/manage_nsfs_cli_responses').ManageCLIResponse;
 const bucket_policy_utils = require('../endpoint/s3/s3_bucket_policy_utils');
+const nsfs_schema_utils = require('../manage_nsfs/nsfs_schema_utils');
 
 const TYPES = {
     ACCOUNT: 'account',
@@ -199,6 +200,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
         dbg.log1('NSFS Manage command: exit on error', err.stack || err);
         const manage_err = ((err instanceof ManageCLIError) && err) ||
             new ManageCLIError(ManageCLIError.FS_ERRORS_TO_MANAGE[err.code] ||
+                ManageCLIError.RPC_ERROR_TO_MANAGE[err.rpc_code] ||
                 ManageCLIError.InternalError);
         throw_cli_error(manage_err, err.stack || err);
     }
@@ -254,7 +256,10 @@ async function fetch_bucket_data(argv, from_file) {
         bucket_owner: new SensitiveString(String(data.bucket_owner)),
         // update bucket identifier
         new_name: data.new_name && new SensitiveString(String(data.new_name)),
-        fs_backend: data.fs_backend || undefined
+        // fs_backend deletion specified with empty string '' (but it is not part of the schema)
+        fs_backend: data.fs_backend || undefined,
+        // s3_policy deletion specified with empty string '' (but it is not part of the schema)
+        s3_policy: data.s3_policy || undefined,
     };
 
     return data;
@@ -288,6 +293,10 @@ async function add_bucket(data) {
     if (exists) throw_cli_error(ManageCLIError.BucketAlreadyExists, data.name.unwrap());
 
     const data_json = JSON.stringify(data);
+    // We take an object that was stringify
+    // (it unwraps ths sensitive strings, creation_date to string and removes undefined parameters)
+    // for validating against the schema we need an object, hence we parse it back to object
+    nsfs_schema_utils.validate_bucket_schema(JSON.parse(data_json));
     await native_fs_utils.create_config_file(fs_context, buckets_dir_path, bucket_conf_path, data_json);
     write_stdout_response(ManageCLIResponse.BucketCreated, data_json);
 }
@@ -316,6 +325,10 @@ async function update_bucket(data) {
     if (!update_name) {
         const bucket_config_path = get_config_file_path(buckets_dir_path, data.name);
         data = JSON.stringify(data);
+        // We take an object that was stringify
+        // (it unwraps ths sensitive strings, creation_date to string and removes undefined parameters)
+        // for validating against the schema we need an object, hence we parse it back to object
+        nsfs_schema_utils.validate_bucket_schema(JSON.parse(data));
         await native_fs_utils.update_config_file(fs_context, buckets_dir_path, bucket_config_path, data);
         write_stdout_response(ManageCLIResponse.BucketUpdated, data);
         return;
@@ -330,7 +343,10 @@ async function update_bucket(data) {
     if (exists) throw_cli_error(ManageCLIError.BucketAlreadyExists, data.name.unwrap());
 
     data = JSON.stringify(_.omit(data, ['new_name']));
-
+    // We take an object that was stringify
+    // (it unwraps ths sensitive strings, creation_date to string and removes undefined parameters)
+    // for validating against the schema we need an object, hence we parse it back to object
+    nsfs_schema_utils.validate_bucket_schema(JSON.parse(data));
     await native_fs_utils.create_config_file(fs_context, buckets_dir_path, new_bucket_config_path, data);
     await native_fs_utils.delete_config_file(fs_context, buckets_dir_path, cur_bucket_config_path);
     write_stdout_response(ManageCLIResponse.BucketUpdated, data);
@@ -430,8 +446,8 @@ async function fetch_account_data(argv, from_file) {
             access_keys,
             nsfs_account_config: {
                 distinguished_name: argv.user,
-                uid: !argv.user && argv.uid,
-                gid: !argv.user && argv.gid,
+                uid: argv.user ? undefined : argv.uid,
+                gid: argv.user ? undefined : argv.gid,
                 new_buckets_path: argv.new_buckets_path,
                 fs_backend: argv.fs_backend ? String(argv.fs_backend) : config.NSFS_NC_STORAGE_BACKEND
             }
@@ -456,6 +472,7 @@ async function fetch_account_data(argv, from_file) {
             uid: data.nsfs_account_config.uid && Number(data.nsfs_account_config.uid),
             gid: data.nsfs_account_config.gid && Number(data.nsfs_account_config.gid),
             new_buckets_path: data.nsfs_account_config.new_buckets_path,
+            // fs_backend deletion specified with empty string '' (but it is not part of the schema)
             fs_backend: data.nsfs_account_config.fs_backend || undefined
         },
         allow_bucket_creation: !is_undefined(data.nsfs_account_config.new_buckets_path),
@@ -503,6 +520,10 @@ async function add_account(data) {
     }
 
     data = JSON.stringify(data);
+    // We take an object that was stringify
+    // (it unwraps ths sensitive strings, creation_date to string and removes undefined parameters)
+    // for validating against the schema we need an object, hence we parse it back to object
+    nsfs_schema_utils.validate_account_schema(JSON.parse(data));
     await native_fs_utils.create_config_file(fs_context, accounts_dir_path, account_config_path, data);
     await native_fs_utils._create_path(access_keys_dir_path, fs_context, config.BASE_MODE_CONFIG_DIR);
     await nb_native().fs.symlink(fs_context, account_config_path, account_config_access_key_path);
@@ -522,6 +543,10 @@ async function update_account(data) {
     if (!update_name && !update_access_key) {
         const account_config_path = get_config_file_path(accounts_dir_path, data.name);
         data = JSON.stringify(data);
+        // We take an object that was stringify
+        // (it unwraps ths sensitive strings, creation_date to string and removes undefined parameters)
+        // for validating against the schema we need an object, hence we parse it back to object
+        nsfs_schema_utils.validate_account_schema(JSON.parse(data));
         await native_fs_utils.update_config_file(fs_context, accounts_dir_path, account_config_path, data);
         write_stdout_response(ManageCLIResponse.AccountUpdated, data);
         return;
@@ -540,6 +565,10 @@ async function update_account(data) {
         throw_cli_error(err_code);
     }
     data = JSON.stringify(_.omit(data, ['new_name', 'new_access_key']));
+    // We take an object that was stringify
+    // (it unwraps ths sensitive strings, creation_date to string and removes undefined parameters)
+    // for validating against the schema we need an object, hence we parse it back to object
+    nsfs_schema_utils.validate_account_schema(JSON.parse(data));
     if (update_name) {
         await native_fs_utils.create_config_file(fs_context, accounts_dir_path, new_account_config_path, data);
         await native_fs_utils.delete_config_file(fs_context, accounts_dir_path, cur_account_config_path);

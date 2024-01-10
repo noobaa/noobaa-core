@@ -227,7 +227,7 @@ async function fetch_bucket_data(argv, from_file) {
             bucket_owner: argv.email,
             wide: argv.wide,
             creation_date: action === ACTIONS.ADD ? new Date().toISOString() : undefined,
-            tag: action === ACTIONS.ADD ? '' : undefined,
+            tag: undefined, // if we would add the option to tag a bucket using CLI, this should be changed
             versioning: action === ACTIONS.ADD ? 'DISABLED' : undefined,
             path: argv.path,
             should_create_underlying_storage: action === ACTIONS.ADD ? false : undefined,

@@ -24,7 +24,7 @@ module.exports = {
             type: 'string',
         },
         tag: {
-            type: 'string',
+            $ref: 'common_api#/definitions/tagging',
         },
         versioning: {
             $ref: 'common_api#/definitions/versioning',
@@ -43,6 +43,12 @@ module.exports = {
         },
         s3_policy: {
             $ref: 'common_api#/definitions/bucket_policy',
+        },
+        encryption: {
+            $ref: 'common_api#/definitions/bucket_encryption',
+        },
+        website: {
+            $ref: 'common_api#/definitions/bucket_website',
         }
     }
 };

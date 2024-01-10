@@ -70,6 +70,7 @@ mocha.describe('manage_nsfs cli', function() {
         const bucket1_policy = test_utils.generate_s3_policy('*', name, ['s3:*']).policy;
         const invalid_bucket_policy = test_utils.generate_s3_policy('invalid_account', name, ['s3:*']).policy;
         const empty_bucket_policy = '';
+        let add_res;
 
         const schema_dir = 'buckets';
         let bucket_options = { config_root, name, owner_email, bucket_path };
@@ -98,8 +99,8 @@ mocha.describe('manage_nsfs cli', function() {
 
         mocha.it('cli bucket create', async function() {
             const action = nc_nsfs_manage_actions.ADD;
-            const bucket_status = await exec_manage_cli(type, action, bucket_options);
-            assert_response(action, type, bucket_status, bucket_options);
+            add_res = await exec_manage_cli(type, action, bucket_options);
+            assert_response(action, type, add_res, bucket_options);
             const bucket = await read_config_file(config_root, schema_dir, name);
             assert_bucket(bucket, bucket_options);
             await assert_config_file_permissions(config_root, schema_dir, name);
@@ -170,11 +171,12 @@ mocha.describe('manage_nsfs cli', function() {
         mocha.it('cli bucket update owner_email', async function() {
             const action = nc_nsfs_manage_actions.UPDATE;
             const update_options = { config_root, owner_email: 'user2@noobaa.io', name };
-            await exec_manage_cli(type, action, update_options);
+            const update_res = await exec_manage_cli(type, action, update_options);
             bucket_options = { ...bucket_options, ...update_options };
             const bucket = await read_config_file(config_root, schema_dir, name);
             assert_bucket(bucket, bucket_options);
             await assert_config_file_permissions(config_root, schema_dir, name);
+            assert.equal(JSON.parse(update_res).response.reply.creation_date, JSON.parse(add_res).response.reply.creation_date);
         });
 
         mocha.it('cli bucket update invalid bucket policy - should fail', async function() {
@@ -342,13 +344,14 @@ mocha.describe('manage_nsfs cli', function() {
         const access_keys_schema_dir = 'access_keys';
         let updating_options = account_options;
         let compare_details; // we will use it for update account and compare the results
+        let add_res;
 
         mocha.it('cli account create', async function() {
             const action = nc_nsfs_manage_actions.ADD;
             await fs_utils.create_fresh_path(new_buckets_path);
             await fs_utils.file_must_exist(new_buckets_path);
-            const res = await exec_manage_cli(type, action, account_options);
-            assert_response(action, type, res, account_options);
+            add_res = await exec_manage_cli(type, action, account_options);
+            assert_response(action, type, add_res, account_options);
             const account_symlink = await read_config_file(config_root, access_keys_schema_dir, access_key, true);
             assert_account(account_symlink, account_options);
             const account = await read_config_file(config_root, accounts_schema_dir, name);
@@ -462,6 +465,7 @@ mocha.describe('manage_nsfs cli', function() {
             assert_account(account_symlink, account_options);
             const account = await read_config_file(config_root, accounts_schema_dir, name);
             assert_account(account, account_options);
+            assert.equal(JSON.parse(update_response).response.reply.creation_date, JSON.parse(add_res).response.reply.creation_date);
         });
 
         mocha.it('cli account delete by name', async function() {

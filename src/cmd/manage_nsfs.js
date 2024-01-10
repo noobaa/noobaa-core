@@ -411,7 +411,7 @@ async function fetch_account_data(argv, from_file) {
     }
     if (action !== ACTIONS.LIST && action !== ACTIONS.STATUS) _validate_access_keys(argv);
     if (action === ACTIONS.ADD || action === ACTIONS.STATUS) {
-        const regenerate = action === ACTIONS.ADD
+        const regenerate = action === ACTIONS.ADD;
         access_keys = set_access_keys(argv, regenerate);
     } else if (action === ACTIONS.UPDATE) {
         access_keys = set_access_keys(argv, Boolean(argv.regenerate));

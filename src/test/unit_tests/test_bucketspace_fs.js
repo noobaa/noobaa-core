@@ -161,7 +161,7 @@ function make_invalid_dummy_object_sdk() {
                 new_buckets_path: new_buckets_path,
             }
         },
-    }
+    };
 }
 
 mocha.describe('bucketspace_fs', function() {
@@ -262,7 +262,7 @@ mocha.describe('bucketspace_fs', function() {
             try {
                 const test_bucket_not_allowed = 'bucket4';
                 const param = { name: test_bucket_not_allowed};
-                const local_object_sdk = make_invalid_dummy_object_sdk()
+                const local_object_sdk = make_invalid_dummy_object_sdk();
                 await bucketspace_fs.create_bucket(param, local_object_sdk);
                 assert.fail('should have failed with UNAUTHORIZED bucket creation');
             } catch (err) {
@@ -326,7 +326,7 @@ mocha.describe('bucketspace_fs', function() {
                 });
             try {
                 await bucketspace_fs.delete_bucket(param, dummy_object_sdk);
-                assert.fail('should have failed with NOT EMPTY')
+                assert.fail('should have failed with NOT EMPTY');
             } catch (err) {
                 assert.strictEqual(err.rpc_code, 'NOT_EMPTY');
                 assert.equal(err.message, 'underlying directory has files in it');

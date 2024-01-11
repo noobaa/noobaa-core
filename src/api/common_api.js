@@ -109,6 +109,11 @@ module.exports = {
             }
         },
 
+        versioning: {
+            type: 'string',
+            enum: ['DISABLED', 'SUSPENDED', 'ENABLED']
+        },
+
         assume_role_policy: {
             type: 'object',
             required: ['statement'],

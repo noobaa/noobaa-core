@@ -12,9 +12,7 @@ const path = require('path');
 const assert = require('assert');
 const _ = require('lodash');
 const util = require('util');
-const { default: Ajv } = require('ajv');
-const nsfs_config_schema = require('./src/server/object_services/schemas/nsfs_config_schema');
-const ajv = new Ajv({ verbose: true, allErrors: true });
+const nsfs_schema_utils = require('./src/manage_nsfs/nsfs_schema_utils');
 
 /////////////////////////
 // CONTAINER RESOURCES //
@@ -878,8 +876,7 @@ function load_nsfs_nc_config() {
         }
         const config_path = path.join(config.NSFS_NC_CONF_DIR, 'config.json');
         const config_data = require(config_path);
-        const valid = ajv.validate(nsfs_config_schema, config_data);
-        if (!valid) throw new Error('INVALID_SCHEMA' + ajv.errors[0]?.message);
+        nsfs_schema_utils.validate_nsfs_config_schema(config_data);
 
         const shared_config = _.omit(config_data, 'host_customization');
         const node_name = os.hostname();

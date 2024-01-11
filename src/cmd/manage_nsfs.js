@@ -226,11 +226,11 @@ async function fetch_bucket_data(argv, from_file) {
             system_owner: argv.email,
             bucket_owner: argv.email,
             wide: argv.wide,
-            creation_date: new Date().toISOString(),
-            tag: '',
-            versioning: 'DISABLED',
+            creation_date: action === ACTIONS.ADD ? new Date().toISOString() : undefined,
+            tag: action === ACTIONS.ADD ? '' : undefined,
+            versioning: action === ACTIONS.ADD ? 'DISABLED' : undefined,
             path: argv.path,
-            should_create_underlying_storage: false,
+            should_create_underlying_storage: action === ACTIONS.ADD ? false : undefined,
             new_name: argv.new_name,
             fs_backend: argv.fs_backend ? String(argv.fs_backend) : config.NSFS_NC_STORAGE_BACKEND
         };
@@ -439,7 +439,7 @@ async function fetch_account_data(argv, from_file) {
         data = _.omitBy({
             name: argv.name,
             email: argv.email,
-            creation_date: new Date().toISOString(),
+            creation_date: action === ACTIONS.ADD ? new Date().toISOString() : undefined,
             wide: argv.wide,
             new_name: argv.new_name,
             new_access_key,

@@ -27,10 +27,7 @@ module.exports = {
             type: 'string',
         },
         versioning: {
-            type: 'string',
-            enum: ['DISABLED', 'SUSPENDED', 'ENABLED']
-            // GAP would like to use $ref: 'bucket_api#/definitions/versioning'
-            // but currently it creates an error Error: reference "bucket_api" resolves to more than one schema
+            $ref: 'common_api#/definitions/versioning',
         },
         path: {
             type: 'string',

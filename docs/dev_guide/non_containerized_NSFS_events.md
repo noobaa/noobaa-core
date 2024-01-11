@@ -12,27 +12,35 @@ This document will list all the possible Noobaa non-containerized NSFS events an
 #### Resolutions
 - Check Noobaa resource utilization.
 
-### 2. noobaa_gpfslib_missing
+### 2. noobaa_fork_exited
+#### Reasons
+- One of the forks got an unrecoverable error and exited.
+- High Noobaa resource utilization.
+
+#### Resolutions
+- Check Noobaa resource utilization.
+
+### 3. noobaa_gpfslib_missing
 arguments: `gpfs_dl_path`
 #### Reasons
 - Missing gpfslib in `GPFS_DL_PATH` path.
 #### Resolutions
 - Add gpfslib in `GPFS_DL_PATH` path.
 
-### 3. noobaa_started
+### 4. noobaa_started
 #### Reasons
 - Noobaa started without any issues.
 #### Resolutions
 - Nil
 
-### 4. noobaa_account_created
+### 5. noobaa_account_created
 arguments: `account_name`
 #### Reasons
 - Noobaa user account created.
 #### Resolutions
 - Nil
 
-### 5. noobaa_bucket_creation_failed
+### 6. noobaa_bucket_creation_failed
 arguments: `bucket_name`
 #### Reasons
 - User does not have permission to update `noobaa.conf.d` dir and its redirect path if present.
@@ -42,7 +50,7 @@ arguments: `bucket_name`
 - Check access rights for `noobaa.conf.d` dir and it's redirect path if present.
 - Check account `new_buckets_path` property and verify adequate permission present for this dir location. 
 
-### 6. noobaa_bucket_delete_failed
+### 7. noobaa_bucket_delete_failed
 arguments: `bucket_name`, `bucket_path`
 #### Reasons
 - User does not have permission to delete the bucket config file from `noobaa.conf.d` dir and its redirect path if present.
@@ -54,7 +62,7 @@ arguments: `bucket_name`, `bucket_path`
 - Check account `new_buckets_path` property and verify adequate permission present for this dir location. 
 - Make sure both the bucket config field and underlying storage dir are present.
 
-### 7. noobaa_bucket_not_found
+### 8. noobaa_bucket_not_found
 arguments: `bucket_name`
 #### Reasons
 - Bucket config file in config_root path is missing.
@@ -65,7 +73,7 @@ arguments: `bucket_name`
 - Verify bucket config JSON schema.
 - Check for Bucket's underlying storage directory present with permission.
 
-### 8. noobaa_object_get_failed
+### 9. noobaa_object_get_failed
 arguments : `bucket_path`, `object_name`
 #### Reasons
 - Noobaa bucket path is missing.
@@ -73,7 +81,7 @@ arguments : `bucket_path`, `object_name`
 #### Resolutions
 - Verify the bucket path.
 
-### 9. noobaa_object_uplaod_failed
+### 10. noobaa_object_uplaod_failed
 arguments : `bucket_path`, `object_name`
 #### Reasons
 - Bucket path is outside the bucket boundaries.

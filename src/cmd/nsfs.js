@@ -259,6 +259,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
         const https_port_sts = Number(argv.https_port_sts) || config.ENDPOINT_SSL_STS_PORT;
         const metrics_port = Number(argv.metrics_port) || config.EP_METRICS_SERVER_PORT;
         const forks = Number(argv.forks) || config.ENDPOINT_FORKS;
+        if (forks > 0) process.env.ENDPOINT_FORKS = forks.toString(); // used for argv.forks to take effect
         const uid = Number(argv.uid) || process.getuid();
         const gid = Number(argv.gid) || process.getgid();
         const access_key = argv.access_key && new SensitiveString(String(argv.access_key));

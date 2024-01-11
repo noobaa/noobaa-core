@@ -72,6 +72,11 @@ ManageCLIError.MissingConfigDirPath = Object.freeze({
     message: 'Config dir path should not be empty',
     http_code: 400,
 });
+ManageCLIError.InvalidSchema = Object.freeze({
+    code: 'InvalidSchema',
+    message: 'Schema invalid, please use required properties',
+    http_code: 400,
+});
 
 //////////////////////////////
 //// IP WHITE LIST ERRORS ////
@@ -113,7 +118,7 @@ ManageCLIError.NoSuchAccountAccessKey = Object.freeze({
 
 ManageCLIError.NoSuchAccountName = Object.freeze({
     code: 'NoSuchAccountName',
-    message: 'Account does not exist - access key',
+    message: 'Account does not exist - name',
     http_code: 404,
 });
 
@@ -283,6 +288,12 @@ ManageCLIError.MalformedPolicy = Object.freeze({
 });
 
 
+ManageCLIError.BucketNotEmpty = Object.freeze({
+    code: 'BucketNotEmpty',
+    message: 'The bucket you tried to delete is not empty. You must delete all versions in the bucket',
+    http_code: 400,
+});
+
 ManageCLIError.FS_ERRORS_TO_MANAGE = Object.freeze({
     EACCES: ManageCLIError.AccessDenied,
     EPERM: ManageCLIError.AccessDenied,
@@ -290,9 +301,13 @@ ManageCLIError.FS_ERRORS_TO_MANAGE = Object.freeze({
     NOT_IMPLEMENTED: ManageCLIError.NotImplemented,
     INTERNAL_ERROR: ManageCLIError.InternalError,
     // ENOENT: ManageCLIError.NoSuchBucket,
-    // NOT_EMPTY: ManageCLIError.BucketNotEmpty,
-    // MALFORMED_POLICY: ManageCLIError.MalformedPolicy,
+    NOT_EMPTY: ManageCLIError.BucketNotEmpty,
+    MALFORMED_POLICY: ManageCLIError.MalformedPolicy,
     // EEXIST: ManageCLIError.BucketAlreadyExists,
+});
+
+ManageCLIError.RPC_ERROR_TO_MANAGE = Object.freeze({
+    INVALID_SCHEMA: ManageCLIError.InvalidSchema,
 });
 
 exports.ManageCLIError = ManageCLIError;

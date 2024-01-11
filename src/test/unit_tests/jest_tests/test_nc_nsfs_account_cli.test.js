@@ -30,7 +30,8 @@ const nc_nsfs_manage_actions = {
     ADD: 'add',
     UPDATE: 'update',
     LIST: 'list',
-    DELETE: 'delete'
+    DELETE: 'delete',
+    STATUS: 'status',
 };
 
 describe('manage nsfs cli account flow', () => {
@@ -192,7 +193,7 @@ describe('manage nsfs cli account flow', () => {
 
         it('cli account update name by name', async function() {
             const { type, name } = defaults;
-            const new_name = 'account1_new_name'
+            const new_name = 'account1_new_name';
             const account_options = { config_root, name, new_name };
             const action = nc_nsfs_manage_actions.UPDATE;
             account_options.new_name = 'account1_new_name';
@@ -208,7 +209,7 @@ describe('manage nsfs cli account flow', () => {
 
         it('cli account update access key, secret_key & new_name by name', async function() {
             const { type, name } = defaults;
-            const new_name = 'account1_new_name'
+            const new_name = 'account1_new_name';
             const access_key = 'GIGiFAnjaaE7OKD5N7hB';
             const secret_key = 'U3AYaMpU3zRDcRFWmvzgQr9MoHIAsD+3oEXAMPLE';
             const account_options = { config_root, name, new_name, access_key, secret_key };
@@ -345,6 +346,12 @@ describe('manage nsfs cli account flow', () => {
             const res = await exec_manage_cli('account', action, account_options);
             expect(JSON.parse(res).response.reply.map(item => item.name))
                 .toEqual(expect.arrayContaining(['account3']));
+        });
+
+        it('cli account status without name and access_key', async function() {
+            const action = nc_nsfs_manage_actions.STATUS;
+                const res = await exec_manage_cli('account', action, { config_root });
+                expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.MissingIdentifier.code);
         });
     });
 });

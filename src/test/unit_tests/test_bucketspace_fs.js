@@ -19,6 +19,7 @@ const nb_native = require('../../util/nb_native');
 
 const MAC_PLATFORM = 'darwin';
 const test_bucket = 'bucket1';
+const test_not_empty_bucketbucket = 'notemptybucket';
 const test_bucket_invalid = 'bucket_invalid';
 let tmp_fs_path = '/tmp/test_bucketspace_fs';
 if (process.platform === MAC_PLATFORM) {
@@ -47,10 +48,11 @@ const DEFAULT_FS_CONFIG = {
     warn_threshold_ms: 100,
 };
 
+// since the account in NS NSFS should be valid to the nsfs_account_schema
+// had to remove additional properties: has_s3_access: 'true' and nsfs_only: 'true'
 const account_user1 = {
     name: 'user1',
     email: 'user1@noobaa.io',
-    has_s3_access: 'true',
     allow_bucket_creation: true,
     access_keys: [{
         access_key: 'a-abcdefghijklmn123456',
@@ -60,7 +62,6 @@ const account_user1 = {
         uid: 0,
         gid: 0,
         new_buckets_path: new_buckets_path_user1,
-        nsfs_only: 'true'
     },
     creation_date: '2023-10-30T04:46:33.815Z',
 };
@@ -68,7 +69,6 @@ const account_user1 = {
 const account_user2 = {
     name: 'user2',
     email: 'user2@noobaa.io',
-    has_s3_access: 'true',
     allow_bucket_creation: true,
     access_keys: [{
         access_key: 'a-abcdefghijklmn123457',
@@ -77,7 +77,6 @@ const account_user2 = {
     nsfs_account_config: {
         distinguished_name: "root",
         new_buckets_path: new_buckets_path_user2,
-        nsfs_only: 'true'
     },
     creation_date: '2023-10-30T04:46:33.815Z',
 };
@@ -85,7 +84,6 @@ const account_user2 = {
 const account_user3 = {
     name: 'user3',
     email: 'user3@noobaa.io',
-    has_s3_access: 'true',
     allow_bucket_creation: true,
     access_keys: [{
         access_key: 'a-abcdefghijklmn123458',
@@ -94,7 +92,6 @@ const account_user3 = {
     nsfs_account_config: {
         distinguished_name: os.userInfo().username,
         new_buckets_path: new_buckets_path_user2,
-        nsfs_only: 'true'
     },
     creation_date: '2023-10-30T04:46:33.815Z',
 };
@@ -160,7 +157,7 @@ function make_invalid_dummy_object_sdk() {
                 new_buckets_path: new_buckets_path,
             }
         },
-    }
+    };
 }
 
 mocha.describe('bucketspace_fs', function() {
@@ -261,7 +258,7 @@ mocha.describe('bucketspace_fs', function() {
             try {
                 const test_bucket_not_allowed = 'bucket4';
                 const param = { name: test_bucket_not_allowed};
-                const local_object_sdk = make_invalid_dummy_object_sdk()
+                const local_object_sdk = make_invalid_dummy_object_sdk();
                 await bucketspace_fs.create_bucket(param, local_object_sdk);
                 assert.fail('should have failed with UNAUTHORIZED bucket creation');
             } catch (err) {
@@ -313,6 +310,22 @@ mocha.describe('bucketspace_fs', function() {
                 await bucketspace_fs.delete_bucket(param, dummy_object_sdk);
             } catch (err) {
                 assert.ok(err.code === 'ENOENT');
+            }
+        });
+        mocha.it('delete_bucket for non empty buckets', async function() {
+            const param = { name: test_not_empty_bucketbucket};
+            await create_bucket(param.name);
+            const bucket_file_path = path.join(new_buckets_path, param.name, 'dummy.txt');
+            await nb_native().fs.writeFile(ACCOUNT_FS_CONFIG, bucket_file_path,
+                Buffer.from(JSON.stringify("data")), {
+                    mode: config.BASE_MODE_FILE,
+                });
+            try {
+                await bucketspace_fs.delete_bucket(param, dummy_object_sdk);
+                assert.fail('should have failed with NOT EMPTY');
+            } catch (err) {
+                assert.strictEqual(err.rpc_code, 'NOT_EMPTY');
+                assert.equal(err.message, 'underlying directory has files in it');
             }
         });
     });

@@ -65,7 +65,7 @@ The following S3 endpoint ports can be customized:
 
 **Type -** number
 
-**Default -** ENDPOINT_PORT=6001, ENDPOINT_SSL_PORT=6443, ENDPOINT_SSL_STS_PORT=7443, EP_METRICS_SERVER_PORT=-1
+**Default -** ENDPOINT_PORT=6001, ENDPOINT_SSL_PORT=6443, ENDPOINT_SSL_STS_PORT=7443, EP_METRICS_SERVER_PORT=7004
 
 **Steps -**
 ```

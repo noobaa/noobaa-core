@@ -273,6 +273,23 @@ describe('schema validation NC NSFS account', () => {
             assert_validation(account_data, reason, message);
         });
 
+        it('account without _id', () => {
+            const account_data = get_account_data();
+            delete account_data._id;
+            const reason = 'Test should have failed because of missing required property ' +
+                '_id';
+            const message = "must have required property '_id'";
+            assert_validation(account_data, reason, message);
+        });
+
+        it('account with undefined _id', () => {
+            const account_data = get_account_data();
+            account_data._id = undefined;
+            const reason = 'Test should have failed because of missing required property ' +
+                '_id';
+            const message = "must have required property '_id'";
+            assert_validation(account_data, reason, message);
+        });
     });
 
     describe('account with wrong types', () => {
@@ -312,7 +329,6 @@ describe('schema validation NC NSFS account', () => {
             const message = 'must be equal to one of the allowed values';
             assert_validation(account_data, reason, message);
         });
-
     });
 
 });
@@ -320,6 +336,7 @@ describe('schema validation NC NSFS account', () => {
 
 function get_account_data() {
     const account_name = 'account1';
+    const id = '65a62e22ceae5e5f1a758aa9';
     const account_email = 'account1@noobaa.io';
     const access_key = 'GIGiFAnjaaE7OKD5N7hA';
     const secret_key = 'U2AYaMpU3zRDcRFWmvzgQr9MoHIAsD+3oEXAMPLE';
@@ -330,6 +347,7 @@ function get_account_data() {
     };
 
     const account_data = {
+        _id: id,
         name: account_name,
         email: account_email,
         access_keys: [{

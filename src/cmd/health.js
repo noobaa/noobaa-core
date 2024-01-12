@@ -92,7 +92,7 @@ const fork_response_code = {
 const health_errors_tyes = {
   PERSISTENT: 'PERSISTENT',
   TEMPORARY: 'TEMPORARY',
-}
+};
 
 //suppress aws sdk related commands.
 process.env.AWS_SDK_JS_SUPPRESS_MAINTENANCE_MODE_MESSAGE = '1';
@@ -180,7 +180,7 @@ class NSFSHealth {
           }
         }
       });
-    } catch(err) {
+    } catch (err) {
       console.log('Error while pinging endpoint host :' + HOSTNAME + ', port ' + this.https_port, err);
       return {
         response: fork_response_code.NOT_RUNNING.response_code,

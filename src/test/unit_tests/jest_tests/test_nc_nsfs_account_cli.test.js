@@ -45,6 +45,7 @@ describe('manage nsfs cli account flow', () => {
         const config_root = path.join(tmp_fs_path, 'config_root_manage_nsfs');
         const root_path = path.join(tmp_fs_path, 'root_path_manage_nsfs/');
         const defaults = {
+            _id: 'account1',
             type: 'account',
             name: 'account1',
             email: 'account1@noobaa.io',
@@ -151,6 +152,7 @@ describe('manage nsfs cli account flow', () => {
         const config_root = path.join(tmp_fs_path, 'config_root_manage_nsfs1');
         const root_path = path.join(tmp_fs_path, 'root_path_manage_nsfs1/');
         const defaults = {
+            _id: 'account1',
             type: 'account',
             name: 'account1',
             email: 'account1@noobaa.io',
@@ -255,6 +257,7 @@ describe('manage nsfs cli account flow', () => {
         const config_root = path.join(tmp_fs_path, 'config_root_manage_nsfs1');
         const root_path = path.join(tmp_fs_path, 'root_path_manage_nsfs1/');
         const defaults = [{
+            _id: 'account1',
             type: 'account',
             name: 'account1',
             email: 'account1@noobaa.io',
@@ -264,6 +267,7 @@ describe('manage nsfs cli account flow', () => {
             access_key: 'GIGiFAnjaaE7OKD5N7hA',
             secret_key: 'U2AYaMpU3zRDcRFWmvzgQr9MoHIAsD+3oEXAMPLE',
         }, {
+            _id: 'account1',
             type: 'account',
             name: 'account2',
             email: 'account2@noobaa.io',
@@ -273,6 +277,7 @@ describe('manage nsfs cli account flow', () => {
             access_key: 'BIBiFAnjaaE7OKD5N7hA',
             secret_key: 'BIBYaMpU3zRDcRFWmvzgQr9MoHIAsD+3oEXAMPLE',
         }, {
+            _id: 'account1',
             type: 'account',
             name: 'account3',
             email: 'account3@noobaa.io',

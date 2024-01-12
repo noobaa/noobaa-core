@@ -5,6 +5,7 @@ module.exports = {
     $id: 'account_schema',
     type: 'object',
     required: [
+        '_id',
         'name',
         'email',
         'access_keys',
@@ -13,6 +14,9 @@ module.exports = {
         'allow_bucket_creation',
     ],
     properties: {
+        _id: {
+            type: 'string',
+        },
         name: {
             type: 'string'
         },

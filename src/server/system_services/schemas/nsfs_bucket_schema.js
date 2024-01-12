@@ -5,6 +5,7 @@ module.exports = {
     $id: 'bucket_schema',
     type: 'object',
     required: [
+        '_id',
         'name',
         'system_owner',
         'bucket_owner',
@@ -14,6 +15,12 @@ module.exports = {
         'creation_date',
     ],
     properties: {
+        _id: {
+            type: 'string',
+        },
+        owner_account: {
+            type: 'string',
+        },
         name: {
             type: 'string',
         },

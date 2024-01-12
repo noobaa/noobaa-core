@@ -452,7 +452,13 @@ function validate_bucket_creation(params) {
     }
 }
 
-async function config_file_exists(fs_context, config_path, use_lstat) {
+/**
+ * Validate the path param exists or not
+ * @param {nb.NativeFSContext} fs_context 
+ * @param {string} config_path
+ * @param {boolean} use_lstat
+ */
+async function is_path_exists(fs_context, config_path, use_lstat=false) {
     try {
         await nb_native().fs.stat(fs_context, config_path, { use_lstat });
     } catch (err) {
@@ -460,6 +466,31 @@ async function config_file_exists(fs_context, config_path, use_lstat) {
         throw err;
     }
     return true;
+}
+
+/**
+ * delete bucket specific temp folder from bucket storage path, config.NSFS_TEMP_DIR_NAME_<bucket_id>
+ * @param {string} dir 
+ * @param {nb.NativeFSContext} fs_context
+ * @param {boolean} is_temp
+ */
+async function folder_delete(dir, fs_context, is_temp = false) {
+    const exists = await is_path_exists(fs_context, dir);
+    if (!exists && is_temp) {
+        return;
+    }
+    const entries = await nb_native().fs.readdir(fs_context, dir);
+    const results = await Promise.all(entries.map(entry => {
+        const fullPath = path.join(dir, entry.name);
+        const task = isDirectory(entry) ? folder_delete(fullPath, fs_context) :
+            nb_native().fs.unlink(fs_context, fullPath);
+        return task.catch(error => ({ error }));
+    }));
+    results.forEach(result => {
+        // Ignore missing files/directories; bail on other errors
+        if (result && result.error && result.error.code !== 'ENOENT') throw result.error;
+    });
+    await nb_native().fs.rmdir(fs_context, dir);
 }
 
 exports.get_umasked_mode = get_umasked_mode;
@@ -490,4 +521,5 @@ exports.update_config_file = update_config_file;
 exports.isDirectory = isDirectory;
 exports.get_process_fs_context = get_process_fs_context;
 exports.validate_bucket_creation = validate_bucket_creation;
-exports.config_file_exists = config_file_exists;
+exports.is_path_exists = is_path_exists;
+exports.folder_delete = folder_delete;

@@ -237,7 +237,7 @@ mocha.describe('nsfs nc health', function() {
             Health.get_endpoint_response.restore();
             Health.all_account_details = true;
             Health.all_bucket_details = true;
-            Health.config_root =  config_root_invalid;
+            Health.config_root = config_root_invalid;
             const get_service_state = sinon.stub(Health, "get_service_state");
             get_service_state.onFirstCall().returns(Promise.resolve({ service_status: 'active', pid: 100 }))
                 .onSecondCall().returns(Promise.resolve({ service_status: 'active', pid: 200 }));

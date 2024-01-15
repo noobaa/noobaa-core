@@ -373,14 +373,12 @@ mocha.describe('bucketspace_fs', function() {
     mocha.describe('bucket website operations', function() {
         mocha.it('put_bucket_website ', async function() {
             const website = {
-                website_configuration: [
-                    {
-                        redirect_all_requests_to: {
-                            host_name: 's3.noobaa.io',
-                            protocol: 'HTTPS',
-                        }
+                website_configuration: {
+                    redirect_all_requests_to: {
+                        host_name: 's3.noobaa.io',
+                        protocol: 'HTTPS',
                     }
-                ]
+                }
             };
             const param = {name: test_bucket, website: website};
             await bucketspace_fs.put_bucket_website(param);
@@ -411,6 +409,7 @@ mocha.describe('bucketspace_fs', function() {
             const param = {name: test_bucket, policy: policy};
             await bucketspace_fs.put_bucket_policy(param);
             const policy_res = await bucketspace_fs.get_bucket_policy(param);
+            principle_unwrap(policy);
             assert.deepEqual(policy_res.policy, policy);
             const info_res = await bucketspace_fs.read_bucket_sdk_info(param);
             principle_unwrap(info_res.s3_policy);
@@ -429,7 +428,7 @@ mocha.describe('bucketspace_fs', function() {
                     Statement: [{
                         Sid: 'id-22',
                         Effect: 'Allow',
-                        Principal: { AWS: 'user1' },
+                        Principal: { AWS: ['user1'] },
                         Action: ['s3:*'],
                         Resource: ['arn:aws:s3:::*']
                         }
@@ -438,12 +437,10 @@ mocha.describe('bucketspace_fs', function() {
             const param = {name: test_bucket, policy: policy};
             await bucketspace_fs.put_bucket_policy(param);
             const bucket_policy = await bucketspace_fs.get_bucket_policy(param);
+            principle_unwrap(policy);
             assert.deepEqual(bucket_policy.policy, policy);
             const info_res = await bucketspace_fs.read_bucket_sdk_info(param);
             principle_unwrap(info_res.s3_policy);
-            // on this case s3_policy principal will be converted to  Principal: { AWS: ['user1'] } on runtime
-            // @ts-ignore
-            policy.Statement[0].Principal.AWS = [policy.Statement[0].Principal.AWS];
             assert.deepEqual(info_res.s3_policy, policy);
         });
 
@@ -484,6 +481,7 @@ mocha.describe('bucketspace_fs', function() {
             const param = {name: test_bucket, policy: policy};
             await bucketspace_fs.put_bucket_policy(param);
             const bucket_policy = await bucketspace_fs.get_bucket_policy(param);
+            principle_unwrap(policy);
             assert.deepEqual(bucket_policy.policy, policy);
             const info_res = await bucketspace_fs.read_bucket_sdk_info(param);
             principle_unwrap(info_res.s3_policy);
@@ -505,6 +503,7 @@ mocha.describe('bucketspace_fs', function() {
             const param = {name: test_bucket, policy: policy};
             await bucketspace_fs.put_bucket_policy(param);
             const bucket_policy = await bucketspace_fs.get_bucket_policy(param);
+            principle_unwrap(policy);
             assert.deepEqual(bucket_policy.policy, policy);
             const info_res = await bucketspace_fs.read_bucket_sdk_info(param);
             principle_unwrap(info_res.s3_policy);

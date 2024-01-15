@@ -815,9 +815,13 @@ function assert_account(account, account_options, skip_secrets) {
     assert.equal(account.name, account_options.name);
     if (account_options.distinguished_name) {
         assert.equal(account.nsfs_account_config.distinguished_name, account_options.distinguished_name);
+        assert.equal(account.nsfs_account_config.uid, undefined);
+        assert.equal(account.nsfs_account_config.gid, undefined);
     } else {
         assert.equal(account.nsfs_account_config.uid, account_options.uid);
         assert.equal(account.nsfs_account_config.gid, account_options.gid);
+        assert.equal(account.nsfs_account_config.distinguished_name, undefined);
+
     }
     assert.equal(account.nsfs_account_config.new_buckets_path, account_options.new_buckets_path);
     assert.equal(account.nsfs_account_config.fs_backend, account_options.fs_backend === '' ? undefined : account_options.fs_backend);

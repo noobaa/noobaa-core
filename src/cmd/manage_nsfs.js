@@ -492,11 +492,14 @@ async function fetch_existing_account_data(target) {
         source = await get_config_data(account_path, true);
     } catch (err) {
         dbg.log1('NSFS Manage command: Could not find account', target, err);
-        if (is_undefined(target.name)) {
-            throw_cli_error(ManageCLIError.NoSuchAccountAccessKey, target.access_keys[0].access_key);
-        } else {
-            throw_cli_error(ManageCLIError.NoSuchAccountName, target.name);
+        if (err.code === 'ENOENT') {
+            if (is_undefined(target.name)) {
+                throw_cli_error(ManageCLIError.NoSuchAccountAccessKey, target.access_keys[0].access_key);
+            } else {
+                throw_cli_error(ManageCLIError.NoSuchAccountName, target.name);
+            }
         }
+        throw err;
     }
     const data = _.merge({}, source, target);
     return data;

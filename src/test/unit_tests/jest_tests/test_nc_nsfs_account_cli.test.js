@@ -12,6 +12,7 @@ const fs_utils = require('../../../util/fs_utils');
 const os_util = require('../../../util/os_utils');
 const nb_native = require('../../../util/nb_native');
 const ManageCLIError = require('../../../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
+const ManageCLIResponse = require('../../../manage_nsfs/manage_nsfs_cli_responses').ManageCLIResponse;
 
 const MAC_PLATFORM = 'darwin';
 let tmp_fs_path = '/tmp/test_bucketspace_fs';
@@ -34,8 +35,10 @@ const nc_nsfs_manage_actions = {
     STATUS: 'status',
 };
 
+// eslint-disable-next-line max-lines-per-function
 describe('manage nsfs cli account flow', () => {
     const accounts_schema_dir = 'accounts';
+    const buckets_schema_dir = 'buckets';
     const access_keys_schema_dir = 'access_keys';
 
     describe('cli create account', () => {
@@ -354,6 +357,86 @@ describe('manage nsfs cli account flow', () => {
                 expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.MissingIdentifier.code);
         });
     });
+
+    describe('cli delete account', () => {
+        const config_root = path.join(tmp_fs_path, 'config_root_manage_nsfs');
+        const root_path = path.join(tmp_fs_path, 'root_path_manage_nsfs/');
+        const defaults = {
+            type: 'account',
+            name: 'account11',
+            email: 'account11@noobaa.io',
+            new_buckets_path: `${root_path}new_buckets_path_user11/`,
+            uid: 1011,
+            gid: 1011,
+            access_key: 'GIGiFAnjaaE7OKD5N7h1',
+            secret_key: 'U2AYaMpU3zRDcRFWmvzgQr9MoHIAsD+31EXAMPLE',
+        };
+
+        beforeEach(async () => {
+            await P.all(_.map([accounts_schema_dir, access_keys_schema_dir, buckets_schema_dir], async dir =>
+                fs_utils.create_fresh_path(`${config_root}/${dir}`)));
+            await fs_utils.create_fresh_path(root_path);
+        });
+
+        beforeEach(async () => {
+            // cli create account
+            const action = nc_nsfs_manage_actions.ADD;
+            const { type, name, email, new_buckets_path, uid, gid } = defaults;
+            const account_options = { config_root, name, email, new_buckets_path, uid, gid };
+            await fs_utils.create_fresh_path(new_buckets_path);
+            await fs_utils.file_must_exist(new_buckets_path);
+            await exec_manage_cli(type, action, account_options);
+            const config_path = path.join(config_root, accounts_schema_dir, name + '.json');
+            await fs_utils.file_must_exist(config_path);
+        });
+
+        afterEach(async () => {
+            await fs_utils.folder_delete(`${config_root}`);
+            await fs_utils.folder_delete(`${root_path}`);
+        });
+
+        it('cli delete account (account that does not own any bucket)', async () => {
+            // cli create account - happens in the "beforeEach"
+
+            // cli delete account
+            const action = nc_nsfs_manage_actions.DELETE;
+            // @ts-ignore
+            const { type, name } = defaults;
+            const account_options = { config_root, name };
+            const res = await exec_manage_cli(type, action, account_options);
+            const res_json = JSON.parse(res.trim());
+            expect(res_json.response.code).toBe(ManageCLIResponse.AccountDeleted.code);
+            const config_path = path.join(config_root, accounts_schema_dir, name + '.json');
+            await fs_utils.file_must_not_exist(config_path);
+        });
+
+        it('cli delete account - should fail, account owns a bucket', async () => {
+            // cli create account - happens in the "beforeEach"
+
+            // cli create bucket
+            let type = 'bucket';
+            const bucket_name = 'bucket111';
+            let action = nc_nsfs_manage_actions.ADD;
+            const { email, new_buckets_path } = defaults;
+            const bucket_options = { config_root, path: new_buckets_path, name: bucket_name, email: email};
+            await exec_manage_cli(type, action, bucket_options);
+            let config_path = path.join(config_root, buckets_schema_dir, bucket_name + '.json');
+            await fs_utils.file_must_exist(config_path);
+
+            // cli delete account
+            type = 'account';
+            action = nc_nsfs_manage_actions.DELETE;
+            // @ts-ignore
+            const { name } = defaults;
+            const account_options = { config_root, name };
+            const res = await exec_manage_cli(type, action, account_options);
+            expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.AccountDeleteForbiddenHasBuckets.code);
+            config_path = path.join(config_root, accounts_schema_dir, name + '.json');
+            await fs_utils.file_must_exist(config_path);
+        });
+
+    });
+
 });
 
 /**

@@ -134,6 +134,13 @@ ManageCLIError.AccountNameAlreadyExists = Object.freeze({
     http_code: 409,
 });
 
+ManageCLIError.AccountDeleteForbiddenHasBuckets = Object.freeze({
+    code: 'AccountDeleteForbiddenHasBuckets',
+    message: 'Cannot delete account that is owner of buckets. ' +
+        'You must delete all buckets before deleting the account',
+    http_code: 403,
+});
+
 
 //////////////////////////////////
 //// ACCOUNT ARGUMENTS ERRORS ////

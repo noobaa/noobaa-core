@@ -452,9 +452,84 @@ NSFS management CLI command will create both account and bucket dir if it's miss
 
 ## NSFS Certificate
 
-Non containerized NSFS certificates/ directory location will be under the config_root path. The certificates/ directory should contain SSL files tls.key and tls.crt. System will use a cert from this dir to create a valid HTTPS connection. If cert is missing in this dir a self-signed SSL certificate will be generated. Make sure the path to certificates/ directory is valid before running nsfs command, If the path is invalid then cert flow will fail.
+Non containerized NSFS certificates/ directory location will be under the config_root path. <br />
+The certificates/ directory should contain SSL files tls.key and tls.crt. <br /> 
+System will use a cert from this dir to create a valid HTTPS connection. If cert is missing in this dir a self-signed SSL certificate will be generated. Make sure the path to certificates/ directory is valid before running nsfs command, If the path is invalid then cert flow will fail.
 
 Non containerized NSFS restrict insecure HTTP connections when `ALLOW_HTTP` is set to false in cofig.json. This is the default behaviour.
+
+### Setting Up Self signed SSL/TLS Certificates for Secure Communication Between S3 Client and NooBaa NSFS Service - 
+
+#### 1. Creating a SAN (Subject Alternative Name) Config File -
+`Important`: This step is needed only if S3 Client and NooBaa Service Running on different nodes.
+
+To accommodate S3 requests originating from a different node than the one running the NooBaa NSFS service, it is recommended to create a Subject Alternative Name (SAN) configuration file. <br />
+This file specifies the domain names or IP addresses that will be included in the SSL certificate.<br />
+The Common Name (CN) sets the primary domain for the certificate, and additional domains or IPs can be listed under subjectAltName.<br />
+
+Ensure to replace placeholders such as nsfs-domain-name-example.com and <nsfs-server-ip> with your actual domain and IP address.
+
+Example SAN Config File (san.cnf):
+```
+# san.cnf
+
+[req]
+req_extensions = req_ext
+distinguished_name = req_distinguished_name
+
+[req_distinguished_name]
+CN = localhost
+
+[req_ext]
+# The subjectAltName line directly specifies the domain names and IP addresses that the certificate should be valid for.
+# This ensures the SSL certificate matches the domain or IP used in your S3 command.
+
+# Example:
+# 'DNS:localhost' makes the certificate valid when accessing S3 storage via 'localhost'.
+# 'DNS:nsfs-domain-name-example.com' adds a specific domain to the certificate. Replace 'nsfs-domain-name-example.com' with your actual domain.
+# 'IP:<nsfs-server-ip>' includes an IP address. Replace '<nsfs-server-ip>' with the actual IP address of your S3 server.
+subjectAltName = DNS:localhost,DNS:nsfs-domain-name-example.com,IP:<nsfs-server-ip>
+```
+
+
+#### 2. Generating TLS Key, CSR, and CRT Files via OpenSSL -
+ The following process will generate the necessary TLS key (tls.key), certificate signing request (tls.csr), and SSL certificate (tls.crt) files for secure communication between the S3 client and the NooBaa service.
+ 
+* If S3 Client and NooBaa Service Running on the Same Node, run -
+
+```bash
+sudo openssl genpkey -algorithm RSA -out tls.key
+sudo openssl req -new -key tls.key -out tls.csr
+sudo openssl x509 -req -days 365 -in tls.csr -signkey tls.key -out tls.crt
+```
+* If S3 Client and NooBaa Service Running on Different Nodes, run -
+```
+$ sudo openssl genpkey -algorithm RSA -out tls.key
+$ sudo openssl req -new -key tls.key -out tls.csr -config san.cnf -subj "/CN=localhost"
+$ sudo openssl x509 -req -days 365 -in tls.csr -signkey tls.key -out tls.crt -extfile san.cnf -extensions req_ext
+```
+
+#### 3. Move tls.key and tls.crt under {config_dir_path}/cerfiticates -
+Note - The default config_dir is /etc/noobaa.conf.d/.
+
+```bash
+sudo mv tls.key {config_dir_path}/certificates/
+sudo mv tls.csr {config_dir_path}/certificates/
+```
+#### 4. Restart the NooBaa NSFS service - 
+```bash
+sudo systemctl restart noobaa_nsfs
+```
+#### 5. Create S3 CLI alias while including tls.crt at the s3 commands via AWS_CA_BUNDLE=/path/to/tls.crt - 
+* Make sure to replace credentials placeholders with their respective values, and the <endpoint> placeholder either with `localhost` or the domain name or IP of the node which is running the NSFS service.
+```bash
+alias s3_ssl='AWS_CA_BUNDLE=/path/to/tls.crt AWS_ACCESS_KEY_ID=add_your_access_key AWS_SECRET_ACCESS_KEY=add_your_secret_key aws --endpoint https://<endpoint>:6443 s3'
+```
+
+#### 6. Try running an s3 list buckets using the s3 alias - 
+```bash
+s3_ssl ls
+```
 
 ## Monitoring
 

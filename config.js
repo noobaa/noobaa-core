@@ -172,6 +172,8 @@ config.S3_CORS_EXPOSE_HEADERS = [
 ].join(',');
 config.STS_CORS_EXPOSE_HEADERS = 'ETag';
 
+config.DENY_UPLOAD_TO_STORAGE_CLASS_STANDARD = false;
+
 /////////////////////
 // SECRETS CONFIG  //
 /////////////////////

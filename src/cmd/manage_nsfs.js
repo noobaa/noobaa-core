@@ -185,6 +185,7 @@ function get_symlink_config_file_path(config_type_path, file_name) {
 
 async function add_bucket(data) {
     await validate_bucket_args(data, ACTIONS.ADD);
+    await verify_bucket_owner(data.bucket_owner.unwrap());
     const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
     const bucket_conf_path = get_config_file_path(buckets_dir_path, data.name);
     const exists = await native_fs_utils.config_file_exists(fs_context, bucket_conf_path);
@@ -197,6 +198,33 @@ async function add_bucket(data) {
     nsfs_schema_utils.validate_bucket_schema(JSON.parse(data_json));
     await native_fs_utils.create_config_file(fs_context, buckets_dir_path, bucket_conf_path, data_json);
     write_stdout_response(ManageCLIResponse.BucketCreated, data_json);
+}
+
+/** verify_bucket_owner will check if the bucket_owner has an account
+ * in case it does not find one, it would throw an error
+ * @param {string} bucket_owner
+ */
+async function verify_bucket_owner(bucket_owner) {
+    let is_bucket_owner_exist = false;
+    const show_secrets = false;
+    const fs_context = native_fs_utils.get_process_fs_context();
+    const entries = await nb_native().fs.readdir(fs_context, accounts_dir_path);
+    // Gap - should replace this implementation
+    // it keeps iterating even if we find that the bucket owner exist
+    await P.map_with_concurrency(10, entries, async entry => {
+        if (entry.name.endsWith('.json') && !is_bucket_owner_exist) {
+            const full_path = path.join(accounts_dir_path, entry.name);
+            const data = await get_config_data(full_path, show_secrets);
+            if (data.email === bucket_owner) {
+                is_bucket_owner_exist = true;
+            }
+        }
+    });
+
+    if (!is_bucket_owner_exist) {
+        const detail_msg = `bucket owner ${bucket_owner} does not exists`;
+        throw_cli_error(ManageCLIError.BucketSetForbiddenNoBucketOwner, detail_msg);
+    }
 }
 
 async function get_bucket_status(data) {
@@ -214,6 +242,7 @@ async function get_bucket_status(data) {
 
 async function update_bucket(data) {
     await validate_bucket_args(data, ACTIONS.UPDATE);
+    await verify_bucket_owner(data.bucket_owner.unwrap());
 
     const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
 
@@ -249,7 +278,6 @@ async function update_bucket(data) {
     await native_fs_utils.delete_config_file(fs_context, buckets_dir_path, cur_bucket_config_path);
     write_stdout_response(ManageCLIResponse.BucketUpdated, data);
 }
-
 
 async function delete_bucket(data) {
     await validate_bucket_args(data, ACTIONS.DELETE);

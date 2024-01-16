@@ -103,6 +103,9 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                 k.access_key = new SensitiveString(k.access_key);
                 k.secret_key = new SensitiveString(k.secret_key);
             }
+            if (account.nsfs_account_config.distinguished_name) {
+                account.nsfs_account_config.distinguished_name = new SensitiveString(account.nsfs_account_config.distinguished_name);
+            }
             //account newly created
             dbg.event({
                 code: "noobaa_account_created",
@@ -187,12 +190,13 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
 
     async check_bucket_config(bucket) {
         const bucket_storage_path = path.join(this.fs_root, bucket.path);
-        const bucket_dir_stat = await nb_native().fs.stat(this.fs_context, bucket_storage_path);
-        if (!bucket_dir_stat) {
+        try {
+            await nb_native().fs.stat(this.fs_context, bucket_storage_path);
+            //TODO: Bucket owner check
+            return true;
+        } catch (err) {
             return false;
         }
-        //TODO: Bucket owner check
-        return true;
     }
 
 
@@ -200,30 +204,32 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
     // BUCKET //
     ////////////
 
+    //TODO: we need to add pagination support to list buckets for more than 1000 buckets.
     async list_buckets(object_sdk) {
+        let entries;
         try {
-            const entries = await nb_native().fs.readdir(this.fs_context, this.bucket_schema_dir);
-            const bucket_config_files = entries.filter(entree => !native_fs_utils.isDirectory(entree) && entree.name.endsWith('.json'));
-            //TODO : we need to add pagination support to list buckets for more than 1000 buckets.
-            let buckets = await P.map(bucket_config_files, bucket_config_file => this.get_bucket_name(bucket_config_file.name));
-            buckets = buckets.filter(bucket => bucket.name.unwrap());
-            return this.validate_bucket_access(buckets, object_sdk);
+            entries = await nb_native().fs.readdir(this.fs_context, this.bucket_schema_dir);
         } catch (err) {
             if (err.code === 'ENOENT') {
-                dbg.error('BucketSpaceFS: root dir not found', err);
+                dbg.error('BucketSpaceFS: root dir not found', err, this.bucket_schema_dir);
                 throw new S3Error(S3Error.NoSuchBucket);
             }
             throw this._translate_bucket_error_codes(err);
         }
+        const bucket_config_files = entries.filter(entree => !native_fs_utils.isDirectory(entree) && entree.name.endsWith('.json'));
+        const bucket_names = bucket_config_files.map(bucket_config_file => this.get_bucket_name(bucket_config_file.name));
+        return this.validate_bucket_access(bucket_names, object_sdk);
     }
 
     async validate_bucket_access(buckets, object_sdk) {
         const has_access_buckets = (await P.all(_.map(
             buckets,
             async bucket => {
+                dbg.log1('bucketspace_fs.validate_bucket_access:', bucket.name.unwrap());
                 const ns = await object_sdk.read_bucket_sdk_namespace_info(bucket.name.unwrap());
                 const has_access_to_bucket = object_sdk.is_nsfs_bucket(ns) ?
                     await this._has_access_to_nsfs_dir(ns, object_sdk) : false;
+                dbg.log1('bucketspace_fs.validate_bucket_access:', bucket.name.unwrap(), has_access_to_bucket);
                 return has_access_to_bucket && bucket;
             }))).filter(bucket => bucket);
             return { buckets: has_access_buckets };
@@ -252,11 +258,10 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
         }
     }
 
-    async get_bucket_name(bucket_config_file_name) {
-        const bucket_config_path = path.join(this.bucket_schema_dir, bucket_config_file_name);
-        const { data } = await nb_native().fs.readFile(this.fs_context, bucket_config_path);
-        const bucket = JSON.parse(data.toString());
-        return { name: new SensitiveString(bucket.name) };
+    get_bucket_name(bucket_config_file_name) {
+        let bucket_name = path.basename(bucket_config_file_name);
+        bucket_name = bucket_name.slice(0, bucket_name.indexOf('.json'));
+        return { name: new SensitiveString(bucket_name) };
     }
 
     async read_bucket(params) {

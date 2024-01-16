@@ -253,6 +253,13 @@ ManageCLIError.BucketAlreadyExists = Object.freeze({
     http_code: 409,
 });
 
+ManageCLIError.BucketSetForbiddenNoBucketOwner = Object.freeze({
+    code: 'BucketSetForbiddenNoBucketOwner',
+    message: 'The bucket owner you set for the bucket does not exist. ' +
+        'Please set the bucket owner from existing account',
+    http_code: 403,
+});
+
 /////////////////////////////////
 //// BUCKET ARGUMENTS ERRORS ////
 /////////////////////////////////

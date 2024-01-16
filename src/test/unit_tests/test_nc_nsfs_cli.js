@@ -44,7 +44,7 @@ mocha.describe('manage_nsfs cli', function() {
         fs_utils.folder_delete(`${root_path}`);
     });
 
-    mocha.describe('cli bucket flow - happy path', async function() {
+    mocha.describe('cli bucket flow ', async function() {
         const type = nc_nsfs_manage_entity_types.BUCKET;
         const name = 'bucket1';
         const bucket_on_gpfs = 'bucketgpfs1';
@@ -61,6 +61,67 @@ mocha.describe('manage_nsfs cli', function() {
         let bucket_options = { config_root, name, email, path: bucket_path };
         const gpfs_bucket_options = { config_root, name: bucket_on_gpfs, email, path: bucket_path, fs_backend: 'GPFS' };
         const bucket_with_policy_options = { ...bucket_options, bucket_policy: bucket_policy, name: bucket_with_policy };
+
+        mocha.before(async () => {
+            await P.all(_.map([accounts, buckets, access_keys], async dir =>
+                fs_utils.create_fresh_path(`${config_root}/${dir}`)));
+            await fs_utils.create_fresh_path(root_path);
+        });
+        mocha.after(async () => {
+            fs_utils.folder_delete(`${config_root}`);
+            fs_utils.folder_delete(`${root_path}`);
+        });
+
+        mocha.it('cli bucket create without existing account - should fail', async function() {
+            const action = nc_nsfs_manage_actions.ADD;
+            try {
+                await fs_utils.create_fresh_path(bucket_path);
+                await fs_utils.file_must_exist(bucket_path);
+                await exec_manage_cli(type, action, bucket_options);
+                assert.fail('should have failed since the bucket owner does not exist');
+            } catch (err) {
+                assert_error(err, ManageCLIError.BucketSetForbiddenNoBucketOwner);
+            }
+        });
+
+        mocha.it('cli create account for bucket (bucket create requirement to have a bucket owner)', async function() {
+            const account_name = 'user1';
+            const account_name2 = 'user2';
+            const owner_email = email;
+            const owner_email2 = 'user2@noobaa.io';
+            const new_buckets_path1 = `${root_path}new_buckets_path_user1111/`;
+            const new_buckets_path2 = `${root_path}new_buckets_path_user2222/`;
+            const uid1 = 1111;
+            const uid2 = 2222;
+            const gid1 = 1111;
+            const gid2 = 2222;
+
+            const action = nc_nsfs_manage_actions.ADD;
+            // create account 'user1' 'user1@noobaa.io'
+            const account_options1 = {
+                config_root: config_root,
+                name: account_name,
+                email: owner_email,
+                new_buckets_path: new_buckets_path1,
+                uid: uid1,
+                gid: gid1,
+            };
+            await fs_utils.create_fresh_path(new_buckets_path1);
+            await fs_utils.file_must_exist(new_buckets_path1);
+            await exec_manage_cli(nc_nsfs_manage_entity_types.ACCOUNT, action, account_options1);
+            // create account 'user2' 'user2@noobaa.io'
+            const account_options2 = {
+                config_root: config_root,
+                name: account_name2,
+                email: owner_email2,
+                new_buckets_path: new_buckets_path2,
+                uid: uid2,
+                gid: gid2,
+            };
+            await fs_utils.create_fresh_path(new_buckets_path2);
+            await fs_utils.file_must_exist(new_buckets_path2);
+            await exec_manage_cli(nc_nsfs_manage_entity_types.ACCOUNT, action, account_options2);
+        });
 
         mocha.it('cli bucket create with invalid bucket policy - should fail', async function() {
             const action = nc_nsfs_manage_actions.ADD;
@@ -242,7 +303,7 @@ mocha.describe('manage_nsfs cli', function() {
 
         mocha.it('cli bucket update owner', async function() {
             const action = nc_nsfs_manage_actions.UPDATE;
-            gpfs_bucket_options.email = 'blalal';
+            gpfs_bucket_options.owner_email = 'user2@noobaa.io';
             const bucket_status = await exec_manage_cli(type, action, gpfs_bucket_options);
             assert_response(action, type, bucket_status, gpfs_bucket_options);
             const bucket = await read_config_file(config_root, schema_dir, gpfs_bucket_options.name);
@@ -313,6 +374,7 @@ mocha.describe('manage_nsfs cli', function() {
         });
 
     });
+
     mocha.describe('cli account flow', async function() {
         const type = nc_nsfs_manage_entity_types.ACCOUNT;
         const name = 'account1';
@@ -418,9 +480,9 @@ mocha.describe('manage_nsfs cli', function() {
 
         mocha.it('cli account list', async function() {
             const action = nc_nsfs_manage_actions.LIST;
-            const bucket_list = await exec_manage_cli(type, action, { config_root });
-            const expect_list = [{ name }];
-            assert_response(action, type, bucket_list, expect_list);
+            const account_list = await exec_manage_cli(type, action, { config_root });
+            const expected_list = [{ name }];
+            assert_response(action, type, account_list, expected_list);
         });
 
         mocha.it('cli account list - wide', async function() {

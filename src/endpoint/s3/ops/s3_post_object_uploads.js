@@ -3,6 +3,8 @@
 
 const s3_utils = require('../s3_utils');
 const mime = require('mime');
+const config = require('../../../../config');
+const S3Error = require('../s3_errors').S3Error;
 
 /**
  * http://docs.aws.amazon.com/AmazonS3/latest/API/mpUploadInitiate.html
@@ -12,6 +14,10 @@ async function post_object_uploads(req, res) {
     const tagging = s3_utils.parse_tagging_header(req);
     const encryption = s3_utils.parse_encryption(req);
     const storage_class = s3_utils.parse_storage_class_header(req);
+    if (config.DENY_UPLOAD_TO_STORAGE_CLASS_STANDARD && storage_class === s3_utils.STORAGE_CLASS_STANDARD) {
+        throw new S3Error(S3Error.InvalidStorageClass);
+    }
+
     const reply = await req.object_sdk.create_object_upload({
         bucket: req.params.bucket,
         key: req.params.key,

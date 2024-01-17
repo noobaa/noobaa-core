@@ -6,6 +6,7 @@ const _ = require('lodash');
 const path = require('path');
 const minimist = require('minimist');
 const config = require('../../config');
+const P = require('../util/promise');
 const nb_native = require('../util/nb_native');
 const cloud_utils = require('../util/cloud_utils');
 const string_utils = require('../util/string_utils');
@@ -666,17 +667,18 @@ async function list_config_files(config_path, show_secrets) {
     const fs_context = native_fs_utils.get_process_fs_context();
     const entries = await nb_native().fs.readdir(fs_context, config_path);
 
-    const config_files_list = [];
-    for (const entry of entries) {
+    let config_files_list = await P.map_with_concurrency(10, entries, async entry => {
         if (entry.name.endsWith('.json')) {
             const full_path = path.join(config_path, entry.name);
             const data = await get_config_data(full_path, show_secrets);
-            config_files_list.push(data);
+            return data;
         }
-    }
+    });
+    // it inserts undefined for the entry '.noobaa-config-nsfs' and we wish to remove it
+    config_files_list = config_files_list.filter(item => item);
+
     return config_files_list;
 }
-
 
 /**
  * get_config_data will read a config file and return its content 

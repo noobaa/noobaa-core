@@ -89,6 +89,11 @@ const fork_response_code = {
   },
 };
 
+const health_errors_tyes = {
+  PERSISTENT: 'PERSISTENT',
+  TEMPORARY: 'TEMPORARY',
+}
+
 //suppress aws sdk related commands.
 process.env.AWS_SDK_JS_SUPPRESS_MAINTENANCE_MODE_MESSAGE = '1';
 
@@ -129,22 +134,59 @@ class NSFSHealth {
             name: NSFS_SERVICE,
             service_status: service_status,
             pid: pid,
+            error_type: health_errors_tyes.PERSISTENT,
           },
           {
             name: RSYSLOG_SERVICE,
             service_status: rsyslog.service_status,
             pid: rsyslog.pid,
+            error_type: health_errors_tyes.PERSISTENT,
           }],
           endpoint: {
-            endpoint_state
+            endpoint_state,
+            error_type: health_errors_tyes.TEMPORARY,
           },
-          invalid_accounts: account_details.invalid_storages,
-          valid_accounts: account_details.valid_storages,
-          invalid_buckets: bucket_details.invalid_storages,
-          valid_buckets: bucket_details.valid_storages,
+          accounts_status: {
+            invalid_accounts: account_details.invalid_storages,
+            valid_accounts: account_details.valid_storages,
+            error_type: health_errors_tyes.PERSISTENT,
+          },
+          buckets_status: {
+            invalid_buckets: bucket_details.invalid_storages,
+            valid_buckets: bucket_details.valid_storages,
+            error_type: health_errors_tyes.PERSISTENT,
+          }
       }
     };
+    if (!this.all_account_details) {
+      delete health.checks.accounts_status;
+    }
+    if (!this.all_bucket_details) {
+      delete health.checks.buckets_status;
+    }
     return health;
+  }
+
+  async get_endpoint_response() {
+    let endpoint_state;
+    try {
+      await P.retry({
+        attempts: config.NSFS_HEALTH_ENDPOINT_RETRY_COUNT,
+        delay_ms: config.NSFS_HEALTH_ENDPOINT_RETRY_DELAY,
+        func: async () => {
+          endpoint_state = await this.get_endpoint_fork_response();
+          if (endpoint_state.response.response_code === fork_response_code.NOT_RUNNING.response_code) {
+            throw new Error('Noobaa endpoint is not running, all the retries failed');
+          }
+        }
+      });
+    } catch(err) {
+      console.log('Error while pinging endpoint host :' + HOSTNAME + ', port ' + this.https_port, err);
+      return {
+        response: fork_response_code.NOT_RUNNING.response_code,
+      };
+    }
+    return endpoint_state;
   }
 
   async get_error_code(nsfs_status, pid, rsyslog_status, endpoint_response_code) {
@@ -188,7 +230,7 @@ class NSFSHealth {
     }
   }
 
-  async get_endpoint_response() {
+  async get_endpoint_fork_response() {
     let url_path = '/total_fork_count';
     const worker_ids = [];
     let total_fork_count = 0;
@@ -257,24 +299,35 @@ class NSFSHealth {
     };
 }
 
-  async get_bucket_storage_status(config_root) {
+async get_bucket_storage_status(config_root) {
   const bucket_details = await this.get_storage_status(config_root, 'bucket', this.all_bucket_details);
   return bucket_details;
 }
 
-  async get_account_storage_status(config_root) {
+async get_account_storage_status(config_root) {
   const account_details = await this.get_storage_status(config_root, 'account', this.all_account_details);
   return account_details;
 }
 
-  async get_storage_status(config_root, type, all_details) {
+async get_storage_status(config_root, type, all_details) {
   const fs_context = this.get_root_fs_context();
-  const entries = await nb_native().fs.readdir(fs_context, this.get_config_path(config_root, type));
-  const config_files = entries.filter(entree => !native_fs_utils.isDirectory(entree) && entree.name.endsWith('.json'));
+  const config_root_type_path = this.get_config_path(config_root, type);
   const invalid_storages = [];
   const valid_storages = [];
+  //check for account and buckets dir paths
+  try {
+    await nb_native().fs.stat(fs_context, config_root_type_path);
+  } catch (err) {
+    dbg.log1(`Config root path missing ${type} folder in ${config_root_type_path}`);
+    return {
+      invalid_storages: invalid_storages,
+      valid_storages: valid_storages
+    };
+  }
+  const entries = await nb_native().fs.readdir(fs_context, config_root_type_path);
+  const config_files = entries.filter(entree => !native_fs_utils.isDirectory(entree) && entree.name.endsWith('.json'));
   for (const config_file of config_files) {
-    const config_file_path = path.join(this.get_config_path(config_root, type), config_file.name);
+    const config_file_path = path.join(config_root_type_path, config_file.name);
     let config_data;
     let storage_path;
     try {
@@ -315,7 +368,7 @@ class NSFSHealth {
   };
 }
 
-  get_config_path(config_root, type) {
+get_config_path(config_root, type) {
     return path.join(config_root, type === 'bucket' ? '/buckets' : '/accounts');
   }
 }

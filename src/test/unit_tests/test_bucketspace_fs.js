@@ -196,7 +196,7 @@ mocha.describe('bucketspace_fs', function() {
             const res = await bucketspace_fs.read_account_by_access_key({ access_key });
             assert.strictEqual(res.email.unwrap(), account_user2.email);
             assert.strictEqual(res.access_keys[0].access_key.unwrap(), account_user2.access_keys[0].access_key);
-            const distinguished_name = res.nsfs_account_config.distinguished_name.unwrap();;
+            const distinguished_name = res.nsfs_account_config.distinguished_name.unwrap();
             assert.strictEqual(distinguished_name, 'root');
             const res2 = await native_fs_utils.get_user_by_distinguished_name({ distinguished_name });
             assert.strictEqual(res2.uid, 0);
@@ -207,7 +207,7 @@ mocha.describe('bucketspace_fs', function() {
             const res = await bucketspace_fs.read_account_by_access_key({ access_key });
             assert.strictEqual(res.email.unwrap(), account_user3.email);
             assert.strictEqual(res.access_keys[0].access_key.unwrap(), account_user3.access_keys[0].access_key);
-            const distinguished_name = res.nsfs_account_config.distinguished_name.unwrap();;
+            const distinguished_name = res.nsfs_account_config.distinguished_name.unwrap();
             assert.strictEqual(distinguished_name, os.userInfo().username);
             const res2 = await native_fs_utils.get_user_by_distinguished_name({ distinguished_name });
             assert.strictEqual(res2.uid, process.getuid());

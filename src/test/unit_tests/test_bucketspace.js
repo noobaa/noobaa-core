@@ -754,7 +754,7 @@ mocha.describe('bucket operations - namespace_fs', function() {
                 assert.fail(`found account: ${deleted_account_exist} - account should be deleted`);
             } catch (err) {
                 if (process.env.NC_CORETEST) {
-                    assert.equal(JSON.parse(err.stdout).error.code, ManageCLIError.NoSuchAccountName.code)
+                    assert.equal(JSON.parse(err.stdout).error.code, ManageCLIError.NoSuchAccountName.code);
                 } else {
                     assert.equal(err.rpc_code, 'NO_SUCH_ACCOUNT');
                 }
@@ -794,7 +794,7 @@ mocha.describe('bucket operations - namespace_fs', function() {
                 assert.fail(`found account: ${deleted_account_exist} - account should be deleted`);
             } catch (err) {
                 if (process.env.NC_CORETEST) {
-                    assert.equal(JSON.parse(err.stdout).error.code, ManageCLIError.NoSuchAccountName.code)
+                    assert.equal(JSON.parse(err.stdout).error.code, ManageCLIError.NoSuchAccountName.code);
                 } else {
                     assert.equal(err.rpc_code, 'NO_SUCH_ACCOUNT');
                 }

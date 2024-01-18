@@ -603,7 +603,7 @@ class PostgresTable {
             this.client._ajv.addSchema(schema, name);
         }
 
-        if (!process.env.CORETEST) {
+        if (!process.env.CORETEST && !process.env.NC_NSFS_NO_DB_ENV) {
             // Run once a day
             // TODO: Configure from PostgreSQL
             setInterval(this.vacuumAndAnalyze, 86400000, this).unref();

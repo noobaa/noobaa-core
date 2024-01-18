@@ -5,6 +5,7 @@ const dbg = require('../util/debug_module')(__filename);
 const _ = require('lodash');
 const path = require('path');
 const minimist = require('minimist');
+const net = require('net');
 const config = require('../../config');
 const P = require('../util/promise');
 const nb_native = require('../util/nb_native');
@@ -833,6 +834,7 @@ async function whitelist_ips_management(args) {
     validate_whitelist_arg(ips);
 
     const whitelist_ips = JSON.parse(ips);
+    verify_whitelist_ips(whitelist_ips);
     const config_path = path.join(config_root, 'config.json');
     try {
         const config_data = require(config_path);
@@ -855,6 +857,15 @@ function validate_whitelist_arg(ips) {
         JSON.parse(ips);
     } catch (err) {
         throw_cli_error(ManageCLIError.InvalidWhiteListIPFormat);
+    }
+}
+
+function verify_whitelist_ips(ips_to_validate) {
+    for (const ip_to_validate of ips_to_validate) {
+        if (net.isIP(ip_to_validate) === 0) {
+            const detail_msg = `IP address list has an invalid IP address ${ip_to_validate}`;
+            throw_cli_error(ManageCLIError.InvalidWhiteListIPFormat, detail_msg);
+        }
     }
 }
 

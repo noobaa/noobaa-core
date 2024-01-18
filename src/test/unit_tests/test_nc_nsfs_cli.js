@@ -654,7 +654,6 @@ mocha.describe('manage_nsfs cli', function() {
         this.timeout(50000); // eslint-disable-line no-invalid-this
         const type = nc_nsfs_manage_entity_types.IPWHITELIST;
         const config_options = { ENDPOINT_FORKS: 1, UV_THREADPOOL_SIZE: 4 };
-        const ips = ['127.0.0.1', '192.000.10.000', '3002:0bd6:0000:0000:0000:ee00:0033:999'];
         mocha.before(async () => {
             await write_config_file(config_root, '', 'config', config_options);
         });
@@ -662,7 +661,8 @@ mocha.describe('manage_nsfs cli', function() {
             fs_utils.file_delete(path.join(config_root, 'config.json'));
         });
 
-        mocha.it('cli add whitelist ips first time', async function() {
+        mocha.it('cli add whitelist ips first time (IPV4 format)', async function() {
+            const ips = ['127.0.0.1']; // IPV4 format
             const res = await exec_manage_cli(type, '', { config_root, ips: JSON.stringify(ips) });
             config_options.NSFS_WHITELIST = ips;
             const config_data = await read_config_file(config_root, '', 'config');
@@ -670,8 +670,17 @@ mocha.describe('manage_nsfs cli', function() {
             assert_whitelist(config_data, config_options);
         });
 
-        mocha.it('cli update whitelist ips', async function() {
-            ips.push('100.000.00.000');
+        mocha.it('cli update whitelist ips (IPV6 expanded format)', async function() {
+            const ips = ['0000:0000:0000:0000:0000:ffff:7f00:0002']; // IPV6 expanded format
+            const res = await exec_manage_cli(type, '', { config_root, ips: JSON.stringify(ips) });
+            config_options.NSFS_WHITELIST = ips;
+            const config_data = await read_config_file(config_root, '', 'config');
+            assert_response('', type, res, ips);
+            assert_whitelist(config_data, config_options);
+        });
+
+        mocha.it('cli update whitelist ips (IPV6 compressed format)', async function() {
+            const ips = ['::ffff:7f00:3']; // IPV6 compressed format
             const res = await exec_manage_cli(type, '', { config_root, ips: JSON.stringify(ips) });
             config_options.NSFS_WHITELIST = ips;
             const config_data = await read_config_file(config_root, '', 'config');
@@ -682,8 +691,7 @@ mocha.describe('manage_nsfs cli', function() {
         mocha.it('cli whitelist ips is empty', async function() {
             try {
                 await exec_manage_cli(type, '', { config_root, ips: '' });
-                config_options.NSFS_WHITELIST = ips;
-                assert.fail('should have failed withwhitelist ips should not be empty.');
+                assert.fail('should have failed with whitelist ips should not be empty.');
             } catch (err) {
                 assert_error(err, ManageCLIError.MissingWhiteListIPFlag);
             }
@@ -691,9 +699,32 @@ mocha.describe('manage_nsfs cli', function() {
 
         mocha.it('cli whitelist formate is invalid', async function() {
             try {
-                await exec_manage_cli(type, '', { config_root, ips: JSON.stringify(ips) + 'invalid' });
-                config_options.NSFS_WHITELIST = ips;
+                const ips = ['127.0.0.1'];
+                const ip_list_invalid_format = JSON.stringify(ips) + 'invalid';
+                await exec_manage_cli(type, '', { config_root, ips: ip_list_invalid_format });
                 assert.fail('should have failed with whitelist ips with invalid body format');
+            } catch (err) {
+                assert_error(err, ManageCLIError.InvalidWhiteListIPFormat);
+            }
+        });
+
+        mocha.it('cli whitelist has invalid IP address (one item in the list)', async function() {
+            const ip_list_with_invalid_ip_address = ['10.1.11']; // missing a class in the IP address
+            try {
+                await exec_manage_cli(type, '', { config_root, ips: ip_list_with_invalid_ip_address});
+                assert.fail('should have failed with whitelist ips with invalid ip address');
+            } catch (err) {
+                assert_error(err, ManageCLIError.InvalidWhiteListIPFormat);
+            }
+        });
+
+        mocha.it('cli whitelist has invalid IP address (a couple of items in the list)', async function() {
+            const invalid_ip_address = '10.1.11'; // missing a class in the IP address
+            const ips = ['127.0.0.1', '::ffff:7f00:3', '0000:0000:0000:0000:0000:ffff:7f00:0002'];
+            ips.push(invalid_ip_address);
+            try {
+                await exec_manage_cli(type, '', { config_root, ips: ips});
+                assert.fail('should have failed with whitelist ips with invalid ip address');
             } catch (err) {
                 assert_error(err, ManageCLIError.InvalidWhiteListIPFormat);
             }

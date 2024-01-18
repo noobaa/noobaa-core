@@ -36,8 +36,8 @@ describe('schema validation NC NSFS config', () => {
                 ALLOW_HTTP: true,
                 NSFS_WHITELIST: [
                     '127.0.0.1',
-                    '192.000.10.000',
-                    '3002:0bd6:0000:0000:0000:ee00:0033:000'
+                    '0000:0000:0000:0000:0000:ffff:7f00:0002',
+                    '::ffff:7f00:3'
                 ],
             };
             nsfs_schema_utils.validate_nsfs_config_schema(config_data);

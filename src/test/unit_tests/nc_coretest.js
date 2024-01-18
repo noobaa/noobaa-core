@@ -86,12 +86,12 @@ function setup(options = {}) {
 
         nsfs_process.on('exit', (code, signal) => {
             dbg.error(`nsfs.js exited code=${code}, signal=${signal}`);
-            logStream.end()
+            logStream.end();
         });
 
         nsfs_process.on('error', err => {
             dbg.error(`nsfs.js exited with error`, err);
-            logStream.end()
+            logStream.end();
         });
 
         // TODO - run health

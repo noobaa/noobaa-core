@@ -187,7 +187,8 @@ async function main(options = {}) {
             await prom_reporting.start_server(metrics_port, false);
             dbg.log0('Started metrics server successfully');
         }
-
+        // TODO: currently NC NSFS deployments don't have internal_rpc_client nor db, 
+        // there for namespace monitor won't be registered
         if (internal_rpc_client && config.NAMESPACE_MONITOR_ENABLED) {
             endpoint_stats_collector.instance().set_rpc_client(internal_rpc_client);
 

@@ -9,6 +9,13 @@ const dbg = require('../util/debug_module')(__filename);
 if (!dbg.get_process_name()) dbg.set_process_name('nsfs');
 dbg.original_console();
 
+// NC nsfs deployments specifying process.env.LOCAL_MD_SERVER=true deployed together with a db
+// when a system_store object is initialized VaccumAnalyzer is being called once a day.
+// when NC nsfs deployed without db we would like to avoid running VaccumAnalyzer in any flow there is
+// because running it will cause a panic.
+if (process.env.LOCAL_MD_SERVER !== 'true') {
+    process.env.NC_NSFS_NO_DB_ENV = 'true';
+}
 const config = require('../../config');
 
 const os = require('os');
@@ -19,6 +26,7 @@ const minimist = require('minimist');
 if (process.env.LOCAL_MD_SERVER === 'true') {
     require('../server/system_services/system_store').get_instance({ standalone: true });
 }
+
 //const js_utils = require('../util/js_utils');
 const nb_native = require('../util/nb_native');
 //const schema_utils = require('../util/schema_utils');

@@ -226,7 +226,7 @@ NSFS Health status can be fetched using the command line. Run `--help` to get al
 NOTE - health script execution requires root permissions.
 
  ```
- sudo node usr/local/noobaa-core/src/cmd/health [--https_port,--all_account_details,  --all_bucket_details]
+ sudo node usr/local/noobaa-core/src/cmd/health [--https_port, --all_account_details, --all_bucket_details]
  ```
 
  output:
@@ -244,12 +244,14 @@ NOTE - health script execution requires root permissions.
       {
         "name": "nsfs",
         "service_status": "active",
-        "pid": "1204"
+        "pid": "1204",
+        "error_type": "PERSISTENT"
       },
       {
         "name": "rsyslog",
         "service_status": "inactive",
-        "pid": "0"
+        "pid": "0",
+        "error_type": "PERSISTENT"
       }
     ],
     "endpoint": {
@@ -258,41 +260,50 @@ NOTE - health script execution requires root permissions.
           "response_code": 200,
           "response_message": "Endpoint running successfuly."
         },
-        "total_fork_count": 0,
-        "running_workers": []
-      }
-    },
-    "invalid_accounts": [
-      {
-        "name": "naveen",
-        "storage_path": "/tmp/nsfs_root_invalid/",
-        "code": "STORAGE_NOT_EXIST"
-      }
-    ],
-    "valid_accounts": [
-      {
-        "name": "naveen",
-        "storage_path": "/tmp/nsfs_root"
-      }
-    ],
-    "invalid_buckets": [
-      {
-        "name": "bucket1.json",
-        "config_path": "/etc/noobaa.conf.d/buckets/bucket1.json",
-        "code": "INVALID_CONFIG"
+        "total_fork_count": 1,
+        "running_workers": [
+          "1"
+        ]
       },
-      {
-        "name": "bucket3",
-        "storage_path": "/tmp/nsfs_root/bucket3",
-        "code": "STORAGE_NOT_EXIST"
-      }
-    ],
-    "valid_buckets": [
-      {
-        "name": "bucket2",
-        "storage_path": "/tmp/nsfs_root/bucket2"
-      }
-    ]
+      "error_type": "TEMPORARY"
+    },
+    "accounts_status": {
+      "invalid_accounts": [
+        {
+          "name": "naveen",
+          "storage_path": "/tmp/nsfs_root_invalid/",
+          "code": "STORAGE_NOT_EXIST"
+        }
+      ],
+      "valid_accounts": [
+        {
+          "name": "naveen",
+          "storage_path": "/tmp/nsfs_root"
+        }
+      ],
+      "error_type": "PERSISTENT"
+    },
+    "buckets_status": {
+      "invalid_buckets": [
+        {
+          "name": "bucket1.json",
+          "config_path": "/etc/noobaa.conf.d/buckets/bucket1.json",
+          "code": "INVALID_CONFIG"
+        },
+        {
+          "name": "bucket3",
+          "storage_path": "/tmp/nsfs_root/bucket3",
+          "code": "STORAGE_NOT_EXIST"
+        }
+      ],
+      "valid_buckets": [
+        {
+          "name": "bucket2",
+          "storage_path": "/tmp/nsfs_root/bucket2"
+        }
+      ],
+      "error_type": "PERSISTENT"
+    }
   }
 }
  ```
@@ -319,6 +330,8 @@ NOTE - health script execution requires root permissions.
 `valid_accounts`: List all the valid accounts if `all_account_details` flag is `true`.
 
 `valid_buckets`: List all the valid buckets if `all_bucket_details` flag is `true`.
+
+`error_type` : This property could have two values, `PERSISTENT` and `TEMPORARY`, It means the retry could fix the issue or not. For `TEMPORARY` error types multiple retries are initiated from Noobaa side before updating the status with failed status. Right now only Noobaa endpoint has the error type `TEMPORARY`.
 
 In this health output, `bucket2`'s storage path is invalid and the directory mentioned in `new_buckets_path` for `user1` is missing or not accessible. Endpoint curl command returns an error response(`"endpoint_response":404`) if one or more buckets point to an invalid bucket storage path.
 

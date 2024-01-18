@@ -589,6 +589,7 @@ async function update_account(data) {
 
 async function delete_account(data) {
     await validate_account_args(data, ACTIONS.DELETE);
+    await verify_delete_account(data.name.unwrap(), data.email.unwrap());
 
     const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
     const account_config_path = get_config_file_path(accounts_dir_path, data.name);
@@ -598,6 +599,29 @@ async function delete_account(data) {
     await nb_native().fs.unlink(fs_context, access_key_config_path);
 
     write_stdout_response(ManageCLIResponse.AccountDeleted);
+}
+
+/**
+ * verify_delete_account will check if the account has at least one bucket
+ * in case it finds one, it would throw an error
+ * @param {string} account_name
+ * @param {string} account_email
+ */
+async function verify_delete_account(account_name, account_email) {
+    const show_secrets = false; // in buckets we don't save secrets in coofig file
+    const fs_context = native_fs_utils.get_process_fs_context();
+    const entries = await nb_native().fs.readdir(fs_context, buckets_dir_path);
+    await P.map_with_concurrency(10, entries, async entry => {
+        if (entry.name.endsWith('.json')) {
+            const full_path = path.join(buckets_dir_path, entry.name);
+            const data = await get_config_data(full_path, show_secrets);
+            if (data.bucket_owner === account_email) {
+                const detail_msg = `Account ${account_name} has bucket ${data.name}`;
+                throw_cli_error(ManageCLIError.AccountDeleteForbiddenHasBuckets, detail_msg);
+            }
+            return data;
+        }
+    });
 }
 
 async function get_account_status(data, show_secrets) {

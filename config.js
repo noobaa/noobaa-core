@@ -717,6 +717,8 @@ config.NSFS_WHITELIST = [];
 // NSFS_RESTORE_ENABLED can override internal autodetection and will force
 // the use of restore for all objects.
 config.NSFS_RESTORE_ENABLED = false;
+config.NSFS_HEALTH_ENDPOINT_RETRY_COUNT = 3
+config.NSFS_HEALTH_ENDPOINT_RETRY_DELAY = 10
 
 //Quota
 config.QUOTA_LOW_THRESHOLD = 80;

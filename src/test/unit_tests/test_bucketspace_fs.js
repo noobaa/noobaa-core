@@ -155,9 +155,9 @@ function make_dummy_object_sdk() {
         },
         read_bucket_sdk_config_info(name) {
             return {
-                _id : bucket_temp_id,
+                _id: bucket_temp_id,
                 name: name
-            }
+            };
         }
     };
 }

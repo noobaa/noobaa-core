@@ -270,14 +270,17 @@ NOTE - health script execution requires root permissions.
     "accounts_status": {
       "invalid_accounts": [
         {
-          "name": "naveen",
+          "name": "account_invalid",
           "storage_path": "/tmp/nsfs_root_invalid/",
           "code": "STORAGE_NOT_EXIST"
-        }
+        },
+        { "name": "account_inaccessible",
+          "storage_path": "/tmp/account_inaccessible",
+          "code": "ACCESS_DENIED" } 
       ],
       "valid_accounts": [
         {
-          "name": "naveen",
+          "name": "account2",
           "storage_path": "/tmp/nsfs_root"
         }
       ],
@@ -401,11 +404,23 @@ These error codes will get attached with a specific Bucket or Account schema ins
 - Make sure the path mentioned in Bucket/Account schema is a valid directory path.
 - User has sufficient access.
 
-#### . `INVALID_CONFIG`
+#### 2. `INVALID_CONFIG`
 #### Reasons
 - Bucket/Account Schema JSON is not valid or not in JSON format.
 #### Resolutions
 - Check for any JSON syntax error in the schema structure for Bucket/Account.
+
+#### 3. `ACCESS_DENIED`
+#### Reasons
+- Account `new_buckets_path` is not accessible with account uid and gid.
+#### Resolutions
+- Check access restriction in the path mentioned in `new_buckets_path` and compare it with account uid and gid
+
+#### 4. `MISSING_CONFIG`
+#### Reasons
+- Account/Bucket schema config file is missing for config root.
+#### Resolutions
+- Check for schema config file in respective Accounts or Buckets dir.
 
 ## Bucket and Account Manage CLI
 Users can create, update, delete, and list buckets and accounts using CLI. If the config directory is missing CLI will create one and also create accounts and buckets sub-directories in it and default config directory is `${config.NSFS_NC_DEFAULT_CONF_DIR}`. 

@@ -458,7 +458,7 @@ function validate_bucket_creation(params) {
  * @param {string} config_path
  * @param {boolean} use_lstat
  */
-async function is_path_exists(fs_context, config_path, use_lstat=false) {
+async function is_path_exists(fs_context, config_path, use_lstat = false) {
     try {
         await nb_native().fs.stat(fs_context, config_path, { use_lstat });
     } catch (err) {

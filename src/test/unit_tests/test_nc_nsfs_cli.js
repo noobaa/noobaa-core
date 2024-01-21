@@ -448,6 +448,26 @@ mocha.describe('manage_nsfs cli', function() {
             }
         });
 
+        mocha.it('cli account create - no uid - should fail', async function() {
+            const action = nc_nsfs_manage_actions.ADD;
+            try {
+                await exec_manage_cli(type, action, { config_root, name: account_options.name, access_key, secret_key, email: 'bla' ,gid: 1001});
+                assert.fail('should have failed with account config should include UID');
+            } catch (err) {
+                assert_error(err, ManageCLIError.MissingAccountNSFSConfigUID);
+            }
+        });
+
+        mocha.it('cli account create - no gid - should fail', async function() {
+            const action = nc_nsfs_manage_actions.ADD;
+            try {
+                await exec_manage_cli(type, action, { config_root, name: account_options.name, access_key, secret_key, email: 'bla' ,uid: 1001});
+                assert.fail('should have failed with account config should include GID');
+            } catch (err) {
+                assert_error(err, ManageCLIError.MissingAccountNSFSConfigGID);
+            }
+        });
+
         mocha.it('cli account create - new_buckets_path does not exist - should fail', async function() {
             const action = nc_nsfs_manage_actions.ADD;
             try {

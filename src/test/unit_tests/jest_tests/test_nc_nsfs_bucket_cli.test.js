@@ -13,6 +13,7 @@ const os_util = require('../../../util/os_utils');
 const config_module = require('../../../../config');
 const native_fs_utils = require('../../../util/native_fs_utils');
 const ManageCLIError = require('../../../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
+const { TYPES, ACTIONS } = require('../../../manage_nsfs/manage_nsfs_constants');
 
 const MAC_PLATFORM = 'darwin';
 let tmp_fs_path = '/tmp/test_bucketspace_fs';
@@ -27,14 +28,6 @@ const DEFAULT_FS_CONFIG = {
     gid: process.getgid(),
     backend: '',
     warn_threshold_ms: 100,
-};
-
-const nc_nsfs_manage_actions = {
-    ADD: 'add',
-    UPDATE: 'update',
-    LIST: 'list',
-    DELETE: 'delete',
-    STATUS: 'status',
 };
 
 // eslint-disable-next-line max-lines-per-function
@@ -67,13 +60,13 @@ describe('manage nsfs cli bucket flow', () => {
                 fs_utils.create_fresh_path(`${config_root}/${dir}`)));
             await fs_utils.create_fresh_path(root_path);
             await fs_utils.create_fresh_path(bucket_storage_path);
-            const action = nc_nsfs_manage_actions.ADD;
+            const action = ACTIONS.ADD;
             // Account add
             const { new_buckets_path: account_path } = account_defaults;
             const account_options = { config_root, ...account_defaults };
             await fs_utils.create_fresh_path(account_path);
             await fs_utils.file_must_exist(account_path);
-            await exec_manage_cli('account', action, account_options);
+            await exec_manage_cli(TYPES.ACCOUNT, action, account_options);
         });
 
         afterEach(async () => {
@@ -82,18 +75,18 @@ describe('manage nsfs cli bucket flow', () => {
         });
 
         it('cli create bucket invalid option type (path as number)', async () => {
-            const action = nc_nsfs_manage_actions.ADD;
+            const action = ACTIONS.ADD;
             const path_invalid = 4e34; // invalid should be string represents a path
             const bucket_options = { config_root, ...bucket_defaults, path: path_invalid };
-            const res = await exec_manage_cli('bucket', action, bucket_options);
+            const res = await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
             expect(JSON.parse(res.stdout).error.message).toBe(ManageCLIError.InvalidArgumentType.message);
         });
 
         it('cli create bucket invalid option type (path as string)', async () => {
-            const action = nc_nsfs_manage_actions.ADD;
+            const action = ACTIONS.ADD;
             const path_invalid = 'aaa'; // invalid should be string represents a path
             const bucket_options = { config_root, ...bucket_defaults, path: path_invalid };
-            const res = await exec_manage_cli('bucket', action, bucket_options);
+            const res = await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
             expect(JSON.parse(res.stdout).error.message).toBe(ManageCLIError.InvalidStoragePath.message);
         });
 
@@ -126,20 +119,20 @@ describe('manage nsfs cli bucket flow', () => {
                 fs_utils.create_fresh_path(`${config_root}/${dir}`)));
             await fs_utils.create_fresh_path(root_path);
             await fs_utils.create_fresh_path(bucket_storage_path);
-            const action = nc_nsfs_manage_actions.ADD;
+            const action = ACTIONS.ADD;
             // Account add
             const { new_buckets_path: account_path } = account_defaults;
             const account_options = { config_root, ...account_defaults };
             await fs_utils.create_fresh_path(account_path);
             await fs_utils.file_must_exist(account_path);
-            await exec_manage_cli('account', action, account_options);
+            await exec_manage_cli(TYPES.ACCOUNT, action, account_options);
 
             //bucket add
             const { path: bucket_path } = bucket_defaults;
             const bucket_options = { config_root, ...bucket_defaults };
             await fs_utils.create_fresh_path(bucket_path);
             await fs_utils.file_must_exist(bucket_path);
-            const resp = await exec_manage_cli('bucket', action, bucket_options);
+            const resp = await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
             const bucket_resp = JSON.parse(resp);
             expect(bucket_resp.response.reply._id).not.toBeNull();
             //create temp dir
@@ -154,12 +147,29 @@ describe('manage nsfs cli bucket flow', () => {
             await fs_utils.folder_delete(`${root_path}`);
         });
 
+
+        it('cli list filter by name (bucket2) - empty result', async () => {
+            const bucket_options = { config_root, name: 'bucket2' };
+            const action = ACTIONS.LIST;
+            const res = await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
+            expect(JSON.parse(res).response.reply.map(item => item.name))
+                .toEqual(expect.arrayContaining([]));
+        });
+
+        it('cli list filter by name (bucket1)', async () => {
+            const bucket_options = { config_root, name: 'bucket1' };
+            const action = ACTIONS.LIST;
+            const res = await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
+            expect(JSON.parse(res).response.reply.map(item => item.name))
+                .toEqual(expect.arrayContaining(['bucket1']));
+        });
+
         it('cli delete bucket and delete temp dir', async () => {
             let is_path_exists = await native_fs_utils.is_path_exists(DEFAULT_FS_CONFIG, bucket_temp_dir_path);
             expect(is_path_exists).toBe(true);
             const bucket_options = { config_root, name: 'bucket1'};
-            const action = nc_nsfs_manage_actions.DELETE;
-            await exec_manage_cli('bucket', action, bucket_options);
+            const action = ACTIONS.DELETE;
+            await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
             is_path_exists = await native_fs_utils.is_path_exists(DEFAULT_FS_CONFIG, bucket_temp_dir_path);
             expect(is_path_exists).toBe(false);
         });

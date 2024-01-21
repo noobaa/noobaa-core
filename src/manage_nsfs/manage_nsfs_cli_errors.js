@@ -284,7 +284,7 @@ ManageCLIError.InvalidNewNameBucketIdentifier = Object.freeze({
 
 ManageCLIError.InvalidFSBackend = Object.freeze({
     code: 'InvalidFSBackend',
-    message: 'FS backend supported types is GPFS, default is POSIX',
+    message: 'FS backend supported types are GPFS, CEPH_FS, NFSv4 default is POSIX',
     http_code: 400,
 });
 

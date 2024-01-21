@@ -17,20 +17,8 @@ const ManageCLIError = require('../manage_nsfs/manage_nsfs_cli_errors').ManageCL
 const ManageCLIResponse = require('../manage_nsfs/manage_nsfs_cli_responses').ManageCLIResponse;
 const bucket_policy_utils = require('../endpoint/s3/s3_bucket_policy_utils');
 const nsfs_schema_utils = require('../manage_nsfs/nsfs_schema_utils');
-
-const TYPES = {
-    ACCOUNT: 'account',
-    BUCKET: 'bucket',
-    IPWHITELIST: 'whitelist'
-};
-
-const ACTIONS = {
-    ADD: 'add',
-    UPDATE: 'update',
-    DELETE: 'delete',
-    LIST: 'list',
-    STATUS: 'status'
-};
+const { print_usage } = require('../manage_nsfs/manage_nsfs_help_utils');
+const { TYPES, ACTIONS } = require('../manage_nsfs/manage_nsfs_constants');
 
 function throw_cli_error(error_code, detail) {
     const err = new ManageCLIError(error_code).to_string(detail);
@@ -53,95 +41,6 @@ let accounts_dir_path;
 let access_keys_dir_path;
 let buckets_dir_path;
 let config_root_backend;
-
-const HELP = `
-Help:
-
-    "nsfs" is a noobaa-core command runs a local S3 endpoint on top of a filesystem.
-    Each sub directory of the root filesystem represents an S3 bucket.
-    manage nsfs will provide a command line interface to create new accounts and map existing directories 
-    to Noobaa as buckets. For more information refer to the noobaa docs.
-`;
-
-const USAGE = `
-Usage:
-
-    node src/cmd/manage_nsfs <type> <action> [options...]
-`;
-
-const ARGUMENTS = `
-Arguments:
-
-    <type>    Set the resource type such as accounts and buckets
-    <action>  Action could be add, update, list, status and delete for accounts/buckets.
-`;
-
-const WHITELIST_OPTIONS = `
-Whitelist Options:
-
-    # Read Whitelist IPs and update the configurations.
-    --ips <ips>                       (default none)          Set whitelist ips in array format : '["127.0.0.1", "192.000.10.000", "3002:0bd6:0000:0000:0000:ee00:0033:6778"]'
-`;
-
-const ACCOUNT_OPTIONS = `
-Account Options:
-
-    # Read account details from the JSON file, there is no need to mention all the properties one by one in the CLI
-    --from_file <dir>                                         (default none)                                  Set account schema full path. Get account details from JSON file                
-    --config_root_backend <none | GPFS | CEPH_FS | NFV_V4>    (default config.NSFS_NC_CONFIG_DIR_BACKEND)     Set the config_root FS type to be GPFS
-
-    # required for add, update 
-    --name <name>                                   (default none)                              Set the name for the account.
-    --email <email>                                 (default none)                              Set the email for the account.
-    --new_name <name>                               (default none)                              Set a new name for the account (update).
-    --uid <uid>                                     (default none)                              Send requests to the Filesystem with uid.
-    --gid <gid>                                     (default none)                              Send requests to the Filesystem with gid.
-    --secret_key <key>                              (default none)                              The secret key pair for the access key.
-    --new_buckets_path <dir>                        (default none)                              Set the filesystem's root where each subdir is a bucket.
-    --fs_backend <none | GPFS | CEPH_FS | NFV_V4>   (default config.NSFS_NC_STORAGE_BACKEND)    Set fs_backend of new_buckets_path to be GPFS
-
-    # required for add, update, and delete
-    --access_key <key>          (default none)                              Authenticate incoming requests for this access key only (default is no auth).
-    --regenerate                (default none)                              When set and new_access_key is not set, will regenerate the access_key and secret_key
-    --config_root <dir>         (default config.NSFS_NC_DEFAULT_CONF_DIR)   Configuration files path for Noobaa standalon NSFS.
-
-    # Used for list
-    --wide                      (default none)                              Will print the list with details (same as status but for all accounts)
-    --show_secrets              (default false)                             Will print the access_keys of the account
-    --uid <uid>                 (default none)                              filter the list by uid.
-    --gid <gid>                 (default none)                              filter the list by gid.
-`;
-
-const BUCKET_OPTIONS = `
-Bucket Options:
-
-    # Read Bucket details from JSON file, no need to mention all the properties one by one in CLI
-    --from_file <dir>                                         (default none)                                  Set bucket schema full path. Get bucket details from the JSON file
-    --config_root_backend <none | GPFS | CEPH_FS | NFV_V4>    (default config.NSFS_NC_CONFIG_DIR_BACKEND)     Set the config_root FS type to be GPFS
-
-    # required for add, update 
-    --email <email>                                 (default none)                             Set the email for the bucket.
-    --path <dir>                                    (default none)                             Set the bucket path.
-    --fs_backend <none | GPFS | CEPH_FS | NFV_V4>   (default config.NSFS_NC_STORAGE_BACKEND)   Set fs_backend to be GPFS
-
-    # required for add, update, and delete
-    --name <name>               (default none)                              Set the name for the bucket.
-    --bucket_policy<string>     (default none)                              Set a bucket policy for the bucket, type is a string of valid JSON policy
-    --new_name <name>           (default none)                              Set a new name for the bucket.
-    --config_root <dir>         (default config.NSFS_NC_DEFAULT_CONF_DIR)   Configuration files path for Noobaa standalon NSFS.
-    --wide                      (default none)                              Will print the list with details (same as status but for all buckets)
-    `;
-
-function print_usage(options) {
-    process.stdout.write(HELP);
-    process.stdout.write(USAGE.trimStart());
-    process.stdout.write(ARGUMENTS.trimStart());
-    if (!options || options.print_account) process.stdout.write(ACCOUNT_OPTIONS.trimStart());
-    if (!options || options.print_bucket) process.stdout.write(BUCKET_OPTIONS.trimStart());
-    if (!options || options.print_white_list) process.stdout.write(WHITELIST_OPTIONS.trimStart());
-    process.exit(1);
-}
-
 
 async function check_and_create_config_dirs() {
     const pre_req_dirs = [
@@ -172,12 +71,9 @@ async function main(argv = minimist(process.argv.slice(2))) {
             throw new Error('Root permissions required for Manage NSFS execution.');
         }
         const type = argv._[0] || '';
+        const action = argv._[1] || '';
         if (argv.help || argv.h) {
-            return print_usage({
-                print_bucket: type === TYPES.BUCKET,
-                print_account: type === TYPES.ACCOUNT,
-                print_white_list: type === TYPES.IPWHITELIST
-            });
+            return print_usage(type, action);
         }
         config_root = argv.config_root ? String(argv.config_root) : config.NSFS_NC_CONF_DIR;
         if (!config_root) throw_cli_error(ManageCLIError.MissingConfigDirPath);
@@ -193,7 +89,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
             await account_management(argv, from_file);
         } else if (type === TYPES.BUCKET) {
             await bucket_management(argv, from_file);
-        } else if (type === TYPES.IPWHITELIST) {
+        } else if (type === TYPES.IP_WHITELIST) {
             await whitelist_ips_management(argv);
         } else {
             throw_cli_error(ManageCLIError.InvalidConfigType);

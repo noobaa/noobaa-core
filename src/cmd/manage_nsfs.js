@@ -719,6 +719,12 @@ async function validate_account_args(data, action) {
 
         if (is_undefined(data.access_keys[0].secret_key)) throw_cli_error(ManageCLIError.MissingAccountSecretKeyFlag);
         if (is_undefined(data.access_keys[0].access_key)) throw_cli_error(ManageCLIError.MissingAccountAccessKeyFlag);
+        if (data.nsfs_account_config.gid && (is_undefined(data.nsfs_account_config.uid))) {
+            throw_cli_error(ManageCLIError.MissingAccountNSFSConfigUID, data.nsfs_account_config);
+        }
+        if (data.nsfs_account_config.uid && (is_undefined(data.nsfs_account_config.gid))) {
+            throw_cli_error(ManageCLIError.MissingAccountNSFSConfigGID, data.nsfs_account_config);
+        }
         if ((is_undefined(data.nsfs_account_config.distinguished_name) &&
                 (data.nsfs_account_config.uid === undefined || data.nsfs_account_config.gid === undefined))) {
             throw_cli_error(ManageCLIError.InvalidAccountNSFSConfig, data.nsfs_account_config);

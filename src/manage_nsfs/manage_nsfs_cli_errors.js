@@ -190,7 +190,19 @@ ManageCLIError.MissingIdentifier = Object.freeze({
 
 ManageCLIError.InvalidAccountNSFSConfig = Object.freeze({
     code: 'InvalidAccountNSFSConfig',
-    message: 'Account config should not be empty',
+    message: 'Account config should not be empty, should contain UID, GID or user',
+    http_code: 400,
+});
+
+ManageCLIError.MissingAccountNSFSConfigUID = Object.freeze({
+    code: 'MissingAccountNSFSConfigUID',
+    message: 'Account config should include UID',
+    http_code: 400,
+});
+
+ManageCLIError.MissingAccountNSFSConfigGID = Object.freeze({
+    code: 'MissingAccountNSFSConfigGID',
+    message: 'Account config should include GID',
     http_code: 400,
 });
 

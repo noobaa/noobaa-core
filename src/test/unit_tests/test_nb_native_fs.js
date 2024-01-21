@@ -214,7 +214,7 @@ mocha.describe('nb_native fs', function() {
     mocha.describe('FileWrap Getxattr, Replacexattr clear prefixes override', function() {
         mocha.it('set, get', async function() {
             const { open } = nb_native().fs;
-            const PATH = `/tmp/xattrtest${Date.now()}`;
+            const PATH = `/tmp/xattrtest${Date.now()}_clear`;
             const tmpfile = await open(DEFAULT_FS_CONFIG, PATH, 'w');
             const xattr_obj = { 'user.key1': 'value1', 'user.key11': 'value11', 'user.key2': 'value2' };
             await tmpfile.replacexattr(DEFAULT_FS_CONFIG, xattr_obj);

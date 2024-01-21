@@ -13,6 +13,7 @@ const assert = require('assert');
 const _ = require('lodash');
 const util = require('util');
 const nsfs_schema_utils = require('./src/manage_nsfs/nsfs_schema_utils');
+const range_utils = require('./src/util/range_utils');
 
 /////////////////////////
 // CONTAINER RESOURCES //
@@ -656,8 +657,33 @@ assert(config.NAMESPACE_CACHING.DEFAULT_BLOCK_SIZE > config.INLINE_MAX_SIZE);
 // NAMESPACE FS //
 //////////////////
 
-config.NSFS_BUF_SIZE = 8 * 1024 * 1024;
-config.NSFS_BUF_POOL_MEM_LIMIT = config.BUFFERS_MEM_LIMIT;
+config.NSFS_BUF_SIZE_XS = 4 * 1024;
+config.NSFS_BUF_SIZE_S = 64 * 1024;
+config.NSFS_BUF_SIZE_M = 1 * 1024 * 1024;
+config.NSFS_BUF_SIZE_L = 8 * 1024 * 1024;
+
+// This configs help calculate the number of small and XS buffers that will be created
+// The top number of buffers we want of the small and extra small sizes - 512 seems to be enough
+config.NSFS_WANTED_BUFFERS_NUMBER = 512;
+// The maximum size that the total XS buffers will take - as XS should be few kb 8M should be enough
+config.NSFS_MAX_MEM_SIZE_XS = 8 * 1024 * 1024;
+// The maximum size that the total small buffers will take - as S should be tens of kb 32M should be enough
+config.NSFS_MAX_MEM_SIZE_S = 32 * 1024 * 1024;
+
+// Semaphore size will give the amount of XS buffers that fits in 8MB up to 512 buffers
+config.NSFS_BUF_POOL_MEM_LIMIT_XS = Math.min(Math.floor(config.NSFS_MAX_MEM_SIZE_XS / config.NSFS_BUF_SIZE_XS),
+    config.NSFS_WANTED_BUFFERS_NUMBER) * config.NSFS_BUF_SIZE_XS;
+// Semaphore size will give the amount of small buffers that fits in 32MB up to 512 buffers
+config.NSFS_BUF_POOL_MEM_LIMIT_S = Math.min(Math.floor(config.NSFS_MAX_MEM_SIZE_S / config.NSFS_BUF_SIZE_S),
+    config.NSFS_WANTED_BUFFERS_NUMBER) * config.NSFS_BUF_SIZE_S;
+// Semaphore size will give 90% of remainning memory to large buffer size, 10% to medium
+config.NSFS_BUF_POOL_MEM_LIMIT_M = range_utils.align_down((config.BUFFERS_MEM_LIMIT -
+    config.NSFS_BUF_POOL_MEM_LIMIT_S - config.NSFS_BUF_POOL_MEM_LIMIT_XS) * 0.1,
+    config.NSFS_BUF_SIZE_M);
+config.NSFS_BUF_POOL_MEM_LIMIT_L = range_utils.align_down((config.BUFFERS_MEM_LIMIT -
+    config.NSFS_BUF_POOL_MEM_LIMIT_S - config.NSFS_BUF_POOL_MEM_LIMIT_XS) * 0.9,
+    config.NSFS_BUF_SIZE_L);
+
 config.NSFS_BUF_WARMUP_SPARSE_FILE_READS = true;
 
 config.NSFS_DEFAULT_IOV_MAX = 1024; // see IOV_MAX in https://man7.org/linux/man-pages/man0/limits.h.0p.html

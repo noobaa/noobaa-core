@@ -62,16 +62,25 @@ ManageCLIError.InvalidAction = Object.freeze({
     message: 'Invalid action, available actions are add, status, update, delete, list',
     http_code: 400,
 });
-ManageCLIError.InvalidConfigType = Object.freeze({
-    code: 'InvalidConfigType',
-    message: 'Invalid config type, available config types are account, bucket or whitelist',
+
+ManageCLIError.InvalidArgument = Object.freeze({
+    code: 'InvalidArgument',
+    message: 'Invalid argument',
     http_code: 400,
 });
+
+ManageCLIError.InvalidType = Object.freeze({
+    code: 'InvalidType',
+    message: 'Invalid type, available types are account, bucket or whitelist',
+    http_code: 400,
+});
+
 ManageCLIError.MissingConfigDirPath = Object.freeze({
     code: 'MissingConfigDirPath',
     message: 'Config dir path should not be empty',
     http_code: 400,
 });
+
 ManageCLIError.InvalidSchema = Object.freeze({
     code: 'InvalidSchema',
     message: 'Schema invalid, please use required properties',

@@ -37,7 +37,7 @@ const nc_nsfs_manage_actions = {
 };
 
 // eslint-disable-next-line max-lines-per-function
-describe('manage nsfs cli account flow', () => {
+describe('manage nsfs cli bucket flow', () => {
     const buckets_schema_dir = 'buckets';
 
     describe('cli delete bucket', () => {
@@ -46,8 +46,6 @@ describe('manage nsfs cli account flow', () => {
         bucket_storage_path = path.join(tmp_fs_path, 'root_path_manage_nsfs2', 'bucket1');
 
         const account_defaults = {
-            _id: '65a9fbe7ab49fd2fe430bc3f',
-            type: 'account',
             name: 'account_test',
             email: 'account1@noobaa.io',
             new_buckets_path: `${root_path}new_buckets_path_user1/`,
@@ -55,20 +53,12 @@ describe('manage nsfs cli account flow', () => {
             gid: 999,
             access_key: 'GIGiFAnjaaE7OKD5N7hX',
             secret_key: 'G2AYaMpU3zRDcRFWmvzgQr9MoHIAsD+3oEXAMPLE',
-            creation_date: '2024-01-19T04:34:47.273Z',
         };
 
         const bucket_defaults = {
-            type: 'bucket',
             name: 'bucket1',
-            tag:'',
-            owner_account: 'account_test',
-            system_owner: 'account1@noobaa.io',
-            bucket_owner: 'account1@noobaa.io',
             email: 'account1@noobaa.io',
             path: bucket_storage_path,
-            should_create_underlying_storage: true,
-            creation_date: '2024-01-19T04:34:47.273Z',
         };
 
         beforeEach(async () => {
@@ -78,18 +68,18 @@ describe('manage nsfs cli account flow', () => {
             await fs_utils.create_fresh_path(bucket_storage_path);
             const action = nc_nsfs_manage_actions.ADD;
             // Account add
-            const { type: account_type, new_buckets_path: account_path } = account_defaults;
+            const { new_buckets_path: account_path } = account_defaults;
             const account_options = { config_root, ...account_defaults };
             await fs_utils.create_fresh_path(account_path);
             await fs_utils.file_must_exist(account_path);
-            await exec_manage_cli(account_type, action, account_options);
+            await exec_manage_cli('account', action, account_options);
 
             //bucket add
-            const { type: bucket_type, path: bucket_path } = bucket_defaults;
+            const { path: bucket_path } = bucket_defaults;
             const bucket_options = { config_root, ...bucket_defaults };
             await fs_utils.create_fresh_path(bucket_path);
             await fs_utils.file_must_exist(bucket_path);
-            const resp = await exec_manage_cli(bucket_type, action, bucket_options);
+            const resp = await exec_manage_cli('bucket', action, bucket_options);
             const bucket_resp = JSON.parse(resp);
             expect(bucket_resp.response.reply._id).not.toBeNull();
             //create temp dir
@@ -107,14 +97,14 @@ describe('manage nsfs cli account flow', () => {
         it('cli delete bucket and delete temp dir', async () => {
             let is_path_exists = await native_fs_utils.is_path_exists(DEFAULT_FS_CONFIG, bucket_temp_dir_path);
             expect(is_path_exists).toBe(true);
-            const account_options = { config_root, name: 'bucket1'};
+            const bucket_options = { config_root, name: 'bucket1'};
             const action = nc_nsfs_manage_actions.DELETE;
-            await exec_manage_cli('bucket', action, account_options);
+            await exec_manage_cli('bucket', action, bucket_options);
             is_path_exists = await native_fs_utils.is_path_exists(DEFAULT_FS_CONFIG, bucket_temp_dir_path);
             expect(is_path_exists).toBe(false);
         });
     });
-})
+});
 
 /**
  * exec_manage_cli will get the flags for the cli and runs the cli with it's flags

@@ -50,7 +50,12 @@ set the general configuration to allow only incoming requests from a given list 
     --ips <ips>                       (default none)          Set whitelist ips in format: '["127.0.0.1", "192.0.10.0", "3002:0bd6:0000:0000:0000:ee00:0033:6778"]'.
 `;
 
-const OPTIONS_GLOBAL = `
+const GLOBAL_CONFIG_ROOT_ALL = `
+    # global configurations
+    --config_root <dir>                             (default config.NSFS_NC_DEFAULT_CONF_DIR)   Use Configuration files path.
+`;
+
+const GLOBAL_CONFIG_OPTIONS_ADD_UPDATE = `
     # global configurations
     --from_file <dir>                                         (default none)                                  Use details from the JSON file, there is no need to mention all the properties individually in the CLI.
     --config_root <dir>                                       (default config.NSFS_NC_DEFAULT_CONF_DIR)       Use Configuration files path.
@@ -82,7 +87,8 @@ account update [options...]:
     update an existing account
 
     # required
-    --name <name>                                                                               The name of the account.
+    --name <name>                                                                               The name of the account
+                                                                                                (can identify the account by --access_key option)
 
     # optional
     --new_name <name>                               (default none)                              Update the account name.
@@ -92,7 +98,7 @@ account update [options...]:
     --new_buckets_path <dir>                        (default none)                              Update the filesystem's root where each subdirectory is a bucket.
     --user <user-name>                              (default none)                              Update the OS user name (instead of uid and gid).
     --regenerate                                    (default none)                              Update automatically generated access key and secret key.
-    --access_key <key>                              (default none)                              Update the access key.
+    --access_key <key>                              (default none)                              Update the access key. Can be used as identifier instead of --name.
     --secret_key <key>                              (default none)                              Update the secret key.
     --fs_backend <none | GPFS | CEPH_FS | NFSv4>    (default config.NSFS_NC_STORAGE_BACKEND)    Update filesystem type of new_buckets_path.
 `;
@@ -104,6 +110,7 @@ account delete [options...]:
 
     # required
     --name <name>                                                                               The name of the account.
+                                                                                                (can identify the account by --access_key option)
 `;
 
 const ACCOUNT_OPTIONS_STATUS = `
@@ -114,6 +121,7 @@ account status [options...]:
 
     # required
     --name <name>                                                                               The name of the account.
+                                                                                                (can identify the account by --access_key option)
 
     # optional
     --show_secrets                                  (default false)                             Print the access key and secret key of the account.
@@ -217,22 +225,24 @@ function print_help_options(type, action) {
 function print_help_account(action) {
     switch (action) {
         case ACTIONS.ADD:
-            process.stdout.write(ACCOUNT_OPTIONS_ADD.trimStart() + OPTIONS_GLOBAL + '\n');
-            break;
+            process.stdout.write(ACCOUNT_OPTIONS_ADD.trimStart() +
+                GLOBAL_CONFIG_OPTIONS_ADD_UPDATE + '\n');
+        break;
         case ACTIONS.UPDATE:
-            process.stdout.write(ACCOUNT_OPTIONS_UPDATE.trimStart() + OPTIONS_GLOBAL + '\n');
-            break;
+            process.stdout.write(ACCOUNT_OPTIONS_UPDATE.trimStart() +
+                GLOBAL_CONFIG_OPTIONS_ADD_UPDATE + '\n');
+        break;
         case ACTIONS.DELETE:
-            process.stdout.write(ACCOUNT_OPTIONS_DELETE.trimStart() + '\n');
+            process.stdout.write(ACCOUNT_OPTIONS_DELETE.trimStart() + GLOBAL_CONFIG_ROOT_ALL + '\n');
             break;
         case ACTIONS.STATUS:
-            process.stdout.write(ACCOUNT_OPTIONS_STATUS.trimStart() + '\n');
+            process.stdout.write(ACCOUNT_OPTIONS_STATUS.trimStart() + GLOBAL_CONFIG_ROOT_ALL + '\n');
             break;
         case ACTIONS.LIST:
-            process.stdout.write(ACCOUNT_OPTIONS_LIST.trimStart() + '\n');
+            process.stdout.write(ACCOUNT_OPTIONS_LIST.trimStart() + GLOBAL_CONFIG_ROOT_ALL + '\n');
             break;
         default:
-            process.stdout.write(ARGUMENTS_ACCOUNT.trimStart() + '\n');
+            process.stdout.write(ARGUMENTS_ACCOUNT.trimStart() + GLOBAL_CONFIG_ROOT_ALL + '\n');
     }
     process.exit(0);
 }
@@ -243,22 +253,24 @@ function print_help_account(action) {
 function print_help_bucket(action) {
     switch (action) {
         case ACTIONS.ADD:
-            process.stdout.write(BUCKET_OPTIONS_ADD.trimStart() + OPTIONS_GLOBAL + '\n');
+            process.stdout.write(BUCKET_OPTIONS_ADD.trimStart() +
+                GLOBAL_CONFIG_OPTIONS_ADD_UPDATE + '\n');
             break;
         case ACTIONS.UPDATE:
-            process.stdout.write(BUCKET_OPTIONS_UPDATE.trimStart() + OPTIONS_GLOBAL + '\n');
+            process.stdout.write(BUCKET_OPTIONS_UPDATE.trimStart() +
+                GLOBAL_CONFIG_OPTIONS_ADD_UPDATE + '\n');
             break;
         case ACTIONS.DELETE:
-            process.stdout.write(BUCKET_OPTIONS_DELETE.trimStart() + '\n');
+            process.stdout.write(BUCKET_OPTIONS_DELETE.trimStart() + GLOBAL_CONFIG_ROOT_ALL + '\n');
             break;
         case ACTIONS.STATUS:
-            process.stdout.write(BUCKET_OPTIONS_STATUS.trimStart() + '\n');
+            process.stdout.write(BUCKET_OPTIONS_STATUS.trimStart() + GLOBAL_CONFIG_ROOT_ALL + '\n');
             break;
         case ACTIONS.LIST:
-            process.stdout.write(BUCKET_OPTIONS_LIST.trimStart() + '\n');
+            process.stdout.write(BUCKET_OPTIONS_LIST.trimStart() + GLOBAL_CONFIG_ROOT_ALL + '\n');
             break;
         default:
-            process.stdout.write(ARGUMENTS_BUCKET.trimStart() + '\n');
+            process.stdout.write(ARGUMENTS_BUCKET.trimStart() + GLOBAL_CONFIG_ROOT_ALL + '\n');
     }
     process.exit(0);
 }

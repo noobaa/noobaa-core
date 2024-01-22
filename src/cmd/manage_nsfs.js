@@ -313,8 +313,7 @@ async function manage_bucket_operations(action, data) {
     } else if (action === ACTIONS.DELETE) {
         await delete_bucket(data);
     } else if (action === ACTIONS.LIST) {
-        let buckets = await list_config_files(buckets_dir_path);
-        if (!data.wide) buckets = buckets.map(item => ({ name: item.name }));
+        const buckets = await list_config_files(buckets_dir_path, data.wide);
         write_stdout_response(ManageCLIResponse.BucketList, buckets);
     } else {
         // we should not get here (we check it before)
@@ -589,9 +588,8 @@ async function manage_account_operations(action, data, show_secrets, argv) {
     } else if (action === ACTIONS.DELETE) {
         await delete_account(data);
     } else if (action === ACTIONS.LIST) {
-        let accounts = await list_config_files(accounts_dir_path, show_secrets);
+        let accounts = await list_config_files(accounts_dir_path, data.wide, show_secrets);
         accounts = filter_account_results(accounts, argv);
-        if (!data.wide) accounts = accounts.map(item => ({ name: item.name }));
         write_stdout_response(ManageCLIResponse.AccountList, accounts);
     } else {
         // we should not get here (we check it before)
@@ -624,16 +622,22 @@ function filter_account_results(accounts, argv) {
 /**
  * list_config_files will list all the config files (json) in a given config directory
  * @param {string} config_path
+ * @param {boolean} [wide]
+ * @param {boolean} [show_secrets]
  */
-async function list_config_files(config_path, show_secrets) {
+async function list_config_files(config_path, wide, show_secrets) {
     const fs_context = native_fs_utils.get_process_fs_context();
     const entries = await nb_native().fs.readdir(fs_context, config_path);
 
     let config_files_list = await P.map_with_concurrency(10, entries, async entry => {
         if (entry.name.endsWith('.json')) {
-            const full_path = path.join(config_path, entry.name);
-            const data = await get_config_data(full_path, show_secrets);
-            return data;
+            if (wide) {
+                const full_path = path.join(config_path, entry.name);
+                const data = await get_config_data(full_path, show_secrets);
+                return data;
+            } else {
+                return { name: entry.name.slice(0, entry.name.indexOf('.json')) };
+            }
         }
     });
     // it inserts undefined for the entry '.noobaa-config-nsfs' and we wish to remove it

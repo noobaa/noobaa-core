@@ -19,7 +19,7 @@ const ManageCLIResponse = require('../manage_nsfs/manage_nsfs_cli_responses').Ma
 const bucket_policy_utils = require('../endpoint/s3/s3_bucket_policy_utils');
 const nsfs_schema_utils = require('../manage_nsfs/nsfs_schema_utils');
 const { print_usage } = require('../manage_nsfs/manage_nsfs_help_utils');
-const { TYPES, ACTIONS } = require('../manage_nsfs/manage_nsfs_constants');
+const { TYPES, ACTIONS, VALID_OPTIONS } = require('../manage_nsfs/manage_nsfs_constants');
 
 function throw_cli_error(error_code, detail) {
     const err = new ManageCLIError(error_code).to_string(detail);
@@ -76,6 +76,13 @@ async function main(argv = minimist(process.argv.slice(2))) {
         if (argv.help || argv.h) {
             return print_usage(type, action);
         }
+        const { invalid_input_options, valid_options } = validate_options(type, action, argv);
+        if (invalid_input_options.length > 0) {
+            const type_and_action = type === TYPES.IP_WHITELIST ? type : `${type} ${action}`;
+            const err_msg = `${invalid_input_options.join(', ')} invalid options for ` +
+                `${type_and_action}, please use only: ${[...valid_options].join(', ')}`;
+            throw_cli_error(ManageCLIError.InvalidArgument, err_msg);
+        }
         config_root = argv.config_root ? String(argv.config_root) : config.NSFS_NC_CONF_DIR;
         if (!config_root) throw_cli_error(ManageCLIError.MissingConfigDirPath);
 
@@ -93,7 +100,8 @@ async function main(argv = minimist(process.argv.slice(2))) {
         } else if (type === TYPES.IP_WHITELIST) {
             await whitelist_ips_management(argv);
         } else {
-            throw_cli_error(ManageCLIError.InvalidConfigType);
+            // we should not get here (we check it before)
+            throw_cli_error(ManageCLIError.InvalidType);
         }
     } catch (err) {
         dbg.log1('NSFS Manage command: exit on error', err.stack || err);
@@ -309,7 +317,8 @@ async function manage_bucket_operations(action, data) {
         if (!data.wide) buckets = buckets.map(item => ({ name: item.name }));
         write_stdout_response(ManageCLIResponse.BucketList, buckets);
     } else {
-        throw_cli_error(ManageCLIError.InvalidAction, undefined);
+        // we should not get here (we check it before)
+        throw_cli_error(ManageCLIError.InvalidAction);
     }
 }
 
@@ -585,6 +594,7 @@ async function manage_account_operations(action, data, show_secrets, argv) {
         if (!data.wide) accounts = accounts.map(item => ({ name: item.name }));
         write_stdout_response(ManageCLIResponse.AccountList, accounts);
     } else {
+        // we should not get here (we check it before)
         throw_cli_error(ManageCLIError.InvalidAction);
     }
 }
@@ -751,6 +761,34 @@ async function validate_account_args(data, action) {
     }
 }
 
+/** validate_options checks if there are options that are not valid.
+ * valid options are: required arguments, optional options and global configurations.
+ * @param {string} type
+ * @param {string} action
+ * @param {object} argv
+ */
+function validate_options(type, action, argv) {
+    if (!Object.values(TYPES).includes(type)) throw_cli_error(ManageCLIError.InvalidType);
+    if (type === TYPES.ACCOUNT || type === TYPES.BUCKET) {
+        if (!Object.values(ACTIONS).includes(action)) throw_cli_error(ManageCLIError.InvalidAction);
+    } else if (type === TYPES.IP_WHITELIST) {
+        if (action !== '') throw_cli_error(ManageCLIError.InvalidAction);
+    }
+
+    const input_options = Object.keys(argv); // we don't care about the value, only the flags
+    input_options.shift(); // the first element is _ with the type and action, so we remove it
+
+    let valid_options; // for performance, we use Set as data structure
+    if (type === TYPES.BUCKET) {
+        valid_options = VALID_OPTIONS.bucket_options[action];
+    } else if (type === TYPES.ACCOUNT) {
+        valid_options = VALID_OPTIONS.account_options[action];
+    } else {
+        valid_options = VALID_OPTIONS.whitelist_options;
+    }
+    const invalid_input_options = input_options.filter(element => !valid_options.has(element));
+    return {invalid_input_options, valid_options};
+}
 
 ///////////////////////////////
 ///         UTILS           ///

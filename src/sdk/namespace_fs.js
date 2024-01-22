@@ -1702,7 +1702,7 @@ class NamespaceFS {
 
             await target_file.close(fs_context);
             target_file = null;
-            if (config.NSFS_REMOVE_PARTS_ON_COMPLETE) await this._folder_delete(params.mpu_path, fs_context);
+            if (config.NSFS_REMOVE_PARTS_ON_COMPLETE) await native_fs_utils.folder_delete(params.mpu_path, fs_context);
             return upload_info;
         } catch (err) {
             dbg.error(err);
@@ -1733,7 +1733,7 @@ class NamespaceFS {
         const fs_context = this.prepare_fs_context(object_sdk);
         await this._load_multipart(params, fs_context);
         dbg.log0('NamespaceFS: abort_object_upload', params.mpu_path);
-        await this._folder_delete(params.mpu_path, fs_context);
+        await native_fs_utils.folder_delete(params.mpu_path, fs_context);
     }
 
     ///////////////////
@@ -2362,21 +2362,6 @@ class NamespaceFS {
         }
     }
 
-    async _folder_delete(dir, fs_context) {
-        const entries = await nb_native().fs.readdir(fs_context, dir);
-        const results = await Promise.all(entries.map(entry => {
-            const fullPath = path.join(dir, entry.name);
-            const task = native_fs_utils.isDirectory(entry) ? this._folder_delete(fullPath, fs_context) :
-                nb_native().fs.unlink(fs_context, fullPath);
-            return task.catch(error => ({ error }));
-        }));
-        results.forEach(result => {
-            // Ignore missing files/directories; bail on other errors
-            if (result && result.error && result.error.code !== 'ENOENT') throw result.error;
-        });
-        await nb_native().fs.rmdir(fs_context, dir);
-    }
-
     async create_uls(params, object_sdk) {
         const fs_context = this.prepare_fs_context(object_sdk);
         dbg.log0('NamespaceFS: create_uls fs_context:', fs_context, 'new_dir_path: ', params.full_path);
@@ -2398,7 +2383,7 @@ class NamespaceFS {
                 throw new RpcError('NOT_EMPTY', 'underlying directory has files in it');
             }
 
-            await this._folder_delete(params.full_path, fs_context);
+            await native_fs_utils.folder_delete(params.full_path, fs_context);
         } catch (err) {
             throw this._translate_object_error_codes(err);
         }

@@ -12,6 +12,7 @@ const nb_native = require('../util/nb_native');
 const cloud_utils = require('../util/cloud_utils');
 const string_utils = require('../util/string_utils');
 const native_fs_utils = require('../util/native_fs_utils');
+const mongo_utils = require('../util/mongo_utils');
 const SensitiveString = require('../util/sensitive_string');
 const ManageCLIError = require('../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
 const ManageCLIResponse = require('../manage_nsfs/manage_nsfs_cli_responses').ManageCLIResponse;
@@ -52,7 +53,7 @@ async function check_and_create_config_dirs() {
     for (const dir_path of pre_req_dirs) {
         try {
             const fs_context = native_fs_utils.get_process_fs_context();
-            const dir_exists = await native_fs_utils.config_file_exists(fs_context, dir_path);
+            const dir_exists = await native_fs_utils.is_path_exists(fs_context, dir_path);
             if (dir_exists) {
                 dbg.log1('nsfs.check_and_create_config_dirs: config dir exists:', dir_path);
             } else {
@@ -142,7 +143,7 @@ async function fetch_bucket_data(argv, from_file) {
             data.s3_policy = JSON.parse(argv.bucket_policy.toString());
         }
     }
-    if (action === ACTIONS.UPDATE) {
+    if (action === ACTIONS.UPDATE || action === ACTIONS.DELETE) {
         data = _.omitBy(data, _.isUndefined);
         data = await fetch_existing_bucket_data(data);
     }
@@ -188,9 +189,9 @@ async function add_bucket(data) {
     await verify_bucket_owner(data.bucket_owner.unwrap());
     const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
     const bucket_conf_path = get_config_file_path(buckets_dir_path, data.name);
-    const exists = await native_fs_utils.config_file_exists(fs_context, bucket_conf_path);
+    const exists = await native_fs_utils.is_path_exists(fs_context, bucket_conf_path);
     if (exists) throw_cli_error(ManageCLIError.BucketAlreadyExists, data.name.unwrap());
-
+    data._id = mongo_utils.mongoObjectId();
     const data_json = JSON.stringify(data);
     // We take an object that was stringify
     // (it unwraps ths sensitive strings, creation_date to string and removes undefined parameters)
@@ -266,7 +267,7 @@ async function update_bucket(data) {
     const cur_bucket_config_path = get_config_file_path(buckets_dir_path, cur_name.unwrap());
     const new_bucket_config_path = get_config_file_path(buckets_dir_path, data.name.unwrap());
 
-    const exists = await native_fs_utils.config_file_exists(fs_context, new_bucket_config_path);
+    const exists = await native_fs_utils.is_path_exists(fs_context, new_bucket_config_path);
     if (exists) throw_cli_error(ManageCLIError.BucketAlreadyExists, data.name.unwrap());
 
     data = JSON.stringify(_.omit(data, ['new_name']));
@@ -281,13 +282,15 @@ async function update_bucket(data) {
 
 async function delete_bucket(data) {
     await validate_bucket_args(data, ACTIONS.DELETE);
-
     const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
     const bucket_config_path = get_config_file_path(buckets_dir_path, data.name);
     try {
+        const bucket_temp_dir_path = path.join(data.path, config.NSFS_TEMP_DIR_NAME + "_" + data._id);
+        await native_fs_utils.folder_delete(bucket_temp_dir_path, fs_context, true);
         await native_fs_utils.delete_config_file(fs_context, buckets_dir_path, bucket_config_path);
     } catch (err) {
         if (err.code === 'ENOENT') throw_cli_error(ManageCLIError.NoSuchBucket, data.name);
+        throw err;
     }
     write_stdout_response(ManageCLIResponse.BucketDeleted);
 }
@@ -440,14 +443,14 @@ async function add_account(data) {
     const account_config_path = get_config_file_path(accounts_dir_path, data.name);
     const account_config_access_key_path = get_symlink_config_file_path(access_keys_dir_path, access_key);
 
-    const name_exists = await native_fs_utils.config_file_exists(fs_context, account_config_path);
-    const access_key_exists = await native_fs_utils.config_file_exists(fs_context, account_config_access_key_path, true);
+    const name_exists = await native_fs_utils.is_path_exists(fs_context, account_config_path);
+    const access_key_exists = await native_fs_utils.is_path_exists(fs_context, account_config_access_key_path, true);
 
     if (name_exists || access_key_exists) {
         const err_code = name_exists ? ManageCLIError.AccountNameAlreadyExists : ManageCLIError.AccountAccessKeyAlreadyExists;
         throw_cli_error(err_code);
     }
-
+    data._id = mongo_utils.mongoObjectId();
     data = JSON.stringify(data);
     // We take an object that was stringify
     // (it unwraps ths sensitive strings, creation_date to string and removes undefined parameters)
@@ -487,8 +490,8 @@ async function update_account(data) {
     const new_account_config_path = get_config_file_path(accounts_dir_path, data.name.unwrap());
     const cur_access_key_config_path = get_symlink_config_file_path(access_keys_dir_path, cur_access_key.unwrap());
     const new_access_key_config_path = get_symlink_config_file_path(access_keys_dir_path, data.access_keys[0].access_key.unwrap());
-    const name_exists = update_name && await native_fs_utils.config_file_exists(fs_context, new_account_config_path);
-    const access_key_exists = update_access_key && await native_fs_utils.config_file_exists(fs_context, new_access_key_config_path, true);
+    const name_exists = update_name && await native_fs_utils.is_path_exists(fs_context, new_account_config_path);
+    const access_key_exists = update_access_key && await native_fs_utils.is_path_exists(fs_context, new_access_key_config_path, true);
     if (name_exists || access_key_exists) {
         const err_code = name_exists ? ManageCLIError.AccountNameAlreadyExists : ManageCLIError.AccountAccessKeyAlreadyExists;
         throw_cli_error(err_code);
@@ -673,7 +676,7 @@ async function validate_bucket_args(data, action) {
         if (is_undefined(data.system_owner)) throw_cli_error(ManageCLIError.MissingBucketEmailFlag);
         if (!data.path) throw_cli_error(ManageCLIError.MissingBucketPathFlag);
         const fs_context = native_fs_utils.get_process_fs_context();
-        const exists = await native_fs_utils.config_file_exists(fs_context, data.path);
+        const exists = await native_fs_utils.is_path_exists(fs_context, data.path);
         if (!exists) {
             throw_cli_error(ManageCLIError.InvalidStoragePath, data.path);
         }
@@ -741,7 +744,7 @@ async function validate_account_args(data, action) {
             return;
         }
         const fs_context = native_fs_utils.get_process_fs_context();
-        const exists = await native_fs_utils.config_file_exists(fs_context, data.nsfs_account_config.new_buckets_path);
+        const exists = await native_fs_utils.is_path_exists(fs_context, data.nsfs_account_config.new_buckets_path);
         if (!exists) {
             throw_cli_error(ManageCLIError.InvalidAccountNewBucketsPath, data.nsfs_account_config.new_buckets_path);
         }

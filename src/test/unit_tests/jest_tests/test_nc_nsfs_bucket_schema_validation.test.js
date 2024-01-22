@@ -263,6 +263,24 @@ describe('schema validation NC NSFS bucket', () => {
             assert_validation(bucket_data, reason, message);
         });
 
+        it('bucket with undefined _id', () => {
+            const bucket_data = get_bucket_data();
+            bucket_data._id = undefined;
+            const reason = 'Test should have failed because of missing required property ' +
+                '_id';
+            const message = "must have required property '_id'";
+            assert_validation(bucket_data, reason, message);
+        });
+
+        it('bucket without _id', () => {
+            const bucket_data = get_bucket_data();
+            delete bucket_data._id;
+            const reason = 'Test should have failed because of missing required property ' +
+                '_id';
+            const message = "must have required property '_id'";
+            assert_validation(bucket_data, reason, message);
+        });
+
     });
 
     describe('bucket with wrong types', () => {
@@ -343,6 +361,7 @@ describe('schema validation NC NSFS bucket', () => {
 
 function get_bucket_data() {
     const bucket_name = 'bucket1';
+    const id = '65a62e22ceae5e5f1a758aa8';
     const system_owner = 'account1@noobaa.io';
     const bucket_owner = 'account1@noobaa.io';
     const versioning_disabled = 'DISABLED';
@@ -350,6 +369,7 @@ function get_bucket_data() {
     const path = '/tmp/nsfs_root1';
 
     const bucket_data = {
+        _id: id,
         name: bucket_name,
         system_owner: system_owner,
         bucket_owner: bucket_owner,

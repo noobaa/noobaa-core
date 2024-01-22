@@ -14,6 +14,7 @@ const _ = require('lodash');
 const util = require('util');
 const bucket_policy_utils = require('../endpoint/s3/s3_bucket_policy_utils');
 const nsfs_schema_utils = require('../manage_nsfs/nsfs_schema_utils');
+const mongo_utils = require('../util/mongo_utils');
 
 const KeysSemaphore = require('../util/keys_semaphore');
 const native_fs_utils = require('../util/native_fs_utils');
@@ -344,6 +345,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
 
     new_bucket_defaults(account, { name, tag, lock_enabled, force_md5_etag }, create_uls, bucket_storage_path) {
         return {
+            _id: mongo_utils.mongoObjectId(),
             name,
             tag: js_utils.default_value(tag, undefined),
             owner_account: account._id,
@@ -378,10 +380,15 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                         full_path: path.join(this.fs_root, namespace_bucket_config.write_resource.path) // includes write_resource.path + bucket name (s3 flow)
                     }, object_sdk);
                 } else if (namespace_bucket_config) {
+                    // S3 Delete for NSFS Manage buckets
                     const list = await ns.list_objects({ ...params, limit: 1 }, object_sdk);
                     if (list && list.objects && list.objects.length > 0) {
                         throw new RpcError('NOT_EMPTY', 'underlying directory has files in it');
                     }
+                    const bucket = await object_sdk.read_bucket_sdk_config_info(params.name)
+                    const bucket_temp_dir_path = path.join(namespace_bucket_config.write_resource.path,
+                            config.NSFS_TEMP_DIR_NAME + "_" + bucket._id);
+                    await native_fs_utils.folder_delete(bucket_temp_dir_path, this.fs_context, true);
                 }
                 dbg.log1(`BucketSpaceFS: delete_fs_bucket ${bucket_path}`);
                 // delete bucket config json file

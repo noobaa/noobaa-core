@@ -269,6 +269,48 @@ async function exec_manage_cli(type, action, options) {
     }
 }
 
+/**
+ * create_fs_user_by_platform creates a file system user by platform
+ * @param {string} new_user
+ * @param {string} new_password
+ * @param {number} uid
+ * @param {number} gid
+ */
+async function create_fs_user_by_platform(new_user, new_password, uid, gid) {
+    if (process.platform === 'darwin') {
+        const create_user_cmd = `sudo dscl . -create /Users/${new_user} UserShell /bin/bash`;
+        const create_user_realname_cmd = `sudo dscl . -create /Users/${new_user} RealName ${new_user}`;
+        const create_user_uid_cmd = `sudo dscl . -create /Users/${new_user} UniqueID ${uid}`;
+        const create_user_gid_cmd = `sudo dscl . -create /Users/${new_user} PrimaryGroupID ${gid}`;
+        await os_utils.exec(create_user_cmd, { return_stdout: true });
+        await os_utils.exec(create_user_realname_cmd, { return_stdout: true });
+        await os_utils.exec(create_user_uid_cmd, { return_stdout: true });
+        await os_utils.exec(create_user_gid_cmd, { return_stdout: true });
+    } else {
+        const create_group_cmd = `groupadd -g ${gid} ${new_user}`;
+        await os_utils.exec(create_group_cmd, { return_stdout: true });
+        const create_user_cmd = `useradd -c ${new_user} -m ${new_user} -p $(openssl passwd -1 ${new_password}) -u ${uid} -g ${gid} `;
+        await os_utils.exec(create_user_cmd, { return_stdout: true });
+    }
+}
+
+
+/**
+ * delete_fs_user_by_platform deletes a file system user by platform
+ * @param {string} name
+ */
+async function delete_fs_user_by_platform(name) {
+    if (process.platform === 'darwin') {
+        const delete_user_cmd = `sudo dscl . -delete /Users/${name}`;
+        const delete_user_home_cmd = `sudo rm -rf /Users/${name}`;
+        await os_utils.exec(delete_user_cmd, { return_stdout: true });
+        await os_utils.exec(delete_user_home_cmd, { return_stdout: true });
+    } else {
+        const delete_user_cmd = `userdel -r ${name}`;
+        await os_utils.exec(delete_user_cmd, { return_stdout: true });
+    }
+}
+
 exports.blocks_exist_on_cloud = blocks_exist_on_cloud;
 exports.create_hosts_pool = create_hosts_pool;
 exports.delete_hosts_pool = delete_hosts_pool;
@@ -280,3 +322,5 @@ exports.get_coretest_path = get_coretest_path;
 exports.exec_manage_cli = exec_manage_cli;
 exports.nc_nsfs_manage_entity_types = nc_nsfs_manage_entity_types;
 exports.nc_nsfs_manage_actions = nc_nsfs_manage_actions;
+exports.create_fs_user_by_platform = create_fs_user_by_platform;
+exports.delete_fs_user_by_platform = delete_fs_user_by_platform;

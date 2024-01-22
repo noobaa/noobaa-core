@@ -135,6 +135,13 @@ account list [options...]:
     # optional
     --wide                                          (default false)                             Print the additional details for each account.
     --show_secrets                                  (default false)                             Print the access key and secret key of each account (only when using option --wide).
+    
+    # optional filters
+    --uid                                                                                       Filters the list based on the provided UID.
+    --gid                                                                                       Filters the list based on the provided GID.
+    --user                                                                                      Filters the list based on the provided FS user distinguished name.
+    --name                                                                                      Filters the list based on the provided account name.
+    --access_key                                                                                Filters the list based on the provided account access_key.
 `;
 
 const BUCKET_OPTIONS_ADD = `
@@ -194,6 +201,9 @@ bucket list [options...]:
 
     # optional
     --wide                                          (default false)                             Print the additional details for each bucket.
+
+    # optional filters
+    --name                                                                                      Filters the list based on the provided account name.
 `;
 
 /** print_help_options would print the help options according to the arguments that were passed
@@ -227,11 +237,11 @@ function print_help_account(action) {
         case ACTIONS.ADD:
             process.stdout.write(ACCOUNT_OPTIONS_ADD.trimStart() +
                 GLOBAL_CONFIG_OPTIONS_ADD_UPDATE + '\n');
-        break;
+            break;
         case ACTIONS.UPDATE:
             process.stdout.write(ACCOUNT_OPTIONS_UPDATE.trimStart() +
                 GLOBAL_CONFIG_OPTIONS_ADD_UPDATE + '\n');
-        break;
+            break;
         case ACTIONS.DELETE:
             process.stdout.write(ACCOUNT_OPTIONS_DELETE.trimStart() + GLOBAL_CONFIG_ROOT_ALL + '\n');
             break;

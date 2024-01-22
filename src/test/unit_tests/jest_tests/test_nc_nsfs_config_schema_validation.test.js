@@ -10,17 +10,19 @@ describe('schema validation NC NSFS config', () => {
 
     describe('config with all needed properties', () => {
 
-        it('nsfs_account_config - valid simple', () => {
+        it('nsfs_config - valid simple', () => {
             const config_data = {
                 ALLOW_HTTP: true,
                 NSFS_NC_STORAGE_BACKEND: 'GPFS',
                 NSFS_NC_CONFIG_DIR_BACKEND: 'CEPH_FS',
-                FORKS: 20
+                FORKS: 20,
+                NSFS_DIR_CACHE_MAX_DIR_SIZE: 67108864,
+                NSFS_DIR_CACHE_MAX_TOTAL_SIZE: 268435456,
             };
             nsfs_schema_utils.validate_nsfs_config_schema(config_data);
         });
 
-        it('nsfs_account_config - recommendation', () => {
+        it('nsfs_config - recommendation', () => {
             const config_data = {
                 ENDPOINT_PORT: 80,
                 ENDPOINT_SSL_PORT: 443,
@@ -39,6 +41,8 @@ describe('schema validation NC NSFS config', () => {
                     '0000:0000:0000:0000:0000:ffff:7f00:0002',
                     '::ffff:7f00:3'
                 ],
+                NSFS_DIR_CACHE_MAX_DIR_SIZE: 268435456,
+                NSFS_DIR_CACHE_MAX_TOTAL_SIZE: 805306368,
             };
             nsfs_schema_utils.validate_nsfs_config_schema(config_data);
         });
@@ -46,7 +50,7 @@ describe('schema validation NC NSFS config', () => {
 
     describe('config with wrong types', () => {
 
-        it('nsfs_account_config invalid ALLOW_HTTP', () => {
+        it('nsfs_config invalid ALLOW_HTTP', () => {
             const config_data = {
                 ALLOW_HTTP: 123, // number instead of boolean
             };
@@ -56,7 +60,7 @@ describe('schema validation NC NSFS config', () => {
             assert_validation(config_data, reason, message);
         });
 
-        it('nsfs_account_config invalid forks', () => {
+        it('nsfs_config invalid forks', () => {
             const config_data = {
                 ENDPOINT_FORKS: true, // boolean instead of number
             };
@@ -66,7 +70,7 @@ describe('schema validation NC NSFS config', () => {
             assert_validation(config_data, reason, message);
         });
 
-        it('nsfs_account_config invalid storage fs_backend', () => {
+        it('nsfs_config invalid storage fs_backend', () => {
             const config_data = {
                 NSFS_NC_STORAGE_BACKEND: 'INVALID_FS_BACKEND', // not part of definition of fs_backend
             };
@@ -76,13 +80,33 @@ describe('schema validation NC NSFS config', () => {
             assert_validation(config_data, reason, message);
         });
 
-        it('nsfs_account_config invalid config dir fs_backend', () => {
+        it('nsfs_config invalid config dir fs_backend', () => {
             const config_data = {
                 NSFS_NC_CONFIG_DIR_BACKEND: 123, // number instead of string
             };
             const reason = 'Test should have failed because of wrong type ' +
                 'NSFS_NC_CONFIG_DIR_BACKEND with number (instead of string)';
             const message = 'must be string';
+            assert_validation(config_data, reason, message);
+        });
+
+        it('nsfs_config invalid config dir dir cache max dir size', () => {
+            const config_data = {
+                NSFS_DIR_CACHE_MAX_DIR_SIZE: 'not a number', // string instead of number
+            };
+            const reason = 'Test should have failed because of wrong type ' +
+                'NSFS_DIR_CACHE_MAX_DIR_SIZE with number (instead of string)';
+            const message = 'must be number';
+            assert_validation(config_data, reason, message);
+        });
+
+        it('nsfs_config invalid config dir dir cache max total size', () => {
+            const config_data = {
+                NSFS_DIR_CACHE_MAX_TOTAL_SIZE: 'not a number', // string instead of number
+            };
+            const reason = 'Test should have failed because of wrong type ' +
+                'NSFS_DIR_CACHE_MAX_TOTAL_SIZE with number (instead of string)';
+            const message = 'must be number';
             assert_validation(config_data, reason, message);
         });
     });

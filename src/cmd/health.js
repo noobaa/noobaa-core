@@ -186,7 +186,7 @@ class NSFSHealth {
           }
         }
       });
-    } catch(err) {
+    } catch (err) {
       console.log('Error while pinging endpoint host :' + HOSTNAME + ', port ' + this.https_port, err);
       return {
         response: fork_response_code.NOT_RUNNING.response_code,
@@ -363,14 +363,36 @@ async get_storage_status(config_root, type, all_details) {
           code: health_errors.INVALID_CONFIG.error_code,
         };
       }
+      invalid_storages.push(invalid_storage);
+      continue;
     }
     let storage_path;
     try {
       storage_path = type === 'bucket' ? config_data.path : config_data.nsfs_account_config.new_buckets_path;
-      // check for access in account new_buckets_path dir
       if (type === 'account') {
-          await nb_native().fs.checkAccess(this.get_account_fs_context(config_data.nsfs_account_config.uid,
-            config_data.nsfs_account_config.gid), storage_path);
+        // account is invalid when allow_bucket_creation is true and new_buckets_path is missing, 
+        // else account is considered a valid account that can not create a bucket.
+        if (!storage_path) {
+          if (config_data.allow_bucket_creation) {
+            invalid_storage = {
+              name: config_data.name,
+              storage_path: storage_path,
+              code: health_errors.STORAGE_NOT_EXIST.error_code,
+            };
+            invalid_storages.push(invalid_storage);
+            continue;
+          } else {
+            const valid_storage = {
+              name: config_data.name,
+              storage_path: storage_path,
+            };
+            valid_storages.push(valid_storage);
+            continue;
+          }
+        }
+        // check for access in account new_buckets_path dir
+        await nb_native().fs.checkAccess(this.get_account_fs_context(config_data.nsfs_account_config.uid,
+          config_data.nsfs_account_config.gid), storage_path);
       }
       const dir_stat = await nb_native().fs.stat(fs_context, storage_path);
       if (dir_stat && all_details) {

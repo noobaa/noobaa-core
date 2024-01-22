@@ -385,7 +385,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                     if (list && list.objects && list.objects.length > 0) {
                         throw new RpcError('NOT_EMPTY', 'underlying directory has files in it');
                     }
-                    const bucket = await object_sdk.read_bucket_sdk_config_info(params.name)
+                    const bucket = await object_sdk.read_bucket_sdk_config_info(params.name);
                     const bucket_temp_dir_path = path.join(namespace_bucket_config.write_resource.path,
                             config.NSFS_TEMP_DIR_NAME + "_" + bucket._id);
                     await native_fs_utils.folder_delete(bucket_temp_dir_path, this.fs_context, true);

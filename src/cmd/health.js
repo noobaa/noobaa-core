@@ -72,6 +72,14 @@ const health_errors = {
       error_code: 'INVALID_CONFIG',
       error_message: 'Schema JSON is not valid, Please check the JSON format.',
     },
+    ACCESS_DENIED: {
+      error_code: 'ACCESS_DENIED',
+      error_message: 'Account do no have access to storage path mentioned in schema.',
+    },
+    MISSING_CONFIG: {
+      error_code: 'MISSING_CONFIG',
+      error_message: 'Schema JSON is not found.',
+    }
 };
 
 const fork_response_code = {
@@ -92,7 +100,7 @@ const fork_response_code = {
 const health_errors_tyes = {
   PERSISTENT: 'PERSISTENT',
   TEMPORARY: 'TEMPORARY',
-};
+}
 
 //suppress aws sdk related commands.
 process.env.AWS_SDK_JS_SUPPRESS_MAINTENANCE_MODE_MESSAGE = '1';
@@ -114,6 +122,8 @@ class NSFSHealth {
       endpoint_state = await this.get_endpoint_response();
       memory = await this.get_service_memory_usage();
     }
+    let bucket_details;
+    let account_details;
     const response_code = endpoint_state ? endpoint_state.response.response_code : 'NOT_RUNNING';
     const rsyslog = await this.get_service_state(RSYSLOG_SERVICE);
     let service_health = "OK";
@@ -122,8 +132,8 @@ class NSFSHealth {
       service_health = "NOTOK";
     }
     const error_code = await this.get_error_code(service_status, pid, rsyslog.service_status, response_code);
-    const bucket_details = await this.get_bucket_storage_status(this.config_root);
-    const account_details = await this.get_account_storage_status(this.config_root);
+    if (this.all_bucket_details)  bucket_details = await this.get_bucket_status(this.config_root);
+    if (this.all_account_details)  account_details = await this.get_account_status(this.config_root);
     const health = {
       service_name: NSFS_SERVICE,
       status: service_health,
@@ -147,23 +157,19 @@ class NSFSHealth {
             error_type: health_errors_tyes.TEMPORARY,
           },
           accounts_status: {
-            invalid_accounts: account_details.invalid_storages,
-            valid_accounts: account_details.valid_storages,
+            invalid_accounts: account_details === undefined ?  undefined: account_details.invalid_storages,
+            valid_accounts: account_details === undefined ? undefined : account_details.valid_storages,
             error_type: health_errors_tyes.PERSISTENT,
           },
           buckets_status: {
-            invalid_buckets: bucket_details.invalid_storages,
-            valid_buckets: bucket_details.valid_storages,
+            invalid_buckets: bucket_details === undefined ? undefined: bucket_details.invalid_storages,
+            valid_buckets: bucket_details === undefined ? undefined : bucket_details.valid_storages,
             error_type: health_errors_tyes.PERSISTENT,
           }
       }
     };
-    if (!this.all_account_details) {
-      delete health.checks.accounts_status;
-    }
-    if (!this.all_bucket_details) {
-      delete health.checks.buckets_status;
-    }
+    if (!this.all_account_details)  delete health.checks.accounts_status;
+    if (!this.all_bucket_details)  delete health.checks.buckets_status;
     return health;
   }
 
@@ -180,7 +186,7 @@ class NSFSHealth {
           }
         }
       });
-    } catch (err) {
+    } catch(err) {
       console.log('Error while pinging endpoint host :' + HOSTNAME + ', port ' + this.https_port, err);
       return {
         response: fork_response_code.NOT_RUNNING.response_code,
@@ -291,7 +297,7 @@ class NSFSHealth {
     }
   }
 
-  get_root_fs_context() {
+get_root_fs_context() {
     return {
         uid: process.getuid(),
         gid: process.getgid(),
@@ -299,12 +305,20 @@ class NSFSHealth {
     };
 }
 
-async get_bucket_storage_status(config_root) {
+get_account_fs_context(uid, gid) {
+  return {
+      uid: uid,
+      gid: gid,
+      warn_threshold_ms: config.NSFS_WARN_THRESHOLD_MS,
+  };
+}
+
+async get_bucket_status(config_root) {
   const bucket_details = await this.get_storage_status(config_root, 'bucket', this.all_bucket_details);
   return bucket_details;
 }
 
-async get_account_storage_status(config_root) {
+async get_account_status(config_root) {
   const account_details = await this.get_storage_status(config_root, 'account', this.all_account_details);
   return account_details;
 }
@@ -329,11 +343,35 @@ async get_storage_status(config_root, type, all_details) {
   for (const config_file of config_files) {
     const config_file_path = path.join(config_root_type_path, config_file.name);
     let config_data;
-    let storage_path;
+    let invalid_storage;
     try {
       const { data } = await nb_native().fs.readFile(fs_context, config_file_path);
       config_data = JSON.parse(data.toString());
+    } catch (err) {
+      if (err.code === 'ENOENT') {
+        dbg.log1(`Error: Config file path should be a valid path`, config_file_path, err);
+          invalid_storage = {
+            name: config_file.name,
+            storage_path: config_file_path,
+            code: health_errors.MISSING_CONFIG.error_code,
+          };
+      } else {
+        dbg.log1('Error: while accessing the config file: ', config_file_path, err);
+        invalid_storage = {
+          name: config_file.name,
+          config_path: config_file_path,
+          code: health_errors.INVALID_CONFIG.error_code,
+        };
+      }
+    }
+    let storage_path;
+    try {
       storage_path = type === 'bucket' ? config_data.path : config_data.nsfs_account_config.new_buckets_path;
+      // check for access in account new_buckets_path dir
+      if (type === 'account') {
+          await nb_native().fs.checkAccess(this.get_account_fs_context(config_data.nsfs_account_config.uid,
+            config_data.nsfs_account_config.gid), storage_path);
+      }
       const dir_stat = await nb_native().fs.stat(fs_context, storage_path);
       if (dir_stat && all_details) {
         const valid_storage = {
@@ -343,20 +381,19 @@ async get_storage_status(config_root, type, all_details) {
         valid_storages.push(valid_storage);
       }
     } catch (err) {
-      let invalid_storage;
       if (err.code === 'ENOENT') {
         dbg.log1(`Error: Storage path should be a valid dir path`, storage_path);
           invalid_storage = {
             name: config_data.name,
             storage_path: storage_path,
-            'code': 'STORAGE_NOT_EXIST',
+            code: health_errors.STORAGE_NOT_EXIST.error_code,
           };
-      } else {
-        dbg.log1('Error while accessing the config file: ', config_file, err);
+      } else if (err.code === 'EACCES' || (err.code === 'EPERM' && err.message === 'Operation not permitted')) {
+        dbg.log1('Error:  Storage path should be accessible to account: ', storage_path);
         invalid_storage = {
-          name: config_file.name,
-          config_path: config_file_path,
-          'code': 'INVALID_CONFIG',
+          name: config_data.name,
+          storage_path: storage_path,
+          code: health_errors.ACCESS_DENIED.error_code,
         };
       }
       invalid_storages.push(invalid_storage);
@@ -380,7 +417,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
     }
     if (argv.help || argv.h) return print_usage();
     const config_root = argv.config_root ? String(argv.config_root) : config.NSFS_NC_CONF_DIR;
-    const https_port = Number(argv.https_port) || 6443;
+    const https_port = Number(argv.https_port) || config.ENDPOINT_SSL_PORT;
     const deployment_type = argv.deployment_type || 'nc';
     const all_account_details = argv.all_account_details || false;
     const all_bucket_details = argv.all_bucket_details || false;

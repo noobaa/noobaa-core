@@ -276,6 +276,41 @@ mocha.describe('nsfs nc health', function() {
             assert.strictEqual(health_status.checks.accounts_status.invalid_accounts[0].code, "ACCESS_DENIED");
             assert.strictEqual(health_status.checks.accounts_status.invalid_accounts[0].name, account_inaccessible.name);
         });
+
+        mocha.it('Account with new_buckets_path missing and allow_bucket_creation false, valid accoount', async function() {
+            const account_valid = { name: 'account_valid', nsfs_account_config: { uid: 999, gid: 999 }, allow_bucket_creation: false };
+            await write_config_file(config_root, accounts_schema_dir, account_valid.name, account_valid);
+            Health.get_service_state.restore();
+            Health.get_endpoint_response.restore();
+            Health.all_account_details = true;
+            Health.all_bucket_details = false;
+            const get_service_state = sinon.stub(Health, "get_service_state");
+            get_service_state.onFirstCall().returns(Promise.resolve({ service_status: 'active', pid: 1000 }))
+                .onSecondCall().returns(Promise.resolve({ service_status: 'active', pid: 2000 }));
+            const get_endpoint_response = sinon.stub(Health, "get_endpoint_response");
+            get_endpoint_response.onFirstCall().returns(Promise.resolve({response: {response_code: 'RUNNING', total_fork_count: 0}}));
+            const health_status = await Health.nc_nsfs_health();
+            assert.strictEqual(health_status.checks.accounts_status.valid_accounts.length, 2);
+            assert.strictEqual(health_status.checks.accounts_status.invalid_accounts.length, 1);
+        });
+
+        mocha.it('Account with new_buckets_path missing and allow_bucket_creation true, invalid accoount', async function() {
+            const account_invalid = { name: 'account_invalid', nsfs_account_config: { uid: 999, gid: 999 }, allow_bucket_creation: true };
+            await write_config_file(config_root, accounts_schema_dir, account_invalid.name, account_invalid);
+            Health.get_service_state.restore();
+            Health.get_endpoint_response.restore();
+            Health.all_account_details = true;
+            Health.all_bucket_details = false;
+            const get_service_state = sinon.stub(Health, "get_service_state");
+            get_service_state.onFirstCall().returns(Promise.resolve({ service_status: 'active', pid: 1000 }))
+                .onSecondCall().returns(Promise.resolve({ service_status: 'active', pid: 2000 }));
+            const get_endpoint_response = sinon.stub(Health, "get_endpoint_response");
+            get_endpoint_response.onFirstCall().returns(Promise.resolve({response: {response_code: 'RUNNING', total_fork_count: 0}}));
+            const health_status = await Health.nc_nsfs_health();
+            assert.strictEqual(health_status.checks.accounts_status.valid_accounts.length, 2);
+            assert.strictEqual(health_status.checks.accounts_status.valid_accounts.length, 2);
+            assert.strictEqual(health_status.checks.accounts_status.invalid_accounts.length, 2);
+        });
     });
 });
 

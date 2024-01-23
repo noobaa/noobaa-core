@@ -19,7 +19,7 @@ const ManageCLIResponse = require('../manage_nsfs/manage_nsfs_cli_responses').Ma
 const bucket_policy_utils = require('../endpoint/s3/s3_bucket_policy_utils');
 const nsfs_schema_utils = require('../manage_nsfs/nsfs_schema_utils');
 const { print_usage } = require('../manage_nsfs/manage_nsfs_help_utils');
-const { TYPES, ACTIONS, VALID_OPTIONS } = require('../manage_nsfs/manage_nsfs_constants');
+const { TYPES, ACTIONS, VALID_OPTIONS, OPTION_TYPE, TYPE_STRING_OR_NUMBER } = require('../manage_nsfs/manage_nsfs_constants');
 
 function throw_cli_error(error_code, detail) {
     const err = new ManageCLIError(error_code).to_string(detail);
@@ -76,13 +76,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
         if (argv.help || argv.h) {
             return print_usage(type, action);
         }
-        const { invalid_input_options, valid_options } = validate_options(type, action, argv);
-        if (invalid_input_options.length > 0) {
-            const type_and_action = type === TYPES.IP_WHITELIST ? type : `${type} ${action}`;
-            const err_msg = `${invalid_input_options.join(', ')} invalid options for ` +
-                `${type_and_action}, please use only: ${[...valid_options].join(', ')}`;
-            throw_cli_error(ManageCLIError.InvalidArgument, err_msg);
-        }
+        validate_options(type, action, argv);
         config_root = argv.config_root ? String(argv.config_root) : config.NSFS_NC_CONF_DIR;
         if (!config_root) throw_cli_error(ManageCLIError.MissingConfigDirPath);
 
@@ -126,6 +120,7 @@ async function fetch_bucket_data(argv, from_file) {
         const fs_context = native_fs_utils.get_process_fs_context();
         const raw_data = (await nb_native().fs.readFile(fs_context, from_file)).data;
         data = JSON.parse(raw_data.toString());
+        validate_options_type(data);
     }
     if (!data) {
         data = {
@@ -362,6 +357,7 @@ async function fetch_account_data(argv, from_file) {
         const fs_context = native_fs_utils.get_process_fs_context();
         const raw_data = (await nb_native().fs.readFile(fs_context, from_file)).data;
         data = JSON.parse(raw_data.toString());
+        validate_options_type(data);
     }
     if (action !== ACTIONS.LIST && action !== ACTIONS.STATUS) _validate_access_keys(argv);
     if (action === ACTIONS.ADD || action === ACTIONS.STATUS) {
@@ -747,9 +743,6 @@ async function validate_account_args(data, action) {
             throw_cli_error(ManageCLIError.InvalidFSBackend);
         }
 
-        if (data.nsfs_account_config.uid && typeof data.nsfs_account_config.uid !== 'number') throw_cli_error(ManageCLIError.InvalidAccountUID);
-        if (data.nsfs_account_config.gid && typeof data.nsfs_account_config.gid !== 'number') throw_cli_error(ManageCLIError.InvalidAccountGID);
-
         if (is_undefined(data.nsfs_account_config.new_buckets_path)) {
             return;
         }
@@ -761,13 +754,26 @@ async function validate_account_args(data, action) {
     }
 }
 
-/** validate_options checks if there are options that are not valid.
- * valid options are: required arguments, optional options and global configurations.
+/** validate_options checks if input option are valid.
  * @param {string} type
  * @param {string} action
  * @param {object} argv
  */
 function validate_options(type, action, argv) {
+    validate_no_extra_options(type, action, argv);
+    const input_options_with_data = { ...argv };
+    delete input_options_with_data._;
+    validate_options_type(input_options_with_data);
+}
+
+/**
+ * validate_no_extra_options will check that input options are valid options - 
+ * only required arguments, optional options and global configurations
+ * @param {string} type
+ * @param {string} action
+ * @param {object} argv
+ */
+function validate_no_extra_options(type, action, argv) {
     if (!Object.values(TYPES).includes(type)) throw_cli_error(ManageCLIError.InvalidType);
     if (type === TYPES.ACCOUNT || type === TYPES.BUCKET) {
         if (!Object.values(ACTIONS).includes(action)) throw_cli_error(ManageCLIError.InvalidAction);
@@ -787,7 +793,37 @@ function validate_options(type, action, argv) {
         valid_options = VALID_OPTIONS.whitelist_options;
     }
     const invalid_input_options = input_options.filter(element => !valid_options.has(element));
-    return {invalid_input_options, valid_options};
+    if (invalid_input_options.length > 0) {
+        const type_and_action = type === TYPES.IP_WHITELIST ? type : `${type} ${action}`;
+        const invalid_option_msg = invalid_input_options.length === 1 ?
+        `${invalid_input_options[0]} is an invalid option` :
+        `${invalid_input_options.join(', ')} are invalid options`;
+        const supported_option_msg = `Supported options are: ${[...valid_options].join(', ')}`;
+        const err_msg = `${invalid_option_msg} for ${type_and_action}. ${supported_option_msg}`;
+        throw_cli_error(ManageCLIError.InvalidArgument, err_msg);
+    }
+}
+
+/**
+ *  validate_options_type check the type of the value that match what we expect
+ * @param {object} input_options_with_data
+ */
+function validate_options_type(input_options_with_data) {
+    for (const [option, value] of Object.entries(input_options_with_data)) {
+        const type_of_option = OPTION_TYPE[option];
+        const type_of_value = typeof value;
+        const err_msg = `type of option ${option} should be ${type_of_option}, ` +
+            `received: ${value} (type ${type_of_value})`;
+        if (type_of_option === TYPE_STRING_OR_NUMBER) {
+            if ((type_of_value === 'string') || (type_of_value === 'number')) {
+                continue;
+            } else {
+                throw_cli_error(ManageCLIError.InvalidArgumentType, err_msg);
+            }
+        } else if (type_of_value !== type_of_option) {
+            throw_cli_error(ManageCLIError.InvalidArgumentType, err_msg);
+        }
+    }
 }
 
 ///////////////////////////////

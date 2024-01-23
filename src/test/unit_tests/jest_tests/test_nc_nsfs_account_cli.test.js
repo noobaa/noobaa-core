@@ -154,6 +154,34 @@ describe('manage nsfs cli account flow', () => {
             expect(JSON.parse(res.stdout).error.message).toBe(ManageCLIError.InvalidArgument.message);
         });
 
+        it('should fail - cli create account invalid option type (user as boolean)', async () => {
+            const { type, name, email, new_buckets_path } = defaults;
+            const account_options = { config_root, name, email, new_buckets_path};
+            const action = nc_nsfs_manage_actions.ADD;
+            const command = create_command(type, action, account_options);
+            const flag = 'user'; // we will add user flag without value
+            const res = await exec_manage_cli_add_empty_option(command, flag);
+            expect(JSON.parse(res.stdout).error.message).toBe(ManageCLIError.InvalidArgumentType.message);
+        });
+
+        it('should fail - cli create account invalid option type (new_buckets_path as number)', async () => {
+            const action = nc_nsfs_manage_actions.ADD;
+            const { type, name, email, uid, gid } = defaults;
+            const new_buckets_path_invalid = 4e34; // invalid should be string represents a path
+            const account_options = { config_root, name, email, new_buckets_path: new_buckets_path_invalid, uid, gid };
+            const res = await exec_manage_cli(type, action, account_options);
+            expect(JSON.parse(res.stdout).error.message).toBe(ManageCLIError.InvalidArgumentType.message);
+        });
+
+        it('should fail - cli create account invalid option type (new_buckets_path as string)', async () => {
+            const action = nc_nsfs_manage_actions.ADD;
+            const { type, name, email, uid, gid } = defaults;
+            const new_buckets_path_invalid = 'aaa'; // invalid should be string represents a path
+            const account_options = { config_root, name, email, new_buckets_path: new_buckets_path_invalid, uid, gid };
+            const res = await exec_manage_cli(type, action, account_options);
+            expect(JSON.parse(res.stdout).error.message).toBe(ManageCLIError.InvalidAccountNewBucketsPath.message);
+        });
+
     });
 
     describe('cli update account', () => {
@@ -263,6 +291,16 @@ describe('manage nsfs cli account flow', () => {
             const action = nc_nsfs_manage_actions.UPDATE;
             const res = await exec_manage_cli(type, action, account_options);
             expect(JSON.parse(res.stdout).error.message).toBe(ManageCLIError.InvalidArgument.message);
+        });
+
+        it('should fail - cli update account invalid option type', async () => {
+            const { name } = defaults;
+            const account_options = { config_root, name};
+            const action = nc_nsfs_manage_actions.UPDATE;
+            const command = create_command(type, action, account_options);
+            const flag = 'user'; // we will add user flag without value
+            const res = await exec_manage_cli_add_empty_option(command, flag);
+            expect(JSON.parse(res.stdout).error.message).toBe(ManageCLIError.InvalidArgumentType.message);
         });
 
     });
@@ -553,6 +591,39 @@ function assert_account(account, account_options, verify_access_keys) {
  * @param {object} options
  */
 async function exec_manage_cli(type, action, options) {
+    const command = create_command(type, action, options);
+    let res;
+    try {
+        res = await os_util.exec(command, { return_stdout: true });
+    } catch (e) {
+        res = e;
+    }
+    return res;
+}
+
+/**
+ * exec_manage_cli_add_empty_flag adds a flag with no value
+ * @param {string} command
+ * @param {string} option
+ */
+async function exec_manage_cli_add_empty_option(command, option) {
+    const changed_command = command + ` --${option}`;
+    let res;
+    try {
+        res = await os_util.exec(changed_command, { return_stdout: true });
+    } catch (e) {
+        res = e;
+    }
+    return res;
+}
+
+/** 
+ * create_command would create the string needed to run the CLI command
+ * @param {string} type
+ * @param {string} action
+ * @param {object} options
+ */
+function create_command(type, action, options) {
     let account_flags = ``;
     for (const key in options) {
         if (Object.hasOwn(options, key)) {
@@ -566,11 +637,5 @@ async function exec_manage_cli(type, action, options) {
     account_flags = account_flags.trim();
 
     const command = `node src/cmd/manage_nsfs ${type} ${action} ${account_flags}`;
-    let res;
-    try {
-        res = await os_util.exec(command, { return_stdout: true });
-    } catch (e) {
-        res = e;
-    }
-    return res;
+    return command;
 }

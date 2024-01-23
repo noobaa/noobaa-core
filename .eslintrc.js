@@ -174,6 +174,11 @@ module.exports = {
             "ignoreReadBeforeAssign": false
         }],
 
+        // These were deprecated out of eslint-all and moved to @stylistic plugin.
+        // will be changed once we will start using the plugin as well
+        'no-multi-spaces': ['error', {}],
+        'semi': ['error', 'always'],
+
         //////////////////////////////////////////////////////////////////////
         //                                                                  //
         // WARN                                                             //

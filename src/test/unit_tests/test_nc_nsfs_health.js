@@ -255,7 +255,7 @@ mocha.describe('nsfs nc health', function() {
             assert.strictEqual(health_status.checks.accounts_status.valid_accounts.length, 0);
             assert.strictEqual(health_status.checks.accounts_status.invalid_accounts.length, 0);
             //revert to config root
-            Health.config_root =  config_root;
+            Health.config_root = config_root;
         });
 
         mocha.it('Account with inaccessible path', async function() {

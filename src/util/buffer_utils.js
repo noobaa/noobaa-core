@@ -231,7 +231,7 @@ class BuffersPool {
     [util.inspect.custom]() {
         return 'BufferPool.get_buffer: sem value: ' + this.sem._value +
             ' waiting_value: ' + this.sem._waiting_value +
-            ' buffers length: ' +  this.buffers.length;
+            ' buffers length: ' + this.buffers.length;
     }
 }
 

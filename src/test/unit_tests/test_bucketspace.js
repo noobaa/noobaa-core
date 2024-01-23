@@ -13,17 +13,17 @@ const { NodeHttpHandler } = require("@smithy/node-http-handler");
 const http = require('http');
 const assert = require('assert');
 const os = require('os');
-const coretest = require('./coretest');
+const test_utils = require('../system_tests/test_utils');
+const coretest = require(test_utils.get_coretest_path());
 const { rpc_client, EMAIL, PASSWORD, SYSTEM } = coretest;
+const ManageCLIError = require('../../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
 
 const fs_utils = require('../../util/fs_utils');
 coretest.setup({});
 const { stat } = require('../../util/nb_native')().fs;
 const path = require('path');
 const _ = require('lodash');
-const P = require('../../util/promise');
 const fs = require('fs');
-const test_utils = require('../system_tests/test_utils');
 const config = require('../../../config');
 const MAC_PLATFORM = 'darwin';
 
@@ -83,7 +83,7 @@ mocha.describe('bucket operations - namespace_fs', function() {
             assert.ok(err.rpc_code === 'NO_SUCH_NAMESPACE_RESOURCE');
         }
     });
-    mocha.it('export dir as bucket', async function() {
+    mocha.it('export dir as a bucket', async function() {
         await rpc_client.pool.create_namespace_resource({
             name: nsr,
             nsfs_config: {
@@ -100,6 +100,8 @@ mocha.describe('bucket operations - namespace_fs', function() {
         });
     });
     mocha.it('export same dir as bucket - should fail', async function() {
+        // TODO: supporting it on NC is still on discussion
+        if (process.env.NC_CORETEST) this.skip(); // eslint-disable-line no-invalid-this
         const obj_nsr = { resource: nsr, path: bucket_path };
         try {
             await rpc_client.bucket.create_bucket({
@@ -124,6 +126,8 @@ mocha.describe('bucket operations - namespace_fs', function() {
                 write_resource: other_obj_nsr
             }
         });
+        // TODO: supporting it on NC is still on discussion
+        if (process.env.NC_CORETEST) this.skip(); // eslint-disable-line no-invalid-this
         try {
             await rpc_client.bucket.update_bucket({
                 name: bucket_name + '-other1',
@@ -134,7 +138,7 @@ mocha.describe('bucket operations - namespace_fs', function() {
             });
             assert.fail(`can not update nsfs bucket for using path of existing exported bucket:`);
         } catch (err) {
-            assert.ok(err.rpc_code === 'BUCKET_ALREADY_EXISTS');
+            assert.equal(err.rpc_code, 'BUCKET_ALREADY_EXISTS');
         }
     });
 
@@ -204,16 +208,28 @@ mocha.describe('bucket operations - namespace_fs', function() {
         assert.ok(list_ok);
     });
     mocha.it('update account', async function() {
+        this.timeout(600000); // eslint-disable-line no-invalid-this
         const email = 'account_wrong_uid0@noobaa.com';
         const account = await rpc_client.account.read_account({ email: email });
         const default_resource = account.default_resource;
         const arr = [{ nsfs_account_config: { uid: 26041993 }, default_resource, should_fail: false },
-            { nsfs_account_config: { new_buckets_path: 'dummy_dir1/' }, default_resource, should_fail: false },
-            { nsfs_account_config: {}, default_resource, should_fail: true },
+            {
+                nsfs_account_config: { new_buckets_path: 'dummy_dir1/' },
+                default_resource,
+                should_fail: process.env.NC_CORETEST,
+                error_code: ManageCLIError.InvalidAccountNewBucketsPath.code
+            },
+            {
+                nsfs_account_config: {},
+                default_resource,
+                should_fail: !process.env.NC_CORETEST,
+                error_code: 'FORBIDDEN'
+            },
             { nsfs_account_config: { uid: 26041992 }, default_resource, should_fail: false }
         ];
-        await P.all(_.map(arr, async item =>
-            update_account_nsfs_config(email, item.default_resource, item.nsfs_account_config, item.should_fail)));
+        for (const item of arr) {
+            await update_account_nsfs_config(email, item.default_resource, item.nsfs_account_config, item.should_fail, item.error_code);
+        }
     });
     mocha.it('list namespace resources after creation', async function() {
         await rpc_client.create_auth_token({
@@ -246,6 +262,8 @@ mocha.describe('bucket operations - namespace_fs', function() {
     });
     // s3 workflow 
     mocha.it('create account with namespace resource as default pool but without nsfs_account_config', async function() {
+        // not supported in NC
+        if (process.env.NC_CORETEST) this.skip(); // eslint-disable-line no-invalid-this
         try {
             const res = await rpc_client.account.create_account({
                 ...new_account_params,
@@ -402,16 +420,18 @@ mocha.describe('bucket operations - namespace_fs', function() {
         await fs_utils.file_must_not_exist(path.join(tmp_fs_root, '/new_s3_buckets_dir', bucket_name + '-s3-should-fail'));
     });
     mocha.it('update account dn', async function() {
+        this.timeout(600000); // eslint-disable-line no-invalid-this
         const email = 'account_wrong_dn0@noobaa.com';
         const account = await rpc_client.account.read_account({ email: email });
         const default_resource = account.default_resource;
         const arr = [{ nsfs_account_config: { distinguished_name: 'bla' }, default_resource, should_fail: false },
-            { nsfs_account_config: { new_buckets_path: 'dummy_dir1/' }, default_resource, should_fail: false },
-            { nsfs_account_config: {}, default_resource, should_fail: true },
+            { nsfs_account_config: { new_buckets_path: 'dummy_dir1/' }, default_resource, should_fail: process.env.NC_CORETEST, error_code: ManageCLIError.InvalidAccountNewBucketsPath.code},
+            { nsfs_account_config: {}, default_resource, should_fail: !process.env.NC_CORETEST, error_code: 'FORBIDDEN' },
             { nsfs_account_config: { distinguished_name: 'shaul101' }, default_resource, should_fail: false }
         ];
-        await P.all(_.map(arr, async item =>
-            update_account_nsfs_config(email, item.default_resource, item.nsfs_account_config, item.should_fail)));
+        for (const item of arr) {
+            await update_account_nsfs_config(email, item.default_resource, item.nsfs_account_config, item.should_fail, item.error_code);
+        }
     });
     mocha.it('list buckets with uid, gid', async function() {
         // Give s3_correct_uid access to the required buckets
@@ -472,18 +492,12 @@ mocha.describe('bucket operations - namespace_fs', function() {
     mocha.it('list parts with wrong uid gid', async function() {
         // eslint-disable-next-line no-invalid-this
         this.timeout(600000);
-
         // Give s3_correct_uid access to the required buckets
-        await Promise.all(
-            [bucket_name]
-            .map(bucket => test_utils.generate_s3_policy('*', bucket, ['s3:*']))
-            .map(generated =>
-                rpc_client.bucket.put_bucket_policy({
-                    name: generated.params.bucket,
-                    policy: generated.policy,
-                })
-            )
-        );
+        const generated = await test_utils.generate_s3_policy('*', bucket_name, ['s3:*']);
+        await rpc_client.bucket.put_bucket_policy({
+                name: bucket_name,
+                policy: generated.policy,
+        });
 
         const res1 = await s3_correct_uid.createMultipartUpload({
             Bucket: bucket_name,
@@ -521,6 +535,8 @@ mocha.describe('bucket operations - namespace_fs', function() {
         assert.ok(res && res.ETag);
     });
     mocha.it('delete bucket without uid, gid - bucket is not empty', async function() {
+        // account without uid and gid not supported in NC
+        if (process.env.NC_CORETEST) this.skip(); // eslint-disable-line no-invalid-this
         try {
             const res = await s3_owner.deleteBucket({ Bucket: bucket_name + '-s3' });
             console.log(inspect(res));
@@ -662,6 +678,8 @@ mocha.describe('bucket operations - namespace_fs', function() {
 
     });
     mocha.it('delete bucket without uid, gid - bucket is empty', async function() {
+        // account without uid and gid is not supported in NC
+        if (process.env.NC_CORETEST) this.skip(); // eslint-disable-line no-invalid-this
         try {
             const res = await s3_owner.deleteBucket({ Bucket: bucket_name + '-s3' });
             console.log(inspect(res));
@@ -671,6 +689,8 @@ mocha.describe('bucket operations - namespace_fs', function() {
         }
     });
     mocha.it('delete account by uid, gid - account has buckets - should fail', async function() {
+        // deletion of account that owns bucket currently allowd in NC - remove when supported
+        if (process.env.NC_CORETEST) this.skip(); // eslint-disable-line no-invalid-this
         await s3_correct_uid_default_nsr.createBucket({ Bucket: 'bucket-to-delete123' });
         try {
             await rpc_client.account.delete_account({ email: 'account_s3_correct_uid@noobaa.com' });
@@ -704,6 +724,7 @@ mocha.describe('bucket operations - namespace_fs', function() {
         await fs_utils.file_must_exist(path.join(tmp_fs_root, '/new_s3_buckets_dir'));
     });
     mocha.it('delete account by uid, gid', async function() {
+        this.timeout(600000); // eslint-disable-line no-invalid-this
         const read_account_resp1 = await rpc_client.account.read_account({ email: 'account_wrong_uid0@noobaa.com' });
         assert.ok(read_account_resp1);
         // create another account with the same uid gid
@@ -732,13 +753,20 @@ mocha.describe('bucket operations - namespace_fs', function() {
                 const deleted_account_exist = await rpc_client.account.read_account({ email: `account_wrong_uid${i}@noobaa.com` });
                 assert.fail(`found account: ${deleted_account_exist} - account should be deleted`);
             } catch (err) {
-                assert.ok(err.rpc_code === 'NO_SUCH_ACCOUNT');
+                if (process.env.NC_CORETEST) {
+                    assert.equal(JSON.parse(err.stdout).error.code, ManageCLIError.NoSuchAccountName.code);
+                } else {
+                    assert.equal(err.rpc_code, 'NO_SUCH_ACCOUNT');
+                }
             }
         }
         const list_account_resp2 = (await rpc_client.account.list_accounts({})).accounts;
         assert.ok(list_account_resp2.length > 0);
     });
     mocha.it('delete account by dn', async function() {
+        // TODO: unskip when added list by distinguished name
+        if (process.env.NC_CORETEST) this.skip(); // eslint-disable-line no-invalid-this
+        this.timeout(600000); // eslint-disable-line no-invalid-this
         const read_account_resp1 = await rpc_client.account.read_account({ email: 'account_wrong_dn0@noobaa.com' });
         assert.ok(read_account_resp1);
         // create another account with the same uid gid
@@ -765,20 +793,26 @@ mocha.describe('bucket operations - namespace_fs', function() {
                 const deleted_account_exist = await rpc_client.account.read_account({ email: `account_wrong_dn${i}@noobaa.com` });
                 assert.fail(`found account: ${deleted_account_exist} - account should be deleted`);
             } catch (err) {
-                assert.ok(err.rpc_code === 'NO_SUCH_ACCOUNT');
+                if (process.env.NC_CORETEST) {
+                    assert.equal(JSON.parse(err.stdout).error.code, ManageCLIError.NoSuchAccountName.code);
+                } else {
+                    assert.equal(err.rpc_code, 'NO_SUCH_ACCOUNT');
+                }
             }
         }
         const list_account_resp2 = (await rpc_client.account.list_accounts({})).accounts;
         assert.ok(list_account_resp2.length > 0);
     });
     mocha.it('delete account by uid, gid - no such account', async function() {
+        // on NC - list will return empty, we won't run any delete
+        if (process.env.NC_CORETEST) this.skip(); // eslint-disable-line no-invalid-this
         const list_account_resp1 = (await rpc_client.account.list_accounts({})).accounts;
         assert.ok(list_account_resp1.length > 0);
         try {
             await rpc_client.account.delete_account_by_property({ nsfs_account_config: { uid: 26041993, gid: 26041993 } });
             assert.fail(`delete account succeeded for none existing account`);
         } catch (err) {
-            assert.ok(err.rpc_code === 'NO_SUCH_ACCOUNT');
+            assert.equal(err.rpc_code, 'NO_SUCH_ACCOUNT');
         }
     });
     mocha.it('delete bucket with uid, gid - bucket is empty', async function() {
@@ -817,7 +851,7 @@ function object_in_list(res, key) {
     return false;
 }
 
-async function update_account_nsfs_config(email, default_resource, new_nsfs_account_config, should_fail) {
+async function update_account_nsfs_config(email, default_resource, new_nsfs_account_config, should_fail, error_code) {
     try {
         await rpc_client.account.update_account_s3_access({
             email,
@@ -830,7 +864,11 @@ async function update_account_nsfs_config(email, default_resource, new_nsfs_acco
         }
     } catch (err) {
         if (should_fail) {
-            assert.ok(err.rpc_code === 'FORBIDDEN');
+            if (process.env.NC_CORETEST) {
+                assert.equal(JSON.parse(err.stdout).error.code, error_code);
+            } else {
+                assert.equal(err.rpc_code, error_code || 'FORBIDDEN');
+            }
             return;
         }
         assert.fail(`update_account_nsfs_config failed ${err}, ${err.stack}`);
@@ -839,7 +877,7 @@ async function update_account_nsfs_config(email, default_resource, new_nsfs_acco
 
 
 
-mocha.describe('list objects - namespace_fs', function() {
+mocha.describe('list objects - namespace_fs', async function() {
     const namespace_resource_name = 'nsr1-list';
     const bucket_name = 'bucket-to-list1';
     const tmp_fs_root = get_tmp_path_by_os('/tmp/test_bucket_namespace_fs1');
@@ -859,6 +897,7 @@ mocha.describe('list objects - namespace_fs', function() {
     const full_path = path.join(tmp_fs_root, bucket_path);
 
     mocha.before(async function() {
+        this.timeout(30000); // eslint-disable-line no-invalid-this
         if (test_utils.invalid_nsfs_root_permissions()) this.skip(); // eslint-disable-line no-invalid-this
 
         await fs_utils.create_fresh_path(tmp_fs_root, permit_ugo);
@@ -890,7 +929,8 @@ mocha.describe('list objects - namespace_fs', function() {
             accounts[account_name].s3_client = s3_client;
         }
     });
-    mocha.after(async () => {
+    mocha.after(async function() {
+        this.timeout(60000); // eslint-disable-line no-invalid-this
         await rpc_client.bucket.delete_bucket({ name: bucket_name });
         await rpc_client.bucket.delete_bucket({ name: s3_b_name });
         await rpc_client.bucket.delete_bucket({ name: s3_root_b_name });
@@ -950,7 +990,7 @@ mocha.describe('list objects - namespace_fs', function() {
         const { s3_client } = accounts.account1;
         const res = await s3_client.listBuckets({});
         assert.equal(res.Buckets.length, 2);
-        assert.deepStrictEqual(res.Buckets.map(bucket => bucket.Name), [s3_b_name, 'first.bucket']);
+        assert.equal(res.Buckets.filter(bucket => bucket.Name === s3_b_name || bucket.Name === 'first.bucket').length, 2);
     });
 
     mocha.it('list buckets - uid & gid mismatch - account2', async function() {
@@ -1095,11 +1135,14 @@ mocha.describe('nsfs account configurations', function() {
     };
     mocha.before(function() {
         if (test_utils.invalid_nsfs_root_permissions()) this.skip(); // eslint-disable-line no-invalid-this
+        // the following test suite tests account with/without nsfs_only and different nsfs/non nsfs buckets
+        // which is not relevant to NC
+        if (process.env.NC_CORETEST) this.skip(); // eslint-disable-line no-invalid-this
     });
 
     mocha.before(async () => fs_utils.create_fresh_path(tmp_fs_root1 + bucket_path, 0o770));
     mocha.after(async () => fs_utils.folder_delete(tmp_fs_root1));
-    mocha.it('export dir as bucket', async function() {
+    mocha.it('export dir as a bucket', async function() {
         await rpc_client.pool.create_namespace_resource({
             name: nsr1,
             nsfs_config: {

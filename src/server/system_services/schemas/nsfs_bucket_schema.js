@@ -5,6 +5,7 @@ module.exports = {
     $id: 'bucket_schema',
     type: 'object',
     required: [
+        '_id',
         'name',
         'system_owner',
         'bucket_owner',
@@ -14,6 +15,12 @@ module.exports = {
         'creation_date',
     ],
     properties: {
+        _id: {
+            type: 'string',
+        },
+        owner_account: {
+            type: 'string',
+        },
         name: {
             type: 'string',
         },
@@ -24,13 +31,10 @@ module.exports = {
             type: 'string',
         },
         tag: {
-            type: 'string',
+            $ref: 'common_api#/definitions/tagging',
         },
         versioning: {
-            type: 'string',
-            enum: ['DISABLED', 'SUSPENDED', 'ENABLED']
-            // GAP would like to use $ref: 'bucket_api#/definitions/versioning'
-            // but currently it creates an error Error: reference "bucket_api" resolves to more than one schema
+            $ref: 'common_api#/definitions/versioning',
         },
         path: {
             type: 'string',
@@ -46,6 +50,12 @@ module.exports = {
         },
         s3_policy: {
             $ref: 'common_api#/definitions/bucket_policy',
+        },
+        encryption: {
+            $ref: 'common_api#/definitions/bucket_encryption',
+        },
+        website: {
+            $ref: 'common_api#/definitions/bucket_website',
         }
     }
 };

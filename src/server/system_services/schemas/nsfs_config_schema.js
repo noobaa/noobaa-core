@@ -27,7 +27,7 @@ const nsfs_node_config_schema = {
         },
         EP_METRICS_SERVER_PORT: {
             type: 'number',
-            default: -1,
+            default: 7004,
             description: 'http port number designated for metrics incoming requests, service restart required'
         },
         ALLOW_HTTP: {
@@ -54,7 +54,17 @@ const nsfs_node_config_schema = {
         GPFS_DL_PATH: {
             type: 'string',
             default: '',
-            description: 'indicate the location of the gpfs library file, service restart required, usually should be set to /usr/lib64/libgpfs.so'
+            description: 'indicates the location of the gpfs library file, service restart required, usually should be set to /usr/lib64/libgpfs.so'
+        },
+        NSFS_NC_STORAGE_BACKEND: {
+            $ref: 'common_api#/definitions/fs_backend',
+            default: undefined,
+            description: 'indicates the global storage backend type, service restart required'
+        },
+        NSFS_NC_CONFIG_DIR_BACKEND: {
+            $ref: 'common_api#/definitions/fs_backend',
+            default: undefined,
+            description: 'indicates the backend type of the config directory, service restart required'
         },
         NSFS_BUF_POOL_MEM_LIMIT: {
             type: 'number',

@@ -10,7 +10,7 @@ const js_utils = require('../../../util/js_utils');
 // come next to add endpoint metrics reporting.
 // -----------------------------------------
 
-const nsfs_suffix = "_nsfs";
+const nsfs_suffixes = ["_nsfs_xs", "_nsfs_s", "_nsfs_m", "_nsfs_l"];
 const NOOBAA_ENDPOINT_METRICS = js_utils.deep_freeze([{
         type: 'Counter',
         name: 'hub_read_bytes',
@@ -258,9 +258,11 @@ class NooBaaEndpointReport extends BasePrometheusReport {
                                     if (this[average_interval]) {
                                         m.collect(this, this[average_interval].labels, this[average_interval].value);
                                     }
-                                    if (this[average_interval + nsfs_suffix]) {
-                                        m.collect(this, this[average_interval + nsfs_suffix].labels,
-                                            this[average_interval + nsfs_suffix].value);
+                                    for (const suffix of nsfs_suffixes) {
+                                        if (this[average_interval + suffix]) {
+                                            m.collect(this, this[average_interval + suffix].labels,
+                                                this[average_interval + suffix].value);
+                                        }
                                     }
                                 }
                             }
@@ -289,8 +291,8 @@ class NooBaaEndpointReport extends BasePrometheusReport {
         if (labels.type === 'object_io') {
             metric.prom_instance[labels.average_interval] = { labels, value };
         } else {
-            // Adding suffix to distinguish between object_io and nsfs semaphore
-            metric.prom_instance[labels.average_interval + nsfs_suffix] = { labels, value };
+            // Adding suffix to distinguish between object_io and nsfs semaphores
+            metric.prom_instance[labels.average_interval + '_' + labels.type] = { labels, value };
         }
         metric.prom_instance.average_intervals = average_intervals;
     }

@@ -226,7 +226,7 @@ NSFS Health status can be fetched using the command line. Run `--help` to get al
 NOTE - health script execution requires root permissions.
 
  ```
- sudo node usr/local/noobaa-core/src/cmd/health [--https_port,--all_account_details,  --all_bucket_details]
+ sudo node usr/local/noobaa-core/src/cmd/health [--https_port, --all_account_details, --all_bucket_details]
  ```
 
  output:
@@ -244,12 +244,14 @@ NOTE - health script execution requires root permissions.
       {
         "name": "nsfs",
         "service_status": "active",
-        "pid": "1204"
+        "pid": "1204",
+        "error_type": "PERSISTENT"
       },
       {
         "name": "rsyslog",
         "service_status": "inactive",
-        "pid": "0"
+        "pid": "0",
+        "error_type": "PERSISTENT"
       }
     ],
     "endpoint": {
@@ -258,41 +260,53 @@ NOTE - health script execution requires root permissions.
           "response_code": 200,
           "response_message": "Endpoint running successfuly."
         },
-        "total_fork_count": 0,
-        "running_workers": []
-      }
-    },
-    "invalid_accounts": [
-      {
-        "name": "naveen",
-        "storage_path": "/tmp/nsfs_root_invalid/",
-        "code": "STORAGE_NOT_EXIST"
-      }
-    ],
-    "valid_accounts": [
-      {
-        "name": "naveen",
-        "storage_path": "/tmp/nsfs_root"
-      }
-    ],
-    "invalid_buckets": [
-      {
-        "name": "bucket1.json",
-        "config_path": "/etc/noobaa.conf.d/buckets/bucket1.json",
-        "code": "INVALID_CONFIG"
+        "total_fork_count": 1,
+        "running_workers": [
+          "1"
+        ]
       },
-      {
-        "name": "bucket3",
-        "storage_path": "/tmp/nsfs_root/bucket3",
-        "code": "STORAGE_NOT_EXIST"
-      }
-    ],
-    "valid_buckets": [
-      {
-        "name": "bucket2",
-        "storage_path": "/tmp/nsfs_root/bucket2"
-      }
-    ]
+      "error_type": "TEMPORARY"
+    },
+    "accounts_status": {
+      "invalid_accounts": [
+        {
+          "name": "account_invalid",
+          "storage_path": "/tmp/nsfs_root_invalid/",
+          "code": "STORAGE_NOT_EXIST"
+        },
+        { "name": "account_inaccessible",
+          "storage_path": "/tmp/account_inaccessible",
+          "code": "ACCESS_DENIED" } 
+      ],
+      "valid_accounts": [
+        {
+          "name": "account2",
+          "storage_path": "/tmp/nsfs_root"
+        }
+      ],
+      "error_type": "PERSISTENT"
+    },
+    "buckets_status": {
+      "invalid_buckets": [
+        {
+          "name": "bucket1.json",
+          "config_path": "/etc/noobaa.conf.d/buckets/bucket1.json",
+          "code": "INVALID_CONFIG"
+        },
+        {
+          "name": "bucket3",
+          "storage_path": "/tmp/nsfs_root/bucket3",
+          "code": "STORAGE_NOT_EXIST"
+        }
+      ],
+      "valid_buckets": [
+        {
+          "name": "bucket2",
+          "storage_path": "/tmp/nsfs_root/bucket2"
+        }
+      ],
+      "error_type": "PERSISTENT"
+    }
   }
 }
  ```
@@ -320,7 +334,11 @@ NOTE - health script execution requires root permissions.
 
 `valid_buckets`: List all the valid buckets if `all_bucket_details` flag is `true`.
 
+`error_type` : This property could have two values, `PERSISTENT` and `TEMPORARY`, It means the retry could fix the issue or not. For `TEMPORARY` error types multiple retries are initiated from Noobaa side before updating the status with failed status. Right now only Noobaa endpoint has the error type `TEMPORARY`.
+
 In this health output, `bucket2`'s storage path is invalid and the directory mentioned in `new_buckets_path` for `user1` is missing or not accessible. Endpoint curl command returns an error response(`"endpoint_response":404`) if one or more buckets point to an invalid bucket storage path.
+
+Account without `new_buckets_path` and `allow_bucket_creation` value is `false` then it's considered a valid account, But if the `allow_bucket_creation` is true `new_buckets_path` is empty, in that case account is invalid. 
 
 ### Health Error Codes
 These are the error codes populated in the health output if the system is facing some issues. If any of these error codes are present in health status then the overall status will be in `NOTOK` state.
@@ -388,11 +406,23 @@ These error codes will get attached with a specific Bucket or Account schema ins
 - Make sure the path mentioned in Bucket/Account schema is a valid directory path.
 - User has sufficient access.
 
-#### . `INVALID_CONFIG`
+#### 2. `INVALID_CONFIG`
 #### Reasons
 - Bucket/Account Schema JSON is not valid or not in JSON format.
 #### Resolutions
 - Check for any JSON syntax error in the schema structure for Bucket/Account.
+
+#### 3. `ACCESS_DENIED`
+#### Reasons
+- Account `new_buckets_path` is not accessible with account uid and gid.
+#### Resolutions
+- Check access restriction in the path mentioned in `new_buckets_path` and compare it with account uid and gid
+
+#### 4. `MISSING_CONFIG`
+#### Reasons
+- Account/Bucket schema config file is missing for config root.
+#### Resolutions
+- Check for schema config file in respective Accounts or Buckets dir.
 
 ## Bucket and Account Manage CLI
 Users can create, update, delete, and list buckets and accounts using CLI. If the config directory is missing CLI will create one and also create accounts and buckets sub-directories in it and default config directory is `${config.NSFS_NC_DEFAULT_CONF_DIR}`. 
@@ -439,9 +469,84 @@ NSFS management CLI command will create both account and bucket dir if it's miss
 
 ## NSFS Certificate
 
-Non containerized NSFS certificates/ directory location will be under the config_root path. The certificates/ directory should contain SSL files tls.key and tls.crt. System will use a cert from this dir to create a valid HTTPS connection. If cert is missing in this dir a self-signed SSL certificate will be generated. Make sure the path to certificates/ directory is valid before running nsfs command, If the path is invalid then cert flow will fail.
+Non containerized NSFS certificates/ directory location will be under the config_root path. <br />
+The certificates/ directory should contain SSL files tls.key and tls.crt. <br /> 
+System will use a cert from this dir to create a valid HTTPS connection. If cert is missing in this dir a self-signed SSL certificate will be generated. Make sure the path to certificates/ directory is valid before running nsfs command, If the path is invalid then cert flow will fail.
 
 Non containerized NSFS restrict insecure HTTP connections when `ALLOW_HTTP` is set to false in cofig.json. This is the default behaviour.
+
+### Setting Up Self signed SSL/TLS Certificates for Secure Communication Between S3 Client and NooBaa NSFS Service - 
+
+#### 1. Creating a SAN (Subject Alternative Name) Config File -
+`Important`: This step is needed only if S3 Client and NooBaa Service Running on different nodes.
+
+To accommodate S3 requests originating from a different node than the one running the NooBaa NSFS service, it is recommended to create a Subject Alternative Name (SAN) configuration file. <br />
+This file specifies the domain names or IP addresses that will be included in the SSL certificate.<br />
+The Common Name (CN) sets the primary domain for the certificate, and additional domains or IPs can be listed under subjectAltName.<br />
+
+Ensure to replace placeholders such as nsfs-domain-name-example.com and <nsfs-server-ip> with your actual domain and IP address.
+
+Example SAN Config File (san.cnf):
+```
+# san.cnf
+
+[req]
+req_extensions = req_ext
+distinguished_name = req_distinguished_name
+
+[req_distinguished_name]
+CN = localhost
+
+[req_ext]
+# The subjectAltName line directly specifies the domain names and IP addresses that the certificate should be valid for.
+# This ensures the SSL certificate matches the domain or IP used in your S3 command.
+
+# Example:
+# 'DNS:localhost' makes the certificate valid when accessing S3 storage via 'localhost'.
+# 'DNS:nsfs-domain-name-example.com' adds a specific domain to the certificate. Replace 'nsfs-domain-name-example.com' with your actual domain.
+# 'IP:<nsfs-server-ip>' includes an IP address. Replace '<nsfs-server-ip>' with the actual IP address of your S3 server.
+subjectAltName = DNS:localhost,DNS:nsfs-domain-name-example.com,IP:<nsfs-server-ip>
+```
+
+
+#### 2. Generating TLS Key, CSR, and CRT Files via OpenSSL -
+ The following process will generate the necessary TLS key (tls.key), certificate signing request (tls.csr), and SSL certificate (tls.crt) files for secure communication between the S3 client and the NooBaa service.
+ 
+* If S3 Client and NooBaa Service Running on the Same Node, run -
+
+```bash
+sudo openssl genpkey -algorithm RSA -out tls.key
+sudo openssl req -new -key tls.key -out tls.csr
+sudo openssl x509 -req -days 365 -in tls.csr -signkey tls.key -out tls.crt
+```
+* If S3 Client and NooBaa Service Running on Different Nodes, run -
+```
+$ sudo openssl genpkey -algorithm RSA -out tls.key
+$ sudo openssl req -new -key tls.key -out tls.csr -config san.cnf -subj "/CN=localhost"
+$ sudo openssl x509 -req -days 365 -in tls.csr -signkey tls.key -out tls.crt -extfile san.cnf -extensions req_ext
+```
+
+#### 3. Move tls.key and tls.crt under {config_dir_path}/cerfiticates -
+Note - The default config_dir is /etc/noobaa.conf.d/.
+
+```bash
+sudo mv tls.key {config_dir_path}/certificates/
+sudo mv tls.csr {config_dir_path}/certificates/
+```
+#### 4. Restart the NooBaa NSFS service - 
+```bash
+sudo systemctl restart noobaa_nsfs
+```
+#### 5. Create S3 CLI alias while including tls.crt at the s3 commands via AWS_CA_BUNDLE=/path/to/tls.crt - 
+* Make sure to replace credentials placeholders with their respective values, and the <endpoint> placeholder either with `localhost` or the domain name or IP of the node which is running the NSFS service.
+```bash
+alias s3_ssl='AWS_CA_BUNDLE=/path/to/tls.crt AWS_ACCESS_KEY_ID=add_your_access_key AWS_SECRET_ACCESS_KEY=add_your_secret_key aws --endpoint https://<endpoint>:6443 s3'
+```
+
+#### 6. Try running an s3 list buckets using the s3 alias - 
+```bash
+s3_ssl ls
+```
 
 ## Monitoring
 

@@ -20,20 +20,30 @@ const size_utils = require('../util/size_utils');
 const native_fs_utils = require('../util/native_fs_utils');
 const ChunkFS = require('../util/chunk_fs');
 const LRUCache = require('../util/lru_cache');
-const Semaphore = require('../util/semaphore');
 const nb_native = require('../util/nb_native');
 const RpcError = require('../rpc/rpc_error');
 const { S3Error } = require('../endpoint/s3/s3_errors');
 
-const buffers_pool_sem = new Semaphore(config.NSFS_BUF_POOL_MEM_LIMIT, {
-    timeout: config.IO_STREAM_SEMAPHORE_TIMEOUT,
-    timeout_error_code: 'IO_STREAM_ITEM_TIMEOUT',
-    warning_timeout: config.NSFS_SEM_WARNING_TIMEOUT,
-});
-const buffers_pool = new buffer_utils.BuffersPool({
-    buf_size: config.NSFS_BUF_SIZE,
-    sem: buffers_pool_sem,
+const multi_buffer_pool = new buffer_utils.MultiSizeBuffersPool({
+    sorted_buf_sizes: [
+        {
+            size: config.NSFS_BUF_SIZE_XS,
+            sem_size: config.NSFS_BUF_POOL_MEM_LIMIT_XS,
+        }, {
+            size: config.NSFS_BUF_SIZE_S,
+            sem_size: config.NSFS_BUF_POOL_MEM_LIMIT_S,
+        }, {
+            size: config.NSFS_BUF_SIZE_M,
+            sem_size: config.NSFS_BUF_POOL_MEM_LIMIT_M,
+        }, {
+            size: config.NSFS_BUF_SIZE_L,
+            sem_size: config.NSFS_BUF_POOL_MEM_LIMIT_L,
+        },
+    ],
     warning_timeout: config.NSFS_BUF_POOL_WARNING_TIMEOUT,
+    sem_timeout: config.IO_STREAM_SEMAPHORE_TIMEOUT,
+    sem_timeout_error_code: 'IO_STREAM_ITEM_TIMEOUT',
+    sem_warning_timeout: config.NSFS_SEM_WARNING_TIMEOUT,
     buffer_alloc: size => nb_native().fs.dio_buffer_alloc(size),
 });
 
@@ -446,8 +456,8 @@ class NamespaceFS {
         stats,
         force_md5_etag,
     }) {
-        dbg.log1('NamespaceFS: buffers_pool length',
-            buffers_pool.buffers.length, buffers_pool.sem);
+        dbg.log0('NamespaceFS: buffers_pool ',
+            multi_buffer_pool.pools);
         this.bucket_path = path.resolve(bucket_path);
         this.fs_backend = fs_backend;
         this.bucket_id = bucket_id;
@@ -957,17 +967,17 @@ class NamespaceFS {
                     await file.read(fs_context, this.warmup_buffer, 0, 1, pos);
                 }
 
+                const remain_size = Math.min(Math.max(0, end - pos), stat.size);
+
                 // allocate or reuse buffer
                 // TODO buffers_pool and the underlying semaphore should support abort signal
                 // to avoid sleeping inside the semaphore until the timeout while the request is already aborted.
-                const { buffer, callback } = await buffers_pool.get_buffer();
+                const { buffer, callback } = await multi_buffer_pool.get_buffers_pool(remain_size).get_buffer();
                 buffer_pool_cleanup = callback; // must be called ***IMMEDIATELY*** after get_buffer
                 object_sdk.throw_if_aborted();
 
                 // read from file
-                const remain_size = Math.max(0, end - pos);
                 const read_size = Math.min(buffer.length, remain_size);
-
                 const bytesRead = await file.read(fs_context, buffer, 0, read_size, pos);
                 if (!bytesRead) {
                     buffer_pool_cleanup = null;
@@ -1111,10 +1121,10 @@ class NamespaceFS {
             upload_params = await this._start_upload(fs_context, object_sdk, file_path, params, open_mode);
 
             if (!params.copy_source || upload_params.copy_res === copy_status_enum.FALLBACK) {
-            // TODO: Take up only as much as we need (requires fine-tune of the semaphore inside the _upload_stream)
-            // Currently we are taking config.NSFS_BUF_SIZE for any sized upload (1KB upload will take a full buffer from semaphore)
-                const upload_res = await buffers_pool_sem.surround_count(
-                    config.NSFS_BUF_SIZE, async () => this._upload_stream(upload_params));
+                // We are taking the buffer size closest to the sized upload
+                const bp = multi_buffer_pool.get_buffers_pool(params.size);
+                const upload_res = await bp.sem.surround_count(
+                    bp.buf_size, async () => this._upload_stream(upload_params));
                 upload_params.digest = upload_res.digest;
             }
 
@@ -1420,7 +1430,7 @@ class NamespaceFS {
         }
     }
 
-    // Allocated config.NSFS_BUF_SIZE in Semaphore but in fact we can take up more inside
+    // Allocated the largest semaphore size config.NSFS_BUF_SIZE_L in Semaphore but in fact we can take up more inside
     // This is due to MD5 calculation and data buffers
     // Can be finetuned further on if needed and inserting the Semaphore logic inside
     // Instead of wrapping the whole _upload_stream function (q_buffers lives outside of the data scope of the stream)
@@ -1437,7 +1447,8 @@ class NamespaceFS {
                 namespace_resource_id: this.namespace_resource_id,
                 md5_enabled,
                 offset,
-                bucket: params.bucket
+                bucket: params.bucket,
+                large_buf_size: multi_buffer_pool.get_buffers_pool(undefined).buf_size
             });
             chunk_fs.on('error', err1 => dbg.error('namespace_fs._upload_stream: error occured on stream ChunkFS: ', err1));
             await stream_utils.pipeline([source_stream, chunk_fs]);
@@ -1527,7 +1538,9 @@ class NamespaceFS {
             const pre_known_size = (params.size >= 0);
             if (!pre_known_size) {
                 // 2.1
-                upload_res = await buffers_pool_sem.surround_count(config.NSFS_BUF_SIZE, async () => this._upload_stream(md_upload_params));
+                const bp = multi_buffer_pool.get_buffers_pool(undefined);
+                upload_res = await bp.sem.surround_count(bp.buf_size,
+                    async () => this._upload_stream(md_upload_params));
                 params.size = upload_res.total_bytes;
             }
             const offset = params.size * (params.num - 1);
@@ -1541,11 +1554,12 @@ class NamespaceFS {
             };
 
             if (pre_known_size) {
-                upload_res = await buffers_pool_sem.surround_count(config.NSFS_BUF_SIZE,
+                const bp = multi_buffer_pool.get_buffers_pool(params.size);
+                upload_res = await bp.sem.surround_count(bp.buf_size,
                     async () => this._upload_stream(data_upload_params));
             } else {
                 // 2.3 if size was not pre known, copy data from part_md_file to by_size file
-                await native_fs_utils.copy_bytes(buffers_pool, fs_context, part_md_file, target_file, params.size, offset, 0);
+                await native_fs_utils.copy_bytes(multi_buffer_pool, fs_context, part_md_file, target_file, params.size, offset, 0);
             }
 
             md_upload_params = { ...md_upload_params, offset, digest: upload_res.digest };
@@ -1661,13 +1675,13 @@ class NamespaceFS {
                         }
                         // copy (num - 1) parts, all the same size of the prev part
                         const copy_size = prev_part_size * (num - 1);
-                        await native_fs_utils.copy_bytes(buffers_pool, fs_context, prev_read_file, target_file, copy_size, 0, 0);
+                        await native_fs_utils.copy_bytes(multi_buffer_pool, fs_context, prev_read_file, target_file, copy_size, 0, 0);
                     }
                     should_copy_file_prefix = false;
                 }
                 // 3
                 if (!target_file) target_file = await native_fs_utils.open_file(fs_context, this.bucket_path, upload_path, open_mode);
-                await native_fs_utils.copy_bytes(buffers_pool, fs_context, read_file, target_file, part_size, total_size, part_offset);
+                await native_fs_utils.copy_bytes(multi_buffer_pool, fs_context, read_file, target_file, part_size, total_size, part_offset);
                 prev_part_size = part_size;
                 total_size += part_size;
             }
@@ -1688,7 +1702,7 @@ class NamespaceFS {
 
             await target_file.close(fs_context);
             target_file = null;
-            if (config.NSFS_REMOVE_PARTS_ON_COMPLETE) await this._folder_delete(params.mpu_path, fs_context);
+            if (config.NSFS_REMOVE_PARTS_ON_COMPLETE) await native_fs_utils.folder_delete(params.mpu_path, fs_context);
             return upload_info;
         } catch (err) {
             dbg.error(err);
@@ -1719,7 +1733,7 @@ class NamespaceFS {
         const fs_context = this.prepare_fs_context(object_sdk);
         await this._load_multipart(params, fs_context);
         dbg.log0('NamespaceFS: abort_object_upload', params.mpu_path);
-        await this._folder_delete(params.mpu_path, fs_context);
+        await native_fs_utils.folder_delete(params.mpu_path, fs_context);
     }
 
     ///////////////////
@@ -2348,21 +2362,6 @@ class NamespaceFS {
         }
     }
 
-    async _folder_delete(dir, fs_context) {
-        const entries = await nb_native().fs.readdir(fs_context, dir);
-        const results = await Promise.all(entries.map(entry => {
-            const fullPath = path.join(dir, entry.name);
-            const task = native_fs_utils.isDirectory(entry) ? this._folder_delete(fullPath, fs_context) :
-                nb_native().fs.unlink(fs_context, fullPath);
-            return task.catch(error => ({ error }));
-        }));
-        results.forEach(result => {
-            // Ignore missing files/directories; bail on other errors
-            if (result && result.error && result.error.code !== 'ENOENT') throw result.error;
-        });
-        await nb_native().fs.rmdir(fs_context, dir);
-    }
-
     async create_uls(params, object_sdk) {
         const fs_context = this.prepare_fs_context(object_sdk);
         dbg.log0('NamespaceFS: create_uls fs_context:', fs_context, 'new_dir_path: ', params.full_path);
@@ -2384,7 +2383,7 @@ class NamespaceFS {
                 throw new RpcError('NOT_EMPTY', 'underlying directory has files in it');
             }
 
-            await this._folder_delete(params.full_path, fs_context);
+            await native_fs_utils.folder_delete(params.full_path, fs_context);
         } catch (err) {
             throw this._translate_object_error_codes(err);
         }
@@ -3027,5 +3026,5 @@ class NamespaceFS {
 }
 
 module.exports = NamespaceFS;
-module.exports.buffers_pool = buffers_pool;
+module.exports.multi_buffer_pool = multi_buffer_pool;
 

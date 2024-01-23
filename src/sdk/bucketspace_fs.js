@@ -14,6 +14,7 @@ const _ = require('lodash');
 const util = require('util');
 const bucket_policy_utils = require('../endpoint/s3/s3_bucket_policy_utils');
 const nsfs_schema_utils = require('../manage_nsfs/nsfs_schema_utils');
+const mongo_utils = require('../util/mongo_utils');
 
 const KeysSemaphore = require('../util/keys_semaphore');
 const native_fs_utils = require('../util/native_fs_utils');
@@ -103,6 +104,9 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                 k.access_key = new SensitiveString(k.access_key);
                 k.secret_key = new SensitiveString(k.secret_key);
             }
+            if (account.nsfs_account_config.distinguished_name) {
+                account.nsfs_account_config.distinguished_name = new SensitiveString(account.nsfs_account_config.distinguished_name);
+            }
             //account newly created
             dbg.event({
                 code: "noobaa_account_created",
@@ -187,12 +191,13 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
 
     async check_bucket_config(bucket) {
         const bucket_storage_path = path.join(this.fs_root, bucket.path);
-        const bucket_dir_stat = await nb_native().fs.stat(this.fs_context, bucket_storage_path);
-        if (!bucket_dir_stat) {
+        try {
+            await nb_native().fs.stat(this.fs_context, bucket_storage_path);
+            //TODO: Bucket owner check
+            return true;
+        } catch (err) {
             return false;
         }
-        //TODO: Bucket owner check
-        return true;
     }
 
 
@@ -200,30 +205,32 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
     // BUCKET //
     ////////////
 
+    //TODO: we need to add pagination support to list buckets for more than 1000 buckets.
     async list_buckets(object_sdk) {
+        let entries;
         try {
-            const entries = await nb_native().fs.readdir(this.fs_context, this.bucket_schema_dir);
-            const bucket_config_files = entries.filter(entree => !native_fs_utils.isDirectory(entree) && entree.name.endsWith('.json'));
-            //TODO : we need to add pagination support to list buckets for more than 1000 buckets.
-            let buckets = await P.map(bucket_config_files, bucket_config_file => this.get_bucket_name(bucket_config_file.name));
-            buckets = buckets.filter(bucket => bucket.name.unwrap());
-            return this.validate_bucket_access(buckets, object_sdk);
+            entries = await nb_native().fs.readdir(this.fs_context, this.bucket_schema_dir);
         } catch (err) {
             if (err.code === 'ENOENT') {
-                dbg.error('BucketSpaceFS: root dir not found', err);
+                dbg.error('BucketSpaceFS: root dir not found', err, this.bucket_schema_dir);
                 throw new S3Error(S3Error.NoSuchBucket);
             }
             throw this._translate_bucket_error_codes(err);
         }
+        const bucket_config_files = entries.filter(entree => !native_fs_utils.isDirectory(entree) && entree.name.endsWith('.json'));
+        const bucket_names = bucket_config_files.map(bucket_config_file => this.get_bucket_name(bucket_config_file.name));
+        return this.validate_bucket_access(bucket_names, object_sdk);
     }
 
     async validate_bucket_access(buckets, object_sdk) {
         const has_access_buckets = (await P.all(_.map(
             buckets,
             async bucket => {
+                dbg.log1('bucketspace_fs.validate_bucket_access:', bucket.name.unwrap());
                 const ns = await object_sdk.read_bucket_sdk_namespace_info(bucket.name.unwrap());
                 const has_access_to_bucket = object_sdk.is_nsfs_bucket(ns) ?
                     await this._has_access_to_nsfs_dir(ns, object_sdk) : false;
+                dbg.log1('bucketspace_fs.validate_bucket_access:', bucket.name.unwrap(), has_access_to_bucket);
                 return has_access_to_bucket && bucket;
             }))).filter(bucket => bucket);
             return { buckets: has_access_buckets };
@@ -252,11 +259,10 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
         }
     }
 
-    async get_bucket_name(bucket_config_file_name) {
-        const bucket_config_path = path.join(this.bucket_schema_dir, bucket_config_file_name);
-        const { data } = await nb_native().fs.readFile(this.fs_context, bucket_config_path);
-        const bucket = JSON.parse(data.toString());
-        return { name: new SensitiveString(bucket.name) };
+    get_bucket_name(bucket_config_file_name) {
+        let bucket_name = path.basename(bucket_config_file_name);
+        bucket_name = bucket_name.slice(0, bucket_name.indexOf('.json'));
+        return { name: new SensitiveString(bucket_name) };
     }
 
     async read_bucket(params) {
@@ -291,6 +297,13 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
 
             // create bucket configuration file
             try {
+                // validate bucket details
+                // We take an object that was stringify
+                // (it unwraps ths sensitive strings, creation_date to string and removes undefined parameters)
+                // for validating against the schema we need an object, hence we parse it back to object
+                const bucket_to_validate = JSON.parse(bucket_config);
+                dbg.log2("create_bucket: bucket properties before validate_bucket_schema", bucket_to_validate);
+                nsfs_schema_utils.validate_bucket_schema(bucket_to_validate);
                 await native_fs_utils.create_config_file(this.fs_context, this.bucket_schema_dir, bucket_config_path, bucket_config);
             } catch (err) {
                 dbg.event({
@@ -332,8 +345,9 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
 
     new_bucket_defaults(account, { name, tag, lock_enabled, force_md5_etag }, create_uls, bucket_storage_path) {
         return {
+            _id: mongo_utils.mongoObjectId(),
             name,
-            tag: js_utils.default_value(tag, ''),
+            tag: js_utils.default_value(tag, undefined),
             owner_account: account._id,
             system_owner: new SensitiveString(account.email),
             bucket_owner: new SensitiveString(account.email),
@@ -366,10 +380,15 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                         full_path: path.join(this.fs_root, namespace_bucket_config.write_resource.path) // includes write_resource.path + bucket name (s3 flow)
                     }, object_sdk);
                 } else if (namespace_bucket_config) {
+                    // S3 Delete for NSFS Manage buckets
                     const list = await ns.list_objects({ ...params, limit: 1 }, object_sdk);
                     if (list && list.objects && list.objects.length > 0) {
                         throw new RpcError('NOT_EMPTY', 'underlying directory has files in it');
                     }
+                    const bucket = await object_sdk.read_bucket_sdk_config_info(params.name);
+                    const bucket_temp_dir_path = path.join(namespace_bucket_config.write_resource.path,
+                            config.NSFS_TEMP_DIR_NAME + "_" + bucket._id);
+                    await native_fs_utils.folder_delete(bucket_temp_dir_path, this.fs_context, true);
                 }
                 dbg.log1(`BucketSpaceFS: delete_fs_bucket ${bucket_path}`);
                 // delete bucket config json file
@@ -423,6 +442,9 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             const { data } = await nb_native().fs.readFile(this.fs_context, bucket_config_path);
             const bucket = JSON.parse(data.toString());
             bucket.versioning = versioning;
+            dbg.log2("set_bucket_versioning: bucket properties before validate_bucket_schema",
+                bucket);
+            nsfs_schema_utils.validate_bucket_schema(bucket);
             const update_bucket = JSON.stringify(bucket);
             await nb_native().fs.writeFile(
                 this.fs_context,
@@ -464,6 +486,11 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             const { data } = await nb_native().fs.readFile(this.fs_context, bucket_config_path);
             const bucket = JSON.parse(data.toString());
             bucket.encryption = encryption;
+            // in case it is algorithm: 'AES256', the property would be undefined
+            const bucket_to_validate = _.omitBy(bucket, _.isUndefined);
+            dbg.log2("put_bucket_encryption: bucket properties before validate_bucket_schema",
+            bucket_to_validate);
+            nsfs_schema_utils.validate_bucket_schema(bucket_to_validate);
             const update_bucket = JSON.stringify(bucket);
             await nb_native().fs.writeFile(
                 this.fs_context,
@@ -497,7 +524,10 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             const bucket_config_path = this._get_bucket_config_path(name);
             const { data } = await nb_native().fs.readFile(this.fs_context, bucket_config_path);
             const bucket = JSON.parse(data.toString());
-            bucket.encryption = undefined;
+            delete bucket.encryption;
+            dbg.log2("delete_bucket_encryption: bucket properties before validate_bucket_schema", bucket);
+            // on the safe side validate before changing configuration
+            nsfs_schema_utils.validate_bucket_schema(bucket);
             const update_bucket = JSON.stringify(bucket);
             await nb_native().fs.writeFile(
                 this.fs_context,
@@ -523,6 +553,10 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             const { data } = await nb_native().fs.readFile(this.fs_context, bucket_config_path);
             const bucket = JSON.parse(data.toString());
             bucket.website = website;
+            const bucket_to_validate = _.omitBy(bucket, _.isUndefined);
+            dbg.log2("put_bucket_website: bucket properties before validate_bucket_schema",
+            bucket_to_validate);
+            nsfs_schema_utils.validate_bucket_schema(bucket_to_validate);
             const update_bucket = JSON.stringify(bucket);
             await nb_native().fs.writeFile(
                 this.fs_context,
@@ -543,7 +577,10 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             const bucket_config_path = this._get_bucket_config_path(name);
             const { data } = await nb_native().fs.readFile(this.fs_context, bucket_config_path);
             const bucket = JSON.parse(data.toString());
-            bucket.website = undefined;
+            delete bucket.website;
+            dbg.log2("delete_bucket_website: bucket properties before validate_bucket_schema", bucket);
+            // on the safe side validate before changing configuration
+            nsfs_schema_utils.validate_bucket_schema(bucket);
             const update_bucket = JSON.stringify(bucket);
             await nb_native().fs.writeFile(
                 this.fs_context,
@@ -584,6 +621,10 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             const bucket = JSON.parse(data.toString());
             await bucket_policy_utils.validate_s3_policy(policy, bucket.name, async principal => this._get_account_by_name(principal));
             bucket.s3_policy = policy;
+            const bucket_to_validate = _.omitBy(bucket, _.isUndefined);
+            dbg.log2("put_bucket_policy: bucket properties before validate_bucket_schema",
+            bucket_to_validate);
+            nsfs_schema_utils.validate_bucket_schema(bucket_to_validate);
             const update_bucket = JSON.stringify(bucket);
             await nb_native().fs.writeFile(
                 this.fs_context,
@@ -604,7 +645,10 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             const bucket_config_path = this._get_bucket_config_path(name);
             const { data } = await nb_native().fs.readFile(this.fs_context, bucket_config_path);
             const bucket = JSON.parse(data.toString());
-            bucket.s3_policy = undefined;
+            delete bucket.s3_policy;
+            dbg.log2("delete_bucket_policy: bucket properties before validate_bucket_schema", bucket);
+            // on the safe side validate before changing configuration
+            nsfs_schema_utils.validate_bucket_schema(bucket);
             const update_bucket = JSON.stringify(bucket);
             await nb_native().fs.writeFile(
                 this.fs_context,

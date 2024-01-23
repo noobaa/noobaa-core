@@ -15,30 +15,32 @@ node src/cmd/nsfs ../standalon/nsfs_root --config_dir ../standalon/fs_config
 
 ### 1. Accounts
 
-- Account will have a directory and in that, it will map 1 file per account, and the file name will be {access_key}.json
-- Secrets will be saved either as plain text or Encrypted strings? [TBD]
-- JSON Schema - $ref: account_api#/definitions/account_info
-- new_buckets_path in the account schema will be used to populate the namespace store(read_resources, write_resource).
-- BucketSpace interface is updated with the new method `read_account_by_access_key()`
+- Account will have a directory and in that, it will map 1 file per account, and the file name will be {account_name}.json
+- Secrets will be saved as plain text
+  - Note: We had the option to save it as plain text or Encrypted strings.
+- JSON Schema - `src/server/object_services/schemas/nsfs_account_schema.js`.
+  - Note: It is based on $ref: account_api#/definitions/account_info.
+- `new_buckets_path` in the account schema will be used to populate the namespace store (read_resources, write_resource).
+- `BucketSpace` interface is updated with the new method `read_account_by_access_key()`
     - Method will read multiple account config files referring to access_key and return the account to `account_cache`.
 
-```
+```json
 {
-	"name": "user1",
-	"email": "user1@noobaa.io",
-	"has_login": "false",
-	"has_s3_access": "true",
-    "allow_bucket_creation": "true",
-	"access_keys": [{
-		"access_key": "aa-abcdefghijklmn123456",
-		"secret_key": "ss-abcdefghijklmn123456"
-	}],
-	"nsfs_account_config": {
-		"uid": 10,   // Both can also be replaced with "distingished_name": "unique_user1_name",
-		"gid": 10,   // 
- 		"new_buckets_path": "/",
-		"nsfs_only": "true"
-	}
+  "name": "user1",
+  "email": "user1@noobaa.io",
+  "creation_date": "2024-01-11T08:24:14.937Z",
+  "access_keys": [
+    {
+      "access_key": "T9ND65mekH3hCv81ztft",
+      "secret_key": "fTeJr6P+xe+N4TnjHnYLWZTM5oEBBB04Yw5nOPkHEXAMPLE" //real secret_key would not have the suffix EXAMPLE
+    }
+  ],
+  "nsfs_account_config": {
+    "uid": 1001,   // Both can also be replaced with "distingished_name": "unique_user1_name",
+    "gid": 1001,   // 
+    "new_buckets_path": "/",
+  },
+  "allow_bucket_creation": true
 }
 ```
 
@@ -46,38 +48,41 @@ node src/cmd/nsfs ../standalon/nsfs_root --config_dir ../standalon/fs_config
 
 - Bucket will have a directory and in that, it will map 1 file per Bucket
 - bucket files name will be same as bucket name; eg: {bucket_name}.json
-- Bucket schema should have a name, account name/email, s3_policy, path, etc.
-- JSON Schema - $ref: 'bucket_api#/definitions/bucket_info'
-- BucketSpace interface is updated with the new method `read_bucket_sdk_info()`
-    - Method will read bucket schama referring to bucket name and return the bucket to `bucket_namespace_cache`.
+- Bucket schema should have a name, bucket_owner, path, etc. The are optional properties that can be added like bucket policy.
+- JSON Schema - src/server/object_services/schemas/nsfs_bucket_schema.js
+  -  It is based on  $ref: 'bucket_api#/definitions/bucket_info'
+- `BucketSpace`` interface is updated with the new method `read_bucket_sdk_info()`
+    - Method will read bucket schema referring to bucket name and return the bucket to `bucket_namespace_cache`.
 
-```
+```json
 {
   "name": "mybucke-test1",
-  "tag": "",
   "system_owner": "user1@noobaa.io",
   "bucket_owner": "user1@noobaa.io",
+  "creation_date": "2024-01-11T08:26:16.9731",
   "versioning": "DISABLED",
   "path": "mybucke-test1",
   "should_create_underlying_storage": true,
   "s3_policy": {
-    "version": "2012-10-17",
-    "statement": [
-      {
-        "sid": "id-1222",
-        "effect": "allow",
-        "principal": [
-          "*"
-        ],
-        "action": [
-          "s3:*"
-        ],
-        "resource": [
-          "arn:aws:s3:::*"
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Principal": {
+              "AWS": [
+                "*"
+              ]
+            },
+            "Action": [
+              "s3:*"
+            ],
+            "Resource": [
+              "arn:aws:s3:::mybucke-test1/*",
+              "arn:aws:s3:::mybucke-test1"
+            ]
+          }
         ]
       }
-    ]
-  }
 }
 ```
 

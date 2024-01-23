@@ -62,16 +62,25 @@ ManageCLIError.InvalidAction = Object.freeze({
     message: 'Invalid action, available actions are add, status, update, delete, list',
     http_code: 400,
 });
-ManageCLIError.InvalidConfigType = Object.freeze({
-    code: 'InvalidConfigType',
-    message: 'Invalid config type, available config types are account, bucket or whitelist',
+
+ManageCLIError.InvalidArgument = Object.freeze({
+    code: 'InvalidArgument',
+    message: 'Invalid argument',
     http_code: 400,
 });
+
+ManageCLIError.InvalidType = Object.freeze({
+    code: 'InvalidType',
+    message: 'Invalid type, available types are account, bucket or whitelist',
+    http_code: 400,
+});
+
 ManageCLIError.MissingConfigDirPath = Object.freeze({
     code: 'MissingConfigDirPath',
     message: 'Config dir path should not be empty',
     http_code: 400,
 });
+
 ManageCLIError.InvalidSchema = Object.freeze({
     code: 'InvalidSchema',
     message: 'Schema invalid, please use required properties',
@@ -134,6 +143,13 @@ ManageCLIError.AccountNameAlreadyExists = Object.freeze({
     http_code: 409,
 });
 
+ManageCLIError.AccountDeleteForbiddenHasBuckets = Object.freeze({
+    code: 'AccountDeleteForbiddenHasBuckets',
+    message: 'Cannot delete account that is owner of buckets. ' +
+        'You must delete all buckets before deleting the account',
+    http_code: 403,
+});
+
 
 //////////////////////////////////
 //// ACCOUNT ARGUMENTS ERRORS ////
@@ -183,7 +199,19 @@ ManageCLIError.MissingIdentifier = Object.freeze({
 
 ManageCLIError.InvalidAccountNSFSConfig = Object.freeze({
     code: 'InvalidAccountNSFSConfig',
-    message: 'Account config should not be empty',
+    message: 'Account config should not be empty, should contain UID, GID or user',
+    http_code: 400,
+});
+
+ManageCLIError.MissingAccountNSFSConfigUID = Object.freeze({
+    code: 'MissingAccountNSFSConfigUID',
+    message: 'Account config should include UID',
+    http_code: 400,
+});
+
+ManageCLIError.MissingAccountNSFSConfigGID = Object.freeze({
+    code: 'MissingAccountNSFSConfigGID',
+    message: 'Account config should include GID',
     http_code: 400,
 });
 
@@ -246,6 +274,13 @@ ManageCLIError.BucketAlreadyExists = Object.freeze({
     http_code: 409,
 });
 
+ManageCLIError.BucketSetForbiddenNoBucketOwner = Object.freeze({
+    code: 'BucketSetForbiddenNoBucketOwner',
+    message: 'The bucket owner you set for the bucket does not exist. ' +
+        'Please set the bucket owner from existing account',
+    http_code: 403,
+});
+
 /////////////////////////////////
 //// BUCKET ARGUMENTS ERRORS ////
 /////////////////////////////////
@@ -277,7 +312,7 @@ ManageCLIError.InvalidNewNameBucketIdentifier = Object.freeze({
 
 ManageCLIError.InvalidFSBackend = Object.freeze({
     code: 'InvalidFSBackend',
-    message: 'FS backend supported types is GPFS, default is POSIX',
+    message: 'FS backend supported types are GPFS, CEPH_FS, NFSv4 default is POSIX',
     http_code: 400,
 });
 

@@ -5,30 +5,21 @@ const dbg = require('../util/debug_module')(__filename);
 const _ = require('lodash');
 const path = require('path');
 const minimist = require('minimist');
+const net = require('net');
 const config = require('../../config');
+const P = require('../util/promise');
 const nb_native = require('../util/nb_native');
 const cloud_utils = require('../util/cloud_utils');
 const string_utils = require('../util/string_utils');
 const native_fs_utils = require('../util/native_fs_utils');
+const mongo_utils = require('../util/mongo_utils');
 const SensitiveString = require('../util/sensitive_string');
 const ManageCLIError = require('../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
 const ManageCLIResponse = require('../manage_nsfs/manage_nsfs_cli_responses').ManageCLIResponse;
 const bucket_policy_utils = require('../endpoint/s3/s3_bucket_policy_utils');
 const nsfs_schema_utils = require('../manage_nsfs/nsfs_schema_utils');
-
-const TYPES = {
-    ACCOUNT: 'account',
-    BUCKET: 'bucket',
-    IPWHITELIST: 'whitelist'
-};
-
-const ACTIONS = {
-    ADD: 'add',
-    UPDATE: 'update',
-    DELETE: 'delete',
-    LIST: 'list',
-    STATUS: 'status'
-};
+const { print_usage } = require('../manage_nsfs/manage_nsfs_help_utils');
+const { TYPES, ACTIONS, VALID_OPTIONS } = require('../manage_nsfs/manage_nsfs_constants');
 
 function throw_cli_error(error_code, detail) {
     const err = new ManageCLIError(error_code).to_string(detail);
@@ -52,95 +43,6 @@ let access_keys_dir_path;
 let buckets_dir_path;
 let config_root_backend;
 
-const HELP = `
-Help:
-
-    "nsfs" is a noobaa-core command runs a local S3 endpoint on top of a filesystem.
-    Each sub directory of the root filesystem represents an S3 bucket.
-    manage nsfs will provide a command line interface to create new accounts and map existing directories 
-    to Noobaa as buckets. For more information refer to the noobaa docs.
-`;
-
-const USAGE = `
-Usage:
-
-    node src/cmd/manage_nsfs <type> <action> [options...]
-`;
-
-const ARGUMENTS = `
-Arguments:
-
-    <type>    Set the resource type such as accounts and buckets
-    <action>  Action could be add, update, list, status and delete for accounts/buckets.
-`;
-
-const WHITELIST_OPTIONS = `
-Whitelist Options:
-
-    # Read Whitelist IPs and update the configurations.
-    --ips <ips>                       (default none)          Set whitelist ips in array format : '["127.0.0.1", "192.000.10.000", "3002:0bd6:0000:0000:0000:ee00:0033:6778"]'
-`;
-
-const ACCOUNT_OPTIONS = `
-Account Options:
-
-    # Read account details from the JSON file, there is no need to mention all the properties one by one in the CLI
-    --from_file <dir>                                         (default none)                                  Set account schema full path. Get account details from JSON file                
-    --config_root_backend <none | GPFS | CEPH_FS | NFV_V4>    (default config.NSFS_NC_CONFIG_DIR_BACKEND)     Set the config_root FS type to be GPFS
-
-    # required for add, update 
-    --name <name>                                   (default none)                              Set the name for the account.
-    --email <email>                                 (default none)                              Set the email for the account.
-    --new_name <name>                               (default none)                              Set a new name for the account (update).
-    --uid <uid>                                     (default none)                              Send requests to the Filesystem with uid.
-    --gid <gid>                                     (default none)                              Send requests to the Filesystem with gid.
-    --secret_key <key>                              (default none)                              The secret key pair for the access key.
-    --new_buckets_path <dir>                        (default none)                              Set the filesystem's root where each subdir is a bucket.
-    --fs_backend <none | GPFS | CEPH_FS | NFV_V4>   (default config.NSFS_NC_STORAGE_BACKEND)    Set fs_backend of new_buckets_path to be GPFS
-
-    # required for add, update, and delete
-    --access_key <key>          (default none)                              Authenticate incoming requests for this access key only (default is no auth).
-    --regenerate                (default none)                              When set and new_access_key is not set, will regenerate the access_key and secret_key
-    --config_root <dir>         (default config.NSFS_NC_DEFAULT_CONF_DIR)   Configuration files path for Noobaa standalon NSFS.
-
-    # Used for list
-    --wide                      (default none)                              Will print the list with details (same as status but for all accounts)
-    --show_secrets              (default false)                             Will print the access_keys of the account
-    --uid <uid>                 (default none)                              filter the list by uid.
-    --gid <gid>                 (default none)                              filter the list by gid.
-`;
-
-const BUCKET_OPTIONS = `
-Bucket Options:
-
-    # Read Bucket details from JSON file, no need to mention all the properties one by one in CLI
-    --from_file <dir>                                         (default none)                                  Set bucket schema full path. Get bucket details from the JSON file
-    --config_root_backend <none | GPFS | CEPH_FS | NFV_V4>    (default config.NSFS_NC_CONFIG_DIR_BACKEND)     Set the config_root FS type to be GPFS
-
-    # required for add, update 
-    --email <email>                                 (default none)                             Set the email for the bucket.
-    --path <dir>                                    (default none)                             Set the bucket path.
-    --fs_backend <none | GPFS | CEPH_FS | NFV_V4>   (default config.NSFS_NC_STORAGE_BACKEND)   Set fs_backend to be GPFS
-
-    # required for add, update, and delete
-    --name <name>               (default none)                              Set the name for the bucket.
-    --bucket_policy<string>     (default none)                              Set a bucket policy for the bucket, type is a string of valid JSON policy
-    --new_name <name>           (default none)                              Set a new name for the bucket.
-    --config_root <dir>         (default config.NSFS_NC_DEFAULT_CONF_DIR)   Configuration files path for Noobaa standalon NSFS.
-    --wide                      (default none)                              Will print the list with details (same as status but for all buckets)
-    `;
-
-function print_usage(options) {
-    process.stdout.write(HELP);
-    process.stdout.write(USAGE.trimStart());
-    process.stdout.write(ARGUMENTS.trimStart());
-    if (!options || options.print_account) process.stdout.write(ACCOUNT_OPTIONS.trimStart());
-    if (!options || options.print_bucket) process.stdout.write(BUCKET_OPTIONS.trimStart());
-    if (!options || options.print_white_list) process.stdout.write(WHITELIST_OPTIONS.trimStart());
-    process.exit(1);
-}
-
-
 async function check_and_create_config_dirs() {
     const pre_req_dirs = [
         config_root,
@@ -151,7 +53,7 @@ async function check_and_create_config_dirs() {
     for (const dir_path of pre_req_dirs) {
         try {
             const fs_context = native_fs_utils.get_process_fs_context();
-            const dir_exists = await native_fs_utils.config_file_exists(fs_context, dir_path);
+            const dir_exists = await native_fs_utils.is_path_exists(fs_context, dir_path);
             if (dir_exists) {
                 dbg.log1('nsfs.check_and_create_config_dirs: config dir exists:', dir_path);
             } else {
@@ -170,12 +72,16 @@ async function main(argv = minimist(process.argv.slice(2))) {
             throw new Error('Root permissions required for Manage NSFS execution.');
         }
         const type = argv._[0] || '';
+        const action = argv._[1] || '';
         if (argv.help || argv.h) {
-            return print_usage({
-                print_bucket: type === TYPES.BUCKET,
-                print_account: type === TYPES.ACCOUNT,
-                print_white_list: type === TYPES.IPWHITELIST
-            });
+            return print_usage(type, action);
+        }
+        const { invalid_input_options, valid_options } = validate_options(type, action, argv);
+        if (invalid_input_options.length > 0) {
+            const type_and_action = type === TYPES.IP_WHITELIST ? type : `${type} ${action}`;
+            const err_msg = `${invalid_input_options.join(', ')} invalid options for ` +
+                `${type_and_action}, please use only: ${[...valid_options].join(', ')}`;
+            throw_cli_error(ManageCLIError.InvalidArgument, err_msg);
         }
         config_root = argv.config_root ? String(argv.config_root) : config.NSFS_NC_CONF_DIR;
         if (!config_root) throw_cli_error(ManageCLIError.MissingConfigDirPath);
@@ -191,10 +97,11 @@ async function main(argv = minimist(process.argv.slice(2))) {
             await account_management(argv, from_file);
         } else if (type === TYPES.BUCKET) {
             await bucket_management(argv, from_file);
-        } else if (type === TYPES.IPWHITELIST) {
+        } else if (type === TYPES.IP_WHITELIST) {
             await whitelist_ips_management(argv);
         } else {
-            throw_cli_error(ManageCLIError.InvalidConfigType);
+            // we should not get here (we check it before)
+            throw_cli_error(ManageCLIError.InvalidType);
         }
     } catch (err) {
         dbg.log1('NSFS Manage command: exit on error', err.stack || err);
@@ -226,11 +133,11 @@ async function fetch_bucket_data(argv, from_file) {
             system_owner: argv.email,
             bucket_owner: argv.email,
             wide: argv.wide,
-            creation_date: new Date().toISOString(),
-            tag: '',
-            versioning: 'DISABLED',
+            creation_date: action === ACTIONS.ADD ? new Date().toISOString() : undefined,
+            tag: undefined, // if we would add the option to tag a bucket using CLI, this should be changed
+            versioning: action === ACTIONS.ADD ? 'DISABLED' : undefined,
             path: argv.path,
-            should_create_underlying_storage: false,
+            should_create_underlying_storage: action === ACTIONS.ADD ? false : undefined,
             new_name: argv.new_name,
             fs_backend: argv.fs_backend ? String(argv.fs_backend) : config.NSFS_NC_STORAGE_BACKEND
         };
@@ -244,7 +151,7 @@ async function fetch_bucket_data(argv, from_file) {
             data.s3_policy = JSON.parse(argv.bucket_policy.toString());
         }
     }
-    if (action === ACTIONS.UPDATE) {
+    if (action === ACTIONS.UPDATE || action === ACTIONS.DELETE) {
         data = _.omitBy(data, _.isUndefined);
         data = await fetch_existing_bucket_data(data);
     }
@@ -287,11 +194,12 @@ function get_symlink_config_file_path(config_type_path, file_name) {
 
 async function add_bucket(data) {
     await validate_bucket_args(data, ACTIONS.ADD);
+    await verify_bucket_owner(data.bucket_owner.unwrap());
     const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
     const bucket_conf_path = get_config_file_path(buckets_dir_path, data.name);
-    const exists = await native_fs_utils.config_file_exists(fs_context, bucket_conf_path);
+    const exists = await native_fs_utils.is_path_exists(fs_context, bucket_conf_path);
     if (exists) throw_cli_error(ManageCLIError.BucketAlreadyExists, data.name.unwrap());
-
+    data._id = mongo_utils.mongoObjectId();
     const data_json = JSON.stringify(data);
     // We take an object that was stringify
     // (it unwraps ths sensitive strings, creation_date to string and removes undefined parameters)
@@ -299,6 +207,33 @@ async function add_bucket(data) {
     nsfs_schema_utils.validate_bucket_schema(JSON.parse(data_json));
     await native_fs_utils.create_config_file(fs_context, buckets_dir_path, bucket_conf_path, data_json);
     write_stdout_response(ManageCLIResponse.BucketCreated, data_json);
+}
+
+/** verify_bucket_owner will check if the bucket_owner has an account
+ * in case it does not find one, it would throw an error
+ * @param {string} bucket_owner
+ */
+async function verify_bucket_owner(bucket_owner) {
+    let is_bucket_owner_exist = false;
+    const show_secrets = false;
+    const fs_context = native_fs_utils.get_process_fs_context();
+    const entries = await nb_native().fs.readdir(fs_context, accounts_dir_path);
+    // Gap - should replace this implementation
+    // it keeps iterating even if we find that the bucket owner exist
+    await P.map_with_concurrency(10, entries, async entry => {
+        if (entry.name.endsWith('.json') && !is_bucket_owner_exist) {
+            const full_path = path.join(accounts_dir_path, entry.name);
+            const data = await get_config_data(full_path, show_secrets);
+            if (data.email === bucket_owner) {
+                is_bucket_owner_exist = true;
+            }
+        }
+    });
+
+    if (!is_bucket_owner_exist) {
+        const detail_msg = `bucket owner ${bucket_owner} does not exists`;
+        throw_cli_error(ManageCLIError.BucketSetForbiddenNoBucketOwner, detail_msg);
+    }
 }
 
 async function get_bucket_status(data) {
@@ -316,6 +251,7 @@ async function get_bucket_status(data) {
 
 async function update_bucket(data) {
     await validate_bucket_args(data, ACTIONS.UPDATE);
+    await verify_bucket_owner(data.bucket_owner.unwrap());
 
     const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
 
@@ -339,7 +275,7 @@ async function update_bucket(data) {
     const cur_bucket_config_path = get_config_file_path(buckets_dir_path, cur_name.unwrap());
     const new_bucket_config_path = get_config_file_path(buckets_dir_path, data.name.unwrap());
 
-    const exists = await native_fs_utils.config_file_exists(fs_context, new_bucket_config_path);
+    const exists = await native_fs_utils.is_path_exists(fs_context, new_bucket_config_path);
     if (exists) throw_cli_error(ManageCLIError.BucketAlreadyExists, data.name.unwrap());
 
     data = JSON.stringify(_.omit(data, ['new_name']));
@@ -352,16 +288,17 @@ async function update_bucket(data) {
     write_stdout_response(ManageCLIResponse.BucketUpdated, data);
 }
 
-
 async function delete_bucket(data) {
     await validate_bucket_args(data, ACTIONS.DELETE);
-
     const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
     const bucket_config_path = get_config_file_path(buckets_dir_path, data.name);
     try {
+        const bucket_temp_dir_path = path.join(data.path, config.NSFS_TEMP_DIR_NAME + "_" + data._id);
+        await native_fs_utils.folder_delete(bucket_temp_dir_path, fs_context, true);
         await native_fs_utils.delete_config_file(fs_context, buckets_dir_path, bucket_config_path);
     } catch (err) {
         if (err.code === 'ENOENT') throw_cli_error(ManageCLIError.NoSuchBucket, data.name);
+        throw err;
     }
     write_stdout_response(ManageCLIResponse.BucketDeleted);
 }
@@ -380,7 +317,8 @@ async function manage_bucket_operations(action, data) {
         if (!data.wide) buckets = buckets.map(item => ({ name: item.name }));
         write_stdout_response(ManageCLIResponse.BucketList, buckets);
     } else {
-        throw_cli_error(ManageCLIError.InvalidAction, undefined);
+        // we should not get here (we check it before)
+        throw_cli_error(ManageCLIError.InvalidAction);
     }
 }
 
@@ -439,7 +377,7 @@ async function fetch_account_data(argv, from_file) {
         data = _.omitBy({
             name: argv.name,
             email: argv.email,
-            creation_date: new Date().toISOString(),
+            creation_date: action === ACTIONS.ADD ? new Date().toISOString() : undefined,
             wide: argv.wide,
             new_name: argv.new_name,
             new_access_key,
@@ -492,11 +430,14 @@ async function fetch_existing_account_data(target) {
         source = await get_config_data(account_path, true);
     } catch (err) {
         dbg.log1('NSFS Manage command: Could not find account', target, err);
-        if (is_undefined(target.name)) {
-            throw_cli_error(ManageCLIError.NoSuchAccountAccessKey, target.access_keys[0].access_key);
-        } else {
-            throw_cli_error(ManageCLIError.NoSuchAccountName, target.name);
+        if (err.code === 'ENOENT') {
+            if (is_undefined(target.name)) {
+                throw_cli_error(ManageCLIError.NoSuchAccountAccessKey, target.access_keys[0].access_key);
+            } else {
+                throw_cli_error(ManageCLIError.NoSuchAccountName, target.name);
+            }
         }
+        throw err;
     }
     const data = _.merge({}, source, target);
     return data;
@@ -511,14 +452,14 @@ async function add_account(data) {
     const account_config_path = get_config_file_path(accounts_dir_path, data.name);
     const account_config_access_key_path = get_symlink_config_file_path(access_keys_dir_path, access_key);
 
-    const name_exists = await native_fs_utils.config_file_exists(fs_context, account_config_path);
-    const access_key_exists = await native_fs_utils.config_file_exists(fs_context, account_config_access_key_path, true);
+    const name_exists = await native_fs_utils.is_path_exists(fs_context, account_config_path);
+    const access_key_exists = await native_fs_utils.is_path_exists(fs_context, account_config_access_key_path, true);
 
     if (name_exists || access_key_exists) {
         const err_code = name_exists ? ManageCLIError.AccountNameAlreadyExists : ManageCLIError.AccountAccessKeyAlreadyExists;
         throw_cli_error(err_code);
     }
-
+    data._id = mongo_utils.mongoObjectId();
     data = JSON.stringify(data);
     // We take an object that was stringify
     // (it unwraps ths sensitive strings, creation_date to string and removes undefined parameters)
@@ -558,8 +499,8 @@ async function update_account(data) {
     const new_account_config_path = get_config_file_path(accounts_dir_path, data.name.unwrap());
     const cur_access_key_config_path = get_symlink_config_file_path(access_keys_dir_path, cur_access_key.unwrap());
     const new_access_key_config_path = get_symlink_config_file_path(access_keys_dir_path, data.access_keys[0].access_key.unwrap());
-    const name_exists = update_name && await native_fs_utils.config_file_exists(fs_context, new_account_config_path);
-    const access_key_exists = update_access_key && await native_fs_utils.config_file_exists(fs_context, new_access_key_config_path, true);
+    const name_exists = update_name && await native_fs_utils.is_path_exists(fs_context, new_account_config_path);
+    const access_key_exists = update_access_key && await native_fs_utils.is_path_exists(fs_context, new_access_key_config_path, true);
     if (name_exists || access_key_exists) {
         const err_code = name_exists ? ManageCLIError.AccountNameAlreadyExists : ManageCLIError.AccountAccessKeyAlreadyExists;
         throw_cli_error(err_code);
@@ -585,6 +526,7 @@ async function update_account(data) {
 
 async function delete_account(data) {
     await validate_account_args(data, ACTIONS.DELETE);
+    await verify_delete_account(data.name.unwrap(), data.email.unwrap());
 
     const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
     const account_config_path = get_config_file_path(accounts_dir_path, data.name);
@@ -594,6 +536,29 @@ async function delete_account(data) {
     await nb_native().fs.unlink(fs_context, access_key_config_path);
 
     write_stdout_response(ManageCLIResponse.AccountDeleted);
+}
+
+/**
+ * verify_delete_account will check if the account has at least one bucket
+ * in case it finds one, it would throw an error
+ * @param {string} account_name
+ * @param {string} account_email
+ */
+async function verify_delete_account(account_name, account_email) {
+    const show_secrets = false; // in buckets we don't save secrets in coofig file
+    const fs_context = native_fs_utils.get_process_fs_context();
+    const entries = await nb_native().fs.readdir(fs_context, buckets_dir_path);
+    await P.map_with_concurrency(10, entries, async entry => {
+        if (entry.name.endsWith('.json')) {
+            const full_path = path.join(buckets_dir_path, entry.name);
+            const data = await get_config_data(full_path, show_secrets);
+            if (data.bucket_owner === account_email) {
+                const detail_msg = `Account ${account_name} has bucket ${data.name}`;
+                throw_cli_error(ManageCLIError.AccountDeleteForbiddenHasBuckets, detail_msg);
+            }
+            return data;
+        }
+    });
 }
 
 async function get_account_status(data, show_secrets) {
@@ -629,6 +594,7 @@ async function manage_account_operations(action, data, show_secrets, argv) {
         if (!data.wide) accounts = accounts.map(item => ({ name: item.name }));
         write_stdout_response(ManageCLIResponse.AccountList, accounts);
     } else {
+        // we should not get here (we check it before)
         throw_cli_error(ManageCLIError.InvalidAction);
     }
 }
@@ -663,17 +629,18 @@ async function list_config_files(config_path, show_secrets) {
     const fs_context = native_fs_utils.get_process_fs_context();
     const entries = await nb_native().fs.readdir(fs_context, config_path);
 
-    const config_files_list = [];
-    for (const entry of entries) {
+    let config_files_list = await P.map_with_concurrency(10, entries, async entry => {
         if (entry.name.endsWith('.json')) {
             const full_path = path.join(config_path, entry.name);
             const data = await get_config_data(full_path, show_secrets);
-            config_files_list.push(data);
+            return data;
         }
-    }
+    });
+    // it inserts undefined for the entry '.noobaa-config-nsfs' and we wish to remove it
+    config_files_list = config_files_list.filter(item => item);
+
     return config_files_list;
 }
-
 
 /**
  * get_config_data will read a config file and return its content 
@@ -719,7 +686,7 @@ async function validate_bucket_args(data, action) {
         if (is_undefined(data.system_owner)) throw_cli_error(ManageCLIError.MissingBucketEmailFlag);
         if (!data.path) throw_cli_error(ManageCLIError.MissingBucketPathFlag);
         const fs_context = native_fs_utils.get_process_fs_context();
-        const exists = await native_fs_utils.config_file_exists(fs_context, data.path);
+        const exists = await native_fs_utils.is_path_exists(fs_context, data.path);
         if (!exists) {
             throw_cli_error(ManageCLIError.InvalidStoragePath, data.path);
         }
@@ -765,6 +732,12 @@ async function validate_account_args(data, action) {
 
         if (is_undefined(data.access_keys[0].secret_key)) throw_cli_error(ManageCLIError.MissingAccountSecretKeyFlag);
         if (is_undefined(data.access_keys[0].access_key)) throw_cli_error(ManageCLIError.MissingAccountAccessKeyFlag);
+        if (data.nsfs_account_config.gid && (is_undefined(data.nsfs_account_config.uid))) {
+            throw_cli_error(ManageCLIError.MissingAccountNSFSConfigUID, data.nsfs_account_config);
+        }
+        if (data.nsfs_account_config.uid && (is_undefined(data.nsfs_account_config.gid))) {
+            throw_cli_error(ManageCLIError.MissingAccountNSFSConfigGID, data.nsfs_account_config);
+        }
         if ((is_undefined(data.nsfs_account_config.distinguished_name) &&
                 (data.nsfs_account_config.uid === undefined || data.nsfs_account_config.gid === undefined))) {
             throw_cli_error(ManageCLIError.InvalidAccountNSFSConfig, data.nsfs_account_config);
@@ -781,13 +754,41 @@ async function validate_account_args(data, action) {
             return;
         }
         const fs_context = native_fs_utils.get_process_fs_context();
-        const exists = await native_fs_utils.config_file_exists(fs_context, data.nsfs_account_config.new_buckets_path);
+        const exists = await native_fs_utils.is_path_exists(fs_context, data.nsfs_account_config.new_buckets_path);
         if (!exists) {
             throw_cli_error(ManageCLIError.InvalidAccountNewBucketsPath, data.nsfs_account_config.new_buckets_path);
         }
     }
 }
 
+/** validate_options checks if there are options that are not valid.
+ * valid options are: required arguments, optional options and global configurations.
+ * @param {string} type
+ * @param {string} action
+ * @param {object} argv
+ */
+function validate_options(type, action, argv) {
+    if (!Object.values(TYPES).includes(type)) throw_cli_error(ManageCLIError.InvalidType);
+    if (type === TYPES.ACCOUNT || type === TYPES.BUCKET) {
+        if (!Object.values(ACTIONS).includes(action)) throw_cli_error(ManageCLIError.InvalidAction);
+    } else if (type === TYPES.IP_WHITELIST) {
+        if (action !== '') throw_cli_error(ManageCLIError.InvalidAction);
+    }
+
+    const input_options = Object.keys(argv); // we don't care about the value, only the flags
+    input_options.shift(); // the first element is _ with the type and action, so we remove it
+
+    let valid_options; // for performance, we use Set as data structure
+    if (type === TYPES.BUCKET) {
+        valid_options = VALID_OPTIONS.bucket_options[action];
+    } else if (type === TYPES.ACCOUNT) {
+        valid_options = VALID_OPTIONS.account_options[action];
+    } else {
+        valid_options = VALID_OPTIONS.whitelist_options;
+    }
+    const invalid_input_options = input_options.filter(element => !valid_options.has(element));
+    return {invalid_input_options, valid_options};
+}
 
 ///////////////////////////////
 ///         UTILS           ///
@@ -804,6 +805,7 @@ async function whitelist_ips_management(args) {
     validate_whitelist_arg(ips);
 
     const whitelist_ips = JSON.parse(ips);
+    verify_whitelist_ips(whitelist_ips);
     const config_path = path.join(config_root, 'config.json');
     try {
         const config_data = require(config_path);
@@ -826,6 +828,15 @@ function validate_whitelist_arg(ips) {
         JSON.parse(ips);
     } catch (err) {
         throw_cli_error(ManageCLIError.InvalidWhiteListIPFormat);
+    }
+}
+
+function verify_whitelist_ips(ips_to_validate) {
+    for (const ip_to_validate of ips_to_validate) {
+        if (net.isIP(ip_to_validate) === 0) {
+            const detail_msg = `IP address list has an invalid IP address ${ip_to_validate}`;
+            throw_cli_error(ManageCLIError.InvalidWhiteListIPFormat, detail_msg);
+        }
     }
 }
 

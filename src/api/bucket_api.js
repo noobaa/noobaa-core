@@ -867,7 +867,7 @@ module.exports = {
                         id: { objectid: true }
                     }
                 },
-                versioning: { $ref: '#/definitions/versioning' },
+                versioning: { $ref: 'common_api#/definitions/versioning' },
                 namespace: { $ref: '#/definitions/namespace_bucket_config' },
                 bucket_claim: { $ref: '#/definitions/bucket_claim' },
                 logging: { $ref: '#/definitions/logging' },
@@ -1194,7 +1194,7 @@ module.exports = {
                 //     }]
                 // },
                 namespace: { $ref: '#/definitions/namespace_bucket_config' },
-                versioning: { $ref: '#/definitions/versioning' },
+                versioning: { $ref: 'common_api#/definitions/versioning' },
             }
         },
         policy_modes: {
@@ -1287,11 +1287,6 @@ module.exports = {
                     type: 'integer'
                 },
             }
-        },
-
-        versioning: {
-            type: 'string',
-            enum: ['DISABLED', 'SUSPENDED', 'ENABLED']
         },
 
         lambda_trigger_info: {

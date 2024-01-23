@@ -16,7 +16,7 @@ const posix_link_retry_err = 'FS::SafeLink ERROR link target doesn\'t match expe
 const posix_unlink_retry_err = 'FS::SafeUnlink ERROR unlink target doesn\'t match expected inode and mtime';
 const VALID_BUCKET_NAME_REGEXP = /^(([a-z0-9]|[a-z0-9][a-z0-9-]*[a-z0-9])\.)*([a-z0-9]|[a-z0-9][a-z0-9-]*[a-z0-9])$/;
 
-/** @typedef {import('../util/buffer_utils').BuffersPool} BuffersPool */
+/** @typedef {import('../util/buffer_utils').MultiSizeBuffersPool} MultiSizeBuffersPool */
 
 function get_umasked_mode(mode) {
     // eslint-disable-next-line no-bitwise
@@ -71,7 +71,7 @@ async function open_file(fs_context, bucket_path, open_path, open_mode = config.
 }
 
 /**
- * @param {BuffersPool} buffers_pool 
+ * @param {MultiSizeBuffersPool} multi_buffers_pool 
  * @param {nb.NativeFSContext} fs_context 
  * @param {nb.NativeFile} src_file
  * @param {nb.NativeFile} dst_file 
@@ -79,7 +79,7 @@ async function open_file(fs_context, bucket_path, open_path, open_mode = config.
  * @param {number} write_offset 
  * @param {number} read_offset 
  */
-async function copy_bytes(buffers_pool, fs_context, src_file, dst_file, size, write_offset, read_offset) {
+async function copy_bytes(multi_buffers_pool, fs_context, src_file, dst_file, size, write_offset, read_offset) {
     dbg.log1(`Native_fs_utils.copy_bytes size=${size} read_offset=${read_offset} write_offset=${write_offset}`);
     let buffer_pool_cleanup = null;
     try {
@@ -90,7 +90,7 @@ async function copy_bytes(buffers_pool, fs_context, src_file, dst_file, size, wr
         for (;;) {
             const total_bytes_left = total_bytes_to_write - bytes_written;
             if (total_bytes_left <= 0) break;
-            const { buffer, callback } = await buffers_pool.get_buffer();
+            const { buffer, callback } = await multi_buffers_pool.get_buffers_pool(total_bytes_left).get_buffer();
             buffer_pool_cleanup = callback;
             const bytesRead = await src_file.read(fs_context, buffer, 0, buffer.length, read_pos);
             if (!bytesRead) {
@@ -452,7 +452,13 @@ function validate_bucket_creation(params) {
     }
 }
 
-async function config_file_exists(fs_context, config_path, use_lstat) {
+/**
+ * Validate the path param exists or not
+ * @param {nb.NativeFSContext} fs_context 
+ * @param {string} config_path
+ * @param {boolean} use_lstat
+ */
+async function is_path_exists(fs_context, config_path, use_lstat = false) {
     try {
         await nb_native().fs.stat(fs_context, config_path, { use_lstat });
     } catch (err) {
@@ -460,6 +466,31 @@ async function config_file_exists(fs_context, config_path, use_lstat) {
         throw err;
     }
     return true;
+}
+
+/**
+ * delete bucket specific temp folder from bucket storage path, config.NSFS_TEMP_DIR_NAME_<bucket_id>
+ * @param {string} dir 
+ * @param {nb.NativeFSContext} fs_context
+ * @param {boolean} is_temp
+ */
+async function folder_delete(dir, fs_context, is_temp = false) {
+    const exists = await is_path_exists(fs_context, dir);
+    if (!exists && is_temp) {
+        return;
+    }
+    const entries = await nb_native().fs.readdir(fs_context, dir);
+    const results = await Promise.all(entries.map(entry => {
+        const fullPath = path.join(dir, entry.name);
+        const task = isDirectory(entry) ? folder_delete(fullPath, fs_context) :
+            nb_native().fs.unlink(fs_context, fullPath);
+        return task.catch(error => ({ error }));
+    }));
+    results.forEach(result => {
+        // Ignore missing files/directories; bail on other errors
+        if (result && result.error && result.error.code !== 'ENOENT') throw result.error;
+    });
+    await nb_native().fs.rmdir(fs_context, dir);
 }
 
 exports.get_umasked_mode = get_umasked_mode;
@@ -490,4 +521,5 @@ exports.update_config_file = update_config_file;
 exports.isDirectory = isDirectory;
 exports.get_process_fs_context = get_process_fs_context;
 exports.validate_bucket_creation = validate_bucket_creation;
-exports.config_file_exists = config_file_exists;
+exports.is_path_exists = is_path_exists;
+exports.folder_delete = folder_delete;

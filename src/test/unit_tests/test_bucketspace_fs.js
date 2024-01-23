@@ -19,9 +19,11 @@ const nb_native = require('../../util/nb_native');
 
 const MAC_PLATFORM = 'darwin';
 const test_bucket = 'bucket1';
-const test_not_empty_bucketbucket = 'notemptybucket';
+const test_not_empty_bucket = 'notemptybucket';
+const test_bucket_temp_dir = 'buckettempdir';
 const test_bucket_invalid = 'bucket_invalid';
 let tmp_fs_path = '/tmp/test_bucketspace_fs';
+let bucket_temp_id;
 if (process.platform === MAC_PLATFORM) {
     tmp_fs_path = '/private/' + tmp_fs_path;
 }
@@ -51,6 +53,7 @@ const DEFAULT_FS_CONFIG = {
 // since the account in NS NSFS should be valid to the nsfs_account_schema
 // had to remove additional properties: has_s3_access: 'true' and nsfs_only: 'true'
 const account_user1 = {
+    _id: '65a8edc9bc5d5bbf9db71b91',
     name: 'user1',
     email: 'user1@noobaa.io',
     allow_bucket_creation: true,
@@ -67,6 +70,7 @@ const account_user1 = {
 };
 
 const account_user2 = {
+    _id: '65a8edc9bc5d5bbf9db71b92',
     name: 'user2',
     email: 'user2@noobaa.io',
     allow_bucket_creation: true,
@@ -82,6 +86,7 @@ const account_user2 = {
 };
 
 const account_user3 = {
+    _id: '65a8edc9bc5d5bbf9db71b93',
     name: 'user3',
     email: 'user3@noobaa.io',
     allow_bucket_creation: true,
@@ -132,6 +137,11 @@ function make_dummy_object_sdk() {
         read_bucket_sdk_namespace_info(name) {
             dummy_ns.write_resource.path = path.join(new_buckets_path, name.toString());
             dummy_ns.read_resources[0].resource.name = name.toString();
+            if (name === test_bucket_temp_dir) {
+                dummy_ns.should_create_underlying_storage = false;
+            } else {
+                dummy_ns.should_create_underlying_storage = true;
+            }
             return dummy_ns;
         },
         _get_bucket_namespace(name) {
@@ -142,6 +152,12 @@ function make_dummy_object_sdk() {
         is_nsfs_bucket(ns) {
             const fs_root_path = ns?.write_resource?.resource?.fs_root_path;
             return Boolean(fs_root_path || fs_root_path === '');
+        },
+        read_bucket_sdk_config_info(name) {
+            return {
+                _id: bucket_temp_id,
+                name: name
+            };
         }
     };
 }
@@ -196,8 +212,8 @@ mocha.describe('bucketspace_fs', function() {
             const res = await bucketspace_fs.read_account_by_access_key({ access_key });
             assert.strictEqual(res.email.unwrap(), account_user2.email);
             assert.strictEqual(res.access_keys[0].access_key.unwrap(), account_user2.access_keys[0].access_key);
-            const distinguished_name = res.nsfs_account_config.distinguished_name;
-            assert.strictEqual(res.nsfs_account_config.distinguished_name, 'root');
+            const distinguished_name = res.nsfs_account_config.distinguished_name.unwrap();
+            assert.strictEqual(distinguished_name, 'root');
             const res2 = await native_fs_utils.get_user_by_distinguished_name({ distinguished_name });
             assert.strictEqual(res2.uid, 0);
         });
@@ -207,8 +223,8 @@ mocha.describe('bucketspace_fs', function() {
             const res = await bucketspace_fs.read_account_by_access_key({ access_key });
             assert.strictEqual(res.email.unwrap(), account_user3.email);
             assert.strictEqual(res.access_keys[0].access_key.unwrap(), account_user3.access_keys[0].access_key);
-            const distinguished_name = res.nsfs_account_config.distinguished_name;
-            assert.strictEqual(res.nsfs_account_config.distinguished_name, os.userInfo().username);
+            const distinguished_name = res.nsfs_account_config.distinguished_name.unwrap();
+            assert.strictEqual(distinguished_name, os.userInfo().username);
             const res2 = await native_fs_utils.get_user_by_distinguished_name({ distinguished_name });
             assert.strictEqual(res2.uid, process.getuid());
         });
@@ -237,9 +253,9 @@ mocha.describe('bucketspace_fs', function() {
         });
         mocha.it('validate bucket access with default context', async function() {
             try {
-            const param = { name: test_bucket};
-            const invalid_objects = await nb_native().fs.readdir(DEFAULT_FS_CONFIG, path.join(new_buckets_path, param.name));
-            assert.equal(invalid_objects.length, 0);
+                const param = { name: test_bucket};
+                const invalid_objects = await nb_native().fs.readdir(DEFAULT_FS_CONFIG, path.join(new_buckets_path, param.name));
+                assert.equal(invalid_objects.length, 0);
             } catch (err) {
                 assert.ok(err.code === 'EACCES');
                 assert.ok(err.message === 'Permission denied');
@@ -313,7 +329,7 @@ mocha.describe('bucketspace_fs', function() {
             }
         });
         mocha.it('delete_bucket for non empty buckets', async function() {
-            const param = { name: test_not_empty_bucketbucket};
+            const param = { name: test_not_empty_bucket};
             await create_bucket(param.name);
             const bucket_file_path = path.join(new_buckets_path, param.name, 'dummy.txt');
             await nb_native().fs.writeFile(ACCOUNT_FS_CONFIG, bucket_file_path,
@@ -327,6 +343,33 @@ mocha.describe('bucketspace_fs', function() {
                 assert.strictEqual(err.rpc_code, 'NOT_EMPTY');
                 assert.equal(err.message, 'underlying directory has files in it');
             }
+        });
+
+        mocha.it('delete_bucket for should_create_underlying_storage false', async function() {
+            const param = { name: test_bucket_temp_dir};
+            await create_bucket(param.name);
+            await fs.promises.stat(path.join(new_buckets_path, param.name));
+            const bucket_config_path = get_config_file_path(buckets, param.name);
+            const data = await fs.promises.readFile(bucket_config_path);
+            const bucket = await JSON.parse(data.toString());
+            bucket_temp_id = bucket._id;
+            const bucket_temp_dir_path = path.join(new_buckets_path, param.name, config.NSFS_TEMP_DIR_NAME + "_" + bucket._id);
+            await nb_native().fs.mkdir(ACCOUNT_FS_CONFIG, bucket_temp_dir_path);
+            await fs.promises.stat(bucket_temp_dir_path);
+            await bucketspace_fs.delete_bucket(param, dummy_object_sdk);
+            try {
+                await fs.promises.stat(bucket_temp_dir_path);
+            } catch (err) {
+                assert.strictEqual(err.code, 'ENOENT');
+                assert.match(err.message, /.noobaa-nsfs_/);
+            }
+            try {
+                await fs.promises.stat(bucket_config_path);
+            } catch (err) {
+                assert.strictEqual(err.code, 'ENOENT');
+                assert.equal(err.message, "ENOENT: no such file or directory, stat '/tmp/test_bucketspace_fs/config_root/buckets/buckettempdir.json'");
+            }
+            await fs.promises.stat(path.join(new_buckets_path, param.name));
         });
     });
     mocha.describe('set_bucket_versioning', function() {
@@ -373,14 +416,12 @@ mocha.describe('bucketspace_fs', function() {
     mocha.describe('bucket website operations', function() {
         mocha.it('put_bucket_website ', async function() {
             const website = {
-                website_configuration: [
-                    {
-                        redirect_all_requests_to: {
-                            host_name: 's3.noobaa.io',
-                            protocol: 'HTTPS',
-                        }
+                website_configuration: {
+                    redirect_all_requests_to: {
+                        host_name: 's3.noobaa.io',
+                        protocol: 'HTTPS',
                     }
-                ]
+                }
             };
             const param = {name: test_bucket, website: website};
             await bucketspace_fs.put_bucket_website(param);
@@ -411,6 +452,7 @@ mocha.describe('bucketspace_fs', function() {
             const param = {name: test_bucket, policy: policy};
             await bucketspace_fs.put_bucket_policy(param);
             const policy_res = await bucketspace_fs.get_bucket_policy(param);
+            principle_unwrap(policy);
             assert.deepEqual(policy_res.policy, policy);
             const info_res = await bucketspace_fs.read_bucket_sdk_info(param);
             principle_unwrap(info_res.s3_policy);
@@ -429,7 +471,7 @@ mocha.describe('bucketspace_fs', function() {
                     Statement: [{
                         Sid: 'id-22',
                         Effect: 'Allow',
-                        Principal: { AWS: 'user1' },
+                        Principal: { AWS: ['user1'] },
                         Action: ['s3:*'],
                         Resource: ['arn:aws:s3:::*']
                         }
@@ -438,12 +480,10 @@ mocha.describe('bucketspace_fs', function() {
             const param = {name: test_bucket, policy: policy};
             await bucketspace_fs.put_bucket_policy(param);
             const bucket_policy = await bucketspace_fs.get_bucket_policy(param);
+            principle_unwrap(policy);
             assert.deepEqual(bucket_policy.policy, policy);
             const info_res = await bucketspace_fs.read_bucket_sdk_info(param);
             principle_unwrap(info_res.s3_policy);
-            // on this case s3_policy principal will be converted to  Principal: { AWS: ['user1'] } on runtime
-            // @ts-ignore
-            policy.Statement[0].Principal.AWS = [policy.Statement[0].Principal.AWS];
             assert.deepEqual(info_res.s3_policy, policy);
         });
 
@@ -484,6 +524,7 @@ mocha.describe('bucketspace_fs', function() {
             const param = {name: test_bucket, policy: policy};
             await bucketspace_fs.put_bucket_policy(param);
             const bucket_policy = await bucketspace_fs.get_bucket_policy(param);
+            principle_unwrap(policy);
             assert.deepEqual(bucket_policy.policy, policy);
             const info_res = await bucketspace_fs.read_bucket_sdk_info(param);
             principle_unwrap(info_res.s3_policy);
@@ -505,6 +546,7 @@ mocha.describe('bucketspace_fs', function() {
             const param = {name: test_bucket, policy: policy};
             await bucketspace_fs.put_bucket_policy(param);
             const bucket_policy = await bucketspace_fs.get_bucket_policy(param);
+            principle_unwrap(policy);
             assert.deepEqual(bucket_policy.policy, policy);
             const info_res = await bucketspace_fs.read_bucket_sdk_info(param);
             principle_unwrap(info_res.s3_policy);

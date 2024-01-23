@@ -12,6 +12,7 @@ const fs_utils = require('../../../util/fs_utils');
 const os_util = require('../../../util/os_utils');
 const config_module = require('../../../../config');
 const native_fs_utils = require('../../../util/native_fs_utils');
+const ManageCLIError = require('../../../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
 
 const MAC_PLATFORM = 'darwin';
 let tmp_fs_path = '/tmp/test_bucketspace_fs';
@@ -39,6 +40,65 @@ const nc_nsfs_manage_actions = {
 // eslint-disable-next-line max-lines-per-function
 describe('manage nsfs cli bucket flow', () => {
     const buckets_schema_dir = 'buckets';
+
+    describe('cli create bucket', () => {
+        const config_root = path.join(tmp_fs_path, 'config_root_manage_nsfs');
+        const root_path = path.join(tmp_fs_path, 'root_path_manage_nsfs/');
+        bucket_storage_path = path.join(tmp_fs_path, 'root_path_manage_nsfs', 'bucket1');
+
+        const account_defaults = {
+            name: 'account_test',
+            email: 'account1@noobaa.io',
+            new_buckets_path: `${root_path}new_buckets_path_user1/`,
+            uid: 1001,
+            gid: 1001,
+            access_key: 'GIGiFAnjaaE7OKD5N7hX',
+            secret_key: 'G2AYaMpU3zRDcRFWmvzgQr9MoHIAsD+3oEXAMPLE',
+        };
+
+        const bucket_defaults = {
+            name: 'bucket1',
+            email: 'account1@noobaa.io',
+            path: bucket_storage_path,
+        };
+
+        beforeEach(async () => {
+            await P.all(_.map([buckets_schema_dir], async dir =>
+                fs_utils.create_fresh_path(`${config_root}/${dir}`)));
+            await fs_utils.create_fresh_path(root_path);
+            await fs_utils.create_fresh_path(bucket_storage_path);
+            const action = nc_nsfs_manage_actions.ADD;
+            // Account add
+            const { new_buckets_path: account_path } = account_defaults;
+            const account_options = { config_root, ...account_defaults };
+            await fs_utils.create_fresh_path(account_path);
+            await fs_utils.file_must_exist(account_path);
+            await exec_manage_cli('account', action, account_options);
+        });
+
+        afterEach(async () => {
+            await fs_utils.folder_delete(`${config_root}`);
+            await fs_utils.folder_delete(`${root_path}`);
+        });
+
+        it('cli create bucket invalid option type (path as number)', async () => {
+            const action = nc_nsfs_manage_actions.ADD;
+            const path_invalid = 4e34; // invalid should be string represents a path
+            const bucket_options = { config_root, ...bucket_defaults, path: path_invalid };
+            const res = await exec_manage_cli('bucket', action, bucket_options);
+            expect(JSON.parse(res.stdout).error.message).toBe(ManageCLIError.InvalidArgumentType.message);
+        });
+
+        it('cli create bucket invalid option type (path as string)', async () => {
+            const action = nc_nsfs_manage_actions.ADD;
+            const path_invalid = 'aaa'; // invalid should be string represents a path
+            const bucket_options = { config_root, ...bucket_defaults, path: path_invalid };
+            const res = await exec_manage_cli('bucket', action, bucket_options);
+            expect(JSON.parse(res.stdout).error.message).toBe(ManageCLIError.InvalidStoragePath.message);
+        });
+
+    });
+
 
     describe('cli delete bucket', () => {
         const config_root = path.join(tmp_fs_path, 'config_root_manage_nsfs2');
@@ -134,3 +194,4 @@ async function exec_manage_cli(type, action, options) {
     }
     return res;
 }
+

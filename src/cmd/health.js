@@ -100,7 +100,7 @@ const fork_response_code = {
 const health_errors_tyes = {
   PERSISTENT: 'PERSISTENT',
   TEMPORARY: 'TEMPORARY',
-}
+};
 
 //suppress aws sdk related commands.
 process.env.AWS_SDK_JS_SUPPRESS_MAINTENANCE_MODE_MESSAGE = '1';
@@ -132,8 +132,8 @@ class NSFSHealth {
       service_health = "NOTOK";
     }
     const error_code = await this.get_error_code(service_status, pid, rsyslog.service_status, response_code);
-    if (this.all_bucket_details)  bucket_details = await this.get_bucket_status(this.config_root);
-    if (this.all_account_details)  account_details = await this.get_account_status(this.config_root);
+    if (this.all_bucket_details) bucket_details = await this.get_bucket_status(this.config_root);
+    if (this.all_account_details) account_details = await this.get_account_status(this.config_root);
     const health = {
       service_name: NSFS_SERVICE,
       status: service_health,
@@ -157,7 +157,7 @@ class NSFSHealth {
             error_type: health_errors_tyes.TEMPORARY,
           },
           accounts_status: {
-            invalid_accounts: account_details === undefined ?  undefined: account_details.invalid_storages,
+            invalid_accounts: account_details === undefined ? undefined: account_details.invalid_storages,
             valid_accounts: account_details === undefined ? undefined : account_details.valid_storages,
             error_type: health_errors_tyes.PERSISTENT,
           },
@@ -168,8 +168,8 @@ class NSFSHealth {
           }
       }
     };
-    if (!this.all_account_details)  delete health.checks.accounts_status;
-    if (!this.all_bucket_details)  delete health.checks.buckets_status;
+    if (!this.all_account_details) delete health.checks.accounts_status;
+    if (!this.all_bucket_details) delete health.checks.buckets_status;
     return health;
   }
 

@@ -88,13 +88,14 @@ describe('schema validation NC NSFS config', () => {
     });
 });
 
-function assert_validation(config_to_validate, reason, message) {
+function assert_validation(config_to_validate, reason, basic_message) {
     try {
         nsfs_schema_utils.validate_nsfs_config_schema(config_to_validate);
         fail(reason);
     } catch (err) {
         expect(err).toBeInstanceOf(RpcError);
-        expect(err).toHaveProperty('message', message);
+        expect(err).toHaveProperty('message');
+        expect((err.message).includes(basic_message)).toBeTruthy();
     }
 }
 

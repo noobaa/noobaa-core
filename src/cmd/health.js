@@ -157,12 +157,12 @@ class NSFSHealth {
             error_type: health_errors_tyes.TEMPORARY,
           },
           accounts_status: {
-            invalid_accounts: account_details === undefined ? undefined: account_details.invalid_storages,
+            invalid_accounts: account_details === undefined ? undefined : account_details.invalid_storages,
             valid_accounts: account_details === undefined ? undefined : account_details.valid_storages,
             error_type: health_errors_tyes.PERSISTENT,
           },
           buckets_status: {
-            invalid_buckets: bucket_details === undefined ? undefined: bucket_details.invalid_storages,
+            invalid_buckets: bucket_details === undefined ? undefined : bucket_details.invalid_storages,
             valid_buckets: bucket_details === undefined ? undefined : bucket_details.valid_storages,
             error_type: health_errors_tyes.PERSISTENT,
           }

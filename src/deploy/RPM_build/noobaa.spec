@@ -1,11 +1,9 @@
 %define revision null
 %define noobaaver null
-%define nodever null
 %define releasedate null
 %define changelogdata null
 
 %define noobaatar %{name}-%{version}-%{revision}.tar.gz
-%define nodetar node-%{nodever}.tar.xz
 %define buildroot %{_tmppath}/%{name}-%{version}-%{release}
 
 Name:		noobaa-core
@@ -16,8 +14,9 @@ Summary:	NooBaa RPM
 License:	Apache-2.0
 URL:        https://www.noobaa.io/
 Source0:	%{noobaatar}
-Source1:    %{nodetar}
 
+Requires:   nodejs
+Requires:   npm
 Recommends: jemalloc
 
 %global __os_install_post %{nil}
@@ -29,9 +28,7 @@ NooBaa is a data service for cloud environments, providing S3 object-store inter
 
 %prep
 mkdir noobaa-core-%{version}-%{revision}
-mkdir node-%{nodever}
 tar -xzf %{SOURCE0} -C noobaa-core-%{version}-%{revision}/
-tar -xJf %{SOURCE1} -C node-%{nodever}/
 
 %clean
 [ ${RPM_BUILD_ROOT} != "/" ] && rm -rf ${RPM_BUILD_ROOT}
@@ -41,12 +38,11 @@ rm -rf $RPM_BUILD_ROOT
 mkdir -p $RPM_BUILD_ROOT/usr/local/
 
 cp -R %{_builddir}/%{name}-%{version}-%{revision}/noobaa $RPM_BUILD_ROOT/usr/local/noobaa-core
-cp -R %{_builddir}/node-%{nodever}/* $RPM_BUILD_ROOT/usr/local/noobaa-core/node
 
 mkdir -p $RPM_BUILD_ROOT/usr/local/noobaa-core/bin
-ln -s /usr/local/noobaa-core/node/bin/node $RPM_BUILD_ROOT/usr/local/noobaa-core/bin/node
-ln -s /usr/local/noobaa-core/node/bin/npm $RPM_BUILD_ROOT/usr/local/noobaa-core/bin/npm
-ln -s /usr/local/noobaa-core/node/bin/npx $RPM_BUILD_ROOT/usr/local/noobaa-core/bin/npx
+ln -s /usr/bin/node $RPM_BUILD_ROOT/usr/local/noobaa-core/bin/node
+ln -s /usr/bin/npm $RPM_BUILD_ROOT/usr/local/noobaa-core/bin/npm
+ln -s /usr/bin/npx $RPM_BUILD_ROOT/usr/local/noobaa-core/bin/npx
 
 mkdir -p $RPM_BUILD_ROOT/etc/systemd/system/
 cp -R %{_builddir}/%{name}-%{version}-%{revision}/noobaa/src/deploy/noobaa_nsfs.service $RPM_BUILD_ROOT/etc/systemd/system/noobaa_nsfs.service

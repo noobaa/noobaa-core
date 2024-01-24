@@ -18,6 +18,7 @@ const mongo_utils = require('../util/mongo_utils');
 
 const KeysSemaphore = require('../util/keys_semaphore');
 const native_fs_utils = require('../util/native_fs_utils');
+const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
 
 const dbg = require('../util/debug_module')(__filename);
 
@@ -25,6 +26,7 @@ const BUCKET_PATH = 'buckets';
 const ACCOUNT_PATH = 'accounts';
 const ACCESS_KEYS_PATH = 'access_keys';
 const bucket_semaphore = new KeysSemaphore(1);
+
 
 //TODO:  dup from namespace_fs - need to handle and not dup code
 
@@ -107,23 +109,14 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             if (account.nsfs_account_config.distinguished_name) {
                 account.nsfs_account_config.distinguished_name = new SensitiveString(account.nsfs_account_config.distinguished_name);
             }
-            //account newly created
-            dbg.event({
-                code: "noobaa_account_created",
-                entity_type: "NODE",
-                event_type: "INFO",
-                message: String("New noobaa account created."),
-                scope: "NODE",
-                severity: "INFO",
-                state: "HEALTHY",
-                arguments: {account_name: account.name.unwrap()},
-            });
             return account;
         } catch (err) {
             dbg.error('BucketSpaceFS.read_account_by_access_key: failed with error', err);
             if (err.code === 'ENOENT') {
                 throw new RpcError('NO_SUCH_ACCOUNT', `Account with access_key not found.`, err);
             }
+            //account access failed
+            new NoobaaEvent(NoobaaEvent.ACCOUNT_NOT_FOUND).create_event(access_key, {access_key: access_key}, err);
             throw new RpcError('NO_SUCH_ACCOUNT', err.message);
         }
     }
@@ -174,18 +167,10 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             }
             return bucket;
         } catch (err) {
-            dbg.event({
-                code: "noobaa_bucket_not_found",
-                entity_type: "NODE",
-                event_type: "ERROR",
-                message: String("Noobaa bucket " + name + " get failed."),
-                description: String("Noobaa bucket " + name + " get failed.. error : " + err),
-                scope: "NODE",
-                severity: "ERROR",
-                state: "HEALTHY",
-                arguments: {bucket_name: name},
-            });
-            throw this._translate_bucket_error_codes(err);
+            const rpc_error = this._translate_bucket_error_codes(err);
+            if (err.rpc_code === 'INVALID_SCHEMA') err.rpc_code = 'INVALID_BUCKET_STATE';
+            new NoobaaEvent(NoobaaEvent[rpc_error.rpc_code]).create_event(name, {bucket_name: name}, err);
+            throw rpc_error;
         }
     }
 
@@ -309,36 +294,17 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                 nsfs_schema_utils.validate_bucket_schema(bucket_to_validate);
                 await native_fs_utils.create_config_file(this.fs_context, this.bucket_schema_dir, bucket_config_path, bucket_config);
             } catch (err) {
-                dbg.event({
-                    code: "noobaa_bucket_creation_failed",
-                    entity_type: "NODE",
-                    event_type: "ERROR",
-                    message: String("BucketSpaceFS: Could not create underlying config file " + name),
-                    description: String("BucketSpaceFS: Could not create underlying config file " + name + " directory, Check for permission and dir path. error : " + err),
-                    scope: "NODE",
-                    severity: "ERROR",
-                    state: "DEGRADED",
-                    arguments: {bucket_name: name}
-                });
+                new NoobaaEvent(NoobaaEvent.BUCKET_CREATION_FAILED).create_event(name, {bucket_name: name}, err);
                 throw this._translate_bucket_error_codes(err);
             }
 
             // create bucket's underlying storage directory
             try {
                 await nb_native().fs.mkdir(fs_context, bucket_storage_path, native_fs_utils.get_umasked_mode(config.BASE_MODE_DIR));
+                new NoobaaEvent(NoobaaEvent.BUCKET_CREATED).create_event(name, {bucket_name: name});
             } catch (err) {
                 dbg.error('BucketSpaceFS: create_bucket could not create underlying directory - nsfs, deleting bucket', err);
-                dbg.event({
-                    code: "noobaa_bucket_creation_failed",
-                    entity_type: "NODE",
-                    event_type: "ERROR",
-                    message: String("BucketSpaceFS: Could not create underlying bucket " + name + " directory."),
-                    description: String("BucketSpaceFS: Could not create underlying bucket " + name + " directory, Check for permission and dir path. error : " + err),
-                    scope: "NODE",
-                    severity: "ERROR",
-                    state: "DEGRADED",
-                    arguments: {bucket: name, path: bucket_storage_path}
-                });
+                new NoobaaEvent(NoobaaEvent.BUCKET_DIR_CREATION_FAILED).create_event(name, {bucket: name, path: bucket_storage_path}, err);
                 await nb_native().fs.unlink(this.fs_context, bucket_config_path);
                 throw this._translate_bucket_error_codes(err);
             }
@@ -396,18 +362,10 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                 dbg.log1(`BucketSpaceFS: delete_fs_bucket ${bucket_path}`);
                 // delete bucket config json file
                 await native_fs_utils.delete_config_file(this.fs_context, this.bucket_schema_dir, bucket_path);
+                new NoobaaEvent(NoobaaEvent.BUCKET_DELETE).create_event(name, {bucket_name: name});
             } catch (err) {
-                dbg.event({
-                    code: "noobaa_bucket_delete_failed",
-                    entity_type: "NODE",
-                    event_type: "ERROR",
-                    message: String("BucketSpaceFS: Could not delete underlying bucket " + params.name),
-                    description: String("BucketSpaceFS: Could not create underlying bucket " + params.name + ". error : " + err),
-                    scope: "NODE",
-                    severity: "ERROR",
-                    state: "DEGRADED",
-                    arguments: {bucket_name: params.name, bucket_path: bucket_path}
-                });
+                new NoobaaEvent(NoobaaEvent.BUCKET_DELETE_FAILED).create_event(params.name,
+                    {bucket_name: params.name, bucket_path: bucket_path}, err);
                 dbg.error('BucketSpaceFS: delete_bucket error', err);
                 throw this._translate_bucket_error_codes(err);
             }

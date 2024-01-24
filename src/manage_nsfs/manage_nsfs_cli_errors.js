@@ -1,6 +1,8 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
+
 /**
  * @typedef {{
  *      code?: string, 
@@ -345,4 +347,15 @@ ManageCLIError.RPC_ERROR_TO_MANAGE = Object.freeze({
     INVALID_SCHEMA: ManageCLIError.InvalidSchema,
 });
 
+const NSFS_CLI_ERROR_EVENT_MAP = {
+    WhiteListIPUpdateFailed: NoobaaEvent.WHITELIST_UPDATED_FAILED,
+    AccessDenied: NoobaaEvent.UNAUTHORIZED,
+    AccountAccessKeyAlreadyExists: NoobaaEvent.ACCOUNT_ALREADY_EXISTS,
+    AccountNameAlreadyExists: NoobaaEvent.ACCOUNT_ALREADY_EXISTS,
+    AccountDeleteForbiddenHasBuckets: NoobaaEvent.ACCOUNT_DELETE_FORBIDDEN,
+    BucketAlreadyExists: NoobaaEvent.BUCKET_ALREADY_EXISTS,
+    BucketSetForbiddenNoBucketOwner: NoobaaEvent.UNAUTHORIZED,
+};
+
 exports.ManageCLIError = ManageCLIError;
+exports.NSFS_CLI_ERROR_EVENT_MAP = NSFS_CLI_ERROR_EVENT_MAP;

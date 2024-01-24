@@ -42,6 +42,7 @@ const path = require('path');
 const json_utils = require('../util/json_utils');
 //const { RPC_BUFFERS } = require('../rpc');
 const pkg = require('../../package.json');
+const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
 
 const HELP = `
 Help:
@@ -340,35 +341,17 @@ async function main(argv = minimist(process.argv.slice(2))) {
             console.log('nsfs: listening on', util.inspect(`http://localhost:${http_port}`));
         }
         console.log('nsfs: listening on', util.inspect(`https://localhost:${https_port}`));
-
     } catch (err) {
         console.error('nsfs: exit on error', err.stack || err);
         //noobaa crashed
-        dbg.event({
-            code: "noobaa_nsfs_crashed",
-            entity_type: "NODE",
-            event_type: "STATE_CHANGE",
-            message: "Noobaa NSFS crashed with error : " + err,
-            scope: "NODE",
-            severity: "ERROR",
-            state: "STOPPED"
-        });
+        new NoobaaEvent(NoobaaEvent.NSFS_CRASHED).create_event(undefined, undefined, err);
         process.exit(2);
     }
 }
 
 function verify_gpfslib() {
     if (!nb_native().fs.gpfs) {
-        dbg.event({
-            code: "noobaa_gpfslib_missing",
-            entity_type: "NODE",
-            event_type: "STATE_CHANGE",
-            message: "Noobaa GPFS library file is missing",
-            scope: "NODE",
-            severity: "ERROR",
-            state: "DEGRADED",
-            arguments: { gpfs_dl_path: process.env.GPFS_DL_PATH },
-        });
+        new NoobaaEvent(NoobaaEvent.GPFSLIB_MISSING).create_event(undefined, { gpfs_dl_path: process.env.GPFS_DL_PATH }, undefined);
     }
 }
 

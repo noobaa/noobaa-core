@@ -41,6 +41,7 @@ const endpoint_stats_collector = require('../sdk/endpoint_stats_collector');
 const { NamespaceMonitor } = require('../server/bg_services/namespace_monitor');
 const { SemaphoreMonitor } = require('../server/bg_services/semaphore_monitor');
 const prom_reporting = require('../server/analytic_services/prometheus_reporting');
+const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
 const cluster = /** @type {import('node:cluster').Cluster} */ (
     /** @type {unknown} */ (require('node:cluster'))
 );
@@ -207,28 +208,12 @@ async function main(options = {}) {
             }));
         }
         //noobaa started
-        dbg.event({
-            code: "noobaa_started",
-            entity_type: "NODE",
-            event_type: "STATE_CHANGE",
-            message: "Noobaa started",
-            scope: "NODE",
-            severity: "INFO",
-            state: "HEALTHY"
-        });
+        new NoobaaEvent(NoobaaEvent.NOOBAA_STARTED).create_event(undefined, undefined, undefined);
         // Start a monitor to send periodic endpoint reports about endpoint usage.
         start_monitor(internal_rpc_client, endpoint_group_id);
     } catch (err) {
         //noobaa crashed event
-        dbg.event({
-            code: "noobaa_endpoint_crashed",
-            entity_type: "NODE",
-            event_type: "STATE_CHANGE",
-            message: String("Noobaa crashed with error :" + err),
-            scope: "NODE",
-            severity: "ERROR",
-            state: "STOPPED"
-        });
+        new NoobaaEvent(NoobaaEvent.ENDPOINT_CRASHED).create_event(undefined, undefined, err);
         handle_server_error(err);
     }
 }

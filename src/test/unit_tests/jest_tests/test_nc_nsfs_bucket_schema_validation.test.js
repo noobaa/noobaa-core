@@ -382,13 +382,14 @@ function get_bucket_data() {
     return bucket_data;
 }
 
-function assert_validation(bucket_to_validate, reason, message) {
+function assert_validation(bucket_to_validate, reason, basic_message) {
     try {
         nsfs_schema_utils.validate_bucket_schema(bucket_to_validate);
         fail(reason);
     } catch (err) {
         expect(err).toBeInstanceOf(RpcError);
-        expect(err).toHaveProperty('message', message);
+        expect(err).toHaveProperty('message');
+        expect((err.message).includes(basic_message)).toBeTruthy();
     }
 }
 

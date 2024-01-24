@@ -32,19 +32,53 @@ schema_utils.strictify(account_schema, {
 // NOTE - DO NOT strictify nsfs_config_schema
 // we might want to use it in the future for adding additional properties
 
+/**
+ * validate_account_schema validates an account object against the NC NSFS account schema
+ * @param {object} account
+ */
 function validate_account_schema(account) {
     const valid = ajv.validate(account_schema, account);
-    if (!valid) throw new RpcError('INVALID_SCHEMA', ajv.errors[0]?.message);
+    if (!valid) {
+        const err_msg = ajv.errors[0].message ? create_schema_err_msg(ajv.errors[0]) : undefined;
+        throw new RpcError('INVALID_SCHEMA', err_msg);
+    }
 }
 
+/**
+ * validate_bucket_schema validates a bucket object against the NC NSFS bucket schema
+ * @param {object} bucket
+ */
 function validate_bucket_schema(bucket) {
     const valid = ajv.validate(bucket_schema, bucket);
-    if (!valid) throw new RpcError('INVALID_SCHEMA', ajv.errors[0]?.message);
+    if (!valid) {
+        const err_msg = ajv.errors[0].message ? create_schema_err_msg(ajv.errors[0]) : undefined;
+        throw new RpcError('INVALID_SCHEMA', err_msg);
+    }
 }
 
+/**
+ * validate_nsfs_config_schema validates a config object against the NC NSFS config schema
+ * @param {object} config
+ */
 function validate_nsfs_config_schema(config) {
     const valid = ajv.validate(nsfs_config_schema, config);
-    if (!valid) throw new RpcError('INVALID_SCHEMA', ajv.errors[0]?.message);
+    if (!valid) {
+        const err_msg = ajv.errors[0].message ? create_schema_err_msg(ajv.errors[0]) : undefined;
+        throw new RpcError('INVALID_SCHEMA', err_msg);
+    }
+}
+
+/**
+ * create_schema_err_msg would use the original error message we got from avj
+ * and adds additional info in case we have it
+ * @param {object} err
+ */
+function create_schema_err_msg(err) {
+    if (!err || !err.message) return;
+    const err_msg = [err.message];
+    if (err.params) err_msg.push(JSON.stringify(err.params));
+    if (err.instancePath) err_msg.push(JSON.stringify(err.instancePath));
+    return err_msg.join(' | ');
 }
 
 //EXPORTS

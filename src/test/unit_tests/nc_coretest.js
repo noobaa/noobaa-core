@@ -5,10 +5,11 @@ const fs = require('fs');
 const p = require('path');
 const _ = require('lodash');
 const mocha = require('mocha');
-const { exec_manage_cli, nc_nsfs_manage_entity_types, nc_nsfs_manage_actions } = require('../system_tests/test_utils');
 const child_process = require('child_process');
 const argv = require('minimist')(process.argv);
 const SensitiveString = require('../../util/sensitive_string');
+const { exec_manage_cli, TMP_PATH } = require('../system_tests/test_utils');
+const { TYPES, ACTIONS } = require('../../manage_nsfs/manage_nsfs_constants');
 
 // keep me first - this is setting envs that should be set before other modules are required.
 const NC_CORETEST = 'nc_coretest';
@@ -44,9 +45,7 @@ const http_port = 6001;
 const https_port = 6443;
 const http_address = `http://localhost:${http_port}`;
 const https_address = `https://localhost:${https_port}`;
-const MAC_PLATFORM = 'darwin';
 
-const TMP_PATH = get_tmp_path_by_os('/tmp/');
 const FIRST_BUCKET = 'first.bucket';
 const NC_CORETEST_CONFIG_DIR_PATH = p.join(TMP_PATH, 'nc_coretest_config_root_path/');
 const NC_CORETEST_REDIRECT_FILE_PATH = p.join(config.NSFS_NC_DEFAULT_CONF_DIR, '/config_dir_redirect');
@@ -166,7 +165,7 @@ async function admin_account_creation() {
         uid: 200,
         gid: 200
     };
-    await exec_manage_cli(nc_nsfs_manage_entity_types.ACCOUNT, nc_nsfs_manage_actions.ADD, cli_account_options);
+    await exec_manage_cli(TYPES.ACCOUNT, ACTIONS.ADD, cli_account_options);
 }
 
 /**
@@ -180,7 +179,7 @@ async function first_bucket_creation() {
         owner: NC_CORETEST,
         path: FIRST_BUCKET_PATH,
     };
-    await exec_manage_cli(nc_nsfs_manage_entity_types.BUCKET, nc_nsfs_manage_actions.ADD, cli_bucket_options);
+    await exec_manage_cli(TYPES.BUCKET, ACTIONS.ADD, cli_bucket_options);
 }
 
 /**
@@ -227,12 +226,6 @@ const get_name_by_email = email => {
     return name;
 };
 
-/**
- * get_tmp_path_by_os returns the tmp path by the process platform
- */
-function get_tmp_path_by_os(_path) {
-    return process.platform === MAC_PLATFORM ? '/private/' + _path : _path;
-}
 
 ////////////////////////////////////
 //////// ACCOUNT MANAGE CMDS ///////
@@ -255,7 +248,7 @@ async function create_account_manage(options) {
         access_key: options.access_key,
         secret_key: options.secret_key
     };
-    const res = await exec_manage_cli(nc_nsfs_manage_entity_types.ACCOUNT, nc_nsfs_manage_actions.ADD, cli_options);
+    const res = await exec_manage_cli(TYPES.ACCOUNT, ACTIONS.ADD, cli_options);
     const json_account = JSON.parse(res);
     const account = json_account.response.reply;
     account.access_keys[0] = {
@@ -272,7 +265,7 @@ async function create_account_manage(options) {
  */
 async function read_account_manage(options) {
     const cli_options = { name: get_name_by_email(options.email), show_secrets: true };
-    const res = await exec_manage_cli(nc_nsfs_manage_entity_types.ACCOUNT, nc_nsfs_manage_actions.STATUS, cli_options);
+    const res = await exec_manage_cli(TYPES.ACCOUNT, ACTIONS.STATUS, cli_options);
     const json_account = JSON.parse(res);
     const account = json_account.response.reply;
     account.access_keys[0] = {
@@ -289,7 +282,7 @@ async function read_account_manage(options) {
  */
 async function delete_account_manage(options) {
     const cli_options = { name: get_name_by_email(options.email) };
-    await exec_manage_cli(nc_nsfs_manage_entity_types.ACCOUNT, nc_nsfs_manage_actions.DELETE, cli_options);
+    await exec_manage_cli(TYPES.ACCOUNT, ACTIONS.DELETE, cli_options);
 }
 
 /**
@@ -299,11 +292,11 @@ async function delete_account_manage(options) {
  * @returns {Promise<void>}
  */
 async function delete_account_by_property_manage({ nsfs_account_config }) {
-    const list = await exec_manage_cli(nc_nsfs_manage_entity_types.ACCOUNT, nc_nsfs_manage_actions.LIST, nsfs_account_config);
+    const list = await exec_manage_cli(TYPES.ACCOUNT, ACTIONS.LIST, nsfs_account_config);
     const accounts = JSON.parse(list).response.reply;
     for (const account of accounts) {
         const cli_options = { name: account.name };
-        await exec_manage_cli(nc_nsfs_manage_entity_types.ACCOUNT, nc_nsfs_manage_actions.DELETE, cli_options);
+        await exec_manage_cli(TYPES.ACCOUNT, ACTIONS.DELETE, cli_options);
     }
 }
 
@@ -313,7 +306,7 @@ async function delete_account_by_property_manage({ nsfs_account_config }) {
  * @return {Promise<object>}
  */
 async function list_accounts_manage(options) {
-    const list = await exec_manage_cli(nc_nsfs_manage_entity_types.ACCOUNT, nc_nsfs_manage_actions.LIST, options);
+    const list = await exec_manage_cli(TYPES.ACCOUNT, ACTIONS.LIST, options);
     return { accounts: JSON.parse(list).response.reply };
 }
 
@@ -332,7 +325,7 @@ async function update_account_s3_access_manage(options) {
         uid: options.nsfs_account_config.uid,
         gid: options.nsfs_account_config.gid,
     };
-    await exec_manage_cli(nc_nsfs_manage_entity_types.ACCOUNT, nc_nsfs_manage_actions.UPDATE, cli_options);
+    await exec_manage_cli(TYPES.ACCOUNT, ACTIONS.UPDATE, cli_options);
 }
 
 ////////////////////////////////////
@@ -376,7 +369,7 @@ async function create_bucket_manage(options) {
     const { resource, path } = options.namespace.write_resource;
     const bucket_storage_path = p.join(nsrs_to_root_paths[resource], path);
     const cli_options = { name: options.name, owner: options.owner || NC_CORETEST, path: bucket_storage_path};
-    await exec_manage_cli(nc_nsfs_manage_entity_types.BUCKET, nc_nsfs_manage_actions.ADD, cli_options);
+    await exec_manage_cli(TYPES.BUCKET, ACTIONS.ADD, cli_options);
 }
 
 /**
@@ -389,7 +382,7 @@ async function update_bucket_manage(options) {
     const { resource, path } = options.namespace.write_resource;
     const bucket_storage_path = p.join(nsrs_to_root_paths[resource], path);
     const cli_options = { name: options.name, path: bucket_storage_path };
-    await exec_manage_cli(nc_nsfs_manage_entity_types.BUCKET, nc_nsfs_manage_actions.UPDATE, cli_options);
+    await exec_manage_cli(TYPES.BUCKET, ACTIONS.UPDATE, cli_options);
 }
 
 /**
@@ -399,7 +392,7 @@ async function update_bucket_manage(options) {
  */
 async function put_bucket_policy_manage(options) {
     const cli_options = { name: options.name, bucket_policy: options.policy };
-    await exec_manage_cli(nc_nsfs_manage_entity_types.BUCKET, nc_nsfs_manage_actions.UPDATE, cli_options);
+    await exec_manage_cli(TYPES.BUCKET, ACTIONS.UPDATE, cli_options);
 }
 
 /**
@@ -409,7 +402,7 @@ async function put_bucket_policy_manage(options) {
  */
 async function delete_bucket_manage(options) {
     const cli_options = { name: options.name };
-    await exec_manage_cli(nc_nsfs_manage_entity_types.BUCKET, nc_nsfs_manage_actions.DELETE, cli_options);
+    await exec_manage_cli(TYPES.BUCKET, ACTIONS.DELETE, cli_options);
 }
 
 // rpc_cli_funcs_to_manage_nsfs_cli_cmds contains override functions for nc coretest

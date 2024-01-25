@@ -8,7 +8,7 @@ const path = require('path');
 const http = require('http');
 const mocha = require('mocha');
 const { S3 } = require('@aws-sdk/client-s3');
-const { NodeHttpHandler } = require("@smithy/node-http-handler");
+const { NodeHttpHandler } = require('@smithy/node-http-handler');
 const config = require('../../../config');
 const assert = require('assert');
 const coretest = require('./coretest');
@@ -16,22 +16,18 @@ const { rpc_client, EMAIL } = coretest;
 const fs_utils = require('../../util/fs_utils');
 const nb_native = require('../../util/nb_native');
 const size_utils = require('../../util/size_utils');
-const test_utils = require('../system_tests/test_utils');
+const { TMP_PATH, invalid_nsfs_root_permissions } = require('../system_tests/test_utils');
+const { get_process_fs_context } = require('../../util/native_fs_utils');
+
 coretest.setup({});
 
-const MAC_PLATFORM = 'darwin';
 const XATTR_INTERNAL_NOOBAA_PREFIX = 'user.noobaa.';
 const XATTR_VERSION_ID = XATTR_INTERNAL_NOOBAA_PREFIX + 'version_id';
 const XATTR_PREV_VERSION_ID = XATTR_INTERNAL_NOOBAA_PREFIX + 'prev_version_id';
 const XATTR_DELETE_MARKER = XATTR_INTERNAL_NOOBAA_PREFIX + 'delete_marker';
 const NULL_VERSION_ID = 'null';
 
-const DEFAULT_FS_CONFIG = {
-    uid: process.getuid(),
-    gid: process.getgid(),
-    backend: '',
-    warn_threshold_ms: 100,
-};
+const DEFAULT_FS_CONFIG = get_process_fs_context();
 
 mocha.describe('bucketspace namespace_fs - versioning', function() {
     const nsr = 'versioned-nsr';
@@ -39,10 +35,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
     const disabled_bucket_name = 'disabled-bucket'; // be aware that this bucket would become versioned in the copy object tests
     const suspended_bucket_name = 'suspended-bucket';
 
-    let tmp_fs_root = '/tmp/test_bucket_namespace_fs_versioning';
-    if (process.platform === MAC_PLATFORM) {
-        tmp_fs_root = '/private/' + tmp_fs_root;
-    }
+    const tmp_fs_root = path.join(TMP_PATH, 'test_bucket_namespace_fs_versioning');
     const bucket_path = '/bucket';
     const full_path = tmp_fs_root + bucket_path;
     const disabled_bucket_path = '/disabled_bucket';
@@ -74,7 +67,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
     const suspended_dir1_versions_path = path.join(suspended_full_path, dir1, '.versions/');
 
     mocha.before(async function() {
-        if (test_utils.invalid_nsfs_root_permissions()) this.skip(); // eslint-disable-line no-invalid-this
+        if (invalid_nsfs_root_permissions()) this.skip(); // eslint-disable-line no-invalid-this
         // create paths 
         await fs_utils.create_fresh_path(tmp_fs_root, 0o777);
         await fs_utils.create_fresh_path(full_path, 0o770);
@@ -2188,10 +2181,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
     mocha.describe('List-objects', function() {
         const nsr = 'noobaa-nsr';
         const bucket_name = 'noobaa-bucket';
-        let tmp_fs_root = '/tmp/test_namespace_fs_list_objects';
-        if (process.platform === MAC_PLATFORM) {
-            tmp_fs_root = '/private/' + tmp_fs_root;
-        }
+        const tmp_fs_root = path.join(TMP_PATH, 'test_namespace_fs_list_objects');
         const bucket_path = '/bucket';
         const full_path = tmp_fs_root + bucket_path;
         const version_dir = '/.versions';
@@ -2209,7 +2199,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
         const version_body = 'A1A1A1A';
 
         mocha.before(async function() {
-            if (test_utils.invalid_nsfs_root_permissions()) this.skip(); // eslint-disable-line no-invalid-this
+            if (invalid_nsfs_root_permissions()) this.skip(); // eslint-disable-line no-invalid-this
             // create paths
             await fs_utils.create_fresh_path(tmp_fs_root, 0o777);
             await fs_utils.create_fresh_path(full_path, 0o770);
@@ -2293,10 +2283,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
         const nsr = 'get-head-versioned-nsr';
         const bucket_name = 'get-head-versioned-bucket';
         const disabled_bucket_name = 'get-head-disabled-bucket';
-        let tmp_fs_root = '/tmp/test_namespace_fs_get_objects';
-        if (process.platform === MAC_PLATFORM) {
-            tmp_fs_root = '/private/' + tmp_fs_root;
-        }
+        const tmp_fs_root = path.join(TMP_PATH, 'test_namespace_fs_get_objects');
 
         const bucket_path = '/get-head-bucket';
         const vesion_dir = '/.versions';
@@ -2321,7 +2308,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
         mocha.before(async function() {
             const self = this; // eslint-disable-line no-invalid-this
             self.timeout(300000);
-            if (test_utils.invalid_nsfs_root_permissions()) this.skip(); // eslint-disable-line no-invalid-this
+            if (invalid_nsfs_root_permissions()) this.skip(); // eslint-disable-line no-invalid-this
             // create paths
             await fs_utils.create_fresh_path(tmp_fs_root, 0o777);
             await fs_utils.create_fresh_path(full_path, 0o770);
@@ -2858,10 +2845,7 @@ async function generate_nsfs_account(options = {}) {
 mocha.describe('List-objects', function() {
     const nsr = 'noobaa-nsr-object-vesions';
     const bucket_name = 'noobaa-bucket-object-vesions';
-    let tmp_fs_root = '/tmp/test_bucketspace_list_object_versions';
-    if (process.platform === MAC_PLATFORM) {
-        tmp_fs_root = '/private/' + tmp_fs_root;
-    }
+    const tmp_fs_root = path.join(TMP_PATH, 'test_bucketspace_list_object_versions');
     const bucket_path = '/bucket';
     const full_path = tmp_fs_root + bucket_path;
     const version_dir = '/.versions';

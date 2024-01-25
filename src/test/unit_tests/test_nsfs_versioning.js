@@ -3,18 +3,16 @@
 'use strict';
 
 
-const mocha = require('mocha');
-const assert = require('assert');
-const fs_utils = require('../../util/fs_utils');
-const NamespaceFS = require('../../sdk/namespace_fs');
-const crypto = require('crypto');
-const buffer_utils = require('../../util/buffer_utils');
 const util = require('util');
 const path = require('path');
-const test_utils = require('../system_tests/test_utils');
+const mocha = require('mocha');
+const assert = require('assert');
+const crypto = require('crypto');
+const fs_utils = require('../../util/fs_utils');
+const NamespaceFS = require('../../sdk/namespace_fs');
+const buffer_utils = require('../../util/buffer_utils');
 const native_fs_utils = require('../../util/native_fs_utils');
-
-const MAC_PLATFORM = 'darwin';
+const { TMP_PATH, invalid_nsfs_root_permissions } = require('../system_tests/test_utils');
 
 
 function make_dummy_object_sdk(nsfs_config, uid, gid) {
@@ -35,13 +33,10 @@ function make_dummy_object_sdk(nsfs_config, uid, gid) {
 mocha.describe('namespace_fs - versioning', function() {
 
     mocha.before(function() {
-        if (test_utils.invalid_nsfs_root_permissions()) this.skip(); // eslint-disable-line no-invalid-this
+        if (invalid_nsfs_root_permissions()) this.skip(); // eslint-disable-line no-invalid-this
     });
     const bucket_name = 'bucket';
-    let tmp_fs_root = '/tmp/test_nsfs_versioning';
-    if (process.platform === MAC_PLATFORM) {
-        tmp_fs_root = '/private/' + tmp_fs_root;
-    }
+    const tmp_fs_root = path.join(TMP_PATH, 'test_nsfs_versioning');
     const ns_tmp_bucket_path = `${tmp_fs_root}/${bucket_name}`;
 
     mocha.before(async () => fs_utils.create_fresh_path(tmp_fs_root, 0o777));

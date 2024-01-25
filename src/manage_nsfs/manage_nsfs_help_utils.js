@@ -17,200 +17,181 @@ Usage:
 
     execute with root permission or use sudo before each command
 
-    node src/cmd/manage_nsfs <type> <action> [options...]
+    node src/cmd/manage_nsfs <type> <action> [flags]
 `;
 
 const ARGUMENTS = `
 Arguments:
 
-    <type>    Set the resource type: account, bucket, or whitelist.
-    <action>  Action could be: add, update, list, status, and delete for accounts/buckets.
+    <type>    Set the resource type: account, bucket, or whitelist
+    <action>  Action could be: add, update, list, status, and delete for accounts/buckets
 `;
 
-const ARGUMENTS_ACCOUNT = `
-Account Arguments
-account <action> [options...]
+const ACCOUNT_ACTIONS = `
+Usage:
+account <action> [flags]
 
-    <action>  Action could be: add, update, list, status, and delete.
+List of actions supported:
+add
+update
+list
+status
+delete
 `;
 
-const ARGUMENTS_BUCKET = `
-Bucket Arguments
-bucket <action> [options...]
+const BUCKET_ACTIONS = `
+Usage:
+bucket <action> [flags]
 
-    <action>  Action could be: add, update, list, status, and delete.
+List of actions supported:
+add
+update
+list
+status
+delete
 `;
 
-const WHITELIST_OPTIONS = `
-Whitelist:
-whitelist [options...]:
-set the general configuration to allow only incoming requests from a given list of IPs:
+const WHITELIST_FLAGS = `
+whitelist [flags]
 
-    # required
-    --ips <ips>                       (default none)          Set whitelist ips in format: '["127.0.0.1", "192.0.10.0", "3002:0bd6:0000:0000:0000:ee00:0033:6778"]'.
+Flags:
+--ips <string>                                                                              Set the general configuration to allow only incoming requests from a given list of IP addresses
+                                                                                            in format: '["127.0.0.1", "192.0.10.0", "3002:0bd6:0000:0000:0000:ee00:0033:6778"]'
 `;
 
-const GLOBAL_CONFIG_ROOT_ALL = `
-    # global configurations
-    --config_root <dir>                             (default config.NSFS_NC_DEFAULT_CONF_DIR)   Use Configuration files path.
+const GLOBAL_CONFIG_ROOT_ALL_FLAG = `
+--config_root <string>                                    (optional)                        Use configuration files path (default config.NSFS_NC_DEFAULT_CONF_DIR)
 `;
 
-const GLOBAL_CONFIG_OPTIONS_ADD_UPDATE = `
-    # global configurations
-    --from_file <dir>                                         (default none)                                  Use details from the JSON file, there is no need to mention all the properties individually in the CLI.
-    --config_root <dir>                                       (default config.NSFS_NC_DEFAULT_CONF_DIR)       Use Configuration files path.
-    --config_root_backend <none | GPFS | CEPH_FS | NFSv4>     (default config.NSFS_NC_CONFIG_DIR_BACKEND)     Use the filesystem type in the configuration.
+const GLOBAL_CONFIG_FLAGS_ADD_UPDATE_FLAGS = `
+--from_file <string>                                      (optional)                        Use details from the JSON file, there is no need to mention all the properties individually in the CLI
+--config_root <string>                                    (optional)                        Use configuration files path (default config.NSFS_NC_DEFAULT_CONF_DIR)
+--config_root_backend <none | GPFS | CEPH_FS | NFSv4>     (optional)                        Use the filesystem type in the configuration (default config.NSFS_NC_CONFIG_DIR_BACKEND)
 `;
 
-const ACCOUNT_OPTIONS_ADD = `
-Account
-account add [options...]:
-add a new account
+const ACCOUNT_FLAGS_ADD = `
+Usage:
+account add [flags]
 
-    # required
-    --name <name>                                                                               Set the name for the account.
-    --email <email>                                                                             Set the email for the account (used as the identifier for buckets owner).
-    --uid <uid>                                                                                 Set the User Identifier (UID) (UID and GID can be replaced by --user option).
-    --gid <gid>                                                                                 Set the Group Identifier (GID) (UID and GID can be replaced by --user option).
-    --new_buckets_path <dir>                                                                    Set the filesystem's root where each subdirectory is a bucket.
-
-    # optional
-    --user <user-name>                              (default none)                              Set the OS user name (instead of UID and GID)
-    --access_key <key>                              (default is generated)                      Set the access key for the account.
-    --secret_key <key>                              (default is generated)                      Set the secret key for the account.
-    --fs_backend <none | GPFS | CEPH_FS | NFSv4>    (default config.NSFS_NC_STORAGE_BACKEND)    Set filesystem type of new_buckets_path.
+Flags:
+--name <string or number>                                                                   Set the name for the account
+--email <string>                                                                            Set the email for the account (used as the identifier for buckets owner)
+--uid <number>                                                                              Set the User Identifier (UID) (UID and GID can be replaced by --user option)
+--gid <number>                                                                              Set the Group Identifier (GID) (UID and GID can be replaced by --user option)
+--new_buckets_path <string>                                                                 Set the filesystem's root path where each subdirectory is a bucket
+--user <string or number>                                 (optional)                        Set the OS user name (instead of UID and GID)
+--access_key <string>                                     (optional)                        Set the access key for the account (default is generated)
+--secret_key <string>                                     (optional)                        Set the secret key for the account (default is generated)
+--fs_backend <none | GPFS | CEPH_FS | NFSv4>              (optional)                        Set the filesystem type of new_buckets_path (default config.NSFS_NC_STORAGE_BACKEND)
 `;
 
-const ACCOUNT_OPTIONS_UPDATE = `
-Account
-account update [options...]:
-    update an existing account
+const ACCOUNT_FLAGS_UPDATE = `
+Usage:
+account update [flags]
 
-    # required
-    --name <name>                                                                               The name of the account
-                                                                                                (can identify the account by --access_key option)
-
-    # optional
-    --new_name <name>                               (default none)                              Update the account name.
-    --email <email>                                 (default none)                              Update the email (used as the identifier for buckets owner).
-    --uid <uid>                                     (default none)                              Update the User Identifier (UID).
-    --gid <gid>                                     (default none)                              Update the Group Identifier (GID).
-    --new_buckets_path <dir>                        (default none)                              Update the filesystem's root where each subdirectory is a bucket.
-    --user <user-name>                              (default none)                              Update the OS user name (instead of uid and gid).
-    --regenerate                                    (default none)                              Update automatically generated access key and secret key.
-    --access_key <key>                              (default none)                              Update the access key. Can be used as identifier instead of --name.
-    --secret_key <key>                              (default none)                              Update the secret key.
-    --fs_backend <none | GPFS | CEPH_FS | NFSv4>    (default config.NSFS_NC_STORAGE_BACKEND)    Update filesystem type of new_buckets_path.
+Flags:
+--name <string or number>                                                                   The name of the account
+--new_name <string or number>                             (optional)                        Update the account name
+--email <string>                                          (optional)                        Update the email (used as the identifier for buckets owner)
+--uid <number>                                            (optional)                        Update the User Identifier (UID)
+--gid <number>                                            (optional)                        Update the Group Identifier (GID)
+--new_buckets_path <string>                               (optional)                        Update the filesystem's root path where each subdirectory is a bucket
+--user <string or number>                                 (optional)                        Update the OS user name (instead of uid and gid)
+--regenerate                                              (optional)                        Update automatically generated access key and secret key
+--access_key <string>                                     (optional)                        Update the access key. Can be used as identifier instead of --name
+--secret_key <string>                                     (optional)                        Update the secret key
+--fs_backend <none | GPFS | CEPH_FS | NFSv4>              (optional)                        Update the filesystem type of new_buckets_path (default config.NSFS_NC_STORAGE_BACKEND)
 `;
 
-const ACCOUNT_OPTIONS_DELETE = `
-Account
-account delete [options...]:
-    delete an existing account
+const ACCOUNT_FLAGS_DELETE = `
+Usage:
+account delete [flags]
 
-    # required
-    --name <name>                                                                               The name of the account.
-                                                                                                (can identify the account by --access_key option)
+Flags:
+--name <string or number>                                                                   The name of the account
+--access_key <string>                                     (optional)                        The access key of the account (identify the account instead of name)
 `;
 
-const ACCOUNT_OPTIONS_STATUS = `
-Account
-account status [options...]:
-    print the account's details, such as name, email, creation date, UID, GID (or user details), etc.
-    
+const ACCOUNT_FLAGS_STATUS = `
+Usage:
+account status [flags]
 
-    # required
-    --name <name>                                                                               The name of the account.
-                                                                                                (can identify the account by --access_key option)
-
-    # optional
-    --show_secrets                                  (default false)                             Print the access key and secret key of the account.
+Flags:
+--name <string or number>                                                                   The name of the account
+--access_key <string>                                     (optional)                        The access key of the account (identify the account instead of name)
+--show_secrets                                            (optional)                        Print the access key and secret key of the account
 `;
 
-const ACCOUNT_OPTIONS_LIST = `
-Account
-account list [options...]:
-    list all accounts' names
+const ACCOUNT_FLAGS_LIST = `
+Usage:
+account list [flags]
 
-    # optional
-    --wide                                          (default false)                             Print the additional details for each account.
-    --show_secrets                                  (default false)                             Print the access key and secret key of each account (only when using option --wide).
-    
-    # optional filters
-    --uid                                                                                       Filters the list based on the provided UID.
-    --gid                                                                                       Filters the list based on the provided GID.
-    --user                                                                                      Filters the list based on the provided FS user distinguished name.
-    --name                                                                                      Filters the list based on the provided account name.
-    --access_key                                                                                Filters the list based on the provided account access_key.
+Flags:
+--wide                                                    (optional)                        Print the additional details for each account
+--show_secrets                                            (optional)                        Print the access key and secret key of each account (only when using flag --wide)
+--uid <number>                                            (optional)                        Filter the list based on the provided account UID
+--gid <number>                                            (optional)                        Filter the list based on the provided account GID
+--user <string or number>                                 (optional)                        Filter the list based on the provided account user
+--name <string or number>                                 (optional)                        Filter the list based on the provided account name
+--access_key <string>                                     (optional)                        Filter the list based on the provided account access key
 `;
 
-const BUCKET_OPTIONS_ADD = `
-Bucket
-bucket add [options...]:
-add a new bucket (must have an account).
+const BUCKET_FLAGS_ADD = `
+Usage:
+bucket add [flags]
 
-    # required
-    --name <name>                                                                               Set the name for the bucket.
-    --email <email>                                                                             Set the bucket owner email.
-    --path <dir>                                                                                Set the bucket path.
-
-    # optional
-    --bucket_policy<string>                         (default none)                              Set bucket policy, type is a string of valid JSON policy.
-    --fs_backend <none | GPFS | CEPH_FS | NFSv4>    (default config.NSFS_NC_STORAGE_BACKEND)    Set filesystem type.
+Flags:
+--name <string or number>                                                                   Set the name for the bucket
+--email <string>                                                                            Set the bucket owner email
+--path <string>                                                                             Set the bucket path
+--bucket_policy <string>                                  (optional)                        Set the bucket policy, type is a string of valid JSON policy
+--fs_backend <none | GPFS | CEPH_FS | NFSv4>              (optional)                        Set the filesystem type (default config.NSFS_NC_STORAGE_BACKEND)
 `;
 
-const BUCKET_OPTIONS_UPDATE = `
-Bucket
-bucket update [options...]:
-update an existing bucket.
+const BUCKET_FLAGS_UPDATE = `
+Usage:
+bucket update [flags]
 
-    # required
-    --name <name>                                                                               The name of the bucket.
-
-    # optional
-    --new_name <name>                               (default none)                              Update the bucket name.
-    --email <email>                                 (default none)                              Update the bucket owner email.
-    --path <dir>                                    (default none)                              Update the bucket path.
-    --bucket_policy<string>                         (default none)                              Update bucket policy, type is a string of valid JSON policy (unset with '').
-    --fs_backend <none | GPFS | CEPH_FS | NFSv4>    (default config.NSFS_NC_STORAGE_BACKEND)    Update filesystem type (unset with '').
+Flags:
+--name <string or number>                                                                   The name of the bucket
+--new_name <string or number>                             (optional)                        Update the bucket name
+--email <string>                                          (optional)                        Update the bucket owner email
+--path <string>                                           (optional)                        Update the bucket path
+--bucket_policy <string>                                  (optional)                        Update the bucket policy, type is a string of valid JSON policy (unset with '')
+--fs_backend <none | GPFS | CEPH_FS | NFSv4>              (optional)                        Update the filesystem type (unset with '') (default config.NSFS_NC_STORAGE_BACKEND)
 `;
 
-const BUCKET_OPTIONS_DELETE = `
-Bucket
-bucket delete [options...]:
-    delete an existing bucket
+const BUCKET_FLAGS_DELETE = `
+Usage:
+bucket delete [flags]
 
-    # required
-    --name <name>                                                                               The name of the bucket.
+Flags:
+--name <string or number>                                                                   The name of the bucket
 `;
 
-const BUCKET_OPTIONS_STATUS = `
-Bucket
-bucket status [options...]:
-    print the bucket's details, such as name, bucket owner, creation date, versioning, etc.
-    
+const BUCKET_FLAGS_STATUS = `
+Usage:
+bucket status [flags]
 
-    # required
-    --name <name>                                                                               The name of the bucket.
+Flags:
+--name <string or number>                                                                   The name of the bucket
 `;
 
-const BUCKET_OPTIONS_LIST = `
-Bucket
-bucket list [options...]:
-    list all buckets' names
+const BUCKET_FLAGS_LIST = `
+Usage:
+bucket list [flags]
 
-    # optional
-    --wide                                          (default false)                             Print the additional details for each bucket.
-
-    # optional filters
-    --name                                                                                      Filters the list based on the provided account name.
+Flags:
+--wide                                                    (optional)                        Print the additional details for each bucket
+--name                                                    (optional)                        Filter the list based on the provided bucket name
 `;
 
-/** print_help_options would print the help options according to the arguments that were passed
+/** 
+ * print_usage would print the help according to the arguments that were passed
  * @param {string} type
  * @param {string} action
  */
-function print_help_options(type, action) {
+function print_usage(type, action) {
     switch (type) {
         case TYPES.ACCOUNT:
             print_help_account(action);
@@ -219,7 +200,7 @@ function print_help_options(type, action) {
             print_help_bucket(action);
             break;
         case TYPES.IP_WHITELIST:
-            process.stdout.write(WHITELIST_OPTIONS.trimStart());
+            process.stdout.write(WHITELIST_FLAGS.trimStart());
             break;
         default:
             process.stdout.write(HELP + '\n');
@@ -229,61 +210,63 @@ function print_help_options(type, action) {
     process.exit(0);
 }
 
-/** print_help_account would print the help options for account
+/** 
+ * print_help_account would print the help options for account
  * @param {string} action
  */
 function print_help_account(action) {
     switch (action) {
         case ACTIONS.ADD:
-            process.stdout.write(ACCOUNT_OPTIONS_ADD.trimStart() +
-                GLOBAL_CONFIG_OPTIONS_ADD_UPDATE + '\n');
+            process.stdout.write(ACCOUNT_FLAGS_ADD.trimStart() +
+                GLOBAL_CONFIG_FLAGS_ADD_UPDATE_FLAGS.trimStart());
             break;
         case ACTIONS.UPDATE:
-            process.stdout.write(ACCOUNT_OPTIONS_UPDATE.trimStart() +
-                GLOBAL_CONFIG_OPTIONS_ADD_UPDATE + '\n');
+            process.stdout.write(ACCOUNT_FLAGS_UPDATE.trimStart() +
+                GLOBAL_CONFIG_FLAGS_ADD_UPDATE_FLAGS.trimStart());
             break;
         case ACTIONS.DELETE:
-            process.stdout.write(ACCOUNT_OPTIONS_DELETE.trimStart() + GLOBAL_CONFIG_ROOT_ALL + '\n');
+            process.stdout.write(ACCOUNT_FLAGS_DELETE.trimStart() + GLOBAL_CONFIG_ROOT_ALL_FLAG.trimStart());
             break;
         case ACTIONS.STATUS:
-            process.stdout.write(ACCOUNT_OPTIONS_STATUS.trimStart() + GLOBAL_CONFIG_ROOT_ALL + '\n');
+            process.stdout.write(ACCOUNT_FLAGS_STATUS.trimStart() + GLOBAL_CONFIG_ROOT_ALL_FLAG.trimStart());
             break;
         case ACTIONS.LIST:
-            process.stdout.write(ACCOUNT_OPTIONS_LIST.trimStart() + GLOBAL_CONFIG_ROOT_ALL + '\n');
+            process.stdout.write(ACCOUNT_FLAGS_LIST.trimStart() + GLOBAL_CONFIG_ROOT_ALL_FLAG.trimStart());
             break;
         default:
-            process.stdout.write(ARGUMENTS_ACCOUNT.trimStart() + GLOBAL_CONFIG_ROOT_ALL + '\n');
+            process.stdout.write(ACCOUNT_ACTIONS.trimStart());
     }
     process.exit(0);
 }
 
-/** print_help_bucket would print the help options for bucket
+/** 
+ * print_help_bucket would print the help options for bucket
  * @param {string} action
  */
 function print_help_bucket(action) {
     switch (action) {
         case ACTIONS.ADD:
-            process.stdout.write(BUCKET_OPTIONS_ADD.trimStart() +
-                GLOBAL_CONFIG_OPTIONS_ADD_UPDATE + '\n');
+            process.stdout.write(BUCKET_FLAGS_ADD.trimStart() +
+                GLOBAL_CONFIG_FLAGS_ADD_UPDATE_FLAGS.trimStart());
             break;
         case ACTIONS.UPDATE:
-            process.stdout.write(BUCKET_OPTIONS_UPDATE.trimStart() +
-                GLOBAL_CONFIG_OPTIONS_ADD_UPDATE + '\n');
+            process.stdout.write(BUCKET_FLAGS_UPDATE.trimStart() +
+                GLOBAL_CONFIG_FLAGS_ADD_UPDATE_FLAGS.trimStart());
             break;
         case ACTIONS.DELETE:
-            process.stdout.write(BUCKET_OPTIONS_DELETE.trimStart() + GLOBAL_CONFIG_ROOT_ALL + '\n');
+            process.stdout.write(BUCKET_FLAGS_DELETE.trimStart() + GLOBAL_CONFIG_ROOT_ALL_FLAG.trimStart());
             break;
         case ACTIONS.STATUS:
-            process.stdout.write(BUCKET_OPTIONS_STATUS.trimStart() + GLOBAL_CONFIG_ROOT_ALL + '\n');
+            process.stdout.write(BUCKET_FLAGS_STATUS.trimStart() + GLOBAL_CONFIG_ROOT_ALL_FLAG.trimStart());
             break;
         case ACTIONS.LIST:
-            process.stdout.write(BUCKET_OPTIONS_LIST.trimStart() + GLOBAL_CONFIG_ROOT_ALL + '\n');
+            process.stdout.write(BUCKET_FLAGS_LIST.trimStart() + GLOBAL_CONFIG_ROOT_ALL_FLAG.trimStart());
             break;
         default:
-            process.stdout.write(ARGUMENTS_BUCKET.trimStart() + GLOBAL_CONFIG_ROOT_ALL + '\n');
+            process.stdout.write(BUCKET_ACTIONS.trimStart());
     }
     process.exit(0);
 }
 
 // EXPORTS
-exports.print_usage = print_help_options;
+exports.print_usage = print_usage;

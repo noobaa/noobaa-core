@@ -22,6 +22,12 @@ const GLACIER_ACTIONS = {
     EXPIRY: 'expiry',
 };
 
+const CONFIG_SUBDIRS = {
+    ACCOUNTS: 'accounts',
+    BUCKETS: 'buckets',
+    ACCESS_KEYS: 'access_keys'
+};
+
 const GLOBAL_CONFIG_ROOT = 'config_root';
 const GLOBAL_CONFIG_OPTIONS = new Set(['from_file', GLOBAL_CONFIG_ROOT, 'config_root_backend']);
 
@@ -85,6 +91,7 @@ const LIST_BUCKET_FILTERS = ['name'];
 exports.TYPES = TYPES;
 exports.ACTIONS = ACTIONS;
 exports.GLACIER_ACTIONS = GLACIER_ACTIONS;
+exports.CONFIG_SUBDIRS = CONFIG_SUBDIRS;
 exports.VALID_OPTIONS = VALID_OPTIONS;
 exports.OPTION_TYPE = OPTION_TYPE;
 

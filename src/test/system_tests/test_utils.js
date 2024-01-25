@@ -8,6 +8,12 @@ const os_utils = require('../../util/os_utils');
 const native_fs_utils = require('../../util/native_fs_utils');
 
 /**
+ * TMP_PATH is a path to the tmp path based on the process platform
+ * in contrast to linux, /tmp/ path on mac is a symlink to /private/tmp/
+ */
+const TMP_PATH = os_utils.IS_MAC ? '/private/tmp/' : '/tmp/';
+
+/**
  * 
  * @param {*} need_to_exist 
  * @param {*} pool_id 
@@ -216,21 +222,6 @@ function get_coretest_path() {
     return process.env.NC_CORETEST ? './nc_coretest' : './coretest';
 }
 
-
-const nc_nsfs_manage_entity_types = {
-    BUCKET: 'bucket',
-    ACCOUNT: 'account',
-    IPWHITELIST: 'whitelist',
-};
-
-const nc_nsfs_manage_actions = {
-    ADD: 'add',
-    UPDATE: 'update',
-    DELETE: 'delete',
-    LIST: 'list',
-    STATUS: 'status'
-};
-
 /**
  * exec_manage_cli runs the manage_nsfs cli
  * @param {string} type
@@ -296,7 +287,6 @@ async function create_fs_user_by_platform(new_user, new_password, uid, gid) {
     }
 }
 
-
 /**
  * delete_fs_user_by_platform deletes a file system user by platform
  * @param {string} name
@@ -338,8 +328,7 @@ exports.generate_s3_policy = generate_s3_policy;
 exports.invalid_nsfs_root_permissions = invalid_nsfs_root_permissions;
 exports.get_coretest_path = get_coretest_path;
 exports.exec_manage_cli = exec_manage_cli;
-exports.nc_nsfs_manage_entity_types = nc_nsfs_manage_entity_types;
-exports.nc_nsfs_manage_actions = nc_nsfs_manage_actions;
 exports.create_fs_user_by_platform = create_fs_user_by_platform;
 exports.delete_fs_user_by_platform = delete_fs_user_by_platform;
 exports.set_path_permissions_and_owner = set_path_permissions_and_owner;
+exports.TMP_PATH = TMP_PATH;

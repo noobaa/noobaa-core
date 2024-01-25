@@ -432,15 +432,18 @@ function isDirectory(ent) {
 }
 
 /**
- * @param {string} [config_root_backend]
+ * @param {string} [backend]
+ * @param {number} [warn_threshold_ms]
+ * @param {Function} [report_fs_stats]
  * @returns {nb.NativeFSContext}
  */
-function get_process_fs_context(config_root_backend) {
+function get_process_fs_context(backend = '', warn_threshold_ms = config.NSFS_WARN_THRESHOLD_MS, report_fs_stats = undefined) {
     return {
         uid: process.getuid(),
         gid: process.getgid(),
-        warn_threshold_ms: config.NSFS_WARN_THRESHOLD_MS,
-        backend: config_root_backend
+        warn_threshold_ms,
+        backend,
+        report_fs_stats
     };
 }
 

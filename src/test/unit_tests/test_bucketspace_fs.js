@@ -1,9 +1,9 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const _ = require('lodash');
 const fs = require('fs');
 const os = require('os');
+const _ = require('lodash');
 const path = require('path');
 const mocha = require('mocha');
 const assert = require('assert');
@@ -11,28 +11,21 @@ const P = require('../../util/promise');
 const config = require('../../../config');
 const fs_utils = require('../../util/fs_utils');
 const { get_process_fs_context, read_config_file, get_user_by_distinguished_name} = require('../../util/native_fs_utils');
-const os_utils = require('../../util/os_utils');
-
-const BucketSpaceFS = require('../../sdk/bucketspace_fs');
-const NamespaceFS = require('../../sdk/namespace_fs');
 const nb_native = require('../../util/nb_native');
 const SensitiveString = require('../../util/sensitive_string');
+const NamespaceFS = require('../../sdk/namespace_fs');
+const BucketSpaceFS = require('../../sdk/bucketspace_fs');
+const { TMP_PATH } = require('../system_tests/test_utils');
+const { CONFIG_SUBDIRS } = require('../../manage_nsfs/manage_nsfs_constants');
 
 
-const MAC_PLATFORM = 'darwin';
 const test_bucket = 'bucket1';
 const test_not_empty_bucket = 'notemptybucket';
 const test_bucket_temp_dir = 'buckettempdir';
 const test_bucket_invalid = 'bucket_invalid';
-let tmp_fs_path = '/tmp/test_bucketspace_fs';
-if (process.platform === MAC_PLATFORM) {
-    tmp_fs_path = '/private/' + tmp_fs_path;
-}
-const config_root = path.join(tmp_fs_path, 'config_root');
-const buckets = 'buckets';
-const accounts = 'accounts';
-const access_keys = 'access_keys';
 
+const tmp_fs_path = path.join(TMP_PATH, 'test_bucketspace_fs');
+const config_root = path.join(tmp_fs_path, 'config_root');
 const new_buckets_path = path.join(tmp_fs_path, 'new_buckets_path', '/');
 const new_buckets_path_user1 = path.join(tmp_fs_path, 'new_buckets_path_user1', '/');
 const new_buckets_path_user2 = path.join(tmp_fs_path, 'new_buckets_path_user2', '/');
@@ -184,13 +177,13 @@ mocha.describe('bucketspace_fs', function() {
     };
 
     mocha.before(async () => {
-        await P.all(_.map([accounts, access_keys, buckets], async dir =>
+        await P.all(_.map([CONFIG_SUBDIRS.ACCOUNTS, CONFIG_SUBDIRS.ACCESS_KEYS, CONFIG_SUBDIRS.BUCKETS], async dir =>
             await fs_utils.create_fresh_path(`${config_root}/${dir}`))
         );
         await fs_utils.create_fresh_path(new_buckets_path);
         for (const account of [account_user1, account_user2, account_user3]) {
-            const account_path = get_config_file_path(accounts, account.name);
-            const account_access_path = get_access_key_symlink_path(access_keys, account.access_keys[0].access_key);
+            const account_path = get_config_file_path(CONFIG_SUBDIRS.ACCOUNTS, account.name);
+            const account_access_path = get_access_key_symlink_path(CONFIG_SUBDIRS.ACCESS_KEYS, account.access_keys[0].access_key);
             await fs.promises.writeFile(account_path, JSON.stringify(account));
             await fs.promises.symlink(account_path, account_access_path);
         }
@@ -246,7 +239,7 @@ mocha.describe('bucketspace_fs', function() {
         mocha.it('create bucket and validate bucket folder and schema config', async function() {
             const param = { name: test_bucket};
             await bucketspace_fs.create_bucket(param, dummy_object_sdk);
-            const bucket_config_path = get_config_file_path(buckets, param.name);
+            const bucket_config_path = get_config_file_path(CONFIG_SUBDIRS.BUCKETS, param.name);
             const stat1 = await fs.promises.stat(bucket_config_path);
             assert.equal(stat1.nlink, 1);
             const objects = await nb_native().fs.readdir(ACCOUNT_FS_CONFIG, new_buckets_path);
@@ -285,7 +278,7 @@ mocha.describe('bucketspace_fs', function() {
         });
         mocha.after(async function() {
             await fs_utils.folder_delete(`${new_buckets_path}/${test_bucket}`);
-            const file_path = get_config_file_path(buckets, test_bucket);
+            const file_path = get_config_file_path(CONFIG_SUBDIRS.BUCKETS, test_bucket);
             await fs_utils.file_delete(file_path);
         });
     });
@@ -306,7 +299,7 @@ mocha.describe('bucketspace_fs', function() {
         });
         mocha.after(async function() {
             await fs_utils.folder_delete(`${new_buckets_path}/${test_bucket}`);
-            const file_path = get_config_file_path(buckets, test_bucket);
+            const file_path = get_config_file_path(CONFIG_SUBDIRS.BUCKETS, test_bucket);
             await fs_utils.file_delete(file_path);
         });
         mocha.it('list buckets - validate creation_date', async function() {
@@ -314,7 +307,7 @@ mocha.describe('bucketspace_fs', function() {
             const objects = await bucketspace_fs.list_buckets(dummy_object_sdk);
             assert.equal(objects.buckets.length, 1);
             assert.equal(objects.buckets[0].name.unwrap(), expected_bucket_name);
-            const bucket_config_path = get_config_file_path(buckets, expected_bucket_name);
+            const bucket_config_path = get_config_file_path(CONFIG_SUBDIRS.BUCKETS, expected_bucket_name);
             const bucket_data = await read_config_file(process_fs_context, bucket_config_path);
             assert.equal(objects.buckets[0].creation_date, bucket_data.creation_date);
         });
@@ -360,7 +353,7 @@ mocha.describe('bucketspace_fs', function() {
             const param = { name: test_bucket_temp_dir};
             await create_bucket(param.name);
             await fs.promises.stat(path.join(new_buckets_path, param.name));
-            const bucket_config_path = get_config_file_path(buckets, param.name);
+            const bucket_config_path = get_config_file_path(CONFIG_SUBDIRS.BUCKETS, param.name);
             const data = await fs.promises.readFile(bucket_config_path);
             const bucket = await JSON.parse(data.toString());
             const bucket_temp_dir_path = path.join(new_buckets_path, param.name, config.NSFS_TEMP_DIR_NAME + "_" + bucket._id);
@@ -377,8 +370,7 @@ mocha.describe('bucketspace_fs', function() {
                 await fs.promises.stat(bucket_config_path);
             } catch (err) {
                 assert.strictEqual(err.code, 'ENOENT');
-                let path_for_err_msg = '/tmp/test_bucketspace_fs/config_root/buckets/buckettempdir.json';
-                if (os_utils.IS_MAC) path_for_err_msg = '/private' + path_for_err_msg;
+                const path_for_err_msg = path.join(TMP_PATH, 'test_bucketspace_fs/config_root/buckets/buckettempdir.json');
                 assert.equal(err.message, `ENOENT: no such file or directory, stat '${path_for_err_msg}'`);
             }
             await fs.promises.stat(path.join(new_buckets_path, param.name));
@@ -391,7 +383,7 @@ mocha.describe('bucketspace_fs', function() {
         mocha.it('set_bucket_versioning ', async function() {
             const param = {name: test_bucket, versioning: 'ENABLED'};
             await bucketspace_fs.set_bucket_versioning(param, dummy_object_sdk);
-            const bucket_config_path = get_config_file_path(buckets, param.name);
+            const bucket_config_path = get_config_file_path(CONFIG_SUBDIRS.BUCKETS, param.name);
             const bucket = await read_config_file(process_fs_context, bucket_config_path);
             assert.equal(bucket.versioning, 'ENABLED');
 
@@ -576,7 +568,7 @@ mocha.describe('bucketspace_fs', function() {
 async function create_bucket(bucket_name) {
     const param = { name: bucket_name};
     await bucketspace_fs.create_bucket(param, dummy_object_sdk);
-    const bucket_config_path = get_config_file_path(buckets, param.name);
+    const bucket_config_path = get_config_file_path(CONFIG_SUBDIRS.BUCKETS, param.name);
     const stat1 = await fs.promises.stat(bucket_config_path);
     assert.equal(stat1.nlink, 1);
 }

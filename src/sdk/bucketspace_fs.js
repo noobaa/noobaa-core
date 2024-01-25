@@ -15,16 +15,13 @@ const util = require('util');
 const bucket_policy_utils = require('../endpoint/s3/s3_bucket_policy_utils');
 const nsfs_schema_utils = require('../manage_nsfs/nsfs_schema_utils');
 const mongo_utils = require('../util/mongo_utils');
+const { CONFIG_SUBDIRS } = require('../manage_nsfs/manage_nsfs_constants');
 
 const KeysSemaphore = require('../util/keys_semaphore');
 const native_fs_utils = require('../util/native_fs_utils');
 const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
 
 const dbg = require('../util/debug_module')(__filename);
-
-const BUCKET_PATH = 'buckets';
-const ACCOUNT_PATH = 'accounts';
-const ACCESS_KEYS_PATH = 'access_keys';
 const bucket_semaphore = new KeysSemaphore(1);
 
 
@@ -50,9 +47,9 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
     constructor({config_root}) {
         super({ fs_root: ''});
         this.fs_root = '';
-        this.accounts_dir = path.join(config_root, ACCOUNT_PATH);
-        this.access_keys_dir = path.join(config_root, ACCESS_KEYS_PATH);
-        this.bucket_schema_dir = path.join(config_root, BUCKET_PATH);
+        this.accounts_dir = path.join(config_root, CONFIG_SUBDIRS.ACCOUNTS);
+        this.access_keys_dir = path.join(config_root, CONFIG_SUBDIRS.ACCESS_KEYS);
+        this.bucket_schema_dir = path.join(config_root, CONFIG_SUBDIRS.BUCKETS);
         this.config_root = config_root;
         this.fs_context = {
             uid: process.getuid(),

@@ -328,6 +328,7 @@ function get_rpc_router(env) {
         bg: env.BG_ADDR || addr_utils.format_base_address(hostname, ports.bg),
         hosted_agents: env.HOSTED_AGENTS_ADDR || addr_utils.format_base_address(hostname, ports.hosted_agents),
         master: env.MGMT_ADDR || addr_utils.format_base_address(hostname, ports.mgmt),
+        syslog: env.SYSLOG_ADDR || "udp://localhost:514",
     };
 }
 

@@ -33,6 +33,19 @@ module.exports = [
         }
     },
     {
+        fields: {
+            chunk: 1,
+        },
+        options: {
+            name: 'chunk_1_deleted_1',
+            unique: false,
+            partialFilterExpression: {
+                chunk: { $exists: true },
+                deleted: null,
+            }
+        }
+    },
+    {
         // This index is used for queries where we want to find all the chunks of a specific object
         // which are already marked deleted.
         fields: {

@@ -22,7 +22,7 @@ const VALID_OPTIONS_ACCOUNT = {
     'add': new Set(['name', 'email', 'uid', 'gid', 'new_buckets_path', 'user', 'access_key', 'secret_key', 'fs_backend', ...GLOBAL_CONFIG_OPTIONS]),
     'update': new Set(['name', 'email', 'uid', 'gid', 'new_buckets_path', 'user', 'access_key', 'secret_key', 'fs_backend', 'new_name', 'regenerate', ...GLOBAL_CONFIG_OPTIONS]),
     'delete': new Set(['name', 'access_key', GLOBAL_CONFIG_ROOT]),
-    'list': new Set(['wide', 'show_secrets', GLOBAL_CONFIG_ROOT, 'gid', 'uid', 'user']),
+    'list': new Set(['wide', 'show_secrets', GLOBAL_CONFIG_ROOT, 'gid', 'uid', 'user', 'name', 'access_key']),
     'status': new Set(['name', 'access_key', 'show_secrets', GLOBAL_CONFIG_ROOT]),
 };
 
@@ -30,7 +30,7 @@ const VALID_OPTIONS_BUCKET = {
     'add': new Set(['name', 'email', 'path', 'bucket_policy', 'fs_backend', ...GLOBAL_CONFIG_OPTIONS]),
     'update': new Set(['name', 'email', 'path', 'bucket_policy', 'fs_backend', 'new_name', ...GLOBAL_CONFIG_OPTIONS]),
     'delete': new Set(['name', GLOBAL_CONFIG_ROOT]),
-    'list': new Set(['wide', GLOBAL_CONFIG_ROOT]),
+    'list': new Set(['wide', 'name', GLOBAL_CONFIG_ROOT]),
     'status': new Set(['name', GLOBAL_CONFIG_ROOT]),
 };
 
@@ -65,6 +65,9 @@ const OPTION_TYPE = {
     ips: 'string',
 };
 
+const LIST_ACCOUNT_FILTERS = ['uid', 'gid', 'user', 'name', 'access_key'];
+const LIST_BUCKET_FILTERS = ['name'];
+
 // EXPORTS
 exports.TYPES = TYPES;
 exports.ACTIONS = ACTIONS;
@@ -72,3 +75,5 @@ exports.VALID_OPTIONS = VALID_OPTIONS;
 exports.OPTION_TYPE = OPTION_TYPE;
 exports.TYPE_STRING_OR_NUMBER = TYPE_STRING_OR_NUMBER;
 
+exports.LIST_ACCOUNT_FILTERS = LIST_ACCOUNT_FILTERS;
+exports.LIST_BUCKET_FILTERS = LIST_BUCKET_FILTERS;

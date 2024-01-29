@@ -902,7 +902,7 @@ interface NativeFS {
     ): Promise<NativeFSStats>;
     statfs(fs_context: NativeFSContext, path: string): Promise<object>;
     realpath(fs_context: NativeFSContext, path: string): Promise<string>;
-    checkAccess(fs_context: NativeFSContext, path: string): Promise<void>;
+    checkAccess(fs_context: NativeFSContext, path: string, flags?: number): Promise<void>;
     getsinglexattr(fs_context: NativeFSContext, path: string, key: string): Promise<string>;
     getpwname(fs_context: NativeFSContext, user: string): Promise<object>;
 

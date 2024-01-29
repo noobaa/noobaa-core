@@ -45,8 +45,8 @@ ThreadScope::change_user()
     if (_uid != orig_uid || _gid != orig_gid) {
         // must change gid first otherwise will fail on permission
         MUST_SYS(syscall(SYS_setgroups, 0, NULL));
-        MUST_SYS(syscall(SYS_setresgid, -1, _gid, -1));
-        MUST_SYS(syscall(SYS_setresuid, -1, _uid, -1));
+        MUST_SYS(syscall(SYS_setresgid, _gid, _gid, -1));
+        MUST_SYS(syscall(SYS_setresuid, _uid, _uid, -1));
     }
 }
 
@@ -58,8 +58,8 @@ ThreadScope::restore_user()
 {
     if (_uid != orig_uid || _gid != orig_gid) {
         // must restore uid first otherwise will fail on permission
-        MUST_SYS(syscall(SYS_setresuid, -1, orig_uid, -1));
-        MUST_SYS(syscall(SYS_setresgid, -1, orig_gid, -1));
+        MUST_SYS(syscall(SYS_setresuid, orig_uid, orig_uid, -1));
+        MUST_SYS(syscall(SYS_setresgid, orig_gid, orig_gid, -1));
         MUST_SYS(syscall(SYS_setgroups, ThreadScope::orig_groups.size(), &ThreadScope::orig_groups[0]));
     }
 }

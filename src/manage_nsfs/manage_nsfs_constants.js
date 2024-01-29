@@ -42,7 +42,33 @@ const VALID_OPTIONS = {
     whitelist_options: VALID_OPTIONS_WHITELIST,
 };
 
+const TYPE_STRING_OR_NUMBER = 'string, number'; // we allow the names to be numbers and strings
+const OPTION_TYPE = {
+    name: TYPE_STRING_OR_NUMBER,
+    email: 'string',
+    uid: 'number',
+    gid: 'number',
+    new_buckets_path: 'string',
+    user: TYPE_STRING_OR_NUMBER,
+    access_key: 'string',
+    secret_key: 'string',
+    fs_backend: 'string',
+    config_root: 'string',
+    from_file: 'string',
+    config_root_backend: 'string',
+    path: 'string',
+    bucket_policy: 'string',
+    new_name: TYPE_STRING_OR_NUMBER,
+    regenerate: 'boolean',
+    wide: 'boolean',
+    show_secrets: 'boolean',
+    ips: 'string',
+};
+
 // EXPORTS
 exports.TYPES = TYPES;
 exports.ACTIONS = ACTIONS;
 exports.VALID_OPTIONS = VALID_OPTIONS;
+exports.OPTION_TYPE = OPTION_TYPE;
+exports.TYPE_STRING_OR_NUMBER = TYPE_STRING_OR_NUMBER;
+

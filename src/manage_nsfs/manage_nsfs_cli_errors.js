@@ -69,6 +69,12 @@ ManageCLIError.InvalidArgument = Object.freeze({
     http_code: 400,
 });
 
+ManageCLIError.InvalidArgumentType = Object.freeze({
+    code: 'InvalidArgumentType',
+    message: 'Invalid argument type',
+    http_code: 400,
+});
+
 ManageCLIError.InvalidType = Object.freeze({
     code: 'InvalidType',
     message: 'Invalid type, available types are account, bucket or whitelist',
@@ -218,18 +224,6 @@ ManageCLIError.MissingAccountNSFSConfigGID = Object.freeze({
 ManageCLIError.InvalidAccountNewBucketsPath = Object.freeze({
     code: 'InvalidAccountNewBucketsPath',
     message: 'Account\'s new_buckets_path should be a valid and existing directory path',
-    http_code: 400,
-});
-
-ManageCLIError.InvalidAccountUID = Object.freeze({
-    code: 'InvalidAccountUID',
-    message: 'Account UID must be a number',
-    http_code: 400,
-});
-
-ManageCLIError.InvalidAccountGID = Object.freeze({
-    code: 'InvalidAccountGID',
-    message: 'Account GID must be a number',
     http_code: 400,
 });
 

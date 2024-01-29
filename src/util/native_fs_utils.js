@@ -9,6 +9,7 @@ const { v4: uuidv4 } = require('uuid');
 const config = require('../../config');
 const RpcError = require('../rpc/rpc_error');
 const net = require('net');
+const fs = require('fs');
 
 const gpfs_link_unlink_retry_err = 'EEXIST';
 const gpfs_unlink_retry_catch = 'GPFS_UNLINK_RETRY';
@@ -412,7 +413,7 @@ async function get_user_by_distinguished_name({ distinguished_name }) {
         const user = await nb_native().fs.getpwname(context, distinguished_name);
         return user;
     } catch (err) {
-        dbg.error('native_fs_utils.get_user_by_distinguished_name: failed with error', err);
+        dbg.error('native_fs_utils.get_user_by_distinguished_name: failed with error', err, distinguished_name);
         if (err.code !== undefined) throw err;
         throw new RpcError('NO_SUCH_USER', 'User with distinguished_name not found', err);
     }
@@ -443,6 +444,27 @@ function get_process_fs_context(config_root_backend) {
     };
 }
 
+/**
+ * @param {Object} nsfs_account_config
+ * @param {string} [config_root_backend]
+ * @returns {Promise<nb.NativeFSContext>}
+ */
+async function get_fs_context(nsfs_account_config, config_root_backend) {
+    let account_ids_by_dn;
+    if (nsfs_account_config.distinguished_name) {
+        account_ids_by_dn = await get_user_by_distinguished_name(nsfs_account_config);
+        //{
+        //    distinguished_name: nsfs_account_config.distinguished_name // TODO add it for manage_nsfs .unwrap()
+        //});
+    }
+    return {
+        uid: (account_ids_by_dn && account_ids_by_dn.uid) ?? nsfs_account_config.uid,
+        gid: (account_ids_by_dn && account_ids_by_dn.gid) ?? nsfs_account_config.gid,
+        warn_threshold_ms: config.NSFS_WARN_THRESHOLD_MS,
+        backend: config_root_backend
+    };
+}
+
 function validate_bucket_creation(params) {
     if (params.name.length < 3 ||
         params.name.length > 63 ||
@@ -467,6 +489,41 @@ async function is_path_exists(fs_context, config_path, use_lstat = false) {
     }
     return true;
 }
+
+/**
+ * is_dir_rw_accessible validate the dir param accessible for read and write
+ * @param {nb.NativeFSContext} fs_context
+ * @param {string} dir_path
+ * @returns {Promise<boolean>}
+ */
+/* eslint-disable no-bitwise */
+async function is_dir_rw_accessible(fs_context, dir_path) {
+    let stat;
+    try {
+        stat = await nb_native().fs.stat(fs_context, dir_path);
+    } catch (err) {
+        return false;
+    }
+    const is_owner = fs_context.uid === stat.uid;
+    const is_group = fs_context.gid === stat.gid;
+
+    const read_access_owner = stat.mode & fs.constants.S_IRUSR;
+    const read_access_group = stat.mode & fs.constants.S_IRGRP;
+    const read_access_other = stat.mode & fs.constants.S_IROTH;
+
+    const write_access_owner = stat.mode & fs.constants.S_IWUSR;
+    const write_access_group = stat.mode & fs.constants.S_IWGRP;
+    const write_access_other = stat.mode & fs.constants.S_IWOTH;
+
+    if (is_owner) {
+        return Boolean(read_access_owner && write_access_owner);
+    }
+    if (is_group) {
+        return Boolean(read_access_group && write_access_group);
+    }
+    return Boolean(read_access_other && write_access_other);
+}
+/* eslint-enable no-bitwise */
 
 /**
  * delete bucket specific temp folder from bucket storage path, config.NSFS_TEMP_DIR_NAME_<bucket_id>
@@ -520,6 +577,8 @@ exports.delete_config_file = delete_config_file;
 exports.update_config_file = update_config_file;
 exports.isDirectory = isDirectory;
 exports.get_process_fs_context = get_process_fs_context;
+exports.get_fs_context = get_fs_context;
 exports.validate_bucket_creation = validate_bucket_creation;
 exports.is_path_exists = is_path_exists;
+exports.is_dir_rw_accessible = is_dir_rw_accessible;
 exports.folder_delete = folder_delete;

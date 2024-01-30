@@ -22,7 +22,7 @@ jobs:
       - name: Set branch
         run: echo "BRANCH=${{ github.event.inputs.base_branch }}" >> $GITHUB_ENV
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           ref: ${{ env.BRANCH }}
       - name: Fetch all tags

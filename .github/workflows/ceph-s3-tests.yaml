@@ -10,7 +10,7 @@ jobs:
       cancel-in-progress: true
     steps:
       - name: Checkout noobaa-core
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: 'noobaa/noobaa-core'
           path: 'noobaa-core'

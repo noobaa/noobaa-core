@@ -11,6 +11,7 @@ const P = require('../../util/promise');
 const config = require('../../../config');
 const fs_utils = require('../../util/fs_utils');
 const native_fs_utils = require('../../util/native_fs_utils');
+const os_utils = require('../../util/os_utils');
 
 const BucketSpaceFS = require('../../sdk/bucketspace_fs');
 const NamespaceFS = require('../../sdk/namespace_fs');
@@ -121,6 +122,7 @@ const dummy_ns = {
 function make_dummy_object_sdk() {
     return {
         requesting_account: {
+            _id: '65b3c68b59ab67b16f98c26e',
             force_md5_etag: false,
             email: 'user2@noobaa.io',
             allow_bucket_creation: true,
@@ -367,7 +369,9 @@ mocha.describe('bucketspace_fs', function() {
                 await fs.promises.stat(bucket_config_path);
             } catch (err) {
                 assert.strictEqual(err.code, 'ENOENT');
-                assert.equal(err.message, "ENOENT: no such file or directory, stat '/tmp/test_bucketspace_fs/config_root/buckets/buckettempdir.json'");
+                let path_for_err_msg = '/tmp/test_bucketspace_fs/config_root/buckets/buckettempdir.json';
+                if (os_utils.IS_MAC) path_for_err_msg = '/private' + path_for_err_msg;
+                assert.equal(err.message, `ENOENT: no such file or directory, stat '${path_for_err_msg}'`);
             }
             await fs.promises.stat(path.join(new_buckets_path, param.name));
         });

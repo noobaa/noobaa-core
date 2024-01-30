@@ -75,41 +75,6 @@ if [ "${state}" == "active" ]; then
   service rsyslog restart
 fi
 
-if [ $1 -gt 1 ]; then
-  UPGRADE_SCRIPTS_DIR=/root/node_modules/noobaa-core/src/upgrade/upgrade_scripts
-  NSFS_UPGRADE_SCRIPTS_DIR=/root/node_modules/noobaa-core/src/upgrade/nsfs_upgrade_scripts
-
-  NOOBAA_RPM_BASE_PATH="$RPM_BUILD_ROOT/usr/local/noobaa-core"
-  pushd $NOOBAA_RPM_BASE_PATH
-
-  echo "Checking deployment type"
-  echo "Looking for NSFS deployment"
-  pgrep -f "cmd/nsfs" > /dev/null
-  rc=$?
-  if [ "${rc}" -eq 0 ]; then
-    echo "Found NSFS deployment"
-    /usr/local/noobaa-core/bin/node src/upgrade/upgrade_manager.js --nsfs true --upgrade_scripts_dir ${NSFS_UPGRADE_SCRIPTS_DIR}
-    rccmd=$?
-  else
-    echo "Looking for non-NSFS deployment"
-    pgrep -f "server/web_server" > /dev/null
-    rc=$?
-    if [ "${rc}" -eq 0 ]; then
-      echo "Found non-NSFS deployment"
-      /usr/local/noobaa-core/bin/node src/upgrade/upgrade_manager.js --upgrade_scripts_dir ${UPGRADE_SCRIPTS_DIR}
-      rccmd=$?
-    else
-      echo "No deployments found, skipping upgrade"
-      exit 0
-    fi
-  fi
-
-  if [ ${rccmd} -ne 0 ]; then
-    echo "upgrade_manager failed with exit code ${rccmd}"
-    exit ${rccmd}
-  fi
-fi
-
 %changelog
 * %{releasedate} NooBaa Team <noobaa@noobaa.io>
 %{changelogdata}

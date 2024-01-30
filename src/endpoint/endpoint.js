@@ -80,6 +80,7 @@ dbg.log0('endpoint: replacing old umask: ', old_umask.toString(8), 'with new uma
 /**
  * @param {EndpointOptions} options
  */
+/* eslint-disable max-statements */
 async function main(options = {}) {
     try {
         // the primary just forks and returns, workers will continue to serve
@@ -144,11 +145,17 @@ async function main(options = {}) {
         const endpoint_request_handler = create_endpoint_handler(init_request_sdk, virtual_hosts);
         const endpoint_request_handler_sts = create_endpoint_handler(init_request_sdk, virtual_hosts, true);
 
-        const ssl_cert = await ssl_utils.get_ssl_certificate('S3');
-        const ssl_options = { ...ssl_cert, honorCipherOrder: true };
+        const ssl_cert_info = await ssl_utils.get_ssl_cert_info('S3');
+        const ssl_options = { ...ssl_cert_info.cert, honorCipherOrder: true };
         const http_server = http.createServer(endpoint_request_handler);
         const https_server = https.createServer(ssl_options, endpoint_request_handler);
         const https_server_sts = https.createServer(ssl_options, endpoint_request_handler_sts);
+        ssl_cert_info.on('update', updated_ssl_cert_info => {
+            dbg.log0("Setting updated S3 ssl certs for endpoint.");
+            const updated_ssl_options = { ...updated_ssl_cert_info.cert, honorCipherOrder: true };
+            https_server.setSecureContext(updated_ssl_options);
+            https_server_sts.setSecureContext(updated_ssl_options);
+        });
 
         if (http_port > 0) {
             dbg.log0('Starting S3 HTTP', http_port);

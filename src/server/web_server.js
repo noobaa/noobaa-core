@@ -90,8 +90,12 @@ async function main() {
         server_rpc.rpc.register_ws_transport(http_server);
         await P.ninvoke(http_server, 'listen', http_port);
 
-        const ssl_cert = await ssl_utils.get_ssl_certificate('MGMT');
-        const https_server = https.createServer({ ...ssl_cert, honorCipherOrder: true }, app);
+        const ssl_cert_info = await ssl_utils.get_ssl_cert_info('MGMT');
+        const https_server = https.createServer({ ...ssl_cert_info.cert, honorCipherOrder: true }, app);
+        ssl_cert_info.on('update', updated_cert_info => {
+            dbg.log0("Setting updated MGMT ssl certs for web server.");
+            https_server.setSecureContext({...updated_cert_info.cert, honorCipherOrder: true });
+        });
         server_rpc.rpc.register_ws_transport(https_server);
         await P.ninvoke(https_server, 'listen', https_port);
 

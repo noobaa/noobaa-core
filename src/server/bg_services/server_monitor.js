@@ -9,7 +9,6 @@ const os_utils = require('../../util/os_utils');
 const Dispatcher = require('../notifications/dispatcher');
 const server_rpc = require('../server_rpc');
 const system_store = require('../system_services/system_store').get_instance();
-const ssl_utils = require('../../util/ssl_utils');
 const db_client = require('../../util/db_client');
 
 
@@ -53,7 +52,6 @@ async function run_monitors() {
 
     _check_dns_and_phonehome();
     await _check_internal_ips();
-    await _verify_ssl_certs();
     await _check_db_disk_usage();
     await _check_address_changes(CONTAINER_PLATFORM);
 }
@@ -78,17 +76,6 @@ function _check_internal_ips() {
             monitoring_status.cluster_status = "UNKNOWN";
             dbg.warn(`Error when trying to check cluster servers' status.`, err.stack || err);
         });
-}
-
-async function _verify_ssl_certs() {
-    dbg.log2('_verify_ssl_certs');
-    const updated = await ssl_utils.update_certs_from_disk();
-    if (updated) {
-        dbg.log0('_verify_ssl_certs: SSL certificates changed, restarting relevant services');
-        await os_utils.restart_services([
-            'webserver'
-        ]);
-    }
 }
 
 async function _check_db_disk_usage() {

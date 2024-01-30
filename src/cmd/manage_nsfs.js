@@ -803,6 +803,11 @@ async function validate_account_args(data, action) {
         if (!exists) {
             throw_cli_error(ManageCLIError.InvalidAccountNewBucketsPath, data.nsfs_account_config.new_buckets_path);
         }
+        const account_fs_context = await native_fs_utils.get_fs_context(data.nsfs_account_config, config_root_backend);
+        const accessible = await native_fs_utils.is_dir_rw_accessible(account_fs_context, data.nsfs_account_config.new_buckets_path);
+        if (!accessible) {
+            throw_cli_error(ManageCLIError.InaccessibleAccountNewBucketsPath, data.nsfs_account_config.new_buckets_path);
+        }
     }
 }
 

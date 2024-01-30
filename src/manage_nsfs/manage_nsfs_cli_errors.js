@@ -356,6 +356,7 @@ ManageCLIError.FS_ERRORS_TO_MANAGE = Object.freeze({
 
 ManageCLIError.RPC_ERROR_TO_MANAGE = Object.freeze({
     INVALID_SCHEMA: ManageCLIError.InvalidSchema,
+    NO_SUCH_USER: ManageCLIError.InvalidAccountDistinguishedName
 });
 
 const NSFS_CLI_ERROR_EVENT_MAP = {

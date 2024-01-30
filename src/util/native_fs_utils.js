@@ -2,14 +2,15 @@
 'use strict';
 
 const dbg = require('../util/debug_module')(__filename);
-const P = require('../util/promise');
+const fs = require('fs');
+const net = require('net');
 const path = require('path');
-const nb_native = require('../util/nb_native');
+const P = require('../util/promise');
 const { v4: uuidv4 } = require('uuid');
 const config = require('../../config');
 const RpcError = require('../rpc/rpc_error');
-const net = require('net');
-const fs = require('fs');
+const nb_native = require('../util/nb_native');
+const SensitiveString = require('../util/sensitive_string');
 
 const gpfs_link_unlink_retry_err = 'EEXIST';
 const gpfs_unlink_retry_catch = 'GPFS_UNLINK_RETRY';
@@ -452,10 +453,10 @@ function get_process_fs_context(config_root_backend) {
 async function get_fs_context(nsfs_account_config, config_root_backend) {
     let account_ids_by_dn;
     if (nsfs_account_config.distinguished_name) {
-        account_ids_by_dn = await get_user_by_distinguished_name(nsfs_account_config);
-        //{
-        //    distinguished_name: nsfs_account_config.distinguished_name // TODO add it for manage_nsfs .unwrap()
-        //});
+        const dn = (nsfs_account_config.distinguished_name instanceof SensitiveString) ?
+            nsfs_account_config.distinguished_name.unwrap() :
+            nsfs_account_config.distinguished_name;
+        account_ids_by_dn = await get_user_by_distinguished_name({ distinguished_name: dn });
     }
     return {
         uid: (account_ids_by_dn && account_ids_by_dn.uid) ?? nsfs_account_config.uid,

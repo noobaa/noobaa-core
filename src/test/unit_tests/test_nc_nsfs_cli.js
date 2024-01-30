@@ -12,7 +12,9 @@ const nb_native = require('../../util/nb_native');
 const config_module = require('../../../config');
 const { ManageCLIError } = require('../../manage_nsfs/manage_nsfs_cli_errors');
 const { ManageCLIResponse } = require('../../manage_nsfs/manage_nsfs_cli_responses');
-const { exec_manage_cli, generate_s3_policy, nc_nsfs_manage_actions, nc_nsfs_manage_entity_types } = require('../system_tests/test_utils');
+const { exec_manage_cli, generate_s3_policy, create_fs_user_by_platform, delete_fs_user_by_platform,
+    nc_nsfs_manage_actions, nc_nsfs_manage_entity_types, set_path_permissions_and_owner
+} = require('../system_tests/test_utils');
 
 const MAC_PLATFORM = 'darwin';
 let tmp_fs_path = '/tmp/test_bucketspace_fs';
@@ -25,6 +27,9 @@ const DEFAULT_FS_CONFIG = {
     backend: '',
     warn_threshold_ms: 100,
 };
+
+const accounts_schema_dir = 'accounts';
+const access_keys_schema_dir = 'access_keys';
 
 mocha.describe('manage_nsfs cli', function() {
 
@@ -106,6 +111,7 @@ mocha.describe('manage_nsfs cli', function() {
             };
             await fs_utils.create_fresh_path(new_buckets_path1);
             await fs_utils.file_must_exist(new_buckets_path1);
+            await set_path_permissions_and_owner(new_buckets_path1, { uid: uid1, gid: gid1 }, 0o700);
             await exec_manage_cli(nc_nsfs_manage_entity_types.ACCOUNT, action, account_options1);
             // create account 'user2' 'user2@noobaa.io'
             const account_options2 = {
@@ -117,6 +123,7 @@ mocha.describe('manage_nsfs cli', function() {
             };
             await fs_utils.create_fresh_path(new_buckets_path2);
             await fs_utils.file_must_exist(new_buckets_path2);
+            await set_path_permissions_and_owner(new_buckets_path2, { uid: uid2, gid: gid2 }, 0o700);
             await exec_manage_cli(nc_nsfs_manage_entity_types.ACCOUNT, action, account_options2);
         });
 
@@ -496,6 +503,7 @@ mocha.describe('manage_nsfs cli', function() {
             const action = nc_nsfs_manage_actions.ADD;
             await fs_utils.create_fresh_path(new_buckets_path);
             await fs_utils.file_must_exist(new_buckets_path);
+            await set_path_permissions_and_owner(new_buckets_path, { uid, gid }, 0o700);
             add_res = await exec_manage_cli(type, action, account_options);
             assert_response(action, type, add_res, account_options);
             const account_symlink = await read_config_file(config_root, access_keys_schema_dir, access_key, true);
@@ -622,7 +630,9 @@ mocha.describe('manage_nsfs cli', function() {
             };
             await fs_utils.create_fresh_path(update_options.new_buckets_path);
             await fs_utils.file_must_exist(update_options.new_buckets_path);
+            await set_path_permissions_and_owner(update_options.new_buckets_path, update_options, 0o700);
             const update_response = await exec_manage_cli(type, action, update_options);
+
             updating_options = { ...updating_options, ...update_options };
             assert_response(action, type, update_response, updating_options);
             account_options = { ...account_options, ...update_options };
@@ -715,6 +725,7 @@ mocha.describe('manage_nsfs cli', function() {
         mocha.before(async () => {
             await fs_utils.create_fresh_path(new_buckets_path);
             await fs_utils.file_must_exist(new_buckets_path);
+            await set_path_permissions_and_owner(new_buckets_path, { uid, gid }, 0o700);
             const action = nc_nsfs_manage_actions.ADD;
             await exec_manage_cli(type, action, account1_options);
             await exec_manage_cli(type, action, account2_options);
@@ -754,17 +765,32 @@ mocha.describe('manage_nsfs cli', function() {
         const type = nc_nsfs_manage_entity_types.ACCOUNT;
         const name = 'account2';
         const new_buckets_path = `${root_path}new_buckets_path_user2/`;
-        const distinguished_name = 'moti1003';
+        const new_buckets_path_new_dn = `${root_path}new_buckets_path_new_dn/`;
+        const distinguished_name = 'root';
         const access_key = 'GIGiFAnjaaE7OKD5N7hB';
         const secret_key = 'U2AYaMpU3zRDcRFWmvzgQr9MoHIAsDy3o+4h0oFr';
         const accounts_schema_dir = 'accounts';
         const access_keys_schema_dir = 'access_keys';
         let account_options = { config_root, name, new_buckets_path, distinguished_name, access_key, secret_key };
+        const new_user = 'newuser';
+        
+        mocha.before(async () => {
+            this.timeout(50000); // eslint-disable-line no-invalid-this
+            await fs_utils.create_fresh_path(new_buckets_path);
+            await fs_utils.file_must_exist(new_buckets_path);
+            await fs_utils.create_fresh_path(new_buckets_path_new_dn);
+            await fs_utils.file_must_exist(new_buckets_path_new_dn);
+            await create_fs_user_by_platform(new_user, 'newpass', 2222, 2222);
+            await set_path_permissions_and_owner(new_buckets_path_new_dn, { uid: 2222, gid: 2222 }, 0o700);
+        });
+
+        mocha.after(async () => {
+            this.timeout(50000); // eslint-disable-line no-invalid-this
+            await delete_fs_user_by_platform(new_user);
+        });
 
         mocha.it('cli account create', async function() {
             const action = nc_nsfs_manage_actions.ADD;
-            await fs_utils.create_fresh_path(new_buckets_path);
-            await fs_utils.file_must_exist(new_buckets_path);
             const res = await exec_manage_cli(type, action, account_options);
             assert_response(action, type, res, account_options);
             const account_symlink = await read_config_file(config_root, access_keys_schema_dir, access_key, true);
@@ -778,7 +804,8 @@ mocha.describe('manage_nsfs cli', function() {
             const update_options = {
                 config_root,
                 name,
-                distinguished_name: 'moti1004',
+                new_buckets_path: new_buckets_path_new_dn,
+                distinguished_name: new_user,
             };
             const res = await exec_manage_cli(type, action, update_options);
             account_options = { ...account_options, ...update_options };
@@ -1025,4 +1052,3 @@ function assert_whitelist(config_data, config_options) {
     assert.strictEqual(config_data.NSFS_WHITELIST.length, config_options.NSFS_WHITELIST.length);
     return true;
 }
-

@@ -217,6 +217,18 @@ mocha.describe('manage_nsfs cli', function() {
             }
         });
 
+        mocha.it('cli bucket list - should fail invalid option type', async function() {
+            const action = nc_nsfs_manage_actions.LIST;
+            const invalid_wide = 'not-boolean';
+            const bucket_options_with_invalid_option = {config_root, wide: invalid_wide};
+            try {
+                add_res = await exec_manage_cli(type, action, bucket_options_with_invalid_option);
+                assert.fail('should have failed with invalid option type');
+            } catch (err) {
+                assert_error(err, ManageCLIError.InvalidArgumentType);
+            }
+        });
+
         mocha.it('cli bucket create - should fail on already exists', async function() {
             const action = nc_nsfs_manage_actions.ADD;
             try {

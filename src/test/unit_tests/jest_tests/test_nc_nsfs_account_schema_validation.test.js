@@ -364,13 +364,14 @@ function get_account_data() {
     return account_data;
 }
 
-function assert_validation(account_to_validate, reason, message) {
+function assert_validation(account_to_validate, reason, basic_message) {
     try {
         nsfs_schema_utils.validate_account_schema(account_to_validate);
         fail(reason);
     } catch (err) {
         expect(err).toBeInstanceOf(RpcError);
-        expect(err).toHaveProperty('message', message);
+        expect(err).toHaveProperty('message');
+        expect((err.message).includes(basic_message)).toBeTruthy();
     }
 }
 

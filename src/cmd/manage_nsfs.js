@@ -19,7 +19,8 @@ const ManageCLIResponse = require('../manage_nsfs/manage_nsfs_cli_responses').Ma
 const bucket_policy_utils = require('../endpoint/s3/s3_bucket_policy_utils');
 const nsfs_schema_utils = require('../manage_nsfs/nsfs_schema_utils');
 const { print_usage } = require('../manage_nsfs/manage_nsfs_help_utils');
-const { TYPES, ACTIONS, VALID_OPTIONS } = require('../manage_nsfs/manage_nsfs_constants');
+const { TYPES, ACTIONS, VALID_OPTIONS, OPTION_TYPE, TYPE_STRING_OR_NUMBER,
+    LIST_ACCOUNT_FILTERS, LIST_BUCKET_FILTERS} = require('../manage_nsfs/manage_nsfs_constants');
 
 function throw_cli_error(error_code, detail) {
     const err = new ManageCLIError(error_code).to_string(detail);
@@ -76,13 +77,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
         if (argv.help || argv.h) {
             return print_usage(type, action);
         }
-        const { invalid_input_options, valid_options } = validate_options(type, action, argv);
-        if (invalid_input_options.length > 0) {
-            const type_and_action = type === TYPES.IP_WHITELIST ? type : `${type} ${action}`;
-            const err_msg = `${invalid_input_options.join(', ')} invalid options for ` +
-                `${type_and_action}, please use only: ${[...valid_options].join(', ')}`;
-            throw_cli_error(ManageCLIError.InvalidArgument, err_msg);
-        }
+        validate_options(type, action, argv);
         config_root = argv.config_root ? String(argv.config_root) : config.NSFS_NC_CONF_DIR;
         if (!config_root) throw_cli_error(ManageCLIError.MissingConfigDirPath);
 
@@ -116,7 +111,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
 async function bucket_management(argv, from_file) {
     const action = argv._[1] || '';
     const data = await fetch_bucket_data(argv, from_file);
-    await manage_bucket_operations(action, data);
+    await manage_bucket_operations(action, data, argv);
 }
 
 async function fetch_bucket_data(argv, from_file) {
@@ -126,6 +121,7 @@ async function fetch_bucket_data(argv, from_file) {
         const fs_context = native_fs_utils.get_process_fs_context();
         const raw_data = (await nb_native().fs.readFile(fs_context, from_file)).data;
         data = JSON.parse(raw_data.toString());
+        validate_options_type(data);
     }
     if (!data) {
         data = {
@@ -303,7 +299,7 @@ async function delete_bucket(data) {
     write_stdout_response(ManageCLIResponse.BucketDeleted);
 }
 
-async function manage_bucket_operations(action, data) {
+async function manage_bucket_operations(action, data, argv) {
     if (action === ACTIONS.ADD) {
         await add_bucket(data);
     } else if (action === ACTIONS.STATUS) {
@@ -313,8 +309,8 @@ async function manage_bucket_operations(action, data) {
     } else if (action === ACTIONS.DELETE) {
         await delete_bucket(data);
     } else if (action === ACTIONS.LIST) {
-        let buckets = await list_config_files(buckets_dir_path);
-        if (!data.wide) buckets = buckets.map(item => ({ name: item.name }));
+        const bucket_filters = _.pick(argv, LIST_BUCKET_FILTERS);
+        const buckets = await list_config_files(TYPES.BUCKET, buckets_dir_path, data.wide, undefined, bucket_filters);
         write_stdout_response(ManageCLIResponse.BucketList, buckets);
     } else {
         // we should not get here (we check it before)
@@ -362,6 +358,7 @@ async function fetch_account_data(argv, from_file) {
         const fs_context = native_fs_utils.get_process_fs_context();
         const raw_data = (await nb_native().fs.readFile(fs_context, from_file)).data;
         data = JSON.parse(raw_data.toString());
+        validate_options_type(data);
     }
     if (action !== ACTIONS.LIST && action !== ACTIONS.STATUS) _validate_access_keys(argv);
     if (action === ACTIONS.ADD || action === ACTIONS.STATUS) {
@@ -589,9 +586,8 @@ async function manage_account_operations(action, data, show_secrets, argv) {
     } else if (action === ACTIONS.DELETE) {
         await delete_account(data);
     } else if (action === ACTIONS.LIST) {
-        let accounts = await list_config_files(accounts_dir_path, show_secrets);
-        accounts = filter_account_results(accounts, argv);
-        if (!data.wide) accounts = accounts.map(item => ({ name: item.name }));
+        const account_filters = _.pick(argv, LIST_ACCOUNT_FILTERS);
+        const accounts = await list_config_files(TYPES.ACCOUNT, accounts_dir_path, data.wide, show_secrets, account_filters);
         write_stdout_response(ManageCLIResponse.AccountList, accounts);
     } else {
         // we should not get here (we check it before)
@@ -600,40 +596,78 @@ async function manage_account_operations(action, data, show_secrets, argv) {
 }
 
 /**
- * filter_account_results will filter the results based on supported given flags
- * @param {any[]} accounts
- * @param {{}} argv
+ * filter_list_item will return an answer of filter_account() or filter_bucket() based on the entity type
+ * @param {string} type
+ * @param {object} entity
+ * @param {string[]} [filters]
  */
-function filter_account_results(accounts, argv) {
-    //supported filters for list
-    const filters = _.pick(argv, ['uid', 'gid']); //if we add filters we should remove this comment and the comment 4 lines below (else)
-    return accounts.filter(item => {
-        for (const [key, val] of Object.entries(filters)) {
-            if (key === 'uid' || key === 'gid') {
-                if (item.nsfs_account_config && item.nsfs_account_config[key] !== val) {
-                    return false;
-                }
-            } else if (item[key] !== val) { // We will never reach here if we will not add an appropriate field to the filter 
-                return false;
-            }
-        }
-        return true;
-    });
+function filter_list_item(type, entity, filters) {
+    return type === TYPES.ACCOUNT ? filter_account(entity, filters) : filter_bucket(entity, filters);
 }
 
 /**
+ * filter_account will return true or false based on whether an account meets the criteria defined by the supported flags.
+ * @param {object} account
+ * @param {string[]} [filters]
+ */
+function filter_account(account, filters) {
+    for (const [key, val] of Object.entries(filters)) {
+        if (key === 'uid' || key === 'gid') {
+            if (account.nsfs_account_config && account.nsfs_account_config[key] !== val) {
+                return false;
+            }
+        } else if (key === 'user') {
+            if (account.nsfs_account_config && account.nsfs_account_config.distinguished_name !== val) {
+                return false;
+            }
+        } else if (key === 'access_key') {
+            if (account.access_keys && account.access_keys[0][key] !== val) {
+                return false;
+            }
+        } else if (account[key] !== val) { // We will never reach here if we will not add an appropriate field to the filter 
+            return false;
+        }
+    }
+    return true;
+}
+
+/**
+ * filter_bucket will return true or false based on whether a bucket meets the criteria defined by the supported flags.
+ * currently not implemented
+ * @param {object} bucket
+ * @param {string[]} [filters]
+ */
+function filter_bucket(bucket, filters) {
+    for (const [key, val] of Object.entries(filters)) {
+        if (bucket[key] !== val) { // We will never reach here if we will not add an appropriate field to the filter 
+            return false;
+        }
+    }
+    return true;
+}
+/**
  * list_config_files will list all the config files (json) in a given config directory
  * @param {string} config_path
+ * @param {boolean} [wide]
+ * @param {boolean} [show_secrets]
+ * @param {object} [filters]
  */
-async function list_config_files(config_path, show_secrets) {
+async function list_config_files(type, config_path, wide, show_secrets, filters) {
     const fs_context = native_fs_utils.get_process_fs_context();
     const entries = await nb_native().fs.readdir(fs_context, config_path);
+    const should_filter = Object.keys(filters).length > 0;
 
     let config_files_list = await P.map_with_concurrency(10, entries, async entry => {
         if (entry.name.endsWith('.json')) {
-            const full_path = path.join(config_path, entry.name);
-            const data = await get_config_data(full_path, show_secrets);
-            return data;
+            if (wide || should_filter) {
+                const full_path = path.join(config_path, entry.name);
+                const data = await get_config_data(full_path, show_secrets || should_filter);
+                if (should_filter && !filter_list_item(type, data, filters)) return undefined;
+                // remove secrets on !show_secrets && should filter
+                return wide ? _.omit(data, show_secrets ? [] : ['access_keys']) : { name: entry.name.slice(0, entry.name.indexOf('.json')) };
+            } else {
+                return { name: entry.name.slice(0, entry.name.indexOf('.json')) };
+            }
         }
     });
     // it inserts undefined for the entry '.noobaa-config-nsfs' and we wish to remove it
@@ -747,9 +781,6 @@ async function validate_account_args(data, action) {
             throw_cli_error(ManageCLIError.InvalidFSBackend);
         }
 
-        if (data.nsfs_account_config.uid && typeof data.nsfs_account_config.uid !== 'number') throw_cli_error(ManageCLIError.InvalidAccountUID);
-        if (data.nsfs_account_config.gid && typeof data.nsfs_account_config.gid !== 'number') throw_cli_error(ManageCLIError.InvalidAccountGID);
-
         if (is_undefined(data.nsfs_account_config.new_buckets_path)) {
             return;
         }
@@ -761,13 +792,26 @@ async function validate_account_args(data, action) {
     }
 }
 
-/** validate_options checks if there are options that are not valid.
- * valid options are: required arguments, optional options and global configurations.
+/** validate_options checks if input option are valid.
  * @param {string} type
  * @param {string} action
  * @param {object} argv
  */
 function validate_options(type, action, argv) {
+    validate_no_extra_options(type, action, argv);
+    const input_options_with_data = { ...argv };
+    delete input_options_with_data._;
+    validate_options_type(input_options_with_data);
+}
+
+/**
+ * validate_no_extra_options will check that input options are valid options - 
+ * only required arguments, optional options and global configurations
+ * @param {string} type
+ * @param {string} action
+ * @param {object} argv
+ */
+function validate_no_extra_options(type, action, argv) {
     if (!Object.values(TYPES).includes(type)) throw_cli_error(ManageCLIError.InvalidType);
     if (type === TYPES.ACCOUNT || type === TYPES.BUCKET) {
         if (!Object.values(ACTIONS).includes(action)) throw_cli_error(ManageCLIError.InvalidAction);
@@ -787,7 +831,37 @@ function validate_options(type, action, argv) {
         valid_options = VALID_OPTIONS.whitelist_options;
     }
     const invalid_input_options = input_options.filter(element => !valid_options.has(element));
-    return {invalid_input_options, valid_options};
+    if (invalid_input_options.length > 0) {
+        const type_and_action = type === TYPES.IP_WHITELIST ? type : `${type} ${action}`;
+        const invalid_option_msg = invalid_input_options.length === 1 ?
+        `${invalid_input_options[0]} is an invalid option` :
+        `${invalid_input_options.join(', ')} are invalid options`;
+        const supported_option_msg = `Supported options are: ${[...valid_options].join(', ')}`;
+        const err_msg = `${invalid_option_msg} for ${type_and_action}. ${supported_option_msg}`;
+        throw_cli_error(ManageCLIError.InvalidArgument, err_msg);
+    }
+}
+
+/**
+ *  validate_options_type check the type of the value that match what we expect
+ * @param {object} input_options_with_data
+ */
+function validate_options_type(input_options_with_data) {
+    for (const [option, value] of Object.entries(input_options_with_data)) {
+        const type_of_option = OPTION_TYPE[option];
+        const type_of_value = typeof value;
+        const err_msg = `type of option ${option} should be ${type_of_option}, ` +
+            `received: ${value} (type ${type_of_value})`;
+        if (type_of_option === TYPE_STRING_OR_NUMBER) {
+            if ((type_of_value === 'string') || (type_of_value === 'number')) {
+                continue;
+            } else {
+                throw_cli_error(ManageCLIError.InvalidArgumentType, err_msg);
+            }
+        } else if (type_of_value !== type_of_option) {
+            throw_cli_error(ManageCLIError.InvalidArgumentType, err_msg);
+        }
+    }
 }
 
 ///////////////////////////////

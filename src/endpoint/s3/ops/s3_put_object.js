@@ -21,6 +21,9 @@ async function put_object(req, res) {
     const copy_source = s3_utils.parse_copy_source(req);
     const tagging = s3_utils.parse_tagging_header(req);
     const storage_class = s3_utils.parse_storage_class_header(req);
+    if (config.DENY_UPLOAD_TO_STORAGE_CLASS_STANDARD && storage_class === s3_utils.STORAGE_CLASS_STANDARD) {
+        throw new S3Error(S3Error.InvalidStorageClass);
+    }
     const lock_settings = config.WORM_ENABLED ? s3_utils.parse_lock_header(req) : undefined;
     // Copy request sends empty content and not relevant to the object data
     const { size, md5_b64, sha256_b64 } = copy_source ? {} : {

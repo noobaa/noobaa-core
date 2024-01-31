@@ -17,7 +17,7 @@ const { TYPES } = require('../manage_nsfs/manage_nsfs_constants');
 const HELP = `
 Help:
 
-    "nsfs" is a noobaa-core command runs a local S3 endpoint on top of a filesystem.
+    'nsfs' is a noobaa-core command runs a local S3 endpoint on top of a filesystem.
     Each sub directory of the root filesystem represents an S3 bucket.
     Health command will return the health status of deployed nsfs.
 `;
@@ -25,18 +25,19 @@ Help:
 const USAGE = `
 Usage:
 
-    node src/cmd/health [options...]
+    node src/cmd/health [flags]
 `;
 
 
 const OPTIONS = `
-Options:
+Flags:
 
-    --deployment_type                 <type>    (default nc)                                Set the nsfs type for heath check.
-    --config_root                     <dir>     (default config.NSFS_NC_DEFAULT_CONF_DIR)   Configuration files path for Noobaa standalon NSFS.
-    --https_port                      <port>    (default 6443)                              Set the S3 endpoint listening HTTPS port to serve.
-    --all_account_details             <boolean> (default false)                             Set a flag for returning all account details.
-    --all_bucket_details              <boolean> (default false)                             Set a flag for returning all bucket details.
+    --deployment_type <string>        (optional)                             Set the nsfs type for heath check.(default nc; Non Containerized)
+    --config_root <string>            (optional)                             Set Configuration files path for Noobaa standalon NSFS. (default config.NSFS_NC_DEFAULT_CONF_DIR)
+    --https_port                      (optional)                             Set the S3 endpoint listening HTTPS port to serve. (default config.ENDPOINT_SSL_PORT)
+    --all_account_details             (optional)                             Set a flag for returning all account details.
+    --all_bucket_details              (optional)                             Set a flag for returning all bucket details.
+    --check_syslog_ng                 (optional)                             Set a flag for considering syslog-ng in health check.
 `;
 
 function print_usage() {
@@ -46,9 +47,10 @@ function print_usage() {
     process.exit(1);
 }
 
-const HOSTNAME = "localhost";
-const NSFS_SERVICE = "noobaa_nsfs";
-const RSYSLOG_SERVICE = "rsyslog";
+const HOSTNAME = 'localhost';
+const NSFS_SERVICE = 'noobaa_nsfs';
+const RSYSLOG_SERVICE = 'rsyslog';
+const SYSLOG_NG_SERVICE = 'syslog-ng';
 const health_errors = {
     NSFS_SERVICE_FAILED: {
         error_code: 'NOOBAA_NSFS_SERVICE_FAILED',
@@ -123,10 +125,12 @@ class NSFSHealth {
         this.config_root = options.config_root;
         this.all_account_details = options.all_account_details;
         this.all_bucket_details = options.all_bucket_details;
+        this.check_syslog_ng = options.check_syslog_ng;
     }
     async nc_nsfs_health() {
         let endpoint_state;
         let memory;
+        let syslog_ng;
         const { service_status, pid } = await this.get_service_state(NSFS_SERVICE);
         if (pid !== '0') {
             endpoint_state = await this.get_endpoint_response();
@@ -136,10 +140,17 @@ class NSFSHealth {
         let account_details;
         const response_code = endpoint_state ? endpoint_state.response.response_code : 'NOT_RUNNING';
         const rsyslog = await this.get_service_state(RSYSLOG_SERVICE);
-        let service_health = "OK";
-        if (service_status !== "active" || pid === "0" || response_code !== 'RUNNING' ||
-            rsyslog.service_status !== "active" || rsyslog.pid === "0") {
-            service_health = "NOTOK";
+        let service_health = 'OK';
+        let syslog_ng_health = 'OK';
+        if (this.check_syslog_ng) {
+            syslog_ng = await this.get_service_state(SYSLOG_NG_SERVICE);
+            if (syslog_ng.service_status !== 'active' || syslog_ng.pid === '0') {
+                syslog_ng_health = 'NOTOK';
+            }
+        }
+        if (syslog_ng_health === 'NOTOK' || service_status !== 'active' || pid === '0' || response_code !== 'RUNNING' ||
+            rsyslog.service_status !== 'active' || rsyslog.pid === '0') {
+            service_health = 'NOTOK';
         }
         const error_code = await this.get_error_code(service_status, pid, rsyslog.service_status, response_code);
         if (this.all_bucket_details) bucket_details = await this.get_bucket_status(this.config_root);
@@ -179,6 +190,14 @@ class NSFSHealth {
                 }
             }
         };
+        if (this.check_syslog_ng) {
+            health.checks.services.push({
+                name: SYSLOG_NG_SERVICE,
+                service_status: syslog_ng.service_status,
+                pid: syslog_ng.pid,
+                error_type: health_errors_tyes.PERSISTENT,
+            });
+        }
         if (!this.all_account_details) delete health.checks.accounts_status;
         if (!this.all_bucket_details) delete health.checks.buckets_status;
         return health;
@@ -207,9 +226,9 @@ class NSFSHealth {
     }
 
     async get_error_code(nsfs_status, pid, rsyslog_status, endpoint_response_code) {
-        if (nsfs_status !== "active" || pid === "0") {
+        if (nsfs_status !== 'active' || pid === '0') {
             return health_errors.NSFS_SERVICE_FAILED;
-        } else if (rsyslog_status !== "active") {
+        } else if (rsyslog_status !== 'active') {
             return health_errors.RSYSLOG_SERVICE_FAILED;
         } else if (endpoint_response_code === 'NOT_RUNNING') {
             return health_errors.NSFS_ENDPOINT_FAILED;
@@ -303,7 +322,7 @@ class NSFSHealth {
             trim_stdout: true,
         });
         if (memory_status) {
-            const memory = memory_status.split("Memory: ")[1].trim();
+            const memory = memory_status.split('Memory: ')[1].trim();
             return memory;
         }
     }
@@ -401,8 +420,9 @@ async function main(argv = minimist(process.argv.slice(2))) {
         const deployment_type = argv.deployment_type || 'nc';
         const all_account_details = argv.all_account_details || false;
         const all_bucket_details = argv.all_bucket_details || false;
+        const check_syslog_ng = argv.check_syslog_ng || false;
         if (deployment_type === 'nc') {
-            const health = new NSFSHealth({ https_port, config_root, all_account_details, all_bucket_details });
+            const health = new NSFSHealth({ https_port, config_root, all_account_details, all_bucket_details, check_syslog_ng });
             const health_status = await health.nc_nsfs_health();
             process.stdout.write(JSON.stringify(health_status) + '\n');
             process.exit(0);
@@ -410,7 +430,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
             dbg.log0('Health is not supported for simple nsfs deployment.');
         }
     } catch (err) {
-        dbg.error('Helath: exit on error', err.stack || err);
+        dbg.error('Health: exit on error', err.stack || err);
         process.exit(2);
     }
 }

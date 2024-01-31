@@ -340,6 +340,12 @@ In this health output, `bucket2`'s storage path is invalid and the directory men
 
 Account without `new_buckets_path` and `allow_bucket_creation` value is `false` then it's considered a valid account, But if the `allow_bucket_creation` is true `new_buckets_path` is empty, in that case account is invalid. 
 
+### Optional status checks
+
+#### 1. `check_syslog_ng`
+`check_syslog_ng` flag will add syslogng to the health status check. Health final status will depend on the syslogng status.
+Health script will check whether the syslogng service is active or not and its PID is a valid value. Syslogng status will get added along with nsfs and rsyslog.
+
 ### Health Error Codes
 These are the error codes populated in the health output if the system is facing some issues. If any of these error codes are present in health status then the overall status will be in `NOTOK` state.
 #### 1. `NOOBAA_NSFS_SERVICE_FAILED`

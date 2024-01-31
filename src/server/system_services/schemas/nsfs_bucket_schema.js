@@ -9,6 +9,7 @@ module.exports = {
         'name',
         'system_owner',
         'bucket_owner',
+        'owner_account',
         'versioning',
         'path',
         'should_create_underlying_storage',
@@ -18,6 +19,7 @@ module.exports = {
         _id: {
             type: 'string',
         },
+        // owner_account is the account _id
         owner_account: {
             type: 'string',
         },

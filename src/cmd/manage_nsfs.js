@@ -124,14 +124,17 @@ async function fetch_bucket_data(argv, from_file) {
         validate_options_type(data);
     }
     if (!data) {
+        // added undefined values to keep the order the properties when printing the data object
         data = {
+            _id: undefined,
             name: argv.name,
+            owner_account: undefined,
             system_owner: argv.email,
             bucket_owner: argv.email,
             wide: argv.wide,
-            creation_date: action === ACTIONS.ADD ? new Date().toISOString() : undefined,
             tag: undefined, // if we would add the option to tag a bucket using CLI, this should be changed
             versioning: action === ACTIONS.ADD ? 'DISABLED' : undefined,
+            creation_date: action === ACTIONS.ADD ? new Date().toISOString() : undefined,
             path: argv.path,
             should_create_underlying_storage: action === ACTIONS.ADD ? false : undefined,
             new_name: argv.new_name,
@@ -190,12 +193,13 @@ function get_symlink_config_file_path(config_type_path, file_name) {
 
 async function add_bucket(data) {
     await validate_bucket_args(data, ACTIONS.ADD);
-    await verify_bucket_owner(data.bucket_owner.unwrap());
+    const account_id = await verify_bucket_owner(data.bucket_owner.unwrap());
     const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
     const bucket_conf_path = get_config_file_path(buckets_dir_path, data.name);
     const exists = await native_fs_utils.is_path_exists(fs_context, bucket_conf_path);
     if (exists) throw_cli_error(ManageCLIError.BucketAlreadyExists, data.name.unwrap());
     data._id = mongo_utils.mongoObjectId();
+    data.owner_account = account_id;
     const data_json = JSON.stringify(data);
     // We take an object that was stringify
     // (it unwraps ths sensitive strings, creation_date to string and removes undefined parameters)
@@ -206,11 +210,12 @@ async function add_bucket(data) {
 }
 
 /** verify_bucket_owner will check if the bucket_owner has an account
- * in case it does not find one, it would throw an error
+ * in case it finds on, it returns the account id, otherwise it would throw an error
  * @param {string} bucket_owner
  */
 async function verify_bucket_owner(bucket_owner) {
     let is_bucket_owner_exist = false;
+    let account_id;
     const show_secrets = false;
     const fs_context = native_fs_utils.get_process_fs_context();
     const entries = await nb_native().fs.readdir(fs_context, accounts_dir_path);
@@ -222,11 +227,14 @@ async function verify_bucket_owner(bucket_owner) {
             const data = await get_config_data(full_path, show_secrets);
             if (data.email === bucket_owner) {
                 is_bucket_owner_exist = true;
+                account_id = data._id;
             }
         }
     });
 
-    if (!is_bucket_owner_exist) {
+    if (is_bucket_owner_exist) {
+        return account_id;
+    } else {
         const detail_msg = `bucket owner ${bucket_owner} does not exists`;
         throw_cli_error(ManageCLIError.BucketSetForbiddenNoBucketOwner, detail_msg);
     }

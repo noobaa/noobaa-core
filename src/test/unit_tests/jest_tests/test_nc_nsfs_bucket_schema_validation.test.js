@@ -281,6 +281,24 @@ describe('schema validation NC NSFS bucket', () => {
             assert_validation(bucket_data, reason, message);
         });
 
+        it('bucket without owner_account', () => {
+            const bucket_data = get_bucket_data();
+            delete bucket_data.owner_account;
+            const reason = 'Test should have failed because of missing required property ' +
+                'owner_account';
+            const message = "must have required property 'owner_account'";
+            assert_validation(bucket_data, reason, message);
+        });
+
+        it('bucket with undefined owner_account', () => {
+            const bucket_data = get_bucket_data();
+            bucket_data.owner_account = undefined;
+            const reason = 'Test should have failed because of missing required property ' +
+                'owner_account';
+            const message = "must have required property 'owner_account'";
+            assert_validation(bucket_data, reason, message);
+        });
+
     });
 
     describe('bucket with wrong types', () => {
@@ -355,6 +373,26 @@ describe('schema validation NC NSFS bucket', () => {
             assert_validation(bucket_data, reason, message);
         });
 
+        it('bucket with _id as number (instead of string)', () => {
+            const bucket_data = get_bucket_data();
+            // @ts-ignore
+            bucket_data._id = 123; // number instead of string
+            const reason = 'Test should have failed because of wrong type ' +
+                '_id with number (instead of string)';
+            const message = 'must be string';
+            assert_validation(bucket_data, reason, message);
+        });
+
+        it('bucket with owner_account as number (instead of string)', () => {
+            const bucket_data = get_bucket_data();
+            // @ts-ignore
+            bucket_data.owner_account = 123; // number instead of string
+            const reason = 'Test should have failed because of wrong type ' +
+                'owner_account with number (instead of string)';
+            const message = 'must be string';
+            assert_validation(bucket_data, reason, message);
+        });
+
     });
 
 });
@@ -364,6 +402,7 @@ function get_bucket_data() {
     const id = '65a62e22ceae5e5f1a758aa8';
     const system_owner = 'account1@noobaa.io';
     const bucket_owner = 'account1@noobaa.io';
+    const owner_account = '65b3c68b59ab67b16f98c26e';
     const versioning_disabled = 'DISABLED';
     const creation_date = new Date('December 17, 2023 09:00:00').toISOString();
     const path = '/tmp/nsfs_root1';
@@ -373,6 +412,7 @@ function get_bucket_data() {
         name: bucket_name,
         system_owner: system_owner,
         bucket_owner: bucket_owner,
+        owner_account: owner_account,
         versioning: versioning_disabled,
         creation_date: creation_date,
         path: path,

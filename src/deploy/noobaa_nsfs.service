@@ -7,6 +7,7 @@ Restart=always
 RestartSec=2
 User=root
 Group=root
+ExecStartPre=/usr/local/noobaa-core/bin/node /usr/local/noobaa-core/src/upgrade/upgrade_manager.js --nsfs true --upgrade_scripts_dir /usr/local/noobaa-core/src/upgrade/nsfs_upgrade_scripts
 ExecStart=/usr/local/noobaa-core/bin/node /usr/local/noobaa-core/src/cmd/nsfs.js
 EnvironmentFile=-/etc/sysconfig/noobaa_nsfs
 ExecStop=/bin/kill $MAINPID

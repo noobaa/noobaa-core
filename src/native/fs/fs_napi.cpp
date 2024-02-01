@@ -780,8 +780,13 @@ struct CheckAccess : public FSWorker
         Begin(XSTR() << "CheckAccess " << DVAL(_path));
     }
     virtual void Work()
-    {   
-        int accessible = access(_path.c_str(), _flags);
+    {
+        int accessible = -1;
+#ifdef __APPLE__
+        accessible = faccessat(-1, _path.c_str(), _flags, AT_EACCESS);
+#else
+        accessible = syscall(SYS_faccessat2, -1, _path.c_str(), _flags, AT_EACCESS);
+#endif
         if (accessible < 0) {
             SetSyscallError();
         }

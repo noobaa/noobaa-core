@@ -193,7 +193,7 @@ function get_symlink_config_file_path(config_type_path, file_name) {
 
 async function add_bucket(data) {
     await validate_bucket_args(data, ACTIONS.ADD);
-    const account_id = await verify_bucket_owner(data.bucket_owner.unwrap());
+    const account_id = await verify_bucket_owner(data.bucket_owner.unwrap(), ACTIONS.ADD);
     const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
     const bucket_conf_path = get_config_file_path(buckets_dir_path, data.name);
     const exists = await native_fs_utils.is_path_exists(fs_context, bucket_conf_path);
@@ -210,11 +210,14 @@ async function add_bucket(data) {
 }
 
 /** verify_bucket_owner will check if the bucket_owner has an account
- * in case it finds on, it returns the account id, otherwise it would throw an error
+ * after it finds one, it returns the account id, otherwise it would throw an error
+ * (in case the action is add bucket it also checks that the owner has allow_bucket_creation)
  * @param {string} bucket_owner
+ * @param {string} action
  */
-async function verify_bucket_owner(bucket_owner) {
+async function verify_bucket_owner(bucket_owner, action) {
     let is_bucket_owner_exist = false;
+    let is_allow_bucket_creation = false;
     let account_id;
     const show_secrets = false;
     const fs_context = native_fs_utils.get_process_fs_context();
@@ -227,17 +230,20 @@ async function verify_bucket_owner(bucket_owner) {
             const data = await get_config_data(full_path, show_secrets);
             if (data.email === bucket_owner) {
                 is_bucket_owner_exist = true;
+                is_allow_bucket_creation = data.allow_bucket_creation;
                 account_id = data._id;
             }
         }
     });
 
-    if (is_bucket_owner_exist) {
-        return account_id;
-    } else {
+    if (!is_bucket_owner_exist) {
         const detail_msg = `bucket owner ${bucket_owner} does not exists`;
         throw_cli_error(ManageCLIError.BucketSetForbiddenNoBucketOwner, detail_msg);
     }
+    if (action === ACTIONS.ADD && !is_allow_bucket_creation) {
+            throw_cli_error(ManageCLIError.BucketCreationNotAllowed, bucket_owner);
+    }
+    return account_id;
 }
 
 async function get_bucket_status(data) {
@@ -255,7 +261,7 @@ async function get_bucket_status(data) {
 
 async function update_bucket(data) {
     await validate_bucket_args(data, ACTIONS.UPDATE);
-    await verify_bucket_owner(data.bucket_owner.unwrap());
+    await verify_bucket_owner(data.bucket_owner.unwrap(), ACTIONS.UPDATE);
 
     const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
 

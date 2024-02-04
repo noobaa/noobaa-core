@@ -120,6 +120,9 @@ function setup_non_root_user() {
     # setuid for rsyslog so it can run as root
     chmod u+s /sbin/rsyslogd
 
+    # setuid for crond so it can run as root
+    chmod u+s /sbin/crond
+
 }
 
 deploy_log "Starting setup platform"

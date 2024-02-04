@@ -424,7 +424,7 @@ async function fetch_account_data(argv, from_file) {
             // fs_backend deletion specified with empty string '' (but it is not part of the schema)
             fs_backend: data.nsfs_account_config.fs_backend || undefined
         },
-        allow_bucket_creation: !is_undefined(data.nsfs_account_config.new_buckets_path),
+        allow_bucket_creation: !is_string_undefined(data.nsfs_account_config.new_buckets_path),
         // updates of account identifiers
         new_name: data.new_name && new SensitiveString(String(data.new_name)),
         new_access_key: data.new_access_key && new SensitiveString(String(data.new_access_key))
@@ -442,7 +442,7 @@ async function fetch_existing_account_data(target) {
     } catch (err) {
         dbg.log1('NSFS Manage command: Could not find account', target, err);
         if (err.code === 'ENOENT') {
-            if (is_undefined(target.name)) {
+            if (is_string_undefined(target.name)) {
                 throw_cli_error(ManageCLIError.NoSuchAccountAccessKey, target.access_keys[0].access_key);
             } else {
                 throw_cli_error(ManageCLIError.NoSuchAccountName, target.name);
@@ -576,13 +576,13 @@ async function get_account_status(data, show_secrets) {
     await validate_account_args(data, ACTIONS.STATUS);
 
     try {
-        const account_path = is_undefined(data.name) ?
+        const account_path = is_string_undefined(data.name) ?
             get_symlink_config_file_path(access_keys_dir_path, data.access_keys[0].access_key) :
             get_config_file_path(accounts_dir_path, data.name);
         const config_data = await get_config_data(account_path, show_secrets);
         write_stdout_response(ManageCLIResponse.AccountStatus, config_data);
     } catch (err) {
-        if (is_undefined(data.name)) {
+        if (is_string_undefined(data.name)) {
             throw_cli_error(ManageCLIError.NoSuchAccountAccessKey, data.access_keys[0].access_key.unwrap());
         } else {
             throw_cli_error(ManageCLIError.NoSuchAccountName, data.name.unwrap());
@@ -715,15 +715,15 @@ async function get_config_data(config_file_path, show_secrets) {
  */
 async function validate_bucket_args(data, action) {
     if (action === ACTIONS.DELETE || action === ACTIONS.STATUS) {
-        if (is_undefined(data.name)) throw_cli_error(ManageCLIError.MissingBucketNameFlag);
+        if (is_string_undefined(data.name)) throw_cli_error(ManageCLIError.MissingBucketNameFlag);
     } else {
-        if (is_undefined(data.name)) throw_cli_error(ManageCLIError.MissingBucketNameFlag);
+        if (is_string_undefined(data.name)) throw_cli_error(ManageCLIError.MissingBucketNameFlag);
         try {
             native_fs_utils.validate_bucket_creation({ name: data.name.unwrap() });
         } catch (err) {
             throw_cli_error(ManageCLIError.InvalidBucketName, data.name.unwrap());
         }
-        if (!is_undefined(data.new_name)) {
+        if (!is_string_undefined(data.new_name)) {
             if (action !== ACTIONS.UPDATE) throw_cli_error(ManageCLIError.InvalidNewNameBucketIdentifier);
             try {
                 native_fs_utils.validate_bucket_creation({ name: data.new_name.unwrap() });
@@ -731,7 +731,7 @@ async function validate_bucket_args(data, action) {
                 throw_cli_error(ManageCLIError.InvalidBucketName, data.new_name.unwrap());
             }
         }
-        if (is_undefined(data.system_owner)) throw_cli_error(ManageCLIError.MissingBucketEmailFlag);
+        if (is_string_undefined(data.system_owner)) throw_cli_error(ManageCLIError.MissingBucketEmailFlag);
         if (!data.path) throw_cli_error(ManageCLIError.MissingBucketPathFlag);
         const fs_context = native_fs_utils.get_process_fs_context();
         const exists = await native_fs_utils.is_path_exists(fs_context, data.path);
@@ -769,24 +769,24 @@ async function validate_bucket_args(data, action) {
  */
 async function validate_account_args(data, action) {
     if (action === ACTIONS.STATUS || action === ACTIONS.DELETE) {
-        if (is_undefined(data.access_keys[0].access_key) && is_undefined(data.name)) {
+        if (is_string_undefined(data.access_keys[0].access_key) && is_string_undefined(data.name)) {
             throw_cli_error(ManageCLIError.MissingIdentifier);
         }
     } else {
         if ((action !== ACTIONS.UPDATE && data.new_name)) throw_cli_error(ManageCLIError.InvalidNewNameAccountIdentifier);
         if ((action !== ACTIONS.UPDATE && data.new_access_key)) throw_cli_error(ManageCLIError.InvalidNewAccessKeyIdentifier);
-        if (is_undefined(data.name)) throw_cli_error(ManageCLIError.MissingAccountNameFlag);
-        if (is_undefined(data.email)) throw_cli_error(ManageCLIError.MissingAccountEmailFlag);
+        if (is_string_undefined(data.name)) throw_cli_error(ManageCLIError.MissingAccountNameFlag);
+        if (is_string_undefined(data.email)) throw_cli_error(ManageCLIError.MissingAccountEmailFlag);
 
-        if (is_undefined(data.access_keys[0].secret_key)) throw_cli_error(ManageCLIError.MissingAccountSecretKeyFlag);
-        if (is_undefined(data.access_keys[0].access_key)) throw_cli_error(ManageCLIError.MissingAccountAccessKeyFlag);
-        if (data.nsfs_account_config.gid && (is_undefined(data.nsfs_account_config.uid))) {
+        if (is_string_undefined(data.access_keys[0].secret_key)) throw_cli_error(ManageCLIError.MissingAccountSecretKeyFlag);
+        if (is_string_undefined(data.access_keys[0].access_key)) throw_cli_error(ManageCLIError.MissingAccountAccessKeyFlag);
+        if (data.nsfs_account_config.gid && data.nsfs_account_config.uid === undefined) {
             throw_cli_error(ManageCLIError.MissingAccountNSFSConfigUID, data.nsfs_account_config);
         }
-        if (data.nsfs_account_config.uid && (is_undefined(data.nsfs_account_config.gid))) {
+        if (data.nsfs_account_config.uid && data.nsfs_account_config.gid === undefined) {
             throw_cli_error(ManageCLIError.MissingAccountNSFSConfigGID, data.nsfs_account_config);
         }
-        if ((is_undefined(data.nsfs_account_config.distinguished_name) &&
+        if ((is_string_undefined(data.nsfs_account_config.distinguished_name) &&
                 (data.nsfs_account_config.uid === undefined || data.nsfs_account_config.gid === undefined))) {
             throw_cli_error(ManageCLIError.InvalidAccountNSFSConfig, data.nsfs_account_config);
         }
@@ -795,7 +795,7 @@ async function validate_account_args(data, action) {
             throw_cli_error(ManageCLIError.InvalidFSBackend);
         }
 
-        if (is_undefined(data.nsfs_account_config.new_buckets_path)) {
+        if (is_string_undefined(data.nsfs_account_config.new_buckets_path)) {
             return;
         }
         const fs_context = native_fs_utils.get_process_fs_context();
@@ -882,7 +882,7 @@ function validate_options_type(input_options_with_data) {
 ///         UTILS           ///
 ///////////////////////////////
 
-function is_undefined(value) {
+function is_string_undefined(value) {
     if (!value) return true;
     if ((value instanceof SensitiveString) && value.unwrap() === 'undefined') return true;
     return false;
@@ -930,10 +930,14 @@ function verify_whitelist_ips(ips_to_validate) {
 
 function _validate_access_keys(argv) {
     // using the access_key flag requires also using the secret_key flag
-    if (!is_undefined(argv.access_key) && is_undefined(argv.secret_key)) throw_cli_error(ManageCLIError.MissingAccountSecretKeyFlag);
-    if (!is_undefined(argv.secret_key) && is_undefined(argv.access_key)) throw_cli_error(ManageCLIError.MissingAccountAccessKeyFlag);
+    if (!is_string_undefined(argv.access_key) && is_string_undefined(argv.secret_key)) {
+        throw_cli_error(ManageCLIError.MissingAccountSecretKeyFlag);
+    }
+    if (!is_string_undefined(argv.secret_key) && is_string_undefined(argv.access_key)) {
+        throw_cli_error(ManageCLIError.MissingAccountAccessKeyFlag);
+    }
     // checking the complexity of access_key
-    if (!is_undefined(argv.access_key) && !string_utils.validate_complexity(argv.access_key, {
+    if (!is_string_undefined(argv.access_key) && !string_utils.validate_complexity(argv.access_key, {
             require_length: 20,
             check_uppercase: true,
             check_lowercase: false,
@@ -941,7 +945,7 @@ function _validate_access_keys(argv) {
             check_symbols: false,
         })) throw_cli_error(ManageCLIError.AccountAccessKeyFlagComplexity);
     // checking the complexity of secret_key
-    if (!is_undefined(argv.secret_key) && !string_utils.validate_complexity(argv.secret_key, {
+    if (!is_string_undefined(argv.secret_key) && !string_utils.validate_complexity(argv.secret_key, {
             require_length: 40,
             check_uppercase: true,
             check_lowercase: true,

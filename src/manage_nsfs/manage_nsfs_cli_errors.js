@@ -275,6 +275,12 @@ ManageCLIError.BucketSetForbiddenNoBucketOwner = Object.freeze({
     http_code: 403,
 });
 
+ManageCLIError.BucketCreationNotAllowed = Object.freeze({
+    code: 'BucketCreationNotAllowed',
+    message: 'Not allowed to create new buckets',
+    http_code: 403,
+});
+
 /////////////////////////////////
 //// BUCKET ARGUMENTS ERRORS ////
 /////////////////////////////////

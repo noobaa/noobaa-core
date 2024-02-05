@@ -124,6 +124,39 @@ mocha.describe('manage_nsfs cli', function() {
             await exec_manage_cli(nc_nsfs_manage_entity_types.ACCOUNT, action, account_options2);
         });
 
+        mocha.it('cli bucket create - should fail bucket owner\'s allow_bucket_creation is false', async function() {
+            const account_name_for_account_cannot_create_bucket = 'user3';
+            const owner_email = 'user3@noobaa.io';
+            const uid = 3333;
+            const gid = 3333;
+
+            const action = nc_nsfs_manage_actions.ADD;
+            // create account 'user3'
+            // without new_buckets_path property 
+            // (currently this is the way to set allow_bucket_creation with false value)
+            const account_options = {
+                config_root: config_root,
+                name: account_name_for_account_cannot_create_bucket,
+                email: owner_email,
+                uid: uid,
+                gid: gid,
+            };
+            await exec_manage_cli(nc_nsfs_manage_entity_types.ACCOUNT, action, account_options);
+            // try to create a bucket
+            try {
+                const bucket_options_with_owner_of_account_cannot_create_bucket = {
+                     config_root,
+                     name,
+                     email: owner_email,
+                     path: bucket_path
+                };
+                await exec_manage_cli(type, action, { ...bucket_options_with_owner_of_account_cannot_create_bucket });
+                assert.fail('should have failed with not allowed to create new buckets');
+            } catch (err) {
+                assert_error(err, ManageCLIError.BucketCreationNotAllowed);
+            }
+        });
+
         mocha.it('cli bucket create with invalid bucket policy - should fail', async function() {
             const action = nc_nsfs_manage_actions.ADD;
             try {

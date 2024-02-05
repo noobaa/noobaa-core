@@ -176,6 +176,33 @@ describe('manage nsfs cli account flow', () => {
             expect(JSON.parse(res.stdout).error.message).toBe(ManageCLIError.InvalidAccountNewBucketsPath.message);
         });
 
+        it('cli account add - uid is 0, gid is not 0', async function() {
+            const account_name = 'uid_is_0';
+            const options = { name: account_name, email: `${account_name}@noobaa.com`, uid: 0, gid: 1001 };
+            const res = await exec_manage_cli(TYPES.ACCOUNT, ACTIONS.ADD, { config_root, ...options });
+            const account = JSON.parse(res).response.reply;
+            assert_account(account, options, false);
+            await exec_manage_cli(TYPES.ACCOUNT, ACTIONS.DELETE, { config_root, name: account_name });
+        });
+
+        it('cli account add - uid is not 0, gid is 0', async function() {
+            const account_name = 'gid_is_0';
+            const options = { name: account_name, email: `${account_name}@noobaa.com`, uid: 1001, gid: 0 };
+            const res = await exec_manage_cli(TYPES.ACCOUNT, ACTIONS.ADD, { config_root, ...options });
+            const account = JSON.parse(res).response.reply;
+            assert_account(account, options, false);
+            await exec_manage_cli(TYPES.ACCOUNT, ACTIONS.DELETE, { config_root, name: account_name });
+        });
+
+        it('cli account add - uid is 0, gid is 0', async function() {
+            const account_name = 'uid_gid_are_0';
+            const options = { name: account_name, email: `${account_name}@noobaa.com`, uid: 0, gid: 0 };
+            const res = await exec_manage_cli(TYPES.ACCOUNT, ACTIONS.ADD, { config_root, ...options });
+            const account = JSON.parse(res).response.reply;
+            assert_account(account, options, false);
+            await exec_manage_cli(TYPES.ACCOUNT, ACTIONS.DELETE, { config_root, name: account_name });
+        });
+
     });
 
     describe('cli update account', () => {

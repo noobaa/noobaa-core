@@ -311,42 +311,6 @@ module.exports = {
             }
         },
 
-        attempt_server_resolve: {
-            doc: 'Attempt to resolve a server name + ping',
-            method: 'POST',
-            params: {
-                type: 'object',
-                required: ['server_name'],
-                properties: {
-                    server_name: {
-                        type: 'string'
-                    },
-                    ping: {
-                        type: 'boolean'
-                    },
-                    version_check: {
-                        type: 'boolean'
-                    }
-                },
-            },
-            reply: {
-                type: 'object',
-                required: ['valid'],
-                properties: {
-                    valid: {
-                        type: 'boolean'
-                    },
-                    reason: {
-                        type: 'string'
-                    }
-                }
-            },
-            auth: {
-                account: false,
-                system: false,
-            }
-        },
-
         log_client_console: {
             method: 'POST',
             params: {

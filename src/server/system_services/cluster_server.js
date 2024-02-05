@@ -6,7 +6,6 @@ const _ = require('lodash');
 const fs = require('fs');
 const moment = require('moment');
 const net = require('net');
-const request = require('request');
 
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
@@ -980,29 +979,6 @@ function apply_read_server_time(req) {
 }
 
 
-//
-//Internals Cluster Control
-//
-
-function read_server_config(req) {
-    const using_dhcp = false;
-    const srvconf = {};
-
-    return P.resolve()
-        .then(() => _attach_server_configuration(srvconf))
-        .then(() => {
-            const { dns_servers, timezone } = srvconf;
-
-            return _get_aws_owner()
-                .then(owner => ({
-                    using_dhcp,
-                    dns_servers,
-                    timezone,
-                    owner,
-                }));
-        });
-}
-
 function update_server_conf(req) {
     dbg.log0('set_server_conf. params:', req.rpc_params);
     const cluster_server = system_store.data.cluster_by_server[req.rpc_params.target_secret];
@@ -1391,50 +1367,6 @@ function _update_rs_if_needed(IPs, name, is_config) {
     return P.resolve();
 }
 
-function _get_aws_owner() {
-    return P.resolve()
-        .then(() => {
-            //paid version only - 8q32hahci09vwgsx568lhrzwl
-            dbg.log0('aws: process.env.PLATFORM === aws :' + (process.env.PLATFORM === 'aws') + 'Paid? ' + (process.env.AWS_PRODUCT_CODE === '8q32hahci09vwgsx568lhrzwl'));
-            if ((process.env.PLATFORM !== 'aws' && process.env.PLATFORM !== 'azure' && process.env.PLATFORM !== 'google') ||
-                (process.env.PLATFORM === 'aws' && process.env.AWS_PRODUCT_CODE !== '8q32hahci09vwgsx568lhrzwl') ||
-                (process.env.PLATFORM === 'azure' && process.env.PAID !== 'true') ||
-                (process.env.PLATFORM === 'google' && process.env.PAID !== 'true')) {
-                return;
-            }
-
-            const email = `${process.env.AWS_INSTANCE_ID}@noobaa.com`;
-            return P.retry({
-                    attempts: 10,
-                    delay_ms: 30000,
-                    func: () =>
-                        P.fromCallback(callback => request({
-                            method: 'GET',
-                            url: `https://store.zapier.com/api/records?secret=${email}`
-                        }, callback))
-                        .then(res => {
-                            dbg.log0(`got activation code for ${email} from zappier. body=`, res.body);
-                            const { code } = JSON.parse(res.body);
-                            if (!code) {
-                                throw new Error('expected returned json to have a code property but it doesnt');
-                            }
-                            return {
-                                activation_code: code,
-                                email: email
-                            };
-                        })
-                        .catch(err => {
-                            dbg.error(`got error when trying to get activation code for ${email} from zappier:`, err);
-                            throw err;
-                        })
-                })
-                .catch(err => {
-                    dbg.error(`FAILED GETTING ACTIVATION CODE FROM ZAPPIER FOR ${email}`, err);
-                });
-        });
-}
-
-
 async function _attach_server_configuration(cluster_server) {
     cluster_server.timezone = (await os_utils.get_time_config()).timezone;
     return cluster_server;
@@ -1491,7 +1423,6 @@ exports.diagnose_system = diagnose_system;
 exports.collect_server_diagnostics = collect_server_diagnostics;
 exports.read_server_time = read_server_time;
 exports.apply_read_server_time = apply_read_server_time;
-exports.read_server_config = read_server_config;
 exports.check_cluster_status = check_cluster_status;
 exports.ping = ping;
 exports.verify_candidate_join_conditions = verify_candidate_join_conditions;

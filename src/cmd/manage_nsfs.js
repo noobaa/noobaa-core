@@ -18,13 +18,14 @@ const ManageCLIError = require('../manage_nsfs/manage_nsfs_cli_errors').ManageCL
 const NSFS_CLI_ERROR_EVENT_MAP = require('../manage_nsfs/manage_nsfs_cli_errors').NSFS_CLI_ERROR_EVENT_MAP;
 const ManageCLIResponse = require('../manage_nsfs/manage_nsfs_cli_responses').ManageCLIResponse;
 const NSFS_CLI_SUCCESS_EVENT_MAP = require('../manage_nsfs/manage_nsfs_cli_responses').NSFS_CLI_SUCCESS_EVENT_MAP;
-const { TYPES, ACTIONS, VALID_OPTIONS, OPTION_TYPE, TYPE_STRING_OR_NUMBER,
+const { TYPES, ACTIONS, VALID_OPTIONS, OPTION_TYPE,
     LIST_ACCOUNT_FILTERS, LIST_BUCKET_FILTERS, GLACIER_ACTIONS } = require('../manage_nsfs/manage_nsfs_constants');
 const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
 const manage_nsfs_glacier = require('../manage_nsfs/manage_nsfs_glacier');
 const bucket_policy_utils = require('../endpoint/s3/s3_bucket_policy_utils');
 const nsfs_schema_utils = require('../manage_nsfs/nsfs_schema_utils');
 const { print_usage } = require('../manage_nsfs/manage_nsfs_help_utils');
+
 
 function throw_cli_error(error_code, detail, event_arg) {
     const error_event = NSFS_CLI_ERROR_EVENT_MAP[error_code.code];
@@ -89,7 +90,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
         if (argv.help || argv.h) {
             return print_usage(type, action);
         }
-        validate_options(type, action, argv);
+        validate_flags_arguments(type, action, argv);
         config_root = argv.config_root ? String(argv.config_root) : config.NSFS_NC_CONF_DIR;
         if (!config_root) throw_cli_error(ManageCLIError.MissingConfigDirPath);
 
@@ -135,7 +136,7 @@ async function fetch_bucket_data(argv, from_file) {
         const fs_context = native_fs_utils.get_process_fs_context();
         const raw_data = (await nb_native().fs.readFile(fs_context, from_file)).data;
         data = JSON.parse(raw_data.toString());
-        validate_options_type(data);
+        // GAP - from-file is not validated
     }
     if (!data) {
         // added undefined values to keep the order the properties when printing the data object
@@ -376,7 +377,7 @@ async function fetch_account_data(argv, from_file) {
         const fs_context = native_fs_utils.get_process_fs_context();
         const raw_data = (await nb_native().fs.readFile(fs_context, from_file)).data;
         data = JSON.parse(raw_data.toString());
-        validate_options_type(data);
+        // GAP - from-file is not validated
     }
     if (action !== ACTIONS.LIST && action !== ACTIONS.STATUS) _validate_access_keys(argv);
     if (action === ACTIONS.ADD || action === ACTIONS.STATUS) {
@@ -811,26 +812,30 @@ async function validate_account_args(data, action) {
     }
 }
 
-/** validate_options checks if input option are valid.
+/** validate_flags_arguments checks if input option are valid.
  * @param {string} type
  * @param {string} action
  * @param {object} argv
  */
-function validate_options(type, action, argv) {
-    validate_no_extra_options(type, action, argv);
+function validate_flags_arguments(type, action, argv) {
+    validate_type_and_action(type, action);
+    // when we use validate_no_extra_options
+    // we don't care about the value, only the flags
+    const input_options = Object.keys(argv);
+    // the first element is _ with the type and action, so we remove it
+    input_options.shift();
+    validate_no_extra_options(type, action, input_options);
     const input_options_with_data = { ...argv };
     delete input_options_with_data._;
-    validate_options_type(input_options_with_data);
+    validate_options_type_by_value(type, input_options_with_data);
 }
 
 /**
- * validate_no_extra_options will check that input options are valid options - 
- * only required arguments, optional options and global configurations
+ * validate_type_and_action checks that the type and action are supported
  * @param {string} type
  * @param {string} action
- * @param {object} argv
  */
-function validate_no_extra_options(type, action, argv) {
+function validate_type_and_action(type, action) {
     if (!Object.values(TYPES).includes(type)) throw_cli_error(ManageCLIError.InvalidType);
     if (type === TYPES.ACCOUNT || type === TYPES.BUCKET) {
         if (!Object.values(ACTIONS).includes(action)) throw_cli_error(ManageCLIError.InvalidAction);
@@ -839,10 +844,16 @@ function validate_no_extra_options(type, action, argv) {
     } else if (type === TYPES.GLACIER) {
         if (!Object.values(GLACIER_ACTIONS).includes(action)) throw_cli_error(ManageCLIError.InvalidAction);
     }
+}
 
-    const input_options = Object.keys(argv); // we don't care about the value, only the flags
-    input_options.shift(); // the first element is _ with the type and action, so we remove it
-
+/**
+ * validate_no_extra_options will check that input flags are valid options - 
+ * only required arguments, optional flags and global configurations
+ * @param {string} type
+ * @param {string} action
+ * @param {string[]} input_options array with the names of the flags
+ */
+function validate_no_extra_options(type, action, input_options) {
     let valid_options; // for performance, we use Set as data structure
     if (type === TYPES.BUCKET) {
         valid_options = VALID_OPTIONS.bucket_options[action];
@@ -864,26 +875,43 @@ function validate_no_extra_options(type, action, argv) {
         throw_cli_error(ManageCLIError.InvalidArgument, err_msg);
     }
 }
-
 /**
- *  validate_options_type check the type of the value that match what we expect
- * @param {object} input_options_with_data
+ * validate_options_type_by_value check the type of the value that match what we expect.
+ * in case that type of value we have is boolean (and the option type is not boolean) -
+ * we check if we have a value (non empty) with array of argument (without using minimist)
+ * @param {string} type
+ * @param {object} input_options_with_data object with flag (key) and value
  */
-function validate_options_type(input_options_with_data) {
+function validate_options_type_by_value(type, input_options_with_data) {
+    const argv_arr = process.argv.slice(2); // we ignore argv[0] (path to node) and argv[1] (path to app)
+    let index_in_argv_arr; // we will iterate the argv array to find flags without value
+    if (type === TYPES.IP_WHITELIST) {
+        index_in_argv_arr = 1; // we ignore the type (there is no action)
+    } else {
+        index_in_argv_arr = 2; // we ignore the type and action
+    }
     for (const [option, value] of Object.entries(input_options_with_data)) {
         const type_of_option = OPTION_TYPE[option];
         const type_of_value = typeof value;
-        const err_msg = `type of option ${option} should be ${type_of_option}, ` +
-            `received: ${value} (type ${type_of_value})`;
-        if (type_of_option === TYPE_STRING_OR_NUMBER) {
-            if ((type_of_value === 'string') || (type_of_value === 'number')) {
-                continue;
-            } else {
-                throw_cli_error(ManageCLIError.InvalidArgumentType, err_msg);
+        if (type_of_value !== type_of_option) {
+            if ((type_of_value === 'boolean') &&
+                (argv_arr[index_in_argv_arr].slice(2) === option) && // we use slice(2) to remove the -- from string
+                ((index_in_argv_arr + 1 === argv_arr.length) ||
+                 (argv_arr[index_in_argv_arr + 1].startsWith('--')))) {
+                // in case the user sends --flag with no value there are 2 cases:
+                // (1) [--flag] there is no next element (index + 1 is out of array bound)
+                // (2) [--flag, --flag2] next element is a flag
+                throw_cli_error(ManageCLIError.InvalidArgumentType, `empty value in flag ${option}`);
             }
-        } else if (type_of_value !== type_of_option) {
+            // special case for names, although the type is string we want to allow numbers as well
+            if ((option === 'name' || option === 'new_name') && (type_of_value === 'number')) {
+                index_in_argv_arr += 2;
+                continue;
+            }
+            const err_msg = `type of flag ${option} should be ${type_of_option}`;
             throw_cli_error(ManageCLIError.InvalidArgumentType, err_msg);
         }
+        index_in_argv_arr += 2;
     }
 }
 

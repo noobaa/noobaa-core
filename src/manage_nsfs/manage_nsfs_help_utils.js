@@ -108,7 +108,7 @@ Usage:
 account delete [flags]
 
 Flags:
---name <string or number>                                                                   The name of the account
+--name <string>                                                                             The name of the account
 --access_key <string>                                     (optional)                        The access key of the account (identify the account instead of name)
 `;
 
@@ -117,7 +117,7 @@ Usage:
 account status [flags]
 
 Flags:
---name <string or number>                                                                   The name of the account
+--name <string>                                                                             The name of the account
 --access_key <string>                                     (optional)                        The access key of the account (identify the account instead of name)
 --show_secrets                                            (optional)                        Print the access key and secret key of the account
 `;
@@ -131,8 +131,8 @@ Flags:
 --show_secrets                                            (optional)                        Print the access key and secret key of each account (only when using flag --wide)
 --uid <number>                                            (optional)                        Filter the list based on the provided account UID
 --gid <number>                                            (optional)                        Filter the list based on the provided account GID
---user <string or number>                                 (optional)                        Filter the list based on the provided account user
---name <string or number>                                 (optional)                        Filter the list based on the provided account name
+--user <string>                                           (optional)                        Filter the list based on the provided account user
+--name <string>                                           (optional)                        Filter the list based on the provided account name
 --access_key <string>                                     (optional)                        Filter the list based on the provided account access key
 `;
 
@@ -168,7 +168,7 @@ Usage:
 bucket delete [flags]
 
 Flags:
---name <string or number>                                                                   The name of the bucket
+--name <string>                                                                             The name of the bucket
 `;
 
 const BUCKET_FLAGS_STATUS = `
@@ -176,7 +176,7 @@ Usage:
 bucket status [flags]
 
 Flags:
---name <string or number>                                                                   The name of the bucket
+--name <string>                                                                             The name of the bucket
 `;
 
 const BUCKET_FLAGS_LIST = `
@@ -185,7 +185,7 @@ bucket list [flags]
 
 Flags:
 --wide                                                    (optional)                        Print the additional details for each bucket
---name                                                    (optional)                        Filter the list based on the provided bucket name
+--name <string>                                           (optional)                        Filter the list based on the provided bucket name
 `;
 
 const GLACIER_OPTIONS = `

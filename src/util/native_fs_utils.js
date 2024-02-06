@@ -493,6 +493,18 @@ async function folder_delete(dir, fs_context, is_temp = false) {
     await nb_native().fs.rmdir(fs_context, dir);
 }
 
+/**
+ * read_config_file reads and returns the parsed config file data
+ * @param {nb.NativeFSContext} fs_context
+ * @param {string} config_path 
+ * @return {Promise<object>} 
+ */
+async function read_config_file(fs_context, config_path) {
+    const { data } = await nb_native().fs.readFile(fs_context, config_path);
+    const config_data = JSON.parse(data.toString());
+    return config_data;
+}
+
 exports.get_umasked_mode = get_umasked_mode;
 exports._make_path_dirs = _make_path_dirs;
 exports._create_path = _create_path;
@@ -518,6 +530,7 @@ exports.gpfs_unlink_retry_catch = gpfs_unlink_retry_catch;
 exports.create_config_file = create_config_file;
 exports.delete_config_file = delete_config_file;
 exports.update_config_file = update_config_file;
+exports.read_config_file = read_config_file;
 exports.isDirectory = isDirectory;
 exports.get_process_fs_context = get_process_fs_context;
 exports.validate_bucket_creation = validate_bucket_creation;

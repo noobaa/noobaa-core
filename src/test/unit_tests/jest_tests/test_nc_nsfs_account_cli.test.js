@@ -315,6 +315,43 @@ describe('manage nsfs cli account flow', () => {
             assert_account(account_symlink, new_account_details);
         });
 
+        it('cli account update name undefined (and back to original name)', async function() {
+            // set the name as undefined
+            let name = defaults.name;
+            let new_name = 'undefined'; // it is string on purpose
+            let account_options = { config_root, name, new_name };
+            const action = ACTIONS.UPDATE;
+            await exec_manage_cli(type, action, account_options);
+            let new_account_details = await read_config_file(config_root, accounts_schema_dir, new_name);
+            expect(new_account_details.name).toBe(new_name);
+
+            // set the name as back as it was
+            let temp = name; // we swap between name and new_name
+            name = new_name;
+            new_name = temp;
+            account_options = { config_root, name, new_name };
+            await exec_manage_cli(type, action, account_options);
+            new_account_details = await read_config_file(config_root, accounts_schema_dir, new_name);
+            expect(new_account_details.name).toBe(new_name);
+
+            // set the name as undefined (not string)
+            name = defaults.name;
+            new_name = undefined;
+            account_options = { config_root, name, new_name };
+            await exec_manage_cli(type, action, account_options);
+            new_account_details = await read_config_file(config_root, accounts_schema_dir, new_name);
+            expect(new_account_details.name).toBe(String(new_name));
+
+            // set the name as back as it was
+            temp = name; // we swap between name and new_name
+            name = String(new_name);
+            new_name = temp;
+            account_options = { config_root, name, new_name };
+            await exec_manage_cli(type, action, account_options);
+            new_account_details = await read_config_file(config_root, accounts_schema_dir, new_name);
+            expect(new_account_details.name).toBe(new_name);
+        });
+
         it('cli account update access key, secret_key & new_name by name', async function() {
             const { name } = defaults;
             const new_name = 'account1_new_name';

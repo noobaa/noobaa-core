@@ -12,8 +12,9 @@ const fs_utils = require('../../../util/fs_utils');
 const os_util = require('../../../util/os_utils');
 const config_module = require('../../../../config');
 const native_fs_utils = require('../../../util/native_fs_utils');
-const ManageCLIError = require('../../../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
 const { TYPES, ACTIONS } = require('../../../manage_nsfs/manage_nsfs_constants');
+const { set_path_permissions_and_owner } = require('../../system_tests/test_utils');
+const ManageCLIError = require('../../../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
 
 const MAC_PLATFORM = 'darwin';
 let tmp_fs_path = '/tmp/test_bucketspace_fs';
@@ -66,6 +67,7 @@ describe('manage nsfs cli bucket flow', () => {
             const account_options = { config_root, ...account_defaults };
             await fs_utils.create_fresh_path(account_path);
             await fs_utils.file_must_exist(account_path);
+            await set_path_permissions_and_owner(account_path, account_options, 0o700);
             await exec_manage_cli(TYPES.ACCOUNT, action, account_options);
         });
 
@@ -125,6 +127,7 @@ describe('manage nsfs cli bucket flow', () => {
             const account_options = { config_root, ...account_defaults };
             await fs_utils.create_fresh_path(account_path);
             await fs_utils.file_must_exist(account_path);
+            await set_path_permissions_and_owner(account_path, account_options, 0o700);
             await exec_manage_cli(TYPES.ACCOUNT, action, account_options);
 
             //bucket add

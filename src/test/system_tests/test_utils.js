@@ -1,9 +1,11 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+const fs = require('fs');
 const _ = require('lodash');
 const P = require('../../util/promise');
 const os_utils = require('../../util/os_utils');
+const native_fs_utils = require('../../util/native_fs_utils');
 
 /**
  * 
@@ -311,6 +313,22 @@ async function delete_fs_user_by_platform(name) {
     }
 }
 
+/** 
+ * set_path_permissions_and_owner sets path permissions and owner and group
+ * @param {string} path
+ * @param {object} owner_options
+ * @param {number} permissions
+ */
+async function set_path_permissions_and_owner(path, owner_options, permissions = 0o700) {
+    if (owner_options.uid !== undefined && owner_options.gid !== undefined) {
+        await fs.promises.chown(path, owner_options.uid, owner_options.gid);
+    } else {
+        const { uid, gid } = await native_fs_utils.get_user_by_distinguished_name({ distinguished_name: owner_options.user });
+        await fs.promises.chown(owner_options.new_buckets_path, uid, gid);
+    }
+    await fs.promises.chmod(path, permissions);
+}
+
 exports.blocks_exist_on_cloud = blocks_exist_on_cloud;
 exports.create_hosts_pool = create_hosts_pool;
 exports.delete_hosts_pool = delete_hosts_pool;
@@ -324,3 +342,4 @@ exports.nc_nsfs_manage_entity_types = nc_nsfs_manage_entity_types;
 exports.nc_nsfs_manage_actions = nc_nsfs_manage_actions;
 exports.create_fs_user_by_platform = create_fs_user_by_platform;
 exports.delete_fs_user_by_platform = delete_fs_user_by_platform;
+exports.set_path_permissions_and_owner = set_path_permissions_and_owner;

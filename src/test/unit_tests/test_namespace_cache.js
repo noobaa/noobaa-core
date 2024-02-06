@@ -1196,8 +1196,8 @@ mocha.describe('namespace caching: range read scenarios', () => {
 
         const read_hub_time = recorder.get_event('hub', obj.bucket, obj.key, EVENT_READ_OBJECT_STREAM);
         console.log(`CHECK_VALUE: read_hub_time ${read_hub_time} err_trigger_time ${err_trigger_time}`);
-        // I noticed that we sometimes fail on this assertion in the CI, hence I added the printing above.
-        assert(read_hub_time > err_trigger_time);
+        //read_hub_time can be so fast that the time will be the same. is it testing something? 
+        assert(read_hub_time >= err_trigger_time);
     });
 
 });

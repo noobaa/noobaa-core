@@ -74,12 +74,12 @@ Usage:
 account add [flags]
 
 Flags:
---name <string or number>                                                                   Set the name for the account
+--name <string>                                                                             Set the name for the account
 --email <string>                                                                            Set the email for the account (used as the identifier for buckets owner)
 --uid <number>                                                                              Set the User Identifier (UID) (UID and GID can be replaced by --user option)
 --gid <number>                                                                              Set the Group Identifier (GID) (UID and GID can be replaced by --user option)
 --new_buckets_path <string>                                                                 Set the filesystem's root path where each subdirectory is a bucket
---user <string or number>                                 (optional)                        Set the OS user name (instead of UID and GID)
+--user <string>                                           (optional)                        Set the OS user name (instead of UID and GID)
 --access_key <string>                                     (optional)                        Set the access key for the account (default is generated)
 --secret_key <string>                                     (optional)                        Set the secret key for the account (default is generated)
 --fs_backend <none | GPFS | CEPH_FS | NFSv4>              (optional)                        Set the filesystem type of new_buckets_path (default config.NSFS_NC_STORAGE_BACKEND)
@@ -90,13 +90,13 @@ Usage:
 account update [flags]
 
 Flags:
---name <string or number>                                                                   The name of the account
---new_name <string or number>                             (optional)                        Update the account name
+--name <string>                                                                             The name of the account
+--new_name <string>                                       (optional)                        Update the account name
 --email <string>                                          (optional)                        Update the email (used as the identifier for buckets owner)
 --uid <number>                                            (optional)                        Update the User Identifier (UID)
 --gid <number>                                            (optional)                        Update the Group Identifier (GID)
 --new_buckets_path <string>                               (optional)                        Update the filesystem's root path where each subdirectory is a bucket
---user <string or number>                                 (optional)                        Update the OS user name (instead of uid and gid)
+--user <string>                                           (optional)                        Update the OS user name (instead of uid and gid)
 --regenerate                                              (optional)                        Update automatically generated access key and secret key
 --access_key <string>                                     (optional)                        Update the access key. Can be used as identifier instead of --name
 --secret_key <string>                                     (optional)                        Update the secret key
@@ -108,7 +108,7 @@ Usage:
 account delete [flags]
 
 Flags:
---name <string or number>                                                                   The name of the account
+--name <string>                                                                             The name of the account
 --access_key <string>                                     (optional)                        The access key of the account (identify the account instead of name)
 `;
 
@@ -117,7 +117,7 @@ Usage:
 account status [flags]
 
 Flags:
---name <string or number>                                                                   The name of the account
+--name <string>                                                                             The name of the account
 --access_key <string>                                     (optional)                        The access key of the account (identify the account instead of name)
 --show_secrets                                            (optional)                        Print the access key and secret key of the account
 `;
@@ -131,8 +131,8 @@ Flags:
 --show_secrets                                            (optional)                        Print the access key and secret key of each account (only when using flag --wide)
 --uid <number>                                            (optional)                        Filter the list based on the provided account UID
 --gid <number>                                            (optional)                        Filter the list based on the provided account GID
---user <string or number>                                 (optional)                        Filter the list based on the provided account user
---name <string or number>                                 (optional)                        Filter the list based on the provided account name
+--user <string>                                           (optional)                        Filter the list based on the provided account user
+--name <string>                                           (optional)                        Filter the list based on the provided account name
 --access_key <string>                                     (optional)                        Filter the list based on the provided account access key
 `;
 
@@ -141,7 +141,7 @@ Usage:
 bucket add [flags]
 
 Flags:
---name <string or number>                                                                   Set the name for the bucket
+--name <string>                                                                             Set the name for the bucket
 --email <string>                                                                            Set the bucket owner email
 --path <string>                                                                             Set the bucket path
 --bucket_policy <string>                                  (optional)                        Set the bucket policy, type is a string of valid JSON policy
@@ -153,8 +153,8 @@ Usage:
 bucket update [flags]
 
 Flags:
---name <string or number>                                                                   The name of the bucket
---new_name <string or number>                             (optional)                        Update the bucket name
+--name <string>                                                                             The name of the bucket
+--new_name <string>                                       (optional)                        Update the bucket name
 --email <string>                                          (optional)                        Update the bucket owner email
 --path <string>                                           (optional)                        Update the bucket path
 --bucket_policy <string>                                  (optional)                        Update the bucket policy, type is a string of valid JSON policy (unset with '')
@@ -166,7 +166,7 @@ Usage:
 bucket delete [flags]
 
 Flags:
---name <string or number>                                                                   The name of the bucket
+--name <string>                                                                             The name of the bucket
 `;
 
 const BUCKET_FLAGS_STATUS = `
@@ -174,7 +174,7 @@ Usage:
 bucket status [flags]
 
 Flags:
---name <string or number>                                                                   The name of the bucket
+--name <string>                                                                             The name of the bucket
 `;
 
 const BUCKET_FLAGS_LIST = `
@@ -183,7 +183,7 @@ bucket list [flags]
 
 Flags:
 --wide                                                    (optional)                        Print the additional details for each bucket
---name                                                    (optional)                        Filter the list based on the provided bucket name
+--name <string>                                           (optional)                        Filter the list based on the provided bucket name
 `;
 
 /** 

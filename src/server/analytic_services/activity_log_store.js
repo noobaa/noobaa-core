@@ -6,6 +6,7 @@ const _ = require('lodash');
 
 const db_client = require('../../util/db_client');
 const P = require('../../util/promise');
+const dbg = require('../../util/debug_module')(__filename);
 const activity_log_schema = require('./activity_log_schema');
 const activity_log_indexes = require('./activity_log_indexes');
 
@@ -71,6 +72,39 @@ class ActivityLogStore {
             system,
             read,
         }, _.isUndefined);
+    }
+
+    /**
+     * @param {number} max_time
+     * @param {number} limit
+     */
+    async find_old_activity_logs(max_time, limit) {
+        const activity_logs = await this._activitylogs.find({
+            time: {
+                $lt: new Date(max_time),
+                $exists: true // This forces the index to be used
+            },
+        }, {
+            limit: Math.min(limit, 1000),
+        });
+        return db_client.instance().uniq_ids(activity_logs, '_id');
+    }
+
+    /**
+     * @param {nb.ID[]} _activity_logs_ids
+     */
+    async db_delete_activity_logs(_activity_logs_ids) {
+        if (!_activity_logs_ids || !_activity_logs_ids.length) return;
+        dbg.warn('Removing the following activity logs from DB:', _activity_logs_ids);
+        return this._activitylogs.deleteMany({
+            _id: {
+                $in: _activity_logs_ids
+            },
+        });
+    }
+
+    count_total_activity_logs() {
+        return this._activitylogs.countDocuments({}); // maybe estimatedDocumentCount()
     }
 
 }

@@ -217,22 +217,25 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             }
             throw this._translate_bucket_error_codes(err);
         }
+        // TODO - replace filter and map to map with concurrency
         const bucket_config_files = entries.filter(entree => !native_fs_utils.isDirectory(entree) && entree.name.endsWith('.json'));
         const bucket_names = bucket_config_files.map(bucket_config_file => this.get_bucket_name(bucket_config_file.name));
         return this.validate_bucket_access(bucket_names, object_sdk);
     }
 
     async validate_bucket_access(buckets, object_sdk) {
+        // TODO - replace map & filter to map with concurrency
         const has_access_buckets = (await P.all(_.map(
             buckets,
             async bucket => {
                 dbg.log1('bucketspace_fs.validate_bucket_access:', bucket.name.unwrap());
-                const ns = await object_sdk.read_bucket_sdk_namespace_info(bucket.name.unwrap());
-                const has_access_to_bucket = object_sdk.is_nsfs_bucket(ns) ?
-                    await this._has_access_to_nsfs_dir(ns, object_sdk) : false;
-                dbg.log1('bucketspace_fs.validate_bucket_access:', bucket.name.unwrap(), has_access_to_bucket);
-                return has_access_to_bucket && bucket;
-            }))).filter(bucket => bucket);
+                const bucket_config_info = await object_sdk.read_bucket_sdk_config_info(bucket.name.unwrap());
+                const ns = bucket_config_info.namespace;
+                const is_nsfs_bucket = object_sdk.is_nsfs_bucket(ns);
+                const accessible = is_nsfs_bucket ? await this._has_access_to_nsfs_dir(ns, object_sdk) : false;
+                dbg.log1('bucketspace_fs.validate_bucket_access:', bucket.name.unwrap(), is_nsfs_bucket, accessible);
+                return accessible && { ...bucket, creation_date: bucket_config_info.creation_date };
+            }))).filter(bucket_info => bucket_info);
             return { buckets: has_access_buckets };
     }
 

@@ -760,7 +760,7 @@ mocha.describe('manage_nsfs cli', function() {
         const accounts_schema_dir = 'accounts';
         const access_keys_schema_dir = 'access_keys';
         let account_options = { config_root, name, new_buckets_path, distinguished_name, access_key, secret_key };
-       
+
         mocha.it('cli account create', async function() {
             const action = nc_nsfs_manage_actions.ADD;
             await fs_utils.create_fresh_path(new_buckets_path);

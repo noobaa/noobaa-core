@@ -451,17 +451,11 @@ async function complete_object_upload(req) {
     const upload_duration = time_utils.format_time_duration(took_ms);
     const upload_size = size_utils.human_size(set_updates.size);
     const upload_speed = size_utils.human_size(set_updates.size / took_ms * 1000);
-    Dispatcher.instance().activity({
-        system: req.system._id,
-        level: 'info',
-        event: 'obj.uploaded',
-        obj: obj._id,
-        actor: req.account && req.account._id,
-        desc: `${obj.key} was uploaded by ${req.account && req.account.email.unwrap()} into bucket ${req.bucket.name.unwrap()}.` +
-            `\nUpload size: ${upload_size}.` +
-            `\nUpload duration: ${upload_duration}.` +
-            `\nUpload speed: ${upload_speed}/sec.`,
-    });
+    dbg.log1(`${obj.key} was uploaded by ${req.account && req.account.email.unwrap()} into bucket ${req.bucket.name.unwrap()}.` +
+        `\nUpload size: ${upload_size}.` +
+        `\nUpload duration: ${upload_duration}.` +
+        `\nUpload speed: ${upload_speed}/sec.`,
+    );
     return {
         etag: get_etag(obj, set_updates),
         version_id: MDStore.instance().get_object_version_id(set_updates),
@@ -884,19 +878,9 @@ async function delete_object(req) {
     const { reply, obj } = req.rpc_params.version_id ?
         await _delete_object_version(req) :
         await _delete_object_only_key(req);
-
     if (obj) {
-        Dispatcher.instance().activity({
-            system: req.system._id,
-            level: 'info',
-            event: 'obj.deleted',
-            obj: obj._id,
-            actor: req.account && req.account._id,
-            desc: `${obj.key} was deleted by ${req.account && req.account.email.unwrap()}`,
-        });
-
+        dbg.log1(`${obj.key} was deleted by ${req.account && req.account.email.unwrap()}`);
     }
-
     return reply;
 }
 

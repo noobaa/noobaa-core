@@ -722,6 +722,9 @@ config.NSFS_RENAME_RETRIES = 3;
 config.NSFS_VERSIONING_ENABLED = true;
 config.NSFS_UPDATE_ISSUES_REPORT_ENABLED = true;
 
+config.NSFS_EXIT_EVENTS_TIME_FRAME_MIN = 24 * 60; // per day
+config.NSFS_MAX_EXIT_EVENTS_PER_TIME_FRAME = 10; // allow max 10 failed forks per day
+
 config.NSFS_GLACIER_LOGS_DIR = '/var/run/noobaa-nsfs/wal';
 config.NSFS_GLACIER_LOGS_MAX_INTERVAL = 15 * 60 * 1000;
 

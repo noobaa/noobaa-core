@@ -27,7 +27,7 @@ node src/cmd/nsfs ../standalon/nsfs_root --config_dir ../standalon/fs_config
 ```json
 {
   "name": "user1",
-  "email": "user1@noobaa.io",
+  "email": "user1@noobaa.io", // this just an example - the email will be internally (the account name), email will not be set by user
   "creation_date": "2024-01-11T08:24:14.937Z",
   "access_keys": [
     {
@@ -98,7 +98,7 @@ node src/cmd/nsfs ../standalon/nsfs_root --config_dir ../standalon/fs_config
 - Create account - admin creates a file in the accounts dir, and Noobaa reloads on demand.
 - Delete account - admin deletes the file, we have a cache and will expire it after some time.
 - Regenerate credentials - update the file, and Noobaa will reload after up to 1 minute.
-- Update account details like uid, gid, email etc.
+- Update account details like uid, gid, fs_backend etc.
 
 ### S3 Bucket operations
 

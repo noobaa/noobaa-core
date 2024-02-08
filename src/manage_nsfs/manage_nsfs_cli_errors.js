@@ -193,12 +193,6 @@ ManageCLIError.MissingAccountNameFlag = Object.freeze({
     http_code: 400,
 });
 
-ManageCLIError.MissingAccountEmailFlag = Object.freeze({
-    code: 'MissingAccountEmailFlag',
-    message: 'Account email is mandatory, please use the --email flag',
-    http_code: 400,
-});
-
 ManageCLIError.MissingIdentifier = Object.freeze({
     code: 'MissingIdentifier',
     message: 'Account identifier is mandatory, please use the --access_key or --name flag',
@@ -305,9 +299,9 @@ ManageCLIError.MissingBucketNameFlag = Object.freeze({
     http_code: 400,
 });
 
-ManageCLIError.MissingBucketEmailFlag = Object.freeze({
-    code: 'MissingBucketEmailFlag',
-    message: 'Bucket email is mandatory, please use the --email flag',
+ManageCLIError.MissingBucketOwnerFlag = Object.freeze({
+    code: 'MissingBucketOwnerFlag',
+    message: 'Bucket owner (account name) is mandatory, please use the --owner flag',
     http_code: 400,
 });
 

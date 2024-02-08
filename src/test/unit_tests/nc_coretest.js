@@ -162,7 +162,6 @@ async function admin_account_creation() {
     await announce('admin_account_creation');
     const cli_account_options = {
         name: NC_CORETEST,
-        email: NC_CORETEST,
         new_buckets_path: NC_CORETEST_STORAGE_PATH,
         uid: 200,
         gid: 200
@@ -178,7 +177,7 @@ async function first_bucket_creation() {
     await announce('first_bucket_creation');
     const cli_bucket_options = {
         name: FIRST_BUCKET,
-        email: NC_CORETEST,
+        owner: NC_CORETEST,
         path: FIRST_BUCKET_PATH,
     };
     await exec_manage_cli(nc_nsfs_manage_entity_types.BUCKET, nc_nsfs_manage_actions.ADD, cli_bucket_options);
@@ -247,7 +246,6 @@ function get_tmp_path_by_os(_path) {
 async function create_account_manage(options) {
     const cli_options = {
         name: options.name,
-        email: options.email,
         new_buckets_path: options.default_resource ?
             p.join(nsrs_to_root_paths[options.default_resource], options.nsfs_account_config.new_buckets_path) :
             options.nsfs_account_config.new_buckets_path,
@@ -377,7 +375,7 @@ function create_namespace_resource_mock(options) {
 async function create_bucket_manage(options) {
     const { resource, path } = options.namespace.write_resource;
     const bucket_storage_path = p.join(nsrs_to_root_paths[resource], path);
-    const cli_options = { name: options.name, email: EMAIL, path: bucket_storage_path};
+    const cli_options = { name: options.name, owner: NC_CORETEST, path: bucket_storage_path};
     await exec_manage_cli(nc_nsfs_manage_entity_types.BUCKET, nc_nsfs_manage_actions.ADD, cli_options);
 }
 

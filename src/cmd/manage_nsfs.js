@@ -140,8 +140,8 @@ async function fetch_bucket_data(argv, from_file) {
             _id: undefined,
             name: argv.name,
             owner_account: undefined,
-            system_owner: argv.email,
-            bucket_owner: argv.email,
+            system_owner: argv.owner, // GAP - needs to be the system_owner (currently it is the account name)
+            bucket_owner: argv.owner,
             wide: argv.wide,
             tag: undefined, // if we would add the option to tag a bucket using CLI, this should be changed
             versioning: action === ACTIONS.ADD ? 'DISABLED' : undefined,
@@ -223,7 +223,7 @@ async function add_bucket(data) {
 /** verify_bucket_owner will check if the bucket_owner has an account
  * after it finds one, it returns the account id, otherwise it would throw an error
  * (in case the action is add bucket it also checks that the owner has allow_bucket_creation)
- * @param {string} bucket_owner
+ * @param {string} bucket_owner account name
  * @param {string} action
  */
 async function verify_bucket_owner(bucket_owner, action) {
@@ -239,7 +239,7 @@ async function verify_bucket_owner(bucket_owner, action) {
         if (entry.name.endsWith('.json') && !is_bucket_owner_exist) {
             const full_path = path.join(accounts_dir_path, entry.name);
             const data = await get_config_data(full_path, show_secrets);
-            if (data.email === bucket_owner) {
+            if (data.name === bucket_owner) {
                 is_bucket_owner_exist = true;
                 is_allow_bucket_creation = data.allow_bucket_creation;
                 account_id = data._id;
@@ -398,7 +398,6 @@ async function fetch_account_data(argv, from_file) {
     if (!data) {
         data = _.omitBy({
             name: argv.name,
-            email: argv.email,
             creation_date: action === ACTIONS.ADD ? new Date().toISOString() : undefined,
             wide: argv.wide,
             new_name: argv.new_name,
@@ -421,7 +420,7 @@ async function fetch_account_data(argv, from_file) {
     data = {
         ...data,
         name: new SensitiveString(String(data.name)),
-        email: new SensitiveString(String(data.email)),
+        email: new SensitiveString(String(data.name)), // temp, keep the email internally
         access_keys: [{
             access_key: new SensitiveString(String(data.access_keys[0].access_key)),
             secret_key: new SensitiveString(String(data.access_keys[0].secret_key)),
@@ -516,6 +515,7 @@ async function update_account(data) {
     }
     const data_name = data.new_name || cur_name;
     data.name = data_name;
+    data.email = data_name; // saved internally
     data.access_keys[0].access_key = data.new_access_key || cur_access_key;
     const cur_account_config_path = get_config_file_path(accounts_dir_path, cur_name.unwrap());
     const new_account_config_path = get_config_file_path(accounts_dir_path, data.name.unwrap());
@@ -548,7 +548,7 @@ async function update_account(data) {
 
 async function delete_account(data) {
     await validate_account_args(data, ACTIONS.DELETE);
-    await verify_delete_account(data.name.unwrap(), data.email.unwrap());
+    await verify_delete_account(data.name.unwrap());
 
     const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
     const account_config_path = get_config_file_path(accounts_dir_path, data.name);
@@ -563,9 +563,8 @@ async function delete_account(data) {
  * verify_delete_account will check if the account has at least one bucket
  * in case it finds one, it would throw an error
  * @param {string} account_name
- * @param {string} account_email
  */
-async function verify_delete_account(account_name, account_email) {
+async function verify_delete_account(account_name) {
     const show_secrets = false; // in buckets we don't save secrets in coofig file
     const fs_context = native_fs_utils.get_process_fs_context();
     const entries = await nb_native().fs.readdir(fs_context, buckets_dir_path);
@@ -573,7 +572,7 @@ async function verify_delete_account(account_name, account_email) {
         if (entry.name.endsWith('.json')) {
             const full_path = path.join(buckets_dir_path, entry.name);
             const data = await get_config_data(full_path, show_secrets);
-            if (data.bucket_owner === account_email) {
+            if (data.bucket_owner === account_name) {
                 const detail_msg = `Account ${account_name} has bucket ${data.name}`;
                 throw_cli_error(ManageCLIError.AccountDeleteForbiddenHasBuckets, detail_msg);
             }
@@ -741,7 +740,7 @@ async function validate_bucket_args(data, action) {
                 throw_cli_error(ManageCLIError.InvalidBucketName, data.new_name.unwrap());
             }
         }
-        if (is_string_undefined(data.system_owner)) throw_cli_error(ManageCLIError.MissingBucketEmailFlag);
+        if (is_string_undefined(data.system_owner)) throw_cli_error(ManageCLIError.MissingBucketOwnerFlag);
         if (!data.path) throw_cli_error(ManageCLIError.MissingBucketPathFlag);
         const fs_context = native_fs_utils.get_process_fs_context();
         const exists = await native_fs_utils.is_path_exists(fs_context, data.path);
@@ -786,7 +785,6 @@ async function validate_account_args(data, action) {
         if ((action !== ACTIONS.UPDATE && data.new_name)) throw_cli_error(ManageCLIError.InvalidNewNameAccountIdentifier);
         if ((action !== ACTIONS.UPDATE && data.new_access_key)) throw_cli_error(ManageCLIError.InvalidNewAccessKeyIdentifier);
         if (is_string_undefined(data.name)) throw_cli_error(ManageCLIError.MissingAccountNameFlag);
-        if (is_string_undefined(data.email)) throw_cli_error(ManageCLIError.MissingAccountEmailFlag);
 
         if (is_string_undefined(data.access_keys[0].secret_key)) throw_cli_error(ManageCLIError.MissingAccountSecretKeyFlag);
         if (is_string_undefined(data.access_keys[0].access_key)) throw_cli_error(ManageCLIError.MissingAccountAccessKeyFlag);

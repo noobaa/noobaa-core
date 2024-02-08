@@ -441,9 +441,9 @@ NOTES -
 
 Bucket Commands
 ```
-sudo node src/cmd/manage_nsfs bucket add --config_root ../standalon/config_root --name bucket1 --email noobaa@gmail.com --path ../standalon/nsfs_root/1 --fs_backend GPFS 2>/dev/null
+sudo node src/cmd/manage_nsfs bucket add --config_root ../standalon/config_root --name bucket1 --owner noobaa --path ../standalon/nsfs_root/1 --fs_backend GPFS 2>/dev/null
 
-sudo node src/cmd/manage_nsfs bucket update --config_root ../standalon/config_root --name bucket1 --email noobaa@gmail.com --fs_backend GPFS 2>/dev/null
+sudo node src/cmd/manage_nsfs bucket update --config_root ../standalon/config_root --name bucket1 --owner noobaa --fs_backend GPFS 2>/dev/null
 
 sudo node src/cmd/manage_nsfs bucket list --config_root ../standalon/config_root 2>/dev/null
 
@@ -453,7 +453,7 @@ sudo node src/cmd/manage_nsfs bucket delete --config_root ../standalon/config_ro
 
 Account Commands
 ```
-sudo node src/cmd/manage_nsfs account add --config_root ../standalon/config_root --name noobaa --email noobaa@gmail.com --new_buckets_path ../standalon/nsfs_root/ --fs_backend GPFS 2>/dev/null
+sudo node src/cmd/manage_nsfs account add --config_root ../standalon/config_root --name noobaa --new_buckets_path ../standalon/nsfs_root/ --fs_backend GPFS 2>/dev/null
 
 sudo node src/cmd/manage_nsfs account update --config_root ../standalon/config_root --name noobaa --fs_backend GPFS 2>/dev/null
 

@@ -337,7 +337,7 @@ describe('schema validation NC NSFS account', () => {
 function get_account_data() {
     const account_name = 'account1';
     const id = '65a62e22ceae5e5f1a758aa9';
-    const account_email = 'account1@noobaa.io';
+    const account_email = account_name; // temp, keep the email internally
     const access_key = 'GIGiFAnjaaE7OKD5N7hA';
     const secret_key = 'U2AYaMpU3zRDcRFWmvzgQr9MoHIAsD+3oEXAMPLE';
     const creation_date = new Date('December 17, 2023 09:00:00').toISOString();

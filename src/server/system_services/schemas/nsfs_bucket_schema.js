@@ -29,6 +29,7 @@ module.exports = {
         system_owner: {
             type: 'string',
         },
+        // bucket_owner is the account name
         bucket_owner: {
             type: 'string',
         },

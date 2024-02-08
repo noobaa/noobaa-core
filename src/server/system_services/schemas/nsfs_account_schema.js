@@ -7,7 +7,7 @@ module.exports = {
     required: [
         '_id',
         'name',
-        'email',
+        'email', // temp, keep the email internally
         'access_keys',
         'nsfs_account_config',
         'creation_date',

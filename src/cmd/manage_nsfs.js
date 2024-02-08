@@ -15,20 +15,31 @@ const native_fs_utils = require('../util/native_fs_utils');
 const mongo_utils = require('../util/mongo_utils');
 const SensitiveString = require('../util/sensitive_string');
 const ManageCLIError = require('../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
+const NSFS_CLI_ERROR_EVENT_MAP = require('../manage_nsfs/manage_nsfs_cli_errors').NSFS_CLI_ERROR_EVENT_MAP;
 const ManageCLIResponse = require('../manage_nsfs/manage_nsfs_cli_responses').ManageCLIResponse;
+const NSFS_CLI_SUCCESS_EVENT_MAP = require('../manage_nsfs/manage_nsfs_cli_responses').NSFS_CLI_SUCCESS_EVENT_MAP;
 const bucket_policy_utils = require('../endpoint/s3/s3_bucket_policy_utils');
 const nsfs_schema_utils = require('../manage_nsfs/nsfs_schema_utils');
 const { print_usage } = require('../manage_nsfs/manage_nsfs_help_utils');
 const { TYPES, ACTIONS, VALID_OPTIONS, OPTION_TYPE,
     LIST_ACCOUNT_FILTERS, LIST_BUCKET_FILTERS} = require('../manage_nsfs/manage_nsfs_constants');
+const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
 
-function throw_cli_error(error_code, detail) {
+function throw_cli_error(error_code, detail, event_arg) {
+    const error_event = NSFS_CLI_ERROR_EVENT_MAP[error_code.code];
+    if (error_event) {
+        new NoobaaEvent(error_event).create_event(undefined, event_arg, undefined);
+    }
     const err = new ManageCLIError(error_code).to_string(detail);
     process.stdout.write(err + '\n');
     process.exit(1);
 }
 
-function write_stdout_response(response_code, detail) {
+function write_stdout_response(response_code, detail, event_arg) {
+    const response_event = NSFS_CLI_SUCCESS_EVENT_MAP[response_code.code];
+    if (response_event) {
+        new NoobaaEvent(response_event).create_event(undefined, event_arg, undefined);
+    }
     const res = new ManageCLIResponse(response_code).to_string(detail);
     process.stdout.write(res + '\n');
     process.exit(0);
@@ -197,7 +208,7 @@ async function add_bucket(data) {
     const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
     const bucket_conf_path = get_config_file_path(buckets_dir_path, data.name);
     const exists = await native_fs_utils.is_path_exists(fs_context, bucket_conf_path);
-    if (exists) throw_cli_error(ManageCLIError.BucketAlreadyExists, data.name.unwrap());
+    if (exists) throw_cli_error(ManageCLIError.BucketAlreadyExists, data.name.unwrap(), {bucket: data.name.unwrap()});
     data._id = mongo_utils.mongoObjectId();
     data.owner_account = account_id;
     const data_json = JSON.stringify(data);
@@ -206,7 +217,7 @@ async function add_bucket(data) {
     // for validating against the schema we need an object, hence we parse it back to object
     nsfs_schema_utils.validate_bucket_schema(JSON.parse(data_json));
     await native_fs_utils.create_config_file(fs_context, buckets_dir_path, bucket_conf_path, data_json);
-    write_stdout_response(ManageCLIResponse.BucketCreated, data_json);
+    write_stdout_response(ManageCLIResponse.BucketCreated, data_json, {bucket: data.name.unwrap()});
 }
 
 /** verify_bucket_owner will check if the bucket_owner has an account
@@ -238,7 +249,7 @@ async function verify_bucket_owner(bucket_owner, action) {
 
     if (!is_bucket_owner_exist) {
         const detail_msg = `bucket owner ${bucket_owner} does not exists`;
-        throw_cli_error(ManageCLIError.BucketSetForbiddenNoBucketOwner, detail_msg);
+        throw_cli_error(ManageCLIError.BucketSetForbiddenNoBucketOwner, detail_msg, {bucket_owner: bucket_owner});
     }
     if (action === ACTIONS.ADD && !is_allow_bucket_creation) {
             throw_cli_error(ManageCLIError.BucketCreationNotAllowed, bucket_owner);
@@ -310,7 +321,7 @@ async function delete_bucket(data) {
         if (err.code === 'ENOENT') throw_cli_error(ManageCLIError.NoSuchBucket, data.name);
         throw err;
     }
-    write_stdout_response(ManageCLIResponse.BucketDeleted);
+    write_stdout_response(ManageCLIResponse.BucketDeleted, '', {bucket: data.name.unwrap()});
 }
 
 async function manage_bucket_operations(action, data, argv) {
@@ -466,9 +477,10 @@ async function add_account(data) {
     const name_exists = await native_fs_utils.is_path_exists(fs_context, account_config_path);
     const access_key_exists = await native_fs_utils.is_path_exists(fs_context, account_config_access_key_path, true);
 
+    const event_arg = data.name ? data.name.unwrap() : access_key;
     if (name_exists || access_key_exists) {
         const err_code = name_exists ? ManageCLIError.AccountNameAlreadyExists : ManageCLIError.AccountAccessKeyAlreadyExists;
-        throw_cli_error(err_code);
+        throw_cli_error(err_code, '', {account: event_arg});
     }
     data._id = mongo_utils.mongoObjectId();
     data = JSON.stringify(data);
@@ -479,8 +491,7 @@ async function add_account(data) {
     await native_fs_utils.create_config_file(fs_context, accounts_dir_path, account_config_path, data);
     await native_fs_utils._create_path(access_keys_dir_path, fs_context, config.BASE_MODE_CONFIG_DIR);
     await nb_native().fs.symlink(fs_context, account_config_path, account_config_access_key_path);
-
-    write_stdout_response(ManageCLIResponse.AccountCreated, data);
+    write_stdout_response(ManageCLIResponse.AccountCreated, data, {account: event_arg});
 }
 
 async function update_account(data) {
@@ -545,8 +556,7 @@ async function delete_account(data) {
 
     await native_fs_utils.delete_config_file(fs_context, accounts_dir_path, account_config_path);
     await nb_native().fs.unlink(fs_context, access_key_config_path);
-
-    write_stdout_response(ManageCLIResponse.AccountDeleted);
+    write_stdout_response(ManageCLIResponse.AccountDeleted, '', {account: data.name.unwrap()});
 }
 
 /**

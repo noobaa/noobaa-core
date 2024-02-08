@@ -228,7 +228,7 @@ async function add_bucket(data) {
  * bucket_owner is the account name in the account schema
  * after it finds one, it returns the account id, otherwise it would throw an error
  * (in case the action is add bucket it also checks that the owner has allow_bucket_creation)
- * @param {string} bucket_owner
+ * @param {string} bucket_owner account name
  * @param {string} action
  */
 async function verify_bucket_owner(bucket_owner, action) {
@@ -559,12 +559,13 @@ async function delete_account(data) {
  * @param {string} account_name
  */
 async function verify_delete_account(account_name) {
+    const show_secrets = false; // in buckets we don't save secrets in coofig file
     const fs_context = native_fs_utils.get_process_fs_context();
     const entries = await nb_native().fs.readdir(fs_context, buckets_dir_path);
     await P.map_with_concurrency(10, entries, async entry => {
         if (entry.name.endsWith('.json')) {
             const full_path = path.join(buckets_dir_path, entry.name);
-            const data = await get_config_data(full_path);
+            const data = await get_config_data(full_path, show_secrets);
             if (data.bucket_owner === account_name) {
                 const detail_msg = `Account ${account_name} has bucket ${data.name}`;
                 throw_cli_error(ManageCLIError.AccountDeleteForbiddenHasBuckets, detail_msg);

@@ -16,6 +16,7 @@ const os_utils = require('../../util/os_utils');
 const BucketSpaceFS = require('../../sdk/bucketspace_fs');
 const NamespaceFS = require('../../sdk/namespace_fs');
 const nb_native = require('../../util/nb_native');
+const SensitiveString = require('../../util/sensitive_string');
 
 
 const MAC_PLATFORM = 'darwin';
@@ -125,8 +126,8 @@ function make_dummy_object_sdk() {
         requesting_account: {
             _id: '65b3c68b59ab67b16f98c26e',
             force_md5_etag: false,
-            name: 'user2',
-            email: 'user2@noobaa.io',
+            name: new SensitiveString('user2'),
+            email: new SensitiveString('user2@noobaa.io'),
             allow_bucket_creation: true,
             nsfs_account_config: {
                 uid: 0,

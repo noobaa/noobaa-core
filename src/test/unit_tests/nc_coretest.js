@@ -375,7 +375,7 @@ function create_namespace_resource_mock(options) {
 async function create_bucket_manage(options) {
     const { resource, path } = options.namespace.write_resource;
     const bucket_storage_path = p.join(nsrs_to_root_paths[resource], path);
-    const cli_options = { name: options.name, owner: NC_CORETEST, path: bucket_storage_path};
+    const cli_options = { name: options.name, owner: options.owner || NC_CORETEST, path: bucket_storage_path};
     await exec_manage_cli(nc_nsfs_manage_entity_types.BUCKET, nc_nsfs_manage_actions.ADD, cli_options);
 }
 

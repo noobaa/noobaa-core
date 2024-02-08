@@ -32,12 +32,14 @@ const bucket_semaphore = new KeysSemaphore(1);
 
 /**
  * @param {nb.ObjectSDK} object_sdk 
+ * @param {string} [fs_backend]
  * @returns {nb.NativeFSContext}
  */
-function prepare_fs_context(object_sdk) {
+function prepare_fs_context(object_sdk, fs_backend) {
     const fs_context = object_sdk?.requesting_account?.nsfs_account_config;
     if (!fs_context) throw new RpcError('UNAUTHORIZED', 'nsfs_account_config is missing');
     fs_context.warn_threshold_ms = config.NSFS_WARN_THRESHOLD_MS;
+    fs_context.backend = fs_backend;
     // TODO: 
     //if (this.stats) fs_context.report_fs_stats = this.stats.update_fs_stats;
     return fs_context;
@@ -192,6 +194,18 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
     ////////////
 
     //TODO: we need to add pagination support to list buckets for more than 1000 buckets.
+    /**
+     * list_buckets will read all bucket config files, and filter them according to the requesting account's 
+     * permissions
+     * a. First iteration - map_with_concurrency with concurrency rate of 10 entries at the same time.
+     * a.1. if entry is dir file/entry is non json - we will return undefined
+     * a.2. if bucket is unaccessible by bucket policy - we will return undefined
+     * a.3. if underlying storage of the bucket is unaccessible by the account's uid/gid - we will return undefined
+     * a.4. else - return the bucket config info.
+     * b. Second iteration - filter empty entries - filter will remove undefined values produced by the map_with_concurrency().
+     * @param {nb.ObjectSDK} object_sdk
+     * @returns {Promise<object>}
+     */
     async list_buckets(object_sdk) {
         let entries;
         try {
@@ -203,55 +217,27 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             }
             throw this._translate_bucket_error_codes(err);
         }
-        // TODO - replace filter and map to map with concurrency
-        const bucket_config_files = entries.filter(entree => !native_fs_utils.isDirectory(entree) && entree.name.endsWith('.json'));
-        const bucket_names = bucket_config_files.map(bucket_config_file => this.get_bucket_name(bucket_config_file.name));
-        return this.validate_bucket_access(bucket_names, object_sdk);
-    }
 
-    async validate_bucket_access(buckets, object_sdk) {
-        // TODO - replace map & filter to map with concurrency
-        const has_access_buckets = (await P.all(_.map(
-            buckets,
-            async bucket => {
-                dbg.log1('bucketspace_fs.validate_bucket_access:', bucket.name.unwrap());
-                const bucket_config_info = await object_sdk.read_bucket_sdk_config_info(bucket.name.unwrap());
-                const ns = bucket_config_info.namespace;
-                const is_nsfs_bucket = object_sdk.is_nsfs_bucket(ns);
-                const accessible = is_nsfs_bucket ? await this._has_access_to_nsfs_dir(ns, object_sdk) : false;
-                dbg.log1('bucketspace_fs.validate_bucket_access:', bucket.name.unwrap(), is_nsfs_bucket, accessible);
-                return accessible && { ...bucket, creation_date: bucket_config_info.creation_date };
-            }))).filter(bucket_info => bucket_info);
-            return { buckets: has_access_buckets };
-    }
-
-    async _has_access_to_nsfs_dir(ns, object_sdk) {
         const account = object_sdk.requesting_account;
-        dbg.log0('_has_access_to_nsfs_dir: nsr: ', ns, 'account.nsfs_account_config: ', account && account.nsfs_account_config);
-        // nsfs bucket
-        if (!account || !account.nsfs_account_config || _.isUndefined(account.nsfs_account_config.uid) ||
-            _.isUndefined(account.nsfs_account_config.gid)) return false;
-        try {
-            dbg.log0('_has_access_to_nsfs_dir: checking access:', ns.write_resource, account.nsfs_account_config.uid, account.nsfs_account_config.gid);
-            await nb_native().fs.checkAccess({
-                uid: account.nsfs_account_config.uid,
-                gid: account.nsfs_account_config.gid,
-                backend: ns.write_resource.resource.fs_backend,
-                warn_threshold_ms: config.NSFS_WARN_THRESHOLD_MS,
-            }, path.join(ns.write_resource.resource.fs_root_path, ns.write_resource.path || ''));
-
-            return true;
-        } catch (err) {
-            dbg.log0('_has_access_to_nsfs_dir: failed', err);
-            if (err.code === 'ENOENT' || err.code === 'EACCES' || (err.code === 'EPERM' && err.message === 'Operation not permitted')) return false;
-            throw err;
-        }
+        const buckets = await P.map_with_concurrency(10, entries, async entry => {
+            if (native_fs_utils.isDirectory(entry) || !entry.name.endsWith('.json')) {
+                return;
+            }
+            const bucket_name = this.get_bucket_name(entry.name);
+            const bucket = await object_sdk.read_bucket_sdk_config_info(bucket_name);
+            const bucket_policy_accessible = await this.has_bucket_action_permission(bucket, account, 's3:ListBucket');
+            if (!bucket_policy_accessible) return;
+            const fs_accessible = await this.validate_fs_bucket_access(bucket, object_sdk);
+            if (!fs_accessible) return;
+            return bucket;
+        });
+        return { buckets: buckets.filter(bucket => bucket) };
     }
 
     get_bucket_name(bucket_config_file_name) {
         let bucket_name = path.basename(bucket_config_file_name);
         bucket_name = bucket_name.slice(0, bucket_name.indexOf('.json'));
-        return { name: new SensitiveString(bucket_name) };
+        return bucket_name;
     }
 
     async read_bucket(params) {
@@ -650,6 +636,68 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
 
     async put_object_lock_configuration(params, object_sdk) {
         // TODO
+    }
+
+    /////////////////
+    ///// UTILS /////
+    /////////////////
+
+    // TODO: move the following 3 functions - has_bucket_action_permission(), validate_fs_bucket_access(), _has_access_to_nsfs_dir()
+    // so they can be re-used
+    async has_bucket_action_permission(bucket, account, action, bucket_path = "") {
+        const account_identifier = account.name.unwrap();
+        dbg.log1('has_bucket_action_permission:', bucket.name.unwrap(), account_identifier, bucket.bucket_owner.unwrap());
+
+        const is_system_owner = account_identifier === bucket.system_owner.unwrap();
+
+        // If the system owner account wants to access the bucket, allow it
+        if (is_system_owner) return true;
+        const is_owner = (bucket.bucket_owner.unwrap() === account_identifier);
+        const bucket_policy = bucket.s3_policy;
+
+        if (!bucket_policy) return is_owner;
+        if (!action) {
+            throw new Error('has_bucket_action_permission: action is required');
+        }
+
+        const result = await bucket_policy_utils.has_bucket_policy_permission(
+            bucket_policy,
+            account_identifier,
+            action,
+            `arn:aws:s3:::${bucket.name.unwrap()}${bucket_path}`,
+            undefined
+        );
+
+        if (result === 'DENY') return false;
+        return is_owner || result === 'ALLOW';
+    }
+
+    async validate_fs_bucket_access(bucket, object_sdk) {
+        dbg.log1('bucketspace_fs.validate_fs_bucket_access:', bucket.name.unwrap());
+        const ns = bucket.namespace;
+        const is_nsfs_bucket = object_sdk.is_nsfs_bucket(ns);
+        const accessible = is_nsfs_bucket ? await this._has_access_to_nsfs_dir(ns, object_sdk) : false;
+        dbg.log1('bucketspace_fs.validate_fs_bucket_access:', bucket.name.unwrap(), is_nsfs_bucket, accessible);
+        return accessible;
+    }
+
+    async _has_access_to_nsfs_dir(ns, object_sdk) {
+        const account = object_sdk.requesting_account;
+        dbg.log1('_has_access_to_nsfs_dir: nsr: ', ns, 'account.nsfs_account_config: ', account && account.nsfs_account_config);
+        // nsfs bucket
+        if (!account || !account.nsfs_account_config || _.isUndefined(account.nsfs_account_config.uid) ||
+            _.isUndefined(account.nsfs_account_config.gid)) return false;
+        try {
+            dbg.log1('_has_access_to_nsfs_dir: checking access:', ns.write_resource, account.nsfs_account_config.uid, account.nsfs_account_config.gid);
+            const path_to_check = path.join(ns.write_resource.resource.fs_root_path, ns.write_resource.path || '');
+            const fs_context = prepare_fs_context(object_sdk, ns.write_resource.resource.fs_backend);
+            await nb_native().fs.checkAccess(fs_context, path_to_check);
+            return true;
+        } catch (err) {
+            dbg.log0('_has_access_to_nsfs_dir: failed', err);
+            if (err.code === 'ENOENT' || err.code === 'EACCES' || (err.code === 'EPERM' && err.message === 'Operation not permitted')) return false;
+            throw err;
+        }
     }
 }
 

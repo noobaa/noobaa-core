@@ -109,7 +109,6 @@ account delete [flags]
 
 Flags:
 --name <string>                                                                             The name of the account
---access_key <string>                                     (optional)                        The access key of the account (identify the account instead of name)
 `;
 
 const ACCOUNT_FLAGS_STATUS = `

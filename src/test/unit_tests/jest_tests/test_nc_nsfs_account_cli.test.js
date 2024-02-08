@@ -615,10 +615,19 @@ describe('manage nsfs cli account flow', () => {
             await fs_utils.file_must_exist(config_path);
         });
 
-        it('should fail - cli delete account invalid option', async () => {
+        it('should fail - cli delete account invalid option (lala)', async () => {
             const action = ACTIONS.DELETE;
             const { type, name } = defaults;
-            const account_options = { config_root, name, lala: 'lala'}; // lala invalid option };
+            const account_options = { config_root, name, lala: 'lala'}; // lala invalid option
+            const res = await exec_manage_cli(type, action, account_options);
+            expect(JSON.parse(res.stdout).error.message).toBe(ManageCLIError.InvalidArgument.message);
+        });
+
+        it('should fail - cli delete account invalid option (access_key)', async () => {
+            // access_key was identifier of account delete in the past, but not anymore
+            const action = ACTIONS.DELETE;
+            const { type, access_key } = defaults;
+            const account_options = { config_root, access_key};
             const res = await exec_manage_cli(type, action, account_options);
             expect(JSON.parse(res.stdout).error.message).toBe(ManageCLIError.InvalidArgument.message);
         });

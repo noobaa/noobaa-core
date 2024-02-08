@@ -155,6 +155,7 @@ class NsfsObjectSDK extends ObjectSDK {
             this._get_bucket_namespace = bucket_name => this._simple_get_single_bucket_namespace(bucket_name);
             this.load_requesting_account = auth_req => this._simple_load_requesting_account(auth_req);
             this.read_bucket_sdk_policy_info = bucket_name => this._simple_read_bucket_sdk_policy_info(bucket_name);
+            this.read_bucket_sdk_config_info = () => undefined;
             this.read_bucket_usage_info = () => undefined;
             this.read_bucket_sdk_website_info = () => undefined;
             this.read_bucket_sdk_namespace_info = () => undefined;

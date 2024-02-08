@@ -98,7 +98,7 @@ Flags:
 --new_buckets_path <string>                               (optional)                        Update the filesystem's root path where each subdirectory is a bucket
 --user <string>                                           (optional)                        Update the OS user name (instead of uid and gid)
 --regenerate                                              (optional)                        Update automatically generated access key and secret key
---access_key <string>                                     (optional)                        Update the access key. Can be used as identifier instead of --name
+--access_key <string>                                     (optional)                        Update the access key
 --secret_key <string>                                     (optional)                        Update the secret key
 --fs_backend <none | GPFS | CEPH_FS | NFSv4>              (optional)                        Update the filesystem type of new_buckets_path (default config.NSFS_NC_STORAGE_BACKEND)
 `;
@@ -109,7 +109,6 @@ account delete [flags]
 
 Flags:
 --name <string>                                                                             The name of the account
---access_key <string>                                     (optional)                        The access key of the account (identify the account instead of name)
 `;
 
 const ACCOUNT_FLAGS_STATUS = `

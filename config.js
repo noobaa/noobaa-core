@@ -697,7 +697,7 @@ config.NSFS_FOLDER_OBJECT_NAME = '.folder';
 
 config.NSFS_DIR_CACHE_MAX_DIR_SIZE = 64 * 1024 * 1024;
 config.NSFS_DIR_CACHE_MIN_DIR_SIZE = 64;
-config.NSFS_DIR_CACHE_MAX_TOTAL_SIZE = 24 * config.NSFS_DIR_CACHE_MAX_DIR_SIZE;
+config.NSFS_DIR_CACHE_MAX_TOTAL_SIZE = 4 * config.NSFS_DIR_CACHE_MAX_DIR_SIZE;
 
 config.NSFS_OPEN_READ_MODE = 'r'; // use 'rd' for direct io
 

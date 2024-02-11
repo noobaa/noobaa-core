@@ -283,6 +283,43 @@ Example:
 3. systemctl restart noobaa_nsfs
 ```
 
+## 16. Directories cache max directory size -
+**Description -** Establish a custom maximum directory size configuration to enhance the performance of listing objects, particularly in scenarios where a bucket comprises a substantial number of directories.
+
+**Configuration Key -** NSFS_DIR_CACHE_MAX_DIR_SIZE
+
+**Type -** number
+
+**Default -** 67108864 // 64MB = 64 * 1024 * 1024
+
+**Steps -**
+```
+1. Open /path/to/config_dir/config.json file.
+2. Set the config key -
+Example:
+"NSFS_DIR_CACHE_MAX_DIR_SIZE": 268435456
+3. systemctl restart noobaa_nsfs
+```
+
+## 17. Directories cache max total usage size -
+**Description -** Establish a custom maximum total cache usage size configuration to enhance the performance of listing objects, particularly in scenarios where a bucket comprises a substantial number of directories.
+
+**Configuration Key -** NSFS_DIR_CACHE_MAX_TOTAL_SIZE
+
+**Type -** number
+
+**Default -**  268435456 // 256MB = 4 * config.NSFS_DIR_CACHE_MAX_DIR_SIZE = 4 * 1024 * 1024
+
+**Steps -**
+```
+1. Open /path/to/config_dir/config.json file.
+2. Set the config key -
+Example:
+"NSFS_DIR_CACHE_MAX_TOTAL_SIZE": 805306368
+3. systemctl restart noobaa_nsfs
+```
+
+
 ## Config.json example 
 ```
 > cat /path/to/config_dir/config.json

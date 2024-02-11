@@ -75,7 +75,6 @@ account add [flags]
 
 Flags:
 --name <string>                                                                             Set the name for the account
---email <string>                                                                            Set the email for the account (used as the identifier for buckets owner)
 --uid <number>                                                                              Set the User Identifier (UID) (UID and GID can be replaced by --user option)
 --gid <number>                                                                              Set the Group Identifier (GID) (UID and GID can be replaced by --user option)
 --new_buckets_path <string>                                                                 Set the filesystem's root path where each subdirectory is a bucket
@@ -92,7 +91,6 @@ account update [flags]
 Flags:
 --name <string>                                                                             The name of the account
 --new_name <string>                                       (optional)                        Update the account name
---email <string>                                          (optional)                        Update the email (used as the identifier for buckets owner)
 --uid <number>                                            (optional)                        Update the User Identifier (UID)
 --gid <number>                                            (optional)                        Update the Group Identifier (GID)
 --new_buckets_path <string>                               (optional)                        Update the filesystem's root path where each subdirectory is a bucket
@@ -141,7 +139,7 @@ bucket add [flags]
 
 Flags:
 --name <string>                                                                             Set the name for the bucket
---email <string>                                                                            Set the bucket owner email
+--owner <string>                                                                            Set the bucket owner name
 --path <string>                                                                             Set the bucket path
 --bucket_policy <string>                                  (optional)                        Set the bucket policy, type is a string of valid JSON policy
 --fs_backend <none | GPFS | CEPH_FS | NFSv4>              (optional)                        Set the filesystem type (default config.NSFS_NC_STORAGE_BACKEND)
@@ -154,7 +152,7 @@ bucket update [flags]
 Flags:
 --name <string>                                                                             The name of the bucket
 --new_name <string>                                       (optional)                        Update the bucket name
---email <string>                                          (optional)                        Update the bucket owner email
+--owner <string>                                          (optional)                        Update the bucket owner name
 --path <string>                                           (optional)                        Update the bucket path
 --bucket_policy <string>                                  (optional)                        Update the bucket policy, type is a string of valid JSON policy (unset with '')
 --fs_backend <none | GPFS | CEPH_FS | NFSv4>              (optional)                        Update the filesystem type (unset with '') (default config.NSFS_NC_STORAGE_BACKEND)

@@ -174,6 +174,19 @@ describe('manage nsfs cli account flow', () => {
             expect(JSON.parse(res.stdout).error.message).toBe(ManageCLIError.InvalidArgumentType.message);
         });
 
+        it('should fail - cli create account invalid option type (path as boolean) use = in command as a flag separator', async () => {
+            const { type, name } = defaults;
+            const action = ACTIONS.ADD;
+            const command = `node src/cmd/manage_nsfs ${type} ${action} --config_root=${config_root} --name=${name} --new_buckets_path`;
+            let res;
+            try {
+                res = await os_util.exec(command, { return_stdout: true });
+            } catch (e) {
+                res = e;
+            }
+            expect(JSON.parse(res.stdout).error.message).toBe(ManageCLIError.InvalidArgumentType.message);
+        });
+
         it('should fail - cli create account invalid option type (name as boolean)', async () => {
             const { type, email, new_buckets_path } = defaults;
             const account_options = { config_root, email, new_buckets_path};
@@ -454,6 +467,19 @@ describe('manage nsfs cli account flow', () => {
             const account_options = { config_root, wide: true };
             const action = ACTIONS.LIST;
             const res = await exec_manage_cli(type, action, account_options);
+            expect(JSON.parse(res).response.reply.map(item => item.name))
+                .toEqual(expect.arrayContaining(['account3', 'account2', 'account1']));
+        });
+
+        it('cli list wide (use = as flags separator)', async () => {
+            const action = ACTIONS.LIST;
+            const command = `node src/cmd/manage_nsfs ${type} ${action} --config_root=${config_root} --wide`;
+            let res;
+            try {
+                res = await os_util.exec(command, { return_stdout: true });
+            } catch (e) {
+                res = e;
+            }
             expect(JSON.parse(res).response.reply.map(item => item.name))
                 .toEqual(expect.arrayContaining(['account3', 'account2', 'account1']));
         });

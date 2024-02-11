@@ -877,41 +877,21 @@ function validate_no_extra_options(type, action, input_options) {
 }
 /**
  * validate_options_type_by_value check the type of the value that match what we expect.
- * in case that type of value we have is boolean (and the option type is not boolean) -
- * we check if we have a value (non empty) with array of argument (without using minimist)
  * @param {string} type
  * @param {object} input_options_with_data object with flag (key) and value
  */
 function validate_options_type_by_value(type, input_options_with_data) {
-    const argv_arr = process.argv.slice(2); // we ignore argv[0] (path to node) and argv[1] (path to app)
-    let index_in_argv_arr; // we will iterate the argv array to find flags without value
-    if (type === TYPES.IP_WHITELIST) {
-        index_in_argv_arr = 1; // we ignore the type (there is no action)
-    } else {
-        index_in_argv_arr = 2; // we ignore the type and action
-    }
     for (const [option, value] of Object.entries(input_options_with_data)) {
         const type_of_option = OPTION_TYPE[option];
         const type_of_value = typeof value;
         if (type_of_value !== type_of_option) {
-            if ((type_of_value === 'boolean') &&
-                (argv_arr[index_in_argv_arr].slice(2) === option) && // we use slice(2) to remove the -- from string
-                ((index_in_argv_arr + 1 === argv_arr.length) ||
-                 (argv_arr[index_in_argv_arr + 1].startsWith('--')))) {
-                // in case the user sends --flag with no value there are 2 cases:
-                // (1) [--flag] there is no next element (index + 1 is out of array bound)
-                // (2) [--flag, --flag2] next element is a flag
-                throw_cli_error(ManageCLIError.InvalidArgumentType, `empty value in flag ${option}`);
-            }
             // special case for names, although the type is string we want to allow numbers as well
             if ((option === 'name' || option === 'new_name') && (type_of_value === 'number')) {
-                index_in_argv_arr += 2;
                 continue;
             }
             const err_msg = `type of flag ${option} should be ${type_of_option}`;
             throw_cli_error(ManageCLIError.InvalidArgumentType, err_msg);
         }
-        index_in_argv_arr += 2;
     }
 }
 

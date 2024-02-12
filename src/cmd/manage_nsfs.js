@@ -125,6 +125,7 @@ async function bucket_management(argv, from_file) {
     await manage_bucket_operations(action, data, argv);
 }
 
+// in name and new_name we allow type number, hence convert it to string
 async function fetch_bucket_data(argv, from_file) {
     const action = argv._[1] || '';
     let data;
@@ -138,7 +139,7 @@ async function fetch_bucket_data(argv, from_file) {
         // added undefined values to keep the order the properties when printing the data object
         data = {
             _id: undefined,
-            name: argv.name,
+            name: _.isUndefined(argv.name) ? undefined : String(argv.name),
             owner_account: undefined,
             system_owner: argv.owner, // GAP - needs to be the system_owner (currently it is the account name)
             bucket_owner: argv.owner,
@@ -148,8 +149,8 @@ async function fetch_bucket_data(argv, from_file) {
             creation_date: action === ACTIONS.ADD ? new Date().toISOString() : undefined,
             path: argv.path,
             should_create_underlying_storage: action === ACTIONS.ADD ? false : undefined,
-            new_name: argv.new_name,
-            fs_backend: argv.fs_backend ? String(argv.fs_backend) : config.NSFS_NC_STORAGE_BACKEND
+            new_name: _.isUndefined(argv.new_name) ? undefined : String(argv.new_name),
+            fs_backend: _.isUndefined(argv.fs_backend) ? config.NSFS_NC_STORAGE_BACKEND : String(argv.fs_backend)
         };
     }
 
@@ -166,18 +167,11 @@ async function fetch_bucket_data(argv, from_file) {
         data = await fetch_existing_bucket_data(data);
     }
 
-    data = {
-        ...data,
-        name: new SensitiveString(String(data.name)),
-        system_owner: new SensitiveString(String(data.system_owner)),
-        bucket_owner: new SensitiveString(String(data.bucket_owner)),
-        // update bucket identifier
-        new_name: data.new_name && new SensitiveString(String(data.new_name)),
-        // fs_backend deletion specified with empty string '' (but it is not part of the schema)
-        fs_backend: data.fs_backend || undefined,
-        // s3_policy deletion specified with empty string '' (but it is not part of the schema)
-        s3_policy: data.s3_policy || undefined,
-    };
+    // override values
+    // fs_backend deletion specified with empty string '' (but it is not part of the schema)
+    data.fs_backend = data.fs_backend || undefined;
+    // s3_policy deletion specified with empty string '' (but it is not part of the schema)
+    data.s3_policy = data.s3_policy || undefined;
 
     return data;
 }
@@ -204,11 +198,11 @@ function get_symlink_config_file_path(config_type_path, file_name) {
 
 async function add_bucket(data) {
     await validate_bucket_args(data, ACTIONS.ADD);
-    const account_id = await verify_bucket_owner(data.bucket_owner.unwrap(), ACTIONS.ADD);
+    const account_id = await verify_bucket_owner(data.bucket_owner, ACTIONS.ADD);
     const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
     const bucket_conf_path = get_config_file_path(buckets_dir_path, data.name);
     const exists = await native_fs_utils.is_path_exists(fs_context, bucket_conf_path);
-    if (exists) throw_cli_error(ManageCLIError.BucketAlreadyExists, data.name.unwrap(), {bucket: data.name.unwrap()});
+    if (exists) throw_cli_error(ManageCLIError.BucketAlreadyExists, data.name, {bucket: data.name});
     data._id = mongo_utils.mongoObjectId();
     data.owner_account = account_id;
     const data_json = JSON.stringify(data);
@@ -217,7 +211,7 @@ async function add_bucket(data) {
     // for validating against the schema we need an object, hence we parse it back to object
     nsfs_schema_utils.validate_bucket_schema(JSON.parse(data_json));
     await native_fs_utils.create_config_file(fs_context, buckets_dir_path, bucket_conf_path, data_json);
-    write_stdout_response(ManageCLIResponse.BucketCreated, data_json, {bucket: data.name.unwrap()});
+    write_stdout_response(ManageCLIResponse.BucketCreated, data_json, {bucket: data.name});
 }
 
 /** verify_bucket_owner will check if the bucket_owner has an account
@@ -272,12 +266,13 @@ async function get_bucket_status(data) {
 
 async function update_bucket(data) {
     await validate_bucket_args(data, ACTIONS.UPDATE);
-    await verify_bucket_owner(data.bucket_owner.unwrap(), ACTIONS.UPDATE);
+    await verify_bucket_owner(data.bucket_owner, ACTIONS.UPDATE);
 
     const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
 
     const cur_name = data.name;
-    const update_name = data.new_name && cur_name && data.new_name.unwrap() !== cur_name.unwrap();
+    const new_name = data.new_name;
+    const update_name = new_name && cur_name && new_name !== cur_name;
 
     if (!update_name) {
         const bucket_config_path = get_config_file_path(buckets_dir_path, data.name);
@@ -291,13 +286,13 @@ async function update_bucket(data) {
         return;
     }
 
-    data.name = data.new_name;
+    data.name = new_name;
 
-    const cur_bucket_config_path = get_config_file_path(buckets_dir_path, cur_name.unwrap());
-    const new_bucket_config_path = get_config_file_path(buckets_dir_path, data.name.unwrap());
+    const cur_bucket_config_path = get_config_file_path(buckets_dir_path, cur_name);
+    const new_bucket_config_path = get_config_file_path(buckets_dir_path, data.name);
 
     const exists = await native_fs_utils.is_path_exists(fs_context, new_bucket_config_path);
-    if (exists) throw_cli_error(ManageCLIError.BucketAlreadyExists, data.name.unwrap());
+    if (exists) throw_cli_error(ManageCLIError.BucketAlreadyExists, data.name);
 
     data = JSON.stringify(_.omit(data, ['new_name']));
     // We take an object that was stringify
@@ -321,7 +316,7 @@ async function delete_bucket(data) {
         if (err.code === 'ENOENT') throw_cli_error(ManageCLIError.NoSuchBucket, data.name);
         throw err;
     }
-    write_stdout_response(ManageCLIResponse.BucketDeleted, '', {bucket: data.name.unwrap()});
+    write_stdout_response(ManageCLIResponse.BucketDeleted, '', {bucket: data.name});
 }
 
 async function manage_bucket_operations(action, data, argv) {
@@ -371,6 +366,7 @@ function set_access_keys(argv, generate) {
     }];
 }
 
+// in name and new_name we allow type number, hence convert it to string
 async function fetch_account_data(argv, from_file) {
     let data;
     let access_keys = [{
@@ -397,10 +393,11 @@ async function fetch_account_data(argv, from_file) {
 
     if (!data) {
         data = _.omitBy({
-            name: argv.name,
+            name: _.isUndefined(argv.name) ? undefined : String(argv.name),
+            email: _.isUndefined(argv.name) ? undefined : String(argv.name), // temp, keep the email internally
             creation_date: action === ACTIONS.ADD ? new Date().toISOString() : undefined,
             wide: argv.wide,
-            new_name: argv.new_name,
+            new_name: _.isUndefined(argv.new_name) ? undefined : String(argv.new_name),
             new_access_key,
             access_keys,
             nsfs_account_config: {
@@ -417,28 +414,18 @@ async function fetch_account_data(argv, from_file) {
         data = await fetch_existing_account_data(data);
     }
 
-    data = {
-        ...data,
-        name: new SensitiveString(String(data.name)),
-        email: new SensitiveString(String(data.name)), // temp, keep the email internally
-        access_keys: [{
-            access_key: new SensitiveString(String(data.access_keys[0].access_key)),
-            secret_key: new SensitiveString(String(data.access_keys[0].secret_key)),
-        }],
-        nsfs_account_config: data.nsfs_account_config && {
-            distinguished_name: data.nsfs_account_config.distinguished_name &&
-                new SensitiveString(String(data.nsfs_account_config.distinguished_name)),
-            uid: data.nsfs_account_config.uid && Number(data.nsfs_account_config.uid),
-            gid: data.nsfs_account_config.gid && Number(data.nsfs_account_config.gid),
-            new_buckets_path: data.nsfs_account_config.new_buckets_path,
-            // fs_backend deletion specified with empty string '' (but it is not part of the schema)
-            fs_backend: data.nsfs_account_config.fs_backend || undefined
-        },
-        allow_bucket_creation: !is_string_undefined(data.nsfs_account_config.new_buckets_path),
-        // updates of account identifiers
-        new_name: data.new_name && new SensitiveString(String(data.new_name)),
-        new_access_key: data.new_access_key && new SensitiveString(String(data.new_access_key))
-    };
+    // override values
+    // access_key as SensitiveString
+    data.access_keys[0].access_key = _.isUndefined(data.access_keys[0].access_key) ? undefined :
+    new SensitiveString(String(data.access_keys[0].access_key));
+    // secret_key as SensitiveString
+    data.access_keys[0].secret_key = _.isUndefined(data.access_keys[0].secret_key) ? undefined :
+        new SensitiveString(String(data.access_keys[0].secret_key));
+    // allow_bucket_creation infer from new_buckets_path
+    data.allow_bucket_creation = !_.isUndefined(data.nsfs_account_config.new_buckets_path);
+    // fs_backend deletion specified with empty string '' (but it is not part of the schema)
+    data.nsfs_account_config.fs_backend = data.nsfs_account_config.fs_backend || undefined;
+
     return data;
 }
 
@@ -452,7 +439,7 @@ async function fetch_existing_account_data(target) {
     } catch (err) {
         dbg.log1('NSFS Manage command: Could not find account', target, err);
         if (err.code === 'ENOENT') {
-            if (is_string_undefined(target.name)) {
+            if (_.isUndefined(target.name)) {
                 throw_cli_error(ManageCLIError.NoSuchAccountAccessKey, target.access_keys[0].access_key);
             } else {
                 throw_cli_error(ManageCLIError.NoSuchAccountName, target.name);
@@ -463,7 +450,6 @@ async function fetch_existing_account_data(target) {
     const data = _.merge({}, source, target);
     return data;
 }
-
 
 async function add_account(data) {
     await validate_account_args(data, ACTIONS.ADD);
@@ -476,7 +462,7 @@ async function add_account(data) {
     const name_exists = await native_fs_utils.is_path_exists(fs_context, account_config_path);
     const access_key_exists = await native_fs_utils.is_path_exists(fs_context, account_config_access_key_path, true);
 
-    const event_arg = data.name ? data.name.unwrap() : access_key;
+    const event_arg = data.name ? data.name : access_key;
     if (name_exists || access_key_exists) {
         const err_code = name_exists ? ManageCLIError.AccountNameAlreadyExists : ManageCLIError.AccountAccessKeyAlreadyExists;
         throw_cli_error(err_code, '', {account: event_arg});
@@ -498,9 +484,10 @@ async function update_account(data) {
 
     const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
     const cur_name = data.name;
+    const new_name = data.new_name;
     const cur_access_key = data.access_keys[0].access_key;
-    const update_name = data.new_name && cur_name && data.new_name.unwrap() !== cur_name.unwrap();
-    const update_access_key = data.new_access_key && cur_access_key && data.new_access_key.unwrap() !== cur_access_key.unwrap();
+    const update_name = new_name && cur_name && data.new_name !== cur_name;
+    const update_access_key = data.new_access_key && cur_access_key && data.new_access_key !== cur_access_key;
 
     if (!update_name && !update_access_key) {
         const account_config_path = get_config_file_path(accounts_dir_path, data.name);
@@ -513,14 +500,14 @@ async function update_account(data) {
         write_stdout_response(ManageCLIResponse.AccountUpdated, data);
         return;
     }
-    const data_name = data.new_name || cur_name;
+    const data_name = new_name || cur_name;
     data.name = data_name;
     data.email = data_name; // saved internally
     data.access_keys[0].access_key = data.new_access_key || cur_access_key;
-    const cur_account_config_path = get_config_file_path(accounts_dir_path, cur_name.unwrap());
-    const new_account_config_path = get_config_file_path(accounts_dir_path, data.name.unwrap());
-    const cur_access_key_config_path = get_symlink_config_file_path(access_keys_dir_path, cur_access_key.unwrap());
-    const new_access_key_config_path = get_symlink_config_file_path(access_keys_dir_path, data.access_keys[0].access_key.unwrap());
+    const cur_account_config_path = get_config_file_path(accounts_dir_path, cur_name);
+    const new_account_config_path = get_config_file_path(accounts_dir_path, data.name);
+    const cur_access_key_config_path = get_symlink_config_file_path(access_keys_dir_path, cur_access_key);
+    const new_access_key_config_path = get_symlink_config_file_path(access_keys_dir_path, data.access_keys[0].access_key);
     const name_exists = update_name && await native_fs_utils.is_path_exists(fs_context, new_account_config_path);
     const access_key_exists = update_access_key && await native_fs_utils.is_path_exists(fs_context, new_access_key_config_path, true);
     if (name_exists || access_key_exists) {
@@ -548,15 +535,15 @@ async function update_account(data) {
 
 async function delete_account(data) {
     await validate_account_args(data, ACTIONS.DELETE);
-    await verify_delete_account(data.name.unwrap());
+    await verify_delete_account(data.name);
 
     const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
     const account_config_path = get_config_file_path(accounts_dir_path, data.name);
-    const access_key_config_path = get_symlink_config_file_path(access_keys_dir_path, data.access_keys[0].access_key.unwrap());
+    const access_key_config_path = get_symlink_config_file_path(access_keys_dir_path, data.access_keys[0].access_key);
 
     await native_fs_utils.delete_config_file(fs_context, accounts_dir_path, account_config_path);
     await nb_native().fs.unlink(fs_context, access_key_config_path);
-    write_stdout_response(ManageCLIResponse.AccountDeleted, '', {account: data.name.unwrap()});
+    write_stdout_response(ManageCLIResponse.AccountDeleted, '', {account: data.name});
 }
 
 /**
@@ -583,18 +570,17 @@ async function verify_delete_account(account_name) {
 
 async function get_account_status(data, show_secrets) {
     await validate_account_args(data, ACTIONS.STATUS);
-
     try {
-        const account_path = is_string_undefined(data.name) ?
+        const account_path = _.isUndefined(data.name) ?
             get_symlink_config_file_path(access_keys_dir_path, data.access_keys[0].access_key) :
             get_config_file_path(accounts_dir_path, data.name);
         const config_data = await get_config_data(account_path, show_secrets);
         write_stdout_response(ManageCLIResponse.AccountStatus, config_data);
     } catch (err) {
-        if (is_string_undefined(data.name)) {
+        if (_.isUndefined(data.name)) {
             throw_cli_error(ManageCLIError.NoSuchAccountAccessKey, data.access_keys[0].access_key.unwrap());
         } else {
-            throw_cli_error(ManageCLIError.NoSuchAccountName, data.name.unwrap());
+            throw_cli_error(ManageCLIError.NoSuchAccountName, data.name);
         }
     }
 }
@@ -724,23 +710,23 @@ async function get_config_data(config_file_path, show_secrets) {
  */
 async function validate_bucket_args(data, action) {
     if (action === ACTIONS.DELETE || action === ACTIONS.STATUS) {
-        if (is_string_undefined(data.name)) throw_cli_error(ManageCLIError.MissingBucketNameFlag);
+        if (_.isUndefined(data.name)) throw_cli_error(ManageCLIError.MissingBucketNameFlag);
     } else {
-        if (is_string_undefined(data.name)) throw_cli_error(ManageCLIError.MissingBucketNameFlag);
+        if (_.isUndefined(data.name)) throw_cli_error(ManageCLIError.MissingBucketNameFlag);
         try {
-            native_fs_utils.validate_bucket_creation({ name: data.name.unwrap() });
+            native_fs_utils.validate_bucket_creation({ name: data.name });
         } catch (err) {
-            throw_cli_error(ManageCLIError.InvalidBucketName, data.name.unwrap());
+            throw_cli_error(ManageCLIError.InvalidBucketName, data.name);
         }
-        if (!is_string_undefined(data.new_name)) {
+        if (!_.isUndefined(data.new_name)) {
             if (action !== ACTIONS.UPDATE) throw_cli_error(ManageCLIError.InvalidNewNameBucketIdentifier);
             try {
-                native_fs_utils.validate_bucket_creation({ name: data.new_name.unwrap() });
+                native_fs_utils.validate_bucket_creation({ name: data.new_name });
             } catch (err) {
-                throw_cli_error(ManageCLIError.InvalidBucketName, data.new_name.unwrap());
+                throw_cli_error(ManageCLIError.InvalidBucketName, data.new_name);
             }
         }
-        if (is_string_undefined(data.system_owner)) throw_cli_error(ManageCLIError.MissingBucketOwnerFlag);
+        if (_.isUndefined(data.system_owner)) throw_cli_error(ManageCLIError.MissingBucketOwnerFlag);
         if (!data.path) throw_cli_error(ManageCLIError.MissingBucketPathFlag);
         const fs_context = native_fs_utils.get_process_fs_context();
         const exists = await native_fs_utils.is_path_exists(fs_context, data.path);
@@ -753,7 +739,7 @@ async function validate_bucket_args(data, action) {
         }
         if (data.s3_policy) {
             try {
-                await bucket_policy_utils.validate_s3_policy(data.s3_policy, data.name.unwrap(),
+                await bucket_policy_utils.validate_s3_policy(data.s3_policy, data.name,
                     async principal => {
                         const account_config_path = get_config_file_path(accounts_dir_path, principal);
                         try {
@@ -778,32 +764,31 @@ async function validate_bucket_args(data, action) {
  */
 async function validate_account_args(data, action) {
     if (action === ACTIONS.STATUS || action === ACTIONS.DELETE) {
-        if (is_string_undefined(data.access_keys[0].access_key) && is_string_undefined(data.name)) {
+        if (_.isUndefined(data.access_keys[0].access_key) && _.isUndefined(data.name)) {
             throw_cli_error(ManageCLIError.MissingIdentifier);
         }
     } else {
         if ((action !== ACTIONS.UPDATE && data.new_name)) throw_cli_error(ManageCLIError.InvalidNewNameAccountIdentifier);
         if ((action !== ACTIONS.UPDATE && data.new_access_key)) throw_cli_error(ManageCLIError.InvalidNewAccessKeyIdentifier);
-        if (is_string_undefined(data.name)) throw_cli_error(ManageCLIError.MissingAccountNameFlag);
+        if (_.isUndefined(data.name)) throw_cli_error(ManageCLIError.MissingAccountNameFlag);
 
-        if (is_string_undefined(data.access_keys[0].secret_key)) throw_cli_error(ManageCLIError.MissingAccountSecretKeyFlag);
-        if (is_string_undefined(data.access_keys[0].access_key)) throw_cli_error(ManageCLIError.MissingAccountAccessKeyFlag);
+        if (_.isUndefined(data.access_keys[0].secret_key)) throw_cli_error(ManageCLIError.MissingAccountSecretKeyFlag);
+        if (_.isUndefined(data.access_keys[0].access_key)) throw_cli_error(ManageCLIError.MissingAccountAccessKeyFlag);
         if (data.nsfs_account_config.gid && data.nsfs_account_config.uid === undefined) {
             throw_cli_error(ManageCLIError.MissingAccountNSFSConfigUID, data.nsfs_account_config);
         }
         if (data.nsfs_account_config.uid && data.nsfs_account_config.gid === undefined) {
             throw_cli_error(ManageCLIError.MissingAccountNSFSConfigGID, data.nsfs_account_config);
         }
-        if ((is_string_undefined(data.nsfs_account_config.distinguished_name) &&
+        if ((_.isUndefined(data.nsfs_account_config.distinguished_name) &&
                 (data.nsfs_account_config.uid === undefined || data.nsfs_account_config.gid === undefined))) {
             throw_cli_error(ManageCLIError.InvalidAccountNSFSConfig, data.nsfs_account_config);
         }
-        // fs_backend='' used for deletion of the fs_backend property
-        if (data.nsfs_account_config.fs_backend !== undefined && !['GPFS', 'CEPH_FS', 'NFSv4'].includes(data.nsfs_account_config.fs_backend)) {
+        if (!_.isUndefined(data.nsfs_account_config.fs_backend) && !['GPFS', 'CEPH_FS', 'NFSv4'].includes(data.nsfs_account_config.fs_backend)) {
             throw_cli_error(ManageCLIError.InvalidFSBackend);
         }
 
-        if (is_string_undefined(data.nsfs_account_config.new_buckets_path)) {
+        if (_.isUndefined(data.nsfs_account_config.new_buckets_path)) {
             return;
         }
         const fs_context = native_fs_utils.get_process_fs_context();
@@ -902,12 +887,6 @@ function validate_options_type_by_value(type, input_options_with_data) {
 ///         UTILS           ///
 ///////////////////////////////
 
-function is_string_undefined(value) {
-    if (!value) return true;
-    if ((value instanceof SensitiveString) && value.unwrap() === 'undefined') return true;
-    return false;
-}
-
 async function whitelist_ips_management(args) {
     const ips = args.ips;
     validate_whitelist_arg(ips);
@@ -950,14 +929,14 @@ function verify_whitelist_ips(ips_to_validate) {
 
 function _validate_access_keys(argv) {
     // using the access_key flag requires also using the secret_key flag
-    if (!is_string_undefined(argv.access_key) && is_string_undefined(argv.secret_key)) {
+    if (!_.isUndefined(argv.access_key) && _.isUndefined(argv.secret_key)) {
         throw_cli_error(ManageCLIError.MissingAccountSecretKeyFlag);
     }
-    if (!is_string_undefined(argv.secret_key) && is_string_undefined(argv.access_key)) {
+    if (!_.isUndefined(argv.secret_key) && _.isUndefined(argv.access_key)) {
         throw_cli_error(ManageCLIError.MissingAccountAccessKeyFlag);
     }
     // checking the complexity of access_key
-    if (!is_string_undefined(argv.access_key) && !string_utils.validate_complexity(argv.access_key, {
+    if (!_.isUndefined(argv.access_key) && !string_utils.validate_complexity(argv.access_key, {
             require_length: 20,
             check_uppercase: true,
             check_lowercase: false,
@@ -965,7 +944,7 @@ function _validate_access_keys(argv) {
             check_symbols: false,
         })) throw_cli_error(ManageCLIError.AccountAccessKeyFlagComplexity);
     // checking the complexity of secret_key
-    if (!is_string_undefined(argv.secret_key) && !string_utils.validate_complexity(argv.secret_key, {
+    if (!_.isUndefined(argv.secret_key) && !string_utils.validate_complexity(argv.secret_key, {
             require_length: 40,
             check_uppercase: true,
             check_lowercase: true,

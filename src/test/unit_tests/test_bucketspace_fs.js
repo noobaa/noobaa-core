@@ -125,6 +125,7 @@ function make_dummy_object_sdk() {
         requesting_account: {
             _id: '65b3c68b59ab67b16f98c26e',
             force_md5_etag: false,
+            name: 'user2',
             email: 'user2@noobaa.io',
             allow_bucket_creation: true,
             nsfs_account_config: {

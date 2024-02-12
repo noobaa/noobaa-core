@@ -221,40 +221,30 @@ async function add_bucket(data) {
 }
 
 /** verify_bucket_owner will check if the bucket_owner has an account
+ * bucket_owner is the account name in the account schema
  * after it finds one, it returns the account id, otherwise it would throw an error
  * (in case the action is add bucket it also checks that the owner has allow_bucket_creation)
- * @param {string} bucket_owner account name
+ * @param {string} bucket_owner
  * @param {string} action
  */
 async function verify_bucket_owner(bucket_owner, action) {
-    let is_bucket_owner_exist = false;
-    let is_allow_bucket_creation = false;
-    let account_id;
-    const show_secrets = false;
-    const fs_context = native_fs_utils.get_process_fs_context();
-    const entries = await nb_native().fs.readdir(fs_context, accounts_dir_path);
-    // Gap - should replace this implementation
-    // it keeps iterating even if we find that the bucket owner exist
-    await P.map_with_concurrency(10, entries, async entry => {
-        if (entry.name.endsWith('.json') && !is_bucket_owner_exist) {
-            const full_path = path.join(accounts_dir_path, entry.name);
-            const data = await get_config_data(full_path, show_secrets);
-            if (data.name === bucket_owner) {
-                is_bucket_owner_exist = true;
-                is_allow_bucket_creation = data.allow_bucket_creation;
-                account_id = data._id;
-            }
+    // check if bucket owner exists
+    const account_config_path = get_config_file_path(accounts_dir_path, bucket_owner);
+    let account;
+    try {
+        account = await get_config_data(account_config_path);
+    } catch (err) {
+        if (err.code === 'ENOENT') {
+            const detail_msg = `bucket owner ${bucket_owner} does not exists`;
+            throw_cli_error(ManageCLIError.BucketSetForbiddenNoBucketOwner, detail_msg, {bucket_owner: bucket_owner});
         }
-    });
-
-    if (!is_bucket_owner_exist) {
-        const detail_msg = `bucket owner ${bucket_owner} does not exists`;
-        throw_cli_error(ManageCLIError.BucketSetForbiddenNoBucketOwner, detail_msg, {bucket_owner: bucket_owner});
+        throw err;
     }
-    if (action === ACTIONS.ADD && !is_allow_bucket_creation) {
+    // check if bucket owner has the permission to create bucket (for bucket add only)
+    if (action === ACTIONS.ADD && !account.allow_bucket_creation) {
             throw_cli_error(ManageCLIError.BucketCreationNotAllowed, bucket_owner);
     }
-    return account_id;
+    return account._id;
 }
 
 async function get_bucket_status(data) {
@@ -565,13 +555,12 @@ async function delete_account(data) {
  * @param {string} account_name
  */
 async function verify_delete_account(account_name) {
-    const show_secrets = false; // in buckets we don't save secrets in coofig file
     const fs_context = native_fs_utils.get_process_fs_context();
     const entries = await nb_native().fs.readdir(fs_context, buckets_dir_path);
     await P.map_with_concurrency(10, entries, async entry => {
         if (entry.name.endsWith('.json')) {
             const full_path = path.join(buckets_dir_path, entry.name);
-            const data = await get_config_data(full_path, show_secrets);
+            const data = await get_config_data(full_path);
             if (data.bucket_owner === account_name) {
                 const detail_msg = `Account ${account_name} has bucket ${data.name}`;
                 throw_cli_error(ManageCLIError.AccountDeleteForbiddenHasBuckets, detail_msg);
@@ -705,7 +694,7 @@ async function list_config_files(type, config_path, wide, show_secrets, filters)
  * @param {string} config_file_path
  * @param {boolean} [show_secrets]
  */
-async function get_config_data(config_file_path, show_secrets) {
+async function get_config_data(config_file_path, show_secrets = false) {
     const fs_context = native_fs_utils.get_process_fs_context();
     const { data } = await nb_native().fs.readFile(fs_context, config_file_path);
     const config_data = _.omit(JSON.parse(data.toString()), show_secrets ? [] : ['access_keys']);

@@ -149,6 +149,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                 versioning: bucket.versioning
             };
 
+            bucket.name = new SensitiveString(bucket.name);
             bucket.system_owner = new SensitiveString(bucket.system_owner);
             bucket.bucket_owner = new SensitiveString(bucket.bucket_owner);
             if (bucket.s3_policy) {
@@ -318,8 +319,8 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             name,
             tag: js_utils.default_value(tag, undefined),
             owner_account: account._id,
-            system_owner: new SensitiveString(account.email),
-            bucket_owner: new SensitiveString(account.email),
+            system_owner: new SensitiveString(account.name),
+            bucket_owner: new SensitiveString(account.name),
             versioning: config.NSFS_VERSIONING_ENABLED && lock_enabled ? 'ENABLED' : 'DISABLED',
             object_lock_configuration: config.WORM_ENABLED ? {
                 object_lock_enabled: lock_enabled ? 'Enabled' : 'Disabled',

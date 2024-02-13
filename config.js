@@ -625,6 +625,13 @@ config.BUCKET_LOG_REPLICATOR_DELAY = 5 * 60 * 1000;
 config.AZURE_QUERY_TRUNCATION_MAX_SIZE_IN_BITS = 10 * 1024 * 1024;
 config.BUCKET_DIFF_FOR_REPLICATION = true;
 
+////////////////////////////////
+//      BUCKET LOGGING        //
+////////////////////////////////
+
+config.BUCKET_LOG_UPLOAD_ENABLED = true;
+config.BUCKET_LOG_UPLOADER_DELAY = 5 * 60 * 1000;
+
 ///////////////////////////
 //      KEY ROTATOR      //
 ///////////////////////////

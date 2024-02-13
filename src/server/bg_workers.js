@@ -31,6 +31,7 @@ const stats_aggregator = require('./system_services/stats_aggregator');
 const { NamespaceMonitor } = require('./bg_services/namespace_monitor');
 const { ReplicationScanner } = require('./bg_services/replication_scanner');
 const { LogReplicationScanner } = require('./bg_services/log_replication_scanner');
+const { BucketLogUploader } = require('./bg_services/bucket_logs_upload');
 const usage_aggregator = require('./bg_services/usage_aggregator');
 const md_aggregator = require('./bg_services/md_aggregator');
 const background_scheduler = require('../util/background_scheduler').get_instance();
@@ -108,6 +109,14 @@ function run_master_workers() {
         }));
     } else {
         dbg.warn('LOG REPLICATION NOT ENABLED');
+    }
+    if (config.BUCKET_LOG_UPLOAD_ENABLED) {
+        register_bg_worker(new BucketLogUploader({
+            name: 'Bucket Log Uploader',
+            client: server_rpc.client,
+        }));
+    } else {
+        dbg.warn('BUCKET LOG UPLOADER NOT ENABLED');
     }
     if (process.env.NOOBAA_DISABLE_AGGREGATOR !== "true" && config.MD_AGGREGATOR_ENABLED) {
         register_bg_worker({

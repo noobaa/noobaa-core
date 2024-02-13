@@ -36,8 +36,11 @@ class BucketSpaceSimpleFS {
     ////////////
     // BUCKET //
     ////////////
-
-    async list_buckets() {
+    /**
+    * @param {nb.ObjectSDK} object_sdk
+    * @returns {Promise<object>}
+    */
+    async list_buckets(object_sdk) {
         try {
             const entries = await nb_native().fs.readdir(this.fs_context, this.fs_root);
             const dirs_only = entries.filter(entree => native_fs_utils.isDirectory(entree));

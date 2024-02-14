@@ -246,6 +246,12 @@ ManageCLIError.InvalidAccountDistinguishedName = Object.freeze({
     message: 'Account distinguished name was not found',
     http_code: 400,
 });
+ManageCLIError.InvalidGlacierOperation = Object.freeze({
+    code: 'InvalidGlacierOperation',
+    message: 'only "migrate", "restore" and "expiry" subcommands are supported',
+    http_code: 400,
+});
+
 
 ////////////////////////
 //// BUCKET ERRORS /////

@@ -329,7 +329,7 @@ class MockNamespace {
 
     /** @returns {any} */
     not_implemented() { throw new Error('MockNamespace not implemented'); }
-    is_server_side_copy(other, params) { return false; }
+    is_server_side_copy(other, other_md, params) { return false; }
     is_readonly_namespace() { return false; }
     get_write_resource() { return this; }
     get_bucket() { return this.target_bucket; }

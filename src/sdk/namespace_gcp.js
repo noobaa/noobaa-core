@@ -56,7 +56,7 @@ class NamespaceGCP {
         return this;
     }
 
-    is_server_side_copy(other, params) {
+    is_server_side_copy(other, other_md, params) {
         //TODO: what is the case here, what determine server side copy? 
         return other instanceof NamespaceGCP &&
             this.private_key === other.private_key &&

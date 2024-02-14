@@ -18,11 +18,12 @@ const ManageCLIError = require('../manage_nsfs/manage_nsfs_cli_errors').ManageCL
 const NSFS_CLI_ERROR_EVENT_MAP = require('../manage_nsfs/manage_nsfs_cli_errors').NSFS_CLI_ERROR_EVENT_MAP;
 const ManageCLIResponse = require('../manage_nsfs/manage_nsfs_cli_responses').ManageCLIResponse;
 const NSFS_CLI_SUCCESS_EVENT_MAP = require('../manage_nsfs/manage_nsfs_cli_responses').NSFS_CLI_SUCCESS_EVENT_MAP;
+const manage_nsfs_glacier = require('../manage_nsfs/manage_nsfs_glacier');
 const bucket_policy_utils = require('../endpoint/s3/s3_bucket_policy_utils');
 const nsfs_schema_utils = require('../manage_nsfs/nsfs_schema_utils');
 const { print_usage } = require('../manage_nsfs/manage_nsfs_help_utils');
 const { TYPES, ACTIONS, VALID_OPTIONS, OPTION_TYPE,
-    LIST_ACCOUNT_FILTERS, LIST_BUCKET_FILTERS} = require('../manage_nsfs/manage_nsfs_constants');
+    LIST_ACCOUNT_FILTERS, LIST_BUCKET_FILTERS, GLACIER_ACTIONS } = require('../manage_nsfs/manage_nsfs_constants');
 const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
 
 function throw_cli_error(error_code, detail, event_arg) {
@@ -105,6 +106,8 @@ async function main(argv = minimist(process.argv.slice(2))) {
             await bucket_management(argv, from_file);
         } else if (type === TYPES.IP_WHITELIST) {
             await whitelist_ips_management(argv);
+        } else if (type === TYPES.GLACIER) {
+            await glacier_management(argv);
         } else {
             // we should not get here (we check it before)
             throw_cli_error(ManageCLIError.InvalidType);
@@ -822,6 +825,8 @@ function validate_type_and_action(type, action) {
         if (!Object.values(ACTIONS).includes(action)) throw_cli_error(ManageCLIError.InvalidAction);
     } else if (type === TYPES.IP_WHITELIST) {
         if (action !== '') throw_cli_error(ManageCLIError.InvalidAction);
+    } else if (type === TYPES.GLACIER) {
+        if (!Object.values(GLACIER_ACTIONS).includes(action)) throw_cli_error(ManageCLIError.InvalidAction);
     }
 }
 
@@ -838,6 +843,8 @@ function validate_no_extra_options(type, action, input_options) {
         valid_options = VALID_OPTIONS.bucket_options[action];
     } else if (type === TYPES.ACCOUNT) {
         valid_options = VALID_OPTIONS.account_options[action];
+    } else if (type === TYPES.GLACIER) {
+        valid_options = VALID_OPTIONS.glacier_options[action];
     } else {
         valid_options = VALID_OPTIONS.whitelist_options;
     }
@@ -941,6 +948,26 @@ function _validate_access_keys(argv) {
             check_symbols: true,
         })) throw_cli_error(ManageCLIError.AccountSecretKeyFlagComplexity);
 
+}
+async function glacier_management(argv) {
+    const action = argv._[1] || '';
+    await manage_glacier_operations(action, argv);
+}
+
+async function manage_glacier_operations(action, argv) {
+    switch (action) {
+        case GLACIER_ACTIONS.MIGRATE:
+            await manage_nsfs_glacier.process_migrations();
+            break;
+        case GLACIER_ACTIONS.RESTORE:
+            await manage_nsfs_glacier.process_restores();
+            break;
+        case GLACIER_ACTIONS.EXPIRY:
+            await manage_nsfs_glacier.process_expiry();
+            break;
+        default:
+            throw_cli_error(ManageCLIError.InvalidGlacierOperation);
+    }
 }
 
 exports.main = main;

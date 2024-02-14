@@ -47,7 +47,7 @@ class NamespaceS3 {
     // for now we only send copy to AWS if both source and target are using the same access key
     // to aboid ACCESS_DENIED errors. a more complete solution is to always perform the server side copy
     // and fall back to read\write copy if access is denied
-    is_server_side_copy(other, params) {
+    is_server_side_copy(other, other_md, params) {
         return other instanceof NamespaceS3 &&
             this.endpoint === other.endpoint &&
             this.access_key === other.access_key;

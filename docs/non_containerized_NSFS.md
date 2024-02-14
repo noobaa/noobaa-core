@@ -172,7 +172,7 @@ make_bucket: s3bucket
 cat /tmp/noobaa_config_dir/buckets/s3bucket.json
 
 Output - 
-{"name":"s3bucket","tag":"","system_owner":"account1@noobaa.io","bucket_owner":"account1@noobaa.io","versioning":"DISABLED","path":"/tmp/fs1/s3bucket","should_create_underlying_storage":true,"creation_date":"2023-09-26T05:56:16.252Z"}
+{"_id":"65cb1efcbec92b33220112d7","name":"s3bucket","owner_account":"65cb1e7c9e6ae40d499c0ae4","system_owner":"account1","bucket_owner":"account1","versioning":"DISABLED","creation_date":"2023-09-26T05:56:16.252Z","path":"/tmp/fs1/s3bucket","should_create_underlying_storage":true}
 ```
 
 4.3. Check that the file system bucket directory was created successfully -
@@ -204,7 +204,7 @@ echo  "This is the content of object1" | s3-account1 cp - s3://s3bucket/object1.
 6.2. Check the object was created on the file system - 
 
 ```sh
-cat /tmp/fs1/s3bucket/object1.txt
+sudo cat /tmp/fs1/s3bucket/object1.txt
 
 Output - 
 This is the content of object1
@@ -431,7 +431,7 @@ These error codes will get attached with a specific Bucket or Account schema ins
 - Check for schema config file in respective Accounts or Buckets dir.
 
 ## Bucket and Account Manage CLI
-Users can create, update, delete, and list buckets and accounts using CLI. If the config directory is missing CLI will create one and also create accounts and buckets sub-directories in it and default config directory is `${config.NSFS_NC_DEFAULT_CONF_DIR}`. 
+Users can create, get status, update, delete, and list buckets and accounts using CLI. If the config directory is missing CLI will create one and also create accounts and buckets sub-directories in it and default config directory is `${config.NSFS_NC_DEFAULT_CONF_DIR}`. 
 
 CLI will never create or delete a bucket directory for the user if a bucket directory is missing CLI will return with error.
 
@@ -439,33 +439,35 @@ NOTES -
 1. manage_nsfs execution requires root permissions.
 2. While path specifies a GPFS path, it's recommended to add fs_backend=GPFS in order to increase performance by ordering NooBaa to use GPFS library.
 
-Bucket Commands
-```
-sudo node src/cmd/manage_nsfs bucket add --config_root ../standalon/config_root --name bucket1 --owner noobaa --path ../standalon/nsfs_root/1 --fs_backend GPFS 2>/dev/null
-
-sudo node src/cmd/manage_nsfs bucket update --config_root ../standalon/config_root --name bucket1 --owner noobaa --fs_backend GPFS 2>/dev/null
-
-sudo node src/cmd/manage_nsfs bucket list --config_root ../standalon/config_root 2>/dev/null
-
-sudo node src/cmd/manage_nsfs bucket delete --config_root ../standalon/config_root --name bucket1 2>/dev/null
-
-```
-
 Account Commands
 ```
 sudo node src/cmd/manage_nsfs account add --config_root ../standalon/config_root --name noobaa --new_buckets_path ../standalon/nsfs_root/ --fs_backend GPFS 2>/dev/null
 
 sudo node src/cmd/manage_nsfs account update --config_root ../standalon/config_root --name noobaa --fs_backend GPFS 2>/dev/null
 
-sudo node src/cmd/manage_nsfs account delete --config_root ../standalon/config_root --access_key abc 2>/dev/null
+sudo node src/cmd/manage_nsfs account status --config_root ../standalon/config_root --name noobaa 2>/dev/null
+
+sudo node src/cmd/manage_nsfs account delete --config_root ../standalon/config_root --name noobaa 2>/dev/null
 
 sudo node src/cmd/manage_nsfs account list --config_root ../standalon/config_root 2>/dev/null
 
  ```
 
-`Important`:  All the Account/Bucket commands end with `2>/dev/null` to make sure there are no unwanted logs.
+Bucket Commands
+Note: before creating a bucket, a user must create an account.
+```
+sudo node src/cmd/manage_nsfs bucket add --config_root ../standalon/config_root --name bucket1 --owner noobaa --path ../standalon/nsfs_root/1 --fs_backend GPFS 2>/dev/null
 
-Users can also pass account and bucket/account values in JSON file instead of passing them in cli as arguments.
+sudo node src/cmd/manage_nsfs bucket update --config_root ../standalon/config_root --name bucket1 --owner noobaa --fs_backend GPFS 2>/dev/null
+
+sudo node src/cmd/manage_nsfs bucket status --config_root ../standalon/config_root --name bucket1 2>/dev/null
+
+sudo node src/cmd/manage_nsfs bucket delete --config_root ../standalon/config_root --name bucket1 2>/dev/null
+
+sudo node src/cmd/manage_nsfs bucket list --config_root ../standalon/config_root 2>/dev/null
+
+```
+**Important**:  All the Account/Bucket commands end with `2>/dev/null` to make sure there are no unwanted logs.
 
 
 ```
@@ -484,7 +486,7 @@ Non containerized NSFS restrict insecure HTTP connections when `ALLOW_HTTP` is s
 ### Setting Up Self signed SSL/TLS Certificates for Secure Communication Between S3 Client and NooBaa NSFS Service - 
 
 #### 1. Creating a SAN (Subject Alternative Name) Config File -
-`Important`: This step is needed only if S3 Client and NooBaa Service Running on different nodes.
+**Important**: This step is needed only if S3 Client and NooBaa Service Running on different nodes.
 
 To accommodate S3 requests originating from a different node than the one running the NooBaa NSFS service, it is recommended to create a Subject Alternative Name (SAN) configuration file. <br />
 This file specifies the domain names or IP addresses that will be included in the SSL certificate.<br />

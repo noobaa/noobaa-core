@@ -229,6 +229,34 @@ mocha.describe('manage_nsfs cli', function() {
             assert_response(action, type, bucket_list, expected_list, undefined, true);
         });
 
+        mocha.it('cli bucket list - wide "true"', async function() {
+            const action = ACTIONS.LIST;
+            const bucket_list = await exec_manage_cli(type, action, { config_root, wide: 'true' });
+            const expected_list = [bucket_options, bucket_with_policy_options];
+            assert_response(action, type, bucket_list, expected_list, undefined, true);
+        });
+
+        mocha.it('cli bucket list - wide "TRUE" (case insensitive)', async function() {
+            const action = ACTIONS.LIST;
+            const bucket_list = await exec_manage_cli(type, action, { config_root, wide: 'TRUE' });
+            const expected_list = [bucket_options, bucket_with_policy_options];
+            assert_response(action, type, bucket_list, expected_list, undefined, true);
+        });
+
+        mocha.it('cli bucket list - wide "false"', async function() {
+            const action = ACTIONS.LIST;
+            const bucket_list = await exec_manage_cli(type, action, { config_root, wide: 'false' });
+            const expected_list = [{ name }, { name: bucket_with_policy }];
+            assert_response(action, type, bucket_list, expected_list);
+        });
+
+        mocha.it('cli bucket list - wide "FALSE" (case insensitive)', async function() {
+            const action = ACTIONS.LIST;
+            const bucket_list = await exec_manage_cli(type, action, { config_root, wide: 'FALSE' });
+            const expected_list = [{ name }, { name: bucket_with_policy }];
+            assert_response(action, type, bucket_list, expected_list);
+        });
+
         mocha.it('cli bucket list - should fail invalid option', async function() {
             const action = ACTIONS.LIST;
             const bucket_options_with_invalid_option = {config_root, lala: 'lala'}; // lala invalid option
@@ -240,9 +268,21 @@ mocha.describe('manage_nsfs cli', function() {
             }
         });
 
-        mocha.it('cli bucket list - should fail invalid option type', async function() {
+        mocha.it('cli bucket list wide - should fail invalid string value', async function() {
             const action = ACTIONS.LIST;
-            const invalid_wide = 'not-boolean';
+            const invalid_wide = 'not-boolean'; // we accept true and false strings
+            const bucket_options_with_invalid_option = {config_root, wide: invalid_wide};
+            try {
+                add_res = await exec_manage_cli(type, action, bucket_options_with_invalid_option);
+                assert.fail('should have failed with invalid boolean value');
+            } catch (err) {
+                assert_error(err, ManageCLIError.InvalidBooleanValue);
+            }
+        });
+
+        mocha.it('cli bucket list wide - should fail invalid type', async function() {
+            const action = ACTIONS.LIST;
+            const invalid_wide = 1234;
             const bucket_options_with_invalid_option = {config_root, wide: invalid_wide};
             try {
                 add_res = await exec_manage_cli(type, action, bucket_options_with_invalid_option);
@@ -527,6 +567,60 @@ mocha.describe('manage_nsfs cli', function() {
             assert_account(account_symlink, account_options);
             const account = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
             assert_account(account, account_options);
+        });
+
+        mocha.it('cli account status show_secrets "true"', async function() {
+            const action = ACTIONS.STATUS;
+            const account_status = await exec_manage_cli(type, action, { config_root, name: account_options.name, show_secrets: 'true' });
+            assert_response(action, type, account_status, account_options, true);
+            const account_symlink = await read_config_file(config_root, CONFIG_SUBDIRS.ACCESS_KEYS, access_key, true);
+            assert_account(account_symlink, account_options);
+            const account = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
+            assert_account(account, account_options);
+        });
+
+        mocha.it('cli account status show_secrets "TRUE" (case insensitive)', async function() {
+            const action = ACTIONS.STATUS;
+            const account_status = await exec_manage_cli(type, action, { config_root, name: account_options.name, show_secrets: 'TRUE' });
+            assert_response(action, type, account_status, account_options, true);
+            const account_symlink = await read_config_file(config_root, CONFIG_SUBDIRS.ACCESS_KEYS, access_key, true);
+            assert_account(account_symlink, account_options);
+            const account = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
+            assert_account(account, account_options);
+        });
+
+        mocha.it('cli account status show_secrets "false"', async function() {
+            const action = ACTIONS.STATUS;
+            const account_status = await exec_manage_cli(type, action, { config_root, name: account_options.name, show_secrets: 'false' });
+            // when there is no show_secrets, the access_keys property doesn't exists in the reply
+            assert.equal(JSON.parse(account_status).response.reply.access_keys, undefined);
+        });
+
+        mocha.it('cli account status show_secrets "FALSE" (case insensitive)', async function() {
+            const action = ACTIONS.STATUS;
+            const account_status = await exec_manage_cli(type, action, { config_root, name: account_options.name, show_secrets: 'FALSE' });
+            // when there is no show_secrets, the access_keys property doesn't exists in the reply
+            assert.equal(JSON.parse(account_status).response.reply.access_keys, undefined);
+        });
+
+        mocha.it('list wide with invalid string value - should fail', async function() {
+            const action = ACTIONS.STATUS;
+            try {
+                await exec_manage_cli(type, action, { config_root, name: account_options.name, show_secrets: 'blabla' });
+                assert.fail('should have failed with invalid boolean value');
+            } catch (err) {
+                assert_error(err, ManageCLIError.InvalidBooleanValue);
+            }
+        });
+
+        mocha.it('list wide with invalid type - should fail', async function() {
+            const action = ACTIONS.STATUS;
+            try {
+                await exec_manage_cli(type, action, { config_root, name: account_options.name, show_secrets: 1234 });
+                assert.fail('should have failed with invalid option type');
+            } catch (err) {
+                assert_error(err, ManageCLIError.InvalidArgumentType);
+            }
         });
 
         mocha.it('cli account create - no uid gid - should fail', async function() {

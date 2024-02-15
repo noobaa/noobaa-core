@@ -55,18 +55,18 @@ const WHITELIST_FLAGS = `
 whitelist [flags]
 
 Flags:
---ips <string>                                                                              Set the general configuration to allow only incoming requests from a given list of IP addresses
-                                                                                            in format: '["127.0.0.1", "192.0.10.0", "3002:0bd6:0000:0000:0000:ee00:0033:6778"]'
+--ips <string>                                                          Set the general configuration to allow only incoming requests from a given list of IP addresses
+                                                                        in format: '["127.0.0.1", "192.0.10.0", "3002:0bd6:0000:0000:0000:ee00:0033:6778"]'
 `;
 
 const GLOBAL_CONFIG_ROOT_ALL_FLAG = `
---config_root <string>                                    (optional)                        Use configuration files path (default config.NSFS_NC_DEFAULT_CONF_DIR)
+--config_root <string>                                (optional)        Use configuration files path (default config.NSFS_NC_DEFAULT_CONF_DIR)
 `;
 
 const GLOBAL_CONFIG_FLAGS_ADD_UPDATE_FLAGS = `
---from_file <string>                                      (optional)                        Use details from the JSON file, there is no need to mention all the properties individually in the CLI
---config_root <string>                                    (optional)                        Use configuration files path (default config.NSFS_NC_DEFAULT_CONF_DIR)
---config_root_backend <none | GPFS | CEPH_FS | NFSv4>     (optional)                        Use the filesystem type in the configuration (default config.NSFS_NC_CONFIG_DIR_BACKEND)
+--from_file <string>                                  (optional)        Use details from the JSON file, there is no need to mention all the properties individually in the CLI
+--config_root <string>                                (optional)        Use configuration files path (default config.NSFS_NC_DEFAULT_CONF_DIR)
+--config_root_backend <none | GPFS | CEPH_FS | NFSv4> (optional)        Use the filesystem type in the configuration (default config.NSFS_NC_CONFIG_DIR_BACKEND)
 `;
 
 const ACCOUNT_FLAGS_ADD = `
@@ -75,14 +75,15 @@ account add [flags]:
 add a new account
 
 Flags:
---name <string>                                                                             Set the name for the account
---uid <number>                                                                              Set the User Identifier (UID) (UID and GID can be replaced by --user option)
---gid <number>                                                                              Set the Group Identifier (GID) (UID and GID can be replaced by --user option)
---new_buckets_path <string>                                                                 Set the filesystem's root path where each subdirectory is a bucket
---user <string>                                           (optional)                        Set the OS user name (instead of UID and GID)
---access_key <string>                                     (optional)                        Set the access key for the account (default is generated)
---secret_key <string>                                     (optional)                        Set the secret key for the account (default is generated)
---fs_backend <none | GPFS | CEPH_FS | NFSv4>              (optional)                        Set the filesystem type of new_buckets_path (default config.NSFS_NC_STORAGE_BACKEND)
+--name <string>                                                         Set the name for the account
+--uid <number>                                                          Set the User Identifier (UID) (UID and GID can be replaced by --user option)
+--gid <number>                                                          Set the Group Identifier (GID) (UID and GID can be replaced by --user option)
+--new_buckets_path <string>                                             Set the filesystem's root path where each subdirectory is a bucket
+--user <string>                                       (optional)        Set the OS user name (instead of UID and GID)
+--access_key <string>                                 (optional)        Set the access key for the account (default is generated)
+--secret_key <string>                                 (optional)        Set the secret key for the account (default is generated)
+--fs_backend <none | GPFS | CEPH_FS | NFSv4>          (optional)        Set the filesystem type of new_buckets_path (default config.NSFS_NC_STORAGE_BACKEND)
+--allow_bucket_creation <true | false>                (optional)        Set the account to explicitly allow or block bucket creation
 `;
 
 const ACCOUNT_FLAGS_UPDATE = `
@@ -91,16 +92,17 @@ account update [flags]:
     update an existing account
 
 Flags:
---name <string>                                                                             The name of the account
---new_name <string>                                       (optional)                        Update the account name
---uid <number>                                            (optional)                        Update the User Identifier (UID)
---gid <number>                                            (optional)                        Update the Group Identifier (GID)
---new_buckets_path <string>                               (optional)                        Update the filesystem's root path where each subdirectory is a bucket
---user <string>                                           (optional)                        Update the OS user name (instead of uid and gid)
---regenerate                                              (optional)                        Update automatically generated access key and secret key
---access_key <string>                                     (optional)                        Update the access key
---secret_key <string>                                     (optional)                        Update the secret key
---fs_backend <none | GPFS | CEPH_FS | NFSv4>              (optional)                        Update the filesystem type of new_buckets_path (default config.NSFS_NC_STORAGE_BACKEND)
+--name <string>                                                         The name of the account
+--new_name <string>                                   (optional)        Update the account name
+--uid <number>                                        (optional)        Update the User Identifier (UID)
+--gid <number>                                        (optional)        Update the Group Identifier (GID)
+--new_buckets_path <string>                           (optional)        Update the filesystem's root path where each subdirectory is a bucket
+--user <string>                                       (optional)        Update the OS user name (instead of uid and gid)
+--regenerate                                          (optional)        Update automatically generated access key and secret key
+--access_key <string>                                 (optional)        Update the access key
+--secret_key <string>                                 (optional)        Update the secret key
+--fs_backend <none | GPFS | CEPH_FS | NFSv4>          (optional)        Update the filesystem type of new_buckets_path (default config.NSFS_NC_STORAGE_BACKEND)
+--allow_bucket_creation <true | false>                (optional)        Update the account to explicitly allow or block bucket creation
 `;
 
 const ACCOUNT_FLAGS_DELETE = `
@@ -108,7 +110,7 @@ Usage:
 account delete [flags]
 
 Flags:
---name <string>                                                                             The name of the account
+--name <string>                                                         The name of the account
 `;
 
 const ACCOUNT_FLAGS_STATUS = `
@@ -116,9 +118,9 @@ Usage:
 account status [flags]
 
 Flags:
---name <string>                                                                             The name of the account
---access_key <string>                                     (optional)                        The access key of the account (identify the account instead of name)
---show_secrets                                            (optional)                        Print the access key and secret key of the account
+--name <string>                                                         The name of the account
+--access_key <string>                                 (optional)        The access key of the account (identify the account instead of name)
+--show_secrets                                        (optional)        Print the access key and secret key of the account
 `;
 
 const ACCOUNT_FLAGS_LIST = `
@@ -126,13 +128,13 @@ Usage:
 account list [flags]
 
 Flags:
---wide                                                    (optional)                        Print the additional details for each account
---show_secrets                                            (optional)                        Print the access key and secret key of each account (only when using flag --wide)
---uid <number>                                            (optional)                        Filter the list based on the provided account UID
---gid <number>                                            (optional)                        Filter the list based on the provided account GID
---user <string>                                           (optional)                        Filter the list based on the provided account user
---name <string>                                           (optional)                        Filter the list based on the provided account name
---access_key <string>                                     (optional)                        Filter the list based on the provided account access key
+--wide                                                (optional)        Print the additional details for each account
+--show_secrets                                        (optional)        Print the access key and secret key of each account (only when using flag --wide)
+--uid <number>                                        (optional)        Filter the list based on the provided account UID
+--gid <number>                                        (optional)        Filter the list based on the provided account GID
+--user <string>                                       (optional)        Filter the list based on the provided account user
+--name <string>                                       (optional)        Filter the list based on the provided account name
+--access_key <string>                                 (optional)        Filter the list based on the provided account access key
 `;
 
 const BUCKET_FLAGS_ADD = `
@@ -141,11 +143,11 @@ bucket add [flags]:
 add a new bucket (must have an account).
 
 Flags:
---name <string>                                                                             Set the name for the bucket
---owner <string>                                                                            Set the bucket owner name
---path <string>                                                                             Set the bucket path
---bucket_policy <string>                                  (optional)                        Set the bucket policy, type is a string of valid JSON policy
---fs_backend <none | GPFS | CEPH_FS | NFSv4>              (optional)                        Set the filesystem type (default config.NSFS_NC_STORAGE_BACKEND)
+--name <string>                                                         Set the name for the bucket
+--owner <string>                                                        Set the bucket owner name
+--path <string>                                                         Set the bucket path
+--bucket_policy <string>                              (optional)        Set the bucket policy, type is a string of valid JSON policy
+--fs_backend <none | GPFS | CEPH_FS | NFSv4>          (optional)        Set the filesystem type (default config.NSFS_NC_STORAGE_BACKEND)
 `;
 
 const BUCKET_FLAGS_UPDATE = `
@@ -154,12 +156,12 @@ bucket update [flags]:
 update an existing bucket.
 
 Flags:
---name <string>                                                                             The name of the bucket
---new_name <string>                                       (optional)                        Update the bucket name
---owner <string>                                          (optional)                        Update the bucket owner name
---path <string>                                           (optional)                        Update the bucket path
---bucket_policy <string>                                  (optional)                        Update the bucket policy, type is a string of valid JSON policy (unset with '')
---fs_backend <none | GPFS | CEPH_FS | NFSv4>              (optional)                        Update the filesystem type (unset with '') (default config.NSFS_NC_STORAGE_BACKEND)
+--name <string>                                                         The name of the bucket
+--new_name <string>                                   (optional)        Update the bucket name
+--owner <string>                                      (optional)        Update the bucket owner name
+--path <string>                                       (optional)        Update the bucket path
+--bucket_policy <string>                              (optional)        Update the bucket policy, type is a string of valid JSON policy (unset with '')
+--fs_backend <none | GPFS | CEPH_FS | NFSv4>          (optional)        Update the filesystem type (unset with '') (default config.NSFS_NC_STORAGE_BACKEND)
 `;
 
 const BUCKET_FLAGS_DELETE = `
@@ -167,7 +169,7 @@ Usage:
 bucket delete [flags]
 
 Flags:
---name <string>                                                                             The name of the bucket
+--name <string>                                                         The name of the bucket
 `;
 
 const BUCKET_FLAGS_STATUS = `
@@ -175,7 +177,7 @@ Usage:
 bucket status [flags]
 
 Flags:
---name <string>                                                                             The name of the bucket
+--name <string>                                                         The name of the bucket
 `;
 
 const BUCKET_FLAGS_LIST = `
@@ -183,8 +185,8 @@ Usage:
 bucket list [flags]
 
 Flags:
---wide                                                    (optional)                        Print the additional details for each bucket
---name <string>                                           (optional)                        Filter the list based on the provided bucket name
+--wide                                                (optional)        Print the additional details for each bucket
+--name <string>                                       (optional)        Filter the list based on the provided bucket name
 `;
 
 const GLACIER_OPTIONS = `

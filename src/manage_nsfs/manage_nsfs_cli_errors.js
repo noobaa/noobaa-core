@@ -223,6 +223,12 @@ ManageCLIError.InvalidAccountNewBucketsPath = Object.freeze({
     http_code: 400,
 });
 
+ManageCLIError.InvalidBooleanValue = Object.freeze({
+    code: 'InvalidBooleanValue',
+    message: 'supported values are true and false',
+    http_code: 400,
+});
+
 ManageCLIError.InvalidNewNameAccountIdentifier = Object.freeze({
     code: 'InvalidNewNameAccountIdentifier',
     message: 'Account new_name can not be used on add command, please remove the --new_name flag',

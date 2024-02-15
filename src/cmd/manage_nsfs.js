@@ -459,7 +459,7 @@ async function add_account(data) {
     const event_arg = data.name ? data.name : access_key;
     if (name_exists || access_key_exists) {
         const err_code = name_exists ? ManageCLIError.AccountNameAlreadyExists : ManageCLIError.AccountAccessKeyAlreadyExists;
-        throw_cli_error(err_code, '', {account: event_arg});
+        throw_cli_error(err_code, event_arg, {account: event_arg});
     }
     data._id = mongo_utils.mongoObjectId();
     data = JSON.stringify(data);

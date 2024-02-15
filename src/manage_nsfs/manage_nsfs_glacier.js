@@ -20,11 +20,13 @@ async function process_migrations() {
     const fs_context = native_fs_utils.get_process_fs_context();
 
     await lock_and_run(fs_context, CLUSTER_LOCK, async () => {
+        const backend = getGlacierBackend();
+
         if (
-            await low_free_space() ||
+            await backend.low_free_space() ||
             await time_exceeded(fs_context, config.NSFS_GLACIER_MIGRATE_INTERVAL, MIGRATE_TIMESTAMP_FILE)
         ) {
-            await run_glacier_migrations(fs_context);
+            await run_glacier_migrations(fs_context, backend);
             await record_current_time(fs_context, MIGRATE_TIMESTAMP_FILE);
         }
     });
@@ -33,9 +35,10 @@ async function process_migrations() {
 /**
  * run_tape_migrations reads the migration WALs and attempts to migrate the
  * files mentioned in the WAL.
- * @param {nb.NativeFSContext} fs_context 
+ * @param {nb.NativeFSContext} fs_context
+ * @param {import('../sdk/nsfs_glacier_backend/backend').GlacierBackend} backend
  */
-async function run_glacier_migrations(fs_context) {
+async function run_glacier_migrations(fs_context, backend) {
     // This WAL is getting opened only so that we can process all the prcess WAL entries
     const wal = new PersistentLogger(
         config.NSFS_GLACIER_LOGS_DIR,
@@ -43,7 +46,6 @@ async function run_glacier_migrations(fs_context) {
         { disable_rotate: true, locking: 'EXCLUSIVE' },
     );
 
-    const backend = getGlacierBackend();
     await wal.process_inactive(async file => backend.migrate(fs_context, file));
 }
 
@@ -51,13 +53,15 @@ async function process_restores() {
     const fs_context = native_fs_utils.get_process_fs_context();
 
     await lock_and_run(fs_context, CLUSTER_LOCK, async () => {
+        const backend = getGlacierBackend();
+
         if (
-            await low_free_space() ||
+            await backend.low_free_space() ||
             !(await time_exceeded(fs_context, config.NSFS_GLACIER_RESTORE_INTERVAL, RESTORE_TIMESTAMP_FILE))
         ) return;
 
 
-        await run_glacier_restore(fs_context);
+        await run_glacier_restore(fs_context, backend);
         await record_current_time(fs_context, RESTORE_TIMESTAMP_FILE);
     });
 }
@@ -66,8 +70,9 @@ async function process_restores() {
  * run_tape_restore reads the restore WALs and attempts to restore the
  * files mentioned in the WAL.
  * @param {nb.NativeFSContext} fs_context 
+ * @param {import('../sdk/nsfs_glacier_backend/backend').GlacierBackend} backend
  */
-async function run_glacier_restore(fs_context) {
+async function run_glacier_restore(fs_context, backend) {
     // This WAL is getting opened only so that we can process all the prcess WAL entries
     const wal = new PersistentLogger(
         config.NSFS_GLACIER_LOGS_DIR,
@@ -75,7 +80,6 @@ async function run_glacier_restore(fs_context) {
         { disable_rotate: true, locking: 'EXCLUSIVE' },
     );
 
-    const backend = getGlacierBackend();
     await wal.process_inactive(async file => backend.restore(fs_context, file));
 }
 
@@ -86,14 +90,9 @@ async function process_expiry() {
         if (!(await time_exceeded(fs_context, config.NSFS_GLACIER_EXPIRY_INTERVAL, EXPIRY_TIMESTAMP_FILE))) return;
 
 
-        await run_glacier_expiry(fs_context);
+        await getGlacierBackend().expiry(fs_context);
         await record_current_time(fs_context, EXPIRY_TIMESTAMP_FILE);
     });
-}
-
-async function run_glacier_expiry(fs_context) {
-    const backend = getGlacierBackend();
-    await backend.expiry(fs_context);
 }
 
 /**
@@ -118,15 +117,6 @@ async function time_exceeded(fs_context, interval, timestamp_file) {
     }
 
     return false;
-}
-
-/**
- * low_free_space returns true if the default backend has low disk space
- * @returns {Promise<boolean>}
- */
-async function low_free_space() {
-    const backend = getGlacierBackend();
-    return backend.low_free_space();
 }
 
 /**

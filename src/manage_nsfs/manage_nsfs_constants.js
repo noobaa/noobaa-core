@@ -32,8 +32,8 @@ const GLOBAL_CONFIG_ROOT = 'config_root';
 const GLOBAL_CONFIG_OPTIONS = new Set(['from_file', GLOBAL_CONFIG_ROOT, 'config_root_backend']);
 
 const VALID_OPTIONS_ACCOUNT = {
-    'add': new Set(['name', 'uid', 'gid', 'new_buckets_path', 'user', 'access_key', 'secret_key', 'fs_backend', ...GLOBAL_CONFIG_OPTIONS]),
-    'update': new Set(['name', 'uid', 'gid', 'new_buckets_path', 'user', 'access_key', 'secret_key', 'fs_backend', 'new_name', 'regenerate', ...GLOBAL_CONFIG_OPTIONS]),
+    'add': new Set(['name', 'uid', 'gid', 'new_buckets_path', 'user', 'access_key', 'secret_key', 'fs_backend', 'allow_bucket_creation', ...GLOBAL_CONFIG_OPTIONS]),
+    'update': new Set(['name', 'uid', 'gid', 'new_buckets_path', 'user', 'access_key', 'secret_key', 'fs_backend', 'allow_bucket_creation', 'new_name', 'regenerate', ...GLOBAL_CONFIG_OPTIONS]),
     'delete': new Set(['name', GLOBAL_CONFIG_ROOT]),
     'list': new Set(['wide', 'show_secrets', GLOBAL_CONFIG_ROOT, 'gid', 'uid', 'user', 'name', 'access_key']),
     'status': new Set(['name', 'access_key', 'show_secrets', GLOBAL_CONFIG_ROOT]),
@@ -72,6 +72,7 @@ const OPTION_TYPE = {
     access_key: 'string',
     secret_key: 'string',
     fs_backend: 'string',
+    allow_bucket_creation: 'boolean',
     config_root: 'string',
     from_file: 'string',
     config_root_backend: 'string',
@@ -84,6 +85,8 @@ const OPTION_TYPE = {
     ips: 'string',
 };
 
+const BOOLEAN_STRING_VALUES = ['true', 'false'];
+
 const LIST_ACCOUNT_FILTERS = ['uid', 'gid', 'user', 'name', 'access_key'];
 const LIST_BUCKET_FILTERS = ['name'];
 
@@ -94,6 +97,7 @@ exports.GLACIER_ACTIONS = GLACIER_ACTIONS;
 exports.CONFIG_SUBDIRS = CONFIG_SUBDIRS;
 exports.VALID_OPTIONS = VALID_OPTIONS;
 exports.OPTION_TYPE = OPTION_TYPE;
+exports.BOOLEAN_STRING_VALUES = BOOLEAN_STRING_VALUES;
 
 exports.LIST_ACCOUNT_FILTERS = LIST_ACCOUNT_FILTERS;
 exports.LIST_BUCKET_FILTERS = LIST_BUCKET_FILTERS;

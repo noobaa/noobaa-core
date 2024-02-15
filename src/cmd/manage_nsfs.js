@@ -22,7 +22,7 @@ const manage_nsfs_glacier = require('../manage_nsfs/manage_nsfs_glacier');
 const bucket_policy_utils = require('../endpoint/s3/s3_bucket_policy_utils');
 const nsfs_schema_utils = require('../manage_nsfs/nsfs_schema_utils');
 const { print_usage } = require('../manage_nsfs/manage_nsfs_help_utils');
-const { TYPES, ACTIONS, VALID_OPTIONS, OPTION_TYPE,
+const { TYPES, ACTIONS, VALID_OPTIONS, OPTION_TYPE, BOOLEAN_STRING_VALUES,
     LIST_ACCOUNT_FILTERS, LIST_BUCKET_FILTERS, GLACIER_ACTIONS } = require('../manage_nsfs/manage_nsfs_constants');
 const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
 
@@ -146,7 +146,7 @@ async function fetch_bucket_data(argv, from_file) {
             owner_account: undefined,
             system_owner: argv.owner, // GAP - needs to be the system_owner (currently it is the account name)
             bucket_owner: argv.owner,
-            wide: argv.wide,
+            wide: _.isUndefined(argv.wide) ? undefined : get_boolean_or_string_value(argv.wide),
             tag: undefined, // if we would add the option to tag a bucket using CLI, this should be changed
             versioning: action === ACTIONS.ADD ? 'DISABLED' : undefined,
             creation_date: action === ACTIONS.ADD ? new Date().toISOString() : undefined,
@@ -239,7 +239,9 @@ async function verify_bucket_owner(bucket_owner, action) {
     }
     // check if bucket owner has the permission to create bucket (for bucket add only)
     if (action === ACTIONS.ADD && !account.allow_bucket_creation) {
-            throw_cli_error(ManageCLIError.BucketCreationNotAllowed, bucket_owner);
+            const detail_msg = `${bucket_owner} account not allowed to create new buckets. ` +
+            `Please make sure to have a valid new_buckets_path and enable the flag allow_bucket_creation`;
+            throw_cli_error(ManageCLIError.BucketCreationNotAllowed, detail_msg);
     }
     return account._id;
 }
@@ -333,7 +335,7 @@ async function manage_bucket_operations(action, data, argv) {
 
 async function account_management(argv, from_file) {
     const action = argv._[1] || '';
-    const show_secrets = Boolean(argv.show_secrets) || false;
+    const show_secrets = get_boolean_or_string_value(argv.show_secrets);
     const data = await fetch_account_data(argv, from_file);
     await manage_account_operations(action, data, show_secrets, argv);
 }
@@ -379,7 +381,8 @@ async function fetch_account_data(argv, from_file) {
         const regenerate = action === ACTIONS.ADD;
         access_keys = set_access_keys(argv, regenerate);
     } else if (action === ACTIONS.UPDATE) {
-        access_keys = set_access_keys(argv, Boolean(argv.regenerate));
+        const regenerate = get_boolean_or_string_value(argv.regenerate);
+        access_keys = set_access_keys(argv, regenerate);
         new_access_key = access_keys[0].access_key;
         access_keys[0].access_key = undefined; //Setting it as undefined so we can replace the symlink
     }
@@ -389,7 +392,7 @@ async function fetch_account_data(argv, from_file) {
             name: _.isUndefined(argv.name) ? undefined : String(argv.name),
             email: _.isUndefined(argv.name) ? undefined : String(argv.name), // temp, keep the email internally
             creation_date: action === ACTIONS.ADD ? new Date().toISOString() : undefined,
-            wide: argv.wide,
+            wide: _.isUndefined(argv.wide) ? undefined : get_boolean_or_string_value(argv.wide),
             new_name: _.isUndefined(argv.new_name) ? undefined : String(argv.new_name),
             new_access_key,
             access_keys,
@@ -414,8 +417,14 @@ async function fetch_account_data(argv, from_file) {
     // secret_key as SensitiveString
     data.access_keys[0].secret_key = _.isUndefined(data.access_keys[0].secret_key) ? undefined :
         new SensitiveString(String(data.access_keys[0].secret_key));
-    // allow_bucket_creation infer from new_buckets_path
-    data.allow_bucket_creation = !_.isUndefined(data.nsfs_account_config.new_buckets_path);
+    // allow_bucket_creation either set by user or infer from new_buckets_path
+    if (_.isUndefined(argv.allow_bucket_creation)) {
+        data.allow_bucket_creation = !_.isUndefined(data.nsfs_account_config.new_buckets_path);
+    } else if (typeof argv.allow_bucket_creation === 'boolean') {
+        data.allow_bucket_creation = Boolean(argv.allow_bucket_creation);
+    } else { // string of true or false
+        data.allow_bucket_creation = argv.allow_bucket_creation.toLowerCase() === 'true';
+    }
     // fs_backend deletion specified with empty string '' (but it is not part of the schema)
     data.nsfs_account_config.fs_backend = data.nsfs_account_config.fs_backend || undefined;
 
@@ -811,7 +820,7 @@ function validate_flags_arguments(type, action, argv) {
     validate_no_extra_options(type, action, input_options);
     const input_options_with_data = { ...argv };
     delete input_options_with_data._;
-    validate_options_type_by_value(type, input_options_with_data);
+    validate_options_type_by_value(input_options_with_data);
 }
 
 /**
@@ -861,10 +870,10 @@ function validate_no_extra_options(type, action, input_options) {
 }
 /**
  * validate_options_type_by_value check the type of the value that match what we expect.
- * @param {string} type
  * @param {object} input_options_with_data object with flag (key) and value
  */
-function validate_options_type_by_value(type, input_options_with_data) {
+function validate_options_type_by_value(input_options_with_data) {
+    let details;
     for (const [option, value] of Object.entries(input_options_with_data)) {
         const type_of_option = OPTION_TYPE[option];
         const type_of_value = typeof value;
@@ -873,10 +882,30 @@ function validate_options_type_by_value(type, input_options_with_data) {
             if ((option === 'name' || option === 'new_name') && (type_of_value === 'number')) {
                 continue;
             }
-            const err_msg = `type of flag ${option} should be ${type_of_option}`;
-            throw_cli_error(ManageCLIError.InvalidArgumentType, err_msg);
+            // special case for boolean values
+            if (['allow_bucket_creation', 'regenerate', 'wide', 'show_secrets'].includes(option) && validate_boolean_string_value(value)) {
+                continue;
+            }
+            details = `type of flag ${option} should be ${type_of_option}`;
+            throw_cli_error(ManageCLIError.InvalidArgumentType, details);
         }
     }
+}
+
+/**
+ * validate_boolean_string_value is used when the option type is boolean
+ * and we wish to allow the command also to to accept 'true' and 'false' values.
+ * @param {boolean|string} value
+ */
+function validate_boolean_string_value(value) {
+    if (value && typeof value === 'string') {
+        const check_allowed_boolean_value = BOOLEAN_STRING_VALUES.includes(value.toLowerCase());
+        if (!check_allowed_boolean_value) {
+            throw_cli_error(ManageCLIError.InvalidBooleanValue);
+        }
+        return true;
+    }
+    return false;
 }
 
 ///////////////////////////////
@@ -949,6 +978,24 @@ function _validate_access_keys(argv) {
         })) throw_cli_error(ManageCLIError.AccountSecretKeyFlagComplexity);
 
 }
+
+/**
+ * get_boolean_or_string_value will check if the value
+ * 1. if the value is undefined - it returns false.
+ * 2. (the value is defined) if it a string 'true' or 'false' = then we set boolean respectively.
+ * 3. (the value is defined) then we set true (Boolean convert of this case will be true).
+ * @param {boolean|string} value
+ */
+function get_boolean_or_string_value(value) {
+    if (_.isUndefined(value)) {
+        return false;
+    } else if (typeof value === 'string' && BOOLEAN_STRING_VALUES.includes(value.toLowerCase())) {
+        return value.toLowerCase() === 'true';
+    } else { // boolean type
+        return Boolean(value);
+    }
+}
+
 async function glacier_management(argv) {
     const action = argv._[1] || '';
     await manage_glacier_operations(action, argv);

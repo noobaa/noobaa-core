@@ -7,6 +7,7 @@ const cluster = /** @type {import('node:cluster').Cluster} */ (
 );
 const dbg = require('../util/debug_module')(__filename);
 const prom_reporting = require('../server/analytic_services/prometheus_reporting');
+const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
 
 
 const io_stats = {
@@ -38,18 +39,8 @@ function start_workers(metrics_port, count = 0) {
         // so if any worker exits, we will print an error message in the logs and start a new one.
         cluster.on('exit', (worker, code, signal) => {
             console.warn('WORKER exit', { id: worker.id, pid: worker.process.pid, code, signal }, 'starting a new one.');
-            dbg.event({
-                code: "noobaa_fork_exit",
-                entity_type: "NODE",
-                event_type: "STATE_CHANGE",
-                message: `Noobaa fork exit with { id: ${worker.id}, 
-                    pid: ${worker.process.pid}, 
-                    code: ${code}, 
-                    signal: ${signal} }`,
-                scope: "NODE",
-                severity: "ERROR",
-                state: "DEGRADED",
-            });
+            new NoobaaEvent(NoobaaEvent.FORK_EXIT).create_event(undefined, { id: worker.id, pid: worker.process.pid,
+                code: code, signal: signal}, undefined);
             const new_worker = cluster.fork();
             console.warn('WORKER started', { id: new_worker.id, pid: new_worker.process.pid });
         });

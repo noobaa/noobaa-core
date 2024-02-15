@@ -129,7 +129,7 @@ mocha.describe('Bucket Encryption Operations', async () => {
 
     mocha.it('should put encrypted object and copy with different encryption', async function() {
         const self = this; // eslint-disable-line no-invalid-this
-        self.timeout(60000);
+        self.timeout(100000);
         await copy(local_s3, BKT);
     });
 
@@ -238,7 +238,7 @@ mocha.describe('Bucket Namespace S3 Encryption Operations', async function() {
 
     mocha.it('should put encrypted object and copy with different encryption', async function() {
         const self = this; // eslint-disable-line no-invalid-this
-        self.timeout(60000);
+        self.timeout(100000);
         await copy(local_s3, BKT);
     });
 

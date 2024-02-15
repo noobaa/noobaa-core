@@ -18,6 +18,7 @@ const mongo_utils = require('../util/mongo_utils');
 
 const KeysSemaphore = require('../util/keys_semaphore');
 const native_fs_utils = require('../util/native_fs_utils');
+const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
 
 const dbg = require('../util/debug_module')(__filename);
 
@@ -26,16 +27,19 @@ const ACCOUNT_PATH = 'accounts';
 const ACCESS_KEYS_PATH = 'access_keys';
 const bucket_semaphore = new KeysSemaphore(1);
 
+
 //TODO:  dup from namespace_fs - need to handle and not dup code
 
 /**
  * @param {nb.ObjectSDK} object_sdk 
+ * @param {string} [fs_backend]
  * @returns {nb.NativeFSContext}
  */
-function prepare_fs_context(object_sdk) {
+function prepare_fs_context(object_sdk, fs_backend) {
     const fs_context = object_sdk?.requesting_account?.nsfs_account_config;
     if (!fs_context) throw new RpcError('UNAUTHORIZED', 'nsfs_account_config is missing');
     fs_context.warn_threshold_ms = config.NSFS_WARN_THRESHOLD_MS;
+    fs_context.backend = fs_backend;
     // TODO: 
     //if (this.stats) fs_context.report_fs_stats = this.stats.update_fs_stats;
     return fs_context;
@@ -107,23 +111,14 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             if (account.nsfs_account_config.distinguished_name) {
                 account.nsfs_account_config.distinguished_name = new SensitiveString(account.nsfs_account_config.distinguished_name);
             }
-            //account newly created
-            dbg.event({
-                code: "noobaa_account_created",
-                entity_type: "NODE",
-                event_type: "INFO",
-                message: String("New noobaa account created."),
-                scope: "NODE",
-                severity: "INFO",
-                state: "HEALTHY",
-                arguments: {account_name: account.name.unwrap()},
-            });
             return account;
         } catch (err) {
             dbg.error('BucketSpaceFS.read_account_by_access_key: failed with error', err);
             if (err.code === 'ENOENT') {
                 throw new RpcError('NO_SUCH_ACCOUNT', `Account with access_key not found.`, err);
             }
+            //account access failed
+            new NoobaaEvent(NoobaaEvent.ACCOUNT_NOT_FOUND).create_event(access_key, {access_key: access_key}, err);
             throw new RpcError('NO_SUCH_ACCOUNT', err.message);
         }
     }
@@ -156,6 +151,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                 versioning: bucket.versioning
             };
 
+            bucket.name = new SensitiveString(bucket.name);
             bucket.system_owner = new SensitiveString(bucket.system_owner);
             bucket.bucket_owner = new SensitiveString(bucket.bucket_owner);
             if (bucket.s3_policy) {
@@ -174,18 +170,10 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             }
             return bucket;
         } catch (err) {
-            dbg.event({
-                code: "noobaa_bucket_not_found",
-                entity_type: "NODE",
-                event_type: "ERROR",
-                message: String("Noobaa bucket " + name + " get failed."),
-                description: String("Noobaa bucket " + name + " get failed.. error : " + err),
-                scope: "NODE",
-                severity: "ERROR",
-                state: "HEALTHY",
-                arguments: {bucket_name: name},
-            });
-            throw this._translate_bucket_error_codes(err);
+            const rpc_error = this._translate_bucket_error_codes(err);
+            if (err.rpc_code === 'INVALID_SCHEMA') err.rpc_code = 'INVALID_BUCKET_STATE';
+            new NoobaaEvent(NoobaaEvent[rpc_error.rpc_code]).create_event(name, {bucket_name: name}, err);
+            throw rpc_error;
         }
     }
 
@@ -206,6 +194,18 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
     ////////////
 
     //TODO: we need to add pagination support to list buckets for more than 1000 buckets.
+    /**
+     * list_buckets will read all bucket config files, and filter them according to the requesting account's 
+     * permissions
+     * a. First iteration - map_with_concurrency with concurrency rate of 10 entries at the same time.
+     * a.1. if entry is dir file/entry is non json - we will return undefined
+     * a.2. if bucket is unaccessible by bucket policy - we will return undefined
+     * a.3. if underlying storage of the bucket is unaccessible by the account's uid/gid - we will return undefined
+     * a.4. else - return the bucket config info.
+     * b. Second iteration - filter empty entries - filter will remove undefined values produced by the map_with_concurrency().
+     * @param {nb.ObjectSDK} object_sdk
+     * @returns {Promise<object>}
+     */
     async list_buckets(object_sdk) {
         let entries;
         try {
@@ -217,52 +217,27 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             }
             throw this._translate_bucket_error_codes(err);
         }
-        const bucket_config_files = entries.filter(entree => !native_fs_utils.isDirectory(entree) && entree.name.endsWith('.json'));
-        const bucket_names = bucket_config_files.map(bucket_config_file => this.get_bucket_name(bucket_config_file.name));
-        return this.validate_bucket_access(bucket_names, object_sdk);
-    }
 
-    async validate_bucket_access(buckets, object_sdk) {
-        const has_access_buckets = (await P.all(_.map(
-            buckets,
-            async bucket => {
-                dbg.log1('bucketspace_fs.validate_bucket_access:', bucket.name.unwrap());
-                const ns = await object_sdk.read_bucket_sdk_namespace_info(bucket.name.unwrap());
-                const has_access_to_bucket = object_sdk.is_nsfs_bucket(ns) ?
-                    await this._has_access_to_nsfs_dir(ns, object_sdk) : false;
-                dbg.log1('bucketspace_fs.validate_bucket_access:', bucket.name.unwrap(), has_access_to_bucket);
-                return has_access_to_bucket && bucket;
-            }))).filter(bucket => bucket);
-            return { buckets: has_access_buckets };
-    }
-
-    async _has_access_to_nsfs_dir(ns, object_sdk) {
         const account = object_sdk.requesting_account;
-        dbg.log0('_has_access_to_nsfs_dir: nsr: ', ns, 'account.nsfs_account_config: ', account && account.nsfs_account_config);
-        // nsfs bucket
-        if (!account || !account.nsfs_account_config || _.isUndefined(account.nsfs_account_config.uid) ||
-            _.isUndefined(account.nsfs_account_config.gid)) return false;
-        try {
-            dbg.log0('_has_access_to_nsfs_dir: checking access:', ns.write_resource, account.nsfs_account_config.uid, account.nsfs_account_config.gid);
-            await nb_native().fs.checkAccess({
-                uid: account.nsfs_account_config.uid,
-                gid: account.nsfs_account_config.gid,
-                backend: ns.write_resource.resource.fs_backend,
-                warn_threshold_ms: config.NSFS_WARN_THRESHOLD_MS,
-            }, path.join(ns.write_resource.resource.fs_root_path, ns.write_resource.path || ''));
-
-            return true;
-        } catch (err) {
-            dbg.log0('_has_access_to_nsfs_dir: failed', err);
-            if (err.code === 'ENOENT' || err.code === 'EACCES' || (err.code === 'EPERM' && err.message === 'Operation not permitted')) return false;
-            throw err;
-        }
+        const buckets = await P.map_with_concurrency(10, entries, async entry => {
+            if (native_fs_utils.isDirectory(entry) || !entry.name.endsWith('.json')) {
+                return;
+            }
+            const bucket_name = this.get_bucket_name(entry.name);
+            const bucket = await object_sdk.read_bucket_sdk_config_info(bucket_name);
+            const bucket_policy_accessible = await this.has_bucket_action_permission(bucket, account, 's3:ListBucket');
+            if (!bucket_policy_accessible) return;
+            const fs_accessible = await this.validate_fs_bucket_access(bucket, object_sdk);
+            if (!fs_accessible) return;
+            return bucket;
+        });
+        return { buckets: buckets.filter(bucket => bucket) };
     }
 
     get_bucket_name(bucket_config_file_name) {
         let bucket_name = path.basename(bucket_config_file_name);
         bucket_name = bucket_name.slice(0, bucket_name.indexOf('.json'));
-        return { name: new SensitiveString(bucket_name) };
+        return bucket_name;
     }
 
     async read_bucket(params) {
@@ -306,36 +281,17 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                 nsfs_schema_utils.validate_bucket_schema(bucket_to_validate);
                 await native_fs_utils.create_config_file(this.fs_context, this.bucket_schema_dir, bucket_config_path, bucket_config);
             } catch (err) {
-                dbg.event({
-                    code: "noobaa_bucket_creation_failed",
-                    entity_type: "NODE",
-                    event_type: "ERROR",
-                    message: String("BucketSpaceFS: Could not create underlying config file " + name),
-                    description: String("BucketSpaceFS: Could not create underlying config file " + name + " directory, Check for permission and dir path. error : " + err),
-                    scope: "NODE",
-                    severity: "ERROR",
-                    state: "DEGRADED",
-                    arguments: {bucket_name: name}
-                });
+                new NoobaaEvent(NoobaaEvent.BUCKET_CREATION_FAILED).create_event(name, {bucket_name: name}, err);
                 throw this._translate_bucket_error_codes(err);
             }
 
             // create bucket's underlying storage directory
             try {
                 await nb_native().fs.mkdir(fs_context, bucket_storage_path, native_fs_utils.get_umasked_mode(config.BASE_MODE_DIR));
+                new NoobaaEvent(NoobaaEvent.BUCKET_CREATED).create_event(name, {bucket_name: name});
             } catch (err) {
                 dbg.error('BucketSpaceFS: create_bucket could not create underlying directory - nsfs, deleting bucket', err);
-                dbg.event({
-                    code: "noobaa_bucket_creation_failed",
-                    entity_type: "NODE",
-                    event_type: "ERROR",
-                    message: String("BucketSpaceFS: Could not create underlying bucket " + name + " directory."),
-                    description: String("BucketSpaceFS: Could not create underlying bucket " + name + " directory, Check for permission and dir path. error : " + err),
-                    scope: "NODE",
-                    severity: "ERROR",
-                    state: "DEGRADED",
-                    arguments: {bucket: name, path: bucket_storage_path}
-                });
+                new NoobaaEvent(NoobaaEvent.BUCKET_DIR_CREATION_FAILED).create_event(name, {bucket: name, path: bucket_storage_path}, err);
                 await nb_native().fs.unlink(this.fs_context, bucket_config_path);
                 throw this._translate_bucket_error_codes(err);
             }
@@ -349,8 +305,8 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             name,
             tag: js_utils.default_value(tag, undefined),
             owner_account: account._id,
-            system_owner: new SensitiveString(account.email),
-            bucket_owner: new SensitiveString(account.email),
+            system_owner: new SensitiveString(account.name),
+            bucket_owner: new SensitiveString(account.name),
             versioning: config.NSFS_VERSIONING_ENABLED && lock_enabled ? 'ENABLED' : 'DISABLED',
             object_lock_configuration: config.WORM_ENABLED ? {
                 object_lock_enabled: lock_enabled ? 'Enabled' : 'Disabled',
@@ -393,18 +349,10 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                 dbg.log1(`BucketSpaceFS: delete_fs_bucket ${bucket_path}`);
                 // delete bucket config json file
                 await native_fs_utils.delete_config_file(this.fs_context, this.bucket_schema_dir, bucket_path);
+                new NoobaaEvent(NoobaaEvent.BUCKET_DELETE).create_event(name, {bucket_name: name});
             } catch (err) {
-                dbg.event({
-                    code: "noobaa_bucket_delete_failed",
-                    entity_type: "NODE",
-                    event_type: "ERROR",
-                    message: String("BucketSpaceFS: Could not delete underlying bucket " + params.name),
-                    description: String("BucketSpaceFS: Could not create underlying bucket " + params.name + ". error : " + err),
-                    scope: "NODE",
-                    severity: "ERROR",
-                    state: "DEGRADED",
-                    arguments: {bucket_name: params.name, bucket_path: bucket_path}
-                });
+                new NoobaaEvent(NoobaaEvent.BUCKET_DELETE_FAILED).create_event(params.name,
+                    {bucket_name: params.name, bucket_path: bucket_path}, err);
                 dbg.error('BucketSpaceFS: delete_bucket error', err);
                 throw this._translate_bucket_error_codes(err);
             }
@@ -688,6 +636,68 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
 
     async put_object_lock_configuration(params, object_sdk) {
         // TODO
+    }
+
+    /////////////////
+    ///// UTILS /////
+    /////////////////
+
+    // TODO: move the following 3 functions - has_bucket_action_permission(), validate_fs_bucket_access(), _has_access_to_nsfs_dir()
+    // so they can be re-used
+    async has_bucket_action_permission(bucket, account, action, bucket_path = "") {
+        const account_identifier = account.name.unwrap();
+        dbg.log1('has_bucket_action_permission:', bucket.name.unwrap(), account_identifier, bucket.bucket_owner.unwrap());
+
+        const is_system_owner = account_identifier === bucket.system_owner.unwrap();
+
+        // If the system owner account wants to access the bucket, allow it
+        if (is_system_owner) return true;
+        const is_owner = (bucket.bucket_owner.unwrap() === account_identifier);
+        const bucket_policy = bucket.s3_policy;
+
+        if (!bucket_policy) return is_owner;
+        if (!action) {
+            throw new Error('has_bucket_action_permission: action is required');
+        }
+
+        const result = await bucket_policy_utils.has_bucket_policy_permission(
+            bucket_policy,
+            account_identifier,
+            action,
+            `arn:aws:s3:::${bucket.name.unwrap()}${bucket_path}`,
+            undefined
+        );
+
+        if (result === 'DENY') return false;
+        return is_owner || result === 'ALLOW';
+    }
+
+    async validate_fs_bucket_access(bucket, object_sdk) {
+        dbg.log1('bucketspace_fs.validate_fs_bucket_access:', bucket.name.unwrap());
+        const ns = bucket.namespace;
+        const is_nsfs_bucket = object_sdk.is_nsfs_bucket(ns);
+        const accessible = is_nsfs_bucket ? await this._has_access_to_nsfs_dir(ns, object_sdk) : false;
+        dbg.log1('bucketspace_fs.validate_fs_bucket_access:', bucket.name.unwrap(), is_nsfs_bucket, accessible);
+        return accessible;
+    }
+
+    async _has_access_to_nsfs_dir(ns, object_sdk) {
+        const account = object_sdk.requesting_account;
+        dbg.log1('_has_access_to_nsfs_dir: nsr: ', ns, 'account.nsfs_account_config: ', account && account.nsfs_account_config);
+        // nsfs bucket
+        if (!account || !account.nsfs_account_config || _.isUndefined(account.nsfs_account_config.uid) ||
+            _.isUndefined(account.nsfs_account_config.gid)) return false;
+        try {
+            dbg.log1('_has_access_to_nsfs_dir: checking access:', ns.write_resource, account.nsfs_account_config.uid, account.nsfs_account_config.gid);
+            const path_to_check = path.join(ns.write_resource.resource.fs_root_path, ns.write_resource.path || '');
+            const fs_context = prepare_fs_context(object_sdk, ns.write_resource.resource.fs_backend);
+            await nb_native().fs.checkAccess(fs_context, path_to_check);
+            return true;
+        } catch (err) {
+            dbg.log0('_has_access_to_nsfs_dir: failed', err);
+            if (err.code === 'ENOENT' || err.code === 'EACCES' || (err.code === 'EPERM' && err.message === 'Operation not permitted')) return false;
+            throw err;
+        }
     }
 }
 

@@ -41,7 +41,6 @@ describe('manage nsfs cli bucket flow', () => {
 
         const account_defaults = {
             name: 'account_test',
-            email: 'account1@noobaa.io',
             new_buckets_path: `${root_path}new_buckets_path_user1/`,
             uid: 1001,
             gid: 1001,
@@ -51,7 +50,7 @@ describe('manage nsfs cli bucket flow', () => {
 
         const bucket_defaults = {
             name: 'bucket1',
-            email: 'account1@noobaa.io',
+            owner: 'account1',
             path: bucket_storage_path,
         };
 
@@ -98,9 +97,9 @@ describe('manage nsfs cli bucket flow', () => {
         const root_path = path.join(tmp_fs_path, 'root_path_manage_nsfs2/');
         bucket_storage_path = path.join(tmp_fs_path, 'root_path_manage_nsfs2', 'bucket1');
 
+        const account_name = 'account_test';
         const account_defaults = {
-            name: 'account_test',
-            email: 'account1@noobaa.io',
+            name: account_name,
             new_buckets_path: `${root_path}new_buckets_path_user1/`,
             uid: 999,
             gid: 999,
@@ -110,7 +109,7 @@ describe('manage nsfs cli bucket flow', () => {
 
         const bucket_defaults = {
             name: 'bucket1',
-            email: 'account1@noobaa.io',
+            owner: account_name,
             path: bucket_storage_path,
         };
 
@@ -183,19 +182,19 @@ describe('manage nsfs cli bucket flow', () => {
  * @param {object} options
  */
 async function exec_manage_cli(type, action, options) {
-    let account_flags = ``;
+    let flags = ``;
     for (const key in options) {
         if (Object.hasOwn(options, key)) {
             if (typeof options[key] === 'boolean') {
-                account_flags += `--${key} `;
+                flags += `--${key} `;
             } else {
-                account_flags += `--${key} ${options[key]} `;
+                flags += `--${key} ${options[key]} `;
             }
         }
     }
-    account_flags = account_flags.trim();
+    flags = flags.trim();
+    const command = `node src/cmd/manage_nsfs ${type} ${action} ${flags}`;
 
-    const command = `node src/cmd/manage_nsfs ${type} ${action} ${account_flags}`;
     let res;
     try {
         res = await os_util.exec(command, { return_stdout: true });

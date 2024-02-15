@@ -23,12 +23,12 @@ NooBaa needs some configurations to be in place before we start up the NooBaa pr
 In order to be able to access NooBaa, the user should create a account. This can be done in the following way.
 ```console
 $ cd /usr/local/noobaa-core
-$ bin/node src/cmd/manage_nsfs.js account add --email <email-address-of-user> --access_key <access-key> --secret_key <secret-key> --name <name-of-user> --new_buckets_path <path-to-store-bucket-data>
+$ bin/node src/cmd/manage_nsfs.js account add --access_key <access-key> --secret_key <secret-key> --name <name-of-user> --new_buckets_path <path-to-store-bucket-data>
 ```
 
 NOTE: `<path-to-store-bucket-data>` should already exist or else the above command will throw error.
 
-Following the above steps we will create a new user for NooBaa with the given name and email. The user will be able to access the NooBaa S3 endpoint with the access key and secret key pair.
+Following the above steps we will create a new user for NooBaa with the given name. The user will be able to access the NooBaa S3 endpoint with the access key and secret key pair.
 
 #### Example
 ```console
@@ -36,7 +36,7 @@ $ cd /usr/local/noobaa-core
 $ mkdir /ibm/gpfs/noobaadata #Bucket Data Path should already exist
 $ export AWS_ACCESS_KEY_ID=$(openssl rand -hex 20)
 $ export AWS_SECRET_ACCESS_KEY=$(openssl rand -hex 20)
-$ bin/node src/cmd/manage_nsfs.js account add --email noobaa@noobaa.io --access_key $AWS_ACCESS_KEY_ID --secret_key $AWS_SECRET_ACCESS_KEY --name noobaa --new_buckets_path /ibm/gpfs/noobaadata
+$ bin/node src/cmd/manage_nsfs.js account add --access_key $AWS_ACCESS_KEY_ID --secret_key $AWS_SECRET_ACCESS_KEY --name noobaa --new_buckets_path /ibm/gpfs/noobaadata
 ```
 
 ### Configure NooBaa

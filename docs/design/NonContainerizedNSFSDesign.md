@@ -11,14 +11,15 @@ node src/cmd/nsfs ../standalon/nsfs_root --config_dir ../standalon/fs_config
 
 ---
 
-## Compments
+## Components
 
-### 1. Accounts
+### 1. Account
 
-- Account will have a directory and in that, it will map 1 file per account, and the file name will be {account_name}.json
+- Account will have a directory and in that, it will map 1 file per account
+- Account file name will be {account_name}.json
 - Secrets will be saved as plain text
   - Note: We had the option to save it as plain text or Encrypted strings.
-- JSON Schema - `src/server/object_services/schemas/nsfs_account_schema.js`.
+- JSON Schema - `src/server/system_services/schemas/nsfs_account_schema.js`.
   - Note: It is based on $ref: account_api#/definitions/account_info.
 - `new_buckets_path` in the account schema will be used to populate the namespace store (read_resources, write_resource).
 - `BucketSpace` interface is updated with the new method `read_account_by_access_key()`
@@ -27,7 +28,7 @@ node src/cmd/nsfs ../standalon/nsfs_root --config_dir ../standalon/fs_config
 ```json
 {
   "name": "user1",
-  "email": "user1@noobaa.io",
+  "email": "user1", // the email will be internally (the account name), email will not be set by user
   "creation_date": "2024-01-11T08:24:14.937Z",
   "access_keys": [
     {
@@ -40,28 +41,31 @@ node src/cmd/nsfs ../standalon/nsfs_root --config_dir ../standalon/fs_config
     "gid": 1001,   // 
     "new_buckets_path": "/",
   },
-  "allow_bucket_creation": true
+  "allow_bucket_creation": true,
+  "_id": "65cb1e7c9e6ae40d499c0ae3" // _id automatically generated
 }
 ```
 
 ### 2. Bucket
 
-- Bucket will have a directory and in that, it will map 1 file per Bucket
-- bucket files name will be same as bucket name; eg: {bucket_name}.json
+- Bucket will have a directory and in that, it will map 1 file per bucket
+- Bucket file name will be {bucket_name}.json
 - Bucket schema should have a name, bucket_owner, path, etc. The are optional properties that can be added like bucket policy.
-- JSON Schema - src/server/object_services/schemas/nsfs_bucket_schema.js
+- JSON Schema - `src/server/system_services/schemas/nsfs_bucket_schema.js`.
   -  It is based on  $ref: 'bucket_api#/definitions/bucket_info'
-- `BucketSpace`` interface is updated with the new method `read_bucket_sdk_info()`
+- `BucketSpace` interface is updated with the new method `read_bucket_sdk_info()`
     - Method will read bucket schema referring to bucket name and return the bucket to `bucket_namespace_cache`.
 
 ```json
 {
-  "name": "mybucke-test1",
-  "system_owner": "user1@noobaa.io",
-  "bucket_owner": "user1@noobaa.io",
-  "creation_date": "2024-01-11T08:26:16.9731",
+  "_id": "65cb1efcbec92b33220112d6",
+  "name": "mybucket-test1",
+  "owner_account": "65cb1e7c9e6ae40d499c0ae3",
+  "system_owner": "user1",
+  "bucket_owner": "user1",
   "versioning": "DISABLED",
-  "path": "mybucke-test1",
+  "creation_date": "2024-01-11T08:26:16.9731",
+  "path": "mybucket-test1",
   "should_create_underlying_storage": true,
   "s3_policy": {
         "Version": "2012-10-17",
@@ -77,8 +81,8 @@ node src/cmd/nsfs ../standalon/nsfs_root --config_dir ../standalon/fs_config
               "s3:*"
             ],
             "Resource": [
-              "arn:aws:s3:::mybucke-test1/*",
-              "arn:aws:s3:::mybucke-test1"
+              "arn:aws:s3:::mybucket-test1/*",
+              "arn:aws:s3:::mybucket-test1"
             ]
           }
         ]
@@ -98,7 +102,7 @@ node src/cmd/nsfs ../standalon/nsfs_root --config_dir ../standalon/fs_config
 - Create account - admin creates a file in the accounts dir, and Noobaa reloads on demand.
 - Delete account - admin deletes the file, we have a cache and will expire it after some time.
 - Regenerate credentials - update the file, and Noobaa will reload after up to 1 minute.
-- Update account details like uid, gid, email etc.
+- Update account details like uid, gid, fs_backend etc.
 
 ### S3 Bucket operations
 

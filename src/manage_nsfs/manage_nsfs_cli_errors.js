@@ -1,6 +1,8 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
+
 /**
  * @typedef {{
  *      code?: string, 
@@ -191,12 +193,6 @@ ManageCLIError.MissingAccountNameFlag = Object.freeze({
     http_code: 400,
 });
 
-ManageCLIError.MissingAccountEmailFlag = Object.freeze({
-    code: 'MissingAccountEmailFlag',
-    message: 'Account email is mandatory, please use the --email flag',
-    http_code: 400,
-});
-
 ManageCLIError.MissingIdentifier = Object.freeze({
     code: 'MissingIdentifier',
     message: 'Account identifier is mandatory, please use the --access_key or --name flag',
@@ -275,6 +271,12 @@ ManageCLIError.BucketSetForbiddenNoBucketOwner = Object.freeze({
     http_code: 403,
 });
 
+ManageCLIError.BucketCreationNotAllowed = Object.freeze({
+    code: 'BucketCreationNotAllowed',
+    message: 'Not allowed to create new buckets',
+    http_code: 403,
+});
+
 /////////////////////////////////
 //// BUCKET ARGUMENTS ERRORS ////
 /////////////////////////////////
@@ -286,9 +288,9 @@ ManageCLIError.MissingBucketNameFlag = Object.freeze({
     http_code: 400,
 });
 
-ManageCLIError.MissingBucketEmailFlag = Object.freeze({
-    code: 'MissingBucketEmailFlag',
-    message: 'Bucket email is mandatory, please use the --email flag',
+ManageCLIError.MissingBucketOwnerFlag = Object.freeze({
+    code: 'MissingBucketOwnerFlag',
+    message: 'Bucket owner (account name) is mandatory, please use the --owner flag',
     http_code: 400,
 });
 
@@ -339,4 +341,15 @@ ManageCLIError.RPC_ERROR_TO_MANAGE = Object.freeze({
     INVALID_SCHEMA: ManageCLIError.InvalidSchema,
 });
 
+const NSFS_CLI_ERROR_EVENT_MAP = {
+    WhiteListIPUpdateFailed: NoobaaEvent.WHITELIST_UPDATED_FAILED,
+    AccessDenied: NoobaaEvent.UNAUTHORIZED,
+    AccountAccessKeyAlreadyExists: NoobaaEvent.ACCOUNT_ALREADY_EXISTS,
+    AccountNameAlreadyExists: NoobaaEvent.ACCOUNT_ALREADY_EXISTS,
+    AccountDeleteForbiddenHasBuckets: NoobaaEvent.ACCOUNT_DELETE_FORBIDDEN,
+    BucketAlreadyExists: NoobaaEvent.BUCKET_ALREADY_EXISTS,
+    BucketSetForbiddenNoBucketOwner: NoobaaEvent.UNAUTHORIZED,
+};
+
 exports.ManageCLIError = ManageCLIError;
+exports.NSFS_CLI_ERROR_EVENT_MAP = NSFS_CLI_ERROR_EVENT_MAP;

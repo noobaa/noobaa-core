@@ -1,6 +1,8 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
+
 // TODO : define list & status types
 /**
  * @typedef {{
@@ -100,4 +102,13 @@ ManageCLIResponse.BucketList = Object.freeze({
     list: {}
 });
 
+const NSFS_CLI_SUCCESS_EVENT_MAP = {
+    AccountCreated: NoobaaEvent.ACCOUNT_CREATED,
+    AccountDeleted: NoobaaEvent.ACCOUNT_DELETED,
+    BucketCreated: NoobaaEvent.BUCKET_CREATED,
+    BucketDeleted: NoobaaEvent.BUCKET_DELETE,
+    WhiteListIPUpdated: NoobaaEvent.WHITELIST_UPDATED,
+};
+
 exports.ManageCLIResponse = ManageCLIResponse;
+exports.NSFS_CLI_SUCCESS_EVENT_MAP = NSFS_CLI_SUCCESS_EVENT_MAP;

@@ -451,12 +451,12 @@ mocha.describe('bucket operations - namespace_fs', function() {
         assert.ok(list_ok);
     });
     mocha.it('list buckets with dn', async function() {
-        // Give s3_correct_uid access to the required buckets
         const res = await s3_correct_dn_default_nsr.listBuckets({});
         console.log(inspect(res));
-        const list_ok = bucket_in_list([bucket_name + "-s3-2"], [], res.Buckets);
+        const list_ok = bucket_in_list([bucket_name + '-s3-2'], [], res.Buckets);
         assert.ok(list_ok);
     });
+
     mocha.it('put object with out uid gid', async function() {
         try {
             const res = await s3_owner.putObject({ Bucket: bucket_name + '-s3', Key: 'ob1.txt', Body: 'AAAABBBBBCCCCCCDDDDD' });
@@ -832,50 +832,6 @@ mocha.describe('bucket operations - namespace_fs', function() {
     });
 });
 
-function create_random_body() {
-    return Math.random().toString(36).slice(50);
-}
-
-function bucket_in_list(exist_buckets, not_exist_buckets, s3_buckets_list_response) {
-    const bucket_names = s3_buckets_list_response.map(bucket => bucket.Name);
-    const exist_checker = exist_buckets.every(v => bucket_names.includes(v));
-    const doesnt_exist_checker = not_exist_buckets.every(v => !bucket_names.includes(v));
-    return exist_checker && doesnt_exist_checker;
-}
-
-function object_in_list(res, key) {
-    if (res.Contents) {
-        const ans = res.Contents.find(obj => obj.Key === key);
-        if (ans) return true;
-    }
-    return false;
-}
-
-async function update_account_nsfs_config(email, default_resource, new_nsfs_account_config, should_fail, error_code) {
-    try {
-        await rpc_client.account.update_account_s3_access({
-            email,
-            s3_access: true,
-            default_resource,
-            nsfs_account_config: new_nsfs_account_config
-        });
-        if (should_fail) {
-            assert.fail(`update_account_nsfs_config - action should fail but it didn't`);
-        }
-    } catch (err) {
-        if (should_fail) {
-            if (process.env.NC_CORETEST) {
-                assert.equal(JSON.parse(err.stdout).error.code, error_code);
-            } else {
-                assert.equal(err.rpc_code, error_code || 'FORBIDDEN');
-            }
-            return;
-        }
-        assert.fail(`update_account_nsfs_config failed ${err}, ${err.stack}`);
-    }
-}
-
-
 
 mocha.describe('list objects - namespace_fs', async function() {
     const namespace_resource_name = 'nsr1-list';
@@ -1038,80 +994,6 @@ mocha.describe('list objects - namespace_fs', async function() {
 });
 
 
-function generate_s3_client(access_key, secret_key) {
-    return new S3({
-        forcePathStyle: true,
-        region: config.DEFAULT_REGION,
-        requestHandler: new NodeHttpHandler({
-            httpAgent: new http.Agent({ keepAlive: false })
-        }),
-        credentials: {
-            accessKeyId: access_key,
-            secretAccessKey: secret_key,
-        },
-        endpoint: coretest.get_http_address()
-    });
-}
-
-async function generate_nsfs_account(options = {}) {
-    const { uid, gid, new_buckets_path, nsfs_only, admin, default_resource, account_name } = options;
-    if (admin) {
-        const account = await rpc_client.account.read_account({
-            email: EMAIL,
-        });
-        return {
-            access_key: account.access_keys[0].access_key.unwrap(),
-            secret_key: account.access_keys[0].secret_key.unwrap()
-        };
-    }
-    const random_name = account_name || (Math.random() + 1).toString(36).substring(7);
-    const nsfs_account_config = {
-        uid: uid || process.getuid(),
-        gid: gid || process.getgid(),
-        new_buckets_path: new_buckets_path || '/',
-        nsfs_only: nsfs_only || false
-    };
-
-    const account = await rpc_client.account.create_account({
-        has_login: false,
-        s3_access: true,
-        email: `${random_name}@noobaa.com`,
-        name: random_name,
-        nsfs_account_config,
-        default_resource
-    });
-    return {
-        access_key: account.access_keys[0].access_key.unwrap(),
-        secret_key: account.access_keys[0].secret_key.unwrap(),
-        email: `${random_name}@noobaa.com`
-    };
-}
-
-
-async function put_and_delete_objects(s3_account, bucket, key, body, should_fail) {
-    try {
-        await s3_account.putObject({
-            Bucket: bucket,
-            Key: key,
-            Body: body
-        });
-        if (should_fail) {
-            assert.fail(`put_object - action should fail but it didn't`);
-        }
-    } catch (err) {
-        if (should_fail) {
-            assert.ok(err.Code === 'AccessDenied');
-            return;
-        }
-        assert.fail(`put_object failed ${err}, ${err.stack}`);
-    }
-
-    await s3_account.deleteObject({
-        Bucket: bucket,
-        Key: key,
-    });
-}
-
 mocha.describe('nsfs account configurations', function() {
     this.timeout(10000); // eslint-disable-line no-invalid-this
     const nsr1 = 'nsr1';
@@ -1141,7 +1023,16 @@ mocha.describe('nsfs account configurations', function() {
     });
 
     mocha.before(async () => fs_utils.create_fresh_path(tmp_fs_root1 + bucket_path, 0o770));
-    mocha.after(async () => fs_utils.folder_delete(tmp_fs_root1));
+    mocha.after(async () => {
+        for (const bucket_name of [bucket_name1, data_bucket, non_nsfs_bucket2]) {
+            try {
+                await rpc_client.bucket.delete_bucket({ name: bucket_name });
+            } catch (err) {
+                console.error('failed deleting bucket: ', bucket_name, err);
+            }
+        }
+        await fs_utils.folder_delete(tmp_fs_root1);
+    });
     mocha.it('export dir as a bucket', async function() {
         await rpc_client.pool.create_namespace_resource({
             name: nsr1,
@@ -1505,7 +1396,311 @@ mocha.describe('nsfs account configurations', function() {
     });
 });
 
+mocha.describe('list buckets - namespace_fs', async function() {
+    const tmp_fs_root = get_tmp_path_by_os('/tmp/test_bucket_namespace_ls');
+    const new_buckets_dir = '/lb_new_buckets_path';
+    const new_buckets_path = path.join(tmp_fs_root, new_buckets_dir);
+    const accounts = {
+        'account1': {
+            bucket: 'bucket1',
+            create_bucket_via: 'S3',
+            account_info: {
+                uid: process.getuid(),
+                gid: process.getuid(),
+                new_buckets_path
+            },
+        },
+        'account2': {
+            bucket: 'bucket2',
+            create_bucket_via: 'CLI',
+            account_info: {
+                user: 'root',
+                new_buckets_path
+            }
+        },
+        'account3': {
+            bucket: 'bucket3',
+            create_bucket_via: 'CLI',
+            account_info: {
+                uid: process.getuid(),
+                gid: process.getuid(),
+                new_buckets_path
+            }
+        },
+        'account4': {
+            bucket: 'bucket4',
+            create_bucket_via: 'CLI',
+            account_info: {
+                uid: 1234,
+                gid: 1234,
+                new_buckets_path
+            }
+        },
+    };
+
+    mocha.before(async function() {
+        this.timeout(30000); // eslint-disable-line no-invalid-this
+        // TODO: support NSFS containerized, requires different rpc clients
+        if (test_utils.invalid_nsfs_root_permissions() || !process.env.NC_CORETEST) this.skip(); // eslint-disable-line no-invalid-this
+        await fs_utils.create_fresh_path(tmp_fs_root);
+        await fs_utils.file_must_exist(tmp_fs_root);
+        await fs_utils.create_fresh_path(new_buckets_path);
+        await fs_utils.file_must_exist(new_buckets_path);
+        const dummy_nsr = 'dummy_nsr';
+
+        await rpc_client.pool.create_namespace_resource({
+            name: dummy_nsr,
+            nsfs_config: {
+                fs_root_path: tmp_fs_root,
+            }
+        });
+
+        for (const account_name of Object.keys(accounts)) {
+            const { create_bucket_via, bucket, account_info } = accounts[account_name];
+            const { uid, gid } = account_info;
+            const account = await generate_nsfs_account({ uid, gid, account_name, new_buckets_path });
+            const s3_client = generate_s3_client(account.access_key, account.secret_key);
+            accounts[account_name].s3_client = s3_client;
+
+            if (create_bucket_via === 'CLI') {
+                const cli_bucket_path = path.join(tmp_fs_root, bucket);
+                await fs_utils.create_fresh_path(cli_bucket_path);
+                await fs_utils.file_must_exist(cli_bucket_path);
+                if (account_name === 'account4') {
+                    await fs.promises.chmod(cli_bucket_path, 770);
+                    await fs.promises.chown(cli_bucket_path, uid, gid);
+                }
+                const obj_nsr = { resource: dummy_nsr, path: bucket };
+                const create_bucket_options = {
+                    name: bucket,
+                    namespace: {
+                        read_resources: [obj_nsr],
+                        write_resource: obj_nsr
+                    }
+                };
+                if (process.env.NC_CORETEST) create_bucket_options.owner = account_name;
+                await rpc_client.bucket.create_bucket(create_bucket_options);
+            } else {
+                const res = await s3_client.createBucket({ Bucket: bucket });
+                console.log('created bucket via s3', account_name, bucket, res);
+            }
+        }
+    });
+
+    mocha.after(async function() {
+        this.timeout(60000); // eslint-disable-line no-invalid-this
+        if (!process.env.NC_CORETEST) return;
+        for (const account_name of Object.keys(accounts)) {
+            const { bucket } = accounts[account_name];
+            await rpc_client.bucket.delete_bucket({ name: bucket });
+            await rpc_client.account.delete_account({ email: `${account_name}@noobaa.com` });
+        }
+        await fs_utils.folder_delete(tmp_fs_root);
+    });
+
+    mocha.it('list buckets - each account can list only its own bucket - no bucket policies applied ', async function() {
+        for (const account of Object.values(accounts)) {
+            const { s3_client } = account;
+            const res = await s3_client.listBuckets({});
+            const buckets = res.Buckets.map(bucket => bucket.Name).sort();
+            assert.equal(buckets.length, 2);
+            assert.deepStrictEqual(buckets, [account.bucket, 'first.bucket']);
+        }
+    });
+
+    mocha.it('account1 - all accounts are allowed to list bucket1', async function() {
+        // allow all accounts to list bucket1
+        const public_bucket = accounts.account1.bucket;
+        const bucket_policy = test_utils.generate_s3_policy('*', public_bucket, ['s3:ListBucket']);
+        await rpc_client.bucket.put_bucket_policy({
+            name: public_bucket,
+            policy: bucket_policy.policy,
+        });
+        // check account2 and account3 can list bucket1
+        // account2/account3 should be able to list -
+        // 1. first.bucket
+        // 2. buckets owned by the account (account2 can list bucket2 / account3 can list bucket3)
+        // 3. bucket1 (by the given bucket policy)
+        // account4 can not list bucket1 because of missing fs access permissions (unmatching uid/gid)
+        // account4 can list -
+        // 1. first.bucket
+        // 2. bucket4 - owned by the account
+        for (const account_name of ['account2', 'account3', 'account4']) {
+            const account = accounts[account_name];
+            const { s3_client, bucket } = account;
+            const res = await s3_client.listBuckets({});
+            const buckets = res.Buckets.map(bucket_info => bucket_info.Name).sort();
+            if (account_name === 'account4') {
+                assert.equal(buckets.length, 2);
+                assert.deepStrictEqual(buckets, [bucket, 'first.bucket']);
+            } else {
+                assert.equal(buckets.length, 3);
+                assert.deepStrictEqual(buckets, [accounts.account1.bucket, bucket, 'first.bucket']);
+            }
+        }
+
+        // delete bucket policy
+        await rpc_client.bucket.put_bucket_policy({
+            name: public_bucket,
+            policy: '',
+        });
+    });
+
+    mocha.it('account2 - set allow only account1 list bucket2, account1/account2 can list bucket2 but account3 cant', async function() {
+        const bucket2 = accounts.account2.bucket;
+        const account_name = 'account1';
+        // on NC the account identifier is account name, and on containerized it's the account's email
+        // allow bucket2 to be listed by account1
+        const account1_principal = process.env.NC_CORETEST ? account_name : `${account_name}@noobaa.com`;
+        const bucket_policy = test_utils.generate_s3_policy(account1_principal, bucket2, ['s3:ListBucket']);
+        await rpc_client.bucket.put_bucket_policy({
+            name: bucket2,
+            policy: bucket_policy.policy,
+        });
+
+        // account1 can list -
+        // 1. bucket1
+        // 2. bucket2 (due to the policy)
+        // 3. first.bucket
+        let s3_client = accounts.account1.s3_client;
+        let res = await s3_client.listBuckets({});
+        let buckets = res.Buckets.map(bucket => bucket.Name).sort();
+        assert.equal(buckets.length, 3);
+        assert.deepStrictEqual(buckets, [accounts.account1.bucket, accounts.account2.bucket, 'first.bucket']);
+
+        // account3 can list -
+        // 1. bucket3
+        // 2. first.bucket
+        s3_client = accounts.account3.s3_client;
+        res = await s3_client.listBuckets({});
+        buckets = res.Buckets.map(bucket => bucket.Name).sort();
+        assert.equal(buckets.length, 2);
+        assert.deepStrictEqual(buckets, [accounts.account3.bucket, 'first.bucket']);
+
+        // delete bucket policy
+        await rpc_client.bucket.put_bucket_policy({
+            name: bucket2,
+            policy: '',
+        });
+    });
+});
+
 function get_tmp_path_by_os(_path) {
     return process.platform === MAC_PLATFORM ? '/private/' + _path : _path;
 }
 
+function generate_s3_client(access_key, secret_key) {
+    return new S3({
+        forcePathStyle: true,
+        region: config.DEFAULT_REGION,
+        requestHandler: new NodeHttpHandler({
+            httpAgent: new http.Agent({ keepAlive: false })
+        }),
+        credentials: {
+            accessKeyId: access_key,
+            secretAccessKey: secret_key,
+        },
+        endpoint: coretest.get_http_address()
+    });
+}
+
+async function generate_nsfs_account(options = {}) {
+    const { uid, gid, new_buckets_path, nsfs_only, admin, default_resource, account_name } = options;
+    if (admin) {
+        const account = await rpc_client.account.read_account({
+            email: EMAIL,
+        });
+        return {
+            access_key: account.access_keys[0].access_key.unwrap(),
+            secret_key: account.access_keys[0].secret_key.unwrap()
+        };
+    }
+    const random_name = account_name || (Math.random() + 1).toString(36).substring(7);
+    const nsfs_account_config = {
+        uid: uid || process.getuid(),
+        gid: gid || process.getgid(),
+        new_buckets_path: new_buckets_path || '/',
+        nsfs_only: nsfs_only || false
+    };
+
+    const account = await rpc_client.account.create_account({
+        has_login: false,
+        s3_access: true,
+        email: `${random_name}@noobaa.com`,
+        name: random_name,
+        nsfs_account_config,
+        default_resource
+    });
+    return {
+        access_key: account.access_keys[0].access_key.unwrap(),
+        secret_key: account.access_keys[0].secret_key.unwrap(),
+        email: `${random_name}@noobaa.com`
+    };
+}
+
+async function put_and_delete_objects(s3_account, bucket, key, body, should_fail) {
+    try {
+        await s3_account.putObject({
+            Bucket: bucket,
+            Key: key,
+            Body: body
+        });
+        if (should_fail) {
+            assert.fail(`put_object - action should fail but it didn't`);
+        }
+    } catch (err) {
+        if (should_fail) {
+            assert.ok(err.Code === 'AccessDenied');
+            return;
+        }
+        assert.fail(`put_object failed ${err}, ${err.stack}`);
+    }
+
+    await s3_account.deleteObject({
+        Bucket: bucket,
+        Key: key,
+    });
+}
+
+function create_random_body() {
+    return Math.random().toString(36).slice(50);
+}
+
+function bucket_in_list(exist_buckets, not_exist_buckets, s3_buckets_list_response) {
+    const bucket_names = s3_buckets_list_response.map(bucket => bucket.Name);
+    const exist_checker = exist_buckets.every(v => bucket_names.includes(v));
+    const doesnt_exist_checker = not_exist_buckets.every(v => !bucket_names.includes(v));
+    return exist_checker && doesnt_exist_checker;
+}
+
+function object_in_list(res, key) {
+    if (res.Contents) {
+        const ans = res.Contents.find(obj => obj.Key === key);
+        if (ans) return true;
+    }
+    return false;
+}
+
+async function update_account_nsfs_config(email, default_resource, new_nsfs_account_config, should_fail, error_code) {
+    try {
+        await rpc_client.account.update_account_s3_access({
+            email,
+            s3_access: true,
+            default_resource,
+            nsfs_account_config: new_nsfs_account_config
+        });
+        if (should_fail) {
+            assert.fail(`update_account_nsfs_config - action should fail but it didn't`);
+        }
+    } catch (err) {
+        if (should_fail) {
+            if (process.env.NC_CORETEST) {
+                assert.equal(JSON.parse(err.stdout).error.code, error_code);
+            } else {
+                assert.equal(err.rpc_code, error_code || 'FORBIDDEN');
+            }
+            return;
+        }
+        assert.fail(`update_account_nsfs_config failed ${err}, ${err.stack}`);
+    }
+}

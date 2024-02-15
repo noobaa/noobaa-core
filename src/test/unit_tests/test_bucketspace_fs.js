@@ -10,11 +10,13 @@ const assert = require('assert');
 const P = require('../../util/promise');
 const config = require('../../../config');
 const fs_utils = require('../../util/fs_utils');
-const native_fs_utils = require('../../util/native_fs_utils');
+const { get_process_fs_context, read_config_file, get_user_by_distinguished_name} = require('../../util/native_fs_utils');
+const os_utils = require('../../util/os_utils');
 
 const BucketSpaceFS = require('../../sdk/bucketspace_fs');
 const NamespaceFS = require('../../sdk/namespace_fs');
 const nb_native = require('../../util/nb_native');
+const SensitiveString = require('../../util/sensitive_string');
 
 
 const MAC_PLATFORM = 'darwin';
@@ -23,7 +25,6 @@ const test_not_empty_bucket = 'notemptybucket';
 const test_bucket_temp_dir = 'buckettempdir';
 const test_bucket_invalid = 'bucket_invalid';
 let tmp_fs_path = '/tmp/test_bucketspace_fs';
-let bucket_temp_id;
 if (process.platform === MAC_PLATFORM) {
     tmp_fs_path = '/private/' + tmp_fs_path;
 }
@@ -49,6 +50,8 @@ const DEFAULT_FS_CONFIG = {
     backend: '',
     warn_threshold_ms: 100,
 };
+
+const process_fs_context = get_process_fs_context();
 
 // since the account in NS NSFS should be valid to the nsfs_account_schema
 // had to remove additional properties: has_s3_access: 'true' and nsfs_only: 'true'
@@ -121,8 +124,10 @@ const dummy_ns = {
 function make_dummy_object_sdk() {
     return {
         requesting_account: {
+            _id: '65b3c68b59ab67b16f98c26e',
             force_md5_etag: false,
-            email: 'user2@noobaa.io',
+            name: new SensitiveString('user2'),
+            email: new SensitiveString('user2@noobaa.io'),
             allow_bucket_creation: true,
             nsfs_account_config: {
                 uid: 0,
@@ -154,10 +159,7 @@ function make_dummy_object_sdk() {
             return Boolean(fs_root_path || fs_root_path === '');
         },
         read_bucket_sdk_config_info(name) {
-            return {
-                _id: bucket_temp_id,
-                name: name
-            };
+            return bucketspace_fs.read_bucket_sdk_info({ name });
         }
     };
 }
@@ -214,7 +216,7 @@ mocha.describe('bucketspace_fs', function() {
             assert.strictEqual(res.access_keys[0].access_key.unwrap(), account_user2.access_keys[0].access_key);
             const distinguished_name = res.nsfs_account_config.distinguished_name.unwrap();
             assert.strictEqual(distinguished_name, 'root');
-            const res2 = await native_fs_utils.get_user_by_distinguished_name({ distinguished_name });
+            const res2 = await get_user_by_distinguished_name({ distinguished_name });
             assert.strictEqual(res2.uid, 0);
         });
 
@@ -225,7 +227,7 @@ mocha.describe('bucketspace_fs', function() {
             assert.strictEqual(res.access_keys[0].access_key.unwrap(), account_user3.access_keys[0].access_key);
             const distinguished_name = res.nsfs_account_config.distinguished_name.unwrap();
             assert.strictEqual(distinguished_name, os.userInfo().username);
-            const res2 = await native_fs_utils.get_user_by_distinguished_name({ distinguished_name });
+            const res2 = await get_user_by_distinguished_name({ distinguished_name });
             assert.strictEqual(res2.uid, process.getuid());
         });
 
@@ -288,7 +290,7 @@ mocha.describe('bucketspace_fs', function() {
         });
     });
 
-    mocha.describe('list_buckets', function() {
+    mocha.describe('list_buckets', async function() {
         mocha.before(async function() {
             await create_bucket(test_bucket);
         });
@@ -306,6 +308,15 @@ mocha.describe('bucketspace_fs', function() {
             await fs_utils.folder_delete(`${new_buckets_path}/${test_bucket}`);
             const file_path = get_config_file_path(buckets, test_bucket);
             await fs_utils.file_delete(file_path);
+        });
+        mocha.it('list buckets - validate creation_date', async function() {
+            const expected_bucket_name = 'bucket1';
+            const objects = await bucketspace_fs.list_buckets(dummy_object_sdk);
+            assert.equal(objects.buckets.length, 1);
+            assert.equal(objects.buckets[0].name.unwrap(), expected_bucket_name);
+            const bucket_config_path = get_config_file_path(buckets, expected_bucket_name);
+            const bucket_data = await read_config_file(process_fs_context, bucket_config_path);
+            assert.equal(objects.buckets[0].creation_date, bucket_data.creation_date);
         });
     });
     mocha.describe('delete_bucket', function() {
@@ -352,7 +363,6 @@ mocha.describe('bucketspace_fs', function() {
             const bucket_config_path = get_config_file_path(buckets, param.name);
             const data = await fs.promises.readFile(bucket_config_path);
             const bucket = await JSON.parse(data.toString());
-            bucket_temp_id = bucket._id;
             const bucket_temp_dir_path = path.join(new_buckets_path, param.name, config.NSFS_TEMP_DIR_NAME + "_" + bucket._id);
             await nb_native().fs.mkdir(ACCOUNT_FS_CONFIG, bucket_temp_dir_path);
             await fs.promises.stat(bucket_temp_dir_path);
@@ -367,7 +377,9 @@ mocha.describe('bucketspace_fs', function() {
                 await fs.promises.stat(bucket_config_path);
             } catch (err) {
                 assert.strictEqual(err.code, 'ENOENT');
-                assert.equal(err.message, "ENOENT: no such file or directory, stat '/tmp/test_bucketspace_fs/config_root/buckets/buckettempdir.json'");
+                let path_for_err_msg = '/tmp/test_bucketspace_fs/config_root/buckets/buckettempdir.json';
+                if (os_utils.IS_MAC) path_for_err_msg = '/private' + path_for_err_msg;
+                assert.equal(err.message, `ENOENT: no such file or directory, stat '${path_for_err_msg}'`);
             }
             await fs.promises.stat(path.join(new_buckets_path, param.name));
         });
@@ -380,8 +392,7 @@ mocha.describe('bucketspace_fs', function() {
             const param = {name: test_bucket, versioning: 'ENABLED'};
             await bucketspace_fs.set_bucket_versioning(param, dummy_object_sdk);
             const bucket_config_path = get_config_file_path(buckets, param.name);
-            const data = await fs.promises.readFile(bucket_config_path);
-            const bucket = JSON.parse(data.toString());
+            const bucket = await read_config_file(process_fs_context, bucket_config_path);
             assert.equal(bucket.versioning, 'ENABLED');
 
         });

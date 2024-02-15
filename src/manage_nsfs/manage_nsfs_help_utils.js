@@ -67,18 +67,15 @@ Account
 account add [options...]:
 add a new account
 
-    # required
-    --name <name>                                                                               Set the name for the account.
-    --email <email>                                                                             Set the email for the account (used as the identifier for buckets owner).
-    --uid <uid>                                                                                 Set the User Identifier (UID) (UID and GID can be replaced by --user option).
-    --gid <gid>                                                                                 Set the Group Identifier (GID) (UID and GID can be replaced by --user option).
-    --new_buckets_path <dir>                                                                    Set the filesystem's root where each subdirectory is a bucket.
-
-    # optional
-    --user <user-name>                              (default none)                              Set the OS user name (instead of UID and GID)
-    --access_key <key>                              (default is generated)                      Set the access key for the account.
-    --secret_key <key>                              (default is generated)                      Set the secret key for the account.
-    --fs_backend <none | GPFS | CEPH_FS | NFSv4>    (default config.NSFS_NC_STORAGE_BACKEND)    Set filesystem type of new_buckets_path.
+Flags:
+--name <string>                                                                             Set the name for the account
+--uid <number>                                                                              Set the User Identifier (UID) (UID and GID can be replaced by --user option)
+--gid <number>                                                                              Set the Group Identifier (GID) (UID and GID can be replaced by --user option)
+--new_buckets_path <string>                                                                 Set the filesystem's root path where each subdirectory is a bucket
+--user <string>                                           (optional)                        Set the OS user name (instead of UID and GID)
+--access_key <string>                                     (optional)                        Set the access key for the account (default is generated)
+--secret_key <string>                                     (optional)                        Set the secret key for the account (default is generated)
+--fs_backend <none | GPFS | CEPH_FS | NFSv4>              (optional)                        Set the filesystem type of new_buckets_path (default config.NSFS_NC_STORAGE_BACKEND)
 `;
 
 const ACCOUNT_OPTIONS_UPDATE = `
@@ -86,21 +83,17 @@ Account
 account update [options...]:
     update an existing account
 
-    # required
-    --name <name>                                                                               The name of the account
-                                                                                                (can identify the account by --access_key option)
-
-    # optional
-    --new_name <name>                               (default none)                              Update the account name.
-    --email <email>                                 (default none)                              Update the email (used as the identifier for buckets owner).
-    --uid <uid>                                     (default none)                              Update the User Identifier (UID).
-    --gid <gid>                                     (default none)                              Update the Group Identifier (GID).
-    --new_buckets_path <dir>                        (default none)                              Update the filesystem's root where each subdirectory is a bucket.
-    --user <user-name>                              (default none)                              Update the OS user name (instead of uid and gid).
-    --regenerate                                    (default none)                              Update automatically generated access key and secret key.
-    --access_key <key>                              (default none)                              Update the access key. Can be used as identifier instead of --name.
-    --secret_key <key>                              (default none)                              Update the secret key.
-    --fs_backend <none | GPFS | CEPH_FS | NFSv4>    (default config.NSFS_NC_STORAGE_BACKEND)    Update filesystem type of new_buckets_path.
+Flags:
+--name <string>                                                                             The name of the account
+--new_name <string>                                       (optional)                        Update the account name
+--uid <number>                                            (optional)                        Update the User Identifier (UID)
+--gid <number>                                            (optional)                        Update the Group Identifier (GID)
+--new_buckets_path <string>                               (optional)                        Update the filesystem's root path where each subdirectory is a bucket
+--user <string>                                           (optional)                        Update the OS user name (instead of uid and gid)
+--regenerate                                              (optional)                        Update automatically generated access key and secret key
+--access_key <string>                                     (optional)                        Update the access key
+--secret_key <string>                                     (optional)                        Update the secret key
+--fs_backend <none | GPFS | CEPH_FS | NFSv4>              (optional)                        Update the filesystem type of new_buckets_path (default config.NSFS_NC_STORAGE_BACKEND)
 `;
 
 const ACCOUNT_OPTIONS_DELETE = `
@@ -142,14 +135,12 @@ Bucket
 bucket add [options...]:
 add a new bucket (must have an account).
 
-    # required
-    --name <name>                                                                               Set the name for the bucket.
-    --email <email>                                                                             Set the bucket owner email.
-    --path <dir>                                                                                Set the bucket path.
-
-    # optional
-    --bucket_policy<string>                         (default none)                              Set bucket policy, type is a string of valid JSON policy.
-    --fs_backend <none | GPFS | CEPH_FS | NFSv4>    (default config.NSFS_NC_STORAGE_BACKEND)    Set filesystem type.
+Flags:
+--name <string>                                                                             Set the name for the bucket
+--owner <string>                                                                            Set the bucket owner name
+--path <string>                                                                             Set the bucket path
+--bucket_policy <string>                                  (optional)                        Set the bucket policy, type is a string of valid JSON policy
+--fs_backend <none | GPFS | CEPH_FS | NFSv4>              (optional)                        Set the filesystem type (default config.NSFS_NC_STORAGE_BACKEND)
 `;
 
 const BUCKET_OPTIONS_UPDATE = `
@@ -157,15 +148,13 @@ Bucket
 bucket update [options...]:
 update an existing bucket.
 
-    # required
-    --name <name>                                                                               The name of the bucket.
-
-    # optional
-    --new_name <name>                               (default none)                              Update the bucket name.
-    --email <email>                                 (default none)                              Update the bucket owner email.
-    --path <dir>                                    (default none)                              Update the bucket path.
-    --bucket_policy<string>                         (default none)                              Update bucket policy, type is a string of valid JSON policy (unset with '').
-    --fs_backend <none | GPFS | CEPH_FS | NFSv4>    (default config.NSFS_NC_STORAGE_BACKEND)    Update filesystem type (unset with '').
+Flags:
+--name <string>                                                                             The name of the bucket
+--new_name <string>                                       (optional)                        Update the bucket name
+--owner <string>                                          (optional)                        Update the bucket owner name
+--path <string>                                           (optional)                        Update the bucket path
+--bucket_policy <string>                                  (optional)                        Update the bucket policy, type is a string of valid JSON policy (unset with '')
+--fs_backend <none | GPFS | CEPH_FS | NFSv4>              (optional)                        Update the filesystem type (unset with '') (default config.NSFS_NC_STORAGE_BACKEND)
 `;
 
 const BUCKET_OPTIONS_DELETE = `

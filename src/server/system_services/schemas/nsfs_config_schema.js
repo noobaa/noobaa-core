@@ -95,6 +95,16 @@ const nsfs_node_config_schema = {
             type: 'array',
             default: [],
             description: 'List of whitelisted IPs for S3 access, Allow access from all the IPs if list is empty.'
+        },
+        NSFS_DIR_CACHE_MAX_DIR_SIZE: {
+            type: 'number',
+            default: 64 * 1024 * 1024,
+            description: 'maximum directory size of the dir cache, suggested values 256MB, service restart required'
+        },
+        NSFS_DIR_CACHE_MAX_TOTAL_SIZE: {
+            type: 'number',
+            default: 4 * 64 * 1024 * 1024,
+            description: 'maximum size of the dir cache, suggested values 768MB, service restart required'
         }
     }
 };

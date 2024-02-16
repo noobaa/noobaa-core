@@ -8,7 +8,6 @@ const nb_native = require('../../util/nb_native');
 const config = require('../../../config');
 const path = require("path");
 const { parse_decimal_int } = require("../../endpoint/s3/s3_utils");
-const native_fs_utils = require('../../util/native_fs_utils');
 const { exec } = require('../../util/os_utils');
 
 const ERROR_DUPLICATE_TASK = "GLESM431E";
@@ -16,7 +15,7 @@ const ERROR_DUPLICATE_TASK = "GLESM431E";
 const MIGRATE_SCRIPT = 'migrate';
 const RECALL_SCRIPT = 'recall';
 const TASK_SHOW_SCRIPT = 'task_show';
-const SCAN_EXPIRED_SCRIPT = 'scan_expired';
+const PROCESS_EXPIRED_SCRIPT = 'process_expired';
 const LOW_FREE_SPACE_SCRIPT = 'low_free_space';
 
 function get_bin_path(bin_name) {
@@ -99,13 +98,8 @@ async function recall(file) {
     }
 }
 
-/**
- * scan_expired will invoke the `SCAN_EXPIRED` script and will expect the 
- * data to be dumped into `destination` dir.
- * @param {string} destination 
- */
-async function scan_expired(destination) {
-    await exec(`${get_bin_path(SCAN_EXPIRED_SCRIPT)} ${destination}`);
+async function process_expired() {
+    await exec(`${get_bin_path(PROCESS_EXPIRED_SCRIPT)}`);
 }
 
 class TapeCloudGlacierBackend extends GlacierBackend {
@@ -330,35 +324,7 @@ class TapeCloudGlacierBackend extends GlacierBackend {
 
     async expiry(fs_context) {
         try {
-            // Create temporary directory for `scan_expired`
-            const tempdir = path.join(config.NSFS_GLACIER_LOGS_DIR, `scanexpire-out-tmp-${Date.now()}`);
-            await nb_native().fs.mkdir(
-                fs_context,
-                tempdir,
-                native_fs_utils.get_umasked_mode(config.BASE_MODE_DIR)
-            );
-
-            await scan_expired(tempdir);
-
-            const entries = await nb_native().fs.readdir(
-                fs_context,
-                tempdir
-            );
-
-            for (const entry of entries) {
-                if (!entry.isFile()) continue;
-                try {
-                    await migrate(entry.path);
-                } catch (error) {
-                    console.error('failed to process entry:', entry.path);
-                }
-            }
-
-            // Delete the tempdir at the end
-            await nb_native().fs.unlink(
-                fs_context,
-                tempdir
-            );
+            await process_expired();
         } catch (error) {
             console.error('Unexpected error occured while running tapecloud.expiry:', error);
         }

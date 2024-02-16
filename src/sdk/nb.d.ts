@@ -769,7 +769,7 @@ interface ObjectSDK {
 
 interface Namespace {
 
-    is_server_side_copy(other: Namespace, params: object): boolean;
+    is_server_side_copy(other: Namespace, other_md: ObjectInfo, params: object): boolean;
     is_readonly_namespace(): boolean;
     get_write_resource(): Namespace;
     get_bucket(): string;
@@ -900,7 +900,7 @@ interface NativeFS {
             xattr_get_keys?: string[];
         },
     ): Promise<NativeFSStats>;
-    statfs(fs_context: NativeFSContext, path: string): Promise<object>;
+    statfs(fs_context: NativeFSContext, path: string): Promise<Record<string, number>>;
     realpath(fs_context: NativeFSContext, path: string): Promise<string>;
     checkAccess(fs_context: NativeFSContext, path: string): Promise<void>;
     getsinglexattr(fs_context: NativeFSContext, path: string, key: string): Promise<string>;
@@ -965,6 +965,7 @@ interface NativeFile {
     linkfileat(fs_context: NativeFSContext, path: string, fd?: number): Promise<void>;
     fsync(fs_context: NativeFSContext): Promise<void>;
     fd: number
+    flock(fs_context: NativeFSContext, operation: "EXCLUSIVE" | "SHARED" | "UNLOCK"): Promise<void>;
 }
 
 interface NativeDir {

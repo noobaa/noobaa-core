@@ -44,10 +44,18 @@ function execute() {
     fi
 }
 
+function sigterm() {
+    echo "SIGTERM received"
+    kill -TERM $(jobs -p)
+    exit 0
+}
+
 function main() {
     if [ "${STANDALONE_SETUP_ENV}" = "true" ]; then
         setup_env
     fi
+
+    trap sigterm SIGTERM
 
     # Start NooBaa processes
     execute "npm run web" web.log

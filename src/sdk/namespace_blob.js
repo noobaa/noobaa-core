@@ -63,7 +63,7 @@ class NamespaceBlob {
         return `https://${this.account_name}.blob.core.windows.net/${container}/${blob}${sas_string}`;
     }
 
-    is_server_side_copy(other, params) {
+    is_server_side_copy(other, other_md, params) {
         return other instanceof NamespaceBlob && this.connection_string === other.connection_string;
     }
 

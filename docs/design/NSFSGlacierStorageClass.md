@@ -52,7 +52,7 @@ file initially, if not it skips the swapping.
 2. `migrate` script should take a file name and perform migrations of the files mentioned in the given file. The output should comply with `eeadm migrate` command.
 3. `recall` script should take a file name and perform recall of the files mentioned in the given file. The output should comply with `eeadm recall` command.
 3. `task_show` script should take a task id as argument and output its status. The output should be similar to `eeadm task show -r <id>`.
-4. `scan_expired` should take a directory name and dump files in it. The files should have the names of all the files which need to be migrated back to disk. The names should be newline separated.
+4. `process_expired` should scan the FS for all the expired files and should migrate them back to disk. NooBaa doesn't expects nor care about the outputs generated here.
 5. `low_free_space` script should output `true` if the disk has low free space or else should return `false`.
 
 ### Flow 1: Upload Object to Glacier

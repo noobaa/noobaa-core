@@ -1,6 +1,7 @@
 /* Copyright (C) 2023 NooBaa */
 'use strict';
 
+const _ = require('lodash');
 const RpcError = require('../rpc/rpc_error');
 const { default: Ajv } = require('ajv');
 const ajv = new Ajv({ verbose: true, allErrors: true });
@@ -20,6 +21,12 @@ ajv.addSchema(common_api);
 const bucket_schema = require('../server/system_services/schemas/nsfs_bucket_schema');
 const account_schema = require('../server/system_services/schemas/nsfs_account_schema');
 const nsfs_config_schema = require('../server/system_services/schemas/nsfs_config_schema');
+
+_.each(common_api.definitions, schema => {
+    schema_utils.strictify(schema, {
+        additionalProperties: false
+    });
+});
 
 schema_utils.strictify(bucket_schema, {
     additionalProperties: false

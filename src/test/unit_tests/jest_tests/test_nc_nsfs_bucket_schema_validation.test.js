@@ -96,9 +96,7 @@ describe('schema validation NC NSFS bucket', () => {
             assert_validation(bucket_data, reason, message);
         });
 
-        // GAP - this test should have passing
-        // currently we can properties to s3_policy which are not part of the schema
-        it.skip('bucket with my_id inside s3_policy', () => {
+        it('bucket with my_id inside s3_policy', () => {
             const bucket_data = get_bucket_data();
             bucket_data.s3_policy = bucket_policy1; // added
             bucket_data.s3_policy.my_id = '123'; // this is not part of the schema
@@ -108,9 +106,7 @@ describe('schema validation NC NSFS bucket', () => {
             assert_validation(bucket_data, reason, message);
         });
 
-        // GAP - this test should have passing
-        // currently we can properties to encryption which are not part of the schema
-        it.skip('bucket with my_id inside encryption', () => {
+        it('bucket with my_id inside encryption', () => {
             const bucket_data = get_bucket_data();
             bucket_data.encryption = encryption1; // added
             bucket_data.encryption.my_id = '123'; // this is not part of the schema
@@ -120,9 +116,7 @@ describe('schema validation NC NSFS bucket', () => {
             assert_validation(bucket_data, reason, message);
         });
 
-        // GAP - this test should have passing
-        // currently we can properties to website which are not part of the schema
-        it.skip('bucket with my_id inside website', () => {
+        it('bucket with my_id inside website', () => {
             const bucket_data = get_bucket_data();
             bucket_data.website = website1; // added
             bucket_data.website.my_id = '123'; // this is not part of the schema

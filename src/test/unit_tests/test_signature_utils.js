@@ -24,6 +24,7 @@ mocha.describe('signature_utils', function() {
     const SECRETS = {
         'AKIDEXAMPLE': 'wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY',
         '123': 'abc',
+        'QlBdp923Pnpu2qxn9Qpj': 'YLIkByxr/V5LiBJIpZS+TpQvuFSYqDAD3bG5ePaY'
     };
 
     const http_server = http.createServer(accept_signed_request);
@@ -31,9 +32,9 @@ mocha.describe('signature_utils', function() {
     mocha.before(function() {
         return new Promise((resolve, reject) =>
             http_server
-                .once('listening', resolve)
-                .once('error', reject)
-                .listen());
+            .once('listening', resolve)
+            .once('error', reject)
+            .listen());
     });
 
     mocha.after(function() {
@@ -46,6 +47,7 @@ mocha.describe('signature_utils', function() {
     add_tests_from(path.join(SIG_TEST_SUITE, 'awssdknodejs'), '.sreq');
     add_tests_from(path.join(SIG_TEST_SUITE, 'awssdkjava'), '.sreq');
     add_tests_from(path.join(SIG_TEST_SUITE, 'awssdkruby2'), '.sreq');
+    add_tests_from(path.join(SIG_TEST_SUITE, 'awssdkcpp'), '.sreq');
     add_tests_from(path.join(SIG_TEST_SUITE, 'cyberduck'), '.sreq');
     add_tests_from(path.join(SIG_TEST_SUITE, 'postman'), '.sreq');
     add_tests_from(path.join(SIG_TEST_SUITE, 'presigned'), '.sreq');

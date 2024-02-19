@@ -1240,6 +1240,7 @@ class NodesMonitor extends EventEmitter {
         if (item.node.deleted) return;
         if (!item.connection) return;
         if (!item.agent_info) return;
+        //The node should be set as enable if it is not decommissioned. 
         const should_enable = !item.node.decommissioned;
         const item_pool = system_store.data.get_by_id(item.node.pool);
         const location_info = {
@@ -1247,8 +1248,10 @@ class NodesMonitor extends EventEmitter {
             host_id: String(item.node.host_id),
             pool_id: String(item.node.pool),
         };
-        if (item_pool) location_info.region = item_pool.region;
-        const service_enabled_not_changed = (item.node.enabled && should_enable) || (!item.node.enabled && !should_enable);
+        // We should only add region if it is defined. 
+        if (item_pool && !_.isUndefined(item_pool.region)) location_info.region = item_pool.region;
+        // We should change the service enable field if the field is not equal to the decommissioned decision.
+        const service_enabled_not_changed = (item.node.enabled === should_enable);
         const location_info_not_changed = _.isEqual(item.agent_info.location_info, location_info);
         if (service_enabled_not_changed && location_info_not_changed) {
             return;

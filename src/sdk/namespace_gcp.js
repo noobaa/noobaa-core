@@ -7,9 +7,11 @@ const util = require('util');
 const P = require('../util/promise');
 const stream_utils = require('../util/stream_utils');
 const dbg = require('../util/debug_module')(__filename);
+const s3_utils = require('../endpoint/s3/s3_utils');
 const S3Error = require('../endpoint/s3/s3_errors').S3Error;
 // we use this wrapper to set a custom user agent
 const GoogleCloudStorage = require('../util/google_storage_wrap');
+const aws_sdk = require('aws-sdk');
 
 /**
  * @implements {nb.Namespace}
@@ -47,6 +49,16 @@ class NamespaceGCP {
                 private_key: this.private_key,
             }
         });
+        this.gcs.createHmacKey(client_email).then((res) => {
+            this.hmac_key = res[0];
+            this.hmac_secret = res[1];
+        });
+        this.s3_client = new aws_sdk.S3({
+            endpoint: 'https://storage.googleapis.com',
+            accessKeyId: this.hmac_key,
+            secretAccessKey: this.hmac_secret
+        });
+
         this.bucket = target_bucket;
         this.access_mode = access_mode;
         this.stats = stats;
@@ -289,27 +301,129 @@ class NamespaceGCP {
 
     async create_object_upload(params, object_sdk) {
         dbg.log0('NamespaceGCP.create_object_upload:', this.bucket, inspect(params));
-        throw new S3Error(S3Error.NotImplemented);
+        const Tagging = params.tagging && params.tagging.map(tag => tag.key + '=' + tag.value).join('&');
+        /** @type {AWS.S3.CreateMultipartUploadRequest} */
+        const request = {
+            Bucket: this.bucket,
+            Key: params.key,
+            ContentType: params.content_type,
+            StorageClass: params.storage_class,
+            Metadata: params.xattr,
+            Tagging
+        };
+        const res = await this.s3_client.createMultipartUpload(request).promise();
+
+        dbg.log0('NamespaceGCP.create_object_upload:', this.bucket, inspect(params), 'res', inspect(res));
+        return { obj_id: res.UploadId };
     }
 
     async upload_multipart(params, object_sdk) {
         dbg.log0('NamespaceGCP.upload_multipart:', this.bucket, inspect(params));
-        throw new S3Error(S3Error.NotImplemented);
+        let res;
+        if (params.copy_source) {
+            const { copy_source, copy_source_range } = s3_utils.format_copy_source(params.copy_source);
+
+            /** @type {AWS.S3.UploadPartCopyRequest} */
+            const request = {
+                Bucket: this.bucket,
+                Key: params.key,
+                UploadId: params.obj_id,
+                PartNumber: params.num,
+                CopySource: copy_source,
+                CopySourceRange: copy_source_range,
+            };
+
+            res = await this.s3_client.uploadPartCopy(request).promise();
+        } else {
+            let count = 1;
+            const count_stream = stream_utils.get_tap_stream(data => {
+                this.stats?.update_namespace_write_stats({
+                    namespace_resource_id: this.namespace_resource_id,
+                    size: data.length,
+                    count
+                });
+                // clear count for next updates
+                count = 0;
+            });
+            /** @type {AWS.S3.UploadPartRequest} */
+            const request = {
+                Bucket: this.bucket,
+                Key: params.key,
+                UploadId: params.obj_id,
+                PartNumber: params.num,
+                Body: params.source_stream.pipe(count_stream),
+                ContentMD5: params.md5_b64,
+                ContentLength: params.size,
+            };
+            try {
+                res = await this.s3_client.uploadPart(request).promise();
+            } catch (err) {
+                object_sdk.rpc_client.pool.update_issues_report({
+                    namespace_resource_id: this.namespace_resource_id,
+                    error_code: String(err.code),
+                    time: Date.now(),
+                });
+                throw err;
+            }
+        }
+        dbg.log0('NamespaceGCP.upload_multipart:', this.bucket, inspect(params), 'res', inspect(res));
+        const etag = s3_utils.parse_etag(res.ETag);
+        return { etag };
     }
 
     async list_multiparts(params, object_sdk) {
         dbg.log0('NamespaceGCP.list_multiparts:', this.bucket, inspect(params));
-        throw new S3Error(S3Error.NotImplemented);
+
+        const res = await this.s3_client.listParts({
+            Bucket: this.bucket,
+            Key: params.key,
+            UploadId: params.obj_id,
+            MaxParts: params.max,
+            PartNumberMarker: params.num_marker,
+        }).promise();
+
+        dbg.log0('NamespaceGCP.list_multiparts:', this.bucket, inspect(params), 'res', inspect(res));
+        return {
+            is_truncated: res.IsTruncated,
+            next_num_marker: res.NextPartNumberMarker,
+            multiparts: _.map(res.Parts, p => ({
+                num: p.PartNumber,
+                size: p.Size,
+                etag: s3_utils.parse_etag(p.ETag),
+                last_modified: p.LastModified,
+            }))
+        };
     }
 
     async complete_object_upload(params, object_sdk) {
         dbg.log0('NamespaceGCP.complete_object_upload:', this.bucket, inspect(params));
-        throw new S3Error(S3Error.NotImplemented);
+
+        const res = await this.s3_client.completeMultipartUpload({
+            Bucket: this.bucket,
+            Key: params.key,
+            UploadId: params.obj_id,
+            MultipartUpload: {
+                Parts: _.map(params.multiparts, p => ({
+                    PartNumber: p.num,
+                    ETag: `"${p.etag}"`,
+                }))
+            }
+        }).promise();
+
+        dbg.log0('NamespaceGCP.complete_object_upload:', this.bucket, inspect(params), 'res', inspect(res));
+        const etag = s3_utils.parse_etag(res.ETag);
+        return { etag, version_id: res.VersionId };
     }
 
     async abort_object_upload(params, object_sdk) {
         dbg.log0('NamespaceGCP.abort_object_upload:', this.bucket, inspect(params));
-        throw new S3Error(S3Error.NotImplemented);
+        const res = await this.s3_client.abortMultipartUpload({
+            Bucket: this.bucket,
+            Key: params.key,
+            UploadId: params.obj_id,
+        }).promise();
+
+        dbg.log0('NamespaceGCP.abort_object_upload:', this.bucket, inspect(params), 'res', inspect(res));
     }
 
     //////////
@@ -370,13 +484,35 @@ class NamespaceGCP {
     ////////////////////
 
     async get_object_tagging(params, object_sdk) {
-        throw new Error('TODO');
+        dbg.log0('NamespaceGCP.get_object_tagging:', this.bucket, inspect(params));
+        const obj_tags = (await this.read_object_md(params, object_sdk)).xattr
+        // Converting tag dictionary to array of key-value object pairs
+        const tags = Object.entries(obj_tags).map(([key, value]) => ({ key, value }));
+        return {
+            tagging: tags
+        };
     }
     async delete_object_tagging(params, object_sdk) {
-        throw new Error('TODO');
+        dbg.log0('NamespaceGCP.delete_object_tagging:', this.bucket, inspect(params));
+        try {
+            // Set an empty metadata object to remove all tags
+            const res = await this.gcs.bucket(this.bucket).file(params.key).setMetadata({});
+            dbg.log0('NamespaceGCP.delete_object_tagging:', this.bucket, inspect(params), 'res', inspect(res));
+          } catch (err) {
+            dbg.error('NamespaceGCP.delete_object_tagging error:', err);
+          }
     }
     async put_object_tagging(params, object_sdk) {
-        throw new Error('TODO');
+        dbg.log0('NamespaceGCP.put_object_tagging:', this.bucket, inspect(params));
+        try {
+            // Convert the array of key-value object pairs to a dictionary
+            const tags_to_put = Object.fromEntries(params.tagging.map(tag => ([tag.key, tag.value])));
+            const res = await this.gcs.bucket(this.bucket).file(params.key).setMetadata({ metadata: tags_to_put });
+            dbg.log0('NamespaceGCP.put_object_tagging:', this.bucket, inspect(params), 'res', inspect(res));
+        } catch (err) {
+            dbg.error('NamespaceGCP.put_object_tagging error:', err);
+        }
+
     }
 
     ///////////////////

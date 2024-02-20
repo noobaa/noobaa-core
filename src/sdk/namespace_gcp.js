@@ -49,7 +49,7 @@ class NamespaceGCP {
                 private_key: this.private_key,
             }
         });
-        this.gcs.createHmacKey(client_email).then((res) => {
+        this.gcs.createHmacKey(client_email).then(res => {
             this.hmac_key = res[0];
             this.hmac_secret = res[1];
         });
@@ -485,7 +485,7 @@ class NamespaceGCP {
 
     async get_object_tagging(params, object_sdk) {
         dbg.log0('NamespaceGCP.get_object_tagging:', this.bucket, inspect(params));
-        const obj_tags = (await this.read_object_md(params, object_sdk)).xattr
+        const obj_tags = (await this.read_object_md(params, object_sdk)).xattr;
         // Converting tag dictionary to array of key-value object pairs
         const tags = Object.entries(obj_tags).map(([key, value]) => ({ key, value }));
         return {

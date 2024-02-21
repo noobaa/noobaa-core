@@ -1,0 +1,12 @@
+DELETE /first.bucket/delete,me HTTP/1.1
+Host: localhost:8080
+Accept: */*
+amz-sdk-invocation-id: 3AD05F0E-D931-44EA-A656-DE518B0F85A9
+amz-sdk-request: attempt=1
+authorization: AWS4-HMAC-SHA256 Credential=QlBdp923Pnpu2qxn9Qpj/20240220/us-east-1/s3/aws4_request, SignedHeaders=amz-sdk-invocation-id;amz-sdk-request;content-type;host;x-amz-api-version;x-amz-content-sha256;x-amz-date, Signature=d3a39b0d940a512607d800e36017c9092a99b72b83e12553f770a21d0d7f9445
+content-type: application/xml
+user-agent: aws-sdk-cpp/1.11.265 ua/2.0 md/aws-crt#0.26.2 os/Darwin/23.1.0 md/arch#arm64 lang/c++#C++11 md/Clang#15.0.0 cfg/retry-mode#default api/S3
+x-amz-api-version: 2006-03-01
+x-amz-content-sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+x-amz-date: 20240220T173648Z
+

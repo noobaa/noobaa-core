@@ -202,8 +202,11 @@ const HEADERS_MAP_FOR_AWS_SDK = {
 function _aws_request(req, region, service) {
     const v2_signature = _.isUndefined(region) && _.isUndefined(service);
     const u = url.parse(req.originalUrl.replace(/%2F/g, '/'), true);
+    // for S3 we decode and escape the URI components to handle cpp sdk behaior, which for a few charecters (e.g. =,?$@) 
+    // it does not escape it in the request but escapes it for the signature calculations.
+    // see https://github.com/noobaa/noobaa-core/issues/7784 
     const pathname = service === 's3' ?
-        u.pathname :
+        u.pathname.split('/').map(c => AWS.util.uriEscape(decodeURIComponent(c))).join('/') :
         path.normalize(decodeURI(u.pathname));
     const query = _.omit(
         req.query,

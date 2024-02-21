@@ -3,20 +3,21 @@
 %define nodever null
 %define releasedate null
 %define changelogdata null
+%define BUILD_S3SELECT null
+%define BUILD_S3SELECT_PARQUET null
+%define CENTOS_VER null
 
 %define noobaatar %{name}-%{version}-%{revision}.tar.gz
-%define nodetar node-%{nodever}.tar.xz
 %define buildroot %{_tmppath}/%{name}-%{version}-%{release}
 
-Name:		noobaa-core
-Version:	%{noobaaver}
-Release:	%{revision}%{?dist}
-Summary:	NooBaa RPM
+Name: noobaa-core
+Version:  %{noobaaver}
+Release:  %{revision}%{?dist}
+Summary:  NooBaa RPM
 
-License:	Apache-2.0
-URL:        https://www.noobaa.io/
-Source0:	%{noobaatar}
-Source1:    %{nodetar}
+License:  Apache-2.0
+URL:  https://www.noobaa.io/
+Source0:  %{noobaatar}
 
 Recommends: jemalloc
 
@@ -31,10 +32,39 @@ NooBaa is a data service for cloud environments, providing S3 object-store inter
 mkdir noobaa-core-%{version}-%{revision}
 mkdir node-%{nodever}
 tar -xzf %{SOURCE0} -C noobaa-core-%{version}-%{revision}/
-tar -xJf %{SOURCE1} -C node-%{nodever}/
 
 %clean
 [ ${RPM_BUILD_ROOT} != "/" ] && rm -rf ${RPM_BUILD_ROOT}
+
+%build
+#!/bin/bash
+NOOBAA_DIR="noobaa-core-%{version}-%{revision}"
+NODEJS_VERSION="%{nodever}"
+SKIP_NODE_INSTALL=1 source $NOOBAA_DIR/noobaa/src/deploy/NVA_build/install_nodejs.sh $NODEJS_VERSION
+
+pushd %{_sourcedir}
+nodepath=$(download_node)
+tar -xJf ${nodepath} -C %{_builddir}/node-%{nodever}/
+popd
+
+PATH=$PATH:%{_builddir}/node-%{nodever}/node-v$NODEJS_VERSION-linux-$(get_arch)/bin
+
+pushd $NOOBAA_DIR/noobaa
+npm install --omit=dev && npm cache clean --force
+./src/deploy/NVA_build/clone_s3select_submodules.sh
+if [[ "%{CENTOS_VER}" = "8" ]]
+then
+  sed -i 's/\/lib64\/libboost_thread.so.1.75.0/\/lib64\/libboost_thread.so.1.66.0/g' ./src/native/s3select/s3select.gyp
+  echo "Using libboost 1.66 for S3 Select"
+elif [[ "%{CENTOS_VER}" = "9" ]]
+then
+  echo "Using libboost 1.75 for S3 Select"
+else
+  echo "Unexpected CENTOS_VER: %{CENTOS_VER}"
+  exit 1
+fi
+GYP_DEFINES="BUILD_S3SELECT=%{BUILD_S3SELECT} BUILD_S3SELECT_PARQUET=%{BUILD_S3SELECT_PARQUET}" npm run build
+popd
 
 %install
 rm -rf $RPM_BUILD_ROOT

@@ -10,8 +10,8 @@ NODE_PATH="${NODE_PATH:-/usr/local/node}"
 
 noobaaver="$(npm pkg get version | tr -d '"')"
 releasedate=$(date '+%a %b %d %Y')
-revision="$(date -u '+%Y%m%d')"
 nodever=$(node --version | tr -d 'v')
+revision="$(date -u '+%Y%m%d')"
 changelogdata="Initial release of NooBaa ${noobaaver}"
 ARCHITECTURE=$(uname -m)
 
@@ -33,20 +33,6 @@ function move_builds() {
     cp ${TAR_DIR}/noobaa-core-${noobaaver}-${revision}.tar.gz ~/rpmbuild/SOURCES/
 }
 
-function get_node_tar() {
-    local arch=$(get_arch)
-    local filename="node-v${nodever}-linux-${arch}.tar.xz"
-
-    pushd ~/rpmbuild/SOURCES/
-    if [ -f ${NODE_PATH}/${filename} ]
-    then
-        mv ${NODE_PATH}/${filename} node-${nodever}.tar.xz
-    else 
-        local path=$(NODEJS_VERSION=${nodever} download_node)
-        mv ${path} node-${nodever}.tar.xz
-    fi
-    popd
-}
 
 function generate_spec_from_template() {
     while IFS= read -r line; do
@@ -73,9 +59,6 @@ mkdir -p ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
 # Move the binary into the SOURCES directory
 move_builds
 
-# Download nodejs tarball to SOURCES directory
-get_node_tar
-
 # Set the changelog
 set_changelog
 
@@ -89,8 +72,14 @@ generate_spec_from_template
 mv ${OUTPUT_FILE} ~/rpmbuild/SPECS/
 
 # Build the RPM package
-rpmbuild -ba ~/rpmbuild/SPECS/noobaa.final.spec
+if [[ "$SRPM_ONLY" = "true" ]]; then
+    rpmbuild -bs ~/rpmbuild/SPECS/noobaa.final.spec
+else
+    rpmbuild -ba ~/rpmbuild/SPECS/noobaa.final.spec
 
-# Move the RPM and SRPM package to the target directory
-mv ~/rpmbuild/RPMS/${ARCHITECTURE}/noobaa-core-${noobaaver}-${revision}.*.rpm ${TARGET_DIR}
+    # Move the RPM package to the target directory
+    mv ~/rpmbuild/RPMS/${ARCHITECTURE}/noobaa-core-${noobaaver}-${revision}.*.rpm ${TARGET_DIR}
+fi
+
+# Move the SRPM package to the target directory
 mv ~/rpmbuild/SRPMS/noobaa-core-${noobaaver}-${revision}.*.rpm ${TARGET_DIR}

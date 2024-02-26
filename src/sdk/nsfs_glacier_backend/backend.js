@@ -4,8 +4,14 @@
 const nb_native = require('../../util/nb_native');
 
 class GlacierBackend {
-    static MIGRATE_TIMESTAMP_FILE = 'timestamp.migrate';
-    static RESTORE_TIMESTAMP_FILE = 'timestamp.restore';
+    // These names start with the word 'timestamp' so as to assure
+    // that it acts like a 'namespace' for the these kind of files.
+    //
+    // It also helps in making sure that the persistent logger does not
+    // confuses these files with the WAL files.
+    static MIGRATE_TIMESTAMP_FILE = 'migrate.timestamp';
+    static RESTORE_TIMESTAMP_FILE = 'restore.timestamp';
+    static EXPIRY_TIMESTAMP_FILE = 'expiry.timestamp';
 
     /**
      * XATTR_RESTORE_REQUEST is set to a NUMBER (expiry days) by `restore_object` when 
@@ -149,6 +155,12 @@ class GlacierBackend {
             stat.xattr[GlacierBackend.XATTR_RESTORE_REQUEST_STAGED]) {
             return false;
         }
+
+        // If there are no associated blocks with the file then skip
+        // the migration.
+        if (stat.blocks === 0) return false;
+
+        return true;
     }
 
     /**

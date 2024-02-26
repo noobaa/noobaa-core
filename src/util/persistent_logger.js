@@ -19,19 +19,21 @@ const dbg = require('./debug_module')(__filename);
 class PersistentLogger {
     /**
      * @param {string} dir parent directory
-     * @param {string} file file prefix
+     * @param {string} namespace file prefix
      * @param {{
      *  max_interval?: Number,
      *  locking?: "SHARED" | "EXCLUSIVE",
      *  disable_rotate?: boolean,
      * }} cfg 
      */
-    constructor(dir, file, cfg) {
+    constructor(dir, namespace, cfg) {
         this.dir = dir;
-        this.file = file;
+        this.namespace = namespace;
+        this.file = namespace + '.log';
         this.cfg = cfg;
         this.active_path = path.join(this.dir, this.file);
         this.locking = cfg.locking;
+        this.inactive_regex = new RegExp(`^${this.namespace}[.][\\d]+[.]log$`);
 
         this.fs_context = native_fs_utils.get_process_fs_context();
 
@@ -107,7 +109,7 @@ class PersistentLogger {
     }
 
     _auto_rotate() {
-        this.swap_lock_file = path.join(this.dir, `swaplock.${this.file}`);
+        this.swap_lock_file = path.join(this.dir, `${this.namespace}.swaplock`);
 
         setInterval(async () => {
             await this._swap();
@@ -121,7 +123,7 @@ class PersistentLogger {
         try {
             // Taking this lock ensure that when the file isn't moved between us checking the inode
             // and performing the rename
-            slfh = await nb_native().fs.open(this.fs_context, this.swap_lock_file, "rw");
+            slfh = await nb_native().fs.open(this.fs_context, this.swap_lock_file, 'rw');
             await slfh.flock(this.fs_context, 'EXCLUSIVE');
 
             let path_stat = null;
@@ -143,7 +145,7 @@ class PersistentLogger {
                 // duplicate names or might produce names which ideally would have produced in the past.
                 //
                 // Hence, the order of files in the directory is not guaranteed to be in order of "time".
-                const inactive_file = `${this.file}.${Date.now()}`;
+                const inactive_file = `${this.namespace}.${Date.now()}.log`;
                 try {
                     await nb_native().fs.rename(this.fs_context, this.active_path, path.join(this.dir, inactive_file));
                 } catch (error) {
@@ -191,7 +193,7 @@ class PersistentLogger {
      */
     async process_inactive(cb) {
         const files = await nb_native().fs.readdir(this.fs_context, this.dir);
-        const filtered = files.filter(f => f.name.startsWith(this.file) && f.name !== this.file && !native_fs_utils.isDirectory(f));
+        const filtered = files.filter(f => this.inactive_regex.test(f.name) && f.name !== this.file && !native_fs_utils.isDirectory(f));
 
         for (const file of filtered) {
             const delete_processed = await cb(path.join(this.dir, file.name));

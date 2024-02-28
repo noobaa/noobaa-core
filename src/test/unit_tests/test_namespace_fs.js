@@ -10,17 +10,19 @@ const mocha = require('mocha');
 const crypto = require('crypto');
 const assert = require('assert');
 const os = require('os');
-
 const P = require('../../util/promise');
 const config = require('../../../config');
+const os_utils = require('../../util/os_utils');
 const fs_utils = require('../../util/fs_utils');
-const s3_utils = require('../../endpoint/s3/s3_utils');
 const nb_native = require('../../util/nb_native');
 const NamespaceFS = require('../../sdk/namespace_fs');
+const s3_utils = require('../../endpoint/s3/s3_utils');
 const buffer_utils = require('../../util/buffer_utils');
-const test_ns_list_objects = require('./test_ns_list_objects');
-const endpoint_stats_collector = require('../../sdk/endpoint_stats_collector');
 const { S3Error } = require('../../endpoint/s3/s3_errors');
+const test_ns_list_objects = require('./test_ns_list_objects');
+const { TMP_PATH } = require('../system_tests/test_utils');
+const { get_process_fs_context } = require('../../util/native_fs_utils');
+const endpoint_stats_collector = require('../../sdk/endpoint_stats_collector');
 
 const inspect = (x, max_arr = 5) => util.inspect(x, { colors: true, depth: null, maxArrayLength: max_arr });
 
@@ -31,16 +33,11 @@ const XATTR_MD5_KEY = 'content_md5';
 const XATTR_DIR_CONTENT = 'user.noobaa.dir_content';
 const XATTR_CONTENT_TYPE = 'user.noobaa.content_type';
 
-const MAC_PLATFORM = 'darwin';
 const dir_content_type = 'application/x-directory';
 const stream_content_type = 'application/octet-stream';
 
-const DEFAULT_FS_CONFIG = {
-    uid: process.getuid(),
-    gid: process.getgid(),
-    backend: '',
-    warn_threshold_ms: 100,
-};
+const DEFAULT_FS_CONFIG = get_process_fs_context();
+
 
 function make_dummy_object_sdk() {
     return {
@@ -65,10 +62,7 @@ mocha.describe('namespace_fs', function() {
     const mpu_bkt = 'test_ns_multipart_upload';
 
     const src_key = 'test/unit_tests/test_namespace_fs.js';
-    let tmp_fs_path = '/tmp/test_namespace_fs';
-    if (process.platform === MAC_PLATFORM) {
-        tmp_fs_path = '/private/' + tmp_fs_path;
-    }
+    const tmp_fs_path = path.join(TMP_PATH, 'test_namespace_fs');
     const dummy_object_sdk = make_dummy_object_sdk();
     const ns_src_bucket_path = `./${src_bkt}`;
     const ns_tmp_bucket_path = `${tmp_fs_path}/${src_bkt}`;
@@ -628,9 +622,8 @@ mocha.describe('namespace_fs folders tests', function() {
     const user_md_and_dir_content_xattr = { ...user_md, ...dir_content_md };
     const user_md1_and_dir_content_xattr = { ...user_md1, ...dir_content_md };
     let not_user_xattr = {};
-    let tmp_fs_path = '/tmp/test_namespace_fs';
-    if (process.platform === MAC_PLATFORM) {
-        tmp_fs_path = '/private' + tmp_fs_path;
+    const tmp_fs_path = path.join(TMP_PATH, 'test_namespace_fs');
+    if (os_utils.IS_MAC) {
         not_user_xattr = { 'not_user_xattr1': 'not1', 'not_user_xattr2': 'not2' };
     }
     const dummy_object_sdk = make_dummy_object_sdk();
@@ -1100,10 +1093,7 @@ function get_umasked_mode(mode) {
 }
 mocha.describe('nsfs_symlinks_validations', function() {
 
-    let tmp_fs_path = '/tmp/test_nsfs_symboliclinks';
-    if (process.platform === MAC_PLATFORM) {
-        tmp_fs_path = '/private/' + tmp_fs_path;
-    }
+    const tmp_fs_path = path.join(TMP_PATH, 'test_nsfs_symboliclinks');
     const bucket = 'bucket1';
     const bucket_full_path = tmp_fs_path + '/' + bucket;
     const expected_dirs = ['d1', 'd2', 'd3/d3d1'];
@@ -1240,10 +1230,7 @@ mocha.describe('namespace_fs copy object', function() {
 
     const src_bkt = 'src';
     const upload_bkt = 'test_ns_uploads_object';
-    let tmp_fs_path = '/tmp/test_namespace_fs';
-    if (process.platform === MAC_PLATFORM) {
-        tmp_fs_path = '/private/' + tmp_fs_path;
-    }
+    const tmp_fs_path = path.join(TMP_PATH, 'test_namespace_fs');
     const md1 = { key123: 'val123', key234: 'val234' };
 
     const dummy_object_sdk = make_dummy_object_sdk();

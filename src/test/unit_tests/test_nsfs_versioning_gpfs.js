@@ -2,28 +2,23 @@
 /*eslint max-lines-per-function: ["error", 600]*/
 'use strict';
 
-
-const mocha = require('mocha');
-const assert = require('assert');
-const fs_utils = require('../../util/fs_utils');
-const NamespaceFS = require('../../sdk/namespace_fs');
-const crypto = require('crypto');
-const buffer_utils = require('../../util/buffer_utils');
 const util = require('util');
 const path = require('path');
+const mocha = require('mocha');
+const crypto = require('crypto');
+const assert = require('assert');
+const fs_utils = require('../../util/fs_utils');
 const nb_native = require('../../util/nb_native');
 const size_utils = require('../../util/size_utils');
+const NamespaceFS = require('../../sdk/namespace_fs');
+const buffer_utils = require('../../util/buffer_utils');
+const { get_process_fs_context } = require('../../util/native_fs_utils');
 
 const XATTR_VERSION_ID = 'user.noobaa.version_id';
 const XATTR_PREV_VERSION_ID = 'user.noobaa.prev_version_id';
 //const XATTR_DELETE_MARKER = 'user.noobaa.delete_marker';
 
-const DEFAULT_FS_CONFIG = {
-    uid: process.getuid(),
-    gid: process.getgid(),
-    backend: 'GPFS',
-    warn_threshold_ms: 100,
-};
+const DEFAULT_FS_CONFIG = get_process_fs_context('GPFS');
 
 
 function make_dummy_object_sdk(nsfs_config, uid, gid) {

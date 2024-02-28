@@ -3,33 +3,30 @@
 /* eslint-disable max-params */
 'use strict';
 
-const _ = require('lodash');
 const fs = require('fs');
+const _ = require('lodash');
+const path = require('path');
 const util = require('util');
 const mocha = require('mocha');
 const crypto = require('crypto');
 const assert = require('assert');
-
 const P = require('../../util/promise');
 const config = require('../../../config');
 const fs_utils = require('../../util/fs_utils');
-const s3_utils = require('../../endpoint/s3/s3_utils');
-const NamespaceFS = require('../../sdk/namespace_fs');
-const buffer_utils = require('../../util/buffer_utils');
-const endpoint_stats_collector = require('../../sdk/endpoint_stats_collector');
 const time_utils = require('../../util/time_utils');
+const NamespaceFS = require('../../sdk/namespace_fs');
+const s3_utils = require('../../endpoint/s3/s3_utils');
+const buffer_utils = require('../../util/buffer_utils');
+const { TMP_PATH } = require('../system_tests/test_utils');
+const endpoint_stats_collector = require('../../sdk/endpoint_stats_collector');
 
 const inspect = (x, max_arr = 5) => util.inspect(x, { colors: true, depth: null, maxArrayLength: max_arr });
 
 const XATTR_MD5_KEY = 'content_md5';
-const MAC_PLATFORM = 'darwin';
 const DUMMY_OBJECT_SDK = make_DUMMY_OBJECT_SDK();
 
 const src_bkt = 'src';
-let tmp_fs_path = '/tmp/test_namespace_fs_mpu';
-if (process.platform === MAC_PLATFORM) {
-    tmp_fs_path = '/private/' + tmp_fs_path;
-}
+const tmp_fs_path = path.join(TMP_PATH, 'test_namespace_fs_mpu');
 const ns_tmp_bucket_path = `${tmp_fs_path}/${src_bkt}`;
 
 function make_DUMMY_OBJECT_SDK() {
@@ -558,10 +555,10 @@ async function calc_md5_stream(write_data) {
     return hash.digest('hex');
 }
 
-async function calc_md5(path) {
+async function calc_md5(path_to_read) {
     return new Promise((resolve, reject) => {
         const hash = crypto.createHash('md5');
-        fs.createReadStream(path)
+        fs.createReadStream(path_to_read)
             .on('error', reject)
             .pipe(hash)
             .on('error', reject)

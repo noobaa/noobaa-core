@@ -4,15 +4,11 @@
 const fs = require('fs');
 const mocha = require('mocha');
 const assert = require('assert');
-const nb_native = require('../../util/nb_native');
 const fs_utils = require('../../util/fs_utils');
+const nb_native = require('../../util/nb_native');
+const { get_process_fs_context } = require('../../util/native_fs_utils');
 
-const DEFAULT_FS_CONFIG = {
-    uid: process.getuid(),
-    gid: process.getgid(),
-    backend: 'GPFS',
-    warn_threshold_ms: 100,
-};
+const DEFAULT_FS_CONFIG = get_process_fs_context('GPFS');
 
 mocha.describe('nb_native fs', function() {
 

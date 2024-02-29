@@ -5,7 +5,7 @@ Running nsfs non containerized is useful for deploying in linux without dependin
 
 ## Build
 
-### Build options - 
+### Build options -
 1. noobaa-core S3 Select is enabled. This requires boost shared objects to be present on the machine where noobaa is supposed to be installed. This feature can be disabled if not required (due to additional dependency) by running make rpm BUILD_S3SELECT=0.
 2. In order to build RPM packages for other architectures simply run make rpm CONTAINER_PLATFORM=linux/amd64 or make rpm CONTAINER_PLATFORM=linux/ppc64le
 3. Building RPM packages is available on top of centos:9 / centos:8 base images, The default base image is centos:9.
@@ -19,14 +19,14 @@ make rpm
 
 ## Install
 
-### Pre-requisites (S3 select enabled) - 
-1. boost - 
+### Pre-requisites (S3 select enabled) -
+1. boost -
 ```sh
 yum install epel-release && yum install boost
 ```
 
 ### A workaround for machines that cannot install epel-release -
-Use the workaround below if `yum install epel-release` resulted in the following error - 
+Use the workaround below if `yum install epel-release` resulted in the following error -
 ```
 Updating Subscription Management repositories.
 Unable to read consumer identity
@@ -37,14 +37,14 @@ Last metadata expiration check: <SomeTimeStamp>
 No match for argument: epel-release
 Error: Unable to find a match: epel-release
 ```
-1. Install wget - 
+1. Install wget -
 
 ```sh
 yum install wget
 ```
 2. Download and install boost -
 
-RHEL8 / centos:stream8 - 
+RHEL8 / centos:stream8 -
 ```sh
 wget https://rpmfind.net/linux/centos/8-stream/AppStream/x86_64/os/Packages/boost-system-1.66.0-13.el8.x86_64.rpm
 wget https://rpmfind.net/linux/centos/8-stream/AppStream/x86_64/os/Packages/boost-thread-1.66.0-13.el8.x86_64.rpm
@@ -52,7 +52,7 @@ rpm -i boost-system-1.66.0-13.el8.x86_64.rpm
 rpm -i boost-thread-1.66.0-13.el8.x86_64.rpm
 ```
 
-RHEL9 / centos:stream9 - 
+RHEL9 / centos:stream9 -
 
 ```sh
 wget https://rpmfind.net/linux/centos-stream/9-stream/AppStream/x86_64/os/Packages/boost-system-1.75.0-8.el9.x86_64.rpm
@@ -61,8 +61,8 @@ rpm -i boost-system-1.75.0-8.el9.x86_64.rpm
 rpm -i boost-thread-1.75.0-8.el9.x86_64.rpm
 ```
 
-### Download NooBaa RPM - 
-Nightly RPM builds of the upstream master branch can be downloaded from a public S3 bucket by running the following command - 
+### Download NooBaa RPM -
+Nightly RPM builds of the upstream master branch can be downloaded from a public S3 bucket by running the following command -
 
 ```sh
 wget  noobaa-core-{VERSION}-{DATE}.el9.x86_64.rpm // Replace the VERSION and DATE
@@ -71,14 +71,14 @@ Example:
 wget https://noobaa-core-rpms.s3.amazonaws.com/noobaa-core-5.15.0-20231106.el9.x86_64.rpm
 ```
 
-### Install NooBaa RPM - 
-Install NooBaa RPM by running the following command - 
+### Install NooBaa RPM -
+Install NooBaa RPM by running the following command -
 
 ```sh
 rpm -i <rpm_file_name>.rpm
 ```
 
-After installing NooBaa RPM, it's expected to have noobaa-core source code under /usr/local/noobaa-core and an nsfs systemd example script under /etc/systemd/system/.
+After installing NooBaa RPM, it's expected to have noobaa-core source code under /usr/local/noobaa-core and an nsfs systemd example script under /usr/lib/systemd/system/.
 
 ## Create config dir redirect file -
 NooBaa will try locate a text file that contains a path to the configuration directory, the user should create the redirect file in the fixed location - /etc/noobaa.conf.d/config_dir_redirect
@@ -108,10 +108,10 @@ If it's not already existing, create the fs root path in which buckets (director
 mkdir -p /tmp/fs1/
 ```
 
-## Developer customization of the nsfs service (OPTIONAL) - 
+## Developer customization of the nsfs service (OPTIONAL) -
 One can customize noobaa nsfs service by creation of config.json file under the config_dir/ directory (/path/to/config_dir/config.json).
 The following are some of the properties that can be customized -
-1. Number of forks 
+1. Number of forks
 2. Log debug level
 3. Ports
 4. Allow http
@@ -127,15 +127,16 @@ Design of Accounts and buckets configuration entities - [NonContainerizedNSFS](h
 **Note** - All required paths on the configuration files (bucket - path, account - new_buckets_path) must be absolute paths.
 
 
-## Run the nsfs service - 
+## Run the nsfs service -
 The systemd script runs noobaa non containerized, and requires config_root in order to find the location of the system/accounts/buckets configuration file.
 Limitation - In a cluster each host should have a unique name.
 ```sh
-systemctl start noobaa_nsfs
+systemctl enable noobaa_nsfs.service
+systemctl start noobaa_nsfs.service
 ```
 
 ## NSFS service logs -
-Run the following command in order to get the nsfs service logs - 
+Run the following command in order to get the nsfs service logs -
 
 ```sh
 journalctl -u noobaa_nsfs.service
@@ -159,11 +160,11 @@ alias s3-account1='AWS_ACCESS_KEY_ID=abc AWS_SECRET_ACCESS_KEY=123 aws --endpoin
 
 #### 4. S3 Create bucket -
 
-4.1. Create  a bucket called s3bucket using account1 - 
+4.1. Create  a bucket called s3bucket using account1 -
 ```sh
 s3-account1 mb s3://s3bucket
 
-Output - 
+Output -
 make_bucket: s3bucket
 ```
 
@@ -171,7 +172,7 @@ make_bucket: s3bucket
 ```sh
 cat /tmp/noobaa_config_dir/buckets/s3bucket.json
 
-Output - 
+Output -
 {"_id":"65cb1efcbec92b33220112d7","name":"s3bucket","owner_account":"65cb1e7c9e6ae40d499c0ae4","system_owner":"account1","bucket_owner":"account1","versioning":"DISABLED","creation_date":"2023-09-26T05:56:16.252Z","path":"/tmp/fs1/s3bucket","should_create_underlying_storage":true}
 ```
 
@@ -180,7 +181,7 @@ Output -
 ```sh
 ls -l /tmp/fs1/s3bucket/
 
-Output - 
+Output -
 total 0
 ```
 
@@ -188,25 +189,25 @@ total 0
 ```sh
 s3-account1 ls
 
-Output - 
+Output -
 2023-09-21 11:50:26 s3bucket
 ```
 
 
 #### 6. S3 Upload objects -
 
-6.1. Copy an object to the S3 bucket - 
+6.1. Copy an object to the S3 bucket -
 
 ```sh
 echo  "This is the content of object1" | s3-account1 cp - s3://s3bucket/object1.txt
 ```
 
-6.2. Check the object was created on the file system - 
+6.2. Check the object was created on the file system -
 
 ```sh
 sudo cat /tmp/fs1/s3bucket/object1.txt
 
-Output - 
+Output -
 This is the content of object1
 ```
 
@@ -216,12 +217,12 @@ This is the content of object1
 ```sh
 s3-account1 ls s3://s3bucket
 
-Output - 
+Output -
 2023-09-21 11:55:01         31 object1.txt
 ```
 
 ## Health script
-NSFS Health status can be fetched using the command line. Run `--help` to get all the available options. 
+NSFS Health status can be fetched using the command line. Run `--help` to get all the available options.
 
 NOTE - health script execution requires root permissions.
 
@@ -276,7 +277,7 @@ NOTE - health script execution requires root permissions.
         },
         { "name": "account_inaccessible",
           "storage_path": "/tmp/account_inaccessible",
-          "code": "ACCESS_DENIED" } 
+          "code": "ACCESS_DENIED" }
       ],
       "valid_accounts": [
         {
@@ -338,7 +339,7 @@ NOTE - health script execution requires root permissions.
 
 In this health output, `bucket2`'s storage path is invalid and the directory mentioned in `new_buckets_path` for `user1` is missing or not accessible. Endpoint curl command returns an error response(`"endpoint_response":404`) if one or more buckets point to an invalid bucket storage path.
 
-Account without `new_buckets_path` and `allow_bucket_creation` value is `false` then it's considered a valid account, But if the `allow_bucket_creation` is true `new_buckets_path` is empty, in that case account is invalid. 
+Account without `new_buckets_path` and `allow_bucket_creation` value is `false` then it's considered a valid account, But if the `allow_bucket_creation` is true `new_buckets_path` is empty, in that case account is invalid.
 
 ### Optional status checks
 
@@ -356,13 +357,13 @@ These are the error codes populated in the health output if the system is facing
 #### Resolutions
 - Verify the NSFS service is running by checking the status and logs command.
 ```
-systemctl status nsfs
-journalctl -xeu nsfs.service
+systemctl status noobaa_nsfs.service
+journalctl -xeu noobaa_nsfs.service
 ```
 If the NSFS is not started, start the service
 ```
-systemctl enable nsfs
-systemctl start nsfs
+systemctl enable noobaa_nsfs.service
+systemctl start noobaa_nsfs.service
 ```
 #### 2. `RSYSLOG_SERVICE_FAILED`
 #### Reasons
@@ -372,13 +373,13 @@ systemctl start nsfs
 #### Resolutions
 - Verify the Rsyslog service is running by checking the status and logs command.
 ```
-systemctl status rsyslog
+systemctl status rsyslog.service
 journalctl -xeu rsyslog.service
 ```
 If the rsyslog is not started, start the service
 ```
-systemctl enable rsyslog
-systemctl start rsyslog
+systemctl enable rsyslog.service
+systemctl start rsyslog.service
 ```
 
 #### 3. `NSFS_ENDPOINT_FORK_MISSING`
@@ -389,7 +390,7 @@ systemctl start rsyslog
 #### Resolutions
 - Restart the NSFS service and also verify NSFS fork/s is exited with error in logs.
 ```
-systemctl status rsyslog
+systemctl status rsyslog.service
 journalctl -xeu rsyslog.service
 ```
 
@@ -431,11 +432,11 @@ These error codes will get attached with a specific Bucket or Account schema ins
 - Check for schema config file in respective Accounts or Buckets dir.
 
 ## Bucket and Account Manage CLI
-Users can create, get status, update, delete, and list buckets and accounts using CLI. If the config directory is missing CLI will create one and also create accounts and buckets sub-directories in it and default config directory is `${config.NSFS_NC_DEFAULT_CONF_DIR}`. 
+Users can create, get status, update, delete, and list buckets and accounts using CLI. If the config directory is missing CLI will create one and also create accounts and buckets sub-directories in it and default config directory is `${config.NSFS_NC_DEFAULT_CONF_DIR}`.
 
 CLI will never create or delete a bucket directory for the user if a bucket directory is missing CLI will return with error.
 
-NOTES - 
+NOTES -
 1. manage_nsfs execution requires root permissions.
 2. While path specifies a GPFS path, it's recommended to add fs_backend=GPFS in order to increase performance by ordering NooBaa to use GPFS library.
 
@@ -478,12 +479,12 @@ NSFS management CLI command will create both account and bucket dir if it's miss
 ## NSFS Certificate
 
 Non containerized NSFS certificates/ directory location will be under the config_root path. <br />
-The certificates/ directory should contain SSL files tls.key and tls.crt. <br /> 
+The certificates/ directory should contain SSL files tls.key and tls.crt. <br />
 System will use a cert from this dir to create a valid HTTPS connection. If cert is missing in this dir a self-signed SSL certificate will be generated. Make sure the path to certificates/ directory is valid before running nsfs command, If the path is invalid then cert flow will fail.
 
 Non containerized NSFS restrict insecure HTTP connections when `ALLOW_HTTP` is set to false in cofig.json. This is the default behaviour.
 
-### Setting Up Self signed SSL/TLS Certificates for Secure Communication Between S3 Client and NooBaa NSFS Service - 
+### Setting Up Self signed SSL/TLS Certificates for Secure Communication Between S3 Client and NooBaa NSFS Service -
 
 #### 1. Creating a SAN (Subject Alternative Name) Config File -
 **Important**: This step is needed only if S3 Client and NooBaa Service Running on different nodes.
@@ -519,7 +520,7 @@ subjectAltName = DNS:localhost,DNS:nsfs-domain-name-example.com,IP:<nsfs-server-
 
 #### 2. Generating TLS Key, CSR, and CRT Files via OpenSSL -
  The following process will generate the necessary TLS key (tls.key), certificate signing request (tls.csr), and SSL certificate (tls.crt) files for secure communication between the S3 client and the NooBaa service.
- 
+
 * If S3 Client and NooBaa Service Running on the Same Node, run -
 
 ```bash
@@ -541,28 +542,28 @@ Note - The default config_dir is /etc/noobaa.conf.d/.
 sudo mv tls.key {config_dir_path}/certificates/
 sudo mv tls.csr {config_dir_path}/certificates/
 ```
-#### 4. Restart the NooBaa NSFS service - 
+#### 4. Restart the NooBaa NSFS service -
 ```bash
 sudo systemctl restart noobaa_nsfs
 ```
-#### 5. Create S3 CLI alias while including tls.crt at the s3 commands via AWS_CA_BUNDLE=/path/to/tls.crt - 
+#### 5. Create S3 CLI alias while including tls.crt at the s3 commands via AWS_CA_BUNDLE=/path/to/tls.crt -
 * Make sure to replace credentials placeholders with their respective values, and the <endpoint> placeholder either with `localhost` or the domain name or IP of the node which is running the NSFS service.
 ```bash
 alias s3_ssl='AWS_CA_BUNDLE=/path/to/tls.crt AWS_ACCESS_KEY_ID=add_your_access_key AWS_SECRET_ACCESS_KEY=add_your_secret_key aws --endpoint https://<endpoint>:6443 s3'
 ```
 
-#### 6. Try running an s3 list buckets using the s3 alias - 
+#### 6. Try running an s3 list buckets using the s3 alias -
 ```bash
 s3_ssl ls
 ```
 
 ## Monitoring
 
-Prometheus metrics port can be passed through the argument `--metrics_port` while executing the nsfs command. 
+Prometheus metrics port can be passed through the argument `--metrics_port` while executing the nsfs command.
 NSFS state and output metrics can be fetched from URL `http:{host}:{metrics_port}/metrics/nsfs_stats`.
 
 ## Log and Logrotate
-Noobaa logs are configured using rsyslog and logrotate. RPM will configure rsyslog and logrotate if both are already running. 
+Noobaa logs are configured using rsyslog and logrotate. RPM will configure rsyslog and logrotate if both are already running.
 
 Rsyslog status check
 ```
@@ -571,24 +572,24 @@ systemctl status rsyslog
 
 Noobaa logs are pushed to `var/log/noobaa.log` and the log is rotated and compressed daily.
 
-Verify the rsyslog and logrotate rpm configuration is complete by checking the files `etc/rsyslog.d/noobaa_syslog.conf` and `etc/rsyslog.d/noobaa_rsyslog.conf` for rsyslog and `etc/logrotate.d/noobaa/logrotate_noobaa.conf` for logrotate.These files contain the noobaa specific configuration for rsyslog and logrotate.
+Verify the rsyslog and logrotate rpm configuration is complete by checking the files `etc/rsyslog.d/noobaa_syslog.conf` for rsyslog and `etc/logrotate.d/noobaa/logrotate_noobaa.conf` for logrotate.These files contain the noobaa specific configuration for rsyslog and logrotate.
 
 Rotate the logs manually.
 
 ```
-logrotate /etc/logrotate.d/noobaa/logrotate_noobaa.conf 
+logrotate /etc/logrotate.d/noobaa/logrotate_noobaa.conf
 ```
 
 **Create env file under the configuration directory (OPTIONAL) -**
 
-In order to apply env variables changes on the service, edit /etc/sysconfig/noobaa_nsfs env file as you wish before starting the service, notice that the env file format is key-value pair - 
+In order to apply env variables changes on the service, edit /etc/sysconfig/noobaa_nsfs env file as you wish before starting the service, notice that the env file format is key-value pair -
 
 ```sh
 vim  /etc/sysconfig/noobaa_nsfs
 ```
 **Note** - If another /usr/local/noobaa-core/.env exists it should be merged into /etc/sysconfig/noobaa_nsfs carefully.
 
-In order to apply env changes after the service was started, edit the /etc/sysconfig/noobaa_nsfs env file and restart the service - 
+In order to apply env changes after the service was started, edit the /etc/sysconfig/noobaa_nsfs env file and restart the service -
 ```sh
 vim  /etc/sysconfig/noobaa_nsfs
 systemctl restart noobaa_nsfs

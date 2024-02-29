@@ -13,7 +13,7 @@ NooBaa is packaged as a RPM which needs to be installed in order to be able to u
 1. Install by using `dnf`, `yum` or `rpm`.
    - Example: `rpm -i noobaa-core-5.15.0-1.el8.x86_64.20231009`.
 2. NooBaa RPM installation should provide the following things
-	1. `noobaa_nsfs.service` file located (soft link) at `/etc/systemd/systemd/noobaa_nsfs.service`.
+	1. `noobaa_nsfs.service` file located at `/usr/lib/systemd/system/noobaa_nsfs.service`.
 	2. NooBaa source available at `/usr/local/noobaa-core`.
 
 ## NooBaa Configuration
@@ -76,7 +76,7 @@ Here,
 - `device-or-directory-name` is the name of the GPFS device or directory name. You may be able to find this by running `mount | grep gpfs`.
 - `noobaa-bucket-data-path` is the path on GPFS where NooBaa is storing the data. This path should be the same as we passed in the [Configure NooBaa User](#configure-noobaa-user)'s `<path-to-store-bucket-data>`.
 - `tape-pool-name` should be a valid tape pool name. You can find this by running `eeadm pool list`.
- 
+
 #### Example
 ```console
 $ cd /usr/local/noobaa-core
@@ -148,7 +148,7 @@ download: s3://first.bucket/somefile to ./somefile.cp
 ```
 
 ## Log and Logrotate
-Noobaa logs are configured using rsyslog and logrotate. RPM will configure rsyslog and logrotate if both are already running. 
+Noobaa logs are configured using rsyslog and logrotate. RPM will configure rsyslog and logrotate if both are already running.
 
 Rsyslog status check
 ```
@@ -162,7 +162,7 @@ Verify the rsyslog and logrotate rpm configuration is complete by checking the f
 Rotate the logs manually.
 
 ```
-logrotate /etc/logrotate.d/noobaa/logrotate_noobaa.conf 
+logrotate /etc/logrotate.d/noobaa/logrotate_noobaa.conf
 ```
 
 # FAQ

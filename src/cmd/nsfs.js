@@ -233,7 +233,10 @@ async function init_nsfs_system(config_root) {
         });
         console.log('created NSFS system data with version: ', pkg.version);
     } catch (err) {
-        console.error('failed to create NSFS system data', err);
+        const msg = 'failed to create NSFS system data due to - ' + err.message;
+        const error = new Error(msg);
+        console.error(msg, err);
+        throw error;
     }
 }
 

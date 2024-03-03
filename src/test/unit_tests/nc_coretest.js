@@ -258,6 +258,23 @@ async function create_account_manage(options) {
     return account;
 }
 
+
+/**
+ * read_bucket_manage reads a bucket using manage_nsfs and returns rpc-like result
+ * @param {object} options
+ * @return {Promise<object>}
+ */
+async function read_bucket_manage(options) {
+    const res = await exec_manage_cli(TYPES.BUCKET, ACTIONS.STATUS, options);
+    const json_bucket = JSON.parse(res);
+    const bucket = json_bucket.response.reply;
+    bucket.owner_account = {
+        email: bucket.bucket_owner,
+        id: bucket.owner_account
+    };
+    return bucket;
+}
+
 /**
  * read_account_manage reads an account using manage_nsfs and returns rpc-like result
  * @param {object} options
@@ -425,7 +442,8 @@ const rpc_cli_funcs_to_manage_nsfs_cli_cmds = {
         create_bucket: async options => create_bucket_manage(options),
         update_bucket: async options => update_bucket_manage(options),
         put_bucket_policy: async options => put_bucket_policy_manage(options),
-        delete_bucket: async options => delete_bucket_manage(options)
+        delete_bucket: async options => delete_bucket_manage(options),
+        read_bucket: async options => read_bucket_manage(options),
     }
 };
 

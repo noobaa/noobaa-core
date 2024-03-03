@@ -151,6 +151,10 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             bucket.name = new SensitiveString(bucket.name);
             bucket.system_owner = new SensitiveString(bucket.system_owner);
             bucket.bucket_owner = new SensitiveString(bucket.bucket_owner);
+            bucket.owner_account = {
+                id: bucket.owner_account,
+                email: bucket.bucket_owner
+            };
             if (bucket.s3_policy) {
                 for (const [s_index, statement] of bucket.s3_policy.Statement.entries()) {
                     const statement_principal = statement.Principal || statement.NotPrincipal;

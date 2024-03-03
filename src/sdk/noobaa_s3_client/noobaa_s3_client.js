@@ -100,14 +100,9 @@ function get_requestHandler_with_suitable_agent(endpoint) {
     }
 }
 
-// v2: code, v3: Code
-function check_error_code(err, code) {
-    return err.code === code || err.Code === code;
-}
-
 /**
  * When using aws sdk v3 we get the error object with values that start with an uppercase instead of lowercase
- * we want to fix this value to be start with a lowercase.
+ * we want to fix this value to be start with a lowercase (example: v2: code, v3: Code).
  * 
  * @param {object} err
  */
@@ -134,6 +129,5 @@ function fix_error_object(err) {
 exports.get_s3_client_v3_params = get_s3_client_v3_params;
 exports.change_s3_client_params_to_v2_structure = change_s3_client_params_to_v2_structure;
 exports.get_sdk_class_str = get_sdk_class_str;
-exports.check_error_code = check_error_code;
 exports.fix_error_object = fix_error_object;
 exports.get_requestHandler_with_suitable_agent = get_requestHandler_with_suitable_agent;

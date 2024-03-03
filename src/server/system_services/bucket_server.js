@@ -1208,6 +1208,7 @@ async function get_cloud_buckets(req) {
             return buckets.map(bucket => _inject_usage_to_cloud_bucket(bucket.Name, connection.endpoint, used_cloud_buckets));
         }
     } catch (err) {
+        noobaa_s3_client.fix_error_object(err); // only relevant when using AWS SDK v3
         if (err instanceof P.TimeoutError) {
             dbg.log0('failed reading (t/o) external buckets list', req.rpc_params);
         } else {

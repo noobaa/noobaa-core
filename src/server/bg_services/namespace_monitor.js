@@ -141,12 +141,12 @@ class NamespaceMonitor {
                 Key: block_key
             });
         } catch (err) {
-            noobaa_s3_client.fix_error_object(err); //This makes the noobaa_s3_client.check_error_code redundant, we should consider removing it.
-            if (noobaa_s3_client.check_error_code(err, 'AccessDenied') && nsr.is_readonly_namespace()) {
+            noobaa_s3_client.fix_error_object(err);
+            if (err.code === 'AccessDenied' && nsr.is_readonly_namespace()) {
                 return;
             }
             dbg.log1('test_s3_resource: got error:', err);
-            if (!noobaa_s3_client.check_error_code(err, 'NoSuchKey')) throw err;
+            if (err.code !== 'NoSuchKey') throw err;
         }
 
     }

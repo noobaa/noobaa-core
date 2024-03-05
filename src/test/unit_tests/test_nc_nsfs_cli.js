@@ -515,8 +515,6 @@ mocha.describe('manage_nsfs cli', function() {
         const access_key = 'GIGiFAnjaaE7OKD5N7hA';
         const secret_key = 'U2AYaMpU3zRDcRFWmvzgQr9MoHIAsDy3o+4h0oFR';
 
-        const accounts_schema_dir = 'accounts';
-        const access_keys_schema_dir = 'access_keys';
         let account_options = { config_root, name, new_buckets_path, uid, gid, access_key, secret_key };
         const gpfs_account_options = { ...account_options, name: gpfs_account, fs_backend: 'GPFS' };
         let updating_options = account_options;
@@ -847,11 +845,9 @@ mocha.describe('manage_nsfs cli', function() {
         const distinguished_name = 'root';
         const access_key = 'GIGiFAnjaaE7OKD5N7hB';
         const secret_key = 'U2AYaMpU3zRDcRFWmvzgQr9MoHIAsDy3o+4h0oFr';
-        const accounts_schema_dir = 'accounts';
-        const access_keys_schema_dir = 'access_keys';
         let account_options = { config_root, name, new_buckets_path, distinguished_name, access_key, secret_key };
         const new_user = 'newuser';
-        
+
         mocha.before(async () => {
             this.timeout(50000); // eslint-disable-line no-invalid-this
             await fs_utils.create_fresh_path(new_buckets_path);

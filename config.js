@@ -96,6 +96,7 @@ config.AGENT_TEST_CONNECTION_TIMEOUT = 1 * 60 * 1000;
 config.STORE_PERF_TEST_INTERVAL = 60 * 60 * 1000; // perform test_store_perf every 1 hour
 config.CLOUD_MAX_ALLOWED_IO_TEST_ERRORS = 3;
 
+config.ENABLE_DEV_RANDOM_SEED = process.env.DISABLE_DEV_RANDOM_SEED === 'false' || false;
 
 ////////////////
 // RPC CONFIG //

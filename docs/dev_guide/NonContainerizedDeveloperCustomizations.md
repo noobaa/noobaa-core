@@ -320,6 +320,23 @@ Example:
 ```
 
 
+## 18. Disable random seeding -
+**Description -** This flag will enable the random seeding for the application.
+
+**Configuration Key -** ENABLE_DEV_RANDOM_SEED
+
+**Type -** boolean
+
+**Default -**  false
+**Steps -**
+```
+1. Open /path/to/config_dir/config.json file.
+2. Set the config key -
+Example:
+"ENABLE_DEV_RANDOM_SEED": false
+3. systemctl restart noobaa_nsfs
+```
+
 ## Config.json example 
 ```
 > cat /path/to/config_dir/config.json

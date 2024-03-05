@@ -10,7 +10,7 @@ const assert = require('assert');
 const P = require('../../util/promise');
 const config = require('../../../config');
 const fs_utils = require('../../util/fs_utils');
-const { get_process_fs_context, read_config_file, get_user_by_distinguished_name} = require('../../util/native_fs_utils');
+const { get_process_fs_context, read_file, get_user_by_distinguished_name} = require('../../util/native_fs_utils');
 const nb_native = require('../../util/nb_native');
 const SensitiveString = require('../../util/sensitive_string');
 const NamespaceFS = require('../../sdk/namespace_fs');
@@ -308,7 +308,7 @@ mocha.describe('bucketspace_fs', function() {
             assert.equal(objects.buckets.length, 1);
             assert.equal(objects.buckets[0].name.unwrap(), expected_bucket_name);
             const bucket_config_path = get_config_file_path(CONFIG_SUBDIRS.BUCKETS, expected_bucket_name);
-            const bucket_data = await read_config_file(process_fs_context, bucket_config_path);
+            const bucket_data = await read_file(process_fs_context, bucket_config_path);
             assert.equal(objects.buckets[0].creation_date, bucket_data.creation_date);
         });
     });
@@ -384,7 +384,7 @@ mocha.describe('bucketspace_fs', function() {
             const param = {name: test_bucket, versioning: 'ENABLED'};
             await bucketspace_fs.set_bucket_versioning(param, dummy_object_sdk);
             const bucket_config_path = get_config_file_path(CONFIG_SUBDIRS.BUCKETS, param.name);
-            const bucket = await read_config_file(process_fs_context, bucket_config_path);
+            const bucket = await read_file(process_fs_context, bucket_config_path);
             assert.equal(bucket.versioning, 'ENABLED');
 
         });

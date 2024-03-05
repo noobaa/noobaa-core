@@ -468,13 +468,32 @@ sudo node src/cmd/manage_nsfs bucket delete --config_root ../standalon/config_ro
 sudo node src/cmd/manage_nsfs bucket list --config_root ../standalon/config_root 2>/dev/null
 
 ```
+NSFS management CLI run will create both accounts, access_keys, and buckets directories if they are missing under the config_root directory.
 **Important**:  All the Account/Bucket commands end with `2>/dev/null` to make sure there are no unwanted logs.
 
-
+Using `from_file` flag:
+- For account and bucket creation users can also pass account or bucket values in JSON file (hereinafter referred to as "options JSON file") instead of passing them in CLI as arguments using flags.
+- General use:
 ```
-sudo node src/cmd/manage_nsfs bucket add --config_root ../standalon/config_root --from_file /json_file/path
+sudo node src/cmd/manage_nsfs account add --config_root ../standalon/config_root --from_file <options_JSON_file_path>
+sudo node src/cmd/manage_nsfs bucket add --config_root ../standalon/config_root --from_file <options_JSON_file_path>
 ```
-NSFS management CLI command will create both account and bucket dir if it's missing in the config_root path.
+- The options are key-value, where the key is the same as suggested flags. For example:
+create JSON file for account:
+```json
+// JSON file of key-value options for creating an account
+{
+    "name": "account-1001",
+    "uid": 1001,
+    "gid": 1001,
+    "new_buckets_path": "/tmp/nsfs_root1/my-bucket"
+}
+```
+```
+sudo node src/cmd/manage_nsfs account add --config_root ../standalon/config_root --from_file <options_JSON_file_path>
+```
+- When using `from_file` flag the details about the account/bucket should be only inside the options JSON file.
+- The JSON config file and JSON options file of account are different! 
 
 ## NSFS Certificate
 

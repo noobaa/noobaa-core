@@ -29,22 +29,23 @@ const CONFIG_SUBDIRS = {
 };
 
 const GLOBAL_CONFIG_ROOT = 'config_root';
-const GLOBAL_CONFIG_OPTIONS = new Set(['from_file', GLOBAL_CONFIG_ROOT, 'config_root_backend']);
+const GLOBAL_CONFIG_OPTIONS = new Set([GLOBAL_CONFIG_ROOT, 'config_root_backend']);
+const FROM_FILE = 'from_file';
 
 const VALID_OPTIONS_ACCOUNT = {
-    'add': new Set(['name', 'uid', 'gid', 'new_buckets_path', 'user', 'access_key', 'secret_key', 'fs_backend', 'allow_bucket_creation', ...GLOBAL_CONFIG_OPTIONS]),
+    'add': new Set(['name', 'uid', 'gid', 'new_buckets_path', 'user', 'access_key', 'secret_key', 'fs_backend', 'allow_bucket_creation', FROM_FILE, ...GLOBAL_CONFIG_OPTIONS]),
     'update': new Set(['name', 'uid', 'gid', 'new_buckets_path', 'user', 'access_key', 'secret_key', 'fs_backend', 'allow_bucket_creation', 'new_name', 'regenerate', ...GLOBAL_CONFIG_OPTIONS]),
-    'delete': new Set(['name', GLOBAL_CONFIG_ROOT]),
-    'list': new Set(['wide', 'show_secrets', GLOBAL_CONFIG_ROOT, 'gid', 'uid', 'user', 'name', 'access_key']),
-    'status': new Set(['name', 'access_key', 'show_secrets', GLOBAL_CONFIG_ROOT]),
+    'delete': new Set(['name', ...GLOBAL_CONFIG_OPTIONS]),
+    'list': new Set(['wide', 'show_secrets', 'gid', 'uid', 'user', 'name', 'access_key', ...GLOBAL_CONFIG_OPTIONS]),
+    'status': new Set(['name', 'access_key', 'show_secrets', ...GLOBAL_CONFIG_OPTIONS]),
 };
 
 const VALID_OPTIONS_BUCKET = {
-    'add': new Set(['name', 'owner', 'path', 'bucket_policy', 'fs_backend', ...GLOBAL_CONFIG_OPTIONS]),
+    'add': new Set(['name', 'owner', 'path', 'bucket_policy', 'fs_backend', FROM_FILE, ...GLOBAL_CONFIG_OPTIONS]),
     'update': new Set(['name', 'owner', 'path', 'bucket_policy', 'fs_backend', 'new_name', ...GLOBAL_CONFIG_OPTIONS]),
-    'delete': new Set(['name', GLOBAL_CONFIG_ROOT]),
-    'list': new Set(['wide', 'name', GLOBAL_CONFIG_ROOT]),
-    'status': new Set(['name', GLOBAL_CONFIG_ROOT]),
+    'delete': new Set(['name', ...GLOBAL_CONFIG_OPTIONS]),
+    'list': new Set(['wide', 'name', ...GLOBAL_CONFIG_OPTIONS]),
+    'status': new Set(['name', ...GLOBAL_CONFIG_OPTIONS]),
 };
 
 const VALID_OPTIONS_GLACIER = {
@@ -53,13 +54,16 @@ const VALID_OPTIONS_GLACIER = {
     'expiry': new Set([ GLOBAL_CONFIG_ROOT]),
 };
 
-const VALID_OPTIONS_WHITELIST = new Set(['ips', GLOBAL_CONFIG_ROOT]);
+const VALID_OPTIONS_WHITELIST = new Set(['ips', ...GLOBAL_CONFIG_OPTIONS]);
+
+const VALID_OPTIONS_FROM_FILE = new Set(['from_file', ...GLOBAL_CONFIG_OPTIONS]);
 
 const VALID_OPTIONS = {
     account_options: VALID_OPTIONS_ACCOUNT,
     bucket_options: VALID_OPTIONS_BUCKET,
     glacier_options: VALID_OPTIONS_GLACIER,
     whitelist_options: VALID_OPTIONS_WHITELIST,
+    from_file_options: VALID_OPTIONS_FROM_FILE,
 };
 
 const OPTION_TYPE = {
@@ -97,6 +101,7 @@ exports.GLACIER_ACTIONS = GLACIER_ACTIONS;
 exports.CONFIG_SUBDIRS = CONFIG_SUBDIRS;
 exports.VALID_OPTIONS = VALID_OPTIONS;
 exports.OPTION_TYPE = OPTION_TYPE;
+exports.FROM_FILE = FROM_FILE;
 exports.BOOLEAN_STRING_VALUES = BOOLEAN_STRING_VALUES;
 
 exports.LIST_ACCOUNT_FILTERS = LIST_ACCOUNT_FILTERS;

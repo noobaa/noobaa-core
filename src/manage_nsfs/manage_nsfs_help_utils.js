@@ -60,13 +60,8 @@ Flags:
 `;
 
 const GLOBAL_CONFIG_ROOT_ALL_FLAG = `
---config_root <string>                                (optional)        Use configuration files path (default config.NSFS_NC_DEFAULT_CONF_DIR)
-`;
-
-const GLOBAL_CONFIG_FLAGS_ADD_UPDATE_FLAGS = `
---from_file <string>                                  (optional)        Use details from the JSON file, there is no need to mention all the properties individually in the CLI
---config_root <string>                                (optional)        Use configuration files path (default config.NSFS_NC_DEFAULT_CONF_DIR)
---config_root_backend <none | GPFS | CEPH_FS | NFSv4> (optional)        Use the filesystem type in the configuration (default config.NSFS_NC_CONFIG_DIR_BACKEND)
+--config_root <string>                                    (optional)                        Use configuration files path (default config.NSFS_NC_DEFAULT_CONF_DIR)
+--config_root_backend <none | GPFS | CEPH_FS | NFSv4>     (optional)                        Use the filesystem type in the configuration (default config.NSFS_NC_CONFIG_DIR_BACKEND)
 `;
 
 const ACCOUNT_FLAGS_ADD = `
@@ -84,6 +79,7 @@ Flags:
 --secret_key <string>                                 (optional)        Set the secret key for the account (default is generated)
 --fs_backend <none | GPFS | CEPH_FS | NFSv4>          (optional)        Set the filesystem type of new_buckets_path (default config.NSFS_NC_STORAGE_BACKEND)
 --allow_bucket_creation <true | false>                (optional)        Set the account to explicitly allow or block bucket creation
+--from_file <string>                                  (optional)        Use details from the JSON file, there is no need to mention all the properties individually in the CLI
 `;
 
 const ACCOUNT_FLAGS_UPDATE = `
@@ -148,6 +144,7 @@ Flags:
 --path <string>                                                         Set the bucket path
 --bucket_policy <string>                              (optional)        Set the bucket policy, type is a string of valid JSON policy
 --fs_backend <none | GPFS | CEPH_FS | NFSv4>          (optional)        Set the filesystem type (default config.NSFS_NC_STORAGE_BACKEND)
+--from_file <string>                                  (optional)        Use details from the JSON file, there is no need to mention all the properties individually in the CLI
 `;
 
 const BUCKET_FLAGS_UPDATE = `
@@ -243,12 +240,10 @@ function print_usage(type, action) {
 function print_help_account(action) {
     switch (action) {
         case ACTIONS.ADD:
-            process.stdout.write(ACCOUNT_FLAGS_ADD.trimStart() +
-                GLOBAL_CONFIG_FLAGS_ADD_UPDATE_FLAGS.trimStart());
+            process.stdout.write(ACCOUNT_FLAGS_ADD.trimStart() + GLOBAL_CONFIG_ROOT_ALL_FLAG.trimStart());
             break;
         case ACTIONS.UPDATE:
-            process.stdout.write(ACCOUNT_FLAGS_UPDATE.trimStart() +
-                GLOBAL_CONFIG_FLAGS_ADD_UPDATE_FLAGS.trimStart());
+            process.stdout.write(ACCOUNT_FLAGS_UPDATE.trimStart() + GLOBAL_CONFIG_ROOT_ALL_FLAG.trimStart());
             break;
         case ACTIONS.DELETE:
             process.stdout.write(ACCOUNT_FLAGS_DELETE.trimStart() + GLOBAL_CONFIG_ROOT_ALL_FLAG.trimStart());
@@ -272,12 +267,10 @@ function print_help_account(action) {
 function print_help_bucket(action) {
     switch (action) {
         case ACTIONS.ADD:
-            process.stdout.write(BUCKET_FLAGS_ADD.trimStart() +
-                GLOBAL_CONFIG_FLAGS_ADD_UPDATE_FLAGS.trimStart());
+            process.stdout.write(BUCKET_FLAGS_ADD.trimStart() + GLOBAL_CONFIG_ROOT_ALL_FLAG.trimStart());
             break;
         case ACTIONS.UPDATE:
-            process.stdout.write(BUCKET_FLAGS_UPDATE.trimStart() +
-                GLOBAL_CONFIG_FLAGS_ADD_UPDATE_FLAGS.trimStart());
+            process.stdout.write(BUCKET_FLAGS_UPDATE.trimStart() + GLOBAL_CONFIG_ROOT_ALL_FLAG.trimStart());
             break;
         case ACTIONS.DELETE:
             process.stdout.write(BUCKET_FLAGS_DELETE.trimStart() + GLOBAL_CONFIG_ROOT_ALL_FLAG.trimStart());

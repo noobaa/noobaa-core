@@ -95,6 +95,18 @@ ManageCLIError.InvalidSchema = Object.freeze({
     http_code: 400,
 });
 
+ManageCLIError.InvalidFilePath = Object.freeze({
+    code: 'InvalidFilePath',
+    message: 'Invalid file path',
+    http_code: 400,
+});
+
+ManageCLIError.InvalidJSONFile = Object.freeze({
+    code: 'InvalidJSONFile',
+    message: 'Invalid JSON file',
+    http_code: 400,
+});
+
 //////////////////////////////
 //// IP WHITE LIST ERRORS ////
 //////////////////////////////

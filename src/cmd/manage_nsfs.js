@@ -22,7 +22,7 @@ const manage_nsfs_glacier = require('../manage_nsfs/manage_nsfs_glacier');
 const bucket_policy_utils = require('../endpoint/s3/s3_bucket_policy_utils');
 const nsfs_schema_utils = require('../manage_nsfs/nsfs_schema_utils');
 const { print_usage } = require('../manage_nsfs/manage_nsfs_help_utils');
-const { TYPES, ACTIONS, VALID_OPTIONS, OPTION_TYPE, BOOLEAN_STRING_VALUES,
+const { TYPES, ACTIONS, VALID_OPTIONS, OPTION_TYPE, FROM_FILE, BOOLEAN_STRING_VALUES,
     LIST_ACCOUNT_FILTERS, LIST_BUCKET_FILTERS, GLACIER_ACTIONS } = require('../manage_nsfs/manage_nsfs_constants');
 const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
 
@@ -89,7 +89,8 @@ async function main(argv = minimist(process.argv.slice(2))) {
         if (argv.help || argv.h) {
             return print_usage(type, action);
         }
-        validate_flags_arguments(type, action, argv);
+        const user_input_from_file = await validate_input_types(type, action, argv);
+        const user_input = user_input_from_file || argv;
         config_root = argv.config_root ? String(argv.config_root) : config.NSFS_NC_CONF_DIR;
         if (!config_root) throw_cli_error(ManageCLIError.MissingConfigDirPath);
 
@@ -99,11 +100,12 @@ async function main(argv = minimist(process.argv.slice(2))) {
         config_root_backend = argv.config_root_backend ? String(argv.config_root_backend) : config.NSFS_NC_CONFIG_DIR_BACKEND;
 
         await check_and_create_config_dirs();
-        const from_file = argv.from_file ? String(argv.from_file) : '';
         if (type === TYPES.ACCOUNT) {
-            await account_management(argv, from_file);
+            await account_management(action, user_input);
         } else if (type === TYPES.BUCKET) {
-            await bucket_management(argv, from_file);
+            // GAP - from-file in bucket
+            const path_to_json_options = argv.from_file ? String(argv.from_file) : '';
+            await bucket_management(argv, path_to_json_options);
         } else if (type === TYPES.IP_WHITELIST) {
             await whitelist_ips_management(argv);
         } else if (type === TYPES.GLACIER) {
@@ -333,20 +335,19 @@ async function manage_bucket_operations(action, data, argv) {
     }
 }
 
-async function account_management(argv, from_file) {
-    const action = argv._[1] || '';
-    const show_secrets = get_boolean_or_string_value(argv.show_secrets);
-    const data = await fetch_account_data(argv, from_file);
-    await manage_account_operations(action, data, show_secrets, argv);
+async function account_management(action, user_input) {
+    const show_secrets = get_boolean_or_string_value(user_input.show_secrets);
+    const data = await fetch_account_data(action, user_input);
+    await manage_account_operations(action, data, show_secrets, user_input);
 }
 
 /**
- * set_access_keys will set the access keys either given as args or generated.
- * @param {{ access_key: any; secret_key: any; }} argv
+ * set_access_keys will set the access keys either given or generated.
+ * @param {string} access_key
+ * @param {string} secret_key
  * @param {boolean} generate a flag for generating the access_keys automatically
  */
-function set_access_keys(argv, generate) {
-    const { access_key, secret_key } = argv;
+function set_access_keys(access_key, secret_key, generate) {
     let generated_access_key;
     let generated_secret_key;
     if (generate) {
@@ -362,50 +363,28 @@ function set_access_keys(argv, generate) {
 }
 
 // in name and new_name we allow type number, hence convert it to string
-async function fetch_account_data(argv, from_file) {
-    let data;
-    let access_keys = [{
-        access_key: undefined,
-        secret_key: undefined,
-    }];
-    let new_access_key;
-    const action = argv._[1] || '';
-    if (from_file) {
-        const fs_context = native_fs_utils.get_process_fs_context();
-        const raw_data = (await nb_native().fs.readFile(fs_context, from_file)).data;
-        data = JSON.parse(raw_data.toString());
-        // GAP - from-file is not validated
-    }
-    if (action !== ACTIONS.LIST && action !== ACTIONS.STATUS) _validate_access_keys(argv);
-    if (action === ACTIONS.ADD || action === ACTIONS.STATUS) {
-        const regenerate = action === ACTIONS.ADD;
-        access_keys = set_access_keys(argv, regenerate);
-    } else if (action === ACTIONS.UPDATE) {
-        const regenerate = get_boolean_or_string_value(argv.regenerate);
-        access_keys = set_access_keys(argv, regenerate);
-        new_access_key = access_keys[0].access_key;
-        access_keys[0].access_key = undefined; //Setting it as undefined so we can replace the symlink
-    }
-
-    if (!data) {
-        data = _.omitBy({
-            name: _.isUndefined(argv.name) ? undefined : String(argv.name),
-            email: _.isUndefined(argv.name) ? undefined : String(argv.name), // temp, keep the email internally
-            creation_date: action === ACTIONS.ADD ? new Date().toISOString() : undefined,
-            wide: _.isUndefined(argv.wide) ? undefined : get_boolean_or_string_value(argv.wide),
-            new_name: _.isUndefined(argv.new_name) ? undefined : String(argv.new_name),
-            new_access_key,
-            access_keys,
-            nsfs_account_config: {
-                distinguished_name: argv.user,
-                uid: argv.user ? undefined : argv.uid,
-                gid: argv.user ? undefined : argv.gid,
-                new_buckets_path: argv.new_buckets_path,
-                fs_backend: argv.fs_backend ? String(argv.fs_backend) : config.NSFS_NC_STORAGE_BACKEND
-            }
-        }, _.isUndefined);
-    }
+async function fetch_account_data(action, user_input) {
+    const { access_keys, new_access_key } = get_access_keys(action, user_input);
+    let data = {
+        // added undefined values to keep the order the properties when printing the data object
+        _id: undefined,
+        name: _.isUndefined(user_input.name) ? undefined : String(user_input.name),
+        email: _.isUndefined(user_input.name) ? undefined : String(user_input.name), // temp, keep the email internally
+        creation_date: action === ACTIONS.ADD ? new Date().toISOString() : undefined,
+        wide: _.isUndefined(user_input.wide) ? undefined : get_boolean_or_string_value(user_input.wide),
+        new_name: _.isUndefined(user_input.new_name) ? undefined : String(user_input.new_name),
+        new_access_key,
+        access_keys,
+        nsfs_account_config: {
+            distinguished_name: user_input.user,
+            uid: user_input.user ? undefined : user_input.uid,
+            gid: user_input.user ? undefined : user_input.gid,
+            new_buckets_path: user_input.new_buckets_path,
+            fs_backend: user_input.fs_backend ? String(user_input.fs_backend) : config.NSFS_NC_STORAGE_BACKEND
+        }
+    };
     if (action === ACTIONS.UPDATE || action === ACTIONS.DELETE) {
+        // @ts-ignore
         data = _.omitBy(data, _.isUndefined);
         data = await fetch_existing_account_data(data);
     }
@@ -413,17 +392,17 @@ async function fetch_account_data(argv, from_file) {
     // override values
     // access_key as SensitiveString
     data.access_keys[0].access_key = _.isUndefined(data.access_keys[0].access_key) ? undefined :
-    new SensitiveString(String(data.access_keys[0].access_key));
+        new SensitiveString(String(data.access_keys[0].access_key));
     // secret_key as SensitiveString
     data.access_keys[0].secret_key = _.isUndefined(data.access_keys[0].secret_key) ? undefined :
         new SensitiveString(String(data.access_keys[0].secret_key));
     // allow_bucket_creation either set by user or infer from new_buckets_path
-    if (_.isUndefined(argv.allow_bucket_creation)) {
+    if (_.isUndefined(user_input.allow_bucket_creation)) {
         data.allow_bucket_creation = !_.isUndefined(data.nsfs_account_config.new_buckets_path);
-    } else if (typeof argv.allow_bucket_creation === 'boolean') {
-        data.allow_bucket_creation = Boolean(argv.allow_bucket_creation);
+    } else if (typeof user_input.allow_bucket_creation === 'boolean') {
+        data.allow_bucket_creation = Boolean(user_input.allow_bucket_creation);
     } else { // string of true or false
-        data.allow_bucket_creation = argv.allow_bucket_creation.toLowerCase() === 'true';
+        data.allow_bucket_creation = user_input.allow_bucket_creation.toLowerCase() === 'true';
     }
     // fs_backend deletion specified with empty string '' (but it is not part of the schema)
     data.nsfs_account_config.fs_backend = data.nsfs_account_config.fs_backend || undefined;
@@ -587,7 +566,7 @@ async function get_account_status(data, show_secrets) {
     }
 }
 
-async function manage_account_operations(action, data, show_secrets, argv) {
+async function manage_account_operations(action, data, show_secrets, user_input) {
     if (action === ACTIONS.ADD) {
         await add_account(data);
     } else if (action === ACTIONS.STATUS) {
@@ -597,7 +576,7 @@ async function manage_account_operations(action, data, show_secrets, argv) {
     } else if (action === ACTIONS.DELETE) {
         await delete_account(data);
     } else if (action === ACTIONS.LIST) {
-        const account_filters = _.pick(argv, LIST_ACCOUNT_FILTERS);
+        const account_filters = _.pick(user_input, LIST_ACCOUNT_FILTERS);
         const accounts = await list_config_files(TYPES.ACCOUNT, accounts_dir_path, data.wide, show_secrets, account_filters);
         write_stdout_response(ManageCLIResponse.AccountList, accounts);
     } else {
@@ -700,6 +679,49 @@ async function get_config_data(config_file_path, show_secrets = false) {
     return config_data;
 }
 
+/**
+ * get_options_from_file will read a JSON file that include key-value of the options 
+ * (instead of flags) and return its content
+ * @param {string} file_path
+ */
+async function get_options_from_file(file_path) {
+    const fs_context = native_fs_utils.get_process_fs_context();
+    try {
+        const input_options_with_data = await native_fs_utils.read_file(fs_context, file_path);
+        return input_options_with_data;
+    } catch (err) {
+        if (err.code === 'ENOENT') throw_cli_error(ManageCLIError.InvalidFilePath, file_path);
+        if (err instanceof SyntaxError) throw_cli_error(ManageCLIError.InvalidJSONFile, file_path);
+        throw err;
+    }
+}
+
+/**
+ * get_access_keys will return the access_keys and new_access_key according to the user input
+ * and action
+ * @param {string} action
+ * @param {object} user_input
+ */
+function get_access_keys(action, user_input) {
+    let access_keys = [{
+        access_key: undefined,
+        secret_key: undefined,
+    }];
+    let new_access_key;
+    if (action === ACTIONS.ADD || action === ACTIONS.UPDATE || action === ACTIONS.DELETE) {
+        _validate_access_keys(user_input.access_key, user_input.secret_key);
+    }
+    if (action === ACTIONS.ADD || action === ACTIONS.STATUS) {
+        const regenerate = action === ACTIONS.ADD;
+        access_keys = set_access_keys(user_input.access_key, user_input.secret_key, regenerate);
+    } else if (action === ACTIONS.UPDATE) {
+        const regenerate = get_boolean_or_string_value(user_input.regenerate);
+        access_keys = set_access_keys(user_input.access_key, user_input.secret_key, regenerate);
+        new_access_key = access_keys[0].access_key;
+        access_keys[0].access_key = undefined; //Setting it as undefined so we can replace the symlink
+    }
+    return { access_keys, new_access_key };
+}
 
 ///////////////////////////
 ///     VALIDATIONS     ///
@@ -806,22 +828,37 @@ async function validate_account_args(data, action) {
     }
 }
 
-/** validate_flags_arguments checks if input option are valid.
+/** 
+ * validate_input_types checks if input option are valid.
+ * if the the user uses from_file then the validation is on the file (in different iteration)
  * @param {string} type
  * @param {string} action
  * @param {object} argv
  */
-function validate_flags_arguments(type, action, argv) {
+async function validate_input_types(type, action, argv) {
     validate_type_and_action(type, action);
-    // when we use validate_no_extra_options
-    // we don't care about the value, only the flags
+    // when we use validate_no_extra_options we don't care about the value, only the flags
     const input_options = Object.keys(argv);
+    const input_options_with_data = { ...argv };
     // the first element is _ with the type and action, so we remove it
     input_options.shift();
-    validate_no_extra_options(type, action, input_options);
-    const input_options_with_data = { ...argv };
     delete input_options_with_data._;
+    validate_no_extra_options(type, action, input_options, false);
     validate_options_type_by_value(input_options_with_data);
+
+    // currently we use from_file only in add action
+    const path_to_json_options = argv.from_file ? String(argv.from_file) : '';
+    if (type === TYPES.ACCOUNT && action === ACTIONS.ADD && path_to_json_options) {
+        const input_options_with_data_from_file = await get_options_from_file(path_to_json_options);
+        const input_options_from_file = Object.keys(input_options_with_data_from_file);
+        if (input_options_from_file.includes(FROM_FILE)) {
+            const details = `${FROM_FILE} should not be passed inside json options`;
+            throw_cli_error(ManageCLIError.InvalidArgument, details);
+        }
+        validate_no_extra_options(type, action, input_options_from_file, true);
+        validate_options_type_by_value(input_options_with_data_from_file);
+        return input_options_with_data_from_file;
+    }
 }
 
 /**
@@ -846,13 +883,23 @@ function validate_type_and_action(type, action) {
  * @param {string} type
  * @param {string} action
  * @param {string[]} input_options array with the names of the flags
+ * @param {boolean} is_options_from_file boolean to indicates that the validation is on values that origin from the file
  */
-function validate_no_extra_options(type, action, input_options) {
+function validate_no_extra_options(type, action, input_options, is_options_from_file) {
     let valid_options; // for performance, we use Set as data structure
-    if (type === TYPES.BUCKET) {
+    const from_file_condition = (type === TYPES.ACCOUNT || type === TYPES.BUCKET) &&
+        action === ACTIONS.ADD && input_options.includes(FROM_FILE);
+    if (from_file_condition) {
+        valid_options = VALID_OPTIONS.from_file_options;
+    } else if (type === TYPES.BUCKET) {
         valid_options = VALID_OPTIONS.bucket_options[action];
     } else if (type === TYPES.ACCOUNT) {
         valid_options = VALID_OPTIONS.account_options[action];
+        if (is_options_from_file) {
+            valid_options.delete('from_file');
+            valid_options.delete('config_root');
+            valid_options.delete('config_root_backend');
+        }
     } else if (type === TYPES.GLACIER) {
         valid_options = VALID_OPTIONS.glacier_options[action];
     } else {
@@ -865,8 +912,9 @@ function validate_no_extra_options(type, action, input_options) {
         `${invalid_input_options[0]} is an invalid option` :
         `${invalid_input_options.join(', ')} are invalid options`;
         const supported_option_msg = `Supported options are: ${[...valid_options].join(', ')}`;
-        const err_msg = `${invalid_option_msg} for ${type_and_action}. ${supported_option_msg}`;
-        throw_cli_error(ManageCLIError.InvalidArgument, err_msg);
+        let details = `${invalid_option_msg} for ${type_and_action}. ${supported_option_msg}`;
+        if (from_file_condition) details += ` (when using ${FROM_FILE} flag only partial list of flags are supported)`;
+        throw_cli_error(ManageCLIError.InvalidArgument, details);
     }
 }
 /**
@@ -874,7 +922,6 @@ function validate_no_extra_options(type, action, input_options) {
  * @param {object} input_options_with_data object with flag (key) and value
  */
 function validate_options_type_by_value(input_options_with_data) {
-    let details;
     for (const [option, value] of Object.entries(input_options_with_data)) {
         const type_of_option = OPTION_TYPE[option];
         const type_of_value = typeof value;
@@ -887,7 +934,7 @@ function validate_options_type_by_value(input_options_with_data) {
             if (['allow_bucket_creation', 'regenerate', 'wide', 'show_secrets'].includes(option) && validate_boolean_string_value(value)) {
                 continue;
             }
-            details = `type of flag ${option} should be ${type_of_option}`;
+            const details = `type of flag ${option} should be ${type_of_option}`;
             throw_cli_error(ManageCLIError.InvalidArgumentType, details);
         }
     }
@@ -953,16 +1000,16 @@ function verify_whitelist_ips(ips_to_validate) {
     }
 }
 
-function _validate_access_keys(argv) {
+function _validate_access_keys(access_key, secret_key) {
     // using the access_key flag requires also using the secret_key flag
-    if (!_.isUndefined(argv.access_key) && _.isUndefined(argv.secret_key)) {
+    if (!_.isUndefined(access_key) && _.isUndefined(secret_key)) {
         throw_cli_error(ManageCLIError.MissingAccountSecretKeyFlag);
     }
-    if (!_.isUndefined(argv.secret_key) && _.isUndefined(argv.access_key)) {
+    if (!_.isUndefined(secret_key) && _.isUndefined(access_key)) {
         throw_cli_error(ManageCLIError.MissingAccountAccessKeyFlag);
     }
     // checking the complexity of access_key
-    if (!_.isUndefined(argv.access_key) && !string_utils.validate_complexity(argv.access_key, {
+    if (!_.isUndefined(access_key) && !string_utils.validate_complexity(access_key, {
             require_length: 20,
             check_uppercase: true,
             check_lowercase: false,
@@ -970,7 +1017,7 @@ function _validate_access_keys(argv) {
             check_symbols: false,
         })) throw_cli_error(ManageCLIError.AccountAccessKeyFlagComplexity);
     // checking the complexity of secret_key
-    if (!_.isUndefined(argv.secret_key) && !string_utils.validate_complexity(argv.secret_key, {
+    if (!_.isUndefined(secret_key) && !string_utils.validate_complexity(secret_key, {
             require_length: 40,
             check_uppercase: true,
             check_lowercase: true,

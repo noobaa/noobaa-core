@@ -3026,9 +3026,13 @@ class NamespaceFS {
     async _is_storage_class_supported(storage_class) {
         if (!storage_class || storage_class === s3_utils.STORAGE_CLASS_STANDARD) return true;
 
-        // TODO: Upon integration with underlying systems, we should
-        // check if archiving is actually supported or not
-        return config.NSFS_GLACIER_ENABLED || false;
+        if (storage_class === s3_utils.STORAGE_CLASS_GLACIER) {
+            // TODO: Upon integration with underlying systems, we should
+            // check if archiving is actually supported or not
+            return config.NSFS_GLACIER_ENABLED || false;
+        }
+
+        return false;
     }
 
     async append_to_migrate_wal(entry) {

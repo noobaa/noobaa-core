@@ -11,7 +11,7 @@ const s3_utils = require('../endpoint/s3/s3_utils');
 const S3Error = require('../endpoint/s3/s3_errors').S3Error;
 // we use this wrapper to set a custom user agent
 const GoogleCloudStorage = require('../util/google_storage_wrap');
-const aws_sdk = require('aws-sdk');
+const AWS = require('aws-sdk');
 
 /**
  * @implements {nb.Namespace}
@@ -53,7 +53,7 @@ class NamespaceGCP {
             this.hmac_key = res[0];
             this.hmac_secret = res[1];
         });
-        this.s3_client = new aws_sdk.S3({
+        this.s3_client = new AWS.S3({
             endpoint: 'https://storage.googleapis.com',
             accessKeyId: this.hmac_key,
             secretAccessKey: this.hmac_secret

@@ -4,6 +4,7 @@
 const { inspect } = require('util');
 const { Storage } = require('@google-cloud/storage');
 const dbg = require('../../../util/debug_module')(__filename);
+const buffer_utils = require('../../../util/buffer_utils');
 dbg.set_process_name('analyze_resource');
 const CloudVendor = require('./analyze_resource_cloud_vendor_abstract');
 
@@ -58,8 +59,7 @@ class AnalyzeGcp extends CloudVendor {
             .bucket(bucket)
             .file(key)
             .createWriteStream();
-        stream.write(''); //write an empty file
-        stream.end();
+        await buffer_utils.write_to_stream(stream, ''); //write an empty file
         stream.on('response', resp => {
             dbg.log0(`Write of ${key} response: ${inspect(resp)}`);
         });

@@ -23,7 +23,7 @@ const block_store_info_cache = new LRUCache({
     max_usage: 1000,
     expiry_ms: 2 * 60 * 1000,
     make_key: params => params.options.address,
-    load: async ({ rpc_client, options }) => rpc_client.block_store.get_block_store_info(null, options),
+    load: async ({ rpc_client, options }) => rpc_client.block_store.get_block_store_info({}, options),
 });
 class BlockStoreClient {
 
@@ -98,8 +98,8 @@ class BlockStoreClient {
                         }
                     },
                 });
+                dbg.log3('writing block id to gcp: ', block_id);
                 await buffer_utils.write_to_stream(write_stream, data);
-                write_stream.end();
                 const data_length = data.length;
                 const usage = data_length ? {
                     size: (block_md.is_preallocated ? 0 : data_length) + encoded_md.length,

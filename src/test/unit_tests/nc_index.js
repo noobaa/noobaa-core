@@ -15,6 +15,7 @@ require('./test_nc_nsfs_health');
 require('./test_nsfs_access');
 require('./test_bucketspace');
 require('./test_bucketspace_fs');
+require('./test_nsfs_glacier_backend');
 
 // TODO: uncomment when supported
 //require('./test_s3_ops');

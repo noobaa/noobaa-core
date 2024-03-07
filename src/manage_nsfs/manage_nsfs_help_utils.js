@@ -184,23 +184,19 @@ Flags:
 
 const GLACIER_OPTIONS = `
 Usage:
-    manage_nsfs glacier <migrate | restore | expiry> [options]
+glacier <action> [flags]
+
+List of actions supported:
+migrate
+restore
+expiry
 `;
 
-const GLACIER_MIGRATE_OPTIONS = `
-Glacier Migrate Options:
-    --interval <interval>                         (default none)            Run the operation if "interval" milliseconds have passed since last run
-`;
+const GLACIER_MIGRATE_OPTIONS = ``;
 
-const GLACIER_RESTORE_OPTIONS = `
-Glacier Restore Options:
-    --interval <interval>                         (default none)            Run the operation if "interval" milliseconds have passed since last run
-`;
+const GLACIER_RESTORE_OPTIONS = ``;
 
-const GLACIER_EXPIRY_OPTIONS = `
-Glacier Expiry Options:
-    --interval <interval>                         (default none)            Run the operation if "interval" milliseconds have passed since last run
-`;
+const GLACIER_EXPIRY_OPTIONS = ``;
 
 /** 
  * print_usage would print the help according to the arguments that were passed

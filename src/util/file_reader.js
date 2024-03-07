@@ -4,6 +4,17 @@
 
 const nb_native = require('./nb_native');
 
+class NewlineReaderFilePathEntry {
+    constructor(fs_context, filepath) {
+        this.fs_context = fs_context;
+        this.path = filepath;
+    }
+
+    async open(mode = 'rw*') {
+        return nb_native().fs.open(this.fs_context, this.path, mode);
+    }
+}
+
 class NewlineReader {
     /**
      * NewlineReader allows to read a file line by line while at max holding one line + 4096 bytes
@@ -80,6 +91,17 @@ class NewlineReader {
         return [count, true];
     }
 
+    /**
+     * forEachFilePathEntry is a wrapper around `forEach` where each entry in
+     * log file is assumed to be a file path and the given callback function
+     * is invoked with that entry wrapped in a class with some convenient wrappers.
+     * @param {(entry: NewlineReaderFilePathEntry) => Promise<boolean>} cb 
+     * @returns {Promise<[number, boolean]>}
+     */
+    async forEachFilePathEntry(cb) {
+        return this.forEach(entry => cb(new NewlineReaderFilePathEntry(this.fs_context, entry)));
+    }
+
     // reset will reset the reader and will allow reading the file from
     // the beginning again, this does not reopens the file so if the file
     // was moved, this will still keep on reading from the previous FD.
@@ -97,8 +119,10 @@ class NewlineReader {
             if (this.lock) await fh.flock(this.fs_context, this.lock);
 
             this.fh = fh;
-        } finally {
+        } catch (error) {
             if (fh) await fh.close(this.fs_context);
+
+            throw error;
         }
     }
 
@@ -108,3 +132,4 @@ class NewlineReader {
 }
 
 exports.NewlineReader = NewlineReader;
+exports.NewlineReaderEntry = NewlineReaderFilePathEntry;

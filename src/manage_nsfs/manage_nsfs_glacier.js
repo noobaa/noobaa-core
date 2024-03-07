@@ -12,10 +12,6 @@ const native_fs_utils = require('../util/native_fs_utils');
 const CLUSTER_LOCK = 'cluster.lock';
 const SCAN_LOCK = 'scan.lock';
 
-const RESTORE_TIMESTAMP_FILE = 'restore.timestamp';
-const MIGRATE_TIMESTAMP_FILE = 'migrate.timestamp';
-const EXPIRY_TIMESTAMP_FILE = 'expiry.timestamp';
-
 async function process_migrations() {
     const fs_context = native_fs_utils.get_process_fs_context();
 
@@ -24,10 +20,10 @@ async function process_migrations() {
 
         if (
             await backend.low_free_space() ||
-            await time_exceeded(fs_context, config.NSFS_GLACIER_MIGRATE_INTERVAL, MIGRATE_TIMESTAMP_FILE)
+            await time_exceeded(fs_context, config.NSFS_GLACIER_MIGRATE_INTERVAL, GlacierBackend.MIGRATE_TIMESTAMP_FILE)
         ) {
             await run_glacier_migrations(fs_context, backend);
-            await record_current_time(fs_context, MIGRATE_TIMESTAMP_FILE);
+            await record_current_time(fs_context, GlacierBackend.MIGRATE_TIMESTAMP_FILE);
         }
     });
 }
@@ -57,12 +53,12 @@ async function process_restores() {
 
         if (
             await backend.low_free_space() ||
-            !(await time_exceeded(fs_context, config.NSFS_GLACIER_RESTORE_INTERVAL, RESTORE_TIMESTAMP_FILE))
+            !(await time_exceeded(fs_context, config.NSFS_GLACIER_RESTORE_INTERVAL, GlacierBackend.RESTORE_TIMESTAMP_FILE))
         ) return;
 
 
         await run_glacier_restore(fs_context, backend);
-        await record_current_time(fs_context, RESTORE_TIMESTAMP_FILE);
+        await record_current_time(fs_context, GlacierBackend.RESTORE_TIMESTAMP_FILE);
     });
 }
 
@@ -87,11 +83,11 @@ async function process_expiry() {
     const fs_context = native_fs_utils.get_process_fs_context();
 
     await lock_and_run(fs_context, SCAN_LOCK, async () => {
-        if (!(await time_exceeded(fs_context, config.NSFS_GLACIER_EXPIRY_INTERVAL, EXPIRY_TIMESTAMP_FILE))) return;
+        if (!(await time_exceeded(fs_context, config.NSFS_GLACIER_EXPIRY_INTERVAL, GlacierBackend.EXPIRY_TIMESTAMP_FILE))) return;
 
 
         await getGlacierBackend().expiry(fs_context);
-        await record_current_time(fs_context, EXPIRY_TIMESTAMP_FILE);
+        await record_current_time(fs_context, GlacierBackend.EXPIRY_TIMESTAMP_FILE);
     });
 }
 

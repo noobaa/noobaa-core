@@ -4,11 +4,11 @@
 const { PersistentLogger } = require("../../util/persistent_logger");
 const { NewlineReader } = require('../../util/file_reader');
 const { GlacierBackend } = require("./backend");
-const nb_native = require('../../util/nb_native');
 const config = require('../../../config');
 const path = require("path");
 const { parse_decimal_int } = require("../../endpoint/s3/s3_utils");
 const { exec } = require('../../util/os_utils');
+const dbg = require('../../util/debug_module')(__filename);
 
 const ERROR_DUPLICATE_TASK = "GLESM431E";
 
@@ -104,6 +104,8 @@ async function process_expired() {
 
 class TapeCloudGlacierBackend extends GlacierBackend {
     async migrate(fs_context, log_file) {
+        dbg.log2('TapeCloudGlacierBackend.migrate starting for', log_file);
+
         let filtered_log = null;
         let walreader = null;
         try {
@@ -115,10 +117,10 @@ class TapeCloudGlacierBackend extends GlacierBackend {
 
             walreader = new NewlineReader(fs_context, log_file, 'EXCLUSIVE');
 
-            const result = await walreader.forEach(async entry => {
+            const [processed, result] = await walreader.forEachFilePathEntry(async entry => {
                 let should_migrate = true;
                 try {
-                    should_migrate = await this.should_migrate(fs_context, entry);
+                    should_migrate = await this.should_migrate(fs_context, entry.path);
                 } catch (err) {
                     if (err.code === 'ENOENT') {
                         // Skip this file
@@ -127,13 +129,14 @@ class TapeCloudGlacierBackend extends GlacierBackend {
 
                     // Something else is wrong with this entry of this file
                     // should skip processing this WAL for now
+                    dbg.log1('skipping log entry', entry.path, 'due to error:', err);
                     return false;
                 }
 
                 // Skip the file if it shouldn't be migrated
                 if (!should_migrate) return true;
 
-                await filtered_log.append(entry);
+                await filtered_log.append(entry.path);
                 return true;
             });
 
@@ -141,13 +144,22 @@ class TapeCloudGlacierBackend extends GlacierBackend {
             // to exit early hence the file shouldn't be processed further, exit
             if (!result) return false;
 
+            // If we didn't read even one line then it most likely indicates that the WAL is
+            // empty - this case is unlikely given the mechanism of WAL but still needs to be
+            // handled.
+            // Return `true` to mark it for deletion.
+            if (processed === 0) {
+                dbg.warn('unexpected empty persistent log found:', log_file);
+                return true;
+            }
+
             await filtered_log.close();
-            const failed = await migrate(filtered_log.active_path);
+            const failed = await this._migrate(filtered_log.active_path);
 
             // Do not delete the WAL if migration failed - This allows easy retries
             return failed.length === 0;
         } catch (error) {
-            console.error('unexpected error occured while processing migrate WAL:', error);
+            dbg.error('unexpected error occured while processing migrate WAL:', error);
 
             // Preserve the WAL if we encounter exception here, possible failures
             // 1.eaedm command failure
@@ -165,6 +177,8 @@ class TapeCloudGlacierBackend extends GlacierBackend {
     }
 
     async restore(fs_context, log_file) {
+        dbg.log2('TapeCloudGlacierBackend.restore starting for', log_file);
+
         let tempwal = null;
         let walreader = null;
         let tempwalreader = null;
@@ -178,10 +192,10 @@ class TapeCloudGlacierBackend extends GlacierBackend {
 
             walreader = new NewlineReader(fs_context, log_file, 'EXCLUSIVE');
 
-            const [precount, preres] = await walreader.forEach(async entry => {
+            let [processed, result] = await walreader.forEachFilePathEntry(async entry => {
                 let fh = null;
                 try {
-                    fh = await nb_native().fs.open(fs_context, entry, 'rw');
+                    fh = await entry.open();
                     const stat = await fh.stat(
                         fs_context,
                         {
@@ -192,7 +206,7 @@ class TapeCloudGlacierBackend extends GlacierBackend {
                         }
                     );
 
-                    const should_restore = await this.should_restore(fs_context, entry, stat);
+                    const should_restore = await this.should_restore(fs_context, entry.path, stat);
                     if (!should_restore) {
                         // Skip this file
                         return true;
@@ -208,7 +222,7 @@ class TapeCloudGlacierBackend extends GlacierBackend {
                     );
 
                     // Add entry to the tempwal
-                    await tempwal.append(entry);
+                    await tempwal.append(entry.path);
 
                     return true;
                 } catch (error) {
@@ -226,27 +240,30 @@ class TapeCloudGlacierBackend extends GlacierBackend {
 
             // If the result of the above iteration was negative it indicates
             // an early exit hence no need to process further for now
-            if (!preres) return false;
+            if (!result) return false;
 
             // If we didn't read even one line then it most likely indicates that the WAL is
             // empty - this case is unlikely given the mechanism of WAL but still needs to be
             // handled.
-            // Still return `false` so as to not insist file deletion
-            if (precount === 0) return false;
+            // Return `true` so as clear this file
+            if (processed === 0) {
+                dbg.warn('unexpected empty persistent log found:', log_file);
+                return true;
+            }
 
             // If we didn't find any candidates despite complete read, exit and delete this WAL
             if (tempwal.local_size === 0) return true;
 
             await tempwal.close();
-            const failed = await recall(tempwal.active_path);
+            const failed = await this._recall(tempwal.active_path);
 
             tempwalreader = new NewlineReader(fs_context, tempwal.active_path, "EXCLUSIVE");
 
             // Start iteration over the WAL again
-            const post = await tempwalreader.forEach(async entry => {
+            [processed, result] = await tempwalreader.forEachFilePathEntry(async entry => {
                 let fh = null;
                 try {
-                    fh = await nb_native().fs.open(fs_context, entry, 'rw');
+                    fh = await entry.open();
 
                     const stat = await fh.stat(
                         fs_context,
@@ -260,7 +277,7 @@ class TapeCloudGlacierBackend extends GlacierBackend {
 
                     // We noticed that the file has failed earlier
                     // so mustn't have been part of the WAL, ignore
-                    if (failed.includes(entry)) {
+                    if (failed.includes(entry.path)) {
                         await fh.replacexattr(
                             fs_context,
                             {
@@ -284,7 +301,7 @@ class TapeCloudGlacierBackend extends GlacierBackend {
 
                     return true;
                 } catch (error) {
-                    console.error(`failed to process ${entry}`, error);
+                    dbg.error(`failed to process ${entry.path}`, error);
                     // It's OK if the file got deleted between the last check and this check
                     // but if there is any other error, retry restore
                     //
@@ -299,12 +316,12 @@ class TapeCloudGlacierBackend extends GlacierBackend {
                 }
             });
 
-            if (!post[1]) return false;
+            if (!result) return false;
 
             // Even if we failed to process one entry in log, preserve the WAL
             return failed.length === 0;
         } catch (error) {
-            console.error('unexpected error occured while processing restore WAL:', error);
+            dbg.error('unexpected error occured while processing restore WAL:', error);
 
             // Preserve the WAL, failure cases:
             // 1. tapecloud command exception
@@ -324,15 +341,46 @@ class TapeCloudGlacierBackend extends GlacierBackend {
 
     async expiry(fs_context) {
         try {
-            await process_expired();
+            await this._process_expired();
         } catch (error) {
-            console.error('Unexpected error occured while running tapecloud.expiry:', error);
+            dbg.error('unexpected error occured while running tapecloud.expiry:', error);
         }
     }
 
     async low_free_space() {
         const result = await exec(get_bin_path(LOW_FREE_SPACE_SCRIPT), { return_stdout: true });
         return result.toLowerCase() === 'true';
+    }
+
+    // ============= PRIVATE FUNCTIONS =============
+
+    /**
+     * _migrate should perform migration
+     * 
+     * NOTE: Must be overwritten for tests
+     * @param {string} file 
+     */
+    async _migrate(file) {
+        return migrate(file);
+    }
+
+    /**
+     * _recall should perform recall
+     * 
+     * NOTE: Must be overwritten for tests
+     * @param {string} file 
+     */
+    async _recall(file) {
+        return recall(file);
+    }
+
+    /**
+     * _process_expired should process expired objects
+     * 
+     * NOTE: Must be overwritten for tests
+     */
+    async _process_expired() {
+        return process_expired();
     }
 }
 

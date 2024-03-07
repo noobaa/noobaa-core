@@ -1,0 +1,10 @@
+DELETE /first.bucket/delete%3Dme HTTP/1.1
+User-Agent: aws-sdk-nodejs/2.1550.0 darwin/v20.9.0 promise
+Content-Type: application/octet-stream
+X-Amz-Content-Sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+Content-Length: 0
+Host: 127.0.0.1:8080
+X-Amz-Date: 20240220T174429Z
+Authorization: AWS4-HMAC-SHA256 Credential=QlBdp923Pnpu2qxn9Qpj/20240220/us-east-1/s3/aws4_request, SignedHeaders=host;x-amz-content-sha256;x-amz-date, Signature=e8320f51d20857850f9194ed3878447b3c3cdb9f3924c4a7564751bee37646c8
+Connection: close
+

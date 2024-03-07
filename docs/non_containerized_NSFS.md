@@ -474,24 +474,43 @@ NSFS management CLI run will create both accounts, access_keys, and buckets dire
 Using `from_file` flag:
 - For account and bucket creation users can also pass account or bucket values in JSON file (hereinafter referred to as "options JSON file") instead of passing them in CLI as arguments using flags.
 - General use:
-```
+
+```bash
 sudo node src/cmd/manage_nsfs account add --config_root ../standalon/config_root --from_file <options_JSON_file_path>
 sudo node src/cmd/manage_nsfs bucket add --config_root ../standalon/config_root --from_file <options_JSON_file_path>
 ```
-- The options are key-value, where the key is the same as suggested flags. For example:
-create JSON file for account:
+
+- The options are key-value, where the key is the same as suggested flags, for example:
+
+(1) Create JSON file for account
+
 ```json
-// JSON file of key-value options for creating an account
 {
     "name": "account-1001",
     "uid": 1001,
     "gid": 1001,
-    "new_buckets_path": "/tmp/nsfs_root1/my-bucket"
+    "new_buckets_path": "/tmp/nsfs_root1"
 }
 ```
+
+```bash
+sudo node src/cmd/manage_nsfs account add --config_root ../standalon/config_root --from_file <options_account_JSON_file_path>
 ```
-sudo node src/cmd/manage_nsfs account add --config_root ../standalon/config_root --from_file <options_JSON_file_path>
+
+(2) Create JSON file for bucket:
+
+```json
+{
+    "name": "account-1001-bucket-1",
+    "owner": "account-1001",
+    "path": "/tmp/nsfs_root1/account-1001-bucket-1"
+}
 ```
+
+```
+sudo node src/cmd/manage_nsfs bucket add --config_root ../standalon/config_root --from_file <options_bucket_JSON_file_path>
+```
+
 - When using `from_file` flag the details about the account/bucket should be only inside the options JSON file.
 - The JSON config file and JSON options file of account are different! 
 

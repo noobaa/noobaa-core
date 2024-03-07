@@ -930,6 +930,170 @@ describe('manage nsfs cli account flow', () => {
 
     });
 
+    describe('cli create account using from_file', () => {
+        const type = TYPES.ACCOUNT;
+        const config_root = path.join(tmp_fs_path, 'config_root_manage_nsfs');
+        const root_path = path.join(tmp_fs_path, 'root_path_manage_nsfs/');
+        const path_to_json_account_options_dir = path.join(tmp_fs_path, 'options');
+        const defaults = {
+            name: 'account3',
+            new_buckets_path: `${root_path}new_buckets_path_user3/`,
+            uid: 1003,
+            gid: 1003,
+            access_key: 'GIGiFAnjaaE7OKD5N722',
+            secret_key: 'U2AYaMpU3zRDcRFWmvzgQr9MoHIAsD+22EXAMPLE',
+        };
+
+        beforeEach(async () => {
+            await P.all(_.map([CONFIG_SUBDIRS.ACCOUNTS, CONFIG_SUBDIRS.ACCESS_KEYS], async dir =>
+                fs_utils.create_fresh_path(`${config_root}/${dir}`)));
+            await fs_utils.create_fresh_path(root_path);
+            await fs_utils.create_fresh_path(path_to_json_account_options_dir);
+            // create the new_buckets_path and set permissions
+            const { new_buckets_path, uid, gid } = defaults;
+            const owner_options = { uid, gid };
+            await fs_utils.create_fresh_path(new_buckets_path);
+            await fs_utils.file_must_exist(new_buckets_path);
+            await set_path_permissions_and_owner(new_buckets_path, owner_options, 0o700);
+        });
+
+        afterEach(async () => {
+            await fs_utils.folder_delete(`${config_root}`);
+            await fs_utils.folder_delete(`${root_path}`);
+            await fs_utils.folder_delete(`${path_to_json_account_options_dir}`);
+        });
+
+        it('cli create account using from_file with required options (uid, gid)', async () => {
+            const action = ACTIONS.ADD;
+            const { name, new_buckets_path, uid, gid } = defaults;
+            const account_options = { name, new_buckets_path, uid, gid };
+            // write the json_file_options
+            const path_to_option_json_file_name = await create_json_account_options(path_to_json_account_options_dir, account_options);
+            const command_flags = {config_root, from_file: path_to_option_json_file_name};
+            // create tha account and check the details
+            await exec_manage_cli(type, action, command_flags);
+            // compare the details
+            const account = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
+            assert_account(account, account_options, false);
+        });
+
+        it('cli create account using from_file with access_key and secret_key', async () => {
+            const action = ACTIONS.ADD;
+            const { name, new_buckets_path, uid, gid, access_key, secret_key } = defaults;
+            const account_options = { name, new_buckets_path, uid, gid, access_key, secret_key};
+            // write the json_file_options
+            const path_to_option_json_file_name = await create_json_account_options(path_to_json_account_options_dir, account_options);
+            const command_flags = {config_root, from_file: path_to_option_json_file_name};
+            // create tha account and check the details
+            await exec_manage_cli(type, action, command_flags);
+            // compare the details
+            const account = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
+            assert_account(account, account_options, true);
+            expect(account.access_keys[0].access_key).toBe(access_key);
+            expect(account.access_keys[0].secret_key).toBe(secret_key);
+        });
+
+        it('should fail - cli create account using from_file with invalid access_key and secret_key', async () => {
+            const action = ACTIONS.ADD;
+            const { name, new_buckets_path, uid, gid } = defaults;
+            const access_key = 'abc'; // invalid access_key
+            const secret_key = '123'; // invalid secret_key
+            const account_options = { name, new_buckets_path, uid, gid, access_key, secret_key};
+            // write the json_file_options
+            const path_to_option_json_file_name = await create_json_account_options(path_to_json_account_options_dir, account_options);
+            const command_flags = {config_root, from_file: path_to_option_json_file_name};
+            // create tha account and check the details
+            const res = await exec_manage_cli(type, action, command_flags);
+            expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.AccountAccessKeyFlagComplexity.code);
+        });
+
+        it('should fail - cli create account using from_file with additional flags (name)', async () => {
+            const action = ACTIONS.ADD;
+            const { name, new_buckets_path, uid, gid } = defaults;
+            const account_options = { name, new_buckets_path, uid, gid };
+            // write the json_file_options
+            const path_to_option_json_file_name = await create_json_account_options(path_to_json_account_options_dir, account_options);
+            const command_flags = {config_root, from_file: path_to_option_json_file_name, name }; // name should be in file only
+            // create tha account and check the details
+            const res = await exec_manage_cli(type, action, command_flags);
+            expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidArgument.code);
+        });
+
+        it('should fail - cli create account using from_file with invalid option (lala) in the file', async () => {
+            const action = ACTIONS.ADD;
+            const { name, new_buckets_path, uid, gid } = defaults;
+            const account_options = { name, new_buckets_path, uid, gid, lala: 'lala'}; // lala invalid option
+            // write the json_file_options
+            const path_to_option_json_file_name = await create_json_account_options(path_to_json_account_options_dir, account_options);
+            const command_flags = {config_root, from_file: path_to_option_json_file_name};
+            // create tha account and check the details
+            const res = await exec_manage_cli(type, action, command_flags);
+            expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidArgument.code);
+        });
+
+        it('should fail - cli create account using from_file with invalid option (creation_date) in the file', async () => {
+            const action = ACTIONS.ADD;
+            const { name, new_buckets_path, uid, gid } = defaults;
+            const account_options = { name, new_buckets_path, uid, gid, creation_date: new Date().toISOString()}; // creation_date invalid option (user cannot set it)
+            // write the json_file_options
+            const path_to_option_json_file_name = await create_json_account_options(path_to_json_account_options_dir, account_options);
+            const command_flags = {config_root, from_file: path_to_option_json_file_name};
+            // create tha account and check the details
+            const res = await exec_manage_cli(type, action, command_flags);
+            expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidArgument.code);
+        });
+
+        it('should fail - cli create account using from_file with from_file inside the JSON file', async () => {
+            const action = ACTIONS.ADD;
+            const { name, new_buckets_path, uid, gid } = defaults;
+            const account_options = { name, new_buckets_path, uid, gid, from_file: 'blabla' }; //from_file inside options JSON file
+            // write the json_file_options
+            const path_to_option_json_file_name = await create_json_account_options(path_to_json_account_options_dir, account_options);
+            const command_flags = {config_root, from_file: path_to_option_json_file_name};
+            // create tha account and check the details
+            const res = await exec_manage_cli(type, action, command_flags);
+            expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidArgument.code);
+        });
+
+        it('should fail - cli create account using from_file with invalid option type (in the file)', async () => {
+            const action = ACTIONS.ADD;
+            const { name, new_buckets_path, uid } = defaults;
+            const account_options = { name, new_buckets_path, uid, gid: 'lala'}; // gid should be number (not string)
+            // write the json_file_options
+            const path_to_option_json_file_name = await create_json_account_options(path_to_json_account_options_dir, account_options);
+            const command_flags = {config_root, from_file: path_to_option_json_file_name};
+            // create tha account and check the details
+            const res = await exec_manage_cli(type, action, command_flags);
+            expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidArgumentType.code);
+        });
+
+        it('should fail - cli create account using from_file with invalid path', async () => {
+            const action = ACTIONS.ADD;
+            const command_flags = {config_root, from_file: 'blabla'}; //invalid path 
+            const res = await exec_manage_cli(type, action, command_flags);
+            expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidFilePath.code);
+        });
+
+        it('should fail - cli create account using from_file with invalid JSON file', async () => {
+            const action = ACTIONS.ADD;
+            const { name, new_buckets_path, uid, gid } = defaults;
+            const account_options = { name, new_buckets_path, uid, gid };
+            // write invalid json_file_options
+            const option_json_file_name = `${account_options.name}_options.json`;
+            const path_to_option_json_file_name = path.join(path_to_json_account_options_dir, option_json_file_name);
+            const content = JSON.stringify(account_options) + 'blabla'; // invalid JSON
+            await fs.promises.writeFile(path_to_option_json_file_name, content);
+            // write the json_file_options
+            const command_flags = {config_root, from_file: path_to_option_json_file_name};
+            // create tha account
+            await exec_manage_cli(type, action, command_flags);
+            // compare the details
+            const res = await exec_manage_cli(type, action, command_flags);
+            expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidJSONFile.code);
+        });
+
+    });
+
 });
 
 
@@ -1199,4 +1363,17 @@ function create_command(type, action, options) {
 
     const command = `node src/cmd/manage_nsfs ${type} ${action} ${account_flags}`;
     return command;
+}
+
+/** 
+ * create_json_account_options would create a JSON file with the options (key-value) inside file
+ * @param {string} path_to_json_account_options_dir
+ * @param {object} account_options
+ */
+async function create_json_account_options(path_to_json_account_options_dir, account_options) {
+    const option_json_file_name = `${account_options.name}_options.json`;
+    const path_to_option_json_file_name = path.join(path_to_json_account_options_dir, option_json_file_name);
+    const content = JSON.stringify(account_options);
+    await fs.promises.writeFile(path_to_option_json_file_name, content);
+    return path_to_option_json_file_name;
 }

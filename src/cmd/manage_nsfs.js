@@ -103,9 +103,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
         if (type === TYPES.ACCOUNT) {
             await account_management(action, user_input);
         } else if (type === TYPES.BUCKET) {
-            // GAP - from-file in bucket
-            const path_to_json_options = argv.from_file ? String(argv.from_file) : '';
-            await bucket_management(argv, path_to_json_options);
+            await bucket_management(action, user_input);
         } else if (type === TYPES.IP_WHITELIST) {
             await whitelist_ips_management(argv);
         } else if (type === TYPES.GLACIER) {
@@ -124,50 +122,44 @@ async function main(argv = minimist(process.argv.slice(2))) {
     }
 }
 
-async function bucket_management(argv, from_file) {
-    const action = argv._[1] || '';
-    const data = await fetch_bucket_data(argv, from_file);
-    await manage_bucket_operations(action, data, argv);
+async function bucket_management(action, user_input) {
+    const data = await fetch_bucket_data(action, user_input);
+    await manage_bucket_operations(action, data, user_input);
 }
 
 // in name and new_name we allow type number, hence convert it to string
-async function fetch_bucket_data(argv, from_file) {
-    const action = argv._[1] || '';
-    let data;
-    if (from_file) {
-        const fs_context = native_fs_utils.get_process_fs_context();
-        const raw_data = (await nb_native().fs.readFile(fs_context, from_file)).data;
-        data = JSON.parse(raw_data.toString());
-        // GAP - from-file is not validated
-    }
-    if (!data) {
+async function fetch_bucket_data(action, user_input) {
+    let data = {
         // added undefined values to keep the order the properties when printing the data object
-        data = {
-            _id: undefined,
-            name: _.isUndefined(argv.name) ? undefined : String(argv.name),
-            owner_account: undefined,
-            system_owner: argv.owner, // GAP - needs to be the system_owner (currently it is the account name)
-            bucket_owner: argv.owner,
-            wide: _.isUndefined(argv.wide) ? undefined : get_boolean_or_string_value(argv.wide),
-            tag: undefined, // if we would add the option to tag a bucket using CLI, this should be changed
-            versioning: action === ACTIONS.ADD ? 'DISABLED' : undefined,
-            creation_date: action === ACTIONS.ADD ? new Date().toISOString() : undefined,
-            path: argv.path,
-            should_create_underlying_storage: action === ACTIONS.ADD ? false : undefined,
-            new_name: _.isUndefined(argv.new_name) ? undefined : String(argv.new_name),
-            fs_backend: _.isUndefined(argv.fs_backend) ? config.NSFS_NC_STORAGE_BACKEND : String(argv.fs_backend)
+        _id: undefined,
+        name: _.isUndefined(user_input.name) ? undefined : String(user_input.name),
+        owner_account: undefined,
+        system_owner: user_input.owner, // GAP - needs to be the system_owner (currently it is the account name)
+        bucket_owner: user_input.owner,
+        wide: _.isUndefined(user_input.wide) ? undefined : get_boolean_or_string_value(user_input.wide),
+        tag: undefined, // if we would add the option to tag a bucket using CLI, this should be changed
+        versioning: action === ACTIONS.ADD ? 'DISABLED' : undefined,
+        creation_date: action === ACTIONS.ADD ? new Date().toISOString() : undefined,
+        path: user_input.path,
+        should_create_underlying_storage: action === ACTIONS.ADD ? false : undefined,
+        new_name: _.isUndefined(user_input.new_name) ? undefined : String(user_input.new_name),
+        fs_backend: _.isUndefined(user_input.fs_backend) ? config.NSFS_NC_STORAGE_BACKEND : String(user_input.fs_backend)
         };
-    }
 
-    if (argv.bucket_policy !== undefined) {
-        // bucket_policy deletion speficied with empty string ''
-        if (argv.bucket_policy === '') {
-            data.s3_policy = '';
-        } else {
-            data.s3_policy = JSON.parse(argv.bucket_policy.toString());
+    if (user_input.bucket_policy !== undefined) {
+        if (typeof user_input.bucket_policy === 'string') {
+            // bucket_policy deletion specified with empty string ''
+            if (user_input.bucket_policy === '') {
+                data.s3_policy = '';
+            } else {
+                data.s3_policy = JSON.parse(user_input.bucket_policy.toString());
+            }
+        } else { // it is object type
+            data.s3_policy = user_input.bucket_policy;
         }
     }
     if (action === ACTIONS.UPDATE || action === ACTIONS.DELETE) {
+        // @ts-ignore
         data = _.omitBy(data, _.isUndefined);
         data = await fetch_existing_bucket_data(data);
     }
@@ -316,7 +308,7 @@ async function delete_bucket(data) {
     write_stdout_response(ManageCLIResponse.BucketDeleted, '', {bucket: data.name});
 }
 
-async function manage_bucket_operations(action, data, argv) {
+async function manage_bucket_operations(action, data, user_input) {
     if (action === ACTIONS.ADD) {
         await add_bucket(data);
     } else if (action === ACTIONS.STATUS) {
@@ -326,7 +318,7 @@ async function manage_bucket_operations(action, data, argv) {
     } else if (action === ACTIONS.DELETE) {
         await delete_bucket(data);
     } else if (action === ACTIONS.LIST) {
-        const bucket_filters = _.pick(argv, LIST_BUCKET_FILTERS);
+        const bucket_filters = _.pick(user_input, LIST_BUCKET_FILTERS);
         const buckets = await list_config_files(TYPES.BUCKET, buckets_dir_path, data.wide, undefined, bucket_filters);
         write_stdout_response(ManageCLIResponse.BucketList, buckets);
     } else {
@@ -848,7 +840,7 @@ async function validate_input_types(type, action, argv) {
 
     // currently we use from_file only in add action
     const path_to_json_options = argv.from_file ? String(argv.from_file) : '';
-    if (type === TYPES.ACCOUNT && action === ACTIONS.ADD && path_to_json_options) {
+    if ((type === TYPES.ACCOUNT || type === TYPES.BUCKET) && action === ACTIONS.ADD && path_to_json_options) {
         const input_options_with_data_from_file = await get_options_from_file(path_to_json_options);
         const input_options_from_file = Object.keys(input_options_with_data_from_file);
         if (input_options_from_file.includes(FROM_FILE)) {
@@ -895,16 +887,18 @@ function validate_no_extra_options(type, action, input_options, is_options_from_
         valid_options = VALID_OPTIONS.bucket_options[action];
     } else if (type === TYPES.ACCOUNT) {
         valid_options = VALID_OPTIONS.account_options[action];
-        if (is_options_from_file) {
-            valid_options.delete('from_file');
-            valid_options.delete('config_root');
-            valid_options.delete('config_root_backend');
-        }
     } else if (type === TYPES.GLACIER) {
         valid_options = VALID_OPTIONS.glacier_options[action];
     } else {
         valid_options = VALID_OPTIONS.whitelist_options;
     }
+
+    if (is_options_from_file) {
+        valid_options.delete('from_file');
+        valid_options.delete('config_root');
+        valid_options.delete('config_root_backend');
+    }
+
     const invalid_input_options = input_options.filter(element => !valid_options.has(element));
     if (invalid_input_options.length > 0) {
         const type_and_action = type === TYPES.IP_WHITELIST ? type : `${type} ${action}`;
@@ -932,6 +926,10 @@ function validate_options_type_by_value(input_options_with_data) {
             }
             // special case for boolean values
             if (['allow_bucket_creation', 'regenerate', 'wide', 'show_secrets'].includes(option) && validate_boolean_string_value(value)) {
+                continue;
+            }
+            // special case for bucket_policy (from_file)
+            if (option === 'bucket_policy' && type_of_value === 'object') {
                 continue;
             }
             const details = `type of flag ${option} should be ${type_of_option}`;

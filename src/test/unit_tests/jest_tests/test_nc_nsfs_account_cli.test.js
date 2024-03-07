@@ -970,7 +970,7 @@ describe('manage nsfs cli account flow', () => {
             // write the json_file_options
             const path_to_option_json_file_name = await create_json_account_options(path_to_json_account_options_dir, account_options);
             const command_flags = {config_root, from_file: path_to_option_json_file_name};
-            // create tha account and check the details
+            // create the account and check the details
             await exec_manage_cli(type, action, command_flags);
             // compare the details
             const account = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
@@ -984,7 +984,7 @@ describe('manage nsfs cli account flow', () => {
             // write the json_file_options
             const path_to_option_json_file_name = await create_json_account_options(path_to_json_account_options_dir, account_options);
             const command_flags = {config_root, from_file: path_to_option_json_file_name};
-            // create tha account and check the details
+            // create the account and check the details
             await exec_manage_cli(type, action, command_flags);
             // compare the details
             const account = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
@@ -1002,7 +1002,7 @@ describe('manage nsfs cli account flow', () => {
             // write the json_file_options
             const path_to_option_json_file_name = await create_json_account_options(path_to_json_account_options_dir, account_options);
             const command_flags = {config_root, from_file: path_to_option_json_file_name};
-            // create tha account and check the details
+            // create the account
             const res = await exec_manage_cli(type, action, command_flags);
             expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.AccountAccessKeyFlagComplexity.code);
         });
@@ -1014,7 +1014,7 @@ describe('manage nsfs cli account flow', () => {
             // write the json_file_options
             const path_to_option_json_file_name = await create_json_account_options(path_to_json_account_options_dir, account_options);
             const command_flags = {config_root, from_file: path_to_option_json_file_name, name }; // name should be in file only
-            // create tha account and check the details
+            // create the account
             const res = await exec_manage_cli(type, action, command_flags);
             expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidArgument.code);
         });
@@ -1026,7 +1026,7 @@ describe('manage nsfs cli account flow', () => {
             // write the json_file_options
             const path_to_option_json_file_name = await create_json_account_options(path_to_json_account_options_dir, account_options);
             const command_flags = {config_root, from_file: path_to_option_json_file_name};
-            // create tha account and check the details
+            // create the account
             const res = await exec_manage_cli(type, action, command_flags);
             expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidArgument.code);
         });
@@ -1038,7 +1038,7 @@ describe('manage nsfs cli account flow', () => {
             // write the json_file_options
             const path_to_option_json_file_name = await create_json_account_options(path_to_json_account_options_dir, account_options);
             const command_flags = {config_root, from_file: path_to_option_json_file_name};
-            // create tha account and check the details
+            // create the account
             const res = await exec_manage_cli(type, action, command_flags);
             expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidArgument.code);
         });
@@ -1050,7 +1050,7 @@ describe('manage nsfs cli account flow', () => {
             // write the json_file_options
             const path_to_option_json_file_name = await create_json_account_options(path_to_json_account_options_dir, account_options);
             const command_flags = {config_root, from_file: path_to_option_json_file_name};
-            // create tha account and check the details
+            // create the account
             const res = await exec_manage_cli(type, action, command_flags);
             expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidArgument.code);
         });
@@ -1062,7 +1062,7 @@ describe('manage nsfs cli account flow', () => {
             // write the json_file_options
             const path_to_option_json_file_name = await create_json_account_options(path_to_json_account_options_dir, account_options);
             const command_flags = {config_root, from_file: path_to_option_json_file_name};
-            // create tha account and check the details
+            // create the account
             const res = await exec_manage_cli(type, action, command_flags);
             expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidArgumentType.code);
         });
@@ -1085,7 +1085,7 @@ describe('manage nsfs cli account flow', () => {
             await fs.promises.writeFile(path_to_option_json_file_name, content);
             // write the json_file_options
             const command_flags = {config_root, from_file: path_to_option_json_file_name};
-            // create tha account
+            // create the account
             await exec_manage_cli(type, action, command_flags);
             // compare the details
             const res = await exec_manage_cli(type, action, command_flags);

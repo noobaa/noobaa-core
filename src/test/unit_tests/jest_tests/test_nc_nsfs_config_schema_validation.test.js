@@ -109,6 +109,16 @@ describe('schema validation NC NSFS config', () => {
             const message = 'must be number';
             assert_validation(config_data, reason, message);
         });
+
+        it('nsfs_config invalid config disable random seed', () => {
+            const config_data = {
+                ENABLE_DEV_RANDOM_SEED: 'not boolean', // string instead of boolean
+            };
+            const reason = 'Test should have failed because of wrong type ' +
+                'ENABLE_DEV_RANDOM_SEED with string (instead of boolean)';
+            const message = 'must be boolean';
+            assert_validation(config_data, reason, message);
+        });
     });
 });
 

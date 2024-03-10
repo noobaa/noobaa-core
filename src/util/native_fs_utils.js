@@ -485,6 +485,7 @@ async function is_path_exists(fs_context, config_path, use_lstat = false) {
         await nb_native().fs.stat(fs_context, config_path, { use_lstat });
     } catch (err) {
         if (err.code === 'ENOENT') return false;
+        if (err.code === 'ELOOP') return true; // for MacOS 
         throw err;
     }
     return true;

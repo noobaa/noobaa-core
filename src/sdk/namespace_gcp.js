@@ -438,12 +438,13 @@ class NamespaceGCP {
     */
     async get_object_acl(params, object_sdk) {
         dbg.log0('NamespaceGCP.get_object_acl:', this.bucket, inspect(params));
-        throw new S3Error(S3Error.NotImplemented);
+        await this.read_object_md(params, object_sdk);
+        return s3_utils.DEFAULT_OBJECT_ACL;
     }
 
     async put_object_acl(params, object_sdk) {
         dbg.log0('NamespaceGCP.put_object_acl:', this.bucket, inspect(params));
-        throw new S3Error(S3Error.NotImplemented);
+        await this.read_object_md(params, object_sdk);
     }
 
     ///////////////////

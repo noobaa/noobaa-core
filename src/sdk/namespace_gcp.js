@@ -8,6 +8,7 @@ const P = require('../util/promise');
 const stream_utils = require('../util/stream_utils');
 const dbg = require('../util/debug_module')(__filename);
 const S3Error = require('../endpoint/s3/s3_errors').S3Error;
+const s3_utils = require('../endpoint/s3/s3_utils');
 // we use this wrapper to set a custom user agent
 const GoogleCloudStorage = require('../util/google_storage_wrap');
 
@@ -315,15 +316,22 @@ class NamespaceGCP {
     //////////
     // ACLs //
     //////////
-
+    /*
+    NooBaa does not support ACLs - not for buckets, nor objects.
+    However, some S3 clients fail to function entirely without a valid response to execution of ACL operations.
+    Thus, we opted to implement a faux-support for the operation - enough to allow the clients to work, but still without supporting ACLs.
+    The reason that read_object_md() is used, is to allow potential errors to rise up if necessary -
+    for example, if the user tries to interact with an object that does not exist, the operation would fail as expected with NoSuchObject.
+    */
     async get_object_acl(params, object_sdk) {
         dbg.log0('NamespaceGCP.get_object_acl:', this.bucket, inspect(params));
-        throw new S3Error(S3Error.NotImplemented);
+        await this.read_object_md(params, object_sdk);
+        return s3_utils.DEFAULT_OBJECT_ACL;
     }
 
     async put_object_acl(params, object_sdk) {
         dbg.log0('NamespaceGCP.put_object_acl:', this.bucket, inspect(params));
-        throw new S3Error(S3Error.NotImplemented);
+        await this.read_object_md(params, object_sdk);
     }
 
     ///////////////////

@@ -342,9 +342,14 @@ class NamespaceNB {
     }
 
     async put_object_acl(params, object_sdk) {
-        // TODO S3 ignoring put_object_acl for now
-        // For now we just call read_object_md() to check if the object and bucket 
-        // even exist or throw proper errors.
+    /*
+    TODO.
+    NooBaa does not currently support ACLs - not for buckets, nor objects.
+    However, some S3 clients fail to function entirely without a valid response to execution of ACL operations.
+    Thus, we opted to implement a faux-support for the operation - enough to allow the clients to work, but still without supporting ACLs.
+    The reason that read_object_md() is used, is to allow potential errors to rise up if necessary -
+    for example, if the user tries to interact with an object that does not exist, the operation would fail as expected with NoSuchObject.
+    */
         await this.read_object_md({
             bucket: params.bucket,
             key: params.key,

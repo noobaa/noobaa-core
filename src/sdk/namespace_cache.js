@@ -936,7 +936,13 @@ class NamespaceCache {
     //////////
     // ACLs //
     //////////
-
+    /*
+    NooBaa does not support ACLs - not for buckets, nor objects. Please not that the ACLs are used below only in passthrough mode.
+    However, some S3 clients fail to function entirely without a valid response to execution of ACL operations.
+    Thus, we opted to implement a faux-support for the operation - enough to allow the clients to work, but still without supporting ACLs.
+    The reason that read_object_md() is used, is to allow potential errors to rise up if necessary -
+    for example, if the user tries to interact with an object that does not exist, the operation would fail as expected with NoSuchObject.
+    */
     async get_object_acl(params, object_sdk) {
         if (config.NAMESPACE_CACHING.ACL_HANDLING === "reject") {
             throw new S3Error(S3Error.AccessDenied);

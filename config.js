@@ -942,8 +942,11 @@ function load_nsfs_nc_config() {
 
         const shared_config = _.omit(config_data, 'host_customization');
         const node_name = os.hostname();
-        const node_config = config_data.host_customization?.[node_name];
-        const merged_config = _.merge(shared_config, node_config || {});
+        const nodes_config = config_data.host_customization;
+        const found_node_config = nodes_config.find(node_config => node_config.node_name === node_name) || {};
+        // If a configuration value is provided under the node_config, 
+        // it will take precedence as the final configuration value applied to the noobaa_nsfs service on that specific node.
+        const merged_config = _.merge(shared_config, found_node_config);
 
         Object.keys(merged_config).forEach(function(key) {
             if (key === 'NOOBAA_LOG_LEVEL' || key === 'UV_THREADPOOL_SIZE' || key === 'GPFS_DL_PATH') {

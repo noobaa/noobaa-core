@@ -8,7 +8,6 @@ const P = require('../util/promise');
 const stream_utils = require('../util/stream_utils');
 const dbg = require('../util/debug_module')(__filename);
 const S3Error = require('../endpoint/s3/s3_errors').S3Error;
-const s3_utils = require('../endpoint/s3/s3_utils');
 // we use this wrapper to set a custom user agent
 const GoogleCloudStorage = require('../util/google_storage_wrap');
 
@@ -325,13 +324,12 @@ class NamespaceGCP {
     */
     async get_object_acl(params, object_sdk) {
         dbg.log0('NamespaceGCP.get_object_acl:', this.bucket, inspect(params));
-        await this.read_object_md(params, object_sdk);
-        return s3_utils.DEFAULT_OBJECT_ACL;
+        throw new S3Error(S3Error.NotImplemented);
     }
 
     async put_object_acl(params, object_sdk) {
         dbg.log0('NamespaceGCP.put_object_acl:', this.bucket, inspect(params));
-        await this.read_object_md(params, object_sdk);
+        throw new S3Error(S3Error.NotImplemented);
     }
 
     ///////////////////

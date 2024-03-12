@@ -205,7 +205,7 @@ async function log_query(pg_client, query, tag, millitook, should_explain) {
 
     if (millitook > config.LONG_DB_QUERY_THRESHOLD) {
         dbg.warn(
-            `QUERY_LOG: LONG QUERY (OVER ${config.LONG_DB_QUERY_THRESHOLD} ms - 
+            `QUERY_LOG: LONG QUERY (OVER ${config.LONG_DB_QUERY_THRESHOLD} ms) - 
             please check whether the DB and core pods have sufficient CPU and memory `,
             JSON.stringify(log_obj)
         );

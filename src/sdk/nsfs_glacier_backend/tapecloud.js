@@ -6,7 +6,6 @@ const { NewlineReader } = require('../../util/file_reader');
 const { GlacierBackend } = require("./backend");
 const config = require('../../../config');
 const path = require("path");
-const { parse_decimal_int } = require("../../endpoint/s3/s3_utils");
 const { exec } = require('../../util/os_utils');
 const dbg = require('../../util/debug_module')(__filename);
 
@@ -71,7 +70,10 @@ async function tapecloud_failure_handler(error) {
  */
 async function migrate(file) {
     try {
-        await exec(`${get_bin_path(MIGRATE_SCRIPT)} ${file}`);
+        dbg.log1("Starting migration for file", file);
+        const out = await exec(`${get_bin_path(MIGRATE_SCRIPT)} ${file}`, { return_stdout: true });
+        dbg.log4("migrate finished with:", out);
+        dbg.log1("Finished migration for file", file);
         return [];
     } catch (error) {
         return tapecloud_failure_handler(error);
@@ -91,7 +93,10 @@ async function migrate(file) {
  */
 async function recall(file) {
     try {
-        await exec(`${get_bin_path(RECALL_SCRIPT)} ${file}`);
+        dbg.log1("Starting recall for file", file);
+        const out = await exec(`${get_bin_path(RECALL_SCRIPT)} ${file}`, { return_stdout: true });
+        dbg.log4("recall finished with:", out);
+        dbg.log1("Finished recall for file", file);
         return [];
     } catch (error) {
         return tapecloud_failure_handler(error);
@@ -99,7 +104,10 @@ async function recall(file) {
 }
 
 async function process_expired() {
-    await exec(`${get_bin_path(PROCESS_EXPIRED_SCRIPT)}`);
+    dbg.log1("Starting process_expired");
+    const out = await exec(`${get_bin_path(PROCESS_EXPIRED_SCRIPT)}`, { return_stdout: true });
+    dbg.log4("process_expired finished with:", out);
+    dbg.log1("Finished process_expired");
 }
 
 class TapeCloudGlacierBackend extends GlacierBackend {
@@ -152,6 +160,8 @@ class TapeCloudGlacierBackend extends GlacierBackend {
                 dbg.warn('unexpected empty persistent log found:', log_file);
                 return true;
             }
+            // If we didn't find any candidates despite complete read, exit and delete this WAL
+            if (filtered_log.local_size === 0) return true;
 
             await filtered_log.close();
             const failed = await this._migrate(filtered_log.active_path);
@@ -193,33 +203,12 @@ class TapeCloudGlacierBackend extends GlacierBackend {
             walreader = new NewlineReader(fs_context, log_file, 'EXCLUSIVE');
 
             let [processed, result] = await walreader.forEachFilePathEntry(async entry => {
-                let fh = null;
                 try {
-                    fh = await entry.open();
-                    const stat = await fh.stat(
-                        fs_context,
-                        {
-                            xattr_get_keys: [
-                                GlacierBackend.XATTR_RESTORE_REQUEST,
-                                GlacierBackend.XATTR_RESTORE_REQUEST_STAGED,
-                            ]
-                        }
-                    );
-
-                    const should_restore = await this.should_restore(fs_context, entry.path, stat);
+                    const should_restore = await this.should_restore(fs_context, entry.path);
                     if (!should_restore) {
                         // Skip this file
                         return true;
                     }
-
-                    await fh.replacexattr(
-                        fs_context,
-                        {
-                            [GlacierBackend.XATTR_RESTORE_REQUEST_STAGED]:
-                                stat.xattr[GlacierBackend.XATTR_RESTORE_REQUEST] || stat.xattr[GlacierBackend.XATTR_RESTORE_REQUEST_STAGED],
-                            [GlacierBackend.XATTR_RESTORE_ONGOING]: 'true',
-                        }
-                    );
 
                     // Add entry to the tempwal
                     await tempwal.append(entry.path);
@@ -233,8 +222,6 @@ class TapeCloudGlacierBackend extends GlacierBackend {
 
                     // Something else is wrong so skip processing the file for now
                     return false;
-                } finally {
-                    if (fh) await fh.close(fs_context);
                 }
             });
 
@@ -265,37 +252,27 @@ class TapeCloudGlacierBackend extends GlacierBackend {
                 try {
                     fh = await entry.open();
 
-                    const stat = await fh.stat(
-                        fs_context,
-                        {
-                            xattr_get_keys: [
-                                GlacierBackend.XATTR_RESTORE_REQUEST,
-                                GlacierBackend.XATTR_RESTORE_REQUEST_STAGED,
-                            ]
-                        }
-                    );
+                    const stat = await fh.stat(fs_context, {
+                        xattr_get_keys: [
+                            GlacierBackend.XATTR_RESTORE_REQUEST,
+                        ]
+                    });
 
                     // We noticed that the file has failed earlier
                     // so mustn't have been part of the WAL, ignore
                     if (failed.includes(entry.path)) {
-                        await fh.replacexattr(
-                            fs_context,
-                            {
-                                [GlacierBackend.XATTR_RESTORE_REQUEST]: stat.xattr[GlacierBackend.XATTR_RESTORE_REQUEST_STAGED],
-                            },
-                            GlacierBackend.XATTR_RESTORE_ONGOING,
-                        );
-
                         return true;
                     }
 
-                    const expires_on = new Date();
-                    const days = parse_decimal_int(stat.xattr[GlacierBackend.XATTR_RESTORE_REQUEST_STAGED]);
-                    expires_on.setUTCDate(expires_on.getUTCDate() + days);
-                    expires_on.setUTCHours(0, 0, 0, 0);
+                    const days = Number(stat.xattr[GlacierBackend.XATTR_RESTORE_REQUEST]);
+                    const expires_on = GlacierBackend.generate_expiry(
+                        new Date(),
+                        days,
+                        config.NSFS_GLACIER_EXPIRY_TIME_OF_DAY,
+                        config.NSFS_GLACIER_EXPIRY_TZ,
+                    );
 
                     await fh.replacexattr(fs_context, {
-                        [GlacierBackend.XATTR_RESTORE_ONGOING]: 'false',
                         [GlacierBackend.XATTR_RESTORE_EXPIRY]: expires_on.toISOString(),
                     }, GlacierBackend.XATTR_RESTORE_REQUEST);
 

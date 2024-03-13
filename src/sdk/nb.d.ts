@@ -1065,3 +1065,11 @@ interface S3Select {
 }
 
 type NodeCallback<T = void> = (err: Error | null, res?: T) => void;
+
+type RestoreState = 'CAN_RESTORE' | 'ONGOING' | 'RESTORED';
+
+interface RestoreStatus {
+  state: nb.RestoreState;
+  ongoing?: boolean;
+  expiry_time?: Date;
+}

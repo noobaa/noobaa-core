@@ -243,6 +243,7 @@ struct Entry
     std::string name;
     ino_t ino;
     uint8_t type;
+    long int off;
 };
 
 struct gpfsRequest_t
@@ -1231,6 +1232,7 @@ struct Readdir : public FSWorker
                     std::string(e->d_name),
                     e->d_ino,
                     e->d_type,
+                    e->d_off,
                 });
             } else {
                 if (errno) SetSyscallError();
@@ -1253,6 +1255,7 @@ struct Readdir : public FSWorker
             dir_rec["name"] = Napi::String::New(env, it->name);
             dir_rec["ino"] = Napi::Number::New(env, it->ino);
             dir_rec["type"] = Napi::Number::New(env, it->type);
+            dir_rec["off"] = Napi::BigInt::New(env, it->off);
             res[index] = dir_rec;
             index += 1;
         }
@@ -1889,6 +1892,8 @@ struct DirWrap : public Napi::ObjectWrap<DirWrap>
             {
                 InstanceMethod("close", &DirWrap::close),
                 InstanceMethod("read", &DirWrap::read),
+                InstanceMethod("telldir", &DirWrap::telldir),
+                InstanceMethod("seekdir", &DirWrap::seekdir),
             }));
         constructor.SuppressDestruct();
     }
@@ -1908,6 +1913,8 @@ struct DirWrap : public Napi::ObjectWrap<DirWrap>
     }
     Napi::Value close(const Napi::CallbackInfo& info);
     Napi::Value read(const Napi::CallbackInfo& info);
+    Napi::Value telldir(const Napi::CallbackInfo& info);
+    Napi::Value seekdir(const Napi::CallbackInfo& info);
 };
 
 Napi::FunctionReference DirWrap::constructor;
@@ -1938,6 +1945,59 @@ struct DirOpen : public FSWorker
         w->_dir = _dir;
         _deferred.Resolve(res);
         ReportWorkerStats(0);
+    }
+};
+
+struct TellDir : public FSWrapWorker<DirWrap>
+{
+    long int _tell_res = -1;
+    TellDir(const Napi::CallbackInfo& info)
+        : FSWrapWorker<DirWrap>(info)
+    {
+        Begin(XSTR() << "TellDir " << DVAL(_wrap->_path));
+    }
+    virtual void Work()
+    {
+        DIR* dir = _wrap->_dir;
+        if (!dir) {
+            SetError(XSTR() << "FS::TellDir::Execute: ERROR not opened " << _wrap->_path);
+            return;
+        }
+        DBG1("FS::Telldir::Work: " << DVAL(_wrap->_path));
+        _tell_res = telldir(dir);
+        if (_tell_res == -1) SetSyscallError();
+    }
+    virtual void OnOK()
+    {
+        DBG0("FS::Telldir::OnOK: " << DVAL(_wrap->_path) << DVAL(_tell_res));
+        Napi::Env env = Env();
+        auto res = Napi::BigInt::New(env, _tell_res);
+        _deferred.Resolve(res);
+    }
+};
+
+struct SeekDir : public FSWrapWorker<DirWrap>
+{
+    long int _seek_pos;
+    SeekDir(const Napi::CallbackInfo& info)
+        : FSWrapWorker<DirWrap>(info)
+    {
+        bool lossless = true;
+        _seek_pos = info[1].As<Napi::BigInt>().Int64Value(&lossless);
+        if (!lossless) {
+            SetError("seekdir bigint value must convert lossless");
+        }
+        Begin(XSTR() << "SeekDir " << DVAL(_wrap->_path) << DVAL(_seek_pos));
+    }
+    virtual void Work()
+    {
+        DIR* dir = _wrap->_dir;
+        if (!dir) {
+            SetError(XSTR() << "FS::SeekDir::Execute: ERROR not opened " << _wrap->_path);
+            return;
+        }
+        DBG1("FS::SeekDir::Work: " << DVAL(_wrap->_path));
+        seekdir(dir, _seek_pos);
     }
 };
 
@@ -1988,6 +2048,7 @@ struct DirReadEntry : public FSWrapWorker<DirWrap>
             _entry.name = std::string(e->d_name);
             _entry.ino = e->d_ino;
             _entry.type = e->d_type;
+            _entry.off = e->d_off;
         } else {
             if (errno) {
                 SetSyscallError();
@@ -2006,6 +2067,7 @@ struct DirReadEntry : public FSWrapWorker<DirWrap>
             res["name"] = Napi::String::New(env, _entry.name);
             res["ino"] = Napi::Number::New(env, _entry.ino);
             res["type"] = Napi::Number::New(env, _entry.type);
+            res["off"] = Napi::BigInt::New(env, _entry.off);
             _deferred.Resolve(res);
         }
         ReportWorkerStats(0);
@@ -2022,6 +2084,18 @@ Napi::Value
 DirWrap::read(const Napi::CallbackInfo& info)
 {
     return api<DirReadEntry>(info);
+}
+
+Napi::Value
+DirWrap::telldir(const Napi::CallbackInfo& info)
+{
+    return api<TellDir>(info);
+}
+
+Napi::Value
+DirWrap::seekdir(const Napi::CallbackInfo& info)
+{
+    return api<SeekDir>(info);
 }
 
 static Napi::Value

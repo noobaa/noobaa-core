@@ -19,7 +19,7 @@ const { TYPES, ACTIONS, CONFIG_SUBDIRS } = require('../../../manage_nsfs/manage_
 const ManageCLIError = require('../../../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
 const ManageCLIResponse = require('../../../manage_nsfs/manage_nsfs_cli_responses').ManageCLIResponse;
 
-const tmp_fs_path = path.join(TMP_PATH, 'test_bucketspace_fs');
+const tmp_fs_path = path.join(TMP_PATH, 'test_nc_nsfs_account_cli');
 const DEFAULT_FS_CONFIG = get_process_fs_context();
 
 const timeout = 50000;
@@ -33,7 +33,7 @@ describe('manage nsfs cli account flow', () => {
             _id: 'account1',
             type: TYPES.ACCOUNT,
             name: 'account1',
-            new_buckets_path: `${root_path}new_buckets_path_user1/`,
+            new_buckets_path: `${root_path}new_buckets_path_user10/`,
             uid: 999,
             gid: 999,
             access_key: 'GIGiFAnjaaE7OKD5N7hA',
@@ -341,7 +341,7 @@ describe('manage nsfs cli account flow', () => {
         const type = TYPES.ACCOUNT;
         const defaults = {
             name: 'account1',
-            new_buckets_path: `${root_path}new_buckets_path_user1/`,
+            new_buckets_path: `${root_path}new_buckets_path_user/`,
             uid: 999,
             gid: 999,
             access_key: 'GIGiFAnjaaE7OKD5N7hA',
@@ -794,7 +794,7 @@ describe('manage nsfs cli account flow', () => {
         const defaults = {
             type: TYPES.ACCOUNT,
             name: 'account11',
-            new_buckets_path: `${root_path}new_buckets_path_user11/`,
+            new_buckets_path: `${root_path}new_buckets_path_user111/`,
             uid: 1011,
             gid: 1011,
             access_key: 'GIGiFAnjaaE7OKD5N7h1',
@@ -937,7 +937,7 @@ describe('manage nsfs cli account flow', () => {
         const path_to_json_account_options_dir = path.join(tmp_fs_path, 'options');
         const defaults = {
             name: 'account3',
-            new_buckets_path: `${root_path}new_buckets_path_user3/`,
+            new_buckets_path: `${root_path}new_buckets_path_user33/`,
             uid: 1003,
             gid: 1003,
             access_key: 'GIGiFAnjaaE7OKD5N722',

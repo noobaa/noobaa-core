@@ -16,7 +16,7 @@ const { ACTIONS, TYPES, CONFIG_SUBDIRS } = require('../../../manage_nsfs/manage_
 const { get_process_fs_context, is_path_exists } = require('../../../util/native_fs_utils');
 const ManageCLIError = require('../../../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
 
-const tmp_fs_path = path.join(TMP_PATH, 'test_bucketspace_fs');
+const tmp_fs_path = path.join(TMP_PATH, 'test_nc_nsfs_bucket_cli');
 const DEFAULT_FS_CONFIG = get_process_fs_context();
 
 // eslint-disable-next-line max-lines-per-function
@@ -89,7 +89,7 @@ describe('manage nsfs cli bucket flow', () => {
         const account_name = 'account_test';
         const account_defaults = {
             name: account_name,
-            new_buckets_path: `${root_path}new_buckets_path_user1/`,
+            new_buckets_path: `${root_path}new_buckets_path_user2/`,
             uid: 999,
             gid: 999,
             access_key: 'GIGiFAnjaaE7OKD5N7hX',
@@ -174,7 +174,7 @@ describe('cli create bucket using from_file', () => {
     const account_name = 'account_test';
     const account_defaults = {
         name: account_name,
-        new_buckets_path: `${root_path}new_buckets_path_user1/`,
+        new_buckets_path: `${root_path}new_buckets_path_3/`,
         uid: 1001,
         gid: 1001,
     };

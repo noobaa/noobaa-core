@@ -424,8 +424,9 @@ async function main(argv = minimist(process.argv.slice(2))) {
         if (deployment_type === 'nc') {
             const health = new NSFSHealth({ https_port, config_root, all_account_details, all_bucket_details, check_syslog_ng });
             const health_status = await health.nc_nsfs_health();
-            process.stdout.write(JSON.stringify(health_status) + '\n');
-            process.exit(0);
+            process.stdout.write(JSON.stringify(health_status) + '\n', () => {
+                process.exit(0);
+            });
         } else {
             dbg.log0('Health is not supported for simple nsfs deployment.');
         }

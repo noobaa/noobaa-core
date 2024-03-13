@@ -390,6 +390,10 @@ async function fetch_account_data(action, user_input) {
     // secret_key as SensitiveString
     data.access_keys[0].secret_key = _.isUndefined(data.access_keys[0].secret_key) ? undefined :
         new SensitiveString(String(data.access_keys[0].secret_key));
+    // fs_backend deletion specified with empty string '' (but it is not part of the schema)
+    data.nsfs_account_config.fs_backend = data.nsfs_account_config.fs_backend || undefined;
+    // new_buckets_path deletion specified with empty string ''
+    data.nsfs_account_config.new_buckets_path = data.nsfs_account_config.new_buckets_path || undefined;
     // allow_bucket_creation either set by user or infer from new_buckets_path
     if (_.isUndefined(user_input.allow_bucket_creation)) {
         data.allow_bucket_creation = !_.isUndefined(data.nsfs_account_config.new_buckets_path);
@@ -398,8 +402,6 @@ async function fetch_account_data(action, user_input) {
     } else { // string of true or false
         data.allow_bucket_creation = user_input.allow_bucket_creation.toLowerCase() === 'true';
     }
-    // fs_backend deletion specified with empty string '' (but it is not part of the schema)
-    data.nsfs_account_config.fs_backend = data.nsfs_account_config.fs_backend || undefined;
 
     return data;
 }

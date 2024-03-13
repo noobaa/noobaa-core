@@ -212,3 +212,8 @@ s3tests_boto3/functional/test_s3.py::test_cors_presigned_get_object_tenant
 s3tests_boto3/functional/test_s3.py::test_encryption_sse_c_unaligned_multipart_upload
 s3tests_boto3/functional/test_s3.py::test_multipart_get_part
 s3tests_boto3/functional/test_s3.py::test_non_multipart_get_part
+s3tests/functional/test_headers.py::test_bucket_create_bad_contentlength_empty
+s3tests/functional/test_headers.py::test_object_create_bad_date_none_aws2
+s3tests/functional/test_headers.py::test_bucket_create_bad_authorization_invalid_aws2
+s3tests/functional/test_headers.py::test_bucket_create_bad_date_none_aws2
+s3tests_boto3/functional/test_s3.py::test_versioned_concurrent_object_create_and_remove

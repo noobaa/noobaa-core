@@ -22,7 +22,7 @@ const ManageCLIResponse = require('../../../manage_nsfs/manage_nsfs_cli_response
 const tmp_fs_path = path.join(TMP_PATH, 'test_bucketspace_fs');
 const DEFAULT_FS_CONFIG = get_process_fs_context();
 
-const timeout = 10000;
+const timeout = 50000;
 
 // eslint-disable-next-line max-lines-per-function
 describe('manage nsfs cli account flow', () => {

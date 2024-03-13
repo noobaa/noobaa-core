@@ -1887,6 +1887,8 @@ struct DirWrap : public Napi::ObjectWrap<DirWrap>
             {
                 InstanceMethod("close", &DirWrap::close),
                 InstanceMethod("read", &DirWrap::read),
+                InstanceMethod("telldir", &DirWrap::tell),
+                InstanceMethod("seekdir", &DirWrap::seek),
             }));
         constructor.SuppressDestruct();
     }
@@ -1906,6 +1908,8 @@ struct DirWrap : public Napi::ObjectWrap<DirWrap>
     }
     Napi::Value close(const Napi::CallbackInfo& info);
     Napi::Value read(const Napi::CallbackInfo& info);
+    Napi::Value tell(const Napi::CallbackInfo& info);
+    Napi::Value seek(const Napi::CallbackInfo& info);
 };
 
 Napi::FunctionReference DirWrap::constructor;
@@ -1936,6 +1940,52 @@ struct DirOpen : public FSWorker
         w->_dir = _dir;
         _deferred.Resolve(res);
         ReportWorkerStats(0);
+    }
+};
+
+struct TellDir : public FSWrapWorker<DirWrap>
+{
+    std::string _dir_path;
+    long int _tell_res;
+    TellDir(const Napi::CallbackInfo& info)
+        : FSWrapWorker<DirWrap>(info)
+    {
+        Begin(XSTR() << "TellDir " << DVAL(_wrap->_path));
+    }
+    virtual void Work()
+    {
+        DIR* dir = _wrap->_dir;
+        std::string _dir_path = _wrap->_path;
+        DBG1("FS::Telldir::Work: " << DVAL(_dir_path));
+        _tell_res = telldir(dir);
+        if (_tell_res == -1) SetSyscallError();
+    }
+    virtual void OnOK()
+    {
+        DBG0("FS::Telldir::OnOK: " << DVAL(_dir_path) << DVAL(_tell_res));
+        Napi::Env env = Env();
+        auto res = Napi::Object::New(env);
+        res["telldir_res"] = Napi::Number::New(env, _tell_res);
+        _deferred.Resolve(res);
+    }
+};
+
+struct SeekDir : public FSWrapWorker<DirWrap>
+{
+    std::string _dir_path;
+    long int _seek_pos;
+    SeekDir(const Napi::CallbackInfo& info)
+        : FSWrapWorker<DirWrap>(info)
+    {
+         _seek_pos = info[1].As<Napi::Number>();
+        Begin(XSTR() << "SeekDir " << DVAL(_wrap->_path) << DVAL(_seek_pos));
+    }
+    virtual void Work()
+    {
+        DIR* dir = _wrap->_dir;
+        std::string _dir_path = _wrap->_path;
+        DBG1("FS::SeekDir::Work: " << DVAL(_dir_path));
+        seekdir(dir, _seek_pos);
     }
 };
 
@@ -2020,6 +2070,18 @@ Napi::Value
 DirWrap::read(const Napi::CallbackInfo& info)
 {
     return api<DirReadEntry>(info);
+}
+
+Napi::Value
+DirWrap::tell(const Napi::CallbackInfo& info)
+{
+    return api<TellDir>(info);
+}
+
+Napi::Value
+DirWrap::seek(const Napi::CallbackInfo& info)
+{
+    return api<SeekDir>(info);
 }
 
 static Napi::Value
@@ -2127,6 +2189,7 @@ fs_napi(Napi::Env env, Napi::Object exports)
     exports_fs["DT_DIR"] = Napi::Number::New(env, DT_DIR);
     exports_fs["DT_LNK"] = Napi::Number::New(env, DT_LNK);
     exports_fs["PLATFORM_IOV_MAX"] = Napi::Number::New(env, IOV_MAX);
+    
 
 #ifdef O_DIRECT
     exports_fs["O_DIRECT"] = Napi::Number::New(env, O_DIRECT);

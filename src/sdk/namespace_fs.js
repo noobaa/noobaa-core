@@ -86,6 +86,9 @@ const copy_status_enum = {
     FALLBACK: 'FALLBACK'
 };
 
+const XATTR_METADATA_IGNORE_LIST = [
+    XATTR_STORAGE_CLASS_KEY,
+];
 
 /**
  * @param {fs.Dirent} a
@@ -266,9 +269,19 @@ function make_named_dirent(name) {
 }
 
 function to_xattr(fs_xattr) {
-    const xattr = _.mapKeys(fs_xattr, (val, key) =>
-        (key.startsWith(XATTR_USER_PREFIX) && !key.startsWith(XATTR_NOOBAA_INTERNAL_PREFIX) ? key.slice(XATTR_USER_PREFIX.length) : '')
-    );
+    const xattr = _.mapKeys(fs_xattr, (val, key) => {
+        // Prioritize ignore list
+        if (XATTR_METADATA_IGNORE_LIST.includes(key)) return '';
+
+        // Fallback to rules
+
+        if (key.startsWith(XATTR_USER_PREFIX) && !key.startsWith(XATTR_NOOBAA_INTERNAL_PREFIX)) {
+            return key.slice(XATTR_USER_PREFIX.length);
+        }
+
+        return '';
+    });
+
     // keys which do not start with prefix will all map to the empty string key, so we remove it once
     delete xattr[''];
     // @ts-ignore
@@ -1173,7 +1186,7 @@ class NamespaceFS {
             const src_file_path = await this._find_version_path(fs_context, params.copy_source);
             const stat = await nb_native().fs.stat(fs_context, src_file_path);
             const src_storage_class = s3_utils.parse_storage_class(stat.xattr[XATTR_STORAGE_CLASS_KEY]);
-            const src_restore_status = this._get_object_restore_status(stat, src_storage_class);
+            const src_restore_status = GlacierBackend.get_restore_status(stat.xattr, new Date(), src_file_path);
 
             if (src_storage_class === s3_utils.STORAGE_CLASS_GLACIER) {
                 if (src_restore_status?.ongoing || !src_restore_status?.expiry_time) {
@@ -1946,9 +1959,8 @@ class NamespaceFS {
      * restore_object simply sets the restore request xattr
      * which should be picked by another mechanism.
      * 
-     * restore_object internally relies on 3 xattrs:
+     * restore_object internally relies on 2 xattrs:
      * - XATTR_RESTORE_REQUEST
-     * - XATTR_RESTORE_ONGOING
      * - XATTR_RESTORE_EXPIRY
      * @param {*} params 
      * @param {nb.ObjectSDK} object_sdk 
@@ -1966,74 +1978,51 @@ class NamespaceFS {
             file = await nb_native().fs.open(fs_context, file_path);
             const stat = await file.stat(fs_context);
 
-            if (stat.xattr[XATTR_STORAGE_CLASS_KEY] !== s3_utils.STORAGE_CLASS_GLACIER) {
+            const now = new Date();
+            const restore_status = GlacierBackend.get_restore_status(stat.xattr, now, file_path);
+            dbg.log1(
+                'namespace_fs.restore_object:', file_path,
+                'restore_status:', restore_status,
+            );
+
+            if (!restore_status) {
+                // The function returns undefined only when the storage class isn't glacier
                 throw new S3Error(S3Error.InvalidObjectStorageClass);
             }
 
-            // Total 8 states
-            const restore_request = stat.xattr[GlacierBackend.XATTR_RESTORE_REQUEST] ?
-                parseInt(stat.xattr[GlacierBackend.XATTR_RESTORE_REQUEST], 10) : null;
-            const restore_ongoing = stat.xattr[GlacierBackend.XATTR_RESTORE_ONGOING] === 'true';
-            const restore_expiry = stat.xattr[GlacierBackend.XATTR_RESTORE_EXPIRY] ?
-                new Date(stat.xattr[GlacierBackend.XATTR_RESTORE_EXPIRY]) : null;
+            if (restore_status.state === GlacierBackend.RESTORE_STATUS_CAN_RESTORE) {
+                // First add it to the log and then add the extended attribute as if we fail after
+                // this point then the restore request can be triggered again without issue but
+                // the reverse doesn't works.
+                await this.append_to_restore_wal(file_path);
 
-            // 5 Valid States
-            if (restore_request) {
-                // It is possible that the restore request was made but we haven't yet
-                // started the restore process. Batching is an implementation detail
-                // and need not be leaked to the client.
-                if (!restore_ongoing && !restore_expiry) {
-                    dbg.log0('namespace_fs.restore_object: state - (restore_request, !restore_ongoing, !restore_expiry)');
-                    throw new S3Error(S3Error.RestoreAlreadyInProgress);
-                }
-            } else if (restore_ongoing) {
-                if (!restore_expiry) {
-                    dbg.log0('namespace_fs.restore_object: state - (!restore_request, restore_ongoing, !restore_expiry)');
-                    throw new S3Error(S3Error.RestoreAlreadyInProgress);
-                }
-            } else {
-                const now = new Date();
+                await file.replacexattr(fs_context, {
+                    [GlacierBackend.XATTR_RESTORE_REQUEST]: params.days.toString(),
+                });
 
-                // The only entity that can remove the restore request is the underlying
-                // restore mechanism, implying that at some point it must have picked
-                // up the request to restore and finished the process.
-                if (restore_expiry && restore_expiry > now) {
-                    dbg.log0('namespace_fs.restore_object: state - (!restore_request, !restore_ongoing, restore_expiry > now)');
-
-                    const expires_on = now;
-                    expires_on.setDate(expires_on.getDate() + params.days);
-
-                    await file.replacexattr(fs_context, {
-                        [GlacierBackend.XATTR_RESTORE_EXPIRY]: expires_on.toISOString(),
-                    });
-
-                    // Should result in HTTP: 200 OK
-                    return false;
-                }
-
-                // If neither the restore is ongoing nor a restore expiry is set, we can set the xattr
-                // essentially adding the object to the batch.
-                if (!restore_expiry || restore_expiry <= now) {
-                    dbg.log0('namespace_fs.restore_object: state - (!restore_request, !restore_ongoing, !restore_expiry or restore_expiry <= now)');
-
-                    // First add it to the log and then add the extended attribute as if we fail after
-                    // this point then the restore request can be triggered again without issue but
-                    // the reverse doesn't works.
-                    await this.append_to_restore_wal(file_path);
-
-                    await file.replacexattr(fs_context, {
-                        [GlacierBackend.XATTR_RESTORE_REQUEST]: params.days.toString(),
-                    });
-
-                    // Should result in HTTP: 202 Accepted
-                    return true;
-                }
+                // Should result in HTTP: 202 Accepted
+                return true;
             }
 
-            // 3 Invalid States
-            // 1. Restore request is set along with 1 or more than 1 attribute (2 different states)
-            // 2. Restore request is unset but both request ongoing and expiry are set
-            throw new RpcError('INTERNAL_ERROR');
+            if (restore_status.state === GlacierBackend.RESTORE_STATUS_ONGOING) {
+                throw new S3Error(S3Error.RestoreAlreadyInProgress);
+            }
+
+            if (restore_status.state === GlacierBackend.RESTORE_STATUS_RESTORED) {
+                const expires_on = GlacierBackend.generate_expiry(
+                    now,
+                    params.days,
+                    config.NSFS_GLACIER_EXPIRY_TIME_OF_DAY,
+                    config.NSFS_GLACIER_EXPIRY_TZ,
+                );
+
+                await file.replacexattr(fs_context, {
+                    [GlacierBackend.XATTR_RESTORE_EXPIRY]: expires_on.toISOString(),
+                });
+
+                // Should result in HTTP: 200 OK
+                return false;
+            }
         } catch (error) {
             dbg.error('namespace_fs.restore_object: failed with error: ', error, file_path);
             throw this._translate_object_error_codes(error);
@@ -2234,7 +2223,7 @@ class NamespaceFS {
             is_latest,
             delete_marker,
             storage_class,
-            restore_status: this._get_object_restore_status(stat, storage_class),
+            restore_status: GlacierBackend.get_restore_status(stat.xattr, new Date(), this._get_file_path({key})),
             xattr: to_xattr(stat.xattr),
 
             // temp:
@@ -2246,46 +2235,6 @@ class NamespaceFS {
             stats: undefined,
             tagging: undefined,
         };
-    }
-
-    /**
-     * _get_object_restore_status returns the restore status of the object if the object is
-     * in "GLACIER" storage class
-     * @param {nb.NativeFSStats} stat stat of the object file
-     * @param {string} [storage_class] optional storage class of the target object
-     * @returns {{ ongoing: boolean, expiry_time?: Date } | undefined}
-     */
-    _get_object_restore_status(stat, storage_class) {
-        if (!storage_class) storage_class = s3_utils.parse_storage_class(stat.xattr[XATTR_STORAGE_CLASS_KEY]);
-
-        let restore_status;
-        if (storage_class === s3_utils.STORAGE_CLASS_GLACIER) {
-            const restore_request = stat.xattr[GlacierBackend.XATTR_RESTORE_REQUEST] ?
-                parseInt(stat.xattr[GlacierBackend.XATTR_RESTORE_REQUEST], 10) : null;
-            const restore_ongoing = stat.xattr[GlacierBackend.XATTR_RESTORE_ONGOING] === 'true';
-            const restore_expiry = stat.xattr[GlacierBackend.XATTR_RESTORE_EXPIRY] ?
-                new Date(stat.xattr[GlacierBackend.XATTR_RESTORE_EXPIRY]) : null;
-
-            // Assume the state invariants to hold true
-
-            // Restore is ongoing if,
-            // 1. Restore request is set
-            // 2. Restore ongoing is set to true
-            // Restore completed if
-            // 1. Expiry is set and expiry is in the future
-            if (restore_request || restore_ongoing) {
-                restore_status = {
-                    ongoing: true,
-                };
-            } else if (restore_expiry && restore_expiry > new Date()) {
-                restore_status = {
-                    ongoing: false,
-                    expiry_time: restore_expiry,
-                };
-            }
-        }
-
-        return restore_status;
     }
 
     _get_upload_info(stat, version_id) {

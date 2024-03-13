@@ -2,6 +2,8 @@
 'use strict';
 
 const nb_native = require('../../util/nb_native');
+const s3_utils = require('../../endpoint/s3/s3_utils');
+const dbg = require('../../util/debug_module')(__filename);
 
 class GlacierBackend {
     // These names start with the word 'timestamp' so as to assure
@@ -16,7 +18,7 @@ class GlacierBackend {
     /**
      * XATTR_RESTORE_REQUEST is set to a NUMBER (expiry days) by `restore_object` when 
      * a restore request is made. This is unset by the underlying restore process when 
-     * it picks up the request, this  is to ensure that the same object is not queued 
+     * it finishes the request, this  is to ensure that the same object is not queued 
      * for restoration multiple times.
      */
     static XATTR_RESTORE_REQUEST = 'user.noobaa.restore.request';
@@ -35,27 +37,17 @@ class GlacierBackend {
      */
     static XATTR_RESTORE_EXPIRY = 'user.noobaa.restore.expiry';
 
-
-    /**
-     * XATTR_RESTORE_ONGOING is set to a BOOL by the underlying restore process when it picks up
-     * a restore request. This is unset by the underlying restore process when it finishes
-     * restoring the object.
-     */
-    static XATTR_RESTORE_ONGOING = 'user.noobaa.restore.ongoing';
-
-    /**
-     * XATTR_RESTORE_REQUEST_STAGED is set to the same valuue as XATTR_RESTORE_REQUEST
-     * by a backend as a means to mark the request to be in-flight.
-     * 
-     * Any backend needs to make sure that both the attributes shall NOT be set at the same
-     * time.
-     */
-    static XATTR_RESTORE_REQUEST_STAGED = 'user.noobaa.restore.request.staged';
-
     static STORAGE_CLASS_XATTR = 'user.storage_class';
 
     static MIGRATE_WAL_NAME = 'migrate';
     static RESTORE_WAL_NAME = 'restore';
+
+    /** @type {nb.RestoreState} */
+    static RESTORE_STATUS_CAN_RESTORE = 'CAN_RESTORE';
+    /** @type {nb.RestoreState} */
+    static RESTORE_STATUS_ONGOING = 'ONGOING';
+    /** @type {nb.RestoreState} */
+    static RESTORE_STATUS_RESTORED = 'RESTORED';
 
     /**
      * migrate must take a file name which will have newline seperated
@@ -132,35 +124,125 @@ class GlacierBackend {
                 xattr_get_keys: [
                     GlacierBackend.XATTR_RESTORE_REQUEST,
                     GlacierBackend.XATTR_RESTORE_EXPIRY,
-                    GlacierBackend.XATTR_RESTORE_REQUEST_STAGED,
                     GlacierBackend.STORAGE_CLASS_XATTR,
                 ],
             });
-        }
-
-        // How can this happen?
-        // 1. User uploads an item with GLACIER storage class
-        // 2. It gets logged into the WAL because of storage class
-        // 3. User uploads again without specifying storage class
-        if (stat.xattr[GlacierBackend.STORAGE_CLASS_XATTR] !== 'GLACIER') {
-            return false;
-        }
-
-        // If any of the these extended attributes are set then that means that this object was
-        // marked for restore or has been restored, skip migration of these or else will result
-        // in races
-        if (
-            stat.xattr[GlacierBackend.XATTR_RESTORE_REQUEST] ||
-            stat.xattr[GlacierBackend.XATTR_RESTORE_EXPIRY] ||
-            stat.xattr[GlacierBackend.XATTR_RESTORE_REQUEST_STAGED]) {
-            return false;
         }
 
         // If there are no associated blocks with the file then skip
         // the migration.
         if (stat.blocks === 0) return false;
 
-        return true;
+        const restore_status = GlacierBackend.get_restore_status(stat.xattr, new Date(), file);
+        if (!restore_status) return false;
+
+        return restore_status.state === GlacierBackend.RESTORE_STATUS_CAN_RESTORE;
+    }
+
+    /**
+     * get_restore_status returns status of the object at the given
+     * file_path
+     * 
+     * NOTE: Returns undefined if `user.storage_class` attribute is not
+     * `GLACIER`
+     * @param {nb.NativeFSXattr} xattr 
+     * @param {Date} now 
+     * @param {string} file_path 
+     * @returns {nb.RestoreStatus | undefined}
+     */
+    static get_restore_status(xattr, now, file_path) {
+        if (xattr[GlacierBackend.STORAGE_CLASS_XATTR] !== s3_utils.STORAGE_CLASS_GLACIER) return;
+
+        // Total 6 states (2x restore_request, 3x restore_expiry)
+        let restore_request;
+        let restore_expiry;
+
+        const restore_request_xattr = xattr[GlacierBackend.XATTR_RESTORE_REQUEST];
+        if (restore_request_xattr) {
+            const num = Number(restore_request_xattr);
+            if (!isNaN(num) && num > 0) {
+                restore_request = num;
+            } else {
+                dbg.error('unexpected value for restore request for', file_path);
+            }
+        }
+        if (xattr[GlacierBackend.XATTR_RESTORE_EXPIRY]) {
+            const expiry = new Date(xattr[GlacierBackend.XATTR_RESTORE_EXPIRY]);
+            if (isNaN(expiry.getTime())) {
+                dbg.error('unexpected value for restore expiry for', file_path);
+            } else {
+                restore_expiry = expiry;
+            }
+        }
+
+        if (restore_request) {
+            if (restore_expiry > now) {
+                dbg.warn('unexpected restore state - (restore_request, request_expiry > now) for', file_path);
+            }
+
+            return {
+                ongoing: true,
+                state: GlacierBackend.RESTORE_STATUS_ONGOING,
+            };
+        } else {
+            if (!restore_expiry || restore_expiry <= now) {
+                return {
+                    ongoing: false,
+                    state: GlacierBackend.RESTORE_STATUS_CAN_RESTORE,
+                };
+            }
+
+            return {
+                ongoing: false,
+                expiry_time: restore_expiry,
+                state: GlacierBackend.RESTORE_STATUS_RESTORED,
+            };
+        }
+    }
+
+    /**
+     * @param {Date} from
+     * @param {Number} days - float
+     * @param {string} date - in format HH:MM:SS
+     * @param {'UTC' | 'LOCAL'} tz 
+     * @returns {Date}
+     */
+    static generate_expiry(from, days, date, tz) {
+        const expires_on = new Date(from);
+
+        const days_dec = (days % 1);
+
+        let hours = Math.round(days_dec * 24);
+        let mins = 0;
+        let secs = 0;
+
+        const parsed = date.split(':');
+        if (parsed.length === 3) {
+            const parsed_hrs = Number(parsed[0]);
+            if (Number.isInteger(parsed_hrs) && parsed_hrs < 24) {
+                hours += parsed_hrs;
+            }
+
+            const parsed_mins = Number(parsed[1]);
+            if (Number.isInteger(parsed_mins) && parsed_mins < 60) {
+                mins = parsed_mins;
+            }
+
+            const parsed_secs = Number(parsed[2]);
+            if (Number.isInteger(parsed_secs) && parsed_secs < 60) {
+                secs = parsed_secs;
+            }
+        }
+
+        if (tz === 'UTC') {
+            expires_on.setUTCDate(expires_on.getUTCDate() + (days - days_dec));
+            expires_on.setUTCHours(hours, mins, secs, 0);
+        } else {
+            expires_on.setDate(expires_on.getDate() + (days - days_dec));
+            expires_on.setHours(hours, mins, secs, 0);
+        }
+
+        return expires_on;
     }
 
     /**
@@ -177,17 +259,15 @@ class GlacierBackend {
             stat = await nb_native().fs.stat(fs_context, file, {
                 xattr_get_keys: [
                     GlacierBackend.XATTR_RESTORE_REQUEST,
-                    GlacierBackend.XATTR_RESTORE_REQUEST_STAGED,
+                    GlacierBackend.STORAGE_CLASS_XATTR,
                 ],
             });
         }
 
-        // Can happen if the file was uploaded again to `STANDARD` storage class
-        if (!stat.xattr[GlacierBackend.XATTR_RESTORE_REQUEST] && !stat.xattr[GlacierBackend.XATTR_RESTORE_REQUEST_STAGED]) {
-            return false;
-        }
+        const restore_status = GlacierBackend.get_restore_status(stat.xattr, new Date(), file);
+        if (!restore_status) return false;
 
-        return true;
+        return restore_status.state === GlacierBackend.RESTORE_STATUS_ONGOING;
     }
 }
 

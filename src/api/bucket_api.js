@@ -827,9 +827,6 @@ module.exports = {
             reply: {
                 type: 'object',
                 properties: {
-                    name: {
-                        $ref: 'common_api#/definitions/bucket_name'
-                    },
                     log_bucket: {
                         $ref: 'common_api#/definitions/bucket_name'
                     },

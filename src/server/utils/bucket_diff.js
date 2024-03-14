@@ -18,6 +18,7 @@ class BucketDiff {
      *   s3_params?: AWS.S3.ClientConfiguration
      *   connection?: AWS.S3
      *   for_replication: boolean
+     *   for_deletion: boolean
      * }} params
      */
     constructor(params) {
@@ -28,6 +29,7 @@ class BucketDiff {
             s3_params,
             connection,
             for_replication,
+            for_deletion,
         } = params;
         this.first_bucket = first_bucket;
         this.second_bucket = second_bucket;
@@ -42,6 +44,8 @@ class BucketDiff {
         }
         // special treatment when we want the diff for replication purpose.
         this.for_replication = for_replication;
+        // will set the bucket diff to return only the diff of delete markers.
+        this.for_deletion = for_deletion;
     }
 
     /**
@@ -62,10 +66,17 @@ class BucketDiff {
 
         const diff = {
             // keys_diff_map is {{ [key: string]: Array<object> }} where the Array consist of metadata objects.
-            // for example: {
+            // for example(disabled for_deletion): {
             //     "1": [
             //         { ETag: 'etag1.1', Size: 24599, Key: '1', VersionId: 'v1.1', IsLatest: true, },
             //         { ETag: 'etag1.2', Size: 89317, Key: '1', VersionId: 'v1.2', IsLatest: false, }
+            //     ]
+            // }
+            //
+            // for example(enabled for_deletion): {
+            //     "1": [
+            //         { Key: '1', VersionId: "v1.2", IsLatest: true, LastModified: '2022-02-27T10:45:00.000Z', },
+            //         { Key: '1', VersionId: "v1.1", IsLatest: false, LastModified: '2022-01-27T10:45:00.000Z', }
             //     ]
             // }
             keys_diff_map: {},
@@ -165,9 +176,18 @@ class BucketDiff {
      * @returns {nb.BucketDiffKeysDiff}
      */
     _object_grouped_by_key_and_omitted(list) {
+        // will return empty in two cases
+        // case 1: if the list is empty
         if (!list) return {};
+        // case 2: if we are fetching for delete markers but versioning is not enabled
+        if (this.for_deletion && !this.version) {
+            throw new Error("Invalid buckets: versioning not enabled for delete replications");
+        }
         dbg.log1('_object_grouped_by_key_and_omitted list:', list);
-        const field = this.version ? "Versions" : "Contents";
+        let field = this.version ? "Versions" : "Contents";
+        if (this.for_deletion) {
+            field = "DeleteMarkers";
+        }
         let grouped_by_key = _.groupBy(list[field], "Key");
         // We should not omit if this is a list object and not list versions
         // and the use of continuation token later on the road will lead us to skip the last key if omitted.
@@ -285,7 +305,7 @@ class BucketDiff {
             // case 3: both key lists, from first bucket and from the second bucket are in the same range 
             const second_bucket_curr_obj = second_bucket_keys[cur_first_bucket_key];
 
-            if (second_bucket_curr_obj) {
+            if (!this.for_deletion && second_bucket_curr_obj) { // for replication
                 // get the positions of the etag in the first bucket for the same key name.
                 let should_continue;
                 // We will get the first etag on the second bucket to check if and where it is on the first bucket to determine what is the diff.
@@ -327,6 +347,16 @@ class BucketDiff {
                             0, cur_first_bucket_key, first_bucket_curr_obj, second_bucket_curr_obj);
                         if (!same_md) this._populate_diff_map_and_omit_contents_left(ans, cur_first_bucket_key, first_bucket_curr_obj);
                     }
+                }
+                ans.keys_contents_left = _.omit(ans.keys_contents_left, cur_first_bucket_key);
+                continue;
+            } else if (this.for_deletion && second_bucket_curr_obj) { // for deletion
+                const latest_delete_marker_first = this._get_latest_delete_marker(first_bucket_curr_obj);
+                const latest_delete_marker_second = this._get_latest_delete_marker(second_bucket_curr_obj);
+                // There is only one case where we need to update keys_diff_map,
+                // when there is latest delete marker found in first bucket but not in second bucket
+                if (latest_delete_marker_first && !latest_delete_marker_second) {
+                    this._populate_diff_map_and_omit_contents_left(ans, cur_first_bucket_key, first_bucket_curr_obj);
                 }
                 ans.keys_contents_left = _.omit(ans.keys_contents_left, cur_first_bucket_key);
                 continue;
@@ -436,6 +466,8 @@ class BucketDiff {
 
     }
 
+
+
     /**
      * @param {number} pos
      * @param {any[]} first_obj
@@ -452,6 +484,14 @@ class BucketDiff {
             return indexes;
         }, []);
         return target_pos;
+    }
+
+    /**
+     * @param {any[]} bucket_obj
+     */
+    _get_latest_delete_marker(bucket_obj) {
+        // return true if latest delete marker found or else false otherwise
+        return bucket_obj.some(obj => obj.IsLatest);
     }
 
 }

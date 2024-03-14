@@ -18,7 +18,8 @@ describe('fail on improper constructor call', () => {
             first_bucket: 'first-bucket',
             second_bucket: 'second-bucket',
             version: true,
-            for_replication: false
+            for_replication: false,
+            for_deletion: false,
         };
         expect(() => new BucketDiff(params)).toThrow('Expected s3_params');
     });
@@ -40,7 +41,8 @@ describe('BucketDiff', () => {
                     second_bucket: 'second-bucket',
                     version: true,
                     s3_params: s3_params,
-                    for_replication: false
+                    for_replication: false,
+                    for_deletion: false,
                 });
             });
             describe('multiple key names', () => {
@@ -129,6 +131,108 @@ describe('BucketDiff', () => {
                 });
             });
         });
+        describe('get_objects with version for for_deletion enabled', () => {
+            let bucketDiff;
+            let response;
+            let expected;
+            beforeEach(() => {
+                const s3_params = {
+                    accessKeyId: 'YOUR_ACCESS_KEY_ID',
+                    secretAccessKey: 'YOUR_SECRET_ACCESS_KEY'
+                };
+                bucketDiff = new BucketDiff({
+                    first_bucket: 'first-bucket',
+                    second_bucket: 'second-bucket',
+                    version: true,
+                    s3_params: s3_params,
+                    for_replication: false,
+                    for_deletion: true,
+                });
+            });
+            describe('multiple key names', () => {
+                beforeEach(() => {
+                    response = {
+                        Versions: [],
+                        DeleteMarkers: [
+                            { Key: '1', VersionId: 'v1.3', IsLatest: true, LastModified: '2022-02-29T10:45:00.000Z', },
+                            { Key: '1', VersionId: 'v1.2', IsLatest: false, LastModified: '2022-02-28T10:45:00.000Z', },
+                            { Key: '1', VersionId: 'v1.1', IsLatest: false, LastModified: '2022-02-27T10:45:00.000Z', },
+                            { Key: '2', VersionId: 'v2', IsLatest: true, LastModified: '2022-02-27T10:45:00.000Z', },
+                            { Key: '3', VersionId: 'v3', IsLatest: true, LastModified: '2022-02-27T10:45:00.000Z', },
+                            { Key: '4', VersionId: 'v4', IsLatest: true, LastModified: '2022-02-27T10:45:00.000Z', },
+                        ],
+                    };
+                    expected = {
+                        "1": [
+                            { Key: '1', VersionId: 'v1.3', IsLatest: true, LastModified: '2022-02-29T10:45:00.000Z', },
+                            { Key: '1', VersionId: 'v1.2', IsLatest: false, LastModified: '2022-02-28T10:45:00.000Z', },
+                            { Key: '1', VersionId: 'v1.1', IsLatest: false, LastModified: '2022-02-27T10:45:00.000Z', },
+                        ],
+                        "2": [{ Key: '2', VersionId: 'v2', IsLatest: true, LastModified: '2022-02-27T10:45:00.000Z', }],
+                        "3": [{ Key: '3', VersionId: 'v3', IsLatest: true, LastModified: '2022-02-27T10:45:00.000Z', }],
+                    };
+                });
+                it('list truncated - should return bucket contents minus last key and continuation token as the last returned key name', async () => {
+                    response.IsTruncated = true;
+                    response.NextContinuationToken = '3';
+                    // Mocking the _list_objects method to return a response
+                    bucketDiff._list_objects = mock_fn.mockResolvedValue(response);
+                    const result = await bucketDiff.get_objects('bucket-name', '', 100, '');
+                    expect(result.bucket_contents_left).toEqual(expected);
+                    expect(result.bucket_cont_token).toEqual('3');
+                });
+                it('list is not truncated - should return bucket contents and continuation token', async () => {
+                    response.IsTruncated = false;
+                    response.NextContinuationToken = '';
+                    // Mocking the _list_objects method to return a response
+                    bucketDiff._list_objects = mock_fn.mockResolvedValue(response);
+                    const result = await bucketDiff.get_objects('bucket-name', '', 100, '');
+
+                    expected[4] = [{ Key: '4', VersionId: 'v4', IsLatest: true, LastModified: '2022-02-27T10:45:00.000Z', }];
+                    expect(result.bucket_contents_left).toEqual(expected);
+                    expect(result.bucket_cont_token).toEqual('');
+                });
+            });
+            describe('single key name', () => {
+                beforeEach(() => {
+                    response = {
+                        Versions: [],
+                        DeleteMarkers: [
+                            { Key: '1', VersionId: 'v1.3', IsLatest: true, LastModified: '2022-02-29T10:45:00.000Z', },
+                            { Key: '1', VersionId: 'v1.2', IsLatest: false, LastModified: '2022-02-28T10:45:00.000Z', },
+                            { Key: '1', VersionId: 'v1.1', IsLatest: false, LastModified: '2022-02-27T10:45:00.000Z', },
+                        ],
+                    };
+                    expected = {
+                        "1": [
+                            { Key: '1', VersionId: 'v1.3', IsLatest: true, LastModified: '2022-02-29T10:45:00.000Z', },
+                            { Key: '1', VersionId: 'v1.2', IsLatest: false, LastModified: '2022-02-28T10:45:00.000Z', },
+                            { Key: '1', VersionId: 'v1.1', IsLatest: false, LastModified: '2022-02-27T10:45:00.000Z', },
+                        ],
+                    };
+                });
+                it('list truncated - should return bucket contents and continuation token', async () => {
+                    response.IsTruncated = true;
+                    response.NextContinuationToken = '1';
+                    // Mocking the _list_objects method to return a response
+                    bucketDiff._list_objects = mock_fn.mockResolvedValue(response);
+                    const result = await bucketDiff.get_objects('bucket-name', '', 100, '');
+
+                    expect(result.bucket_contents_left).toEqual(expected);
+                    expect(result.bucket_cont_token).toEqual('1');
+                });
+                it('list is not truncated - should return bucket contents and continuation token', async () => {
+                    response.IsTruncated = false;
+                    response.NextContinuationToken = '';
+                    // Mocking the _list_objects method to return a response
+                    bucketDiff._list_objects = mock_fn.mockResolvedValue(response);
+                    const result = await bucketDiff.get_objects('bucket-name', '', 100, '');
+
+                    expect(result.bucket_contents_left).toEqual(expected);
+                    expect(result.bucket_cont_token).toEqual('');
+                });
+            });
+        });
         describe('get_objects without version', () => {
             let bucketDiff;
             let response;
@@ -143,7 +247,8 @@ describe('BucketDiff', () => {
                     second_bucket: 'second-bucket',
                     version: false,
                     s3_params: s3_params,
-                    for_replication: false
+                    for_replication: false,
+                    for_deletion: false,
                 });
                 response = {
                     Contents: [
@@ -196,7 +301,8 @@ describe('BucketDiff', () => {
                 second_bucket: 'second-bucket',
                 version: false,
                 s3_params: s3_params,
-                for_replication: false
+                for_replication: false,
+                for_deletion: false,
             });
         });
 
@@ -278,7 +384,8 @@ describe('_process_keys_in_range with version', () => {
             second_bucket: 'second-bucket',
             version: true,
             s3_params: s3_params,
-            for_replication: false
+            for_replication: false,
+            for_deletion: false,
         });
 
         ans = {
@@ -567,7 +674,8 @@ describe('_process_keys_in_range with version', () => {
             second_bucket: 'second-bucket',
             version: true,
             s3_params: s3_params,
-            for_replication: true
+            for_replication: true,
+            for_deletion: false,
         });
 
         ans.keys_contents_left = {
@@ -601,7 +709,8 @@ describe('_process_keys_in_range with version', () => {
             second_bucket: 'second-bucket',
             version: true,
             s3_params: s3_params,
-            for_replication: true
+            for_replication: true,
+            for_deletion: false,
         });
 
         ans.keys_contents_left = {
@@ -627,6 +736,96 @@ describe('_process_keys_in_range with version', () => {
 
 });
 
+describe('_process_keys_in_range with version for for_deletion enabled', () => {
+    let ans;
+    let s3_params;
+    let bucketDiff;
+    let second_bucket_cont_token;
+    beforeEach(() => {
+        s3_params = {
+            accessKeyId: 'YOUR_ACCESS_KEY_ID',
+            secretAccessKey: 'YOUR_SECRET_ACCESS_KEY'
+        };
+
+        bucketDiff = new BucketDiff({
+            first_bucket: 'first-bucket',
+            second_bucket: 'second-bucket',
+            version: true,
+            s3_params: s3_params,
+            for_replication: false,
+            for_deletion: true,
+        });
+
+        ans = {
+            keys_diff_map: {},
+            keep_listing_second_bucket: false,
+        };
+        second_bucket_cont_token = '';
+    });
+    it('case 3: should update keys_diff_map when last modified in first bucket is latest', async () => {
+        ans.keys_contents_left = {
+            "1": [
+                { Key: '1', VersionId: 'v1.3', IsLatest: true, LastModified: '2022-02-29T10:45:00.000Z', },
+                { Key: '1', VersionId: 'v1.2', IsLatest: false, LastModified: '2022-02-28T10:45:00.000Z', },
+                { Key: '1', VersionId: 'v1.1', IsLatest: false, LastModified: '2022-02-27T10:45:00.000Z', },
+            ],
+            "2": [{ Key: '2', VersionId: 'v2', IsLatest: true, LastModified: '2022-02-27T10:45:00.000Z', }],
+            "3": [{ Key: '3', VersionId: 'v3', IsLatest: true, LastModified: '2022-02-27T10:45:00.000Z', }],
+        };
+        const second_bucket_keys = {
+            "1": [
+                { Key: '1', VersionId: 'v1.3', IsLatest: false, LastModified: '2022-02-28T10:45:00.000Z', },
+                { Key: '1', VersionId: 'v1.2', IsLatest: false, LastModified: '2022-02-27T10:45:00.000Z', },
+                { Key: '1', VersionId: 'v1.1', IsLatest: false, LastModified: '2022-02-26T10:45:00.000Z', },
+            ],
+            "2": [{ Key: '2', VersionId: 'v2', IsLatest: false, LastModified: '2022-02-27T10:45:00.000Z', }],
+        };
+
+        const result = await bucketDiff._process_keys_in_range(ans, second_bucket_keys, second_bucket_cont_token);
+
+        expect(result).toEqual({
+            keys_diff_map: {
+                "1": [
+                    { Key: '1', VersionId: 'v1.3', IsLatest: true, LastModified: '2022-02-29T10:45:00.000Z', },
+                    { Key: '1', VersionId: 'v1.2', IsLatest: false, LastModified: '2022-02-28T10:45:00.000Z', },
+                    { Key: '1', VersionId: 'v1.1', IsLatest: false, LastModified: '2022-02-27T10:45:00.000Z', },
+                ],
+                "2": [{ Key: '2', VersionId: 'v2', IsLatest: true, LastModified: '2022-02-27T10:45:00.000Z', }],
+                "3": [{ Key: '3', VersionId: 'v3', IsLatest: true, LastModified: '2022-02-27T10:45:00.000Z', }],
+            },
+            keys_contents_left: {},
+            keep_listing_second_bucket: false,
+        });
+    });
+    it('case 3: should not update keys_diff_map when last modified in first bucket is not latest', async () => {
+        ans.keys_contents_left = {
+            "1": [
+                { Key: '1', VersionId: 'v1.3', IsLatest: false, LastModified: '2022-02-28T10:45:00.000Z', },
+                { Key: '1', VersionId: 'v1.2', IsLatest: false, LastModified: '2022-02-27T10:45:00.000Z', },
+                { Key: '1', VersionId: 'v1.1', IsLatest: false, LastModified: '2022-02-26T10:45:00.000Z', },
+            ],
+            "2": [{ Key: '2', VersionId: 'v2', IsLatest: false, LastModified: '2022-02-27T10:45:00.000Z', }],
+        };
+        const second_bucket_keys = {
+            "1": [
+                { Key: '1', VersionId: 'v1.3', IsLatest: true, LastModified: '2022-02-29T10:45:00.000Z', },
+                { Key: '1', VersionId: 'v1.2', IsLatest: false, LastModified: '2022-02-28T10:45:00.000Z', },
+                { Key: '1', VersionId: 'v1.1', IsLatest: false, LastModified: '2022-02-27T10:45:00.000Z', },
+            ],
+            "2": [{ Key: '2', VersionId: 'v2', IsLatest: true, LastModified: '2022-02-27T10:45:00.000Z', }],
+        };
+
+        const result = await bucketDiff._process_keys_in_range(ans, second_bucket_keys, second_bucket_cont_token);
+
+        console.log("result: ", result);
+        expect(result).toEqual({
+            keys_diff_map: {},
+            keys_contents_left: {},
+            keep_listing_second_bucket: false,
+        });
+    });
+});
+
 describe('_process_keys_in_range without version', () => {
     let ans;
     let bucketDiff;
@@ -643,7 +842,8 @@ describe('_process_keys_in_range without version', () => {
             second_bucket: 'second-bucket',
             version: false,
             s3_params: s3_params,
-            for_replication: false
+            for_replication: false,
+            for_deletion: false,
         });
         ans = {
             keys_diff_map: {},
@@ -765,7 +965,8 @@ describe('_process_keys_in_range without version', () => {
             second_bucket: 'second-bucket',
             version: false,
             s3_params: s3_params,
-            for_replication: true
+            for_replication: true,
+            for_deletion: false,
         });
 
         ans.keys_contents_left = { "2": [{ ETag: "etag2", Key: "2", Size: 200, LastModified: '2023-06-25T10:49:16.000Z' }], };
@@ -786,7 +987,8 @@ describe('_process_keys_in_range without version', () => {
             second_bucket: 'second-bucket',
             version: false,
             s3_params: s3_params,
-            for_replication: true
+            for_replication: true,
+            for_deletion: false,
         });
 
         ans.keys_contents_left = { "2": [{ ETag: "etag2", Key: "2", Size: 200, LastModified: '2023-06-25T10:49:12.000Z' }], };
@@ -820,7 +1022,8 @@ describe('BucketDiff aiding functions', () => {
                     second_bucket: 'second-bucket',
                     version: true,
                     s3_params: s3_params,
-                    for_replication: false
+                    for_replication: false,
+                    for_deletion: false,
                 });
             });
 
@@ -906,7 +1109,8 @@ describe('BucketDiff aiding functions', () => {
                     second_bucket: 'second-bucket',
                     version: false,
                     s3_params: s3_params,
-                    for_replication: false
+                    for_replication: false,
+                    for_deletion: false,
                 });
                 list = {
                     Contents: [
@@ -945,7 +1149,8 @@ describe('BucketDiff aiding functions', () => {
                     second_bucket: 'second-bucket',
                     version: true,
                     s3_params: s3_params,
-                    for_replication: false
+                    for_replication: false,
+                    for_deletion: false,
                 });
             });
             it('list is truncated, should return the last key as continuation token', async () => {
@@ -975,7 +1180,8 @@ describe('BucketDiff aiding functions', () => {
                     second_bucket: 'second-bucket',
                     version: false,
                     s3_params: s3_params,
-                    for_replication: false
+                    for_replication: false,
+                    for_deletion: false,
                 });
             });
             it('should return continuation token', async () => {
@@ -998,7 +1204,8 @@ describe('BucketDiff aiding functions', () => {
                 second_bucket: 'second-bucket',
                 version: false,
                 s3_params: s3_params,
-                for_replication: false
+                for_replication: false,
+                for_deletion: false,
             });
         });
         it('should return an array of indexes when ETag exists in second_obj', () => {
@@ -1058,7 +1265,8 @@ describe('BucketDiff aiding functions', () => {
                 second_bucket: 'second-bucket',
                 version: false,
                 s3_params: s3_params,
-                for_replication: false
+                for_replication: false,
+                for_deletion: false,
             });
 
         });
@@ -1154,7 +1362,8 @@ describe('BucketDiff get_keys_diff case 3 with version', () => {
             second_bucket: 'second-bucket',
             version: true,
             s3_params: s3_params,
-            for_replication: false
+            for_replication: false,
+            for_deletion: false,
         });
         second_bucket_cont_token = '';
         replication_utils.get_object_md = mock_fn2.mockReturnValueOnce('metadata').mockReturnValueOnce('metadata');
@@ -1433,7 +1642,8 @@ describe('BucketDiff get_keys_diff', () => {
             second_bucket: 'second-bucket',
             version: false,
             s3_params: s3_params,
-            for_replication: false
+            for_replication: false,
+            for_deletion: false,
         });
         second_bucket_cont_token = '';
         replication_utils.get_object_md = mock_fn2.mockReturnValueOnce('metadata').mockReturnValueOnce('metadata');
@@ -1574,7 +1784,8 @@ describe('BucketDiff get_buckets_diff', () => {
             second_bucket: 'second-bucket',
             version: false,
             s3_params: s3_params,
-            for_replication: true
+            for_replication: true,
+            for_deletion: false,
         });
 
         params = {

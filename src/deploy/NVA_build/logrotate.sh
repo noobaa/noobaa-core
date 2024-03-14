@@ -1,10 +1,16 @@
 #!/bin/bash
 
-# script to run logrotate every 15 minutes
+# Add a cron job to run script to segreagate bucket logs into individual bucket logs files.
+echo "*/5 * * * * /root/node_modules/noobaa-core/src/deploy/NVA_build/noobaa_log_segregate.sh" | crontab -
+
+# script to run logrotate every minute
 
 while true; do
-    echo "$(date): =================================== running logrotate ==================================="
-    /usr/sbin/logrotate -v /etc/logrotate.d/noobaa 2>&1
-    echo
-    sleep 900
+
+    echo "$(date): =================================== running logrotate ===================================" >/dev/stdout 2>&1
+    /usr/sbin/logrotate -v /etc/logrotate.d/noobaa/logrotate_noobaa.conf >/dev/stdout 2>&1
+    echo "$(date): =================================== logrotate Done ======================================" >/dev/stdout 2>&1
+
+    sleep 60
+
 done

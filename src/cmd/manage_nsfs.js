@@ -65,7 +65,7 @@ async function check_and_create_config_dirs() {
     ];
     for (const dir_path of pre_req_dirs) {
         try {
-            const fs_context = native_fs_utils.get_process_fs_context();
+            const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
             const dir_exists = await native_fs_utils.is_path_exists(fs_context, dir_path);
             if (dir_exists) {
                 dbg.log1('nsfs.check_and_create_config_dirs: config dir exists:', dir_path);
@@ -295,12 +295,14 @@ async function update_bucket(data) {
 
 async function delete_bucket(data) {
     await validate_bucket_args(data, ACTIONS.DELETE);
-    const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
+    // we have fs_contexts: (1) fs_backend for bucket temp dir (2) config_root_backend for config files
+    const fs_context_config_root_backend = native_fs_utils.get_process_fs_context(config_root_backend);
+    const fs_context_fs_backend = native_fs_utils.get_process_fs_context(data.fs_backend);
     const bucket_config_path = get_config_file_path(buckets_dir_path, data.name);
     try {
         const bucket_temp_dir_path = path.join(data.path, config.NSFS_TEMP_DIR_NAME + "_" + data._id);
-        await native_fs_utils.folder_delete(bucket_temp_dir_path, fs_context, true);
-        await native_fs_utils.delete_config_file(fs_context, buckets_dir_path, bucket_config_path);
+        await native_fs_utils.folder_delete(bucket_temp_dir_path, fs_context_fs_backend, true);
+        await native_fs_utils.delete_config_file(fs_context_config_root_backend, buckets_dir_path, bucket_config_path);
     } catch (err) {
         if (err.code === 'ENOENT') throw_cli_error(ManageCLIError.NoSuchBucket, data.name);
         throw err;
@@ -525,7 +527,7 @@ async function delete_account(data) {
  * @param {string} account_name
  */
 async function verify_delete_account(account_name) {
-    const fs_context = native_fs_utils.get_process_fs_context();
+    const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
     const entries = await nb_native().fs.readdir(fs_context, buckets_dir_path);
     await P.map_with_concurrency(10, entries, async entry => {
         if (entry.name.endsWith('.json')) {
@@ -634,7 +636,7 @@ function filter_bucket(bucket, filters) {
  * @param {object} [filters]
  */
 async function list_config_files(type, config_path, wide, show_secrets, filters) {
-    const fs_context = native_fs_utils.get_process_fs_context();
+    const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
     const entries = await nb_native().fs.readdir(fs_context, config_path);
     const should_filter = Object.keys(filters).length > 0;
 
@@ -664,7 +666,7 @@ async function list_config_files(type, config_path, wide, show_secrets, filters)
  * @param {boolean} [show_secrets]
  */
 async function get_config_data(config_file_path, show_secrets = false) {
-    const fs_context = native_fs_utils.get_process_fs_context();
+    const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
     const { data } = await nb_native().fs.readFile(fs_context, config_file_path);
     const config_data = _.omit(JSON.parse(data.toString()), show_secrets ? [] : ['access_keys']);
     return config_data;
@@ -676,6 +678,7 @@ async function get_config_data(config_file_path, show_secrets = false) {
  * @param {string} file_path
  */
 async function get_options_from_file(file_path) {
+    // we don't pass neither config_root_backend nor fs_backend
     const fs_context = native_fs_utils.get_process_fs_context();
     try {
         const input_options_with_data = await native_fs_utils.read_file(fs_context, file_path);
@@ -743,14 +746,15 @@ async function validate_bucket_args(data, action) {
         }
         if (_.isUndefined(data.system_owner)) throw_cli_error(ManageCLIError.MissingBucketOwnerFlag);
         if (!data.path) throw_cli_error(ManageCLIError.MissingBucketPathFlag);
-        const fs_context = native_fs_utils.get_process_fs_context();
-        const exists = await native_fs_utils.is_path_exists(fs_context, data.path);
-        if (!exists) {
-            throw_cli_error(ManageCLIError.InvalidStoragePath, data.path);
-        }
         // fs_backend='' used for deletion of the fs_backend property
         if (data.fs_backend !== undefined && !['GPFS', 'CEPH_FS', 'NFSv4'].includes(data.fs_backend)) {
             throw_cli_error(ManageCLIError.InvalidFSBackend);
+        }
+        // in case we have the fs_backend it changes the fs_context that we use for the path
+        const fs_context_fs_backend = native_fs_utils.get_process_fs_context(data.fs_backend);
+        const exists = await native_fs_utils.is_path_exists(fs_context_fs_backend, data.path);
+        if (!exists) {
+            throw_cli_error(ManageCLIError.InvalidStoragePath, data.path);
         }
         if (data.s3_policy) {
             try {
@@ -758,7 +762,8 @@ async function validate_bucket_args(data, action) {
                     async principal => {
                         const account_config_path = get_config_file_path(accounts_dir_path, principal);
                         try {
-                            await nb_native().fs.stat(native_fs_utils.get_process_fs_context(), account_config_path);
+                            const fs_context_config_root_backend = native_fs_utils.get_process_fs_context(config_root_backend);
+                            await nb_native().fs.stat(fs_context_config_root_backend, account_config_path);
                             return true;
                         } catch (err) {
                             return false;
@@ -806,12 +811,13 @@ async function validate_account_args(data, action) {
         if (_.isUndefined(data.nsfs_account_config.new_buckets_path)) {
             return;
         }
-        const fs_context = native_fs_utils.get_process_fs_context();
-        const exists = await native_fs_utils.is_path_exists(fs_context, data.nsfs_account_config.new_buckets_path);
+        // in case we have the fs_backend it changes the fs_context that we use for the new_buckets_path
+        const fs_context_fs_backend = native_fs_utils.get_process_fs_context(data.fs_backend);
+        const exists = await native_fs_utils.is_path_exists(fs_context_fs_backend, data.nsfs_account_config.new_buckets_path);
         if (!exists) {
             throw_cli_error(ManageCLIError.InvalidAccountNewBucketsPath, data.nsfs_account_config.new_buckets_path);
         }
-        const account_fs_context = await native_fs_utils.get_fs_context(data.nsfs_account_config, config_root_backend);
+        const account_fs_context = await native_fs_utils.get_fs_context(data.nsfs_account_config, data.fs_backend);
         const accessible = await native_fs_utils.is_dir_rw_accessible(account_fs_context, data.nsfs_account_config.new_buckets_path);
         if (!accessible) {
             throw_cli_error(ManageCLIError.InaccessibleAccountNewBucketsPath, data.nsfs_account_config.new_buckets_path);
@@ -967,7 +973,7 @@ async function whitelist_ips_management(args) {
     try {
         const config_data = require(config_path);
         config_data.NSFS_WHITELIST = whitelist_ips;
-        const fs_context = native_fs_utils.get_process_fs_context();
+        const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
         const data = JSON.stringify(config_data);
         await native_fs_utils.update_config_file(fs_context, config_root, config_path, data);
     } catch (err) {

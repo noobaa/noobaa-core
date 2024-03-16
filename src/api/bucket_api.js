@@ -1065,11 +1065,8 @@ module.exports = {
 
         logging: {
             type: 'object',
-            required: ['name', 'log_bucket', 'log_prefix'],
+            required: ['log_bucket', 'log_prefix'],
             properties: {
-                name: {
-                    $ref: 'common_api#/definitions/bucket_name',
-                },
                 log_bucket: {
                     $ref: 'common_api#/definitions/bucket_name',
                 },

@@ -557,6 +557,25 @@ describe('manage nsfs cli account flow', () => {
             expect(JSON.parse(res.stdout).error.message).toBe(ManageCLIError.InvalidArgumentType.message);
         });
 
+        it('cli update account unset new_buckets_path', async () => {
+            const { name } = defaults;
+            //in exec_manage_cli an empty string is passed as no input. so operation fails on invalid type. use the string '' instead 
+            const empty_string = '\'\'';
+            const account_options = { config_root, name, new_buckets_path: empty_string};
+            const action = ACTIONS.UPDATE;
+            await exec_manage_cli(type, action, account_options);
+            let new_account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
+            expect(new_account_details.nsfs_account_config.new_buckets_path).toBeUndefined();
+            expect(new_account_details.allow_bucket_creation).toBe(false);
+
+            //set new_buckets_path value back to its original value
+            account_options.new_buckets_path = defaults.new_buckets_path;
+            await exec_manage_cli(type, action, account_options);
+            new_account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
+            expect(new_account_details.nsfs_account_config.new_buckets_path).toBe(defaults.new_buckets_path);
+            expect(new_account_details.allow_bucket_creation).toBe(true);
+        });
+
     });
 
     describe('cli list account', () => {

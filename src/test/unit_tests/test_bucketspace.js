@@ -213,6 +213,7 @@ mocha.describe('bucket operations - namespace_fs', function() {
         const email = 'account_wrong_uid0@noobaa.com';
         const account = await rpc_client.account.read_account({ email: email });
         const default_resource = account.default_resource;
+        const is_nc_coretest = process.env.NC_CORETEST === 'true';
         const arr = [{ nsfs_account_config: { uid: 26041993 }, default_resource, should_fail: false },
             {
                 nsfs_account_config: { new_buckets_path: 'dummy_dir1/' },
@@ -223,8 +224,8 @@ mocha.describe('bucket operations - namespace_fs', function() {
             {
                 nsfs_account_config: {},
                 default_resource,
-                should_fail: !process.env.NC_CORETEST,
-                error_code: 'FORBIDDEN'
+                should_fail: true,
+                error_code: is_nc_coretest ? ManageCLIError.MissingUpdateProperty.code : 'FORBIDDEN'
             },
             { nsfs_account_config: { uid: 26041992 }, default_resource, should_fail: false }
         ];
@@ -443,9 +444,11 @@ mocha.describe('bucket operations - namespace_fs', function() {
         const email = `${no_permissions_dn}@noobaa.io`;
         const account = await rpc_client.account.read_account({ email: email });
         const default_resource = account.default_resource;
+        const is_nc_coretest = process.env.NC_CORETEST === 'true';
         const arr = [
-            { nsfs_account_config: { distinguished_name: 'bla' }, default_resource, should_fail: process.env.NC_CORETEST, error_code: ManageCLIError.InvalidAccountDistinguishedName.code }, { nsfs_account_config: { new_buckets_path: 'dummy_dir1/' }, default_resource, should_fail: process.env.NC_CORETEST, error_code: ManageCLIError.InvalidAccountNewBucketsPath.code },
-            { nsfs_account_config: {}, default_resource, should_fail: !process.env.NC_CORETEST, error_code: 'FORBIDDEN' },
+            { nsfs_account_config: { distinguished_name: 'bla' }, default_resource, should_fail: process.env.NC_CORETEST, error_code: ManageCLIError.InvalidAccountDistinguishedName.code },
+            { nsfs_account_config: { new_buckets_path: 'dummy_dir1/' }, default_resource, should_fail: process.env.NC_CORETEST, error_code: ManageCLIError.InvalidAccountNewBucketsPath.code },
+            { nsfs_account_config: {}, default_resource, should_fail: true, error_code: is_nc_coretest ? ManageCLIError.MissingUpdateProperty.code : 'FORBIDDEN' },
             { nsfs_account_config: { distinguished_name: 'root' }, default_resource, should_fail: false },
             {
                 nsfs_account_config: { distinguished_name: no_permissions_dn, new_buckets_path: public_new_buckets_dir, },

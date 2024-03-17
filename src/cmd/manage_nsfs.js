@@ -854,6 +854,7 @@ async function validate_input_types(type, action, argv) {
     delete input_options_with_data._;
     validate_no_extra_options(type, action, input_options, false);
     validate_options_type_by_value(input_options_with_data);
+    if (action === ACTIONS.UPDATE) validate_min_flags_for_update(type, input_options_with_data);
 
     // currently we use from_file only in add action
     const path_to_json_options = argv.from_file ? String(argv.from_file) : '';
@@ -969,6 +970,31 @@ function validate_boolean_string_value(value) {
         return true;
     }
     return false;
+}
+
+/**
+ * validate_min_flags_for_update validates that we have at least one flag of a property to update
+ * @param {string} type
+ * @param {object} input_options_with_data
+ */
+function validate_min_flags_for_update(type, input_options_with_data) {
+    const input_options_for_update = { ...input_options_with_data };
+    // remove the config options
+    delete input_options_for_update.config_root;
+    delete input_options_for_update.config_root_backend;
+    // remove identifier
+    if (_.isUndefined(input_options_for_update.name)) {
+        // GAP - mandatory flags check should be earlier in the calls in general
+        if (type === TYPES.ACCOUNT) throw_cli_error(ManageCLIError.MissingAccountNameFlag);
+        if (type === TYPES.BUCKET) throw_cli_error(ManageCLIError.MissingBucketNameFlag);
+    }
+    delete input_options_for_update.name;
+
+    const input_options_for_update_length = Object.keys(input_options_for_update).length;
+    if (input_options_for_update_length === 0 ||
+        (input_options_for_update_length === 1 && input_options_for_update.regenerate === 'false')) {
+            throw_cli_error(ManageCLIError.MissingUpdateProperty);
+        }
 }
 
 ///////////////////////////////

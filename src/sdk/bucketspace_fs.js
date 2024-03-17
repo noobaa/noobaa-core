@@ -550,7 +550,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             const bucket_config_path = this._get_bucket_config_path(name);
             const { data } = await nb_native().fs.readFile(this.fs_context, bucket_config_path);
             const bucket = JSON.parse(data.toString());
-            return bucket.website;
+            return {website: bucket.website};
         } catch (err) {
             throw this._translate_bucket_error_codes(err);
         }

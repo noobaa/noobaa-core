@@ -406,9 +406,16 @@ async function complete_object_upload(req) {
         set_updates.sha256_b64 = req.rpc_params.sha256_b64;
     }
 
-    const map_res = req.rpc_params.multiparts ?
-        await _complete_object_multiparts(obj, req.rpc_params.multiparts) :
-        await _complete_object_parts(obj);
+    dbg.log0("req.rpc_params.num_parts = ", req.rpc_params.num_parts, ", req.params.num_parts = ", req.params.num_parts);
+
+    let map_res;
+    if (req.rpc_params.multiparts) {
+        map_res = await _complete_object_multiparts(obj, req.rpc_params.multiparts);
+    } else if (req.rpc_params.num_parts) {
+        map_res = {size: obj.size, num_parts: req.rpc_params.num_parts};
+    } else {
+        map_res = await _complete_object_parts(obj);
+    }
 
     if (req.rpc_params.size !== map_res.size) {
         if (req.rpc_params.size >= 0) {
@@ -676,8 +683,10 @@ async function copy_object_mapping(req) {
         part._id = MDStore.instance().make_md_id();
         part.obj = obj._id;
         part.bucket = req.bucket._id;
-        part.multipart = multipart ? multipart._id : undefined;
-        part.uncommitted = true;
+        if (multipart) {
+            part.multipart = multipart._id;
+            part.uncommitted = true;
+        }
     }
     await MDStore.instance().insert_parts(parts);
     return {
@@ -1955,10 +1964,8 @@ async function update_endpoint_stats(req) {
     ]);
 }
 
-/**
- * @param {nb.ObjectMD} obj
- */
 async function _complete_object_parts(obj) {
+
     const context = {
         pos: 0,
         seq: 0,
@@ -1968,9 +1975,8 @@ async function _complete_object_parts(obj) {
 
     const parts = await MDStore.instance().find_all_parts_of_object(obj);
     _complete_next_parts(parts, context);
-    if (context.parts_updates.length) {
-        await MDStore.instance().update_parts_in_bulk(context.parts_updates);
-    }
+
+    dbg.log0("_complete_object_parts num_parts = ", context.num_parts);
 
     return {
         size: context.pos,

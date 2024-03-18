@@ -161,12 +161,7 @@ async function config_dir_teardown() {
  */
 async function admin_account_creation() {
     await announce('admin_account_creation');
-    const cli_account_options = {
-        name: NC_CORETEST,
-        new_buckets_path: NC_CORETEST_STORAGE_PATH,
-        uid: 200,
-        gid: 200
-    };
+    const cli_account_options = get_admin_account_details();
     await exec_manage_cli(TYPES.ACCOUNT, ACTIONS.ADD, cli_account_options);
 }
 
@@ -228,6 +223,18 @@ const get_name_by_email = email => {
     return name;
 };
 
+/**
+ * get_admin_account_details returns the account details that we use in NC core tests
+ */
+function get_admin_account_details() {
+    const cli_account_options = {
+        name: NC_CORETEST,
+        new_buckets_path: NC_CORETEST_STORAGE_PATH,
+        uid: 200,
+        gid: 200
+    };
+    return cli_account_options;
+}
 
 ////////////////////////////////////
 //////// ACCOUNT MANAGE CMDS ///////
@@ -459,3 +466,4 @@ exports.get_dbg_level = get_dbg_level;
 exports.rpc_client = rpc_cli_funcs_to_manage_nsfs_cli_cmds;
 exports.get_http_address = get_http_address;
 exports.get_https_address = get_https_address;
+exports.get_admin_account_details = get_admin_account_details;

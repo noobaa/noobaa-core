@@ -14,6 +14,7 @@ const assert = require('assert');
 const config = require('../../../config');
 const fs_utils = require('../../util/fs_utils');
 const { stat, open } = require('../../util/nb_native')().fs;
+const test_utils = require('../system_tests/test_utils');
 const { get_process_fs_context } = require('../../util/native_fs_utils');
 const ManageCLIError = require('../../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
 const { TMP_PATH, get_coretest_path, invalid_nsfs_root_permissions,
@@ -24,7 +25,7 @@ const { NodeHttpHandler } = require("@smithy/node-http-handler");
 
 const coretest_path = get_coretest_path();
 const coretest = require(coretest_path);
-const { rpc_client, EMAIL, PASSWORD, SYSTEM } = coretest;
+const { rpc_client, EMAIL, PASSWORD, SYSTEM, get_admin_account_details } = coretest;
 coretest.setup({});
 
 const inspect = (x, max_arr = 5) => util.inspect(x, { colors: true, depth: null, maxArrayLength: max_arr });
@@ -36,6 +37,7 @@ const new_account_params = {
 };
 
 const first_bucket = 'first.bucket';
+const is_nc_coretest = process.env.NC_CORETEST === 'true';
 
 const encoded_xattr = 'unconfined_u%3Aobject_r%3Auser_home_t%3As0%00';
 const decoded_xattr = 'unconfined_u:object_r:user_home_t:s0\x00';
@@ -106,6 +108,11 @@ mocha.describe('bucket operations - namespace_fs', function() {
             }
         });
         const obj_nsr = { resource: nsr, path: bucket_path };
+        // give read and write permission to owner
+        if (is_nc_coretest) {
+            const { uid, gid } = get_admin_account_details();
+            await test_utils.set_path_permissions_and_owner(src_bucket_path, { uid, gid }, 0o700);
+        }
         await rpc_client.bucket.create_bucket({
             name: bucket_name,
             namespace: {
@@ -134,6 +141,11 @@ mocha.describe('bucket operations - namespace_fs', function() {
     mocha.it('export other dir as bucket - and update bucket path to original bucket path', async function() {
         const obj_nsr = { resource: nsr, path: bucket_path };
         const other_obj_nsr = { resource: nsr, path: other_bucket_path };
+        // give read and write permission to owner
+        if (is_nc_coretest) {
+            const { uid, gid } = get_admin_account_details();
+            await test_utils.set_path_permissions_and_owner(src1_bucket_path, { uid, gid }, 0o700);
+        }
         await rpc_client.bucket.create_bucket({
             name: bucket_name + '-other1',
             namespace: {
@@ -174,7 +186,14 @@ mocha.describe('bucket operations - namespace_fs', function() {
 
         const res = await s3_owner.listBuckets({});
         console.log(inspect(res));
-        const list_ok = bucket_in_list([first_bucket], [bucket_name], res.Buckets);
+        let list_ok;
+        if (is_nc_coretest) {
+            // in order to create a bucket in manage nsfs we need to give permission to the owner
+            // hence we will have the gid and uid of the bucket_name
+            list_ok = bucket_in_list([first_bucket], [], res.Buckets);
+        } else {
+            list_ok = bucket_in_list([first_bucket], [bucket_name], res.Buckets);
+        }
         assert.ok(list_ok);
     });
     mocha.it('create account 1 with uid, gid - wrong uid', async function() {
@@ -957,6 +976,11 @@ mocha.describe('list objects - namespace_fs', async function() {
             }
         });
         const obj_nsr = { resource: namespace_resource_name, path: bucket_path };
+        // give read and write permission to owner
+        if (is_nc_coretest) {
+            const { uid, gid } = get_admin_account_details();
+            await test_utils.set_path_permissions_and_owner(full_path, { uid, gid }, 0o700);
+        }
         await rpc_client.bucket.create_bucket({
             name: bucket_name,
             namespace: {
@@ -1560,6 +1584,10 @@ mocha.describe('list buckets - namespace_fs', async function() {
                     await fs.promises.chown(cli_bucket_path, uid, gid);
                 }
                 const obj_nsr = { resource: dummy_nsr, path: bucket };
+                // give read and write permission to owner
+                 if (is_nc_coretest) {
+                    await test_utils.set_path_permissions_and_owner(cli_bucket_path, account_info, 0o700);
+                }
                 const create_bucket_options = {
                     name: bucket,
                     namespace: {

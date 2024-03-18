@@ -43,8 +43,8 @@ mkdir -p ${FS_ROOT_2}
 chmod 777 ${FS_ROOT_1}
 chmod 777 ${FS_ROOT_2}
 
-# Create config.json file
-config='{"ALLOW_HTTP":true}'
+# Create config.json file (it overrides the defaults, hence we will add the needed envs in the config file)
+config='{"ALLOW_HTTP":true,"ENDPOINT_PORT":'$ENDPOINT_PORT',"ENDPOINT_SSL_PORT":'$ENDPOINT_SSL_PORT'}'
 echo "$config" > ${CONFIG_DIR}/config.json
 
 # Deploy standalone NooBaa on the test container

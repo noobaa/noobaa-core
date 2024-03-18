@@ -15,6 +15,7 @@ const buffer_utils = require('../../util/buffer_utils');
 const endpoint_stats_collector = require('../../sdk/endpoint_stats_collector');
 const { NewlineReader } = require('../../util/file_reader');
 const { TapeCloudGlacierBackend } = require('../../sdk/nsfs_glacier_backend/tapecloud');
+const { PersistentLogger } = require('../../util/persistent_logger');
 const { GlacierBackend } = require('../../sdk/nsfs_glacier_backend/backend');
 
 const mkdtemp = util.promisify(fs.mkdtemp);
@@ -53,10 +54,31 @@ mocha.describe('nsfs_glacier', async () => {
 		stats: endpoint_stats_collector.instance(),
 	});
 
+
 	glacier_ns._is_storage_class_supported = async () => true;
 
 	mocha.before(async () => {
 		config.NSFS_GLACIER_LOGS_DIR = await mkdtemp(path.join(os.tmpdir(), 'nsfs-wal-'));
+
+		// Replace the logger by custom one
+
+		const migrate_wal = NamespaceFS._migrate_wal;
+		NamespaceFS._migrate_wal = new PersistentLogger(
+			config.NSFS_GLACIER_LOGS_DIR,
+			GlacierBackend.MIGRATE_WAL_NAME,
+			{ locking: 'EXCLUSIVE', poll_interval: 10 }
+		);
+
+		if (migrate_wal) await migrate_wal.close();
+
+		const restore_wal = NamespaceFS._restore_wal;
+		NamespaceFS._restore_wal = new PersistentLogger(
+			config.NSFS_GLACIER_LOGS_DIR,
+			GlacierBackend.RESTORE_WAL_NAME,
+			{ locking: 'EXCLUSIVE', poll_interval: 10 }
+		);
+
+		if (restore_wal) await restore_wal.close();
 	});
 
 	mocha.describe('nsfs_glacier_tapecloud', async () => {
@@ -83,12 +105,6 @@ mocha.describe('nsfs_glacier', async () => {
             }, dummy_object_sdk);
 
             console.log('upload_object response', inspect(upload_res));
-
-			// Force a swap, 3 cases are possible:
-			// 1. The file was already swapped - Unlikely but whatever
-			// 2. The file was empty (bug) - swap returns without doing anything
-			// 3. The file is swapped successfully
-			await NamespaceFS.migrate_wal._swap();
 
 			// Check if the log contains the entry
 			let found = false;
@@ -131,12 +147,6 @@ mocha.describe('nsfs_glacier', async () => {
 
 			const restore_res = await glacier_ns.restore_object(params, dummy_object_sdk);
 			assert(restore_res);
-
-			// Force a swap, 3 cases are possible:
-			// 1. The file was already swapped - Unlikely but whatever
-			// 2. The file was empty (bug) - swap returns without doing anything
-			// 3. The file is swapped successfully
-			await NamespaceFS.restore_wal._swap();
 
 			// Issue restore
 			await NamespaceFS.restore_wal.process_inactive(async file => {

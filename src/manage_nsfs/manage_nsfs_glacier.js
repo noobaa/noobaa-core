@@ -35,14 +35,7 @@ async function process_migrations() {
  * @param {import('../sdk/nsfs_glacier_backend/backend').GlacierBackend} backend
  */
 async function run_glacier_migrations(fs_context, backend) {
-    // This WAL is getting opened only so that we can process all the prcess WAL entries
-    const wal = new PersistentLogger(
-        config.NSFS_GLACIER_LOGS_DIR,
-        GlacierBackend.MIGRATE_WAL_NAME,
-        { disable_rotate: true, locking: 'EXCLUSIVE' },
-    );
-
-    await wal.process_inactive(async file => backend.migrate(fs_context, file));
+    await run_glacier_operation(fs_context, GlacierBackend.MIGRATE_WAL_NAME, backend.migrate.bind(backend));
 }
 
 async function process_restores() {
@@ -69,14 +62,7 @@ async function process_restores() {
  * @param {import('../sdk/nsfs_glacier_backend/backend').GlacierBackend} backend
  */
 async function run_glacier_restore(fs_context, backend) {
-    // This WAL is getting opened only so that we can process all the prcess WAL entries
-    const wal = new PersistentLogger(
-        config.NSFS_GLACIER_LOGS_DIR,
-        GlacierBackend.RESTORE_WAL_NAME,
-        { disable_rotate: true, locking: 'EXCLUSIVE' },
-    );
-
-    await wal.process_inactive(async file => backend.restore(fs_context, file));
+    await run_glacier_operation(fs_context, GlacierBackend.RESTORE_WAL_NAME, backend.restore.bind(backend));
 }
 
 async function process_expiry() {
@@ -106,7 +92,7 @@ async function time_exceeded(fs_context, interval, timestamp_file) {
 
         if (lastrun.getTime() + interval < Date.now()) return true;
     } catch (error) {
-        console.error('failed to read last run timestamp:', error);
+        console.error('failed to read last run timestamp:', error, 'timestamp_file:', timestamp_file);
         if (error.code === 'ENOENT') return true;
 
         throw error;
@@ -127,6 +113,54 @@ async function record_current_time(fs_context, timestamp_file) {
         path.join(config.NSFS_GLACIER_LOGS_DIR, timestamp_file),
         Buffer.from(new Date().toISOString()),
     );
+}
+
+/**
+ * run_glacier_operations takes a log_namespace and a callback and executes the
+ * callback on each log file in that namespace. It will also generate a failure
+ * log file and persist the failures in that log file.
+ * @param {nb.NativeFSContext} fs_context 
+ * @param {string} log_namespace 
+ * @param {Function} cb 
+ */
+async function run_glacier_operation(fs_context, log_namespace, cb) {
+    let log = null;
+    let failure_log = null;
+
+    try {
+        // This logger is getting opened only so that we can process all the process the entries
+        log = new PersistentLogger(config.NSFS_GLACIER_LOGS_DIR, log_namespace, { locking: 'EXCLUSIVE' });
+        failure_log = new PersistentLogger(
+            config.NSFS_GLACIER_LOGS_DIR,
+            `${log_namespace}.failure`,
+            { locking: 'EXCLUSIVE' },
+        );
+
+        try {
+            // Process all the inactive and currently active log
+            await log.process_inactive(async file => cb(fs_context, file, failure_log.append.bind(failure_log)));
+        } catch (error) {
+            console.error('failed to process logs, error:', error, 'log_namespace:', log_namespace);
+        }
+
+        try {
+            // Process the inactive failure logs (don't process the current though)
+            // This will REMOVE the previous failure logs and will merge them with the current failures
+            await failure_log.process_inactive(async file => cb(fs_context, file, failure_log.append.bind(failure_log)), false);
+        } catch (error) {
+            console.error('failed to process failure logs:', error, 'log_namespace:', log_namespace);
+        }
+
+        try {
+            // Finally replace the current active so as to consume them in the next iteration
+            await failure_log._replace_active();
+        } catch (error) {
+            console.error('failed to replace active failure log:', error, 'log_namespace:', log_namespace);
+        }
+    } finally {
+        if (log) await log.close();
+        if (failure_log) await failure_log.close();
+    }
 }
 
 /**

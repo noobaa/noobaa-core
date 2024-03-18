@@ -3005,7 +3005,7 @@ class NamespaceFS {
     static get migrate_wal() {
         if (!NamespaceFS._migrate_wal) {
             NamespaceFS._migrate_wal = new PersistentLogger(config.NSFS_GLACIER_LOGS_DIR, GlacierBackend.MIGRATE_WAL_NAME, {
-                max_interval: config.NSFS_GLACIER_LOGS_MAX_INTERVAL,
+                poll_interval: config.NSFS_GLACIER_LOGS_POLL_INTERVAL,
                 locking: 'SHARED',
             });
         }
@@ -3016,7 +3016,7 @@ class NamespaceFS {
     static get restore_wal() {
         if (!NamespaceFS._restore_wal) {
             NamespaceFS._restore_wal = new PersistentLogger(config.NSFS_GLACIER_LOGS_DIR, GlacierBackend.RESTORE_WAL_NAME, {
-                max_interval: config.NSFS_GLACIER_LOGS_MAX_INTERVAL,
+                poll_interval: config.NSFS_GLACIER_LOGS_POLL_INTERVAL,
                 locking: 'SHARED',
             });
         }

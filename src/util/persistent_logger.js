@@ -21,9 +21,8 @@ class PersistentLogger {
      * @param {string} dir parent directory
      * @param {string} namespace file prefix
      * @param {{
-     *  max_interval?: Number,
+     *  poll_interval?: Number,
      *  locking?: "SHARED" | "EXCLUSIVE",
-     *  disable_rotate?: boolean,
      * }} cfg 
      */
     constructor(dir, namespace, cfg) {
@@ -43,7 +42,7 @@ class PersistentLogger {
 
         this.init_lock = new Semaphore(1);
 
-        if (!cfg.disable_rotate) this._auto_rotate();
+        if (cfg.poll_interval) this._poll_active_file_change(cfg.poll_interval);
     }
 
     async init() {
@@ -100,72 +99,16 @@ class PersistentLogger {
         });
     }
 
+    /**
+     * appends the given data to the log file
+     * @param {string} data 
+     */
     async append(data) {
         const fh = await this.init();
 
-        const buf = Buffer.from(data + "\n", 'utf8');
+        const buf = Buffer.from(data + '\n', 'utf8');
         await fh.write(this.fs_context, buf, buf.length);
         this.local_size += buf.length;
-    }
-
-    _auto_rotate() {
-        this.swap_lock_file = path.join(this.dir, `${this.namespace}.swaplock`);
-
-        setInterval(async () => {
-            await this._swap();
-        }, this.cfg.max_interval).unref();
-    }
-
-    async _swap() {
-        if (!this.fh || !this.local_size) return;
-
-        let slfh = null;
-        try {
-            // Taking this lock ensure that when the file isn't moved between us checking the inode
-            // and performing the rename
-            slfh = await nb_native().fs.open(this.fs_context, this.swap_lock_file, 'rw');
-            await slfh.flock(this.fs_context, 'EXCLUSIVE');
-
-            let path_stat = null;
-            try {
-                // Ensure that the inode of the `this.active_path` is the same as the one we opened
-                path_stat = await nb_native().fs.stat(this.fs_context, this.active_path, {});
-            } catch (error) {
-                if (error.code === 'ENOENT') {
-                    // Some other process must have renamed the file
-                    dbg.log1('got ENOENT for the active file');
-                } else {
-                    // TODO: Unexpected case, handle better
-                    dbg.error('failed to stat current file:', error);
-                }
-            }
-
-            if (path_stat && path_stat.ino === this.fh_stat.ino) {
-                // Yes, time can drift. It can go in past or future. This at times might produce
-                // duplicate names or might produce names which ideally would have produced in the past.
-                //
-                // Hence, the order of files in the directory is not guaranteed to be in order of "time".
-                const inactive_file = `${this.namespace}.${Date.now()}.log`;
-                try {
-                    await nb_native().fs.rename(this.fs_context, this.active_path, path.join(this.dir, inactive_file));
-                } catch (error) {
-                    // It isn't really expected that this will fail assuming all the processes respect the locking
-                    // semantics
-                    // TODO: Unexpected case, handle better
-                    dbg.error('failed to rename file', error);
-                }
-            }
-
-            await this.close();
-        } catch (error) {
-            dbg.log0(
-                'failed to get swap lock:', error,
-                'dir:', this.dir,
-                'file:', this.file,
-            );
-        } finally {
-            if (slfh) await slfh.close(this.fs_context);
-        }
     }
 
     async close() {
@@ -188,14 +131,28 @@ class PersistentLogger {
 
     /**
      * process_inactive takes a callback and runs it on all past WAL files.
-     * It does not do so in any particular order.
+     * It does so in lexographically sorted order.
      * @param {(file: string) => Promise<boolean>} cb callback
+     * @param {boolean} replace_active
      */
-    async process_inactive(cb) {
-        const files = await nb_native().fs.readdir(this.fs_context, this.dir);
-        const filtered = files.filter(f => this.inactive_regex.test(f.name) && f.name !== this.file && !native_fs_utils.isDirectory(f));
+    async process_inactive(cb, replace_active = true) {
+        if (replace_active) {
+            await this._replace_active();
+        }
 
-        for (const file of filtered) {
+        let filtered_files = [];
+        try {
+            const files = await nb_native().fs.readdir(this.fs_context, this.dir);
+            filtered_files = files
+                .sort((a, b) => a.name.localeCompare(b.name))
+                .filter(f => this.inactive_regex.test(f.name) && f.name !== this.file && !native_fs_utils.isDirectory(f));
+        } catch (error) {
+            dbg.error('failed reading dir:', this.dir, 'with error:', error);
+            return;
+        }
+
+        for (const file of filtered_files) {
+            dbg.log1('Processing', this.dir, file);
             const delete_processed = await cb(path.join(this.dir, file.name));
             if (delete_processed) {
                 await nb_native().fs.unlink(this.fs_context, path.join(this.dir, file.name));
@@ -203,8 +160,42 @@ class PersistentLogger {
         }
     }
 
+    async _replace_active() {
+        const inactive_file = `${this.namespace}.${Date.now()}.log`;
+        const inactive_file_path = path.join(this.dir, inactive_file);
+
+        try {
+            await nb_native().fs.rename(this.fs_context, this.active_path, inactive_file_path);
+        } catch (error) {
+            dbg.warn('failed to rename active file:', error);
+        }
+    }
+
     async _open() {
         return nb_native().fs.open(this.fs_context, this.active_path, 'as');
+    }
+
+    _poll_active_file_change(poll_interval) {
+        setInterval(async () => {
+            try {
+                const stat = await nb_native().fs.stat(this.fs_context, this.active_path);
+
+                // Don't race with init process - Can happen if arogue/misconfigured
+                // process is continuously moving the active file
+                this.init_lock.surround(async () => {
+                    // If the file has changed, re-init
+                    if (stat.ino !== this.fh_stat.ino) {
+                        dbg.log1('active file changed, closing for namespace:', this.namespace);
+                        await this.close();
+                    }
+                });
+            } catch (error) {
+                if (error.code === 'ENOENT') {
+                    dbg.log1('active file removed, closing for namespace:', this.namespace);
+                    await this.close();
+                }
+            }
+        }, poll_interval).unref();
     }
 }
 

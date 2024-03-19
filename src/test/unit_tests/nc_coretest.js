@@ -418,7 +418,7 @@ async function put_bucket_policy_manage(options) {
  * @returns {Promise<void>}
  */
 async function delete_bucket_manage(options) {
-    const cli_options = { name: options.name };
+    const cli_options = { name: options.name, force: true };
     await exec_manage_cli(TYPES.BUCKET, ACTIONS.DELETE, cli_options);
 }
 

@@ -5,6 +5,8 @@ const mocha = require('mocha');
 const assert = require('assert');
 const coretest = require('./coretest');
 const db_client = require('../../util/db_client');
+const config = require('../../../config');
+const _ = require('lodash');
 
 // setup coretest first to prepare the env
 coretest.setup({ pools_to_create: [coretest.POOL_LIST[0]] });
@@ -136,6 +138,52 @@ mocha.describe('system_store', function() {
         const data2 = await system_store.load();
         console.log('new_data_store', data2.systems.length);
         assert.strictEqual(data2.systems[0].name, 'new_name');
+    });
+
+    mocha.it('Check make_changes could not insert same id twice', async function() {
+        if (config.DB_TYPE === 'mongodb') this.skip(); // eslint-disable-line no-invalid-this
+
+        const system_id = system_store.new_system_store_id();
+        const orig_name = `JenTheMajesticSlothSystemStoreLoop3`;
+        const test_name = `test_account_name`;
+        await system_store.load();
+
+        await system_store.make_changes({
+            insert: {
+                systems: [{
+                    _id: system_id,
+                    name: orig_name,
+                    owner: system_store.new_system_store_id(),
+                }]
+            }
+        });
+        try {
+            await system_store.make_changes({
+                insert: {
+                    systems: [{
+                        _id: system_id,
+                        name: 'new_name',
+                        owner: system_store.new_system_store_id(),
+                    }]
+                },
+                update: {
+                    accounts: [{
+                        _id: system_store.new_system_store_id(),
+                        name: test_name,
+                        email: 'test@noobaa.com',
+                        has_login: true,
+                    }]
+                }
+            });
+        } catch (err) {
+            console.log('Could not insert duplicate key :', err.message);
+        }
+        const data2 = await system_store.load();
+        console.log('new_data_store', data2);
+        console.log('account details : ', data2.accounts[0]);
+        assert(!(_.isEqual(data2.systems[0].name, 'new_name')));
+        assert(!(_.isEqual(data2.accounts[0].name, 'test_name')));
+
     });
 
 });

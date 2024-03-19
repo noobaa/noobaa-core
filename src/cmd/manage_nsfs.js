@@ -136,7 +136,6 @@ async function fetch_bucket_data(action, user_input) {
         owner_account: undefined,
         system_owner: user_input.owner, // GAP - needs to be the system_owner (currently it is the account name)
         bucket_owner: user_input.owner,
-        wide: _.isUndefined(user_input.wide) ? undefined : get_boolean_or_string_value(user_input.wide),
         tag: undefined, // if we would add the option to tag a bucket using CLI, this should be changed
         versioning: action === ACTIONS.ADD ? 'DISABLED' : undefined,
         creation_date: action === ACTIONS.ADD ? new Date().toISOString() : undefined,
@@ -321,7 +320,8 @@ async function manage_bucket_operations(action, data, user_input) {
         await delete_bucket(data);
     } else if (action === ACTIONS.LIST) {
         const bucket_filters = _.pick(user_input, LIST_BUCKET_FILTERS);
-        const buckets = await list_config_files(TYPES.BUCKET, buckets_dir_path, data.wide, undefined, bucket_filters);
+        const wide = get_boolean_or_string_value(user_input.wide);
+        const buckets = await list_config_files(TYPES.BUCKET, buckets_dir_path, wide, undefined, bucket_filters);
         write_stdout_response(ManageCLIResponse.BucketList, buckets);
     } else {
         // we should not get here (we check it before)
@@ -365,7 +365,6 @@ async function fetch_account_data(action, user_input) {
         name: _.isUndefined(user_input.name) ? undefined : String(user_input.name),
         email: _.isUndefined(user_input.name) ? undefined : String(user_input.name), // temp, keep the email internally
         creation_date: action === ACTIONS.ADD ? new Date().toISOString() : undefined,
-        wide: _.isUndefined(user_input.wide) ? undefined : get_boolean_or_string_value(user_input.wide),
         new_name: _.isUndefined(user_input.new_name) ? undefined : String(user_input.new_name),
         new_access_key,
         access_keys,
@@ -572,7 +571,8 @@ async function manage_account_operations(action, data, show_secrets, user_input)
         await delete_account(data);
     } else if (action === ACTIONS.LIST) {
         const account_filters = _.pick(user_input, LIST_ACCOUNT_FILTERS);
-        const accounts = await list_config_files(TYPES.ACCOUNT, accounts_dir_path, data.wide, show_secrets, account_filters);
+        const wide = get_boolean_or_string_value(user_input.wide);
+        const accounts = await list_config_files(TYPES.ACCOUNT, accounts_dir_path, wide, show_secrets, account_filters);
         write_stdout_response(ManageCLIResponse.AccountList, accounts);
     } else {
         // we should not get here (we check it before)

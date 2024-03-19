@@ -647,6 +647,12 @@ describe('manage nsfs cli account flow', () => {
             const res = await exec_manage_cli(type, action, account_options);
             expect(JSON.parse(res).response.reply.map(item => item.name))
                 .toEqual(expect.arrayContaining(['account3', 'account2', 'account1']));
+            // added additional properties that we can see with wide option (uid, new_buckets_path)
+            expect(JSON.parse(res).response.reply.map(item => item.nsfs_account_config.uid))
+                .toEqual(expect.arrayContaining([999, 888]));
+            expect(JSON.parse(res).response.reply.map(item => item.nsfs_account_config.new_buckets_path))
+                .toEqual(expect.arrayContaining([`${root_path}new_buckets_path_user1/`,
+                    `${root_path}new_buckets_path_user2/`, `${root_path}new_buckets_path_user3/`]));
         });
 
         it('cli list wide (use the flag with value "true"', async () => {

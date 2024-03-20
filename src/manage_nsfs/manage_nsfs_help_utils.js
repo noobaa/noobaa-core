@@ -72,7 +72,7 @@ Flags:
 --name <string>                                                         Set the name for the account
 --uid <number>                                                          Set the User Identifier (UID) (UID and GID can be replaced by --user option)
 --gid <number>                                                          Set the Group Identifier (GID) (UID and GID can be replaced by --user option)
---new_buckets_path <string>                                             Set the filesystem's root path where each subdirectory is a bucket
+--new_buckets_path <string>                           (optional)        Set the filesystem's root path where each subdirectory is a bucket
 --user <string>                                       (optional)        Set the OS user name (instead of UID and GID)
 --access_key <string>                                 (optional)        Set the access key for the account (default is generated)
 --secret_key <string>                                 (optional)        Set the secret key for the account (default is generated)

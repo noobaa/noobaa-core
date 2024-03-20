@@ -757,6 +757,12 @@ config.NSFS_GLACIER_RESTORE_INTERVAL = 15 * 60 * 1000;
 // of `manage_nsfs glacier expiry`
 config.NSFS_GLACIER_EXPIRY_INTERVAL = 12 * 60 * 60 * 1000;
 
+/** @type {'UTC' | 'LOCAL'} */
+config.NSFS_GLACIER_EXPIRY_TZ = 'LOCAL';
+
+// Format must be HH:MM:SS
+config.NSFS_GLACIER_EXPIRY_TIME_OF_DAY = '00:00:00';
+
 ////////////////////////////
 // NSFS NON CONTAINERIZED //
 ////////////////////////////

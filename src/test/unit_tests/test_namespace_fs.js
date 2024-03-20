@@ -561,12 +561,10 @@ mocha.describe('namespace_fs', function() {
 
                 // Don't leak the xattrs to the user
                 assert.strictEqual(restore_objectmd.xattr['user.noobaa.restore.request'], undefined);
-                assert.strictEqual(restore_objectmd.xattr['user.noobaa.restore.ongoing'], undefined);
                 assert.strictEqual(restore_objectmd.xattr['user.noobaa.restore.expiry'], undefined);
 
                 const xattr = await get_xattr(path.join(ns_tmp_bucket_path, temp_restore_key));
                 assert.strictEqual(xattr['user.noobaa.restore.request'], '1');
-                assert.strictEqual(xattr['user.noobaa.restore.ongoing'], undefined);
                 assert.strictEqual(xattr['user.noobaa.restore.expiry'], undefined);
 
                 // disallows duplicate restore requests

@@ -349,6 +349,19 @@ describe('manage nsfs cli account flow', () => {
             expect(real_path).toContain('../accounts/' + account_options.name + '.json');
         });
 
+        it('cli account add - use flag force_md5_etag', async function() {
+            const action = ACTIONS.ADD;
+            const { type, name, new_buckets_path, uid, gid } = defaults;
+            const force_md5_etag = true;
+            const account_options = { config_root, name, new_buckets_path, uid, gid, force_md5_etag };
+            await fs_utils.create_fresh_path(new_buckets_path);
+            await fs_utils.file_must_exist(new_buckets_path);
+            await set_path_permissions_and_owner(new_buckets_path, account_options, 0o700);
+            await exec_manage_cli(type, action, account_options);
+            const account = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
+            expect(account.force_md5_etag).toBe(true);
+        });
+
     });
 
     describe('cli update account', () => {
@@ -608,6 +621,37 @@ describe('manage nsfs cli account flow', () => {
             assert_account(account_symlink, new_account_details);
             const real_path = fs.readlinkSync(path.join(config_root, CONFIG_SUBDIRS.ACCESS_KEYS, access_key + '.symlink'));
             expect(real_path).toContain('../accounts/' + new_name + '.json');
+        });
+
+        it('cli update account set flag force_md5_etag', async function() {
+            const { name } = defaults;
+            const account_options = { config_root, name, force_md5_etag: 'true'};
+            const action = ACTIONS.UPDATE;
+            await exec_manage_cli(type, action, account_options);
+            let new_account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
+            expect(new_account_details.force_md5_etag).toBe(true);
+
+            account_options.force_md5_etag = 'false';
+            await exec_manage_cli(type, action, account_options);
+            new_account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
+            expect(new_account_details.force_md5_etag).toBe(false);
+        });
+
+        it('cli update account unset flag force_md5_etag', async function() {
+            // first set the value of force_md5_etag to be true
+            const { name } = defaults;
+            const account_options = { config_root, name, force_md5_etag: 'true'};
+            const action = ACTIONS.UPDATE;
+            await exec_manage_cli(type, action, account_options);
+            let new_account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
+            expect(new_account_details.force_md5_etag).toBe(true);
+
+            // unset force_md5_etag
+            const empty_string = '\'\'';
+            account_options.force_md5_etag = empty_string;
+            await exec_manage_cli(type, action, account_options);
+            new_account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
+            expect(new_account_details.force_md5_etag).toBeUndefined();
         });
 
     });

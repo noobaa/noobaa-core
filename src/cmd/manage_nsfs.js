@@ -23,7 +23,7 @@ const bucket_policy_utils = require('../endpoint/s3/s3_bucket_policy_utils');
 const nsfs_schema_utils = require('../manage_nsfs/nsfs_schema_utils');
 const { print_usage } = require('../manage_nsfs/manage_nsfs_help_utils');
 const { TYPES, ACTIONS, VALID_OPTIONS, OPTION_TYPE, FROM_FILE, BOOLEAN_STRING_VALUES,
-    LIST_ACCOUNT_FILTERS, LIST_BUCKET_FILTERS, GLACIER_ACTIONS } = require('../manage_nsfs/manage_nsfs_constants');
+    LIST_ACCOUNT_FILTERS, LIST_BUCKET_FILTERS, GLACIER_ACTIONS, LIST_UNSETABLE_OPTIONS } = require('../manage_nsfs/manage_nsfs_constants');
 const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
 
 function throw_cli_error(error_code, detail, event_arg) {
@@ -143,7 +143,8 @@ async function fetch_bucket_data(action, user_input) {
         path: user_input.path,
         should_create_underlying_storage: action === ACTIONS.ADD ? false : undefined,
         new_name: _.isUndefined(user_input.new_name) ? undefined : String(user_input.new_name),
-        fs_backend: _.isUndefined(user_input.fs_backend) ? config.NSFS_NC_STORAGE_BACKEND : String(user_input.fs_backend)
+        fs_backend: _.isUndefined(user_input.fs_backend) ? config.NSFS_NC_STORAGE_BACKEND : String(user_input.fs_backend),
+        force_md5_etag: _.isUndefined(user_input.force_md5_etag) || user_input.force_md5_etag === '' ? user_input.force_md5_etag : get_boolean_or_string_value(user_input.force_md5_etag)
         };
 
     if (user_input.bucket_policy !== undefined) {
@@ -169,6 +170,8 @@ async function fetch_bucket_data(action, user_input) {
     data.fs_backend = data.fs_backend || undefined;
     // s3_policy deletion specified with empty string '' (but it is not part of the schema)
     data.s3_policy = data.s3_policy || undefined;
+    // force_md5_etag deletion specified with empty string '' checked against user_input because data.force_md5_etag is boolean
+    data.force_md5_etag = data.force_md5_etag === '' ? undefined : data.force_md5_etag;
 
     return data;
 }
@@ -376,6 +379,7 @@ async function fetch_account_data(action, user_input) {
         new_name: _.isUndefined(user_input.new_name) ? undefined : String(user_input.new_name),
         new_access_key,
         access_keys,
+        force_md5_etag: _.isUndefined(user_input.force_md5_etag) || user_input.force_md5_etag === '' ? user_input.force_md5_etag : get_boolean_or_string_value(user_input.force_md5_etag),
         nsfs_account_config: {
             distinguished_name: user_input.user,
             uid: user_input.user ? undefined : user_input.uid,
@@ -401,6 +405,8 @@ async function fetch_account_data(action, user_input) {
     data.nsfs_account_config.fs_backend = data.nsfs_account_config.fs_backend || undefined;
     // new_buckets_path deletion specified with empty string ''
     data.nsfs_account_config.new_buckets_path = data.nsfs_account_config.new_buckets_path || undefined;
+    // force_md5_etag deletion specified with empty string '' checked against user_input.force_md5_etag because data.force_md5_etag is boolean
+    data.force_md5_etag = data.force_md5_etag === '' ? undefined : data.force_md5_etag;
     // allow_bucket_creation either set by user or infer from new_buckets_path
     if (_.isUndefined(user_input.allow_bucket_creation)) {
         data.allow_bucket_creation = !_.isUndefined(data.nsfs_account_config.new_buckets_path);
@@ -937,12 +943,16 @@ function validate_options_type_by_value(input_options_with_data) {
         const type_of_option = OPTION_TYPE[option];
         const type_of_value = typeof value;
         if (type_of_value !== type_of_option) {
+            // special case for unset value (specified by '').
+            if (LIST_UNSETABLE_OPTIONS.includes(option) && value === '') {
+                continue;
+            }
             // special case for names, although the type is string we want to allow numbers as well
             if ((option === 'name' || option === 'new_name') && (type_of_value === 'number')) {
                 continue;
             }
             // special case for boolean values
-            if (['allow_bucket_creation', 'regenerate', 'wide', 'show_secrets', 'force'].includes(option) && validate_boolean_string_value(value)) {
+            if (['allow_bucket_creation', 'regenerate', 'wide', 'show_secrets', 'force', 'force_md5_etag'].includes(option) && validate_boolean_string_value(value)) {
                 continue;
             }
             // special case for bucket_policy (from_file)

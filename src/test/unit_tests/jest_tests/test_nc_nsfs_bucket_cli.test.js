@@ -39,7 +39,7 @@ describe('manage nsfs cli bucket flow', () => {
 
         const bucket_defaults = {
             name: 'bucket1',
-            owner: 'account1',
+            owner: account_defaults.name,
             path: bucket_storage_path,
         };
 
@@ -76,6 +76,15 @@ describe('manage nsfs cli bucket flow', () => {
             const bucket_options = { config_root, ...bucket_defaults, path: path_invalid };
             const res = await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
             expect(JSON.parse(res.stdout).error.message).toBe(ManageCLIError.InvalidStoragePath.message);
+        });
+
+        it('cli create bucket use flag force_md5_etag', async () => {
+            const action = ACTIONS.ADD;
+            const force_md5_etag = 'true';
+            const bucket_options = { config_root, ...bucket_defaults, force_md5_etag };
+            await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
+            const bucket = await read_config_file(config_root, CONFIG_SUBDIRS.BUCKETS, bucket_defaults.name);
+            expect(bucket.force_md5_etag).toBe(true);
         });
 
     });
@@ -365,6 +374,85 @@ describe('cli create bucket using from_file', () => {
         expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidJSONFile.code);
     });
 
+});
+
+describe('cli update bucket', () => {
+    const config_root = path.join(tmp_fs_path, 'config_root_manage_nsfs3');
+    const root_path = path.join(tmp_fs_path, 'root_path_manage_nsfs3/');
+    const bucket_storage_path = path.join(tmp_fs_path, 'root_path_manage_nsfs3', 'bucket1');
+
+    const account_name = 'account_test';
+    const account_defaults = {
+        name: account_name,
+        new_buckets_path: `${root_path}new_buckets_path_4/`,
+        uid: 1001,
+        gid: 1001,
+    };
+
+    const bucket_defaults = {
+        name: 'bucket1',
+        owner: account_name,
+        path: bucket_storage_path,
+    };
+
+    beforeEach(async () => {
+        await fs_utils.create_fresh_path(`${config_root}/${CONFIG_SUBDIRS.BUCKETS}`);
+        await fs_utils.create_fresh_path(root_path);
+        await fs_utils.create_fresh_path(bucket_storage_path);
+        const action = ACTIONS.ADD;
+        // Account add
+        const { new_buckets_path: account_path } = account_defaults;
+        const account_options = { config_root, ...account_defaults };
+        await fs_utils.create_fresh_path(account_path);
+        await fs_utils.file_must_exist(account_path);
+        await set_path_permissions_and_owner(account_path, account_options, 0o700);
+        await exec_manage_cli(TYPES.ACCOUNT, action, account_options);
+
+        //bucket add
+        const { path: bucket_path } = bucket_defaults;
+        const bucket_options = { config_root, ...bucket_defaults };
+        await fs_utils.create_fresh_path(bucket_path);
+        await fs_utils.file_must_exist(bucket_path);
+        const resp = await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
+        const bucket_resp = JSON.parse(resp);
+        expect(bucket_resp.response.reply._id).not.toBeNull();
+    });
+
+    afterEach(async () => {
+        await fs_utils.folder_delete(`${config_root}`);
+        await fs_utils.folder_delete(`${root_path}`);
+    });
+
+    it('cli update bucket set force_md5_etag', async () => {
+        const action = ACTIONS.UPDATE;
+        const force_md5_etag = 'true';
+        const bucket_options = { config_root, name: bucket_defaults.name, force_md5_etag };
+        await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
+        let bucket_config = await read_config_file(config_root, CONFIG_SUBDIRS.BUCKETS, bucket_defaults.name);
+        expect(bucket_config.force_md5_etag).toBe(true);
+
+        bucket_options.force_md5_etag = 'false';
+        await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
+        bucket_config = await read_config_file(config_root, CONFIG_SUBDIRS.BUCKETS, bucket_defaults.name);
+        expect(bucket_config.force_md5_etag).toBe(false);
+    });
+
+    it('cli update bucket unset flag force_md5_etag', async function() {
+        // first set the value of force_md5_etag to be true
+        const action = ACTIONS.UPDATE;
+        const force_md5_etag = 'true';
+        const bucket_options = { config_root, name: bucket_defaults.name, force_md5_etag };
+        await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
+        let bucket_config = await read_config_file(config_root, CONFIG_SUBDIRS.BUCKETS, bucket_defaults.name);
+        expect(bucket_config.force_md5_etag).toBe(true);
+
+        // unset force_md5_etag
+        const empty_string = '\'\'';
+        bucket_options.force_md5_etag = empty_string;
+        await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
+        bucket_config = await read_config_file(config_root, CONFIG_SUBDIRS.BUCKETS, bucket_defaults.name);
+        expect(bucket_config.force_md5_etag).toBeUndefined();
+    });
 });
 
 /**

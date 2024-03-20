@@ -49,6 +49,7 @@ function write_stdout_response(response_code, detail, event_arg) {
 const buckets_dir_name = '/buckets';
 const accounts_dir_name = '/accounts';
 const access_keys_dir_name = '/access_keys';
+const acounts_dir_relative_path = '../accounts/';
 
 let config_root;
 let accounts_dir_path;
@@ -440,6 +441,7 @@ async function add_account(data) {
     const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
     const access_key = data.access_keys[0].access_key;
     const account_config_path = get_config_file_path(accounts_dir_path, data.name);
+    const account_config_relative_path = get_config_file_path(acounts_dir_relative_path, data.name);
     const account_config_access_key_path = get_symlink_config_file_path(access_keys_dir_path, access_key);
 
     const name_exists = await native_fs_utils.is_path_exists(fs_context, account_config_path);
@@ -458,7 +460,7 @@ async function add_account(data) {
     nsfs_schema_utils.validate_account_schema(JSON.parse(data));
     await native_fs_utils.create_config_file(fs_context, accounts_dir_path, account_config_path, data);
     await native_fs_utils._create_path(access_keys_dir_path, fs_context, config.BASE_MODE_CONFIG_DIR);
-    await nb_native().fs.symlink(fs_context, account_config_path, account_config_access_key_path);
+    await nb_native().fs.symlink(fs_context, account_config_relative_path, account_config_access_key_path);
     write_stdout_response(ManageCLIResponse.AccountCreated, data, {account: event_arg});
 }
 
@@ -489,6 +491,7 @@ async function update_account(data) {
     data.access_keys[0].access_key = data.new_access_key || cur_access_key;
     const cur_account_config_path = get_config_file_path(accounts_dir_path, cur_name);
     const new_account_config_path = get_config_file_path(accounts_dir_path, data.name);
+    const new_account_relative_config_path = get_config_file_path(acounts_dir_relative_path, data.name);
     const cur_access_key_config_path = get_symlink_config_file_path(access_keys_dir_path, cur_access_key);
     const new_access_key_config_path = get_symlink_config_file_path(access_keys_dir_path, data.access_keys[0].access_key);
     const name_exists = update_name && await native_fs_utils.is_path_exists(fs_context, new_account_config_path);
@@ -512,7 +515,7 @@ async function update_account(data) {
     // need to find a better way for atomic unlinking of symbolic links
     // handle atomicity for symlinks
     await nb_native().fs.unlink(fs_context, cur_access_key_config_path);
-    await nb_native().fs.symlink(fs_context, new_account_config_path, new_access_key_config_path);
+    await nb_native().fs.symlink(fs_context, new_account_relative_config_path, new_access_key_config_path);
     write_stdout_response(ManageCLIResponse.AccountUpdated, data);
 }
 

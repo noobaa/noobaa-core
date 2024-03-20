@@ -39,7 +39,7 @@ const new_account_params = {
 };
 
 const first_bucket = 'first.bucket';
-const is_NC_CORETEST = process.env.NC_CORETEST === 'true';
+const is_nc_coretest = process.env.NC_CORETEST === 'true';
 
 // currently will pass only when running locally
 mocha.describe('bucket operations - namespace_fs', function() {
@@ -109,7 +109,7 @@ mocha.describe('bucket operations - namespace_fs', function() {
         });
         const obj_nsr = { resource: nsr, path: bucket_path };
         // give read and write permission to owner
-        if (is_NC_CORETEST) {
+        if (is_nc_coretest) {
             const { uid, gid } = get_admin_account_details();
             await test_utils.set_path_permissions_and_owner(src_bucket_path, { uid, gid }, 0o700);
         }
@@ -142,7 +142,7 @@ mocha.describe('bucket operations - namespace_fs', function() {
         const obj_nsr = { resource: nsr, path: bucket_path };
         const other_obj_nsr = { resource: nsr, path: other_bucket_path };
         // give read and write permission to owner
-        if (is_NC_CORETEST) {
+        if (is_nc_coretest) {
             const { uid, gid } = get_admin_account_details();
             await test_utils.set_path_permissions_and_owner(src1_bucket_path, { uid, gid }, 0o700);
         }
@@ -187,7 +187,7 @@ mocha.describe('bucket operations - namespace_fs', function() {
         const res = await s3_owner.listBuckets({});
         console.log(inspect(res));
         let list_ok;
-        if (is_NC_CORETEST) {
+        if (is_nc_coretest) {
             // in order to create a bucket in manage nsfs we need to give permission to the owner
             // hence we will have the gid and uid of the bucket_name
             list_ok = bucket_in_list([first_bucket], [], res.Buckets);
@@ -920,7 +920,7 @@ mocha.describe('list objects - namespace_fs', async function() {
         });
         const obj_nsr = { resource: namespace_resource_name, path: bucket_path };
         // give read and write permission to owner
-        if (is_NC_CORETEST) {
+        if (is_nc_coretest) {
             const { uid, gid } = get_admin_account_details();
             await test_utils.set_path_permissions_and_owner(full_path, { uid, gid }, 0o700);
         }
@@ -1528,7 +1528,7 @@ mocha.describe('list buckets - namespace_fs', async function() {
                 }
                 const obj_nsr = { resource: dummy_nsr, path: bucket };
                 // give read and write permission to owner
-                 if (is_NC_CORETEST) {
+                 if (is_nc_coretest) {
                     await test_utils.set_path_permissions_and_owner(cli_bucket_path, account_info, 0o700);
                 }
                 const create_bucket_options = {

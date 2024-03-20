@@ -86,7 +86,7 @@ describe('manage nsfs cli bucket flow', () => {
             await fs_utils.file_must_exist(bucket_options.path);
             await set_path_permissions_and_owner(bucket_options.path, account_defaults, 0o077);
             const res = await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
-            expect(JSON.parse(res.stdout).error.message).toBe(ManageCLIError.InaccessibleBucketPath.message);
+            expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InaccessibleStoragePath.code);
         });
 
         it('should fail - cli create bucket - owner does not have write permission to path', async () => {
@@ -96,7 +96,7 @@ describe('manage nsfs cli bucket flow', () => {
             await fs_utils.file_must_exist(bucket_options.path);
             await set_path_permissions_and_owner(bucket_options.path, account_defaults, 0o477);
             const res = await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
-            expect(JSON.parse(res.stdout).error.message).toBe(ManageCLIError.InaccessibleBucketPath.message);
+            expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InaccessibleStoragePath.code);
         });
 
         it('should fail - cli create bucket - owner does not have read permission to path', async () => {
@@ -106,7 +106,7 @@ describe('manage nsfs cli bucket flow', () => {
             await fs_utils.file_must_exist(bucket_options.path);
             await set_path_permissions_and_owner(bucket_options.path, account_defaults, 0o277);
             const res = await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
-            expect(JSON.parse(res.stdout).error.message).toBe(ManageCLIError.InaccessibleBucketPath.message);
+            expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InaccessibleStoragePath.code);
         });
 
         it('cli create bucket - account can access path', async () => {
@@ -317,7 +317,7 @@ describe('manage nsfs cli bucket flow', () => {
             await fs_utils.file_must_exist(bucket_defaults.path);
             await set_path_permissions_and_owner(bucket_defaults.path, account_defaults2, 0o077);
             const res = await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
-            expect(JSON.parse(res.stdout).error.message).toBe(ManageCLIError.InaccessibleBucketPath.message);
+            expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InaccessibleStoragePath.code);
         });
 
         it('should fail - cli update bucket owner - owner does not have write permission to path', async () => {
@@ -327,7 +327,7 @@ describe('manage nsfs cli bucket flow', () => {
             await fs_utils.file_must_exist(bucket_defaults.path);
             await set_path_permissions_and_owner(bucket_defaults.path, account_defaults2, 0o477);
             const res = await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
-            expect(JSON.parse(res.stdout).error.message).toBe(ManageCLIError.InaccessibleBucketPath.message);
+            expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InaccessibleStoragePath.code);
         });
 
         it('should fail - cli update bucket owner - owner does not have read permission to path', async () => {
@@ -337,7 +337,7 @@ describe('manage nsfs cli bucket flow', () => {
             await fs_utils.file_must_exist(bucket_defaults.path);
             await set_path_permissions_and_owner(bucket_defaults.path, account_defaults2, 0o277);
             const res = await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
-            expect(JSON.parse(res.stdout).error.message).toBe(ManageCLIError.InaccessibleBucketPath.message);
+            expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InaccessibleStoragePath.code);
         });
 
         it('cli update bucket owner - account can access path', async () => {

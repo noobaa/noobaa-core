@@ -769,7 +769,7 @@ async function validate_bucket_args(data, action) {
         const account_fs_context = await native_fs_utils.get_fs_context(account.nsfs_account_config, data.fs_backend);
         const accessible = await native_fs_utils.is_dir_rw_accessible(account_fs_context, data.path);
         if (!accessible) {
-            throw_cli_error(ManageCLIError.InaccessibleBucketPath, data.path);
+            throw_cli_error(ManageCLIError.InaccessibleStoragePath, data.path);
         }
         if (data.s3_policy) {
             try {

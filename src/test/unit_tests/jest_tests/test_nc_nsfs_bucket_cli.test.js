@@ -5,34 +5,24 @@
 // disabling init_rand_seed as it takes longer than the actual test execution
 process.env.DISABLE_INIT_RANDOM_SEED = "true";
 
-const _ = require('lodash');
 const path = require('path');
-const P = require('../../../util/promise');
-const fs_utils = require('../../../util/fs_utils');
 const os_util = require('../../../util/os_utils');
+const fs_utils = require('../../../util/fs_utils');
 const config_module = require('../../../../config');
-const native_fs_utils = require('../../../util/native_fs_utils');
+const { set_path_permissions_and_owner, TMP_PATH } = require('../../system_tests/test_utils');
+const { ACTIONS, TYPES, CONFIG_SUBDIRS } = require('../../../manage_nsfs/manage_nsfs_constants');
+const { get_process_fs_context, is_path_exists } = require('../../../util/native_fs_utils');
 const ManageCLIError = require('../../../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
-const { TYPES, ACTIONS } = require('../../../manage_nsfs/manage_nsfs_constants');
 
-const MAC_PLATFORM = 'darwin';
-let tmp_fs_path = '/tmp/test_bucketspace_fs';
-if (process.platform === MAC_PLATFORM) {
-    tmp_fs_path = '/private/' + tmp_fs_path;
-}
+const tmp_fs_path = path.join(TMP_PATH, 'test_bucketspace_fs');
+const DEFAULT_FS_CONFIG = get_process_fs_context();
+
 let bucket_storage_path;
 let bucket_temp_dir_path;
 
-const DEFAULT_FS_CONFIG = {
-    uid: process.getuid(),
-    gid: process.getgid(),
-    backend: '',
-    warn_threshold_ms: 100,
-};
 
 // eslint-disable-next-line max-lines-per-function
 describe('manage nsfs cli bucket flow', () => {
-    const buckets_schema_dir = 'buckets';
 
     describe('cli create bucket', () => {
         const config_root = path.join(tmp_fs_path, 'config_root_manage_nsfs');
@@ -55,8 +45,7 @@ describe('manage nsfs cli bucket flow', () => {
         };
 
         beforeEach(async () => {
-            await P.all(_.map([buckets_schema_dir], async dir =>
-                fs_utils.create_fresh_path(`${config_root}/${dir}`)));
+            await fs_utils.create_fresh_path(`${config_root}/${CONFIG_SUBDIRS.BUCKETS}`);
             await fs_utils.create_fresh_path(root_path);
             await fs_utils.create_fresh_path(bucket_storage_path);
             const action = ACTIONS.ADD;
@@ -65,6 +54,7 @@ describe('manage nsfs cli bucket flow', () => {
             const account_options = { config_root, ...account_defaults };
             await fs_utils.create_fresh_path(account_path);
             await fs_utils.file_must_exist(account_path);
+            await set_path_permissions_and_owner(account_path, account_options, 0o700);
             await exec_manage_cli(TYPES.ACCOUNT, action, account_options);
         });
 
@@ -114,8 +104,7 @@ describe('manage nsfs cli bucket flow', () => {
         };
 
         beforeEach(async () => {
-            await P.all(_.map([buckets_schema_dir], async dir =>
-                fs_utils.create_fresh_path(`${config_root}/${dir}`)));
+            await fs_utils.create_fresh_path(`${config_root}/${CONFIG_SUBDIRS.BUCKETS}`);
             await fs_utils.create_fresh_path(root_path);
             await fs_utils.create_fresh_path(bucket_storage_path);
             const action = ACTIONS.ADD;
@@ -124,6 +113,7 @@ describe('manage nsfs cli bucket flow', () => {
             const account_options = { config_root, ...account_defaults };
             await fs_utils.create_fresh_path(account_path);
             await fs_utils.file_must_exist(account_path);
+            await set_path_permissions_and_owner(account_path, account_options, 0o700);
             await exec_manage_cli(TYPES.ACCOUNT, action, account_options);
 
             //bucket add
@@ -164,13 +154,13 @@ describe('manage nsfs cli bucket flow', () => {
         });
 
         it('cli delete bucket and delete temp dir', async () => {
-            let is_path_exists = await native_fs_utils.is_path_exists(DEFAULT_FS_CONFIG, bucket_temp_dir_path);
-            expect(is_path_exists).toBe(true);
+            let path_exists = await is_path_exists(DEFAULT_FS_CONFIG, bucket_temp_dir_path);
+            expect(path_exists).toBe(true);
             const bucket_options = { config_root, name: 'bucket1'};
             const action = ACTIONS.DELETE;
             await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
-            is_path_exists = await native_fs_utils.is_path_exists(DEFAULT_FS_CONFIG, bucket_temp_dir_path);
-            expect(is_path_exists).toBe(false);
+            path_exists = await is_path_exists(DEFAULT_FS_CONFIG, bucket_temp_dir_path);
+            expect(path_exists).toBe(false);
         });
     });
 });

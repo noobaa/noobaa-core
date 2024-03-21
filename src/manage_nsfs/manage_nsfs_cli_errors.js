@@ -95,6 +95,18 @@ ManageCLIError.InvalidSchema = Object.freeze({
     http_code: 400,
 });
 
+ManageCLIError.InvalidFilePath = Object.freeze({
+    code: 'InvalidFilePath',
+    message: 'Invalid file path',
+    http_code: 400,
+});
+
+ManageCLIError.InvalidJSONFile = Object.freeze({
+    code: 'InvalidJSONFile',
+    message: 'Invalid JSON file',
+    http_code: 400,
+});
+
 //////////////////////////////
 //// IP WHITE LIST ERRORS ////
 //////////////////////////////
@@ -220,6 +232,12 @@ ManageCLIError.MissingAccountNSFSConfigGID = Object.freeze({
 ManageCLIError.InvalidAccountNewBucketsPath = Object.freeze({
     code: 'InvalidAccountNewBucketsPath',
     message: 'Account\'s new_buckets_path should be a valid and existing directory path',
+    http_code: 400,
+});
+
+ManageCLIError.InvalidBooleanValue = Object.freeze({
+    code: 'InvalidBooleanValue',
+    message: 'supported values are true and false',
     http_code: 400,
 });
 
@@ -356,6 +374,7 @@ ManageCLIError.FS_ERRORS_TO_MANAGE = Object.freeze({
 
 ManageCLIError.RPC_ERROR_TO_MANAGE = Object.freeze({
     INVALID_SCHEMA: ManageCLIError.InvalidSchema,
+    NO_SUCH_USER: ManageCLIError.InvalidAccountDistinguishedName
 });
 
 const NSFS_CLI_ERROR_EVENT_MAP = {

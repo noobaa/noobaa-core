@@ -155,6 +155,7 @@ class NsfsObjectSDK extends ObjectSDK {
             this._get_bucket_namespace = bucket_name => this._simple_get_single_bucket_namespace(bucket_name);
             this.load_requesting_account = auth_req => this._simple_load_requesting_account(auth_req);
             this.read_bucket_sdk_policy_info = bucket_name => this._simple_read_bucket_sdk_policy_info(bucket_name);
+            this.read_bucket_sdk_config_info = () => undefined;
             this.read_bucket_usage_info = () => undefined;
             this.read_bucket_sdk_website_info = () => undefined;
             this.read_bucket_sdk_namespace_info = () => undefined;
@@ -232,7 +233,10 @@ async function init_nsfs_system(config_root) {
         });
         console.log('created NSFS system data with version: ', pkg.version);
     } catch (err) {
-        console.error('failed to create NSFS system data', err);
+        const msg = 'failed to create NSFS system data due to - ' + err.message;
+        const error = new Error(msg);
+        console.error(msg, err);
+        throw error;
     }
 }
 

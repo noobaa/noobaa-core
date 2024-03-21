@@ -105,6 +105,11 @@ const nsfs_node_config_schema = {
             type: 'number',
             default: 4 * 64 * 1024 * 1024,
             description: 'maximum size of the dir cache, suggested values 768MB, service restart required'
+        },
+        ENABLE_DEV_RANDOM_SEED: {
+            type: 'boolean',
+            default: false,
+            description: 'This flag will enable the random seeding for the application'
         }
     }
 };

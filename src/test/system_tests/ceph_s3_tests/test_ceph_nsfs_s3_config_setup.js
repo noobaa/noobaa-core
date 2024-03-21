@@ -54,7 +54,7 @@ async function ceph_test_setup() {
     const access_key_tenant = access_keys.access_key;
     const secret_key_tenant = access_keys.secret_key;
 
-    if (process.platform === 'darwin') {
+    if (os_utils.IS_MAC) {
         await os_utils.exec(`sed -i "" "s|tenant_access_key|"${access_key_tenant}"|g" ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`);
         await os_utils.exec(`sed -i "" "s|tenant_secret_key|${secret_key_tenant}|g" ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`);
 

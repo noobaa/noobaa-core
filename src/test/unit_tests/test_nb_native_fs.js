@@ -5,16 +5,12 @@ const _ = require('lodash');
 const fs = require('fs');
 const mocha = require('mocha');
 const assert = require('assert');
-const nb_native = require('../../util/nb_native');
 const fs_utils = require('../../util/fs_utils');
+const os_utils = require('../../util/os_utils');
+const nb_native = require('../../util/nb_native');
+const { get_process_fs_context } = require('../../util/native_fs_utils');
 
-const DEFAULT_FS_CONFIG = {
-    uid: process.getuid(),
-    gid: process.getgid(),
-    backend: '',
-    warn_threshold_ms: 100,
-};
-const MAC_PLATFORM = 'darwin';
+const DEFAULT_FS_CONFIG = get_process_fs_context();
 
 mocha.describe('nb_native fs', function() {
 
@@ -25,7 +21,7 @@ mocha.describe('nb_native fs', function() {
             const res2 = await fs.promises.stat(path);
             // birthtime in non mac platforms is ctime
             //https://nodejs.org/api/fs.html#statsbirthtime
-            if (process.platform !== MAC_PLATFORM) {
+            if (!os_utils.IS_MAC) {
                 res2.birthtime = res2.ctime;
                 res2.birthtimeMs = res2.ctimeMs;
             }
@@ -43,7 +39,7 @@ mocha.describe('nb_native fs', function() {
             const res2 = await fs.promises.stat(path);
             // birthtime in non mac platforms is ctime
             // https://nodejs.org/api/fs.html#statsbirthtime
-            if (process.platform !== MAC_PLATFORM) {
+            if (!os_utils.IS_MAC) {
                 res2.birthtime = res2.ctime;
                 res2.birthtimeMs = res2.ctimeMs;
             }
@@ -265,7 +261,7 @@ mocha.describe('nb_native fs', function() {
 
         mocha.it('get single not existing xattr', async function() {
             let error_message = 'No data available';
-            if (process.platform === MAC_PLATFORM) {
+            if (os_utils.IS_MAC) {
                 error_message = 'Attribute not found';
             }
             const { open } = nb_native().fs;

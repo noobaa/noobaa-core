@@ -27,6 +27,7 @@ node src/cmd/nsfs ../standalon/nsfs_root --config_dir ../standalon/fs_config
 
 ```json
 {
+  "_id": "65cb1e7c9e6ae40d499c0ae3", // _id automatically generated
   "name": "user1",
   "email": "user1", // the email will be internally (the account name), email will not be set by user
   "creation_date": "2024-01-11T08:24:14.937Z",
@@ -41,8 +42,7 @@ node src/cmd/nsfs ../standalon/nsfs_root --config_dir ../standalon/fs_config
     "gid": 1001,   // 
     "new_buckets_path": "/",
   },
-  "allow_bucket_creation": true,
-  "_id": "65cb1e7c9e6ae40d499c0ae3" // _id automatically generated
+  "allow_bucket_creation": true
 }
 ```
 

@@ -1,9 +1,17 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+const fs = require('fs');
 const _ = require('lodash');
 const P = require('../../util/promise');
 const os_utils = require('../../util/os_utils');
+const native_fs_utils = require('../../util/native_fs_utils');
+
+/**
+ * TMP_PATH is a path to the tmp path based on the process platform
+ * in contrast to linux, /tmp/ path on mac is a symlink to /private/tmp/
+ */
+const TMP_PATH = os_utils.IS_MAC ? '/private/tmp/' : '/tmp/';
 
 /**
  * 
@@ -214,21 +222,6 @@ function get_coretest_path() {
     return process.env.NC_CORETEST ? './nc_coretest' : './coretest';
 }
 
-
-const nc_nsfs_manage_entity_types = {
-    BUCKET: 'bucket',
-    ACCOUNT: 'account',
-    IPWHITELIST: 'whitelist',
-};
-
-const nc_nsfs_manage_actions = {
-    ADD: 'add',
-    UPDATE: 'update',
-    DELETE: 'delete',
-    LIST: 'list',
-    STATUS: 'status'
-};
-
 /**
  * exec_manage_cli runs the manage_nsfs cli
  * @param {string} type
@@ -269,6 +262,63 @@ async function exec_manage_cli(type, action, options) {
     }
 }
 
+/**
+ * create_fs_user_by_platform creates a file system user by platform
+ * @param {string} new_user
+ * @param {string} new_password
+ * @param {number} uid
+ * @param {number} gid
+ */
+async function create_fs_user_by_platform(new_user, new_password, uid, gid) {
+    if (process.platform === 'darwin') {
+        const create_user_cmd = `sudo dscl . -create /Users/${new_user} UserShell /bin/bash`;
+        const create_user_realname_cmd = `sudo dscl . -create /Users/${new_user} RealName ${new_user}`;
+        const create_user_uid_cmd = `sudo dscl . -create /Users/${new_user} UniqueID ${uid}`;
+        const create_user_gid_cmd = `sudo dscl . -create /Users/${new_user} PrimaryGroupID ${gid}`;
+        await os_utils.exec(create_user_cmd, { return_stdout: true });
+        await os_utils.exec(create_user_realname_cmd, { return_stdout: true });
+        await os_utils.exec(create_user_uid_cmd, { return_stdout: true });
+        await os_utils.exec(create_user_gid_cmd, { return_stdout: true });
+    } else {
+        const create_group_cmd = `groupadd -g ${gid} ${new_user}`;
+        await os_utils.exec(create_group_cmd, { return_stdout: true });
+        const create_user_cmd = `useradd -c ${new_user} -m ${new_user} -p $(openssl passwd -1 ${new_password}) -u ${uid} -g ${gid} `;
+        await os_utils.exec(create_user_cmd, { return_stdout: true });
+    }
+}
+
+/**
+ * delete_fs_user_by_platform deletes a file system user by platform
+ * @param {string} name
+ */
+async function delete_fs_user_by_platform(name) {
+    if (process.platform === 'darwin') {
+        const delete_user_cmd = `sudo dscl . -delete /Users/${name}`;
+        const delete_user_home_cmd = `sudo rm -rf /Users/${name}`;
+        await os_utils.exec(delete_user_cmd, { return_stdout: true });
+        await os_utils.exec(delete_user_home_cmd, { return_stdout: true });
+    } else {
+        const delete_user_cmd = `userdel -r ${name}`;
+        await os_utils.exec(delete_user_cmd, { return_stdout: true });
+    }
+}
+
+/** 
+ * set_path_permissions_and_owner sets path permissions and owner and group
+ * @param {string} path
+ * @param {object} owner_options
+ * @param {number} permissions
+ */
+async function set_path_permissions_and_owner(path, owner_options, permissions = 0o700) {
+    if (owner_options.uid !== undefined && owner_options.gid !== undefined) {
+        await fs.promises.chown(path, owner_options.uid, owner_options.gid);
+    } else {
+        const { uid, gid } = await native_fs_utils.get_user_by_distinguished_name({ distinguished_name: owner_options.user });
+        await fs.promises.chown(owner_options.new_buckets_path, uid, gid);
+    }
+    await fs.promises.chmod(path, permissions);
+}
+
 exports.blocks_exist_on_cloud = blocks_exist_on_cloud;
 exports.create_hosts_pool = create_hosts_pool;
 exports.delete_hosts_pool = delete_hosts_pool;
@@ -278,5 +328,7 @@ exports.generate_s3_policy = generate_s3_policy;
 exports.invalid_nsfs_root_permissions = invalid_nsfs_root_permissions;
 exports.get_coretest_path = get_coretest_path;
 exports.exec_manage_cli = exec_manage_cli;
-exports.nc_nsfs_manage_entity_types = nc_nsfs_manage_entity_types;
-exports.nc_nsfs_manage_actions = nc_nsfs_manage_actions;
+exports.create_fs_user_by_platform = create_fs_user_by_platform;
+exports.delete_fs_user_by_platform = delete_fs_user_by_platform;
+exports.set_path_permissions_and_owner = set_path_permissions_and_owner;
+exports.TMP_PATH = TMP_PATH;

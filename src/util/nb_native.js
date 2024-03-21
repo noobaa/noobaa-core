@@ -8,6 +8,7 @@ const events = require('events');
 const chance = require('chance')();
 const bindings = require('bindings');
 const child_process = require('child_process');
+const config = require('../../config');
 
 const async_exec = util.promisify(child_process.exec);
 const async_delay = util.promisify(setTimeout);
@@ -82,7 +83,7 @@ async function read_rand_seed(seed_bytes) {
     while (offset < buf.length) {
         try {
             const count = buf.length - offset;
-            const random_dev = process.env.DISABLE_DEV_RANDOM_SEED ? '/dev/urandom' : '/dev/random';
+            const random_dev = config.ENABLE_DEV_RANDOM_SEED ? '/dev/random' : '/dev/urandom';
             if (!fh) {
                 if (process.env.LOCAL_MD_SERVER) {
                     console.log(`read_rand_seed: opening ${random_dev} ...`);

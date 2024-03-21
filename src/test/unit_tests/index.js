@@ -61,6 +61,7 @@ require('./test_chunk_fs');
 require('./test_namespace_fs_mpu');
 require('./test_nb_native_fs');
 require('./test_s3select');
+require('./test_nsfs_glacier_backend');
 
 // // SERVERS
 require('./test_agent');

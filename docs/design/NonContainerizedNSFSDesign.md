@@ -145,7 +145,7 @@ High level configuration -
 
 3.1. accounts/ - directory that contains accounts configurations, each account configuration file is called {account_name}.json and fits to the account schema.
 
-3.2. access_keys/ - directory that contains symlinks to accounts configurations, each symlink called {access_key}.symlink and links to an account under accounts/ directory.
+3.2. access_keys/ - directory that contains symlinks to accounts configurations, each symlink called {access_key}.symlink and links to an account under accounts/ directory. Access key symlink is targeted to relative account path not absolute path. eg: `../accounts/acc_symlink1.json`
 
 3.3. buckets/ - directory that contains buckets configurations, each bucket configuration file called {bucket_name}.json and fits the bucket schema.
 

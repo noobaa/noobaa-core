@@ -163,6 +163,7 @@ bucket delete [flags]
 
 Flags:
 --name <string>                                                         The name of the bucket
+--force                                               (optional)        Forcefully delete bucket if the bucket is not empty
 `;
 
 const BUCKET_FLAGS_STATUS = `

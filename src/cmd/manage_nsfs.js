@@ -292,21 +292,27 @@ async function update_bucket(data) {
     write_stdout_response(ManageCLIResponse.BucketUpdated, data);
 }
 
-async function delete_bucket(data) {
+async function delete_bucket(data, force) {
     await validate_bucket_args(data, ACTIONS.DELETE);
     // we have fs_contexts: (1) fs_backend for bucket temp dir (2) config_root_backend for config files
     const fs_context_config_root_backend = native_fs_utils.get_process_fs_context(config_root_backend);
     const fs_context_fs_backend = native_fs_utils.get_process_fs_context(data.fs_backend);
     const bucket_config_path = get_config_file_path(buckets_dir_path, data.name);
     try {
-        const bucket_temp_dir_path = path.join(data.path, config.NSFS_TEMP_DIR_NAME + "_" + data._id);
-        await native_fs_utils.folder_delete(bucket_temp_dir_path, fs_context_fs_backend, true);
-        await native_fs_utils.delete_config_file(fs_context_config_root_backend, buckets_dir_path, bucket_config_path);
+        const temp_dir_name = config.NSFS_TEMP_DIR_NAME + "_" + data._id;
+        const bucket_temp_dir_path = path.join(data.path, temp_dir_name);
+        const entries = await nb_native().fs.readdir(fs_context_fs_backend, data.path);
+        const object_entries = entries.filter(element => !element.name.endsWith(temp_dir_name));
+        if (object_entries.length === 0 || force) {
+            await native_fs_utils.folder_delete(bucket_temp_dir_path, fs_context_fs_backend, true);
+            await native_fs_utils.delete_config_file(fs_context_config_root_backend, buckets_dir_path, bucket_config_path);
+            write_stdout_response(ManageCLIResponse.BucketDeleted, '', {bucket: data.name});
+        }
+        throw_cli_error(ManageCLIError.BucketDeleteForbiddenHasObjects, data.name);
     } catch (err) {
         if (err.code === 'ENOENT') throw_cli_error(ManageCLIError.NoSuchBucket, data.name);
         throw err;
     }
-    write_stdout_response(ManageCLIResponse.BucketDeleted, '', {bucket: data.name});
 }
 
 async function manage_bucket_operations(action, data, user_input) {
@@ -317,7 +323,8 @@ async function manage_bucket_operations(action, data, user_input) {
     } else if (action === ACTIONS.UPDATE) {
         await update_bucket(data);
     } else if (action === ACTIONS.DELETE) {
-        await delete_bucket(data);
+        const force = get_boolean_or_string_value(user_input.force);
+        await delete_bucket(data, force);
     } else if (action === ACTIONS.LIST) {
         const bucket_filters = _.pick(user_input, LIST_BUCKET_FILTERS);
         const wide = get_boolean_or_string_value(user_input.wide);
@@ -932,7 +939,7 @@ function validate_options_type_by_value(input_options_with_data) {
                 continue;
             }
             // special case for boolean values
-            if (['allow_bucket_creation', 'regenerate', 'wide', 'show_secrets'].includes(option) && validate_boolean_string_value(value)) {
+            if (['allow_bucket_creation', 'regenerate', 'wide', 'show_secrets', 'force'].includes(option) && validate_boolean_string_value(value)) {
                 continue;
             }
             // special case for bucket_policy (from_file)

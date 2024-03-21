@@ -312,6 +312,13 @@ ManageCLIError.BucketCreationNotAllowed = Object.freeze({
     http_code: 403,
 });
 
+ManageCLIError.BucketDeleteForbiddenHasObjects = Object.freeze({
+    code: 'BucketDeleteForbiddenHasObjects',
+    message: 'Cannot delete non-empty bucket. ' +
+    'You must delete all object before deleting the bucket or use --force flag',
+    http_code: 403,
+});
+
 /////////////////////////////////
 //// BUCKET ARGUMENTS ERRORS ////
 /////////////////////////////////

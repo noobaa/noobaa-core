@@ -15,7 +15,7 @@ async function put_bucket_versioning(req) {
     }
     await req.object_sdk.set_bucket_versioning({
         name: req.params.bucket,
-        versioning: versioning.toUpperCase()
+        versioning: versioning
     });
 }
 

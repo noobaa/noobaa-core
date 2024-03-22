@@ -937,6 +937,11 @@ class ObjectSDK {
         return bs.set_bucket_versioning(params, this);
     }
 
+    async get_bucket_versioning(params) {
+        const bs = this._get_bucketspace();
+        return bs.get_bucket_versioning(params, this);
+    }
+
     ////////////////////
     // BUCKET TAGGING //
     ////////////////////

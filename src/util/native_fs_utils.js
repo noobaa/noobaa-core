@@ -496,35 +496,15 @@ async function is_path_exists(fs_context, config_path, use_lstat = false) {
  * @param {string} dir_path
  * @returns {Promise<boolean>}
  */
-/* eslint-disable no-bitwise */
 async function is_dir_rw_accessible(fs_context, dir_path) {
-    let stat;
     try {
-        stat = await nb_native().fs.stat(fs_context, dir_path);
+        // eslint-disable-next-line no-bitwise
+        await nb_native().fs.checkAccess(fs_context, dir_path, fs.constants.W_OK | fs.constants.R_OK);
+        return true;
     } catch (err) {
         return false;
     }
-    const is_owner = fs_context.uid === stat.uid;
-    const is_group = fs_context.gid === stat.gid;
-
-    const read_access_owner = stat.mode & fs.constants.S_IRUSR;
-    const read_access_group = stat.mode & fs.constants.S_IRGRP;
-    const read_access_other = stat.mode & fs.constants.S_IROTH;
-
-    const write_access_owner = stat.mode & fs.constants.S_IWUSR;
-    const write_access_group = stat.mode & fs.constants.S_IWGRP;
-    const write_access_other = stat.mode & fs.constants.S_IWOTH;
-
-    if (is_owner) {
-        return Boolean(read_access_owner && write_access_owner);
-    }
-    if (is_group) {
-        return Boolean(read_access_group && write_access_group);
-    }
-    return Boolean(read_access_other && write_access_other);
 }
-/* eslint-enable no-bitwise */
-
 /**
  * delete bucket specific temp folder from bucket storage path, config.NSFS_TEMP_DIR_NAME_<bucket_id>
  * @param {string} dir 

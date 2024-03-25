@@ -767,17 +767,29 @@ struct Statfs : public FSWorker
 struct CheckAccess : public FSWorker
 {
     std::string _path;
-
+    int _flags;
+       
     CheckAccess(const Napi::CallbackInfo& info)
         : FSWorker(info)
+        , _flags(R_OK)
     {
         _path = info[1].As<Napi::String>();
+        if (info.Length() > 2 && !info[2].IsUndefined()) {
+            _flags = info[2].As<Napi::Number>();
+        }
         Begin(XSTR() << "CheckAccess " << DVAL(_path));
     }
     virtual void Work()
     {
-        int fd = open(_path.c_str(), O_RDONLY);
-        CHECK_OPEN_FD(fd);
+        int accessible = -1;
+#ifdef __APPLE__
+        accessible = faccessat(-1, _path.c_str(), _flags, AT_EACCESS);
+#else
+        accessible = syscall(SYS_faccessat2, -1, _path.c_str(), _flags, AT_EACCESS);
+#endif
+        if (accessible < 0) {
+            SetSyscallError();
+        }
     }
 };
 

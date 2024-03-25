@@ -4,7 +4,7 @@
 const _ = require('lodash');
 const util = require('util');
 const argv = require('minimist')(process.argv);
-const request = require('request');
+const http_utils = require('../../../src/util/http_utils');
 
 const dotenv = require('../../util/dotenv');
 dotenv.load();
@@ -273,10 +273,7 @@ function wait_for_server_to_start(max_seconds_to_wait, port) {
                 return isNotListening;
             },
             function() {
-                return P.ninvoke(request, 'get', {
-                        url: 'http://localhost:' + port,
-                        rejectUnauthorized: false,
-                    })
+                return http_utils.http_get('http://localhost:' + port)
                     .then(function() {
                         console.log('server started after ' + wait_counter + ' seconds');
                         isNotListening = false;

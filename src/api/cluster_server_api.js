@@ -121,50 +121,6 @@ module.exports = {
             }
         },
 
-        read_server_config: {
-            method: 'GET',
-            params: {
-                type: 'object',
-                properties: {
-                    test_ph_connectivity: {
-                        type: 'boolean'
-                    },
-                }
-            },
-            reply: {
-                type: 'object',
-                required: ['using_dhcp'],
-                properties: {
-                    timezone: {
-                        type: 'string'
-                    },
-                    dns_servers: {
-                        type: 'array',
-                        items: {
-                            type: 'string'
-                        },
-                    },
-                    using_dhcp: {
-                        type: 'boolean'
-                    },
-                    owner: {
-                        type: 'object',
-                        required: ['email', 'activation_code'],
-                        properties: {
-                            email: { $ref: 'common_api#/definitions/email' },
-                            activation_code: {
-                                type: 'string'
-                            }
-                        }
-                    }
-                }
-            },
-            auth: {
-                account: false,
-                system: false,
-                anonymous: true,
-            }
-        },
 
         update_server_conf: {
             method: 'POST',

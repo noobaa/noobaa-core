@@ -6,7 +6,6 @@ const os = require('os');
 const url = require('url');
 const net = require('net');
 const dns = require('dns');
-const request = require('request');
 const ip_module = require('ip');
 const pinger = require('ping');
 
@@ -95,23 +94,6 @@ function ip_to_long(ip) {
     return ip_module.toLong(unwrap_ipv6(ip));
 }
 
-async function retrieve_public_ip() {
-    const IPIFY_TIMEOUT = 30 * 1000;
-    try {
-        const res = await P.fromCallback(callback =>
-            request({
-                url: 'http://api.ipify.org/',
-                timeout: IPIFY_TIMEOUT,
-            }, callback)
-        );
-        if (is_ip(res.body)) {
-            return res.body;
-        }
-    } catch (err) {
-        dbg.log0_throttled('failed to ipify', err);
-    }
-}
-
 function is_ip(address) {
     return ip_module.isV4Format(address) || ip_module.isV6Format(address);
 }
@@ -139,5 +121,4 @@ exports.is_fqdn = is_fqdn;
 exports.is_localhost = is_localhost;
 exports.unwrap_ipv6 = unwrap_ipv6;
 exports.ip_to_long = ip_to_long;
-exports.retrieve_public_ip = retrieve_public_ip;
 exports.find_ifc_containing_address = find_ifc_containing_address;

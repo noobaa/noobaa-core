@@ -10,8 +10,8 @@ const https = require('https');
 const crypto = require('crypto');
 const xml2js = require('xml2js');
 const querystring = require('querystring');
-const {HttpProxyAgent} = require('http-proxy-agent');
-const {HttpsProxyAgent} = require('https-proxy-agent');
+const { HttpProxyAgent } = require('http-proxy-agent');
+const { HttpsProxyAgent } = require('https-proxy-agent');
 const S3Error = require('../endpoint/s3/s3_errors').S3Error;
 
 const dbg = require('./debug_module')(__filename);
@@ -33,7 +33,7 @@ const http_proxy_agent = HTTP_PROXY ?
 const https_proxy_agent = HTTPS_PROXY ?
     new HttpsProxyAgent(HTTPS_PROXY) : null;
 const unsecured_https_proxy_agent = HTTPS_PROXY ?
-    new HttpsProxyAgent(HTTPS_PROXY, {rejectUnauthorized: false}) : null;
+    new HttpsProxyAgent(HTTPS_PROXY, { rejectUnauthorized: false }) : null;
 
 const no_proxy_list =
     (NO_PROXY ? NO_PROXY.split(',') : []).map(addr => {
@@ -423,9 +423,9 @@ function _get_http_agent(endpoint, request_unsecured) {
     const { protocol, hostname } = url.parse(endpoint);
     const should_proxy_by_hostname = should_proxy(hostname);
     dbg.log2(`_get_http_agent: ` +
-     `endpoint ${endpoint} request_unsecured ${request_unsecured} ` +
-     `protocol ${protocol} hostname ${hostname} should_proxy(hostname) ${should_proxy_by_hostname} ` +
-     `Boolean(HTTPS_PROXY) ${Boolean(HTTPS_PROXY)} Boolean(HTTP_PROXY) ${Boolean(HTTP_PROXY)}`);
+        `endpoint ${endpoint} request_unsecured ${request_unsecured} ` +
+        `protocol ${protocol} hostname ${hostname} should_proxy(hostname) ${should_proxy_by_hostname} ` +
+        `Boolean(HTTPS_PROXY) ${Boolean(HTTPS_PROXY)} Boolean(HTTP_PROXY) ${Boolean(HTTP_PROXY)}`);
 
     if (protocol === "https:" || protocol === "wss:") {
         if (HTTPS_PROXY && should_proxy_by_hostname) {
@@ -484,6 +484,7 @@ function make_https_request(options, body, body_encoding) {
             .end(body, body_encoding);
     });
 }
+
 
 // Write periodically to keep the connection alive
 // TODO: Every complete above the S3_KEEP_ALIVE_WHITESPACE_INTERVAL
@@ -673,6 +674,7 @@ function authorize_session_token(req, options) {
         throw new options.ErrorClass(options.error_invalid_token);
     }
 }
+
 function validate_nsfs_whitelist(req) {
     // remove prefix for V4 IPs for whitelist validation
     const client_ip = parse_client_ip(req).replace(/^::ffff:/, '');
@@ -685,6 +687,21 @@ function validate_nsfs_whitelist(req) {
     dbg.error(`Whitelist ip validation failed for ip : ${client_ip}`);
     throw new S3Error(S3Error.AccessDenied);
 }
+
+
+
+// This function is intended to provide partial functionalaty to replace the deprecated request npm module (https://www.npmjs.com/package/request)
+// Before using this function, make sure it provides your needs., or consider using more full featured library like axios (https://www.npmjs.com/package/axios)
+// e.g.: one drawback of this implementation is that it does not follow redirects (this can be fixed by using 3rd party modules)
+// the function returns a stream.
+function http_get(uri, options) {
+    options = options || {};
+    const client = uri.startsWith('https:') ? https : http;
+    return new Promise((resolve, reject) => {
+        client.get(uri, options, resolve).on('error', reject);
+    });
+}
+
 
 exports.parse_url_query = parse_url_query;
 exports.parse_client_ip = parse_client_ip;
@@ -712,3 +729,4 @@ exports.parse_content_length = parse_content_length;
 exports.authorize_session_token = authorize_session_token;
 exports.get_agent_by_endpoint = get_agent_by_endpoint;
 exports.validate_nsfs_whitelist = validate_nsfs_whitelist;
+exports.http_get = http_get;

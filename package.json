@@ -113,7 +113,6 @@
     "ping": "0.4.4",
     "prom-client": "15.0.0",
     "ps-node": "0.1.6",
-    "request": "2.88.2",
     "rimraf": "5.0.5",
     "seedrandom": "3.0.5",
     "setimmediate": "1.0.5",

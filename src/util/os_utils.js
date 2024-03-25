@@ -17,10 +17,8 @@ const dbg = require('./debug_module')(__filename);
 const dotenv = require('./dotenv');
 const config = require('../../config.js');
 const fs_utils = require('./fs_utils');
-const net_utils = require('./net_utils');
 const kube_utils = require('./kube_utils');
 const os_detailed_info = require('getos');
-const { get_default_ports } = require('../util/addr_utils');
 
 const AZURE_TMP_DISK_README = 'DATALOSS_WARNING_README.txt';
 const ADMIN_WIN_USERS = Object.freeze([
@@ -927,26 +925,6 @@ async function _list_openshift_routes(selector) {
     return items;
 }
 
-async function discover_virtual_appliance_address(app = config.KUBE_APP_LABEL) {
-    const public_ip = await net_utils.retrieve_public_ip();
-    if (!public_ip || public_ip === ip_module.address()) {
-        return [];
-    }
-
-    // Addr rpc services ports.
-    const list = Object.entries(get_default_ports())
-        .map(([api, port]) => ({
-            kind: 'EXTERNAL',
-            service: 'noobaa-mgmt',
-            hostname: public_ip,
-            port,
-            api,
-            secure: true,
-            weight: 0
-        }));
-
-    return sort_address_list(list);
-}
 
 function sort_address_list(address_list) {
     const sort_fields = ['kind', 'service', 'hostname', 'port', 'api', 'secure', 'weight'];
@@ -1041,5 +1019,4 @@ exports.get_services_ps_info = get_services_ps_info;
 exports.get_process_parent_pid = get_process_parent_pid;
 exports.get_agent_platform_path = get_agent_platform_path;
 exports.discover_k8s_services = discover_k8s_services;
-exports.discover_virtual_appliance_address = discover_virtual_appliance_address;
 exports.restart_services = restart_services;

@@ -165,7 +165,7 @@ async function fetch_existing_bucket_data(target) {
 
 async function add_bucket(data) {
     await manage_nsfs_validations.validate_bucket_args(config_root_backend, accounts_dir_path, data, ACTIONS.ADD);
-    const account_id = await manage_nsfs_validations.verify_bucket_owner(config_root_backend, accounts_dir_path,
+    const account_id = await manage_nsfs_validations.validate_bucket_owner(config_root_backend, accounts_dir_path,
         data.bucket_owner, ACTIONS.ADD);
     const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
     const bucket_conf_path = get_config_file_path(buckets_dir_path, data.name);
@@ -197,7 +197,7 @@ async function get_bucket_status(data) {
 
 async function update_bucket(data) {
     await manage_nsfs_validations.validate_bucket_args(config_root_backend, accounts_dir_path, data, ACTIONS.UPDATE);
-    await manage_nsfs_validations.verify_bucket_owner(config_root_backend, accounts_dir_path, data.bucket_owner, ACTIONS.UPDATE);
+    await manage_nsfs_validations.validate_bucket_owner(config_root_backend, accounts_dir_path, data.bucket_owner, ACTIONS.UPDATE);
 
     const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
 
@@ -463,7 +463,7 @@ async function update_account(data) {
 
 async function delete_account(data) {
     await manage_nsfs_validations.validate_account_args(data, ACTIONS.DELETE);
-    await manage_nsfs_validations.verify_delete_account(config_root_backend, buckets_dir_path, data.name);
+    await manage_nsfs_validations.validate_delete_account(config_root_backend, buckets_dir_path, data.name);
 
     const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
     const account_config_path = get_config_file_path(accounts_dir_path, data.name);
@@ -605,7 +605,7 @@ function get_access_keys(action, user_input) {
     }];
     let new_access_key;
     if (action === ACTIONS.ADD || action === ACTIONS.UPDATE || action === ACTIONS.DELETE) {
-        manage_nsfs_validations._validate_access_keys(user_input.access_key, user_input.secret_key);
+        manage_nsfs_validations.validate_access_keys(user_input.access_key, user_input.secret_key);
     }
     if (action === ACTIONS.ADD || action === ACTIONS.STATUS) {
         const regenerate = action === ACTIONS.ADD;
@@ -624,7 +624,7 @@ async function whitelist_ips_management(args) {
     manage_nsfs_validations.validate_whitelist_arg(ips);
 
     const whitelist_ips = JSON.parse(ips);
-    manage_nsfs_validations.verify_whitelist_ips(whitelist_ips);
+    manage_nsfs_validations.validate_whitelist_ips(whitelist_ips);
     const config_path = path.join(config_root, 'config.json');
     try {
         const config_data = require(config_path);

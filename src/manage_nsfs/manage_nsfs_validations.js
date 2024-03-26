@@ -258,7 +258,7 @@ async function validate_account_args(data, action) {
     }
 }
 
-function _validate_access_keys(access_key, secret_key) {
+function validate_access_keys(access_key, secret_key) {
     // using the access_key flag requires also using the secret_key flag
     if (!_.isUndefined(access_key) && _.isUndefined(secret_key)) {
         throw_cli_error(ManageCLIError.MissingAccountSecretKeyFlag);
@@ -284,7 +284,7 @@ function _validate_access_keys(access_key, secret_key) {
         })) throw_cli_error(ManageCLIError.AccountSecretKeyFlagComplexity);
 }
 
-/** verify_bucket_owner will check if the bucket_owner has an account
+/** validate_bucket_owner will check if the bucket_owner has an account
  * bucket_owner is the account name in the account schema
  * after it finds one, it returns the account id, otherwise it would throw an error
  * (in case the action is add bucket it also checks that the owner has allow_bucket_creation)
@@ -293,7 +293,7 @@ function _validate_access_keys(access_key, secret_key) {
  * @param {string} bucket_owner
  * @param {string} action
  */
-async function verify_bucket_owner(config_root_backend, accounts_dir_path, bucket_owner, action) {
+async function validate_bucket_owner(config_root_backend, accounts_dir_path, bucket_owner, action) {
     // check if bucket owner exists
     const account_config_path = get_config_file_path(accounts_dir_path, bucket_owner);
     let account;
@@ -316,13 +316,13 @@ async function verify_bucket_owner(config_root_backend, accounts_dir_path, bucke
 }
 
 /**
- * verify_delete_account will check if the account has at least one bucket
+ * validate_delete_account will check if the account has at least one bucket
  * in case it finds one, it would throw an error
  * @param {string} config_root_backend
  * @param {string} buckets_dir_path
  * @param {string} account_name
  */
-async function verify_delete_account(config_root_backend, buckets_dir_path, account_name) {
+async function validate_delete_account(config_root_backend, buckets_dir_path, account_name) {
     const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
     const entries = await nb_native().fs.readdir(fs_context, buckets_dir_path);
     await P.map_with_concurrency(10, entries, async entry => {
@@ -349,7 +349,7 @@ function validate_whitelist_arg(ips) {
     }
 }
 
-function verify_whitelist_ips(ips_to_validate) {
+function validate_whitelist_ips(ips_to_validate) {
     for (const ip_to_validate of ips_to_validate) {
         if (net.isIP(ip_to_validate) === 0) {
             const detail_msg = `IP address list has an invalid IP address ${ip_to_validate}`;
@@ -362,8 +362,8 @@ function verify_whitelist_ips(ips_to_validate) {
 exports.validate_input_types = validate_input_types;
 exports.validate_bucket_args = validate_bucket_args;
 exports.validate_account_args = validate_account_args;
-exports._validate_access_keys = _validate_access_keys;
-exports.verify_bucket_owner = verify_bucket_owner;
-exports.verify_delete_account = verify_delete_account;
+exports.validate_access_keys = validate_access_keys;
+exports.validate_bucket_owner = validate_bucket_owner;
+exports.validate_delete_account = validate_delete_account;
 exports.validate_whitelist_arg = validate_whitelist_arg;
-exports.verify_whitelist_ips = verify_whitelist_ips;
+exports.validate_whitelist_ips = validate_whitelist_ips;

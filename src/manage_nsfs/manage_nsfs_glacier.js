@@ -124,42 +124,13 @@ async function record_current_time(fs_context, timestamp_file) {
  * @param {Function} cb 
  */
 async function run_glacier_operation(fs_context, log_namespace, cb) {
-    let log = null;
-    let failure_log = null;
-
+    const log = new PersistentLogger(config.NSFS_GLACIER_LOGS_DIR, log_namespace, { locking: 'EXCLUSIVE' });
     try {
-        // This logger is getting opened only so that we can process all the process the entries
-        log = new PersistentLogger(config.NSFS_GLACIER_LOGS_DIR, log_namespace, { locking: 'EXCLUSIVE' });
-        failure_log = new PersistentLogger(
-            config.NSFS_GLACIER_LOGS_DIR,
-            `${log_namespace}.failure`,
-            { locking: 'EXCLUSIVE' },
-        );
-
-        try {
-            // Process all the inactive and currently active log
-            await log.process_inactive(async file => cb(fs_context, file, failure_log.append.bind(failure_log)));
-        } catch (error) {
-            console.error('failed to process logs, error:', error, 'log_namespace:', log_namespace);
-        }
-
-        try {
-            // Process the inactive failure logs (don't process the current though)
-            // This will REMOVE the previous failure logs and will merge them with the current failures
-            await failure_log.process_inactive(async file => cb(fs_context, file, failure_log.append.bind(failure_log)), false);
-        } catch (error) {
-            console.error('failed to process failure logs:', error, 'log_namespace:', log_namespace);
-        }
-
-        try {
-            // Finally replace the current active so as to consume them in the next iteration
-            await failure_log._replace_active();
-        } catch (error) {
-            console.error('failed to replace active failure log:', error, 'log_namespace:', log_namespace);
-        }
+        await log.process(async (entry, failure_recorder) => cb(fs_context, entry, failure_recorder));
+    } catch (error) {
+        console.error('failed to process log in namespace:', log_namespace);
     } finally {
-        if (log) await log.close();
-        if (failure_log) await failure_log.close();
+        await log.close();
     }
 }
 

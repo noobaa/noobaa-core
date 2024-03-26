@@ -16,6 +16,10 @@ const { throw_cli_error, get_config_file_path,
 const { TYPES, ACTIONS, VALID_OPTIONS, OPTION_TYPE, FROM_FILE, BOOLEAN_STRING_VALUES,
     GLACIER_ACTIONS } = require('../manage_nsfs/manage_nsfs_constants');
 
+/////////////////////////////
+//// GENERAL VALIDATIONS ////
+/////////////////////////////
+
 /** 
  * validate_input_types checks if input option are valid.
  * if the the user uses from_file then the validation is on the file (in different iteration)
@@ -152,6 +156,10 @@ function validate_boolean_string_value(value) {
     return false;
 }
 
+/////////////////////////////
+//// BUCKET VALIDATIONS /////
+/////////////////////////////
+
 /**
  * validate_bucket_args will validate the cli args of the bucket command
  * @param {string} config_root_backend
@@ -209,6 +217,41 @@ async function validate_bucket_args(config_root_backend, accounts_dir_path, data
         }
     }
 }
+
+/** validate_bucket_owner will check if the bucket_owner has an account
+ * bucket_owner is the account name in the account schema
+ * after it finds one, it returns the account id, otherwise it would throw an error
+ * (in case the action is add bucket it also checks that the owner has allow_bucket_creation)
+ * @param {string} config_root_backend
+ * @param {string} accounts_dir_path
+ * @param {string} bucket_owner
+ * @param {string} action
+ */
+async function validate_bucket_owner(config_root_backend, accounts_dir_path, bucket_owner, action) {
+    // check if bucket owner exists
+    const account_config_path = get_config_file_path(accounts_dir_path, bucket_owner);
+    let account;
+    try {
+        account = await get_config_data(config_root_backend, account_config_path);
+    } catch (err) {
+        if (err.code === 'ENOENT') {
+            const detail_msg = `bucket owner ${bucket_owner} does not exists`;
+            throw_cli_error(ManageCLIError.BucketSetForbiddenNoBucketOwner, detail_msg, {bucket_owner: bucket_owner});
+        }
+        throw err;
+    }
+    // check if bucket owner has the permission to create bucket (for bucket add only)
+    if (action === ACTIONS.ADD && !account.allow_bucket_creation) {
+            const detail_msg = `${bucket_owner} account not allowed to create new buckets. ` +
+            `Please make sure to have a valid new_buckets_path and enable the flag allow_bucket_creation`;
+            throw_cli_error(ManageCLIError.BucketCreationNotAllowed, detail_msg);
+    }
+    return account._id;
+}
+
+/////////////////////////////
+//// ACCOUNT VALIDATIONS ////
+/////////////////////////////
 
 /**
  * validate_account_args will validate the args of the account command
@@ -284,37 +327,6 @@ function validate_access_keys(access_key, secret_key) {
         })) throw_cli_error(ManageCLIError.AccountSecretKeyFlagComplexity);
 }
 
-/** validate_bucket_owner will check if the bucket_owner has an account
- * bucket_owner is the account name in the account schema
- * after it finds one, it returns the account id, otherwise it would throw an error
- * (in case the action is add bucket it also checks that the owner has allow_bucket_creation)
- * @param {string} config_root_backend
- * @param {string} accounts_dir_path
- * @param {string} bucket_owner
- * @param {string} action
- */
-async function validate_bucket_owner(config_root_backend, accounts_dir_path, bucket_owner, action) {
-    // check if bucket owner exists
-    const account_config_path = get_config_file_path(accounts_dir_path, bucket_owner);
-    let account;
-    try {
-        account = await get_config_data(config_root_backend, account_config_path);
-    } catch (err) {
-        if (err.code === 'ENOENT') {
-            const detail_msg = `bucket owner ${bucket_owner} does not exists`;
-            throw_cli_error(ManageCLIError.BucketSetForbiddenNoBucketOwner, detail_msg, {bucket_owner: bucket_owner});
-        }
-        throw err;
-    }
-    // check if bucket owner has the permission to create bucket (for bucket add only)
-    if (action === ACTIONS.ADD && !account.allow_bucket_creation) {
-            const detail_msg = `${bucket_owner} account not allowed to create new buckets. ` +
-            `Please make sure to have a valid new_buckets_path and enable the flag allow_bucket_creation`;
-            throw_cli_error(ManageCLIError.BucketCreationNotAllowed, detail_msg);
-    }
-    return account._id;
-}
-
 /**
  * validate_delete_account will check if the account has at least one bucket
  * in case it finds one, it would throw an error
@@ -337,6 +349,10 @@ async function validate_delete_account(config_root_backend, buckets_dir_path, ac
         }
     });
 }
+
+///////////////////////////////////
+//// IP WhITE LIST VALIDATIONS ////
+///////////////////////////////////
 
 function validate_whitelist_arg(ips) {
     if (!ips || ips === true) {

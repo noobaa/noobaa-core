@@ -402,6 +402,7 @@ class ObjectSDK {
     /**
      * @returns {nb.Namespace}
      */
+    // resource is a namespace_resource
     _setup_single_namespace({ resource: r, path: p }, bucket_id, options) {
 
         if (r.endpoint_type === 'NOOBAA') {
@@ -461,6 +462,7 @@ class ObjectSDK {
                 private_key,
                 access_mode: r.access_mode,
                 stats: this.stats,
+                hmac_key: r.gcp_hmac_key,
             });
         }
         if (r.fs_root_path || r.fs_root_path === '') {

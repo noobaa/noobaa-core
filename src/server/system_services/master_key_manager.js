@@ -335,6 +335,13 @@ class MasterKeysManager {
                                 decipher: crypto.createDecipheriv(m_key.cipher_type, m_key.cipher_key, m_key.cipher_iv)
                             }, undefined);
                         }
+                        if (keys.gcp_hmac_key?.secret_key) {
+                            keys.gcp_hmac_key.secret_key = await this.secret_keys_cache.get_with_cache({
+                                encrypted_value: keys.gcp_hmac_key.secret_key,
+                                decipher: crypto.createDecipheriv(m_key.cipher_type, m_key.cipher_key, m_key.cipher_iv)
+                            }, undefined);
+                        
+                        }
                     }
                 }
             }

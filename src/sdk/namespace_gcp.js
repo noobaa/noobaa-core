@@ -27,6 +27,10 @@ class NamespaceGCP {
     *      private_key: string,
     *      access_mode: string,
     *      stats: import('./endpoint_stats_collector').EndpointStatsCollector,
+    *      hmac_key: {
+    *         access_id: string,
+    *         secret_key: string,
+    *      }
     * }} params
     */
     constructor({
@@ -37,26 +41,16 @@ class NamespaceGCP {
         private_key,
         access_mode,
         stats,
+        hmac_key,
     }) {
         this.namespace_resource_id = namespace_resource_id;
         this.project_id = project_id;
         this.client_email = client_email;
         this.private_key = private_key;
-        this.gcs = new GoogleCloudStorage({
-            projectId: this.project_id,
-            credentials: {
-                client_email: this.client_email,
-                private_key: this.private_key,
-            }
-        });
-        this.gcs.createHmacKey(client_email).then(res => {
-            this.hmac_key = res[0];
-            this.hmac_secret = res[1];
-        });
         this.s3_client = new AWS.S3({
             endpoint: 'https://storage.googleapis.com',
-            accessKeyId: this.hmac_key,
-            secretAccessKey: this.hmac_secret
+            accessKeyId: hmac_key.access_id,
+            secretAccessKey: hmac_key.secret_key
         });
 
         this.bucket = target_bucket;

@@ -784,6 +784,26 @@ async function add_external_connection(req) {
         };
     }
 
+    // If the connection is for Google, generate an HMAC key for S3-compatible actions (e.g. multipart uploads)
+    if (info.endpoint_type === 'GOOGLE') {
+        dbg.log0('add_external_connection: creating HMAC key for Google connection')
+        const key_file = JSON.parse(req.rpc_params.secret.unwrap());
+        const credentials = _.pick(key_file, 'client_email', 'private_key');
+        const gs_client = new GoogleStorage({ credentials, projectId: key_file.project_id });
+        try {
+            const [hmac_key, secret] = await gs_client.createHmacKey(credentials.client_email);
+            info.gcp_hmac_key = {
+                access_id: hmac_key.metadata.accessId,
+                secret_key: system_store.master_key_manager.encrypt_sensitive_string_with_master_key_id(
+                    new SensitiveString(secret), req.account.master_key_id._id)
+            };
+            } catch (err) {
+            // The most likely reason is that the storage account already has 10 existing HMAC keys, which is the limit
+            dbg.error('add_external_connection: failed to create HMAC key for Google connection', err);
+            throw new RpcError('INTERNAL_ERROR', 'Failed to create HMAC key for Google connection');
+        }
+    }
+
     info.cp_code = req.rpc_params.cp_code || undefined;
     info.auth_method = req.rpc_params.auth_method || config.DEFAULT_S3_AUTH_METHOD[info.endpoint_type] || undefined;
     info = _.omitBy(info, _.isUndefined);

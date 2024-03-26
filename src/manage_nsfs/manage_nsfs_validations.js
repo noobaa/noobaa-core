@@ -37,6 +37,7 @@ async function validate_input_types(type, action, argv) {
     delete input_options_with_data._;
     validate_no_extra_options(type, action, input_options, false);
     validate_options_type_by_value(input_options_with_data);
+    validate_identifier(type, action, input_options_with_data, false);
 
     // currently we use from_file only in add action
     const path_to_json_options = argv.from_file ? String(argv.from_file) : '';
@@ -49,6 +50,7 @@ async function validate_input_types(type, action, argv) {
         }
         validate_no_extra_options(type, action, input_options_from_file, true);
         validate_options_type_by_value(input_options_with_data_from_file);
+        validate_identifier(type, action, input_options_with_data_from_file, true);
         return input_options_with_data_from_file;
     }
 }
@@ -66,6 +68,26 @@ function validate_type_and_action(type, action) {
         if (action !== '') throw_cli_error(ManageCLIError.InvalidAction);
     } else if (type === TYPES.GLACIER) {
         if (!Object.values(GLACIER_ACTIONS).includes(action)) throw_cli_error(ManageCLIError.InvalidAction);
+    }
+}
+
+/**
+ * validate_identifier will validate that we have the needed identifier for the command
+ * @param {string} type
+ * @param {string} action
+ * @param {object} input_options
+ * @param {boolean} is_options_from_file boolean to indicates that the validation is on values that origin from the file
+ */
+function validate_identifier(type, action, input_options, is_options_from_file) {
+    // do not check identifier in the command of from_file (only in the file itself).
+    if (!_.isUndefined(input_options.from_file) && !is_options_from_file) return;
+
+    if (type === TYPES.ACCOUNT) {
+        validate_account_identifier(action, input_options);
+    } else if (type === TYPES.BUCKET) {
+        validate_bucket_identifier(action, input_options);
+    } else if (type === TYPES.IP_WHITELIST) {
+        validate_whitelist_ips_identifier(input_options);
     }
 }
 
@@ -161,6 +183,18 @@ function validate_boolean_string_value(value) {
 /////////////////////////////
 
 /**
+ * validate_bucket_identifier will validate that we have the needed identifier for the command
+ * @param {string} action
+ * @param {object} input_options
+ */
+function validate_bucket_identifier(action, input_options) {
+if (action === ACTIONS.STATUS || action === ACTIONS.ADD || action === ACTIONS.UPDATE || action === ACTIONS.DELETE) {
+        if (_.isUndefined(input_options.name)) throw_cli_error(ManageCLIError.MissingBucketNameFlag);
+    }
+    // in list there is no identifier
+}
+
+/**
  * validate_bucket_args will validate the cli args of the bucket command
  * @param {string} config_root_backend
  * @param {string} accounts_dir_path
@@ -168,10 +202,7 @@ function validate_boolean_string_value(value) {
  * @param {string} action
  */
 async function validate_bucket_args(config_root_backend, accounts_dir_path, data, action) {
-    if (action === ACTIONS.DELETE || action === ACTIONS.STATUS) {
-        if (_.isUndefined(data.name)) throw_cli_error(ManageCLIError.MissingBucketNameFlag);
-    } else {
-        if (_.isUndefined(data.name)) throw_cli_error(ManageCLIError.MissingBucketNameFlag);
+    if (action === ACTIONS.ADD || action === ACTIONS.UPDATE) {
         try {
             native_fs_utils.validate_bucket_creation({ name: data.name });
         } catch (err) {
@@ -254,19 +285,32 @@ async function validate_bucket_owner(config_root_backend, accounts_dir_path, buc
 /////////////////////////////
 
 /**
+ * validate_account_identifier will validate that we have the needed identifier for the command
+ * @param {string} action
+ * @param {object} input_options
+ */
+function validate_account_identifier(action, input_options) {
+    if (action === ACTIONS.STATUS) {
+        // in status we allow identifier as name or access_key
+        if (_.isUndefined(input_options.access_key) && _.isUndefined(input_options.name)) {
+            throw_cli_error(ManageCLIError.MissingIdentifier);
+        }
+    } else if (action === ACTIONS.ADD || action === ACTIONS.UPDATE || action === ACTIONS.DELETE) {
+        // in add, update and delete only name is an identifier
+        if (_.isUndefined(input_options.name)) throw_cli_error(ManageCLIError.MissingAccountNameFlag);
+    }
+    // in list there is no identifier
+}
+
+/**
  * validate_account_args will validate the args of the account command
  * @param {object} data
  * @param {string} action
  */
 async function validate_account_args(data, action) {
-    if (action === ACTIONS.STATUS || action === ACTIONS.DELETE) {
-        if (_.isUndefined(data.access_keys[0].access_key) && _.isUndefined(data.name)) {
-            throw_cli_error(ManageCLIError.MissingIdentifier);
-        }
-    } else {
+    if (action === ACTIONS.ADD || action === ACTIONS.UPDATE) {
         if ((action !== ACTIONS.UPDATE && data.new_name)) throw_cli_error(ManageCLIError.InvalidNewNameAccountIdentifier);
         if ((action !== ACTIONS.UPDATE && data.new_access_key)) throw_cli_error(ManageCLIError.InvalidNewAccessKeyIdentifier);
-        if (_.isUndefined(data.name)) throw_cli_error(ManageCLIError.MissingAccountNameFlag);
 
         if (_.isUndefined(data.access_keys[0].secret_key)) throw_cli_error(ManageCLIError.MissingAccountSecretKeyFlag);
         if (_.isUndefined(data.access_keys[0].access_key)) throw_cli_error(ManageCLIError.MissingAccountAccessKeyFlag);
@@ -354,10 +398,15 @@ async function validate_delete_account(config_root_backend, buckets_dir_path, ac
 //// IP WhITE LIST VALIDATIONS ////
 ///////////////////////////////////
 
+/**
+ * validate_whitelist_ips_identifier will validate that we have the needed identifier for the command
+ * @param {object} input_options
+ */
+function validate_whitelist_ips_identifier(input_options) {
+    if (_.isUndefined(input_options.ips)) throw_cli_error(ManageCLIError.MissingWhiteListIPFlag);
+}
+
 function validate_whitelist_arg(ips) {
-    if (!ips || ips === true) {
-        throw_cli_error(ManageCLIError.MissingWhiteListIPFlag);
-    }
     try {
         JSON.parse(ips);
     } catch (err) {

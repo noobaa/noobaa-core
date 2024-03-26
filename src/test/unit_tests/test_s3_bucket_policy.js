@@ -106,7 +106,7 @@ async function setup() {
     });
 }
 
-/*eslint max-lines-per-function: ["error", 1100]*/
+/*eslint max-lines-per-function: ["error", 1300]*/
 mocha.describe('s3_bucket_policy', function() {
     mocha.before(setup);
     mocha.it('should fail setting bucket policy when user doesn\'t exist', async function() {
@@ -1128,6 +1128,121 @@ mocha.describe('s3_bucket_policy', function() {
                     throw err;
                 }
             }
+        });
+    });
+
+    mocha.describe('get-bucket-policy status should work', async function() {
+
+        mocha.it('get-bucket-policy status should return true for public policy', async function() {
+            const self = this; // eslint-disable-line no-invalid-this
+            self.timeout(15000);
+            const s3_policy = {
+                Version: '2012-10-17',
+                //Effect allow and principal equals '*'. public policy
+                Statement: [
+                    {
+                        Action: ['s3:PutObject'],
+                        Effect: 'Allow',
+                        Principal: { AWS: "*" },
+                        Resource: [`arn:aws:s3:::${BKT}/*`],
+                    }
+                ]};
+            await s3_owner.putBucketPolicy({
+                Bucket: BKT,
+                Policy: JSON.stringify(s3_policy)
+            });
+            const res = await s3_owner.getBucketPolicyStatus({Bucket: BKT});
+            assert.strictEqual(res.PolicyStatus.IsPublic, true);
+        });
+
+        mocha.it('get-bucket-policy status should return false for non "*" principal', async function() {
+            const self = this; // eslint-disable-line no-invalid-this
+            self.timeout(15000);
+            const s3_policy = {
+                Version: '2012-10-17',
+                Statement: [
+                    {
+                        Action: ['s3:PutObject'],
+                        Effect: 'Allow',
+                        Principal: { AWS: user_a }, //principal is user
+                        Resource: [`arn:aws:s3:::${BKT}/*`],
+                    }
+                ]};
+            await s3_owner.putBucketPolicy({
+                Bucket: BKT,
+                Policy: JSON.stringify(s3_policy)
+            });
+            const res = await s3_owner.getBucketPolicyStatus({Bucket: BKT});
+            assert.strictEqual(res.PolicyStatus.IsPublic, false);
+        });
+
+        mocha.it('get-bucket-policy status should return false for Deny actions', async function() {
+            const self = this; // eslint-disable-line no-invalid-this
+            self.timeout(15000);
+            const s3_policy = {
+                Version: '2012-10-17',
+                Statement: [
+                    {
+                        Action: ['s3:PutObject'],
+                        Effect: 'Deny',
+                        Principal: { AWS: "*" },
+                        Resource: [`arn:aws:s3:::${BKT}/*`],
+                    }
+                ]};
+            await s3_owner.putBucketPolicy({
+                Bucket: BKT,
+                Policy: JSON.stringify(s3_policy)
+            });
+            const res = await s3_owner.getBucketPolicyStatus({Bucket: BKT});
+            assert.strictEqual(res.PolicyStatus.IsPublic, false);
+        });
+
+        mocha.it('get-bucket-policy status should work for pricipal as a string', async function() {
+            const self = this; // eslint-disable-line no-invalid-this
+            self.timeout(15000);
+            const s3_policy = {
+                Version: '2012-10-17',
+                Statement: [
+                    {
+                        Action: ['s3:PutObject'],
+                        Effect: 'Allow',
+                        Principal: "*",
+                        Resource: [`arn:aws:s3:::${BKT}/*`],
+                    }
+                ]};
+            await s3_owner.putBucketPolicy({
+                Bucket: BKT,
+                Policy: JSON.stringify(s3_policy)
+            });
+            const res = await s3_owner.getBucketPolicyStatus({Bucket: BKT});
+            assert.strictEqual(res.PolicyStatus.IsPublic, true);
+        });
+
+        mocha.it('get-bucket-policy principal should return true if at least one statement is public with principal * ', async function() {
+            const self = this; // eslint-disable-line no-invalid-this
+            self.timeout(15000);
+            const s3_policy = {
+                Version: '2012-10-17',
+                Statement: [
+                    {
+                        Action: ['s3:PutObject'],
+                        Effect: 'Allow',
+                        Principal: "*",
+                        Resource: [`arn:aws:s3:::${BKT}/*`],
+                    },
+                    {
+                        Action: ['s3:GetObject'],
+                        Effect: 'Deny',
+                        Principal: "*",
+                        Resource: [`arn:aws:s3:::${BKT}/*`],
+                    }
+                ]};
+            await s3_owner.putBucketPolicy({
+                Bucket: BKT,
+                Policy: JSON.stringify(s3_policy)
+            });
+            const res = await s3_owner.getBucketPolicyStatus({Bucket: BKT});
+            assert.strictEqual(res.PolicyStatus.IsPublic, true);
         });
     });
 });

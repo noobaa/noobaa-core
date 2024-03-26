@@ -19,10 +19,10 @@ const { TYPES, ACTIONS, CONFIG_SUBDIRS } = require('../../../manage_nsfs/manage_
 const ManageCLIError = require('../../../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
 const ManageCLIResponse = require('../../../manage_nsfs/manage_nsfs_cli_responses').ManageCLIResponse;
 
-const tmp_fs_path = path.join(TMP_PATH, 'test_bucketspace_fs');
+const tmp_fs_path = path.join(TMP_PATH, 'test_nc_nsfs_account_cli');
 const DEFAULT_FS_CONFIG = get_process_fs_context();
 
-const timeout = 10000;
+const timeout = 50000;
 
 // eslint-disable-next-line max-lines-per-function
 describe('manage nsfs cli account flow', () => {
@@ -33,7 +33,7 @@ describe('manage nsfs cli account flow', () => {
             _id: 'account1',
             type: TYPES.ACCOUNT,
             name: 'account1',
-            new_buckets_path: `${root_path}new_buckets_path_user1/`,
+            new_buckets_path: `${root_path}new_buckets_path_user10/`,
             uid: 999,
             gid: 999,
             access_key: 'GIGiFAnjaaE7OKD5N7hA',
@@ -333,6 +333,22 @@ describe('manage nsfs cli account flow', () => {
             expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidArgumentType.code);
         });
 
+        it('cli create account - check for the symlink relative path, not absolute path', async () => {
+            const action = ACTIONS.ADD;
+            const { type, access_key, secret_key, name, new_buckets_path, uid, gid } = defaults;
+            const account_options = { config_root, access_key, secret_key, name, new_buckets_path, uid, gid };
+            await fs_utils.create_fresh_path(new_buckets_path);
+            await fs_utils.file_must_exist(new_buckets_path);
+            await set_path_permissions_and_owner(new_buckets_path, account_options, 0o700);
+            await exec_manage_cli(type, action, account_options);
+            const account = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
+            assert_account(account, account_options, false);
+            const account_symlink = await read_config_file(config_root, CONFIG_SUBDIRS.ACCESS_KEYS, access_key, true);
+            assert_account(account_symlink, account_options);
+            const real_path = fs.readlinkSync(path.join(config_root, CONFIG_SUBDIRS.ACCESS_KEYS, access_key + '.symlink'));
+            expect(real_path).toContain('../accounts/' + account_options.name + '.json');
+        });
+
     });
 
     describe('cli update account', () => {
@@ -341,7 +357,7 @@ describe('manage nsfs cli account flow', () => {
         const type = TYPES.ACCOUNT;
         const defaults = {
             name: 'account1',
-            new_buckets_path: `${root_path}new_buckets_path_user1/`,
+            new_buckets_path: `${root_path}new_buckets_path_user/`,
             uid: 999,
             gid: 999,
             access_key: 'GIGiFAnjaaE7OKD5N7hA',
@@ -555,6 +571,24 @@ describe('manage nsfs cli account flow', () => {
             const flag = 'user'; // we will add user flag without value
             const res = await exec_manage_cli_add_empty_option(command, flag);
             expect(JSON.parse(res.stdout).error.message).toBe(ManageCLIError.InvalidArgumentType.message);
+        });
+
+        it('cli account update account by name, access_key and secret_key - check for the symlink relative path, not absolute path', async function() {
+            const { name } = defaults;
+            const new_name = 'account1_new_name';
+            const access_key = 'GIGiFAnjaaE7OEXAMPLE';
+            const secret_key = 'U3AYaMpU3zRDcRFWmvzgQr9MoHIAsD+3oEXAMPLE';
+            const account_options = { config_root, name, new_name, access_key, secret_key };
+            const action = ACTIONS.UPDATE;
+            account_options.new_name = 'account1_new_name';
+            await exec_manage_cli(type, action, account_options);
+            let new_account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, new_name);
+            const account_symlink = await read_config_file(config_root, CONFIG_SUBDIRS.ACCESS_KEYS, access_key, true);
+            //fixing the new_account_details for compare. 
+            new_account_details = { ...new_account_details, ...new_account_details.nsfs_account_config };
+            assert_account(account_symlink, new_account_details);
+            const real_path = fs.readlinkSync(path.join(config_root, CONFIG_SUBDIRS.ACCESS_KEYS, access_key + '.symlink'));
+            expect(real_path).toContain('../accounts/' + new_name + '.json');
         });
 
     });
@@ -794,7 +828,7 @@ describe('manage nsfs cli account flow', () => {
         const defaults = {
             type: TYPES.ACCOUNT,
             name: 'account11',
-            new_buckets_path: `${root_path}new_buckets_path_user11/`,
+            new_buckets_path: `${root_path}new_buckets_path_user111/`,
             uid: 1011,
             gid: 1011,
             access_key: 'GIGiFAnjaaE7OKD5N7h1',
@@ -837,9 +871,11 @@ describe('manage nsfs cli account flow', () => {
             expect(res_json.response.code).toBe(ManageCLIResponse.AccountDeleted.code);
             const config_path = path.join(config_root, CONFIG_SUBDIRS.ACCOUNTS, name + '.json');
             await fs_utils.file_must_not_exist(config_path);
+            const symlink_config_path = path.join(config_root, CONFIG_SUBDIRS.ACCESS_KEYS, defaults.access_key + '.symlink');
+            await fs_utils.file_must_not_exist(symlink_config_path);
         });
 
-        it('cli delete account - should fail, account owns a bucket', async () => {
+        it('should fail - cli delete account, account owns a bucket', async () => {
             // cli create account - happens in the "beforeEach"
 
             // cli create bucket
@@ -937,7 +973,7 @@ describe('manage nsfs cli account flow', () => {
         const path_to_json_account_options_dir = path.join(tmp_fs_path, 'options');
         const defaults = {
             name: 'account3',
-            new_buckets_path: `${root_path}new_buckets_path_user3/`,
+            new_buckets_path: `${root_path}new_buckets_path_user33/`,
             uid: 1003,
             gid: 1003,
             access_key: 'GIGiFAnjaaE7OKD5N722',
@@ -970,7 +1006,7 @@ describe('manage nsfs cli account flow', () => {
             // write the json_file_options
             const path_to_option_json_file_name = await create_json_account_options(path_to_json_account_options_dir, account_options);
             const command_flags = {config_root, from_file: path_to_option_json_file_name};
-            // create tha account and check the details
+            // create the account and check the details
             await exec_manage_cli(type, action, command_flags);
             // compare the details
             const account = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
@@ -984,7 +1020,7 @@ describe('manage nsfs cli account flow', () => {
             // write the json_file_options
             const path_to_option_json_file_name = await create_json_account_options(path_to_json_account_options_dir, account_options);
             const command_flags = {config_root, from_file: path_to_option_json_file_name};
-            // create tha account and check the details
+            // create the account and check the details
             await exec_manage_cli(type, action, command_flags);
             // compare the details
             const account = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
@@ -1002,7 +1038,7 @@ describe('manage nsfs cli account flow', () => {
             // write the json_file_options
             const path_to_option_json_file_name = await create_json_account_options(path_to_json_account_options_dir, account_options);
             const command_flags = {config_root, from_file: path_to_option_json_file_name};
-            // create tha account and check the details
+            // create the account
             const res = await exec_manage_cli(type, action, command_flags);
             expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.AccountAccessKeyFlagComplexity.code);
         });
@@ -1014,7 +1050,7 @@ describe('manage nsfs cli account flow', () => {
             // write the json_file_options
             const path_to_option_json_file_name = await create_json_account_options(path_to_json_account_options_dir, account_options);
             const command_flags = {config_root, from_file: path_to_option_json_file_name, name }; // name should be in file only
-            // create tha account and check the details
+            // create the account
             const res = await exec_manage_cli(type, action, command_flags);
             expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidArgument.code);
         });
@@ -1026,7 +1062,7 @@ describe('manage nsfs cli account flow', () => {
             // write the json_file_options
             const path_to_option_json_file_name = await create_json_account_options(path_to_json_account_options_dir, account_options);
             const command_flags = {config_root, from_file: path_to_option_json_file_name};
-            // create tha account and check the details
+            // create the account
             const res = await exec_manage_cli(type, action, command_flags);
             expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidArgument.code);
         });
@@ -1038,7 +1074,7 @@ describe('manage nsfs cli account flow', () => {
             // write the json_file_options
             const path_to_option_json_file_name = await create_json_account_options(path_to_json_account_options_dir, account_options);
             const command_flags = {config_root, from_file: path_to_option_json_file_name};
-            // create tha account and check the details
+            // create the account
             const res = await exec_manage_cli(type, action, command_flags);
             expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidArgument.code);
         });
@@ -1050,7 +1086,7 @@ describe('manage nsfs cli account flow', () => {
             // write the json_file_options
             const path_to_option_json_file_name = await create_json_account_options(path_to_json_account_options_dir, account_options);
             const command_flags = {config_root, from_file: path_to_option_json_file_name};
-            // create tha account and check the details
+            // create the account
             const res = await exec_manage_cli(type, action, command_flags);
             expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidArgument.code);
         });
@@ -1062,7 +1098,7 @@ describe('manage nsfs cli account flow', () => {
             // write the json_file_options
             const path_to_option_json_file_name = await create_json_account_options(path_to_json_account_options_dir, account_options);
             const command_flags = {config_root, from_file: path_to_option_json_file_name};
-            // create tha account and check the details
+            // create the account
             const res = await exec_manage_cli(type, action, command_flags);
             expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidArgumentType.code);
         });
@@ -1085,7 +1121,7 @@ describe('manage nsfs cli account flow', () => {
             await fs.promises.writeFile(path_to_option_json_file_name, content);
             // write the json_file_options
             const command_flags = {config_root, from_file: path_to_option_json_file_name};
-            // create tha account
+            // create the account
             await exec_manage_cli(type, action, command_flags);
             // compare the details
             const res = await exec_manage_cli(type, action, command_flags);

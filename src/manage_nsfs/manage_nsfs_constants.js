@@ -43,7 +43,7 @@ const VALID_OPTIONS_ACCOUNT = {
 const VALID_OPTIONS_BUCKET = {
     'add': new Set(['name', 'owner', 'path', 'bucket_policy', 'fs_backend', FROM_FILE, ...GLOBAL_CONFIG_OPTIONS]),
     'update': new Set(['name', 'owner', 'path', 'bucket_policy', 'fs_backend', 'new_name', ...GLOBAL_CONFIG_OPTIONS]),
-    'delete': new Set(['name', ...GLOBAL_CONFIG_OPTIONS]),
+    'delete': new Set(['name', 'force', ...GLOBAL_CONFIG_OPTIONS]),
     'list': new Set(['wide', 'name', ...GLOBAL_CONFIG_OPTIONS]),
     'status': new Set(['name', ...GLOBAL_CONFIG_OPTIONS]),
 };
@@ -87,6 +87,7 @@ const OPTION_TYPE = {
     wide: 'boolean',
     show_secrets: 'boolean',
     ips: 'string',
+    force: 'boolean'
 };
 
 const BOOLEAN_STRING_VALUES = ['true', 'false'];

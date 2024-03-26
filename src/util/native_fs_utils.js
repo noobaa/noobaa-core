@@ -449,10 +449,10 @@ function get_process_fs_context(backend = '', warn_threshold_ms = config.NSFS_WA
 
 /**
  * @param {Object} nsfs_account_config
- * @param {string} [config_root_backend]
+ * @param {string} [fs_backend]
  * @returns {Promise<nb.NativeFSContext>}
  */
-async function get_fs_context(nsfs_account_config, config_root_backend) {
+async function get_fs_context(nsfs_account_config, fs_backend) {
     let account_ids_by_dn;
     if (nsfs_account_config.distinguished_name) {
         account_ids_by_dn = await get_user_by_distinguished_name({ distinguished_name: nsfs_account_config.distinguished_name });
@@ -461,7 +461,7 @@ async function get_fs_context(nsfs_account_config, config_root_backend) {
         uid: (account_ids_by_dn && account_ids_by_dn.uid) ?? nsfs_account_config.uid,
         gid: (account_ids_by_dn && account_ids_by_dn.gid) ?? nsfs_account_config.gid,
         warn_threshold_ms: config.NSFS_WARN_THRESHOLD_MS,
-        backend: config_root_backend
+        backend: fs_backend
     };
 }
 

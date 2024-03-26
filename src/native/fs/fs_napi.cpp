@@ -235,7 +235,6 @@ const static std::vector<std::string> USER_XATTRS{
     "user.noobaa.part_etag",
     "user.storage_class",
     "user.noobaa.restore.request",
-    "user.noobaa.restore.ongoing",
     "user.noobaa.restore.expiry",
 };
 
@@ -1346,7 +1345,7 @@ struct FileWrap : public Napi::ObjectWrap<FileWrap>
     }
     ~FileWrap()
     {
-        if (_fd) {
+        if (_fd >= 0) {
             LOG("FS::FileWrap::dtor: file not closed " << DVAL(_path) << DVAL(_fd));
             int r = ::close(_fd);
             if (r) LOG("FS::FileWrap::dtor: file close failed " << DVAL(_path) << DVAL(_fd) << DVAL(r));

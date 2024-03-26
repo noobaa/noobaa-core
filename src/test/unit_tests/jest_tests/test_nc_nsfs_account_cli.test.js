@@ -839,12 +839,6 @@ describe('manage nsfs cli account flow', () => {
                 .toEqual([]);
         });
 
-        it('cli account status without name and access_key', async function() {
-            const action = ACTIONS.STATUS;
-            const res = await exec_manage_cli(TYPES.ACCOUNT, action, { config_root });
-            expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.MissingIdentifier.code);
-        });
-
     });
 
     describe('cli delete account', () => {

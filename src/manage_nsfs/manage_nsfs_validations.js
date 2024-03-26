@@ -203,20 +203,10 @@ if (action === ACTIONS.STATUS || action === ACTIONS.ADD || action === ACTIONS.UP
  */
 async function validate_bucket_args(config_root_backend, accounts_dir_path, data, action) {
     if (action === ACTIONS.ADD || action === ACTIONS.UPDATE) {
-        try {
-            native_fs_utils.validate_bucket_creation({ name: data.name });
-        } catch (err) {
-            throw_cli_error(ManageCLIError.InvalidBucketName, data.name);
-        }
-        if (!_.isUndefined(data.new_name)) {
-            if (action !== ACTIONS.UPDATE) throw_cli_error(ManageCLIError.InvalidNewNameBucketIdentifier);
-            try {
-                native_fs_utils.validate_bucket_creation({ name: data.new_name });
-            } catch (err) {
-                throw_cli_error(ManageCLIError.InvalidBucketName, data.new_name);
-            }
-        }
-        if (_.isUndefined(data.system_owner)) throw_cli_error(ManageCLIError.MissingBucketOwnerFlag);
+        if (action === ACTIONS.ADD) validate_bucket_name(data.name);
+        if (action === ACTIONS.UPDATE && !_.isUndefined(data.new_name)) validate_bucket_name(data.new_name);
+
+        if (action === ACTIONS.ADD && _.isUndefined(data.bucket_owner)) throw_cli_error(ManageCLIError.MissingBucketOwnerFlag);
         if (!data.path) throw_cli_error(ManageCLIError.MissingBucketPathFlag);
         // fs_backend='' used for deletion of the fs_backend property
         if (data.fs_backend !== undefined && !['GPFS', 'CEPH_FS', 'NFSv4'].includes(data.fs_backend)) {
@@ -246,6 +236,18 @@ async function validate_bucket_args(config_root_backend, accounts_dir_path, data
                 throw_cli_error(ManageCLIError.MalformedPolicy, data.s3_policy);
             }
         }
+    }
+}
+
+/**
+ * validate_bucket_name validates the bucket's name
+ * @param {string} name
+ */
+function validate_bucket_name(name) {
+    try {
+        native_fs_utils.validate_bucket_creation({ name });
+    } catch (err) {
+        throw_cli_error(ManageCLIError.InvalidBucketName, name);
     }
 }
 
@@ -309,11 +311,6 @@ function validate_account_identifier(action, input_options) {
  */
 async function validate_account_args(data, action) {
     if (action === ACTIONS.ADD || action === ACTIONS.UPDATE) {
-        if ((action !== ACTIONS.UPDATE && data.new_name)) throw_cli_error(ManageCLIError.InvalidNewNameAccountIdentifier);
-        if ((action !== ACTIONS.UPDATE && data.new_access_key)) throw_cli_error(ManageCLIError.InvalidNewAccessKeyIdentifier);
-
-        if (_.isUndefined(data.access_keys[0].secret_key)) throw_cli_error(ManageCLIError.MissingAccountSecretKeyFlag);
-        if (_.isUndefined(data.access_keys[0].access_key)) throw_cli_error(ManageCLIError.MissingAccountAccessKeyFlag);
         if (data.nsfs_account_config.gid && data.nsfs_account_config.uid === undefined) {
             throw_cli_error(ManageCLIError.MissingAccountNSFSConfigUID, data.nsfs_account_config);
         }

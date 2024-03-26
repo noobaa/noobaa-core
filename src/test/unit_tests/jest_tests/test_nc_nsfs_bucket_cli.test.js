@@ -85,6 +85,20 @@ describe('manage nsfs cli bucket flow', () => {
             expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.MissingBucketNameFlag.code);
         });
 
+        it('should fail - cli bucket add - invalid option (new_name)', async () => {
+            const action = ACTIONS.ADD;
+            const bucket_options = { config_root, ...bucket_defaults, new_name: 'bucket2' }; // new_name invalid option in add
+            const res = await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
+            expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidArgument.code);
+        });
+
+        it('should fail - cli bucket add - without bucket_owner', async () => {
+            const action = ACTIONS.ADD;
+            const bucket_options = { config_root, name: bucket_defaults.name, path: bucket_defaults.path };
+            const res = await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
+            expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.MissingBucketOwnerFlag.code);
+        });
+
     });
 
     describe('cli update bucket', () => {

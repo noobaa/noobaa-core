@@ -143,6 +143,22 @@ describe('manage nsfs cli account flow', () => {
             expect(JSON.parse(res.stdout).error.message).toBe(ManageCLIError.InvalidArgument.message);
         });
 
+        it('should fail - cli create account invalid option (new_name)', async () => {
+            const { type, name, new_buckets_path, uid, gid } = defaults;
+            const account_options = { config_root, name, new_buckets_path, uid, gid, new_name: 'lala'}; // new_name invalid option in add
+            const action = ACTIONS.ADD;
+            const res = await exec_manage_cli(type, action, account_options);
+            expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidArgument.code);
+        });
+
+        it('should fail - cli create account invalid option (new_access_key)', async () => {
+            const { type, name, new_buckets_path, uid, gid } = defaults;
+            const account_options = { config_root, name, new_buckets_path, uid, gid, new_access_key: 'GIGiFAnjaaE7OKD5N7lB'}; // new_access_key invalid option
+            const action = ACTIONS.ADD;
+            const res = await exec_manage_cli(type, action, account_options);
+            expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidArgument.code);
+        });
+
         it('should fail - cli create account invalid option type (user as boolean)', async () => {
             const { type, name, new_buckets_path } = defaults;
             const account_options = { config_root, name, new_buckets_path};

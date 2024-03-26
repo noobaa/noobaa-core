@@ -6,6 +6,7 @@ const nb_native = require('./nb_native');
 const native_fs_utils = require('./native_fs_utils');
 const P = require('./promise');
 const Semaphore = require('./semaphore');
+const { NewlineReader } = require('./file_reader');
 const dbg = require('./debug_module')(__filename);
 
 /**
@@ -135,7 +136,7 @@ class PersistentLogger {
      * @param {(file: string) => Promise<boolean>} cb callback
      * @param {boolean} replace_active
      */
-    async process_inactive(cb, replace_active = true) {
+    async _process(cb, replace_active = true) {
         if (replace_active) {
             await this._replace_active();
         }
@@ -157,6 +158,48 @@ class PersistentLogger {
             if (delete_processed) {
                 await nb_native().fs.unlink(this.fs_context, path.join(this.dir, file.name));
             }
+        }
+    }
+
+    /**
+     * process is a safe wrapper around _process function which creates a failure logger for the
+     * callback function which allows persisting failures to disk
+     * @param {(file: string, failure_recorder: (entry: string) => Promise<void>) => Promise<boolean>} cb callback
+     */
+    async process(cb) {
+        let failure_log = null;
+
+        try {
+            // This logger is getting opened only so that we can process all the process the entries
+            failure_log = new PersistentLogger(
+                this.dir,
+                `${this.namespace}.failure`,
+                { locking: 'EXCLUSIVE' },
+            );
+
+            try {
+                // Process all the inactive and currently active log
+                await this._process(async file => cb(file, failure_log.append.bind(failure_log)));
+            } catch (error) {
+                dbg.error('failed to process logs, error:', error, 'log_namespace:', this.namespace);
+            }
+
+            try {
+                // Process the inactive failure logs (don't process the current though)
+                // This will REMOVE the previous failure logs and will merge them with the current failures
+                await failure_log._process(async file => cb(file, failure_log.append.bind(failure_log)), false);
+            } catch (error) {
+                dbg.error('failed to process failure logs:', error, 'log_namespace:', this.namespace);
+            }
+
+            try {
+                // Finally replace the current active so as to consume them in the next iteration
+                await failure_log._replace_active();
+            } catch (error) {
+                dbg.error('failed to replace active failure log:', error, 'log_namespace:', this.namespace);
+            }
+        } finally {
+            if (failure_log) await failure_log.close();
         }
     }
 
@@ -199,5 +242,66 @@ class PersistentLogger {
     }
 }
 
+class LogFile {
+    /**
+     * @param {nb.NativeFSContext} fs_context 
+     * @param {string} log_path 
+     */
+    constructor(fs_context, log_path) {
+        this.fs_context = fs_context;
+        this.log_path = log_path;
+    }
+
+    /**
+     * batch_and_consume takes 2 functins, first function iterates over the log file
+     * line by line and can choose to add some entries to a batch and then the second
+     * function will be invoked to a with a path to the persistent log.
+     * 
+     * 
+     * The fact that this function allows easy iteration and then later on optional consumption
+     * of that batch provides the ability to invoke this funcition recursively composed in whatever
+     * order that is required.
+     * @param {(entry: string, batch_recorder: (entry: string) => Promise<void>) => Promise<void>} collect
+     * @param {(batch: string) => Promise<void>} [process]
+     * @returns {Promise<void>}
+     */
+    async collect_and_process(collect, process) {
+        let log_reader = null;
+        let filtered_log = null;
+        try {
+            filtered_log = new PersistentLogger(
+                path.dirname(this.log_path),
+                `tmp_consume_${Date.now().toString()}`,
+                { locking: 'EXCLUSIVE'}
+            );
+
+            log_reader = new NewlineReader(this.fs_context, this.log_path, 'EXCLUSIVE');
+            await log_reader.forEach(async entry => {
+                await collect(entry, filtered_log.append.bind(filtered_log));
+                return true;
+            });
+
+            if (filtered_log.local_size === 0) return;
+
+            await filtered_log.close();
+            await process?.(filtered_log.active_path);
+        } catch (error) {
+            dbg.error('unexpected error in consuming log file:', this.log_path);
+
+            // bubble the error to the caller
+            throw error;
+        } finally {
+            if (log_reader) {
+                await log_reader.close();
+            }
+
+            if (filtered_log) {
+                await filtered_log.close();
+                await filtered_log.remove();
+            }
+        }
+    }
+}
 
 exports.PersistentLogger = PersistentLogger;
+exports.LogFile = LogFile;

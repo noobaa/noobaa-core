@@ -108,7 +108,7 @@ mocha.describe('nsfs_glacier', async () => {
 
 			// Check if the log contains the entry
 			let found = false;
-			await NamespaceFS.migrate_wal.process_inactive(async file => {
+			await NamespaceFS.migrate_wal._process(async file => {
 				const fs_context = glacier_ns.prepare_fs_context(dummy_object_sdk);
 				const reader = new NewlineReader(fs_context, file, 'EXCLUSIVE');
 
@@ -149,7 +149,7 @@ mocha.describe('nsfs_glacier', async () => {
 			assert(restore_res);
 
 			// Issue restore
-			await NamespaceFS.restore_wal.process_inactive(async file => {
+			await NamespaceFS.restore_wal._process(async file => {
 				const fs_context = glacier_ns.prepare_fs_context(dummy_object_sdk);
 				await backend.restore(fs_context, file);
 

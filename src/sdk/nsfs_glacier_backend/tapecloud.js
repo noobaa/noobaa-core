@@ -5,8 +5,8 @@ const { spawn } = require("child_process");
 const events = require('events');
 const os = require("os");
 const path = require("path");
-const { PersistentLogger } = require("../../util/persistent_logger");
-const { NewlineReader } = require('../../util/file_reader');
+const { LogFile } = require("../../util/persistent_logger");
+const { NewlineReader, NewlineReaderEntry } = require('../../util/file_reader');
 const { GlacierBackend } = require("./backend");
 const config = require('../../../config');
 const { exec } = require('../../util/os_utils');
@@ -152,208 +152,119 @@ class TapeCloudGlacierBackend extends GlacierBackend {
     async migrate(fs_context, log_file, failure_recorder) {
         dbg.log2('TapeCloudGlacierBackend.migrate starting for', log_file);
 
-        let filtered_log = null;
-        let walreader = null;
+        const file = new LogFile(fs_context, log_file);
+
         try {
-            filtered_log = new PersistentLogger(
-                config.NSFS_GLACIER_LOGS_DIR,
-                `tapecloud_migrate_run_${Date.now().toString()}`,
-                { locking: 'EXCLUSIVE' },
-            );
-
-            walreader = new NewlineReader(fs_context, log_file, 'EXCLUSIVE');
-
-            const [processed, result] = await walreader.forEachFilePathEntry(async entry => {
+            await file.collect_and_process(async (entry, batch_recorder) => {
                 let should_migrate = true;
                 try {
-                    should_migrate = await this.should_migrate(fs_context, entry.path);
+                    should_migrate = await this.should_migrate(fs_context, entry);
                 } catch (err) {
                     if (err.code === 'ENOENT') {
                         // Skip this file
-                        return true;
+                        return;
                     }
 
                     dbg.log0(
-                        'adding log entry', entry.path,
+                        'adding log entry', entry,
                         'to failure recorder due to error', err,
                     );
-                    await failure_recorder(entry.path);
 
-                    return true;
+                    // Can't really do anything if this fails - provider
+                    // needs to make sure that appropriate error handling
+                    // is being done there
+                    await failure_recorder(entry);
+                    return;
                 }
 
                 // Skip the file if it shouldn't be migrated
-                if (!should_migrate) return true;
+                if (!should_migrate) return;
 
-                await filtered_log.append(entry.path);
-                return true;
+                // Can't really do anything if this fails - provider
+                // needs to make sure that appropriate error handling
+                // is being done there
+                await batch_recorder(entry);
+            },
+            async batch => {
+                // This will throw error only if our eeadm error handler
+                // panics as well and at that point it's okay to
+                // not handle the error and rather keep the log file around
+                await this._migrate(batch, failure_recorder);
             });
 
-            // If the result of the above is false then it indicates that we concluded
-            // to exit early hence the file shouldn't be processed further, exit
-            //
-            // NOTE: Should not hit this case anymore
-            if (!result) return false;
-
-            // If we didn't read even one line then it most likely indicates that the WAL is
-            // empty - this case is unlikely given the mechanism of WAL but still needs to be
-            // handled.
-            // Return `true` to mark it for deletion.
-            if (processed === 0) {
-                dbg.warn('unexpected empty persistent log found:', log_file);
-                return true;
-            }
-            // If we didn't find any candidates despite complete read, exit and delete this WAL
-            if (filtered_log.local_size === 0) return true;
-
-            await filtered_log.close();
-            await this._migrate(filtered_log.active_path, failure_recorder);
-
-            // Delete the log if the above write succeeds or else keep it
             return true;
         } catch (error) {
-            dbg.error('unexpected error occured while processing migrate WAL:', error);
-
-            // Preserve the WAL if we encounter exception here, possible failures
-            // 1. eeadm command failure
-            // 2. tempwal failure
-            // 3. newline reader failure
-            // 4. failure log failure
+            dbg.error('unexpected error in processing migrate:', error, 'for:', log_file);
             return false;
-        } finally {
-            if (filtered_log) {
-                await filtered_log.close();
-                await filtered_log.remove();
-            }
-
-            if (walreader) await walreader.close();
         }
     }
 
     async restore(fs_context, log_file, failure_recorder) {
         dbg.log2('TapeCloudGlacierBackend.restore starting for', log_file);
 
-        let filtered_log = null;
-        let walreader = null;
-        let filtered_log_reader = null;
+        const file = new LogFile(fs_context, log_file);
         try {
-            // tempwal will store all the files of interest and will be handed over to tapecloud script
-            filtered_log = new PersistentLogger(
-                config.NSFS_GLACIER_LOGS_DIR,
-                `tapecloud_restore_run_${Date.now().toString()}`,
-                { locking: 'EXCLUSIVE' },
-            );
-
-            walreader = new NewlineReader(fs_context, log_file, 'EXCLUSIVE');
-
-            let [processed, result] = await walreader.forEachFilePathEntry(async entry => {
+            await file.collect_and_process(async (entry, batch_recorder) => {
                 try {
-                    const should_restore = await this.should_restore(fs_context, entry.path);
+                    const should_restore = await this.should_restore(fs_context, entry);
                     if (!should_restore) {
                         // Skip this file
-                        return true;
+                        return;
                     }
 
                     // Add entry to the tempwal
-                    await filtered_log.append(entry.path);
-
-                    return true;
+                    await batch_recorder(entry);
                 } catch (error) {
                     if (error.code === 'ENOENT') {
                         // Skip this file
-                        return true;
+                        return;
                     }
 
                     dbg.log0(
-                        'adding log entry', entry.path,
+                        'adding log entry', entry,
                         'to failure recorder due to error', error,
                     );
-                    await failure_recorder(entry.path);
-
-                    return true;
+                    await failure_recorder(entry);
                 }
-            });
+            },
+            async batch => {
+                await this._recall(batch, failure_recorder);
 
-            // If the result of the above iteration was negative it indicates
-            // an early exit hence no need to process further for now
-            if (!result) return false;
+                const batch_file = new LogFile(fs_context, batch);
+                await batch_file.collect_and_process(async (entry_path, batch_recorder) => {
+                    const entry = new NewlineReaderEntry(fs_context, entry_path);
+                    let fh = null;
+                    try {
+                        fh = await entry.open();
 
-            // If we didn't read even one line then it most likely indicates that the WAL is
-            // empty - this case is unlikely given the mechanism of WAL but still needs to be
-            // handled.
-            // Return `true` so as clear this file
-            if (processed === 0) {
-                dbg.warn('unexpected empty persistent log found:', log_file);
-                return true;
-            }
+                        const stat = await fh.stat(fs_context, {
+                            xattr_get_keys: [
+                                GlacierBackend.XATTR_RESTORE_REQUEST,
+                            ]
+                        });
 
-            // If we didn't find any candidates despite complete read, exit and delete this WAL
-            if (filtered_log.local_size === 0) return true;
+                        const days = Number(stat.xattr[GlacierBackend.XATTR_RESTORE_REQUEST]);
+                        const expires_on = GlacierBackend.generate_expiry(
+                            new Date(),
+                            days,
+                            config.NSFS_GLACIER_EXPIRY_TIME_OF_DAY,
+                            config.NSFS_GLACIER_EXPIRY_TZ,
+                        );
 
-            await filtered_log.close();
-            await this._recall(filtered_log.active_path, failure_recorder);
-
-            filtered_log_reader = new NewlineReader(fs_context, filtered_log.active_path, "EXCLUSIVE");
-
-            [processed, result] = await filtered_log_reader.forEachFilePathEntry(async entry => {
-                let fh = null;
-                try {
-                    fh = await entry.open();
-
-                    const stat = await fh.stat(fs_context, {
-                        xattr_get_keys: [
-                            GlacierBackend.XATTR_RESTORE_REQUEST,
-                        ]
-                    });
-
-                    const days = Number(stat.xattr[GlacierBackend.XATTR_RESTORE_REQUEST]);
-                    const expires_on = GlacierBackend.generate_expiry(
-                        new Date(),
-                        days,
-                        config.NSFS_GLACIER_EXPIRY_TIME_OF_DAY,
-                        config.NSFS_GLACIER_EXPIRY_TZ,
-                    );
-
-                    await fh.replacexattr(fs_context, {
-                        [GlacierBackend.XATTR_RESTORE_EXPIRY]: expires_on.toISOString(),
-                    }, GlacierBackend.XATTR_RESTORE_REQUEST);
-
-                    return true;
-                } catch (error) {
-                    dbg.error(`failed to process ${entry.path}`, error);
-                    // It's OK if the file got deleted between the last check and this check
-                    // but if there is any other error, retry restore
-                    //
-                    // It could be that the error is transient and the actual
-                    // restore did successfully take place, in that case, rely on tapecloud script to
-                    // handle dups
-                    if (error.code !== 'ENOENT') {
-                        return false;
+                        await fh.replacexattr(fs_context, {
+                            [GlacierBackend.XATTR_RESTORE_EXPIRY]: expires_on.toISOString(),
+                        }, GlacierBackend.XATTR_RESTORE_REQUEST);
+                    } catch (error) {
+                        dbg.error(`failed to process ${entry.path}`, error);
+                    } finally {
+                        if (fh) await fh.close(fs_context);
                     }
-                } finally {
-                    if (fh) await fh.close(fs_context);
-                }
+                });
             });
-
-            if (!result) return false;
-
             return true;
         } catch (error) {
-            dbg.error('unexpected error occured while processing restore WAL:', error);
-
-            // Preserve the WAL, failure cases:
-            // 1. tapecloud command exception
-            // 2. WAL open failure
-            // 3. Newline reader failure
+            dbg.error('unexpected error in processing restore:', error, 'for:', log_file);
             return false;
-        } finally {
-            if (walreader) await walreader.close();
-            if (filtered_log_reader) await filtered_log_reader.close();
-
-            if (filtered_log) {
-                await filtered_log.close();
-                await filtered_log.remove();
-            }
         }
     }
 

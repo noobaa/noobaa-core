@@ -301,7 +301,7 @@ async function create_namespace_resource(req) {
         }
 
         let gcp_hmac_key;
-        if (connection?.gcp_hmac_key?.secret_key) {
+        if (connection.gcp_hmac_key?.secret_key) {
             gcp_hmac_key = {
                 access_id: connection.gcp_hmac_key.access_id,
                 secret_key: system_store.master_key_manager.encrypt_sensitive_string_with_master_key_id(

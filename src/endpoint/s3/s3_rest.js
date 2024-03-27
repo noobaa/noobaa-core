@@ -221,7 +221,7 @@ async function authorize_request_policy(req) {
 
     const is_anon = !(auth_token && auth_token.access_key);
     if (is_anon) {
-        authorize_anonymous_access(s3_policy, method, arn_path, req);
+        await authorize_anonymous_access(s3_policy, method, arn_path, req);
         return;
     }
 

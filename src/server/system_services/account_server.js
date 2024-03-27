@@ -786,7 +786,7 @@ async function add_external_connection(req) {
 
     // If the connection is for Google, generate an HMAC key for S3-compatible actions (e.g. multipart uploads)
     if (info.endpoint_type === 'GOOGLE') {
-        dbg.log0('add_external_connection: creating HMAC key for Google connection')
+        dbg.log0('add_external_connection: creating HMAC key for Google connection');
         const key_file = JSON.parse(req.rpc_params.secret.unwrap());
         const credentials = _.pick(key_file, 'client_email', 'private_key');
         const gs_client = new GoogleStorage({ credentials, projectId: key_file.project_id });

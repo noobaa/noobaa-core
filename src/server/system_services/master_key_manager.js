@@ -340,7 +340,7 @@ class MasterKeysManager {
                                 encrypted_value: keys.gcp_hmac_key.secret_key,
                                 decipher: crypto.createDecipheriv(m_key.cipher_type, m_key.cipher_key, m_key.cipher_iv)
                             }, undefined);
-                        
+
                         }
                     }
                 }

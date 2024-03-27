@@ -734,7 +734,7 @@ config.NSFS_EXIT_EVENTS_TIME_FRAME_MIN = 24 * 60; // per day
 config.NSFS_MAX_EXIT_EVENTS_PER_TIME_FRAME = 10; // allow max 10 failed forks per day
 
 config.NSFS_GLACIER_LOGS_DIR = '/var/run/noobaa-nsfs/wal';
-config.NSFS_GLACIER_LOGS_MAX_INTERVAL = 15 * 60 * 1000;
+config.NSFS_GLACIER_LOGS_POLL_INTERVAL = 10 * 1000;
 
 // NSFS_GLACIER_ENABLED can override internal autodetection and will force
 // the use of restore for all objects.

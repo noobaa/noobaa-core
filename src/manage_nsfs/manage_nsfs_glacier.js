@@ -35,14 +35,7 @@ async function process_migrations() {
  * @param {import('../sdk/nsfs_glacier_backend/backend').GlacierBackend} backend
  */
 async function run_glacier_migrations(fs_context, backend) {
-    // This WAL is getting opened only so that we can process all the prcess WAL entries
-    const wal = new PersistentLogger(
-        config.NSFS_GLACIER_LOGS_DIR,
-        GlacierBackend.MIGRATE_WAL_NAME,
-        { disable_rotate: true, locking: 'EXCLUSIVE' },
-    );
-
-    await wal.process_inactive(async file => backend.migrate(fs_context, file));
+    await run_glacier_operation(fs_context, GlacierBackend.MIGRATE_WAL_NAME, backend.migrate.bind(backend));
 }
 
 async function process_restores() {
@@ -69,14 +62,7 @@ async function process_restores() {
  * @param {import('../sdk/nsfs_glacier_backend/backend').GlacierBackend} backend
  */
 async function run_glacier_restore(fs_context, backend) {
-    // This WAL is getting opened only so that we can process all the prcess WAL entries
-    const wal = new PersistentLogger(
-        config.NSFS_GLACIER_LOGS_DIR,
-        GlacierBackend.RESTORE_WAL_NAME,
-        { disable_rotate: true, locking: 'EXCLUSIVE' },
-    );
-
-    await wal.process_inactive(async file => backend.restore(fs_context, file));
+    await run_glacier_operation(fs_context, GlacierBackend.RESTORE_WAL_NAME, backend.restore.bind(backend));
 }
 
 async function process_expiry() {
@@ -106,7 +92,7 @@ async function time_exceeded(fs_context, interval, timestamp_file) {
 
         if (lastrun.getTime() + interval < Date.now()) return true;
     } catch (error) {
-        console.error('failed to read last run timestamp:', error);
+        console.error('failed to read last run timestamp:', error, 'timestamp_file:', timestamp_file);
         if (error.code === 'ENOENT') return true;
 
         throw error;
@@ -127,6 +113,25 @@ async function record_current_time(fs_context, timestamp_file) {
         path.join(config.NSFS_GLACIER_LOGS_DIR, timestamp_file),
         Buffer.from(new Date().toISOString()),
     );
+}
+
+/**
+ * run_glacier_operations takes a log_namespace and a callback and executes the
+ * callback on each log file in that namespace. It will also generate a failure
+ * log file and persist the failures in that log file.
+ * @param {nb.NativeFSContext} fs_context 
+ * @param {string} log_namespace 
+ * @param {Function} cb 
+ */
+async function run_glacier_operation(fs_context, log_namespace, cb) {
+    const log = new PersistentLogger(config.NSFS_GLACIER_LOGS_DIR, log_namespace, { locking: 'EXCLUSIVE' });
+    try {
+        await log.process(async (entry, failure_recorder) => cb(fs_context, entry, failure_recorder));
+    } catch (error) {
+        console.error('failed to process log in namespace:', log_namespace);
+    } finally {
+        await log.close();
+    }
 }
 
 /**

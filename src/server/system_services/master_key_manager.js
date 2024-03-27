@@ -374,6 +374,13 @@ class MasterKeysManager {
                             master_key_id: ns_resource.account.master_key_id._id
                         }, undefined);
                     }
+                    if (ns_resource.connection.gcp_hmac_key?.secret_key) {
+                        ns_resource.connection.gcp_hmac_key.secret_key = await this.secret_keys_cache.get_with_cache({
+                            encrypted_value: ns_resource.connection.gcp_hmac_key.secret_key.unwrap(),
+                            undefined,
+                            master_key_id: ns_resource.account.master_key_id._id
+                        }, undefined);
+                    }
                 }
             }
         }

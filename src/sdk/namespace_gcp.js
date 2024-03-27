@@ -47,6 +47,13 @@ class NamespaceGCP {
         this.project_id = project_id;
         this.client_email = client_email;
         this.private_key = private_key;
+        this.gcs = new GoogleCloudStorage({
+            projectId: this.project_id,
+            credentials: {
+                client_email: this.client_email,
+                private_key: this.private_key,
+            }
+        });
         this.s3_client = new AWS.S3({
             endpoint: 'https://storage.googleapis.com',
             accessKeyId: hmac_key.access_id,

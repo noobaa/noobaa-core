@@ -857,6 +857,9 @@ config.NC_MASTER_KEYS_PUT_EXECUTABLE = '';
 config.NC_MASTER_KEYS_MANAGER_REFRESH_THRESHOLD = -1; // currently we want to disable automatic refresh
 config.MASTER_KEYS_EXEC_MAX_RETRIES = 3;
 
+config.NC_DISABLE_ACCESS_CHECK = false;
+config.NC_DISABLE_SCHEMA_CHECK = false;
+
 //Quota
 config.QUOTA_LOW_THRESHOLD = 80;
 config.QUOTA_MAX_OBJECTS = Number.MAX_SAFE_INTEGER;

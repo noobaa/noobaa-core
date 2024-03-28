@@ -132,6 +132,17 @@ describe('manage nsfs cli bucket flow', () => {
             assert_bucket(bucket, bucket_options);
         });
 
+        it('cli create bucket - account can not access path  NC_DISABLE_ACCESS_CHECK = true - should succeed', async () => {
+            const action = ACTIONS.ADD;
+            const bucket_options = { config_root, ...bucket_defaults};
+            await fs_utils.create_fresh_path(bucket_options.path);
+            await fs_utils.file_must_exist(bucket_options.path);
+            set_nc_config_dir_in_config(config_root);
+            await create_json_file(config_root, 'config.json', { NC_DISABLE_ACCESS_CHECK: true });
+            await set_path_permissions_and_owner(bucket_options.path, account_defaults, 0o000);
+            const res = await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
+            expect(JSON.parse(res).response.code).toEqual(ManageCLIResponse.BucketCreated.code);
+        });
     });
 
 

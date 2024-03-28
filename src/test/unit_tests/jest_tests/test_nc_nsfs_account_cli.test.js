@@ -1422,6 +1422,20 @@ describe('cli account flow distinguished_name - permissions', function() {
         const res = await exec_manage_cli(type, action, update_options);
         expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InaccessibleAccountNewBucketsPath.code);
     });
+
+    it('cli account create - account cant access new_bucket_path - NC_DISABLE_ACCESS_CHECK = true', async function() {
+        let action = ACTIONS.ADD;
+        config.NC_DISABLE_ACCESS_CHECK = true;
+        set_nc_config_dir_in_config(config_root);
+        await fs.promises.writeFile(path.join(config_root, 'config.json'), JSON.stringify({ NC_DISABLE_ACCESS_CHECK: true }));
+        const res = await exec_manage_cli(type, action, accounts.inaccessible_user.cli_options);
+        expect(JSON.parse(res).response.code).toEqual(ManageCLIResponse.AccountCreated.code);
+        assert_account(JSON.parse(res).response.reply, { ...accounts.inaccessible_user.cli_options }, false);
+        action = ACTIONS.DELETE;
+        const delete_inaccessible_options = _.omit(accounts.inaccessible_user.cli_options, ['new_buckets_path', 'user']);
+        await exec_manage_cli(type, action, delete_inaccessible_options);
+        config.NC_DISABLE_ACCESS_CHECK = false;
+    }, timeout);
 });
 
 /**

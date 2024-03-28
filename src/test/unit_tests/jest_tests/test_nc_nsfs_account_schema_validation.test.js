@@ -4,6 +4,7 @@
 
 const nsfs_schema_utils = require('../../../manage_nsfs/nsfs_schema_utils');
 const RpcError = require('../../../rpc/rpc_error');
+const config = require('../../../../config');
 
 describe('schema validation NC NSFS account', () => {
     const access_key1 = 'GIGiFAnjaaE7OKD5N7hA';
@@ -362,6 +363,16 @@ describe('schema validation NC NSFS account', () => {
                 'force_md5_etag (string instead of boolean)';
             const message = 'must be boolean';
             assert_validation(account_data, reason, message);
+        });
+    });
+
+    describe('skip schema check by config test', () => {
+        it('skip schema check by config test - invalid account - should pass', () => {
+            config.NC_DISABLE_SCHEMA_CHECK = true;
+            const account_data = get_account_data();
+            account_data._id = undefined;
+            nsfs_schema_utils.validate_account_schema(account_data);
+            config.NC_DISABLE_SCHEMA_CHECK = false;
         });
     });
 

@@ -2,16 +2,13 @@
 "use strict";
 
 const _ = require('lodash');
-const request = require('request');
 const fs = require('fs');
 const crypto = require('crypto');
-const util = require('util');
 const P = require('../../util/promise');
 const ec2_wrap = require('../../deploy/ec2_wrapper');
 const os_utils = require('../../util/os_utils');
 const api = require('../../api');
 
-const request_promise = util.promisify(request);
 
 const test_file = '/tmp/test_upgrade';
 let rpc_validation_disabled = false;
@@ -19,8 +16,6 @@ const ext_regex = /^\.[A-Za-z0-9_]{1,4}$/;
 
 module.exports = {
     upload_and_upgrade: upload_and_upgrade,
-    wait_for_server: wait_for_server,
-    get_agent_setup: get_agent_setup,
     upload_file: upload_file,
     download_file: download_file,
     verify_upload_download: verify_upload_download,
@@ -36,48 +31,6 @@ function disable_rpc_validation() {
 
 function upload_and_upgrade(ip, upgrade_pack, dont_verify_version) {
     throw new Error('DEPRECATED - this upgrade flow is not relevant anymore');
-}
-
-async function wait_for_server(ip, wait_for_version) {
-    const url = `http://${ip}:8080/version`;
-    for (;;) {
-        try {
-            console.log('waiting for Web Server to start');
-            const { statusCode, body } = await request_promise({
-                method: 'get',
-                url,
-                strictSSL: false,
-            });
-            if (statusCode !== 200) {
-                throw new Error(`wait_for_server: GET ${url} FAILED:` +
-                    ` statusCode ${statusCode} body ${body}`);
-            }
-            if (wait_for_version && body !== wait_for_version) {
-                throw new Error(`wait_for_server: version is ${body}` +
-                    ` wait for version ${wait_for_version}`);
-            }
-            console.log('Web Server started. version is: ' + body);
-            return body;
-        } catch (err) {
-            console.log('not up yet...', err.message);
-            await P.delay(5000);
-        }
-    }
-}
-
-function get_agent_setup(ip) {
-    return P.ninvoke(request, 'get', {
-            url: 'https://' + ip + ':8443/public/noobaa-setup.exe',
-            rejectUnauthorized: false,
-        })
-        .then(function(response) {
-            console.log('Download of noobaa-setup was successful');
-
-        })
-        .then(null, function(err) {
-            console.error('Download of noobaa-setup failed', err);
-            throw new Error('Download of noobaa-setup failed ' + err);
-        });
 }
 
 function upload_file(ip, path, bucket, key, timeout, throw_on_error) {

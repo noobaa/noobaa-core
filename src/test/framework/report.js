@@ -2,7 +2,6 @@
 'use strict';
 
 const _ = require('lodash');
-const request = require('request');
 const mongodb = require('mongodb');
 const assert = require('assert');
 
@@ -161,22 +160,26 @@ Didn't Run: ${JSON.stringify(
     async _send_report() {
         try {
             const payload = this._prepare_report_payload();
-            if (this._remote_mongo) {
-                await this._connect_to_mongo();
-                await this._mongo_client.db().collection('reports').insert(payload);
-                console.info('report sent to remote mongo');
-            } else if (process.env.SEND_REPORT) {
-                const options = {
-                    uri: 'http://' + this.host + ':' + this.port,
-                    method: 'POST',
-                    json: payload
-                };
-                await P.timeout(60 * 1000,
-                    P.fromCallback(callback => request(options, callback))
-                );
-            } else {
-                console.info('skip report send');
-            }
+
+            // This is old code that requires more cleanup. For now removed the code that sends the report
+            console.log(`payload: ${JSON.stringify(payload)}`);
+
+            // if (this._remote_mongo) {
+            //     await this._connect_to_mongo();
+            //     await this._mongo_client.db().collection('reports').insert(payload);
+            //     console.info('report sent to remote mongo');
+            // } else if (process.env.SEND_REPORT) {
+            //     const options = {
+            //         uri: 'http://' + this.host + ':' + this.port,
+            //         method: 'POST',
+            //         json: payload
+            //     };
+            //     await P.timeout(60 * 1000,
+            //         P.fromCallback(callback => request(options, callback))
+            //     );
+            // } else {
+            //     console.info('skip report send');
+            // }
         } catch (err) {
             console.error('failed sending report', err);
         }

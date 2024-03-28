@@ -322,17 +322,15 @@ class NamespaceGCP {
         dbg.log0('NamespaceGCP.create_object_upload:', this.bucket, inspect(params));
         const Tagging = params.tagging && params.tagging.map(tag => tag.key + '=' + tag.value).join('&');
 
-        /** @type {import('@aws-sdk/client-s3').CreateMultipartUploadRequest} */
-        const mp_upload_input = {
-            Bucket: this.bucket,
-            Key: params.key,
-            ContentType: params.content_type,
-            StorageClass: params.storage_class,
-            Metadata: params.xattr,
-            Tagging
-        };
-        const mp_upload_cmd = new CreateMultipartUploadCommand(mp_upload_input);
-        const res = await this.s3_client.send(mp_upload_cmd);
+        const res = await this.s3_client.send(
+            new CreateMultipartUploadCommand({
+                Bucket: this.bucket,
+                Key: params.key,
+                ContentType: params.content_type,
+                StorageClass: params.storage_class,
+                Metadata: params.xattr,
+                Tagging
+        }));
 
         dbg.log0('NamespaceGCP.create_object_upload:', this.bucket, inspect(params), 'res', inspect(res));
         return { obj_id: res.UploadId };
@@ -344,18 +342,16 @@ class NamespaceGCP {
         let res;
         if (params.copy_source) {
             const { copy_source, copy_source_range } = s3_utils.format_copy_source(params.copy_source);
-            /** @type {import('@aws-sdk/client-s3').UploadPartCopyRequest} */
-            const request = {
-                Bucket: this.bucket,
-                Key: params.key,
-                UploadId: params.obj_id,
-                PartNumber: params.num,
-                CopySource: copy_source,
-                CopySourceRange: copy_source_range,
-            };
 
-            const command = new UploadPartCopyCommand(request);
-            res = await this.s3_client.send(command);
+            res = await this.s3_client.send(
+                new UploadPartCopyCommand({
+                    Bucket: this.bucket,
+                    Key: params.key,
+                    UploadId: params.obj_id,
+                    PartNumber: params.num,
+                    CopySource: copy_source,
+                    CopySourceRange: copy_source_range,
+            }));
             etag = s3_utils.parse_etag(res.CopyPartResult.ETag);
         } else {
             let count = 1;
@@ -368,19 +364,17 @@ class NamespaceGCP {
                 // clear count for next updates
                 count = 0;
             });
-            /** @type {import('@aws-sdk/client-s3').UploadPartRequest} */
-            const request = {
-                Bucket: this.bucket,
-                Key: params.key,
-                UploadId: params.obj_id,
-                PartNumber: params.num,
-                Body: params.source_stream.pipe(count_stream),
-                ContentMD5: params.md5_b64,
-                ContentLength: params.size,
-            };
             try {
-                const command = new UploadPartCommand(request);
-                res = await this.s3_client.send(command);
+                res = await this.s3_client.send(
+                    new UploadPartCommand({
+                        Bucket: this.bucket,
+                        Key: params.key,
+                        UploadId: params.obj_id,
+                        PartNumber: params.num,
+                        Body: params.source_stream.pipe(count_stream),
+                        ContentMD5: params.md5_b64,
+                        ContentLength: params.size,
+                }));
             } catch (err) {
                 fix_error_object(err);
                 object_sdk.rpc_client.pool.update_issues_report({
@@ -399,16 +393,14 @@ class NamespaceGCP {
     async list_multiparts(params, object_sdk) {
         dbg.log0('NamespaceGCP.list_multiparts:', this.bucket, inspect(params));
 
-        /** @type {import('@aws-sdk/client-s3').ListPartsRequest} */
-        const request = {
-            Bucket: this.bucket,
-            Key: params.key,
-            UploadId: params.obj_id,
-            MaxParts: params.max,
-            PartNumberMarker: params.num_marker,
-        };
-        const command = new ListPartsCommand(request);
-        const res = await this.s3_client.send(command);
+        const res = await this.s3_client.send(
+            new ListPartsCommand({
+                Bucket: this.bucket,
+                Key: params.key,
+                UploadId: params.obj_id,
+                MaxParts: params.max,
+                PartNumberMarker: params.num_marker,
+        }));
 
         dbg.log0('NamespaceGCP.list_multiparts:', this.bucket, inspect(params), 'res', inspect(res));
         return {
@@ -426,20 +418,18 @@ class NamespaceGCP {
     async complete_object_upload(params, object_sdk) {
         dbg.log0('NamespaceGCP.complete_object_upload:', this.bucket, inspect(params));
 
-        /** @type {import('@aws-sdk/client-s3').CompleteMultipartUploadRequest} */
-        const request = {
-            Bucket: this.bucket,
-            Key: params.key,
-            UploadId: params.obj_id,
-            MultipartUpload: {
-                Parts: _.map(params.multiparts, p => ({
-                    PartNumber: p.num,
-                    ETag: `"${p.etag}"`,
-                }))
-            }
-        };
-        const command = new CompleteMultipartUploadCommand(request);
-        const res = await this.s3_client.send(command);
+        const res = await this.s3_client.send(
+            new CompleteMultipartUploadCommand({
+                Bucket: this.bucket,
+                Key: params.key,
+                UploadId: params.obj_id,
+                MultipartUpload: {
+                    Parts: _.map(params.multiparts, p => ({
+                        PartNumber: p.num,
+                        ETag: `"${p.etag}"`,
+                    }))
+                }
+        }));
 
         dbg.log0('NamespaceGCP.complete_object_upload:', this.bucket, inspect(params), 'res', inspect(res));
         const etag = s3_utils.parse_etag(res.ETag);
@@ -448,14 +438,13 @@ class NamespaceGCP {
 
     async abort_object_upload(params, object_sdk) {
         dbg.log0('NamespaceGCP.abort_object_upload:', this.bucket, inspect(params));
-        /** @type {import('@aws-sdk/client-s3').AbortMultipartUploadRequest} */
-        const request = {
-            Bucket: this.bucket,
-            Key: params.key,
-            UploadId: params.obj_id,
-        };
-        const command = new AbortMultipartUploadCommand(request);
-        const res = await this.s3_client.send(command);
+
+        const res = await this.s3_client.send(
+            new AbortMultipartUploadCommand({
+                Bucket: this.bucket,
+                Key: params.key,
+                UploadId: params.obj_id,
+        }));
 
         dbg.log0('NamespaceGCP.abort_object_upload:', this.bucket, inspect(params), 'res', inspect(res));
     }

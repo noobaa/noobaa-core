@@ -897,6 +897,17 @@ module.exports = {
             }
         },
 
+        gcp_access_id: { wrapper: SensitiveString },
+        gcp_secret_key: { wrapper: SensitiveString },
+
+        gcp_hmac_key: {
+            type: 'object',
+            properties: {
+                access_id: { $ref: '#/definitions/gcp_access_id' },
+                secret_key: { $ref: '#/definitions/gcp_secret_key' },
+            }
+        },
+
         ip_range: {
             type: 'object',
             required: ['start', 'end'],

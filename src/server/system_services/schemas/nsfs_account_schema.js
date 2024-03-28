@@ -29,6 +29,9 @@ module.exports = {
         allow_bucket_creation: {
             type: 'boolean',
         },
+        force_md5_etag: {
+            type: 'boolean',
+        },
         access_keys: {
             type: 'array',
             items: {

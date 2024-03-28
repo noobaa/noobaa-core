@@ -143,7 +143,8 @@ async function fetch_bucket_data(action, user_input) {
         path: user_input.path,
         should_create_underlying_storage: action === ACTIONS.ADD ? false : undefined,
         new_name: _.isUndefined(user_input.new_name) ? undefined : String(user_input.new_name),
-        fs_backend: _.isUndefined(user_input.fs_backend) ? config.NSFS_NC_STORAGE_BACKEND : String(user_input.fs_backend)
+        fs_backend: _.isUndefined(user_input.fs_backend) ? config.NSFS_NC_STORAGE_BACKEND : String(user_input.fs_backend),
+        force_md5_etag: _.isUndefined(user_input.force_md5_etag) ? undefined : get_boolean_or_string_value(user_input.force_md5_etag)
         };
 
     if (user_input.bucket_policy !== undefined) {
@@ -169,6 +170,8 @@ async function fetch_bucket_data(action, user_input) {
     data.fs_backend = data.fs_backend || undefined;
     // s3_policy deletion specified with empty string '' (but it is not part of the schema)
     data.s3_policy = data.s3_policy || undefined;
+    // force_md5_etag deletion specified with empty string '' checked against user_input because data.force_md5_etag is boolean
+    data.force_md5_etag = user_input.force_md5_etag ? data.force_md5_etag : undefined;
 
     return data;
 }
@@ -376,6 +379,7 @@ async function fetch_account_data(action, user_input) {
         new_name: _.isUndefined(user_input.new_name) ? undefined : String(user_input.new_name),
         new_access_key,
         access_keys,
+        force_md5_etag: _.isUndefined(user_input.force_md5_etag) ? undefined : get_boolean_or_string_value(user_input.force_md5_etag),
         nsfs_account_config: {
             distinguished_name: user_input.user,
             uid: user_input.user ? undefined : user_input.uid,
@@ -401,6 +405,8 @@ async function fetch_account_data(action, user_input) {
     data.nsfs_account_config.fs_backend = data.nsfs_account_config.fs_backend || undefined;
     // new_buckets_path deletion specified with empty string ''
     data.nsfs_account_config.new_buckets_path = data.nsfs_account_config.new_buckets_path || undefined;
+    // force_md5_etag deletion specified with empty string '' checked against user_input.force_md5_etag because data.force_md5_etag is boolean
+    data.force_md5_etag = user_input.force_md5_etag ? data.force_md5_etag : undefined;
     // allow_bucket_creation either set by user or infer from new_buckets_path
     if (_.isUndefined(user_input.allow_bucket_creation)) {
         data.allow_bucket_creation = !_.isUndefined(data.nsfs_account_config.new_buckets_path);
@@ -942,7 +948,11 @@ function validate_options_type_by_value(input_options_with_data) {
                 continue;
             }
             // special case for boolean values
-            if (['allow_bucket_creation', 'regenerate', 'wide', 'show_secrets', 'force'].includes(option) && validate_boolean_string_value(value)) {
+            if (['allow_bucket_creation', 'regenerate', 'wide', 'show_secrets', 'force'].includes(option) && validate_boolean_string_value(value, false)) {
+                continue;
+            }
+            // special case for booleans that can be unset (allows '')
+            if (option === 'force_md5_etag' && validate_boolean_string_value(value, true)) {
                 continue;
             }
             // special case for bucket_policy (from_file)
@@ -958,9 +968,15 @@ function validate_options_type_by_value(input_options_with_data) {
 /**
  * validate_boolean_string_value is used when the option type is boolean
  * and we wish to allow the command also to to accept 'true' and 'false' values.
+ * if has_unset_option is true allow '' value as an unset option
  * @param {boolean|string} value
+ * @param {boolean} has_unset_option
  */
-function validate_boolean_string_value(value) {
+function validate_boolean_string_value(value, has_unset_option) {
+    // unset value ''
+    if (has_unset_option && !value) {
+        return true;
+    }
     if (value && typeof value === 'string') {
         const check_allowed_boolean_value = BOOLEAN_STRING_VALUES.includes(value.toLowerCase());
         if (!check_allowed_boolean_value) {

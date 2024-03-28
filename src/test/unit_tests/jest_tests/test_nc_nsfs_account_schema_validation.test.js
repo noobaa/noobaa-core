@@ -44,6 +44,13 @@ describe('schema validation NC NSFS account', () => {
             nsfs_schema_utils.validate_account_schema(account_data);
         });
 
+        it('nsfs_account_config with force_md5_etag', () => {
+            const account_data = get_account_data();
+            // @ts-ignore
+            account_data.force_md5_etag = true; // added
+            nsfs_schema_utils.validate_account_schema(account_data);
+        });
+
     });
 
     describe('account with additional properties', () => {
@@ -327,6 +334,16 @@ describe('schema validation NC NSFS account', () => {
             const reason = 'Test should have failed because of wrong type ' +
                 'fs_backend with string (instead of enum)';
             const message = 'must be equal to one of the allowed values';
+            assert_validation(account_data, reason, message);
+        });
+
+        it('nsfs_account_config with force_md5_etag as a string (instead of boolean)', () => {
+            const account_data = get_account_data();
+            // @ts-ignore
+            account_data.force_md5_etag = ""; // added
+            const reason = 'Test should have failed because of wrong type for' +
+                'force_md5_etag (string instead of boolean)';
+            const message = 'must be boolean';
             assert_validation(account_data, reason, message);
         });
     });

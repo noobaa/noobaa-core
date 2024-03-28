@@ -241,18 +241,6 @@ ManageCLIError.InvalidBooleanValue = Object.freeze({
     http_code: 400,
 });
 
-ManageCLIError.InvalidNewNameAccountIdentifier = Object.freeze({
-    code: 'InvalidNewNameAccountIdentifier',
-    message: 'Account new_name can not be used on add command, please remove the --new_name flag',
-    http_code: 400,
-});
-
-ManageCLIError.InvalidNewAccessKeyIdentifier = Object.freeze({
-    code: 'InvalidNewAccessKeyIdentifier',
-    message: 'Account new_access_key can not be used on add command, please remove the --new_access_key flag',
-    http_code: 400,
-});
-
 ManageCLIError.InaccessibleAccountNewBucketsPath = Object.freeze({
     code: 'InaccessibleAccountNewBucketsPath',
     message: 'Account should have read & write access to the specified new_buckets_path',
@@ -339,12 +327,6 @@ ManageCLIError.MissingBucketOwnerFlag = Object.freeze({
 ManageCLIError.MissingBucketPathFlag = Object.freeze({
     code: 'MissingBucketPathFlag',
     message: 'Bucket path is mandatory, please use the --path flag',
-    http_code: 400,
-});
-
-ManageCLIError.InvalidNewNameBucketIdentifier = Object.freeze({
-    code: 'InvalidNewNameBucketIdentifier',
-    message: 'Bucket new_name can not be used on add command, please remove the --new_name flag',
     http_code: 400,
 });
 

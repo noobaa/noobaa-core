@@ -4,7 +4,7 @@
 const _ = require('lodash');
 const util = require('util');
 
-const COMMON_SCHEMA_KEYWORDS = ['doc', '$id'];
+const COMMON_SCHEMA_KEYWORDS = ['doc', '$id', 'default'];
 const object_id_regexp = /^[0-9a-fA-F]{24}$/;
 
 function strictify(schema, options, base) {
@@ -51,6 +51,8 @@ function strictify(schema, options, base) {
         check_schema_extra_keywords(schema, base, 'binary');
     } else if (schema.wrapper) {
         check_schema_extra_keywords(schema, base, 'wrapper');
+    } else if (schema.default) {
+        check_schema_extra_keywords(schema, base, 'default');
     } else if (schema.oneOf) {
         check_schema_extra_keywords(schema, base, 'oneOf');
         _.each(schema.oneOf, val => {

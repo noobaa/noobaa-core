@@ -154,17 +154,17 @@ High level configuration -
    [hostname2]: { "current_version":"5.15.0","upgrade_history":{"successful_upgrades":[]}}
 }` 
 
-3.5. config.json - json file that contains shared configurations of the node cluster, and machine specific configurations, the configuration has the following format: 
+3.5. config.json - json file that contains shared configurations of the node cluster, and machine specific configurations, the configuration has the following format:
 {
 	"ENDPOINT_FORKS": 2,
-  "host_customization": {
-    "{node_name}" : {
+  "host_customization": [{
+    "node_name" : "moti-mac",
       "ENDPOINT_FORKS": 3, 
     }
-  },
+  ],
 }
 
-* Please be aware that when a node is designated in the host_customization, Noobaa will combine the shared configuration with the node's configuration. If a configuration value is provided under the node's configuration, it will take precedence as the final configuration value applied to the noobaa_nsds service on that specific node.
+* Please be aware that when a node is designated in the host_customization, Noobaa will combine the shared configuration with the node's configuration. If a configuration value is provided under the node's configuration, it will take precedence as the final configuration value applied to the noobaa_nsfs service on that specific node.
 
 #### config.json schema - 
 See [NSFS config.json schema](https://github.com/noobaa/noobaa-core/src/server/object_services/schemas/nsfs_config_schema.js)

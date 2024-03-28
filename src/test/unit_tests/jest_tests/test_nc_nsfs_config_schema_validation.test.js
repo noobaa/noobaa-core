@@ -46,6 +46,103 @@ describe('schema validation NC NSFS config', () => {
             };
             nsfs_schema_utils.validate_nsfs_config_schema(config_data);
         });
+
+        it('nsfs_config - with a node', () => {
+            const config_data = {
+                ENDPOINT_FORKS: 2,
+                    host_customization: [{
+                        node_name: 'moti-mac',
+                        ENDPOINT_FORKS: 3,
+                    }, ],
+            };
+            nsfs_schema_utils.validate_nsfs_config_schema(config_data);
+        });
+
+        it('nsfs_config - with 2 nodes', () => {
+            const config_data = {
+                ENDPOINT_FORKS: 2,
+                    host_customization: [
+                        {
+                            node_name: 'moti-mac',
+                            ENDPOINT_FORKS: 3,
+                        },
+                        {
+                            node_name: 'rafi-ubuntu',
+                            ENDPOINT_FORKS: 4,
+                        },
+                    ],
+            };
+            nsfs_schema_utils.validate_nsfs_config_schema(config_data);
+        });
+
+    });
+
+    describe('config with additional properties', () => {
+
+        it('config with additional property MY_PATH', () => {
+            const config_data = {
+                ENDPOINT_FORKS: 2,
+                    host_customization: [{
+                        node_name: 'moti-mac',
+                        ENDPOINT_FORKS: 3,
+                        MY_PATH: '/usr/lpp/mmfs/lib/libgpfs.so' // example copied from above
+                    }, ],
+            };
+            nsfs_schema_utils.validate_nsfs_config_schema(config_data);
+        });
+
+    });
+
+    describe('config check default values', () => {
+
+        it('on an empty config', () => {
+            const config_data = { };
+            nsfs_schema_utils.validate_nsfs_config_schema(config_data);
+            // defaults
+            expect(config_data).toHaveProperty('ENDPOINT_FORKS', 0);
+            expect(config_data).toHaveProperty('ENDPOINT_PORT', 6001);
+            expect(config_data).toHaveProperty('ENDPOINT_SSL_PORT', 6443);
+            expect(config_data).toHaveProperty('ENDPOINT_SSL_STS_PORT', 7443);
+            expect(config_data).toHaveProperty('EP_METRICS_SERVER_PORT', 7004);
+            expect(config_data).toHaveProperty('ALLOW_HTTP', false);
+            expect(config_data).toHaveProperty('NSFS_CALCULATE_MD5', false);
+            expect(config_data).toHaveProperty('NOOBAA_LOG_LEVEL', 'default');
+            expect(config_data).toHaveProperty('UV_THREADPOOL_SIZE', 4);
+            expect(config_data).toHaveProperty('GPFS_DL_PATH', '');
+            expect(config_data).toHaveProperty('NSFS_BUF_POOL_MEM_LIMIT', 33554432);
+            expect(config_data).toHaveProperty('NSFS_BUF_SIZE', 8388608);
+            expect(config_data).toHaveProperty('NSFS_OPEN_READ_MODE', 'r');
+            expect(config_data).toHaveProperty('NSFS_CHECK_BUCKET_BOUNDARIES', true);
+            expect(config_data).toHaveProperty('NSFS_TRIGGER_FSYNC', true);
+            expect(config_data).toHaveProperty('NSFS_WHITELIST', []);
+            expect(config_data).toHaveProperty('NSFS_DIR_CACHE_MAX_DIR_SIZE', 67108864);
+            expect(config_data).toHaveProperty('NSFS_DIR_CACHE_MAX_TOTAL_SIZE', 268435456);
+            expect(config_data).toHaveProperty('ENABLE_DEV_RANDOM_SEED', false);
+        });
+
+        it('config with different ENDPOINT_FORKS', () => {
+            const config_data = {
+                ENDPOINT_FORKS: 2,
+            };
+            nsfs_schema_utils.validate_nsfs_config_schema(config_data);
+            // set in shared config file
+            expect(config_data).toHaveProperty('ENDPOINT_FORKS', 2); // 2 was set default is 0
+        });
+
+        it('nsfs_config - with a node', () => {
+            const config_data = {
+                    host_customization: [{
+                        node_name: 'moti-mac',
+                        ENDPOINT_FORKS: 3,
+                    }, ],
+            };
+            nsfs_schema_utils.validate_nsfs_config_schema(config_data);
+            // default
+            expect(config_data).toHaveProperty('ENDPOINT_FORKS', 0);
+            // set in shared config file
+            expect(config_data.host_customization[0]).toHaveProperty('ENDPOINT_FORKS', 3);
+        });
+
     });
 
     describe('config with wrong types', () => {

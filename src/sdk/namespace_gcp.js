@@ -21,6 +21,8 @@ const {
     UploadPartCopyCommand,
 } = require('@aws-sdk/client-s3');
 
+const { fix_error_object } = require('./noobaa_s3_client/noobaa_s3_client');
+
 /**
  * @implements {nb.Namespace}
  */
@@ -62,6 +64,11 @@ class NamespaceGCP {
                 private_key: this.private_key,
             }
         });
+        /* An S3 client is needed for multipart upload since GCP only supports multipart i[;pads] via the S3-compatible XML API
+        *  https://cloud.google.com/storage/docs/multipart-uploads
+        *  This is also the reason an HMAC key is generated as part of `add_external_connection` - since the standard GCP credentials
+        *  cannot be used in conjunction with the S3 client.
+        */
         this.s3_client = new S3Client({
             endpoint: 'https://storage.googleapis.com',
             region: 'auto', //https://cloud.google.com/storage/docs/aws-simple-migration#storage-list-buckets-s3-python
@@ -375,6 +382,7 @@ class NamespaceGCP {
                 const command = new UploadPartCommand(request);
                 res = await this.s3_client.send(command);
             } catch (err) {
+                fix_error_object(err);
                 object_sdk.rpc_client.pool.update_issues_report({
                     namespace_resource_id: this.namespace_resource_id,
                     error_code: String(err.code),

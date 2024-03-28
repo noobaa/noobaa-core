@@ -107,6 +107,12 @@ ManageCLIError.InvalidJSONFile = Object.freeze({
     http_code: 400,
 });
 
+ManageCLIError.MissingUpdateProperty = Object.freeze({
+    code: 'MissingUpdateProperty',
+    message: 'Should have at least one property to update',
+    http_code: 400,
+});
+
 //////////////////////////////
 //// IP WHITE LIST ERRORS ////
 //////////////////////////////

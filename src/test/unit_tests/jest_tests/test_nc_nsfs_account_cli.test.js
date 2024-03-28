@@ -610,6 +610,21 @@ describe('manage nsfs cli account flow', () => {
             expect(real_path).toContain('../accounts/' + new_name + '.json');
         });
 
+        it('should fail - cli update account without a property to update', async () => {
+            const action = ACTIONS.UPDATE;
+            const { name } = defaults;
+            const account_options = { config_root, name };
+            const res = await exec_manage_cli(type, action, account_options);
+            expect(JSON.parse(res.stdout).error.message).toBe(ManageCLIError.MissingUpdateProperty.message);
+        });
+
+        it('should fail - cli update account without a property to update (regenerate false)', async () => {
+            const action = ACTIONS.UPDATE;
+            const { name } = defaults;
+            const account_options = { config_root, name, regenerate: 'false' };
+            const res = await exec_manage_cli(type, action, account_options);
+            expect(JSON.parse(res.stdout).error.message).toBe(ManageCLIError.MissingUpdateProperty.message);
+        });
     });
 
     describe('cli list account', () => {

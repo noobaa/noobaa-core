@@ -148,9 +148,9 @@ async function config_dir_setup() {
  */
 async function config_dir_teardown() {
     await announce('config_dir_teardown');
-    await fs.promises.rmdir(NC_CORETEST_STORAGE_PATH, { recursive: true });
+    await fs.promises.rm(NC_CORETEST_STORAGE_PATH, { recursive: true });
     await fs.promises.rm(NC_CORETEST_REDIRECT_FILE_PATH);
-    await fs.promises.rmdir(NC_CORETEST_CONFIG_DIR_PATH, { recursive: true, force: true });
+    await fs.promises.rm(NC_CORETEST_CONFIG_DIR_PATH, { recursive: true, force: true });
 }
 
 /**

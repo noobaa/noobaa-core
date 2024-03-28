@@ -362,7 +362,7 @@ ManageCLIError.MalformedPolicy = Object.freeze({
 
 ManageCLIError.InaccessibleStoragePath = Object.freeze({
     code: 'InaccessibleStoragePath',
-    message: 'Account should have read & write access to the specified bucket storage path',
+    message: 'Bucket owner should have read & write access to the specified bucket storage path',
     http_code: 400,
 });
 

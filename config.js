@@ -590,6 +590,11 @@ config.WORM_ENABLED = false;
 config.NAMESPACE_MONITOR_ENABLED = true;
 config.NAMESPACE_MONITOR_DELAY = 3 * 60 * 1000;
 
+//////////////////////////////////
+//      NAMESPACE MODE CALC     //
+//////////////////////////////////
+
+config.NS_MAX_ALLOWED_IO_ERRORS = 9;
 
 ////////////////////////////////
 //      BUCKET REPLICATOR     //

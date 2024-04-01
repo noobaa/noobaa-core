@@ -20,7 +20,8 @@ const mongo_utils = require('../util/mongo_utils');
 const { CONFIG_SUBDIRS } = require('../manage_nsfs/manage_nsfs_constants');
 
 const KeysSemaphore = require('../util/keys_semaphore');
-const native_fs_utils = require('../util/native_fs_utils');
+const { get_umasked_mode, isDirectory, validate_bucket_creation,
+    create_config_file, delete_config_file, get_bucket_tmpdir_full_path, folder_delete } = require('../util/native_fs_utils');
 const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
 const { anonymous_access_key } = require('./object_sdk');
 
@@ -200,7 +201,6 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
     // BUCKET //
     ////////////
 
-    //TODO: we need to add pagination support to list buckets for more than 1000 buckets.
     /**
      * list_buckets will read all bucket config files, and filter them according to the requesting account's 
      * permissions
@@ -227,7 +227,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
 
         const account = object_sdk.requesting_account;
         const buckets = await P.map_with_concurrency(10, entries, async entry => {
-            if (native_fs_utils.isDirectory(entry) || !entry.name.endsWith('.json')) {
+            if (isDirectory(entry) || !entry.name.endsWith('.json')) {
                 return;
             }
             const bucket_name = this.get_bucket_name(entry.name);
@@ -261,7 +261,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                 throw new RpcError('MISSING_NSFS_ACCOUNT_CONFIGURATION');
             }
             const fs_context = prepare_fs_context(sdk);
-            native_fs_utils.validate_bucket_creation(params);
+            validate_bucket_creation(params);
 
             const { name } = params;
             const bucket_config_path = this._get_bucket_config_path(name);
@@ -286,7 +286,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                 const bucket_to_validate = JSON.parse(bucket_config);
                 dbg.log2("create_bucket: bucket properties before validate_bucket_schema", bucket_to_validate);
                 nsfs_schema_utils.validate_bucket_schema(bucket_to_validate);
-                await native_fs_utils.create_config_file(this.fs_context, this.bucket_schema_dir, bucket_config_path, bucket_config);
+                await create_config_file(this.fs_context, this.bucket_schema_dir, bucket_config_path, bucket_config);
             } catch (err) {
                 new NoobaaEvent(NoobaaEvent.BUCKET_CREATION_FAILED).create_event(name, {bucket_name: name}, err);
                 throw this._translate_bucket_error_codes(err);
@@ -294,7 +294,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
 
             // create bucket's underlying storage directory
             try {
-                await nb_native().fs.mkdir(fs_context, bucket_storage_path, native_fs_utils.get_umasked_mode(config.BASE_MODE_DIR));
+                await nb_native().fs.mkdir(fs_context, bucket_storage_path, get_umasked_mode(config.BASE_MODE_DIR));
                 new NoobaaEvent(NoobaaEvent.BUCKET_CREATED).create_event(name, {bucket_name: name});
             } catch (err) {
                 dbg.error('BucketSpaceFS: create_bucket could not create underlying directory - nsfs, deleting bucket', err);
@@ -326,41 +326,44 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
         };
     }
 
-
+    /**
+     * delete_bucket will delete the bucket config file and underlying directory if needed based on the requesting account permissions
+     * 1. if bucket.should_create_underlying_storage - delete the underlying storage directory = the bucket's underlying FS directory in which the objects are stored
+     * 2. else - check if there are no objects in the bucket, if any - throw err, else - delete export tmp file
+     * 3. delete bucket config file
+     * @param {nb.ObjectSDK} object_sdk
+     * @returns {Promise<void>}
+     */
     async delete_bucket(params, object_sdk) {
-        return bucket_semaphore.surround_key(String(params.name), async () => {
-            const { name } = params;
-            const bucket_path = this._get_bucket_config_path(name);
+        const { name } = params;
+        return bucket_semaphore.surround_key(String(name), async () => {
+            const bucket_config_path = this._get_bucket_config_path(name);
             try {
-                const namespace_bucket_config = await object_sdk.read_bucket_sdk_namespace_info(params.name);
+                const { ns, bucket } = await object_sdk.read_bucket_full_info(name);
+                const namespace_bucket_config = bucket && bucket.namespace;
                 dbg.log1('BucketSpaceFS.delete_bucket: namespace_bucket_config', namespace_bucket_config);
-                const ns = await object_sdk._get_bucket_namespace(params.name);
-                if (namespace_bucket_config && namespace_bucket_config.should_create_underlying_storage) {
-                    // delete underlying storage = the directory which represents the bucket
+                if (!namespace_bucket_config) throw new RpcError('INTERNAL_ERROR', 'Invalid Bucket configuration');
+
+                if (namespace_bucket_config.should_create_underlying_storage) {
+                    // 1. delete underlying storage
                     dbg.log1('BucketSpaceFS.delete_bucket: deleting uls', this.fs_root, namespace_bucket_config.write_resource.path);
-                    await ns.delete_uls({
-                        name,
-                        full_path: path.join(this.fs_root, namespace_bucket_config.write_resource.path) // includes write_resource.path + bucket name (s3 flow)
-                    }, object_sdk);
-                } else if (namespace_bucket_config) {
-                    // S3 Delete for NSFS Manage buckets
+                    const bucket_storage_path = path.join(this.fs_root, namespace_bucket_config.write_resource.path); // includes write_resource.path + bucket name (s3 flow)
+                    await ns.delete_uls({ name, full_path: bucket_storage_path }, object_sdk);
+                } else {
+                    // 2. delete only bucket tmpdir
                     const list = await ns.list_objects({ ...params, limit: 1 }, object_sdk);
-                    if (list && list.objects && list.objects.length > 0) {
-                        throw new RpcError('NOT_EMPTY', 'underlying directory has files in it');
-                    }
-                    const bucket = await object_sdk.read_bucket_sdk_config_info(params.name);
-                    const bucket_temp_dir_path = path.join(namespace_bucket_config.write_resource.path,
-                            config.NSFS_TEMP_DIR_NAME + "_" + bucket._id);
-                    await native_fs_utils.folder_delete(bucket_temp_dir_path, this.fs_context, true);
+                    if (list && list.objects && list.objects.length > 0) throw new RpcError('NOT_EMPTY', 'underlying directory has files in it');
+                    const bucket_tmpdir_path = get_bucket_tmpdir_full_path(namespace_bucket_config.write_resource.path, bucket._id);
+                    await folder_delete(bucket_tmpdir_path, this.fs_context, true);
                 }
-                dbg.log1(`BucketSpaceFS: delete_fs_bucket ${bucket_path}`);
-                // delete bucket config json file
-                await native_fs_utils.delete_config_file(this.fs_context, this.bucket_schema_dir, bucket_path);
-                new NoobaaEvent(NoobaaEvent.BUCKET_DELETE).create_event(name, {bucket_name: name});
+                // 3. delete bucket config json file
+                dbg.log1(`BucketSpaceFS: delete_bucket: deleting config file ${bucket_config_path}`);
+                await delete_config_file(this.fs_context, this.bucket_schema_dir, bucket_config_path);
+                new NoobaaEvent(NoobaaEvent.BUCKET_DELETE).create_event(name, { bucket_name: name });
             } catch (err) {
-                new NoobaaEvent(NoobaaEvent.BUCKET_DELETE_FAILED).create_event(params.name,
-                    {bucket_name: params.name, bucket_path: bucket_path}, err);
-                dbg.error('BucketSpaceFS: delete_bucket error', err);
+                dbg.error('BucketSpaceFS: delete_bucket: error', err);
+                new NoobaaEvent(NoobaaEvent.BUCKET_DELETE_FAILED).create_event(name,
+                    { bucket_name: name, bucket_path: bucket_config_path }, err);
                 throw this._translate_bucket_error_codes(err);
             }
         });
@@ -405,7 +408,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                 this.fs_context,
                 bucket_config_path,
                 Buffer.from(update_bucket), {
-                    mode: native_fs_utils.get_umasked_mode(config.BASE_MODE_CONFIG_FILE)
+                    mode: get_umasked_mode(config.BASE_MODE_CONFIG_FILE)
                 }
             );
         } catch (err) {
@@ -463,7 +466,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                 this.fs_context,
                 bucket_config_path,
                 Buffer.from(update_bucket), {
-                    mode: native_fs_utils.get_umasked_mode(config.BASE_MODE_CONFIG_FILE)
+                    mode: get_umasked_mode(config.BASE_MODE_CONFIG_FILE)
                 }
             );
         } catch (err) {
@@ -487,7 +490,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                 this.fs_context,
                 bucket_config_path,
                 Buffer.from(update_bucket), {
-                    mode: native_fs_utils.get_umasked_mode(config.BASE_MODE_CONFIG_FILE)
+                    mode: get_umasked_mode(config.BASE_MODE_CONFIG_FILE)
                 }
             );
         } catch (err) {
@@ -529,9 +532,8 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             await nb_native().fs.writeFile(
                 this.fs_context,
                 bucket_config_path,
-                Buffer.from(update_bucket), {
-                    mode: native_fs_utils.get_umasked_mode(config.BASE_MODE_CONFIG_FILE)
-                }
+                Buffer.from(update_bucket),
+                { mode: get_umasked_mode(config.BASE_MODE_CONFIG_FILE) }
             );
         } catch (err) {
             throw this._translate_bucket_error_codes(err);
@@ -566,9 +568,8 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             await nb_native().fs.writeFile(
                 this.fs_context,
                 bucket_config_path,
-                Buffer.from(update_bucket), {
-                    mode: native_fs_utils.get_umasked_mode(config.BASE_MODE_CONFIG_FILE)
-                }
+                Buffer.from(update_bucket),
+                { mode: get_umasked_mode(config.BASE_MODE_CONFIG_FILE) }
             );
         } catch (err) {
             throw this._translate_bucket_error_codes(err);
@@ -595,9 +596,8 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             await nb_native().fs.writeFile(
                 this.fs_context,
                 bucket_config_path,
-                Buffer.from(update_bucket), {
-                    mode: native_fs_utils.get_umasked_mode(config.BASE_MODE_CONFIG_FILE)
-                }
+                Buffer.from(update_bucket),
+                { mode: get_umasked_mode(config.BASE_MODE_CONFIG_FILE) }
             );
         } catch (err) {
             throw this._translate_bucket_error_codes(err);
@@ -619,15 +619,18 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             await nb_native().fs.writeFile(
                 this.fs_context,
                 bucket_config_path,
-                Buffer.from(update_bucket), {
-                    mode: native_fs_utils.get_umasked_mode(config.BASE_MODE_CONFIG_FILE)
-                }
+                Buffer.from(update_bucket),
+                { mode: get_umasked_mode(config.BASE_MODE_CONFIG_FILE) }
             );
         } catch (err) {
             throw this._translate_bucket_error_codes(err);
         }
     }
 
+    /**
+    * @param {object} params
+    * @returns {Promise<object>}
+    */
     async get_bucket_website(params) {
         try {
             const { name } = params;
@@ -635,7 +638,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             const bucket_config_path = this._get_bucket_config_path(name);
             const { data } = await nb_native().fs.readFile(this.fs_context, bucket_config_path);
             const bucket = JSON.parse(data.toString());
-            return {website: bucket.website};
+            return { website: bucket.website };
         } catch (err) {
             throw this._translate_bucket_error_codes(err);
         }
@@ -664,9 +667,8 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             await nb_native().fs.writeFile(
                 this.fs_context,
                 bucket_config_path,
-                Buffer.from(update_bucket), {
-                    mode: native_fs_utils.get_umasked_mode(config.BASE_MODE_CONFIG_FILE)
-                }
+                Buffer.from(update_bucket),
+                { mode: get_umasked_mode(config.BASE_MODE_CONFIG_FILE) }
             );
         } catch (err) {
             throw this._translate_bucket_error_codes(err);
@@ -688,9 +690,8 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             await nb_native().fs.writeFile(
                 this.fs_context,
                 bucket_config_path,
-                Buffer.from(update_bucket), {
-                    mode: native_fs_utils.get_umasked_mode(config.BASE_MODE_CONFIG_FILE)
-                }
+                Buffer.from(update_bucket),
+                { mode: get_umasked_mode(config.BASE_MODE_CONFIG_FILE) }
             );
         } catch (err) {
             throw this._translate_bucket_error_codes(err);

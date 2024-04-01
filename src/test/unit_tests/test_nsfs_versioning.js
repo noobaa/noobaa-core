@@ -88,7 +88,7 @@ mocha.describe('namespace_fs - versioning', function() {
         const to_path = path.join(ns_tmp_bucket_path, file_key + '_mtime-1-ino-2');
         const fake_mtime_ino = { mtimeNsBigint: BigInt(0), ino: 0 };
         try {
-            const bucket_tmp_dir_path = path.join(ns_tmp.bucket_path, ns_tmp.get_bucket_tmpdir());
+            const bucket_tmp_dir_path = ns_tmp.get_bucket_tmpdir_full_path();
             await native_fs_utils.safe_move_posix(
                 dummy_object_sdk.requesting_account.nsfs_account_config,
                 from_path,
@@ -108,7 +108,7 @@ mocha.describe('namespace_fs - versioning', function() {
         const to_path = path.join(ns_tmp_bucket_path, file_key2 + '_mtime-1-ino-2');
         const fake_mtime_ino = { mtimeNsBigint: BigInt(0), ino: 0 };
         try {
-            const bucket_tmp_dir_path = path.join(ns_tmp.bucket_path, ns_tmp.get_bucket_tmpdir());
+            const bucket_tmp_dir_path = ns_tmp.get_bucket_tmpdir_full_path();
             await native_fs_utils.safe_move_posix(
                 dummy_object_sdk.requesting_account.nsfs_account_config,
                 from_path,

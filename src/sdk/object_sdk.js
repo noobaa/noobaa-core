@@ -206,6 +206,10 @@ class ObjectSDK {
         return bucket.bucket_info.data;
     }
 
+    async read_bucket_full_info(name) {
+        return bucket_namespace_cache.get_with_cache({ sdk: this, name });
+    }
+
     async load_requesting_account(req) {
         try {
             const token = this.get_auth_token();

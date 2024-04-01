@@ -933,7 +933,7 @@ interface NativeFS {
     realpath(fs_context: NativeFSContext, path: string): Promise<string>;
     checkAccess(fs_context: NativeFSContext, path: string): Promise<void>;
     getsinglexattr(fs_context: NativeFSContext, path: string, key: string): Promise<string>;
-    getpwname(fs_context: NativeFSContext, user: string): Promise<object>;
+    getpwname(fs_context: NativeFSContext, user: string): Promise<NativeFSUserObject>;
 
     readFile(
         fs_context: NativeFSContext,
@@ -1028,6 +1028,12 @@ type NativeFSStats = fs.Stats & {
     ctimeNsBigint: bigint;
     mtimeNsBigint: bigint;
     xattr?: NativeFSXattr;
+};
+
+type NativeFSUserObject = {
+    uid: number;
+    gid: number;
+    name: string;
 };
 
 interface HasherSync {

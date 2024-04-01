@@ -491,8 +491,18 @@ class NamespaceFS {
         return fs_context;
     }
 
-    get_bucket_tmpdir() {
-        return config.NSFS_TEMP_DIR_NAME + '_' + this.bucket_id;
+    /**
+     * @returns {string}
+     */
+    get_bucket_tmpdir_name() {
+        return native_fs_utils.get_bucket_tmpdir_name(this.bucket_id);
+    }
+
+    /**
+     * @returns {string}
+     */
+    get_bucket_tmpdir_full_path() {
+        return native_fs_utils.get_bucket_tmpdir_full_path(this.bucket_path, this.bucket_id);
     }
 
     get_write_resource() {
@@ -706,7 +716,7 @@ class NamespaceFS {
                     // dbg.log0('process_entry', dir_key, ent.name);
                     if ((!ent.name.startsWith(prefix_ent) ||
                         ent.name < marker_curr ||
-                        ent.name === this.get_bucket_tmpdir() ||
+                        ent.name === this.get_bucket_tmpdir_name() ||
                         ent.name === config.NSFS_FOLDER_OBJECT_NAME) &&
                         !this._is_hidden_version_path(ent.name)) {
                         return;
@@ -1161,7 +1171,8 @@ class NamespaceFS {
         // upload path is needed only when open_mode is w / for copy
         if (open_mode === 'w' || params.copy_source) {
             const upload_id = uuidv4();
-            upload_path = path.join(this.bucket_path, this.get_bucket_tmpdir(), 'uploads', upload_id);
+            const bucket_tmp_dir_path = this.get_bucket_tmpdir_full_path();
+            upload_path = path.join(bucket_tmp_dir_path, 'uploads', upload_id);
             await native_fs_utils._make_path_dirs(upload_path, fs_context);
         }
         let open_path = upload_path || file_path;
@@ -1406,7 +1417,7 @@ class NamespaceFS {
                     await this._open_files_gpfs(fs_context, new_ver_tmp_path, latest_ver_path, upload_file,
                         latest_ver_info, open_mode, undefined, versioned_info) :
                     undefined;
-                const bucket_tmp_dir_path = path.join(this.bucket_path, this.get_bucket_tmpdir());
+                const bucket_tmp_dir_path = this.get_bucket_tmpdir_full_path();
                 dbg.log1('Namespace_fs._move_to_dest_version:', latest_ver_info, new_ver_info, gpfs_options);
 
                 if (this._is_versioning_suspended()) {
@@ -2383,8 +2394,7 @@ class NamespaceFS {
 
     _mpu_root_path() {
         return path.join(
-            this.bucket_path,
-            this.get_bucket_tmpdir(),
+            this.get_bucket_tmpdir_full_path(),
             'multipart-uploads');
     }
 
@@ -2713,7 +2723,7 @@ class NamespaceFS {
                     gpfs_options = is_gpfs ?
                         await this._open_files_gpfs(fs_context, file_path, undefined, undefined, undefined, undefined, true) :
                         undefined;
-                    const bucket_tmp_dir_path = path.join(this.bucket_path, this.get_bucket_tmpdir());
+                    const bucket_tmp_dir_path = this.get_bucket_tmpdir_full_path();
                     await native_fs_utils.safe_unlink(fs_context, file_path, version_info, gpfs_options, bucket_tmp_dir_path);
                     return { ...version_info, latest: true };
                 } else {
@@ -2825,7 +2835,7 @@ class NamespaceFS {
                     deleted_version_info.mtimeNsBigint < max_past_ver_info.mtimeNsBigint) return;
                 dbg.log1('Namespace_fs._promote_version_to_latest ', max_past_ver_info.path, latest_ver_path, max_past_ver_info, latest_version_info);
                 // on concurrent put, safe_move_gpfs might override new coming latest (no fd verification, gpfs linkfileat will override)
-                const bucket_tmp_dir_path = path.join(this.bucket_path, this.get_bucket_tmpdir());
+                const bucket_tmp_dir_path = this.get_bucket_tmpdir_full_path();
                 await native_fs_utils.safe_move_posix(fs_context, max_past_ver_info.path, latest_ver_path,
                     max_past_ver_info, bucket_tmp_dir_path);
                 break;
@@ -2879,7 +2889,7 @@ class NamespaceFS {
                 if (latest_ver_info) {
                     const suspended_and_latest_is_not_null = this._is_versioning_suspended() &&
                         latest_ver_info.version_id_str !== NULL_VERSION_ID;
-                    const bucket_tmp_dir_path = path.join(this.bucket_path, this.get_bucket_tmpdir());
+                    const bucket_tmp_dir_path = this.get_bucket_tmpdir_full_path();
                     if (this._is_versioning_enabled() || suspended_and_latest_is_not_null) {
                         await native_fs_utils._make_path_dirs(versioned_path, fs_context);
                          await native_fs_utils.safe_move(fs_context, latest_ver_path, versioned_path, latest_ver_info,
@@ -2928,7 +2938,7 @@ class NamespaceFS {
                     const gpfs_options = is_gpfs ?
                         await this._open_files_gpfs(fs_context, null_versioned_path, undefined, undefined, undefined, undefined, true) :
                         undefined;
-                    const bucket_tmp_dir_path = path.join(this.bucket_path, this.get_bucket_tmpdir());
+                    const bucket_tmp_dir_path = this.get_bucket_tmpdir_full_path();
                     await native_fs_utils.safe_unlink(fs_context, null_versioned_path, null_versioned_path_info,
                         gpfs_options, bucket_tmp_dir_path);
 

@@ -15,6 +15,7 @@ const buffer_utils = require('../../util/buffer_utils');
 const endpoint_stats_collector = require('../../sdk/endpoint_stats_collector');
 const { NewlineReader } = require('../../util/file_reader');
 const { TapeCloudGlacierBackend } = require('../../sdk/nsfs_glacier_backend/tapecloud');
+const { GlacierBackend } = require('../../sdk/nsfs_glacier_backend/backend');
 
 const mkdtemp = util.promisify(fs.mkdtemp);
 const inspect = (x, max_arr = 5) => util.inspect(x, { colors: true, depth: null, maxArrayLength: max_arr });
@@ -148,8 +149,14 @@ mocha.describe('nsfs_glacier', async () => {
 
 			// Ensure object is restored
 			const md = await glacier_ns.read_object_md(params, dummy_object_sdk);
+
 			assert(!md.restore_status.ongoing);
-			assert(new Date(new Date().setDate(md.restore_status.expiry_time.getDate() - params.days)).getDate() === new Date().getDate());
+
+			const expected_expiry = GlacierBackend.generate_expiry(new Date(), params.days, '', config.NSFS_GLACIER_EXPIRY_TZ);
+			assert(expected_expiry.getTime() === md.restore_status.expiry_time.getTime());
+			assert(expected_expiry.getDate() === md.restore_status.expiry_time.getDate());
+			assert(expected_expiry.getMonth() === md.restore_status.expiry_time.getMonth());
+			assert(expected_expiry.getFullYear() === md.restore_status.expiry_time.getFullYear());
 		});
 	});
 });

@@ -4,9 +4,9 @@
 const path = require('path');
 const fs = require('fs');
 const _ = require('lodash');
-const request = require('request');
 const P = require('../util/promise');
 const os_utils = require('../util/os_utils');
+const http_utils = require('../util/http_utils');
 const crypto = require('crypto');
 
 const IS_IN_POD = process.env.CONTAINER_PLATFORM === 'KUBERNETES';
@@ -289,11 +289,10 @@ class KubernetesFunctions {
     async test_http_req(test_url, expected_status, timeout) {
         try {
             const req_options = {
-                url: test_url,
                 timeout: timeout || 10000,
                 rejectUnauthorized: false,
             };
-            const res = await P.fromCallback(callback => request(req_options, callback));
+            const res = await http_utils.http_get(test_url, req_options);
             if (res.statusCode !== expected_status) {
                 return false;
             }

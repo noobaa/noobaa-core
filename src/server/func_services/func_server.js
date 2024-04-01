@@ -2,7 +2,6 @@
 'use strict';
 
 const _ = require('lodash');
-const request = require('request');
 
 const crypto = require('crypto');
 const P = require('../../util/promise');
@@ -12,6 +11,7 @@ const { RpcError, RPC_BUFFERS } = require('../../rpc');
 const dbg = require('../../util/debug_module')(__filename);
 const FuncNode = require('../../agent/func_services/func_node');
 const addr_utils = require('../../util/addr_utils');
+const http_utils = require('../../util/http_utils');
 const Dispatcher = require('../notifications/dispatcher');
 const server_rpc = require('../server_rpc');
 const func_store = require('./func_store');
@@ -348,22 +348,11 @@ async function _get_func_code_b64(req, func_code) {
         code = get_object_req.Body.toString('base64');
         code_size = get_object_req.ContentLength;
     } else if (func_code.url) {
-        const code_buffer = await new Promise((resolve, reject) => {
-            console.log(`reading function code from ${func_code.url}`);
-            request({
-                    url: func_code.url,
-                    method: 'GET',
-                    encoding: null, // get a buffer
-                })
-                .once('response', res => {
-
-                    if (res.statusCode !== 200) {
-                        return reject(new Error(`failed GET request from ${func_code.url}`));
-                    }
-                    return resolve(res);
-                })
-                .once('error', err => reject(err));
-        });
+        const get_res = await http_utils.http_get(func_code.url);
+        if (get_res.statusCode < 200 || get_res.statusCode > 299) {
+            throw new Error(`failed GET request from ${func_code.url}. got status ${get_res.statusCode}`);
+        }
+        const code_buffer = await buffer_utils.read_stream_join(get_res);
         code = code_buffer.toString('base64');
         code_size = code_buffer.length;
     } else {

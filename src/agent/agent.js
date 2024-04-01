@@ -369,21 +369,8 @@ class Agent {
         });
     }
 
-    // refresh the public_ip in background if enough time passed from last time
-    _refresh_public_ip() {
-        const now = Date.now();
-        const GET_PUBLIC_IP_PERIOD = 10 * 60 * 1000; // 10 minutes between retrieve_public_ip
-        if (this.last_retrieve_public_ip && now < this.last_retrieve_public_ip + GET_PUBLIC_IP_PERIOD) return;
-        this.last_retrieve_public_ip = now;
-        net_utils.retrieve_public_ip()
-            .then(public_ip => {
-                this.public_ip = public_ip;
-            })
-            .catch(err => this.dbg.error('got error in _refresh_public_ip', err));
-    }
-
     _init_node() {
-        this._refresh_public_ip();
+
         return P.resolve()
             .then(() => {
                 if (this.storage_path) {
@@ -822,9 +809,7 @@ class Agent {
             cpu_usage: cpu_percent,
             location_info: this.location_info,
             io_stats: this.block_store && this.block_store.get_and_reset_io_stats(),
-            public_ip: this.public_ip
         };
-        this._refresh_public_ip();
         if (this.cloud_info && this.cloud_info.pool_name) {
             reply.pool_name = this.cloud_info.pool_name;
         }

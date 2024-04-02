@@ -546,11 +546,6 @@ S3Error.InvalidObjectStorageClass = Object.freeze({
     message: 'Restore is not allowed for the object\'s current storage class.',
     http_code: 403,
 });
-S3Error.StorageClassNotImplemented = Object.freeze({
-    code: 'NotImplemented',
-    message: 'This storage class is not implemented.',
-    http_code: 501,
-});
 
 S3Error.RPC_ERRORS_TO_S3 = Object.freeze({
     UNAUTHORIZED: S3Error.AccessDenied,

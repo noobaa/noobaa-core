@@ -337,6 +337,74 @@ Example:
 3. systemctl restart noobaa_nsfs
 ```
 
+## 19. Set Master Keys Store type-
+**Description -** This flag will set the type of the master keys store used by NooBaa.
+
+**Configuration Key -** NC_MASTER_KEYS_STORE_TYPE
+
+**Type -** string
+
+**Default -**  'file'
+**Steps -**
+```
+1. Open /path/to/config_dir/config.json file.
+2. Set the config key -
+Example:
+"NC_MASTER_KEYS_STORE_TYPE": 'executable'
+3. systemctl restart noobaa_nsfs
+```
+
+## 20. Set Master Keys File Location -
+**Description -** This flag will set the location of the master keys file used by NooBaa.
+
+**Configuration Key -** NC_MASTER_KEYS_FILE_LOCATION
+
+**Type -** string
+
+**Default -**  '/etc/noobaa.conf.d/master_keys.json'
+**Steps -**
+```
+1. Open /path/to/config_dir/config.json file.
+2. Set the config key -
+Example:
+"NC_MASTER_KEYS_FILE_LOCATION": '/private/tmp/master_keys.json'
+3. systemctl restart noobaa_nsfs
+```
+
+## 21. Set Master Keys GET executable script -
+**Description -** This flag will set the location of the executable script for reading the master keys file used by NooBa.
+
+**Configuration Key -** NC_MASTER_KEYS_GET_EXECUTABLE
+
+**Type -** string
+
+**Default -**  undefined
+**Steps -**
+```
+1. Open /path/to/config_dir/config.json file.
+2. Set the config key -
+Example:
+"NC_MASTER_KEYS_GET_EXECUTABLE": '/private/tmp/get_master_keys.sh'
+3. systemctl restart noobaa_nsfs
+```
+
+## 22. Set Master Keys PUT executable script -
+**Description -** This flag will set the location of the executable script for updating the master keys file used by NooBa.
+
+**Configuration Key -** NC_MASTER_KEYS_PUT_EXECUTABLE
+
+**Type -** string
+
+**Default -**  undefined
+**Steps -**
+```
+1. Open /path/to/config_dir/config.json file.
+2. Set the config key -
+Example:
+"NC_MASTER_KEYS_PUT_EXECUTABLE": '/private/tmp/put_master_keys.sh'
+3. systemctl restart noobaa_nsfs
+```
+
 ## Config.json example 
 ```
 > cat /path/to/config_dir/config.json

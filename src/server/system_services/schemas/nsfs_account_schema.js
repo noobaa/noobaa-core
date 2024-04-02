@@ -12,6 +12,7 @@ module.exports = {
         'nsfs_account_config',
         'creation_date',
         'allow_bucket_creation',
+        'master_key_id'
     ],
     properties: {
         _id: {
@@ -26,6 +27,9 @@ module.exports = {
         creation_date: {
             type: 'string',
         },
+        master_key_id: {
+            objectid: true
+        },
         allow_bucket_creation: {
             type: 'boolean',
         },
@@ -33,12 +37,12 @@ module.exports = {
             type: 'array',
             items: {
                 type: 'object',
-                required: ['access_key', 'secret_key'],
+                required: ['access_key', 'encrypted_secret_key'],
                 properties: {
                     access_key: {
                         type: 'string',
                     },
-                    secret_key: {
+                    encrypted_secret_key: {
                         type: 'string',
                     },
                 }

@@ -416,6 +416,28 @@ const versions_dir_cache = new LRUCache({
 });
 
 /**
+ * @typedef {{
+ *  statfs: Record<string, number>
+ * }} NsfsBucketStatFsCache
+ * @type {LRUCache<object, string, NsfsBucketStatFsCache>}
+ */
+const nsfs_bucket_statfs_cache = new LRUCache({
+    name: 'nsfs-bucket-statfs',
+    make_key: ({ bucket_path }) => bucket_path,
+    load: async ({ bucket_path, fs_context }) => {
+        const statfs = await nb_native().fs.statfs(fs_context, bucket_path);
+        return { statfs };
+    },
+    // validate - no need, validation will be as costly as `load`,
+    // instead let the item expire
+    expiry_ms: config.NSFS_STATFS_CACHE_EXPIRY_MS,
+    max_usage: config.NSFS_STATFS_CACHE_SIZE,
+});
+
+
+const nsfs_low_space_fsids = new Set();
+
+/**
  * NamespaceFS map objets to files in a filesystem.
  * @implements {nb.Namespace}
  */
@@ -1066,6 +1088,7 @@ class NamespaceFS {
     async upload_object(params, object_sdk) {
         const fs_context = this.prepare_fs_context(object_sdk);
         await this._load_bucket(params, fs_context);
+        await this._throw_if_low_space(fs_context, params.size);
         const open_mode = native_fs_utils._is_gpfs(fs_context) ? 'wt' : 'w';
         const file_path = this._get_file_path(params);
         let upload_params;
@@ -1476,6 +1499,7 @@ class NamespaceFS {
         try {
             const fs_context = this.prepare_fs_context(object_sdk);
             await this._load_bucket(params, fs_context);
+            await this._throw_if_low_space(fs_context);
             params.obj_id = uuidv4();
             params.mpu_path = this._mpu_path(params);
             await native_fs_utils._create_path(params.mpu_path, fs_context);
@@ -1522,6 +1546,7 @@ class NamespaceFS {
         let part_md_file;
         try {
             await this._load_multipart(params, fs_context);
+            await this._throw_if_low_space(fs_context, params.size);
 
             const md_upload_path = this._get_part_md_path(params);
             part_md_file = await native_fs_utils.open_file(fs_context, this.bucket_path, md_upload_path, md_open_mode);
@@ -1621,6 +1646,7 @@ class NamespaceFS {
         let read_file;
         let target_file;
         const fs_context = this.prepare_fs_context(object_sdk);
+        await this._throw_if_low_space(fs_context);
         const open_mode = 'w*';
         try {
             const md5_enabled = config.NSFS_CALCULATE_MD5 || (this.force_md5_etag ||
@@ -2994,6 +3020,58 @@ class NamespaceFS {
         }
 
         return false;
+    }
+
+    /**
+     * @param {nb.NativeFSContext} fs_context
+     * @param {number} [size_hint]
+     * @returns {Promise<void>}
+     */
+    async _throw_if_low_space(fs_context, size_hint = 0) {
+        if (!config.NSFS_LOW_FREE_SPACE_CHECK_ENABLED) return;
+
+        const MB = 1024 ** 2;
+        const { statfs } = await nsfs_bucket_statfs_cache.get_with_cache({ bucket_path: this.bucket_path, fs_context });
+        const block_size_mb = statfs.bsize / MB;
+        const free_space_mb = Math.floor(statfs.bfree * block_size_mb) - Math.floor(size_hint / MB);
+        const total_space_mb = Math.floor(statfs.blocks * block_size_mb);
+
+        const low_space_threshold = this._get_free_space_threshold(
+            config.NSFS_LOW_FREE_SPACE_MB,
+            config.NSFS_LOW_FREE_SPACE_PERCENT,
+            total_space_mb,
+        );
+        const ok_space_threshold = this._get_free_space_threshold(
+            config.NSFS_LOW_FREE_SPACE_MB_UNLEASH,
+            config.NSFS_LOW_FREE_SPACE_PERCENT_UNLEASH,
+            total_space_mb,
+        );
+
+        dbg.log1('_throw_if_low_space:', { free_space_mb, total_space_mb, low_space_threshold, ok_space_threshold });
+
+        if (nsfs_low_space_fsids.has(statfs.fsid)) {
+            if (free_space_mb < ok_space_threshold) {
+                throw new S3Error(S3Error.SlowDown);
+            } else {
+                nsfs_low_space_fsids.delete(statfs.fsid);
+            }
+        } else if (free_space_mb < low_space_threshold) {
+            nsfs_low_space_fsids.add(statfs.fsid);
+            throw new S3Error(S3Error.SlowDown);
+        }
+    }
+
+    /**
+     * _get_free_space_threshold takes the free space threshold
+     * in bytes and in percentage and returns the one that is lower
+     * @param {number} in_bytes free space threshold in mb
+     * @param {number} in_percentage free space threshold in percentage
+     * @param {number} total_space total space in mb
+     * @returns {number}
+     */
+    _get_free_space_threshold(in_bytes, in_percentage, total_space) {
+        const free_from_percentage = in_percentage * total_space;
+        return Math.max(in_bytes, free_from_percentage);
     }
 
     async append_to_migrate_wal(entry) {

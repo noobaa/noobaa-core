@@ -483,9 +483,9 @@ mocha.describe('namespace_fs', function() {
                     assert.fail('restore_object should fail');
                 } catch (err) {
                     assert.strictEqual(err instanceof S3Error, true);
-                    assert.strictEqual(err.code, S3Error.StorageClassNotImplemented.code);
-                    assert.strictEqual(err.message, S3Error.StorageClassNotImplemented.message);
-                    assert.strictEqual(err.http_code, S3Error.StorageClassNotImplemented.http_code);
+                    assert.strictEqual(err.code, S3Error.InvalidStorageClass.code);
+                    assert.strictEqual(err.message, S3Error.InvalidStorageClass.message);
+                    assert.strictEqual(err.http_code, S3Error.InvalidStorageClass.http_code);
                 }
             });
 

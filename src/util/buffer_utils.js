@@ -264,21 +264,18 @@ class MultiSizeBuffersPool {
     }
 
     /**
-     * @returns BuffersPool
+     * @returns {BuffersPool}
     */
     get_buffers_pool(size) {
         const largest = this.pools[this.pools.length - 1];
         if (typeof size !== 'number' || size < 0) {
-            dbg.log1('MultiSizeBuffersPool.get_buffers_pool: sem value', largest.sem._value, 'waiting_value', largest.sem._waiting_value, 'buffers length', largest.buffers.length);
             return largest;
         }
         for (const bp of this.pools) {
             if (size <= bp.buf_size) {
-                dbg.log1('MultiSizeBuffersPool.get_buffers_pool: sem value', bp.sem._value, 'waiting_value', bp.sem._waiting_value, 'buffers length', bp.buffers.length);
                 return bp;
             }
         }
-        dbg.log1('MultiSizeBuffersPool.get_buffers_pool: sem value', largest.sem._value, 'waiting_value', largest.sem._waiting_value, 'buffers length', largest.buffers.length);
         return largest;
     }
 }

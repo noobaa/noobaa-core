@@ -1575,6 +1575,11 @@ class NamespaceFS {
             const fs_context = this.prepare_fs_context(object_sdk);
             await this._load_multipart(params, fs_context);
             await this._check_path_in_bucket_boundaries(fs_context, params.mpu_path);
+            const { data } = await nb_native().fs.readFile(
+                fs_context,
+                path.join(params.mpu_path, 'create_object_upload')
+            );
+            const create_multipart_upload_params = JSON.parse(data.toString());
             const entries = await nb_native().fs.readdir(fs_context, params.mpu_path);
             const multiparts = await Promise.all(
                 entries
@@ -1595,6 +1600,7 @@ class NamespaceFS {
                 is_truncated: false,
                 next_num_marker: undefined,
                 multiparts,
+                storage_class: create_multipart_upload_params.storage_class
             };
         } catch (err) {
             throw this._translate_object_error_codes(err);
@@ -2968,7 +2974,7 @@ class NamespaceFS {
 
     async _throw_if_storage_class_not_supported(storage_class) {
         if (!await this._is_storage_class_supported(storage_class)) {
-            throw new S3Error(S3Error.StorageClassNotImplemented);
+            throw new S3Error(S3Error.InvalidStorageClass);
         }
     }
 

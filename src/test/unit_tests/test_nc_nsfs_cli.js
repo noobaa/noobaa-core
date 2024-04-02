@@ -16,6 +16,8 @@ const { ManageCLIResponse } = require('../../manage_nsfs/manage_nsfs_cli_respons
 const { exec_manage_cli, generate_s3_policy, create_fs_user_by_platform, delete_fs_user_by_platform,
     set_path_permissions_and_owner, TMP_PATH } = require('../system_tests/test_utils');
 const { TYPES, ACTIONS, CONFIG_SUBDIRS } = require('../../manage_nsfs/manage_nsfs_constants');
+const nc_mkm = require('../../manage_nsfs/nc_master_key_manager').get_instance();
+const config = require('../../../config');
 
 const tmp_fs_path = path.join(TMP_PATH, 'test_bucketspace_fs');
 const DEFAULT_FS_CONFIG = get_process_fs_context();
@@ -31,8 +33,9 @@ mocha.describe('manage_nsfs cli', function() {
         await fs_utils.create_fresh_path(root_path);
     });
     mocha.after(async () => {
-        fs_utils.folder_delete(`${config_root}`);
-        fs_utils.folder_delete(`${root_path}`);
+        await fs_utils.folder_delete(`${config_root}`);
+        await fs_utils.folder_delete(`${root_path}`);
+        await fs_utils.file_delete(path.join(config.NSFS_NC_DEFAULT_CONF_DIR, 'master_keys.json'));
     });
 
     mocha.describe('cli bucket flow ', async function() {
@@ -59,8 +62,8 @@ mocha.describe('manage_nsfs cli', function() {
             await fs_utils.create_fresh_path(root_path);
         });
         mocha.after(async () => {
-            fs_utils.folder_delete(`${config_root}`);
-            fs_utils.folder_delete(`${root_path}`);
+            await fs_utils.folder_delete(config_root);
+            await fs_utils.folder_delete(root_path);
         });
 
         mocha.it('cli bucket create without existing account - should fail', async function() {
@@ -922,7 +925,7 @@ mocha.describe('manage_nsfs cli', function() {
             await write_config_file(config_root, '', 'config', config_options);
         });
         mocha.after(async () => {
-            fs_utils.file_delete(path.join(config_root, 'config.json'));
+            await fs_utils.file_delete(path.join(config_root, 'config.json'));
         });
 
         mocha.it('cli add whitelist ips first time (IPV4 format)', async function() {
@@ -1014,8 +1017,13 @@ mocha.describe('manage_nsfs cli', function() {
 async function read_config_file(config_root, schema_dir, config_file_name, is_symlink) {
     const config_path = path.join(config_root, schema_dir, config_file_name + (is_symlink ? '.symlink' : '.json'));
     const { data } = await nb_native().fs.readFile(DEFAULT_FS_CONFIG, config_path);
-    const config = JSON.parse(data.toString());
-    return config;
+    const config_data = JSON.parse(data.toString());
+    if (config_data.access_keys) {
+        const encrypted_secret_key = config_data.access_keys[0].encrypted_secret_key;
+        config_data.access_keys[0].secret_key = await nc_mkm.decrypt(encrypted_secret_key, config_data.master_key_id);
+        delete config_data.access_keys[0].encrypted_secret_key;
+    }
+    return config_data;
 }
 
 async function write_config_file(config_root, schema_dir, config_file_name, data, is_symlink) {

@@ -50,6 +50,7 @@ const warn_once = _.once((...args) => dbg.warn(...args));
  *  ignore_rc?: boolean,
  *  return_stdout?: boolean,
  *  trim_stdout?: boolean,
+ *  env? : Object
  * }} [options]
  */
 async function exec(command, options) {
@@ -57,11 +58,14 @@ async function exec(command, options) {
     const ignore_rc = (options && options.ignore_rc) || false;
     const return_stdout = (options && options.return_stdout) || false;
     const trim_stdout = (options && options.trim_stdout) || false;
+    const env = (options && options.env) || undefined;
+
     try {
         dbg.log2('promise exec', command, ignore_rc);
         const res = await exec_async(command, {
             maxBuffer: 5000 * 1024, //5MB, should be enough
             timeout: timeout_ms,
+            env
         });
         if (return_stdout) {
             return trim_stdout ? res.stdout.trim() : res.stdout;
@@ -122,6 +126,7 @@ function spawn(command, args, options, ignore_rc, unref, timeout_ms) {
         dbg.log0('spawn:', command, args.join(' '), options, ignore_rc);
         options.stdio = options.stdio || 'inherit';
         const proc = child_process.spawn(command, args, options);
+        if (options.input) proc.stdin.end(options.input);
         proc.on('exit', code => {
             if (code === 0 || ignore_rc) {
                 resolve();

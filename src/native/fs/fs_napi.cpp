@@ -698,10 +698,13 @@ struct Stat : public FSWorker
     virtual void Work()
     {
         int flags = O_RDONLY; // This default will be used only for none-lstat cases
-        // using O_PATH (MAC - O_SYMLINK) with O_NOFOLLOW allow us to open the symlink itself
+        // LINUX - using O_PATH with O_NOFOLLOW allow us to open the symlink itself
         // instead of openning the file it links to https://man7.org/linux/man-pages/man7/symlink.7.html
+        // MAC - using O_SYMLINK (without O_NOFOLLOW!) allow us to open the symlink itself
+        // https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man2/open.2.html
+        // If O_NOFOLLOW is used in the mask and the target file passed to open() is a symbolic link then the open() will fail.
 #ifdef __APPLE__
-        if (_use_lstat) flags = O_SYMLINK | O_NOFOLLOW;
+        if (_use_lstat) flags = O_SYMLINK;
 #else
         if (_use_lstat) flags = O_PATH | O_NOFOLLOW;
 #endif

@@ -35,13 +35,6 @@ if (process.env.NOOBAA_LOG_LEVEL) {
     }
 }
 
-function _should_log_to_file() {
-    if (process.env.container === 'docker') return false;
-    if (process.env.CONTAINER_PLATFORM === 'KUBERNETES') return false;
-    if (global.document) return false;
-    return true;
-}
-
 // override the default inspect options
 if (!util.inspect.defaultOptions) util.inspect.defaultOptions = {};
 util.inspect.defaultOptions.depth = 10;
@@ -204,19 +197,6 @@ class InternalDebugLogger {
         this._log_console = console;
         this._log_console_silent = false;
         this._log_file = null;
-
-        if (!_should_log_to_file()) {
-            return;
-        }
-
-        //if logs directory doesn't exist, create it
-        try {
-            fs.mkdirSync('./logs');
-        } catch (e) {
-            if (e.code !== 'EEXIST') {
-                throw e;
-            }
-        }
 
     }
 

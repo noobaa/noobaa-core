@@ -21,7 +21,7 @@ class NewlineReader {
      * in memory.
      * @param {nb.NativeFSContext} fs_context 
      * @param {string} filepath 
-     * @param {'EXCLUSIVE' | 'SHARED' | undefined} lock 
+     * @param {'EXCLUSIVE' | 'SHARED'} [lock]
      */
     constructor(fs_context, filepath, lock) {
         this.path = filepath;
@@ -83,7 +83,7 @@ class NewlineReader {
         let count = 0;
         while (entry !== null) {
             count += 1;
-            if (!await cb(entry)) return [count, false];
+            if ((await cb(entry)) === false) return [count, false];
 
             entry = await this.nextline();
         }

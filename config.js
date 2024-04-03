@@ -768,6 +768,34 @@ config.NSFS_GLACIER_EXPIRY_TZ = 'LOCAL';
 // Format must be HH:MM:SS
 config.NSFS_GLACIER_EXPIRY_TIME_OF_DAY = '00:00:00';
 
+config.NSFS_STATFS_CACHE_SIZE = config.NSFS_DIR_CACHE_MAX_TOTAL_SIZE;
+config.NSFS_STATFS_CACHE_EXPIRY_MS = 1 * 1000;
+
+// NSFS_LOW_FREE_SPACE_CHECK_ENABLED if set to true will use the below mentioned
+// thresholds to determine if the writes should be denied even
+// before we hit ENOSPC more filesystem.
+config.NSFS_LOW_FREE_SPACE_CHECK_ENABLED = false;
+
+// NSFS_LOW_FREE_SPACE_MB controls that how much space in
+// bytes does NooBaa consider to be too low to perform `PUT` operations
+// safely.
+config.NSFS_LOW_FREE_SPACE_MB = 8 * 1024;
+
+// NSFS_LOW_FREE_SPACE_PERCENT controls how much space in terms of
+// percentage does NooBaa consider to be too low to perform `PUT`
+// operations safely.
+config.NSFS_LOW_FREE_SPACE_PERCENT = 0.08;
+
+// NSFS_LOW_FREE_SPACE_MB_UNLEASH controls how much much space in bytes
+// does NooBaa consider to be enough to perform `PUT` operations
+// safely.
+config.NSFS_LOW_FREE_SPACE_MB_UNLEASH = 10 * 1024;
+
+// NSFS_LOW_FREE_SPACE_PERCENT_UNLEASH controls how much much space in of
+// percentage does NooBaa consider to be enough to perform `PUT`
+// operations safely.
+config.NSFS_LOW_FREE_SPACE_PERCENT_UNLEASH = 0.10;
+
 ////////////////////////////
 // NSFS NON CONTAINERIZED //
 ////////////////////////////

@@ -768,7 +768,7 @@ config.NSFS_GLACIER_EXPIRY_TZ = 'LOCAL';
 // Format must be HH:MM:SS
 config.NSFS_GLACIER_EXPIRY_TIME_OF_DAY = '00:00:00';
 
-config.NSFS_STATFS_CACHE_SIZE = config.NSFS_DIR_CACHE_MAX_TOTAL_SIZE;
+config.NSFS_STATFS_CACHE_SIZE = 10000;
 config.NSFS_STATFS_CACHE_EXPIRY_MS = 1 * 1000;
 
 // NSFS_LOW_FREE_SPACE_CHECK_ENABLED if set to true will use the below mentioned

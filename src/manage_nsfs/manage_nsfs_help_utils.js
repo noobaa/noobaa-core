@@ -78,6 +78,7 @@ Flags:
 --secret_key <string>                                 (optional)        Set the secret key for the account (default is generated)
 --fs_backend <none | GPFS | CEPH_FS | NFSv4>          (optional)        Set the filesystem type of new_buckets_path (default config.NSFS_NC_STORAGE_BACKEND)
 --allow_bucket_creation <true | false>                (optional)        Set the account to explicitly allow or block bucket creation
+--force_md5_etag <true | false>                       (optional)        Set the account to force md5 etag calculation. (unset with '') (will override default config.NSFS_NC_STORAGE_BACKEND)
 --from_file <string>                                  (optional)        Use details from the JSON file, there is no need to mention all the properties individually in the CLI
 `;
 
@@ -97,6 +98,7 @@ Flags:
 --secret_key <string>                                 (optional)        Update the secret key
 --fs_backend <none | GPFS | CEPH_FS | NFSv4>          (optional)        Update the filesystem type of new_buckets_path (default config.NSFS_NC_STORAGE_BACKEND)
 --allow_bucket_creation <true | false>                (optional)        Update the account to explicitly allow or block bucket creation
+--force_md5_etag <true | false>                       (optional)        Update the account to force md5 etag calculation (unset with '') (will override default config.NSFS_NC_STORAGE_BACKEND)
 `;
 
 const ACCOUNT_FLAGS_DELETE = `
@@ -141,6 +143,7 @@ Flags:
 --path <string>                                                         Set the bucket path
 --bucket_policy <string>                              (optional)        Set the bucket policy, type is a string of valid JSON policy
 --fs_backend <none | GPFS | CEPH_FS | NFSv4>          (optional)        Set the filesystem type (default config.NSFS_NC_STORAGE_BACKEND)
+--force_md5_etag <true | false>                       (optional)        Set the bucket to force md5 etag calculation (unset with '') (will override default config.NSFS_NC_STORAGE_BACKEND)
 --from_file <string>                                  (optional)        Use details from the JSON file, there is no need to mention all the properties individually in the CLI
 `;
 
@@ -155,6 +158,7 @@ Flags:
 --path <string>                                       (optional)        Update the bucket path
 --bucket_policy <string>                              (optional)        Update the bucket policy, type is a string of valid JSON policy (unset with '')
 --fs_backend <none | GPFS | CEPH_FS | NFSv4>          (optional)        Update the filesystem type (unset with '') (default config.NSFS_NC_STORAGE_BACKEND)
+--force_md5_etag <true | false>                       (optional)        Update the bucket to force md5 etag calculation (unset with '') (will override default config.NSFS_NC_STORAGE_BACKEND)
 `;
 
 const BUCKET_FLAGS_DELETE = `

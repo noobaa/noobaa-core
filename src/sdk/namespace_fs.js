@@ -1457,8 +1457,7 @@ class NamespaceFS {
         const { source_stream } = params;
         try {
             // Not using async iterators with ReadableStreams due to unsettled promises issues on abort/destroy
-            const md5_enabled = config.NSFS_CALCULATE_MD5 || (this.force_md5_etag ||
-                object_sdk?.requesting_account?.force_md5_etag);
+            const md5_enabled = this._is_force_md5_enabled(object_sdk);
             const chunk_fs = new ChunkFS({
                 target_file,
                 fs_context,
@@ -1649,8 +1648,7 @@ class NamespaceFS {
         await this._throw_if_low_space(fs_context);
         const open_mode = 'w*';
         try {
-            const md5_enabled = config.NSFS_CALCULATE_MD5 || (this.force_md5_etag ||
-                object_sdk?.requesting_account?.force_md5_etag);
+            const md5_enabled = this._is_force_md5_enabled(object_sdk);
             const MD5Async = md5_enabled ? new (nb_native().crypto.MD5Async)() : undefined;
             const { multiparts = [] } = params;
             multiparts.sort((a, b) => a.num - b.num);
@@ -2473,6 +2471,24 @@ class NamespaceFS {
     empty_dir_content_flow(file_path, params) {
         const is_dir_content = this._is_directory_content(file_path, params.key);
         return is_dir_content && params.size === 0;
+    }
+    /**
+     * returns if should force md5 calculation for the bucket/account.
+     * first check if defined for bucket / account, if not use global default
+     * @param {nb.ObjectSDK} object_sdk
+     * @returns {boolean}
+     */
+    _is_force_md5_enabled(object_sdk) {
+        // value defined for bucket
+        if (!_.isUndefined(this.force_md5_etag)) {
+            return this.force_md5_etag;
+        }
+        // value defined for account
+        if (!_.isUndefined(object_sdk?.requesting_account?.force_md5_etag)) {
+            return object_sdk?.requesting_account?.force_md5_etag;
+        }
+        // otherwise return global default
+        return config.NSFS_CALCULATE_MD5;
     }
 
     //////////////////////////

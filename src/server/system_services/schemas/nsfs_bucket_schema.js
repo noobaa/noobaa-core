@@ -59,6 +59,9 @@ module.exports = {
         },
         website: {
             $ref: 'common_api#/definitions/bucket_website',
+        },
+        force_md5_etag: {
+            type: 'boolean',
         }
     }
 };

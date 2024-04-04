@@ -33,16 +33,16 @@ const GLOBAL_CONFIG_OPTIONS = new Set([GLOBAL_CONFIG_ROOT, 'config_root_backend'
 const FROM_FILE = 'from_file';
 
 const VALID_OPTIONS_ACCOUNT = {
-    'add': new Set(['name', 'uid', 'gid', 'new_buckets_path', 'user', 'access_key', 'secret_key', 'fs_backend', 'allow_bucket_creation', FROM_FILE, ...GLOBAL_CONFIG_OPTIONS]),
-    'update': new Set(['name', 'uid', 'gid', 'new_buckets_path', 'user', 'access_key', 'secret_key', 'fs_backend', 'allow_bucket_creation', 'new_name', 'regenerate', ...GLOBAL_CONFIG_OPTIONS]),
+    'add': new Set(['name', 'uid', 'gid', 'new_buckets_path', 'user', 'access_key', 'secret_key', 'fs_backend', 'allow_bucket_creation', 'force_md5_etag', FROM_FILE, ...GLOBAL_CONFIG_OPTIONS]),
+    'update': new Set(['name', 'uid', 'gid', 'new_buckets_path', 'user', 'access_key', 'secret_key', 'fs_backend', 'allow_bucket_creation', 'force_md5_etag', 'new_name', 'regenerate', ...GLOBAL_CONFIG_OPTIONS]),
     'delete': new Set(['name', ...GLOBAL_CONFIG_OPTIONS]),
     'list': new Set(['wide', 'show_secrets', 'gid', 'uid', 'user', 'name', 'access_key', ...GLOBAL_CONFIG_OPTIONS]),
     'status': new Set(['name', 'access_key', 'show_secrets', ...GLOBAL_CONFIG_OPTIONS]),
 };
 
 const VALID_OPTIONS_BUCKET = {
-    'add': new Set(['name', 'owner', 'path', 'bucket_policy', 'fs_backend', FROM_FILE, ...GLOBAL_CONFIG_OPTIONS]),
-    'update': new Set(['name', 'owner', 'path', 'bucket_policy', 'fs_backend', 'new_name', ...GLOBAL_CONFIG_OPTIONS]),
+    'add': new Set(['name', 'owner', 'path', 'bucket_policy', 'fs_backend', 'force_md5_etag', FROM_FILE, ...GLOBAL_CONFIG_OPTIONS]),
+    'update': new Set(['name', 'owner', 'path', 'bucket_policy', 'fs_backend', 'new_name', 'force_md5_etag', ...GLOBAL_CONFIG_OPTIONS]),
     'delete': new Set(['name', 'force', ...GLOBAL_CONFIG_OPTIONS]),
     'list': new Set(['wide', 'name', ...GLOBAL_CONFIG_OPTIONS]),
     'status': new Set(['name', ...GLOBAL_CONFIG_OPTIONS]),
@@ -77,6 +77,7 @@ const OPTION_TYPE = {
     secret_key: 'string',
     fs_backend: 'string',
     allow_bucket_creation: 'boolean',
+    force_md5_etag: 'boolean',
     config_root: 'string',
     from_file: 'string',
     config_root_backend: 'string',
@@ -92,6 +93,9 @@ const OPTION_TYPE = {
 
 const BOOLEAN_STRING_VALUES = ['true', 'false'];
 
+//options that can be unset using ''
+const LIST_UNSETABLE_OPTIONS = ['fs_backend', 's3_policy', 'force_md5_etag'];
+
 const LIST_ACCOUNT_FILTERS = ['uid', 'gid', 'user', 'name', 'access_key'];
 const LIST_BUCKET_FILTERS = ['name'];
 
@@ -104,6 +108,7 @@ exports.VALID_OPTIONS = VALID_OPTIONS;
 exports.OPTION_TYPE = OPTION_TYPE;
 exports.FROM_FILE = FROM_FILE;
 exports.BOOLEAN_STRING_VALUES = BOOLEAN_STRING_VALUES;
+exports.LIST_UNSETABLE_OPTIONS = LIST_UNSETABLE_OPTIONS;
 
 exports.LIST_ACCOUNT_FILTERS = LIST_ACCOUNT_FILTERS;
 exports.LIST_BUCKET_FILTERS = LIST_BUCKET_FILTERS;

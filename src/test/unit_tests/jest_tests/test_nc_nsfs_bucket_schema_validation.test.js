@@ -83,6 +83,12 @@ describe('schema validation NC NSFS bucket', () => {
             nsfs_schema_utils.validate_bucket_schema(bucket_data);
         });
 
+        it('nsfs_bucket with force_md5_etag', () => {
+            const bucket_data = get_bucket_data();
+            bucket_data.force_md5_etag = true; // added
+            nsfs_schema_utils.validate_bucket_schema(bucket_data);
+        });
+
     });
 
     describe('bucket with additional properties', () => {
@@ -384,6 +390,16 @@ describe('schema validation NC NSFS bucket', () => {
             const reason = 'Test should have failed because of wrong type ' +
                 'owner_account with number (instead of string)';
             const message = 'must be string';
+            assert_validation(bucket_data, reason, message);
+        });
+
+        it('bucket with force_md5_etag as string (instead of boolean)', () => {
+            const bucket_data = get_bucket_data();
+            // @ts-ignore
+            bucket_data.force_md5_etag = "aaa"; // number instead of string
+            const reason = 'Test should have failed because of wrong type ' +
+                'force_md5_etag with boolean (instead of string)';
+            const message = 'must be boolean';
             assert_validation(bucket_data, reason, message);
         });
 

@@ -89,6 +89,7 @@ function get_bucket_log_record(op_name, source_bucket, req, res) {
         source_bucket: req.params.bucket,
         object_key: req.originalUrl,
         log_bucket: source_bucket.bucket_info.logging.log_bucket,
+        log_prefix: source_bucket.bucket_info.logging.log_prefix,
         remote_ip: client_ip,
         request_uri: req.originalUrl,
         http_status: status_code,

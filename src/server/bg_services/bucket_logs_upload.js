@@ -76,8 +76,10 @@ class BucketLogUploader {
         if (!log_objects) return buckets;
         for (const file of log_objects) {
             const bucket_name = file.split(BUCKET_NAME_DEL)[0];
+            const log_prefix = file.split(BUCKET_NAME_DEL)[1];
             buckets.push({
                 bucket_name: bucket_name,
+                log_prefix: log_prefix,
                 log_object_name: file,
             });
         }
@@ -113,9 +115,10 @@ class BucketLogUploader {
             throw new Error('noobaa endpoint connection is not started yet...');
         }
         const log_file_path = BUCKET_LOGS_PATH + log_object.log_object_name;
+        const log_object_key = log_object.log_prefix + '/' + log_object.log_object_name;
         const params = {
             Bucket: log_object.bucket_name,
-            Key: log_object.log_object_name,
+            Key: log_object_key,
             Body: fs.readFileSync(log_file_path),
         };
 

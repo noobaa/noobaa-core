@@ -61,26 +61,37 @@ while [ -n "$(ls -A "$log_dir")" ]; do
     log_file="$log_dir/$log_file.processing"
     # Iterate over each log records in the log file and do the following -
     # - Fetch the log bucket name from the log entry.
-    # - Create a file based on this log bucket name if the file is not there.
+    # - Fetch the log prefix from the log entry.
+    # - Create a file based on this log bucket name and log prefix if the file is not there.
     # - Append the log entry to this file.
     # - Check the size of this file, if it is 50KB, then rename the file by
     # - appending the current timestamp to the file name.
     # - Remove the log file once all log entries are processed.
     while read -r log; do
         IFS=, read -r -a log_fields <<< "$log"
+        log_bucket_name=""
+        log_prefix_value=""
         for log_field in "${log_fields[@]}"; do
             if [[ "$log_field" =~ "log_bucket" ]]; then
                 IFS=: read -r -a log_values <<< "$log_field"
                 log_bucket_name=$(echo "${log_values[1]}" | tr -d '"' | sed 's/^[ \t]*//; s/[ \t]*$//')
-                echo "$log" >> "/var/log/noobaa_bucket_logs/$log_bucket_name.log"
-                                file_size=$(stat -c "%s" "/var/log/noobaa_bucket_logs/$log_bucket_name.log")
-                if [[ $file_size -gt 50000 ]]; then
-                    time_string=$(date +"%Y-%m-%d-%H-%M-%S.%N")
-                    mv "/var/log/noobaa_bucket_logs/$log_bucket_name.log" "/log/noobaa_bucket_logs/$log_bucket_name$File_Name_Del$time_string.log"
-                fi
+            fi
 
+            if [[ "$log_field" =~ "log_prefix" ]]; then
+                IFS=: read -r -a prefix_values <<< "$log_field"
+                log_prefix_value=$(echo "${prefix_values[1]}" | tr -d '"' | sed 's/^[ \t]*//; s/[ \t]*$//')
             fi
         done
+        if [[ $log_prefix_value && $log_bucket_name ]]; then
+            log_bucket_name=$log_bucket_name$File_Name_Del$log_prefix_value
+            echo "$log" >> "/var/log/noobaa_bucket_logs/$log_bucket_name.log"
+                            file_size=$(stat -c "%s" "/var/log/noobaa_bucket_logs/$log_bucket_name.log")
+
+            if [[ $file_size -gt 50000 ]]; then
+                time_string=$(date +"%Y-%m-%d-%H-%M-%S.%N")
+                mv "/var/log/noobaa_bucket_logs/$log_bucket_name.log" "/log/noobaa_bucket_logs/$log_bucket_name$File_Name_Del$time_string.log"
+            fi
+        fi
     done < "$log_file"
     rm "$log_file"
 done

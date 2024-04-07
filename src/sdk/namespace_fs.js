@@ -537,6 +537,24 @@ class NamespaceFS {
         }
     }
 
+    /**
+     * _should_update_issues_report is intended to avoid updating the namespace issues report in case:
+     * 1. The key doesn't exist and the path is not internal -
+     *    internal path is created for specific cases, for example in version.
+     *    Note: it also covers the delete marker case (since it is in a versioned path)
+     * IMPORTANT: This function is correct only for read_object_md!
+     * @param {object} params
+     * @param {string} file_path
+     * @param {object} err
+     */
+    _should_update_issues_report(params, file_path, err) {
+        const { key } = params;
+        const md_file_path = this._get_file_md_path({ key });
+        const non_internal_path = file_path === md_file_path;
+        const no_such_key_condition = err.code === `ENOENT` && non_internal_path;
+        return !no_such_key_condition;
+    }
+
     is_readonly_namespace() {
         return this.access_mode === 'READ_ONLY';
     }
@@ -872,8 +890,9 @@ class NamespaceFS {
 
     async read_object_md(params, object_sdk) {
         const fs_context = this.prepare_fs_context(object_sdk);
+        let file_path;
         try {
-            const file_path = await this._find_version_path(fs_context, params, true);
+            file_path = await this._find_version_path(fs_context, params, true);
             await this._check_path_in_bucket_boundaries(fs_context, file_path);
             await this._load_bucket(params, fs_context);
             let stat = await nb_native().fs.stat(fs_context, file_path);
@@ -894,7 +913,9 @@ class NamespaceFS {
             this._throw_if_delete_marker(stat);
             return this._get_object_info(params.bucket, params.key, stat, params.version_id || 'null', isDir);
         } catch (err) {
-            this.run_update_issues_report(object_sdk, err);
+            if (this._should_update_issues_report(params, file_path, err)) {
+                this.run_update_issues_report(object_sdk, err);
+            }
             throw this._translate_object_error_codes(err);
         }
     }

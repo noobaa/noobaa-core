@@ -568,12 +568,13 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             const bucket_config_path = this._get_bucket_config_path(name);
             const { data } = await nb_native().fs.readFile(this.fs_context, bucket_config_path);
             const bucket = JSON.parse(data.toString());
-            await bucket_policy_utils.validate_s3_policy(policy, bucket.name, async principal => this._get_account_by_name(principal));
             bucket.s3_policy = policy;
             const bucket_to_validate = _.omitBy(bucket, _.isUndefined);
             dbg.log2("put_bucket_policy: bucket properties before validate_bucket_schema",
             bucket_to_validate);
             nsfs_schema_utils.validate_bucket_schema(bucket_to_validate);
+            await bucket_policy_utils.validate_s3_policy(bucket.s3_policy, bucket.name, async principal =>
+                 this._get_account_by_name(principal));
             const update_bucket = JSON.stringify(bucket);
             await nb_native().fs.writeFile(
                 this.fs_context,

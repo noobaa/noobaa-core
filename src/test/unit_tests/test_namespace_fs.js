@@ -33,6 +33,8 @@ const mkdtemp = util.promisify(fs.mkdtemp);
 const XATTR_MD5_KEY = 'content_md5';
 const XATTR_DIR_CONTENT = 'user.noobaa.dir_content';
 const XATTR_CONTENT_TYPE = 'user.noobaa.content_type';
+const XATTR_PARTS_INFO = 'user.noobaa.parts_info';
+const XATTR_NUM_PARTS = 'user.noobaa.num_parts';
 
 const dir_content_type = 'application/x-directory';
 const stream_content_type = 'application/octet-stream';
@@ -335,12 +337,28 @@ mocha.describe('namespace_fs', function() {
             const read_data = read_res.join();
             assert.strictEqual(Buffer.compare(read_data, data), 0);
 
+            const read_res_part = buffer_utils.write_stream();
+            await ns_tmp.read_object_stream({
+                bucket: mpu_bkt,
+                key: mpu_key,
+                part_number: 1
+            }, dummy_object_sdk, read_res_part);
+            const part_data = read_res_part.join();
+            assert.strictEqual(Buffer.compare(part_data, data.subarray(0, part_size)), 0);
+
             const md = await ns_tmp.read_object_md({
                 bucket: upload_bkt,
                 key: mpu_key,
             }, dummy_object_sdk);
             console.log('read_object_md response', inspect(md));
             assert.deepStrictEqual(xattr, md.xattr);
+
+            const part_md = await ns_tmp.read_object_md({
+                bucket: upload_bkt,
+                key: mpu_key,
+                part_number: 1,
+            }, dummy_object_sdk);
+            assert.strictEqual(part_md.size, part_size);
 
             const delete_res = await ns_tmp.delete_object({
                 bucket: mpu_bkt,
@@ -737,6 +755,11 @@ mocha.describe('namespace_fs folders tests', function() {
             [upload_key_5]: 100,
             [upload_key_6]: 0
         };
+        const mpu_keys_and_part_info = {};
+        Object.keys(mpu_keys_and_size_map).forEach(function(key) {
+            mpu_keys_and_part_info[key] = JSON.stringify([{offset: 0, size: mpu_keys_and_size_map[key]}]);
+        });
+
         const a = 'a/';
         const data = crypto.randomBytes(100);
 
@@ -828,12 +851,14 @@ mocha.describe('namespace_fs folders tests', function() {
 
                 const full_xattr_mpu = await get_xattr(p);
                 if (mpu_keys_and_size_map[key] > 0) {
-                    assert.equal(Object.keys(full_xattr_mpu).length, 3);
-                    assert.deepEqual(full_xattr_mpu, { ...user_md_and_dir_content_xattr, [XATTR_DIR_CONTENT]: mpu_keys_and_size_map[key] });
+                    assert.equal(Object.keys(full_xattr_mpu).length, 5);
+                    assert.deepEqual(full_xattr_mpu, { ...user_md_and_dir_content_xattr, [XATTR_DIR_CONTENT]: mpu_keys_and_size_map[key],
+                        [XATTR_PARTS_INFO + 0]: mpu_keys_and_part_info[key], [XATTR_NUM_PARTS]: 1});
                     await fs_utils.file_must_exist(p1);
                 } else {
-                    assert.equal(Object.keys(full_xattr_mpu).length, 1);
-                    assert.deepEqual(full_xattr_mpu, { ...dir_content_md, [XATTR_DIR_CONTENT]: mpu_keys_and_size_map[key] });
+                    assert.equal(Object.keys(full_xattr_mpu).length, 3);
+                    assert.deepEqual(full_xattr_mpu, { ...dir_content_md, [XATTR_DIR_CONTENT]: mpu_keys_and_size_map[key],
+                        [XATTR_PARTS_INFO + 0]: mpu_keys_and_part_info[key], [XATTR_NUM_PARTS]: 1});
                     await fs_utils.file_must_exist(p1); // On mpu we always create DIR_CONTENT_FILE, even if its size is 0
                 }
             }));

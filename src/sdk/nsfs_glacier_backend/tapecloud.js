@@ -278,7 +278,7 @@ class TapeCloudGlacierBackend extends GlacierBackend {
 
     async low_free_space() {
         const result = await exec(get_bin_path(LOW_FREE_SPACE_SCRIPT), { return_stdout: true });
-        return result.toLowerCase() === 'true';
+        return result.toLowerCase().trim() === 'true';
     }
 
     // ============= PRIVATE FUNCTIONS =============

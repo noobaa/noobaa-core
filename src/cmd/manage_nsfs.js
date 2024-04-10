@@ -25,6 +25,7 @@ const { print_usage } = require('../manage_nsfs/manage_nsfs_help_utils');
 const { TYPES, ACTIONS, VALID_OPTIONS, OPTION_TYPE, FROM_FILE, BOOLEAN_STRING_VALUES,
     LIST_ACCOUNT_FILTERS, LIST_BUCKET_FILTERS, GLACIER_ACTIONS } = require('../manage_nsfs/manage_nsfs_constants');
 const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
+const nc_mkm = require('../manage_nsfs/nc_master_key_manager').get_instance();
 
 function throw_cli_error(error_code, detail, event_arg) {
     const error_event = NSFS_CLI_ERROR_EVENT_MAP[error_code.code];
@@ -200,7 +201,7 @@ async function add_bucket(data) {
     const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
     const bucket_conf_path = get_config_file_path(buckets_dir_path, data.name);
     const exists = await native_fs_utils.is_path_exists(fs_context, bucket_conf_path);
-    if (exists) throw_cli_error(ManageCLIError.BucketAlreadyExists, data.name, {bucket: data.name});
+    if (exists) throw_cli_error(ManageCLIError.BucketAlreadyExists, data.name, { bucket: data.name });
     data._id = mongo_utils.mongoObjectId();
     data.owner_account = account_id;
     const data_json = JSON.stringify(data);
@@ -209,7 +210,7 @@ async function add_bucket(data) {
     // for validating against the schema we need an object, hence we parse it back to object
     nsfs_schema_utils.validate_bucket_schema(JSON.parse(data_json));
     await native_fs_utils.create_config_file(fs_context, buckets_dir_path, bucket_conf_path, data_json);
-    write_stdout_response(ManageCLIResponse.BucketCreated, data_json, {bucket: data.name});
+    write_stdout_response(ManageCLIResponse.BucketCreated, data_json, { bucket: data.name });
 }
 
 /** verify_bucket_owner will check if the bucket_owner has an account
@@ -419,6 +420,7 @@ async function fetch_existing_account_data(target) {
             get_config_file_path(accounts_dir_path, target.name) :
             get_symlink_config_file_path(access_keys_dir_path, target.access_keys[0].access_key);
         source = await get_config_data(account_path, true);
+        source.access_keys = await nc_mkm.decrypt_access_keys(source);
     } catch (err) {
         dbg.log1('NSFS Manage command: Could not find account', target, err);
         if (err.code === 'ENOENT') {
@@ -452,16 +454,19 @@ async function add_account(data) {
         throw_cli_error(err_code, event_arg, {account: event_arg});
     }
     data._id = mongo_utils.mongoObjectId();
-    data = JSON.stringify(data);
+    const encrypted_account = await nc_mkm.encrypt_access_keys(data);
+    data.master_key_id = encrypted_account.master_key_id;
+    const encrypted_data = JSON.stringify(encrypted_account);
     // We take an object that was stringify
     // (it unwraps ths sensitive strings, creation_date to string and removes undefined parameters)
     // for validating against the schema we need an object, hence we parse it back to object
-    nsfs_schema_utils.validate_account_schema(JSON.parse(data));
-    await native_fs_utils.create_config_file(fs_context, accounts_dir_path, account_config_path, data);
+    nsfs_schema_utils.validate_account_schema(JSON.parse(encrypted_data));
+    await native_fs_utils.create_config_file(fs_context, accounts_dir_path, account_config_path, encrypted_data);
     await native_fs_utils._create_path(access_keys_dir_path, fs_context, config.BASE_MODE_CONFIG_DIR);
     await nb_native().fs.symlink(fs_context, account_config_relative_path, account_config_access_key_path);
-    write_stdout_response(ManageCLIResponse.AccountCreated, data, {account: event_arg});
+    write_stdout_response(ManageCLIResponse.AccountCreated, data, { account: event_arg });
 }
+
 
 async function update_account(data) {
     await validate_account_args(data, ACTIONS.UPDATE);
@@ -475,12 +480,14 @@ async function update_account(data) {
 
     if (!update_name && !update_access_key) {
         const account_config_path = get_config_file_path(accounts_dir_path, data.name);
-        data = JSON.stringify(data);
+        const encrypted_account = await nc_mkm.encrypt_access_keys(data);
+        data.master_key_id = encrypted_account.master_key_id;
+        const encrypted_data = JSON.stringify(encrypted_account);
         // We take an object that was stringify
         // (it unwraps ths sensitive strings, creation_date to string and removes undefined parameters)
         // for validating against the schema we need an object, hence we parse it back to object
-        nsfs_schema_utils.validate_account_schema(JSON.parse(data));
-        await native_fs_utils.update_config_file(fs_context, accounts_dir_path, account_config_path, data);
+        nsfs_schema_utils.validate_account_schema(JSON.parse(encrypted_data));
+        await native_fs_utils.update_config_file(fs_context, accounts_dir_path, account_config_path, encrypted_data);
         write_stdout_response(ManageCLIResponse.AccountUpdated, data);
         return;
     }
@@ -499,16 +506,21 @@ async function update_account(data) {
         const err_code = name_exists ? ManageCLIError.AccountNameAlreadyExists : ManageCLIError.AccountAccessKeyAlreadyExists;
         throw_cli_error(err_code);
     }
-    data = JSON.stringify(_.omit(data, ['new_name', 'new_access_key']));
+    data = _.omit(data, ['new_name', 'new_access_key']);
+    const encrypted_account = await nc_mkm.encrypt_access_keys(data);
+    data.master_key_id = encrypted_account.master_key_id;
+    const encrypted_data = JSON.stringify(encrypted_account);
+    data = JSON.stringify(data);
+
     // We take an object that was stringify
     // (it unwraps ths sensitive strings, creation_date to string and removes undefined parameters)
     // for validating against the schema we need an object, hence we parse it back to object
-    nsfs_schema_utils.validate_account_schema(JSON.parse(data));
+    nsfs_schema_utils.validate_account_schema(JSON.parse(encrypted_data));
     if (update_name) {
-        await native_fs_utils.create_config_file(fs_context, accounts_dir_path, new_account_config_path, data);
+        await native_fs_utils.create_config_file(fs_context, accounts_dir_path, new_account_config_path, encrypted_data);
         await native_fs_utils.delete_config_file(fs_context, accounts_dir_path, cur_account_config_path);
     } else if (update_access_key) {
-        await native_fs_utils.update_config_file(fs_context, accounts_dir_path, cur_account_config_path, data);
+        await native_fs_utils.update_config_file(fs_context, accounts_dir_path, cur_account_config_path, encrypted_data);
     }
     // TODO: safe_unlink can be better but the current impl causing ELOOP - Too many levels of symbolic links
     // need to find a better way for atomic unlinking of symbolic links
@@ -560,6 +572,7 @@ async function get_account_status(data, show_secrets) {
             get_symlink_config_file_path(access_keys_dir_path, data.access_keys[0].access_key) :
             get_config_file_path(accounts_dir_path, data.name);
         const config_data = await get_config_data(account_path, show_secrets);
+        if (config_data.access_keys) config_data.access_keys = await nc_mkm.decrypt_access_keys(config_data);
         write_stdout_response(ManageCLIResponse.AccountStatus, config_data);
     } catch (err) {
         if (_.isUndefined(data.name)) {
@@ -656,6 +669,7 @@ async function list_config_files(type, config_path, wide, show_secrets, filters)
             if (wide || should_filter) {
                 const full_path = path.join(config_path, entry.name);
                 const data = await get_config_data(full_path, show_secrets || should_filter);
+                if (data.access_keys) data.access_keys = await nc_mkm.decrypt_access_keys(data);
                 if (should_filter && !filter_list_item(type, data, filters)) return undefined;
                 // remove secrets on !show_secrets && should filter
                 return wide ? _.omit(data, show_secrets ? [] : ['access_keys']) : { name: entry.name.slice(0, entry.name.indexOf('.json')) };

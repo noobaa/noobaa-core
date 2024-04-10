@@ -110,6 +110,22 @@ const nsfs_node_config_schema = {
             type: 'boolean',
             default: false,
             description: 'This flag will enable the random seeding for the application'
+        },
+        NC_MASTER_KEYS_STORE_TYPE: {
+            enum: ['file', 'executable'],
+            description: 'This flag will set the master keys store type'
+        },
+        NC_MASTER_KEYS_FILE_LOCATION: {
+            type: 'string',
+            description: 'This flag will set the master keys file location'
+        },
+        NC_MASTER_KEYS_GET_EXECUTABLE: {
+            type: 'string',
+            description: 'This flag will set the location of the executable script for reading the master keys file used by NooBa.'
+        },
+        NC_MASTER_KEYS_PUT_EXECUTABLE: {
+            type: 'string',
+            description: 'This flag will set the location of the executable script for updating the master keys file used by NooBa.'
         }
     }
 };

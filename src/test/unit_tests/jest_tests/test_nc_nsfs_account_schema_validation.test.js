@@ -75,7 +75,7 @@ describe('schema validation NC NSFS account', () => {
             account_data.new_access_key = [ // this is not part of the schema
                 {
                     access_key: access_key1,
-                    secret_key: secret_key2
+                    encrypted_secret_key: secret_key2
                 },
             ];
             const reason = 'Test should have failed because of adding additional property ' +
@@ -166,7 +166,7 @@ describe('schema validation NC NSFS account', () => {
         it('account without access_keys details (access_key and secret_key)', () => {
             const account_data = get_account_data();
             delete account_data.access_keys[0].access_key;
-            delete account_data.access_keys[0].secret_key;
+            delete account_data.access_keys[0].encrypted_secret_key;
             const reason = 'Test should have failed because of missing required property ' +
                 'access_key';
             const message = "must have required property 'access_key'";
@@ -193,19 +193,19 @@ describe('schema validation NC NSFS account', () => {
 
         it('account without secret_key', () => {
             const account_data = get_account_data();
-            delete account_data.access_keys[0].secret_key;
+            delete account_data.access_keys[0].encrypted_secret_key;
             const reason = 'Test should have failed because of missing required property ' +
-                'secret_key';
-            const message = "must have required property 'secret_key'";
+                'encrypted_secret_key';
+            const message = "must have required property 'encrypted_secret_key'";
             assert_validation(account_data, reason, message);
         });
 
         it('account with undefined secret_key', () => {
             const account_data = get_account_data();
-            account_data.access_keys[0].secret_key = undefined;
+            account_data.access_keys[0].encrypted_secret_key = undefined;
             const reason = 'Test should have failed because of missing required property ' +
-                'secret_key';
-            const message = "must have required property 'secret_key'";
+                'encrypted_secret_key';
+            const message = "must have required property 'encrypted_secret_key'";
             assert_validation(account_data, reason, message);
         });
 
@@ -290,6 +290,24 @@ describe('schema validation NC NSFS account', () => {
             const message = "must have required property '_id'";
             assert_validation(account_data, reason, message);
         });
+
+        it('account without master_key_id', () => {
+            const account_data = get_account_data();
+            account_data.master_key_id = undefined;
+            const reason = 'Test should have failed because of missing required property ' +
+                'master_key_id';
+            const message = "must have required property 'master_key_id'";
+            assert_validation(account_data, reason, message);
+        });
+
+        it('account with undefined master_key_id', () => {
+            const account_data = get_account_data();
+            account_data.master_key_id = undefined;
+            const reason = 'Test should have failed because of missing required property ' +
+                'master_key_id';
+            const message = "must have required property 'master_key_id'";
+            assert_validation(account_data, reason, message);
+        });
     });
 
     describe('account with wrong types', () => {
@@ -337,6 +355,7 @@ describe('schema validation NC NSFS account', () => {
 function get_account_data() {
     const account_name = 'account1';
     const id = '65a62e22ceae5e5f1a758aa9';
+    const master_key_id = '65a62e22ceae5e5f1a758123';
     const account_email = account_name; // temp, keep the email internally
     const access_key = 'GIGiFAnjaaE7OKD5N7hA';
     const secret_key = 'U2AYaMpU3zRDcRFWmvzgQr9MoHIAsD+3oEXAMPLE';
@@ -350,9 +369,10 @@ function get_account_data() {
         _id: id,
         name: account_name,
         email: account_email,
+        master_key_id: master_key_id,
         access_keys: [{
             access_key: access_key,
-            secret_key: secret_key
+            encrypted_secret_key: secret_key
         }, ],
         nsfs_account_config: {
             ...nsfs_account_config_uid_gid

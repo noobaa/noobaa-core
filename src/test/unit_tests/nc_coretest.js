@@ -13,6 +13,8 @@ const { TYPES, ACTIONS } = require('../../manage_nsfs/manage_nsfs_constants');
 
 // keep me first - this is setting envs that should be set before other modules are required.
 const NC_CORETEST = 'nc_coretest';
+const config_dir_name = 'nc_coretest_config_root_path';
+const master_key_location = `${TMP_PATH}/${config_dir_name}/master_keys.json`;
 process.env.DEBUG_MODE = 'true';
 process.env.ACCOUNTS_CACHE_EXPIRY = '1';
 process.env.NC_CORETEST = 'true';
@@ -23,7 +25,7 @@ require('../../util/fips');
 
 const config = require('../../../config.js');
 config.test_mode = true;
-
+config.NC_MASTER_KEYS_FILE_LOCATION = master_key_location;
 const new_umask = process.env.NOOBAA_ENDPOINT_UMASK || 0o000;
 const old_umask = process.umask(new_umask);
 console.log('test_nsfs_access: replacing old umask: ', old_umask.toString(8), 'with new umask: ', new_umask.toString(8));
@@ -47,7 +49,7 @@ const http_address = `http://localhost:${http_port}`;
 const https_address = `https://localhost:${https_port}`;
 
 const FIRST_BUCKET = 'first.bucket';
-const NC_CORETEST_CONFIG_DIR_PATH = p.join(TMP_PATH, 'nc_coretest_config_root_path/');
+const NC_CORETEST_CONFIG_DIR_PATH = p.join(TMP_PATH, config_dir_name);
 const NC_CORETEST_REDIRECT_FILE_PATH = p.join(config.NSFS_NC_DEFAULT_CONF_DIR, '/config_dir_redirect');
 const NC_CORETEST_STORAGE_PATH = p.join(TMP_PATH, '/nc_coretest_storage_root_path/');
 const FIRST_BUCKET_PATH = p.join(NC_CORETEST_STORAGE_PATH, FIRST_BUCKET, '/');

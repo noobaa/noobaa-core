@@ -13,6 +13,7 @@ dbg.set_process_name('test_ceph_s3');
 
 const os_utils = require('../../../util/os_utils');
 const { CEPH_TEST, account_path, account_tenant_path } = require('./test_ceph_s3_constants.js');
+const nc_mkm = require('../../../manage_nsfs/nc_master_key_manager').get_instance();
 
 async function main() {
     try {
@@ -71,7 +72,8 @@ async function get_access_keys(path) {
     const account_data = await fs.promises.readFile(path, 'utf8');
     const data_json = JSON.parse(account_data);
     const access_key = data_json.access_keys[0].access_key;
-    const secret_key = data_json.access_keys[0].secret_key;
+    const encrypted_secret_key = data_json.access_keys[0].encrypted_secret_key;
+    const secret_key = await nc_mkm.decrypt(encrypted_secret_key, data_json.master_key_id);
     return {access_key, secret_key};
 }
 

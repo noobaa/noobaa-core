@@ -21,8 +21,9 @@ const ManageCLIResponse = require('../../../manage_nsfs/manage_nsfs_cli_response
 
 const tmp_fs_path = path.join(TMP_PATH, 'test_nc_nsfs_account_cli');
 const DEFAULT_FS_CONFIG = get_process_fs_context();
-
+const nc_mkm = require('../../../manage_nsfs/nc_master_key_manager').get_instance();
 const timeout = 50000;
+const config = require('../../../../config');
 
 // eslint-disable-next-line max-lines-per-function
 describe('manage nsfs cli account flow', () => {
@@ -39,7 +40,6 @@ describe('manage nsfs cli account flow', () => {
             access_key: 'GIGiFAnjaaE7OKD5N7hA',
             secret_key: 'U2AYaMpU3zRDcRFWmvzgQr9MoHIAsD+3oEXAMPLE',
         };
-
         beforeEach(async () => {
             await P.all(_.map([CONFIG_SUBDIRS.ACCOUNTS, CONFIG_SUBDIRS.ACCESS_KEYS], async dir =>
                 fs_utils.create_fresh_path(`${config_root}/${dir}`)));
@@ -1208,6 +1208,8 @@ describe('cli account flow distinguished_name - permissions', function() {
             await delete_fs_user_by_platform(distinguished_name);
         }
         await fs_utils.folder_delete(config_root);
+        await fs_utils.folder_delete(config_root);
+        await fs_utils.folder_delete(config.NSFS_NC_DEFAULT_CONF_DIR);
     }, timeout);
 
     it('cli account create - should fail - user does not exist', async function() {
@@ -1318,8 +1320,11 @@ describe('cli account flow distinguished_name - permissions', function() {
 async function read_config_file(config_root, schema_dir, config_file_name, is_symlink) {
     const config_path = path.join(config_root, schema_dir, config_file_name + (is_symlink ? '.symlink' : '.json'));
     const { data } = await nb_native().fs.readFile(DEFAULT_FS_CONFIG, config_path);
-    const config = JSON.parse(data.toString());
-    return config;
+    const config_data = JSON.parse(data.toString());
+    const encrypted_secret_key = config_data.access_keys[0].encrypted_secret_key;
+    config_data.access_keys[0].secret_key = await nc_mkm.decrypt(encrypted_secret_key, config_data.master_key_id);
+    delete config_data.access_keys[0].encrypted_secret_key;
+    return config_data;
 }
 
 /**

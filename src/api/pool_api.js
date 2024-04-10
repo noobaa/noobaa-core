@@ -377,6 +377,26 @@ module.exports = {
             }
         },
 
+        update_last_monitoring: {
+            doc: 'Update last namespace monitoring',
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['namespace_resource_id', 'last_monitoring'],
+                properties: {
+                    last_monitoring: {
+                        idate: true,
+                    },
+                    namespace_resource_id: {
+                        objectid: true
+                    },
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
         scale_hosts_pool: {
             doc: 'Change the pool\'s underlaying host count',
             method: 'POST',

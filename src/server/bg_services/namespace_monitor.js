@@ -73,18 +73,18 @@ class NamespaceMonitor {
                 } else {
                     dbg.error('namespace_monitor: invalid endpoint type', endpoint_type);
                 }
-                await this.update_last_monitoring(nsr._id, nsr.name, endpoint_type);
+                this.update_last_monitoring(nsr._id, nsr.name, endpoint_type);
             } catch (err) {
-                await this.run_update_issues_report(err, nsr);
+                this.run_update_issues_report(err, nsr);
                 dbg.log1(`test_namespace_resource_validity: namespace resource ${nsr.name} has error as expected`);
             }
         });
         dbg.log1(`test_namespace_resource_validity finished successfully..`);
     }
 
-    async run_update_issues_report(err, nsr) {
+    run_update_issues_report(err, nsr) {
         if (!err.code) return;
-        await this.client.pool.update_issues_report({
+        this.client.pool.update_issues_report({
             namespace_resource_id: nsr._id,
             error_code: String(err.code),
             time: Date.now(),
@@ -98,17 +98,17 @@ class NamespaceMonitor {
         });
     }
 
-    async update_last_monitoring(nsr_id, nsr_name, endpoint_type) {
+    update_last_monitoring(nsr_id, nsr_name, endpoint_type) {
         dbg.log0(`update_last_monitoring: monitoring namespace ${nsr_name} type ${endpoint_type}, ${nsr_id} finished successfully..`);
-        await system_store.make_changes({
-            update: {
-                namespace_resources: [{
-                    _id: nsr_id,
-                    $set: {
-                        last_monitoring: Date.now()
-                    }
-                }]
-            }
+        this.client.pool.update_last_monitoring({
+            namespace_resource_id: nsr_id,
+            last_monitoring: Date.now(),
+        }, {
+            auth_token: auth_server.make_auth_token({
+                system_id: system_store.data.systems[0]._id,
+                account_id: system_store.data.systems[0].owner._id,
+                role: 'admin'
+            })
         });
     }
 

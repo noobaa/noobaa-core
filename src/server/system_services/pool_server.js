@@ -48,6 +48,11 @@ const POOL_HOSTS_INFO_DEFAULTS = Object.freeze({
     by_service: {},
 });
 
+
+// key: namespace_resource_id, value: { last_monitoring: date, issues: array of issues } 
+// (see namespace_resource_schema)
+const map_issues_and_monitoring_report = new Map();
+
 const NO_CAPAITY_LIMIT = 1024 ** 2; // 1MB
 const LOW_CAPACITY_HARD_LIMIT = 30 * (1024 ** 3); // 30GB
 
@@ -1101,7 +1106,12 @@ function calc_namespace_resource_mode(namespace_resource) {
         AuthenticationFailed: 'auth_failed',
     };
 
-    const errors_count = _.reduce(namespace_resource.issues_report, (acc, issue) => {
+    const namespace_resource_id = namespace_resource._id.toString();
+    if (!map_issues_and_monitoring_report.has(namespace_resource_id)) {
+        map_issues_and_monitoring_report.set(namespace_resource_id, { last_monitoring: undefined, issues: [] });
+    }
+    const issues_report = map_issues_and_monitoring_report.get(namespace_resource_id).issues;
+    const errors_count = _.reduce(issues_report, (acc, issue) => {
         // skip if error timestamp is before of the latest monitoring
         if (issue.time < namespace_resource.last_monitoring) {
             return acc;
@@ -1406,24 +1416,32 @@ function update_issues_report(req) {
         dbg.log0('update_issues_report: can not find namespace_resource, ignoring update of issues report');
         return;
     }
-    const cur_issues_report = ns_resource.issues_report || [];
+
+    if (!map_issues_and_monitoring_report.has(namespace_resource_id)) {
+        map_issues_and_monitoring_report.set(namespace_resource_id, { last_monitoring: undefined, issues: [] });
+    }
+    const cur_issues_report = map_issues_and_monitoring_report.get(namespace_resource_id).issues;
 
     // save the last 10 errors
     if (cur_issues_report.length === 10) {
         cur_issues_report.shift();
     }
     cur_issues_report.push({ error_code, time });
-    const updates = { issues_report: cur_issues_report };
-    if (monitoring) updates.last_monitoring = time;
+    if (monitoring) {
+        map_issues_and_monitoring_report.get(namespace_resource_id).last_monitoring = time;
+    }
+    dbg.log3('update_issues_report:', namespace_resource_id, cur_issues_report);
+}
 
-    return system_store.make_changes({
-        update: {
-            namespace_resources: [{
-                _id: ns_resource._id,
-                $set: updates
-            }]
-        }
-    });
+function update_last_monitoring(req) {
+    const { namespace_resource_id, last_monitoring } = req.rpc_params;
+
+    if (!map_issues_and_monitoring_report.has(namespace_resource_id)) {
+        map_issues_and_monitoring_report.set(namespace_resource_id, { last_monitoring: undefined, issues: [] });
+    }
+
+    map_issues_and_monitoring_report.get(namespace_resource_id).last_monitoring = last_monitoring;
+    dbg.log3('update_last_monitoring:', namespace_resource_id, last_monitoring);
 }
 
 // EXPORTS
@@ -1454,4 +1472,5 @@ exports.update_cloud_pool = update_cloud_pool;
 exports.get_optimal_non_mongo_pool_id = get_optimal_non_mongo_pool_id;
 exports.get_hosts_pool_agent_config = get_hosts_pool_agent_config;
 exports.update_issues_report = update_issues_report;
+exports.update_last_monitoring = update_last_monitoring;
 exports.calc_namespace_resource_mode = calc_namespace_resource_mode;

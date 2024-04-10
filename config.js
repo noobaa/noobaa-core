@@ -829,6 +829,15 @@ config.NSFS_WHITELIST = [];
 config.NSFS_HEALTH_ENDPOINT_RETRY_COUNT = 3;
 config.NSFS_HEALTH_ENDPOINT_RETRY_DELAY = 10;
 
+
+/** @type {'file' | 'executable'} */
+config.NC_MASTER_KEYS_STORE_TYPE = 'file';
+// unless override in config.json, the default will be the config_dir/master_keys.json
+config.NC_MASTER_KEYS_FILE_LOCATION = '';
+config.NC_MASTER_KEYS_GET_EXECUTABLE = '';
+config.NC_MASTER_KEYS_PUT_EXECUTABLE = '';
+config.NC_MASTER_KEYS_MANAGER_REFRESH_THRESHOLD = 5 * 60 * 1000; // 5 minutes
+
 //Quota
 config.QUOTA_LOW_THRESHOLD = 80;
 config.QUOTA_MAX_OBJECTS = Number.MAX_SAFE_INTEGER;

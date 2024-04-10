@@ -14,6 +14,8 @@ const _ = require('lodash');
 const util = require('util');
 const bucket_policy_utils = require('../endpoint/s3/s3_bucket_policy_utils');
 const nsfs_schema_utils = require('../manage_nsfs/nsfs_schema_utils');
+const nc_mkm = require('../manage_nsfs/nc_master_key_manager').get_instance();
+
 const mongo_utils = require('../util/mongo_utils');
 const { CONFIG_SUBDIRS } = require('../manage_nsfs/manage_nsfs_constants');
 
@@ -101,6 +103,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             nsfs_schema_utils.validate_account_schema(account);
             account.name = new SensitiveString(account.name);
             account.email = new SensitiveString(account.email);
+            account.access_keys = await nc_mkm.decrypt_access_keys(account);
             for (const k of account.access_keys) {
                 k.access_key = new SensitiveString(k.access_key);
                 k.secret_key = new SensitiveString(k.secret_key);

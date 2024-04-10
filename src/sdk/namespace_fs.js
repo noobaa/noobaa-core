@@ -416,6 +416,28 @@ const versions_dir_cache = new LRUCache({
 });
 
 /**
+ * @typedef {{
+ *  statfs: Record<string, number>
+ * }} NsfsBucketStatFsCache
+ * @type {LRUCache<object, string, NsfsBucketStatFsCache>}
+ */
+const nsfs_bucket_statfs_cache = new LRUCache({
+    name: 'nsfs-bucket-statfs',
+    make_key: ({ bucket_path }) => bucket_path,
+    load: async ({ bucket_path, fs_context }) => {
+        const statfs = await nb_native().fs.statfs(fs_context, bucket_path);
+        return { statfs };
+    },
+    // validate - no need, validation will be as costly as `load`,
+    // instead let the item expire
+    expiry_ms: config.NSFS_STATFS_CACHE_EXPIRY_MS,
+    max_usage: config.NSFS_STATFS_CACHE_SIZE,
+});
+
+
+const nsfs_low_space_fsids = new Set();
+
+/**
  * NamespaceFS map objets to files in a filesystem.
  * @implements {nb.Namespace}
  */
@@ -513,6 +535,24 @@ class NamespaceFS {
         } catch (e) {
             console.log('update_issues_report on error:', e, 'ignoring.');
         }
+    }
+
+    /**
+     * _should_update_issues_report is intended to avoid updating the namespace issues report in case:
+     * 1. The key doesn't exist and the path is not internal -
+     *    internal path is created for specific cases, for example in version.
+     *    Note: it also covers the delete marker case (since it is in a versioned path)
+     * IMPORTANT: This function is correct only for read_object_md!
+     * @param {object} params
+     * @param {string} file_path
+     * @param {object} err
+     */
+    _should_update_issues_report(params, file_path, err) {
+        const { key } = params;
+        const md_file_path = this._get_file_md_path({ key });
+        const non_internal_path = file_path === md_file_path;
+        const no_such_key_condition = err.code === `ENOENT` && non_internal_path;
+        return !no_such_key_condition;
     }
 
     is_readonly_namespace() {
@@ -850,8 +890,9 @@ class NamespaceFS {
 
     async read_object_md(params, object_sdk) {
         const fs_context = this.prepare_fs_context(object_sdk);
+        let file_path;
         try {
-            const file_path = await this._find_version_path(fs_context, params, true);
+            file_path = await this._find_version_path(fs_context, params, true);
             await this._check_path_in_bucket_boundaries(fs_context, file_path);
             await this._load_bucket(params, fs_context);
             let stat = await nb_native().fs.stat(fs_context, file_path);
@@ -872,7 +913,9 @@ class NamespaceFS {
             this._throw_if_delete_marker(stat);
             return this._get_object_info(params.bucket, params.key, stat, params.version_id || 'null', isDir);
         } catch (err) {
-            this.run_update_issues_report(object_sdk, err);
+            if (this._should_update_issues_report(params, file_path, err)) {
+                this.run_update_issues_report(object_sdk, err);
+            }
             throw this._translate_object_error_codes(err);
         }
     }
@@ -1066,6 +1109,7 @@ class NamespaceFS {
     async upload_object(params, object_sdk) {
         const fs_context = this.prepare_fs_context(object_sdk);
         await this._load_bucket(params, fs_context);
+        await this._throw_if_low_space(fs_context, params.size);
         const open_mode = native_fs_utils._is_gpfs(fs_context) ? 'wt' : 'w';
         const file_path = this._get_file_path(params);
         let upload_params;
@@ -1476,6 +1520,7 @@ class NamespaceFS {
         try {
             const fs_context = this.prepare_fs_context(object_sdk);
             await this._load_bucket(params, fs_context);
+            await this._throw_if_low_space(fs_context);
             params.obj_id = uuidv4();
             params.mpu_path = this._mpu_path(params);
             await native_fs_utils._create_path(params.mpu_path, fs_context);
@@ -1522,6 +1567,7 @@ class NamespaceFS {
         let part_md_file;
         try {
             await this._load_multipart(params, fs_context);
+            await this._throw_if_low_space(fs_context, params.size);
 
             const md_upload_path = this._get_part_md_path(params);
             part_md_file = await native_fs_utils.open_file(fs_context, this.bucket_path, md_upload_path, md_open_mode);
@@ -1575,6 +1621,11 @@ class NamespaceFS {
             const fs_context = this.prepare_fs_context(object_sdk);
             await this._load_multipart(params, fs_context);
             await this._check_path_in_bucket_boundaries(fs_context, params.mpu_path);
+            const { data } = await nb_native().fs.readFile(
+                fs_context,
+                path.join(params.mpu_path, 'create_object_upload')
+            );
+            const create_multipart_upload_params = JSON.parse(data.toString());
             const entries = await nb_native().fs.readdir(fs_context, params.mpu_path);
             const multiparts = await Promise.all(
                 entries
@@ -1595,6 +1646,7 @@ class NamespaceFS {
                 is_truncated: false,
                 next_num_marker: undefined,
                 multiparts,
+                storage_class: create_multipart_upload_params.storage_class
             };
         } catch (err) {
             throw this._translate_object_error_codes(err);
@@ -1615,6 +1667,7 @@ class NamespaceFS {
         let read_file;
         let target_file;
         const fs_context = this.prepare_fs_context(object_sdk);
+        await this._throw_if_low_space(fs_context);
         const open_mode = 'w*';
         try {
             const md5_enabled = config.NSFS_CALCULATE_MD5 || (this.force_md5_etag ||
@@ -2968,7 +3021,7 @@ class NamespaceFS {
 
     async _throw_if_storage_class_not_supported(storage_class) {
         if (!await this._is_storage_class_supported(storage_class)) {
-            throw new S3Error(S3Error.StorageClassNotImplemented);
+            throw new S3Error(S3Error.InvalidStorageClass);
         }
     }
 
@@ -2982,6 +3035,58 @@ class NamespaceFS {
         }
 
         return false;
+    }
+
+    /**
+     * @param {nb.NativeFSContext} fs_context
+     * @param {number} [size_hint]
+     * @returns {Promise<void>}
+     */
+    async _throw_if_low_space(fs_context, size_hint = 0) {
+        if (!config.NSFS_LOW_FREE_SPACE_CHECK_ENABLED) return;
+
+        const MB = 1024 ** 2;
+        const { statfs } = await nsfs_bucket_statfs_cache.get_with_cache({ bucket_path: this.bucket_path, fs_context });
+        const block_size_mb = statfs.bsize / MB;
+        const free_space_mb = Math.floor(statfs.bfree * block_size_mb) - Math.floor(size_hint / MB);
+        const total_space_mb = Math.floor(statfs.blocks * block_size_mb);
+
+        const low_space_threshold = this._get_free_space_threshold(
+            config.NSFS_LOW_FREE_SPACE_MB,
+            config.NSFS_LOW_FREE_SPACE_PERCENT,
+            total_space_mb,
+        );
+        const ok_space_threshold = this._get_free_space_threshold(
+            config.NSFS_LOW_FREE_SPACE_MB_UNLEASH,
+            config.NSFS_LOW_FREE_SPACE_PERCENT_UNLEASH,
+            total_space_mb,
+        );
+
+        dbg.log1('_throw_if_low_space:', { free_space_mb, total_space_mb, low_space_threshold, ok_space_threshold });
+
+        if (nsfs_low_space_fsids.has(statfs.fsid)) {
+            if (free_space_mb < ok_space_threshold) {
+                throw new S3Error(S3Error.SlowDown);
+            } else {
+                nsfs_low_space_fsids.delete(statfs.fsid);
+            }
+        } else if (free_space_mb < low_space_threshold) {
+            nsfs_low_space_fsids.add(statfs.fsid);
+            throw new S3Error(S3Error.SlowDown);
+        }
+    }
+
+    /**
+     * _get_free_space_threshold takes the free space threshold
+     * in bytes and in percentage and returns the one that is lower
+     * @param {number} in_bytes free space threshold in mb
+     * @param {number} in_percentage free space threshold in percentage
+     * @param {number} total_space total space in mb
+     * @returns {number}
+     */
+    _get_free_space_threshold(in_bytes, in_percentage, total_space) {
+        const free_from_percentage = in_percentage * total_space;
+        return Math.max(in_bytes, free_from_percentage);
     }
 
     async append_to_migrate_wal(entry) {
@@ -2999,7 +3104,7 @@ class NamespaceFS {
     static get migrate_wal() {
         if (!NamespaceFS._migrate_wal) {
             NamespaceFS._migrate_wal = new PersistentLogger(config.NSFS_GLACIER_LOGS_DIR, GlacierBackend.MIGRATE_WAL_NAME, {
-                max_interval: config.NSFS_GLACIER_LOGS_MAX_INTERVAL,
+                poll_interval: config.NSFS_GLACIER_LOGS_POLL_INTERVAL,
                 locking: 'SHARED',
             });
         }
@@ -3010,7 +3115,7 @@ class NamespaceFS {
     static get restore_wal() {
         if (!NamespaceFS._restore_wal) {
             NamespaceFS._restore_wal = new PersistentLogger(config.NSFS_GLACIER_LOGS_DIR, GlacierBackend.RESTORE_WAL_NAME, {
-                max_interval: config.NSFS_GLACIER_LOGS_MAX_INTERVAL,
+                poll_interval: config.NSFS_GLACIER_LOGS_POLL_INTERVAL,
                 locking: 'SHARED',
             });
         }

@@ -60,9 +60,10 @@ class GlacierBackend {
      * NOTE: This needs to be implemented by each backend.
      * @param {nb.NativeFSContext} fs_context
      * @param {string} log_file log filename
+     * @param {(entry: string) => Promise<void>} failure_recorder
      * @returns {Promise<boolean>}
      */
-    async migrate(fs_context, log_file) {
+    async migrate(fs_context, log_file, failure_recorder) {
         throw new Error('Unimplementented');
     }
 
@@ -77,9 +78,10 @@ class GlacierBackend {
      * NOTE: This needs to be implemented by each backend.
      * @param {nb.NativeFSContext} fs_context
      * @param {string} log_file log filename
+     * @param {(entry: string) => Promise<void>} failure_recorder
      * @returns {Promise<boolean>}
      */
-    async restore(fs_context, log_file) {
+    async restore(fs_context, log_file, failure_recorder) {
         throw new Error('Unimplementented');
     }
 

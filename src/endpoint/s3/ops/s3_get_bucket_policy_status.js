@@ -2,6 +2,7 @@
 'use strict';
 
 const S3Error = require('../s3_errors').S3Error;
+const _ = require('lodash');
 
 /**
  * https://docs.aws.amazon.com/AmazonS3/latest/API/API_GetBucketPolicyStatus.html
@@ -16,27 +17,19 @@ async function get_bucket_policy_status(req) {
 // TODO: implemented according to current implementation of authorize_request_policy. should update when authorize_request_policy changed
 // full public policy defintion: https://docs.aws.amazon.com/AmazonS3/latest/dev/access-control-block-public-access.html#access-control-block-public-access-policy-status
 function _is_policy_public(policy) {
-    for (const statement of policy.statement) {
-        let principal_wildcard = false;
-        let resource_wildcard = false;
-        if (statement.effect === 'deny') {
-            return false;
-        }
-        for (const principal of statement.principal) {
-            if (principal.unwrap() === '*') {
-                principal_wildcard = true;
+    for (const statement of policy.Statement) {
+        if (statement.Effect === 'Allow' && statement.Principal) {
+            const statement_principal = statement.Principal.AWS ? statement.Principal.AWS : statement.Principal;
+            //although redundant, its technicly possible to have both wildcard and specific principal. 
+            //in this case the wildcard principal override the specific one
+            for (const principal of _.flatten([statement_principal])) {
+                if (principal.unwrap() === '*') {
+                    return true;
+                }
             }
-        }
-        for (const resource of statement.resource) {
-            if ((/[?*]/).test(resource)) {
-                resource_wildcard = true;
-            }
-        }
-        if (!principal_wildcard || !resource_wildcard) {
-            return false;
         }
     }
-    return true;
+    return false;
 }
 
 module.exports = {

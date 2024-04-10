@@ -37,7 +37,7 @@ async function get_object_uploadId(req) {
                 UploadId: req.query.uploadId,
                 Initiator: s3_utils.DEFAULT_S3_USER,
                 Owner: s3_utils.DEFAULT_S3_USER,
-                StorageClass: s3_utils.STORAGE_CLASS_STANDARD,
+                StorageClass: s3_utils.parse_storage_class(reply.storage_class),
                 MaxParts: max,
                 PartNumberMarker: num_marker,
                 IsTruncated: reply.is_truncated,

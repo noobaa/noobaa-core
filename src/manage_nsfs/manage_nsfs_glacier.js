@@ -69,12 +69,65 @@ async function process_expiry() {
     const fs_context = native_fs_utils.get_process_fs_context();
 
     await lock_and_run(fs_context, SCAN_LOCK, async () => {
-        if (!(await time_exceeded(fs_context, config.NSFS_GLACIER_EXPIRY_INTERVAL, GlacierBackend.EXPIRY_TIMESTAMP_FILE))) return;
-
-
-        await getGlacierBackend().expiry(fs_context);
-        await record_current_time(fs_context, GlacierBackend.EXPIRY_TIMESTAMP_FILE);
+        const backend = getGlacierBackend();
+        if (
+            await backend.low_free_space() ||
+            await is_desired_time(
+                    fs_context,
+                    new Date(),
+                    config.NSFS_GLACIER_EXPIRY_RUN_TIME,
+                    config.NSFS_GLACIER_EXPIRY_RUN_DELAY_LIMIT_MINS,
+                    GlacierBackend.EXPIRY_TIMESTAMP_FILE,
+            )
+        ) {
+            await backend.expiry(fs_context);
+            await record_current_time(fs_context, GlacierBackend.EXPIRY_TIMESTAMP_FILE);
+        }
     });
+}
+
+/**
+ * is_desired_time returns true if the given time matches with
+ * the desired time or if 
+ * @param {nb.NativeFSContext} fs_context 
+ * @param {Date} current
+ * @param {string} desire time in format 'hh:mm'
+ * @param {number} delay_limit_mins
+ * @param {string} timestamp_file 
+ * @returns {Promise<boolean>}
+ */
+async function is_desired_time(fs_context, current, desire, delay_limit_mins, timestamp_file) {
+    const [desired_hour, desired_min] = desire.split(':').map(Number);
+    if (
+        isNaN(desired_hour) ||
+        isNaN(desired_min) ||
+        (desired_hour < 0 || desired_hour >= 24) ||
+        (desired_min < 0 || desired_min >= 60)
+    ) {
+        throw new Error('invalid desired_time - must be hh:mm');
+    }
+
+    const min_time = get_tz_date(desired_hour, desired_min, 0, config.NSFS_GLACIER_EXPIRY_TZ);
+    const max_time = get_tz_date(desired_hour, desired_min + delay_limit_mins, 0, config.NSFS_GLACIER_EXPIRY_TZ);
+
+    if (current >= min_time && current <= max_time) {
+        try {
+            const { data } = await nb_native().fs.readFile(fs_context, path.join(config.NSFS_GLACIER_LOGS_DIR, timestamp_file));
+            const lastrun = new Date(data.toString());
+
+            // Last run should NOT be in this window
+            if (lastrun >= min_time && lastrun <= max_time) return false;
+        } catch (error) {
+            if (error.code === 'ENOENT') return true;
+            console.error('failed to read last run timestamp:', error, 'timestamp_file:', timestamp_file);
+
+            throw error;
+        }
+
+        return true;
+    }
+
+    return false;
 }
 
 /**
@@ -132,6 +185,31 @@ async function run_glacier_operation(fs_context, log_namespace, cb) {
     } finally {
         await log.close();
     }
+}
+
+/**
+ * @param {number} hours
+ * @param {number} mins
+ * @param {number} secs
+ * @param {'UTC' | 'LOCAL'} tz
+ * @returns {Date}
+ */
+function get_tz_date(hours, mins, secs, tz) {
+    const date = new Date();
+
+    if (tz === 'UTC') {
+        date.setUTCHours(hours);
+        date.setUTCMinutes(hours);
+        date.setUTCSeconds(secs);
+        date.setUTCMilliseconds(0);
+    } else {
+        date.setHours(hours);
+        date.setMinutes(mins);
+        date.setSeconds(secs);
+        date.setMilliseconds(0);
+    }
+
+    return date;
 }
 
 /**

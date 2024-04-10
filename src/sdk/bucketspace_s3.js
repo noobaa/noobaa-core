@@ -35,6 +35,7 @@ class BucketSpaceS3 {
             const buckets_with_name_change = buckets.map(b => ({ name: new SensitiveString(b.Name) }));
             return { buckets_with_name_change };
         } catch (err) {
+            noobaa_s3_client.fix_error_object(err);
             this._translate_error_code(err);
             throw err;
         }
@@ -62,6 +63,7 @@ class BucketSpaceS3 {
                 undeletable: 'NOT_EMPTY',
             };
         } catch (err) {
+            noobaa_s3_client.fix_error_object(err);
             this._translate_error_code(err);
             throw err;
         }
@@ -73,6 +75,7 @@ class BucketSpaceS3 {
             console.log(`bss3: create_bucket ${name}`);
             await this.s3.createBucket({ Bucket: name });
         } catch (err) {
+            noobaa_s3_client.fix_error_object(err);
             this._translate_error_code(err);
             throw err;
         }
@@ -84,6 +87,7 @@ class BucketSpaceS3 {
             console.log(`bss3: delete_fs_bucket ${name}`);
             await this.s3.deleteBucket({ Bucket: name });
         } catch (err) {
+            noobaa_s3_client.fix_error_object(err);
             this._translate_error_code(err);
             throw err;
         }

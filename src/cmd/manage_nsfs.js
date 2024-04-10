@@ -49,6 +49,7 @@ function write_stdout_response(response_code, detail, event_arg) {
 const buckets_dir_name = '/buckets';
 const accounts_dir_name = '/accounts';
 const access_keys_dir_name = '/access_keys';
+const acounts_dir_relative_path = '../accounts/';
 
 let config_root;
 let accounts_dir_path;
@@ -65,7 +66,7 @@ async function check_and_create_config_dirs() {
     ];
     for (const dir_path of pre_req_dirs) {
         try {
-            const fs_context = native_fs_utils.get_process_fs_context();
+            const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
             const dir_exists = await native_fs_utils.is_path_exists(fs_context, dir_path);
             if (dir_exists) {
                 dbg.log1('nsfs.check_and_create_config_dirs: config dir exists:', dir_path);
@@ -103,9 +104,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
         if (type === TYPES.ACCOUNT) {
             await account_management(action, user_input);
         } else if (type === TYPES.BUCKET) {
-            // GAP - from-file in bucket
-            const path_to_json_options = argv.from_file ? String(argv.from_file) : '';
-            await bucket_management(argv, path_to_json_options);
+            await bucket_management(action, user_input);
         } else if (type === TYPES.IP_WHITELIST) {
             await whitelist_ips_management(argv);
         } else if (type === TYPES.GLACIER) {
@@ -124,50 +123,44 @@ async function main(argv = minimist(process.argv.slice(2))) {
     }
 }
 
-async function bucket_management(argv, from_file) {
-    const action = argv._[1] || '';
-    const data = await fetch_bucket_data(argv, from_file);
-    await manage_bucket_operations(action, data, argv);
+async function bucket_management(action, user_input) {
+    const data = await fetch_bucket_data(action, user_input);
+    await manage_bucket_operations(action, data, user_input);
 }
 
 // in name and new_name we allow type number, hence convert it to string
-async function fetch_bucket_data(argv, from_file) {
-    const action = argv._[1] || '';
-    let data;
-    if (from_file) {
-        const fs_context = native_fs_utils.get_process_fs_context();
-        const raw_data = (await nb_native().fs.readFile(fs_context, from_file)).data;
-        data = JSON.parse(raw_data.toString());
-        // GAP - from-file is not validated
-    }
-    if (!data) {
+async function fetch_bucket_data(action, user_input) {
+    let data = {
         // added undefined values to keep the order the properties when printing the data object
-        data = {
-            _id: undefined,
-            name: _.isUndefined(argv.name) ? undefined : String(argv.name),
-            owner_account: undefined,
-            system_owner: argv.owner, // GAP - needs to be the system_owner (currently it is the account name)
-            bucket_owner: argv.owner,
-            wide: _.isUndefined(argv.wide) ? undefined : get_boolean_or_string_value(argv.wide),
-            tag: undefined, // if we would add the option to tag a bucket using CLI, this should be changed
-            versioning: action === ACTIONS.ADD ? 'DISABLED' : undefined,
-            creation_date: action === ACTIONS.ADD ? new Date().toISOString() : undefined,
-            path: argv.path,
-            should_create_underlying_storage: action === ACTIONS.ADD ? false : undefined,
-            new_name: _.isUndefined(argv.new_name) ? undefined : String(argv.new_name),
-            fs_backend: _.isUndefined(argv.fs_backend) ? config.NSFS_NC_STORAGE_BACKEND : String(argv.fs_backend)
+        _id: undefined,
+        name: _.isUndefined(user_input.name) ? undefined : String(user_input.name),
+        owner_account: undefined,
+        system_owner: user_input.owner, // GAP - needs to be the system_owner (currently it is the account name)
+        bucket_owner: user_input.owner,
+        wide: _.isUndefined(user_input.wide) ? undefined : get_boolean_or_string_value(user_input.wide),
+        tag: undefined, // if we would add the option to tag a bucket using CLI, this should be changed
+        versioning: action === ACTIONS.ADD ? 'DISABLED' : undefined,
+        creation_date: action === ACTIONS.ADD ? new Date().toISOString() : undefined,
+        path: user_input.path,
+        should_create_underlying_storage: action === ACTIONS.ADD ? false : undefined,
+        new_name: _.isUndefined(user_input.new_name) ? undefined : String(user_input.new_name),
+        fs_backend: _.isUndefined(user_input.fs_backend) ? config.NSFS_NC_STORAGE_BACKEND : String(user_input.fs_backend)
         };
-    }
 
-    if (argv.bucket_policy !== undefined) {
-        // bucket_policy deletion speficied with empty string ''
-        if (argv.bucket_policy === '') {
-            data.s3_policy = '';
-        } else {
-            data.s3_policy = JSON.parse(argv.bucket_policy.toString());
+    if (user_input.bucket_policy !== undefined) {
+        if (typeof user_input.bucket_policy === 'string') {
+            // bucket_policy deletion specified with empty string ''
+            if (user_input.bucket_policy === '') {
+                data.s3_policy = '';
+            } else {
+                data.s3_policy = JSON.parse(user_input.bucket_policy.toString());
+            }
+        } else { // it is object type
+            data.s3_policy = user_input.bucket_policy;
         }
     }
     if (action === ACTIONS.UPDATE || action === ACTIONS.DELETE) {
+        // @ts-ignore
         data = _.omitBy(data, _.isUndefined);
         data = await fetch_existing_bucket_data(data);
     }
@@ -301,22 +294,30 @@ async function update_bucket(data) {
     write_stdout_response(ManageCLIResponse.BucketUpdated, data);
 }
 
-async function delete_bucket(data) {
+async function delete_bucket(data, force) {
     await validate_bucket_args(data, ACTIONS.DELETE);
-    const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
+    // we have fs_contexts: (1) fs_backend for bucket temp dir (2) config_root_backend for config files
+    const fs_context_config_root_backend = native_fs_utils.get_process_fs_context(config_root_backend);
+    const fs_context_fs_backend = native_fs_utils.get_process_fs_context(data.fs_backend);
     const bucket_config_path = get_config_file_path(buckets_dir_path, data.name);
     try {
-        const bucket_temp_dir_path = path.join(data.path, config.NSFS_TEMP_DIR_NAME + "_" + data._id);
-        await native_fs_utils.folder_delete(bucket_temp_dir_path, fs_context, true);
-        await native_fs_utils.delete_config_file(fs_context, buckets_dir_path, bucket_config_path);
+        const temp_dir_name = config.NSFS_TEMP_DIR_NAME + "_" + data._id;
+        const bucket_temp_dir_path = path.join(data.path, temp_dir_name);
+        const entries = await nb_native().fs.readdir(fs_context_fs_backend, data.path);
+        const object_entries = entries.filter(element => !element.name.endsWith(temp_dir_name));
+        if (object_entries.length === 0 || force) {
+            await native_fs_utils.folder_delete(bucket_temp_dir_path, fs_context_fs_backend, true);
+            await native_fs_utils.delete_config_file(fs_context_config_root_backend, buckets_dir_path, bucket_config_path);
+            write_stdout_response(ManageCLIResponse.BucketDeleted, '', {bucket: data.name});
+        }
+        throw_cli_error(ManageCLIError.BucketDeleteForbiddenHasObjects, data.name);
     } catch (err) {
         if (err.code === 'ENOENT') throw_cli_error(ManageCLIError.NoSuchBucket, data.name);
         throw err;
     }
-    write_stdout_response(ManageCLIResponse.BucketDeleted, '', {bucket: data.name});
 }
 
-async function manage_bucket_operations(action, data, argv) {
+async function manage_bucket_operations(action, data, user_input) {
     if (action === ACTIONS.ADD) {
         await add_bucket(data);
     } else if (action === ACTIONS.STATUS) {
@@ -324,9 +325,10 @@ async function manage_bucket_operations(action, data, argv) {
     } else if (action === ACTIONS.UPDATE) {
         await update_bucket(data);
     } else if (action === ACTIONS.DELETE) {
-        await delete_bucket(data);
+        const force = get_boolean_or_string_value(user_input.force);
+        await delete_bucket(data, force);
     } else if (action === ACTIONS.LIST) {
-        const bucket_filters = _.pick(argv, LIST_BUCKET_FILTERS);
+        const bucket_filters = _.pick(user_input, LIST_BUCKET_FILTERS);
         const buckets = await list_config_files(TYPES.BUCKET, buckets_dir_path, data.wide, undefined, bucket_filters);
         write_stdout_response(ManageCLIResponse.BucketList, buckets);
     } else {
@@ -438,6 +440,7 @@ async function add_account(data) {
     const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
     const access_key = data.access_keys[0].access_key;
     const account_config_path = get_config_file_path(accounts_dir_path, data.name);
+    const account_config_relative_path = get_config_file_path(acounts_dir_relative_path, data.name);
     const account_config_access_key_path = get_symlink_config_file_path(access_keys_dir_path, access_key);
 
     const name_exists = await native_fs_utils.is_path_exists(fs_context, account_config_path);
@@ -456,7 +459,7 @@ async function add_account(data) {
     nsfs_schema_utils.validate_account_schema(JSON.parse(data));
     await native_fs_utils.create_config_file(fs_context, accounts_dir_path, account_config_path, data);
     await native_fs_utils._create_path(access_keys_dir_path, fs_context, config.BASE_MODE_CONFIG_DIR);
-    await nb_native().fs.symlink(fs_context, account_config_path, account_config_access_key_path);
+    await nb_native().fs.symlink(fs_context, account_config_relative_path, account_config_access_key_path);
     write_stdout_response(ManageCLIResponse.AccountCreated, data, {account: event_arg});
 }
 
@@ -487,6 +490,7 @@ async function update_account(data) {
     data.access_keys[0].access_key = data.new_access_key || cur_access_key;
     const cur_account_config_path = get_config_file_path(accounts_dir_path, cur_name);
     const new_account_config_path = get_config_file_path(accounts_dir_path, data.name);
+    const new_account_relative_config_path = get_config_file_path(acounts_dir_relative_path, data.name);
     const cur_access_key_config_path = get_symlink_config_file_path(access_keys_dir_path, cur_access_key);
     const new_access_key_config_path = get_symlink_config_file_path(access_keys_dir_path, data.access_keys[0].access_key);
     const name_exists = update_name && await native_fs_utils.is_path_exists(fs_context, new_account_config_path);
@@ -510,7 +514,7 @@ async function update_account(data) {
     // need to find a better way for atomic unlinking of symbolic links
     // handle atomicity for symlinks
     await nb_native().fs.unlink(fs_context, cur_access_key_config_path);
-    await nb_native().fs.symlink(fs_context, new_account_config_path, new_access_key_config_path);
+    await nb_native().fs.symlink(fs_context, new_account_relative_config_path, new_access_key_config_path);
     write_stdout_response(ManageCLIResponse.AccountUpdated, data);
 }
 
@@ -534,7 +538,7 @@ async function delete_account(data) {
  */
 async function verify_delete_account(account_name) {
     const show_secrets = false; // in buckets we don't save secrets in coofig file
-    const fs_context = native_fs_utils.get_process_fs_context();
+    const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
     const entries = await nb_native().fs.readdir(fs_context, buckets_dir_path);
     await P.map_with_concurrency(10, entries, async entry => {
         if (entry.name.endsWith('.json')) {
@@ -643,7 +647,7 @@ function filter_bucket(bucket, filters) {
  * @param {object} [filters]
  */
 async function list_config_files(type, config_path, wide, show_secrets, filters) {
-    const fs_context = native_fs_utils.get_process_fs_context();
+    const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
     const entries = await nb_native().fs.readdir(fs_context, config_path);
     const should_filter = Object.keys(filters).length > 0;
 
@@ -673,7 +677,7 @@ async function list_config_files(type, config_path, wide, show_secrets, filters)
  * @param {boolean} [show_secrets]
  */
 async function get_config_data(config_file_path, show_secrets = false) {
-    const fs_context = native_fs_utils.get_process_fs_context();
+    const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
     const { data } = await nb_native().fs.readFile(fs_context, config_file_path);
     const config_data = _.omit(JSON.parse(data.toString()), show_secrets ? [] : ['access_keys']);
     return config_data;
@@ -685,6 +689,7 @@ async function get_config_data(config_file_path, show_secrets = false) {
  * @param {string} file_path
  */
 async function get_options_from_file(file_path) {
+    // we don't pass neither config_root_backend nor fs_backend
     const fs_context = native_fs_utils.get_process_fs_context();
     try {
         const input_options_with_data = await native_fs_utils.read_file(fs_context, file_path);
@@ -752,14 +757,15 @@ async function validate_bucket_args(data, action) {
         }
         if (_.isUndefined(data.system_owner)) throw_cli_error(ManageCLIError.MissingBucketOwnerFlag);
         if (!data.path) throw_cli_error(ManageCLIError.MissingBucketPathFlag);
-        const fs_context = native_fs_utils.get_process_fs_context();
-        const exists = await native_fs_utils.is_path_exists(fs_context, data.path);
-        if (!exists) {
-            throw_cli_error(ManageCLIError.InvalidStoragePath, data.path);
-        }
         // fs_backend='' used for deletion of the fs_backend property
         if (data.fs_backend !== undefined && !['GPFS', 'CEPH_FS', 'NFSv4'].includes(data.fs_backend)) {
             throw_cli_error(ManageCLIError.InvalidFSBackend);
+        }
+        // in case we have the fs_backend it changes the fs_context that we use for the path
+        const fs_context_fs_backend = native_fs_utils.get_process_fs_context(data.fs_backend);
+        const exists = await native_fs_utils.is_path_exists(fs_context_fs_backend, data.path);
+        if (!exists) {
+            throw_cli_error(ManageCLIError.InvalidStoragePath, data.path);
         }
         if (data.s3_policy) {
             try {
@@ -767,7 +773,8 @@ async function validate_bucket_args(data, action) {
                     async principal => {
                         const account_config_path = get_config_file_path(accounts_dir_path, principal);
                         try {
-                            await nb_native().fs.stat(native_fs_utils.get_process_fs_context(), account_config_path);
+                            const fs_context_config_root_backend = native_fs_utils.get_process_fs_context(config_root_backend);
+                            await nb_native().fs.stat(fs_context_config_root_backend, account_config_path);
                             return true;
                         } catch (err) {
                             return false;
@@ -815,12 +822,13 @@ async function validate_account_args(data, action) {
         if (_.isUndefined(data.nsfs_account_config.new_buckets_path)) {
             return;
         }
-        const fs_context = native_fs_utils.get_process_fs_context();
-        const exists = await native_fs_utils.is_path_exists(fs_context, data.nsfs_account_config.new_buckets_path);
+        // in case we have the fs_backend it changes the fs_context that we use for the new_buckets_path
+        const fs_context_fs_backend = native_fs_utils.get_process_fs_context(data.fs_backend);
+        const exists = await native_fs_utils.is_path_exists(fs_context_fs_backend, data.nsfs_account_config.new_buckets_path);
         if (!exists) {
             throw_cli_error(ManageCLIError.InvalidAccountNewBucketsPath, data.nsfs_account_config.new_buckets_path);
         }
-        const account_fs_context = await native_fs_utils.get_fs_context(data.nsfs_account_config, config_root_backend);
+        const account_fs_context = await native_fs_utils.get_fs_context(data.nsfs_account_config, data.fs_backend);
         const accessible = await native_fs_utils.is_dir_rw_accessible(account_fs_context, data.nsfs_account_config.new_buckets_path);
         if (!accessible) {
             throw_cli_error(ManageCLIError.InaccessibleAccountNewBucketsPath, data.nsfs_account_config.new_buckets_path);
@@ -848,7 +856,7 @@ async function validate_input_types(type, action, argv) {
 
     // currently we use from_file only in add action
     const path_to_json_options = argv.from_file ? String(argv.from_file) : '';
-    if (type === TYPES.ACCOUNT && action === ACTIONS.ADD && path_to_json_options) {
+    if ((type === TYPES.ACCOUNT || type === TYPES.BUCKET) && action === ACTIONS.ADD && path_to_json_options) {
         const input_options_with_data_from_file = await get_options_from_file(path_to_json_options);
         const input_options_from_file = Object.keys(input_options_with_data_from_file);
         if (input_options_from_file.includes(FROM_FILE)) {
@@ -895,16 +903,18 @@ function validate_no_extra_options(type, action, input_options, is_options_from_
         valid_options = VALID_OPTIONS.bucket_options[action];
     } else if (type === TYPES.ACCOUNT) {
         valid_options = VALID_OPTIONS.account_options[action];
-        if (is_options_from_file) {
-            valid_options.delete('from_file');
-            valid_options.delete('config_root');
-            valid_options.delete('config_root_backend');
-        }
     } else if (type === TYPES.GLACIER) {
         valid_options = VALID_OPTIONS.glacier_options[action];
     } else {
         valid_options = VALID_OPTIONS.whitelist_options;
     }
+
+    if (is_options_from_file) {
+        valid_options.delete('from_file');
+        valid_options.delete('config_root');
+        valid_options.delete('config_root_backend');
+    }
+
     const invalid_input_options = input_options.filter(element => !valid_options.has(element));
     if (invalid_input_options.length > 0) {
         const type_and_action = type === TYPES.IP_WHITELIST ? type : `${type} ${action}`;
@@ -931,7 +941,11 @@ function validate_options_type_by_value(input_options_with_data) {
                 continue;
             }
             // special case for boolean values
-            if (['allow_bucket_creation', 'regenerate', 'wide', 'show_secrets'].includes(option) && validate_boolean_string_value(value)) {
+            if (['allow_bucket_creation', 'regenerate', 'wide', 'show_secrets', 'force'].includes(option) && validate_boolean_string_value(value)) {
+                continue;
+            }
+            // special case for bucket_policy (from_file)
+            if (option === 'bucket_policy' && type_of_value === 'object') {
                 continue;
             }
             const details = `type of flag ${option} should be ${type_of_option}`;
@@ -970,7 +984,7 @@ async function whitelist_ips_management(args) {
     try {
         const config_data = require(config_path);
         config_data.NSFS_WHITELIST = whitelist_ips;
-        const fs_context = native_fs_utils.get_process_fs_context();
+        const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
         const data = JSON.stringify(config_data);
         await native_fs_utils.update_config_file(fs_context, config_root, config_path, data);
     } catch (err) {

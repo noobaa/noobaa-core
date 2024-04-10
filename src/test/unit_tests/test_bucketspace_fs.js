@@ -429,13 +429,13 @@ mocha.describe('bucketspace_fs', function() {
             const param = {name: test_bucket, website: website};
             await bucketspace_fs.put_bucket_website(param);
             const output_web = await bucketspace_fs.get_bucket_website(param);
-            assert.deepEqual(output_web, website);
+            assert.deepEqual(output_web.website, website);
         });
         mocha.it('delete_bucket_website ', async function() {
             const param = {name: test_bucket};
             await bucketspace_fs.delete_bucket_website(param);
             const output_web = await bucketspace_fs.get_bucket_website(param);
-            assert.ok(output_web === undefined);
+            assert.ok(output_web.website === undefined);
         });
     });
 

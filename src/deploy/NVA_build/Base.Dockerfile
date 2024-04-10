@@ -7,7 +7,7 @@ FROM noobaa-builder
 #   Cache: Rebuild when there is new package.json or package-lock.json
 ######################################################################
 COPY ./package*.json ./
-RUN npm install --production && \
+RUN npm install --omit=dev && \
     npm cache clean --force
 
 ##############################################################

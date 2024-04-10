@@ -758,9 +758,19 @@ config.NSFS_GLACIER_MIGRATE_INTERVAL = 15 * 60 * 1000;
 // of `manage_nsfs glacier restore`
 config.NSFS_GLACIER_RESTORE_INTERVAL = 15 * 60 * 1000;
 
-// NSFS_GLACIER_EXPIRY_INTERVAL indicates the interval between runs
-// of `manage_nsfs glacier expiry`
-config.NSFS_GLACIER_EXPIRY_INTERVAL = 12 * 60 * 60 * 1000;
+// NSFS_GLACIER_EXPIRY_RUN_TIME must be of the format hh:mm which specifies
+// when NooBaa should allow running glacier expiry process
+// NOTE: This will also be in the same timezone as specified in
+// NSFS_GLACIER_EXPIRY_TZ
+config.NSFS_GLACIER_EXPIRY_RUN_TIME = '03:00';
+
+// NSFS_GLACIER_EXPIRY_RUN_TIME_TOLERANCE_MINS configures the delay
+// tolerance in minutes.
+//
+// eg. If the expiry run time is set to 03:00 and the tolerance is
+// set to be 2 mins then the expiry can trigger till 03:02 (unless
+// already triggered between 03:00 - 03:02
+config.NSFS_GLACIER_EXPIRY_RUN_DELAY_LIMIT_MINS = 2 * 60;
 
 /** @type {'UTC' | 'LOCAL'} */
 config.NSFS_GLACIER_EXPIRY_TZ = 'LOCAL';

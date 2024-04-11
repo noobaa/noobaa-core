@@ -34,6 +34,7 @@
 #include <assert.h>
 #include "crc.h"
 #include "crc_ref.h"
+#include "test.h"
 
 #ifndef RANDOMS
 # define RANDOMS   20
@@ -116,14 +117,19 @@ int main(int argc, char *argv[])
 	int r = 0;
 	int i;
 	int len, tot;
-	u8 *src_raw, *dst_raw;
+	u8 *src_raw = NULL, *dst_raw = NULL;
 	u8 *src, *dst;
 
 	printf("Test crc16_t10dif_copy_test:\n");
 	src_raw = (u8 *) malloc(TEST_LEN);
-	dst_raw = (u8 *) malloc(TEST_LEN);
-	if (NULL == src_raw || NULL == dst_raw) {
+	if (NULL == src_raw) {
 		printf("alloc error: Fail");
+		return -1;
+	}
+	dst_raw = (u8 *) malloc(TEST_LEN);
+	if (NULL == dst_raw) {
+		printf("alloc error: Fail");
+		aligned_free(src_raw);
 		return -1;
 	}
 	src = src_raw;
@@ -145,20 +151,26 @@ int main(int argc, char *argv[])
 	for (i = 0; i < MAX_BUF; i++) {
 		r |= crc_copy_check("short len", dst, src, rand(), i, MAX_BUF);
 	}
+#ifdef TEST_VERBOSE
 	printf(".");
+#endif
 
 	// Do a few longer tests, random data
 	for (i = TEST_LEN; i >= (TEST_LEN - TEST_SIZE); i--) {
 		r |= crc_copy_check("long len", dst, src, rand(), i, TEST_LEN);
 	}
+#ifdef TEST_VERBOSE
 	printf(".");
+#endif
 
 	// Do random size, random data
 	for (i = 0; i < RANDOMS; i++) {
 		len = rand() % TEST_LEN;
 		r |= crc_copy_check("rand len", dst, src, rand(), len, TEST_LEN);
 	}
+#ifdef TEST_VERBOSE
 	printf(".");
+#endif
 
 	// Run tests at end of buffer
 	for (i = 0; i < RANDOMS; i++) {
@@ -168,8 +180,14 @@ int main(int argc, char *argv[])
 		tot = len;
 		r |= crc_copy_check("end of buffer", dst, src, rand(), len, tot);
 	}
+#ifdef TEST_VERBOSE
 	printf(".");
+#endif
 
 	printf("Test done: %s\n", r ? "Fail" : "Pass");
+
+	free(src_raw);
+	free(dst_raw);
+
 	return r;
 }

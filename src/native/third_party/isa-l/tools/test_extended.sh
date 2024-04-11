@@ -166,6 +166,24 @@ test_end "generate_custom_hufftables" $?
 
 msg+=$'Custom hufftable build: Pass\n'
 
+# Test NO_NT_LDST
+test_start "no_nt_ldst"
+$MAKE -f Makefile.unx clean
+$MAKE -f Makefile.unx -j $cpus D="NO_NT_LDST" checks
+test_end "no_nt_ldst" $?
+
+# Test EC_ALIGNED_ADDR
+test_start "ec_aligned_address"
+$MAKE -f Makefile.unx clean
+$MAKE -f Makefile.unx -j $cpus D="EC_ALIGNED_ADDR" checks
+test_end "ec_aligned_address" $?
+
+# Test EC_ALIGNED_ADDR & NO_NT_LDST
+test_start "ec_aligned_addres_no_nt_ldsts"
+$MAKE -f Makefile.unx clean
+$MAKE -f Makefile.unx -j $cpus D="EC_ALIGNED_ADDR NO_NT_LDST" checks
+test_end "ec_aligned_address_no_nt_ldst" $?
+
 $MAKE -f Makefile.unx clean
 
 test_start "nmake_file_consistency"
@@ -182,6 +200,24 @@ time $MAKE -f Makefile.unx -j $cpus arch=noarch $build_opt D="TEST_SEED=$S" chec
 test_end "noarch_build_random" $?
 $MAKE -f Makefile.unx arch=noarch clean
 msg+=$'Noarch build: Pass\n'
+
+# Test other implementations with SDE
+if [ $(uname -m) == "x86_64" ] && command -V sde64 >/dev/null 2>&1; then
+    # Compile tests
+    $MAKE -f Makefile.unx -j $cpus checks
+    # Loop through architectures
+    while [ $# -gt 0 ]
+    do
+        test_start "SDE test on $1 architecture"
+        time sde64 -$1 -- $MAKE -f Makefile.unx -j $cpus D="TEST_SEED=$S" check
+        test_start "SDE test on $1 architecture" $?
+        # Drop architecture from list, to test the next one
+        shift;
+    done
+        msg+=$'Running tests with SDE: Pass\n'
+    else
+        msg+=$'Running tests with SDE: Skip\n'
+fi
 
 # Try mingw build
 if [ $(uname -m) == "x86_64" ] && command -V x86_64-w64-mingw32-gcc >/dev/null 2>&1; then

@@ -1,5 +1,5 @@
 ########################################################################
-#  Copyright(c) 2011-2017 Intel Corporation All rights reserved.
+#  Copyright(c) 2011-2024 Intel Corporation All rights reserved.
 #
 #  Redistribution and use in source and binary forms, with or without
 #  modification, are permitted provided that the following conditions
@@ -25,6 +25,8 @@
 #  THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 #  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 #  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+#
+#  SPDX-License-Identifier: BSD-3-Clause
 ########################################################################
 
 # This file can be auto-regenerated with $make -f Makefile.unx Makefile.nmake
@@ -85,18 +87,38 @@ objs = \
 	bin\gf_5vect_mad_avx2.obj \
 	bin\gf_6vect_mad_avx2.obj \
 	bin\ec_multibinary.obj \
+	bin\gf_vect_mad_avx2_gfni.obj \
+	bin\gf_2vect_mad_avx2_gfni.obj \
+	bin\gf_3vect_mad_avx2_gfni.obj \
+	bin\gf_4vect_mad_avx2_gfni.obj \
+	bin\gf_5vect_mad_avx2_gfni.obj \
 	bin\gf_vect_dot_prod_avx512.obj \
 	bin\gf_2vect_dot_prod_avx512.obj \
 	bin\gf_3vect_dot_prod_avx512.obj \
 	bin\gf_4vect_dot_prod_avx512.obj \
 	bin\gf_5vect_dot_prod_avx512.obj \
 	bin\gf_6vect_dot_prod_avx512.obj \
+	bin\gf_vect_dot_prod_avx512_gfni.obj \
+	bin\gf_vect_dot_prod_avx2_gfni.obj \
+	bin\gf_2vect_dot_prod_avx2_gfni.obj \
+	bin\gf_3vect_dot_prod_avx2_gfni.obj \
+	bin\gf_2vect_dot_prod_avx512_gfni.obj \
+	bin\gf_3vect_dot_prod_avx512_gfni.obj \
+	bin\gf_4vect_dot_prod_avx512_gfni.obj \
+	bin\gf_5vect_dot_prod_avx512_gfni.obj \
+	bin\gf_6vect_dot_prod_avx512_gfni.obj \
 	bin\gf_vect_mad_avx512.obj \
 	bin\gf_2vect_mad_avx512.obj \
 	bin\gf_3vect_mad_avx512.obj \
 	bin\gf_4vect_mad_avx512.obj \
 	bin\gf_5vect_mad_avx512.obj \
 	bin\gf_6vect_mad_avx512.obj \
+	bin\gf_vect_mad_avx512_gfni.obj \
+	bin\gf_2vect_mad_avx512_gfni.obj \
+	bin\gf_3vect_mad_avx512_gfni.obj \
+	bin\gf_4vect_mad_avx512_gfni.obj \
+	bin\gf_5vect_mad_avx512_gfni.obj \
+	bin\gf_6vect_mad_avx512_gfni.obj \
 	bin\xor_gen_sse.obj \
 	bin\pq_gen_sse.obj \
 	bin\xor_check_sse.obj \
@@ -134,6 +156,10 @@ objs = \
 	bin\crc64_jones_refl_by16_10.obj \
 	bin\crc64_jones_norm_by8.obj \
 	bin\crc64_jones_norm_by16_10.obj \
+	bin\crc64_rocksoft_refl_by8.obj \
+	bin\crc64_rocksoft_refl_by16_10.obj \
+	bin\crc64_rocksoft_norm_by8.obj \
+	bin\crc64_rocksoft_norm_by16_10.obj \
 	bin\crc32_gzip_refl_by8.obj \
 	bin\crc32_gzip_refl_by8_02.obj \
 	bin\crc32_gzip_refl_by16_10.obj \
@@ -158,6 +184,8 @@ objs = \
 	bin\igzip_gen_icf_map_lh1_04.obj \
 	bin\igzip_set_long_icf_fg_04.obj \
 	bin\igzip_set_long_icf_fg_06.obj \
+	bin\mem_zero_detect_avx512.obj \
+	bin\mem_zero_detect_avx2.obj \
 	bin\mem_zero_detect_avx.obj \
 	bin\mem_zero_detect_sse.obj \
 	bin\mem_multibinary.obj
@@ -165,8 +193,8 @@ objs = \
 INCLUDES   = -I./ -Ierasure_code/ -Iraid/ -Icrc/ -Iigzip/ -Iprograms/ -Imem/ -Iinclude/ -Itests/fuzz/ -Iexamples/ec/
 # Modern asm feature level, consider upgrading nasm/yasm before decreasing feature_level
 FEAT_FLAGS = -DHAVE_AS_KNOWS_AVX512 -DAS_FEATURE_LEVEL=10
-CFLAGS_REL = -O2 -DNDEBUG /Z7 /MD /Gy
-CFLAGS_DBG = -Od -DDEBUG /Z7 /MDd
+CFLAGS_REL = -O2 -DNDEBUG /Z7 /Gy
+CFLAGS_DBG = -Od -DDEBUG /Z7
 LINKFLAGS  = -nologo -incremental:no -debug
 CFLAGS     = $(CFLAGS_REL) -nologo -D_USE_MATH_DEFINES $(FEAT_FLAGS) $(INCLUDES) $(D)
 AFLAGS     = -f win64 $(FEAT_FLAGS) $(INCLUDES) $(D)
@@ -175,8 +203,8 @@ CC         = cl
 AS         = nasm
 
 lib: bin static dll
-static: bin isa-l_static.lib
-dll: bin isa-l.dll
+static: bin isa-l_static.lib isa-l.h
+dll: bin isa-l.dll isa-l.h
 
 bin: ; -mkdir $@
 
@@ -185,10 +213,19 @@ isa-l_static.lib: $(objs)
 $?
 <<
 
+!IF [rc] == 0
+isa-l.dll: isa-l.res
+!ELSE
+!MESSAGE Optionally install rc to set file version info
+!ENDIF
+
 isa-l.dll: $(objs)
 	link -out:$@ -dll -def:isa-l.def $(LINKFLAGS) @<<
 $?
 <<
+
+isa-l.res: isa-l.h
+	rc /fo $@ isa-l.rc
 
 {erasure_code}.c.obj:
 	$(CC) $(CFLAGS) /c -Fo$@ $?
@@ -230,6 +267,9 @@ ex = \
 	igzip_sync_flush_example.exe \
 	ec_simple_example.exe \
 	ec_piggyback_example.exe
+
+{examples\ec}.c.obj:
+	$(CC) $(CFLAGS) /c -Fo$@ $?
 
 ex: lib $(ex)
 
@@ -303,6 +343,32 @@ progs: lib $(progs)
 igzip.exe: programs\igzip_cli.obj
 	link /out:$@ $(LINKFLAGS) isa-l.lib $?
 
+isa-l.h:
+	@echo /**>> $@
+	@echo *  @file isa-l.h>> $@
+	@echo *  @brief Include for ISA-L library>> $@
+	@echo */>> $@
+	@echo.>> $@
+	@echo #ifndef _ISAL_H_>> $@
+	@echo #define _ISAL_H_>> $@
+	@echo.>> $@
+	@echo #define ISAL_MAJOR_VERSION 2 >> $@
+	@echo #define ISAL_MINOR_VERSION 31 >> $@
+	@echo #define ISAL_PATCH_VERSION 0 >> $@
+	@echo #define ISAL_MAKE_VERSION(maj, min, patch)  ((maj) * 0x10000 + (min) * 0x100 + (patch))>> $@
+	@echo #define ISAL_VERSION ISAL_MAKE_VERSION(ISAL_MAJOR_VERSION, ISAL_MINOR_VERSION, ISAL_PATCH_VERSION)>> $@
+	@echo.>> $@
+	@echo #ifndef RC_INVOKED>> $@
+	@echo #include ^<isa-l/crc.h^>>> $@
+	@echo #include ^<isa-l/crc64.h^>>> $@
+	@echo #include ^<isa-l/erasure_code.h^>>> $@
+	@echo #include ^<isa-l/gf_vect_mul.h^>>> $@
+	@echo #include ^<isa-l/igzip_lib.h^>>> $@
+	@echo #include ^<isa-l/mem_routines.h^>>> $@
+	@echo #include ^<isa-l/raid.h^>>> $@
+	@echo #endif // RC_INVOKED>> $@
+	@echo #endif //_ISAL_H_>> $@
+
 clean:
 	-if exist *.obj del *.obj
 	-if exist bin\*.obj del bin\*.obj
@@ -312,6 +378,7 @@ clean:
 	-if exist isa-l.lib del isa-l.lib
 	-if exist isa-l.dll del isa-l.dll
 	-if exist isa-l.exp del isa-l.exp
+	-if exist isa-l.res del isa-l.res
 
 zlib.lib:
 igzip_perf.exe:  zlib.lib

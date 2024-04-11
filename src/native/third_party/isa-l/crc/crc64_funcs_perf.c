@@ -31,20 +31,23 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
-#include <sys/time.h>
+#include <inttypes.h>
+
 #include "crc64.h"
 #include "test.h"
 
-//#define CACHED_TEST
-#ifdef CACHED_TEST
+#ifndef GT_L3_CACHE
+# define GT_L3_CACHE  32*1024*1024	/* some number > last level cache */
+#endif
+
+#if !defined(COLD_TEST) && !defined(TEST_CUSTOM)
 // Cached test, loop many times over small dataset
 # define TEST_LEN     8*1024
 # define TEST_TYPE_STR "_warm"
-#else
+#elif defined (COLD_TEST)
 // Uncached test.  Pull from large mem base.
-#  define GT_L3_CACHE  32*1024*1024	/* some number > last level cache */
-#  define TEST_LEN     (2 * GT_L3_CACHE)
-#  define TEST_TYPE_STR "_cold"
+# define TEST_LEN     (2 * GT_L3_CACHE)
+# define TEST_TYPE_STR "_cold"
 #endif
 
 #ifndef TEST_SEED
@@ -67,7 +70,9 @@ func_case_t test_funcs[] = {
 	{"crc64_iso_norm", crc64_iso_norm, crc64_iso_norm_base},
 	{"crc64_iso_refl", crc64_iso_refl, crc64_iso_refl_base},
 	{"crc64_jones_norm", crc64_jones_norm, crc64_jones_norm_base},
-	{"crc64_jones_refl", crc64_jones_refl, crc64_jones_refl_base}
+	{"crc64_jones_refl", crc64_jones_refl, crc64_jones_refl_base},
+	{"crc64_rocksoft_norm", crc64_rocksoft_norm, crc64_rocksoft_norm_base},
+	{"crc64_rocksoft_refl", crc64_rocksoft_refl, crc64_rocksoft_refl_base}
 };
 
 int main(int argc, char *argv[])
@@ -96,7 +101,7 @@ int main(int argc, char *argv[])
 		printf("%s" TEST_TYPE_STR ": ", test_func->note);
 		perf_print(start, (long long)TEST_LEN);
 
-		printf("finish 0x%lx\n", crc);
+		printf("finish 0x%" PRIx64 "\n", crc);
 	}
 
 	return 0;

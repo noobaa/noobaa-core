@@ -117,8 +117,8 @@
 %else
 ;;; Use Non-temporal load/stor
  %ifdef NO_NT_LDST
-  %define XLDR vmovdqa
-  %define XSTR vmovdqa
+  %define XLDR vmovdqa64
+  %define XSTR vmovdqa64
  %else
   %define XLDR vmovntdqa
   %define XSTR vmovntdq
@@ -204,7 +204,7 @@ func(gf_3vect_mad_avx512)
 	vpshufb	xtmph3 {k1}{z}, xgft3_hi, x0	;Lookup mul table of high nibble
 	vpshufb	xtmpl3 {k1}{z}, xgft3_lo, xtmpa	;Lookup mul table of low nibble
 	vpxorq	xtmph3, xtmph3, xtmpl3		;GF add high and low partials
-	vpxorq	xd3, xd3, xtmph3		;xd2 += partial
+	vpxorq	xd3, xd3, xtmph3		;xd3 += partial
 
 	XSTR	[dest1+pos], xd1
 	XSTR	[dest2+pos], xd2

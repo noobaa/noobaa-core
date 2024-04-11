@@ -27,11 +27,15 @@
 #  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #########################################################################
 
+#include "../include/aarch64_label.h"
+
 	.arch armv8-a+crc+crypto
 	.text
 	.align	3
-	.global	crc16_t10dif_copy_pmull
+	.global	cdecl(crc16_t10dif_copy_pmull)
+#ifndef __APPLE__
 	.type	crc16_t10dif_copy_pmull, %function
+#endif
 
 /* uint16_t crc16_t10dif_pmull(uint16_t seed, uint8_t *buf, uint64_t len) */
 
@@ -67,8 +71,8 @@ x_crc16tab		.req	x5
 x_src_saved		.req	x0
 x_dst_saved		.req	x12
 
-crc16_t10dif_copy_pmull:
-	cmp	x_len, 1023
+cdecl(crc16_t10dif_copy_pmull):
+	cmp	x_len, 63
 	sub	sp, sp, #16
 	uxth	w_seed, w_seed
 	bhi	.crc_fold
@@ -80,11 +84,19 @@ crc16_t10dif_copy_pmull:
 	cmp	x_len, x_tmp
 	bls	.end
 
+#ifndef __APPLE__
 	sxtw	x_counter, w_counter
 	adrp	x_crc16tab, .LANCHOR0
 	sub	x_src, x_src, x_counter
 	sub	x_dst, x_dst, x_counter
 	add	x_crc16tab, x_crc16tab, :lo12:.LANCHOR0
+#else
+	sxtw	x_counter, w_counter
+	adrp	x_crc16tab, .LANCHOR0@PAGE
+	sub	x_src, x_src, x_counter
+	sub	x_dst, x_dst, x_counter
+	add	x_crc16tab, x_crc16tab, .LANCHOR0@PAGEOFF
+#endif
 
 	.align 2
 .crc_table_loop:
@@ -118,6 +130,9 @@ d_x1			.req	d3
 d_x2			.req	d4
 d_x3			.req	d5
 
+q_permutation		.req	q7
+v_permutation		.req	v7
+
 // the following registers only used this part1
 d_tmp3			.req	d16
 v_tmp3			.req	v16
@@ -136,18 +151,19 @@ v_tmp3			.req	v16
 	add	x_src_saved, x_src, 64
 	add	x_dst_saved, x_dst, 64
 
-	ldr	q_x0, [x_src]
-	ldr	q_x1, [x_src, 16]
-	ldr	q_x2, [x_src, 32]
-	ldr	q_x3, [x_src, 48]
+        ldp q_x0, q_x1, [x_src]
+        ldp q_x2, q_x3, [x_src, 32]
 
-	str	q_x0, [x_dst]
-	str	q_x1, [x_dst, 16]
-	str	q_x2, [x_dst, 32]
-	str	q_x3, [x_dst, 48]
+        stp q_x0, q_x1, [x_dst]
+        stp q_x2, q_x3, [x_dst, 32]
 
+#ifndef __APPLE__
 	adrp	x_tmp, .shuffle_mask_lanchor
-	ldr	q7, [x_tmp, :lo12:.shuffle_mask_lanchor]
+	ldr	q_permutation, [x_tmp, :lo12:.shuffle_mask_lanchor]
+#else
+	adrp	x_tmp, .shuffle_mask_lanchor@PAGE
+	ldr	q_permutation, [x_tmp, .shuffle_mask_lanchor@PAGEOFF]
+#endif
 
 	tbl	v_tmp1.16b, {v_x0.16b}, v7.16b
 	eor	v_x0.16b, v_tmp3.16b, v_tmp1.16b
@@ -191,15 +207,10 @@ v_tmp1_x1		.req	v25
 v_tmp1_x2		.req	v26
 v_tmp1_x3		.req	v27
 
-d_p4_h			.req	d19
-v_p4_h			.req	v19
-d_p4_l			.req	d17
-v_p4_l			.req	v17
+q_fold_const		.req	q17
+v_fold_const		.req	v17
 
-	mov	x_tmp, 0x371d0000		/* p4 [1] */
-	fmov	d_p4_h, x_tmp
-	mov	x_tmp, 0x87e70000		/* p4 [0] */
-	fmov	d_p4_l, x_tmp
+        ldr q_fold_const, fold_constant
 
 	.align 2
 .crc_fold_loop:
@@ -209,49 +220,42 @@ v_p4_l			.req	v17
 	sub	x_counter, x_counter, #64
 	cmp	x_counter, 63
 
-	dup	d_x0_h, v_x0.d[1]
-	dup	d_x1_h, v_x1.d[1]
-	dup	d_x2_h, v_x2.d[1]
-	dup	d_x3_h, v_x3.d[1]
+        ldp q_y0, q_y1, [x_src_saved, -64]
+        ldp q_y2, q_y3, [x_src_saved, -32]
 
-	dup	d_x0_l, v_x0.d[0]
-	dup	d_x1_l, v_x1.d[0]
-	dup	d_x2_l, v_x2.d[0]
-	dup	d_x3_l, v_x3.d[0]
+        stp q_y0, q_y1, [x_dst_saved, -64]
+        stp q_y2, q_y3, [x_dst_saved, -32]
 
-	ldr	q_y0, [x_src_saved, -64]
-	ldr	q_y1, [x_src_saved, -48]
-	ldr	q_y2, [x_src_saved, -32]
-	ldr	q_y3, [x_src_saved, -16]
+        prfm pldl2strm,  [x_src_saved, #1024]
+        prfm pldl2strm,  [x_src_saved, #1088]
 
-	str	q_y0, [x_dst_saved, -64]
-	str	q_y1, [x_dst_saved, -48]
-	str	q_y2, [x_dst_saved, -32]
-	str	q_y3, [x_dst_saved, -16]
+        pmull2 v_tmp1_x0.1q, v_x0.2d, v_fold_const.2d
+        pmull v_x0.1q, v_x0.1d, v_fold_const.1d
 
-	pmull	v_x0_h.1q, v_x0_h.1d, v_p4_h.1d
-	pmull	v_x0_l.1q, v_x0_l.1d, v_p4_l.1d
-	pmull	v_x1_h.1q, v_x1_h.1d, v_p4_h.1d
-	pmull	v_x1_l.1q, v_x1_l.1d, v_p4_l.1d
-	pmull	v_x2_h.1q, v_x2_h.1d, v_p4_h.1d
-	pmull	v_x2_l.1q, v_x2_l.1d, v_p4_l.1d
-	pmull	v_x3_h.1q, v_x3_h.1d, v_p4_h.1d
-	pmull	v_x3_l.1q, v_x3_l.1d, v_p4_l.1d
+        pmull2 v_tmp1_x1.1q, v_x1.2d, v_fold_const.2d
+        pmull v_x1.1q, v_x1.1d, v_fold_const.1d
 
-	tbl	v_y0.16b, {v_y0.16b}, v7.16b
-	tbl	v_y1.16b, {v_y1.16b}, v7.16b
-	tbl	v_y2.16b, {v_y2.16b}, v7.16b
-	tbl	v_y3.16b, {v_y3.16b}, v7.16b
+        pmull2 v_tmp1_x2.1q, v_x2.2d, v_fold_const.2d
+        pmull v_x2.1q, v_x2.1d, v_fold_const.1d
 
-	eor	v_tmp1_x0.16b, v_x0_h.16b, v_x0_l.16b
-	eor	v_tmp1_x1.16b, v_x1_h.16b, v_x1_l.16b
-	eor	v_tmp1_x2.16b, v_x2_h.16b, v_x2_l.16b
-	eor	v_tmp1_x3.16b, v_x3_h.16b, v_x3_l.16b
+        pmull2 v_tmp1_x3.1q, v_x3.2d, v_fold_const.2d
+        pmull v_x3.1q, v_x3.1d, v_fold_const.1d
 
-	eor	v_x0.16b, v_tmp1_x0.16b, v_y0.16b
-	eor	v_x1.16b, v_tmp1_x1.16b, v_y1.16b
-	eor	v_x2.16b, v_tmp1_x2.16b, v_y2.16b
-	eor	v_x3.16b, v_tmp1_x3.16b, v_y3.16b
+        tbl v_y0.16b, {v_y0.16b}, v_permutation.16b
+        eor v_x0.16b, v_tmp1_x0.16b, v_x0.16b
+        eor v_x0.16b, v_x0.16b, v_y0.16b
+
+        tbl v_y1.16b, {v_y1.16b}, v_permutation.16b
+        eor v_x1.16b, v_tmp1_x1.16b, v_x1.16b
+        eor v_x1.16b, v_x1.16b, v_y1.16b
+
+        tbl v_y2.16b, {v_y2.16b}, v_permutation.16b
+        eor v_x2.16b, v_tmp1_x2.16b, v_x2.16b
+        eor v_x2.16b, v_x2.16b, v_y2.16b
+
+        tbl v_y3.16b, {v_y3.16b}, v_permutation.16b
+        eor v_x3.16b, v_tmp1_x3.16b, v_x3.16b
+        eor v_x3.16b, v_x3.16b, v_y3.16b
 
 	bhi	.crc_fold_loop
 
@@ -371,23 +375,32 @@ v_br1	.req	v5
 	umov	x0, v_x0.d[0]
 	ubfx	x0, x0, 16, 16
 	b	.crc_table_loop_pre
-
+#ifndef __APPLE__
 	.size	crc16_t10dif_copy_pmull, .-crc16_t10dif_copy_pmull
+#endif
 
-	.section	.rodata
-
+ASM_DEF_RODATA
 	.align	4
+fold_constant:
+	.word 0x87e70000
+	.word 0x00000000
+	.word 0x371d0000
+	.word 0x00000000
 .shuffle_mask_lanchor = . + 0
+#ifndef __APPLE__
 	.type	shuffle_mask, %object
 	.size	shuffle_mask, 16
+#endif
 shuffle_mask:
 	.byte	15, 14, 13, 12, 11, 10, 9, 8
 	.byte	7,   6,  5,  4,  3,  2, 1, 0
 
 	.align	4
 .LANCHOR0 = . + 0
+#ifndef __APPLE__
 	.type	crc16tab, %object
 	.size	crc16tab, 512
+#endif
 crc16tab:
 	.hword  0x0000, 0x8bb7, 0x9cd9, 0x176e, 0xb205, 0x39b2, 0x2edc, 0xa56b
 	.hword  0xEFBD, 0x640a, 0x7364, 0xf8d3, 0x5db8, 0xd60f, 0xc161, 0x4ad6

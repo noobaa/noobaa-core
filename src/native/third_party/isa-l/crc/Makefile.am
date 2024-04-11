@@ -65,6 +65,10 @@ lsrc_x86_64 += \
 	crc/crc64_jones_refl_by16_10.asm \
 	crc/crc64_jones_norm_by8.asm \
 	crc/crc64_jones_norm_by16_10.asm \
+	crc/crc64_rocksoft_refl_by8.asm \
+	crc/crc64_rocksoft_refl_by16_10.asm \
+	crc/crc64_rocksoft_norm_by8.asm \
+	crc/crc64_rocksoft_norm_by16_10.asm \
 	crc/crc32_gzip_refl_by8.asm \
 	crc/crc32_gzip_refl_by8_02.asm \
 	crc/crc32_gzip_refl_by16_10.asm
@@ -72,7 +76,7 @@ lsrc_x86_64 += \
 src_include += -I $(srcdir)/crc
 extern_hdrs +=  include/crc.h include/crc64.h
 
-other_src   +=  include/reg_sizes.asm include/types.h include/test.h \
+other_src   +=  include/reg_sizes.asm include/test.h \
 		crc/crc_ref.h crc/crc64_ref.h
 
 check_tests +=  crc/crc16_t10dif_test \

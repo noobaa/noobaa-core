@@ -31,7 +31,7 @@
 #include <stdlib.h>
 #include <string.h>		// for memset, memcmp
 #include "erasure_code.h"
-#include "types.h"
+#include "test.h"
 
 #ifndef ALIGN_SIZE
 # define ALIGN_SIZE 32
@@ -249,7 +249,9 @@ int main(int argc, char *argv[])
 		}
 	}
 
+#ifdef TEST_VERBOSE
 	putchar('.');
+#endif
 
 	// Rand data test
 
@@ -294,7 +296,9 @@ int main(int argc, char *argv[])
 			}
 		}
 
+#ifdef TEST_VERBOSE
 		putchar('.');
+#endif
 	}
 
 	// Rand data test with varied parameters
@@ -340,7 +344,9 @@ int main(int argc, char *argv[])
 				}
 			}
 
+#ifdef TEST_VERBOSE
 			putchar('.');
+#endif
 		}
 	}
 
@@ -390,7 +396,9 @@ int main(int argc, char *argv[])
 			}
 		}
 
+#ifdef TEST_VERBOSE
 		putchar('.');
+#endif
 	}
 
 	// Test rand ptr alignment if available
@@ -462,7 +470,9 @@ int main(int argc, char *argv[])
 			}
 		}
 
+#ifdef TEST_VERBOSE
 		putchar('.');
+#endif
 	}
 
 	// Test all size alignment
@@ -509,7 +519,9 @@ int main(int argc, char *argv[])
 			}
 		}
 
+#ifdef TEST_VERBOSE
 		putchar('.');
+#endif
 
 	}
 

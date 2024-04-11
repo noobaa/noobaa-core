@@ -140,6 +140,7 @@ config.ENABLE_OBJECT_IO_SEMAPHORE_MONITOR = true;
 
 config.ENDPOINT_HTTP_SERVER_REQUEST_TIMEOUT = 300 * 1000;
 config.ENDPOINT_HTTP_SERVER_KEEPALIVE_TIMEOUT = 5 * 1000;
+config.ENDPOINT_HTTP_MAX_REQUESTS_PER_SOCKET = 0; // 0 = no limit
 
 // For now we enable fixed CORS for all buckets
 // but this should become a setting per bucket which is configurable

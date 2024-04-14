@@ -453,6 +453,13 @@ describe('cli update bucket', () => {
         bucket_config = await read_config_file(config_root, CONFIG_SUBDIRS.BUCKETS, bucket_defaults.name);
         expect(bucket_config.force_md5_etag).toBeUndefined();
     });
+
+    it('should fail - cli update bucket without a property to update', async () => {
+        const action = ACTIONS.UPDATE;
+        const account_options = { config_root, name: bucket_defaults.name };
+        const res = await exec_manage_cli(TYPES.BUCKET, action, account_options);
+        expect(JSON.parse(res.stdout).error.message).toBe(ManageCLIError.MissingUpdateProperty.message);
+    });
 });
 
 /**

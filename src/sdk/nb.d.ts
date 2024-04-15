@@ -971,6 +971,8 @@ interface NativeFile {
 interface NativeDir {
     close(fs_context: NativeFSContext): Promise<void>;
     read(fs_context: NativeFSContext): Promise<fs.Dirent>;
+    telldir(fs_context: NativeFSContext): Promise<bigint>;
+    seekdir(fs_context: NativeFSContext, seek_pos: bigint): Promise<void>;
     // TODO
 }
 

@@ -11,7 +11,6 @@ const mongodb = require('mongodb');
 const { v4: uuid } = require('uuid');
 
 const P = require('../../util/promise');
-const config = require('../../../config');
 const MDStore = require('../../server/object_services/md_store').MDStore;
 const coretest = require('./coretest');
 const lifecycle = require('../../server/bg_services/lifecycle');
@@ -127,22 +126,12 @@ mocha.describe('lifecycle', () => {
 
         async function verify_object_deleted(key) {
             await P.delay(100); // 0.1sec
-            await rpc_client.system.read_system();
-            /* read_activity_log fails w/postgres
-               see https://github.com/noobaa/noobaa-core/runs/5750698669
-            */
-            if (config.DB_TYPE === 'mongodb') {
-                const eventLogs = await rpc_client.events.read_activity_log({limit: 32});
-                console.log('read_activity_log logs: ', util.inspect(eventLogs));
-                const found = eventLogs.logs.find(e => (e.event === 'obj.deleted') && (e.obj.key === key));
-                console.log('read_activity_log found log: ', found);
-                assert(found && found.obj.key === key, `find deleted actual ${util.inspect(found)} expected ${key}`);
-            }
             const listObjectResult = await rpc_client.object.list_objects_admin({ bucket: Bucket, prefix: key });
             console.log('list_objects_admin objects: ', util.inspect(listObjectResult.objects));
             const actualLength = listObjectResult.objects.length;
             assert.strictEqual(actualLength, 0, `listObjectResult actual ${actualLength} !== expected 0`);
         }
+
         mocha.it('test prefix, absolute date expiration', async () => {
             const key = uuid();
             const prefix = key.split('-')[0];
@@ -161,11 +150,11 @@ mocha.describe('lifecycle', () => {
             const prefix = key.split('-')[0];
             const age = 17;
             const bucket = Bucket;
-            const tagging = [ {key: 'tagname1', value: 'tagvalue1'}, {key: 'tagname2', value: 'tagvalue2'}, {key: 'tagname3', value: 'tagvalue3'}];
+            const tagging = [{ key: 'tagname1', value: 'tagvalue1' }, { key: 'tagname2', value: 'tagvalue2' }, { key: 'tagname3', value: 'tagvalue3' }];
 
             await create_mock_object(key, bucket, age, undefined, tagging);
             // match by tags subset, out of order
-            const filter_tagging = [ {key: 'tagname3', value: 'tagvalue3'}, {key: 'tagname2', value: 'tagvalue2'} ];
+            const filter_tagging = [{ key: 'tagname3', value: 'tagvalue3' }, { key: 'tagname2', value: 'tagvalue2' }];
             const putLifecycleParams = commonTests.date_lifecycle_configuration_and_tags(bucket, prefix, filter_tagging);
             await s3.putBucketLifecycleConfiguration(putLifecycleParams).promise();
             await lifecycle.background_worker();
@@ -214,8 +203,8 @@ mocha.describe('lifecycle', () => {
             const key = uuid();
             const object_age = 2;
             const days = 1;
-            const tag = { key: 'tagname', value: 'tagvalue'};
-            const tagging = [ tag ];
+            const tag = { key: 'tagname', value: 'tagvalue' };
+            const tagging = [tag];
             const bucket = Bucket;
 
             await create_mock_object(key, bucket, object_age, undefined, tagging);

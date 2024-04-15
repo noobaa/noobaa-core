@@ -165,11 +165,12 @@ function count_length(buffers) {
 function write_to_stream(writable, buf) {
     return new Promise((resolve, reject) => {
         writable.once('error', reject);
+        writable.once('finish', resolve);
         writable.write(buf, err => {
             if (err) {
                 return reject(err);
             }
-            return resolve();
+            writable.end();
         });
     });
 }

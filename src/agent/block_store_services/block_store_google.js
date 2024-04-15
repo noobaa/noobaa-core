@@ -165,7 +165,6 @@ class BlockStoreGoogle extends BlockStoreBase {
         dbg.log3('writing block id to cloud: ', key);
         try {
             await buffer_utils.write_to_stream(write_stream, data);
-            write_stream.end();
             const usage = {
                 size: data.length + encoded_md.length,
                 count: 1

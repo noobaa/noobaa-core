@@ -8,6 +8,7 @@ const path = require('path');
 const mocha = require('mocha');
 const assert = require('assert');
 const P = require('../../util/promise');
+const config = require('../../../config');
 const fs_utils = require('../../util/fs_utils');
 const config_module = require('../../../config');
 const nb_native = require('../../util/nb_native');
@@ -15,10 +16,9 @@ const { get_process_fs_context } = require('../../util/native_fs_utils');
 const { ManageCLIError } = require('../../manage_nsfs/manage_nsfs_cli_errors');
 const { ManageCLIResponse } = require('../../manage_nsfs/manage_nsfs_cli_responses');
 const { exec_manage_cli, generate_s3_policy, create_fs_user_by_platform, delete_fs_user_by_platform,
-    set_path_permissions_and_owner, TMP_PATH } = require('../system_tests/test_utils');
+    set_path_permissions_and_owner, TMP_PATH, set_nc_config_dir_in_config } = require('../system_tests/test_utils');
 const { TYPES, ACTIONS, CONFIG_SUBDIRS } = require('../../manage_nsfs/manage_nsfs_constants');
 const nc_mkm = require('../../manage_nsfs/nc_master_key_manager').get_instance();
-const config = require('../../../config');
 
 const tmp_fs_path = path.join(TMP_PATH, 'test_bucketspace_fs');
 const DEFAULT_FS_CONFIG = get_process_fs_context();
@@ -27,16 +27,21 @@ mocha.describe('manage_nsfs cli', function() {
 
     const config_root = path.join(tmp_fs_path, 'config_root_manage_nsfs');
     const root_path = path.join(tmp_fs_path, 'root_path_manage_nsfs/');
-
+    set_nc_config_dir_in_config(config_root);
+    config.NSFS_NC_CONF_DIR = config_root;
+    // TODO: needed for NC_CORETEST FLOW - should be handled better
+    const nc_coretes_location = config.NC_MASTER_KEYS_FILE_LOCATION;
     mocha.before(async () => {
         await P.all(_.map([CONFIG_SUBDIRS.ACCOUNTS, CONFIG_SUBDIRS.BUCKETS, CONFIG_SUBDIRS.ACCESS_KEYS], async dir =>
             fs_utils.create_fresh_path(`${config_root}/${dir}`)));
         await fs_utils.create_fresh_path(root_path);
+        config.NC_MASTER_KEYS_FILE_LOCATION = '';
     });
     mocha.after(async () => {
         await fs_utils.folder_delete(`${config_root}`);
         await fs_utils.folder_delete(`${root_path}`);
-        await fs_utils.file_delete(path.join(config.NSFS_NC_DEFAULT_CONF_DIR, 'master_keys.json'));
+        await fs_utils.file_delete(path.join(config_root, 'master_keys.json'));
+        config.NC_MASTER_KEYS_FILE_LOCATION = nc_coretes_location;
     });
 
     mocha.describe('cli bucket flow ', async function() {

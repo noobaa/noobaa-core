@@ -113,6 +113,7 @@ const nsfs_node_config_schema = {
         },
         NC_MASTER_KEYS_STORE_TYPE: {
             enum: ['file', 'executable'],
+            type: 'string',
             description: 'This flag will set the master keys store type'
         },
         NC_MASTER_KEYS_FILE_LOCATION: {

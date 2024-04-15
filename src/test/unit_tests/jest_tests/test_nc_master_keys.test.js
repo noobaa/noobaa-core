@@ -15,7 +15,7 @@ const { get_process_fs_context } = require('../../../util/native_fs_utils');
 const DEFAULT_FS_CONFIG = get_process_fs_context();
 const MASTER_KEYS_JSON_PATH = path.join(config.NSFS_NC_DEFAULT_CONF_DIR, 'master_keys.json');
 
-describe('NC master key manager tests', () => {
+describe('NC master key manager tests - file store type', () => {
 
     beforeAll(async () => {
         await fs_utils.create_fresh_path(config.NSFS_NC_DEFAULT_CONF_DIR);
@@ -23,7 +23,7 @@ describe('NC master key manager tests', () => {
 
     afterAll(async () => {
         await fs.promises.rm(MASTER_KEYS_JSON_PATH);
-        await fs.promises.rm(config.NSFS_NC_DEFAULT_CONF_DIR, { recursive: true, force: true });
+        //await fs.promises.rm(config.NSFS_NC_DEFAULT_CONF_DIR, { recursive: true, force: true });
     });
 
     let initial_master_key;
@@ -79,7 +79,7 @@ describe('NC master key manager tests', () => {
 
     it('should fail - init nc_mkm - invalid master_keys.json - invalid active_master_key value', async () => {
         await fs.promises.rm(MASTER_KEYS_JSON_PATH);
-        await fs.promises.writeFile(MASTER_KEYS_JSON_PATH, JSON.stringify({ 'active_master_key': 1 }));
+        await fs.promises.writeFile(MASTER_KEYS_JSON_PATH, JSON.stringify({ 'active_master_key': 'blabla' }));
         const new_nc_mkm_instance = nc_mkm.get_instance();
         try {
             await new_nc_mkm_instance.init();
@@ -118,9 +118,11 @@ function validate_mkm_instance(nc_mkm_instance) {
  * @param {object} master_keys
  */
 function compare_master_keys_json_and_active_root_key(active_master_key, master_keys) {
-    expect(master_keys.active_master_key.id.toString()).toEqual(active_master_key.id.toString());
-    const buffered_cipher_iv = Buffer.from(master_keys.active_master_key.cipher_iv, 'base64');
-    const buffered_cipher_key = Buffer.from(master_keys.active_master_key.cipher_key, 'base64');
+    const active_master_key_id = master_keys.active_master_key;
+    const active_master_key_obj = master_keys.master_keys_by_id[active_master_key_id];
+    expect(active_master_key_id.toString()).toEqual(active_master_key.id.toString());
+    const buffered_cipher_iv = Buffer.from(active_master_key_obj.cipher_iv, 'base64');
+    const buffered_cipher_key = Buffer.from(active_master_key_obj.cipher_key, 'base64');
     expect(buffered_cipher_key).toEqual(active_master_key.cipher_key);
     expect(buffered_cipher_iv).toEqual(active_master_key.cipher_iv);
 }

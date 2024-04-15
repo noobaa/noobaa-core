@@ -13,7 +13,7 @@ const os_util = require('../../../util/os_utils');
 const fs_utils = require('../../../util/fs_utils');
 const nb_native = require('../../../util/nb_native');
 const { set_path_permissions_and_owner, create_fs_user_by_platform,
-    delete_fs_user_by_platform, TMP_PATH } = require('../../system_tests/test_utils');
+    delete_fs_user_by_platform, TMP_PATH, set_nc_config_dir_in_config } = require('../../system_tests/test_utils');
 const { get_process_fs_context } = require('../../../util/native_fs_utils');
 const { TYPES, ACTIONS, CONFIG_SUBDIRS } = require('../../../manage_nsfs/manage_nsfs_constants');
 const ManageCLIError = require('../../../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
@@ -44,6 +44,8 @@ describe('manage nsfs cli account flow', () => {
             await P.all(_.map([CONFIG_SUBDIRS.ACCOUNTS, CONFIG_SUBDIRS.ACCESS_KEYS], async dir =>
                 fs_utils.create_fresh_path(`${config_root}/${dir}`)));
             await fs_utils.create_fresh_path(root_path);
+            set_nc_config_dir_in_config(config_root);
+            config.NSFS_NC_CONF_DIR = config_root;
         });
 
         afterEach(async () => {
@@ -368,6 +370,8 @@ describe('manage nsfs cli account flow', () => {
             await P.all(_.map([CONFIG_SUBDIRS.ACCOUNTS, CONFIG_SUBDIRS.ACCESS_KEYS], async dir =>
                 fs_utils.create_fresh_path(`${config_root}/${dir}`)));
             await fs_utils.create_fresh_path(root_path);
+            set_nc_config_dir_in_config(config_root);
+            config.NSFS_NC_CONF_DIR = config_root;
             const action = ACTIONS.ADD;
             const { new_buckets_path } = defaults;
             const account_options = { config_root, ...defaults };
@@ -631,6 +635,8 @@ describe('manage nsfs cli account flow', () => {
             await P.all(_.map([CONFIG_SUBDIRS.ACCOUNTS, CONFIG_SUBDIRS.ACCESS_KEYS], async dir =>
                 fs_utils.create_fresh_path(`${config_root}/${dir}`)));
             await fs_utils.create_fresh_path(root_path);
+            set_nc_config_dir_in_config(config_root);
+            config.NSFS_NC_CONF_DIR = config_root;
             // Creating the account
             const action = ACTIONS.ADD;
             for (const account_defaults of Object.values(defaults)) {
@@ -839,6 +845,8 @@ describe('manage nsfs cli account flow', () => {
             await P.all(_.map([CONFIG_SUBDIRS.ACCOUNTS, CONFIG_SUBDIRS.ACCESS_KEYS, CONFIG_SUBDIRS.BUCKETS], async dir =>
                 fs_utils.create_fresh_path(`${config_root}/${dir}`)));
             await fs_utils.create_fresh_path(root_path);
+            set_nc_config_dir_in_config(config_root);
+            config.NSFS_NC_CONF_DIR = config_root;
         });
 
         beforeEach(async () => {
@@ -936,6 +944,8 @@ describe('manage nsfs cli account flow', () => {
             await P.all(_.map([CONFIG_SUBDIRS.ACCOUNTS, CONFIG_SUBDIRS.ACCESS_KEYS], async dir =>
                 fs_utils.create_fresh_path(`${config_root}/${dir}`)));
             await fs_utils.create_fresh_path(root_path);
+            set_nc_config_dir_in_config(config_root);
+            config.NSFS_NC_CONF_DIR = config_root;
             const action = ACTIONS.ADD;
             const { new_buckets_path } = defaults;
             const account_options = { config_root, ...defaults };
@@ -970,6 +980,7 @@ describe('manage nsfs cli account flow', () => {
         const type = TYPES.ACCOUNT;
         const config_root = path.join(tmp_fs_path, 'config_root_manage_nsfs');
         const root_path = path.join(tmp_fs_path, 'root_path_manage_nsfs/');
+
         const path_to_json_account_options_dir = path.join(tmp_fs_path, 'options');
         const defaults = {
             name: 'account3',
@@ -983,6 +994,8 @@ describe('manage nsfs cli account flow', () => {
         beforeEach(async () => {
             await P.all(_.map([CONFIG_SUBDIRS.ACCOUNTS, CONFIG_SUBDIRS.ACCESS_KEYS], async dir =>
                 fs_utils.create_fresh_path(`${config_root}/${dir}`)));
+            set_nc_config_dir_in_config(config_root);
+            config.NSFS_NC_CONF_DIR = config_root;
             await fs_utils.create_fresh_path(root_path);
             await fs_utils.create_fresh_path(path_to_json_account_options_dir);
             // create the new_buckets_path and set permissions
@@ -1185,6 +1198,8 @@ describe('cli account flow distinguished_name - permissions', function() {
     };
 
     beforeAll(async () => {
+        set_nc_config_dir_in_config(config_root);
+        config.NSFS_NC_CONF_DIR = config_root;
         await fs_utils.create_fresh_path(config_root);
         await fs_utils.file_must_exist(config_root);
         for (const account of Object.values(accounts)) {

@@ -95,6 +95,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
         const user_input = user_input_from_file || argv;
         config_root = argv.config_root ? String(argv.config_root) : config.NSFS_NC_CONF_DIR;
         if (!config_root) throw_cli_error(ManageCLIError.MissingConfigDirPath);
+        if (argv.config_root) config.NSFS_NC_CONF_DIR = String(argv.config_root);
 
         accounts_dir_path = path.join(config_root, accounts_dir_name);
         access_keys_dir_path = path.join(config_root, access_keys_dir_name);

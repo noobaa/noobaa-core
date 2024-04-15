@@ -11,7 +11,8 @@ const os_util = require('../../../util/os_utils');
 const fs_utils = require('../../../util/fs_utils');
 const config_module = require('../../../../config');
 const nb_native = require('../../../util/nb_native');
-const { set_path_permissions_and_owner, TMP_PATH, generate_s3_policy } = require('../../system_tests/test_utils');
+const { set_path_permissions_and_owner, TMP_PATH, generate_s3_policy,
+    set_nc_config_dir_in_config } = require('../../system_tests/test_utils');
 const { ACTIONS, TYPES, CONFIG_SUBDIRS } = require('../../../manage_nsfs/manage_nsfs_constants');
 const { get_process_fs_context, is_path_exists } = require('../../../util/native_fs_utils');
 const ManageCLIError = require('../../../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
@@ -27,6 +28,7 @@ describe('manage nsfs cli bucket flow', () => {
         const config_root = path.join(tmp_fs_path, 'config_root_manage_nsfs');
         const root_path = path.join(tmp_fs_path, 'root_path_manage_nsfs/');
         const bucket_storage_path = path.join(tmp_fs_path, 'root_path_manage_nsfs', 'bucket1');
+        set_nc_config_dir_in_config(config_root);
 
         const account_defaults = {
             name: 'account_test',
@@ -85,8 +87,9 @@ describe('manage nsfs cli bucket flow', () => {
         const config_root = path.join(tmp_fs_path, 'config_root_manage_nsfs2');
         const root_path = path.join(tmp_fs_path, 'root_path_manage_nsfs2/');
         const bucket_storage_path = path.join(tmp_fs_path, 'root_path_manage_nsfs2', 'bucket1');
-        let bucket_temp_dir_path;
+        set_nc_config_dir_in_config(config_root);
 
+        let bucket_temp_dir_path;
         const account_name = 'account_test';
         const account_defaults = {
             name: account_name,
@@ -208,6 +211,7 @@ describe('cli create bucket using from_file', () => {
     const root_path = path.join(tmp_fs_path, 'root_path_manage_nsfs3/');
     const bucket_storage_path = path.join(tmp_fs_path, 'root_path_manage_nsfs3', 'bucket1');
     const path_to_json_bucket_options_dir = path.join(tmp_fs_path, 'options');
+    set_nc_config_dir_in_config(config_root);
 
     const account_name = 'account_test';
     const account_defaults = {

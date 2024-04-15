@@ -17,11 +17,36 @@ const native_fs_utils = require('../util/native_fs_utils');
 const TYPE_FILE = 'file';
 const TYPE_EXEC = 'executable';
 const ACTIVE_MASTER_KEY = 'active_master_key';
-const exec_key_suffix = 'master_keys';
+const EXEC_KEY_SUFFIX = 'master_keys';
+
+/**
+* @typedef {{
+*    id: nb.ID, 
+*    cipher_key: Buffer,
+*    cipher_iv: Buffer, 
+*    encryption_type: string
+* }} MasterKey
+*/
+
+/**
+* @typedef {Object.<nb.ID, MasterKey>} MasterKeysByID
+*/
+
+/**
+ * The following constants describe the expected statuses from executable script
+ * OK - both GET/PUT exectuables return on success
+ * VERSION_MISMATCH - PUT exectuable return if the version of master keys already exist
+ * NOT_FOUND - GET exectuable return if the version of master keys was not found
+ */
+const EXEC_STATUS_OK = 'OK';
+const EXEC_STATUS_VERSION_MISMATCH = 'VERSION_MISMATCH';
+const EXEC_STATUS_NOT_FOUND = 'NOT_FOUND';
 
 class NCMasterKeysManager {
     constructor() {
+        /** @type {MasterKey} */
         this.active_master_key = undefined;
+        /** @type {MasterKeysByID} */
         this.master_keys_by_id = {};
         this.last_init_time = 0;
     }
@@ -33,6 +58,7 @@ class NCMasterKeysManager {
 
     /**
      * init inits master_key_manager by the store type
+     * @returns {Promise<void>}
      */
     async init() {
         const store_type = config.NC_MASTER_KEYS_STORE_TYPE;
@@ -47,20 +73,23 @@ class NCMasterKeysManager {
     /**
      * _set_keys sets the master_key_manager peoperties by master_keys object
      * @param {Object} master_keys
-     * @returns {Promise<Object>}
+     * @returns {MasterKey}
      */
     _set_keys(master_keys) {
-        if (!master_keys.active_master_key) throw new RpcError('INVALID_MASTER_KEYS_FILE', 'Invalid master_keys.json file');
-        for (const [key_name, master_key] of Object.entries(master_keys)) {
+        if (!master_keys.active_master_key || !master_keys.master_keys_by_id) throw new RpcError('INVALID_MASTER_KEYS_FILE', 'Invalid master_keys.json file');
+        for (const [master_key_id, master_key] of Object.entries(master_keys.master_keys_by_id)) {
             try {
-                if (key_name === ACTIVE_MASTER_KEY) {
-                    this.active_master_key = get_buffered_master_key(master_key);
-                }
                 this.master_keys_by_id[master_key.id] = get_buffered_master_key(master_key);
+                if (master_key_id === master_keys.active_master_key) {
+                    this.active_master_key = this.master_keys_by_id[master_key.id];
+                }
             } catch (err) {
                 dbg.error('couldn\'t load master_keys.json file', err);
                 throw new RpcError('INVALID_MASTER_KEYS_FILE', 'Invalid master_keys.json file');
             }
+        }
+        if (!this.active_master_key) {
+            throw new RpcError('INVALID_MASTER_KEYS_FILE', 'Invalid master_keys.json file, couldn\'t find active master key in master_keys_by_id');
         }
         dbg.log1(`_set_keys: master_key_manager updated successfully! active master key is: ${util.inspect(this.active_master_key)}`);
         return this.active_master_key;
@@ -68,6 +97,7 @@ class NCMasterKeysManager {
 
     /**
      * _create_master_key generates a new master key
+     * @returns {Promise<void>}
      */
     async _create_master_key() {
         const master_key = {
@@ -93,6 +123,7 @@ class NCMasterKeysManager {
 
     /**
      * _init_from_file reads master keys json file and loads its data
+     * @returns {Promise<void>}
      */
     async _init_from_file() {
         const master_keys_path = get_master_keys_file_path();
@@ -114,7 +145,7 @@ class NCMasterKeysManager {
                     dbg.error('init_from_file: master keys file is invalid', master_keys_path);
                     throw err;
                 } else {
-                    dbg.error('init_from_file: couldn\'t load master keys file', master_keys_path);
+                    dbg.error('init_from_file: couldn\'t load master keys file', master_keys_path, err);
                     retries += 1;
                     await P.delay(1000);
                 }
@@ -123,20 +154,43 @@ class NCMasterKeysManager {
         throw new Error('init_from_file exhausted');
     }
 
+
+    /**
+     * get_master_keys_json return master keys as JSON object
+     * TODO: currently limited to one key, but will be changed 
+     * to support previous inactive keys for rotation
+     * @param {MasterKey} new_master_key
+     * @returns {string}
+     */
+    _get_master_keys_json(new_master_key) {
+        const active_master_key_id = new_master_key.id;
+        const master_keys_by_id = { ...this.master_keys_by_id, [active_master_key_id]: new_master_key };
+        return JSON.stringify({
+            timestemp: Date.now(),
+            [ACTIVE_MASTER_KEY]: active_master_key_id,
+            master_keys_by_id
+        });
+    }
+
     /**
      * _create_master_keys_file updates master_keys.json file
-     * @param {object} new_master_key
+     * @param {MasterKey} new_master_key
+     * @returns {Promise<void>}
      */
     async _create_master_keys_file(new_master_key) {
         const master_keys_path = get_master_keys_file_path();
         const parent_dir = path.dirname(master_keys_path);
         const fs_context = native_fs_utils.get_process_fs_context();
         try {
-            const data = JSON.stringify({ active_master_key: new_master_key });
-            await native_fs_utils.create_config_file(fs_context, parent_dir, master_keys_path, data);
+            const master_keys_json = this._get_master_keys_json(new_master_key);
+            await native_fs_utils.create_config_file(fs_context, parent_dir, master_keys_path, master_keys_json);
+            dbg.log0('_create_master_keys_file created file successfuly', master_keys_path);
         } catch (err) {
             dbg.warn('create_master_keys_file got err', err);
-            if (err.code === 'EEXIST') return;
+            if (err.code === 'EEXIST') {
+                dbg.warn('_create_master_keys_file file already exists');
+                return;
+            }
             throw err;
         }
     }
@@ -147,36 +201,56 @@ class NCMasterKeysManager {
 
     /**
      * _create_master_keys_exec executes get master keys executable and retuns its data
-     * @returns {Promise<Object>}
+     * @returns {Promise<void>}
      */
     async _create_master_keys_exec(master_key) {
-        const master_keys_json = JSON.stringify({ active_master_key: master_key });
-        await os_util.spawn(config.NC_MASTER_KEYS_PUT_EXECUTABLE, [exec_key_suffix], { input: master_keys_json, stdio: [] });
+        const master_keys_json = this._get_master_keys_json(master_key);
+        try {
+            const put_master_keys_res = await os_util.spawn(config.NC_MASTER_KEYS_PUT_EXECUTABLE, [EXEC_KEY_SUFFIX],
+                { shell: '/bin/sh', input: master_keys_json, stdio: [], return_stdout: true });
+            const { status } = JSON.parse(put_master_keys_res);
+
+            if (status === EXEC_STATUS_OK) {
+                dbg.log0('_create_master_keys_exec: finished successfully');
+            } else if (status === EXEC_STATUS_VERSION_MISMATCH) {
+                dbg.warn(`_create_master_keys_exec: master keys file already exist status=${status}`);
+            } else {
+                throw new Error(`_create_master_keys_exec: failed with error=${status}`);
+            }
+        } catch (err) {
+            dbg.warn('_create_master_keys_exec: failed with error: ', err);
+            throw err;
+        }
     }
 
     /**
      * _init_from_exec init master keys from executable
+     * @returns {Promise<void>}
      */
     async _init_from_exec() {
-        const command = `${config.NC_MASTER_KEYS_GET_EXECUTABLE} ${exec_key_suffix}`;
-        for (let retries = 0; retries < 3;) {
+        const init_version = 0;
+        const command = `${config.NC_MASTER_KEYS_GET_EXECUTABLE} ${EXEC_KEY_SUFFIX} ${init_version}`;
+        for (let retries = 0; retries < config.MASTER_KEYS_EXEC_MAX_RETRIES;) {
             try {
                 if (this.last_init_time &&
                     (new Date()).getTime() - this.last_init_time > config.NC_MASTER_KEYS_MANAGER_REFRESH_THRESHOLD) return;
-                const master_keys = await os_util.exec(command, { return_stdout: true });
-                const parsed_master_keys = JSON.parse(master_keys);
-                this._set_keys(parsed_master_keys);
-                this.last_init_time = (new Date()).getTime();
-                return;
-            } catch (err) {
-                if (err.stderr && err.stderr.trim() === 'NO_SUCH_KEY') {
-                    dbg.warn('init_from_exec: couldn\'t find master keys', err, err.code);
+                const get_master_keys_res = await os_util.exec(command, { return_stdout: true });
+                const { status, version, data } = JSON.parse(get_master_keys_res);
+                if (status === EXEC_STATUS_OK) {
+                    dbg.log0(`init_from_exec: get master keys response status=${status}, version=${version}`);
+                    this._set_keys(data);
+                    this.last_init_time = (new Date()).getTime();
+                    return;
+                } else if (status === EXEC_STATUS_NOT_FOUND) {
+                    dbg.warn(`init_from_exec: get master keys failed with status=${status}, creating a new master key`);
                     await this._create_master_key();
                 } else {
-                    dbg.error('init_from_exec: couldn\'t load master keys', err, err.code);
-                    retries += 1;
-                    await P.delay(1000);
+                    throw new Error(`init_from_exec: get master keys failed with status=${status}`);
                 }
+            } catch (err) {
+                dbg.error(`init_from_exec: get master keys failed with error=${err} retries=${retries} max_retries=${config.MASTER_KEYS_EXEC_MAX_RETRIES}`);
+                retries += 1;
+                await P.delay(1000);
             }
         }
         throw new Error('init_from_exec exhausted');
@@ -200,6 +274,8 @@ class NCMasterKeysManager {
      * @returns {string}
      */
     encryptSync(secret_key, master_key_id = this.active_master_key?.id) {
+        if (!this.master_keys_by_id || !master_key_id) throw new Error('Invalid master key manager');
+        if (!this.master_keys_by_id[master_key_id]) throw new Error(`master key id is missing in master_keys_by_id`);
         const { cipher_key, cipher_iv, encryption_type } = this.master_keys_by_id[master_key_id];
         const cipher = crypto.createCipheriv(encryption_type, cipher_key, cipher_iv);
         const updated_value = cipher.update(Buffer.from(secret_key));
@@ -225,6 +301,8 @@ class NCMasterKeysManager {
      * @returns {string}
      */
     decryptSync(secret_key, master_key_id) {
+        if (!this.master_keys_by_id || !master_key_id) throw new Error('Invalid master key manager');
+        if (!this.master_keys_by_id[master_key_id]) throw new Error(`master key id is missing in master_keys_by_id`);
         const { cipher_key, cipher_iv, encryption_type } = this.master_keys_by_id[master_key_id];
         const decipher = crypto.createDecipheriv(encryption_type, cipher_key, cipher_iv);
         const decrypted_secret_key = decipher.update(Buffer.from(secret_key, 'base64')).toString();
@@ -263,6 +341,7 @@ class NCMasterKeysManager {
 /**
  * get_buffered_master_key converts cipher_key and cipher_iv base64 strings to buffers
  * @param {object} master_key
+ * @returns {MasterKey}
  */
 function get_buffered_master_key(master_key) {
     try {
@@ -279,7 +358,8 @@ function get_buffered_master_key(master_key) {
 
 /**
  * get_stringed_master_key converts cipher_key and cipher_iv buffers of strings in base64 
- * @param {object} master_key
+ * @param {MasterKey} master_key
+ * @returns {object}
  */
 function get_stringed_master_key(master_key) {
     const stringed_master_key = {

@@ -11,7 +11,6 @@ const mongodb = require('mongodb');
 const { v4: uuid } = require('uuid');
 
 const P = require('../../util/promise');
-const config = require('../../../config');
 const MDStore = require('../../server/object_services/md_store').MDStore;
 const coretest = require('./coretest');
 const lifecycle = require('../../server/bg_services/lifecycle');

@@ -299,6 +299,49 @@ async function generate_account_keys(req) {
     });
 }
 
+/**
+ *
+ * UPDATE_ACCOUNT_KEYS
+ *
+ */
+async function update_account_keys(req) {
+    const account = system_store.get_account_by_email(req.rpc_params.email);
+    if (!account) {
+        throw new RpcError('NO_SUCH_ACCOUNT', 'No such account email: ' + req.rpc_params.email);
+    }
+    if (req.system && req.account) {
+        if (!is_support_or_admin_or_me(req.system, req.account, account)) {
+            throw new RpcError('UNAUTHORIZED', 'Cannot update account');
+        }
+    }
+    if (account.is_support) {
+        throw new RpcError('FORBIDDEN', 'Cannot update support account');
+    }
+    const access_keys = req.rpc_params.access_keys;
+
+    access_keys.secret_key = system_store.master_key_manager.encrypt_sensitive_string_with_master_key_id(
+        access_keys.secret_key, account.master_key_id._id);
+
+    await system_store.make_changes({
+        update: {
+            accounts: [{
+                _id: account._id,
+                access_keys: [
+                    access_keys
+                ]
+            }]
+        }
+    });
+
+    Dispatcher.instance().activity({
+        event: 'account.update_credentials',
+        level: 'info',
+        system: req.system && req.system._id,
+        actor: req.account && req.account._id,
+        account: account._id,
+        desc: `Credentials for ${account.email.unwrap()} were updated ${req.account && 'by ' + req.account.email.unwrap()}`,
+    });
+}
 
 /**
  *
@@ -1402,8 +1445,6 @@ function validate_create_account_params(req) {
     }
 }
 
-
-
 async function verify_authorized_account(req) {
     //operator connects by token and doesn't have the password property.
     if (req.role === 'operator') {
@@ -1472,6 +1513,7 @@ exports.reset_password = reset_password;
 exports.delete_account = delete_account;
 exports.delete_account_by_property = delete_account_by_property;
 exports.generate_account_keys = generate_account_keys;
+exports.update_account_keys = update_account_keys;
 exports.update_account_s3_access = update_account_s3_access;
 exports.list_accounts = list_accounts;
 exports.accounts_status = accounts_status;

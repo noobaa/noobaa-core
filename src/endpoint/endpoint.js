@@ -466,6 +466,7 @@ function setup_http_server(server) {
 
     server.keepAliveTimeout = config.ENDPOINT_HTTP_SERVER_KEEPALIVE_TIMEOUT;
     server.requestTimeout = config.ENDPOINT_HTTP_SERVER_REQUEST_TIMEOUT;
+    server.maxRequestsPerSocket = config.ENDPOINT_HTTP_MAX_REQUESTS_PER_SOCKET;
 
     server.on('error', handle_server_error);
 

@@ -58,21 +58,8 @@ function should_upgrade(server_version, container_version) {
         return false;
     }
     const ver_comparison = version_compare(container_version, server_version);
-    if (ver_comparison === 0) {
-        if (server_version !== container_version) {
-            dbg.warn(`the container and server appear to be the same version but different builds. (container: ${container_version}), (server: ${server_version})`);
-            dbg.warn(`upgrade is not supported for different builds of the same version!!`);
-        }
-        dbg.log0('the versions of the container and the server match. no need to upgrade');
-        return false;
-    } else if (ver_comparison < 0) {
-        // container version is older than the server version - can't downgrade
-        dbg.error(`the container version (${container_version}) appear to be older than the current server version (${server_version}). cannot downgrade`);
-        throw new Error('attempt to run old container version with newer server version');
-    } else {
-        dbg.log0(`container version is ${container_version} and server version is ${server_version}. will upgrade`);
-        return true;
-    }
+    dbg.log0(`container version is ${container_version} and server version is ${server_version}. will upgrade, ver_comparison: ${ver_comparison}`);
+    return true;
 }
 
 

@@ -578,7 +578,7 @@ Note - The default config_dir is /etc/noobaa.conf.d/.
 
 ```bash
 sudo mv tls.key {config_dir_path}/certificates/
-sudo mv tls.csr {config_dir_path}/certificates/
+sudo mv tls.crt {config_dir_path}/certificates/
 ```
 #### 4. Restart the NooBaa NSFS service -
 ```bash

@@ -609,6 +609,7 @@ class NamespaceFS {
     }
 
     async _list_objects(params, object_sdk, list_versions) {
+        let list_unsorted = false;
         try {
             const fs_context = this.prepare_fs_context(object_sdk);
             await this._load_bucket(params, fs_context);
@@ -631,6 +632,14 @@ class NamespaceFS {
             if (!limit) return { is_truncated: false, objects: [], common_prefixes: [] };
 
             let is_truncated = false;
+            let skip_list = false;
+            let pre_dir = "";
+            let pre_dir_position = "";
+            let key_marker_obj = typeof(key_marker) === 'string' && key_marker.startsWith("{") ?
+                            JSON.parse(key_marker) : key_marker;
+            const key_marker_value = key_marker_obj.marker ? key_marker_obj.marker : key_marker_obj;
+            const previous_dirs = key_marker_obj.pre_dir ? key_marker_obj.pre_dir.split(',') : [];
+            const previous_dir_positions = key_marker_obj.pre_dir_pos ? key_marker_obj.pre_dir_pos.split(',') : [];
 
             /**
              * @typedef {{
@@ -662,10 +671,10 @@ class NamespaceFS {
                     // dbg.log0(`prefix dir does not match so no keys in this dir can apply: dir_key=${dir_key} prefix_dir=${prefix_dir}`);
                     return;
                 }
-                const marker_dir = key_marker.slice(0, dir_key.length);
-                const marker_ent = key_marker.slice(dir_key.length);
+                const marker_dir = key_marker_value.slice(0, dir_key.length);
+                const marker_ent = key_marker_value.slice(dir_key.length);
                 // marker is after dir so no keys in this dir can apply
-                if (dir_key < marker_dir) {
+                if (delimiter && dir_key < marker_dir) {
                     // dbg.log0(`marker is after dir so no keys in this dir can apply: dir_key=${dir_key} marker_dir=${marker_dir}`);
                     return;
                 }
@@ -691,15 +700,30 @@ class NamespaceFS {
                         pos = results.length;
                     }
 
+                    if (results.length === limit && pre_dir) {
+                        previous_dirs.push(pre_dir);
+                        previous_dir_positions.push(pre_dir_position);
+                    }
                     if (pos >= limit) {
                         is_truncated = true;
                         return; // not added
                     }
                     if (!delimiter && r.common_prefix) {
+                        if (!previous_dirs.includes(r.pre_dir) && r.pre_dir) {
+                            previous_dirs.push(r.pre_dir);
+                            previous_dir_positions.push(r.marker_pos);
+                        }
                         await process_dir(r.key);
                     } else {
+                        if (key_marker_value.includes(r.key)) {
+                            return;
+                        }
                         if (pos < results.length) {
-                            results.splice(pos, 0, r);
+                            if (r.marker_pos) {
+                                results.push(r);
+                            } else {
+                                results.splice(pos, 0, r);
+                            }
                         } else {
                             results.push(r);
                         }
@@ -707,36 +731,99 @@ class NamespaceFS {
                             results.length = limit;
                             is_truncated = true;
                         }
+                        pre_dir = "";
+                        pre_dir_position = "";
+                    }
+                };
+
+                const push_dir_entries = async (marker_index, sorted_entries) => {
+                    if (marker_index) {
+                        const prev_dir = sorted_entries[marker_index - 1];
+                        const prev_dir_name = prev_dir.name;
+                        if (marker_curr.startsWith(prev_dir_name) && dir_key !== prev_dir.name) {
+                            if (!delimiter) {
+                                const isDir = await is_directory_or_symlink_to_directory(
+                                    prev_dir, fs_context, path.join(dir_path, prev_dir_name, '/'));
+                                if (isDir) {
+                                    await process_dir(path.join(dir_key, prev_dir_name, '/'));
+                                }
+                            }
+                        }
                     }
                 };
 
                 /**
                  * @param {fs.Dirent} ent
+                 * @param {string} pos
                  */
-                const process_entry = async ent => {
+                const process_entry = async (ent, pos = '') => {
                     // dbg.log0('process_entry', dir_key, ent.name);
+                    const isDir = await is_directory_or_symlink_to_directory(ent, fs_context, path.join(dir_path, ent.name));
                     if ((!ent.name.startsWith(prefix_ent) ||
-                        ent.name < marker_curr ||
+                        (pos === "" && ent.name < marker_curr.split('/')[0]) ||
                         ent.name === this.get_bucket_tmpdir_name() ||
                         ent.name === config.NSFS_FOLDER_OBJECT_NAME) &&
                         !this._is_hidden_version_path(ent.name)) {
                         return;
                     }
-                    const isDir = await is_directory_or_symlink_to_directory(ent, fs_context, path.join(dir_path, ent.name));
-
                     let r;
                     if (list_versions && _is_version_object_including_null_version(ent.name)) {
                         r = {
                             key: this._get_version_entry_key(dir_key, ent),
                             common_prefix: isDir,
+                            marker_pos: pos,
+                            pre_dir: pos ? dir_path : "",
                         };
                     } else {
                         r = {
                             key: this._get_entry_key(dir_key, ent, isDir),
                             common_prefix: isDir,
+                            marker_pos: pos,
+                            pre_dir: pos ? dir_path : "",
                         };
                     }
                     await insert_entry_to_results_arr(r);
+                };
+
+                /**
+                 *
+                 */
+                const process_unsort_entry = async () => {
+                    for (;;) {
+                        if (is_truncated) break;
+                        const dir_entry = await dir_handle.read(fs_context);
+                        // After listing the last item from sub dir, check for parent dirs and parent directory position 
+                        // and go back to that position.
+                        if (!dir_entry) {
+                            // Skip item listing in bucket root path when list flow coming from sub dir to bucket root dir,
+                            // if do not skip items in bucket root path will list two times, 
+                            // first in normal flow, and second when return back from sub dir. 
+                            if (dir_path === this.bucket_path) {
+                                skip_list = true;
+                            }
+                            key_marker_obj = {};
+                            // After iterating the last element in subdir flow will go back to the parent folder, 
+                            // to avoid listing items again from start use previous dir path and position from 
+                            // previous_dirs and previous_dir_positions arrays respectively.
+                            if (previous_dirs.length > 0) {
+                                pre_dir = previous_dirs.pop();
+                                const previous_dir_key = pre_dir.replace(this.bucket_path, "");
+                                pre_dir_position = previous_dir_positions.pop();
+                                // Next dir process will use the previous dir path and position to iterate from 
+                                // the previously left parentt dir position.
+                                key_marker_obj.marker_pos = pre_dir_position;
+                                key_marker_obj.marker = pre_dir;
+                                await process_dir(previous_dir_key);
+                                break;
+                            }
+                            break;
+                        }
+                        if ((dir_entry.name === config.NSFS_FOLDER_OBJECT_NAME && dir_key === marker_dir) || skip_list) {
+                            continue;
+                        }
+                        await process_entry(dir_entry, params.key_marker && !params.key_marker.startsWith("{") ?
+                                                "" : dir_entry.off);
+                    }
                 };
 
                 if (!(await this.check_access(fs_context, dir_path))) return;
@@ -753,16 +840,15 @@ class NamespaceFS {
                     }
                     throw err;
                 }
-
                 // insert dir object to objects list if its key is lexicographicly bigger than the key marker &&
                 // no delimiter OR prefix is the current directory entry
                 const is_dir_content = cached_dir.stat.xattr && cached_dir.stat.xattr[XATTR_DIR_CONTENT];
-                if (is_dir_content && dir_key > key_marker && (!delimiter || dir_key === prefix)) {
+                if (is_dir_content && dir_key > key_marker_value && (!delimiter || dir_key === prefix)) {
                     const r = { key: dir_key, common_prefix: false };
                     await insert_entry_to_results_arr(r);
                 }
 
-                if (cached_dir.sorted_entries) {
+                if (!config.ENABLE_NSFS_UNSORTED_OBJECTS_LIST && cached_dir.sorted_entries) {
                     const sorted_entries = cached_dir.sorted_entries;
                     let marker_index;
                     // Two ways followed here to find the index.
@@ -790,19 +876,7 @@ class NamespaceFS {
                     // handling a scenario in which key_marker points to an object inside a directory
                     // since there can be entries inside the directory that will need to be pushed
                     // to results array
-                    if (marker_index) {
-                        const prev_dir = sorted_entries[marker_index - 1];
-                        const prev_dir_name = prev_dir.name;
-                        if (marker_curr.startsWith(prev_dir_name) && dir_key !== prev_dir.name) {
-                            if (!delimiter) {
-                                const isDir = await is_directory_or_symlink_to_directory(
-                                    prev_dir, fs_context, path.join(dir_path, prev_dir_name, '/'));
-                                if (isDir) {
-                                    await process_dir(path.join(dir_key, prev_dir_name, '/'));
-                                }
-                            }
-                        }
-                    }
+                    await push_dir_entries(marker_index, sorted_entries);
                     for (let i = marker_index; i < sorted_entries.length; ++i) {
                         const ent = sorted_entries[i];
                         if (list_versions && marker_curr) {
@@ -824,15 +898,15 @@ class NamespaceFS {
                 // for large dirs we cannot keep all entries in memory
                 // so we have to stream the entries one by one while filtering only the needed ones.
                 try {
-                    dbg.warn('NamespaceFS: open dir streaming', dir_path, 'size', cached_dir.stat.size);
+                    // For unsorted listing dir position is used to when pagination split the items. 
+                    list_unsorted = true;
+                    dbg.warn('NamespaceFS: open dir streaming', dir_path, 'size', cached_dir.stat.size, 'key_marker', key_marker_obj);
                     dir_handle = await nb_native().fs.opendir(fs_context, dir_path); //, { bufferSize: 128 });
-                    for (;;) {
-                        const dir_entry = await dir_handle.read(fs_context);
-                        if (!dir_entry) break;
-                        await process_entry(dir_entry);
-                        // since we dir entries streaming order is not sorted,
-                        // we have to keep scanning all the keys before we can stop.
+                    if (key_marker_obj.marker_pos) {
+                        await dir_handle.seekdir(fs_context, BigInt(key_marker_obj.marker_pos));
+                        key_marker_obj.marker_pos = undefined;
                     }
+                    await process_unsort_entry();
                     await dir_handle.close(fs_context);
                     dir_handle = null;
                 } finally {
@@ -849,7 +923,9 @@ class NamespaceFS {
             };
 
             const prefix_dir_key = prefix.slice(0, prefix.lastIndexOf('/') + 1);
-            await process_dir(prefix_dir_key);
+            const current_dir = !delimiter && key_marker_obj.marker && key_marker_obj.marker.includes("/") ?
+                            key_marker_obj.marker.substring(0, key_marker_obj.marker.lastIndexOf("/") + 1) : "";
+            await process_dir(prefix_dir_key + current_dir);
             await Promise.all(results.map(async r => {
                 if (r.common_prefix) return;
                 const entry_path = path.join(this.bucket_path, r.key);
@@ -863,6 +939,7 @@ class NamespaceFS {
                 is_truncated,
                 next_marker: undefined,
                 next_version_id_marker: undefined,
+                marker_pos: ''
             };
             for (const r of results) {
                 let obj_info;
@@ -883,7 +960,26 @@ class NamespaceFS {
                     if (list_versions && _is_version_object(r.key)) {
                         const next_version_id_marker = r.key.substring(r.key.lastIndexOf('/') + 1);
                         res.next_version_id_marker = next_version_id_marker;
-                        res.next_marker = _get_filename(next_version_id_marker);
+                        if (list_unsorted) {
+                            // dir path and position pass to the next request using marker and marker_pos properties
+                            // parent dir hierarchy sent to next request using pre_dir, pre_dir_pos array.
+                            res.next_marker = {
+                                marker: _get_filename(next_version_id_marker),
+                                marker_pos: r.marker_pos ? r.marker_pos.toString() : '',
+                                pre_dir: previous_dirs.toString(),
+                                pre_dir_pos: previous_dir_positions.toString(),
+                            };
+                        } else {
+                            res.next_marker = _get_filename(next_version_id_marker);
+                        }
+                    }
+                    if (list_unsorted) {
+                        res.next_marker = {
+                            marker: r.key,
+                            marker_pos: r.marker_pos ? r.marker_pos.toString() : '',
+                            pre_dir: previous_dirs.toString(),
+                            pre_dir_pos: previous_dir_positions.toString(),
+                        };
                     } else {
                         res.next_marker = r.key;
                     }
@@ -894,7 +990,6 @@ class NamespaceFS {
             throw native_fs_utils.translate_error_codes(err, native_fs_utils.entity_enum.OBJECT);
         }
     }
-
     /////////////////
     // OBJECT READ //
     /////////////////

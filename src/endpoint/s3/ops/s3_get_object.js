@@ -59,7 +59,7 @@ async function get_object(req, res) {
         md_conditions,
         encryption,
     };
-    if (params.version_id.length === 0) {
+    if (params.version_id?.length === 0) {
         throw new S3Error(S3Error.InvalidArgumentEmptyVersionId);
     }
     if (md_params.get_from_cache) {

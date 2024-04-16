@@ -144,6 +144,11 @@ S3Error.InvalidArgument = Object.freeze({
     message: 'Invalid Argument',
     http_code: 400,
 });
+S3Error.InvalidArgumentEmptyVersionId = Object.freeze({
+    code: 'InvalidArgument',
+    message: 'Version id cannot be the empty string',
+    http_code: 400,
+});
 S3Error.InvalidBucketName = Object.freeze({
     code: 'InvalidBucketName',
     message: 'The specified bucket is not valid.',

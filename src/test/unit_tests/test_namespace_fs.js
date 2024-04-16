@@ -20,10 +20,9 @@ const s3_utils = require('../../endpoint/s3/s3_utils');
 const buffer_utils = require('../../util/buffer_utils');
 const { S3Error } = require('../../endpoint/s3/s3_errors');
 const test_ns_list_objects = require('./test_ns_list_objects');
-const { TMP_PATH } = require('../system_tests/test_utils');
+const { TMP_PATH, make_dummy_object_sdk } = require('../system_tests/test_utils');
 const { get_process_fs_context } = require('../../util/native_fs_utils');
 const endpoint_stats_collector = require('../../sdk/endpoint_stats_collector');
-const SensitiveString = require('../../util/sensitive_string');
 
 const inspect = (x, max_arr = 5) => util.inspect(x, { colors: true, depth: null, maxArrayLength: max_arr });
 
@@ -37,32 +36,9 @@ const XATTR_CONTENT_TYPE = 'user.noobaa.content_type';
 const dir_content_type = 'application/x-directory';
 const stream_content_type = 'application/octet-stream';
 
+
 const DEFAULT_FS_CONFIG = get_process_fs_context();
 
-function make_dummy_object_sdk(config_root) {
-    return {
-        requesting_account: {
-            force_md5_etag: false,
-            nsfs_account_config: {
-                uid: process.getuid(),
-                gid: process.getgid(),
-            }
-        },
-        abort_controller: new AbortController(),
-        throw_if_aborted() {
-            if (this.abort_controller.signal.aborted) throw new Error('request aborted signal');
-        },
-
-        read_bucket_sdk_config_info(name) {
-            return {
-                bucket_owner: new SensitiveString('dummy-owner'),
-                owner_account: {
-                    id: 'dummy-id-123',
-                }
-            };
-        }
-    };
-}
 
 mocha.describe('namespace_fs', function() {
 
@@ -96,6 +72,7 @@ mocha.describe('namespace_fs', function() {
     });
 
     mocha.before(async () => {
+        config.NSFS_LIST_OBJECTS_V2_UNSORTED_ENABLED = false;
         await P.all(_.map([src_bkt, upload_bkt, mpu_bkt], async buck =>
             fs_utils.create_fresh_path(`${tmp_fs_path}/${buck}`)));
     });

@@ -432,6 +432,22 @@ function get_new_buckets_path_by_test_env(new_buckets_full_path, new_buckets_dir
     return is_nc_coretest ? path.join(new_buckets_full_path, new_buckets_dir) : new_buckets_dir;
 }
 
+function make_dummy_object_sdk() {
+    return {
+        requesting_account: {
+            force_md5_etag: false,
+            nsfs_account_config: {
+                uid: process.getuid(),
+                gid: process.getgid(),
+            }
+        },
+        abort_controller: new AbortController(),
+        throw_if_aborted() {
+            if (this.abort_controller.signal.aborted) throw new Error('request aborted signal');
+        }
+    };
+}
+
 /**
  * write_manual_config_file writes config file directly to the file system without using config FS
  * used for creating backward compatibility tests, invalid config files etc
@@ -498,6 +514,7 @@ exports.delete_fs_user_by_platform = delete_fs_user_by_platform;
 exports.set_path_permissions_and_owner = set_path_permissions_and_owner;
 exports.set_nc_config_dir_in_config = set_nc_config_dir_in_config;
 exports.generate_anon_s3_client = generate_anon_s3_client;
+exports.make_dummy_object_sdk = make_dummy_object_sdk;
 exports.TMP_PATH = TMP_PATH;
 exports.is_nc_coretest = is_nc_coretest;
 exports.generate_nsfs_account = generate_nsfs_account;

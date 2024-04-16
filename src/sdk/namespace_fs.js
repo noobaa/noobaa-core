@@ -608,10 +608,10 @@ class NamespaceFS {
     }
 
     async _list_objects(params, object_sdk, list_versions) {
+        let list_unsorted = false;
         try {
             const fs_context = this.prepare_fs_context(object_sdk);
             await this._load_bucket(params, fs_context);
-
             const {
                 bucket,
                 delimiter = '',
@@ -619,7 +619,6 @@ class NamespaceFS {
                 version_id_marker = '',
                 key_marker = '',
             } = params;
-
             if (delimiter && delimiter !== '/') {
                 throw new Error('NamespaceFS: Invalid delimiter ' + delimiter);
             }
@@ -661,8 +660,10 @@ class NamespaceFS {
                     // dbg.log0(`prefix dir does not match so no keys in this dir can apply: dir_key=${dir_key} prefix_dir=${prefix_dir}`);
                     return;
                 }
-                const marker_dir = key_marker.slice(0, dir_key.length);
-                const marker_ent = key_marker.slice(dir_key.length);
+
+                const key_marker_value = key_marker.marker ? key_marker.marker : key_marker;
+                const marker_dir = key_marker_value.slice(0, dir_key.length);
+                const marker_ent = key_marker_value.slice(dir_key.length);
                 // marker is after dir so no keys in this dir can apply
                 if (dir_key < marker_dir) {
                     // dbg.log0(`marker is after dir so no keys in this dir can apply: dir_key=${dir_key} marker_dir=${marker_dir}`);
@@ -709,13 +710,30 @@ class NamespaceFS {
                     }
                 };
 
+                const push_dir_entries = async (marker_index, sorted_entries) => {
+                    if (marker_index) {
+                        const prev_dir = sorted_entries[marker_index - 1];
+                        const prev_dir_name = prev_dir.name;
+                        if (marker_curr.startsWith(prev_dir_name) && dir_key !== prev_dir.name) {
+                            if (!delimiter) {
+                                const isDir = await is_directory_or_symlink_to_directory(
+                                    prev_dir, fs_context, path.join(dir_path, prev_dir_name, '/'));
+                                if (isDir) {
+                                    await process_dir(path.join(dir_key, prev_dir_name, '/'));
+                                }
+                            }
+                        }
+                    }
+                };
+
                 /**
                  * @param {fs.Dirent} ent
+                 * @param {string} pos
                  */
-                const process_entry = async ent => {
+                const process_entry = async (ent, pos = '') => {
                     // dbg.log0('process_entry', dir_key, ent.name);
                     if ((!ent.name.startsWith(prefix_ent) ||
-                        ent.name < marker_curr ||
+                        ent.name <= marker_curr ||
                         ent.name === this.get_bucket_tmpdir_name() ||
                         ent.name === config.NSFS_FOLDER_OBJECT_NAME) &&
                         !this._is_hidden_version_path(ent.name)) {
@@ -728,14 +746,39 @@ class NamespaceFS {
                         r = {
                             key: this._get_version_entry_key(dir_key, ent),
                             common_prefix: isDir,
+                            marker_pos: pos,
                         };
                     } else {
                         r = {
                             key: this._get_entry_key(dir_key, ent, isDir),
                             common_prefix: isDir,
+                            marker_pos: pos,
                         };
                     }
                     await insert_entry_to_results_arr(r);
+                };
+
+                const process_unsort_entry = async () => {
+                    for (;;) {
+                        let process_inner_dir = false;
+                        if (is_truncated) break;
+                        const dir_entry = await dir_handle.read(fs_context);
+                        if (!dir_entry) break;
+                        if (!delimiter) {
+                            const isDir = await is_directory_or_symlink_to_directory(
+                                dir_entry, fs_context, path.join(dir_entry.name, '/'));
+                            if (isDir) {
+                                process_inner_dir = true;
+                                await process_dir(path.join(dir_key, dir_entry.name, '/'));
+                            }
+                        }
+                        if (dir_entry.name === config.NSFS_FOLDER_OBJECT_NAME && dir_key === marker_dir) {
+                            continue;
+                        }
+                        if (!process_inner_dir) await process_entry(dir_entry, dir_entry.off);
+                        // since we dir entries streaming order is not sorted,
+                        // we have to keep scanning all the keys before we can stop.
+                    }
                 };
 
                 if (!(await this.check_access(fs_context, dir_path))) return;
@@ -752,16 +795,15 @@ class NamespaceFS {
                     }
                     throw err;
                 }
-
                 // insert dir object to objects list if its key is lexicographicly bigger than the key marker &&
                 // no delimiter OR prefix is the current directory entry
                 const is_dir_content = cached_dir.stat.xattr && cached_dir.stat.xattr[XATTR_DIR_CONTENT];
-                if (is_dir_content && dir_key > key_marker && (!delimiter || dir_key === prefix)) {
+                if (is_dir_content && dir_key > key_marker_value && (!delimiter || dir_key === prefix)) {
                     const r = { key: dir_key, common_prefix: false };
                     await insert_entry_to_results_arr(r);
                 }
 
-                if (cached_dir.sorted_entries) {
+                if (!config.ENABLE_NSFS_UNSORTED_OBJECTS_LIST && cached_dir.sorted_entries) {
                     const sorted_entries = cached_dir.sorted_entries;
                     let marker_index;
                     // Two ways followed here to find the index.
@@ -789,19 +831,7 @@ class NamespaceFS {
                     // handling a scenario in which key_marker points to an object inside a directory
                     // since there can be entries inside the directory that will need to be pushed
                     // to results array
-                    if (marker_index) {
-                        const prev_dir = sorted_entries[marker_index - 1];
-                        const prev_dir_name = prev_dir.name;
-                        if (marker_curr.startsWith(prev_dir_name) && dir_key !== prev_dir.name) {
-                            if (!delimiter) {
-                                const isDir = await is_directory_or_symlink_to_directory(
-                                    prev_dir, fs_context, path.join(dir_path, prev_dir_name, '/'));
-                                if (isDir) {
-                                    await process_dir(path.join(dir_key, prev_dir_name, '/'));
-                                }
-                            }
-                        }
-                    }
+                    await push_dir_entries(marker_index, sorted_entries);
                     for (let i = marker_index; i < sorted_entries.length; ++i) {
                         const ent = sorted_entries[i];
                         if (list_versions && marker_curr) {
@@ -823,15 +853,13 @@ class NamespaceFS {
                 // for large dirs we cannot keep all entries in memory
                 // so we have to stream the entries one by one while filtering only the needed ones.
                 try {
+                    list_unsorted = true;
                     dbg.warn('NamespaceFS: open dir streaming', dir_path, 'size', cached_dir.stat.size);
                     dir_handle = await nb_native().fs.opendir(fs_context, dir_path); //, { bufferSize: 128 });
-                    for (;;) {
-                        const dir_entry = await dir_handle.read(fs_context);
-                        if (!dir_entry) break;
-                        await process_entry(dir_entry);
-                        // since we dir entries streaming order is not sorted,
-                        // we have to keep scanning all the keys before we can stop.
+                    if (key_marker.marker_pos && BigInt(key_marker.marker_pos) !== BigInt(2147483647)) {
+                        await dir_handle.seekdir(fs_context, BigInt(key_marker.marker_pos));
                     }
+                    await process_unsort_entry();
                     await dir_handle.close(fs_context);
                     dir_handle = null;
                 } finally {
@@ -862,6 +890,7 @@ class NamespaceFS {
                 is_truncated,
                 next_marker: undefined,
                 next_version_id_marker: undefined,
+                marker_pos: ''
             };
             for (const r of results) {
                 let obj_info;
@@ -882,7 +911,20 @@ class NamespaceFS {
                     if (list_versions && _is_version_object(r.key)) {
                         const next_version_id_marker = r.key.substring(r.key.lastIndexOf('/') + 1);
                         res.next_version_id_marker = next_version_id_marker;
-                        res.next_marker = _get_filename(next_version_id_marker);
+                        if (list_unsorted) {
+                            res.next_marker = {
+                                marker: _get_filename(next_version_id_marker),
+                                marker_pos: r.marker_pos ? r.marker_pos.toString() : '',
+                            };
+                        } else {
+                            res.next_marker = _get_filename(next_version_id_marker);
+                        }
+                    }
+                    if (list_unsorted) {
+                        res.next_marker = {
+                            marker: r.key,
+                            marker_pos: r.marker_pos ? r.marker_pos.toString() : '',
+                        };
                     } else {
                         res.next_marker = r.key;
                     }
@@ -893,7 +935,6 @@ class NamespaceFS {
             throw this._translate_object_error_codes(err);
         }
     }
-
     /////////////////
     // OBJECT READ //
     /////////////////
@@ -1149,7 +1190,7 @@ class NamespaceFS {
             //filed to put object
             new NoobaaEvent(NoobaaEvent.OBJECT_UPLOAD_FAILED).create_event(params.key,
                 {bucket_path: this.bucket_path, object_name: params.key}, err);
-            dbg.warn('NamespaceFS: upload_object buffer pool cleanup error', err);
+            dbg.error('NamespaceFS: upload_object buffer pool cleanup error', err);
             throw this._translate_object_error_codes(err);
         } finally {
             try {

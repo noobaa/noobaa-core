@@ -19,24 +19,10 @@ const { PersistentLogger } = require('../../util/persistent_logger');
 const { GlacierBackend } = require('../../sdk/nsfs_glacier_backend/backend');
 const nb_native = require('../../util/nb_native');
 const { handler: s3_get_bucket } = require('../../endpoint/s3/ops/s3_get_bucket');
+const { make_dummy_object_sdk } = require('../system_tests/test_utils');
 
 const inspect = (x, max_arr = 5) => util.inspect(x, { colors: true, depth: null, maxArrayLength: max_arr });
 
-function make_dummy_object_sdk() {
-    return {
-        requesting_account: {
-            force_md5_etag: false,
-            nsfs_account_config: {
-                uid: process.getuid(),
-                gid: process.getgid(),
-            }
-        },
-        abort_controller: new AbortController(),
-        throw_if_aborted() {
-            if (this.abort_controller.signal.aborted) throw new Error('request aborted signal');
-        }
-    };
-}
 function generate_noobaa_req_obj() {
     return {
         query: {},

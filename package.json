@@ -98,7 +98,7 @@
     "mongo-query-to-postgres-jsonb": "0.2.15",
     "mongodb": "3.7.3",
     "morgan": "1.10.0",
-    "nan": "2.15.0",
+    "nan": "2.19.0",
     "ncp": "2.0.0",
     "net-ping": "1.2.3",
     "node-abort-controller": "3.0.1",
@@ -128,7 +128,7 @@
   "devDependencies": {
     "@types/lodash": "4.14.192",
     "@types/mongodb": "3.6.20",
-    "@types/node": "16.11.68",
+    "@types/node": "18.11.18",
     "@types/pg": "8.6.6",
     "@types/request": "2.48.8",
     "eslint": "8.14.0",

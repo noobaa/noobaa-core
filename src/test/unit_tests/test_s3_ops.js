@@ -822,6 +822,66 @@ mocha.describe('s3_ops', function() {
             assert.equal(delete_res.Deleted.length, 1);
         });
 
+        mocha.it('should copy object (with copy source: /bucket/key)', async function() {
+            if (is_azure_mock) this.skip();
+            this.timeout(120000);
+            const key = 'HappyFace';
+            const body = 'hello_world';
+            const copied_key = 'HappyFaceCopy';
+            // 1. put
+            // 2. copy the key (regular)
+            // 3. delete objects (so we can delete the bucket in the "after all" hook)
+            const res_put = await s3.putObject({
+                Bucket: bucket_name,
+                Key: key,
+                Body: body
+            });
+            const res_copy = await s3.copyObject({
+                Bucket: bucket_name,
+                Key: copied_key,
+                CopySource: `/${bucket_name}/${key}`,
+            });
+            await s3.deleteObjects({
+                Bucket: bucket_name,
+                Delete: {
+                    Objects: [{ Key: key }, { Key: copied_key }]
+                }
+            });
+            assert.equal(res_put.$metadata.httpStatusCode, 200);
+            assert.equal(res_copy.$metadata.httpStatusCode, 200);
+        });
+
+        mocha.it('should copy object (with copy source: %2bucket%2key)', async function() {
+            if (is_azure_mock) this.skip();
+            this.timeout(120000);
+            const key = 'HappyFace2';
+            const body = 'hello_world';
+            const copied_key = 'HappyFaceCopy2';
+            // replace the '/' with %2
+            const copy_source_escaped = encodeURIComponent(`/${bucket_name}/${key}`);
+            // 1. put
+            // 2. copy the key (with encoded slash between the bucket and the key)
+            // 3. delete objects (so we can delete the bucket in the "after all" hook)
+            const res_put = await s3.putObject({
+                Bucket: bucket_name,
+                Key: key,
+                Body: body
+            });
+            const res_copy = await s3.copyObject({
+                Bucket: bucket_name,
+                Key: copied_key,
+                CopySource: copy_source_escaped,
+            });
+            await s3.deleteObjects({
+                Bucket: bucket_name,
+                Delete: {
+                    Objects: [{ Key: key }, { Key: copied_key }]
+                }
+            });
+            assert.equal(res_put.$metadata.httpStatusCode, 200);
+            assert.equal(res_copy.$metadata.httpStatusCode, 200);
+        });
+
         mocha.after(async function() {
             this.timeout(100000);
             if (bucket_type === "regular") {

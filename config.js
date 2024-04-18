@@ -829,10 +829,10 @@ config.ALLOW_HTTP = false;
 config.BASE_MODE_CONFIG_FILE = 0o600;
 config.BASE_MODE_CONFIG_DIR = 0o700;
 
-config.NSFS_WHITELIST = [];
+config.S3_SERVER_IP_WHITELIST = [];
 
-config.NSFS_HEALTH_ENDPOINT_RETRY_COUNT = 3;
-config.NSFS_HEALTH_ENDPOINT_RETRY_DELAY = 10;
+config.NC_HEALTH_ENDPOINT_RETRY_COUNT = 3;
+config.NC_HEALTH_ENDPOINT_RETRY_DELAY = 10;
 
 
 /** @type {'file' | 'executable'} */

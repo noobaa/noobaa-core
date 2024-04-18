@@ -36,7 +36,7 @@ describe('schema validation NC NSFS config', () => {
                 NSFS_OPEN_READ_MODE: 'rd',
                 NSFS_CHECK_BUCKET_BOUNDARIES: false,
                 ALLOW_HTTP: true,
-                NSFS_WHITELIST: [
+                S3_SERVER_IP_WHITELIST: [
                     '127.0.0.1',
                     '0000:0000:0000:0000:0000:ffff:7f00:0002',
                     '::ffff:7f00:3'

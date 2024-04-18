@@ -88,12 +88,12 @@ NoobaaEvent.GPFSLIB_MISSING = Object.freeze({
     severity: 'ERROR',
     state: 'DEGRADED',
 });
-NoobaaEvent.NSFS_CRASHED = Object.freeze({
-    event_code: 'noobaa_nsfs_crashed',
+NoobaaEvent.S3_CRASHED = Object.freeze({
+    event_code: 'noobaa_s3_crashed',
     entity_type: 'NODE',
     event_type: 'STATE_CHANGE',
-    message: 'Noobaa NSFS crashed',
-    description: 'Noobaa NSFS crashed',
+    message: 'Noobaa S3 crashed',
+    description: 'Noobaa S3 crashed',
     scope: 'NODE',
     severity: 'ERROR',
     state: 'STOPPED'

@@ -14,7 +14,7 @@ function main() {
     execute "node src/cmd/manage_nsfs account add --name cephalt --new_buckets_path ${FS_ROOT_1} --uid 1000 --gid 1000" nsfs_cephalt.log
     execute "node src/cmd/manage_nsfs account add --name cephtenant --new_buckets_path ${FS_ROOT_2} --uid 2000 --gid 2000" nsfs_cephtenant.log
 
-    # Start nsfs server
+    # Start noobaa service
     execute "node src/cmd/nsfs" nsfs.log
 
     # Wait for sometime to process to start

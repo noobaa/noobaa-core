@@ -12,7 +12,8 @@ COPY ./src/agent ./src/agent
 COPY ./src/api ./src/api
 COPY ./src/cmd ./src/cmd
 COPY ./src/deploy/spectrum_archive ./src/deploy/spectrum_archive
-COPY ./src/deploy/noobaa_nsfs.service ./src/deploy/
+COPY ./src/deploy/noobaa.service ./src/deploy/
+COPY ./src/deploy/noobaa-cli ./src/deploy/
 COPY ./src/deploy/nsfs_env.env ./src/deploy/
 COPY ./src/deploy/NVA_build/clone_submodule.sh ./src/deploy/NVA_build/
 COPY ./src/deploy/NVA_build/clone_s3select_submodules.sh ./src/deploy/NVA_build/

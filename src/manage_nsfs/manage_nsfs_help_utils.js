@@ -8,7 +8,7 @@ Help:
 
     "NSFS" (Namespace FileSystem) is a NooBaa system that runs a local S3 endpoint on top of a filesystem.
     Each subdirectory of the root filesystem represents an S3 bucket.
-    "manage_nsfs" will provide a command line interface (CLI) to create new accounts and map existing directories 
+    "noobaa-cli" will provide a command line interface (CLI) to create new accounts and map existing directories 
     to NooBaa as buckets. For more information refer to the NooBaa docs.
 `;
 
@@ -17,7 +17,7 @@ Usage:
 
     execute with root permission or use sudo before each command
 
-    node src/cmd/manage_nsfs <type> <action> [flags]
+    noobaa-cli <type> <action> [flags]
 `;
 
 const ARGUMENTS = `

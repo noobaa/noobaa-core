@@ -1,6 +1,6 @@
-# Non Containerized NSFS
+# Non Containerized NooBaa
 
-Running nsfs non containerized is useful for deploying in linux without depending on kubernetes, but requires some steps which are described next.
+Running NooBaa non containerized is useful for deploying in linux without depending on kubernetes, but requires some steps which are described next.
 
 
 ## Build
@@ -78,7 +78,7 @@ Install NooBaa RPM by running the following command -
 rpm -i <rpm_file_name>.rpm
 ```
 
-After installing NooBaa RPM, it's expected to have noobaa-core source code under /usr/local/noobaa-core and an nsfs systemd example script under /usr/lib/systemd/system/.
+After installing NooBaa RPM, it's expected to have noobaa-core source code under /usr/local/noobaa-core and an noobaa systemd example script under /usr/lib/systemd/system/.
 
 ## Create config dir redirect file -
 NooBaa will try locate a text file that contains a path to the configuration directory, the user should create the redirect file in the fixed location - /etc/noobaa.conf.d/config_dir_redirect
@@ -87,7 +87,7 @@ NooBaa will try locate a text file that contains a path to the configuration dir
 echo "/path/to/config/dir" > /etc/noobaa.conf.d/config_dir_redirect
 ```
 
-If config_root flag was not provided to the nsfs service and /etc/noobaa.conf.d/config_dir_redirect file does not exist, nsfs service will use /etc/noobaa.conf.d/ as its default config_dir.
+If config_root flag was not provided to the NooBaa service and /etc/noobaa.conf.d/config_dir_redirect file does not exist, NooBaa service will use /etc/noobaa.conf.d/ as its default config_dir.
 
 ## Create configuration files -
 **IMPORTANT NOTE** - It's not mendatory to create the config_root under /etc/noobaa.conf.d/. config_dir path can be set using an CONFIG_JS_NSFS_NC_DEFAULT_CONF_DIR.
@@ -108,8 +108,8 @@ If it's not already existing, create the fs root path in which buckets (director
 mkdir -p /tmp/fs1/
 ```
 
-## Developer customization of the nsfs service (OPTIONAL) -
-One can customize noobaa nsfs service by creation of config.json file under the config_dir/ directory (/path/to/config_dir/config.json).
+## Developer customization of the NooBaa service (OPTIONAL) -
+One can customize NooBaa service by creation of config.json file under the config_dir/ directory (/path/to/config_dir/config.json).
 The following are some of the properties that can be customized -
 1. Number of forks
 2. Log debug level
@@ -118,28 +118,28 @@ The following are some of the properties that can be customized -
 5. GPFS library path
 etc...
 
-For more details about the available properties and an example see - [Non Containerized NSFS Developer Customization](https://github.com/noobaa/noobaa-core/blob/master/docs/dev_guide/NonContainerizedDeveloperCustomizations.md)
+For more details about the available properties and an example see - [Non Containerized NooBaa Developer Customization](https://github.com/noobaa/noobaa-core/blob/master/docs/dev_guide/NonContainerizedDeveloperCustomizations.md)
 
 ## Create accounts and exported buckets configuration files - ##
 
 In order to create accounts and exported buckets see the management CLI instructions - [Bucket and Account Manage CLI](#bucket-and-account-manage-cli) <br />
-Design of Accounts and buckets configuration entities - [NonContainerizedNSFS](https://github.com/noobaa/noobaa-core/blob/master/docs/design/NonContainerizedNSFSDesign.md). <br />
+Design of Accounts and buckets configuration entities - [NonContainerizedNooBaa](https://github.com/noobaa/noobaa-core/blob/master/docs/design/NonContainerizedNooBaaDesign.md). <br />
 **Note** - All required paths on the configuration files (bucket - path, account - new_buckets_path) must be absolute paths.
 
 
-## Run the nsfs service -
+## Run the NooBaa service -
 The systemd script runs noobaa non containerized, and requires config_root in order to find the location of the system/accounts/buckets configuration file.
 Limitation - In a cluster each host should have a unique name.
 ```sh
-systemctl enable noobaa_nsfs.service
-systemctl start noobaa_nsfs.service
+systemctl enable noobaa.service
+systemctl start noobaa.service
 ```
 
-## NSFS service logs -
-Run the following command in order to get the nsfs service logs -
+## NooBaa service logs -
+Run the following command in order to get the NooBaa service logs -
 
 ```sh
-journalctl -u noobaa_nsfs.service
+journalctl -u noobaa.service
 ```
 
 
@@ -222,7 +222,7 @@ Output -
 ```
 
 ## Health script
-NSFS Health status can be fetched using the command line. Run `--help` to get all the available options.
+NooBaa Health status can be fetched using the command line. Run `--help` to get all the available options.
 
 NOTE - health script execution requires root permissions.
 
@@ -233,7 +233,7 @@ NOTE - health script execution requires root permissions.
  output:
  ```
 {
-  "service_name": "nsfs",
+  "service_name": "noobaa",
   "status": "NOTOK",
   "memory": "88.6M",
   "error": {
@@ -243,7 +243,7 @@ NOTE - health script execution requires root permissions.
   "checks": {
     "services": [
       {
-        "name": "nsfs",
+        "name": "noobaa",
         "service_status": "active",
         "pid": "1204",
         "error_type": "PERSISTENT"
@@ -317,13 +317,13 @@ NOTE - health script execution requires root permissions.
 
 `error_message`: Message explaining the issue with the health script.
 
-`service_status`: NSFS systemd status. Check for nsfs/rsyslog service up and running.
+`service_status`: NooBaa systemd status. Check for noobaa/rsyslog service up and running.
 
-`pid`: NSFS/Rsyslog systemd process id.
+`pid`: NooBaa/Rsyslog systemd process id.
 
 `endpoint_response`: Noobaa endpoint web service response code.
 
-`total_fork_count`: Total number of forks in NSFS.
+`total_fork_count`: Total number of forks in NooBaa.
 
 `running_workers`: Running endpoint workers ids in list.
 
@@ -345,25 +345,25 @@ Account without `new_buckets_path` and `allow_bucket_creation` value is `false` 
 
 #### 1. `check_syslog_ng`
 `check_syslog_ng` flag will add syslogng to the health status check. Health final status will depend on the syslogng status.
-Health script will check whether the syslogng service is active or not and its PID is a valid value. Syslogng status will get added along with nsfs and rsyslog.
+Health script will check whether the syslogng service is active or not and its PID is a valid value. Syslogng status will get added along with NooBaa and rsyslog.
 
 ### Health Error Codes
 These are the error codes populated in the health output if the system is facing some issues. If any of these error codes are present in health status then the overall status will be in `NOTOK` state.
-#### 1. `NOOBAA_NSFS_SERVICE_FAILED`
+#### 1. `NOOBAA_SERVICE_FAILED`
 #### Reasons
-- NSFS service is not started properly.
-- Stopped NSFS service is not removed.
+- NooBaa service is not started properly.
+- Stopped NooBaa service is not removed.
 
 #### Resolutions
-- Verify the NSFS service is running by checking the status and logs command.
+- Verify the NooBaa service is running by checking the status and logs command.
 ```
-systemctl status noobaa_nsfs.service
-journalctl -xeu noobaa_nsfs.service
+systemctl status noobaa.service
+journalctl -xeu noobaa.service
 ```
-If the NSFS is not started, start the service
+If the NooBaa service is not started, start the service
 ```
-systemctl enable noobaa_nsfs.service
-systemctl start noobaa_nsfs.service
+systemctl enable noobaa.service
+systemctl start noobaa.service
 ```
 #### 2. `RSYSLOG_SERVICE_FAILED`
 #### Reasons
@@ -382,24 +382,24 @@ systemctl enable rsyslog.service
 systemctl start rsyslog.service
 ```
 
-#### 3. `NSFS_ENDPOINT_FORK_MISSING`
+#### 3. `NOOBAA_ENDPOINT_FORK_MISSING`
 #### Reasons
 - One or more endpoint fork is not started properly.
 - Number of workers running is less than the configured `forks` value.
 
 #### Resolutions
-- Restart the NSFS service and also verify NSFS fork/s is exited with error in logs.
+- Restart the NooBaa service and also verify NooBaa fork/s is exited with error in logs.
 ```
 systemctl status rsyslog.service
 journalctl -xeu rsyslog.service
 ```
 
-#### 4. `NSFS_ENDPOINT_FAILED`
+#### 4. `NOOBAA_ENDPOINT_FAILED`
 #### Reasons
-- NSFS endpoint process is not running and Its not able to respond to any requests.
+- NooBaa endpoint process is not running and Its not able to respond to any requests.
 
 #### Resolutions
-- Restart the NSFS service and verify NSFS process is exited with errors in logs.
+- Restart the NooBaa service and verify NooBaa process is exited with errors in logs.
 ```
 systemctl status rsyslog
 journalctl -xeu rsyslog.service
@@ -437,35 +437,35 @@ Users can create, get status, update, delete, and list buckets and accounts usin
 CLI will never create or delete a bucket directory for the user if a bucket directory is missing CLI will return with error.
 
 NOTES -
-1. manage_nsfs execution requires root permissions.
+1. noobaa cli execution requires root permissions.
 2. While path specifies a GPFS path, it's recommended to add fs_backend=GPFS in order to increase performance by ordering NooBaa to use GPFS library.
 
 Account Commands
 ```
-sudo node src/cmd/manage_nsfs account add --config_root ../standalon/config_root --name noobaa --new_buckets_path ../standalon/nsfs_root/ --fs_backend GPFS 2>/dev/null
+sudo noobaa-cli account add --config_root ../standalon/config_root --name noobaa --new_buckets_path ../standalon/nsfs_root/ --fs_backend GPFS 2>/dev/null
 
-sudo node src/cmd/manage_nsfs account update --config_root ../standalon/config_root --name noobaa --fs_backend GPFS 2>/dev/null
+sudo noobaa-cli account update --config_root ../standalon/config_root --name noobaa --fs_backend GPFS 2>/dev/null
 
-sudo node src/cmd/manage_nsfs account status --config_root ../standalon/config_root --name noobaa 2>/dev/null
+sudo noobaa-cli account status --config_root ../standalon/config_root --name noobaa 2>/dev/null
 
-sudo node src/cmd/manage_nsfs account delete --config_root ../standalon/config_root --name noobaa 2>/dev/null
+sudo noobaa-cli account delete --config_root ../standalon/config_root --name noobaa 2>/dev/null
 
-sudo node src/cmd/manage_nsfs account list --config_root ../standalon/config_root 2>/dev/null
+sudo noobaa-cli account list --config_root ../standalon/config_root 2>/dev/null
 
  ```
 
 Bucket Commands
 Note: before creating a bucket, a user must create an account.
 ```
-sudo node src/cmd/manage_nsfs bucket add --config_root ../standalon/config_root --name bucket1 --owner noobaa --path ../standalon/nsfs_root/1 --fs_backend GPFS 2>/dev/null
+sudo noobaa-cli bucket add --config_root ../standalon/config_root --name bucket1 --owner noobaa --path ../standalon/nsfs_root/1 --fs_backend GPFS 2>/dev/null
 
-sudo node src/cmd/manage_nsfs bucket update --config_root ../standalon/config_root --name bucket1 --owner noobaa --fs_backend GPFS 2>/dev/null
+sudo noobaa-cli bucket update --config_root ../standalon/config_root --name bucket1 --owner noobaa --fs_backend GPFS 2>/dev/null
 
-sudo node src/cmd/manage_nsfs bucket status --config_root ../standalon/config_root --name bucket1 2>/dev/null
+sudo noobaa-cli bucket status --config_root ../standalon/config_root --name bucket1 2>/dev/null
 
-sudo node src/cmd/manage_nsfs bucket delete --config_root ../standalon/config_root --name bucket1 2>/dev/null
+sudo noobaa-cli bucket delete --config_root ../standalon/config_root --name bucket1 2>/dev/null
 
-sudo node src/cmd/manage_nsfs bucket list --config_root ../standalon/config_root 2>/dev/null
+sudo noobaa-cli bucket list --config_root ../standalon/config_root 2>/dev/null
 
 ```
 NSFS management CLI run will create both accounts, access_keys, and buckets directories if they are missing under the config_root directory.
@@ -476,8 +476,8 @@ Using `from_file` flag:
 - General use:
 
 ```bash
-sudo node src/cmd/manage_nsfs account add --config_root ../standalon/config_root --from_file <options_JSON_file_path>
-sudo node src/cmd/manage_nsfs bucket add --config_root ../standalon/config_root --from_file <options_JSON_file_path>
+sudo noobaa-cli account add --config_root ../standalon/config_root --from_file <options_JSON_file_path>
+sudo noobaa-cli bucket add --config_root ../standalon/config_root --from_file <options_JSON_file_path>
 ```
 
 - The options are key-value, where the key is the same as suggested flags, for example:
@@ -494,7 +494,7 @@ sudo node src/cmd/manage_nsfs bucket add --config_root ../standalon/config_root 
 ```
 
 ```bash
-sudo node src/cmd/manage_nsfs account add --config_root ../standalon/config_root --from_file <options_account_JSON_file_path>
+sudo noobaa-cli account add --config_root ../standalon/config_root --from_file <options_account_JSON_file_path>
 ```
 
 (2) Create JSON file for bucket:
@@ -508,7 +508,7 @@ sudo node src/cmd/manage_nsfs account add --config_root ../standalon/config_root
 ```
 
 ```
-sudo node src/cmd/manage_nsfs bucket add --config_root ../standalon/config_root --from_file <options_bucket_JSON_file_path>
+sudo noobaa-cli bucket add --config_root ../standalon/config_root --from_file <options_bucket_JSON_file_path>
 ```
 
 - When using `from_file` flag the details about the account/bucket should be only inside the options JSON file.
@@ -516,22 +516,22 @@ sudo node src/cmd/manage_nsfs bucket add --config_root ../standalon/config_root 
 
 ## NSFS Certificate
 
-Non containerized NSFS certificates/ directory location will be under the config_root path. <br />
+Non containerized NooBaa certificates/ directory location will be under the config_root path. <br />
 The certificates/ directory should contain SSL files tls.key and tls.crt. <br />
-System will use a cert from this dir to create a valid HTTPS connection. If cert is missing in this dir a self-signed SSL certificate will be generated. Make sure the path to certificates/ directory is valid before running nsfs command, If the path is invalid then cert flow will fail.
+System will use a cert from this dir to create a valid HTTPS connection. If cert is missing in this dir a self-signed SSL certificate will be generated. Make sure the path to certificates/ directory is valid before running the service, If the path is invalid then cert flow will fail.
 
-Non containerized NSFS restrict insecure HTTP connections when `ALLOW_HTTP` is set to false in cofig.json. This is the default behaviour.
+Non containerized NooBaa restrict insecure HTTP connections when `ALLOW_HTTP` is set to false in cofig.json. This is the default behaviour.
 
-### Setting Up Self signed SSL/TLS Certificates for Secure Communication Between S3 Client and NooBaa NSFS Service -
+### Setting Up Self signed SSL/TLS Certificates for Secure Communication Between S3 Client and NooBaa Service -
 
 #### 1. Creating a SAN (Subject Alternative Name) Config File -
 **Important**: This step is needed only if S3 Client and NooBaa Service Running on different nodes.
 
-To accommodate S3 requests originating from a different node than the one running the NooBaa NSFS service, it is recommended to create a Subject Alternative Name (SAN) configuration file. <br />
+To accommodate S3 requests originating from a different node than the one running the NooBaa service, it is recommended to create a Subject Alternative Name (SAN) configuration file. <br />
 This file specifies the domain names or IP addresses that will be included in the SSL certificate.<br />
 The Common Name (CN) sets the primary domain for the certificate, and additional domains or IPs can be listed under subjectAltName.<br />
 
-Ensure to replace placeholders such as nsfs-domain-name-example.com and <nsfs-server-ip> with your actual domain and IP address.
+Ensure to replace placeholders such as noobaa-domain-name-example.com and <noobaa-server-ip> with your actual domain and IP address.
 
 Example SAN Config File (san.cnf):
 ```
@@ -550,9 +550,9 @@ CN = localhost
 
 # Example:
 # 'DNS:localhost' makes the certificate valid when accessing S3 storage via 'localhost'.
-# 'DNS:nsfs-domain-name-example.com' adds a specific domain to the certificate. Replace 'nsfs-domain-name-example.com' with your actual domain.
-# 'IP:<nsfs-server-ip>' includes an IP address. Replace '<nsfs-server-ip>' with the actual IP address of your S3 server.
-subjectAltName = DNS:localhost,DNS:nsfs-domain-name-example.com,IP:<nsfs-server-ip>
+# 'DNS:noobaa-domain-name-example.com' adds a specific domain to the certificate. Replace 'noobaa-domain-name-example.com' with your actual domain.
+# 'IP:<noobaa-server-ip>' includes an IP address. Replace '<noobaa-server-ip>' with the actual IP address of your S3 server.
+subjectAltName = DNS:localhost,DNS:noobaa-domain-name-example.com,IP:<noobaa-server-ip>
 ```
 
 
@@ -578,14 +578,14 @@ Note - The default config_dir is /etc/noobaa.conf.d/.
 
 ```bash
 sudo mv tls.key {config_dir_path}/certificates/
-sudo mv tls.csr {config_dir_path}/certificates/
+sudo mv tls.crt {config_dir_path}/certificates/
 ```
-#### 4. Restart the NooBaa NSFS service -
+#### 4. Restart the NooBaa service -
 ```bash
-sudo systemctl restart noobaa_nsfs
+sudo systemctl restart noobaa
 ```
 #### 5. Create S3 CLI alias while including tls.crt at the s3 commands via AWS_CA_BUNDLE=/path/to/tls.crt -
-* Make sure to replace credentials placeholders with their respective values, and the <endpoint> placeholder either with `localhost` or the domain name or IP of the node which is running the NSFS service.
+* Make sure to replace credentials placeholders with their respective values, and the <endpoint> placeholder either with `localhost` or the domain name or IP of the node which is running the NooBaa service.
 ```bash
 alias s3_ssl='AWS_CA_BUNDLE=/path/to/tls.crt AWS_ACCESS_KEY_ID=add_your_access_key AWS_SECRET_ACCESS_KEY=add_your_secret_key aws --endpoint https://<endpoint>:6443 s3'
 ```
@@ -597,8 +597,8 @@ s3_ssl ls
 
 ## Monitoring
 
-Prometheus metrics port can be passed through the argument `--metrics_port` while executing the nsfs command.
-NSFS state and output metrics can be fetched from URL `http:{host}:{metrics_port}/metrics/nsfs_stats`.
+Prometheus metrics port can be passed through the argument `--metrics_port` while executing the noobaa command.
+NooBaa state and output metrics can be fetched from URL `http:{host}:{metrics_port}/metrics/nsfs_stats`.
 
 ## Log and Logrotate
 Noobaa logs are configured using rsyslog and logrotate. RPM will configure rsyslog and logrotate if both are already running.
@@ -620,17 +620,17 @@ logrotate /etc/logrotate.d/noobaa/logrotate_noobaa.conf
 
 **Create env file under the configuration directory (OPTIONAL) -**
 
-In order to apply env variables changes on the service, edit /etc/sysconfig/noobaa_nsfs env file as you wish before starting the service, notice that the env file format is key-value pair -
+In order to apply env variables changes on the service, edit /etc/sysconfig/noobaa env file as you wish before starting the service, notice that the env file format is key-value pair -
 
 ```sh
-vim  /etc/sysconfig/noobaa_nsfs
+vim  /etc/sysconfig/noobaa
 ```
-**Note** - If another /usr/local/noobaa-core/.env exists it should be merged into /etc/sysconfig/noobaa_nsfs carefully.
+**Note** - If another /usr/local/noobaa-core/.env exists it should be merged into /etc/sysconfig/noobaa carefully.
 
-In order to apply env changes after the service was started, edit the /etc/sysconfig/noobaa_nsfs env file and restart the service -
+In order to apply env changes after the service was started, edit the /etc/sysconfig/noobaa env file and restart the service -
 ```sh
-vim  /etc/sysconfig/noobaa_nsfs
-systemctl restart noobaa_nsfs
+vim  /etc/sysconfig/noobaa
+systemctl restart noobaa
 ```
 
 ## WhiteList IPs
@@ -638,5 +638,5 @@ systemctl restart noobaa_nsfs
 Access is restricted to these whitelist IPs. If there are no IPs mentioned all IPs are allowed. WhiteList IPs are added to cnfig.json.
 
 ```
-node src/cmd/manage_nsfs whitelist --ips '["127.0.0.1", "192.000.10.000", "3002:0bd6:0000:0000:0000:ee00:0033:000"]'  2>/dev/null
+sudo noobaa-cli whitelist --ips '["127.0.0.1", "192.000.10.000", "3002:0bd6:0000:0000:0000:ee00:0033:000"]'  2>/dev/null
 ```

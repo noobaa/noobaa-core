@@ -13,14 +13,12 @@ const mocha = require('mocha');
 const assert = require('assert');
 const config = require('../../../config');
 const fs_utils = require('../../util/fs_utils');
-const { stat } = require('../../util/nb_native')().fs;
+const { stat, open } = require('../../util/nb_native')().fs;
 const { get_process_fs_context } = require('../../util/native_fs_utils');
 const ManageCLIError = require('../../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
 const { TMP_PATH, get_coretest_path, invalid_nsfs_root_permissions,
     generate_s3_policy, create_fs_user_by_platform, delete_fs_user_by_platform } = require('../system_tests/test_utils');
 
-// const { Upload } = require('@aws-sdk/lib-storage'); // GAP upload is still using AWS SDK V2
-const AWS = require('aws-sdk'); // GAP upload is still using AWS SDK V2
 const { S3 } = require('@aws-sdk/client-s3');
 const { NodeHttpHandler } = require("@smithy/node-http-handler");
 
@@ -38,6 +36,9 @@ const new_account_params = {
 };
 
 const first_bucket = 'first.bucket';
+
+const encoded_xattr = 'unconfined_u%3Aobject_r%3Auser_home_t%3As0%00';
+const decoded_xattr = 'unconfined_u:object_r:user_home_t:s0\x00';
 
 // currently will pass only when running locally
 mocha.describe('bucket operations - namespace_fs', function() {
@@ -58,8 +59,6 @@ mocha.describe('bucket operations - namespace_fs', function() {
     let account_correct_uid;
     let s3_owner;
     let s3_wrong_uid;
-    let s3_wrong_uid_aws_sdk_v2_temp; // GAP upload is still using AWS SDK V2
-    let s3_wrong_id_endpoint_address; // GAP upload is still using AWS SDK V2
     let s3_correct_uid;
     let s3_correct_uid_default_nsr;
     let account_no_perm_dn;
@@ -194,8 +193,7 @@ mocha.describe('bucket operations - namespace_fs', function() {
             accessKeyId: account_wrong_uid.access_keys[0].access_key.unwrap(),
             secretAccessKey: account_wrong_uid.access_keys[0].secret_key.unwrap(),
         };
-        s3_wrong_id_endpoint_address = coretest.get_http_address();
-        s3_creds.endpoint = s3_wrong_id_endpoint_address;
+        s3_creds.endpoint = coretest.get_http_address();
         s3_wrong_uid = new S3(s3_creds);
     });
     mocha.it('list buckets with wrong uid, gid', async function() {
@@ -500,43 +498,90 @@ mocha.describe('bucket operations - namespace_fs', function() {
             assert.strictEqual(err.Code, 'AccessDenied');
         }
     });
-    // GAP upload is still using AWS SDK V2
-    mocha.it('upload object with wrong uid gid', async function() {
-        const s3_creds_aws_sdk_v2 = {
-            s3ForcePathStyle: true,
-            signatureVersion: 'v4',
-            computeChecksums: true,
-            s3DisableBodySigning: false,
-            region: 'us-east-1',
-            httpOptions: { agent: new http.Agent({ keepAlive: false }) },
-        };
-        s3_creds_aws_sdk_v2.accessKeyId = account_wrong_uid.access_keys[0].access_key.unwrap();
-        s3_creds_aws_sdk_v2.secretAccessKey = account_wrong_uid.access_keys[0].secret_key.unwrap();
-        s3_creds_aws_sdk_v2.endpoint = s3_wrong_id_endpoint_address;
-        s3_wrong_uid_aws_sdk_v2_temp = new AWS.S3(s3_creds_aws_sdk_v2);
 
+    mocha.it('put object object with wrong uid gid', async function() {
+        const { access_key, secret_key } = account_wrong_uid.access_keys[0];
+        const s3_client_wrong_uid = generate_s3_client(access_key.unwrap(), secret_key.unwrap());
+        const bucket = bucket_name + '-s3';
+        const key = 'ob1.txt';
+        const body = 'AAAABBBBBCCCCCCDDDDD';
         try {
-            const res = await s3_wrong_uid_aws_sdk_v2_temp.upload({ Bucket: bucket_name + '-s3', Key: 'ob1.txt', Body: 'AAAABBBBBCCCCCCDDDDD' }).promise();
+            const res = await s3_client_wrong_uid.putObject({ Bucket: bucket, Key: key, Body: body });
             console.log(inspect(res));
             assert.fail('unpreviliged account could upload object on nsfs bucket');
         } catch (err) {
-            assert.strictEqual(err.code, 'AccessDenied');
+            assert.strictEqual(err.Code, 'AccessDenied');
         }
     });
+
+    mocha.it('putObject/head object - xattr invalid URI', async function() {
+        const { access_key, secret_key } = account_correct_uid.access_keys[0];
+        const s3_client = generate_s3_client(access_key.unwrap(), secret_key.unwrap());
+        const bucket = bucket_name + '-s3';
+        const key = 'obj_dot_xattr.txt';
+        const body = 'AAAABBBBBCCCCCCDDDDD';
+        const xattr = { 'key1.2.3': encoded_xattr };
+        const policy = generate_s3_policy('*', bucket, ['s3:*']);
+        await rpc_client.bucket.put_bucket_policy({ name: bucket, policy: policy.policy });
+
+        await s3_client.putObject({ Bucket: bucket, Key: key, Body: body, Metadata: xattr });
+        const head_res = await s3_client.headObject({ Bucket: bucket, Key: key });
+
+        assert.deepStrictEqual(head_res.Metadata, xattr);
+        await s3_client.deleteObject({ Bucket: bucket, Key: key });
+    });
+
+    mocha.it('PUT file directly to FS/head object - xattr decoded invalid URI', async function() {
+        //const s3_creds_aws_sdk_v2 = get_aws_sdk_v2_base_params(account_correct_uid, s3_endpoint_address);
+        //const s3 = new AWS.S3(s3_creds_aws_sdk_v2);
+        const { access_key, secret_key } = account_correct_uid.access_keys[0];
+        const s3_client = generate_s3_client(access_key.unwrap(), secret_key.unwrap());
+        const key = 'fs_obj_dot_xattr.txt';
+        const bucket = bucket_name + '-s3';
+        const PATH = path.join(s3_new_buckets_path, bucket, key);
+
+        const tmpfile = await open(DEFAULT_FS_CONFIG, PATH, 'w');
+        const fs_xattr = { 'user.key1.2.3': decoded_xattr };
+        const s3_xattr = { 'key1.2.3': encoded_xattr };
+        await tmpfile.replacexattr(DEFAULT_FS_CONFIG, fs_xattr);
+        const xattr_res = (await tmpfile.stat(DEFAULT_FS_CONFIG)).xattr;
+        await tmpfile.close(DEFAULT_FS_CONFIG);
+
+        const head_res = await s3_client.headObject({ Bucket: bucket, Key: key });
+        assert.deepStrictEqual(head_res.Metadata, s3_xattr);
+        assert.deepStrictEqual(fs_xattr, xattr_res);
+        await s3_client.deleteObject({ Bucket: bucket, Key: key });
+    });
+
+    mocha.it('PUT file directly to FS/head object - xattr encoded invalid URI', async function() {
+        const { access_key, secret_key } = account_correct_uid.access_keys[0];
+        const s3_client = generate_s3_client(access_key.unwrap(), secret_key.unwrap());
+        //get_s3_v2_client(account_correct_uid, s3_endpoint_address);
+        const key = 'fs_obj_dot_xattr.txt';
+        const bucket = bucket_name + '-s3';
+        const PATH = path.join(s3_new_buckets_path, bucket, key);
+
+        const tmpfile = await open(DEFAULT_FS_CONFIG, PATH, 'w');
+        const fs_xattr = { 'user.key1.2.3': encoded_xattr };
+        const s3_xattr = { 'key1.2.3': encoded_xattr };
+        await tmpfile.replacexattr(DEFAULT_FS_CONFIG, fs_xattr);
+        const xattr_res = (await tmpfile.stat(DEFAULT_FS_CONFIG)).xattr;
+        await tmpfile.close(DEFAULT_FS_CONFIG);
+
+        const head_res = await s3_client.headObject({ Bucket: bucket, Key: key });
+        assert.deepStrictEqual(head_res.Metadata, s3_xattr);
+        assert.deepStrictEqual(fs_xattr, xattr_res);
+        await s3_client.deleteObject({ Bucket: bucket, Key: key });
+    });
+
     mocha.it('list parts with wrong uid gid', async function() {
         // eslint-disable-next-line no-invalid-this
         this.timeout(600000);
         // Give s3_correct_uid access to the required buckets
         const generated = await generate_s3_policy('*', bucket_name, ['s3:*']);
-        await rpc_client.bucket.put_bucket_policy({
-                name: bucket_name,
-                policy: generated.policy,
-        });
+        await rpc_client.bucket.put_bucket_policy({ name: bucket_name, policy: generated.policy });
 
-        const res1 = await s3_correct_uid.createMultipartUpload({
-            Bucket: bucket_name,
-            Key: 'ob1.txt'
-        });
+        const res1 = await s3_correct_uid.createMultipartUpload({ Bucket: bucket_name, Key: 'ob1.txt' });
         await s3_correct_uid.uploadPart({
             Bucket: bucket_name,
             Key: 'ob1.txt',
@@ -555,19 +600,13 @@ mocha.describe('bucket operations - namespace_fs', function() {
     });
     mocha.it('put object with correct uid gid', async function() {
         // Give s3_correct_uid access to the required buckets
-        await Promise.all(
-            [bucket_name + '-s3']
-            .map(bucket => generate_s3_policy('*', bucket, ['s3:*']))
-            .map(generated =>
-                rpc_client.bucket.put_bucket_policy({
-                    name: generated.params.bucket,
-                    policy: generated.policy,
-                })
-            )
-        );
+        const bucket = bucket_name + '-s3';
+        const policy = generate_s3_policy('*', bucket, ['s3:*']);
+        await rpc_client.bucket.put_bucket_policy({ name: bucket, policy: policy.policy });
         const res = await s3_correct_uid.putObject({ Bucket: bucket_name + '-s3', Key: 'ob1.txt', Body: 'AAAABBBBBCCCCCCDDDDD' });
         assert.ok(res && res.ETag);
     });
+
     mocha.it('delete bucket without uid, gid - bucket is not empty', async function() {
         // account without uid and gid not supported in NC
         if (process.env.NC_CORETEST) this.skip(); // eslint-disable-line no-invalid-this

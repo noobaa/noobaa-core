@@ -57,18 +57,14 @@ function format_s3_xml_date(input) {
 }
 
 const X_AMZ_META = 'x-amz-meta-';
-const HTTP_NB_DOT_CHAR = '__dot__';
 
 function get_request_xattr(req) {
     const xattr = {};
     _.each(req.headers, (val, hdr) => {
         if (!hdr.startsWith(X_AMZ_META)) return;
-        let key = hdr.slice(X_AMZ_META.length);
+        const key = hdr.slice(X_AMZ_META.length);
         if (!key) return;
-
-        // we encode unacceptable characters in the header name, reverting that here
-        key = key.replaceAll(HTTP_NB_DOT_CHAR, '.');
-        xattr[key] = val;
+        xattr[key] = decodeURIComponent(val);
     });
     return xattr;
 }
@@ -85,22 +81,23 @@ function set_response_xattr(res, xattr) {
         keys.sort();
     }
     let returned_keys = 0;
-    for (let key of keys) {
-        // replace characters not allowed by RFC 7230 Section 3.2 with custom strings
-        key = key.replaceAll('.', HTTP_NB_DOT_CHAR);
+    for (const key of keys) {
+        // when xattr is set directly on the object (NSFS for example) and it's already encoded
+        // we should not encode it again 
+        const val = encode_uri_unless_already_encoded(xattr[key]);
 
         const md_header_size =
             X_AMZ_META.length +
             4 + // for ': ' and '\r\n'
             Buffer.byteLength(key, 'utf8') +
-            Buffer.byteLength(xattr[key], 'utf8');
+            Buffer.byteLength(val, 'utf8');
         if (md_header_size > size_for_md_left) {
             res.setHeader('x-amz-missing-meta', keys.length - returned_keys);
             break;
         }
         returned_keys += 1;
         size_for_md_left -= md_header_size;
-        res.setHeader(X_AMZ_META + key, xattr[key]);
+        res.setHeader(X_AMZ_META + key, val);
     }
 }
 
@@ -614,6 +611,24 @@ function parse_decimal_int(str) {
     if (parsed !== Number(str)) throw new Error(`invalid decimal int ${str}`);
 
     return parsed;
+}
+
+/**
+ * encode_uri_unless_already_encoded encodes a string uri if it's not already encoded
+ * @param {string} uri
+ * @returns {string}
+ */
+function encode_uri_unless_already_encoded(uri = '') {
+    return is_uri_already_encoded(uri) ? uri : encodeURIComponent(uri);
+}
+
+/**
+ * is_uri_already_encoded returns true if string uri is URIEncoded
+ * @param {string} uri
+ * @returns {boolean}
+ */
+function is_uri_already_encoded(uri = '') {
+    return uri !== decodeURIComponent(uri);
 }
 
 exports.STORAGE_CLASS_STANDARD = STORAGE_CLASS_STANDARD;

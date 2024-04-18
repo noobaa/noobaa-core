@@ -1,6 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
+/*eslint max-lines-per-function: ["error", 1200]*/
+/*eslint max-statements: ["error", 90]*/
 'use strict';
-/* eslint-disable max-lines-per-function */
 
 const _ = require('lodash');
 const path = require('path');
@@ -41,10 +42,12 @@ mocha.describe('manage_nsfs cli', function() {
     mocha.describe('cli bucket flow ', async function() {
         const type = TYPES.BUCKET;
         const account_name = 'user1';
+        const account_name2 = 'user2';
         const name = 'bucket1';
         const bucket_on_gpfs = 'bucketgpfs1';
         const owner = account_name; // in a different variable for readability
         const bucket_path = `${root_path}${name}/`;
+        const bucket_on_gpfs_path = `${root_path}${bucket_on_gpfs}/`;
         const bucket_with_policy = 'bucket-with-policy';
         const bucket_policy = generate_s3_policy('*', bucket_with_policy, ['s3:*']).policy;
         const bucket1_policy = generate_s3_policy('*', name, ['s3:*']).policy;
@@ -53,8 +56,25 @@ mocha.describe('manage_nsfs cli', function() {
         let add_res;
 
         let bucket_options = { config_root, name, owner, path: bucket_path };
-        const gpfs_bucket_options = { config_root, name: bucket_on_gpfs, owner, path: bucket_path, fs_backend: 'GPFS' };
+        const gpfs_bucket_options = { config_root, name: bucket_on_gpfs, owner, path: bucket_on_gpfs_path, fs_backend: 'GPFS' };
         const bucket_with_policy_options = { ...bucket_options, bucket_policy: bucket_policy, name: bucket_with_policy };
+
+        const new_buckets_path1 = `${root_path}new_buckets_path_user1111/`;
+        const new_buckets_path2 = `${root_path}new_buckets_path_user2222/`;
+        const account_options1 = {
+            config_root: config_root,
+            name: account_name,
+            new_buckets_path: new_buckets_path1,
+            uid: 1111,
+            gid: 1111,
+        };
+        const account_options2 = {
+            config_root: config_root,
+            name: account_name2,
+            new_buckets_path: new_buckets_path2,
+            uid: 2222,
+            gid: 2222,
+        };
 
         mocha.before(async () => {
             await P.all(_.map([CONFIG_SUBDIRS.ACCOUNTS, CONFIG_SUBDIRS.BUCKETS, CONFIG_SUBDIRS.ACCESS_KEYS], async dir =>
@@ -79,38 +99,17 @@ mocha.describe('manage_nsfs cli', function() {
         });
 
         mocha.it('cli create account for bucket (bucket create requirement to have a bucket owner)', async function() {
-            const account_name2 = 'user2';
-            const new_buckets_path1 = `${root_path}new_buckets_path_user1111/`;
-            const new_buckets_path2 = `${root_path}new_buckets_path_user2222/`;
-            const uid1 = 1111;
-            const uid2 = 2222;
-            const gid1 = 1111;
-            const gid2 = 2222;
 
             const action = ACTIONS.ADD;
-            // create account 'user1' 'user1@noobaa.io'
-            const account_options1 = {
-                config_root: config_root,
-                name: account_name,
-                new_buckets_path: new_buckets_path1,
-                uid: uid1,
-                gid: gid1,
-            };
+            // create account 'user1'
             await fs_utils.create_fresh_path(new_buckets_path1);
             await fs_utils.file_must_exist(new_buckets_path1);
-            await set_path_permissions_and_owner(new_buckets_path1, { uid: uid1, gid: gid1 }, 0o700);
+            await set_path_permissions_and_owner(new_buckets_path1, { uid: account_options1.uid, gid: account_options1.gid }, 0o700);
             await exec_manage_cli(TYPES.ACCOUNT, action, account_options1);
-            // create account 'user2' 'user2@noobaa.io'
-            const account_options2 = {
-                config_root: config_root,
-                name: account_name2,
-                new_buckets_path: new_buckets_path2,
-                uid: uid2,
-                gid: gid2,
-            };
+            // create account 'user2'
             await fs_utils.create_fresh_path(new_buckets_path2);
             await fs_utils.file_must_exist(new_buckets_path2);
-            await set_path_permissions_and_owner(new_buckets_path2, { uid: uid2, gid: gid2 }, 0o700);
+            await set_path_permissions_and_owner(new_buckets_path2, { uid: account_options2.uid, gid: account_options2.gid }, 0o700);
             await exec_manage_cli(TYPES.ACCOUNT, action, account_options2);
         });
 
@@ -122,7 +121,6 @@ mocha.describe('manage_nsfs cli', function() {
             const action = ACTIONS.ADD;
             // create account 'user3'
             // without new_buckets_path property 
-            // (currently this is the way to set allow_bucket_creation with false value)
             const account_options = {
                 config_root: config_root,
                 name: account_name_for_account_cannot_create_bucket,
@@ -138,6 +136,9 @@ mocha.describe('manage_nsfs cli', function() {
                      owner: account_name_for_account_cannot_create_bucket,
                      path: bucket_path
                 };
+                await fs_utils.create_fresh_path(bucket_path);
+                await fs_utils.file_must_exist(bucket_path);
+                await set_path_permissions_and_owner(bucket_path, account_options, 0o700);
                 await exec_manage_cli(type, action, { ...bucket_options_with_owner_of_account_cannot_create_bucket });
                 assert.fail('should have failed with not allowed to create new buckets');
             } catch (err) {
@@ -150,6 +151,14 @@ mocha.describe('manage_nsfs cli', function() {
             try {
                 await fs_utils.create_fresh_path(bucket_path);
                 await fs_utils.file_must_exist(bucket_path);
+                const account = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, account_name);
+                const account_options = {
+                    gid: account.nsfs_account_config.gid,
+                    uid: account.nsfs_account_config.uid,
+                    user: account.nsfs_account_config.distinguished_name,
+                    new_buckets_path: account.nsfs_account_config.mew_buckets_path,
+                };
+                await set_path_permissions_and_owner(bucket_path, account_options, 0o700);
                 await exec_manage_cli(type, action, { ...bucket_options, bucket_policy: invalid_bucket_policy });
                 assert.fail('should have failed with invalid bucket policy');
             } catch (err) {
@@ -338,7 +347,15 @@ mocha.describe('manage_nsfs cli', function() {
 
         mocha.it('cli bucket update owner', async function() {
             const action = ACTIONS.UPDATE;
-            const update_options = { config_root, owner: 'user2', name };
+            const account = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, account_name2);
+            const account_options = {
+                gid: account.nsfs_account_config.gid,
+                uid: account.nsfs_account_config.uid,
+                user: account.nsfs_account_config.distinguished_name,
+                new_buckets_path: account.nsfs_account_config.mew_buckets_path,
+            };
+            await set_path_permissions_and_owner(bucket_path, account_options, 0o700);
+            const update_options = { config_root, name, owner: account_name2};
             const update_res = await exec_manage_cli(type, action, update_options);
             bucket_options = { ...bucket_options, ...update_options };
             const bucket = await read_config_file(config_root, CONFIG_SUBDIRS.BUCKETS, name);
@@ -427,6 +444,9 @@ mocha.describe('manage_nsfs cli', function() {
 
         mocha.it('cli bucket create on GPFS', async function() {
             const action = ACTIONS.ADD;
+            await fs_utils.create_fresh_path(bucket_on_gpfs_path);
+            await fs_utils.file_must_exist(bucket_on_gpfs_path);
+            await set_path_permissions_and_owner(bucket_on_gpfs_path, account_options1, 0o700);
             const bucket_status = await exec_manage_cli(type, action, gpfs_bucket_options);
             assert_response(action, type, bucket_status, gpfs_bucket_options);
             const bucket = await read_config_file(config_root, CONFIG_SUBDIRS.BUCKETS, gpfs_bucket_options.name);
@@ -434,9 +454,12 @@ mocha.describe('manage_nsfs cli', function() {
             await assert_config_file_permissions(config_root, CONFIG_SUBDIRS.BUCKETS, gpfs_bucket_options.name);
         });
 
-        mocha.it('cli bucket update owner', async function() {
+        mocha.it('cli bucket update owner on GPFS', async function() {
             const action = ACTIONS.UPDATE;
-            gpfs_bucket_options.owner = 'user2';
+            await fs_utils.create_fresh_path(bucket_on_gpfs_path);
+            await fs_utils.file_must_exist(bucket_on_gpfs_path);
+            gpfs_bucket_options.owner = account_name2;
+            await set_path_permissions_and_owner(bucket_on_gpfs_path, account_options2, 0o700);
             const bucket_status = await exec_manage_cli(type, action, gpfs_bucket_options);
             assert_response(action, type, bucket_status, gpfs_bucket_options);
             const bucket = await read_config_file(config_root, CONFIG_SUBDIRS.BUCKETS, gpfs_bucket_options.name);

@@ -366,6 +366,11 @@ ManageCLIError.MalformedPolicy = Object.freeze({
     http_code: 400,
 });
 
+ManageCLIError.InaccessibleStoragePath = Object.freeze({
+    code: 'InaccessibleStoragePath',
+    message: 'Bucket owner should have read & write access to the specified bucket storage path',
+    http_code: 400,
+});
 
 ManageCLIError.BucketNotEmpty = Object.freeze({
     code: 'BucketNotEmpty',

@@ -196,3 +196,8 @@ func(gf_vect_mad_avx2)
 	ret
 
 endproc_frame
+
+section .data
+
+;;;       func             core, ver, snum
+slversion gf_vect_mad_avx2, 04,  01,  0202

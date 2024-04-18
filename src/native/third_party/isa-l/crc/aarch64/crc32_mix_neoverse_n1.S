@@ -62,12 +62,9 @@
 	CRC		.req	x0
 	wCRC		.req	w0
 	.align		6
-	.global		cdecl(crc32_mix_neoverse_n1)
-#ifndef __APPLE__
+	.global		crc32_mix_neoverse_n1
 	.type		crc32_mix_neoverse_n1, %function
-#endif
-cdecl(crc32_mix_neoverse_n1):
+crc32_mix_neoverse_n1:
 	crc32_common_mix	crc32
-#ifndef __APPLE__
 	.size		crc32_mix_neoverse_n1, .-crc32_mix_neoverse_n1
-#endif
+

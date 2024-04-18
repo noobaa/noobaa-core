@@ -5,7 +5,6 @@
 #include <getopt.h>
 #include "igzip_lib.h"
 #include "test.h"
-#include "huff_codes.h"
 
 #define DICT_LEN 32*1024
 
@@ -27,7 +26,6 @@ int main(int argc, char *argv[])
 	uint32_t dict_len = DICT_LEN;
 
 	stream.level = 0;
-	stream.internal_state.hash_mask = LVL0_HASH_MASK;
 	create_rand_data(dict, dict_len);
 
 	struct perf start;

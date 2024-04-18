@@ -32,7 +32,7 @@
 #include<string.h>
 #include<stdlib.h>
 #include "raid.h"
-#include "test.h"
+#include "types.h"
 
 #define TEST_SOURCES 16
 #define TEST_LEN     1024
@@ -53,8 +53,8 @@ void rand_buffer(unsigned char *buf, long buffer_size)
 int main(int argc, char *argv[])
 {
 	int i, j, k, ret, fail = 0;
-	void *buffs[TEST_SOURCES + 1] = { NULL };
-	char *tmp_buf[TEST_SOURCES + 1] = { NULL };
+	void *buffs[TEST_SOURCES + 1];
+	char *tmp_buf[TEST_SOURCES + 1];
 
 	printf("Test xor_gen_test ");
 
@@ -66,8 +66,7 @@ int main(int argc, char *argv[])
 		ret = posix_memalign(&buf, 32, TEST_LEN);
 		if (ret) {
 			printf("alloc error: Fail");
-			fail = 1;
-			goto exit;
+			return 1;
 		}
 		buffs[i] = buf;
 	}
@@ -85,11 +84,9 @@ int main(int argc, char *argv[])
 
 	if (fail > 0) {
 		printf("fail zero test");
-		goto exit;
-	}
-#ifdef TEST_VERBOSE
-	putchar('.');
-#endif
+		return 1;
+	} else
+		putchar('.');
 
 	// Test rand1
 	for (i = 0; i < TEST_SOURCES + 1; i++)
@@ -101,11 +98,9 @@ int main(int argc, char *argv[])
 
 	if (fail > 0) {
 		printf("fail rand test %d\n", fail);
-		goto exit;
-	}
-#ifdef TEST_VERBOSE
-	putchar('.');
-#endif
+		return 1;
+	} else
+		putchar('.');
 
 	// Test various number of sources
 	for (j = 3; j <= TEST_SOURCES + 1; j++) {
@@ -117,11 +112,9 @@ int main(int argc, char *argv[])
 
 		if (fail > 0) {
 			printf("fail rand test %d sources\n", j);
-			goto exit;
-		}
-#ifdef TEST_VERBOSE
-		putchar('.');
-#endif
+			return 1;
+		} else
+			putchar('.');
 	}
 
 	fflush(0);
@@ -139,12 +132,10 @@ int main(int argc, char *argv[])
 			if (fail > 0) {
 				printf("fail rand test %d sources, len=%d, ret=%d\n", j, k,
 				       fail);
-				goto exit;
+				return 1;
 			}
 		}
-#ifdef TEST_VERBOSE
 		putchar('.');
-#endif
 		k += 1;
 	}
 
@@ -160,20 +151,15 @@ int main(int argc, char *argv[])
 
 		if (fail > 0) {
 			printf("fail end test - offset: %d, len: %d\n", i, TEST_LEN - i);
-			goto exit;
+			return 1;
 		}
-#ifdef TEST_VERBOSE
+
 		putchar('.');
-#endif
 		fflush(0);
 	}
 
 	if (!fail)
 		printf(" done: Pass\n");
-
-      exit:
-	for (i = 0; i < TEST_SOURCES + 1; i++)
-		aligned_free(buffs[i]);
 
 	return fail;
 }

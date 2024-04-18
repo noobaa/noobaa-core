@@ -33,14 +33,12 @@
 	.arch armv8-a+crypto
 	.text
 	.align	3
-	.global	cdecl(\name)
-#ifndef __APPLE__
+	.global	\name
 	.type	\name, %function
-#endif
 
 /* uint64_t crc64_refl_func(uint64_t seed, const uint8_t * buf, uint64_t len) */
 
-cdecl(\name\()):
+\name\():
 	mvn	x_seed, x_seed
 	mov	x_counter, 0
 	cmp	x_len, (FOLD_SIZE-1)
@@ -50,17 +48,10 @@ cdecl(\name\()):
 	cmp	x_len, x_counter
 	bls	.done
 
-#ifndef __APPLE__
 	adrp	x_tmp, .lanchor_crc_tab
 	add	x_buf_iter, x_buf, x_counter
 	add	x_buf, x_buf, x_len
 	add	x_crc_tab_addr, x_tmp, :lo12:.lanchor_crc_tab
-#else
-	adrp	x_tmp, .lanchor_crc_tab@PAGE
-	add	x_buf_iter, x_buf, x_counter
-	add	x_buf, x_buf, x_len
-	add	x_crc_tab_addr, x_tmp, .lanchor_crc_tab@PAGEOFF
-#endif
 
 	.align 3
 .loop_crc_tab:
@@ -125,12 +116,11 @@ cdecl(\name\()):
 
 	ext	v_tmp_low.16b, v_br_low.16b, v_tmp_low.16b, #8
 
-	eor	v_tmp_low.16b, v_tmp_high.16b, v_tmp_low.16b
-	eor	v_tmp_low.16b, v_x3.16b, v_tmp_low.16b
+	eor	v_tmp_low.16b, v_tmp_low.16b, v_tmp_high.16b
+	eor	v_tmp_low.16b, v_tmp_low.16b, v_x3.16b
 	umov	x_crc_ret, v_tmp_low.d[1]
 
 	b	.crc_tab_pre
-#ifndef __APPLE__
+
 	.size	\name, .-\name
-#endif
 .endm

@@ -27,8 +27,6 @@
   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 **********************************************************************/
 
-#include "../include/aarch64_label.h"
-
 	.arch armv8-a+crc
 	.text
 	.align	2
@@ -48,10 +46,8 @@ declare Macros
 	x_\name		.req	x\reg
 .endm
 
-	.global	cdecl(encode_deflate_icf_aarch64)
-#ifndef __APPLE__
+	.global	encode_deflate_icf_aarch64
 	.type	encode_deflate_icf_aarch64, %function
-#endif
 
 /*
 	struct deflate_icf *encode_deflate_icf_base(struct deflate_icf *next_in,
@@ -90,7 +86,7 @@ declare Macros
 .equ	offset_m_out_buf, 16
 .equ	offset_m_out_end, 24
 
-cdecl(encode_deflate_icf_aarch64):
+encode_deflate_icf_aarch64:
 	cmp	next_in, end_in
 	bcs	.done
 
@@ -160,6 +156,4 @@ cdecl(encode_deflate_icf_aarch64):
 
 .done:
 	ret
-#ifndef __APPLE__
 	.size	encode_deflate_icf_aarch64, .-encode_deflate_icf_aarch64
-#endif

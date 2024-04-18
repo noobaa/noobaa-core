@@ -30,9 +30,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>		// for memset, memcmp
-#include <assert.h>
 #include "erasure_code.h"
-#include "test.h"
+#include "types.h"
 
 #define TEST_LEN 8192
 #define TEST_SIZE (TEST_LEN/2)
@@ -216,14 +215,13 @@ static int gf_gen_decode_matrix(unsigned char *encode_matrix,
 
 int main(int argc, char *argv[])
 {
-	int re = -1;
+	int re = 0;
 	int i, j, p, rtest, m, k;
 	int nerrs, nsrcerrs;
 	void *buf;
 	unsigned int decode_index[MMAX];
-	unsigned char *temp_buffs[TEST_SOURCES] = { NULL }, *buffs[TEST_SOURCES] = { NULL };
-	unsigned char *encode_matrix = NULL, *decode_matrix = NULL, *invert_matrix =
-	    NULL, *g_tbls = NULL;
+	unsigned char *temp_buffs[TEST_SOURCES], *buffs[TEST_SOURCES];
+	unsigned char *encode_matrix, *decode_matrix, *invert_matrix, *g_tbls;
 	unsigned char src_in_err[TEST_SOURCES], src_err_list[TEST_SOURCES];
 	unsigned char *recov[TEST_SOURCES];
 
@@ -240,7 +238,7 @@ int main(int argc, char *argv[])
 	for (i = 0; i < TEST_SOURCES; i++) {
 		if (posix_memalign(&buf, 64, TEST_LEN)) {
 			printf("alloc error: Fail");
-			goto exit;
+			return -1;
 		}
 		buffs[i] = buf;
 	}
@@ -248,7 +246,7 @@ int main(int argc, char *argv[])
 	for (i = 0; i < TEST_SOURCES; i++) {
 		if (posix_memalign(&buf, 64, TEST_LEN)) {
 			printf("alloc error: Fail");
-			goto exit;
+			return -1;
 		}
 		temp_buffs[i] = buf;
 	}
@@ -262,12 +260,13 @@ int main(int argc, char *argv[])
 	if (encode_matrix == NULL || decode_matrix == NULL
 	    || invert_matrix == NULL || g_tbls == NULL) {
 		printf("Test failure! Error with malloc\n");
-		goto exit;
+		return -1;
 	}
 	// Pick a first test
 	m = 9;
 	k = 5;
-	assert((m <= MMAX) && (k <= KMAX));
+	if (m > MMAX || k > KMAX)
+		return -1;
 
 	// Make random data
 	for (i = 0; i < k; i++)
@@ -296,7 +295,7 @@ int main(int argc, char *argv[])
 				  nerrs, nsrcerrs, k, m);
 	if (re != 0) {
 		printf("Fail to gf_gen_decode_matrix\n");
-		goto exit;
+		return -1;
 	}
 	// Pack recovery array as list of valid sources
 	// Its order must be the same as the order
@@ -328,18 +327,15 @@ int main(int argc, char *argv[])
 			dump(temp_buffs[k + i], 25);
 			printf("orig   :");
 			dump(buffs[src_err_list[i]], 25);
-			re = -1;
-			goto exit;
+			return -1;
 		}
 	}
 
 	// Pick a first test
 	m = 9;
 	k = 5;
-	if (m > MMAX || k > KMAX) {
-		re = -1;
-		goto exit;
-	}
+	if (m > MMAX || k > KMAX)
+		return -1;
 
 	// Make random data
 	for (i = 0; i < k; i++)
@@ -367,7 +363,7 @@ int main(int argc, char *argv[])
 				  nerrs, nsrcerrs, k, m);
 	if (re != 0) {
 		printf("Fail to gf_gen_decode_matrix\n");
-		goto exit;
+		return -1;
 	}
 	// Pack recovery array as list of valid sources
 	// Its order must be the same as the order
@@ -399,8 +395,7 @@ int main(int argc, char *argv[])
 			dump(temp_buffs[k + i], 25);
 			printf("orig   :");
 			dump(buffs[src_err_list[i]], 25);
-			re = -1;
-			goto exit;
+			return -1;
 		}
 	}
 
@@ -438,7 +433,7 @@ int main(int argc, char *argv[])
 					  src_in_err, nerrs, nsrcerrs, k, m);
 		if (re != 0) {
 			printf("Fail to gf_gen_decode_matrix\n");
-			goto exit;
+			return -1;
 		}
 		// Pack recovery array as list of valid sources
 		// Its order must be the same as the order
@@ -473,29 +468,22 @@ int main(int argc, char *argv[])
 				dump(buffs[src_err_list[i]], 25);
 				printf("recov %d:", src_err_list[i]);
 				dump(temp_buffs[k + i], 25);
-				re = -1;
-				goto exit;
+				return -1;
 			}
 		}
-#ifdef TEST_VERBOSE
 		putchar('.');
-#endif
 	}
 
 	// Run tests at end of buffer for Electric Fence
 	k = 16;
 	align = (LEN_ALIGN_CHK_B != 0) ? 1 : 16;
-	if (k > KMAX) {
-		re = -1;
-		goto exit;
-	}
+	if (k > KMAX)
+		return -1;
 
 	for (rows = 1; rows <= 16; rows++) {
 		m = k + rows;
-		if (m > MMAX) {
-			re = -1;
-			goto exit;
-		}
+		if (m > MMAX)
+			return -1;
 
 		// Make random data
 		for (i = 0; i < k; i++)
@@ -528,7 +516,7 @@ int main(int argc, char *argv[])
 						  src_in_err, nerrs, nsrcerrs, k, m);
 			if (re != 0) {
 				printf("Fail to gf_gen_decode_matrix\n");
-				goto exit;
+				return -1;
 			}
 			// Pack recovery array as list of valid sources
 			// Its order must be the same as the order
@@ -568,8 +556,7 @@ int main(int argc, char *argv[])
 					dump(temp_buffs[k + i], align);
 					printf("orig   :");
 					dump(efence_buffs[src_err_list[i]], align);
-					re = -1;
-					goto exit;
+					return -1;
 				}
 			}
 		}
@@ -621,7 +608,7 @@ int main(int argc, char *argv[])
 					  src_in_err, nerrs, nsrcerrs, k, m);
 		if (re != 0) {
 			printf("Fail to gf_gen_decode_matrix\n");
-			goto exit;
+			return -1;
 		}
 		// Pack recovery array as list of valid sources
 		// Its order must be the same as the order
@@ -656,8 +643,7 @@ int main(int argc, char *argv[])
 				dump(ubuffs[src_err_list[i]], 25);
 				printf("recov %d:", src_err_list[i]);
 				dump(temp_ubuffs[k + i], 25);
-				re = -1;
-				goto exit;
+				return -1;
 			}
 		}
 
@@ -670,15 +656,13 @@ int main(int argc, char *argv[])
 
 			if (memcmp(buffs[i], temp_buffs[0], offset)) {
 				printf("Fail rand ualign encode pad start\n");
-				re = -1;
-				goto exit;
+				return -1;
 			}
 			if (memcmp
 			    (buffs[i] + offset + size, temp_buffs[0],
 			     PTR_ALIGN_CHK_B - offset)) {
 				printf("Fail rand ualign encode pad end\n");
-				re = -1;
-				goto exit;
+				return -1;
 			}
 		}
 
@@ -687,21 +671,17 @@ int main(int argc, char *argv[])
 			offset = temp_ubuffs[k + i] - temp_buffs[k + i];
 			if (memcmp(temp_buffs[k + i], temp_buffs[0], offset)) {
 				printf("Fail rand ualign decode pad start\n");
-				re = -1;
-				goto exit;
+				return -1;
 			}
 			if (memcmp
 			    (temp_buffs[k + i] + offset + size, temp_buffs[0],
 			     PTR_ALIGN_CHK_B - offset)) {
 				printf("Fail rand ualign decode pad end\n");
-				re = -1;
-				goto exit;
+				return -1;
 			}
 		}
 
-#ifdef TEST_VERBOSE
 		putchar('.');
-#endif
 	}
 
 	// Test size alignment
@@ -739,7 +719,7 @@ int main(int argc, char *argv[])
 					  src_in_err, nerrs, nsrcerrs, k, m);
 		if (re != 0) {
 			printf("Fail to gf_gen_decode_matrix\n");
-			goto exit;
+			return -1;
 		}
 		// Pack recovery array as list of valid sources
 		// Its order must be the same as the order
@@ -774,26 +754,11 @@ int main(int argc, char *argv[])
 				dump(buffs[src_err_list[i]], 25);
 				printf("recov %d:", src_err_list[i]);
 				dump(temp_buffs[k + i], 25);
-				re = -1;
-				goto exit;
+				return -1;
 			}
 		}
 	}
 
 	printf("done EC tests: Pass\n");
-	re = 0;
-
-      exit:
-	for (i = 0; i < TEST_SOURCES; i++) {
-		if (buffs[i])
-			aligned_free(buffs[i]);
-		if (temp_buffs[i])
-			aligned_free(temp_buffs[i]);
-	}
-	free(encode_matrix);
-	free(decode_matrix);
-	free(invert_matrix);
-	free(g_tbls);
-
-	return re;
+	return 0;
 }

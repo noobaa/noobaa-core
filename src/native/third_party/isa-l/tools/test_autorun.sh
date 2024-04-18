@@ -37,9 +37,6 @@ command -V lscpu > /dev/null 2>&1 && lscpu
 
 # Start tests
 
-# Check style first
-./tools/check_format.sh
-
 [ -z "$1" ] && ./tools/test_checks.sh
 
 while [ -n "$1" ]; do
@@ -48,21 +45,19 @@ while [ -n "$1" ]; do
 	    ./tools/test_checks.sh
 	    shift ;;
 	ext )
-            # Drop first argument, to pass the rest of the arguments to test_extended.sh
-            shift ;
-	    ./tools/test_extended.sh $@
+	    ./tools/test_extended.sh
 	    shift ;;
 	format )
 	    shift ;;
 	all )
-            # Drop first argument, to pass the rest of the arguments to test_extended.sh
-            shift ;
 	    ./tools/test_checks.sh
-	    ./tools/test_extended.sh $@
+	    ./tools/test_extended.sh
 	    shift ;;
 	* )
 	    echo $0 undefined option: $1
 	    shift ;;
     esac
 done
+
+./tools/check_format.sh
 

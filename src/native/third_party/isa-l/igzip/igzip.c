@@ -54,6 +54,20 @@
 #include "igzip_wrapper.h"
 #include "unaligned.h"
 
+#ifdef __FreeBSD__
+#include <sys/types.h>
+#include <sys/endian.h>
+# define to_be32(x) bswap32(x)
+#elif defined (__APPLE__)
+#include <libkern/OSByteOrder.h>
+# define to_be32(x) OSSwapInt32(x)
+#elif defined (__GNUC__) && !defined (__MINGW32__)
+# include <byteswap.h>
+# define to_be32(x) bswap_32(x)
+#elif defined _WIN64
+# define to_be32(x) _byteswap_ulong(x)
+#endif
+
 extern void isal_deflate_hash_lvl0(uint16_t *, uint32_t, uint32_t, uint8_t *, uint32_t);
 extern void isal_deflate_hash_lvl1(uint16_t *, uint32_t, uint32_t, uint8_t *, uint32_t);
 extern void isal_deflate_hash_lvl2(uint16_t *, uint32_t, uint32_t, uint8_t *, uint32_t);
@@ -93,6 +107,34 @@ static void write_header(struct isal_zstream *stream, uint8_t * deflate_hdr,
 			 uint32_t deflate_hdr_count, uint32_t extra_bits_count,
 			 uint32_t next_state, uint32_t toggle_end_of_stream);
 static void write_trailer(struct isal_zstream *stream);
+
+struct slver {
+	uint16_t snum;
+	uint8_t ver;
+	uint8_t core;
+};
+
+/* Version info */
+struct slver isal_deflate_init_slver_01030081;
+struct slver isal_deflate_init_slver = { 0x0081, 0x03, 0x01 };
+
+struct slver isal_deflate_reset_slver_0001008e;
+struct slver isal_deflate_reset_slver = { 0x008e, 0x01, 0x00 };
+
+struct slver isal_deflate_stateless_init_slver_00010084;
+struct slver isal_deflate_stateless_init_slver = { 0x0084, 0x01, 0x00 };
+
+struct slver isal_deflate_slver_01030082;
+struct slver isal_deflate_slver = { 0x0082, 0x03, 0x01 };
+
+struct slver isal_deflate_stateless_slver_01010083;
+struct slver isal_deflate_stateless_slver = { 0x0083, 0x01, 0x01 };
+
+struct slver isal_deflate_set_hufftables_slver_0001008b;
+struct slver isal_deflate_set_hufftables_slver = { 0x008b, 0x01, 0x00 };
+
+struct slver isal_deflate_set_dict_slver_0001008c;
+struct slver isal_deflate_set_dict_slver = { 0x008c, 0x01, 0x00 };
 
 /*****************************************************************/
 
@@ -702,8 +744,8 @@ static int isal_deflate_int_stateless(struct isal_zstream *stream)
 			return STATELESS_OVERFLOW;
 
 	if (stream->avail_in >= 8
-	    && (load_native_u64(stream->next_in) == 0
-		|| load_native_u64(stream->next_in) == ~(uint64_t) 0)) {
+	    && (load_u64(stream->next_in) == 0
+		|| load_u64(stream->next_in) == ~(uint64_t) 0)) {
 		repeat_length = detect_repeated_char_length(stream->next_in, stream->avail_in);
 
 		if (stream->avail_in == repeat_length || repeat_length >= MIN_REPEAT_LEN)
@@ -767,7 +809,6 @@ static void write_type0_header(struct isal_zstream *stream)
 		stored_blk_hdr = stored_blk_hdr << 8;
 		stored_blk_hdr |= stream->internal_state.has_eob_hdr;
 		memcpy_len = TYPE0_HDR_LEN + 1;
-		stored_blk_hdr = to_le64(stored_blk_hdr);
 		memcpy(stream->next_out, &stored_blk_hdr, memcpy_len);
 	} else if (stream->avail_out >= 8) {
 		set_buf(bitbuf, stream->next_out, stream->avail_out);
@@ -776,7 +817,6 @@ static void write_type0_header(struct isal_zstream *stream)
 		stream->total_out += buffer_used(bitbuf);
 		stream->avail_out -= buffer_used(bitbuf);
 		memcpy_len = TYPE0_HDR_LEN;
-		stored_blk_hdr = to_le64(stored_blk_hdr);
 		memcpy(stream->next_out, &stored_blk_hdr, memcpy_len);
 	} else {
 		stream->internal_state.has_eob_hdr = 0;
@@ -1020,15 +1060,6 @@ void isal_gzip_header_init(struct isal_gzip_header *gz_hdr)
 	gz_hdr->comment = NULL;
 	gz_hdr->comment_buf_len = 0;
 	gz_hdr->hcrc = 0;
-	gz_hdr->flags = 0;
-}
-
-void isal_zlib_header_init(struct isal_zlib_header *z_hdr)
-{
-	z_hdr->info = 0;
-	z_hdr->level = 0;
-	z_hdr->dict_id = 0;
-	z_hdr->dict_flag = 0;
 }
 
 uint32_t isal_write_gzip_header(struct isal_zstream *stream, struct isal_gzip_header *gz_hdr)
@@ -1069,13 +1100,13 @@ uint32_t isal_write_gzip_header(struct isal_zstream *stream, struct isal_gzip_he
 	out_buf[1] = 0x8b;
 	out_buf[2] = DEFLATE_METHOD;
 	out_buf[3] = flags;
-	store_le_u32(out_buf + 4, gz_hdr->time);
+	store_u32(out_buf + 4, gz_hdr->time);
 	out_buf[8] = gz_hdr->xflags;
 	out_buf[9] = gz_hdr->os;
 
 	out_buf += GZIP_HDR_BASE;
 	if (flags & EXTRA_FLAG) {
-		store_le_u16(out_buf, gz_hdr->extra_len);
+		store_u16(out_buf, gz_hdr->extra_len);
 		out_buf += GZIP_EXTRA_LEN;
 
 		memcpy(out_buf, gz_hdr->extra, gz_hdr->extra_len);
@@ -1094,7 +1125,7 @@ uint32_t isal_write_gzip_header(struct isal_zstream *stream, struct isal_gzip_he
 
 	if (flags & HCRC_FLAG) {
 		hcrc = crc32_gzip_refl(0, out_buf_start, out_buf - out_buf_start);
-		store_le_u16(out_buf, hcrc);
+		store_u16(out_buf, hcrc);
 		out_buf += GZIP_HCRC_LEN;
 	}
 
@@ -1127,7 +1158,7 @@ uint32_t isal_write_zlib_header(struct isal_zstream *stream, struct isal_zlib_he
 	out_buf[1] = flg;
 
 	if (dict_flag)
-		store_le_u32(out_buf + 2, z_hdr->dict_id);
+		store_u32(out_buf + 2, z_hdr->dict_id);
 
 	stream->next_out += hdr_size;
 	stream->total_out += hdr_size;
@@ -1172,7 +1203,6 @@ void isal_deflate_stateless_init(struct isal_zstream *stream)
 	stream->end_of_stream = 0;
 	stream->flush = NO_FLUSH;
 	stream->gzip_flag = 0;
-	stream->hist_bits = 0;
 	stream->internal_state.has_wrap_hdr = 0;
 	stream->internal_state.state = ZSTATE_NEW_HDR;
 	return;
@@ -1676,42 +1706,10 @@ int isal_deflate(struct isal_zstream *stream)
 	return ret;
 }
 
-// Helper function to avoid code duplication.
-static void _zlib_header_in_buffer(struct isal_zstream *stream, uint8_t * buffer)
-{
-	uint8_t hist_bits, info, level, cmf, flg;
-	uint8_t dict_flag = 0;
-
-	if (stream->hist_bits == 0)	// default hist_bits
-		hist_bits = ISAL_DEF_MAX_HIST_BITS;
-	else
-		hist_bits = stream->hist_bits;
-	if (hist_bits > 8)
-		info = hist_bits - 8;
-	else
-		info = 0;	// For low window sizes ensure correct cmf flag.
-	if (stream->level == 0)
-		level = 0;	// Fastest algorithm
-	else
-		level = 1;	// ISA-L levels 1-3 are fast algorithms.
-
-	cmf = DEFLATE_METHOD | (info << 4);
-	flg = (level << 6) | dict_flag;
-	flg += 31 - ((256 * cmf + flg) % 31);
-	buffer[0] = cmf;
-	buffer[1] = flg;
-	return;
-}
-
 static int write_stream_header_stateless(struct isal_zstream *stream)
 {
 	uint32_t hdr_bytes;
-	// Create a 10-byte buffer. Since the gzip header is almost fixed (9 of 10
-	// bytes are fixed) use it to initialize the buffer.
-	uint8_t buffer[10] = {
-		0x1f, 0x8b, 0x08, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00, 0xff
-	};
+	const uint8_t *hdr;
 	uint32_t next_flag;
 
 	if (stream->internal_state.has_wrap_hdr)
@@ -1719,12 +1717,12 @@ static int write_stream_header_stateless(struct isal_zstream *stream)
 
 	if (stream->gzip_flag == IGZIP_ZLIB) {
 		hdr_bytes = zlib_hdr_bytes;
-		_zlib_header_in_buffer(stream, buffer);
+		hdr = zlib_hdr;
 		next_flag = IGZIP_ZLIB_NO_HDR;
+
 	} else {
 		hdr_bytes = gzip_hdr_bytes;
-		if (stream->level == 0)
-			buffer[8] = 0x04;	// Fastest algorithm in xfl flag
+		hdr = gzip_hdr;
 		next_flag = IGZIP_GZIP_NO_HDR;
 	}
 
@@ -1734,7 +1732,7 @@ static int write_stream_header_stateless(struct isal_zstream *stream)
 	stream->avail_out -= hdr_bytes;
 	stream->total_out += hdr_bytes;
 
-	memcpy(stream->next_out, buffer, hdr_bytes);
+	memcpy(stream->next_out, hdr, hdr_bytes);
 
 	stream->next_out += hdr_bytes;
 	stream->internal_state.has_wrap_hdr = 1;
@@ -1748,23 +1746,17 @@ static void write_stream_header(struct isal_zstream *stream)
 	struct isal_zstate *state = &stream->internal_state;
 	int bytes_to_write;
 	uint32_t hdr_bytes;
-	// Create a 10-byte buffer. Since the gzip header is almost fixed (9 of 10
-	// bytes are fixed) use it to initialize the buffer.
-	uint8_t buffer[10] = {
-		0x1f, 0x8b, 0x08, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00, 0xff
-	};
+	const uint8_t *hdr;
 
 	if (stream->internal_state.has_wrap_hdr)
 		return;
 
 	if (stream->gzip_flag == IGZIP_ZLIB) {
 		hdr_bytes = zlib_hdr_bytes;
-		_zlib_header_in_buffer(stream, buffer);
+		hdr = zlib_hdr;
 	} else {
-		if (stream->level == 0)
-			buffer[8] = 0x04;	// Fastest algorithm in xfl flag
 		hdr_bytes = gzip_hdr_bytes;
+		hdr = gzip_hdr;
 	}
 
 	bytes_to_write = hdr_bytes;
@@ -1773,7 +1765,7 @@ static void write_stream_header(struct isal_zstream *stream)
 	if (bytes_to_write > stream->avail_out)
 		bytes_to_write = stream->avail_out;
 
-	memcpy(stream->next_out, buffer + state->count, bytes_to_write);
+	memcpy(stream->next_out, hdr + state->count, bytes_to_write);
 	state->count += bytes_to_write;
 
 	if (state->count == hdr_bytes) {
@@ -1847,7 +1839,7 @@ static int write_deflate_header_unaligned_stateless(struct isal_zstream *stream)
 	header_end = header_next +
 	    (hufftables->deflate_hdr_count / sizeof(header_bits)) * sizeof(header_bits);
 
-	header_bits = load_le_u64(header_next);
+	header_bits = load_u64(header_next);
 
 	if (stream->end_of_stream == 0)
 		header_bits--;
@@ -1861,7 +1853,7 @@ static int write_deflate_header_unaligned_stateless(struct isal_zstream *stream)
 		write_bits(&state->bitbuf, header_bits, 32);
 		header_bits >>= 32;
 		write_bits(&state->bitbuf, header_bits, 32);
-		header_bits = load_le_u64(header_next);
+		header_bits = load_u64(header_next);
 	}
 	bit_count =
 	    (hufftables->deflate_hdr_count & 0x7) * 8 + hufftables->deflate_hdr_extra_bits;
@@ -2002,8 +1994,7 @@ static void write_trailer(struct isal_zstream *stream)
 	case IGZIP_GZIP:
 	case IGZIP_GZIP_NO_HDR:
 		if (stream->avail_out - bytes >= gzip_trl_bytes) {
-			store_le_u64(stream->next_out,
-				     ((uint64_t) stream->total_in << 32) | crc);
+			store_u64(stream->next_out, ((uint64_t) stream->total_in << 32) | crc);
 			stream->next_out += gzip_trl_bytes;
 			bytes += gzip_trl_bytes;
 			state->state = ZSTATE_END;
@@ -2013,8 +2004,9 @@ static void write_trailer(struct isal_zstream *stream)
 	case IGZIP_ZLIB:
 	case IGZIP_ZLIB_NO_HDR:
 		if (stream->avail_out - bytes >= zlib_trl_bytes) {
-			store_be_u32(stream->next_out,
-				     (crc & 0xFFFF0000) | ((crc & 0xFFFF) + 1) % ADLER_MOD);
+			store_u32(stream->next_out,
+				  to_be32((crc & 0xFFFF0000) | ((crc & 0xFFFF) + 1) %
+					  ADLER_MOD));
 			stream->next_out += zlib_trl_bytes;
 			bytes += zlib_trl_bytes;
 			state->state = ZSTATE_END;

@@ -220,3 +220,9 @@ return_fail:
 	ret
 
 endproc_frame
+
+section .data
+
+;;;       func         core, ver, snum
+slversion xor_gen_avx, 02,   05,  0037
+

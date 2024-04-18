@@ -3,10 +3,11 @@ CLEANFILES =
 LDADD =
 AM_MAKEFLAGS = --no-print-directory
 noinst_HEADERS =
-pkginclude_HEADERS = include/test.h include/types.h
+pkginclude_HEADERS = include/test.h
 noinst_LTLIBRARIES =
 bin_PROGRAMS =
 INCLUDE = -I $(srcdir)/include/
+D =
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = libisal.pc
@@ -51,7 +52,7 @@ include mem/Makefile.am
 
 # LIB version info not necessarily the same as package version
 LIBISAL_CURRENT=2
-LIBISAL_REVISION=30
+LIBISAL_REVISION=31
 LIBISAL_AGE=0
 
 lib_LTLIBRARIES = libisal.la
@@ -59,21 +60,25 @@ pkginclude_HEADERS += $(sort ${extern_hdrs})
 libisal_la_SOURCES = ${lsrc}
 
 if CPU_X86_64
+ARCH=-Dx86_64
 libisal_la_SOURCES += ${lsrc_x86_64}
 other_tests += ${other_tests_x86_64}
 endif
 
 if CPU_X86_32
+ARCH=-Dx86_32
 libisal_la_SOURCES += ${lsrc_x86_32}
 other_tests += ${other_tests_x86_32}
 endif
 
 if CPU_AARCH64
+ARCH=-Daarch64
 libisal_la_SOURCES += ${lsrc_aarch64}
 other_tests += ${other_tests_aarch64}
 endif
 
 if CPU_PPC64LE
+ARCH=-Dppc64le
 libisal_la_SOURCES += ${lsrc_ppc64le}
 other_tests += ${other_tests_ppc64le}
 endif
@@ -117,22 +122,11 @@ test: $(addsuffix .run,$(unit_tests))
 	@echo Completed run: $<
 
 # Support for yasm/nasm/gas
-if INTEL_CET_ENABLED
-export CET_LD=$(LD)
-endif
 if USE_YASM
-if INTEL_CET_ENABLED
-  as_filter = ${srcdir}/tools/yasm-cet-filter.sh
-else
   as_filter = ${srcdir}/tools/yasm-filter.sh
 endif
-endif
 if USE_NASM
-if INTEL_CET_ENABLED
-  as_filter = ${srcdir}/tools/nasm-cet-filter.sh
-else
   as_filter = ${srcdir}/tools/nasm-filter.sh
-endif
 endif
 if CPU_AARCH64
   as_filter = $(CC) -D__ASSEMBLY__
@@ -142,7 +136,7 @@ CCAS = $(as_filter)
 EXTRA_DIST += tools/yasm-filter.sh tools/nasm-filter.sh
 EXTRA_DIST += tools/yasm-cet-filter.sh tools/nasm-cet-filter.sh
 
-AM_CFLAGS = ${my_CFLAGS} ${INCLUDE} $(src_include) ${D}
+AM_CFLAGS = ${my_CFLAGS} ${INCLUDE} $(src_include) ${ARCH} ${D}
 if CPU_AARCH64
 AM_CCASFLAGS = ${AM_CFLAGS}
 else

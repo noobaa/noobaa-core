@@ -69,6 +69,7 @@ void print_error(int32_t error)
 		break;
 	case COMMENT_OVERFLOW:
 		printf("Comment buffer overflow while decompressing\n");
+		break;
 	case EXTRA_OVERFLOW:
 		printf("Extra buffer overflow while decomrpessiong\n");
 		break;
@@ -130,10 +131,13 @@ void print_uint8_t(uint8_t * array, uint64_t length, char *prepend)
 	const int line_size = 16;
 	int i;
 
-	if (array == NULL)
-		printf("%s(NULL)", prepend);
-	else if (length == 0)
-		printf("%s(Empty)", prepend);
+	if (array == NULL) {
+		printf("%s(NULL)\n", prepend);
+		return;
+	} else if (length == 0) {
+		printf("%s(Empty)\n", prepend);
+		return;
+	}
 
 	for (i = 0; i < length; i++) {
 		if (i == 0)
@@ -314,15 +318,20 @@ int malloc_gzip_header(struct isal_gzip_header *gz_hdr)
 	gz_hdr->name = NULL;
 	if (gz_hdr->name_buf_len) {
 		gz_hdr->name = malloc(gz_hdr->name_buf_len);
-		if (gz_hdr->name == NULL)
+		if (gz_hdr->name == NULL) {
+			free(gz_hdr->extra);
 			return MALLOC_FAILED;
+		}
 	}
 
 	gz_hdr->comment = NULL;
 	if (gz_hdr->comment_buf_len) {
 		gz_hdr->comment = malloc(gz_hdr->comment_buf_len);
-		if (gz_hdr->comment == NULL)
+		if (gz_hdr->comment == NULL) {
+			free(gz_hdr->extra);
+			free(gz_hdr->name);
 			return MALLOC_FAILED;
+		}
 	}
 
 	return 0;
@@ -588,12 +597,6 @@ int read_zlib_header_simple(uint8_t * hdr_buf, uint32_t hdr_buf_len,
 
 	rand_buf((uint8_t *) & z_hdr, sizeof(z_hdr));
 
-	if (ret) {
-		print_zlib_final_verbose(hdr_buf, hdr_buf_len, z_hdr_orig, NULL);
-		print_error(ret);
-		return ret;
-	}
-
 	isal_inflate_init(&state);
 	state.next_in = hdr_buf;
 	state.avail_in = hdr_buf_len;
@@ -794,9 +797,9 @@ int read_zlib_header_streaming(uint8_t * hdr_buf, uint32_t hdr_buf_len,
 
 int main(int argc, char *argv[])
 {
-	uint8_t *hdr_buf;
+	uint8_t *hdr_buf = NULL;
 	uint32_t hdr_buf_len;
-	int ret = 0, fin_ret = 0;
+	int ret = 0;
 	struct isal_gzip_header gz_hdr_orig;
 	struct isal_zlib_header z_hdr_orig;
 	int i;
@@ -815,76 +818,86 @@ int main(int argc, char *argv[])
 		ret = gen_rand_gzip_header(&gz_hdr_orig);
 		if (ret) {
 			print_error(ret);
-			return (ret == 0);
+			goto exit;
 		}
 
 		hdr_buf_len = gzip_header_size(&gz_hdr_orig);
 		hdr_buf = malloc(hdr_buf_len);
+		if (hdr_buf == NULL) {
+			printf("alloc error: Fail");
+			ret = 1;
+			goto exit;
+		}
 
 		ret = write_gzip_header(hdr_buf, hdr_buf_len, &gz_hdr_orig);
 
-		fin_ret |= ret;
 		if (ret)
-			return (ret == 0);
+			goto exit;
 
 		ret = read_gzip_header_simple(hdr_buf, hdr_buf_len, &gz_hdr_orig);
 
-		fin_ret |= ret;
 		if (ret)
-			return (ret == 0);
+			goto exit;
 
 		ret = read_gzip_header_streaming(hdr_buf, hdr_buf_len, &gz_hdr_orig);
 
-		fin_ret |= ret;
 		if (ret)
-			return (ret == 0);
+			goto exit;
 
 		free_gzip_header(&gz_hdr_orig);
-		if (hdr_buf != NULL)
-			free(hdr_buf);
-
+		free(hdr_buf);
+		hdr_buf = NULL;
+#ifdef TEST_VERBOSE
 		if (i % (RANDOMS / 16) == 0)
 			printf(".");
+#endif
 	}
 	printf("Pass \n");
 
 	printf("zlib wrapper test: ");
 	for (i = 0; i < RANDOMS; i++) {
-		memset(&z_hdr_orig, 0, sizeof(z_hdr_orig));
+		isal_zlib_header_init(&z_hdr_orig);
 
 		gen_rand_zlib_header(&z_hdr_orig);
 
 		hdr_buf_len = zlib_header_size(&z_hdr_orig);
 		hdr_buf = malloc(hdr_buf_len);
+		if (hdr_buf == NULL) {
+			printf("alloc error: Fail\n");
+			ret = 1;
+			goto exit;
+		}
 
 		ret = write_zlib_header(hdr_buf, hdr_buf_len, &z_hdr_orig);
 
-		fin_ret |= ret;
 		if (ret)
-			return (ret == 0);
+			goto exit;
 
 		ret = read_zlib_header_simple(hdr_buf, hdr_buf_len, &z_hdr_orig);
 
-		fin_ret |= ret;
 		if (ret)
-			return (ret == 0);
+			goto exit;
 
 		ret = read_zlib_header_streaming(hdr_buf, hdr_buf_len, &z_hdr_orig);
 
-		fin_ret |= ret;
 		if (ret)
-			return (ret == 0);
+			goto exit;
 
-		if (hdr_buf != NULL)
-			free(hdr_buf);
-
+		free(hdr_buf);
+		hdr_buf = NULL;
+#ifdef TEST_VERBOSE
 		if (i % (RANDOMS / 16) == 0)
 			printf(".");
+#endif
 	}
 	printf("Pass \n");
 
-	printf("igzip wrapper_hdr test finished:%s \n",
-	       fin_ret ? " Some tests failed " : " All tests passed");
+	printf("igzip wrapper_hdr test finished: All tests passed \n");
 
-	return 0;
+	ret = 0;
+      exit:
+	if (hdr_buf != NULL)
+		free(hdr_buf);
+
+	return ret;
 }

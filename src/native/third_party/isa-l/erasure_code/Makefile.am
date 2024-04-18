@@ -78,18 +78,38 @@ lsrc_x86_64  += \
 
 #if HAVE_AVX512
 lsrc_x86_64  += \
+		erasure_code/gf_vect_mad_avx2_gfni.asm \
+		erasure_code/gf_2vect_mad_avx2_gfni.asm \
+		erasure_code/gf_3vect_mad_avx2_gfni.asm \
+		erasure_code/gf_4vect_mad_avx2_gfni.asm \
+		erasure_code/gf_5vect_mad_avx2_gfni.asm \
 		erasure_code/gf_vect_dot_prod_avx512.asm \
 		erasure_code/gf_2vect_dot_prod_avx512.asm \
 		erasure_code/gf_3vect_dot_prod_avx512.asm \
 		erasure_code/gf_4vect_dot_prod_avx512.asm \
 		erasure_code/gf_5vect_dot_prod_avx512.asm \
 		erasure_code/gf_6vect_dot_prod_avx512.asm \
+		erasure_code/gf_vect_dot_prod_avx512_gfni.asm \
+		erasure_code/gf_vect_dot_prod_avx2_gfni.asm \
+		erasure_code/gf_2vect_dot_prod_avx2_gfni.asm \
+		erasure_code/gf_3vect_dot_prod_avx2_gfni.asm \
+		erasure_code/gf_2vect_dot_prod_avx512_gfni.asm \
+		erasure_code/gf_3vect_dot_prod_avx512_gfni.asm \
+		erasure_code/gf_4vect_dot_prod_avx512_gfni.asm \
+		erasure_code/gf_5vect_dot_prod_avx512_gfni.asm \
+		erasure_code/gf_6vect_dot_prod_avx512_gfni.asm \
 		erasure_code/gf_vect_mad_avx512.asm \
 		erasure_code/gf_2vect_mad_avx512.asm \
 		erasure_code/gf_3vect_mad_avx512.asm \
 		erasure_code/gf_4vect_mad_avx512.asm \
 		erasure_code/gf_5vect_mad_avx512.asm \
-		erasure_code/gf_6vect_mad_avx512.asm
+		erasure_code/gf_6vect_mad_avx512.asm \
+		erasure_code/gf_vect_mad_avx512_gfni.asm \
+		erasure_code/gf_2vect_mad_avx512_gfni.asm \
+		erasure_code/gf_3vect_mad_avx512_gfni.asm \
+		erasure_code/gf_4vect_mad_avx512_gfni.asm \
+		erasure_code/gf_5vect_mad_avx512_gfni.asm \
+		erasure_code/gf_6vect_mad_avx512_gfni.asm
 
 lsrc_x86_32  += \
 		erasure_code/ec_highlevel_func.c \
@@ -149,5 +169,4 @@ perf_tests   += erasure_code/gf_vect_mul_perf \
 
 other_tests  += erasure_code/gen_rs_matrix_limits
 
-other_src    += include/test.h \
-		include/types.h
+other_src    += include/test.h

@@ -67,6 +67,7 @@
 
 %define FLAGS_CPUID7_EBX_AVX512_G1 (FLAG_CPUID7_EBX_AVX512F | FLAG_CPUID7_EBX_AVX512VL | FLAG_CPUID7_EBX_AVX512BW | FLAG_CPUID7_EBX_AVX512CD | FLAG_CPUID7_EBX_AVX512DQ)
 %define FLAGS_CPUID7_ECX_AVX512_G2 (FLAG_CPUID7_ECX_AVX512VBMI2 | FLAG_CPUID7_ECX_GFNI | FLAG_CPUID7_ECX_VAES | FLAG_CPUID7_ECX_VPCLMULQDQ | FLAG_CPUID7_ECX_VNNI | FLAG_CPUID7_ECX_BITALG | FLAG_CPUID7_ECX_VPOPCNTDQ)
+%define FLAGS_CPUID7_ECX_AVX2_G2 (FLAG_CPUID7_ECX_GFNI | FLAG_CPUID7_ECX_VAES | FLAG_CPUID7_ECX_VPCLMULQDQ)
 
 %define FLAG_XGETBV_EAX_XMM            (1<<1)
 %define FLAG_XGETBV_EAX_YMM            (1<<2)
@@ -195,6 +196,23 @@
 
 %define XWORD(reg) reg %+ x
 
+%ifdef INTEL_CET_ENABLED
+ %ifdef __NASM_VER__
+  %if AS_FEATURE_LEVEL >= 10
+   %ifidn __OUTPUT_FORMAT__,elf32
+section .note.gnu.property  note  alloc noexec align=4
+DD 0x00000004,0x0000000c,0x00000005,0x00554e47
+DD 0xc0000002,0x00000004,0x00000003
+   %endif
+   %ifidn __OUTPUT_FORMAT__,elf64
+section .note.gnu.property  note  alloc noexec align=8
+DD 0x00000004,0x00000010,0x00000005,0x00554e47
+DD 0xc0000002,0x00000004,0x00000003,0x00000000
+   %endif
+  %endif
+ %endif
+%endif
+
 %ifidn __OUTPUT_FORMAT__,elf32
 section .note.GNU-stack noalloc noexec nowrite progbits
 section .text
@@ -277,15 +295,4 @@ section .text
  %define elf64 macho64
  mac_equ equ 1
 %endif
-
-%macro slversion 4
-	section .text
-	global %1_slver_%2%3%4
-	global %1_slver
-	%1_slver:
-	%1_slver_%2%3%4:
-		dw 0x%4
-		db 0x%3, 0x%2
-%endmacro
-
 %endif ; ifndef _REG_SIZES_ASM_

@@ -33,7 +33,7 @@
 #include<stdlib.h>
 #include<limits.h>
 #include "raid.h"
-#include "types.h"
+#include "test.h"
 
 #define TEST_SOURCES 16
 #define TEST_LEN     1024
@@ -65,9 +65,9 @@ int dump(unsigned char *buf, int len)
 
 int main(int argc, char *argv[])
 {
-	int i, j, k, ret, fail = 0;
-	void *buffs[TEST_SOURCES + 2];	// Pointers to src and dest
-	char *tmp_buf[TEST_SOURCES + 2];
+	int i, j, k, ret = 0, fail = 0;
+	void *buffs[TEST_SOURCES + 2] = { NULL };	// Pointers to src and dest
+	char *tmp_buf[TEST_SOURCES + 2] = { NULL };
 
 	printf("Test pq_gen_test ");
 
@@ -79,7 +79,8 @@ int main(int argc, char *argv[])
 		ret = posix_memalign(&buf, 32, TEST_LEN);
 		if (ret) {
 			printf("alloc error: Fail");
-			return 1;
+			fail = 1;
+			goto exit;
 		}
 		buffs[i] = buf;
 	}
@@ -102,9 +103,11 @@ int main(int argc, char *argv[])
 
 	if (fail > 0) {
 		printf("fail zero test %d\n", fail);
-		return 1;
-	} else
-		putchar('.');
+		goto exit;
+	}
+#ifdef TEST_VERBOSE
+	putchar('.');
+#endif
 
 	// Test rand1
 	for (i = 0; i < TEST_SOURCES + 2; i++)
@@ -124,9 +127,11 @@ int main(int argc, char *argv[])
 		for (t = TEST_SOURCES; t < TEST_SOURCES + 2; t++)
 			dump(buffs[t], 15);
 
-		return 1;
-	} else
-		putchar('.');
+		goto exit;
+	}
+#ifdef TEST_VERBOSE
+	putchar('.');
+#endif
 
 	// Test various number of sources
 	for (j = 4; j <= TEST_SOURCES + 2; j++) {
@@ -138,9 +143,11 @@ int main(int argc, char *argv[])
 
 		if (fail > 0) {
 			printf("fail rand test %d sources\n", j);
-			return 1;
-		} else
-			putchar('.');
+			goto exit;
+		}
+#ifdef TEST_VERBOSE
+		putchar('.');
+#endif
 	}
 
 	fflush(0);
@@ -158,10 +165,12 @@ int main(int argc, char *argv[])
 			if (fail > 0) {
 				printf("fail rand test %d sources, len=%d, fail="
 				       "%d, ret=%d\n", j, k, fail, ret);
-				return 1;
+				goto exit;
 			}
 		}
+#ifdef TEST_VERBOSE
 		putchar('.');
+#endif
 		k += 32;
 	}
 
@@ -179,16 +188,20 @@ int main(int argc, char *argv[])
 		if (fail > 0) {
 			printf("fail end test - offset: %d, len: %d, fail: %d, "
 			       "ret: %d\n", k, TEST_LEN - k, fail, ret);
-			return 1;
+			goto exit;
 		}
-
+#ifdef TEST_VERBOSE
 		putchar('.');
 		fflush(0);
+#endif
 		k += 32;
 	}
 
 	if (!fail)
 		printf(" done: Pass\n");
 
+      exit:
+	for (i = 0; i < TEST_SOURCES + 2; i++)
+		aligned_free(buffs[i]);
 	return fail;
 }

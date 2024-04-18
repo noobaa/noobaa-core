@@ -55,6 +55,12 @@ extern crc64_jones_refl_base
 extern crc64_jones_norm_by8
 extern crc64_jones_norm_base
 
+extern crc64_rocksoft_refl_by8
+extern crc64_rocksoft_refl_base
+
+extern crc64_rocksoft_norm_by8
+extern crc64_rocksoft_norm_base
+
 %if (AS_FEATURE_LEVEL) >= 10
 extern crc64_iso_refl_by16_10
 extern crc64_iso_norm_by16_10
@@ -62,6 +68,8 @@ extern crc64_jones_refl_by16_10
 extern crc64_jones_norm_by16_10
 extern crc64_ecma_refl_by16_10
 extern crc64_ecma_norm_by16_10
+extern crc64_rocksoft_refl_by16_10
+extern crc64_rocksoft_norm_by16_10
 %endif
 
 section .text
@@ -83,10 +91,7 @@ mbin_dispatch_init7		crc64_jones_refl, crc64_jones_refl_base, crc64_jones_refl_b
 mbin_interface			crc64_jones_norm
 mbin_dispatch_init7		crc64_jones_norm, crc64_jones_norm_base, crc64_jones_norm_by8, crc64_jones_norm_by8, crc64_jones_norm_by8, crc64_jones_norm_by8, crc64_jones_norm_by16_10
 
-;;;       func            	core, ver, snum
-slversion crc64_ecma_refl,	00,   00,  001b
-slversion crc64_ecma_norm,	00,   00,  0018
-slversion crc64_iso_refl,	00,   00,  0021
-slversion crc64_iso_norm,	00,   00,  001e
-slversion crc64_jones_refl,	00,   00,  0027
-slversion crc64_jones_norm,	00,   00,  0024
+mbin_interface			crc64_rocksoft_refl
+mbin_dispatch_init7		crc64_rocksoft_refl, crc64_rocksoft_refl_base, crc64_rocksoft_refl_by8, crc64_rocksoft_refl_by8, crc64_rocksoft_refl_by8, crc64_rocksoft_refl_by8, crc64_rocksoft_refl_by16_10
+mbin_interface			crc64_rocksoft_norm
+mbin_dispatch_init7		crc64_rocksoft_norm, crc64_rocksoft_norm_base, crc64_rocksoft_norm_by8, crc64_rocksoft_norm_by8, crc64_rocksoft_norm_by8, crc64_rocksoft_norm_by8, crc64_rocksoft_norm_by16_10

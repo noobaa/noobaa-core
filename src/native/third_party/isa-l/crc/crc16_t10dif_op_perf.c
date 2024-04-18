@@ -36,17 +36,19 @@
 
 #define BLKSIZE (512)
 
-//#define CACHED_TEST
-#ifdef CACHED_TEST
+#ifndef GT_L3_CACHE
+# define GT_L3_CACHE  32*1024*1024	/* some number > last level cache */
+#endif
+
+#if !defined(COLD_TEST) && !defined(TEST_CUSTOM)
 // Cached test, loop many times over small dataset
 # define NBLOCKS      100
 # define TEST_TYPE_STR "_warm"
-#else
+#elif defined (COLD_TEST)
 // Uncached test.  Pull from large mem base.
-#  define GT_L3_CACHE  32*1024*1024	/* some number > last level cache */
-#  define TEST_LEN     (2 * GT_L3_CACHE)
-#  define NBLOCKS      (TEST_LEN / BLKSIZE)
-#  define TEST_TYPE_STR "_cold"
+# define TEST_LEN     (2 * GT_L3_CACHE)
+# define NBLOCKS      (TEST_LEN / BLKSIZE)
+# define TEST_TYPE_STR "_cold"
 #endif
 
 #ifndef TEST_SEED
@@ -64,8 +66,9 @@ struct blk_ext {
 	uint16_t crc;
 };
 
-void crc16_t10dif_copy_perf(struct blk *blks, struct blk *blkp, struct blk_ext *blks_ext,
-			    struct blk_ext *blkp_ext, uint16_t * crc)
+static void crc16_t10dif_copy_perf(struct blk *blks, struct blk *blkp,
+				   struct blk_ext *blks_ext, struct blk_ext *blkp_ext,
+				   uint16_t * crc)
 {
 	int i;
 	for (i = 0, blkp = blks, blkp_ext = blks_ext; i < NBLOCKS; i++) {
@@ -80,8 +83,8 @@ void crc16_t10dif_copy_perf(struct blk *blks, struct blk *blkp, struct blk_ext *
 int main(int argc, char *argv[])
 {
 	uint16_t crc;
-	struct blk *blks, *blkp;
-	struct blk_ext *blks_ext, *blkp_ext;
+	struct blk *blks = NULL, *blkp = NULL;
+	struct blk_ext *blks_ext = NULL, *blkp_ext = NULL;
 	struct perf start;
 
 	printf("crc16_t10dif_streaming_insert_perf:\n");
@@ -95,7 +98,7 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	printf(" size blk: %ld, blk_ext: %ld, blk data: %ld, stream: %ld\n",
+	printf(" size blk: %zu, blk_ext: %zu, blk data: %zu, stream: %zu\n",
 	       sizeof(*blks), sizeof(*blks_ext), sizeof(blks->data),
 	       NBLOCKS * sizeof(blks->data));
 	memset(blks, 0xe5, NBLOCKS * sizeof(*blks));

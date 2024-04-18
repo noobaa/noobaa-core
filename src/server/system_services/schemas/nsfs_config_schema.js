@@ -91,7 +91,7 @@ const nsfs_node_config_schema = {
             default: true,
             description: 'indicate whether fsync should be triggered, changing value to false is unsafe for production envs, hot reload'
         },
-        NSFS_WHITELIST: {
+        S3_SERVER_IP_WHITELIST: {
             type: 'array',
             default: [],
             description: 'List of whitelisted IPs for S3 access, Allow access from all the IPs if list is empty.'

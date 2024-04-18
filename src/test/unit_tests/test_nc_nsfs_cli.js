@@ -959,7 +959,7 @@ mocha.describe('manage_nsfs cli', function() {
         mocha.it('cli add whitelist ips first time (IPV4 format)', async function() {
             const ips = ['127.0.0.1']; // IPV4 format
             const res = await exec_manage_cli(type, '', { config_root, ips: JSON.stringify(ips) });
-            config_options.NSFS_WHITELIST = ips;
+            config_options.S3_SERVER_IP_WHITELIST = ips;
             const config_data = await read_config_file(config_root, '', 'config');
             assert_response('', type, res, ips);
             assert_whitelist(config_data, config_options);
@@ -968,7 +968,7 @@ mocha.describe('manage_nsfs cli', function() {
         mocha.it('cli update whitelist ips (IPV6 expanded format)', async function() {
             const ips = ['0000:0000:0000:0000:0000:ffff:7f00:0002']; // IPV6 expanded format
             const res = await exec_manage_cli(type, '', { config_root, ips: JSON.stringify(ips) });
-            config_options.NSFS_WHITELIST = ips;
+            config_options.S3_SERVER_IP_WHITELIST = ips;
             const config_data = await read_config_file(config_root, '', 'config');
             assert_response('', type, res, ips);
             assert_whitelist(config_data, config_options);
@@ -977,7 +977,7 @@ mocha.describe('manage_nsfs cli', function() {
         mocha.it('cli update whitelist ips (IPV6 compressed format)', async function() {
             const ips = ['::ffff:7f00:3']; // IPV6 compressed format
             const res = await exec_manage_cli(type, '', { config_root, ips: JSON.stringify(ips) });
-            config_options.NSFS_WHITELIST = ips;
+            config_options.S3_SERVER_IP_WHITELIST = ips;
             const config_data = await read_config_file(config_root, '', 'config');
             assert_response('', type, res, ips);
             assert_whitelist(config_data, config_options);
@@ -1160,6 +1160,6 @@ function assert_account(account, account_options, skip_secrets) {
 function assert_whitelist(config_data, config_options) {
     assert.strictEqual(config_data.ENDPOINT_FORKS, config_options.ENDPOINT_FORKS);
     assert.strictEqual(config_data.UV_THREADPOOL_SIZE, config_options.UV_THREADPOOL_SIZE);
-    assert.strictEqual(config_data.NSFS_WHITELIST.length, config_options.NSFS_WHITELIST.length);
+    assert.strictEqual(config_data.S3_SERVER_IP_WHITELIST.length, config_options.S3_SERVER_IP_WHITELIST.length);
     return true;
 }

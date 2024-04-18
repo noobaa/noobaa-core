@@ -338,7 +338,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
     } catch (err) {
         console.error('nsfs: exit on error', err.stack || err);
         //noobaa crashed
-        new NoobaaEvent(NoobaaEvent.NSFS_CRASHED).create_event(undefined, undefined, err);
+        new NoobaaEvent(NoobaaEvent.S3_CRASHED).create_event(undefined, undefined, err);
         process.exit(2);
     }
 }

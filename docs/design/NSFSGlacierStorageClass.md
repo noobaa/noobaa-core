@@ -75,7 +75,7 @@ even if the file is on disk unless the user explicitly issues a `RestoreObject` 
 does as well).
 
 #### Phase 2
-1. A scheduler (eg. Cron, human, script, etc) issues `node src/cmd/manage_nsfs glacier migrate --interval <val>`.
+1. A scheduler (eg. Cron, human, script, etc) issues `noobaa-cli glacier migrate --interval <val>`.
 2. The command will first acquire an "EXCLUSIVE" lock so as to ensure that only one tape management command is running at once.
 3. Once the process has the lock it will start to iterate over the potentially currently inactive files.
 4. Before processing a log file, the proceess will get an "EXCLUSIVE" lock to the file ensuring that it is indeed the only
@@ -108,7 +108,7 @@ restore request going on etc).
 5. Returns the request with success indicating that the restore request has been accepted.
 
 #### Phase 2
-1. A scheduler (eg. Cron, human, script, etc) issues `node src/cmd/manage_nsfs glacier restore --interval <val>`.
+1. A scheduler (eg. Cron, human, script, etc) issues `noobaa-cli glacier restore --interval <val>`.
 2. The command will first acquire an "EXCLUSIVE" lock so as to ensure that only one tape management command is running at once.
 3. Once the process has the lock it will start to iterate over the potentially currently inactive files.
 4. Before processing a log file, the proceess will get an "EXCLUSIVE" lock to the file ensuring that it is indeed the only

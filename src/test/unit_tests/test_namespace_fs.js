@@ -294,12 +294,12 @@ mocha.describe('namespace_fs', function() {
                 console.log('list_multiparts response', inspect(list_parts_res));
             }
 
-            const list1_res = await ns_src.list_uploads({
+            const list1_res = await ns_tmp.list_uploads({
                 bucket: mpu_bkt,
             }, dummy_object_sdk);
             console.log('list_uploads response', inspect(list1_res));
-            // TODO list_uploads is not implemented
-            assert.deepStrictEqual(list1_res.objects, []);
+            assert.strictEqual(list1_res.objects.length, 1);
+            assert.strictEqual(list1_res.objects[0].key, mpu_key);
 
             const complete_res = await ns_tmp.complete_object_upload({
                 obj_id,
@@ -311,7 +311,7 @@ mocha.describe('namespace_fs', function() {
             if (config.NSFS_CALCULATE_MD5 ||
                 ns_tmp.force_md5_etag || dummy_object_sdk.requesting_account.force_md5_etag) xattr[XATTR_MD5_KEY] = complete_res.etag;
 
-            const list2_res = await ns_src.list_uploads({
+            const list2_res = await ns_tmp.list_uploads({
                 bucket: mpu_bkt,
             }, dummy_object_sdk);
             console.log('list_uploads response', inspect(list2_res));
@@ -338,6 +338,75 @@ mocha.describe('namespace_fs', function() {
                 key: mpu_key,
             }, dummy_object_sdk);
             console.log('delete_object response', inspect(delete_res));
+        });
+    });
+
+    mocha.describe('list multipart upload', function() {
+        const mpu_key = 'mpu_upload';
+        const mpu_key2 = 'multipart/mpu_upload';
+        const mpu_key3 = 'multipart/tmp/mpu_upload';
+        const prefix = 'multipart/';
+        const delimiter = '/';
+        let create_res1;
+        let create_res2;
+        let create_res3;
+
+        const xattr = { key: 'value', key2: 'value2' };
+
+        mocha.before(async function() {
+            create_res1 = await ns_tmp.create_object_upload({
+                bucket: mpu_bkt,
+                key: mpu_key,
+                xattr,
+            }, dummy_object_sdk);
+
+            create_res2 = await ns_tmp.create_object_upload({
+                bucket: mpu_bkt,
+                key: mpu_key2,
+                xattr,
+            }, dummy_object_sdk);
+
+            create_res3 = await ns_tmp.create_object_upload({
+                bucket: mpu_bkt,
+                key: mpu_key3,
+                xattr,
+            }, dummy_object_sdk);
+        });
+
+        mocha.after(async function() {
+            await ns_tmp.abort_object_upload({bucket: mpu_bkt, obj_id: create_res1.obj_id}, dummy_object_sdk);
+            await ns_tmp.abort_object_upload({bucket: mpu_bkt, obj_id: create_res2.obj_id}, dummy_object_sdk);
+            await ns_tmp.abort_object_upload({bucket: mpu_bkt, obj_id: create_res3.obj_id}, dummy_object_sdk);
+        });
+
+        mocha.it('multipartUploadList without prefix or delimiter', async function() {
+            const res = await ns_tmp.list_uploads({bucket: mpu_bkt}, dummy_object_sdk);
+            //should return all three items
+            assert.strictEqual(res.objects.length, 3);
+        });
+
+        mocha.it('multipartUploadList with prefix', async function() {
+            const res = await ns_tmp.list_uploads({bucket: mpu_bkt, prefix}, dummy_object_sdk);
+            //should only include keys that start with prefix
+            assert.strictEqual(res.objects.length, 2);
+        });
+
+        mocha.it('multipartUploadList with delimiter', async function() {
+            const res = await ns_tmp.list_uploads({bucket: mpu_bkt, delimiter}, dummy_object_sdk);
+            assert.strictEqual(res.objects.length, 1);
+            // should combine both items with key that starts with multipart/ into common_prefixes
+            assert.strictEqual(res.common_prefixes.length, 1);
+            assert.strictEqual(res.common_prefixes[0], prefix);
+        });
+
+        mocha.it('multipartUploadList with prefix and delimiter', async function() {
+            const res = await ns_tmp.list_uploads({bucket: mpu_bkt, prefix, delimiter}, dummy_object_sdk);
+            // multipart/mpu_upload doesnt have delimiter after prefix
+            assert.strictEqual(res.objects.length, 1);
+            assert.strictEqual(res.objects[0].key, mpu_key2);
+            //first delimiter after prifix
+            assert.strictEqual(res.common_prefixes.length, 1);
+            assert.strictEqual(res.common_prefixes[0], 'multipart/tmp/');
         });
     });
 

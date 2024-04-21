@@ -26,9 +26,6 @@
   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 **********************************************************************/
-
-#include "../include/aarch64_label.h"
-
 	.arch armv8-a+crc
 	.text
 	.align	2
@@ -75,10 +72,8 @@ skip_has_hist:
 .endm
 
 
-	.global	cdecl(isal_deflate_body_aarch64)
-#ifndef __APPLE__
+	.global	isal_deflate_body_aarch64
 	.type	isal_deflate_body_aarch64, %function
-#endif
 /*
 	void isal_deflate_body_aarch64(struct isal_zstream *stream)
 */
@@ -120,7 +115,7 @@ skip_has_hist:
 	declare_generic_reg	code_len2,	4,x
 
 
-cdecl(isal_deflate_body_aarch64):
+isal_deflate_body_aarch64:
 	//save registers
 	push_stack
 	ldr	avail_in, [stream, _avail_in]
@@ -263,6 +258,4 @@ exit_save_state:
 	mov	w_tmp0 , ZSTATE_FLUSH_READ_BUFFER
 	str	w_tmp0, [stream, _internal_state+_state]
 	b	exit_ret
-#ifndef __APPLE__
 	.size	isal_deflate_body_aarch64, .-isal_deflate_body_aarch64
-#endif

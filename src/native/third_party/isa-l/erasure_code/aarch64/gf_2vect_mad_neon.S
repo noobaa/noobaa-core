@@ -26,15 +26,11 @@
   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 **********************************************************************/
-
-#include "../include/aarch64_label.h"
-
 .text
 
-.global cdecl(gf_2vect_mad_neon)
-#ifndef __APPLE__
+.global gf_2vect_mad_neon
 .type gf_2vect_mad_neon, %function
-#endif
+
 
 /* arguments */
 x_len		.req	x0
@@ -129,7 +125,7 @@ v_data_lo	.req	v17
 v_data_hi	.req	v18
 
 
-cdecl(gf_2vect_mad_neon):
+gf_2vect_mad_neon:
 	/* less than 16 bytes, return_fail */
 	cmp	x_len, #16
 	blt	.return_fail
@@ -364,13 +360,7 @@ cdecl(gf_2vect_mad_neon):
 	sub	x_dest1, x_dest1, x_tmp
 	sub	x_dest2, x_dest2, x_tmp
 
-#ifndef __APPLE__
-	adrp	x_const, const_tbl
-	add	x_const, x_const, :lo12:const_tbl
-#else
-	adrp	x_const, const_tbl@PAGE
-	add	x_const, x_const, const_tbl@PAGEOFF
-#endif
+	ldr	x_const, =const_tbl
 	sub	x_const, x_const, x_tmp
 	ldr	q_tmp, [x_const, #16]
 
@@ -404,7 +394,7 @@ cdecl(gf_2vect_mad_neon):
 	mov	w_ret, #1
 	ret
 
-ASM_DEF_RODATA
+.section .data
 .balign 8
 const_tbl:
 	.dword 0x0000000000000000, 0x0000000000000000

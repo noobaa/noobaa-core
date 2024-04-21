@@ -90,12 +90,8 @@
 
 */
 
-	.global	cdecl(crc32_iscsi_3crc_fold)
-#ifndef __APPLE__
+	.global	crc32_iscsi_3crc_fold
 	.type	crc32_iscsi_3crc_fold, %function
-#endif
-cdecl(crc32_iscsi_3crc_fold):
+crc32_iscsi_3crc_fold:
 	crc32_3crc_fold		crc32c
-#ifndef __APPLE__
 	.size	crc32_iscsi_3crc_fold, .-crc32_iscsi_3crc_fold
-#endif

@@ -390,3 +390,8 @@ func(gf_3vect_dot_prod_avx2)
 	ret
 
 endproc_frame
+
+section .data
+
+;;;       func                   core, ver, snum
+slversion gf_3vect_dot_prod_avx2, 04,  05,  0197

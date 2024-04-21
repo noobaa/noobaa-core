@@ -32,7 +32,7 @@
 #include<string.h>
 #include<stdlib.h>
 #include "raid.h"
-#include "test.h"
+#include "types.h"
 
 #define TEST_SOURCES 16
 #define TEST_LEN     1024
@@ -53,7 +53,7 @@ void rand_buffer(unsigned char *buf, long buffer_size)
 int main(int argc, char *argv[])
 {
 	int i, j, k, ret, fail = 0;
-	void *buffs[TEST_SOURCES + 1] = { NULL };
+	void *buffs[TEST_SOURCES + 1];
 	char c;
 	int serr, lerr;
 	char *tmp_buf[TEST_SOURCES + 1];
@@ -67,8 +67,7 @@ int main(int argc, char *argv[])
 		void *buf;
 		if (posix_memalign(&buf, 16, TEST_LEN)) {
 			printf("alloc error: Fail");
-			fail = 1;
-			goto exit;
+			return 1;
 		}
 		buffs[i] = buf;
 	}
@@ -100,13 +99,11 @@ int main(int argc, char *argv[])
 			if (ret == 0) {
 				fail++;
 				printf("\nfail corrupt buffer test j=%d, i=%d\n", j, i);
-				goto exit;
+				return 1;
 			}
 			((char *)buffs[j])[i] = 0;	// un-corrupt buffer
 		}
-#ifdef TEST_VERBOSE
 		putchar('.');
-#endif
 	}
 
 	// Test rand1
@@ -139,7 +136,7 @@ int main(int argc, char *argv[])
 				printf
 				    ("\nFail rand test with un-corrupted buffer j=%d, i=%d\n",
 				     j, i);
-				goto exit;
+				return 1;
 			}
 			c = ((char *)buffs[j])[i];
 			((char *)buffs[j])[i] = c ^ 1;	// corrupt buffer
@@ -147,13 +144,11 @@ int main(int argc, char *argv[])
 			if (ret == 0) {	// Check it now fails
 				fail++;
 				printf("\nfail corrupt buffer test j=%d, i=%d\n", j, i);
-				goto exit;
+				return 1;
 			}
 			((char *)buffs[j])[i] = c;	// un-corrupt buffer
 		}
-#ifdef TEST_VERBOSE
 		putchar('.');
-#endif
 	}
 
 	// Test various number of sources, full length
@@ -173,7 +168,7 @@ int main(int argc, char *argv[])
 				if (ret != 0) {	// Should pass
 					printf("\nfail rand test %d sources\n", j);
 					fail++;
-					goto exit;
+					return 1;
 				}
 
 				c = ((char *)buffs[i])[k];
@@ -185,14 +180,12 @@ int main(int argc, char *argv[])
 					    ("\nfail rand test corrupted buffer %d sources\n",
 					     j);
 					fail++;
-					goto exit;
+					return 1;
 				}
 				((char *)buffs[i])[k] = c;	// un-corrupt buffer
 			}
 		}
-#ifdef TEST_VERBOSE
 		putchar('.');
-#endif
 	}
 
 	fflush(0);
@@ -216,7 +209,7 @@ int main(int argc, char *argv[])
 					if (ret != 0) {	// Should pass
 						printf("\nfail rand test %d sources\n", j);
 						fail++;
-						goto exit;
+						return 1;
 					}
 
 					c = ((char *)buffs[serr])[lerr];
@@ -228,15 +221,13 @@ int main(int argc, char *argv[])
 						       "%d sources, len=%d, ret=%d\n", j, k,
 						       ret);
 						fail++;
-						goto exit;
+						return 1;
 					}
 					((char *)buffs[serr])[lerr] = c;	// un-corrupt buffer
 				}
 			}
 		}
-#ifdef TEST_VERBOSE
 		putchar('.');
-#endif
 		fflush(0);
 		k += 1;
 	}
@@ -255,7 +246,7 @@ int main(int argc, char *argv[])
 		if (ret != 0) {
 			printf("fail end test - offset: %d, len: %d\n", i, TEST_LEN - i);
 			fail++;
-			goto exit;
+			return 1;
 		}
 		// Test bad data
 		for (serr = 0; serr < TEST_SOURCES + 1; serr++) {
@@ -270,25 +261,19 @@ int main(int argc, char *argv[])
 					       "offset: %d, len: %d, ret: %d\n", i,
 					       TEST_LEN - i, ret);
 					fail++;
-					goto exit;
+					return 1;
 				}
 
 				tmp_buf[serr][lerr] = c;
 			}
 		}
 
-#ifdef TEST_VERBOSE
 		putchar('.');
-#endif
 		fflush(0);
 	}
 
 	if (fail == 0)
 		printf("Pass\n");
-
-      exit:
-	for (i = 0; i < TEST_SOURCES + 1; i++)
-		aligned_free(buffs[i]);
 
 	return fail;
 

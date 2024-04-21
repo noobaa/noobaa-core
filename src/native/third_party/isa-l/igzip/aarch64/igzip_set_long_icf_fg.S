@@ -26,9 +26,6 @@
   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 **********************************************************************/
-
-#include "../include/aarch64_label.h"
-
 	.arch armv8-a
 	.text
 	.align	2
@@ -51,10 +48,8 @@ declare Macros
 
 	.text
 	.align	2
-	.global	cdecl(set_long_icf_fg_aarch64)
-#ifndef __APPLE__
+	.global	set_long_icf_fg_aarch64
 	.type	set_long_icf_fg_aarch64, %function
-#endif
 
 /*
 void set_long_icf_fg_aarch64(uint8_t * next_in, uint64_t processed, uint64_t input_size,
@@ -74,7 +69,7 @@ void set_long_icf_fg_aarch64(uint8_t * next_in, uint64_t processed, uint64_t inp
 	/* local variable */
 	declare_generic_reg	len,			7,w
 	declare_generic_reg	dist_code,		8,w
-	declare_generic_reg	shortest_match_len,	9,w
+	declare_generic_reg	shortest_match_len	9,w
 	declare_generic_reg	len_max,		10,w
 	declare_generic_reg	dist_extra,		11,w
 	declare_generic_reg	const_8,		13,x
@@ -95,7 +90,7 @@ void set_long_icf_fg_aarch64(uint8_t * next_in, uint64_t processed, uint64_t inp
 .equ	SHORTEST_MATCH, 4
 .equ	LEN_MAX_CONST, 512
 
-cdecl(set_long_icf_fg_aarch64):
+set_long_icf_fg_aarch64:
 	stp	x29, x30, [sp, -192]!
 	add	x29, sp, 0
 	stp	x21, x22, [sp, 32]
@@ -108,18 +103,11 @@ cdecl(set_long_icf_fg_aarch64):
 	add	end_in, next_in_param, input_size_param
 	mov	match_lookup, match_lookup_param
 
-#ifndef __APPLE__
 	adrp	x1, .data_dist_start
 	mov	x2, DIST_START_SIZE // 128
 	add	x1, x1, :lo12:.data_dist_start
 	mov	x0, dist_start
-#else
-	adrp	x1, .data_dist_start@PAGE
-	mov	x2, DIST_START_SIZE // 128
-	add	x1, x1, .data_dist_start@PAGEOFF
-	mov	x0, dist_start
-#endif
-	bl	cdecl(memcpy)
+	bl	memcpy
 
 	add	x_tmp0, end_processed, ISAL_LOOK_AHEAD // 288
 	cmp	end_in, x_tmp0
@@ -194,11 +182,9 @@ cdecl(set_long_icf_fg_aarch64):
 	ldr	x23, [sp, 48]
 	ldp	x29, x30, [sp], 192
 	ret
-#ifndef __APPLE__
 	.size	set_long_icf_fg_aarch64, .-set_long_icf_fg_aarch64
-#endif
 
-ASM_DEF_RODATA
+	.section	.rodata
 	.align	3
 	.set	.data_dist_start,. + 0
 .real_data_dist_start:

@@ -28,9 +28,10 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;;; Optimized xor of N source vectors using SSE
-;;; int xor_check_sse(int vects, int len, void **array)
+;;; int xor_gen_sse(int vects, int len, void **array)
 
-;;; Checks that array has XOR parity sum of 0 across all vectors in **array.
+;;; Generates xor parity vector from N (vects-1) sources in array of pointers
+;;; (**array).  Last pointer is the dest.
 ;;; Vectors must be aligned to 16 bytes.  Length can be any value.
 
 %include "reg_sizes.asm"
@@ -188,12 +189,12 @@ next_vect:
 	;; End of vects, chech that all parity regs = 0
 	mov	tmp, vec		;Back to last vector
 	por	xmm0, xmm1
-	por	xmm2, xmm3
-	por	xmm4, xmm5
-	por	xmm6, xmm7
 	por	xmm0, xmm2
-	por	xmm4, xmm6
+	por	xmm0, xmm3
 	por	xmm0, xmm4
+	por	xmm0, xmm5
+	por	xmm0, xmm6
+	por	xmm0, xmm7
 	ptest	xmm0, xmm0
 	jnz	return_fail
 
@@ -276,3 +277,9 @@ return_fail:
 	ret
 
 endproc_frame
+
+section .data
+
+;;;       func           core, ver, snum
+slversion xor_check_sse, 00,   03,  0031
+

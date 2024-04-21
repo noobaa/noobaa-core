@@ -40,11 +40,7 @@ int LLVMFuzzerTestOneInput(const uint8_t * data, size_t size)
 	zstate.next_in = (Bytef *) data;
 	zstate.avail_out = out_buf_size;
 	zstate.next_out = zlib_out_buf;
-	if (inflateInit2(&zstate, -15) != Z_OK) {
-		free(isal_out_buf);
-		free(zlib_out_buf);
-		return -1;
-	}
+	inflateInit2(&zstate, -15);
 
 	zret = inflate(&zstate, Z_FINISH);
 

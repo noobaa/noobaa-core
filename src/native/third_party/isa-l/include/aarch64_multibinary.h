@@ -31,7 +31,7 @@
 #ifndef __aarch64__
 #error "This file is for aarch64 only"
 #endif
-#include "aarch64_label.h"
+#include <asm/hwcap.h>
 #ifdef __ASSEMBLY__
 /**
  * # mbin_interface : the wrapper layer for isal-l api
@@ -48,18 +48,17 @@
  * 	4. The dispather should return the right function pointer , revision and a string information .
  **/
 .macro mbin_interface name:req
-	.extern cdecl(\name\()_dispatcher)
-	.data
+	.extern \name\()_dispatcher
+	.section        .data
 	.balign 8
-	.global cdecl(\name\()_dispatcher_info)
-#ifndef __APPLE__
+	.global \name\()_dispatcher_info
 	.type   \name\()_dispatcher_info,%object
-#endif
-	cdecl(\name\()_dispatcher_info):
+
+	\name\()_dispatcher_info:
 		.quad   \name\()_mbinit         //func_entry
-#ifndef __APPLE__
+
 	.size   \name\()_dispatcher_info,. - \name\()_dispatcher_info
-#endif
+
 	.balign 8
 	.text
 	\name\()_mbinit:
@@ -109,7 +108,7 @@
 		 */
 
 
-		bl cdecl(\name\()_dispatcher)
+		bl \name\()_dispatcher
 		//restore temp/indirect result registers
 		ldp	x8,  x9,  [sp,    16]
 		.cfi_restore 8
@@ -151,24 +150,16 @@
 		.cfi_def_cfa_offset 0
 		.cfi_endproc
 
-	.global cdecl(\name)
-#ifndef __APPLE__
+	.global \name
 	.type \name,%function
-#endif
 	.align  2
-	cdecl(\name\()):
-#ifndef __APPLE__
+	\name\():
 		adrp    x9, :got:\name\()_dispatcher_info
 		ldr     x9, [x9, #:got_lo12:\name\()_dispatcher_info]
-#else
-		adrp    x9, cdecl(\name\()_dispatcher_info)@GOTPAGE
-		ldr     x9, [x9, #cdecl(\name\()_dispatcher_info)@GOTPAGEOFF]
-#endif
 		ldr     x10,[x9]
 		br      x10
-#ifndef __APPLE__
 	.size \name,. - \name
-#endif
+
 .endm
 
 /**
@@ -177,57 +168,32 @@
  */
 .macro mbin_interface_base name:req, base:req
 	.extern \base
-	.data
+	.section        .data
 	.balign 8
-	.global cdecl(\name\()_dispatcher_info)
-#ifndef __APPLE__
+	.global \name\()_dispatcher_info
 	.type   \name\()_dispatcher_info,%object
-#endif
-	cdecl(\name\()_dispatcher_info):
+
+	\name\()_dispatcher_info:
 		.quad   \base         //func_entry
-#ifndef __APPLE__
 	.size   \name\()_dispatcher_info,. - \name\()_dispatcher_info
-#endif
+
 	.balign 8
 	.text
-	.global cdecl(\name)
-#ifndef __APPLE__
+	.global \name
 	.type \name,%function
-#endif
 	.align  2
-	cdecl(\name\()):
-#ifndef __APPLE__
-		adrp    x9, :got:cdecl(_\name\()_dispatcher_info)
-		ldr     x9, [x9, #:got_lo12:cdecl(_\name\()_dispatcher_info)]
-#else
-		adrp    x9, cdecl(_\name\()_dispatcher_info)@GOTPAGE
-		ldr     x9, [x9, #cdecl(_\name\()_dispatcher_info)@GOTPAGEOFF]
-#endif
+	\name\():
+		adrp    x9, :got:\name\()_dispatcher_info
+		ldr     x9, [x9, #:got_lo12:\name\()_dispatcher_info]
 		ldr     x10,[x9]
 		br      x10
-#ifndef __APPLE__
 	.size \name,. - \name
-#endif
+
 .endm
 
 #else /* __ASSEMBLY__ */
-#include <stdint.h>
-#if defined(__linux__)
 #include <sys/auxv.h>
-#include <asm/hwcap.h>
-#elif defined(__APPLE__)
-#define SYSCTL_PMULL_KEY "hw.optional.arm.FEAT_PMULL" // from macOS 12 FEAT_* sysctl infos are available
-#define SYSCTL_CRC32_KEY "hw.optional.armv8_crc32"
-#define SYSCTL_SVE_KEY "hw.optional.arm.FEAT_SVE" // this one is just a guess and need to check macOS update
-#include <sys/sysctl.h>
-#include <stddef.h>
-static inline int sysctlEnabled(const char* name){
-	int enabled;
-	size_t size = sizeof(enabled);
-	int status = sysctlbyname(name, &enabled, &size, NULL, 0);
-	return status ? 0 : enabled;
-}
-#endif
+
 
 
 #define DEFINE_INTERFACE_DISPATCHER(name)                               \
@@ -332,12 +298,10 @@ static inline int sysctlEnabled(const char* name){
 static inline uint32_t get_micro_arch_id(void)
 {
 	uint32_t id=CPU_IMPLEMENTER_RESERVE;
-#ifndef __APPLE__
 	if ((getauxval(AT_HWCAP) & HWCAP_CPUID)) {
 		/** Here will trap into kernel space */
 		asm("mrs %0, MIDR_EL1 " : "=r" (id));
 	}
-#endif
 	return id&0xff00fff0;
 }
 

@@ -32,8 +32,8 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include "crc.h"
+#include "types.h"
 #include "crc_ref.h"
-#include "test.h"
 
 #ifndef TEST_SEED
 # define TEST_SEED 0x1234
@@ -59,8 +59,9 @@ int main(int argc, char *argv[])
 {
 	int fail = 0;
 	u32 r = 0;
+	int verbose = argc - 1;
 	int i, s;
-	void *buf_raw = NULL;
+	void *buf_raw;
 	unsigned char *buf;
 
 	printf("Test crc16_t10dif_test ");
@@ -81,12 +82,9 @@ int main(int argc, char *argv[])
 		fail++;
 		printf("\n           opt   ref\n");
 		printf("         ------ ------\n");
-		printf("fail crc    zero = 0x%4x 0x%4x 0x%4x \n", crc_ref, crc_base, crc);
-	}
-#ifdef TEST_VERBOSE
-	else
+		printf("crc    zero = 0x%4x 0x%4x 0x%4x \n", crc_ref, crc_base, crc);
+	} else
 		printf(".");
-#endif
 
 	// Another simple test pattern
 	memset(buf, 0x8a, MAX_BUF);
@@ -95,12 +93,9 @@ int main(int argc, char *argv[])
 	crc = crc16_t10dif(TEST_SEED, buf, MAX_BUF);
 	if ((crc_base != crc_ref) || (crc != crc_ref)) {
 		fail++;
-		printf("fail crc  all 8a = 0x%4x 0x%4x 0x%4x\n", crc_ref, crc_base, crc);
-	}
-#ifdef TEST_VERBOSE
-	else
+		printf("crc  all 8a = 0x%4x 0x%4x 0x%4x\n", crc_ref, crc_base, crc);
+	} else
 		printf(".");
-#endif
 
 	// Do a few random tests
 
@@ -110,15 +105,12 @@ int main(int argc, char *argv[])
 		crc_ref = crc16_t10dif_ref(TEST_SEED, buf, MAX_BUF);
 		crc_base = crc16_t10dif_base(TEST_SEED, buf, MAX_BUF);
 		crc = crc16_t10dif(TEST_SEED, buf, MAX_BUF);
-		if ((crc_base != crc_ref) || (crc != crc_ref)) {
+		if ((crc_base != crc_ref) || (crc != crc_ref))
 			fail++;
-			printf("fail crc rand%3d = 0x%4x 0x%4x 0x%4x\n", i, crc_ref, crc_base,
-			       crc);
-		}
-#ifdef TEST_VERBOSE
+		if (verbose)
+			printf("crc rand%3d = 0x%4x 0x%4x 0x%4x\n", i, crc_ref, crc_base, crc);
 		else if (i % (TEST_SIZE / 8) == 0)
 			printf(".");
-#endif
 		buf += MAX_BUF;
 	}
 
@@ -134,11 +126,8 @@ int main(int argc, char *argv[])
 			fail++;
 			printf("fail random size%i 0x%8x 0x%8x 0x%8x\n", i, crc_ref, crc_base,
 			       crc);
-		}
-#ifdef TEST_VERBOSE
-		else if (i % (MAX_BUF / 8) == 0)
+		} else if (i % (MAX_BUF / 8) == 0)
 			printf(".");
-#endif
 	}
 
 	// Try different seeds
@@ -148,23 +137,20 @@ int main(int argc, char *argv[])
 		r = rand();	// just to get a new seed
 		rand_buffer(buf, MAX_BUF * TEST_SIZE);	// new pseudo-rand data
 
-#ifdef TEST_VERBOSE
-		printf("seed = 0x%x\n", r);
-#endif
+		if (verbose)
+			printf("seed = 0x%x\n", r);
 
 		for (i = 0; i < TEST_SIZE; i++) {
 			crc_ref = crc16_t10dif_ref(r, buf, MAX_BUF);
 			crc_base = crc16_t10dif_base(r, buf, MAX_BUF);
 			crc = crc16_t10dif(r, buf, MAX_BUF);
-			if ((crc_base != crc_ref) || (crc != crc_ref)) {
+			if ((crc_base != crc_ref) || (crc != crc_ref))
 				fail++;
-				printf("fail crc rand%3d = 0x%4x 0x%4x 0x%4x\n", i, crc_ref,
+			if (verbose)
+				printf("crc rand%3d = 0x%4x 0x%4x 0x%4x\n", i, crc_ref,
 				       crc_base, crc);
-			}
-#ifdef TEST_VERBOSE
 			else if (i % (TEST_SIZE * 20 / 8) == 0)
 				printf(".");
-#endif
 			buf += MAX_BUF;
 		}
 	}
@@ -176,23 +162,18 @@ int main(int argc, char *argv[])
 		crc_ref = crc16_t10dif_ref(TEST_SEED, buf + i, TEST_SIZE - i);
 		crc_base = crc16_t10dif_base(TEST_SEED, buf + i, TEST_SIZE - i);
 		crc = crc16_t10dif(TEST_SEED, buf + i, TEST_SIZE - i);
-		if ((crc_base != crc_ref) || (crc != crc_ref)) {
+		if ((crc_base != crc_ref) || (crc != crc_ref))
 			fail++;
-			printf("fail crc eob rand%3d = 0x%4x 0x%4x 0x%4x\n", i, crc_ref,
-			       crc_base, crc);
-		}
-#ifdef TEST_VERBOSE
+		if (verbose)
+			printf("crc eob rand%3d = 0x%4x 0x%4x 0x%4x\n", i, crc_ref, crc_base,
+			       crc);
 		else
 			printf(".");
-#endif
 	}
 
 	printf("Test done: %s\n", fail ? "Fail" : "Pass");
 	if (fail)
 		printf("\nFailed %d tests\n", fail);
-
-	if (buf)
-		aligned_free(buf_raw);
 
 	return fail;
 }

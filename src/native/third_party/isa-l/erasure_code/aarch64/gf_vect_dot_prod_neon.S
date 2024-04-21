@@ -26,15 +26,10 @@
   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 **********************************************************************/
-
-#include "../include/aarch64_label.h"
-
 .text
 
-.global cdecl(gf_vect_dot_prod_neon)
-#ifndef __APPLE__
+.global gf_vect_dot_prod_neon
 .type gf_vect_dot_prod_neon, %function
-#endif
 
 /* arguments */
 x_len		.req	x0
@@ -120,7 +115,7 @@ v_data_lo	.req	v_p2
 v_data_hi	.req	v_p3
 
 
-cdecl(gf_vect_dot_prod_neon):
+gf_vect_dot_prod_neon:
 	/* less than 16 bytes, return_fail */
 	cmp	x_len, #16
 	blt	.return_fail

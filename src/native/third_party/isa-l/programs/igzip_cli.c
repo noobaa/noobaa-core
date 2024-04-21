@@ -38,7 +38,6 @@
 #include <unistd.h>
 #include <stdbool.h>
 #include <stdarg.h>
-#include <errno.h>
 #include "igzip_lib.h"		/* Normally you use isa-l.h instead for external programs */
 
 #if defined (HAVE_THREADS)
@@ -231,13 +230,11 @@ size_t get_filesize(FILE * fp)
 	return file_size;
 }
 
-int get_posix_filetime(FILE * fp, uint32_t * time)
+uint32_t get_posix_filetime(FILE * fp)
 {
 	struct stat file_stats;
-	const int ret = fstat(fileno(fp), &file_stats);
-	if (time != NULL && ret == 0)
-		*time = file_stats.st_mtime;
-	return ret;
+	fstat(fileno(fp), &file_stats);
+	return file_stats.st_mtime;
 }
 
 uint32_t set_filetime(char *file_name, uint32_t posix_time)
@@ -323,15 +320,14 @@ void *malloc_safe(size_t size)
 	return ptr;
 }
 
-FILE *fopen_safe(const char *file_name, const char *mode)
+FILE *fopen_safe(char *file_name, char *mode)
 {
 	FILE *file;
+	int answer = 0, tmp;
 
 	/* Assumes write mode always starts with w */
 	if (mode[0] == 'w') {
 		if (access(file_name, F_OK) == 0) {
-			int answer = 0, tmp;
-
 			log_print(WARN, "igzip: %s already exists;", file_name);
 			if (is_interactive()) {
 				log_print(WARN, " do you wish to overwrite (y/n)?");
@@ -349,14 +345,30 @@ FILE *fopen_safe(const char *file_name, const char *mode)
 				log_print(WARN, "       not overwritten\n");
 				return NULL;
 			}
+
+			if (access(file_name, W_OK) != 0) {
+				log_print(ERROR, "igzip: %s: Permission denied\n", file_name);
+				return NULL;
+			}
+		}
+	}
+
+	/* Assumes read mode always starts with r */
+	if (mode[0] == 'r') {
+		if (access(file_name, F_OK) != 0) {
+			log_print(ERROR, "igzip: %s does not exist\n", file_name);
+			return NULL;
+		}
+
+		if (access(file_name, R_OK) != 0) {
+			log_print(ERROR, "igzip: %s: Permission denied\n", file_name);
+			return NULL;
 		}
 	}
 
 	file = fopen(file_name, mode);
 	if (!file) {
-		const char *error_str = strerror(errno);
-
-		log_print(ERROR, "igzip: Failed to open %s : %s\n", file_name, error_str);
+		log_print(ERROR, "igzip: Failed to open %s\n", file_name);
 		return NULL;
 	}
 
@@ -446,17 +458,17 @@ struct thread_pool {
 // Globals for thread pool
 struct thread_pool pool;
 
-static inline int pool_has_space(void)
+static inline int pool_has_space()
 {
 	return ((pool.head + 1) % MAX_JOBQUEUE) != pool.tail;
 }
 
-static inline int pool_has_work(void)
+static inline int pool_has_work()
 {
 	return (pool.queue != pool.head);
 }
 
-int pool_get_work(void)
+int pool_get_work()
 {
 	assert(pool.queue != pool.head);
 	pool.queue = (pool.queue + 1) % MAX_JOBQUEUE;
@@ -532,7 +544,7 @@ void *thread_worker(void *none)
 	pthread_exit(NULL);
 }
 
-int pool_create(void)
+int pool_create()
 {
 	int i;
 	int nthreads = global_options.threads - 1;
@@ -547,7 +559,7 @@ int pool_create(void)
 	return 0;
 }
 
-void pool_quit(void)
+void pool_quit()
 {
 	int i;
 	pthread_mutex_lock(&pool.mutex);
@@ -598,7 +610,7 @@ int compress_file(void)
 		allocated_name = malloc_safe(outfile_name_len + 1);
 		outfile_name = allocated_name;
 		strncpy(outfile_name, infile_name, infile_name_len + 1);
-		strncat(outfile_name, suffix, suffix_len);
+		strncat(outfile_name, suffix, outfile_name_len + 1);
 	}
 
 	open_in_file(&in, infile_name);
@@ -626,8 +638,7 @@ int compress_file(void)
 
 	isal_gzip_header_init(&gz_hdr);
 	if (global_options.name == NAME_DEFAULT || global_options.name == YES_NAME) {
-		if (get_posix_filetime(in, &gz_hdr.time) != 0)
-			goto compress_file_cleanup;
+		gz_hdr.time = get_posix_filetime(in);
 		gz_hdr.name = infile_name;
 	}
 	gz_hdr.os = UNIX;
@@ -856,8 +867,7 @@ int decompress_file(void)
 	if (in == NULL)
 		goto decompress_file_cleanup;
 
-	if (get_posix_filetime(in, &file_time) != 0)
-		goto decompress_file_cleanup;
+	file_time = get_posix_filetime(in);
 
 	inbuf_size = global_options.in_buf_size;
 	outbuf_size = global_options.out_buf_size;

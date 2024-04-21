@@ -32,6 +32,7 @@
 #include <string.h>
 #include "mem_routines.h"
 #include "test.h"
+#include "types.h"
 
 #define TEST_LEN     8*1024
 #define TEST_TYPE_STR "_warm"

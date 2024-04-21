@@ -34,18 +34,16 @@
 #include "igzip_lib.h"
 #include "test.h"
 
-#ifndef GT_L3_CACHE
-# define GT_L3_CACHE  32*1024*1024	/* some number > last level cache */
-#endif
-
-#if !defined(COLD_TEST) && !defined(TEST_CUSTOM)
+//#define CACHED_TEST
+#ifdef CACHED_TEST
 // Cached test, loop many times over small dataset
-# define TEST_LEN     8*1024
-# define TEST_TYPE_STR "_warm"
-#elif defined (COLD_TEST)
+#define TEST_LEN     8*1024
+#define TEST_TYPE_STR "_warm"
+#else
 // Uncached test.  Pull from large mem base.
-# define TEST_LEN     (2 * GT_L3_CACHE)
-# define TEST_TYPE_STR "_cold"
+#define GT_L3_CACHE  32*1024*1024	/* some number > last level cache */
+#define TEST_LEN     (2 * GT_L3_CACHE)
+#define TEST_TYPE_STR "_cold"
 #endif
 
 #ifndef TEST_SEED

@@ -104,26 +104,15 @@
  */
 struct huff_code {
 	union {
-		struct {
-#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-			uint32_t code_and_extra:24;
-			uint32_t length2:8;
-#else
-			uint32_t length2:8;
-			uint32_t code_and_extra:24;
-#endif
-		};
+                struct {
+                        uint32_t code_and_extra:24;
+                        uint32_t length2:8;
+                };
 
 		struct {
-#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 			uint16_t code;
 			uint8_t extra_bit_count;
 			uint8_t length;
-#else
-			uint8_t length;
-			uint8_t extra_bit_count;
-			uint16_t code;
-#endif
 		};
 
 		uint32_t code_and_length;
@@ -131,13 +120,8 @@ struct huff_code {
 };
 
 struct tree_node {
-#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 	uint32_t child;
 	uint32_t depth;
-#else
-	uint32_t depth;
-	uint32_t child;
-#endif
 };
 
 struct heap_tree {
@@ -180,7 +164,7 @@ struct hufftables_icf {
  * with the set hufftable
  */
 uint64_t
-create_hufftables_icf(struct BitBuf2 *bb, struct hufftables_icf *hufftables,
-		      struct isal_mod_hist *hist, uint32_t end_of_block);
+create_hufftables_icf(struct BitBuf2 *bb, struct hufftables_icf * hufftables,
+                  struct isal_mod_hist *hist, uint32_t end_of_block);
 
 #endif

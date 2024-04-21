@@ -74,8 +74,10 @@ int inflate_multi_pass(uint8_t * compress_buf, uint64_t compress_len,
 				comp_tmp_size = compress_len - comp_processed;
 
 			if (comp_tmp_size != 0) {
-				if (comp_tmp != NULL)
+				if (comp_tmp != NULL) {
 					free(comp_tmp);
+					comp_tmp = NULL;
+				}
 
 				comp_tmp = malloc(comp_tmp_size);
 
@@ -111,6 +113,7 @@ int inflate_multi_pass(uint8_t * compress_buf, uint64_t compress_len,
 				if (uncomp_tmp != NULL) {
 					fflush(0);
 					free(uncomp_tmp);
+					uncomp_tmp = NULL;
 				}
 
 				uncomp_tmp = malloc(uncomp_tmp_size);
@@ -272,9 +275,7 @@ int main(int argc, char **argv)
 			exit(0);
 		}
 
-		uncompressed_length =
-		    (uncompressed_stream == NULL) ? 0 : fread(uncompressed_stream, 1,
-							      file_length, file);
+		uncompressed_length = fread(uncompressed_stream, 1, file_length, file);
 		uncompressed_test_stream_length = uncompressed_length;
 		ret =
 		    test(compressed_stream, &compressed_length, uncompressed_stream,

@@ -30,9 +30,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>		// for memset, memcmp
-#include <assert.h>
 #include "erasure_code.h"
-#include "test.h"
+#include "types.h"
 
 #define TEST_LEN 8192
 #define TEST_SIZE (TEST_LEN/2)
@@ -135,7 +134,8 @@ int main(int argc, char *argv[])
 	// Pick a first test
 	m = 9;
 	k = 5;
-	assert(!(m > MMAX || k > KMAX));
+	if (m > MMAX || k > KMAX)
+		return -1;
 
 	gf_gen_cauchy1_matrix(a, m, k);
 
@@ -282,9 +282,7 @@ int main(int argc, char *argv[])
 				return -1;
 			}
 		}
-#ifdef TEST_VERBOSE
 		putchar('.');
-#endif
 	}
 
 	printf("done all: Pass\n");

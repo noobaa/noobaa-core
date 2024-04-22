@@ -176,6 +176,17 @@ config.STS_CORS_EXPOSE_HEADERS = 'ETag';
 
 config.DENY_UPLOAD_TO_STORAGE_CLASS_STANDARD = false;
 
+// S3_RESTORE_MAX_DAYS controls that for how many maximum number
+// of days an object can be restored using `restore-object` call.
+config.S3_RESTORE_REQUEST_MAX_DAYS = 30;
+
+/**
+ * S3_RESTORE_MAX_DAYS_BEHAVIOUR controls whether to truncate the
+ * requested number of days in restore request or whether to deny the request.
+ * @type {'DENY' | 'TRUNCATE'}
+ */
+config.S3_RESTORE_REQUEST_MAX_DAYS_BEHAVIOUR = 'TRUNCATE';
+
 /////////////////////
 // SECRETS CONFIG  //
 /////////////////////

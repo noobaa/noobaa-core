@@ -59,6 +59,8 @@ const XATTR_CONTENT_TYPE = XATTR_NOOBAA_INTERNAL_PREFIX + 'content_type';
 const XATTR_PART_OFFSET = XATTR_NOOBAA_INTERNAL_PREFIX + 'part_offset';
 const XATTR_PART_SIZE = XATTR_NOOBAA_INTERNAL_PREFIX + 'part_size';
 const XATTR_PART_ETAG = XATTR_NOOBAA_INTERNAL_PREFIX + 'part_etag';
+const XATTR_PARTS_INFO = XATTR_NOOBAA_INTERNAL_PREFIX + 'parts_info';
+const XATTR_NUM_PARTS = XATTR_NOOBAA_INTERNAL_PREFIX + 'num_parts';
 const XATTR_VERSION_ID = XATTR_NOOBAA_INTERNAL_PREFIX + 'version_id';
 const XATTR_PREV_VERSION_ID = XATTR_NOOBAA_INTERNAL_PREFIX + 'prev_version_id';
 const XATTR_DELETE_MARKER = XATTR_NOOBAA_INTERNAL_PREFIX + 'delete_marker';
@@ -67,6 +69,7 @@ const HIDDEN_VERSIONS_PATH = '.versions';
 const NULL_VERSION_ID = 'null';
 const NULL_VERSION_SUFFIX = '_' + NULL_VERSION_ID;
 const XATTR_STORAGE_CLASS_KEY = XATTR_USER_PREFIX + 'storage_class';
+const PARTS_INFO_MAX_SIZE = 200;
 
 const versioning_status_enum = {
     VER_ENABLED: 'ENABLED',
@@ -858,7 +861,7 @@ class NamespaceFS {
                 if (r.common_prefix) {
                     res.common_prefixes.push(r.key);
                 } else {
-                    obj_info = this._get_object_info(bucket, r.key, r.stat, 'null', false, true);
+                    obj_info = this._get_object_info(bucket, r.key, r.stat, 'null', false, undefined, true);
                     if (!list_versions && obj_info.delete_marker) {
                         continue;
                     }
@@ -911,7 +914,7 @@ class NamespaceFS {
                 }
             }
             this._throw_if_delete_marker(stat);
-            return this._get_object_info(params.bucket, params.key, stat, params.version_id || 'null', isDir);
+            return this._get_object_info(params.bucket, params.key, stat, params.version_id || 'null', isDir, params.part_number);
         } catch (err) {
             if (this._should_update_issues_report(params, file_path, err)) {
                 this.run_update_issues_report(object_sdk, err);
@@ -959,8 +962,19 @@ class NamespaceFS {
             this._throw_if_delete_marker(stat);
             // await this._fail_if_archived_or_sparse_file(fs_context, file_path, stat);
 
-            const start = Number(params.start) || 0;
-            const end = isNaN(Number(params.end)) ? Infinity : Number(params.end);
+            let start;
+            let end;
+            if (params.end && params.part_number) {
+                throw new RpcError('INVALID_REQUEST', 'Cannot specify both Range header and partNumber query parameter');
+            }
+            if (params.part_number) {
+                const info = this._get_part_info(stat, params.part_number);
+                start = info.offset;
+                end = info.offset + info.size;
+            } else {
+                start = Number(params.start) || 0;
+                end = isNaN(Number(params.end)) ? Infinity : Number(params.end);
+            }
 
             let num_bytes = 0;
             let num_buffers = 0;
@@ -1252,7 +1266,7 @@ class NamespaceFS {
     // xattr_copy = false implies on non server side copy fallback copy (copy status = FALLBACK)
     // target file can be undefined when it's a folder created and size is 0
     async _finish_upload({ fs_context, params, open_mode, target_file, upload_path, file_path, digest = undefined,
-            copy_res = undefined, offset }) {
+            copy_res = undefined, offset, parts_info }) {
         const part_upload = file_path === upload_path;
         const same_inode = params.copy_source && copy_res === copy_status_enum.SAME_INODE;
         const is_dir_content = this._is_directory_content(file_path, params.key);
@@ -1294,6 +1308,9 @@ class NamespaceFS {
             }
         }
         if (fs_xattr && !is_dir_content) await target_file.replacexattr(fs_context, fs_xattr);
+        if (parts_info && !is_dir_content) {
+            await this._assign_parts_info(fs_context, target_file, parts_info);
+        }
         // fsync
         if (config.NSFS_TRIGGER_FSYNC) await target_file.fsync(fs_context);
         dbg.log1('NamespaceFS._finish_upload:', open_mode, file_path, upload_path, fs_xattr);
@@ -1683,11 +1700,13 @@ class NamespaceFS {
             let prev_part_size = 0;
             let should_copy_file_prefix = true;
             let total_size = 0;
+            const parts_info = [];
             for (const { num, etag } of multiparts) {
                 const md_part_path = this._get_part_md_path({ ...params, num });
                 const md_part_stat = await nb_native().fs.stat(fs_context, md_part_path);
                 const part_size = Number(md_part_stat.xattr[XATTR_PART_SIZE]);
                 const part_offset = Number(md_part_stat.xattr[XATTR_PART_OFFSET]);
+                parts_info.push({offset: total_size, size: part_size});
                 if (etag !== this._get_etag(md_part_stat)) {
                     throw new Error('mismatch part etag: ' + util.inspect({ num, etag, md_part_path, md_part_stat, params }));
                 }
@@ -1700,7 +1719,6 @@ class NamespaceFS {
                     read_file = await native_fs_utils.open_file(fs_context, this.bucket_path, data_part_path, config.NSFS_OPEN_READ_MODE);
                     part_size_to_fd_map.set(part_size, read_file);
                 }
-
                 // 1
                 if (part_size_to_fd_map.size === 1) {
                     if (num === multiparts.length) {
@@ -1744,6 +1762,7 @@ class NamespaceFS {
             upload_params.params.xattr = create_params_parsed.xattr;
             upload_params.params.storage_class = create_params_parsed.storage_class;
             upload_params.digest = MD5Async && (((await MD5Async.digest()).toString('hex')) + '-' + multiparts.length);
+            upload_params.parts_info = parts_info;
 
             const upload_info = await this._finish_upload(upload_params);
 
@@ -2137,6 +2156,20 @@ class NamespaceFS {
         return fs_xattr;
     }
 
+    async _assign_parts_info(fs_context, target_file, parts_info) {
+        // attribute size cannot be bigger than PARTS_INFO_MAX_SIZE. in case this happens we need to break to serveral lists
+        for (let i = 0; i < (parts_info.length / PARTS_INFO_MAX_SIZE); i++) {
+            const xattr = {
+                [XATTR_PARTS_INFO + i]: JSON.stringify(parts_info.slice(i * PARTS_INFO_MAX_SIZE, (i + 1) * PARTS_INFO_MAX_SIZE)),
+            };
+            await target_file.replacexattr(fs_context, xattr);
+        }
+        const xattr = {
+            [XATTR_NUM_PARTS]: parts_info.length
+        };
+        await target_file.replacexattr(fs_context, xattr);
+    }
+
     /**
      * 
      * @param {*} fs_context - fs context object
@@ -2248,7 +2281,7 @@ class NamespaceFS {
      * @param {nb.NativeFSStats} stat 
      * @returns {nb.ObjectInfo}
      */
-     _get_object_info(bucket, key, stat, return_version_id, isDir, is_latest = true) {
+     _get_object_info(bucket, key, stat, return_version_id, isDir, part_num, is_latest = true) {
         const etag = this._get_etag(stat);
         const create_time = stat.mtime.getTime();
         const encryption = this._get_encryption_info(stat);
@@ -2258,6 +2291,7 @@ class NamespaceFS {
         const content_type = stat.xattr[XATTR_CONTENT_TYPE] ||
             (isDir && dir_content_type) ||
             mime.getType(key) || 'application/octet-stream';
+        const size = part_num ? this._get_part_info(stat, part_num).size : stat.size;
 
         const storage_class = s3_utils.parse_storage_class(stat.xattr[XATTR_STORAGE_CLASS_KEY]);
 
@@ -2265,7 +2299,7 @@ class NamespaceFS {
             obj_id: etag,
             bucket,
             key,
-            size: stat.size,
+            size,
             etag,
             create_time,
             content_type,
@@ -2276,12 +2310,12 @@ class NamespaceFS {
             storage_class,
             restore_status: GlacierBackend.get_restore_status(stat.xattr, new Date(), this._get_file_path({key})),
             xattr: to_xattr(stat.xattr),
+            num_parts: part_num ? this._get_num_parts(stat) : undefined,
 
             // temp:
             tag_count: 0,
             lock_settings: undefined,
             md5_b64: undefined,
-            num_parts: undefined,
             sha256_b64: undefined,
             stats: undefined,
             tagging: undefined,
@@ -2307,6 +2341,24 @@ class NamespaceFS {
             key_md5_b64: '',
             key_b64: '',
         } : undefined;
+    }
+
+    _get_part_info(stat, part_num) {
+        if (part_num > (stat.xattr[XATTR_NUM_PARTS] || 1)) {
+            throw new RpcError("INVALID_RANGE", "The requested partnumber is not satisfiable");
+        }
+        const list_idx = (part_num - 1) / PARTS_INFO_MAX_SIZE;
+        const parts_info = stat.xattr[XATTR_PARTS_INFO + list_idx] ?
+         JSON.parse(stat.xattr[XATTR_PARTS_INFO + list_idx]) : [{
+                size: stat.size,
+                offset: 0
+            }
+        ];
+        return parts_info[(part_num - 1) % PARTS_INFO_MAX_SIZE];
+    }
+
+    _get_num_parts(stat) {
+        return stat.xattr[XATTR_NUM_PARTS];
     }
 
     // This function verifies the user didn't ask for SSE-S3 Encryption, when Encryption is not supported by the FS

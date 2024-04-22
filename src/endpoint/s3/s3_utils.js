@@ -631,6 +631,38 @@ function is_uri_already_encoded(uri = '') {
     return uri !== decodeURIComponent(uri);
 }
 
+/**
+ * 
+ * @param {*} req 
+ * @returns {number}
+ */
+function parse_restore_request_days(req) {
+    if (!req.body?.RestoreRequest?.Days?.[0]) {
+        dbg.warn('parse_restore_request_days: missing Days in body');
+        throw new S3Error(S3Error.MalformedXML);
+    }
+
+    const days = parse_decimal_int(req.body.RestoreRequest.Days[0]);
+    if (days < 1) {
+        dbg.warn('parse_restore_request_days: days cannot be less than 1');
+        throw new S3Error(S3Error.InvalidArgument);
+    }
+
+    if (days > config.S3_RESTORE_REQUEST_MAX_DAYS) {
+        if (config.S3_RESTORE_REQUEST_MAX_DAYS_BEHAVIOUR === 'DENY') {
+            throw new S3Error({
+                ...S3Error.InvalidArgument,
+                detail: `Restore request days ${days} is above max ${config.S3_RESTORE_REQUEST_MAX_DAYS}`},
+            );
+        }
+
+        dbg.log0(`Restore request days ${days} is above max ${config.S3_RESTORE_REQUEST_MAX_DAYS} - truncating`);
+        return config.S3_RESTORE_REQUEST_MAX_DAYS;
+    }
+
+    return days;
+}
+
 exports.STORAGE_CLASS_STANDARD = STORAGE_CLASS_STANDARD;
 exports.STORAGE_CLASS_GLACIER = STORAGE_CLASS_GLACIER;
 exports.STORAGE_CLASS_GLACIER_IR = STORAGE_CLASS_GLACIER_IR;
@@ -664,3 +696,4 @@ exports.get_http_response_date = get_http_response_date;
 exports.XATTR_SORT_SYMBOL = XATTR_SORT_SYMBOL;
 exports.get_response_field_encoder = get_response_field_encoder;
 exports.parse_decimal_int = parse_decimal_int;
+exports.parse_restore_request_days = parse_restore_request_days;

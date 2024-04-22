@@ -6,6 +6,7 @@ const _ = require('lodash');
 const P = require('../../util/promise');
 const os_utils = require('../../util/os_utils');
 const native_fs_utils = require('../../util/native_fs_utils');
+const config = require('../../../config');
 
 /**
  * TMP_PATH is a path to the tmp path based on the process platform
@@ -319,6 +320,14 @@ async function set_path_permissions_and_owner(path, owner_options, permissions =
     await fs.promises.chmod(path, permissions);
 }
 
+/** 
+ * set_nc_config_dir_in_config sets given config_root to be config.NSFS_NC_CONF_DIR
+ * @param {string} config_root
+ */
+function set_nc_config_dir_in_config(config_root) {
+    config.NSFS_NC_CONF_DIR = config_root;
+}
+
 exports.blocks_exist_on_cloud = blocks_exist_on_cloud;
 exports.create_hosts_pool = create_hosts_pool;
 exports.delete_hosts_pool = delete_hosts_pool;
@@ -331,4 +340,5 @@ exports.exec_manage_cli = exec_manage_cli;
 exports.create_fs_user_by_platform = create_fs_user_by_platform;
 exports.delete_fs_user_by_platform = delete_fs_user_by_platform;
 exports.set_path_permissions_and_owner = set_path_permissions_and_owner;
+exports.set_nc_config_dir_in_config = set_nc_config_dir_in_config;
 exports.TMP_PATH = TMP_PATH;

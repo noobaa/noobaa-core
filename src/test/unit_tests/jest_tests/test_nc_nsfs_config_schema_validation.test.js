@@ -119,6 +119,58 @@ describe('schema validation NC NSFS config', () => {
             const message = 'must be boolean';
             assert_validation(config_data, reason, message);
         });
+
+        it('nsfs_config valid config master keys GET executable', () => {
+            const config_data = {
+                NC_MASTER_KEYS_GET_EXECUTABLE: false, // boolean instead of string
+            };
+            const reason = 'Test should have failed because of wrong type ' +
+                'NC_MASTER_KEYS_GET_EXECUTABLE with boolean (instead of string)';
+            const message = 'must be string';
+            assert_validation(config_data, reason, message);
+        });
+
+        it('nsfs_config valid config master keys PUT executable', () => {
+            const config_data = {
+                NC_MASTER_KEYS_PUT_EXECUTABLE: false, // boolean instead of string
+            };
+            const reason = 'Test should have failed because of wrong type ' +
+                'NC_MASTER_KEYS_PUT_EXECUTABLE with boolean (instead of string)';
+            const message = 'must be string';
+            assert_validation(config_data, reason, message);
+        });
+
+        it('nsfs_config valid config master keys store type - unallowed value', () => {
+            const config_data = {
+                NC_MASTER_KEYS_STORE_TYPE: 'not_file_nor_script', // unallowed value, string type
+            };
+            const reason = 'Test should have failed because of unallowed value ' +
+                'NC_MASTER_KEYS_STORE_TYPE with boolean (instead of string)';
+            const message = 'must be equal to one of the allowed values | {"allowedValues":["file","executable"]}';
+            assert_validation(config_data, reason, message);
+        });
+
+        it('nsfs_config valid config master keys store type - different type', () => {
+            const config_data = {
+                NC_MASTER_KEYS_STORE_TYPE: false, // unallowed value, boolean type
+            };
+            const reason = 'Test should have failed because of wrong type ' +
+                'NC_MASTER_KEYS_STORE_TYPE with boolean (instead of string)';
+            const message = 'must be string';
+            assert_validation(config_data, reason, message);
+        });
+
+        it('nsfs_config valid config master keys file location', () => {
+            const config_data = {
+                NC_MASTER_KEYS_FILE_LOCATION: false, // boolean instead of string
+            };
+            const reason = 'Test should have failed because of wrong type ' +
+                'NC_MASTER_KEYS_FILE_LOCATION with boolean (instead of string)';
+            const message = 'must be string';
+            assert_validation(config_data, reason, message);
+        });
+
+
     });
 });
 

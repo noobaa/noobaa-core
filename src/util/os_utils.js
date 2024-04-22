@@ -127,15 +127,22 @@ function spawn(command, args, options, ignore_rc, unref, timeout_ms) {
         args = args || [];
         dbg.log0('spawn:', command, args.join(' '), options, ignore_rc);
         options.stdio = options.stdio || 'inherit';
+        const return_stdout = options.return_stdout;
         const proc = child_process.spawn(command, args, options);
         if (options.input) proc.stdin.end(options.input);
+        let stdout = return_stdout ? '' : undefined;
+        if (return_stdout) {
+            proc.stdout.on('data', data => {
+                stdout += data.toString();
+            });
+        }
         proc.on('exit', code => {
             if (code === 0 || ignore_rc) {
-                resolve();
+                resolve(stdout);
             } else {
                 reject(new Error('spawn "' +
-                    command + ' ' + args.join(' ') +
-                    '" exit with error code ' + code));
+                command + ' ' + args.join(' ') +
+                '" exit with error code ' + code));
             }
         });
         proc.on('error', error => {

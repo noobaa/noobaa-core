@@ -736,7 +736,7 @@ class NamespaceFS {
                         cached_dir = await dir_cache.get_with_cache({ dir_path, fs_context });
                     }
                 } catch (err) {
-                    if (err.code === 'ENOENT') {
+                    if (['ENOENT', 'ENOTDIR'].includes(err.code)) {
                         dbg.log0('NamespaceFS: no keys for non existing dir', dir_path);
                         return;
                     }
@@ -896,6 +896,7 @@ class NamespaceFS {
             await this._check_path_in_bucket_boundaries(fs_context, file_path);
             await this._load_bucket(params, fs_context);
             let stat = await nb_native().fs.stat(fs_context, file_path);
+
             const isDir = native_fs_utils.isDirectory(stat);
             if (isDir) {
                 if (!stat.xattr?.[XATTR_DIR_CONTENT]) {
@@ -2353,7 +2354,7 @@ class NamespaceFS {
 
     _translate_object_error_codes(err) {
         if (err.rpc_code) return err;
-        if (err.code === 'ENOENT') err.rpc_code = 'NO_SUCH_OBJECT';
+        if (err.code === 'ENOENT' || err.code === 'ENOTDIR') err.rpc_code = 'NO_SUCH_OBJECT';
         if (err.code === 'EEXIST') err.rpc_code = 'BUCKET_ALREADY_EXISTS';
         if (err.code === 'EPERM' || err.code === 'EACCES') err.rpc_code = 'UNAUTHORIZED';
         if (err.code === 'IO_STREAM_ITEM_TIMEOUT') err.rpc_code = 'IO_STREAM_ITEM_TIMEOUT';
@@ -2462,6 +2463,10 @@ class NamespaceFS {
             dbg.error('check_access: error ', err.code, err, dir_path, this.bucket_path);
             const is_bucket_dir = dir_path === this.bucket_path;
 
+            if (err.code === 'ENOTDIR' && !is_bucket_dir) {
+                dbg.warn('check_access: the path', dir_path, 'is not a directory');
+                return true;
+            }
             // if dir_path is the bucket path we would like to throw an error
             // for other dirs we will skip
             if (['EPERM', 'EACCES'].includes(err.code) && !is_bucket_dir) {
@@ -2497,6 +2502,10 @@ class NamespaceFS {
                 return false;
             }
         } catch (err) {
+            if (err.code === 'ENOTDIR') {
+                dbg.warn('_is_path_in_bucket_boundaries: the path', entry_path, 'is not a directory');
+                return true;
+            }
             // Error: No such file or directory
             // In the upload use case, the destination file desn't exist yet, need to validate the parent dirs path.
             if (err.code === 'ENOENT') {

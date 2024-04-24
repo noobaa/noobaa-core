@@ -63,8 +63,13 @@ async function check_and_create_config_dirs() {
         config_root,
         buckets_dir_path,
         accounts_dir_path,
-        access_keys_dir_path
+        access_keys_dir_path,
     ];
+
+    if (config.NSFS_GLACIER_LOGS_ENABLED) {
+        pre_req_dirs.push(config.NSFS_GLACIER_LOGS_DIR);
+    }
+
     for (const dir_path of pre_req_dirs) {
         try {
             const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);

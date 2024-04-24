@@ -90,8 +90,8 @@ mocha.describe('nsfs_glacier', async () => {
 		const backend = new TapeCloudGlacierBackend();
 
 		// Patch backend for test
-		backend._migrate = async () => [];
-		backend._recall = async () => [];
+		backend._migrate = async () => { /**noop */ };
+		backend._recall = async () => { /**noop */ };
 		backend._process_expired = async () => { /**noop*/ };
 
 		mocha.it('upload to GLACIER should work', async () => {

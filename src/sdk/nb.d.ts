@@ -848,6 +848,9 @@ interface BucketSpace {
 
     get_object_lock_configuration(params: object, object_sdk: ObjectSDK): Promise<any>;
     put_object_lock_configuration(params: object, object_sdk: ObjectSDK): Promise<any>;
+
+    is_nsfs_containerized_user_anonymous(token: string): boolean;
+    is_nsfs_non_containerized_user_anonymous(token: string): boolean;
 }
 
 /**********************************************************

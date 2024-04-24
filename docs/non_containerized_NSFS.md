@@ -614,3 +614,60 @@ Access is restricted to these whitelist IPs. If there are no IPs mentioned all I
 ```
 sudo noobaa-cli whitelist --ips '["127.0.0.1", "192.000.10.000", "3002:0bd6:0000:0000:0000:ee00:0033:000"]'  2>/dev/null
 ```
+
+## Anonymous request
+
+Anonymous requests are those sent without access and secret key and Noobaa NSFS allow it with supporting bucket policy. Users have to create an anonymous account before accessing the resources. Noobaa uses anonymous account's uid and gid or user(distinguished_name) for accessing bucket storage paths. Noobaa can have one anonymous account. Commands for creating anonumous account are
+```
+noobaa-cli account add --anonymous --uid {uid} --gid {gid}
+```
+or
+```
+noobaa-cli account add --anonymous --user {user}
+```
+
+Update :
+```
+noobaa-cli account update --anonymous  --uid {new_uid} --gid {new_gid}
+```
+or 
+
+```
+noobaa-cli account update --anonymous  --user {user}
+```
+
+Delete: 
+```
+noobaa-cli account delete --anonymous
+```
+Status
+```
+noobaa-cli account status --anonymous
+```
+
+Bellow policy will allow anonymous user access and you can control the anonymous access using different policy configuration.
+
+```
+AWS_ACCESS_KEY_ID={access_key} AWS_SECRET_ACCESS_KEY={secret_key} aws s3api put-bucket-policy --endpoint {endpoint} --bucket {bucket_name} --policy file:///tmp/policy.json;
+```
+
+policy.json:
+
+```
+{
+  "Version": "2012-10-17",
+  "Statement": [ 
+    { 
+     "Effect": "Allow", 
+     "Principal": { "AWS": [ "*" ] }, 
+     "Action": [ "s3:*" ], 
+     "Resource": [ "arn:aws:s3:::{bucket_name}/*", 
+     "arn:aws:s3:::{bucket_name}" ] 
+    }
+  ]
+}
+```
+
+User can perform all the actions on above bucket resource without providing access and secret key(not recommended).
+
+`aws s3api list-objects --bucket {bucket_name} --endpoint {endpoint} --no-sign-request`

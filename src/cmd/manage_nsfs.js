@@ -20,7 +20,7 @@ const { print_usage } = require('../manage_nsfs/manage_nsfs_help_utils');
 const { TYPES, ACTIONS, LIST_ACCOUNT_FILTERS, LIST_BUCKET_FILTERS,
     GLACIER_ACTIONS } = require('../manage_nsfs/manage_nsfs_constants');
 const { throw_cli_error, write_stdout_response, get_config_file_path, get_symlink_config_file_path,
-    get_config_data, get_boolean_or_string_value} = require('../manage_nsfs/manage_nsfs_cli_utils');
+    get_config_data, get_boolean_or_string_value, has_access_keys} = require('../manage_nsfs/manage_nsfs_cli_utils');
 const { validate_input_types, validate_bucket_args, validate_account_args,
         verify_delete_account, validate_whitelist_arg, verify_whitelist_ips,
         _validate_access_keys } = require('../manage_nsfs/manage_nsfs_validations');
@@ -288,6 +288,10 @@ async function manage_bucket_operations(action, data, user_input) {
 
 async function account_management(action, user_input) {
     const show_secrets = get_boolean_or_string_value(user_input.show_secrets);
+    if (get_boolean_or_string_value(user_input.anonymous)) {
+        user_input.name = config.ANONYMOUS_ACCOUNT_NAME;
+        user_input.email = config.ANONYMOUS_ACCOUNT_NAME;
+    }
     const data = await fetch_account_data(action, user_input);
     await manage_account_operations(action, data, show_secrets, user_input);
 }
@@ -315,7 +319,7 @@ function set_access_keys(access_key, secret_key, generate) {
 
 // in name and new_name we allow type number, hence convert it to string
 async function fetch_account_data(action, user_input) {
-    const { access_keys, new_access_key } = get_access_keys(action, user_input);
+    const { access_keys = [], new_access_key = undefined } = user_input.anonymous ? {} : get_access_keys(action, user_input);
     let data = {
         // added undefined values to keep the order the properties when printing the data object
         _id: undefined,
@@ -342,11 +346,13 @@ async function fetch_account_data(action, user_input) {
 
     // override values
     // access_key as SensitiveString
-    data.access_keys[0].access_key = _.isUndefined(data.access_keys[0].access_key) ? undefined :
+    if (!has_access_keys(data.access_keys)) {
+        data.access_keys[0].access_key = _.isUndefined(data.access_keys[0].access_key) ? undefined :
         new SensitiveString(String(data.access_keys[0].access_key));
-    // secret_key as SensitiveString
-    data.access_keys[0].secret_key = _.isUndefined(data.access_keys[0].secret_key) ? undefined :
+        // secret_key as SensitiveString
+        data.access_keys[0].secret_key = _.isUndefined(data.access_keys[0].secret_key) ? undefined :
         new SensitiveString(String(data.access_keys[0].secret_key));
+    }
     // fs_backend deletion specified with empty string '' (but it is not part of the schema)
     data.nsfs_account_config.fs_backend = data.nsfs_account_config.fs_backend || undefined;
     // new_buckets_path deletion specified with empty string ''
@@ -406,7 +412,7 @@ async function add_account(data) {
     await validate_account_args(data, ACTIONS.ADD);
 
     const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
-    const access_key = data.access_keys[0].access_key;
+    const access_key = has_access_keys(data.access_keys) ? undefined : data.access_keys[0].access_key;
     const account_config_path = get_config_file_path(accounts_dir_path, data.name);
     const account_config_relative_path = get_config_file_path(acounts_dir_relative_path, data.name);
     const account_config_access_key_path = get_symlink_config_file_path(access_keys_dir_path, access_key);
@@ -423,13 +429,17 @@ async function add_account(data) {
     const encrypted_account = await nc_mkm.encrypt_access_keys(data);
     data.master_key_id = encrypted_account.master_key_id;
     const encrypted_data = JSON.stringify(encrypted_account);
+    data = _.omitBy(data, _.isUndefined);
     // We take an object that was stringify
     // (it unwraps ths sensitive strings, creation_date to string and removes undefined parameters)
     // for validating against the schema we need an object, hence we parse it back to object
-    nsfs_schema_utils.validate_account_schema(JSON.parse(encrypted_data));
-    await native_fs_utils.create_config_file(fs_context, accounts_dir_path, account_config_path, encrypted_data);
-    await native_fs_utils._create_path(access_keys_dir_path, fs_context, config.BASE_MODE_CONFIG_DIR);
-    await nb_native().fs.symlink(fs_context, account_config_relative_path, account_config_access_key_path);
+    const account = encrypted_data ? JSON.parse(encrypted_data) : data;
+    nsfs_schema_utils.validate_account_schema(account);
+    await native_fs_utils.create_config_file(fs_context, accounts_dir_path, account_config_path, JSON.stringify(account));
+    if (!has_access_keys(data.access_keys)) {
+        await native_fs_utils._create_path(access_keys_dir_path, fs_context, config.BASE_MODE_CONFIG_DIR);
+        await nb_native().fs.symlink(fs_context, account_config_relative_path, account_config_access_key_path);
+    }
     write_stdout_response(ManageCLIResponse.AccountCreated, data, { account: event_arg });
 }
 
@@ -440,7 +450,7 @@ async function update_account(data) {
     const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
     const cur_name = data.name;
     const new_name = data.new_name;
-    const cur_access_key = data.access_keys[0].access_key;
+    const cur_access_key = has_access_keys(data.access_keys) ? undefined : data.access_keys[0].access_key;
     const update_name = new_name && cur_name && data.new_name !== cur_name;
     const update_access_key = data.new_access_key && cur_access_key && data.new_access_key !== cur_access_key;
 
@@ -449,11 +459,13 @@ async function update_account(data) {
         const encrypted_account = await nc_mkm.encrypt_access_keys(data);
         data.master_key_id = encrypted_account.master_key_id;
         const encrypted_data = JSON.stringify(encrypted_account);
+        data = _.omitBy(data, _.isUndefined);
         // We take an object that was stringify
         // (it unwraps ths sensitive strings, creation_date to string and removes undefined parameters)
         // for validating against the schema we need an object, hence we parse it back to object
-        nsfs_schema_utils.validate_account_schema(JSON.parse(encrypted_data));
-        await native_fs_utils.update_config_file(fs_context, accounts_dir_path, account_config_path, encrypted_data);
+        const account = encrypted_data ? JSON.parse(encrypted_data) : data;
+        nsfs_schema_utils.validate_account_schema(account);
+        await native_fs_utils.update_config_file(fs_context, accounts_dir_path, account_config_path, JSON.stringify(account));
         write_stdout_response(ManageCLIResponse.AccountUpdated, data);
         return;
     }
@@ -502,10 +514,11 @@ async function delete_account(data) {
 
     const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
     const account_config_path = get_config_file_path(accounts_dir_path, data.name);
-    const access_key_config_path = get_symlink_config_file_path(access_keys_dir_path, data.access_keys[0].access_key);
-
     await native_fs_utils.delete_config_file(fs_context, accounts_dir_path, account_config_path);
-    await nb_native().fs.unlink(fs_context, access_key_config_path);
+    if (!has_access_keys(data.access_keys)) {
+        const access_key_config_path = get_symlink_config_file_path(access_keys_dir_path, data.access_keys[0].access_key);
+        await nb_native().fs.unlink(fs_context, access_key_config_path);
+    }
     write_stdout_response(ManageCLIResponse.AccountDeleted, '', {account: data.name});
 }
 

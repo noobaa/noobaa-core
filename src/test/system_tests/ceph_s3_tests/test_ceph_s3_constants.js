@@ -23,6 +23,7 @@ const CEPH_TEST = {
 // For NSFS NC path (using default values)
 const account_path = '/etc/noobaa.conf.d/accounts/cephalt.json';
 const account_tenant_path = '/etc/noobaa.conf.d/accounts/cephtenant.json';
+const anonymous_account_path = '/etc/noobaa.conf.d/accounts/anonymous.json';
 
 const DEFAULT_NUMBER_OF_WORKERS = 5; //5 was the number of workers in the previous CI/CD process
 
@@ -32,6 +33,7 @@ const AWS4_TEST_SUFFIX = '_aws4';
 
 exports.CEPH_TEST = CEPH_TEST;
 exports.account_path = account_path;
+exports.anonymous_account_path = anonymous_account_path;
 exports.account_tenant_path = account_tenant_path;
 exports.DEFAULT_NUMBER_OF_WORKERS = DEFAULT_NUMBER_OF_WORKERS;
 exports.TOX_ARGS = TOX_ARGS;

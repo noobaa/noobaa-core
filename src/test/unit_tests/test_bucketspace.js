@@ -1,4 +1,5 @@
 /* Copyright (C) 2020 NooBaa */
+/*eslint max-lines: ["error", 2200]*/
 /*eslint max-lines-per-function: ["error", 900]*/
 /*eslint max-statements: ["error", 80, { "ignoreTopLevelFunctions": true }]*/
 'use strict';
@@ -20,15 +21,19 @@ const { TYPES } = require('../../manage_nsfs/manage_nsfs_constants');
 const ManageCLIError = require('../../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
 const { TMP_PATH, get_coretest_path, invalid_nsfs_root_permissions,
     generate_s3_policy, create_fs_user_by_platform, delete_fs_user_by_platform,
-    generate_s3_client, exec_manage_cli } = require('../system_tests/test_utils');
+    generate_s3_client, exec_manage_cli, generate_anon_s3_client } = require('../system_tests/test_utils');
+const nc_mkm = require('../../manage_nsfs/nc_master_key_manager').get_instance();
 
 
 const { S3 } = require('@aws-sdk/client-s3');
 const { NodeHttpHandler } = require("@smithy/node-http-handler");
+const native_fs_utils = require('../../util/native_fs_utils');
+const mongo_utils = require('../../util/mongo_utils');
+const accounts_dir_name = '/accounts';
 
 const coretest_path = get_coretest_path();
 const coretest = require(coretest_path);
-const { rpc_client, EMAIL, PASSWORD, SYSTEM, get_admin_account_details } = coretest;
+const { rpc_client, EMAIL, PASSWORD, SYSTEM, get_admin_account_details, NC_CORETEST_CONFIG_DIR_PATH } = coretest;
 coretest.setup({});
 let CORETEST_ENDPOINT;
 const inspect = (x, max_arr = 5) => util.inspect(x, { colors: true, depth: null, maxArrayLength: max_arr });
@@ -1727,7 +1732,6 @@ mocha.describe('s3 whitelist flow', async function() {
         const { access_key, secret_key } = res.access_keys[0];
         CORETEST_ENDPOINT = coretest.get_http_address();
         s3_client = generate_s3_client(access_key.unwrap(), secret_key.unwrap(), CORETEST_ENDPOINT);
-
     });
 
     mocha.after(async function() {
@@ -1760,6 +1764,264 @@ mocha.describe('s3 whitelist flow', async function() {
     });
 });
 
+/*eslint max-lines-per-function: ["error", 1300]*/
+mocha.describe('Namespace s3_bucket_policy', function() {
+    this.timeout(600000); // eslint-disable-line no-invalid-this
+    const anon_access_policy = {
+        Version: '2012-10-17',
+        Statement: [{
+            Effect: 'Allow',
+            Principal: { AWS: ["*"] },
+            Action: ['s3:GetObject', 's3:ListBucket'],
+            Resource: ['arn:aws:s3:::*']
+        }]
+    };
+    const KEY = 'file1.txt';
+    const tmp_fs_root = path.join(TMP_PATH, 'test_bucket_namespace_fs');
+    const ns_s3_buckets_dir = 'ns_s3_buckets_dir';
+    const s3_new_ns_buckets_path = path.join(tmp_fs_root, ns_s3_buckets_dir);
+    const bucket_name = 'ns-src-bucket-s3';
+    let s3_client;
+    let s3_anon_client;
+    const nsr = 'nsr';
+    let accounts_dir_path;
+    let account_config_path;
+    if (process.env.NC_CORETEST) {
+        accounts_dir_path = path.join(NC_CORETEST_CONFIG_DIR_PATH, accounts_dir_name);
+        account_config_path = path.join(accounts_dir_path, config.ANONYMOUS_ACCOUNT_NAME + '.json');
+    }
+
+    mocha.before(async function() {
+        await fs_utils.create_fresh_path(tmp_fs_root);
+        await fs_utils.create_fresh_path(s3_new_ns_buckets_path);
+
+        const account_s3 = await rpc_client.account.create_account({
+            ...new_account_params,
+            email: 'account_ns_s3@noobaa.com',
+            name: 'account_ns_s3',
+            s3_access: true,
+            default_resource: nsr,
+            nsfs_account_config: {
+                uid: process.getuid(),
+                gid: process.getgid(),
+                new_buckets_path: ns_s3_buckets_dir,
+                nsfs_only: true
+            }
+        });
+        const { access_key, secret_key } = account_s3.access_keys[0];
+        s3_client = generate_s3_client(access_key.unwrap(), secret_key.unwrap(), CORETEST_ENDPOINT);
+        s3_anon_client = generate_anon_s3_client(CORETEST_ENDPOINT);
+    });
+    mocha.after(async () => {
+        await fs_utils.file_delete(path.join(s3_new_ns_buckets_path, KEY));
+        await fs_utils.folder_delete(s3_new_ns_buckets_path);
+        await fs_utils.folder_delete(tmp_fs_root);
+    });
+    mocha.it('Missing anonymous account - user should not be able to list bucket objects', async function() {
+        // Skipping because only NC NSFS will have anonymous account.
+        if (!process.env.NC_CORETEST) this.skip(); // eslint-disable-line no-invalid-this
+        await s3_client.createBucket({ Bucket: bucket_name });
+        await fs_utils.file_must_exist(path.join(s3_new_ns_buckets_path, bucket_name));
+        await s3_client.putBucketPolicy({
+            Bucket: bucket_name,
+            Policy: JSON.stringify(anon_access_policy)
+        });
+        await s3_client.getBucketPolicy({
+            Bucket: bucket_name,
+        });
+        await s3_client.listObjects({ Bucket: bucket_name});
+        await assert_throws_async(s3_anon_client.listObjects({ Bucket: bucket_name }), 'The AWS access key Id you provided does not exist in our records.');
+    });
+
+    mocha.it('Namesapce - anonymous user should be able to list bucket objects', async function() {
+        // Skipping because only NC NSFS will have anonymous account.
+        if (!process.env.NC_CORETEST) this.skip(); // eslint-disable-line no-invalid-this
+        await fs_utils.file_must_exist(path.join(s3_new_ns_buckets_path, bucket_name));
+        // Create anonymous account
+        const nsfs_account_config = {
+            uid: process.getuid(),
+            gid: process.getgid(),
+        };
+        await add_anonymous_account(nsfs_account_config, accounts_dir_path, account_config_path);
+        await s3_client.putBucketPolicy({
+            Bucket: bucket_name,
+            Policy: JSON.stringify(anon_access_policy)
+        });
+        await s3_client.getBucketPolicy({
+            Bucket: bucket_name,
+        });
+        await s3_client.listObjects({ Bucket: bucket_name});
+        await s3_anon_client.listObjects({ Bucket: bucket_name});
+    });
+
+    mocha.it('anonymous user should not be able to list bucket objects when there is no policy', async function() {
+        // Skipping because only NC NSFS will have anonymous account.
+        if (!process.env.NC_CORETEST) this.skip(); // eslint-disable-line no-invalid-this
+        await s3_client.deleteBucketPolicy({
+            Bucket: bucket_name,
+        });
+        await assert_throws_async(s3_anon_client.listObjects({ Bucket: bucket_name }));
+    });
+
+    mocha.it('anonymous user should not be able to list bucket objects when policy doesn\'t allow', async function() {
+       // Skipping because only NC NSFS will have anonymous account.
+       if (!process.env.NC_CORETEST) this.skip(); // eslint-disable-line no-invalid-this
+        const anon_deny_policy = {
+            Version: '2012-10-17',
+            Statement: [
+                {
+                    Effect: 'Deny',
+                    Principal: { AWS: "*" },
+                    Action: ['s3:GetObject', 's3:ListBucket'],
+                    Resource: [`arn:aws:s3:::*`]
+                },
+            ]
+        };
+        await s3_client.putBucketPolicy({
+            Bucket: bucket_name,
+            Policy: JSON.stringify(anon_deny_policy)
+        });
+        await assert_throws_async(s3_anon_client.listObjects({ Bucket: bucket_name }));
+    });
+
+    mocha.it('anonymous user should not be able to getObject when not explicitly allowed', async function() {
+        // Skipping because only NC NSFS will have anonymous account.
+        if (!process.env.NC_CORETEST) this.skip(); // eslint-disable-line no-invalid-this
+        // Ensure that the bucket has no policy
+        await s3_client.deleteBucketPolicy({
+            Bucket: bucket_name,
+        });
+        await assert_throws_async(s3_anon_client.getObject({
+            Bucket: bucket_name,
+            Key: KEY,
+        }));
+    });
+
+    mocha.it('anonymous user should not be able to read_object_md when explicitly allowed to access only specific key', async function() {
+        // Skipping because only NC NSFS will have anonymous account.
+        if (!process.env.NC_CORETEST) this.skip(); // eslint-disable-line no-invalid-this
+        const anon_read_policy_2 = {
+            Version: '2012-10-17',
+            Statement: [
+                {
+                    Effect: 'Allow',
+                    Principal: { AWS: "*"},
+                    Action: ['s3:GetObject'],
+                    Resource: [`arn:aws:s3:::${bucket_name}/${KEY}`]
+                },
+            ]
+        };
+        await s3_client.putBucketPolicy({
+            Bucket: bucket_name,
+            Policy: JSON.stringify(anon_read_policy_2)
+        });
+        await assert_throws_async(s3_anon_client.getObject({
+            Bucket: bucket_name,
+            Key: KEY + "/",
+        }));
+    });
+
+
+    mocha.it('anonymous user should not be able to putObject when not explicitly allowed', async function() {
+        // Skipping because only NC NSFS will have anonymous account.
+        if (!process.env.NC_CORETEST) this.skip(); // eslint-disable-line no-invalid-this
+        // Ensure that the bucket has no policy
+        await s3_client.deleteBucketPolicy({
+            Bucket: bucket_name,
+        });
+        const body1 = 'AAAAABBBBBCCCCC';
+        await assert_throws_async(s3_anon_client.putObject({
+            Bucket: bucket_name,
+            Key: KEY,
+            Body: body1,
+        }));
+    });
+
+    mocha.it('anonymous user should be able to putBucketPolicy when explicitly allowed', async function() {
+        // Skipping because only NC NSFS will have anonymous account.
+        if (!process.env.NC_CORETEST) this.skip(); // eslint-disable-line no-invalid-this
+        const anon_read_policy = {
+            Version: '2012-10-17',
+            Statement: [
+                {
+                    Effect: 'Allow',
+                    Principal: { AWS: "*" },
+                    Action: ['s3:GetObject', 's3:PutObject'],
+                    Resource: [`arn:aws:s3:::*`]
+                },
+            ]
+        };
+        await s3_client.putBucketPolicy({
+            Bucket: bucket_name,
+            Policy: JSON.stringify(anon_read_policy)
+        });
+        const body1 = 'AAAAABBBBBCCCCC';
+        s3_anon_client.putObject({
+            Bucket: bucket_name,
+            Key: KEY,
+            Body: body1,
+        });
+    });
+
+    mocha.it('anonymous user should be able to putBucketPolicy when explicitly allowed to access only specific key', async function() {
+        // Skipping because only NC NSFS will have anonymous account.
+        if (!process.env.NC_CORETEST) this.skip(); // eslint-disable-line no-invalid-this
+        const anon_read_policy_2 = {
+            Version: '2012-10-17',
+            Statement: [
+                {
+                    Effect: 'Allow',
+                    Principal: { AWS: "*"
+                    },
+                    Action: ['s3:GetObject'],
+                    Resource: [`arn:aws:s3:::${bucket_name}/${KEY}`]
+                },
+            ]
+        };
+        await s3_client.putBucketPolicy({
+            Bucket: bucket_name,
+            Policy: JSON.stringify(anon_read_policy_2)
+        });
+
+        await assert_throws_async(s3_anon_client.putBucketPolicy({
+            Bucket: bucket_name,
+            Policy: JSON.stringify(anon_read_policy_2),
+        }));
+    });
+
+    mocha.it('Namesapce - distinguished_name - Anonymous user should be able to list bucket objects', async function() {
+        // Skipping because only NC NSFS will have anonymous account.
+        if (!process.env.NC_CORETEST) this.skip(); // eslint-disable-line no-invalid-this
+        await fs_utils.file_must_exist(path.join(s3_new_ns_buckets_path, bucket_name));
+        await delete_anonymous_account(accounts_dir_path, account_config_path);
+        // Create anonymous account with distinguished_name
+        const nsfs_account_config = {
+            distinguished_name: 'root',
+        };
+        await add_anonymous_account(nsfs_account_config, accounts_dir_path, account_config_path);
+        await s3_client.putBucketPolicy({
+            Bucket: bucket_name,
+            Policy: JSON.stringify(anon_access_policy)
+        });
+        await s3_client.getBucketPolicy({
+            Bucket: bucket_name,
+        });
+        await s3_client.listObjects({ Bucket: bucket_name});
+        await s3_anon_client.listObjects({ Bucket: bucket_name});
+    });
+
+});
+
+async function assert_throws_async(promise, expected_message = 'Access Denied') {
+    try {
+        await promise;
+        assert.fail('Test was suppose to fail on ' + expected_message);
+    } catch (err) {
+        if (err.message !== expected_message) {
+            throw err;
+        }
+    }
+}
 
 async function generate_nsfs_account(options = {}) {
     const { uid, gid, new_buckets_path, nsfs_only, admin, default_resource, account_name } = options;
@@ -1860,5 +2122,39 @@ async function update_account_nsfs_config(email, default_resource, new_nsfs_acco
         }
         assert.fail(`update_account_nsfs_config failed ${err}, ${err.stack}`);
     }
+}
+
+// Create an anonymous account for anonymous request. Use this account UID and GID for bucket access.
+async function add_anonymous_account(nsfs_account_config, accounts_dir_path, account_config_path) {
+    const { master_key_id } = await nc_mkm.encrypt_access_keys({});
+    const data = {
+        _id: mongo_utils.mongoObjectId(),
+        name: config.ANONYMOUS_ACCOUNT_NAME,
+        email: config.ANONYMOUS_ACCOUNT_NAME,
+        nsfs_account_config: nsfs_account_config,
+        access_keys: [],
+        allow_bucket_creation: false,
+        creation_date: new Date().toISOString(),
+        master_key_id: master_key_id,
+    };
+    const account_data = JSON.stringify(data);
+    const name_exists = await native_fs_utils.is_path_exists(DEFAULT_FS_CONFIG, account_config_path);
+    if (name_exists) {
+        console.warn('Error: Anonymous account already exist.');
+        return;
+    }
+    await native_fs_utils.create_config_file(DEFAULT_FS_CONFIG, accounts_dir_path, account_config_path, account_data);
+    console.log('Anonymous account created');
+}
+
+// Delete an anonymous account for anonymous request.
+async function delete_anonymous_account(accounts_dir_path, account_config_path) {
+    const name_exists = await native_fs_utils.is_path_exists(DEFAULT_FS_CONFIG, account_config_path);
+    if (!name_exists) {
+        console.warn('Error: Anonymous account do not exist.');
+        return;
+    }
+    await native_fs_utils.delete_config_file(DEFAULT_FS_CONFIG, accounts_dir_path, account_config_path);
+    console.log('Anonymous account Deleted');
 }
 

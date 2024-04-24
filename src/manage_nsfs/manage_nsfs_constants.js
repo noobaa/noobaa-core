@@ -31,6 +31,7 @@ const CONFIG_SUBDIRS = {
 const GLOBAL_CONFIG_ROOT = 'config_root';
 const GLOBAL_CONFIG_OPTIONS = new Set([GLOBAL_CONFIG_ROOT, 'config_root_backend']);
 const FROM_FILE = 'from_file';
+const ANONYMOUS = 'anonymous';
 
 const VALID_OPTIONS_ACCOUNT = {
     'add': new Set(['name', 'uid', 'gid', 'new_buckets_path', 'user', 'access_key', 'secret_key', 'fs_backend', 'allow_bucket_creation', 'force_md5_etag', FROM_FILE, ...GLOBAL_CONFIG_OPTIONS]),
@@ -38,6 +39,13 @@ const VALID_OPTIONS_ACCOUNT = {
     'delete': new Set(['name', ...GLOBAL_CONFIG_OPTIONS]),
     'list': new Set(['wide', 'show_secrets', 'gid', 'uid', 'user', 'name', 'access_key', ...GLOBAL_CONFIG_OPTIONS]),
     'status': new Set(['name', 'access_key', 'show_secrets', ...GLOBAL_CONFIG_OPTIONS]),
+};
+
+const VALID_OPTIONS_ANONYMOUS_ACCOUNT = {
+    'add': new Set(['uid', 'gid', 'user', 'anonymous', GLOBAL_CONFIG_ROOT]),
+    'update': new Set(['uid', 'gid', 'user', 'anonymous', GLOBAL_CONFIG_ROOT]),
+    'delete': new Set(['anonymous', GLOBAL_CONFIG_ROOT]),
+    'status': new Set(['anonymous', GLOBAL_CONFIG_ROOT]),
 };
 
 const VALID_OPTIONS_BUCKET = {
@@ -64,6 +72,7 @@ const VALID_OPTIONS = {
     glacier_options: VALID_OPTIONS_GLACIER,
     whitelist_options: VALID_OPTIONS_WHITELIST,
     from_file_options: VALID_OPTIONS_FROM_FILE,
+    anonymous_account_options: VALID_OPTIONS_ANONYMOUS_ACCOUNT,
 };
 
 const OPTION_TYPE = {
@@ -88,7 +97,8 @@ const OPTION_TYPE = {
     wide: 'boolean',
     show_secrets: 'boolean',
     ips: 'string',
-    force: 'boolean'
+    force: 'boolean',
+    anonymous: 'boolean'
 };
 
 const BOOLEAN_STRING_VALUES = ['true', 'false'];
@@ -112,3 +122,4 @@ exports.LIST_UNSETABLE_OPTIONS = LIST_UNSETABLE_OPTIONS;
 
 exports.LIST_ACCOUNT_FILTERS = LIST_ACCOUNT_FILTERS;
 exports.LIST_BUCKET_FILTERS = LIST_BUCKET_FILTERS;
+exports.ANONYMOUS = ANONYMOUS;

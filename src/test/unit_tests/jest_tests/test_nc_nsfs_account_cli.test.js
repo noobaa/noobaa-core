@@ -14,7 +14,7 @@ const nb_native = require('../../../util/nb_native');
 const { set_path_permissions_and_owner, create_fs_user_by_platform,
     delete_fs_user_by_platform, TMP_PATH, set_nc_config_dir_in_config } = require('../../system_tests/test_utils');
 const { get_process_fs_context } = require('../../../util/native_fs_utils');
-const { TYPES, ACTIONS, CONFIG_SUBDIRS } = require('../../../manage_nsfs/manage_nsfs_constants');
+const { TYPES, ACTIONS, CONFIG_SUBDIRS, ANONYMOUS } = require('../../../manage_nsfs/manage_nsfs_constants');
 const ManageCLIError = require('../../../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
 const ManageCLIResponse = require('../../../manage_nsfs/manage_nsfs_cli_responses').ManageCLIResponse;
 
@@ -401,6 +401,15 @@ describe('manage nsfs cli account flow', () => {
             const res = await exec_manage_cli(type, action, account_options);
             expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidFlagsCombination.code);
         });
+
+        it('should fail - cli account add invalid account name(anonymous)', async function() {
+            const action = ACTIONS.ADD;
+            const { type, uid, gid } = defaults;
+            const name = ANONYMOUS;
+            const account_options = { config_root, name, uid, gid };
+            const res = await exec_manage_cli(type, action, account_options);
+            expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidAccountName.code);
+        });
     });
 
     describe('cli update account', () => {
@@ -722,6 +731,15 @@ describe('manage nsfs cli account flow', () => {
                 expect(account_details.nsfs_account_config.uid).toBeUndefined();
                 expect(account_details.nsfs_account_config.gid).toBeUndefined();
                 expect(account_details.nsfs_account_config.distinguished_name).toBe(distinguished_name);
+            });
+
+            it('should fail - cli update account with invalid new_name(anonymous)', async () => {
+                const action = ACTIONS.UPDATE;
+                const { name } = defaults;
+                const new_name = ANONYMOUS;
+                const account_options = { config_root, name, new_name};
+                const res = await exec_manage_cli(type, action, account_options);
+                expect(JSON.parse(res.stdout).error.message).toBe(ManageCLIError.InvalidAccountName.message);
             });
         });
 

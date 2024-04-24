@@ -119,6 +119,12 @@ ManageCLIError.InvalidFlagsCombination = Object.freeze({
     http_code: 400,
 });
 
+ManageCLIError.InvalidAccountName = Object.freeze({
+    code: 'InvalidAccountName',
+    message: 'Account name is invalid',
+    http_code: 400,
+});
+
 //////////////////////////////
 //// IP WHITE LIST ERRORS ////
 //////////////////////////////

@@ -234,7 +234,7 @@ Example:
 ```
 
 ## 13. Whitelist IPs -
-**Description -** List of whitelist IPs. Access is restricted to these IPs only. If there are no IPs mentioned all IPs are allowed.
+**Description -** List of whitelist IPs. Access is restricted to these server IPs only. If there are no IPs mentioned all IPs are allowed.
 
 **Configuration Key -** S3_SERVER_IP_WHITELIST
 

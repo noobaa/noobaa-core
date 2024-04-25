@@ -63,8 +63,13 @@ async function check_and_create_config_dirs() {
         config_root,
         buckets_dir_path,
         accounts_dir_path,
-        access_keys_dir_path
+        access_keys_dir_path,
     ];
+
+    if (config.NSFS_GLACIER_LOGS_ENABLED) {
+        pre_req_dirs.push(config.NSFS_GLACIER_LOGS_DIR);
+    }
+
     for (const dir_path of pre_req_dirs) {
         try {
             const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
@@ -998,7 +1003,7 @@ async function whitelist_ips_management(args) {
     const config_path = path.join(config_root, 'config.json');
     try {
         const config_data = require(config_path);
-        config_data.NSFS_WHITELIST = whitelist_ips;
+        config_data.S3_SERVER_IP_WHITELIST = whitelist_ips;
         const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
         const data = JSON.stringify(config_data);
         await native_fs_utils.update_config_file(fs_context, config_root, config_path, data);

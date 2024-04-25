@@ -215,6 +215,7 @@ class PersistentLogger {
     }
 
     async _open() {
+        await native_fs_utils._create_path(this.dir, this.fs_context);
         return nb_native().fs.open(this.fs_context, this.active_path, 'as');
     }
 

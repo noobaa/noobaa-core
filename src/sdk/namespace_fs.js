@@ -736,7 +736,7 @@ class NamespaceFS {
                         cached_dir = await dir_cache.get_with_cache({ dir_path, fs_context });
                     }
                 } catch (err) {
-                    if (err.code === 'ENOENT') {
+                    if (['ENOENT', 'ENOTDIR'].includes(err.code)) {
                         dbg.log0('NamespaceFS: no keys for non existing dir', dir_path);
                         return;
                     }
@@ -896,6 +896,7 @@ class NamespaceFS {
             await this._check_path_in_bucket_boundaries(fs_context, file_path);
             await this._load_bucket(params, fs_context);
             let stat = await nb_native().fs.stat(fs_context, file_path);
+
             const isDir = native_fs_utils.isDirectory(stat);
             if (isDir) {
                 if (!stat.xattr?.[XATTR_DIR_CONTENT]) {
@@ -1506,10 +1507,43 @@ class NamespaceFS {
     //////////////////////
 
     async list_uploads(params, object_sdk) {
-        // TODO for now we do not support listing of multipart uploads
+        // TODO: Need to support pagination.
+        const fs_context = this.prepare_fs_context(object_sdk);
+        await this._load_bucket(params, fs_context);
+        const mpu_root_path = this._mpu_root_path();
+        await this._check_path_in_bucket_boundaries(fs_context, mpu_root_path);
+        const multipart_upload_dirs = await nb_native().fs.readdir(fs_context, mpu_root_path);
+        const common_prefixes_set = new Set();
+        const multipart_uploads = await P.map(multipart_upload_dirs, async obj => {
+            const create_path = path.join(mpu_root_path, obj.name, 'create_object_upload');
+            const { data: create_params_buffer } = await nb_native().fs.readFile(
+                fs_context,
+                create_path
+            );
+            const create_params_parsed = JSON.parse(create_params_buffer.toString());
+
+            // dont add keys that dont start with the prefix
+            if (params.prefix && !create_params_parsed.key.startsWith(params.prefix)) {
+                return undefined;
+            }
+
+            // common_prefix contains (if there are any) prefixes between the provide prefix
+            // and the next occurrence of the string specified by the delimiter
+            if (params.delimiter) {
+                const start_idx = params.prefix ? params.prefix.length : 0;
+                const delimiter_idx = create_params_parsed.key.indexOf(params.delimiter, start_idx);
+                if (delimiter_idx > 0) {
+                    common_prefixes_set.add(create_params_parsed.key.substring(0, delimiter_idx + 1));
+                    // if key has common prefix it should not be returned as an upload object 
+                    return undefined;
+                }
+            }
+            const stat = await nb_native().fs.stat(fs_context, create_path);
+            return this._get_mpu_info(create_params_parsed, stat);
+        });
         return {
-            objects: [],
-            common_prefixes: [],
+            objects: _.compact(multipart_uploads),
+            common_prefixes: [...common_prefixes_set],
             is_truncated: false,
             next_marker: undefined,
             next_upload_id_marker: undefined,
@@ -2244,7 +2278,7 @@ class NamespaceFS {
      * @param {nb.NativeFSStats} stat 
      * @returns {nb.ObjectInfo}
      */
-     _get_object_info(bucket, key, stat, return_version_id, isDir, is_latest = true) {
+    _get_object_info(bucket, key, stat, return_version_id, isDir, is_latest = true) {
         const etag = this._get_etag(stat);
         const create_time = stat.mtime.getTime();
         const encryption = this._get_encryption_info(stat);
@@ -2316,7 +2350,7 @@ class NamespaceFS {
 
     _translate_object_error_codes(err) {
         if (err.rpc_code) return err;
-        if (err.code === 'ENOENT') err.rpc_code = 'NO_SUCH_OBJECT';
+        if (err.code === 'ENOENT' || err.code === 'ENOTDIR') err.rpc_code = 'NO_SUCH_OBJECT';
         if (err.code === 'EEXIST') err.rpc_code = 'BUCKET_ALREADY_EXISTS';
         if (err.code === 'EPERM' || err.code === 'EACCES') err.rpc_code = 'UNAUTHORIZED';
         if (err.code === 'IO_STREAM_ITEM_TIMEOUT') err.rpc_code = 'IO_STREAM_ITEM_TIMEOUT';
@@ -2332,11 +2366,28 @@ class NamespaceFS {
         }
     }
 
-    _mpu_path(params) {
+    _get_mpu_info(create_params, stat) {
+        return {
+            obj_id: create_params.obj_id,
+            bucket: create_params.bucket,
+            key: create_params.key,
+            storage_class: create_params.storage_class,
+            create_time: stat.mtime.getTime(),
+            upload_started: stat.mtime.getTime(),
+            content_type: create_params.content_type,
+        };
+    }
+
+    _mpu_root_path() {
         return path.join(
             this.bucket_path,
             this.get_bucket_tmpdir(),
-            'multipart-uploads',
+            'multipart-uploads');
+    }
+
+    _mpu_path(params) {
+        return path.join(
+            this._mpu_root_path(),
             params.obj_id
         );
     }
@@ -2408,6 +2459,10 @@ class NamespaceFS {
             dbg.error('check_access: error ', err.code, err, dir_path, this.bucket_path);
             const is_bucket_dir = dir_path === this.bucket_path;
 
+            if (err.code === 'ENOTDIR' && !is_bucket_dir) {
+                dbg.warn('check_access: the path', dir_path, 'is not a directory');
+                return true;
+            }
             // if dir_path is the bucket path we would like to throw an error
             // for other dirs we will skip
             if (['EPERM', 'EACCES'].includes(err.code) && !is_bucket_dir) {
@@ -2443,6 +2498,10 @@ class NamespaceFS {
                 return false;
             }
         } catch (err) {
+            if (err.code === 'ENOTDIR') {
+                dbg.warn('_is_path_in_bucket_boundaries: the path', entry_path, 'is not a directory');
+                return true;
+            }
             // Error: No such file or directory
             // In the upload use case, the destination file desn't exist yet, need to validate the parent dirs path.
             if (err.code === 'ENOENT') {

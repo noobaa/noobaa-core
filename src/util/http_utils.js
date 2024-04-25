@@ -676,8 +676,8 @@ function authorize_session_token(req, options) {
 function validate_nsfs_whitelist(req) {
     // remove prefix for V4 IPs for whitelist validation
     const client_ip = parse_client_ip(req).replace(/^::ffff:/, '');
-    if (config.NSFS_WHITELIST.length === 0) return;
-    for (const whitelist_ip of config.NSFS_WHITELIST) {
+    if (config.S3_SERVER_IP_WHITELIST.length === 0) return;
+    for (const whitelist_ip of config.S3_SERVER_IP_WHITELIST) {
         if (client_ip === whitelist_ip) {
             return;
         }

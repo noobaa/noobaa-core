@@ -21,7 +21,7 @@ The following list consists of supported optional developer customization  -
 2. Set the ENDPOINT_FORKS key to the desired level.
 Example:
 "ENDPOINT_FORKS":8
-3. systemctl restart noobaa_nsfs
+3. systemctl restart noobaa
 ```
 
 ## 2. Log debug level -
@@ -47,7 +47,7 @@ Supported log debug levels:
 2. Set the NOOBAA_LOG_LEVEL key to the desired level.
 Example:
 "NOOBAA_LOG_LEVEL": "nsfs"
-3. systemctl restart noobaa_nsfs
+3. systemctl restart noobaa
 ```
 
 ## 3. Ports -
@@ -73,7 +73,7 @@ The following S3 endpoint ports can be customized:
 2. Set the config key -
 Example:
 "ENDPOINT_PORT": 5555
-3. systemctl restart noobaa_nsfs
+3. systemctl restart noobaa
 ```
 
 ## 4. Allow http requests-
@@ -91,7 +91,7 @@ Example:
 2. Set the config key -
 Example:
 "ALLOW_HTTP": true
-3. systemctl restart noobaa_nsfs
+3. systemctl restart noobaa
 ```
 
 ## 5. MD5 calculation -
@@ -126,7 +126,7 @@ Example:
 2. Set the config key -
 Example:
 "UV_THREADPOOL_SIZE": 8
-3. systemctl restart noobaa_nsfs
+3. systemctl restart noobaa
 ```
 
 ## 7. GPFS library path -
@@ -144,7 +144,7 @@ Example:
 2. Set the config key -
 Example:
 "GPFS_DL_PATH": "/usr/lib64/libgpfs.so"
-3. systemctl restart noobaa_nsfs
+3. systemctl restart noobaa
 ```
 
 ## 8. Buffer pool memory limit -
@@ -161,7 +161,7 @@ Example:
 2. Set the config key in bytes-
 Example: 
 "NSFS_BUF_POOL_MEM_LIMIT" : 52428800
-3. systemctl restart noobaa_nsfs
+3. systemctl restart noobaa
 ```
 
 ## 9. Buffer size -
@@ -179,7 +179,7 @@ Example:
 2. Set the config key in bytes-
 Example:
 "NSFS_BUF_SIZE": 10485760
-3. systemctl restart noobaa_nsfs
+3. systemctl restart noobaa
 ```
 
 ## 10. Open read mode -
@@ -236,7 +236,7 @@ Example:
 ## 13. Whitelist IPs -
 **Description -** List of whitelist IPs. Access is restricted to these IPs only. If there are no IPs mentioned all IPs are allowed.
 
-**Configuration Key -** NSFS_WHITELIST
+**Configuration Key -** S3_SERVER_IP_WHITELIST
 
 **Type -** array
 
@@ -245,7 +245,7 @@ Example:
 **Steps -**
 ```
 1. run CLI command
-node src/cmd/manage_nsfs whitelist --ips '["127.0.0.1", "192.000.10.000", "3002:0bd6:0000:0000:0000:ee00:0033:000"]'  2>/dev/null
+sudo noobaa-cli whitelist --ips '["127.0.0.1", "192.000.10.000", "3002:0bd6:0000:0000:0000:ee00:0033:000"]'  2>/dev/null
 ```
 
 ## 14. Config directory backend -
@@ -280,7 +280,7 @@ Example:
 2. Set the config key -
 Example:
 "NSFS_NC_STORAGE_BACKEND": "GPFS"
-3. systemctl restart noobaa_nsfs
+3. systemctl restart noobaa
 ```
 
 ## 16. Directories cache max directory size -
@@ -298,7 +298,7 @@ Example:
 2. Set the config key -
 Example:
 "NSFS_DIR_CACHE_MAX_DIR_SIZE": 268435456
-3. systemctl restart noobaa_nsfs
+3. systemctl restart noobaa
 ```
 
 ## 17. Directories cache max total usage size -
@@ -316,7 +316,7 @@ Example:
 2. Set the config key -
 Example:
 "NSFS_DIR_CACHE_MAX_TOTAL_SIZE": 805306368
-3. systemctl restart noobaa_nsfs
+3. systemctl restart noobaa
 ```
 
 
@@ -334,7 +334,7 @@ Example:
 2. Set the config key -
 Example:
 "ENABLE_DEV_RANDOM_SEED": false
-3. systemctl restart noobaa_nsfs
+3. systemctl restart noobaa
 ```
 
 ## 19. Set Master Keys Store type-
@@ -351,7 +351,7 @@ Example:
 2. Set the config key -
 Example:
 "NC_MASTER_KEYS_STORE_TYPE": 'executable'
-3. systemctl restart noobaa_nsfs
+3. systemctl restart noobaa
 ```
 
 ## 20. Set Master Keys File Location -
@@ -368,7 +368,7 @@ Example:
 2. Set the config key -
 Example:
 "NC_MASTER_KEYS_FILE_LOCATION": '/private/tmp/master_keys.json'
-3. systemctl restart noobaa_nsfs
+3. systemctl restart noobaa
 ```
 
 ## 21. Set Master Keys GET executable script -
@@ -385,7 +385,7 @@ Example:
 2. Set the config key -
 Example:
 "NC_MASTER_KEYS_GET_EXECUTABLE": '/private/tmp/get_master_keys.sh'
-3. systemctl restart noobaa_nsfs
+3. systemctl restart noobaa
 ```
 
 ## 22. Set Master Keys PUT executable script -
@@ -402,7 +402,7 @@ Example:
 2. Set the config key -
 Example:
 "NC_MASTER_KEYS_PUT_EXECUTABLE": '/private/tmp/put_master_keys.sh'
-3. systemctl restart noobaa_nsfs
+3. systemctl restart noobaa
 ```
 
 ## Config.json example 
@@ -419,7 +419,7 @@ Example:
     "NSFS_OPEN_READ_MODE": "rd",
     "NSFS_CHECK_BUCKET_BOUNDARIES": false,
     "ALLOW_HTTP": true,
-    "NSFS_WHITELIST":["127.0.0.1","192.000.10.000","3002:0bd6:0000:0000:0000:ee00:0033:000"]
+    "S3_SERVER_IP_WHITELIST":["127.0.0.1","192.000.10.000","3002:0bd6:0000:0000:0000:ee00:0033:000"]
 }
 
 ```

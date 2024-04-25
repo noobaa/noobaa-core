@@ -48,24 +48,24 @@ function print_usage() {
 }
 
 const HOSTNAME = 'localhost';
-const NSFS_SERVICE = 'noobaa_nsfs';
+const NOOBAA_SERVICE = 'noobaa';
 const RSYSLOG_SERVICE = 'rsyslog';
 const SYSLOG_NG_SERVICE = 'syslog-ng';
 const health_errors = {
-    NSFS_SERVICE_FAILED: {
-        error_code: 'NOOBAA_NSFS_SERVICE_FAILED',
-        error_message: 'NSFS service is not started properly, Please verify the service with status command.',
+    NOOBAA_SERVICE_FAILED: {
+        error_code: 'NOOBAA_SERVICE_FAILED',
+        error_message: 'NooBaa service is not started properly, Please verify the service with status command.',
     },
     RSYSLOG_SERVICE_FAILED: {
         error_code: 'RSYSLOG_SERVICE_FAILED',
         error_message: 'RSYSLOG service is not started properly, Please verify the service with status command.',
     },
-    NSFS_ENDPOINT_FAILED: {
-        error_code: 'NSFS_ENDPOINT_FAILED',
-        error_message: 'NSFS endpoint process is not running. Restart the endpoint process.',
+    NOOBAA_ENDPOINT_FAILED: {
+        error_code: 'NOOBAA_ENDPOINT_FAILED',
+        error_message: 'S3 endpoint process is not running. Restart the endpoint process.',
     },
-    NSFS_ENDPOINT_FORK_MISSING: {
-        error_code: 'NSFS_ENDPOINT_FORK_MISSING',
+    NOOBAA_ENDPOINT_FORK_MISSING: {
+        error_code: 'NOOBAA_ENDPOINT_FORK_MISSING',
         error_message: 'One or more endpoint fork is not started properly. Verify the total and missing fork count in response.',
     },
     STORAGE_NOT_EXIST: {
@@ -131,7 +131,7 @@ class NSFSHealth {
         let endpoint_state;
         let memory;
         let syslog_ng;
-        const { service_status, pid } = await this.get_service_state(NSFS_SERVICE);
+        const { service_status, pid } = await this.get_service_state(NOOBAA_SERVICE);
         if (pid !== '0') {
             endpoint_state = await this.get_endpoint_response();
             memory = await this.get_service_memory_usage();
@@ -156,13 +156,13 @@ class NSFSHealth {
         if (this.all_bucket_details) bucket_details = await this.get_bucket_status(this.config_root);
         if (this.all_account_details) account_details = await this.get_account_status(this.config_root);
         const health = {
-            service_name: NSFS_SERVICE,
+            service_name: NOOBAA_SERVICE,
             status: service_health,
             memory: memory,
             error: error_code,
             checks: {
                 services: [{
-                        name: NSFS_SERVICE,
+                        name: NOOBAA_SERVICE,
                         service_status: service_status,
                         pid: pid,
                         error_type: health_errors_tyes.PERSISTENT,
@@ -207,8 +207,8 @@ class NSFSHealth {
         let endpoint_state;
         try {
             await P.retry({
-                attempts: config.NSFS_HEALTH_ENDPOINT_RETRY_COUNT,
-                delay_ms: config.NSFS_HEALTH_ENDPOINT_RETRY_DELAY,
+                attempts: config.NC_HEALTH_ENDPOINT_RETRY_COUNT,
+                delay_ms: config.NC_HEALTH_ENDPOINT_RETRY_DELAY,
                 func: async () => {
                     endpoint_state = await this.get_endpoint_fork_response();
                     if (endpoint_state.response.response_code === fork_response_code.NOT_RUNNING.response_code) {
@@ -227,13 +227,13 @@ class NSFSHealth {
 
     async get_error_code(nsfs_status, pid, rsyslog_status, endpoint_response_code) {
         if (nsfs_status !== 'active' || pid === '0') {
-            return health_errors.NSFS_SERVICE_FAILED;
+            return health_errors.NOOBAA_SERVICE_FAILED;
         } else if (rsyslog_status !== 'active') {
             return health_errors.RSYSLOG_SERVICE_FAILED;
         } else if (endpoint_response_code === 'NOT_RUNNING') {
-            return health_errors.NSFS_ENDPOINT_FAILED;
+            return health_errors.NOOBAA_ENDPOINT_FAILED;
         } else if (endpoint_response_code === 'MISSING_FORKS') {
-            return health_errors.NSFS_ENDPOINT_FORK_MISSING;
+            return health_errors.NOOBAA_ENDPOINT_FORK_MISSING;
         }
     }
 
@@ -316,7 +316,7 @@ class NSFSHealth {
     }
 
     async get_service_memory_usage() {
-        const memory_status = await os_util.exec('systemctl status ' + NSFS_SERVICE + ' | grep Memory ', {
+        const memory_status = await os_util.exec('systemctl status ' + NOOBAA_SERVICE + ' | grep Memory ', {
             ignore_rc: true,
             return_stdout: true,
             trim_stdout: true,

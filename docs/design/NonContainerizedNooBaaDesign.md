@@ -1,8 +1,8 @@
-# NSFS Non Containerized
+# NooBaa Non Containerized
 
-Running noobaa-core non containerized is useful for development, testing, or deploying in Linux without depending on Kubernetes, NSFS FS is different from the simple standalone in such a way that it doesn't depend on the Noobaa postgres db. All the Global configurations, Accounts, and Bucket related schemas are saved in FS. And it gives a more lightweight flavor to the Noobaa standalone version. Permissions are handled by uid and gid, or by providing a distinguished name (LDAP/AD) that will be resolved to uid/gid by the operating system.
+Running noobaa-core non containerized is useful for development, testing, or deploying in Linux without depending on Kubernetes, NooBaa NC is different from the simple standalone in such a way that it doesn't depend on the Noobaa postgres db. All the Global configurations, Accounts, and Bucket related schemas are saved in FS. And it gives a more lightweight flavor to the Noobaa standalone version. Permissions are handled by uid and gid, or by providing a distinguished name (LDAP/AD) that will be resolved to uid/gid by the operating system.
 
-Users can switch between Noobaa standalone and NSFS FS standalone by adding/removing the argument `config_dir`.
+Users can switch between Noobaa standalone and NooBaa FS standalone by adding/removing the argument `config_dir`.
 
 ```
 node src/cmd/nsfs ../standalon/nsfs_root --config_dir ../standalon/fs_config
@@ -121,10 +121,10 @@ node src/cmd/nsfs ../standalon/nsfs_root --config_dir ../standalon/fs_config
     - Check uid/gid access to the bucket path
 
 ## Code Structure
-To simplify the flow new SDK `BucketSpaceFS` is added for the NSFS FS standalone by extending the `BucketSpaceSimpleFS`. `BucketSpaceFS` will handle all the FS related functionalities on the other hand `BucketSpaceSimpleFS` keeps serving existing NSFS simple standalone functionalities.
+To simplify the flow new SDK `BucketSpaceFS` is added for the NooBaa standalone by extending the `BucketSpaceSimpleFS`. `BucketSpaceFS` will handle all the FS related functionalities on the other hand `BucketSpaceSimpleFS` keeps serving existing NooBaa simple standalone functionalities.
 
 ### BucketSpaceSimpleFS
-- simplified nsfs bucket manager - single root dir for all buckets under it, and a single account.
+- simplified NooBaa bucket manager - single root dir for all buckets under it, and a single account.
 - CLI: node nsfs /fsroot/
 
 ### BucketSpaceFS
@@ -137,9 +137,9 @@ To simplify the flow new SDK `BucketSpaceFS` is added for the NSFS FS standalone
 
 High level configuration - 
 
-1. /etc/noobaa.conf.d/config_dir_redirect - a fixed starting point, the noobaa nsfs service will try to read this file, and if this file does not exist it will use /etc/noobaa.conf.d/ as the wanted config_dir
+1. /etc/noobaa.conf.d/config_dir_redirect - a fixed starting point, the NooBaa service will try to read this file, and if this file does not exist it will use /etc/noobaa.conf.d/ as the wanted config_dir
 
-2. /etc/sysconfig/noobaa_nsfs - env file, one should avoid using it, should be used only for configurations that can not be set using config.json
+2. /etc/sysconfig/noobaa - env file, one should avoid using it, should be used only for configurations that can not be set using config.json
 
 3. /path/to/config_dir - the user's config_dir, contains the following files/subdirectories - 
 
@@ -167,9 +167,9 @@ High level configuration -
 * Please be aware that when a node is designated in the host_customization, Noobaa will combine the shared configuration with the node's configuration. If a configuration value is provided under the node's configuration, it will take precedence as the final configuration value applied to the noobaa_nsds service on that specific node.
 
 #### config.json schema - 
-See [NSFS config.json schema](https://github.com/noobaa/noobaa-core/src/server/object_services/schemas/nsfs_config_schema.js)
+See [NooBaa config.json schema](https://github.com/noobaa/noobaa-core/src/server/object_services/schemas/nsfs_config_schema.js)
 config.json will be reloaded every 10 seconds automatically, please notice that some config.json properties require restart of the service, for more details check the schema.
 
 ### Configuration files (accounts/buckets) permissions
 - Configuration files created under accounts/ or buckets/ will have 600 permissions (read, write, execute) for the owner of the config file only. 
-- config_file created by manage_nsfs.js CLI tool will be owned by the user who ran the command. 
+- configuration file created by the CLI tool will be owned by the user who ran the command. 

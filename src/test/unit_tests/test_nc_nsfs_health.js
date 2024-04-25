@@ -106,7 +106,7 @@ mocha.describe('nsfs nc health', function() {
             assert.strictEqual(health_status.checks.buckets_status.valid_buckets[0].name, 'bucket1');
         });
 
-        mocha.it('NSFS service is inactive', async function() {
+        mocha.it('NooBaa service is inactive', async function() {
             Health.get_service_state.restore();
             Health.get_endpoint_response.restore();
             const get_service_state = sinon.stub(Health, "get_service_state");
@@ -116,10 +116,10 @@ mocha.describe('nsfs nc health', function() {
             get_endpoint_response.onFirstCall().returns(Promise.resolve({response: {response_code: 'RUNNING', total_fork_count: 0}}));
             const health_status = await Health.nc_nsfs_health();
             assert.strictEqual(health_status.status, 'NOTOK');
-            assert.strictEqual(health_status.error.error_code, 'NOOBAA_NSFS_SERVICE_FAILED');
+            assert.strictEqual(health_status.error.error_code, 'NOOBAA_SERVICE_FAILED');
         });
 
-        mocha.it('NSFS rsyslog service is inactive', async function() {
+        mocha.it('NooBaa rsyslog service is inactive', async function() {
             Health.get_service_state.restore();
             Health.get_endpoint_response.restore();
             const get_service_state = sinon.stub(Health, "get_service_state");
@@ -132,7 +132,7 @@ mocha.describe('nsfs nc health', function() {
             assert.strictEqual(health_status.error.error_code, 'RSYSLOG_SERVICE_FAILED');
         });
 
-        mocha.it('NSFS endpoint return error response is inactive', async function() {
+        mocha.it('NooBaa endpoint return error response is inactive', async function() {
             Health.get_service_state.restore();
             Health.get_endpoint_response.restore();
             const get_service_state = sinon.stub(Health, "get_service_state");
@@ -142,7 +142,7 @@ mocha.describe('nsfs nc health', function() {
             get_endpoint_response.onFirstCall().returns(Promise.resolve({response: {response_code: 'MISSING_FORKS', total_fork_count: 3, running_workers: ['1', '3']}}));
             const health_status = await Health.nc_nsfs_health();
             assert.strictEqual(health_status.status, 'NOTOK');
-            assert.strictEqual(health_status.error.error_code, 'NSFS_ENDPOINT_FORK_MISSING');
+            assert.strictEqual(health_status.error.error_code, 'NOOBAA_ENDPOINT_FORK_MISSING');
         });
 
         mocha.it('NSFS account with invalid storage path', async function() {

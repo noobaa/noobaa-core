@@ -405,6 +405,23 @@ Example:
 3. systemctl restart noobaa
 ```
 
+## 23. Set Virtual hosts -
+**Description -** This flag will set the virtual hosts used by NooBa, service restart required. Set the virtual hosts as string of domains sepreated by spaces.
+
+**Configuration Key -** VIRTUAL_HOSTS
+
+**Type -** string
+
+**Default -**  ''
+**Steps -**
+```
+1. Open /path/to/config_dir/config.json file.
+2. Set the config key -
+Example:
+"VIRTUAL_HOSTS": 'my.vritual.host.io'
+3. systemctl restart noobaa_nsfs
+```
+
 ## Config.json example 
 ```
 > cat /path/to/config_dir/config.json

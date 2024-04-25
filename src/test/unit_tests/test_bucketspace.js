@@ -41,6 +41,7 @@ const is_nc_coretest = process.env.NC_CORETEST === 'true';
 
 const encoded_xattr = 'unconfined_u%3Aobject_r%3Auser_home_t%3As0%00';
 const decoded_xattr = 'unconfined_u:object_r:user_home_t:s0\x00';
+const generic_obj_body = 'AAAABBBBBCCCCCCDDDDD';
 
 // currently will pass only when running locally
 mocha.describe('bucket operations - namespace_fs', function() {
@@ -476,16 +477,8 @@ mocha.describe('bucket operations - namespace_fs', function() {
     });
     mocha.it('list buckets with uid, gid', async function() {
         // Give s3_correct_uid access to the required buckets
-        await Promise.all(
-            [bucket_name]
-            .map(bucket => generate_s3_policy('*', bucket, ['s3:*']))
-            .map(generated =>
-                rpc_client.bucket.put_bucket_policy({
-                    name: generated.params.bucket,
-                    policy: generated.policy,
-                })
-            )
-        );
+        const generated = generate_s3_policy('*', bucket_name, ['s3:*']);
+        await rpc_client.bucket.put_bucket_policy({ name: generated.params.bucket, policy: generated.policy });
         const res = await s3_correct_uid.listBuckets({});
         console.log(inspect(res));
         const list_ok = bucket_in_list([bucket_name], [], res.Buckets);
@@ -511,7 +504,7 @@ mocha.describe('bucket operations - namespace_fs', function() {
 
     mocha.it('put object with out uid gid', async function() {
         try {
-            const res = await s3_owner.putObject({ Bucket: bucket_name + '-s3', Key: 'ob1.txt', Body: 'AAAABBBBBCCCCCCDDDDD' });
+            const res = await s3_owner.putObject({ Bucket: bucket_name + '-s3', Key: 'ob1.txt', Body: generic_obj_body });
             console.log(inspect(res));
             assert.fail('unpreviliged account could put object on nsfs bucket');
         } catch (err) {
@@ -524,9 +517,8 @@ mocha.describe('bucket operations - namespace_fs', function() {
         const s3_client_wrong_uid = generate_s3_client(access_key.unwrap(), secret_key.unwrap());
         const bucket = bucket_name + '-s3';
         const key = 'ob1.txt';
-        const body = 'AAAABBBBBCCCCCCDDDDD';
         try {
-            const res = await s3_client_wrong_uid.putObject({ Bucket: bucket, Key: key, Body: body });
+            const res = await s3_client_wrong_uid.putObject({ Bucket: bucket, Key: key, Body: generic_obj_body });
             console.log(inspect(res));
             assert.fail('unpreviliged account could upload object on nsfs bucket');
         } catch (err) {
@@ -534,17 +526,43 @@ mocha.describe('bucket operations - namespace_fs', function() {
         }
     });
 
+    mocha.it('putObject - regular object - head/get object - key/ - should fail with 404', async function() {
+        const { access_key, secret_key } = account_correct_uid.access_keys[0];
+        const s3_client = generate_s3_client(access_key.unwrap(), secret_key.unwrap());
+        const bucket = bucket_name + '-s3';
+        const key = 'reg_obj.txt';
+        const invalid_dir_key = `${key}/`;
+        const policy = generate_s3_policy('*', bucket, ['s3:*']);
+        await rpc_client.bucket.put_bucket_policy({ name: bucket, policy: policy.policy });
+        await s3_client.putObject({ Bucket: bucket, Key: key, Body: generic_obj_body });
+        try {
+            await s3_client.headObject({ Bucket: bucket, Key: invalid_dir_key });
+            assert.fail('head operation successfull although it should have failed');
+        } catch (err) {
+            assert.deepStrictEqual(err.name, 'NotFound');
+        }
+        try {
+            await s3_client.getObject({ Bucket: bucket, Key: invalid_dir_key });
+            assert.fail('get operation successfull although it should have failed');
+        } catch (err) {
+            assert.deepStrictEqual(err.Code, 'NoSuchKey');
+        }
+        const list_res = await s3_client.listObjects({ Bucket: bucket, Prefix: invalid_dir_key, Delimiter: '/' });
+        assert.equal(object_in_list(list_res, key), false);
+        assert.equal(object_in_list(list_res, invalid_dir_key), false);
+        await s3_client.deleteObject({ Bucket: bucket, Key: key });
+    });
+
     mocha.it('putObject/head object - xattr invalid URI', async function() {
         const { access_key, secret_key } = account_correct_uid.access_keys[0];
         const s3_client = generate_s3_client(access_key.unwrap(), secret_key.unwrap());
         const bucket = bucket_name + '-s3';
         const key = 'obj_dot_xattr.txt';
-        const body = 'AAAABBBBBCCCCCCDDDDD';
         const xattr = { 'key1.2.3': encoded_xattr };
         const policy = generate_s3_policy('*', bucket, ['s3:*']);
         await rpc_client.bucket.put_bucket_policy({ name: bucket, policy: policy.policy });
 
-        await s3_client.putObject({ Bucket: bucket, Key: key, Body: body, Metadata: xattr });
+        await s3_client.putObject({ Bucket: bucket, Key: key, Body: generic_obj_body, Metadata: xattr });
         const head_res = await s3_client.headObject({ Bucket: bucket, Key: key });
 
         assert.deepStrictEqual(head_res.Metadata, xattr);
@@ -607,7 +625,7 @@ mocha.describe('bucket operations - namespace_fs', function() {
             Key: 'ob1.txt',
             UploadId: res1.UploadId,
             PartNumber: 1,
-            Body: 'AAAABBBBBCCCCCCDDDDD',
+            Body: generic_obj_body,
         });
         try {
             // list_multiparts
@@ -623,7 +641,7 @@ mocha.describe('bucket operations - namespace_fs', function() {
         const bucket = bucket_name + '-s3';
         const policy = generate_s3_policy('*', bucket, ['s3:*']);
         await rpc_client.bucket.put_bucket_policy({ name: bucket, policy: policy.policy });
-        const res = await s3_correct_uid.putObject({ Bucket: bucket_name + '-s3', Key: 'ob1.txt', Body: 'AAAABBBBBCCCCCCDDDDD' });
+        const res = await s3_correct_uid.putObject({ Bucket: bucket_name + '-s3', Key: 'ob1.txt', Body: generic_obj_body });
         assert.ok(res && res.ETag);
     });
 
@@ -653,7 +671,7 @@ mocha.describe('bucket operations - namespace_fs', function() {
         config.NSFS_CALCULATE_MD5 = true;
         const key = 'ob11.txt';
         const source_key = key;
-        const put_res = await s3_correct_uid.putObject({ Bucket: bucket_name + '-s3', Key: source_key, Body: 'AAAABBBBBCCCCCCDDDDD' });
+        const put_res = await s3_correct_uid.putObject({ Bucket: bucket_name + '-s3', Key: source_key, Body: generic_obj_body });
         assert.ok(put_res && put_res.ETag);
         await s3_correct_uid.copyObject({ Bucket: bucket_name + '-s3', Key: key, CopySource: bucket_name + `-s3/${source_key}` });
         config.NSFS_CALCULATE_MD5 = false;
@@ -933,7 +951,7 @@ mocha.describe('list objects - namespace_fs', async function() {
     const s3_b_name = 's3-created-bucket';
     const s3_root_b_name = 's3-root-created-bucket';
 
-    const body = 'AAAABBBBBCCCCCCDDDDD';
+    const body = generic_obj_body;
     const accounts = {
         'account1': { uid: 2000, gid: 2000 },
         'account2': { uid: 2001, gid: 2001 },

@@ -16,9 +16,12 @@ const fs_utils = require('../../util/fs_utils');
 const { stat, open } = require('../../util/nb_native')().fs;
 const test_utils = require('../system_tests/test_utils');
 const { get_process_fs_context } = require('../../util/native_fs_utils');
+const { TYPES } = require('../../manage_nsfs/manage_nsfs_constants');
 const ManageCLIError = require('../../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
 const { TMP_PATH, get_coretest_path, invalid_nsfs_root_permissions,
-    generate_s3_policy, create_fs_user_by_platform, delete_fs_user_by_platform } = require('../system_tests/test_utils');
+    generate_s3_policy, create_fs_user_by_platform, delete_fs_user_by_platform,
+    generate_s3_client, exec_manage_cli } = require('../system_tests/test_utils');
+
 
 const { S3 } = require('@aws-sdk/client-s3');
 const { NodeHttpHandler } = require("@smithy/node-http-handler");
@@ -27,7 +30,7 @@ const coretest_path = get_coretest_path();
 const coretest = require(coretest_path);
 const { rpc_client, EMAIL, PASSWORD, SYSTEM, get_admin_account_details } = coretest;
 coretest.setup({});
-
+let CORETEST_ENDPOINT;
 const inspect = (x, max_arr = 5) => util.inspect(x, { colors: true, depth: null, maxArrayLength: max_arr });
 
 const DEFAULT_FS_CONFIG = get_process_fs_context();
@@ -86,6 +89,7 @@ mocha.describe('bucket operations - namespace_fs', function() {
         if (process.env.NC_CORETEST) {
             await create_fs_user_by_platform(no_permissions_dn, 'new_password', 123123123, 123123123);
         }
+        CORETEST_ENDPOINT = coretest.get_http_address();
     });
     mocha.after(async () => {
         await fs_utils.folder_delete(tmp_fs_root);
@@ -513,7 +517,7 @@ mocha.describe('bucket operations - namespace_fs', function() {
 
     mocha.it('put object object with wrong uid gid', async function() {
         const { access_key, secret_key } = account_wrong_uid.access_keys[0];
-        const s3_client_wrong_uid = generate_s3_client(access_key.unwrap(), secret_key.unwrap());
+        const s3_client_wrong_uid = generate_s3_client(access_key.unwrap(), secret_key.unwrap(), CORETEST_ENDPOINT);
         const bucket = bucket_name + '-s3';
         const key = 'ob1.txt';
         try {
@@ -527,7 +531,7 @@ mocha.describe('bucket operations - namespace_fs', function() {
 
     mocha.it('putObject - regular object - head/get object - key/ - should fail with 404', async function() {
         const { access_key, secret_key } = account_correct_uid.access_keys[0];
-        const s3_client = generate_s3_client(access_key.unwrap(), secret_key.unwrap());
+        const s3_client = generate_s3_client(access_key.unwrap(), secret_key.unwrap(), CORETEST_ENDPOINT);
         const bucket = bucket_name + '-s3';
         const key = 'reg_obj.txt';
         const invalid_dir_key = `${key}/`;
@@ -554,7 +558,7 @@ mocha.describe('bucket operations - namespace_fs', function() {
 
     mocha.it('putObject/head object - xattr invalid URI', async function() {
         const { access_key, secret_key } = account_correct_uid.access_keys[0];
-        const s3_client = generate_s3_client(access_key.unwrap(), secret_key.unwrap());
+        const s3_client = generate_s3_client(access_key.unwrap(), secret_key.unwrap(), CORETEST_ENDPOINT);
         const bucket = bucket_name + '-s3';
         const key = 'obj_dot_xattr.txt';
         const xattr = { 'key1.2.3': encoded_xattr };
@@ -572,7 +576,7 @@ mocha.describe('bucket operations - namespace_fs', function() {
         //const s3_creds_aws_sdk_v2 = get_aws_sdk_v2_base_params(account_correct_uid, s3_endpoint_address);
         //const s3 = new AWS.S3(s3_creds_aws_sdk_v2);
         const { access_key, secret_key } = account_correct_uid.access_keys[0];
-        const s3_client = generate_s3_client(access_key.unwrap(), secret_key.unwrap());
+        const s3_client = generate_s3_client(access_key.unwrap(), secret_key.unwrap(), CORETEST_ENDPOINT);
         const key = 'fs_obj_dot_xattr.txt';
         const bucket = bucket_name + '-s3';
         const PATH = path.join(s3_new_buckets_path, bucket, key);
@@ -592,7 +596,7 @@ mocha.describe('bucket operations - namespace_fs', function() {
 
     mocha.it('PUT file directly to FS/head object - xattr encoded invalid URI', async function() {
         const { access_key, secret_key } = account_correct_uid.access_keys[0];
-        const s3_client = generate_s3_client(access_key.unwrap(), secret_key.unwrap());
+        const s3_client = generate_s3_client(access_key.unwrap(), secret_key.unwrap(), CORETEST_ENDPOINT);
         //get_s3_v2_client(account_correct_uid, s3_endpoint_address);
         const key = 'fs_obj_dot_xattr.txt';
         const bucket = bucket_name + '-s3';
@@ -991,11 +995,12 @@ mocha.describe('list objects - namespace_fs', async function() {
 
         const s3_policy = generate_s3_policy('*', bucket_name, ['s3:*']);
         await rpc_client.bucket.put_bucket_policy({ name: s3_policy.params.bucket, policy: s3_policy.policy });
+        CORETEST_ENDPOINT = coretest.get_http_address();
 
         for (const account_name of Object.keys(accounts)) {
             const { uid, gid } = accounts[account_name];
             const account = await generate_nsfs_account({ uid, gid, account_name, default_resource: namespace_resource_name });
-            const s3_client = generate_s3_client(account.access_key, account.secret_key);
+            const s3_client = generate_s3_client(account.access_key, account.secret_key, CORETEST_ENDPOINT);
             accounts[account_name].s3_client = s3_client;
         }
     });
@@ -1567,12 +1572,12 @@ mocha.describe('list buckets - namespace_fs', async function() {
                 fs_root_path: tmp_fs_root,
             }
         });
-
+        CORETEST_ENDPOINT = coretest.get_http_address();
         for (const account_name of Object.keys(accounts)) {
             const { create_bucket_via, bucket, account_info } = accounts[account_name];
             const { uid, gid } = account_info;
             const account = await generate_nsfs_account({ uid, gid, account_name, new_buckets_path });
-            const s3_client = generate_s3_client(account.access_key, account.secret_key);
+            const s3_client = generate_s3_client(account.access_key, account.secret_key, CORETEST_ENDPOINT);
             accounts[account_name].s3_client = s3_client;
 
             if (create_bucket_via === 'CLI') {
@@ -1702,20 +1707,58 @@ mocha.describe('list buckets - namespace_fs', async function() {
     });
 });
 
-function generate_s3_client(access_key, secret_key) {
-    return new S3({
-        forcePathStyle: true,
-        region: config.DEFAULT_REGION,
-        requestHandler: new NodeHttpHandler({
-            httpAgent: new http.Agent({ keepAlive: false })
-        }),
-        credentials: {
-            accessKeyId: access_key,
-            secretAccessKey: secret_key,
-        },
-        endpoint: coretest.get_http_address()
+mocha.describe('s3 whitelist flow', async function() {
+    this.timeout(50000); // eslint-disable-line no-invalid-this
+    const nsr = 'server_ip_whitelist_nsr';
+    const account_name = 'server_ip_whitelist_account';
+    const fs_path = path.join(TMP_PATH, 'server_ip_whitelist_tests');
+
+    let s3_client;
+    mocha.before(async function() {
+        if (!process.env.NC_CORETEST) this.skip(); // eslint-disable-line no-invalid-this
+        await fs.promises.mkdir(fs_path, { recursive: true });
+        await rpc_client.pool.create_namespace_resource({ name: nsr, nsfs_config: { fs_root_path: fs_path }});
+        const nsfs_account_config = {
+            uid: process.getuid(), gid: process.getgid(), new_buckets_path: '/', nsfs_only: true
+        };
+        const account_params = { ...new_account_params, email: `${account_name}@noobaa.io`, name: account_name, default_resource: nsr, nsfs_account_config };
+        const res = await rpc_client.account.create_account(account_params);
+        const { access_key, secret_key } = res.access_keys[0];
+        CORETEST_ENDPOINT = coretest.get_http_address();
+        s3_client = generate_s3_client(access_key.unwrap(), secret_key.unwrap(), CORETEST_ENDPOINT);
+
     });
-}
+
+    mocha.after(async function() {
+        if (!process.env.NC_CORETEST) return;
+        await rpc_client.account.delete_account({ email: `${account_name}@noobaa.io` });
+        await exec_manage_cli(TYPES.IP_WHITELIST, '', { ips: JSON.stringify([]) });
+    });
+
+    mocha.it('whitelist ips empty - s3 request should succeed', async function() {
+        const buckets_list = await s3_client.listBuckets({});
+        bucket_in_list([first_bucket], [], buckets_list.Buckets);
+    });
+
+    mocha.it('server ip is in whitelist ips - s3 request should succeed', async function() {
+        const ips = ['::1', '127.0.0.1'];
+        await exec_manage_cli(TYPES.IP_WHITELIST, '', { ips: JSON.stringify(ips) });
+        const buckets_list = await s3_client.listBuckets({});
+        bucket_in_list([first_bucket], [], buckets_list.Buckets);
+    });
+
+    mocha.it('server ip is not in whitelist ips - s3 request should fail', async function() {
+        const ips = ['162.168.1.2'];
+        await exec_manage_cli(TYPES.IP_WHITELIST, '', { ips: JSON.stringify(ips) });
+        try {
+            await s3_client.listBuckets({});
+            assert.fail('test should have failed with AccessDenied - server ip is not in whitelist ips');
+        } catch (err) {
+            assert.equal(err.Code, 'AccessDenied');
+        }
+    });
+});
+
 
 async function generate_nsfs_account(options = {}) {
     const { uid, gid, new_buckets_path, nsfs_only, admin, default_resource, account_name } = options;

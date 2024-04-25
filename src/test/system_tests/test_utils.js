@@ -3,10 +3,13 @@
 
 const fs = require('fs');
 const _ = require('lodash');
+const http = require('http');
 const P = require('../../util/promise');
 const os_utils = require('../../util/os_utils');
 const native_fs_utils = require('../../util/native_fs_utils');
 const config = require('../../../config');
+const { S3 } = require('@aws-sdk/client-s3');
+const { NodeHttpHandler } = require("@smithy/node-http-handler");
 
 /**
  * TMP_PATH is a path to the tmp path based on the process platform
@@ -328,12 +331,29 @@ function set_nc_config_dir_in_config(config_root) {
     config.NSFS_NC_CONF_DIR = config_root;
 }
 
+
+function generate_s3_client(access_key, secret_key, endpoint) {
+    return new S3({
+        forcePathStyle: true,
+        region: config.DEFAULT_REGION,
+        requestHandler: new NodeHttpHandler({
+            httpAgent: new http.Agent({ keepAlive: false })
+        }),
+        credentials: {
+            accessKeyId: access_key,
+            secretAccessKey: secret_key,
+        },
+        endpoint
+    });
+}
+
 exports.blocks_exist_on_cloud = blocks_exist_on_cloud;
 exports.create_hosts_pool = create_hosts_pool;
 exports.delete_hosts_pool = delete_hosts_pool;
 exports.empty_and_delete_buckets = empty_and_delete_buckets;
 exports.disable_accounts_s3_access = disable_accounts_s3_access;
 exports.generate_s3_policy = generate_s3_policy;
+exports.generate_s3_client = generate_s3_client;
 exports.invalid_nsfs_root_permissions = invalid_nsfs_root_permissions;
 exports.get_coretest_path = get_coretest_path;
 exports.exec_manage_cli = exec_manage_cli;

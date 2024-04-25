@@ -139,7 +139,11 @@ async function config_dir_setup() {
     await fs.promises.mkdir(config.NSFS_NC_DEFAULT_CONF_DIR, { recursive: true });
     await fs.promises.mkdir(NC_CORETEST_CONFIG_DIR_PATH, { recursive: true });
     await fs.promises.writeFile(NC_CORETEST_REDIRECT_FILE_PATH, NC_CORETEST_CONFIG_DIR_PATH);
-    await fs.promises.writeFile(CONFIG_FILE_PATH, JSON.stringify({ ALLOW_HTTP: true, OBJECT_SDK_BUCKET_CACHE_EXPIRY_MS: 1 }));
+    await fs.promises.writeFile(CONFIG_FILE_PATH, JSON.stringify({
+        ALLOW_HTTP: true,
+        OBJECT_SDK_BUCKET_CACHE_EXPIRY_MS: 1,
+        NC_RELOAD_CONFIG_INTERVAL: 1
+    }));
     await fs.promises.mkdir(FIRST_BUCKET_PATH, { recursive: true });
 
 }

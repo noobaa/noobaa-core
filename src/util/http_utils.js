@@ -673,16 +673,18 @@ function authorize_session_token(req, options) {
         throw new options.ErrorClass(options.error_invalid_token);
     }
 }
-function validate_nsfs_whitelist(req) {
+
+function validate_server_ip_whitelist(req) {
     // remove prefix for V4 IPs for whitelist validation
-    const client_ip = parse_client_ip(req).replace(/^::ffff:/, '');
+    // TODO: replace the equality check with net.BlockList() usage
+    const server_ip = req.connection.localAddress.replace(/^::ffff:/, '');
     if (config.S3_SERVER_IP_WHITELIST.length === 0) return;
     for (const whitelist_ip of config.S3_SERVER_IP_WHITELIST) {
-        if (client_ip === whitelist_ip) {
+        if (server_ip === whitelist_ip) {
             return;
         }
     }
-    dbg.error(`Whitelist ip validation failed for ip : ${client_ip}`);
+    dbg.error(`Whitelist ip validation failed for ip : ${server_ip}`);
     throw new S3Error(S3Error.AccessDenied);
 }
 
@@ -711,4 +713,4 @@ exports.set_cors_headers_sts = set_cors_headers_sts;
 exports.parse_content_length = parse_content_length;
 exports.authorize_session_token = authorize_session_token;
 exports.get_agent_by_endpoint = get_agent_by_endpoint;
-exports.validate_nsfs_whitelist = validate_nsfs_whitelist;
+exports.validate_server_ip_whitelist = validate_server_ip_whitelist;

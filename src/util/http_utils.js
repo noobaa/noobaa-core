@@ -24,6 +24,12 @@ const cloud_utils = require('./cloud_utils');
 const UNSIGNED_PAYLOAD = 'UNSIGNED-PAYLOAD';
 const STREAMING_PAYLOAD = 'STREAMING-AWS4-HMAC-SHA256-PAYLOAD';
 
+const CONTENT_TYPE_TEXT_PLAIN = 'text/plain';
+const CONTENT_TYPE_APP_OCTET_STREAM = 'application/octet-stream';
+const CONTENT_TYPE_APP_JSON = 'application/json';
+const CONTENT_TYPE_APP_XML = 'application/xml';
+const CONTENT_TYPE_APP_FORM_URLENCODED = 'application/x-www-form-urlencoded';
+
 const { HTTP_PROXY, HTTPS_PROXY, NO_PROXY, NODE_EXTRA_CA_CERTS } = process.env;
 const http_agent = new http.Agent();
 const https_agent = new https.Agent();
@@ -731,3 +737,8 @@ exports.authorize_session_token = authorize_session_token;
 exports.get_agent_by_endpoint = get_agent_by_endpoint;
 exports.validate_server_ip_whitelist = validate_server_ip_whitelist;
 exports.http_get = http_get;
+exports.CONTENT_TYPE_TEXT_PLAIN = CONTENT_TYPE_TEXT_PLAIN;
+exports.CONTENT_TYPE_APP_OCTET_STREAM = CONTENT_TYPE_APP_OCTET_STREAM;
+exports.CONTENT_TYPE_APP_JSON = CONTENT_TYPE_APP_JSON;
+exports.CONTENT_TYPE_APP_XML = CONTENT_TYPE_APP_XML;
+exports.CONTENT_TYPE_APP_FORM_URLENCODED = CONTENT_TYPE_APP_FORM_URLENCODED;

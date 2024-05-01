@@ -41,6 +41,8 @@ const path = require('path');
 const json_utils = require('../util/json_utils');
 //const { RPC_BUFFERS } = require('../rpc');
 const pkg = require('../../package.json');
+const AccountSDK = require('../sdk/account_sdk');
+const AccountSpaceFS = require('../sdk/accountspace_fs');
 const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
 
 const HELP = `
@@ -70,6 +72,7 @@ Options:
     --http_port <port>         (default 6001)   Set the S3 endpoint listening HTTP port to serve.
     --https_port <port>        (default 6443)   Set the S3 endpoint listening HTTPS port to serve.
     --https_port_sts <port>    (default -1)     Set the S3 endpoint listening HTTPS port for STS.
+    --https_port_iam <port>    (default -1)     Set the endpoint listening HTTPS port for IAM.
     --metrics_port <port>      (default -1)     Set the metrics listening port for prometheus.
     --forks <n>                (default none)   Forks spread incoming requests (config.ENDPOINT_FORKS used if flag is not provided).
     --debug <level>            (default 0)      Increase debug level.
@@ -207,6 +210,33 @@ class NsfsObjectSDK extends ObjectSDK {
     }
 }
 
+// NsfsAccountSDK was based on NsfsObjectSDK
+// simple flow was not implemented
+class NsfsAccountSDK extends AccountSDK {
+    constructor(fs_root, fs_config, account, config_root) {
+        let bucketspace;
+        let accountspace;
+        if (config_root) {
+            bucketspace = new BucketSpaceFS({ config_root });
+            accountspace = new AccountSpaceFS({ config_root });
+        } else {
+            bucketspace = new BucketSpaceSimpleFS({ fs_root });
+            accountspace = new AccountSpaceFS({ fs_root });
+        }
+        super({
+            rpc_client: null,
+            internal_rpc_client: null,
+            bucketspace: bucketspace,
+            accountspace: accountspace,
+        });
+        this.nsfs_config_root = nsfs_config_root;
+        this.nsfs_fs_root = fs_root;
+        this.nsfs_fs_config = fs_config;
+        this.nsfs_account = account;
+        this.nsfs_namespaces = {};
+    }
+}
+
 async function init_nsfs_system(config_root) {
     const system_data_path = path.join(config_root, 'system.json');
     const system_data = new json_utils.JsonFileWrapper(system_data_path);
@@ -262,6 +292,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
         const http_port = Number(argv.http_port) || config.ENDPOINT_PORT;
         const https_port = Number(argv.https_port) || config.ENDPOINT_SSL_PORT;
         const https_port_sts = Number(argv.https_port_sts) || config.ENDPOINT_SSL_STS_PORT;
+        const https_port_iam = Number(argv.https_port_iam) || config.ENDPOINT_SSL_IAM_PORT;
         const metrics_port = Number(argv.metrics_port) || config.EP_METRICS_SERVER_PORT;
         const forks = Number(argv.forks) || config.ENDPOINT_FORKS;
         if (forks > 0) process.env.ENDPOINT_FORKS = forks.toString(); // used for argv.forks to take effect
@@ -307,6 +338,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
             http_port,
             https_port,
             https_port_sts,
+            https_port_iam,
             metrics_port,
             backend,
             forks,
@@ -324,17 +356,22 @@ async function main(argv = minimist(process.argv.slice(2))) {
             http_port,
             https_port,
             https_port_sts,
+            https_port_iam,
             metrics_port,
             forks,
             nsfs_config_root,
             init_request_sdk: (req, res) => {
                 req.object_sdk = new NsfsObjectSDK(fs_root, fs_config, account, versioning, nsfs_config_root);
+                req.account_sdk = new NsfsAccountSDK(fs_root, fs_config, account, nsfs_config_root);
             }
         });
         if (config.ALLOW_HTTP) {
             console.log('nsfs: listening on', util.inspect(`http://localhost:${http_port}`));
         }
         console.log('nsfs: listening on', util.inspect(`https://localhost:${https_port}`));
+        if (https_port_iam > 0) {
+            console.log('nsfs: IAM listening on', util.inspect(`https://localhost:${https_port_iam}`));
+        }
     } catch (err) {
         console.error('nsfs: exit on error', err.stack || err);
         //noobaa crashed

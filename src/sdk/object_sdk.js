@@ -1111,3 +1111,4 @@ class ObjectSDK {
 
 module.exports = ObjectSDK;
 module.exports.account_cache = account_cache;
+module.exports.dn_cache = dn_cache;

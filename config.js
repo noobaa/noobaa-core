@@ -835,6 +835,7 @@ config.NSFS_NC_STORAGE_BACKEND = '';
 config.ENDPOINT_PORT = Number(process.env.ENDPOINT_PORT) || 6001;
 config.ENDPOINT_SSL_PORT = Number(process.env.ENDPOINT_SSL_PORT) || 6443;
 config.ENDPOINT_SSL_STS_PORT = Number(process.env.ENDPOINT_SSL_STS_PORT) || -1;
+config.ENDPOINT_SSL_IAM_PORT = Number(process.env.ENDPOINT_SSL_IAM_PORT) || -1;
 config.ALLOW_HTTP = false;
 // config files should allow access to the owner of the files 
 config.BASE_MODE_CONFIG_FILE = 0o600;

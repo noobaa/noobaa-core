@@ -170,6 +170,22 @@ describe('schema validation NC NSFS config', () => {
             assert_validation(config_data, reason, message);
         });
 
+        it('nsfs_config invalid config virtual hosts', () => {
+            const config_data = {
+                VIRTUAL_HOSTS: 5, // number instead of string
+            };
+            const reason = 'Test should have failed because of wrong type ' +
+                'VIRTUAL_HOSTS with number (instead of string)';
+            const message = 'must be string';
+            assert_validation(config_data, reason, message);
+        });
+
+        it('nsfs_config valid config virtual hosts', () => {
+            const config_data = {
+                VIRTUAL_HOSTS: 'my.virtual.domain1 my.virtual.domain2'
+            };
+            nsfs_schema_utils.validate_nsfs_config_schema(config_data);
+        });
 
     });
 });

@@ -5,8 +5,7 @@ const path = require('path');
 const { PersistentLogger } = require('../util/persistent_logger');
 const config = require('../../config');
 const nb_native = require('../util/nb_native');
-const { GlacierBackend } = require('../sdk/nsfs_glacier_backend/backend');
-const { getGlacierBackend } = require('../sdk/nsfs_glacier_backend/helper');
+const { Glacier } = require('../sdk/glacier');
 const native_fs_utils = require('../util/native_fs_utils');
 const { is_desired_time, record_current_time } = require('./manage_nsfs_cli_utils');
 
@@ -17,14 +16,14 @@ async function process_migrations() {
     const fs_context = native_fs_utils.get_process_fs_context();
     const lock_path = path.join(config.NSFS_GLACIER_LOGS_DIR, CLUSTER_LOCK);
     await native_fs_utils.lock_and_run(fs_context, lock_path, async () => {
-        const backend = getGlacierBackend();
+        const backend = Glacier.getBackend();
 
         if (
             await backend.low_free_space() ||
-            await time_exceeded(fs_context, config.NSFS_GLACIER_MIGRATE_INTERVAL, GlacierBackend.MIGRATE_TIMESTAMP_FILE)
+            await time_exceeded(fs_context, config.NSFS_GLACIER_MIGRATE_INTERVAL, Glacier.MIGRATE_TIMESTAMP_FILE)
         ) {
             await run_glacier_migrations(fs_context, backend);
-            const timestamp_file_path = path.join(config.NSFS_GLACIER_LOGS_DIR, GlacierBackend.MIGRATE_TIMESTAMP_FILE);
+            const timestamp_file_path = path.join(config.NSFS_GLACIER_LOGS_DIR, Glacier.MIGRATE_TIMESTAMP_FILE);
             await record_current_time(fs_context, timestamp_file_path);
         }
     });
@@ -34,26 +33,26 @@ async function process_migrations() {
  * run_tape_migrations reads the migration WALs and attempts to migrate the
  * files mentioned in the WAL.
  * @param {nb.NativeFSContext} fs_context
- * @param {import('../sdk/nsfs_glacier_backend/backend').GlacierBackend} backend
+ * @param {import('../sdk/glacier').Glacier} backend
  */
 async function run_glacier_migrations(fs_context, backend) {
-    await run_glacier_operation(fs_context, GlacierBackend.MIGRATE_WAL_NAME, backend.migrate.bind(backend));
+    await run_glacier_operation(fs_context, Glacier.MIGRATE_WAL_NAME, backend.migrate.bind(backend));
 }
 
 async function process_restores() {
     const fs_context = native_fs_utils.get_process_fs_context();
     const lock_path = path.join(config.NSFS_GLACIER_LOGS_DIR, CLUSTER_LOCK);
     await native_fs_utils.lock_and_run(fs_context, lock_path, async () => {
-        const backend = getGlacierBackend();
+        const backend = Glacier.getBackend();
 
         if (
             await backend.low_free_space() ||
-            !(await time_exceeded(fs_context, config.NSFS_GLACIER_RESTORE_INTERVAL, GlacierBackend.RESTORE_TIMESTAMP_FILE))
+            !(await time_exceeded(fs_context, config.NSFS_GLACIER_RESTORE_INTERVAL, Glacier.RESTORE_TIMESTAMP_FILE))
         ) return;
 
 
         await run_glacier_restore(fs_context, backend);
-        const timestamp_file_path = path.join(config.NSFS_GLACIER_LOGS_DIR, GlacierBackend.RESTORE_TIMESTAMP_FILE);
+        const timestamp_file_path = path.join(config.NSFS_GLACIER_LOGS_DIR, Glacier.RESTORE_TIMESTAMP_FILE);
         await record_current_time(fs_context, timestamp_file_path);
     });
 }
@@ -61,19 +60,19 @@ async function process_restores() {
 /**
  * run_tape_restore reads the restore WALs and attempts to restore the
  * files mentioned in the WAL.
- * @param {nb.NativeFSContext} fs_context 
- * @param {import('../sdk/nsfs_glacier_backend/backend').GlacierBackend} backend
+ * @param {nb.NativeFSContext} fs_context
+ * @param {import('../sdk/glacier').Glacier} backend
  */
 async function run_glacier_restore(fs_context, backend) {
-    await run_glacier_operation(fs_context, GlacierBackend.RESTORE_WAL_NAME, backend.restore.bind(backend));
+    await run_glacier_operation(fs_context, Glacier.RESTORE_WAL_NAME, backend.restore.bind(backend));
 }
 
 async function process_expiry() {
     const fs_context = native_fs_utils.get_process_fs_context();
     const lock_path = path.join(config.NSFS_GLACIER_LOGS_DIR, SCAN_LOCK);
     await native_fs_utils.lock_and_run(fs_context, lock_path, async () => {
-        const backend = getGlacierBackend();
-        const timestamp_file_path = path.join(config.NSFS_GLACIER_LOGS_DIR, GlacierBackend.EXPIRY_TIMESTAMP_FILE);
+        const backend = Glacier.getBackend();
+        const timestamp_file_path = path.join(config.NSFS_GLACIER_LOGS_DIR, Glacier.EXPIRY_TIMESTAMP_FILE);
         if (
             await backend.low_free_space() ||
             await is_desired_time(
@@ -126,6 +125,8 @@ async function time_exceeded(fs_context, interval, timestamp_file) {
  */
 async function run_glacier_operation(fs_context, log_namespace, cb) {
     const log = new PersistentLogger(config.NSFS_GLACIER_LOGS_DIR, log_namespace, { locking: 'EXCLUSIVE' });
+
+    fs_context = prepare_galcier_fs_context(fs_context);
     try {
         await log.process(async (entry, failure_recorder) => cb(fs_context, entry, failure_recorder));
     } catch (error) {
@@ -133,6 +134,28 @@ async function run_glacier_operation(fs_context, log_namespace, cb) {
     } finally {
         await log.close();
     }
+}
+
+/**
+ * prepare_galcier_fs_context returns a shallow copy of given
+ * fs_context with backend set to 'GPFS'.
+ *
+ * NOTE: The function will throw error if it detects that libgfs
+ * isn't loaded.
+ *
+ * @param {nb.NativeFSContext} fs_context
+ * @returns {nb.NativeFSContext}
+ */
+function prepare_galcier_fs_context(fs_context) {
+    if (config.NSFS_GLACIER_DMAPI_ENABLE) {
+        if (!nb_native().fs.gpfs) {
+            throw new Error('cannot use DMAPI xattrs: libgpfs not loaded');
+        }
+
+        return { ...fs_context, backend: 'GPFS', use_dmapi: true };
+    }
+
+    return { ...fs_context };
 }
 
 exports.process_migrations = process_migrations;

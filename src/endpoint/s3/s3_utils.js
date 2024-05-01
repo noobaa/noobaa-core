@@ -2,6 +2,7 @@
 'use strict';
 
 const _ = require('lodash');
+const querystring = require('querystring');
 
 const dbg = require('../../util/debug_module')(__filename);
 const S3Error = require('./s3_errors').S3Error;
@@ -324,6 +325,13 @@ function set_response_object_md(res, object_md) {
         }
 
         res.setHeader('x-amz-restore', restore);
+    }
+    if (config.NSFS_GLACIER_DMAPI_TPS_HTTP_HEADER_ENABLE) {
+        object_md.restore_status?.tape_info?.forEach?.((meta, idx) => {
+            // @ts-ignore - For some TS check doesn't like "meta" being passed to querystring
+            const header = querystring.stringify(meta);
+            res.setHeader(`${config.NSFS_GLACIER_DMAPI_TPS_HTTP_HEADER}-${idx}`, header);
+        });
     }
 }
 

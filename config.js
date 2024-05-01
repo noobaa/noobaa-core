@@ -880,6 +880,44 @@ config.NSFS_GLACIER_EXPIRY_TZ = 'LOCAL';
 // the request will be used
 config.NSFS_GLACIER_EXPIRY_TIME_OF_DAY = '';
 
+// If set to to true, NooBaa will attempt to read DMAPI
+// xattrs
+config.NSFS_GLACIER_DMAPI_ENABLE = false;
+
+// NSFS_GLACIER_DMAPI_IMPLICIT_RESTORE_STATUS if enabled then
+// NooBaa will derive restore status of the files based on DMAPI
+// xattr IF there are no explicit restore status attributes on
+// the file.
+config.NSFS_GLACIER_DMAPI_IMPLICIT_RESTORE_STATUS = false;
+
+// If set to true then NooBaa will consider DMAPI extended attributes
+// in conjuction with NooBaa's `user.storage_class` extended attribute
+// to determine state of an object.
+//
+// NOTE:NSFS_GLACIER_DMAPI_ENABLE should be enabled to use this.
+config.NSFS_GLACIER_DMAPI_IMPLICIT_SC = false;
+
+// NSFS_GLACIER_DMAPI_ALLOW_NOOBAA_TAKEOVER allows NooBaa to take over lifecycle
+// management of an object which was originally NOT managed by NooBaa.
+//
+// NOTE:NSFS_GLACIER_DMAPI_ENABLE and NSFS_GLACIER_USE_DMAPI should be enabled to use this.
+config.NSFS_GLACIER_DMAPI_ALLOW_NOOBAA_TAKEOVER = false;
+
+// NSFS_GLACIER_DMAPI_TPS_HTTP_HEADER_ENABLE if true will add additional HTTP headers
+// `config.NSFS_GLACIER_DMAPI_TPS_HTTP_HEADER` based on `dmapi.IBMTPS` EA.
+//
+// NOTE:NSFS_GLACIER_DMAPI_ENABLE should be enabled to use this.
+config.NSFS_GLACIER_DMAPI_TPS_HTTP_HEADER_ENABLE = false;
+config.NSFS_GLACIER_DMAPI_TPS_HTTP_HEADER = 'x-tape-meta-copy';
+
+// NSFS_GLACIER_DMAPI_PMIG_DAYS controls the "virtual"/fake expiry
+// days that will be shown if we detect a glacier object whose life-
+// cycle NSFS doesn't controls
+//
+// This is initialized to be the same as S3_RESTORE_REQUEST_MAX_DAYS
+// but can be overridden to any numberical value
+config.NSFS_GLACIER_DMAPI_PMIG_DAYS = config.S3_RESTORE_REQUEST_MAX_DAYS;
+
 config.NSFS_STATFS_CACHE_SIZE = 10000;
 config.NSFS_STATFS_CACHE_EXPIRY_MS = 1 * 1000;
 

@@ -94,7 +94,7 @@ const nsfs_node_config_schema = {
         S3_SERVER_IP_WHITELIST: {
             type: 'array',
             default: [],
-            description: 'List of whitelisted IPs for S3 access, Allow access from all the IPs if list is empty.'
+            description: 'Whitelist of server IPs for S3 access, Allow access to all the IPs if list is empty.'
         },
         NSFS_DIR_CACHE_MAX_DIR_SIZE: {
             type: 'number',

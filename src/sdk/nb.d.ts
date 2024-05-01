@@ -439,7 +439,7 @@ interface ObjectInfo {
     content_range?: string;
     ns?: Namespace;
     storage_class?: StorageClass;
-    restore_status?: { ongoing?: boolean; expiry_time?: Date; };
+    restore_status?: RestoreStatus;
     checksum?: Checksum;
     object_parts?: GetObjectAttributesParts;
 }
@@ -1036,6 +1036,7 @@ interface NativeFSContext {
     warn_threshold_ms?: number;
     report_fs_stats?: Function;
     do_ctime_check?: boolean;
+    use_dmapi?: boolean,
 }
 
 type GPFSNooBaaArgs = {
@@ -1139,6 +1140,14 @@ interface RestoreStatus {
     state: nb.RestoreState;
     ongoing?: boolean;
     expiry_time?: Date;
+
+    tape_info?: TapeInfo[];
+}
+
+interface TapeInfo {
+    volser: string;
+    poolid: string;
+    libid: string;
 }
 
 /**********************************************************

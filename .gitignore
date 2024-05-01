@@ -23,6 +23,8 @@ config-local.js
 *.sublime*
 .DS_Store
 heapdump-*
+.cache
+.clangd
 
 ## PRIVATE
 *.pem

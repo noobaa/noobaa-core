@@ -191,6 +191,15 @@ config.DENY_UPLOAD_TO_STORAGE_CLASS_STANDARD = false;
 // of days an object can be restored using `restore-object` call.
 config.S3_RESTORE_REQUEST_MAX_DAYS = 30;
 
+// NSFS_GLACIER_DMAPI_PMIG_DAYS controls the "virtual"/fake expiry
+// days that will be shown if we detect a glacier object whose life-
+// cycle NSFS doesn't controls
+//
+// This is initialized to be the same as S3_RESTORE_REQUEST_MAX_DAYS
+// but can be overridden to any numberical value
+config.NSFS_GLACIER_DMAPI_PMIG_DAYS = config.S3_RESTORE_REQUEST_MAX_DAYS;
+
+
 /**
  * S3_RESTORE_MAX_DAYS_BEHAVIOUR controls whether to truncate the
  * requested number of days in restore request or whether to deny the request.
@@ -872,6 +881,21 @@ config.NSFS_GLACIER_EXPIRY_TZ = 'LOCAL';
 // if set to empty string then time of processing
 // the request will be used
 config.NSFS_GLACIER_EXPIRY_TIME_OF_DAY = '';
+
+// If set to true then NooBaa will consider DMAPI extended attributes
+// in conjuction with NooBaa's `user.storage_class` extended attribute
+// to determine state of an object.
+config.NSFS_GLACIER_USE_DMAPI = false;
+
+// NSFS_GLACIER_DMAPI_ALLOW_NOOBAA_TAKEOVER allows NooBaa to take over lifecycle
+// management of an object which was originally NOT managed by NooBaa.
+config.NSFS_GLACIER_DMAPI_ALLOW_NOOBAA_TAKEOVER = false;
+
+// NSFS_GLACIER_DMAPI_TPS_HTTP_HEADER if enabled will add additional HTTP headers
+// `x-tape-meta-copy-n` based on `dmapi.IBMTPS` EA.
+//
+// For this to work, NSFS_GLACIER_USE_DMAPI must be set to `true`.
+config.NSFS_GLACIER_DMAPI_TPS_HTTP_HEADER = config.NSFS_GLACIER_USE_DMAPI || false;
 
 config.NSFS_STATFS_CACHE_SIZE = 10000;
 config.NSFS_STATFS_CACHE_EXPIRY_MS = 1 * 1000;

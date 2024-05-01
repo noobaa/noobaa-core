@@ -112,6 +112,7 @@ async function handle_request(req, res) {
     }
 
     const reply = await op.handler(req, res);
+    add_response_metadata_if_not_exists(reply, req.request_id); // unique to IAM
     http_utils.send_reply(req, res, reply, {
         ...options,
         body: op.body,
@@ -174,6 +175,27 @@ function verify_op_request_body_type(req) {
             `in request, ${headers}`);
         // GAP - need to make sure which error we need to throw
         throw new IamError(IamError.InvalidParameterValue);
+    }
+}
+
+// this function was added to protect the structure of IAM reply
+// and make sure that every op has ResponseMetadata inside it 
+// (in case developers add new ops in endpoint/iam/ops and accidentally did not add it)
+// structure of reply: { <op>Response { <op>Result (if exists), ResponseMetadata } }
+function add_response_metadata_if_not_exists(reply, request_id) {
+    const reply_keys = Object.keys(reply);
+    if (reply_keys.length !== 1) {
+        dbg.error('add_response_metadata_if_not_exists: reply structure does not meet standards' +
+        'should have only one object inside reply');
+        throw new IamError(IamError.InternalFailure);
+    }
+    const reply_response_key = reply_keys[0];
+    const reply_response_object = reply[reply_response_key];
+    const response_metadata = reply_response_object.ResponseMetadata;
+    if (!response_metadata) {
+        reply_response_object.ResponseMetadata = {
+            RequestId: request_id,
+        };
     }
 }
 

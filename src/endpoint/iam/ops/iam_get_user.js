@@ -22,7 +22,7 @@ async function get_user(req, res) {
             GetUserResult: {
                 User: {
                     UserId: reply.user_id,
-                    Path: reply.path || iam_utils.AWS_DEFAULT_PATH,
+                    Path: reply.iam_path || iam_utils.IAM_DEFAULT_PATH,
                     UserName: reply.username,
                     Arn: reply.arn,
                     CreateDate: iam_utils.format_iam_xml_date(reply.create_date),

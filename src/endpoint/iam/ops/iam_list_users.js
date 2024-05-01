@@ -13,7 +13,7 @@ async function list_users(req, res) {
     const params = {
         marker: req.body.marker,
         max_items: req.body.max_items,
-        path_prefix: req.body.path_prefix,
+        iam_path_prefix: req.body.path_prefix,
     };
     dbg.log1('IAM LIST USERS', params);
     const reply = await req.account_sdk.list_users(params);
@@ -25,7 +25,7 @@ async function list_users(req, res) {
                 Users: reply.members.map(member => ({
                     member: {
                         UserId: member.user_id,
-                        Path: member.path || iam_utils.AWS_DEFAULT_PATH,
+                        Path: member.iam_path || iam_utils.IAM_DEFAULT_PATH,
                         UserName: member.username,
                         Arn: member.arn,
                         CreateDate: iam_utils.format_iam_xml_date(member.create_date),

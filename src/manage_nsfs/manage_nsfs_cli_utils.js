@@ -11,6 +11,7 @@ const ManageCLIResponse = require('../manage_nsfs/manage_nsfs_cli_responses').Ma
 const NSFS_CLI_SUCCESS_EVENT_MAP = require('../manage_nsfs/manage_nsfs_cli_responses').NSFS_CLI_SUCCESS_EVENT_MAP;
 const { BOOLEAN_STRING_VALUES } = require('../manage_nsfs/manage_nsfs_constants');
 const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
+const mongo_utils = require('../util/mongo_utils');
 
 function throw_cli_error(error, detail, event_arg) {
     const error_event = NSFS_CLI_ERROR_EVENT_MAP[error.code];
@@ -118,6 +119,17 @@ function has_access_keys(access_keys) {
     return access_keys.length === 0;
 }
 
+/**
+ * generate_id will generate an id that we use to identify entities (such as account, bucket, etc.). 
+ */
+// TODO: 
+// - reuse this function in NC NSFS where we used the mongo_utils module
+// - this function implantation should be db_client.new_object_id(), 
+//   but to align with manage nsfs we won't change it now
+function generate_id() {
+    return mongo_utils.mongoObjectId();
+}
+
 // EXPORTS
 exports.throw_cli_error = throw_cli_error;
 exports.write_stdout_response = write_stdout_response;
@@ -128,3 +140,4 @@ exports.get_config_data = get_config_data;
 exports.get_bucket_owner_account = get_bucket_owner_account;
 exports.get_options_from_file = get_options_from_file;
 exports.has_access_keys = has_access_keys;
+exports.generate_id = generate_id;

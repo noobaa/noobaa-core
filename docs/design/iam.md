@@ -53,3 +53,38 @@ At this point we will not support additional IAM resources (group, policy, role,
   - The initial (current) implementation is only `AccountSpaceFS`
   - `AccountSpaceFS` will contain all our implementations related to users and access keys - like we have for other resources: `NamespaceFS` for objects, `BucketSpaceFS` for buckets, etc
 
+### Clarification:
+- NC NSFS account config - represents root accounts and IAM users details (both are called “account” in our system), contains the details of: `user`, `nsfs_account_config`, `access keys`.
+- The design approach:
+  - Multi-users FS - serves different GID and UIDs.
+  - Multi-tenant - can be several root users.
+- `owner` vs `creator` - owner is permission wise, creator is for internal information.
+
+
+### The user creation flow:
+One root and one user (just to understand the basic API relations and hierarchy)
+![One root and one user diagram](https://github.com/noobaa/noobaa-core/assets/57721533/b77ade91-11dd-415c-b3f0-5f3f1747a694)
+
+One root account, multiple users (Multi-users FS)
+![One root account, multiple users diagram](https://github.com/noobaa/noobaa-core/assets/57721533/792b7115-f6cb-40b3-89ee-4f47c6489924)
+
+Multiple root accounts, multiple users (Multi-users FS, Multi-tenant)
+![Multiple root accounts, multiple users diagram](https://github.com/noobaa/noobaa-core/assets/57721533/ae642825-81e1-4a27-bd2d-00583da7d663)
+
+
+- Using Manage NSFS CLI to create a root account.
+  - We need the request to have access key id and secret key in a known account.
+- Use the access key and secret key of the root account to CreateUser
+  - We will create the NSFS account with the same: `uid` and `gid` or `distinguished_name`, `new_buckets_path` and `allow_bucket_creation`.
+  - At this point the user doesn’t have access keys (empty array), hence `account_data.access_keys = []`
+- Use the access key and secret key of the root account to CreateAccessKey
+  - First time - the root account will generate the access keys.
+  - Then, CreateAccessKey can also be used by the user.
+  - When a CreateAccessKey - need to verify that the array length is maximum 2.
+Source: AccessKeys
+- Then the user can run action from the S3 service on the resources (bucket and object operations in NC NSFS).
+- **Implicit policy** that we use:
+  - User (Create, Get, Update, Delete, List) - only root account
+  - AccessKey (Create, Update, Delete, List)
+    - root account
+    - all IAM users only for themselves (except the first creation that can be done only by the root account).

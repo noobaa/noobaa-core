@@ -121,6 +121,69 @@ IamError.NotImplemented = Object.freeze({
     type: error_type_enum.RECEIVER,
 });
 
+// These errors were copied from IAM APIs errors
+// CreateUser errors https://docs.aws.amazon.com/IAM/latest/APIReference/API_CreateUser.html#API_CreateUser_Errors
+// DeleteUser errors https://docs.aws.amazon.com/IAM/latest/APIReference/API_DeleteUser.html#API_DeleteUser_Errors
+// GetUser    errors https://docs.aws.amazon.com/IAM/latest/APIReference/API_GetUser.html#API_GetUser_Errors
+// UpdateUser errors https://docs.aws.amazon.com/IAM/latest/APIReference/API_UpdateUser.html#API_UpdateUser_Errors
+// ListUsers  errors https://docs.aws.amazon.com/IAM/latest/APIReference/API_ListUsers.html
+IamError.ConcurrentModification = Object.freeze({
+    code: 'EntityAlreadyExists',
+    message: 'The request was rejected because multiple requests to change this object were submitted simultaneously. Wait a few minutes and submit your request again.',
+    http_code: 409,
+    type: error_type_enum.SENDER,
+});
+IamError.EntityAlreadyExists = Object.freeze({
+    code: 'EntityAlreadyExists',
+    message: 'The request was rejected because it attempted to create a resource that already exists.',
+    http_code: 409,
+    type: error_type_enum.SENDER,
+});
+IamError.InvalidInput = Object.freeze({
+    code: 'EntityAlreadyExists',
+    message: 'The request was rejected because an invalid or out-of-range value was supplied for an input parameter.',
+    http_code: 400,
+    type: error_type_enum.SENDER,
+});
+IamError.LimitExceeded = Object.freeze({
+    code: 'EntityAlreadyExists',
+    message: 'The request was rejected because it attempted to create resources beyond the current AWS account limits. The error message describes the limit exceeded.',
+    http_code: 409,
+    type: error_type_enum.SENDER,
+});
+IamError.NoSuchEntity = Object.freeze({
+    code: 'NoSuchEntity',
+    message: 'The request was rejected because it referenced a resource entity that does not exist. The error message describes the resource.',
+    http_code: 404,
+    type: error_type_enum.SENDER,
+});
+IamError.ServiceFailure = Object.freeze({
+    code: 'ServiceFailure',
+    message: 'The request processing has failed because of an unknown error, exception or failure.',
+    http_code: 500,
+    type: error_type_enum.RECEIVER,
+});
+IamError.DeleteConflict = Object.freeze({
+    code: 'DeleteConflict',
+    message: 'The request was rejected because it attempted to delete a resource that has attached subordinate entities. The error message describes these entities.',
+    http_code: 409,
+    type: error_type_enum.SENDER,
+});
+IamError.EntityTemporarilyUnmodifiable = Object.freeze({
+    code: 'EntityTemporarilyUnmodifiable',
+    message: 'The request was rejected because it referenced an entity that is temporarily unmodifiable, such as a user name that was deleted and then recreated. The error indicates that the request is likely to succeed if you try again after waiting several minutes. The error message describes the entity.',
+    http_code: 409,
+    type: error_type_enum.SENDER,
+});
+// These errors were actually send after performing IAM actions
+IamError.AccessDenied = Object.freeze({
+    code: 'AccessDenied',
+    message: 'user is not authorized to perform action on resource',
+    http_code: 400,
+    type: error_type_enum.SENDER,
+});
+
+
 // These errors were copied from STS errors
 // TODO - can be deleted after verifying we will not use them
 IamError.InvalidParameterCombination = Object.freeze({

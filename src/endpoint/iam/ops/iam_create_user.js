@@ -11,7 +11,7 @@ const { CONTENT_TYPE_APP_FORM_URLENCODED } = require('../../../util/http_utils')
 async function create_user(req, res) {
 
     const params = {
-        path: req.body.path,
+        iam_path: req.body.path,
         username: req.body.user_name,
     };
     dbg.log1('IAM CREATE USER', params);
@@ -22,7 +22,7 @@ async function create_user(req, res) {
         CreateUserResponse: {
             CreateUserResult: {
                 User: {
-                    Path: reply.path || iam_utils.AWS_DEFAULT_PATH,
+                    Path: reply.iam_path || iam_utils.IAM_DEFAULT_PATH,
                     UserName: reply.username,
                     UserId: reply.user_id,
                     Arn: reply.arn,

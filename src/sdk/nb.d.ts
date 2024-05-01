@@ -439,7 +439,7 @@ interface ObjectInfo {
     content_range?: string;
     ns?: Namespace;
     storage_class?: StorageClass;
-    restore_status?: { ongoing?: boolean; expiry_time?: Date; };
+    restore_status?: RestoreStatus;
     checksum?: Checksum;
     object_parts?: GetObjectAttributesParts;
 }
@@ -1036,6 +1036,7 @@ interface NativeFSContext {
     warn_threshold_ms?: number;
     report_fs_stats?: Function;
     do_ctime_check?: boolean;
+    use_dmapi?: boolean,
 }
 
 type GPFSNooBaaArgs = {
@@ -1135,10 +1136,24 @@ type NodeCallback<T = void> = (err: Error | null, res?: T) => void;
 
 type RestoreState = 'CAN_RESTORE' | 'ONGOING' | 'RESTORED';
 
-interface RestoreStatus {
+interface RestoreStatus<T = TapeInfo[]> {
     state: nb.RestoreState;
     ongoing?: boolean;
     expiry_time?: Date;
+
+    /**
+     * backend_meta is an optional field to store additional metadata
+     * associated with a Glacier backend
+     * 
+     * Example storing tape related info from DMAPI
+     */
+    backend_meta?: T;
+}
+
+interface TapeInfo {
+    volser: string;
+    poolid: string;
+    libid: string;
 }
 
 /**********************************************************

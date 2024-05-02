@@ -41,7 +41,7 @@ describe('manage nsfs cli bucket flow', () => {
 
         const bucket_defaults = {
             name: 'bucket1',
-            owner: 'account1',
+            owner: account_defaults.name,
             path: bucket_storage_path,
         };
 
@@ -64,7 +64,7 @@ describe('manage nsfs cli bucket flow', () => {
             await fs_utils.folder_delete(`${root_path}`);
         });
 
-        it('cli create bucket invalid option type (path as number)', async () => {
+        it('should fail - cli create bucket - invalid option type (path as number)', async () => {
             const action = ACTIONS.ADD;
             const path_invalid = 4e34; // invalid should be string represents a path
             const bucket_options = { config_root, ...bucket_defaults, path: path_invalid };
@@ -72,12 +72,53 @@ describe('manage nsfs cli bucket flow', () => {
             expect(JSON.parse(res.stdout).error.message).toBe(ManageCLIError.InvalidArgumentType.message);
         });
 
-        it('cli create bucket invalid option type (path as string)', async () => {
+        it('should fail - cli create bucket - invalid option type (path as string)', async () => {
             const action = ACTIONS.ADD;
             const path_invalid = 'aaa'; // invalid should be string represents a path
             const bucket_options = { config_root, ...bucket_defaults, path: path_invalid };
             const res = await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
             expect(JSON.parse(res.stdout).error.message).toBe(ManageCLIError.InvalidStoragePath.message);
+        });
+
+        it('should fail - cli create bucket - owner does not have any permission to path', async () => {
+            const action = ACTIONS.ADD;
+            const bucket_options = { config_root, ...bucket_defaults};
+            await fs_utils.create_fresh_path(bucket_options.path);
+            await fs_utils.file_must_exist(bucket_options.path);
+            await set_path_permissions_and_owner(bucket_options.path, account_defaults, 0o077);
+            const res = await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
+            expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InaccessibleStoragePath.code);
+        });
+
+        it('should fail - cli create bucket - owner does not have write permission to path', async () => {
+            const action = ACTIONS.ADD;
+            const bucket_options = { config_root, ...bucket_defaults};
+            await fs_utils.create_fresh_path(bucket_options.path);
+            await fs_utils.file_must_exist(bucket_options.path);
+            await set_path_permissions_and_owner(bucket_options.path, account_defaults, 0o477);
+            const res = await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
+            expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InaccessibleStoragePath.code);
+        });
+
+        it('should fail - cli create bucket - owner does not have read permission to path', async () => {
+            const action = ACTIONS.ADD;
+            const bucket_options = { config_root, ...bucket_defaults};
+            await fs_utils.create_fresh_path(bucket_options.path);
+            await fs_utils.file_must_exist(bucket_options.path);
+            await set_path_permissions_and_owner(bucket_options.path, account_defaults, 0o277);
+            const res = await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
+            expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InaccessibleStoragePath.code);
+        });
+
+        it('cli create bucket - account can access path', async () => {
+            const action = ACTIONS.ADD;
+            const bucket_options = { config_root, ...bucket_defaults};
+            await fs_utils.create_fresh_path(bucket_options.path);
+            await fs_utils.file_must_exist(bucket_options.path);
+            await set_path_permissions_and_owner(bucket_options.path, account_defaults, 0o700);
+            await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
+            const bucket = await read_config_file(config_root, CONFIG_SUBDIRS.BUCKETS, bucket_defaults.name);
+            assert_bucket(bucket, bucket_options);
         });
 
     });
@@ -124,6 +165,7 @@ describe('manage nsfs cli bucket flow', () => {
             const bucket_options = { config_root, ...bucket_defaults };
             await fs_utils.create_fresh_path(bucket_path);
             await fs_utils.file_must_exist(bucket_path);
+            await set_path_permissions_and_owner(bucket_path, account_options, 0o700);
             const resp = await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
             const bucket_resp = JSON.parse(resp);
             expect(bucket_resp.response.reply._id).not.toBeNull();
@@ -240,6 +282,11 @@ describe('cli create bucket using from_file', () => {
         await fs_utils.file_must_exist(account_path);
         await set_path_permissions_and_owner(account_path, account_options, 0o700);
         await exec_manage_cli(TYPES.ACCOUNT, action, account_options);
+        // give permission on bucket path to bucket owner 
+        const { path: bucket_path } = bucket_defaults;
+        await fs_utils.create_fresh_path(bucket_path);
+        await fs_utils.file_must_exist(bucket_path);
+        await set_path_permissions_and_owner(bucket_path, account_options, 0o700);
     });
 
     afterEach(async () => {
@@ -369,6 +416,113 @@ describe('cli create bucket using from_file', () => {
         expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidJSONFile.code);
     });
 
+});
+
+describe('cli update bucket', () => {
+    const config_root = path.join(tmp_fs_path, 'config_root_manage_nsfs3');
+    const root_path = path.join(tmp_fs_path, 'root_path_manage_nsfs3/');
+    const bucket_storage_path = path.join(tmp_fs_path, 'root_path_manage_nsfs3', 'bucket1');
+
+    const account_name = 'account_test';
+    const account_name2 = 'account_test_update2';
+
+    const account_defaults = {
+        name: account_name,
+        new_buckets_path: `${root_path}new_buckets_path_4/`,
+        uid: 1001,
+        gid: 1001,
+    };
+
+    const account_defaults2 = {
+        name: account_name2,
+        new_buckets_path: `${root_path}new_buckets_path_user41/`,
+        uid: 1002,
+        gid: 1002,
+    };
+
+    const bucket_defaults = {
+        name: 'bucket1',
+        owner: account_name,
+        path: bucket_storage_path,
+    };
+
+    beforeEach(async () => {
+        await fs_utils.create_fresh_path(`${config_root}/${CONFIG_SUBDIRS.BUCKETS}`);
+        await fs_utils.create_fresh_path(root_path);
+        await fs_utils.create_fresh_path(bucket_storage_path);
+        const action = ACTIONS.ADD;
+        // account add 1
+        let { new_buckets_path: account_path } = account_defaults;
+        let account_options = { config_root, ...account_defaults };
+        await fs_utils.create_fresh_path(account_path);
+        await fs_utils.file_must_exist(account_path);
+        await set_path_permissions_and_owner(account_path, account_options, 0o700);
+        await exec_manage_cli(TYPES.ACCOUNT, action, account_options);
+
+        // account add 2
+        account_path = account_defaults2.new_buckets_path;
+        account_options = { config_root, ...account_defaults2 };
+        await fs_utils.create_fresh_path(account_path);
+        await fs_utils.file_must_exist(account_path);
+        await set_path_permissions_and_owner(account_path, account_options, 0o700);
+        await exec_manage_cli(TYPES.ACCOUNT, action, account_options);
+
+        // bucket add
+        const { path: bucket_path } = bucket_defaults;
+        const bucket_options = { config_root, ...bucket_defaults };
+        await fs_utils.create_fresh_path(bucket_path);
+        await fs_utils.file_must_exist(bucket_path);
+        await set_path_permissions_and_owner(bucket_path, account_defaults, 0o700);
+        const resp = await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
+        const bucket_resp = JSON.parse(resp);
+        expect(bucket_resp.response.reply._id).not.toBeNull();
+    });
+
+    afterEach(async () => {
+        await fs_utils.folder_delete(`${config_root}`);
+        await fs_utils.folder_delete(`${root_path}`);
+    });
+
+    it('should fail - cli update bucket owner - owner does not have any permission to path', async () => {
+        const action = ACTIONS.UPDATE;
+        const bucket_options = { config_root, name: bucket_defaults.name, owner: account_defaults2.name};
+        await fs_utils.create_fresh_path(bucket_defaults.path);
+        await fs_utils.file_must_exist(bucket_defaults.path);
+        await set_path_permissions_and_owner(bucket_defaults.path, account_defaults2, 0o077);
+        const res = await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
+        expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InaccessibleStoragePath.code);
+    });
+
+    it('should fail - cli update bucket owner - owner does not have write permission to path', async () => {
+        const action = ACTIONS.UPDATE;
+        const bucket_options = { config_root, name: bucket_defaults.name, owner: account_defaults2.name};
+        await fs_utils.create_fresh_path(bucket_defaults.path);
+        await fs_utils.file_must_exist(bucket_defaults.path);
+        await set_path_permissions_and_owner(bucket_defaults.path, account_defaults2, 0o477);
+        const res = await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
+        expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InaccessibleStoragePath.code);
+    });
+
+    it('should fail - cli update bucket owner - owner does not have read permission to path', async () => {
+        const action = ACTIONS.UPDATE;
+        const bucket_options = { config_root, name: bucket_defaults.name, owner: account_defaults2.name};
+        await fs_utils.create_fresh_path(bucket_defaults.path);
+        await fs_utils.file_must_exist(bucket_defaults.path);
+        await set_path_permissions_and_owner(bucket_defaults.path, account_defaults2, 0o277);
+        const res = await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
+        expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InaccessibleStoragePath.code);
+    });
+
+    it('cli update bucket owner - account can access path', async () => {
+        const action = ACTIONS.UPDATE;
+        const bucket_options = { config_root, name: bucket_defaults.name, owner: account_defaults2.name};
+        await fs_utils.create_fresh_path(bucket_defaults.path);
+        await fs_utils.file_must_exist(bucket_defaults.path);
+        await set_path_permissions_and_owner(bucket_defaults.path, account_defaults2, 0o700);
+        await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
+        const bucket = await read_config_file(config_root, CONFIG_SUBDIRS.BUCKETS, bucket_defaults.name);
+        expect(bucket.bucket_owner).toBe(account_defaults2.name);
+    });
 });
 
 /**

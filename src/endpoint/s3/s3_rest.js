@@ -74,7 +74,7 @@ async function s3_rest(req, res) {
 
 async function handle_request(req, res) {
 
-    http_utils.validate_nsfs_whitelist(req);
+    http_utils.validate_server_ip_whitelist(req);
     http_utils.set_amz_headers(req, res);
     http_utils.set_cors_headers_s3(req, res);
 

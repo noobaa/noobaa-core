@@ -120,7 +120,7 @@ async function generate_entropy(loop_cond) {
                 const count = 32;
                 let disk;
                 let disk_size;
-                for (disk of ['/dev/sda', '/dev/vda', '/dev/xvda']) {
+                for (disk of ['/dev/sda', '/dev/vda', '/dev/xvda', '/dev/dasda']) {
                     try {
                         const res = await async_exec(`blockdev --getsize64 ${disk}`);
                         disk_size = res.stdout;

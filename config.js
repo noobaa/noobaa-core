@@ -815,6 +815,7 @@ config.NSFS_LOW_FREE_SPACE_PERCENT_UNLEASH = 0.10;
 // NSFS NON CONTAINERIZED //
 ////////////////////////////
 
+config.NC_RELOAD_CONFIG_INTERVAL = 10 * 1000;
 config.NSFS_NC_CONF_DIR_REDIRECT_FILE = 'config_dir_redirect';
 config.NSFS_NC_DEFAULT_CONF_DIR = '/etc/noobaa.conf.d';
 config.NSFS_NC_CONF_DIR = process.env.NSFS_NC_CONF_DIR || '';
@@ -830,6 +831,7 @@ config.BASE_MODE_CONFIG_FILE = 0o600;
 config.BASE_MODE_CONFIG_DIR = 0o700;
 
 config.S3_SERVER_IP_WHITELIST = [];
+config.VIRTUAL_HOSTS = process.env.VIRTUAL_HOSTS || '';
 
 config.NC_HEALTH_ENDPOINT_RETRY_COUNT = 3;
 config.NC_HEALTH_ENDPOINT_RETRY_DELAY = 10;
@@ -1059,7 +1061,7 @@ function reload_nsfs_nc_config() {
     try {
         const config_path = path.join(config.NSFS_NC_CONF_DIR, 'config.json');
         fs.watchFile(config_path, {
-            interval: 10 * 1000
+            interval: config.NC_RELOAD_CONFIG_INTERVAL
         }, () => {
             delete require.cache[config_path];
             try {

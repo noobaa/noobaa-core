@@ -38,6 +38,10 @@ class BlockStoreFs extends BlockStoreBase {
         // stores the cached df data for the root path
         this.cached_df_data = null;
 
+        // If this is set to false then metadata files
+        // are used instead of xattrs
+        this.xattr_enabled = true;
+
         this.fs_context = {
             disable_ctime_check: config.BLOCK_STORE_FS_TMFS_ENABLED
         };
@@ -158,6 +162,18 @@ class BlockStoreFs extends BlockStoreBase {
                 }
             }
 
+            if (!this.xattr_enabled) {
+                const meta_path = this._get_block_meta_path(block_md.id);
+                const [block, meta] = await Promise.all([
+                    nb_native().fs.readFile(fs_context, block_path),
+                    nb_native().fs.readFile(fs_context, meta_path),
+                ]);
+
+                const block_md_from_fs = try_parse_block_md(meta.data.toString());
+
+                return { block_md: block_md_from_fs || block_md, data: block.data };
+            }
+
             const { data, stat } = await nb_native().fs.readFile(fs_context, block_path, { read_xattr: true });
 
             // read md from xattr
@@ -175,9 +191,15 @@ class BlockStoreFs extends BlockStoreBase {
             }
 
             return { block_md: block_md_from_fs || block_md, data };
-
         } catch (err) {
             if (err.rpc_code === 'MIGRATED') throw err; // Don't want to catch this error
+            if (err.code === 'ENOTSUP' && this.xattr_enabled) {
+                // Retry operation with xattr_fallback set to true
+                dbg.warn('detected ENOTSUP - turning off xattr_enabled and retrying');
+                this.xattr_enabled = false;
+
+                return this._read_block(block_md);
+            }
 
             this._test_root_path_exists(err);
         } finally {
@@ -204,9 +226,7 @@ class BlockStoreFs extends BlockStoreBase {
         // set the block md xattr
         const block_md_to_store = _.pick(block_md, 'id', 'digest_type', 'digest_b64', 'mapping_info');
         const block_md_data = JSON.stringify(block_md_to_store);
-
-        /** @type {nb.NativeFSXattr} */
-        const xattr = { [config.BLOCK_STORE_FS_XATTR_BLOCK_MD]: block_md_data };
+        const meta_path = this._get_block_meta_path(block_md.id);
 
         // a map of xattrs which will not fail the operation, but only warn
         /** @type {nb.NativeFSXattr} */
@@ -216,7 +236,6 @@ class BlockStoreFs extends BlockStoreBase {
         let xattr_need_fsync = false;
 
         if (!is_test_block) {
-
             // set xattr to trigger migration of file to underlying tier
             if (config.BLOCK_STORE_FS_TMFS_ENABLED) {
                 xattr_try = { [config.BLOCK_STORE_FS_XATTR_TRIGGER_MIGRATE]: 'now' };
@@ -230,7 +249,6 @@ class BlockStoreFs extends BlockStoreBase {
                 usage.count -= 1;
 
                 // also make sure we do not leave old .meta files on overwrite
-                const meta_path = this._get_block_meta_path(block_md.id);
                 const overwrite_meta_stat = await nb_native().fs.stat(fs_context, meta_path).catch(ignore_not_found);
                 if (overwrite_meta_stat) {
                     usage.size -= overwrite_meta_stat.size;
@@ -240,12 +258,30 @@ class BlockStoreFs extends BlockStoreBase {
         }
 
         try {
-            await nb_native().fs.writeFile(fs_context, block_path, data, {
-                xattr,
-                xattr_try,
-                xattr_need_fsync,
-            });
+            if (this.xattr_enabled) {
+                await nb_native().fs.writeFile(fs_context, block_path, data, {
+                    xattr: { [config.BLOCK_STORE_FS_XATTR_BLOCK_MD]: block_md_data },
+                    xattr_try,
+                    xattr_need_fsync,
+                });
+            } else {
+                await Promise.all([
+                    nb_native().fs.writeFile(fs_context, block_path, data),
+                    nb_native().fs.writeFile(fs_context, meta_path, Buffer.from(block_md_data, 'utf8')),
+                ]);
+
+                // MD file gets deleted above so add the md size back again to usage
+                usage.size += block_md_data.length;
+            }
         } catch (err) {
+            if (err.code === 'ENOTSUP' && this.xattr_enabled) {
+                // Retry operation with xattr_fallback set to true
+                dbg.warn('detected ENOTSUP - turning off xattr_enabled and retrying');
+                this.xattr_enabled = false;
+
+                return this._write_block(block_md, data, options);
+            }
+
             this._test_root_path_exists(err);
         }
 

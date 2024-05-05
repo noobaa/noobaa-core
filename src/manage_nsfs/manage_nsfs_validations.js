@@ -316,23 +316,15 @@ function _validate_access_keys(access_key, secret_key) {
     if (!_.isUndefined(secret_key) && _.isUndefined(access_key)) {
         throw_cli_error(ManageCLIError.MissingAccountAccessKeyFlag);
     }
-    // checking the complexity of access_key
-    if (!_.isUndefined(access_key) && !string_utils.validate_complexity(access_key, {
-            require_length: 20,
-            check_uppercase: true,
-            check_lowercase: false,
-            check_numbers: true,
-            check_symbols: false,
-        })) throw_cli_error(ManageCLIError.AccountAccessKeyFlagComplexity);
-    // checking the complexity of secret_key
-    if (!_.isUndefined(secret_key) && !string_utils.validate_complexity(secret_key, {
-            require_length: 40,
-            check_uppercase: true,
-            check_lowercase: true,
-            check_numbers: true,
-            check_symbols: true,
-        })) throw_cli_error(ManageCLIError.AccountSecretKeyFlagComplexity);
 
+    // checking access_key length=20 and contains only alphanumeric chars
+    if (access_key && !string_utils.access_key_regexp.test(access_key)) {
+        throw_cli_error(ManageCLIError.InvalidAccountAccessKeyFlag);
+    }
+    // checking secret_key length=40 and contains only alphanumeric chars and +/
+    if (secret_key && !string_utils.secret_key_regexp.test(secret_key)) {
+        throw_cli_error(ManageCLIError.InvalidAccountSecretKeyFlag);
+    }
 }
 
 /**

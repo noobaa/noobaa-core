@@ -187,6 +187,47 @@ describe('schema validation NC NSFS config', () => {
             nsfs_schema_utils.validate_nsfs_config_schema(config_data);
         });
 
+        it('nsfs_config invalid config hostname - invalid configuration in hostname', () => {
+            const hostname = "hostname1";
+            const config_data = {
+                "ALLOW_HTTP": false,
+                host_customization: {
+                    [hostname]: {
+                        "ALLOW_HTTP": 'str'
+                    }
+                }
+            };
+            const reason = 'Test should have failed because of wrong type ' +
+                'host_customization - ALLOW HTTP must be boolean';
+            const message = `must be boolean | {"type":"boolean"} | "/host_customization/${hostname}/ALLOW_HTTP"`;
+            assert_validation(config_data, reason, message);
+        });
+
+        it('nsfs_config invalid config hostname - invalid hostname - should succeed', () => {
+            const invalid_hostname = "not.$a.valid!.hostname";
+            const config_data = {
+                "ALLOW_HTTP": false,
+                host_customization: {
+                    [invalid_hostname]: {
+                        "ALLOW_HTTP": true
+                    }
+                }
+            };
+            nsfs_schema_utils.validate_nsfs_config_schema(config_data);
+        });
+
+        it('nsfs_config valid config hostname', () => {
+            const config_data = {
+                "ALLOW_HTTP": false,
+                host_customization: {
+                    "a.valid-valid.hostname": {
+                        "ALLOW_HTTP": true
+                    }
+                }
+            };
+            nsfs_schema_utils.validate_nsfs_config_schema(config_data);
+        });
+
     });
 });
 

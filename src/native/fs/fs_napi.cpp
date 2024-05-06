@@ -142,6 +142,14 @@
     #define fremovexattr(a, b) ::fremovexattr(a, b, 0)
 #endif
 
+#ifdef __APPLE__
+    typedef unsigned long long DirOffset;
+    #define DIR_OFFSET_FIELD d_seekoff
+#else
+    typedef long DirOffset;
+    #define DIR_OFFSET_FIELD d_off
+#endif
+
 namespace noobaa
 {
 
@@ -243,7 +251,7 @@ struct Entry
     std::string name;
     ino_t ino;
     uint8_t type;
-    long int off;
+    DirOffset off;
 };
 
 struct gpfsRequest_t
@@ -1232,7 +1240,7 @@ struct Readdir : public FSWorker
                     std::string(e->d_name),
                     e->d_ino,
                     e->d_type,
-                    e->d_off,
+                    e->DIR_OFFSET_FIELD,
                 });
             } else {
                 if (errno) SetSyscallError();
@@ -1950,7 +1958,7 @@ struct DirOpen : public FSWorker
 
 struct TellDir : public FSWrapWorker<DirWrap>
 {
-    long int _tell_res = -1;
+    DirOffset _tell_res = -1;
     TellDir(const Napi::CallbackInfo& info)
         : FSWrapWorker<DirWrap>(info)
     {
@@ -1965,7 +1973,7 @@ struct TellDir : public FSWrapWorker<DirWrap>
         }
         DBG1("FS::Telldir::Work: " << DVAL(_wrap->_path));
         _tell_res = telldir(dir);
-        if (_tell_res == -1) SetSyscallError();
+        if (_tell_res == DirOffset(-1)) SetSyscallError();
     }
     virtual void OnOK()
     {
@@ -2048,7 +2056,7 @@ struct DirReadEntry : public FSWrapWorker<DirWrap>
             _entry.name = std::string(e->d_name);
             _entry.ino = e->d_ino;
             _entry.type = e->d_type;
-            _entry.off = e->d_off;
+            _entry.off = e->DIR_OFFSET_FIELD;
         } else {
             if (errno) {
                 SetSyscallError();

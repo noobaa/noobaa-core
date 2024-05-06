@@ -35,6 +35,11 @@ async function get_object(req, res) {
     if (part_number) {
         md_params.part_number = part_number;
     }
+
+    if (req.query.versionId?.length === 0) {
+        throw new S3Error(S3Error.InvalidArgumentEmptyVersionId);
+    }
+
     const object_md = await req.object_sdk.read_object_md(md_params);
 
     s3_utils.set_response_object_md(res, object_md);
@@ -59,9 +64,7 @@ async function get_object(req, res) {
         md_conditions,
         encryption,
     };
-    if (params.version_id?.length === 0) {
-        throw new S3Error(S3Error.InvalidArgumentEmptyVersionId);
-    }
+
     if (md_params.get_from_cache) {
         params.get_from_cache = true;
     }

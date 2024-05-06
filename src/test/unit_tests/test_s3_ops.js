@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/* eslint max-lines-per-function: ['error', 900] */
+/* eslint-disable max-lines-per-function */
 /* eslint-disable no-invalid-this */
 
 'use strict';
@@ -820,6 +820,19 @@ mocha.describe('s3_ops', function() {
                 }
             });
             assert.equal(delete_res.Deleted.length, 1);
+        });
+
+        mocha.it('Providing an empty object version ID should return an error', async function() {
+            try {
+                await s3.getObject({
+                    Bucket: bucket_name,
+                    Key: text_file1,
+                    VersionId: ''
+                });
+                assert.fail("getObject with empty VersionId passed when it should've failed");
+            } catch (err) {
+                assert.strictEqual(err.Code, "InvalidArgument");
+            }
         });
 
         mocha.it('should copy object (with copy source: /bucket/key)', async function() {

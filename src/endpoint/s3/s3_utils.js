@@ -623,6 +623,15 @@ function encode_uri_unless_already_encoded(uri = '') {
 }
 
 /**
+ * check_obj_version_id checks if the object version id is not an empty string
+ * @param {string} version_id
+ * @returns {boolean}
+ */
+function check_obj_version_id(version_id) {
+    return version_id?.length > 0;
+}
+
+/**
  * is_uri_already_encoded returns true if string uri is URIEncoded
  * @param {string} uri
  * @returns {boolean}
@@ -697,3 +706,4 @@ exports.XATTR_SORT_SYMBOL = XATTR_SORT_SYMBOL;
 exports.get_response_field_encoder = get_response_field_encoder;
 exports.parse_decimal_int = parse_decimal_int;
 exports.parse_restore_request_days = parse_restore_request_days;
+exports.check_obj_version_id = check_obj_version_id;

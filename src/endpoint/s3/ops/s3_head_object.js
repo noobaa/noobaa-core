@@ -11,6 +11,9 @@ const S3Error = require('../s3_errors').S3Error;
  */
 async function head_object(req, res) {
     const encryption = s3_utils.parse_encryption(req);
+    if (s3_utils.check_obj_version_id(req.query.versionId)) {
+        throw new S3Error(S3Error.InvalidArgumentEmptyVersionId);
+    }
     const params = {
         bucket: req.params.bucket,
         key: req.params.key,

@@ -143,9 +143,7 @@ module.exports = {
         ...nsfs_node_config_schema.properties,
         host_customization: {
             type: 'object',
-            patternProperties: {
-                '^[a-zA-Z0-9]$': { $ref: '#/definitions/nsfs_node_config_schema' }
-            },
+            additionalProperties: { $ref: '#/definitions/nsfs_node_config_schema' },
             description: 'nsfs configuration per host'
         }
     },

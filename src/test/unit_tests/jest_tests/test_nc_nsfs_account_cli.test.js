@@ -107,20 +107,36 @@ describe('manage nsfs cli account flow', () => {
             assert_account(account_symlink, account_options);
         });
 
-        it('should fail - cli update account access_key wrong complexity', async () => {
+        it('should fail - cli update account invalid access_key - invalid size', async () => {
             const { type, secret_key, name, new_buckets_path, uid, gid } = defaults;
             const account_options = { config_root, access_key: 'abc', secret_key, name, new_buckets_path, uid, gid };
             const action = ACTIONS.UPDATE;
             const res = await exec_manage_cli(type, action, account_options);
-            expect(JSON.parse(res.stdout).error.message).toBe(ManageCLIError.AccountAccessKeyFlagComplexity.message);
+            expect(JSON.parse(res.stdout).error.message).toBe(ManageCLIError.InvalidAccountAccessKeyFlag.message);
         });
 
-        it('should fail - cli update account secret_key wrong complexity', async () => {
+        it('should fail - cli update account invalid access_key - contains "+" ', async () => {
+            const { type, secret_key, name, new_buckets_path, uid, gid } = defaults;
+            const account_options = { config_root, access_key: 'abc+abc+abc+abc+abc+', secret_key, name, new_buckets_path, uid, gid };
+            const action = ACTIONS.UPDATE;
+            const res = await exec_manage_cli(type, action, account_options);
+            expect(JSON.parse(res.stdout).error.message).toBe(ManageCLIError.InvalidAccountAccessKeyFlag.message);
+        });
+
+        it('should fail - cli update account invalid secret_key - invalid size', async () => {
             const { type, access_key, name, new_buckets_path, uid, gid } = defaults;
             const account_options = { config_root, access_key, secret_key: 'abc', name, new_buckets_path, uid, gid };
             const action = ACTIONS.UPDATE;
             const res = await exec_manage_cli(type, action, account_options);
-            expect(JSON.parse(res.stdout).error.message).toBe(ManageCLIError.AccountSecretKeyFlagComplexity.message);
+            expect(JSON.parse(res.stdout).error.message).toBe(ManageCLIError.InvalidAccountSecretKeyFlag.message);
+        });
+
+        it('should fail - cli update account invalid secret_key - contains @', async () => {
+            const { type, access_key, name, new_buckets_path, uid, gid } = defaults;
+            const account_options = { config_root, access_key, secret_key: 'abcaabcabcabc@abcabcabc@abcabcabc@abcabc', name, new_buckets_path, uid, gid };
+            const action = ACTIONS.UPDATE;
+            const res = await exec_manage_cli(type, action, account_options);
+            expect(JSON.parse(res.stdout).error.message).toBe(ManageCLIError.InvalidAccountSecretKeyFlag.message);
         });
 
         it('should fail - cli create account integer uid and gid', async () => {
@@ -1053,7 +1069,7 @@ describe('manage nsfs cli account flow', () => {
             const command_flags = {config_root, from_file: path_to_option_json_file_name};
             // create the account
             const res = await exec_manage_cli(type, action, command_flags);
-            expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.AccountAccessKeyFlagComplexity.code);
+            expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidAccountAccessKeyFlag.code);
         });
 
         it('should fail - cli create account using from_file with additional flags (name)', async () => {

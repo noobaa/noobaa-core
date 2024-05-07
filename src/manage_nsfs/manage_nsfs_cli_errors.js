@@ -187,15 +187,15 @@ ManageCLIError.MissingAccountAccessKeyFlag = Object.freeze({
     http_code: 400,
 });
 
-ManageCLIError.AccountSecretKeyFlagComplexity = Object.freeze({
-    code: 'AccountSecretKeyFlagComplexity',
-    message: 'Account secret length must be 40, and must contain uppercase, lowercase, numbers and symbols',
+ManageCLIError.InvalidAccountSecretKeyFlag = Object.freeze({
+    code: 'InvalidAccountSecretKeyFlag',
+    message: 'Account secret length must be 40, and must contain only alpha-numeric chars, "+", "/"',
     http_code: 400,
 });
 
-ManageCLIError.AccountAccessKeyFlagComplexity = Object.freeze({
-    code: 'AccountAccessKeyFlagComplexity',
-    message: 'Account access key length must be 20, and must contain uppercase and numbers',
+ManageCLIError.InvalidAccountAccessKeyFlag = Object.freeze({
+    code: 'InvalidAccountAccessKeyFlag',
+    message: 'Account access key length must be 20, and must contain only alpha-numeric chars',
     http_code: 400,
 });
 

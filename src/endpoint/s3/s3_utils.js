@@ -624,7 +624,7 @@ function encode_uri_unless_already_encoded(uri = '') {
 
 /**
  * parse_version_id throws an error if version_id is an empty string, and returns it otherwise
- * @param {string} version_id
+ * @param {string|undefined} version_id
  */
 function parse_version_id(version_id) {
     if (version_id === '') {

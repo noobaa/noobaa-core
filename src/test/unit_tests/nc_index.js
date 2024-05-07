@@ -16,10 +16,10 @@ require('./test_nsfs_access');
 require('./test_bucketspace');
 require('./test_bucketspace_fs');
 require('./test_nsfs_glacier_backend');
+require('./test_s3_bucket_policy');
 
 // TODO: uncomment when supported
 //require('./test_s3_ops');
-//require('./test_s3_bucket_policy');
 //require('./test_s3_list_objects');
 //require('./test_s3_encryption');
 // require('./test_s3select');

@@ -615,16 +615,14 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
         }
     }
 
-    async get_bucket_policy(params) {
+    async get_bucket_policy(params, object_sdk) {
         try {
             const { name } = params;
             dbg.log0('BucketSpaceFS.get_bucket_policy: Bucket name', name);
-            const bucket_path = this._get_bucket_config_path(name);
-            const { data } = await nb_native().fs.readFile(this.fs_context, bucket_path);
-            const bucket = JSON.parse(data.toString());
-            dbg.log0('BucketSpaceFS.get_bucket_policy: policy', bucket.s3_policy);
+            const bucket_policy_info = await object_sdk.read_bucket_sdk_policy_info(name);
+            dbg.log0('BucketSpaceFS.get_bucket_policy: policy', bucket_policy_info);
             return {
-                policy: bucket.s3_policy
+                policy: bucket_policy_info.s3_policy
             };
         } catch (err) {
             throw this._translate_bucket_error_codes(err);

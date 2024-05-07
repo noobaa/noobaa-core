@@ -3,10 +3,14 @@
 'use strict';
 
 // setup coretest first to prepare the env
-const coretest = require('./coretest');
+const { get_coretest_path, TMP_PATH } = require('../system_tests/test_utils');
+const coretest_path = get_coretest_path();
+const coretest = require(coretest_path);
 const { rpc_client, EMAIL, POOL_LIST, anon_rpc_client } = coretest;
 const MDStore = require('../../server/object_services/md_store').MDStore;
-coretest.setup({ pools_to_create: [POOL_LIST[1]] });
+coretest.setup({ pools_to_create: process.env.NC_CORETEST ? undefined : [POOL_LIST[1]] });
+const path = require('path');
+const fs_utils = require('../../util/fs_utils');
 
 const { S3 } = require('@aws-sdk/client-s3');
 const { NodeHttpHandler } = require("@smithy/node-http-handler");
@@ -62,11 +66,30 @@ async function setup() {
             httpAgent: new http.Agent({ keepAlive: false })
         }),
     };
+    const nsr = 's3_bucket_policy_nsr';
+    const tmp_fs_root = path.join(TMP_PATH, 'test_s3_bucket_policy');
+
+    if (process.env.NC_CORETEST) {
+        await fs_utils.create_fresh_path(tmp_fs_root, 0o777);
+        await rpc_client.pool.create_namespace_resource({
+            name: nsr,
+            nsfs_config: {
+                fs_root_path: tmp_fs_root,
+            }
+        });
+    }
     const account = {
         has_login: false,
         s3_access: true,
-        default_resource: POOL_LIST[1].name
+        default_resource: process.env.NC_CORETEST ? nsr : POOL_LIST[1].name
     };
+    if (process.env.NC_CORETEST) {
+        account.nsfs_account_config = {
+            uid: process.getuid(),
+            gid: process.getgid(),
+            new_buckets_path: '/'
+        };
+    }
     const admin_keys = (await rpc_client.account.read_account({
         email: EMAIL,
     })).access_keys;
@@ -408,11 +431,12 @@ mocha.describe('s3_bucket_policy', function() {
             Bucket: BKT,
             Policy: JSON.stringify(policy)
         });
-        await s3_a.putObject({
+        const first_res = await s3_a.putObject({
             Body: 'Some data for the file... bla bla bla... version I',
             Bucket: BKT,
             Key: new_key
         });
+        const first_version_etag = first_res.ETag.replaceAll('"', '');
         await s3_b.putBucketVersioning({
             Bucket: BKT,
             VersioningConfiguration: {
@@ -433,16 +457,18 @@ mocha.describe('s3_bucket_policy', function() {
         await s3_a.deleteObject({ // delete the file versions
             Bucket: BKT,
             Key: new_key,
-            VersionId: 'nbver-' + seq
+            VersionId: process.env.NC_CORETEST ? res.VersionId : 'nbver-' + seq
         });
         await s3_a.deleteObject({
             Bucket: BKT,
             Key: new_key,
-            VersionId: 'nbver-' + (seq - 1)
+            VersionId: process.env.NC_CORETEST ? first_version_etag : 'nbver-' + (seq - 1)
         });
     });
 
     mocha.it('should deny bucket owner access', async function() {
+        // test fails on NC_CORETEST because system_owner === bucket_owner, until this behavior changes skipping the test
+        if (process.env.NC_CORETEST) this.skip(); // eslint-disable-line no-invalid-this
         const policy = {
             Version: '2012-10-17',
             Statement: [{
@@ -494,6 +520,8 @@ mocha.describe('s3_bucket_policy', function() {
     });
 
     mocha.it('anonymous user should be able to list bucket objects', async function() {
+        // anonymous not implemented on NC yet - skipping
+        if (process.env.NC_CORETEST) this.skip(); // eslint-disable-line no-invalid-this
         await s3_owner.putBucketPolicy({
             Bucket: BKT,
             Policy: JSON.stringify(anon_access_policy)
@@ -503,6 +531,8 @@ mocha.describe('s3_bucket_policy', function() {
     });
 
     mocha.it('anonymous user should not be able to list bucket objects when there is no policy', async function() {
+        // anonymous not implemented on NC yet - skipping
+        if (process.env.NC_CORETEST) this.skip(); // eslint-disable-line no-invalid-this
         await s3_owner.deleteBucketPolicy({
             Bucket: BKT,
         });
@@ -511,6 +541,8 @@ mocha.describe('s3_bucket_policy', function() {
     });
 
     mocha.it('anonymous user should not be able to list bucket objects when policy doesn\'t allow', async function() {
+        // anonymous not implemented on NC yet - skipping
+        if (process.env.NC_CORETEST) this.skip(); // eslint-disable-line no-invalid-this
         const anon_deny_policy = {
             Version: '2012-10-17',
             Statement: [
@@ -532,6 +564,8 @@ mocha.describe('s3_bucket_policy', function() {
     });
 
     mocha.it('[RPC TEST]: anonymous user should not be able to read_object_md when not explicitly allowed', async function() {
+        // MD ops not implemented on NC - skipping
+        if (process.env.NC_CORETEST) this.skip(); // eslint-disable-line no-invalid-this
         // Ensure that the bucket has no policy
         await s3_owner.deleteBucketPolicy({
             Bucket: BKT,
@@ -544,6 +578,8 @@ mocha.describe('s3_bucket_policy', function() {
     });
 
     mocha.it('[RPC TEST]: anonymous user should be able to read_object_md when explicitly allowed', async function() {
+        // MD ops not implemented on NC - skipping
+        if (process.env.NC_CORETEST) this.skip(); // eslint-disable-line no-invalid-this
         const anon_read_policy = {
             Version: '2012-10-17',
             Statement: [
@@ -567,6 +603,8 @@ mocha.describe('s3_bucket_policy', function() {
     });
 
     mocha.it('[RPC TEST]: anonymous user should be able to read_object_md when explicitly allowed to access only specific key', async function() {
+        // MD ops not implemented on NC - skipping
+        if (process.env.NC_CORETEST) this.skip(); // eslint-disable-line no-invalid-this
         const anon_read_policy_2 = {
             Version: '2012-10-17',
             Statement: [
@@ -591,6 +629,8 @@ mocha.describe('s3_bucket_policy', function() {
 
 
     mocha.it('[RPC TEST]: anonymous user should not be able to read_object_mapping when not explicitly allowed', async function() {
+        // MD ops not implemented on NC - skipping
+        if (process.env.NC_CORETEST) this.skip(); // eslint-disable-line no-invalid-this
         // Ensure that the bucket has no policy
         await s3_owner.deleteBucketPolicy({
             Bucket: BKT,
@@ -604,6 +644,8 @@ mocha.describe('s3_bucket_policy', function() {
     });
 
     mocha.it('[RPC TEST]: anonymous user should be able to read_object_mapping when explicitly allowed', async function() {
+        // MD ops not implemented on NC - skipping
+        if (process.env.NC_CORETEST) this.skip(); // eslint-disable-line no-invalid-this
         const anon_read_policy = {
             Version: '2012-10-17',
             Statement: [
@@ -628,6 +670,8 @@ mocha.describe('s3_bucket_policy', function() {
     });
 
     mocha.it('[RPC TEST]: anonymous user should be able to read_object_mapping when explicitly allowed to access only specific key', async function() {
+        // MD ops not implemented on NC - skipping
+        if (process.env.NC_CORETEST) this.skip(); // eslint-disable-line no-invalid-this
         const anon_read_policy_2 = {
             Version: '2012-10-17',
             Statement: [
@@ -653,6 +697,8 @@ mocha.describe('s3_bucket_policy', function() {
     });
 
     mocha.it('should be able to deny based on server side encryption', async function() {
+        // SSE not implemented on NC - skipping
+        if (process.env.NC_CORETEST) this.skip(); // eslint-disable-line no-invalid-this
         const self = this; // eslint-disable-line no-invalid-this
         self.timeout(15000);
         const auth_put_policy = {
@@ -694,6 +740,8 @@ mocha.describe('s3_bucket_policy', function() {
     });
 
     mocha.it('should be able to deny unencrypted object uploads', async function() {
+        // SSE not implemented on NC - skipping
+        if (process.env.NC_CORETEST) this.skip(); // eslint-disable-line no-invalid-this
         const self = this; // eslint-disable-line no-invalid-this
         self.timeout(15000);
         const auth_put_policy = {
@@ -734,6 +782,8 @@ mocha.describe('s3_bucket_policy', function() {
     });
 
     mocha.it('should be able to add StringLike and StringEqualsIgnoreCase condition statements, ', async function() {
+        // SSE not implemented on NC - skipping
+        if (process.env.NC_CORETEST) this.skip(); // eslint-disable-line no-invalid-this
         const self = this; // eslint-disable-line no-invalid-this
         self.timeout(15000);
         const ignore_case_policy = {
@@ -784,6 +834,8 @@ mocha.describe('s3_bucket_policy', function() {
     });
 
     mocha.it('should be able to deny based on object tag', async function() {
+        // Tags not implemented on NC - skipping
+        if (process.env.NC_CORETEST) this.skip(); // eslint-disable-line no-invalid-this
         const self = this; // eslint-disable-line no-invalid-this
         self.timeout(15000);
         const allow_tag = {key: "key", value: "allow"};

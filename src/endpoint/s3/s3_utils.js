@@ -623,13 +623,15 @@ function encode_uri_unless_already_encoded(uri = '') {
 }
 
 /**
- * version_id_empty_string_check throws an error if version_id is an empty string
- * @param {string} version_id
+ * parse_version_id throws an error if version_id is an empty string, and returns it otherwise
+ * @param {*} req
  */
-function version_id_empty_string_check(version_id) {
-    if (version_id?.length === 0) {
+function parse_version_id(req) {
+    const version_id = req?.query?.versionId;
+    if (version_id === '') {
         throw new S3Error(S3Error.InvalidArgumentEmptyVersionId);
     }
+    return version_id;
 }
 
 /**
@@ -707,4 +709,4 @@ exports.XATTR_SORT_SYMBOL = XATTR_SORT_SYMBOL;
 exports.get_response_field_encoder = get_response_field_encoder;
 exports.parse_decimal_int = parse_decimal_int;
 exports.parse_restore_request_days = parse_restore_request_days;
-exports.version_id_empty_string_check = version_id_empty_string_check;
+exports.parse_version_id = parse_version_id;

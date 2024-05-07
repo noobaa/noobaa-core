@@ -623,12 +623,13 @@ function encode_uri_unless_already_encoded(uri = '') {
 }
 
 /**
- * version_id_empty_string_check checks if the object version id is not an empty string
+ * version_id_empty_string_check throws an error if version_id is an empty string
  * @param {string} version_id
- * @returns {boolean}
  */
 function version_id_empty_string_check(version_id) {
-    return version_id?.length === 0;
+    if (version_id?.length === 0) {
+        throw new S3Error(S3Error.InvalidArgumentEmptyVersionId);
+    }
 }
 
 /**

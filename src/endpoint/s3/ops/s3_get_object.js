@@ -15,9 +15,7 @@ async function get_object(req, res) {
     const agent_header = req.headers['user-agent'];
     const noobaa_trigger_agent = agent_header && agent_header.includes('exec-env/NOOBAA_FUNCTION');
     const encryption = s3_utils.parse_encryption(req);
-    if (s3_utils.version_id_empty_string_check(req.query.versionId)) {
-        throw new S3Error(S3Error.InvalidArgumentEmptyVersionId);
-    }
+    s3_utils.version_id_empty_string_check(req.query.versionId);
     let part_number;
     // If set, part_number should be positive integer from 1 to 10000
     if (req.query.partNumber) {

@@ -4,7 +4,6 @@
 const S3Error = require('../s3_errors').S3Error;
 const s3_utils = require('../s3_utils');
 const config = require('../../../../config');
-const s3_utils = require('../s3_utils');
 
 /**
  * https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutObjectRetention.html

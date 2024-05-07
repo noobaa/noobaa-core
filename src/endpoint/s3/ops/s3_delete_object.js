@@ -19,7 +19,7 @@ async function delete_object(req, res) {
             req.headers['x-amz-bypass-governance-retention'].toUpperCase() === 'TRUE' : undefined,
     });
     if (version_id) {
-        res.setHeader('x-amz-version-id', version_id;
+        res.setHeader('x-amz-version-id', version_id);
         if (del_res.deleted_delete_marker) {
             res.setHeader('x-amz-delete-marker', 'true');
         }

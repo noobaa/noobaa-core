@@ -132,6 +132,7 @@ mocha.describe('nsfs_glacier', async () => {
 		});
 
 		mocha.it('restore-object should successfully restore', async () => {
+            const now = Date.now();
             const data = crypto.randomBytes(100);
 			const params = {
                 bucket: upload_bkt,
@@ -163,10 +164,67 @@ mocha.describe('nsfs_glacier', async () => {
 			assert(!md.restore_status.ongoing);
 
 			const expected_expiry = GlacierBackend.generate_expiry(new Date(), params.days, '', config.NSFS_GLACIER_EXPIRY_TZ);
-			assert(expected_expiry.getTime() === md.restore_status.expiry_time.getTime());
-			assert(expected_expiry.getDate() === md.restore_status.expiry_time.getDate());
-			assert(expected_expiry.getMonth() === md.restore_status.expiry_time.getMonth());
-			assert(expected_expiry.getFullYear() === md.restore_status.expiry_time.getFullYear());
+			assert(expected_expiry.getTime() >= md.restore_status.expiry_time.getTime());
+			assert(now <= md.restore_status.expiry_time.getTime());
 		});
+
+        mocha.it('generate_expiry should round up the expiry', () => {
+            const now = new Date();
+            const midnight = new Date();
+            midnight.setUTCHours(0, 0, 0, 0);
+
+            const exp1 = GlacierBackend.generate_expiry(now, 1, '', 'UTC');
+            assert(exp1.getUTCDate() === now.getUTCDate() + 1);
+            assert(exp1.getUTCHours() === now.getUTCHours());
+            assert(exp1.getUTCMinutes() === now.getUTCMinutes());
+            assert(exp1.getUTCSeconds() === now.getUTCSeconds());
+
+            const exp2 = GlacierBackend.generate_expiry(now, 10, '', 'UTC');
+            assert(exp2.getUTCDate() === now.getUTCDate() + 10);
+            assert(exp2.getUTCHours() === now.getUTCHours());
+            assert(exp2.getUTCMinutes() === now.getUTCMinutes());
+            assert(exp2.getUTCSeconds() === now.getUTCSeconds());
+
+            const pivot_time = new Date(now);
+
+            const exp3 = GlacierBackend.generate_expiry(now, 10, '02:05:00', 'UTC');
+            pivot_time.setUTCHours(2, 5, 0, 0);
+
+            if (now <= pivot_time) {
+                assert(exp3.getUTCDate() === now.getUTCDate() + 10);
+            } else {
+                assert(exp3.getUTCDate() === now.getUTCDate() + 10 + 1);
+            }
+            assert(exp3.getUTCHours() === 2);
+            assert(exp3.getUTCMinutes() === 5);
+            assert(exp3.getUTCSeconds() === 0);
+
+            const exp4 = GlacierBackend.generate_expiry(now, 1, '02:05:00', 'LOCAL');
+            pivot_time.setHours(2, 5, 0, 0);
+
+            if (now <= pivot_time) {
+                assert(exp4.getDate() === now.getDate() + 1);
+            } else {
+                assert(exp4.getDate() === now.getDate() + 1 + 1);
+            }
+            assert(exp4.getHours() === 2);
+            assert(exp4.getMinutes() === 5);
+            assert(exp4.getSeconds() === 0);
+
+            const exp5 = GlacierBackend.generate_expiry(now, 1, `${now.getHours()}:${now.getMinutes()}:${now.getSeconds()}`, 'LOCAL');
+
+            assert(exp5.getDate() === now.getDate() + 1);
+            assert(exp5.getHours() === now.getHours());
+            assert(exp5.getMinutes() === now.getMinutes());
+            assert(exp5.getSeconds() === now.getSeconds());
+
+            const some_date = new Date("2004-05-08");
+            const exp6 = GlacierBackend.generate_expiry(some_date, 1.5, `02:05:00`, 'UTC');
+
+            assert(exp6.getUTCDate() === some_date.getUTCDate() + 1 + 1);
+            assert(exp6.getUTCHours() === 2);
+            assert(exp6.getUTCMinutes() === 5);
+            assert(exp6.getUTCSeconds() === 0);
+        });
 	});
 });

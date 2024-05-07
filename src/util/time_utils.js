@@ -82,6 +82,36 @@ function format_time_duration(millis, show_millis) {
     return `${hours_str}:${mins_str}:${secs_str}`;
 }
 
+/**
+ * round_up_to_next_time_of_day takes a date and rounds it up based on
+ * the given hours, mins and secs.
+ * The function is timezone aware but expects the given hours, mins and
+ * secs to be already timezone adjusted.
+ *
+ * @param {Date} date
+ * @param {number} hours 
+ * @param {number} mins 
+ * @param {number} secs 
+ * @param {'UTC' | 'LOCAL'} tz 
+ */
+function round_up_to_next_time_of_day(date, hours, mins, secs, tz) {
+    const desired_date = new Date(date);
+    if (tz === 'UTC') {
+        desired_date.setUTCHours(hours, mins, secs, date.getUTCMilliseconds());
+        if (date > desired_date) {
+            date.setUTCDate(date.getUTCDate() + 1);
+        }
+
+        date.setUTCHours(hours, mins, secs, 0);
+    } else {
+        desired_date.setHours(hours, mins, secs, date.getMilliseconds());
+        if (date > desired_date) {
+            date.setDate(date.getDate() + 1);
+        }
+
+        date.setHours(hours, mins, secs, 0);
+    }
+}
 
 exports.millistamp = millistamp;
 exports.microstamp = microstamp;
@@ -93,3 +123,4 @@ exports.format_http_header_date = format_http_header_date;
 exports.parse_http_header_date = parse_http_header_date;
 exports.parse_amz_date = parse_amz_date;
 exports.format_time_duration = format_time_duration;
+exports.round_up_to_next_time_of_day = round_up_to_next_time_of_day;

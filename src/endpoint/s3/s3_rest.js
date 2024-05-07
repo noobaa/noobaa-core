@@ -9,6 +9,7 @@ const s3_ops = require('./ops');
 const S3Error = require('./s3_errors').S3Error;
 const s3_bucket_policy_utils = require('./s3_bucket_policy_utils');
 const s3_logging = require('./s3_bucket_logging');
+const s3_utils = require('./s3_utils');
 const time_utils = require('../../util/time_utils');
 const http_utils = require('../../util/http_utils');
 const signature_utils = require('../../util/signature_utils');
@@ -118,9 +119,7 @@ async function handle_request(req, res) {
     usage_report.s3_usage_info.total_calls += 1;
     usage_report.s3_usage_info[op_name] = (usage_report.s3_usage_info[op_name] || 0) + 1;
 
-
-
-    if (req.query && req.query.versionId) {
+    if (s3_utils.parse_version_id(req?.query?.versionId)) {
         const caching = await req.object_sdk.read_bucket_sdk_caching_info(req.params.bucket);
         if (caching) {
             dbg.error('S3 Version request not (NotImplemented) for buckets with caching', op_name, req.method, req.originalUrl);
@@ -266,7 +265,7 @@ function _get_method_from_req(req) {
         dbg.error(`Got a not supported S3 op ${req.op_name} - doesn't suppose to happen`);
         throw new S3Error(S3Error.InternalError);
     }
-    if (req.query && req.query.versionId && s3_op.versioned) {
+    if (s3_utils.parse_version_id(req?.query?.versionId) && s3_op.versioned) {
         return s3_op.versioned;
     }
     return s3_op.regular;

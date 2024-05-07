@@ -2,6 +2,7 @@
 'use strict';
 
 const _ = require('lodash');
+const s3_utils = require('../s3_utils');
 
 /**
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectGETacl.html
@@ -10,7 +11,7 @@ async function get_object_acl(req) {
     const reply = await req.object_sdk.get_object_acl({
         bucket: req.params.bucket,
         key: req.params.key,
-        version_id: req.query.versionId,
+        version_id: s3_utils.parse_version_id(req.query.versionId),
     });
 
     return {

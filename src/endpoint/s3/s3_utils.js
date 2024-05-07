@@ -624,10 +624,9 @@ function encode_uri_unless_already_encoded(uri = '') {
 
 /**
  * parse_version_id throws an error if version_id is an empty string, and returns it otherwise
- * @param {*} req
+ * @param {string} version_id
  */
-function parse_version_id(req) {
-    const version_id = req?.query?.versionId;
+function parse_version_id(version_id) {
     if (version_id === '') {
         throw new S3Error(S3Error.InvalidArgumentEmptyVersionId);
     }

@@ -842,7 +842,7 @@ mocha.describe('s3_ops', function() {
                     KeyMarker: text_file1,
                     VersionIdMarker: ''
                 });
-                assert.fail("getObject with empty VersionId passed when it should've failed");
+                assert.fail("listObjectVersions with empty VersionId passed when it should've failed");
             } catch (err) {
                 assert.strictEqual(err.Code, "InvalidArgument");
             }

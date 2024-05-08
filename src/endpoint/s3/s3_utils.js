@@ -625,23 +625,13 @@ function encode_uri_unless_already_encoded(uri = '') {
 /**
  * parse_version_id throws an error if version_id is an empty string, and returns it otherwise
  * @param {string|undefined} version_id
+ * @param {import('./s3_errors').S3ErrorSpec} empty_err
  */
-function parse_version_id(version_id) {
+function parse_version_id(version_id, empty_err = S3Error.InvalidArgumentEmptyVersionId) {
     if (version_id === '') {
-        throw new S3Error(S3Error.InvalidArgumentEmptyVersionId);
+        throw new S3Error(empty_err);
     }
     return version_id;
-}
-
-/**
- * parse_version_id_marker throws an error if version_id_marker is an empty string, and returns it otherwise
- * @param {string|undefined} version_id_marker
- */
-function parse_version_id_marker(version_id_marker) {
-    if (version_id_marker === '') {
-        throw new S3Error(S3Error.InvalidArgumentEmptyVersionIdMarker);
-    }
-    return version_id_marker;
 }
 
 /**
@@ -720,4 +710,3 @@ exports.get_response_field_encoder = get_response_field_encoder;
 exports.parse_decimal_int = parse_decimal_int;
 exports.parse_restore_request_days = parse_restore_request_days;
 exports.parse_version_id = parse_version_id;
-exports.parse_version_id_marker = parse_version_id_marker;

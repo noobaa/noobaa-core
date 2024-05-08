@@ -28,11 +28,12 @@ async function post_object_select(req, res) {
     const noobaa_trigger_agent = agent_header && agent_header.includes('exec-env/NOOBAA_FUNCTION');
     const encryption = s3_utils.parse_encryption(req);
     const http_req_select_params = req.body.SelectObjectContentRequest;
+    const version_id = s3_utils.parse_version_id(req.query.versionId);
 
     const md_params = {
         bucket: req.params.bucket,
         key: req.params.key,
-        version_id: req.query.versionId,
+        version_id,
         encryption,
     };
     const object_md = await req.object_sdk.read_object_md(md_params);
@@ -43,7 +44,7 @@ async function post_object_select(req, res) {
         bucket: req.params.bucket,
         key: req.params.key,
         content_type: object_md.content_type,
-        version_id: req.query.versionId,
+        version_id,
         noobaa_trigger_agent,
         encryption,
     };

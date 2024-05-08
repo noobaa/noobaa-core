@@ -21,13 +21,13 @@ async function get_bucket_versions(req) {
         dbg.warn('A version-id marker cannot be specified without a key marker');
         throw new S3Error(S3Error.InvalidArgument);
     }
-
+    const version_id_marker = s3_utils.parse_version_id(req.query['version-id-marker'], S3Error.InvalidArgumentEmptyVersionIdMarker);
     const reply = await req.object_sdk.list_object_versions({
         bucket: req.params.bucket,
         prefix: req.query.prefix,
         delimiter: req.query.delimiter,
         key_marker: req.query['key-marker'],
-        version_id_marker: req.query['version-id-marker'],
+        version_id_marker,
         limit: Math.min(max_keys_received, 1000),
     });
 
@@ -40,7 +40,7 @@ async function get_bucket_versions(req) {
             Delimiter: field_encoder(req.query.delimiter),
             MaxKeys: max_keys_received,
             KeyMarker: field_encoder(req.query['key-marker']),
-            VersionIdMarker: req.query['version-id-marker'],
+            VersionIdMarker: version_id_marker,
             IsTruncated: reply.is_truncated,
             NextKeyMarker: field_encoder(reply.next_marker),
             NextVersionIdMarker: reply.next_version_id_marker,

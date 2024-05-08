@@ -1,7 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-// const s3_utils = require('../s3_utils');
+const s3_utils = require('../s3_utils');
 const http_utils = require('../../../util/http_utils');
 const config = require('../../../../config');
 
@@ -9,16 +9,17 @@ const config = require('../../../../config');
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectDELETE.html
  */
 async function delete_object(req, res) {
+    const version_id = s3_utils.parse_version_id(req.query.versionId);
     const del_res = await req.object_sdk.delete_object({
         bucket: req.params.bucket,
         key: req.params.key,
-        version_id: req.query.versionId,
+        version_id,
         md_conditions: http_utils.get_md_conditions(req),
         bypass_governance: config.WORM_ENABLED ? req.headers['x-amz-bypass-governance-retention'] &&
             req.headers['x-amz-bypass-governance-retention'].toUpperCase() === 'TRUE' : undefined,
     });
-    if (req.query.versionId) {
-        res.setHeader('x-amz-version-id', req.query.versionId);
+    if (version_id) {
+        res.setHeader('x-amz-version-id', version_id);
         if (del_res.deleted_delete_marker) {
             res.setHeader('x-amz-delete-marker', 'true');
         }

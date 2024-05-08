@@ -623,6 +623,18 @@ function encode_uri_unless_already_encoded(uri = '') {
 }
 
 /**
+ * parse_version_id throws an error if version_id is an empty string, and returns it otherwise
+ * @param {string|undefined} version_id
+ * @param {import('./s3_errors').S3ErrorSpec} [empty_err]
+ */
+function parse_version_id(version_id, empty_err = S3Error.InvalidArgumentEmptyVersionId) {
+    if (version_id === '') {
+        throw new S3Error(empty_err);
+    }
+    return version_id;
+}
+
+/**
  * is_uri_already_encoded returns true if string uri is URIEncoded
  * @param {string} uri
  * @returns {boolean}
@@ -697,3 +709,4 @@ exports.XATTR_SORT_SYMBOL = XATTR_SORT_SYMBOL;
 exports.get_response_field_encoder = get_response_field_encoder;
 exports.parse_decimal_int = parse_decimal_int;
 exports.parse_restore_request_days = parse_restore_request_days;
+exports.parse_version_id = parse_version_id;

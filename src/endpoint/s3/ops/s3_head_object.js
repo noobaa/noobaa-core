@@ -14,7 +14,7 @@ async function head_object(req, res) {
     const params = {
         bucket: req.params.bucket,
         key: req.params.key,
-        version_id: req.query.versionId,
+        version_id: s3_utils.parse_version_id(req.query.versionId),
         md_conditions: http_utils.get_md_conditions(req),
         encryption
     };

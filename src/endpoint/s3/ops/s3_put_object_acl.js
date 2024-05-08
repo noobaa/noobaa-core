@@ -1,6 +1,8 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+const s3_utils = require('../s3_utils');
+
 /**
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectPUTacl.html
  */
@@ -11,7 +13,7 @@ async function put_object_acl(req) {
     await req.object_sdk.put_object_acl({
         bucket: req.params.bucket,
         key: req.params.key,
-        version_id: req.query.versionId,
+        version_id: s3_utils.parse_version_id(req.query.versionId),
         acl: req.headers['x-amz-acl'],
     });
 }

@@ -15,6 +15,7 @@ async function get_object(req, res) {
     const agent_header = req.headers['user-agent'];
     const noobaa_trigger_agent = agent_header && agent_header.includes('exec-env/NOOBAA_FUNCTION');
     const encryption = s3_utils.parse_encryption(req);
+    const version_id = s3_utils.parse_version_id(req.query.versionId);
     let part_number;
     // If set, part_number should be positive integer from 1 to 10000
     if (req.query.partNumber) {
@@ -25,7 +26,7 @@ async function get_object(req, res) {
     const md_params = {
         bucket: req.params.bucket,
         key: req.params.key,
-        version_id: req.query.versionId,
+        version_id,
         md_conditions,
         encryption,
     };
@@ -35,6 +36,7 @@ async function get_object(req, res) {
     if (part_number) {
         md_params.part_number = part_number;
     }
+
     const object_md = await req.object_sdk.read_object_md(md_params);
 
     s3_utils.set_response_object_md(res, object_md);
@@ -53,15 +55,13 @@ async function get_object(req, res) {
         obj_id: object_md.obj_id,
         bucket: req.params.bucket,
         key: req.params.key,
-        version_id: req.query.versionId,
+        version_id,
         content_type: object_md.content_type,
         noobaa_trigger_agent,
         md_conditions,
         encryption,
     };
-    if (params.version_id?.length === 0) {
-        throw new S3Error(S3Error.InvalidArgumentEmptyVersionId);
-    }
+
     if (md_params.get_from_cache) {
         params.get_from_cache = true;
     }

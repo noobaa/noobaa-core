@@ -835,6 +835,19 @@ mocha.describe('s3_ops', function() {
             }
         });
 
+        mocha.it('Providing an empty object version ID marker should return an error', async function() {
+            try {
+                await s3.listObjectVersions({
+                    Bucket: bucket_name,
+                    KeyMarker: text_file1,
+                    VersionIdMarker: ''
+                });
+                assert.fail("getObject with empty VersionId passed when it should've failed");
+            } catch (err) {
+                assert.strictEqual(err.Code, "InvalidArgument");
+            }
+        });
+
         mocha.it('should copy object (with copy source: /bucket/key)', async function() {
             if (is_azure_mock) this.skip();
             this.timeout(120000);

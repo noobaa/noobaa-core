@@ -781,7 +781,10 @@ config.NSFS_GLACIER_EXPIRY_RUN_DELAY_LIMIT_MINS = 2 * 60;
 config.NSFS_GLACIER_EXPIRY_TZ = 'LOCAL';
 
 // Format must be HH:MM:SS
-config.NSFS_GLACIER_EXPIRY_TIME_OF_DAY = '00:00:00';
+//
+// if set to empty string then time of processing
+// the request will be used
+config.NSFS_GLACIER_EXPIRY_TIME_OF_DAY = '';
 
 config.NSFS_STATFS_CACHE_SIZE = 10000;
 config.NSFS_STATFS_CACHE_EXPIRY_MS = 1 * 1000;

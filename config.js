@@ -140,6 +140,7 @@ config.ENABLE_OBJECT_IO_SEMAPHORE_MONITOR = true;
 
 config.ENDPOINT_HTTP_SERVER_REQUEST_TIMEOUT = 300 * 1000;
 config.ENDPOINT_HTTP_SERVER_KEEPALIVE_TIMEOUT = 5 * 1000;
+config.ENDPOINT_HTTP_MAX_REQUESTS_PER_SOCKET = 0; // 0 = no limit
 
 // For now we enable fixed CORS for all buckets
 // but this should become a setting per bucket which is configurable
@@ -174,6 +175,17 @@ config.S3_CORS_EXPOSE_HEADERS = [
 config.STS_CORS_EXPOSE_HEADERS = 'ETag';
 
 config.DENY_UPLOAD_TO_STORAGE_CLASS_STANDARD = false;
+
+// S3_RESTORE_MAX_DAYS controls that for how many maximum number
+// of days an object can be restored using `restore-object` call.
+config.S3_RESTORE_REQUEST_MAX_DAYS = 30;
+
+/**
+ * S3_RESTORE_MAX_DAYS_BEHAVIOUR controls whether to truncate the
+ * requested number of days in restore request or whether to deny the request.
+ * @type {'DENY' | 'TRUNCATE'}
+ */
+config.S3_RESTORE_REQUEST_MAX_DAYS_BEHAVIOUR = 'TRUNCATE';
 
 /////////////////////
 // SECRETS CONFIG  //
@@ -803,6 +815,7 @@ config.NSFS_LOW_FREE_SPACE_PERCENT_UNLEASH = 0.10;
 // NSFS NON CONTAINERIZED //
 ////////////////////////////
 
+config.NC_RELOAD_CONFIG_INTERVAL = 10 * 1000;
 config.NSFS_NC_CONF_DIR_REDIRECT_FILE = 'config_dir_redirect';
 config.NSFS_NC_DEFAULT_CONF_DIR = '/etc/noobaa.conf.d';
 config.NSFS_NC_CONF_DIR = process.env.NSFS_NC_CONF_DIR || '';
@@ -817,10 +830,11 @@ config.ALLOW_HTTP = false;
 config.BASE_MODE_CONFIG_FILE = 0o600;
 config.BASE_MODE_CONFIG_DIR = 0o700;
 
-config.NSFS_WHITELIST = [];
+config.S3_SERVER_IP_WHITELIST = [];
+config.VIRTUAL_HOSTS = process.env.VIRTUAL_HOSTS || '';
 
-config.NSFS_HEALTH_ENDPOINT_RETRY_COUNT = 3;
-config.NSFS_HEALTH_ENDPOINT_RETRY_DELAY = 10;
+config.NC_HEALTH_ENDPOINT_RETRY_COUNT = 3;
+config.NC_HEALTH_ENDPOINT_RETRY_DELAY = 10;
 
 
 /** @type {'file' | 'executable'} */
@@ -829,7 +843,8 @@ config.NC_MASTER_KEYS_STORE_TYPE = 'file';
 config.NC_MASTER_KEYS_FILE_LOCATION = '';
 config.NC_MASTER_KEYS_GET_EXECUTABLE = '';
 config.NC_MASTER_KEYS_PUT_EXECUTABLE = '';
-config.NC_MASTER_KEYS_MANAGER_REFRESH_THRESHOLD = 5 * 60 * 1000; // 5 minutes
+config.NC_MASTER_KEYS_MANAGER_REFRESH_THRESHOLD = -1; // currently we want to disable automatic refresh
+config.MASTER_KEYS_EXEC_MAX_RETRIES = 3;
 
 //Quota
 config.QUOTA_LOW_THRESHOLD = 80;
@@ -976,6 +991,34 @@ function _get_config_root() {
     return config_root;
 }
 
+/**
+ * validate_nc_master_keys_config validates the following - 
+ * 1. if type is file -
+ *    1.1. no GET/PUT executables provided
+ * 2. if type is executable - 
+ *    2.1. no file location provided
+ *    2.2. GET & PUT executables exist and executables
+ */
+function validate_nc_master_keys_config(config_data) {
+    if (config_data.NC_MASTER_KEYS_STORE_TYPE === 'file') {
+        if (config_data.NC_MASTER_KEYS_GET_EXECUTABLE ||
+            config_data.NC_MASTER_KEYS_PUT_EXECUTABLE) {
+            throw new Error('Invalid master keys config, can not specify executables when store type is file');
+        }
+    } else if (config_data.NC_MASTER_KEYS_STORE_TYPE === 'executable') {
+        if (config_data.NC_MASTER_KEYS_FILE_LOCATION) {
+            throw new Error('Invalid master keys config, can not specify executables when store type is executable');
+        }
+        if (!config_data.NC_MASTER_KEYS_GET_EXECUTABLE ||
+            !config_data.NC_MASTER_KEYS_PUT_EXECUTABLE) {
+            throw new Error('Invalid master keys config, must specify GET & PUT executables when store type is executable');
+        }
+        _validate_executable(config_data.NC_MASTER_KEYS_GET_EXECUTABLE);
+        _validate_executable(config_data.NC_MASTER_KEYS_PUT_EXECUTABLE);
+    } else {
+        throw new Error(`Invalid master keys config, invalid master keys store type ${config_data.NC_MASTER_KEYS_STORE_TYPE}`);
+    }
+}
 
 /**
  * load_nsfs_nc_config loads on non containerized env the config.json file and sets the configurations
@@ -1003,9 +1046,8 @@ function load_nsfs_nc_config() {
             }
             config[key] = merged_config[key];
         });
-
         console.warn(`nsfs: config_dir_path=${config.NSFS_NC_CONF_DIR} config.json= ${util.inspect(merged_config)}`);
-
+        validate_nc_master_keys_config(config);
     } catch (err) {
         if (err.code !== 'MODULE_NOT_FOUND' && err.code !== 'ENOENT') throw err;
         console.warn('config.load_nsfs_nc_config could not find config.json... skipping');
@@ -1019,7 +1061,7 @@ function reload_nsfs_nc_config() {
     try {
         const config_path = path.join(config.NSFS_NC_CONF_DIR, 'config.json');
         fs.watchFile(config_path, {
-            interval: 10 * 1000
+            interval: config.NC_RELOAD_CONFIG_INTERVAL
         }, () => {
             delete require.cache[config_path];
             try {
@@ -1035,6 +1077,23 @@ function reload_nsfs_nc_config() {
         }
         console.warn('config.load_nsfs_nc_config failed to set config.json to config.js ', e);
         throw e;
+    }
+}
+
+
+/**
+ * _validate_executable validates executable file exist and executables
+ */
+/* eslint-disable no-bitwise */
+function _validate_executable(file_name) {
+    let stat;
+    try {
+        stat = fs.statSync(file_name);
+    } catch (e) {
+        throw new Error(`Invalid master keys config, executable file was not found ${file_name}`, { cause: e });
+    }
+    if (!(stat.mode & fs.constants.S_IXUSR)) {
+        throw new Error(`Invalid master keys config, executable file can not be executed ${file_name}`);
     }
 }
 

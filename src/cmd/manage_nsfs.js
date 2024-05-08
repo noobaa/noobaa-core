@@ -63,8 +63,13 @@ async function check_and_create_config_dirs() {
         config_root,
         buckets_dir_path,
         accounts_dir_path,
-        access_keys_dir_path
+        access_keys_dir_path,
     ];
+
+    if (config.NSFS_GLACIER_LOGS_ENABLED) {
+        pre_req_dirs.push(config.NSFS_GLACIER_LOGS_DIR);
+    }
+
     for (const dir_path of pre_req_dirs) {
         try {
             const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
@@ -95,6 +100,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
         const user_input = user_input_from_file || argv;
         config_root = argv.config_root ? String(argv.config_root) : config.NSFS_NC_CONF_DIR;
         if (!config_root) throw_cli_error(ManageCLIError.MissingConfigDirPath);
+        if (argv.config_root) config.NSFS_NC_CONF_DIR = String(argv.config_root);
 
         accounts_dir_path = path.join(config_root, accounts_dir_name);
         access_keys_dir_path = path.join(config_root, access_keys_dir_name);
@@ -197,13 +203,11 @@ function get_symlink_config_file_path(config_type_path, file_name) {
 
 async function add_bucket(data) {
     await validate_bucket_args(data, ACTIONS.ADD);
-    const account_id = await verify_bucket_owner(data.bucket_owner, ACTIONS.ADD);
     const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
     const bucket_conf_path = get_config_file_path(buckets_dir_path, data.name);
     const exists = await native_fs_utils.is_path_exists(fs_context, bucket_conf_path);
     if (exists) throw_cli_error(ManageCLIError.BucketAlreadyExists, data.name, { bucket: data.name });
     data._id = mongo_utils.mongoObjectId();
-    data.owner_account = account_id;
     const data_json = JSON.stringify(data);
     // We take an object that was stringify
     // (it unwraps ths sensitive strings, creation_date to string and removes undefined parameters)
@@ -213,19 +217,16 @@ async function add_bucket(data) {
     write_stdout_response(ManageCLIResponse.BucketCreated, data_json, { bucket: data.name });
 }
 
-/** verify_bucket_owner will check if the bucket_owner has an account
- * bucket_owner is the account name in the account schema
- * after it finds one, it returns the account id, otherwise it would throw an error
- * (in case the action is add bucket it also checks that the owner has allow_bucket_creation)
- * @param {string} bucket_owner account name
- * @param {string} action
+/**
+ * get_bucket_owner_account will return the account of the bucket_owner
+ * otherwise it would throw an error
+ * @param {string} bucket_owner
  */
-async function verify_bucket_owner(bucket_owner, action) {
-    // check if bucket owner exists
+async function get_bucket_owner_account(bucket_owner) {
     const account_config_path = get_config_file_path(accounts_dir_path, bucket_owner);
-    let account;
     try {
-        account = await get_config_data(account_config_path);
+        const account = await get_config_data(account_config_path);
+        return account;
     } catch (err) {
         if (err.code === 'ENOENT') {
             const detail_msg = `bucket owner ${bucket_owner} does not exists`;
@@ -233,13 +234,6 @@ async function verify_bucket_owner(bucket_owner, action) {
         }
         throw err;
     }
-    // check if bucket owner has the permission to create bucket (for bucket add only)
-    if (action === ACTIONS.ADD && !account.allow_bucket_creation) {
-            const detail_msg = `${bucket_owner} account not allowed to create new buckets. ` +
-            `Please make sure to have a valid new_buckets_path and enable the flag allow_bucket_creation`;
-            throw_cli_error(ManageCLIError.BucketCreationNotAllowed, detail_msg);
-    }
-    return account._id;
 }
 
 async function get_bucket_status(data) {
@@ -257,7 +251,6 @@ async function get_bucket_status(data) {
 
 async function update_bucket(data) {
     await validate_bucket_args(data, ACTIONS.UPDATE);
-    await verify_bucket_owner(data.bucket_owner, ACTIONS.UPDATE);
 
     const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
 
@@ -754,7 +747,7 @@ function get_access_keys(action, user_input) {
 async function validate_bucket_args(data, action) {
     if (action === ACTIONS.DELETE || action === ACTIONS.STATUS) {
         if (_.isUndefined(data.name)) throw_cli_error(ManageCLIError.MissingBucketNameFlag);
-    } else {
+    } else { // action === ACTIONS.ADD || action === ACTIONS.UPDATE
         if (_.isUndefined(data.name)) throw_cli_error(ManageCLIError.MissingBucketNameFlag);
         try {
             native_fs_utils.validate_bucket_creation({ name: data.name });
@@ -780,6 +773,20 @@ async function validate_bucket_args(data, action) {
         const exists = await native_fs_utils.is_path_exists(fs_context_fs_backend, data.path);
         if (!exists) {
             throw_cli_error(ManageCLIError.InvalidStoragePath, data.path);
+        }
+        const account = await get_bucket_owner_account(data.bucket_owner);
+        const account_fs_context = await native_fs_utils.get_fs_context(account.nsfs_account_config, data.fs_backend);
+        const accessible = await native_fs_utils.is_dir_rw_accessible(account_fs_context, data.path);
+        if (!accessible) {
+            throw_cli_error(ManageCLIError.InaccessibleStoragePath, data.path);
+        }
+        if (action === ACTIONS.ADD) {
+            if (!account.allow_bucket_creation) {
+                const detail_msg = `${data.bucket_owner} account not allowed to create new buckets. ` +
+                `Please make sure to have a valid new_buckets_path and enable the flag allow_bucket_creation`;
+                throw_cli_error(ManageCLIError.BucketCreationNotAllowed, detail_msg);
+        }
+            data.owner_account = account._id; // TODO move this assignment to better place
         }
         if (data.s3_policy) {
             try {
@@ -997,7 +1004,7 @@ async function whitelist_ips_management(args) {
     const config_path = path.join(config_root, 'config.json');
     try {
         const config_data = require(config_path);
-        config_data.NSFS_WHITELIST = whitelist_ips;
+        config_data.S3_SERVER_IP_WHITELIST = whitelist_ips;
         const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
         const data = JSON.stringify(config_data);
         await native_fs_utils.update_config_file(fs_context, config_root, config_path, data);
@@ -1036,23 +1043,15 @@ function _validate_access_keys(access_key, secret_key) {
     if (!_.isUndefined(secret_key) && _.isUndefined(access_key)) {
         throw_cli_error(ManageCLIError.MissingAccountAccessKeyFlag);
     }
-    // checking the complexity of access_key
-    if (!_.isUndefined(access_key) && !string_utils.validate_complexity(access_key, {
-            require_length: 20,
-            check_uppercase: true,
-            check_lowercase: false,
-            check_numbers: true,
-            check_symbols: false,
-        })) throw_cli_error(ManageCLIError.AccountAccessKeyFlagComplexity);
-    // checking the complexity of secret_key
-    if (!_.isUndefined(secret_key) && !string_utils.validate_complexity(secret_key, {
-            require_length: 40,
-            check_uppercase: true,
-            check_lowercase: true,
-            check_numbers: true,
-            check_symbols: true,
-        })) throw_cli_error(ManageCLIError.AccountSecretKeyFlagComplexity);
 
+    // checking access_key length=20 and contains only alphanumeric chars
+    if (access_key && !string_utils.access_key_regexp.test(access_key)) {
+        throw_cli_error(ManageCLIError.InvalidAccountAccessKeyFlag);
+    }
+    // checking secret_key length=40 and contains only alphanumeric chars and +/
+    if (secret_key && !string_utils.secret_key_regexp.test(secret_key)) {
+        throw_cli_error(ManageCLIError.InvalidAccountSecretKeyFlag);
+    }
 }
 
 /**

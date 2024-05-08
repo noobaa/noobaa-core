@@ -91,10 +91,10 @@ const nsfs_node_config_schema = {
             default: true,
             description: 'indicate whether fsync should be triggered, changing value to false is unsafe for production envs, hot reload'
         },
-        NSFS_WHITELIST: {
+        S3_SERVER_IP_WHITELIST: {
             type: 'array',
             default: [],
-            description: 'List of whitelisted IPs for S3 access, Allow access from all the IPs if list is empty.'
+            description: 'Whitelist of server IPs for S3 access, Allow access to all the IPs if list is empty.'
         },
         NSFS_DIR_CACHE_MAX_DIR_SIZE: {
             type: 'number',
@@ -113,6 +113,7 @@ const nsfs_node_config_schema = {
         },
         NC_MASTER_KEYS_STORE_TYPE: {
             enum: ['file', 'executable'],
+            type: 'string',
             description: 'This flag will set the master keys store type'
         },
         NC_MASTER_KEYS_FILE_LOCATION: {
@@ -126,6 +127,10 @@ const nsfs_node_config_schema = {
         NC_MASTER_KEYS_PUT_EXECUTABLE: {
             type: 'string',
             description: 'This flag will set the location of the executable script for updating the master keys file used by NooBa.'
+        },
+        VIRTUAL_HOSTS: {
+            type: 'string',
+            description: 'This flag will set the virtual hosts, service restart required, Set the virtual hosts as string of domains sepreated by spaces.'
         }
     }
 };
@@ -138,9 +143,7 @@ module.exports = {
         ...nsfs_node_config_schema.properties,
         host_customization: {
             type: 'object',
-            patternProperties: {
-                '^[a-zA-Z0-9]$': { $ref: '#/definitions/nsfs_node_config_schema' }
-            },
+            additionalProperties: { $ref: '#/definitions/nsfs_node_config_schema' },
             description: 'nsfs configuration per host'
         }
     },

@@ -101,7 +101,7 @@ async function main(options = {}) {
         const endpoint_group_id = process.env.ENDPOINT_GROUP_ID || 'default-endpoint-group';
 
         const virtual_hosts = Object.freeze(
-            (process.env.VIRTUAL_HOSTS || '')
+            config.VIRTUAL_HOSTS
             .split(' ')
             .filter(suffix => net_utils.is_fqdn(suffix))
             .sort()
@@ -465,6 +465,7 @@ function setup_http_server(server) {
 
     server.keepAliveTimeout = config.ENDPOINT_HTTP_SERVER_KEEPALIVE_TIMEOUT;
     server.requestTimeout = config.ENDPOINT_HTTP_SERVER_REQUEST_TIMEOUT;
+    server.maxRequestsPerSocket = config.ENDPOINT_HTTP_MAX_REQUESTS_PER_SOCKET;
 
     server.on('error', handle_server_error);
 

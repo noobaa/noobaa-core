@@ -154,6 +154,10 @@ function make_dummy_object_sdk() {
         },
         read_bucket_sdk_config_info(name) {
             return bucketspace_fs.read_bucket_sdk_info({ name });
+        },
+        async read_bucket_sdk_policy_info(name) {
+            const bucket_info = await bucketspace_fs.read_bucket_sdk_info({ name });
+            return { s3_policy: bucket_info.s3_policy };
         }
     };
 }
@@ -453,20 +457,19 @@ mocha.describe('bucketspace_fs', function() {
                         Resource: ['arn:aws:s3:::*']
                         }
                     ]
-                };
-            const param = {name: test_bucket, policy: policy};
+            };
+            const param = { name: test_bucket, policy: policy };
             await bucketspace_fs.put_bucket_policy(param);
-            const policy_res = await bucketspace_fs.get_bucket_policy(param);
-            principle_unwrap(policy);
+            const policy_res = await bucketspace_fs.get_bucket_policy(param, dummy_object_sdk);
             assert.deepEqual(policy_res.policy, policy);
             const info_res = await bucketspace_fs.read_bucket_sdk_info(param);
-            principle_unwrap(info_res.s3_policy);
             assert.deepEqual(info_res.s3_policy, policy);
         });
+
         mocha.it('delete_bucket_policy ', async function() {
             const param = {name: test_bucket};
             await bucketspace_fs.delete_bucket_policy(param);
-            const delete_res = await bucketspace_fs.get_bucket_policy(param);
+            const delete_res = await bucketspace_fs.get_bucket_policy(param, dummy_object_sdk);
             assert.ok(delete_res.policy === undefined);
         });
 
@@ -482,13 +485,11 @@ mocha.describe('bucketspace_fs', function() {
                         }
                     ]
                 };
-            const param = {name: test_bucket, policy: policy};
+            const param = { name: test_bucket, policy: policy };
             await bucketspace_fs.put_bucket_policy(param);
-            const bucket_policy = await bucketspace_fs.get_bucket_policy(param);
-            principle_unwrap(policy);
+            const bucket_policy = await bucketspace_fs.get_bucket_policy(param, dummy_object_sdk);
             assert.deepEqual(bucket_policy.policy, policy);
             const info_res = await bucketspace_fs.read_bucket_sdk_info(param);
-            principle_unwrap(info_res.s3_policy);
             assert.deepEqual(info_res.s3_policy, policy);
         });
 
@@ -528,11 +529,9 @@ mocha.describe('bucketspace_fs', function() {
                 };
             const param = {name: test_bucket, policy: policy};
             await bucketspace_fs.put_bucket_policy(param);
-            const bucket_policy = await bucketspace_fs.get_bucket_policy(param);
-            principle_unwrap(policy);
+            const bucket_policy = await bucketspace_fs.get_bucket_policy(param, dummy_object_sdk);
             assert.deepEqual(bucket_policy.policy, policy);
             const info_res = await bucketspace_fs.read_bucket_sdk_info(param);
-            principle_unwrap(info_res.s3_policy);
             assert.deepEqual(info_res.s3_policy, policy);
         });
 
@@ -550,18 +549,16 @@ mocha.describe('bucketspace_fs', function() {
                 };
             const param = {name: test_bucket, policy: policy};
             await bucketspace_fs.put_bucket_policy(param);
-            const bucket_policy = await bucketspace_fs.get_bucket_policy(param);
-            principle_unwrap(policy);
+            const bucket_policy = await bucketspace_fs.get_bucket_policy(param, dummy_object_sdk);
             assert.deepEqual(bucket_policy.policy, policy);
             const info_res = await bucketspace_fs.read_bucket_sdk_info(param);
-            principle_unwrap(info_res.s3_policy);
             assert.deepEqual(info_res.s3_policy, policy);
         });
 
         mocha.it('delete_bucket_policy ', async function() {
-            const param = {name: test_bucket};
+            const param = { name: test_bucket };
             await bucketspace_fs.delete_bucket_policy(param);
-            const bucket_policy = await bucketspace_fs.get_bucket_policy(param);
+            const bucket_policy = await bucketspace_fs.get_bucket_policy(param, dummy_object_sdk);
             assert.ok(bucket_policy.policy === undefined);
         });
     });
@@ -585,17 +582,3 @@ function get_access_key_symlink_path(config_type_path, file_name) {
     return path.join(config_root, config_type_path, file_name + '.symlink');
 }
 
-function principle_unwrap(policy) {
-    for (const [s_index, statement] of policy.Statement.entries()) {
-        const statement_principal = statement.Principal || statement.NotPrincipal;
-        if (statement_principal.AWS) {
-            const sensitive_arr = _.flatten([statement_principal.AWS]).map(principal => principal.unwrap());
-            if (statement.Principal) policy.Statement[s_index].Principal.AWS = sensitive_arr;
-            if (statement.NotPrincipal) policy.Statement[s_index].NotPrincipal.AWS = sensitive_arr;
-        } else {
-            const sensitive_principal = statement_principal.unwrap();
-            if (statement.Principal) policy.Statement[s_index].Principal = sensitive_principal;
-            if (statement.NotPrincipal) policy.Statement[s_index].NotPrincipal = sensitive_principal;
-        }
-    }
-}

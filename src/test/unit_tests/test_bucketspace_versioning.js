@@ -5,18 +5,14 @@
 
 const fs = require('fs');
 const path = require('path');
-const http = require('http');
 const mocha = require('mocha');
-const { S3 } = require('@aws-sdk/client-s3');
-const { NodeHttpHandler } = require('@smithy/node-http-handler');
-const config = require('../../../config');
 const assert = require('assert');
 const coretest = require('./coretest');
 const { rpc_client, EMAIL } = coretest;
 const fs_utils = require('../../util/fs_utils');
 const nb_native = require('../../util/nb_native');
 const size_utils = require('../../util/size_utils');
-const { TMP_PATH, invalid_nsfs_root_permissions } = require('../system_tests/test_utils');
+const { TMP_PATH, invalid_nsfs_root_permissions, generate_s3_client } = require('../system_tests/test_utils');
 const { get_process_fs_context } = require('../../util/native_fs_utils');
 
 coretest.setup({});
@@ -28,6 +24,7 @@ const XATTR_DELETE_MARKER = XATTR_INTERNAL_NOOBAA_PREFIX + 'delete_marker';
 const NULL_VERSION_ID = 'null';
 
 const DEFAULT_FS_CONFIG = get_process_fs_context();
+let CORETEST_ENDPOINT;
 
 mocha.describe('bucketspace namespace_fs - versioning', function() {
     const nsr = 'versioned-nsr';
@@ -120,9 +117,10 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             }
         ]
         };
+        CORETEST_ENDPOINT = coretest.get_http_address();
         // create accounts
         let res = await generate_nsfs_account({ admin: true });
-        s3_admin = generate_s3_client(res.access_key, res.secret_key);
+        s3_admin = generate_s3_client(res.access_key, res.secret_key, CORETEST_ENDPOINT);
         await s3_admin.putBucketPolicy({
             Bucket: bucket_name,
             Policy: JSON.stringify(policy)
@@ -139,11 +137,11 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
         });
 
         res = await generate_nsfs_account({ uid: 5, gid: 5 });
-        s3_uid5 = generate_s3_client(res.access_key, res.secret_key);
+        s3_uid5 = generate_s3_client(res.access_key, res.secret_key, CORETEST_ENDPOINT);
         accounts.push(res.email);
 
         res = await generate_nsfs_account();
-        s3_uid6 = generate_s3_client(res.access_key, res.secret_key);
+        s3_uid6 = generate_s3_client(res.access_key, res.secret_key, CORETEST_ENDPOINT);
         accounts.push(res.email);
     });
 
@@ -881,7 +879,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             mocha.describe('delete object - regular version - versioning enabled', async function() {
                 mocha.before(async function() {
                     const res = await generate_nsfs_account({ default_resource: nsr });
-                    account_with_access = generate_s3_client(res.access_key, res.secret_key);
+                    account_with_access = generate_s3_client(res.access_key, res.secret_key, CORETEST_ENDPOINT);
                     await account_with_access.createBucket({ Bucket: delete_object_test_bucket_reg });
                     await put_allow_all_bucket_policy(s3_admin, delete_object_test_bucket_reg);
                     await account_with_access.createBucket({ Bucket: delete_object_test_bucket_null });
@@ -1190,7 +1188,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
         let account_with_access;
         mocha.before(async function() {
             const res = await generate_nsfs_account({ default_resource: nsr });
-            account_with_access = generate_s3_client(res.access_key, res.secret_key);
+            account_with_access = generate_s3_client(res.access_key, res.secret_key, CORETEST_ENDPOINT);
             await account_with_access.createBucket({ Bucket: delete_object_test_bucket_reg });
             await put_allow_all_bucket_policy(s3_admin, delete_object_test_bucket_reg);
             await account_with_access.createBucket({ Bucket: delete_object_test_bucket_null });
@@ -1567,7 +1565,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
 
         mocha.before(async function() {
             const res = await generate_nsfs_account({ default_resource: nsr });
-            account_with_access = generate_s3_client(res.access_key, res.secret_key);
+            account_with_access = generate_s3_client(res.access_key, res.secret_key, CORETEST_ENDPOINT);
             await account_with_access.createBucket({ Bucket: delete_multi_object_test_bucket });
             await put_allow_all_bucket_policy(s3_admin, delete_multi_object_test_bucket);
         });
@@ -1829,7 +1827,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
 
         mocha.before(async function() {
             const res = await generate_nsfs_account({ default_resource: nsr });
-            account_with_access = generate_s3_client(res.access_key, res.secret_key);
+            account_with_access = generate_s3_client(res.access_key, res.secret_key, CORETEST_ENDPOINT);
             await account_with_access.createBucket({ Bucket: delete_multi_object_test_bucket });
             await put_allow_all_bucket_policy(s3_admin, delete_multi_object_test_bucket);
         });
@@ -2104,7 +2102,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
 
         mocha.before(async function() {
             const res = await generate_nsfs_account({ default_resource: nsr });
-            account_with_access = generate_s3_client(res.access_key, res.secret_key);
+            account_with_access = generate_s3_client(res.access_key, res.secret_key, CORETEST_ENDPOINT);
             await account_with_access.createBucket({ Bucket: list_object_versions_test_bucket });
             await put_allow_all_bucket_policy(s3_admin, list_object_versions_test_bucket);
         });
@@ -2242,14 +2240,14 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             };
             // create accounts
             let res = await generate_nsfs_account({ admin: true });
-            s3_admin = generate_s3_client(res.access_key, res.secret_key);
+            s3_admin = generate_s3_client(res.access_key, res.secret_key, CORETEST_ENDPOINT);
             await s3_admin.putBucketPolicy({
                 Bucket: bucket_name,
                 Policy: JSON.stringify(policy)
             });
             // create nsfs account
             res = await generate_nsfs_account();
-            s3_client = generate_s3_client(res.access_key, res.secret_key);
+            s3_client = generate_s3_client(res.access_key, res.secret_key, CORETEST_ENDPOINT);
             accounts.push(res.email);
             await s3_client.putBucketVersioning({ Bucket: bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
             const bucket_ver = await s3_client.getBucketVersioning({ Bucket: bucket_name });
@@ -2355,7 +2353,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             };
             // create accounts
             let res = await generate_nsfs_account({ admin: true });
-            s3_admin = generate_s3_client(res.access_key, res.secret_key);
+            s3_admin = generate_s3_client(res.access_key, res.secret_key, CORETEST_ENDPOINT);
             await s3_admin.putBucketPolicy({
                 Bucket: bucket_name,
                 Policy: JSON.stringify(policy)
@@ -2366,7 +2364,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             });
             // create nsfs account
             res = await generate_nsfs_account();
-            s3_client = generate_s3_client(res.access_key, res.secret_key);
+            s3_client = generate_s3_client(res.access_key, res.secret_key, CORETEST_ENDPOINT);
             accounts.push(res.email);
             // create a file in version disabled bucket
             await create_object(`${disabled_full_path}/${dis_version_key}`, dis_version_body, 'null');
@@ -2793,20 +2791,6 @@ async function put_allow_all_bucket_policy(s3_client, bucket) {
     });
 }
 
-function generate_s3_client(access_key, secret_key) {
-    return new S3({
-        forcePathStyle: true,
-        region: config.DEFAULT_REGION,
-        requestHandler: new NodeHttpHandler({
-            httpAgent: new http.Agent({ keepAlive: false })
-        }),
-        credentials: {
-            accessKeyId: access_key,
-            secretAccessKey: secret_key,
-        },
-        endpoint: coretest.get_http_address()
-    });
-}
 
 async function generate_nsfs_account(options = {}) {
     const { uid, gid, new_buckets_path, nsfs_only, admin, default_resource } = options;
@@ -2914,14 +2898,14 @@ mocha.describe('List-objects', function() {
         };
         // create accounts
         let res = await generate_nsfs_account({ admin: true });
-        s3_admin = generate_s3_client(res.access_key, res.secret_key);
+        s3_admin = generate_s3_client(res.access_key, res.secret_key, CORETEST_ENDPOINT);
         await s3_admin.putBucketPolicy({
             Bucket: bucket_name,
             Policy: JSON.stringify(policy)
         });
         // create nsfs account
         res = await generate_nsfs_account();
-        s3_client = generate_s3_client(res.access_key, res.secret_key);
+        s3_client = generate_s3_client(res.access_key, res.secret_key, CORETEST_ENDPOINT);
         accounts.push(res.email);
         await s3_client.putBucketVersioning({ Bucket: bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
         const bucket_ver = await s3_client.getBucketVersioning({ Bucket: bucket_name });

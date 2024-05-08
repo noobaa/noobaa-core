@@ -1,10 +1,10 @@
-# Non Containerized NSFS Events
+# NooBaa Non Containerized Events
 
-This document will list all the possible Noobaa non-containerized NSFS events and possible reasons and resolutions.
+This document will list all the possible NooBaa non-containerized events and possible reasons and resolutions.
 
 ## Events
 
-### 1. noobaa_nsfs_crashed
+### 1. noobaa_s3_crashed
 #### Reasons
 - Noobaa endpoint module failed to load.
 - High Noobaa resource utilization.

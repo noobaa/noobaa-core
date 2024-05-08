@@ -36,7 +36,7 @@ describe('schema validation NC NSFS config', () => {
                 NSFS_OPEN_READ_MODE: 'rd',
                 NSFS_CHECK_BUCKET_BOUNDARIES: false,
                 ALLOW_HTTP: true,
-                NSFS_WHITELIST: [
+                S3_SERVER_IP_WHITELIST: [
                     '127.0.0.1',
                     '0000:0000:0000:0000:0000:ffff:7f00:0002',
                     '::ffff:7f00:3'
@@ -119,6 +119,115 @@ describe('schema validation NC NSFS config', () => {
             const message = 'must be boolean';
             assert_validation(config_data, reason, message);
         });
+
+        it('nsfs_config valid config master keys GET executable', () => {
+            const config_data = {
+                NC_MASTER_KEYS_GET_EXECUTABLE: false, // boolean instead of string
+            };
+            const reason = 'Test should have failed because of wrong type ' +
+                'NC_MASTER_KEYS_GET_EXECUTABLE with boolean (instead of string)';
+            const message = 'must be string';
+            assert_validation(config_data, reason, message);
+        });
+
+        it('nsfs_config valid config master keys PUT executable', () => {
+            const config_data = {
+                NC_MASTER_KEYS_PUT_EXECUTABLE: false, // boolean instead of string
+            };
+            const reason = 'Test should have failed because of wrong type ' +
+                'NC_MASTER_KEYS_PUT_EXECUTABLE with boolean (instead of string)';
+            const message = 'must be string';
+            assert_validation(config_data, reason, message);
+        });
+
+        it('nsfs_config valid config master keys store type - unallowed value', () => {
+            const config_data = {
+                NC_MASTER_KEYS_STORE_TYPE: 'not_file_nor_script', // unallowed value, string type
+            };
+            const reason = 'Test should have failed because of unallowed value ' +
+                'NC_MASTER_KEYS_STORE_TYPE with boolean (instead of string)';
+            const message = 'must be equal to one of the allowed values | {"allowedValues":["file","executable"]}';
+            assert_validation(config_data, reason, message);
+        });
+
+        it('nsfs_config valid config master keys store type - different type', () => {
+            const config_data = {
+                NC_MASTER_KEYS_STORE_TYPE: false, // unallowed value, boolean type
+            };
+            const reason = 'Test should have failed because of wrong type ' +
+                'NC_MASTER_KEYS_STORE_TYPE with boolean (instead of string)';
+            const message = 'must be string';
+            assert_validation(config_data, reason, message);
+        });
+
+        it('nsfs_config valid config master keys file location', () => {
+            const config_data = {
+                NC_MASTER_KEYS_FILE_LOCATION: false, // boolean instead of string
+            };
+            const reason = 'Test should have failed because of wrong type ' +
+                'NC_MASTER_KEYS_FILE_LOCATION with boolean (instead of string)';
+            const message = 'must be string';
+            assert_validation(config_data, reason, message);
+        });
+
+        it('nsfs_config invalid config virtual hosts', () => {
+            const config_data = {
+                VIRTUAL_HOSTS: 5, // number instead of string
+            };
+            const reason = 'Test should have failed because of wrong type ' +
+                'VIRTUAL_HOSTS with number (instead of string)';
+            const message = 'must be string';
+            assert_validation(config_data, reason, message);
+        });
+
+        it('nsfs_config valid config virtual hosts', () => {
+            const config_data = {
+                VIRTUAL_HOSTS: 'my.virtual.domain1 my.virtual.domain2'
+            };
+            nsfs_schema_utils.validate_nsfs_config_schema(config_data);
+        });
+
+        it('nsfs_config invalid config hostname - invalid configuration in hostname', () => {
+            const hostname = "hostname1";
+            const config_data = {
+                "ALLOW_HTTP": false,
+                host_customization: {
+                    [hostname]: {
+                        "ALLOW_HTTP": 'str'
+                    }
+                }
+            };
+            const reason = 'Test should have failed because of wrong type ' +
+                'host_customization - ALLOW HTTP must be boolean';
+            const message = `must be boolean | {"type":"boolean"} | "/host_customization/${hostname}/ALLOW_HTTP"`;
+            assert_validation(config_data, reason, message);
+        });
+
+        it('nsfs_config invalid config hostname - invalid hostname - should succeed', () => {
+            const invalid_hostname = "not.$a.valid!.hostname";
+            const config_data = {
+                "ALLOW_HTTP": false,
+                host_customization: {
+                    [invalid_hostname]: {
+                        "ALLOW_HTTP": true
+                    }
+                }
+            };
+            nsfs_schema_utils.validate_nsfs_config_schema(config_data);
+        });
+
+        it('nsfs_config valid config hostname', () => {
+            const config_data = {
+                "ALLOW_HTTP": false,
+                host_customization: {
+                    "a.valid-valid.hostname": {
+                        "ALLOW_HTTP": true
+                    }
+                }
+            };
+            nsfs_schema_utils.validate_nsfs_config_schema(config_data);
+        });
+
     });
 });
 

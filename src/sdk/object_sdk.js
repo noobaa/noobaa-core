@@ -1033,7 +1033,7 @@ class ObjectSDK {
     async get_bucket_policy(params) {
         const bs = this._get_bucketspace();
         bucket_namespace_cache.invalidate_key(params.name);
-        return bs.get_bucket_policy(params);
+        return bs.get_bucket_policy(params, this);
     }
 
     should_run_triggers({ active_triggers, operation, obj }) {

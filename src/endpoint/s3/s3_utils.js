@@ -57,18 +57,14 @@ function format_s3_xml_date(input) {
 }
 
 const X_AMZ_META = 'x-amz-meta-';
-const HTTP_NB_DOT_CHAR = '__dot__';
 
 function get_request_xattr(req) {
     const xattr = {};
     _.each(req.headers, (val, hdr) => {
         if (!hdr.startsWith(X_AMZ_META)) return;
-        let key = hdr.slice(X_AMZ_META.length);
+        const key = hdr.slice(X_AMZ_META.length);
         if (!key) return;
-
-        // we encode unacceptable characters in the header name, reverting that here
-        key = key.replaceAll(HTTP_NB_DOT_CHAR, '.');
-        xattr[key] = val;
+        xattr[key] = decodeURIComponent(val);
     });
     return xattr;
 }
@@ -85,22 +81,23 @@ function set_response_xattr(res, xattr) {
         keys.sort();
     }
     let returned_keys = 0;
-    for (let key of keys) {
-        // replace characters not allowed by RFC 7230 Section 3.2 with custom strings
-        key = key.replaceAll('.', HTTP_NB_DOT_CHAR);
+    for (const key of keys) {
+        // when xattr is set directly on the object (NSFS for example) and it's already encoded
+        // we should not encode it again 
+        const val = encode_uri_unless_already_encoded(xattr[key]);
 
         const md_header_size =
             X_AMZ_META.length +
             4 + // for ': ' and '\r\n'
             Buffer.byteLength(key, 'utf8') +
-            Buffer.byteLength(xattr[key], 'utf8');
+            Buffer.byteLength(val, 'utf8');
         if (md_header_size > size_for_md_left) {
             res.setHeader('x-amz-missing-meta', keys.length - returned_keys);
             break;
         }
         returned_keys += 1;
         size_for_md_left -= md_header_size;
-        res.setHeader(X_AMZ_META + key, xattr[key]);
+        res.setHeader(X_AMZ_META + key, val);
     }
 }
 
@@ -616,6 +613,56 @@ function parse_decimal_int(str) {
     return parsed;
 }
 
+/**
+ * encode_uri_unless_already_encoded encodes a string uri if it's not already encoded
+ * @param {string} uri
+ * @returns {string}
+ */
+function encode_uri_unless_already_encoded(uri = '') {
+    return is_uri_already_encoded(uri) ? uri : encodeURIComponent(uri);
+}
+
+/**
+ * is_uri_already_encoded returns true if string uri is URIEncoded
+ * @param {string} uri
+ * @returns {boolean}
+ */
+function is_uri_already_encoded(uri = '') {
+    return uri !== decodeURIComponent(uri);
+}
+
+/**
+ * 
+ * @param {*} req 
+ * @returns {number}
+ */
+function parse_restore_request_days(req) {
+    if (!req.body?.RestoreRequest?.Days?.[0]) {
+        dbg.warn('parse_restore_request_days: missing Days in body');
+        throw new S3Error(S3Error.MalformedXML);
+    }
+
+    const days = parse_decimal_int(req.body.RestoreRequest.Days[0]);
+    if (days < 1) {
+        dbg.warn('parse_restore_request_days: days cannot be less than 1');
+        throw new S3Error(S3Error.InvalidArgument);
+    }
+
+    if (days > config.S3_RESTORE_REQUEST_MAX_DAYS) {
+        if (config.S3_RESTORE_REQUEST_MAX_DAYS_BEHAVIOUR === 'DENY') {
+            throw new S3Error({
+                ...S3Error.InvalidArgument,
+                detail: `Restore request days ${days} is above max ${config.S3_RESTORE_REQUEST_MAX_DAYS}`},
+            );
+        }
+
+        dbg.log0(`Restore request days ${days} is above max ${config.S3_RESTORE_REQUEST_MAX_DAYS} - truncating`);
+        return config.S3_RESTORE_REQUEST_MAX_DAYS;
+    }
+
+    return days;
+}
+
 exports.STORAGE_CLASS_STANDARD = STORAGE_CLASS_STANDARD;
 exports.STORAGE_CLASS_GLACIER = STORAGE_CLASS_GLACIER;
 exports.STORAGE_CLASS_GLACIER_IR = STORAGE_CLASS_GLACIER_IR;
@@ -649,3 +696,4 @@ exports.get_http_response_date = get_http_response_date;
 exports.XATTR_SORT_SYMBOL = XATTR_SORT_SYMBOL;
 exports.get_response_field_encoder = get_response_field_encoder;
 exports.parse_decimal_int = parse_decimal_int;
+exports.parse_restore_request_days = parse_restore_request_days;

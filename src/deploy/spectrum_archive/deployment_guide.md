@@ -13,7 +13,7 @@ NooBaa is packaged as a RPM which needs to be installed in order to be able to u
 1. Install by using `dnf`, `yum` or `rpm`.
    - Example: `rpm -i noobaa-core-5.15.0-1.el8.x86_64.20231009`.
 2. NooBaa RPM installation should provide the following things
-	1. `noobaa_nsfs.service` file located at `/usr/lib/systemd/system/noobaa_nsfs.service`.
+	1. `noobaa.service` file located at `/usr/lib/systemd/system/noobaa.service`.
 	2. NooBaa source available at `/usr/local/noobaa-core`.
 
 ## NooBaa Configuration
@@ -23,7 +23,7 @@ NooBaa needs some configurations to be in place before we start up the NooBaa pr
 In order to be able to access NooBaa, the user should create a account. This can be done in the following way.
 ```console
 $ cd /usr/local/noobaa-core
-$ bin/node src/cmd/manage_nsfs.js account add --access_key <access-key> --secret_key <secret-key> --name <name-of-user> --new_buckets_path <path-to-store-bucket-data>
+$ noobaa-cli account add --access_key <access-key> --secret_key <secret-key> --name <name-of-user> --new_buckets_path <path-to-store-bucket-data>
 ```
 
 NOTE: `<path-to-store-bucket-data>` should already exist or else the above command will throw error.
@@ -36,7 +36,7 @@ $ cd /usr/local/noobaa-core
 $ mkdir /ibm/gpfs/noobaadata #Bucket Data Path should already exist
 $ export AWS_ACCESS_KEY_ID=$(openssl rand -hex 20)
 $ export AWS_SECRET_ACCESS_KEY=$(openssl rand -hex 20)
-$ bin/node src/cmd/manage_nsfs.js account add --access_key $AWS_ACCESS_KEY_ID --secret_key $AWS_SECRET_ACCESS_KEY --name noobaa --new_buckets_path /ibm/gpfs/noobaadata
+$ noobaa-cli account add --access_key $AWS_ACCESS_KEY_ID --secret_key $AWS_SECRET_ACCESS_KEY --name noobaa --new_buckets_path /ibm/gpfs/noobaadata
 ```
 
 ### Configure NooBaa
@@ -84,9 +84,9 @@ $ ./src/deploy/spectrum_archive/setup_policies.sh /ibm/gpfs /ibm/gpfs/noobaadata
 
 ## Start NooBaa
 ```console
-$ systemctl start noobaa_nsfs
-$ systemctl enable noobaa_nsfs #optional
-$ systemctl status noobaa_nsfs # You should see status "Active" in green color
+$ systemctl start noobaa
+$ systemctl enable noobaa #optional
+$ systemctl status noobaa # You should see status "Active" in green color
 ```
 
 ## Test NooBaa Installation

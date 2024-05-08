@@ -13,7 +13,7 @@ const os_util = require('../../../util/os_utils');
 const fs_utils = require('../../../util/fs_utils');
 const nb_native = require('../../../util/nb_native');
 const { set_path_permissions_and_owner, create_fs_user_by_platform,
-    delete_fs_user_by_platform, TMP_PATH } = require('../../system_tests/test_utils');
+    delete_fs_user_by_platform, TMP_PATH, set_nc_config_dir_in_config } = require('../../system_tests/test_utils');
 const { get_process_fs_context } = require('../../../util/native_fs_utils');
 const { TYPES, ACTIONS, CONFIG_SUBDIRS } = require('../../../manage_nsfs/manage_nsfs_constants');
 const ManageCLIError = require('../../../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
@@ -44,6 +44,8 @@ describe('manage nsfs cli account flow', () => {
             await P.all(_.map([CONFIG_SUBDIRS.ACCOUNTS, CONFIG_SUBDIRS.ACCESS_KEYS], async dir =>
                 fs_utils.create_fresh_path(`${config_root}/${dir}`)));
             await fs_utils.create_fresh_path(root_path);
+            set_nc_config_dir_in_config(config_root);
+            config.NSFS_NC_CONF_DIR = config_root;
         });
 
         afterEach(async () => {
@@ -105,20 +107,36 @@ describe('manage nsfs cli account flow', () => {
             assert_account(account_symlink, account_options);
         });
 
-        it('should fail - cli update account access_key wrong complexity', async () => {
+        it('should fail - cli update account invalid access_key - invalid size', async () => {
             const { type, secret_key, name, new_buckets_path, uid, gid } = defaults;
             const account_options = { config_root, access_key: 'abc', secret_key, name, new_buckets_path, uid, gid };
             const action = ACTIONS.UPDATE;
             const res = await exec_manage_cli(type, action, account_options);
-            expect(JSON.parse(res.stdout).error.message).toBe(ManageCLIError.AccountAccessKeyFlagComplexity.message);
+            expect(JSON.parse(res.stdout).error.message).toBe(ManageCLIError.InvalidAccountAccessKeyFlag.message);
         });
 
-        it('should fail - cli update account secret_key wrong complexity', async () => {
+        it('should fail - cli update account invalid access_key - contains "+" ', async () => {
+            const { type, secret_key, name, new_buckets_path, uid, gid } = defaults;
+            const account_options = { config_root, access_key: 'abc+abc+abc+abc+abc+', secret_key, name, new_buckets_path, uid, gid };
+            const action = ACTIONS.UPDATE;
+            const res = await exec_manage_cli(type, action, account_options);
+            expect(JSON.parse(res.stdout).error.message).toBe(ManageCLIError.InvalidAccountAccessKeyFlag.message);
+        });
+
+        it('should fail - cli update account invalid secret_key - invalid size', async () => {
             const { type, access_key, name, new_buckets_path, uid, gid } = defaults;
             const account_options = { config_root, access_key, secret_key: 'abc', name, new_buckets_path, uid, gid };
             const action = ACTIONS.UPDATE;
             const res = await exec_manage_cli(type, action, account_options);
-            expect(JSON.parse(res.stdout).error.message).toBe(ManageCLIError.AccountSecretKeyFlagComplexity.message);
+            expect(JSON.parse(res.stdout).error.message).toBe(ManageCLIError.InvalidAccountSecretKeyFlag.message);
+        });
+
+        it('should fail - cli update account invalid secret_key - contains @', async () => {
+            const { type, access_key, name, new_buckets_path, uid, gid } = defaults;
+            const account_options = { config_root, access_key, secret_key: 'abcaabcabcabc@abcabcabc@abcabcabc@abcabc', name, new_buckets_path, uid, gid };
+            const action = ACTIONS.UPDATE;
+            const res = await exec_manage_cli(type, action, account_options);
+            expect(JSON.parse(res.stdout).error.message).toBe(ManageCLIError.InvalidAccountSecretKeyFlag.message);
         });
 
         it('should fail - cli create account integer uid and gid', async () => {
@@ -368,6 +386,8 @@ describe('manage nsfs cli account flow', () => {
             await P.all(_.map([CONFIG_SUBDIRS.ACCOUNTS, CONFIG_SUBDIRS.ACCESS_KEYS], async dir =>
                 fs_utils.create_fresh_path(`${config_root}/${dir}`)));
             await fs_utils.create_fresh_path(root_path);
+            set_nc_config_dir_in_config(config_root);
+            config.NSFS_NC_CONF_DIR = config_root;
             const action = ACTIONS.ADD;
             const { new_buckets_path } = defaults;
             const account_options = { config_root, ...defaults };
@@ -631,6 +651,8 @@ describe('manage nsfs cli account flow', () => {
             await P.all(_.map([CONFIG_SUBDIRS.ACCOUNTS, CONFIG_SUBDIRS.ACCESS_KEYS], async dir =>
                 fs_utils.create_fresh_path(`${config_root}/${dir}`)));
             await fs_utils.create_fresh_path(root_path);
+            set_nc_config_dir_in_config(config_root);
+            config.NSFS_NC_CONF_DIR = config_root;
             // Creating the account
             const action = ACTIONS.ADD;
             for (const account_defaults of Object.values(defaults)) {
@@ -839,6 +861,8 @@ describe('manage nsfs cli account flow', () => {
             await P.all(_.map([CONFIG_SUBDIRS.ACCOUNTS, CONFIG_SUBDIRS.ACCESS_KEYS, CONFIG_SUBDIRS.BUCKETS], async dir =>
                 fs_utils.create_fresh_path(`${config_root}/${dir}`)));
             await fs_utils.create_fresh_path(root_path);
+            set_nc_config_dir_in_config(config_root);
+            config.NSFS_NC_CONF_DIR = config_root;
         });
 
         beforeEach(async () => {
@@ -936,6 +960,8 @@ describe('manage nsfs cli account flow', () => {
             await P.all(_.map([CONFIG_SUBDIRS.ACCOUNTS, CONFIG_SUBDIRS.ACCESS_KEYS], async dir =>
                 fs_utils.create_fresh_path(`${config_root}/${dir}`)));
             await fs_utils.create_fresh_path(root_path);
+            set_nc_config_dir_in_config(config_root);
+            config.NSFS_NC_CONF_DIR = config_root;
             const action = ACTIONS.ADD;
             const { new_buckets_path } = defaults;
             const account_options = { config_root, ...defaults };
@@ -970,6 +996,7 @@ describe('manage nsfs cli account flow', () => {
         const type = TYPES.ACCOUNT;
         const config_root = path.join(tmp_fs_path, 'config_root_manage_nsfs');
         const root_path = path.join(tmp_fs_path, 'root_path_manage_nsfs/');
+
         const path_to_json_account_options_dir = path.join(tmp_fs_path, 'options');
         const defaults = {
             name: 'account3',
@@ -983,6 +1010,8 @@ describe('manage nsfs cli account flow', () => {
         beforeEach(async () => {
             await P.all(_.map([CONFIG_SUBDIRS.ACCOUNTS, CONFIG_SUBDIRS.ACCESS_KEYS], async dir =>
                 fs_utils.create_fresh_path(`${config_root}/${dir}`)));
+            set_nc_config_dir_in_config(config_root);
+            config.NSFS_NC_CONF_DIR = config_root;
             await fs_utils.create_fresh_path(root_path);
             await fs_utils.create_fresh_path(path_to_json_account_options_dir);
             // create the new_buckets_path and set permissions
@@ -1040,7 +1069,7 @@ describe('manage nsfs cli account flow', () => {
             const command_flags = {config_root, from_file: path_to_option_json_file_name};
             // create the account
             const res = await exec_manage_cli(type, action, command_flags);
-            expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.AccountAccessKeyFlagComplexity.code);
+            expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidAccountAccessKeyFlag.code);
         });
 
         it('should fail - cli create account using from_file with additional flags (name)', async () => {
@@ -1185,6 +1214,8 @@ describe('cli account flow distinguished_name - permissions', function() {
     };
 
     beforeAll(async () => {
+        set_nc_config_dir_in_config(config_root);
+        config.NSFS_NC_CONF_DIR = config_root;
         await fs_utils.create_fresh_path(config_root);
         await fs_utils.file_must_exist(config_root);
         for (const account of Object.values(accounts)) {

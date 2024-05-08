@@ -1,0 +1,3 @@
+#!/bin/bash
+cd /usr/local/noobaa-core/
+./bin/node --unhandled-rejections=warn ./src/cmd/manage_nsfs.js "$@"

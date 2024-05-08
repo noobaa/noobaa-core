@@ -1181,6 +1181,23 @@ mocha.describe('s3_bucket_policy', function() {
                 }
             }
         });
+
+        mocha.it('should not allow invalid json', async function() {
+            const self = this; // eslint-disable-line no-invalid-this
+            self.timeout(15000);
+            const s3_policy = "this is not a json";
+            try {
+                await s3_owner.putBucketPolicy({
+                    Bucket: BKT,
+                    Policy: s3_policy
+                });
+                assert.fail('Test was suppose to fail on ' + S3Error.MalformedPolicy.code);
+            } catch (err) {
+                if (err.Code !== S3Error.MalformedPolicy.code) {
+                    throw err;
+                }
+            }
+        });
     });
 
     mocha.describe('get-bucket-policy status should work', async function() {

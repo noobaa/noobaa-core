@@ -501,6 +501,14 @@ S3Error.MalformedPolicy = Object.freeze({
     http_code: 400,
     detail: '...', // will be overridden from rpc_data, see handle_error in s3_rest.js
 });
+
+S3Error.MalformedPolicyNotAJSON = Object.freeze({
+    code: 'MalformedPolicy',
+    message: 'The specified policy syntax is not valid.',
+    http_code: 400,
+    detail: '...', // will be overridden from rpc_data, see handle_error in s3_rest.js
+});
+
 S3Error.NoSuchObjectLockConfiguration = Object.freeze({
     code: 'NoSuchObjectLockConfiguration',
     message: 'The specified object does not have a ObjectLock configuration',

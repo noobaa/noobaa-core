@@ -29,6 +29,7 @@ async function put_bucket_policy(req) {
 module.exports = {
     handler: put_bucket_policy,
     body: {
+        invalid_error: S3Error.MalformedPolicyNotAJSON,
         type: 'json',
     },
     reply: {

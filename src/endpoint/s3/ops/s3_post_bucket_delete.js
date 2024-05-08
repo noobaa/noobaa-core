@@ -3,7 +3,6 @@
 
 const dbg = require('../../../util/debug_module')(__filename);
 const S3Error = require('../s3_errors').S3Error;
-const s3_utils = require('../s3_utils');
 
 /**
  * http://docs.aws.amazon.com/AmazonS3/latest/API/multiobjectdeleteapi.html
@@ -30,7 +29,7 @@ async function post_bucket_delete(req) {
     const uniq_map = new Map();
     for (const item of delete_list) {
         const key = item.Key?.[0];
-        const version_id = s3_utils.parse_version_id(item.VersionId?.[0]);
+        const version_id = item.VersionId?.[0];
         const key_version = (key || '') + '\0' + (version_id || ''); // using null char (\x00) as separator
         uniq_map.set(key_version, { key, version_id });
     }

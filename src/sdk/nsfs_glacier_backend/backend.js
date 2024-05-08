@@ -3,6 +3,7 @@
 
 const nb_native = require('../../util/nb_native');
 const s3_utils = require('../../endpoint/s3/s3_utils');
+const { round_up_to_next_time_of_day } = require('../../util/time_utils');
 const dbg = require('../../util/debug_module')(__filename);
 
 class GlacierBackend {
@@ -205,24 +206,23 @@ class GlacierBackend {
     /**
      * @param {Date} from
      * @param {Number} days - float
-     * @param {string} date - in format HH:MM:SS
+     * @param {string} desired_date_time - in format HH:MM:SS
      * @param {'UTC' | 'LOCAL'} tz 
      * @returns {Date}
      */
-    static generate_expiry(from, days, date, tz) {
+    static generate_expiry(from, days, desired_date_time, tz) {
         const expires_on = new Date(from);
+        expires_on.setTime(expires_on.getTime() + (days * 24 * 60 * 60 * 1000));
 
-        const days_dec = (days % 1);
-
-        let hours = Math.round(days_dec * 24);
-        let mins = 0;
-        let secs = 0;
-
-        const parsed = date.split(':');
+        const parsed = desired_date_time.split(':');
         if (parsed.length === 3) {
+            let hours = 0;
+            let mins = 0;
+            let secs = 0;
+
             const parsed_hrs = Number(parsed[0]);
             if (Number.isInteger(parsed_hrs) && parsed_hrs < 24) {
-                hours += parsed_hrs;
+                hours = parsed_hrs;
             }
 
             const parsed_mins = Number(parsed[1]);
@@ -234,14 +234,8 @@ class GlacierBackend {
             if (Number.isInteger(parsed_secs) && parsed_secs < 60) {
                 secs = parsed_secs;
             }
-        }
 
-        if (tz === 'UTC') {
-            expires_on.setUTCDate(expires_on.getUTCDate() + (days - days_dec));
-            expires_on.setUTCHours(hours, mins, secs, 0);
-        } else {
-            expires_on.setDate(expires_on.getDate() + (days - days_dec));
-            expires_on.setHours(hours, mins, secs, 0);
+            round_up_to_next_time_of_day(expires_on, hours, mins, secs, tz);
         }
 
         return expires_on;

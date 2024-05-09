@@ -24,60 +24,10 @@ on:
           - 'linux/ppc64le'
 
 jobs:
-  manual-rpm-build-and-upload-artifact:
-    runs-on: ubuntu-latest
-    timeout-minutes: 90
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.inputs.branch }}
-     
-      - name: Prepare Suffix
-        id: suffix
-        if: ${{ github.event.inputs.tag != '' }}
-        run: echo suffix="-${{ github.event.inputs.tag }}" >> $GITHUB_OUTPUT
-      
-      - name: Prepare CENTOS base image version
-        id: centos_ver
-        run: echo "centos_ver=${{ github.event.inputs.centos_ver }}" >> $GITHUB_OUTPUT
-
-      - name: Prepare linux architecture
-        id: architecture
-        run: |
-          if [ "${{ github.event.inputs.architecture }}" == "linux/amd64" ]; then
-            ARCH_SUFFIX="x86_64"
-            echo "architecture=${ARCH_SUFFIX}" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event.inputs.architecture }}" == "linux/ppc64le" ]; then
-            ARCH_SUFFIX="ppc64le"
-            echo "architecture=${ARCH_SUFFIX}" >> $GITHUB_OUTPUT
-            # enable cross-architecture builds 
-            docker run --privileged --rm tonistiigi/binfmt --install all
-          fi
-      
-      - name: Build RPM
-        id: build_rpm
-        run: |
-          echo "Starting make rpm"
-          make rpm CENTOS_VER=${{ steps.centos_ver.outputs.centos_ver }} CONTAINER_PLATFORM=${{ github.event.inputs.architecture }}
-          echo "Make rpm completed"
-
-      - name: Finalize RPM
-        id: finalize_full_rpm_path
-        run: |
-          DATE=$(date +'%Y%m%d')
-          VERSION=$(jq -r '.version' < ./package.json)
-          CENTOS_VER=${{ steps.centos_ver.outputs.centos_ver }}
-          ARCH=${{ steps.architecture.outputs.architecture }}
-          RPM_SUFFIX=el${CENTOS_VER}.${ARCH}.rpm
-          RPM_BASE_VERSION=noobaa-core-${VERSION}-${DATE}
-          RPM_FULL_PATH=${RPM_BASE_VERSION}-${{ github.event.inputs.branch }}${{ steps.suffix.outputs.suffix }}.${RPM_SUFFIX}
-          echo "rpm_full_path=${RPM_FULL_PATH}"
-          cp ./build/rpm/${RPM_BASE_VERSION}.${RPM_SUFFIX} ${RPM_FULL_PATH}
-          echo "rpm_full_path=${RPM_FULL_PATH}" >> $GITHUB_OUTPUT
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v1.0.0
-        with:
-          name: noobaa_rpm
-          path: ${{ steps.finalize_full_rpm_path.outputs.rpm_full_path }}
+  call-rpm-build:
+    uses: ./.github/workflows/rpm-build-base.yaml
+    with:
+      branch: ${{ github.event.inputs.branch }}
+      centos_ver: ${{ github.event.inputs.centos_ver }}
+      tag: ${{ github.event.inputs.tag }}
+      architecture: ${{ github.event.inputs.architecture }} 

@@ -166,7 +166,7 @@ class NCMasterKeysManager {
         const active_master_key_id = new_master_key.id;
         const master_keys_by_id = { ...this.master_keys_by_id, [active_master_key_id]: new_master_key };
         return JSON.stringify({
-            timestemp: Date.now(),
+            timestamp: Date.now(),
             [ACTIVE_MASTER_KEY]: active_master_key_id,
             master_keys_by_id
         });

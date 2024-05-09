@@ -248,19 +248,16 @@ class MDStore {
     async remove_objects_and_unset_latest(objs) {
         if (!objs || !objs.length) return;
 
-        await this._objects.updateMany(
-            {
-                _id: {
-                    $in: objs.map(obj => obj._id),
-                }
-            },
-            {
-                $set: {
-                    deleted: new Date(),
-                    version_past: true,
-                },
+        await this._objects.updateMany({
+            _id: {
+                $in: objs.map(obj => obj._id),
             }
-        );
+        }, {
+            $set: {
+                deleted: new Date(),
+                version_past: true,
+            },
+        });
     }
 
     // 2, 3, 4
@@ -702,10 +699,13 @@ class MDStore {
         if (!key_marker.startsWith(prefix)) {
             throw new Error(`BAD KEY MARKER ${key_marker} FOR PREFIX ${prefix}`);
         }
-        const key_query = { $gt: key_marker };
 
         // filter keys starting with prefix
-        let regexp_text = '^' + _.escapeRegExp(prefix);
+        // let regexp_text = '^' + _.escapeRegExp(prefix);
+
+
+
+        const key_query = {};
 
         // Optimization:
         // when using delimiter and key_marker ends with delimiter,
@@ -716,11 +716,14 @@ class MDStore {
         // since common prefixes are never assumed to have a secondary marker.
         const key_marker_suffix = key_marker.slice(prefix.length);
         if (delimiter && key_marker_suffix.endsWith(delimiter)) {
-            regexp_text += '(?!' + _.escapeRegExp(key_marker_suffix) + ')';
+            // regexp_text += '(?!' + _.escapeRegExp(key_marker_suffix) + ')';
+            key_query.$gte = key_marker.slice(0, -1) + String.fromCharCode(key_marker.charCodeAt(key_marker.length - 1) + 1);
+        } else {
+            key_query.$gt = key_marker;
         }
-        if (regexp_text !== '^') {
-            key_query.$regex = new RegExp(regexp_text);
-        }
+        // if (regexp_text !== '^') {
+        //     key_query.$regex = new RegExp(regexp_text);
+        // }
 
         if (upload_started_marker) {
             return {
@@ -1387,14 +1390,14 @@ class MDStore {
         }
 
         return this._chunks
-          .find(selectors, {
-            projection: { _id: 1 },
-            hint: "tiering_index",
-            sort,
-            limit,
-          })
+            .find(selectors, {
+                projection: { _id: 1 },
+                hint: "tiering_index",
+                sort,
+                limit,
+            })
 
-          .then(chunks => db_client.instance().uniq_ids(chunks, "_id"));
+            .then(chunks => db_client.instance().uniq_ids(chunks, "_id"));
     }
 
 

@@ -36,6 +36,7 @@ COPY ./binding.gyp .
 COPY ./src/deploy/standalone/noobaa_rsyslog.conf ./src/deploy/standalone/noobaa_rsyslog.conf
 COPY ./src/deploy/standalone/noobaa_syslog.conf ./src/deploy/standalone/noobaa_syslog.conf
 COPY ./src/deploy/standalone/logrotate_noobaa.conf ./src/deploy/standalone/logrotate_noobaa.conf
+COPY ./src/deploy/standalone/logrotate_noobaa.sh ./src/deploy/standalone/logrotate_noobaa.sh
 COPY ./src/manage_nsfs ./src/manage_nsfs
 
 WORKDIR /build

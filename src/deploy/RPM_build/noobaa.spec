@@ -89,6 +89,7 @@ mv $RPM_BUILD_ROOT/usr/local/noobaa-core/src/deploy/standalone/noobaa_syslog.con
 
 mkdir -p $RPM_BUILD_ROOT/etc/logrotate.d/noobaa
 ln -s /usr/local/noobaa-core/src/deploy/standalone/logrotate_noobaa.conf $RPM_BUILD_ROOT/etc/logrotate.d/noobaa/logrotate_noobaa.conf
+chmod +x $RPM_BUILD_ROOT/usr/local/noobaa-core/src/deploy/standalone/logrotate_noobaa.sh
 
 %files
 /usr/local/noobaa-core

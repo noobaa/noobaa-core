@@ -1,5 +1,4 @@
 /* Copyright (C) 2016 NooBaa */
-/* eslint-disable no-undef */
 'use strict';
 
 // disabling init_rand_seed as it takes longer than the actual test execution

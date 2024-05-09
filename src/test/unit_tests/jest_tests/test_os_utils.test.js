@@ -1,5 +1,4 @@
 /* Copyright (C) 2016 NooBaa */
-/* eslint-disable no-undef */
 'use strict';
 
 const child_process = require('child_process');

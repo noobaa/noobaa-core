@@ -1,5 +1,4 @@
 /* Copyright (C) 2016 NooBaa */
-/* eslint-disable no-undef */
 'use strict';
 
 const s3_utils = require('../../../endpoint/s3/s3_utils');

@@ -1,5 +1,4 @@
 /* Copyright (C) 2024 NooBaa */
-/* eslint-disable no-undef */
 
 'use strict';
 
@@ -149,4 +148,11 @@ async function read_master_keys_json() {
     const { data } = await nb_native().fs.readFile(DEFAULT_FS_CONFIG, MASTER_KEYS_JSON_PATH);
     const master_keys = JSON.parse(data.toString());
     return master_keys;
+}
+
+// Jest has builtin function fail that based on Jasmine
+// in case Jasmine would get removed from jest, created this one
+// based on this: https://stackoverflow.com/a/55526098/16571658
+function fail(reason) {
+    throw new Error(reason);
 }

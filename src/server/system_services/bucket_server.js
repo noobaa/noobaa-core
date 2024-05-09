@@ -985,7 +985,10 @@ async function list_buckets(req) {
     );
     return {
         buckets: _.map(buckets_by_name, function(bucket) {
-            return _.pick(bucket, 'name');
+            return {
+                name: bucket.name,
+                creation_date: bucket._id.getTimestamp().getTime()
+            };
         })
     };
 }

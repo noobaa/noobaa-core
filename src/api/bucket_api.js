@@ -399,6 +399,9 @@ module.exports = {
                             required: ['name'],
                             properties: {
                                 name: { $ref: 'common_api#/definitions/bucket_name' },
+                                creation_date: {
+                                    idate: true
+                                },
                             }
                         }
                     }

@@ -64,7 +64,7 @@ class NamespaceGCP {
                 private_key: this.private_key,
             }
         });
-        /* An S3 client is needed for multipart upload since GCP only supports multipart i[;pads] via the S3-compatible XML API
+        /* An S3 client is needed for multipart upload since GCP only supports multipart uploads via the S3-compatible XML API
         *  https://cloud.google.com/storage/docs/multipart-uploads
         *  This is also the reason an HMAC key is generated as part of `add_external_connection` - since the standard GCP credentials
         *  cannot be used in conjunction with the S3 client.

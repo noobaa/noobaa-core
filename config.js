@@ -755,6 +755,11 @@ config.NSFS_GLACIER_BACKEND = 'TAPECLOUD';
 // TAPECLOUD Glacier backend specific configs
 config.NSFS_GLACIER_TAPECLOUD_BIN_DIR = '/opt/ibm/tapecloud/bin';
 
+// If set to true will disable cleanup of the task show output
+// Should be used only for debugging or else will keep filling
+// up the disk space.
+config.NSFS_GLACIER_TAPECLOUD_PRESERVE_TASK_SHOW_OUTPUT = false;
+
 // NSFS_GLACIER_MIGRATE_INTERVAL indicates the interval between runs
 // of `manage_nsfs glacier migrate`
 config.NSFS_GLACIER_MIGRATE_INTERVAL = 15 * 60 * 1000;

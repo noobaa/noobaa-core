@@ -1,7 +1,7 @@
 /* Copyright (C) 2024 NooBaa */
 'use strict';
 
-const fs = require('fs');
+const { promises: fs } = require('fs');
 const util = require('util');
 const path = require('path');
 const mocha = require('mocha');
@@ -14,11 +14,11 @@ const s3_utils = require('../../endpoint/s3/s3_utils');
 const buffer_utils = require('../../util/buffer_utils');
 const endpoint_stats_collector = require('../../sdk/endpoint_stats_collector');
 const { NewlineReader } = require('../../util/file_reader');
-const { TapeCloudGlacierBackend } = require('../../sdk/nsfs_glacier_backend/tapecloud');
+const { TapeCloudGlacierBackend, TapeCloudUtils } = require('../../sdk/nsfs_glacier_backend/tapecloud');
 const { PersistentLogger } = require('../../util/persistent_logger');
 const { GlacierBackend } = require('../../sdk/nsfs_glacier_backend/backend');
+const nb_native = require('../../util/nb_native');
 
-const mkdtemp = util.promisify(fs.mkdtemp);
 const inspect = (x, max_arr = 5) => util.inspect(x, { colors: true, depth: null, maxArrayLength: max_arr });
 
 function make_dummy_object_sdk() {
@@ -58,7 +58,7 @@ mocha.describe('nsfs_glacier', async () => {
 	glacier_ns._is_storage_class_supported = async () => true;
 
 	mocha.before(async () => {
-		config.NSFS_GLACIER_LOGS_DIR = await mkdtemp(path.join(os.tmpdir(), 'nsfs-wal-'));
+		config.NSFS_GLACIER_LOGS_DIR = await fs.mkdtemp(path.join(os.tmpdir(), 'nsfs-wal-'));
 
 		// Replace the logger by custom one
 
@@ -90,8 +90,8 @@ mocha.describe('nsfs_glacier', async () => {
 		const backend = new TapeCloudGlacierBackend();
 
 		// Patch backend for test
-		backend._migrate = async () => { /**noop */ };
-		backend._recall = async () => { /**noop */ };
+		backend._migrate = async () => true;
+		backend._recall = async () => true;
 		backend._process_expired = async () => { /**noop*/ };
 
 		mocha.it('upload to GLACIER should work', async () => {
@@ -168,6 +168,87 @@ mocha.describe('nsfs_glacier', async () => {
 			assert(now <= md.restore_status.expiry_time.getTime());
 		});
 
+        mocha.it('restore-object should not restore failed item', async () => {
+            const now = Date.now();
+            const data = crypto.randomBytes(100);
+            const failed_restore_key = `${restore_key}_failured`;
+            const success_restore_key = `${restore_key}_success`;
+
+            const failed_params = {
+                bucket: upload_bkt,
+                key: failed_restore_key,
+                storage_class: s3_utils.STORAGE_CLASS_GLACIER,
+                xattr,
+                days: 1,
+                source_stream: buffer_utils.buffer_to_read_stream(data)
+            };
+
+            const success_params = {
+                bucket: upload_bkt,
+                key: success_restore_key,
+                storage_class: s3_utils.STORAGE_CLASS_GLACIER,
+                xattr,
+                days: 1,
+                source_stream: buffer_utils.buffer_to_read_stream(data)
+            };
+
+            const failed_file_path = glacier_ns._get_file_path(failed_params);
+            const success_file_path = glacier_ns._get_file_path(success_params);
+
+            const failure_backend = new TapeCloudGlacierBackend();
+            failure_backend._migrate = async () => true;
+            failure_backend._process_expired = async () => { /**noop*/ };
+            failure_backend._recall = async (_file, failure_recorder, success_recorder) => {
+                // This unintentionally also replicates duplicate entries in WAL
+                await failure_recorder(failed_file_path);
+
+                // This unintentionally also replicates duplicate entries in WAL
+                await success_recorder(success_file_path);
+
+                return false;
+            };
+
+            const upload_res_1 = await glacier_ns.upload_object(failed_params, dummy_object_sdk);
+            console.log('upload_object response', inspect(upload_res_1));
+
+            const upload_res_2 = await glacier_ns.upload_object(success_params, dummy_object_sdk);
+            console.log('upload_object response', inspect(upload_res_2));
+
+            const restore_res_1 = await glacier_ns.restore_object(failed_params, dummy_object_sdk);
+            assert(restore_res_1);
+
+            const restore_res_2 = await glacier_ns.restore_object(success_params, dummy_object_sdk);
+            assert(restore_res_2);
+
+            const fs_context = glacier_ns.prepare_fs_context(dummy_object_sdk);
+
+            // Issue restore
+            await NamespaceFS.restore_wal._process(async file => {
+                await failure_backend.restore(fs_context, file, async () => { /*noop*/ });
+
+                // Don't delete the file
+                return false;
+            });
+
+            // Ensure success object is restored
+            const success_md = await glacier_ns.read_object_md(success_params, dummy_object_sdk);
+
+            assert(!success_md.restore_status.ongoing);
+
+            const expected_expiry = GlacierBackend.generate_expiry(new Date(), success_params.days, '', config.NSFS_GLACIER_EXPIRY_TZ);
+            assert(expected_expiry.getTime() >= success_md.restore_status.expiry_time.getTime());
+            assert(now <= success_md.restore_status.expiry_time.getTime());
+
+            // Ensure failed object is NOT restored
+            const failure_stats = await nb_native().fs.stat(
+                fs_context,
+                failed_file_path,
+            );
+
+            assert(!failure_stats.xattr[GlacierBackend.XATTR_RESTORE_EXPIRY] || failure_stats.xattr[GlacierBackend.XATTR_RESTORE_EXPIRY] === '');
+            assert(failure_stats.xattr[GlacierBackend.XATTR_RESTORE_REQUEST]);
+        });
+
         mocha.it('generate_expiry should round up the expiry', () => {
             const now = new Date();
             const midnight = new Date();
@@ -227,4 +308,83 @@ mocha.describe('nsfs_glacier', async () => {
             assert(exp6.getUTCSeconds() === 0);
         });
 	});
+
+    mocha.describe('tapecloud_utils', () => {
+        const MOCK_TASK_SHOW_DATA = `Random irrelevant data to 
+Result    Failure Code  Failed time               Node -- File name
+Fail      GLESM451W     2023/11/08T02:38:47          1 -- /ibm/gpfs/NoobaaTest/file.aaai
+Fail      GLESM451W     2023/11/08T02:38:47          1 -- /ibm/gpfs/NoobaaTest/file.aaaj
+Fail      GLESL401E     2023/11/08T02:38:44          1 -- /ibm/gpfs/NoobaaTest/noobaadata
+Success   -             -                            - -- /ibm/gpfs/NoobaaTest/testingdata/file.aaaa
+Success   -             -                            - -- /ibm/gpfs/NoobaaTest/testingdata/file.aaab
+Success   -             -                            - -- /ibm/gpfs/NoobaaTest/testingdata/file.aaaj`;
+
+        const MOCK_TASK_SHOW_SCRIPT = `#!/bin/bash
+cat <<EOF | tee
+${MOCK_TASK_SHOW_DATA}
+EOF`;
+
+        const init_tapedir_bin = config.NSFS_GLACIER_TAPECLOUD_BIN_DIR;
+        const tapecloud_bin_temp = path.join(os.tmpdir(), 'tapecloud-bin-dir-');
+
+        mocha.before(async () => {
+            config.NSFS_GLACIER_TAPECLOUD_BIN_DIR = await fs.mkdtemp(tapecloud_bin_temp);
+
+            await fs.writeFile(
+                path.join(config.NSFS_GLACIER_TAPECLOUD_BIN_DIR, TapeCloudUtils.TASK_SHOW_SCRIPT),
+                MOCK_TASK_SHOW_SCRIPT,
+            );
+
+            await fs.chmod(path.join(config.NSFS_GLACIER_TAPECLOUD_BIN_DIR, TapeCloudUtils.TASK_SHOW_SCRIPT), 0o777);
+        });
+
+        mocha.it('record_task_status', async () => {
+            const expected_failed_records = [
+                '/ibm/gpfs/NoobaaTest/file.aaai',
+                '/ibm/gpfs/NoobaaTest/file.aaaj',
+                '/ibm/gpfs/NoobaaTest/noobaadata',
+            ];
+            const expected_success_records = [
+                '/ibm/gpfs/NoobaaTest/testingdata/file.aaaa',
+                '/ibm/gpfs/NoobaaTest/testingdata/file.aaab',
+                '/ibm/gpfs/NoobaaTest/testingdata/file.aaaj',
+            ];
+
+            const failed_records = [];
+            const success_records = [];
+
+            await TapeCloudUtils.record_task_status(
+                0,
+                async record => {
+                    failed_records.push(record);
+                },
+                async record => {
+                    success_records.push(record);
+                },
+            );
+
+            assert.deepStrictEqual(failed_records, expected_failed_records);
+            assert.deepStrictEqual(success_records, expected_success_records);
+
+            // Clear out the arrays
+            failed_records.length = 0;
+            success_records.length = 0;
+
+            await TapeCloudUtils.record_task_status(
+                0,
+                async record => {
+                    failed_records.push(record);
+                }
+            );
+
+            assert.deepStrictEqual(failed_records, expected_failed_records);
+            assert.deepStrictEqual(success_records, []);
+        });
+
+        mocha.after(async () => {
+            config.NSFS_GLACIER_TAPECLOUD_BIN_DIR = init_tapedir_bin;
+
+            await fs.rm(tapecloud_bin_temp, { recursive: true, force: true });
+        });
+    });
 });

@@ -16,136 +16,177 @@ const dbg = require('../../util/debug_module')(__filename);
 
 const ERROR_DUPLICATE_TASK = "GLESM431E";
 
-const MIGRATE_SCRIPT = 'migrate';
-const RECALL_SCRIPT = 'recall';
-const TASK_SHOW_SCRIPT = 'task_show';
-const PROCESS_EXPIRED_SCRIPT = 'process_expired';
-const LOW_FREE_SPACE_SCRIPT = 'low_free_space';
 
 function get_bin_path(bin_name) {
     return path.join(config.NSFS_GLACIER_TAPECLOUD_BIN_DIR, bin_name);
 }
 
-/**
- * @param {*} task_id 
- * @param {(entry: string) => Promise<void>} recorder 
- */
-async function record_failed_tasks(task_id, recorder) {
-    const fs_context = get_process_fs_context();
-    const tmp = path.join(os.tmpdir(), `eeadm_task_out_${Date.now()}`);
+class TapeCloudUtils {
+    static MIGRATE_SCRIPT = 'migrate';
+    static RECALL_SCRIPT = 'recall';
+    static TASK_SHOW_SCRIPT = 'task_show';
+    static PROCESS_EXPIRED_SCRIPT = 'process_expired';
+    static LOW_FREE_SPACE_SCRIPT = 'low_free_space';
 
-    let temp_fh = null;
-    let reader = null;
-    try {
-        temp_fh = await nb_native().fs.open(fs_context, tmp, 'rw');
+    /**
+     * @param {*} task_id
+     * @param {(entry: string) => Promise<void>} failure_recorder
+     * @param {(entry: string) => Promise<void>} [success_recorder]
+    */
+    static async record_task_status(task_id, failure_recorder, success_recorder) {
+        const fs_context = get_process_fs_context();
+        const tmp = path.join(os.tmpdir(), `eeadm_task_out_${Date.now()}`);
 
-        const proc = spawn(get_bin_path(TASK_SHOW_SCRIPT), [task_id], {
-            stdio: ['pipe', temp_fh.fd, temp_fh.fd],
-        });
+        let temp_fh = null;
+        let reader = null;
+        try {
+            temp_fh = await nb_native().fs.open(fs_context, tmp, 'rw');
 
-        const [errcode] = await events.once(proc, 'exit');
-        if (errcode) {
-            throw new Error('process exited with non-zero exit code:', errcode);
+            const proc = spawn(get_bin_path(TapeCloudUtils.TASK_SHOW_SCRIPT), [task_id], {
+                stdio: ['pipe', temp_fh.fd, temp_fh.fd],
+            });
+
+            const [errcode] = await events.once(proc, 'exit');
+            if (errcode) {
+                throw new Error('process exited with non-zero exit code:', errcode);
+            }
+
+            reader = new NewlineReader(fs_context, tmp);
+            await reader.forEach(async line => {
+                const failure_case = line.startsWith("Fail");
+                const success_case = line.startsWith("Success");
+
+                if (!failure_case && !success_case) return;
+
+                // Success recorder is optional - early exit
+                // if we don't have a recorder to record success
+                if (success_case && !success_recorder) return;
+
+                // (refer tapecloud [eeadm] manual)
+                const [metadata, filename] = line.split(' -- ');
+
+                if (!filename) {
+                    dbg.error('invalid task show output - ', 'line:', line);
+                    return;
+                }
+
+                const parsed_meta = metadata.split(/\s+/);
+                if (parsed_meta.length !== 4) {
+                    dbg.error('failed to parse "task show" output -', 'line:', line);
+                    return;
+                }
+
+                if (failure_case) {
+                    const failure_code = parsed_meta[1];
+                    if (failure_code !== ERROR_DUPLICATE_TASK) {
+                        dbg.warn('failed to migrate', filename, 'will record in failure/retry log');
+                        await failure_recorder(filename);
+                    }
+                }
+
+                if (success_case) {
+                    await success_recorder(filename);
+                }
+
+                return true;
+            });
+        } finally {
+            if (temp_fh) {
+                await temp_fh.close(fs_context);
+
+                // Preserve the tmp file
+                if (config.NSFS_GLACIER_TAPECLOUD_PRESERVE_TASK_SHOW_OUTPUT) {
+                    dbg.log0("preserved TASK_SHOW_SCRIPT output at - " + tmp);
+                } else {
+                    await nb_native().fs.unlink(fs_context, tmp);
+                }
+            }
+
+            if (reader) {
+                await reader.close();
+            }
+        }
+    }
+
+    /**
+     * tapecloud_failure_handler takes the error and runs task_show on the task
+     * ID to identify the failed entries and record them to the recorder
+     * @param {*} error
+     * @param {(entry: string) => Promise<void>} failure_recorder
+     * @param {(entry: string) => Promise<void>} [success_recorder]
+     */
+    static async tapecloud_failure_handler(error, failure_recorder, success_recorder) {
+        const { stdout } = error;
+
+        // Find the line in the stdout which has the line 'task ID is, <id>' and extract id
+        const match = stdout.match(/task ID is (\d+)/);
+        if (match.length !== 2) {
+            throw error;
         }
 
-        reader = new NewlineReader(fs_context, tmp);
-        await reader.forEach(async line => {
-            if (!line.startsWith("Fail")) return;
+        const task_id = match[1];
 
-            const parsed = line.split(/\s+/);
-            if (parsed.length !== 6) {
-                throw new Error('failed to parse task show');
-            }
+        // Fetch task status and see what failed
+        await TapeCloudUtils.record_task_status(task_id, failure_recorder, success_recorder);
+    }
 
-            if (parsed[1] !== ERROR_DUPLICATE_TASK) {
-                // Column 5 is the filename (refer tapecloud [eeadm] manual)
-                await recorder(parsed[5]);
-            }
-
+    /**
+     * migrate takes name of a file which contains the list
+     * of the files to be migrated to tape.
+     *
+     * The file should be in the following format: <filename>
+     *
+     * The function returns the names of the files which failed
+     * to migrate.
+     * @param {string} file filename
+     * @param {(entry: string) => Promise<void>} failure_recorder
+     * @returns {Promise<boolean>} Indicates success if true
+     */
+    static async migrate(file, failure_recorder) {
+        try {
+            dbg.log1("Starting migration for file", file);
+            const out = await exec(`${get_bin_path(TapeCloudUtils.MIGRATE_SCRIPT)} ${file}`, { return_stdout: true });
+            dbg.log4("migrate finished with:", out);
+            dbg.log1("Finished migration for file", file);
             return true;
-        });
-    } finally {
-        if (temp_fh) {
-            await temp_fh.close(fs_context);
-            await nb_native().fs.unlink(fs_context, tmp);
-        }
-
-        if (reader) {
-            await reader.close();
+        } catch (error) {
+            await TapeCloudUtils.tapecloud_failure_handler(error, failure_recorder);
+            return false;
         }
     }
-}
 
-/**
- * tapecloud_failure_handler takes the error and runs task_show on the task
- * ID to identify the failed entries and record them to the recorder
- * @param {*} error 
- * @param {(entry: string) => Promise<void>} recorder 
- */
-async function tapecloud_failure_handler(error, recorder) {
-    const { stdout } = error;
-
-    // Find the line in the stdout which has the line 'task ID is, <id>' and extract id
-    const match = stdout.match(/task ID is (\d+)/);
-    if (match.length !== 2) {
-        throw error;
+    /**
+     * recall takes name of a file which contains the list
+     * of the files to be recall to tape.
+     *
+     * The file should be in the following format: <filename>
+     *
+     * The function returns the names of the files which failed
+     * to recall.
+     * @param {string} file filename
+     * @param {(entry: string) => Promise<void>} failure_recorder
+     * @param {(entry: string) => Promise<void>} success_recorder
+     * @returns {Promise<boolean>} Indicates success if true
+     */
+    static async recall(file, failure_recorder, success_recorder) {
+        try {
+            dbg.log1("Starting recall for file", file);
+            const out = await exec(`${get_bin_path(TapeCloudUtils.RECALL_SCRIPT)} ${file}`, { return_stdout: true });
+            dbg.log4("recall finished with:", out);
+            dbg.log1("Finished recall for file", file);
+            return true;
+        } catch (error) {
+            await TapeCloudUtils.tapecloud_failure_handler(error, failure_recorder, success_recorder);
+            return false;
+        }
     }
 
-    const task_id = match[1];
-
-    // Fetch task status and see what failed
-    await record_failed_tasks(task_id, recorder);
-}
-
-/**
- * migrate takes name of a file which contains the list
- * of the files to be migrated to tape.
- * 
- * The file should be in the following format: <filename>
- * 
- * The function returns the names of the files which failed
- * to migrate.
- * @param {string} file filename
- * @param {(entry: string) => Promise<void>} recorder 
- */
-async function migrate(file, recorder) {
-    try {
-        dbg.log1("Starting migration for file", file);
-        const out = await exec(`${get_bin_path(MIGRATE_SCRIPT)} ${file}`, { return_stdout: true });
-        dbg.log4("migrate finished with:", out);
-        dbg.log1("Finished migration for file", file);
-    } catch (error) {
-        await tapecloud_failure_handler(error, recorder);
+    static async process_expired() {
+        dbg.log1("Starting process_expired");
+        const out = await exec(`${get_bin_path(TapeCloudUtils.PROCESS_EXPIRED_SCRIPT)}`, { return_stdout: true });
+        dbg.log4("process_expired finished with:", out);
+        dbg.log1("Finished process_expired");
     }
-}
-
-/**
- * recall takes name of a file which contains the list
- * of the files to be recall to tape.
- * 
- * The file should be in the following format: <filename>
- * 
- * The function returns the names of the files which failed
- * to recall.
- * @param {string} file filename
- * @param {(entry: string) => Promise<void>} recorder 
- */
-async function recall(file, recorder) {
-    try {
-        dbg.log1("Starting recall for file", file);
-        const out = await exec(`${get_bin_path(RECALL_SCRIPT)} ${file}`, { return_stdout: true });
-        dbg.log4("recall finished with:", out);
-        dbg.log1("Finished recall for file", file);
-    } catch (error) {
-        await tapecloud_failure_handler(error, recorder);
-    }
-}
-
-async function process_expired() {
-    dbg.log1("Starting process_expired");
-    const out = await exec(`${get_bin_path(PROCESS_EXPIRED_SCRIPT)}`, { return_stdout: true });
-    dbg.log4("process_expired finished with:", out);
-    dbg.log1("Finished process_expired");
 }
 
 class TapeCloudGlacierBackend extends GlacierBackend {
@@ -228,38 +269,27 @@ class TapeCloudGlacierBackend extends GlacierBackend {
                 }
             },
             async batch => {
-                await this._recall(batch, failure_recorder);
-
-                const batch_file = new LogFile(fs_context, batch);
-                await batch_file.collect_and_process(async (entry_path, batch_recorder) => {
-                    const entry = new NewlineReaderEntry(fs_context, entry_path);
-                    let fh = null;
-                    try {
-                        fh = await entry.open();
-
-                        const stat = await fh.stat(fs_context, {
-                            xattr_get_keys: [
-                                GlacierBackend.XATTR_RESTORE_REQUEST,
-                            ]
-                        });
-
-                        const days = Number(stat.xattr[GlacierBackend.XATTR_RESTORE_REQUEST]);
-                        const expires_on = GlacierBackend.generate_expiry(
-                            new Date(),
-                            days,
-                            config.NSFS_GLACIER_EXPIRY_TIME_OF_DAY,
-                            config.NSFS_GLACIER_EXPIRY_TZ,
-                        );
-
-                        await fh.replacexattr(fs_context, {
-                            [GlacierBackend.XATTR_RESTORE_EXPIRY]: expires_on.toISOString(),
-                        }, GlacierBackend.XATTR_RESTORE_REQUEST);
-                    } catch (error) {
-                        dbg.error(`failed to process ${entry.path}`, error);
-                    } finally {
-                        if (fh) await fh.close(fs_context);
+                const success = await this._recall(
+                    batch,
+                    async entry_path => {
+                        dbg.log2('TapeCloudGlacierBackend.restore.partial_failure - entry:', entry_path);
+                        await failure_recorder(entry_path);
+                    },
+                    async entry_path => {
+                        dbg.log2('TapeCloudGlacierBackend.restore.partial_success - entry:', entry_path);
+                        await this._finalize_restore(fs_context, entry_path);
                     }
-                });
+                );
+
+                // We will iterate through the entire log file iff and we get a success message from
+                // the recall call.
+                if (success) {
+                    const batch_file = new LogFile(fs_context, batch);
+                    await batch_file.collect_and_process(async (entry_path, batch_recorder) => {
+                        dbg.log2('TapeCloudGlacierBackend.restore.batch - entry:', entry_path);
+                        await this._finalize_restore(fs_context, entry_path);
+                    });
+                }
             });
             return true;
         } catch (error) {
@@ -277,7 +307,7 @@ class TapeCloudGlacierBackend extends GlacierBackend {
     }
 
     async low_free_space() {
-        const result = await exec(get_bin_path(LOW_FREE_SPACE_SCRIPT), { return_stdout: true });
+        const result = await exec(get_bin_path(TapeCloudUtils.LOW_FREE_SPACE_SCRIPT), { return_stdout: true });
         return result.toLowerCase().trim() === 'true';
     }
 
@@ -285,34 +315,94 @@ class TapeCloudGlacierBackend extends GlacierBackend {
 
     /**
      * _migrate should perform migration
-     * 
+     *
      * NOTE: Must be overwritten for tests
-     * @param {string} file 
-     * @param {(entry: string) => Promise<void>} recorder 
+     * @param {string} file
+     * @param {(entry: string) => Promise<void>} recorder
+	 * @returns {Promise<boolean>}
      */
     async _migrate(file, recorder) {
-        return migrate(file, recorder);
+        return TapeCloudUtils.migrate(file, recorder);
     }
 
     /**
      * _recall should perform recall
-     * 
+     *
      * NOTE: Must be overwritten for tests
-     * @param {string} file 
-     * @param {(entry: string) => Promise<void>} recorder 
+     * @param {string} file
+     * @param {(entry: string) => Promise<void>} failure_recorder
+     * @param {(entry: string) => Promise<void>} success_recorder
+	 * @returns {Promise<boolean>}
      */
-    async _recall(file, recorder) {
-        return recall(file, recorder);
+    async _recall(file, failure_recorder, success_recorder) {
+        return TapeCloudUtils.recall(file, failure_recorder, success_recorder);
     }
 
     /**
      * _process_expired should process expired objects
-     * 
+     *
      * NOTE: Must be overwritten for tests
      */
     async _process_expired() {
-        return process_expired();
+        return TapeCloudUtils.process_expired();
+    }
+
+    /**
+     * finalizes the restore by setting the required EAs
+     *
+     * @param {nb.NativeFSContext} fs_context
+     * @param {string} entry_path
+    */
+    async _finalize_restore(fs_context, entry_path) {
+        dbg.log2('TapeCloudGlacierBackend.restore._finalize_restore - entry:', entry_path);
+
+        const entry = new NewlineReaderEntry(fs_context, entry_path);
+        let fh = null;
+        try {
+            fh = await entry.open();
+
+            const stat = await fh.stat(fs_context, {
+                xattr_get_keys: [
+                    GlacierBackend.XATTR_RESTORE_REQUEST,
+                ]
+            });
+
+            const days = Number(stat.xattr[GlacierBackend.XATTR_RESTORE_REQUEST]);
+
+            // In case of invocation on the same file multiple times,
+            // this xattr will not be present hence `days` will be NaN
+            if (isNaN(days)) {
+                dbg.warn("TapeCloudGlacierBackend._finalize_restore: days is NaN - skipping restore for", entry_path);
+                return;
+            }
+
+            const expires_on = GlacierBackend.generate_expiry(
+                new Date(),
+                days,
+                config.NSFS_GLACIER_EXPIRY_TIME_OF_DAY,
+                config.NSFS_GLACIER_EXPIRY_TZ,
+            );
+
+            // First set the expiry so that we don't lose the number of days in
+            // case of a partial failure. `replacexattr` first clears the xattrs
+            // and then proceeds to set the xattr which makes it highly prone to
+            // partial failure such that we lose the attribute forever and
+            // consequently never really process the restore request (until it
+            // is submitted again).
+
+            await fh.replacexattr(fs_context, {
+                [GlacierBackend.XATTR_RESTORE_EXPIRY]: expires_on.toISOString(),
+            });
+
+            await fh.replacexattr(fs_context, undefined, GlacierBackend.XATTR_RESTORE_REQUEST);
+        } catch (error) {
+            dbg.error(`failed to process ${entry.path}`, error);
+            throw error;
+        } finally {
+            if (fh) await fh.close(fs_context);
+        }
     }
 }
 
 exports.TapeCloudGlacierBackend = TapeCloudGlacierBackend;
+exports.TapeCloudUtils = TapeCloudUtils;

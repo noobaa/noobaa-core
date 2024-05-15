@@ -1,5 +1,4 @@
 /* Copyright (C) 2024 NooBaa */
-/* eslint-disable no-undef */
 
 'use strict';
 

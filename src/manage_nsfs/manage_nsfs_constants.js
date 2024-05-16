@@ -6,6 +6,7 @@ const TYPES = {
     BUCKET: 'bucket',
     IP_WHITELIST: 'whitelist',
     GLACIER: 'glacier',
+    HEALTH: 'health'
 };
 
 const ACTIONS = {
@@ -62,6 +63,8 @@ const VALID_OPTIONS_GLACIER = {
     'expiry': new Set([ GLOBAL_CONFIG_ROOT]),
 };
 
+const VALID_OPTIONS_HEALTH = new Set(['https_port', 'deployment_type', 'all_account_details', 'all_bucket_details', ...GLOBAL_CONFIG_OPTIONS]);
+
 const VALID_OPTIONS_WHITELIST = new Set(['ips', ...GLOBAL_CONFIG_OPTIONS]);
 
 const VALID_OPTIONS_FROM_FILE = new Set(['from_file', ...GLOBAL_CONFIG_OPTIONS]);
@@ -73,6 +76,7 @@ const VALID_OPTIONS = {
     whitelist_options: VALID_OPTIONS_WHITELIST,
     from_file_options: VALID_OPTIONS_FROM_FILE,
     anonymous_account_options: VALID_OPTIONS_ANONYMOUS_ACCOUNT,
+    health_options: VALID_OPTIONS_HEALTH
 };
 
 const OPTION_TYPE = {
@@ -98,10 +102,17 @@ const OPTION_TYPE = {
     show_secrets: 'boolean',
     ips: 'string',
     force: 'boolean',
-    anonymous: 'boolean'
+    anonymous: 'boolean',
+    // health options
+    deployment_type: 'string',
+    all_account_details: 'boolean',
+    all_bucket_details: 'boolean',
+    https_port: 'number'
 };
 
 const BOOLEAN_STRING_VALUES = ['true', 'false'];
+const BOOLEAN_STRING_OPTIONS = new Set(['allow_bucket_creation', 'regenerate', 'wide', 'show_secrets', 'force',
+    'force_md5_etag', 'all_account_details', 'all_bucket_details', 'anonymous']);
 
 //options that can be unset using ''
 const LIST_UNSETABLE_OPTIONS = ['fs_backend', 's3_policy', 'force_md5_etag'];
@@ -118,6 +129,7 @@ exports.VALID_OPTIONS = VALID_OPTIONS;
 exports.OPTION_TYPE = OPTION_TYPE;
 exports.FROM_FILE = FROM_FILE;
 exports.BOOLEAN_STRING_VALUES = BOOLEAN_STRING_VALUES;
+exports.BOOLEAN_STRING_OPTIONS = BOOLEAN_STRING_OPTIONS;
 exports.LIST_UNSETABLE_OPTIONS = LIST_UNSETABLE_OPTIONS;
 
 exports.LIST_ACCOUNT_FILTERS = LIST_ACCOUNT_FILTERS;

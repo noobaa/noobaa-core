@@ -267,6 +267,35 @@ async function exec_manage_cli(type, action, options) {
 }
 
 /**
+ * exec_health_cli runs the health cli
+ * @param {object} options
+ * @returns {Promise<string>}
+ */
+async function exec_health_cli(options) {
+    let flags = ``;
+    for (const key in options) {
+        if (options[key] !== undefined) {
+            const value = options[key];
+            if (typeof options[key] === 'boolean') {
+                flags += `--${key} `;
+                continue;
+            }
+            flags += `--${key} ${value} `;
+        }
+    }
+    flags = flags.trim();
+
+    const command = `node src/cmd/health ${flags}`;
+    try {
+        const res = await os_utils.exec(command, { return_stdout: true });
+        return res;
+    } catch (err) {
+        console.error('test_utils.exec_health_cli error', err);
+        throw err;
+    }
+}
+
+/**
  * create_fs_user_by_platform creates a file system user by platform
  * @param {string} new_user
  * @param {string} new_password
@@ -368,6 +397,7 @@ exports.generate_s3_client = generate_s3_client;
 exports.invalid_nsfs_root_permissions = invalid_nsfs_root_permissions;
 exports.get_coretest_path = get_coretest_path;
 exports.exec_manage_cli = exec_manage_cli;
+exports.exec_health_cli = exec_health_cli;
 exports.create_fs_user_by_platform = create_fs_user_by_platform;
 exports.delete_fs_user_by_platform = delete_fs_user_by_platform;
 exports.set_path_permissions_and_owner = set_path_permissions_and_owner;

@@ -1057,7 +1057,9 @@ function load_nsfs_nc_config() {
             }
             config[key] = merged_config[key];
         });
-        console.warn(`nsfs: config_dir_path=${config.NSFS_NC_CONF_DIR} config.json= ${util.inspect(merged_config)}`);
+        console.warn(`nsfs: config_dir_path=${config.NSFS_NC_CONF_DIR}`);
+        console.warn(`nsfs: config.json= ${util.inspect(config_data)}`);
+        console.warn(`nsfs: merged config.json= ${util.inspect(merged_config)}`);
         validate_nc_master_keys_config(config);
     } catch (err) {
         if (err.code !== 'MODULE_NOT_FOUND' && err.code !== 'ENOENT') throw err;

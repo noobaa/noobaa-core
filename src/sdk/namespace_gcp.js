@@ -328,7 +328,7 @@ class NamespaceGCP {
 
     async create_object_upload(params, object_sdk) {
         dbg.log0('NamespaceGCP.create_object_upload:', this.bucket, inspect(params));
-        const Tagging = params.tagging && params.tagging.map(tag => tag.key + '=' + tag.value).join('&');
+        const tagging = params.tagging && params.tagging.map(tag => tag.key + '=' + tag.value).join('&');
 
         const res = await this.s3_client.send(
             new CreateMultipartUploadCommand({
@@ -337,7 +337,7 @@ class NamespaceGCP {
                 ContentType: params.content_type,
                 StorageClass: params.storage_class,
                 Metadata: params.xattr,
-                Tagging
+                Tagging: tagging
         }));
 
         dbg.log0('NamespaceGCP.create_object_upload:', this.bucket, inspect(params), 'res', inspect(res));
@@ -361,39 +361,41 @@ class NamespaceGCP {
                     CopySourceRange: copy_source_range,
             }));
             etag = s3_utils.parse_etag(res.CopyPartResult.ETag);
-        } else {
-            let count = 1;
-            const count_stream = stream_utils.get_tap_stream(data => {
-                this.stats?.update_namespace_write_stats({
-                    namespace_resource_id: this.namespace_resource_id,
-                    size: data.length,
-                    count
-                });
-                // clear count for next updates
-                count = 0;
-            });
-            try {
-                res = await this.s3_client.send(
-                    new UploadPartCommand({
-                        Bucket: this.bucket,
-                        Key: params.key,
-                        UploadId: params.obj_id,
-                        PartNumber: params.num,
-                        Body: params.source_stream.pipe(count_stream),
-                        ContentMD5: params.md5_b64,
-                        ContentLength: params.size,
-                }));
-            } catch (err) {
-                fix_error_object(err);
-                object_sdk.rpc_client.pool.update_issues_report({
-                    namespace_resource_id: this.namespace_resource_id,
-                    error_code: String(err.code),
-                    time: Date.now(),
-                });
-                throw err;
-            }
-            etag = s3_utils.parse_etag(res.ETag);
+            return { etag };
         }
+
+        let count = 1;
+        const count_stream = stream_utils.get_tap_stream(data => {
+            this.stats?.update_namespace_write_stats({
+                namespace_resource_id: this.namespace_resource_id,
+                size: data.length,
+                count
+            });
+            // clear count for next updates
+            count = 0;
+        });
+        try {
+            res = await this.s3_client.send(
+                new UploadPartCommand({
+                    Bucket: this.bucket,
+                    Key: params.key,
+                    UploadId: params.obj_id,
+                    PartNumber: params.num,
+                    Body: params.source_stream.pipe(count_stream),
+                    ContentMD5: params.md5_b64,
+                    ContentLength: params.size,
+            }));
+        } catch (err) {
+            fix_error_object(err);
+            object_sdk.rpc_client.pool.update_issues_report({
+                namespace_resource_id: this.namespace_resource_id,
+                error_code: String(err.code),
+                time: Date.now(),
+            });
+            throw err;
+        }
+        etag = s3_utils.parse_etag(res.ETag);
+
         dbg.log0('NamespaceGCP.upload_multipart:', this.bucket, inspect(params), 'res', inspect(res));
         return { etag };
     }

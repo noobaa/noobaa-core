@@ -899,11 +899,9 @@ class NamespaceFS {
 
             const isDir = native_fs_utils.isDirectory(stat);
             if (isDir) {
-                if (!stat.xattr?.[XATTR_DIR_CONTENT]) {
+                if (!stat.xattr?.[XATTR_DIR_CONTENT] || !params.key.endsWith('/')) {
                     throw error_utils.new_error_code('ENOENT', 'NoSuchKey');
-                } else if (stat.xattr?.[XATTR_DIR_CONTENT] === '0') {
-                    stat.size = 0;
-                } else {
+                } else if (stat.xattr?.[XATTR_DIR_CONTENT] !== '0') {
                     // find dir object content file path  and return its stat + xattr of its parent directory
                     const dir_content_path = await this._find_version_path(fs_context, params);
                     const dir_content_path_stat = await nb_native().fs.stat(fs_context, dir_content_path);
@@ -2288,19 +2286,19 @@ class NamespaceFS {
         const create_time = stat.mtime.getTime();
         const encryption = this._get_encryption_info(stat);
         const version_id = return_version_id && this._is_versioning_enabled() && this._get_version_id_by_xattr(stat);
-        const delete_marker = stat.xattr[XATTR_DELETE_MARKER] === 'true';
-        const dir_content_type = stat.xattr[XATTR_DIR_CONTENT] && ((Number(stat.xattr[XATTR_DIR_CONTENT]) > 0 && 'application/octet-stream') || 'application/x-directory');
-        const content_type = stat.xattr[XATTR_CONTENT_TYPE] ||
+        const delete_marker = stat.xattr?.[XATTR_DELETE_MARKER] === 'true';
+        const dir_content_type = stat.xattr?.[XATTR_DIR_CONTENT] && ((Number(stat.xattr?.[XATTR_DIR_CONTENT]) > 0 && 'application/octet-stream') || 'application/x-directory');
+        const content_type = stat.xattr?.[XATTR_CONTENT_TYPE] ||
             (isDir && dir_content_type) ||
             mime.getType(key) || 'application/octet-stream';
-
-        const storage_class = s3_utils.parse_storage_class(stat.xattr[XATTR_STORAGE_CLASS_KEY]);
+        const storage_class = s3_utils.parse_storage_class(stat.xattr?.[XATTR_STORAGE_CLASS_KEY]);
+        const size = Number(stat.xattr?.[XATTR_DIR_CONTENT] || stat.size);
 
         return {
             obj_id: etag,
             bucket,
             key,
-            size: stat.size,
+            size,
             etag,
             create_time,
             content_type,

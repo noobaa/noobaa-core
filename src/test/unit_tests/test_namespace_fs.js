@@ -612,6 +612,19 @@ mocha.describe('namespace_fs folders tests', function() {
             }));
         });
 
+        mocha.it(`read folder object md - key doesn't end with /`, async function() {
+            try {
+                await ns_tmp.read_object_md({
+                    bucket: upload_bkt,
+                    key: upload_key_1.slice(0, upload_key_1.length - 1),
+                }, dummy_object_sdk);
+                assert.fail('should have failed with ENOENT');
+            } catch (err) {
+                assert.equal(err.code, 'ENOENT');
+                assert.equal(err.rpc_code, 'NO_SUCH_OBJECT');
+            }
+        });
+
         mocha.it(`read folder object md full md`, async function() {
             const get_md_res = await ns_tmp.read_object_md({
                 bucket: upload_bkt,
@@ -720,6 +733,22 @@ mocha.describe('namespace_fs folders tests', function() {
             await fs_utils.file_must_not_exist(p);
         });
 
+
+        mocha.it(`read folder object > 0 content - should return size 100`, async function() {
+            const res = await ns_tmp.list_objects({
+                bucket: upload_bkt,
+                prefix: upload_key_1
+            }, dummy_object_sdk);
+            assert.equal(res.objects.find(obj => obj.key === upload_key_1).size, 100);
+        });
+
+        mocha.it(`read folder object = 0 content - should return size 0`, async function() {
+            const res = await ns_tmp.list_objects({
+                bucket: upload_bkt,
+                prefix: upload_key_3
+            }, dummy_object_sdk);
+            assert.equal(res.objects.find(obj => obj.key === upload_key_3).size, 0);
+        });
 
         mocha.it(`read folder object > 0 content - should return data`, async function() {
             const read_res = buffer_utils.write_stream();

@@ -9,6 +9,7 @@ const nsfs = {
     ],
     endpoint: [
         'core.endpoint.s3',
+        'core.endpoint.iam',
         'core.util.http_utils',
         'core.util.semaphore',
         'core.util.buffer_utils',

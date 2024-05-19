@@ -850,6 +850,32 @@ interface BucketSpace {
     put_object_lock_configuration(params: object, object_sdk: ObjectSDK): Promise<any>;
 }
 
+/**********************************************************
+ *
+ * ACCOUNTSPACE
+ *
+ **********************************************************/
+
+
+interface AccountSDK {
+    [key: string]: any;
+}
+
+interface AccountSpace {
+    // user (CRUD)
+    create_user(params: object, account_sdk: AccountSDK): Promise<any>;
+    get_user(params: object, account_sdk: AccountSDK): Promise<any>;
+    update_user(params: object, account_sdk: AccountSDK): Promise<any>;
+    delete_user(params: object, account_sdk: AccountSDK): Promise<any>;
+    list_users(params: object, account_sdk: AccountSDK): Promise<any>;
+    // access keys (CRUD)
+    create_access_key(params: object, account_sdk: AccountSDK): Promise<any>;
+    update_access_key(params: object, account_sdk: AccountSDK): Promise<any>;
+    get_access_key_last_used(params: object, account_sdk: AccountSDK): Promise<any>;
+    delete_access_key(params: object, account_sdk: AccountSDK): Promise<any>;
+    list_access_keys(params: object, account_sdk: AccountSDK): Promise<any>;
+}
+
 
 /**********************************************************
  *

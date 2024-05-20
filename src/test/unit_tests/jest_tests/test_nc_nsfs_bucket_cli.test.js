@@ -441,8 +441,8 @@ describe('cli create bucket using from_file', () => {
 });
 
 describe('cli update bucket', () => {
-    const config_root = path.join(tmp_fs_path, 'config_root_manage_nsfs3');
-    const root_path = path.join(tmp_fs_path, 'root_path_manage_nsfs3/');
+    const config_root = path.join(tmp_fs_path, 'config_root_manage_nsfs4');
+    const root_path = path.join(tmp_fs_path, 'root_path_manage_nsfs4/');
     const bucket_storage_path = path.join(tmp_fs_path, 'root_path_manage_nsfs3', 'bucket1');
     set_nc_config_dir_in_config(config_root);
 

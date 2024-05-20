@@ -36,12 +36,11 @@ schema_utils.strictify(account_schema, {
     additionalProperties: false
 });
 
+schema_utils.strictify(nsfs_config_schema, {});
+
 const validate_account = ajv.compile(account_schema);
 const validate_bucket = ajv.compile(bucket_schema);
 const validate_nsfs_config = ajv.compile(nsfs_config_schema);
-
-// NOTE - DO NOT strictify nsfs_config_schema
-// we might want to use it in the future for adding additional properties
 
 /**
  * validate_account_schema validates an account object against the NC NSFS account schema

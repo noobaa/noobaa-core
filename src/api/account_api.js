@@ -251,6 +251,22 @@ module.exports = {
             }
         },
 
+        update_account_keys: {
+            doc: 'Update account keys of the authorized account',
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: ['email', 'access_keys'],
+                properties: {
+                    email: { $ref: 'common_api#/definitions/email' },
+                    access_keys: { $ref: 'common_api#/definitions/access_keys' },
+                },
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
         verify_authorized_account: {
             doc: 'Verify authorized account password',
             method: 'PUT',

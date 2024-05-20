@@ -28,7 +28,6 @@ mocha.describe('manage_nsfs cli', function() {
     const config_root = path.join(tmp_fs_path, 'config_root_manage_nsfs');
     const root_path = path.join(tmp_fs_path, 'root_path_manage_nsfs/');
     set_nc_config_dir_in_config(config_root);
-    config.NSFS_NC_CONF_DIR = config_root;
     // TODO: needed for NC_CORETEST FLOW - should be handled better
     const nc_coretes_location = config.NC_MASTER_KEYS_FILE_LOCATION;
     mocha.before(async () => {

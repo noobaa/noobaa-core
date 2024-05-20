@@ -1,0 +1,10 @@
+name: Nightly RPM Build - Stage 5.15.4 Branch
+on: 
+  schedule:
+    - cron: '0 23 * * *'
+
+jobs:
+  call-stage-5-15-4-rpm-build-and-upload:
+    uses: ./.github/workflows/rpm-build-and-upload-flow.yaml
+    with:
+      branch: 'stage_5.15.4'

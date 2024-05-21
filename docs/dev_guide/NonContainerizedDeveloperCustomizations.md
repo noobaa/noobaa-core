@@ -422,6 +422,43 @@ Example:
 3. systemctl restart noobaa_nsfs
 ```
 
+## 24. Disable schema check -
+**Description -** This flag will disable configuration/account/bucket schema checks. Warning: After setting this configuration, NooBaa will skip schema validations and one can create invalid accounts/buckets entities or apply invalid configuration which may cause an unexpected behavior.    
+
+**Configuration Key -** NC_DISABLE_SCHEMA_CHECK
+
+**Type -** boolean
+
+**Default -**  false
+**Steps -**
+```
+1. Open /path/to/config_dir/config.json file.
+2. Set the config key -
+Example:
+"NC_DISABLE_SCHEMA_CHECK": true
+```
+
+
+## 25. Disable Read/Write accessibility check -
+**Description -** This flag will disable Read/Write accessibility validations in the following flows - 
+1. Bucket creation/update - NooBaa will not validate that the bucket owner has read/write permissions to the bucket's path.
+2. Account creation/update - NooBaa will not validate that the account owner has read/write permissions to the account's new_buckets_path.
+Warning - setting this configuration to true might result with unexpected behavior.
+
+**Configuration Key -** NC_DISABLE_ACCESS_CHECK
+
+**Type -** boolean
+
+**Default -**  false
+**Steps -**
+```
+1. Open /path/to/config_dir/config.json file.
+2. Set the config key -
+Example:
+"NC_DISABLE_ACCESS_CHECK": true
+```
+
+
 ## Config.json example 
 ```
 > cat /path/to/config_dir/config.json

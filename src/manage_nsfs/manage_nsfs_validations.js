@@ -1,6 +1,7 @@
 /* Copyright (C) 2024 NooBaa */
 'use strict';
 
+const config = require('../../config');
 const dbg = require('../util/debug_module')(__filename);
 const _ = require('lodash');
 const path = require('path');
@@ -223,9 +224,11 @@ async function validate_bucket_args(config_root_backend, accounts_dir_path, data
         }
         const account = await get_bucket_owner_account(config_root_backend, accounts_dir_path, data.bucket_owner);
         const account_fs_context = await native_fs_utils.get_fs_context(account.nsfs_account_config, data.fs_backend);
-        const accessible = await native_fs_utils.is_dir_rw_accessible(account_fs_context, data.path);
-        if (!accessible) {
-            throw_cli_error(ManageCLIError.InaccessibleStoragePath, data.path);
+        if (!config.NC_DISABLE_ACCESS_CHECK) {
+            const accessible = await native_fs_utils.is_dir_rw_accessible(account_fs_context, data.path);
+            if (!accessible) {
+                throw_cli_error(ManageCLIError.InaccessibleStoragePath, data.path);
+            }
         }
         if (action === ACTIONS.ADD) {
             if (!account.allow_bucket_creation) {
@@ -300,6 +303,7 @@ async function validate_account_args(data, action) {
         if (!exists) {
             throw_cli_error(ManageCLIError.InvalidAccountNewBucketsPath, data.nsfs_account_config.new_buckets_path);
         }
+        if (config.NC_DISABLE_ACCESS_CHECK) return;
         const account_fs_context = await native_fs_utils.get_fs_context(data.nsfs_account_config, data.fs_backend);
         const accessible = await native_fs_utils.is_dir_rw_accessible(account_fs_context, data.nsfs_account_config.new_buckets_path);
         if (!accessible) {

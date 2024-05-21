@@ -113,6 +113,14 @@ const nsfs_node_config_schema = {
         VIRTUAL_HOSTS: {
             type: 'string',
             doc: 'This flag will set the virtual hosts, service restart required, Set the virtual hosts as string of domains sepreated by spaces.'
+        },
+        NC_DISABLE_SCHEMA_CHECK: {
+            type: 'boolean',
+            doc: 'indicate whether account/bucket/config.json schema will be validated.'
+        },
+        NC_DISABLE_ACCESS_CHECK: {
+            type: 'boolean',
+            doc: 'indicate whether read/write access will be validated on bucket/account creation/update.'
         }
     }
 };

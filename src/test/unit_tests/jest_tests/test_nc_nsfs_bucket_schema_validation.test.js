@@ -1,10 +1,12 @@
 /* Copyright (C) 2024 NooBaa */
+/*eslint max-lines-per-function: ["error", 500]*/
 
 'use strict';
 
 const nsfs_schema_utils = require('../../../manage_nsfs/nsfs_schema_utils');
 const RpcError = require('../../../rpc/rpc_error');
 const test_utils = require('../../system_tests/test_utils');
+const config = require('../../../../config');
 
 describe('schema validation NC NSFS bucket', () => {
     const versioning_enabled = 'ENABLED';
@@ -404,6 +406,15 @@ describe('schema validation NC NSFS bucket', () => {
 
     });
 
+    describe('skip schema check by config test', () => {
+        it('skip schema check by config test - invalid bucket should pass', () => {
+            config.NC_DISABLE_SCHEMA_CHECK = true;
+            const bucket_data = get_bucket_data();
+            bucket_data.name = '1'; // invalid name
+            nsfs_schema_utils.validate_bucket_schema(bucket_data);
+            config.NC_DISABLE_SCHEMA_CHECK = false;
+        });
+    });
 });
 
 function get_bucket_data() {

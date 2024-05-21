@@ -4,6 +4,7 @@
 
 const nsfs_schema_utils = require('../../../manage_nsfs/nsfs_schema_utils');
 const RpcError = require('../../../rpc/rpc_error');
+const config = require('../../../../config');
 
 describe('schema validation NC NSFS config', () => {
 
@@ -227,6 +228,94 @@ describe('schema validation NC NSFS config', () => {
             nsfs_schema_utils.validate_nsfs_config_schema(config_data);
         });
 
+    });
+
+    describe('skip/unskip schema check by config test', () => {
+        afterAll(async () => {
+            config.NC_DISABLE_SCHEMA_CHECK = false;
+        });
+
+        it('skip schema check - config.NC_DISABLE_SCHEMA_CHECK=false nsfs_config.NC_DISABLE_SCHEMA_CHECK=true - invalid config - should pass', () => {
+            const config_data = {
+                NC_DISABLE_SCHEMA_CHECK: true,
+                ENABLE_DEV_RANDOM_SEED: 'not boolean', // string instead of boolean
+            };
+            nsfs_schema_utils.validate_nsfs_config_schema(config_data);
+        });
+
+        it('unskip schema check - config.NC_DISABLE_SCHEMA_CHECK=true nsfs_config.NC_DISABLE_SCHEMA_CHECK=false - invalid config - should fail', () => {
+            config.NC_DISABLE_SCHEMA_CHECK = true;
+            const config_data = {
+                NC_DISABLE_SCHEMA_CHECK: false,
+                ENABLE_DEV_RANDOM_SEED: 'not boolean', // string instead of boolean
+            };
+            const reason = 'Test should have failed because of wrong type ' +
+            'ENABLE_DEV_RANDOM_SEED must be boolean';
+            const message = `must be boolean | {"type":"boolean"} | "/ENABLE_DEV_RANDOM_SEED"`;
+            assert_validation(config_data, reason, message);
+        });
+
+        it('skip schema check - config.NC_DISABLE_SCHEMA_CHECK=true nsfs_config.NC_DISABLE_SCHEMA_CHECK=undefined - invalid config - should pass', () => {
+            config.NC_DISABLE_SCHEMA_CHECK = true;
+            const config_data = {
+                ENABLE_DEV_RANDOM_SEED: 'not boolean', // string instead of boolean
+            };
+            nsfs_schema_utils.validate_nsfs_config_schema(config_data);
+        });
+
+        it('unskip schema check - config.NC_DISABLE_SCHEMA_CHECK=false nsfs_config.NC_DISABLE_SCHEMA_CHECK=undefined - invalid config - should fail', () => {
+            config.NC_DISABLE_SCHEMA_CHECK = false;
+            const config_data = {
+                ENABLE_DEV_RANDOM_SEED: 'not boolean', // string instead of boolean
+            };
+            const reason = 'Test should have failed because of wrong type ' +
+            'ENABLE_DEV_RANDOM_SEED must be boolean';
+            const message = `must be boolean | {"type":"boolean"} | "/ENABLE_DEV_RANDOM_SEED"`;
+            assert_validation(config_data, reason, message);
+        });
+
+        it('skip schema check - config.NC_DISABLE_SCHEMA_CHECK=true nsfs_config.NC_DISABLE_SCHEMA_CHECK=true - invalid config - should pass', () => {
+            config.NC_DISABLE_SCHEMA_CHECK = true;
+            const config_data = {
+                NC_DISABLE_SCHEMA_CHECK: true,
+                ENABLE_DEV_RANDOM_SEED: 'not boolean', // string instead of boolean
+            };
+            nsfs_schema_utils.validate_nsfs_config_schema(config_data);
+        });
+
+        it('unskip schema check - config.NC_DISABLE_SCHEMA_CHECK=false nsfs_config.NC_DISABLE_SCHEMA_CHECK=false - invalid config - should fail', () => {
+            config.NC_DISABLE_SCHEMA_CHECK = false;
+            const config_data = {
+                NC_DISABLE_SCHEMA_CHECK: false,
+                ENABLE_DEV_RANDOM_SEED: 'not boolean', // string instead of boolean
+            };
+            const reason = 'Test should have failed because of wrong type ' +
+            'ENABLE_DEV_RANDOM_SEED must be boolean';
+            const message = `must be boolean | {"type":"boolean"} | "/ENABLE_DEV_RANDOM_SEED"`;
+            assert_validation(config_data, reason, message);
+        });
+
+        it('unskip schema check - config.NC_DISABLE_SCHEMA_CHECK=true nsfs_config.NC_DISABLE_SCHEMA_CHECK=bla - invalid config - should pass', () => {
+            config.NC_DISABLE_SCHEMA_CHECK = true;
+            const config_data = {
+                NC_DISABLE_SCHEMA_CHECK: 'bla',
+            };
+            const reason = 'Test should have failed because of wrong type ' +
+            'NC_DISABLE_SCHEMA_CHECK must be boolean';
+            const message = `must be boolean | {"type":"boolean"} | "/NC_DISABLE_SCHEMA_CHECK"`;
+            assert_validation(config_data, reason, message);
+        });
+
+        it('unskip schema check - config.NC_DISABLE_SCHEMA_CHECK=false nsfs_config.NC_DISABLE_SCHEMA_CHECK=bla - invalid config - should fail', () => {
+            config.NC_DISABLE_SCHEMA_CHECK = false;
+            const config_data = {
+                NC_DISABLE_SCHEMA_CHECK: 'bla',
+            };
+            const reason = 'Test should have failed because of wrong type ' +
+            'NC_DISABLE_SCHEMA_CHECK must be boolean';
+            const message = `must be boolean | {"type":"boolean"} | "/NC_DISABLE_SCHEMA_CHECK"`;
+            assert_validation(config_data, reason, message);
+        });
     });
 });
 

@@ -8,6 +8,7 @@ const ajv = new Ajv({ verbose: true, allErrors: true });
 const { KEYWORDS } = require('../util/schema_keywords');
 const common_api = require('../api/common_api');
 const schema_utils = require('../util/schema_utils');
+const config = require('../../config');
 
 ajv.addKeyword(KEYWORDS.methods);
 ajv.addKeyword(KEYWORDS.doc);
@@ -51,6 +52,7 @@ function validate_account_schema(account) {
     if (!valid) {
         const first_err = validate_account.errors[0];
         const err_msg = first_err.message ? create_schema_err_msg(first_err) : undefined;
+        if (config.NC_DISABLE_SCHEMA_CHECK === true) return warn_invalid_schema('account', account, err_msg);
         throw new RpcError('INVALID_SCHEMA', err_msg);
     }
 }
@@ -64,21 +66,37 @@ function validate_bucket_schema(bucket) {
     if (!valid) {
         const first_err = validate_bucket.errors[0];
         const err_msg = first_err.message ? create_schema_err_msg(first_err) : undefined;
+        if (config.NC_DISABLE_SCHEMA_CHECK === true) return warn_invalid_schema('bucket', bucket, err_msg);
         throw new RpcError('INVALID_SCHEMA', err_msg);
     }
 }
 
 /**
  * validate_nsfs_config_schema validates a config object against the NC NSFS config schema
- * @param {object} config
+ * @param {object} nsfs_config
  */
-function validate_nsfs_config_schema(config) {
-    const valid = validate_nsfs_config(config);
+function validate_nsfs_config_schema(nsfs_config) {
+
+    const valid = validate_nsfs_config(nsfs_config);
     if (!valid) {
         const first_err = validate_nsfs_config.errors[0];
         const err_msg = first_err.message ? create_schema_err_msg(first_err) : undefined;
+        if (nsfs_config.NC_DISABLE_SCHEMA_CHECK === true ||
+            (nsfs_config.NC_DISABLE_SCHEMA_CHECK === undefined && config.NC_DISABLE_SCHEMA_CHECK === true)) {
+            return warn_invalid_schema('nsfs_config', nsfs_config, err_msg);
+        }
         throw new RpcError('INVALID_SCHEMA', err_msg);
     }
+}
+
+/**
+ * warn_invalid_schema warns of invalid schema
+ * @param {string} type
+ * @param {Object} invalid_schema
+ * @param {string} err_msg
+ */
+function warn_invalid_schema(type, invalid_schema, err_msg) {
+    console.warn(`nsfs_schema_utils ${type} ${invalid_schema} is invalid, schema check is disabled, skipping - err=${err_msg}`);
 }
 
 /**

@@ -37,6 +37,35 @@ function make_dummy_object_sdk() {
     };
 }
 
+/**
+ * @param {Date} date - the date to be asserted
+ * @param {Date} from - the date from where the offset is to be calculated
+ * @param {{ day_offset: number, hour?: number, min?: number, sec?: number }} expected
+ * @param {'UTC' | 'LOCAL'} [tz='LOCAL']
+ */
+function assert_date(date, from, expected, tz = 'LOCAL') {
+    const that_if_not_this = (arg1, arg2) => {
+        if (arg1 === undefined) return arg2;
+        return arg1;
+    };
+
+    if (tz === 'UTC') {
+        from.setUTCDate(from.getUTCDate() + expected.day_offset);
+
+        assert(date.getUTCDate() === from.getUTCDate());
+        assert(date.getUTCHours() === that_if_not_this(expected.hour, from.getUTCHours()));
+        assert(date.getUTCMinutes() === that_if_not_this(expected.min, from.getUTCMinutes()));
+        assert(date.getUTCSeconds() === that_if_not_this(expected.sec, from.getUTCSeconds()));
+    } else {
+        from.setDate(from.getDate() + expected.day_offset);
+
+        assert(date.getDate() === from.getDate());
+        assert(date.getHours() === that_if_not_this(expected.hour, from.getHours()));
+        assert(date.getMinutes() === that_if_not_this(expected.min, from.getMinutes()));
+        assert(date.getSeconds() === that_if_not_this(expected.sec, from.getSeconds()));
+    }
+}
+
 mocha.describe('nsfs_glacier', async () => {
 	const src_bkt = 'src';
 
@@ -251,61 +280,36 @@ mocha.describe('nsfs_glacier', async () => {
 
         mocha.it('generate_expiry should round up the expiry', () => {
             const now = new Date();
-            const midnight = new Date();
-            midnight.setUTCHours(0, 0, 0, 0);
+            const pivot_time = new Date(now);
 
             const exp1 = GlacierBackend.generate_expiry(now, 1, '', 'UTC');
-            assert(exp1.getUTCDate() === now.getUTCDate() + 1);
-            assert(exp1.getUTCHours() === now.getUTCHours());
-            assert(exp1.getUTCMinutes() === now.getUTCMinutes());
-            assert(exp1.getUTCSeconds() === now.getUTCSeconds());
+            assert_date(exp1, now, { day_offset: 1 }, 'UTC');
 
             const exp2 = GlacierBackend.generate_expiry(now, 10, '', 'UTC');
-            assert(exp2.getUTCDate() === now.getUTCDate() + 10);
-            assert(exp2.getUTCHours() === now.getUTCHours());
-            assert(exp2.getUTCMinutes() === now.getUTCMinutes());
-            assert(exp2.getUTCSeconds() === now.getUTCSeconds());
-
-            const pivot_time = new Date(now);
+            assert_date(exp2, now, { day_offset: 10 }, 'UTC');
 
             const exp3 = GlacierBackend.generate_expiry(now, 10, '02:05:00', 'UTC');
             pivot_time.setUTCHours(2, 5, 0, 0);
-
             if (now <= pivot_time) {
-                assert(exp3.getUTCDate() === now.getUTCDate() + 10);
+                assert_date(exp3, now, { day_offset: 10, hour: 2, min: 5, sec: 0 }, 'UTC');
             } else {
-                assert(exp3.getUTCDate() === now.getUTCDate() + 10 + 1);
+                assert_date(exp3, now, { day_offset: 10 + 1, hour: 2, min: 5, sec: 0 }, 'UTC');
             }
-            assert(exp3.getUTCHours() === 2);
-            assert(exp3.getUTCMinutes() === 5);
-            assert(exp3.getUTCSeconds() === 0);
 
             const exp4 = GlacierBackend.generate_expiry(now, 1, '02:05:00', 'LOCAL');
             pivot_time.setHours(2, 5, 0, 0);
-
             if (now <= pivot_time) {
-                assert(exp4.getDate() === now.getDate() + 1);
+                assert_date(exp4, now, { day_offset: 1, hour: 2, min: 5, sec: 0 }, 'LOCAL');
             } else {
-                assert(exp4.getDate() === now.getDate() + 1 + 1);
+                assert_date(exp4, now, { day_offset: 1 + 1, hour: 2, min: 5, sec: 0 }, 'LOCAL');
             }
-            assert(exp4.getHours() === 2);
-            assert(exp4.getMinutes() === 5);
-            assert(exp4.getSeconds() === 0);
 
             const exp5 = GlacierBackend.generate_expiry(now, 1, `${now.getHours()}:${now.getMinutes()}:${now.getSeconds()}`, 'LOCAL');
-
-            assert(exp5.getDate() === now.getDate() + 1);
-            assert(exp5.getHours() === now.getHours());
-            assert(exp5.getMinutes() === now.getMinutes());
-            assert(exp5.getSeconds() === now.getSeconds());
+            assert_date(exp5, now, { day_offset: 1 }, 'LOCAL');
 
             const some_date = new Date("2004-05-08");
             const exp6 = GlacierBackend.generate_expiry(some_date, 1.5, `02:05:00`, 'UTC');
-
-            assert(exp6.getUTCDate() === some_date.getUTCDate() + 1 + 1);
-            assert(exp6.getUTCHours() === 2);
-            assert(exp6.getUTCMinutes() === 5);
-            assert(exp6.getUTCSeconds() === 0);
+            assert_date(exp6, some_date, { day_offset: 1 + 1, hour: 2, min: 5, sec: 0 }, 'UTC');
         });
 	});
 

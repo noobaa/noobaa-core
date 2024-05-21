@@ -587,7 +587,26 @@ class NamespaceFS {
      * @param {ListParams} params
      */
     async list_objects(params, object_sdk) {
-        return this._list_objects(params, object_sdk, false);
+        const object_info = await this._list_objects(params, object_sdk, false);
+        object_info.object_owner = await this.get_object_owner(object_sdk, params.bucket);
+        return object_info;
+    }
+
+    async get_object_owner(object_sdk, bucket) {
+        // TODO: in the future we will add extra implementation per namespace
+        const info = await object_sdk.read_bucket_sdk_config_info(bucket);
+
+        if (info.bucket_info && info.bucket_info.owner_account) {
+            return {
+                name: info.bucket_owner.unwrap(),
+                id: info.bucket_info.owner_account.id,
+            };
+        } else {
+            return {
+                name: info.bucket_owner.unwrap(),
+                id: info.owner_account.id,
+            };
+        }
     }
 
     /**

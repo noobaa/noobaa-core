@@ -112,7 +112,17 @@ class NamespaceGCP {
             common_prefixes: additional_info.prefixes || [],
             is_truncated,
             next_marker,
+            object_owner: await this.get_object_owner(object_sdk, params.bucket)
         };
+    }
+
+    async get_object_owner(object_sdk, bucket) {
+        // TODO: in the future we will add extra implementation per namespace
+        const info = await object_sdk.read_bucket_sdk_config_info(bucket);
+        return {
+              name: info.bucket_owner.unwrap(),
+              id: info.bucket_info.owner_account.id,
+          };
     }
 
     async list_uploads(params, object_sdk) {

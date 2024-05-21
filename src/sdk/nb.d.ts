@@ -399,10 +399,16 @@ interface ObjectMD {
     lock_settings: { retention: { mode: string; retain_until_date: Date; }, legal_hold: { status: string } };
 }
 
+interface ObjectOwner {
+    id: string,
+    name: string;
+}
+
 interface ObjectInfo {
     obj_id: string;
     bucket: string;
     key: string;
+    object_owner?: ObjectOwner;
     version_id: string;
     lock_settings: { retention: { mode: string; retain_until_date: Date; }, legal_hold: { status: string } };
     is_latest: boolean;

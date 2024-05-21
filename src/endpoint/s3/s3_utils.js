@@ -675,6 +675,16 @@ function parse_restore_request_days(req) {
     return days;
 }
 
+function get_object_owner(obj) {
+    if (obj.object_owner) {
+        return Object.freeze({
+            ID: obj.object_owner.id,
+            DisplayName: obj.object_owner.name,
+        });
+    }
+    return DEFAULT_S3_USER;
+}
+
 exports.STORAGE_CLASS_STANDARD = STORAGE_CLASS_STANDARD;
 exports.STORAGE_CLASS_GLACIER = STORAGE_CLASS_GLACIER;
 exports.STORAGE_CLASS_GLACIER_IR = STORAGE_CLASS_GLACIER_IR;
@@ -711,3 +721,4 @@ exports.get_response_field_encoder = get_response_field_encoder;
 exports.parse_decimal_int = parse_decimal_int;
 exports.parse_restore_request_days = parse_restore_request_days;
 exports.parse_version_id = parse_version_id;
+exports.get_object_owner = get_object_owner;

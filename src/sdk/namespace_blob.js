@@ -110,8 +110,18 @@ class NamespaceBlob {
             objects: _.map(response.segment.blobItems, obj => this._get_blob_object_info(obj, params.bucket)),
             common_prefixes: _.map(response.segment.blobPrefixes, prefix => prefix.name),
             is_truncated: Boolean(response.continuationToken),
-            next_marker: response.continuationToken
+            next_marker: response.continuationToken,
+            object_owner: await this.get_object_owner(object_sdk, params.bucket)
         };
+    }
+
+    async get_object_owner(object_sdk, bucket) {
+        // TODO: in the future we will add extra implementation per namespace
+        const info = await object_sdk.read_bucket_sdk_config_info(bucket);
+        return {
+              name: info.bucket_owner.unwrap(),
+              id: info.bucket_info.owner_account.id,
+          };
     }
 
     async list_uploads(params, object_sdk) {

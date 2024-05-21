@@ -195,7 +195,18 @@ class NamespaceCache {
         if (get_from_cache) {
             return this.namespace_nb.list_objects(params, object_sdk);
         }
-        return this.namespace_hub.list_objects(params, object_sdk);
+        const object_info = await this.namespace_hub.list_objects(params, object_sdk);
+        object_info.object_owner = await this.get_object_owner(object_sdk, params.bucket);
+        return object_info;
+    }
+
+    async get_object_owner(object_sdk, bucket) {
+        // TODO: in the future we will add extra implementation per namespace
+        const info = await object_sdk.read_bucket_sdk_config_info(bucket);
+        return {
+              name: info.bucket_owner.unwrap(),
+              id: info.bucket_info.owner_account.id,
+          };
     }
 
     async list_uploads(params, object_sdk) {

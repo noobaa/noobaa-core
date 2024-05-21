@@ -179,17 +179,7 @@ async function _get_redirection_bucket(req, bucket) {
 
 function authenticate_request(req) {
     try {
-        const auth_token = signature_utils.make_auth_token_from_request(req);
-        if (auth_token) {
-            auth_token.client_ip = http_utils.parse_client_ip(req);
-        }
-        if (req.session_token) {
-            auth_token.access_key = req.session_token.assumed_role_access_key;
-            auth_token.temp_access_key = req.session_token.access_key;
-            auth_token.temp_secret_key = req.session_token.secret_key;
-        }
-        req.object_sdk.set_auth_token(auth_token);
-        signature_utils.check_request_expiry(req);
+        signature_utils.authenticate_request_by_service(req, req.object_sdk);
     } catch (err) {
         dbg.error('authenticate_request: ERROR', err.stack || err);
         if (err.code) {

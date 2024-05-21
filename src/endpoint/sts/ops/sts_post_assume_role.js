@@ -5,6 +5,7 @@ const dbg = require('../../../util/debug_module')(__filename);
 const { StsError } = require('../sts_errors');
 const jwt_utils = require('../../../util/jwt_utils');
 const config = require('../../../../config');
+const { CONTENT_TYPE_APP_FORM_URLENCODED } = require('../../../util/http_utils');
 
 /**
  * https://docs.aws.amazon.com/STS/latest/APIReference/API_AssumeRole.html
@@ -56,7 +57,7 @@ function generate_session_token(auth_options, expiry) {
 module.exports = {
     handler: assume_role,
     body: {
-        type: 'application/x-www-form-urlencoded',
+        type: CONTENT_TYPE_APP_FORM_URLENCODED,
     },
     reply: {
         type: 'xml',

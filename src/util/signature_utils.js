@@ -8,6 +8,8 @@ const url = require('url');
 const path = require('path');
 const crypto = require('crypto');
 const S3Error = require('../endpoint/s3/s3_errors').S3Error;
+const http_utils = require('./http_utils');
+const { RpcError } = require('../rpc');
 
 
 ///////////////////////////////////////
@@ -343,7 +345,36 @@ function authorize_client_request(req) {
     req.headers.Authorization = v4.authorization(req.credentials, req.headers['X-Amz-Date']);
 }
 
+// mutual code of S3, STS and IAM services
+// sdk - this can be: object_sdk, sts_sdk or account_sdk
+function authenticate_request_by_service(req, sdk) {
+    const auth_token = make_auth_token_from_request(req);
+    if (auth_token) {
+        auth_token.client_ip = http_utils.parse_client_ip(req);
+    }
+    if (req.session_token) {
+        auth_token.access_key = req.session_token.assumed_role_access_key;
+        auth_token.temp_access_key = req.session_token.access_key;
+        auth_token.temp_secret_key = req.session_token.secret_key;
+    }
+    sdk.set_auth_token(auth_token);
+    check_request_expiry(req);
+}
+
+// mutual code of S3, STS and IAM services
+function authorize_request_account_by_token(token, requesting_account, is_secret_optional) {
+    const signature_secret = token.temp_secret_key || requesting_account?.access_keys?.[0]?.secret_key?.unwrap();
+    const should_check_signature = !is_secret_optional || signature_secret;
+    if (should_check_signature) {
+        const signature = get_signature_from_auth_token(token, signature_secret);
+        if (token.signature !== signature) throw new RpcError('SIGNATURE_DOES_NOT_MATCH', `Signature that was calculated did not match`);
+    }
+}
+
+
 exports.make_auth_token_from_request = make_auth_token_from_request;
 exports.check_request_expiry = check_request_expiry;
 exports.get_signature_from_auth_token = get_signature_from_auth_token;
 exports.authorize_client_request = authorize_client_request;
+exports.authenticate_request_by_service = authenticate_request_by_service;
+exports.authorize_request_account_by_token = authorize_request_account_by_token;

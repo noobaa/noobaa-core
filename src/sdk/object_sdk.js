@@ -239,11 +239,7 @@ class ObjectSDK {
         const token = this.get_auth_token();
         // If the request is signed (authenticated)
         if (token) {
-            const signature_secret = token.temp_secret_key || this.requesting_account?.access_keys?.[0]?.secret_key?.unwrap();
-            if (signature_secret) {
-                const signature = signature_utils.get_signature_from_auth_token(token, signature_secret);
-                if (token.signature !== signature) throw new RpcError('SIGNATURE_DOES_NOT_MATCH', `Signature that was calculated did not match`);
-            }
+            signature_utils.authorize_request_account_by_token(token, this.requesting_account, true);
         }
         // check for a specific bucket
         if (bucket && req.op_name !== 'put_bucket') {

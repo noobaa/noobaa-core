@@ -6,5 +6,6 @@ on:
 jobs:
   call-master-rpm-build-and-upload:
     uses: ./.github/workflows/rpm-build-and-upload-flow.yaml
+    secrets: inherit
     with:
       branch: 'master'

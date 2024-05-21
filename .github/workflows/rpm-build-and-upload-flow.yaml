@@ -25,9 +25,11 @@ jobs:
     uses: ./.github/workflows/upload-rpm-to-aws.yaml
     with:
       rpm_full_path: ${{ needs.build-rpm-centos8.outputs.rpm_full_path }}
+    secrets: inherit
 
   upload-centos9-rpm-to-aws:
     needs: build-rpm-centos9
     uses: ./.github/workflows/upload-rpm-to-aws.yaml
     with:
       rpm_full_path: ${{ needs.build-rpm-centos9.outputs.rpm_full_path }}
+    secrets: inherit

@@ -79,7 +79,7 @@ jobs:
           echo "rpm_full_path=${RPM_FULL_PATH}" >> $GITHUB_OUTPUT
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v1.0.0
+        uses: actions/upload-artifact@v4
         with:
-          name: noobaa_rpm
+          name: ${{ steps.finalize_full_rpm_path.outputs.rpm_full_path }}
           path: ${{ steps.finalize_full_rpm_path.outputs.rpm_full_path }}

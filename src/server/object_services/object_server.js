@@ -1211,7 +1211,9 @@ function _list_add_results(state, results) {
     // this case avoids another last query when we got less results and no common prefixes
     // with common prefixes we cannot avoid the last query because the results might be
     // less than the requested limit although there are more results to fetch
-    if (!has_common_prefixes && count >= state.user_limit) {
+    // 
+    // for postgres we should not do another query, since the list command returns the required limit
+    if (config.DB_TYPE === 'postgres' || (!has_common_prefixes && count >= state.user_limit)) {
         state.done = true;
     }
 }

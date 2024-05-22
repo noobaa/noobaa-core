@@ -10,7 +10,7 @@ const { CONTENT_TYPE_APP_FORM_URLENCODED } = require('../../../util/http_utils')
 async function delete_access_key(req, res) {
 
     const params = {
-        user_name: req.body.user_name,
+        username: req.body.user_name,
         access_key: req.body.access_key_id
     };
     dbg.log1('IAM DELETE ACCESS KEY', params);

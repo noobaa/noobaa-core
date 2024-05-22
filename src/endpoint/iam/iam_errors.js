@@ -77,6 +77,12 @@ IamError.InvalidClientTokenId = Object.freeze({
     http_code: 403,
     type: error_type_enum.SENDER,
 });
+IamError.InvalidClientTokenIdInactiveAccessKey = Object.freeze({
+    code: 'InvalidClientTokenId',
+    message: 'The security token included in the request is invalid.',
+    http_code: 403,
+    type: error_type_enum.SENDER,
+});
 IamError.NotAuthorized = Object.freeze({
     code: 'NotAuthorized',
     message: 'You do not have permission to perform this action.',
@@ -122,13 +128,20 @@ IamError.NotImplemented = Object.freeze({
 });
 
 // These errors were copied from IAM APIs errors
+// Users
 // CreateUser errors https://docs.aws.amazon.com/IAM/latest/APIReference/API_CreateUser.html#API_CreateUser_Errors
-// DeleteUser errors https://docs.aws.amazon.com/IAM/latest/APIReference/API_DeleteUser.html#API_DeleteUser_Errors
 // GetUser    errors https://docs.aws.amazon.com/IAM/latest/APIReference/API_GetUser.html#API_GetUser_Errors
 // UpdateUser errors https://docs.aws.amazon.com/IAM/latest/APIReference/API_UpdateUser.html#API_UpdateUser_Errors
+// DeleteUser errors https://docs.aws.amazon.com/IAM/latest/APIReference/API_DeleteUser.html#API_DeleteUser_Errors
 // ListUsers  errors https://docs.aws.amazon.com/IAM/latest/APIReference/API_ListUsers.html
+// Access keys
+// CreateAccessKey      errors https://docs.aws.amazon.com/IAM/latest/APIReference/API_CreateAccessKey.html
+// GetAccessKeyLastUsed errors https://docs.aws.amazon.com/IAM/latest/APIReference/API_GetAccessKeyLastUsed.html (nothing appears)
+// UpdateAccessKey      errors https://docs.aws.amazon.com/IAM/latest/APIReference/API_UpdateAccessKey.html
+// DeleteAccessKey      errors https://docs.aws.amazon.com/IAM/latest/APIReference/API_DeleteAccessKey.html
+// ListAccessKeys       errors https://docs.aws.amazon.com/IAM/latest/APIReference/API_ListAccessKeys.html
 IamError.ConcurrentModification = Object.freeze({
-    code: 'EntityAlreadyExists',
+    code: 'ConcurrentModification',
     message: 'The request was rejected because multiple requests to change this object were submitted simultaneously. Wait a few minutes and submit your request again.',
     http_code: 409,
     type: error_type_enum.SENDER,
@@ -140,13 +153,13 @@ IamError.EntityAlreadyExists = Object.freeze({
     type: error_type_enum.SENDER,
 });
 IamError.InvalidInput = Object.freeze({
-    code: 'EntityAlreadyExists',
+    code: 'InvalidInput',
     message: 'The request was rejected because an invalid or out-of-range value was supplied for an input parameter.',
     http_code: 400,
     type: error_type_enum.SENDER,
 });
 IamError.LimitExceeded = Object.freeze({
-    code: 'EntityAlreadyExists',
+    code: 'LimitExceeded',
     message: 'The request was rejected because it attempted to create resources beyond the current AWS account limits. The error message describes the limit exceeded.',
     http_code: 409,
     type: error_type_enum.SENDER,
@@ -175,56 +188,11 @@ IamError.EntityTemporarilyUnmodifiable = Object.freeze({
     http_code: 409,
     type: error_type_enum.SENDER,
 });
-// These errors were actually send after performing IAM actions
-IamError.AccessDenied = Object.freeze({
-    code: 'AccessDenied',
-    message: 'user is not authorized to perform action on resource',
-    http_code: 400,
-    type: error_type_enum.SENDER,
-});
-
 
 // These errors were copied from STS errors
-// TODO - can be deleted after verifying we will not use them
-IamError.InvalidParameterCombination = Object.freeze({
-    code: 'InvalidParameterCombination',
-    message: 'Parameters that must not be used together were used together.',
-    http_code: 400,
-    type: error_type_enum.SENDER,
-});
 IamError.InvalidParameterValue = Object.freeze({
     code: 'InvalidParameterValue',
     message: 'An invalid or out-of-range value was supplied for the input parameter.',
-    http_code: 400,
-    type: error_type_enum.SENDER,
-});
-IamError.InvalidQueryParameter = Object.freeze({
-    code: 'InvalidQueryParameter',
-    message: 'The AWS query string is malformed or does not adhere to AWS standards.',
-    http_code: 400,
-    type: error_type_enum.SENDER,
-});
-IamError.MalformedQueryString = Object.freeze({
-    code: 'MalformedQueryString',
-    message: 'The query string contains a syntax error.',
-    http_code: 404,
-    type: error_type_enum.SENDER,
-});
-IamError.MissingAction = Object.freeze({
-    code: 'MissingAction',
-    message: 'The request is missing an action or a required parameter.',
-    http_code: 400,
-    type: error_type_enum.SENDER,
-});
-IamError.MissingAuthenticationToken = Object.freeze({
-    code: 'MissingAuthenticationToken',
-    message: 'The request must contain either a valid (registered) AWS access key ID or X.509 certificate.',
-    http_code: 403,
-    type: error_type_enum.SENDER,
-});
-IamError.MissingParameter = Object.freeze({
-    code: 'MissingParameter',
-    message: 'A required parameter for the specified action is not supplied.',
     http_code: 400,
     type: error_type_enum.SENDER,
 });

@@ -75,6 +75,19 @@ describe('schema validation NC NSFS account', () => {
             nsfs_schema_utils.validate_account_schema(account_data);
         });
 
+        it('account with 2 access_keys objects (with additional properties) in the access_key array', () => {
+            const account_data = get_account_data();
+            account_data.access_keys[1] = get_access_key_with_additional_properties();
+            nsfs_schema_utils.validate_account_schema(account_data);
+        });
+
+        it('account with access_key object (with additional properties) in the access_key array', () => {
+            const account_data = get_account_data();
+            account_data.access_keys[1] = get_access_key_with_additional_properties();
+            account_data.access_keys.splice(0, 1); // this will remove index 0 item and move the index 1 item to its place
+            nsfs_schema_utils.validate_account_schema(account_data);
+        });
+
     });
 
     describe('account with additional properties', () => {
@@ -414,6 +427,16 @@ describe('schema validation NC NSFS account', () => {
             const message = 'must be string';
             assert_validation(account_data, reason, message);
         });
+
+        it('account with access_key array with index 0 undefined', () => {
+            const account_data = get_account_data();
+            account_data.access_keys[1] = get_access_key_with_additional_properties();
+            account_data.access_keys[0] = undefined; // Should use account_data.access_keys.splice(0, 1) to avoid this failure
+            const reason = 'Test should have failed because the access_key array in index 0 is undefined';
+            const message = 'must be object | {"type":"object"} | "/access_keys/0"';
+            assert_validation(account_data, reason, message);
+        });
+
     });
 
     describe('skip schema check by config test', () => {
@@ -459,6 +482,18 @@ function get_account_data() {
     };
 
     return account_data;
+}
+
+function get_access_key_with_additional_properties() {
+    const access_key_id = 'GIGiFAnjaaE7OKD5N7hA';
+    const encrypted_secret_key = 'Wn2ctcgGHxdTh7L0OMjv3Ym30jHAPECjJD/B7LfRAmWuuN8RUbTgSw==EXAMPLE';
+    const access_keys_object = {
+            access_key: access_key_id,
+            encrypted_secret_key: encrypted_secret_key,
+            creation_date: '2024-06-03T07:40:58.808Z',
+            deactivated: false,
+    };
+    return access_keys_object;
 }
 
 function assert_validation(account_to_validate, reason, basic_message) {

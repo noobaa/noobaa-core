@@ -61,7 +61,7 @@ At this point we will not support additional IAM resources (group, policy, role,
 - `owner` vs `creator` - owner is permission wise, creator is for internal information.
 
 
-### The user creation flow:
+### The user and access keys creation flow:
 One root and one user (just to understand the basic API relations and hierarchy)
 ![One root and one user diagram](https://github.com/noobaa/noobaa-core/assets/57721533/b77ade91-11dd-415c-b3f0-5f3f1747a694)
 

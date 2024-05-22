@@ -327,10 +327,14 @@ class NCMasterKeysManager {
     async encrypt_access_keys(account) {
         await this.init();
         const master_key_id = this.active_master_key.id;
-        const encrypted_access_keys = await P.all(_.map(account.access_keys, async access_keys => ({
-            access_key: access_keys.access_key,
-            encrypted_secret_key: await this.encrypt(access_keys.secret_key, master_key_id)
-        })));
+        const encrypted_access_keys = await P.all(_.map(account.access_keys, async access_keys => {
+            const encrypted_access_keys_object = { ...access_keys };
+            if (encrypted_access_keys_object.secret_key) {
+                encrypted_access_keys_object.encrypted_secret_key = await this.encrypt(access_keys.secret_key, master_key_id);
+                delete encrypted_access_keys_object.secret_key;
+          }
+          return encrypted_access_keys_object;
+        }));
         return { ...account, access_keys: encrypted_access_keys, master_key_id };
     }
 
@@ -340,11 +344,20 @@ class NCMasterKeysManager {
      * @returns {Promise<Object>}
      */
     async decrypt_access_keys(account) {
-        const decrypted_access_keys = await P.all(_.map(account.access_keys, async access_keys => ({
-                access_key: access_keys.access_key,
-                secret_key: await this.decrypt(access_keys.encrypted_secret_key, account.master_key_id)
-        })));
+        const decrypted_access_keys = await P.all(_.map(account.access_keys, async access_keys => {
+            const decrypted_access_keys_object = { ...access_keys };
+            if (decrypted_access_keys_object.encrypted_secret_key) {
+                decrypted_access_keys_object.secret_key = await this.decrypt(access_keys.encrypted_secret_key, account.master_key_id);
+                delete decrypted_access_keys_object.encrypted_secret_key;
+          }
+          return decrypted_access_keys_object;
+        }));
         return decrypted_access_keys;
+    }
+
+    async get_active_master_key_id() {
+        await this.init();
+        return this.active_master_key.id;
     }
 
     /**

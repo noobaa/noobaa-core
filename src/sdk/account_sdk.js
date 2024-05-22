@@ -78,7 +78,7 @@ class AccountSDK {
         const token = this.get_auth_token();
         // If the request is signed (authenticated)
         if (token) {
-            signature_utils.authorize_request_account_by_token(token, this.requesting_account, false);
+            signature_utils.authorize_request_account_by_token(token, this.requesting_account);
             return;
         }
         throw new RpcError('UNAUTHORIZED', `No permission to access`);

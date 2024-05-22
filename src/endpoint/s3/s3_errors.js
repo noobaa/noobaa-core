@@ -599,6 +599,7 @@ S3Error.RPC_ERRORS_TO_S3 = Object.freeze({
     INVALID_REQUEST: S3Error.InvalidRequest,
     NOT_IMPLEMENTED: S3Error.NotImplemented,
     INVALID_ACCESS_KEY_ID: S3Error.InvalidAccessKeyId,
+    DEACTIVATED_ACCESS_KEY_ID: S3Error.InvalidAccessKeyId,
     SIGNATURE_DOES_NOT_MATCH: S3Error.SignatureDoesNotMatch,
     SERVICE_UNAVAILABLE: S3Error.ServiceUnavailable,
     INVALID_RANGE: S3Error.InvalidRange,

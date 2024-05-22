@@ -12,7 +12,7 @@ async function update_access_key(req, res) {
     const params = {
         access_key: req.body.access_key_id,
         status: req.body.status,
-        user_name: req.body.user_name,
+        username: req.body.user_name,
     };
     dbg.log1('IAM UPDATE ACCESS KEY', params);
     await req.account_sdk.update_access_key(params);

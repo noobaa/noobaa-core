@@ -19,6 +19,7 @@ const RPC_ERRORS_TO_STS = Object.freeze({
     SIGNATURE_DOES_NOT_MATCH: StsError.AccessDeniedException,
     UNAUTHORIZED: StsError.AccessDeniedException,
     INVALID_ACCESS_KEY_ID: StsError.AccessDeniedException,
+    DEACTIVATED_ACCESS_KEY_ID: StsError.AccessDeniedException,
     NO_SUCH_ACCOUNT: StsError.AccessDeniedException,
     NO_SUCH_ROLE: StsError.AccessDeniedException
 });

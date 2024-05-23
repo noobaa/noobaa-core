@@ -378,6 +378,29 @@ describe('manage nsfs cli account flow', () => {
             expect(account.force_md5_etag).toBe(true);
         });
 
+        it('should fail - cli account add invalid flags combination (gid and user)', async function() {
+            const action = ACTIONS.ADD;
+            const { type, name, gid } = defaults;
+            const account_options = { config_root, name, gid, user: 'root' };
+            const res = await exec_manage_cli(type, action, account_options);
+            expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidFlagsCombination.code);
+        });
+
+        it('should fail - cli account add invalid flags combination (uid and user)', async function() {
+            const action = ACTIONS.ADD;
+            const { type, name, uid } = defaults;
+            const account_options = { config_root, name, uid, user: 'root' };
+            const res = await exec_manage_cli(type, action, account_options);
+            expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidFlagsCombination.code);
+        });
+
+        it('should fail - cli account add invalid flags combination (uid, gid and user)', async function() {
+            const action = ACTIONS.ADD;
+            const { type, name, uid, gid } = defaults;
+            const account_options = { config_root, name, uid, gid, user: 'root' };
+            const res = await exec_manage_cli(type, action, account_options);
+            expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidFlagsCombination.code);
+        });
     });
 
     describe('cli update account', () => {
@@ -916,6 +939,13 @@ describe('manage nsfs cli account flow', () => {
                 .toEqual([]);
         });
 
+        it('should fail - cli account list invalid flags combination (show_secrets without wide)', async () => {
+            const account_options = { config_root, show_secrets: true}; // without wide it's invalid
+            const action = ACTIONS.LIST;
+            const res = await exec_manage_cli(type, action, account_options);
+            expect(JSON.parse(res.stdout).error.message).toBe(ManageCLIError.InvalidFlagsCombination.message);
+        });
+
         it('cli account status without name and access_key', async function() {
             const action = ACTIONS.STATUS;
             const res = await exec_manage_cli(TYPES.ACCOUNT, action, { config_root });
@@ -1232,6 +1262,42 @@ describe('manage nsfs cli account flow', () => {
             // compare the details
             const res = await exec_manage_cli(type, action, command_flags);
             expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidJSONFile.code);
+        });
+
+        it('should fail - cli create account using from_file with invalid option combination (in the file uid and user)', async () => {
+            const action = ACTIONS.ADD;
+            const { name, uid } = defaults;
+            const account_options = { name, uid, user: 'root'}; // no need user and uid
+            // write the json_file_options
+            const path_to_option_json_file_name = await create_json_account_options(path_to_json_account_options_dir, account_options);
+            const command_flags = {config_root, from_file: path_to_option_json_file_name};
+            // create the account
+            const res = await exec_manage_cli(type, action, command_flags);
+            expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidFlagsCombination.code);
+        });
+
+        it('should fail - cli create account using from_file with invalid option combination (in the file gid and user)', async () => {
+            const action = ACTIONS.ADD;
+            const { name, gid } = defaults;
+            const account_options = { name, gid, user: 'root'}; // no need user and gid
+            // write the json_file_options
+            const path_to_option_json_file_name = await create_json_account_options(path_to_json_account_options_dir, account_options);
+            const command_flags = {config_root, from_file: path_to_option_json_file_name};
+            // create the account
+            const res = await exec_manage_cli(type, action, command_flags);
+            expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidFlagsCombination.code);
+        });
+
+        it('should fail - cli create account using from_file with invalid option combination (in the file uid, gid and user)', async () => {
+            const action = ACTIONS.ADD;
+            const { name, uid, gid } = defaults;
+            const account_options = { name, uid, gid, user: 'root'}; // no need user and gid
+            // write the json_file_options
+            const path_to_option_json_file_name = await create_json_account_options(path_to_json_account_options_dir, account_options);
+            const command_flags = {config_root, from_file: path_to_option_json_file_name};
+            // create the account
+            const res = await exec_manage_cli(type, action, command_flags);
+            expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidFlagsCombination.code);
         });
 
     });

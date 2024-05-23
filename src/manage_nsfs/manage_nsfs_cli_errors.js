@@ -113,6 +113,12 @@ ManageCLIError.MissingUpdateProperty = Object.freeze({
     http_code: 400,
 });
 
+ManageCLIError.InvalidFlagsCombination = Object.freeze({
+    code: 'InvalidFlagsCombination',
+    message: 'The flags combination that you used is invalid',
+    http_code: 400,
+});
+
 //////////////////////////////
 //// IP WHITE LIST ERRORS ////
 //////////////////////////////

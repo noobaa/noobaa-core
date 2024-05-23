@@ -38,6 +38,7 @@ async function validate_input_types(type, action, argv) {
     delete input_options_with_data._;
     validate_no_extra_options(type, action, input_options, false);
     validate_options_type_by_value(input_options_with_data);
+    validate_flags_combination(type, action, input_options);
     if (action === ACTIONS.UPDATE) validate_min_flags_for_update(type, input_options_with_data);
 
     // currently we use from_file only in add action
@@ -51,6 +52,7 @@ async function validate_input_types(type, action, argv) {
         }
         validate_no_extra_options(type, action, input_options_from_file, true);
         validate_options_type_by_value(input_options_with_data_from_file);
+        validate_flags_combination(type, action, input_options_from_file);
         return input_options_with_data_from_file;
     }
 }
@@ -181,6 +183,34 @@ function validate_min_flags_for_update(type, input_options_with_data) {
         (flags_for_update.length === 1 && input_options_with_data.regenerate === 'false')) {
             throw_cli_error(ManageCLIError.MissingUpdateProperty);
         }
+}
+
+
+/**
+ * validate_flags_combination checks invalid flags combination, for example:
+ * 1. account add or update - user and gid/uid is an invalid flags combination  
+ * 2. account list - show_secrets without wide is an invalid flags combination 
+ * @param {string} type
+ * @param {string} action
+ * @param {object} input_options
+ */
+function validate_flags_combination(type, action, input_options) {
+    const input_options_set = new Set(input_options);
+    if (type === TYPES.ACCOUNT) {
+        if (action === ACTIONS.ADD || action === ACTIONS.UPDATE) {
+            if (input_options_set.has('user') &&
+                (input_options_set.has('uid') || input_options_set.has('gid'))) {
+                const detail = 'Please use --uid and --gid flags (or only --user flag)';
+                throw_cli_error(ManageCLIError.InvalidFlagsCombination, detail);
+            }
+        }
+        if (action === ACTIONS.LIST) {
+            if (input_options_set.has('show_secrets') && !input_options_set.has('wide')) {
+                const detail = 'Please use --show_secrets and --wide flags together (or only --wide flag)';
+                throw_cli_error(ManageCLIError.InvalidFlagsCombination, detail);
+            }
+        }
+    }
 }
 
 /////////////////////////////
@@ -384,3 +414,4 @@ exports._validate_access_keys = _validate_access_keys;
 exports.verify_delete_account = verify_delete_account;
 exports.validate_whitelist_arg = validate_whitelist_arg;
 exports.verify_whitelist_ips = verify_whitelist_ips;
+exports.validate_flags_combination = validate_flags_combination;

@@ -969,8 +969,7 @@ async function delete_multiple_objects_by_filter(req) {
             }))
         }
     }));
-    const bucket_has_objects = await MDStore.instance().has_any_objects_for_bucket(bucket_id);
-    return { is_empty: !bucket_has_objects };
+    return { objects_deleted: objects.length };
 }
 
 /**

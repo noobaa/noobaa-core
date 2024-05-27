@@ -337,7 +337,7 @@ async function fetch_account_data(action, user_input) {
     if (action === ACTIONS.UPDATE || action === ACTIONS.DELETE) {
         // @ts-ignore
         data = _.omitBy(data, _.isUndefined);
-        data = await fetch_existing_account_data(data);
+        data = await fetch_existing_account_data(action, data);
     }
 
     // override values
@@ -365,7 +365,7 @@ async function fetch_account_data(action, user_input) {
     return data;
 }
 
-async function fetch_existing_account_data(target) {
+async function fetch_existing_account_data(action, target) {
     let source;
     try {
         const account_path = target.name ?
@@ -385,6 +385,20 @@ async function fetch_existing_account_data(target) {
         throw err;
     }
     const data = _.merge({}, source, target);
+    if (action === ACTIONS.UPDATE) {
+        const uid_update = !_.isUndefined(target.nsfs_account_config.uid);
+        const gid_update = !_.isUndefined(target.nsfs_account_config.gid);
+        const dn_update = !_.isUndefined(target.nsfs_account_config.distinguished_name);
+        const user_fs_permissions_change = uid_update || gid_update || dn_update;
+        if (user_fs_permissions_change) {
+            if (dn_update) {
+                delete data.nsfs_account_config.uid;
+                delete data.nsfs_account_config.gid;
+            } else {
+                delete data.nsfs_account_config.distinguished_name;
+            }
+        }
+    }
     return data;
 }
 

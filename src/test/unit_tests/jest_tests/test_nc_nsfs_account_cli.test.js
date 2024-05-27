@@ -404,316 +404,378 @@ describe('manage nsfs cli account flow', () => {
     });
 
     describe('cli update account', () => {
-        const config_root = path.join(tmp_fs_path, 'config_root_manage_nsfs1');
-        const root_path = path.join(tmp_fs_path, 'root_path_manage_nsfs1/');
-        const type = TYPES.ACCOUNT;
-        const defaults = {
-            name: 'account1',
-            new_buckets_path: `${root_path}new_buckets_path_user/`,
-            uid: 999,
-            gid: 999,
-            access_key: 'GIGiFAnjaaE7OKD5N7hA',
-            secret_key: 'U2AYaMpU3zRDcRFWmvzgQr9MoHIAsD+3oEXAMPLE',
-        };
+        describe('cli update account (has uid and gid)', () => {
+            const config_root = path.join(tmp_fs_path, 'config_root_manage_nsfs1');
+            const root_path = path.join(tmp_fs_path, 'root_path_manage_nsfs1/');
+            const type = TYPES.ACCOUNT;
+            const defaults = {
+                name: 'account1',
+                new_buckets_path: `${root_path}new_buckets_path_user/`,
+                uid: 999,
+                gid: 999,
+                access_key: 'GIGiFAnjaaE7OKD5N7hA',
+                secret_key: 'U2AYaMpU3zRDcRFWmvzgQr9MoHIAsD+3oEXAMPLE',
+            };
 
-        beforeEach(async () => {
-            await P.all(_.map([CONFIG_SUBDIRS.ACCOUNTS, CONFIG_SUBDIRS.ACCESS_KEYS], async dir =>
-                fs_utils.create_fresh_path(`${config_root}/${dir}`)));
-            await fs_utils.create_fresh_path(root_path);
-            set_nc_config_dir_in_config(config_root);
-            const action = ACTIONS.ADD;
-            const { new_buckets_path } = defaults;
-            const account_options = { config_root, ...defaults };
-            await fs_utils.create_fresh_path(new_buckets_path);
-            await fs_utils.file_must_exist(new_buckets_path);
-            await set_path_permissions_and_owner(new_buckets_path, account_options, 0o700);
-            await exec_manage_cli(type, action, account_options);
+            beforeEach(async () => {
+                await P.all(_.map([CONFIG_SUBDIRS.ACCOUNTS, CONFIG_SUBDIRS.ACCESS_KEYS], async dir =>
+                    fs_utils.create_fresh_path(`${config_root}/${dir}`)));
+                await fs_utils.create_fresh_path(root_path);
+                set_nc_config_dir_in_config(config_root);
+                const action = ACTIONS.ADD;
+                const { new_buckets_path } = defaults;
+                const account_options = { config_root, ...defaults };
+                await fs_utils.create_fresh_path(new_buckets_path);
+                await fs_utils.file_must_exist(new_buckets_path);
+                await set_path_permissions_and_owner(new_buckets_path, account_options, 0o700);
+                await exec_manage_cli(type, action, account_options);
+            });
+
+            afterEach(async () => {
+                await fs_utils.folder_delete(`${config_root}`);
+                await fs_utils.folder_delete(`${root_path}`);
+            });
+
+            it('cli regenerate account access_keys', async () => {
+                const { name } = defaults;
+                const account_options = { config_root, name, regenerate: true };
+                const account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
+                const action = ACTIONS.UPDATE;
+                await exec_manage_cli(type, action, account_options);
+                let new_account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
+                expect(account_details.access_keys[0].access_key).not.toBe(new_account_details.access_keys[0].access_key);
+                const new_access_key = new_account_details.access_keys[0].access_key;
+                const account_symlink = await read_config_file(config_root, CONFIG_SUBDIRS.ACCESS_KEYS, new_access_key, true);
+                //fixing the new_account_details for compare. 
+                new_account_details = { ...new_account_details, ...new_account_details.nsfs_account_config };
+                assert_account(account_symlink, new_account_details);
+            });
+
+            it('cli regenerate account access_keys with value "true"', async () => {
+                const { name } = defaults;
+                const account_options = { config_root, name, regenerate: 'true' };
+                const account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
+                const action = ACTIONS.UPDATE;
+                await exec_manage_cli(type, action, account_options);
+                let new_account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
+                expect(account_details.access_keys[0].access_key).not.toBe(new_account_details.access_keys[0].access_key);
+                const new_access_key = new_account_details.access_keys[0].access_key;
+                const account_symlink = await read_config_file(config_root, CONFIG_SUBDIRS.ACCESS_KEYS, new_access_key, true);
+                //fixing the new_account_details for compare. 
+                new_account_details = { ...new_account_details, ...new_account_details.nsfs_account_config };
+                assert_account(account_symlink, new_account_details);
+            });
+
+            it('cli regenerate account access_keys with value "TRUE" (case insensitive)', async () => {
+                const { name } = defaults;
+                const account_options = { config_root, name, regenerate: 'TRUE' };
+                const account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
+                const action = ACTIONS.UPDATE;
+                await exec_manage_cli(type, action, account_options);
+                let new_account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
+                expect(account_details.access_keys[0].access_key).not.toBe(new_account_details.access_keys[0].access_key);
+                const new_access_key = new_account_details.access_keys[0].access_key;
+                const account_symlink = await read_config_file(config_root, CONFIG_SUBDIRS.ACCESS_KEYS, new_access_key, true);
+                //fixing the new_account_details for compare. 
+                new_account_details = { ...new_account_details, ...new_account_details.nsfs_account_config };
+                assert_account(account_symlink, new_account_details);
+            });
+
+            it('cli regenerate account access_keys with value "false"', async () => {
+                const { name } = defaults;
+                const account_options = { config_root, name, regenerate: 'false' };
+                const account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
+                const action = ACTIONS.UPDATE;
+                await exec_manage_cli(type, action, account_options);
+                const new_account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
+                expect(account_details.access_keys[0].access_key).toBe(new_account_details.access_keys[0].access_key);
+            });
+
+            it('cli regenerate account access_keys with value "FALSE" (case insensitive)', async () => {
+                const { name } = defaults;
+                const account_options = { config_root, name, regenerate: 'FALSE' };
+                const account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
+                const action = ACTIONS.UPDATE;
+                await exec_manage_cli(type, action, account_options);
+                const new_account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
+                expect(account_details.access_keys[0].access_key).toBe(new_account_details.access_keys[0].access_key);
+            });
+
+            it('should fail - regenerate account access_keys with invalid string value', async function() {
+                const { name } = defaults;
+                const account_options = { config_root, name, regenerate: 'blabla' };
+                const action = ACTIONS.UPDATE;
+                const res = await exec_manage_cli(type, action, account_options);
+                expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidBooleanValue.code);
+            });
+
+            it('should fail - regenerate account access_keys with invalid type', async function() {
+                const { name } = defaults;
+                const account_options = { config_root, name, regenerate: 1234 };
+                const action = ACTIONS.UPDATE;
+                const res = await exec_manage_cli(type, action, account_options);
+                expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidArgumentType.code);
+            });
+
+            it('cli account update name by name', async function() {
+                const { name } = defaults;
+                const new_name = 'account1_new_name';
+                const account_options = { config_root, name, new_name };
+                const action = ACTIONS.UPDATE;
+                account_options.new_name = 'account1_new_name';
+                await exec_manage_cli(type, action, account_options);
+                let new_account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, new_name);
+                expect(new_account_details.name).toBe(new_name);
+                const access_key = new_account_details.access_keys[0].access_key;
+                const account_symlink = await read_config_file(config_root, CONFIG_SUBDIRS.ACCESS_KEYS, access_key, true);
+                //fixing the new_account_details for compare. 
+                new_account_details = { ...new_account_details, ...new_account_details.nsfs_account_config };
+                assert_account(account_symlink, new_account_details);
+            });
+
+            it('cli account update name undefined (and back to original name)', async function() {
+                // set the name as undefined
+                let name = defaults.name;
+                let new_name = 'undefined'; // it is string on purpose
+                let account_options = { config_root, name, new_name };
+                const action = ACTIONS.UPDATE;
+                await exec_manage_cli(type, action, account_options);
+                let new_account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, new_name);
+                expect(new_account_details.name).toBe(new_name);
+
+                // set the name as back as it was
+                let temp = name; // we swap between name and new_name
+                name = new_name;
+                new_name = temp;
+                account_options = { config_root, name, new_name };
+                await exec_manage_cli(type, action, account_options);
+                new_account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, new_name);
+                expect(new_account_details.name).toBe(new_name);
+
+                // set the name as undefined (not string)
+                name = defaults.name;
+                new_name = undefined;
+                account_options = { config_root, name, new_name };
+                await exec_manage_cli(type, action, account_options);
+                new_account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, new_name);
+                expect(new_account_details.name).toBe(String(new_name));
+
+                // set the name as back as it was
+                temp = name; // we swap between name and new_name
+                name = String(new_name);
+                new_name = temp;
+                account_options = { config_root, name, new_name };
+                await exec_manage_cli(type, action, account_options);
+                new_account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, new_name);
+                expect(new_account_details.name).toBe(new_name);
+            });
+
+            it('cli account update access key, secret_key & new_name by name', async function() {
+                const { name } = defaults;
+                const new_name = 'account1_new_name';
+                const access_key = 'GIGiFAnjaaE7OKD5N7hB';
+                const secret_key = 'U3AYaMpU3zRDcRFWmvzgQr9MoHIAsD+3oEXAMPLE';
+                const account_options = { config_root, name, new_name, access_key, secret_key };
+                const account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
+                const action = ACTIONS.UPDATE;
+                account_options.new_name = 'account1_new_name';
+                await exec_manage_cli(type, action, account_options);
+                let new_account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, new_name);
+                expect(new_account_details.name).toBe(new_name);
+                expect(account_details.access_keys[0].access_key).not.toBe(new_account_details.access_keys[0].access_key);
+                expect(account_details.access_keys[0].secret_key).not.toBe(new_account_details.access_keys[0].secret_key);
+                expect(new_account_details.access_keys[0].access_key).toBe(access_key);
+                const account_symlink = await read_config_file(config_root, CONFIG_SUBDIRS.ACCESS_KEYS, access_key, true);
+                //fixing the new_account_details for compare. 
+                new_account_details = { ...new_account_details, ...new_account_details.nsfs_account_config };
+                assert_account(account_symlink, new_account_details);
+            });
+
+            it('cli update account access_key and secret_key using flags', async () => {
+                const { name } = defaults;
+                const access_key = 'GIGiFAnjaaE7OKD5N7hB';
+                const secret_key = 'U3AYaMpU3zRDcRFWmvzgQr9MoHIAsD+3oEXAMPLE';
+                const account_options = { config_root, name, access_key, secret_key };
+                const account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
+                const action = ACTIONS.UPDATE;
+                await exec_manage_cli(type, action, account_options);
+                let new_account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
+                expect(account_details.access_keys[0].access_key).not.toBe(new_account_details.access_keys[0].access_key);
+                expect(account_details.access_keys[0].secret_key).not.toBe(new_account_details.access_keys[0].secret_key);
+                expect(new_account_details.access_keys[0].access_key).toBe(access_key);
+                const account_symlink = await read_config_file(config_root, CONFIG_SUBDIRS.ACCESS_KEYS, access_key, true);
+                //fixing the new_account_details for compare. 
+                new_account_details = { ...new_account_details, ...new_account_details.nsfs_account_config };
+                assert_account(account_symlink, new_account_details);
+            });
+
+            it('should fail - cli update account invalid option', async () => {
+                const { name } = defaults;
+                const account_options = { config_root, name, lala: 'lala'}; // lala invalid option
+                const action = ACTIONS.UPDATE;
+                const res = await exec_manage_cli(type, action, account_options);
+                expect(JSON.parse(res.stdout).error.message).toBe(ManageCLIError.InvalidArgument.message);
+            });
+
+            it('should fail - cli update account invalid option type (user as boolean)', async () => {
+                const { name } = defaults;
+                const account_options = { config_root, name};
+                const action = ACTIONS.UPDATE;
+                const command = create_command(type, action, account_options);
+                const flag = 'user'; // we will add user flag without value
+                const res = await exec_manage_cli_add_empty_option(command, flag);
+                expect(JSON.parse(res.stdout).error.message).toBe(ManageCLIError.InvalidArgumentType.message);
+            });
+
+            it('cli update account unset new_buckets_path', async () => {
+                const { name } = defaults;
+                //in exec_manage_cli an empty string is passed as no input. so operation fails on invalid type. use the string '' instead 
+                const empty_string = '\'\'';
+                const account_options = { config_root, name, new_buckets_path: empty_string};
+                const action = ACTIONS.UPDATE;
+                await exec_manage_cli(type, action, account_options);
+                let new_account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
+                expect(new_account_details.nsfs_account_config.new_buckets_path).toBeUndefined();
+                expect(new_account_details.allow_bucket_creation).toBe(false);
+
+                //set new_buckets_path value back to its original value
+                account_options.new_buckets_path = defaults.new_buckets_path;
+                await exec_manage_cli(type, action, account_options);
+                new_account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
+                expect(new_account_details.nsfs_account_config.new_buckets_path).toBe(defaults.new_buckets_path);
+                expect(new_account_details.allow_bucket_creation).toBe(true);
+            });
+
+            it('cli account update account by name, access_key and secret_key - check for the symlink relative path, not absolute path', async function() {
+                const { name } = defaults;
+                const new_name = 'account1_new_name';
+                const access_key = 'GIGiFAnjaaE7OEXAMPLE';
+                const secret_key = 'U3AYaMpU3zRDcRFWmvzgQr9MoHIAsD+3oEXAMPLE';
+                const account_options = { config_root, name, new_name, access_key, secret_key };
+                const action = ACTIONS.UPDATE;
+                account_options.new_name = 'account1_new_name';
+                await exec_manage_cli(type, action, account_options);
+                let new_account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, new_name);
+                const account_symlink = await read_config_file(config_root, CONFIG_SUBDIRS.ACCESS_KEYS, access_key, true);
+                //fixing the new_account_details for compare. 
+                new_account_details = { ...new_account_details, ...new_account_details.nsfs_account_config };
+                assert_account(account_symlink, new_account_details);
+                const real_path = fs.readlinkSync(path.join(config_root, CONFIG_SUBDIRS.ACCESS_KEYS, access_key + '.symlink'));
+                expect(real_path).toContain('../accounts/' + new_name + '.json');
+            });
+
+            it('cli update account set flag force_md5_etag', async function() {
+                const { name } = defaults;
+                const account_options = { config_root, name, force_md5_etag: 'true'};
+                const action = ACTIONS.UPDATE;
+                await exec_manage_cli(type, action, account_options);
+                let new_account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
+                expect(new_account_details.force_md5_etag).toBe(true);
+
+                account_options.force_md5_etag = 'false';
+                await exec_manage_cli(type, action, account_options);
+                new_account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
+                expect(new_account_details.force_md5_etag).toBe(false);
+            });
+
+            it('cli update account unset flag force_md5_etag', async function() {
+                // first set the value of force_md5_etag to be true
+                const { name } = defaults;
+                const account_options = { config_root, name, force_md5_etag: 'true'};
+                const action = ACTIONS.UPDATE;
+                await exec_manage_cli(type, action, account_options);
+                let new_account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
+                expect(new_account_details.force_md5_etag).toBe(true);
+
+                // unset force_md5_etag
+                const empty_string = '\'\'';
+                account_options.force_md5_etag = empty_string;
+                await exec_manage_cli(type, action, account_options);
+                new_account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
+                expect(new_account_details.force_md5_etag).toBeUndefined();
+            });
+
+            it('should fail - cli update account without a property to update', async () => {
+                const action = ACTIONS.UPDATE;
+                const { name } = defaults;
+                const account_options = { config_root, name };
+                const res = await exec_manage_cli(type, action, account_options);
+                expect(JSON.parse(res.stdout).error.message).toBe(ManageCLIError.MissingUpdateProperty.message);
+            });
+
+            it('should fail - cli update account without a property to update (regenerate false)', async () => {
+                const action = ACTIONS.UPDATE;
+                const { name } = defaults;
+                const account_options = { config_root, name, regenerate: 'false' };
+                const res = await exec_manage_cli(type, action, account_options);
+                expect(JSON.parse(res.stdout).error.message).toBe(ManageCLIError.MissingUpdateProperty.message);
+            });
+
+            it('cli update account that has uid and gid with distinguished name', async () => {
+                const action = ACTIONS.UPDATE;
+                const { name, new_buckets_path } = defaults;
+                const distinguished_name = 'root';
+                const account_options = { config_root, name, user: distinguished_name };
+                await set_path_permissions_and_owner(new_buckets_path, { uid: 0, gid: 0 }, 0o700);
+                await exec_manage_cli(type, action, account_options);
+                const account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
+                expect(account_details.nsfs_account_config.uid).toBeUndefined();
+                expect(account_details.nsfs_account_config.gid).toBeUndefined();
+                expect(account_details.nsfs_account_config.distinguished_name).toBe(distinguished_name);
+            });
         });
 
-        afterEach(async () => {
-            await fs_utils.folder_delete(`${config_root}`);
-            await fs_utils.folder_delete(`${root_path}`);
-        });
+        describe('cli update account (has distinguished name)', () => {
+            const config_root = path.join(tmp_fs_path, 'config_root_manage_nsfs2');
+            const root_path = path.join(tmp_fs_path, 'root_path_manage_nsfs2/');
+            const type = TYPES.ACCOUNT;
+            const distinguished_name = 'root';
+            const defaults = {
+                name: 'account2',
+                new_buckets_path: `${root_path}new_buckets_path_user2/`,
+                user: distinguished_name,
+                access_key: 'HIGiFAnjaaE7OKD5N7hB',
+                secret_key: 'V2AYaMpU3zRDcRFWmvzgQr9MoHIAsD+3tEXAMPLE',
+            };
 
-        it('cli regenerate account access_keys', async () => {
-            const { name } = defaults;
-            const account_options = { config_root, name, regenerate: true };
-            const account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
-            const action = ACTIONS.UPDATE;
-            await exec_manage_cli(type, action, account_options);
-            let new_account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
-            expect(account_details.access_keys[0].access_key).not.toBe(new_account_details.access_keys[0].access_key);
-            const new_access_key = new_account_details.access_keys[0].access_key;
-            const account_symlink = await read_config_file(config_root, CONFIG_SUBDIRS.ACCESS_KEYS, new_access_key, true);
-            //fixing the new_account_details for compare. 
-            new_account_details = { ...new_account_details, ...new_account_details.nsfs_account_config };
-            assert_account(account_symlink, new_account_details);
-        });
+            beforeEach(async () => {
+                await P.all(_.map([CONFIG_SUBDIRS.ACCOUNTS, CONFIG_SUBDIRS.ACCESS_KEYS], async dir =>
+                    fs_utils.create_fresh_path(`${config_root}/${dir}`)));
+                await fs_utils.create_fresh_path(root_path);
+                set_nc_config_dir_in_config(config_root);
+                const action = ACTIONS.ADD;
+                const { new_buckets_path } = defaults;
+                const account_options = { config_root, ...defaults };
+                await fs_utils.create_fresh_path(new_buckets_path);
+                await fs_utils.file_must_exist(new_buckets_path);
+                await set_path_permissions_and_owner(new_buckets_path, account_options, 0o700);
+                await exec_manage_cli(type, action, account_options);
+            });
 
-        it('cli regenerate account access_keys with value "true"', async () => {
-            const { name } = defaults;
-            const account_options = { config_root, name, regenerate: 'true' };
-            const account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
-            const action = ACTIONS.UPDATE;
-            await exec_manage_cli(type, action, account_options);
-            let new_account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
-            expect(account_details.access_keys[0].access_key).not.toBe(new_account_details.access_keys[0].access_key);
-            const new_access_key = new_account_details.access_keys[0].access_key;
-            const account_symlink = await read_config_file(config_root, CONFIG_SUBDIRS.ACCESS_KEYS, new_access_key, true);
-            //fixing the new_account_details for compare. 
-            new_account_details = { ...new_account_details, ...new_account_details.nsfs_account_config };
-            assert_account(account_symlink, new_account_details);
-        });
+            afterEach(async () => {
+                await fs_utils.folder_delete(`${config_root}`);
+                await fs_utils.folder_delete(`${root_path}`);
+            });
 
-        it('cli regenerate account access_keys with value "TRUE" (case insensitive)', async () => {
-            const { name } = defaults;
-            const account_options = { config_root, name, regenerate: 'TRUE' };
-            const account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
-            const action = ACTIONS.UPDATE;
-            await exec_manage_cli(type, action, account_options);
-            let new_account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
-            expect(account_details.access_keys[0].access_key).not.toBe(new_account_details.access_keys[0].access_key);
-            const new_access_key = new_account_details.access_keys[0].access_key;
-            const account_symlink = await read_config_file(config_root, CONFIG_SUBDIRS.ACCESS_KEYS, new_access_key, true);
-            //fixing the new_account_details for compare. 
-            new_account_details = { ...new_account_details, ...new_account_details.nsfs_account_config };
-            assert_account(account_symlink, new_account_details);
-        });
-
-        it('cli regenerate account access_keys with value "false"', async () => {
-            const { name } = defaults;
-            const account_options = { config_root, name, regenerate: 'false' };
-            const account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
-            const action = ACTIONS.UPDATE;
-            await exec_manage_cli(type, action, account_options);
-            const new_account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
-            expect(account_details.access_keys[0].access_key).toBe(new_account_details.access_keys[0].access_key);
-        });
-
-        it('cli regenerate account access_keys with value "FALSE" (case insensitive)', async () => {
-            const { name } = defaults;
-            const account_options = { config_root, name, regenerate: 'FALSE' };
-            const account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
-            const action = ACTIONS.UPDATE;
-            await exec_manage_cli(type, action, account_options);
-            const new_account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
-            expect(account_details.access_keys[0].access_key).toBe(new_account_details.access_keys[0].access_key);
-        });
-
-        it('should fail - regenerate account access_keys with invalid string value', async function() {
-            const { name } = defaults;
-            const account_options = { config_root, name, regenerate: 'blabla' };
-            const action = ACTIONS.UPDATE;
-            const res = await exec_manage_cli(type, action, account_options);
-            expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidBooleanValue.code);
-        });
-
-        it('should fail - regenerate account access_keys with invalid type', async function() {
-            const { name } = defaults;
-            const account_options = { config_root, name, regenerate: 1234 };
-            const action = ACTIONS.UPDATE;
-            const res = await exec_manage_cli(type, action, account_options);
-            expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidArgumentType.code);
-        });
-
-        it('cli account update name by name', async function() {
-            const { name } = defaults;
-            const new_name = 'account1_new_name';
-            const account_options = { config_root, name, new_name };
-            const action = ACTIONS.UPDATE;
-            account_options.new_name = 'account1_new_name';
-            await exec_manage_cli(type, action, account_options);
-            let new_account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, new_name);
-            expect(new_account_details.name).toBe(new_name);
-            const access_key = new_account_details.access_keys[0].access_key;
-            const account_symlink = await read_config_file(config_root, CONFIG_SUBDIRS.ACCESS_KEYS, access_key, true);
-            //fixing the new_account_details for compare. 
-            new_account_details = { ...new_account_details, ...new_account_details.nsfs_account_config };
-            assert_account(account_symlink, new_account_details);
-        });
-
-        it('cli account update name undefined (and back to original name)', async function() {
-            // set the name as undefined
-            let name = defaults.name;
-            let new_name = 'undefined'; // it is string on purpose
-            let account_options = { config_root, name, new_name };
-            const action = ACTIONS.UPDATE;
-            await exec_manage_cli(type, action, account_options);
-            let new_account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, new_name);
-            expect(new_account_details.name).toBe(new_name);
-
-            // set the name as back as it was
-            let temp = name; // we swap between name and new_name
-            name = new_name;
-            new_name = temp;
-            account_options = { config_root, name, new_name };
-            await exec_manage_cli(type, action, account_options);
-            new_account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, new_name);
-            expect(new_account_details.name).toBe(new_name);
-
-            // set the name as undefined (not string)
-            name = defaults.name;
-            new_name = undefined;
-            account_options = { config_root, name, new_name };
-            await exec_manage_cli(type, action, account_options);
-            new_account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, new_name);
-            expect(new_account_details.name).toBe(String(new_name));
-
-            // set the name as back as it was
-            temp = name; // we swap between name and new_name
-            name = String(new_name);
-            new_name = temp;
-            account_options = { config_root, name, new_name };
-            await exec_manage_cli(type, action, account_options);
-            new_account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, new_name);
-            expect(new_account_details.name).toBe(new_name);
-        });
-
-        it('cli account update access key, secret_key & new_name by name', async function() {
-            const { name } = defaults;
-            const new_name = 'account1_new_name';
-            const access_key = 'GIGiFAnjaaE7OKD5N7hB';
-            const secret_key = 'U3AYaMpU3zRDcRFWmvzgQr9MoHIAsD+3oEXAMPLE';
-            const account_options = { config_root, name, new_name, access_key, secret_key };
-            const account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
-            const action = ACTIONS.UPDATE;
-            account_options.new_name = 'account1_new_name';
-            await exec_manage_cli(type, action, account_options);
-            let new_account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, new_name);
-            expect(new_account_details.name).toBe(new_name);
-            expect(account_details.access_keys[0].access_key).not.toBe(new_account_details.access_keys[0].access_key);
-            expect(account_details.access_keys[0].secret_key).not.toBe(new_account_details.access_keys[0].secret_key);
-            expect(new_account_details.access_keys[0].access_key).toBe(access_key);
-            const account_symlink = await read_config_file(config_root, CONFIG_SUBDIRS.ACCESS_KEYS, access_key, true);
-            //fixing the new_account_details for compare. 
-            new_account_details = { ...new_account_details, ...new_account_details.nsfs_account_config };
-            assert_account(account_symlink, new_account_details);
-        });
-
-        it('cli update account access_key and secret_key using flags', async () => {
-            const { name } = defaults;
-            const access_key = 'GIGiFAnjaaE7OKD5N7hB';
-            const secret_key = 'U3AYaMpU3zRDcRFWmvzgQr9MoHIAsD+3oEXAMPLE';
-            const account_options = { config_root, name, access_key, secret_key };
-            const account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
-            const action = ACTIONS.UPDATE;
-            await exec_manage_cli(type, action, account_options);
-            let new_account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
-            expect(account_details.access_keys[0].access_key).not.toBe(new_account_details.access_keys[0].access_key);
-            expect(account_details.access_keys[0].secret_key).not.toBe(new_account_details.access_keys[0].secret_key);
-            expect(new_account_details.access_keys[0].access_key).toBe(access_key);
-            const account_symlink = await read_config_file(config_root, CONFIG_SUBDIRS.ACCESS_KEYS, access_key, true);
-            //fixing the new_account_details for compare. 
-            new_account_details = { ...new_account_details, ...new_account_details.nsfs_account_config };
-            assert_account(account_symlink, new_account_details);
-        });
-
-        it('should fail - cli update account invalid option', async () => {
-            const { name } = defaults;
-            const account_options = { config_root, name, lala: 'lala'}; // lala invalid option
-            const action = ACTIONS.UPDATE;
-            const res = await exec_manage_cli(type, action, account_options);
-            expect(JSON.parse(res.stdout).error.message).toBe(ManageCLIError.InvalidArgument.message);
-        });
-
-        it('should fail - cli update account invalid option type (user as boolean)', async () => {
-            const { name } = defaults;
-            const account_options = { config_root, name};
-            const action = ACTIONS.UPDATE;
-            const command = create_command(type, action, account_options);
-            const flag = 'user'; // we will add user flag without value
-            const res = await exec_manage_cli_add_empty_option(command, flag);
-            expect(JSON.parse(res.stdout).error.message).toBe(ManageCLIError.InvalidArgumentType.message);
-        });
-
-        it('cli update account unset new_buckets_path', async () => {
-            const { name } = defaults;
-            //in exec_manage_cli an empty string is passed as no input. so operation fails on invalid type. use the string '' instead 
-            const empty_string = '\'\'';
-            const account_options = { config_root, name, new_buckets_path: empty_string};
-            const action = ACTIONS.UPDATE;
-            await exec_manage_cli(type, action, account_options);
-            let new_account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
-            expect(new_account_details.nsfs_account_config.new_buckets_path).toBeUndefined();
-            expect(new_account_details.allow_bucket_creation).toBe(false);
-
-            //set new_buckets_path value back to its original value
-            account_options.new_buckets_path = defaults.new_buckets_path;
-            await exec_manage_cli(type, action, account_options);
-            new_account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
-            expect(new_account_details.nsfs_account_config.new_buckets_path).toBe(defaults.new_buckets_path);
-            expect(new_account_details.allow_bucket_creation).toBe(true);
-        });
-
-        it('cli account update account by name, access_key and secret_key - check for the symlink relative path, not absolute path', async function() {
-            const { name } = defaults;
-            const new_name = 'account1_new_name';
-            const access_key = 'GIGiFAnjaaE7OEXAMPLE';
-            const secret_key = 'U3AYaMpU3zRDcRFWmvzgQr9MoHIAsD+3oEXAMPLE';
-            const account_options = { config_root, name, new_name, access_key, secret_key };
-            const action = ACTIONS.UPDATE;
-            account_options.new_name = 'account1_new_name';
-            await exec_manage_cli(type, action, account_options);
-            let new_account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, new_name);
-            const account_symlink = await read_config_file(config_root, CONFIG_SUBDIRS.ACCESS_KEYS, access_key, true);
-            //fixing the new_account_details for compare. 
-            new_account_details = { ...new_account_details, ...new_account_details.nsfs_account_config };
-            assert_account(account_symlink, new_account_details);
-            const real_path = fs.readlinkSync(path.join(config_root, CONFIG_SUBDIRS.ACCESS_KEYS, access_key + '.symlink'));
-            expect(real_path).toContain('../accounts/' + new_name + '.json');
-        });
-
-        it('cli update account set flag force_md5_etag', async function() {
-            const { name } = defaults;
-            const account_options = { config_root, name, force_md5_etag: 'true'};
-            const action = ACTIONS.UPDATE;
-            await exec_manage_cli(type, action, account_options);
-            let new_account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
-            expect(new_account_details.force_md5_etag).toBe(true);
-
-            account_options.force_md5_etag = 'false';
-            await exec_manage_cli(type, action, account_options);
-            new_account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
-            expect(new_account_details.force_md5_etag).toBe(false);
-        });
-
-        it('cli update account unset flag force_md5_etag', async function() {
-            // first set the value of force_md5_etag to be true
-            const { name } = defaults;
-            const account_options = { config_root, name, force_md5_etag: 'true'};
-            const action = ACTIONS.UPDATE;
-            await exec_manage_cli(type, action, account_options);
-            let new_account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
-            expect(new_account_details.force_md5_etag).toBe(true);
-
-            // unset force_md5_etag
-            const empty_string = '\'\'';
-            account_options.force_md5_etag = empty_string;
-            await exec_manage_cli(type, action, account_options);
-            new_account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
-            expect(new_account_details.force_md5_etag).toBeUndefined();
-        });
-
-        it('should fail - cli update account without a property to update', async () => {
-            const action = ACTIONS.UPDATE;
-            const { name } = defaults;
-            const account_options = { config_root, name };
-            const res = await exec_manage_cli(type, action, account_options);
-            expect(JSON.parse(res.stdout).error.message).toBe(ManageCLIError.MissingUpdateProperty.message);
-        });
-
-        it('should fail - cli update account without a property to update (regenerate false)', async () => {
-            const action = ACTIONS.UPDATE;
-            const { name } = defaults;
-            const account_options = { config_root, name, regenerate: 'false' };
-            const res = await exec_manage_cli(type, action, account_options);
-            expect(JSON.parse(res.stdout).error.message).toBe(ManageCLIError.MissingUpdateProperty.message);
+            it('cli update account that has distinguished name with uid and gid', async () => {
+                const action = ACTIONS.UPDATE;
+                const { name, new_buckets_path } = defaults;
+                const uid = 1003;
+                const gid = 1003;
+                const account_options = { config_root, name, uid, gid };
+                await set_path_permissions_and_owner(new_buckets_path, { uid, gid }, 0o700);
+                await exec_manage_cli(type, action, account_options);
+                const account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
+                expect(account_details.nsfs_account_config.uid).toBe(uid);
+                expect(account_details.nsfs_account_config.gid).toBe(gid);
+                expect(account_details.nsfs_account_config.distinguished_name).toBeUndefined();
+            });
         });
     });
 
     describe('cli list account', () => {
-        const config_root = path.join(tmp_fs_path, 'config_root_manage_nsfs1');
-        const root_path = path.join(tmp_fs_path, 'root_path_manage_nsfs1/');
+        const config_root = path.join(tmp_fs_path, 'config_root_manage_nsfs3');
+        const root_path = path.join(tmp_fs_path, 'root_path_manage_nsfs3/');
         const type = TYPES.ACCOUNT;
         const defaults = [{
             name: 'account1',
@@ -955,8 +1017,8 @@ describe('manage nsfs cli account flow', () => {
     });
 
     describe('cli delete account', () => {
-        const config_root = path.join(tmp_fs_path, 'config_root_manage_nsfs');
-        const root_path = path.join(tmp_fs_path, 'root_path_manage_nsfs/');
+        const config_root = path.join(tmp_fs_path, 'config_root_manage_nsfs4');
+        const root_path = path.join(tmp_fs_path, 'root_path_manage_nsfs4/');
         const defaults = {
             type: TYPES.ACCOUNT,
             name: 'account11',
@@ -1053,8 +1115,8 @@ describe('manage nsfs cli account flow', () => {
     });
 
     describe('cli status account', () => {
-        const config_root = path.join(tmp_fs_path, 'config_root_manage_nsfs22');
-        const root_path = path.join(tmp_fs_path, 'root_path_manage_nsfs22/');
+        const config_root = path.join(tmp_fs_path, 'config_root_manage_nsfs5');
+        const root_path = path.join(tmp_fs_path, 'root_path_manage_nsfs5/');
         const type = TYPES.ACCOUNT;
         const defaults = {
             name: 'account22',
@@ -1102,8 +1164,8 @@ describe('manage nsfs cli account flow', () => {
 
     describe('cli create account using from_file', () => {
         const type = TYPES.ACCOUNT;
-        const config_root = path.join(tmp_fs_path, 'config_root_manage_nsfs');
-        const root_path = path.join(tmp_fs_path, 'root_path_manage_nsfs/');
+        const config_root = path.join(tmp_fs_path, 'config_root_manage_nsfs6');
+        const root_path = path.join(tmp_fs_path, 'root_path_manage_nsfs6/');
 
         const path_to_json_account_options_dir = path.join(tmp_fs_path, 'options');
         const defaults = {

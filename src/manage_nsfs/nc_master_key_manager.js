@@ -42,6 +42,8 @@ const EXEC_STATUS_OK = 'OK';
 const EXEC_STATUS_VERSION_MISMATCH = 'VERSION_MISMATCH';
 const EXEC_STATUS_NOT_FOUND = 'NOT_FOUND';
 
+const init_version = 0;
+
 class NCMasterKeysManager {
     constructor() {
         /** @type {MasterKey} */
@@ -206,7 +208,7 @@ class NCMasterKeysManager {
     async _create_master_keys_exec(master_key) {
         const master_keys_json = this._get_master_keys_json(master_key);
         try {
-            const put_master_keys_res = await os_util.spawn(config.NC_MASTER_KEYS_PUT_EXECUTABLE, [EXEC_KEY_SUFFIX],
+            const put_master_keys_res = await os_util.spawn(config.NC_MASTER_KEYS_PUT_EXECUTABLE, [EXEC_KEY_SUFFIX, init_version],
                 { shell: '/bin/sh', input: master_keys_json, stdio: [], return_stdout: true });
             const { status } = JSON.parse(put_master_keys_res);
 
@@ -228,8 +230,7 @@ class NCMasterKeysManager {
      * @returns {Promise<void>}
      */
     async _init_from_exec() {
-        const init_version = 0;
-        const command = `${config.NC_MASTER_KEYS_GET_EXECUTABLE} ${EXEC_KEY_SUFFIX} ${init_version}`;
+        const command = `${config.NC_MASTER_KEYS_GET_EXECUTABLE} ${EXEC_KEY_SUFFIX}`;
         for (let retries = 0; retries < config.MASTER_KEYS_EXEC_MAX_RETRIES;) {
             try {
                 if (this.last_init_time &&

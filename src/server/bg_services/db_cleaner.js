@@ -30,8 +30,8 @@ async function background_worker() {
     if (!system || system_utils.system_in_maintenance(system._id)) return;
     const now = Date.now();
 
-    const last_date_to_remove = now - config.DB_CLEANER.BACK_TIME;
-    if (this.last_check && now - this.last_check < config.DB_CLEANER.CYCLE) return config.DB_CLEANER.CYCLE;
+    const last_date_to_remove = now - config.DB_CLEANER_BACK_TIME;
+    if (this.last_check && now - this.last_check < config.DB_CLEANER_CYCLE) return config.DB_CLEANER_CYCLE;
     this.last_check = now;
     const { from_time } = md_aggregator.find_minimal_range({
         target_now: now,
@@ -40,34 +40,34 @@ async function background_worker() {
     dbg.log2('DB_CLEANER: md_aggregator at', new Date(from_time));
     if (from_time < last_date_to_remove) {
         dbg.log0('DB_CLEANER: waiting for md_aggregator to advance to later than', new Date(last_date_to_remove));
-        return config.DB_CLEANER.CYCLE; // if md_aggregator is still working on more than 3 month old objects - exit
+        return config.DB_CLEANER_CYCLE; // if md_aggregator is still working on more than 3 month old objects - exit
     }
     dbg.log0('DB_CLEANER:', 'START');
     await clean_md_store(last_date_to_remove);
     await clean_nodes_store(last_date_to_remove);
     await clean_system_store(last_date_to_remove);
     dbg.log0('DB_CLEANER:', 'END');
-    return config.DB_CLEANER.CYCLE;
+    return config.DB_CLEANER_CYCLE;
 }
 
 async function clean_md_store(last_date_to_remove) {
     const total_objects_count = await MDStore.instance().estimated_total_objects();
-    if (total_objects_count < config.DB_CLEANER.MAX_TOTAL_DOCS) {
-        dbg.log0(`DB_CLEANER: found less than ${config.DB_CLEANER.MAX_TOTAL_DOCS} objects in MD-STORE 
+    if (total_objects_count < config.DB_CLEANER_MAX_TOTAL_DOCS) {
+        dbg.log0(`DB_CLEANER: found less than ${config.DB_CLEANER_MAX_TOTAL_DOCS} objects in MD-STORE 
         ${total_objects_count} objects - Skipping...`);
         return;
     }
     dbg.log0('DB_CLEANER: checking md-store for documents deleted before', new Date(last_date_to_remove));
-    const objects_to_remove = await MDStore.instance().find_deleted_objects(last_date_to_remove, config.DB_CLEANER.DOCS_LIMIT);
+    const objects_to_remove = await MDStore.instance().find_deleted_objects(last_date_to_remove, config.DB_CLEANER_DOCS_LIMIT);
     dbg.log2('DB_CLEANER: list objects:', objects_to_remove);
     if (objects_to_remove.length) {
         await P.map_with_concurrency(10, objects_to_remove, obj => db_delete_object_parts(obj));
         await MDStore.instance().db_delete_objects(objects_to_remove);
     }
-    const blocks_to_remove = await MDStore.instance().find_deleted_blocks(last_date_to_remove, config.DB_CLEANER.DOCS_LIMIT);
+    const blocks_to_remove = await MDStore.instance().find_deleted_blocks(last_date_to_remove, config.DB_CLEANER_DOCS_LIMIT);
     dbg.log2('DB_CLEANER: list blocks:', blocks_to_remove);
     if (blocks_to_remove.length) await MDStore.instance().db_delete_blocks(blocks_to_remove);
-    const chunks_to_remove = await MDStore.instance().find_deleted_chunks(last_date_to_remove, config.DB_CLEANER.DOCS_LIMIT);
+    const chunks_to_remove = await MDStore.instance().find_deleted_chunks(last_date_to_remove, config.DB_CLEANER_DOCS_LIMIT);
     const filtered_chunks = chunks_to_remove.filter(async chunk =>
         !(await MDStore.instance().has_any_blocks_for_chunk(chunk)) &&
         !(await MDStore.instance().has_any_parts_for_chunk(chunk)));
@@ -86,8 +86,8 @@ async function db_delete_object_parts(id) {
 
 async function clean_nodes_store(last_date_to_remove) {
     const total_nodes_count = await nodes_store.count_total_nodes();
-    if (total_nodes_count < config.DB_CLEANER.MAX_TOTAL_DOCS) {
-        dbg.log0(`DB_CLEANER: found less than ${config.DB_CLEANER.MAX_TOTAL_DOCS} nodes in nodes-store 
+    if (total_nodes_count < config.DB_CLEANER_MAX_TOTAL_DOCS) {
+        dbg.log0(`DB_CLEANER: found less than ${config.DB_CLEANER_MAX_TOTAL_DOCS} nodes in nodes-store 
         ${total_nodes_count} nodes - Skipping...`);
         return;
     }
@@ -97,7 +97,7 @@ async function clean_nodes_store(last_date_to_remove) {
             $lt: last_date_to_remove
         },
     };
-    const nodes = await nodes_store.find_nodes(query, config.DB_CLEANER.DOCS_LIMIT, { _id: 1, deleted: 1 });
+    const nodes = await nodes_store.find_nodes(query, config.DB_CLEANER_DOCS_LIMIT, { _id: 1, deleted: 1 });
     const node_ids = db_client.instance().uniq_ids(nodes, '_id');
     dbg.log2('DB_CLEANER: list nodes:', node_ids);
     const filtered_nodes = node_ids.filter(node => true); // place holder - should verify the agents are really deleted
@@ -110,18 +110,18 @@ async function clean_system_store(last_date_to_remove) {
     const total_accounts_count = await system_store.count_total_docs('accounts');
     const total_buckets_count = await system_store.count_total_docs('buckets');
     const total_pools_count = await system_store.count_total_docs('pools');
-    if ((total_accounts_count < config.DB_CLEANER.MAX_TOTAL_DOCS) &&
-        (total_buckets_count < config.DB_CLEANER.MAX_TOTAL_DOCS) &&
-        (total_pools_count < config.DB_CLEANER.MAX_TOTAL_DOCS)) {
-        dbg.log0(`DB_CLEANER: found less than ${config.DB_CLEANER.MAX_TOTAL_DOCS} docs in system-store 
+    if ((total_accounts_count < config.DB_CLEANER_MAX_TOTAL_DOCS) &&
+        (total_buckets_count < config.DB_CLEANER_MAX_TOTAL_DOCS) &&
+        (total_pools_count < config.DB_CLEANER_MAX_TOTAL_DOCS)) {
+        dbg.log0(`DB_CLEANER: found less than ${config.DB_CLEANER_MAX_TOTAL_DOCS} docs in system-store 
         ${total_accounts_count} accounts, ${total_buckets_count} buckets, ${total_pools_count} pools - Skipping...`);
         return;
     }
     dbg.log0('DB_CLEANER: checking system_store for documents deleted before', new Date(last_date_to_remove));
     const [accounts, buckets, pools] = await P.all([
-        system_store.find_deleted_docs('accounts', last_date_to_remove, config.DB_CLEANER.DOCS_LIMIT),
-        system_store.find_deleted_docs('buckets', last_date_to_remove, config.DB_CLEANER.DOCS_LIMIT),
-        system_store.find_deleted_docs('pools', last_date_to_remove, config.DB_CLEANER.DOCS_LIMIT)
+        system_store.find_deleted_docs('accounts', last_date_to_remove, config.DB_CLEANER_DOCS_LIMIT),
+        system_store.find_deleted_docs('buckets', last_date_to_remove, config.DB_CLEANER_DOCS_LIMIT),
+        system_store.find_deleted_docs('pools', last_date_to_remove, config.DB_CLEANER_DOCS_LIMIT)
     ]);
     dbg.log2('DB_CLEANER: list accounts:', accounts);
     dbg.log2('DB_CLEANER: list buckets:', buckets);

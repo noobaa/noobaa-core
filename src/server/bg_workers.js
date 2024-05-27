@@ -190,7 +190,7 @@ function run_master_workers() {
         dbg.warn('DEDUP INDEXER NOT ENABLED');
     }
 
-    if (config.DB_CLEANER.ENABLED) {
+    if (config.DB_CLEANER_ENABLED) {
         register_bg_worker({
             name: 'db_cleaner',
         }, db_cleaner.background_worker);

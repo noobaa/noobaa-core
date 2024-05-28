@@ -291,7 +291,7 @@ function aws_parse_log_object(logs, log_object, sync_deletions, obj_prefix_filte
         if (line !== '') {
             const log = _parse_aws_log_entry(line);
             if (log.operation) {
-                if (log.key.startsWith(obj_prefix_filter)) {
+                if (obj_prefix_filter === undefined || log.key.startsWith(obj_prefix_filter)) {
                     if (log.operation.includes('PUT.OBJECT') || log.operation.includes('POST.OBJECT')) {
                         logs.push({
                             key: log.key,

@@ -396,13 +396,11 @@ config.DEDUP_INDEXER_CHECK_INDEX_CYCLE = 60000;
 ///////////////////////
 // DB CLEANER CONFIG //
 ///////////////////////
-config.DB_CLEANER = {
-    ENABLED: true,
-    CYCLE: 2 * 60 * 60 * 1000, // 2 hours
-    BACK_TIME: 3 * 30 * 24 * 60 * 60 * 1000, // 3 months
-    DOCS_LIMIT: 1000,
-    MAX_TOTAL_DOCS: 10000
-};
+config.DB_CLEANER_ENABLED = true;
+config.DB_CLEANER_CYCLE = 2 * 60 * 60 * 1000; // 2 hours
+config.DB_CLEANER_BACK_TIME = 3 * 30 * 24 * 60 * 60 * 1000; // 3 months
+config.DB_CLEANER_DOCS_LIMIT = 1000;
+config.DB_CLEANER_MAX_TOTAL_DOCS = 10000;
 
 /////////////////////
 // CLOUD RESOURCES //

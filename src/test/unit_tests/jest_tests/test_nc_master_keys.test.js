@@ -72,8 +72,8 @@ describe('NC master key manager tests - file store type', () => {
             await new_nc_mkm_instance.init();
             fail('should have failed on invalid master_keys.json file');
         } catch (err) {
-            expect(err.rpc_code).toEqual('INVALID_MASTER_KEYS_FILE');
-            expect(err.message).toEqual('Invalid master_keys.json file');
+            expect(err.rpc_code).toEqual('INVALID_MASTER_KEY');
+            expect(err.message).toEqual('Invalid master_keys.json');
         }
     });
 
@@ -83,10 +83,24 @@ describe('NC master key manager tests - file store type', () => {
         const new_nc_mkm_instance = nc_mkm.get_instance();
         try {
             await new_nc_mkm_instance.init();
+            fail('should have failed on invalid master_keys.json');
+        } catch (err) {
+            expect(err.rpc_code).toEqual('INVALID_MASTER_KEY');
+            expect(err.message).toEqual('Invalid master_keys.json');
+        }
+    });
+
+    it('should fail - init nc_mkm - empty master_keys.json', async () => {
+        await fs.promises.rm(MASTER_KEYS_JSON_PATH);
+        await fs.promises.writeFile(MASTER_KEYS_JSON_PATH, JSON.stringify({}));
+
+        const new_nc_mkm_instance = nc_mkm.get_instance();
+        try {
+            await new_nc_mkm_instance.init();
             fail('should have failed on invalid master_keys.json file');
         } catch (err) {
-            expect(err.rpc_code).toEqual('INVALID_MASTER_KEYS_FILE');
-            expect(err.message).toEqual('Invalid master_keys.json file');
+            expect(err.rpc_code).toEqual('INVALID_MASTER_KEY');
+            expect(err.message).toEqual('Invalid master_keys.json');
         }
     });
 });

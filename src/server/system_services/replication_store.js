@@ -145,7 +145,7 @@ class ReplicationStore {
         const replications = await this._replicationconfigs.find({ deleted: null });
         const reduced_replications = _.filter(
             replications, repl =>
-            repl.log_replication_info?.azure_log_replication_info || repl.log_replication_info?.aws_log_replication_info
+            repl.log_replication_info?.endpoint_type
         );
         // TODO: Further transformation of the data can be done here - refer to find_rules_updated_longest_time_ago
         dbg.log1('find_log_based_replication_rules: ', reduced_replications);

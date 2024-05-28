@@ -39,6 +39,7 @@ async function get_log_candidates(source_bucket_id, rule_id, replication_config,
 
 async function get_aws_log_candidates(source_bucket_id, rule_id, replication_config, candidates_limit, sync_deletions) {
     const aws_log_replication_info = replication_config.log_replication_info.aws_log_replication_info;
+    const obj_prefix_filter = _get_obj_prefix_filter_for_rule(rule_id, replication_config);
     const { logs_bucket, prefix } = aws_log_replication_info.logs_location;
     const s3 = _get_source_bucket_aws_connection(source_bucket_id, aws_log_replication_info);
     let log_object_continuation_token = _get_log_object_continuation_token_for_rule(rule_id, replication_config);
@@ -60,7 +61,7 @@ async function get_aws_log_candidates(source_bucket_id, rule_id, replication_con
         }
 
         const next_log_data = await _aws_get_next_log(s3, logs_bucket, next_log_entry.Contents[0].Key);
-        aws_parse_log_object(logs, next_log_data, sync_deletions);
+        aws_parse_log_object(logs, next_log_data, sync_deletions, obj_prefix_filter);
 
         dbg.log1("get_aws_log_candidates: parsed logs ", logs);
 
@@ -85,7 +86,7 @@ async function get_azure_log_candidates(source_bucket_id, rule_id, replication_c
     const namespace_resource = source_bucket.namespace.write_resource.resource;
     const src_storage_account = namespace_resource.connection.access_key;
     const src_container_name = namespace_resource.connection.target_bucket;
-    const prefix = replication_config.log_replication_info.azure_log_replication_info.prefix || '';
+    const obj_prefix_filter = _get_obj_prefix_filter_for_rule(rule_id, replication_config) || '';
     const { logs_query_client, monitor_workspace_id } = _get_source_bucket_azure_connection(source_bucket_id);
     let candidates;
 
@@ -126,7 +127,7 @@ async function get_azure_log_candidates(source_bucket_id, rule_id, replication_c
     | project Time=_TimeReceived, Action=substring(Category, 7), Key=ObjectKey
     | sort by Time asc
     | where Action == "Write" or Action == "Delete"
-    | where Key startswith "/${src_storage_account.unwrap()}/${src_container_name}/${prefix}"
+    | where Key startswith "/${src_storage_account.unwrap()}/${src_container_name}/${obj_prefix_filter}"
     | where Key !contains "test-delete-non-existing-"
     | parse Key with * "/" StorageAccount "/" Container "/" Key
     | project Time, Action, Key`;
@@ -282,7 +283,7 @@ async function _aws_get_next_log(s3, bucket, key) {
  * @param {*} log_object  - AWS log object
  * @param {boolean} sync_deletions  - Whether deletions should be synced or not
  */
-function aws_parse_log_object(logs, log_object, sync_deletions) {
+function aws_parse_log_object(logs, log_object, sync_deletions, obj_prefix_filter = undefined) {
     const log_string = log_object.Body.toString();
     const log_array = log_string.split("\n");
 
@@ -290,21 +291,23 @@ function aws_parse_log_object(logs, log_object, sync_deletions) {
         if (line !== '') {
             const log = _parse_aws_log_entry(line);
             if (log.operation) {
-                if (log.operation.includes('PUT.OBJECT') || log.operation.includes('POST.OBJECT')) {
-                    logs.push({
-                        key: log.key,
-                        action: 'copy',
-                        time: log.time,
-                    });
-                    dbg.log2('aws_parse_log_object:: key', log.key, 'contain copy (PUT or POST) entry');
-                }
-                if (log.operation.includes('DELETE.OBJECT') && sync_deletions && log.http_status === 204) {
-                    logs.push({
-                        key: log.key,
-                        action: 'delete',
-                        time: log.time,
-                    });
-                    dbg.log2('aws_parse_log_object:: key', log.key, 'contain delete (DELETE) entry');
+                if (log.key.startsWith(obj_prefix_filter)) {
+                    if (log.operation.includes('PUT.OBJECT') || log.operation.includes('POST.OBJECT')) {
+                        logs.push({
+                            key: log.key,
+                            action: 'copy',
+                            time: log.time,
+                        });
+                        dbg.log2('aws_parse_log_object:: key', log.key, 'contain copy (PUT or POST) entry');
+                    }
+                    if (log.operation.includes('DELETE.OBJECT') && sync_deletions && log.http_status === 204) {
+                        logs.push({
+                            key: log.key,
+                            action: 'delete',
+                            time: log.time,
+                        });
+                        dbg.log2('aws_parse_log_object:: key', log.key, 'contain delete (DELETE) entry');
+                    }
                 }
             }
         }
@@ -535,6 +538,12 @@ function _get_log_object_continuation_token_for_rule(rule_id, replication_config
     dbg.log1('_get_log_object_continuation_token_for_rule:: rule_id', rule_id, 'replication_config', replication_config);
     const replication_rule = replication_config.rules.find(rule => rule.rule_id === rule_id);
     return replication_rule?.rule_log_status?.log_marker?.continuation_token;
+}
+
+function _get_obj_prefix_filter_for_rule(rule_id, replication_config) {
+    dbg.log1('_get_obj_prefix_filter_for_rule: ', rule_id, 'replication_config: ', replication_config);
+    const replication_rule = replication_config.rules.find(rule => rule.rule_id === rule_id);
+    return replication_rule?.filter?.prefix;
 }
 
 // EXPORTS

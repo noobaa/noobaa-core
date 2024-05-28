@@ -214,7 +214,7 @@ async function authorize_request_policy(req) {
     if (!req.params.bucket) return;
     if (req.op_name === 'put_bucket') return;
 
-    const { s3_policy, system_owner, bucket_owner } = await req.object_sdk.read_bucket_sdk_policy_info(req.params.bucket);
+    const { s3_policy, system_owner, bucket_owner, owner_account } = await req.object_sdk.read_bucket_sdk_policy_info(req.params.bucket);
     const auth_token = req.object_sdk.get_auth_token();
     const arn_path = _get_arn_from_req_path(req);
     const method = _get_method_from_req(req);
@@ -234,6 +234,7 @@ async function authorize_request_policy(req) {
 
     const is_owner = (function() {
         if (account.bucket_claim_owner && account.bucket_claim_owner.unwrap() === req.params.bucket) return true;
+        if (req.object_sdk.nsfs_config_root && account._id === owner_account.id) return true; // NC NSFS case
         if (account_identifier === bucket_owner.unwrap()) return true;
         return false;
     }());

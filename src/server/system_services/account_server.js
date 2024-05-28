@@ -319,6 +319,10 @@ async function update_account_keys(req) {
     }
     const access_keys = req.rpc_params.access_keys;
 
+    if (!_.isUndefined(system_store.get_account_by_access_key(access_keys.access_key))) {
+        throw new RpcError('ACCESS_KEY_DUPLICATION', 'Duplicate access key is found, each access_key must be unique');
+    }
+
     access_keys.secret_key = system_store.master_key_manager.encrypt_sensitive_string_with_master_key_id(
         access_keys.secret_key, account.master_key_id._id);
 

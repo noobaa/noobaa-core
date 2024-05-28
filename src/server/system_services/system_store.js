@@ -804,6 +804,12 @@ class SystemStore extends EventEmitter {
         }
     }
 
+    get_account_by_access_key(access_key_id) {
+        return _.find(this.data.accounts, acc =>
+            _.find(acc.access_keys, key => key.access_key.unwrap() === access_key_id.unwrap())
+        );
+    }
+
     get_accounts_by_nsfs_account_config(nsfs_account_config) {
         if (this.data && !_.isEmpty(this.data.accounts)) {
             return this.data.accounts.filter(account => account.nsfs_account_config &&

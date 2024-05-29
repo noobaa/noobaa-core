@@ -227,6 +227,29 @@ describe('schema validation NC NSFS config', () => {
             nsfs_schema_utils.validate_nsfs_config_schema(config_data);
         });
 
+        it('nsfs_config invalid process title', () => {
+            const config_data = {
+                "ENDPOINT_PROCESS_TITLE": false,
+            };
+            const reason = 'Test should have failed because of wrong type ' +
+                'ENDPOINT_PROCESS_TITLE must be string';
+            const message = `must be string | {"type":"string"} | "/ENDPOINT_PROCESS_TITLE"`;
+            assert_validation(config_data, reason, message);
+        });
+
+        it('nsfs_config valid process title', () => {
+            const config_data = {
+                "ENDPOINT_PROCESS_TITLE": 'noobaa_60',
+            };
+            nsfs_schema_utils.validate_nsfs_config_schema(config_data);
+        });
+
+        it('nsfs_config valid and empty process title', () => {
+            const config_data = {
+                "ENDPOINT_PROCESS_TITLE": '',
+            };
+            nsfs_schema_utils.validate_nsfs_config_schema(config_data);
+        });
     });
 });
 

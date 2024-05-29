@@ -823,6 +823,7 @@ config.NSFS_LOW_FREE_SPACE_PERCENT_UNLEASH = 0.10;
 // NSFS NON CONTAINERIZED //
 ////////////////////////////
 
+config.ENDPOINT_PROCESS_TITLE = 'noobaa';
 config.NC_RELOAD_CONFIG_INTERVAL = 10 * 1000;
 config.NSFS_NC_CONF_DIR_REDIRECT_FILE = 'config_dir_redirect';
 config.NSFS_NC_DEFAULT_CONF_DIR = '/etc/noobaa.conf.d';

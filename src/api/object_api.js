@@ -1154,8 +1154,8 @@ module.exports = {
             reply: {
                 type: 'object',
                 properties: {
-                    is_empty: {
-                        type: 'boolean'
+                    num_objects_deleted: {
+                        type: 'integer'
                     }
                 }
             },

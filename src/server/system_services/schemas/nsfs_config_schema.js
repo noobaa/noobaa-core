@@ -131,6 +131,10 @@ const nsfs_node_config_schema = {
         VIRTUAL_HOSTS: {
             type: 'string',
             description: 'This flag will set the virtual hosts, service restart required, Set the virtual hosts as string of domains sepreated by spaces.'
+        },
+        ENDPOINT_PROCESS_TITLE: {
+            type: 'string',
+            doc: 'This flag will set noobaa process title for letting GPFS to identify the noobaa endpoint processes.'
         }
     }
 };

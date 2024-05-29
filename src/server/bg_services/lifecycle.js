@@ -9,10 +9,7 @@ const dbg = require('../../util/debug_module')(__filename);
 const server_rpc = require('../server_rpc');
 const system_store = require('../system_services/system_store').get_instance();
 const auth_server = require('../common_services/auth_server');
-
-const LIFECYCLE = {
-    schedule_min: 5 * 1000 * 60 // run every 5 minutes
-};
+const config = require('../../../config');
 
 function get_expiration_timestamp(expiration) {
     if (!expiration) {
@@ -26,13 +23,14 @@ function get_expiration_timestamp(expiration) {
 
 async function handle_bucket_rule(system, rule, j, bucket) {
     const now = Date.now();
+    let should_rerun = false;
 
     if (rule.status !== 'Enabled') {
         dbg.log0('LIFECYCLE SKIP bucket:', bucket.name, '(bucket id:', bucket._id, ') rule', util.inspect(rule), 'not Enabled');
         return;
     }
-    if (rule.last_sync && now - rule.last_sync < LIFECYCLE.schedule_min) {
-        dbg.log0('LIFECYCLE SKIP bucket:', bucket.name, '(bucket id:', bucket._id, ') rule', util.inspect(rule), 'now', now, 'last_sync', rule.last_sync, 'schedule min', LIFECYCLE.schedule_min);
+    if (rule.last_sync && now - rule.last_sync < config.LIFECYCLE_SCHEDULE_MIN) {
+        dbg.log0('LIFECYCLE SKIP bucket:', bucket.name, '(bucket id:', bucket._id, ') rule', util.inspect(rule), 'now', now, 'last_sync', rule.last_sync, 'schedule min', config.LIFECYCLE_SCHEDULE_MIN);
         return;
     }
     if (rule.expiration === undefined) {
@@ -41,13 +39,14 @@ async function handle_bucket_rule(system, rule, j, bucket) {
     }
     dbg.log0('LIFECYCLE PROCESSING bucket:', bucket.name, '(bucket id:', bucket._id, ') rule', util.inspect(rule));
 
-    await server_rpc.client.object.delete_multiple_objects_by_filter({
+    const res = await server_rpc.client.object.delete_multiple_objects_by_filter({
         bucket: bucket.name,
         create_time: get_expiration_timestamp(rule.expiration),
         prefix: rule.filter.prefix,
         size_less: rule.filter.object_size_less_than,
         size_greater: rule.filter.object_size_greater_than,
         tags: rule.filter.tags,
+        limit: config.LIFECYCLE_BATCH_SIZE,
     }, {
         auth_token: auth_server.make_auth_token({
             system_id: system._id,
@@ -57,9 +56,12 @@ async function handle_bucket_rule(system, rule, j, bucket) {
     });
 
     bucket.lifecycle_configuration_rules[j].last_sync = Date.now();
+    if (res.num_objects_deleted >= config.LIFECYCLE_BATCH_SIZE) should_rerun = true;
     dbg.log0('LIFECYCLE Done bucket:', bucket.name, '(bucket id:', bucket._id, ') done deletion of objects per rule',
-        rule, 'time:', bucket.lifecycle_configuration_rules[j].last_sync);
+        rule, 'time:', bucket.lifecycle_configuration_rules[j].last_sync, 'objects deleted:', res.objects_deleted,
+        should_rerun ? 'lifecycle should rerun' : '');
     update_lifecycle_rules_last_sync(bucket, bucket.lifecycle_configuration_rules);
+    return should_rerun;
 }
 
 async function background_worker() {
@@ -69,16 +71,22 @@ async function background_worker() {
         dbg.log0('LIFECYCLE READ BUCKETS configuration: BEGIN');
         await system_store.refresh();
         dbg.log0('LIFECYCLE READ BUCKETS configuration buckets:', system_store.data.buckets.map(e => e.name));
+        let should_rerun = false;
         for (const bucket of system_store.data.buckets) {
             dbg.log0('LIFECYCLE READ BUCKETS configuration bucket name:', bucket.name, "rules", bucket.lifecycle_configuration_rules);
             if (!bucket.lifecycle_configuration_rules || bucket.deleting) continue;
 
-            await P.all(_.map(bucket.lifecycle_configuration_rules,
+            const results = await P.all(_.map(bucket.lifecycle_configuration_rules,
                 async (lifecycle_rule, j) => {
                     dbg.log0('LIFECYCLE READ BUCKETS configuration handle_bucket_rule bucket name:', bucket.name, "rule", lifecycle_rule, 'j', j);
-                    handle_bucket_rule(system, lifecycle_rule, j, bucket);
+                    return handle_bucket_rule(system, lifecycle_rule, j, bucket);
                 }
             ));
+            if (results.includes(true)) should_rerun = true;
+        }
+        if (should_rerun) {
+            dbg.log0('LIFECYCLE: RUN Not finished deleting - will continue');
+            return config.LIFECYCLE_SCHEDULE_MIN;
         }
     } catch (err) {
         dbg.error('LIFECYCLE FAILED processing', err, err.stack);

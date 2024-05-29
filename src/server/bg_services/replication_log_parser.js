@@ -282,8 +282,9 @@ async function _aws_get_next_log(s3, bucket, key) {
  * @param {nb.ReplicationLogs} logs - Log array
  * @param {*} log_object  - AWS log object
  * @param {boolean} sync_deletions  - Whether deletions should be synced or not
+ * @param {string} obj_prefix_filter - Object prefix filter
  */
-function aws_parse_log_object(logs, log_object, sync_deletions, obj_prefix_filter = undefined) {
+function aws_parse_log_object(logs, log_object, sync_deletions, obj_prefix_filter) {
     const log_string = log_object.Body.toString();
     const log_array = log_string.split("\n");
 

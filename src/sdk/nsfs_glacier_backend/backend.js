@@ -263,6 +263,14 @@ class GlacierBackend {
         const restore_status = GlacierBackend.get_restore_status(stat.xattr, new Date(), file);
         if (!restore_status) return false;
 
+        // We don't check for pre-existing expiry here, it can happen in 2 cases
+        // 1. A restore is already going and someone somehow initiated this second
+        // call. In that case we might see partial extended attributes such that
+        // both request as well a future expiry time exists.
+        // 2. A restore request was partially processed and then failed before
+        // removing the request extended attribute. In such case, NSFS would still
+        // report the object restore status to be `ONGOING` and we are going
+        // to allow a retry of that entry.
         return restore_status.state === GlacierBackend.RESTORE_STATUS_ONGOING;
     }
 }

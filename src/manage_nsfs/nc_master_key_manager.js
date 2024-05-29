@@ -2,7 +2,6 @@
 'use strict';
 
 const _ = require('lodash');
-const util = require('util');
 const path = require('path');
 const crypto = require('crypto');
 const P = require('../util/promise');
@@ -93,7 +92,7 @@ class NCMasterKeysManager {
         if (!this.active_master_key) {
             throw new RpcError('INVALID_MASTER_KEYS_FILE', 'Invalid master_keys.json file, couldn\'t find active master key in master_keys_by_id');
         }
-        dbg.log1(`_set_keys: master_key_manager updated successfully! active master key is: ${util.inspect(this.active_master_key)}`);
+        dbg.log1('_set_keys: master_key_manager updated successfully!');
         return this.active_master_key;
     }
 
@@ -234,13 +233,18 @@ class NCMasterKeysManager {
         for (let retries = 0; retries < config.MASTER_KEYS_EXEC_MAX_RETRIES;) {
             try {
                 if (this.last_init_time &&
-                    (new Date()).getTime() - this.last_init_time > config.NC_MASTER_KEYS_MANAGER_REFRESH_THRESHOLD) return;
+                    (new Date()).getTime() - this.last_init_time > config.NC_MASTER_KEYS_MANAGER_REFRESH_THRESHOLD) {
+                        dbg.log1('_init_from_exec: cache is updated nothing to do, skipping...');
+                    return;
+                }
+                dbg.log1('_init_from_exec: calling config.NC_MASTER_KEYS_GET_EXECUTABLE script');
                 const get_master_keys_res = await os_util.exec(command, { return_stdout: true });
                 const { status, version, data } = JSON.parse(get_master_keys_res);
                 if (status === EXEC_STATUS_OK) {
                     dbg.log0(`init_from_exec: get master keys response status=${status}, version=${version}`);
                     this._set_keys(data);
                     this.last_init_time = (new Date()).getTime();
+                    dbg.log1('_init_from_exec: updating this.last_init_time', this.last_init_time);
                     return;
                 } else if (status === EXEC_STATUS_NOT_FOUND) {
                     dbg.warn(`init_from_exec: get master keys failed with status=${status}, creating a new master key`);

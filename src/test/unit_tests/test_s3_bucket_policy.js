@@ -520,8 +520,6 @@ mocha.describe('s3_bucket_policy', function() {
     });
 
     mocha.it('anonymous user should be able to list bucket objects', async function() {
-        // anonymous not implemented on NC yet - skipping
-        if (process.env.NC_CORETEST) this.skip(); // eslint-disable-line no-invalid-this
         await s3_owner.putBucketPolicy({
             Bucket: BKT,
             Policy: JSON.stringify(anon_access_policy)
@@ -531,8 +529,6 @@ mocha.describe('s3_bucket_policy', function() {
     });
 
     mocha.it('anonymous user should not be able to list bucket objects when there is no policy', async function() {
-        // anonymous not implemented on NC yet - skipping
-        if (process.env.NC_CORETEST) this.skip(); // eslint-disable-line no-invalid-this
         await s3_owner.deleteBucketPolicy({
             Bucket: BKT,
         });
@@ -541,8 +537,6 @@ mocha.describe('s3_bucket_policy', function() {
     });
 
     mocha.it('anonymous user should not be able to list bucket objects when policy doesn\'t allow', async function() {
-        // anonymous not implemented on NC yet - skipping
-        if (process.env.NC_CORETEST) this.skip(); // eslint-disable-line no-invalid-this
         const anon_deny_policy = {
             Version: '2012-10-17',
             Statement: [

@@ -109,6 +109,15 @@ async function get_options_from_file(file_path) {
     }
 }
 
+/**
+ * has_access_keys will return anonymous or not depending on the access key length 
+ * (instead of flags) and return its content
+ * @param {object[]} access_keys
+ */
+function has_access_keys(access_keys) {
+    return access_keys.length === 0;
+}
+
 // EXPORTS
 exports.throw_cli_error = throw_cli_error;
 exports.write_stdout_response = write_stdout_response;
@@ -118,3 +127,4 @@ exports.get_boolean_or_string_value = get_boolean_or_string_value;
 exports.get_config_data = get_config_data;
 exports.get_bucket_owner_account = get_bucket_owner_account;
 exports.get_options_from_file = get_options_from_file;
+exports.has_access_keys = has_access_keys;

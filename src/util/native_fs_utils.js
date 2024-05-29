@@ -406,10 +406,7 @@ async function update_config_file(fs_context, schema_dir, config_path, config_da
 async function get_user_by_distinguished_name({ distinguished_name }) {
     try {
         if (!distinguished_name) throw new Error('no distinguished name');
-        const context = {
-            uid: process.getuid(),
-            gid: process.getgid(),
-        };
+        const context = get_process_fs_context();
         const user = await nb_native().fs.getpwname(context, distinguished_name);
         return user;
     } catch (err) {

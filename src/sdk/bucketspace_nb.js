@@ -267,6 +267,14 @@ class BucketSpaceNB {
             throw err;
         }
     }
+
+    is_nsfs_containerized_user_anonymous(token) {
+        return !token && !process.env.NC_NSFS_NO_DB_ENV;
+    }
+
+    is_nsfs_non_containerized_user_anonymous(token) {
+        return !token && process.env.NC_NSFS_NO_DB_ENV === 'true';
+    }
 }
 
 module.exports = BucketSpaceNB;

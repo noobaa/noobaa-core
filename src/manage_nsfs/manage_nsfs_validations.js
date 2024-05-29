@@ -13,9 +13,9 @@ const native_fs_utils = require('../util/native_fs_utils');
 const ManageCLIError = require('../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
 const bucket_policy_utils = require('../endpoint/s3/s3_bucket_policy_utils');
 const { throw_cli_error, get_config_file_path, get_bucket_owner_account,
-    get_config_data, get_options_from_file } = require('../manage_nsfs/manage_nsfs_cli_utils');
+    get_config_data, get_options_from_file, has_access_keys } = require('../manage_nsfs/manage_nsfs_cli_utils');
 const { TYPES, ACTIONS, VALID_OPTIONS, OPTION_TYPE, FROM_FILE, BOOLEAN_STRING_VALUES,
-    GLACIER_ACTIONS, LIST_UNSETABLE_OPTIONS } = require('../manage_nsfs/manage_nsfs_constants');
+    GLACIER_ACTIONS, LIST_UNSETABLE_OPTIONS, ANONYMOUS } = require('../manage_nsfs/manage_nsfs_constants');
 
 /////////////////////////////
 //// GENERAL VALIDATIONS ////
@@ -39,6 +39,7 @@ async function validate_input_types(type, action, argv) {
     validate_no_extra_options(type, action, input_options, false);
     validate_options_type_by_value(input_options_with_data);
     validate_flags_combination(type, action, input_options);
+    validate_flags_value_combination(type, action, input_options_with_data);
     if (action === ACTIONS.UPDATE) validate_min_flags_for_update(type, input_options_with_data);
 
     // currently we use from_file only in add action
@@ -53,6 +54,7 @@ async function validate_input_types(type, action, argv) {
         validate_no_extra_options(type, action, input_options_from_file, true);
         validate_options_type_by_value(input_options_with_data_from_file);
         validate_flags_combination(type, action, input_options_from_file);
+        validate_flags_value_combination(type, action, input_options_with_data);
         return input_options_with_data_from_file;
     }
 }
@@ -90,7 +92,11 @@ function validate_no_extra_options(type, action, input_options, is_options_from_
     } else if (type === TYPES.BUCKET) {
         valid_options = VALID_OPTIONS.bucket_options[action];
     } else if (type === TYPES.ACCOUNT) {
-        valid_options = VALID_OPTIONS.account_options[action];
+        if (input_options.includes(ANONYMOUS)) {
+            valid_options = VALID_OPTIONS.anonymous_account_options[action];
+        } else {
+            valid_options = VALID_OPTIONS.account_options[action];
+        }
     } else if (type === TYPES.GLACIER) {
         valid_options = VALID_OPTIONS.glacier_options[action];
     } else {
@@ -102,7 +108,6 @@ function validate_no_extra_options(type, action, input_options, is_options_from_
         valid_options.delete('config_root');
         valid_options.delete('config_root_backend');
     }
-
     const invalid_input_options = input_options.filter(element => !valid_options.has(element));
     if (invalid_input_options.length > 0) {
         const type_and_action = type === TYPES.IP_WHITELIST ? type : `${type} ${action}`;
@@ -134,7 +139,7 @@ function validate_options_type_by_value(input_options_with_data) {
                 continue;
             }
             // special case for boolean values
-            if (['allow_bucket_creation', 'regenerate', 'wide', 'show_secrets', 'force', 'force_md5_etag'].includes(option) && validate_boolean_string_value(value)) {
+            if (['allow_bucket_creation', 'regenerate', 'wide', 'show_secrets', 'force', 'force_md5_etag', 'anonymous'].includes(option) && validate_boolean_string_value(value)) {
                 continue;
             }
             // special case for bucket_policy (from_file)
@@ -174,7 +179,7 @@ function validate_min_flags_for_update(type, input_options_with_data) {
 
     // GAP - mandatory flags check should be earlier in the calls in general
     if (_.isUndefined(input_options_with_data.name)) {
-        if (type === TYPES.ACCOUNT) throw_cli_error(ManageCLIError.MissingAccountNameFlag);
+        if (type === TYPES.ACCOUNT && !input_options_with_data.anonymous) throw_cli_error(ManageCLIError.MissingAccountNameFlag);
         if (type === TYPES.BUCKET) throw_cli_error(ManageCLIError.MissingBucketNameFlag);
     }
 
@@ -208,6 +213,24 @@ function validate_flags_combination(type, action, input_options) {
             if (input_options_set.has('show_secrets') && !input_options_set.has('wide')) {
                 const detail = 'Please use --show_secrets and --wide flags together (or only --wide flag)';
                 throw_cli_error(ManageCLIError.InvalidFlagsCombination, detail);
+            }
+        }
+    }
+}
+
+/**
+ * validate_flags_value_combination checks flags and value combination.
+ * 1. account add or update - name should not be anonymous
+ * @param {string} type
+ * @param {string} action
+ * @param {object} input_options_with_data
+ */
+function validate_flags_value_combination(type, action, input_options_with_data) {
+    if (type === TYPES.ACCOUNT) {
+        if (action === ACTIONS.ADD || action === ACTIONS.UPDATE) {
+            if (input_options_with_data.name === ANONYMOUS || input_options_with_data.new_name === ANONYMOUS) {
+                const detail = 'Account name \'anonymous\' is not valid';
+                throw_cli_error(ManageCLIError.InvalidAccountName, detail);
             }
         }
     }
@@ -300,7 +323,7 @@ async function validate_bucket_args(config_root_backend, accounts_dir_path, data
  */
 async function validate_account_args(data, action) {
     if (action === ACTIONS.STATUS || action === ACTIONS.DELETE) {
-        if (_.isUndefined(data.access_keys[0].access_key) && _.isUndefined(data.name)) {
+        if (!has_access_keys(data.access_keys) && _.isUndefined(data.access_keys[0].access_key) && _.isUndefined(data.name)) {
             throw_cli_error(ManageCLIError.MissingIdentifier);
         }
     } else {
@@ -308,8 +331,12 @@ async function validate_account_args(data, action) {
         if ((action !== ACTIONS.UPDATE && data.new_access_key)) throw_cli_error(ManageCLIError.InvalidNewAccessKeyIdentifier);
         if (_.isUndefined(data.name)) throw_cli_error(ManageCLIError.MissingAccountNameFlag);
 
-        if (_.isUndefined(data.access_keys[0].secret_key)) throw_cli_error(ManageCLIError.MissingAccountSecretKeyFlag);
-        if (_.isUndefined(data.access_keys[0].access_key)) throw_cli_error(ManageCLIError.MissingAccountAccessKeyFlag);
+        if (!has_access_keys(data.access_keys) && _.isUndefined(data.access_keys[0].secret_key)) {
+            throw_cli_error(ManageCLIError.MissingAccountSecretKeyFlag);
+        }
+        if (!has_access_keys(data.access_keys) && _.isUndefined(data.access_keys[0].access_key)) {
+            throw_cli_error(ManageCLIError.MissingAccountAccessKeyFlag);
+        }
         if (data.nsfs_account_config.gid && data.nsfs_account_config.uid === undefined) {
             throw_cli_error(ManageCLIError.MissingAccountNSFSConfigUID, data.nsfs_account_config);
         }

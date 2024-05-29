@@ -331,6 +331,17 @@ function set_nc_config_dir_in_config(config_root) {
     config.NSFS_NC_CONF_DIR = config_root;
 }
 
+function generate_anon_s3_client(endpoint) {
+    return new S3({
+        forcePathStyle: true,
+        region: config.DEFAULT_REGION,
+        signer: { sign: async request => request },
+        requestHandler: new NodeHttpHandler({
+            httpAgent: new http.Agent({ keepAlive: false })
+        }),
+        endpoint
+    });
+}
 
 function generate_s3_client(access_key, secret_key, endpoint) {
     return new S3({
@@ -361,4 +372,5 @@ exports.create_fs_user_by_platform = create_fs_user_by_platform;
 exports.delete_fs_user_by_platform = delete_fs_user_by_platform;
 exports.set_path_permissions_and_owner = set_path_permissions_and_owner;
 exports.set_nc_config_dir_in_config = set_nc_config_dir_in_config;
+exports.generate_anon_s3_client = generate_anon_s3_client;
 exports.TMP_PATH = TMP_PATH;

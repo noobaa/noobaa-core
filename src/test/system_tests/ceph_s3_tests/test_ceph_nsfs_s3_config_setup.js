@@ -12,8 +12,11 @@ const dbg = require('../../../util/debug_module')(__filename);
 dbg.set_process_name('test_ceph_s3');
 
 const os_utils = require('../../../util/os_utils');
-const { CEPH_TEST, account_path, account_tenant_path } = require('./test_ceph_s3_constants.js');
+const config = require('../../../../config');
+const mongo_utils = require('../../../util/mongo_utils');
+const { CEPH_TEST, account_path, account_tenant_path, anonymous_account_path } = require('./test_ceph_s3_constants.js');
 const nc_mkm = require('../../../manage_nsfs/nc_master_key_manager').get_instance();
+
 
 async function main() {
     try {
@@ -65,6 +68,8 @@ async function ceph_test_setup() {
         await os_utils.exec(`sed -i -e 's:s3_access_key:${access_key}:g' ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`);
         await os_utils.exec(`sed -i -e 's:s3_secret_key:${secret_key}:g' ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`);
     }
+    // create anonymous account
+    await create_anonymous_account();
 
 }
 
@@ -75,6 +80,28 @@ async function get_access_keys(path) {
     const encrypted_secret_key = data_json.access_keys[0].encrypted_secret_key;
     const secret_key = await nc_mkm.decrypt(encrypted_secret_key, data_json.master_key_id);
     return {access_key, secret_key};
+}
+
+// Create an anonymous account for anonymous request. Use this account UID and GID for bucket access.
+async function create_anonymous_account() {
+    const nsfs_account_config = {
+        uid: process.getuid(),
+        gid: process.getgid(),
+    };
+    const { master_key_id } = await nc_mkm.encrypt_access_keys({});
+    const data = {
+        _id: mongo_utils.mongoObjectId(),
+        name: config.ANONYMOUS_ACCOUNT_NAME,
+        email: config.ANONYMOUS_ACCOUNT_NAME,
+        nsfs_account_config: nsfs_account_config,
+        access_keys: [],
+        allow_bucket_creation: false,
+        creation_date: new Date().toISOString(),
+        master_key_id: master_key_id,
+    };
+    const account_data = JSON.stringify(data);
+    await fs.promises.writeFile(anonymous_account_path, account_data);
+    console.log('Anonymous account created');
 }
 
 if (require.main === module) {

@@ -22,6 +22,7 @@ const { CONFIG_SUBDIRS } = require('../manage_nsfs/manage_nsfs_constants');
 const KeysSemaphore = require('../util/keys_semaphore');
 const native_fs_utils = require('../util/native_fs_utils');
 const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
+const { anonymous_access_key } = require('./object_sdk');
 
 const dbg = require('../util/debug_module')(__filename);
 const bucket_semaphore = new KeysSemaphore(1);
@@ -97,7 +98,8 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
     async read_account_by_access_key({ access_key }) {
         try {
             if (!access_key) throw new Error('no access key');
-            const iam_path = this._get_access_keys_config_path(access_key);
+            const iam_path = access_key === anonymous_access_key ? this._get_account_config_path(config.ANONYMOUS_ACCOUNT_NAME) :
+                this._get_access_keys_config_path(access_key);
             const { data } = await nb_native().fs.readFile(this.fs_context, iam_path);
             const account = JSON.parse(data.toString());
             nsfs_schema_utils.validate_account_schema(account);
@@ -701,6 +703,14 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             if (err.code === 'ENOENT' || err.code === 'EACCES' || (err.code === 'EPERM' && err.message === 'Operation not permitted')) return false;
             throw err;
         }
+    }
+
+    is_nsfs_containerized_user_anonymous(token) {
+        return !token && !process.env.NC_NSFS_NO_DB_ENV;
+    }
+
+    is_nsfs_non_containerized_user_anonymous(token) {
+        return !token && process.env.NC_NSFS_NO_DB_ENV;
     }
 }
 

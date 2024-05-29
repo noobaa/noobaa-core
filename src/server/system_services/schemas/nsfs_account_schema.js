@@ -12,7 +12,7 @@ module.exports = {
         'nsfs_account_config',
         'creation_date',
         'allow_bucket_creation',
-        'master_key_id'
+        'master_key_id',
     ],
     properties: {
         _id: {

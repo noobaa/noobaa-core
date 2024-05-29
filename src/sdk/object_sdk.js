@@ -26,6 +26,7 @@ const NamespaceNetStorage = require('./namespace_net_storage');
 const BucketSpaceNB = require('./bucketspace_nb');
 const { RpcError } = require('../rpc');
 
+const anonymous_access_key = Symbol('anonymous_access_key');
 const bucket_namespace_cache = new LRUCache({
     name: 'ObjectSDK-Bucket-Namespace-Cache',
     // This is intentional. Cache entry expiration is handled by _validate_bucket_namespace().
@@ -207,10 +208,10 @@ class ObjectSDK {
     async load_requesting_account(req) {
         try {
             const token = this.get_auth_token();
-            if (!token) return;
+            if (this._get_bucketspace().is_nsfs_containerized_user_anonymous(token)) return;
             this.requesting_account = await account_cache.get_with_cache({
                 bucketspace: this._get_bucketspace(),
-                access_key: token.access_key,
+                access_key: token ? token.access_key : anonymous_access_key,
             });
             if (this.requesting_account?.nsfs_account_config?.distinguished_name) {
                 const distinguished_name = this.requesting_account.nsfs_account_config.distinguished_name.unwrap();
@@ -245,10 +246,12 @@ class ObjectSDK {
         }
         // check for a specific bucket
         if (bucket && req.op_name !== 'put_bucket') {
-            // ANONYMOUS: cannot work without bucket, cannot work on namespace bucket (?)
+            // ANONYMOUS: cannot work without bucket.
+            // Return if the acount is anonymous
+            if (this._get_bucketspace().is_nsfs_non_containerized_user_anonymous(token)) return;
             const ns = await this.read_bucket_sdk_namespace_info(bucket);
             if (!token) {
-                // TODO: Anonymous access to namespace buckets not supported
+                // TODO: Anonymous access to namespace buckets not supported for containerized Noobaa
                 if (ns) {
                     throw new RpcError('UNAUTHORIZED', `Anonymous access to namespace buckets not supported`);
                 } else {
@@ -256,7 +259,6 @@ class ObjectSDK {
                     return;
                 }
             }
-
             if (!this.has_non_nsfs_bucket_access(this.requesting_account, ns)) {
                 throw new RpcError('UNAUTHORIZED', `No permission to access bucket`);
             }
@@ -1109,6 +1111,15 @@ class ObjectSDK {
     }
 }
 
+// EXPORT
+module.exports = {
+    ObjectSDK,
+    anonymous_access_key: anonymous_access_key,
+    account_cache: account_cache,
+    dn_cache: dn_cache,
+};
+
 module.exports = ObjectSDK;
+module.exports.anonymous_access_key = anonymous_access_key;
 module.exports.account_cache = account_cache;
 module.exports.dn_cache = dn_cache;

@@ -285,10 +285,13 @@ class LogReplicationScanner {
             keys_diff_map,
         );
         dbg.log2('log_replication_scanner: scan copy_objects: ', keys_diff_map);
-        // in case of log-based replication there is no need for the src_cont_token, hance the undefined.
-        const replication_status = replication_utils.get_rule_status(rule_id, undefined, keys_diff_map, copy_res);
 
-        replication_utils.update_replication_prom_report(src_bucket_name, replication_id, replication_status);
+        // update the prometheus metrics only if we have diff
+        if (Object.keys(keys_diff_map).length) {
+            // in case of log-based replication there is no need for the src_cont_token, hance the undefined.
+            const replication_status = replication_utils.get_rule_status(rule_id, undefined, keys_diff_map, copy_res);
+            replication_utils.update_replication_prom_report(src_bucket_name, replication_id, replication_status);
+        }
     }
 
     async delete_objects(bucket_name, keys) {

@@ -18,8 +18,12 @@ jobs:
       pull-requests: write
 
     steps:
+    # Handle non exempted issues
     - uses: actions/stale@v5
       with:
+        exempt-issue-labels: 'Type:Enhancement, Type:Question, Type:Technical Debt'
+        exempt-all-milestones: true
+
         days-before-stale: 90
         days-before-pr-stale: 90
         days-before-issue-stale: 90
@@ -30,4 +34,17 @@ jobs:
         days-before-pr-close: 30
         days-before-issue-close: 30
         close-pr-message: 'This PR is stale and had no activity for too long - it will now be closed.'
+        close-issue-message: 'This issue is stale and had no activity for too long - it will now be closed.'
+
+  # Handle exempted issues
+    - uses: actions/stale@v5
+      with:
+
+        days-before-stale: 180        
+        days-before-issue-stale: 180
+        stale-issue-message: 'This issue had no activity for too long - it will now be labeled stale. Update it to prevent it from getting closed.'
+
+        days-before-close: 30
+        days-before-pr-close: 30
+        days-before-issue-close: 30
         close-issue-message: 'This issue is stale and had no activity for too long - it will now be closed.'

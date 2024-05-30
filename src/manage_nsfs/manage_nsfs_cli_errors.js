@@ -147,6 +147,12 @@ ManageCLIError.WhiteListIPUpdateFailed = Object.freeze({
     http_code: 500,
 });
 
+ManageCLIError.InvalidMasterKey = Object.freeze({
+    code: 'InvalidMasterKey',
+    message: 'Master key manager had issues loading master key, can not decrypt/encrypt secrets.',
+    http_code: 500,
+});
+
 ////////////////////////
 //// ACCOUNT ERRORS ////
 ////////////////////////
@@ -404,7 +410,8 @@ ManageCLIError.FS_ERRORS_TO_MANAGE = Object.freeze({
 
 ManageCLIError.RPC_ERROR_TO_MANAGE = Object.freeze({
     INVALID_SCHEMA: ManageCLIError.InvalidSchema,
-    NO_SUCH_USER: ManageCLIError.InvalidAccountDistinguishedName
+    NO_SUCH_USER: ManageCLIError.InvalidAccountDistinguishedName,
+    INVALID_MASTER_KEY: ManageCLIError.InvalidMasterKey
 });
 
 const NSFS_CLI_ERROR_EVENT_MAP = {

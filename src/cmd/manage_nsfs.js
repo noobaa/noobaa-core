@@ -292,6 +292,10 @@ async function account_management(action, user_input) {
         user_input.name = config.ANONYMOUS_ACCOUNT_NAME;
         user_input.email = config.ANONYMOUS_ACCOUNT_NAME;
     }
+    // init nc_mkm here to avoid concurrent initializations
+    // init if actions is add/update (require encryption) or show_secrets = true (require decryption)
+    if ([ACTIONS.ADD, ACTIONS.UPDATE].includes(action) || show_secrets) await nc_mkm.init();
+
     const data = await fetch_account_data(action, user_input);
     await manage_account_operations(action, data, show_secrets, user_input);
 }
@@ -627,7 +631,9 @@ async function list_config_files(type, config_path, wide, show_secrets, filters)
             if (wide || should_filter) {
                 const full_path = path.join(config_path, entry.name);
                 const data = await get_config_data(config_root_backend, full_path, show_secrets || should_filter);
-                if (data.access_keys) data.access_keys = await nc_mkm.decrypt_access_keys(data);
+                // decryption causing mkm initalization
+                // decrypt only if data has access_keys and show_secrets = true (no need to decrypt if show_secrets = false but should_filter = true)
+                if (data.access_keys && show_secrets) data.access_keys = await nc_mkm.decrypt_access_keys(data);
                 if (should_filter && !filter_list_item(type, data, filters)) return undefined;
                 // remove secrets on !show_secrets && should filter
                 return wide ? _.omit(data, show_secrets ? [] : ['access_keys']) : { name: entry.name.slice(0, entry.name.indexOf('.json')) };

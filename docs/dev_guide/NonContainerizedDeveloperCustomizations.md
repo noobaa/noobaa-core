@@ -459,6 +459,21 @@ Example:
 ```
 
 
+## 23. Set Endpoint process title -
+**Description -** This flag will set noobaa process title for letting GPFS to identify the noobaa endpoint processes. see issue #8039.
+
+**Configuration Key -** ENDPOINT_PROCESS_TITLE
+
+**Type -** string
+
+**Default -**  'noobaa'
+**Steps -**
+```
+1. Open /path/to/config_dir/config.json file.
+2. Set the config key -
+Example:
+"ENDPOINT_PROCESS_TITLE": 'noobaa_60'
+3. systemctl restart noobaa_nsfs
 ## Config.json example 
 ```
 > cat /path/to/config_dir/config.json

@@ -121,6 +121,10 @@ const nsfs_node_config_schema = {
         NC_DISABLE_ACCESS_CHECK: {
             type: 'boolean',
             doc: 'indicate whether read/write access will be validated on bucket/account creation/update.'
+        },
+        ENDPOINT_PROCESS_TITLE: {
+            type: 'string',
+            doc: 'This flag will set noobaa process title for letting GPFS to identify the noobaa endpoint processes.'
         }
     }
 };

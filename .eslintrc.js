@@ -12,6 +12,7 @@ module.exports = {
     env: {
         node: true,
         es2022: true,
+        jest: true,
     },
 
     // See https://eslint.org/docs/latest/user-guide/configuring/language-options#specifying-environments

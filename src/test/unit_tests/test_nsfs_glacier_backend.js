@@ -80,137 +80,134 @@ function assert_date(date, from, expected, tz = 'LOCAL') {
 }
 
 mocha.describe('nsfs_glacier', async () => {
-	const src_bkt = 'nsfs_glacier_src';
+    const src_bkt = 'nsfs_glacier_src';
 
-	const dummy_object_sdk = make_dummy_object_sdk();
+    const dummy_object_sdk = make_dummy_object_sdk();
     const upload_bkt = 'test_ns_uploads_object';
-	const ns_src_bucket_path = src_bkt;
+    const ns_src_bucket_path = src_bkt;
 
-	const glacier_ns = new NamespaceFS({
-		bucket_path: ns_src_bucket_path,
-		bucket_id: '1',
-		namespace_resource_id: undefined,
-		access_mode: undefined,
-		versioning: undefined,
-		force_md5_etag: false,
-		stats: endpoint_stats_collector.instance(),
-	});
+    const glacier_ns = new NamespaceFS({
+        bucket_path: ns_src_bucket_path,
+        bucket_id: '1',
+        namespace_resource_id: undefined,
+        access_mode: undefined,
+        versioning: undefined,
+        force_md5_etag: false,
+        stats: endpoint_stats_collector.instance(),
+    });
 
-	glacier_ns._is_storage_class_supported = async () => true;
+    glacier_ns._is_storage_class_supported = async () => true;
 
-	mocha.before(async () => {
+    mocha.before(async () => {
         await fs.mkdir(ns_src_bucket_path, { recursive: true });
 
-        config.NSFS_GLACIER_LOGS_ENABLED = true;
-		config.NSFS_GLACIER_LOGS_DIR = await fs.mkdtemp(path.join(os.tmpdir(), 'nsfs-wal-'));
+        config.NSFS_GLACIER_LOGS_DIR = await fs.mkdtemp(path.join(os.tmpdir(), 'nsfs-wal-'));
 
-		// Replace the logger by custom one
+        // Replace the logger by custom one
 
-		const migrate_wal = NamespaceFS._migrate_wal;
-		NamespaceFS._migrate_wal = new PersistentLogger(
-			config.NSFS_GLACIER_LOGS_DIR,
-			GlacierBackend.MIGRATE_WAL_NAME,
-			{ locking: 'EXCLUSIVE', poll_interval: 10 }
-		);
+        const migrate_wal = NamespaceFS._migrate_wal;
+        NamespaceFS._migrate_wal = new PersistentLogger(
+            config.NSFS_GLACIER_LOGS_DIR,
+            GlacierBackend.MIGRATE_WAL_NAME, { locking: 'EXCLUSIVE', poll_interval: 10 }
+        );
 
-		if (migrate_wal) await migrate_wal.close();
+        if (migrate_wal) await migrate_wal.close();
 
-		const restore_wal = NamespaceFS._restore_wal;
-		NamespaceFS._restore_wal = new PersistentLogger(
-			config.NSFS_GLACIER_LOGS_DIR,
-			GlacierBackend.RESTORE_WAL_NAME,
-			{ locking: 'EXCLUSIVE', poll_interval: 10 }
-		);
+        const restore_wal = NamespaceFS._restore_wal;
+        NamespaceFS._restore_wal = new PersistentLogger(
+            config.NSFS_GLACIER_LOGS_DIR,
+            GlacierBackend.RESTORE_WAL_NAME, { locking: 'EXCLUSIVE', poll_interval: 10 }
+        );
 
-		if (restore_wal) await restore_wal.close();
-	});
+        if (restore_wal) await restore_wal.close();
+    });
 
-	mocha.describe('nsfs_glacier_tapecloud', async () => {
+    mocha.describe('nsfs_glacier_tapecloud', async () => {
         const upload_key = 'upload_key_1';
         const restore_key = 'restore_key_1';
         const xattr = { key: 'value', key2: 'value2' };
         xattr[s3_utils.XATTR_SORT_SYMBOL] = true;
 
-		const backend = new TapeCloudGlacierBackend();
+        const backend = new TapeCloudGlacierBackend();
 
-		// Patch backend for test
-		backend._migrate = async () => true;
-		backend._recall = async () => true;
-		backend._process_expired = async () => { /**noop*/ };
+        // Patch backend for test
+        backend._migrate = async () => true;
+        backend._recall = async () => true;
+        backend._process_expired = async () => { /**noop*/ };
 
-		mocha.it('upload to GLACIER should work', async () => {
+        mocha.it('upload to GLACIER should work', async () => {
             const data = crypto.randomBytes(100);
             const upload_res = await glacier_ns.upload_object({
                 bucket: upload_bkt,
                 key: upload_key,
-				storage_class: s3_utils.STORAGE_CLASS_GLACIER,
+                storage_class: s3_utils.STORAGE_CLASS_GLACIER,
                 xattr,
                 source_stream: buffer_utils.buffer_to_read_stream(data)
             }, dummy_object_sdk);
 
             console.log('upload_object response', inspect(upload_res));
 
-			// Check if the log contains the entry
-			let found = false;
-			await NamespaceFS.migrate_wal._process(async file => {
-				const fs_context = glacier_ns.prepare_fs_context(dummy_object_sdk);
-				const reader = new NewlineReader(fs_context, file, 'EXCLUSIVE');
+            // Check if the log contains the entry
+            let found = false;
+            await NamespaceFS.migrate_wal._process(async file => {
+                const fs_context = glacier_ns.prepare_fs_context(dummy_object_sdk);
+                const reader = new NewlineReader(fs_context, file, 'EXCLUSIVE');
 
-				await reader.forEachFilePathEntry(async entry => {
-					if (entry.path.endsWith(`${upload_key}`)) {
-						found = true;
+                await reader.forEachFilePathEntry(async entry => {
+                    if (entry.path.endsWith(`${upload_key}`)) {
+                        found = true;
 
-						// Not only should the file exist, it should be ready for
-						// migration as well
-						assert(backend.should_migrate(fs_context, entry.path));
-					}
+                        // Not only should the file exist, it should be ready for
+                        // migration as well
+                        assert(backend.should_migrate(fs_context, entry.path));
+                    }
 
-					return true;
-				});
+                    return true;
+                });
 
-				// Don't delete the file
-				return false;
-			});
+                // Don't delete the file
+                return false;
+            });
 
-			assert(found);
-		});
+            assert(found);
+        });
 
-		mocha.it('restore-object should successfully restore', async () => {
+        mocha.it('restore-object should successfully restore', async () => {
             const now = Date.now();
             const data = crypto.randomBytes(100);
-			const params = {
+            const params = {
                 bucket: upload_bkt,
                 key: restore_key,
-				storage_class: s3_utils.STORAGE_CLASS_GLACIER,
+                storage_class: s3_utils.STORAGE_CLASS_GLACIER,
                 xattr,
-				days: 1,
+                days: 1,
                 source_stream: buffer_utils.buffer_to_read_stream(data)
             };
 
             const upload_res = await glacier_ns.upload_object(params, dummy_object_sdk);
             console.log('upload_object response', inspect(upload_res));
 
-			const restore_res = await glacier_ns.restore_object(params, dummy_object_sdk);
-			assert(restore_res);
+            const restore_res = await glacier_ns.restore_object(params, dummy_object_sdk);
+            assert(restore_res);
 
-			// Issue restore
-			await NamespaceFS.restore_wal._process(async file => {
-				const fs_context = glacier_ns.prepare_fs_context(dummy_object_sdk);
-				await backend.restore(fs_context, file);
+            // Issue restore
+            await NamespaceFS.restore_wal._process(async file => {
+                const fs_context = glacier_ns.prepare_fs_context(dummy_object_sdk);
+                await backend.restore(fs_context, file);
 
-				// Don't delete the file
-				return false;
-			});
+                // Don't delete the file
+                return false;
+            });
 
-			// Ensure object is restored
-			const md = await glacier_ns.read_object_md(params, dummy_object_sdk);
+            // Ensure object is restored
+            const md = await glacier_ns.read_object_md(params, dummy_object_sdk);
 
-			assert(!md.restore_status.ongoing);
+            assert(!md.restore_status.ongoing);
 
-			const expected_expiry = GlacierBackend.generate_expiry(new Date(), params.days, '', config.NSFS_GLACIER_EXPIRY_TZ);
-			assert(expected_expiry.getTime() >= md.restore_status.expiry_time.getTime());
-			assert(now <= md.restore_status.expiry_time.getTime());
-		});
+            const expected_expiry = GlacierBackend.generate_expiry(new Date(), params.days, '', config.NSFS_GLACIER_EXPIRY_TZ);
+            assert(expected_expiry.getTime() >= md.restore_status.expiry_time.getTime());
+            assert(now <= md.restore_status.expiry_time.getTime());
+        });
 
         mocha.it('restore-object should not restore failed item', async () => {
             const now = Date.now();
@@ -293,10 +290,10 @@ mocha.describe('nsfs_glacier', async () => {
             assert(failure_stats.xattr[GlacierBackend.XATTR_RESTORE_REQUEST]);
         });
 
-		mocha.it('_finalize_restore should tolerate deleted objects', async () => {
+        mocha.it('_finalize_restore should tolerate deleted objects', async () => {
             // should not throw error if the path does not exist
             await backend._finalize_restore(glacier_ns.prepare_fs_context(dummy_object_sdk), '/path/does/not/exist');
-		});
+        });
 
         mocha.it('generate_expiry should round up the expiry', () => {
             const now = new Date();
@@ -331,7 +328,7 @@ mocha.describe('nsfs_glacier', async () => {
             const exp6 = GlacierBackend.generate_expiry(some_date, 1.5, `02:05:00`, 'UTC');
             assert_date(exp6, some_date, { day_offset: 1 + 1, hour: 2, min: 5, sec: 0 }, 'UTC');
         });
-	});
+    });
 
     mocha.describe('nsfs_glacier_s3_flow', async () => {
         mocha.it('list_objects should throw error with incorrect optional object attributes', async () => {
@@ -444,11 +441,11 @@ EOF`;
             await TapeCloudUtils.record_task_status(
                 0,
                 async record => {
-                    failed_records.push(record);
-                },
-                async record => {
-                    success_records.push(record);
-                },
+                        failed_records.push(record);
+                    },
+                    async record => {
+                        success_records.push(record);
+                    },
             );
 
             assert.deepStrictEqual(failed_records, expected_failed_records);

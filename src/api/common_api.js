@@ -1355,5 +1355,17 @@ module.exports = {
             type: 'string',
             enum: ['STANDARD', 'GLACIER', 'GLACIER_IR']
         },
+        bucket_logging: {
+            type: 'object',
+            required: ['log_bucket', 'log_prefix'],
+            properties: {
+                log_bucket: {
+                    $ref: 'common_api#/definitions/bucket_name',
+                },
+                log_prefix: {
+                    type: 'string',
+                },
+            }
+        }
     }
 };

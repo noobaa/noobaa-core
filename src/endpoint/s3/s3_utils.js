@@ -566,6 +566,19 @@ function parse_website_to_body(website) {
     return reply;
 }
 
+function parse_body_logging_xml(req) {
+    const logging = {};
+    const bucket_logging_status = req.body.BucketLoggingStatus;
+    if (!bucket_logging_status) throw new S3Error(S3Error.MalformedXML);
+    const target = bucket_logging_status.LoggingEnabled;
+    if (target?.length > 0) {
+        if (target[0].TargetGrants) throw new S3Error(S3Error.AccessControlListNotSupported);
+        logging.log_bucket = target[0].TargetBucket[0];
+        logging.log_prefix = target[0].TargetPrefix[0];
+    }
+    return logging;
+}
+
 function get_http_response_date(res) {
     const r = get_http_response_from_resp(res);
     if (!r.httpResponse.headers.date) throw new Error("date not found in response header");
@@ -698,6 +711,7 @@ exports.is_copy_tagging_directive = is_copy_tagging_directive;
 exports.parse_body_encryption_xml = parse_body_encryption_xml;
 exports.set_encryption_response_headers = set_encryption_response_headers;
 exports.parse_body_website_xml = parse_body_website_xml;
+exports.parse_body_logging_xml = parse_body_logging_xml;
 exports.parse_website_to_body = parse_website_to_body;
 exports.parse_lock_header = parse_lock_header;
 exports.parse_body_object_lock_conf_xml = parse_body_object_lock_conf_xml;

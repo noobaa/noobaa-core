@@ -206,6 +206,7 @@ class NsfsObjectSDK extends ObjectSDK {
             },
             system_owner: new SensitiveString('nsfs'),
             bucket_owner: new SensitiveString('nsfs'),
+            owner_account: new SensitiveString('nsfs-id'), // temp
         };
     }
 }

@@ -196,6 +196,7 @@ class ObjectSDK {
             s3_policy: bucket.s3_policy,
             system_owner: bucket.system_owner,
             bucket_owner: bucket.bucket_owner,
+            owner_account: bucket.owner_account, // in NC NSFS this is the account id that owns the bucket
         };
         return policy_info;
     }

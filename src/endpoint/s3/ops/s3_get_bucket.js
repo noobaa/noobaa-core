@@ -7,10 +7,10 @@ const S3Error = require('../s3_errors').S3Error;
 const s3_utils = require('../s3_utils');
 
 /**
- * list objects and list objects V2: 
+ * list objects and list objects V2:
  * https://docs.aws.amazon.com/AmazonS3/latest/API/API_ListObjects.html
  * https://docs.aws.amazon.com/AmazonS3/latest/API/API_ListObjectsV2.html
- * 
+ *
  * note: the original documentation was in the below link:
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGET.html
  * (but anyway it is permanently redirected to list object link above)
@@ -26,6 +26,16 @@ async function get_bucket(req) {
     const list_type = req.query['list-type'];
     const cont_tok = req.query['continuation-token'];
     const start_after = req.query['start-after'];
+
+    const optional_object_attributes = req.headers['x-amz-optional-object-attributes'];
+    const restore_status_requested = optional_object_attributes === 'RestoreStatus';
+
+    // Only RestoreStatus is a valid attribute for now
+    if (optional_object_attributes && !restore_status_requested) {
+        // S3 API fails with `InvalidArgument` and this message
+        throw new S3Error({ ...S3Error.InvalidArgument, message: 'Invalid attribute name specified' });
+    }
+
 
     const params = {
         bucket: req.params.bucket,
@@ -73,6 +83,7 @@ async function get_bucket(req) {
                 Size: obj.size,
                 Owner: (!list_type || req.query['fetch-owner']) && s3_utils.DEFAULT_S3_USER,
                 StorageClass: s3_utils.parse_storage_class(obj.storage_class),
+                RestoreStatus: get_object_restore_status(obj, restore_status_requested)
             }
         })),
         _.map(reply.common_prefixes, prefix => ({
@@ -101,6 +112,21 @@ function key_marker_to_cont_tok(key_marker, objects_arr, is_truncated) {
     const next_marker = key_marker || objects_arr[objects_arr.length - 1].key;
     const j = JSON.stringify({ key: next_marker });
     return Buffer.from(j).toString('base64');
+}
+
+function get_object_restore_status(obj, restore_status_requested) {
+    if (!restore_status_requested || !obj.restore_status) {
+        return;
+    }
+
+    const restore_status = {
+        IsRestoreInProgress: obj.restore_status.ongoing,
+    };
+    if (!obj.restore_status.ongoing && obj.restore_status.expiry_time) {
+        restore_status.RestoreExpiryDate = new Date(obj.restore_status.expiry_time).toUTCString();
+    }
+
+    return restore_status;
 }
 
 module.exports = {

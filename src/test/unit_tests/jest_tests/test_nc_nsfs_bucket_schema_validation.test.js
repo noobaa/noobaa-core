@@ -34,6 +34,10 @@ describe('schema validation NC NSFS bucket', () => {
             }
         }
     };
+    const logging = {
+        log_bucket: 'bucket2',
+        log_prefix: 'bucket1/'
+    };
 
     describe('bucket with all needed properties', () => {
 
@@ -90,6 +94,12 @@ describe('schema validation NC NSFS bucket', () => {
             nsfs_schema_utils.validate_bucket_schema(bucket_data);
         });
 
+        it('nsfs_bucket with logging', () => {
+            const bucket_data = get_bucket_data();
+            bucket_data.logging = logging;
+            nsfs_schema_utils.validate_bucket_schema(bucket_data);
+        });
+
     });
 
     describe('bucket with additional properties', () => {
@@ -129,6 +139,16 @@ describe('schema validation NC NSFS bucket', () => {
             bucket_data.website.my_id = '123'; // this is not part of the schema
             const reason = 'Test should have failed because of adding additional property ' +
                 'my_id inside website';
+            const message = 'must NOT have additional properties';
+            assert_validation(bucket_data, reason, message);
+        });
+
+        it('bucket with my_id inside logging', () => {
+            const bucket_data = get_bucket_data();
+            bucket_data.logging = logging;
+            bucket_data.logging.my_id = '123'; // this is not part of the schema
+            const reason = 'Test should have failed because of adding additional property ' +
+                'my_id inside logging';
             const message = 'must NOT have additional properties';
             assert_validation(bucket_data, reason, message);
         });
@@ -401,6 +421,16 @@ describe('schema validation NC NSFS bucket', () => {
             const reason = 'Test should have failed because of wrong type ' +
                 'force_md5_etag with boolean (instead of string)';
             const message = 'must be boolean';
+            assert_validation(bucket_data, reason, message);
+        });
+
+        it('bucket with logging as string (instead of object)', () => {
+            const bucket_data = get_bucket_data();
+            // @ts-ignore
+            bucket_data.logging = ''; // not part of definition of logging
+            const reason = 'Test should have failed because of wrong type ' +
+                'logging with string (instead of object)';
+            const message = 'must be object';
             assert_validation(bucket_data, reason, message);
         });
 

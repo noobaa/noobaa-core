@@ -150,7 +150,8 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             };
 
             bucket.bucket_info = {
-                versioning: bucket.versioning
+                versioning: bucket.versioning,
+                logging: bucket.logging,
             };
 
             bucket.name = new SensitiveString(bucket.name);
@@ -426,6 +427,85 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
 
     async get_bucket_tagging(params) {
         // TODO
+    }
+
+    ////////////////////
+    // BUCKET LOGGING //
+    ////////////////////
+
+    async put_bucket_logging(params) {
+        try {
+            const { name, logging } = params;
+            dbg.log0('BucketSpaceFS.put_bucket_logging: Bucket name, logging', name, logging);
+            const bucket_config_path = this._get_bucket_config_path(name);
+            const { data } = await nb_native().fs.readFile(this.fs_context, bucket_config_path);
+            const bucket = JSON.parse(data.toString());
+            bucket.logging = logging;
+            const target_bucket_config_path = this._get_bucket_config_path(logging.log_bucket);
+            let target_data;
+            try {
+                const { data: data1 } = await nb_native().fs.readFile(this.fs_context, target_bucket_config_path);
+                target_data = data1;
+            } catch (err) {
+                dbg.error('ERROR with reading TARGET BUCKET data', logging.log_bucket, err);
+                if (err.code === 'ENOENT') throw new RpcError('INVALID_TARGET_BUCKET', 'The target bucket for logging does not exist');
+                throw err;
+            }
+            const target_bucket = JSON.parse(target_data.toString());
+            if (target_bucket.owner_account !== bucket.owner_account) {
+                dbg.error('TARGET BUCKET NOT OWNED BY USER', target_bucket, bucket);
+                throw new RpcError('INVALID_TARGET_BUCKET', 'The owner for the bucket to be logged and the target bucket must be the same');
+            }
+            dbg.log2('put_bucket_logging: bucket properties before validate_bucket_schema', bucket);
+            nsfs_schema_utils.validate_bucket_schema(bucket);
+            const update_bucket = JSON.stringify(bucket);
+            await nb_native().fs.writeFile(
+                this.fs_context,
+                bucket_config_path,
+                Buffer.from(update_bucket), {
+                    mode: native_fs_utils.get_umasked_mode(config.BASE_MODE_CONFIG_FILE)
+                }
+            );
+        } catch (err) {
+            throw this._translate_bucket_error_codes(err);
+        }
+    }
+
+    async delete_bucket_logging(params) {
+        try {
+            const { name } = params;
+            dbg.log0('BucketSpaceFS.delete_bucket_logging: Bucket name', name);
+            const bucket_config_path = this._get_bucket_config_path(name);
+            const { data } = await nb_native().fs.readFile(this.fs_context, bucket_config_path);
+            const bucket = JSON.parse(data.toString());
+            delete bucket.logging;
+            dbg.log2("delete_bucket_logging: bucket properties before validate_bucket_schema", bucket);
+            // on the safe side validate before changing configuration
+            nsfs_schema_utils.validate_bucket_schema(bucket);
+            const update_bucket = JSON.stringify(bucket);
+            await nb_native().fs.writeFile(
+                this.fs_context,
+                bucket_config_path,
+                Buffer.from(update_bucket), {
+                    mode: native_fs_utils.get_umasked_mode(config.BASE_MODE_CONFIG_FILE)
+                }
+            );
+        } catch (err) {
+            throw this._translate_bucket_error_codes(err);
+        }
+    }
+
+    async get_bucket_logging(params) {
+        try {
+            const { name } = params;
+            dbg.log0('BucketSpaceFS.get_bucket_logging: Bucket name', name);
+            const bucket_config_path = this._get_bucket_config_path(name);
+            const { data } = await nb_native().fs.readFile(this.fs_context, bucket_config_path);
+            const bucket = JSON.parse(data.toString());
+            return bucket.logging;
+        } catch (err) {
+            throw this._translate_bucket_error_codes(err);
+        }
     }
 
     ///////////////////////

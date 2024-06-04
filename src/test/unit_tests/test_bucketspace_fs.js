@@ -1,4 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
+/*eslint max-lines-per-function: ["error", 600]*/
 'use strict';
 
 const fs = require('fs');
@@ -560,6 +561,27 @@ mocha.describe('bucketspace_fs', function() {
             await bucketspace_fs.delete_bucket_policy(param);
             const bucket_policy = await bucketspace_fs.get_bucket_policy(param, dummy_object_sdk);
             assert.ok(bucket_policy.policy === undefined);
+        });
+    });
+
+    mocha.describe('bucket logging operations', function() {
+        mocha.it('put_bucket_logging ', async function() {
+            const logging = {
+                log_bucket: test_bucket,
+                log_prefix: 'test/'
+            };
+            const param = {name: test_bucket, logging: { ...logging} };
+            await bucketspace_fs.put_bucket_logging(param);
+            const output_log = await bucketspace_fs.get_bucket_logging(param);
+            console.log('JAJA1 output_log', output_log, 'logging', logging);
+            assert.deepEqual(output_log, logging);
+        });
+        mocha.it('delete_bucket_logging', async function() {
+            const param = {name: test_bucket};
+            await bucketspace_fs.delete_bucket_logging(param);
+            const output_log = await bucketspace_fs.get_bucket_logging(param);
+            console.log('JAJA2 output_log', output_log);
+            assert.ok(output_log === undefined);
         });
     });
 });

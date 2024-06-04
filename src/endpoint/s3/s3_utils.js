@@ -573,6 +573,9 @@ function parse_body_logging_xml(req) {
     const target = bucket_logging_status.LoggingEnabled;
     if (target?.length > 0) {
         if (target[0].TargetGrants) throw new S3Error(S3Error.AccessControlListNotSupported);
+        if (!target[0].TargetPrefix) {
+            throw new S3Error({...S3Error.InvalidArgument, message: 'Log prefix is not provided'});
+        }
         logging.log_bucket = target[0].TargetBucket[0];
         logging.log_prefix = target[0].TargetPrefix[0];
     }

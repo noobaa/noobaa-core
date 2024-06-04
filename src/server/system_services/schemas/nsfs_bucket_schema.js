@@ -62,6 +62,9 @@ module.exports = {
         },
         force_md5_etag: {
             type: 'boolean',
-        }
+        },
+        logging: {
+            $ref: 'common_api#/definitions/bucket_logging',
+        },
     }
 };

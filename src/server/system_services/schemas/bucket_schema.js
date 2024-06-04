@@ -276,16 +276,7 @@ module.exports = {
             }
         },
         logging: {
-            type: 'object',
-            required: ['log_bucket', 'log_prefix'],
-            properties: {
-                log_bucket: {
-                    $ref: 'common_api#/definitions/bucket_name',
-                },
-                log_prefix: {
-                    type: 'string',
-                },
-            }
+            $ref: 'common_api#/definitions/bucket_logging',
         },
     }
 };

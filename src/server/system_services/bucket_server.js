@@ -389,24 +389,30 @@ async function delete_bucket_tagging(req) {
  */
 
 async function put_bucket_logging(req) {
-
     dbg.log0('put_bucket_logging:', req.rpc_params);
     const bucket = find_bucket(req);
     const prefix = req.rpc_params.log_prefix;
-
     if (!prefix) {
         throw new RpcError('INVALID_ARGUMENT', 'Log prefix is not provided');
     }
-
     const prefix_regex = /^[a-zA-Z0-9.-]+$/;
     if (!prefix_regex.test(prefix)) {
         throw new RpcError('INVALID_ARGUMENT', 'Log prefix should only contain alphanumeric characters, hyphens, or periods');
     }
-
+    const log_bucket_name = req.rpc_params.log_bucket;
+    const log_bucket = req.system.buckets_by_name && req.system.buckets_by_name[log_bucket_name.unwrap()];
+    if (!log_bucket) {
+        dbg.error('TARGET BUCKET NOT EXIST', log_bucket);
+        throw new RpcError('INVALID_TARGET_BUCKET', 'The target bucket for logging does not exist');
+    }
+    if (log_bucket.owner_account._id.toString() !== req.account._id.toString()) {
+        dbg.error('TARGET BUCKET NOT OWNED BY USER', log_bucket);
+        throw new RpcError('INVALID_TARGET_BUCKET', 'The target bucket for logging is not owned by you');
+    }
     const logging = {
-                        "log_bucket": req.rpc_params.log_bucket,
-                        "log_prefix": req.rpc_params.log_prefix
-                    };
+        log_bucket: req.rpc_params.log_bucket,
+        log_prefix: req.rpc_params.log_prefix
+    };
 
     await system_store.make_changes({
         update: {
@@ -423,9 +429,9 @@ async function get_bucket_logging(req) {
     dbg.log0('get_bucket_logging:', req.rpc_params);
     const bucket = find_bucket(req);
 
-    const logging = {
-        "log_bucket": bucket.logging?.log_bucket || "Not Configured",
-        "log_prefix": bucket.logging?.log_prefix || "Not Configured"
+    const logging = bucket.logging && {
+        log_bucket: bucket.logging.log_bucket,
+        log_prefix: bucket.logging.log_prefix
     };
     return logging;
 }

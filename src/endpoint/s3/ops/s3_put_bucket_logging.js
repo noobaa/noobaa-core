@@ -1,15 +1,22 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const S3Error = require('../s3_errors').S3Error;
+const s3_utils = require('../s3_utils');
 
 /**
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketPUTlogging.html
  */
 async function put_bucket_logging(req) {
-    await req.object_sdk.read_bucket({ name: req.params.bucket });
-    // TODO S3 put_bucket_logging not implemented
-    throw new S3Error(S3Error.NotImplemented);
+    const logging = s3_utils.parse_body_logging_xml(req);
+    if (logging.log_bucket) {
+        return req.object_sdk.put_bucket_logging({
+            name: req.params.bucket,
+            logging
+        });
+    }
+    return req.object_sdk.delete_bucket_logging({
+        name: req.params.bucket,
+    });
 }
 
 module.exports = {

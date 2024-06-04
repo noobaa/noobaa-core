@@ -459,6 +459,11 @@ S3Error.NoSuchTagSet = Object.freeze({
     message: 'The tag provided is not found.',
     http_code: 404,
 });
+S3Error.AccessControlListNotSupported = Object.freeze({
+    code: 'AccessControlListNotSupported',
+    message: 'The bucket does not allow ACLs.',
+    http_code: 400,
+});
 
 /////////////////////////////////////
 // Errors for generic HTTP replies //
@@ -602,6 +607,7 @@ S3Error.RPC_ERRORS_TO_S3 = Object.freeze({
     SERVER_SIDE_ENCRYPTION_CONFIGURATION_NOT_FOUND_ERROR: S3Error.ServerSideEncryptionConfigurationNotFoundError,
     NO_SUCH_TAG: S3Error.NoSuchTagSet,
     INVALID_ENCODING_TYPE: S3Error.InvalidEncodingType,
+    INVALID_TARGET_BUCKET: S3Error.InvalidTargetBucketForLogging,
 });
 
 exports.S3Error = S3Error;

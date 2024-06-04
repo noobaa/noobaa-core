@@ -5,9 +5,16 @@
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGETlogging.html
  */
 async function get_bucket_logging(req) {
-    await req.object_sdk.read_bucket({ name: req.params.bucket });
+    const logging = await req.object_sdk.get_bucket_logging({
+        name: req.params.bucket,
+    });
     return {
-        BucketLoggingStatus: ''
+        BucketLoggingStatus: logging ? {
+            LoggingEnabled: {
+                TargetBucket: logging.log_bucket,
+                TargetPrefix: logging.log_prefix,
+            }
+        } : ''
     };
 }
 

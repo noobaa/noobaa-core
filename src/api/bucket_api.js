@@ -828,15 +828,7 @@ module.exports = {
                 },
             },
             reply: {
-                type: 'object',
-                properties: {
-                    log_bucket: {
-                        $ref: 'common_api#/definitions/bucket_name'
-                    },
-                    log_prefix: {
-                        type: 'string'
-                    },
-                }
+                $ref: 'common_api#/definitions/bucket_logging',
             },
             auth: {
                 system: ['admin', 'user']
@@ -870,7 +862,7 @@ module.exports = {
                 versioning: { $ref: 'common_api#/definitions/versioning' },
                 namespace: { $ref: '#/definitions/namespace_bucket_config' },
                 bucket_claim: { $ref: '#/definitions/bucket_claim' },
-                logging: { $ref: '#/definitions/logging' },
+                logging: { $ref: 'common_api#/definitions/bucket_logging' },
                 force_md5_etag: {
                     type: 'boolean'
                 },
@@ -1063,19 +1055,6 @@ module.exports = {
                 namespace: {
                     type: 'string',
                 }
-            }
-        },
-
-        logging: {
-            type: 'object',
-            required: ['log_bucket', 'log_prefix'],
-            properties: {
-                log_bucket: {
-                    $ref: 'common_api#/definitions/bucket_name',
-                },
-                log_prefix: {
-                    type: 'string',
-                },
             }
         },
 

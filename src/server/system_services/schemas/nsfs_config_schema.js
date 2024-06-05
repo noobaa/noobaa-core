@@ -56,6 +56,10 @@ const nsfs_node_config_schema = {
             default: '',
             description: 'indicates the location of the gpfs library file, service restart required, usually should be set to /usr/lib64/libgpfs.so'
         },
+        GPFS_DOWN_DELAY: {
+            type: 'number',
+            doc: 'delay (ms) of GPFS syscalls when daemon is down, to hold client replies during failover, service restart required'
+        },
         NSFS_NC_STORAGE_BACKEND: {
             $ref: 'common_api#/definitions/fs_backend',
             default: undefined,

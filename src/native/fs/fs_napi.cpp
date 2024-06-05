@@ -150,6 +150,7 @@ DBG_INIT(0);
 typedef std::map<std::string, std::string> XattrMap;
 
 const char* gpfs_dl_path = std::getenv("GPFS_DL_PATH");
+
 int gpfs_lib_file_exists = -1;
 
 static int (*dlsym_gpfs_fcntl)(gpfs_file_t file, void* arg) = 0;
@@ -162,6 +163,17 @@ static int (*dlsym_gpfs_linkatif)(
 
 static int (*dlsym_gpfs_unlinkat)(
     gpfs_file_t fileDesc, const char* path, gpfs_file_t fd) = 0;
+
+static int (*dlsym_gpfs_ganesha)(
+    int op, void *oarg) = 0;
+
+struct gpfs_ganesha_noobaa_arg
+{
+    int noobaa_version;
+    int noobaa_delay;
+    int noobaa_flags;
+};
+#define OPENHANDLE_REGISTER_NOOBAA 157
 
 static const int DIO_BUFFER_MEMALIGN = 4096;
 
@@ -2031,6 +2043,30 @@ set_debug_level(const Napi::CallbackInfo& info)
 }
 
 /**
+ * register noobaa args to GPFS
+ */
+static Napi::Value
+register_gpfs_noobaa(const Napi::CallbackInfo& info)
+{
+    Napi::Object params = info[0].As<Napi::Object>();
+    struct gpfs_ganesha_noobaa_arg args = {
+        .noobaa_version = params.Get("version").ToNumber(),
+        .noobaa_delay = params.Get("delay").ToNumber(),
+        .noobaa_flags = params.Get("flags").ToNumber(),
+    };
+    LOG("FS::GPFS gpfs_ganesha_noobaa_arg=" << DVAL(args.noobaa_version) << DVAL(args.noobaa_delay) << DVAL(args.noobaa_flags));
+
+    if (dlsym_gpfs_ganesha(OPENHANDLE_REGISTER_NOOBAA, &args)) {
+        if (errno == EOPNOTSUPP) {
+            LOG("Warning: register with libgpfs gpfs_ganesha returned EOPNOTSUPP" );
+        } else {
+            PANIC("Error: register with libgpfs gpfs_ganesha failed");
+        }
+    }
+    return info.Env().Undefined();
+}
+
+/**
  * Allocate memory aligned buffer for direct IO.
  */
 static Napi::Value
@@ -2078,15 +2114,18 @@ fs_napi(Napi::Env env, Napi::Object exports)
                 PANIC("Error: %s\n"
                     << uv_dlerror(lib));
             }
+            if (uv_dlsym(lib, "gpfs_ganesha", (void**)&dlsym_gpfs_ganesha)) {
+                PANIC("Error: %s\n"
+                    << uv_dlerror(lib));
+            }
             if (sizeof(struct gpfsRequest_t) != 256) {
                 PANIC("The gpfs get extended attributes is of wrong size" << sizeof(struct gpfsRequest_t));
             }
+            
             auto gpfs = Napi::Object::New(env);
-            // for now we export an (empty) object, which can be checked to indicate that
+            gpfs["register_gpfs_noobaa"] = Napi::Function::New(env, register_gpfs_noobaa);
+            // we export the gpfs object, which can be checked to indicate that
             // gpfs lib was loaded and its api's can be used.
-            // e.g: gpfs["version"] = Napi::String::New(env,  gpfs_get_version());
-            // e.g: gpfs["foo"] = Napi::Function::New(env, api<Foo>);
-            // gpfs.Freeze();
             exports_fs["gpfs"] = gpfs;
         }
     } else {

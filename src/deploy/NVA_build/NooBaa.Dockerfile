@@ -56,6 +56,9 @@ ENV ENDPOINT_NODE_OPTIONS ''
 #   Size: ~ 379 MB
 #   Cache: Rebuild when we adding/removing requirments
 ##############################################################
+COPY ./src/deploy/NVA_build/fix_centos8_repo.sh ./src/deploy/NVA_build/
+#default repos for centos8 are outdated, this will point to new repos
+RUN CENTOS_VER=8 ./src/deploy/NVA_build/fix_centos8_repo.sh
 
 RUN dnf install -y epel-release
 RUN dnf install -y -q bash \

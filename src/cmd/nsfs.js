@@ -4,6 +4,7 @@
 
 require('../util/dotenv').load();
 require('aws-sdk/lib/maintenance_mode_message').suppress = true;
+const { cluster } = require('../util/fork_utils');
 
 const dbg = require('../util/debug_module')(__filename);
 if (!dbg.get_process_name()) dbg.set_process_name('nsfs');
@@ -384,6 +385,15 @@ async function main(argv = minimist(process.argv.slice(2))) {
 function verify_gpfslib() {
     if (!nb_native().fs.gpfs) {
         new NoobaaEvent(NoobaaEvent.GPFSLIB_MISSING).create_event(undefined, { gpfs_dl_path: process.env.GPFS_DL_PATH }, undefined);
+        return;
+    }
+    if (cluster.isPrimary) {
+        const gpfs_noobaa_args = {
+            version: 0,
+            delay: Number(config.GPFS_DOWN_DELAY),
+            flags: 0
+        };
+        nb_native().fs.gpfs.register_gpfs_noobaa(gpfs_noobaa_args);
     }
 }
 

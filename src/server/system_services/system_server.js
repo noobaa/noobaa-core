@@ -1170,29 +1170,36 @@ function _list_s3_addresses(system) {
             }).toString()
         }];
     }
-    return system.system_address
-        .filter(addr =>
-            addr.service === 's3' &&
-            addr.api === 's3' &&
-            addr.secure
-        )
-        .sort((addr1, addr2) => {
-            // Prefer external addresses.
-            if (addr1.kind !== addr2.kind) {
-                return addr1.kind === 'EXTERNAL' ? -1 : 1;
-            }
 
-            // Prefer addresses with higher weight.
-            return Math.sign(addr2.weight - addr1.weight);
-        })
-        .map(addr => {
-            const { kind, hostname, port } = addr;
-            const url = url_utils.construct_url({ protocol: 'https', hostname, port });
-            return {
-                kind: kind,
-                address: url.toString()
-            };
-        });
+    try {
+        return system.system_address
+            .filter(addr =>
+                addr.service === 's3' &&
+                addr.api === 's3' &&
+                addr.secure
+            )
+            .sort((addr1, addr2) => {
+                // Prefer external addresses.
+                if (addr1.kind !== addr2.kind) {
+                    return addr1.kind === 'EXTERNAL' ? -1 : 1;
+                }
+
+                // Prefer addresses with higher weight.
+                return Math.sign(addr2.weight - addr1.weight);
+            })
+            .map(addr => {
+                const { kind, hostname, port } = addr;
+                const url = url_utils.construct_url({ protocol: 'https', hostname, port });
+                return {
+                    kind: kind,
+                    address: url.toString()
+                };
+            });
+    } catch (err) {
+        dbg.error('list_s3_addresses: failed to list s3 addresses', err);
+        return [];
+    }
+
 }
 
 async function _get_endpoint_groups() {

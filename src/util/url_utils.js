@@ -4,6 +4,7 @@
 const _ = require('lodash');
 const url = require('url');
 const querystring = require('querystring');
+const net = require('net');
 
 const QUICK_PARSE_REGEXP = /^\s*(\w+:)?(\/\/)?(([^:/[\]]*)|\[([a-fA-F0-9:.]*)\])?(:\d*)?(\/[^?#]*)?(\?[^#]*)?(#.*)?\s*$/;
 
@@ -47,9 +48,15 @@ function quick_parse(url_string, parse_query_string) {
 }
 
 function construct_url(def) {
-    const { protocol = 'http', hostname, port } = def;
+    const { protocol = 'http', port } = def;
+    let { hostname } = def;
     if (!hostname) {
         throw new Error('Invalid definition, hostname is mandatory');
+    }
+
+    // check if hostname is an IPV6. if hostname is already wrapped with brackets, net.isIPv6 returns false.
+    if (net.isIPv6(hostname)) {
+        hostname = `[${hostname}]`;
     }
 
     return new URL(port ?

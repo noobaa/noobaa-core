@@ -952,7 +952,9 @@ interface NativeFS {
     O_DIRECT?: number;
     O_TMPFILE?: number;
 
-    gpfs?: object;
+    gpfs?: {
+        register_gpfs_noobaa(gpfs_noobaa_args: GPFSNooBaaArgs);
+    };
 }
 
 interface NativeFile {
@@ -984,6 +986,12 @@ interface NativeFSContext {
     report_fs_stats?: Function;
     disable_ctime_check?: boolean;
 }
+
+type GPFSNooBaaArgs = {
+    version: number;
+    delay: number;
+    flags: number;
+};
 
 type NativeFSXattr = { [key: string]: string };
 type NativeFSStats = fs.Stats & {

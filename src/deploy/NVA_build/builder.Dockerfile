@@ -1,5 +1,7 @@
 ARG CENTOS_VER=9
 FROM quay.io/centos/centos:stream${CENTOS_VER}
+#Needs to reapply ARG, it was cleaned by FROM command.
+ARG CENTOS_VER
 LABEL maintainer="Liran Mauda (lmauda@redhat.com)"
 
 ##############################################################
@@ -10,6 +12,10 @@ LABEL maintainer="Liran Mauda (lmauda@redhat.com)"
 ##############################################################
 # RUN dnf --enablerepo=PowerTools install -y -q nasm && \
 #     dnf clean all
+
+COPY ./src/deploy/NVA_build/fix_centos8_repo.sh ./src/deploy/NVA_build/
+#default repos for centos8 are outdated, this will point to new repos
+RUN CENTOS_VER=${CENTOS_VER} ./src/deploy/NVA_build/fix_centos8_repo.sh
 RUN dnf update -y -q --nobest && \
     dnf clean all
 COPY ./src/deploy/NVA_build/install_arrow_build.sh ./src/deploy/NVA_build/install_arrow_build.sh

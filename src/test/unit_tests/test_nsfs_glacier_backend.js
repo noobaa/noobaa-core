@@ -18,6 +18,7 @@ const { TapeCloudGlacierBackend, TapeCloudUtils } = require('../../sdk/nsfs_glac
 const { PersistentLogger } = require('../../util/persistent_logger');
 const { GlacierBackend } = require('../../sdk/nsfs_glacier_backend/backend');
 const nb_native = require('../../util/nb_native');
+const { handler: s3_get_bucket } = require('../../endpoint/s3/ops/s3_get_bucket');
 
 const inspect = (x, max_arr = 5) => util.inspect(x, { colors: true, depth: null, maxArrayLength: max_arr });
 
@@ -34,6 +35,14 @@ function make_dummy_object_sdk() {
         throw_if_aborted() {
             if (this.abort_controller.signal.aborted) throw new Error('request aborted signal');
         }
+    };
+}
+function generate_noobaa_req_obj() {
+    return {
+        query: {},
+        params: {},
+        headers: {},
+        object_sdk: make_dummy_object_sdk(),
     };
 }
 
@@ -67,11 +76,11 @@ function assert_date(date, from, expected, tz = 'LOCAL') {
 }
 
 mocha.describe('nsfs_glacier', async () => {
-	const src_bkt = 'src';
+	const src_bkt = 'nsfs_glacier_src';
 
 	const dummy_object_sdk = make_dummy_object_sdk();
     const upload_bkt = 'test_ns_uploads_object';
-	const ns_src_bucket_path = `./${src_bkt}`;
+	const ns_src_bucket_path = src_bkt;
 
 	const glacier_ns = new NamespaceFS({
 		bucket_path: ns_src_bucket_path,
@@ -83,10 +92,11 @@ mocha.describe('nsfs_glacier', async () => {
 		stats: endpoint_stats_collector.instance(),
 	});
 
-
 	glacier_ns._is_storage_class_supported = async () => true;
 
 	mocha.before(async () => {
+        await fs.mkdir(ns_src_bucket_path, { recursive: true });
+
 		config.NSFS_GLACIER_LOGS_DIR = await fs.mkdtemp(path.join(os.tmpdir(), 'nsfs-wal-'));
 
 		// Replace the logger by custom one
@@ -313,8 +323,72 @@ mocha.describe('nsfs_glacier', async () => {
         });
 	});
 
+    mocha.describe('nsfs_glacier_s3_flow', async () => {
+        mocha.it('list_objects should throw error with incorrect optional object attributes', async () => {
+            const req = generate_noobaa_req_obj();
+            req.params.bucket = src_bkt;
+            req.headers['x-amz-optional-object-attributes'] = 'restorestatus';
+            assert.rejects(async () => s3_get_bucket(req));
+        });
+
+        mocha.it('list_objects should not return restore status when optional object attr header isn\'t given', async () => {
+            const req = generate_noobaa_req_obj();
+            req.params.bucket = src_bkt;
+            req.object_sdk.list_objects = params => glacier_ns.list_objects(params, dummy_object_sdk);
+
+            const res = await s3_get_bucket(req);
+            const objs = res.ListBucketResult[1];
+            assert.strictEqual(objs instanceof Array, true);
+
+            // @ts-ignore
+            objs.forEach(obj => {
+                assert.strictEqual(obj.RestoreStatus, undefined);
+            });
+        });
+
+        mocha.it('list_objects should return restore status for the objects when requested', async () => {
+            const req = generate_noobaa_req_obj();
+            req.params.bucket = src_bkt;
+            req.headers['x-amz-optional-object-attributes'] = 'RestoreStatus';
+            req.object_sdk.list_objects = params => glacier_ns.list_objects(params, dummy_object_sdk);
+
+            const res = await s3_get_bucket(req);
+            const objs = res.ListBucketResult[1];
+            assert.strictEqual(objs instanceof Array, true);
+
+            const fs_context = glacier_ns.prepare_fs_context(dummy_object_sdk);
+
+            await Promise.all(
+                // @ts-ignore
+                objs.map(async obj => {
+                    // obj.Key will be the same as original key for as long as
+                    // no custom encoding is provided
+                    const file_path = glacier_ns._get_file_path({ key: obj.Contents.Key });
+                    const stat = await nb_native().fs.stat(fs_context, file_path);
+
+                    const glacier_status = GlacierBackend.get_restore_status(stat.xattr, new Date(), file_path);
+                    if (glacier_status === undefined) {
+                        assert.strictEqual(obj.Contents.RestoreStatus, undefined);
+                    } else {
+                        assert.strictEqual(obj.Contents.RestoreStatus.IsRestoreInProgress, glacier_status.ongoing);
+                        if (glacier_status.expiry_time === undefined) {
+                            assert.strictEqual(obj.Contents.RestoreStatus.RestoreExpiryDate, undefined);
+                        }
+                    }
+                })
+            );
+        });
+    });
+
+    mocha.after(async () => {
+        await Promise.all([
+            fs.rm(ns_src_bucket_path, { recursive: true, force: true }),
+            fs.rm(config.NSFS_GLACIER_LOGS_DIR, { recursive: true, force: true }),
+        ]);
+    });
+
     mocha.describe('tapecloud_utils', () => {
-        const MOCK_TASK_SHOW_DATA = `Random irrelevant data to 
+        const MOCK_TASK_SHOW_DATA = `Random irrelevant data to
 Result    Failure Code  Failed time               Node -- File name
 Fail      GLESM451W     2023/11/08T02:38:47          1 -- /ibm/gpfs/NoobaaTest/file.aaai
 Fail      GLESM451W     2023/11/08T02:38:47          1 -- /ibm/gpfs/NoobaaTest/file.aaaj

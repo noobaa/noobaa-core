@@ -46,7 +46,7 @@ NooBaa logs are pushed to `var/log/noobaa.log` and the log is rotated and compre
 
 The following files contain NooBaa specific configuration for rsyslog and logrotate - 
 1. `etc/rsyslog.d/noobaa_syslog.conf`
-2. `etc/logrotate.d/noobaa/logrotate_noobaa.conf` 
+2. `etc/logrotate.d/noobaa-logrotate` 
 
 Verify the rsyslog and logrotate rpm configuration is complete by checking the files above.
 
@@ -54,14 +54,13 @@ Verify the rsyslog and logrotate rpm configuration is complete by checking the f
 
 ##### Logrotate automatic rotation
 
-- Logrotate configuration is set up under `/etc/logrotate.d/noobaa/`. 
-- In order to trigger rotation when log files reaches size threshold, each log file (`/var/log/noobaa.log` and `/var/log/noobaa_events.log`) uses its own rsyslog `outchannel`.
-- Logrotate is also typically called from cron on daily schedule.
+- Logrotate configuration is set up under `etc/logrotate.d/`. 
+- Logrotate is called from cron on daily schedule, usually at midnight.
 - For acquiring more knowledge on NooBaa events, read - [NooBaa Non Containerized Events](./Events.md).  
 ##### Manual Logrotate triggering
 To rotate the logs manually run -
 ```
-logrotate /etc/logrotate.d/noobaa/logrotate_noobaa.conf
+logrotate etc/logrotate.d/noobaa-logrotate
 ```
 
 
@@ -83,3 +82,13 @@ For more info about setting custom properties, see - [Non Containerized Config F
 ## NooBaa Logs format
 NooBaa logs are formatted with ANSI color codes. </br>
 Use the `cat <logfile> | less -R` command in order to display the contents of a log file with pagination and the ability to handle ANSI color codes. 
+
+### Set log config
+
+Set `LOG_TO_STDERR_ENABLED` property to `true` to  send Noobaa logs to stderr. Noobaa logs will be send to syslog when the property `LOG_TO_SYSLOG_ENABLED` set to `true`. 
+
+Default configurations are:
+```
+LOG_TO_STDERR_ENABLED = true;
+LOG_TO_SYSLOG_ENABLED = false;
+```

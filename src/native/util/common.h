@@ -18,6 +18,7 @@
 
 #include "backtrace.h"
 #include "os.h"
+#include "syslog.h"
 
 namespace noobaa
 {
@@ -32,7 +33,34 @@ namespace noobaa
 
 #define DVAL(x) #x "=" << x << " "
 
-#define LOG(x) std::cerr << LOG_PREFIX() << x << std::endl
+extern bool LOG_TO_STDERR_ENABLED;
+extern bool LOG_TO_SYSLOG_ENABLED;
+
+#define STD_LOG(x)                                      \
+    do {                                                \
+        std::cerr << x << std::endl;                    \
+    } while (0) 
+
+#define SYS_LOG(x)                                      \
+    do {                                                \
+        const char* log_msg = x.c_str();                \
+        int facility = LOG_LOCAL0;                      \
+        int priority = 0;                               \
+        ::syslog(priority | facility, "%s", log_msg);   \
+    } while (0)
+
+#define LOG(x)                                          \
+    do {                                                \
+        std::ostringstream oss;                         \
+        oss << "" << LOG_PREFIX() << x;                 \
+        std::string message = oss.str();                \
+        if (LOG_TO_STDERR_ENABLED) {                    \
+            STD_LOG(message);                           \
+        }                                               \
+        if (LOG_TO_SYSLOG_ENABLED) {                    \
+            SYS_LOG(message);                           \
+        }                                               \
+    } while (0)   
 
 // to use DBG the module/file should use either DBG_INIT or DBG_INIT_VAR.
 #define DBG_INIT(level) static int __module_debug_var__ = level
@@ -40,11 +68,11 @@ namespace noobaa
 #define DBG_SET_LEVEL(level) __module_debug_var__ = level
 #define DBG_GET_LEVEL() (__module_debug_var__)
 #define DBG_VISIBLE(level) (level <= __module_debug_var__)
-#define DBG(level, x)                        \
-    do {                                     \
-        if (DBG_VISIBLE(level)) {            \
-            LOG("[L" << level << "] " << x); \
-        }                                    \
+#define DBG(level, x)                                 \
+    do {                                              \
+        if (DBG_VISIBLE(level)) {                     \
+            LOG("[L" << level << "] " << x);          \
+        }                                             \
     } while (0)
 #define DBG0(x) DBG(0, x)
 #define DBG1(x) DBG(1, x)

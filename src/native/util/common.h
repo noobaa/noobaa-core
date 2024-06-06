@@ -18,6 +18,7 @@
 
 #include "backtrace.h"
 #include "os.h"
+#include "syslog.h"
 
 namespace noobaa
 {
@@ -30,17 +31,32 @@ namespace noobaa
 
 #define LOG(x) std::cerr << LOG_PREFIX() << x << std::endl
 
+#define SYS_LOG(x)                                      \
+do {                                                    \
+        std::ostringstream oss;                         \
+        oss << "" << LOG_PREFIX() << x << std::endl;    \
+        std::string log_str = oss.str();                \
+        const char* log_msg = log_str.c_str();          \
+        int facility = LOG_LOCAL0;                      \
+        int priority = 0;                               \
+        ::syslog(priority | facility, "%s", log_msg);   \
+    } while (0)
 // to use DBG the module/file should use either DBG_INIT or DBG_INIT_VAR.
 #define DBG_INIT(level) static int __module_debug_var__ = level
 #define DBG_INIT_VAR(debug_var) static int& __module_debug_var__ = debug_var
 #define DBG_SET_LEVEL(level) __module_debug_var__ = level
 #define DBG_GET_LEVEL() (__module_debug_var__)
 #define DBG_VISIBLE(level) (level <= __module_debug_var__)
-#define DBG(level, x)                        \
-    do {                                     \
-        if (DBG_VISIBLE(level)) {            \
-            LOG("[L" << level << "] " << x); \
-        }                                    \
+#define DBG(level, x)                                                   \
+    do {                                                                \
+        if (DBG_VISIBLE(level)) {                                       \
+            const char* syslog_enabled = std::getenv("SYSLOG_ENABLED"); \
+            if (syslog_enabled != NULL) {                               \
+                SYS_LOG("[L" << level << "] " << x);                    \
+            } else {                                                    \
+                LOG("[L" << level << "] " << x);                        \
+            }                                                           \
+        }                                                               \
     } while (0)
 #define DBG0(x) DBG(0, x)
 #define DBG1(x) DBG(1, x)

@@ -86,7 +86,7 @@
         if (r) {                                                                          \
             int current_errno = errno;                                                    \
             std::string errmsg = strerror(current_errno);                                 \
-            LOG("FS::FSWorker:: WARN " << _desc << DVAL(current_errno) << " " << errmsg); \
+            DBG1("FS::FSWorker:: WARN " << _desc << DVAL(current_errno) << " " << errmsg); \
         }                                                                                 \
     } while (0)
 
@@ -224,18 +224,18 @@ parse_open_flags(std::string flags)
             bits |= O_TMPFILE | O_RDWR;
             bits &= ~(O_RDONLY | O_WRONLY | O_TRUNC | O_CREAT);
 #else
-            LOG("FS: Unsupported O_TMPFILE " << flags);
+            DBG1("FS: Unsupported O_TMPFILE " << flags);
 #endif
             break;
         case 'd':
 #ifdef O_DIRECT
             bits |= O_DIRECT;
 #else
-            LOG("FS: Unsupported O_DIRECT " << flags);
+            DBG1("FS: Unsupported O_DIRECT " << flags);
 #endif
             break;
         default:
-            LOG("FS: Unexpected open flags " << flags);
+            DBG1("FS: Unexpected open flags " << flags);
             return -1;
         }
     }
@@ -473,7 +473,7 @@ get_fd_gpfs_xattr(int fd, XattrMap& xattr, int& gpfs_error)
             int buffer_len = gpfsGetXattrRequest.payload.bufferLen;
             xattr[key] = std::string(gpfsGetXattrRequest.buffer[ROUNDUP(name_len, 8)], buffer_len);
         } else if (gpfs_error != GPFS_FCNTL_ERR_NO_ATTR) {
-            LOG("get_fd_gpfs_xattr: get GPFS xattr with fcntl failed with error." << DVAL(gpfs_error));
+            DBG1("get_fd_gpfs_xattr: get GPFS xattr with fcntl failed with error." << DVAL(gpfs_error));
             return gpfs_error;
         }
     }
@@ -1372,9 +1372,9 @@ struct FileWrap : public Napi::ObjectWrap<FileWrap>
     ~FileWrap()
     {
         if (_fd >= 0) {
-            LOG("FS::FileWrap::dtor: file not closed " << DVAL(_path) << DVAL(_fd));
+            DBG1("FS::FileWrap::dtor: file not closed " << DVAL(_path) << DVAL(_fd));
             int r = ::close(_fd);
-            if (r) LOG("FS::FileWrap::dtor: file close failed " << DVAL(_path) << DVAL(_fd) << DVAL(r));
+            if (r) DBG1("FS::FileWrap::dtor: file close failed " << DVAL(_path) << DVAL(_fd) << DVAL(r));
             _fd = -1;
         }
     }
@@ -1925,9 +1925,9 @@ struct DirWrap : public Napi::ObjectWrap<DirWrap>
     ~DirWrap()
     {
         if (_dir) {
-            LOG("FS::DirWrap::dtor: dir not closed " << DVAL(_path) << DVAL(_dir));
+            DBG1("FS::DirWrap::dtor: dir not closed " << DVAL(_path) << DVAL(_dir));
             int r = closedir(_dir);
-            if (r) LOG("FS::DirWrap::dtor: dir close failed " << DVAL(_path) << DVAL(_dir) << DVAL(r));
+            if (r) DBG1("FS::DirWrap::dtor: dir close failed " << DVAL(_path) << DVAL(_dir) << DVAL(r));
             _dir = 0;
         }
     }
@@ -2139,11 +2139,11 @@ register_gpfs_noobaa(const Napi::CallbackInfo& info)
         .noobaa_delay = params.Get("delay").ToNumber(),
         .noobaa_flags = params.Get("flags").ToNumber(),
     };
-    LOG("FS::GPFS gpfs_ganesha_noobaa_arg=" << DVAL(args.noobaa_version) << DVAL(args.noobaa_delay) << DVAL(args.noobaa_flags));
+    DBG1("FS::GPFS gpfs_ganesha_noobaa_arg=" << DVAL(args.noobaa_version) << DVAL(args.noobaa_delay) << DVAL(args.noobaa_flags));
 
     if (dlsym_gpfs_ganesha(OPENHANDLE_REGISTER_NOOBAA, &args)) {
         if (errno == EOPNOTSUPP) {
-            LOG("Warning: register with libgpfs gpfs_ganesha returned EOPNOTSUPP" );
+            DBG1("Warning: register with libgpfs gpfs_ganesha returned EOPNOTSUPP" );
         } else {
             PANIC("Error: register with libgpfs gpfs_ganesha failed");
         }
@@ -2171,13 +2171,13 @@ fs_napi(Napi::Env env, Napi::Object exports)
 {
     auto exports_fs = Napi::Object::New(env);
     if (gpfs_dl_path != NULL) {
-        LOG("FS::GPFS GPFS_DL_PATH=" << gpfs_dl_path);
+        DBG1("FS::GPFS GPFS_DL_PATH=" << gpfs_dl_path);
         struct stat _stat_res;
         gpfs_lib_file_exists = stat(gpfs_dl_path, &_stat_res); //SYSCALL_OR_RETURN
         if (gpfs_lib_file_exists == -1) {
-            LOG("FS::GPFS WARN couldn't find GPFS lib file GPFS_DL_PATH=" << gpfs_dl_path);
+            DBG1("FS::GPFS WARN couldn't find GPFS lib file GPFS_DL_PATH=" << gpfs_dl_path);
         } else {
-            LOG("FS::GPFS found GPFS lib file GPFS_DL_PATH=" << gpfs_dl_path);
+            DBG1("FS::GPFS found GPFS lib file GPFS_DL_PATH=" << gpfs_dl_path);
             uv_lib_t* lib = (uv_lib_t*)malloc(sizeof(uv_lib_t));
             if (uv_dlopen(gpfs_dl_path, lib)) {
                 PANIC("Error: %s\n"

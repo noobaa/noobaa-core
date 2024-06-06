@@ -79,7 +79,11 @@ async function main(argv = minimist(process.argv.slice(2))) {
         const user_input = user_input_from_file || argv;
         config_root = argv.config_root ? String(argv.config_root) : config.NSFS_NC_CONF_DIR;
         if (!config_root) throw_cli_error(ManageCLIError.MissingConfigDirPath);
-        if (argv.config_root) config.NSFS_NC_CONF_DIR = String(argv.config_root);
+        if (argv.config_root) {
+            config.NSFS_NC_CONF_DIR = String(argv.config_root);
+            config.load_nsfs_nc_config();
+            config.reload_nsfs_nc_config();
+        }
 
         accounts_dir_path = path.join(config_root, accounts_dir_name);
         access_keys_dir_path = path.join(config_root, access_keys_dir_name);
@@ -102,10 +106,13 @@ async function main(argv = minimist(process.argv.slice(2))) {
     } catch (err) {
         dbg.log1('NSFS Manage command: exit on error', err.stack || err);
         const manage_err = ((err instanceof ManageCLIError) && err) ||
-            new ManageCLIError(ManageCLIError.FS_ERRORS_TO_MANAGE[err.code] ||
+            new ManageCLIError({
+                ...(ManageCLIError.FS_ERRORS_TO_MANAGE[err.code] ||
                 ManageCLIError.RPC_ERROR_TO_MANAGE[err.rpc_code] ||
-                ManageCLIError.InternalError);
-        throw_cli_error(manage_err, err.stack || err);
+                ManageCLIError.InternalError), cause: err });
+        process.stdout.write(manage_err.to_string() + '\n', () => {
+            process.exit(1);
+        });
     }
 }
 
@@ -256,7 +263,8 @@ async function delete_bucket(data, force) {
         if (object_entries.length === 0 || force) {
             await native_fs_utils.folder_delete(bucket_temp_dir_path, fs_context_fs_backend, true);
             await native_fs_utils.delete_config_file(fs_context_config_root_backend, buckets_dir_path, bucket_config_path);
-            write_stdout_response(ManageCLIResponse.BucketDeleted, '', {bucket: data.name});
+            write_stdout_response(ManageCLIResponse.BucketDeleted, '', { bucket: data.name });
+            return;
         }
         throw_cli_error(ManageCLIError.BucketDeleteForbiddenHasObjects, data.name);
     } catch (err) {

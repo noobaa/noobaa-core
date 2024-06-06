@@ -965,7 +965,7 @@ class ObjectSDK {
 
     async put_bucket_logging(params) {
         const bs = this._get_bucketspace();
-        return bs.put_bucket_logging(params);
+        return bs.put_bucket_logging(params, this);
     }
 
     async delete_bucket_logging(params) {

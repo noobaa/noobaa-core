@@ -406,8 +406,6 @@ async function complete_object_upload(req) {
         set_updates.sha256_b64 = req.rpc_params.sha256_b64;
     }
 
-    dbg.log0("req.rpc_params.num_parts = ", req.rpc_params.num_parts, ", req.params.num_parts = ", req.params.num_parts);
-
     let map_res;
     if (req.rpc_params.multiparts) {
         map_res = await _complete_object_multiparts(obj, req.rpc_params.multiparts);
@@ -1985,8 +1983,6 @@ async function _complete_object_parts(obj) {
 
     const parts = await MDStore.instance().find_all_parts_of_object(obj);
     _complete_next_parts(parts, context);
-
-    dbg.log0("_complete_object_parts num_parts = ", context.num_parts);
 
     return {
         size: context.pos,

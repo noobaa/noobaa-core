@@ -969,7 +969,7 @@ async function delete_multiple_objects_by_filter(req) {
             }))
         }
     }));
-    return { objects_deleted: objects.length };
+    return { num_objects_deleted: objects.length };
 }
 
 /**

@@ -7,6 +7,15 @@ const system_utils = require('../utils/system_utils');
 const config = require('../../../config');
 const cloud_utils = require('../../util/cloud_utils');
 const fs = require('fs');
+const stream = require('stream');
+const crypto = require('crypto');
+const { PersistentLogger, LogFile } = require('../../util/persistent_logger');
+const { format_aws_date } = require('../../util/time_utils');
+const nsfs_schema_utils = require('../../manage_nsfs/nsfs_schema_utils');
+const Semaphore = require('../../util/semaphore');
+const P = require('../../util/promise');
+
+const sem = new Semaphore(config.BUCKET_LOG_CONCURRENCY);
 
 const BUCKET_LOGS_PATH = '/log/noobaa_bucket_logs/';
 

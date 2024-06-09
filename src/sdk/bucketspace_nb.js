@@ -154,9 +154,9 @@ class BucketSpaceNB {
         });
     }
 
-    async get_bucket_logging(req) {
+    async get_bucket_logging(params) {
         return this.rpc_client.bucket.get_bucket_logging({
-            name: req.params.bucket
+            name: params.name
         });
     }
 

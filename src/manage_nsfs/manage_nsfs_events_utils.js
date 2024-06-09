@@ -325,4 +325,26 @@ NoobaaEvent.INVALID_BUCKET_STATE = Object.freeze({
     state: 'HEALTHY',
 });
 
+NoobaaEvent.LOGGING_EXPORTED = Object.freeze({
+    event_code: 'bucket_logging_exported',
+    entity_type: 'NODE',
+    event_type: 'INFO',
+    message: 'Bucket logs was exported to target buckets',
+    description: 'Bucket logs was successfully exported to target buckets',
+    scope: 'NODE',
+    severity: 'INFO',
+    state: 'HEALTHY',
+});
+
+NoobaaEvent.LOGGING_FAILED = Object.freeze({
+    event_code: 'bucket_logging_export_failed',
+    entity_type: 'NODE',
+    event_type: 'ERROR',
+    message: 'Bucket logging export failed.',
+    description: 'Bucket logging export failed due to error',
+    scope: 'NODE',
+    severity: 'ERROR',
+    state: 'DEGRADED',
+});
+
 exports.NoobaaEvent = NoobaaEvent;

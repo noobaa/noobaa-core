@@ -2,13 +2,6 @@
 'use strict';
 /* eslint-disable complexity */
 
-require('../util/dotenv').load();
-require('aws-sdk/lib/maintenance_mode_message').suppress = true;
-
-const dbg = require('../util/debug_module')(__filename);
-if (!dbg.get_process_name()) dbg.set_process_name('nsfs');
-dbg.original_console();
-
 // DO NOT PUT NEW REQUIREMENTS BEFORE SETTING process.env.NC_NSFS_NO_DB_ENV = 'true' 
 // NC nsfs deployments specifying process.env.LOCAL_MD_SERVER=true deployed together with a db
 // when a system_store object is initialized VaccumAnalyzer is being called once a day.
@@ -17,6 +10,13 @@ dbg.original_console();
 if (process.env.LOCAL_MD_SERVER !== 'true') {
     process.env.NC_NSFS_NO_DB_ENV = 'true';
 }
+require('../util/dotenv').load();
+require('aws-sdk/lib/maintenance_mode_message').suppress = true;
+
+const dbg = require('../util/debug_module')(__filename);
+if (!dbg.get_process_name()) dbg.set_process_name('nsfs');
+dbg.original_console();
+
 const config = require('../../config');
 
 const os = require('os');

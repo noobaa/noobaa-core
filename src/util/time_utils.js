@@ -82,6 +82,20 @@ function format_time_duration(millis, show_millis) {
     return `${hours_str}:${mins_str}:${secs_str}`;
 }
 
+/** 
+* @param {Date} date
+*/
+function format_aws_date(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+
+    return `${year}-${month}-${day}-${hours}-${minutes}-${seconds}`;
+}
+
 /**
  * round_up_to_next_time_of_day takes a date and rounds it up based on
  * the given hours, mins and secs.
@@ -123,4 +137,5 @@ exports.format_http_header_date = format_http_header_date;
 exports.parse_http_header_date = parse_http_header_date;
 exports.parse_amz_date = parse_amz_date;
 exports.format_time_duration = format_time_duration;
+exports.format_aws_date = format_aws_date;
 exports.round_up_to_next_time_of_day = round_up_to_next_time_of_day;

@@ -6,7 +6,8 @@ const TYPES = {
     BUCKET: 'bucket',
     IP_WHITELIST: 'whitelist',
     GLACIER: 'glacier',
-    HEALTH: 'health'
+    HEALTH: 'health',
+    LOGGING: 'logging',
 };
 
 const ACTIONS = {

@@ -8,6 +8,8 @@ const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEve
  *      code?: string, 
  *      message: string, 
  *      http_code: number,
+ *      detail: string,
+ *      cause?: Error  
  * }} ManageCLIErrorSpec
  */
 
@@ -16,18 +18,20 @@ class ManageCLIError extends Error {
     /**
      * @param {ManageCLIErrorSpec} error_spec 
      */
-    constructor({ code, message, http_code }) {
-        super(message); // sets this.message
+    constructor({ code, message, http_code, detail, cause }) {
+        super(message, { cause });
         this.code = code;
         this.http_code = http_code;
+        this.detail = detail;
     }
 
-    to_string(detail) {
+    to_string() {
         const json = {
             error: {
                 code: this.code,
                 message: this.message,
-                detail: detail
+                detail: this.detail,
+                cause: this.cause?.stack || this.cause?.message
             }
         };
         return JSON.stringify(json, null, 2);

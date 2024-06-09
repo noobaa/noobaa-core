@@ -58,7 +58,7 @@ async function handle_bucket_rule(system, rule, j, bucket) {
     bucket.lifecycle_configuration_rules[j].last_sync = Date.now();
     if (res.num_objects_deleted >= config.LIFECYCLE_BATCH_SIZE) should_rerun = true;
     dbg.log0('LIFECYCLE Done bucket:', bucket.name, '(bucket id:', bucket._id, ') done deletion of objects per rule',
-        rule, 'time:', bucket.lifecycle_configuration_rules[j].last_sync, 'objects deleted:', res.objects_deleted,
+        rule, 'time:', bucket.lifecycle_configuration_rules[j].last_sync, 'objects deleted:', res.num_objects_deleted,
         should_rerun ? 'lifecycle should rerun' : '');
     update_lifecycle_rules_last_sync(bucket, bucket.lifecycle_configuration_rules);
     return should_rerun;

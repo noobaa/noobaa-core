@@ -13,7 +13,7 @@ async function update_user(req, res) {
     const params = {
         username: req.body.user_name,
         new_username: req.body.new_user_name,
-        new_path: req.body.new_path,
+        new_iam_path: req.body.new_path,
     };
     dbg.log1('IAM UPDATE USER', params);
     const reply = await req.account_sdk.update_user(params);
@@ -23,7 +23,7 @@ async function update_user(req, res) {
         UpdateUserResponse: {
             UpdateUserResult: {
                 User: {
-                    Path: reply.path || iam_utils.AWS_DEFAULT_PATH,
+                    Path: reply.iam_path || iam_utils.IAM_DEFAULT_PATH,
                     UserName: reply.username,
                     UserId: reply.user_id,
                     Arn: reply.arn,

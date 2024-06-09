@@ -1,4 +1,5 @@
 /* Copyright (C) 2024 NooBaa */
+/* eslint-disable max-lines-per-function */
 
 'use strict';
 
@@ -44,10 +45,33 @@ describe('schema validation NC NSFS account', () => {
             nsfs_schema_utils.validate_account_schema(account_data);
         });
 
-        it('nsfs_account_config with force_md5_etag', () => {
+        it('account with force_md5_etag', () => {
             const account_data = get_account_data();
-            // @ts-ignore
             account_data.force_md5_etag = true; // added
+            nsfs_schema_utils.validate_account_schema(account_data);
+        });
+
+        it('account without elements in the access_key array', () => {
+            const account_data = get_account_data();
+            account_data.access_keys = [];
+            nsfs_schema_utils.validate_account_schema(account_data);
+        });
+
+        it('account with owner', () => {
+            const account_data = get_account_data();
+            account_data.owner = '65a62e22ceae5e5f1a758ab1';
+            nsfs_schema_utils.validate_account_schema(account_data);
+        });
+
+        it('account with creator', () => {
+            const account_data = get_account_data();
+            account_data.creator = '65a62e22ceae5e5f1a758ab1';
+            nsfs_schema_utils.validate_account_schema(account_data);
+        });
+
+        it('account with iam_path', () => {
+            const account_data = get_account_data();
+            account_data.iam_path = '/division_abc/subdivision_xyz/';
             nsfs_schema_utils.validate_account_schema(account_data);
         });
 
@@ -355,13 +379,39 @@ describe('schema validation NC NSFS account', () => {
             assert_validation(account_data, reason, message);
         });
 
-        it('nsfs_account_config with force_md5_etag as a string (instead of boolean)', () => {
+        it('account with force_md5_etag as a string (instead of boolean)', () => {
             const account_data = get_account_data();
-            // @ts-ignore
             account_data.force_md5_etag = ""; // added
             const reason = 'Test should have failed because of wrong type for' +
                 'force_md5_etag (string instead of boolean)';
             const message = 'must be boolean';
+            assert_validation(account_data, reason, message);
+        });
+
+        it('account with owner as a number (instead of string)', () => {
+            const account_data = get_account_data();
+            account_data.owner = 123; // number instead of string
+            const reason = 'Test should have failed because of wrong type for' +
+                'owner with number (instead of string)';
+            const message = 'must be string';
+            assert_validation(account_data, reason, message);
+        });
+
+        it('account with creator as a number (instead of string)', () => {
+            const account_data = get_account_data();
+            account_data.creator = 123; // number instead of string
+            const reason = 'Test should have failed because of wrong type for' +
+                'creator with number (instead of string)';
+            const message = 'must be string';
+            assert_validation(account_data, reason, message);
+        });
+
+        it('account with iam_path as a number (instead of string)', () => {
+            const account_data = get_account_data();
+            account_data.iam_path = 123;
+            const reason = 'Test should have failed because of wrong type for' +
+                'iam_path with number (instead of string)';
+            const message = 'must be string';
             assert_validation(account_data, reason, message);
         });
     });

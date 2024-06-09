@@ -152,13 +152,17 @@ class PersistentLogger {
             return;
         }
 
+        let result = true;
         for (const file of filtered_files) {
             dbg.log1('Processing', this.dir, file);
             const delete_processed = await cb(path.join(this.dir, file.name));
             if (delete_processed) {
                 await nb_native().fs.unlink(this.fs_context, path.join(this.dir, file.name));
+            } else {
+                result = false;
             }
         }
+        return result;
     }
 
     /**
@@ -168,6 +172,7 @@ class PersistentLogger {
      */
     async process(cb) {
         let failure_log = null;
+        let result = false;
 
         try {
             // This logger is getting opened only so that we can process all the process the entries
@@ -179,7 +184,7 @@ class PersistentLogger {
 
             try {
                 // Process all the inactive and currently active log
-                await this._process(async file => cb(file, failure_log.append.bind(failure_log)));
+                result = await this._process(async file => cb(file, failure_log.append.bind(failure_log)));
             } catch (error) {
                 dbg.error('failed to process logs, error:', error, 'log_namespace:', this.namespace);
             }
@@ -198,6 +203,7 @@ class PersistentLogger {
             } catch (error) {
                 dbg.error('failed to replace active failure log:', error, 'log_namespace:', this.namespace);
             }
+            return result;
         } finally {
             if (failure_log) await failure_log.close();
         }
@@ -228,7 +234,7 @@ class PersistentLogger {
                 // process is continuously moving the active file
                 this.init_lock.surround(async () => {
                     // If the file has changed, re-init
-                    if (stat.ino !== this.fh_stat.ino) {
+                    if (this.fh_stat && stat.ino !== this.fh_stat.ino) {
                         dbg.log1('active file changed, closing for namespace:', this.namespace);
                         await this.close();
                     }

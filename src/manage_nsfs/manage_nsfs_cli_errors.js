@@ -83,7 +83,7 @@ ManageCLIError.InvalidArgumentType = Object.freeze({
 
 ManageCLIError.InvalidType = Object.freeze({
     code: 'InvalidType',
-    message: 'Invalid type, available types are account, bucket or whitelist',
+    message: 'Invalid type, available types are account, bucket, logging or whitelist',
     http_code: 400,
 });
 
@@ -154,6 +154,16 @@ ManageCLIError.WhiteListIPUpdateFailed = Object.freeze({
 ManageCLIError.InvalidMasterKey = Object.freeze({
     code: 'InvalidMasterKey',
     message: 'Master key manager had issues loading master key, can not decrypt/encrypt secrets.',
+    http_code: 500,
+});
+
+//////////////////////////////
+//// BUCKET LOGGING ERRORS ///
+//////////////////////////////
+
+ManageCLIError.LoggingExportFailed = Object.freeze({
+    code: 'LoggingExportFailed',
+    message: 'Logging export attmept failed',
     http_code: 500,
 });
 
@@ -423,6 +433,7 @@ const NSFS_CLI_ERROR_EVENT_MAP = {
     AccountDeleteForbiddenHasBuckets: NoobaaEvent.ACCOUNT_DELETE_FORBIDDEN,
     BucketAlreadyExists: NoobaaEvent.BUCKET_ALREADY_EXISTS,
     BucketSetForbiddenNoBucketOwner: NoobaaEvent.UNAUTHORIZED,
+    LoggingExportFailed: NoobaaEvent.LOGGING_FAILED,
 };
 
 exports.ManageCLIError = ManageCLIError;

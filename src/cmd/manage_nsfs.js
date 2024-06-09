@@ -15,6 +15,7 @@ const SensitiveString = require('../util/sensitive_string');
 const ManageCLIError = require('../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
 const ManageCLIResponse = require('../manage_nsfs/manage_nsfs_cli_responses').ManageCLIResponse;
 const manage_nsfs_glacier = require('../manage_nsfs/manage_nsfs_glacier');
+const manage_nsfs_logging = require('../manage_nsfs/manage_nsfs_logging');
 const nsfs_schema_utils = require('../manage_nsfs/nsfs_schema_utils');
 const { print_usage } = require('../manage_nsfs/manage_nsfs_help_utils');
 const { TYPES, ACTIONS, CONFIG_SUBDIRS,
@@ -74,6 +75,8 @@ async function main(argv = minimist(process.argv.slice(2))) {
             await whitelist_ips_management(argv);
         } else if (type === TYPES.GLACIER) {
             await glacier_management(argv);
+        } else if (type === TYPES.LOGGING) {
+            await logging_management(user_input);
         } else {
             // we should not get here (we check it before)
             throw_cli_error(ManageCLIError.InvalidType);
@@ -711,6 +714,10 @@ async function manage_glacier_operations(action, argv) {
         default:
             throw_cli_error(ManageCLIError.InvalidGlacierOperation);
     }
+}
+
+async function logging_management(user_input) {
+    await manage_nsfs_logging.export_bucket_logging(user_input);
 }
 
 exports.main = main;

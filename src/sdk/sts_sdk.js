@@ -82,15 +82,11 @@ class StsSDK {
         return cloud_utils.generate_access_keys();
     }
 
-    // similar function to object_sdk - should we merge them?
-    // where should we put the account_cache
-    async authorize_request_account(req) {
+    authorize_request_account(req) {
         const token = this.get_auth_token();
         // If the request is signed (authenticated)
         if (token) {
-            const signature_secret = token.temp_secret_key || this.requesting_account?.access_keys?.[0]?.secret_key?.unwrap();
-            const signature = signature_utils.get_signature_from_auth_token(token, signature_secret);
-            if (token.signature !== signature) throw new RpcError('SIGNATURE_DOES_NOT_MATCH', `Signature that was calculated did not match`);
+            signature_utils.authorize_request_account_by_token(token, this.requesting_account, false);
             return;
         }
         throw new RpcError('UNAUTHORIZED', `No permission to access bucket`);

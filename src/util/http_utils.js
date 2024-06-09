@@ -301,7 +301,7 @@ async function parse_request_body(req, options) {
             throw new options.ErrorClass(options.error_invalid_body);
         }
     }
-    if (options.body.type.includes('application/x-www-form-urlencoded')) {
+    if (options.body.type.includes(CONTENT_TYPE_APP_FORM_URLENCODED)) {
         try {
             const res = querystring.parse(req.body.toString());
             const renamed = _.mapKeys(res, (value, key) => _.snakeCase(key));

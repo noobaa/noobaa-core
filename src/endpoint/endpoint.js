@@ -102,10 +102,10 @@ async function main(options = {}) {
         const metrics_port = options.metrics_port || config.EP_METRICS_SERVER_PORT;
         if (fork_utils.start_workers(metrics_port, fork_count)) return;
 
-        const http_port = options.http_port || Number(process.env.ENDPOINT_PORT) || 6001;
-        const https_port = options.https_port || Number(process.env.ENDPOINT_SSL_PORT) || 6443;
+        const http_port = options.http_port || config.ENDPOINT_PORT;
+        const https_port = options.https_port || config.ENDPOINT_SSL_PORT;
         const https_port_sts = options.https_port_sts || Number(process.env.ENDPOINT_SSL_PORT_STS) || 7443;
-        const https_port_iam = options.https_port_iam || Number(process.env.ENDPOINT_SSL_PORT_IAM) || 7444;
+        const https_port_iam = options.https_port_iam || config.ENDPOINT_SSL_IAM_PORT;
         const endpoint_group_id = process.env.ENDPOINT_GROUP_ID || 'default-endpoint-group';
 
         const virtual_hosts = Object.freeze(

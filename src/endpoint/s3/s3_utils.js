@@ -64,7 +64,7 @@ function get_request_xattr(req) {
         if (!hdr.startsWith(X_AMZ_META)) return;
         const key = hdr.slice(X_AMZ_META.length);
         if (!key) return;
-        xattr[key] = decodeURIComponent(val);
+        xattr[key] = val;
     });
     return xattr;
 }
@@ -82,9 +82,7 @@ function set_response_xattr(res, xattr) {
     }
     let returned_keys = 0;
     for (const key of keys) {
-        // when xattr is set directly on the object (NSFS for example) and it's already encoded
-        // we should not encode it again 
-        const val = encode_uri_unless_already_encoded(xattr[key]);
+        const val = xattr[key];
 
         const md_header_size =
             X_AMZ_META.length +
@@ -97,7 +95,11 @@ function set_response_xattr(res, xattr) {
         }
         returned_keys += 1;
         size_for_md_left -= md_header_size;
-        res.setHeader(X_AMZ_META + key, val);
+        try {
+            res.setHeader(X_AMZ_META + key, val);
+        } catch (err) {
+            dbg.warn(`s3_utils.set_response_xattr set_header failed, skipping... res.req.url=${res.req?.url} xattr key=${key} xattr value=${val}`);
+        }
     }
 }
 
@@ -611,24 +613,6 @@ function parse_decimal_int(str) {
     if (parsed !== Number(str)) throw new Error(`invalid decimal int ${str}`);
 
     return parsed;
-}
-
-/**
- * encode_uri_unless_already_encoded encodes a string uri if it's not already encoded
- * @param {string} uri
- * @returns {string}
- */
-function encode_uri_unless_already_encoded(uri = '') {
-    return is_uri_already_encoded(uri) ? uri : encodeURIComponent(uri);
-}
-
-/**
- * is_uri_already_encoded returns true if string uri is URIEncoded
- * @param {string} uri
- * @returns {boolean}
- */
-function is_uri_already_encoded(uri = '') {
-    return uri !== decodeURIComponent(uri);
 }
 
 /**

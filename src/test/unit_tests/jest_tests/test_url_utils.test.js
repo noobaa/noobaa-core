@@ -1,4 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
+/* eslint-disable no-undef */
 'use strict';
 
 const { construct_url } = require('../../../util/url_utils');

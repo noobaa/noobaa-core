@@ -1,5 +1,6 @@
 /* Copyright (C) 2020 NooBaa */
-/*eslint max-lines-per-function: ["error", 900]*/
+/*eslint max-lines: ["error", 2200]*/
+/*eslint max-lines-per-function: ["error", 1300]*/
 /*eslint max-statements: ["error", 80, { "ignoreTopLevelFunctions": true }]*/
 'use strict';
 
@@ -557,25 +558,7 @@ mocha.describe('bucket operations - namespace_fs', function() {
         await s3_client.deleteObject({ Bucket: bucket, Key: key });
     });
 
-    mocha.it('putObject/head object - xattr invalid URI', async function() {
-        const { access_key, secret_key } = account_correct_uid.access_keys[0];
-        const s3_client = generate_s3_client(access_key.unwrap(), secret_key.unwrap(), CORETEST_ENDPOINT);
-        const bucket = bucket_name + '-s3';
-        const key = 'obj_dot_xattr.txt';
-        const xattr = { 'key1.2.3': encoded_xattr };
-        const policy = generate_s3_policy('*', bucket, ['s3:*']);
-        await rpc_client.bucket.put_bucket_policy({ name: bucket, policy: policy.policy });
-
-        await s3_client.putObject({ Bucket: bucket, Key: key, Body: generic_obj_body, Metadata: xattr });
-        const head_res = await s3_client.headObject({ Bucket: bucket, Key: key });
-
-        assert.deepStrictEqual(head_res.Metadata, xattr);
-        await s3_client.deleteObject({ Bucket: bucket, Key: key });
-    });
-
     mocha.it('PUT file directly to FS/head object - xattr decoded invalid URI', async function() {
-        //const s3_creds_aws_sdk_v2 = get_aws_sdk_v2_base_params(account_correct_uid, s3_endpoint_address);
-        //const s3 = new AWS.S3(s3_creds_aws_sdk_v2);
         const { access_key, secret_key } = account_correct_uid.access_keys[0];
         const s3_client = generate_s3_client(access_key.unwrap(), secret_key.unwrap(), CORETEST_ENDPOINT);
         const key = 'fs_obj_dot_xattr.txt';
@@ -584,7 +567,7 @@ mocha.describe('bucket operations - namespace_fs', function() {
 
         const tmpfile = await open(DEFAULT_FS_CONFIG, PATH, 'w');
         const fs_xattr = { 'user.key1.2.3': decoded_xattr };
-        const s3_xattr = { 'key1.2.3': encoded_xattr };
+        const s3_xattr = {}; // invalid xattr won't return on s3 head object
         await tmpfile.replacexattr(DEFAULT_FS_CONFIG, fs_xattr);
         const xattr_res = (await tmpfile.stat(DEFAULT_FS_CONFIG)).xattr;
         await tmpfile.close(DEFAULT_FS_CONFIG);
@@ -592,6 +575,8 @@ mocha.describe('bucket operations - namespace_fs', function() {
         const head_res = await s3_client.headObject({ Bucket: bucket, Key: key });
         assert.deepStrictEqual(head_res.Metadata, s3_xattr);
         assert.deepStrictEqual(fs_xattr, xattr_res);
+        const get_res = await s3_client.getObject({ Bucket: bucket, Key: key });
+        assert.deepStrictEqual(get_res.Metadata, s3_xattr);
         await s3_client.deleteObject({ Bucket: bucket, Key: key });
     });
 
@@ -613,6 +598,8 @@ mocha.describe('bucket operations - namespace_fs', function() {
         const head_res = await s3_client.headObject({ Bucket: bucket, Key: key });
         assert.deepStrictEqual(head_res.Metadata, s3_xattr);
         assert.deepStrictEqual(fs_xattr, xattr_res);
+        const get_res = await s3_client.getObject({ Bucket: bucket, Key: key });
+        assert.deepStrictEqual(get_res.Metadata, s3_xattr);
         await s3_client.deleteObject({ Bucket: bucket, Key: key });
     });
 

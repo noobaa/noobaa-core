@@ -162,13 +162,19 @@ async function main(options = {}) {
         const endpoint_request_handler_sts = create_endpoint_handler(init_request_sdk, virtual_hosts, true);
 
         const ssl_cert_info = await ssl_utils.get_ssl_cert_info('S3', options.nsfs_config_root);
-        const ssl_options = { ...ssl_cert_info.cert, honorCipherOrder: true };
-        const https_server = https.createServer(ssl_options, endpoint_request_handler);
-        const https_server_sts = https.createServer(ssl_options, endpoint_request_handler_sts);
+        const s3_ssl_options = { ...ssl_cert_info.cert, honorCipherOrder: true };
+        const https_server = https.createServer(s3_ssl_options, endpoint_request_handler);
+        const sts_ssl_cert_info = await ssl_utils.get_ssl_cert_info('STS');
+        const sts_ssl_options = { ...sts_ssl_cert_info.cert, honorCipherOrder: true };
+        const https_server_sts = https.createServer(sts_ssl_options, endpoint_request_handler_sts);
         ssl_cert_info.on('update', updated_ssl_cert_info => {
             dbg.log0("Setting updated S3 ssl certs for endpoint.");
             const updated_ssl_options = { ...updated_ssl_cert_info.cert, honorCipherOrder: true };
             https_server.setSecureContext(updated_ssl_options);
+        });
+        sts_ssl_cert_info.on('update', updated_sts_ssl_cert_info => {
+            dbg.log0("Setting updated STS ssl certs for endpoint.");
+            const updated_ssl_options = { ...updated_sts_ssl_cert_info.cert, honorCipherOrder: true };
             https_server_sts.setSecureContext(updated_ssl_options);
         });
         if (options.nsfs_config_root && !config.ALLOW_HTTP) {
@@ -194,7 +200,7 @@ async function main(options = {}) {
         if (https_port_iam > 0) {
             dbg.log0('Starting IAM HTTPS', https_port_iam);
             const endpoint_request_handler_iam = create_endpoint_handler_iam(init_request_sdk);
-            const https_server_iam = https.createServer(ssl_options, endpoint_request_handler_iam);
+            const https_server_iam = https.createServer(s3_ssl_options, endpoint_request_handler_iam);
             await listen_http(https_port_iam, https_server_iam);
             dbg.log0('Started IAM HTTPS successfully');
         }

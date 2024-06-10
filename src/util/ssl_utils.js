@@ -44,6 +44,7 @@ const certs = {
     MGMT: new CertInfo('/etc/mgmt-secret'),
     S3: new CertInfo('/etc/s3-secret'),
     EXTERNAL_DB: new CertInfo('/etc/external-db-secret'),
+    STS: new CertInfo('/etc/sts-secret'),
 };
 
 function generate_ssl_certificate() {

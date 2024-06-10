@@ -454,6 +454,11 @@ class ObjectIO {
     async _upload_chunks(params, complete_params, chunks, callback) {
         try {
             const is_using_encryption = params.encryption || (params.copy_source && params.copy_source.encryption);
+            // on multipart upload we mark the parts as uncommitted
+            // because we still need to fix their offsets on complete upload.
+            // otherwise, we immediately mark the parts as committed
+            // because no further update is needed.
+            const uncommitted = Boolean(params.multipart_id);
             params.range = {
                 start: params.start,
                 end: params.start,
@@ -467,7 +472,7 @@ class ObjectIO {
                     start: params.start,
                     end: params.start + chunk_info.size,
                     seq: params.seq,
-                    uncommitted: typeof params.multipart_id === 'undefined' ? undefined : true,
+                    uncommitted: uncommitted,
                     // millistamp: time_utils.millistamp(),
                     // bucket: params.bucket,
                     // key: params.key,

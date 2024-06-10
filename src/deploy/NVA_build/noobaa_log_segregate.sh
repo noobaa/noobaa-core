@@ -14,6 +14,8 @@ NOOBAA_BUCKET_LOGS_FINAL="/log/noobaa_bucket_logs/"
 BUCKET_LOG_FILE_SIZE_LIMIT=51200
 # Delimiter for the file name. To separate the file name from the timestamp.
 # S3 Bucket name are not allowed to have "_" in its name.
+# https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html
+
 File_Name_Del="_"
 
 # Lock file to make sure that the script is not running multiple times.
@@ -82,8 +84,9 @@ while [ -n "$(ls -A "$log_dir")" ]; do
     log_file="$log_dir/$log_file.processing"
     # Iterate over each log records in the log file and do the following -
     # - Fetch the log bucket name from the log entry.
-    # - Fetch the log prefix from the log entry.
-    # - Create a file based on this log bucket name and log prefix if the file is not there.
+    # - Fetch the source bucket name from the log entry.
+    # - Create a file based on this log bucket name and source bucket name.
+    # - Check if the file is not there.
     # - append the current timestamp to the file name.
     # - Append the log entries to this file.
     # - Check the size of this file, if it is 50KB, move it to final location.
@@ -91,30 +94,33 @@ while [ -n "$(ls -A "$log_dir")" ]; do
     while read -r log; do
         IFS=, read -r -a log_fields <<< "$log"
         log_bucket_name=""
-        log_prefix_value=""
+        source_bucket_name=""
         bucket_log_file=""
         existing_log_file=""
         for log_field in "${log_fields[@]}"; do
             if [[ "$log_field" =~ "log_bucket" ]]; then
                 IFS=: read -r -a log_values <<< "$log_field"
                 log_bucket_name=$(echo "${log_values[1]}" | tr -d '"' | sed 's/^[ \t]*//; s/[ \t]*$//')
+                            continue
             fi
 
-            if [[ "$log_field" =~ "log_prefix" ]]; then
-                IFS=: read -r -a prefix_values <<< "$log_field"
-                log_prefix_value=$(echo "${prefix_values[1]}" | tr -d '"' | sed 's/^[ \t]*//; s/[ \t]*$//')
+            if [[ "$log_field" =~ "source_bucket" ]]; then
+                IFS=: read -r -a source_values <<< "$log_field"
+                source_bucket_name=$(echo "${source_values[1]}" | tr -d '"' | sed 's/^[ \t]*//; s/[ \t]*$//')
+                continue
             fi
+
         done
-        if [[ $log_prefix_value && $log_bucket_name ]]; then
+        if [[ $log_bucket_name && $source_bucket_name ]]; then
 
-            log_bucket_name_prefix="$log_bucket_name$File_Name_Del$log_prefix_value"
-            existing_log_file=$(find $NOOBAA_BUCKET_LOGS_DIR -type f -name "$log_bucket_name_prefix*" -print | head -n 1)
+            log_bucket_name="$source_bucket_name$File_Name_Del$log_bucket_name"
+            existing_log_file=$(find $NOOBAA_BUCKET_LOGS_DIR -type f -name "$log_bucket_name*" -print | head -n 1)
 
             if [[ -n "$existing_log_file" ]]; then
                 bucket_log_file=$(basename "$existing_log_file")
             else
                 time_string=$(date +%s)
-                bucket_log_file="$log_bucket_name_prefix$File_Name_Del$time_string.log"
+                bucket_log_file="$log_bucket_name$File_Name_Del$time_string.log"
             fi
 
             bucket_log_file="$NOOBAA_BUCKET_LOGS_DIR$bucket_log_file"

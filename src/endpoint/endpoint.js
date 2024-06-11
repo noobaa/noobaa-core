@@ -86,6 +86,12 @@ dbg.log0('endpoint: replacing old umask: ', old_umask.toString(8), 'with new uma
  * }} EndpointOptions
  */
 
+// An internal function to prevent code duplication
+async function create_https_server(ssl_cert_info, honorCipherOrder, endpoint_handler) {
+    const ssl_options = {...ssl_cert_info.cert, honorCipherOrder: honorCipherOrder};
+    return https.createServer(ssl_options, endpoint_handler);
+}
+
 /**
  * @param {EndpointOptions} options
  */
@@ -162,11 +168,10 @@ async function main(options = {}) {
         const endpoint_request_handler_sts = create_endpoint_handler(init_request_sdk, virtual_hosts, true);
 
         const ssl_cert_info = await ssl_utils.get_ssl_cert_info('S3', options.nsfs_config_root);
-        const s3_ssl_options = { ...ssl_cert_info.cert, honorCipherOrder: true };
-        const https_server = https.createServer(s3_ssl_options, endpoint_request_handler);
+        const https_server = await create_https_server(ssl_cert_info, true, endpoint_request_handler);
         const sts_ssl_cert_info = await ssl_utils.get_ssl_cert_info('STS');
-        const sts_ssl_options = { ...sts_ssl_cert_info.cert, honorCipherOrder: true };
-        const https_server_sts = https.createServer(sts_ssl_options, endpoint_request_handler_sts);
+        const https_server_sts = await create_https_server(sts_ssl_cert_info, endpoint_request_handler_sts);
+
         ssl_cert_info.on('update', updated_ssl_cert_info => {
             dbg.log0("Setting updated S3 ssl certs for endpoint.");
             const updated_ssl_options = { ...updated_ssl_cert_info.cert, honorCipherOrder: true };

@@ -125,7 +125,7 @@ function spawn(command, args, options, ignore_rc, unref, timeout_ms) {
     return new Promise((resolve, reject) => {
         options = options || {};
         args = args || [];
-        dbg.log0('spawn:', command, args.join(' '), options, ignore_rc);
+        dbg.log0('spawn:', command, args.join(' '), _.omit(options, 'input'), ignore_rc);
         options.stdio = options.stdio || 'inherit';
         const return_stdout = options.return_stdout;
         const proc = child_process.spawn(command, args, options);

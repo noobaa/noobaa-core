@@ -73,7 +73,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "3.569.0",
     "@aws-sdk/client-sts": "3.569.0",
-    "@azure/identity": "4.2.0",
+    "@azure/identity": "4.2.1",
     "@azure/monitor-query": "1.2.0",
     "@azure/storage-blob": "12.17.0",
     "@google-cloud/storage": "7.10.2",

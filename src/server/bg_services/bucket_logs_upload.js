@@ -75,11 +75,15 @@ class BucketLogUploader {
         const buckets = [];
         if (!log_objects) return buckets;
         for (const file of log_objects) {
-            const bucket_name = file.split(BUCKET_NAME_DEL)[0];
-            const log_prefix = file.split(BUCKET_NAME_DEL)[1];
+            const source_bucket_name = file.split(BUCKET_NAME_DEL)[0];
+            const log_bucket_name = file.split(BUCKET_NAME_DEL)[1];
+            const source_bucket = system_store.data.buckets.find(bucket => bucket.name.unwrap() === source_bucket_name);
+            const log_bucket = system_store.data.buckets.find(bucket => bucket.name.unwrap() === log_bucket_name);
             buckets.push({
-                bucket_name: bucket_name,
-                log_prefix: log_prefix,
+                source_bucket_name: source_bucket_name,
+                log_bucket_name: log_bucket_name,
+                source_bucket: source_bucket,
+                log_bucket: log_bucket,
                 log_object_name: file,
             });
         }
@@ -108,16 +112,24 @@ class BucketLogUploader {
      * containing log records for the bucket.
      */
     async upload_bucket_log_objects(log_object) {
-        dbg.log0('Uploading bucket log: ', log_object.log_object_name, ' to bucket: ', log_object.bucket_name);
+        dbg.log0('Uploading bucket log: ', log_object.log_object_name, ' to log bucket: ', log_object.log_bucket_name);
+
+        if (!log_object.source_bucket || log_object.source_bucket.deleting || !log_object.source_bucket.logging) {
+            throw new Error('Source Bucket does not exist or logging is not configured');
+        }
+        if (!log_object.log_bucket || log_object.log_bucket.deleting) {
+            throw new Error('Log Bucket does not exist or being deleted');
+        }
 
         const noobaa_con = cloud_utils.set_noobaa_s3_connection(system_store.data.systems[0]);
         if (!noobaa_con) {
             throw new Error('noobaa endpoint connection is not started yet...');
         }
+
+        const log_object_key = log_object.source_bucket.logging.log_prefix + log_object.log_object_name;
         const log_file_path = BUCKET_LOGS_PATH + log_object.log_object_name;
-        const log_object_key = log_object.log_prefix + '/' + log_object.log_object_name;
         const params = {
-            Bucket: log_object.bucket_name,
+            Bucket: log_object.log_bucket_name,
             Key: log_object_key,
             Body: fs.readFileSync(log_file_path),
         };
@@ -125,7 +137,7 @@ class BucketLogUploader {
         try {
             await noobaa_con.putObject(params).promise();
         } catch (err) {
-            dbg.error('Failed to upload bucket log object: ', log_object.log_object_name, ' to bucket: ', log_object.bucket_name, ' :', err);
+            dbg.error('Failed to upload bucket log object: ', log_object.log_object_name, ' to bucket: ', log_object.log_bucket_name, ' :', err);
         }
     }
 
@@ -155,7 +167,7 @@ class BucketLogUploader {
                 try {
                     await this.upload_bucket_log_objects(log_object);
                 } catch (err) {
-                    dbg.error('Failed to upload bucket log object: ', log_object.log_object_name, ' to bucket: ', log_object.bucket_name, ' :', err);
+                    dbg.error('Failed to upload bucket log object: ', log_object.log_object_name, ' to bucket: ', log_object.log_bucket_name, ' :', err);
                 } finally {
                     log_file_path = BUCKET_LOGS_PATH + log_object.log_object_name;
                     this._delete_bucket_log_entries(log_file_path);

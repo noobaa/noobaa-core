@@ -14,7 +14,7 @@ const ManageCLIError = require('../manage_nsfs/manage_nsfs_cli_errors').ManageCL
 const bucket_policy_utils = require('../endpoint/s3/s3_bucket_policy_utils');
 const { throw_cli_error, get_config_file_path, get_bucket_owner_account,
     get_config_data, get_options_from_file, get_boolean_or_string_value,
-    check_root_account_owns_user, get_config_data_if_exists } = require('../manage_nsfs/manage_nsfs_cli_utils');
+    get_config_data_if_exists, get_symlink_config_file_path } = require('../manage_nsfs/manage_nsfs_cli_utils');
 const { TYPES, ACTIONS, VALID_OPTIONS, OPTION_TYPE, FROM_FILE, BOOLEAN_STRING_VALUES, BOOLEAN_STRING_OPTIONS,
     GLACIER_ACTIONS, LIST_UNSETABLE_OPTIONS, ANONYMOUS, DIAGNOSE_ACTIONS } = require('../manage_nsfs/manage_nsfs_constants');
 const iam_utils = require('../endpoint/iam/iam_utils');
@@ -163,7 +163,8 @@ function validate_options_type_by_value(input_options_with_data) {
                 continue;
             }
             // special case for names, although the type is string we want to allow numbers as well
-            if ((option === 'name' || option === 'new_name') && (type_of_value === 'number')) {
+            if ((option === 'name' || option === 'new_name' || option === 'iam_name') &&
+                (type_of_value === 'number')) {
                 continue;
             }
             // special case for boolean values
@@ -304,8 +305,8 @@ function validate_account_name(type, action, input_options_with_data) {
  * @param {object} input_options
  */
 function validate_bucket_identifier(action, input_options) {
-if (action === ACTIONS.STATUS || action === ACTIONS.ADD || action === ACTIONS.UPDATE || action === ACTIONS.DELETE) {
-        if (_.isUndefined(input_options.name)) throw_cli_error(ManageCLIError.MissingBucketNameFlag);
+    if (action === ACTIONS.STATUS || action === ACTIONS.ADD || action === ACTIONS.UPDATE || action === ACTIONS.DELETE) {
+            if (_.isUndefined(input_options.name)) throw_cli_error(ManageCLIError.MissingBucketNameFlag);
     }
     // in list there is no identifier
 }
@@ -320,7 +321,7 @@ async function validate_bucket_args(global_config, data, action) {
     if (action === ACTIONS.ADD || action === ACTIONS.UPDATE) {
         if (action === ACTIONS.ADD) native_fs_utils.validate_bucket_creation({ name: data.name });
         if (action === ACTIONS.UPDATE && !_.isUndefined(data.new_name)) native_fs_utils.validate_bucket_creation({ name: data.new_name });
-        if (action === ACTIONS.ADD && _.isUndefined(data.bucket_owner)) throw_cli_error(ManageCLIError.MissingBucketOwnerFlag);
+        if (action === ACTIONS.ADD && _.isUndefined(data.owner_account)) throw_cli_error(ManageCLIError.MissingBucketOwnerFlag);
         if (!data.path) throw_cli_error(ManageCLIError.MissingBucketPathFlag);
         // fs_backend='' used for deletion of the fs_backend property
         if (data.fs_backend !== undefined && !['GPFS', 'CEPH_FS', 'NFSv4'].includes(data.fs_backend)) {
@@ -332,7 +333,7 @@ async function validate_bucket_args(global_config, data, action) {
         if (!exists) {
             throw_cli_error(ManageCLIError.InvalidStoragePath, data.path);
         }
-        const account = await get_bucket_owner_account(global_config, data.bucket_owner);
+        const account = await get_bucket_owner_account(global_config, global_config.accounts_dir_path, data.owner_account);
         const account_fs_context = await native_fs_utils.get_fs_context(account.nsfs_account_config, data.fs_backend);
         if (!config.NC_DISABLE_ACCESS_CHECK) {
             const accessible = await native_fs_utils.is_dir_rw_accessible(account_fs_context, data.path);
@@ -342,10 +343,10 @@ async function validate_bucket_args(global_config, data, action) {
         }
         if (action === ACTIONS.ADD) {
             if (!account.allow_bucket_creation) {
-                const detail_msg = `${data.bucket_owner} account not allowed to create new buckets. ` +
+                const detail_msg = `${account.name} account not allowed to create new buckets. ` +
                 `Please make sure to have a valid new_buckets_path and enable the flag allow_bucket_creation`;
                 throw_cli_error(ManageCLIError.BucketCreationNotAllowed, detail_msg);
-        }
+            }
             data.owner_account = account._id; // TODO move this assignment to better place
         }
         if (account.owner) {
@@ -355,23 +356,27 @@ async function validate_bucket_args(global_config, data, action) {
         if (data.s3_policy) {
             try {
                 await bucket_policy_utils.validate_s3_policy(data.s3_policy, data.name,
-                    async principal => {
-                        const account_config_path = get_config_file_path(global_config.accounts_dir_path, principal);
-                        try {
-                            const fs_context_config_root_backend = native_fs_utils.get_process_fs_context(
-                                global_config.config_root_backend);
-                            await nb_native().fs.stat(fs_context_config_root_backend, account_config_path);
-                            return true;
-                        } catch (err) {
-                            return false;
-                        }
-                    });
+                    async principal =>
+                        await get_account_by_principal(global_config.config_root_backend,
+                            global_config.accounts_dir_path, global_config.root_accounts_dir_path, principal));
             } catch (err) {
                 dbg.error('validate_bucket_args invalid bucket policy err:', err);
                 throw_cli_error(ManageCLIError.MalformedPolicy, data.s3_policy);
             }
         }
     }
+}
+
+/**
+ * Validation before fetching bucket data.
+ *
+ * @param {string} action
+ * @param {Object} user_input
+ */
+
+function validate_bucket_args_pre(action, user_input) {
+    //for add bucket we have to get the owner so we can set owner_account
+    if (action === ACTIONS.ADD && !user_input.owner) throw_cli_error(ManageCLIError.MissingBucketOwnerFlag);
 }
 
 /////////////////////////////
@@ -453,9 +458,9 @@ async function validate_account_args(global_config, data, action, is_flag_iam_op
  * @param {object} data
  */
 async function validate_account_resources_before_deletion(global_config, data) {
-    await validate_account_not_owns_buckets(global_config, data.name);
+    await validate_account_not_owns_buckets(global_config, data);
     // If it is root account (not owned by other account) then we check that it doesn't owns IAM accounts
-    if (data.owner === undefined) {
+    if (!data.owner) {
         await check_if_root_account_does_not_have_IAM_users(global_config, data, ACTIONS.DELETE);
     }
 }
@@ -489,20 +494,21 @@ function _validate_access_keys(access_key, secret_key) {
  * validate_delete_account will check if the account has at least one bucket
  * in case it finds one, it would throw an error
  * @param {object} global_config
- * @param {string} account_name
+ * @param {object} account
  */
-async function validate_account_not_owns_buckets(global_config, account_name) {
+async function validate_account_not_owns_buckets(global_config, account) {
     const fs_context = native_fs_utils.get_process_fs_context(global_config.config_root_backend);
     const entries = await nb_native().fs.readdir(fs_context, global_config.buckets_dir_path);
+    let bucket_data;
     await P.map_with_concurrency(10, entries, async entry => {
         if (entry.name.endsWith('.json')) {
             const full_path = path.join(global_config.buckets_dir_path, entry.name);
-            const data = await get_config_data_if_exists(global_config.config_root_backend, full_path);
-            if (data && data.bucket_owner === account_name) {
-                const detail_msg = `Account ${account_name} has bucket ${data.name}`;
+            bucket_data = await get_config_data_if_exists(global_config.config_root_backend, full_path);
+            if (bucket_data && bucket_data.owner_account === account._id) {
+                const detail_msg = `Account ${account.name} has bucket ${bucket_data.name}`;
                 throw_cli_error(ManageCLIError.AccountDeleteForbiddenHasBuckets, detail_msg);
             }
-            return data;
+            return bucket_data;
         }
     });
 }
@@ -516,21 +522,21 @@ async function validate_account_not_owns_buckets(global_config, account_name) {
  */
 async function check_if_root_account_does_not_have_IAM_users(global_config, account_to_check, action) {
     const fs_context = native_fs_utils.get_process_fs_context(global_config.config_root_backend);
-    const entries = await nb_native().fs.readdir(fs_context, global_config.accounts_dir_path);
+    const entries = await nb_native().fs.readdir(fs_context,
+        path.join(global_config.root_accounts_dir_path, account_to_check.name));
     await P.map_with_concurrency(10, entries, async entry => {
-        if (entry.name.endsWith('.json')) {
-            const full_path = path.join(global_config.accounts_dir_path, entry.name);
+        if (entry.name.endsWith('.symlink')) {
+            const full_path = path.join(global_config.root_accounts_dir_path, account_to_check.name, entry.name);
             const account_data = await get_config_data(global_config.config_root_backend, full_path);
             if (entry.name.includes(config.NSFS_TEMP_CONF_DIR_NAME)) return undefined;
-            const is_root_account_owns_user = check_root_account_owns_user(account_to_check, account_data);
-            if (is_root_account_owns_user) {
-                const detail_msg = `Account ${account_to_check.name} has IAM account ${account_data.name}`;
-                if (action === ACTIONS.DELETE) {
-                    throw_cli_error(ManageCLIError.AccountDeleteForbiddenHasIAMAccounts, detail_msg);
-                }
-                // else it is called with action ACTIONS.UPDATE
-                throw_cli_error(ManageCLIError.AccountCannotBeRootAccountsManager, detail_msg);
+            //ignore the root account being checked
+            if (account_data._id === account_to_check._id) return undefined;
+            const detail_msg = `Account ${account_to_check.name} has IAM account ${account_data.name}`;
+            if (action === ACTIONS.DELETE) {
+                throw_cli_error(ManageCLIError.AccountDeleteForbiddenHasIAMAccounts, detail_msg);
             }
+            // else it is called with action ACTIONS.UPDATE
+            throw_cli_error(ManageCLIError.AccountCannotBeRootAccountsManager, detail_msg);
             return account_data;
         }
     });
@@ -548,6 +554,22 @@ async function validate_root_accounts_manager_update(global_config, account) {
         throw_cli_error(ManageCLIError.AccountCannotCreateRootAccountsRequesterIAMUser);
     }
     await check_if_root_account_does_not_have_IAM_users(global_config, account, ACTIONS.UPDATE);
+}
+
+/**
+ * Gets the relevant account according to policy's principal.
+ * Currently we allow principal to be either account name or account id,
+ * so we need to check both.
+ * @param {Object} fs_context NativeFSContext
+ * @param {String} accounts_dir_path path to accounts by id dir
+ * @param {String} root_accounts_dir_path path to accounts by name dir
+ * @param {String} principal from policy, either account's name or id
+ * @returns
+ */
+
+async function get_account_by_principal(fs_context, accounts_dir_path, root_accounts_dir_path, principal) {
+    return await native_fs_utils.is_path_exists(fs_context, get_config_file_path(accounts_dir_path, principal)) ||
+           await native_fs_utils.is_path_exists(fs_context, get_symlink_config_file_path(root_accounts_dir_path, principal, principal));
 }
 
 ///////////////////////////////////
@@ -574,9 +596,11 @@ function validate_whitelist_ips(ips_to_validate) {
 // EXPORTS
 exports.validate_input_types = validate_input_types;
 exports.validate_bucket_args = validate_bucket_args;
+exports.validate_bucket_args_pre = validate_bucket_args_pre;
 exports.validate_account_args = validate_account_args;
 exports._validate_access_keys = _validate_access_keys;
 exports.validate_root_accounts_manager_update = validate_root_accounts_manager_update;
 exports.validate_whitelist_arg = validate_whitelist_arg;
 exports.validate_whitelist_ips = validate_whitelist_ips;
 exports.validate_flags_combination = validate_flags_combination;
+exports.get_account_by_principal = get_account_by_principal;

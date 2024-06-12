@@ -8,6 +8,7 @@
  */
 
 const fs = require('fs');
+const path = require('path');
 const dbg = require('../../../util/debug_module')(__filename);
 dbg.set_process_name('test_ceph_s3');
 
@@ -73,8 +74,8 @@ async function ceph_test_setup() {
 
 }
 
-async function get_access_keys(path) {
-    const account_data = await fs.promises.readFile(path, 'utf8');
+async function get_access_keys(access_key_path) {
+    const account_data = await fs.promises.readFile(access_key_path, 'utf8');
     const data_json = JSON.parse(account_data);
     const access_key = data_json.access_keys[0].access_key;
     const encrypted_secret_key = data_json.access_keys[0].encrypted_secret_key;
@@ -100,6 +101,7 @@ async function create_anonymous_account() {
         master_key_id: master_key_id,
     };
     const account_data = JSON.stringify(data);
+    await fs.promises.mkdir(path.dirname(anonymous_account_path));
     await fs.promises.writeFile(anonymous_account_path, account_data);
     console.log('Anonymous account created');
 }

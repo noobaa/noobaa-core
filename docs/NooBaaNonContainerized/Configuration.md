@@ -63,6 +63,7 @@ The default config directory structure contains the following files/directories 
 system.json                 // Required
 access_keys/                // Required
 accounts/                   // Required
+root_accounts/              // Required
 buckets/                    // Required
 config.json                 // Optional
 master_keys.json            // Optional
@@ -82,6 +83,7 @@ config_dir_redirect                             // Required
 system.json                                     // Required
 access_keys/                                    // Required
 accounts/                                       // Required
+root_accounts/                                  // Required
 buckets/                                        // Required
 config.json                                     // Optional
 master_keys.json                                // Optional
@@ -116,13 +118,31 @@ certificates/                                   // Optional
 `accounts/` - 
 * <u>Type</u>: Directory.
 * <u>Required</u>: Yes.
-* <u>Description</u>: A directory that contains configuration files for individual accounts, each account configuration file is named {account_name}.json and adheres to the [account schema](../../src/server/system_services/schemas/nsfs_account_schema.js).
+* <u>Description</u>: A directory that contains configuration files for individual accounts, each account configuration file is named {account_id}.json and adheres to the [account schema](../../src/server/system_services/schemas/nsfs_account_schema.js).
 * <u>Example</u>:
     ```sh
     > ls /etc/noobaa.conf.d/accounts/
-    alice.json
-    bob.json
-    charlie.json
+    abcd.json
+    1234.json
+    ab12.json
+    ```
+`root_accounts/` -
+* <u>Type</u>: Directory.
+* <u>Required</u>: Yes.
+* <u>Description</u>: A directory that contains a directory per root account, named {root_account_name}.
+Inside each such directory, there is a symlink for the root account, named {root_account_name}.symlink.
+There will be also the symlinks for the IAM accounts that are owned by the root account, named {account_name}.symlink.
+Symlinks link to an account within account/.
+The account symlink points to the relative path of the account rather than an absolute path, eg: `../../accounts/abcd.json`.
+* <u>Example</u>:
+    ```sh
+    > ls /etc/noobaa.conf.d/root_accounts/
+    alice/
+    bob/
+    charlie/
+    > ls -la /etc/noobaa.conf.d/root_accounts/alice/
+    alice.symlink -> ../../accounts/abcd.json
+    bob.symlink   -> ../../accounts/1234.json
     ```
 
 `access_keys/` 
@@ -132,9 +152,9 @@ certificates/                                   // Optional
 * <u>Example</u>:
     ```sh
     > ls -la /etc/noobaa.conf.d/access_keys/
-    0kbUZlNM9k4SCvrw1pftEXAMPLE.symlink -> ../accounts/alice.json
-    1kbUTlNM9k4SCvrw2pfxEXAMPLE.symlink -> ../accounts/bob.json
-    2kbUMlNM9k4SCvrw3pfyEXAMPLE.symlink -> ../accounts/charlie.json
+    0kbUZlNM9k4SCvrw1pftEXAMPLE.symlink -> ../accounts/abcd.json
+    1kbUTlNM9k4SCvrw2pfxEXAMPLE.symlink -> ../accounts/1234.json
+    2kbUMlNM9k4SCvrw3pfyEXAMPLE.symlink -> ../accounts/ab12.json
     ```
 `buckets/`
 * <u>Type</u>: Directory.

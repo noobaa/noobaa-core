@@ -75,7 +75,8 @@ Usage:
 account add [flags]
 
 Flags:
---name <string>                                                         Set the name for the account
+--name <string>                                                         Set the name for the root account
+--iam_name <string>                                   (optional)        Set the name for the iam account
 --uid <number>                                                          Set the User Identifier (UID) (UID and GID can be replaced by --user option)
 --gid <number>                                                          Set the Group Identifier (GID) (UID and GID can be replaced by --user option)
 --new_buckets_path <string>                           (optional)        Set the filesystem's root path where each subdirectory is a bucket
@@ -94,7 +95,8 @@ Usage:
 account update [flags]
 
 Flags:
---name <string>                                                         The name of the account
+--name <string>                                                         Set the name for the root account
+--iam_name <string>                                   (optional)        Set the name for the iam account
 --new_name <string>                                   (optional)        Update the account name
 --uid <number>                                        (optional)        Update the User Identifier (UID)
 --gid <number>                                        (optional)        Update the Group Identifier (GID)
@@ -122,7 +124,8 @@ Usage:
 account status [flags]
 
 Flags:
---name <string>                                                         The name of the account
+--name <string>                                                         Set the name for the root account
+--iam_name <string>                                   (optional)        Set the name for the iam account
 --access_key <string>                                 (optional)        The access key of the account (identify the account instead of name)
 --show_secrets                                        (optional)        Print the access key and secret key of the account
 `;

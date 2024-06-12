@@ -32,6 +32,7 @@ const DIAGNOSE_ACTIONS = {
 
 const CONFIG_SUBDIRS = {
     ACCOUNTS: 'accounts',
+    ROOT_ACCOUNTS: 'root_accounts',
     BUCKETS: 'buckets',
     ACCESS_KEYS: 'access_keys'
 };
@@ -42,11 +43,11 @@ const FROM_FILE = 'from_file';
 const ANONYMOUS = 'anonymous';
 
 const VALID_OPTIONS_ACCOUNT = {
-    'add': new Set(['name', 'uid', 'gid', 'new_buckets_path', 'user', 'access_key', 'secret_key', 'fs_backend', 'allow_bucket_creation', 'force_md5_etag', 'iam_operate_on_root_account', FROM_FILE, ...GLOBAL_CONFIG_OPTIONS]),
-    'update': new Set(['name', 'uid', 'gid', 'new_buckets_path', 'user', 'access_key', 'secret_key', 'fs_backend', 'allow_bucket_creation', 'force_md5_etag', 'iam_operate_on_root_account', 'new_name', 'regenerate', ...GLOBAL_CONFIG_OPTIONS]),
-    'delete': new Set(['name', ...GLOBAL_CONFIG_OPTIONS]),
+    'add': new Set(['name', 'iam_name', 'uid', 'gid', 'new_buckets_path', 'user', 'access_key', 'secret_key', 'fs_backend', 'allow_bucket_creation', 'force_md5_etag', 'iam_operate_on_root_account', FROM_FILE, ...GLOBAL_CONFIG_OPTIONS]),
+    'update': new Set(['name', 'iam_name', 'uid', 'gid', 'new_buckets_path', 'user', 'access_key', 'secret_key', 'fs_backend', 'allow_bucket_creation', 'force_md5_etag', 'iam_operate_on_root_account', 'new_name', 'regenerate', ...GLOBAL_CONFIG_OPTIONS]),
+    'delete': new Set(['name', 'iam_name', ...GLOBAL_CONFIG_OPTIONS]),
     'list': new Set(['wide', 'show_secrets', 'gid', 'uid', 'user', 'name', 'access_key', ...GLOBAL_CONFIG_OPTIONS]),
-    'status': new Set(['name', 'access_key', 'show_secrets', ...GLOBAL_CONFIG_OPTIONS]),
+    'status': new Set(['name', 'iam_name', 'access_key', 'show_secrets', ...GLOBAL_CONFIG_OPTIONS]),
 };
 
 const VALID_OPTIONS_ANONYMOUS_ACCOUNT = {
@@ -93,6 +94,7 @@ const VALID_OPTIONS = {
 
 const OPTION_TYPE = {
     name: 'string',
+    iam_name: 'string',
     owner: 'string',
     uid: 'number',
     gid: 'number',

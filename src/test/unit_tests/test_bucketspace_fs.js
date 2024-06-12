@@ -122,7 +122,7 @@ const dummy_ns = {
 function make_dummy_object_sdk() {
     return {
         requesting_account: {
-            _id: '65b3c68b59ab67b16f98c26e',
+            _id: '65a8edc9bc5d5bbf9db71b92',
             force_md5_etag: false,
             name: new SensitiveString('user2'),
             email: new SensitiveString('user2@noobaa.io'),
@@ -266,16 +266,21 @@ mocha.describe('bucketspace_fs', function() {
     };
 
     mocha.before(async () => {
-        await P.all(_.map([CONFIG_SUBDIRS.ACCOUNTS, CONFIG_SUBDIRS.ACCESS_KEYS, CONFIG_SUBDIRS.BUCKETS], async dir =>
+        await P.all(_.map([CONFIG_SUBDIRS.ACCOUNTS, CONFIG_SUBDIRS.ACCESS_KEYS, CONFIG_SUBDIRS.BUCKETS, CONFIG_SUBDIRS.ROOT_ACCOUNTS],
+            async dir =>
             await fs_utils.create_fresh_path(`${config_root}/${dir}`))
         );
         await fs_utils.create_fresh_path(new_buckets_path);
         for (let account of [account_user1, account_user2, account_user3, account_iam_user1, account_iam_user2]) {
             account = await nc_mkm.encrypt_access_keys(account);
-            const account_path = get_config_file_path(CONFIG_SUBDIRS.ACCOUNTS, account.name);
-            const account_access_path = get_access_key_symlink_path(CONFIG_SUBDIRS.ACCESS_KEYS, account.access_keys[0].access_key);
+            const account_path = get_config_file_path(CONFIG_SUBDIRS.ACCOUNTS, account._id);
+            const account_access_path = get_symlink_path(CONFIG_SUBDIRS.ACCESS_KEYS, account.access_keys[0].access_key);
+            const root_account_dir = path.join(CONFIG_SUBDIRS.ROOT_ACCOUNTS, account.name);
+            await fs_utils.create_fresh_path(path.join(config_root, root_account_dir));
+            const root_account_path = get_symlink_path(root_account_dir, account.name);
             await fs.promises.writeFile(account_path, JSON.stringify(account));
             await fs.promises.symlink(account_path, account_access_path);
+            await fs.promises.symlink(account_path, root_account_path);
         }
     });
     mocha.after(async () => {
@@ -763,7 +768,7 @@ function get_config_file_path(config_type_path, file_name) {
 }
 
 // returns the path of the access_key symlink to the config file json
-function get_access_key_symlink_path(config_type_path, file_name) {
+function get_symlink_path(config_type_path, file_name) {
     return path.join(config_root, config_type_path, file_name + '.symlink');
 }
 

@@ -339,6 +339,28 @@ describe('schema validation NC NSFS config', () => {
             const message = `must be boolean | {"type":"boolean"} | "/NC_DISABLE_SCHEMA_CHECK"`;
             assert_validation(config_data, reason, message);
         });
+
+        it('unskip schema check - config.LOG_TO_SYSLOG_ENABLED=false nsfs_config.LOG_TO_SYSLOG_ENABLED=bla - invalid config - should fail', () => {
+            config.LOG_TO_SYSLOG_ENABLED = false;
+            const config_data = {
+                LOG_TO_SYSLOG_ENABLED: 'bla',
+            };
+            const reason = 'Test should have failed because of wrong type ' +
+            'LOG_TO_SYSLOG_ENABLED must be boolean';
+            const message = `must be boolean | {"type":"boolean"} | "/LOG_TO_SYSLOG_ENABLED"`;
+            assert_validation(config_data, reason, message);
+        });
+
+        it('unskip schema check - config.LOG_TO_STDERR_ENABLED=false nsfs_config.LOG_TO_STDERR_ENABLED=bla - invalid config - should fail', () => {
+            config.LOG_TO_STDERR_ENABLED = false;
+            const config_data = {
+                LOG_TO_STDERR_ENABLED: 'bla',
+            };
+            const reason = 'Test should have failed because of wrong type ' +
+            'LOG_TO_STDERR_ENABLED must be boolean';
+            const message = `must be boolean | {"type":"boolean"} | "/LOG_TO_STDERR_ENABLED"`;
+            assert_validation(config_data, reason, message);
+        });
     });
 });
 

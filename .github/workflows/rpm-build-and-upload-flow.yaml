@@ -19,6 +19,20 @@ jobs:
     with:
       branch: ${{ inputs.branch }}
       centos_ver: '9'
+  
+  build-rpm-centos8-ppc64le:
+    uses: ./.github/workflows/rpm-build-base.yaml
+    with:
+      branch: ${{ inputs.branch }}
+      centos_ver: '8'
+      architecture: 'linux/ppc64le'
+
+  build-rpm-centos9-ppc64le:
+    uses: ./.github/workflows/rpm-build-base.yaml
+    with:
+      branch: ${{ inputs.branch }}
+      centos_ver: '9'
+      architecture: 'linux/ppc64le'
 
   upload-centos8-rpm-to-aws:
     needs: build-rpm-centos8
@@ -32,4 +46,18 @@ jobs:
     uses: ./.github/workflows/upload-rpm-to-aws.yaml
     with:
       rpm_full_path: ${{ needs.build-rpm-centos9.outputs.rpm_full_path }}
+    secrets: inherit
+  
+  upload-centos8-ppc64le-rpm-to-aws:
+    needs: build-rpm-centos8-ppc64le
+    uses: ./.github/workflows/upload-rpm-to-aws.yaml
+    with:
+      rpm_full_path: ${{ needs.build-rpm-centos8-ppc64le.outputs.rpm_full_path }}
+    secrets: inherit
+
+  upload-centos9-ppc64le-rpm-to-aws:
+    needs: build-rpm-centos9-ppc64le
+    uses: ./.github/workflows/upload-rpm-to-aws.yaml
+    with:
+      rpm_full_path: ${{ needs.build-rpm-centos9-ppc64le.outputs.rpm_full_path }}
     secrets: inherit

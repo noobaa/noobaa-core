@@ -458,6 +458,43 @@ Example:
 3. systemctl restart noobaa
 ```
 
+## 25. Syslog enable flag -
+**Description -** This flag will enable syslog logging for the application.
+
+**Configuration Key -** LOG_TO_SYSLOG_ENABLED
+
+**Type -** boolean
+
+**Default -** true
+
+**Steps -**
+```
+1. Open /path/to/config_dir/config.json file.
+2. Set the config key -
+Example:
+"LOG_TO_SYSLOG_ENABLED": true
+3. systemctl restart noobaa
+```
+
+## 26. Stderr enable flag -
+**Description -** This flag will decide whether need to push logs to the stderr or not.
+
+**Configuration Key -** LOG_TO_STDERR_ENABLED
+
+**Type -** boolean
+
+**Default -** false
+
+**Steps -**
+```
+1. Open /path/to/config_dir/config.json file.
+2. Set the config key -
+Example:
+"LOG_TO_STDERR_ENABLED": false
+3. systemctl restart noobaa
+```
+
+```
 > cat /path/to/config_dir/config.json
 {
     "ENDPOINT_PORT": 80,

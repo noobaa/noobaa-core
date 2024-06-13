@@ -464,6 +464,9 @@ config.EVENT_FACILITY = 'LOG_LOCAL2';
 config.EVENT_LOGGING_ENABLED = true;
 config.EVENT_LEVEL = 5;
 
+config.LOG_TO_SYSLOG_ENABLED = true;
+config.LOG_TO_STDERR_ENABLED = true;
+
 // TEST Mode
 config.test_mode = false;
 

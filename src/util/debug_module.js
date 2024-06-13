@@ -379,7 +379,7 @@ class InternalDebugLogger {
     }
 
     log_internal(msg_info) {
-        if (syslog) {
+        if (syslog && config.LOG_TO_SYSLOG_ENABLED) {
             // syslog path
             syslog(this._levels_to_syslog[msg_info.level], msg_info.message_syslog, config.DEBUG_FACILITY);
         } else if (this._log_file) {
@@ -389,7 +389,7 @@ class InternalDebugLogger {
         // This is also used in order to log to the console
         // browser workaround, don't use rotating file steam. Add timestamp and level
         const logfunc = LOG_FUNC_PER_LEVEL[msg_info.level] || 'log';
-        if (this._log_console_silent) {
+        if (this._log_console_silent || !config.LOG_TO_STDERR_ENABLED) {
             // noop
         } else if (console_wrapper) {
             process.stderr.write(msg_info.message_console + '\n');

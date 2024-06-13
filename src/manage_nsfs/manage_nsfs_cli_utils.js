@@ -12,14 +12,13 @@ const NSFS_CLI_SUCCESS_EVENT_MAP = require('../manage_nsfs/manage_nsfs_cli_respo
 const { BOOLEAN_STRING_VALUES } = require('../manage_nsfs/manage_nsfs_constants');
 const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
 
-function throw_cli_error(error_code, detail, event_arg) {
-    const error_event = NSFS_CLI_ERROR_EVENT_MAP[error_code.code];
+function throw_cli_error(error, detail, event_arg) {
+    const error_event = NSFS_CLI_ERROR_EVENT_MAP[error.code];
     if (error_event) {
         new NoobaaEvent(error_event).create_event(undefined, event_arg, undefined);
     }
-    const err = new ManageCLIError(error_code).to_string(detail);
-    process.stdout.write(err + '\n');
-    process.exit(1);
+    const err = new ManageCLIError({ ...error, detail });
+    throw err;
 }
 
 function write_stdout_response(response_code, detail, event_arg) {
@@ -28,8 +27,9 @@ function write_stdout_response(response_code, detail, event_arg) {
         new NoobaaEvent(response_event).create_event(undefined, event_arg, undefined);
     }
     const res = new ManageCLIResponse(response_code).to_string(detail);
-    process.stdout.write(res + '\n');
-    process.exit(0);
+    process.stdout.write(res + '\n', () => {
+        process.exit(0);
+    });
 }
 
 function get_config_file_path(config_type_path, file_name) {

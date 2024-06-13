@@ -134,3 +134,4 @@ function _set_op_stats(op_name, stats) {
 }
 
 exports.start_workers = start_workers;
+exports.cluster = cluster;

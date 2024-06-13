@@ -119,19 +119,6 @@ mocha.describe('nsfs nc health', function() {
             assert.strictEqual(health_status.error.error_code, 'NOOBAA_SERVICE_FAILED');
         });
 
-        mocha.it('NooBaa rsyslog service is inactive', async function() {
-            Health.get_service_state.restore();
-            Health.get_endpoint_response.restore();
-            const get_service_state = sinon.stub(Health, "get_service_state");
-            get_service_state.onFirstCall().returns(Promise.resolve({ service_status: 'active', pid: 1000 }))
-                .onSecondCall().returns(Promise.resolve({ service_status: 'inactive', pid: 0 }));
-            const get_endpoint_response = sinon.stub(Health, "get_endpoint_response");
-            get_endpoint_response.onFirstCall().returns(Promise.resolve({response: {response_code: 'RUNNING', total_fork_count: 0}}));
-            const health_status = await Health.nc_nsfs_health();
-            assert.strictEqual(health_status.status, 'NOTOK');
-            assert.strictEqual(health_status.error.error_code, 'RSYSLOG_SERVICE_FAILED');
-        });
-
         mocha.it('NooBaa endpoint return error response is inactive', async function() {
             Health.get_service_state.restore();
             Health.get_endpoint_response.restore();
@@ -364,47 +351,6 @@ mocha.describe('nsfs nc health', function() {
             assert.strictEqual(health_status.checks.accounts_status.valid_accounts.length, 2);
             assert.strictEqual(health_status.checks.accounts_status.invalid_accounts.length, 2);
             await fs_utils.file_delete(path.join(config_root, CONFIG_SUBDIRS.ACCOUNTS, account_invalid.name + '.json'));
-        });
-
-        mocha.it('Health command with syslog_ng optional check is true', async function() {
-            Health.get_service_state.restore();
-            Health.get_endpoint_response.restore();
-            Health.all_account_details = true;
-            Health.all_bucket_details = false;
-            Health.check_syslog_ng = true;
-            const get_service_state = sinon.stub(Health, "get_service_state");
-            get_service_state.onCall(0).returns(Promise.resolve({ service_status: 'active', pid: 1000 }))
-                .onCall(1)
-                .returns(Promise.resolve({ service_status: 'active', pid: 2000 }))
-                .onCall(2)
-                .returns(Promise.resolve({ service_status: 'active', pid: 3000 }));
-            const get_endpoint_response = sinon.stub(Health, "get_endpoint_response");
-            get_endpoint_response.onFirstCall().returns(Promise.resolve({response: {response_code: 'RUNNING', total_fork_count: 0}}));
-            const health_status = await Health.nc_nsfs_health();
-            assert.strictEqual(health_status.checks.accounts_status.valid_accounts.length, 2);
-            assert.strictEqual(health_status.checks.accounts_status.invalid_accounts.length, 1);
-            assert.strictEqual(health_status.checks.services[2].name, 'syslog-ng');
-            assert.strictEqual(health_status.checks.services[2].service_status, 'active');
-        });
-
-        mocha.it('Health command with syslog_ng optional check is false', async function() {
-            Health.get_service_state.restore();
-            Health.get_endpoint_response.restore();
-            Health.all_account_details = true;
-            Health.all_bucket_details = false;
-            Health.check_syslog_ng = false;
-            const get_service_state = sinon.stub(Health, "get_service_state");
-            get_service_state.onCall(0).returns(Promise.resolve({ service_status: 'active', pid: 1000 }))
-                .onCall(1)
-                .returns(Promise.resolve({ service_status: 'active', pid: 2000 }))
-                .onCall(2)
-                .returns(Promise.resolve({ service_status: 'active', pid: 3000 }));
-            const get_endpoint_response = sinon.stub(Health, "get_endpoint_response");
-            get_endpoint_response.onFirstCall().returns(Promise.resolve({response: {response_code: 'RUNNING', total_fork_count: 0}}));
-            const health_status = await Health.nc_nsfs_health();
-            assert.strictEqual(health_status.checks.accounts_status.valid_accounts.length, 2);
-            assert.strictEqual(health_status.checks.accounts_status.invalid_accounts.length, 1);
-            assert.strictEqual(health_status.checks.services.length, 2);
         });
     });
 });

@@ -36,7 +36,7 @@
                     '-std=gnu99', # c99 -> gnu99 to allow asm()
                 ],
                 'cflags_cc': [
-                    '-std=c++17'
+                    '-std=c++2a'
                 ],
                 'ldflags': [
                     '-lrt', # librt
@@ -65,7 +65,7 @@
                     # Reference - http://help.apple.com/xcode/mac/8.0/#/itcaec37c2a6
                     'MACOSX_DEPLOYMENT_TARGET': '12.4',
                     'CLANG_CXX_LIBRARY': 'libc++',
-                    'CLANG_CXX_LANGUAGE_STANDARD': 'c++17', # -std=c++17
+                    'CLANG_CXX_LANGUAGE_STANDARD': 'c++2a', # -std=c++2a
                     'GCC_C_LANGUAGE_STANDARD': 'c99', # -std=c99
                     'GCC_ENABLE_CPP_EXCEPTIONS': 'YES',
                 },

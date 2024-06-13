@@ -90,6 +90,11 @@ dbg.log0('endpoint: replacing old umask: ', old_umask.toString(8), 'with new uma
 /* eslint-disable max-statements */
 async function main(options = {}) {
     try {
+        // setting process title needed for letting GPFS to identify the noobaa endpoint processes see issue #8039.
+        if (config.ENDPOINT_PROCESS_TITLE) {
+            process.title = config.ENDPOINT_PROCESS_TITLE;
+        }
+
         // the primary just forks and returns, workers will continue to serve
         fork_count = options.forks ?? config.ENDPOINT_FORKS;
         const metrics_port = options.metrics_port || config.EP_METRICS_SERVER_PORT;

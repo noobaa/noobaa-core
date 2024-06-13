@@ -56,6 +56,10 @@ const nsfs_node_config_schema = {
             default: '',
             description: 'indicates the location of the gpfs library file, service restart required, usually should be set to /usr/lib64/libgpfs.so'
         },
+        GPFS_DOWN_DELAY: {
+            type: 'number',
+            doc: 'delay (ms) of GPFS syscalls when daemon is down, to hold client replies during failover, service restart required'
+        },
         NSFS_NC_STORAGE_BACKEND: {
             $ref: 'common_api#/definitions/fs_backend',
             default: undefined,
@@ -131,6 +135,10 @@ const nsfs_node_config_schema = {
         VIRTUAL_HOSTS: {
             type: 'string',
             description: 'This flag will set the virtual hosts, service restart required, Set the virtual hosts as string of domains sepreated by spaces.'
+        },
+        ENDPOINT_PROCESS_TITLE: {
+            type: 'string',
+            description: 'This flag will set noobaa process title for letting GPFS to identify the noobaa endpoint processes.'
         }
     }
 };

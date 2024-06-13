@@ -422,8 +422,42 @@ Example:
 3. systemctl restart noobaa_nsfs
 ```
 
+## 23. Set Endpoint process title -
+**Description -** This flag will set noobaa process title for letting GPFS to identify the noobaa endpoint processes. see issue #8039.
+
+**Configuration Key -** ENDPOINT_PROCESS_TITLE
+
+**Type -** string
+
+**Default -**  'noobaa'
+**Steps -**
+```
+1. Open /path/to/config_dir/config.json file.
+2. Set the config key -
+Example:
+"ENDPOINT_PROCESS_TITLE": 'noobaa_60'
+3. systemctl restart noobaa_nsfs
 ## Config.json example 
 ```
+
+## 24. GPFS down delay -
+**Description -** Set delay (ms) of GPFS syscalls when daemon is down, to hold client replies during failover, service restart required.
+
+**Configuration Key -** GPFS_DOWN_DELAY
+
+**Type -** number
+
+**Default -** 1000
+
+**Steps -**
+```
+1. Open /path/to/config_dir/config.json file.
+2. Set the config key -
+Example:
+"GPFS_DOWN_DELAY": "60000"
+3. systemctl restart noobaa
+```
+
 > cat /path/to/config_dir/config.json
 {
     "ENDPOINT_PORT": 80,

@@ -1,5 +1,4 @@
 /* Copyright (C) 2024 NooBaa */
-/* eslint-disable no-undef */
 
 'use strict';
 
@@ -22,10 +21,15 @@ key="$1"
 file_name="${TMP_PATH}/noobaa.$key"
 current_version="$2"
 
+TMPFILE="$(mktemp)"
+trap 'rm -f &>/dev/null -- "$TMPFILE"' EXIT
+# write stdin of the script to temp file
+cat > "$TMPFILE"
+
 if [ -e "$file_name" ]; then
     echo '{ "status": "VERSION_MISMATCH" }'
 else
-    out=$(cat > "$file_name" 2>/dev/null)
+    out=$(cat "$TMPFILE" > "$file_name" 2>/dev/null)
     rc=$?
     if [ $rc -eq 0 ]; then
         echo '{ "status": "OK" }'

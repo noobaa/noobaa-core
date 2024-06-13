@@ -1,5 +1,4 @@
 /* Copyright (C) 2024 NooBaa */
-/* eslint-disable no-undef */
 
 'use strict';
 
@@ -72,8 +71,8 @@ describe('NC master key manager tests - file store type', () => {
             await new_nc_mkm_instance.init();
             fail('should have failed on invalid master_keys.json file');
         } catch (err) {
-            expect(err.rpc_code).toEqual('INVALID_MASTER_KEYS_FILE');
-            expect(err.message).toEqual('Invalid master_keys.json file');
+            expect(err.rpc_code).toEqual('INVALID_MASTER_KEY');
+            expect(err.message).toEqual('Invalid master_keys.json');
         }
     });
 
@@ -83,10 +82,24 @@ describe('NC master key manager tests - file store type', () => {
         const new_nc_mkm_instance = nc_mkm.get_instance();
         try {
             await new_nc_mkm_instance.init();
+            fail('should have failed on invalid master_keys.json');
+        } catch (err) {
+            expect(err.rpc_code).toEqual('INVALID_MASTER_KEY');
+            expect(err.message).toEqual('Invalid master_keys.json');
+        }
+    });
+
+    it('should fail - init nc_mkm - empty master_keys.json', async () => {
+        await fs.promises.rm(MASTER_KEYS_JSON_PATH);
+        await fs.promises.writeFile(MASTER_KEYS_JSON_PATH, JSON.stringify({}));
+
+        const new_nc_mkm_instance = nc_mkm.get_instance();
+        try {
+            await new_nc_mkm_instance.init();
             fail('should have failed on invalid master_keys.json file');
         } catch (err) {
-            expect(err.rpc_code).toEqual('INVALID_MASTER_KEYS_FILE');
-            expect(err.message).toEqual('Invalid master_keys.json file');
+            expect(err.rpc_code).toEqual('INVALID_MASTER_KEY');
+            expect(err.message).toEqual('Invalid master_keys.json');
         }
     });
 });
@@ -135,4 +148,11 @@ async function read_master_keys_json() {
     const { data } = await nb_native().fs.readFile(DEFAULT_FS_CONFIG, MASTER_KEYS_JSON_PATH);
     const master_keys = JSON.parse(data.toString());
     return master_keys;
+}
+
+// Jest has builtin function fail that based on Jasmine
+// in case Jasmine would get removed from jest, created this one
+// based on this: https://stackoverflow.com/a/55526098/16571658
+function fail(reason) {
+    throw new Error(reason);
 }

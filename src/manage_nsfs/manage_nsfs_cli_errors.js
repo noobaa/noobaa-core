@@ -8,6 +8,8 @@ const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEve
  *      code?: string, 
  *      message: string, 
  *      http_code: number,
+ *      detail: string,
+ *      cause?: Error  
  * }} ManageCLIErrorSpec
  */
 
@@ -16,18 +18,20 @@ class ManageCLIError extends Error {
     /**
      * @param {ManageCLIErrorSpec} error_spec 
      */
-    constructor({ code, message, http_code }) {
-        super(message); // sets this.message
+    constructor({ code, message, http_code, detail, cause }) {
+        super(message, { cause });
         this.code = code;
         this.http_code = http_code;
+        this.detail = detail;
     }
 
-    to_string(detail) {
+    to_string() {
         const json = {
             error: {
                 code: this.code,
                 message: this.message,
-                detail: detail
+                detail: this.detail,
+                cause: this.cause?.stack || this.cause?.message
             }
         };
         return JSON.stringify(json, null, 2);
@@ -126,6 +130,12 @@ ManageCLIError.InvalidWhiteListIPFormat = Object.freeze({
 ManageCLIError.WhiteListIPUpdateFailed = Object.freeze({
     code: 'WhiteListIPUpdateFailed',
     message: 'Whitelist ip update failed',
+    http_code: 500,
+});
+
+ManageCLIError.InvalidMasterKey = Object.freeze({
+    code: 'InvalidMasterKey',
+    message: 'Master key manager had issues loading master key, can not decrypt/encrypt secrets.',
     http_code: 500,
 });
 
@@ -386,7 +396,8 @@ ManageCLIError.FS_ERRORS_TO_MANAGE = Object.freeze({
 
 ManageCLIError.RPC_ERROR_TO_MANAGE = Object.freeze({
     INVALID_SCHEMA: ManageCLIError.InvalidSchema,
-    NO_SUCH_USER: ManageCLIError.InvalidAccountDistinguishedName
+    NO_SUCH_USER: ManageCLIError.InvalidAccountDistinguishedName,
+    INVALID_MASTER_KEY: ManageCLIError.InvalidMasterKey
 });
 
 const NSFS_CLI_ERROR_EVENT_MAP = {

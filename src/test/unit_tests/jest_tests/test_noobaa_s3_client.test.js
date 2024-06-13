@@ -1,5 +1,4 @@
 /* Copyright (C) 2023 NooBaa */
-/* eslint-disable no-undef */
 'use strict';
 
 const { NodeHttpHandler } = require("@smithy/node-http-handler");

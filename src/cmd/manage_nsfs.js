@@ -27,14 +27,13 @@ const { TYPES, ACTIONS, VALID_OPTIONS, OPTION_TYPE, FROM_FILE, BOOLEAN_STRING_VA
 const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
 const nc_mkm = require('../manage_nsfs/nc_master_key_manager').get_instance();
 
-function throw_cli_error(error_code, detail, event_arg) {
-    const error_event = NSFS_CLI_ERROR_EVENT_MAP[error_code.code];
+function throw_cli_error(error, detail, event_arg) {
+    const error_event = NSFS_CLI_ERROR_EVENT_MAP[error.code];
     if (error_event) {
         new NoobaaEvent(error_event).create_event(undefined, event_arg, undefined);
     }
-    const err = new ManageCLIError(error_code).to_string(detail);
-    process.stdout.write(err + '\n');
-    process.exit(1);
+    const err = new ManageCLIError({ ...error, detail });
+    throw err;
 }
 
 function write_stdout_response(response_code, detail, event_arg) {
@@ -43,8 +42,9 @@ function write_stdout_response(response_code, detail, event_arg) {
         new NoobaaEvent(response_event).create_event(undefined, event_arg, undefined);
     }
     const res = new ManageCLIResponse(response_code).to_string(detail);
-    process.stdout.write(res + '\n');
-    process.exit(0);
+    process.stdout.write(res + '\n', () => {
+        process.exit(0);
+    });
 }
 
 const buckets_dir_name = '/buckets';
@@ -100,7 +100,11 @@ async function main(argv = minimist(process.argv.slice(2))) {
         const user_input = user_input_from_file || argv;
         config_root = argv.config_root ? String(argv.config_root) : config.NSFS_NC_CONF_DIR;
         if (!config_root) throw_cli_error(ManageCLIError.MissingConfigDirPath);
-        if (argv.config_root) config.NSFS_NC_CONF_DIR = String(argv.config_root);
+        if (argv.config_root) {
+            config.NSFS_NC_CONF_DIR = String(argv.config_root);
+            config.load_nsfs_nc_config();
+            config.reload_nsfs_nc_config();
+        }
 
         accounts_dir_path = path.join(config_root, accounts_dir_name);
         access_keys_dir_path = path.join(config_root, access_keys_dir_name);
@@ -123,10 +127,13 @@ async function main(argv = minimist(process.argv.slice(2))) {
     } catch (err) {
         dbg.log1('NSFS Manage command: exit on error', err.stack || err);
         const manage_err = ((err instanceof ManageCLIError) && err) ||
-            new ManageCLIError(ManageCLIError.FS_ERRORS_TO_MANAGE[err.code] ||
+            new ManageCLIError({
+                ...(ManageCLIError.FS_ERRORS_TO_MANAGE[err.code] ||
                 ManageCLIError.RPC_ERROR_TO_MANAGE[err.rpc_code] ||
-                ManageCLIError.InternalError);
-        throw_cli_error(manage_err, err.stack || err);
+                ManageCLIError.InternalError), cause: err });
+        process.stdout.write(manage_err.to_string() + '\n', () => {
+            process.exit(1);
+        });
     }
 }
 
@@ -302,7 +309,8 @@ async function delete_bucket(data, force) {
         if (object_entries.length === 0 || force) {
             await native_fs_utils.folder_delete(bucket_temp_dir_path, fs_context_fs_backend, true);
             await native_fs_utils.delete_config_file(fs_context_config_root_backend, buckets_dir_path, bucket_config_path);
-            write_stdout_response(ManageCLIResponse.BucketDeleted, '', {bucket: data.name});
+            write_stdout_response(ManageCLIResponse.BucketDeleted, '', { bucket: data.name });
+            return;
         }
         throw_cli_error(ManageCLIError.BucketDeleteForbiddenHasObjects, data.name);
     } catch (err) {
@@ -333,6 +341,10 @@ async function manage_bucket_operations(action, data, user_input) {
 
 async function account_management(action, user_input) {
     const show_secrets = get_boolean_or_string_value(user_input.show_secrets);
+    // init nc_mkm here to avoid concurrent initializations
+    // init if actions is add/update (require encryption) or show_secrets = true (require decryption)
+    if ([ACTIONS.ADD, ACTIONS.UPDATE].includes(action) || show_secrets) await nc_mkm.init();
+
     const data = await fetch_account_data(action, user_input);
     await manage_account_operations(action, data, show_secrets, user_input);
 }
@@ -382,7 +394,8 @@ async function fetch_account_data(action, user_input) {
     if (action === ACTIONS.UPDATE || action === ACTIONS.DELETE) {
         // @ts-ignore
         data = _.omitBy(data, _.isUndefined);
-        data = await fetch_existing_account_data(data);
+        const decrypt_secret_key = action === ACTIONS.UPDATE;
+        data = await fetch_existing_account_data(data, decrypt_secret_key);
     }
 
     // override values
@@ -406,14 +419,14 @@ async function fetch_account_data(action, user_input) {
     return data;
 }
 
-async function fetch_existing_account_data(target) {
+async function fetch_existing_account_data(target, decrypt_secret_key) {
     let source;
     try {
         const account_path = target.name ?
             get_config_file_path(accounts_dir_path, target.name) :
             get_symlink_config_file_path(access_keys_dir_path, target.access_keys[0].access_key);
         source = await get_config_data(account_path, true);
-        source.access_keys = await nc_mkm.decrypt_access_keys(source);
+        if (decrypt_secret_key) source.access_keys = await nc_mkm.decrypt_access_keys(source);
     } catch (err) {
         dbg.log1('NSFS Manage command: Could not find account', target, err);
         if (err.code === 'ENOENT') {
@@ -568,6 +581,7 @@ async function get_account_status(data, show_secrets) {
         if (config_data.access_keys) config_data.access_keys = await nc_mkm.decrypt_access_keys(config_data);
         write_stdout_response(ManageCLIResponse.AccountStatus, config_data);
     } catch (err) {
+        if (err.code !== 'ENOENT') throw err;
         if (_.isUndefined(data.name)) {
             throw_cli_error(ManageCLIError.NoSuchAccountAccessKey, data.access_keys[0].access_key.unwrap());
         } else {
@@ -662,7 +676,9 @@ async function list_config_files(type, config_path, wide, show_secrets, filters)
             if (wide || should_filter) {
                 const full_path = path.join(config_path, entry.name);
                 const data = await get_config_data(full_path, show_secrets || should_filter);
-                if (data.access_keys) data.access_keys = await nc_mkm.decrypt_access_keys(data);
+                // decryption causing mkm initalization
+                // decrypt only if data has access_keys and show_secrets = true (no need to decrypt if show_secrets = false but should_filter = true)
+                if (data.access_keys && show_secrets) data.access_keys = await nc_mkm.decrypt_access_keys(data);
                 if (should_filter && !filter_list_item(type, data, filters)) return undefined;
                 // remove secrets on !show_secrets && should filter
                 return wide ? _.omit(data, show_secrets ? [] : ['access_keys']) : { name: entry.name.slice(0, entry.name.indexOf('.json')) };

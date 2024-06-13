@@ -237,8 +237,8 @@ NOTE - health script execution requires root permissions.
   "status": "NOTOK",
   "memory": "88.6M",
   "error": {
-    "error_code": "RSYSLOG_SERVICE_FAILED",
-    "error_message": "RSYSLOG service is not started properly, Please verify the service with status command."
+    "error_code": "NOOBAA_SERVICE_FAILED",
+    "error_message": "NooBaa service is not started properly, Please verify the service with status command."
   },
   "checks": {
     "services": [
@@ -246,12 +246,6 @@ NOTE - health script execution requires root permissions.
         "name": "noobaa",
         "service_status": "active",
         "pid": "1204",
-        "error_type": "PERSISTENT"
-      },
-      {
-        "name": "rsyslog",
-        "service_status": "inactive",
-        "pid": "0",
         "error_type": "PERSISTENT"
       }
     ],
@@ -317,9 +311,9 @@ NOTE - health script execution requires root permissions.
 
 `error_message`: Message explaining the issue with the health script.
 
-`service_status`: NooBaa systemd status. Check for noobaa/rsyslog service up and running.
+`service_status`: NooBaa systemd status. Check for noobaa service up and running.
 
-`pid`: NooBaa/Rsyslog systemd process id.
+`pid`: NooBaa systemd process id.
 
 `endpoint_response`: Noobaa endpoint web service response code.
 
@@ -341,12 +335,6 @@ In this health output, `bucket2`'s storage path is invalid and the directory men
 
 Account without `new_buckets_path` and `allow_bucket_creation` value is `false` then it's considered a valid account, But if the `allow_bucket_creation` is true `new_buckets_path` is empty, in that case account is invalid.
 
-### Optional status checks
-
-#### 1. `check_syslog_ng`
-`check_syslog_ng` flag will add syslogng to the health status check. Health final status will depend on the syslogng status.
-Health script will check whether the syslogng service is active or not and its PID is a valid value. Syslogng status will get added along with NooBaa and rsyslog.
-
 ### Health Error Codes
 These are the error codes populated in the health output if the system is facing some issues. If any of these error codes are present in health status then the overall status will be in `NOTOK` state.
 #### 1. `NOOBAA_SERVICE_FAILED`
@@ -365,24 +353,8 @@ If the NooBaa service is not started, start the service
 systemctl enable noobaa.service
 systemctl start noobaa.service
 ```
-#### 2. `RSYSLOG_SERVICE_FAILED`
-#### Reasons
-- Rsysog service is not started properly.
-- Stopped Rsyslog service is not removed.
 
-#### Resolutions
-- Verify the Rsyslog service is running by checking the status and logs command.
-```
-systemctl status rsyslog.service
-journalctl -xeu rsyslog.service
-```
-If the rsyslog is not started, start the service
-```
-systemctl enable rsyslog.service
-systemctl start rsyslog.service
-```
-
-#### 3. `NOOBAA_ENDPOINT_FORK_MISSING`
+#### 2. `NOOBAA_ENDPOINT_FORK_MISSING`
 #### Reasons
 - One or more endpoint fork is not started properly.
 - Number of workers running is less than the configured `forks` value.
@@ -394,7 +366,7 @@ systemctl status rsyslog.service
 journalctl -xeu rsyslog.service
 ```
 
-#### 4. `NOOBAA_ENDPOINT_FAILED`
+#### 3. `NOOBAA_ENDPOINT_FAILED`
 #### Reasons
 - NooBaa endpoint process is not running and Its not able to respond to any requests.
 
@@ -612,7 +584,9 @@ Noobaa logs are pushed to `var/log/noobaa.log` and the log is rotated and compre
 
 Verify the rsyslog and logrotate rpm configuration is complete by checking the files `etc/rsyslog.d/noobaa_syslog.conf` for rsyslog and `etc/logrotate.d/noobaa/logrotate_noobaa.conf` for logrotate.These files contain the noobaa specific configuration for rsyslog and logrotate.
 
-Rotate the logs manually.
+Logrotate configuration is set up under `/etc/logrotate.d/noobaa/`. In order to trigger rotation when log files reache size threshold, each log file (`/var/log/noobaa.log` and `/var/log/noobaa_events.log`) uses its own rsyslog `outchannel` that triggers logrotate once file size reaches a limit (105MB). Logrotate is also typically called from cron on daily schedule.
+
+To rotate the logs manually run.
 
 ```
 logrotate /etc/logrotate.d/noobaa/logrotate_noobaa.conf

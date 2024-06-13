@@ -823,6 +823,7 @@ config.NSFS_LOW_FREE_SPACE_PERCENT_UNLEASH = 0.10;
 // NSFS NON CONTAINERIZED //
 ////////////////////////////
 
+config.ENDPOINT_PROCESS_TITLE = 'noobaa';
 config.NC_RELOAD_CONFIG_INTERVAL = 10 * 1000;
 config.NSFS_NC_CONF_DIR_REDIRECT_FILE = 'config_dir_redirect';
 config.NSFS_NC_DEFAULT_CONF_DIR = '/etc/noobaa.conf.d';
@@ -853,6 +854,10 @@ config.NC_MASTER_KEYS_GET_EXECUTABLE = '';
 config.NC_MASTER_KEYS_PUT_EXECUTABLE = '';
 config.NC_MASTER_KEYS_MANAGER_REFRESH_THRESHOLD = -1; // currently we want to disable automatic refresh
 config.MASTER_KEYS_EXEC_MAX_RETRIES = 3;
+
+////////// GPFS //////////
+config.GPFS_DOWN_DELAY = 1000;
+
 
 //Quota
 config.QUOTA_LOW_THRESHOLD = 80;
@@ -1048,7 +1053,8 @@ function load_nsfs_nc_config() {
         const merged_config = _.merge(shared_config, node_config || {});
 
         Object.keys(merged_config).forEach(function(key) {
-            if (key === 'NOOBAA_LOG_LEVEL' || key === 'UV_THREADPOOL_SIZE' || key === 'GPFS_DL_PATH') {
+            const config_to_env = ['NOOBAA_LOG_LEVEL', 'UV_THREADPOOL_SIZE', 'GPFS_DL_PATH'];
+            if (config_to_env.includes(key)) {
                 process.env[key] = merged_config[key];
                 return;
             }

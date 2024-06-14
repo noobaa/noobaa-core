@@ -205,6 +205,8 @@ async function main(options = {}) {
         if (https_port_iam > 0) {
             dbg.log0('Starting IAM HTTPS', https_port_iam);
             const endpoint_request_handler_iam = create_endpoint_handler_iam(init_request_sdk);
+            // NOTE: The IAM server currently uses the S3 server's certificate. This *will* cause route failures in Openshift.
+            // TODO: Generate, mount and utilize an appropriate IAM certificate once the service and route are implemented
             const https_server_iam = create_https_server(ssl_cert_info, true, endpoint_request_handler_iam);
             await listen_http(https_port_iam, https_server_iam);
             dbg.log0('Started IAM HTTPS successfully');

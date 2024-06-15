@@ -85,7 +85,7 @@ async function copy_objects_mixed_types(req) {
             try {
                 await noobaa_con.copyObject(params).promise();
                 copy_res.num_of_objects += 1;
-                copy_res.size_of_objects += keys_diff_map[key][0].Size;
+                copy_res.size_of_objects += keys_diff_map[key][0].ContentLength;
             } catch (err) {
                 dbg.error('replication_server copy_objects_mixed_types: got error:', err);
             }
@@ -100,7 +100,7 @@ async function copy_objects_mixed_types(req) {
                 try {
                     await noobaa_con.copyObject(params).promise();
                     copy_res.num_of_objects += 1;
-                    copy_res.size_of_objects += keys_diff_map[key][i].Size;
+                    copy_res.size_of_objects += keys_diff_map[key][i].ContentLength;
                 } catch (err) {
                     dbg.error('replication_server copy_objects_mixed_types: got error:', err);
                 }

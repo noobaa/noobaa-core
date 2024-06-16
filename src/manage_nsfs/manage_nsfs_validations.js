@@ -14,7 +14,7 @@ const ManageCLIError = require('../manage_nsfs/manage_nsfs_cli_errors').ManageCL
 const bucket_policy_utils = require('../endpoint/s3/s3_bucket_policy_utils');
 const { throw_cli_error, get_config_file_path, get_bucket_owner_account,
     get_config_data, get_options_from_file, has_access_keys } = require('../manage_nsfs/manage_nsfs_cli_utils');
-const { TYPES, ACTIONS, VALID_OPTIONS, OPTION_TYPE, FROM_FILE, BOOLEAN_STRING_VALUES,
+const { TYPES, ACTIONS, VALID_OPTIONS, OPTION_TYPE, FROM_FILE, BOOLEAN_STRING_VALUES, BOOLEAN_STRING_OPTIONS,
     GLACIER_ACTIONS, LIST_UNSETABLE_OPTIONS, ANONYMOUS } = require('../manage_nsfs/manage_nsfs_constants');
 
 /////////////////////////////
@@ -68,7 +68,7 @@ function validate_type_and_action(type, action) {
     if (!Object.values(TYPES).includes(type)) throw_cli_error(ManageCLIError.InvalidType);
     if (type === TYPES.ACCOUNT || type === TYPES.BUCKET) {
         if (!Object.values(ACTIONS).includes(action)) throw_cli_error(ManageCLIError.InvalidAction);
-    } else if (type === TYPES.IP_WHITELIST) {
+    } else if (type === TYPES.IP_WHITELIST || type === TYPES.HEALTH) {
         if (action !== '') throw_cli_error(ManageCLIError.InvalidAction);
     } else if (type === TYPES.GLACIER) {
         if (!Object.values(GLACIER_ACTIONS).includes(action)) throw_cli_error(ManageCLIError.InvalidAction);
@@ -99,6 +99,8 @@ function validate_no_extra_options(type, action, input_options, is_options_from_
         }
     } else if (type === TYPES.GLACIER) {
         valid_options = VALID_OPTIONS.glacier_options[action];
+    } else if (type === TYPES.HEALTH) {
+        valid_options = VALID_OPTIONS.health_options;
     } else {
         valid_options = VALID_OPTIONS.whitelist_options;
     }
@@ -139,7 +141,7 @@ function validate_options_type_by_value(input_options_with_data) {
                 continue;
             }
             // special case for boolean values
-            if (['allow_bucket_creation', 'regenerate', 'wide', 'show_secrets', 'force', 'force_md5_etag', 'anonymous'].includes(option) && validate_boolean_string_value(value)) {
+            if (BOOLEAN_STRING_OPTIONS.has(option) && validate_boolean_string_value(value)) {
                 continue;
             }
             // special case for bucket_policy (from_file)

@@ -13,6 +13,9 @@ const native_fs_utils = require('../util/native_fs_utils');
 const { read_stream_join } = require('../util/buffer_utils');
 const { make_https_request } = require('../util/http_utils');
 const { TYPES } = require('../manage_nsfs/manage_nsfs_constants');
+const { validate_input_types } = require('../manage_nsfs/manage_nsfs_validations');
+const { get_boolean_or_string_value } = require('../manage_nsfs/manage_nsfs_cli_utils');
+const ManageCLIError = require('../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
 
 const HELP = `
 Help:
@@ -120,10 +123,21 @@ class NSFSHealth {
         this.all_account_details = options.all_account_details;
         this.all_bucket_details = options.all_bucket_details;
     }
+
+    /**
+    * nc_nsfs_health will execute the following checks and will result with a health report
+    * 1. get noobaa service state
+    * 2. get endpoint response
+    * 3. get service memory usage
+    * 5. if all_account_details flag provided check accounts status
+    * 6. if all_bucket_details flag provided check buckets status
+    * @returns {Promise<object>}
+    */
     async nc_nsfs_health() {
         let endpoint_state;
         let memory;
-        const { service_status, pid } = await this.get_service_state(NOOBAA_SERVICE);
+        const noobaa_service_state = await this.get_service_state(NOOBAA_SERVICE);
+        const { service_status, pid } = noobaa_service_state;
         if (pid !== '0') {
             endpoint_state = await this.get_endpoint_response();
             memory = await this.get_service_memory_usage();
@@ -131,11 +145,8 @@ class NSFSHealth {
         let bucket_details;
         let account_details;
         const response_code = endpoint_state ? endpoint_state.response.response_code : 'NOT_RUNNING';
-        let service_health = 'OK';
+        const service_health = service_status !== 'active' || pid === '0' || response_code !== 'RUNNING' ? 'NOTOK' : 'OK';
 
-        if (service_status !== 'active' || pid === '0' || response_code !== 'RUNNING') {
-            service_health = 'NOTOK';
-        }
         const error_code = await this.get_error_code(service_status, pid, response_code);
         if (this.all_bucket_details) bucket_details = await this.get_bucket_status(this.config_root);
         if (this.all_account_details) account_details = await this.get_account_status(this.config_root);
@@ -145,13 +156,7 @@ class NSFSHealth {
             memory: memory,
             error: error_code,
             checks: {
-                services: [{
-                        name: NOOBAA_SERVICE,
-                        service_status: service_status,
-                        pid: pid,
-                        error_type: health_errors_tyes.PERSISTENT,
-                    }
-                ],
+                services: [noobaa_service_state],
                 endpoint: {
                     endpoint_state,
                     error_type: health_errors_tyes.TEMPORARY,
@@ -188,9 +193,7 @@ class NSFSHealth {
             });
         } catch (err) {
             console.log('Error while pinging endpoint host :' + HOSTNAME + ', port ' + this.https_port, err);
-            return {
-                response: fork_response_code.NOT_RUNNING.response_code,
-            };
+            endpoint_state = { response: fork_response_code.NOT_RUNNING };
         }
         return endpoint_state;
     }
@@ -206,17 +209,35 @@ class NSFSHealth {
     }
 
     async get_service_state(service_name) {
-        const service_status = await os_util.exec('systemctl show -p ActiveState --value ' + service_name, {
-            ignore_rc: true,
-            return_stdout: true,
-            trim_stdout: true,
-        });
-        const pid = await os_util.exec('systemctl show --property MainPID --value ' + service_name, {
-            ignore_rc: true,
-            return_stdout: true,
-            trim_stdout: true,
-        });
-        return { service_status: service_status, pid: pid };
+        let service_status;
+        let pid;
+        try {
+            service_status = await os_util.exec('systemctl show -p ActiveState --value ' + service_name, {
+                ignore_rc: false,
+                return_stdout: true,
+                trim_stdout: true,
+            });
+        } catch (err) {
+            dbg.warn('could not receive service active state', service_name, err);
+            service_status = 'missing service status info';
+        }
+        try {
+            pid = await os_util.exec('systemctl show --property MainPID --value ' + service_name, {
+                ignore_rc: false,
+                return_stdout: true,
+                trim_stdout: true,
+            });
+        } catch (err) {
+            dbg.warn('could not receive service active state', service_name, err);
+            pid = 'missing pid info';
+        }
+        const service_health = { name: service_name, service_status, pid };
+        if (['inactive', 'missing service status info'].includes(service_status)) {
+            service_health.error_type = health_errors_tyes.PERSISTENT;
+            const service_error_name = _.upperCase(_.camelCase(service_name)) + '_SERVICE_FAILED';
+            service_health.error_code = health_errors[service_error_name];
+        }
+        return service_health;
     }
 
     async make_endpoint_health_request(url_path) {
@@ -284,11 +305,17 @@ class NSFSHealth {
     }
 
     async get_service_memory_usage() {
-        const memory_status = await os_util.exec('systemctl status ' + NOOBAA_SERVICE + ' | grep Memory ', {
-            ignore_rc: true,
-            return_stdout: true,
-            trim_stdout: true,
-        });
+        let memory_status;
+        try {
+            memory_status = await os_util.exec('systemctl status ' + NOOBAA_SERVICE + ' | grep Memory ', {
+                ignore_rc: false,
+                return_stdout: true,
+                trim_stdout: true,
+            });
+        } catch (err) {
+            dbg.warn('could not receive service active state', NOOBAA_SERVICE, err);
+            memory_status = 'Memory: missing memory info';
+        }
         if (memory_status) {
             const memory = memory_status.split('Memory: ')[1].trim();
             return memory;
@@ -383,11 +410,18 @@ async function main(argv = minimist(process.argv.slice(2))) {
             throw new Error('Root permissions required for NSFS Health execution.');
         }
         if (argv.help || argv.h) return print_usage();
+        await validate_input_types(TYPES.HEALTH, '', argv);
         const config_root = argv.config_root ? String(argv.config_root) : config.NSFS_NC_CONF_DIR;
         const https_port = Number(argv.https_port) || config.ENDPOINT_SSL_PORT;
         const deployment_type = argv.deployment_type || 'nc';
-        const all_account_details = argv.all_account_details || false;
-        const all_bucket_details = argv.all_bucket_details || false;
+        const all_account_details = get_boolean_or_string_value(argv.all_account_details);
+        const all_bucket_details = get_boolean_or_string_value(argv.all_bucket_details);
+
+        if (argv.config_root) {
+            config.NSFS_NC_CONF_DIR = String(argv.config_root);
+            config.load_nsfs_nc_config();
+            config.reload_nsfs_nc_config();
+        }
         if (deployment_type === 'nc') {
             const health = new NSFSHealth({ https_port, config_root, all_account_details, all_bucket_details });
             const health_status = await health.nc_nsfs_health();
@@ -399,7 +433,14 @@ async function main(argv = minimist(process.argv.slice(2))) {
         }
     } catch (err) {
         dbg.error('Health: exit on error', err.stack || err);
-        process.exit(2);
+        const manage_err = ((err instanceof ManageCLIError) && err) ||
+            new ManageCLIError({
+                ...(ManageCLIError.FS_ERRORS_TO_MANAGE[err.code] ||
+                ManageCLIError.RPC_ERROR_TO_MANAGE[err.rpc_code] ||
+                ManageCLIError.InternalError), cause: err });
+        process.stdout.write(manage_err.to_string() + '\n', () => {
+            process.exit(1);
+        });
     }
 }
 

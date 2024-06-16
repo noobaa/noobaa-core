@@ -2,6 +2,7 @@
 'use strict';
 
 const dbg = require('../../../util/debug_module')(__filename);
+const iam_constants = require('../iam_constants');
 const iam_utils = require('../iam_utils');
 const { CONTENT_TYPE_APP_FORM_URLENCODED } = require('../../../util/http_utils');
 
@@ -12,10 +13,12 @@ async function list_access_keys(req, res) {
 
     const params = {
         marker: req.body.marker,
-        max_items: req.body.max_items,
+        // ISSUE - AWS CLI doesn't pass max_items in req.body
+        max_items: req.body.max_items ?? iam_constants.DEFAULT_MAX_ITEMS,
         username: req.body.user_name,
     };
     dbg.log1('IAM LIST ACCESS KEYS', params);
+    iam_utils.validate_params(iam_constants.IAM_ACTIONS.LIST_ACCESS_KEYS, params);
     const reply = await req.account_sdk.list_access_keys(params);
     dbg.log2('list_access_keys reply', reply);
 

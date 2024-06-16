@@ -45,7 +45,7 @@ const IAM_OPS = js_utils.deep_freeze({
     post_list_users: require('./ops/iam_list_users'),
     // access key CRUD
     post_create_access_key: require('./ops/iam_create_access_key'),
-    post_get_access_key_last_used: require('./ops/get_access_key_last_used'),
+    post_get_access_key_last_used: require('./ops/iam_get_access_key_last_used'),
     post_update_access_key: require('./ops/iam_update_access_key'),
     post_delete_access_key: require('./ops/iam_delete_access_key'),
     post_list_access_keys: require('./ops/iam_list_access_keys'),

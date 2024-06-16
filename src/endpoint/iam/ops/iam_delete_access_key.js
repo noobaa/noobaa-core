@@ -2,6 +2,8 @@
 'use strict';
 
 const dbg = require('../../../util/debug_module')(__filename);
+const iam_utils = require('../iam_utils');
+const iam_constants = require('../iam_constants');
 const { CONTENT_TYPE_APP_FORM_URLENCODED } = require('../../../util/http_utils');
 
 /**
@@ -14,6 +16,7 @@ async function delete_access_key(req, res) {
         access_key: req.body.access_key_id
     };
     dbg.log1('IAM DELETE ACCESS KEY', params);
+    iam_utils.validate_params(iam_constants.IAM_ACTIONS.DELETE_ACCESS_KEY, params);
     await req.account_sdk.delete_access_key(params);
 
     return {

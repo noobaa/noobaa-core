@@ -559,6 +559,27 @@ async function read_file(fs_context, _path) {
     return data_parsed;
 }
 
+
+/**
+ * get_bucket_tmpdir_name returns the bucket tmp dir name
+ * @param {string} bucket_id 
+ * @returns {string}
+ */
+function get_bucket_tmpdir_name(bucket_id) {
+    return config.NSFS_TEMP_DIR_NAME + '_' + bucket_id;
+}
+
+
+/**
+ * get_bucket_tmpdir_full_path returns the bucket tmp dir path
+ * @param {string} bucket_path 
+ * @param {string} bucket_id 
+ * @return {string} 
+ */
+function get_bucket_tmpdir_full_path(bucket_path, bucket_id) {
+    return path.join(bucket_path, get_bucket_tmpdir_name(bucket_id));
+}
+
 exports.get_umasked_mode = get_umasked_mode;
 exports._make_path_dirs = _make_path_dirs;
 exports._create_path = _create_path;
@@ -592,3 +613,5 @@ exports.validate_bucket_creation = validate_bucket_creation;
 exports.is_path_exists = is_path_exists;
 exports.is_dir_rw_accessible = is_dir_rw_accessible;
 exports.folder_delete = folder_delete;
+exports.get_bucket_tmpdir_full_path = get_bucket_tmpdir_full_path;
+exports.get_bucket_tmpdir_name = get_bucket_tmpdir_name;

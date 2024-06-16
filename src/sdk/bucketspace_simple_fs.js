@@ -120,7 +120,12 @@ class BucketSpaceSimpleFS {
         }
     }
 
-    async delete_bucket(params) {
+    /**
+    * @param {object} params
+    * @param {nb.ObjectSDK} object_sdk
+    * @returns {Promise<object>}
+    */
+    async delete_bucket(params, object_sdk) {
         try {
             const { name } = params;
             const bucket_path = path.join(this.fs_root, name);
@@ -203,6 +208,10 @@ class BucketSpaceSimpleFS {
         // TODO
     }
 
+    /**
+    * @param {object} params
+    * @returns {Promise<object>}
+    */
     async get_bucket_website(params) {
         // TODO
     }
@@ -234,6 +243,23 @@ class BucketSpaceSimpleFS {
     }
 
     async put_object_lock_configuration(params, object_sdk) {
+        // TODO
+    }
+
+
+    /////////////////////
+    // BUCKET LOGGING  //
+    /////////////////////
+
+    async put_bucket_logging(params) {
+        // TODO
+    }
+
+    async delete_bucket_logging(params) {
+        // TODO
+    }
+
+    async get_bucket_logging(params) {
         // TODO
     }
 }

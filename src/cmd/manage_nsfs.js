@@ -256,8 +256,8 @@ async function delete_bucket(data, force) {
     const fs_context_fs_backend = native_fs_utils.get_process_fs_context(data.fs_backend);
     const bucket_config_path = get_config_file_path(buckets_dir_path, data.name);
     try {
-        const temp_dir_name = config.NSFS_TEMP_DIR_NAME + "_" + data._id;
-        const bucket_temp_dir_path = path.join(data.path, temp_dir_name);
+        const temp_dir_name = native_fs_utils.get_bucket_tmpdir_name(data._id);
+        const bucket_temp_dir_path = native_fs_utils.get_bucket_tmpdir_full_path(data.path, data._id);
         const entries = await nb_native().fs.readdir(fs_context_fs_backend, data.path);
         const object_entries = entries.filter(element => !element.name.endsWith(temp_dir_name));
         if (object_entries.length === 0 || force) {

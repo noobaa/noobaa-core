@@ -8,12 +8,11 @@ const fs = require('fs');
 const path = require('path');
 const os_util = require('../../../util/os_utils');
 const fs_utils = require('../../../util/fs_utils');
-const config_module = require('../../../../config');
 const nb_native = require('../../../util/nb_native');
 const { set_path_permissions_and_owner, TMP_PATH, generate_s3_policy,
     set_nc_config_dir_in_config } = require('../../system_tests/test_utils');
 const { ACTIONS, TYPES, CONFIG_SUBDIRS } = require('../../../manage_nsfs/manage_nsfs_constants');
-const { get_process_fs_context, is_path_exists } = require('../../../util/native_fs_utils');
+const { get_process_fs_context, is_path_exists, get_bucket_tmpdir_full_path } = require('../../../util/native_fs_utils');
 const ManageCLIError = require('../../../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
 const { ManageCLIResponse } = require('../../../manage_nsfs/manage_nsfs_cli_responses');
 
@@ -192,8 +191,7 @@ describe('manage nsfs cli bucket flow', () => {
             const bucket_resp = JSON.parse(resp);
             expect(bucket_resp.response.reply._id).not.toBeNull();
             //create temp dir
-            bucket_temp_dir_path = path.join(bucket_storage_path,
-                config_module.NSFS_TEMP_DIR_NAME + "_" + bucket_resp.response.reply._id);
+            bucket_temp_dir_path = get_bucket_tmpdir_full_path(bucket_storage_path, bucket_resp.response.reply._id);
             await fs_utils.create_fresh_path(bucket_temp_dir_path);
             await fs_utils.file_must_exist(bucket_temp_dir_path);
         });

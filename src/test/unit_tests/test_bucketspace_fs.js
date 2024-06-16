@@ -11,7 +11,7 @@ const assert = require('assert');
 const P = require('../../util/promise');
 const config = require('../../../config');
 const fs_utils = require('../../util/fs_utils');
-const { get_process_fs_context, read_file, get_user_by_distinguished_name} = require('../../util/native_fs_utils');
+const { get_process_fs_context, read_file, get_user_by_distinguished_name, get_bucket_tmpdir_name } = require('../../util/native_fs_utils');
 const nb_native = require('../../util/nb_native');
 const SensitiveString = require('../../util/sensitive_string');
 const NamespaceFS = require('../../sdk/namespace_fs');
@@ -146,7 +146,15 @@ function make_dummy_object_sdk() {
         },
         _get_bucket_namespace(name) {
             const buck_path = path.join(new_buckets_path, name);
-            const dummy_nsfs = new NamespaceFS({ bucket_path: buck_path, bucket_id: '1', namespace_resource_id: undefined });
+            const dummy_nsfs = new NamespaceFS({
+                bucket_path: buck_path,
+                bucket_id: '1',
+                namespace_resource_id: undefined,
+                access_mode: undefined,
+                versioning: undefined,
+                force_md5_etag: undefined,
+                stats: undefined
+            });
             return dummy_nsfs;
         },
         is_nsfs_bucket(ns) {
@@ -159,6 +167,27 @@ function make_dummy_object_sdk() {
         async read_bucket_sdk_policy_info(name) {
             const bucket_info = await bucketspace_fs.read_bucket_sdk_info({ name });
             return { s3_policy: bucket_info.s3_policy };
+        },
+        async read_bucket_full_info(name) {
+            const buck_path = path.join(new_buckets_path, name);
+            const bucket = (await bucketspace_fs.read_bucket_sdk_info({ name }));
+            if (name === test_bucket_temp_dir) {
+                bucket.namespace.should_create_underlying_storage = false;
+            } else {
+                bucket.namespace.should_create_underlying_storage = true;
+            }
+            return {
+                ns: new NamespaceFS({
+                    bucket_path: buck_path,
+                    bucket_id: '1',
+                    namespace_resource_id: undefined,
+                    access_mode: undefined,
+                    versioning: undefined,
+                    force_md5_etag: undefined,
+                    stats: undefined
+                }),
+                bucket
+            };
         }
     };
 }
@@ -357,24 +386,26 @@ mocha.describe('bucketspace_fs', function() {
         });
 
         mocha.it('delete_bucket for should_create_underlying_storage false', async function() {
-            const param = { name: test_bucket_temp_dir};
+            const param = { name: test_bucket_temp_dir };
             await create_bucket(param.name);
             await fs.promises.stat(path.join(new_buckets_path, param.name));
             const bucket_config_path = get_config_file_path(CONFIG_SUBDIRS.BUCKETS, param.name);
             const data = await fs.promises.readFile(bucket_config_path);
             const bucket = await JSON.parse(data.toString());
-            const bucket_temp_dir_path = path.join(new_buckets_path, param.name, config.NSFS_TEMP_DIR_NAME + "_" + bucket._id);
+            const bucket_temp_dir_path = path.join(new_buckets_path, param.name, get_bucket_tmpdir_name(bucket._id));
             await nb_native().fs.mkdir(ACCOUNT_FS_CONFIG, bucket_temp_dir_path);
             await fs.promises.stat(bucket_temp_dir_path);
             await bucketspace_fs.delete_bucket(param, dummy_object_sdk);
             try {
                 await fs.promises.stat(bucket_temp_dir_path);
+                assert.fail('stat should have failed with ENOENT');
             } catch (err) {
                 assert.strictEqual(err.code, 'ENOENT');
                 assert.match(err.message, /.noobaa-nsfs_/);
             }
             try {
                 await fs.promises.stat(bucket_config_path);
+                assert.fail('stat should have failed with ENOENT');
             } catch (err) {
                 assert.strictEqual(err.code, 'ENOENT');
                 const path_for_err_msg = path.join(TMP_PATH, 'test_bucketspace_fs/config_root/buckets/buckettempdir.json');

@@ -1,4 +1,4 @@
-name: Nightly RPM Build - Stage 5.15.4 Branch
+name: Nightly RPM Build - 5.15 Branch
 on: 
   schedule:
     - cron: '0 23 * * *'
@@ -8,4 +8,4 @@ jobs:
     uses: ./.github/workflows/rpm-build-and-upload-flow.yaml
     secrets: inherit
     with:
-      branch: 'stage_5.15.4'
+      branch: '5.15'

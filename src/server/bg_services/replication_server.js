@@ -87,8 +87,7 @@ async function copy_objects_mixed_types(req) {
                 copy_res.num_of_objects += 1;
                 // The size of the object can be in either Size or ContentLength, depending on whether
                 // the request was ListObjectVersions or HeadObject
-                const size_of_objects = keys_diff_map[key][0].ContentLength || keys_diff_map[key][0].Size;
-                copy_res.size_of_objects += size_of_objects;
+                copy_res.size_of_objects += keys_diff_map[key][0].ContentLength || keys_diff_map[key][0].Size;
             } catch (err) {
                 dbg.error('replication_server copy_objects_mixed_types: got error:', err);
             }

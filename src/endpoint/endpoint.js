@@ -170,7 +170,7 @@ async function main(options = {}) {
         const ssl_cert_info = await ssl_utils.get_ssl_cert_info('S3', options.nsfs_config_root);
         const https_server = await create_https_server(ssl_cert_info, true, endpoint_request_handler);
         const sts_ssl_cert_info = await ssl_utils.get_ssl_cert_info('STS');
-        const https_server_sts = await create_https_server(sts_ssl_cert_info, endpoint_request_handler_sts);
+        const https_server_sts = await create_https_server(sts_ssl_cert_info, true, endpoint_request_handler_sts);
 
         ssl_cert_info.on('update', updated_ssl_cert_info => {
             dbg.log0("Setting updated S3 ssl certs for endpoint.");

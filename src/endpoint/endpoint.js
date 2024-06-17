@@ -86,6 +86,12 @@ dbg.log0('endpoint: replacing old umask: ', old_umask.toString(8), 'with new uma
  * }} EndpointOptions
  */
 
+// An internal function to prevent code duplication
+async function create_https_server(ssl_cert_info, honorCipherOrder, endpoint_handler) {
+    const ssl_options = {...ssl_cert_info.cert, honorCipherOrder: honorCipherOrder};
+    return https.createServer(ssl_options, endpoint_handler);
+}
+
 /**
  * @param {EndpointOptions} options
  */
@@ -162,13 +168,18 @@ async function main(options = {}) {
         const endpoint_request_handler_sts = create_endpoint_handler(init_request_sdk, virtual_hosts, true);
 
         const ssl_cert_info = await ssl_utils.get_ssl_cert_info('S3', options.nsfs_config_root);
-        const ssl_options = { ...ssl_cert_info.cert, honorCipherOrder: true };
-        const https_server = https.createServer(ssl_options, endpoint_request_handler);
-        const https_server_sts = https.createServer(ssl_options, endpoint_request_handler_sts);
+        const https_server = await create_https_server(ssl_cert_info, true, endpoint_request_handler);
+        const sts_ssl_cert_info = await ssl_utils.get_ssl_cert_info('STS');
+        const https_server_sts = await create_https_server(sts_ssl_cert_info, endpoint_request_handler_sts);
+
         ssl_cert_info.on('update', updated_ssl_cert_info => {
             dbg.log0("Setting updated S3 ssl certs for endpoint.");
             const updated_ssl_options = { ...updated_ssl_cert_info.cert, honorCipherOrder: true };
             https_server.setSecureContext(updated_ssl_options);
+        });
+        sts_ssl_cert_info.on('update', updated_sts_ssl_cert_info => {
+            dbg.log0("Setting updated STS ssl certs for endpoint.");
+            const updated_ssl_options = { ...updated_sts_ssl_cert_info.cert, honorCipherOrder: true };
             https_server_sts.setSecureContext(updated_ssl_options);
         });
         if (options.nsfs_config_root && !config.ALLOW_HTTP) {
@@ -194,7 +205,9 @@ async function main(options = {}) {
         if (https_port_iam > 0) {
             dbg.log0('Starting IAM HTTPS', https_port_iam);
             const endpoint_request_handler_iam = create_endpoint_handler_iam(init_request_sdk);
-            const https_server_iam = https.createServer(ssl_options, endpoint_request_handler_iam);
+            // NOTE: The IAM server currently uses the S3 server's certificate. This *will* cause route failures in Openshift.
+            // TODO: Generate, mount and utilize an appropriate IAM certificate once the service and route are implemented
+            const https_server_iam = create_https_server(ssl_cert_info, true, endpoint_request_handler_iam);
             await listen_http(https_port_iam, https_server_iam);
             dbg.log0('Started IAM HTTPS successfully');
         }

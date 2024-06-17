@@ -1,6 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+const config = require('../../config');
 const fs = require('fs');
 const tls = require('tls');
 const path = require('path');
@@ -41,9 +42,10 @@ class CertInfo extends EventEmitter {
 }
 
 const certs = {
-    MGMT: new CertInfo('/etc/mgmt-secret'),
-    S3: new CertInfo('/etc/s3-secret'),
-    EXTERNAL_DB: new CertInfo('/etc/external-db-secret'),
+    MGMT: new CertInfo(config.MGMT_SERVICE_CERT_PATH),
+    S3: new CertInfo(config.S3_SERVICE_CERT_PATH),
+    EXTERNAL_DB: new CertInfo(config.EXTERNAL_DB_SERVICE_CERT_PATH),
+    STS: new CertInfo(config.STS_SERVICE_CERT_PATH),
 };
 
 function generate_ssl_certificate() {

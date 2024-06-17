@@ -64,6 +64,14 @@ config.BUFFERS_MEM_LIMIT = Math.min(
     Math.max(Math.floor(config.CONTAINER_MEM_LIMIT / 4), config.BUFFERS_MEM_LIMIT_MIN,)
 );
 
+////////////////////////
+// CERTIFICATE CONFIG //
+////////////////////////
+
+config.STS_SERVICE_CERT_PATH = '/etc/sts-secret';
+config.S3_SERVICE_CERT_PATH = '/etc/s3-secret';
+config.MGMT_SERVICE_CERT_PATH = '/etc/mgmt-secret';
+config.EXTERNAL_DB_SERVICE_CERT_PATH = '/etc/external-db-secret';
 
 //////////////////
 // NODES CONFIG //

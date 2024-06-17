@@ -170,7 +170,7 @@ async function main(options = {}) {
         const ssl_cert_info = await ssl_utils.get_ssl_cert_info('S3', options.nsfs_config_root);
         const https_server = await create_https_server(ssl_cert_info, true, endpoint_request_handler);
         const sts_ssl_cert_info = await ssl_utils.get_ssl_cert_info('STS');
-        const https_server_sts = await create_https_server(sts_ssl_cert_info, endpoint_request_handler_sts);
+        const https_server_sts = await create_https_server(sts_ssl_cert_info, true, endpoint_request_handler_sts);
 
         ssl_cert_info.on('update', updated_ssl_cert_info => {
             dbg.log0("Setting updated S3 ssl certs for endpoint.");
@@ -207,7 +207,7 @@ async function main(options = {}) {
             const endpoint_request_handler_iam = create_endpoint_handler_iam(init_request_sdk);
             // NOTE: The IAM server currently uses the S3 server's certificate. This *will* cause route failures in Openshift.
             // TODO: Generate, mount and utilize an appropriate IAM certificate once the service and route are implemented
-            const https_server_iam = create_https_server(ssl_cert_info, true, endpoint_request_handler_iam);
+            const https_server_iam = await create_https_server(ssl_cert_info, true, endpoint_request_handler_iam);
             await listen_http(https_port_iam, https_server_iam);
             dbg.log0('Started IAM HTTPS successfully');
         }

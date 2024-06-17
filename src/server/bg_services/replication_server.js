@@ -85,7 +85,9 @@ async function copy_objects_mixed_types(req) {
             try {
                 await noobaa_con.copyObject(params).promise();
                 copy_res.num_of_objects += 1;
-                copy_res.size_of_objects += keys_diff_map[key][0].Size;
+                // The size of the object can be in either Size or ContentLength, depending on whether
+                // the request was ListObjectVersions or HeadObject
+                copy_res.size_of_objects += keys_diff_map[key][0].ContentLength || keys_diff_map[key][0].Size;
             } catch (err) {
                 dbg.error('replication_server copy_objects_mixed_types: got error:', err);
             }

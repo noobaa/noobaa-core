@@ -9,6 +9,10 @@ LABEL maintainer="Liran Mauda (lmauda@redhat.com)"
 ##############################################################
 # RUN dnf --enablerepo=PowerTools install -y -q nasm && \
 #     dnf clean all
+
+COPY ./src/deploy/NVA_build/fix_centos8_repo.sh ./src/deploy/NVA_build/
+#default repos for centos8 are outdated, this will point to new repos
+RUN CENTOS_VER=8 ./src/deploy/NVA_build/fix_centos8_repo.sh
 RUN dnf update -y -q --nobest && \
     dnf clean all
 RUN dnf install -y -q wget unzip which vim python2 python3 boost-devel && \

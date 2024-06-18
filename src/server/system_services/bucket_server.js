@@ -391,12 +391,6 @@ async function delete_bucket_tagging(req) {
 async function put_bucket_logging(req) {
     dbg.log0('put_bucket_logging:', req.rpc_params);
     const bucket = find_bucket(req);
-    const prefix = req.rpc_params.log_prefix;
-    // TODO: THIS CHECK IS NOT CORRECT - as prefix can contain any character - leaving it here for now, but need to be fixed!
-    const prefix_regex = /^[a-zA-Z0-9.-]+$/;
-    if (!prefix_regex.test(prefix)) {
-        throw new RpcError('INVALID_ARGUMENT', 'Log prefix should only contain alphanumeric characters, hyphens, or periods');
-    }
     const log_bucket_name = req.rpc_params.log_bucket;
     const log_bucket = req.system.buckets_by_name && req.system.buckets_by_name[log_bucket_name.unwrap()];
     if (!log_bucket) {

@@ -59,11 +59,11 @@ async function get_config_data(config_root_backend, config_file_path, show_secre
  * get_bucket_owner_account will return the account of the bucket_owner
  * otherwise it would throw an error
  * @param {string} config_root_backend
- * @param {string} accounts_dir_path
+ * @param {string} root_accounts_dir_path
  * @param {string} bucket_owner
  */
-async function get_bucket_owner_account(config_root_backend, accounts_dir_path, bucket_owner) {
-    const account_config_path = get_config_file_path(accounts_dir_path, bucket_owner);
+async function get_bucket_owner_account(config_root_backend, root_accounts_dir_path, bucket_owner) {
+    const account_config_path = get_symlink_config_file_path(root_accounts_dir_path, bucket_owner);
     try {
         const account = await get_config_data(config_root_backend, account_config_path);
         return account;

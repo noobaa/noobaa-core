@@ -68,8 +68,8 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
        return path.join(this.bucket_schema_dir, bucket_name + '.json');
     }
 
-    _get_account_config_path(name) {
-        return path.join(this.accounts_dir, name + '.json');
+    _get_root_account_config_path(name) {
+        return path.join(this.accounts_dir, name + '.symlink');
     }
 
     _get_access_keys_config_path(access_key) {
@@ -77,7 +77,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
     }
 
     async _get_account_by_name(name) {
-        const account_config_path = this._get_account_config_path(name);
+        const account_config_path = this._get_root_account_config_path(name);
         try {
             await nb_native().fs.stat(this.fs_context, account_config_path);
             return true;
@@ -99,7 +99,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
     async read_account_by_access_key({ access_key }) {
         try {
             if (!access_key) throw new Error('no access key');
-            const iam_path = access_key === anonymous_access_key ? this._get_account_config_path(config.ANONYMOUS_ACCOUNT_NAME) :
+            const iam_path = access_key === anonymous_access_key ? this._get_root_account_config_path(config.ANONYMOUS_ACCOUNT_NAME) :
                 this._get_access_keys_config_path(access_key);
             const { data } = await nb_native().fs.readFile(this.fs_context, iam_path);
             const account = JSON.parse(data.toString());

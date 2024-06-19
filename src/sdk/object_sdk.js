@@ -229,12 +229,9 @@ class ObjectSDK {
             }
         } catch (error) {
             dbg.error('load_requesting_account error:', error);
-            if (error.rpc_code) {
-                if (error.rpc_code === 'NO_SUCH_ACCOUNT') throw new RpcError('INVALID_ACCESS_KEY_ID', `Account with access_key not found`);
-                if (error.rpc_code === 'NO_SUCH_USER') throw new RpcError('UNAUTHORIZED', `Distingushed name associated with access_key not found`);
-            } else {
-                throw error;
-            }
+            if (error.rpc_code === 'NO_SUCH_ACCOUNT') throw new RpcError('INVALID_ACCESS_KEY_ID', `Account with access_key not found`);
+            if (error.rpc_code === 'NO_SUCH_USER') throw new RpcError('UNAUTHORIZED', `Distinguished name associated with access_key not found`);
+            throw error;
         }
     }
 

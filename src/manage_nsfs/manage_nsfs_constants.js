@@ -30,7 +30,7 @@ const CONFIG_SUBDIRS = {
 };
 
 const GLOBAL_CONFIG_ROOT = 'config_root';
-const GLOBAL_CONFIG_OPTIONS = new Set([GLOBAL_CONFIG_ROOT, 'config_root_backend']);
+const GLOBAL_CONFIG_OPTIONS = new Set([GLOBAL_CONFIG_ROOT, 'config_root_backend', 'debug']);
 const FROM_FILE = 'from_file';
 const ANONYMOUS = 'anonymous';
 
@@ -107,7 +107,8 @@ const OPTION_TYPE = {
     deployment_type: 'string',
     all_account_details: 'boolean',
     all_bucket_details: 'boolean',
-    https_port: 'number'
+    https_port: 'number',
+    debug: 'number',
 };
 
 const BOOLEAN_STRING_VALUES = ['true', 'false'];

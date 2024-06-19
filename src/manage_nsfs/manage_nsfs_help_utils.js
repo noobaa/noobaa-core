@@ -62,6 +62,7 @@ Flags:
 const GLOBAL_CONFIG_ROOT_ALL_FLAG = `
 --config_root <string>                                (optional)        Use configuration files path (default config.NSFS_NC_DEFAULT_CONF_DIR)
 --config_root_backend <none | GPFS | CEPH_FS | NFSv4> (optional)        Use the filesystem type in the configuration (default config.NSFS_NC_CONFIG_DIR_BACKEND)
+--debug <number>                                      (optional)        Use for increasing the log verbosity of cli commands
 `;
 
 const ACCOUNT_FLAGS_ADD = `

@@ -70,6 +70,11 @@ async function main(argv = minimist(process.argv.slice(2))) {
         if (process.getuid() !== 0 || process.getgid() !== 0) {
             throw new Error('Root permissions required for Manage NSFS execution.');
         }
+        if (argv.debug) {
+            const debug_level = Number(argv.debug) || 5;
+            dbg.set_module_level(debug_level, 'core');
+            nb_native().fs.set_debug_level(debug_level);
+        }
         const type = argv._[0] || '';
         const action = argv._[1] || '';
         if (argv.help || argv.h) {

@@ -2409,7 +2409,7 @@ class NamespaceFS {
         await this._load_bucket(params, fs_context);
         params.mpu_path = this._mpu_path(params);
         try {
-            await nb_native().fs.stat(fs_context, params.mpu_path);
+            await nb_native().fs.stat({ ...fs_context, disable_ctime_check: true }, params.mpu_path);
         } catch (err) {
             // TOOD: Error handling
             if (err.code === 'ENOENT') err.rpc_code = 'NO_SUCH_UPLOAD';

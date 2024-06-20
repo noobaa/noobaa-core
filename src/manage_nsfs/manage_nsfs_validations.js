@@ -279,12 +279,34 @@ if (action === ACTIONS.STATUS || action === ACTIONS.ADD || action === ACTIONS.UP
  * @param {object} data
  * @param {string} action
  */
+<<<<<<< HEAD
 async function validate_bucket_args(config_root_backend, accounts_dir_path, data, action) {
     if (action === ACTIONS.ADD || action === ACTIONS.UPDATE) {
         if (action === ACTIONS.ADD) native_fs_utils.validate_bucket_creation({ name: data.name });
         if (action === ACTIONS.UPDATE && !_.isUndefined(data.new_name)) native_fs_utils.validate_bucket_creation({ name: data.new_name });
 
         if (action === ACTIONS.ADD && _.isUndefined(data.bucket_owner)) throw_cli_error(ManageCLIError.MissingBucketOwnerFlag);
+=======
+async function validate_bucket_args(config_root_backend, accounts_dir_path, data, action, account) {
+    if (action === ACTIONS.DELETE || action === ACTIONS.STATUS) {
+        if (_.isUndefined(data.name)) throw_cli_error(ManageCLIError.MissingBucketNameFlag);
+    } else { // action === ACTIONS.ADD || action === ACTIONS.UPDATE
+        if (_.isUndefined(data.name)) throw_cli_error(ManageCLIError.MissingBucketNameFlag);
+        try {
+            native_fs_utils.validate_bucket_creation({ name: data.name });
+        } catch (err) {
+            throw_cli_error(ManageCLIError.InvalidBucketName, data.name);
+        }
+        if (!_.isUndefined(data.new_name)) {
+            if (action !== ACTIONS.UPDATE) throw_cli_error(ManageCLIError.InvalidNewNameBucketIdentifier);
+            try {
+                native_fs_utils.validate_bucket_creation({ name: data.new_name });
+            } catch (err) {
+                throw_cli_error(ManageCLIError.InvalidBucketName, data.new_name);
+            }
+        }
+        if (_.isUndefined(data.system_owner)) throw_cli_error(ManageCLIError.MissingBucketOwnerFlag);
+>>>>>>> 87f7e2231 (NC | account by id | remove bucket_owner from bucket schema, use only account id)
         if (!data.path) throw_cli_error(ManageCLIError.MissingBucketPathFlag);
         // fs_backend='' used for deletion of the fs_backend property
         if (data.fs_backend !== undefined && !['GPFS', 'CEPH_FS', 'NFSv4'].includes(data.fs_backend)) {
@@ -296,7 +318,10 @@ async function validate_bucket_args(config_root_backend, accounts_dir_path, data
         if (!exists) {
             throw_cli_error(ManageCLIError.InvalidStoragePath, data.path);
         }
+<<<<<<< HEAD
         const account = await get_bucket_owner_account(config_root_backend, accounts_dir_path, data.bucket_owner);
+=======
+>>>>>>> 87f7e2231 (NC | account by id | remove bucket_owner from bucket schema, use only account id)
         const account_fs_context = await native_fs_utils.get_fs_context(account.nsfs_account_config, data.fs_backend);
         if (!config.NC_DISABLE_ACCESS_CHECK) {
             const accessible = await native_fs_utils.is_dir_rw_accessible(account_fs_context, data.path);
@@ -309,8 +334,7 @@ async function validate_bucket_args(config_root_backend, accounts_dir_path, data
                 const detail_msg = `${data.bucket_owner} account not allowed to create new buckets. ` +
                 `Please make sure to have a valid new_buckets_path and enable the flag allow_bucket_creation`;
                 throw_cli_error(ManageCLIError.BucketCreationNotAllowed, detail_msg);
-        }
-            data.owner_account = account._id; // TODO move this assignment to better place
+            }
         }
         if (data.s3_policy) {
             try {

@@ -8,7 +8,6 @@ module.exports = {
         '_id',
         'name',
         'system_owner',
-        'bucket_owner',
         'owner_account',
         'versioning',
         'path',
@@ -27,10 +26,6 @@ module.exports = {
             type: 'string',
         },
         system_owner: {
-            type: 'string',
-        },
-        // bucket_owner is the account name
-        bucket_owner: {
             type: 'string',
         },
         tag: {

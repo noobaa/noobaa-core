@@ -20,7 +20,8 @@ const { print_usage } = require('../manage_nsfs/manage_nsfs_help_utils');
 const { TYPES, ACTIONS, LIST_ACCOUNT_FILTERS, LIST_BUCKET_FILTERS,
     GLACIER_ACTIONS } = require('../manage_nsfs/manage_nsfs_constants');
 const { throw_cli_error, write_stdout_response, get_config_file_path, get_symlink_config_file_path,
-    get_config_data, get_boolean_or_string_value, has_access_keys, set_debug_level} = require('../manage_nsfs/manage_nsfs_cli_utils');
+    get_config_data, get_boolean_or_string_value, has_access_keys, set_debug_level,
+    get_bucket_owner_account} = require('../manage_nsfs/manage_nsfs_cli_utils');
 const manage_nsfs_validations = require('../manage_nsfs/manage_nsfs_validations');
 const nc_mkm = require('../manage_nsfs/nc_master_key_manager').get_instance();
 
@@ -119,19 +120,19 @@ async function main(argv = minimist(process.argv.slice(2))) {
 }
 
 async function bucket_management(action, user_input) {
-    const data = await fetch_bucket_data(action, user_input);
-    await manage_bucket_operations(action, data, user_input);
+    const {data, account} = await fetch_bucket_data(action, user_input);
+    await manage_bucket_operations(action, data, user_input, account);
 }
 
 // in name and new_name we allow type number, hence convert it to string
 async function fetch_bucket_data(action, user_input) {
+    const account = await get_bucket_owner_account(config_root_backend, root_accounts_dir_path, user_input.owner);
     let data = {
         // added undefined values to keep the order the properties when printing the data object
         _id: undefined,
         name: _.isUndefined(user_input.name) ? undefined : String(user_input.name),
-        owner_account: undefined,
-        system_owner: user_input.owner, // GAP - needs to be the system_owner (currently it is the account name)
-        bucket_owner: user_input.owner,
+        owner_account: account._id,
+        system_owner: account._id, // GAP - needs to be the system_owner (currently it is the account name)
         tag: undefined, // if we would add the option to tag a bucket using CLI, this should be changed
         versioning: action === ACTIONS.ADD ? 'DISABLED' : undefined,
         creation_date: action === ACTIONS.ADD ? new Date().toISOString() : undefined,
@@ -168,7 +169,7 @@ async function fetch_bucket_data(action, user_input) {
     // force_md5_etag deletion specified with empty string '' checked against user_input because data.force_md5_etag is boolean
     data.force_md5_etag = data.force_md5_etag === '' ? undefined : data.force_md5_etag;
 
-    return data;
+    return {data, account};
 }
 
 async function fetch_existing_bucket_data(target) {
@@ -183,7 +184,7 @@ async function fetch_existing_bucket_data(target) {
     return data;
 }
 
-async function add_bucket(data) {
+async function add_bucket(data, account) {
     await manage_nsfs_validations.validate_bucket_args(config_root_backend, accounts_dir_path, data, ACTIONS.ADD);
     //await validate_bucket_args(config_root_backend, root_accounts_dir_path, data, ACTIONS.ADD);
     const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
@@ -274,9 +275,9 @@ async function delete_bucket(data, force) {
     }
 }
 
-async function manage_bucket_operations(action, data, user_input) {
+async function manage_bucket_operations(action, data, user_input, account) {
     if (action === ACTIONS.ADD) {
-        await add_bucket(data);
+        await add_bucket(data, account);
     } else if (action === ACTIONS.STATUS) {
         await get_bucket_status(data);
     } else if (action === ACTIONS.UPDATE) {

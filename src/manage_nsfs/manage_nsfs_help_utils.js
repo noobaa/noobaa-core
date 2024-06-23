@@ -80,6 +80,7 @@ Flags:
 --fs_backend <none | GPFS | CEPH_FS | NFSv4>          (optional)        Set the filesystem type of new_buckets_path (default config.NSFS_NC_STORAGE_BACKEND)
 --allow_bucket_creation <true | false>                (optional)        Set the account to explicitly allow or block bucket creation
 --force_md5_etag <true | false>                       (optional)        Set the account to force md5 etag calculation. (unset with '') (will override default config.NSFS_NC_STORAGE_BACKEND)
+--iam_operate_on_root_account <true | false>          (optional)        Set the account to create root accounts instead of IAM users in IAM API requests.
 --from_file <string>                                  (optional)        Use details from the JSON file, there is no need to mention all the properties individually in the CLI
 `;
 
@@ -100,6 +101,7 @@ Flags:
 --fs_backend <none | GPFS | CEPH_FS | NFSv4>          (optional)        Update the filesystem type of new_buckets_path (default config.NSFS_NC_STORAGE_BACKEND)
 --allow_bucket_creation <true | false>                (optional)        Update the account to explicitly allow or block bucket creation
 --force_md5_etag <true | false>                       (optional)        Update the account to force md5 etag calculation (unset with '') (will override default config.NSFS_NC_STORAGE_BACKEND)
+--iam_operate_on_root_account <true | false>          (optional)        Update the account to create root accounts instead of IAM users in IAM API requests.
 `;
 
 const ACCOUNT_FLAGS_DELETE = `

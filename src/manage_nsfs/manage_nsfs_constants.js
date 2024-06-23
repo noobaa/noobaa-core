@@ -35,8 +35,8 @@ const FROM_FILE = 'from_file';
 const ANONYMOUS = 'anonymous';
 
 const VALID_OPTIONS_ACCOUNT = {
-    'add': new Set(['name', 'uid', 'gid', 'new_buckets_path', 'user', 'access_key', 'secret_key', 'fs_backend', 'allow_bucket_creation', 'force_md5_etag', FROM_FILE, ...GLOBAL_CONFIG_OPTIONS]),
-    'update': new Set(['name', 'uid', 'gid', 'new_buckets_path', 'user', 'access_key', 'secret_key', 'fs_backend', 'allow_bucket_creation', 'force_md5_etag', 'new_name', 'regenerate', ...GLOBAL_CONFIG_OPTIONS]),
+    'add': new Set(['name', 'uid', 'gid', 'new_buckets_path', 'user', 'access_key', 'secret_key', 'fs_backend', 'allow_bucket_creation', 'force_md5_etag', 'iam_operate_on_root_account', FROM_FILE, ...GLOBAL_CONFIG_OPTIONS]),
+    'update': new Set(['name', 'uid', 'gid', 'new_buckets_path', 'user', 'access_key', 'secret_key', 'fs_backend', 'allow_bucket_creation', 'force_md5_etag', 'iam_operate_on_root_account', 'new_name', 'regenerate', ...GLOBAL_CONFIG_OPTIONS]),
     'delete': new Set(['name', ...GLOBAL_CONFIG_OPTIONS]),
     'list': new Set(['wide', 'show_secrets', 'gid', 'uid', 'user', 'name', 'access_key', ...GLOBAL_CONFIG_OPTIONS]),
     'status': new Set(['name', 'access_key', 'show_secrets', ...GLOBAL_CONFIG_OPTIONS]),
@@ -91,6 +91,7 @@ const OPTION_TYPE = {
     fs_backend: 'string',
     allow_bucket_creation: 'boolean',
     force_md5_etag: 'boolean',
+    iam_operate_on_root_account: 'boolean',
     config_root: 'string',
     from_file: 'string',
     config_root_backend: 'string',
@@ -113,7 +114,7 @@ const OPTION_TYPE = {
 
 const BOOLEAN_STRING_VALUES = ['true', 'false'];
 const BOOLEAN_STRING_OPTIONS = new Set(['allow_bucket_creation', 'regenerate', 'wide', 'show_secrets', 'force',
-    'force_md5_etag', 'all_account_details', 'all_bucket_details', 'anonymous']);
+    'force_md5_etag', 'iam_operate_on_root_account', 'all_account_details', 'all_bucket_details', 'anonymous']);
 
 //options that can be unset using ''
 const LIST_UNSETABLE_OPTIONS = ['fs_backend', 's3_policy', 'force_md5_etag'];

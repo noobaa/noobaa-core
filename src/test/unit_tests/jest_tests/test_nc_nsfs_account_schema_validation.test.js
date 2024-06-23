@@ -75,6 +75,12 @@ describe('schema validation NC NSFS account', () => {
             nsfs_schema_utils.validate_account_schema(account_data);
         });
 
+        it('account with iam_operate_on_root_account', () => {
+            const account_data = get_account_data();
+            account_data.iam_operate_on_root_account = true;
+            nsfs_schema_utils.validate_account_schema(account_data);
+        });
+
         it('account with 2 access_keys objects (with additional properties) in the access_key array', () => {
             const account_data = get_account_data();
             account_data.access_keys[1] = get_access_key_with_additional_properties();
@@ -425,6 +431,15 @@ describe('schema validation NC NSFS account', () => {
             const reason = 'Test should have failed because of wrong type for' +
                 'iam_path with number (instead of string)';
             const message = 'must be string';
+            assert_validation(account_data, reason, message);
+        });
+
+        it('account with iam_operate_on_root_account as a number (instead of boolean)', () => {
+            const account_data = get_account_data();
+            account_data.iam_operate_on_root_account = 123;
+            const reason = 'Test should have failed because of wrong type for' +
+                'iam_operate_on_root_account with number (instead of boolean)';
+            const message = 'must be boolean';
             assert_validation(account_data, reason, message);
         });
 

@@ -60,6 +60,12 @@ module.exports = {
                     encrypted_secret_key: {
                         type: 'string',
                     },
+                    creation_date: {
+                        type: 'string',
+                    },
+                    deactivated: {
+                        type: 'boolean',
+                    },
                 }
             }
         },

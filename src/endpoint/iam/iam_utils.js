@@ -24,6 +24,18 @@ const ACTION_MESSAGE_TITLE_MAP = {
     'list_access_keys': 'ListAccessKeys',
 };
 
+const MAX_NUMBER_OF_ACCESS_KEYS = 2;
+
+const access_key_status_enum = Object.freeze({
+    ACTIVE: 'Active',
+    INACTIVE: 'Inactive',
+});
+
+const identity_enum = Object.freeze({
+    ROOT_ACCOUNT: 'ROOT_ACCOUNT',
+    USER: 'USER',
+});
+
 /**
  * format_iam_xml_date return the date without milliseconds
  * @param {any} input
@@ -73,3 +85,6 @@ exports.IAM_DEFAULT_PATH = IAM_DEFAULT_PATH;
 exports.AWS_NOT_USED = AWS_NOT_USED;
 exports.get_action_message_title = get_action_message_title;
 exports.check_iam_path_was_set = check_iam_path_was_set;
+exports.MAX_NUMBER_OF_ACCESS_KEYS = MAX_NUMBER_OF_ACCESS_KEYS;
+exports.access_key_status_enum = access_key_status_enum;
+exports.identity_enum = identity_enum;

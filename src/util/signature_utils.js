@@ -362,13 +362,47 @@ function authenticate_request_by_service(req, sdk) {
 }
 
 // mutual code of S3, STS and IAM services
-function authorize_request_account_by_token(token, requesting_account, is_secret_optional) {
-    const signature_secret = token.temp_secret_key || requesting_account?.access_keys?.[0]?.secret_key?.unwrap();
-    const should_check_signature = !is_secret_optional || signature_secret;
-    if (should_check_signature) {
-        const signature = get_signature_from_auth_token(token, signature_secret);
-        if (token.signature !== signature) throw new RpcError('SIGNATURE_DOES_NOT_MATCH', `Signature that was calculated did not match`);
+// 1 - check access key status (in case deactivated property true)
+// 2 - check secret_key signature (in case we should check the signature)
+function authorize_request_account_by_token(token, requesting_account) {
+    if (!requesting_account) _throw_error_authorize_request_account_by_token('requesting_account');
+    if (!token) _throw_error_authorize_request_account_by_token('token');
+
+    const access_key_id_to_find = token.access_key;
+    const access_key_obj = _.find(requesting_account.access_keys,
+        item => item.access_key.unwrap() === access_key_id_to_find);
+
+    if (!access_key_obj) {
+        // we should never get here
+        dbg.error(`authorize_request_account_by_token: could not find access_key_id ${access_key_id_to_find}`);
+        throw new RpcError('INVALID_ACCESS_KEY_ID', `Account with access_key not found`);
     }
+
+    if (access_key_obj.deactivated) { // if it is undefined then it is Active by default
+        dbg.error(`authorize_request_account_by_token: access key id ${access_key_id_to_find} ` +
+            `status is Inactive`);
+        throw new RpcError('DEACTIVATED_ACCESS_KEY_ID', `Account with access_key deactivated`);
+    }
+
+    if (!access_key_obj.secret_key) {
+        // Should we never get here? 
+        // (with a question mark since we had optional chaining)
+        _throw_error_authorize_request_account_by_token('secret_key');
+    }
+
+    const signature_secret = token.temp_secret_key || access_key_obj.secret_key.unwrap();
+    const signature = get_signature_from_auth_token(token, signature_secret);
+    if (token.signature !== signature) {
+        throw new RpcError('SIGNATURE_DOES_NOT_MATCH', `Signature that was calculated did not match`);
+    }
+}
+
+/**
+ * @param {string} component
+ */
+function _throw_error_authorize_request_account_by_token(component) {
+    dbg.error(`authorize_request_account_by_token: we don't have ${component}`);
+    throw new RpcError('INTERNAL_ERROR', `Needs ${component} for authorize request account`);
 }
 
 

@@ -10,6 +10,7 @@ const nb_native = require('../../../util/nb_native');
 const cloud_utils = require('../../../util/cloud_utils');
 const nc_mkm = require('../../../manage_nsfs/nc_master_key_manager');
 const { get_process_fs_context } = require('../../../util/native_fs_utils');
+const nsfs_schema_utils = require('../../../manage_nsfs/nsfs_schema_utils');
 
 const DEFAULT_FS_CONFIG = get_process_fs_context();
 const MASTER_KEYS_JSON_PATH = path.join(config.NSFS_NC_DEFAULT_CONF_DIR, 'master_keys.json');
@@ -60,6 +61,47 @@ describe('NC master key manager tests - file store type', () => {
             const encrypted_secret_key = await nc_mkm_instance.encrypt(unwrapped_secret_key);
             const decrypted_secret_key = await nc_mkm_instance.decrypt(encrypted_secret_key, nc_mkm_instance.active_master_key.id);
             expect(unwrapped_secret_key).toEqual(decrypted_secret_key);
+        });
+
+        it('encrypt_access_keys of account (with extra properties)', async () => {
+            const master_key_id = nc_mkm_instance.active_master_key.id;
+            const account = get_account_data(master_key_id);
+            account.access_keys[0] = get_access_key_object();
+            account.access_keys[1] = get_access_key_object();
+            const account_after_encryption = await nc_mkm_instance.encrypt_access_keys(account);
+            const account_string = JSON.stringify(account_after_encryption);
+            nsfs_schema_utils.validate_account_schema(JSON.parse(account_string));
+            expect(account_after_encryption._id).toBe(account._id);
+            expect(account_after_encryption.name).toBe(account.name);
+            expect(account_after_encryption.creation_date).toBe(account.creation_date);
+            expect(account_after_encryption.allow_bucket_creation).toBe(account.allow_bucket_creation);
+            expect(account_after_encryption.master_key_id).toBeDefined();
+            expect(account_after_encryption.nsfs_account_config.uid).toBe(account.nsfs_account_config.uid);
+            expect(account_after_encryption.nsfs_account_config.gid).toBe(account.nsfs_account_config.gid);
+            expect(account_after_encryption.access_keys.length).toBe(account.access_keys.length);
+            for (let i = 0; i < account_after_encryption.access_keys.length; i++) {
+                expect(account_after_encryption.access_keys[i].access_key).toBe(account.access_keys[i].access_key);
+                expect(account_after_encryption.access_keys[i].encrypted_secret_key).toBeDefined(); // instead of secret_key
+                expect(account_after_encryption.access_keys[i].creation_date).toBe(account.access_keys[i].creation_date);
+                expect(account_after_encryption.access_keys[i].deactivated).toBe(account.access_keys[i].deactivated);
+            }
+        });
+
+        it('decrypt_access_keys of account (with extra properties)', async () => {
+            const master_key_id = nc_mkm_instance.active_master_key.id;
+            const account = get_account_data(master_key_id);
+            account.access_keys[0] = get_access_key_object();
+            account.access_keys[1] = get_access_key_object();
+            const account_after_encryption = await nc_mkm_instance.encrypt_access_keys(account);
+            const account_string = JSON.stringify(account_after_encryption);
+            nsfs_schema_utils.validate_account_schema(JSON.parse(account_string));
+            const decrypted_access_keys = await nc_mkm_instance.decrypt_access_keys(account_after_encryption);
+            for (let i = 0; i < decrypted_access_keys.length; i++) {
+                expect(decrypted_access_keys[i].access_key).toBe(account.access_keys[i].access_key);
+                expect(decrypted_access_keys[i].secret_key).toBeDefined(); // instead of encrypted_secret_key
+                expect(decrypted_access_keys[i].creation_date).toBe(account.access_keys[i].creation_date);
+                expect(decrypted_access_keys[i].deactivated).toBe(account.access_keys[i].deactivated);
+            }
         });
     });
 
@@ -155,4 +197,43 @@ async function read_master_keys_json() {
 // based on this: https://stackoverflow.com/a/55526098/16571658
 function fail(reason) {
     throw new Error(reason);
+}
+
+// copied from account validation (with changes)
+function get_account_data(master_key_id) {
+    const account_name = 'account1';
+    const id = '65a62e22ceae5e5f1a758aa9';
+    const account_email = account_name; // temp, keep the email internally
+    const creation_date = new Date('December 17, 2023 09:00:00').toISOString();
+    const nsfs_account_config_uid_gid = {
+        uid: 1001,
+        gid: 1001,
+    };
+
+    const account_data = {
+        _id: id,
+        name: account_name,
+        email: account_email,
+        master_key_id: master_key_id,
+        access_keys: [], // no access-keys
+        nsfs_account_config: {
+            ...nsfs_account_config_uid_gid
+        },
+        creation_date: creation_date,
+        allow_bucket_creation: true,
+    };
+
+    return account_data;
+}
+
+function get_access_key_object() {
+    const { access_key, secret_key } = cloud_utils.generate_access_keys();
+    const unwrapped_secret_key = secret_key.unwrap();
+    const access_key_object = {
+        access_key: access_key,
+        secret_key: unwrapped_secret_key,
+        creation_date: '2024-06-03T07:40:58.808Z',
+        deactivated: false,
+    };
+    return access_key_object;
 }

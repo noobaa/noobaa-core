@@ -243,7 +243,7 @@ class ObjectSDK {
         const token = this.get_auth_token();
         // If the request is signed (authenticated)
         if (token) {
-            signature_utils.authorize_request_account_by_token(token, this.requesting_account, true);
+            signature_utils.authorize_request_account_by_token(token, this.requesting_account);
         }
         // check for a specific bucket
         if (bucket && req.op_name !== 'put_bucket') {

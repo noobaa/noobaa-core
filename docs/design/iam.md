@@ -88,3 +88,18 @@ Source: AccessKeys
   - AccessKey (Create, Update, Delete, List)
     - root account
     - all IAM users only for themselves (except the first creation that can be done only by the root account).
+
+### Root Accounts Manager
+The root accounts managers are a solution for creating root accounts using the IAM API.
+
+- The root accounts managers will be created only using the CLI (can have more than one root account manager).
+- It is not mandatory to have a root account manager, it is only for allowing the IAM API for creating new root accounts, but this account does not owns the root accounts.
+- The root accounts manager functionality is like root account in the IAM API perspective:
+  - We use root accounts to create IAM users: We use root accounts manager to create root accounts
+  - We use root accounts to create the first access key of an IAM user: We use root accounts manager to create the first access key of a root account.
+- When using IAM users API:
+  - root accounts manager can run IAM users create/update/delete/list - only on root accounts (not on other IAM users).
+root accounts manager can run IAM access keys create/update/delete/list - only on root accounts and himself.
+
+Here attached a diagram with all the accounts that we have in our system:
+![All accounts diagram](https://github.com/noobaa/noobaa-core/assets/57721533/c4395c06-3ab3-4425-838b-c020ef7cc38a)

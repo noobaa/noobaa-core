@@ -13,7 +13,8 @@ const native_fs_utils = require('../util/native_fs_utils');
 const ManageCLIError = require('../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
 const bucket_policy_utils = require('../endpoint/s3/s3_bucket_policy_utils');
 const { throw_cli_error, get_config_file_path, get_bucket_owner_account,
-    get_config_data, get_options_from_file, get_boolean_or_string_value } = require('../manage_nsfs/manage_nsfs_cli_utils');
+    get_config_data, get_options_from_file, get_boolean_or_string_value,
+    check_root_account_owns_user } = require('../manage_nsfs/manage_nsfs_cli_utils');
 const { TYPES, ACTIONS, VALID_OPTIONS, OPTION_TYPE, FROM_FILE, BOOLEAN_STRING_VALUES, BOOLEAN_STRING_OPTIONS,
     GLACIER_ACTIONS, LIST_UNSETABLE_OPTIONS, ANONYMOUS } = require('../manage_nsfs/manage_nsfs_constants');
 
@@ -361,7 +362,8 @@ function validate_account_identifier(action, input_options) {
  * @param {object} data
  * @param {string} action
  */
-async function validate_account_args(data, action) {
+async function validate_account_args(data, action, config_root_backend, accounts_dir_path,
+        is_flag_iam_operate_on_root_account_update_action) {
     if (action === ACTIONS.ADD || action === ACTIONS.UPDATE) {
         if (data.nsfs_account_config.gid && data.nsfs_account_config.uid === undefined) {
             throw_cli_error(ManageCLIError.MissingAccountNSFSConfigUID, data.nsfs_account_config);
@@ -391,6 +393,9 @@ async function validate_account_args(data, action) {
         const accessible = await native_fs_utils.is_dir_rw_accessible(account_fs_context, data.nsfs_account_config.new_buckets_path);
         if (!accessible) {
             throw_cli_error(ManageCLIError.InaccessibleAccountNewBucketsPath, data.nsfs_account_config.new_buckets_path);
+        }
+        if (action === ACTIONS.UPDATE && is_flag_iam_operate_on_root_account_update_action) {
+            await validate_root_accounts_manager_update(config_root_backend, accounts_dir_path, data);
         }
     }
 }
@@ -435,6 +440,41 @@ async function validate_delete_account(config_root_backend, buckets_dir_path, ac
     });
 }
 
+    // TODO - when we have the structure of config we can check easily which IAM users are owned by the root account
+    // currently, partial copy from _list_config_files_for_users
+    async function check_if_root_account_does_not_have_IAM_users(config_root_backend, accounts_dir_path, account_to_check) {
+        const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
+        const entries = await nb_native().fs.readdir(fs_context, accounts_dir_path);
+        await P.map_with_concurrency(10, entries, async entry => {
+            if (entry.name.endsWith('.json')) {
+                const full_path = path.join(accounts_dir_path, entry.name);
+                const account_data = await get_config_data(config_root_backend, full_path);
+                if (entry.name.includes(config.NSFS_TEMP_CONF_DIR_NAME)) return undefined;
+                const is_root_account_owns_user = check_root_account_owns_user(account_to_check, account_data);
+                if (is_root_account_owns_user) {
+                        const detail_msg = `Account ${account_to_check.name} has IAM account ${account_data.name}`;
+                        throw_cli_error(ManageCLIError.AccountCannotBeRootAccountsManager, detail_msg);
+                }
+                return account_data;
+            }
+        });
+    }
+
+/**
+ * validate_root_accounts_manager_update checks that an updated account that was set with iam_operate_on_root_account true:
+ * 1 - is not an IAM user
+ * 2 - the account does not owns IAM users
+ * @param {string} config_root_backend
+ * @param {string} accounts_dir_path
+ * @param {object} account
+ */
+async function validate_root_accounts_manager_update(config_root_backend, accounts_dir_path, account) {
+    if (account.owner) {
+        throw_cli_error(ManageCLIError.AccountCannotCreateRootAccountsRequesterIAMUser);
+    }
+    await check_if_root_account_does_not_have_IAM_users(config_root_backend, accounts_dir_path, account);
+}
+
 ///////////////////////////////////
 //// IP WhITE LIST VALIDATIONS ////
 ///////////////////////////////////
@@ -462,6 +502,7 @@ exports.validate_bucket_args = validate_bucket_args;
 exports.validate_account_args = validate_account_args;
 exports._validate_access_keys = _validate_access_keys;
 exports.validate_delete_account = validate_delete_account;
+exports.validate_root_accounts_manager_update = validate_root_accounts_manager_update;
 exports.validate_whitelist_arg = validate_whitelist_arg;
 exports.validate_whitelist_ips = validate_whitelist_ips;
 exports.validate_flags_combination = validate_flags_combination;

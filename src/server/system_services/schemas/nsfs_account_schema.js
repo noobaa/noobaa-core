@@ -48,6 +48,11 @@ module.exports = {
         force_md5_etag: {
             type: 'boolean',
         },
+        // account with iam_operate_on_root_account property will create root accounts using the IAM API 
+        // (instead of IAM accounts)
+        iam_operate_on_root_account: {
+            type: 'boolean'
+        },
         access_keys: {
             type: 'array',
             items: {

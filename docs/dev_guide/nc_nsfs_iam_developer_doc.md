@@ -13,7 +13,7 @@ This will be the argument for:
   - `new_buckets_path` flag  `/tmp/nsfs_root1` (that we will use in the account commands)
   - `path` in the buckets commands `/tmp/nsfs_root1/my-bucket` (that we will use in bucket commands).
 2. Create the root user account with the CLI:
-`sudo node src/cmd/manage_nsfs account add --name <name>> --new_buckets_path /tmp/nsfs_root1 --access_key <access-key> --secret_key <secret-key> --uid <uid> --gid <gid>`.
+`sudo node src/cmd/manage_nsfs account add --name <name> --new_buckets_path /tmp/nsfs_root1 --access_key <access-key> --secret_key <secret-key> --uid <uid> --gid <gid>`.
 3. Start the NSFS server (using debug mode and the port for IAM): `sudo node src/cmd/nsfs --debug 5 --https_port_iam 7005`
 Note: before starting the server please add this line: `process.env.NOOBAA_LOG_LEVEL = 'nsfs';` in the endpoint.js (before the condition `if (process.env.NOOBAA_LOG_LEVEL) {`)
 4. Create the alias for IAM service: 
@@ -40,7 +40,7 @@ Create the alias for IAM service for the user that was created (with its access 
 1. Use the root account credentials to create a user: `nc-user-1-iam iam create-user --user-name <username>`
 2. Use the root account credentials to create access keys for the user: `nc-user-1-iam iam create-access-key --user-name <username>`
 3. The alias for s3 service: `alias nc-user-1-s3-regular='AWS_ACCESS_KEY_ID=<access-key> AWS_SECRET_ACCESS_KEY=<secret-key> aws --no-verify-ssl --endpoint-url https://localhost:6443'` 
-2. Create a bucket (so we can list it) `nc-user-1-s3-regular s3 mb s3://<bucket-name>>`
+2. Create a bucket (so we can list it) `nc-user-1-s3-regular s3 mb s3://<bucket-name`
 3. List bucket (use s3 service)`nc-user-1-s3-regular s3 ls`
 4. List access keys (use IAM service) `nc-user-1-iam-regular iam list-access-keys`
 5. Deactivate access keys: `nc-user-1-iam iam update-access-key --access-key-id <access-key> --user-name <username> --status Inactive`
@@ -52,3 +52,12 @@ Note: Currently we clean the cache after update, but it happens for the specific
 2. Use the root account credentials to create access keys for the user:(first time): `nc-user-1-iam iam create-access-key --user-name <username>` (You should see the first symbolic link in under the access_keys directory).
 3. Use the root account credentials to create access keys for the user (second time): `nc-user-1-iam iam create-access-key --user-name <username>` (You should see the second symbolic link in under the access_keys directory).
 4. Update the username: `nc-user-1-iam iam update-user --user-name <username> --new-user-name <new-username>` (You should see the following changes: config file name updated, symlinks updated according to the current config).
+
+#### Create root account using the IAM API (requesting account is root accounts manager):
+1. Create the root accounts manager with the CLI:
+`sudo node src/cmd/manage_nsfs account add --name <name> --new_buckets_path /tmp/nsfs_root1 --access_key <access-key> --secret_key <secret-key> --uid <uid> --gid <gid> --iam_operate_on_root_account`.
+2. Use the root accounts manager details in the alias:
+`alias nc-user-manager-iam='AWS_ACCESS_KEY_ID=<access-key> AWS_SECRET_ACCESS_KEY=<secret-key> aws --no-verify-ssl --endpoint-url https://localhost:7005'`.
+3. Use the root accounts manager account credentials to create a root account:
+ `nc-user-manager-iam create-user --user-name <username>`
+4. Use the root account credentials to create access keys for the root account: `nc-user-manager-iam iam create-access-key --user-name <username>`

@@ -14,7 +14,7 @@ const fs_utils = require('../../../util/fs_utils');
 const nb_native = require('../../../util/nb_native');
 const { set_path_permissions_and_owner, create_fs_user_by_platform,
     delete_fs_user_by_platform, TMP_PATH, set_nc_config_dir_in_config } = require('../../system_tests/test_utils');
-const { get_process_fs_context } = require('../../../util/native_fs_utils');
+const { get_process_fs_context, update_config_file } = require('../../../util/native_fs_utils');
 const { TYPES, ACTIONS, CONFIG_SUBDIRS, ANONYMOUS } = require('../../../manage_nsfs/manage_nsfs_constants');
 const ManageCLIError = require('../../../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
 const ManageCLIResponse = require('../../../manage_nsfs/manage_nsfs_cli_responses').ManageCLIResponse;
@@ -379,6 +379,51 @@ describe('manage nsfs cli account flow', () => {
             expect(account.force_md5_etag).toBe(true);
         });
 
+        it('cli account add - use flag iam_operate_on_root_account (true)', async function() {
+            const action = ACTIONS.ADD;
+            const { type, name, new_buckets_path, uid, gid } = defaults;
+            const iam_operate_on_root_account = 'true';
+            const account_options = { config_root, name, new_buckets_path, uid, gid,
+                iam_operate_on_root_account };
+            await fs_utils.create_fresh_path(new_buckets_path);
+            await fs_utils.file_must_exist(new_buckets_path);
+            await set_path_permissions_and_owner(new_buckets_path, account_options, 0o700);
+            await exec_manage_cli(type, action, account_options);
+            const account = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
+            expect(account.iam_operate_on_root_account).toBe(true);
+            expect(account.allow_bucket_creation).toBe(true);
+        });
+
+        it('cli account add - use flag iam_operate_on_root_account (false)', async function() {
+            const action = ACTIONS.ADD;
+            const { type, name, new_buckets_path, uid, gid } = defaults;
+            const iam_operate_on_root_account = 'false';
+            const account_options = { config_root, name, new_buckets_path, uid, gid,
+                iam_operate_on_root_account };
+            await fs_utils.create_fresh_path(new_buckets_path);
+            await fs_utils.file_must_exist(new_buckets_path);
+            await set_path_permissions_and_owner(new_buckets_path, account_options, 0o700);
+            await exec_manage_cli(type, action, account_options);
+            const account = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
+            expect(account.iam_operate_on_root_account).toBe(false);
+            expect(account.allow_bucket_creation).toBe(true); // by default it is inferred when we have new_buckets_path
+        });
+
+        it('cli account add - use flag iam_operate_on_root_account (true) ' +
+            'with allow_bucket_creation (true)', async function() {
+            const action = ACTIONS.ADD;
+            const { type, name, new_buckets_path, uid, gid } = defaults;
+            const iam_operate_on_root_account = 'true';
+            const allow_bucket_creation = 'true'; // root accounts manager is not allowed to create buckets
+            const account_options = { config_root, name, new_buckets_path, uid, gid,
+                iam_operate_on_root_account, allow_bucket_creation };
+            await fs_utils.create_fresh_path(new_buckets_path);
+            await fs_utils.file_must_exist(new_buckets_path);
+            await set_path_permissions_and_owner(new_buckets_path, account_options, 0o700);
+            const res = await exec_manage_cli(type, action, account_options);
+            expect(JSON.parse(res).response.code).toEqual(ManageCLIResponse.AccountCreated.code);
+        });
+
         it('should fail - cli account add invalid flags combination (gid and user)', async function() {
             const action = ACTIONS.ADD;
             const { type, name, gid } = defaults;
@@ -731,6 +776,100 @@ describe('manage nsfs cli account flow', () => {
                 await exec_manage_cli(type, action, account_options);
                 new_account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
                 expect(new_account_details.force_md5_etag).toBeUndefined();
+            });
+
+            it('cli update account set flag iam_operate_on_root_account', async function() {
+                const { name } = defaults;
+                const account_options = { config_root, name, iam_operate_on_root_account: 'true'};
+                const action = ACTIONS.UPDATE;
+                await exec_manage_cli(type, action, account_options);
+                let new_account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
+                expect(new_account_details.iam_operate_on_root_account).toBe(true);
+
+                account_options.iam_operate_on_root_account = 'false';
+                await exec_manage_cli(type, action, account_options);
+                new_account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
+                expect(new_account_details.iam_operate_on_root_account).toBe(false);
+            });
+
+            it(`should fail - cli update account unset flag iam_operate_on_root_account with ''`, async function() {
+                // first set the value of iam_operate_on_root_account to be true
+                const { name } = defaults;
+                const account_options = { config_root, name, iam_operate_on_root_account: 'true'};
+                const action = ACTIONS.UPDATE;
+                await exec_manage_cli(type, action, account_options);
+                const new_account_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
+                expect(new_account_details.iam_operate_on_root_account).toBe(true);
+
+                // unset iam_operate_on_root_account (is not allowed)
+                const empty_string = '\'\'';
+                account_options.iam_operate_on_root_account = empty_string;
+                const res = await exec_manage_cli(type, action, account_options);
+                expect(JSON.parse(res.stdout).error.code).toBe(
+                    ManageCLIError.InvalidArgumentType.code);
+            });
+
+            it('cli update account iam_operate_on_root_account true when account owns a bucket', async function() {
+                // cli create bucket
+                const bucket_name = 'my-bucket';
+                let action = ACTIONS.ADD;
+                const { new_buckets_path } = defaults;
+                const account_name = defaults.name;
+                const bucket_options = { config_root, path: new_buckets_path, name: bucket_name, owner: account_name};
+                await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
+
+                // set the value of iam_operate_on_root_account to be true
+                const { name } = defaults;
+                const account_options = { config_root, name, iam_operate_on_root_account: 'true'};
+                action = ACTIONS.UPDATE;
+                const res = await exec_manage_cli(type, action, account_options);
+                expect(JSON.parse(res).response.code).toEqual(ManageCLIResponse.AccountUpdated.code);
+            });
+
+            // TODO (after we add the ability to create IAM accounts using the noobaa cli)
+            it('should fail - cli update account iam_operate_on_root_account true when account owns IAM accounts', async function() {
+                const { name } = defaults;
+                const accounts_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
+                const account_id = accounts_details._id;
+
+                expect(true).toBe(true);
+                const account_name = 'account-to-be-owned';
+                const account_options1 = { config_root, name: account_name, uid: 5555, gid: 5555 };
+                await exec_manage_cli(type, ACTIONS.ADD, account_options1);
+
+                // update the account to have the property owner
+                // (we use this way because now we don't have the way to create IAM users through the noobaa cli)
+                const account_config_path = path.join(config_root, CONFIG_SUBDIRS.ACCOUNTS, account_name + '.json');
+                const { data } = await nb_native().fs.readFile(DEFAULT_FS_CONFIG, account_config_path);
+                const config_data = JSON.parse(data.toString());
+                config_data.owner = account_id; // just so we can identify this account as IAM user
+                await update_config_file(DEFAULT_FS_CONFIG, CONFIG_SUBDIRS.ACCOUNTS,
+                    account_config_path, JSON.stringify(config_data));
+
+                // set the value of iam_operate_on_root_account to be true
+                const account_options2 = { config_root, name, iam_operate_on_root_account: true};
+                const res = await exec_manage_cli(type, ACTIONS.UPDATE, account_options2);
+                expect(JSON.parse(res.stdout).error.code).toBe(
+                    ManageCLIError.AccountCannotBeRootAccountsManager.code);
+            });
+
+            it('should fail - cli update account iam_operate_on_root_account true when requester is IAM user', async function() {
+                // update the account to have the property owner
+                // (we use this way because now we don't have the way to create IAM users through the noobaa cli)
+                const { name } = defaults;
+                const account_config_path = path.join(config_root, CONFIG_SUBDIRS.ACCOUNTS, name + '.json');
+                const { data } = await nb_native().fs.readFile(DEFAULT_FS_CONFIG, account_config_path);
+                const config_data = JSON.parse(data.toString());
+                config_data.owner = '65a62e22ceae5e5f1a758aa9'; // just so we can identify this account as IAM user
+                await update_config_file(DEFAULT_FS_CONFIG, CONFIG_SUBDIRS.ACCOUNTS,
+                    account_config_path, JSON.stringify(config_data));
+
+                // set the value of iam_operate_on_root_account to be true
+                const account_options = { config_root, name, iam_operate_on_root_account: 'true'};
+                const action = ACTIONS.UPDATE;
+                const res = await exec_manage_cli(type, action, account_options);
+                expect(JSON.parse(res.stdout).error.code).toBe(
+                    ManageCLIError.AccountCannotCreateRootAccountsRequesterIAMUser.code);
             });
 
             it('should fail - cli update account without a property to update', async () => {

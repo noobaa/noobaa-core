@@ -52,7 +52,7 @@ describe('manage nsfs cli anonymous account flow', () => {
             const { type, uid, gid, anonymous } = defaults;
             const account_options = { anonymous, config_root, uid, gid };
             await exec_manage_cli(type, action, account_options);
-            const account = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, config.ANONYMOUS_ACCOUNT_NAME);
+            const account = await read_config_file(config_root, CONFIG_SUBDIRS.ROOT_ACCOUNTS, config.ANONYMOUS_ACCOUNT_NAME, true);
             assert_account(account, account_options);
         });
 
@@ -115,7 +115,7 @@ describe('manage nsfs cli anonymous account flow', () => {
             action = ACTIONS.ADD;
             account_options = { anonymous, config_root, user };
             resp = await exec_manage_cli(type, action, account_options);
-            const account = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, config.ANONYMOUS_ACCOUNT_NAME);
+            const account = await read_config_file(config_root, CONFIG_SUBDIRS.ROOT_ACCOUNTS, config.ANONYMOUS_ACCOUNT_NAME, true);
             assert_account(account, account_options);
         });
 
@@ -159,14 +159,14 @@ describe('manage nsfs cli anonymous account flow', () => {
             let { type, uid, gid, anonymous } = defaults;
             const account_options = { anonymous, config_root, uid, gid };
             await exec_manage_cli(type, action, account_options);
-            const account = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, config.ANONYMOUS_ACCOUNT_NAME);
+            const account = await read_config_file(config_root, CONFIG_SUBDIRS.ROOT_ACCOUNTS, config.ANONYMOUS_ACCOUNT_NAME, true);
             assert_account(account, account_options);
 
             action = ACTIONS.UPDATE;
             gid = 1001;
             const account_update_options = { anonymous, config_root, uid, gid };
             await exec_manage_cli(type, action, account_update_options);
-            const update_account = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, config.ANONYMOUS_ACCOUNT_NAME);
+            const update_account = await read_config_file(config_root, CONFIG_SUBDIRS.ROOT_ACCOUNTS, config.ANONYMOUS_ACCOUNT_NAME, true);
             assert_account(update_account, account_update_options);
         });
 
@@ -219,7 +219,7 @@ describe('manage nsfs cli anonymous account flow', () => {
             const { type, uid, gid, anonymous } = defaults;
             const account_options = { anonymous, config_root, uid, gid };
             await exec_manage_cli(type, action, account_options);
-            const account = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, config.ANONYMOUS_ACCOUNT_NAME);
+            const account = await read_config_file(config_root, CONFIG_SUBDIRS.ROOT_ACCOUNTS, config.ANONYMOUS_ACCOUNT_NAME, true);
             assert_account(account, account_options);
 
             action = ACTIONS.DELETE;
@@ -268,7 +268,7 @@ describe('manage nsfs cli anonymous account flow', () => {
             const { type, uid, gid, anonymous } = defaults;
             const account_options = { anonymous, config_root, uid, gid };
             await exec_manage_cli(type, action, account_options);
-            const account = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, config.ANONYMOUS_ACCOUNT_NAME);
+            const account = await read_config_file(config_root, CONFIG_SUBDIRS.ROOT_ACCOUNTS, config.ANONYMOUS_ACCOUNT_NAME, true);
             assert_account(account, account_options);
 
             action = ACTIONS.STATUS;

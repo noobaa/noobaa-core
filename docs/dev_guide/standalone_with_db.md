@@ -181,7 +181,7 @@ You can use the configuration for `rsyslog` and `logrotate` for RHEL8. The logs 
 
 ```
 sudo cp src/deploy/standalone/noobaa_syslog.conf /etc/rsyslog.d/
-sudo cp src/deploy/standalone/logrotate_noobaa.conf /etc/logrotate.d/
+sudo cp src/deploy/standalone/noobaa-logrotate /etc/logrotate.d/
 sudo systemctl restart systemd-journald rsyslog
 ```
 
@@ -192,7 +192,7 @@ Additionally, it would be helpful if you configure to disable the rate limit of 
 1. Add the 2 lines below into `/etc/systemd/journald.conf`
 
 ```
-RateLimitInterva]lSec=0s
+RateLimitIntervalSec=0s
 RateLimitBurst=0
 ```
 

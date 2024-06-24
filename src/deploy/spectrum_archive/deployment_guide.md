@@ -157,12 +157,12 @@ systemctl status rsyslog
 
 Noobaa logs are pushed to `/var/log/noobaa.log` and the log is rotated and compressed daily.
 
-Verify the rsyslog and logrotate rpm configuration is complete by checking the files `/etc/rsyslog.d/noobaa_syslog.conf` and `/etc/rsyslog.d/noobaa_rsyslog.conf` for rsyslog and `/etc/logrotate.d/noobaa/logrotate_noobaa.conf` for logrotate.These files contain the noobaa specific configuration for rsyslog and logrotate.
+Verify the rsyslog and logrotate rpm configuration is complete by checking the files `/etc/rsyslog.d/noobaa_syslog.conf` and `/etc/rsyslog.d/noobaa_rsyslog.conf` for rsyslog and `/etc/logrotate.d/noobaa-logrotate` for logrotate.These files contain the noobaa specific configuration for rsyslog and logrotate.
 
 Rotate the logs manually.
 
 ```
-logrotate /etc/logrotate.d/noobaa/logrotate_noobaa.conf
+logrotate /etc/logrotate.d/noobaa-logrotate
 ```
 
 # FAQ

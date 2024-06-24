@@ -5,7 +5,6 @@ ARG CENTOS_VER=9
 ARG BUILD_S3SELECT=0
 ARG BUILD_S3SELECT_PARQUET=0
 
-RUN mkdir -p /etc/logrotate.d/noobaa/
 RUN mkdir -p /etc/noobaa.conf.d/
 
 COPY ./src/agent ./src/agent
@@ -35,8 +34,7 @@ COPY ./package*.json ./
 COPY ./binding.gyp .
 COPY ./src/deploy/standalone/noobaa_rsyslog.conf ./src/deploy/standalone/noobaa_rsyslog.conf
 COPY ./src/deploy/standalone/noobaa_syslog.conf ./src/deploy/standalone/noobaa_syslog.conf
-COPY ./src/deploy/standalone/logrotate_noobaa.conf ./src/deploy/standalone/logrotate_noobaa.conf
-COPY ./src/deploy/standalone/logrotate_noobaa.sh ./src/deploy/standalone/logrotate_noobaa.sh
+COPY ./src/deploy/standalone/noobaa-logrotate ./src/deploy/standalone/noobaa-logrotate
 COPY ./src/manage_nsfs ./src/manage_nsfs
 
 WORKDIR /build

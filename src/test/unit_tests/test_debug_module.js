@@ -90,7 +90,7 @@ mocha.describe('debug_module', function() {
         if (os_utils.IS_MAC) {
             rotation_command = 'ls';
         } else {
-            rotation_command = '/usr/sbin/logrotate /etc/logrotate.d/noobaa';
+            rotation_command = '/usr/sbin/logrotate /etc/logrotate.d';
         }
         return os_utils.exec(rotation_command).then(function() {
             const dbg = new DebugModule('/web/noise/noobaa-core/src/blabla.asd/lll.asd');

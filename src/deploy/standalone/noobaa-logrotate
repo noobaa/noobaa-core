@@ -12,6 +12,7 @@
     postrotate 
         killall -HUP rsyslogd || true
         killall -HUP syslogd || true
+        systemctl reload syslog-ng > /dev/null 2>&1 || true
     endscript
 }
 
@@ -29,6 +30,7 @@
     postrotate
         killall -HUP rsyslogd || true
         killall -HUP syslogd || true
+        systemctl reload syslog-ng > /dev/null 2>&1 || true
     endscript
 }
 
@@ -44,5 +46,6 @@
     postrotate
         killall -HUP rsyslogd || true
         killall -HUP syslogd || true
+        systemctl reload syslog-ng > /dev/null 2>&1 || true
     endscript
 }

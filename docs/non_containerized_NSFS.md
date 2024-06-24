@@ -582,14 +582,14 @@ systemctl status rsyslog
 
 Noobaa logs are pushed to `var/log/noobaa.log` and the log is rotated and compressed daily.
 
-Verify the rsyslog and logrotate rpm configuration is complete by checking the files `etc/rsyslog.d/noobaa_syslog.conf` for rsyslog and `etc/logrotate.d/noobaa/logrotate_noobaa.conf` for logrotate.These files contain the noobaa specific configuration for rsyslog and logrotate.
+Verify the rsyslog and logrotate rpm configuration is complete by checking the files `etc/rsyslog.d/noobaa_syslog.conf` for rsyslog and `etc/logrotate.d/noobaa-logrotate` for logrotate.These files contain the noobaa specific configuration for rsyslog and logrotate.
 
-Logrotate configuration is set up under `/etc/logrotate.d/noobaa/`. In order to trigger rotation when log files reache size threshold, each log file (`/var/log/noobaa.log` and `/var/log/noobaa_events.log`) uses its own rsyslog `outchannel` that triggers logrotate once file size reaches a limit (105MB). Logrotate is also typically called from cron on daily schedule.
+Logrotate configuration is set up under `/etc/logrotate.d/`.  Logrotate is called from cron on daily schedule.
 
 To rotate the logs manually run.
 
 ```
-logrotate /etc/logrotate.d/noobaa/logrotate_noobaa.conf
+logrotate /etc/logrotate.d/noobaa-logrotate
 ```
 
 **Create env file under the configuration directory (OPTIONAL) -**

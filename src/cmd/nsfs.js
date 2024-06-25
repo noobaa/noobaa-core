@@ -46,6 +46,7 @@ const pkg = require('../../package.json');
 const AccountSDK = require('../sdk/account_sdk');
 const AccountSpaceFS = require('../sdk/accountspace_fs');
 const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
+const { set_debug_level } = require('../manage_nsfs/manage_nsfs_cli_utils');
 
 const HELP = `
 Help:
@@ -277,11 +278,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
         config.ENABLE_OBJECT_IO_SEMAPHORE_MONITOR = false;
 
         if (argv.help || argv.h) return print_usage();
-        if (argv.debug) {
-            const debug_level = Number(argv.debug) || 5;
-            dbg.set_module_level(debug_level, 'core');
-            nb_native().fs.set_debug_level(debug_level);
-        }
+        if (argv.debug) set_debug_level(argv.debug);
         const simple_mode = Boolean(argv.simple);
         if (!simple_mode) {
             nsfs_config_root = config.NSFS_NC_CONF_DIR;

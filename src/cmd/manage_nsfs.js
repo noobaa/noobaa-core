@@ -21,9 +21,7 @@ const { TYPES, ACTIONS, LIST_ACCOUNT_FILTERS, LIST_BUCKET_FILTERS,
     GLACIER_ACTIONS } = require('../manage_nsfs/manage_nsfs_constants');
 const { throw_cli_error, write_stdout_response, get_config_file_path, get_symlink_config_file_path,
     get_config_data, get_boolean_or_string_value, has_access_keys} = require('../manage_nsfs/manage_nsfs_cli_utils');
-const { validate_input_types, validate_bucket_args, validate_account_args,
-        verify_delete_account, validate_whitelist_arg, verify_whitelist_ips,
-        _validate_access_keys } = require('../manage_nsfs/manage_nsfs_validations');
+const manage_nsfs_validations = require('../manage_nsfs/manage_nsfs_validations');
 const nc_mkm = require('../manage_nsfs/nc_master_key_manager').get_instance();
 
 const buckets_dir_name = '/buckets';
@@ -80,7 +78,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
         if (argv.help || argv.h) {
             return print_usage(type, action);
         }
-        const user_input_from_file = await validate_input_types(type, action, argv);
+        const user_input_from_file = await manage_nsfs_validations.validate_input_types(type, action, argv);
         const user_input = user_input_from_file || argv;
         config_root = argv.config_root ? String(argv.config_root) : config.NSFS_NC_CONF_DIR;
         if (!config_root) throw_cli_error(ManageCLIError.MissingConfigDirPath);
@@ -187,7 +185,7 @@ async function fetch_existing_bucket_data(target) {
 }
 
 async function add_bucket(data) {
-    await validate_bucket_args(config_root_backend, accounts_dir_path, data, ACTIONS.ADD);
+    await manage_nsfs_validations.validate_bucket_args(config_root_backend, accounts_dir_path, data, ACTIONS.ADD);
     const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
     const bucket_conf_path = get_config_file_path(buckets_dir_path, data.name);
     const exists = await native_fs_utils.is_path_exists(fs_context, bucket_conf_path);
@@ -203,7 +201,7 @@ async function add_bucket(data) {
 }
 
 async function get_bucket_status(data) {
-    await validate_bucket_args(config_root_backend, accounts_dir_path, data, ACTIONS.STATUS);
+    await manage_nsfs_validations.validate_bucket_args(config_root_backend, accounts_dir_path, data, ACTIONS.STATUS);
 
     try {
         const bucket_path = get_config_file_path(buckets_dir_path, data.name);
@@ -216,7 +214,7 @@ async function get_bucket_status(data) {
 }
 
 async function update_bucket(data) {
-    await validate_bucket_args(config_root_backend, accounts_dir_path, data, ACTIONS.UPDATE);
+    await manage_nsfs_validations.validate_bucket_args(config_root_backend, accounts_dir_path, data, ACTIONS.UPDATE);
 
     const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
 
@@ -255,7 +253,7 @@ async function update_bucket(data) {
 }
 
 async function delete_bucket(data, force) {
-    await validate_bucket_args(config_root_backend, accounts_dir_path, data, ACTIONS.DELETE);
+    await manage_nsfs_validations.validate_bucket_args(config_root_backend, accounts_dir_path, data, ACTIONS.DELETE);
     // we have fs_contexts: (1) fs_backend for bucket temp dir (2) config_root_backend for config files
     const fs_context_config_root_backend = native_fs_utils.get_process_fs_context(config_root_backend);
     const fs_context_fs_backend = native_fs_utils.get_process_fs_context(data.fs_backend);
@@ -364,12 +362,12 @@ async function fetch_account_data(action, user_input) {
 
     // override values
     // access_key as SensitiveString
-    if (!has_access_keys(data.access_keys)) {
+    if (has_access_keys(data.access_keys)) {
         data.access_keys[0].access_key = _.isUndefined(data.access_keys[0].access_key) ? undefined :
-        new SensitiveString(String(data.access_keys[0].access_key));
+            new SensitiveString(String(data.access_keys[0].access_key));
         // secret_key as SensitiveString
         data.access_keys[0].secret_key = _.isUndefined(data.access_keys[0].secret_key) ? undefined :
-        new SensitiveString(String(data.access_keys[0].secret_key));
+            new SensitiveString(String(data.access_keys[0].secret_key));
     }
     // fs_backend deletion specified with empty string '' (but it is not part of the schema)
     data.nsfs_account_config.fs_backend = data.nsfs_account_config.fs_backend || undefined;
@@ -427,10 +425,10 @@ async function fetch_existing_account_data(action, target, decrypt_secret_key) {
 }
 
 async function add_account(data) {
-    await validate_account_args(data, ACTIONS.ADD);
+    await manage_nsfs_validations.validate_account_args(data, ACTIONS.ADD);
 
     const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
-    const access_key = has_access_keys(data.access_keys) ? undefined : data.access_keys[0].access_key;
+    const access_key = has_access_keys(data.access_keys) ? data.access_keys[0].access_key : undefined;
     const account_config_path = get_config_file_path(accounts_dir_path, data.name);
     const account_config_relative_path = get_config_file_path(acounts_dir_relative_path, data.name);
     const account_config_access_key_path = get_symlink_config_file_path(access_keys_dir_path, access_key);
@@ -454,7 +452,7 @@ async function add_account(data) {
     const account = encrypted_data ? JSON.parse(encrypted_data) : data;
     nsfs_schema_utils.validate_account_schema(account);
     await native_fs_utils.create_config_file(fs_context, accounts_dir_path, account_config_path, JSON.stringify(account));
-    if (!has_access_keys(data.access_keys)) {
+    if (has_access_keys(data.access_keys)) {
         await native_fs_utils._create_path(access_keys_dir_path, fs_context, config.BASE_MODE_CONFIG_DIR);
         await nb_native().fs.symlink(fs_context, account_config_relative_path, account_config_access_key_path);
     }
@@ -463,12 +461,12 @@ async function add_account(data) {
 
 
 async function update_account(data) {
-    await validate_account_args(data, ACTIONS.UPDATE);
+    await manage_nsfs_validations.validate_account_args(data, ACTIONS.UPDATE);
 
     const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
     const cur_name = data.name;
     const new_name = data.new_name;
-    const cur_access_key = has_access_keys(data.access_keys) ? undefined : data.access_keys[0].access_key;
+    const cur_access_key = has_access_keys(data.access_keys) ? data.access_keys[0].access_key : undefined;
     const update_name = new_name && cur_name && data.new_name !== cur_name;
     const update_access_key = data.new_access_key && cur_access_key && data.new_access_key !== cur_access_key;
 
@@ -527,13 +525,13 @@ async function update_account(data) {
 }
 
 async function delete_account(data) {
-    await validate_account_args(data, ACTIONS.DELETE);
-    await verify_delete_account(config_root_backend, buckets_dir_path, data.name);
+    await manage_nsfs_validations.validate_account_args(data, ACTIONS.DELETE);
+    await manage_nsfs_validations.validate_delete_account(config_root_backend, buckets_dir_path, data.name);
 
     const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
     const account_config_path = get_config_file_path(accounts_dir_path, data.name);
     await native_fs_utils.delete_config_file(fs_context, accounts_dir_path, account_config_path);
-    if (!has_access_keys(data.access_keys)) {
+    if (has_access_keys(data.access_keys)) {
         const access_key_config_path = get_symlink_config_file_path(access_keys_dir_path, data.access_keys[0].access_key);
         await nb_native().fs.unlink(fs_context, access_key_config_path);
     }
@@ -541,7 +539,7 @@ async function delete_account(data) {
 }
 
 async function get_account_status(data, show_secrets) {
-    await validate_account_args(data, ACTIONS.STATUS);
+    await manage_nsfs_validations.validate_account_args(data, ACTIONS.STATUS);
     try {
         const account_path = _.isUndefined(data.name) ?
             get_symlink_config_file_path(access_keys_dir_path, data.access_keys[0].access_key) :
@@ -676,7 +674,7 @@ function get_access_keys(action, user_input) {
     }];
     let new_access_key;
     if (action === ACTIONS.ADD || action === ACTIONS.UPDATE || action === ACTIONS.DELETE) {
-        _validate_access_keys(user_input.access_key, user_input.secret_key);
+        manage_nsfs_validations._validate_access_keys(user_input.access_key, user_input.secret_key);
     }
     if (action === ACTIONS.ADD || action === ACTIONS.STATUS) {
         const regenerate = action === ACTIONS.ADD;
@@ -692,10 +690,10 @@ function get_access_keys(action, user_input) {
 
 async function whitelist_ips_management(args) {
     const ips = args.ips;
-    validate_whitelist_arg(ips);
+    manage_nsfs_validations.validate_whitelist_arg(ips);
 
     const whitelist_ips = JSON.parse(ips);
-    verify_whitelist_ips(whitelist_ips);
+    manage_nsfs_validations.validate_whitelist_ips(whitelist_ips);
     const config_path = path.join(config_root, 'config.json');
     try {
         const config_data = require(config_path);

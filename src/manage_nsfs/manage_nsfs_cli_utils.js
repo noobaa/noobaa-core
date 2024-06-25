@@ -111,12 +111,13 @@ async function get_options_from_file(file_path) {
 }
 
 /**
- * has_access_keys will return anonymous or not depending on the access key length 
- * (instead of flags) and return its content
+ * has_access_keys will return if the array has at least one object of access keys
+ * (depending on the access key length)
+ * Note: when there is no access key array it might indicate that it is anonymous account
  * @param {object[]} access_keys
  */
 function has_access_keys(access_keys) {
-    return access_keys.length === 0;
+    return access_keys.length > 0;
 }
 
 /**

@@ -13,7 +13,7 @@ const native_fs_utils = require('../util/native_fs_utils');
 const ManageCLIError = require('../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
 const bucket_policy_utils = require('../endpoint/s3/s3_bucket_policy_utils');
 const { throw_cli_error, get_config_file_path, get_bucket_owner_account,
-    get_config_data, get_options_from_file, has_access_keys } = require('../manage_nsfs/manage_nsfs_cli_utils');
+    get_config_data, get_options_from_file, get_boolean_or_string_value } = require('../manage_nsfs/manage_nsfs_cli_utils');
 const { TYPES, ACTIONS, VALID_OPTIONS, OPTION_TYPE, FROM_FILE, BOOLEAN_STRING_VALUES, BOOLEAN_STRING_OPTIONS,
     GLACIER_ACTIONS, LIST_UNSETABLE_OPTIONS, ANONYMOUS } = require('../manage_nsfs/manage_nsfs_constants');
 
@@ -38,6 +38,7 @@ async function validate_input_types(type, action, argv) {
     delete input_options_with_data._;
     validate_no_extra_options(type, action, input_options, false);
     validate_options_type_by_value(input_options_with_data);
+    validate_identifier(type, action, input_options_with_data, false);
     validate_flags_combination(type, action, input_options);
     validate_flags_value_combination(type, action, input_options_with_data);
     if (action === ACTIONS.UPDATE) validate_min_flags_for_update(type, input_options_with_data);
@@ -53,6 +54,7 @@ async function validate_input_types(type, action, argv) {
         }
         validate_no_extra_options(type, action, input_options_from_file, true);
         validate_options_type_by_value(input_options_with_data_from_file);
+        validate_identifier(type, action, input_options_with_data_from_file, true);
         validate_flags_combination(type, action, input_options_from_file);
         validate_flags_value_combination(type, action, input_options_with_data);
         return input_options_with_data_from_file;
@@ -72,6 +74,24 @@ function validate_type_and_action(type, action) {
         if (action !== '') throw_cli_error(ManageCLIError.InvalidAction);
     } else if (type === TYPES.GLACIER) {
         if (!Object.values(GLACIER_ACTIONS).includes(action)) throw_cli_error(ManageCLIError.InvalidAction);
+    }
+}
+
+/**
+ * validate_identifier will validate that we have the needed identifier for the command
+ * @param {string} type
+ * @param {string} action
+ * @param {object} input_options
+ * @param {boolean} is_options_from_file boolean to indicates that the validation is on values that origin from the file
+ */
+function validate_identifier(type, action, input_options, is_options_from_file) {
+    // do not check identifier in the command of from_file (only in the file itself).
+    if (!_.isUndefined(input_options.from_file) && !is_options_from_file) return;
+
+    if (type === TYPES.ACCOUNT) {
+        validate_account_identifier(action, input_options);
+    } else if (type === TYPES.BUCKET) {
+        validate_bucket_identifier(action, input_options);
     }
 }
 
@@ -243,29 +263,28 @@ function validate_flags_value_combination(type, action, input_options_with_data)
 /////////////////////////////
 
 /**
+ * validate_bucket_identifier will validate that we have the needed identifier for the command
+ * @param {string} action
+ * @param {object} input_options
+ */
+function validate_bucket_identifier(action, input_options) {
+if (action === ACTIONS.STATUS || action === ACTIONS.ADD || action === ACTIONS.UPDATE || action === ACTIONS.DELETE) {
+        if (_.isUndefined(input_options.name)) throw_cli_error(ManageCLIError.MissingBucketNameFlag);
+    }
+    // in list there is no identifier
+}
+
+/**
  * validate_bucket_args will validate the cli args of the bucket command
  * @param {object} data
  * @param {string} action
  */
 async function validate_bucket_args(config_root_backend, accounts_dir_path, data, action) {
-    if (action === ACTIONS.DELETE || action === ACTIONS.STATUS) {
-        if (_.isUndefined(data.name)) throw_cli_error(ManageCLIError.MissingBucketNameFlag);
-    } else { // action === ACTIONS.ADD || action === ACTIONS.UPDATE
-        if (_.isUndefined(data.name)) throw_cli_error(ManageCLIError.MissingBucketNameFlag);
-        try {
-            native_fs_utils.validate_bucket_creation({ name: data.name });
-        } catch (err) {
-            throw_cli_error(ManageCLIError.InvalidBucketName, data.name);
-        }
-        if (!_.isUndefined(data.new_name)) {
-            if (action !== ACTIONS.UPDATE) throw_cli_error(ManageCLIError.InvalidNewNameBucketIdentifier);
-            try {
-                native_fs_utils.validate_bucket_creation({ name: data.new_name });
-            } catch (err) {
-                throw_cli_error(ManageCLIError.InvalidBucketName, data.new_name);
-            }
-        }
-        if (_.isUndefined(data.system_owner)) throw_cli_error(ManageCLIError.MissingBucketOwnerFlag);
+    if (action === ACTIONS.ADD || action === ACTIONS.UPDATE) {
+        if (action === ACTIONS.ADD) native_fs_utils.validate_bucket_creation({ name: data.name });
+        if (action === ACTIONS.UPDATE && !_.isUndefined(data.new_name)) native_fs_utils.validate_bucket_creation({ name: data.new_name });
+
+        if (action === ACTIONS.ADD && _.isUndefined(data.bucket_owner)) throw_cli_error(ManageCLIError.MissingBucketOwnerFlag);
         if (!data.path) throw_cli_error(ManageCLIError.MissingBucketPathFlag);
         // fs_backend='' used for deletion of the fs_backend property
         if (data.fs_backend !== undefined && !['GPFS', 'CEPH_FS', 'NFSv4'].includes(data.fs_backend)) {
@@ -319,26 +338,31 @@ async function validate_bucket_args(config_root_backend, accounts_dir_path, data
 /////////////////////////////
 
 /**
+ * validate_account_identifier will validate that we have the needed identifier for the command
+ * @param {string} action
+ * @param {object} input_options
+ */
+function validate_account_identifier(action, input_options) {
+    if (get_boolean_or_string_value(input_options[ANONYMOUS])) return;
+    if (action === ACTIONS.STATUS) {
+        // in status we allow identifier as name or access_key
+        if (_.isUndefined(input_options.access_key) && _.isUndefined(input_options.name)) {
+            throw_cli_error(ManageCLIError.MissingIdentifier);
+        }
+    } else if (action === ACTIONS.ADD || action === ACTIONS.UPDATE || action === ACTIONS.DELETE) {
+        // in add, update and delete only name is an identifier
+        if (_.isUndefined(input_options.name)) throw_cli_error(ManageCLIError.MissingAccountNameFlag);
+    }
+    // in list there is no identifier
+}
+
+/**
  * validate_account_args will validate the args of the account command
  * @param {object} data
  * @param {string} action
  */
 async function validate_account_args(data, action) {
-    if (action === ACTIONS.STATUS || action === ACTIONS.DELETE) {
-        if (!has_access_keys(data.access_keys) && _.isUndefined(data.access_keys[0].access_key) && _.isUndefined(data.name)) {
-            throw_cli_error(ManageCLIError.MissingIdentifier);
-        }
-    } else {
-        if ((action !== ACTIONS.UPDATE && data.new_name)) throw_cli_error(ManageCLIError.InvalidNewNameAccountIdentifier);
-        if ((action !== ACTIONS.UPDATE && data.new_access_key)) throw_cli_error(ManageCLIError.InvalidNewAccessKeyIdentifier);
-        if (_.isUndefined(data.name)) throw_cli_error(ManageCLIError.MissingAccountNameFlag);
-
-        if (!has_access_keys(data.access_keys) && _.isUndefined(data.access_keys[0].secret_key)) {
-            throw_cli_error(ManageCLIError.MissingAccountSecretKeyFlag);
-        }
-        if (!has_access_keys(data.access_keys) && _.isUndefined(data.access_keys[0].access_key)) {
-            throw_cli_error(ManageCLIError.MissingAccountAccessKeyFlag);
-        }
+    if (action === ACTIONS.ADD || action === ACTIONS.UPDATE) {
         if (data.nsfs_account_config.gid && data.nsfs_account_config.uid === undefined) {
             throw_cli_error(ManageCLIError.MissingAccountNSFSConfigUID, data.nsfs_account_config);
         }
@@ -391,11 +415,11 @@ function _validate_access_keys(access_key, secret_key) {
 }
 
 /**
- * verify_delete_account will check if the account has at least one bucket
+ * validate_delete_account will check if the account has at least one bucket
  * in case it finds one, it would throw an error
  * @param {string} account_name
  */
-async function verify_delete_account(config_root_backend, buckets_dir_path, account_name) {
+async function validate_delete_account(config_root_backend, buckets_dir_path, account_name) {
     const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
     const entries = await nb_native().fs.readdir(fs_context, buckets_dir_path);
     await P.map_with_concurrency(10, entries, async entry => {
@@ -416,9 +440,6 @@ async function verify_delete_account(config_root_backend, buckets_dir_path, acco
 ///////////////////////////////////
 
 function validate_whitelist_arg(ips) {
-    if (!ips || ips === true) {
-        throw_cli_error(ManageCLIError.MissingWhiteListIPFlag);
-    }
     try {
         JSON.parse(ips);
     } catch (err) {
@@ -426,7 +447,7 @@ function validate_whitelist_arg(ips) {
     }
 }
 
-function verify_whitelist_ips(ips_to_validate) {
+function validate_whitelist_ips(ips_to_validate) {
     for (const ip_to_validate of ips_to_validate) {
         if (net.isIP(ip_to_validate) === 0) {
             const detail_msg = `IP address list has an invalid IP address ${ip_to_validate}`;
@@ -440,7 +461,7 @@ exports.validate_input_types = validate_input_types;
 exports.validate_bucket_args = validate_bucket_args;
 exports.validate_account_args = validate_account_args;
 exports._validate_access_keys = _validate_access_keys;
-exports.verify_delete_account = verify_delete_account;
+exports.validate_delete_account = validate_delete_account;
 exports.validate_whitelist_arg = validate_whitelist_arg;
-exports.verify_whitelist_ips = verify_whitelist_ips;
+exports.validate_whitelist_ips = validate_whitelist_ips;
 exports.validate_flags_combination = validate_flags_combination;

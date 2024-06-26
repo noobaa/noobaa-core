@@ -16,8 +16,8 @@ function get_jwt_secret() {
 }
 
 function make_auth_token(object = {}, jwt_options = {}) {
-    // Remote services/endpoints should not sign tokens
-    if (config.NOOBAA_AUTH_TOKEN) return config.NOOBAA_AUTH_TOKEN;
+    // Remote services/endpoints should not sign tokens - unless required for STS
+    if (config.NOOBAA_AUTH_TOKEN && object.assumed_role_access_key === undefined) return config.NOOBAA_AUTH_TOKEN;
     // create and return the signed token
     return jwt.sign(object, get_jwt_secret(), jwt_options);
 }

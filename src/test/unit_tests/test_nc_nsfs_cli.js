@@ -57,7 +57,9 @@ mocha.describe('manage_nsfs cli', function() {
         const bucket1_policy = generate_s3_policy('*', name, ['s3:*']).policy;
         const invalid_bucket_policy = generate_s3_policy('invalid_account', name, ['s3:*']).policy;
         const empty_bucket_policy = '';
-        let add_res, account_id, account_id2;
+        let add_res;
+        let account_id;
+        let account_id2;
 
         let bucket_options = { config_root, name, owner, path: bucket_path };
         const gpfs_bucket_options = { config_root, name: bucket_on_gpfs, owner, path: bucket_on_gpfs_path, fs_backend: 'GPFS' };
@@ -102,7 +104,7 @@ mocha.describe('manage_nsfs cli', function() {
             }
         });
 
-        mocha.it('cli2 create account for bucket (bucket create requirement to have a bucket owner)', async function() {
+        mocha.it('cli create account for bucket (bucket create requirement to have a bucket owner)', async function() {
 
             const action = ACTIONS.ADD;
             // create account 'user1'
@@ -178,7 +180,7 @@ mocha.describe('manage_nsfs cli', function() {
             await assert_config_file_permissions(config_root, CONFIG_SUBDIRS.BUCKETS, bucket_with_policy);
         });
 
-        mocha.it('cli3 bucket create', async function() {
+        mocha.it('cli bucket create', async function() {
             const action = ACTIONS.ADD;
             add_res = await exec_manage_cli(type, action, bucket_options);
             assert_response(action, type, add_res, bucket_options, undefined, undefined, account_id);

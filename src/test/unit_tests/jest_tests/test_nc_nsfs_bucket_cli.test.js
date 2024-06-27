@@ -49,7 +49,6 @@ describe('manage nsfs cli bucket flow', () => {
             await fs_utils.create_fresh_path(`${config_root}/${CONFIG_SUBDIRS.BUCKETS}`);
             await fs_utils.create_fresh_path(root_path);
             await fs_utils.create_fresh_path(bucket_storage_path);
-            const action = ACTIONS.ADD;
             // account add
             const { new_buckets_path: account_path } = account_defaults;
             const account_options = { config_root, ...account_defaults };
@@ -180,14 +179,13 @@ describe('manage nsfs cli bucket flow', () => {
             await fs_utils.create_fresh_path(root_path);
             await fs_utils.create_fresh_path(bucket_storage_path);
             await fs_utils.create_fresh_path(path_to_json_bucket_options_dir);
-            const action = ACTIONS.ADD;
             // account add
             const { new_buckets_path: account_path } = account_defaults;
             const account_options = { config_root, ...account_defaults };
             await fs_utils.create_fresh_path(account_path);
             await fs_utils.file_must_exist(account_path);
             await set_path_permissions_and_owner(account_path, account_options, 0o700);
-            await exec_manage_cli(TYPES.ACCOUNT, action, account_options);
+            account_id = await create_account_and_get_id(account_options);
             // give permission on bucket path to bucket owner 
             const { path: bucket_path } = bucket_defaults;
             await fs_utils.create_fresh_path(bucket_path);
@@ -201,7 +199,7 @@ describe('manage nsfs cli bucket flow', () => {
             await fs_utils.folder_delete(`${path_to_json_bucket_options_dir}`);
         });
 
-        it('cli create bucket using from_file with required options', async () => {
+        it('cli2 create bucket using from_file with required options', async () => {
             const action = ACTIONS.ADD;
             const bucket_options = { name: bucket_defaults.name, owner: bucket_defaults.owner, path: bucket_defaults.path };
             // write the json_file_options
@@ -211,7 +209,7 @@ describe('manage nsfs cli bucket flow', () => {
             await exec_manage_cli(type, action, command_flags);
             // compare the details
             const bucket = await read_config_file(config_root, CONFIG_SUBDIRS.BUCKETS, bucket_defaults.name);
-            assert_bucket(bucket, bucket_options);
+            assert_bucket(bucket, bucket_options, account_id);
         });
 
         it('cli create bucket using from_file with optional options (fs_backend)', async () => {
@@ -226,7 +224,7 @@ describe('manage nsfs cli bucket flow', () => {
             await exec_manage_cli(type, action, command_flags);
             // compare the details
             const bucket = await read_config_file(config_root, CONFIG_SUBDIRS.BUCKETS, bucket_defaults.name);
-            assert_bucket(bucket, bucket_options);
+            assert_bucket(bucket, bucket_options, account_id);
             expect(bucket.fs_backend).toEqual(bucket_options.fs_backend);
         });
 
@@ -242,7 +240,7 @@ describe('manage nsfs cli bucket flow', () => {
             await exec_manage_cli(type, action, command_flags);
             // compare the details
             const bucket = await read_config_file(config_root, CONFIG_SUBDIRS.BUCKETS, bucket_defaults.name);
-            assert_bucket(bucket, bucket_options);
+            assert_bucket(bucket, bucket_options, account_id);
             expect(bucket.bucket_policy).toEqual(bucket_options.s3_policy);
         });
 
@@ -372,7 +370,7 @@ describe('manage nsfs cli bucket flow', () => {
             await fs_utils.create_fresh_path(account_path);
             await fs_utils.file_must_exist(account_path);
             await set_path_permissions_and_owner(account_path, account_options, 0o700);
-            await exec_manage_cli(TYPES.ACCOUNT, action, account_options);
+            account_id = await create_account_and_get_id(account_options);
 
             // bucket add
             const { path: bucket_path } = bucket_defaults;
@@ -466,7 +464,7 @@ describe('manage nsfs cli bucket flow', () => {
             await set_path_permissions_and_owner(bucket_defaults.path, account_defaults2, 0o700);
             await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
             const bucket = await read_config_file(config_root, CONFIG_SUBDIRS.BUCKETS, bucket_defaults.name);
-            expect(bucket.bucket_owner).toBe(account_defaults2.name);
+            expect(bucket.owner_account).toBe(account_id);
         });
 
         it('should fail - cli bucket update - without identifier', async () => {

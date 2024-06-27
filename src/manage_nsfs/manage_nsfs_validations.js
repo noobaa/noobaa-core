@@ -12,18 +12,8 @@ const string_utils = require('../util/string_utils');
 const native_fs_utils = require('../util/native_fs_utils');
 const ManageCLIError = require('../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
 const bucket_policy_utils = require('../endpoint/s3/s3_bucket_policy_utils');
-<<<<<<< HEAD
-<<<<<<< HEAD
-const { throw_cli_error, get_config_file_path, get_bucket_owner_account,
+const { throw_cli_error, get_config_file_path, get_symlink_config_file_path, get_bucket_owner_account,
     get_config_data, get_options_from_file, get_boolean_or_string_value } = require('../manage_nsfs/manage_nsfs_cli_utils');
-=======
-const { throw_cli_error, get_config_file_path, get_config_data, get_bucket_owner_account,
-        get_options_from_file, has_access_keys } = require('../manage_nsfs/manage_nsfs_cli_utils');
->>>>>>> 9c4a560a3 (NC | account by id | bucket cli and tests)
-=======
-const { throw_cli_error, get_config_file_path, get_symlink_config_file_path, get_config_data,
-    get_bucket_owner_account, get_options_from_file, has_access_keys } = require('../manage_nsfs/manage_nsfs_cli_utils');
->>>>>>> eabba8070 (NC | account by id | allow principal to be either account id or name)
 const { TYPES, ACTIONS, VALID_OPTIONS, OPTION_TYPE, FROM_FILE, BOOLEAN_STRING_VALUES, BOOLEAN_STRING_OPTIONS,
     GLACIER_ACTIONS, LIST_UNSETABLE_OPTIONS, ANONYMOUS } = require('../manage_nsfs/manage_nsfs_constants');
 
@@ -278,8 +268,8 @@ function validate_flags_value_combination(type, action, input_options_with_data)
  * @param {object} input_options
  */
 function validate_bucket_identifier(action, input_options) {
-if (action === ACTIONS.STATUS || action === ACTIONS.ADD || action === ACTIONS.UPDATE || action === ACTIONS.DELETE) {
-        if (_.isUndefined(input_options.name)) throw_cli_error(ManageCLIError.MissingBucketNameFlag);
+    if (action === ACTIONS.STATUS || action === ACTIONS.ADD || action === ACTIONS.UPDATE || action === ACTIONS.DELETE) {
+            if (_.isUndefined(input_options.name)) throw_cli_error(ManageCLIError.MissingBucketNameFlag);
     }
     // in list there is no identifier
 }
@@ -289,42 +279,12 @@ if (action === ACTIONS.STATUS || action === ACTIONS.ADD || action === ACTIONS.UP
  * @param {object} data
  * @param {string} action
  */
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-async function validate_bucket_args(config_root_backend, accounts_dir_path, data, action) {
+async function validate_bucket_args(config_root_backend, accounts_dir_path, root_accounts_dir_path, data, action) {
     if (action === ACTIONS.ADD || action === ACTIONS.UPDATE) {
         if (action === ACTIONS.ADD) native_fs_utils.validate_bucket_creation({ name: data.name });
         if (action === ACTIONS.UPDATE && !_.isUndefined(data.new_name)) native_fs_utils.validate_bucket_creation({ name: data.new_name });
 
-        if (action === ACTIONS.ADD && _.isUndefined(data.bucket_owner)) throw_cli_error(ManageCLIError.MissingBucketOwnerFlag);
-=======
-async function validate_bucket_args(config_root_backend, accounts_dir_path, data, action, account) {
-=======
-async function validate_bucket_args(config_root_backend, accounts_dir_path, data, action) {
->>>>>>> 9c4a560a3 (NC | account by id | bucket cli and tests)
-=======
-async function validate_bucket_args(config_root_backend, accounts_dir_path, root_accounts_dir_path, data, action) {
->>>>>>> eabba8070 (NC | account by id | allow principal to be either account id or name)
-    if (action === ACTIONS.DELETE || action === ACTIONS.STATUS) {
-        if (_.isUndefined(data.name)) throw_cli_error(ManageCLIError.MissingBucketNameFlag);
-    } else { // action === ACTIONS.ADD || action === ACTIONS.UPDATE
-        if (_.isUndefined(data.name)) throw_cli_error(ManageCLIError.MissingBucketNameFlag);
-        try {
-            native_fs_utils.validate_bucket_creation({ name: data.name });
-        } catch (err) {
-            throw_cli_error(ManageCLIError.InvalidBucketName, data.name);
-        }
-        if (!_.isUndefined(data.new_name)) {
-            if (action !== ACTIONS.UPDATE) throw_cli_error(ManageCLIError.InvalidNewNameBucketIdentifier);
-            try {
-                native_fs_utils.validate_bucket_creation({ name: data.new_name });
-            } catch (err) {
-                throw_cli_error(ManageCLIError.InvalidBucketName, data.new_name);
-            }
-        }
-        if (_.isUndefined(data.system_owner)) throw_cli_error(ManageCLIError.MissingBucketOwnerFlag);
->>>>>>> 87f7e2231 (NC | account by id | remove bucket_owner from bucket schema, use only account id)
+        if (action === ACTIONS.ADD && _.isUndefined(data.owner_account)) throw_cli_error(ManageCLIError.MissingBucketOwnerFlag);
         if (!data.path) throw_cli_error(ManageCLIError.MissingBucketPathFlag);
         // fs_backend='' used for deletion of the fs_backend property
         if (data.fs_backend !== undefined && !['GPFS', 'CEPH_FS', 'NFSv4'].includes(data.fs_backend)) {
@@ -336,14 +296,7 @@ async function validate_bucket_args(config_root_backend, accounts_dir_path, root
         if (!exists) {
             throw_cli_error(ManageCLIError.InvalidStoragePath, data.path);
         }
-<<<<<<< HEAD
-<<<<<<< HEAD
-        const account = await get_bucket_owner_account(config_root_backend, accounts_dir_path, data.bucket_owner);
-=======
->>>>>>> 87f7e2231 (NC | account by id | remove bucket_owner from bucket schema, use only account id)
-=======
         const account = await get_bucket_owner_account(config_root_backend, accounts_dir_path, data.owner_account);
->>>>>>> 9c4a560a3 (NC | account by id | bucket cli and tests)
         const account_fs_context = await native_fs_utils.get_fs_context(account.nsfs_account_config, data.fs_backend);
         if (!config.NC_DISABLE_ACCESS_CHECK) {
             const accessible = await native_fs_utils.is_dir_rw_accessible(account_fs_context, data.path);
@@ -353,17 +306,17 @@ async function validate_bucket_args(config_root_backend, accounts_dir_path, root
         }
         if (action === ACTIONS.ADD) {
             if (!account.allow_bucket_creation) {
-                const detail_msg = `${data.owner_account} account not allowed to create new buckets. ` +
+                const detail_msg = `${account.name} account not allowed to create new buckets. ` +
                 `Please make sure to have a valid new_buckets_path and enable the flag allow_bucket_creation`;
                 throw_cli_error(ManageCLIError.BucketCreationNotAllowed, detail_msg);
-            }
+        }
+            data.owner_account = account._id; // TODO move this assignment to better place
         }
         if (data.s3_policy) {
             try {
                 await bucket_policy_utils.validate_s3_policy(data.s3_policy, data.name,
                     async principal =>
-                        (await get_account_by_principal(fs_context_fs_backend, accounts_dir_path, root_accounts_dir_path, principal)
-                ));
+                        await get_account_by_principal(config_root_backend, accounts_dir_path, root_accounts_dir_path, principal)); // eslint-disable-line no-invalid-this
             } catch (err) {
                 dbg.error('validate_bucket_args invalid bucket policy err:', err);
                 throw_cli_error(ManageCLIError.MalformedPolicy, data.s3_policy);
@@ -458,11 +411,7 @@ function _validate_access_keys(access_key, secret_key) {
  * in case it finds one, it would throw an error
  * @param {string} account_id
  */
-<<<<<<< HEAD
-async function validate_delete_account(config_root_backend, buckets_dir_path, account_name) {
-=======
-async function verify_delete_account(config_root_backend, buckets_dir_path, account_id) {
->>>>>>> 9c4a560a3 (NC | account by id | bucket cli and tests)
+async function validate_delete_account(config_root_backend, buckets_dir_path, account_id) {
     const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
     const entries = await nb_native().fs.readdir(fs_context, buckets_dir_path);
     await P.map_with_concurrency(10, entries, async entry => {

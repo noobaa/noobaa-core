@@ -190,7 +190,7 @@ async function fetch_existing_bucket_data(target) {
 }
 
 async function add_bucket(data, account) {
-    await manage_nsfs_validations.validate_bucket_args(config_root_backend, accounts_dir_path, data, ACTIONS.ADD);
+    await manage_nsfs_validations.validate_bucket_args(config_root_backend, accounts_dir_path, root_accounts_dir_path, data, ACTIONS.ADD);
     const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
     const bucket_conf_path = get_config_file_path(buckets_dir_path, data.name);
     const exists = await native_fs_utils.is_path_exists(fs_context, bucket_conf_path);
@@ -206,7 +206,7 @@ async function add_bucket(data, account) {
 }
 
 async function get_bucket_status(data) {
-    await manage_nsfs_validations.validate_bucket_args(config_root_backend, accounts_dir_path, data, ACTIONS.STATUS);
+    await manage_nsfs_validations.validate_bucket_args(config_root_backend, accounts_dir_path, root_accounts_dir_path, data, ACTIONS.STATUS);
     try {
         const bucket_path = get_config_file_path(buckets_dir_path, data.name);
         const config_data = await get_config_data(config_root_backend, bucket_path);
@@ -218,7 +218,7 @@ async function get_bucket_status(data) {
 }
 
 async function update_bucket(data) {
-    await manage_nsfs_validations.validate_bucket_args(config_root_backend, accounts_dir_path, data, ACTIONS.UPDATE);
+    await manage_nsfs_validations.validate_bucket_args(config_root_backend, accounts_dir_path, root_accounts_dir_path, data, ACTIONS.UPDATE);
     const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
 
     const cur_name = data.name;
@@ -256,7 +256,7 @@ async function update_bucket(data) {
 }
 
 async function delete_bucket(data, force) {
-    await manage_nsfs_validations.validate_bucket_args(config_root_backend, accounts_dir_path, data, ACTIONS.DELETE);
+    await manage_nsfs_validations.validate_bucket_args(config_root_backend, accounts_dir_path, root_accounts_dir_path, data, ACTIONS.DELETE);
     // we have fs_contexts: (1) fs_backend for bucket temp dir (2) config_root_backend for config files
     const fs_context_config_root_backend = native_fs_utils.get_process_fs_context(config_root_backend);
     const fs_context_fs_backend = native_fs_utils.get_process_fs_context(data.fs_backend);
@@ -534,7 +534,7 @@ async function update_account(data) {
 
 async function delete_account(data) {
     await manage_nsfs_validations.validate_account_args(data, ACTIONS.DELETE);
-    await manage_nsfs_validations.validate_delete_account(config_root_backend, buckets_dir_path, data.name);
+    await manage_nsfs_validations.validate_delete_account(config_root_backend, buckets_dir_path, data._id);
 
     const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
     const account_config_path = get_config_file_path(accounts_dir_path, data._id);

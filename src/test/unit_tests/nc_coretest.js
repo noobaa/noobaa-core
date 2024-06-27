@@ -142,7 +142,10 @@ async function config_dir_setup() {
     await fs.promises.writeFile(CONFIG_FILE_PATH, JSON.stringify({
         ALLOW_HTTP: true,
         OBJECT_SDK_BUCKET_CACHE_EXPIRY_MS: 1,
-        NC_RELOAD_CONFIG_INTERVAL: 1
+        NC_RELOAD_CONFIG_INTERVAL: 1,
+        // DO NOT CHANGE - setting VACCUM_ANALYZER_INTERVAL=1 needed for failing the tests
+        // in case where vaccumAnalyzer is being called before setting process.env.NC_NSFS_NO_DB_ENV = 'true' on nsfs.js
+        VACCUM_ANALYZER_INTERVAL: 1
     }));
     await fs.promises.mkdir(FIRST_BUCKET_PATH, { recursive: true });
 

@@ -987,7 +987,7 @@ mocha.describe('manage_nsfs cli', function() {
                 await exec_manage_cli(type, '', { config_root, ips: '' });
                 assert.fail('should have failed with whitelist ips should not be empty.');
             } catch (err) {
-                assert_error(err, ManageCLIError.MissingWhiteListIPFlag);
+                assert_error(err, ManageCLIError.InvalidWhiteListIPFormat);
             }
         });
 

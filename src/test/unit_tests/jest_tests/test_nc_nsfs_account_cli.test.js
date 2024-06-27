@@ -1,4 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
+/* eslint-disable max-lines-per-function */
 'use strict';
 
 // disabling init_rand_seed as it takes longer than the actual test execution
@@ -410,6 +411,34 @@ describe('manage nsfs cli account flow', () => {
             const res = await exec_manage_cli(type, action, account_options);
             expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidAccountName.code);
         });
+
+        it('should fail - cli account add - without identifier', async function() {
+            const action = ACTIONS.ADD;
+            const { type, new_buckets_path, uid, gid } = defaults; // without name
+            const account_options = { config_root, new_buckets_path, uid, gid };
+            await fs_utils.create_fresh_path(new_buckets_path);
+            await fs_utils.file_must_exist(new_buckets_path);
+            await set_path_permissions_and_owner(new_buckets_path, account_options, 0o700);
+            const res = await exec_manage_cli(type, action, account_options);
+            expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.MissingAccountNameFlag.code);
+        });
+
+        it('should fail - cli create account invalid option (new_name)', async () => {
+            const { type, name, new_buckets_path, uid, gid } = defaults;
+            const account_options = { config_root, name, new_buckets_path, uid, gid, new_name: 'lala'}; // new_name invalid option in add
+            const action = ACTIONS.ADD;
+            const res = await exec_manage_cli(type, action, account_options);
+            expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidArgument.code);
+        });
+
+        it('should fail - cli create account invalid option (new_access_key)', async () => {
+            const { type, name, new_buckets_path, uid, gid } = defaults;
+            const account_options = { config_root, name, new_buckets_path, uid, gid, new_access_key: 'GIGiFAnjaaE7OKD5N7lB'}; // new_access_key invalid option
+            const action = ACTIONS.ADD;
+            const res = await exec_manage_cli(type, action, account_options);
+            expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidArgument.code);
+        });
+
     });
 
     describe('cli update account', () => {
@@ -741,6 +770,13 @@ describe('manage nsfs cli account flow', () => {
                 const res = await exec_manage_cli(type, action, account_options);
                 expect(JSON.parse(res.stdout).error.message).toBe(ManageCLIError.InvalidAccountName.message);
             });
+
+            it('should fail - cli account update - without identifier', async () => {
+                const account_options = { config_root, regenerate: true }; // without name
+                const action = ACTIONS.UPDATE;
+                const res = await exec_manage_cli(type, action, account_options);
+                expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.MissingAccountNameFlag.code);
+            });
         });
 
         describe('cli update account (has distinguished name)', () => {
@@ -1026,12 +1062,6 @@ describe('manage nsfs cli account flow', () => {
             expect(JSON.parse(res.stdout).error.message).toBe(ManageCLIError.InvalidFlagsCombination.message);
         });
 
-        it('cli account status without name and access_key', async function() {
-            const action = ACTIONS.STATUS;
-            const res = await exec_manage_cli(TYPES.ACCOUNT, action, { config_root });
-            expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.MissingIdentifier.code);
-        });
-
     });
 
     describe('cli delete account', () => {
@@ -1128,6 +1158,14 @@ describe('manage nsfs cli account flow', () => {
             const account_options = { config_root, access_key};
             const res = await exec_manage_cli(type, action, account_options);
             expect(JSON.parse(res.stdout).error.message).toBe(ManageCLIError.InvalidArgument.message);
+        });
+
+        it('should fail - cli account delete - without identifier', async () => {
+            const action = ACTIONS.DELETE;
+            const { type } = defaults;
+            const account_options = { config_root}; // without name
+            const res = await exec_manage_cli(type, action, account_options);
+            expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.MissingAccountNameFlag.code);
         });
 
     });

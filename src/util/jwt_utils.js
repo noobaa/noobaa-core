@@ -16,10 +16,15 @@ function get_jwt_secret() {
 }
 
 function make_auth_token(object = {}, jwt_options = {}) {
-    // Remote services/endpoints should not sign tokens - unless required for STS
-    if (config.NOOBAA_AUTH_TOKEN && object.assumed_role_access_key === undefined) return config.NOOBAA_AUTH_TOKEN;
     // create and return the signed token
     return jwt.sign(object, get_jwt_secret(), jwt_options);
+}
+
+function make_internal_auth_token(object = {}, jwt_options = {}) {
+    // Remote services/endpoints should not sign tokens
+    if (config.NOOBAA_AUTH_TOKEN) return config.NOOBAA_AUTH_TOKEN;
+    // If an auth token isn't provided, fall back to signing normally
+    return make_auth_token(object, jwt_options);
 }
 
 function authorize_jwt_token(token) {
@@ -33,4 +38,5 @@ function authorize_jwt_token(token) {
 
 exports.get_jwt_secret = get_jwt_secret;
 exports.make_auth_token = make_auth_token;
+exports.make_internal_auth_token = make_internal_auth_token;
 exports.authorize_jwt_token = authorize_jwt_token;

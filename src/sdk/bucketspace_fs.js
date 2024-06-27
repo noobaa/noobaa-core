@@ -145,12 +145,20 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
         try {
             const bucket_config_path = this._get_bucket_config_path(name);
             dbg.log0('BucketSpaceFS.read_bucket_sdk_info: bucket_config_path', bucket_config_path);
-            const { data } = await nb_native().fs.readFile(this.fs_context, bucket_config_path);
+            let { data } = await nb_native().fs.readFile(this.fs_context, bucket_config_path);
             const bucket = JSON.parse(data.toString());
             nsfs_schema_utils.validate_bucket_schema(bucket);
-            const is_valid = await this.check_bucket_config(bucket);
+            let is_valid = await this.check_bucket_config(bucket);
             if (!is_valid) {
                 dbg.warn('BucketSpaceFS: one or more bucket config check is failed for bucket : ', name);
+            }
+            const account_config_path = this._get_account_config_path(bucket.owner_account);
+            data = (await nb_native().fs.readFile(this.fs_context, account_config_path)).data;
+            const account = JSON.parse(data.toString());
+            nsfs_schema_utils.validate_account_schema(account);
+            is_valid = await this.check_bucket_config(bucket);
+            if (!is_valid) {
+                dbg.warn('BucketSpaceFS: account linked to bucket is not valid: ', name);
             }
             const nsr = {
                 resource: {
@@ -172,10 +180,10 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
 
             bucket.name = new SensitiveString(bucket.name);
             bucket.system_owner = new SensitiveString(bucket.system_owner);
-            bucket.bucket_owner = new SensitiveString(bucket.bucket_owner);
+            bucket.bucket_owner = new SensitiveString(account.name);
             bucket.owner_account = {
                 id: bucket.owner_account,
-                email: bucket.bucket_owner
+                email: account.email
             };
             if (bucket.s3_policy) {
                 for (const [s_index, statement] of bucket.s3_policy.Statement.entries()) {
@@ -327,8 +335,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             name,
             tag: js_utils.default_value(tag, undefined),
             owner_account: account._id,
-            system_owner: new SensitiveString(account.name),
-            bucket_owner: new SensitiveString(account.name),
+            system_owner: account._id,
             versioning: config.NSFS_VERSIONING_ENABLED && lock_enabled ? 'ENABLED' : 'DISABLED',
             object_lock_configuration: config.WORM_ENABLED ? {
                 object_lock_enabled: lock_enabled ? 'Enabled' : 'Disabled',
@@ -746,14 +753,14 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
     // TODO: move the following 3 functions - has_bucket_action_permission(), validate_fs_bucket_access(), _has_access_to_nsfs_dir()
     // so they can be re-used
     async has_bucket_action_permission(bucket, account, action, bucket_path = "") {
-        const account_identifier = account.name.unwrap();
-        dbg.log1('has_bucket_action_permission:', bucket.name.unwrap(), account_identifier, bucket.bucket_owner.unwrap());
+        const account_identifier = account._id.unwrap();
+        dbg.log1('has_bucket_action_permission:', bucket.name.unwrap(), account_identifier, bucket.owner_account.unwrap());
 
         const is_system_owner = account_identifier === bucket.system_owner.unwrap();
 
         // If the system owner account wants to access the bucket, allow it
         if (is_system_owner) return true;
-        const is_owner = (bucket.bucket_owner.unwrap() === account_identifier);
+        const is_owner = (bucket.owner_account.unwrap() === account_identifier);
         const bucket_policy = bucket.s3_policy;
 
         if (!bucket_policy) return is_owner;

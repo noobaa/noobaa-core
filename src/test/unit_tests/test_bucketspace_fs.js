@@ -212,7 +212,8 @@ mocha.describe('bucketspace_fs', function() {
     };
 
     mocha.before(async () => {
-        await P.all(_.map([CONFIG_SUBDIRS.ACCOUNTS, CONFIG_SUBDIRS.ACCESS_KEYS, CONFIG_SUBDIRS.BUCKETS, CONFIG_SUBDIRS.ROOT_ACCOUNTS], async dir =>
+        await P.all(_.map([CONFIG_SUBDIRS.ACCOUNTS, CONFIG_SUBDIRS.ACCESS_KEYS, CONFIG_SUBDIRS.BUCKETS, CONFIG_SUBDIRS.ROOT_ACCOUNTS],
+            async dir =>
             await fs_utils.create_fresh_path(`${config_root}/${dir}`))
         );
         await fs_utils.create_fresh_path(new_buckets_path);

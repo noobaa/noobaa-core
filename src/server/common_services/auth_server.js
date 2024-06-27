@@ -745,7 +745,7 @@ function make_auth_token(options) {
         jwt_options.expiresIn = options.expiry;
     }
     // create and return the signed token
-    return jwt_utils.make_auth_token(auth, jwt_options);
+    return jwt_utils.make_internal_auth_token(auth, jwt_options);
 }
 
 

@@ -11,7 +11,7 @@ class ServerRpc {
 
     constructor() {
         this.rpc = api.new_rpc();
-        this.client = this.rpc.new_client({ auth_token: jwt_utils.make_auth_token() });
+        this.client = this.rpc.new_client({ auth_token: jwt_utils.make_internal_auth_token() });
 
         // n2n proxy allows any service reach n2n agents
         // without registering an n2n agent by proxying requests

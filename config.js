@@ -926,6 +926,12 @@ config.TIERING_TTL_MS = 30 * 60 * 1000; // 30 minutes
 config.AWS_SDK_VERSION_3_ENABLED = true;
 config.DEFAULT_REGION = 'us-east-1';
 
+/////////////////////////
+///  VACCUM ANALYZER  ///
+/////////////////////////
+
+config.VACCUM_ANALYZER_INTERVAL = 86400000;
+
 /////////////////////
 //                 //
 //    OVERRIDES    //

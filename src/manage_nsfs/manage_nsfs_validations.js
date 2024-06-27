@@ -13,12 +13,17 @@ const native_fs_utils = require('../util/native_fs_utils');
 const ManageCLIError = require('../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
 const bucket_policy_utils = require('../endpoint/s3/s3_bucket_policy_utils');
 <<<<<<< HEAD
+<<<<<<< HEAD
 const { throw_cli_error, get_config_file_path, get_bucket_owner_account,
     get_config_data, get_options_from_file, get_boolean_or_string_value } = require('../manage_nsfs/manage_nsfs_cli_utils');
 =======
 const { throw_cli_error, get_config_file_path, get_config_data, get_bucket_owner_account,
         get_options_from_file, has_access_keys } = require('../manage_nsfs/manage_nsfs_cli_utils');
 >>>>>>> 9c4a560a3 (NC | account by id | bucket cli and tests)
+=======
+const { throw_cli_error, get_config_file_path, get_symlink_config_file_path, get_config_data,
+    get_bucket_owner_account, get_options_from_file, has_access_keys } = require('../manage_nsfs/manage_nsfs_cli_utils');
+>>>>>>> eabba8070 (NC | account by id | allow principal to be either account id or name)
 const { TYPES, ACTIONS, VALID_OPTIONS, OPTION_TYPE, FROM_FILE, BOOLEAN_STRING_VALUES, BOOLEAN_STRING_OPTIONS,
     GLACIER_ACTIONS, LIST_UNSETABLE_OPTIONS, ANONYMOUS } = require('../manage_nsfs/manage_nsfs_constants');
 
@@ -286,6 +291,7 @@ if (action === ACTIONS.STATUS || action === ACTIONS.ADD || action === ACTIONS.UP
  */
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 async function validate_bucket_args(config_root_backend, accounts_dir_path, data, action) {
     if (action === ACTIONS.ADD || action === ACTIONS.UPDATE) {
         if (action === ACTIONS.ADD) native_fs_utils.validate_bucket_creation({ name: data.name });
@@ -297,6 +303,9 @@ async function validate_bucket_args(config_root_backend, accounts_dir_path, data
 =======
 async function validate_bucket_args(config_root_backend, accounts_dir_path, data, action) {
 >>>>>>> 9c4a560a3 (NC | account by id | bucket cli and tests)
+=======
+async function validate_bucket_args(config_root_backend, accounts_dir_path, root_accounts_dir_path, data, action) {
+>>>>>>> eabba8070 (NC | account by id | allow principal to be either account id or name)
     if (action === ACTIONS.DELETE || action === ACTIONS.STATUS) {
         if (_.isUndefined(data.name)) throw_cli_error(ManageCLIError.MissingBucketNameFlag);
     } else { // action === ACTIONS.ADD || action === ACTIONS.UPDATE
@@ -352,16 +361,9 @@ async function validate_bucket_args(config_root_backend, accounts_dir_path, data
         if (data.s3_policy) {
             try {
                 await bucket_policy_utils.validate_s3_policy(data.s3_policy, data.name,
-                    async principal => {
-                        const account_config_path = get_config_file_path(accounts_dir_path, principal);
-                        try {
-                            const fs_context_config_root_backend = native_fs_utils.get_process_fs_context(config_root_backend);
-                            await nb_native().fs.stat(fs_context_config_root_backend, account_config_path);
-                            return true;
-                        } catch (err) {
-                            return false;
-                        }
-                    });
+                    async principal =>
+                        (await get_account_by_principal(fs_context_fs_backend, accounts_dir_path, root_accounts_dir_path, principal)
+                ));
             } catch (err) {
                 dbg.error('validate_bucket_args invalid bucket policy err:', err);
                 throw_cli_error(ManageCLIError.MalformedPolicy, data.s3_policy);
@@ -476,6 +478,20 @@ async function verify_delete_account(config_root_backend, buckets_dir_path, acco
     });
 }
 
+async function file_exists(fs_context, file_path) {
+    try {
+        await nb_native().fs.stat(fs_context, file_path);
+        return true;
+    } catch (err) {
+        return false;
+    }
+}
+
+async function get_account_by_principal(fs_context, accounts_dir_path, root_accounts_dir_path, principal) {
+    return await file_exists(fs_context, get_config_file_path(accounts_dir_path, principal)) ||
+           await file_exists(fs_context, get_symlink_config_file_path(root_accounts_dir_path, principal));
+}
+
 ///////////////////////////////////
 //// IP WhITE LIST VALIDATIONS ////
 ///////////////////////////////////
@@ -506,3 +522,4 @@ exports.validate_delete_account = validate_delete_account;
 exports.validate_whitelist_arg = validate_whitelist_arg;
 exports.validate_whitelist_ips = validate_whitelist_ips;
 exports.validate_flags_combination = validate_flags_combination;
+exports.get_account_by_principal = get_account_by_principal;

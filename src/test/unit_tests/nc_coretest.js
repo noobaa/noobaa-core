@@ -284,10 +284,6 @@ async function read_bucket_manage(options) {
     const res = await exec_manage_cli(TYPES.BUCKET, ACTIONS.STATUS, options);
     const json_bucket = JSON.parse(res);
     const bucket = json_bucket.response.reply;
-    bucket.owner_account = {
-        email: bucket.bucket_owner,
-        id: bucket.owner_account
-    };
     return bucket;
 }
 

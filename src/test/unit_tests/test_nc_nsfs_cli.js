@@ -1128,7 +1128,9 @@ function assert_response(action, type, actual_res, expected_res, show_secrets, w
 function assert_bucket(bucket, bucket_options, account_id) {
     assert.strictEqual(bucket.name, bucket_options.name);
     assert.strictEqual(bucket.system_owner, account_id);
-    assert.strictEqual(bucket.owner_account, account_id);
+    //depending on whether we got bucket through manage_nsfs cli or by reading the file,
+    //bucket will either have owner_account object or owner_account field
+    assert.strictEqual(bucket.owner_account.id || bucket.owner_account, account_id);
     assert.strictEqual(bucket.path, bucket_options.path);
     assert.strictEqual(bucket.should_create_underlying_storage, false);
     assert.strictEqual(bucket.versioning, 'DISABLED');

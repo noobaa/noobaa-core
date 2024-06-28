@@ -772,13 +772,26 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             throw new Error('has_bucket_action_permission: action is required');
         }
 
-        const result = await bucket_policy_utils.has_bucket_policy_permission(
+        let result = await bucket_policy_utils.has_bucket_policy_permission(
             bucket_policy,
             account_identifier,
             action,
             `arn:aws:s3:::${bucket.name.unwrap()}${bucket_path}`,
             undefined
         );
+
+        //we (currently) allow account identified to be both id and name,
+        if (result === 'IMPLICIT_DENY') {
+            result = await bucket_policy_utils.has_bucket_policy_permission(
+                bucket_policy,
+                account.name.unwrap(),
+                action,
+                `arn:aws:s3:::${bucket.name.unwrap()}${bucket_path}`,
+                undefined
+            );
+        }
+
+        console.log("res = ", result);
 
         if (result === 'DENY') return false;
         return is_owner || result === 'ALLOW';

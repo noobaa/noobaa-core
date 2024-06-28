@@ -650,11 +650,15 @@ struct FSWorker : public Napi::AsyncWorker
     {
         Napi::Env env = Env();
         DBG1("FS::FSWorker::OnError: " << _desc << " " << DVAL(error.Message()));
+        DBG0("FS::FSWorker::OnError: " << _desc << " " << DVAL(error.Message()));
         ReportWorkerStats(1);
         auto obj = error.Value();
         if (_errno) {
             obj.Set("code", Napi::String::New(env, uv_err_name(uv_translate_sys_error(_errno))));
         }
+
+        obj.Set("context", Napi::String::New(env, _desc));
+
         _deferred.Reject(obj);
     }
 };

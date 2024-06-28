@@ -23,7 +23,11 @@ namespace noobaa
 {
 
 #ifndef __func__
-#define __func__ __FUNCTION__
+    #ifdef __PRETTY_FUNCTION__
+    #define __func__ __PRETTY_FUNCTION__
+    #else
+    #define __func__ __FUNCTION__
+    #endif
 #endif
 
 #define DVAL(x) #x "=" << x << " "

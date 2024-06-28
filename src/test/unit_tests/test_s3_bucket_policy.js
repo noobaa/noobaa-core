@@ -956,7 +956,10 @@ mocha.describe('s3_bucket_policy', function() {
         }));
     });
 
-    mocha.it('should be able to use notPrincipal', async function() {
+    mocha.it('should be able to use notPrincipal2', async function() {
+        //This test is broken - Effect Allow can't be used with NotPrincipal.
+        //skipping for NC until fixed
+        if (process.env.NC_CORETEST) this.skip(); // eslint-disable-line no-invalid-this
         const self = this; // eslint-disable-line no-invalid-this
         self.timeout(15000);
         const auth_put_policy = {

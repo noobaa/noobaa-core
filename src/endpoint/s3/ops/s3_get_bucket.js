@@ -81,7 +81,7 @@ async function get_bucket(req) {
                 LastModified: s3_utils.format_s3_xml_date(obj.last_modified_time || obj.create_time),
                 ETag: `"${obj.etag}"`,
                 Size: obj.size,
-                Owner: (!list_type || req.query['fetch-owner']) && s3_utils.DEFAULT_S3_USER,
+                Owner: (!list_type || req.query['fetch-owner']) && get_object_owner(req.params),
                 StorageClass: s3_utils.parse_storage_class(obj.storage_class),
                 RestoreStatus: get_object_restore_status(obj, restore_status_requested)
             }
@@ -93,6 +93,15 @@ async function get_bucket(req) {
         }))
         ]
     };
+}
+
+function get_object_owner(params) {
+    const parts = params.bucket.split('-');
+
+    return Object.freeze({
+        ID: '123',
+        DisplayName: parts[0],
+    });
 }
 
 function cont_tok_to_key_marker(cont_tok) {

@@ -1,6 +1,7 @@
 /* Copyright (C) 2024 NooBaa */
 'use strict';
 
+const dbg = require('../util/debug_module')(__filename);
 const _ = require('lodash');
 const path = require('path');
 const nb_native = require('../util/nb_native');
@@ -121,6 +122,16 @@ function has_access_keys(access_keys) {
 }
 
 /**
+ * set_debug_level will set the debug log level
+ * @param {string} debug
+ */
+function set_debug_level(debug) {
+    const debug_level = Number(debug) || 5;
+    dbg.set_module_level(debug_level, 'core');
+    nb_native().fs.set_debug_level(debug_level);
+}
+
+/**
  * generate_id will generate an id that we use to identify entities (such as account, bucket, etc.). 
  */
 // TODO: 
@@ -142,3 +153,4 @@ exports.get_bucket_owner_account = get_bucket_owner_account;
 exports.get_options_from_file = get_options_from_file;
 exports.has_access_keys = has_access_keys;
 exports.generate_id = generate_id;
+exports.set_debug_level = set_debug_level;

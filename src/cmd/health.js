@@ -14,7 +14,7 @@ const { read_stream_join } = require('../util/buffer_utils');
 const { make_https_request } = require('../util/http_utils');
 const { TYPES } = require('../manage_nsfs/manage_nsfs_constants');
 const { validate_input_types } = require('../manage_nsfs/manage_nsfs_validations');
-const { get_boolean_or_string_value } = require('../manage_nsfs/manage_nsfs_cli_utils');
+const { get_boolean_or_string_value, set_debug_level } = require('../manage_nsfs/manage_nsfs_cli_utils');
 const ManageCLIError = require('../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
 
 const HELP = `
@@ -34,12 +34,13 @@ Usage:
 
 const OPTIONS = `
 Flags:
-
-    --deployment_type <string>        (optional)                             Set the nsfs type for heath check.(default nc; Non Containerized)
-    --config_root <string>            (optional)                             Set Configuration files path for Noobaa standalon NSFS. (default config.NSFS_NC_DEFAULT_CONF_DIR)
-    --https_port                      (optional)                             Set the S3 endpoint listening HTTPS port to serve. (default config.ENDPOINT_SSL_PORT)
-    --all_account_details             (optional)                             Set a flag for returning all account details.
-    --all_bucket_details              (optional)                             Set a flag for returning all bucket details.
+    
+    --deployment_type       <string>        (optional)          Set the nsfs type for heath check.(default nc; Non Containerized)
+    --https_port            <number>        (optional)          Set the S3 endpoint listening HTTPS port to serve. (default config.ENDPOINT_SSL_PORT)
+    --all_account_details   <boolean>       (optional)          Set a flag for returning all account details.
+    --all_bucket_details    <boolean>       (optional)          Set a flag for returning all bucket details.
+    --debug                 <number>        (optional)          Use for increasing the log verbosity of health cli commands.
+    --config_root           <string>        (optional)          Set Configuration files path for Noobaa standalon NSFS. (default config.NSFS_NC_DEFAULT_CONF_DIR)
 `;
 
 function print_usage() {
@@ -411,6 +412,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
         }
         if (argv.help || argv.h) return print_usage();
         await validate_input_types(TYPES.HEALTH, '', argv);
+        if (argv.debug) set_debug_level(argv.debug);
         const config_root = argv.config_root ? String(argv.config_root) : config.NSFS_NC_CONF_DIR;
         const https_port = Number(argv.https_port) || config.ENDPOINT_SSL_PORT;
         const deployment_type = argv.deployment_type || 'nc';

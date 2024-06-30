@@ -20,7 +20,7 @@ const { print_usage } = require('../manage_nsfs/manage_nsfs_help_utils');
 const { TYPES, ACTIONS, LIST_ACCOUNT_FILTERS, LIST_BUCKET_FILTERS,
     GLACIER_ACTIONS } = require('../manage_nsfs/manage_nsfs_constants');
 const { throw_cli_error, write_stdout_response, get_config_file_path, get_symlink_config_file_path,
-    get_config_data, get_boolean_or_string_value, has_access_keys} = require('../manage_nsfs/manage_nsfs_cli_utils');
+    get_config_data, get_boolean_or_string_value, has_access_keys, set_debug_level} = require('../manage_nsfs/manage_nsfs_cli_utils');
 const manage_nsfs_validations = require('../manage_nsfs/manage_nsfs_validations');
 const nc_mkm = require('../manage_nsfs/nc_master_key_manager').get_instance();
 
@@ -68,11 +68,6 @@ async function main(argv = minimist(process.argv.slice(2))) {
         if (process.getuid() !== 0 || process.getgid() !== 0) {
             throw new Error('Root permissions required for Manage NSFS execution.');
         }
-        if (argv.debug) {
-            const debug_level = Number(argv.debug) || 5;
-            dbg.set_module_level(debug_level, 'core');
-            nb_native().fs.set_debug_level(debug_level);
-        }
         const type = argv._[0] || '';
         const action = argv._[1] || '';
         if (argv.help || argv.h) {
@@ -80,6 +75,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
         }
         const user_input_from_file = await manage_nsfs_validations.validate_input_types(type, action, argv);
         const user_input = user_input_from_file || argv;
+        if (argv.debug) set_debug_level(argv.debug);
         config_root = argv.config_root ? String(argv.config_root) : config.NSFS_NC_CONF_DIR;
         if (!config_root) throw_cli_error(ManageCLIError.MissingConfigDirPath);
         if (argv.config_root) {

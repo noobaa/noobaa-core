@@ -23,6 +23,10 @@ module.exports = {
         owner_account: {
             type: 'string',
         },
+        // creator is the account id that created this bucket (internal information)
+        creator: {
+            type: 'string',
+        },
         name: {
             type: 'string',
         },

@@ -100,6 +100,11 @@ describe('schema validation NC NSFS bucket', () => {
             nsfs_schema_utils.validate_bucket_schema(bucket_data);
         });
 
+        it('nsfs_bucket with creator', () => {
+            const bucket_data = get_bucket_data();
+            bucket_data.creator = '65a62e22ceae5e5f1a758ab1';
+            nsfs_schema_utils.validate_bucket_schema(bucket_data);
+        });
     });
 
     describe('bucket with additional properties', () => {
@@ -434,6 +439,14 @@ describe('schema validation NC NSFS bucket', () => {
             assert_validation(bucket_data, reason, message);
         });
 
+        it('bucket with creator as a number (instead of string)', () => {
+            const bucket_data = get_bucket_data();
+            bucket_data.creator = 123; // number instead of string
+            const reason = 'Test should have failed because of wrong type for' +
+                'creator with number (instead of string)';
+            const message = 'must be string';
+            assert_validation(bucket_data, reason, message);
+        });
     });
 
     describe('skip schema check by config test', () => {

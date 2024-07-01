@@ -265,6 +265,11 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             if (!sdk.requesting_account.allow_bucket_creation) {
                 throw new RpcError('UNAUTHORIZED', 'Not allowed to create new buckets');
             }
+            // currently we do not allow IAM account to create a bucket (temporary)
+            if (sdk.requesting_account.owner !== undefined) {
+            dbg.warn('create_bucket: account is IAM account (currently not allowed to create buckets)');
+                throw new RpcError('UNAUTHORIZED', 'Not allowed to create new buckets');
+            }
             if (!sdk.requesting_account.nsfs_account_config || !sdk.requesting_account.nsfs_account_config.new_buckets_path) {
                 throw new RpcError('MISSING_NSFS_ACCOUNT_CONFIGURATION');
             }
@@ -320,6 +325,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             name,
             tag: js_utils.default_value(tag, undefined),
             owner_account: account._id,
+            creator: account._id,
             system_owner: new SensitiveString(account.name),
             bucket_owner: new SensitiveString(account.name),
             versioning: config.NSFS_VERSIONING_ENABLED && lock_enabled ? 'ENABLED' : 'DISABLED',
@@ -746,10 +752,16 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
 
         // If the system owner account wants to access the bucket, allow it
         if (is_system_owner) return true;
-        const is_owner = (bucket.bucket_owner.unwrap() === account_identifier);
+        const is_owner = (bucket.owner_account && bucket.owner_account.id === account._id);
         const bucket_policy = bucket.s3_policy;
 
-        if (!bucket_policy) return is_owner;
+        if (!bucket_policy) {
+        // in case we do not have bucket policy
+        // we allow IAM account to access a bucket that that is owned by their root account
+        const is_iam_and_same_root_account_owner = account.owner !== undefined &&
+            account.owner === bucket.owner_account.id;
+            return is_owner || is_iam_and_same_root_account_owner;
+        }
         if (!action) {
             throw new Error('has_bucket_action_permission: action is required');
         }

@@ -21,9 +21,9 @@ const CEPH_TEST = {
 };
 
 // For NSFS NC path (using default values)
-const account_path = '/etc/noobaa.conf.d/accounts/cephalt.json';
-const account_tenant_path = '/etc/noobaa.conf.d/accounts/cephtenant.json';
-const anonymous_account_path = '/etc/noobaa.conf.d/accounts/anonymous.json';
+const account_path = '/etc/noobaa.conf.d/root_accounts/cephalt.symlink';
+const account_tenant_path = '/etc/noobaa.conf.d/root_accounts/cephtenant.symlink';
+const anonymous_account_path = '/etc/noobaa.conf.d/root_accounts/anonymous.symlink';
 
 const DEFAULT_NUMBER_OF_WORKERS = 5; //5 was the number of workers in the previous CI/CD process
 

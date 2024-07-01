@@ -6,7 +6,7 @@ const path = require('path');
 const fs = require('fs');
 const dbg = require('../../util/debug_module')(__filename);
 const { KubeStore } = require('../kube-store.js');
-const yaml = require('yamljs');
+const yaml = require('yaml');
 const Agent = require('../../agent/agent');
 const { v4: uuid } = require('uuid');
 const js_utils = require('../../util/js_utils');
@@ -69,8 +69,8 @@ class ManagedStatefulSetPoolController extends PoolController {
 
         await KubeStore.instance.create_secret(secret_k8s_conf);
         await KubeStore.instance.create_backingstore(pool_k8s_conf);
-        const secret_yaml = yaml.stringify(secret_k8s_conf, 6, 2);
-        const backstore_yaml = yaml.stringify(pool_k8s_conf, 6, 2);
+        const secret_yaml = yaml.stringify(secret_k8s_conf, { indent: 2 });
+        const backstore_yaml = yaml.stringify(pool_k8s_conf, { indent: 2 });
 
         return `${secret_yaml}---\n${backstore_yaml}`;
     }
@@ -130,8 +130,8 @@ class UnmanagedStatefulSetPoolController extends PoolController {
             agent_count,
             ...agent_profile
         });
-        const secret_yaml = yaml.stringify(secret_k8s_conf, 6, 2);
-        const backstore_yaml = yaml.stringify(pool_k8s_conf, 6, 2);
+        const secret_yaml = yaml.stringify(secret_k8s_conf, { indent: 2 });
+        const backstore_yaml = yaml.stringify(pool_k8s_conf, { indent: 2 });
 
         return `${secret_yaml}---\n${backstore_yaml}`;
     }
@@ -234,7 +234,7 @@ class InProcessAgentsPoolController extends PoolController {
 async function _get_k8s_conf(params) {
     const yaml_path = path.resolve(__dirname, '../../deploy/NVA_build/noobaa_pool.yaml');
     const yaml_file = (await fs.promises.readFile(yaml_path)).toString();
-    const backingstore = await yaml.parse(yaml_file);
+    const backingstore = yaml.parse(yaml_file);
 
     // Update the template the given configuration.
     backingstore.metadata.name = params.pool_name;
@@ -258,7 +258,7 @@ async function _get_k8s_conf(params) {
 async function _get_k8s_secret(params) {
     const yaml_path = path.resolve(__dirname, '../../deploy/NVA_build/noobaa_pool_secret.yaml');
     const yaml_file = (await fs.promises.readFile(yaml_path)).toString();
-    const secret = await yaml.parse(yaml_file);
+    const secret = yaml.parse(yaml_file);
 
     // Update the template the given configuration.
     secret.metadata.name = `backing-store-pv-pool-${params.pool_name}`;

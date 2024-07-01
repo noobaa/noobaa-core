@@ -1,7 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const yaml = require('yamljs');
+const yaml = require('yaml');
 
 function parse(yaml_string, forceListResult = false) {
     const docs = yaml_string.split(/\n\s*---\s*\n/g)

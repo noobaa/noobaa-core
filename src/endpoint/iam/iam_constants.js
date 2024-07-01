@@ -5,7 +5,7 @@ const DEFAULT_MAX_ITEMS = 100;
 
 // TODO - reuse
 // function name in snake case style
-const IAM_ACTIONS = {
+const IAM_ACTIONS = Object.freeze({
     CREATE_USER: 'create_user',
     GET_USER: 'get_user',
     DELETE_USER: 'delete_user',
@@ -16,7 +16,7 @@ const IAM_ACTIONS = {
     UPDATE_ACCESS_KEY: 'update_access_key',
     DELETE_ACCESS_KEY: 'delete_access_key',
     LIST_ACCESS_KEYS: 'list_access_keys'
-};
+});
 
 
 // parameter names

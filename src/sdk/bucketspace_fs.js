@@ -24,6 +24,7 @@ const { get_umasked_mode, isDirectory, validate_bucket_creation,
     create_config_file, delete_config_file, get_bucket_tmpdir_full_path, folder_delete } = require('../util/native_fs_utils');
 const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
 const { anonymous_access_key } = require('./object_sdk');
+const manage_nsfs_cli_utils = require('../manage_nsfs/manage_nsfs_cli_utils');
 
 const dbg = require('../util/debug_module')(__filename);
 const bucket_semaphore = new KeysSemaphore(1);
@@ -307,13 +308,18 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
 
 
     new_bucket_defaults(account, { name, tag, lock_enabled, force_md5_etag }, create_uls, bucket_storage_path) {
+        // if is it root account then it is the owner
+        // else (it is an IAM account) the owner is it's root account
+        const is_account_root_account = manage_nsfs_cli_utils.check_root_account(account);
+        const owner_account = is_account_root_account ? account._id : account.owner;
         return {
             _id: mongo_utils.mongoObjectId(),
             name,
             tag: js_utils.default_value(tag, undefined),
-            owner_account: account._id,
-            system_owner: new SensitiveString(account.name),
-            bucket_owner: new SensitiveString(account.name),
+            owner_account: owner_account,
+            creator: account._id,
+            system_owner: new SensitiveString(account.name), // TODO - change it (for IAM account it is wrong)
+            bucket_owner: new SensitiveString(account.name), // TODO - change it (for IAM account it is wrong)
             versioning: config.NSFS_VERSIONING_ENABLED && lock_enabled ? 'ENABLED' : 'DISABLED',
             object_lock_configuration: config.WORM_ENABLED ? {
                 object_lock_enabled: lock_enabled ? 'Enabled' : 'Disabled',
@@ -739,9 +745,10 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
         // If the system owner account wants to access the bucket, allow it
         if (is_system_owner) return true;
         const is_owner = (bucket.bucket_owner.unwrap() === account_identifier);
+        const is_same_root_account_owner = account.owner === bucket.owner_account.id; // case for IAM account
         const bucket_policy = bucket.s3_policy;
 
-        if (!bucket_policy) return is_owner;
+        if (!bucket_policy) return is_owner || is_same_root_account_owner;
         if (!action) {
             throw new Error('has_bucket_action_permission: action is required');
         }

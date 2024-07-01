@@ -229,8 +229,10 @@ async function authorize_request_policy(req) {
         return false;
     }());
 
+    const is_same_root_account_owner = req.object_sdk.nsfs_config_root && account.owner === owner_account.id; // NC NSFS case for IAM account
+
     if (!s3_policy) {
-        if (is_owner) return;
+        if (is_owner || is_same_root_account_owner) return;
         throw new S3Error(S3Error.AccessDenied);
     }
     const permission = await s3_bucket_policy_utils.has_bucket_policy_permission(

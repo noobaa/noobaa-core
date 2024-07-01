@@ -88,3 +88,10 @@ Source: AccessKeys
   - AccessKey (Create, Update, Delete, List)
     - root account
     - all IAM users only for themselves (except the first creation that can be done only by the root account).
+
+### No Bucket Policy
+If the resource doesn’t have a bucket policy the user accounts can have access to the resources of the same root account.
+For example: 
+- root account creates 2 users (both are owned by it): user1, user2.
+- user1 create a bucket (bucket owner: <root-account-id>, bucket creator: <account-id-user1>).
+- user2 can delete this bucket: although user2 is not the creator, without a bucket policy his root account is the owner so he can delete the bucket.

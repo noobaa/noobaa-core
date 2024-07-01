@@ -25,6 +25,7 @@ const test_bucket = 'bucket1';
 const test_not_empty_bucket = 'notemptybucket';
 const test_bucket_temp_dir = 'buckettempdir';
 const test_bucket_invalid = 'bucket_invalid';
+const test_bucket_iam_account = 'bucket-iam-account';
 
 const tmp_fs_path = path.join(TMP_PATH, 'test_bucketspace_fs');
 const config_root = path.join(tmp_fs_path, 'config_root');
@@ -97,6 +98,48 @@ const account_user3 = {
         new_buckets_path: new_buckets_path_user2,
     },
     creation_date: '2023-10-30T04:46:33.815Z',
+};
+
+// account_user1 is the root account of account_iam_user1
+const account_iam_user1 = {
+    _id: '65a8edc9bc5d5bbf9db71b94',
+    name: 'iam_user_1',
+    email: 'iam_user_1@noobaa.io',
+    owner: account_user1._id,
+    allow_bucket_creation: account_user1.allow_bucket_creation,
+    access_keys: [{
+        access_key: 'a-abcdefghijklmn123459',
+        secret_key: 's-abcdefghijklmn123459Example'
+    }],
+    nsfs_account_config: {
+        uid: account_user1.nsfs_account_config.uid,
+        gid: account_user1.nsfs_account_config.gid,
+        // in new_buckets_path I couldn't use account_user1.nsfs_account_config.new_buckets_path
+        // since in the dummy object sdk using new_buckets_path 
+        new_buckets_path: new_buckets_path
+    },
+    creation_date: '2023-11-30T04:46:33.815Z',
+};
+
+// account_user1 is the root account of account_iam_user2
+const account_iam_user2 = {
+    _id: '65a8edc9bc5d5bbf9db71b95',
+    name: 'iam_user_2',
+    email: 'iam_user_2@noobaa.io',
+    owner: account_user1._id,
+    allow_bucket_creation: account_user1.allow_bucket_creation,
+    access_keys: [{
+        access_key: 'a-abcdefghijklmn123460',
+        secret_key: 's-abcdefghijklmn123460Example'
+    }],
+    nsfs_account_config: {
+        uid: account_user1.nsfs_account_config.uid,
+        gid: account_user1.nsfs_account_config.gid,
+        // in new_buckets_path I couldn't use account_user1.nsfs_account_config.new_buckets_path
+        // since in the dummy object sdk using new_buckets_path 
+        new_buckets_path: new_buckets_path
+    },
+    creation_date: '2023-12-30T04:46:33.815Z',
 };
 
 const bucketspace_fs = new BucketSpaceFS({ config_root });
@@ -191,6 +234,17 @@ function make_dummy_object_sdk() {
         }
     };
 }
+
+function make_dummy_object_sdk_for_iam_account(dummy_object_sdk_to_copy, iam_account) {
+    const dummy_object_sdk_for_iam_account = _.cloneDeep(dummy_object_sdk_to_copy);
+    dummy_object_sdk_for_iam_account.requesting_account = iam_account;
+    dummy_object_sdk_for_iam_account.requesting_account.name = new SensitiveString(
+        dummy_object_sdk_for_iam_account.requesting_account.name);
+    dummy_object_sdk_for_iam_account.requesting_account.email = new SensitiveString(
+            dummy_object_sdk_for_iam_account.requesting_account.email);
+    return dummy_object_sdk_for_iam_account;
+}
+
 function make_invalid_dummy_object_sdk() {
     return {
         requesting_account: {
@@ -216,7 +270,7 @@ mocha.describe('bucketspace_fs', function() {
             await fs_utils.create_fresh_path(`${config_root}/${dir}`))
         );
         await fs_utils.create_fresh_path(new_buckets_path);
-        for (let account of [account_user1, account_user2, account_user3]) {
+        for (let account of [account_user1, account_user2, account_user3, account_iam_user1, account_iam_user2]) {
             account = await nc_mkm.encrypt_access_keys(account);
             const account_path = get_config_file_path(CONFIG_SUBDIRS.ACCOUNTS, account.name);
             const account_access_path = get_access_key_symlink_path(CONFIG_SUBDIRS.ACCESS_KEYS, account.access_keys[0].access_key);
@@ -312,9 +366,23 @@ mocha.describe('bucketspace_fs', function() {
                 assert.ok(err.rpc_code === 'UNAUTHORIZED');
             }
         });
+        mocha.it('create bucket by iam account', async function() {
+            const param = { name: test_bucket_iam_account};
+            const dummy_object_sdk_for_iam_account = make_dummy_object_sdk_for_iam_account(dummy_object_sdk, account_iam_user1);
+            await bucketspace_fs.create_bucket(param, dummy_object_sdk_for_iam_account);
+            const bucket_config_path = get_config_file_path(CONFIG_SUBDIRS.BUCKETS, param.name);
+            const stat1 = await fs.promises.stat(bucket_config_path);
+            assert.equal(stat1.nlink, 1);
+            const bucket_data = await read_file(process_fs_context, bucket_config_path);
+            assert.equal(bucket_data.owner_account, account_user1._id);
+            assert.equal(bucket_data.creator, account_iam_user1._id);
+        });
         mocha.after(async function() {
             await fs_utils.folder_delete(`${new_buckets_path}/${test_bucket}`);
-            const file_path = get_config_file_path(CONFIG_SUBDIRS.BUCKETS, test_bucket);
+            await fs_utils.folder_delete(`${new_buckets_path}/${test_bucket_iam_account}`);
+            let file_path = get_config_file_path(CONFIG_SUBDIRS.BUCKETS, test_bucket);
+            await fs_utils.file_delete(file_path);
+            file_path = get_config_file_path(CONFIG_SUBDIRS.BUCKETS, test_bucket_iam_account);
             await fs_utils.file_delete(file_path);
         });
     });
@@ -333,9 +401,30 @@ mocha.describe('bucketspace_fs', function() {
             const objects = await bucketspace_fs.list_buckets(dummy_object_sdk);
             assert.equal(objects.buckets.length, 1);
         });
+        mocha.it('list buckets - iam accounts', async function() {
+            // iam account creates the bucket
+            const param = { name: test_bucket_iam_account};
+            const dummy_object_sdk_for_iam_account = make_dummy_object_sdk_for_iam_account(dummy_object_sdk, account_iam_user1);
+            await bucketspace_fs.create_bucket(param, dummy_object_sdk_for_iam_account);
+            const bucket_config_path = get_config_file_path(CONFIG_SUBDIRS.BUCKETS, param.name);
+            const stat1 = await fs.promises.stat(bucket_config_path);
+            assert.equal(stat1.nlink, 1);
+
+            // account_iam_user1 can list the created bucket (he created it, of course)
+            const res = await bucketspace_fs.list_buckets(dummy_object_sdk_for_iam_account);
+            assert.equal(res.buckets.length, 1);
+
+            // account_iam_user2 can list the created bucket (the implicit policy - same root account)
+            const dummy_object_sdk_for_iam_account2 = make_dummy_object_sdk_for_iam_account(dummy_object_sdk, account_iam_user2);
+            const res2 = await bucketspace_fs.list_buckets(dummy_object_sdk_for_iam_account2);
+            assert.equal(res2.buckets.length, 1);
+        });
         mocha.after(async function() {
             await fs_utils.folder_delete(`${new_buckets_path}/${test_bucket}`);
-            const file_path = get_config_file_path(CONFIG_SUBDIRS.BUCKETS, test_bucket);
+            await fs_utils.folder_delete(`${new_buckets_path}/${test_bucket_iam_account}`);
+            let file_path = get_config_file_path(CONFIG_SUBDIRS.BUCKETS, test_bucket);
+            await fs_utils.file_delete(file_path);
+            file_path = get_config_file_path(CONFIG_SUBDIRS.BUCKETS, test_bucket_iam_account);
             await fs_utils.file_delete(file_path);
         });
         mocha.it('list buckets - validate creation_date', async function() {
@@ -412,6 +501,28 @@ mocha.describe('bucketspace_fs', function() {
                 assert.equal(err.message, `ENOENT: no such file or directory, stat '${path_for_err_msg}'`);
             }
             await fs.promises.stat(path.join(new_buckets_path, param.name));
+        });
+
+        mocha.it('delete buckets - iam accounts (another IAM account deletes the bucket)', async function() {
+            // iam account creates the bucket
+            const param = { name: test_bucket_iam_account};
+            const dummy_object_sdk_for_iam_account = make_dummy_object_sdk_for_iam_account(dummy_object_sdk, account_iam_user1);
+            await bucketspace_fs.create_bucket(param, dummy_object_sdk_for_iam_account);
+            const bucket_config_path = get_config_file_path(CONFIG_SUBDIRS.BUCKETS, param.name);
+            const stat1 = await fs.promises.stat(bucket_config_path);
+            assert.equal(stat1.nlink, 1);
+
+            // account_iam_user2 can delete the created bucket (the implicit policy - same root account)
+            const dummy_object_sdk_for_iam_account2 = make_dummy_object_sdk_for_iam_account(dummy_object_sdk, account_iam_user2);
+            // test of number of the object are done by the creator (account_iam_user1) - but it doesn't matter
+            let res = await bucketspace_fs.list_buckets(dummy_object_sdk_for_iam_account);
+            assert.equal(res.buckets.length, 1);
+
+            await bucketspace_fs.delete_bucket(param, dummy_object_sdk_for_iam_account2);
+
+            // test of number of the object are done by the creator (account_iam_user1) - but it doesn't matter
+            res = await bucketspace_fs.list_buckets(dummy_object_sdk_for_iam_account);
+            assert.equal(res.buckets.length, 0);
         });
     });
     mocha.describe('set_bucket_versioning', function() {

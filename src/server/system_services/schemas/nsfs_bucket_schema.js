@@ -19,8 +19,12 @@ module.exports = {
         _id: {
             type: 'string',
         },
-        // owner_account is the account _id
+        // owner_account is the account _id // TODO: change the property name to owner
         owner_account: {
+            type: 'string',
+        },
+        // creator is the account id that created this bucket (internal information)
+        creator: {
             type: 'string',
         },
         name: {

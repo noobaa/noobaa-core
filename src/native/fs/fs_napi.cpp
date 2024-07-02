@@ -45,6 +45,11 @@
 #define GPFS_XATTR_PREFIX "gpfs"
 #define GPFS_DOT_ENCRYPTION_EA "Encryption"
 #define GPFS_ENCRYPTION_XATTR_NAME GPFS_XATTR_PREFIX "." GPFS_DOT_ENCRYPTION_EA
+#define GPFS_DMAPI_XATTR_PREFIX "dmapi"
+#define GPFS_DMAPI_DOT_IBMOBJ_EA "IBMObj"
+#define GPFS_DMAPI_DOT_IBMPMIG_EA "IBMPMig"
+#define GPFS_DMAPI_XATTR_TAPE_INDICATOR GPFS_DMAPI_XATTR_PREFIX "." GPFS_DMAPI_DOT_IBMOBJ_EA
+#define GPFS_DMAPI_XATTR_TAPE_PREMIG GPFS_DMAPI_XATTR_PREFIX "." GPFS_DMAPI_DOT_IBMPMIG_EA
 
 // This macro should be used after openning a file
 // it will autoclose the file using AutoCloser and will throw an error in case of failures
@@ -243,6 +248,10 @@ parse_open_flags(std::string flags)
 }
 
 const static std::vector<std::string> GPFS_XATTRS{ GPFS_ENCRYPTION_XATTR_NAME };
+const static std::vector<std::string> GPFS_DMAPI_XATTRS{
+    GPFS_DMAPI_XATTR_TAPE_INDICATOR,
+    GPFS_DMAPI_XATTR_TAPE_PREMIG,
+};
 const static std::vector<std::string> USER_XATTRS{
     "user.content_type",
     "user.content_md5",
@@ -460,9 +469,14 @@ get_fd_xattr(int fd, XattrMap& xattr, const std::vector<std::string>& xattr_keys
 }
 
 static int
-get_fd_gpfs_xattr(int fd, XattrMap& xattr, int& gpfs_error)
+get_fd_gpfs_xattr(int fd, XattrMap& xattr, int& gpfs_error, bool use_dmapi)
 {
-    for (auto const& key : GPFS_XATTRS) {
+    auto gpfs_xattrs { GPFS_XATTRS };
+    if (use_dmapi) {
+        gpfs_xattrs.insert(gpfs_xattrs.end(), GPFS_DMAPI_XATTRS.begin(), GPFS_DMAPI_XATTRS.end());
+    }
+
+    for (auto const& key : gpfs_xattrs) {
         gpfsRequest_t gpfsGetXattrRequest;
         build_gpfs_get_ea_request(&gpfsGetXattrRequest, key);
         int r = dlsym_gpfs_fcntl(fd, &gpfsGetXattrRequest);
@@ -563,6 +577,8 @@ struct FSWorker : public Napi::AsyncWorker
     // NOTE: If this is enabled then some functions will fallback to using mtime check
     bool _disable_ctime_check;
 
+    bool _use_dmapi;
+
     FSWorker(const Napi::CallbackInfo& info)
         : AsyncWorker(info.Env())
         , _deferred(Napi::Promise::Deferred::New(info.Env()))
@@ -574,6 +590,7 @@ struct FSWorker : public Napi::AsyncWorker
         , _warn_threshold_ms(0)
         , _took_time(0)
         , _disable_ctime_check(false)
+        , _use_dmapi(false)
     {
         for (int i = 0; i < (int)info.Length(); ++i) _args_ref.Set(i, info[i]);
         if (info[0].ToBoolean()) {
@@ -590,6 +607,7 @@ struct FSWorker : public Napi::AsyncWorker
                 _report_fs_stats = Napi::Persistent(fs_context.Get("report_fs_stats").As<Napi::Function>());
             }
             _disable_ctime_check = fs_context.Get("disable_ctime_check").ToBoolean();
+            _use_dmapi = fs_context.Get("use_dmapi").ToBoolean();
         }
     }
     void Begin(std::string desc)
@@ -737,7 +755,7 @@ struct Stat : public FSWorker
         if (!_use_lstat) {
             SYSCALL_OR_RETURN(get_fd_xattr(fd, _xattr, _xattr_get_keys));
             if (use_gpfs_lib()) {
-                GPFS_FCNTL_OR_RETURN(get_fd_gpfs_xattr(fd, _xattr, gpfs_error));
+                GPFS_FCNTL_OR_RETURN(get_fd_gpfs_xattr(fd, _xattr, gpfs_error, _use_dmapi));
             }
         }
 
@@ -1165,7 +1183,7 @@ struct Readfile : public FSWorker
         if (_read_xattr) {
             SYSCALL_OR_RETURN(get_fd_xattr(fd, _xattr, _xattr_get_keys));
             if (use_gpfs_lib()) {
-                GPFS_FCNTL_OR_RETURN(get_fd_gpfs_xattr(fd, _xattr, gpfs_error));
+                GPFS_FCNTL_OR_RETURN(get_fd_gpfs_xattr(fd, _xattr, gpfs_error, _use_dmapi));
             }
         }
 
@@ -1311,7 +1329,7 @@ struct Fsync : public FSWorker
 };
 
 /**
- * GetPwName is an os op 
+ * GetPwName is an os op
  */
 struct GetPwName : public FSWorker
 {
@@ -1683,7 +1701,7 @@ struct FileStat : public FSWrapWorker<FileWrap>
         SYSCALL_OR_RETURN(fstat(fd, &_stat_res));
         SYSCALL_OR_RETURN(get_fd_xattr(fd, _xattr, _xattr_get_keys));
         if (use_gpfs_lib()) {
-            GPFS_FCNTL_OR_RETURN(get_fd_gpfs_xattr(fd, _xattr, gpfs_error));
+            GPFS_FCNTL_OR_RETURN(get_fd_gpfs_xattr(fd, _xattr, gpfs_error, _use_dmapi));
         }
 
         if (!_disable_ctime_check) {

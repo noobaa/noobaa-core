@@ -14,9 +14,10 @@ const s3_utils = require('../../endpoint/s3/s3_utils');
 const buffer_utils = require('../../util/buffer_utils');
 const endpoint_stats_collector = require('../../sdk/endpoint_stats_collector');
 const { NewlineReader } = require('../../util/file_reader');
-const { TapeCloudGlacierBackend, TapeCloudUtils } = require('../../sdk/nsfs_glacier_backend/tapecloud');
+const { TapeCloudGlacier, TapeCloudUtils } = require('../../sdk/glacier_tapecloud');
 const { PersistentLogger } = require('../../util/persistent_logger');
-const { GlacierBackend } = require('../../sdk/nsfs_glacier_backend/backend');
+const { Glacier } = require('../../sdk/glacier');
+const Semaphore = require('../../util/semaphore');
 const nb_native = require('../../util/nb_native');
 const { handler: s3_get_bucket } = require('../../endpoint/s3/ops/s3_get_bucket');
 
@@ -75,8 +76,13 @@ function assert_date(date, from, expected, tz = 'LOCAL') {
     }
 }
 
+/* Justification: Disable max-lines-per-function for test functions
+as it is not much helpful in the sense that "describe" function capture
+entire test suite instead of being a logical abstraction */
+/* eslint-disable max-lines-per-function */
 mocha.describe('nsfs_glacier', async () => {
 	const src_bkt = 'nsfs_glacier_src';
+    const dmapi_config_semaphore = new Semaphore(1);
 
 	const dummy_object_sdk = make_dummy_object_sdk();
     const upload_bkt = 'test_ns_uploads_object';
@@ -94,6 +100,17 @@ mocha.describe('nsfs_glacier', async () => {
 
 	glacier_ns._is_storage_class_supported = async () => true;
 
+    const safe_dmapi_surround = async (init, cb) => {
+        await dmapi_config_semaphore.surround(async () => {
+            const start_value = config.NSFS_GLACIER_USE_DMAPI;
+            config.NSFS_GLACIER_USE_DMAPI = init;
+
+            await cb();
+
+            config.NSFS_GLACIER_USE_DMAPI = start_value;
+        });
+    };
+
 	mocha.before(async () => {
         await fs.mkdir(ns_src_bucket_path, { recursive: true });
 
@@ -104,7 +121,7 @@ mocha.describe('nsfs_glacier', async () => {
 		const migrate_wal = NamespaceFS._migrate_wal;
 		NamespaceFS._migrate_wal = new PersistentLogger(
 			config.NSFS_GLACIER_LOGS_DIR,
-			GlacierBackend.MIGRATE_WAL_NAME,
+			Glacier.MIGRATE_WAL_NAME,
 			{ locking: 'EXCLUSIVE', poll_interval: 10 }
 		);
 
@@ -113,7 +130,7 @@ mocha.describe('nsfs_glacier', async () => {
 		const restore_wal = NamespaceFS._restore_wal;
 		NamespaceFS._restore_wal = new PersistentLogger(
 			config.NSFS_GLACIER_LOGS_DIR,
-			GlacierBackend.RESTORE_WAL_NAME,
+			Glacier.RESTORE_WAL_NAME,
 			{ locking: 'EXCLUSIVE', poll_interval: 10 }
 		);
 
@@ -126,7 +143,7 @@ mocha.describe('nsfs_glacier', async () => {
         const xattr = { key: 'value', key2: 'value2' };
         xattr[s3_utils.XATTR_SORT_SYMBOL] = true;
 
-		const backend = new TapeCloudGlacierBackend();
+		const backend = new TapeCloudGlacier();
 
 		// Patch backend for test
 		backend._migrate = async () => true;
@@ -202,7 +219,7 @@ mocha.describe('nsfs_glacier', async () => {
 
 			assert(!md.restore_status.ongoing);
 
-			const expected_expiry = GlacierBackend.generate_expiry(new Date(), params.days, '', config.NSFS_GLACIER_EXPIRY_TZ);
+			const expected_expiry = Glacier.generate_expiry(new Date(), params.days, '', config.NSFS_GLACIER_EXPIRY_TZ);
 			assert(expected_expiry.getTime() >= md.restore_status.expiry_time.getTime());
 			assert(now <= md.restore_status.expiry_time.getTime());
 		});
@@ -234,7 +251,7 @@ mocha.describe('nsfs_glacier', async () => {
             const failed_file_path = glacier_ns._get_file_path(failed_params);
             const success_file_path = glacier_ns._get_file_path(success_params);
 
-            const failure_backend = new TapeCloudGlacierBackend();
+            const failure_backend = new TapeCloudGlacier();
             failure_backend._migrate = async () => true;
             failure_backend._process_expired = async () => { /**noop*/ };
             failure_backend._recall = async (_file, failure_recorder, success_recorder) => {
@@ -274,7 +291,7 @@ mocha.describe('nsfs_glacier', async () => {
 
             assert(!success_md.restore_status.ongoing);
 
-            const expected_expiry = GlacierBackend.generate_expiry(new Date(), success_params.days, '', config.NSFS_GLACIER_EXPIRY_TZ);
+            const expected_expiry = Glacier.generate_expiry(new Date(), success_params.days, '', config.NSFS_GLACIER_EXPIRY_TZ);
             assert(expected_expiry.getTime() >= success_md.restore_status.expiry_time.getTime());
             assert(now <= success_md.restore_status.expiry_time.getTime());
 
@@ -284,21 +301,21 @@ mocha.describe('nsfs_glacier', async () => {
                 failed_file_path,
             );
 
-            assert(!failure_stats.xattr[GlacierBackend.XATTR_RESTORE_EXPIRY] || failure_stats.xattr[GlacierBackend.XATTR_RESTORE_EXPIRY] === '');
-            assert(failure_stats.xattr[GlacierBackend.XATTR_RESTORE_REQUEST]);
+            assert(!failure_stats.xattr[Glacier.XATTR_RESTORE_EXPIRY] || failure_stats.xattr[Glacier.XATTR_RESTORE_EXPIRY] === '');
+            assert(failure_stats.xattr[Glacier.XATTR_RESTORE_REQUEST]);
         });
 
         mocha.it('generate_expiry should round up the expiry', () => {
             const now = new Date();
             const pivot_time = new Date(now);
 
-            const exp1 = GlacierBackend.generate_expiry(now, 1, '', 'UTC');
+            const exp1 = Glacier.generate_expiry(now, 1, '', 'UTC');
             assert_date(exp1, now, { day_offset: 1 }, 'UTC');
 
-            const exp2 = GlacierBackend.generate_expiry(now, 10, '', 'UTC');
+            const exp2 = Glacier.generate_expiry(now, 10, '', 'UTC');
             assert_date(exp2, now, { day_offset: 10 }, 'UTC');
 
-            const exp3 = GlacierBackend.generate_expiry(now, 10, '02:05:00', 'UTC');
+            const exp3 = Glacier.generate_expiry(now, 10, '02:05:00', 'UTC');
             pivot_time.setUTCHours(2, 5, 0, 0);
             if (now <= pivot_time) {
                 assert_date(exp3, now, { day_offset: 10, hour: 2, min: 5, sec: 0 }, 'UTC');
@@ -306,7 +323,7 @@ mocha.describe('nsfs_glacier', async () => {
                 assert_date(exp3, now, { day_offset: 10 + 1, hour: 2, min: 5, sec: 0 }, 'UTC');
             }
 
-            const exp4 = GlacierBackend.generate_expiry(now, 1, '02:05:00', 'LOCAL');
+            const exp4 = Glacier.generate_expiry(now, 1, '02:05:00', 'LOCAL');
             pivot_time.setHours(2, 5, 0, 0);
             if (now <= pivot_time) {
                 assert_date(exp4, now, { day_offset: 1, hour: 2, min: 5, sec: 0 }, 'LOCAL');
@@ -314,14 +331,53 @@ mocha.describe('nsfs_glacier', async () => {
                 assert_date(exp4, now, { day_offset: 1 + 1, hour: 2, min: 5, sec: 0 }, 'LOCAL');
             }
 
-            const exp5 = GlacierBackend.generate_expiry(now, 1, `${now.getHours()}:${now.getMinutes()}:${now.getSeconds()}`, 'LOCAL');
+            const exp5 = Glacier.generate_expiry(now, 1, `${now.getHours()}:${now.getMinutes()}:${now.getSeconds()}`, 'LOCAL');
             assert_date(exp5, now, { day_offset: 1 }, 'LOCAL');
 
             const some_date = new Date("2004-05-08");
-            const exp6 = GlacierBackend.generate_expiry(some_date, 1.5, `02:05:00`, 'UTC');
+            const exp6 = Glacier.generate_expiry(some_date, 1.5, `02:05:00`, 'UTC');
             assert_date(exp6, some_date, { day_offset: 1 + 1, hour: 2, min: 5, sec: 0 }, 'UTC');
         });
-	});
+
+        mocha.it('object should be marked externally managed when DMAPI is enabled and xattrs are present', async () => {
+            await safe_dmapi_surround(true, async () => {
+                let is_external = Glacier.is_externally_managed({
+                    [Glacier.GPFS_DMAPI_XATTR_TAPE_PREMIG]: 'some-value',
+                });
+                assert.strictEqual(is_external, true);
+
+                is_external = Glacier.is_externally_managed({
+                    [Glacier.GPFS_DMAPI_XATTR_TAPE_INDICATOR]: 'some-value',
+                });
+                assert.strictEqual(is_external, true);
+
+                is_external = Glacier.is_externally_managed({
+                    [Glacier.GPFS_DMAPI_XATTR_TAPE_INDICATOR]: 'some-value',
+                    [Glacier.STORAGE_CLASS_XATTR]: s3_utils.STORAGE_CLASS_GLACIER,
+                });
+                assert.strictEqual(is_external, false);
+
+                is_external = Glacier.is_externally_managed({});
+                assert.strictEqual(is_external, false);
+            });
+        });
+
+        mocha.it('restore_status should return max expiry when DMAPI is enabled and DMAPI xattr is set', async () => {
+            const now = new Date();
+            const expected_expiry = new Date(now);
+            expected_expiry.setDate(expected_expiry.getDate() + config.NSFS_GLACIER_DMAPI_PMIG_DAYS);
+
+            await safe_dmapi_surround(true, async () => {
+                const status = Glacier.get_restore_status({
+                    [Glacier.GPFS_DMAPI_XATTR_TAPE_INDICATOR]: 'some-value',
+                    [Glacier.GPFS_DMAPI_XATTR_TAPE_PREMIG]: 'some-value',
+                }, now, '');
+                assert(status.state === 'RESTORED');
+                assert(status.ongoing === false);
+                assert(status.expiry_time.getDate() === expected_expiry.getDate());
+            });
+        });
+    });
 
     mocha.describe('nsfs_glacier_s3_flow', async () => {
         mocha.it('list_objects should throw error with incorrect optional object attributes', async () => {
@@ -366,7 +422,8 @@ mocha.describe('nsfs_glacier', async () => {
                     const file_path = glacier_ns._get_file_path({ key: obj.Contents.Key });
                     const stat = await nb_native().fs.stat(fs_context, file_path);
 
-                    const glacier_status = GlacierBackend.get_restore_status(stat.xattr, new Date(), file_path);
+                    // @ts-ignore
+                    const glacier_status = Glacier.get_restore_status(stat.xattr, new Date(), file_path);
                     if (glacier_status === undefined) {
                         assert.strictEqual(obj.Contents.RestoreStatus, undefined);
                     } else {

@@ -142,6 +142,18 @@ function generate_id() {
     return mongo_utils.mongoObjectId();
 }
 
+/**
+ * @param {object} account
+ */
+function check_root_account(account) {
+    if (account.owner === undefined ||
+        account.owner === account._id) {
+        return true;
+    }
+    return false;
+}
+
+
 // EXPORTS
 exports.throw_cli_error = throw_cli_error;
 exports.write_stdout_response = write_stdout_response;
@@ -154,3 +166,4 @@ exports.get_options_from_file = get_options_from_file;
 exports.has_access_keys = has_access_keys;
 exports.generate_id = generate_id;
 exports.set_debug_level = set_debug_level;
+exports.check_root_account = check_root_account;

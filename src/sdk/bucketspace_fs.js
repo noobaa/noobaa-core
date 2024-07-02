@@ -24,6 +24,7 @@ const { get_umasked_mode, isDirectory, validate_bucket_creation,
     create_config_file, delete_config_file, get_bucket_tmpdir_full_path, folder_delete } = require('../util/native_fs_utils');
 const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
 const { anonymous_access_key } = require('./object_sdk');
+const { get_account_by_principal } = require('../manage_nsfs/manage_nsfs_validations');
 
 const dbg = require('../util/debug_module')(__filename);
 const bucket_semaphore = new KeysSemaphore(1);
@@ -52,6 +53,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
         super({ fs_root: ''});
         this.fs_root = '';
         this.accounts_dir = path.join(config_root, CONFIG_SUBDIRS.ACCOUNTS);
+        this.root_accounts_dir = path.join(config_root, CONFIG_SUBDIRS.ROOT_ACCOUNTS);
         this.access_keys_dir = path.join(config_root, CONFIG_SUBDIRS.ACCESS_KEYS);
         this.bucket_schema_dir = path.join(config_root, CONFIG_SUBDIRS.BUCKETS);
         this.config_root = config_root;
@@ -68,8 +70,12 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
        return path.join(this.bucket_schema_dir, bucket_name + '.json');
     }
 
-    _get_account_config_path(name) {
-        return path.join(this.accounts_dir, name + '.json');
+    _get_root_account_config_path(name) {
+        return path.join(this.root_accounts_dir, name + '.symlink');
+    }
+
+    _get_account_config_path(id) {
+        return path.join(this.accounts_dir, id + '.json');
     }
 
     _get_access_keys_config_path(access_key) {
@@ -77,7 +83,17 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
     }
 
     async _get_account_by_name(name) {
-        const account_config_path = this._get_account_config_path(name);
+        const account_config_path = this._get_root_account_config_path(name);
+        try {
+            await nb_native().fs.stat(this.fs_context, account_config_path);
+            return true;
+        } catch (err) {
+            return false;
+        }
+    }
+
+    async _get_account_by_id(id) {
+        const account_config_path = this._get_account_config_path(id);
         try {
             await nb_native().fs.stat(this.fs_context, account_config_path);
             return true;
@@ -99,7 +115,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
     async read_account_by_access_key({ access_key }) {
         try {
             if (!access_key) throw new Error('no access key');
-            const iam_path = access_key === anonymous_access_key ? this._get_account_config_path(config.ANONYMOUS_ACCOUNT_NAME) :
+            const iam_path = access_key === anonymous_access_key ? this._get_root_account_config_path(config.ANONYMOUS_ACCOUNT_NAME) :
                 this._get_access_keys_config_path(access_key);
             const { data } = await nb_native().fs.readFile(this.fs_context, iam_path);
             const account = JSON.parse(data.toString());
@@ -130,13 +146,22 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
         try {
             const bucket_config_path = this._get_bucket_config_path(name);
             dbg.log0('BucketSpaceFS.read_bucket_sdk_info: bucket_config_path', bucket_config_path);
-            const { data } = await nb_native().fs.readFile(this.fs_context, bucket_config_path);
+            let { data } = await nb_native().fs.readFile(this.fs_context, bucket_config_path);
             const bucket = JSON.parse(data.toString());
             nsfs_schema_utils.validate_bucket_schema(bucket);
-            const is_valid = await this.check_bucket_config(bucket);
+            let is_valid = await this.check_bucket_config(bucket);
             if (!is_valid) {
                 dbg.warn('BucketSpaceFS: one or more bucket config check is failed for bucket : ', name);
             }
+            const account_config_path = this._get_account_config_path(bucket.owner_account);
+            data = (await nb_native().fs.readFile(this.fs_context, account_config_path)).data;
+            const account = JSON.parse(data.toString());
+            nsfs_schema_utils.validate_account_schema(account);
+            is_valid = await this.check_bucket_config(bucket);
+            if (!is_valid) {
+                dbg.warn('BucketSpaceFS: account linked to bucket is not valid: ', name);
+            }
+
             const nsr = {
                 resource: {
                     fs_root_path: this.fs_root,
@@ -157,10 +182,10 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
 
             bucket.name = new SensitiveString(bucket.name);
             bucket.system_owner = new SensitiveString(bucket.system_owner);
-            bucket.bucket_owner = new SensitiveString(bucket.bucket_owner);
+            bucket.bucket_owner = new SensitiveString(account.name);
             bucket.owner_account = {
                 id: bucket.owner_account,
-                email: bucket.bucket_owner
+                email: new SensitiveString(account.email)
             };
             if (bucket.s3_policy) {
                 for (const [s_index, statement] of bucket.s3_policy.Statement.entries()) {
@@ -176,6 +201,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                     }
                 }
             }
+
             return bucket;
         } catch (err) {
             const rpc_error = this._translate_bucket_error_codes(err);
@@ -312,8 +338,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             name,
             tag: js_utils.default_value(tag, undefined),
             owner_account: account._id,
-            system_owner: new SensitiveString(account.name),
-            bucket_owner: new SensitiveString(account.name),
+            system_owner: account._id,
             versioning: config.NSFS_VERSIONING_ENABLED && lock_enabled ? 'ENABLED' : 'DISABLED',
             object_lock_configuration: config.WORM_ENABLED ? {
                 object_lock_enabled: lock_enabled ? 'Enabled' : 'Disabled',
@@ -661,8 +686,9 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             dbg.log2("put_bucket_policy: bucket properties before validate_bucket_schema",
             bucket_to_validate);
             nsfs_schema_utils.validate_bucket_schema(bucket_to_validate);
-            await bucket_policy_utils.validate_s3_policy(bucket.s3_policy, bucket.name, async principal =>
-                 this._get_account_by_name(principal));
+            await bucket_policy_utils.validate_s3_policy(bucket.s3_policy, bucket.name,
+                async principal => await get_account_by_principal(this.fs_context, this.accounts_dir, this.root_accounts_dir, principal)
+            );
             const update_bucket = JSON.stringify(bucket);
             await nb_native().fs.writeFile(
                 this.fs_context,
@@ -731,14 +757,14 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
     // TODO: move the following 3 functions - has_bucket_action_permission(), validate_fs_bucket_access(), _has_access_to_nsfs_dir()
     // so they can be re-used
     async has_bucket_action_permission(bucket, account, action, bucket_path = "") {
-        const account_identifier = account.name.unwrap();
-        dbg.log1('has_bucket_action_permission:', bucket.name.unwrap(), account_identifier, bucket.bucket_owner.unwrap());
+        const account_identifier = account._id;
+        dbg.log1('has_bucket_action_permission:', bucket.name.unwrap(), account_identifier, bucket.owner_account);
 
         const is_system_owner = account_identifier === bucket.system_owner.unwrap();
 
         // If the system owner account wants to access the bucket, allow it
         if (is_system_owner) return true;
-        const is_owner = (bucket.bucket_owner.unwrap() === account_identifier);
+        const is_owner = (bucket.owner_account === account_identifier);
         const bucket_policy = bucket.s3_policy;
 
         if (!bucket_policy) return is_owner;
@@ -746,13 +772,26 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             throw new Error('has_bucket_action_permission: action is required');
         }
 
-        const result = await bucket_policy_utils.has_bucket_policy_permission(
+        let result = await bucket_policy_utils.has_bucket_policy_permission(
             bucket_policy,
             account_identifier,
             action,
             `arn:aws:s3:::${bucket.name.unwrap()}${bucket_path}`,
             undefined
         );
+
+        //we (currently) allow account identified to be both id and name,
+        if (result === 'IMPLICIT_DENY') {
+            result = await bucket_policy_utils.has_bucket_policy_permission(
+                bucket_policy,
+                account.name.unwrap(),
+                action,
+                `arn:aws:s3:::${bucket.name.unwrap()}${bucket_path}`,
+                undefined
+            );
+        }
+
+        console.log("res = ", result);
 
         if (result === 'DENY') return false;
         return is_owner || result === 'ALLOW';

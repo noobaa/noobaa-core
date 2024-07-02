@@ -217,7 +217,10 @@ async function authorize_request_policy(req) {
 
     const account = req.object_sdk.requesting_account;
     const account_identifier = req.object_sdk.nsfs_config_root ? account.name.unwrap() : account.email.unwrap();
-    const is_system_owner = account_identifier === system_owner.unwrap();
+    const account_identifier2 = req.object_sdk.nsfs_config_root ? account._id : undefined;
+    const is_system_owner =
+        (account_identifier === system_owner.unwrap()) ||
+        (account_identifier2 && account_identifier2 === system_owner.unwrap());
 
     // @TODO: System owner as a construct should be removed - Temporary
     if (is_system_owner) return;
@@ -226,6 +229,7 @@ async function authorize_request_policy(req) {
         if (account.bucket_claim_owner && account.bucket_claim_owner.unwrap() === req.params.bucket) return true;
         if (req.object_sdk.nsfs_config_root && account._id === owner_account.id) return true; // NC NSFS case
         if (account_identifier === bucket_owner.unwrap()) return true;
+        if (account_identifier2 && account_identifier2 === bucket_owner.unwrap()) return true;
         return false;
     }());
 
@@ -233,8 +237,14 @@ async function authorize_request_policy(req) {
         if (is_owner) return;
         throw new S3Error(S3Error.AccessDenied);
     }
-    const permission = await s3_bucket_policy_utils.has_bucket_policy_permission(
+    let permission = await s3_bucket_policy_utils.has_bucket_policy_permission(
         s3_policy, account_identifier, method, arn_path, req);
+
+    if (account_identifier2 && permission === "IMPLICIT_DENY") {
+        permission = await s3_bucket_policy_utils.has_bucket_policy_permission(
+            s3_policy, account_identifier2, method, arn_path, req);
+    }
+
     if (permission === "DENY") throw new S3Error(S3Error.AccessDenied);
     if (permission === "ALLOW" || is_owner) return;
 

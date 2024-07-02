@@ -967,8 +967,9 @@ interface NativeFile {
     replacexattr(fs_context: NativeFSContext, xattr: NativeFSXattr, clear_prefix?: string): Promise<void>;
     linkfileat(fs_context: NativeFSContext, path: string, fd?: number): Promise<void>;
     fsync(fs_context: NativeFSContext): Promise<void>;
-    fd: number
+    fd: number;
     flock(fs_context: NativeFSContext, operation: "EXCLUSIVE" | "SHARED" | "UNLOCK"): Promise<void>;
+    fcntllock(fs_context: NativeFSContext, operation: "EXCLUSIVE" | "SHARED" | "UNLOCK"): Promise<void>;
 }
 
 interface NativeDir {

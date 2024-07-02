@@ -115,8 +115,13 @@ class NewlineReader {
     async init() {
         let fh = null;
         try {
-            fh = await nb_native().fs.open(this.fs_context, this.path, 'r');
-            if (this.lock) await fh.flock(this.fs_context, this.lock);
+            // here we are opening the file with both read and write to make sure
+            // fcntlock can acquire both `EXCLUSIVE` as well as `SHARED` lock based
+            // on the need.
+            // If incompatible file descriptor and lock types are used then fcntl
+            // throws `EBADF`.
+            fh = await nb_native().fs.open(this.fs_context, this.path, '+');
+            if (this.lock) await fh.fcntllock(this.fs_context, this.lock);
 
             this.fh = fh;
         } catch (error) {

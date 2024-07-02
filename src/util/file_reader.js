@@ -115,8 +115,8 @@ class NewlineReader {
     async init() {
         let fh = null;
         try {
-            fh = await nb_native().fs.open(this.fs_context, this.path, 'r');
-            if (this.lock) await fh.flock(this.fs_context, this.lock);
+            fh = await nb_native().fs.open(this.fs_context, this.path, '+');
+            if (this.lock) await fh.fcntllock(this.fs_context, this.lock);
 
             this.fh = fh;
         } catch (error) {

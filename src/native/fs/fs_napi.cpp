@@ -14,6 +14,7 @@
 #include <map>
 #include <math.h>
 #include <stdlib.h>
+#include <sys/fcntl.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
@@ -1360,6 +1361,7 @@ struct FileWrap : public Napi::ObjectWrap<FileWrap>
                 InstanceMethod<&FileWrap::stat>("stat"),
                 InstanceMethod<&FileWrap::fsync>("fsync"),
                 InstanceMethod<&FileWrap::flock>("flock"),
+                InstanceMethod<&FileWrap::fcntllock>("fcntllock"),
                 InstanceAccessor<&FileWrap::getfd>("fd"),
             }));
         constructor.SuppressDestruct();
@@ -1389,6 +1391,7 @@ struct FileWrap : public Napi::ObjectWrap<FileWrap>
     Napi::Value fsync(const Napi::CallbackInfo& info);
     Napi::Value getfd(const Napi::CallbackInfo& info);
     Napi::Value flock(const Napi::CallbackInfo& info);
+    Napi::Value fcntllock(const Napi::CallbackInfo& info);
 };
 
 Napi::FunctionReference FileWrap::constructor;
@@ -1744,6 +1747,43 @@ struct FileFlock : public FSWrapWorker<FileWrap>
     }
 };
 
+struct FileFcntlLock : public FSWrapWorker<FileWrap>
+{
+    struct flock fl;
+    FileFcntlLock(const Napi::CallbackInfo& info)
+        : FSWrapWorker<FileWrap>(info)
+        , fl()
+    {
+        // lock entire file
+        fl.l_whence = SEEK_SET;
+        fl.l_start = 0;
+        fl.l_len = 0;
+        fl.l_pid = 0;
+        fl.l_type = F_RDLCK;
+
+        if (info.Length() > 1 && !info[1].IsUndefined()) {
+            auto mode = info[1].As<Napi::String>().Utf8Value();
+            if (mode == "EXCLUSIVE") {
+                fl.l_type = F_WRLCK;
+            } else if (mode == "UNLOCK") {
+                fl.l_type = F_UNLCK;
+            } else if (mode == "SHARED") {
+                fl.l_type = F_RDLCK;
+            } else {
+                SetError("invalid lock type");
+            }
+        }
+
+        Begin(XSTR() << "FileFcntlLock" << DVAL(_wrap->_path));
+    }
+    virtual void Work()
+    {
+        int fd = _wrap->_fd;
+        CHECK_WRAP_FD(fd);
+        SYSCALL_OR_RETURN(fcntl(fd, F_OFD_SETLKW, &fl));
+    }
+};
+
 struct RealPath : public FSWorker
 {
     std::string _path;
@@ -1894,6 +1934,12 @@ Napi::Value
 FileWrap::flock(const Napi::CallbackInfo& info)
 {
     return api<FileFlock>(info);
+}
+
+Napi::Value
+FileWrap::fcntllock(const Napi::CallbackInfo& info)
+{
+    return api<FileFcntlLock>(info);
 }
 
 /**
@@ -2206,7 +2252,7 @@ fs_napi(Napi::Env env, Napi::Object exports)
             if (sizeof(struct gpfsRequest_t) != 256) {
                 PANIC("The gpfs get extended attributes is of wrong size" << sizeof(struct gpfsRequest_t));
             }
-            
+
             auto gpfs = Napi::Object::New(env);
             gpfs["register_gpfs_noobaa"] = Napi::Function::New(env, register_gpfs_noobaa);
             // we export the gpfs object, which can be checked to indicate that

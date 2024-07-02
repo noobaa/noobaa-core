@@ -782,16 +782,13 @@ module.exports = {
             method: 'PUT',
             params: {
                 type: 'object',
-                required: ['name', 'log_bucket', 'log_prefix'],
+                required: ['name', 'logging'],
                 properties: {
                     name: {
                         $ref: 'common_api#/definitions/bucket_name'
                     },
-                    log_bucket: {
-                        $ref: 'common_api#/definitions/bucket_name'
-                    },
-                    log_prefix: {
-                        type: 'string',
+                    logging: {
+                        $ref: 'common_api#/definitions/bucket_logging'
                     },
                 },
             },
@@ -828,7 +825,11 @@ module.exports = {
                 },
             },
             reply: {
-                $ref: 'common_api#/definitions/bucket_logging',
+                oneOf: [{
+                    $ref: 'common_api#/definitions/bucket_logging',
+                }, {
+                    type: 'null'
+                }]
             },
             auth: {
                 system: ['admin', 'user']

@@ -102,12 +102,21 @@ ManageCLIResponse.BucketList = Object.freeze({
     list: {}
 });
 
+///////////////////////////////
+// LOGGING RESPONSES ///
+///////////////////////////////
+ManageCLIResponse.LoggingExported = Object.freeze({
+    code: 'LoggingExported',
+    status: {}
+});
+
 const NSFS_CLI_SUCCESS_EVENT_MAP = {
     AccountCreated: NoobaaEvent.ACCOUNT_CREATED,
     AccountDeleted: NoobaaEvent.ACCOUNT_DELETED,
     BucketCreated: NoobaaEvent.BUCKET_CREATED,
     BucketDeleted: NoobaaEvent.BUCKET_DELETE,
     WhiteListIPUpdated: NoobaaEvent.WHITELIST_UPDATED,
+    LoggingExported: NoobaaEvent.LOGGING_EXPORTED,
 };
 
 exports.ManageCLIResponse = ManageCLIResponse;

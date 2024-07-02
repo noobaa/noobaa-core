@@ -962,7 +962,7 @@ class ObjectSDK {
 
     async put_bucket_logging(params) {
         const bs = this._get_bucketspace();
-        return bs.put_bucket_logging(params, this);
+        return bs.put_bucket_logging(params);
     }
 
     async delete_bucket_logging(params) {
@@ -970,9 +970,9 @@ class ObjectSDK {
         return bs.delete_bucket_logging(params);
     }
 
-    async get_bucket_logging(req) {
+    async get_bucket_logging(params) {
         const bs = this._get_bucketspace();
-        return bs.get_bucket_logging(req);
+        return bs.get_bucket_logging(params);
     }
 
     ///////////////////////

@@ -67,6 +67,7 @@ if (typeof process !== 'undefined' &&
     }
 
     if (should_log_to_syslog) {
+        process.env.SYSLOG_ENABLED = 'true';
         syslog = nb_native().syslog;
     }
 
@@ -195,7 +196,7 @@ class InternalDebugLogger {
         this._proc_name = '';
         this._pid = process.pid;
         this._log_console = console;
-        this._log_console_silent = false;
+        this._log_console_silent = process.env.SYSLOG_ENABLED;
         this._log_file = null;
 
     }

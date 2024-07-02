@@ -142,6 +142,17 @@ function generate_id() {
     return mongo_utils.mongoObjectId();
 }
 
+/**
+ * check_root_account_owns_user checks if an account is owned by root account
+ * @param {object} root_account
+ * @param {object} account
+ */
+function check_root_account_owns_user(root_account, account) {
+    if (account.owner === undefined) return false;
+    return root_account._id === account.owner;
+}
+
+
 // EXPORTS
 exports.throw_cli_error = throw_cli_error;
 exports.write_stdout_response = write_stdout_response;
@@ -154,3 +165,4 @@ exports.get_options_from_file = get_options_from_file;
 exports.has_access_keys = has_access_keys;
 exports.generate_id = generate_id;
 exports.set_debug_level = set_debug_level;
+exports.check_root_account_owns_user = check_root_account_owns_user;

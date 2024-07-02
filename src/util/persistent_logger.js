@@ -59,7 +59,7 @@ class PersistentLogger {
                 let fh = null;
                 try {
                     fh = await this._open();
-                    if (this.locking) await fh.flock(this.fs_context, this.locking);
+                    if (this.locking) await fh.fcntllock(this.fs_context, this.locking);
 
                     const fh_stat = await fh.stat(this.fs_context);
                     const path_stat = await nb_native().fs.stat(this.fs_context, this.active_path);
@@ -216,7 +216,7 @@ class PersistentLogger {
 
     async _open() {
         await native_fs_utils._create_path(this.dir, this.fs_context);
-        return nb_native().fs.open(this.fs_context, this.active_path, 'as');
+        return nb_native().fs.open(this.fs_context, this.active_path, 'as+');
     }
 
     _poll_active_file_change(poll_interval) {

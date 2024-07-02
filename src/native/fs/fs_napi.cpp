@@ -14,6 +14,7 @@
 #include <map>
 #include <math.h>
 #include <stdlib.h>
+#include <sys/fcntl.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
@@ -1363,6 +1364,7 @@ struct FileWrap : public Napi::ObjectWrap<FileWrap>
                 InstanceMethod<&FileWrap::stat>("stat"),
                 InstanceMethod<&FileWrap::fsync>("fsync"),
                 InstanceMethod<&FileWrap::flock>("flock"),
+                InstanceMethod<&FileWrap::fcntllock>("fcntllock"),
                 InstanceAccessor<&FileWrap::getfd>("fd"),
             }));
         constructor.SuppressDestruct();
@@ -1392,6 +1394,7 @@ struct FileWrap : public Napi::ObjectWrap<FileWrap>
     Napi::Value fsync(const Napi::CallbackInfo& info);
     Napi::Value getfd(const Napi::CallbackInfo& info);
     Napi::Value flock(const Napi::CallbackInfo& info);
+    Napi::Value fcntllock(const Napi::CallbackInfo& info);
 };
 
 Napi::FunctionReference FileWrap::constructor;
@@ -1732,8 +1735,10 @@ struct FileFlock : public FSWrapWorker<FileWrap>
                 lock_mode = LOCK_EX;
             } else if (mode == "UNLOCK") {
                 lock_mode = LOCK_UN;
-            } else {
+            } else if (mode == "SHARED") {
                 lock_mode = LOCK_SH;
+            } else {
+                SetError("invalid lock type");
             }
         }
 
@@ -1744,6 +1749,45 @@ struct FileFlock : public FSWrapWorker<FileWrap>
         int fd = _wrap->_fd;
         CHECK_WRAP_FD(fd);
         SYSCALL_OR_RETURN(flock(fd, lock_mode));
+    }
+};
+
+struct FileFcntlLock : public FSWrapWorker<FileWrap>
+{
+    struct flock fl;
+    FileFcntlLock(const Napi::CallbackInfo& info)
+        : FSWrapWorker<FileWrap>(info)
+        , fl()
+    {
+        // lock entire file
+        fl.l_whence = SEEK_SET;
+        fl.l_start = 0;
+        fl.l_len = 0;
+        fl.l_pid = 0;
+        fl.l_type = F_RDLCK;
+
+        if (info.Length() > 1 && !info[1].IsUndefined()) {
+            auto mode = info[1].As<Napi::String>().Utf8Value();
+            if (mode == "EXCLUSIVE") {
+                fl.l_type = F_WRLCK;
+            } else if (mode == "UNLOCK") {
+                fl.l_type = F_UNLCK;
+            } else if (mode == "SHARED") {
+                fl.l_type = F_RDLCK;
+            } else {
+                SetError("invalid lock type");
+            }
+        }
+
+        Begin(XSTR() << "FileFcntlLock" << DVAL(_wrap->_path));
+    }
+    virtual void Work()
+    {
+        int fd = _wrap->_fd;
+        CHECK_WRAP_FD(fd);
+        // This uses F_OFD_SETLKW instead for discussion related to this choice
+        // refer: https://github.com/noobaa/noobaa-core/pull/8174
+        SYSCALL_OR_RETURN(fcntl(fd, F_OFD_SETLKW, &fl));
     }
 };
 
@@ -1897,6 +1941,12 @@ Napi::Value
 FileWrap::flock(const Napi::CallbackInfo& info)
 {
     return api<FileFlock>(info);
+}
+
+Napi::Value
+FileWrap::fcntllock(const Napi::CallbackInfo& info)
+{
+    return api<FileFcntlLock>(info);
 }
 
 /**

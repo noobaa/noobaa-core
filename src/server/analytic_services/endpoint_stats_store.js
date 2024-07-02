@@ -196,6 +196,7 @@ class EndpointStatsStore {
             group_name: report.endpoint_group,
         };
         const update = {
+            $set: selector,
             $push: {
                 endpoints: _.pick(report, [
                     'hostname',

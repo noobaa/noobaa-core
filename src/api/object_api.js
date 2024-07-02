@@ -719,7 +719,7 @@ module.exports = {
                     },
                     limit: {
                         type: 'integer'
-                    },
+                    }
                 }
             },
             reply: {

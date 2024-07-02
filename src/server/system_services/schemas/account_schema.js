@@ -70,6 +70,7 @@ module.exports = {
                     access_key: { $ref: 'common_api#/definitions/access_key' },
                     secret_key: { $ref: 'common_api#/definitions/secret_key' },
                     azure_log_access_keys: { $ref: 'common_api#/definitions/azure_log_access_keys' },
+                    gcp_hmac_key: { $ref: 'common_api#/definitions/gcp_hmac_key' },
                     aws_sts_arn: {
                         type: 'string'
                     },

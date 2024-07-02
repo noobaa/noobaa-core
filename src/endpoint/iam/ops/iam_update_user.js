@@ -3,6 +3,7 @@
 
 const dbg = require('../../../util/debug_module')(__filename);
 const iam_utils = require('../iam_utils');
+const iam_constants = require('../iam_constants');
 const { CONTENT_TYPE_APP_FORM_URLENCODED } = require('../../../util/http_utils');
 
 /**
@@ -16,6 +17,7 @@ async function update_user(req, res) {
         new_iam_path: req.body.new_path,
     };
     dbg.log1('IAM UPDATE USER', params);
+    iam_utils.validate_params(iam_constants.IAM_ACTIONS.UPDATE_USER, params);
     const reply = await req.account_sdk.update_user(params);
     dbg.log2('update_user reply', reply);
 

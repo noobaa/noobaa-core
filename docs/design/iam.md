@@ -88,3 +88,19 @@ Source: AccessKeys
   - AccessKey (Create, Update, Delete, List)
     - root account
     - all IAM users only for themselves (except the first creation that can be done only by the root account).
+
+## Supported Actions and their request parameters
+### Supported IAM User Operations
+- IAM CreateUser: Path, UserName (not supported: PermissionsBoundary, Tags.member.N)
+- IAM GetUser: UserName
+- IAM UpdateUser: NewPath, NewUserName, UserName
+- IAM DeleteUser: UserName
+- IAM ListUsers: PathPrefix (not supported: Marker, MaxItems)
+
+### Supported IAM Access Keys Operations
+- IAM CreateAccessKey: UserName
+- IAM GetAccessKeyLastUsed: AccessKeyId
+- IAM UpdateAccessKey: AccessKeyId, Status, UserName
+- IAM DeleteAccessKey: AccessKeyId, UserName
+- IAM ListAccessKeys: UserName (not supported: Marker, MaxItems)
+

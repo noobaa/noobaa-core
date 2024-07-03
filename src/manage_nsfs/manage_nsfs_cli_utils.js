@@ -56,6 +56,23 @@ async function get_config_data(config_root_backend, config_file_path, show_secre
 }
 
 /**
+ * get_config_data_if_exists will read a config file and return its content 
+ * while omitting secrets if show_secrets flag was not provided
+ * if the config file was deleted (encounter ENOENT error) - continue (returns undefined)
+ * @param {string} config_file_path
+ * @param {boolean} [show_secrets]
+ */
+async function get_config_data_if_exists(config_root_backend, config_file_path, show_secrets = false) {
+    try {
+        const config_data = await get_config_data(config_root_backend, config_file_path, show_secrets);
+        return config_data;
+    } catch (err) {
+        dbg.warn('get_config_data_if_exists: with config_file_path', config_file_path, 'got an error', err);
+        if (err.code !== 'ENOENT') throw err;
+    }
+}
+
+/**
  * get_bucket_owner_account will return the account of the bucket_owner
  * otherwise it would throw an error
  * @param {string} config_root_backend
@@ -166,3 +183,4 @@ exports.has_access_keys = has_access_keys;
 exports.generate_id = generate_id;
 exports.set_debug_level = set_debug_level;
 exports.check_root_account_owns_user = check_root_account_owns_user;
+exports.get_config_data_if_exists = get_config_data_if_exists;

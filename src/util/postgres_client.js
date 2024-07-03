@@ -606,7 +606,7 @@ class PostgresTable {
         if (!process.env.CORETEST && !process.env.NC_NSFS_NO_DB_ENV) {
             // Run once a day
             // TODO: Configure from PostgreSQL
-            setInterval(this.vacuumAndAnalyze, 86400000, this).unref();
+            setInterval(this.vacuumAndAnalyze, config.VACCUM_ANALYZER_INTERVAL, this).unref();
         }
     }
 
@@ -701,7 +701,6 @@ class PostgresTable {
             dbg.log0('vacuumAndAnalyze finished', context.name);
         } catch (err) {
             dbg.error('vacuumAndAnalyze failed', err);
-            throw err;
         }
     }
 

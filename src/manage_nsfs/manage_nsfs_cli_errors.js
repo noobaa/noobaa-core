@@ -198,6 +198,20 @@ ManageCLIError.AccountDeleteForbiddenHasBuckets = Object.freeze({
     http_code: 403,
 });
 
+ManageCLIError.AccountCannotCreateRootAccountsRequesterIAMUser = Object.freeze({
+    code: 'AccountCannotCreateRootAccounts',
+    message: 'Cannot update account to have iam_operate_on_root_account. ' +
+        'You must use root account for this action',
+    http_code: 409,
+});
+
+ManageCLIError.AccountCannotBeRootAccountsManager = Object.freeze({
+    code: 'AccountCannotBeRootAccountsManager',
+    message: 'Cannot update account to have iam_operate_on_root_account. ' +
+        'You must delete all IAM accounts before update or ' +
+        'use root accounts that does not owns any IAM accounts',
+    http_code: 409,
+});
 
 //////////////////////////////////
 //// ACCOUNT ARGUMENTS ERRORS ////

@@ -143,6 +143,23 @@ describe('manage nsfs cli bucket flow', () => {
             expect(JSON.parse(res).response.code).toEqual(ManageCLIResponse.BucketCreated.code);
         });
 
+        it('cli create bucket - owner has iam_operate_on_root_account true', async () => {
+            // update the account to have iam_operate_on_root_account true
+            const { name } = account_defaults;
+            const account_options = { config_root, name, iam_operate_on_root_account: 'true'};
+            let action = ACTIONS.UPDATE;
+            await exec_manage_cli(TYPES.ACCOUNT, action, account_options);
+
+            // create the bucket
+            action = ACTIONS.ADD;
+            const bucket_options = { config_root, ...bucket_defaults};
+            await fs_utils.create_fresh_path(bucket_options.path);
+            await fs_utils.file_must_exist(bucket_options.path);
+            await set_path_permissions_and_owner(bucket_options.path, account_defaults, 0o700);
+            const res = await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
+            expect(JSON.parse(res).response.code).toEqual(ManageCLIResponse.BucketCreated.code);
+        });
+
         it('should fail - cli bucket add - without identifier', async () => {
             const action = ACTIONS.ADD;
             const bucket_options = { config_root, owner: bucket_defaults.owner, path: bucket_defaults.path };
@@ -472,6 +489,22 @@ describe('manage nsfs cli bucket flow', () => {
             const bucket_options = { config_root };
             const res = await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
             expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.MissingBucketNameFlag.code);
+        });
+
+        it('cli update bucket owner - owner has iam_operate_on_root_account true', async () => {
+            // update the account to have iam_operate_on_root_account true
+            const { name } = account_defaults2;
+            const account_options = { config_root, name, iam_operate_on_root_account: 'true'};
+            let action = ACTIONS.UPDATE;
+            await exec_manage_cli(TYPES.ACCOUNT, action, account_options);
+
+            action = ACTIONS.UPDATE;
+            const bucket_options = { config_root, name: bucket_defaults.name, owner: account_defaults2.name};
+            await fs_utils.create_fresh_path(bucket_defaults.path);
+            await fs_utils.file_must_exist(bucket_defaults.path);
+            await set_path_permissions_and_owner(bucket_defaults.path, account_defaults2, 0o700);
+            const res = await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
+            expect(JSON.parse(res).response.code).toEqual(ManageCLIResponse.BucketUpdated.code);
         });
     });
 

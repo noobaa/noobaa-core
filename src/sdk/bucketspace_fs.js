@@ -228,7 +228,15 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                 return;
             }
             const bucket_name = this.get_bucket_name(entry.name);
-            const bucket = await object_sdk.read_bucket_sdk_config_info(bucket_name);
+            let bucket;
+            try {
+                bucket = await object_sdk.read_bucket_sdk_config_info(bucket_name);
+            } catch (err) {
+                dbg.warn('list_buckets: read_bucket_sdk_config_info of bucket', bucket_name, 'got an error', err);
+                // in case the config file was deleted during the bucket list - we will continue
+                if (err.rpc_code !== 'NO_SUCH_BUCKET') throw err;
+            }
+            if (!bucket) return;
             const bucket_policy_accessible = await this.has_bucket_action_permission(bucket, account, 's3:ListBucket');
             if (!bucket_policy_accessible) return;
             const fs_accessible = await this.validate_fs_bucket_access(bucket, object_sdk);

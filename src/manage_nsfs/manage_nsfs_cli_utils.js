@@ -1,6 +1,7 @@
 /* Copyright (C) 2024 NooBaa */
 'use strict';
 
+const dbg = require('../util/debug_module')(__filename);
 const _ = require('lodash');
 const path = require('path');
 const nb_native = require('../util/nb_native');
@@ -51,6 +52,23 @@ async function get_config_data(config_root_backend, config_file_path, show_secre
     const { data } = await nb_native().fs.readFile(fs_context, config_file_path);
     const config_data = _.omit(JSON.parse(data.toString()), show_secrets ? [] : ['access_keys']);
     return config_data;
+}
+
+/**
+ * get_config_data_if_exists will read a config file and return its content 
+ * while omitting secrets if show_secrets flag was not provided
+ * if the config file was deleted (encounter ENOENT error) - continue (returns undefined)
+ * @param {string} config_file_path
+ * @param {boolean} [show_secrets]
+ */
+async function get_config_data_if_exists(config_root_backend, config_file_path, show_secrets = false) {
+    try {
+        const config_data = await get_config_data(config_root_backend, config_file_path, show_secrets);
+        return config_data;
+    } catch (err) {
+        dbg.warn('get_config_data_if_exists: with config_file_path', config_file_path, 'got an error', err);
+        if (err.code !== 'ENOENT') throw err;
+    }
 }
 
 /**
@@ -118,3 +136,5 @@ exports.get_boolean_or_string_value = get_boolean_or_string_value;
 exports.get_config_data = get_config_data;
 exports.get_bucket_owner_account = get_bucket_owner_account;
 exports.get_options_from_file = get_options_from_file;
+exports.get_config_data_if_exists = get_config_data_if_exists;
+

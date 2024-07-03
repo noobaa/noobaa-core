@@ -12,7 +12,7 @@ const native_fs_utils = require('../util/native_fs_utils');
 const ManageCLIError = require('../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
 const bucket_policy_utils = require('../endpoint/s3/s3_bucket_policy_utils');
 const { throw_cli_error, get_config_file_path, get_bucket_owner_account,
-    get_config_data, get_options_from_file } = require('../manage_nsfs/manage_nsfs_cli_utils');
+    get_options_from_file, get_config_data_if_exists } = require('../manage_nsfs/manage_nsfs_cli_utils');
 const { TYPES, ACTIONS, VALID_OPTIONS, OPTION_TYPE, FROM_FILE, BOOLEAN_STRING_VALUES,
     GLACIER_ACTIONS, LIST_UNSETABLE_OPTIONS } = require('../manage_nsfs/manage_nsfs_constants');
 
@@ -335,11 +335,12 @@ function _validate_access_keys(access_key, secret_key) {
 async function verify_delete_account(config_root_backend, buckets_dir_path, account_name) {
     const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
     const entries = await nb_native().fs.readdir(fs_context, buckets_dir_path);
+    let data;
     await P.map_with_concurrency(10, entries, async entry => {
         if (entry.name.endsWith('.json')) {
             const full_path = path.join(buckets_dir_path, entry.name);
-            const data = await get_config_data(config_root_backend, full_path);
-            if (data.bucket_owner === account_name) {
+            data = await get_config_data_if_exists(config_root_backend, full_path);
+            if (data && data.bucket_owner === account_name) {
                 const detail_msg = `Account ${account_name} has bucket ${data.name}`;
                 throw_cli_error(ManageCLIError.AccountDeleteForbiddenHasBuckets, detail_msg);
             }

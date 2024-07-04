@@ -35,6 +35,15 @@ if (process.env.NOOBAA_LOG_LEVEL) {
     }
 }
 
+let dbg_syslog_conf;
+let LOG_DEBUG_LEVEL = 0;
+if (process.env.NOOBAA_DEBUG_LEVEL) {
+    dbg_syslog_conf = debug_config.get_debug_config(process.env.NOOBAA_DEBUG_LEVEL);
+    if (process.env.NOOBAA_DEBUG_LEVEL !== 'nsfs') {
+        LOG_DEBUG_LEVEL = dbg_syslog_conf.level;
+    }
+}
+
 // override the default inspect options
 if (!util.inspect.defaultOptions) util.inspect.defaultOptions = {};
 util.inspect.defaultOptions.depth = 10;
@@ -75,6 +84,7 @@ if (typeof process !== 'undefined' &&
 
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
 
 // Pretty time format
 function formatted_time() {
@@ -379,7 +389,8 @@ class InternalDebugLogger {
     }
 
     log_internal(msg_info) {
-        if (syslog && config.LOG_TO_SYSLOG_ENABLED) {
+        if (syslog && config.LOG_TO_SYSLOG_ENABLED &&
+            this._levels[msg_info.level] <= LOG_DEBUG_LEVEL) {
             // syslog path
             syslog(this._levels_to_syslog[msg_info.level], msg_info.message_syslog, config.DEBUG_FACILITY);
         } else if (this._log_file) {
@@ -389,7 +400,9 @@ class InternalDebugLogger {
         // This is also used in order to log to the console
         // browser workaround, don't use rotating file steam. Add timestamp and level
         const logfunc = LOG_FUNC_PER_LEVEL[msg_info.level] || 'log';
-        if (this._log_console_silent || !config.LOG_TO_STDERR_ENABLED) {
+        if (this._log_console_silent) {
+            // noop
+        } else if (!config.LOG_TO_STDERR_ENABLED || this._levels[msg_info.level] > LOG_LEVEL) {
             // noop
         } else if (console_wrapper) {
             process.stderr.write(msg_info.message_console + '\n');

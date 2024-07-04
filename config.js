@@ -472,7 +472,7 @@ config.EVENT_FACILITY = 'LOG_LOCAL2';
 config.EVENT_LOGGING_ENABLED = true;
 config.EVENT_LEVEL = 5;
 
-config.LOG_TO_SYSLOG_ENABLED = true;
+config.LOG_TO_SYSLOG_ENABLED = false;
 config.LOG_TO_STDERR_ENABLED = true;
 
 // TEST Mode
@@ -1084,7 +1084,7 @@ function load_nsfs_nc_config() {
         const merged_config = _.merge(shared_config, node_config || {});
 
         Object.keys(merged_config).forEach(function(key) {
-            const config_to_env = ['NOOBAA_LOG_LEVEL', 'UV_THREADPOOL_SIZE', 'GPFS_DL_PATH'];
+            const config_to_env = ['NOOBAA_LOG_LEVEL', 'UV_THREADPOOL_SIZE', 'GPFS_DL_PATH', 'NOOBAA_DEBUG_LEVEL'];
             if (config_to_env.includes(key)) {
                 process.env[key] = merged_config[key];
                 return;

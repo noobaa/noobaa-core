@@ -597,6 +597,7 @@ class AccountSpaceFS {
         const entries = await nb_native().fs.readdir(this.fs_context, this.accounts_dir);
         const should_filter_by_prefix = check_iam_path_was_set(iam_path_prefix);
 
+        // TODO - add silent get config to handle config deletion during list (concurrency)
         const config_files_list = await P.map_with_concurrency(10, entries, async entry => {
             if (entry.name.endsWith('.json')) {
                 const full_path = path.join(this.accounts_dir, entry.name);

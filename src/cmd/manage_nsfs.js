@@ -20,7 +20,7 @@ const { print_usage } = require('../manage_nsfs/manage_nsfs_help_utils');
 const { TYPES, ACTIONS, LIST_ACCOUNT_FILTERS, LIST_BUCKET_FILTERS,
     GLACIER_ACTIONS } = require('../manage_nsfs/manage_nsfs_constants');
 const { throw_cli_error, write_stdout_response, get_config_file_path, get_symlink_config_file_path,
-    get_config_data, get_boolean_or_string_value, has_access_keys, set_debug_level} = require('../manage_nsfs/manage_nsfs_cli_utils');
+    get_config_data, get_boolean_or_string_value, has_access_keys, set_debug_level, get_config_data_if_exists } = require('../manage_nsfs/manage_nsfs_cli_utils');
 const manage_nsfs_validations = require('../manage_nsfs/manage_nsfs_validations');
 const nc_mkm = require('../manage_nsfs/nc_master_key_manager').get_instance();
 
@@ -642,7 +642,8 @@ async function list_config_files(type, config_path, wide, show_secrets, filters)
         if (entry.name.endsWith('.json')) {
             if (wide || should_filter) {
                 const full_path = path.join(config_path, entry.name);
-                const data = await get_config_data(config_root_backend, full_path, show_secrets || should_filter);
+                const data = await get_config_data_if_exists(config_root_backend, full_path, show_secrets || should_filter);
+                if (!data) return undefined;
                 // decryption causing mkm initalization
                 // decrypt only if data has access_keys and show_secrets = true (no need to decrypt if show_secrets = false but should_filter = true)
                 if (data.access_keys && show_secrets) data.access_keys = await nc_mkm.decrypt_access_keys(data);
@@ -655,6 +656,7 @@ async function list_config_files(type, config_path, wide, show_secrets, filters)
         }
     });
     // it inserts undefined for the entry '.noobaa-config-nsfs' and we wish to remove it
+    // in case the entry was deleted during the list it also inserts undefined
     config_files_list = config_files_list.filter(item => item);
 
     return config_files_list;

@@ -8,7 +8,7 @@ echo "*/5 * * * * /root/node_modules/noobaa-core/src/deploy/NVA_build/noobaa_log
 while true; do
 
     echo "$(date): =================================== running logrotate ===================================" >/dev/stdout 2>&1
-    /usr/sbin/logrotate -v /etc/logrotate.d/noobaa/logrotate_noobaa.conf >/dev/stdout 2>&1
+    /usr/sbin/logrotate -v /etc/logrotate.d/noobaa-logrotate >/dev/stdout 2>&1
     echo "$(date): =================================== logrotate Done ======================================" >/dev/stdout 2>&1
 
     sleep 60

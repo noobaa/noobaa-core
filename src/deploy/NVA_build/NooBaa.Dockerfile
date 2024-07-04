@@ -110,7 +110,7 @@ COPY ./src/deploy/NVA_build/supervisord.orig /tmp/supervisord
 COPY ./src/deploy/NVA_build/supervisorctl.bash_completion /etc/bash_completion.d/supervisorctl
 COPY ./src/deploy/NVA_build/rsyslog.conf /etc/rsyslog.conf
 COPY ./src/deploy/NVA_build/noobaa_syslog.conf /etc/rsyslog.d/
-COPY ./src/deploy/NVA_build/logrotate_noobaa.conf /etc/logrotate.d/noobaa/
+COPY ./src/deploy/NVA_build/noobaa-logrotate /etc/logrotate.d/
 COPY ./src/deploy/NVA_build/noobaa_init.sh /noobaa_init_files/
 
 COPY ./src/deploy/NVA_build/setup_platform.sh /usr/bin/setup_platform.sh

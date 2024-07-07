@@ -44,7 +44,7 @@ For more details about NooBaa RPM installation, see - [Getting Started](./Gettin
 The `health` command is used to analyze NooBaa health with customizable options.
 
 ```sh
-sudo node /usr/local/noobaa-core/src/cmd/health [--deployment_type][--https_port]
+noobaa-cli diagnose health [--deployment_type][--https_port]
 [--all_account_details][--all_bucket_details][--config_root][--debug]
 ```
 ### Flags -
@@ -151,7 +151,7 @@ The output of the Health CLI is a JSON object containing the following propertie
 
 ## Example 
 ```sh
-sudo node usr/local/noobaa-core/src/cmd/health --all_account_details --all_bucket_details
+noobaa-cli diagnose health --all_account_details --all_bucket_details
 ```
 
 Output:

@@ -39,6 +39,20 @@ class ManageCLIResponse {
 // See Manage NSFS CLI error codes docs - TODO: add docs
 
 ///////////////////////////////
+//////  DIAGNOSE RESPONSES ////
+///////////////////////////////
+
+ManageCLIResponse.HealthStatus = Object.freeze({
+    code: 'HealthStatus',
+    status: {}
+});
+
+ManageCLIResponse.MetricsStatus = Object.freeze({
+    code: 'MetricsStatus',
+    status: {}
+});
+
+///////////////////////////////
 // IPS WHITE LIST RESPONSES ///
 ///////////////////////////////
 ManageCLIResponse.WhiteListIPUpdated = Object.freeze({

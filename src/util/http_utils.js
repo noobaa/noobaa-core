@@ -491,6 +491,13 @@ function make_https_request(options, body, body_encoding) {
     });
 }
 
+async function make_http_request(options, body) {
+    return new Promise((resolve, reject) => {
+        http.request(options, resolve)
+            .on('error', reject)
+            .end(body);
+    });
+}
 
 // Write periodically to keep the connection alive
 // TODO: Every complete above the S3_KEEP_ALIVE_WHITESPACE_INTERVAL
@@ -725,6 +732,7 @@ exports.get_unsecured_agent = get_unsecured_agent;
 exports.update_http_agents = update_http_agents;
 exports.update_https_agents = update_https_agents;
 exports.make_https_request = make_https_request;
+exports.make_http_request = make_http_request;
 exports.set_keep_alive_whitespace_interval = set_keep_alive_whitespace_interval;
 exports.parse_xml_to_js = parse_xml_to_js;
 exports.check_headers = check_headers;

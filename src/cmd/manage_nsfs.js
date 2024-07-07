@@ -16,6 +16,7 @@ const ManageCLIError = require('../manage_nsfs/manage_nsfs_cli_errors').ManageCL
 const ManageCLIResponse = require('../manage_nsfs/manage_nsfs_cli_responses').ManageCLIResponse;
 const manage_nsfs_glacier = require('../manage_nsfs/manage_nsfs_glacier');
 const manage_nsfs_logging = require('../manage_nsfs/manage_nsfs_logging');
+const noobaa_cli_diagnose = require('../manage_nsfs/diagnose');
 const nsfs_schema_utils = require('../manage_nsfs/nsfs_schema_utils');
 const { print_usage } = require('../manage_nsfs/manage_nsfs_help_utils');
 const { TYPES, ACTIONS, CONFIG_SUBDIRS,
@@ -77,6 +78,8 @@ async function main(argv = minimist(process.argv.slice(2))) {
             await glacier_management(argv);
         } else if (type === TYPES.LOGGING) {
             await logging_management(user_input);
+        } else if (type === TYPES.DIAGNOSE) {
+            await noobaa_cli_diagnose.manage_diagnose_operations(action, user_input, global_config);
         } else {
             // we should not get here (we check it before)
             throw_cli_error(ManageCLIError.InvalidType);

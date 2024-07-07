@@ -1,7 +1,7 @@
 /* Copyright (C) 2024 NooBaa */
 'use strict';
 
-const { TYPES, ACTIONS, GLACIER_ACTIONS } = require('./manage_nsfs_constants');
+const { TYPES, ACTIONS, GLACIER_ACTIONS, DIAGNOSE_ACTIONS } = require('./manage_nsfs_constants');
 
 const HELP = `
 Help:
@@ -23,7 +23,7 @@ Usage:
 const ARGUMENTS = `
 Arguments:
 
-    <type>    Set the resource type: account, bucket, logging or whitelist
+    <type>    Set the resource type: account, bucket, whitelist, diagnose or logging
     <action>  Action could be: add, update, list, status, and delete for accounts/buckets
 `;
 
@@ -211,6 +211,76 @@ const GLACIER_RESTORE_OPTIONS = ``;
 
 const GLACIER_EXPIRY_OPTIONS = ``;
 
+
+const DIAGNOSE_OPTIONS = `
+Usage:
+
+    execute with root permission or use sudo before each command
+    
+    noobaa-cli diagnose <action> [flags]
+
+List of actions supported:
+
+    health
+    gather-logs
+    metrics
+    
+`;
+
+const DIAGNOSE_HEALTH_OPTIONS = `
+Help:
+
+'health' is a noobaa-core command that will return the health status of deployed noobaa system.
+
+Usage:
+
+    execute with root permission or use sudo before each command
+        
+    noobaa-cli diagnose health [flags]
+
+Flags:
+
+--deployment_type       <string>        (optional)          Set the nsfs type for heath check.(default nc; Non Containerized)
+--https_port            <number>        (optional)          Set the S3 endpoint listening HTTPS port to serve. (default config.ENDPOINT_SSL_PORT)
+--all_account_details   <boolean>       (optional)          Set a flag for returning all account details.
+--all_bucket_details    <boolean>       (optional)          Set a flag for returning all bucket details.
+--debug                 <number>        (optional)          Use for increasing the log verbosity of health cli commands.
+--config_root           <string>        (optional)          Set Configuration files path for Noobaa standalon NSFS. (default config.NSFS_NC_DEFAULT_CONF_DIR)
+
+`;
+
+const DIAGNOSE_GATHER_LOGS_OPTIONS = `
+Help:
+
+'gather-logs' is a noobaa-core command that will collect NooBaa diagnostics logs tar file
+
+Usage:
+
+    execute with root permission or use sudo before each command
+        
+    noobaa-cli diagnose gather-logs [flags]
+
+Flags:
+
+--dir_path              <string>         (optional)          collect noobaa diagnostics tar file into destination directory
+--config_dir_dump       <boolean>        (optional)          collect config directory in addition to diagnostics
+--metrics_dump          <boolean>        (optional)          collect metrics in addition to diagnostics
+
+`;
+
+const DIAGNOSE_METRICS_OPTIONS = `
+Help:
+
+'metrics' is a noobaa-core command that will return the exported metrics of the deployed NooBaa system.
+
+Usage:
+
+    execute with root permission or use sudo before each command
+        
+    noobaa-cli diagnose metrics
+
+`;
+
 /** 
  * print_usage would print the help according to the arguments that were passed
  * @param {string} type
@@ -232,6 +302,9 @@ function print_usage(type, action) {
             break;
         case TYPES.GLACIER:
             print_help_glacier(action);
+            break;
+        case TYPES.DIAGNOSE:
+            print_help_diagnose(action);
             break;
         default:
             process.stdout.write(HELP + '\n');
@@ -308,6 +381,22 @@ function print_help_glacier(action) {
             break;
         default:
             process.stdout.write(GLACIER_OPTIONS.trimStart());
+    }
+}
+
+function print_help_diagnose(action) {
+    switch (action) {
+        case DIAGNOSE_ACTIONS.HEALTH:
+            process.stdout.write(DIAGNOSE_HEALTH_OPTIONS.trimStart());
+            break;
+        case DIAGNOSE_ACTIONS.GATHER_LOGS:
+            process.stdout.write(DIAGNOSE_GATHER_LOGS_OPTIONS.trimStart());
+            break;
+        case DIAGNOSE_ACTIONS.METRICS:
+            process.stdout.write(DIAGNOSE_METRICS_OPTIONS.trimStart());
+            break;
+        default:
+            process.stdout.write(DIAGNOSE_OPTIONS.trimStart());
     }
 }
 

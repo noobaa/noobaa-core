@@ -6,8 +6,8 @@ const TYPES = {
     BUCKET: 'bucket',
     IP_WHITELIST: 'whitelist',
     GLACIER: 'glacier',
-    HEALTH: 'health',
     LOGGING: 'logging',
+    DIAGNOSE: 'diagnose'
 };
 
 const ACTIONS = {
@@ -22,6 +22,12 @@ const GLACIER_ACTIONS = {
     MIGRATE: 'migrate',
     RESTORE: 'restore',
     EXPIRY: 'expiry',
+};
+
+const DIAGNOSE_ACTIONS = {
+    HEALTH: 'health',
+    GATHER_LOGS: 'gather-logs',
+    METRICS: 'metrics'
 };
 
 const CONFIG_SUBDIRS = {
@@ -64,7 +70,12 @@ const VALID_OPTIONS_GLACIER = {
     'expiry': new Set([ GLOBAL_CONFIG_ROOT]),
 };
 
-const VALID_OPTIONS_HEALTH = new Set(['https_port', 'deployment_type', 'all_account_details', 'all_bucket_details', ...GLOBAL_CONFIG_OPTIONS]);
+const VALID_OPTIONS_DIAGNOSE = {
+    'health': new Set([ 'https_port', 'deployment_type', 'all_account_details', 'all_bucket_details', ...GLOBAL_CONFIG_OPTIONS]),
+    'gather-logs': new Set([ GLOBAL_CONFIG_ROOT]),
+    'metrics': new Set([GLOBAL_CONFIG_ROOT])
+};
+
 
 const VALID_OPTIONS_WHITELIST = new Set(['ips', ...GLOBAL_CONFIG_OPTIONS]);
 
@@ -77,7 +88,7 @@ const VALID_OPTIONS = {
     whitelist_options: VALID_OPTIONS_WHITELIST,
     from_file_options: VALID_OPTIONS_FROM_FILE,
     anonymous_account_options: VALID_OPTIONS_ANONYMOUS_ACCOUNT,
-    health_options: VALID_OPTIONS_HEALTH
+    diagnose_options: VALID_OPTIONS_DIAGNOSE
 };
 
 const OPTION_TYPE = {
@@ -127,6 +138,7 @@ const LIST_BUCKET_FILTERS = ['name'];
 exports.TYPES = TYPES;
 exports.ACTIONS = ACTIONS;
 exports.GLACIER_ACTIONS = GLACIER_ACTIONS;
+exports.DIAGNOSE_ACTIONS = DIAGNOSE_ACTIONS;
 exports.CONFIG_SUBDIRS = CONFIG_SUBDIRS;
 exports.VALID_OPTIONS = VALID_OPTIONS;
 exports.OPTION_TYPE = OPTION_TYPE;

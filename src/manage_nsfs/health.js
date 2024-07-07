@@ -4,7 +4,6 @@
 const dbg = require('../util/debug_module')(__filename);
 const path = require('path');
 const _ = require('lodash');
-const minimist = require('minimist');
 const P = require('../util/promise');
 const config = require('../../config');
 const os_util = require('../util/os_utils');
@@ -12,43 +11,11 @@ const nb_native = require('../util/nb_native');
 const native_fs_utils = require('../util/native_fs_utils');
 const { read_stream_join } = require('../util/buffer_utils');
 const { make_https_request } = require('../util/http_utils');
-const { TYPES } = require('../manage_nsfs/manage_nsfs_constants');
-const { validate_input_types } = require('../manage_nsfs/manage_nsfs_validations');
-const { get_boolean_or_string_value, set_debug_level } = require('../manage_nsfs/manage_nsfs_cli_utils');
-const ManageCLIError = require('../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
+const { TYPES } = require('./manage_nsfs_constants');
+const { get_boolean_or_string_value, throw_cli_error, write_stdout_response } = require('./manage_nsfs_cli_utils');
+const { ManageCLIResponse } = require('./manage_nsfs_cli_responses');
+const ManageCLIError = require('./manage_nsfs_cli_errors').ManageCLIError;
 
-const HELP = `
-Help:
-
-    'nsfs' is a noobaa-core command runs a local S3 endpoint on top of a filesystem.
-    Each sub directory of the root filesystem represents an S3 bucket.
-    Health command will return the health status of deployed nsfs.
-`;
-
-const USAGE = `
-Usage:
-
-    node src/cmd/health [flags]
-`;
-
-
-const OPTIONS = `
-Flags:
-    
-    --deployment_type       <string>        (optional)          Set the nsfs type for heath check.(default nc; Non Containerized)
-    --https_port            <number>        (optional)          Set the S3 endpoint listening HTTPS port to serve. (default config.ENDPOINT_SSL_PORT)
-    --all_account_details   <boolean>       (optional)          Set a flag for returning all account details.
-    --all_bucket_details    <boolean>       (optional)          Set a flag for returning all bucket details.
-    --debug                 <number>        (optional)          Use for increasing the log verbosity of health cli commands.
-    --config_root           <string>        (optional)          Set Configuration files path for Noobaa standalon NSFS. (default config.NSFS_NC_DEFAULT_CONF_DIR)
-`;
-
-function print_usage() {
-    process.stdout.write(HELP);
-    process.stdout.write(USAGE.trimStart());
-    process.stdout.write(OPTIONS.trimStart());
-    process.exit(1);
-}
 
 const HOSTNAME = 'localhost';
 const NOOBAA_SERVICE = 'noobaa';
@@ -405,44 +372,24 @@ class NSFSHealth {
     }
 }
 
-async function main(argv = minimist(process.argv.slice(2))) {
+async function get_health_status(argv, global_config) {
     try {
-        if (process.getuid() !== 0 || process.getgid() !== 0) {
-            throw new Error('Root permissions required for NSFS Health execution.');
-        }
-        if (argv.help || argv.h) return print_usage();
-        await validate_input_types(TYPES.HEALTH, '', argv);
-        if (argv.debug) set_debug_level(argv.debug);
-        const config_root = argv.config_root ? String(argv.config_root) : config.NSFS_NC_CONF_DIR;
+        const config_root = global_config.config_root;
         const https_port = Number(argv.https_port) || config.ENDPOINT_SSL_PORT;
         const deployment_type = argv.deployment_type || 'nc';
         const all_account_details = get_boolean_or_string_value(argv.all_account_details);
         const all_bucket_details = get_boolean_or_string_value(argv.all_bucket_details);
 
-        if (argv.config_root) {
-            config.NSFS_NC_CONF_DIR = String(argv.config_root);
-            config.load_nsfs_nc_config();
-            config.reload_nsfs_nc_config();
-        }
         if (deployment_type === 'nc') {
             const health = new NSFSHealth({ https_port, config_root, all_account_details, all_bucket_details });
             const health_status = await health.nc_nsfs_health();
-            process.stdout.write(JSON.stringify(health_status) + '\n', () => {
-                process.exit(0);
-            });
+            write_stdout_response(ManageCLIResponse.HealthStatus, health_status);
         } else {
             dbg.log0('Health is not supported for simple nsfs deployment.');
         }
     } catch (err) {
         dbg.error('Health: exit on error', err.stack || err);
-        const manage_err = ((err instanceof ManageCLIError) && err) ||
-            new ManageCLIError({
-                ...(ManageCLIError.FS_ERRORS_TO_MANAGE[err.code] ||
-                ManageCLIError.RPC_ERROR_TO_MANAGE[err.rpc_code] ||
-                ManageCLIError.InternalError), cause: err });
-        process.stdout.write(manage_err.to_string() + '\n', () => {
-            process.exit(1);
-        });
+        throw_cli_error({ ...ManageCLIError.HealthStatusFailed, cause: err });
     }
 }
 
@@ -596,8 +543,5 @@ function get_invalid_object(name, config_path, storage_path, err_code) {
     };
 }
 
-exports.main = main;
-
-if (require.main === module) main();
-
-module.exports = NSFSHealth;
+exports.get_health_status = get_health_status;
+exports.NSFSHealth = NSFSHealth;

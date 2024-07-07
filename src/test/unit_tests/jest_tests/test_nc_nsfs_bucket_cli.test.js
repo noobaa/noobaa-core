@@ -618,6 +618,18 @@ describe('manage nsfs cli bucket flow', () => {
             const res = await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
             expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.MissingBucketNameFlag.code);
         });
+
+        it('cli delete bucket when path was deleted first', async () => {
+            await fs_utils.folder_delete(`${bucket_defaults.path}`);
+            const path_exists = await is_path_exists(DEFAULT_FS_CONFIG, bucket_defaults.path);
+            expect(path_exists).toBe(false);
+            const bucket_options = { config_root, name: 'bucket1'};
+            const action = ACTIONS.DELETE;
+            const res = await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
+            expect(JSON.parse(res.trim()).response.code).toBe(ManageCLIResponse.BucketDeleted.code);
+            const config_path = path.join(config_root, CONFIG_SUBDIRS.BUCKETS, bucket_defaults.name + '.json');
+            await fs_utils.file_must_not_exist(config_path);
+        });
     });
 
     describe('cli status bucket ', () => {

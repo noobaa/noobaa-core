@@ -4,6 +4,7 @@
 const dbg = require('../util/debug_module')(__filename);
 const _ = require('lodash');
 const path = require('path');
+const config = require('../../config');
 const nb_native = require('../util/nb_native');
 const native_fs_utils = require('../util/native_fs_utils');
 const ManageCLIError = require('../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
@@ -13,6 +14,37 @@ const NSFS_CLI_SUCCESS_EVENT_MAP = require('../manage_nsfs/manage_nsfs_cli_respo
 const { BOOLEAN_STRING_VALUES } = require('../manage_nsfs/manage_nsfs_constants');
 const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
 const mongo_utils = require('../util/mongo_utils');
+
+/**
+ * @param {object} global_config
+ */
+async function check_and_create_config_dirs(global_config) {
+    const pre_req_dirs = [
+        global_config.config_root,
+        global_config.buckets_dir_path,
+        global_config.accounts_dir_path,
+        global_config.access_keys_dir_path,
+    ];
+
+    if (config.NSFS_GLACIER_LOGS_ENABLED) {
+        pre_req_dirs.push(config.NSFS_GLACIER_LOGS_DIR);
+    }
+
+    for (const dir_path of pre_req_dirs) {
+        try {
+            const fs_context = native_fs_utils.get_process_fs_context(global_config.config_root_backend);
+            const dir_exists = await native_fs_utils.is_path_exists(fs_context, dir_path);
+            if (dir_exists) {
+                dbg.log1('nsfs.check_and_create_config_dirs: config dir exists:', dir_path);
+            } else {
+                await native_fs_utils._create_path(dir_path, fs_context, config.BASE_MODE_CONFIG_DIR);
+                dbg.log1('nsfs.check_and_create_config_dirs: config dir was created:', dir_path);
+            }
+        } catch (err) {
+            dbg.log1('nsfs.check_and_create_config_dirs: could not create pre requisite path', dir_path);
+        }
+    }
+}
 
 function throw_cli_error(error, detail, event_arg) {
     const error_event = NSFS_CLI_ERROR_EVENT_MAP[error.code];
@@ -45,6 +77,7 @@ function get_symlink_config_file_path(config_type_path, file_name) {
 /**
  * get_config_data will read a config file and return its content 
  * while omitting secrets if show_secrets flag was not provided
+ * @param {string} config_root_backend
  * @param {string} config_file_path
  * @param {boolean} [show_secrets]
  */
@@ -59,6 +92,7 @@ async function get_config_data(config_root_backend, config_file_path, show_secre
  * get_config_data_if_exists will read a config file and return its content 
  * while omitting secrets if show_secrets flag was not provided
  * if the config file was deleted (encounter ENOENT error) - continue (returns undefined)
+ * @param {string} config_root_backend
  * @param {string} config_file_path
  * @param {boolean} [show_secrets]
  */
@@ -75,14 +109,13 @@ async function get_config_data_if_exists(config_root_backend, config_file_path, 
 /**
  * get_bucket_owner_account will return the account of the bucket_owner
  * otherwise it would throw an error
- * @param {string} config_root_backend
- * @param {string} accounts_dir_path
+ * @param {object} global_config
  * @param {string} bucket_owner
  */
-async function get_bucket_owner_account(config_root_backend, accounts_dir_path, bucket_owner) {
-    const account_config_path = get_config_file_path(accounts_dir_path, bucket_owner);
+async function get_bucket_owner_account(global_config, bucket_owner) {
+    const account_config_path = get_config_file_path(global_config.accounts_dir_path, bucket_owner);
     try {
-        const account = await get_config_data(config_root_backend, account_config_path);
+        const account = await get_config_data(global_config.config_root_backend, account_config_path);
         return account;
     } catch (err) {
         if (err.code === 'ENOENT') {
@@ -184,3 +217,4 @@ exports.generate_id = generate_id;
 exports.set_debug_level = set_debug_level;
 exports.check_root_account_owns_user = check_root_account_owns_user;
 exports.get_config_data_if_exists = get_config_data_if_exists;
+exports.check_and_create_config_dirs = check_and_create_config_dirs;

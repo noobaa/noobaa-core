@@ -257,15 +257,24 @@ async function delete_bucket(data, force) {
     try {
         const temp_dir_name = native_fs_utils.get_bucket_tmpdir_name(data._id);
         const bucket_temp_dir_path = native_fs_utils.get_bucket_tmpdir_full_path(data.path, data._id);
-        const entries = await nb_native().fs.readdir(fs_context_fs_backend, data.path);
-        const object_entries = entries.filter(element => !element.name.endsWith(temp_dir_name));
-        if (object_entries.length === 0 || force) {
-            await native_fs_utils.folder_delete(bucket_temp_dir_path, fs_context_fs_backend, true);
-            await native_fs_utils.delete_config_file(fs_context_config_root_backend, buckets_dir_path, bucket_config_path);
-            write_stdout_response(ManageCLIResponse.BucketDeleted, '', { bucket: data.name });
-            return;
+        let entries;
+        try {
+            entries = await nb_native().fs.readdir(fs_context_fs_backend, data.path);
+        } catch (err) {
+            dbg.warn(`delete_bucket: bucket name ${data.name},` +
+                `got an error on readdir with path: ${data.path}`, err);
+            // if the bucket's path was deleted first (encounter ENOENT error) - continue deletion
+            if (err.code !== 'ENOENT') throw err;
         }
-        throw_cli_error(ManageCLIError.BucketDeleteForbiddenHasObjects, data.name);
+        if (entries) {
+            const object_entries = entries.filter(element => !element.name.endsWith(temp_dir_name));
+            if (object_entries.length > 0 && !force) {
+                throw_cli_error(ManageCLIError.BucketDeleteForbiddenHasObjects, data.name);
+            }
+        }
+        await native_fs_utils.folder_delete(bucket_temp_dir_path, fs_context_fs_backend, true);
+        await native_fs_utils.delete_config_file(fs_context_config_root_backend, buckets_dir_path, bucket_config_path);
+        write_stdout_response(ManageCLIResponse.BucketDeleted, '', { bucket: data.name });
     } catch (err) {
         if (err.code === 'ENOENT') throw_cli_error(ManageCLIError.NoSuchBucket, data.name);
         throw err;

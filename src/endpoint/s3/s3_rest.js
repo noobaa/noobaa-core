@@ -399,7 +399,9 @@ function handle_error(req, res, err) {
     dbg.error('S3 ERROR', reply,
         req.method, req.originalUrl,
         JSON.stringify(req.headers),
-        err.stack || err);
+        err.stack || err,
+        err.context ? `- context: ${err.context?.trim()}` : '',
+    );
     if (res.headersSent) {
         dbg.log0('Sending error xml in body, but too late for headers...');
     } else {

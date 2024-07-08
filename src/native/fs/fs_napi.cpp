@@ -655,6 +655,9 @@ struct FSWorker : public Napi::AsyncWorker
         if (_errno) {
             obj.Set("code", Napi::String::New(env, uv_err_name(uv_translate_sys_error(_errno))));
         }
+
+        obj.Set("context", Napi::String::New(env, _desc));
+
         _deferred.Reject(obj);
     }
 };
@@ -1311,7 +1314,7 @@ struct Fsync : public FSWorker
 };
 
 /**
- * GetPwName is an os op 
+ * GetPwName is an os op
  */
 struct GetPwName : public FSWorker
 {
@@ -2206,7 +2209,7 @@ fs_napi(Napi::Env env, Napi::Object exports)
             if (sizeof(struct gpfsRequest_t) != 256) {
                 PANIC("The gpfs get extended attributes is of wrong size" << sizeof(struct gpfsRequest_t));
             }
-            
+
             auto gpfs = Napi::Object::New(env);
             gpfs["register_gpfs_noobaa"] = Napi::Function::New(env, register_gpfs_noobaa);
             // we export the gpfs object, which can be checked to indicate that

@@ -17,51 +17,27 @@ const ManageCLIResponse = require('../manage_nsfs/manage_nsfs_cli_responses').Ma
 const manage_nsfs_glacier = require('../manage_nsfs/manage_nsfs_glacier');
 const nsfs_schema_utils = require('../manage_nsfs/nsfs_schema_utils');
 const { print_usage } = require('../manage_nsfs/manage_nsfs_help_utils');
-const { TYPES, ACTIONS, LIST_ACCOUNT_FILTERS, LIST_BUCKET_FILTERS,
+const { TYPES, ACTIONS, CONFIG_SUBDIRS,
+    LIST_ACCOUNT_FILTERS, LIST_BUCKET_FILTERS,
     GLACIER_ACTIONS } = require('../manage_nsfs/manage_nsfs_constants');
 const { throw_cli_error, write_stdout_response, get_config_file_path, get_symlink_config_file_path,
-    get_config_data, get_boolean_or_string_value, has_access_keys, set_debug_level, get_config_data_if_exists } = require('../manage_nsfs/manage_nsfs_cli_utils');
+    get_config_data, get_boolean_or_string_value, has_access_keys, set_debug_level, get_config_data_if_exists,
+    check_and_create_config_dirs } = require('../manage_nsfs/manage_nsfs_cli_utils');
 const manage_nsfs_validations = require('../manage_nsfs/manage_nsfs_validations');
 const nc_mkm = require('../manage_nsfs/nc_master_key_manager').get_instance();
 
-const buckets_dir_name = '/buckets';
-const accounts_dir_name = '/accounts';
-const access_keys_dir_name = '/access_keys';
-const acounts_dir_relative_path = '../accounts/';
-
-let config_root;
-let accounts_dir_path;
-let access_keys_dir_path;
-let buckets_dir_path;
-let config_root_backend;
-
-async function check_and_create_config_dirs() {
-    const pre_req_dirs = [
-        config_root,
-        buckets_dir_path,
-        accounts_dir_path,
-        access_keys_dir_path,
-    ];
-
-    if (config.NSFS_GLACIER_LOGS_ENABLED) {
-        pre_req_dirs.push(config.NSFS_GLACIER_LOGS_DIR);
-    }
-
-    for (const dir_path of pre_req_dirs) {
-        try {
-            const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
-            const dir_exists = await native_fs_utils.is_path_exists(fs_context, dir_path);
-            if (dir_exists) {
-                dbg.log1('nsfs.check_and_create_config_dirs: config dir exists:', dir_path);
-            } else {
-                await native_fs_utils._create_path(dir_path, fs_context, config.BASE_MODE_CONFIG_DIR);
-                dbg.log1('nsfs.check_and_create_config_dirs: config dir was created:', dir_path);
-            }
-        } catch (err) {
-            dbg.log1('nsfs.check_and_create_config_dirs: could not create pre requisite path', dir_path);
-        }
-    }
-}
+const global_config = Object.seal({
+    buckets_dir_name: '/' + CONFIG_SUBDIRS.BUCKETS,
+    access_keys_dir_name: '/' + CONFIG_SUBDIRS.ACCESS_KEYS,
+    accounts_dir_name: '/' + CONFIG_SUBDIRS.ACCOUNTS,
+    accounts_dir_relative_path: '../' + CONFIG_SUBDIRS.ACCOUNTS + '/',
+    // will be defined during runtime (type is string)
+    config_root: '',
+    config_root_backend: '',
+    buckets_dir_path: '',
+    access_keys_dir_path: '',
+    accounts_dir_path: '',
+});
 
 async function main(argv = minimist(process.argv.slice(2))) {
     try {
@@ -76,20 +52,20 @@ async function main(argv = minimist(process.argv.slice(2))) {
         const user_input_from_file = await manage_nsfs_validations.validate_input_types(type, action, argv);
         const user_input = user_input_from_file || argv;
         if (argv.debug) set_debug_level(argv.debug);
-        config_root = argv.config_root ? String(argv.config_root) : config.NSFS_NC_CONF_DIR;
-        if (!config_root) throw_cli_error(ManageCLIError.MissingConfigDirPath);
+        global_config.config_root = argv.config_root ? String(argv.config_root) : config.NSFS_NC_CONF_DIR;
+        if (!global_config.config_root) throw_cli_error(ManageCLIError.MissingConfigDirPath);
         if (argv.config_root) {
             config.NSFS_NC_CONF_DIR = String(argv.config_root);
             config.load_nsfs_nc_config();
             config.reload_nsfs_nc_config();
         }
 
-        accounts_dir_path = path.join(config_root, accounts_dir_name);
-        access_keys_dir_path = path.join(config_root, access_keys_dir_name);
-        buckets_dir_path = path.join(config_root, buckets_dir_name);
-        config_root_backend = argv.config_root_backend ? String(argv.config_root_backend) : config.NSFS_NC_CONFIG_DIR_BACKEND;
+        global_config.accounts_dir_path = path.join(global_config.config_root, global_config.accounts_dir_name);
+        global_config.access_keys_dir_path = path.join(global_config.config_root, global_config.access_keys_dir_name);
+        global_config.buckets_dir_path = path.join(global_config.config_root, global_config.buckets_dir_name);
+        global_config.config_root_backend = argv.config_root_backend ? String(argv.config_root_backend) : config.NSFS_NC_CONFIG_DIR_BACKEND;
 
-        await check_and_create_config_dirs();
+        await check_and_create_config_dirs(global_config);
         if (type === TYPES.ACCOUNT) {
             await account_management(action, user_input);
         } else if (type === TYPES.BUCKET) {
@@ -171,8 +147,8 @@ async function fetch_bucket_data(action, user_input) {
 async function fetch_existing_bucket_data(target) {
     let source;
     try {
-        const bucket_config_path = get_config_file_path(buckets_dir_path, target.name);
-        source = await get_config_data(config_root_backend, bucket_config_path);
+        const bucket_config_path = get_config_file_path(global_config.buckets_dir_path, target.name);
+        source = await get_config_data(global_config.config_root_backend, bucket_config_path);
     } catch (err) {
         throw_cli_error(ManageCLIError.NoSuchBucket, target.name);
     }
@@ -181,9 +157,9 @@ async function fetch_existing_bucket_data(target) {
 }
 
 async function add_bucket(data) {
-    await manage_nsfs_validations.validate_bucket_args(config_root_backend, accounts_dir_path, data, ACTIONS.ADD);
-    const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
-    const bucket_conf_path = get_config_file_path(buckets_dir_path, data.name);
+    await manage_nsfs_validations.validate_bucket_args(global_config, data, ACTIONS.ADD);
+    const fs_context = native_fs_utils.get_process_fs_context(global_config.config_root_backend);
+    const bucket_conf_path = get_config_file_path(global_config.buckets_dir_path, data.name);
     const exists = await native_fs_utils.is_path_exists(fs_context, bucket_conf_path);
     if (exists) throw_cli_error(ManageCLIError.BucketAlreadyExists, data.name, { bucket: data.name });
     data._id = mongo_utils.mongoObjectId();
@@ -192,16 +168,16 @@ async function add_bucket(data) {
     // (it unwraps ths sensitive strings, creation_date to string and removes undefined parameters)
     // for validating against the schema we need an object, hence we parse it back to object
     nsfs_schema_utils.validate_bucket_schema(JSON.parse(data_json));
-    await native_fs_utils.create_config_file(fs_context, buckets_dir_path, bucket_conf_path, data_json);
+    await native_fs_utils.create_config_file(fs_context, global_config.buckets_dir_path, bucket_conf_path, data_json);
     write_stdout_response(ManageCLIResponse.BucketCreated, data_json, { bucket: data.name });
 }
 
 async function get_bucket_status(data) {
-    await manage_nsfs_validations.validate_bucket_args(config_root_backend, accounts_dir_path, data, ACTIONS.STATUS);
+    await manage_nsfs_validations.validate_bucket_args(global_config, data, ACTIONS.STATUS);
 
     try {
-        const bucket_path = get_config_file_path(buckets_dir_path, data.name);
-        const config_data = await get_config_data(config_root_backend, bucket_path);
+        const bucket_path = get_config_file_path(global_config.buckets_dir_path, data.name);
+        const config_data = await get_config_data(global_config.config_root_backend, bucket_path);
         write_stdout_response(ManageCLIResponse.BucketStatus, config_data);
     } catch (err) {
         const err_code = err.code === 'EACCES' ? ManageCLIError.AccessDenied : ManageCLIError.NoSuchBucket;
@@ -210,30 +186,30 @@ async function get_bucket_status(data) {
 }
 
 async function update_bucket(data) {
-    await manage_nsfs_validations.validate_bucket_args(config_root_backend, accounts_dir_path, data, ACTIONS.UPDATE);
+    await manage_nsfs_validations.validate_bucket_args(global_config, data, ACTIONS.UPDATE);
 
-    const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
+    const fs_context = native_fs_utils.get_process_fs_context(global_config.config_root_backend);
 
     const cur_name = data.name;
     const new_name = data.new_name;
     const update_name = new_name && cur_name && new_name !== cur_name;
 
     if (!update_name) {
-        const bucket_config_path = get_config_file_path(buckets_dir_path, data.name);
+        const bucket_config_path = get_config_file_path(global_config.buckets_dir_path, data.name);
         data = JSON.stringify(data);
         // We take an object that was stringify
         // (it unwraps ths sensitive strings, creation_date to string and removes undefined parameters)
         // for validating against the schema we need an object, hence we parse it back to object
         nsfs_schema_utils.validate_bucket_schema(JSON.parse(data));
-        await native_fs_utils.update_config_file(fs_context, buckets_dir_path, bucket_config_path, data);
+        await native_fs_utils.update_config_file(fs_context, global_config.buckets_dir_path, bucket_config_path, data);
         write_stdout_response(ManageCLIResponse.BucketUpdated, data);
         return;
     }
 
     data.name = new_name;
 
-    const cur_bucket_config_path = get_config_file_path(buckets_dir_path, cur_name);
-    const new_bucket_config_path = get_config_file_path(buckets_dir_path, data.name);
+    const cur_bucket_config_path = get_config_file_path(global_config.buckets_dir_path, cur_name);
+    const new_bucket_config_path = get_config_file_path(global_config.buckets_dir_path, data.name);
 
     const exists = await native_fs_utils.is_path_exists(fs_context, new_bucket_config_path);
     if (exists) throw_cli_error(ManageCLIError.BucketAlreadyExists, data.name);
@@ -243,17 +219,17 @@ async function update_bucket(data) {
     // (it unwraps ths sensitive strings, creation_date to string and removes undefined parameters)
     // for validating against the schema we need an object, hence we parse it back to object
     nsfs_schema_utils.validate_bucket_schema(JSON.parse(data));
-    await native_fs_utils.create_config_file(fs_context, buckets_dir_path, new_bucket_config_path, data);
-    await native_fs_utils.delete_config_file(fs_context, buckets_dir_path, cur_bucket_config_path);
+    await native_fs_utils.create_config_file(fs_context, global_config.buckets_dir_path, new_bucket_config_path, data);
+    await native_fs_utils.delete_config_file(fs_context, global_config.buckets_dir_path, cur_bucket_config_path);
     write_stdout_response(ManageCLIResponse.BucketUpdated, data);
 }
 
 async function delete_bucket(data, force) {
-    await manage_nsfs_validations.validate_bucket_args(config_root_backend, accounts_dir_path, data, ACTIONS.DELETE);
+    await manage_nsfs_validations.validate_bucket_args(global_config, data, ACTIONS.DELETE);
     // we have fs_contexts: (1) fs_backend for bucket temp dir (2) config_root_backend for config files
-    const fs_context_config_root_backend = native_fs_utils.get_process_fs_context(config_root_backend);
+    const fs_context_config_root_backend = native_fs_utils.get_process_fs_context(global_config.config_root_backend);
     const fs_context_fs_backend = native_fs_utils.get_process_fs_context(data.fs_backend);
-    const bucket_config_path = get_config_file_path(buckets_dir_path, data.name);
+    const bucket_config_path = get_config_file_path(global_config.buckets_dir_path, data.name);
     try {
         const temp_dir_name = native_fs_utils.get_bucket_tmpdir_name(data._id);
         const bucket_temp_dir_path = native_fs_utils.get_bucket_tmpdir_full_path(data.path, data._id);
@@ -273,7 +249,7 @@ async function delete_bucket(data, force) {
             }
         }
         await native_fs_utils.folder_delete(bucket_temp_dir_path, fs_context_fs_backend, true);
-        await native_fs_utils.delete_config_file(fs_context_config_root_backend, buckets_dir_path, bucket_config_path);
+        await native_fs_utils.delete_config_file(fs_context_config_root_backend, global_config.buckets_dir_path, bucket_config_path);
         write_stdout_response(ManageCLIResponse.BucketDeleted, '', { bucket: data.name });
     } catch (err) {
         if (err.code === 'ENOENT') throw_cli_error(ManageCLIError.NoSuchBucket, data.name);
@@ -294,7 +270,7 @@ async function manage_bucket_operations(action, data, user_input) {
     } else if (action === ACTIONS.LIST) {
         const bucket_filters = _.pick(user_input, LIST_BUCKET_FILTERS);
         const wide = get_boolean_or_string_value(user_input.wide);
-        const buckets = await list_config_files(TYPES.BUCKET, buckets_dir_path, wide, undefined, bucket_filters);
+        const buckets = await list_config_files(TYPES.BUCKET, global_config.buckets_dir_path, wide, undefined, bucket_filters);
         write_stdout_response(ManageCLIResponse.BucketList, buckets);
     } else {
         // we should not get here (we check it before)
@@ -397,9 +373,9 @@ async function fetch_existing_account_data(action, target, decrypt_secret_key) {
     let source;
     try {
         const account_path = target.name ?
-            get_config_file_path(accounts_dir_path, target.name) :
-            get_symlink_config_file_path(access_keys_dir_path, target.access_keys[0].access_key);
-        source = await get_config_data(config_root_backend, account_path, true);
+            get_config_file_path(global_config.accounts_dir_path, target.name) :
+            get_symlink_config_file_path(global_config.access_keys_dir_path, target.access_keys[0].access_key);
+        source = await get_config_data(global_config.config_root_backend, account_path, true);
         if (decrypt_secret_key) source.access_keys = await nc_mkm.decrypt_access_keys(source);
     } catch (err) {
         dbg.log1('NSFS Manage command: Could not find account', target, err);
@@ -431,13 +407,13 @@ async function fetch_existing_account_data(action, target, decrypt_secret_key) {
 }
 
 async function add_account(data) {
-    await manage_nsfs_validations.validate_account_args(data, ACTIONS.ADD, config_root_backend, accounts_dir_path, undefined);
+    await manage_nsfs_validations.validate_account_args(global_config, data, ACTIONS.ADD, undefined);
 
-    const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
+    const fs_context = native_fs_utils.get_process_fs_context(global_config.config_root_backend);
     const access_key = has_access_keys(data.access_keys) ? data.access_keys[0].access_key : undefined;
-    const account_config_path = get_config_file_path(accounts_dir_path, data.name);
-    const account_config_relative_path = get_config_file_path(acounts_dir_relative_path, data.name);
-    const account_config_access_key_path = get_symlink_config_file_path(access_keys_dir_path, access_key);
+    const account_config_path = get_config_file_path(global_config.accounts_dir_path, data.name);
+    const account_config_relative_path = get_config_file_path(global_config.accounts_dir_relative_path, data.name);
+    const account_config_access_key_path = get_symlink_config_file_path(global_config.access_keys_dir_path, access_key);
 
     const name_exists = await native_fs_utils.is_path_exists(fs_context, account_config_path);
     const access_key_exists = await native_fs_utils.is_path_exists(fs_context, account_config_access_key_path, true);
@@ -457,9 +433,9 @@ async function add_account(data) {
     // for validating against the schema we need an object, hence we parse it back to object
     const account = encrypted_data ? JSON.parse(encrypted_data) : data;
     nsfs_schema_utils.validate_account_schema(account);
-    await native_fs_utils.create_config_file(fs_context, accounts_dir_path, account_config_path, JSON.stringify(account));
+    await native_fs_utils.create_config_file(fs_context, global_config.accounts_dir_path, account_config_path, JSON.stringify(account));
     if (has_access_keys(data.access_keys)) {
-        await native_fs_utils._create_path(access_keys_dir_path, fs_context, config.BASE_MODE_CONFIG_DIR);
+        await native_fs_utils._create_path(global_config.access_keys_dir_path, fs_context, config.BASE_MODE_CONFIG_DIR);
         await nb_native().fs.symlink(fs_context, account_config_relative_path, account_config_access_key_path);
     }
     write_stdout_response(ManageCLIResponse.AccountCreated, data, { account: event_arg });
@@ -467,10 +443,9 @@ async function add_account(data) {
 
 
 async function update_account(data, is_flag_iam_operate_on_root_account) {
-    await manage_nsfs_validations.validate_account_args(data, ACTIONS.UPDATE,
-        config_root_backend, accounts_dir_path, is_flag_iam_operate_on_root_account);
+    await manage_nsfs_validations.validate_account_args(global_config, data, ACTIONS.UPDATE, is_flag_iam_operate_on_root_account);
 
-    const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
+    const fs_context = native_fs_utils.get_process_fs_context(global_config.config_root_backend);
     const cur_name = data.name;
     const new_name = data.new_name;
     const cur_access_key = has_access_keys(data.access_keys) ? data.access_keys[0].access_key : undefined;
@@ -478,7 +453,7 @@ async function update_account(data, is_flag_iam_operate_on_root_account) {
     const update_access_key = data.new_access_key && cur_access_key && data.new_access_key !== cur_access_key;
 
     if (!update_name && !update_access_key) {
-        const account_config_path = get_config_file_path(accounts_dir_path, data.name);
+        const account_config_path = get_config_file_path(global_config.accounts_dir_path, data.name);
         const encrypted_account = await nc_mkm.encrypt_access_keys(data);
         data.master_key_id = encrypted_account.master_key_id;
         const encrypted_data = JSON.stringify(encrypted_account);
@@ -488,7 +463,7 @@ async function update_account(data, is_flag_iam_operate_on_root_account) {
         // for validating against the schema we need an object, hence we parse it back to object
         const account = encrypted_data ? JSON.parse(encrypted_data) : data;
         nsfs_schema_utils.validate_account_schema(account);
-        await native_fs_utils.update_config_file(fs_context, accounts_dir_path, account_config_path, JSON.stringify(account));
+        await native_fs_utils.update_config_file(fs_context, global_config.accounts_dir_path, account_config_path, JSON.stringify(account));
         write_stdout_response(ManageCLIResponse.AccountUpdated, data);
         return;
     }
@@ -496,11 +471,11 @@ async function update_account(data, is_flag_iam_operate_on_root_account) {
     data.name = data_name;
     data.email = data_name; // saved internally
     data.access_keys[0].access_key = data.new_access_key || cur_access_key;
-    const cur_account_config_path = get_config_file_path(accounts_dir_path, cur_name);
-    const new_account_config_path = get_config_file_path(accounts_dir_path, data.name);
-    const new_account_relative_config_path = get_config_file_path(acounts_dir_relative_path, data.name);
-    const cur_access_key_config_path = get_symlink_config_file_path(access_keys_dir_path, cur_access_key);
-    const new_access_key_config_path = get_symlink_config_file_path(access_keys_dir_path, data.access_keys[0].access_key);
+    const cur_account_config_path = get_config_file_path(global_config.accounts_dir_path, cur_name);
+    const new_account_config_path = get_config_file_path(global_config.accounts_dir_path, data.name);
+    const new_account_relative_config_path = get_config_file_path(global_config.accounts_dir_relative_path, data.name);
+    const cur_access_key_config_path = get_symlink_config_file_path(global_config.access_keys_dir_path, cur_access_key);
+    const new_access_key_config_path = get_symlink_config_file_path(global_config.access_keys_dir_path, data.access_keys[0].access_key);
     const name_exists = update_name && await native_fs_utils.is_path_exists(fs_context, new_account_config_path);
     const access_key_exists = update_access_key && await native_fs_utils.is_path_exists(fs_context, new_access_key_config_path, true);
     if (name_exists || access_key_exists) {
@@ -518,10 +493,10 @@ async function update_account(data, is_flag_iam_operate_on_root_account) {
     // for validating against the schema we need an object, hence we parse it back to object
     nsfs_schema_utils.validate_account_schema(JSON.parse(encrypted_data));
     if (update_name) {
-        await native_fs_utils.create_config_file(fs_context, accounts_dir_path, new_account_config_path, encrypted_data);
-        await native_fs_utils.delete_config_file(fs_context, accounts_dir_path, cur_account_config_path);
+        await native_fs_utils.create_config_file(fs_context, global_config.accounts_dir_path, new_account_config_path, encrypted_data);
+        await native_fs_utils.delete_config_file(fs_context, global_config.accounts_dir_path, cur_account_config_path);
     } else if (update_access_key) {
-        await native_fs_utils.update_config_file(fs_context, accounts_dir_path, cur_account_config_path, encrypted_data);
+        await native_fs_utils.update_config_file(fs_context, global_config.accounts_dir_path, cur_account_config_path, encrypted_data);
     }
     // TODO: safe_unlink can be better but the current impl causing ELOOP - Too many levels of symbolic links
     // need to find a better way for atomic unlinking of symbolic links
@@ -532,26 +507,25 @@ async function update_account(data, is_flag_iam_operate_on_root_account) {
 }
 
 async function delete_account(data) {
-    await manage_nsfs_validations.validate_account_args(data, ACTIONS.DELETE, config_root_backend, accounts_dir_path, undefined);
-    await manage_nsfs_validations.validate_delete_account(config_root_backend, buckets_dir_path, data.name);
+    await manage_nsfs_validations.validate_account_args(global_config, data, ACTIONS.DELETE, undefined);
 
-    const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
-    const account_config_path = get_config_file_path(accounts_dir_path, data.name);
-    await native_fs_utils.delete_config_file(fs_context, accounts_dir_path, account_config_path);
+    const fs_context = native_fs_utils.get_process_fs_context(global_config.config_root_backend);
+    const account_config_path = get_config_file_path(global_config.accounts_dir_path, data.name);
+    await native_fs_utils.delete_config_file(fs_context, global_config.accounts_dir_path, account_config_path);
     if (has_access_keys(data.access_keys)) {
-        const access_key_config_path = get_symlink_config_file_path(access_keys_dir_path, data.access_keys[0].access_key);
+        const access_key_config_path = get_symlink_config_file_path(global_config.access_keys_dir_path, data.access_keys[0].access_key);
         await nb_native().fs.unlink(fs_context, access_key_config_path);
     }
     write_stdout_response(ManageCLIResponse.AccountDeleted, '', {account: data.name});
 }
 
 async function get_account_status(data, show_secrets) {
-    await manage_nsfs_validations.validate_account_args(data, ACTIONS.STATUS, config_root_backend, accounts_dir_path, undefined);
+    await manage_nsfs_validations.validate_account_args(global_config, data, ACTIONS.STATUS, undefined);
     try {
         const account_path = _.isUndefined(data.name) ?
-            get_symlink_config_file_path(access_keys_dir_path, data.access_keys[0].access_key) :
-            get_config_file_path(accounts_dir_path, data.name);
-        const config_data = await get_config_data(config_root_backend, account_path, show_secrets);
+            get_symlink_config_file_path(global_config.access_keys_dir_path, data.access_keys[0].access_key) :
+            get_config_file_path(global_config.accounts_dir_path, data.name);
+        const config_data = await get_config_data(global_config.config_root_backend, account_path, show_secrets);
         if (config_data.access_keys) config_data.access_keys = await nc_mkm.decrypt_access_keys(config_data);
         write_stdout_response(ManageCLIResponse.AccountStatus, config_data);
     } catch (err) {
@@ -577,7 +551,7 @@ async function manage_account_operations(action, data, show_secrets, user_input)
     } else if (action === ACTIONS.LIST) {
         const account_filters = _.pick(user_input, LIST_ACCOUNT_FILTERS);
         const wide = get_boolean_or_string_value(user_input.wide);
-        const accounts = await list_config_files(TYPES.ACCOUNT, accounts_dir_path, wide, show_secrets, account_filters);
+        const accounts = await list_config_files(TYPES.ACCOUNT, global_config.accounts_dir_path, wide, show_secrets, account_filters);
         write_stdout_response(ManageCLIResponse.AccountList, accounts);
     } else {
         // we should not get here (we check it before)
@@ -643,7 +617,7 @@ function filter_bucket(bucket, filters) {
  * @param {object} [filters]
  */
 async function list_config_files(type, config_path, wide, show_secrets, filters) {
-    const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
+    const fs_context = native_fs_utils.get_process_fs_context(global_config.config_root_backend);
     const entries = await nb_native().fs.readdir(fs_context, config_path);
     const should_filter = Object.keys(filters).length > 0;
 
@@ -651,7 +625,7 @@ async function list_config_files(type, config_path, wide, show_secrets, filters)
         if (entry.name.endsWith('.json')) {
             if (wide || should_filter) {
                 const full_path = path.join(config_path, entry.name);
-                const data = await get_config_data_if_exists(config_root_backend, full_path, show_secrets || should_filter);
+                const data = await get_config_data_if_exists(global_config.config_root_backend, full_path, show_secrets || should_filter);
                 if (!data) return undefined;
                 // decryption causing mkm initalization
                 // decrypt only if data has access_keys and show_secrets = true (no need to decrypt if show_secrets = false but should_filter = true)
@@ -704,13 +678,13 @@ async function whitelist_ips_management(args) {
 
     const whitelist_ips = JSON.parse(ips);
     manage_nsfs_validations.validate_whitelist_ips(whitelist_ips);
-    const config_path = path.join(config_root, 'config.json');
+    const config_path = path.join(global_config.config_root, 'config.json');
     try {
         const config_data = require(config_path);
         config_data.S3_SERVER_IP_WHITELIST = whitelist_ips;
-        const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
+        const fs_context = native_fs_utils.get_process_fs_context(global_config.config_root_backend);
         const data = JSON.stringify(config_data);
-        await native_fs_utils.update_config_file(fs_context, config_root, config_path, data);
+        await native_fs_utils.update_config_file(fs_context, global_config.config_root, config_path, data);
     } catch (err) {
         dbg.error('manage_nsfs.whitelist_ips_management: Error while updation config.json,  path ' + config_path, err);
         throw_cli_error(ManageCLIError.WhiteListIPUpdateFailed, config_path);

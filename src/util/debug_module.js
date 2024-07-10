@@ -39,9 +39,7 @@ let dbg_syslog_conf;
 let LOG_DEBUG_LEVEL = 0;
 if (process.env.NOOBAA_DEBUG_LEVEL) {
     dbg_syslog_conf = debug_config.get_debug_config(process.env.NOOBAA_DEBUG_LEVEL);
-    if (process.env.NOOBAA_DEBUG_LEVEL !== 'nsfs') {
         LOG_DEBUG_LEVEL = dbg_syslog_conf.level;
-    }
 }
 
 // override the default inspect options
@@ -390,7 +388,7 @@ class InternalDebugLogger {
 
     log_internal(msg_info) {
         if (syslog && config.LOG_TO_SYSLOG_ENABLED &&
-            this._levels[msg_info.level] <= LOG_DEBUG_LEVEL) {
+            this._levels_to_syslog[msg_info.level] <= LOG_DEBUG_LEVEL) {
             // syslog path
             syslog(this._levels_to_syslog[msg_info.level], msg_info.message_syslog, config.DEBUG_FACILITY);
         } else if (this._log_file) {

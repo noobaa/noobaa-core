@@ -337,9 +337,19 @@ describe('validate_user_input_iam', () => {
             }
         });
 
-        it('should throw error when username is invalid - internal limitation', () => {
+        it('should throw error when username is invalid - internal limitation (anonymous)', () => {
             try {
                 iam_utils.validate_username('anonymous', iam_constants.USERNAME);
+                throw new NoErrorThrownError();
+            } catch (err) {
+                expect(err).toBeInstanceOf(IamError);
+                expect(err).toHaveProperty('code', IamError.ValidationError.code);
+            }
+        });
+
+        it('should throw error when username is invalid - internal limitation (with leading or trailing spaces)', () => {
+            try {
+                iam_utils.validate_username('    name-with-spaces    ', iam_constants.USERNAME);
                 throw new NoErrorThrownError();
             } catch (err) {
                 expect(err).toBeInstanceOf(IamError);

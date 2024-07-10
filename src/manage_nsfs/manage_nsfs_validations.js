@@ -17,6 +17,7 @@ const { throw_cli_error, get_config_file_path, get_bucket_owner_account,
     check_root_account_owns_user, get_config_data_if_exists } = require('../manage_nsfs/manage_nsfs_cli_utils');
 const { TYPES, ACTIONS, VALID_OPTIONS, OPTION_TYPE, FROM_FILE, BOOLEAN_STRING_VALUES, BOOLEAN_STRING_OPTIONS,
     GLACIER_ACTIONS, LIST_UNSETABLE_OPTIONS, ANONYMOUS } = require('../manage_nsfs/manage_nsfs_constants');
+const iam_utils = require('../endpoint/iam/iam_utils');
 
 /////////////////////////////
 //// GENERAL VALIDATIONS ////
@@ -42,6 +43,7 @@ async function validate_input_types(type, action, argv) {
     validate_identifier(type, action, input_options_with_data, false);
     validate_flags_combination(type, action, input_options);
     validate_flags_value_combination(type, action, input_options_with_data);
+    validate_account_name(type, action, input_options_with_data);
     if (action === ACTIONS.UPDATE) validate_min_flags_for_update(type, input_options_with_data);
 
     // currently we use from_file only in add action
@@ -57,7 +59,8 @@ async function validate_input_types(type, action, argv) {
         validate_options_type_by_value(input_options_with_data_from_file);
         validate_identifier(type, action, input_options_with_data_from_file, true);
         validate_flags_combination(type, action, input_options_from_file);
-        validate_flags_value_combination(type, action, input_options_with_data);
+        validate_flags_value_combination(type, action, input_options_with_data_from_file);
+        validate_account_name(type, action, input_options_with_data_from_file);
         return input_options_with_data_from_file;
     }
 }
@@ -259,6 +262,36 @@ function validate_flags_value_combination(type, action, input_options_with_data)
     }
 }
 
+/**
+ * validate_account_name
+ * We check the name only on new accounts (account add) or accounts' rename (account update) - 
+ * in name and new_name we allow type number, hence convert it to string (it is saved converted in fetch_account_data)
+ * In case, we had already an account with invalid name, it can be changed to a valid name
+ * (current name is not validated)
+ * @param {string} type
+ * @param {string} action
+ * @param {object} input_options_with_data
+ */
+function validate_account_name(type, action, input_options_with_data) {
+    if (type !== TYPES.ACCOUNT) return;
+    let account_name;
+    try {
+        if (action === ACTIONS.ADD) {
+            account_name = String(input_options_with_data.name);
+            iam_utils.validate_username(account_name, 'name');
+        } else if (action === ACTIONS.UPDATE && input_options_with_data.new_name !== undefined) {
+            account_name = String(input_options_with_data.new_name);
+            iam_utils.validate_username(account_name, 'new_name');
+        }
+    } catch (err) {
+        if (err instanceof ManageCLIError) throw err;
+        // we receive IAMError and replace it to ManageCLIError
+        // we do not use the mapping errors because it is a general error ValidationError
+        const detail = err.message;
+        throw_cli_error(ManageCLIError.InvalidAccountName, detail);
+    }
+}
+
 /////////////////////////////
 //// BUCKET VALIDATIONS /////
 /////////////////////////////
@@ -285,7 +318,6 @@ async function validate_bucket_args(global_config, data, action) {
     if (action === ACTIONS.ADD || action === ACTIONS.UPDATE) {
         if (action === ACTIONS.ADD) native_fs_utils.validate_bucket_creation({ name: data.name });
         if (action === ACTIONS.UPDATE && !_.isUndefined(data.new_name)) native_fs_utils.validate_bucket_creation({ name: data.new_name });
-
         if (action === ACTIONS.ADD && _.isUndefined(data.bucket_owner)) throw_cli_error(ManageCLIError.MissingBucketOwnerFlag);
         if (!data.path) throw_cli_error(ManageCLIError.MissingBucketPathFlag);
         // fs_backend='' used for deletion of the fs_backend property
@@ -313,6 +345,10 @@ async function validate_bucket_args(global_config, data, action) {
                 throw_cli_error(ManageCLIError.BucketCreationNotAllowed, detail_msg);
         }
             data.owner_account = account._id; // TODO move this assignment to better place
+        }
+        if (account.owner) {
+            const detail_msg = `account ${data.bucket_owner} is IAM account`;
+            throw_cli_error(ManageCLIError.BucketSetForbiddenBucketOwnerIsIAMAccount, detail_msg, {bucket_owner: data.bucket_owner});
         }
         if (data.s3_policy) {
             try {
@@ -402,7 +438,23 @@ async function validate_account_args(global_config, data, action, is_flag_iam_op
         }
     }
     if (action === ACTIONS.DELETE) {
-        await validate_delete_account(global_config, data.name);
+        await validate_account_resources_before_deletion(global_config, data);
+    }
+}
+
+/**
+ * validate_account_resources_before_deletion will validate that the account to be deleted
+ * doesn't have resources related to it
+ * 1 - buckets that it owns
+ * 2 - accounts that it owns
+ * @param {object} global_config
+ * @param {object} data
+ */
+async function validate_account_resources_before_deletion(global_config, data) {
+    await validate_account_not_owns_buckets(global_config, data.name);
+    // If it is root account (not owned by other account) then we check that it doesn't owns IAM accounts
+    if (data.owner === undefined) {
+        await check_if_root_account_does_not_have_IAM_users(global_config, data, ACTIONS.DELETE);
     }
 }
 
@@ -437,7 +489,7 @@ function _validate_access_keys(access_key, secret_key) {
  * @param {object} global_config
  * @param {string} account_name
  */
-async function validate_delete_account(global_config, account_name) {
+async function validate_account_not_owns_buckets(global_config, account_name) {
     const fs_context = native_fs_utils.get_process_fs_context(global_config.config_root_backend);
     const entries = await nb_native().fs.readdir(fs_context, global_config.buckets_dir_path);
     await P.map_with_concurrency(10, entries, async entry => {
@@ -458,8 +510,9 @@ async function validate_delete_account(global_config, account_name) {
 /**
  * @param {object} global_config
  * @param {object} account_to_check
+ * @param {string} action
  */
-async function check_if_root_account_does_not_have_IAM_users(global_config, account_to_check) {
+async function check_if_root_account_does_not_have_IAM_users(global_config, account_to_check, action) {
     const fs_context = native_fs_utils.get_process_fs_context(global_config.config_root_backend);
     const entries = await nb_native().fs.readdir(fs_context, global_config.accounts_dir_path);
     await P.map_with_concurrency(10, entries, async entry => {
@@ -469,8 +522,12 @@ async function check_if_root_account_does_not_have_IAM_users(global_config, acco
             if (entry.name.includes(config.NSFS_TEMP_CONF_DIR_NAME)) return undefined;
             const is_root_account_owns_user = check_root_account_owns_user(account_to_check, account_data);
             if (is_root_account_owns_user) {
-                    const detail_msg = `Account ${account_to_check.name} has IAM account ${account_data.name}`;
-                    throw_cli_error(ManageCLIError.AccountCannotBeRootAccountsManager, detail_msg);
+                const detail_msg = `Account ${account_to_check.name} has IAM account ${account_data.name}`;
+                if (action === ACTIONS.DELETE) {
+                    throw_cli_error(ManageCLIError.AccountDeleteForbiddenHasIAMAccounts, detail_msg);
+                }
+                // else it is called with action ACTIONS.UPDATE
+                throw_cli_error(ManageCLIError.AccountCannotBeRootAccountsManager, detail_msg);
             }
             return account_data;
         }
@@ -488,7 +545,7 @@ async function validate_root_accounts_manager_update(global_config, account) {
     if (account.owner) {
         throw_cli_error(ManageCLIError.AccountCannotCreateRootAccountsRequesterIAMUser);
     }
-    await check_if_root_account_does_not_have_IAM_users(global_config, account);
+    await check_if_root_account_does_not_have_IAM_users(global_config, account, ACTIONS.UPDATE);
 }
 
 ///////////////////////////////////

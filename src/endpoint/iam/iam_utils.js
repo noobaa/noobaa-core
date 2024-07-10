@@ -417,10 +417,17 @@ function validate_username(input_username, parameter_name = iam_constants.USERNA
             const { code, http_code, type } = IamError.ValidationError;
             throw new IamError({ code, message: message_with_details, http_code, type });
     }
+    // internal limitations
     const invalid_internal_names = new Set(['anonymous', '/', '.']);
     if (invalid_internal_names.has(input_username)) {
         const message_with_details = `The specified value for ${_.lowerFirst(parameter_name)} is invalid. ` +
         `Should not be one of: ${[...invalid_internal_names].join(' ').toString()}`;
+        const { code, http_code, type } = IamError.ValidationError;
+        throw new IamError({ code, message: message_with_details, http_code, type });
+    }
+    if (input_username !== input_username.trim()) {
+        const message_with_details = `The specified value for ${_.lowerFirst(parameter_name)} is invalid. ` +
+        `Must not contain leading or trailing spaces`;
         const { code, http_code, type } = IamError.ValidationError;
         throw new IamError({ code, message: message_with_details, http_code, type });
     }

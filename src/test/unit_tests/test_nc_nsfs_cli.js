@@ -98,7 +98,7 @@ mocha.describe('manage_nsfs cli', function() {
                 await exec_manage_cli(type, action, bucket_options);
                 assert.fail('should have failed since the bucket owner does not exist');
             } catch (err) {
-                assert_error(err, ManageCLIError.BucketSetForbiddenNoBucketOwner);
+                assert_error(err, ManageCLIError.BucketSetForbiddenBucketOwnerNotExists);
             }
         });
 

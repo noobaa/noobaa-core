@@ -33,6 +33,7 @@ Supported log debug levels:
 2. warn - for only warning/errors debugging. 
 3. nsfs - for more nsfs detailed debugging.
 4. all - for all detailed debugging.
+5. off - do not print anything to logs
 
 
 **Configuration Key -** NOOBAA_LOG_LEVEL
@@ -47,6 +48,21 @@ Supported log debug levels:
 2. Set the NOOBAA_LOG_LEVEL key to the desired level.
 Example:
 "NOOBAA_LOG_LEVEL": "nsfs"
+3. systemctl restart noobaa
+```
+
+**Configuration Key -** NOOBAA_DEBUG_LEVEL
+
+**Type -** string
+
+**Default -** "default"
+
+**Steps -**
+```
+1. Open /path/to/config_dir/config.json file.
+2. Set the NOOBAA_DEBUG_LEVEL key to the desired level.
+Example:
+"NOOBAA_DEBUG_LEVEL": "all"
 3. systemctl restart noobaa
 ```
 

@@ -37,6 +37,12 @@ const default_level = {
     endpoint: ['core'],
 };
 
+const off = {
+    level: -1,
+    core: ['core'],
+    endpoint: ['core'],
+};
+
 function get_debug_config(conf) {
     if (conf === 'all') {
         return all;
@@ -44,6 +50,8 @@ function get_debug_config(conf) {
         return nsfs;
     } else if (conf === 'warn') {
         return warn;
+    } else if (conf === 'off') {
+        return off;
     } else {
         return default_level;
     }

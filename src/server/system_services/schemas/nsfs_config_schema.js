@@ -35,8 +35,13 @@ const nsfs_node_config_schema = {
         },
         NOOBAA_LOG_LEVEL: {
             type: 'string',
-            enum: ['warn', 'default', 'nsfs', 'all'],
+            enum: ['warn', 'default', 'nsfs', 'all', 'off'],
             doc: 'logging verbosity level for the NooBaa system, service restart required'
+        },
+        NOOBAA_DEBUG_LEVEL: {
+            type: 'string',
+            enum: ['warn', 'default', 'nsfs', 'all', 'off'],
+            doc: 'logging verbosity level for the NooBaa debug logs, service restart required'
         },
         UV_THREADPOOL_SIZE: {
             type: 'number',

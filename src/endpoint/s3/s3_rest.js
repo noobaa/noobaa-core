@@ -12,6 +12,7 @@ const s3_logging = require('./s3_bucket_logging');
 const time_utils = require('../../util/time_utils');
 const http_utils = require('../../util/http_utils');
 const signature_utils = require('../../util/signature_utils');
+const config = require('../../../config');
 
 const S3_MAX_BODY_LEN = 4 * 1024 * 1024;
 
@@ -68,6 +69,11 @@ async function s3_rest(req, res) {
             await handle_website_error(req, res, err);
         } else {
             handle_error(req, res, err);
+            try {
+                await s3_logging.send_bucket_op_logs(req, res); // logging again with error
+            } catch (err1) {
+                dbg.error("Could not log bucket operation:", err1);
+            }
         }
     }
 }
@@ -118,7 +124,13 @@ async function handle_request(req, res) {
     usage_report.s3_usage_info.total_calls += 1;
     usage_report.s3_usage_info[op_name] = (usage_report.s3_usage_info[op_name] || 0) + 1;
 
-
+    if (config.BUCKET_LOG_TYPE === 'PERSISTENT') {
+        try {
+            await s3_logging.send_bucket_op_logs(req); // logging intension - no result
+        } catch (err) {
+            dbg.error("Could not log bucket operation:", err);
+        }
+    }
 
     if (req.query && req.query.versionId) {
         const caching = await req.object_sdk.read_bucket_sdk_caching_info(req.params.bucket);
@@ -151,7 +163,7 @@ async function handle_request(req, res) {
     http_utils.send_reply(req, res, reply, options);
     collect_bucket_usage(op, req, res);
     try {
-        await s3_logging.send_bucket_op_logs(req);
+        await s3_logging.send_bucket_op_logs(req, res); // logging again with result
     } catch (err) {
         dbg.error("Could not log bucket operation:", err);
     }

@@ -134,7 +134,7 @@ function setup(options = {}) {
 
     const object_io = new ObjectIO();
     const endpoint_request_handler = endpoint.create_endpoint_handler(
-        endpoint.create_init_request_sdk(server_rpc.rpc, rpc_client, object_io), []);
+        endpoint.create_init_request_sdk(server_rpc.rpc, rpc_client, object_io), [], false);
     const endpoint_request_handler_sts = endpoint.create_endpoint_handler(
         endpoint.create_init_request_sdk(server_rpc.rpc, rpc_client, object_io), [], true);
 

@@ -23,7 +23,7 @@ Usage:
 const ARGUMENTS = `
 Arguments:
 
-    <type>    Set the resource type: account, bucket, or whitelist
+    <type>    Set the resource type: account, bucket, logging or whitelist
     <action>  Action could be: add, update, list, status, and delete for accounts/buckets
 `;
 
@@ -57,6 +57,11 @@ whitelist [flags]
 Flags:
 --ips <string>                                                          Set the general configuration to allow only incoming requests from a given list of IP addresses
                                                                         in format: '["127.0.0.1", "192.0.10.0", "3002:0bd6:0000:0000:0000:ee00:0033:6778"]'
+`;
+
+const LOGGING_FLAGS = `
+logging                                                                 Use this to upload all the bucket logging collected in the system to their target buckets
+
 `;
 
 const GLOBAL_CONFIG_ROOT_ALL_FLAG = `
@@ -221,6 +226,9 @@ function print_usage(type, action) {
             break;
         case TYPES.IP_WHITELIST:
             process.stdout.write(WHITELIST_FLAGS.trimStart());
+            break;
+        case TYPES.LOGGING:
+            process.stdout.write(LOGGING_FLAGS.trimStart() + GLOBAL_CONFIG_ROOT_ALL_FLAG.trimStart());
             break;
         case TYPES.GLACIER:
             print_help_glacier(action);

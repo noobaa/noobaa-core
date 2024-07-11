@@ -22,6 +22,7 @@ ajv.addSchema(common_api);
 const bucket_schema = require('../server/system_services/schemas/nsfs_bucket_schema');
 const account_schema = require('../server/system_services/schemas/nsfs_account_schema');
 const nsfs_config_schema = require('../server/system_services/schemas/nsfs_config_schema');
+const log_schema = require('../server/system_services/schemas/log_schema');
 
 _.each(common_api.definitions, schema => {
     schema_utils.strictify(schema, {
@@ -42,6 +43,7 @@ schema_utils.strictify(nsfs_config_schema, {});
 const validate_account = ajv.compile(account_schema);
 const validate_bucket = ajv.compile(bucket_schema);
 const validate_nsfs_config = ajv.compile(nsfs_config_schema);
+const validate_logging = ajv.compile(log_schema);
 
 /**
  * validate_account_schema validates an account object against the NC NSFS account schema
@@ -100,6 +102,20 @@ function warn_invalid_schema(type, invalid_schema, err_msg) {
 }
 
 /**
+ * validate_log_schema validates a logging object against the NC NSFS log schema
+ * @param {object} log
+ */
+function validate_log_schema(log) {
+    const valid = validate_logging(log);
+    if (!valid) {
+        const first_err = validate_logging.errors[0];
+        const err_msg = first_err.message ? create_schema_err_msg(first_err) : undefined;
+        if (config.NC_DISABLE_SCHEMA_CHECK === true) return warn_invalid_schema('logging', log, err_msg);
+        throw new RpcError('INVALID_SCHEMA', err_msg);
+    }
+}
+
+/**
  * create_schema_err_msg would use the original error message we got from avj
  * and adds additional info in case we have it
  * @param {object} err
@@ -116,3 +132,4 @@ function create_schema_err_msg(err) {
 exports.validate_account_schema = validate_account_schema;
 exports.validate_bucket_schema = validate_bucket_schema;
 exports.validate_nsfs_config_schema = validate_nsfs_config_schema;
+exports.validate_log_schema = validate_log_schema;

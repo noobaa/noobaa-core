@@ -604,14 +604,12 @@ mocha.describe('bucketspace_fs', function() {
             const param = {name: test_bucket, logging: { ...logging} };
             await bucketspace_fs.put_bucket_logging(param);
             const output_log = await bucketspace_fs.get_bucket_logging(param);
-            console.log('JAJA1 output_log', output_log, 'logging', logging);
             assert.deepEqual(output_log, logging);
         });
         mocha.it('delete_bucket_logging', async function() {
             const param = {name: test_bucket};
             await bucketspace_fs.delete_bucket_logging(param);
             const output_log = await bucketspace_fs.get_bucket_logging(param);
-            console.log('JAJA2 output_log', output_log);
             assert.ok(output_log === undefined);
         });
     });

@@ -7,8 +7,9 @@ const _ = require('lodash');
 const P = require('../../util/promise');
 const coretest = require('./coretest');
 const { rpc_client } = coretest; //, PASSWORD, SYSTEM
+const { BucketLogUploader } = require('../../server/bg_services/bucket_logs_upload');
 
-coretest.setup({ pools_to_create: [coretest.POOL_LIST[0]] });
+coretest.setup({ pools_to_create: [coretest.POOL_LIST[1]] });
 
 mocha.describe('noobaa bucket logging configuration validity tests', function() {
     const source1 = 'source-bucket-1';
@@ -63,11 +64,25 @@ mocha.describe('noobaa bucket logging configuration validity tests', function() 
     mocha.it('_get bucket logging ', async function() {
         await _get_bucket_logging(no_source_bucket, true, "NO_SUCH_BUCKET");
     });
+
+    mocha.it('get bucket owner keys ', async function() {
+        const uploader = new BucketLogUploader({
+            name: 'Bucket Log Uploader',
+            client: rpc_client,
+        });
+        const uploader_keys = await uploader.get_bucket_owner_keys(source1);
+        const bucket = await rpc_client.bucket.read_bucket({ name: source1 });
+        const owner = await rpc_client.account.read_account({ email: bucket.owner_account.email });
+        assert.strictEqual(uploader_keys[0].access_key, owner.access_keys[0].access_key.unwrap());
+        assert.strictEqual(uploader_keys[0].secret_key, owner.access_keys[0].secret_key.unwrap());
+    });
 });
 
 async function _put_bucket_logging(source_bucket_name, log_bucket_name, log_prefix, should_fail, error_message) {
     try {
-        await rpc_client.bucket.put_bucket_logging({ name: source_bucket_name, log_bucket: log_bucket_name, log_prefix: log_prefix });
+        await rpc_client.bucket.put_bucket_logging({ name: source_bucket_name, logging:
+            { log_bucket: log_bucket_name, log_prefix: log_prefix }
+        });
         if (should_fail) {
             assert.fail(`put_bucket_logging should fail but it passed`);
         }

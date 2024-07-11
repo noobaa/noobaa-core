@@ -53,6 +53,7 @@ const azure_mock_connection_string = `DefaultEndpointsProtocol=http;AccountName=
 
 mocha.describe('s3_ops', function() {
 
+    /** @type {S3} */
     let s3;
     let s3_client_params;
     // Bucket name for the source namespace resource
@@ -62,6 +63,10 @@ mocha.describe('s3_ops', function() {
     let source_bucket;
     let other_platform_bucket;
     let is_other_platform_bucket_created = false;
+    const logging = {
+        TargetBucket: BKT2,
+        TargetPrefix: BKT1 + '/',
+    };
 
     mocha.before(async function() {
         const self = this;
@@ -104,6 +109,42 @@ mocha.describe('s3_ops', function() {
         mocha.it('should list buckets with one bucket', async function() {
             const res = await s3.listBuckets({});
             assert(res.Buckets.find(bucket => bucket.Name === BKT1));
+        });
+        mocha.it('should enable bucket logging', async function() {
+            await s3.createBucket({ Bucket: BKT2 });
+            await s3.putBucketLogging({
+                Bucket: BKT1,
+                BucketLoggingStatus: {
+                    LoggingEnabled: logging
+                },
+            });
+            const res_logging = await s3.getBucketLogging({ Bucket: BKT1 });
+            assert.equal(res_logging.$metadata.httpStatusCode, 200);
+            assert.deepEqual(res_logging.LoggingEnabled, logging);
+        });
+        mocha.it('should fail to enable bucket logging', async function() {
+            await s3.deleteBucket({ Bucket: BKT2 });
+            try {
+                await s3.putBucketLogging({
+                    Bucket: BKT1,
+                    BucketLoggingStatus: {
+                        LoggingEnabled: logging
+                    },
+                });
+                assert.fail('should not set bucket logging');
+            } catch (err) {
+                assert.strictEqual(err.Code, 'InvalidTargetBucketForLogging');
+                assert.strictEqual(err.$metadata.httpStatusCode, 400);
+            }
+        });
+        mocha.it('should disable bucket logging', async function() {
+            await s3.putBucketLogging({
+                Bucket: BKT1,
+                BucketLoggingStatus: {},
+            });
+            const res_logging = await s3.getBucketLogging({ Bucket: BKT1 });
+            assert.equal(res_logging.$metadata.httpStatusCode, 200);
+            assert.equal(res_logging.LoggingEnabled, null);
         });
         mocha.it('should delete bucket', async function() {
             await s3.deleteBucket({ Bucket: BKT1 });

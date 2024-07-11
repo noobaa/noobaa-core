@@ -42,6 +42,7 @@ const endpoint_stats_collector = require('../sdk/endpoint_stats_collector');
 const { NamespaceMonitor } = require('../server/bg_services/namespace_monitor');
 const { SemaphoreMonitor } = require('../server/bg_services/semaphore_monitor');
 const prom_reporting = require('../server/analytic_services/prometheus_reporting');
+const { PersistentLogger } = require('../util/persistent_logger');
 const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
 const cluster = /** @type {import('node:cluster').Cluster} */ (
     /** @type {unknown} */ (require('node:cluster'))
@@ -63,6 +64,7 @@ dbg.log0('endpoint: replacing old umask: ', old_umask.toString(8), 'with new uma
  *  func_sdk?: FuncSDK;
  *  sts_sdk?: StsSDK;
  *  virtual_hosts?: readonly string[];
+ *  bucket_logger?: PersistentLogger;
  * }} EndpointRequest
  */
 
@@ -97,6 +99,7 @@ async function create_https_server(ssl_cert_info, honorCipherOrder, endpoint_han
  */
 /* eslint-disable max-statements */
 async function main(options = {}) {
+    let bucket_logger;
     try {
         // setting process title needed for letting GPFS to identify the noobaa endpoint processes see issue #8039.
         if (config.ENDPOINT_PROCESS_TITLE) {
@@ -126,6 +129,12 @@ async function main(options = {}) {
 
         dbg.log0('Configured Virtual Hosts:', virtual_hosts);
         dbg.log0('Configured Location Info:', location_info);
+
+        bucket_logger = config.BUCKET_LOG_TYPE === 'PERSISTENT' &&
+            new PersistentLogger(config.PERSISTENT_BUCKET_LOG_DIR, config.PERSISTENT_BUCKET_LOG_NS, {
+                locking: 'SHARED',
+                poll_interval: config.NSFS_GLACIER_LOGS_POLL_INTERVAL,
+            });
 
         process.on('warning', e => dbg.warn(e.stack));
 
@@ -164,8 +173,8 @@ async function main(options = {}) {
             init_request_sdk = create_init_request_sdk(rpc, internal_rpc_client, object_io);
         }
 
-        const endpoint_request_handler = create_endpoint_handler(init_request_sdk, virtual_hosts);
-        const endpoint_request_handler_sts = create_endpoint_handler(init_request_sdk, virtual_hosts, true);
+        const endpoint_request_handler = create_endpoint_handler(init_request_sdk, virtual_hosts, /*is_sts?*/ false, bucket_logger);
+        const endpoint_request_handler_sts = create_endpoint_handler(init_request_sdk, virtual_hosts, /*is_sts?*/ true);
 
         const ssl_cert_info = await ssl_utils.get_ssl_cert_info('S3', options.nsfs_config_root);
         const https_server = await create_https_server(ssl_cert_info, true, endpoint_request_handler);
@@ -243,6 +252,8 @@ async function main(options = {}) {
         //noobaa crashed event
         new NoobaaEvent(NoobaaEvent.ENDPOINT_CRASHED).create_event(undefined, undefined, err);
         handle_server_error(err);
+    } finally {
+        if (bucket_logger) bucket_logger.close();
     }
 }
 
@@ -251,7 +262,7 @@ async function main(options = {}) {
  * @param {readonly string[]} virtual_hosts
  * @returns {EndpointHandler}
  */
-function create_endpoint_handler(init_request_sdk, virtual_hosts, sts) {
+function create_endpoint_handler(init_request_sdk, virtual_hosts, sts, logger) {
     const blob_rest_handler = process.env.ENDPOINT_BLOB_ENABLED === 'true' ? blob_rest : unavailable_handler;
     const lambda_rest_handler = config.DB_TYPE === 'mongodb' ? lambda_rest : unavailable_handler;
 
@@ -259,6 +270,7 @@ function create_endpoint_handler(init_request_sdk, virtual_hosts, sts) {
     const endpoint_request_handler = (req, res) => {
         endpoint_utils.prepare_rest_request(req);
         req.virtual_hosts = virtual_hosts;
+        if (logger) req.bucket_logger = logger;
         init_request_sdk(req, res);
         if (req.url.startsWith('/2015-03-31/functions')) {
             return lambda_rest_handler(req, res);

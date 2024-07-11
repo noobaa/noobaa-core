@@ -659,6 +659,10 @@ config.BUCKET_DIFF_FOR_REPLICATION = true;
 
 config.BUCKET_LOG_UPLOAD_ENABLED = true;
 config.BUCKET_LOG_UPLOADER_DELAY = 5 * 60 * 1000;
+config.BUCKET_LOG_TYPE = process.env.GUARANTEED_LOGS_PATH ? 'PERSISTENT' : 'BEST_EFFORT';
+config.PERSISTENT_BUCKET_LOG_DIR = process.env.GUARANTEED_LOGS_PATH;
+config.PERSISTENT_BUCKET_LOG_NS = 'bucket_logging';
+config.BUCKET_LOG_CONCURRENCY = 10;
 
 ///////////////////////////
 //      KEY ROTATOR      //

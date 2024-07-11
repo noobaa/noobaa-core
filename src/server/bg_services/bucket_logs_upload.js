@@ -7,6 +7,9 @@ const system_utils = require('../utils/system_utils');
 const config = require('../../../config');
 const cloud_utils = require('../../util/cloud_utils');
 const fs = require('fs');
+const { export_logs_to_target } = require('../../util/bucket_logs_utils');
+const { get_process_fs_context } = require('../../util/native_fs_utils');
+const RpcError = require('../../rpc/rpc_error');
 
 const BUCKET_LOGS_PATH = '/log/noobaa_bucket_logs/';
 
@@ -35,7 +38,17 @@ class BucketLogUploader {
         if (!this.noobaa_connection) {
             throw new Error('noobaa endpoint connection is not started yet...');
         }
-        await this.get_and_upload_bucket_log();
+        if (config.BUCKET_LOG_TYPE === 'PERSISTENT') {
+            const fs_context = get_process_fs_context();
+            const success = await export_logs_to_target(fs_context, this.noobaa_connection, this.get_bucket_owner_keys);
+            if (success) {
+                dbg.log0('Logs were uploaded succesfully to their target buckets');
+            } else {
+                dbg.error('Logs upload failed - will retry in the next cycle');
+            }
+        } else {
+            await this.get_and_upload_bucket_log();
+        }
     }
 
     async run_batch() {
@@ -176,6 +189,17 @@ class BucketLogUploader {
         }
     }
 
+    async get_bucket_owner_keys(bucket_name) {
+        const bucket = system_store.data.systems[0].buckets_by_name[bucket_name];
+        if (!bucket) {
+            dbg.error('BUCKET NOT FOUND', bucket_name);
+            throw new RpcError('NO_SUCH_BUCKET', 'No such bucket: ' + bucket_name);
+        }
+        return [{
+            access_key: bucket.owner_account.access_keys[0].access_key.unwrap(),
+            secret_key: bucket.owner_account.access_keys[0].secret_key.unwrap(),
+        }];
+    }
 }
 
 exports.BucketLogUploader = BucketLogUploader;

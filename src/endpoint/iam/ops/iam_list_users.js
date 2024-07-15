@@ -3,6 +3,7 @@
 
 const dbg = require('../../../util/debug_module')(__filename);
 const iam_utils = require('../iam_utils');
+const iam_constants = require('../iam_constants');
 const { CONTENT_TYPE_APP_FORM_URLENCODED } = require('../../../util/http_utils');
 
 /**
@@ -12,10 +13,12 @@ async function list_users(req, res) {
 
     const params = {
         marker: req.body.marker,
-        max_items: req.body.max_items,
+        // ISSUE - AWS CLI doesn't pass max_items in req.body
+        max_items: req.body.max_items ?? iam_constants.DEFAULT_MAX_ITEMS,
         iam_path_prefix: req.body.path_prefix,
     };
     dbg.log1('IAM LIST USERS', params);
+    iam_utils.validate_params(iam_constants.IAM_ACTIONS.LIST_USERS, params);
     const reply = await req.account_sdk.list_users(params);
     dbg.log2('list_users reply', reply);
 

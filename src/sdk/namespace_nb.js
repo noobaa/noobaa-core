@@ -58,9 +58,10 @@ class NamespaceNB {
     // OBJECT LIST //
     /////////////////
 
-    list_objects(params, object_sdk) {
+    async list_objects(params, object_sdk) {
         if (this.target_bucket) params = _.defaults({ bucket: this.target_bucket }, params);
-        return object_sdk.rpc_client.object.list_objects(params);
+        const object_info = await object_sdk.rpc_client.object.list_objects(params);
+        return object_info;
     }
 
     list_uploads(params, object_sdk) {

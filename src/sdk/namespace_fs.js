@@ -587,7 +587,8 @@ class NamespaceFS {
      * @param {ListParams} params
      */
     async list_objects(params, object_sdk) {
-        return this._list_objects(params, object_sdk, false);
+        const object_info = await this._list_objects(params, object_sdk, false);
+        return object_info;
     }
 
     /**
@@ -2329,7 +2330,16 @@ class NamespaceFS {
             sha256_b64: undefined,
             stats: undefined,
             tagging: undefined,
+            object_owner: this._get_object_owner()
         };
+    }
+
+    /**
+     * _get_object_owner in the future we will return object owner
+     * currently not implemented because ACLs are not implemented as well
+     */
+    _get_object_owner() {
+        return undefined;
     }
 
     _get_upload_info(stat, version_id) {

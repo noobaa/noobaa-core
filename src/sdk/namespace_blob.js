@@ -79,6 +79,14 @@ class NamespaceBlob {
         return this.access_mode === 'READ_ONLY';
     }
 
+    /**
+     * _get_object_owner in the future we will return object owner
+     * currently not implemented because ACLs are not implemented as well
+     */
+     _get_object_owner() {
+        return undefined;
+    }
+
     /////////////////
     // OBJECT LIST //
     /////////////////
@@ -110,7 +118,7 @@ class NamespaceBlob {
             objects: _.map(response.segment.blobItems, obj => this._get_blob_object_info(obj, params.bucket)),
             common_prefixes: _.map(response.segment.blobPrefixes, prefix => prefix.name),
             is_truncated: Boolean(response.continuationToken),
-            next_marker: response.continuationToken
+            next_marker: response.continuationToken,
         };
     }
 
@@ -731,7 +739,7 @@ class NamespaceBlob {
                 }
             }
         }
-
+        const object_owner = this._get_object_owner();
         return {
             obj_id: blob_etag,
             bucket,
@@ -741,7 +749,8 @@ class NamespaceBlob {
             create_time: flat_obj.lastModified,
             content_type: flat_obj.contentType,
             xattr: modified_xattr,
-            tag_count: tag_count
+            tag_count: tag_count,
+            object_owner
         };
     }
 

@@ -115,6 +115,14 @@ class NamespaceGCP {
         };
     }
 
+    /**
+     * _get_object_owner in the future we will return object owner
+     * currently not implemented because ACLs are not implemented as well
+     */
+    _get_object_owner() {
+        return undefined;
+    }
+
     async list_uploads(params, object_sdk) {
         dbg.log0('NamespaceGCP.list_uploads:',
             this.bucket,
@@ -444,6 +452,7 @@ class NamespaceGCP {
         const xattr = _.extend(metadata.metadata, {
             'noobaa-namespace-gcp-bucket': metadata.bucket,
         });
+        const object_owner = this._get_object_owner();
         return {
             obj_id: metadata.id,
             bucket: metadata.bucket,
@@ -465,6 +474,7 @@ class NamespaceGCP {
             lock_settings: undefined,
             encryption: undefined,
             stats: undefined,
+            object_owner
         };
     }
 

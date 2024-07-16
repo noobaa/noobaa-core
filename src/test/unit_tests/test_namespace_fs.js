@@ -23,6 +23,7 @@ const test_ns_list_objects = require('./test_ns_list_objects');
 const { TMP_PATH } = require('../system_tests/test_utils');
 const { get_process_fs_context } = require('../../util/native_fs_utils');
 const endpoint_stats_collector = require('../../sdk/endpoint_stats_collector');
+const SensitiveString = require('../../util/sensitive_string');
 
 const inspect = (x, max_arr = 5) => util.inspect(x, { colors: true, depth: null, maxArrayLength: max_arr });
 
@@ -38,8 +39,7 @@ const stream_content_type = 'application/octet-stream';
 
 const DEFAULT_FS_CONFIG = get_process_fs_context();
 
-
-function make_dummy_object_sdk() {
+function make_dummy_object_sdk(config_root) {
     return {
         requesting_account: {
             force_md5_etag: false,
@@ -51,6 +51,15 @@ function make_dummy_object_sdk() {
         abort_controller: new AbortController(),
         throw_if_aborted() {
             if (this.abort_controller.signal.aborted) throw new Error('request aborted signal');
+        },
+
+        read_bucket_sdk_config_info(name) {
+            return {
+                bucket_owner: new SensitiveString('dummy-owner'),
+                owner_account: {
+                    id: 'dummy-id-123',
+                }
+            };
         }
     };
 }
@@ -63,7 +72,7 @@ mocha.describe('namespace_fs', function() {
 
     const src_key = 'test/unit_tests/test_namespace_fs.js';
     const tmp_fs_path = path.join(TMP_PATH, 'test_namespace_fs');
-    const dummy_object_sdk = make_dummy_object_sdk();
+    const dummy_object_sdk = make_dummy_object_sdk(tmp_fs_path);
     const ns_src_bucket_path = `./${src_bkt}`;
     const ns_tmp_bucket_path = `${tmp_fs_path}/${src_bkt}`;
 
@@ -693,7 +702,8 @@ mocha.describe('namespace_fs folders tests', function() {
     if (os_utils.IS_MAC) {
         not_user_xattr = { 'not_user_xattr1': 'not1', 'not_user_xattr2': 'not2' };
     }
-    const dummy_object_sdk = make_dummy_object_sdk();
+    const dummy_object_sdk = make_dummy_object_sdk(tmp_fs_path);
+
     const ns_tmp_bucket_path = `${tmp_fs_path}/${src_bkt}`;
     const ns_tmp = new NamespaceFS({ bucket_path: ns_tmp_bucket_path, bucket_id: '2', namespace_resource_id: undefined });
 
@@ -1195,8 +1205,7 @@ mocha.describe('nsfs_symlinks_validations', function() {
     const expected_dirs = ['d1', 'd2', 'd3/d3d1'];
     const expected_files = ['f1', 'f2', 'f3', 'd2/f4', 'd2/f5', 'd3/d3d1/f6'];
     const expected_links = [{ t: 'f1', n: 'lf1' }, { t: '/etc', n: 'ld2' }];
-    const dummy_object_sdk = make_dummy_object_sdk();
-
+    const dummy_object_sdk = make_dummy_object_sdk(tmp_fs_path);
     const ns = new NamespaceFS({ bucket_path: bucket_full_path, bucket_id: '1', namespace_resource_id: undefined });
 
     mocha.before(async () => {
@@ -1329,10 +1338,8 @@ mocha.describe('namespace_fs copy object', function() {
     const tmp_fs_path = path.join(TMP_PATH, 'test_namespace_fs');
     const md1 = { key123: 'val123', key234: 'val234' };
 
-    const dummy_object_sdk = make_dummy_object_sdk();
-
+    const dummy_object_sdk = make_dummy_object_sdk(tmp_fs_path);
     const ns_tmp_bucket_path = `${tmp_fs_path}/${src_bkt}`;
-
     const ns_tmp = new NamespaceFS({ bucket_path: ns_tmp_bucket_path, bucket_id: '3', namespace_resource_id: undefined });
 
     mocha.before(async () => {

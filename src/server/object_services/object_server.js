@@ -1430,7 +1430,16 @@ function get_object_info(md, options = {}) {
         tagging: md.tagging,
         encryption: md.encryption,
         tag_count: (md.tagging && md.tagging.length) || 0,
+        object_owner: _get_object_owner()
     };
+}
+
+/**
+ * _get_object_owner in the future we will return object owner
+ * currently not implemented because ACLs are not implemented as well
+ */
+function _get_object_owner() {
+    return undefined;
 }
 
 function load_bucket(req, { include_deleting } = {}) {

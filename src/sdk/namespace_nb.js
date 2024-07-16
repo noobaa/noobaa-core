@@ -61,7 +61,6 @@ class NamespaceNB {
     async list_objects(params, object_sdk) {
         if (this.target_bucket) params = _.defaults({ bucket: this.target_bucket }, params);
         const object_info = await object_sdk.rpc_client.object.list_objects(params);
-        object_info.object_owner = await this.get_object_owner(object_sdk, params.bucket);
         return object_info;
     }
 
@@ -75,14 +74,6 @@ class NamespaceNB {
         return object_sdk.rpc_client.object.list_object_versions(params);
     }
 
-    async get_object_owner(object_sdk, bucket) {
-        // TODO: in the future we will add extra implementation per namespace
-        const info = await object_sdk.read_bucket_sdk_config_info(bucket);
-        return {
-              name: info.bucket_owner.unwrap(),
-              id: info.bucket_info.owner_account.id,
-          };
-    }
     /////////////////
     // OBJECT READ //
     /////////////////

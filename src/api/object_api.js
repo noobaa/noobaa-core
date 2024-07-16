@@ -1444,6 +1444,12 @@ module.exports = {
                 s3_signed_url: { type: 'string' },
                 lock_settings: { $ref: 'common_api#/definitions/lock_settings' },
                 storage_class: { $ref: 'common_api#/definitions/storage_class_enum' },
+                // currently no properties for the object as there is no implementation
+                object_owner: {
+                    type: 'object',
+                    properties: {
+                    }
+                },
             }
         },
 

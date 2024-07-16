@@ -79,6 +79,14 @@ class NamespaceBlob {
         return this.access_mode === 'READ_ONLY';
     }
 
+    /**
+     * _get_object_owner in the future we will return object owner
+     * currently not implemented because ACLs are not implemented as well
+     */
+     _get_object_owner() {
+        return undefined;
+    }
+
     /////////////////
     // OBJECT LIST //
     /////////////////
@@ -111,17 +119,7 @@ class NamespaceBlob {
             common_prefixes: _.map(response.segment.blobPrefixes, prefix => prefix.name),
             is_truncated: Boolean(response.continuationToken),
             next_marker: response.continuationToken,
-            object_owner: await this.get_object_owner(object_sdk, params.bucket)
         };
-    }
-
-    async get_object_owner(object_sdk, bucket) {
-        // TODO: in the future we will add extra implementation per namespace
-        const info = await object_sdk.read_bucket_sdk_config_info(bucket);
-        return {
-              name: info.bucket_owner.unwrap(),
-              id: info.bucket_info.owner_account.id,
-          };
     }
 
     async list_uploads(params, object_sdk) {
@@ -741,7 +739,7 @@ class NamespaceBlob {
                 }
             }
         }
-
+        const object_owner = this._get_object_owner();
         return {
             obj_id: blob_etag,
             bucket,
@@ -751,7 +749,8 @@ class NamespaceBlob {
             create_time: flat_obj.lastModified,
             content_type: flat_obj.contentType,
             xattr: modified_xattr,
-            tag_count: tag_count
+            tag_count: tag_count,
+            object_owner
         };
     }
 

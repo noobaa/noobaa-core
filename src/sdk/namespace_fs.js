@@ -588,25 +588,7 @@ class NamespaceFS {
      */
     async list_objects(params, object_sdk) {
         const object_info = await this._list_objects(params, object_sdk, false);
-        object_info.object_owner = await this.get_object_owner(object_sdk, params.bucket);
         return object_info;
-    }
-
-    async get_object_owner(object_sdk, bucket) {
-        // TODO: in the future we will add extra implementation per namespace
-        const info = await object_sdk.read_bucket_sdk_config_info(bucket);
-
-        if (info.bucket_info && info.bucket_info.owner_account) {
-            return {
-                name: info.bucket_owner.unwrap(),
-                id: info.bucket_info.owner_account.id,
-            };
-        } else {
-            return {
-                name: info.bucket_owner.unwrap(),
-                id: info.owner_account.id,
-            };
-        }
     }
 
     /**
@@ -2348,7 +2330,16 @@ class NamespaceFS {
             sha256_b64: undefined,
             stats: undefined,
             tagging: undefined,
+            object_owner: this._get_object_owner()
         };
+    }
+
+    /**
+     * _get_object_owner in the future we will return object owner
+     * currently not implemented because ACLs are not implemented as well
+     */
+    _get_object_owner() {
+        return undefined;
     }
 
     _get_upload_info(stat, version_id) {

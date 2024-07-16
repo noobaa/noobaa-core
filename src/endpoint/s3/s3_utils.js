@@ -36,6 +36,38 @@ const DEFAULT_OBJECT_ACL = Object.freeze({
 const XATTR_SORT_SYMBOL = Symbol('XATTR_SORT_SYMBOL');
 const base64_regex = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
 
+ /**
+ * get_object_owner returns object owner if obj.object_owner defined
+ * else it'll try to return bucket_owner info if exists
+ * else it'll return the default owner
+ * @param {nb.ObjectInfo} obj
+ * @param {nb.ObjectSDK} object_sdk
+ * @returns {Promise<object>}
+ */
+ async function get_object_owner(obj, object_sdk) {
+    if (obj.object_owner) {
+        return Object.freeze({
+            ID: obj.object_owner.id,
+            DisplayName: obj.object_owner.name,
+        });
+    }
+    const info = await object_sdk.read_bucket_sdk_config_info(obj.bucket);
+    if (info) {
+        if (info.bucket_info && info.bucket_info.owner_account) {
+            return Object.freeze({
+                ID: info.bucket_info.owner_account.id,
+                DisplayName: info.bucket_owner.unwrap()
+            });
+        } else {
+            return Object.freeze({
+                ID: info.owner_account.id,
+                DisplayName: info.bucket_owner.unwrap()
+            });
+        }
+    }
+    return DEFAULT_S3_USER;
+}
+
 function decode_chunked_upload(source_stream) {
     const decoder = new ChunkedContentDecoder();
     // pipeline will back-propagate errors from the decoder to stop streaming from the source,
@@ -673,16 +705,6 @@ function parse_restore_request_days(req) {
     }
 
     return days;
-}
-
-function get_object_owner(obj) {
-    if (obj.object_owner) {
-        return Object.freeze({
-            ID: obj.object_owner.id,
-            DisplayName: obj.object_owner.name,
-        });
-    }
-    return DEFAULT_S3_USER;
 }
 
 exports.STORAGE_CLASS_STANDARD = STORAGE_CLASS_STANDARD;

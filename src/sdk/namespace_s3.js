@@ -94,18 +94,16 @@ class NamespaceS3 {
             objects: _.map(res.Contents, obj => this._get_s3_object_info(obj, params.bucket)),
             common_prefixes: _.map(res.CommonPrefixes, 'Prefix'),
             is_truncated: res.IsTruncated,
-            next_marker: res.NextMarker,
-            object_owner: await this.get_object_owner(object_sdk, params.bucket),
+            next_marker: res.NextMarker
         };
     }
 
-    async get_object_owner(object_sdk, bucket) {
-        // TODO: in the future we will add extra implementation per namespace
-        const info = await object_sdk.read_bucket_sdk_config_info(bucket);
-        return {
-              name: info.bucket_owner.unwrap(),
-              id: info.bucket_info.owner_account.id,
-          };
+    /**
+     * _get_object_owner in the future we will return object owner
+     * currently not implemented because ACLs are not implemented as well
+     */
+    _get_object_owner() {
+        return undefined;
     }
 
     async list_uploads(params, object_sdk) {
@@ -788,6 +786,7 @@ class NamespaceS3 {
             sha256_b64: undefined,
             stats: undefined,
             tagging: undefined,
+            object_owner: this._get_object_owner()
         };
     }
 

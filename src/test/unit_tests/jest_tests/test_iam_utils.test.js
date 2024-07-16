@@ -138,6 +138,37 @@ describe('format_iam_xml_date', () => {
     });
 });
 
+describe('parse_max_items', () => {
+    it('max_items is undefined should not be changed', () => {
+        let max_items; // variable is undefined by default
+        const res = iam_utils.parse_max_items(max_items);
+        expect(res).toBeUndefined();
+    });
+
+    it('max_items is number should not be changed', () => {
+        const max_items = 7;
+        const res = iam_utils.parse_max_items(max_items);
+        expect(res).toBe(max_items);
+    });
+
+    it('max_items is string of number should be changed', () => {
+        const max_items = '7';
+        const res = iam_utils.parse_max_items(max_items);
+        expect(res).toBe(7);
+    });
+
+    it('max_items is string cannot be converted to number should throw an error', () => {
+        try {
+            const max_items = 'blabla';
+            iam_utils.parse_max_items(max_items);
+            throw new NoErrorThrownError();
+        } catch (err) {
+            expect(err).toBeInstanceOf(IamError);
+            expect(err).toHaveProperty('code', IamError.ValidationError.code);
+        }
+    });
+});
+
 describe('validate_user_input_iam', () => {
     describe('validate_iam_path', () => {
         const min_length = 1;
@@ -173,7 +204,7 @@ describe('validate_user_input_iam', () => {
         it('should throw error when path is invalid - not begins with /', () => {
             try {
                 iam_utils.validate_iam_path('a/b/', iam_constants.IAM_PATH);
-                // throw new NoErrorThrownError();
+                throw new NoErrorThrownError();
             } catch (err) {
                 expect(err).toBeInstanceOf(IamError);
                 expect(err).toHaveProperty('code', IamError.ValidationError.code);

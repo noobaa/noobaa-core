@@ -13,8 +13,7 @@ async function list_users(req, res) {
 
     const params = {
         marker: req.body.marker,
-        // ISSUE - AWS CLI doesn't pass max_items in req.body
-        max_items: req.body.max_items ?? iam_constants.DEFAULT_MAX_ITEMS,
+        max_items: iam_utils.parse_max_items(req.body.max_items) ?? iam_constants.DEFAULT_MAX_ITEMS,
         iam_path_prefix: req.body.path_prefix,
     };
     dbg.log1('IAM LIST USERS', params);

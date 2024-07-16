@@ -82,15 +82,47 @@ function check_iam_path_was_set(iam_path) {
     return iam_path && iam_path !== IAM_DEFAULT_PATH;
 }
 
+/**
+ * parse_max_items converts the input to the needed type
+ * assuming that we've got only sting type
+ * @param {any} input_max_items
+ */
+function parse_max_items(input_max_items) {
+    if (input_max_items === undefined) return;
+    const input_type = 'number';
+    const parameter_name = 'MaxItems';
+    const value_as_number = Number(input_max_items);
+    if (Number.isNaN(value_as_number)) {
+        const message_with_details = `1 validation error detected: Value ${input_max_items} at ` +
+        `'${parameter_name}' failed to satisfy constraint: Member must be ${input_type}`;
+        const { code, http_code, type } = IamError.ValidationError;
+        throw new IamError({ code, message: message_with_details, http_code, type });
+    }
+    return value_as_number;
+}
+
+
+/**
+ * _type_check_input checks that the input is the same as needed
+ * @param {string} input_type
+ * @param {string | number} input_value
+ * @param {string} parameter_name
+ */
 function _type_check_input(input_type, input_value, parameter_name) {
     if (typeof input_value !== input_type) {
-        const message_with_details = `1 validation error detected: Value ${input_value} at` +
+        const message_with_details = `1 validation error detected: Value ${input_value} at ` +
             `'${parameter_name}'  failed to satisfy constraint: Member must be ${input_type}`;
         const { code, http_code, type } = IamError.ValidationError;
         throw new IamError({ code, message: message_with_details, http_code, type });
     }
 }
 
+/**
+ * _length_min_check_input checks if the input is lower than the min length
+ * @param {number} min_length
+ * @param {any} input_value
+ * @param {string} parameter_name
+ */
 function _length_min_check_input(min_length, input_value, parameter_name) {
     const input_length = input_value.length;
     if (input_length < min_length) {
@@ -101,6 +133,12 @@ function _length_min_check_input(min_length, input_value, parameter_name) {
     }
 }
 
+/**
+ * _length_max_check_input checks if the input is higher than the max length
+ * @param {number} max_length
+ * @param {any} input_value
+ * @param {string} parameter_name
+ */
 function _length_max_check_input(max_length, input_value, parameter_name) {
     const input_length = input_value.length;
     if (input_length > max_length) {
@@ -112,14 +150,20 @@ function _length_max_check_input(max_length, input_value, parameter_name) {
     }
 }
 
+/**
+ * _length_check_input checks that the input length is between the min and the max value
+ * @param {number} min_length
+ * @param {number} max_length
+ * @param {string} input_value
+ * @param {string} parameter_name
+ */
 function _length_check_input(min_length, max_length, input_value, parameter_name) {
     _length_min_check_input(min_length, input_value, parameter_name);
     _length_max_check_input(max_length, input_value, parameter_name);
 }
 
-// 1 - check that required flags exists
-// 2 - validate each flag
 /**
+ * validate_params will call the aquivalent function in user or access key
  * @param {string} action
  * @param {object} params
  */
@@ -133,9 +177,8 @@ function validate_params(action, params) {
         }
 }
 
-// 1 - check that required flags exists
-// 2 - validate each flag
 /**
+ * validate_user_params will call the aquivalent function for each action in user API
  * @param {string} action
  * @param {object} params
  */
@@ -161,9 +204,8 @@ function validate_user_params(action, params) {
       }
 }
 
-// 1 - check that required flags exists
-// 2 - validate each flag
 /**
+ *  validate_access_keys_params will call the aquivalent function for each action in access key API
  * @param {string} action
  * @param {object} params
  */
@@ -190,6 +232,7 @@ function validate_access_keys_params(action, params) {
 }
 
 /**
+ * check_required_username checks if the username was set
  * @param {object} params
  */
 function check_required_username(params) {
@@ -197,6 +240,7 @@ function check_required_username(params) {
 }
 
 /**
+ * check_required_access_key_id checks if the access key id was set
  * @param {object} params
  */
 function check_required_access_key_id(params) {
@@ -204,6 +248,7 @@ function check_required_access_key_id(params) {
 }
 
 /**
+ * check_required_status checks if the status was set
  * @param {object} params
  */
 function check_required_status(params) {
@@ -211,6 +256,7 @@ function check_required_status(params) {
 }
 
 /**
+ * check_required_key checks if a required key was set
  * @param {any} value
  * @param {string} flag_name
  */
@@ -222,9 +268,8 @@ function check_required_key(value, flag_name) {
     }
 }
 
-
-
 /**
+ * validate_create_user checks the params for create_user action
  * @param {object} params
  */
 function validate_create_user(params) {
@@ -234,6 +279,7 @@ function validate_create_user(params) {
 }
 
 /**
+ * validate_get_user checks the params for get_user action
  * @param {object} params
  */
 function validate_get_user(params) {
@@ -241,6 +287,7 @@ function validate_get_user(params) {
 }
 
 /**
+ * validate_update_user checks the params for update_user action
  * @param {object} params
  */
 function validate_update_user(params) {
@@ -251,6 +298,7 @@ function validate_update_user(params) {
 }
 
 /**
+ * validate_delete_user checks the params for delete_user action
  * @param {object} params
  */
 function validate_delete_user(params) {
@@ -259,6 +307,7 @@ function validate_delete_user(params) {
 }
 
 /**
+ * validate_list_users checks the params for list_users action
  * @param {object} params
  */
 function validate_list_users(params) {
@@ -268,6 +317,7 @@ function validate_list_users(params) {
 }
 
 /**
+ * validate_create_access_key checks the params for create_access_key action
  * @param {object} params
  */
 function validate_create_access_key(params) {
@@ -275,6 +325,7 @@ function validate_create_access_key(params) {
 }
 
 /**
+ * validate_get_access_key_last_used checks the params for get_access_key_last_used action
  * @param {object} params
  */
 function validate_get_access_key_last_used(params) {
@@ -283,6 +334,7 @@ function validate_get_access_key_last_used(params) {
 }
 
 /**
+ * validate_update_access_key checks the params for update_access_key action
  * @param {object} params
  */
 function validate_update_access_key(params) {
@@ -294,6 +346,7 @@ function validate_update_access_key(params) {
 }
 
 /**
+ * validate_delete_access_key checks the params for delete_access_key action
  * @param {object} params
  */
 function validate_delete_access_key(params) {
@@ -303,6 +356,7 @@ function validate_delete_access_key(params) {
 }
 
 /**
+ * validate_list_access_keys checks the params for list_access_keys action
  * @param {object} params
  */
 function validate_list_access_keys(params) {
@@ -312,7 +366,12 @@ function validate_list_access_keys(params) {
 }
 
 /**
+ * validate_iam_path will validate:
+ * 1. type
+ * 2. length
+ * 3. regex (from AWS docs)
  * @param {string} input_path
+ * @param {string} parameter_name
  */
 function validate_iam_path(input_path, parameter_name = iam_constants.IAM_PATH) {
     if (_.isUndefined(input_path)) return;
@@ -334,7 +393,13 @@ function validate_iam_path(input_path, parameter_name = iam_constants.IAM_PATH) 
 }
 
 /**
+ * validate_username will validate:
+ * 1. type
+ * 2. length
+ * 3. regex (from AWS docs)
+ * 4. additional internal restrictions
  * @param {string} input_username
+ * @param {string} parameter_name
  */
 function validate_username(input_username, parameter_name = iam_constants.USERNAME) {
     if (_.isUndefined(input_username)) return;
@@ -363,6 +428,10 @@ function validate_username(input_username, parameter_name = iam_constants.USERNA
 }
 
 /**
+ * validate_marker will validate:
+ * 1. type
+ * 2. length
+ * 3. regex (from AWS docs)
  * @param {string} input_marker
  */
 function validate_marker(input_marker) {
@@ -384,6 +453,10 @@ function validate_marker(input_marker) {
 }
 
 /**
+ * validate_max_items will validate:
+ * 1. type
+ *    (note: in the flow the type is validated when parse the value)
+ * 2. length
  * @param {number} input_max_items
  */
 function validate_max_items(input_max_items) {
@@ -412,6 +485,10 @@ function validate_max_items(input_max_items) {
 }
 
 /**
+ * validate_access_key_id will validate:
+ * 1. type
+ * 2. length
+ * 3. regex (from AWS docs)
  * @param {string} input_access_key_id
  */
 function validate_access_key_id(input_access_key_id) {
@@ -435,6 +512,8 @@ function validate_access_key_id(input_access_key_id) {
 }
 
 /**
+ * validate_status will validate:
+ * the the input is only from the defined enum
  * @param {string} input_status
  */
 function validate_status(input_status) {
@@ -458,6 +537,7 @@ exports.IAM_DEFAULT_PATH = IAM_DEFAULT_PATH;
 exports.AWS_NOT_USED = AWS_NOT_USED;
 exports.get_action_message_title = get_action_message_title;
 exports.check_iam_path_was_set = check_iam_path_was_set;
+exports.parse_max_items = parse_max_items;
 exports.MAX_NUMBER_OF_ACCESS_KEYS = MAX_NUMBER_OF_ACCESS_KEYS;
 exports.access_key_status_enum = access_key_status_enum;
 exports.identity_enum = identity_enum;

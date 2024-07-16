@@ -2450,7 +2450,7 @@ class NamespaceFS {
         dbg.log0('NamespaceFS: delete_uls fs_context:', fs_context, 'to_delete_dir_path: ', params.full_path);
 
         try {
-            const list = await this.list_objects({ ...params, limit: 1 }, object_sdk);
+            const list = await this.list_objects({ ...params, bucket: params.name, limit: 1 }, object_sdk);
 
             if (list && list.objects && list.objects.length > 0) {
                 throw new RpcError('NOT_EMPTY', 'underlying directory has files in it');

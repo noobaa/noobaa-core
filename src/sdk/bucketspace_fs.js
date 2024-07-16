@@ -359,7 +359,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                     await ns.delete_uls({ name, full_path: bucket_storage_path }, object_sdk);
                 } else {
                     // 2. delete only bucket tmpdir
-                    const list = await ns.list_objects({ ...params, limit: 1 }, object_sdk);
+                    const list = await ns.list_objects({ ...params, bucket: name, limit: 1 }, object_sdk);
                     if (list && list.objects && list.objects.length > 0) throw new RpcError('NOT_EMPTY', 'underlying directory has files in it');
                     const bucket_tmpdir_path = get_bucket_tmpdir_full_path(namespace_bucket_config.write_resource.path, bucket._id);
                     await folder_delete(bucket_tmpdir_path, this.fs_context, true);

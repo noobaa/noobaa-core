@@ -61,7 +61,7 @@ The `account add` command is used to create a new account with customizable opti
 ```sh
 noobaa-cli account add --name <account_name> --uid <uid> --gid <gid> [--user]
 [--new_buckets_path][--access_key][--secret_key][--fs_backend]
-[--allow_bucket_creation][--force_md5_etag][--anonymous][--from_file]
+[--allow_bucket_creation][--force_md5_etag][--anonymous][--from_file][--iam_operate_on_root_account]
 ```
 #### Flags -
 - `name` (Required)
@@ -113,6 +113,10 @@ noobaa-cli account add --name <account_name> --uid <uid> --gid <gid> [--user]
     - Type: String
     - Description: Path to JSON file which includes account properties. When using `from_file` flag the account details must only appear inside the options JSON file. See [from file example](#--from-file-flag-usage-example).  
 
+- `iam_operate_on_root_account`
+    - Type: Boolean
+    - Description: Specifies if the account allowed to create root accounts using the IAM API (the default behavior is to create of IAM accounts). See - [IAM - Root Accounts Manager](./../design/iam.md#root-accounts-manager).
+
 ### Update Account
 
 The `account update` command is used to update an existing account with customizable options.
@@ -121,7 +125,7 @@ The `account update` command is used to update an existing account with customiz
 ```sh
 noobaa-cli account update --name <account_name> [--new_name][--uid][--gid][--user]
 [--new_buckets_path][--access_key][--secret_key][--regenerate][--fs_backend]
-[--allow_bucket_creation][--force_md5_etag][--anonymous]
+[--allow_bucket_creation][--force_md5_etag][--anonymous][--iam_operate_on_root_account]
 ```
 #### Flags -
 - `name` (Required)
@@ -176,6 +180,10 @@ noobaa-cli account update --name <account_name> [--new_name][--uid][--gid][--use
 - `anonymous`
     - Type: Boolean
     - Description: Identify the account by the anonymous flag instead of identification by name.
+
+- `iam_operate_on_root_account`
+    - Type: Boolean
+    - Description: Specifies if the account allowed to create root accounts using the IAM API (the default behavior is to create of IAM accounts). See - [IAM - Root Accounts Manager](./../design/iam.md#root-accounts-manager).
 
 ### Account Status
 

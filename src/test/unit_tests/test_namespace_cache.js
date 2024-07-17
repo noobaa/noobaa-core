@@ -41,7 +41,7 @@ function validate_metric(bucket, ns_cache, metric_name, expect_value) {
     console.log(metric_utils.get_metric(ns_cache.stats.prom_metrics_report,
         metric_name));
     assert(metric_utils.get_metric(ns_cache.stats.prom_metrics_report,
-        metric_name).hashMap[`bucket_name:${bucket}`].value === expect_value);
+        metric_name).hashMap[`bucket_name:${bucket},`].value === expect_value);
 }
 
 class Recorder {

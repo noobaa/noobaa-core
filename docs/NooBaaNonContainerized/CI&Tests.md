@@ -113,6 +113,22 @@ The following is a list of `NC jest tests` files -
 * Moreover, `nc_coretest.js` includes mapping between RPC API calls to NooBaa CLI calls in order to be able to run same integration tests on both containerized and non containerized deployments.  
 * Use `NC_CORETEST=true` environment variable when running NC NSFS integration test (test_bucketspace.js).
 
+##### Differences Between Containerized and Non Containerized
+* `new_buckets_path` -
+    1. On NC environment - new_buckets_path is a full absolute path.
+    2. On Containerized environment - new_buckets_path is the directory that will be concatenated to the namespace resource path.
+
+* `Multiple bucket exports of a single file system directory` - 
+    1. On NC environment - A user is `allowed` to export the same underlying file system into multiple bucket entries.
+    2. On Containerized environment - A user is `not allowed` to export the same underlying file system into multiple bucket entries.
+
+    3. For more info about exported buckets, see -  
+        * [S3 Bucket VS CLI Exported Bucket](./AccountsAndBuckets.md#s3-bucket-vs-cli-exported-bucket).  
+        * [Bucket Management](./NooBaaCLI.md#managing-buckets).
+
+* `system owner / admin`
+    1. On NC environment - Do not exist.
+    2. On Containerized environment - Exist.
 
 ### NSFS Tests
 

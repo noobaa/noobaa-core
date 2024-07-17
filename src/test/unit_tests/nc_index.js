@@ -17,11 +17,11 @@ require('./test_bucketspace');
 require('./test_bucketspace_fs');
 require('./test_nsfs_glacier_backend');
 require('./test_s3_bucket_policy');
+require('./test_nsfs_versioning');
+require('./test_bucketspace_versioning');
 
 // TODO: uncomment when supported
 //require('./test_s3_ops');
 //require('./test_s3_list_objects');
 //require('./test_s3_encryption');
 // require('./test_s3select');
-//require('./test_bucketspace_versioning');
-//require('./test_nsfs_versioning');

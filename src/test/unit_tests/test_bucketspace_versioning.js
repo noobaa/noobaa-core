@@ -7,14 +7,16 @@ const fs = require('fs');
 const path = require('path');
 const mocha = require('mocha');
 const assert = require('assert');
-const coretest = require('./coretest');
-const { rpc_client, EMAIL } = coretest;
 const fs_utils = require('../../util/fs_utils');
 const nb_native = require('../../util/nb_native');
 const size_utils = require('../../util/size_utils');
-const { TMP_PATH, invalid_nsfs_root_permissions, generate_s3_client } = require('../system_tests/test_utils');
+const { TMP_PATH, is_nc_coretest, set_path_permissions_and_owner, generate_nsfs_account, get_new_buckets_path_by_test_env,
+    invalid_nsfs_root_permissions, generate_s3_client, get_coretest_path } = require('../system_tests/test_utils');
 const { get_process_fs_context } = require('../../util/native_fs_utils');
 
+const coretest_path = get_coretest_path();
+const coretest = require(coretest_path);
+const { rpc_client, EMAIL, get_admin_mock_account_details } = coretest;
 coretest.setup({});
 
 const XATTR_INTERNAL_NOOBAA_PREFIX = 'user.noobaa.';
@@ -26,13 +28,17 @@ const NULL_VERSION_ID = 'null';
 const DEFAULT_FS_CONFIG = get_process_fs_context();
 let CORETEST_ENDPOINT;
 
+const tmp_fs_root = path.join(TMP_PATH, 'test_bucket_namespace_fs_versioning');
+// on NC - new_buckets_path is full absolute path
+// on Containerized - new_buckets_path is the directory
+const new_bucket_path_param = get_new_buckets_path_by_test_env(tmp_fs_root, '/');
+
 mocha.describe('bucketspace namespace_fs - versioning', function() {
     const nsr = 'versioned-nsr';
     const bucket_name = 'versioned-enabled-bucket';
     const disabled_bucket_name = 'disabled-bucket'; // be aware that this bucket would become versioned in the copy object tests
     const suspended_bucket_name = 'suspended-bucket';
 
-    const tmp_fs_root = path.join(TMP_PATH, 'test_bucket_namespace_fs_versioning');
     const bucket_path = '/bucket';
     const full_path = tmp_fs_root + bucket_path;
     const disabled_bucket_path = '/disabled_bucket';
@@ -64,6 +70,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
     const suspended_dir1_versions_path = path.join(suspended_full_path, dir1, '.versions/');
 
     mocha.before(async function() {
+        this.timeout(600000); // eslint-disable-line no-invalid-this
         if (invalid_nsfs_root_permissions()) this.skip(); // eslint-disable-line no-invalid-this
         // create paths 
         await fs_utils.create_fresh_path(tmp_fs_root, 0o777);
@@ -73,7 +80,12 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
         await fs_utils.file_must_exist(disabled_full_path);
         await fs_utils.create_fresh_path(suspended_full_path, 0o770);
         await fs_utils.file_must_exist(suspended_full_path);
-
+        if (is_nc_coretest) {
+            const { uid, gid } = get_admin_mock_account_details();
+            await set_path_permissions_and_owner(full_path, { uid, gid }, 0o700);
+            await set_path_permissions_and_owner(disabled_full_path, { uid, gid }, 0o700);
+            await set_path_permissions_and_owner(suspended_full_path, { uid, gid }, 0o700);
+        }
         // export dir as a bucket
         await rpc_client.pool.create_namespace_resource({
             name: nsr,
@@ -105,7 +117,6 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                 write_resource: suspended_nsr
             }
         });
-
         const policy = {
             Version: '2012-10-17',
             Statement: [{
@@ -119,7 +130,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
         };
         CORETEST_ENDPOINT = coretest.get_http_address();
         // create accounts
-        let res = await generate_nsfs_account({ admin: true });
+        let res = await generate_nsfs_account(rpc_client, EMAIL, new_bucket_path_param, { admin: true });
         s3_admin = generate_s3_client(res.access_key, res.secret_key, CORETEST_ENDPOINT);
         await s3_admin.putBucketPolicy({
             Bucket: bucket_name,
@@ -136,11 +147,11 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             Policy: JSON.stringify(policy)
         });
 
-        res = await generate_nsfs_account({ uid: 5, gid: 5 });
+        res = await generate_nsfs_account(rpc_client, EMAIL, new_bucket_path_param, { uid: 5, gid: 5 });
         s3_uid5 = generate_s3_client(res.access_key, res.secret_key, CORETEST_ENDPOINT);
         accounts.push(res.email);
 
-        res = await generate_nsfs_account();
+        res = await generate_nsfs_account(rpc_client, EMAIL, new_bucket_path_param);
         s3_uid6 = generate_s3_client(res.access_key, res.secret_key, CORETEST_ENDPOINT);
         accounts.push(res.email);
     });
@@ -176,6 +187,8 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
         });
 
         mocha.it('set bucket versioning - Enabled - admin - should fail - no permissions', async function() {
+            // on NC env - s3_admin is a regular account created for being the owner of buckets created using rpc calls (which are coverted to cli)
+            if (is_nc_coretest) return;
             try {
                 await s3_admin.putBucketVersioning({ Bucket: bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
                 assert.fail(`put bucket versioning succeeded for account without permissions`);
@@ -200,6 +213,8 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
          });
 
         mocha.it('set bucket versioning - Suspended - admin - should fail - no permissions', async function() {
+            // on NC env -  s3_admin is a regular account created for being the owner of buckets created via rpc calls (which are coverted to cli)
+            if (is_nc_coretest) return;
             try {
                 await s3_admin.putBucketVersioning({ Bucket: suspended_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } });
                 assert.fail(`put bucket versioning succeeded for account without permissions`);
@@ -870,22 +885,22 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
         const delete_object_test_bucket_null = 'delete-object-test-bucket-null';
         const delete_object_test_bucket_dm = 'delete-object-test-bucket-dm';
 
-        const full_delete_path = tmp_fs_root + '/' + delete_object_test_bucket_reg;
-        const full_delete_path_null = tmp_fs_root + '/' + delete_object_test_bucket_null;
-        const full_delete_path_dm = tmp_fs_root + '/' + delete_object_test_bucket_dm;
+        const full_delete_path = path.join(tmp_fs_root, delete_object_test_bucket_reg);
+        const full_delete_path_null = path.join(tmp_fs_root, delete_object_test_bucket_null);
+        const full_delete_path_dm = path.join(tmp_fs_root, delete_object_test_bucket_dm);
 
         let account_with_access;
         mocha.describe('delete object - versioning enabled', function() {
             mocha.describe('delete object - regular version - versioning enabled', async function() {
                 mocha.before(async function() {
-                    const res = await generate_nsfs_account({ default_resource: nsr });
+                    const res = await generate_nsfs_account(rpc_client, EMAIL, new_bucket_path_param, { default_resource: nsr});
                     account_with_access = generate_s3_client(res.access_key, res.secret_key, CORETEST_ENDPOINT);
                     await account_with_access.createBucket({ Bucket: delete_object_test_bucket_reg });
-                    await put_allow_all_bucket_policy(s3_admin, delete_object_test_bucket_reg);
+                    await put_allow_all_bucket_policy(account_with_access, delete_object_test_bucket_reg);
                     await account_with_access.createBucket({ Bucket: delete_object_test_bucket_null });
-                    await put_allow_all_bucket_policy(s3_admin, delete_object_test_bucket_null);
+                    await put_allow_all_bucket_policy(account_with_access, delete_object_test_bucket_null);
                     await account_with_access.createBucket({ Bucket: delete_object_test_bucket_dm });
-                    await put_allow_all_bucket_policy(s3_admin, delete_object_test_bucket_dm);
+                    await put_allow_all_bucket_policy(account_with_access, delete_object_test_bucket_dm);
                 });
 
             mocha.it('delete version id - fake id - nothing to remove', async function() {
@@ -899,8 +914,10 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                 const upload_res_arr = await upload_object_versions(account_with_access, delete_object_test_bucket_reg, key1, ['null', 'regular']);
                 const cur_version_id1 = await stat_and_get_version_id(full_delete_path, key1);
 
-                const delete_res = await account_with_access.deleteObject({ Bucket: delete_object_test_bucket_reg,
-                    Key: key1, VersionId: upload_res_arr[1].VersionId });
+                const delete_res = await account_with_access.deleteObject({
+                    Bucket: delete_object_test_bucket_reg,
+                    Key: key1, VersionId: upload_res_arr[1].VersionId
+                });
                 assert.equal(delete_res.VersionId, cur_version_id1);
 
                 const cur_version_id2 = await stat_and_get_version_id(full_delete_path, key1);
@@ -1181,20 +1198,20 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
         const delete_object_test_bucket_null = 'delete-object-suspended-test-bucket-null';
         const delete_object_test_bucket_dm = 'delete-object-test-suspended-bucket-dm';
 
-        const full_delete_path = tmp_fs_root + '/' + delete_object_test_bucket_reg;
-        const full_delete_path_null = tmp_fs_root + '/' + delete_object_test_bucket_null;
-        const full_delete_path_dm = tmp_fs_root + '/' + delete_object_test_bucket_dm;
+        const full_delete_path = path.join(tmp_fs_root, delete_object_test_bucket_reg);
+        const full_delete_path_null = path.join(tmp_fs_root, delete_object_test_bucket_null);
+        const full_delete_path_dm = path.join(tmp_fs_root, delete_object_test_bucket_dm);
 
         let account_with_access;
         mocha.before(async function() {
-            const res = await generate_nsfs_account({ default_resource: nsr });
+            const res = await generate_nsfs_account(rpc_client, EMAIL, new_bucket_path_param, { default_resource: nsr });
             account_with_access = generate_s3_client(res.access_key, res.secret_key, CORETEST_ENDPOINT);
             await account_with_access.createBucket({ Bucket: delete_object_test_bucket_reg });
-            await put_allow_all_bucket_policy(s3_admin, delete_object_test_bucket_reg);
+            await put_allow_all_bucket_policy(account_with_access, delete_object_test_bucket_reg);
             await account_with_access.createBucket({ Bucket: delete_object_test_bucket_null });
-            await put_allow_all_bucket_policy(s3_admin, delete_object_test_bucket_null);
+            await put_allow_all_bucket_policy(account_with_access, delete_object_test_bucket_null);
             await account_with_access.createBucket({ Bucket: delete_object_test_bucket_dm });
-            await put_allow_all_bucket_policy(s3_admin, delete_object_test_bucket_dm);
+            await put_allow_all_bucket_policy(account_with_access, delete_object_test_bucket_dm);
         });
 
         mocha.describe('delete object - regular version - versioning suspended', async function() {
@@ -1560,14 +1577,14 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
 
     mocha.describe('delete multiple objects - versioning enabled', function() {
         const delete_multi_object_test_bucket = 'delete-multi-object-test-bucket';
-        const full_multi_delete_path = tmp_fs_root + '/' + delete_multi_object_test_bucket;
+        const full_multi_delete_path = path.join(tmp_fs_root, delete_multi_object_test_bucket);
         let account_with_access;
 
         mocha.before(async function() {
-            const res = await generate_nsfs_account({ default_resource: nsr });
+            const res = await generate_nsfs_account(rpc_client, EMAIL, new_bucket_path_param, { default_resource: nsr });
             account_with_access = generate_s3_client(res.access_key, res.secret_key, CORETEST_ENDPOINT);
             await account_with_access.createBucket({ Bucket: delete_multi_object_test_bucket });
-            await put_allow_all_bucket_policy(s3_admin, delete_multi_object_test_bucket);
+            await put_allow_all_bucket_policy(account_with_access, delete_multi_object_test_bucket);
         });
 
         mocha.it('delete multiple objects - no version id - versioning disabled', async function() {
@@ -1822,14 +1839,14 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
 
     mocha.describe('delete multiple objects - versioning suspended', function() {
         const delete_multi_object_test_bucket = 'delete-multi-object-test-bucket-suspended';
-        const full_multi_delete_path = tmp_fs_root + '/' + delete_multi_object_test_bucket;
+        const full_multi_delete_path = path.join(tmp_fs_root, delete_multi_object_test_bucket);
         let account_with_access;
 
         mocha.before(async function() {
-            const res = await generate_nsfs_account({ default_resource: nsr });
+            const res = await generate_nsfs_account(rpc_client, EMAIL, new_bucket_path_param, { default_resource: nsr });
             account_with_access = generate_s3_client(res.access_key, res.secret_key, CORETEST_ENDPOINT);
             await account_with_access.createBucket({ Bucket: delete_multi_object_test_bucket });
-            await put_allow_all_bucket_policy(s3_admin, delete_multi_object_test_bucket);
+            await put_allow_all_bucket_policy(account_with_access, delete_multi_object_test_bucket);
         });
 
         mocha.it('delete multiple objects - no version id - versioning disabled - will be suspended', async function() {
@@ -2101,10 +2118,10 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
         const key_to_list3 = 'ship.txt';
 
         mocha.before(async function() {
-            const res = await generate_nsfs_account({ default_resource: nsr });
+            const res = await generate_nsfs_account(rpc_client, EMAIL, new_bucket_path_param, { default_resource: nsr });
             account_with_access = generate_s3_client(res.access_key, res.secret_key, CORETEST_ENDPOINT);
             await account_with_access.createBucket({ Bucket: list_object_versions_test_bucket });
-            await put_allow_all_bucket_policy(s3_admin, list_object_versions_test_bucket);
+            await put_allow_all_bucket_policy(account_with_access, list_object_versions_test_bucket);
         });
 
         mocha.it('list object versions - only null versions - versioning disabled', async function() {
@@ -2179,9 +2196,9 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
     mocha.describe('List-objects', function() {
         const nsr = 'noobaa-nsr';
         const bucket_name = 'noobaa-bucket';
-        const tmp_fs_root = path.join(TMP_PATH, 'test_namespace_fs_list_objects');
+        const tmp_fs_root2 = path.join(TMP_PATH, 'test_namespace_fs_list_objects');
         const bucket_path = '/bucket';
-        const full_path = tmp_fs_root + bucket_path;
+        const full_path = tmp_fs_root2 + bucket_path;
         const version_dir = '/.versions';
         const full_path_version_dir = full_path + `${version_dir}`;
         const dir1 = full_path + '/dir1';
@@ -2199,7 +2216,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
         mocha.before(async function() {
             if (invalid_nsfs_root_permissions()) this.skip(); // eslint-disable-line no-invalid-this
             // create paths
-            await fs_utils.create_fresh_path(tmp_fs_root, 0o777);
+            await fs_utils.create_fresh_path(tmp_fs_root2, 0o777);
             await fs_utils.create_fresh_path(full_path, 0o770);
             await fs_utils.file_must_exist(full_path);
             await fs_utils.create_fresh_path(full_path_version_dir, 0o770);
@@ -2212,11 +2229,16 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             await fs_utils.file_must_exist(dir2);
             await fs_utils.create_fresh_path(dir2_version_dir, 0o770);
             await fs_utils.file_must_exist(dir2_version_dir);
+            const ls_new_buckets_path = get_new_buckets_path_by_test_env(tmp_fs_root2, '/');
+            if (is_nc_coretest) {
+                const { uid, gid } = get_admin_mock_account_details();
+                await set_path_permissions_and_owner(full_path, { uid, gid }, 0o700);
+            }
             // export dir as a bucket
             await rpc_client.pool.create_namespace_resource({
                 name: nsr,
                 nsfs_config: {
-                    fs_root_path: tmp_fs_root,
+                    fs_root_path: tmp_fs_root2,
                 }
             });
             const obj_nsr = { resource: nsr, path: bucket_path };
@@ -2239,14 +2261,14 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             ]
             };
             // create accounts
-            let res = await generate_nsfs_account({ admin: true });
+            let res = await generate_nsfs_account(rpc_client, EMAIL, ls_new_buckets_path, { admin: true });
             s3_admin = generate_s3_client(res.access_key, res.secret_key, CORETEST_ENDPOINT);
             await s3_admin.putBucketPolicy({
                 Bucket: bucket_name,
                 Policy: JSON.stringify(policy)
             });
             // create nsfs account
-            res = await generate_nsfs_account();
+            res = await generate_nsfs_account(rpc_client, EMAIL, ls_new_buckets_path);
             s3_client = generate_s3_client(res.access_key, res.secret_key, CORETEST_ENDPOINT);
             accounts.push(res.email);
             await s3_client.putBucketVersioning({ Bucket: bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
@@ -2281,14 +2303,14 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
         const nsr = 'get-head-versioned-nsr';
         const bucket_name = 'get-head-versioned-bucket';
         const disabled_bucket_name = 'get-head-disabled-bucket';
-        const tmp_fs_root = path.join(TMP_PATH, 'test_namespace_fs_get_objects');
+        const tmp_fs_root3 = path.join(TMP_PATH, 'test_namespace_fs_get_objects');
 
-        const bucket_path = '/get-head-bucket';
+        const bucket_path = '/get-head-bucket/';
         const vesion_dir = '/.versions';
-        const full_path = tmp_fs_root + bucket_path;
+        const full_path = path.join(tmp_fs_root3, bucket_path);
         const disabled_bucket_path = '/get-head-disabled_bucket';
-        const disabled_full_path = tmp_fs_root + disabled_bucket_path;
-        const version_dir_path = full_path + vesion_dir;
+        const disabled_full_path = path.join(tmp_fs_root3, disabled_bucket_path);
+        const version_dir_path = path.join(full_path, vesion_dir);
         let file_pointer;
         const versionID_1 = 'mtime-12a345b-ino-c123d45';
         const versionID_2 = 'mtime-e56789f-ino-h56g789';
@@ -2308,18 +2330,24 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             self.timeout(300000);
             if (invalid_nsfs_root_permissions()) this.skip(); // eslint-disable-line no-invalid-this
             // create paths
-            await fs_utils.create_fresh_path(tmp_fs_root, 0o777);
+            await fs_utils.create_fresh_path(tmp_fs_root3, 0o777);
             await fs_utils.create_fresh_path(full_path, 0o770);
             await fs_utils.file_must_exist(full_path);
             await fs_utils.create_fresh_path(version_dir_path, 0o770);
             await fs_utils.file_must_exist(version_dir_path);
             await fs_utils.create_fresh_path(disabled_full_path, 0o770);
             await fs_utils.file_must_exist(disabled_full_path);
+            const new_buckets_path3 = get_new_buckets_path_by_test_env(tmp_fs_root3, '/');
+            if (is_nc_coretest) {
+                const { uid, gid } = get_admin_mock_account_details();
+                await set_path_permissions_and_owner(full_path, { uid, gid }, 0o700);
+                await set_path_permissions_and_owner(disabled_full_path, { uid, gid }, 0o700);
+            }
             // export dir as a bucket
             await rpc_client.pool.create_namespace_resource({
                 name: nsr,
                 nsfs_config: {
-                    fs_root_path: tmp_fs_root,
+                    fs_root_path: tmp_fs_root3,
                 }
             });
             const obj_nsr = { resource: nsr, path: bucket_path };
@@ -2352,7 +2380,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             ]
             };
             // create accounts
-            let res = await generate_nsfs_account({ admin: true });
+            let res = await generate_nsfs_account(rpc_client, EMAIL, new_buckets_path3, { admin: true });
             s3_admin = generate_s3_client(res.access_key, res.secret_key, CORETEST_ENDPOINT);
             await s3_admin.putBucketPolicy({
                 Bucket: bucket_name,
@@ -2363,7 +2391,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                 Policy: JSON.stringify(policy)
             });
             // create nsfs account
-            res = await generate_nsfs_account();
+            res = await generate_nsfs_account(rpc_client, EMAIL, new_buckets_path3);
             s3_client = generate_s3_client(res.access_key, res.secret_key, CORETEST_ENDPOINT);
             accounts.push(res.email);
             // create a file in version disabled bucket
@@ -2791,47 +2819,12 @@ async function put_allow_all_bucket_policy(s3_client, bucket) {
     });
 }
 
-
-async function generate_nsfs_account(options = {}) {
-    const { uid, gid, new_buckets_path, nsfs_only, admin, default_resource } = options;
-    if (admin) {
-        const account = await rpc_client.account.read_account({
-            email: EMAIL,
-        });
-        return {
-            access_key: account.access_keys[0].access_key.unwrap(),
-            secret_key: account.access_keys[0].secret_key.unwrap()
-        };
-    }
-    const random_name = (Math.random() + 1).toString(36).substring(7);
-    const nsfs_account_config = {
-        uid: uid || process.getuid(),
-        gid: gid || process.getgid(),
-        new_buckets_path: new_buckets_path || '/',
-        nsfs_only: nsfs_only || false
-    };
-
-    const account = await rpc_client.account.create_account({
-        has_login: false,
-        s3_access: true,
-        email: `${random_name}@noobaa.com`,
-        name: random_name,
-        nsfs_account_config,
-        default_resource
-    });
-    return {
-        access_key: account.access_keys[0].access_key.unwrap(),
-        secret_key: account.access_keys[0].secret_key.unwrap(),
-        email: `${random_name}@noobaa.com`
-    };
-}
-
 mocha.describe('List-objects', function() {
     const nsr = 'noobaa-nsr-object-vesions';
     const bucket_name = 'noobaa-bucket-object-vesions';
-    const tmp_fs_root = path.join(TMP_PATH, 'test_bucketspace_list_object_versions');
+    const tmp_fs_root4 = path.join(TMP_PATH, 'test_bucketspace_list_object_versions');
     const bucket_path = '/bucket';
-    const full_path = tmp_fs_root + bucket_path;
+    const full_path = tmp_fs_root4 + bucket_path;
     const version_dir = '/.versions';
     const full_path_version_dir = full_path + `${version_dir}`;
     const dir1 = full_path + '/dir1';
@@ -2860,7 +2853,7 @@ mocha.describe('List-objects', function() {
             this.skip(); // eslint-disable-line no-invalid-this
         }
         // create paths
-        await fs_utils.create_fresh_path(tmp_fs_root, 0o777);
+        await fs_utils.create_fresh_path(tmp_fs_root4, 0o777);
         await fs_utils.create_fresh_path(full_path, 0o770);
         await fs_utils.file_must_exist(full_path);
         await fs_utils.create_fresh_path(full_path_version_dir, 0o770);
@@ -2869,12 +2862,16 @@ mocha.describe('List-objects', function() {
         await fs_utils.file_must_exist(dir1);
         await fs_utils.create_fresh_path(dir1_version_dir, 0o770);
         await fs_utils.file_must_exist(dir1_version_dir);
-
+        const new_bucket_path4 = get_new_buckets_path_by_test_env(tmp_fs_root4, '/');
+        if (is_nc_coretest) {
+            const { uid, gid } = get_admin_mock_account_details();
+            await set_path_permissions_and_owner(full_path, { uid, gid }, 0o700);
+        }
         // export dir as a bucket
         await rpc_client.pool.create_namespace_resource({
             name: nsr,
             nsfs_config: {
-                fs_root_path: tmp_fs_root,
+                fs_root_path: tmp_fs_root4,
             }
         });
         const obj_nsr = { resource: nsr, path: bucket_path };
@@ -2897,14 +2894,14 @@ mocha.describe('List-objects', function() {
         ]
         };
         // create accounts
-        let res = await generate_nsfs_account({ admin: true });
+        let res = await generate_nsfs_account(rpc_client, EMAIL, new_bucket_path4, { admin: true });
         s3_admin = generate_s3_client(res.access_key, res.secret_key, CORETEST_ENDPOINT);
         await s3_admin.putBucketPolicy({
             Bucket: bucket_name,
             Policy: JSON.stringify(policy)
         });
         // create nsfs account
-        res = await generate_nsfs_account();
+        res = await generate_nsfs_account(rpc_client, EMAIL, new_bucket_path4);
         s3_client = generate_s3_client(res.access_key, res.secret_key, CORETEST_ENDPOINT);
         accounts.push(res.email);
         await s3_client.putBucketVersioning({ Bucket: bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
@@ -2920,7 +2917,7 @@ mocha.describe('List-objects', function() {
     });
 
     mocha.after(async () => {
-        await file_pointer.close(DEFAULT_FS_CONFIG);
+        if (file_pointer) await file_pointer.close(DEFAULT_FS_CONFIG);
         fs_utils.folder_delete(tmp_fs_root);
         for (const email of accounts) {
             await rpc_client.account.delete_account({ email });
@@ -3068,6 +3065,3 @@ async function create_object(object_path, data, version_id, return_fd) {
     if (return_fd) return target_file;
     await target_file.close(DEFAULT_FS_CONFIG);
 }
-
-exports.generate_nsfs_account = generate_nsfs_account;
-exports.generate_s3_client = generate_s3_client;

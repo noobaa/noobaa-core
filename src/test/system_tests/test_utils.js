@@ -10,12 +10,18 @@ const native_fs_utils = require('../../util/native_fs_utils');
 const config = require('../../../config');
 const { S3 } = require('@aws-sdk/client-s3');
 const { NodeHttpHandler } = require("@smithy/node-http-handler");
+const path = require('path');
 
 /**
  * TMP_PATH is a path to the tmp path based on the process platform
  * in contrast to linux, /tmp/ path on mac is a symlink to /private/tmp/
  */
 const TMP_PATH = os_utils.IS_MAC ? '/private/tmp/' : '/tmp/';
+
+/**
+ * is_nc_coretest returns true when the test runs on NC env
+ */
+const is_nc_coretest = process.env.NC_CORETEST === 'true';
 
 /**
  * 
@@ -338,18 +344,18 @@ async function delete_fs_user_by_platform(name) {
 
 /** 
  * set_path_permissions_and_owner sets path permissions and owner and group
- * @param {string} path
+ * @param {string} p
  * @param {object} owner_options
  * @param {number} permissions
  */
-async function set_path_permissions_and_owner(path, owner_options, permissions = 0o700) {
+async function set_path_permissions_and_owner(p, owner_options, permissions = 0o700) {
     if (owner_options.uid !== undefined && owner_options.gid !== undefined) {
-        await fs.promises.chown(path, owner_options.uid, owner_options.gid);
+        await fs.promises.chown(p, owner_options.uid, owner_options.gid);
     } else {
         const { uid, gid } = await native_fs_utils.get_user_by_distinguished_name({ distinguished_name: owner_options.user });
         await fs.promises.chown(owner_options.new_buckets_path, uid, gid);
     }
-    await fs.promises.chmod(path, permissions);
+    await fs.promises.chmod(p, permissions);
 }
 
 /** 
@@ -386,6 +392,63 @@ function generate_s3_client(access_key, secret_key, endpoint) {
         endpoint
     });
 }
+/**
+ * generate_nsfs_account generate an nsfs account and returns its credentials
+ * if the admin flag is received (in the options object) the function will not create 
+ * the account (it was already created in the system) and only return the credentials.
+ * @param {nb.APIClient} rpc_client 
+ * @param {String} EMAIL 
+ * @param {String} default_new_buckets_path 
+ * @param {Object} options 
+ * @returns {Promise<Object>}
+ */
+async function generate_nsfs_account(rpc_client, EMAIL, default_new_buckets_path, options = {}) {
+    const { uid, gid, new_buckets_path, nsfs_only, admin, default_resource, account_name } = options;
+    if (admin) {
+        const account = await rpc_client.account.read_account({
+            email: EMAIL,
+        });
+        return {
+            access_key: account.access_keys[0].access_key.unwrap(),
+            secret_key: account.access_keys[0].secret_key.unwrap()
+        };
+    }
+    const random_name = account_name || (Math.random() + 1).toString(36).substring(7);
+    const nsfs_account_config = {
+        uid: uid || process.getuid(),
+        gid: gid || process.getgid(),
+        new_buckets_path: new_buckets_path || default_new_buckets_path,
+        nsfs_only: nsfs_only || false
+    };
+
+    const account = await rpc_client.account.create_account({
+        has_login: false,
+        s3_access: true,
+        email: `${random_name}@noobaa.com`,
+        name: random_name,
+        nsfs_account_config,
+        default_resource
+    });
+    return {
+        access_key: account.access_keys[0].access_key.unwrap(),
+        secret_key: account.access_keys[0].secret_key.unwrap(),
+        email: `${random_name}@noobaa.com`
+    };
+}
+/**
+ * get_new_buckets_path_by_test_env returns new_buckets_path value
+ * on NC - new_buckets_path is full absolute path
+ * on Containerized - new_buckets_path is the directory
+ * Example - 
+ * On NC - /private/tmp/new_buckets_path/
+ * On Continerized - new_buckets_path/
+ * @param {string} new_buckets_full_path 
+ * @param {string} new_buckets_dir 
+ * @returns {string}
+ */
+function get_new_buckets_path_by_test_env(new_buckets_full_path, new_buckets_dir) {
+    return is_nc_coretest ? path.join(new_buckets_full_path, new_buckets_dir) : new_buckets_dir;
+}
 
 exports.blocks_exist_on_cloud = blocks_exist_on_cloud;
 exports.create_hosts_pool = create_hosts_pool;
@@ -404,3 +467,7 @@ exports.set_path_permissions_and_owner = set_path_permissions_and_owner;
 exports.set_nc_config_dir_in_config = set_nc_config_dir_in_config;
 exports.generate_anon_s3_client = generate_anon_s3_client;
 exports.TMP_PATH = TMP_PATH;
+exports.is_nc_coretest = is_nc_coretest;
+exports.generate_nsfs_account = generate_nsfs_account;
+exports.get_new_buckets_path_by_test_env = get_new_buckets_path_by_test_env;
+

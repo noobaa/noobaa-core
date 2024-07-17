@@ -771,7 +771,7 @@ config.NSFS_GLACIER_LOGS_POLL_INTERVAL = 10 * 1000;
 // NSFS_GLACIER_ENABLED can override internal autodetection and will force
 // the use of restore for all objects.
 config.NSFS_GLACIER_ENABLED = false;
-config.NSFS_GLACIER_LOGS_ENABLED = true;
+config.NSFS_GLACIER_LOGS_ENABLED = false;
 config.NSFS_GLACIER_BACKEND = 'TAPECLOUD';
 
 // TAPECLOUD Glacier backend specific configs

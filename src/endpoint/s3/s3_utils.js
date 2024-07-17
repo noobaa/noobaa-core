@@ -37,21 +37,14 @@ const XATTR_SORT_SYMBOL = Symbol('XATTR_SORT_SYMBOL');
 const base64_regex = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
 
  /**
- * get_object_owner returns object owner if obj.object_owner defined
- * else it'll try to return bucket_owner info if exists
+ * get_default_object_owner returns bucket_owner info if exists
  * else it'll return the default owner
- * @param {nb.ObjectInfo} obj
+ * @param {string} bucket_name
  * @param {nb.ObjectSDK} object_sdk
  * @returns {Promise<object>}
  */
- async function get_object_owner(obj, object_sdk) {
-    if (obj.object_owner) {
-        return Object.freeze({
-            ID: obj.object_owner.id,
-            DisplayName: obj.object_owner.name,
-        });
-    }
-    const info = await object_sdk.read_bucket_sdk_config_info(obj.bucket);
+ async function get_default_object_owner(bucket_name, object_sdk) {
+    const info = await object_sdk.read_bucket_sdk_config_info(bucket_name);
     if (info) {
         if (info.bucket_info && info.bucket_info.owner_account) {
             return Object.freeze({
@@ -66,6 +59,20 @@ const base64_regex = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{
         }
     }
     return DEFAULT_S3_USER;
+ }
+
+ /**
+ * get_object_owner returns object owner if obj.object_owner defined
+ * @param {nb.ObjectInfo} obj
+ * @returns {Object}
+ */
+function get_object_owner(obj) {
+    if (obj.object_owner) {
+        return Object.freeze({
+            ID: obj.object_owner.id,
+            DisplayName: obj.object_owner.name,
+        });
+    }
 }
 
 function decode_chunked_upload(source_stream) {
@@ -744,3 +751,5 @@ exports.parse_decimal_int = parse_decimal_int;
 exports.parse_restore_request_days = parse_restore_request_days;
 exports.parse_version_id = parse_version_id;
 exports.get_object_owner = get_object_owner;
+exports.get_default_object_owner = get_default_object_owner;
+

@@ -1267,8 +1267,8 @@ class NamespaceFS {
         const part_upload = file_path === upload_path;
         const same_inode = params.copy_source && copy_res === copy_status_enum.SAME_INODE;
         const is_dir_content = this._is_directory_content(file_path, params.key);
-        // upload_part should disable ctime_check because we update the same part-file on concurrent put part 
-        let stat = await target_file.stat({ ...fs_context, disable_ctime_check: part_upload });
+
+        let stat = await target_file.stat(fs_context);
         this._verify_encryption(params.encryption, this._get_encryption_info(stat));
 
         // handle xattr
@@ -1320,7 +1320,7 @@ class NamespaceFS {
             if (params.copy_source) fs_xattr = await this._get_copy_source_xattr(params, fs_context, fs_xattr);
             await this._assign_dir_content_to_xattr(fs_context, fs_xattr, { ...params, size: stat.size }, copy_xattr);
         }
-        stat = await nb_native().fs.stat({ ...fs_context, disable_ctime_check: part_upload }, file_path);
+        stat = await nb_native().fs.stat(fs_context, file_path);
         const upload_info = this._get_upload_info(stat, fs_xattr && fs_xattr[XATTR_VERSION_ID]);
         return upload_info;
     }
@@ -2419,7 +2419,7 @@ class NamespaceFS {
         await this._load_bucket(params, fs_context);
         params.mpu_path = this._mpu_path(params);
         try {
-            await nb_native().fs.stat({ ...fs_context, disable_ctime_check: true }, params.mpu_path);
+            await nb_native().fs.stat(fs_context, params.mpu_path);
         } catch (err) {
             // TOOD: Error handling
             if (err.code === 'ENOENT') err.rpc_code = 'NO_SUCH_UPLOAD';

@@ -43,7 +43,7 @@ class BlockStoreFs extends BlockStoreBase {
         this.xattr_enabled = true;
 
         this.fs_context = {
-            disable_ctime_check: config.BLOCK_STORE_FS_TMFS_ENABLED
+            do_ctime_check: !config.BLOCK_STORE_FS_TMFS_ENABLED
         };
     }
 

@@ -25,7 +25,7 @@ module.exports = {
 
         // password login
         has_login: { type: 'boolean' },
-        password: { wrapper: SensitiveString }, // bcrypted password
+        password: { wrapper: SensitiveString }, // argon2 password
         next_password_change: { date: true },
 
         // default policy for new buckets

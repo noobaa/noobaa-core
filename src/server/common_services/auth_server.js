@@ -3,6 +3,7 @@
 
 const _ = require('lodash');
 const bcrypt = require('bcrypt');
+const argon2 = require('argon2');
 const ip_module = require('ip');
 
 const P = require('../../util/promise');
@@ -36,6 +37,14 @@ const s3_bucket_policy_utils = require('../../endpoint/s3/s3_bucket_policy_utils
  * a previously authenticated account.
  *
  */
+
+function compare_password_hash(password, target_account) {
+    if (bcrypt.compare(password.unwrap(), target_account.password.unwrap())) {
+        return true;
+    }
+    return (argon2.verify(target_account.password.unwrap(), password.unwrap()));
+}
+
 function create_auth(req) {
 
     const email = req.rpc_params.email;
@@ -66,7 +75,7 @@ function create_auth(req) {
             if (!password) return;
 
             return P.resolve()
-                .then(() => bcrypt.compare(password.unwrap(), target_account.password.unwrap()))
+                .then(() => compare_password_hash(password, target_account))
                 .then(match => {
                     if (!match) {
                         dbg.log0('password mismatch', email, system_name);

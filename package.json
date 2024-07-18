@@ -81,6 +81,7 @@
     "ajv": "8.17.1",
     "aws-sdk": "2.1659.0",
     "bcrypt": "5.1.1",
+    "argon2": "0.40.3",
     "big-integer": "1.6.52",
     "bindings": "1.5.0",
     "bufferutil": "4.0.8",

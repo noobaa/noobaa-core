@@ -121,7 +121,6 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             };
 
             bucket.name = new SensitiveString(bucket.name);
-            bucket.system_owner = new SensitiveString(bucket.system_owner);
             bucket.bucket_owner = new SensitiveString(bucket.bucket_owner);
             bucket.owner_account = {
                 id: bucket.owner_account,
@@ -291,7 +290,6 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             tag: js_utils.default_value(tag, undefined),
             owner_account: account._id,
             creator: account._id,
-            system_owner: new SensitiveString(account.name),
             bucket_owner: new SensitiveString(account.name),
             versioning: config.NSFS_VERSIONING_ENABLED && lock_enabled ? 'ENABLED' : 'DISABLED',
             object_lock_configuration: config.WORM_ENABLED ? {
@@ -675,7 +673,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
         const account_identifier = account.name.unwrap();
         dbg.log1('has_bucket_action_permission:', bucket.name.unwrap(), account_identifier, bucket.bucket_owner.unwrap());
 
-        const is_system_owner = account_identifier === bucket.system_owner.unwrap();
+        const is_system_owner = Boolean(bucket.system_owner) && bucket.system_owner.unwrap() === account_identifier;
 
         // If the system owner account wants to access the bucket, allow it
         if (is_system_owner) return true;

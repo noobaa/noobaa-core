@@ -467,8 +467,6 @@ mocha.describe('s3_bucket_policy', function() {
     });
 
     mocha.it('should deny bucket owner access', async function() {
-        // test fails on NC_CORETEST because system_owner === bucket_owner, until this behavior changes skipping the test
-        if (process.env.NC_CORETEST) this.skip(); // eslint-disable-line no-invalid-this
         const policy = {
             Version: '2012-10-17',
             Statement: [{
@@ -500,6 +498,8 @@ mocha.describe('s3_bucket_policy', function() {
     });
 
     mocha.it('should set and delete bucket policy when system owner', async function() {
+    // test fails on NC_CORETEST because we do not set system_owner in buckets
+    if (process.env.NC_CORETEST) this.skip(); // eslint-disable-line no-invalid-this
         const policy = {
             Version: '2012-10-17',
             Statement: [{

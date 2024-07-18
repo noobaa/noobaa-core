@@ -187,7 +187,7 @@ make_bucket: s3bucket
 #### 3. Check that the bucket configuration file was created successfully -
 ```sh
 sudo cat /etc/noobaa.conf.d/buckets/s3bucket.json
-{"_id":"65cb1efcbec92b33220112d7","name":"s3bucket","owner_account":"65cb1e7c9e6ae40d499c0ae4","system_owner":"account1","bucket_owner":"account1","versioning":"DISABLED","creation_date":"2023-09-26T05:56:16.252Z","path":"/tmp/fs1/s3bucket","should_create_underlying_storage":true}
+{"_id":"65cb1efcbec92b33220112d7","name":"s3bucket","owner_account":"65cb1e7c9e6ae40d499c0ae4","bucket_owner":"account1","versioning":"DISABLED","creation_date":"2023-09-26T05:56:16.252Z","path":"/tmp/fs1/s3bucket","should_create_underlying_storage":true}
 ```
 
 #### 4. Check that the underlying file system bucket directory was created successfully -

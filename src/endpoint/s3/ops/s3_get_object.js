@@ -65,26 +65,15 @@ async function get_object(req, res) {
     if (md_params.get_from_cache) {
         params.get_from_cache = true;
     }
-    if (part_number) {
-        params.part_number = part_number;
-    }
+    let ranges;
     try {
-        const ranges = http_utils.normalize_http_ranges(
+        ranges = http_utils.normalize_http_ranges(
             http_utils.parse_http_ranges(req.headers.range),
             obj_size
         );
         if (ranges) {
-            // reply with HTTP 206 Partial Content
-            res.statusCode = 206;
             params.start = ranges[0].start;
             params.end = ranges[0].end;
-            const content_range = `bytes ${params.start}-${params.end - 1}/${obj_size}`;
-            dbg.log1('reading object range', req.path, content_range, ranges);
-            res.setHeader('Content-Range', content_range);
-            res.setHeader('Content-Length', params.end - params.start);
-            // res.header('Cache-Control', 'max-age=0' || 'no-cache');
-        } else {
-            dbg.log1('reading object', req.path, obj_size);
         }
     } catch (err) {
         if (err.ranges_code === 400) {
@@ -100,6 +89,20 @@ async function get_object(req, res) {
             throw new S3Error(S3Error.InvalidRange);
         }
         throw err;
+    }
+    if (ranges && part_number) {
+        throw new S3Error({...S3Error.InvalidRequest, message: "Cannot specify both Range header and partNumber query parameter"});
+    }
+    if (part_number) {
+        params.part_number = part_number;
+        const multipart_size = object_md.content_length;
+        ranges = [{
+            start: multipart_size * (params.part_number - 1),
+            end: Math.min(multipart_size * params.part_number, object_md.size)
+        }];
+    }
+    if (ranges) {
+        http_utils.set_response_range(ranges, obj_size, res);
     }
     // first_range_data are the first 4K data of the object
     // if the object's size or the end of range is smaller than 4K return it, else get the whole object

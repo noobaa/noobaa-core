@@ -211,6 +211,15 @@ function _format_one_http_range({ start, end }) {
     return `${start_str}-${end_str}`;
 }
 
+function set_response_range(ranges, obj_size, res) {
+    if (!ranges || !ranges.length) return;
+    // reply with HTTP 206 Partial Content
+    res.statusCode = 206;
+    const content_range = `bytes ${ranges[0].start}-${ranges[0].end - 1}/${obj_size}`;
+    res.setHeader('Content-Range', content_range);
+    res.setHeader('Content-Length', ranges[0].end - ranges[0].start);
+}
+
 /**
  * @param {Array} ranges array of {start,end} from parse_http_range
  * @param {Number} size entity size in bytes
@@ -745,6 +754,7 @@ exports.authorize_session_token = authorize_session_token;
 exports.get_agent_by_endpoint = get_agent_by_endpoint;
 exports.validate_server_ip_whitelist = validate_server_ip_whitelist;
 exports.http_get = http_get;
+exports.set_response_range = set_response_range;
 exports.CONTENT_TYPE_TEXT_PLAIN = CONTENT_TYPE_TEXT_PLAIN;
 exports.CONTENT_TYPE_APP_OCTET_STREAM = CONTENT_TYPE_APP_OCTET_STREAM;
 exports.CONTENT_TYPE_APP_JSON = CONTENT_TYPE_APP_JSON;

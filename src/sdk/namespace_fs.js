@@ -55,6 +55,7 @@ const XATTR_NOOBAA_INTERNAL_PREFIX = XATTR_USER_PREFIX + 'noobaa.';
 const XATTR_NOOBAA_CUSTOM_PREFIX = XATTR_NOOBAA_INTERNAL_PREFIX + 'tag.';
 // TODO: In order to verify validity add content_md5_mtime as well
 const XATTR_MD5_KEY = XATTR_USER_PREFIX + 'content_md5';
+const XATTR_MULTIPART_SIZE = XATTR_NOOBAA_INTERNAL_PREFIX + 'multipart_size';
 const XATTR_CONTENT_TYPE = XATTR_NOOBAA_INTERNAL_PREFIX + 'content_type';
 const XATTR_PART_OFFSET = XATTR_NOOBAA_INTERNAL_PREFIX + 'part_offset';
 const XATTR_PART_SIZE = XATTR_NOOBAA_INTERNAL_PREFIX + 'part_size';
@@ -869,7 +870,7 @@ class NamespaceFS {
                 if (r.common_prefix) {
                     res.common_prefixes.push(r.key);
                 } else {
-                    obj_info = this._get_object_info(bucket, r.key, r.stat, 'null', false, true);
+                    obj_info = this._get_object_info(bucket, r.key, r.stat, 'null', false, null, true);
                     if (!list_versions && obj_info.delete_marker) {
                         continue;
                     }
@@ -921,7 +922,9 @@ class NamespaceFS {
                 }
             }
             this._throw_if_delete_marker(stat);
-            return this._get_object_info(params.bucket, params.key, stat, params.version_id || 'null', isDir);
+            this._handle_read_part_number(params, stat);
+            const range = isNaN(params.start) ? null : {start: params.start, end: params.end};
+            return this._get_object_info(params.bucket, params.key, stat, params.version_id || 'null', isDir, range);
         } catch (err) {
             if (this._should_update_issues_report(params, file_path, err)) {
                 this.run_update_issues_report(object_sdk, err);
@@ -945,10 +948,11 @@ class NamespaceFS {
             // this can lead to ENOENT failures due to file not exists when content size is 0
             // if entry is a directory object and its content size = 0 - return empty response
             const is_dir_content = this._is_directory_content(file_path, params.key);
+            let dir_stat;
             if (is_dir_content) {
                 try {
                     const md_path = this._get_file_md_path(params);
-                    const dir_stat = await nb_native().fs.stat(fs_context, md_path);
+                    dir_stat = await nb_native().fs.stat(fs_context, md_path);
                     if (dir_stat && dir_stat.xattr[XATTR_DIR_CONTENT] === '0') return null;
                 } catch (err) {
                     //failed to get object
@@ -968,7 +972,7 @@ class NamespaceFS {
             const stat = await file.stat(fs_context);
             this._throw_if_delete_marker(stat);
             // await this._fail_if_archived_or_sparse_file(fs_context, file_path, stat);
-
+            this._handle_read_part_number(params, is_dir_content ? dir_stat : stat);
             const start = Number(params.start) || 0;
             const end = isNaN(Number(params.end)) ? Infinity : Number(params.end);
 
@@ -1107,6 +1111,30 @@ class NamespaceFS {
                 new NoobaaEvent(NoobaaEvent.OBJECT_CLEANUP_FAILED).create_event(params.key,
                                         { bucket_path: this.bucket_path, object_name: params.key }, err);
                 dbg.warn('NamespaceFS: read_object_stream buffer pool cleanup error', err);
+            }
+        }
+    }
+
+    /**
+     * handle read of specific part number from a multipart upload
+     * see _handle_complete_multipart_size()
+     * @param {object} params - upload object params
+     * @param {nb.NativeFSStats} stat - file stats
+     */
+    _handle_read_part_number(params, stat) {
+        if (params.part_number) {
+            const multipart_size = Number(stat.xattr?.[XATTR_MULTIPART_SIZE]);
+            const size = Number(stat.xattr?.[XATTR_DIR_CONTENT] || stat.size);
+            if (multipart_size > 0) {
+                const num_multiparts = Math.floor((size + multipart_size - 1) / multipart_size);
+                if (params.part_number > num_multiparts) {
+                    throw new RpcError('INVALID_PART', 'The requested partnumber is not satisfiable');
+                }
+                params.start = multipart_size * (params.part_number - 1);
+                // last part may be smaller
+                params.end = Math.min(multipart_size * params.part_number, size);
+            } else {
+                throw new RpcError('BAD_REQUEST', 'multipart_size not found or not valid in file xattr');
             }
         }
     }
@@ -1278,8 +1306,12 @@ class NamespaceFS {
 
         // assign noobaa internal xattr - content type, md5, versioning xattr
         if (params.content_type) {
-            fs_xattr = fs_xattr || {};
+            fs_xattr ||= {};
             fs_xattr[XATTR_CONTENT_TYPE] = params.content_type;
+        }
+        if (params.multipart_size > 0) {
+            fs_xattr ||= {};
+            fs_xattr[XATTR_MULTIPART_SIZE] = String(params.multipart_size);
         }
         if (digest) {
             const { md5_b64, key, bucket, upload_id } = params;
@@ -1733,6 +1765,7 @@ class NamespaceFS {
                 const md_part_stat = await nb_native().fs.stat(fs_context, md_part_path);
                 const part_size = Number(md_part_stat.xattr[XATTR_PART_SIZE]);
                 const part_offset = Number(md_part_stat.xattr[XATTR_PART_OFFSET]);
+                this._handle_complete_multipart_size(params, num, part_size, multiparts);
                 if (etag !== this._get_etag(md_part_stat)) {
                     throw new Error('mismatch part etag: ' + util.inspect({ num, etag, md_part_path, md_part_stat, params }));
                 }
@@ -1803,6 +1836,31 @@ class NamespaceFS {
             await this.complete_object_upload_finally(undefined, [...part_size_to_fd_map.values()], target_file, fs_context);
         }
     }
+
+    /**
+     * for multipart uploads with a fixed part size (apart from last part), we set the multipart_size xattr
+     * so that in case of read request with a part number we will be able to resolve to the offset.
+     * @param {Object} params - params object
+     * @param {Number} num - part number
+     * @param {Number} part_size - size of the part
+     * @param {*} multiparts - the list of parts
+     */
+
+    _handle_complete_multipart_size(params, num, part_size, multiparts) {
+        if (params.multipart_size) {
+            if (part_size === params.multipart_size) {
+                // ok, same size
+            } else if (num === multiparts.length && part_size < params.multipart_size) {
+                // ok, last part can be smaller
+            } else {
+                // not all parts have same size
+                params.multipart_size = -1;
+            }
+        } else {
+            params.multipart_size = part_size;
+        }
+    }
+
 
 
     // complete_object_upload method has too many statements
@@ -2288,12 +2346,15 @@ class NamespaceFS {
     }
 
     /**
-     * @param {string} bucket 
-     * @param {string} key 
-     * @param {nb.NativeFSStats} stat 
+     * @param {string} bucket
+     * @param {string} key
+     * @param {nb.NativeFSStats} stat
+     * @param {Boolean} isDir
+     * @param {Object} range
+     * @param {Boolean} return_version_id
      * @returns {nb.ObjectInfo}
      */
-    _get_object_info(bucket, key, stat, return_version_id, isDir, is_latest = true) {
+    _get_object_info(bucket, key, stat, return_version_id, isDir, range, is_latest = true) {
         const etag = this._get_etag(stat);
         const create_time = stat.mtime.getTime();
         const encryption = this._get_encryption_info(stat);
@@ -2304,6 +2365,7 @@ class NamespaceFS {
             (isDir && dir_content_type) ||
             mime.getType(key) || 'application/octet-stream';
         const storage_class = s3_utils.parse_storage_class(stat.xattr?.[XATTR_STORAGE_CLASS_KEY]);
+        const content_length = range ? range.end - range.start : undefined;
         const size = Number(stat.xattr?.[XATTR_DIR_CONTENT] || stat.size);
 
         return {
@@ -2320,6 +2382,7 @@ class NamespaceFS {
             delete_marker,
             storage_class,
             restore_status: GlacierBackend.get_restore_status(stat.xattr, new Date(), this._get_file_path({key})),
+            content_length,
             xattr: to_xattr(stat.xattr),
 
             // temp:

@@ -1,5 +1,6 @@
 /* Copyright (C) 2020 NooBaa */
-/*eslint max-lines-per-function: ["error", 900]*/
+/*eslint max-lines: ["error", 2100]*/
+/*eslint max-lines-per-function: ["error", 950]*/
 'use strict';
 
 const _ = require('lodash');
@@ -33,6 +34,7 @@ const mkdtemp = util.promisify(fs.mkdtemp);
 const XATTR_MD5_KEY = 'content_md5';
 const XATTR_DIR_CONTENT = 'user.noobaa.dir_content';
 const XATTR_CONTENT_TYPE = 'user.noobaa.content_type';
+const XATTR_MULTIPART_SIZE = 'user.noobaa.multipart_size';
 
 const dir_content_type = 'application/x-directory';
 const stream_content_type = 'application/octet-stream';
@@ -335,6 +337,15 @@ mocha.describe('namespace_fs', function() {
             const read_data = read_res.join();
             assert.strictEqual(Buffer.compare(read_data, data), 0);
 
+            const read_res_part = buffer_utils.write_stream();
+            await ns_tmp.read_object_stream({
+                bucket: mpu_bkt,
+                key: mpu_key,
+                part_number: 1
+            }, dummy_object_sdk, read_res_part);
+            const part_data = read_res_part.join();
+            assert.strictEqual(Buffer.compare(part_data, data.subarray(0, part_size)), 0);
+
             const md = await ns_tmp.read_object_md({
                 bucket: upload_bkt,
                 key: mpu_key,
@@ -342,12 +353,290 @@ mocha.describe('namespace_fs', function() {
             console.log('read_object_md response', inspect(md));
             assert.deepStrictEqual(xattr, md.xattr);
 
+            const part_md = await ns_tmp.read_object_md({
+                bucket: upload_bkt,
+                key: mpu_key,
+                part_number: 1,
+            }, dummy_object_sdk);
+            assert.strictEqual(part_md.content_length, part_size);
+
             const delete_res = await ns_tmp.delete_object({
                 bucket: mpu_bkt,
                 key: mpu_key,
             }, dummy_object_sdk);
             console.log('delete_object response', inspect(delete_res));
         });
+    });
+
+    mocha.describe('get/head multipart upload same size', function() {
+        const mpu_key = 'mpu_upload';
+        const xattr = { key: 'value', key2: 'value2' };
+        const num_parts = 10;
+        const part_size = 1024 * 1024;
+        let data;
+
+        mocha.before(async function() {
+            const create_res = await ns_tmp.create_object_upload({
+                bucket: mpu_bkt,
+                key: mpu_key,
+                xattr,
+            }, dummy_object_sdk);
+
+            const obj_id = create_res.obj_id;
+            data = crypto.randomBytes(num_parts * part_size);
+            const multiparts = [];
+            for (let i = 0; i < num_parts; ++i) {
+                const data_part = data.slice(i * part_size, (i + 1) * part_size);
+                const part_res = await ns_tmp.upload_multipart({
+                    obj_id,
+                    bucket: mpu_bkt,
+                    key: mpu_key,
+                    num: i + 1,
+                    source_stream: buffer_utils.buffer_to_read_stream(data_part),
+                }, dummy_object_sdk);
+                multiparts.push({ num: i + 1, etag: part_res.etag });
+            }
+
+            await ns_tmp.complete_object_upload({
+                obj_id,
+                bucket: mpu_bkt,
+                key: mpu_key,
+                multiparts,
+            }, dummy_object_sdk);
+        });
+
+        mocha.it('head object by part number', async function() {
+            const part_md = await ns_tmp.read_object_md({
+                bucket: upload_bkt,
+                key: mpu_key,
+                part_number: 1,
+            }, dummy_object_sdk);
+            assert.strictEqual(part_md.content_length, part_size);
+        });
+
+        mocha.it('head object invalid part number', async function() {
+            try {
+                await ns_tmp.read_object_md({
+                    bucket: upload_bkt,
+                    key: mpu_key,
+                    part_number: num_parts + 1,
+                }, dummy_object_sdk);
+
+                assert.fail('head should have failed with invalid part');
+            } catch (err) {
+                assert.equal(err.rpc_code, 'INVALID_PART');
+            }
+        });
+
+        mocha.it('head object last part', async function() {
+            const part_md = await ns_tmp.read_object_md({
+                bucket: upload_bkt,
+                key: mpu_key,
+                part_number: num_parts,
+            }, dummy_object_sdk);
+            assert.strictEqual(part_md.content_length, part_size);
+        });
+
+        mocha.it('get object by part number', async function() {
+            const read_res_part = buffer_utils.write_stream();
+            await ns_tmp.read_object_stream({
+                bucket: mpu_bkt,
+                key: mpu_key,
+                part_number: 1
+            }, dummy_object_sdk, read_res_part);
+            const part_data = read_res_part.join();
+            assert.strictEqual(Buffer.compare(part_data, data.subarray(0, part_size)), 0);
+        });
+
+        mocha.it('get object invalid part number', async function() {
+            try {
+                await ns_tmp.read_object_stream({
+                    bucket: upload_bkt,
+                    key: mpu_key,
+                    part_number: num_parts + 1,
+                }, dummy_object_sdk);
+
+                assert.fail('head should have failed with invalid part');
+            } catch (err) {
+                assert.equal(err.rpc_code, 'INVALID_PART');
+            }
+        });
+
+        mocha.after(async function() {
+            await ns_tmp.delete_object({
+                bucket: mpu_bkt,
+                key: mpu_key,
+            }, dummy_object_sdk);
+        });
+
+    });
+
+    mocha.describe('get/head multipart upload with tail', function() {
+        const mpu_key = 'mpu_upload';
+        const xattr = { key: 'value', key2: 'value2' };
+        const num_parts = 10;
+        const part_size = 1024 * 1024;
+        const tail_size = 1024 * 120;
+        let data;
+
+        mocha.before(async function() {
+            const create_res = await ns_tmp.create_object_upload({
+                bucket: mpu_bkt,
+                key: mpu_key,
+                xattr,
+            }, dummy_object_sdk);
+
+            const obj_id = create_res.obj_id;
+            data = crypto.randomBytes(num_parts * part_size);
+            const multiparts = [];
+            for (let i = 0; i < num_parts - 1; ++i) {
+                const data_part = data.slice(i * part_size, (i + 1) * part_size);
+                const part_res = await ns_tmp.upload_multipart({
+                    obj_id,
+                    bucket: mpu_bkt,
+                    key: mpu_key,
+                    num: i + 1,
+                    source_stream: buffer_utils.buffer_to_read_stream(data_part),
+                }, dummy_object_sdk);
+                multiparts.push({ num: i + 1, etag: part_res.etag });
+            }
+            const data_part = data.slice((num_parts - 1) * part_size, (num_parts - 1) * part_size + tail_size);
+            const part_res = await ns_tmp.upload_multipart({
+                obj_id,
+                bucket: mpu_bkt,
+                key: mpu_key,
+                num: num_parts,
+                source_stream: buffer_utils.buffer_to_read_stream(data_part),
+            }, dummy_object_sdk);
+            multiparts.push({ num: num_parts, etag: part_res.etag });
+
+            await ns_tmp.complete_object_upload({
+                obj_id,
+                bucket: mpu_bkt,
+                key: mpu_key,
+                multiparts,
+            }, dummy_object_sdk);
+        });
+
+        mocha.it('head object by part number', async function() {
+            const part_md = await ns_tmp.read_object_md({
+                bucket: upload_bkt,
+                key: mpu_key,
+                part_number: 1,
+            }, dummy_object_sdk);
+            assert.strictEqual(part_md.content_length, part_size);
+        });
+
+        mocha.it('head object tail part', async function() {
+            const part_md = await ns_tmp.read_object_md({
+                bucket: upload_bkt,
+                key: mpu_key,
+                part_number: num_parts,
+            }, dummy_object_sdk);
+            assert.strictEqual(part_md.content_length, tail_size);
+        });
+
+        mocha.it('get object by part number', async function() {
+            const read_res_part = buffer_utils.write_stream();
+            await ns_tmp.read_object_stream({
+                bucket: mpu_bkt,
+                key: mpu_key,
+                part_number: 1
+            }, dummy_object_sdk, read_res_part);
+            const part_data = read_res_part.join();
+            assert.strictEqual(Buffer.compare(part_data, data.subarray(0, part_size)), 0);
+        });
+
+        mocha.it('get object tail part', async function() {
+            const read_res_part = buffer_utils.write_stream();
+            await ns_tmp.read_object_stream({
+                bucket: mpu_bkt,
+                key: mpu_key,
+                part_number: num_parts
+            }, dummy_object_sdk, read_res_part);
+            const part_data = read_res_part.join();
+            assert.strictEqual(Buffer.compare(part_data,
+                data.subarray((num_parts - 1) * part_size, (num_parts - 1) * part_size + tail_size)), 0);
+        });
+
+        mocha.after(async function() {
+            await ns_tmp.delete_object({
+                bucket: mpu_bkt,
+                key: mpu_key,
+            }, dummy_object_sdk);
+        });
+
+    });
+
+    mocha.describe('get/head multipart upload with tail', function() {
+        const mpu_key = 'mpu_upload';
+        const xattr = { key: 'value', key2: 'value2' };
+        const part_sizes = [128, 1024, 2048];
+
+        mocha.before(async function() {
+            const create_res = await ns_tmp.create_object_upload({
+                bucket: mpu_bkt,
+                key: mpu_key,
+                xattr,
+            }, dummy_object_sdk);
+
+            const obj_id = create_res.obj_id;
+            const multiparts = [];
+            for (let i = 0; i < part_sizes.length; ++i) {
+                const data_part = crypto.randomBytes(part_sizes[i]);
+                const part_res = await ns_tmp.upload_multipart({
+                    obj_id,
+                    bucket: mpu_bkt,
+                    key: mpu_key,
+                    num: i + 1,
+                    source_stream: buffer_utils.buffer_to_read_stream(data_part),
+                }, dummy_object_sdk);
+                multiparts.push({ num: i + 1, etag: part_res.etag });
+            }
+
+            await ns_tmp.complete_object_upload({
+                obj_id,
+                bucket: mpu_bkt,
+                key: mpu_key,
+                multiparts,
+            }, dummy_object_sdk);
+        });
+
+        mocha.it('head object should fail with different sizes', async function() {
+            try {
+                await ns_tmp.read_object_md({
+                    bucket: upload_bkt,
+                    key: mpu_key,
+                    part_number: 1,
+                }, dummy_object_sdk);
+
+                assert.fail('head should have failed with invalid part');
+            } catch (err) {
+                assert.equal(err.rpc_code, 'BAD_REQUEST');
+            }
+        });
+
+        mocha.it('get object should fail with different sizes', async function() {
+            try {
+                await ns_tmp.read_object_stream({
+                    bucket: upload_bkt,
+                    key: mpu_key,
+                    part_number: 1,
+                }, dummy_object_sdk);
+
+                assert.fail('head should have failed with invalid part');
+            } catch (err) {
+                assert.equal(err.rpc_code, 'BAD_REQUEST');
+            }
+        });
+
+        mocha.after(async function() {
+            await ns_tmp.delete_object({
+                bucket: mpu_bkt,
+                key: mpu_key,
+            }, dummy_object_sdk);
+        });
+
     });
 
     mocha.describe('list multipart upload', function() {
@@ -828,12 +1117,14 @@ mocha.describe('namespace_fs folders tests', function() {
 
                 const full_xattr_mpu = await get_xattr(p);
                 if (mpu_keys_and_size_map[key] > 0) {
-                    assert.equal(Object.keys(full_xattr_mpu).length, 3);
-                    assert.deepEqual(full_xattr_mpu, { ...user_md_and_dir_content_xattr, [XATTR_DIR_CONTENT]: mpu_keys_and_size_map[key] });
+                    assert.equal(Object.keys(full_xattr_mpu).length, 4);
+                    assert.deepEqual(full_xattr_mpu, { ...user_md_and_dir_content_xattr, [XATTR_DIR_CONTENT]: mpu_keys_and_size_map[key],
+                        [XATTR_MULTIPART_SIZE]: mpu_keys_and_size_map[key]
+                     });
                     await fs_utils.file_must_exist(p1);
                 } else {
                     assert.equal(Object.keys(full_xattr_mpu).length, 1);
-                    assert.deepEqual(full_xattr_mpu, { ...dir_content_md, [XATTR_DIR_CONTENT]: mpu_keys_and_size_map[key] });
+                    assert.deepEqual(full_xattr_mpu, { ...dir_content_md, [XATTR_DIR_CONTENT]: mpu_keys_and_size_map[key]});
                     await fs_utils.file_must_exist(p1); // On mpu we always create DIR_CONTENT_FILE, even if its size is 0
                 }
             }));

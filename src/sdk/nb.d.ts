@@ -433,6 +433,7 @@ interface ObjectInfo {
     s3_signed_url?: string;
     capacity_size?: number;
     num_multiparts?: number;
+    multipart_size?: number;
     first_range_data?: Buffer;
     content_length?: number;
     content_range?: string;

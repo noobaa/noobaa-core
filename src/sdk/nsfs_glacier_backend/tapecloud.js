@@ -359,7 +359,7 @@ class TapeCloudGlacierBackend extends GlacierBackend {
         const entry = new NewlineReaderEntry(fs_context, entry_path);
         let fh = null;
         try {
-            fh = await entry.open();
+            fh = await entry.open("r");
 
             const stat = await fh.stat(fs_context, {
                 xattr_get_keys: [

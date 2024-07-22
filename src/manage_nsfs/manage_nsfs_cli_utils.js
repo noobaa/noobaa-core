@@ -120,7 +120,7 @@ async function get_bucket_owner_account(global_config, bucket_owner) {
     } catch (err) {
         if (err.code === 'ENOENT') {
             const detail_msg = `bucket owner ${bucket_owner} does not exists`;
-            throw_cli_error(ManageCLIError.BucketSetForbiddenNoBucketOwner, detail_msg, {bucket_owner: bucket_owner});
+            throw_cli_error(ManageCLIError.BucketSetForbiddenBucketOwnerNotExists, detail_msg, {bucket_owner: bucket_owner});
         }
         throw err;
     }

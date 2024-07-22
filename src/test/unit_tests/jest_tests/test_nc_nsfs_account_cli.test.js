@@ -1,5 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 /* eslint-disable max-lines-per-function */
+/* eslint max-lines: ['error', 4000] */
 'use strict';
 
 // disabling init_rand_seed as it takes longer than the actual test execution
@@ -484,6 +485,29 @@ describe('manage nsfs cli account flow', () => {
             expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidArgument.code);
         });
 
+        it('should fail - cli create account invalid name (more than max length)', async () => {
+            const { type, new_buckets_path, uid, gid } = defaults;
+            const account_options = { config_root, name: 'A'.repeat(100), new_buckets_path, uid, gid}; // invalid name (too long)
+            const action = ACTIONS.ADD;
+            const res = await exec_manage_cli(type, action, account_options);
+            expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidAccountName.code);
+        });
+
+        it('should fail - cli create account invalid name (anonymous)', async () => {
+            const { type, new_buckets_path, uid, gid } = defaults;
+            const account_options = { config_root, name: 'anonymous', new_buckets_path, uid, gid}; // invalid name (too long)
+            const action = ACTIONS.ADD;
+            const res = await exec_manage_cli(type, action, account_options);
+            expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidAccountName.code);
+        });
+
+        it('should fail - cli create account invalid name (from internal list)', async () => {
+            const { type, new_buckets_path, uid, gid } = defaults;
+            const account_options = { config_root, name: '.', new_buckets_path, uid, gid}; // invalid name (we don't allow '.' as name)
+            const action = ACTIONS.ADD;
+            const res = await exec_manage_cli(type, action, account_options);
+            expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidAccountName.code);
+        });
     });
 
     describe('cli update account', () => {
@@ -826,13 +850,11 @@ describe('manage nsfs cli account flow', () => {
                 expect(JSON.parse(res).response.code).toEqual(ManageCLIResponse.AccountUpdated.code);
             });
 
-            // TODO (after we add the ability to create IAM accounts using the noobaa cli)
             it('should fail - cli update account iam_operate_on_root_account true when account owns IAM accounts', async function() {
                 const { name } = defaults;
                 const accounts_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
                 const account_id = accounts_details._id;
 
-                expect(true).toBe(true);
                 const account_name = 'account-to-be-owned';
                 const account_options1 = { config_root, name: account_name, uid: 5555, gid: 5555 };
                 await exec_manage_cli(type, ACTIONS.ADD, account_options1);
@@ -901,11 +923,19 @@ describe('manage nsfs cli account flow', () => {
                 expect(account_details.nsfs_account_config.distinguished_name).toBe(distinguished_name);
             });
 
-            it('should fail - cli update account with invalid new_name(anonymous)', async () => {
+            it('should fail - cli update account with invalid new_name (anonymous)', async () => {
                 const action = ACTIONS.UPDATE;
                 const { name } = defaults;
                 const new_name = ANONYMOUS;
                 const account_options = { config_root, name, new_name};
+                const res = await exec_manage_cli(type, action, account_options);
+                expect(JSON.parse(res.stdout).error.message).toBe(ManageCLIError.InvalidAccountName.message);
+            });
+
+            it('should fail - cli update account with invalid name (anonymous)', async () => {
+                const action = ACTIONS.UPDATE;
+                const new_name = 'new-account';
+                const account_options = { config_root, name: 'anonymous', new_name};
                 const res = await exec_manage_cli(type, action, account_options);
                 expect(JSON.parse(res.stdout).error.message).toBe(ManageCLIError.InvalidAccountName.message);
             });
@@ -915,6 +945,82 @@ describe('manage nsfs cli account flow', () => {
                 const action = ACTIONS.UPDATE;
                 const res = await exec_manage_cli(type, action, account_options);
                 expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.MissingAccountNameFlag.code);
+            });
+
+            it('cli update iam account with regenerate (only object access keys in index 0 changes)', async function() {
+                const { name } = defaults;
+                const accounts_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
+                const account_id = accounts_details._id;
+
+                const account_name = 'account-to-be-owned';
+                const account_options1 = { config_root, name: account_name, uid: 5555, gid: 5555 };
+                await exec_manage_cli(type, ACTIONS.ADD, account_options1);
+
+                // update the account to have the property owner
+                // (we use this way because now we don't have the way to create IAM users through the noobaa cli)
+                const account_config_path = path.join(config_root, CONFIG_SUBDIRS.ACCOUNTS, account_name + '.json');
+                const { data } = await nb_native().fs.readFile(DEFAULT_FS_CONFIG, account_config_path);
+                const config_data = JSON.parse(data.toString());
+                config_data.owner = account_id; // just so we can identify this account as IAM user
+                // add additional properties to access_keys_object
+                config_data.access_keys[0].creation_date = '2024-07-10T11:26:34.569Z';
+                config_data.access_keys[0].deactivated = false;
+                await update_config_file(DEFAULT_FS_CONFIG, CONFIG_SUBDIRS.ACCOUNTS,
+                    account_config_path, JSON.stringify(config_data));
+
+                // regenerate (auto change the access keys in index 0 only)
+                const account_options2 = { config_root, name, regenerate: true};
+                const res = await exec_manage_cli(type, ACTIONS.UPDATE, account_options2);
+                expect(JSON.parse(res).response.code).toEqual(ManageCLIResponse.AccountUpdated.code);
+                expect(JSON.parse(res).response.reply.access_keys[0].creation_date).toBeUndefined();
+                expect(JSON.parse(res).response.reply.access_keys[0].deactivated).toBeUndefined();
+            });
+
+            it('cli update iam account with access_key and secret_key flag (only object access keys in index 0 changes)', async function() {
+                const { name } = defaults;
+                const accounts_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
+                const account_id = accounts_details._id;
+
+                const account_name = 'account-to-be-owned';
+                const account_options1 = { config_root, name: account_name, uid: 5555, gid: 5555 };
+                await exec_manage_cli(type, ACTIONS.ADD, account_options1);
+
+                // update the account to have the property owner
+                // (we use this way because now we don't have the way to create IAM users through the noobaa cli)
+                const account_config_path = path.join(config_root, CONFIG_SUBDIRS.ACCOUNTS, account_name + '.json');
+                const { data } = await nb_native().fs.readFile(DEFAULT_FS_CONFIG, account_config_path);
+                const config_data = JSON.parse(data.toString());
+                config_data.owner = account_id; // just so we can identify this account as IAM user
+                // add additional properties to access_keys_object
+                config_data.access_keys[0].creation_date = '2024-07-10T11:26:34.569Z';
+                config_data.access_keys[0].deactivated = false;
+                await update_config_file(DEFAULT_FS_CONFIG, CONFIG_SUBDIRS.ACCOUNTS,
+                    account_config_path, JSON.stringify(config_data));
+
+                // update access_key and secret_key (change the access keys in index 0 only)
+                const access_key = 'GIGiFAnjsaE7OKg5N7hB';
+                const secret_key = 'U3AYaMpU3zRDcRKWmvzgTr9MoHIAsD+3oEXAMPLE';
+                const account_options2 = { config_root, name, access_key, secret_key};
+                const res = await exec_manage_cli(type, ACTIONS.UPDATE, account_options2);
+                expect(JSON.parse(res).response.code).toEqual(ManageCLIResponse.AccountUpdated.code);
+                expect(JSON.parse(res).response.reply.access_keys[0].creation_date).toBeUndefined();
+                expect(JSON.parse(res).response.reply.access_keys[0].deactivated).toBeUndefined();
+                expect(JSON.parse(res).response.reply.access_keys[0].access_key).toBe(access_key);
+                expect(JSON.parse(res).response.reply.access_keys[0].secret_key).toBe(secret_key);
+            });
+
+            it('should fail - cli update account invalid new_name (more than max length)', async () => {
+                const { name } = defaults;
+                const account_options = { config_root, name, new_name: 'A'.repeat(100)}; // invalid new_name (too long)
+                const res = await exec_manage_cli(type, ACTIONS.UPDATE, account_options);
+                expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidAccountName.code);
+            });
+
+            it('should fail - cli update account invalid name (from internal list)', async () => {
+                const { name } = defaults;
+                const account_options = { config_root, name, new_name: '.'}; // invalid new_name (we don't allow '.' as name)
+                const res = await exec_manage_cli(type, ACTIONS.UPDATE, account_options);
+                expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidAccountName.code);
             });
         });
 
@@ -1315,6 +1421,30 @@ describe('manage nsfs cli account flow', () => {
             expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.MissingAccountNameFlag.code);
         });
 
+        it('should fail - cli account delete - root account has IAM accounts', async function() {
+            const { name, type } = defaults;
+            const accounts_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
+            const account_id = accounts_details._id;
+
+            const account_name = 'account-to-be-owned';
+            const account_options1 = { config_root, name: account_name, uid: 5555, gid: 5555 };
+            await exec_manage_cli(type, ACTIONS.ADD, account_options1);
+
+            // update the account to have the property owner
+            // (we use this way because now we don't have the way to create IAM users through the noobaa cli)
+            const account_config_path = path.join(config_root, CONFIG_SUBDIRS.ACCOUNTS, account_name + '.json');
+            const { data } = await nb_native().fs.readFile(DEFAULT_FS_CONFIG, account_config_path);
+            const config_data = JSON.parse(data.toString());
+            config_data.owner = account_id; // just so we can identify this account as IAM user;
+            await update_config_file(DEFAULT_FS_CONFIG, CONFIG_SUBDIRS.ACCOUNTS,
+                account_config_path, JSON.stringify(config_data));
+
+            const action = ACTIONS.DELETE;
+            const account_options2 = { config_root, name };
+            const res = await exec_manage_cli(type, action, account_options2);
+            expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.AccountDeleteForbiddenHasIAMAccounts.code);
+        });
+
     });
 
     describe('cli status account', () => {
@@ -1565,6 +1695,29 @@ describe('manage nsfs cli account flow', () => {
             expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidFlagsCombination.code);
         });
 
+        it('should fail - cli create account using from_file with invalid name (anonymous)', async () => {
+            const action = ACTIONS.ADD;
+            const { uid, gid } = defaults;
+            const account_options = { name: 'anonymous', uid, gid}; // invalid name (anonymous)
+            // write the json_file_options
+            const path_to_option_json_file_name = await create_json_account_options(path_to_json_account_options_dir, account_options);
+            const command_flags = {config_root, from_file: path_to_option_json_file_name};
+            // create the account
+            const res = await exec_manage_cli(type, action, command_flags);
+            expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidAccountName.code);
+        });
+
+        it('should fail - cli create account using from_file with invalid name (more than max length)', async () => {
+            const action = ACTIONS.ADD;
+            const { uid, gid } = defaults;
+            const account_options = { name: 'A'.repeat(100), uid, gid}; // name (too long)
+            // write the json_file_options
+            const path_to_option_json_file_name = await create_json_account_options(path_to_json_account_options_dir, account_options);
+            const command_flags = {config_root, from_file: path_to_option_json_file_name};
+            // create the account
+            const res = await exec_manage_cli(type, action, command_flags);
+            expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidAccountName.code);
+        });
     });
 
 });

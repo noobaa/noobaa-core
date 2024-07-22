@@ -208,6 +208,13 @@ ManageCLIError.AccountDeleteForbiddenHasBuckets = Object.freeze({
     http_code: 403,
 });
 
+ManageCLIError.AccountDeleteForbiddenHasIAMAccounts = Object.freeze({
+    code: 'AccountDeleteForbiddenHasIAMAccounts',
+    message: 'Cannot delete account that is owner of IAM accounts. ' +
+        'You must delete all IAM accounts before deleting the root account',
+    http_code: 403,
+});
+
 ManageCLIError.AccountCannotCreateRootAccountsRequesterIAMUser = Object.freeze({
     code: 'AccountCannotCreateRootAccounts',
     message: 'Cannot update account to have iam_operate_on_root_account. ' +
@@ -339,10 +346,17 @@ ManageCLIError.BucketAlreadyExists = Object.freeze({
     http_code: 409,
 });
 
-ManageCLIError.BucketSetForbiddenNoBucketOwner = Object.freeze({
-    code: 'BucketSetForbiddenNoBucketOwner',
+ManageCLIError.BucketSetForbiddenBucketOwnerNotExists = Object.freeze({
+    code: 'BucketSetForbiddenBucketOwnerNotExists',
     message: 'The bucket owner you set for the bucket does not exist. ' +
         'Please set the bucket owner from existing account',
+    http_code: 403,
+});
+
+ManageCLIError.BucketSetForbiddenBucketOwnerIsIAMAccount = Object.freeze({
+    code: 'BucketSetForbiddenBucketOwnerIsIAMAccount',
+    message: 'The bucket owner you set for the bucket is an IAM account. ' +
+        'Please set root account as bucket owner',
     http_code: 403,
 });
 
@@ -432,7 +446,8 @@ const NSFS_CLI_ERROR_EVENT_MAP = {
     AccountNameAlreadyExists: NoobaaEvent.ACCOUNT_ALREADY_EXISTS,
     AccountDeleteForbiddenHasBuckets: NoobaaEvent.ACCOUNT_DELETE_FORBIDDEN,
     BucketAlreadyExists: NoobaaEvent.BUCKET_ALREADY_EXISTS,
-    BucketSetForbiddenNoBucketOwner: NoobaaEvent.UNAUTHORIZED,
+    BucketSetForbiddenBucketOwnerNotExists: NoobaaEvent.UNAUTHORIZED, // GAP - add event
+    BucketSetForbiddenBucketOwnerIsIAMAccount: NoobaaEvent.UNAUTHORIZED, // // GAP - add event
     LoggingExportFailed: NoobaaEvent.LOGGING_FAILED,
 };
 

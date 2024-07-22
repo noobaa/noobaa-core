@@ -347,14 +347,15 @@ async function fetch_account_data(action, user_input) {
     }
 
     // override values
-    // access_key as SensitiveString
     if (has_access_keys(data.access_keys)) {
+        // access_key as SensitiveString
         data.access_keys[0].access_key = _.isUndefined(data.access_keys[0].access_key) ? undefined :
             new SensitiveString(String(data.access_keys[0].access_key));
         // secret_key as SensitiveString
         data.access_keys[0].secret_key = _.isUndefined(data.access_keys[0].secret_key) ? undefined :
             new SensitiveString(String(data.access_keys[0].secret_key));
     }
+    if (data.new_access_key) data.new_access_key = new SensitiveString(data.new_access_key);
     // fs_backend deletion specified with empty string '' (but it is not part of the schema)
     data.nsfs_account_config.fs_backend = data.nsfs_account_config.fs_backend || undefined;
     // new_buckets_path deletion specified with empty string ''
@@ -453,9 +454,14 @@ async function update_account(data, is_flag_iam_operate_on_root_account) {
     const new_name = data.new_name;
     const cur_access_key = has_access_keys(data.access_keys) ? data.access_keys[0].access_key : undefined;
     const update_name = new_name && cur_name && data.new_name !== cur_name;
-    const update_access_key = data.new_access_key && cur_access_key && data.new_access_key !== cur_access_key;
+    const update_access_key = data.new_access_key && cur_access_key && data.new_access_key.unwrap() !== cur_access_key.unwrap();
 
     if (!update_name && !update_access_key) {
+        if (data.new_access_key) {
+            // the user set the same access-key as was before
+            data.access_keys[0] = _.pick(data.access_keys[0], ['access_key', 'secret_key']);
+            data = _.omit(data, ['new_access_key']);
+        }
         const account_config_path = get_config_file_path(global_config.accounts_dir_path, data.name);
         const encrypted_account = await nc_mkm.encrypt_access_keys(data);
         data.master_key_id = encrypted_account.master_key_id;
@@ -473,7 +479,10 @@ async function update_account(data, is_flag_iam_operate_on_root_account) {
     const data_name = new_name || cur_name;
     data.name = data_name;
     data.email = data_name; // saved internally
-    data.access_keys[0].access_key = data.new_access_key || cur_access_key;
+    data.access_keys[0] = {
+        access_key: data.new_access_key || cur_access_key,
+        secret_key: data.access_keys[0].secret_key,
+    };
     const cur_account_config_path = get_config_file_path(global_config.accounts_dir_path, cur_name);
     const new_account_config_path = get_config_file_path(global_config.accounts_dir_path, data.name);
     const new_account_relative_config_path = get_config_file_path(global_config.accounts_dir_relative_path, data.name);

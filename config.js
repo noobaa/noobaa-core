@@ -188,6 +188,15 @@ config.DENY_UPLOAD_TO_STORAGE_CLASS_STANDARD = false;
 // of days an object can be restored using `restore-object` call.
 config.S3_RESTORE_REQUEST_MAX_DAYS = 30;
 
+// NSFS_GLACIER_DMAPI_PMIG_DAYS controls the "virtual"/fake expiry
+// days that will be shown if we detect a glacier object whose life-
+// cycle NSFS doesn't controls
+//
+// This is initialized to be the same as S3_RESTORE_REQUEST_MAX_DAYS
+// but can be overridden to any numberical value
+config.NSFS_GLACIER_DMAPI_PMIG_DAYS = config.S3_RESTORE_REQUEST_MAX_DAYS;
+
+
 /**
  * S3_RESTORE_MAX_DAYS_BEHAVIOUR controls whether to truncate the
  * requested number of days in restore request or whether to deny the request.
@@ -813,6 +822,15 @@ config.NSFS_GLACIER_EXPIRY_TZ = 'LOCAL';
 // the request will be used
 config.NSFS_GLACIER_EXPIRY_TIME_OF_DAY = '';
 
+// If set to true then NooBaa will consider DMAPI extended attributes
+// in conjuction with NooBaa's `user.storage_class` extended attribute
+// to determine state of an object.
+config.NSFS_GLACIER_USE_DMAPI = false;
+
+// NSFS_GLACIER_DMAPI_ALLOW_NOOBAA_TAKEOVER allows NooBaa to take over lifecycle
+// management of an object which was originally NOT managed by NooBaa.
+config.NSFS_GLACIER_DMAPI_ALLOW_NOOBAA_TAKEOVER = false;
+
 config.NSFS_STATFS_CACHE_SIZE = 10000;
 config.NSFS_STATFS_CACHE_EXPIRY_MS = 1 * 1000;
 
@@ -861,7 +879,7 @@ config.ENDPOINT_SSL_PORT = Number(process.env.ENDPOINT_SSL_PORT) || 6443;
 config.ENDPOINT_SSL_STS_PORT = Number(process.env.ENDPOINT_SSL_STS_PORT) || -1;
 config.ENDPOINT_SSL_IAM_PORT = Number(process.env.ENDPOINT_SSL_IAM_PORT) || -1;
 config.ALLOW_HTTP = false;
-// config files should allow access to the owner of the files 
+// config files should allow access to the owner of the files
 config.BASE_MODE_CONFIG_FILE = 0o600;
 config.BASE_MODE_CONFIG_DIR = 0o700;
 
@@ -1040,10 +1058,10 @@ function _get_config_root() {
 }
 
 /**
- * validate_nc_master_keys_config validates the following - 
+ * validate_nc_master_keys_config validates the following -
  * 1. if type is file -
  *    1.1. no GET/PUT executables provided
- * 2. if type is executable - 
+ * 2. if type is executable -
  *    2.1. no file location provided
  *    2.2. GET & PUT executables exist and executables
  */

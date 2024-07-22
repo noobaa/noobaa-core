@@ -5,14 +5,14 @@ const { spawn } = require("child_process");
 const events = require('events');
 const os = require("os");
 const path = require("path");
-const { LogFile } = require("../../util/persistent_logger");
-const { NewlineReader, NewlineReaderEntry } = require('../../util/file_reader');
-const { GlacierBackend } = require("./backend");
-const config = require('../../../config');
-const { exec } = require('../../util/os_utils');
-const nb_native = require("../../util/nb_native");
-const { get_process_fs_context } = require("../../util/native_fs_utils");
-const dbg = require('../../util/debug_module')(__filename);
+const { LogFile } = require("../util/persistent_logger");
+const { NewlineReader, NewlineReaderEntry } = require('../util/file_reader');
+const { Glacier } = require("./glacier");
+const config = require('../../config');
+const { exec } = require('../util/os_utils');
+const nb_native = require("../util/nb_native");
+const { get_process_fs_context } = require("../util/native_fs_utils");
+const dbg = require('../util/debug_module')(__filename);
 
 const ERROR_DUPLICATE_TASK = "GLESM431E";
 
@@ -189,9 +189,9 @@ class TapeCloudUtils {
     }
 }
 
-class TapeCloudGlacierBackend extends GlacierBackend {
+class TapeCloudGlacier extends Glacier {
     async migrate(fs_context, log_file, failure_recorder) {
-        dbg.log2('TapeCloudGlacierBackend.migrate starting for', log_file);
+        dbg.log2('TapeCloudGlacier.migrate starting for', log_file);
 
         const file = new LogFile(fs_context, log_file);
 
@@ -241,13 +241,13 @@ class TapeCloudGlacierBackend extends GlacierBackend {
     }
 
     async restore(fs_context, log_file, failure_recorder) {
-        dbg.log2('TapeCloudGlacierBackend.restore starting for', log_file);
+        dbg.log2('TapeCloudGlacier.restore starting for', log_file);
 
         const file = new LogFile(fs_context, log_file);
         try {
             await file.collect_and_process(async (entry, batch_recorder) => {
                 try {
-                    const should_restore = await this.should_restore(fs_context, entry);
+                    const should_restore = await Glacier.should_restore(fs_context, entry);
                     if (!should_restore) {
                         // Skip this file
                         return;
@@ -272,11 +272,11 @@ class TapeCloudGlacierBackend extends GlacierBackend {
                 const success = await this._recall(
                     batch,
                     async entry_path => {
-                        dbg.log2('TapeCloudGlacierBackend.restore.partial_failure - entry:', entry_path);
+                        dbg.log2('TapeCloudGlacier.restore.partial_failure - entry:', entry_path);
                         await failure_recorder(entry_path);
                     },
                     async entry_path => {
-                        dbg.log2('TapeCloudGlacierBackend.restore.partial_success - entry:', entry_path);
+                        dbg.log2('TapeCloudGlacier.restore.partial_success - entry:', entry_path);
                         await this._finalize_restore(fs_context, entry_path);
                     }
                 );
@@ -286,7 +286,7 @@ class TapeCloudGlacierBackend extends GlacierBackend {
                 if (success) {
                     const batch_file = new LogFile(fs_context, batch);
                     await batch_file.collect_and_process(async (entry_path, batch_recorder) => {
-                        dbg.log2('TapeCloudGlacierBackend.restore.batch - entry:', entry_path);
+                        dbg.log2('TapeCloudGlacier.restore.batch - entry:', entry_path);
                         await this._finalize_restore(fs_context, entry_path);
                     });
                 }
@@ -354,7 +354,7 @@ class TapeCloudGlacierBackend extends GlacierBackend {
      * @param {string} entry_path
     */
     async _finalize_restore(fs_context, entry_path) {
-        dbg.log2('TapeCloudGlacierBackend.restore._finalize_restore - entry:', entry_path);
+        dbg.log2('TapeCloudGlacier.restore._finalize_restore - entry:', entry_path);
 
         const entry = new NewlineReaderEntry(fs_context, entry_path);
         let fh = null;
@@ -363,20 +363,20 @@ class TapeCloudGlacierBackend extends GlacierBackend {
 
             const stat = await fh.stat(fs_context, {
                 xattr_get_keys: [
-                    GlacierBackend.XATTR_RESTORE_REQUEST,
+                    Glacier.XATTR_RESTORE_REQUEST,
                 ]
             });
 
-            const days = Number(stat.xattr[GlacierBackend.XATTR_RESTORE_REQUEST]);
+            const days = Number(stat.xattr[Glacier.XATTR_RESTORE_REQUEST]);
 
             // In case of invocation on the same file multiple times,
             // this xattr will not be present hence `days` will be NaN
             if (isNaN(days)) {
-                dbg.warn("TapeCloudGlacierBackend._finalize_restore: days is NaN - skipping restore for", entry_path);
+                dbg.warn("TapeCloudGlacier._finalize_restore: days is NaN - skipping restore for", entry_path);
                 return;
             }
 
-            const expires_on = GlacierBackend.generate_expiry(
+            const expires_on = Glacier.generate_expiry(
                 new Date(),
                 days,
                 config.NSFS_GLACIER_EXPIRY_TIME_OF_DAY,
@@ -391,10 +391,10 @@ class TapeCloudGlacierBackend extends GlacierBackend {
             // is submitted again).
 
             await fh.replacexattr(fs_context, {
-                [GlacierBackend.XATTR_RESTORE_EXPIRY]: expires_on.toISOString(),
+                [Glacier.XATTR_RESTORE_EXPIRY]: expires_on.toISOString(),
             });
 
-            await fh.replacexattr(fs_context, undefined, GlacierBackend.XATTR_RESTORE_REQUEST);
+            await fh.replacexattr(fs_context, undefined, Glacier.XATTR_RESTORE_REQUEST);
         } catch (error) {
             dbg.error(`failed to process ${entry.path}`, error);
             throw error;
@@ -404,5 +404,5 @@ class TapeCloudGlacierBackend extends GlacierBackend {
     }
 }
 
-exports.TapeCloudGlacierBackend = TapeCloudGlacierBackend;
+exports.TapeCloudGlacier = TapeCloudGlacier;
 exports.TapeCloudUtils = TapeCloudUtils;

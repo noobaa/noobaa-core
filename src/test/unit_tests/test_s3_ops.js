@@ -555,6 +555,34 @@ mocha.describe('s3_ops', function() {
             assert.notEqual(res.Contents[2].Owner.ID, undefined);
         });
 
+        mocha.it('list-object-versions should return proper object owner and id', async function() {
+            if (is_azure_mock) this.skip();
+            this.timeout(120000);
+            await s3.copyObject({
+                Bucket: bucket_name,
+                Key: text_file2,
+                CopySource: `/${bucket_name}/${text_file1}`,
+            });
+            await s3.copyObject({
+                Bucket: bucket_name,
+                Key: text_file3,
+                CopySource: `/${BKT5}/${text_file5}`,
+            });
+            const res = await s3.listObjectVersions({ Bucket: bucket_name });
+
+            assert.strictEqual(res.Versions[0].Key, text_file1);
+            assert.strictEqual(res.Versions[0].Owner.DisplayName, "coretest@noobaa.com");
+            assert.notEqual(res.Versions[0].Owner.ID, undefined);
+
+            assert.strictEqual(res.Versions[1].Key, text_file2);
+            assert.strictEqual(res.Versions[1].Owner.DisplayName, "coretest@noobaa.com");
+            assert.notEqual(res.Versions[1].Owner.ID, undefined);
+
+            assert.strictEqual(res.Versions[2].Key, text_file3);
+            assert.strictEqual(res.Versions[2].Owner.DisplayName, "coretest@noobaa.com");
+            assert.notEqual(res.Versions[2].Owner.ID, undefined);
+        });
+
         mocha.it('should copy text-file tagging', async function() {
             if (is_azure_mock) this.skip();
             this.timeout(120000);

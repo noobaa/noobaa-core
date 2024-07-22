@@ -891,7 +891,7 @@ class NamespaceFS {
             }
             return res;
         } catch (err) {
-            throw this._translate_object_error_codes(err);
+            throw native_fs_utils.translate_error_codes(err, native_fs_utils.entity_enum.OBJECT);
         }
     }
 
@@ -926,7 +926,7 @@ class NamespaceFS {
             if (this._should_update_issues_report(params, file_path, err)) {
                 this.run_update_issues_report(object_sdk, err);
             }
-            throw this._translate_object_error_codes(err);
+            throw native_fs_utils.translate_error_codes(err, native_fs_utils.entity_enum.OBJECT);
         }
     }
 
@@ -1085,7 +1085,7 @@ class NamespaceFS {
             //failed to get object
             new NoobaaEvent(NoobaaEvent.OBJECT_STREAM_GET_FAILED).create_event(params.key,
                                     {bucket_path: this.bucket_path, object_name: params.key}, err);
-            throw this._translate_object_error_codes(err);
+            throw native_fs_utils.translate_error_codes(err, native_fs_utils.entity_enum.OBJECT);
 
         } finally {
             try {
@@ -1151,7 +1151,7 @@ class NamespaceFS {
             new NoobaaEvent(NoobaaEvent.OBJECT_UPLOAD_FAILED).create_event(params.key,
                 {bucket_path: this.bucket_path, object_name: params.key}, err);
             dbg.warn('NamespaceFS: upload_object buffer pool cleanup error', err);
-            throw this._translate_object_error_codes(err);
+            throw native_fs_utils.translate_error_codes(err, native_fs_utils.entity_enum.OBJECT);
         } finally {
             try {
                 if (upload_params && upload_params.target_file) await upload_params.target_file.close(fs_context);
@@ -1581,7 +1581,7 @@ class NamespaceFS {
             );
             return { obj_id: params.obj_id };
         } catch (err) {
-            throw this._translate_object_error_codes(err);
+            throw native_fs_utils.translate_error_codes(err, native_fs_utils.entity_enum.OBJECT);
         }
     }
 
@@ -1653,7 +1653,7 @@ class NamespaceFS {
             return upload_info;
         } catch (err) {
             this.run_update_issues_report(object_sdk, err);
-            throw this._translate_object_error_codes(err);
+            throw native_fs_utils.translate_error_codes(err, native_fs_utils.entity_enum.OBJECT);
         } finally {
             await native_fs_utils.finally_close_files(fs_context, [target_file, part_md_file]);
         }
@@ -1693,7 +1693,7 @@ class NamespaceFS {
                 storage_class: create_multipart_upload_params.storage_class
             };
         } catch (err) {
-            throw this._translate_object_error_codes(err);
+            throw native_fs_utils.translate_error_codes(err, native_fs_utils.entity_enum.OBJECT);
         }
     }
 
@@ -1798,7 +1798,7 @@ class NamespaceFS {
             return upload_info;
         } catch (err) {
             dbg.error(err);
-            throw this._translate_object_error_codes(err);
+            throw native_fs_utils.translate_error_codes(err, native_fs_utils.entity_enum.OBJECT);
         } finally {
             await this.complete_object_upload_finally(undefined, [...part_size_to_fd_map.values()], target_file, fs_context);
         }
@@ -1849,7 +1849,7 @@ class NamespaceFS {
             }
             return res || {};
         } catch (err) {
-            throw this._translate_object_error_codes(err);
+            throw native_fs_utils.translate_error_codes(err, native_fs_utils.entity_enum.OBJECT);
         }
     }
 
@@ -1890,7 +1890,7 @@ class NamespaceFS {
             }
             return res;
         } catch (err) {
-            throw this._translate_object_error_codes(err);
+            throw native_fs_utils.translate_error_codes(err, native_fs_utils.entity_enum.OBJECT);
         }
     }
 
@@ -1920,7 +1920,7 @@ class NamespaceFS {
             await nb_native().fs.checkAccess(fs_context, this.bucket_path);
             this.versioning = versioning;
         } catch (err) {
-            throw this._translate_object_error_codes(err);
+            throw native_fs_utils.translate_error_codes(err, native_fs_utils.entity_enum.BUCKET);
         }
     }
 
@@ -1953,7 +1953,7 @@ class NamespaceFS {
             }
         } catch (err) {
             dbg.error(`NamespaceFS.get_object_tagging: failed in dir ${file_path} with error: `, err);
-            throw this._translate_object_error_codes(err);
+            throw native_fs_utils.translate_error_codes(err, native_fs_utils.entity_enum.OBJECT);
         }
         dbg.log0('NamespaceFS.get_object_tagging: return tagging ', tag_set, 'file_path :', file_path);
         return { tagging: tag_set };
@@ -1972,7 +1972,7 @@ class NamespaceFS {
             await this._clear_user_xattr(fs_context, file_path, XATTR_NOOBAA_CUSTOM_PREFIX);
         } catch (err) {
             dbg.error(`NamespaceFS.delete_object_tagging: failed in dir ${file_path} with error: `, err);
-            throw this._translate_object_error_codes(err);
+            throw native_fs_utils.translate_error_codes(err, native_fs_utils.entity_enum.OBJECT);
         }
         return {version_id: params.version_id};
     }
@@ -1992,7 +1992,7 @@ class NamespaceFS {
             await this.set_fs_xattr_op(fs_context, file_path, fs_xattr, undefined);
         } catch (err) {
             dbg.error(`NamespaceFS.put_object_tagging: failed in dir ${file_path} with error: `, err);
-            throw this._translate_object_error_codes(err);
+            throw native_fs_utils.translate_error_codes(err, native_fs_utils.entity_enum.OBJECT);
         }
         return { tagging: [], version_id: params.version_id };
     }
@@ -2121,7 +2121,7 @@ class NamespaceFS {
             }
         } catch (error) {
             dbg.error('namespace_fs.restore_object: failed with error: ', error, file_path);
-            throw this._translate_object_error_codes(error);
+            throw native_fs_utils.translate_error_codes(error, native_fs_utils.entity_enum.OBJECT);
         } finally {
             if (file) await file.close(fs_context);
         }
@@ -2200,7 +2200,7 @@ class NamespaceFS {
             file = null;
         } catch (error) {
             dbg.error('NamespaceFS.handle_fs_xattr_op: failed with error: ', error, file_path);
-            throw this._translate_object_error_codes(error);
+            throw native_fs_utils.translate_error_codes(error, native_fs_utils.entity_enum.OBJECT);
         } finally {
             if (file) await file.close(fs_context);
         }
@@ -2372,21 +2372,12 @@ class NamespaceFS {
         }
     }
 
-    _translate_object_error_codes(err) {
-        if (err.rpc_code) return err;
-        if (err.code === 'ENOENT' || err.code === 'ENOTDIR') err.rpc_code = 'NO_SUCH_OBJECT';
-        if (err.code === 'EEXIST') err.rpc_code = 'BUCKET_ALREADY_EXISTS';
-        if (err.code === 'EPERM' || err.code === 'EACCES') err.rpc_code = 'UNAUTHORIZED';
-        if (err.code === 'IO_STREAM_ITEM_TIMEOUT') err.rpc_code = 'IO_STREAM_ITEM_TIMEOUT';
-        if (err.code === 'INTERNAL_ERROR') err.rpc_code = 'INTERNAL_ERROR';
-        return err;
-    }
-
     async _load_bucket(params, fs_context) {
         try {
             await nb_native().fs.stat(fs_context, this.bucket_path);
         } catch (err) {
-            throw this._translate_object_error_codes(err);
+            dbg.warn('_load_bucket failed, on bucket_path', this.bucket_path, 'got error', err);
+            throw native_fs_utils.translate_error_codes(err, native_fs_utils.entity_enum.BUCKET);
         }
     }
 
@@ -2451,7 +2442,9 @@ class NamespaceFS {
         try {
             await nb_native().fs.mkdir(fs_context, params.full_path, native_fs_utils.get_umasked_mode(0o777));
         } catch (err) {
-            throw this._translate_object_error_codes(err);
+            dbg.error('NamespaceFS: create_uls fs_context:', fs_context, 'new_dir_path: ',
+                params.full_path, 'got an error:', err);
+            throw native_fs_utils.translate_error_codes(err, native_fs_utils.entity_enum.BUCKET);
         }
     }
 
@@ -2468,7 +2461,9 @@ class NamespaceFS {
 
             await native_fs_utils.folder_delete(params.full_path, fs_context);
         } catch (err) {
-            throw this._translate_object_error_codes(err);
+            dbg.error('NamespaceFS: delete_uls fs_context:', fs_context, 'to_delete_dir_path: ',
+                params.full_path, 'got an error:', err);
+            throw native_fs_utils.translate_error_codes(err, native_fs_utils.entity_enum.BUCKET);
         }
     }
 

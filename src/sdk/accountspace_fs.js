@@ -17,7 +17,7 @@ const IamError = require('../endpoint/iam/iam_errors').IamError;
 const cloud_utils = require('../util/cloud_utils');
 const SensitiveString = require('../util/sensitive_string');
 const { get_symlink_config_file_path, get_config_file_path, get_config_data,
-    generate_id } = require('../manage_nsfs/manage_nsfs_cli_utils');
+    get_config_data_if_exists, generate_id } = require('../manage_nsfs/manage_nsfs_cli_utils');
 const nc_mkm = require('../manage_nsfs/nc_master_key_manager').get_instance();
 const { account_cache } = require('./object_sdk');
 
@@ -494,6 +494,30 @@ class AccountSpaceFS {
         return data;
      }
 
+     /**
+     * _get_account_decrypted_data_optional_if_exists will read a config file and return its content
+     * if the config file was deleted (encounter ENOENT error) - continue (returns undefined)
+     *
+     * Notes: this function is important when dealing with concurrency.
+     * When we iterate files (for example for listing them) between the time we read the entries
+     * from the directory and the time we we are trying to read the config file,
+     * a file might be deleted (by another process), and we would not want to throw this error
+     * as a part of iterating the file, therefore we continue
+     * (not throwing this error and return undefined)
+     *
+     * @param {string} account_path
+     * @param {boolean} should_decrypt_secret_key
+     */
+     async _get_account_decrypted_data_optional_if_exists(account_path, should_decrypt_secret_key) {
+        try {
+            const data = await this._get_account_decrypted_data_optional(account_path, should_decrypt_secret_key);
+            return data;
+        } catch (err) {
+            dbg.warn('_get_account_decrypted_data_optional_if_exists: with config_file_path', account_path, 'got an error', err);
+            if (err.code !== 'ENOENT') throw err;
+        }
+     }
+
      _new_user_defaults(requesting_account, params, master_key_id) {
         const distinguished_name = requesting_account.nsfs_account_config.distinguished_name;
         const user_defaults = {
@@ -597,11 +621,11 @@ class AccountSpaceFS {
         const entries = await nb_native().fs.readdir(this.fs_context, this.accounts_dir);
         const should_filter_by_prefix = check_iam_path_was_set(iam_path_prefix);
 
-        // TODO - add silent get config to handle config deletion during list (concurrency)
         const config_files_list = await P.map_with_concurrency(10, entries, async entry => {
             if (entry.name.endsWith('.json')) {
                 const full_path = path.join(this.accounts_dir, entry.name);
-                const account_data = await this._get_account_decrypted_data_optional(full_path, false);
+                const account_data = await this._get_account_decrypted_data_optional_if_exists(full_path, false);
+                if (!account_data) return undefined;
                 if (entry.name.includes(config.NSFS_TEMP_CONF_DIR_NAME)) return undefined;
                 const is_root_account_owns_user = this._check_root_account_owns_user(requesting_account, account_data);
                 if ((!requesting_account.iam_operate_on_root_account && is_root_account_owns_user) ||
@@ -718,8 +742,8 @@ class AccountSpaceFS {
         await P.map_with_concurrency(10, entries, async entry => {
             if (entry.name.endsWith('.json')) {
                 const full_path = path.join(this.buckets_dir, entry.name);
-                const bucket_data = await get_config_data(this.config_root_backend, full_path, false);
-                if (bucket_data.bucket_owner === account_to_delete.name) {
+                const bucket_data = await get_config_data_if_exists(this.config_root_backend, full_path, false);
+                if (bucket_data && bucket_data.bucket_owner === account_to_delete.name) {
                     this._throw_error_delete_conflict(action, account_to_delete, resource_name);
                 }
                 return bucket_data;
@@ -735,7 +759,8 @@ class AccountSpaceFS {
         await P.map_with_concurrency(10, entries, async entry => {
             if (entry.name.endsWith('.json')) {
                 const full_path = path.join(this.accounts_dir, entry.name);
-                const account_data = await this._get_account_decrypted_data_optional(full_path, false);
+                const account_data = await this._get_account_decrypted_data_optional_if_exists(full_path, false);
+                if (!account_data) return undefined;
                 if (entry.name.includes(config.NSFS_TEMP_CONF_DIR_NAME)) return undefined;
                 const is_root_account_owns_user = this._check_root_account_owns_user(account_to_delete, account_data);
                 if ((!account_to_delete.iam_operate_on_root_account && is_root_account_owns_user) ||

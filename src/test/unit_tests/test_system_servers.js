@@ -15,6 +15,8 @@ const P = require('../../util/promise');
 const zip_utils = require('../../util/zip_utils');
 const config = require('../../../config');
 
+const check_deletion_ownership = require('../../server/system_services/pool_server').check_deletion_ownership;
+
 mocha.describe('system_servers', function() {
 
     const { rpc_client, SYSTEM, EMAIL, PASSWORD, POOL_LIST } = coretest;
@@ -314,6 +316,60 @@ mocha.describe('system_servers', function() {
             const system = await rpc_client.system.read_system();
             return !system.pools.find(pool => pool.name === pool_name);
         }, 10 * 60 * 1000, 2500);
+    });
+
+    mocha.it('Deletion ownership check works for system owner', async function() {
+        config.RESTRICT_RESOURCE_DELETION = true;
+        this.timeout(90000); // eslint-disable-line no-invalid-this
+        check_deletion_ownership({
+            account: {
+                _id: 'owner'
+            },
+            system: {
+                owner: {
+                    _id: 'owner'
+                }
+            }
+        }, 'resourceowner');
+        config.RESTRICT_RESOURCE_DELETION = false;
+    });
+
+    mocha.it('Deletion ownership check works for resource owner', async function() {
+        config.RESTRICT_RESOURCE_DELETION = true;
+        this.timeout(90000); // eslint-disable-line no-invalid-this
+        check_deletion_ownership({
+            account: {
+                _id: 'resourceowner'
+            },
+            system: {
+                owner: {
+                    _id: 'owner'
+                }
+            }
+        }, 'resourceowner');
+        config.RESTRICT_RESOURCE_DELETION = false;
+    });
+
+    mocha.it('Deletion ownership check fails for non-owner', async function() {
+        config.RESTRICT_RESOURCE_DELETION = true;
+        this.timeout(90000); // eslint-disable-line no-invalid-this
+        try {
+            check_deletion_ownership({
+                account: {
+                    _id: 'notowner'
+                },
+                system: {
+                    owner: {
+                        _id: 'owner'
+                    }
+                }
+            }, 'resourceowner');
+            assert.fail('should fail with UNAUTHORIZED');
+        } catch (err) {
+            assert.strictEqual(err.rpc_code, 'UNAUTHORIZED');
+        } finally {
+            config.RESTRICT_RESOURCE_DELETION = false;
+        }
     });
 
     ////////////

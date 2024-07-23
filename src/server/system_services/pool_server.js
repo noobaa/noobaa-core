@@ -88,12 +88,25 @@ function set_pool_controller_factory(pool_controller_factory) {
 
 }
 
-function new_pool_defaults(name, system_id, resource_type, pool_node_type) {
+// The function checks whether the pool/resource has an owner
+// and only allows deletion in case that the owner is also the requester of the deletion
+function check_deletion_ownership(req, resource_owner_id) {
+    if (config.RESTRICT_RESOURCE_DELETION) {
+        const requester_is_sys_owner = String(req.account._id) === String(req.system.owner._id);
+        if (!requester_is_sys_owner && String(resource_owner_id) !== String(req.account._id)) {
+            dbg.error('check_deletion_ownership: requester (', req.account._id, ') is not the owner (', resource_owner_id, ') of the resource');
+            throw new RpcError('UNAUTHORIZED', 'The pool or resource can be deleted only by its owner or the system administrator');
+        }
+    }
+}
+
+function new_pool_defaults(name, system_id, resource_type, pool_node_type, owner_id) {
     const now = Date.now();
     return {
         _id: system_store.new_system_store_id(),
         system: system_id,
         name: name,
+        owner_id,
         resource_type: resource_type,
         pool_node_type: pool_node_type,
         storage_stats: {
@@ -127,7 +140,7 @@ async function create_hosts_pool(req) {
         dbg.error('create_hosts_pool: get_partial_stats failed with', error);
     }
     const { system, rpc_params, account } = req;
-    const pool = new_pool_defaults(rpc_params.name, system._id, 'HOSTS', 'BLOCK_STORE_FS');
+    const pool = new_pool_defaults(rpc_params.name, system._id, 'HOSTS', 'BLOCK_STORE_FS', req.account._id);
     const MIN_PV_SIZE_GB = 16;
     const PV_SIZE_GB = 20;
     const GB = 1024 ** 3;
@@ -148,6 +161,7 @@ async function create_hosts_pool(req) {
             }
         })
     );
+
     dbg.log0('create_hosts_pool: Creating new pool', pool);
     await system_store.make_changes({
         insert: {
@@ -402,11 +416,12 @@ async function create_cloud_pool(req) {
     };
 
     const pool_node_type = map_pool_type[connection.endpoint_type];
-    const pool = new_pool_defaults(name, req.system._id, 'CLOUD', pool_node_type);
+    const pool = new_pool_defaults(name, req.system._id, 'CLOUD', pool_node_type, req.account._id);
     dbg.log0('Creating new cloud_pool', pool);
     pool.cloud_pool_info = cloud_info;
 
     dbg.log0('got connection for cloud pool:', connection);
+
 
     await system_store.make_changes({
         insert: {
@@ -637,6 +652,7 @@ async function update_hosts_pool(req) {
 
 function delete_pool(req) {
     const pool = find_pool_by_name(req);
+    check_deletion_ownership(req, pool.owner_id);
     if (pool.hosts_pool_info) {
         return delete_hosts_pool(req, pool);
     } else {
@@ -646,6 +662,7 @@ function delete_pool(req) {
 
 function delete_namespace_resource(req) {
     const ns = find_namespace_resource_by_name(req);
+    check_deletion_ownership(req, ns.account);
     dbg.log0('Deleting namespace resource', ns.name);
     return P.resolve()
         .then(() => {
@@ -1474,3 +1491,4 @@ exports.get_hosts_pool_agent_config = get_hosts_pool_agent_config;
 exports.update_issues_report = update_issues_report;
 exports.update_last_monitoring = update_last_monitoring;
 exports.calc_namespace_resource_mode = calc_namespace_resource_mode;
+exports.check_deletion_ownership = check_deletion_ownership;

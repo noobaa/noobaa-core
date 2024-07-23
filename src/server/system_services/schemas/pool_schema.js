@@ -27,7 +27,8 @@ module.exports = {
         '_id',
         'system',
         'name',
-        'resource_type'
+        'resource_type',
+        'owner_id',
     ],
     properties: {
         _id: {
@@ -48,6 +49,9 @@ module.exports = {
         },
         region: {
             type: 'string'
+        },
+        owner_id: {
+            objectid: true
         },
         pool_node_type: node_schema.properties.node_type,
         mongo_pool_info: {

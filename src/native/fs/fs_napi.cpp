@@ -559,9 +559,9 @@ struct FSWorker : public Napi::AsyncWorker
     double _took_time;
     Napi::FunctionReference _report_fs_stats;
 
-    // disables the ctime check in the stat and read file fuctions
-    // NOTE: If this is enabled then some functions will fallback to using mtime check
-    bool _disable_ctime_check;
+    // executes the ctime check in the stat and read file fuctions
+    // NOTE: If _do_ctime_check = false, then some functions will fallback to using mtime check
+    bool _do_ctime_check;
 
     FSWorker(const Napi::CallbackInfo& info)
         : AsyncWorker(info.Env())
@@ -573,7 +573,7 @@ struct FSWorker : public Napi::AsyncWorker
         , _errno(0)
         , _warn_threshold_ms(0)
         , _took_time(0)
-        , _disable_ctime_check(false)
+        , _do_ctime_check(false)
     {
         for (int i = 0; i < (int)info.Length(); ++i) _args_ref.Set(i, info[i]);
         if (info[0].ToBoolean()) {
@@ -589,7 +589,7 @@ struct FSWorker : public Napi::AsyncWorker
             if (fs_context.Get("report_fs_stats").ToBoolean()) {
                 _report_fs_stats = Napi::Persistent(fs_context.Get("report_fs_stats").As<Napi::Function>());
             }
-            _disable_ctime_check = fs_context.Get("disable_ctime_check").ToBoolean();
+            _do_ctime_check = fs_context.Get("do_ctime_check").ToBoolean();
         }
     }
     void Begin(std::string desc)
@@ -744,7 +744,7 @@ struct Stat : public FSWorker
             }
         }
 
-        if (!_disable_ctime_check) {
+        if (_do_ctime_check) {
             CHECK_CTIME_CHANGE(fd, _stat_res, _path);
         }
     }
@@ -1191,10 +1191,10 @@ struct Readfile : public FSWorker
             p += len;
         }
 
-        if (_disable_ctime_check) {
-            CHECK_MTIME_CHANGE(fd, _stat_res, _path);
-        } else {
+        if (_do_ctime_check) {
             CHECK_CTIME_CHANGE(fd, _stat_res, _path);
+        } else {
+            CHECK_MTIME_CHANGE(fd, _stat_res, _path);
         }
     }
     virtual void OnOK()
@@ -1689,7 +1689,7 @@ struct FileStat : public FSWrapWorker<FileWrap>
             GPFS_FCNTL_OR_RETURN(get_fd_gpfs_xattr(fd, _xattr, gpfs_error));
         }
 
-        if (!_disable_ctime_check) {
+        if (_do_ctime_check) {
             CHECK_CTIME_CHANGE(fd, _stat_res, _wrap->_path);
         }
     }

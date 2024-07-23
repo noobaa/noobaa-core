@@ -1020,7 +1020,7 @@ interface NativeFSContext {
     backend?: string;
     warn_threshold_ms?: number;
     report_fs_stats?: Function;
-    disable_ctime_check?: boolean;
+    do_ctime_check?: boolean;
 }
 
 type GPFSNooBaaArgs = {

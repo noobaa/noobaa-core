@@ -41,7 +41,6 @@ util.inspect.defaultOptions.depth = 10;
 util.inspect.defaultOptions.colors = true;
 util.inspect.defaultOptions.breakLength = Infinity;
 
-
 //Detect our context, node/atom/browser
 //Different context requires different handling, for example rotating file steam usage or console wrapping
 let syslog;
@@ -379,7 +378,7 @@ class InternalDebugLogger {
     }
 
     log_internal(msg_info) {
-        if (syslog) {
+        if (syslog && config.LOG_TO_SYSLOG_ENABLED) {
             // syslog path
             syslog(this._levels_to_syslog[msg_info.level], msg_info.message_syslog, config.DEBUG_FACILITY);
         } else if (this._log_file) {
@@ -389,7 +388,7 @@ class InternalDebugLogger {
         // This is also used in order to log to the console
         // browser workaround, don't use rotating file steam. Add timestamp and level
         const logfunc = LOG_FUNC_PER_LEVEL[msg_info.level] || 'log';
-        if (this._log_console_silent) {
+        if (this._log_console_silent || !config.LOG_TO_STDERR_ENABLED) {
             // noop
         } else if (console_wrapper) {
             process.stderr.write(msg_info.message_console + '\n');
@@ -586,10 +585,12 @@ if (console_wrapper) {
     console_wrapper.register_logger(conlogger);
 }
 
-let native_log_level = LOG_LEVEL;
-if (process.env.NOOBAA_LOG_LEVEL) {
-    native_log_level = dbg_conf.level;
+
+function set_log_config() {
+    const dbg_native_conf = debug_config.get_debug_config(process.env.NOOBAA_LOG_LEVEL);
+    nb_native().fs.set_debug_level(dbg_native_conf.level);
+    nb_native().fs.set_log_config(config.LOG_TO_STDERR_ENABLED, config.LOG_TO_SYSLOG_ENABLED);
 }
-if (Number(native_log_level)) {
-    nb_native().fs.set_debug_level(Number(native_log_level));
-}
+
+config.event_emitter.on("config_updated", set_log_config);
+set_log_config();

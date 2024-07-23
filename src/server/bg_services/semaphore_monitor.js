@@ -27,7 +27,6 @@ class SemaphoreMonitor {
     }
 
     async run_batch() {
-        dbg.log1("semaphore_monitor: START");
         if (!this._can_run()) return;
         try {
             this.run_semaphore_monitor();

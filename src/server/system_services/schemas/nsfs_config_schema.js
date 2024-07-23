@@ -139,7 +139,15 @@ const nsfs_node_config_schema = {
         ENDPOINT_PROCESS_TITLE: {
             type: 'string',
             description: 'This flag will set noobaa process title for letting GPFS to identify the noobaa endpoint processes.'
-        }
+        },
+        LOG_TO_SYSLOG_ENABLED: {
+            type: 'boolean',
+            doc: 'This flag will enable syslog logging for the application.'
+        },
+        LOG_TO_STDERR_ENABLED: {
+            type: 'boolean',
+            doc: 'This flag will decide whether need to push logs to the console or not.'
+        },
     }
 };
 

@@ -4,6 +4,7 @@
 
 const nsfs_schema_utils = require('../../../manage_nsfs/nsfs_schema_utils');
 const RpcError = require('../../../rpc/rpc_error');
+const config = require('../../../../config');
 
 describe('schema validation NC NSFS config', () => {
 
@@ -249,6 +250,31 @@ describe('schema validation NC NSFS config', () => {
                 "ENDPOINT_PROCESS_TITLE": '',
             };
             nsfs_schema_utils.validate_nsfs_config_schema(config_data);
+        });
+    });
+
+    describe('skip/unskip schema check by config test', () => {
+
+        it('unskip schema check - config.LOG_TO_SYSLOG_ENABLED=false nsfs_config.LOG_TO_SYSLOG_ENABLED=bla - invalid config - should fail', () => {
+            config.LOG_TO_SYSLOG_ENABLED = false;
+            const config_data = {
+                LOG_TO_SYSLOG_ENABLED: 'bla',
+            };
+            const reason = 'Test should have failed because of wrong type ' +
+            'LOG_TO_SYSLOG_ENABLED must be boolean';
+            const message = `must be boolean | {"type":"boolean"} | "/LOG_TO_SYSLOG_ENABLED"`;
+            assert_validation(config_data, reason, message);
+        });
+
+        it('unskip schema check - config.LOG_TO_STDERR_ENABLED=false nsfs_config.LOG_TO_STDERR_ENABLED=bla - invalid config - should fail', () => {
+            config.LOG_TO_STDERR_ENABLED = false;
+            const config_data = {
+                LOG_TO_STDERR_ENABLED: 'bla',
+            };
+            const reason = 'Test should have failed because of wrong type ' +
+            'LOG_TO_STDERR_ENABLED must be boolean';
+            const message = `must be boolean | {"type":"boolean"} | "/LOG_TO_STDERR_ENABLED"`;
+            assert_validation(config_data, reason, message);
         });
     });
 });

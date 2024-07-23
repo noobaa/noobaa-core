@@ -14,6 +14,9 @@ const _ = require('lodash');
 const util = require('util');
 const nsfs_schema_utils = require('./src/manage_nsfs/nsfs_schema_utils');
 const range_utils = require('./src/util/range_utils');
+const { EventEmitter } = require('events');
+
+config.event_emitter = new EventEmitter();
 
 /////////////////////////
 // CONTAINER RESOURCES //
@@ -472,8 +475,8 @@ config.EVENT_FACILITY = 'LOG_LOCAL2';
 config.EVENT_LOGGING_ENABLED = true;
 config.EVENT_LEVEL = 5;
 
-config.LOG_TO_SYSLOG_ENABLED = true;
 config.LOG_TO_STDERR_ENABLED = true;
+config.LOG_TO_SYSLOG_ENABLED = false;
 
 // TEST Mode
 config.test_mode = false;
@@ -1099,6 +1102,7 @@ function load_nsfs_nc_config() {
         console.warn(`nsfs: config.json= ${util.inspect(config_data)}`);
         console.warn(`nsfs: merged config.json= ${util.inspect(merged_config)}`);
         validate_nc_master_keys_config(config);
+        config.event_emitter.emit("config_updated");
     } catch (err) {
         if (err.code !== 'MODULE_NOT_FOUND' && err.code !== 'ENOENT') throw err;
         console.warn('config.load_nsfs_nc_config could not find config.json... skipping');

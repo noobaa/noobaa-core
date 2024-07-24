@@ -168,7 +168,7 @@ async function config_dir_teardown() {
  */
 async function admin_account_creation() {
     await announce('admin_account_creation');
-    const cli_account_options = get_admin_account_details();
+    const cli_account_options = get_admin_mock_account_details();
     await exec_manage_cli(TYPES.ACCOUNT, ACTIONS.ADD, cli_account_options);
 }
 
@@ -231,9 +231,9 @@ const get_name_by_email = email => {
 };
 
 /**
- * get_admin_account_details returns the account details that we use in NC core tests
+ * get_admin_mock_account_details returns the account details that we use in NC core tests
  */
-function get_admin_account_details() {
+function get_admin_mock_account_details() {
     const cli_account_options = {
         name: NC_CORETEST,
         new_buckets_path: NC_CORETEST_STORAGE_PATH,
@@ -255,9 +255,7 @@ function get_admin_account_details() {
 async function create_account_manage(options) {
     const cli_options = {
         name: options.name,
-        new_buckets_path: options.default_resource ?
-            p.join(nsrs_to_root_paths[options.default_resource], options.nsfs_account_config.new_buckets_path) :
-            options.nsfs_account_config.new_buckets_path,
+        new_buckets_path: options.nsfs_account_config.new_buckets_path,
         distinguished_name: options.nsfs_account_config.distinguished_name,
         uid: options.nsfs_account_config.uid,
         gid: options.nsfs_account_config.gid,
@@ -351,9 +349,7 @@ async function list_accounts_manage(options) {
 async function update_account_s3_access_manage(options) {
     const cli_options = {
         name: get_name_by_email(options.email),
-        new_buckets_path: options.default_resource ?
-            p.join(nsrs_to_root_paths[options.default_resource], options.nsfs_account_config.new_buckets_path) :
-            options.nsfs_account_config.new_buckets_path,
+        new_buckets_path: options.nsfs_account_config.new_buckets_path,
         distinguished_name: options.nsfs_account_config.distinguished_name,
         uid: options.nsfs_account_config.uid,
         gid: options.nsfs_account_config.gid,
@@ -473,5 +469,5 @@ exports.get_dbg_level = get_dbg_level;
 exports.rpc_client = rpc_cli_funcs_to_manage_nsfs_cli_cmds;
 exports.get_http_address = get_http_address;
 exports.get_https_address = get_https_address;
-exports.get_admin_account_details = get_admin_account_details;
+exports.get_admin_mock_account_details = get_admin_mock_account_details;
 exports.NC_CORETEST_CONFIG_DIR_PATH = NC_CORETEST_CONFIG_DIR_PATH;

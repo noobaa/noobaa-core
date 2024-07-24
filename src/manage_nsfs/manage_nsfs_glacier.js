@@ -223,7 +223,7 @@ async function lock_and_run(fs_context, lockfilename, cb) {
     const lockfd = await nb_native().fs.open(fs_context, path.join(config.NSFS_GLACIER_LOGS_DIR, lockfilename), 'w');
 
     try {
-        await lockfd.flock(fs_context, 'EXCLUSIVE');
+        await lockfd.fcntllock(fs_context, 'EXCLUSIVE');
         await cb();
     } finally {
         await lockfd.close(fs_context);

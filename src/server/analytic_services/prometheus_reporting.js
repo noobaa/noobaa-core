@@ -23,6 +23,7 @@ const reports = Object.seal({
 
 let io_stats_complete = {};
 let ops_stats_complete = {};
+let fs_worker_stats_complete = {};
 
 function get_nodejs_report() {
     return reports.nodejs;
@@ -71,6 +72,7 @@ async function start_server(
                 const nsfs_report = {
                     nsfs_counters: io_stats_complete,
                     op_stats_counters: ops_stats_complete,
+                    fs_worker_stats_counters: fs_worker_stats_complete
                 };
                 res.end(JSON.stringify(nsfs_report));
                 return;
@@ -148,9 +150,20 @@ async function metrics_nsfs_stats_handler() {
         }
     }
 
+    const fs_worker_stats_counters = {};
+    const fs_worker_stats = stats_aggregator.get_fs_workers_stats(false);
+    // Building the report per fs worker name key and value
+    for (const [fs_op_name, obj] of Object.entries(fs_worker_stats)) {
+        for (const [key, value] of Object.entries(obj)) {
+            fs_worker_stats_counters[`noobaa_nsfs_fs_worker_${fs_op_name}_${key}`.toLowerCase()] = value;
+        }
+    }
+
+
     const nsfs_report = {
         nsfs_counters: nsfs_io_stats,
         op_stats_counters: op_stats_counters,
+        fs_worker_stats_counters: fs_worker_stats_counters
     };
     dbg.log1(`_create_nsfs_report: nsfs_report ${nsfs_report}`);
     return JSON.stringify(nsfs_report);
@@ -187,6 +200,17 @@ function set_ops_stats(ops_stats) {
     ops_stats_complete = op_stats_counters;
 }
 
+function set_fs_worker_stats(fs_worker_stats) {
+    const op_stats_counters = {};
+    // Building the report per op name key and value
+    for (const [op_name, obj] of Object.entries(fs_worker_stats)) {
+        for (const [key, value] of Object.entries(obj)) {
+            op_stats_counters[`noobaa_nsfs_op_${op_name}_${key}`.toLowerCase()] = value;
+        }
+    }
+    fs_worker_stats_complete = op_stats_counters;
+}
+
 // -----------------------------------------
 // exports
 // -----------------------------------------
@@ -197,3 +221,4 @@ exports.export_all_metrics = export_all_metrics;
 exports.start_server = start_server;
 exports.set_io_stats = set_io_stats;
 exports.set_ops_stats = set_ops_stats;
+exports.set_fs_worker_stats = set_fs_worker_stats;

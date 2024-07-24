@@ -9,6 +9,7 @@ const dbg = require('../util/debug_module')(__filename);
 const prom_reporting = require('../server/analytic_services/prometheus_reporting');
 const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
 const config = require('../../config');
+const stats_collector_utils = require('./stats_collector_utils');
 
 
 const io_stats = {
@@ -19,6 +20,8 @@ const io_stats = {
 };
 
 const op_stats = {};
+
+const fs_workers_stats = {};
 /**
  * The cluster module allows easy creation of child processes that all share server ports.
  * When count > 0 the primary process will fork worker processes to process incoming http requests.
@@ -90,46 +93,25 @@ function nsfs_io_state_handler(msg) {
         _update_ops_stats(msg.op_stats);
         prom_reporting.set_ops_stats(op_stats);
     }
+    if (msg.fs_workers_stats) {
+        _update_fs_stats(msg.fs_workers_stats);
+        prom_reporting.set_fs_worker_stats(fs_workers_stats);
+    }
 }
 
-function _update_ops_stats(ops_stats) {
-    // Predefined op_names
-    const op_names = [
-        `upload_object`,
-        `delete_object`,
-        `create_bucket`,
-        `list_buckets`,
-        `delete_bucket`,
-        `list_objects`,
-        `head_object`,
-        `read_object`,
-        `initiate_multipart`,
-        `upload_part`,
-        `complete_object_upload`,
-    ];
+function _update_ops_stats(stats) {
     //Go over the op_stats
-    for (const op_name of op_names) {
-        if (op_name in ops_stats) {
-            _set_op_stats(op_name, ops_stats[op_name]);
+    for (const op_name of stats_collector_utils.op_names) {
+        if (op_name in stats) {
+            stats_collector_utils.update_nsfs_stats(op_name, op_stats, stats[op_name]);
         }
     }
 }
 
-function _set_op_stats(op_name, stats) {
-    //In the event of all of the same ops are failing (count = error_count) we will not masseur the op times
-    // As this is intended as a timing masseur and not a counter. 
-    if (op_stats[op_name]) {
-        const count = op_stats[op_name].count + stats.count;
-        const error_count = op_stats[op_name].error_count + stats.error_count;
-        op_stats[op_name] = {
-            count,
-            error_count,
-        };
-    } else if (stats.count > stats.error_count) {
-        op_stats[op_name] = {
-            count: stats.count,
-            error_count: stats.error_count,
-        };
+function _update_fs_stats(fs_stats) {
+    //Go over the fs_stats
+    for (const [fsworker_name, stat] of Object.entries(fs_stats)) {
+        stats_collector_utils.update_nsfs_stats(fsworker_name, fs_workers_stats, stat);
     }
 }
 

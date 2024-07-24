@@ -102,7 +102,7 @@ const account_user3 = {
     creation_date: '2023-10-30T04:46:33.815Z',
 };
 
-const bucketspace_fs = new BucketSpaceFS({ config_root });
+const bucketspace_fs = new BucketSpaceFS({ config_root }, undefined);
 const dummy_object_sdk = make_dummy_object_sdk();
 const dummy_ns = {
     read_resources: [

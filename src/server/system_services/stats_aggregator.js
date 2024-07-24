@@ -28,6 +28,7 @@ const prom_reporting = require('../analytic_services/prometheus_reporting');
 const { HistoryDataStore } = require('../analytic_services/history_data_store');
 const addr_utils = require('../../util/addr_utils');
 const Quota = require('../system_services/objects/quota');
+const stats_collector_utils = require('../../util/stats_collector_utils');
 // these type hacks are needed because the type info from require('node:cluster') is incorrect
 const cluster_module = /** @type {import('node:cluster').Cluster} */ (
     /** @type {unknown} */ (require('node:cluster'))
@@ -1254,9 +1255,11 @@ async function standalon_update_nsfs_stats(_nsfs_counters = {}) {
     dbg.log1(`standalon_update_nsfs_stats. nsfs_stats =`, _nsfs_counters);
     if (_nsfs_counters.io_stats) _update_io_stats(_nsfs_counters.io_stats);
     if (_nsfs_counters.op_stats) _update_ops_stats(_nsfs_counters.op_stats);
+    if (_nsfs_counters.fs_workers_stats) _update_fs_stats(_nsfs_counters.fs_workers_stats);
     if (cluster_module.isWorker) {
         process.send({ io_stats: _nsfs_counters.io_stats });
         process.send({ op_stats: _nsfs_counters.op_stats });
+        process.send({ fs_workers_stats: _nsfs_counters.fs_workers_stats });
     }
 }
 
@@ -1267,25 +1270,11 @@ function _update_io_stats(io_stats) {
     }
 }
 
-function _update_ops_stats(ops_stats) {
-    // Predefined op_names
-    const op_names = [
-        `upload_object`,
-        `delete_object`,
-        `create_bucket`,
-        `list_buckets`,
-        `delete_bucket`,
-        `list_objects`,
-        `head_object`,
-        `read_object`,
-        `initiate_multipart`,
-        `upload_part`,
-        `complete_object_upload`,
-    ];
+function _update_ops_stats(stats) {
     //Go over the op_stats
-    for (const op_name of op_names) {
-        if (op_name in ops_stats) {
-            _set_op_stats(op_name, ops_stats[op_name]);
+    for (const op_name of stats_collector_utils.op_names) {
+        if (op_name in stats) {
+            stats_collector_utils.update_nsfs_stats(op_name, op_stats, stats[op_name]);
         }
     }
 }
@@ -1293,69 +1282,7 @@ function _update_ops_stats(ops_stats) {
 function _update_fs_stats(fs_stats) {
     //Go over the fs_stats
     for (const [fsworker_name, stat] of Object.entries(fs_stats)) {
-        _set_fs_workers_stats(fsworker_name, stat);
-    }
-}
-
-function _set_op_stats(op_name, stats) {
-    //In the event of all of the same ops are failing (count = error_count) we will not masseur the op times
-    // As this is intended as a timing masseur and not a counter. 
-    if (op_stats[op_name]) {
-        const count = op_stats[op_name].count + stats.count;
-        const error_count = op_stats[op_name].error_count + stats.error_count;
-        const old_sum_time = op_stats[op_name].avg_time_milisec * op_stats[op_name].count;
-        //Min time and Max time are not being counted in the endpoint stat collector if it was error
-        const min_time_milisec = Math.min(op_stats[op_name].min_time_milisec, stats.min_time);
-        const max_time_milisec = Math.max(op_stats[op_name].max_time_milisec, stats.max_time);
-        // At this point, as we populate only when there is at least one successful op, there must be old_sum_time
-        const avg_time_milisec = Math.floor((old_sum_time + stats.sum_time) / (count - error_count));
-        op_stats[op_name] = {
-            min_time_milisec,
-            max_time_milisec,
-            avg_time_milisec,
-            count,
-            error_count,
-        };
-        // When it is the first time we populate the op_stats with op_name we do it 
-        // only if there are more successful ops than errors.
-    } else if (stats.count > stats.error_count) {
-        op_stats[op_name] = {
-            min_time_milisec: stats.min_time,
-            max_time_milisec: stats.max_time,
-            avg_time_milisec: Math.floor(stats.sum_time / stats.count),
-            count: stats.count,
-            error_count: stats.error_count,
-        };
-    }
-}
-
-function _set_fs_workers_stats(fsworker_name, stats) {
-    if (fs_workers_stats[fsworker_name]) {
-        const count = fs_workers_stats[fsworker_name].count + stats.count;
-        const error_count = fs_workers_stats[fsworker_name].error_count + stats.error_count;
-        const old_sum_time = fs_workers_stats[fsworker_name].avg_time_microsec * fs_workers_stats[fsworker_name].count;
-        //Min time and Max time are not being counted in the namespace_fs if it was error
-        const min_time_microsec = Math.min(fs_workers_stats[fsworker_name].min_time_microsec, stats.min_time);
-        const max_time_microsec = Math.max(fs_workers_stats[fsworker_name].max_time_microsec, stats.max_time);
-        // At this point, as we populate only when there is at least one successful fsworker, there must be old_sum_time
-        const avg_time_microsec = Math.floor((old_sum_time + stats.sum_time) / (count - error_count));
-        fs_workers_stats[fsworker_name] = {
-            min_time_microsec,
-            max_time_microsec,
-            avg_time_microsec,
-            count,
-            error_count,
-        };
-        // When it is the first time we populate the fs_workers_stats with fsworker_name we do it 
-        // only if there are more successful ops than errors.
-    } else if (stats.count > stats.error_count) {
-        fs_workers_stats[fsworker_name] = {
-            min_time_microsec: stats.min_time,
-            max_time_microsec: stats.max_time,
-            avg_time_microsec: Math.floor(stats.sum_time / stats.count),
-            count: stats.count,
-            error_count: stats.error_count,
-        };
+        stats_collector_utils.update_nsfs_stats(fsworker_name, fs_workers_stats, stat);
     }
 }
 

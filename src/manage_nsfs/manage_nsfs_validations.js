@@ -16,7 +16,7 @@ const { throw_cli_error, get_config_file_path, get_bucket_owner_account,
     get_config_data, get_options_from_file, get_boolean_or_string_value,
     check_root_account_owns_user, get_config_data_if_exists } = require('../manage_nsfs/manage_nsfs_cli_utils');
 const { TYPES, ACTIONS, VALID_OPTIONS, OPTION_TYPE, FROM_FILE, BOOLEAN_STRING_VALUES, BOOLEAN_STRING_OPTIONS,
-    GLACIER_ACTIONS, LIST_UNSETABLE_OPTIONS, ANONYMOUS } = require('../manage_nsfs/manage_nsfs_constants');
+    GLACIER_ACTIONS, LIST_UNSETABLE_OPTIONS, ANONYMOUS, DIAGNOSE_ACTIONS } = require('../manage_nsfs/manage_nsfs_constants');
 const iam_utils = require('../endpoint/iam/iam_utils');
 
 /////////////////////////////
@@ -74,10 +74,12 @@ function validate_type_and_action(type, action) {
     if (!Object.values(TYPES).includes(type)) throw_cli_error(ManageCLIError.InvalidType);
     if (type === TYPES.ACCOUNT || type === TYPES.BUCKET) {
         if (!Object.values(ACTIONS).includes(action)) throw_cli_error(ManageCLIError.InvalidAction);
-    } else if (type === TYPES.IP_WHITELIST || type === TYPES.HEALTH) {
+    } else if (type === TYPES.IP_WHITELIST) {
         if (action !== '') throw_cli_error(ManageCLIError.InvalidAction);
     } else if (type === TYPES.GLACIER) {
         if (!Object.values(GLACIER_ACTIONS).includes(action)) throw_cli_error(ManageCLIError.InvalidAction);
+    } else if (type === TYPES.DIAGNOSE) {
+        if (!Object.values(DIAGNOSE_ACTIONS).includes(action)) throw_cli_error(ManageCLIError.InvalidDiagnoseAction);
     }
 }
 
@@ -123,8 +125,8 @@ function validate_no_extra_options(type, action, input_options, is_options_from_
         }
     } else if (type === TYPES.GLACIER) {
         valid_options = VALID_OPTIONS.glacier_options[action];
-    } else if (type === TYPES.HEALTH) {
-        valid_options = VALID_OPTIONS.health_options;
+    } else if (type === TYPES.DIAGNOSE) {
+        valid_options = VALID_OPTIONS.diagnose_options[action];
     } else {
         valid_options = VALID_OPTIONS.whitelist_options;
     }

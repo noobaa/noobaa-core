@@ -69,6 +69,12 @@ ManageCLIError.InvalidAction = Object.freeze({
     http_code: 400,
 });
 
+ManageCLIError.InvalidDiagnoseAction = Object.freeze({
+    code: 'InvalidDiagnoseAction',
+    message: 'Invalid action, available actions are health, gather-logs and metrics',
+    http_code: 400,
+});
+
 ManageCLIError.InvalidArgument = Object.freeze({
     code: 'InvalidArgument',
     message: 'Invalid argument',
@@ -164,6 +170,25 @@ ManageCLIError.InvalidMasterKey = Object.freeze({
 ManageCLIError.LoggingExportFailed = Object.freeze({
     code: 'LoggingExportFailed',
     message: 'Logging export attmept failed',
+});
+
+//////////////////////////////
+/////// METRICS ERRORS ///////
+//////////////////////////////
+
+ManageCLIError.MetricsStatusFailed = Object.freeze({
+    code: 'MetricsStatusFailed',
+    message: 'Metrics fetch request failed',
+    http_code: 500,
+});
+
+//////////////////////////////
+//////// HEALTH ERRORS ///////
+//////////////////////////////
+
+ManageCLIError.HealthStatusFailed = Object.freeze({
+    code: 'HealthStatusFailed',
+    message: 'Health status request failed',
     http_code: 500,
 });
 

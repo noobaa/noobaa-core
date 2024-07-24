@@ -10,12 +10,12 @@ const sinon = require('sinon');
 const assert = require('assert');
 const P = require('../../util/promise');
 const config = require('../../../config');
-const NSFSHealth = require('../../cmd/health');
+const NSFSHealth = require('../../manage_nsfs/health').NSFSHealth;
 const fs_utils = require('../../util/fs_utils');
 const nb_native = require('../../util/nb_native');
-const { CONFIG_SUBDIRS } = require('../../manage_nsfs/manage_nsfs_constants');
+const { CONFIG_SUBDIRS, TYPES, DIAGNOSE_ACTIONS } = require('../../manage_nsfs/manage_nsfs_constants');
 const { get_process_fs_context, get_umasked_mode } = require('../../util/native_fs_utils');
-const { TMP_PATH, create_fs_user_by_platform, delete_fs_user_by_platform, exec_health_cli } = require('../system_tests/test_utils');
+const { TMP_PATH, create_fs_user_by_platform, delete_fs_user_by_platform, exec_manage_cli } = require('../system_tests/test_utils');
 const { ManageCLIError } = require('../../manage_nsfs/manage_nsfs_cli_errors');
 
 const tmp_fs_path = path.join(TMP_PATH, 'test_bucketspace_fs');
@@ -47,7 +47,7 @@ mocha.describe('nsfs nc health', function() {
     mocha.describe('nsfs nc health cli validations', function() {
         mocha.it('https_port flag type validation - should fail', async function() {
             try {
-                await exec_health_cli({ 'http_port': '' });
+                await exec_manage_cli(TYPES.DIAGNOSE, DIAGNOSE_ACTIONS.HEALTH, { 'http_port': '' });
                 assert.fail('should have failed with InvalidArgument');
             } catch (err) {
                 const res = JSON.parse(err.stdout);
@@ -57,7 +57,7 @@ mocha.describe('nsfs nc health', function() {
 
         mocha.it('all_account_details flag type validation - should fail', async function() {
             try {
-                await exec_health_cli({ 'all_account_details': 'bla' });
+                await exec_manage_cli(TYPES.DIAGNOSE, DIAGNOSE_ACTIONS.HEALTH, { 'all_account_details': 'bla' });
                 assert.fail('should have failed with InvalidBooleanValue');
             } catch (err) {
                 const res = JSON.parse(err.stdout);
@@ -67,7 +67,7 @@ mocha.describe('nsfs nc health', function() {
 
         mocha.it('all_bucket_details flag type validation - should fail', async function() {
             try {
-                await exec_health_cli({ 'all_bucket_details': 7000 });
+                await exec_manage_cli(TYPES.DIAGNOSE, DIAGNOSE_ACTIONS.HEALTH, { 'all_bucket_details': 7000 });
                 assert.fail('should have failed with InvalidArgumentType');
             } catch (err) {
                 const res = JSON.parse(err.stdout);
@@ -76,8 +76,8 @@ mocha.describe('nsfs nc health', function() {
         });
 
         mocha.it('all_bucket_details flag type validation', async function() {
-            const res = await exec_health_cli({ 'all_bucket_details': true });
-            const parsed_res = JSON.parse(res);
+            const res = await exec_manage_cli(TYPES.DIAGNOSE, DIAGNOSE_ACTIONS.HEALTH, { 'all_bucket_details': true });
+            const parsed_res = JSON.parse(res).response.reply;
             assert.notEqual(parsed_res.checks.buckets_status, undefined);
             assert.ok(parsed_res.checks.buckets_status.invalid_buckets.length >= 0);
             assert.ok(parsed_res.checks.buckets_status.valid_buckets.length >= 0);
@@ -85,8 +85,8 @@ mocha.describe('nsfs nc health', function() {
         });
 
         mocha.it('all_account_details flag type validation', async function() {
-            const res = await exec_health_cli({ 'all_account_details': true });
-            const parsed_res = JSON.parse(res);
+            const res = await exec_manage_cli(TYPES.DIAGNOSE, DIAGNOSE_ACTIONS.HEALTH, { 'all_account_details': true });
+            const parsed_res = JSON.parse(res).response.reply;
             assert.notEqual(parsed_res.checks.accounts_status, undefined);
             assert.ok(parsed_res.checks.accounts_status.invalid_accounts.length >= 0);
             assert.ok(parsed_res.checks.accounts_status.valid_accounts.length >= 0);

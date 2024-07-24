@@ -17,8 +17,12 @@
     5. [Delete Bucket](#delete-bucket)
 6. [Managing Server IP White List](#managing-server-ip-white-list)
 7. [Managing Glacier](#managing-glacier)
-8. [Global Options](#global-options)
-9. [Examples](#examples)
+8. [Diagnose](#diagnose)
+    1. [Health](#health)
+    2. [Metrics](#metrics)
+    3. [Gather Logs](#gather-logs)
+9. [Global Options](#global-options)
+10. [Examples](#examples)
     1. [Bucket Commands Examples](#bucket-commands-examples)
     2. [Account Commands Examples](#account-commands-examples)
     3. [White List Server IP Command Example](#white-list-server-ip-command-example)
@@ -425,6 +429,26 @@ noobaa-cli whitelist --ips <ips>
 ## Managing Glacier
 
 TODO
+
+## Diagnose
+
+
+### Health
+The Health CLI tool designed to analyze the NooBaa service, endpoints, accounts and buckets health. For more info please see - [Health CLI Documentation](Health.md).
+
+### Metrics
+
+The `metrics` command is used for extracting NooBaa non containerized metrics.
+For more info please see - [Monitoring Documentation](./Monitoring.md).
+#### Usage
+```sh
+noobaa-cli diagnose metrics
+```
+
+### Gather Logs
+
+The `gather-logs` command is used for extract NooBaa non containerized logs.
+Not implemented yet, running this command will fail with not implemented error.
 
 
 ## Global Flags

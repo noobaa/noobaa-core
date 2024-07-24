@@ -4,7 +4,7 @@
 2. [Metrics Endpoint Configuration](#metrics-endpoint-configuration)
 3. [Metrics description](#metrics-description) 
 4. [Getting Started](#getting-started)
-5. [Example](#example)
+5. [Examples](#examples)
 
 ## Introduction
 
@@ -136,10 +136,57 @@ For specific command examples, refer to the steps outlined in [NooBaa Non Contai
 Once the NSFS service is enabled, you can fetch the Prometheus metrics to monitor your system. Open a new tab and follow these steps:
 
 ```sh
+noobaa-cli diagnose metrics
+# OR directly fetch
 curl -s http://127.0.0.1:7004/metrics/nsfs_stats | jq .
 ```
+ 
+## Examples
 
-## Example
+### NooBaa CLI Metrics Command Example
+
+The following is an example of the JSON output containing system metrics -
+
+```shell
+> noobaa-cli diagnose metrics
+{
+    "response": {
+    "code": "MetricsStatus",
+    "reply": {
+        "nsfs_counters": {
+            "noobaa_nsfs_io_read_count":1,
+            "noobaa_nsfs_io_write_count":2,
+            "noobaa_nsfs_io_read_bytes":49,
+            "noobaa_nsfs_io_write_bytes":98
+        },
+        "op_stats_counters": {
+            "noobaa_nsfs_op_create_bucket_min_time_milisec":15,
+            "noobaa_nsfs_op_create_bucket_max_time_milisec":15,
+            "noobaa_nsfs_op_create_bucket_avg_time_milisec":15,
+            "noobaa_nsfs_op_create_bucket_count":1,
+            "noobaa_nsfs_op_create_bucket_error_count":0,
+            "noobaa_nsfs_op_upload_object_min_time_milisec":15,
+            "noobaa_nsfs_op_upload_object_max_time_milisec":20,
+            "noobaa_nsfs_op_upload_object_avg_time_milisec":17,
+            "noobaa_nsfs_op_upload_object_count":2,
+            "noobaa_nsfs_op_upload_object_error_count":0,
+            "noobaa_nsfs_op_head_object_min_time_milisec":2,
+            "noobaa_nsfs_op_head_object_max_time_milisec":3,
+            "noobaa_nsfs_op_head_object_avg_time_milisec":2,
+            "noobaa_nsfs_op_head_object_count":2,
+            "noobaa_nsfs_op_head_object_error_count":0,
+            "noobaa_nsfs_op_read_object_min_time_milisec":12,
+            "noobaa_nsfs_op_read_object_max_time_milisec":12,
+            "noobaa_nsfs_op_read_object_avg_time_milisec":12,
+            "noobaa_nsfs_op_read_object_count":1,
+            "noobaa_nsfs_op_read_object_error_count":0
+        }
+    }
+}
+```
+
+
+### Direct Metrics Fetch Example
 
 The following is an example of the JSON output containing system metrics -
 

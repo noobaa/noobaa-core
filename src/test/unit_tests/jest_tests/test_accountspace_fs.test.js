@@ -1200,7 +1200,7 @@ describe('Accountspace_FS tests', () => {
                 expect(res.username).toBe(dummy_user2.username);
             });
 
-            it('get_access_key_last_used should return an error if access key do not exist', async function() {
+            it('get_access_key_last_used should return an error if access key does not exist', async function() {
                 try {
                     const dummy_access_key = 'AKIAIOSFODNN7EXAMPLE';
                     const account_sdk = make_dummy_account_sdk();
@@ -1326,6 +1326,44 @@ describe('Accountspace_FS tests', () => {
                 try {
                     const params = {
                         username: dummy_username1,
+                        access_key: dummy_access_key,
+                        status: access_key_status_enum.ACTIVE,
+                    };
+                    const account_sdk = make_dummy_account_sdk();
+                    await accountspace_fs.update_access_key(params, account_sdk);
+                    throw new NoErrorThrownError();
+                } catch (err) {
+                    expect(err).toBeInstanceOf(IamError);
+                    expect(err).toHaveProperty('code', IamError.NoSuchEntity.code);
+                }
+            });
+
+            it('update_access_key should return an error if user account does not exist', async function() {
+                const user_account = await read_config_file(accountspace_fs.accounts_dir, dummy_username1);
+                const dummy_access_key = user_account.access_keys[0].access_key;
+                try {
+                    const params = {
+                        username: 'non-existing-user',
+                        access_key: dummy_access_key,
+                        status: access_key_status_enum.ACTIVE,
+                    };
+                    const account_sdk = make_dummy_account_sdk();
+                    await accountspace_fs.update_access_key(params, account_sdk);
+                    throw new NoErrorThrownError();
+                } catch (err) {
+                    expect(err).toBeInstanceOf(IamError);
+                    expect(err).toHaveProperty('code', IamError.NoSuchEntity.code);
+                    expect(err.message).toMatch(/user with name/i);
+                }
+            });
+
+            it('update_access_key should return an error if access key belongs to another account ' +
+                    'without passing the username flag', async function() {
+                const user_account = await read_config_file(accountspace_fs.accounts_dir, dummy_username1);
+                const dummy_access_key = user_account.access_keys[0].access_key;
+                try {
+                    const params = {
+                        // without username of dummy_username1
                         access_key: dummy_access_key,
                         status: access_key_status_enum.ACTIVE,
                     };
@@ -1491,6 +1529,42 @@ describe('Accountspace_FS tests', () => {
                 }
             });
 
+            it('delete_access_key should return an error if user account does not exist', async function() {
+                const user_account = await read_config_file(accountspace_fs.accounts_dir, dummy_username1);
+                const dummy_access_key = user_account.access_keys[0].access_key;
+                try {
+                    const params = {
+                        username: 'non-existing-user',
+                        access_key: dummy_access_key,
+                    };
+                    const account_sdk = make_dummy_account_sdk();
+                    await accountspace_fs.delete_access_key(params, account_sdk);
+                    throw new NoErrorThrownError();
+                } catch (err) {
+                    expect(err).toBeInstanceOf(IamError);
+                    expect(err).toHaveProperty('code', IamError.NoSuchEntity.code);
+                    expect(err.message).toMatch(/user with name/i);
+                }
+            });
+
+            it('delete_access_key should return an error if access key belongs to another account ' +
+                'without passing the username flag', async function() {
+            const user_account = await read_config_file(accountspace_fs.accounts_dir, dummy_username1);
+            const dummy_access_key = user_account.access_keys[0].access_key;
+            try {
+                const params = {
+                    // without username of dummy_username1
+                    access_key: dummy_access_key,
+                };
+                const account_sdk = make_dummy_account_sdk();
+                await accountspace_fs.delete_access_key(params, account_sdk);
+                throw new NoErrorThrownError();
+            } catch (err) {
+                expect(err).toBeInstanceOf(IamError);
+                expect(err).toHaveProperty('code', IamError.NoSuchEntity.code);
+            }
+        });
+
             it('delete_access_key should not return an error if access key is on another root account', async function() {
                 try {
                     const account_sdk = make_dummy_account_sdk_not_for_creating_resources();
@@ -1644,6 +1718,7 @@ describe('Accountspace_FS tests', () => {
                 } catch (err) {
                     expect(err).toBeInstanceOf(IamError);
                     expect(err).toHaveProperty('code', IamError.NoSuchEntity.code);
+                    expect(err.message).toMatch(/user with name/i);
                 }
             });
 

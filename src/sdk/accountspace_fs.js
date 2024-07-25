@@ -348,9 +348,11 @@ class AccountSpaceFS {
             const access_key_id = params.access_key;
             const requester = this._check_if_requesting_account_is_root_account_or_user_om_himself(action,
                 requesting_account, params.username);
+            const username = params.username ?? requester.name; // username is not required
             const requested_account_path = get_symlink_config_file_path(this.access_keys_dir, params.access_key);
             await this._check_if_account_exists_by_access_key_symlink(action, requested_account_path, access_key_id);
             const requested_account = await this._get_account_decrypted_data_optional(requested_account_path, true);
+            this._check_username_match_to_requested_account(action, username, requested_account);
             this._check_access_key_belongs_to_account(action, requested_account, access_key_id);
             this._check_if_requested_account_same_root_account_as_requesting_account(action,
                 requesting_account, requested_account);
@@ -399,9 +401,11 @@ class AccountSpaceFS {
             const access_key_id = params.access_key;
             const requester = this._check_if_requesting_account_is_root_account_or_user_om_himself(action,
                 requesting_account, params.username);
+            const username = params.username ?? requester.name; // username is not required
             const requested_account_path = get_symlink_config_file_path(this.access_keys_dir, access_key_id);
             await this._check_if_account_exists_by_access_key_symlink(action, requested_account_path, access_key_id);
             const requested_account = await this._get_account_decrypted_data_optional(requested_account_path, true);
+            this._check_username_match_to_requested_account(action, username, requested_account);
             this._check_access_key_belongs_to_account(action, requested_account, access_key_id);
             this._check_if_requested_account_same_root_account_as_requesting_account(action,
                 requesting_account, requested_account);
@@ -584,20 +588,28 @@ class AccountSpaceFS {
         throw new IamError({ code, message: message_with_details, http_code, type });
     }
 
-        // TODO: move to IamError class with a template
-        _throw_error_delete_conflict(action, account_to_delete, resource_name) {
-            dbg.error(`AccountSpaceFS.${action} requested account ` +
-                `${account_to_delete.name} ${account_to_delete._id} has ${resource_name}`);
-            const message_with_details = `Cannot delete entity, must delete ${resource_name} first.`;
-            const { code, http_code, type } = IamError.DeleteConflict;
-            throw new IamError({ code, message: message_with_details, http_code, type });
-        }
+    // TODO: move to IamError class with a template
+    _throw_error_delete_conflict(action, account_to_delete, resource_name) {
+        dbg.error(`AccountSpaceFS.${action} requested account ` +
+            `${account_to_delete.name} ${account_to_delete._id} has ${resource_name}`);
+        const message_with_details = `Cannot delete entity, must delete ${resource_name} first.`;
+        const { code, http_code, type } = IamError.DeleteConflict;
+        throw new IamError({ code, message: message_with_details, http_code, type });
+    }
 
-        _throw_error_perform_action_from_root_accounts_manager_on_iam_user(action, requesting_account, requested_account) {
-            dbg.error(`AccountSpaceFS.${action} root accounts manager cannot perform actions on IAM users`,
-                requesting_account, requested_account);
-            throw new IamError(IamError.NotAuthorized);
-        }
+    _throw_error_perform_action_from_root_accounts_manager_on_iam_user(action, requesting_account, requested_account) {
+        dbg.error(`AccountSpaceFS.${action} root accounts manager cannot perform actions on IAM users`,
+            requesting_account, requested_account);
+        throw new IamError(IamError.NotAuthorized);
+    }
+
+    // TODO: move to IamError class with a template
+    _throw_error_no_such_entity_access_key(action, access_key_id) {
+        dbg.error(`AccountSpaceFS.${action} access key does not exist`, access_key_id);
+        const message_with_details = `The Access Key with id ${access_key_id} cannot be found`;
+        const { code, http_code, type } = IamError.NoSuchEntity;
+        throw new IamError({ code, message: message_with_details, http_code, type });
+    }
 
     // based on the function from manage_nsfs
     async _list_config_files_for_users(requesting_account, iam_path_prefix) {
@@ -896,8 +908,14 @@ class AccountSpaceFS {
     async _check_if_account_exists_by_access_key_symlink(action, account_path, access_key_id) {
         const is_user_account_exists = await native_fs_utils.is_path_exists(this.fs_context, account_path);
         if (!is_user_account_exists) {
-            dbg.error(`AccountSpaceFS.${action} access key is does not exist`, access_key_id);
-            const message_with_details = `The Access Key with id ${access_key_id} cannot be found`;
+            this._throw_error_no_such_entity_access_key(action, access_key_id);
+        }
+    }
+
+    _check_username_match_to_requested_account(action, username, requested_account) {
+        if (username !== requested_account.name) {
+            dbg.error(`AccountSpaceFS.${action} user with name ${username} cannot be found`);
+            const message_with_details = `The user with name ${username} cannot be found.`;
             const { code, http_code, type } = IamError.NoSuchEntity;
             throw new IamError({ code, message: message_with_details, http_code, type });
         }
@@ -915,10 +933,7 @@ class AccountSpaceFS {
     _check_access_key_belongs_to_account(action, requested_account, access_key_id) {
         const is_access_key_belongs_to_account = this._check_specific_access_key_exists(requested_account.access_keys, access_key_id);
         if (!is_access_key_belongs_to_account) {
-            dbg.error(`AccountSpaceFS.${action} access key is does not exist`, access_key_id);
-            const message_with_details = `The Access Key with id ${access_key_id} cannot be found`;
-            const { code, http_code, type } = IamError.NoSuchEntity;
-            throw new IamError({ code, message: message_with_details, http_code, type });
+            this._throw_error_no_such_entity_access_key(action, access_key_id);
         }
     }
 

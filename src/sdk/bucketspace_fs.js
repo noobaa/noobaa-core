@@ -22,7 +22,7 @@ const { CONFIG_SUBDIRS } = require('../manage_nsfs/manage_nsfs_constants');
 const KeysSemaphore = require('../util/keys_semaphore');
 const { get_umasked_mode, isDirectory, validate_bucket_creation,
     create_config_file, delete_config_file, get_bucket_tmpdir_full_path, folder_delete,
-    entity_enum, translate_error_codes, update_config_file} = require('../util/native_fs_utils');
+    entity_enum, translate_error_codes, update_config_file } = require('../util/native_fs_utils');
 const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
 const { anonymous_access_key } = require('./object_sdk');
 
@@ -193,7 +193,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
     ////////////
 
     /**
-     * list_buckets will read all bucket config files, and filter them according to the requesting account's 
+     * list_buckets will read all bucket config files, and filter them according to the requesting account's
      * permissions
      * a. First iteration - map_with_concurrency with concurrency rate of 10 entries at the same time.
      * a.1. if entry is dir file/entry is non json - we will return undefined
@@ -434,15 +434,56 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
     ////////////////////
 
     async put_bucket_tagging(params) {
-        // TODO
+        try {
+            const { name, tagging } = params;
+            dbg.log0('BucketSpaceFS.put_bucket_tagging: Bucket name, tagging', name, tagging);
+            const bucket_config_path = this._get_bucket_config_path(name);
+            const { data } = await nb_native().fs.readFile(this.fs_context, bucket_config_path);
+            const bucket = JSON.parse(data.toString());
+            bucket.tag = tagging;
+            nsfs_schema_utils.validate_bucket_schema(bucket);
+            await update_config_file(
+                this.fs_context,
+                this.bucket_schema_dir,
+                bucket_config_path,
+                JSON.stringify(bucket),
+            );
+        } catch (error) {
+            throw translate_error_codes(error, entity_enum.BUCKET);
+        }
     }
 
     async delete_bucket_tagging(params) {
-        // TODO
+        try {
+            const { name } = params;
+            dbg.log0('BucketSpaceFS.delete_bucket_tagging: Bucket name', name);
+            const bucket_config_path = this._get_bucket_config_path(name);
+            const { data } = await nb_native().fs.readFile(this.fs_context, bucket_config_path);
+            const bucket = JSON.parse(data.toString());
+            delete bucket.tag;
+            nsfs_schema_utils.validate_bucket_schema(bucket);
+            await update_config_file(
+                this.fs_context,
+                this.bucket_schema_dir,
+                bucket_config_path,
+                JSON.stringify(bucket),
+            );
+        } catch (error) {
+            throw translate_error_codes(error, entity_enum.BUCKET);
+        }
     }
 
     async get_bucket_tagging(params) {
-        // TODO
+        try {
+            const { name } = params;
+            dbg.log0('BucketSpaceFS.get_bucket_tagging: Bucket name', name);
+            const bucket_config_path = this._get_bucket_config_path(name);
+            const { data } = await nb_native().fs.readFile(this.fs_context, bucket_config_path);
+            const bucket = JSON.parse(data.toString());
+            return { tagging: bucket.tag || [] };
+        } catch (error) {
+            throw translate_error_codes(error, entity_enum.BUCKET);
+        }
     }
 
     ////////////////////

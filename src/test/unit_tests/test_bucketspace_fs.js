@@ -11,7 +11,8 @@ const assert = require('assert');
 const P = require('../../util/promise');
 const config = require('../../../config');
 const fs_utils = require('../../util/fs_utils');
-const { get_process_fs_context, read_file, get_user_by_distinguished_name, get_bucket_tmpdir_name } = require('../../util/native_fs_utils');
+const { get_process_fs_context, read_file, get_user_by_distinguished_name, get_bucket_tmpdir_name,
+    update_config_file } = require('../../util/native_fs_utils');
 const nb_native = require('../../util/nb_native');
 const SensitiveString = require('../../util/sensitive_string');
 const NamespaceFS = require('../../sdk/namespace_fs');
@@ -22,6 +23,7 @@ const nc_mkm = require('../../manage_nsfs/nc_master_key_manager').get_instance()
 
 
 const test_bucket = 'bucket1';
+const test_bucket2 = 'bucket2';
 const test_not_empty_bucket = 'notemptybucket';
 const test_bucket_temp_dir = 'buckettempdir';
 const test_bucket_invalid = 'bucket_invalid';
@@ -507,6 +509,43 @@ mocha.describe('bucketspace_fs', function() {
             // account_iam_user2 can delete the created bucket (the implicit policy - same root account)
             const dummy_object_sdk_for_account_iam_user2 = make_dummy_object_sdk_for_account(dummy_object_sdk, account_iam_user2);
             await bucketspace_fs.delete_bucket(param, dummy_object_sdk_for_account_iam_user2);
+        });
+
+        mocha.it('delete_bucket after the ULS was deleted (should_create_underlying_storage true)', async function() {
+            const param = { name: test_bucket2 };
+            await create_bucket(param.name);
+
+            // this is not a case that we want, but it might happen: if somehow the ULS (Underline Storage) was deleted
+            const uls_path = path.join(new_buckets_path, param.name);
+            await fs.promises.stat(uls_path);
+            await fs.promises.rm(uls_path, { recursive: true }); // somehow the ULS is deleted
+
+            await bucketspace_fs.delete_bucket(param, dummy_object_sdk);
+            const bucket_config_path = get_config_file_path(CONFIG_SUBDIRS.BUCKETS, param.name);
+            await fs_utils.file_must_not_exist(bucket_config_path);
+        });
+
+        mocha.it('delete_bucket after the ULS was deleted (should_create_underlying_storage false)', async function() {
+            const param = { name: test_bucket2 };
+            await create_bucket(param.name);
+
+            // we want to mock a bucket creation using the CLI,
+            // we manually change the should_create_underlying_storage to false
+            const bucket_config_path = get_config_file_path(CONFIG_SUBDIRS.BUCKETS, param.name);
+            const data = await fs.promises.readFile(bucket_config_path);
+            const bucket = await JSON.parse(data.toString());
+            assert.ok(bucket.should_create_underlying_storage === true);
+            bucket.should_create_underlying_storage = false;
+            await update_config_file(process_fs_context, CONFIG_SUBDIRS.BUCKETS, bucket_config_path, JSON.stringify(bucket));
+            await fs_utils.file_must_exist(bucket_config_path);
+
+            // this is not a case that we want, but it might happen: if somehow the ULS (Underline Storage) was deleted
+            const uls_path = path.join(new_buckets_path, param.name);
+            await fs.promises.stat(uls_path);
+            await fs.promises.rm(uls_path, { recursive: true }); // somehow the ULS is deleted
+
+            await bucketspace_fs.delete_bucket(param, dummy_object_sdk);
+            await fs_utils.file_must_not_exist(bucket_config_path);
         });
     });
     mocha.describe('set_bucket_versioning', function() {

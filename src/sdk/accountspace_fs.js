@@ -21,11 +21,6 @@ const { get_symlink_config_file_path, get_config_file_path, get_config_data,
 const nc_mkm = require('../manage_nsfs/nc_master_key_manager').get_instance();
 const { account_cache } = require('./object_sdk');
 
-const entity_enum = Object.freeze({
-    USER: 'USER',
-    ACCESS_KEY: 'ACCESS_KEY',
-});
-
 // TODO - rename (the typo), move and reuse in manage_nsfs
 const acounts_dir_relative_path = '../accounts/';
 
@@ -87,7 +82,7 @@ class AccountSpaceFS {
             };
         } catch (err) {
             dbg.error(`AccountSpaceFS.${action} error`, err);
-            throw this._translate_error_codes(err, entity_enum.USER);
+            throw native_fs_utils.translate_error_codes(err, native_fs_utils.entity_enum.USER);
         }
     }
 
@@ -125,7 +120,7 @@ class AccountSpaceFS {
             };
         } catch (err) {
             dbg.error(`AccountSpaceFS.${action} error`, err);
-            throw this._translate_error_codes(err, entity_enum.USER);
+            throw native_fs_utils.translate_error_codes(err, native_fs_utils.entity_enum.USER);
         }
     }
 
@@ -179,7 +174,7 @@ class AccountSpaceFS {
             };
         } catch (err) {
             dbg.error(`AccountSpaceFS.${action} error`, err);
-            throw this._translate_error_codes(err, entity_enum.USER);
+            throw native_fs_utils.translate_error_codes(err, native_fs_utils.entity_enum.USER);
         }
     }
 
@@ -213,7 +208,7 @@ class AccountSpaceFS {
             await native_fs_utils.delete_config_file(this.fs_context, this.accounts_dir, account_config_path);
         } catch (err) {
             dbg.error(`AccountSpaceFS.${action} error`, err);
-            throw this._translate_error_codes(err, entity_enum.USER);
+            throw native_fs_utils.translate_error_codes(err, native_fs_utils.entity_enum.USER);
         }
     }
 
@@ -237,7 +232,7 @@ class AccountSpaceFS {
         return { members, is_truncated };
         } catch (err) {
             dbg.error(`AccountSpaceFS.${action} error`, err);
-            throw this._translate_error_codes(err, entity_enum.USER);
+            throw native_fs_utils.translate_error_codes(err, native_fs_utils.entity_enum.USER);
         }
     }
 
@@ -297,7 +292,7 @@ class AccountSpaceFS {
             };
         } catch (err) {
             dbg.error(`AccountSpaceFS.${action} error`, err);
-            throw this._translate_error_codes(err, entity_enum.ACCESS_KEY);
+            throw native_fs_utils.translate_error_codes(err, native_fs_utils.entity_enum.ACCESS_KEY);
         }
     }
 
@@ -329,7 +324,7 @@ class AccountSpaceFS {
             };
         } catch (err) {
             dbg.error('AccountSpaceFS.get_access_key_last_used error', err);
-            throw this._translate_error_codes(err, entity_enum.ACCESS_KEY);
+            throw native_fs_utils.translate_error_codes(err, native_fs_utils.entity_enum.ACCESS_KEY);
         }
     }
 
@@ -380,7 +375,7 @@ class AccountSpaceFS {
             this._clean_account_cache(requested_account);
         } catch (err) {
             dbg.error(`AccountSpaceFS.${action} error`, err);
-            throw this._translate_error_codes(err, entity_enum.ACCESS_KEY);
+            throw native_fs_utils.translate_error_codes(err, native_fs_utils.entity_enum.ACCESS_KEY);
         }
     }
 
@@ -426,7 +421,7 @@ class AccountSpaceFS {
             this._clean_account_cache(requested_account);
         } catch (err) {
             dbg.error(`AccountSpaceFS.${action} error`, err);
-            throw this._translate_error_codes(err, entity_enum.ACCESS_KEY);
+            throw native_fs_utils.translate_error_codes(err, native_fs_utils.entity_enum.ACCESS_KEY);
         }
     }
 
@@ -460,25 +455,13 @@ class AccountSpaceFS {
             return { members, is_truncated, username: name_for_access_key };
         } catch (err) {
             dbg.error(`AccountSpaceFS.${action} error`, err);
-            throw this._translate_error_codes(err, entity_enum.ACCESS_KEY);
+            throw native_fs_utils.translate_error_codes(err, native_fs_utils.entity_enum.ACCESS_KEY);
         }
     }
 
     ////////////////////////
     // INTERNAL FUNCTIONS //
     ////////////////////////
-
-    // this function was copied from namespace_fs and bucketspace_fs
-    // It is a fallback that we use, but might be not accurate
-    _translate_error_codes(err, entity) {
-        if (err.rpc_code) return err;
-        if (err.code === 'ENOENT') err.rpc_code = `NO_SUCH_${entity}`;
-        if (err.code === 'EEXIST') err.rpc_code = `${entity}_ALREADY_EXISTS`;
-        if (err.code === 'EPERM' || err.code === 'EACCES') err.rpc_code = 'UNAUTHORIZED';
-        if (err.code === 'IO_STREAM_ITEM_TIMEOUT') err.rpc_code = 'IO_STREAM_ITEM_TIMEOUT';
-        if (err.code === 'INTERNAL_ERROR') err.rpc_code = 'INTERNAL_ERROR';
-        return err;
-    }
 
      _get_account_config_path(name) {
         return get_config_file_path(this.accounts_dir, name);
@@ -572,7 +555,7 @@ class AccountSpaceFS {
         const basic_message = `User: ${arn_for_requesting_account} is not authorized to perform:` +
         `${full_action_name} on resource: `;
         let message_with_details;
-        if (entity === entity_enum.USER) {
+        if (entity === native_fs_utils.entity_enum.USER) {
             let user_message;
             if (action === 'list_access_keys') {
                 user_message = `user ${requesting_account.name.unwrap()}`;
@@ -581,7 +564,7 @@ class AccountSpaceFS {
             }
             message_with_details = basic_message +
             `${user_message} because no identity-based policy allows the ${full_action_name} action`;
-        } else { // entity_enum.ACCESS_KEY
+        } else { // native_fs_utils.entity_enum.ACCESS_KEY
             message_with_details = basic_message + `access key ${details.access_key}`;
         }
         const { code, http_code, type } = IamError.AccessDeniedException;
@@ -658,7 +641,7 @@ class AccountSpaceFS {
         if (!is_root_account) {
             dbg.error(`AccountSpaceFS.${action} requesting account is not a root account`,
                 requesting_account);
-            this._throw_access_denied_error(action, requesting_account, user_details, entity_enum.USER);
+            this._throw_access_denied_error(action, requesting_account, user_details, native_fs_utils.entity_enum.USER);
         }
     }
 
@@ -895,7 +878,7 @@ class AccountSpaceFS {
             dbg.error(`AccountSpaceFS.${action} requesting account is neither a root account ` +
             `nor user requester on himself`,
             requesting_account);
-            this._throw_access_denied_error(action, requesting_account, { username }, entity_enum.USER);
+            this._throw_access_denied_error(action, requesting_account, { username }, native_fs_utils.entity_enum.USER);
         }
         return requester;
     }

@@ -19,6 +19,14 @@ const VALID_BUCKET_NAME_REGEXP = /^(([a-z0-9]|[a-z0-9][a-z0-9-]*[a-z0-9])\.)*([a
 
 /** @typedef {import('../util/buffer_utils').MultiSizeBuffersPool} MultiSizeBuffersPool */
 
+// we will use this object to determined the entity for the rpc_code error message 
+const entity_enum = Object.freeze({
+    OBJECT: 'OBJECT',
+    BUCKET: 'BUCKET',
+    USER: 'USER',
+    ACCESS_KEY: 'ACCESS_KEY',
+});
+
 function get_umasked_mode(mode) {
     // eslint-disable-next-line no-bitwise
     return mode & ~config.NSFS_UMASK;
@@ -580,6 +588,25 @@ function get_bucket_tmpdir_full_path(bucket_path, bucket_id) {
     return path.join(bucket_path, get_bucket_tmpdir_name(bucket_id));
 }
 
+
+/**
+ * translate_error_codes we translate FS error codes to rpc_codes (strings)
+ * and add the rpc_code property to the original error object
+ * @param {object} err
+ * @param {('OBJECT'|'BUCKET'|'USER'|'ACCESS_KEY')} entity
+ */
+function translate_error_codes(err, entity) {
+    if (err.rpc_code) return err;
+    if (err.code === 'ENOENT' || err.code === 'ENOTDIR') {
+        err.rpc_code = `NO_SUCH_${entity}`;
+    }
+    if (err.code === 'EEXIST') err.rpc_code = `${entity}_ALREADY_EXISTS`;
+    if (err.code === 'EPERM' || err.code === 'EACCES') err.rpc_code = 'UNAUTHORIZED';
+    if (err.code === 'IO_STREAM_ITEM_TIMEOUT') err.rpc_code = 'IO_STREAM_ITEM_TIMEOUT';
+    if (err.code === 'INTERNAL_ERROR') err.rpc_code = 'INTERNAL_ERROR';
+    return err;
+}
+
 exports.get_umasked_mode = get_umasked_mode;
 exports._make_path_dirs = _make_path_dirs;
 exports._create_path = _create_path;
@@ -615,3 +642,5 @@ exports.is_dir_rw_accessible = is_dir_rw_accessible;
 exports.folder_delete = folder_delete;
 exports.get_bucket_tmpdir_full_path = get_bucket_tmpdir_full_path;
 exports.get_bucket_tmpdir_name = get_bucket_tmpdir_name;
+exports.entity_enum = entity_enum;
+exports.translate_error_codes = translate_error_codes;

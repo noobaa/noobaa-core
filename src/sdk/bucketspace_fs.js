@@ -21,7 +21,8 @@ const { CONFIG_SUBDIRS } = require('../manage_nsfs/manage_nsfs_constants');
 
 const KeysSemaphore = require('../util/keys_semaphore');
 const { get_umasked_mode, isDirectory, validate_bucket_creation,
-    create_config_file, delete_config_file, get_bucket_tmpdir_full_path, folder_delete } = require('../util/native_fs_utils');
+    create_config_file, delete_config_file, get_bucket_tmpdir_full_path, folder_delete,
+    entity_enum, translate_error_codes } = require('../util/native_fs_utils');
 const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
 const { anonymous_access_key } = require('./object_sdk');
 
@@ -84,16 +85,6 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
         } catch (err) {
             return false;
         }
-    }
-
-    _translate_bucket_error_codes(err) {
-        if (err.rpc_code) return err;
-        if (err.code === 'ENOENT') err.rpc_code = 'NO_SUCH_BUCKET';
-        if (err.code === 'EEXIST') err.rpc_code = 'BUCKET_ALREADY_EXISTS';
-        if (err.code === 'EPERM' || err.code === 'EACCES') err.rpc_code = 'UNAUTHORIZED';
-        if (err.code === 'IO_STREAM_ITEM_TIMEOUT') err.rpc_code = 'IO_STREAM_ITEM_TIMEOUT';
-        if (err.code === 'INTERNAL_ERROR') err.rpc_code = 'INTERNAL_ERROR';
-        return err;
     }
 
     async read_account_by_access_key({ access_key }) {
@@ -178,7 +169,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             }
             return bucket;
         } catch (err) {
-            const rpc_error = this._translate_bucket_error_codes(err);
+            const rpc_error = translate_error_codes(err, entity_enum.BUCKET);
             if (err.rpc_code === 'INVALID_SCHEMA') err.rpc_code = 'INVALID_BUCKET_STATE';
             new NoobaaEvent(NoobaaEvent[rpc_error.rpc_code]).create_event(name, {bucket_name: name}, err);
             throw rpc_error;
@@ -222,7 +213,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                 dbg.error('BucketSpaceFS: root dir not found', err, this.bucket_schema_dir);
                 throw new S3Error(S3Error.NoSuchBucket);
             }
-            throw this._translate_bucket_error_codes(err);
+            throw translate_error_codes(err, entity_enum.BUCKET);
         }
 
         const account = object_sdk.requesting_account;
@@ -302,7 +293,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                 await create_config_file(this.fs_context, this.bucket_schema_dir, bucket_config_path, bucket_config);
             } catch (err) {
                 new NoobaaEvent(NoobaaEvent.BUCKET_CREATION_FAILED).create_event(name, {bucket_name: name}, err);
-                throw this._translate_bucket_error_codes(err);
+                throw translate_error_codes(err, entity_enum.BUCKET);
             }
 
             // create bucket's underlying storage directory
@@ -313,7 +304,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                 dbg.error('BucketSpaceFS: create_bucket could not create underlying directory - nsfs, deleting bucket', err);
                 new NoobaaEvent(NoobaaEvent.BUCKET_DIR_CREATION_FAILED).create_event(name, {bucket: name, path: bucket_storage_path}, err);
                 await nb_native().fs.unlink(this.fs_context, bucket_config_path);
-                throw this._translate_bucket_error_codes(err);
+                throw translate_error_codes(err, entity_enum.BUCKET);
             }
         });
     }
@@ -359,13 +350,27 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                 if (!namespace_bucket_config) throw new RpcError('INTERNAL_ERROR', 'Invalid Bucket configuration');
 
                 if (namespace_bucket_config.should_create_underlying_storage) {
-                    // 1. delete underlying storage
+                    // 1. delete underlying storage (ULS = Underline Storage)
                     dbg.log1('BucketSpaceFS.delete_bucket: deleting uls', this.fs_root, namespace_bucket_config.write_resource.path);
                     const bucket_storage_path = path.join(this.fs_root, namespace_bucket_config.write_resource.path); // includes write_resource.path + bucket name (s3 flow)
-                    await ns.delete_uls({ name, full_path: bucket_storage_path }, object_sdk);
+                    try {
+                        await ns.delete_uls({ name, full_path: bucket_storage_path }, object_sdk);
+                    } catch (err) {
+                        dbg.warn('delete_bucket: bucket name', name, 'with bucket_storage_path', bucket_storage_path,
+                            'got an error while trying to delete_uls', err);
+                        // in case the ULS was deleted - we will continue
+                        if (err.rpc_code !== 'NO_SUCH_BUCKET') throw err;
+                    }
                 } else {
                     // 2. delete only bucket tmpdir
-                    const list = await ns.list_objects({ ...params, bucket: name, limit: 1 }, object_sdk);
+                    let list;
+                    try {
+                        list = await ns.list_objects({ ...params, bucket: name, limit: 1 }, object_sdk);
+                    } catch (err) {
+                        dbg.warn('delete_bucket: bucket name', name, 'got an error while trying to list_objects', err);
+                        // in case the ULS was deleted - we will continue
+                        if (err.rpc_code !== 'NO_SUCH_BUCKET') throw err;
+                    }
                     if (list && list.objects && list.objects.length > 0) throw new RpcError('NOT_EMPTY', 'underlying directory has files in it');
                     const bucket_tmpdir_path = get_bucket_tmpdir_full_path(namespace_bucket_config.write_resource.path, bucket._id);
                     await folder_delete(bucket_tmpdir_path, this.fs_context, true);
@@ -375,10 +380,10 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                 await delete_config_file(this.fs_context, this.bucket_schema_dir, bucket_config_path);
                 new NoobaaEvent(NoobaaEvent.BUCKET_DELETE).create_event(name, { bucket_name: name });
             } catch (err) {
-                dbg.error('BucketSpaceFS: delete_bucket: error', err);
+                dbg.error('BucketSpaceFS: delete_bucket: bucket name', name, 'error', err);
                 new NoobaaEvent(NoobaaEvent.BUCKET_DELETE_FAILED).create_event(name,
                     { bucket_name: name, bucket_path: bucket_config_path }, err);
-                throw this._translate_bucket_error_codes(err);
+                throw translate_error_codes(err, entity_enum.BUCKET);
             }
         });
     }
@@ -426,7 +431,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                 }
             );
         } catch (err) {
-            throw this._translate_bucket_error_codes(err);
+            throw translate_error_codes(err, entity_enum.BUCKET);
         }
     }
 
@@ -484,7 +489,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                 }
             );
         } catch (err) {
-            throw this._translate_bucket_error_codes(err);
+            throw translate_error_codes(err, entity_enum.BUCKET);
         }
     }
 
@@ -508,7 +513,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                 }
             );
         } catch (err) {
-            throw this._translate_bucket_error_codes(err);
+            throw translate_error_codes(err, entity_enum.BUCKET);
         }
     }
 
@@ -521,7 +526,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             const bucket = JSON.parse(data.toString());
             return bucket.logging;
         } catch (err) {
-            throw this._translate_bucket_error_codes(err);
+            throw translate_error_codes(err, entity_enum.BUCKET);
         }
     }
 
@@ -550,7 +555,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                 { mode: get_umasked_mode(config.BASE_MODE_CONFIG_FILE) }
             );
         } catch (err) {
-            throw this._translate_bucket_error_codes(err);
+            throw translate_error_codes(err, entity_enum.BUCKET);
         }
     }
 
@@ -563,7 +568,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             const bucket = JSON.parse(data.toString());
             return bucket.encryption;
         } catch (err) {
-            throw this._translate_bucket_error_codes(err);
+            throw translate_error_codes(err, entity_enum.BUCKET);
         }
     }
 
@@ -586,7 +591,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                 { mode: get_umasked_mode(config.BASE_MODE_CONFIG_FILE) }
             );
         } catch (err) {
-            throw this._translate_bucket_error_codes(err);
+            throw translate_error_codes(err, entity_enum.BUCKET);
         }
     }
 
@@ -614,7 +619,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                 { mode: get_umasked_mode(config.BASE_MODE_CONFIG_FILE) }
             );
         } catch (err) {
-            throw this._translate_bucket_error_codes(err);
+            throw translate_error_codes(err, entity_enum.BUCKET);
         }
     }
 
@@ -637,7 +642,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                 { mode: get_umasked_mode(config.BASE_MODE_CONFIG_FILE) }
             );
         } catch (err) {
-            throw this._translate_bucket_error_codes(err);
+            throw translate_error_codes(err, entity_enum.BUCKET);
         }
     }
 
@@ -654,7 +659,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             const bucket = JSON.parse(data.toString());
             return { website: bucket.website };
         } catch (err) {
-            throw this._translate_bucket_error_codes(err);
+            throw translate_error_codes(err, entity_enum.BUCKET);
         }
     }
 
@@ -685,7 +690,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                 { mode: get_umasked_mode(config.BASE_MODE_CONFIG_FILE) }
             );
         } catch (err) {
-            throw this._translate_bucket_error_codes(err);
+            throw translate_error_codes(err, entity_enum.BUCKET);
         }
     }
 
@@ -708,7 +713,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                 { mode: get_umasked_mode(config.BASE_MODE_CONFIG_FILE) }
             );
         } catch (err) {
-            throw this._translate_bucket_error_codes(err);
+            throw translate_error_codes(err, entity_enum.BUCKET);
         }
     }
 
@@ -722,7 +727,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                 policy: bucket_policy_info.s3_policy
             };
         } catch (err) {
-            throw this._translate_bucket_error_codes(err);
+            throw translate_error_codes(err, entity_enum.BUCKET);
         }
     }
 

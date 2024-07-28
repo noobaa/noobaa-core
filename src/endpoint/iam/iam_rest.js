@@ -98,6 +98,11 @@ async function handle_request(req, res) {
     await http_utils.read_and_parse_body(req, options);
 
     const op_name = parse_op_name(req, req.body.action);
+    const op = IAM_OPS[op_name];
+    if (!op || !op.handler) {
+        dbg.error('IAM (NotImplemented)', op_name, req.method, req.originalUrl);
+        throw new IamError(IamError.NotImplemented);
+    }
     req.op_name = op_name;
 
     http_utils.authorize_session_token(req, headers_options);
@@ -105,12 +110,6 @@ async function handle_request(req, res) {
     await authorize_request(req);
 
     dbg.log1('IAM REQUEST', req.method, req.originalUrl, 'op', op_name, 'request_id', req.request_id, req.headers);
-
-    const op = IAM_OPS[op_name];
-    if (!op || !op.handler) {
-        dbg.error('IAM TODO (NotImplemented)', op_name, req.method, req.originalUrl);
-        throw new IamError(IamError.NotImplemented);
-    }
 
     const reply = await op.handler(req, res);
     add_response_metadata_if_not_exists(reply, req.request_id); // unique to IAM
@@ -171,9 +170,9 @@ function handle_error(req, res, err) {
 // we only support request with specific type
 function verify_op_request_body_type(req) {
     const headers = req.headers['content-type'];
-    if (!headers.includes(http_utils.CONTENT_TYPE_APP_FORM_URLENCODED)) {
-        dbg.error(`verify_op_request_body_type: should have header ${http_utils.CONTENT_TYPE_APP_FORM_URLENCODED}` +
-            `in request, ${headers}`);
+    if (headers === undefined || !headers.includes(http_utils.CONTENT_TYPE_APP_FORM_URLENCODED)) {
+        dbg.error(`verify_op_request_body_type: should have header ${http_utils.CONTENT_TYPE_APP_FORM_URLENCODED} ` +
+            `in request, currently the headers are: ${headers}`);
         // GAP - need to make sure which error we need to throw
         throw new IamError(IamError.InvalidParameterValue);
     }

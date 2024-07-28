@@ -83,6 +83,11 @@ async function handle_request(req, res) {
     await http_utils.read_and_parse_body(req, options);
 
     const op_name = parse_op_name(req, req.body.action);
+    const op = STS_OPS[op_name];
+    if (!op || !op.handler) {
+        dbg.error('STS NotImplemented', op_name, req.method, req.originalUrl);
+        throw new StsError(StsError.NotImplemented);
+    }
     req.op_name = op_name;
 
     http_utils.authorize_session_token(req, headers_options);
@@ -90,12 +95,6 @@ async function handle_request(req, res) {
     await authorize_request(req);
 
     dbg.log1('STS REQUEST', req.method, req.originalUrl, 'op', op_name, 'request_id', req.request_id, req.headers);
-
-    const op = STS_OPS[op_name];
-    if (!op || !op.handler) {
-        dbg.error('STS TODO (NotImplemented)', op_name, req.method, req.originalUrl);
-        throw new StsError(StsError.NotImplemented);
-    }
 
     const reply = await op.handler(req, res);
     http_utils.send_reply(req, res, reply, {

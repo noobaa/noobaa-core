@@ -114,6 +114,11 @@ async function handle_request(req, res) {
     }
 
     const op_name = parse_op_name(req);
+    const op = s3_ops[op_name];
+    if (!op || !op.handler) {
+        dbg.error('S3 NotImplemented', op_name, req.method, req.originalUrl);
+        throw new S3Error(S3Error.NotImplemented);
+    }
     req.op_name = op_name;
 
     http_utils.authorize_session_token(req, headers_options);
@@ -138,12 +143,6 @@ async function handle_request(req, res) {
             dbg.error('S3 Version request not (NotImplemented) for buckets with caching', op_name, req.method, req.originalUrl);
             throw new S3Error(S3Error.NotImplemented);
         }
-    }
-
-    const op = s3_ops[op_name];
-    if (!op || !op.handler) {
-        dbg.error('S3 TODO (NotImplemented)', op_name, req.method, req.originalUrl);
-        throw new S3Error(S3Error.NotImplemented);
     }
 
     const options = {

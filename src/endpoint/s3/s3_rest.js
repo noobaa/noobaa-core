@@ -216,6 +216,7 @@ async function authorize_request_policy(req) {
     if (!req.params.bucket) return;
     if (req.op_name === 'put_bucket') return;
 
+    // owner_account is { id: bucket.owner_account, email: bucket.bucket_owner };
     const { s3_policy, system_owner, bucket_owner, owner_account } = await req.object_sdk.read_bucket_sdk_policy_info(req.params.bucket);
     const auth_token = req.object_sdk.get_auth_token();
     const arn_path = _get_arn_from_req_path(req);
@@ -236,13 +237,17 @@ async function authorize_request_policy(req) {
 
     const is_owner = (function() {
         if (account.bucket_claim_owner && account.bucket_claim_owner.unwrap() === req.params.bucket) return true;
-        if (req.object_sdk.nsfs_config_root && account._id === owner_account.id) return true; // NC NSFS case
+        if (owner_account && owner_account.id === account._id) return true;
         if (account_identifier === bucket_owner.unwrap()) return true;
         return false;
     }());
 
     if (!s3_policy) {
-        if (is_owner) return;
+        // in case we do not have bucket policy
+        // we allow IAM account to access a bucket that is owned by their root account
+        const is_iam_account_and_same_root_account_owner = account.owner !== undefined &&
+            owner_account && account.owner === owner_account.id;
+        if (is_owner || is_iam_account_and_same_root_account_owner) return;
         throw new S3Error(S3Error.AccessDenied);
     }
     const permission = await s3_bucket_policy_utils.has_bucket_policy_permission(

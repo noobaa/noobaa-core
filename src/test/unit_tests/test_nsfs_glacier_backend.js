@@ -24,7 +24,7 @@ const BucketSpaceFS = require('../../sdk/bucketspace_fs');
 const inspect = (x, max_arr = 5) => util.inspect(x, { colors: true, depth: null, maxArrayLength: max_arr });
 
 function make_dummy_object_sdk(config_root) {
-    const bucketspace_fs = new BucketSpaceFS({ config_root });
+    const bucketspace_fs = new BucketSpaceFS({ config_root }, undefined);
     return {
         requesting_account: {
             force_md5_etag: false,

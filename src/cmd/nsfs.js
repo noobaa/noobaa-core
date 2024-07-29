@@ -136,7 +136,7 @@ class NsfsObjectSDK extends ObjectSDK {
         // };
         let bucketspace;
         if (config_root) {
-            bucketspace = new BucketSpaceFS({ config_root });
+            bucketspace = new BucketSpaceFS({ config_root }, endpoint_stats_collector.instance());
         } else {
             bucketspace = new BucketSpaceSimpleFS({ fs_root });
         }
@@ -221,7 +221,7 @@ class NsfsAccountSDK extends AccountSDK {
         let bucketspace;
         let accountspace;
         if (config_root) {
-            bucketspace = new BucketSpaceFS({ config_root });
+            bucketspace = new BucketSpaceFS({ config_root }, endpoint_stats_collector.instance());
             accountspace = new AccountSpaceFS({ config_root });
         } else {
             bucketspace = new BucketSpaceSimpleFS({ fs_root });

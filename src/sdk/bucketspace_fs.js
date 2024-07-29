@@ -30,39 +30,39 @@ const dbg = require('../util/debug_module')(__filename);
 const bucket_semaphore = new KeysSemaphore(1);
 
 
-//TODO:  dup from namespace_fs - need to handle and not dup code
-
-/**
- * @param {nb.ObjectSDK} object_sdk 
- * @param {string} [fs_backend]
- * @returns {nb.NativeFSContext}
- */
-function prepare_fs_context(object_sdk, fs_backend) {
-    const fs_context = object_sdk?.requesting_account?.nsfs_account_config;
-    if (!fs_context) throw new RpcError('UNAUTHORIZED', 'nsfs_account_config is missing');
-    fs_context.warn_threshold_ms = config.NSFS_WARN_THRESHOLD_MS;
-    fs_context.backend = fs_backend;
-    // TODO: 
-    //if (this.stats) fs_context.report_fs_stats = this.stats.update_fs_stats;
-    return fs_context;
-}
-
 
 class BucketSpaceFS extends BucketSpaceSimpleFS {
-    constructor({config_root}) {
+    constructor({config_root}, stats) {
         super({ fs_root: ''});
         this.fs_root = '';
         this.accounts_dir = path.join(config_root, CONFIG_SUBDIRS.ACCOUNTS);
         this.access_keys_dir = path.join(config_root, CONFIG_SUBDIRS.ACCESS_KEYS);
         this.bucket_schema_dir = path.join(config_root, CONFIG_SUBDIRS.BUCKETS);
         this.config_root = config_root;
+        this.stats = stats;
         this.fs_context = {
             uid: process.getuid(),
             gid: process.getgid(),
             warn_threshold_ms: config.NSFS_WARN_THRESHOLD_MS,
-            fs_backend: config.NSFS_NC_CONFIG_DIR_BACKEND
-            //fs_context.report_fs_stats = this.stats.update_fs_stats;
+            fs_backend: config.NSFS_NC_CONFIG_DIR_BACKEND,
+            report_fs_stats: this.stats?.update_fs_stats
         };
+    }
+
+    //TODO:  dup from namespace_fs - need to handle and not dup code
+
+    /**
+     * @param {nb.ObjectSDK} object_sdk
+     * @param {string} [fs_backend]
+     * @returns {nb.NativeFSContext}
+     */
+    prepare_fs_context(object_sdk, fs_backend) {
+        const fs_context = object_sdk?.requesting_account?.nsfs_account_config;
+        if (!fs_context) throw new RpcError('UNAUTHORIZED', 'nsfs_account_config is missing');
+        fs_context.warn_threshold_ms = config.NSFS_WARN_THRESHOLD_MS;
+        fs_context.backend = fs_backend;
+        if (this.stats) fs_context.report_fs_stats = this.stats.update_fs_stats;
+        return fs_context;
     }
 
     _get_bucket_config_path(bucket_name) {
@@ -264,14 +264,14 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             if (!sdk.requesting_account.nsfs_account_config || !sdk.requesting_account.nsfs_account_config.new_buckets_path) {
                 throw new RpcError('MISSING_NSFS_ACCOUNT_CONFIGURATION');
             }
-            const fs_context = prepare_fs_context(sdk);
+            const fs_context = this.prepare_fs_context(sdk);
             validate_bucket_creation(params);
 
             const { name } = params;
             const bucket_config_path = this._get_bucket_config_path(name);
             const bucket_storage_path = path.join(sdk.requesting_account.nsfs_account_config.new_buckets_path, name);
 
-            dbg.log0(`BucketSpaceFS.create_bucket 
+            dbg.log0(`BucketSpaceFS.create_bucket
                 requesting_account=${util.inspect(sdk.requesting_account)},
                 bucket_config_path=${bucket_config_path},
                 bucket_storage_path=${bucket_storage_path}`);
@@ -801,7 +801,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
         try {
             dbg.log1('_has_access_to_nsfs_dir: checking access:', ns.write_resource, account.nsfs_account_config.uid, account.nsfs_account_config.gid);
             const path_to_check = path.join(ns.write_resource.resource.fs_root_path, ns.write_resource.path || '');
-            const fs_context = prepare_fs_context(object_sdk, ns.write_resource.resource.fs_backend);
+            const fs_context = this.prepare_fs_context(object_sdk, ns.write_resource.resource.fs_backend);
             await nb_native().fs.checkAccess(fs_context, path_to_check);
             return true;
         } catch (err) {

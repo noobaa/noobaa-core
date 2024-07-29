@@ -32,6 +32,7 @@ async function get_bucket_versions(req) {
     });
 
     const field_encoder = s3_utils.get_response_field_encoder(req);
+    const default_object_owner = await s3_utils.get_default_object_owner(req.params.bucket, req.object_sdk);
 
     return {
         ListVersionsResult: [{
@@ -52,7 +53,7 @@ async function get_bucket_versions(req) {
                 VersionId: obj.version_id || 'null',
                 IsLatest: obj.is_latest,
                 LastModified: s3_utils.format_s3_xml_date(obj.create_time),
-                Owner: s3_utils.DEFAULT_S3_USER,
+                Owner: s3_utils.get_object_owner(obj) || default_object_owner,
             }
         }) : ({
             Version: {
@@ -62,7 +63,7 @@ async function get_bucket_versions(req) {
                 LastModified: s3_utils.format_s3_xml_date(obj.create_time),
                 ETag: `"${obj.etag}"`,
                 Size: obj.size,
-                Owner: s3_utils.DEFAULT_S3_USER,
+                Owner: s3_utils.get_object_owner(obj) || default_object_owner,
                 StorageClass: s3_utils.parse_storage_class(obj.storage_class),
             }
         }))),

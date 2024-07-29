@@ -213,7 +213,7 @@ class NamespaceCache {
         if (get_from_cache) {
             return this.namespace_nb.list_objects(params, object_sdk);
         }
-        return this.list_object_versions(params, object_sdk);
+        return this.namespace_hub.list_object_versions(params, object_sdk);
     }
 
     /////////////////

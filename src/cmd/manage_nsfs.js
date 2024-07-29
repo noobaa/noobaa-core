@@ -528,8 +528,10 @@ async function delete_account(data) {
     const account_config_path = get_config_file_path(global_config.accounts_dir_path, data.name);
     await native_fs_utils.delete_config_file(fs_context, global_config.accounts_dir_path, account_config_path);
     if (has_access_keys(data.access_keys)) {
-        const access_key_config_path = get_symlink_config_file_path(global_config.access_keys_dir_path, data.access_keys[0].access_key);
-        await nb_native().fs.unlink(fs_context, access_key_config_path);
+        for (const access_key_object of data.access_keys) {
+            const access_key_config_path = get_symlink_config_file_path(global_config.access_keys_dir_path, access_key_object.access_key);
+            await nb_native().fs.unlink(fs_context, access_key_config_path);
+        }
     }
     write_stdout_response(ManageCLIResponse.AccountDeleted, '', {account: data.name});
 }

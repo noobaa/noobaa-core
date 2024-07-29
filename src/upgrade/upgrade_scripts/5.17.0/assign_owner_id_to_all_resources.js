@@ -6,7 +6,7 @@ const config = require('../../../../config');
 async function run({ dbg, system_store }) {
 
     try {
-        const operator_account = system_store.accounts.find(account => account.email.unwrap() === config.OPERATOR_ACCOUNT_EMAIL);
+        const operator_account = system_store.data.accounts.find(account => account.email.unwrap() === config.OPERATOR_ACCOUNT_EMAIL);
         const operator_account_id = operator_account._id;
         dbg.log0('Assigning account ID ', operator_account_id, ' as owner_id to all pools and resources');
         const updated_pools = system_store.data.pools

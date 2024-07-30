@@ -39,8 +39,8 @@ const buffers_pool = new buffer_utils.BuffersPool({
 const XATTR_USER_PREFIX = 'user.';
 const XATTR_NOOBAA_INTERNAL_PREFIX = XATTR_USER_PREFIX + 'noobaa.';
 // TODO: In order to verify validity add content_md5_mtime as well
-const XATTR_CONTENT_TYPE = XATTR_USER_PREFIX + 'content_type';
 const XATTR_MD5_KEY = XATTR_USER_PREFIX + 'content_md5';
+const XATTR_CONTENT_TYPE = XATTR_NOOBAA_INTERNAL_PREFIX + 'content_type';
 const XATTR_PART_OFFSET = XATTR_NOOBAA_INTERNAL_PREFIX + 'part_offset';
 const XATTR_PART_SIZE = XATTR_NOOBAA_INTERNAL_PREFIX + 'part_size';
 const XATTR_PART_ETAG = XATTR_NOOBAA_INTERNAL_PREFIX + 'part_etag';
@@ -740,7 +740,7 @@ class NamespaceFS {
                 if (r.common_prefix) {
                     res.common_prefixes.push(r.key);
                 } else {
-                    obj_info = this._get_object_info(bucket, r.key, r.stat, 'null', true);
+                    obj_info = this._get_object_info(bucket, r.key, r.stat, 'null', false, true);
                     if (!list_versions && obj_info.delete_marker) {
                         continue;
                     }
@@ -776,9 +776,21 @@ class NamespaceFS {
             const file_path = await this._find_version_path(fs_context, params, true);
             await this._check_path_in_bucket_boundaries(fs_context, file_path);
             await this._load_bucket(params, fs_context);
-            const stat = await nb_native().fs.stat(fs_context, file_path);
+            let stat = await nb_native().fs.stat(fs_context, file_path);
+            const isDir = isDirectory(stat);
+            if (isDir) {
+                if (!stat.xattr?.[XATTR_DIR_CONTENT] || !params.key.endsWith('/')) {
+                    throw error_utils.new_error_code('ENOENT', 'NoSuchKey');
+                } else if (stat.xattr?.[XATTR_DIR_CONTENT] !== '0') {
+                    // find dir object content file path  and return its stat + xattr of its parent directory
+                    const dir_content_path = await this._find_version_path(fs_context, params);
+                    const dir_content_path_stat = await nb_native().fs.stat(fs_context, dir_content_path);
+                    const xattr = stat.xattr;
+                    stat = { ...dir_content_path_stat, xattr };
+                }
+            }
             this._throw_if_delete_marker(stat);
-            return this._get_object_info(params.bucket, params.key, stat, params.version_id || 'null');
+            return this._get_object_info(params.bucket, params.key, stat, params.version_id || 'null', isDir);
         } catch (err) {
             this.run_update_issues_report(object_sdk, err);
             throw this._translate_object_error_codes(err);
@@ -1076,35 +1088,36 @@ class NamespaceFS {
         const part_upload = file_path === upload_path;
         const same_inode = params.copy_source && copy_res === copy_status_enum.SAME_INODE;
         const is_dir_content = this._is_directory_content(file_path, params.key);
-
         let stat = await target_file.stat(fs_context);
         this._verify_encryption(params.encryption, this._get_encryption_info(stat));
 
-        let fs_xattr;
         // handle xattr
-        if (!params.copy_source || !params.xattr_copy) {
-            fs_xattr = to_fs_xattr(params.xattr);
-            if (params.content_type) {
-                fs_xattr = fs_xattr || {};
-                fs_xattr[XATTR_CONTENT_TYPE] = params.content_type;
-            }
-            if (digest) {
-                const { md5_b64, key, bucket, upload_id } = params;
-                if (md5_b64) {
-                    const md5_hex = Buffer.from(md5_b64, 'base64').toString('hex');
-                    if (md5_hex !== digest) throw new Error('_upload_stream mismatch etag: ' + util.inspect({ key, bucket, upload_id, md5_hex, digest }));
-                }
-                fs_xattr = this._assign_md5_to_fs_xattr(digest, fs_xattr);
-            }
-            if (part_upload) {
-                fs_xattr = await this._assign_part_props_to_fs_xattr(fs_context, params.size, digest, offset, fs_xattr);
-            }
-            if (!part_upload && (this._is_versioning_enabled() || this._is_versioning_suspended())) {
-                const cur_ver_info = await this._get_version_info(fs_context, file_path);
-                fs_xattr = await this._assign_versions_to_fs_xattr(fs_context, cur_ver_info, stat, params.key, fs_xattr);
-            }
-            if (fs_xattr && !is_dir_content) await target_file.replacexattr(fs_context, fs_xattr);
+        // assign user xattr on non copy / copy with xattr_copy header provided
+        const copy_xattr = params.copy_source && params.xattr_copy;
+        let fs_xattr = copy_xattr ? undefined : to_fs_xattr(params.xattr);
+
+        // assign noobaa internal xattr - content type, md5, versioning xattr
+        if (params.content_type) {
+            fs_xattr = fs_xattr || {};
+            fs_xattr[XATTR_CONTENT_TYPE] = params.content_type;
         }
+        if (digest) {
+            const { md5_b64, key, bucket, upload_id } = params;
+            if (md5_b64) {
+                const md5_hex = Buffer.from(md5_b64, 'base64').toString('hex');
+                if (md5_hex !== digest) throw new Error('_upload_stream mismatch etag: ' + util.inspect({ key, bucket, upload_id, md5_hex, digest }));
+            }
+            fs_xattr = this._assign_md5_to_fs_xattr(digest, fs_xattr);
+        }
+        if (part_upload) {
+            fs_xattr = await this._assign_part_props_to_fs_xattr(fs_context, params.size, digest, offset, fs_xattr);
+        }
+        if (!part_upload && (this._is_versioning_enabled() || this._is_versioning_suspended())) {
+            const cur_ver_info = await this._get_version_info(fs_context, file_path);
+            fs_xattr = await this._assign_versions_to_fs_xattr(fs_context, cur_ver_info, stat, params.key, fs_xattr);
+        }
+
+        if (fs_xattr && !is_dir_content) await target_file.replacexattr(fs_context, fs_xattr);
         // fsync
         if (config.NSFS_TRIGGER_FSYNC) await target_file.fsync(fs_context);
         dbg.log1('NamespaceFS._finish_upload:', open_mode, file_path, upload_path, fs_xattr);
@@ -1115,8 +1128,10 @@ class NamespaceFS {
         }
 
         // when object is a dir, xattr are set on the folder itself and the content is in .folder file
-        if (is_dir_content) await this._assign_dir_content_to_xattr(fs_context, fs_xattr, { ...params, size: stat.size });
-
+        if (is_dir_content) {
+            if (params.copy_source) fs_xattr = await this._get_copy_source_xattr(params, fs_context, fs_xattr);
+            await this._assign_dir_content_to_xattr(fs_context, fs_xattr, { ...params, size: stat.size }, copy_xattr);
+        }
         stat = await nb_native().fs.stat(fs_context, file_path);
         const upload_info = this._get_upload_info(stat, fs_xattr && fs_xattr[XATTR_VERSION_ID]);
         return upload_info;
@@ -1124,22 +1139,35 @@ class NamespaceFS {
 
     async _create_empty_dir_content(fs_context, params, file_path) {
         await this._make_path_dirs(file_path, fs_context);
+        const copy_xattr = params.copy_source && params.xattr_copy;
 
-        const fs_xattr = to_fs_xattr(params.xattr);
-        await this._assign_dir_content_to_xattr(fs_context, fs_xattr, params);
+        let fs_xattr = copy_xattr ? {} : to_fs_xattr(params.xattr) || {};
+        if (params.content_type) {
+            fs_xattr = fs_xattr || {};
+            fs_xattr[XATTR_CONTENT_TYPE] = params.content_type;
+        }
+        if (params.copy_source) fs_xattr = await this._get_copy_source_xattr(params, fs_context, fs_xattr);
+
+        await this._assign_dir_content_to_xattr(fs_context, fs_xattr, params, copy_xattr);
         // when .folder exist and it's no upload flow - .folder should be deleted if it exists
         try {
-           await nb_native().fs.unlink(fs_context, file_path);
+            await nb_native().fs.unlink(fs_context, file_path);
         } catch (err) {
             if (err.code !== 'ENOENT') throw err;
             dbg.log0(`namespace_fs._create_empty_dir_content: dir object file ${config.NSFS_FOLDER_OBJECT_NAME} was already deleted`);
         }
         const dir_path = this._get_file_md_path(params);
         const stat = await nb_native().fs.stat(fs_context, dir_path);
-        const upload_info = this._get_upload_info(stat, fs_xattr && fs_xattr[XATTR_VERSION_ID]);
+        const upload_info = this._get_upload_info(stat, fs_xattr[XATTR_VERSION_ID]);
         return upload_info;
     }
 
+    async _get_copy_source_xattr(params, fs_context, fs_xattr) {
+        const is_source_dir = params.copy_source.key.endsWith('/');
+        const source_file_md_path = await this._find_version_path(fs_context, params.copy_source, is_source_dir);
+        const source_stat = await nb_native().fs.stat(fs_context, source_file_md_path);
+        return { ...source_stat.xattr, ...fs_xattr };
+    }
 
     // move to dest GPFS (wt) / POSIX (w / undefined) - non part upload
     async _move_to_dest(fs_context, source_path, dest_path, target_file, open_mode, key) {
@@ -1816,12 +1844,14 @@ class NamespaceFS {
      * assigns XATTR_DIR_CONTENT xattr to the fs_xattr object of the file and set to the directory
      * existing xattr starting with XATTR_USER_PREFIX will be cleared
     */
-    async _assign_dir_content_to_xattr(fs_context, fs_xattr, params) {
+    async _assign_dir_content_to_xattr(fs_context, fs_xattr, params, copy_xattr) {
         const dir_path = this._get_file_md_path(params);
         fs_xattr = Object.assign(fs_xattr || {}, {
             [XATTR_DIR_CONTENT]: params.size || 0
         });
-        await this.set_fs_xattr_op(fs_context, dir_path, fs_xattr, XATTR_USER_PREFIX);
+        // when copying xattr we shouldn't clear user xattr
+        const clear_xattr = copy_xattr ? '' : XATTR_USER_PREFIX;
+        await this.set_fs_xattr_op(fs_context, dir_path, fs_xattr, clear_xattr);
     }
 
     /**
@@ -1886,19 +1916,23 @@ class NamespaceFS {
      * @param {nb.NativeFSStats} stat 
      * @returns {nb.ObjectInfo}
      */
-     _get_object_info(bucket, key, stat, return_version_id, is_latest = true) {
+     _get_object_info(bucket, key, stat, return_version_id, isDir, is_latest = true) {
         const etag = this._get_etag(stat);
         const create_time = stat.mtime.getTime();
         const encryption = this._get_encryption_info(stat);
         const version_id = return_version_id && this._is_versioning_enabled() && this._get_version_id_by_xattr(stat);
-        const delete_marker = stat.xattr[XATTR_DELETE_MARKER] === 'true';
-        const content_type = stat.xattr[XATTR_CONTENT_TYPE] || mime.getType(key) || 'application/octet-stream';
+        const delete_marker = stat.xattr?.[XATTR_DELETE_MARKER] === 'true';
+        const dir_content_type = stat.xattr?.[XATTR_DIR_CONTENT] && ((Number(stat.xattr?.[XATTR_DIR_CONTENT]) > 0 && 'application/octet-stream') || 'application/x-directory');
+        const content_type = stat.xattr?.[XATTR_CONTENT_TYPE] ||
+            (isDir && dir_content_type) ||
+            mime.getType(key) || 'application/octet-stream';
+        const size = Number(stat.xattr?.[XATTR_DIR_CONTENT] || stat.size);
 
         return {
             obj_id: etag,
             bucket,
             key,
-            size: stat.size,
+            size,
             etag,
             create_time,
             content_type,

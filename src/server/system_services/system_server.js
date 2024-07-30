@@ -5,8 +5,6 @@ require('../../util/dotenv').load();
 
 const _ = require('lodash');
 const net = require('net');
-const dns = require('dns');
-const request = require('request');
 const ip_module = require('ip');
 const moment = require('moment');
 const util = require('util');
@@ -23,7 +21,6 @@ const { EndpointStatsStore } = require('../analytic_services/endpoint_stats_stor
 const os_utils = require('../../util/os_utils');
 const { RpcError } = require('../../rpc');
 const nb_native = require('../../util/nb_native');
-const net_utils = require('../../util/net_utils');
 const Dispatcher = require('../notifications/dispatcher');
 const size_utils = require('../../util/size_utils');
 const server_rpc = require('../server_rpc');
@@ -858,77 +855,6 @@ async function update_n2n_config(req) {
     await server_rpc.client.node.sync_monitor_to_store(undefined, { auth_token });
 }
 
-async function attempt_server_resolve(req) {
-
-    // If already in IP form, no need for resolving
-    if (net.isIP(req.rpc_params.server_name)) {
-        dbg.log2('attempt_server_resolve received an IP form', req.rpc_params.server_name);
-        return { valid: true };
-    }
-
-    try {
-        dbg.log0('attempt_server_resolve: testing dns resolve', req.rpc_params.server_name);
-        await P.timeout(30000, dns.promises.resolve(req.rpc_params.server_name));
-        dbg.log0('attempt_server_resolve: dns resolve OK');
-    } catch (err) {
-        if (err instanceof P.TimeoutError) {
-            dbg.error('attempt_server_resolve: dns resolve timeout', req.rpc_params.server_name);
-            return { valid: false, reason: 'TimeoutError' };
-        } else {
-            dbg.error('attempt_server_resolve: dns resolve failed', err);
-            return { valid: false, reason: err.code };
-        }
-    }
-
-    if (req.rpc_params.ping) {
-        try {
-            dbg.log0('attempt_server_resolve: testing ping', req.rpc_params.server_name);
-            await net_utils.ping(req.rpc_params.server_name);
-            dbg.error('attempt_server_resolve: ping OK');
-        } catch (err) {
-            dbg.error('attempt_server_resolve: ping failed', err);
-            return { valid: false, reason: err.code };
-        }
-    }
-
-    if (req.rpc_params.version_check) {
-        try {
-            const options = {
-                url: `http://${req.rpc_params.server_name}:${process.env.PORT}/version`,
-                method: 'GET',
-                strictSSL: false, // means rejectUnauthorized: false
-            };
-
-            dbg.log0('attempt_server_resolve: testing version', options);
-            /** @type {request.Response} */
-            const res = await P.fromCallback(callback => request(options, callback));
-            dbg.log0('attempt_server_resolve: version response', res.statusCode, res.body);
-
-            if (res.statusCode !== 200) {
-                dbg.error('attempt_server_resolve: version failed', res.statusCode);
-                return {
-                    valid: false,
-                    reason: `Provided DNS Name doesn't seem to point to the current server (bad status)`
-                };
-            }
-
-            if (res.body !== pkg.version) {
-                dbg.error('attempt_server_resolve: version mismatch', res.statusCode);
-                return {
-                    valid: false,
-                    reason: `Provided DNS Name doesn't seem to point to the current server (version mismatch)`
-                };
-            }
-
-        } catch (err) {
-            dbg.error('attempt_server_resolve: version failed', err);
-            return { valid: false, reason: err.code };
-        }
-    }
-
-    return { valid: true };
-}
-
 
 function log_client_console(req) {
     _.each(req.rpc_params.data, function(line) {
@@ -1325,8 +1251,8 @@ async function rotate_master_key(req) {
     // create the new master key and update in db
     const root_key_id = system_store.master_key_manager.get_root_key_id();
     const mastr_key_id = system_store.master_key_manager.is_root_key(old_master_key.master_key_id) ?
-            root_key_id :
-            old_master_key.master_key_id && old_master_key.master_key_id._id;
+        root_key_id :
+        old_master_key.master_key_id && old_master_key.master_key_id._id;
 
     const master_key_base_props = {
         'master_key_id': mastr_key_id,
@@ -1670,7 +1596,6 @@ exports.set_last_stats_report_time = set_last_stats_report_time;
 exports.log_client_console = log_client_console;
 
 exports.update_n2n_config = update_n2n_config;
-exports.attempt_server_resolve = attempt_server_resolve;
 exports.set_maintenance_mode = set_maintenance_mode;
 exports.set_webserver_master_state = set_webserver_master_state;
 exports.get_join_cluster_yaml = get_join_cluster_yaml;

@@ -130,8 +130,9 @@ async function main(options = {}) {
         dbg.log0('Configured Virtual Hosts:', virtual_hosts);
         dbg.log0('Configured Location Info:', location_info);
 
+        const node_name = process.env.NODE_NAME || os.hostname();
         bucket_logger = config.BUCKET_LOG_TYPE === 'PERSISTENT' &&
-            new PersistentLogger(config.PERSISTENT_BUCKET_LOG_DIR, config.PERSISTENT_BUCKET_LOG_NS, {
+            new PersistentLogger(config.PERSISTENT_BUCKET_LOG_DIR, config.PERSISTENT_BUCKET_LOG_NS + '_' + node_name, {
                 locking: 'SHARED',
                 poll_interval: config.NSFS_GLACIER_LOGS_POLL_INTERVAL,
             });

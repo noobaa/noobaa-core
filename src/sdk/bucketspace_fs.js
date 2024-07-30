@@ -22,7 +22,7 @@ const { CONFIG_SUBDIRS } = require('../manage_nsfs/manage_nsfs_constants');
 const KeysSemaphore = require('../util/keys_semaphore');
 const { get_umasked_mode, isDirectory, validate_bucket_creation,
     create_config_file, delete_config_file, get_bucket_tmpdir_full_path, folder_delete,
-    entity_enum, translate_error_codes } = require('../util/native_fs_utils');
+    entity_enum, translate_error_codes, update_config_file} = require('../util/native_fs_utils');
 const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
 const { anonymous_access_key } = require('./object_sdk');
 
@@ -423,13 +423,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                 bucket);
             nsfs_schema_utils.validate_bucket_schema(bucket);
             const update_bucket = JSON.stringify(bucket);
-            await nb_native().fs.writeFile(
-                this.fs_context,
-                bucket_config_path,
-                Buffer.from(update_bucket), {
-                    mode: get_umasked_mode(config.BASE_MODE_CONFIG_FILE)
-                }
-            );
+            await update_config_file(this.fs_context, this.bucket_schema_dir, bucket_config_path, update_bucket);
         } catch (err) {
             throw translate_error_codes(err, entity_enum.BUCKET);
         }
@@ -481,13 +475,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             dbg.log2('put_bucket_logging: bucket properties before validate_bucket_schema', bucket);
             nsfs_schema_utils.validate_bucket_schema(bucket);
             const update_bucket = JSON.stringify(bucket);
-            await nb_native().fs.writeFile(
-                this.fs_context,
-                bucket_config_path,
-                Buffer.from(update_bucket), {
-                    mode: get_umasked_mode(config.BASE_MODE_CONFIG_FILE)
-                }
-            );
+            await update_config_file(this.fs_context, this.bucket_schema_dir, bucket_config_path, update_bucket);
         } catch (err) {
             throw translate_error_codes(err, entity_enum.BUCKET);
         }
@@ -505,13 +493,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             // on the safe side validate before changing configuration
             nsfs_schema_utils.validate_bucket_schema(bucket);
             const update_bucket = JSON.stringify(bucket);
-            await nb_native().fs.writeFile(
-                this.fs_context,
-                bucket_config_path,
-                Buffer.from(update_bucket), {
-                    mode: get_umasked_mode(config.BASE_MODE_CONFIG_FILE)
-                }
-            );
+            await update_config_file(this.fs_context, this.bucket_schema_dir, bucket_config_path, update_bucket);
         } catch (err) {
             throw translate_error_codes(err, entity_enum.BUCKET);
         }
@@ -548,12 +530,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             bucket_to_validate);
             nsfs_schema_utils.validate_bucket_schema(bucket_to_validate);
             const update_bucket = JSON.stringify(bucket);
-            await nb_native().fs.writeFile(
-                this.fs_context,
-                bucket_config_path,
-                Buffer.from(update_bucket),
-                { mode: get_umasked_mode(config.BASE_MODE_CONFIG_FILE) }
-            );
+            await update_config_file(this.fs_context, this.bucket_schema_dir, bucket_config_path, update_bucket);
         } catch (err) {
             throw translate_error_codes(err, entity_enum.BUCKET);
         }
@@ -584,12 +561,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             // on the safe side validate before changing configuration
             nsfs_schema_utils.validate_bucket_schema(bucket);
             const update_bucket = JSON.stringify(bucket);
-            await nb_native().fs.writeFile(
-                this.fs_context,
-                bucket_config_path,
-                Buffer.from(update_bucket),
-                { mode: get_umasked_mode(config.BASE_MODE_CONFIG_FILE) }
-            );
+            await update_config_file(this.fs_context, this.bucket_schema_dir, bucket_config_path, update_bucket);
         } catch (err) {
             throw translate_error_codes(err, entity_enum.BUCKET);
         }
@@ -612,12 +584,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             bucket_to_validate);
             nsfs_schema_utils.validate_bucket_schema(bucket_to_validate);
             const update_bucket = JSON.stringify(bucket);
-            await nb_native().fs.writeFile(
-                this.fs_context,
-                bucket_config_path,
-                Buffer.from(update_bucket),
-                { mode: get_umasked_mode(config.BASE_MODE_CONFIG_FILE) }
-            );
+            await update_config_file(this.fs_context, this.bucket_schema_dir, bucket_config_path, update_bucket);
         } catch (err) {
             throw translate_error_codes(err, entity_enum.BUCKET);
         }
@@ -635,12 +602,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             // on the safe side validate before changing configuration
             nsfs_schema_utils.validate_bucket_schema(bucket);
             const update_bucket = JSON.stringify(bucket);
-            await nb_native().fs.writeFile(
-                this.fs_context,
-                bucket_config_path,
-                Buffer.from(update_bucket),
-                { mode: get_umasked_mode(config.BASE_MODE_CONFIG_FILE) }
-            );
+            await update_config_file(this.fs_context, this.bucket_schema_dir, bucket_config_path, update_bucket);
         } catch (err) {
             throw translate_error_codes(err, entity_enum.BUCKET);
         }
@@ -683,12 +645,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             await bucket_policy_utils.validate_s3_policy(bucket.s3_policy, bucket.name, async principal =>
                  this._get_account_by_name(principal));
             const update_bucket = JSON.stringify(bucket);
-            await nb_native().fs.writeFile(
-                this.fs_context,
-                bucket_config_path,
-                Buffer.from(update_bucket),
-                { mode: get_umasked_mode(config.BASE_MODE_CONFIG_FILE) }
-            );
+            await update_config_file(this.fs_context, this.bucket_schema_dir, bucket_config_path, update_bucket);
         } catch (err) {
             throw translate_error_codes(err, entity_enum.BUCKET);
         }
@@ -706,12 +663,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             // on the safe side validate before changing configuration
             nsfs_schema_utils.validate_bucket_schema(bucket);
             const update_bucket = JSON.stringify(bucket);
-            await nb_native().fs.writeFile(
-                this.fs_context,
-                bucket_config_path,
-                Buffer.from(update_bucket),
-                { mode: get_umasked_mode(config.BASE_MODE_CONFIG_FILE) }
-            );
+            await update_config_file(this.fs_context, this.bucket_schema_dir, bucket_config_path, update_bucket);
         } catch (err) {
             throw translate_error_codes(err, entity_enum.BUCKET);
         }

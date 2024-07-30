@@ -27,7 +27,7 @@ async function list_users(req, res) {
                 Users: reply.members.map(member => ({
                     member: {
                         UserId: member.user_id,
-                        Path: member.iam_path || iam_utils.IAM_DEFAULT_PATH,
+                        Path: member.iam_path || iam_constants.IAM_DEFAULT_PATH,
                         UserName: member.username,
                         Arn: member.arn,
                         CreateDate: iam_utils.format_iam_xml_date(member.create_date),

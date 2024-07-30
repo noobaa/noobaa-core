@@ -9,9 +9,10 @@ const P = require('../util/promise');
 const nb_native = require('../util/nb_native');
 const native_fs_utils = require('../util/native_fs_utils');
 const { CONFIG_SUBDIRS } = require('../manage_nsfs/manage_nsfs_constants');
-const { create_arn, IAM_DEFAULT_PATH, get_action_message_title,
-    check_iam_path_was_set, MAX_NUMBER_OF_ACCESS_KEYS,
-    access_key_status_enum, identity_enum } = require('../endpoint/iam/iam_utils');
+const { create_arn, get_action_message_title,
+    check_iam_path_was_set } = require('../endpoint/iam/iam_utils');
+const { IAM_ACTIONS, MAX_NUMBER_OF_ACCESS_KEYS, IAM_DEFAULT_PATH,
+    ACCESS_KEY_STATUS_ENUM, IDENTITY_ENUM } = require('../endpoint/iam/iam_constants');
 const nsfs_schema_utils = require('../manage_nsfs/nsfs_schema_utils');
 const IamError = require('../endpoint/iam/iam_errors').IamError;
 const cloud_utils = require('../util/cloud_utils');
@@ -65,8 +66,8 @@ class AccountSpaceFS {
     //     GAP - it should be only under the root account in the future
     // 3 - copy the data from the root account user details to a new config file
     async create_user(params, account_sdk) {
-        const action = 'create_user';
-        dbg.log1(`AccountSpaceFS.${action}`, params, account_sdk);
+        const action = IAM_ACTIONS.CREATE_USER;
+        dbg.log1(`AccountSpaceFS.${action}`, params);
         try {
             const requesting_account = account_sdk.requesting_account;
             this._check_if_requesting_account_is_root_account(action, requesting_account,
@@ -96,8 +97,8 @@ class AccountSpaceFS {
     // if the requesting account is root accounts manager that creates root account user:
     //    5 - check that the user to get is not an IAM user
     async get_user(params, account_sdk) {
-        const action = 'get_user';
-        dbg.log1(`AccountSpaceFS.${action}`, params, account_sdk);
+        const action = IAM_ACTIONS.GET_USER;
+        dbg.log1(`AccountSpaceFS.${action}`, params);
         try {
             const requesting_account = account_sdk.requesting_account;
             const { requester } = this._check_root_account_or_user(requesting_account, params.username);
@@ -138,9 +139,9 @@ class AccountSpaceFS {
     // 7 - (else not an update of username) update the config file
     // 8 - remove the access_keys from the account_cache
     async update_user(params, account_sdk) {
-        const action = 'update_user';
+        const action = IAM_ACTIONS.UPDATE_USER;
         try {
-            dbg.log1(`AccountSpaceFS.${action}`, params, account_sdk);
+            dbg.log1(`AccountSpaceFS.${action}`, params);
             const requesting_account = account_sdk.requesting_account;
             // GAP - we do not have the user iam_path at this point (error message)
             this._check_if_requesting_account_is_root_account(action, requesting_account,
@@ -192,8 +193,8 @@ class AccountSpaceFS {
     //     note: buckets are owned by the root account
     // 7 - delete the account config file
     async delete_user(params, account_sdk) {
-        const action = 'delete_user';
-        dbg.log1(`AccountSpaceFS.${action}`, params, account_sdk);
+        const action = IAM_ACTIONS.DELETE_USER;
+        dbg.log1(`AccountSpaceFS.${action}`, params);
         try {
             const requesting_account = account_sdk.requesting_account;
             // GAP - we do not have the user iam_path at this point (error message)
@@ -221,8 +222,8 @@ class AccountSpaceFS {
     //   2.1 - if the request has path_prefix check if the user’s path starts with this path
     // 3- sort the members by username (a to z)
     async list_users(params, account_sdk) {
-        const action = 'list_users';
-        dbg.log1(`AccountSpaceFS.${action}`, params, account_sdk);
+        const action = IAM_ACTIONS.LIST_USERS;
+        dbg.log1(`AccountSpaceFS.${action}`, params);
         try {
         const requesting_account = account_sdk.requesting_account;
         this._check_if_requesting_account_is_root_account(action, requesting_account, { });
@@ -252,8 +253,8 @@ class AccountSpaceFS {
     // 9 - update account config file
     // 10 - link new access key file to config file
     async create_access_key(params, account_sdk) {
-        const action = 'create_access_key';
-        dbg.log1(`AccountSpaceFS.${action}`, params, account_sdk);
+        const action = IAM_ACTIONS.CREATE_ACCESS_KEY;
+        dbg.log1(`AccountSpaceFS.${action}`, params);
         try {
             const requesting_account = account_sdk.requesting_account;
             const requester = this._check_if_requesting_account_is_root_account_or_user_om_himself(action,
@@ -262,7 +263,7 @@ class AccountSpaceFS {
             const requested_account_config_path = this._get_account_config_path(name_for_access_key);
             await this._check_if_account_config_file_exists(action, name_for_access_key, requested_account_config_path);
             const requested_account = await this._get_account_decrypted_data_optional(requested_account_config_path, true);
-            if (requester.identity === identity_enum.ROOT_ACCOUNT) {
+            if (requester.identity === IDENTITY_ENUM.ROOT_ACCOUNT) {
                 this._check_if_requested_is_owned_by_root_account(action, requesting_account, requested_account);
                 if (requesting_account.iam_operate_on_root_account) {
                     this._check_if_requested_account_is_root_account_or_IAM_user(action, requesting_account, requested_account);
@@ -303,8 +304,8 @@ class AccountSpaceFS {
     //     if the requesting account is root accounts manager - check that it performs on root account and not IAM user
     // General note: only serves the requester (no flag --user-name is passed)
     async get_access_key_last_used(params, account_sdk) {
-        const action = 'get_access_key_last_used';
-        dbg.log1(`AccountSpaceFS.${action}`, params, account_sdk);
+        const action = IAM_ACTIONS.GET_ACCESS_KEY_LAST_USED;
+        dbg.log1(`AccountSpaceFS.${action}`, params);
         try {
             const requesting_account = account_sdk.requesting_account;
             const access_key_id = params.access_key;
@@ -341,8 +342,8 @@ class AccountSpaceFS {
     // 10 - update account config file
     // 11 - remove the access_key from the account_cache
     async update_access_key(params, account_sdk) {
-        const action = 'update_access_key';
-        dbg.log1(`AccountSpaceFS.${action}`, params, account_sdk);
+        const action = IAM_ACTIONS.UPDATE_ACCESS_KEY;
+        dbg.log1(`AccountSpaceFS.${action}`, params);
         try {
             const requesting_account = account_sdk.requesting_account;
             const access_key_id = params.access_key;
@@ -394,8 +395,8 @@ class AccountSpaceFS {
     // 10 -  unlink the symbolic link
     // 11 - remove the access_key from the account_cache
     async delete_access_key(params, account_sdk) {
-        const action = 'delete_access_key';
-        dbg.log1(`AccountSpaceFS.${action}`, params, account_sdk);
+        const action = IAM_ACTIONS.DELETE_ACCESS_KEY;
+        dbg.log1(`AccountSpaceFS.${action}`, params);
         try {
             const requesting_account = account_sdk.requesting_account;
             const access_key_id = params.access_key;
@@ -438,8 +439,8 @@ class AccountSpaceFS {
     // 6 - members should be sorted by access_key (a to z)
     //     GAP - this is not written in the docs, only inferred (maybe it sorted is by create_date?)
     async list_access_keys(params, account_sdk) {
-        const action = 'list_access_keys';
-        dbg.log1(`AccountSpaceFS.${action}`, params, account_sdk);
+        const action = IAM_ACTIONS.LIST_ACCESS_KEYS;
+        dbg.log1(`AccountSpaceFS.${action}`, params);
         try {
             const requesting_account = account_sdk.requesting_account;
             const requester = this._check_if_requesting_account_is_root_account_or_user_om_himself(action,
@@ -561,7 +562,7 @@ class AccountSpaceFS {
         let message_with_details;
         if (entity === native_fs_utils.entity_enum.USER) {
             let user_message;
-            if (action === 'list_access_keys') {
+            if (action === IAM_ACTIONS.LIST_ACCESS_KEYS) {
                 user_message = `user ${requesting_account.name.unwrap()}`;
             } else {
                 user_message = create_arn(requesting_account._id, details.username, details.path);
@@ -648,8 +649,8 @@ class AccountSpaceFS {
 
     _check_if_requesting_account_is_root_account(action, requesting_account, user_details = {}) {
         const is_root_account = this._check_root_account(requesting_account);
-        dbg.log1(`AccountSpaceFS.${action} requesting_account`, requesting_account,
-            'is_root_account', is_root_account);
+        dbg.log1(`AccountSpaceFS.${action} requesting_account ID: ${requesting_account._id}` +
+            `name: ${requesting_account.name.unwrap()}`, 'is_root_account', is_root_account);
         if (!is_root_account) {
             dbg.error(`AccountSpaceFS.${action} requesting account is not a root account`,
                 requesting_account);
@@ -659,7 +660,7 @@ class AccountSpaceFS {
 
     _check_if_requested_account_is_root_account_or_IAM_user(action, requesting_account, requested_account) {
         const is_requested_account_root_account = this._check_root_account(requested_account);
-        dbg.log1(`AccountSpaceFS.${action} requested_account`, requested_account,
+        dbg.log1(`AccountSpaceFS.${action} requested_account ID: ${requested_account._id} name: ${requested_account.name}`,
             'is_requested_account_root_account', is_requested_account_root_account);
         // access to root account is allowed to root account that has iam_operate_on_root_account true
         if (is_requested_account_root_account && !requesting_account.iam_operate_on_root_account) {
@@ -767,7 +768,6 @@ class AccountSpaceFS {
         });
     }
 
-
     _check_if_user_does_not_have_access_keys_before_deletion(action, account_to_delete) {
         const resource_name = 'access keys';
         const is_access_keys_removed = account_to_delete.access_keys.length === 0;
@@ -818,7 +818,7 @@ class AccountSpaceFS {
         if (this._check_root_account(requesting_account)) {
             requester = {
                 name: requesting_account_name,
-                identity: identity_enum.ROOT_ACCOUNT
+                identity: IDENTITY_ENUM.ROOT_ACCOUNT
             };
             is_root_account_or_user_on_itself = true;
             return { is_root_account_or_user_on_itself, requester};
@@ -828,7 +828,7 @@ class AccountSpaceFS {
             const username_to_use = username ?? requesting_account_name;
             requester = {
                 name: username_to_use,
-                identity: identity_enum.USER
+                identity: IDENTITY_ENUM.USER
             };
             is_root_account_or_user_on_itself = true;
             return { is_root_account_or_user_on_itself, requester };
@@ -857,12 +857,12 @@ class AccountSpaceFS {
 
     _get_access_key_status(deactivated) {
         // we would like the default to be Active (so when it is undefined it would be Active)
-        const status = deactivated ? access_key_status_enum.INACTIVE : access_key_status_enum.ACTIVE;
+        const status = deactivated ? ACCESS_KEY_STATUS_ENUM.INACTIVE : ACCESS_KEY_STATUS_ENUM.ACTIVE;
         return status;
     }
 
     _check_access_key_is_deactivated(status) {
-        return status === access_key_status_enum.INACTIVE;
+        return status === ACCESS_KEY_STATUS_ENUM.INACTIVE;
     }
 
     _list_access_keys_from_account(account) {
@@ -884,7 +884,7 @@ class AccountSpaceFS {
             requesting_account,
             username
         );
-        dbg.log1(`AccountSpaceFS.${action} requesting_account`, requesting_account,
+        dbg.log1(`AccountSpaceFS.${action} requesting_account ID: ${requesting_account._id}, name: ${requesting_account.name.unwrap()}`,
         'is_root_account_or_user_on_itself', is_root_account_or_user_on_itself);
         if (!is_root_account_or_user_on_itself) {
             dbg.error(`AccountSpaceFS.${action} requesting account is neither a root account ` +

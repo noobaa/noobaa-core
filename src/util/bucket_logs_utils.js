@@ -5,11 +5,13 @@ const dbg = require('../util/debug_module')(__filename);
 const config = require('../../config');
 const stream = require('stream');
 const crypto = require('crypto');
+const path = require('path');
 const { PersistentLogger, LogFile } = require('../util/persistent_logger');
 const { format_aws_date } = require('../util/time_utils');
 const nsfs_schema_utils = require('../manage_nsfs/nsfs_schema_utils');
 const Semaphore = require('../util/semaphore');
 const P = require('../util/promise');
+const nb_native = require('../util/nb_native');
 
 const sem = new Semaphore(config.BUCKET_LOG_CONCURRENCY);
 
@@ -27,16 +29,21 @@ const BUCKET_NAME_DEL = "_";
  * @param {AWS.S3} s3_connection
  * @param {function} bucket_to_owner_keys_func
  */
-async function export_logs_to_target(config_fs, s3_connection, bucket_to_owner_keys_func) {
-    const log = new PersistentLogger(config.PERSISTENT_BUCKET_LOG_DIR, config.PERSISTENT_BUCKET_LOG_NS, { locking: 'EXCLUSIVE' });
-    try {
-        return log.process(async file => _upload_to_targets(config_fs, s3_connection, file, bucket_to_owner_keys_func));
-    } catch (err) {
-        dbg.error('processing log file failed', log.file);
-        throw err;
-    } finally {
-        await log.close();
-    }
+async function export_logs_to_target(fs_context, s3_connection, bucket_to_owner_keys_func) {
+    const entries = await nb_native().fs.readdir(fs_context, config.PERSISTENT_BUCKET_LOG_DIR);
+    const results = await P.map_with_concurrency(5, entries, async entry => {
+        if (!entry.name.endsWith('.log')) return;
+        const log = new PersistentLogger(config.PERSISTENT_BUCKET_LOG_DIR, path.parse(entry.name).name, { locking: 'EXCLUSIVE' });
+        try {
+            return log.process(async file => _upload_to_targets(fs_context, s3_connection, file, bucket_to_owner_keys_func));
+        } catch (err) {
+            dbg.error('processing log file failed', log.file);
+            throw err;
+        } finally {
+            await log.close();
+        }
+    });
+    return !results.includes(false);
 }
 
 /**

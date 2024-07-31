@@ -1371,8 +1371,46 @@ describe('manage nsfs cli account flow', () => {
             await fs_utils.file_must_not_exist(symlink_config_path);
         });
 
-        it('should fail - cli delete account, account owns a bucket', async () => {
+        it('cli delete account (account has 2 access keys objects)', async () => {
             // cli create account - happens in the "beforeEach"
+            const { type, name } = defaults;
+
+            // currently we don't have the ability to create 2 access keys in the noobaa-cli
+            // therefore, we will mock the config as there are 2 access keys objects
+            // and also create the symlink for the one that manually added
+            const account = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
+            const account_with_2_access_keys_objects = _.cloneDeep(account);
+            const access_key2 = 'AIGiFAnjaaE7OKD5N7hA';
+            const secret_key2 = 'A2AYaMpU3zRDcRFWmvzgQr9MoHIAsD+3AEXAMPLE';
+            account_with_2_access_keys_objects.access_keys.push({
+                access_key: access_key2,
+                secret_key: secret_key2,
+                creation_date: new Date().toISOString(),
+                deactivated: false,
+            });
+            const account_config_path = path.join(config_root, CONFIG_SUBDIRS.ACCOUNTS, name + '.json');
+            await update_config_file(DEFAULT_FS_CONFIG, CONFIG_SUBDIRS.ACCOUNTS,
+                account_config_path, JSON.stringify(account_with_2_access_keys_objects));
+            const account_config_relative_path = path.join(config_root, '../' + CONFIG_SUBDIRS.ACCOUNTS + '/', name + '.json');
+            const account_config_access_key_path = path.join(config_root, CONFIG_SUBDIRS.ACCESS_KEYS, access_key2 + '.symlink');
+            await nb_native().fs.symlink(DEFAULT_FS_CONFIG, account_config_relative_path, account_config_access_key_path);
+
+            // cli delete account
+            const action = ACTIONS.DELETE;
+            const account_options = { config_root, name };
+            const res = await exec_manage_cli(type, action, account_options);
+            const res_json = JSON.parse(res.trim());
+            expect(res_json.response.code).toBe(ManageCLIResponse.AccountDeleted.code);
+            const config_path = path.join(config_root, CONFIG_SUBDIRS.ACCOUNTS, name + '.json');
+            await fs_utils.file_must_not_exist(config_path);
+            const symlink_config_path1 = path.join(config_root, CONFIG_SUBDIRS.ACCESS_KEYS, defaults.access_key + '.symlink');
+            await fs_utils.file_must_not_exist(symlink_config_path1);
+            const symlink_config_path2 = path.join(config_root, CONFIG_SUBDIRS.ACCESS_KEYS, access_key2 + '.symlink');
+            await fs_utils.file_must_not_exist(symlink_config_path2);
+        });
+
+        it('should fail - cli delete account, account owns a bucket', async () => {
+            // manipulate the account that was created and add properties of another access key object
 
             // cli create bucket
             let type = TYPES.BUCKET;

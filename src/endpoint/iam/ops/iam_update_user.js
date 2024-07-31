@@ -25,7 +25,7 @@ async function update_user(req, res) {
         UpdateUserResponse: {
             UpdateUserResult: {
                 User: {
-                    Path: reply.iam_path || iam_utils.IAM_DEFAULT_PATH,
+                    Path: reply.iam_path || iam_constants.IAM_DEFAULT_PATH,
                     UserName: reply.username,
                     UserId: reply.user_id,
                     Arn: reply.arn,

@@ -15,7 +15,7 @@ const SensitiveString = require('../../../util/sensitive_string');
 const AccountSpaceFS = require('../../../sdk/accountspace_fs');
 const { TMP_PATH } = require('../../system_tests/test_utils');
 const { get_process_fs_context } = require('../../../util/native_fs_utils');
-const { IAM_DEFAULT_PATH, access_key_status_enum } = require('../../../endpoint/iam/iam_utils');
+const { IAM_DEFAULT_PATH, ACCESS_KEY_STATUS_ENUM } = require('../../../endpoint/iam/iam_constants');
 const fs_utils = require('../../../util/fs_utils');
 const { IamError } = require('../../../endpoint/iam/iam_errors');
 const nc_mkm = require('../../../manage_nsfs/nc_master_key_manager').get_instance();
@@ -1310,7 +1310,7 @@ describe('Accountspace_FS tests', () => {
                     const params = {
                         username: dummy_username1,
                         access_key: dummy_access_key,
-                        status: access_key_status_enum.ACTIVE,
+                        status: ACCESS_KEY_STATUS_ENUM.ACTIVE,
                     };
                     const account_sdk = make_dummy_account_sdk_non_root_user();
                     await accountspace_fs.update_access_key(params, account_sdk);
@@ -1327,7 +1327,7 @@ describe('Accountspace_FS tests', () => {
                     const params = {
                         username: dummy_username1,
                         access_key: dummy_access_key,
-                        status: access_key_status_enum.ACTIVE,
+                        status: ACCESS_KEY_STATUS_ENUM.ACTIVE,
                     };
                     const account_sdk = make_dummy_account_sdk();
                     await accountspace_fs.update_access_key(params, account_sdk);
@@ -1345,7 +1345,7 @@ describe('Accountspace_FS tests', () => {
                     const params = {
                         username: 'non-existing-user',
                         access_key: dummy_access_key,
-                        status: access_key_status_enum.ACTIVE,
+                        status: ACCESS_KEY_STATUS_ENUM.ACTIVE,
                     };
                     const account_sdk = make_dummy_account_sdk();
                     await accountspace_fs.update_access_key(params, account_sdk);
@@ -1365,7 +1365,7 @@ describe('Accountspace_FS tests', () => {
                     const params = {
                         // without username of dummy_username1
                         access_key: dummy_access_key,
-                        status: access_key_status_enum.ACTIVE,
+                        status: ACCESS_KEY_STATUS_ENUM.ACTIVE,
                     };
                     const account_sdk = make_dummy_account_sdk();
                     await accountspace_fs.update_access_key(params, account_sdk);
@@ -1384,7 +1384,7 @@ describe('Accountspace_FS tests', () => {
                     const params = {
                         username: dummy_username1,
                         access_key: access_key,
-                        status: access_key_status_enum.INACTIVE,
+                        status: ACCESS_KEY_STATUS_ENUM.INACTIVE,
                     };
                     await accountspace_fs.update_access_key(params, account_sdk);
                     throw new NoErrorThrownError();
@@ -1401,7 +1401,7 @@ describe('Accountspace_FS tests', () => {
                 const params = {
                     username: dummy_username1,
                     access_key: access_key,
-                    status: access_key_status_enum.INACTIVE,
+                    status: ACCESS_KEY_STATUS_ENUM.INACTIVE,
                 };
                 const res = await accountspace_fs.update_access_key(params, account_sdk);
                 expect(res).toBeUndefined();
@@ -1416,7 +1416,7 @@ describe('Accountspace_FS tests', () => {
                 const params = {
                     username: dummy_username1,
                     access_key: access_key,
-                    status: access_key_status_enum.ACTIVE,
+                    status: ACCESS_KEY_STATUS_ENUM.ACTIVE,
                 };
                 const res = await accountspace_fs.update_access_key(params, account_sdk);
                 expect(res).toBeUndefined();
@@ -1431,7 +1431,7 @@ describe('Accountspace_FS tests', () => {
                 const params = {
                     username: dummy_username1,
                     access_key: access_key,
-                    status: access_key_status_enum.ACTIVE,
+                    status: ACCESS_KEY_STATUS_ENUM.ACTIVE,
                 };
                 const res = await accountspace_fs.update_access_key(params, account_sdk);
                 expect(res).toBeUndefined();
@@ -1448,7 +1448,7 @@ describe('Accountspace_FS tests', () => {
                 const access_key = user_account_config_file.access_keys[1].access_key;
                 const params = {
                     access_key: access_key,
-                    status: access_key_status_enum.INACTIVE,
+                    status: ACCESS_KEY_STATUS_ENUM.INACTIVE,
                 };
                 const res = await accountspace_fs.update_access_key(params, account_sdk);
                 expect(res).toBeUndefined();
@@ -1469,7 +1469,7 @@ describe('Accountspace_FS tests', () => {
                     const params = {
                         username: dummy_user1.username,
                         access_key: access_key,
-                        status: access_key_status_enum.INACTIVE,
+                        status: ACCESS_KEY_STATUS_ENUM.INACTIVE,
                     };
                     await accountspace_fs.update_access_key(params, account_sdk);
                     throw new NoErrorThrownError();
@@ -1487,7 +1487,7 @@ describe('Accountspace_FS tests', () => {
                 const params = {
                     username: username,
                     access_key: access_key,
-                    status: access_key_status_enum.INACTIVE,
+                    status: ACCESS_KEY_STATUS_ENUM.INACTIVE,
                 };
                 const res = await accountspace_fs.update_access_key(params, account_sdk);
                 expect(res).toBeUndefined();

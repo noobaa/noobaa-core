@@ -1095,7 +1095,6 @@ function calc_namespace_resource_mode(namespace_resource) {
     const map_err_to_type_count = {
         ContainerNotFound: 'storage_not_exist',
         NoSuchBucket: 'storage_not_exist',
-        ENOENT: 'storage_not_exist',
         AccessDenied: 'auth_failed',
         AuthenticationFailed: 'auth_failed',
     };
@@ -1112,7 +1111,7 @@ function calc_namespace_resource_mode(namespace_resource) {
 
     const mode = (errors_count.storage_not_exist && 'STORAGE_NOT_EXIST') ||
         (errors_count.auth_failed && 'AUTH_FAILED') ||
-        (errors_count.io_errors > config.CLOUD_MAX_ALLOWED_IO_TEST_ERRORS && 'IO_ERRORS') ||
+        (errors_count.io_errors > config.NS_MAX_ALLOWED_IO_ERRORS && 'IO_ERRORS') ||
         'OPTIMAL';
 
     return mode;

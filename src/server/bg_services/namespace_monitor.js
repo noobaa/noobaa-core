@@ -13,6 +13,7 @@ const nb_native = require('../../util/nb_native');
 const config = require('../../../config');
 const P = require('../../util/promise');
 const AWS = require('aws-sdk');
+const S3Error = require('../../endpoint/s3/s3_errors').S3Error;
 
 class NamespaceMonitor {
 
@@ -199,7 +200,12 @@ class NamespaceMonitor {
         }
     }
 
+    // In test_nsfs_resource we check readdir and stat - 
+    // readdir checks read permissions and in the past stat didn't check read permissions.
+    // Nowadays stat also checks read permissions so now readdir is redundant - decided to keep it.
     async test_nsfs_resource(nsr) {
+        dbg.log1('test_nsfs_resource: (name, namespace_store, nsfs_config):',
+            nsr.name, nsr.namespace_store, nsr.nsfs_config);
         try {
             const fs_context = {
                 backend: nsr.nsfs_config.fs_backend || '',
@@ -208,12 +214,21 @@ class NamespaceMonitor {
             await nb_native().fs.readdir(fs_context, nsr.nsfs_config.fs_root_path);
             const stat = await nb_native().fs.stat(fs_context, nsr.nsfs_config.fs_root_path);
             //In the event of deleting the nsr.nsfs_config.fs_root_path in the FS side, 
-            // The number of link will be 0, then we will throw ENOENT which translate to STORAGE_NOT_EXIST
+            // The number of link will be 0, then we will throw an error which translate to STORAGE_NOT_EXIST
             if (stat.nlink === 0) {
+                dbg.log1('test_nsfs_resource: the number of links is 0', nsr.nsfs_config);
                 throw Object.assign(new Error('FS root path has no links'), { code: 'ENOENT' });
             }
         } catch (err) {
-            dbg.log1('test_nsfs_resource: got error:', err, nsr.nsfs_config);
+            dbg.error('test_nsfs_resource: got error:', err, nsr.nsfs_config);
+            // we change the code to control the mapping in pool server when calc the namespace mode
+            if (err.code === 'ENOENT') {
+                // it can happen if (1) stat/readdir threw ENOENT or (2) the number of links is 0 
+                throw Object.assign(err, { code: S3Error.NoSuchBucket.code });
+            }
+            if (err.code === `EPERM` || err.code === `EACCES`) {
+                throw Object.assign(err, { code: S3Error.AccessDenied.code });
+            }
             throw err;
         }
     }

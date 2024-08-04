@@ -10,10 +10,12 @@ const sinon = require('sinon');
 const assert = require('assert');
 const P = require('../../util/promise');
 const config = require('../../../config');
+const { ConfigFS } = require('../../sdk/config_fs');
 const NSFSHealth = require('../../manage_nsfs/health').NSFSHealth;
 const fs_utils = require('../../util/fs_utils');
 const nb_native = require('../../util/nb_native');
-const { CONFIG_SUBDIRS, TYPES, DIAGNOSE_ACTIONS } = require('../../manage_nsfs/manage_nsfs_constants');
+const { CONFIG_SUBDIRS, JSON_SUFFIX } = require('../../sdk/config_fs');
+const { TYPES, DIAGNOSE_ACTIONS } = require('../../manage_nsfs/manage_nsfs_constants');
 const { get_process_fs_context, get_umasked_mode } = require('../../util/native_fs_utils');
 const { TMP_PATH, create_fs_user_by_platform, delete_fs_user_by_platform, exec_manage_cli } = require('../system_tests/test_utils');
 const { ManageCLIError } = require('../../manage_nsfs/manage_nsfs_cli_errors');
@@ -118,7 +120,8 @@ mocha.describe('nsfs nc health', function() {
         };
         mocha.before(async () => {
             const https_port = 6443;
-            Health = new NSFSHealth({ config_root, https_port });
+            const config_fs = new ConfigFS(config_root);
+            Health = new NSFSHealth({ config_root, https_port, config_fs });
             await fs_utils.create_fresh_path(new_buckets_path);
             await fs_utils.file_must_exist(new_buckets_path);
             await fs_utils.create_fresh_path(new_buckets_path + '/bucket1');
@@ -135,8 +138,8 @@ mocha.describe('nsfs nc health', function() {
         mocha.after(async () => {
             fs_utils.folder_delete(new_buckets_path);
             fs_utils.folder_delete(path.join(new_buckets_path, 'bucket1'));
-            fs_utils.file_delete(path.join(config_root, CONFIG_SUBDIRS.BUCKETS, bucket1.name + '.json'));
-            fs_utils.file_delete(path.join(config_root, CONFIG_SUBDIRS.ACCOUNTS, account1.name + '.json'));
+            fs_utils.file_delete(path.join(config_root, CONFIG_SUBDIRS.BUCKETS, bucket1.name + JSON_SUFFIX));
+            fs_utils.file_delete(path.join(config_root, CONFIG_SUBDIRS.ACCOUNTS, account1.name + JSON_SUFFIX));
             for (const user of Object.values(fs_users)) {
                 await delete_fs_user_by_platform(user.distinguished_name);
             }
@@ -199,7 +202,7 @@ mocha.describe('nsfs nc health', function() {
             assert.strictEqual(health_status.status, 'OK');
             assert.strictEqual(health_status.checks.accounts_status.invalid_accounts.length, 1);
             assert.strictEqual(health_status.checks.accounts_status.invalid_accounts[0].name, 'account_invalid');
-            await fs_utils.file_delete(path.join(config_root, CONFIG_SUBDIRS.ACCOUNTS, account_invalid.name + '.json'));
+            await fs_utils.file_delete(path.join(config_root, CONFIG_SUBDIRS.ACCOUNTS, account_invalid.name + JSON_SUFFIX));
         });
 
         mocha.it('NSFS bucket with invalid storage path', async function() {
@@ -216,7 +219,7 @@ mocha.describe('nsfs nc health', function() {
             assert.strictEqual(health_status.status, 'OK');
             assert.strictEqual(health_status.checks.buckets_status.invalid_buckets.length, 1);
             assert.strictEqual(health_status.checks.buckets_status.invalid_buckets[0].name, 'bucket_invalid');
-            await fs_utils.file_delete(path.join(config_root, CONFIG_SUBDIRS.BUCKETS, bucket_invalid.name + '.json'));
+            await fs_utils.file_delete(path.join(config_root, CONFIG_SUBDIRS.BUCKETS, bucket_invalid.name + JSON_SUFFIX));
         });
 
         mocha.it('NSFS invalid bucket schema json', async function() {
@@ -233,7 +236,7 @@ mocha.describe('nsfs nc health', function() {
             assert.strictEqual(health_status.status, 'OK');
             assert.strictEqual(health_status.checks.buckets_status.invalid_buckets.length, 1);
             assert.strictEqual(health_status.checks.buckets_status.invalid_buckets[0].name, 'bucket_invalid_schema.json');
-            await fs_utils.file_delete(path.join(config_root, CONFIG_SUBDIRS.BUCKETS, bucket_invalid_schema.name + '.json'));
+            await fs_utils.file_delete(path.join(config_root, CONFIG_SUBDIRS.BUCKETS, bucket_invalid_schema.name + JSON_SUFFIX));
         });
 
         mocha.it('NSFS invalid account schema json', async function() {
@@ -250,7 +253,7 @@ mocha.describe('nsfs nc health', function() {
             assert.strictEqual(health_status.status, 'OK');
             assert.strictEqual(health_status.checks.accounts_status.invalid_accounts.length, 1);
             assert.strictEqual(health_status.checks.accounts_status.invalid_accounts[0].name, 'account_invalid_schema.json');
-            await fs_utils.file_delete(path.join(config_root, CONFIG_SUBDIRS.ACCOUNTS, account_invalid_schema.name + '.json'));
+            await fs_utils.file_delete(path.join(config_root, CONFIG_SUBDIRS.ACCOUNTS, account_invalid_schema.name + JSON_SUFFIX));
         });
 
         mocha.it('Health all condition is success, all_account_details is false', async function() {
@@ -295,6 +298,8 @@ mocha.describe('nsfs nc health', function() {
             Health.all_account_details = true;
             Health.all_bucket_details = true;
             Health.config_root = config_root_invalid;
+            const old_config_fs = Health.config_fs;
+            Health.config_fs = new ConfigFS(config_root_invalid);
             const get_service_state = sinon.stub(Health, "get_service_state");
             get_service_state.onFirstCall().returns(Promise.resolve({ service_status: 'active', pid: 100 }))
                 .onSecondCall().returns(Promise.resolve({ service_status: 'active', pid: 200 }));
@@ -308,6 +313,8 @@ mocha.describe('nsfs nc health', function() {
             assert.strictEqual(health_status.checks.accounts_status.invalid_accounts.length, 0);
             //revert to config root
             Health.config_root = config_root;
+            Health.config_fs = old_config_fs;
+
         });
 
         mocha.it('Account with inaccessible path - uid gid', async function() {
@@ -327,7 +334,7 @@ mocha.describe('nsfs nc health', function() {
             assert.strictEqual(health_status.checks.accounts_status.invalid_accounts.length, 1);
             assert.strictEqual(health_status.checks.accounts_status.invalid_accounts[0].code, "ACCESS_DENIED");
             assert.strictEqual(health_status.checks.accounts_status.invalid_accounts[0].name, account_inaccessible.name);
-            await fs_utils.file_delete(path.join(config_root, CONFIG_SUBDIRS.ACCOUNTS, account_inaccessible.name + '.json'));
+            await fs_utils.file_delete(path.join(config_root, CONFIG_SUBDIRS.ACCOUNTS, account_inaccessible.name + JSON_SUFFIX));
         });
 
         mocha.it('Account with inaccessible path - dn', async function() {
@@ -347,7 +354,7 @@ mocha.describe('nsfs nc health', function() {
             assert.strictEqual(health_status.checks.accounts_status.invalid_accounts.length, 1);
             assert.strictEqual(health_status.checks.accounts_status.invalid_accounts[0].code, "ACCESS_DENIED");
             assert.strictEqual(health_status.checks.accounts_status.invalid_accounts[0].name, account_inaccessible_dn.name);
-            await fs_utils.file_delete(path.join(config_root, CONFIG_SUBDIRS.ACCOUNTS, account_inaccessible_dn.name + '.json'));
+            await fs_utils.file_delete(path.join(config_root, CONFIG_SUBDIRS.ACCOUNTS, account_inaccessible_dn.name + JSON_SUFFIX));
         });
 
         mocha.it('Account with invalid dn', async function() {
@@ -403,13 +410,13 @@ mocha.describe('nsfs nc health', function() {
             const health_status = await Health.nc_nsfs_health();
             assert.strictEqual(health_status.checks.accounts_status.valid_accounts.length, 2);
             assert.strictEqual(health_status.checks.accounts_status.invalid_accounts.length, 2);
-            await fs_utils.file_delete(path.join(config_root, CONFIG_SUBDIRS.ACCOUNTS, account_invalid.name + '.json'));
+            await fs_utils.file_delete(path.join(config_root, CONFIG_SUBDIRS.ACCOUNTS, account_invalid.name + JSON_SUFFIX));
         });
     });
 });
 
 async function write_config_file(config_root, schema_dir, config_file_name, config_data, invalid_str = '') {
-    const config_path = path.join(config_root, schema_dir, config_file_name + '.json');
+    const config_path = path.join(config_root, schema_dir, config_file_name + JSON_SUFFIX);
     await nb_native().fs.writeFile(
         DEFAULT_FS_CONFIG,
         config_path, Buffer.from(JSON.stringify(config_data) + invalid_str), {

@@ -12,12 +12,13 @@ const config = require('../../../config');
 const fs_utils = require('../../util/fs_utils');
 const config_module = require('../../../config');
 const nb_native = require('../../util/nb_native');
+const { CONFIG_SUBDIRS, JSON_SUFFIX, SYMLINK_SUFFIX } = require('../../sdk/config_fs');
 const { get_process_fs_context } = require('../../util/native_fs_utils');
 const { ManageCLIError } = require('../../manage_nsfs/manage_nsfs_cli_errors');
 const { ManageCLIResponse } = require('../../manage_nsfs/manage_nsfs_cli_responses');
 const { exec_manage_cli, generate_s3_policy, create_fs_user_by_platform, delete_fs_user_by_platform,
     set_path_permissions_and_owner, TMP_PATH, set_nc_config_dir_in_config } = require('../system_tests/test_utils');
-const { TYPES, ACTIONS, CONFIG_SUBDIRS } = require('../../manage_nsfs/manage_nsfs_constants');
+const { TYPES, ACTIONS } = require('../../manage_nsfs/manage_nsfs_constants');
 const nc_mkm = require('../../manage_nsfs/nc_master_key_manager').get_instance();
 
 const tmp_fs_path = path.join(TMP_PATH, 'test_bucketspace_fs');
@@ -1042,7 +1043,7 @@ mocha.describe('manage_nsfs cli', function() {
 });
 
 async function read_config_file(config_root, schema_dir, config_file_name, is_symlink) {
-    const config_path = path.join(config_root, schema_dir, config_file_name + (is_symlink ? '.symlink' : '.json'));
+    const config_path = path.join(config_root, schema_dir, config_file_name + (is_symlink ? SYMLINK_SUFFIX : JSON_SUFFIX));
     const { data } = await nb_native().fs.readFile(DEFAULT_FS_CONFIG, config_path);
     const config_data = JSON.parse(data.toString());
     if (config_data.access_keys) {
@@ -1054,7 +1055,7 @@ async function read_config_file(config_root, schema_dir, config_file_name, is_sy
 }
 
 async function write_config_file(config_root, schema_dir, config_file_name, data, is_symlink) {
-    const config_path = path.join(config_root, schema_dir, config_file_name + (is_symlink ? '.symlink' : '.json'));
+    const config_path = path.join(config_root, schema_dir, config_file_name + (is_symlink ? SYMLINK_SUFFIX : JSON_SUFFIX));
     await nb_native().fs.writeFile(DEFAULT_FS_CONFIG, config_path,
         Buffer.from(JSON.stringify(data)), {
             mode: config_module.BASE_MODE_FILE,
@@ -1062,7 +1063,7 @@ async function write_config_file(config_root, schema_dir, config_file_name, data
 }
 
 async function assert_config_file_permissions(config_root, schema_dir, config_file_name, is_symlink) {
-    const config_path = path.join(config_root, schema_dir, config_file_name + (is_symlink ? '.symlink' : '.json'));
+    const config_path = path.join(config_root, schema_dir, config_file_name + (is_symlink ? SYMLINK_SUFFIX : JSON_SUFFIX));
     const { stat } = await nb_native().fs.readFile(DEFAULT_FS_CONFIG, config_path);
     // 33152 means 600 (only owner has read and write permissions)
     assert.equal(stat.mode, 33152);

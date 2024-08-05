@@ -3,6 +3,7 @@
 
 const querystring = require('querystring');
 const http_utils = require('../util/http_utils');
+const pkg = require('../../package.json');
 
 function prepare_rest_request(req) {
     // generate request id, this is lighter than uuid
@@ -38,6 +39,10 @@ function parse_source_url(source_url) {
     return { query, bucket, key };
 }
 
+function set_noobaa_server_header(res) {
+    res.setHeader('Server', `NooBaa/${pkg.version}`);
+}
 
 exports.prepare_rest_request = prepare_rest_request;
 exports.parse_source_url = parse_source_url;
+exports.set_noobaa_server_header = set_noobaa_server_header;

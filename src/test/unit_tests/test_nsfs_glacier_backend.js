@@ -19,12 +19,10 @@ const { PersistentLogger } = require('../../util/persistent_logger');
 const { GlacierBackend } = require('../../sdk/nsfs_glacier_backend/backend');
 const nb_native = require('../../util/nb_native');
 const { handler: s3_get_bucket } = require('../../endpoint/s3/ops/s3_get_bucket');
-const BucketSpaceFS = require('../../sdk/bucketspace_fs');
 
 const inspect = (x, max_arr = 5) => util.inspect(x, { colors: true, depth: null, maxArrayLength: max_arr });
 
 function make_dummy_object_sdk(config_root) {
-    const bucketspace_fs = new BucketSpaceFS({ config_root }, undefined);
     return {
         requesting_account: {
             force_md5_etag: false,
@@ -38,7 +36,7 @@ function make_dummy_object_sdk(config_root) {
             if (this.abort_controller.signal.aborted) throw new Error('request aborted signal');
         },
         read_bucket_sdk_config_info(name) {
-            return bucketspace_fs.read_bucket_sdk_info({ name });
+            return undefined;
         },
     };
 }
@@ -103,6 +101,7 @@ mocha.describe('nsfs_glacier', async () => {
 	mocha.before(async () => {
         await fs.mkdir(ns_src_bucket_path, { recursive: true });
 
+        config.NSFS_GLACIER_LOGS_ENABLED = true;
 		config.NSFS_GLACIER_LOGS_DIR = await fs.mkdtemp(path.join(os.tmpdir(), 'nsfs-wal-'));
 
 		// Replace the logger by custom one

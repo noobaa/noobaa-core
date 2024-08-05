@@ -22,6 +22,7 @@ const { CONFIG_SUBDIRS } = require('../manage_nsfs/manage_nsfs_constants');
 const KeysSemaphore = require('../util/keys_semaphore');
 const native_fs_utils = require('../util/native_fs_utils');
 const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
+const s3_utils = require('../endpoint/s3/s3_utils');
 
 const dbg = require('../util/debug_module')(__filename);
 const bucket_semaphore = new KeysSemaphore(1);
@@ -158,6 +159,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                 id: bucket.owner_account,
                 email: bucket.bucket_owner
             };
+            bucket.supported_storage_classes = this._supported_storage_class();
             if (bucket.s3_policy) {
                 for (const [s_index, statement] of bucket.s3_policy.Statement.entries()) {
                     const statement_principal = statement.Principal || statement.NotPrincipal;
@@ -709,6 +711,22 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             if (err.code === 'ENOENT' || err.code === 'EACCES' || (err.code === 'EPERM' && err.message === 'Operation not permitted')) return false;
             throw err;
         }
+    }
+
+    /**
+     * returns a list of storage class supported by this bucketspace
+     * @returns {Array<string>}
+     */
+    _supported_storage_class() {
+        const storage_classes = [];
+        if (!config.DENY_UPLOAD_TO_STORAGE_CLASS_STANDARD) {
+            storage_classes.push(s3_utils.STORAGE_CLASS_STANDARD);
+        }
+        if (config.NSFS_GLACIER_ENABLED) {
+            storage_classes.push(s3_utils.STORAGE_CLASS_GLACIER);
+        }
+
+        return storage_classes;
     }
 }
 

@@ -234,6 +234,7 @@ function create_endpoint_handler(init_request_sdk, virtual_hosts, sts) {
 
     /** @type {EndpointHandler} */
     const endpoint_request_handler = (req, res) => {
+        endpoint_utils.set_noobaa_server_header(res);
         endpoint_utils.prepare_rest_request(req);
         req.virtual_hosts = virtual_hosts;
         init_request_sdk(req, res);
@@ -251,6 +252,7 @@ function create_endpoint_handler(init_request_sdk, virtual_hosts, sts) {
     };
     /** @type {EndpointHandler} */
     const endpoint_sts_request_handler = (req, res) => {
+        endpoint_utils.set_noobaa_server_header(res);
         endpoint_utils.prepare_rest_request(req);
         init_request_sdk(req, res);
         return sts_rest(req, res);

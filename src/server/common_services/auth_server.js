@@ -2,7 +2,6 @@
 'use strict';
 
 const _ = require('lodash');
-const bcrypt = require('bcrypt');
 const ip_module = require('ip');
 
 const P = require('../../util/promise');
@@ -20,7 +19,18 @@ const jwt_utils = require('../../util/jwt_utils');
 const config = require('../../../config');
 const s3_bucket_policy_utils = require('../../endpoint/s3/s3_bucket_policy_utils');
 
+function verify_password(password, target_account) {
 
+    if (!password || !target_account.password) {
+        return true;
+    }
+
+    if (password.unwrap() === target_account.password.unwrap()) {
+        return true;
+    } else {
+        return false;
+    }
+}
 /**
  *
  * CREATE_AUTH
@@ -66,7 +76,7 @@ function create_auth(req) {
             if (!password) return;
 
             return P.resolve()
-                .then(() => bcrypt.compare(password.unwrap(), target_account.password.unwrap()))
+                .then(() => verify_password(password, target_account))
                 .then(match => {
                     if (!match) {
                         dbg.log0('password mismatch', email, system_name);

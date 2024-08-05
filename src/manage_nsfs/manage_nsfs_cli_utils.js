@@ -70,8 +70,23 @@ function get_config_file_path(config_type_path, file_name) {
     return path.join(config_type_path, file_name + '.json');
 }
 
-function get_symlink_config_file_path(config_type_path, file_name) {
-    return path.join(config_type_path, file_name + '.symlink');
+/**
+ * Returns path of a symlink, either by access key or account name.
+ * For account name, both account name (as filename) and root account name are required.
+ *
+ * @param {string} config_type_path either access key dir or root accounts dir
+ * @param {string} file_name name of file, either access key id or account name
+ * @param {string} [root_account_name] root account name for by-name symlink
+ * @returns symlink path
+ */
+
+function get_symlink_config_file_path(config_type_path, file_name, root_account_name) {
+    if (root_account_name) {
+        return path.join(config_type_path, root_account_name, file_name + '.symlink');
+    } else {
+        //access key case
+        return path.join(config_type_path, file_name + '.symlink');
+    }
 }
 
 /**
@@ -109,18 +124,26 @@ async function get_config_data_if_exists(config_root_backend, config_file_path, 
 /**
  * get_bucket_owner_account will return the account of the bucket_owner
  * otherwise it would throw an error
- * @param {object} global_config
- * @param {string} bucket_owner
+ * @param {Object} global_config
+ * @param {string} dir_path directory with account file (either accounts, root_accounts or access_keys)
+ * @param {string} root_account_identifier root account file name, either name or id
+ * @param {boolean} is_symlink whether is symlink or not. Name -> true, id -> false/undef
  */
-async function get_bucket_owner_account(global_config, bucket_owner) {
-    const account_config_path = get_config_file_path(global_config.accounts_dir_path, bucket_owner);
+async function get_bucket_owner_account(global_config, dir_path, root_account_identifier, is_symlink) {
+    const account_config_path = is_symlink ?
+        //we need a root account, so both filename (iam account name) and root account name are root_account_identifier
+        get_symlink_config_file_path(dir_path, root_account_identifier, root_account_identifier) :
+        get_config_file_path(dir_path, root_account_identifier);
     try {
         const account = await get_config_data(global_config.config_root_backend, account_config_path);
         return account;
     } catch (err) {
         if (err.code === 'ENOENT') {
-            const detail_msg = `bucket owner ${bucket_owner} does not exists`;
-            throw_cli_error(ManageCLIError.BucketSetForbiddenBucketOwnerNotExists, detail_msg, {bucket_owner: bucket_owner});
+            /*In case we're trying to validate bucket, we are trying to get the owner account.
+            If we fail, it means the bucket owner json is missing (either because bucket json is wrong or account json file is not there).
+            Under such circumstance, this message (with owner account id) is best we can do and is better than nothing.*/
+            const detail_msg = `bucket owner ${root_account_identifier} does not exists`;
+            throw_cli_error(ManageCLIError.BucketSetForbiddenBucketOwnerNotExists, detail_msg, {bucket_owner: root_account_identifier});
         }
         throw err;
     }
@@ -168,7 +191,7 @@ async function get_options_from_file(file_path) {
  * @param {object[]} access_keys
  */
 function has_access_keys(access_keys) {
-    return access_keys.length > 0;
+    return access_keys.length > 0 && access_keys[0].access_key;
 }
 
 /**

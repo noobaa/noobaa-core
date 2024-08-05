@@ -24,6 +24,7 @@ const { account_cache } = require('./object_sdk');
 
 // TODO - rename (the typo), move and reuse in manage_nsfs
 const acounts_dir_relative_path = '../accounts/';
+const acounts_dir_relative_path_double = '../../accounts/';
 
 ////////////////////
 // MOCK VARIABLES //
@@ -47,6 +48,7 @@ class AccountSpaceFS {
     constructor({ config_root, fs_root, config_root_backend, stats }) {
         this.config_root = config_root;
         this.accounts_dir = path.join(config_root, CONFIG_SUBDIRS.ACCOUNTS);
+        this.root_accounts_dir = path.join(config_root, CONFIG_SUBDIRS.ROOT_ACCOUNTS);
         this.access_keys_dir = path.join(config_root, CONFIG_SUBDIRS.ACCESS_KEYS);
         this.buckets_dir = path.join(config_root, CONFIG_SUBDIRS.BUCKETS);
         this.fs_context = native_fs_utils.get_process_fs_context();
@@ -63,7 +65,6 @@ class AccountSpaceFS {
 
     // 1 - check that the requesting account is a root user account
     // 2 - check if username already exists
-    //     GAP - it should be only under the root account in the future
     // 3 - copy the data from the root account user details to a new config file
     async create_user(params, account_sdk) {
         const action = IAM_ACTIONS.CREATE_USER;
@@ -72,7 +73,10 @@ class AccountSpaceFS {
             const requesting_account = account_sdk.requesting_account;
             this._check_if_requesting_account_is_root_account(action, requesting_account,
                 { username: params.username, iam_path: params.iam_path });
-            await this._check_username_already_exists(action, params.username);
+            //if iam_operate_on_root_account, the requested account is root_account
+            //otherwise, requested account is iam_account, and requesting account is the root account.
+            const root_name = requesting_account.iam_operate_on_root_account ? params.username : requesting_account.name.unwrap();
+            await this._check_username_already_exists(action, params.username, root_name);
             const created_account = await this._copy_data_from_requesting_account_to_account_config(action, requesting_account, params);
             return {
                 iam_path: created_account.iam_path || IAM_DEFAULT_PATH,
@@ -106,7 +110,7 @@ class AccountSpaceFS {
             // GAP - we do not have the user iam_path at this point (error message)
             this._check_if_requesting_account_is_root_account(action, requesting_account,
                 { username: username });
-            const account_config_path = this._get_account_config_path(username);
+            const account_config_path = await this._get_account_config_path_by_requesting_account(requesting_account, username);
             await this._check_if_account_config_file_exists(action, username, account_config_path);
             const account_to_get = await this._get_account_decrypted_data_optional(account_config_path, false);
             this._check_if_requested_account_is_root_account_or_IAM_user(action, requesting_account, account_to_get);
@@ -146,7 +150,7 @@ class AccountSpaceFS {
             // GAP - we do not have the user iam_path at this point (error message)
             this._check_if_requesting_account_is_root_account(action, requesting_account,
                 { username: params.username});
-            const account_config_path = this._get_account_config_path(params.username);
+            const account_config_path = await this._get_account_config_path_by_requesting_account(requesting_account, params.username);
             await this._check_if_account_config_file_exists(action, params.username, account_config_path);
             const requested_account = await this._get_account_decrypted_data_optional(account_config_path, false);
             this._check_if_requested_account_is_root_account_or_IAM_user(action, requesting_account, requested_account);
@@ -158,14 +162,15 @@ class AccountSpaceFS {
             if (is_username_update) {
                 dbg.log1(`AccountSpaceFS.${action} username was updated, is_username_update`,
                     is_username_update);
-                await this._update_account_config_new_username(action, params, requested_account);
-            } else {
-                const requested_account_encrypted = await nc_mkm.encrypt_access_keys(requested_account);
-                const account_string = JSON.stringify(requested_account_encrypted);
-                nsfs_schema_utils.validate_account_schema(JSON.parse(account_string));
-                await native_fs_utils.update_config_file(this.fs_context, this.accounts_dir,
-                    account_config_path, account_string);
+                await this._update_account_config_new_username(action, requested_account,
+                    params.username, params.new_username, requesting_account);
+                requested_account.name = params.new_username;
             }
+            const requested_account_encrypted = await nc_mkm.encrypt_access_keys(requested_account);
+            const account_string = JSON.stringify(requested_account_encrypted);
+            nsfs_schema_utils.validate_account_schema(JSON.parse(account_string));
+            await native_fs_utils.update_config_file(this.fs_context, this.accounts_dir,
+                this._get_account_config_path(requested_account._id), account_string);
             this._clean_account_cache(requested_account);
             return {
                 iam_path: requested_account.iam_path || IAM_DEFAULT_PATH,
@@ -200,13 +205,23 @@ class AccountSpaceFS {
             // GAP - we do not have the user iam_path at this point (error message)
             this._check_if_requesting_account_is_root_account(action, requesting_account,
                 { username: params.username });
-            const account_config_path = this._get_account_config_path(params.username);
-            await this._check_if_account_config_file_exists(action, params.username, account_config_path);
-            const account_to_delete = await this._get_account_decrypted_data_optional(account_config_path, false);
+            //path to the config file of the root account owning the requested account
+            //in case requesting account is root manager, this is the requeted account.
+            //otherwise, it is the requesting account.
+            const root_account_config_path = await
+                this._get_account_config_path_by_requesting_account(requesting_account, params.username);
+            await this._check_if_account_config_file_exists(action, params.username, root_account_config_path);
+            const account_to_delete = await this._get_account_decrypted_data_optional(root_account_config_path, false);
             this._check_if_requested_account_is_root_account_or_IAM_user(action, requesting_account, account_to_delete);
             this._check_if_requested_is_owned_by_root_account(action, requesting_account, account_to_delete);
             await this._check_if_user_does_not_have_resources_before_deletion(action, account_to_delete);
-            await native_fs_utils.delete_config_file(this.fs_context, this.accounts_dir, account_config_path);
+            await native_fs_utils.delete_config_file(this.fs_context, this.accounts_dir,
+                this._get_account_config_path(account_to_delete._id));
+            await nb_native().fs.unlink(this.fs_context, root_account_config_path);
+            if (this._check_root_account(account_to_delete)) {
+                //delete directory of root account (it's empty now)
+                await native_fs_utils.folder_delete(path.join(this.root_accounts_dir, account_to_delete.name), this.fs_context);
+            }
         } catch (err) {
             dbg.error(`AccountSpaceFS.${action} error`, err);
             throw native_fs_utils.translate_error_codes(err, native_fs_utils.entity_enum.USER);
@@ -260,7 +275,8 @@ class AccountSpaceFS {
             const requester = this._check_if_requesting_account_is_root_account_or_user_om_himself(action,
                 requesting_account, params.username);
             const name_for_access_key = params.username ?? requester.name;
-            const requested_account_config_path = this._get_account_config_path(name_for_access_key);
+            const requested_account_config_path = await this._get_account_config_path_by_requesting_account(
+                requesting_account, name_for_access_key);
             await this._check_if_account_config_file_exists(action, name_for_access_key, requested_account_config_path);
             const requested_account = await this._get_account_decrypted_data_optional(requested_account_config_path, true);
             if (requester.identity === IDENTITY_ENUM.ROOT_ACCOUNT) {
@@ -282,8 +298,8 @@ class AccountSpaceFS {
             const account_to_create_access_keys_string = JSON.stringify(requested_account_encrypted);
             nsfs_schema_utils.validate_account_schema(JSON.parse(account_to_create_access_keys_string));
             await native_fs_utils.update_config_file(this.fs_context, this.accounts_dir,
-                requested_account_config_path, account_to_create_access_keys_string);
-            await this._create_access_key_symlink(requested_account.name, generated_access_key);
+                this._get_account_config_path(requested_account._id), account_to_create_access_keys_string);
+            await this._symlink_to_account(requested_account._id, this.access_keys_dir, generated_access_key);
             return {
                 username: requested_account.name,
                 access_key: created_access_key_obj.access_key,
@@ -347,9 +363,10 @@ class AccountSpaceFS {
         try {
             const requesting_account = account_sdk.requesting_account;
             const access_key_id = params.access_key;
-            const requester = this._check_if_requesting_account_is_root_account_or_user_om_himself(action,
+            this._check_if_requesting_account_is_root_account_or_user_om_himself(action,
                 requesting_account, params.username);
-            const username = params.username ?? requester.name; // username is not required
+            let username = params.username ?? requesting_account.name; // username is not required
+            username = username instanceof SensitiveString ? username.unwrap() : username;
             const requested_account_path = get_symlink_config_file_path(this.access_keys_dir, params.access_key);
             await this._check_if_account_exists_by_access_key_symlink(action, requested_account_path, access_key_id);
             const requested_account = await this._get_account_decrypted_data_optional(requested_account_path, true);
@@ -371,8 +388,7 @@ class AccountSpaceFS {
             const requested_account_encrypted = await nc_mkm.encrypt_access_keys(requested_account);
             const account_string = JSON.stringify(requested_account_encrypted);
             nsfs_schema_utils.validate_account_schema(JSON.parse(account_string));
-            const name_for_access_key = params.username ?? requester.name;
-            const requested_account_config_path = this._get_account_config_path(name_for_access_key);
+            const requested_account_config_path = this._get_account_config_path(requested_account._id);
             await native_fs_utils.update_config_file(this.fs_context, this.accounts_dir,
                 requested_account_config_path, account_string);
             this._clean_account_cache(requested_account);
@@ -400,9 +416,10 @@ class AccountSpaceFS {
         try {
             const requesting_account = account_sdk.requesting_account;
             const access_key_id = params.access_key;
-            const requester = this._check_if_requesting_account_is_root_account_or_user_om_himself(action,
+            this._check_if_requesting_account_is_root_account_or_user_om_himself(action,
                 requesting_account, params.username);
-            const username = params.username ?? requester.name; // username is not required
+            let username = params.username ?? requesting_account.name; // username is not required
+            username = username instanceof SensitiveString ? username.unwrap() : username;
             const requested_account_path = get_symlink_config_file_path(this.access_keys_dir, access_key_id);
             await this._check_if_account_exists_by_access_key_symlink(action, requested_account_path, access_key_id);
             const requested_account = await this._get_account_decrypted_data_optional(requested_account_path, true);
@@ -418,8 +435,7 @@ class AccountSpaceFS {
             const requested_account_encrypted = await nc_mkm.encrypt_access_keys(requested_account);
             const account_string = JSON.stringify(requested_account_encrypted);
             nsfs_schema_utils.validate_account_schema(JSON.parse(account_string));
-            const name_for_access_key = params.username ?? requester.name;
-            const account_config_path = this._get_account_config_path(name_for_access_key);
+            const account_config_path = this._get_account_config_path(requested_account._id);
             await native_fs_utils.update_config_file(this.fs_context, this.accounts_dir,
                 account_config_path, account_string);
             await nb_native().fs.unlink(this.fs_context, requested_account_path);
@@ -446,7 +462,8 @@ class AccountSpaceFS {
             const requester = this._check_if_requesting_account_is_root_account_or_user_om_himself(action,
                 requesting_account, params.username);
             const name_for_access_key = params.username ?? requester.name;
-            const requested_account_config_path = this._get_account_config_path(name_for_access_key);
+            const requested_account_config_path = await this._get_account_config_path_by_requesting_account(
+                requesting_account, name_for_access_key);
             await this._check_if_account_config_file_exists(action, name_for_access_key, requested_account_config_path);
             const requested_account = await this._get_account_decrypted_data_optional(requested_account_config_path, false);
             this._check_if_requested_account_same_root_account_as_requesting_account(action,
@@ -468,12 +485,51 @@ class AccountSpaceFS {
     // INTERNAL FUNCTIONS //
     ////////////////////////
 
-     _get_account_config_path(name) {
-        return get_config_file_path(this.accounts_dir, name);
+     _get_account_config_path(account_id) {
+        return get_config_file_path(this.accounts_dir, account_id);
+     }
+
+     async _get_account_config_path_by_root_name(account_name, root_name) {
+        const iam_account_path = get_symlink_config_file_path(this.root_accounts_dir, account_name, root_name);
+        if (await native_fs_utils.is_path_exists(this.fs_context, iam_account_path)) {
+            return iam_account_path;
+        }
+        return this._get_account_config_path(account_name);
+     }
+
+     async _get_root_account_name(account) {
+        const root_id = account.owner || account._id;
+        const root_account_path = this._get_account_config_path(root_id);
+        const root_account = await this._get_account_decrypted_data_optional(root_account_path, false);
+        return root_account.name;
+     }
+
+     /**
+      * Returns the path of the requested account according to whether requesting account is
+      * iam_operate_on_root_account or not.
+      * If it is, then requested account is the root account whose name is the requested account.
+      * In this case, both root_account_name and iam_account_name is the requested account name.
+      * Otherwise, the requesting account is the root account, and the requested account
+      * is the iam account name.
+      * @param {Object} requesting_account 
+      * @param {string} requested_account_name 
+      * @returns 
+      */
+     async _get_account_config_path_by_requesting_account(requesting_account, requested_account_name) {
+        let root_account_name;
+        if (requesting_account.iam_operate_on_root_account) {
+            //root account manager only operates on the root account that was requested.
+            root_account_name = requested_account_name;
+        } else {
+            root_account_name = await this._get_root_account_name(requesting_account);
+        }
+
+        const account_path = await this._get_account_config_path_by_root_name(requested_account_name, root_account_name);
+        return account_path;
      }
 
      _get_access_keys_config_path(access_key) {
-        return get_symlink_config_file_path(this.access_keys_dir, access_key);
+        return get_symlink_config_file_path(this.access_keys_dir, access_key, undefined);
      }
 
      async _get_account_decrypted_data_optional(account_path, should_decrypt_secret_key) {
@@ -674,8 +730,8 @@ class AccountSpaceFS {
         }
     }
 
-    async _check_username_already_exists(action, username) {
-        const account_config_path = this._get_account_config_path(username);
+    async _check_username_already_exists(action, username, root_name) {
+        const account_config_path = await this._get_account_config_path_by_root_name(username, root_name);
         const name_exists = await native_fs_utils.is_path_exists(this.fs_context,
             account_config_path);
         if (name_exists) {
@@ -692,9 +748,15 @@ class AccountSpaceFS {
         dbg.log1(`AccountSpaceFS.${action} new_account`, created_account);
         const new_account_string = JSON.stringify(created_account);
         nsfs_schema_utils.validate_account_schema(JSON.parse(new_account_string));
-        const account_config_path = this._get_account_config_path(params.username);
+        const account_config_path = this._get_account_config_path(created_account._id);
         await native_fs_utils.create_config_file(this.fs_context, this.accounts_dir,
             account_config_path, new_account_string);
+        //for account manager, create a new root user. Otherwise, root is the requesting account. 
+        const root_account_dir = requesting_account.iam_operate_on_root_account ? params.username : requesting_account.name.unwrap();
+        //make sure root directory exists
+        await native_fs_utils._create_path(path.join(this.root_accounts_dir, root_account_dir), this.fs_context);
+        //symlink from by-name account to by-id account json
+        await this._symlink_to_account(created_account._id, this.root_accounts_dir, params.username, root_account_dir);
         return created_account;
     }
 
@@ -739,7 +801,7 @@ class AccountSpaceFS {
             if (entry.name.endsWith('.json')) {
                 const full_path = path.join(this.buckets_dir, entry.name);
                 const bucket_data = await get_config_data_if_exists(this.config_root_backend, full_path, false);
-                if (bucket_data && bucket_data.bucket_owner === account_to_delete.name) {
+                if (bucket_data && bucket_data.owner_account === account_to_delete._id) {
                     this._throw_error_delete_conflict(action, account_to_delete, resource_name);
                 }
                 return bucket_data;
@@ -776,37 +838,35 @@ class AccountSpaceFS {
         }
     }
 
-    async _create_access_key_symlink(requested_account_name, access_key_id) {
-        const account_config_relative_path = get_config_file_path(acounts_dir_relative_path, requested_account_name);
-        const new_access_key_symlink_config_path = get_symlink_config_file_path(this.access_keys_dir, access_key_id);
-        await nb_native().fs.symlink(this.fs_context, account_config_relative_path, new_access_key_symlink_config_path);
+    async _symlink_to_account(account_id, symlink_dir, symlink_filename, root_name) {
+        const account_config_relative_path = get_config_file_path(
+            //if root_name, then we need account_name->account, which is two dirs above.
+            //otherwise, only one dir above
+            root_name ? acounts_dir_relative_path_double : acounts_dir_relative_path,
+            account_id);
+        const symlink_path = get_symlink_config_file_path(symlink_dir, symlink_filename, root_name);
+        await nb_native().fs.symlink(this.fs_context, account_config_relative_path, symlink_path);
     }
 
-    async _update_account_config_new_username(action, params, requested_account) {
-        await this._check_username_already_exists(action, params.new_username);
-        // prepare
-        requested_account.name = params.new_username;
-        requested_account.email = params.new_username; // internally saved
-        const access_key_ids = [];
-        for (const access_keys of requested_account.access_keys) {
-            access_key_ids.push(access_keys.access_key);
+    async _update_account_config_new_username(action, requested_acocunt, old_username, new_username, requesting_account) {
+        let root_account_name;
+        if (requesting_account.iam_operate_on_root_account) {
+            //if root manager requested to change the name, the requested account is the
+            //root account being updated.
+            root_account_name = old_username;
+        } else {
+            root_account_name = await this._get_root_account_name(requesting_account);
         }
-        // handle account config creation
-        const requested_account_encrypted = await nc_mkm.encrypt_access_keys(requested_account);
-        const account_string = JSON.stringify(requested_account_encrypted);
-        nsfs_schema_utils.validate_account_schema(JSON.parse(account_string));
-        const new_username_account_config_path = this._get_account_config_path(params.new_username);
-        await native_fs_utils.create_config_file(this.fs_context, this.accounts_dir,
-            new_username_account_config_path, account_string);
-        // handle access keys (unlink and then create the new symbolic link)
-        for (const access_key_id of access_key_ids) {
-            const requested_account_path = get_symlink_config_file_path(this.access_keys_dir, access_key_id);
-            await nb_native().fs.unlink(this.fs_context, requested_account_path);
-            this._create_access_key_symlink(params.new_username, access_key_id);
+        await this._check_username_already_exists(action, new_username, root_account_name);
+        const root_account_old_name = get_symlink_config_file_path(this.root_accounts_dir, old_username, root_account_name);
+        await nb_native().fs.unlink(this.fs_context, root_account_old_name);
+        await this._symlink_to_account(requested_acocunt._id, this.root_accounts_dir, new_username, root_account_name);
+        //root accounts need to change their root_accounts/ directory name
+        if (this._check_root_account(requested_acocunt)) {
+            await nb_native().fs.rename(this.fs_context,
+                path.join(this.root_accounts_dir, root_account_name),
+                path.join(this.root_accounts_dir, new_username));
         }
-        // handle account config deletion
-        const account_config_path = this._get_account_config_path(params.username);
-        await native_fs_utils.delete_config_file(this.fs_context, this.accounts_dir, account_config_path);
     }
 
     _check_root_account_or_user(requesting_account, username) {

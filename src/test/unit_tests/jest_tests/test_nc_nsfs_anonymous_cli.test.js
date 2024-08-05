@@ -52,7 +52,7 @@ describe('manage nsfs cli anonymous account flow', () => {
             const { type, uid, gid, anonymous } = defaults;
             const account_options = { anonymous, config_root, uid, gid };
             await exec_manage_cli(type, action, account_options);
-            const account = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, config.ANONYMOUS_ACCOUNT_NAME);
+            const account = await read_config_file(config_root, CONFIG_SUBDIRS.ROOT_ACCOUNTS, config.ANONYMOUS_ACCOUNT_NAME);
             assert_account(account, account_options);
         });
 
@@ -115,7 +115,7 @@ describe('manage nsfs cli anonymous account flow', () => {
             action = ACTIONS.ADD;
             account_options = { anonymous, config_root, user };
             resp = await exec_manage_cli(type, action, account_options);
-            const account = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, config.ANONYMOUS_ACCOUNT_NAME);
+            const account = await read_config_file(config_root, CONFIG_SUBDIRS.ROOT_ACCOUNTS, config.ANONYMOUS_ACCOUNT_NAME);
             assert_account(account, account_options);
         });
 
@@ -159,14 +159,14 @@ describe('manage nsfs cli anonymous account flow', () => {
             let { type, uid, gid, anonymous } = defaults;
             const account_options = { anonymous, config_root, uid, gid };
             await exec_manage_cli(type, action, account_options);
-            const account = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, config.ANONYMOUS_ACCOUNT_NAME);
+            const account = await read_config_file(config_root, CONFIG_SUBDIRS.ROOT_ACCOUNTS, config.ANONYMOUS_ACCOUNT_NAME);
             assert_account(account, account_options);
 
             action = ACTIONS.UPDATE;
             gid = 1001;
             const account_update_options = { anonymous, config_root, uid, gid };
             await exec_manage_cli(type, action, account_update_options);
-            const update_account = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, config.ANONYMOUS_ACCOUNT_NAME);
+            const update_account = await read_config_file(config_root, CONFIG_SUBDIRS.ROOT_ACCOUNTS, config.ANONYMOUS_ACCOUNT_NAME);
             assert_account(update_account, account_update_options);
         });
 
@@ -219,7 +219,7 @@ describe('manage nsfs cli anonymous account flow', () => {
             const { type, uid, gid, anonymous } = defaults;
             const account_options = { anonymous, config_root, uid, gid };
             await exec_manage_cli(type, action, account_options);
-            const account = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, config.ANONYMOUS_ACCOUNT_NAME);
+            const account = await read_config_file(config_root, CONFIG_SUBDIRS.ROOT_ACCOUNTS, config.ANONYMOUS_ACCOUNT_NAME);
             assert_account(account, account_options);
 
             action = ACTIONS.DELETE;
@@ -268,7 +268,7 @@ describe('manage nsfs cli anonymous account flow', () => {
             const { type, uid, gid, anonymous } = defaults;
             const account_options = { anonymous, config_root, uid, gid };
             await exec_manage_cli(type, action, account_options);
-            const account = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, config.ANONYMOUS_ACCOUNT_NAME);
+            const account = await read_config_file(config_root, CONFIG_SUBDIRS.ROOT_ACCOUNTS, config.ANONYMOUS_ACCOUNT_NAME);
             assert_account(account, account_options);
 
             action = ACTIONS.STATUS;
@@ -286,10 +286,16 @@ describe('manage nsfs cli anonymous account flow', () => {
  * @param {string} config_root
  * @param {string} schema_dir 
  * @param {string} config_file_name the name of the config file
- * @param {boolean} [is_symlink] a flag to set the suffix as a symlink instead of json
  */
-async function read_config_file(config_root, schema_dir, config_file_name, is_symlink) {
-    const config_path = path.join(config_root, schema_dir, config_file_name + (is_symlink ? '.symlink' : '.json'));
+async function read_config_file(config_root, schema_dir, config_file_name) {
+    let config_path;
+    if (schema_dir === CONFIG_SUBDIRS.ROOT_ACCOUNTS) {
+        config_path = path.join(config_root, schema_dir, config_file_name, config_file_name + '.symlink');
+    } else if (schema_dir === CONFIG_SUBDIRS.ACCESS_KEYS) {
+        config_path = path.join(config_root, schema_dir, config_file_name + '.symlink');
+    } else {
+        config_path = path.join(config_root, schema_dir, config_file_name + '.json');
+    }
     const { data } = await nb_native().fs.readFile(DEFAULT_FS_CONFIG, config_path);
     const config_data = JSON.parse(data.toString());
     return config_data;

@@ -318,6 +318,8 @@ async function parse_request_body(req, options) {
 }
 
 function send_reply(req, res, reply, options) {
+    res.setHeader('Server', 'NooBaa');
+
     if (options.reply.type === 'raw') {
         // in this case the handler already replied
         dbg.log1('HTTP REPLY RAW', req.method, req.originalUrl);

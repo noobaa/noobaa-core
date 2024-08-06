@@ -3,6 +3,8 @@
 
 const util = require('util');
 const { OP_NAME_TO_ACTION } = require('../../../endpoint/s3/s3_bucket_policy_utils');
+const _ = require('lodash');
+
 
 function _create_actions_map() {
     const actions_map = new Map();
@@ -26,20 +28,22 @@ async function run({ dbg, system_store, system_server }) {
             //Do not update if there are no bucket policy.
             if (!bucket.s3_policy) continue;
 
-            const new_policy = {};
-            if (bucket.s3_policy.version) new_policy.Version = bucket.s3_policy.version;
 
-            new_policy.Statement = bucket.s3_policy.statement.map(statement => ({
-                Effect: statement.effect === 'allow' ? 'Allow' : 'Deny',
-                Action: statement.action.map(action => actions_map.get(action)),
-                Principal: { AWS: statement.principal },
-                Resource: statement.resource,
-                Sid: statement.sid
-            }));
-            buckets.push({
-                _id: bucket._id,
-                s3_policy: new_policy,
-            });
+            if (_.isUndefined(bucket.s3_policy.Statement)) {
+                const new_policy = {};
+                if (bucket.s3_policy.version) new_policy.Version = bucket.s3_policy.version;
+                new_policy.Statement = bucket.s3_policy.statement.map(statement => ({
+                    Effect: statement.effect === 'allow' ? 'Allow' : 'Deny',
+                    Action: statement.action.map(action => actions_map.get(action)),
+                    Principal: { AWS: statement.principal },
+                    Resource: statement.resource,
+                    Sid: statement.sid
+                }));
+                buckets.push({
+                    _id: bucket._id,
+                    s3_policy: new_policy,
+                });
+            }
         }
 
         if (buckets.length > 0) {

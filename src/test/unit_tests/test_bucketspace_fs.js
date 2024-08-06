@@ -747,6 +747,22 @@ mocha.describe('bucketspace_fs', function() {
             assert.ok(output_log === undefined);
         });
     });
+
+    mocha.describe('bucket tagging operations', function() {
+        mocha.it('put_bucket_tagging', async function() {
+            const param = { name: test_bucket, tagging: [{ key: 'k1', value: 'v1' }] };
+            await bucketspace_fs.put_bucket_tagging(param);
+            const tag = await bucketspace_fs.get_bucket_tagging(param);
+            assert.deepEqual(tag, { tagging: param.tagging });
+        });
+
+        mocha.it('delete_bucket_tagging', async function() {
+            const param = { name: test_bucket };
+            await bucketspace_fs.delete_bucket_tagging(param);
+            const tag = await bucketspace_fs.get_bucket_tagging(param);
+            assert.deepEqual(tag, { tagging: [] });
+        });
+    });
 });
 
 async function create_bucket(bucket_name) {

@@ -64,7 +64,7 @@ logging                                                                 Use this
 
 `;
 
-const GLOBAL_CONFIG_ROOT_ALL_FLAG = `
+const CLI_MUTUAL_FLAGS = `
 --config_root <string>                                (optional)        Use configuration files path (default config.NSFS_NC_DEFAULT_CONF_DIR)
 --config_root_backend <none | GPFS | CEPH_FS | NFSv4> (optional)        Use the filesystem type in the configuration (default config.NSFS_NC_CONFIG_DIR_BACKEND)
 --debug <number>                                      (optional)        Use for increasing the log verbosity of cli commands
@@ -298,7 +298,7 @@ function print_usage(type, action) {
             process.stdout.write(WHITELIST_FLAGS.trimStart());
             break;
         case TYPES.LOGGING:
-            process.stdout.write(LOGGING_FLAGS.trimStart() + GLOBAL_CONFIG_ROOT_ALL_FLAG.trimStart());
+            process.stdout.write(LOGGING_FLAGS.trimStart() + CLI_MUTUAL_FLAGS.trimStart());
             break;
         case TYPES.GLACIER:
             print_help_glacier(action);
@@ -321,19 +321,19 @@ function print_usage(type, action) {
 function print_help_account(action) {
     switch (action) {
         case ACTIONS.ADD:
-            process.stdout.write(ACCOUNT_FLAGS_ADD.trimStart() + GLOBAL_CONFIG_ROOT_ALL_FLAG.trimStart());
+            process.stdout.write(ACCOUNT_FLAGS_ADD.trimStart() + CLI_MUTUAL_FLAGS.trimStart());
             break;
         case ACTIONS.UPDATE:
-            process.stdout.write(ACCOUNT_FLAGS_UPDATE.trimStart() + GLOBAL_CONFIG_ROOT_ALL_FLAG.trimStart());
+            process.stdout.write(ACCOUNT_FLAGS_UPDATE.trimStart() + CLI_MUTUAL_FLAGS.trimStart());
             break;
         case ACTIONS.DELETE:
-            process.stdout.write(ACCOUNT_FLAGS_DELETE.trimStart() + GLOBAL_CONFIG_ROOT_ALL_FLAG.trimStart());
+            process.stdout.write(ACCOUNT_FLAGS_DELETE.trimStart() + CLI_MUTUAL_FLAGS.trimStart());
             break;
         case ACTIONS.STATUS:
-            process.stdout.write(ACCOUNT_FLAGS_STATUS.trimStart() + GLOBAL_CONFIG_ROOT_ALL_FLAG.trimStart());
+            process.stdout.write(ACCOUNT_FLAGS_STATUS.trimStart() + CLI_MUTUAL_FLAGS.trimStart());
             break;
         case ACTIONS.LIST:
-            process.stdout.write(ACCOUNT_FLAGS_LIST.trimStart() + GLOBAL_CONFIG_ROOT_ALL_FLAG.trimStart());
+            process.stdout.write(ACCOUNT_FLAGS_LIST.trimStart() + CLI_MUTUAL_FLAGS.trimStart());
             break;
         default:
             process.stdout.write(ACCOUNT_ACTIONS.trimStart());
@@ -348,19 +348,19 @@ function print_help_account(action) {
 function print_help_bucket(action) {
     switch (action) {
         case ACTIONS.ADD:
-            process.stdout.write(BUCKET_FLAGS_ADD.trimStart() + GLOBAL_CONFIG_ROOT_ALL_FLAG.trimStart());
+            process.stdout.write(BUCKET_FLAGS_ADD.trimStart() + CLI_MUTUAL_FLAGS.trimStart());
             break;
         case ACTIONS.UPDATE:
-            process.stdout.write(BUCKET_FLAGS_UPDATE.trimStart() + GLOBAL_CONFIG_ROOT_ALL_FLAG.trimStart());
+            process.stdout.write(BUCKET_FLAGS_UPDATE.trimStart() + CLI_MUTUAL_FLAGS.trimStart());
             break;
         case ACTIONS.DELETE:
-            process.stdout.write(BUCKET_FLAGS_DELETE.trimStart() + GLOBAL_CONFIG_ROOT_ALL_FLAG.trimStart());
+            process.stdout.write(BUCKET_FLAGS_DELETE.trimStart() + CLI_MUTUAL_FLAGS.trimStart());
             break;
         case ACTIONS.STATUS:
-            process.stdout.write(BUCKET_FLAGS_STATUS.trimStart() + GLOBAL_CONFIG_ROOT_ALL_FLAG.trimStart());
+            process.stdout.write(BUCKET_FLAGS_STATUS.trimStart() + CLI_MUTUAL_FLAGS.trimStart());
             break;
         case ACTIONS.LIST:
-            process.stdout.write(BUCKET_FLAGS_LIST.trimStart() + GLOBAL_CONFIG_ROOT_ALL_FLAG.trimStart());
+            process.stdout.write(BUCKET_FLAGS_LIST.trimStart() + CLI_MUTUAL_FLAGS.trimStart());
             break;
         default:
             process.stdout.write(BUCKET_ACTIONS.trimStart());

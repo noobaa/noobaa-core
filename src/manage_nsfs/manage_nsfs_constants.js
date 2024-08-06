@@ -36,50 +36,50 @@ const CONFIG_SUBDIRS = {
     ACCESS_KEYS: 'access_keys'
 };
 
-const GLOBAL_CONFIG_ROOT = 'config_root';
-const GLOBAL_CONFIG_OPTIONS = new Set([GLOBAL_CONFIG_ROOT, 'config_root_backend', 'debug']);
+const CONFIG_ROOT_FLAG = 'config_root';
+const CLI_MUTUAL_OPTIONS = new Set([CONFIG_ROOT_FLAG, 'config_root_backend', 'debug']);
 const FROM_FILE = 'from_file';
 const ANONYMOUS = 'anonymous';
 
 const VALID_OPTIONS_ACCOUNT = {
-    'add': new Set(['name', 'uid', 'gid', 'new_buckets_path', 'user', 'access_key', 'secret_key', 'fs_backend', 'allow_bucket_creation', 'force_md5_etag', 'iam_operate_on_root_account', FROM_FILE, ...GLOBAL_CONFIG_OPTIONS]),
-    'update': new Set(['name', 'uid', 'gid', 'new_buckets_path', 'user', 'access_key', 'secret_key', 'fs_backend', 'allow_bucket_creation', 'force_md5_etag', 'iam_operate_on_root_account', 'new_name', 'regenerate', ...GLOBAL_CONFIG_OPTIONS]),
-    'delete': new Set(['name', ...GLOBAL_CONFIG_OPTIONS]),
-    'list': new Set(['wide', 'show_secrets', 'gid', 'uid', 'user', 'name', 'access_key', ...GLOBAL_CONFIG_OPTIONS]),
-    'status': new Set(['name', 'access_key', 'show_secrets', ...GLOBAL_CONFIG_OPTIONS]),
+    'add': new Set(['name', 'uid', 'gid', 'new_buckets_path', 'user', 'access_key', 'secret_key', 'fs_backend', 'allow_bucket_creation', 'force_md5_etag', 'iam_operate_on_root_account', FROM_FILE, ...CLI_MUTUAL_OPTIONS]),
+    'update': new Set(['name', 'uid', 'gid', 'new_buckets_path', 'user', 'access_key', 'secret_key', 'fs_backend', 'allow_bucket_creation', 'force_md5_etag', 'iam_operate_on_root_account', 'new_name', 'regenerate', ...CLI_MUTUAL_OPTIONS]),
+    'delete': new Set(['name', ...CLI_MUTUAL_OPTIONS]),
+    'list': new Set(['wide', 'show_secrets', 'gid', 'uid', 'user', 'name', 'access_key', ...CLI_MUTUAL_OPTIONS]),
+    'status': new Set(['name', 'access_key', 'show_secrets', ...CLI_MUTUAL_OPTIONS]),
 };
 
 const VALID_OPTIONS_ANONYMOUS_ACCOUNT = {
-    'add': new Set(['uid', 'gid', 'user', 'anonymous', GLOBAL_CONFIG_ROOT]),
-    'update': new Set(['uid', 'gid', 'user', 'anonymous', GLOBAL_CONFIG_ROOT]),
-    'delete': new Set(['anonymous', GLOBAL_CONFIG_ROOT]),
-    'status': new Set(['anonymous', GLOBAL_CONFIG_ROOT]),
+    'add': new Set(['uid', 'gid', 'user', 'anonymous', CONFIG_ROOT_FLAG]),
+    'update': new Set(['uid', 'gid', 'user', 'anonymous', CONFIG_ROOT_FLAG]),
+    'delete': new Set(['anonymous', CONFIG_ROOT_FLAG]),
+    'status': new Set(['anonymous', CONFIG_ROOT_FLAG]),
 };
 
 const VALID_OPTIONS_BUCKET = {
-    'add': new Set(['name', 'owner', 'path', 'bucket_policy', 'fs_backend', 'force_md5_etag', FROM_FILE, ...GLOBAL_CONFIG_OPTIONS]),
-    'update': new Set(['name', 'owner', 'path', 'bucket_policy', 'fs_backend', 'new_name', 'force_md5_etag', ...GLOBAL_CONFIG_OPTIONS]),
-    'delete': new Set(['name', 'force', ...GLOBAL_CONFIG_OPTIONS]),
-    'list': new Set(['wide', 'name', ...GLOBAL_CONFIG_OPTIONS]),
-    'status': new Set(['name', ...GLOBAL_CONFIG_OPTIONS]),
+    'add': new Set(['name', 'owner', 'path', 'bucket_policy', 'fs_backend', 'force_md5_etag', FROM_FILE, ...CLI_MUTUAL_OPTIONS]),
+    'update': new Set(['name', 'owner', 'path', 'bucket_policy', 'fs_backend', 'new_name', 'force_md5_etag', ...CLI_MUTUAL_OPTIONS]),
+    'delete': new Set(['name', 'force', ...CLI_MUTUAL_OPTIONS]),
+    'list': new Set(['wide', 'name', ...CLI_MUTUAL_OPTIONS]),
+    'status': new Set(['name', ...CLI_MUTUAL_OPTIONS]),
 };
 
 const VALID_OPTIONS_GLACIER = {
-    'migrate': new Set([ GLOBAL_CONFIG_ROOT]),
-    'restore': new Set([ GLOBAL_CONFIG_ROOT]),
-    'expiry': new Set([ GLOBAL_CONFIG_ROOT]),
+    'migrate': new Set([ CONFIG_ROOT_FLAG]),
+    'restore': new Set([ CONFIG_ROOT_FLAG]),
+    'expiry': new Set([ CONFIG_ROOT_FLAG]),
 };
 
 const VALID_OPTIONS_DIAGNOSE = {
-    'health': new Set([ 'https_port', 'deployment_type', 'all_account_details', 'all_bucket_details', ...GLOBAL_CONFIG_OPTIONS]),
-    'gather-logs': new Set([ GLOBAL_CONFIG_ROOT]),
-    'metrics': new Set([GLOBAL_CONFIG_ROOT])
+    'health': new Set([ 'https_port', 'deployment_type', 'all_account_details', 'all_bucket_details', ...CLI_MUTUAL_OPTIONS]),
+    'gather-logs': new Set([ CONFIG_ROOT_FLAG]),
+    'metrics': new Set([CONFIG_ROOT_FLAG])
 };
 
 
-const VALID_OPTIONS_WHITELIST = new Set(['ips', ...GLOBAL_CONFIG_OPTIONS]);
+const VALID_OPTIONS_WHITELIST = new Set(['ips', ...CLI_MUTUAL_OPTIONS]);
 
-const VALID_OPTIONS_FROM_FILE = new Set(['from_file', ...GLOBAL_CONFIG_OPTIONS]);
+const VALID_OPTIONS_FROM_FILE = new Set(['from_file', ...CLI_MUTUAL_OPTIONS]);
 
 const VALID_OPTIONS = {
     account_options: VALID_OPTIONS_ACCOUNT,

@@ -23,7 +23,13 @@ const os_utils = require('../util/os_utils');
 const Semaphore = require('../util/semaphore');
 const json_utils = require('../util/json_utils');
 const addr_utils = require('../util/addr_utils');
+const debug_config = require('../util/debug_config');
 
+
+if (process.env.NOOBAA_LOG_LEVEL) {
+    const dbg_conf = debug_config.get_debug_config(process.env.NOOBAA_LOG_LEVEL);
+    dbg_conf.core.map(module => dbg.set_module_level(dbg_conf.level, module));
+}
 
 const CREATE_TOKEN_RESPONSE_TIMEOUT = 30 * 1000; // 30s timeout for master to respond to HB
 const CREATE_TOKEN_RETRY_INTERVAL = 10 * 1000;

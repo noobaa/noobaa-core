@@ -5,7 +5,7 @@ const _ = require('lodash');
 const config = require('../../config');
 const dbg = require('../util/debug_module')(__filename);
 const P = require('../util/promise');
-const { ConfigFS, JSON_SUFFIX } = require('./config_fs');
+const { ConfigFS } = require('./config_fs');
 const native_fs_utils = require('../util/native_fs_utils');
 const { create_arn, get_action_message_title, check_iam_path_was_set } = require('../endpoint/iam/iam_utils');
 const { IAM_ACTIONS, MAX_NUMBER_OF_ACCESS_KEYS, IAM_DEFAULT_PATH,
@@ -153,7 +153,7 @@ class AccountSpaceFS {
                 const requested_account_encrypted = await nc_mkm.encrypt_access_keys(requested_account);
                 const account_string = JSON.stringify(requested_account_encrypted);
                 nsfs_schema_utils.validate_account_schema(JSON.parse(account_string));
-                await this.config_fs.update_account_config_file(params.username, JSON.parse(account_string));
+                await this.config_fs.update_account_config_file(JSON.parse(account_string));
             }
             this._clean_account_cache(requested_account);
             return {
@@ -193,7 +193,7 @@ class AccountSpaceFS {
             this._check_if_requested_account_is_root_account_or_IAM_user(action, requesting_account, account_to_delete);
             this._check_if_requested_is_owned_by_root_account(action, requesting_account, account_to_delete);
             await this._check_if_user_does_not_have_resources_before_deletion(action, account_to_delete);
-            await this.config_fs.delete_account_config_file(params.username);
+            await this.config_fs.delete_account_config_file(account_to_delete);
         } catch (err) {
             dbg.error(`AccountSpaceFS.${action} error`, err);
             throw native_fs_utils.translate_error_codes(err, native_fs_utils.entity_enum.USER);
@@ -268,8 +268,10 @@ class AccountSpaceFS {
             const requested_account_encrypted = await nc_mkm.encrypt_access_keys(requested_account);
             const account_to_create_access_keys_string = JSON.stringify(requested_account_encrypted);
             nsfs_schema_utils.validate_account_schema(JSON.parse(account_to_create_access_keys_string));
-            await this.config_fs.update_account_config_file(name_for_access_key, JSON.parse(account_to_create_access_keys_string),
-                [created_access_key_obj]);
+            await this.config_fs.update_account_config_file(
+                JSON.parse(account_to_create_access_keys_string),
+                { new_access_keys_to_link: [created_access_key_obj] }
+            );
             return {
                 username: requested_account.name,
                 access_key: created_access_key_obj.access_key,
@@ -356,8 +358,7 @@ class AccountSpaceFS {
             const requested_account_encrypted = await nc_mkm.encrypt_access_keys(requested_account);
             const account_string = JSON.stringify(requested_account_encrypted);
             nsfs_schema_utils.validate_account_schema(JSON.parse(account_string));
-            const name_for_access_key = params.username ?? requester.name;
-            await this.config_fs.update_account_config_file(name_for_access_key, JSON.parse(account_string));
+            await this.config_fs.update_account_config_file(JSON.parse(account_string));
             this._clean_account_cache(requested_account);
         } catch (err) {
             dbg.error(`AccountSpaceFS.${action} error`, err);
@@ -387,7 +388,7 @@ class AccountSpaceFS {
                 requesting_account, params.username);
             const username = params.username ?? requester.name; // username is not required
             await this._check_if_account_exists_by_access_key_symlink(action, access_key_id);
-            const requested_account = await this.config_fs.get_account_by_access_key(params.access_key, { show_secrets: true});
+            const requested_account = await this.config_fs.get_account_by_access_key(access_key_id, { show_secrets: true});
             this._check_username_match_to_requested_account(action, username, requested_account);
             this._check_access_key_belongs_to_account(action, requested_account, access_key_id);
             this._check_if_requested_account_same_root_account_as_requesting_account(action,
@@ -400,12 +401,9 @@ class AccountSpaceFS {
             const requested_account_encrypted = await nc_mkm.encrypt_access_keys(requested_account);
             const account_string = JSON.stringify(requested_account_encrypted);
             nsfs_schema_utils.validate_account_schema(JSON.parse(account_string));
-            const name_for_access_key = params.username ?? requester.name;
             await this.config_fs.update_account_config_file(
-                name_for_access_key,
                 JSON.parse(account_string),
-                undefined,
-                [params.access_key]
+                { access_keys_to_delete: [{ access_key: access_key_id }] }
             );
             this._clean_account_cache(requested_account);
         } catch (err) {
@@ -560,33 +558,30 @@ class AccountSpaceFS {
     // based on the function from manage_nsfs
     async _list_config_files_for_users(requesting_account, iam_path_prefix) {
         // TODO - currently handles only root accounts, need to add iam_accounts
-        const entries = await this.config_fs.list_root_accounts();
+        const account_names = await this.config_fs.list_accounts();
         const should_filter_by_prefix = check_iam_path_was_set(iam_path_prefix);
 
-        const config_files_list = await P.map_with_concurrency(10, entries, async entry => {
-            if (entry.name.endsWith(JSON_SUFFIX)) {
-                const account_data = await this.config_fs.get_account_by_name(entry.name, { silent_if_missing: true });
-                if (!account_data) return undefined;
-                if (entry.name.includes(config.NSFS_TEMP_CONF_DIR_NAME)) return undefined;
-                const is_root_account_owns_user = this._check_root_account_owns_user(requesting_account, account_data);
-                if ((!requesting_account.iam_operate_on_root_account && is_root_account_owns_user) ||
-                    (requesting_account.iam_operate_on_root_account && this._check_root_account(account_data))) {
-                    if (should_filter_by_prefix) {
-                        if (account_data.iam_path === undefined) return undefined;
-                        if (!account_data.iam_path.startsWith(iam_path_prefix)) return undefined;
-                    }
-                    const user_data = {
-                        user_id: account_data._id,
-                        iam_path: account_data.iam_path || IAM_DEFAULT_PATH,
-                        username: account_data.name,
-                        arn: create_arn(requesting_account._id, account_data.name, account_data.iam_path),
-                        create_date: account_data.creation_date,
-                        password_last_used: Date.now(), // GAP
-                    };
-                    return user_data;
+        const config_files_list = await P.map_with_concurrency(10, account_names, async account_name => {
+            const account_data = await this.config_fs.get_account_by_name(account_name, { silent_if_missing: true });
+            if (!account_data) return undefined;
+            const is_root_account_owns_user = this._check_root_account_owns_user(requesting_account, account_data);
+            if ((!requesting_account.iam_operate_on_root_account && is_root_account_owns_user) ||
+                (requesting_account.iam_operate_on_root_account && this._check_root_account(account_data))) {
+                if (should_filter_by_prefix) {
+                    if (account_data.iam_path === undefined) return undefined;
+                    if (!account_data.iam_path.startsWith(iam_path_prefix)) return undefined;
                 }
-                return undefined;
+                const user_data = {
+                    user_id: account_data._id,
+                    iam_path: account_data.iam_path || IAM_DEFAULT_PATH,
+                    username: account_data.name,
+                    arn: create_arn(requesting_account._id, account_data.name, account_data.iam_path),
+                    create_date: account_data.creation_date,
+                    password_last_used: Date.now(), // GAP
+                };
+                return user_data;
             }
+            return undefined;
         });
         // remove undefined entries
         return config_files_list.filter(item => item);
@@ -620,7 +615,7 @@ class AccountSpaceFS {
     }
 
     async _check_username_already_exists(action, username) {
-        const name_exists = await this.config_fs.is_account_exists({ name: username });
+        const name_exists = await this.config_fs.is_account_exists_by_name(username);
         if (name_exists) {
             dbg.error(`AccountSpaceFS.${action} username already exists`, username);
             const message_with_details = `User with name ${username} already exists.`;
@@ -635,12 +630,12 @@ class AccountSpaceFS {
         dbg.log1(`AccountSpaceFS.${action} new_account`, created_account);
         const new_account_string = JSON.stringify(created_account);
         nsfs_schema_utils.validate_account_schema(JSON.parse(new_account_string));
-        await this.config_fs.create_account_config_file(params.username, JSON.parse(new_account_string), false);
+        await this.config_fs.create_account_config_file(JSON.parse(new_account_string));
         return created_account;
     }
 
     async _check_if_account_config_file_exists(action, username) {
-        const is_user_account_exists = await this.config_fs.is_account_exists({ name: username });
+        const is_user_account_exists = await this.config_fs.is_account_exists_by_name(username);
         if (!is_user_account_exists) {
             dbg.error(`AccountSpaceFS.${action} username does not exist`, username);
             const message_with_details = `The user with name ${username} cannot be found.`;
@@ -674,15 +669,13 @@ class AccountSpaceFS {
     // currently, partial copy from verify_account_not_owns_bucket
     async _check_if_root_account_does_not_have_buckets_before_deletion(action, account_to_delete) {
         const resource_name = 'buckets';
-        const entries = await this.config_fs.list_buckets();
-        await P.map_with_concurrency(10, entries, async entry => {
-            if (entry.name.endsWith(JSON_SUFFIX)) {
-                const bucket_data = await this.config_fs.get_bucket_by_name(entry.name, { silent_if_missing: true});
-                if (bucket_data && bucket_data.bucket_owner === account_to_delete.name) {
-                    this._throw_error_delete_conflict(action, account_to_delete, resource_name);
-                }
-                return bucket_data;
+        const bucket_names = await this.config_fs.list_buckets();
+        await P.map_with_concurrency(10, bucket_names, async bucket_name => {
+            const bucket_data = await this.config_fs.get_bucket_by_name(bucket_name, { silent_if_missing: true});
+            if (bucket_data && bucket_data.bucket_owner === account_to_delete.name) {
+                this._throw_error_delete_conflict(action, account_to_delete, resource_name);
             }
+            return bucket_data;
         });
     }
 
@@ -690,19 +683,16 @@ class AccountSpaceFS {
     // currently, partial copy from _list_config_files_for_users
     async _check_if_root_account_does_not_have_IAM_users_before_deletion(action, account_to_delete) {
         const resource_name = 'IAM users';
-        const entries = await this.config_fs.list_root_accounts();
-        await P.map_with_concurrency(10, entries, async entry => {
-            if (entry.name.endsWith(JSON_SUFFIX)) {
-                const account_data = await this.config_fs.get_account_by_name(entry.name, { silent_if_missing: true });
-                if (!account_data) return undefined;
-                if (entry.name.includes(config.NSFS_TEMP_CONF_DIR_NAME)) return undefined;
-                const is_root_account_owns_user = this._check_root_account_owns_user(account_to_delete, account_data);
-                if ((!account_to_delete.iam_operate_on_root_account && is_root_account_owns_user) ||
-                    (account_to_delete.iam_operate_on_root_account && this._check_root_account(account_data))) {
-                        this._throw_error_delete_conflict(action, account_to_delete, resource_name);
-                }
-                return account_data;
+        const account_names = await this.config_fs.list_accounts();
+        await P.map_with_concurrency(10, account_names, async account_name => {
+            const account_data = await this.config_fs.get_account_by_name(account_name, { silent_if_missing: true });
+            if (!account_data) return undefined;
+            const is_root_account_owns_user = this._check_root_account_owns_user(account_to_delete, account_data);
+            if ((!account_to_delete.iam_operate_on_root_account && is_root_account_owns_user) ||
+                (account_to_delete.iam_operate_on_root_account && this._check_root_account(account_data))) {
+                    this._throw_error_delete_conflict(action, account_to_delete, resource_name);
             }
+            return account_data;
         });
     }
 
@@ -719,19 +709,11 @@ class AccountSpaceFS {
         // prepare
         requested_account.name = params.new_username;
         requested_account.email = params.new_username; // internally saved
-        const access_key_ids = [];
-        for (const access_keys of requested_account.access_keys) {
-            access_key_ids.push(access_keys.access_key);
-        }
         // handle account config creation
         const requested_account_encrypted = await nc_mkm.encrypt_access_keys(requested_account);
         const account_string = JSON.stringify(requested_account_encrypted);
         nsfs_schema_utils.validate_account_schema(JSON.parse(account_string));
-        // handle account config creation and 
-        // access keys(unlink and then create the new symbolic link)
-        await this.config_fs.create_account_config_file(params.new_username, JSON.parse(account_string), true, access_key_ids);
-        // handle account config deletion
-        await this.config_fs.delete_account_config_file(params.username);
+        await this.config_fs.update_account_config_file(JSON.parse(account_string), { old_name: params.username });
     }
 
     _check_root_account_or_user(requesting_account, username) {
@@ -831,7 +813,7 @@ class AccountSpaceFS {
     }
 
     async _check_if_account_exists_by_access_key_symlink(action, access_key_id) {
-        const is_user_account_exists = await this.config_fs.is_account_exists({ access_key: access_key_id });
+        const is_user_account_exists = await this.config_fs.is_account_exists_by_access_key(access_key_id);
         if (!is_user_account_exists) {
             this._throw_error_no_such_entity_access_key(action, access_key_id);
         }

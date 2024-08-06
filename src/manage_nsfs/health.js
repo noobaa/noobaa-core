@@ -10,7 +10,6 @@ const nb_native = require('../util/nb_native');
 const native_fs_utils = require('../util/native_fs_utils');
 const { read_stream_join } = require('../util/buffer_utils');
 const { make_https_request } = require('../util/http_utils');
-const { JSON_SUFFIX } = require('../sdk/config_fs');
 const { TYPES } = require('./manage_nsfs_constants');
 const { get_boolean_or_string_value, throw_cli_error, write_stdout_response } = require('./manage_nsfs_cli_utils');
 const { ManageCLIResponse } = require('./manage_nsfs_cli_responses');
@@ -327,7 +326,7 @@ class NSFSHealth {
             config_root_type_exists = await this.config_fs.validate_config_dir_exists(config_dir_path);
         } else if (type === TYPES.ACCOUNT) {
             // TODO - handle iam accounts when directory structure changes - read_account_by_id
-            config_dir_path = this.config_fs.accounts_dir_path;
+            config_dir_path = this.config_fs.accounts_by_name_dir_path;
             config_root_type_exists = await this.config_fs.validate_config_dir_exists(config_dir_path);
         }
         // TODO - this is not a good handling for that - we need to take it to an upper level
@@ -339,15 +338,16 @@ class NSFSHealth {
             };
         }
 
-        const entries = type === TYPES.BUCKET ?
-            await this.config_fs.list_buckets() :
-            await this.config_fs.list_root_accounts();
-
-        const config_files = entries.filter(entree => !native_fs_utils.isDirectory(entree) && entree.name.endsWith(JSON_SUFFIX));
+        let config_files;
+        if (type === TYPES.BUCKET) {
+            config_files = await this.config_fs.list_buckets();
+        } else {
+            config_files = await this.config_fs.list_accounts();
+        }
         for (const config_file of config_files) {
             // config_file get data or push error
             const { config_data = undefined, err_obj = undefined } =
-                await this.get_config_file_data_or_error_object(type, config_file.name);
+                await this.get_config_file_data_or_error_object(type, config_file);
             if (!config_data && err_obj) {
                 invalid_storages.push(err_obj.invalid_storage);
                 continue;
@@ -395,9 +395,9 @@ class NSFSHealth {
         } catch (err) {
             let err_code;
             const config_file_path = type === TYPES.BUCKET ?
-                await this.config_fs.get_bucket_path_by_name(config_file_name) :
+                this.config_fs.get_bucket_path_by_name(config_file_name) :
                 // TODO - should be changed to id when moving to new structure for supporting iam accounts
-                await this.config_fs.get_account_path_by_name(config_file_name);
+                this.config_fs.get_account_path_by_name(config_file_name);
 
             if (err.code === 'ENOENT') {
                 dbg.log1(`Error: Config file path should be a valid path`, config_file_path, err);

@@ -6,11 +6,13 @@ const _ = require('lodash');
 const http = require('http');
 const P = require('../../util/promise');
 const os_utils = require('../../util/os_utils');
+const nb_native = require('../../util/nb_native');
 const native_fs_utils = require('../../util/native_fs_utils');
 const config = require('../../../config');
 const { S3 } = require('@aws-sdk/client-s3');
 const { NodeHttpHandler } = require("@smithy/node-http-handler");
 const path = require('path');
+const { CONFIG_TYPES } = require('../../sdk/config_fs');
 
 /**
  * TMP_PATH is a path to the tmp path based on the process platform
@@ -410,6 +412,7 @@ async function generate_nsfs_account(rpc_client, EMAIL, default_new_buckets_path
         email: `${random_name}@noobaa.com`
     };
 }
+
 /**
  * get_new_buckets_path_by_test_env returns new_buckets_path value
  * on NC - new_buckets_path is full absolute path
@@ -423,6 +426,57 @@ async function generate_nsfs_account(rpc_client, EMAIL, default_new_buckets_path
  */
 function get_new_buckets_path_by_test_env(new_buckets_full_path, new_buckets_dir) {
     return is_nc_coretest ? path.join(new_buckets_full_path, new_buckets_dir) : new_buckets_dir;
+}
+
+/**
+ * write_manual_config_file writes config file directly to the file system without using config FS
+ * used for creating backward compatibility tests, invalid config files etc
+ * @param {import('../../sdk/config_fs').ConfigFS} config_fs
+ * @param {Object} config_data 
+ * @param {String} [invalid_str]
+ * @returns {Promise<Void>}
+ */
+async function write_manual_config_file(type, config_fs, config_data, invalid_str = '') {
+    const config_path = type === CONFIG_TYPES.BUCKET ?
+        config_fs.get_bucket_path_by_name(config_data.name) :
+        config_fs.get_identity_path_by_id(config_data._id);
+    if (type === CONFIG_TYPES.ACCOUNT) {
+        const dir_path = config_fs.get_identity_dir_path_by_id(config_data._id);
+        await nb_native().fs.mkdir(config_fs.fs_context, dir_path, native_fs_utils.get_umasked_mode(config.BASE_MODE_DIR));
+    }
+    await nb_native().fs.writeFile(
+        config_fs.fs_context,
+        config_path,
+        Buffer.from(JSON.stringify(config_data) + invalid_str),
+        {
+            mode: native_fs_utils.get_umasked_mode(config.BASE_MODE_FILE)
+        }
+    );
+
+    if (type === CONFIG_TYPES.ACCOUNT) {
+        const id_relative_path = config_fs.get_account_relative_path_by_id(config_data._id);
+        const name_symlink_path = config_fs.get_account_or_user_path_by_name(config_data.name);
+        await nb_native().fs.symlink(config_fs.fs_context, id_relative_path, name_symlink_path);
+    }
+}
+
+
+/**
+ * write_manual_old_account_config_file writes account config file directly to the old file system account path without using config FS
+ * @param {import('../../sdk/config_fs').ConfigFS} config_fs
+ * @param {Object} config_data 
+ * @returns {Promise<Void>}
+ */
+async function write_manual_old_account_config_file(config_fs, config_data) {
+    const config_path = config_fs._get_old_account_path_by_name(config_data.name);
+    await nb_native().fs.writeFile(
+        config_fs.fs_context,
+        config_path,
+        Buffer.from(JSON.stringify(config_data)),
+        {
+            mode: native_fs_utils.get_umasked_mode(config.BASE_MODE_FILE)
+        }
+    );
 }
 
 exports.blocks_exist_on_cloud = blocks_exist_on_cloud;
@@ -444,4 +498,6 @@ exports.TMP_PATH = TMP_PATH;
 exports.is_nc_coretest = is_nc_coretest;
 exports.generate_nsfs_account = generate_nsfs_account;
 exports.get_new_buckets_path_by_test_env = get_new_buckets_path_by_test_env;
+exports.write_manual_config_file = write_manual_config_file;
+exports.write_manual_old_account_config_file = write_manual_old_account_config_file;
 

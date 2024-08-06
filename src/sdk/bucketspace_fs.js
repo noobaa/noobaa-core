@@ -19,7 +19,7 @@ const { ConfigFS, JSON_SUFFIX } = require('./config_fs');
 const mongo_utils = require('../util/mongo_utils');
 
 const KeysSemaphore = require('../util/keys_semaphore');
-const { get_umasked_mode, isDirectory, validate_bucket_creation, get_bucket_tmpdir_full_path, folder_delete,
+const { get_umasked_mode, validate_bucket_creation, get_bucket_tmpdir_full_path, folder_delete,
     entity_enum, translate_error_codes, get_process_fs_context} = require('../util/native_fs_utils');
 const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
 const { anonymous_access_key } = require('./object_sdk');
@@ -178,9 +178,9 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
      * @returns {Promise<object>}
      */
     async list_buckets(object_sdk) {
-        let entries;
+        let bucket_names;
         try {
-            entries = await this.config_fs.list_buckets();
+            bucket_names = await this.config_fs.list_buckets();
         } catch (err) {
             if (err.code === 'ENOENT') {
                 dbg.error('BucketSpaceFS: root dir not found', err, this.config_fs.buckets_dir_path);
@@ -190,11 +190,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
         }
 
         const account = object_sdk.requesting_account;
-        const buckets = await P.map_with_concurrency(10, entries, async entry => {
-            if (isDirectory(entry) || !entry.name.endsWith(JSON_SUFFIX)) {
-                return;
-            }
-            const bucket_name = this.get_bucket_name(entry.name);
+        const buckets = await P.map_with_concurrency(10, bucket_names, async bucket_name => {
             let bucket;
             try {
                 bucket = await object_sdk.read_bucket_sdk_config_info(bucket_name);

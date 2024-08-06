@@ -18,7 +18,7 @@ const SensitiveString = require('../../util/sensitive_string');
 const NamespaceFS = require('../../sdk/namespace_fs');
 const BucketSpaceFS = require('../../sdk/bucketspace_fs');
 const { TMP_PATH } = require('../system_tests/test_utils');
-const { CONFIG_SUBDIRS, JSON_SUFFIX, SYMLINK_SUFFIX } = require('../../sdk/config_fs');
+const { CONFIG_SUBDIRS, JSON_SUFFIX } = require('../../sdk/config_fs');
 const nc_mkm = require('../../manage_nsfs/nc_master_key_manager').get_instance();
 
 
@@ -266,16 +266,22 @@ mocha.describe('bucketspace_fs', function() {
     };
 
     mocha.before(async () => {
-        await P.all(_.map([CONFIG_SUBDIRS.ACCOUNTS, CONFIG_SUBDIRS.ACCESS_KEYS, CONFIG_SUBDIRS.BUCKETS], async dir =>
+        await P.all(_.map([CONFIG_SUBDIRS.IDENTITIES,
+        CONFIG_SUBDIRS.ACCOUNTS_BY_NAME, CONFIG_SUBDIRS.ACCESS_KEYS, CONFIG_SUBDIRS.BUCKETS], async dir =>
             await fs_utils.create_fresh_path(`${config_root}/${dir}`))
         );
         await fs_utils.create_fresh_path(new_buckets_path);
         for (let account of [account_user1, account_user2, account_user3, account_iam_user1, account_iam_user2]) {
             account = await nc_mkm.encrypt_access_keys(account);
-            const account_path = get_config_file_path(CONFIG_SUBDIRS.ACCOUNTS, account.name);
-            const account_access_path = get_access_key_symlink_path(CONFIG_SUBDIRS.ACCESS_KEYS, account.access_keys[0].access_key);
+            const account_dir_path = bucketspace_fs.config_fs.get_identity_dir_path_by_id(account._id);
+            const account_path = bucketspace_fs.config_fs.get_identity_path_by_id(account._id);
+            const account_name_path = bucketspace_fs.config_fs.get_account_path_by_name(account.name);
+            const account_access_path = bucketspace_fs.config_fs.get_account_or_user_path_by_access_key(account.access_keys[0].access_key);
+            await fs.promises.mkdir(account_dir_path);
             await fs.promises.writeFile(account_path, JSON.stringify(account));
+            await fs.promises.symlink(account_path, account_name_path);
             await fs.promises.symlink(account_path, account_access_path);
+
         }
     });
     mocha.after(async () => {
@@ -810,8 +816,4 @@ function get_config_file_path(config_type_path, file_name) {
     return path.join(config_root, config_type_path, file_name + JSON_SUFFIX);
 }
 
-// returns the path of the access_key symlink to the config file json
-function get_access_key_symlink_path(config_type_path, file_name) {
-    return path.join(config_root, config_type_path, file_name + SYMLINK_SUFFIX);
-}
 

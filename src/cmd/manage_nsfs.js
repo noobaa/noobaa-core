@@ -8,7 +8,7 @@ const minimist = require('minimist');
 const config = require('../../config');
 const P = require('../util/promise');
 const nb_native = require('../util/nb_native');
-const { ConfigFS, JSON_SUFFIX } = require('../sdk/config_fs');
+const { ConfigFS } = require('../sdk/config_fs');
 const cloud_utils = require('../util/cloud_utils');
 const native_fs_utils = require('../util/native_fs_utils');
 const mongo_utils = require('../util/mongo_utils');
@@ -387,8 +387,8 @@ async function add_account(data) {
     await manage_nsfs_validations.validate_account_args(config_fs, data, ACTIONS.ADD, undefined);
 
     const access_key = has_access_keys(data.access_keys) ? data.access_keys[0].access_key : undefined;
-    const name_exists = await config_fs.is_account_exists({ name: data.name });
-    const access_key_exists = access_key && await config_fs.is_account_exists({ access_key });
+    const name_exists = await config_fs.is_account_exists_by_name(data.name);
+    const access_key_exists = access_key && await config_fs.is_account_exists_by_access_key(access_key);
 
     const event_arg = data.name ? data.name : access_key;
     if (name_exists || access_key_exists) {
@@ -405,7 +405,7 @@ async function add_account(data) {
     // for validating against the schema we need an object, hence we parse it back to object
     const account = encrypted_data ? JSON.parse(encrypted_data) : data;
     nsfs_schema_utils.validate_account_schema(account);
-    await config_fs.create_account_config_file(data.name, account, true);
+    await config_fs.create_account_config_file(account);
     write_stdout_response(ManageCLIResponse.AccountCreated, data, { account: event_arg });
 }
 
@@ -434,7 +434,7 @@ async function update_account(data, is_flag_iam_operate_on_root_account) {
         // for validating against the schema we need an object, hence we parse it back to object
         const account = encrypted_data ? JSON.parse(encrypted_data) : data;
         nsfs_schema_utils.validate_account_schema(account);
-        await config_fs.update_account_config_file(data.name, account, undefined, undefined);
+        await config_fs.update_account_config_file(account);
         write_stdout_response(ManageCLIResponse.AccountUpdated, data);
         return;
     }
@@ -446,9 +446,9 @@ async function update_account(data, is_flag_iam_operate_on_root_account) {
         secret_key: data.access_keys[0].secret_key,
     };
 
-    const name_exists = update_name && await config_fs.is_account_exists({ name: data.name });
+    const name_exists = update_name && await config_fs.is_account_exists_by_name(data.name, undefined);
     const access_key_exists = update_access_key &&
-        await config_fs.is_account_exists({ access_key: data.access_keys[0].access_key.unwrap() });
+        await config_fs.is_account_exists_by_access_key(data.access_keys[0].access_key.unwrap());
 
     if (name_exists || access_key_exists) {
         const err_code = name_exists ? ManageCLIError.AccountNameAlreadyExists : ManageCLIError.AccountAccessKeyAlreadyExists;
@@ -465,18 +465,17 @@ async function update_account(data, is_flag_iam_operate_on_root_account) {
     // for validating against the schema we need an object, hence we parse it back to object
     const parsed_data = JSON.parse(encrypted_data);
     nsfs_schema_utils.validate_account_schema(parsed_data);
-    if (update_name) {
-        await config_fs.create_account_config_file(new_name, parsed_data, true, [cur_access_key]);
-        await config_fs.delete_account_config_file(cur_name, data.access_keys);
-    } else if (update_access_key) {
-        await config_fs.update_account_config_file(cur_name, parsed_data, parsed_data.access_keys, [cur_access_key]);
-    }
+    await config_fs.update_account_config_file(parsed_data, {
+        old_name: update_name && cur_name,
+        new_access_keys_to_link: update_access_key && parsed_data.access_keys,
+        access_keys_to_delete: update_access_key && [{ access_key: cur_access_key }]
+    });
     write_stdout_response(ManageCLIResponse.AccountUpdated, data);
 }
 
 async function delete_account(data) {
     await manage_nsfs_validations.validate_account_args(config_fs, data, ACTIONS.DELETE, undefined);
-    await config_fs.delete_account_config_file(data.name, data.access_keys);
+    await config_fs.delete_account_config_file(data);
     write_stdout_response(ManageCLIResponse.AccountDeleted, '', { account: data.name });
 }
 
@@ -578,19 +577,10 @@ function filter_bucket(bucket, filters) {
  * @param {object} [filters]
  */
 async function list_config_files(type, wide, show_secrets, filters = {}) {
-    let entries;
-    // in case we have a filter by name, we don't need to read all the entries and iterate them
-    // instead we "mock" the entries array to have one entry and it is the name by the filter (we add it for performance)
-    const is_filter_by_name = filters.name !== undefined;
-    if (is_filter_by_name) {
-        entries = [{'name': filters.name + JSON_SUFFIX}];
-    } else {
-        entries = type === TYPES.ACCOUNT ?
-        await config_fs.list_root_accounts() :
-        await config_fs.list_buckets();
-    }
-
+    let entries = [];
     const should_filter = Object.keys(filters).length > 0;
+    const is_filter_by_name = filters.name !== undefined;
+
     // decryption causing mkm initalization
     // decrypt only if data has access_keys and show_secrets = true (no need to decrypt if show_secrets = false but should_filter = true)
     const options = {
@@ -599,19 +589,27 @@ async function list_config_files(type, wide, show_secrets, filters = {}) {
         silent_if_missing: true
     };
 
+    // in case we have a filter by name, we don't need to read all the entries and iterate them
+    // instead we "mock" the entries array to have one entry and it is the name by the filter (we add it for performance)
+    if (is_filter_by_name) {
+        entries = [filters.name];
+    } else if (type === TYPES.ACCOUNT) {
+        entries = await config_fs.list_accounts();
+    } else if (type === TYPES.BUCKET) {
+        entries = await config_fs.list_buckets();
+    }
+
     let config_files_list = await P.map_with_concurrency(10, entries, async entry => {
-        if (entry.name.endsWith(JSON_SUFFIX)) {
-            if (wide || should_filter) {
-                const data = type === TYPES.ACCOUNT ?
-                    await config_fs.get_account_by_name(entry.name, options) :
-                    await config_fs.get_bucket_by_name(entry.name, options);
-                if (!data) return undefined;
-                if (should_filter && !filter_list_item(type, data, filters)) return undefined;
-                // remove secrets on !show_secrets && should filter
-                return wide ? _.omit(data, show_secrets ? [] : ['access_keys']) : { name: entry.name.slice(0, entry.name.indexOf(JSON_SUFFIX)) };
-            } else {
-                return { name: entry.name.slice(0, entry.name.indexOf(JSON_SUFFIX)) };
-            }
+        if (wide || should_filter) {
+            const data = type === TYPES.ACCOUNT ?
+                await config_fs.get_account_by_name(entry, options) :
+                await config_fs.get_bucket_by_name(entry, options);
+            if (!data) return undefined;
+            if (should_filter && !filter_list_item(type, data, filters)) return undefined;
+            // remove secrets on !show_secrets && should filter
+            return wide ? _.omit(data, show_secrets ? [] : ['access_keys']) : { name: entry };
+        } else {
+            return { name: entry };
         }
     });
     // it inserts undefined for the entry '.noobaa-config-nsfs' and we wish to remove it

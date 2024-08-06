@@ -3,12 +3,9 @@
 
 const config = require('../../config');
 const dbg = require('../util/debug_module')(__filename);
-const path = require('path');
 const net = require('net');
 const P = require('../util/promise');
-const nb_native = require('../util/nb_native');
 const string_utils = require('../util/string_utils');
-const { JSON_SUFFIX } = require('../sdk/config_fs');
 const native_fs_utils = require('../util/native_fs_utils');
 const ManageCLIError = require('../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
 const bucket_policy_utils = require('../endpoint/s3/s3_bucket_policy_utils');
@@ -354,7 +351,7 @@ async function validate_bucket_args(config_fs, data, action) {
         if (data.s3_policy) {
             try {
                 await bucket_policy_utils.validate_s3_policy(data.s3_policy, data.name,
-                    async principal => config_fs.is_account_exists({ name: principal })
+                    async principal => config_fs.is_account_exists_by_name(principal, account.owner)
                 );
             } catch (err) {
                 dbg.error('validate_bucket_args invalid bucket policy err:', err);
@@ -482,16 +479,14 @@ function _validate_access_keys(access_key, secret_key) {
  * @param {string} account_name
  */
 async function validate_account_not_owns_buckets(config_fs, account_name) {
-    const entries = await config_fs.list_buckets();
-    await P.map_with_concurrency(10, entries, async entry => {
-        if (entry.name.endsWith(JSON_SUFFIX)) {
-            const data = await config_fs.get_bucket_by_name(entry.name, { silent_if_missing: true });
-            if (data && data.bucket_owner === account_name) {
-                const detail_msg = `Account ${account_name} has bucket ${data.name}`;
-                throw_cli_error(ManageCLIError.AccountDeleteForbiddenHasBuckets, detail_msg);
-            }
-            return data;
+    const bucket_names = await config_fs.list_buckets();
+    await P.map_with_concurrency(10, bucket_names, async bucket_name => {
+        const data = await config_fs.get_bucket_by_name(bucket_name, { silent_if_missing: true });
+        if (data && data.bucket_owner === account_name) {
+            const detail_msg = `Account ${account_name} has bucket ${data.name}`;
+            throw_cli_error(ManageCLIError.AccountDeleteForbiddenHasBuckets, detail_msg);
         }
+        return data;
     });
 }
 
@@ -503,24 +498,20 @@ async function validate_account_not_owns_buckets(config_fs, account_name) {
  * @param {string} action
  */
 async function check_if_root_account_does_not_have_IAM_users(config_fs, account_to_check, action) {
-    const fs_context = config_fs.fs_context;
-    const entries = await nb_native().fs.readdir(fs_context, config_fs.accounts_dir_path);
-    await P.map_with_concurrency(10, entries, async entry => {
-        if (entry.name.endsWith(JSON_SUFFIX)) {
-            const full_path = path.join(config_fs.accounts_dir_path, entry.name);
-            const account_data = await config_fs.get_config_data(full_path);
-            if (entry.name.includes(config.NSFS_TEMP_CONF_DIR_NAME)) return undefined;
-            const is_root_account_owns_user = check_root_account_owns_user(account_to_check, account_data);
-            if (is_root_account_owns_user) {
-                const detail_msg = `Account ${account_to_check.name} has IAM account ${account_data.name}`;
-                if (action === ACTIONS.DELETE) {
-                    throw_cli_error(ManageCLIError.AccountDeleteForbiddenHasIAMAccounts, detail_msg);
-                }
-                // else it is called with action ACTIONS.UPDATE
-                throw_cli_error(ManageCLIError.AccountCannotBeRootAccountsManager, detail_msg);
+    // TODO - For supporting IAM, we need to check if {config_dir}/identities/{account_id}/users/ has anything inside
+    const account_names = await config_fs.list_accounts();
+    await P.map_with_concurrency(10, account_names, async account_name => {
+        const account_data = await config_fs.get_account_by_name(account_name);
+        const is_root_account_owns_user = check_root_account_owns_user(account_to_check, account_data);
+        if (is_root_account_owns_user) {
+            const detail_msg = `Account ${account_to_check.name} has IAM account ${account_data.name}`;
+            if (action === ACTIONS.DELETE) {
+                throw_cli_error(ManageCLIError.AccountDeleteForbiddenHasIAMAccounts, detail_msg);
             }
-            return account_data;
+            // else it is called with action ACTIONS.UPDATE
+            throw_cli_error(ManageCLIError.AccountCannotBeRootAccountsManager, detail_msg);
         }
+        return account_data;
     });
 }
 

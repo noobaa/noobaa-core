@@ -5,11 +5,8 @@
 process.env.DISABLE_INIT_RANDOM_SEED = "true";
 
 const fs = require('fs');
-const _ = require('lodash');
 const path = require('path');
-const P = require('../../../util/promise');
 const fs_utils = require('../../../util/fs_utils');
-const { CONFIG_SUBDIRS } = require('../../../sdk/config_fs');
 const { exec_manage_cli, set_path_permissions_and_owner, TMP_PATH, set_nc_config_dir_in_config } = require('../../system_tests/test_utils');
 const { TYPES, ACTIONS } = require('../../../manage_nsfs/manage_nsfs_constants');
 const ManageCLIError = require('../../../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
@@ -270,8 +267,6 @@ function fail(reason) {
 }
 
 async function setup_nc_system_and_first_account() {
-    await P.all(_.map([CONFIG_SUBDIRS.ACCOUNTS, CONFIG_SUBDIRS.ACCESS_KEYS], async dir =>
-        fs_utils.create_fresh_path(`${config_root}/${dir}`)));
     await fs_utils.create_fresh_path(root_path);
     set_nc_config_dir_in_config(config_root);
     const action = ACTIONS.ADD;

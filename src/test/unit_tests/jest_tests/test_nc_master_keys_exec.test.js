@@ -158,7 +158,7 @@ function validate_mkm_instance(nc_mkm_instance) {
     expect(nc_mkm_instance.active_master_key.id).toBeDefined();
     expect(nc_mkm_instance.active_master_key.cipher_key).toBeDefined();
     expect(nc_mkm_instance.active_master_key.cipher_iv).toBeDefined();
-    expect(Object.entries(master_keys_cache).length === 1).toBeTruthy();
+    expect(Object.entries(master_keys_cache).length === 1).toBe(true);
     expect(nc_mkm_instance.active_master_key).toEqual(active_master_key_by_cache);
 }
 

@@ -10,6 +10,7 @@ const argv = require('minimist')(process.argv);
 const SensitiveString = require('../../util/sensitive_string');
 const { exec_manage_cli, TMP_PATH } = require('../system_tests/test_utils');
 const { TYPES, ACTIONS } = require('../../manage_nsfs/manage_nsfs_constants');
+const { ConfigFS } = require('../../sdk/config_fs');
 
 // keep me first - this is setting envs that should be set before other modules are required.
 const NC_CORETEST = 'nc_coretest';
@@ -54,9 +55,11 @@ const NC_CORETEST_REDIRECT_FILE_PATH = p.join(config.NSFS_NC_DEFAULT_CONF_DIR, '
 const NC_CORETEST_STORAGE_PATH = p.join(TMP_PATH, '/nc_coretest_storage_root_path/');
 const FIRST_BUCKET_PATH = p.join(NC_CORETEST_STORAGE_PATH, FIRST_BUCKET, '/');
 const CONFIG_FILE_PATH = p.join(NC_CORETEST_CONFIG_DIR_PATH, 'config.json');
+const NC_CORETEST_CONFIG_FS = new ConfigFS(NC_CORETEST_CONFIG_DIR_PATH);
 
 const nsrs_to_root_paths = {};
 let nsfs_process;
+
 
 /**
  * setup will setup nc coretest
@@ -148,7 +151,6 @@ async function config_dir_setup() {
         VACCUM_ANALYZER_INTERVAL: 1
     }));
     await fs.promises.mkdir(FIRST_BUCKET_PATH, { recursive: true });
-
 }
 
 /**
@@ -253,7 +255,12 @@ function get_admin_mock_account_details() {
  * @return {Promise<object>}
  */
 async function create_account_manage(options) {
-    const cli_options = {
+    const cli_options = options.name === config.ANONYMOUS_ACCOUNT_NAME ?
+        {
+            anonymous: true,
+            uid: options.nsfs_account_config.uid,
+            gid: options.nsfs_account_config.gid,
+        } : {
         name: options.name,
         new_buckets_path: options.nsfs_account_config.new_buckets_path,
         distinguished_name: options.nsfs_account_config.distinguished_name,
@@ -265,10 +272,12 @@ async function create_account_manage(options) {
     const res = await exec_manage_cli(TYPES.ACCOUNT, ACTIONS.ADD, cli_options);
     const json_account = JSON.parse(res);
     const account = json_account.response.reply;
-    account.access_keys[0] = {
-        access_key: new SensitiveString(account.access_keys[0].access_key),
-        secret_key: new SensitiveString(account.access_keys[0].secret_key)
-    };
+    if (account.access_keys.length > 0) {
+        account.access_keys[0] = {
+            access_key: new SensitiveString(account.access_keys[0].access_key),
+            secret_key: new SensitiveString(account.access_keys[0].secret_key)
+        };
+    }
     return account;
 }
 
@@ -299,10 +308,12 @@ async function read_account_manage(options) {
     const res = await exec_manage_cli(TYPES.ACCOUNT, ACTIONS.STATUS, cli_options);
     const json_account = JSON.parse(res);
     const account = json_account.response.reply;
-    account.access_keys[0] = {
-        access_key: new SensitiveString(account.access_keys[0].access_key),
-        secret_key: new SensitiveString(account.access_keys[0].secret_key)
-    };
+    if (account.access_keys.length > 0) {
+        account.access_keys[0] = {
+            access_key: new SensitiveString(account.access_keys[0].access_key),
+            secret_key: new SensitiveString(account.access_keys[0].secret_key)
+        };
+    }
     return account;
 }
 
@@ -471,3 +482,4 @@ exports.get_http_address = get_http_address;
 exports.get_https_address = get_https_address;
 exports.get_admin_mock_account_details = get_admin_mock_account_details;
 exports.NC_CORETEST_CONFIG_DIR_PATH = NC_CORETEST_CONFIG_DIR_PATH;
+exports.NC_CORETEST_CONFIG_FS = NC_CORETEST_CONFIG_FS;

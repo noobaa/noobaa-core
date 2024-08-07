@@ -2,7 +2,6 @@
 'use strict';
 
 const dbg = require('../util/debug_module')(__filename);
-const _ = require('lodash');
 const nb_native = require('../util/nb_native');
 const native_fs_utils = require('../util/native_fs_utils');
 const ManageCLIError = require('../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
@@ -61,7 +60,7 @@ async function get_bucket_owner_account(config_fs, bucket_owner) {
  * @param {boolean|string} value
  */
 function get_boolean_or_string_value(value) {
-    if (_.isUndefined(value)) {
+    if (value === undefined) {
         return false;
     } else if (typeof value === 'string' && BOOLEAN_STRING_VALUES.includes(value.toLowerCase())) {
         return value.toLowerCase() === 'true';

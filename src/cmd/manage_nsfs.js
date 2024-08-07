@@ -92,7 +92,7 @@ async function fetch_bucket_data(action, user_input) {
     let data = {
         // added undefined values to keep the order the properties when printing the data object
         _id: undefined,
-        name: _.isUndefined(user_input.name) ? undefined : String(user_input.name),
+        name: user_input.name === undefined ? undefined : String(user_input.name),
         owner_account: undefined,
         system_owner: user_input.owner, // GAP - needs to be the system_owner (currently it is the account name)
         bucket_owner: user_input.owner,
@@ -101,9 +101,9 @@ async function fetch_bucket_data(action, user_input) {
         creation_date: action === ACTIONS.ADD ? new Date().toISOString() : undefined,
         path: user_input.path,
         should_create_underlying_storage: action === ACTIONS.ADD ? false : undefined,
-        new_name: _.isUndefined(user_input.new_name) ? undefined : String(user_input.new_name),
-        fs_backend: _.isUndefined(user_input.fs_backend) ? config.NSFS_NC_STORAGE_BACKEND : String(user_input.fs_backend),
-        force_md5_etag: _.isUndefined(user_input.force_md5_etag) || user_input.force_md5_etag === '' ? user_input.force_md5_etag : get_boolean_or_string_value(user_input.force_md5_etag)
+        new_name: user_input.new_name === undefined ? undefined : String(user_input.new_name),
+        fs_backend: user_input.fs_backend === undefined ? config.NSFS_NC_STORAGE_BACKEND : String(user_input.fs_backend),
+        force_md5_etag: user_input.force_md5_etag === undefined || user_input.force_md5_etag === '' ? user_input.force_md5_etag : get_boolean_or_string_value(user_input.force_md5_etag)
         };
 
     if (user_input.bucket_policy !== undefined) {
@@ -297,14 +297,14 @@ async function fetch_account_data(action, user_input) {
     let data = {
         // added undefined values to keep the order the properties when printing the data object
         _id: undefined,
-        name: _.isUndefined(user_input.name) ? undefined : String(user_input.name),
-        email: _.isUndefined(user_input.name) ? undefined : String(user_input.name), // temp, keep the email internally
+        name: user_input.name === undefined ? undefined : String(user_input.name),
+        email: user_input.name === undefined ? undefined : String(user_input.name), // temp, keep the email internally
         creation_date: action === ACTIONS.ADD ? new Date().toISOString() : undefined,
-        new_name: _.isUndefined(user_input.new_name) ? undefined : String(user_input.new_name),
+        new_name: user_input.new_name === undefined ? undefined : String(user_input.new_name),
         new_access_key,
         access_keys,
-        force_md5_etag: _.isUndefined(user_input.force_md5_etag) || user_input.force_md5_etag === '' ? user_input.force_md5_etag : get_boolean_or_string_value(user_input.force_md5_etag),
-        iam_operate_on_root_account: _.isUndefined(user_input.iam_operate_on_root_account) ?
+        force_md5_etag: user_input.force_md5_etag === undefined || user_input.force_md5_etag === '' ? user_input.force_md5_etag : get_boolean_or_string_value(user_input.force_md5_etag),
+        iam_operate_on_root_account: user_input.iam_operate_on_root_account === undefined ?
                 undefined : get_boolean_or_string_value(user_input.iam_operate_on_root_account),
         nsfs_account_config: {
             distinguished_name: user_input.user,
@@ -324,10 +324,10 @@ async function fetch_account_data(action, user_input) {
     // override values
     if (has_access_keys(data.access_keys)) {
         // access_key as SensitiveString
-        data.access_keys[0].access_key = _.isUndefined(data.access_keys[0].access_key) ? undefined :
+        data.access_keys[0].access_key = data.access_keys[0].access_key === undefined ? undefined :
             new SensitiveString(String(data.access_keys[0].access_key));
         // secret_key as SensitiveString
-        data.access_keys[0].secret_key = _.isUndefined(data.access_keys[0].secret_key) ? undefined :
+        data.access_keys[0].secret_key = data.access_keys[0].secret_key === undefined ? undefined :
             new SensitiveString(String(data.access_keys[0].secret_key));
     }
     if (data.new_access_key) data.new_access_key = new SensitiveString(data.new_access_key);
@@ -337,8 +337,8 @@ async function fetch_account_data(action, user_input) {
     data.nsfs_account_config.new_buckets_path = data.nsfs_account_config.new_buckets_path || undefined;
     // force_md5_etag deletion specified with empty string '' checked against user_input.force_md5_etag because data.force_md5_etag is boolean
     data.force_md5_etag = data.force_md5_etag === '' ? undefined : data.force_md5_etag;
-    if (_.isUndefined(user_input.allow_bucket_creation)) {
-        data.allow_bucket_creation = !_.isUndefined(data.nsfs_account_config.new_buckets_path);
+    if (user_input.allow_bucket_creation === undefined) {
+        data.allow_bucket_creation = data.nsfs_account_config.new_buckets_path !== undefined;
     } else if (typeof user_input.allow_bucket_creation === 'boolean') {
         data.allow_bucket_creation = Boolean(user_input.allow_bucket_creation);
     } else { // string of true or false
@@ -358,7 +358,7 @@ async function fetch_existing_account_data(action, target, decrypt_secret_key) {
     } catch (err) {
         dbg.log1('NSFS Manage command: Could not find account', target, err);
         if (err.code === 'ENOENT') {
-            if (_.isUndefined(target.name)) {
+            if (target.name === undefined) {
                 throw_cli_error(ManageCLIError.NoSuchAccountAccessKey, target.access_keys[0].access_key);
             } else {
                 throw_cli_error(ManageCLIError.NoSuchAccountName, target.name);
@@ -368,9 +368,9 @@ async function fetch_existing_account_data(action, target, decrypt_secret_key) {
     }
     const data = _.merge({}, source, target);
     if (action === ACTIONS.UPDATE) {
-        const uid_update = !_.isUndefined(target.nsfs_account_config.uid);
-        const gid_update = !_.isUndefined(target.nsfs_account_config.gid);
-        const dn_update = !_.isUndefined(target.nsfs_account_config.distinguished_name);
+        const uid_update = target.nsfs_account_config.uid !== undefined;
+        const gid_update = target.nsfs_account_config.gid !== undefined;
+        const dn_update = target.nsfs_account_config.distinguished_name !== undefined;
         const user_fs_permissions_change = uid_update || gid_update || dn_update;
         if (user_fs_permissions_change) {
             if (dn_update) {
@@ -486,13 +486,13 @@ async function get_account_status(data, show_secrets) {
     const options = { show_secrets, decrypt_secret_key: show_secrets };
 
     try {
-        const config_data = _.isUndefined(data.name) ?
+        const config_data = data.name === undefined ?
             await config_fs.get_account_by_access_key(data.access_keys[0].access_key, options) :
             await config_fs.get_account_by_name(data.name, options);
         write_stdout_response(ManageCLIResponse.AccountStatus, config_data);
     } catch (err) {
         if (err.code !== 'ENOENT') throw err;
-        if (_.isUndefined(data.name)) {
+        if (data.name === undefined) {
             throw_cli_error(ManageCLIError.NoSuchAccountAccessKey, data.access_keys[0].access_key.unwrap());
         } else {
             throw_cli_error(ManageCLIError.NoSuchAccountName, data.name);

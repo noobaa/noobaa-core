@@ -3,7 +3,6 @@
 
 const config = require('../../config');
 const dbg = require('../util/debug_module')(__filename);
-const _ = require('lodash');
 const path = require('path');
 const net = require('net');
 const P = require('../util/promise');
@@ -92,7 +91,7 @@ function validate_type_and_action(type, action) {
  */
 function validate_identifier(type, action, input_options, is_options_from_file) {
     // do not check identifier in the command of from_file (only in the file itself).
-    if (!_.isUndefined(input_options.from_file) && !is_options_from_file) return;
+    if (input_options.from_file !== undefined && !is_options_from_file) return;
 
     if (type === TYPES.ACCOUNT) {
         validate_account_identifier(action, input_options);
@@ -206,7 +205,7 @@ function validate_min_flags_for_update(type, input_options_with_data) {
     const config_and_identifier_options = ['config_root', 'config_root_backend', 'name'];
 
     // GAP - mandatory flags check should be earlier in the calls in general
-    if (_.isUndefined(input_options_with_data.name)) {
+    if (input_options_with_data.name === undefined) {
         if (type === TYPES.ACCOUNT && !input_options_with_data.anonymous) throw_cli_error(ManageCLIError.MissingAccountNameFlag);
         if (type === TYPES.BUCKET) throw_cli_error(ManageCLIError.MissingBucketNameFlag);
     }
@@ -305,7 +304,7 @@ function validate_account_name(type, action, input_options_with_data) {
  */
 function validate_bucket_identifier(action, input_options) {
 if (action === ACTIONS.STATUS || action === ACTIONS.ADD || action === ACTIONS.UPDATE || action === ACTIONS.DELETE) {
-        if (_.isUndefined(input_options.name)) throw_cli_error(ManageCLIError.MissingBucketNameFlag);
+        if (input_options.name === undefined) throw_cli_error(ManageCLIError.MissingBucketNameFlag);
     }
     // in list there is no identifier
 }
@@ -319,8 +318,8 @@ if (action === ACTIONS.STATUS || action === ACTIONS.ADD || action === ACTIONS.UP
 async function validate_bucket_args(config_fs, data, action) {
     if (action === ACTIONS.ADD || action === ACTIONS.UPDATE) {
         if (action === ACTIONS.ADD) native_fs_utils.validate_bucket_creation({ name: data.name });
-        if (action === ACTIONS.UPDATE && !_.isUndefined(data.new_name)) native_fs_utils.validate_bucket_creation({ name: data.new_name });
-        if (action === ACTIONS.ADD && _.isUndefined(data.bucket_owner)) throw_cli_error(ManageCLIError.MissingBucketOwnerFlag);
+        if ((action === ACTIONS.UPDATE) && (data.new_name !== undefined)) native_fs_utils.validate_bucket_creation({ name: data.new_name });
+        if ((action === ACTIONS.ADD) && (data.bucket_owner === undefined)) throw_cli_error(ManageCLIError.MissingBucketOwnerFlag);
         if (!data.path) throw_cli_error(ManageCLIError.MissingBucketPathFlag);
         // fs_backend='' used for deletion of the fs_backend property
         if (data.fs_backend !== undefined && !['GPFS', 'CEPH_FS', 'NFSv4'].includes(data.fs_backend)) {
@@ -378,12 +377,12 @@ function validate_account_identifier(action, input_options) {
     if (get_boolean_or_string_value(input_options[ANONYMOUS])) return;
     if (action === ACTIONS.STATUS) {
         // in status we allow identifier as name or access_key
-        if (_.isUndefined(input_options.access_key) && _.isUndefined(input_options.name)) {
+        if ((input_options.access_key === undefined) && (input_options.name === undefined)) {
             throw_cli_error(ManageCLIError.MissingIdentifier);
         }
     } else if (action === ACTIONS.ADD || action === ACTIONS.UPDATE || action === ACTIONS.DELETE) {
         // in add, update and delete only name is an identifier
-        if (_.isUndefined(input_options.name)) throw_cli_error(ManageCLIError.MissingAccountNameFlag);
+        if (input_options.name === undefined) throw_cli_error(ManageCLIError.MissingAccountNameFlag);
     }
     // in list there is no identifier
 }
@@ -403,15 +402,15 @@ async function validate_account_args(config_fs, data, action, is_flag_iam_operat
         if (data.nsfs_account_config.uid && data.nsfs_account_config.gid === undefined) {
             throw_cli_error(ManageCLIError.MissingAccountNSFSConfigGID, data.nsfs_account_config);
         }
-        if ((_.isUndefined(data.nsfs_account_config.distinguished_name) &&
-                (data.nsfs_account_config.uid === undefined || data.nsfs_account_config.gid === undefined))) {
+        if ((data.nsfs_account_config.distinguished_name === undefined) &&
+                ((data.nsfs_account_config.uid === undefined) || (data.nsfs_account_config.gid === undefined))) {
             throw_cli_error(ManageCLIError.InvalidAccountNSFSConfig, data.nsfs_account_config);
         }
-        if (!_.isUndefined(data.nsfs_account_config.fs_backend) && !['GPFS', 'CEPH_FS', 'NFSv4'].includes(data.nsfs_account_config.fs_backend)) {
+        if ((data.nsfs_account_config.fs_backend !== undefined) && !['GPFS', 'CEPH_FS', 'NFSv4'].includes(data.nsfs_account_config.fs_backend)) {
             throw_cli_error(ManageCLIError.InvalidFSBackend);
         }
 
-        if (_.isUndefined(data.nsfs_account_config.new_buckets_path)) {
+        if (data.nsfs_account_config.new_buckets_path === undefined) {
             return;
         }
         // in case we have the fs_backend it changes the fs_context that we use for the new_buckets_path
@@ -459,10 +458,10 @@ async function validate_account_resources_before_deletion(config_fs, data) {
  */
 function _validate_access_keys(access_key, secret_key) {
     // using the access_key flag requires also using the secret_key flag
-    if (!_.isUndefined(access_key) && _.isUndefined(secret_key)) {
+    if ((access_key !== undefined) && (secret_key === undefined)) {
         throw_cli_error(ManageCLIError.MissingAccountSecretKeyFlag);
     }
-    if (!_.isUndefined(secret_key) && _.isUndefined(access_key)) {
+    if ((secret_key !== undefined) && (access_key === undefined)) {
         throw_cli_error(ManageCLIError.MissingAccountAccessKeyFlag);
     }
 

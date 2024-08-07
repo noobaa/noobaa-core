@@ -2574,11 +2574,11 @@ class NamespaceFS {
      */
     _is_force_md5_enabled(object_sdk) {
         // value defined for bucket
-        if (!_.isUndefined(this.force_md5_etag)) {
+        if (this.force_md5_etag !== undefined) {
             return this.force_md5_etag;
         }
         // value defined for account
-        if (!_.isUndefined(object_sdk?.requesting_account?.force_md5_etag)) {
+        if (object_sdk?.requesting_account?.force_md5_etag !== undefined) {
             return object_sdk?.requesting_account?.force_md5_etag;
         }
         // otherwise return global default

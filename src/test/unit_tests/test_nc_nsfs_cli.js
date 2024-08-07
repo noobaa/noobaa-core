@@ -185,7 +185,7 @@ mocha.describe('manage_nsfs cli', function() {
             assert_response(action, type, add_res, bucket_options);
             const bucket = await read_config_file(config_root, CONFIG_SUBDIRS.BUCKETS, name);
             assert_bucket(bucket, bucket_options);
-            assert(!_.isUndefined(bucket._id));
+            assert(bucket._id !== undefined);
             // make sure that the config file includes id and owner_account (account id)
             const account = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, account_name);
             assert(bucket.owner_account === account._id);

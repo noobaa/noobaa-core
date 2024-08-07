@@ -9,7 +9,7 @@ const { S3 } = require('@aws-sdk/client-s3');
 const { NodeHttpHandler } = require("@smithy/node-http-handler");
 const http = require('http');
 const system_store = require('../../server/system_services/system_store').get_instance();
-const upgrade_bucket_policy = require('../../upgrade/upgrade_scripts/5.14.0/upgrade_bucket_policy');
+const upgrade_bucket_policy = require('../../upgrade/upgrade_scripts/5.15.6/upgrade_bucket_policy');
 const dbg = require('../../util/debug_module')(__filename);
 const assert = require('assert');
 const mocha = require('mocha');
@@ -21,7 +21,7 @@ let s3;
 async function _clean_all_bucket_policies() {
     for (const bucket of system_store.data.buckets) {
         if (bucket.s3_policy) {
-            await s3.deleteBucketPolicy({Bucket: bucket.name.unwrap()});
+            await s3.deleteBucketPolicy({ Bucket: bucket.name.unwrap() });
         }
     }
 }
@@ -50,8 +50,7 @@ mocha.describe('test upgrade scripts', async function() {
     mocha.it('test upgrade bucket policy to version 5.14.0', async function() {
         const old_policy = {
             version: '2012-10-17',
-            statement: [
-                {
+            statement: [{
                     sid: 'id-1',
                     effect: 'allow',
                     principal: ["*"],
@@ -79,7 +78,7 @@ mocha.describe('test upgrade scripts', async function() {
             }
         });
 
-        await upgrade_bucket_policy.run({dbg, system_store, system_server: null});
+        await upgrade_bucket_policy.run({ dbg, system_store, system_server: null });
         const res = await s3.getBucketPolicy({ // should work - bucket policy should fit current schema
             Bucket: BKT,
         });

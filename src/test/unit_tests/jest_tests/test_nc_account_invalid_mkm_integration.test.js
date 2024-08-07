@@ -9,8 +9,9 @@ const _ = require('lodash');
 const path = require('path');
 const P = require('../../../util/promise');
 const fs_utils = require('../../../util/fs_utils');
+const { CONFIG_SUBDIRS } = require('../../../sdk/config_fs');
 const { exec_manage_cli, set_path_permissions_and_owner, TMP_PATH, set_nc_config_dir_in_config } = require('../../system_tests/test_utils');
-const { TYPES, ACTIONS, CONFIG_SUBDIRS } = require('../../../manage_nsfs/manage_nsfs_constants');
+const { TYPES, ACTIONS } = require('../../../manage_nsfs/manage_nsfs_constants');
 const ManageCLIError = require('../../../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
 const ManageCLIResponse = require('../../../manage_nsfs/manage_nsfs_cli_responses').ManageCLIResponse;
 

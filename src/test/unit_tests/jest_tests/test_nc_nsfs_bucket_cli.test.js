@@ -9,9 +9,10 @@ const path = require('path');
 const os_util = require('../../../util/os_utils');
 const fs_utils = require('../../../util/fs_utils');
 const nb_native = require('../../../util/nb_native');
+const { CONFIG_SUBDIRS, JSON_SUFFIX, SYMLINK_SUFFIX } = require('../../../sdk/config_fs');
 const { set_path_permissions_and_owner, TMP_PATH, generate_s3_policy,
     set_nc_config_dir_in_config } = require('../../system_tests/test_utils');
-const { ACTIONS, TYPES, CONFIG_SUBDIRS } = require('../../../manage_nsfs/manage_nsfs_constants');
+const { ACTIONS, TYPES } = require('../../../manage_nsfs/manage_nsfs_constants');
 const { get_process_fs_context, is_path_exists, get_bucket_tmpdir_full_path, update_config_file } = require('../../../util/native_fs_utils');
 const ManageCLIError = require('../../../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
 const { ManageCLIResponse } = require('../../../manage_nsfs/manage_nsfs_cli_responses');
@@ -183,7 +184,7 @@ describe('manage nsfs cli bucket flow', () => {
 
             // update the account to have the property owner
             // (we use this way because now we don't have the way to create IAM users through the noobaa cli)
-            const account_config_path = path.join(config_root, CONFIG_SUBDIRS.ACCOUNTS, account_name + '.json');
+            const account_config_path = path.join(config_root, CONFIG_SUBDIRS.ACCOUNTS, account_name + JSON_SUFFIX);
             const { data } = await nb_native().fs.readFile(DEFAULT_FS_CONFIG, account_config_path);
             const config_data = JSON.parse(data.toString());
             config_data.owner = account_id; // just so we can identify this account as IAM user;
@@ -556,7 +557,7 @@ describe('manage nsfs cli bucket flow', () => {
 
             // update the account to have the property owner
             // (we use this way because now we don't have the way to create IAM users through the noobaa cli)
-            const account_config_path = path.join(config_root, CONFIG_SUBDIRS.ACCOUNTS, account_name_iam_account + '.json');
+            const account_config_path = path.join(config_root, CONFIG_SUBDIRS.ACCOUNTS, account_name_iam_account + JSON_SUFFIX);
             const { data } = await nb_native().fs.readFile(DEFAULT_FS_CONFIG, account_config_path);
             const config_data = JSON.parse(data.toString());
             config_data.owner = account_id; // just so we can identify this account as IAM user;
@@ -647,7 +648,7 @@ describe('manage nsfs cli bucket flow', () => {
             const delete_bucket_options = { config_root, name: bucket_defaults.name, force: true};
             const resp = await exec_manage_cli(TYPES.BUCKET, ACTIONS.DELETE, delete_bucket_options);
             expect(JSON.parse(resp.trim()).response.code).toBe(ManageCLIResponse.BucketDeleted.code);
-            const config_path = path.join(config_root, CONFIG_SUBDIRS.BUCKETS, bucket_defaults.name + '.json');
+            const config_path = path.join(config_root, CONFIG_SUBDIRS.BUCKETS, bucket_defaults.name + JSON_SUFFIX);
             await fs_utils.file_must_not_exist(config_path);
         });
 
@@ -657,7 +658,7 @@ describe('manage nsfs cli bucket flow', () => {
             const delete_bucket_options = { config_root, name: bucket_defaults.name};
             const resp = await exec_manage_cli(TYPES.BUCKET, ACTIONS.DELETE, delete_bucket_options);
             expect(JSON.parse(resp.stdout).error.code).toBe(ManageCLIError.BucketDeleteForbiddenHasObjects.code);
-            const config_path = path.join(config_root, CONFIG_SUBDIRS.BUCKETS, bucket_defaults.name + '.json');
+            const config_path = path.join(config_root, CONFIG_SUBDIRS.BUCKETS, bucket_defaults.name + JSON_SUFFIX);
             await fs_utils.file_must_exist(config_path);
         });
 
@@ -668,7 +669,7 @@ describe('manage nsfs cli bucket flow', () => {
             const delete_bucket_options = { config_root, name: bucket_defaults.name, force: 'true'};
             const resp = await exec_manage_cli(TYPES.BUCKET, ACTIONS.DELETE, delete_bucket_options);
             expect(JSON.parse(resp.trim()).response.code).toBe(ManageCLIResponse.BucketDeleted.code);
-            const config_path = path.join(config_root, CONFIG_SUBDIRS.BUCKETS, bucket_defaults.name + '.json');
+            const config_path = path.join(config_root, CONFIG_SUBDIRS.BUCKETS, bucket_defaults.name + JSON_SUFFIX);
             await fs_utils.file_must_not_exist(config_path);
         });
 
@@ -693,7 +694,7 @@ describe('manage nsfs cli bucket flow', () => {
             const action = ACTIONS.DELETE;
             const res = await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
             expect(JSON.parse(res.trim()).response.code).toBe(ManageCLIResponse.BucketDeleted.code);
-            const config_path = path.join(config_root, CONFIG_SUBDIRS.BUCKETS, bucket_defaults.name + '.json');
+            const config_path = path.join(config_root, CONFIG_SUBDIRS.BUCKETS, bucket_defaults.name + JSON_SUFFIX);
             await fs_utils.file_must_not_exist(config_path);
         });
     });
@@ -866,7 +867,7 @@ async function exec_manage_cli(type, action, options) {
  * @param {boolean} [is_symlink] a flag to set the suffix as a symlink instead of json
  */
 async function read_config_file(config_root, schema_dir, config_file_name, is_symlink) {
-    const config_path = path.join(config_root, schema_dir, config_file_name + (is_symlink ? '.symlink' : '.json'));
+    const config_path = path.join(config_root, schema_dir, config_file_name + (is_symlink ? SYMLINK_SUFFIX : JSON_SUFFIX));
     const { data } = await nb_native().fs.readFile(DEFAULT_FS_CONFIG, config_path);
     const config = JSON.parse(data.toString());
     return config;

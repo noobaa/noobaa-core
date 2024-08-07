@@ -30,11 +30,6 @@ const DIAGNOSE_ACTIONS = {
     METRICS: 'metrics'
 };
 
-const CONFIG_SUBDIRS = {
-    ACCOUNTS: 'accounts',
-    BUCKETS: 'buckets',
-    ACCESS_KEYS: 'access_keys'
-};
 
 const CONFIG_ROOT_FLAG = 'config_root';
 const CLI_MUTUAL_OPTIONS = new Set([CONFIG_ROOT_FLAG, 'config_root_backend', 'debug']);
@@ -139,7 +134,6 @@ exports.TYPES = TYPES;
 exports.ACTIONS = ACTIONS;
 exports.GLACIER_ACTIONS = GLACIER_ACTIONS;
 exports.DIAGNOSE_ACTIONS = DIAGNOSE_ACTIONS;
-exports.CONFIG_SUBDIRS = CONFIG_SUBDIRS;
 exports.VALID_OPTIONS = VALID_OPTIONS;
 exports.OPTION_TYPE = OPTION_TYPE;
 exports.FROM_FILE = FROM_FILE;

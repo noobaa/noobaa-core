@@ -719,8 +719,8 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
         const account = object_sdk.requesting_account;
         dbg.log1('_has_access_to_nsfs_dir: nsr: ', ns, 'account.nsfs_account_config: ', account && account.nsfs_account_config);
         // nsfs bucket
-        if (!account || !account.nsfs_account_config || _.isUndefined(account.nsfs_account_config.uid) ||
-            _.isUndefined(account.nsfs_account_config.gid)) return false;
+        if (!account || !account.nsfs_account_config || (account.nsfs_account_config.uid === undefined) ||
+            (account.nsfs_account_config.gid === undefined)) return false;
         try {
             dbg.log1('_has_access_to_nsfs_dir: checking access:', ns.write_resource, account.nsfs_account_config.uid, account.nsfs_account_config.gid);
             const path_to_check = path.join(ns.write_resource.resource.fs_root_path, ns.write_resource.path || '');

@@ -27,7 +27,7 @@ function format_iam_xml_date(input) {
  */
 function create_arn(account_id, username, iam_path) {
     const basic_structure = `arn:aws:iam::${account_id}:user`;
-    if (_.isUndefined(username)) return `${basic_structure}/`;
+    if (username === undefined) return `${basic_structure}/`;
     if (check_iam_path_was_set(iam_path)) {
         return `${basic_structure}${iam_path}${username}`;
     }
@@ -342,7 +342,7 @@ function validate_list_access_keys(params) {
  * @param {string} parameter_name
  */
 function validate_iam_path(input_path, parameter_name = iam_constants.IAM_PARAMETER_NAME.IAM_PATH) {
-    if (_.isUndefined(input_path)) return;
+    if (input_path === undefined) return;
     // type check
     _type_check_input('string', input_path, parameter_name);
     // length check
@@ -370,7 +370,7 @@ function validate_iam_path(input_path, parameter_name = iam_constants.IAM_PARAME
  * @param {string} parameter_name
  */
 function validate_username(input_username, parameter_name = iam_constants.IAM_PARAMETER_NAME.USERNAME) {
-    if (_.isUndefined(input_username)) return;
+    if (input_username === undefined) return;
     // type check
     _type_check_input('string', input_username, parameter_name);
     // length check
@@ -411,7 +411,7 @@ function validate_username(input_username, parameter_name = iam_constants.IAM_PA
  */
 function validate_marker(input_marker) {
     const parameter_name = 'Marker';
-    if (_.isUndefined(input_marker)) return;
+    if (input_marker === undefined) return;
     // type check
     _type_check_input('string', input_marker, parameter_name);
     // length check
@@ -436,7 +436,7 @@ function validate_marker(input_marker) {
  */
 function validate_max_items(input_max_items) {
     const parameter_name = 'MaxItems';
-    if (_.isUndefined(input_max_items)) return;
+    if (input_max_items === undefined) return;
     // type check
      _type_check_input('number', input_max_items, parameter_name);
     // value check
@@ -468,7 +468,7 @@ function validate_max_items(input_max_items) {
  */
 function validate_access_key_id(input_access_key_id) {
     const parameter_name = 'AccessKeyId';
-    if (_.isUndefined(input_access_key_id)) return;
+    if (input_access_key_id === undefined) return;
     // type check
     _type_check_input('string', input_access_key_id, parameter_name);
     // length check
@@ -493,7 +493,7 @@ function validate_access_key_id(input_access_key_id) {
  */
 function validate_status(input_status) {
     const parameter_name = 'Status';
-    if (_.isUndefined(input_status)) return;
+    if (input_status === undefined) return;
     if (input_status !== iam_constants.ACCESS_KEY_STATUS_ENUM.ACTIVE &&
         input_status !== iam_constants.ACCESS_KEY_STATUS_ENUM.INACTIVE) {
         const message_with_details = `Value ${input_status} at '${parameter_name}' ` +

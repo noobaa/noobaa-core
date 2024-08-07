@@ -146,9 +146,9 @@ class AccountSpaceFS {
                 { show_secrets: true, decrypt_secret_key: true });
             this._check_if_requested_account_is_root_account_or_IAM_user(action, requesting_account, requested_account);
             this._check_if_requested_is_owned_by_root_account(action, requesting_account, requested_account);
-            const is_username_update = !_.isUndefined(params.new_username) &&
+            const is_username_update = params.new_username !== undefined &&
                 params.new_username !== params.username;
-            if (!_.isUndefined(params.new_iam_path)) requested_account.iam_path = params.new_iam_path;
+            if (params.new_iam_path !== undefined) requested_account.iam_path = params.new_iam_path;
             if (is_username_update) {
                 dbg.log1(`AccountSpaceFS.${action} username was updated, is_username_update`,
                     is_username_update);

@@ -94,7 +94,6 @@ async function fetch_bucket_data(action, user_input) {
         _id: undefined,
         name: user_input.name === undefined ? undefined : String(user_input.name),
         owner_account: undefined,
-        system_owner: user_input.owner, // GAP - needs to be the system_owner (currently it is the account name)
         bucket_owner: user_input.owner,
         tag: undefined, // if we would add the option to tag a bucket using CLI, this should be changed
         versioning: action === ACTIONS.ADD ? 'DISABLED' : undefined,
@@ -596,8 +595,9 @@ async function list_config_files(type, config_path, wide, show_secrets, filters)
     let config_files_list = await P.map_with_concurrency(10, entries, async entry => {
         if (entry.name.endsWith(JSON_SUFFIX)) {
             if (wide || should_filter) {
-                const full_path = path.join(config_path, entry.name);
-                const data = await config_fs.get_config_data(full_path, options);
+                const data = type === TYPES.ACCOUNT ?
+                    await config_fs.get_account_by_name(entry.name, options) :
+                    await config_fs.get_bucket_by_name(entry.name, options);
                 if (!data) return undefined;
                 if (should_filter && !filter_list_item(type, data, filters)) return undefined;
                 // remove secrets on !show_secrets && should filter

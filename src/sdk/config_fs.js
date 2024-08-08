@@ -398,6 +398,7 @@ class ConfigFS {
     async get_bucket_by_name(bucket_name, options = {}) {
         const bucket_path = this.get_bucket_path_by_name(bucket_name);
         const bucket = await this.get_config_data(bucket_path, options);
+        this.adjust_bucket_with_schema_updates(bucket);
         return bucket;
     }
 
@@ -439,6 +440,18 @@ class ConfigFS {
     async delete_bucket_config_file(bucket_name) {
         const bucket_config_path = this.get_bucket_path_by_name(bucket_name);
         await native_fs_utils.delete_config_file(this.fs_context, this.buckets_dir_path, bucket_config_path);
+    }
+
+    /**
+     * adjust_bucket_with_schema_updates changes the bucket properties according to the schema
+     * @param {object} bucket
+     */
+    adjust_bucket_with_schema_updates(bucket) {
+        if (!bucket) return;
+        // system_owner is deprecated since version 5.18
+        if (bucket.system_owner !== undefined) {
+            delete bucket.system_owner;
+        }
     }
 }
 

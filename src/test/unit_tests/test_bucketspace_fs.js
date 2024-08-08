@@ -387,6 +387,38 @@ mocha.describe('bucketspace_fs', function() {
         });
     });
 
+    mocha.describe('read_bucket_sdk_info', function() {
+        mocha.before(async function() {
+            const param = { name: test_bucket};
+            await bucketspace_fs.create_bucket(param, dummy_object_sdk);
+        });
+        mocha.after(async function() {
+            await fs_utils.folder_delete(`${new_buckets_path}/${test_bucket}`);
+            const file_path = get_config_file_path(CONFIG_SUBDIRS.BUCKETS, test_bucket);
+            await fs_utils.file_delete(file_path);
+        });
+        mocha.it('read bucket that was created - check non existing deprecated properties', async function() {
+            const param = { name: test_bucket};
+            const bucket = await bucketspace_fs.read_bucket_sdk_info(param);
+            assert.ok(bucket.system_owner === undefined);
+        });
+        mocha.it('read bucket and check modify on read', async function() {
+            // we want to mock a bucket that already had a deprecated property,
+            // we manually add system_owner in the bucket
+            const bucket_config_path = get_config_file_path(CONFIG_SUBDIRS.BUCKETS, test_bucket);
+            const data = await fs.promises.readFile(bucket_config_path);
+            let bucket = await JSON.parse(data.toString());
+            assert.ok(bucket.system_owner === undefined);
+            bucket.system_owner = 'non-existing-system-owner';
+            await update_config_file(process_fs_context, CONFIG_SUBDIRS.BUCKETS, bucket_config_path, JSON.stringify(bucket));
+            await fs_utils.file_must_exist(bucket_config_path);
+
+            const param = { name: test_bucket};
+            bucket = await bucketspace_fs.read_bucket_sdk_info(param);
+            assert.ok(bucket.system_owner === undefined);
+        });
+    });
+
     mocha.describe('list_buckets', async function() {
         mocha.before(async function() {
             await create_bucket(test_bucket);

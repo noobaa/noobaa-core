@@ -1126,7 +1126,6 @@ function assert_response(action, type, actual_res, expected_res, show_secrets, w
 
 function assert_bucket(bucket, bucket_options) {
     assert.strictEqual(bucket.name, bucket_options.name);
-    assert.strictEqual(bucket.system_owner, bucket_options.owner);
     assert.strictEqual(bucket.bucket_owner, bucket_options.owner);
     assert.strictEqual(bucket.path, bucket_options.path);
     assert.strictEqual(bucket.should_create_underlying_storage, false);

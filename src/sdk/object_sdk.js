@@ -194,7 +194,7 @@ class ObjectSDK {
         const { bucket } = await bucket_namespace_cache.get_with_cache({ sdk: this, name });
         const policy_info = {
             s3_policy: bucket.s3_policy,
-            system_owner: bucket.system_owner,
+            system_owner: bucket.system_owner, // note that bucketspace_fs currently doesn't return system_owner
             bucket_owner: bucket.bucket_owner,
             owner_account: bucket.owner_account, // in NC NSFS this is the account id that owns the bucket
         };

@@ -230,7 +230,7 @@ async function authorize_request_policy(req) {
 
     const account = req.object_sdk.requesting_account;
     const account_identifier = req.object_sdk.nsfs_config_root ? account.name.unwrap() : account.email.unwrap();
-    const is_system_owner = account_identifier === system_owner.unwrap();
+    const is_system_owner = Boolean(system_owner) && system_owner.unwrap() === account_identifier;
 
     // @TODO: System owner as a construct should be removed - Temporary
     if (is_system_owner) return;

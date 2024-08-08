@@ -392,7 +392,8 @@ function validate_assume_role_response(json, expected_arn, expected_role_id, ass
     // validate credentials
     const credentials = result.Credentials[0];
     assert.ok(credentials && credentials.AccessKeyId[0] && credentials.SecretAccessKey[0]);
-    assert.equal(credentials.Expiration[0], config.STS_DEFAULT_SESSION_TOKEN_EXPIRY_MS);
+    const creds_generation_time = credentials.Expiration[0] - config.STS_DEFAULT_SESSION_TOKEN_EXPIRY_MS;
+    assert(creds_generation_time < Date.now());
     if (config.STS_DEFAULT_SESSION_TOKEN_EXPIRY_MS !== 0) {
         verify_session_token(credentials.SessionToken[0], credentials.AccessKeyId[0],
             credentials.SecretAccessKey[0], assumed_access_key);

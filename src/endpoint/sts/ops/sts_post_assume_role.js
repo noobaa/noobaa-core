@@ -35,7 +35,7 @@ async function assume_role(req) {
                 Credentials: {
                     AccessKeyId: access_keys.access_key.unwrap(),
                     SecretAccessKey: access_keys.secret_key.unwrap(),
-                    Expiration: expiry,
+                    Expiration: Date.now() + expiry,
                     SessionToken: generate_session_token({
                         access_key: access_keys.access_key.unwrap(),
                         secret_key: access_keys.secret_key.unwrap(),

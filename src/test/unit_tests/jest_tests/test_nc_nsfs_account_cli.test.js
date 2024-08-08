@@ -1758,7 +1758,6 @@ describe('manage nsfs cli account flow', () => {
             expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidAccountName.code);
         });
     });
-
 });
 
 
@@ -1954,6 +1953,93 @@ describe('cli account flow distinguished_name - permissions', function() {
     }, timeout);
 });
 
+describe('cli without master key id', () => {
+    const config_root = path.join(tmp_fs_path, 'config_root_manage_nsfs7');
+    const root_path = path.join(tmp_fs_path, 'root_path_manage_nsfs7/');
+    const type = TYPES.ACCOUNT;
+    const defaults = [{
+        name: 'account1',
+        new_buckets_path: `${root_path}new_buckets_path_user1/`,
+        uid: 1001,
+        gid: 1001,
+        access_key: 'GIGiFAnjaaE7OKD5N7hX',
+        secret_key: 'X2AYaMpU3zRDcRFWmvzgQr9MoHIAsD+3oEXAMPLE',
+    }, {
+        name: 'account2',
+        new_buckets_path: `${root_path}new_buckets_path_user2/`,
+        uid: 1002,
+        gid: 1002,
+        access_key: 'BIBiFAnjaaE7OKD5N7hY',
+        secret_key: 'YIBYaMpU3zRDcRFWmvzgQr9MoHIAsD+3oEXAMPLE',
+    }];
+
+    beforeEach(async () => {
+        await P.all(_.map([CONFIG_SUBDIRS.ACCOUNTS, CONFIG_SUBDIRS.ACCESS_KEYS], async dir =>
+            fs_utils.create_fresh_path(`${config_root}/${dir}`)));
+        await fs_utils.create_fresh_path(root_path);
+        set_nc_config_dir_in_config(config_root);
+        // Creating the accounts
+        const action = ACTIONS.ADD;
+        for (const account_defaults of Object.values(defaults)) {
+            let account_options = { config_root };
+            account_options = { ...account_options, ...account_defaults };
+            await fs_utils.create_fresh_path(account_options.new_buckets_path);
+            await fs_utils.file_must_exist(account_options.new_buckets_path);
+            await set_path_permissions_and_owner(account_options.new_buckets_path, account_options, 0o700);
+            await exec_manage_cli(type, action, account_options);
+        }
+    });
+
+    afterEach(async () => {
+        await fs_utils.folder_delete(`${config_root}`);
+        await fs_utils.folder_delete(`${root_path}`);
+    });
+
+    it('should fail - cli update uid (without master key id - only allowed to update access keys)',
+            async () => {
+        // rename the master_key.json
+        await master_key_file_rename(config_root, true);
+
+        const account_options = { config_root, name: defaults[0].name, uid: 2050 };
+        const action = ACTIONS.UPDATE;
+        const res = await exec_manage_cli(type, action, account_options);
+        expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidMasterKey.code);
+
+
+        // rename the master_key.json
+        await master_key_file_rename(config_root, false);
+    });
+
+    it('cli update access keys with regenerate (without master key id)', async () => {
+        // rename the master_key.json
+        await master_key_file_rename(config_root, true);
+
+        const account_options = { config_root, name: defaults[0].name, regenerate: true };
+        const action = ACTIONS.UPDATE;
+        const res = await exec_manage_cli(type, action, account_options);
+        expect(JSON.parse(res).response.code).toEqual(ManageCLIResponse.AccountUpdated.code);
+
+        // rename the master_key.json
+        await master_key_file_rename(config_root, false);
+    });
+
+    it('cli update access keys with access_key and secret_key flags (without master key id)', async () => {
+        // rename the master_key.json
+        await master_key_file_rename(config_root, true);
+
+        const new_access_key = 'BIBiFAnjaaE7OKD5N7hZ';
+        const new_secret_key = 'ZIBYaMpU3zRDcRFWmvzgQr9MoHIAsD+3oEXAMPLE';
+        const account_options = { config_root, name: defaults[0].name,
+            access_key: new_access_key, secret_key: new_secret_key };
+        const action = ACTIONS.UPDATE;
+        const res = await exec_manage_cli(type, action, account_options);
+        expect(JSON.parse(res).response.code).toEqual(ManageCLIResponse.AccountUpdated.code);
+
+        // rename the master_key.json
+        await master_key_file_rename(config_root, false);
+    });
+});
+
 /**
  * read_config_file will read the config files 
  * @param {string} config_root
@@ -2061,4 +2147,23 @@ async function create_json_account_options(path_to_json_account_options_dir, acc
     const content = JSON.stringify(account_options);
     await fs.promises.writeFile(path_to_option_json_file_name, content);
     return path_to_option_json_file_name;
+}
+
+
+/**
+ * master_key_file_rename will rename the master_keys.json file
+ * to mock a situation where master_key_id points to a missing master key
+ * use the to_rename false to rename it back (after the test)
+ * @param {string} config_root
+ * @param {boolean} to_rename
+ */
+async function master_key_file_rename(config_root, to_rename) {
+    const source_path = path.join(config_root, 'master_keys.json');
+    const dest_path = path.join(config_root, 'temp_master_keys.json');
+    // eliminate the master key file by renaming it
+    if (to_rename) {
+        await nb_native().fs.rename(DEFAULT_FS_CONFIG, source_path, dest_path);
+    } else {
+        await nb_native().fs.rename(DEFAULT_FS_CONFIG, dest_path, source_path);
+    }
 }

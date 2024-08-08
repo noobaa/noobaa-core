@@ -13,7 +13,7 @@ async function put_object_tagging(req, res) {
         key: req.params.key,
         tagging: tag_set
     });
-    if (reply.version_id) res.setHeader('x-amz-version-id', reply.version_id);
+    if (reply?.version_id) res.setHeader('x-amz-version-id', reply.version_id);
 }
 
 module.exports = {

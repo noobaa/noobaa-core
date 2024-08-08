@@ -494,14 +494,27 @@ function log_syslog_builder(syslevel) {
     };
 }
 
+/* When logging events message should not have any prefix such as time and processes id and 
+ *the message should be in json format because of this events are logged directly without using log_builder; 
+ * log_builder will format the message with prefix. 
+*/
 function log_event(event) {
     if (!config.EVENT_LOGGING_ENABLED) {
         console.info('Event logging not enabled');
         return;
     }
     event.pid = process.pid;
+    const updated_event = JSON.stringify({
+        timestamp: new Date(),
+        host: os.hostname(),
+        event: event,
+    });
     if (syslog) {
-        syslog(config.EVENT_LEVEL, JSON.stringify(event), config.EVENT_FACILITY);
+        syslog(config.EVENT_LEVEL, updated_event, config.EVENT_FACILITY);
+    }
+    if (console_wrapper && config.LOG_TO_STDERR_ENABLED) {
+        const formatted_event = int_dbg.message_format("EVENT", [updated_event]);
+        process.stderr.write(formatted_event.message_console + '\n');
     }
 }
 

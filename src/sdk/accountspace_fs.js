@@ -47,11 +47,7 @@ class AccountSpaceFS {
             config.NSFS_WARN_THRESHOLD_MS,
             this.stats?.update_fs_stats
         );
-
         this.config_fs = new ConfigFS(config_root, this.config_root_backend, this.fs_context);
-
-        // Currently we do not use these properties
-        this.fs_root = fs_root ?? '';
     }
 
     ////////////

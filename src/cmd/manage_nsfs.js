@@ -317,7 +317,10 @@ async function fetch_account_data(action, user_input) {
         // @ts-ignore
         data = _.omitBy(data, _.isUndefined);
         const decrypt_secret_key = action === ACTIONS.UPDATE;
-        data = await fetch_existing_account_data(action, data, decrypt_secret_key);
+        const allow_update_when_master_key_fails = decrypt_secret_key && user_input.regenerate ||
+                (user_input.access_key && user_input.secret_key);
+        data = await fetch_existing_account_data(action, data, decrypt_secret_key,
+            allow_update_when_master_key_fails);
     }
 
     // override values
@@ -347,23 +350,30 @@ async function fetch_account_data(action, user_input) {
     return data;
 }
 
-async function fetch_existing_account_data(action, target, decrypt_secret_key) {
+/**
+ * fetch_existing_account_data is used to combine the data the we have saved in the config file\
+ * with the user input (used in delete and update actions only)
+ * @param {string} action
+ * @param {object} target
+ * @param {boolean} decrypt_secret_key
+ * @param {boolean} allow_update_when_master_key_fails
+ */
+async function fetch_existing_account_data(action, target, decrypt_secret_key,
+        allow_update_when_master_key_fails) {
     const options = { show_secrets: true, decrypt_secret_key };
     let source;
     try {
-        source = target.name ?
-            await config_fs.get_account_by_name(target.name, options) :
-            await config_fs.get_account_by_access_key(target.access_keys[0].access_key, options);
+        source = await config_fs.get_account_by_name(target.name, options);
     } catch (err) {
-        dbg.log1('NSFS Manage command: Could not find account', target, err);
+        dbg.warn('fetch_existing_account_data: got an error on', target.name, err);
         if (err.code === 'ENOENT') {
-            if (target.name === undefined) {
-                throw_cli_error(ManageCLIError.NoSuchAccountAccessKey, target.access_keys[0].access_key);
-            } else {
-                throw_cli_error(ManageCLIError.NoSuchAccountName, target.name);
-            }
+            throw_cli_error(ManageCLIError.NoSuchAccountName, target.name);
+        } else if (err.rpc_code === 'INVALID_MASTER_KEY' && allow_update_when_master_key_fails) {
+            options.decrypt_secret_key = false;
+            source = await config_fs.get_account_by_name(target.name, options);
+        } else {
+            throw err;
         }
-        throw err;
     }
     const data = _.merge({}, source, target);
     if (action === ACTIONS.UPDATE) {

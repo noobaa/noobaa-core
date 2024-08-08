@@ -32,7 +32,6 @@ const bucket_semaphore = new KeysSemaphore(1);
 class BucketSpaceFS extends BucketSpaceSimpleFS {
     constructor({config_root}, stats) {
         super({ fs_root: ''});
-        this.fs_root = '';
         this.config_root = config_root;
         this.stats = stats;
         this.fs_context = get_process_fs_context(
@@ -105,7 +104,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
 
             const nsr = {
                 resource: {
-                    fs_root_path: this.fs_root,
+                    fs_root_path: '',
                     fs_backend: bucket.fs_backend
                 },
                 path: bucket.path
@@ -152,7 +151,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
     }
 
     async check_bucket_config(bucket) {
-        const bucket_storage_path = path.join(this.fs_root, bucket.path);
+        const bucket_storage_path = bucket.path;
         try {
             await nb_native().fs.stat(this.fs_context, bucket_storage_path);
             //TODO: Bucket owner check
@@ -326,8 +325,8 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
 
                 if (namespace_bucket_config.should_create_underlying_storage) {
                     // 1. delete underlying storage (ULS = Underline Storage)
-                    dbg.log1('BucketSpaceFS.delete_bucket: deleting uls', this.fs_root, namespace_bucket_config.write_resource.path);
-                    const bucket_storage_path = path.join(this.fs_root, namespace_bucket_config.write_resource.path); // includes write_resource.path + bucket name (s3 flow)
+                    dbg.log1('BucketSpaceFS.delete_bucket: deleting uls', namespace_bucket_config.write_resource.path);
+                    const bucket_storage_path = namespace_bucket_config.write_resource.path; // includes write_resource.path + bucket name (s3 flow)
                     try {
                         await ns.delete_uls({ name, full_path: bucket_storage_path }, object_sdk);
                     } catch (err) {

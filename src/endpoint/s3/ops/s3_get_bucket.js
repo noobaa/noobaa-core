@@ -70,7 +70,7 @@ async function get_bucket(req) {
                     reply.next_marker, reply.objects, reply.is_truncated),
             } : { // list_type v1
                 Marker: req.query.marker || '',
-                NextMarker: req.query.delimiter ? reply.next_marker : undefined,
+                NextMarker: reply.next_marker?.marker ? JSON.stringify(reply.next_marker) : reply.next_marker,
             }),
         },
         _.map(reply.objects, obj => ({

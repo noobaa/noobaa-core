@@ -1133,6 +1133,7 @@ describe('manage nsfs cli account flow', () => {
             const account_options = { config_root };
             const action = ACTIONS.LIST;
             const res = await exec_manage_cli(type, action, account_options);
+            expect(Array.isArray(JSON.parse(res).response.reply)).toBe(true);
             expect(JSON.parse(res).response.reply.map(item => item.name))
                 .toEqual(expect.arrayContaining(['account3', 'account2', 'account1']));
         });
@@ -1141,6 +1142,7 @@ describe('manage nsfs cli account flow', () => {
             const account_options = { config_root, wide: true };
             const action = ACTIONS.LIST;
             const res = await exec_manage_cli(type, action, account_options);
+            expect(Array.isArray(JSON.parse(res).response.reply)).toBe(true);
             expect(JSON.parse(res).response.reply.map(item => item.name))
                 .toEqual(expect.arrayContaining(['account3', 'account2', 'account1']));
             // added additional properties that we can see with wide option (uid, new_buckets_path)
@@ -1155,6 +1157,7 @@ describe('manage nsfs cli account flow', () => {
             const account_options = { config_root, wide: 'true' };
             const action = ACTIONS.LIST;
             const res = await exec_manage_cli(type, action, account_options);
+            expect(Array.isArray(JSON.parse(res).response.reply)).toBe(true);
             expect(JSON.parse(res).response.reply.map(item => item.name))
                 .toEqual(expect.arrayContaining(['account3', 'account2', 'account1']));
             // added additional properties that we can see with wide option (uid, new_buckets_path)
@@ -1169,6 +1172,7 @@ describe('manage nsfs cli account flow', () => {
             const account_options = { config_root, wide: 'TRUE' };
             const action = ACTIONS.LIST;
             const res = await exec_manage_cli(type, action, account_options);
+            expect(Array.isArray(JSON.parse(res).response.reply)).toBe(true);
             expect(JSON.parse(res).response.reply.map(item => item.name))
                 .toEqual(expect.arrayContaining(['account3', 'account2', 'account1']));
             // added additional properties that we can see with wide option (uid, new_buckets_path)
@@ -1183,6 +1187,7 @@ describe('manage nsfs cli account flow', () => {
             const account_options = { config_root, wide: 'false' };
             const action = ACTIONS.LIST;
             const res = await exec_manage_cli(type, action, account_options);
+            expect(Array.isArray(JSON.parse(res).response.reply)).toBe(true);
             expect(JSON.parse(res).response.reply.map(item => item.name))
                 .toEqual(expect.arrayContaining(['account3', 'account2', 'account1']));
         });
@@ -1191,6 +1196,7 @@ describe('manage nsfs cli account flow', () => {
             const account_options = { config_root, wide: 'FALSE' };
             const action = ACTIONS.LIST;
             const res = await exec_manage_cli(type, action, account_options);
+            expect(Array.isArray(JSON.parse(res).response.reply)).toBe(true);
             expect(JSON.parse(res).response.reply.map(item => item.name))
                 .toEqual(expect.arrayContaining(['account3', 'account2', 'account1']));
         });
@@ -1218,6 +1224,7 @@ describe('manage nsfs cli account flow', () => {
             } catch (e) {
                 res = e;
             }
+            expect(Array.isArray(JSON.parse(res).response.reply)).toBe(true);
             expect(JSON.parse(res).response.reply.map(item => item.name))
                 .toEqual(expect.arrayContaining(['account3', 'account2', 'account1']));
         });
@@ -1226,6 +1233,7 @@ describe('manage nsfs cli account flow', () => {
             const account_options = { config_root, uid: 999 };
             const action = ACTIONS.LIST;
             const res = await exec_manage_cli(type, action, account_options);
+            expect(Array.isArray(JSON.parse(res).response.reply)).toBe(true);
             expect(JSON.parse(res).response.reply.map(item => item.name))
                 .toEqual(expect.arrayContaining(['account3', 'account1']));
         });
@@ -1234,6 +1242,7 @@ describe('manage nsfs cli account flow', () => {
             const account_options = { config_root, gid: 999 };
             const action = ACTIONS.LIST;
             const res = await exec_manage_cli(type, action, account_options);
+            expect(Array.isArray(JSON.parse(res).response.reply)).toBe(true);
             expect(JSON.parse(res).response.reply.map(item => item.name))
                 .toEqual(expect.arrayContaining(['account1']));
         });
@@ -1242,6 +1251,7 @@ describe('manage nsfs cli account flow', () => {
             const account_options = { config_root, uid: 999, gid: 999 };
             const action = ACTIONS.LIST;
             const res = await exec_manage_cli(type, action, account_options);
+            expect(Array.isArray(JSON.parse(res).response.reply)).toBe(true);
             expect(JSON.parse(res).response.reply.map(item => item.name))
                 .toEqual(expect.arrayContaining(['account1']));
         });
@@ -1250,6 +1260,7 @@ describe('manage nsfs cli account flow', () => {
             const account_options = { config_root, uid: 999, gid: 888 };
             const action = ACTIONS.LIST;
             const res = await exec_manage_cli(type, action, account_options);
+            expect(Array.isArray(JSON.parse(res).response.reply)).toBe(true);
             expect(JSON.parse(res).response.reply.map(item => item.name))
                 .toEqual(expect.arrayContaining(['account3']));
         });
@@ -1265,6 +1276,7 @@ describe('manage nsfs cli account flow', () => {
             const account_options = { config_root, user: 'root' };
             const action = ACTIONS.LIST;
             const res = await exec_manage_cli(TYPES.ACCOUNT, action, account_options);
+            expect(Array.isArray(JSON.parse(res).response.reply)).toBe(true);
             expect(JSON.parse(res).response.reply.map(item => item.name))
                 .toEqual(expect.arrayContaining(['account4']));
         });
@@ -1273,6 +1285,7 @@ describe('manage nsfs cli account flow', () => {
             const account_options = { config_root, user: 'shaul' };
             const action = ACTIONS.LIST;
             const res = await exec_manage_cli(TYPES.ACCOUNT, action, account_options);
+            expect(Array.isArray(JSON.parse(res).response.reply)).toBe(true);
             expect(JSON.parse(res).response.reply.map(item => item.name))
                 .toEqual([]);
         });
@@ -1281,6 +1294,7 @@ describe('manage nsfs cli account flow', () => {
             const account_options = { config_root, access_key: 'GIGiFAnjaaE7OKD5N7hA' };
             const action = ACTIONS.LIST;
             const res = await exec_manage_cli(TYPES.ACCOUNT, action, account_options);
+            expect(Array.isArray(JSON.parse(res).response.reply)).toBe(true);
             expect(JSON.parse(res).response.reply.map(item => item.name))
                 .toEqual(expect.arrayContaining(['account1']));
         });
@@ -1289,14 +1303,25 @@ describe('manage nsfs cli account flow', () => {
             const account_options = { config_root, name: 'account3' };
             const action = ACTIONS.LIST;
             const res = await exec_manage_cli(TYPES.ACCOUNT, action, account_options);
+            expect(Array.isArray(JSON.parse(res).response.reply)).toBe(true);
             expect(JSON.parse(res).response.reply.map(item => item.name))
                 .toEqual(expect.arrayContaining(['account3']));
+        });
+
+        it('cli list filter by name (non-existing-account) - (none)', async () => {
+            const account_options = { config_root, name: 'non-existing-account' };
+            const action = ACTIONS.LIST;
+            const res = await exec_manage_cli(TYPES.ACCOUNT, action, account_options);
+            expect(Array.isArray(JSON.parse(res).response.reply)).toBe(true);
+            expect(JSON.parse(res).response.reply.map(item => item.name))
+                .toEqual([]);
         });
 
         it('cli list filter by access key (of account1) and name (of account3) - (none)', async () => {
             const account_options = { config_root, name: 'account3', access_key: 'GIGiFAnjaaE7OKD5N7hA' };
             const action = ACTIONS.LIST;
             const res = await exec_manage_cli(TYPES.ACCOUNT, action, account_options);
+            expect(Array.isArray(JSON.parse(res).response.reply)).toBe(true);
             expect(JSON.parse(res).response.reply.map(item => item.name))
                 .toEqual([]);
         });
@@ -1305,6 +1330,7 @@ describe('manage nsfs cli account flow', () => {
             const account_options = { config_root, name: 'account3', access_key: 'non-existing-access-key' };
             const action = ACTIONS.LIST;
             const res = await exec_manage_cli(TYPES.ACCOUNT, action, account_options);
+            expect(Array.isArray(JSON.parse(res).response.reply)).toBe(true);
             expect(JSON.parse(res).response.reply.map(item => item.name))
                 .toEqual([]);
         });
@@ -1320,6 +1346,7 @@ describe('manage nsfs cli account flow', () => {
             const account_options = { config_root, wide: true, show_secrets: true };
             const action = ACTIONS.LIST;
             const res = await exec_manage_cli(type, action, account_options);
+            expect(Array.isArray(JSON.parse(res).response.reply)).toBe(true);
             expect(JSON.parse(res).response.reply.map(item => item.name))
                 .toEqual(expect.arrayContaining(['account3', 'account2', 'account1']));
             const res_arr = JSON.parse(res).response.reply;

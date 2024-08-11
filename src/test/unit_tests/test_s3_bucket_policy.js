@@ -79,8 +79,8 @@ async function setup() {
                 await rpc_client.account.create_account({
                     name: config.ANONYMOUS_ACCOUNT_NAME,
                     nsfs_account_config: {
-                        uid: 0,
-                        gid: 0
+                        uid: process.getuid(),
+                        gid: process.getgid()
                     }
                 });
             }

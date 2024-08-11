@@ -3053,6 +3053,13 @@ mocha.describe('List-objects', function() {
             }
         });
     });
+
+    mocha.it('list object versions - should not list .versions folder', async function() {
+        const res = await s3_client.listObjectVersions({Bucket: bucket_name, Delimiter: "/"});
+        res.CommonPrefixes?.forEach(obj => {
+            assert.notEqual(obj.Prefix, ".versions/");
+        });
+    });
 });
 
 async function create_object(object_path, data, version_id, return_fd) {

@@ -351,17 +351,11 @@ async function fetch_existing_account_data(action, target, decrypt_secret_key) {
     const options = { show_secrets: true, decrypt_secret_key };
     let source;
     try {
-        source = target.name ?
-            await config_fs.get_account_by_name(target.name, options) :
-            await config_fs.get_account_by_access_key(target.access_keys[0].access_key, options);
+        source = await config_fs.get_account_by_name(target.name, options);
     } catch (err) {
-        dbg.log1('NSFS Manage command: Could not find account', target, err);
+        dbg.warn(`fetch_existing_account_data: account with name ${target.name} got an error:`, err);
         if (err.code === 'ENOENT') {
-            if (target.name === undefined) {
-                throw_cli_error(ManageCLIError.NoSuchAccountAccessKey, target.access_keys[0].access_key);
-            } else {
-                throw_cli_error(ManageCLIError.NoSuchAccountName, target.name);
-            }
+            throw_cli_error(ManageCLIError.NoSuchAccountName, target.name);
         }
         throw err;
     }

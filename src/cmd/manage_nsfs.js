@@ -83,7 +83,10 @@ async function main(argv = minimist(process.argv.slice(2))) {
 }
 
 async function bucket_management(action, user_input) {
-    const data = await fetch_bucket_data(action, user_input);
+    let data;
+    if (action !== ACTIONS.LIST) {
+        data = await fetch_bucket_data(action, user_input);
+    }
     await manage_bucket_operations(action, data, user_input);
 }
 
@@ -265,7 +268,10 @@ async function account_management(action, user_input) {
     // init if actions is add/update (require encryption) or show_secrets = true (require decryption)
     if ([ACTIONS.ADD, ACTIONS.UPDATE].includes(action) || show_secrets) await nc_mkm.init();
 
-    const data = await fetch_account_data(action, user_input);
+    let data;
+    if (action !== ACTIONS.LIST) {
+        data = await fetch_account_data(action, user_input);
+    }
     await manage_account_operations(action, data, show_secrets, user_input);
 }
 
@@ -571,10 +577,18 @@ function filter_bucket(bucket, filters) {
  * @param {boolean} [show_secrets]
  * @param {object} [filters]
  */
-async function list_config_files(type, wide, show_secrets, filters) {
-    const entries = type === TYPES.ACCOUNT ?
+async function list_config_files(type, wide, show_secrets, filters = {}) {
+    let entries;
+    // in case we have a filter by name, we don't need to read all the entries and iterate them
+    // instead we "mock" the entries array to have one entry and it is the name by the filter (we add it for performance)
+    const is_filter_by_name = filters.name !== undefined;
+    if (is_filter_by_name) {
+        entries = [{'name': filters.name + JSON_SUFFIX}];
+    } else {
+        entries = type === TYPES.ACCOUNT ?
         await config_fs.list_root_accounts() :
         await config_fs.list_buckets();
+    }
 
     const should_filter = Object.keys(filters).length > 0;
     // decryption causing mkm initalization

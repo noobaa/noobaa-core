@@ -718,8 +718,8 @@ class NamespaceFS {
                     if ((!ent.name.startsWith(prefix_ent) ||
                         ent.name < marker_curr ||
                         ent.name === this.get_bucket_tmpdir_name() ||
-                        ent.name === config.NSFS_FOLDER_OBJECT_NAME) &&
-                        !this._is_hidden_version_path(ent.name)) {
+                        ent.name === config.NSFS_FOLDER_OBJECT_NAME) ||
+                        this._is_hidden_version_path(ent.name)) {
                         return;
                     }
                     const isDir = await is_directory_or_symlink_to_directory(ent, fs_context, path.join(dir_path, ent.name));

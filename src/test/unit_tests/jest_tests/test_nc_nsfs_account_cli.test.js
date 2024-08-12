@@ -1316,6 +1316,19 @@ describe('manage nsfs cli account flow', () => {
             expect(JSON.parse(res.stdout).error.message).toBe(ManageCLIError.InvalidFlagsCombination.message);
         });
 
+        it('cli list wide and show_secrets', async () => {
+            const account_options = { config_root, wide: true, show_secrets: true };
+            const action = ACTIONS.LIST;
+            const res = await exec_manage_cli(type, action, account_options);
+            expect(JSON.parse(res).response.reply.map(item => item.name))
+                .toEqual(expect.arrayContaining(['account3', 'account2', 'account1']));
+            const res_arr = JSON.parse(res).response.reply;
+            for (const item of res_arr) {
+                expect(item.access_keys[0].secret_key).toBeDefined();
+                expect(item.access_keys[0].encrypted_secret_key).toBeUndefined();
+            }
+        });
+
     });
 
     describe('cli delete account', () => {

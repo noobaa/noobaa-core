@@ -1,4 +1,4 @@
-/* Copyright (C) 2016 NooBaa */
+/* Copyright (C) 2024 NooBaa */
 'use strict';
 
 const _ = require('lodash');
@@ -7,38 +7,6 @@ const { IamError } = require('./iam_errors');
 const { AWS_IAM_PATH_REGEXP, AWS_USERNAME_REGEXP, AWS_IAM_LIST_MARKER, AWS_IAM_ACCESS_KEY_INPUT_REGEXP } = require('../../util/string_utils');
 const iam_constants = require('./iam_constants');
 const { RpcError } = require('../../rpc');
-
-const IAM_DEFAULT_PATH = '/';
-const AWS_NOT_USED = 'N/A'; // can be used in case the region or the service name were not used
-const IAM_SERVICE_SMALL_LETTERS = 'iam';
-
-// key: action - the function name on accountspace_fs (snake case style)
-// value: AWS action name (camel case style)
-// we use it for error message to match AWS style 
-const ACTION_MESSAGE_TITLE_MAP = {
-    'create_user': 'CreateUser',
-    'get_user': 'GetUser',
-    'delete_user': 'DeleteUser',
-    'update_user': 'UpdateUser',
-    'list_users': 'ListUsers',
-    'create_access_key': 'CreateAccessKey',
-    'get_access_key_last_used': 'GetAccessKeyLastUsed',
-    'update_access_key': 'UpdateAccessKey',
-    'delete_access_key': 'DeleteAccessKey',
-    'list_access_keys': 'ListAccessKeys',
-};
-
-const MAX_NUMBER_OF_ACCESS_KEYS = 2;
-
-const access_key_status_enum = Object.freeze({
-    ACTIVE: 'Active',
-    INACTIVE: 'Inactive',
-});
-
-const identity_enum = Object.freeze({
-    ROOT_ACCOUNT: 'ROOT_ACCOUNT',
-    USER: 'USER',
-});
 
 /**
  * format_iam_xml_date return the date without milliseconds
@@ -59,7 +27,7 @@ function format_iam_xml_date(input) {
  */
 function create_arn(account_id, username, iam_path) {
     const basic_structure = `arn:aws:iam::${account_id}:user`;
-    if (_.isUndefined(username)) return `${basic_structure}/`;
+    if (username === undefined) return `${basic_structure}/`;
     if (check_iam_path_was_set(iam_path)) {
         return `${basic_structure}${iam_path}${username}`;
     }
@@ -71,7 +39,7 @@ function create_arn(account_id, username, iam_path) {
  * @param {string} action (The action name as it is in AccountSpace)
  */
 function get_action_message_title(action) {
-    return `${IAM_SERVICE_SMALL_LETTERS}:${ACTION_MESSAGE_TITLE_MAP[action]}`;
+    return `${iam_constants.IAM_SERVICE_SMALL_LETTERS}:${iam_constants.ACTION_MESSAGE_TITLE_MAP[action]}`;
 }
 
 /**
@@ -79,7 +47,7 @@ function get_action_message_title(action) {
  * @param {string} iam_path
  */
 function check_iam_path_was_set(iam_path) {
-    return iam_path && iam_path !== IAM_DEFAULT_PATH;
+    return iam_path && iam_path !== iam_constants.IAM_DEFAULT_PATH;
 }
 
 /**
@@ -274,8 +242,8 @@ function check_required_key(value, flag_name) {
  */
 function validate_create_user(params) {
     check_required_username(params);
-    validate_username(params.username, iam_constants.USERNAME);
-    validate_iam_path(params.iam_path, iam_constants.IAM_PATH);
+    validate_username(params.username, iam_constants.IAM_PARAMETER_NAME.USERNAME);
+    validate_iam_path(params.iam_path, iam_constants.IAM_PARAMETER_NAME.IAM_PATH);
 }
 
 /**
@@ -283,7 +251,7 @@ function validate_create_user(params) {
  * @param {object} params
  */
 function validate_get_user(params) {
-    validate_username(params.username, iam_constants.USERNAME);
+    validate_username(params.username, iam_constants.IAM_PARAMETER_NAME.USERNAME);
 }
 
 /**
@@ -292,9 +260,9 @@ function validate_get_user(params) {
  */
 function validate_update_user(params) {
     check_required_username(params);
-    validate_username(params.username, iam_constants.USERNAME);
-    validate_username(params.new_username, iam_constants.NEW_USERNAME);
-    validate_iam_path(params.new_iam_path, iam_constants.NEW_IAM_PATH);
+    validate_username(params.username, iam_constants.IAM_PARAMETER_NAME.USERNAME);
+    validate_username(params.new_username, iam_constants.IAM_PARAMETER_NAME.NEW_USERNAME);
+    validate_iam_path(params.new_iam_path, iam_constants.IAM_PARAMETER_NAME.NEW_IAM_PATH);
 }
 
 /**
@@ -303,7 +271,7 @@ function validate_update_user(params) {
  */
 function validate_delete_user(params) {
     check_required_username(params);
-    validate_username(params.username, iam_constants.USERNAME);
+    validate_username(params.username, iam_constants.IAM_PARAMETER_NAME.USERNAME);
 }
 
 /**
@@ -313,7 +281,7 @@ function validate_delete_user(params) {
 function validate_list_users(params) {
     validate_marker(params.marker);
     validate_max_items(params.max_items);
-    validate_iam_path(params.iam_path_prefix, iam_constants.IAM_PATH_PREFIX);
+    validate_iam_path(params.iam_path_prefix, iam_constants.IAM_PARAMETER_NAME.IAM_PATH_PREFIX);
 }
 
 /**
@@ -321,7 +289,7 @@ function validate_list_users(params) {
  * @param {object} params
  */
 function validate_create_access_key(params) {
-    validate_username(params.username, iam_constants.USERNAME);
+    validate_username(params.username, iam_constants.IAM_PARAMETER_NAME.USERNAME);
 }
 
 /**
@@ -342,7 +310,7 @@ function validate_update_access_key(params) {
     check_required_status(params);
     validate_access_key_id(params.access_key);
     validate_status(params.status);
-    validate_username(params.username, iam_constants.USERNAME);
+    validate_username(params.username, iam_constants.IAM_PARAMETER_NAME.USERNAME);
 }
 
 /**
@@ -352,7 +320,7 @@ function validate_update_access_key(params) {
 function validate_delete_access_key(params) {
     check_required_access_key_id(params);
     validate_access_key_id(params.access_key);
-    validate_username(params.username, iam_constants.USERNAME);
+    validate_username(params.username, iam_constants.IAM_PARAMETER_NAME.USERNAME);
 }
 
 /**
@@ -362,7 +330,7 @@ function validate_delete_access_key(params) {
 function validate_list_access_keys(params) {
     validate_marker(params.marker);
     validate_max_items(params.max_items);
-    validate_username(params.username, iam_constants.USERNAME);
+    validate_username(params.username, iam_constants.IAM_PARAMETER_NAME.USERNAME);
 }
 
 /**
@@ -373,8 +341,8 @@ function validate_list_access_keys(params) {
  * @param {string} input_path
  * @param {string} parameter_name
  */
-function validate_iam_path(input_path, parameter_name = iam_constants.IAM_PATH) {
-    if (_.isUndefined(input_path)) return;
+function validate_iam_path(input_path, parameter_name = iam_constants.IAM_PARAMETER_NAME.IAM_PATH) {
+    if (input_path === undefined) return;
     // type check
     _type_check_input('string', input_path, parameter_name);
     // length check
@@ -401,8 +369,8 @@ function validate_iam_path(input_path, parameter_name = iam_constants.IAM_PATH) 
  * @param {string} input_username
  * @param {string} parameter_name
  */
-function validate_username(input_username, parameter_name = iam_constants.USERNAME) {
-    if (_.isUndefined(input_username)) return;
+function validate_username(input_username, parameter_name = iam_constants.IAM_PARAMETER_NAME.USERNAME) {
+    if (input_username === undefined) return;
     // type check
     _type_check_input('string', input_username, parameter_name);
     // length check
@@ -443,7 +411,7 @@ function validate_username(input_username, parameter_name = iam_constants.USERNA
  */
 function validate_marker(input_marker) {
     const parameter_name = 'Marker';
-    if (_.isUndefined(input_marker)) return;
+    if (input_marker === undefined) return;
     // type check
     _type_check_input('string', input_marker, parameter_name);
     // length check
@@ -468,7 +436,7 @@ function validate_marker(input_marker) {
  */
 function validate_max_items(input_max_items) {
     const parameter_name = 'MaxItems';
-    if (_.isUndefined(input_max_items)) return;
+    if (input_max_items === undefined) return;
     // type check
      _type_check_input('number', input_max_items, parameter_name);
     // value check
@@ -500,7 +468,7 @@ function validate_max_items(input_max_items) {
  */
 function validate_access_key_id(input_access_key_id) {
     const parameter_name = 'AccessKeyId';
-    if (_.isUndefined(input_access_key_id)) return;
+    if (input_access_key_id === undefined) return;
     // type check
     _type_check_input('string', input_access_key_id, parameter_name);
     // length check
@@ -525,11 +493,12 @@ function validate_access_key_id(input_access_key_id) {
  */
 function validate_status(input_status) {
     const parameter_name = 'Status';
-    if (_.isUndefined(input_status)) return;
-    if (input_status !== access_key_status_enum.ACTIVE && input_status !== access_key_status_enum.INACTIVE) {
+    if (input_status === undefined) return;
+    if (input_status !== iam_constants.ACCESS_KEY_STATUS_ENUM.ACTIVE &&
+        input_status !== iam_constants.ACCESS_KEY_STATUS_ENUM.INACTIVE) {
         const message_with_details = `Value ${input_status} at '${parameter_name}' ` +
             `failed to satisfy constraint: Member must satisfy enum value set: ` +
-            `[${access_key_status_enum.ACTIVE}, ${access_key_status_enum.INACTIVE}]`;
+            `[${iam_constants.ACCESS_KEY_STATUS_ENUM.ACTIVE}, ${iam_constants.ACCESS_KEY_STATUS_ENUM.INACTIVE}]`;
         const { code, http_code, type } = IamError.ValidationError;
         throw new IamError({ code, message: message_with_details, http_code, type });
     }
@@ -540,14 +509,9 @@ function validate_status(input_status) {
 // EXPORTS
 exports.format_iam_xml_date = format_iam_xml_date;
 exports.create_arn = create_arn;
-exports.IAM_DEFAULT_PATH = IAM_DEFAULT_PATH;
-exports.AWS_NOT_USED = AWS_NOT_USED;
 exports.get_action_message_title = get_action_message_title;
 exports.check_iam_path_was_set = check_iam_path_was_set;
 exports.parse_max_items = parse_max_items;
-exports.MAX_NUMBER_OF_ACCESS_KEYS = MAX_NUMBER_OF_ACCESS_KEYS;
-exports.access_key_status_enum = access_key_status_enum;
-exports.identity_enum = identity_enum;
 exports.validate_params = validate_params;
 exports.validate_iam_path = validate_iam_path;
 exports.validate_username = validate_username;

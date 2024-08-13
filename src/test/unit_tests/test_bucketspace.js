@@ -14,6 +14,7 @@ const mocha = require('mocha');
 const assert = require('assert');
 const config = require('../../../config');
 const fs_utils = require('../../util/fs_utils');
+const { JSON_SUFFIX } = require('../../sdk/config_fs');
 const test_utils = require('../system_tests/test_utils');
 const { stat, open } = require('../../util/nb_native')().fs;
 const { get_process_fs_context } = require('../../util/native_fs_utils');
@@ -1778,7 +1779,7 @@ mocha.describe('Namespace s3_bucket_policy', function() {
     let account_config_path;
     if (is_nc_coretest) {
         accounts_dir_path = path.join(NC_CORETEST_CONFIG_DIR_PATH, accounts_dir_name);
-        account_config_path = path.join(accounts_dir_path, config.ANONYMOUS_ACCOUNT_NAME + '.json');
+        account_config_path = path.join(accounts_dir_path, config.ANONYMOUS_ACCOUNT_NAME + JSON_SUFFIX);
     }
 
     mocha.before(async function() {

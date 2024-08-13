@@ -2,7 +2,6 @@
 'use strict';
 
 const dbg = require('../util/debug_module')(__filename);
-const path = require('path');
 const _ = require('lodash');
 const P = require('../util/promise');
 const config = require('../../config');
@@ -11,6 +10,7 @@ const nb_native = require('../util/nb_native');
 const native_fs_utils = require('../util/native_fs_utils');
 const { read_stream_join } = require('../util/buffer_utils');
 const { make_https_request } = require('../util/http_utils');
+const { JSON_SUFFIX } = require('../sdk/config_fs');
 const { TYPES } = require('./manage_nsfs_constants');
 const { get_boolean_or_string_value, throw_cli_error, write_stdout_response } = require('./manage_nsfs_cli_utils');
 const { ManageCLIResponse } = require('./manage_nsfs_cli_responses');
@@ -87,9 +87,9 @@ process.env.AWS_SDK_JS_SUPPRESS_MAINTENANCE_MODE_MESSAGE = '1';
 class NSFSHealth {
     constructor(options) {
         this.https_port = options.https_port;
-        this.config_root = options.config_root;
         this.all_account_details = options.all_account_details;
         this.all_bucket_details = options.all_bucket_details;
+        this.config_fs = options.config_fs;
     }
 
     /**
@@ -116,8 +116,8 @@ class NSFSHealth {
         const service_health = service_status !== 'active' || pid === '0' || response_code !== 'RUNNING' ? 'NOTOK' : 'OK';
 
         const error_code = await this.get_error_code(service_status, pid, response_code);
-        if (this.all_bucket_details) bucket_details = await this.get_bucket_status(this.config_root);
-        if (this.all_account_details) account_details = await this.get_account_status(this.config_root);
+        if (this.all_bucket_details) bucket_details = await this.get_bucket_status();
+        if (this.all_account_details) account_details = await this.get_account_status();
         const health = {
             service_name: NOOBAA_SERVICE,
             status: service_health,
@@ -306,38 +306,48 @@ class NSFSHealth {
         };
     }
 
-    async get_bucket_status(config_root) {
-        const bucket_details = await this.get_storage_status(config_root, TYPES.BUCKET, this.all_bucket_details);
+    async get_bucket_status() {
+        const bucket_details = await this.get_storage_status(TYPES.BUCKET, this.all_bucket_details);
         return bucket_details;
     }
 
-    async get_account_status(config_root) {
-        const account_details = await this.get_storage_status(config_root, TYPES.ACCOUNT, this.all_account_details);
+    async get_account_status() {
+        const account_details = await this.get_storage_status(TYPES.ACCOUNT, this.all_account_details);
         return account_details;
     }
 
-    async get_storage_status(config_root, type, all_details) {
-        const fs_context = this.get_root_fs_context();
-        const config_root_type_path = this.get_config_path(config_root, type);
+    async get_storage_status(type, all_details) {
         const invalid_storages = [];
         const valid_storages = [];
         //check for account and buckets dir paths
-        try {
-            await nb_native().fs.stat(fs_context, config_root_type_path);
-        } catch (err) {
-            dbg.log1(`Config root path missing ${type} folder in ${config_root_type_path}`);
+        let config_root_type_exists;
+        let config_dir_path;
+        if (type === TYPES.BUCKET) {
+            config_dir_path = this.config_fs.buckets_dir_path;
+            config_root_type_exists = await this.config_fs.validate_config_dir_exists(config_dir_path);
+        } else if (type === TYPES.ACCOUNT) {
+            // TODO - handle iam accounts when directory structure changes - read_account_by_id
+            config_dir_path = this.config_fs.accounts_dir_path;
+            config_root_type_exists = await this.config_fs.validate_config_dir_exists(config_dir_path);
+        }
+        // TODO - this is not a good handling for that - we need to take it to an upper level
+        if (!config_root_type_exists) {
+            dbg.log1(`Config directory type - ${type} is missing, ${config_dir_path}`);
             return {
                 invalid_storages: invalid_storages,
                 valid_storages: valid_storages
             };
         }
-        const entries = await nb_native().fs.readdir(fs_context, config_root_type_path);
-        const config_files = entries.filter(entree => !native_fs_utils.isDirectory(entree) && entree.name.endsWith('.json'));
+
+        const entries = type === TYPES.BUCKET ?
+            await this.config_fs.list_buckets() :
+            await this.config_fs.list_root_accounts();
+
+        const config_files = entries.filter(entree => !native_fs_utils.isDirectory(entree) && entree.name.endsWith(JSON_SUFFIX));
         for (const config_file of config_files) {
             // config_file get data or push error
-            const config_file_path = path.join(config_root_type_path, config_file.name);
             const { config_data = undefined, err_obj = undefined } =
-            await get_config_file_data(fs_context, config_file_path, config_file.name);
+                await this.get_config_file_data_or_error_object(type, config_file.name);
             if (!config_data && err_obj) {
                 invalid_storages.push(err_obj.invalid_storage);
                 continue;
@@ -351,9 +361,10 @@ class NSFSHealth {
                 config_data.nsfs_account_config.new_buckets_path;
 
             if (type === TYPES.ACCOUNT) {
+                const config_file_path = this.config_fs.get_account_path_by_name(config_file.name);
                 res = await is_new_buckets_path_valid(config_file_path, config_data, storage_path);
             } else if (type === TYPES.BUCKET) {
-                res = await is_bucket_storage_path_exists(fs_context, config_data, storage_path);
+                res = await is_bucket_storage_path_exists(this.config_fs.fs_context, config_data, storage_path);
             }
             if (all_details && res.valid_storage) {
                 valid_storages.push(res.valid_storage);
@@ -367,21 +378,52 @@ class NSFSHealth {
         };
     }
 
-    get_config_path(config_root, type) {
-        return path.join(config_root, type === TYPES.BUCKET ? '/buckets' : '/accounts');
+    /**
+     * get_config_file_data_or_error_object return an object containing config_data or err_obj if error occurred
+     * @param {string} type
+     * @param {string} config_file_name
+     * @returns {Promise<object>}
+     */
+    async get_config_file_data_or_error_object(type, config_file_name) {
+        let config_data;
+        let err_obj;
+        try {
+            config_data = type === TYPES.BUCKET ?
+                await this.config_fs.get_bucket_by_name(config_file_name) :
+                // TODO - should be changed to id when moving to new structure for supporting iam accounts
+                await this.config_fs.get_account_by_name(config_file_name);
+        } catch (err) {
+            let err_code;
+            const config_file_path = type === TYPES.BUCKET ?
+                await this.config_fs.get_bucket_path_by_name(config_file_name) :
+                // TODO - should be changed to id when moving to new structure for supporting iam accounts
+                await this.config_fs.get_account_path_by_name(config_file_name);
+
+            if (err.code === 'ENOENT') {
+                dbg.log1(`Error: Config file path should be a valid path`, config_file_path, err);
+                err_code = health_errors.MISSING_CONFIG.error_code;
+            } else {
+                dbg.log1('Error: while accessing the config file: ', config_file_path, err);
+                err_code = health_errors.INVALID_CONFIG.error_code;
+            }
+            err_obj = get_invalid_object(config_file_name, config_file_path, undefined, err_code);
+        }
+        return {
+            config_data,
+            err_obj
+        };
     }
 }
 
-async function get_health_status(argv, global_config) {
+async function get_health_status(argv, config_fs) {
     try {
-        const config_root = global_config.config_root;
         const https_port = Number(argv.https_port) || config.ENDPOINT_SSL_PORT;
         const deployment_type = argv.deployment_type || 'nc';
         const all_account_details = get_boolean_or_string_value(argv.all_account_details);
         const all_bucket_details = get_boolean_or_string_value(argv.all_bucket_details);
 
         if (deployment_type === 'nc') {
-            const health = new NSFSHealth({ https_port, config_root, all_account_details, all_bucket_details });
+            const health = new NSFSHealth({ https_port, all_account_details, all_bucket_details, config_fs });
             const health_status = await health.nc_nsfs_health();
             write_stdout_response(ManageCLIResponse.HealthStatus, health_status);
         } else {
@@ -432,6 +474,7 @@ async function is_new_buckets_path_valid(config_file_path, config_data, new_buck
     }
 
     try {
+        await nb_native().fs.stat(account_fs_context, new_buckets_path);
         const accessible = await native_fs_utils.is_dir_rw_accessible(account_fs_context, new_buckets_path);
         if (!accessible) {
             const new_err = new Error('ACCESS DENIED');
@@ -450,36 +493,6 @@ async function is_new_buckets_path_valid(config_file_path, config_data, new_buck
         res_obj = get_invalid_object(config_data.name, undefined, new_buckets_path, err_code);
     }
     return res_obj;
-}
-
-/**
- * get_config_file_data return an object containing config_data or err_obj if error occurred
- * @param {nb.NativeFSContext} fs_context
- * @param {string} config_file_path
- * @param {string} config_file_name
- * @returns {Promise<object>}
- */
-async function get_config_file_data(fs_context, config_file_path, config_file_name) {
-    let config_data;
-    let err_obj;
-    try {
-        const { data } = await nb_native().fs.readFile(fs_context, config_file_path);
-        config_data = JSON.parse(data.toString());
-    } catch (err) {
-        let err_code;
-        if (err.code === 'ENOENT') {
-            dbg.log1(`Error: Config file path should be a valid path`, config_file_path, err);
-            err_code = health_errors.MISSING_CONFIG.error_code;
-        } else {
-            dbg.log1('Error: while accessing the config file: ', config_file_path, err);
-            err_code = health_errors.INVALID_CONFIG.error_code;
-        }
-        err_obj = get_invalid_object(config_file_name, config_file_path, undefined, err_code);
-    }
-    return {
-        config_data,
-        err_obj
-    };
 }
 
 /**

@@ -24,7 +24,7 @@ async function create_user(req, res) {
         CreateUserResponse: {
             CreateUserResult: {
                 User: {
-                    Path: reply.iam_path || iam_utils.IAM_DEFAULT_PATH,
+                    Path: reply.iam_path || iam_constants.IAM_DEFAULT_PATH,
                     UserName: reply.username,
                     UserId: reply.user_id,
                     Arn: reply.arn,

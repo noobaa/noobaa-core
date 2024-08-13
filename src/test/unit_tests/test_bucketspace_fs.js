@@ -18,7 +18,7 @@ const SensitiveString = require('../../util/sensitive_string');
 const NamespaceFS = require('../../sdk/namespace_fs');
 const BucketSpaceFS = require('../../sdk/bucketspace_fs');
 const { TMP_PATH } = require('../system_tests/test_utils');
-const { CONFIG_SUBDIRS } = require('../../manage_nsfs/manage_nsfs_constants');
+const { CONFIG_SUBDIRS, JSON_SUFFIX, SYMLINK_SUFFIX } = require('../../sdk/config_fs');
 const nc_mkm = require('../../manage_nsfs/nc_master_key_manager').get_instance();
 
 
@@ -747,6 +747,22 @@ mocha.describe('bucketspace_fs', function() {
             assert.ok(output_log === undefined);
         });
     });
+
+    mocha.describe('bucket tagging operations', function() {
+        mocha.it('put_bucket_tagging', async function() {
+            const param = { name: test_bucket, tagging: [{ key: 'k1', value: 'v1' }] };
+            await bucketspace_fs.put_bucket_tagging(param);
+            const tag = await bucketspace_fs.get_bucket_tagging(param);
+            assert.deepEqual(tag, { tagging: param.tagging });
+        });
+
+        mocha.it('delete_bucket_tagging', async function() {
+            const param = { name: test_bucket };
+            await bucketspace_fs.delete_bucket_tagging(param);
+            const tag = await bucketspace_fs.get_bucket_tagging(param);
+            assert.deepEqual(tag, { tagging: [] });
+        });
+    });
 });
 
 async function create_bucket(bucket_name) {
@@ -759,11 +775,11 @@ async function create_bucket(bucket_name) {
 
 
 function get_config_file_path(config_type_path, file_name) {
-    return path.join(config_root, config_type_path, file_name + '.json');
+    return path.join(config_root, config_type_path, file_name + JSON_SUFFIX);
 }
 
 // returns the path of the access_key symlink to the config file json
 function get_access_key_symlink_path(config_type_path, file_name) {
-    return path.join(config_root, config_type_path, file_name + '.symlink');
+    return path.join(config_root, config_type_path, file_name + SYMLINK_SUFFIX);
 }
 

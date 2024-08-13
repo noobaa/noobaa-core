@@ -1,4 +1,4 @@
-/* Copyright (C) 2016 NooBaa */
+/* Copyright (C) 2024 NooBaa */
 'use strict';
 
 const dbg = require('../../util/debug_module')(__filename);

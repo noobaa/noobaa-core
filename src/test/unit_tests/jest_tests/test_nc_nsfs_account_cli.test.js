@@ -13,10 +13,11 @@ const P = require('../../../util/promise');
 const os_util = require('../../../util/os_utils');
 const fs_utils = require('../../../util/fs_utils');
 const nb_native = require('../../../util/nb_native');
+const { CONFIG_SUBDIRS, JSON_SUFFIX, SYMLINK_SUFFIX } = require('../../../sdk/config_fs');
 const { set_path_permissions_and_owner, create_fs_user_by_platform,
     delete_fs_user_by_platform, TMP_PATH, set_nc_config_dir_in_config } = require('../../system_tests/test_utils');
 const { get_process_fs_context, update_config_file } = require('../../../util/native_fs_utils');
-const { TYPES, ACTIONS, CONFIG_SUBDIRS, ANONYMOUS } = require('../../../manage_nsfs/manage_nsfs_constants');
+const { TYPES, ACTIONS, ANONYMOUS } = require('../../../manage_nsfs/manage_nsfs_constants');
 const ManageCLIError = require('../../../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
 const ManageCLIResponse = require('../../../manage_nsfs/manage_nsfs_cli_responses').ManageCLIResponse;
 
@@ -363,8 +364,8 @@ describe('manage nsfs cli account flow', () => {
             assert_account(account, account_options, false);
             const account_symlink = await read_config_file(config_root, CONFIG_SUBDIRS.ACCESS_KEYS, access_key, true);
             assert_account(account_symlink, account_options);
-            const real_path = fs.readlinkSync(path.join(config_root, CONFIG_SUBDIRS.ACCESS_KEYS, access_key + '.symlink'));
-            expect(real_path).toContain('../accounts/' + account_options.name + '.json');
+            const real_path = fs.readlinkSync(path.join(config_root, CONFIG_SUBDIRS.ACCESS_KEYS, access_key + SYMLINK_SUFFIX));
+            expect(real_path).toContain('../accounts/' + account_options.name + JSON_SUFFIX);
         });
 
         it('cli account add - use flag force_md5_etag', async function() {
@@ -767,8 +768,8 @@ describe('manage nsfs cli account flow', () => {
                 //fixing the new_account_details for compare. 
                 new_account_details = { ...new_account_details, ...new_account_details.nsfs_account_config };
                 assert_account(account_symlink, new_account_details);
-                const real_path = fs.readlinkSync(path.join(config_root, CONFIG_SUBDIRS.ACCESS_KEYS, access_key + '.symlink'));
-                expect(real_path).toContain('../accounts/' + new_name + '.json');
+                const real_path = fs.readlinkSync(path.join(config_root, CONFIG_SUBDIRS.ACCESS_KEYS, access_key + SYMLINK_SUFFIX));
+                expect(real_path).toContain('../accounts/' + new_name + JSON_SUFFIX);
             });
 
             it('cli update account set flag force_md5_etag', async function() {
@@ -861,7 +862,7 @@ describe('manage nsfs cli account flow', () => {
 
                 // update the account to have the property owner
                 // (we use this way because now we don't have the way to create IAM users through the noobaa cli)
-                const account_config_path = path.join(config_root, CONFIG_SUBDIRS.ACCOUNTS, account_name + '.json');
+                const account_config_path = path.join(config_root, CONFIG_SUBDIRS.ACCOUNTS, account_name + JSON_SUFFIX);
                 const { data } = await nb_native().fs.readFile(DEFAULT_FS_CONFIG, account_config_path);
                 const config_data = JSON.parse(data.toString());
                 config_data.owner = account_id; // just so we can identify this account as IAM user
@@ -879,7 +880,7 @@ describe('manage nsfs cli account flow', () => {
                 // update the account to have the property owner
                 // (we use this way because now we don't have the way to create IAM users through the noobaa cli)
                 const { name } = defaults;
-                const account_config_path = path.join(config_root, CONFIG_SUBDIRS.ACCOUNTS, name + '.json');
+                const account_config_path = path.join(config_root, CONFIG_SUBDIRS.ACCOUNTS, name + JSON_SUFFIX);
                 const { data } = await nb_native().fs.readFile(DEFAULT_FS_CONFIG, account_config_path);
                 const config_data = JSON.parse(data.toString());
                 config_data.owner = '65a62e22ceae5e5f1a758aa9'; // just so we can identify this account as IAM user
@@ -958,7 +959,7 @@ describe('manage nsfs cli account flow', () => {
 
                 // update the account to have the property owner
                 // (we use this way because now we don't have the way to create IAM users through the noobaa cli)
-                const account_config_path = path.join(config_root, CONFIG_SUBDIRS.ACCOUNTS, account_name + '.json');
+                const account_config_path = path.join(config_root, CONFIG_SUBDIRS.ACCOUNTS, account_name + JSON_SUFFIX);
                 const { data } = await nb_native().fs.readFile(DEFAULT_FS_CONFIG, account_config_path);
                 const config_data = JSON.parse(data.toString());
                 config_data.owner = account_id; // just so we can identify this account as IAM user
@@ -987,7 +988,7 @@ describe('manage nsfs cli account flow', () => {
 
                 // update the account to have the property owner
                 // (we use this way because now we don't have the way to create IAM users through the noobaa cli)
-                const account_config_path = path.join(config_root, CONFIG_SUBDIRS.ACCOUNTS, account_name + '.json');
+                const account_config_path = path.join(config_root, CONFIG_SUBDIRS.ACCOUNTS, account_name + JSON_SUFFIX);
                 const { data } = await nb_native().fs.readFile(DEFAULT_FS_CONFIG, account_config_path);
                 const config_data = JSON.parse(data.toString());
                 config_data.owner = account_id; // just so we can identify this account as IAM user
@@ -1346,7 +1347,7 @@ describe('manage nsfs cli account flow', () => {
             await fs_utils.file_must_exist(new_buckets_path);
             await set_path_permissions_and_owner(account_options.new_buckets_path, account_options, 0o700);
             await exec_manage_cli(type, action, account_options);
-            const config_path = path.join(config_root, CONFIG_SUBDIRS.ACCOUNTS, name + '.json');
+            const config_path = path.join(config_root, CONFIG_SUBDIRS.ACCOUNTS, name + JSON_SUFFIX);
             await fs_utils.file_must_exist(config_path);
         });
 
@@ -1365,14 +1366,52 @@ describe('manage nsfs cli account flow', () => {
             const res = await exec_manage_cli(type, action, account_options);
             const res_json = JSON.parse(res.trim());
             expect(res_json.response.code).toBe(ManageCLIResponse.AccountDeleted.code);
-            const config_path = path.join(config_root, CONFIG_SUBDIRS.ACCOUNTS, name + '.json');
+            const config_path = path.join(config_root, CONFIG_SUBDIRS.ACCOUNTS, name + JSON_SUFFIX);
             await fs_utils.file_must_not_exist(config_path);
-            const symlink_config_path = path.join(config_root, CONFIG_SUBDIRS.ACCESS_KEYS, defaults.access_key + '.symlink');
+            const symlink_config_path = path.join(config_root, CONFIG_SUBDIRS.ACCESS_KEYS, defaults.access_key + SYMLINK_SUFFIX);
             await fs_utils.file_must_not_exist(symlink_config_path);
         });
 
-        it('should fail - cli delete account, account owns a bucket', async () => {
+        it('cli delete account (account has 2 access keys objects)', async () => {
             // cli create account - happens in the "beforeEach"
+            const { type, name } = defaults;
+
+            // currently we don't have the ability to create 2 access keys in the noobaa-cli
+            // therefore, we will mock the config as there are 2 access keys objects
+            // and also create the symlink for the one that manually added
+            const account = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
+            const account_with_2_access_keys_objects = _.cloneDeep(account);
+            const access_key2 = 'AIGiFAnjaaE7OKD5N7hA';
+            const secret_key2 = 'A2AYaMpU3zRDcRFWmvzgQr9MoHIAsD+3AEXAMPLE';
+            account_with_2_access_keys_objects.access_keys.push({
+                access_key: access_key2,
+                secret_key: secret_key2,
+                creation_date: new Date().toISOString(),
+                deactivated: false,
+            });
+            const account_config_path = path.join(config_root, CONFIG_SUBDIRS.ACCOUNTS, name + JSON_SUFFIX);
+            await update_config_file(DEFAULT_FS_CONFIG, CONFIG_SUBDIRS.ACCOUNTS,
+                account_config_path, JSON.stringify(account_with_2_access_keys_objects));
+            const account_config_relative_path = path.join(config_root, '../' + CONFIG_SUBDIRS.ACCOUNTS + '/', name + JSON_SUFFIX);
+            const account_config_access_key_path = path.join(config_root, CONFIG_SUBDIRS.ACCESS_KEYS, access_key2 + SYMLINK_SUFFIX);
+            await nb_native().fs.symlink(DEFAULT_FS_CONFIG, account_config_relative_path, account_config_access_key_path);
+
+            // cli delete account
+            const action = ACTIONS.DELETE;
+            const account_options = { config_root, name };
+            const res = await exec_manage_cli(type, action, account_options);
+            const res_json = JSON.parse(res.trim());
+            expect(res_json.response.code).toBe(ManageCLIResponse.AccountDeleted.code);
+            const config_path = path.join(config_root, CONFIG_SUBDIRS.ACCOUNTS, name + JSON_SUFFIX);
+            await fs_utils.file_must_not_exist(config_path);
+            const symlink_config_path1 = path.join(config_root, CONFIG_SUBDIRS.ACCESS_KEYS, defaults.access_key + SYMLINK_SUFFIX);
+            await fs_utils.file_must_not_exist(symlink_config_path1);
+            const symlink_config_path2 = path.join(config_root, CONFIG_SUBDIRS.ACCESS_KEYS, access_key2 + SYMLINK_SUFFIX);
+            await fs_utils.file_must_not_exist(symlink_config_path2);
+        });
+
+        it('should fail - cli delete account, account owns a bucket', async () => {
+            // manipulate the account that was created and add properties of another access key object
 
             // cli create bucket
             let type = TYPES.BUCKET;
@@ -1382,7 +1421,7 @@ describe('manage nsfs cli account flow', () => {
             const account_name = defaults.name;
             const bucket_options = { config_root, path: new_buckets_path, name: bucket_name, owner: account_name};
             await exec_manage_cli(type, action, bucket_options);
-            let config_path = path.join(config_root, CONFIG_SUBDIRS.BUCKETS, bucket_name + '.json');
+            let config_path = path.join(config_root, CONFIG_SUBDIRS.BUCKETS, bucket_name + JSON_SUFFIX);
             await fs_utils.file_must_exist(config_path);
 
             // cli delete account
@@ -1392,7 +1431,7 @@ describe('manage nsfs cli account flow', () => {
             const account_options = { config_root, name };
             const res = await exec_manage_cli(type, action, account_options);
             expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.AccountDeleteForbiddenHasBuckets.code);
-            config_path = path.join(config_root, CONFIG_SUBDIRS.ACCOUNTS, name + '.json');
+            config_path = path.join(config_root, CONFIG_SUBDIRS.ACCOUNTS, name + JSON_SUFFIX);
             await fs_utils.file_must_exist(config_path);
         });
 
@@ -1432,7 +1471,7 @@ describe('manage nsfs cli account flow', () => {
 
             // update the account to have the property owner
             // (we use this way because now we don't have the way to create IAM users through the noobaa cli)
-            const account_config_path = path.join(config_root, CONFIG_SUBDIRS.ACCOUNTS, account_name + '.json');
+            const account_config_path = path.join(config_root, CONFIG_SUBDIRS.ACCOUNTS, account_name + JSON_SUFFIX);
             const { data } = await nb_native().fs.readFile(DEFAULT_FS_CONFIG, account_config_path);
             const config_data = JSON.parse(data.toString());
             config_data.owner = account_id; // just so we can identify this account as IAM user;
@@ -1923,7 +1962,7 @@ describe('cli account flow distinguished_name - permissions', function() {
  * @param {boolean} [is_symlink] a flag to set the suffix as a symlink instead of json
  */
 async function read_config_file(config_root, schema_dir, config_file_name, is_symlink) {
-    const config_path = path.join(config_root, schema_dir, config_file_name + (is_symlink ? '.symlink' : '.json'));
+    const config_path = path.join(config_root, schema_dir, config_file_name + (is_symlink ? SYMLINK_SUFFIX : JSON_SUFFIX));
     const { data } = await nb_native().fs.readFile(DEFAULT_FS_CONFIG, config_path);
     const config_data = JSON.parse(data.toString());
     const encrypted_secret_key = config_data.access_keys[0].encrypted_secret_key;

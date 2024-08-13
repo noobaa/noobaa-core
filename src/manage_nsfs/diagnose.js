@@ -15,13 +15,13 @@ const ManageCLIResponse = require('../manage_nsfs/manage_nsfs_cli_responses').Ma
  * manage_diagnose_operations handles cli diagnose operations
  * @param {string} action 
  * @param {Object} user_input 
- * @param {Object} global_config 
+ * @param {import('../sdk/config_fs').ConfigFS} config_fs 
  * @returns {Promise<Void>}
  */
-async function manage_diagnose_operations(action, user_input, global_config) {
+async function manage_diagnose_operations(action, user_input, config_fs) {
     switch (action) {
         case DIAGNOSE_ACTIONS.HEALTH:
-            await health.get_health_status(user_input, global_config);
+            await health.get_health_status(user_input, config_fs);
             break;
         case DIAGNOSE_ACTIONS.GATHER_LOGS:
             await gather_logs();

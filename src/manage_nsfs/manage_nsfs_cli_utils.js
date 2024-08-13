@@ -2,9 +2,6 @@
 'use strict';
 
 const dbg = require('../util/debug_module')(__filename);
-const _ = require('lodash');
-const path = require('path');
-const config = require('../../config');
 const nb_native = require('../util/nb_native');
 const native_fs_utils = require('../util/native_fs_utils');
 const ManageCLIError = require('../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
@@ -15,36 +12,6 @@ const { BOOLEAN_STRING_VALUES } = require('../manage_nsfs/manage_nsfs_constants'
 const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
 const mongo_utils = require('../util/mongo_utils');
 
-/**
- * @param {object} global_config
- */
-async function check_and_create_config_dirs(global_config) {
-    const pre_req_dirs = [
-        global_config.config_root,
-        global_config.buckets_dir_path,
-        global_config.accounts_dir_path,
-        global_config.access_keys_dir_path,
-    ];
-
-    if (config.NSFS_GLACIER_LOGS_ENABLED) {
-        pre_req_dirs.push(config.NSFS_GLACIER_LOGS_DIR);
-    }
-
-    for (const dir_path of pre_req_dirs) {
-        try {
-            const fs_context = native_fs_utils.get_process_fs_context(global_config.config_root_backend);
-            const dir_exists = await native_fs_utils.is_path_exists(fs_context, dir_path);
-            if (dir_exists) {
-                dbg.log1('nsfs.check_and_create_config_dirs: config dir exists:', dir_path);
-            } else {
-                await native_fs_utils._create_path(dir_path, fs_context, config.BASE_MODE_CONFIG_DIR);
-                dbg.log1('nsfs.check_and_create_config_dirs: config dir was created:', dir_path);
-            }
-        } catch (err) {
-            dbg.log1('nsfs.check_and_create_config_dirs: could not create pre requisite path', dir_path);
-        }
-    }
-}
 
 function throw_cli_error(error, detail, event_arg) {
     const error_event = NSFS_CLI_ERROR_EVENT_MAP[error.code];
@@ -66,56 +33,15 @@ function write_stdout_response(response_code, detail, event_arg) {
     });
 }
 
-function get_config_file_path(config_type_path, file_name) {
-    return path.join(config_type_path, file_name + '.json');
-}
-
-function get_symlink_config_file_path(config_type_path, file_name) {
-    return path.join(config_type_path, file_name + '.symlink');
-}
-
-/**
- * get_config_data will read a config file and return its content 
- * while omitting secrets if show_secrets flag was not provided
- * @param {string} config_root_backend
- * @param {string} config_file_path
- * @param {boolean} [show_secrets]
- */
-async function get_config_data(config_root_backend, config_file_path, show_secrets = false) {
-    const fs_context = native_fs_utils.get_process_fs_context(config_root_backend);
-    const { data } = await nb_native().fs.readFile(fs_context, config_file_path);
-    const config_data = _.omit(JSON.parse(data.toString()), show_secrets ? [] : ['access_keys']);
-    return config_data;
-}
-
-/**
- * get_config_data_if_exists will read a config file and return its content 
- * while omitting secrets if show_secrets flag was not provided
- * if the config file was deleted (encounter ENOENT error) - continue (returns undefined)
- * @param {string} config_root_backend
- * @param {string} config_file_path
- * @param {boolean} [show_secrets]
- */
-async function get_config_data_if_exists(config_root_backend, config_file_path, show_secrets = false) {
-    try {
-        const config_data = await get_config_data(config_root_backend, config_file_path, show_secrets);
-        return config_data;
-    } catch (err) {
-        dbg.warn('get_config_data_if_exists: with config_file_path', config_file_path, 'got an error', err);
-        if (err.code !== 'ENOENT') throw err;
-    }
-}
-
 /**
  * get_bucket_owner_account will return the account of the bucket_owner
  * otherwise it would throw an error
- * @param {object} global_config
+ * @param {import('../sdk/config_fs').ConfigFS} config_fs
  * @param {string} bucket_owner
  */
-async function get_bucket_owner_account(global_config, bucket_owner) {
-    const account_config_path = get_config_file_path(global_config.accounts_dir_path, bucket_owner);
+async function get_bucket_owner_account(config_fs, bucket_owner) {
     try {
-        const account = await get_config_data(global_config.config_root_backend, account_config_path);
+        const account = await config_fs.get_account_by_name(bucket_owner);
         return account;
     } catch (err) {
         if (err.code === 'ENOENT') {
@@ -134,7 +60,7 @@ async function get_bucket_owner_account(global_config, bucket_owner) {
  * @param {boolean|string} value
  */
 function get_boolean_or_string_value(value) {
-    if (_.isUndefined(value)) {
+    if (value === undefined) {
         return false;
     } else if (typeof value === 'string' && BOOLEAN_STRING_VALUES.includes(value.toLowerCase())) {
         return value.toLowerCase() === 'true';
@@ -206,15 +132,10 @@ function check_root_account_owns_user(root_account, account) {
 // EXPORTS
 exports.throw_cli_error = throw_cli_error;
 exports.write_stdout_response = write_stdout_response;
-exports.get_config_file_path = get_config_file_path;
-exports.get_symlink_config_file_path = get_symlink_config_file_path;
 exports.get_boolean_or_string_value = get_boolean_or_string_value;
-exports.get_config_data = get_config_data;
 exports.get_bucket_owner_account = get_bucket_owner_account;
 exports.get_options_from_file = get_options_from_file;
 exports.has_access_keys = has_access_keys;
 exports.generate_id = generate_id;
 exports.set_debug_level = set_debug_level;
 exports.check_root_account_owns_user = check_root_account_owns_user;
-exports.get_config_data_if_exists = get_config_data_if_exists;
-exports.check_and_create_config_dirs = check_and_create_config_dirs;

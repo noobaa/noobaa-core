@@ -12,6 +12,7 @@ const nsfs_schema_utils = require('../manage_nsfs/nsfs_schema_utils');
 const Semaphore = require('../util/semaphore');
 const P = require('../util/promise');
 const nb_native = require('../util/nb_native');
+const AWS = require('aws-sdk');
 
 const sem = new Semaphore(config.BUCKET_LOG_CONCURRENCY);
 
@@ -25,7 +26,7 @@ const BUCKET_NAME_DEL = "_";
 /**
  * This function will process the persistent log of bucket logging
  * and will upload the log files in using provided noobaa connection
- * @param {import('../sdk/config_fs').ConfigFS} config_fs
+ * @param {nb.NativeFSContext} fs_context
  * @param {AWS.S3} s3_connection
  * @param {function} bucket_to_owner_keys_func
  */
@@ -50,17 +51,16 @@ async function export_logs_to_target(fs_context, s3_connection, bucket_to_owner_
  * This function gets a persistent log file, will go over it's entries one by one,
  * and will upload the entry to the target_bucket using the provided s3 connection
  * in order to know which user to use to upload to each bucket we will need to provide bucket_to_owner_keys_func
- * @param {import('../sdk/config_fs').ConfigFS} config_fs
+ * @param {nb.NativeFSContext} fs_context
  * @param {AWS.S3} s3_connection
  * @param {string} log_file
  * @param {function} bucket_to_owner_keys_func
  * @returns {Promise<Boolean>}
  */
-async function _upload_to_targets(config_fs, s3_connection, log_file, bucket_to_owner_keys_func) {
+async function _upload_to_targets(fs_context, s3_connection, log_file, bucket_to_owner_keys_func) {
     const bucket_streams = {};
     const promises = [];
     try {
-        const fs_context = config_fs.fs_context;
         const file = new LogFile(fs_context, log_file);
         dbg.log1('uploading file to target buckets', log_file);
         await file.collect_and_process(async entry => {
@@ -75,13 +75,12 @@ async function _upload_to_targets(config_fs, s3_connection, log_file, bucket_to_
                 const upload_stream = new stream.PassThrough();
                 let access_keys;
                 try {
-                    access_keys = await bucket_to_owner_keys_func(config_fs, target_bucket);
+                    access_keys = await bucket_to_owner_keys_func(target_bucket);
                 } catch (err) {
                     dbg.warn('Error when trying to resolve bucket keys', err);
                     if (err.rpc_code === 'NO_SUCH_BUCKET') return; // If the log_bucket doesn't exist any more - nowhere to upload - just skip
                 }
-                s3_connection.config.credentials.accessKeyId = access_keys[0].access_key;
-                s3_connection.config.credentials.secretAccessKey = access_keys[0].secret_key;
+                s3_connection.config.credentials = new AWS.Credentials(access_keys[0].access_key, access_keys[0].secret_key);
                 const sha = crypto.createHash('sha512').update(target_bucket + date.getTime()).digest('hex');
                 promises.push(sem.surround(() => P.retry({
                     attempts: 3,

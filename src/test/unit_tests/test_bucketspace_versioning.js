@@ -800,6 +800,47 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
         });
     });
 
+    mocha.describe('object tagging', function() {
+
+        const tagging_key = "key_tagging";
+        const tag_set1 = {TagSet: [{Key: "key1", Value: "Value1"}]};
+        const tag_set2 = {TagSet: [{Key: "key2", Value: "Value2"}]};
+        let version_id;
+
+        mocha.before(async function() {
+            await s3_uid6.putBucketVersioning({ Bucket: suspended_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
+            const res_put = await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: tagging_key, Body: body1 });
+            await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: tagging_key, Body: body1 });
+            version_id = res_put.VersionId;
+        });
+
+        mocha.it("put object tagging - no versionId", async function() {
+            await s3_uid6.putObjectTagging({ Bucket: suspended_bucket_name, Key: tagging_key, Tagging: tag_set1});
+            const res = await s3_uid6.getObjectTagging({Bucket: suspended_bucket_name, Key: tagging_key});
+            assert.deepEqual(res.TagSet, tag_set1.TagSet);
+        });
+
+        mocha.it("put object tagging - specific versionId", async function() {
+            await s3_uid6.putObjectTagging({ Bucket: suspended_bucket_name, Key: tagging_key, Tagging: tag_set2, versionId: version_id});
+            const res = await s3_uid6.getObjectTagging({Bucket: suspended_bucket_name, Key: tagging_key});
+            assert.notDeepEqual(res.TagSet, tag_set2);
+            const version_res = await s3_uid6.getObjectTagging({Bucket: suspended_bucket_name, Key: tagging_key});
+            assert.deepEqual(version_res.TagSet, tag_set2.TagSet);
+        });
+
+        mocha.it("delete object tagging - no versionId", async function() {
+            await s3_uid6.deleteObjectTagging({ Bucket: suspended_bucket_name, Key: tagging_key});
+            const res = await s3_uid6.getObjectTagging({Bucket: suspended_bucket_name, Key: tagging_key});
+            assert.equal(res.TagSet.length, 0);
+        });
+
+        mocha.it("delete object tagging - specific versionId", async function() {
+            await s3_uid6.deleteObjectTagging({ Bucket: suspended_bucket_name, Key: tagging_key, versionId: version_id});
+            const res = await s3_uid6.getObjectTagging({Bucket: suspended_bucket_name, Key: tagging_key, versionId: version_id});
+            assert.equal(res.TagSet.length, 0);
+        });
+    });
+
     // dm = delete marker
     mocha.describe('delete object latest - versioning suspended', function() {
         const key_to_delete = 'mango.txt';

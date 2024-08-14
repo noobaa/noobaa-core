@@ -2881,6 +2881,7 @@ mocha.describe('List-objects', function() {
     const version_key_2 = 'search_key_mtime-crkfjum9883k-ino-guu7';
     const version_key_3 = 'search_key_mtime-crkfjx1hui2o-ino-guu9';
     const version_key_4 = 'search_key_mtime-crkfjx1hui2o-ino-guuh';
+    const key_version = 'mtime-gffdt785k3k-ino-fgy';
 
     const dir_key = 'dir1/delete_marker_key';
     const dir_version_key_1 = 'delete_marker_key_mtime-crkfjknr7xmo-ino-guu4';
@@ -2950,13 +2951,13 @@ mocha.describe('List-objects', function() {
         await s3_client.putBucketVersioning({ Bucket: bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
         const bucket_ver = await s3_client.getBucketVersioning({ Bucket: bucket_name });
         assert.equal(bucket_ver.Status, 'Enabled');
-        await create_object(`${full_path}/${key}`, body, 'null');
-        await create_object(`${full_path_version_dir}/${version_key_1}`, version_body, 'null');
-        await create_object(`${full_path_version_dir}/${version_key_2}`, version_body, 'null');
-        await create_object(`${full_path_version_dir}/${version_key_3}`, version_body, 'null');
+        await create_object(`${full_path}/${key}`, body, key_version);
+        await create_object(`${full_path_version_dir}/${version_key_1}`, version_body, 'mtime-crh3783sxk3k-ino-guty');
+        await create_object(`${full_path_version_dir}/${version_key_2}`, version_body, 'mtime-crkfjum9883k-ino-guu7');
+        await create_object(`${full_path_version_dir}/${version_key_3}`, version_body, 'mtime-crkfjx1hui2o-ino-guu9');
         file_pointer = await create_object(`${full_path}/${dir_key}`, version_body, 'null', true);
-        await create_object(`${dir1_version_dir}/${dir_version_key_1}`, version_body, 'null');
-        await create_object(`${dir1_version_dir}/${dir_version_key_2}`, version_body, 'null');
+        await create_object(`${dir1_version_dir}/${dir_version_key_1}`, version_body, 'mtime-crkfjknr7xmo-ino-guu4');
+        await create_object(`${dir1_version_dir}/${dir_version_key_2}`, version_body, 'mtime-crkfjr98uiv4-ino-guu6');
     });
 
     mocha.after(async () => {
@@ -3088,7 +3089,7 @@ mocha.describe('List-objects', function() {
         file_pointer.replacexattr(DEFAULT_FS_CONFIG, xattr_delete_marker);
         const res = await s3_client.listObjectVersions({Bucket: bucket_name});
 
-        res.Versions.forEach(val => {
+        res.DeleteMarkers.forEach(val => {
             if (val.Key === dir_key) {
                 assert.equal(val.IsLatest, true);
                 assert.equal(res.DeleteMarkers[0].IsLatest, true);
@@ -3102,6 +3103,38 @@ mocha.describe('List-objects', function() {
         res.CommonPrefixes?.forEach(obj => {
             assert.notEqual(obj.Prefix, ".versions/");
         });
+    });
+
+    mocha.it('list object versions - should show isLatest flag only for latest objects', async function() {
+        const res = await s3_client.listObjectVersions({Bucket: bucket_name});
+        let count = 0;
+        res.Versions.forEach(val => {
+            if (val.IsLatest) {
+                if (val.Key === key) {
+                    assert.equal(val.VersionId, key_version);
+                }
+                count += 1;
+            }
+        });
+        res.DeleteMarkers.forEach(val => {
+            if (val.IsLatest) {
+                assert.equal(val.VersionId, 'null');
+                count += 1;
+            }
+        });
+        assert.equal(count, 2);
+    });
+
+    mocha.it('list object versions - should show version-id in suspention mode', async function() {
+        await s3_client.putBucketVersioning({ Bucket: bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } });
+        const res = await s3_client.listObjectVersions({Bucket: bucket_name});
+        let count = 0;
+        res.Versions.forEach(val => {
+            if (val.VersionId !== 'null') {
+                count += 1;
+            }
+        });
+        assert.equal(count, 6);
     });
 });
 

@@ -239,7 +239,7 @@ function get_coretest_path() {
  * @param {object} options
  * @returns {Promise<string>}
  */
-async function exec_manage_cli(type, action, options, is_silent) {
+async function exec_manage_cli(type, action, options, is_silent, env) {
     let flags = ``;
     for (const key in options) {
         if (options[key] !== undefined) {
@@ -264,7 +264,10 @@ async function exec_manage_cli(type, action, options, is_silent) {
 
     const command = `node src/cmd/manage_nsfs ${type} ${action} ${flags}`;
     try {
-        const res = await os_utils.exec(command, { return_stdout: true });
+        const res = await os_utils.exec(command, {
+            return_stdout: true,
+            env,
+        });
         return res;
     } catch (err) {
         console.error('test_utils.exec_manage_cli error', err);

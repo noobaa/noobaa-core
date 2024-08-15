@@ -365,7 +365,7 @@ The `bucket status` command is used to print the status of the bucket.
 
 #### Usage
 ```sh
-noobaa-cli bucket status --name <account_name>
+noobaa-cli bucket status --name <bucket_name>
 ```
 #### Flags -
 - `name` (Required)

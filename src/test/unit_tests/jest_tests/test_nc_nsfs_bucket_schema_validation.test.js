@@ -181,24 +181,6 @@ describe('schema validation NC NSFS bucket', () => {
             assert_validation(bucket_data, reason, message);
         });
 
-        it('bucket without bucket_owner', () => {
-            const bucket_data = get_bucket_data();
-            delete bucket_data.bucket_owner;
-            const reason = 'Test should have failed because of missing required property ' +
-                'bucket_owner';
-            const message = "must have required property 'bucket_owner'";
-            assert_validation(bucket_data, reason, message);
-        });
-
-        it('bucket with undefined bucket_owner', () => {
-            const bucket_data = get_bucket_data();
-            bucket_data.bucket_owner = undefined;
-            const reason = 'Test should have failed because of missing required property ' +
-                'bucket_owner';
-            const message = "must have required property 'bucket_owner'";
-            assert_validation(bucket_data, reason, message);
-        });
-
         it('bucket without versioning', () => {
             const bucket_data = get_bucket_data();
             delete bucket_data.versioning;
@@ -445,7 +427,6 @@ describe('schema validation NC NSFS bucket', () => {
 function get_bucket_data() {
     const bucket_name = 'bucket1';
     const id = '65a62e22ceae5e5f1a758aa8';
-    const bucket_owner = 'account1'; // account name
     const owner_account = '65b3c68b59ab67b16f98c26e';
     const versioning_disabled = 'DISABLED';
     const creation_date = new Date('December 17, 2023 09:00:00').toISOString();
@@ -454,7 +435,6 @@ function get_bucket_data() {
     const bucket_data = {
         _id: id,
         name: bucket_name,
-        bucket_owner: bucket_owner,
         owner_account: owner_account,
         versioning: versioning_disabled,
         creation_date: creation_date,

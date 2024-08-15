@@ -672,7 +672,7 @@ class AccountSpaceFS {
         const bucket_names = await this.config_fs.list_buckets();
         await P.map_with_concurrency(10, bucket_names, async bucket_name => {
             const bucket_data = await this.config_fs.get_bucket_by_name(bucket_name, { silent_if_missing: true});
-            if (bucket_data && bucket_data.bucket_owner === account_to_delete.name) {
+            if (bucket_data && bucket_data.owner_account === account_to_delete._id) {
                 this._throw_error_delete_conflict(action, account_to_delete, resource_name);
             }
             return bucket_data;

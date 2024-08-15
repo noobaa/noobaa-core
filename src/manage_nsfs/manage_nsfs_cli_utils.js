@@ -37,15 +37,20 @@ function write_stdout_response(response_code, detail, event_arg) {
  * get_bucket_owner_account will return the account of the bucket_owner
  * otherwise it would throw an error
  * @param {import('../sdk/config_fs').ConfigFS} config_fs
- * @param {string} bucket_owner
+ * @param {string} [bucket_owner]
+ * @param {string} [owner_account_id]
  */
-async function get_bucket_owner_account(config_fs, bucket_owner) {
+async function get_bucket_owner_account(config_fs, bucket_owner, owner_account_id) {
     try {
-        const account = await config_fs.get_account_by_name(bucket_owner);
+        const account = bucket_owner ?
+            await config_fs.get_account_by_name(bucket_owner) :
+            await config_fs.get_identity_by_id(owner_account_id);
         return account;
     } catch (err) {
         if (err.code === 'ENOENT') {
-            const detail_msg = `bucket owner ${bucket_owner} does not exists`;
+            const detail_msg = bucket_owner ?
+                `bucket owner name ${bucket_owner} does not exists` :
+                `bucket owner id ${owner_account_id} does not exists`;
             throw_cli_error(ManageCLIError.BucketSetForbiddenBucketOwnerNotExists, detail_msg, {bucket_owner: bucket_owner});
         }
         throw err;

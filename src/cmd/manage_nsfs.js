@@ -21,7 +21,7 @@ const noobaa_cli_diagnose = require('../manage_nsfs/diagnose');
 const nsfs_schema_utils = require('../manage_nsfs/nsfs_schema_utils');
 const { print_usage } = require('../manage_nsfs/manage_nsfs_help_utils');
 const { TYPES, ACTIONS, LIST_ACCOUNT_FILTERS, LIST_BUCKET_FILTERS, GLACIER_ACTIONS } = require('../manage_nsfs/manage_nsfs_constants');
-const { throw_cli_error, write_stdout_response, get_boolean_or_string_value, has_access_keys, set_debug_level } = require('../manage_nsfs/manage_nsfs_cli_utils');
+const { throw_cli_error, get_bucket_owner_account, write_stdout_response, get_boolean_or_string_value, has_access_keys, set_debug_level } = require('../manage_nsfs/manage_nsfs_cli_utils');
 const manage_nsfs_validations = require('../manage_nsfs/manage_nsfs_validations');
 const nc_mkm = require('../manage_nsfs/nc_master_key_manager').get_instance();
 
@@ -97,7 +97,6 @@ async function fetch_bucket_data(action, user_input) {
         _id: undefined,
         name: user_input.name === undefined ? undefined : String(user_input.name),
         owner_account: undefined,
-        bucket_owner: user_input.owner,
         tag: undefined, // if we would add the option to tag a bucket using CLI, this should be changed
         versioning: action === ACTIONS.ADD ? 'DISABLED' : undefined,
         creation_date: action === ACTIONS.ADD ? new Date().toISOString() : undefined,
@@ -124,6 +123,13 @@ async function fetch_bucket_data(action, user_input) {
         // @ts-ignore
         data = _.omitBy(data, _.isUndefined);
         data = await fetch_existing_bucket_data(data);
+    }
+
+    //if we're updating the owner, needs to override owner in file with the owner from user input.
+    //if we're adding a bucket, need to set its owner id field
+    if ((action === ACTIONS.UPDATE && user_input.owner) || (action === ACTIONS.ADD)) {
+        const account = await get_bucket_owner_account(config_fs, String(user_input.owner));
+        data.owner_account = account._id;
     }
 
     // override values
@@ -159,15 +165,17 @@ async function add_bucket(data) {
     // for validating against the schema we need an object, hence we parse it back to object
     nsfs_schema_utils.validate_bucket_schema(JSON.parse(data_json));
     await config_fs.create_bucket_config_file(data.name, data_json);
-    write_stdout_response(ManageCLIResponse.BucketCreated, data_json, { bucket: data.name });
+    await set_bucker_owner(data);
+    write_stdout_response(ManageCLIResponse.BucketCreated, data, { bucket: data.name });
 }
 
 async function get_bucket_status(data) {
     await manage_nsfs_validations.validate_bucket_args(config_fs, data, ACTIONS.STATUS);
 
     try {
-        const config_data = await config_fs.get_bucket_by_name(data.name);
-        write_stdout_response(ManageCLIResponse.BucketStatus, config_data);
+        const bucket_data = await config_fs.get_bucket_by_name(data.name);
+        await set_bucker_owner(bucket_data);
+        write_stdout_response(ManageCLIResponse.BucketStatus, bucket_data);
     } catch (err) {
         const err_code = err.code === 'EACCES' ? ManageCLIError.AccessDenied : ManageCLIError.NoSuchBucket;
         throw_cli_error(err_code, data.name);
@@ -185,9 +193,11 @@ async function update_bucket(data) {
         // We take an object that was stringify
         // (it unwraps ths sensitive strings, creation_date to string and removes undefined parameters)
         // for validating against the schema we need an object, hence we parse it back to object
-        nsfs_schema_utils.validate_bucket_schema(JSON.parse(data));
+        const parsed_data = JSON.parse(data);
+        nsfs_schema_utils.validate_bucket_schema(parsed_data);
         await config_fs.update_bucket_config_file(cur_name, data);
-        write_stdout_response(ManageCLIResponse.BucketUpdated, data);
+        await set_bucker_owner(parsed_data);
+        write_stdout_response(ManageCLIResponse.BucketUpdated, parsed_data);
         return;
     }
 
@@ -203,6 +213,8 @@ async function update_bucket(data) {
     nsfs_schema_utils.validate_bucket_schema(JSON.parse(data));
     await config_fs.create_bucket_config_file(new_name, data);
     await config_fs.delete_bucket_config_file(cur_name);
+    data = JSON.parse(data);
+    await set_bucker_owner(data);
     write_stdout_response(ManageCLIResponse.BucketUpdated, data);
 }
 
@@ -577,7 +589,7 @@ function filter_bucket(bucket, filters) {
  * @param {object} [filters]
  */
 async function list_config_files(type, wide, show_secrets, filters = {}) {
-    let entries = [];
+    let entry_names = [];
     const should_filter = Object.keys(filters).length > 0;
     const is_filter_by_name = filters.name !== undefined;
 
@@ -592,24 +604,35 @@ async function list_config_files(type, wide, show_secrets, filters = {}) {
     // in case we have a filter by name, we don't need to read all the entries and iterate them
     // instead we "mock" the entries array to have one entry and it is the name by the filter (we add it for performance)
     if (is_filter_by_name) {
-        entries = [filters.name];
+        entry_names = [filters.name];
     } else if (type === TYPES.ACCOUNT) {
-        entries = await config_fs.list_accounts();
+        entry_names = await config_fs.list_accounts();
     } else if (type === TYPES.BUCKET) {
-        entries = await config_fs.list_buckets();
+        entry_names = await config_fs.list_buckets();
     }
 
-    let config_files_list = await P.map_with_concurrency(10, entries, async entry => {
+    // temporary cache for mapping bucker owner_account (id) -> bucket_owner (name)
+    const bucket_owners_map = {};
+    let config_files_list = await P.map_with_concurrency(10, entry_names, async entry_name => {
         if (wide || should_filter) {
             const data = type === TYPES.ACCOUNT ?
-                await config_fs.get_account_by_name(entry, options) :
-                await config_fs.get_bucket_by_name(entry, options);
+                await config_fs.get_account_by_name(entry_name, options) :
+                await config_fs.get_bucket_by_name(entry_name, options);
             if (!data) return undefined;
             if (should_filter && !filter_list_item(type, data, filters)) return undefined;
             // remove secrets on !show_secrets && should filter
-            return wide ? _.omit(data, show_secrets ? [] : ['access_keys']) : { name: entry };
+            if (!wide) return { name: entry_name };
+            if (type === TYPES.ACCOUNT) return _.omit(data, show_secrets ? [] : ['access_keys']);
+            if (type === TYPES.BUCKET) {
+                data.bucket_owner = bucket_owners_map[data.owner_account];
+                if (!data.bucket_owner) {
+                    await set_bucker_owner(data);
+                    bucket_owners_map[data.owner_account] = data.bucket_owner;
+                }
+                return data;
+            }
         } else {
-            return { name: entry };
+            return { name: entry_name };
         }
     });
     // it inserts undefined for the entry '.noobaa-config-nsfs' and we wish to remove it
@@ -644,6 +667,15 @@ function get_access_keys(action, user_input) {
         access_keys[0].access_key = undefined; //Setting it as undefined so we can replace the symlink
     }
     return { access_keys, new_access_key };
+}
+
+/**
+ * set_bucker_owner gets bucket owner from cache by its id and sets bucket_owner name on the bucket data
+ * @param {object} bucket_data 
+ */
+async function set_bucker_owner(bucket_data) {
+    const account_data = await config_fs.get_identity_by_id(bucket_data.owner_account, TYPES.ACCOUNT, { silent_if_missing: true});
+    bucket_data.bucket_owner = account_data?.name;
 }
 
 async function whitelist_ips_management(args) {

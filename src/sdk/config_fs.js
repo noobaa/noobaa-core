@@ -787,6 +787,10 @@ class ConfigFS {
         if (bucket.system_owner !== undefined) {
             delete bucket.system_owner;
         }
+        // bucket_owner is deprecated since version 5.18
+        if (bucket.bucket_owner !== undefined) {
+            delete bucket.bucket_owner;
+        }
     }
 
     /**

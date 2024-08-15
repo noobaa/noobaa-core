@@ -7,7 +7,6 @@ module.exports = {
     required: [
         '_id',
         'name',
-        'bucket_owner',
         'owner_account',
         'versioning',
         'path',
@@ -36,7 +35,10 @@ module.exports = {
         system_owner: {
             type: 'string',
         },
-        // bucket_owner is the account name
+        /** 
+         * @deprecated bucket_owner is kept for backward compatibility,
+         * but will no longer be included in new / updated bucket json.
+         */
         bucket_owner: {
             type: 'string',
         },

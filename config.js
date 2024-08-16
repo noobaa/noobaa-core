@@ -671,6 +671,12 @@ config.PERSISTENT_BUCKET_LOG_DIR = process.env.GUARANTEED_LOGS_PATH;
 config.PERSISTENT_BUCKET_LOG_NS = 'bucket_logging';
 config.BUCKET_LOG_CONCURRENCY = 10;
 
+////////////////////////////////
+//      NOTIFICATIONS         //
+////////////////////////////////
+config.NOTIFICATION_LOG_NS = 'notification_logging';
+config.NOTIFICATION_LOG_DIR = process.env.NOTIFICATION_LOG_DIR;
+
 ///////////////////////////
 //      KEY ROTATOR      //
 ///////////////////////////

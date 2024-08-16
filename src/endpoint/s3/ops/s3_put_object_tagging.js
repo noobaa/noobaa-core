@@ -9,6 +9,7 @@ const s3_utils = require('../s3_utils');
 async function put_object_tagging(req, res) {
     const tag_set = s3_utils.parse_body_tagging_xml(req);
     const version_id = s3_utils.parse_version_id(req.query.versionId);
+    req.s3event = 'ObjectTagging';
     const reply = await req.object_sdk.put_object_tagging({
         bucket: req.params.bucket,
         key: req.params.key,

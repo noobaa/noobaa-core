@@ -25,6 +25,8 @@ async function post_object_uploadId(req, res) {
     }
 
     http_utils.set_keep_alive_whitespace_interval(res);
+    req.s3event = "ObjectCreated";
+    req.s3event_op = "CompleteMultipartUpload";
 
     const reply = await req.object_sdk.complete_object_upload({
         obj_id: req.query.uploadId,

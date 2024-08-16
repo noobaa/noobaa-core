@@ -7,6 +7,7 @@ const s3_utils = require('../s3_utils');
  * https://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectDELETEtagging.html
  */
 async function delete_object_tagging(req, res) {
+    req.s3event = 'ObjectTagging';
     const reply = await req.object_sdk.delete_object_tagging({
         bucket: req.params.bucket,
         key: req.params.key,

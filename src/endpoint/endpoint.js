@@ -65,6 +65,7 @@ dbg.log0('endpoint: replacing old umask: ', old_umask.toString(8), 'with new uma
  *  sts_sdk?: StsSDK;
  *  virtual_hosts?: readonly string[];
  *  bucket_logger?: PersistentLogger;
+ *  notification_logger?: PersistentLogger;
  * }} EndpointRequest
  */
 
@@ -100,6 +101,7 @@ async function create_https_server(ssl_cert_info, honorCipherOrder, endpoint_han
 /* eslint-disable max-statements */
 async function main(options = {}) {
     let bucket_logger;
+    let notification_logger;
     try {
         // setting process title needed for letting GPFS to identify the noobaa endpoint processes see issue #8039.
         if (config.ENDPOINT_PROCESS_TITLE) {
@@ -133,6 +135,12 @@ async function main(options = {}) {
         const node_name = process.env.NODE_NAME || os.hostname();
         bucket_logger = config.BUCKET_LOG_TYPE === 'PERSISTENT' &&
             new PersistentLogger(config.PERSISTENT_BUCKET_LOG_DIR, config.PERSISTENT_BUCKET_LOG_NS + '_' + node_name, {
+                locking: 'SHARED',
+                poll_interval: config.NSFS_GLACIER_LOGS_POLL_INTERVAL,
+            });
+
+        notification_logger = config.NOTIFICATION_LOG_DIR &&
+            new PersistentLogger(config.NOTIFICATION_LOG_DIR, config.NOTIFICATION_LOG_NS + '_' + node_name, {
                 locking: 'SHARED',
                 poll_interval: config.NSFS_GLACIER_LOGS_POLL_INTERVAL,
             });
@@ -174,7 +182,8 @@ async function main(options = {}) {
             init_request_sdk = create_init_request_sdk(rpc, internal_rpc_client, object_io);
         }
 
-        const endpoint_request_handler = create_endpoint_handler(init_request_sdk, virtual_hosts, /*is_sts?*/ false, bucket_logger);
+        const endpoint_request_handler = create_endpoint_handler(init_request_sdk, virtual_hosts, /*is_sts?*/ false,
+            bucket_logger, notification_logger);
         const endpoint_request_handler_sts = create_endpoint_handler(init_request_sdk, virtual_hosts, /*is_sts?*/ true);
 
         const ssl_cert_info = await ssl_utils.get_ssl_cert_info('S3', options.nsfs_config_root);
@@ -263,7 +272,7 @@ async function main(options = {}) {
  * @param {readonly string[]} virtual_hosts
  * @returns {EndpointHandler}
  */
-function create_endpoint_handler(init_request_sdk, virtual_hosts, sts, logger) {
+function create_endpoint_handler(init_request_sdk, virtual_hosts, sts, logger, notification_logger) {
     const blob_rest_handler = process.env.ENDPOINT_BLOB_ENABLED === 'true' ? blob_rest : unavailable_handler;
     const lambda_rest_handler = config.DB_TYPE === 'mongodb' ? lambda_rest : unavailable_handler;
 
@@ -273,6 +282,7 @@ function create_endpoint_handler(init_request_sdk, virtual_hosts, sts, logger) {
         endpoint_utils.prepare_rest_request(req);
         req.virtual_hosts = virtual_hosts;
         if (logger) req.bucket_logger = logger;
+        if (notification_logger) req.notification_logger = notification_logger;
         init_request_sdk(req, res);
         if (req.url.startsWith('/2015-03-31/functions')) {
             return lambda_rest_handler(req, res);

@@ -25,6 +25,7 @@ const { throw_cli_error, get_bucket_owner_account, write_stdout_response, get_bo
     is_name_update, is_access_key_update } = require('../manage_nsfs/manage_nsfs_cli_utils');
 const manage_nsfs_validations = require('../manage_nsfs/manage_nsfs_validations');
 const nc_mkm = require('../manage_nsfs/nc_master_key_manager').get_instance();
+const { KafkaNotificator } = require('../util/notifications_util');
 
 let config_fs;
 
@@ -68,6 +69,8 @@ async function main(argv = minimist(process.argv.slice(2))) {
             await noobaa_cli_diagnose.manage_diagnose_operations(action, user_input, config_fs);
         } else if (type === TYPES.UPGRADE) {
             await noobaa_cli_upgrade.manage_upgrade_operations(action, config_fs);
+        } else if (type === TYPES.NOTIFICATION) {
+            await notification_management();
         } else {
             throw_cli_error(ManageCLIError.InvalidType);
         }
@@ -98,7 +101,8 @@ async function fetch_bucket_data(action, user_input) {
         should_create_underlying_storage: action === ACTIONS.ADD ? false : undefined,
         new_name: user_input.new_name === undefined ? undefined : String(user_input.new_name),
         fs_backend: user_input.fs_backend === undefined ? config.NSFS_NC_STORAGE_BACKEND : String(user_input.fs_backend),
-        force_md5_etag: user_input.force_md5_etag === undefined || user_input.force_md5_etag === '' ? user_input.force_md5_etag : get_boolean_or_string_value(user_input.force_md5_etag)
+        force_md5_etag: user_input.force_md5_etag === undefined || user_input.force_md5_etag === '' ? user_input.force_md5_etag : get_boolean_or_string_value(user_input.force_md5_etag),
+        notifications: user_input.notifications
         };
 
     if (user_input.bucket_policy !== undefined) {
@@ -703,6 +707,10 @@ async function manage_glacier_operations(action, argv) {
 
 async function logging_management() {
     await manage_nsfs_logging.export_bucket_logging(config_fs);
+}
+
+async function notification_management() {
+    new KafkaNotificator(config_fs.fs_context).process_notification_files();
 }
 
 exports.main = main;

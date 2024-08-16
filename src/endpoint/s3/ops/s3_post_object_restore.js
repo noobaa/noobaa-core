@@ -17,12 +17,15 @@ async function post_object_restore(req, res) {
         days,
         encryption,
     };
+    req.s3event = 'ObjectRestore';
 
     const accepted = await req.object_sdk.restore_object(params);
     if (accepted) {
         res.statusCode = 202;
+        //no need to set s3event_op, it is 'Post' by default because req.method == 'Post'
     } else {
         res.statusCode = 200;
+        req.s3event_op = 'Completed';
     }
 }
 

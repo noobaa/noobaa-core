@@ -34,6 +34,9 @@ async function put_object(req, res) {
 
     dbg.log0('PUT OBJECT', req.params.bucket, req.params.key,
         req.headers['x-amz-copy-source'] || '', encryption || '');
+    req.s3event = "ObjectCreated";
+    //for copy, use correct s3event_op. otherwise, just use default (req.method)
+    req.s3event_op = copy_source ? 'Copy' : undefined;
 
     const source_stream = req.chunked_content ? s3_utils.decode_chunked_upload(req) : req;
     const reply = await req.object_sdk.upload_object({

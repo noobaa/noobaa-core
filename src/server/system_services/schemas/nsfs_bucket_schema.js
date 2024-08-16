@@ -78,5 +78,11 @@ module.exports = {
         lifecycle_configuration_rules: {
             $ref: 'common_api#/definitions/bucket_lifecycle_configuration',
         },
+        notifications: {
+            type: 'array',
+            items: {
+                 $ref: 'common_api#/definitions/bucket_notification'
+            }
+        },
     }
 };

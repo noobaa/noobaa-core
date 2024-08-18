@@ -10,6 +10,7 @@ const SensitiveString = require('../util/sensitive_string');
 const nb_native = require('../util/nb_native');
 const native_fs_utils = require('../util/native_fs_utils');
 const nc_mkm = require('../manage_nsfs/nc_master_key_manager').get_instance();
+const nsfs_schema_utils = require('../manage_nsfs/nsfs_schema_utils');
 
 /* Config directory sub directory comments - 
    On 5.18 - 
@@ -543,18 +544,19 @@ class ConfigFS {
      * 4. symlink new access keys if account_data.access_keys is an array that contains at least 1 item -
      *      link each item in account_data.access_keys to the relative path of the newly created config file
      * @param {Object} account_data
-     * @returns {Promise<void>} 
+     * @returns {Promise<Object>} 
      */
     async create_account_config_file(account_data) {
         const { _id, name, owner = undefined } = account_data;
-        const data_string = JSON.stringify(account_data);
+        const { parsed_account_data, string_account_data} = await this._prepare_for_account_schema(account_data);
         const account_path = this.get_identity_path_by_id(_id);
         const account_dir_path = this.get_identity_dir_path_by_id(_id);
 
         await native_fs_utils._create_path(account_dir_path, this.fs_context, config.BASE_MODE_CONFIG_DIR);
-        await native_fs_utils.create_config_file(this.fs_context, account_dir_path, account_path, data_string);
+        await native_fs_utils.create_config_file(this.fs_context, account_dir_path, account_path, string_account_data);
         await this.link_account_name_index(_id, name, owner);
         await this.link_access_keys_index(_id, account_data.access_keys);
+        return parsed_account_data;
     }
 
     /**
@@ -570,14 +572,14 @@ class ConfigFS {
      *    for all old_access_keys - unlink /access_keys/old_access_key
      * @param {Object} account_new_data
      * @param {{old_name?: string, new_access_keys_to_link?: Object[], access_keys_to_delete?: { access_key: string }[]}} [options]
-     * @returns {Promise<void>}
+     * @returns {Promise<Object>}
      */
     async update_account_config_file(account_new_data, options = {}) {
         const { _id, name, owner = undefined } = account_new_data;
-        const data_string = JSON.stringify(account_new_data);
+        const { parsed_account_data, string_account_data} = await this._prepare_for_account_schema(account_new_data);
         const account_path = this.get_identity_path_by_id(_id);
         const account_dir_path = this.get_identity_dir_path_by_id(_id);
-        await native_fs_utils.update_config_file(this.fs_context, account_dir_path, account_path, data_string);
+        await native_fs_utils.update_config_file(this.fs_context, account_dir_path, account_path, string_account_data);
 
         if (options.old_name) {
             await this.link_account_name_index(_id, name, owner);
@@ -585,6 +587,7 @@ class ConfigFS {
         }
         await this.link_access_keys_index(_id, options.new_access_keys_to_link);
         await this.unlink_access_keys_indexes(options.access_keys_to_delete, account_path);
+        return parsed_account_data;
     }
 
     /**
@@ -606,6 +609,25 @@ class ConfigFS {
         await this.unlink_account_name_index(name, account_id_config_path);
         await native_fs_utils.delete_config_file(this.fs_context, account_dir_path, account_id_config_path);
         await native_fs_utils.folder_delete(account_dir_path, this.fs_context, undefined, true);
+    }
+
+
+    /**
+     * _prepare_for_account_schema processes account data before writing it to the config dir and does the following -
+     * 1. encrypts its access keys
+     * 2. sets the used master key on the account
+     * 3. removes undefined properties, unwrap sensitive_strings and creation_data to string
+     * 4. validate the account_data against the account schema
+     * 5. returns stringified data ready to be written to the config directory and parsed data to be printed to the user
+     * @param {Object} account_data
+     * @returns {Promise<{parsed_account_data: Object, string_account_data: string}>}
+     */
+    async _prepare_for_account_schema(account_data) {
+        const encrypted_account = await nc_mkm.encrypt_access_keys(account_data);
+        const string_account_data = JSON.stringify(encrypted_account);
+        const parsed_account_data = JSON.parse(string_account_data);
+        nsfs_schema_utils.validate_account_schema(parsed_account_data);
+        return { parsed_account_data, string_account_data };
     }
 
     /////////////////////////////////////
@@ -771,24 +793,42 @@ class ConfigFS {
 
     /**
      * create_bucket_config_file creates bucket config file
-     * @param {string} bucket_name
-     * @param {*} data
-     * @returns {Promise<void>} 
+     * @param {Object} bucket_data
+     * @returns {Promise<String>} 
      */
-    async create_bucket_config_file(bucket_name, data) {
-        const bucket_path = this.get_bucket_path_by_name(bucket_name);
-        await native_fs_utils.create_config_file(this.fs_context, this.buckets_dir_path, bucket_path, data);
+    async create_bucket_config_file(bucket_data) {
+        const { parsed_bucket_data, string_bucket_data } = this._prepare_for_bucket_schema(bucket_data);
+        const bucket_path = this.get_bucket_path_by_name(bucket_data.name);
+        await native_fs_utils.create_config_file(this.fs_context, this.buckets_dir_path, bucket_path, string_bucket_data);
+        return parsed_bucket_data;
+    }
+
+    /**
+     * _prepare_for_bucket_schema processes bucket data before writing it to the config dir and does the following -
+     * 1. removes undefined properties, unwrap sensitive_strings and creation_data to string
+     * 2. validate the bucket_data against the bucket schema
+     * 3. returns stringified data ready to be written to the config directory and parsed data for printing to the user
+     * @param {Object} bucket_data
+     * @returns {{parsed_bucket_data: Object, string_bucket_data: string}}
+     */
+    _prepare_for_bucket_schema(bucket_data) {
+        const bucket_data_api_props_omitted = _.omitBy(bucket_data, _.isUndefined);
+        const string_bucket_data = JSON.stringify(bucket_data_api_props_omitted);
+        const parsed_bucket_data = JSON.parse(string_bucket_data);
+        nsfs_schema_utils.validate_bucket_schema(parsed_bucket_data);
+        return { parsed_bucket_data, string_bucket_data };
     }
 
     /**
      * update_bucket_config_file updates bucket config file
-     * @param {string} bucket_name
-     * @param {*} data
-     * @returns {Promise<void>} 
+     * @param {Object} bucket_data
+     * @returns {Promise<String>} 
      */
-    async update_bucket_config_file(bucket_name, data) {
-        const bucket_config_path = this.get_bucket_path_by_name(bucket_name);
-        await native_fs_utils.update_config_file(this.fs_context, this.buckets_dir_path, bucket_config_path, data);
+    async update_bucket_config_file(bucket_data) {
+        const { parsed_bucket_data, string_bucket_data } = this._prepare_for_bucket_schema(bucket_data);
+        const bucket_config_path = this.get_bucket_path_by_name(bucket_data.name);
+        await native_fs_utils.update_config_file(this.fs_context, this.buckets_dir_path, bucket_config_path, string_bucket_data);
+        return parsed_bucket_data;
     }
 
     /**

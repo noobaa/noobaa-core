@@ -417,7 +417,7 @@ config.DB_CLEANER_MAX_TOTAL_DOCS = 10000;
 // CLOUD RESOURCES //
 /////////////////////
 // This parameter is used to toggle pool deletion checks that enforce that only the pool and system owners can delete the pool
-config.RESTRICT_RESOURCE_DELETION = false;
+config.RESTRICT_RESOURCE_DELETION = process.env.RESTRICT_RESOURCE_DELETION === 'true';
 // EXPERIMENTAL!! switch to turn off the use of signed urls to delegate cloud read\writes to object_io (s3 compatible only)
 // when this is set to true, block_store_s3 will return s3 credentials to the block_store_client so it can
 // connect directly to the cloud target (and not via a signed url)

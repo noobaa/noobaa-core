@@ -13,7 +13,7 @@ const native_fs_utils = require('../util/native_fs_utils');
 const ManageCLIError = require('../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
 const bucket_policy_utils = require('../endpoint/s3/s3_bucket_policy_utils');
 const { throw_cli_error, get_bucket_owner_account, get_options_from_file, get_boolean_or_string_value,
-    check_root_account_owns_user } = require('../manage_nsfs/manage_nsfs_cli_utils');
+    check_root_account_owns_user, is_name_update, is_access_key_update } = require('../manage_nsfs/manage_nsfs_cli_utils');
 const { TYPES, ACTIONS, VALID_OPTIONS, OPTION_TYPE, FROM_FILE, BOOLEAN_STRING_VALUES, BOOLEAN_STRING_OPTIONS,
     GLACIER_ACTIONS, LIST_UNSETABLE_OPTIONS, ANONYMOUS, DIAGNOSE_ACTIONS } = require('../manage_nsfs/manage_nsfs_constants');
 const iam_utils = require('../endpoint/iam/iam_utils');
@@ -303,10 +303,41 @@ function validate_account_name(type, action, input_options_with_data) {
  * @param {object} input_options
  */
 function validate_bucket_identifier(action, input_options) {
-if (action === ACTIONS.STATUS || action === ACTIONS.ADD || action === ACTIONS.UPDATE || action === ACTIONS.DELETE) {
+    if (action === ACTIONS.STATUS || action === ACTIONS.ADD || action === ACTIONS.UPDATE || action === ACTIONS.DELETE) {
         if (input_options.name === undefined) throw_cli_error(ManageCLIError.MissingBucketNameFlag);
     }
     // in list there is no identifier
+}
+
+/**
+ * check_new_name_exists will validate that a new account/bucket name does not exist
+ * @param {import('../sdk/config_fs').ConfigFS} config_fs
+ * @param {string} action
+ * @param {object} data
+ */
+async function check_new_name_exists(type, config_fs, action, data) {
+    const new_name = action === ACTIONS.ADD ? data.name : data.new_name;
+    if (action === ACTIONS.UPDATE && !is_name_update(data)) return;
+    if (type === TYPES.BUCKET) {
+        const exists = await config_fs.is_bucket_exists(new_name);
+        if (exists) throw_cli_error(ManageCLIError.BucketAlreadyExists, new_name, { bucket: new_name });
+    } else if (type === TYPES.ACCOUNT) {
+        const exists = await config_fs.is_account_exists({ name: new_name });
+        if (exists) throw_cli_error(ManageCLIError.AccountNameAlreadyExists, new_name, { account: new_name });
+    }
+}
+
+/**
+ * check_new_access_key_exists will validate that a new access_key does not exist
+ * @param {import('../sdk/config_fs').ConfigFS} config_fs
+ * @param {string} action
+ * @param {object} data
+ */
+async function check_new_access_key_exists(config_fs, action, data) {
+    const new_access_key = action === ACTIONS.ADD ? data.access_keys?.[0]?.access_key : data.new_access_key;
+    if (action === ACTIONS.UPDATE && !is_access_key_update(data)) return;
+    const exists = await config_fs.is_account_exists({ access_key: new_access_key });
+    if (exists) throw_cli_error(ManageCLIError.AccountAccessKeyAlreadyExists, new_access_key, { account: new_access_key });
 }
 
 /**
@@ -325,6 +356,7 @@ async function validate_bucket_args(config_fs, data, action) {
         if (data.fs_backend !== undefined && !['GPFS', 'CEPH_FS', 'NFSv4'].includes(data.fs_backend)) {
             throw_cli_error(ManageCLIError.InvalidFSBackend);
         }
+        await check_new_name_exists(TYPES.BUCKET, config_fs, action, data);
         // in case we have the fs_backend it changes the fs_context that we use for the path
         const fs_context_fs_backend = native_fs_utils.get_process_fs_context(data.fs_backend);
         const exists = await native_fs_utils.is_path_exists(fs_context_fs_backend, data.path);
@@ -396,6 +428,10 @@ function validate_account_identifier(action, input_options) {
  */
 async function validate_account_args(config_fs, data, action, is_flag_iam_operate_on_root_account_update_action) {
     if (action === ACTIONS.ADD || action === ACTIONS.UPDATE) {
+
+        await check_new_name_exists(TYPES.ACCOUNT, config_fs, action, data);
+        await check_new_access_key_exists(config_fs, action, data);
+
         if (data.nsfs_account_config.gid && data.nsfs_account_config.uid === undefined) {
             throw_cli_error(ManageCLIError.MissingAccountNSFSConfigUID, data.nsfs_account_config);
         }

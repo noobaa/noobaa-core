@@ -129,6 +129,30 @@ function check_root_account_owns_user(root_account, account) {
 }
 
 
+/**
+ * is_name_update returns true if a new_name flag was provided and it's not equal to 
+ * the current name
+ * @param {Object} data
+ * @returns {Boolean} 
+ */
+function is_name_update(data) {
+    const cur_name = data.name;
+    const new_name = data.new_name;
+    return new_name && cur_name && new_name !== cur_name;
+}
+
+/**
+ * is_access_key_update returns true if a new_access_key flag was provided and it's not equal to 
+ * the current access_key at index 0
+ * @param {Object} data
+ * @returns {Boolean} 
+ */
+function is_access_key_update(data) {
+    const cur_access_key = has_access_keys(data.access_keys) ? data.access_keys[0].access_key.unwrap() : undefined;
+    const new_access_key = data.new_access_key;
+    return new_access_key && cur_access_key && new_access_key !== cur_access_key;
+}
+
 // EXPORTS
 exports.throw_cli_error = throw_cli_error;
 exports.write_stdout_response = write_stdout_response;
@@ -139,3 +163,5 @@ exports.has_access_keys = has_access_keys;
 exports.generate_id = generate_id;
 exports.set_debug_level = set_debug_level;
 exports.check_root_account_owns_user = check_root_account_owns_user;
+exports.is_name_update = is_name_update;
+exports.is_access_key_update = is_access_key_update;

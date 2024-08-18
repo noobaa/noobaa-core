@@ -12,6 +12,7 @@ const config = require('../../../config');
 const fs_utils = require('../../util/fs_utils');
 const config_module = require('../../../config');
 const nb_native = require('../../util/nb_native');
+const { crypto_random_string } = require('../../util/string_utils');
 const { CONFIG_SUBDIRS, JSON_SUFFIX, SYMLINK_SUFFIX } = require('../../sdk/config_fs');
 const { get_process_fs_context } = require('../../util/native_fs_utils');
 const { ManageCLIError } = require('../../manage_nsfs/manage_nsfs_cli_errors');
@@ -654,7 +655,8 @@ mocha.describe('manage_nsfs cli', function() {
         mocha.it('cli account create - no uid gid - should fail', async function() {
             const action = ACTIONS.ADD;
             try {
-                await exec_manage_cli(type, action, { config_root, name: account_options.name, access_key, secret_key });
+                const options = { config_root, name: crypto_random_string(7), access_key: crypto_random_string(20), secret_key };
+                await exec_manage_cli(type, action, options);
                 assert.fail('should have failed with account config should not be empty');
             } catch (err) {
                 assert_error(err, ManageCLIError.InvalidAccountNSFSConfig);
@@ -664,7 +666,8 @@ mocha.describe('manage_nsfs cli', function() {
         mocha.it('cli account create - no uid - should fail', async function() {
             const action = ACTIONS.ADD;
             try {
-                await exec_manage_cli(type, action, { config_root, name: account_options.name, access_key, secret_key, gid: 1001});
+                const options = { config_root, name: crypto_random_string(7), access_key: crypto_random_string(20), secret_key, gid: 1001 };
+                await exec_manage_cli(type, action, options);
                 assert.fail('should have failed with account config should include UID');
             } catch (err) {
                 assert_error(err, ManageCLIError.MissingAccountNSFSConfigUID);
@@ -674,7 +677,8 @@ mocha.describe('manage_nsfs cli', function() {
         mocha.it('cli account create - no gid - should fail', async function() {
             const action = ACTIONS.ADD;
             try {
-                await exec_manage_cli(type, action, { config_root, name: account_options.name, access_key, secret_key, uid: 1001});
+                const options = { config_root, name: crypto_random_string(7), access_key: crypto_random_string(20), secret_key, uid: 1001 };
+                await exec_manage_cli(type, action, options);
                 assert.fail('should have failed with account config should include GID');
             } catch (err) {
                 assert_error(err, ManageCLIError.MissingAccountNSFSConfigGID);
@@ -684,7 +688,8 @@ mocha.describe('manage_nsfs cli', function() {
         mocha.it('cli account create - new_buckets_path does not exist - should fail', async function() {
             const action = ACTIONS.ADD;
             try {
-                await exec_manage_cli(type, action, { ...account_options, new_buckets_path: 'path_does/not_exist' });
+                const options = { ...account_options, name: crypto_random_string(7), access_key: crypto_random_string(20), new_buckets_path: 'path_does/not_exist' };
+                await exec_manage_cli(type, action, options);
                 assert.fail('should have failed with new_buckets_path should be a valid dir path');
             } catch (err) {
                 assert_error(err, ManageCLIError.InvalidAccountNewBucketsPath);

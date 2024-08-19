@@ -1326,6 +1326,9 @@ module.exports = {
                     },
                     tagging: {
                         $ref: 'common_api#/definitions/tagging'
+                    },
+                    version_id: {
+                        type: 'string'
                     }
                 }
             },

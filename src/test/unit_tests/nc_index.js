@@ -19,6 +19,7 @@ require('./test_nsfs_glacier_backend');
 require('./test_s3_bucket_policy');
 require('./test_nsfs_versioning');
 require('./test_bucketspace_versioning');
+require('./test_nc_bucket_logging');
 
 // TODO: uncomment when supported
 //require('./test_s3_ops');

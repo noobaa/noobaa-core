@@ -718,8 +718,8 @@ class NamespaceFS {
                     if ((!ent.name.startsWith(prefix_ent) ||
                         ent.name < marker_curr ||
                         ent.name === this.get_bucket_tmpdir_name() ||
-                        ent.name === config.NSFS_FOLDER_OBJECT_NAME) &&
-                        !this._is_hidden_version_path(ent.name)) {
+                        ent.name === config.NSFS_FOLDER_OBJECT_NAME) ||
+                        this._is_hidden_version_path(ent.name)) {
                         return;
                     }
                     const isDir = await is_directory_or_symlink_to_directory(ent, fs_context, path.join(dir_path, ent.name));
@@ -1983,7 +1983,12 @@ class NamespaceFS {
         for (const [xattr_key, xattr_value] of Object.entries(tagging)) {
               fs_xattr[XATTR_NOOBAA_CUSTOM_PREFIX + xattr_key] = xattr_value;
         }
-        const file_path = this._get_file_path(params);
+        let file_path;
+        if (params.version_id && this._is_versioning_enabled()) {
+            file_path = this._get_version_path(params.key, params.version_id);
+        } else {
+            file_path = this._get_file_path(params);
+        }
         const fs_context = this.prepare_fs_context(object_sdk);
         dbg.log0('NamespaceFS.put_object_tagging: fs_xattr ', fs_xattr, 'file_path :', file_path);
         try {

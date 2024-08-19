@@ -83,7 +83,10 @@ async function main(argv = minimist(process.argv.slice(2))) {
 }
 
 async function bucket_management(action, user_input) {
-    const data = await fetch_bucket_data(action, user_input);
+    let data;
+    if (action !== ACTIONS.LIST) {
+        data = await fetch_bucket_data(action, user_input);
+    }
     await manage_bucket_operations(action, data, user_input);
 }
 
@@ -248,7 +251,7 @@ async function manage_bucket_operations(action, data, user_input) {
     } else if (action === ACTIONS.LIST) {
         const bucket_filters = _.pick(user_input, LIST_BUCKET_FILTERS);
         const wide = get_boolean_or_string_value(user_input.wide);
-        const buckets = await list_config_files(TYPES.BUCKET, config_fs.buckets_dir_path, wide, undefined, bucket_filters);
+        const buckets = await list_config_files(TYPES.BUCKET, wide, undefined, bucket_filters);
         write_stdout_response(ManageCLIResponse.BucketList, buckets);
     } else {
         // we should not get here (we check it before)
@@ -266,7 +269,10 @@ async function account_management(action, user_input) {
     // init if actions is add/update (require encryption) or show_secrets = true (require decryption)
     if ([ACTIONS.ADD, ACTIONS.UPDATE].includes(action) || show_secrets) await nc_mkm.init();
 
-    const data = await fetch_account_data(action, user_input);
+    let data;
+    if (action !== ACTIONS.LIST) {
+        data = await fetch_account_data(action, user_input);
+    }
     await manage_account_operations(action, data, show_secrets, user_input);
 }
 
@@ -507,8 +513,7 @@ async function manage_account_operations(action, data, show_secrets, user_input)
     } else if (action === ACTIONS.LIST) {
         const account_filters = _.pick(user_input, LIST_ACCOUNT_FILTERS);
         const wide = get_boolean_or_string_value(user_input.wide);
-        const accounts = await list_config_files(TYPES.ACCOUNT, config_fs.accounts_dir_path, wide,
-            show_secrets, account_filters);
+        const accounts = await list_config_files(TYPES.ACCOUNT, wide, show_secrets, account_filters);
         write_stdout_response(ManageCLIResponse.AccountList, accounts);
     } else {
         // we should not get here (we check it before)
@@ -568,30 +573,39 @@ function filter_bucket(bucket, filters) {
 }
 /**
  * list_config_files will list all the config files (json) in a given config directory
- * @param {string} config_path
+ * @param {string} type
  * @param {boolean} [wide]
  * @param {boolean} [show_secrets]
  * @param {object} [filters]
  */
-async function list_config_files(type, config_path, wide, show_secrets, filters) {
-    const entries = type === TYPES.ACCOUNT ?
+async function list_config_files(type, wide, show_secrets, filters = {}) {
+    let entries;
+    // in case we have a filter by name, we don't need to read all the entries and iterate them
+    // instead we "mock" the entries array to have one entry and it is the name by the filter (we add it for performance)
+    const is_filter_by_name = filters.name !== undefined;
+    if (is_filter_by_name) {
+        entries = [{'name': filters.name + JSON_SUFFIX}];
+    } else {
+        entries = type === TYPES.ACCOUNT ?
         await config_fs.list_root_accounts() :
         await config_fs.list_buckets();
+    }
 
     const should_filter = Object.keys(filters).length > 0;
     // decryption causing mkm initalization
     // decrypt only if data has access_keys and show_secrets = true (no need to decrypt if show_secrets = false but should_filter = true)
     const options = {
         show_secrets: show_secrets || should_filter,
-        should_decrypt: show_secrets,
+        decrypt_secret_key: show_secrets,
         silent_if_missing: true
     };
 
     let config_files_list = await P.map_with_concurrency(10, entries, async entry => {
         if (entry.name.endsWith(JSON_SUFFIX)) {
             if (wide || should_filter) {
-                const full_path = path.join(config_path, entry.name);
-                const data = await config_fs.get_config_data(full_path, options);
+                const data = type === TYPES.ACCOUNT ?
+                    await config_fs.get_account_by_name(entry.name, options) :
+                    await config_fs.get_bucket_by_name(entry.name, options);
                 if (!data) return undefined;
                 if (should_filter && !filter_list_item(type, data, filters)) return undefined;
                 // remove secrets on !show_secrets && should filter

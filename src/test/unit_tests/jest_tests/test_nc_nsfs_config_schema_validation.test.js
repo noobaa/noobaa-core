@@ -371,7 +371,7 @@ function assert_validation(config_to_validate, reason, basic_message) {
     } catch (err) {
         expect(err).toBeInstanceOf(RpcError);
         expect(err).toHaveProperty('message');
-        expect((err.message).includes(basic_message)).toBeTruthy();
+        expect((err.message).includes(basic_message)).toBe(true);
     }
 }
 

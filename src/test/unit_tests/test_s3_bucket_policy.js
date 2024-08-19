@@ -71,12 +71,20 @@ async function setup() {
 
     if (process.env.NC_CORETEST) {
         await fs_utils.create_fresh_path(tmp_fs_root, 0o777);
-        await rpc_client.pool.create_namespace_resource({
-            name: nsr,
-            nsfs_config: {
-                fs_root_path: tmp_fs_root,
+        try {
+            await rpc_client.account.read_account({ email: config.ANONYMOUS_ACCOUNT_NAME + '@' });
+        } catch (err) {
+            const error = JSON.parse(err.stdout);
+            if (error.error.code === 'NoSuchAccountName') {
+                await rpc_client.account.create_account({
+                    name: config.ANONYMOUS_ACCOUNT_NAME,
+                    nsfs_account_config: {
+                        uid: 0,
+                        gid: 0
+                    }
+                });
             }
-        });
+        }
     }
     const account = {
         has_login: false,
@@ -87,7 +95,7 @@ async function setup() {
         account.nsfs_account_config = {
             uid: process.getuid(),
             gid: process.getgid(),
-            new_buckets_path: '/'
+            new_buckets_path: tmp_fs_root
         };
     }
     const admin_keys = (await rpc_client.account.read_account({

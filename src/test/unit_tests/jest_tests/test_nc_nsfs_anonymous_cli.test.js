@@ -4,28 +4,25 @@
 // disabling init_rand_seed as it takes longer than the actual test execution
 process.env.DISABLE_INIT_RANDOM_SEED = "true";
 
-const _ = require('lodash');
 const path = require('path');
-const P = require('../../../util/promise');
 const os_util = require('../../../util/os_utils');
 const fs_utils = require('../../../util/fs_utils');
-const nb_native = require('../../../util/nb_native');
-const { CONFIG_SUBDIRS, JSON_SUFFIX, SYMLINK_SUFFIX } = require('../../../sdk/config_fs');
+const { ConfigFS } = require('../../../sdk/config_fs');
 const { TMP_PATH, set_nc_config_dir_in_config } = require('../../system_tests/test_utils');
-const { get_process_fs_context } = require('../../../util/native_fs_utils');
 const { TYPES, ACTIONS } = require('../../../manage_nsfs/manage_nsfs_constants');
 const ManageCLIError = require('../../../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
 const ManageCLIResponse = require('../../../manage_nsfs/manage_nsfs_cli_responses').ManageCLIResponse;
 
 const tmp_fs_path = path.join(TMP_PATH, 'test_nc_nsfs_anon_account_cli');
-const DEFAULT_FS_CONFIG = get_process_fs_context();
 const config = require('../../../../config');
+
+const config_root = path.join(tmp_fs_path, 'config_root_manage_nsfs');
+const config_fs = new ConfigFS(config_root);
+const root_path = path.join(tmp_fs_path, 'root_path_manage_nsfs/');
 
 // eslint-disable-next-line max-lines-per-function
 describe('manage nsfs cli anonymous account flow', () => {
     describe('cli create anonymous account', () => {
-        const config_root = path.join(tmp_fs_path, 'config_root_manage_nsfs');
-        const root_path = path.join(tmp_fs_path, 'root_path_manage_nsfs/');
         const defaults = {
             _id: 'account1',
             type: TYPES.ACCOUNT,
@@ -36,8 +33,6 @@ describe('manage nsfs cli anonymous account flow', () => {
             gid: 999,
         };
         beforeAll(async () => {
-            await P.all(_.map([CONFIG_SUBDIRS.ACCOUNTS, CONFIG_SUBDIRS.ACCESS_KEYS], async dir =>
-                fs_utils.create_fresh_path(`${config_root}/${dir}`)));
             await fs_utils.create_fresh_path(root_path);
             set_nc_config_dir_in_config(config_root);
             config.NSFS_NC_CONF_DIR = config_root;
@@ -53,7 +48,7 @@ describe('manage nsfs cli anonymous account flow', () => {
             const { type, uid, gid, anonymous } = defaults;
             const account_options = { anonymous, config_root, uid, gid };
             await exec_manage_cli(type, action, account_options);
-            const account = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, config.ANONYMOUS_ACCOUNT_NAME);
+            const account = await config_fs.get_account_by_name(config.ANONYMOUS_ACCOUNT_NAME);
             assert_account(account, account_options);
         });
 
@@ -116,7 +111,7 @@ describe('manage nsfs cli anonymous account flow', () => {
             action = ACTIONS.ADD;
             account_options = { anonymous, config_root, user };
             resp = await exec_manage_cli(type, action, account_options);
-            const account = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, config.ANONYMOUS_ACCOUNT_NAME);
+            const account = await config_fs.get_account_by_name(config.ANONYMOUS_ACCOUNT_NAME);
             assert_account(account, account_options);
         });
 
@@ -131,8 +126,6 @@ describe('manage nsfs cli anonymous account flow', () => {
     });
 
     describe('cli update anonymous account', () => {
-        const config_root = path.join(tmp_fs_path, 'config_root_manage_nsfs');
-        const root_path = path.join(tmp_fs_path, 'root_path_manage_nsfs/');
         const defaults = {
             _id: 'account2',
             type: TYPES.ACCOUNT,
@@ -143,8 +136,6 @@ describe('manage nsfs cli anonymous account flow', () => {
             gid: 999,
         };
         beforeAll(async () => {
-            await P.all(_.map([CONFIG_SUBDIRS.ACCOUNTS, CONFIG_SUBDIRS.ACCESS_KEYS], async dir =>
-                fs_utils.create_fresh_path(`${config_root}/${dir}`)));
             await fs_utils.create_fresh_path(root_path);
             set_nc_config_dir_in_config(config_root);
             config.NSFS_NC_CONF_DIR = config_root;
@@ -160,14 +151,14 @@ describe('manage nsfs cli anonymous account flow', () => {
             let { type, uid, gid, anonymous } = defaults;
             const account_options = { anonymous, config_root, uid, gid };
             await exec_manage_cli(type, action, account_options);
-            const account = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, config.ANONYMOUS_ACCOUNT_NAME);
+            const account = await config_fs.get_account_by_name(config.ANONYMOUS_ACCOUNT_NAME);
             assert_account(account, account_options);
 
             action = ACTIONS.UPDATE;
             gid = 1001;
             const account_update_options = { anonymous, config_root, uid, gid };
             await exec_manage_cli(type, action, account_update_options);
-            const update_account = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, config.ANONYMOUS_ACCOUNT_NAME);
+            const update_account = await config_fs.get_account_by_name(config.ANONYMOUS_ACCOUNT_NAME);
             assert_account(update_account, account_update_options);
         });
 
@@ -191,8 +182,6 @@ describe('manage nsfs cli anonymous account flow', () => {
     });
 
     describe('cli delete anonymous account', () => {
-        const config_root = path.join(tmp_fs_path, 'config_root_manage_nsfs');
-        const root_path = path.join(tmp_fs_path, 'root_path_manage_nsfs/');
         const defaults = {
             _id: 'account2',
             type: TYPES.ACCOUNT,
@@ -203,8 +192,6 @@ describe('manage nsfs cli anonymous account flow', () => {
             gid: 999,
         };
         beforeAll(async () => {
-            await P.all(_.map([CONFIG_SUBDIRS.ACCOUNTS, CONFIG_SUBDIRS.ACCESS_KEYS], async dir =>
-                fs_utils.create_fresh_path(`${config_root}/${dir}`)));
             await fs_utils.create_fresh_path(root_path);
             set_nc_config_dir_in_config(config_root);
             config.NSFS_NC_CONF_DIR = config_root;
@@ -220,7 +207,7 @@ describe('manage nsfs cli anonymous account flow', () => {
             const { type, uid, gid, anonymous } = defaults;
             const account_options = { anonymous, config_root, uid, gid };
             await exec_manage_cli(type, action, account_options);
-            const account = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, config.ANONYMOUS_ACCOUNT_NAME);
+            const account = await config_fs.get_account_by_name(config.ANONYMOUS_ACCOUNT_NAME);
             assert_account(account, account_options);
 
             action = ACTIONS.DELETE;
@@ -240,8 +227,6 @@ describe('manage nsfs cli anonymous account flow', () => {
     });
 
     describe('cli status anonymous account', () => {
-        const config_root = path.join(tmp_fs_path, 'config_root_manage_nsfs');
-        const root_path = path.join(tmp_fs_path, 'root_path_manage_nsfs/');
         const defaults = {
             _id: 'account4',
             type: TYPES.ACCOUNT,
@@ -252,8 +237,6 @@ describe('manage nsfs cli anonymous account flow', () => {
             gid: 999,
         };
         beforeAll(async () => {
-            await P.all(_.map([CONFIG_SUBDIRS.ACCOUNTS, CONFIG_SUBDIRS.ACCESS_KEYS], async dir =>
-                fs_utils.create_fresh_path(`${config_root}/${dir}`)));
             await fs_utils.create_fresh_path(root_path);
             set_nc_config_dir_in_config(config_root);
             config.NSFS_NC_CONF_DIR = config_root;
@@ -269,7 +252,7 @@ describe('manage nsfs cli anonymous account flow', () => {
             const { type, uid, gid, anonymous } = defaults;
             const account_options = { anonymous, config_root, uid, gid };
             await exec_manage_cli(type, action, account_options);
-            const account = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, config.ANONYMOUS_ACCOUNT_NAME);
+            const account = await config_fs.get_account_by_name(config.ANONYMOUS_ACCOUNT_NAME);
             assert_account(account, account_options);
 
             action = ACTIONS.STATUS;
@@ -281,20 +264,6 @@ describe('manage nsfs cli anonymous account flow', () => {
     });
 
 });
-
-/**
- * read_config_file will read the config files 
- * @param {string} config_root
- * @param {string} schema_dir 
- * @param {string} config_file_name the name of the config file
- * @param {boolean} [is_symlink] a flag to set the suffix as a symlink instead of json
- */
-async function read_config_file(config_root, schema_dir, config_file_name, is_symlink) {
-    const config_path = path.join(config_root, schema_dir, config_file_name + (is_symlink ? SYMLINK_SUFFIX : JSON_SUFFIX));
-    const { data } = await nb_native().fs.readFile(DEFAULT_FS_CONFIG, config_path);
-    const config_data = JSON.parse(data.toString());
-    return config_data;
-}
 
 /**
  * assert_account will verify the fields of the accounts 

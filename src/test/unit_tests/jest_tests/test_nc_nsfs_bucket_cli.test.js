@@ -8,23 +8,24 @@ const fs = require('fs');
 const path = require('path');
 const os_util = require('../../../util/os_utils');
 const fs_utils = require('../../../util/fs_utils');
-const nb_native = require('../../../util/nb_native');
-const { CONFIG_SUBDIRS, JSON_SUFFIX, SYMLINK_SUFFIX } = require('../../../sdk/config_fs');
+const { ConfigFS } = require('../../../sdk/config_fs');
 const { set_path_permissions_and_owner, TMP_PATH, generate_s3_policy,
     set_nc_config_dir_in_config } = require('../../system_tests/test_utils');
 const { ACTIONS, TYPES } = require('../../../manage_nsfs/manage_nsfs_constants');
-const { get_process_fs_context, is_path_exists, get_bucket_tmpdir_full_path, update_config_file } = require('../../../util/native_fs_utils');
+const { get_process_fs_context, is_path_exists, get_bucket_tmpdir_full_path } = require('../../../util/native_fs_utils');
 const ManageCLIError = require('../../../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
 const { ManageCLIResponse } = require('../../../manage_nsfs/manage_nsfs_cli_responses');
 
 const tmp_fs_path = path.join(TMP_PATH, 'test_nc_nsfs_bucket_cli');
 const DEFAULT_FS_CONFIG = get_process_fs_context();
+const config_fs_account_options = { show_secrets: true, decrypt_secret_key: true };
 
 // eslint-disable-next-line max-lines-per-function
 describe('manage nsfs cli bucket flow', () => {
 
     describe('cli create bucket', () => {
         const config_root = path.join(tmp_fs_path, 'config_root_manage_nsfs');
+        const config_fs = new ConfigFS(config_root);
         const root_path = path.join(tmp_fs_path, 'root_path_manage_nsfs/');
         const bucket_storage_path = path.join(tmp_fs_path, 'root_path_manage_nsfs', 'bucket1');
         set_nc_config_dir_in_config(config_root);
@@ -45,7 +46,6 @@ describe('manage nsfs cli bucket flow', () => {
         };
 
         beforeEach(async () => {
-            await fs_utils.create_fresh_path(`${config_root}/${CONFIG_SUBDIRS.BUCKETS}`);
             await fs_utils.create_fresh_path(root_path);
             await fs_utils.create_fresh_path(bucket_storage_path);
             const action = ACTIONS.ADD;
@@ -87,7 +87,7 @@ describe('manage nsfs cli bucket flow', () => {
             await fs_utils.file_must_exist(bucket_options.path);
             await set_path_permissions_and_owner(bucket_options.path, account_defaults, 0o700);
             await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
-            const bucket = await read_config_file(config_root, CONFIG_SUBDIRS.BUCKETS, bucket_defaults.name);
+            const bucket = await config_fs.get_bucket_by_name(bucket_defaults.name);
             expect(bucket.force_md5_etag).toBe(true);
         });
 
@@ -128,7 +128,7 @@ describe('manage nsfs cli bucket flow', () => {
             await fs_utils.file_must_exist(bucket_options.path);
             await set_path_permissions_and_owner(bucket_options.path, account_defaults, 0o700);
             await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
-            const bucket = await read_config_file(config_root, CONFIG_SUBDIRS.BUCKETS, bucket_defaults.name);
+            const bucket = await config_fs.get_bucket_by_name(bucket_defaults.name);
             assert_bucket(bucket, bucket_options);
         });
 
@@ -138,7 +138,7 @@ describe('manage nsfs cli bucket flow', () => {
             await fs_utils.create_fresh_path(bucket_options.path);
             await fs_utils.file_must_exist(bucket_options.path);
             set_nc_config_dir_in_config(config_root);
-            await create_json_file(config_root, 'config.json', { NC_DISABLE_ACCESS_CHECK: true });
+            await config_fs.create_config_json_file(JSON.stringify({ NC_DISABLE_ACCESS_CHECK: true }));
             await set_path_permissions_and_owner(bucket_options.path, account_defaults, 0o000);
             const res = await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
             expect(JSON.parse(res).response.code).toEqual(ManageCLIResponse.BucketCreated.code);
@@ -170,7 +170,7 @@ describe('manage nsfs cli bucket flow', () => {
 
         it('should fail - cli create bucket - owner is an IAM account', async () => {
             const { name } = account_defaults;
-            const accounts_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
+            const accounts_details = await config_fs.get_account_by_name(name);
             const account_id = accounts_details._id;
 
             const { new_buckets_path: account_path } = account_defaults;
@@ -184,13 +184,9 @@ describe('manage nsfs cli bucket flow', () => {
 
             // update the account to have the property owner
             // (we use this way because now we don't have the way to create IAM users through the noobaa cli)
-            const account_config_path = path.join(config_root, CONFIG_SUBDIRS.ACCOUNTS, account_name + JSON_SUFFIX);
-            const { data } = await nb_native().fs.readFile(DEFAULT_FS_CONFIG, account_config_path);
-            const config_data = JSON.parse(data.toString());
+            const config_data = await config_fs.get_account_by_name(account_name, config_fs_account_options);
             config_data.owner = account_id; // just so we can identify this account as IAM user;
-            await update_config_file(DEFAULT_FS_CONFIG, CONFIG_SUBDIRS.ACCOUNTS,
-                account_config_path, JSON.stringify(config_data));
-
+            await config_fs.update_account_config_file(config_data);
             // create the bucket
             const action = ACTIONS.ADD;
             const bucket_options = { config_root, ...bucket_defaults, owner: account_name};
@@ -205,6 +201,7 @@ describe('manage nsfs cli bucket flow', () => {
     describe('cli create bucket using from_file', () => {
         const type = TYPES.BUCKET;
         const config_root = path.join(tmp_fs_path, 'config_root_manage_nsfs1');
+        const config_fs = new ConfigFS(config_root);
         const root_path = path.join(tmp_fs_path, 'root_path_manage_nsfs1/');
         const bucket_storage_path = path.join(tmp_fs_path, 'root_path_manage_nsfs1', 'bucket1');
         const path_to_json_bucket_options_dir = path.join(tmp_fs_path, 'options');
@@ -225,7 +222,6 @@ describe('manage nsfs cli bucket flow', () => {
         };
 
         beforeEach(async () => {
-            await fs_utils.create_fresh_path(`${config_root}/${CONFIG_SUBDIRS.BUCKETS}`);
             await fs_utils.create_fresh_path(root_path);
             await fs_utils.create_fresh_path(bucket_storage_path);
             await fs_utils.create_fresh_path(path_to_json_bucket_options_dir);
@@ -259,7 +255,7 @@ describe('manage nsfs cli bucket flow', () => {
             // create the bucket and check the details
             await exec_manage_cli(type, action, command_flags);
             // compare the details
-            const bucket = await read_config_file(config_root, CONFIG_SUBDIRS.BUCKETS, bucket_defaults.name);
+            const bucket = await config_fs.get_bucket_by_name(bucket_defaults.name);
             assert_bucket(bucket, bucket_options);
         });
 
@@ -274,7 +270,7 @@ describe('manage nsfs cli bucket flow', () => {
             // create the bucket and check the details
             await exec_manage_cli(type, action, command_flags);
             // compare the details
-            const bucket = await read_config_file(config_root, CONFIG_SUBDIRS.BUCKETS, bucket_defaults.name);
+            const bucket = await config_fs.get_bucket_by_name(bucket_defaults.name);
             assert_bucket(bucket, bucket_options);
             expect(bucket.fs_backend).toEqual(bucket_options.fs_backend);
         });
@@ -290,7 +286,7 @@ describe('manage nsfs cli bucket flow', () => {
             // create the bucket and check the details
             await exec_manage_cli(type, action, command_flags);
             // compare the details
-            const bucket = await read_config_file(config_root, CONFIG_SUBDIRS.BUCKETS, bucket_defaults.name);
+            const bucket = await config_fs.get_bucket_by_name(bucket_defaults.name);
             assert_bucket(bucket, bucket_options);
             expect(bucket.bucket_policy).toEqual(bucket_options.s3_policy);
         });
@@ -375,6 +371,7 @@ describe('manage nsfs cli bucket flow', () => {
 
     describe('cli update bucket', () => {
         const config_root = path.join(tmp_fs_path, 'config_root_manage_nsfs2');
+        const config_fs = new ConfigFS(config_root);
         const root_path = path.join(tmp_fs_path, 'root_path_manage_nsfs2/');
         const bucket_storage_path = path.join(tmp_fs_path, 'root_path_manage_nsfs2', 'bucket1');
         set_nc_config_dir_in_config(config_root);
@@ -403,7 +400,6 @@ describe('manage nsfs cli bucket flow', () => {
         };
 
         beforeEach(async () => {
-            await fs_utils.create_fresh_path(`${config_root}/${CONFIG_SUBDIRS.BUCKETS}`);
             await fs_utils.create_fresh_path(root_path);
             await fs_utils.create_fresh_path(bucket_storage_path);
             const action = ACTIONS.ADD;
@@ -444,12 +440,12 @@ describe('manage nsfs cli bucket flow', () => {
             const force_md5_etag = 'true';
             const bucket_options = { config_root, name: bucket_defaults.name, force_md5_etag };
             await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
-            let bucket_config = await read_config_file(config_root, CONFIG_SUBDIRS.BUCKETS, bucket_defaults.name);
+            let bucket_config = await config_fs.get_bucket_by_name(bucket_defaults.name);
             expect(bucket_config.force_md5_etag).toBe(true);
 
             bucket_options.force_md5_etag = 'false';
             await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
-            bucket_config = await read_config_file(config_root, CONFIG_SUBDIRS.BUCKETS, bucket_defaults.name);
+            bucket_config = await config_fs.get_bucket_by_name(bucket_defaults.name);
             expect(bucket_config.force_md5_etag).toBe(false);
         });
 
@@ -459,14 +455,14 @@ describe('manage nsfs cli bucket flow', () => {
             const force_md5_etag = 'true';
             const bucket_options = { config_root, name: bucket_defaults.name, force_md5_etag };
             await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
-            let bucket_config = await read_config_file(config_root, CONFIG_SUBDIRS.BUCKETS, bucket_defaults.name);
+            let bucket_config = await config_fs.get_bucket_by_name(bucket_defaults.name);
             expect(bucket_config.force_md5_etag).toBe(true);
 
             // unset force_md5_etag
             const empty_string = '\'\'';
             bucket_options.force_md5_etag = empty_string;
             await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
-            bucket_config = await read_config_file(config_root, CONFIG_SUBDIRS.BUCKETS, bucket_defaults.name);
+            bucket_config = await config_fs.get_bucket_by_name(bucket_defaults.name);
             expect(bucket_config.force_md5_etag).toBeUndefined();
         });
 
@@ -514,7 +510,7 @@ describe('manage nsfs cli bucket flow', () => {
             await fs_utils.file_must_exist(bucket_defaults.path);
             await set_path_permissions_and_owner(bucket_defaults.path, account_defaults2, 0o700);
             await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
-            const bucket = await read_config_file(config_root, CONFIG_SUBDIRS.BUCKETS, bucket_defaults.name);
+            const bucket = await config_fs.get_bucket_by_name(bucket_defaults.name);
             expect(bucket.bucket_owner).toBe(account_defaults2.name);
         });
 
@@ -543,7 +539,7 @@ describe('manage nsfs cli bucket flow', () => {
 
         it('should fail - cli update bucket - owner is an IAM account', async () => {
             const { name } = account_defaults;
-            const accounts_details = await read_config_file(config_root, CONFIG_SUBDIRS.ACCOUNTS, name);
+            const accounts_details = await config_fs.get_account_by_name(name);
             const account_id = accounts_details._id;
 
             const { new_buckets_path: account_path } = account_defaults;
@@ -557,13 +553,9 @@ describe('manage nsfs cli bucket flow', () => {
 
             // update the account to have the property owner
             // (we use this way because now we don't have the way to create IAM users through the noobaa cli)
-            const account_config_path = path.join(config_root, CONFIG_SUBDIRS.ACCOUNTS, account_name_iam_account + JSON_SUFFIX);
-            const { data } = await nb_native().fs.readFile(DEFAULT_FS_CONFIG, account_config_path);
-            const config_data = JSON.parse(data.toString());
+            const config_data = await config_fs.get_account_by_name(account_name_iam_account);
             config_data.owner = account_id; // just so we can identify this account as IAM user;
-            await update_config_file(DEFAULT_FS_CONFIG, CONFIG_SUBDIRS.ACCOUNTS,
-                account_config_path, JSON.stringify(config_data));
-
+            await config_fs.update_account_config_file(config_data);
             // update the bucket
             const action = ACTIONS.UPDATE;
             const bucket_options = { config_root, name: bucket_defaults.name, owner: account_name_iam_account};
@@ -577,6 +569,7 @@ describe('manage nsfs cli bucket flow', () => {
 
     describe('cli delete bucket', () => {
         const config_root = path.join(tmp_fs_path, 'config_root_manage_nsfs3');
+        const config_fs = new ConfigFS(config_root);
         const root_path = path.join(tmp_fs_path, 'root_path_manage_nsfs3/');
         const bucket_storage_path = path.join(tmp_fs_path, 'root_path_manage_nsfs3', 'bucket1');
         set_nc_config_dir_in_config(config_root);
@@ -599,7 +592,6 @@ describe('manage nsfs cli bucket flow', () => {
         };
 
         beforeEach(async () => {
-            await fs_utils.create_fresh_path(`${config_root}/${CONFIG_SUBDIRS.BUCKETS}`);
             await fs_utils.create_fresh_path(root_path);
             await fs_utils.create_fresh_path(bucket_storage_path);
             const action = ACTIONS.ADD;
@@ -648,8 +640,8 @@ describe('manage nsfs cli bucket flow', () => {
             const delete_bucket_options = { config_root, name: bucket_defaults.name, force: true};
             const resp = await exec_manage_cli(TYPES.BUCKET, ACTIONS.DELETE, delete_bucket_options);
             expect(JSON.parse(resp.trim()).response.code).toBe(ManageCLIResponse.BucketDeleted.code);
-            const config_path = path.join(config_root, CONFIG_SUBDIRS.BUCKETS, bucket_defaults.name + JSON_SUFFIX);
-            await fs_utils.file_must_not_exist(config_path);
+            const is_bucket_exists = await config_fs.is_bucket_exists(bucket_defaults.name);
+            expect(is_bucket_exists).toBe(false);
         });
 
         it('should fail - cli delete bucket when bucket path is not empty', async () => {
@@ -658,8 +650,8 @@ describe('manage nsfs cli bucket flow', () => {
             const delete_bucket_options = { config_root, name: bucket_defaults.name};
             const resp = await exec_manage_cli(TYPES.BUCKET, ACTIONS.DELETE, delete_bucket_options);
             expect(JSON.parse(resp.stdout).error.code).toBe(ManageCLIError.BucketDeleteForbiddenHasObjects.code);
-            const config_path = path.join(config_root, CONFIG_SUBDIRS.BUCKETS, bucket_defaults.name + JSON_SUFFIX);
-            await fs_utils.file_must_exist(config_path);
+            const is_bucket_exists = await config_fs.is_bucket_exists(bucket_defaults.name);
+            expect(is_bucket_exists).toBe(true);
         });
 
         it('cli delete bucket force flag with valid boolean string(\'true\')', async () => {
@@ -669,8 +661,8 @@ describe('manage nsfs cli bucket flow', () => {
             const delete_bucket_options = { config_root, name: bucket_defaults.name, force: 'true'};
             const resp = await exec_manage_cli(TYPES.BUCKET, ACTIONS.DELETE, delete_bucket_options);
             expect(JSON.parse(resp.trim()).response.code).toBe(ManageCLIResponse.BucketDeleted.code);
-            const config_path = path.join(config_root, CONFIG_SUBDIRS.BUCKETS, bucket_defaults.name + JSON_SUFFIX);
-            await fs_utils.file_must_not_exist(config_path);
+            const is_bucket_exists = await config_fs.is_bucket_exists(bucket_defaults.name);
+            expect(is_bucket_exists).toBe(false);
         });
 
         it('should fail - cli delete bucket force flag with invalid boolean string(\'nottrue\')', async () => {
@@ -694,8 +686,8 @@ describe('manage nsfs cli bucket flow', () => {
             const action = ACTIONS.DELETE;
             const res = await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
             expect(JSON.parse(res.trim()).response.code).toBe(ManageCLIResponse.BucketDeleted.code);
-            const config_path = path.join(config_root, CONFIG_SUBDIRS.BUCKETS, bucket_defaults.name + JSON_SUFFIX);
-            await fs_utils.file_must_not_exist(config_path);
+            const is_bucket_exists = await config_fs.is_bucket_exists(bucket_defaults.name);
+            expect(is_bucket_exists).toBe(false);
         });
     });
 
@@ -722,7 +714,6 @@ describe('manage nsfs cli bucket flow', () => {
         };
 
         beforeEach(async () => {
-            await fs_utils.create_fresh_path(`${config_root}/${CONFIG_SUBDIRS.BUCKETS}`);
             await fs_utils.create_fresh_path(root_path);
             await fs_utils.create_fresh_path(bucket_storage_path);
             const action = ACTIONS.ADD;
@@ -782,7 +773,6 @@ describe('manage nsfs cli bucket flow', () => {
         };
 
         beforeEach(async () => {
-            await fs_utils.create_fresh_path(`${config_root}/${CONFIG_SUBDIRS.BUCKETS}`);
             await fs_utils.create_fresh_path(root_path);
             await fs_utils.create_fresh_path(bucket_storage_path);
             const action = ACTIONS.ADD;
@@ -859,19 +849,6 @@ async function exec_manage_cli(type, action, options) {
     return res;
 }
 
-/**
- * read_config_file will read the config files 
- * @param {string} config_root
- * @param {string} schema_dir 
- * @param {string} config_file_name the name of the config file
- * @param {boolean} [is_symlink] a flag to set the suffix as a symlink instead of json
- */
-async function read_config_file(config_root, schema_dir, config_file_name, is_symlink) {
-    const config_path = path.join(config_root, schema_dir, config_file_name + (is_symlink ? SYMLINK_SUFFIX : JSON_SUFFIX));
-    const { data } = await nb_native().fs.readFile(DEFAULT_FS_CONFIG, config_path);
-    const config = JSON.parse(data.toString());
-    return config;
-}
 
 /** 
  * create_json_bucket_options would create a JSON file with the options (key-value) inside file

@@ -239,8 +239,8 @@ async function path_accessible_to_account(path_to_check, account_data, is_access
     const fs_context = await get_fs_context(account_data);
     const accessible = await is_dir_rw_accessible(fs_context, path_to_check);
     if (is_accessible) {
-        expect(accessible).toBeTruthy();
+        expect(accessible).toBe(true);
     } else {
-        expect(accessible).toBeFalsy();
+        expect(accessible).toBe(false);
     }
 }

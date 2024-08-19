@@ -336,8 +336,15 @@ async function delete_config_file(fs_context, schema_dir, config_path) {
         dbg.log1('native_fs_utils: delete_config_file unlinking:', config_path, 'is_gpfs=', is_gpfs);
         const tmp_dir_path = path.join(schema_dir, get_config_files_tmpdir());
         // TODO: add retry? should we fail deletion if the config file was updated at the same time?
-        await safe_unlink(fs_context, config_path, stat, gpfs_options, tmp_dir_path);
-
+        try {
+            await safe_unlink(fs_context, config_path, stat, gpfs_options, tmp_dir_path);
+        } catch (err) {
+            if (err.code === 'ENOENT') {
+                dbg.warn(`delete_config_file: config file already deleted ${config_path}`);
+                return;
+            }
+            throw err;
+        }
         dbg.log1('native_fs_utils: delete_config_file done', config_path);
     } catch (err) {
         dbg.log1('native_fs_utils: delete_config_file error', err);
@@ -534,9 +541,10 @@ async function is_dir_rw_accessible(fs_context, dir_path) {
  * delete bucket specific temp folder from bucket storage path, config.NSFS_TEMP_DIR_NAME_<bucket_id>
  * @param {string} dir 
  * @param {nb.NativeFSContext} fs_context
- * @param {boolean} is_temp
+ * @param {boolean} [is_temp]
+ * @param {boolean} [silent_if_missing]
  */
-async function folder_delete(dir, fs_context, is_temp = false) {
+async function folder_delete(dir, fs_context, is_temp, silent_if_missing) {
     const exists = await is_path_exists(fs_context, dir);
     if (!exists && is_temp) {
         return;
@@ -552,7 +560,15 @@ async function folder_delete(dir, fs_context, is_temp = false) {
         // Ignore missing files/directories; bail on other errors
         if (result && result.error && result.error.code !== 'ENOENT') throw result.error;
     });
-    await nb_native().fs.rmdir(fs_context, dir);
+    try {
+        await nb_native().fs.rmdir(fs_context, dir);
+    } catch (err) {
+        if (err.code === 'ENOENT' && silent_if_missing) {
+            dbg.warn(`native_fs_utils.folder_delete already deleted, skipping`);
+            return;
+        }
+        throw err;
+    }
 }
 
 /**

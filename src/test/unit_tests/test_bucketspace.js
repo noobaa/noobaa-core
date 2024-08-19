@@ -14,7 +14,6 @@ const mocha = require('mocha');
 const assert = require('assert');
 const config = require('../../../config');
 const fs_utils = require('../../util/fs_utils');
-const { JSON_SUFFIX } = require('../../sdk/config_fs');
 const test_utils = require('../system_tests/test_utils');
 const { stat, open } = require('../../util/nb_native')().fs;
 const { get_process_fs_context } = require('../../util/native_fs_utils');
@@ -30,11 +29,10 @@ const { S3 } = require('@aws-sdk/client-s3');
 const { NodeHttpHandler } = require("@smithy/node-http-handler");
 const native_fs_utils = require('../../util/native_fs_utils');
 const mongo_utils = require('../../util/mongo_utils');
-const accounts_dir_name = '/accounts';
 
 const coretest_path = get_coretest_path();
 const coretest = require(coretest_path);
-const { rpc_client, EMAIL, PASSWORD, SYSTEM, get_admin_mock_account_details, NC_CORETEST_CONFIG_DIR_PATH } = coretest;
+const { rpc_client, EMAIL, PASSWORD, SYSTEM, get_admin_mock_account_details, NC_CORETEST_CONFIG_FS } = coretest;
 coretest.setup({});
 let CORETEST_ENDPOINT;
 const inspect = (x, max_arr = 5) => util.inspect(x, { colors: true, depth: null, maxArrayLength: max_arr });
@@ -1778,8 +1776,8 @@ mocha.describe('Namespace s3_bucket_policy', function() {
     let accounts_dir_path;
     let account_config_path;
     if (is_nc_coretest) {
-        accounts_dir_path = path.join(NC_CORETEST_CONFIG_DIR_PATH, accounts_dir_name);
-        account_config_path = path.join(accounts_dir_path, config.ANONYMOUS_ACCOUNT_NAME + JSON_SUFFIX);
+        accounts_dir_path = NC_CORETEST_CONFIG_FS.accounts_by_name_dir_path;
+        account_config_path = NC_CORETEST_CONFIG_FS.get_account_or_user_path_by_name(config.ANONYMOUS_ACCOUNT_NAME);
     }
 
     mocha.before(async function() {

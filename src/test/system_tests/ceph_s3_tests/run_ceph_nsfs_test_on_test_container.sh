@@ -21,31 +21,29 @@ export NOOBAA_MGMT_SERVICE_PROTO=wss
 export S3_SERVICE_HOST=localhost
 
 export CEPH_TEST_LOGS_DIR=/logs/ceph-nsfs-test-logs
-export FS_ROOT_1=/tmp/nsfs_root1
-export FS_ROOT_2=/tmp/nsfs_root2
 export CONFIG_DIR=/etc/noobaa.conf.d/
+export FS_ROOT_1=/tmp/nsfs_root1/
+export FS_ROOT_2=/tmp/nsfs_root2/
 
 # ====================================================================================
 
-# Create the logs directory
-mkdir -p ${CEPH_TEST_LOGS_DIR}
-
-# Create configuration directory
+# 1. Create configuration directory
+# 2. Create config.json file
 mkdir -p ${CONFIG_DIR}
+config='{"ALLOW_HTTP":true}'
+echo "$config" > ${CONFIG_DIR}/config.json
 
-# Create root directory for bucket creation
-mkdir -p ${FS_ROOT_1}
-mkdir -p ${FS_ROOT_2}
-
-# Add permission to all users
+# 1. Create root directory for bucket creation
+# 2. Add permission to all users
 # this will allow the new accounts to create directories (buckets),
 # else we would see [Error: Permission denied] { code: 'EACCES' }
+mkdir -p ${FS_ROOT_1}
+mkdir -p ${FS_ROOT_2}
 chmod 777 ${FS_ROOT_1}
 chmod 777 ${FS_ROOT_2}
 
-# Create config.json file
-config='{"ALLOW_HTTP":true}'
-echo "$config" > ${CONFIG_DIR}/config.json
+# Create the logs directory
+mkdir -p ${CEPH_TEST_LOGS_DIR}
 
 # Deploy standalone NooBaa on the test container
 # And create the accounts needed for the Ceph tests

@@ -4,7 +4,7 @@
 const AWS = require('aws-sdk');
 const config = require('../../config');
 const http_utils = require('../util/http_utils');
-const { CONFIG_TYPES } = require('../sdk/config_fs');
+const { account_id_cache } = require('../sdk/accountspace_fs');
 const { export_logs_to_target } = require('../util/bucket_logs_utils');
 const ManageCLIError = require('../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
 const ManageCLIResponse = require('../manage_nsfs/manage_nsfs_cli_responses').ManageCLIResponse;
@@ -40,10 +40,15 @@ async function export_bucket_logging(shared_config_fs) {
  */
 async function get_bucket_owner_keys(log_bucket_name) {
     const log_bucket_config_data = await config_fs.get_bucket_by_name(log_bucket_name);
-    const log_bucket_owner = log_bucket_config_data.owner_account;
-    const owner_config_data = await config_fs.get_identity_by_id(log_bucket_owner,
-        CONFIG_TYPES.ACCOUNT, { show_secrets: true, decrypt_secret_key: true });
-    return owner_config_data.access_keys;
+    const log_bucket_owner_id = log_bucket_config_data.owner_account;
+    try {
+        const owner_config_data = await account_id_cache.get_with_cache({ _id: log_bucket_owner_id, config_fs });
+        return owner_config_data.access_keys;
+    } catch (err) {
+        throw_cli_error(ManageCLIError.BucketSetForbiddenBucketOwnerNotExists,
+            `could not find log bucket owner by id ${log_bucket_owner_id}, can not extract owner access keys`,
+            { owner_account: log_bucket_owner_id });
+    }
 }
 
 exports.export_bucket_logging = export_bucket_logging;

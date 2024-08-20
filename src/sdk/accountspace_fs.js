@@ -3,9 +3,10 @@
 
 const _ = require('lodash');
 const config = require('../../config');
+const LRUCache = require('../util/lru_cache');
 const dbg = require('../util/debug_module')(__filename);
 const P = require('../util/promise');
-const { ConfigFS } = require('./config_fs');
+const { ConfigFS, CONFIG_TYPES } = require('./config_fs');
 const native_fs_utils = require('../util/native_fs_utils');
 const { create_arn_for_user, create_arn_for_root, get_action_message_title, check_iam_path_was_set } = require('../endpoint/iam/iam_utils');
 const { IAM_ACTIONS, MAX_NUMBER_OF_ACCESS_KEYS, IAM_DEFAULT_PATH,
@@ -13,7 +14,7 @@ const { IAM_ACTIONS, MAX_NUMBER_OF_ACCESS_KEYS, IAM_DEFAULT_PATH,
 const IamError = require('../endpoint/iam/iam_errors').IamError;
 const cloud_utils = require('../util/cloud_utils');
 const SensitiveString = require('../util/sensitive_string');
-const { generate_id } = require('../manage_nsfs/manage_nsfs_cli_utils');
+const { generate_id } = require('../nc/nc_utils');
 const nc_mkm = require('../manage_nsfs/nc_master_key_manager').get_instance();
 const { account_cache } = require('./object_sdk');
 
@@ -24,6 +25,26 @@ const { account_cache } = require('./object_sdk');
 /* mock variables (until we implement the actual code), based on the example in AWS IAM API docs*/
 const dummy_region = 'us-west-2';
 const dummy_service_name = 's3';
+
+const account_id_cache = new LRUCache({
+    name: 'AccountIDCache',
+    // TODO: Decide on a time that we want to invalidate
+    expiry_ms: Number(config.ACCOUNTS_ID_CACHE_EXPIRY),
+    /**
+     * @param {{ _id: string, config_fs: import('./config_fs').ConfigFS }} params
+     */
+    make_key: ({ _id }) => _id,
+    load: async ({ _id, config_fs }) => config_fs.get_identity_by_id(_id, CONFIG_TYPES.ACCOUNT,
+        { show_secrets: true, decrypt_secret_key: true }),
+});
+
+
+/**
+ * @param {Object} requested_account
+ */
+function _clean_account_id_cache(requested_account) {
+    account_id_cache.invalidate_key(requested_account._id);
+}
 
 /**
  * @implements {nb.AccountSpace}
@@ -205,6 +226,7 @@ class AccountSpaceFS {
             this._check_if_requested_is_owned_by_root_account(action, requesting_account, account_to_delete);
             await this._check_if_user_does_not_have_resources_before_deletion(action, account_to_delete);
             await this.config_fs.delete_account_config_file(account_to_delete);
+            _clean_account_id_cache(account_to_delete);
         } catch (err) {
             dbg.error(`AccountSpaceFS.${action} error`, err);
             throw native_fs_utils.translate_error_codes(err, native_fs_utils.entity_enum.USER);
@@ -926,8 +948,10 @@ class AccountSpaceFS {
             const access_key_id = access_keys.access_key;
             account_cache.invalidate_key(access_key_id);
         }
+        _clean_account_id_cache(requested_account);
     }
 }
 
 // EXPORTS
 module.exports = AccountSpaceFS;
+module.exports.account_id_cache = account_id_cache;

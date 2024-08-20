@@ -3,7 +3,6 @@
 
 const dbg = require('../util/debug_module')(__filename);
 const nb_native = require('../util/nb_native');
-const { CONFIG_TYPES } = require('../sdk/config_fs');
 const native_fs_utils = require('../util/native_fs_utils');
 const ManageCLIError = require('../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
 const NSFS_CLI_ERROR_EVENT_MAP = require('../manage_nsfs/manage_nsfs_cli_errors').NSFS_CLI_ERROR_EVENT_MAP;
@@ -11,7 +10,7 @@ const ManageCLIResponse = require('../manage_nsfs/manage_nsfs_cli_responses').Ma
 const NSFS_CLI_SUCCESS_EVENT_MAP = require('../manage_nsfs/manage_nsfs_cli_responses').NSFS_CLI_SUCCESS_EVENT_MAP;
 const { BOOLEAN_STRING_VALUES } = require('../manage_nsfs/manage_nsfs_constants');
 const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
-const mongo_utils = require('../util/mongo_utils');
+const { account_id_cache } = require('../sdk/accountspace_fs');
 
 
 function throw_cli_error(error, detail, event_arg) {
@@ -35,24 +34,38 @@ function write_stdout_response(response_code, detail, event_arg) {
 }
 
 /**
- * get_bucket_owner_account will return the account of the bucket_owner
+ * get_bucket_owner_account_by_name will return the account of the bucket_owner
  * otherwise it would throw an error
  * @param {import('../sdk/config_fs').ConfigFS} config_fs
- * @param {string} [bucket_owner]
- * @param {string} [owner_account_id]
+ * @param {string} bucket_owner
  */
-async function get_bucket_owner_account(config_fs, bucket_owner, owner_account_id) {
+async function get_bucket_owner_account_by_name(config_fs, bucket_owner) {
     try {
-        const account = bucket_owner ?
-            await config_fs.get_account_by_name(bucket_owner) :
-            await config_fs.get_identity_by_id(owner_account_id, CONFIG_TYPES.ACCOUNT);
+        const account = await config_fs.get_account_by_name(bucket_owner);
         return account;
     } catch (err) {
         if (err.code === 'ENOENT') {
-            const detail_msg = bucket_owner ?
-                `bucket owner name ${bucket_owner} does not exists` :
-                `bucket owner id ${owner_account_id} does not exists`;
+            const detail_msg = `bucket owner name ${bucket_owner} does not exist`;
             throw_cli_error(ManageCLIError.BucketSetForbiddenBucketOwnerNotExists, detail_msg, {bucket_owner: bucket_owner});
+        }
+        throw err;
+    }
+}
+
+/**
+ * get_bucket_owner_account_by_id will return the account of the owner_account id
+ * otherwise it would throw an error
+ * @param {import('../sdk/config_fs').ConfigFS} config_fs
+ * @param {string} owner_account
+ */
+async function get_bucket_owner_account_by_id(config_fs, owner_account) {
+    try {
+        const account = await account_id_cache.get_with_cache({ _id: owner_account, config_fs });
+        return account;
+    } catch (err) {
+        if (err.code === 'ENOENT') {
+            const detail_msg = `bucket owner account id ${owner_account} does not exist`;
+            throw_cli_error(ManageCLIError.BucketSetForbiddenBucketOwnerNotExists, detail_msg, { owner_account: owner_account });
         }
         throw err;
     }
@@ -114,28 +127,6 @@ function set_debug_level(debug) {
 }
 
 /**
- * generate_id will generate an id that we use to identify entities (such as account, bucket, etc.). 
- */
-// TODO: 
-// - reuse this function in NC NSFS where we used the mongo_utils module
-// - this function implantation should be db_client.new_object_id(), 
-//   but to align with manage nsfs we won't change it now
-function generate_id() {
-    return mongo_utils.mongoObjectId();
-}
-
-/**
- * check_root_account_owns_user checks if an account is owned by root account
- * @param {object} root_account
- * @param {object} account
- */
-function check_root_account_owns_user(root_account, account) {
-    if (account.owner === undefined) return false;
-    return root_account._id === account.owner;
-}
-
-
-/**
  * is_name_update returns true if a new_name flag was provided and it's not equal to 
  * the current name
  * @param {Object} data
@@ -163,11 +154,10 @@ function is_access_key_update(data) {
 exports.throw_cli_error = throw_cli_error;
 exports.write_stdout_response = write_stdout_response;
 exports.get_boolean_or_string_value = get_boolean_or_string_value;
-exports.get_bucket_owner_account = get_bucket_owner_account;
+exports.get_bucket_owner_account_by_name = get_bucket_owner_account_by_name;
+exports.get_bucket_owner_account_by_id = get_bucket_owner_account_by_id;
 exports.get_options_from_file = get_options_from_file;
 exports.has_access_keys = has_access_keys;
-exports.generate_id = generate_id;
 exports.set_debug_level = set_debug_level;
-exports.check_root_account_owns_user = check_root_account_owns_user;
 exports.is_name_update = is_name_update;
 exports.is_access_key_update = is_access_key_update;

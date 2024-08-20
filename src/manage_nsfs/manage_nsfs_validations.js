@@ -9,11 +9,12 @@ const string_utils = require('../util/string_utils');
 const native_fs_utils = require('../util/native_fs_utils');
 const ManageCLIError = require('../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
 const bucket_policy_utils = require('../endpoint/s3/s3_bucket_policy_utils');
-const { throw_cli_error, get_bucket_owner_account, get_options_from_file, get_boolean_or_string_value,
-    check_root_account_owns_user, is_name_update, is_access_key_update } = require('../manage_nsfs/manage_nsfs_cli_utils');
+const { throw_cli_error, get_options_from_file, get_boolean_or_string_value, get_bucket_owner_account_by_id,
+    is_name_update, is_access_key_update } = require('../manage_nsfs/manage_nsfs_cli_utils');
 const { TYPES, ACTIONS, VALID_OPTIONS, OPTION_TYPE, FROM_FILE, BOOLEAN_STRING_VALUES, BOOLEAN_STRING_OPTIONS,
     GLACIER_ACTIONS, LIST_UNSETABLE_OPTIONS, ANONYMOUS, DIAGNOSE_ACTIONS, UPGRADE_ACTIONS } = require('../manage_nsfs/manage_nsfs_constants');
 const iam_utils = require('../endpoint/iam/iam_utils');
+const { check_root_account_owns_user } = require('../nc/nc_utils');
 
 /////////////////////////////
 //// GENERAL VALIDATIONS ////
@@ -369,7 +370,8 @@ async function validate_bucket_args(config_fs, data, action) {
         }
 
         // bucket owner account validations 
-        const owner_account_data = await get_bucket_owner_account(config_fs, undefined, data.owner_account);
+        const owner_account_data = await get_bucket_owner_account_by_id(config_fs, data.owner_account);
+
         const account_fs_context = await native_fs_utils.get_fs_context(owner_account_data.nsfs_account_config,
             owner_account_data.nsfs_account_config.fs_backend);
         if (!config.NC_DISABLE_ACCESS_CHECK) {

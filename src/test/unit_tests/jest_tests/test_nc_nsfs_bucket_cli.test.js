@@ -39,6 +39,15 @@ describe('manage nsfs cli bucket flow', () => {
             secret_key: 'G2AYaMpU3zRDcRFWmvzgQr9MoHIAsD+3oEXAMPLE',
         };
 
+        const account_defaults2 = {
+            name: 'account_test2',
+            // without new_buckets_path
+            uid: 1002,
+            gid: 1002,
+            access_key: 'GIGiFAnjaaE7OKD5N8hY',
+            secret_key: 'G3BYaMpU3zRDcRFWmvzgQr9MoHIAsD+3oEXAMPLE',
+        };
+
         const bucket_defaults = {
             name: 'bucket1',
             owner: account_defaults.name,
@@ -56,6 +65,9 @@ describe('manage nsfs cli bucket flow', () => {
             await fs_utils.file_must_exist(account_path);
             await set_path_permissions_and_owner(account_path, account_options, 0o700);
             await exec_manage_cli(TYPES.ACCOUNT, action, account_options);
+            // account add (account 2 without new_buckets_path)
+            const account_options2 = { config_root, ...account_defaults2 };
+            await exec_manage_cli(TYPES.ACCOUNT, action, account_options2);
         });
 
         afterEach(async () => {
@@ -195,6 +207,37 @@ describe('manage nsfs cli bucket flow', () => {
             await set_path_permissions_and_owner(bucket_options.path, { uid: account_options1.uid, gid: account_options1.gid }, 0o700);
             const res = await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
             expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.BucketSetForbiddenBucketOwnerIsIAMAccount.code);
+        });
+
+        it('cli create bucket - with bucket policy (principal by name)', async () => {
+                const action = ACTIONS.ADD;
+                const principal_by_name = account_defaults2.name;
+                const bucket_policy = generate_s3_policy(principal_by_name, bucket_defaults.name, ['s3:*']).policy;
+                const bucket_policy_string = JSON.stringify(bucket_policy);
+                const bucket_options = { config_root, ...bucket_defaults, bucket_policy: `'${bucket_policy_string}'`}; // notice bucket_policy with quotes ('')
+                await fs_utils.create_fresh_path(bucket_options.path);
+                await fs_utils.file_must_exist(bucket_options.path);
+                await set_path_permissions_and_owner(bucket_options.path, account_defaults, 0o700);
+                await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
+                const bucket = await config_fs.get_bucket_by_name(bucket_defaults.name);
+                await assert_bucket(bucket, bucket_options, config_fs);
+                expect(bucket.s3_policy).toStrictEqual(bucket_policy);
+        });
+
+        it('cli create bucket - with bucket policy (principal by id)', async () => {
+            const action = ACTIONS.ADD;
+            const account2 = await config_fs.get_account_by_name(account_defaults2.name);
+            const principal_by_id = account2._id;
+            const bucket_policy = generate_s3_policy(principal_by_id, bucket_defaults.name, ['s3:*']).policy;
+            const bucket_policy_string = JSON.stringify(bucket_policy);
+            const bucket_options = { config_root, ...bucket_defaults, bucket_policy: `'${bucket_policy_string}'`}; // notice bucket_policy with quotes ('')
+            await fs_utils.create_fresh_path(bucket_options.path);
+            await fs_utils.file_must_exist(bucket_options.path);
+            await set_path_permissions_and_owner(bucket_options.path, account_defaults, 0o700);
+            await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
+            const bucket = await config_fs.get_bucket_by_name(bucket_defaults.name);
+            await assert_bucket(bucket, bucket_options, config_fs);
+            expect(bucket.s3_policy).toStrictEqual(bucket_policy);
         });
     });
 
@@ -565,6 +608,37 @@ describe('manage nsfs cli bucket flow', () => {
             await set_path_permissions_and_owner(bucket_defaults.path, account_options1, 0o700);
             const res = await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
             expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.BucketSetForbiddenBucketOwnerIsIAMAccount.code);
+        });
+
+        it('cli update bucket - with bucket policy (principal by name)', async () => {
+            const action = ACTIONS.UPDATE;
+            const principal_by_name = account_defaults2.name;
+            const bucket_policy = generate_s3_policy(principal_by_name, bucket_defaults.name, ['s3:*']).policy;
+            const bucket_policy_string = JSON.stringify(bucket_policy);
+            const bucket_options = { config_root, ...bucket_defaults, bucket_policy: `'${bucket_policy_string}'`}; // notice bucket_policy with quotes ('')
+            await fs_utils.create_fresh_path(bucket_options.path);
+            await fs_utils.file_must_exist(bucket_options.path);
+            await set_path_permissions_and_owner(bucket_options.path, account_defaults, 0o700);
+            await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
+            const bucket = await config_fs.get_bucket_by_name(bucket_defaults.name);
+            await assert_bucket(bucket, bucket_options, config_fs);
+            expect(bucket.s3_policy).toStrictEqual(bucket_policy);
+         });
+
+         it('cli update bucket - with bucket policy (principal by id)', async () => {
+            const action = ACTIONS.UPDATE;
+            const account2 = await config_fs.get_account_by_name(account_defaults2.name);
+            const principal_by_id = account2._id;
+            const bucket_policy = generate_s3_policy(principal_by_id, bucket_defaults.name, ['s3:*']).policy;
+            const bucket_policy_string = JSON.stringify(bucket_policy);
+            const bucket_options = { config_root, ...bucket_defaults, bucket_policy: `'${bucket_policy_string}'`}; // notice bucket_policy with quotes ('')
+            await fs_utils.create_fresh_path(bucket_options.path);
+            await fs_utils.file_must_exist(bucket_options.path);
+            await set_path_permissions_and_owner(bucket_options.path, account_defaults, 0o700);
+            await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
+            const bucket = await config_fs.get_bucket_by_name(bucket_defaults.name);
+            await assert_bucket(bucket, bucket_options, config_fs);
+            expect(bucket.s3_policy).toStrictEqual(bucket_policy);
         });
     });
 

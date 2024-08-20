@@ -217,6 +217,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             }
             if (!bucket) return;
             const bucket_policy_accessible = await this.has_bucket_action_permission(bucket, account, 's3:ListBucket');
+            dbg.log2(`list_buckets: bucket_name ${bucket_name} bucket_policy_accessible`, bucket_policy_accessible);
             if (!bucket_policy_accessible) return;
             const fs_accessible = await this.validate_fs_bucket_access(bucket, object_sdk);
             if (!fs_accessible) return;
@@ -653,7 +654,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             dbg.log2('put_bucket_policy: bucket properties before validate_bucket_schema', bucket_to_validate);
             nsfs_schema_utils.validate_bucket_schema(bucket_to_validate);
             await bucket_policy_utils.validate_s3_policy(bucket.s3_policy, bucket.name, async principal =>
-                this.config_fs.get_account_by_name(principal, { silent_if_missing: true }));
+                 this.config_fs.is_account_exists_by_principal(principal, { silent_if_missing: true }));
             const update_bucket = JSON.stringify(bucket);
             await this.config_fs.update_bucket_config_file(name, update_bucket);
         } catch (err) {
@@ -708,10 +709,9 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
     // TODO: move the following 3 functions - has_bucket_action_permission(), validate_fs_bucket_access(), _has_access_to_nsfs_dir()
     // so they can be re-used
     async has_bucket_action_permission(bucket, account, action, bucket_path = "") {
-        const account_identifier = account.name.unwrap();
-        dbg.log1('has_bucket_action_permission:', bucket.name.unwrap(), account_identifier, bucket.owner_account);
+        dbg.log1('has_bucket_action_permission:', bucket.name.unwrap(), account.name.unwrap(), account._id, bucket.bucket_owner.unwrap());
 
-        const is_system_owner = Boolean(bucket.system_owner) && bucket.system_owner.unwrap() === account_identifier;
+        const is_system_owner = Boolean(bucket.system_owner) && bucket.system_owner.unwrap() === account.name.unwrap();
 
         // If the system owner account wants to access the bucket, allow it
         if (is_system_owner) return true;
@@ -729,16 +729,28 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             throw new Error('has_bucket_action_permission: action is required');
         }
 
-        const result = await bucket_policy_utils.has_bucket_policy_permission(
+        let permission;
+        permission = await bucket_policy_utils.has_bucket_policy_permission(
             bucket_policy,
-            account_identifier,
+            account._id,
             action,
             `arn:aws:s3:::${bucket.name.unwrap()}${bucket_path}`,
             undefined
         );
+        // we (currently) allow account identified to be both id and name,
+        // so if by-id failed, try also name
+        if (permission === 'IMPLICIT_DENY') {
+            permission = await bucket_policy_utils.has_bucket_policy_permission(
+                bucket_policy,
+                account.name.unwrap(),
+                action,
+                `arn:aws:s3:::${bucket.name.unwrap()}${bucket_path}`,
+                undefined
+            );
+        }
 
-        if (result === 'DENY') return false;
-        return is_owner || result === 'ALLOW';
+        if (permission === 'DENY') return false;
+        return is_owner || permission === 'ALLOW';
     }
 
     async validate_fs_bucket_access(bucket, object_sdk) {

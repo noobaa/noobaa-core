@@ -3,7 +3,7 @@
 'use strict';
 
 // setup coretest first to prepare the env
-const { get_coretest_path, TMP_PATH } = require('../system_tests/test_utils');
+const { get_coretest_path, TMP_PATH, is_nc_coretest } = require('../system_tests/test_utils');
 const coretest_path = get_coretest_path();
 const coretest = require(coretest_path);
 const { rpc_client, EMAIL, POOL_LIST, anon_rpc_client } = coretest;
@@ -55,6 +55,10 @@ const anon_access_policy = {
 // to store data between tests.
 const cross_test_store = {};
 
+// the account creation details (in NC we want to use them)
+let user_a_account_details;
+let user_b_account_details;
+
 async function setup() {
     const self = this; // eslint-disable-line no-invalid-this
     self.timeout(60000);
@@ -103,10 +107,14 @@ async function setup() {
     })).access_keys;
     account.name = user_a;
     account.email = user_a;
-    const user_a_keys = (await rpc_client.account.create_account(account)).access_keys;
+    user_a_account_details = await rpc_client.account.create_account(account);
+    console.log('user_a_account_details', user_a_account_details);
+    const user_a_keys = user_a_account_details.access_keys;
     account.name = user_b;
     account.email = user_b;
-    const user_b_keys = (await rpc_client.account.create_account(account)).access_keys;
+    user_b_account_details = await rpc_client.account.create_account(account);
+    console.log('user_b_account_details', user_b_account_details);
+    const user_b_keys = user_b_account_details.access_keys;
     s3_creds.credentials = {
         accessKeyId: user_a_keys[0].access_key.unwrap(),
         secretAccessKey: user_a_keys[0].secret_key.unwrap(),
@@ -219,6 +227,109 @@ mocha.describe('s3_bucket_policy', function() {
         console.log('Policy set', res_a);
         await assert_throws_async(s3_b.getBucketPolicy({ // should fail - user b has no permissions
             Bucket: BKT,
+        }));
+    });
+
+    mocha.it('should put/get bucket policy - principal by account name', async function() {
+        if (!is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
+        const policy = {
+            Statement: [{
+                Sid: `Allow all s3 actions on bucket ${BKT} to principal (by name) ${user_a_account_details.name}`,
+                Effect: 'Allow',
+                Principal: { AWS: user_a_account_details.name },
+                Action: ['s3:*'],
+                Resource: [`arn:aws:s3:::${BKT}`, `arn:aws:s3:::${BKT}/*`]
+            }]
+        };
+        const res_put_bucket_policy = await s3_owner.putBucketPolicy({
+            Bucket: BKT,
+            Policy: JSON.stringify(policy)
+        });
+        assert.equal(res_put_bucket_policy.$metadata.httpStatusCode, 200);
+        const res_get_bucket_policy = await s3_owner.getBucketPolicy({
+            Bucket: BKT,
+        });
+        assert.equal(res_get_bucket_policy.$metadata.httpStatusCode, 200);
+        console.log('Policy set (principal by name)', res_get_bucket_policy.Policy);
+    });
+
+    mocha.it('should put object to permitted account (bucket policy - principal by account name)', async function() {
+        if (!is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
+        const policy = {
+            Statement: [{
+                Sid: `Allow all s3 actions on bucket ${BKT} to principal (by name) ${user_a_account_details.name}`,
+                Effect: 'Allow',
+                Principal: { AWS: user_a_account_details.name },
+                Action: ['s3:*'],
+                Resource: [`arn:aws:s3:::${BKT}`, `arn:aws:s3:::${BKT}/*`]
+            }]
+        };
+        const res_put_bucket_policy = await s3_owner.putBucketPolicy({
+            Bucket: BKT,
+            Policy: JSON.stringify(policy)
+        });
+        assert.equal(res_put_bucket_policy.$metadata.httpStatusCode, 200);
+        const res_put_object = await s3_a.putObject({
+            Body: BODY,
+            Bucket: BKT,
+            Key: KEY
+        });
+        assert.equal(res_put_object.$metadata.httpStatusCode, 200);
+        await assert_throws_async(s3_b.putObject({ // should fail - user b has no permissions
+            Body: BODY,
+            Bucket: BKT,
+            Key: KEY
+        }));
+    });
+
+    mocha.it('should put/get bucket policy - principal by account ID', async function() {
+        if (!is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
+        const policy = {
+            Statement: [{
+                Sid: `Allow all s3 actions on bucket ${BKT} to principal (by ID) ${user_a_account_details._id}`,
+                Effect: 'Allow',
+                Principal: { AWS: user_a_account_details._id },
+                Action: ['s3:*'],
+                Resource: [`arn:aws:s3:::${BKT}`, `arn:aws:s3:::${BKT}/*`]
+            }]
+        };
+        const res_put_bucket_policy = await s3_owner.putBucketPolicy({
+            Bucket: BKT,
+            Policy: JSON.stringify(policy)
+        });
+        assert.equal(res_put_bucket_policy.$metadata.httpStatusCode, 200);
+        const res_get_bucket_policy = await s3_owner.getBucketPolicy({
+            Bucket: BKT,
+        });
+        assert.equal(res_get_bucket_policy.$metadata.httpStatusCode, 200);
+        console.log('Policy set (principal by ID)', res_get_bucket_policy.Policy);
+    });
+
+    mocha.it('should put object to permitted account (bucket policy - principal by account ID', async function() {
+        if (!is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
+        const policy = {
+            Statement: [{
+                Sid: `Allow all s3 actions on bucket ${BKT} to principal (by ID) ${user_a_account_details._id}`,
+                Effect: 'Allow',
+                Principal: { AWS: user_a_account_details._id },
+                Action: ['s3:*'],
+                Resource: [`arn:aws:s3:::${BKT}`, `arn:aws:s3:::${BKT}/*`]
+            }]
+        };
+        await s3_owner.putBucketPolicy({
+            Bucket: BKT,
+            Policy: JSON.stringify(policy)
+        });
+        const res_put_object = await s3_a.putObject({
+            Body: BODY,
+            Bucket: BKT,
+            Key: KEY
+        });
+        assert.equal(res_put_object.$metadata.httpStatusCode, 200);
+        await assert_throws_async(s3_b.putObject({ // should fail - user b has no permissions
+            Body: BODY,
+            Bucket: BKT,
+            Key: KEY
         }));
     });
 
@@ -964,7 +1075,12 @@ mocha.describe('s3_bucket_policy', function() {
         }));
     });
 
-    mocha.it('should be able to use notPrincipal', async function() {
+    mocha.it.skip('should be able to use notPrincipal', async function() {
+        // This test is broken - Effect Allow can't be used with NotPrincipal
+        // copied from the docs: 
+        // "NotPrincipal must be used with "Effect":"Deny".
+        // Using it with "Effect":"Allow" is not supported."
+        // source: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_notprincipal.html
         const self = this; // eslint-disable-line no-invalid-this
         self.timeout(15000);
         const auth_put_policy = {

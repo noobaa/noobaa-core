@@ -13,7 +13,7 @@ const os_util = require('../../../util/os_utils');
 const fs_utils = require('../../../util/fs_utils');
 const { ConfigFS } = require('../../../sdk/config_fs');
 const { set_path_permissions_and_owner, create_fs_user_by_platform,
-    delete_fs_user_by_platform, TMP_PATH, set_nc_config_dir_in_config } = require('../../system_tests/test_utils');
+    delete_fs_user_by_platform, TMP_PATH, set_nc_config_dir_in_config, write_file } = require('../../system_tests/test_utils');
 const { TYPES, ACTIONS, ANONYMOUS } = require('../../../manage_nsfs/manage_nsfs_constants');
 const ManageCLIError = require('../../../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
 const ManageCLIResponse = require('../../../manage_nsfs/manage_nsfs_cli_responses').ManageCLIResponse;
@@ -1056,6 +1056,7 @@ describe('manage nsfs cli account flow', () => {
     describe('cli list account', () => {
         const config_root = path.join(tmp_fs_path, 'config_root_manage_nsfs3');
         const root_path = path.join(tmp_fs_path, 'root_path_manage_nsfs3/');
+        const config_fs = new ConfigFS(config_root);
         const type = TYPES.ACCOUNT;
         const defaults = [{
             name: 'account1',
@@ -1332,6 +1333,26 @@ describe('manage nsfs cli account flow', () => {
                 expect(item.access_keys[0].secret_key).toBeDefined();
                 expect(item.access_keys[0].encrypted_secret_key).toBeUndefined();
             }
+        });
+
+        it('cli list wide with an invalid JSON file', async () => {
+            // corrupt account1 json file
+            const account_name = 'account1';
+            const account = await config_fs.get_account_by_name(account_name, config_fs_account_options);
+            const config_path = config_fs.get_identity_path_by_id(account._id);
+            const invalid_str = '{{{'; // use this string to make the JSON invalid
+            await write_file(config_fs, account, config_path, invalid_str);
+
+            // list the accounts
+            const account_options = { config_root, wide: true };
+            const action = ACTIONS.LIST;
+            const res = await exec_manage_cli(type, action, account_options);
+            const res_arr = JSON.parse(res).response.reply;
+            let is_item_with_json_warning = false;
+            for (const item of res_arr) {
+                if (item.json_warning !== undefined) is_item_with_json_warning = true;
+            }
+            expect(is_item_with_json_warning).toBe(true);
         });
 
     });

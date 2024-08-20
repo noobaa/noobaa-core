@@ -183,20 +183,28 @@ class ConfigFS {
      * if silent_if_missing is true -      
      *   if the config file was deleted (encounter ENOENT error) - continue (returns undefined)
      * @param {string} config_file_path
-     * @param {{show_secrets?: boolean, decrypt_secret_key?: boolean, silent_if_missing?: boolean}} [options]
+     * @param {{show_secrets?: boolean, decrypt_secret_key?: boolean, silent_if_missing?: boolean,
+     *          add_property_warning_on_returned_object?: boolean, return_encrypted_if_decryption_fails?:boolean}} [options]
      * @returns {Promise<Object>}
      */
     async get_identity_config_data(config_file_path, options = {}) {
-        const { show_secrets = false, decrypt_secret_key = false, silent_if_missing = false } = options;
+        const { show_secrets = false, decrypt_secret_key = false, silent_if_missing = false,
+            return_encrypted_if_decryption_fails = false, add_property_warning_on_returned_object = false
+         } = options;
+         let config_data;
         try {
-            const data = await this.get_config_data(config_file_path, options);
+            const data = await this.get_config_data(config_file_path, { silent_if_missing: options.silent_if_missing });
             if (!data && silent_if_missing) return;
-            const config_data = _.omit(data, show_secrets ? [] : ['access_keys']);
+            config_data = _.omit(data, show_secrets ? [] : ['access_keys']);
             if (decrypt_secret_key) config_data.access_keys = await nc_mkm.decrypt_access_keys(config_data);
             return config_data;
         } catch (err) {
             dbg.warn('get_identity_config_data: with config_file_path', config_file_path, 'got an error', err);
             if (err.code === 'ENOENT' && silent_if_missing) return;
+            if (return_encrypted_if_decryption_fails && err.rpc_code === 'INVALID_MASTER_KEY') return config_data;
+            if (add_property_warning_on_returned_object) {
+                return this.map_error_codes_to_warnings(err, config_data, config_file_path);
+            }
             throw err;
         }
     }
@@ -207,13 +215,14 @@ class ConfigFS {
      * @returns {Promise<Object>}
      */
     async get_config_data(config_file_path, options = {}) {
+        const { silent_if_missing = false } = options;
         try {
             const { data } = await nb_native().fs.readFile(this.fs_context, config_file_path);
             const config_data = JSON.parse(data.toString());
             return config_data;
         } catch (err) {
             dbg.warn('get_config_data: with config_file_path', config_file_path, 'got an error', err);
-            if (err.code === 'ENOENT' && options.silent_if_missing) return;
+            if (err.code === 'ENOENT' && silent_if_missing) return;
             throw err;
         }
     }
@@ -698,7 +707,7 @@ class ConfigFS {
     //////////////////////////////////////
 
     /**
-     * get_bucket_by_name returns the full bucket path by name
+     * get_bucket_path_by_name returns the full bucket path by name
      * @param {string} bucket_name
      * @returns {string} 
      */
@@ -720,14 +729,24 @@ class ConfigFS {
     /**
      * get_bucket_by_name returns the full bucket info by name
      * @param {string} bucket_name
-     * @param {{silent_if_missing?: boolean}} [options]
+     * @param {{silent_if_missing?: boolean, add_property_warning_on_returned_object?: boolean}} [options]
      * @returns {Promise<any>} 
      */
     async get_bucket_by_name(bucket_name, options = {}) {
+        const { add_property_warning_on_returned_object = false } = options;
         const bucket_path = this.get_bucket_path_by_name(bucket_name);
-        const bucket = await this.get_config_data(bucket_path, options);
-        this.adjust_bucket_with_schema_updates(bucket);
-        return bucket;
+        let bucket;
+        try {
+            bucket = await this.get_config_data(bucket_path, options);
+            this.adjust_bucket_with_schema_updates(bucket);
+            return bucket;
+        } catch (err) {
+            dbg.warn(`get_bucket_by_name: with bucket_name ${bucket_name} got an error`, err);
+            if (add_property_warning_on_returned_object) {
+                return this.map_error_codes_to_warnings(err, bucket, bucket_path);
+            }
+            throw err;
+        }
     }
 
     /**
@@ -828,6 +847,23 @@ class ConfigFS {
         }
         return config_file_names;
     }
+
+    /**
+     * map_error_codes_to_warnings we translate read config file error codes to a warning property
+     * 
+     * @param {object} err
+     * @param {object} config_data
+     * @param {string} config_file_path
+     */
+        map_error_codes_to_warnings(err, config_data, config_file_path) {
+            if (err.rpc_code === 'INVALID_MASTER_KEY') {
+                config_data.master_key_warning = `Got an error on decryption account ${config_data._id}`;
+                return config_data;
+                }
+                if (err instanceof SyntaxError) {
+                    return { json_warning: `Got an error on JSON parse of ${config_file_path}` };
+                }
+        }
 }
 
 // EXPORTS

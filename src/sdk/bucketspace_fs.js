@@ -347,7 +347,11 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                     // 2. delete only bucket tmpdir
                     let list;
                     try {
-                        list = await ns.list_objects({ ...params, bucket: name, limit: 1 }, object_sdk);
+                        if (ns._is_versioning_disabled()) {
+                            list = await ns.list_objects({ ...params, bucket: name, limit: 1 }, object_sdk);
+                        } else {
+                            list = await ns.list_object_versions({ ...params, bucket: name, limit: 1 }, object_sdk);
+                        }
                     } catch (err) {
                         dbg.warn('delete_bucket: bucket name', name, 'got an error while trying to list_objects', err);
                         // in case the ULS was deleted - we will continue

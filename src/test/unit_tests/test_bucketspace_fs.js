@@ -26,12 +26,16 @@ const { TMP_PATH, generate_s3_policy } = require('../system_tests/test_utils');
 const { CONFIG_SUBDIRS, JSON_SUFFIX } = require('../../sdk/config_fs');
 const nc_mkm = require('../../manage_nsfs/nc_master_key_manager').get_instance();
 
+const XATTR_INTERNAL_NOOBAA_PREFIX = 'user.noobaa.';
+const XATTR_VERSION_ID = XATTR_INTERNAL_NOOBAA_PREFIX + 'version_id';
+const XATTR_DELETE_MARKER = XATTR_INTERNAL_NOOBAA_PREFIX + 'delete_marker';
 
 const test_bucket = 'bucket1';
 const test_bucket2 = 'bucket2';
 const test_not_empty_bucket = 'notemptybucket';
 const test_bucket_temp_dir = 'buckettempdir';
 const test_bucket_invalid = 'bucket_invalid';
+const test_bucket_delete_marker = 'deletemarkerbucket';
 const test_bucket_iam_account = 'bucket-iam-account-can-access';
 
 const tmp_fs_path = path.join(TMP_PATH, 'test_bucketspace_fs');
@@ -216,6 +220,39 @@ function make_dummy_object_sdk() {
         }
     };
 }
+
+function make_versioning_object_sdk() {
+    const versioning_object_sdk = make_dummy_object_sdk();
+    versioning_object_sdk.nsfs = {};
+    versioning_object_sdk._get_bucket_namespace = name => {
+        if (_.isUndefined(versioning_object_sdk.nsfs[name])) {
+            const buck_path = path.join(new_buckets_path, name);
+            versioning_object_sdk.nsfs[name] = new NamespaceFS({
+                bucket_path: buck_path,
+                bucket_id: '1',
+                namespace_resource_id: undefined,
+                access_mode: undefined,
+                versioning: undefined,
+                force_md5_etag: undefined,
+                stats: undefined
+            });
+        }
+        return versioning_object_sdk.nsfs[name];
+    };
+    versioning_object_sdk.read_bucket_full_info = async function(name) {
+        const ns = this._get_bucket_namespace(name);
+        const bucket = (await bucketspace_fs.read_bucket_sdk_info({ name }));
+        if (name === test_bucket_temp_dir) {
+            bucket.namespace.should_create_underlying_storage = false;
+        } else {
+            bucket.namespace.should_create_underlying_storage = true;
+        }
+        return {ns, bucket};
+    };
+
+    return versioning_object_sdk;
+}
+
 
 // account_user2 (copied from the dummy sdk)
 // is the root account of account_iam_user1
@@ -637,7 +674,34 @@ mocha.describe('bucketspace_fs', function() {
             await bucketspace_fs.delete_bucket(param, dummy_object_sdk);
             await fs_utils.file_must_not_exist(bucket_config_path);
         });
+
+        mocha.it('delete_bucket with delete marker', async function() {
+            const versioning_sdk = make_versioning_object_sdk();
+            const param = { name: test_bucket_delete_marker };
+            await create_bucket(param.name);
+
+            await bucketspace_fs.set_bucket_versioning({ name: param.name, versioning: 'ENABLED' }, versioning_sdk);
+            const version_dir = path.join(new_buckets_path, param.name, '.versions');
+            await nb_native().fs.mkdir(ACCOUNT_FS_CONFIG, version_dir);
+
+            const versioned_path = path.join(version_dir, 'dummy_mtime-crkfjum9883k-ino-guu7');
+            await create_versioned_object(versioned_path, Buffer.from(JSON.stringify("data")), 'mtime-crkfjum9883k-ino-guu7', false);
+
+            const delete_marker_path = path.join(version_dir, 'dummy_mtime-crkfjx1hui2o-ino-guu9');
+            const delete_marker_obj = await create_versioned_object(delete_marker_path, Buffer.from(JSON.stringify("data")), 'mtime-crkfjx1hui2o-ino-guu9', true);
+            const xattr_delete_marker = { [XATTR_DELETE_MARKER]: 'true' };
+            delete_marker_obj.replacexattr(DEFAULT_FS_CONFIG, xattr_delete_marker);
+
+            try {
+                await bucketspace_fs.delete_bucket(param, versioning_sdk);
+                assert.fail('should have failed with NOT EMPTY');
+            } catch (err) {
+                assert.strictEqual(err.rpc_code, 'NOT_EMPTY');
+                assert.equal(err.message, 'underlying directory has files in it');
+            }
+        });
     });
+
     mocha.describe('set_bucket_versioning', function() {
         mocha.before(async function() {
             await create_bucket(test_bucket);
@@ -898,6 +962,18 @@ async function create_bucket(bucket_name) {
     const bucket_config_path = get_config_file_path(CONFIG_SUBDIRS.BUCKETS, param.name);
     const stat1 = await fs.promises.stat(bucket_config_path);
     assert.equal(stat1.nlink, 1);
+}
+
+async function create_versioned_object(object_path, data, version_id, return_fd) {
+    console.log(object_path);
+    const target_file = await nb_native().fs.open(ACCOUNT_FS_CONFIG, object_path, 'w+');
+    await fs.promises.writeFile(object_path, data);
+    if (version_id !== 'null') {
+        const xattr_version_id = { [XATTR_VERSION_ID]: `${version_id}` };
+        await target_file.replacexattr(ACCOUNT_FS_CONFIG, xattr_version_id);
+    }
+    if (return_fd) return target_file;
+    await target_file.close(ACCOUNT_FS_CONFIG);
 }
 
 

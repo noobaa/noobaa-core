@@ -11,8 +11,13 @@ const assert = require('assert');
 const P = require('../../util/promise');
 const config = require('../../../config');
 const fs_utils = require('../../util/fs_utils');
-const { get_process_fs_context, read_file, get_user_by_distinguished_name, get_bucket_tmpdir_name,
-    update_config_file } = require('../../util/native_fs_utils');
+const {
+    get_process_fs_context,
+    read_file,
+    get_user_by_distinguished_name,
+    get_bucket_tmpdir_name,
+    update_config_file
+} = require('../../util/native_fs_utils');
 const nb_native = require('../../util/nb_native');
 const SensitiveString = require('../../util/sensitive_string');
 const NamespaceFS = require('../../sdk/namespace_fs');
@@ -105,20 +110,19 @@ const account_user3 = {
 const bucketspace_fs = new BucketSpaceFS({ config_root }, undefined);
 const dummy_object_sdk = make_dummy_object_sdk();
 const dummy_ns = {
-    read_resources: [
-      {
+    read_resources: [{
         resource: {
             fs_root_path: '',
         }
-      },
-    ],
+    }, ],
     write_resource: {
         resource: {
             fs_root_path: '',
         },
-      },
-      should_create_underlying_storage: true
+    },
+    should_create_underlying_storage: true
 };
+
 function make_dummy_object_sdk() {
     return {
         requesting_account: {
@@ -241,7 +245,7 @@ function make_dummy_object_sdk_for_account(dummy_object_sdk_to_copy, account) {
     dummy_object_sdk_for_account.requesting_account.name = new SensitiveString(
         dummy_object_sdk_for_account.requesting_account.name);
     dummy_object_sdk_for_account.requesting_account.email = new SensitiveString(
-            dummy_object_sdk_for_account.requesting_account.email);
+        dummy_object_sdk_for_account.requesting_account.email);
     return dummy_object_sdk_for_account;
 }
 
@@ -267,9 +271,9 @@ mocha.describe('bucketspace_fs', function() {
 
     mocha.before(async () => {
         await P.all(_.map([CONFIG_SUBDIRS.IDENTITIES,
-        CONFIG_SUBDIRS.ACCOUNTS_BY_NAME, CONFIG_SUBDIRS.ACCESS_KEYS, CONFIG_SUBDIRS.BUCKETS], async dir =>
-            await fs_utils.create_fresh_path(`${config_root}/${dir}`))
-        );
+            CONFIG_SUBDIRS.ACCOUNTS_BY_NAME, CONFIG_SUBDIRS.ACCESS_KEYS, CONFIG_SUBDIRS.BUCKETS
+        ], async dir =>
+            await fs_utils.create_fresh_path(`${config_root}/${dir}`)));
         await fs_utils.create_fresh_path(new_buckets_path);
         for (let account of [account_user1, account_user2, account_user3, account_iam_user1, account_iam_user2]) {
             account = await nc_mkm.encrypt_access_keys(account);
@@ -333,7 +337,7 @@ mocha.describe('bucketspace_fs', function() {
 
     mocha.describe('create_bucket', function() {
         mocha.it('create bucket and validate bucket folder and schema config', async function() {
-            const param = { name: test_bucket};
+            const param = { name: test_bucket };
             await bucketspace_fs.create_bucket(param, dummy_object_sdk);
             const bucket_config_path = get_config_file_path(CONFIG_SUBDIRS.BUCKETS, param.name);
             const stat1 = await fs.promises.stat(bucket_config_path);
@@ -344,7 +348,7 @@ mocha.describe('bucketspace_fs', function() {
         });
         mocha.it('validate bucket access with default context', async function() {
             try {
-                const param = { name: test_bucket};
+                const param = { name: test_bucket };
                 const invalid_objects = await nb_native().fs.readdir(DEFAULT_FS_CONFIG, path.join(new_buckets_path, param.name));
                 assert.equal(invalid_objects.length, 0);
             } catch (err) {
@@ -353,18 +357,18 @@ mocha.describe('bucketspace_fs', function() {
             }
         });
         mocha.it('validate bucket access with account specific context', async function() {
-            const param = { name: test_bucket};
+            const param = { name: test_bucket };
             await await nb_native().fs.writeFile(ACCOUNT_FS_CONFIG, path.join(new_buckets_path, param.name, 'dummy_data.json'),
-            Buffer.from(JSON.stringify(dummy_data)), {
-                mode: config.BASE_MODE_FILE,
-            });
+                Buffer.from(JSON.stringify(dummy_data)), {
+                    mode: config.BASE_MODE_FILE,
+                });
             const objects = await nb_native().fs.readdir(ACCOUNT_FS_CONFIG, path.join(new_buckets_path, param.name));
             assert.equal(objects.length, 1);
         });
         mocha.it('validate bucket access with user not allowed to create bucket', async function() {
             try {
                 const test_bucket_not_allowed = 'bucket4';
-                const param = { name: test_bucket_not_allowed};
+                const param = { name: test_bucket_not_allowed };
                 const local_object_sdk = make_invalid_dummy_object_sdk();
                 await bucketspace_fs.create_bucket(param, local_object_sdk);
                 assert.fail('should have failed with UNAUTHORIZED bucket creation');
@@ -375,7 +379,7 @@ mocha.describe('bucketspace_fs', function() {
         mocha.it('should fail - create bucket by iam account', async function() {
             // currently we do not allow IAM accounts to create buckets
             try {
-                const param = { name: test_bucket_iam_account};
+                const param = { name: test_bucket_iam_account };
                 const dummy_object_sdk_for_iam_account = make_dummy_object_sdk_for_account(dummy_object_sdk, account_iam_user1);
                 await bucketspace_fs.create_bucket(param, dummy_object_sdk_for_iam_account);
                 assert.fail('should have failed with UNAUTHORIZED bucket creation');
@@ -395,7 +399,7 @@ mocha.describe('bucketspace_fs', function() {
 
     mocha.describe('read_bucket_sdk_info', function() {
         mocha.before(async function() {
-            const param = { name: test_bucket};
+            const param = { name: test_bucket };
             await bucketspace_fs.create_bucket(param, dummy_object_sdk);
         });
         mocha.after(async function() {
@@ -404,7 +408,7 @@ mocha.describe('bucketspace_fs', function() {
             await fs_utils.file_delete(file_path);
         });
         mocha.it('read bucket that was created - check non existing deprecated properties', async function() {
-            const param = { name: test_bucket};
+            const param = { name: test_bucket };
             const bucket = await bucketspace_fs.read_bucket_sdk_info(param);
             assert.ok(bucket.system_owner === undefined);
         });
@@ -419,7 +423,7 @@ mocha.describe('bucketspace_fs', function() {
             await update_config_file(process_fs_context, CONFIG_SUBDIRS.BUCKETS, bucket_config_path, JSON.stringify(bucket));
             await fs_utils.file_must_exist(bucket_config_path);
 
-            const param = { name: test_bucket};
+            const param = { name: test_bucket };
             bucket = await bucketspace_fs.read_bucket_sdk_info(param);
             assert.ok(bucket.system_owner === undefined);
         });
@@ -481,14 +485,14 @@ mocha.describe('bucketspace_fs', function() {
         });
         mocha.it('delete_bucket with invalid bucket name ', async function() {
             try {
-                const param = { name: test_bucket_invalid};
+                const param = { name: test_bucket_invalid };
                 await bucketspace_fs.delete_bucket(param, dummy_object_sdk);
             } catch (err) {
                 assert.ok(err.code === 'ENOENT');
             }
         });
         mocha.it('delete_bucket for non empty buckets', async function() {
-            const param = { name: test_not_empty_bucket};
+            const param = { name: test_not_empty_bucket };
             await create_bucket(param.name);
             const bucket_file_path = path.join(new_buckets_path, param.name, 'dummy.txt');
             await nb_native().fs.writeFile(ACCOUNT_FS_CONFIG, bucket_file_path,
@@ -543,7 +547,7 @@ mocha.describe('bucketspace_fs', function() {
             assert.ok(res.buckets.length > 0);
             assert.ok(res.buckets.some(bucket => bucket.name.unwrap() === test_bucket_iam_account));
 
-            const param = { name: test_bucket_iam_account};
+            const param = { name: test_bucket_iam_account };
             // account_iam_user2 can delete the created bucket (the implicit policy - same root account)
             const dummy_object_sdk_for_account_iam_user2 = make_dummy_object_sdk_for_account(dummy_object_sdk, account_iam_user2);
             await bucketspace_fs.delete_bucket(param, dummy_object_sdk_for_account_iam_user2);
@@ -591,7 +595,7 @@ mocha.describe('bucketspace_fs', function() {
             await create_bucket(test_bucket);
         });
         mocha.it('set_bucket_versioning ', async function() {
-            const param = {name: test_bucket, versioning: 'ENABLED'};
+            const param = { name: test_bucket, versioning: 'ENABLED' };
             await bucketspace_fs.set_bucket_versioning(param, dummy_object_sdk);
             const bucket_config_path = get_config_file_path(CONFIG_SUBDIRS.BUCKETS, param.name);
             const bucket = await read_file(process_fs_context, bucket_config_path);
@@ -606,7 +610,7 @@ mocha.describe('bucketspace_fs', function() {
                 algorithm: 'AES256',
                 kms_key_id: 'kms-123'
             };
-            const param = {name: test_bucket, encryption: encryption};
+            const param = { name: test_bucket, encryption: encryption };
             await bucketspace_fs.put_bucket_encryption(param);
 
             const output_encryption = await bucketspace_fs.get_bucket_encryption(param);
@@ -617,7 +621,7 @@ mocha.describe('bucketspace_fs', function() {
                 algorithm: 'AES256',
                 kms_key_id: 'kms-123'
             };
-            const param = {name: test_bucket};
+            const param = { name: test_bucket };
             const output_encryption = await bucketspace_fs.get_bucket_encryption(param);
             assert.deepEqual(output_encryption, encryption);
             await bucketspace_fs.delete_bucket_encryption(param);
@@ -636,13 +640,13 @@ mocha.describe('bucketspace_fs', function() {
                     }
                 }
             };
-            const param = {name: test_bucket, website: website};
+            const param = { name: test_bucket, website: website };
             await bucketspace_fs.put_bucket_website(param);
             const output_web = await bucketspace_fs.get_bucket_website(param);
             assert.deepEqual(output_web.website, website);
         });
         mocha.it('delete_bucket_website ', async function() {
-            const param = {name: test_bucket};
+            const param = { name: test_bucket };
             await bucketspace_fs.delete_bucket_website(param);
             const output_web = await bucketspace_fs.get_bucket_website(param);
             assert.ok(output_web.website === undefined);
@@ -652,15 +656,14 @@ mocha.describe('bucketspace_fs', function() {
     mocha.describe('bucket policy operations', function() {
         mocha.it('put_bucket_policy ', async function() {
             const policy = {
-                    Version: '2012-10-17',
-                    Statement: [{
-                        Sid: 'id-22',
-                        Effect: 'Allow',
-                        Principal: '*',
-                        Action: ['s3:*'],
-                        Resource: ['arn:aws:s3:::*']
-                        }
-                    ]
+                Version: '2012-10-17',
+                Statement: [{
+                    Sid: 'id-22',
+                    Effect: 'Allow',
+                    Principal: '*',
+                    Action: ['s3:*'],
+                    Resource: ['arn:aws:s3:::*']
+                }]
             };
             const param = { name: test_bucket, policy: policy };
             await bucketspace_fs.put_bucket_policy(param);
@@ -671,7 +674,7 @@ mocha.describe('bucketspace_fs', function() {
         });
 
         mocha.it('delete_bucket_policy ', async function() {
-            const param = {name: test_bucket};
+            const param = { name: test_bucket };
             await bucketspace_fs.delete_bucket_policy(param);
             const delete_res = await bucketspace_fs.get_bucket_policy(param, dummy_object_sdk);
             assert.ok(delete_res.policy === undefined);
@@ -679,16 +682,15 @@ mocha.describe('bucketspace_fs', function() {
 
         mocha.it('put_bucket_policy other account object', async function() {
             const policy = {
-                    Version: '2012-10-17',
-                    Statement: [{
-                        Sid: 'id-22',
-                        Effect: 'Allow',
-                        Principal: { AWS: ['user1'] },
-                        Action: ['s3:*'],
-                        Resource: ['arn:aws:s3:::*']
-                        }
-                    ]
-                };
+                Version: '2012-10-17',
+                Statement: [{
+                    Sid: 'id-22',
+                    Effect: 'Allow',
+                    Principal: { AWS: ['user1'] },
+                    Action: ['s3:*'],
+                    Resource: ['arn:aws:s3:::*']
+                }]
+            };
             const param = { name: test_bucket, policy: policy };
             await bucketspace_fs.put_bucket_policy(param);
             const bucket_policy = await bucketspace_fs.get_bucket_policy(param, dummy_object_sdk);
@@ -699,16 +701,15 @@ mocha.describe('bucketspace_fs', function() {
 
         mocha.it('put_bucket_policy other account object - account does not exist', async function() {
             const policy = {
-                    Version: '2012-10-17',
-                    Statement: [{
-                        Sid: 'id-22',
-                        Effect: 'Allow',
-                        Principal: { AWS: 'user10' },
-                        Action: ['s3:*'],
-                        Resource: ['arn:aws:s3:::*']
-                        }
-                    ]
-                };
+                Version: '2012-10-17',
+                Statement: [{
+                    Sid: 'id-22',
+                    Effect: 'Allow',
+                    Principal: { AWS: 'user10' },
+                    Action: ['s3:*'],
+                    Resource: ['arn:aws:s3:::*']
+                }]
+            };
             const param = { name: test_bucket, policy: policy };
             try {
                 await bucketspace_fs.put_bucket_policy(param);
@@ -721,17 +722,16 @@ mocha.describe('bucketspace_fs', function() {
 
         mocha.it('put_bucket_policy other account array', async function() {
             const policy = {
-                    Version: '2012-10-17',
-                    Statement: [{
-                        Sid: 'id-22',
-                        Effect: 'Allow',
-                        Principal: { AWS: ['user1', 'user2'] },
-                        Action: ['s3:*'],
-                        Resource: ['arn:aws:s3:::*']
-                        }
-                    ]
-                };
-            const param = {name: test_bucket, policy: policy};
+                Version: '2012-10-17',
+                Statement: [{
+                    Sid: 'id-22',
+                    Effect: 'Allow',
+                    Principal: { AWS: ['user1', 'user2'] },
+                    Action: ['s3:*'],
+                    Resource: ['arn:aws:s3:::*']
+                }]
+            };
+            const param = { name: test_bucket, policy: policy };
             await bucketspace_fs.put_bucket_policy(param);
             const bucket_policy = await bucketspace_fs.get_bucket_policy(param, dummy_object_sdk);
             assert.deepEqual(bucket_policy.policy, policy);
@@ -741,17 +741,16 @@ mocha.describe('bucketspace_fs', function() {
 
         mocha.it('put_bucket_policy other account all', async function() {
             const policy = {
-                    Version: '2012-10-17',
-                    Statement: [{
-                        Sid: 'id-22',
-                        Effect: 'Allow',
-                        Principal: '*',
-                        Action: ['s3:*'],
-                        Resource: ['arn:aws:s3:::*']
-                        }
-                    ]
-                };
-            const param = {name: test_bucket, policy: policy};
+                Version: '2012-10-17',
+                Statement: [{
+                    Sid: 'id-22',
+                    Effect: 'Allow',
+                    Principal: '*',
+                    Action: ['s3:*'],
+                    Resource: ['arn:aws:s3:::*']
+                }]
+            };
+            const param = { name: test_bucket, policy: policy };
             await bucketspace_fs.put_bucket_policy(param);
             const bucket_policy = await bucketspace_fs.get_bucket_policy(param, dummy_object_sdk);
             assert.deepEqual(bucket_policy.policy, policy);
@@ -773,13 +772,13 @@ mocha.describe('bucketspace_fs', function() {
                 log_bucket: test_bucket,
                 log_prefix: 'test/'
             };
-            const param = {name: test_bucket, logging: { ...logging} };
+            const param = { name: test_bucket, logging: { ...logging } };
             await bucketspace_fs.put_bucket_logging(param);
             const output_log = await bucketspace_fs.get_bucket_logging(param);
             assert.deepEqual(output_log, logging);
         });
         mocha.it('delete_bucket_logging', async function() {
-            const param = {name: test_bucket};
+            const param = { name: test_bucket };
             await bucketspace_fs.delete_bucket_logging(param);
             const output_log = await bucketspace_fs.get_bucket_logging(param);
             assert.ok(output_log === undefined);
@@ -804,7 +803,7 @@ mocha.describe('bucketspace_fs', function() {
 });
 
 async function create_bucket(bucket_name) {
-    const param = { name: bucket_name};
+    const param = { name: bucket_name };
     await bucketspace_fs.create_bucket(param, dummy_object_sdk);
     const bucket_config_path = get_config_file_path(CONFIG_SUBDIRS.BUCKETS, param.name);
     const stat1 = await fs.promises.stat(bucket_config_path);
@@ -815,5 +814,3 @@ async function create_bucket(bucket_name) {
 function get_config_file_path(config_type_path, file_name) {
     return path.join(config_root, config_type_path, file_name + JSON_SUFFIX);
 }
-
-

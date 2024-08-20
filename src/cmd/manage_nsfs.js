@@ -13,6 +13,7 @@ const cloud_utils = require('../util/cloud_utils');
 const native_fs_utils = require('../util/native_fs_utils');
 const mongo_utils = require('../util/mongo_utils');
 const SensitiveString = require('../util/sensitive_string');
+const { account_id_cache } = require('../sdk/accountspace_fs');
 const ManageCLIError = require('../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
 const ManageCLIResponse = require('../manage_nsfs/manage_nsfs_cli_responses').ManageCLIResponse;
 const manage_nsfs_glacier = require('../manage_nsfs/manage_nsfs_glacier');
@@ -594,8 +595,6 @@ async function list_config_files(type, wide, show_secrets, filters = {}) {
         entry_names = await config_fs.list_buckets();
     }
 
-    // temporary cache for mapping bucker owner_account (id) -> bucket_owner (name)
-    const bucket_owners_map = {};
     let config_files_list = await P.map_with_concurrency(10, entry_names, async entry_name => {
         if (wide || should_filter) {
             const data = type === TYPES.ACCOUNT ?
@@ -607,11 +606,7 @@ async function list_config_files(type, wide, show_secrets, filters = {}) {
             if (!wide) return { name: entry_name };
             if (type === TYPES.ACCOUNT) return _.omit(data, show_secrets ? [] : ['access_keys']);
             if (type === TYPES.BUCKET) {
-                data.bucket_owner = bucket_owners_map[data.owner_account];
-                if (!data.bucket_owner) {
-                    await set_bucker_owner(data);
-                    bucket_owners_map[data.owner_account] = data.bucket_owner;
-                }
+                await set_bucker_owner(data);
                 return data;
             }
         } else {
@@ -657,7 +652,12 @@ function get_access_keys(action, user_input) {
  * @param {object} bucket_data 
  */
 async function set_bucker_owner(bucket_data) {
-    const account_data = await config_fs.get_identity_by_id(bucket_data.owner_account, TYPES.ACCOUNT, { silent_if_missing: true});
+    let account_data;
+    try {
+        account_data = await account_id_cache.get_with_cache({ _id: bucket_data.owner_account, config_fs });
+    } catch (err) {
+        dbg.warn(`set_bucker_owner.couldn't find bucket owner data by id ${bucket_data.owner_account}`);
+    }
     bucket_data.bucket_owner = account_data?.name;
 }
 

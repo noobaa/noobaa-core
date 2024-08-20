@@ -891,6 +891,7 @@ config.MASTER_KEYS_EXEC_MAX_RETRIES = 3;
 config.NC_DISABLE_ACCESS_CHECK = false;
 config.NC_DISABLE_SCHEMA_CHECK = false;
 
+config.ACCOUNTS_ID_CACHE_EXPIRY = 3 * 60 * 1000;
 ////////// GPFS //////////
 config.GPFS_DOWN_DELAY = 1000;
 

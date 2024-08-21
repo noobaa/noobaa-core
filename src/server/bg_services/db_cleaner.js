@@ -35,7 +35,8 @@ async function background_worker() {
     this.last_check = now;
     const { from_time } = md_aggregator.find_minimal_range({
         target_now: now,
-        system_store: system_store
+        system_store: system_store,
+        global_last_update: system.global_last_update
     });
     dbg.log2('DB_CLEANER: md_aggregator at', new Date(from_time));
     if (from_time < last_date_to_remove) {

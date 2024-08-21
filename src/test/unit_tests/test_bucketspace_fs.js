@@ -761,6 +761,28 @@ mocha.describe('bucketspace_fs', function() {
             assert.deepEqual(tag, { tagging: [] });
         });
     });
+
+    mocha.describe('bucket lifecycle operations', function() {
+        mocha.it('set_bucket_lifecycle_configuration_rules', async function() {
+            const lifecycle_rules = [{
+                id: 'rule1',
+                status: 'Enabled',
+                filter: { prefix: 'test/' },
+                expiration: { days: 30 }
+            }];
+            const param = { name: test_bucket, rules: lifecycle_rules };
+            await bucketspace_fs.set_bucket_lifecycle_configuration_rules(param);
+            const output_lifecycle = await bucketspace_fs.get_bucket_lifecycle_configuration_rules(param);
+            assert.deepEqual(output_lifecycle, lifecycle_rules);
+        });
+
+        mocha.it('delete_bucket_lifecycle', async function() {
+            const param = { name: test_bucket };
+            await bucketspace_fs.delete_bucket_lifecycle(param);
+            const output_lifecycle = await bucketspace_fs.get_bucket_lifecycle_configuration_rules(param);
+            assert.deepEqual(output_lifecycle, []);
+        });
+    });
 });
 
 async function create_bucket(bucket_name) {

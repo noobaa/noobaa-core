@@ -376,15 +376,41 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
     //////////////////////
 
     async get_bucket_lifecycle_configuration_rules(params) {
-        // TODO
+        try {
+            const { name } = params;
+            dbg.log0('BucketSpaceFS.get_bucket_lifecycle_configuration_rules: Bucket name', name);
+            const bucket = await this.config_fs.get_bucket_by_name(name);
+            return bucket.lifecycle_configuration_rules || [];
+        } catch (error) {
+            throw translate_error_codes(error, entity_enum.BUCKET);
+        }
     }
 
     async set_bucket_lifecycle_configuration_rules(params) {
-        // TODO
+        try {
+            const { name, rules } = params;
+            dbg.log0('BucketSpaceFS.set_bucket_lifecycle_configuration_rules: Bucket name, rules', name, rules);
+            const bucket = await this.config_fs.get_bucket_by_name(name);
+            bucket.lifecycle_configuration_rules = rules;
+            nsfs_schema_utils.validate_bucket_schema(bucket);
+            const update_bucket = JSON.stringify(bucket);
+            await this.config_fs.update_bucket_config_file(name, update_bucket);
+        } catch (err) {
+            throw translate_error_codes(err, entity_enum.BUCKET);
+        }
     }
 
     async delete_bucket_lifecycle(params) {
-        // TODO
+        try {
+            const { name } = params;
+            dbg.log0('BucketSpaceFS.delete_bucket_lifecycle: Bucket name', name);
+            const bucket = await this.config_fs.get_bucket_by_name(name);
+            delete bucket.lifecycle_configuration_rules;
+            nsfs_schema_utils.validate_bucket_schema(bucket);
+            await this.config_fs.update_bucket_config_file(name, JSON.stringify(bucket));
+        } catch (error) {
+            throw translate_error_codes(error, entity_enum.BUCKET);
+        }
     }
 
     ///////////////////////

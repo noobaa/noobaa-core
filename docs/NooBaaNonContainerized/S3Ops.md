@@ -25,6 +25,10 @@ The following lists describe the bucket and object operations available in NooBa
 - S3 DeleteBucketPolicy
 - S3 GetBucketPolicy
 - S3 GetBucketPolicyStatus
+- S3 PutBucketLifecycleConfiguration
+- S3 GetBucketLifecycleConfiguration
+- S3 DeleteBucketLifecycle
+
 
 ### Supported S3 Object Operations
 

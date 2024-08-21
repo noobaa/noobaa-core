@@ -28,7 +28,7 @@ module.exports = {
         name: {
             type: 'string',
         },
-        /** 
+        /**
          * @deprecated system_owner is kept for backward compatibility,
          * but will no longer be included in new / updated bucket json.
          */
@@ -74,6 +74,9 @@ module.exports = {
         },
         logging: {
             $ref: 'common_api#/definitions/bucket_logging',
+        },
+        lifecycle_configuration_rules: {
+            $ref: 'common_api#/definitions/bucket_lifecycle_configuration',
         },
     }
 };

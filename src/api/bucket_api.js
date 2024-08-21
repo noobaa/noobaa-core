@@ -599,12 +599,7 @@ module.exports = {
                 type: 'object',
                 properties: {
                     name: { $ref: 'common_api#/definitions/bucket_name' },
-                    rules: {
-                        type: 'array',
-                        items: {
-                            $ref: 'common_api#/definitions/bucket_lifecycle_rule'
-                        },
-                    }
+                    rules: { $ref: 'common_api#/definitions/bucket_lifecycle_configuration' }
                 }
             },
             auth: {
@@ -620,12 +615,7 @@ module.exports = {
                     name: { $ref: 'common_api#/definitions/bucket_name' },
                 }
             },
-            reply: {
-                type: 'array',
-                items: {
-                    $ref: 'common_api#/definitions/bucket_lifecycle_rule'
-                }
-            },
+            reply: { $ref: 'common_api#/definitions/bucket_lifecycle_configuration' },
             auth: {
                 system: 'admin'
             }
@@ -1385,7 +1375,7 @@ module.exports = {
                                 type: 'object',
                                 properties: {
                                     prefix: { type: 'string' },
-                                    // s3 support also tag or and operator of 2 tags/ tag and prefix 
+                                    // s3 support also tag or and operator of 2 tags/ tag and prefix
                                 }
                             },
                             sync_deletions: { type: 'boolean' },

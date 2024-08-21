@@ -349,7 +349,11 @@ function generate_anon_s3_client(endpoint) {
         requestHandler: new NodeHttpHandler({
             httpAgent: new http.Agent({ keepAlive: false })
         }),
-        endpoint
+        endpoint,
+        credentials: {
+            accessKeyId: '',
+            secretAccessKey: '',
+        },
     });
 }
 

@@ -129,7 +129,7 @@ describe('manage nsfs cli bucket flow', () => {
             await set_path_permissions_and_owner(bucket_options.path, account_defaults, 0o700);
             await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
             const bucket = await config_fs.get_bucket_by_name(bucket_defaults.name);
-            assert_bucket(bucket, bucket_options);
+            await assert_bucket(bucket, bucket_options, config_fs);
         });
 
         it('cli create bucket - account can not access path  NC_DISABLE_ACCESS_CHECK = true - should succeed', async () => {
@@ -256,7 +256,7 @@ describe('manage nsfs cli bucket flow', () => {
             await exec_manage_cli(type, action, command_flags);
             // compare the details
             const bucket = await config_fs.get_bucket_by_name(bucket_defaults.name);
-            assert_bucket(bucket, bucket_options);
+            await assert_bucket(bucket, bucket_options, config_fs);
         });
 
         it('cli create bucket using from_file with optional options (fs_backend)', async () => {
@@ -271,7 +271,7 @@ describe('manage nsfs cli bucket flow', () => {
             await exec_manage_cli(type, action, command_flags);
             // compare the details
             const bucket = await config_fs.get_bucket_by_name(bucket_defaults.name);
-            assert_bucket(bucket, bucket_options);
+            await assert_bucket(bucket, bucket_options, config_fs);
             expect(bucket.fs_backend).toEqual(bucket_options.fs_backend);
         });
 
@@ -287,7 +287,7 @@ describe('manage nsfs cli bucket flow', () => {
             await exec_manage_cli(type, action, command_flags);
             // compare the details
             const bucket = await config_fs.get_bucket_by_name(bucket_defaults.name);
-            assert_bucket(bucket, bucket_options);
+            await assert_bucket(bucket, bucket_options, config_fs);
             expect(bucket.bucket_policy).toEqual(bucket_options.s3_policy);
         });
 
@@ -511,7 +511,8 @@ describe('manage nsfs cli bucket flow', () => {
             await set_path_permissions_and_owner(bucket_defaults.path, account_defaults2, 0o700);
             await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
             const bucket = await config_fs.get_bucket_by_name(bucket_defaults.name);
-            expect(bucket.bucket_owner).toBe(account_defaults2.name);
+            const owner_data = await config_fs.get_identity_by_id(bucket.owner_account);
+            expect(owner_data.name).toBe(account_defaults2.name);
         });
 
         it('should fail - cli bucket update - without identifier', async () => {
@@ -878,9 +879,11 @@ async function create_json_file(path_to_dir, file_name, data) {
  * assert_bucket will verify the fields of the buckets (only required fields)
  * @param {object} bucket
  * @param {object} bucket_options
+ * @param {import('../../../sdk/config_fs').ConfigFS} config_fs
  */
-function assert_bucket(bucket, bucket_options) {
+async function assert_bucket(bucket, bucket_options, config_fs) {
     expect(bucket.name).toEqual(bucket_options.name);
-    expect(bucket.bucket_owner).toEqual(bucket_options.owner);
+    const owner_data = await config_fs.get_identity_by_id(bucket.owner_account);
+    expect(owner_data.name).toBe(bucket_options.owner);
     expect(bucket.path).toEqual(bucket_options.path);
 }

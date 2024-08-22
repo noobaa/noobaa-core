@@ -1861,7 +1861,6 @@ function _new_bucket_defaults(account, bucket_name, bucket_storage_path) {
         _id: '65a8edc9bc5d5bbf9db71c75',
         name: bucket_name,
         owner_account: account._id,
-        bucket_owner: new SensitiveString(account.name),
         creation_date: new Date().toISOString(),
         path: bucket_storage_path,
         should_create_underlying_storage: true,

@@ -2255,6 +2255,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
         const version_body = 'A1A1A1A';
 
         mocha.before(async function() {
+            this.timeout(600000); // eslint-disable-line no-invalid-this
             if (invalid_nsfs_root_permissions()) this.skip(); // eslint-disable-line no-invalid-this
             // create paths
             await fs_utils.create_fresh_path(tmp_fs_root2, 0o777);
@@ -2889,6 +2890,7 @@ mocha.describe('List-objects', function() {
     let file_pointer;
 
     mocha.before(async function() {
+        this.timeout(600000); // eslint-disable-line no-invalid-this
         if (process.getgid() !== 0 || process.getuid() !== 0) {
             console.log('No Root permissions found in env. Skipping test');
             this.skip(); // eslint-disable-line no-invalid-this

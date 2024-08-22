@@ -15,7 +15,7 @@ const util = require('util');
 const bucket_policy_utils = require('../endpoint/s3/s3_bucket_policy_utils');
 const nsfs_schema_utils = require('../manage_nsfs/nsfs_schema_utils');
 const nc_mkm = require('../manage_nsfs/nc_master_key_manager').get_instance();
-const { ConfigFS, JSON_SUFFIX } = require('./config_fs');
+const { ConfigFS, JSON_SUFFIX, CONFIG_TYPES } = require('./config_fs');
 const mongo_utils = require('../util/mongo_utils');
 
 const KeysSemaphore = require('../util/keys_semaphore');
@@ -121,11 +121,21 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             };
 
             bucket.name = new SensitiveString(bucket.name);
-            bucket.bucket_owner = new SensitiveString(bucket.bucket_owner);
+            const account_config = await this.config_fs.get_identity_by_id(
+                bucket.owner_account,
+                CONFIG_TYPES.ACCOUNT,
+                { silent_if_missing: true }
+            );
+
+            if (!account_config) {
+                dbg.warn(`Bucket Owner does not exist ${bucket.owner_account}`);
+            }
+            bucket.bucket_owner = new SensitiveString(account_config?.name);
             bucket.owner_account = {
                 id: bucket.owner_account,
                 email: bucket.bucket_owner
             };
+
             if (bucket.s3_policy) {
                 for (const [s_index, statement] of bucket.s3_policy.Statement.entries()) {
                     const statement_principal = statement.Principal || statement.NotPrincipal;
@@ -286,7 +296,6 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             tag: js_utils.default_value(tag, undefined),
             owner_account: account._id,
             creator: account._id,
-            bucket_owner: new SensitiveString(account.name),
             versioning: config.NSFS_VERSIONING_ENABLED && lock_enabled ? 'ENABLED' : 'DISABLED',
             object_lock_configuration: config.WORM_ENABLED ? {
                 object_lock_enabled: lock_enabled ? 'Enabled' : 'Disabled',
@@ -667,7 +676,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
     // so they can be re-used
     async has_bucket_action_permission(bucket, account, action, bucket_path = "") {
         const account_identifier = account.name.unwrap();
-        dbg.log1('has_bucket_action_permission:', bucket.name.unwrap(), account_identifier, bucket.bucket_owner.unwrap());
+        dbg.log1('has_bucket_action_permission:', bucket.name.unwrap(), account_identifier, bucket.owner_account);
 
         const is_system_owner = Boolean(bucket.system_owner) && bucket.system_owner.unwrap() === account_identifier;
 

@@ -480,6 +480,8 @@ config.EVENT_LEVEL = 5;
 config.LOG_TO_STDERR_ENABLED = true;
 config.LOG_TO_SYSLOG_ENABLED = false;
 
+config.LOG_COLOR_ENABLED = process.env.NOOBAA_LOG_COLOR ? process.env.NOOBAA_LOG_COLOR === 'true' : true;
+
 // TEST Mode
 config.test_mode = false;
 

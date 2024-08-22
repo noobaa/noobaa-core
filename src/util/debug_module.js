@@ -38,7 +38,7 @@ if (process.env.NOOBAA_LOG_LEVEL) {
 // override the default inspect options
 if (!util.inspect.defaultOptions) util.inspect.defaultOptions = {};
 util.inspect.defaultOptions.depth = 10;
-util.inspect.defaultOptions.colors = true;
+util.inspect.defaultOptions.colors = config.LOG_COLOR_ENABLED;
 util.inspect.defaultOptions.breakLength = Infinity;
 
 //Detect our context, node/atom/browser
@@ -290,25 +290,34 @@ class InternalDebugLogger {
     }
 
     message_format(level, args) {
+
+        let level_color = "";
+        let level_str = "";
+        let prefix = "";
         let msg;
+
         if (args.length > 1) {
             msg = util.format(...args);
         } else {
             msg = args[0] || '';
         }
 
-        //Level coloring
-        let level_color = '\x1B[31m';
-        if (this._levels[level]) {
-            level_color = this._levels[level] === 1 ? '\x1B[33m' : '\x1B[36m';
-        }
-
-        //Level String
-        const level_str = level_color + `[${level}]`.padStart(7) + '\x1B[39m';
-
         const proc = '[' + this._proc_name + '/' + this._pid + '] ';
         const ftime = formatted_time();
-        const prefix = '\x1B[32m' + ftime + '\x1B[35m ' + proc;
+
+        //Level coloring and string
+        if (config.LOG_COLOR_ENABLED) {
+            level_color = '\x1B[31m';
+            if (this._levels[level]) {
+                level_color = this._levels[level] === 1 ? '\x1B[33m' : '\x1B[36m';
+            }
+            level_str = level_color + `[${level}]`.padStart(7) + '\x1B[39m';
+            prefix = '\x1B[32m' + ftime + '\x1B[35m ' + proc;
+        } else {
+            level_str = `[${level}]`.padStart(7);
+            prefix = ftime + proc;
+        }
+
         msg = level_str + msg;
         const msg_oneline = strip_newlines(msg);
 

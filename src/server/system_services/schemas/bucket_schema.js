@@ -201,10 +201,7 @@ module.exports = {
 
         //lifecycle rules if exist
         lifecycle_configuration_rules: {
-            type: 'array',
-            items: {
-                $ref: 'common_api#/definitions/bucket_lifecycle_rule'
-            }
+            $ref: 'common_api#/definitions/bucket_lifecycle_configuration'
         },
         tagging: {
             $ref: 'common_api#/definitions/tagging',

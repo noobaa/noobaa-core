@@ -117,12 +117,36 @@ ManageCLIResponse.BucketList = Object.freeze({
 });
 
 ///////////////////////////////
-// LOGGING RESPONSES ///
+//     LOGGING RESPONSES     //
 ///////////////////////////////
+
 ManageCLIResponse.LoggingExported = Object.freeze({
     code: 'LoggingExported',
     status: {}
 });
+
+///////////////////////////////
+//     UPGRADE RESPONSES     //
+///////////////////////////////
+
+ManageCLIResponse.UpgradeSuccessful = Object.freeze({
+    code: 'UpgradeSuccessful',
+    status: {}
+});
+
+ManageCLIResponse.UpgradeStatus = Object.freeze({
+    code: 'UpgradeStatus',
+    status: {}
+});
+
+ManageCLIResponse.UpgradeHistory = Object.freeze({
+    code: 'UpgradeHistory',
+    status: {}
+});
+
+///////////////////////////////
+//  RESPONSES-EVENT MAPPING  //
+///////////////////////////////
 
 const NSFS_CLI_SUCCESS_EVENT_MAP = {
     AccountCreated: NoobaaEvent.ACCOUNT_CREATED,

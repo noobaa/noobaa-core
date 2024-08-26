@@ -239,7 +239,7 @@ function get_coretest_path() {
  * @param {string} type
  * @param {string} action
  * @param {object} options
- * @returns {Promise<string>}
+ * @returns {Promise<string | Error>}
  */
 async function exec_manage_cli(type, action, options, is_silent, env) {
     let flags = ``;

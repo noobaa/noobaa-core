@@ -89,7 +89,7 @@ ManageCLIError.InvalidArgumentType = Object.freeze({
 
 ManageCLIError.InvalidType = Object.freeze({
     code: 'InvalidType',
-    message: 'Invalid type, available types are account, bucket, logging or whitelist',
+    message: 'Invalid type, available types are account, bucket, logging, whitelist or upgrade',
     http_code: 400,
 });
 
@@ -444,6 +444,40 @@ ManageCLIError.BucketNotEmpty = Object.freeze({
     message: 'The bucket you tried to delete is not empty. You must delete all versions in the bucket',
     http_code: 400,
 });
+
+
+///////////////////////////////
+//      UPGRADE ERRORS       //
+///////////////////////////////
+
+ManageCLIError.InvalidUpgradeAction = Object.freeze({
+    code: 'InvalidUpgradeAction',
+    message: 'Invalid Upgrade action',
+    http_code: 400,
+});
+
+ManageCLIError.UpgradeFailed = Object.freeze({
+    code: 'UpgradeFailed',
+    message: 'Upgrade request failed',
+    http_code: 500,
+});
+
+ManageCLIError.UpgradeStatusFailed = Object.freeze({
+    code: 'UpgradeStatusFailed',
+    message: 'Upgrade status request failed',
+    http_code: 500,
+});
+
+ManageCLIError.UpgradeHistoryFailed = Object.freeze({
+    code: 'UpgradeHistoryFailed',
+    message: 'Upgrade history request failed',
+    http_code: 500,
+});
+
+///////////////////////////////
+//       ERRORS MAPPING      //
+///////////////////////////////
+
 
 ManageCLIError.FS_ERRORS_TO_MANAGE = Object.freeze({
     EACCES: ManageCLIError.AccessDenied,

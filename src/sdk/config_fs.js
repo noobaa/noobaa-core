@@ -67,6 +67,7 @@ class ConfigFS {
         this.identities_dir_path = path.join(config_root, CONFIG_SUBDIRS.IDENTITIES);
         this.access_keys_dir_path = path.join(config_root, CONFIG_SUBDIRS.ACCESS_KEYS);
         this.buckets_dir_path = path.join(config_root, CONFIG_SUBDIRS.BUCKETS);
+        this.system_json_path = path.join(config_root, 'system.json');
         this.config_json_path = path.join(config_root, 'config.json');
         this.fs_context = fs_context || native_fs_utils.get_process_fs_context(this.config_root_backend);
     }
@@ -349,7 +350,7 @@ class ConfigFS {
      * @returns {string} 
     */
     get_identity_dir_path_by_id(id) {
-        return path.join(this.config_root, CONFIG_SUBDIRS.IDENTITIES, id, '/');
+        return path.join(this.identities_dir_path, id, '/');
     }
 
     /**
@@ -841,6 +842,15 @@ class ConfigFS {
         await native_fs_utils.delete_config_file(this.fs_context, this.buckets_dir_path, bucket_config_path);
     }
 
+    /**
+     * get_system_config_file read system.json file
+     * @param {{silent_if_missing?: boolean}} options 
+     * @returns {Promise<Object>}
+     */
+    async get_system_config_file(options) {
+        const system_data = await this.get_config_data(this.system_json_path, options);
+        return system_data;
+    }
 
     ////////////////////////
     ///     HELPERS     ////

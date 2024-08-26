@@ -1,35 +1,41 @@
 /* Copyright (C) 2024 NooBaa */
 'use strict';
 
-const TYPES = {
+const TYPES = Object.freeze({
     ACCOUNT: 'account',
     BUCKET: 'bucket',
     IP_WHITELIST: 'whitelist',
     GLACIER: 'glacier',
     LOGGING: 'logging',
-    DIAGNOSE: 'diagnose'
-};
+    DIAGNOSE: 'diagnose',
+    UPGRADE: 'upgrade'
+});
 
-const ACTIONS = {
+const ACTIONS = Object.freeze({
     ADD: 'add',
     UPDATE: 'update',
     DELETE: 'delete',
     LIST: 'list',
     STATUS: 'status'
-};
+});
 
-const GLACIER_ACTIONS = {
+const GLACIER_ACTIONS = Object.freeze({
     MIGRATE: 'migrate',
     RESTORE: 'restore',
     EXPIRY: 'expiry',
-};
+});
 
-const DIAGNOSE_ACTIONS = {
+const DIAGNOSE_ACTIONS = Object.freeze({
     HEALTH: 'health',
     GATHER_LOGS: 'gather-logs',
     METRICS: 'metrics'
-};
+});
 
+const UPGRADE_ACTIONS = Object.freeze({
+    START: 'start',
+    STATUS: 'status',
+    HISTORY: 'history'
+});
 
 const CONFIG_ROOT_FLAG = 'config_root';
 const CLI_MUTUAL_OPTIONS = new Set([CONFIG_ROOT_FLAG, 'config_root_backend', 'debug']);
@@ -134,6 +140,7 @@ exports.TYPES = TYPES;
 exports.ACTIONS = ACTIONS;
 exports.GLACIER_ACTIONS = GLACIER_ACTIONS;
 exports.DIAGNOSE_ACTIONS = DIAGNOSE_ACTIONS;
+exports.UPGRADE_ACTIONS = UPGRADE_ACTIONS;
 exports.VALID_OPTIONS = VALID_OPTIONS;
 exports.OPTION_TYPE = OPTION_TYPE;
 exports.FROM_FILE = FROM_FILE;

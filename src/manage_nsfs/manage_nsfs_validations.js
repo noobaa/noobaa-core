@@ -12,7 +12,7 @@ const bucket_policy_utils = require('../endpoint/s3/s3_bucket_policy_utils');
 const { throw_cli_error, get_bucket_owner_account, get_options_from_file, get_boolean_or_string_value,
     check_root_account_owns_user, is_name_update, is_access_key_update } = require('../manage_nsfs/manage_nsfs_cli_utils');
 const { TYPES, ACTIONS, VALID_OPTIONS, OPTION_TYPE, FROM_FILE, BOOLEAN_STRING_VALUES, BOOLEAN_STRING_OPTIONS,
-    GLACIER_ACTIONS, LIST_UNSETABLE_OPTIONS, ANONYMOUS, DIAGNOSE_ACTIONS } = require('../manage_nsfs/manage_nsfs_constants');
+    GLACIER_ACTIONS, LIST_UNSETABLE_OPTIONS, ANONYMOUS, DIAGNOSE_ACTIONS, UPGRADE_ACTIONS } = require('../manage_nsfs/manage_nsfs_constants');
 const iam_utils = require('../endpoint/iam/iam_utils');
 
 /////////////////////////////
@@ -76,6 +76,8 @@ function validate_type_and_action(type, action) {
         if (!Object.values(GLACIER_ACTIONS).includes(action)) throw_cli_error(ManageCLIError.InvalidAction);
     } else if (type === TYPES.DIAGNOSE) {
         if (!Object.values(DIAGNOSE_ACTIONS).includes(action)) throw_cli_error(ManageCLIError.InvalidDiagnoseAction);
+    } else if (type === TYPES.UPGRADE) {
+        if (!Object.values(UPGRADE_ACTIONS).includes(action)) throw_cli_error(ManageCLIError.InvalidUpgradeAction);
     }
 }
 

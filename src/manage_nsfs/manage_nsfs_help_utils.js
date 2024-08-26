@@ -1,7 +1,7 @@
 /* Copyright (C) 2024 NooBaa */
 'use strict';
 
-const { TYPES, ACTIONS, GLACIER_ACTIONS, DIAGNOSE_ACTIONS } = require('./manage_nsfs_constants');
+const { TYPES, ACTIONS, GLACIER_ACTIONS, DIAGNOSE_ACTIONS, UPGRADE_ACTIONS } = require('./manage_nsfs_constants');
 
 const HELP = `
 Help:
@@ -281,6 +281,43 @@ Usage:
 
 `;
 
+
+const UPGRADE_OPTIONS = `
+Usage:
+
+    noobaa-cli upgrade <action> [flags]
+
+List of actions supported:
+
+    start
+    status
+    history
+    
+`;
+
+const UPGRADE_START_OPTIONS = `
+'upgrade start' is a noobaa-cli command that will start config directory upgrade run.
+Run 'upgrade start' after upgrading NooBaa RPMs on all the cluster nodes, after starting an upgrade of the config directory,
+S3 I/O, S3 Buckets getters and NooBaa CLI Account/Buckets/Whitelist getters operations will still be working
+But updates of the config directory will be blocked during the upgrade of the config directory.
+'upgrade start' should be executed on one node, the config directory changes will be available for all the nodes of the cluster.
+`;
+
+const UPGRADE_STATUS_OPTIONS = `
+'upgrade status' is a noobaa-cli command that will return the status of an ongoing upgrade run,
+the available status information is upgrade start timestmp, from_version, to_version, config_dir_from_version,
+config_dir_to_version, running_host etc.
+
+`;
+
+const UPGRADE_HISTORY_OPTIONS = `
+'upgrade history' is a noobaa-cli command that will return the history of past upgrades,
+the available history information is an array of upgrade information - upgrade start timestmp, from_version, to_version, config_dir_from_version,
+config_dir_to_version, running_host etc.
+
+`;
+
+
 /** 
  * print_usage would print the help according to the arguments that were passed
  * @param {string} type
@@ -305,6 +342,9 @@ function print_usage(type, action) {
             break;
         case TYPES.DIAGNOSE:
             print_help_diagnose(action);
+            break;
+        case TYPES.UPGRADE:
+            print_help_upgrade(action);
             break;
         default:
             process.stdout.write(HELP + '\n');
@@ -368,6 +408,9 @@ function print_help_bucket(action) {
     process.exit(0);
 }
 
+/**
+ * @param {string} action
+ */
 function print_help_glacier(action) {
     switch (action) {
         case GLACIER_ACTIONS.MIGRATE:
@@ -384,6 +427,9 @@ function print_help_glacier(action) {
     }
 }
 
+/**
+ * @param {string} action
+ */
 function print_help_diagnose(action) {
     switch (action) {
         case DIAGNOSE_ACTIONS.HEALTH:
@@ -399,6 +445,26 @@ function print_help_diagnose(action) {
             process.stdout.write(DIAGNOSE_OPTIONS.trimStart());
     }
 }
+
+/**
+ * @param {string} action
+ */
+function print_help_upgrade(action) {
+    switch (action) {
+        case UPGRADE_ACTIONS.START:
+            process.stdout.write(UPGRADE_START_OPTIONS.trimStart());
+            break;
+        case UPGRADE_ACTIONS.STATUS:
+            process.stdout.write(UPGRADE_STATUS_OPTIONS.trimStart());
+            break;
+        case UPGRADE_ACTIONS.HISTORY:
+            process.stdout.write(UPGRADE_HISTORY_OPTIONS.trimStart());
+            break;
+        default:
+            process.stdout.write(UPGRADE_OPTIONS.trimStart());
+    }
+}
+
 
 // EXPORTS
 exports.print_usage = print_usage;

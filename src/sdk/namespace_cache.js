@@ -683,6 +683,9 @@ class NamespaceCache {
                 async_get_last_modified_time: async () => {
                     const upload_res = await hub_promise;
                     const last_modified_time = (new Date(upload_res.last_modified_time)).getTime();
+                    if (isNaN(last_modified_time)) {
+                        throw new Error('Invalid last_modified_time returned from hub_promise, Expected a valid date or timestamp.');
+                    }
                     return last_modified_time;
                 },
                 upload_chunks_hook: this.update_cache_stats_hook(params.bucket),

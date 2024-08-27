@@ -31,7 +31,7 @@ NooBaa Non Containerized solution includes the following components -
 5. [Storage File System](#create-storage-file-system-paths) - A File system for storing objects.
 
 ### NooBaa High Level Diagram
-![NooBaa Non Containerized Components Diagram](https://github.com/noobaa/noobaa-core/assets/35330373/8d6cce71-e9e8-4e6a-ad88-5c65255bacc7)
+![NooBaa Non Containerized Components Diagram](https://github.com/user-attachments/assets/dad9ecc8-7d8f-46cb-a832-4fc7e40a640d)
 
 
 ## Build NooBaa RPM

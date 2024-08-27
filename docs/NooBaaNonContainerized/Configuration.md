@@ -49,7 +49,7 @@ For Developers - Use `--config_root` flag for specifying a custom configuration 
 
 ### Configuration files permissions
 Mode
-* Configuration files generated under the `accounts/` or `buckets/` directories will have 600 permissions, granting read and write access exclusively to the owner of each configuration file.
+* Configuration files generated under the `identities/` or `buckets/` directories will have 600 permissions, granting read and write access exclusively to the owner of each configuration file.
 
 Ownership
 * Configuration file created by the NooBaa CLI tool will be owned by the user who ran the NooBaa CLI command.
@@ -62,8 +62,9 @@ The default config directory structure contains the following files/directories 
 > sudo ls /etc/noobaa.conf.d/
 system.json                 // Required
 access_keys/                // Required
-accounts/                   // Required
+accounts_by_name/           // Required
 buckets/                    // Required
+identities/                 // Required
 config.json                 // Optional
 master_keys.json            // Optional
 certificates/               // Optional
@@ -81,8 +82,9 @@ config_dir_redirect                             // Required
 > sudo ls /path/to/custom/config/dir/
 system.json                                     // Required
 access_keys/                                    // Required
-accounts/                                       // Required
+accounts_by_name/                               // Required
 buckets/                                        // Required
+identities/                                     // Required
 config.json                                     // Optional
 master_keys.json                                // Optional
 certificates/                                   // Optional
@@ -113,29 +115,33 @@ certificates/                                   // Optional
         }
     }
     ```
-`accounts/` - 
+
+`accounts_by_name/`
 * <u>Type</u>: Directory.
 * <u>Required</u>: Yes.
-* <u>Description</u>: A directory that contains configuration files for individual accounts, each account configuration file is named {account_name}.json and adheres to the [account schema](../../src/server/system_services/schemas/nsfs_account_schema.js).
+* <u>Description</u>: A directory that contains symlinks to accounts configurations, each symlink named 
+{account_name}.symlink, linking to the account config within `identities/<account-id>` directory,
+configuration file is named identity.json and adheres to the [account schema](../../src/server/system_services/schemas/nsfs_account_schema.js). The account name symlink points to a relative path of the account rather than an absolute path, for example: `../identities/1111/identity.json`.
 * <u>Example</u>:
     ```sh
-    > ls /etc/noobaa.conf.d/accounts/
-    alice.json
-    bob.json
-    charlie.json
+    > ls /etc/noobaa.conf.d/accounts_by_name/
+    alice.symlink -> ../identities/1111/identity.json
+    bob.symlink -> ../identities/2222/identity.json
+    charlie.symlink -> ../identities/333/identity.json
     ```
 
 `access_keys/` 
 * <u>Type</u>: Directory.
 * <u>Required</u>: Yes.
-* <u>Description</u>: A directory that contains symlinks to accounts configurations, each symlink named {access_key}.symlink, linking to an account within `accounts/` directory. The access key symlink points to a relative path of the account rather than an absolute path, for example: `../accounts/alice.json`.
+* <u>Description</u>: A directory that contains symlinks to accounts configurations, each symlink named {access_key}.symlink, linking to an account within `identities/<account-id>/` directory. The access key symlink points to a relative path of the account rather than an absolute path, for example: `../identities/3333/identity.json`.
 * <u>Example</u>:
     ```sh
     > ls -la /etc/noobaa.conf.d/access_keys/
-    0kbUZlNM9k4SCvrw1pftEXAMPLE.symlink -> ../accounts/alice.json
-    1kbUTlNM9k4SCvrw2pfxEXAMPLE.symlink -> ../accounts/bob.json
-    2kbUMlNM9k4SCvrw3pfyEXAMPLE.symlink -> ../accounts/charlie.json
+    0kbUZlNM9k4SCvrw1pftEXAMPLE.symlink -> ../identities/3333/identity.json
+    1kbUTlNM9k4SCvrw2pfxEXAMPLE.symlink -> ../identities/1111/identity.json
+    2kbUMlNM9k4SCvrw3pfyEXAMPLE.symlink -> ../identities/2222/identity.json
     ```
+
 `buckets/`
 * <u>Type</u>: Directory.
 * <u>Required</u>: Yes.
@@ -147,6 +153,23 @@ certificates/                                   // Optional
     bucket2.json
     bucket3.json
     ```
+
+`identities/`
+* <u>Type</u>: Directory.
+* <u>Required</u>: Yes.
+* <u>Description</u>: A directory that contains configuration files for individual identities, each identity configuration file is named {identity}.json. In case the identity is an account it adheres to the [account schema](../../src/server/system_services/schemas/nsfs_account_schema.js).
+* <u>Example</u>:
+    ```sh
+    > tree /etc/noobaa.conf.d/identities/
+    /etc/noobaa.conf.d/identities
+    ├── 1111
+    │   └── identity.json
+    └── 2222
+        └── identity.json
+    └── 3333
+    └── identity.json
+    ```
+
 `config.json`
 * <u>Type</u>: File.
 * <u>Required</u>: No.

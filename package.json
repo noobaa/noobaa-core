@@ -71,15 +71,15 @@
     ]
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "3.635.0",
-    "@aws-sdk/client-sts": "3.635.0",
+    "@aws-sdk/client-s3": "3.637.0",
+    "@aws-sdk/client-sts": "3.637.0",
     "@azure/identity": "4.4.1",
     "@azure/monitor-query": "1.3.1",
     "@azure/storage-blob": "12.24.0",
     "@google-cloud/storage": "7.12.1",
     "@smithy/node-http-handler": "3.1.4",
     "ajv": "8.17.1",
-    "aws-sdk": "2.1679.0",
+    "aws-sdk": "2.1682.0",
     "bcrypt": "5.1.1",
     "big-integer": "1.6.52",
     "bindings": "1.5.0",
@@ -126,12 +126,12 @@
     "yazl": "2.5.1"
   },
   "devDependencies": {
-    "@aws-sdk/lib-storage": "3.635.0",
+    "@aws-sdk/lib-storage": "3.637.0",
     "@stylistic/eslint-plugin-js": "1.8.1",
     "@types/jest": "29.5.12",
     "@types/lodash": "4.17.7",
     "@types/mongodb": "4.0.7",
-    "@types/node": "20.14.15",
+    "@types/node": "20.16.1",
     "@types/pg": "8.11.6",
     "@types/request": "2.48.12",
     "eslint": "8.57.0",

@@ -47,10 +47,10 @@ ENV PORT 8080
 ENV SSL_PORT 8443
 ENV ENDPOINT_PORT 6001
 ENV ENDPOINT_SSL_PORT 6443
-ENV WEB_NODE_OPTIONS ''
-ENV BG_NODE_OPTIONS ''
-ENV HOSTED_AGENTS_NODE_OPTIONS ''
-ENV ENDPOINT_NODE_OPTIONS ''
+ENV WEB_NODE_OPTIONS '--no-experimental-websocket'
+ENV BG_NODE_OPTIONS '--no-experimental-websocket'
+ENV HOSTED_AGENTS_NODE_OPTIONS '--no-experimental-websocket'
+ENV ENDPOINT_NODE_OPTIONS '--no-experimental-websocket'
 
 ##############################################################
 # Layers:

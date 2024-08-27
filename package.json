@@ -131,7 +131,7 @@
     "@types/jest": "29.5.12",
     "@types/lodash": "4.17.7",
     "@types/mongodb": "4.0.7",
-    "@types/node": "20.16.1",
+    "@types/node": "22.5.0",
     "@types/pg": "8.11.6",
     "@types/request": "2.48.12",
     "eslint": "8.57.0",

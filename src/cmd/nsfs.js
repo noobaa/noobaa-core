@@ -23,6 +23,7 @@ const os = require('os');
 const fs = require('fs');
 const util = require('util');
 const minimist = require('minimist');
+const { ConfigFS } = require('../sdk/config_fs');
 
 if (process.env.LOCAL_MD_SERVER === 'true') {
     require('../server/system_services/system_store').get_instance({ standalone: true });
@@ -39,14 +40,13 @@ const BucketSpaceSimpleFS = require('../sdk/bucketspace_simple_fs');
 const BucketSpaceFS = require('../sdk/bucketspace_fs');
 const SensitiveString = require('../util/sensitive_string');
 const endpoint_stats_collector = require('../sdk/endpoint_stats_collector');
-const path = require('path');
-const json_utils = require('../util/json_utils');
 //const { RPC_BUFFERS } = require('../rpc');
 const pkg = require('../../package.json');
 const AccountSDK = require('../sdk/account_sdk');
 const AccountSpaceFS = require('../sdk/accountspace_fs');
 const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
 const { set_debug_level } = require('../manage_nsfs/manage_nsfs_cli_utils');
+const { NCUpgradeManager } = require('../upgrade/nc_upgrade_manager');
 
 const HELP = `
 Help:
@@ -240,29 +240,39 @@ class NsfsAccountSDK extends AccountSDK {
     }
 }
 
-async function init_nsfs_system(config_root) {
-    const system_data_path = path.join(config_root, 'system.json');
-    const system_data = new json_utils.JsonFileWrapper(system_data_path);
+async function init_nc_system(config_root) {
+    const config_fs = new ConfigFS(config_root);
+    const system_data = await config_fs.get_system_config_file({silent_if_missing: true});
 
-    const data = await system_data.read();
     const hostname = os.hostname();
     // If the system data already exists, we should not create it again
-    if (data?.[hostname]?.current_version) return;
-
+    const updated_system_json = system_data || {};
+    if (updated_system_json[hostname]?.current_version && updated_system_json.config_directory) return;
+    if (!updated_system_json[hostname]?.current_version) {
+        updated_system_json[hostname] = {
+            current_version: pkg.version,
+            upgrade_history: { successful_upgrades: [], last_failure: undefined }
+        };
+    }
+    // If it's the first time a config_directory data is added to system.json
+    if (!updated_system_json.config_directory) {
+        updated_system_json.config_directory = {
+            config_dir_version: config_fs.config_dir_version,
+            upgrade_package_version: pkg.version,
+            phase: 'CONFIG_DIR_UNLOCKED',
+            upgrade_history: { successful_upgrades: [], last_failure: undefined }
+        };
+    }
     try {
-        await system_data.update({
-            ...data,
-            [hostname]: {
-                current_version: pkg.version,
-                upgrade_history: {
-                    successful_upgrades: [],
-                    last_failure: undefined
-                }
-            }
-        });
-        console.log('created NSFS system data with version: ', pkg.version);
+        if (system_data) {
+            await config_fs.update_system_config_file(JSON.stringify(updated_system_json));
+            console.log('updated NC system data with version: ', pkg.version);
+        } else {
+            await config_fs.create_system_config_file(JSON.stringify(updated_system_json));
+            console.log('created NC system data with version: ', pkg.version);
+        }
     } catch (err) {
-        const msg = 'failed to create NSFS system data due to - ' + err.message;
+        const msg = 'failed to create/update NC system data due to - ' + err.message;
         const error = new Error(msg);
         console.error(msg, err);
         throw error;
@@ -302,6 +312,11 @@ async function main(argv = minimist(process.argv.slice(2))) {
         const backend = argv.backend || (process.env.GPFS_DL_PATH ? 'GPFS' : '');
         const versioning = argv.versioning || 'DISABLED';
         const fs_root = argv._[0] || '';
+
+        // Do not move this function - we need to update RPM changes before starting the endpoint
+        const config_fs = new ConfigFS(nsfs_config_root);
+        const nc_upgrade_manager = new NCUpgradeManager(config_fs);
+        await nc_upgrade_manager.update_rpm_upgrade();
 
         const fs_config = {
             uid,
@@ -348,7 +363,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
             nsfs_config_root,
         });
 
-        if (!simple_mode) await init_nsfs_system(nsfs_config_root);
+        if (!simple_mode) await init_nc_system(nsfs_config_root);
 
         const endpoint = require('../endpoint/endpoint');
         await endpoint.main({

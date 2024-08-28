@@ -125,6 +125,8 @@ function validate_no_extra_options(type, action, input_options, is_options_from_
         valid_options = VALID_OPTIONS.glacier_options[action];
     } else if (type === TYPES.DIAGNOSE) {
         valid_options = VALID_OPTIONS.diagnose_options[action];
+    } else if (type === TYPES.UPGRADE) {
+        valid_options = VALID_OPTIONS.upgrade_options[action];
     } else {
         valid_options = VALID_OPTIONS.whitelist_options;
     }

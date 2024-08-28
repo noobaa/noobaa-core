@@ -77,6 +77,12 @@ const VALID_OPTIONS_DIAGNOSE = {
     'metrics': new Set([CONFIG_ROOT_FLAG])
 };
 
+const VALID_OPTIONS_UPGRADE = {
+    'start': new Set([ 'skip_verification', 'expected_version', 'expected_hosts', 'custom_upgrade_scripts_dir', ...CLI_MUTUAL_OPTIONS]),
+    'status': new Set([ ...CLI_MUTUAL_OPTIONS]),
+    'history': new Set([...CLI_MUTUAL_OPTIONS])
+};
+
 
 const VALID_OPTIONS_WHITELIST = new Set(['ips', ...CLI_MUTUAL_OPTIONS]);
 
@@ -89,7 +95,8 @@ const VALID_OPTIONS = {
     whitelist_options: VALID_OPTIONS_WHITELIST,
     from_file_options: VALID_OPTIONS_FROM_FILE,
     anonymous_account_options: VALID_OPTIONS_ANONYMOUS_ACCOUNT,
-    diagnose_options: VALID_OPTIONS_DIAGNOSE
+    diagnose_options: VALID_OPTIONS_DIAGNOSE,
+    upgrade_options: VALID_OPTIONS_UPGRADE
 };
 
 const OPTION_TYPE = {
@@ -123,6 +130,11 @@ const OPTION_TYPE = {
     all_bucket_details: 'boolean',
     https_port: 'number',
     debug: 'number',
+    // upgrade options
+    expected_version: 'string',
+    expected_hosts: 'string',
+    custom_upgrade_scripts_dir: 'string',
+    skip_verification: 'boolean'
 };
 
 const BOOLEAN_STRING_VALUES = ['true', 'false'];

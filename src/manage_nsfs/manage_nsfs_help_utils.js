@@ -301,6 +301,19 @@ Run 'upgrade start' after upgrading NooBaa RPMs on all the cluster nodes, after 
 S3 I/O, S3 Buckets getters and NooBaa CLI Account/Buckets/Whitelist getters operations will still be working
 But updates of the config directory will be blocked during the upgrade of the config directory.
 'upgrade start' should be executed on one node, the config directory changes will be available for all the nodes of the cluster.
+
+Usage:
+        
+    noobaa-cli upgrade start [flags]
+
+Flags:
+
+--expected_version                             <string>                             The expected target version of the upgrade
+--expected_hosts                               <string>                             The expected hosts running NooBaa NC, a string of hosts separated by , 
+--skip_verification                            <boolean>        (optional)          skip verification of the hosts package version
+                                                                                    WARNING: can cause corrupted config dir files created by hosts running old code
+--custom_upgrade_scripts_dir                   <string>         (optional)          custom upgrade scripts dir, use for running custom config dir upgrade scripts
+
 `;
 
 const UPGRADE_STATUS_OPTIONS = `

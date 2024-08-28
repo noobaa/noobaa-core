@@ -8,7 +8,7 @@ const mocha = require('mocha');
 const child_process = require('child_process');
 const argv = require('minimist')(process.argv);
 const SensitiveString = require('../../util/sensitive_string');
-const { exec_manage_cli, TMP_PATH } = require('../system_tests/test_utils');
+const { exec_manage_cli, TMP_PATH, create_redirect_file, delete_redirect_file } = require('../system_tests/test_utils');
 const { TYPES, ACTIONS } = require('../../manage_nsfs/manage_nsfs_constants');
 const { ConfigFS } = require('../../sdk/config_fs');
 
@@ -51,7 +51,6 @@ const http_address = `http://localhost:${http_port}`;
 const https_address = `https://localhost:${https_port}`;
 
 const FIRST_BUCKET = 'first.bucket';
-const NC_CORETEST_REDIRECT_FILE_PATH = p.join(config.NSFS_NC_DEFAULT_CONF_DIR, '/config_dir_redirect');
 const NC_CORETEST_STORAGE_PATH = p.join(TMP_PATH, '/nc_coretest_storage_root_path/');
 const FIRST_BUCKET_PATH = p.join(NC_CORETEST_STORAGE_PATH, FIRST_BUCKET, '/');
 const CONFIG_FILE_PATH = p.join(NC_CORETEST_CONFIG_DIR_PATH, 'config.json');
@@ -141,7 +140,7 @@ async function config_dir_setup() {
     await fs.promises.mkdir(NC_CORETEST_STORAGE_PATH, { recursive: true });
     await fs.promises.mkdir(config.NSFS_NC_DEFAULT_CONF_DIR, { recursive: true });
     await fs.promises.mkdir(NC_CORETEST_CONFIG_DIR_PATH, { recursive: true });
-    await fs.promises.writeFile(NC_CORETEST_REDIRECT_FILE_PATH, NC_CORETEST_CONFIG_DIR_PATH);
+    await create_redirect_file(NC_CORETEST_CONFIG_FS, NC_CORETEST_CONFIG_DIR_PATH);
     await fs.promises.writeFile(CONFIG_FILE_PATH, JSON.stringify({
         ALLOW_HTTP: true,
         OBJECT_SDK_BUCKET_CACHE_EXPIRY_MS: 1,
@@ -160,7 +159,7 @@ async function config_dir_setup() {
 async function config_dir_teardown() {
     await announce('config_dir_teardown');
     await fs.promises.rm(NC_CORETEST_STORAGE_PATH, { recursive: true });
-    await fs.promises.rm(NC_CORETEST_REDIRECT_FILE_PATH);
+    await delete_redirect_file(NC_CORETEST_CONFIG_FS);
     await fs.promises.rm(NC_CORETEST_CONFIG_DIR_PATH, { recursive: true, force: true });
 }
 

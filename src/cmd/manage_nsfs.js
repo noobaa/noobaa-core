@@ -67,7 +67,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
         } else if (type === TYPES.DIAGNOSE) {
             await noobaa_cli_diagnose.manage_diagnose_operations(action, user_input, config_fs);
         } else if (type === TYPES.UPGRADE) {
-            await noobaa_cli_upgrade.manage_upgrade_operations(action, config_fs);
+            await noobaa_cli_upgrade.manage_upgrade_operations(action, user_input, config_fs);
         } else {
             throw_cli_error(ManageCLIError.InvalidType);
         }

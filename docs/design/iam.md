@@ -94,7 +94,7 @@ If the resource doesn’t have a bucket policy the IAM user accounts can have ac
 For example: 
 - root account creates 2 users (both are owned by it): user1, user2 and a bucket (bucket owner: <root-account-id>, bucket creator: <account-id-user1>).
 - user1 upload a file to the bucket 
-- user2 can delete this bucket (after it is empty): although user2 is not the creator, without a bucket policy his root account is the owner so he can delete the bucket.
+- user2 can delete this bucket (after it is empty): although user2 is not the creator, without a bucket policy his root account is the owner so it can delete the bucket.
 Note: Currently, we do not allow users to create a bucket.
 
 ### Root Accounts Manager
@@ -126,3 +126,35 @@ Here attached a diagram with all the accounts that we have in our system:
 - IAM UpdateAccessKey: AccessKeyId, Status, UserName
 - IAM DeleteAccessKey: AccessKeyId, UserName
 - IAM ListAccessKeys: UserName (not supported: Marker, MaxItems)
+
+## Other
+### Terminology - AWS vs NooBaa
+|   | AWS | NooBaa |
+|---|-----|--------|
+|   | root account  | account  |
+|   | IAM user  | user  |
+
+#### Root Account / Account
+- In NooBaa NC, the term "root" is associated with Linux root permission, therefore, the term "account" will be the equivalent term used for "root account".
+  - The account is the owner of the users that it created using the IAM API. The account owns the users and manage them (can create, read, update, delete or list them).
+  - The account is the owner of the buckets that were created by it or by its users.
+- In AWS root accounts are only created in the console.  
+While in NooBaa, accounts can be created by - 
+  1. NooBaa CLI `account add` command.
+  2. IAM API CreateUser operation. The requesting account must have the `iam_operate_on_root_account` property set to true. An account that has `iam_operate_on_root_account` property set to true, will operate on accounts instead of users when calling the IAM API, although it does not own them.
+- In NooBaa, an account is identified by:  
+  - Name  - in the CLI we pass the account name. The account name is unique within all the accounts (you cannot create a new account with the name of an existing account).
+  - Access key - in S3 API and IAM API the request is signed with the requesting account credentials.
+
+#### Identity
+- In general, we manage identities - currently accounts and users - but in the future, we might support roles, groups, etc.).
+
+#### IAM User / User
+- In NooBaa we decide to omit the "IAM" from the term "IAM users" as IAM is Identity & Access Management, and we thought it would be clear enough just the term "user" in our system.
+- users are individual users within an account (for a single person or application), they aren't separate accounts. 
+- users and their access keys have long-term credentials to the system resource, they give the ability to make programmatic requests to NooBaa service using the API or CLI.  
+This was partially copied from [AWS IAM Guide - Intro](https://docs.aws.amazon.com/IAM/latest/UserGuide/introduction_identity-management.html#intro-identity-users) and [AWS IAM Guide - When To Use IAM](https://docs.aws.amazon.com/IAM/latest/UserGuide/when-to-use-iam.html#security_iam_authentication-iamuser).
+- In NooBaa, a user is identified by:
+  - Name - in the IAM API we pass the `--user-name` flag. The username is unique only under the account (not including the account name itself).
+  - Access key - in S3 API and IAM API the request is signed with the requesting user credentials.
+- Currently, users cannot use any IAM API operations on other users.

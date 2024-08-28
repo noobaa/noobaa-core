@@ -359,7 +359,17 @@ class TapeCloudGlacierBackend extends GlacierBackend {
         const entry = new NewlineReaderEntry(fs_context, entry_path);
         let fh = null;
         try {
-            fh = await entry.open();
+            try {
+                fh = await entry.open("r");
+            } catch (error) {
+                // restore does check if a file exist or not before triggering eeadm call but the file could get deleted
+                // after `restore` performs that check so check it here once again
+                if (error.code === 'ENOENT') {
+                    dbg.warn(`TapeCloudGlacierBackend._finalize_restore: log entry unexpectedly not found: ${entry.path}`);
+                    return;
+                }
+                throw error;
+            }
 
             const stat = await fh.stat(fs_context, {
                 xattr_get_keys: [

@@ -278,6 +278,11 @@ mocha.describe('nsfs_glacier', async () => {
             assert(failure_stats.xattr[GlacierBackend.XATTR_RESTORE_REQUEST]);
         });
 
+		mocha.it('_finalize_restore should tolerate deleted objects', async () => {
+            // should not throw error if the path does not exist
+            await backend._finalize_restore(glacier_ns.prepare_fs_context(dummy_object_sdk), '/path/does/not/exist');
+		});
+
         mocha.it('generate_expiry should round up the expiry', () => {
             const now = new Date();
             const pivot_time = new Date(now);

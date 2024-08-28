@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/*eslint max-lines-per-function: ["error", 600]*/
+/*eslint max-lines-per-function: ["error", 800]*/
 'use strict';
 
 const fs = require('fs');
@@ -22,7 +22,7 @@ const nb_native = require('../../util/nb_native');
 const SensitiveString = require('../../util/sensitive_string');
 const NamespaceFS = require('../../sdk/namespace_fs');
 const BucketSpaceFS = require('../../sdk/bucketspace_fs');
-const { TMP_PATH } = require('../system_tests/test_utils');
+const { TMP_PATH, generate_s3_policy } = require('../system_tests/test_utils');
 const { CONFIG_SUBDIRS, JSON_SUFFIX } = require('../../sdk/config_fs');
 const nc_mkm = require('../../manage_nsfs/nc_master_key_manager').get_instance();
 
@@ -39,6 +39,7 @@ const config_root = path.join(tmp_fs_path, 'config_root');
 const new_buckets_path = path.join(tmp_fs_path, 'new_buckets_path', '/');
 const new_buckets_path_user1 = path.join(tmp_fs_path, 'new_buckets_path_user1', '/');
 const new_buckets_path_user2 = path.join(tmp_fs_path, 'new_buckets_path_user2', '/');
+const new_buckets_path_user4 = path.join(tmp_fs_path, 'new_buckets_path_user4', '/');
 
 const ACCOUNT_FS_CONFIG = {
     uid: 0,
@@ -105,6 +106,23 @@ const account_user3 = {
         new_buckets_path: new_buckets_path_user2,
     },
     creation_date: '2023-10-30T04:46:33.815Z',
+};
+
+const account_user4 = {
+    _id: '65a8edc9bc5d5bbf9db71b98',
+    name: 'user4',
+    email: 'user4@noobaa.io',
+    allow_bucket_creation: true,
+    access_keys: [{
+        access_key: 'a-abcdefghijklmn1234567',
+        secret_key: 's-abcdefghijklmn1234567Example'
+    }],
+    nsfs_account_config: {
+        uid: 0,
+        gid: 0,
+        new_buckets_path: new_buckets_path_user4,
+    },
+    creation_date: '2023-11-30T04:46:33.815Z',
 };
 
 const bucketspace_fs = new BucketSpaceFS({ config_root }, undefined);
@@ -275,7 +293,7 @@ mocha.describe('bucketspace_fs', function() {
         ], async dir =>
             await fs_utils.create_fresh_path(`${config_root}/${dir}`)));
         await fs_utils.create_fresh_path(new_buckets_path);
-        for (let account of [account_user1, account_user2, account_user3, account_iam_user1, account_iam_user2]) {
+        for (let account of [account_user1, account_user2, account_user3, account_user4, account_iam_user1, account_iam_user2]) {
             account = await nc_mkm.encrypt_access_keys(account);
             const account_dir_path = bucketspace_fs.config_fs.get_identity_dir_path_by_id(account._id);
             const account_path = bucketspace_fs.config_fs.get_identity_path_by_id(account._id);
@@ -430,7 +448,7 @@ mocha.describe('bucketspace_fs', function() {
     });
 
     mocha.describe('list_buckets', async function() {
-        mocha.before(async function() {
+        mocha.beforeEach(async function() {
             await create_bucket(test_bucket);
         });
         mocha.it('list buckets', async function() {
@@ -450,13 +468,43 @@ mocha.describe('bucketspace_fs', function() {
             const dummy_object_sdk_for_iam_account = make_dummy_object_sdk_for_account(dummy_object_sdk, account_iam_user1);
             const res = await bucketspace_fs.list_buckets(dummy_object_sdk_for_iam_account);
             assert.equal(res.buckets.length, 1);
+            assert.equal(res.buckets[0].name.unwrap(), test_bucket);
 
             // account_iam_user2 can list the created bucket (the implicit policy - same root account)
             const dummy_object_sdk_for_iam_account2 = make_dummy_object_sdk_for_account(dummy_object_sdk, account_iam_user2);
             const res2 = await bucketspace_fs.list_buckets(dummy_object_sdk_for_iam_account2);
             assert.equal(res2.buckets.length, 1);
+            assert.equal(res2.buckets[0].name.unwrap(), test_bucket);
         });
-        mocha.after(async function() {
+        mocha.it('list buckets - different account', async function() {
+            // another user created a bucket (account_user3 cannot list it)
+            const dummy_object_sdk_for_iam_account = make_dummy_object_sdk_for_account(dummy_object_sdk, account_user3);
+            const res = await bucketspace_fs.list_buckets(dummy_object_sdk_for_iam_account);
+            assert.equal(res.buckets.length, 0);
+        });
+        mocha.it('list buckets - different account with bucket policy (principal by name)', async function() {
+            // another user created a bucket
+            // with bucket policy account_user3 can list it
+            const policy = generate_s3_policy(account_user4.name, test_bucket, ['s3:*']).policy;
+            const param = { name: test_bucket, policy: policy };
+            await bucketspace_fs.put_bucket_policy(param);
+            const dummy_object_sdk_for_iam_account = make_dummy_object_sdk_for_account(dummy_object_sdk, account_user4);
+            const res = await bucketspace_fs.list_buckets(dummy_object_sdk_for_iam_account);
+            assert.equal(res.buckets.length, 1);
+            assert.equal(res.buckets[0].name.unwrap(), test_bucket);
+        });
+        mocha.it('list buckets - different account with bucket policy (principal by id)', async function() {
+            // another user created a bucket
+            // with bucket policy account_user3 can list it
+            const policy = generate_s3_policy(account_user4._id, test_bucket, ['s3:*']).policy;
+            const param = { name: test_bucket, policy: policy };
+            await bucketspace_fs.put_bucket_policy(param);
+            const dummy_object_sdk_for_iam_account = make_dummy_object_sdk_for_account(dummy_object_sdk, account_user4);
+            const res = await bucketspace_fs.list_buckets(dummy_object_sdk_for_iam_account);
+            assert.equal(res.buckets.length, 1);
+            assert.equal(res.buckets[0].name.unwrap(), test_bucket);
+        });
+        mocha.afterEach(async function() {
             await fs_utils.folder_delete(`${new_buckets_path}/${test_bucket}`);
             const file_path = get_config_file_path(CONFIG_SUBDIRS.BUCKETS, test_bucket);
             await fs_utils.file_delete(file_path);
@@ -680,17 +728,37 @@ mocha.describe('bucketspace_fs', function() {
             assert.ok(delete_res.policy === undefined);
         });
 
-        mocha.it('put_bucket_policy other account object', async function() {
+        mocha.it('put_bucket_policy other account object (principal as name)', async function() {
             const policy = {
-                Version: '2012-10-17',
-                Statement: [{
-                    Sid: 'id-22',
-                    Effect: 'Allow',
-                    Principal: { AWS: ['user1'] },
-                    Action: ['s3:*'],
-                    Resource: ['arn:aws:s3:::*']
-                }]
-            };
+                    Version: '2012-10-17',
+                    Statement: [{
+                        Sid: 'id-22',
+                        Effect: 'Allow',
+                        Principal: { AWS: [account_user1.name] },
+                        Action: ['s3:*'],
+                        Resource: ['arn:aws:s3:::*']
+                        }
+                    ]
+                };
+            const param = { name: test_bucket, policy: policy };
+            await bucketspace_fs.put_bucket_policy(param);
+            const bucket_policy = await bucketspace_fs.get_bucket_policy(param, dummy_object_sdk);
+            assert.deepEqual(bucket_policy.policy, policy);
+            const info_res = await bucketspace_fs.read_bucket_sdk_info(param);
+            assert.deepEqual(info_res.s3_policy, policy);
+        });
+
+        mocha.it('put_bucket_policy other account object (principal as id)', async function() {
+            const policy = {
+                    Version: '2012-10-17',
+                    Statement: [{
+                        Effect: 'Allow',
+                        Principal: { AWS: [account_user1._id] },
+                        Action: ['s3:*'],
+                        Resource: ['arn:aws:s3:::*']
+                        }
+                    ]
+                };
             const param = { name: test_bucket, policy: policy };
             await bucketspace_fs.put_bucket_policy(param);
             const bucket_policy = await bucketspace_fs.get_bucket_policy(param, dummy_object_sdk);

@@ -6,6 +6,7 @@ const dbg = require('../util/debug_module')(__filename);
 const _ = require('lodash');
 const path = require('path');
 const os_utils = require('../util/os_utils');
+const SensitiveString = require('../util/sensitive_string');
 const nb_native = require('../util/nb_native');
 const native_fs_utils = require('../util/native_fs_utils');
 const nc_mkm = require('../manage_nsfs/nc_master_key_manager').get_instance();
@@ -462,6 +463,34 @@ class ConfigFS {
             throw err;
         }
         return account;
+    }
+
+    /**
+     * is_account_exists_by_principal checks if we can get the account in multiple ways:
+     * 1. name
+     * 2. id
+     * (in the future using ARN - currently it is a GAP)
+     * 
+     * @param {string|SensitiveString} principal
+     * @param {object} options
+     * @returns {Promise<Boolean>}
+     */
+    async is_account_exists_by_principal(principal, options = { silent_if_missing: true }) {
+        if (principal === undefined) return undefined;
+
+        const principal_as_string = principal instanceof SensitiveString ? principal.unwrap() : principal;
+        const arn_prefix = 'arn:aws:iam::';
+        dbg.log2('is_account_exists_by_principal:', principal, options);
+        if (principal_as_string.includes(arn_prefix)) {
+            return false; // GAP
+        }
+        const principal_by_id = await this.is_identity_exists(principal_as_string, undefined, options);
+        dbg.log2('is_account_exists_by_principal: principal_by_id', principal_by_id);
+        if (principal_by_id) return true;
+        const principal_by_name = await this.is_account_exists_by_name(principal_as_string, undefined);
+        dbg.log2('is_account_exists_by_principal: principal_by_name', principal_by_name);
+        if (principal_by_name) return true;
+        return false;
     }
 
     /**

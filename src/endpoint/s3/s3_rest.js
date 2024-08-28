@@ -228,8 +228,9 @@ async function authorize_request_policy(req) {
     }
 
     const account = req.object_sdk.requesting_account;
-    const account_identifier = req.object_sdk.nsfs_config_root ? account.name.unwrap() : account.email.unwrap();
-    const is_system_owner = Boolean(system_owner) && system_owner.unwrap() === account_identifier;
+    const account_identifier_name = req.object_sdk.nsfs_config_root ? account.name.unwrap() : account.email.unwrap();
+    const account_identifier_id = req.object_sdk.nsfs_config_root ? account._id : undefined;
+    const is_system_owner = Boolean(system_owner) && system_owner.unwrap() === account_identifier_name;
 
     // @TODO: System owner as a construct should be removed - Temporary
     if (is_system_owner) return;
@@ -237,7 +238,7 @@ async function authorize_request_policy(req) {
     const is_owner = (function() {
         if (account.bucket_claim_owner && account.bucket_claim_owner.unwrap() === req.params.bucket) return true;
         if (owner_account && owner_account.id === account._id) return true;
-        if (account_identifier === bucket_owner.unwrap()) return true;
+        if (account_identifier_name === bucket_owner.unwrap()) return true; // TODO: change it to root accounts after we will have the /users structure
         return false;
     }());
 
@@ -249,8 +250,21 @@ async function authorize_request_policy(req) {
         if (is_owner || is_iam_account_and_same_root_account_owner) return;
         throw new S3Error(S3Error.AccessDenied);
     }
-    const permission = await s3_bucket_policy_utils.has_bucket_policy_permission(
-        s3_policy, account_identifier, method, arn_path, req);
+    let permission;
+    // In NC, we allow principal to be:
+    // 1. account name (for backwards compatibility)
+    // 2. account id
+    // we start the permission check on account identifier intentionally
+    if (account_identifier_id) {
+        permission = await s3_bucket_policy_utils.has_bucket_policy_permission(
+            s3_policy, account_identifier_id, method, arn_path, req);
+    }
+
+    if (!account_identifier_id || permission === "IMPLICIT_DENY") {
+        permission = await s3_bucket_policy_utils.has_bucket_policy_permission(
+            s3_policy, account_identifier_name, method, arn_path, req);
+    }
+
     if (permission === "DENY") throw new S3Error(S3Error.AccessDenied);
     if (permission === "ALLOW" || is_owner) return;
 

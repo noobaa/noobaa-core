@@ -354,7 +354,7 @@ async function validate_bucket_args(config_fs, data, action) {
         if (data.s3_policy) {
             try {
                 await bucket_policy_utils.validate_s3_policy(data.s3_policy, data.name,
-                    async principal => config_fs.is_account_exists_by_name(principal, owner_account_data.owner)
+                    async principal => config_fs.is_account_exists_by_principal(principal, { silent_if_missing: true })
                 );
             } catch (err) {
                 dbg.error('validate_bucket_args invalid bucket policy err:', err);

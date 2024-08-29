@@ -15,7 +15,6 @@ const { TMP_PATH } = require('../../system_tests/test_utils');
 const { IAM_DEFAULT_PATH, ACCESS_KEY_STATUS_ENUM } = require('../../../endpoint/iam/iam_constants');
 const fs_utils = require('../../../util/fs_utils');
 const { IamError } = require('../../../endpoint/iam/iam_errors');
-const nsfs_schema_utils = require('../../../manage_nsfs/nsfs_schema_utils');
 
 class NoErrorThrownError extends Error {}
 
@@ -1847,10 +1846,7 @@ describe('Accountspace_FS tests', () => {
 async function create_dummy_bucket(account, bucket_name) {
     const bucket_storage_path = path.join(account.nsfs_account_config.new_buckets_path, bucket_name);
     const bucket = _new_bucket_defaults(account, bucket_name, bucket_storage_path);
-    const bucket_config = JSON.stringify(bucket);
-    const bucket_to_validate = JSON.parse(bucket_config);
-    nsfs_schema_utils.validate_bucket_schema(bucket_to_validate);
-    await accountspace_fs.config_fs.create_bucket_config_file(bucket_name, bucket_config);
+    await accountspace_fs.config_fs.create_bucket_config_file(bucket);
     const bucket_config_path = accountspace_fs.config_fs.get_bucket_path_by_name(bucket_name);
     return bucket_config_path;
 }

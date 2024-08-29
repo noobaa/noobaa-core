@@ -265,18 +265,9 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             // initiate bucket defaults
             const create_uls = true;
             const bucket = this.new_bucket_defaults(sdk.requesting_account, params, create_uls, bucket_storage_path);
-            const bucket_config = JSON.stringify(bucket);
-
             // create bucket configuration file
             try {
-                // validate bucket details
-                // We take an object that was stringify
-                // (it unwraps ths sensitive strings, creation_date to string and removes undefined parameters)
-                // for validating against the schema we need an object, hence we parse it back to object
-                const bucket_to_validate = JSON.parse(bucket_config);
-                dbg.log2("create_bucket: bucket properties before validate_bucket_schema", bucket_to_validate);
-                nsfs_schema_utils.validate_bucket_schema(bucket_to_validate);
-                await this.config_fs.create_bucket_config_file(name, bucket_config);
+                await this.config_fs.create_bucket_config_file(bucket);
             } catch (err) {
                 new NoobaaEvent(NoobaaEvent.BUCKET_CREATION_FAILED).create_event(name, { bucket_name: name }, err);
                 throw translate_error_codes(err, entity_enum.BUCKET);
@@ -396,8 +387,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             const bucket = await this.config_fs.get_bucket_by_name(name);
             bucket.lifecycle_configuration_rules = rules;
             nsfs_schema_utils.validate_bucket_schema(bucket);
-            const update_bucket = JSON.stringify(bucket);
-            await this.config_fs.update_bucket_config_file(name, update_bucket);
+            await this.config_fs.update_bucket_config_file(bucket);
         } catch (err) {
             throw translate_error_codes(err, entity_enum.BUCKET);
         }
@@ -409,8 +399,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             dbg.log0('BucketSpaceFS.delete_bucket_lifecycle: Bucket name', name);
             const bucket = await this.config_fs.get_bucket_by_name(name);
             delete bucket.lifecycle_configuration_rules;
-            nsfs_schema_utils.validate_bucket_schema(bucket);
-            await this.config_fs.update_bucket_config_file(name, JSON.stringify(bucket));
+            await this.config_fs.update_bucket_config_file(bucket);
         } catch (error) {
             throw translate_error_codes(error, entity_enum.BUCKET);
         }
@@ -428,11 +417,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             dbg.log0('BucketSpaceFS.set_bucket_versioning: Bucket name, versioning', name, versioning);
             const bucket = await this.config_fs.get_bucket_by_name(name);
             bucket.versioning = versioning;
-            dbg.log2("set_bucket_versioning: bucket properties before validate_bucket_schema",
-                bucket);
-            nsfs_schema_utils.validate_bucket_schema(bucket);
-            const update_bucket = JSON.stringify(bucket);
-            await this.config_fs.update_bucket_config_file(name, update_bucket);
+            await this.config_fs.update_bucket_config_file(bucket);
         } catch (err) {
             throw translate_error_codes(err, entity_enum.BUCKET);
         }
@@ -448,8 +433,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             dbg.log0('BucketSpaceFS.put_bucket_tagging: Bucket name, tagging', name, tagging);
             const bucket = await this.config_fs.get_bucket_by_name(name);
             bucket.tag = tagging;
-            nsfs_schema_utils.validate_bucket_schema(bucket);
-            await this.config_fs.update_bucket_config_file(name, JSON.stringify(bucket));
+            await this.config_fs.update_bucket_config_file(bucket);
         } catch (error) {
             throw translate_error_codes(error, entity_enum.BUCKET);
         }
@@ -461,8 +445,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             dbg.log0('BucketSpaceFS.delete_bucket_tagging: Bucket name', name);
             const bucket = await this.config_fs.get_bucket_by_name(name);
             delete bucket.tag;
-            nsfs_schema_utils.validate_bucket_schema(bucket);
-            await this.config_fs.update_bucket_config_file(name, JSON.stringify(bucket));
+            await this.config_fs.update_bucket_config_file(bucket);
         } catch (error) {
             throw translate_error_codes(error, entity_enum.BUCKET);
         }
@@ -502,10 +485,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                 dbg.error('TARGET BUCKET NOT OWNED BY USER', target_bucket, bucket);
                 throw new RpcError('INVALID_TARGET_BUCKET', 'The owner for the bucket to be logged and the target bucket must be the same');
             }
-            dbg.log2('put_bucket_logging: bucket properties before validate_bucket_schema', bucket);
-            nsfs_schema_utils.validate_bucket_schema(bucket);
-            const update_bucket = JSON.stringify(bucket);
-            await this.config_fs.update_bucket_config_file(name, update_bucket);
+            await this.config_fs.update_bucket_config_file(bucket);
         } catch (err) {
             throw translate_error_codes(err, entity_enum.BUCKET);
         }
@@ -517,11 +497,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             dbg.log0('BucketSpaceFS.delete_bucket_logging: Bucket name', name);
             const bucket = await this.config_fs.get_bucket_by_name(name);
             delete bucket.logging;
-            dbg.log2('delete_bucket_logging: bucket properties before validate_bucket_schema', bucket);
-            // on the safe side validate before changing configuration
-            nsfs_schema_utils.validate_bucket_schema(bucket);
-            const update_bucket = JSON.stringify(bucket);
-            await this.config_fs.update_bucket_config_file(name, update_bucket);
+            await this.config_fs.update_bucket_config_file(bucket);
         } catch (err) {
             throw translate_error_codes(err, entity_enum.BUCKET);
         }
@@ -549,12 +525,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             const bucket = await this.config_fs.get_bucket_by_name(name);
             bucket.encryption = encryption;
             // in case it is algorithm: 'AES256', the property would be undefined
-            const bucket_to_validate = _.omitBy(bucket, _.isUndefined);
-            dbg.log2("put_bucket_encryption: bucket properties before validate_bucket_schema",
-                bucket_to_validate);
-            nsfs_schema_utils.validate_bucket_schema(bucket_to_validate);
-            const update_bucket = JSON.stringify(bucket);
-            await this.config_fs.update_bucket_config_file(name, update_bucket);
+            await this.config_fs.update_bucket_config_file(bucket);
         } catch (err) {
             throw translate_error_codes(err, entity_enum.BUCKET);
         }
@@ -577,11 +548,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             dbg.log0('BucketSpaceFS.delete_bucket_encryption: Bucket name', name);
             const bucket = await this.config_fs.get_bucket_by_name(name);
             delete bucket.encryption;
-            dbg.log2("delete_bucket_encryption: bucket properties before validate_bucket_schema", bucket);
-            // on the safe side validate before changing configuration
-            nsfs_schema_utils.validate_bucket_schema(bucket);
-            const update_bucket = JSON.stringify(bucket);
-            await this.config_fs.update_bucket_config_file(name, update_bucket);
+            await this.config_fs.update_bucket_config_file(bucket);
         } catch (err) {
             throw translate_error_codes(err, entity_enum.BUCKET);
         }
@@ -597,12 +564,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             dbg.log0('BucketSpaceFS.put_bucket_website: Bucket name, website', name, website);
             const bucket = await this.config_fs.get_bucket_by_name(name);
             bucket.website = website;
-            const bucket_to_validate = _.omitBy(bucket, _.isUndefined);
-            dbg.log2("put_bucket_website: bucket properties before validate_bucket_schema",
-                bucket_to_validate);
-            nsfs_schema_utils.validate_bucket_schema(bucket_to_validate);
-            const update_bucket = JSON.stringify(bucket);
-            await this.config_fs.update_bucket_config_file(name, update_bucket);
+            await this.config_fs.update_bucket_config_file(bucket);
         } catch (err) {
             throw translate_error_codes(err, entity_enum.BUCKET);
         }
@@ -614,11 +576,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             dbg.log0('BucketSpaceFS.delete_bucket_website: Bucket name', name);
             const bucket = await this.config_fs.get_bucket_by_name(name);
             delete bucket.website;
-            dbg.log2("delete_bucket_website: bucket properties before validate_bucket_schema", bucket);
-            // on the safe side validate before changing configuration
-            nsfs_schema_utils.validate_bucket_schema(bucket);
-            const update_bucket = JSON.stringify(bucket);
-            await this.config_fs.update_bucket_config_file(name, update_bucket);
+            await this.config_fs.update_bucket_config_file(bucket);
         } catch (err) {
             throw translate_error_codes(err, entity_enum.BUCKET);
         }
@@ -650,13 +608,11 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             dbg.log0('BucketSpaceFS.put_bucket_policy: Bucket name, policy', name, policy);
             const bucket = await this.config_fs.get_bucket_by_name(name);
             bucket.s3_policy = policy;
-            const bucket_to_validate = _.omitBy(bucket, _.isUndefined);
-            dbg.log2('put_bucket_policy: bucket properties before validate_bucket_schema', bucket_to_validate);
-            nsfs_schema_utils.validate_bucket_schema(bucket_to_validate);
+            // We need to validate bucket schema here as well for checking the policy schema
+            nsfs_schema_utils.validate_bucket_schema(_.omitBy(bucket, _.isUndefined));
             await bucket_policy_utils.validate_s3_policy(bucket.s3_policy, bucket.name, async principal =>
-                 this.config_fs.is_account_exists_by_principal(principal, { silent_if_missing: true }));
-            const update_bucket = JSON.stringify(bucket);
-            await this.config_fs.update_bucket_config_file(name, update_bucket);
+                this.config_fs.is_account_exists_by_principal(principal, { silent_if_missing: true }));
+            await this.config_fs.update_bucket_config_file(bucket);
         } catch (err) {
             throw translate_error_codes(err, entity_enum.BUCKET);
         }
@@ -668,11 +624,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             dbg.log0('BucketSpaceFS.delete_bucket_policy: Bucket name', name);
             const bucket = await this.config_fs.get_bucket_by_name(name);
             delete bucket.s3_policy;
-            dbg.log2("delete_bucket_policy: bucket properties before validate_bucket_schema", bucket);
-            // on the safe side validate before changing configuration
-            nsfs_schema_utils.validate_bucket_schema(bucket);
-            const update_bucket = JSON.stringify(bucket);
-            await this.config_fs.update_bucket_config_file(name, update_bucket);
+            await this.config_fs.update_bucket_config_file(bucket);
         } catch (err) {
             throw translate_error_codes(err, entity_enum.BUCKET);
         }

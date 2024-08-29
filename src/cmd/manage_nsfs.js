@@ -18,10 +18,10 @@ const ManageCLIResponse = require('../manage_nsfs/manage_nsfs_cli_responses').Ma
 const manage_nsfs_glacier = require('../manage_nsfs/manage_nsfs_glacier');
 const manage_nsfs_logging = require('../manage_nsfs/manage_nsfs_logging');
 const noobaa_cli_diagnose = require('../manage_nsfs/diagnose');
-const nsfs_schema_utils = require('../manage_nsfs/nsfs_schema_utils');
 const { print_usage } = require('../manage_nsfs/manage_nsfs_help_utils');
 const { TYPES, ACTIONS, LIST_ACCOUNT_FILTERS, LIST_BUCKET_FILTERS, GLACIER_ACTIONS } = require('../manage_nsfs/manage_nsfs_constants');
-const { throw_cli_error, get_bucket_owner_account, write_stdout_response, get_boolean_or_string_value, has_access_keys, set_debug_level } = require('../manage_nsfs/manage_nsfs_cli_utils');
+const { throw_cli_error, get_bucket_owner_account, write_stdout_response, get_boolean_or_string_value, has_access_keys, set_debug_level,
+    is_name_update, is_access_key_update } = require('../manage_nsfs/manage_nsfs_cli_utils');
 const manage_nsfs_validations = require('../manage_nsfs/manage_nsfs_validations');
 const nc_mkm = require('../manage_nsfs/nc_master_key_manager').get_instance();
 
@@ -66,7 +66,6 @@ async function main(argv = minimist(process.argv.slice(2))) {
         } else if (type === TYPES.DIAGNOSE) {
             await noobaa_cli_diagnose.manage_diagnose_operations(action, user_input, config_fs);
         } else {
-            // we should not get here (we check it before)
             throw_cli_error(ManageCLIError.InvalidType);
         }
     } catch (err) {
@@ -80,14 +79,6 @@ async function main(argv = minimist(process.argv.slice(2))) {
             process.exit(1);
         });
     }
-}
-
-async function bucket_management(action, user_input) {
-    let data;
-    if (action !== ACTIONS.LIST) {
-        data = await fetch_bucket_data(action, user_input);
-    }
-    await manage_bucket_operations(action, data, user_input);
 }
 
 // in name and new_name we allow type number, hence convert it to string
@@ -122,7 +113,7 @@ async function fetch_bucket_data(action, user_input) {
     if (action === ACTIONS.UPDATE || action === ACTIONS.DELETE) {
         // @ts-ignore
         data = _.omitBy(data, _.isUndefined);
-        data = await fetch_existing_bucket_data(data);
+        data = await merge_new_and_existing_config_data(data);
     }
 
     //if we're updating the owner, needs to override owner in file with the owner from user input.
@@ -143,83 +134,89 @@ async function fetch_bucket_data(action, user_input) {
     return data;
 }
 
-async function fetch_existing_bucket_data(target) {
-    let source;
+
+/**
+ * merge_new_and_existing_config_data returns the merged object of the existing bucket data and the user data
+ * @param {Object} user_input_bucket_data 
+ * @returns {Promise<Object>} 
+ */
+async function merge_new_and_existing_config_data(user_input_bucket_data) {
+    let existing_bucket_data;
     try {
-        source = await config_fs.get_bucket_by_name(target.name);
+        existing_bucket_data = await config_fs.get_bucket_by_name(user_input_bucket_data.name);
     } catch (err) {
-        throw_cli_error(ManageCLIError.NoSuchBucket, target.name);
+        throw_cli_error(ManageCLIError.NoSuchBucket, user_input_bucket_data.name);
     }
-    const data = _.merge({}, source, target);
+    const data = _.merge({}, existing_bucket_data, user_input_bucket_data);
     return data;
 }
 
+/**
+ * add_bucket does the following - 
+ * 1. attaches an ID to the new bucket
+ * 2. creates a bucket config file based on the user input
+ * 3. set the bucket owner name on the response
+ * @param {Object} data 
+ * @returns { Promise<{ code: ManageCLIResponse.BucketCreated, detail: Object, event_arg: Object }>} 
+ */
 async function add_bucket(data) {
-    await manage_nsfs_validations.validate_bucket_args(config_fs, data, ACTIONS.ADD);
-    const exists = await config_fs.is_bucket_exists(data.name);
-    if (exists) throw_cli_error(ManageCLIError.BucketAlreadyExists, data.name, { bucket: data.name });
     data._id = mongo_utils.mongoObjectId();
-    const data_json = JSON.stringify(data);
-    // We take an object that was stringify
-    // (it unwraps ths sensitive strings, creation_date to string and removes undefined parameters)
-    // for validating against the schema we need an object, hence we parse it back to object
-    nsfs_schema_utils.validate_bucket_schema(JSON.parse(data_json));
-    await config_fs.create_bucket_config_file(data.name, data_json);
-    await set_bucker_owner(data);
-    write_stdout_response(ManageCLIResponse.BucketCreated, data, { bucket: data.name });
+    const parsed_bucket_data = await config_fs.create_bucket_config_file(data);
+    await set_bucker_owner(parsed_bucket_data);
+    return { code: ManageCLIResponse.BucketCreated, detail: parsed_bucket_data, event_arg: { bucket: data.name }};
 }
 
+/**
+ * get_bucket_status returns the bucket data by the provided bucket name
+ * @param {Object} data 
+ * @returns { Promise<{ code: typeof ManageCLIResponse.BucketStatus, detail: Object }>} 
+ */
 async function get_bucket_status(data) {
-    await manage_nsfs_validations.validate_bucket_args(config_fs, data, ACTIONS.STATUS);
-
     try {
         const bucket_data = await config_fs.get_bucket_by_name(data.name);
         await set_bucker_owner(bucket_data);
-        write_stdout_response(ManageCLIResponse.BucketStatus, bucket_data);
+        return { code: ManageCLIResponse.BucketStatus, detail: bucket_data };
     } catch (err) {
         const err_code = err.code === 'EACCES' ? ManageCLIError.AccessDenied : ManageCLIError.NoSuchBucket;
         throw_cli_error(err_code, data.name);
     }
 }
 
+/**
+ * update_bucket does the following - 
+ * 1. checks if the update includes bucket name update
+ *    1.1. if yes - a new config file should be created and the old one should be removed
+ *    1.2. else - update the config file
+ * 2. set the bucket owner name on the response
+ * @param {Object} data
+ * @returns { Promise<{ code: typeof ManageCLIResponse.BucketUpdated, detail: Object }>} 
+ */
 async function update_bucket(data) {
-    await manage_nsfs_validations.validate_bucket_args(config_fs, data, ACTIONS.UPDATE);
     const cur_name = data.name;
     const new_name = data.new_name;
-    const update_name = new_name && cur_name && new_name !== cur_name;
+    const name_update = is_name_update(data);
+    const cli_bucket_flags_to_remove = ['new_name'];
+    data = _.omit(data, cli_bucket_flags_to_remove);
 
-    if (!update_name) {
-        data = JSON.stringify(data);
-        // We take an object that was stringify
-        // (it unwraps ths sensitive strings, creation_date to string and removes undefined parameters)
-        // for validating against the schema we need an object, hence we parse it back to object
-        const parsed_data = JSON.parse(data);
-        nsfs_schema_utils.validate_bucket_schema(parsed_data);
-        await config_fs.update_bucket_config_file(cur_name, data);
-        await set_bucker_owner(parsed_data);
-        write_stdout_response(ManageCLIResponse.BucketUpdated, parsed_data);
-        return;
+    let parsed_bucket_data;
+    if (name_update) {
+        parsed_bucket_data = await config_fs.create_bucket_config_file({ ...data, name: new_name });
+        await config_fs.delete_bucket_config_file(cur_name);
+    } else {
+        parsed_bucket_data = await config_fs.update_bucket_config_file(data);
     }
-
-    data.name = new_name;
-
-    const exists = await config_fs.is_bucket_exists(data.name);
-    if (exists) throw_cli_error(ManageCLIError.BucketAlreadyExists, data.name);
-
-    data = JSON.stringify(_.omit(data, ['new_name']));
-    // We take an object that was stringify
-    // (it unwraps ths sensitive strings, creation_date to string and removes undefined parameters)
-    // for validating against the schema we need an object, hence we parse it back to object
-    nsfs_schema_utils.validate_bucket_schema(JSON.parse(data));
-    await config_fs.create_bucket_config_file(new_name, data);
-    await config_fs.delete_bucket_config_file(cur_name);
-    data = JSON.parse(data);
-    await set_bucker_owner(data);
-    write_stdout_response(ManageCLIResponse.BucketUpdated, data);
+    await set_bucker_owner(parsed_bucket_data);
+    return { code: ManageCLIResponse.BucketUpdated, detail: parsed_bucket_data };
 }
 
+/**
+ * delete_bucket deletes a bucket -
+ * 1. if there are existing objects in the bucket and force flag was not provided the deletion will be blocked
+ * @param {Object} data 
+ * @param {Boolean} force
+ * @returns { Promise<{ code: typeof ManageCLIResponse.BucketDeleted, detail: Object, event_arg: Object }>} 
+ */
 async function delete_bucket(data, force) {
-    await manage_nsfs_validations.validate_bucket_args(config_fs, data, ACTIONS.DELETE);
     try {
         const temp_dir_name = native_fs_utils.get_bucket_tmpdir_name(data._id);
         const bucket_temp_dir_path = native_fs_utils.get_bucket_tmpdir_full_path(data.path, data._id);
@@ -242,49 +239,46 @@ async function delete_bucket(data, force) {
         }
         await native_fs_utils.folder_delete(bucket_temp_dir_path, fs_context_fs_backend, true);
         await config_fs.delete_bucket_config_file(data.name);
-        write_stdout_response(ManageCLIResponse.BucketDeleted, '', { bucket: data.name });
+        return { code: ManageCLIResponse.BucketDeleted, detail: '', event_arg: { bucket: data.name } };
     } catch (err) {
         if (err.code === 'ENOENT') throw_cli_error(ManageCLIError.NoSuchBucket, data.name);
         throw err;
     }
 }
 
-async function manage_bucket_operations(action, data, user_input) {
+/**
+ * bucket_management does the following - 
+ * 1. fetches the bucket data if this is not a list operation
+ * 2. validates bucket args - TODO - we should split it to validate_bucket_args 
+ * and validations of the merged (user_input + existing bucket config) bucket
+ * 3. call bucket operation based on the action argument
+ * 4. write output to stdout
+ * @param {'add'|'update'|'delete'|'status'|'list'} action 
+ * @param {Object} user_input 
+ */
+async function bucket_management(action, user_input) {
+    const data = action === ACTIONS.LIST ? undefined : await fetch_bucket_data(action, user_input);
+    await manage_nsfs_validations.validate_bucket_args(config_fs, data, action);
+
+    let response = {};
     if (action === ACTIONS.ADD) {
-        await add_bucket(data);
+        response = await add_bucket(data);
     } else if (action === ACTIONS.STATUS) {
-        await get_bucket_status(data);
+        response = await get_bucket_status(data);
     } else if (action === ACTIONS.UPDATE) {
-        await update_bucket(data);
+        response = await update_bucket(data);
     } else if (action === ACTIONS.DELETE) {
         const force = get_boolean_or_string_value(user_input.force);
-        await delete_bucket(data, force);
+        response = await delete_bucket(data, force);
     } else if (action === ACTIONS.LIST) {
         const bucket_filters = _.pick(user_input, LIST_BUCKET_FILTERS);
         const wide = get_boolean_or_string_value(user_input.wide);
         const buckets = await list_config_files(TYPES.BUCKET, wide, undefined, bucket_filters);
-        write_stdout_response(ManageCLIResponse.BucketList, buckets);
+        response = { code: ManageCLIResponse.BucketList, detail: buckets };
     } else {
-        // we should not get here (we check it before)
         throw_cli_error(ManageCLIError.InvalidAction);
     }
-}
-
-async function account_management(action, user_input) {
-    const show_secrets = get_boolean_or_string_value(user_input.show_secrets);
-    if (get_boolean_or_string_value(user_input.anonymous)) {
-        user_input.name = config.ANONYMOUS_ACCOUNT_NAME;
-        user_input.email = config.ANONYMOUS_ACCOUNT_NAME;
-    }
-    // init nc_mkm here to avoid concurrent initializations
-    // init if actions is add/update (require encryption) or show_secrets = true (require decryption)
-    if ([ACTIONS.ADD, ACTIONS.UPDATE].includes(action) || show_secrets) await nc_mkm.init();
-
-    let data;
-    if (action !== ACTIONS.LIST) {
-        data = await fetch_account_data(action, user_input);
-    }
-    await manage_account_operations(action, data, show_secrets, user_input);
+    write_stdout_response(response.code, response.detail, response.event_arg);
 }
 
 /**
@@ -395,111 +389,76 @@ async function fetch_existing_account_data(action, target, decrypt_secret_key) {
     return data;
 }
 
+/**
+ * add_account creates a new account config file and return the decrypted data 
+ * we do not return the parsed data because the parsed access keys are encrypted 
+ * @param {Object} data
+ * @returns { Promise<{ code: typeof ManageCLIResponse.AccountCreated, detail: Object, event_arg: Object  }>} 
+ */
 async function add_account(data) {
-    await manage_nsfs_validations.validate_account_args(config_fs, data, ACTIONS.ADD, undefined);
-
-    const access_key = has_access_keys(data.access_keys) ? data.access_keys[0].access_key : undefined;
-    const name_exists = await config_fs.is_account_exists_by_name(data.name);
-    const access_key_exists = access_key && await config_fs.is_account_exists_by_access_key(access_key);
-
-    const event_arg = data.name ? data.name : access_key;
-    if (name_exists || access_key_exists) {
-        const err_code = name_exists ? ManageCLIError.AccountNameAlreadyExists : ManageCLIError.AccountAccessKeyAlreadyExists;
-        throw_cli_error(err_code, event_arg, {account: event_arg});
-    }
     data._id = mongo_utils.mongoObjectId();
-    const encrypted_account = await nc_mkm.encrypt_access_keys(data);
-    data.master_key_id = encrypted_account.master_key_id;
-    const encrypted_data = JSON.stringify(encrypted_account);
-    data = _.omitBy(data, _.isUndefined);
-    // We take an object that was stringify
-    // (it unwraps ths sensitive strings, creation_date to string and removes undefined parameters)
-    // for validating against the schema we need an object, hence we parse it back to object
-    const account = encrypted_data ? JSON.parse(encrypted_data) : data;
-    nsfs_schema_utils.validate_account_schema(account);
-    await config_fs.create_account_config_file(account);
-    write_stdout_response(ManageCLIResponse.AccountCreated, data, { account: event_arg });
+    await config_fs.create_account_config_file(data);
+    return { code: ManageCLIResponse.AccountCreated, detail: data, event_arg: { account: data.name } };
 }
 
-
-async function update_account(data, is_flag_iam_operate_on_root_account) {
-    await manage_nsfs_validations.validate_account_args(config_fs, data, ACTIONS.UPDATE, is_flag_iam_operate_on_root_account);
-
+/**
+ * update_account does the following updates an existing config file, 
+ * if a new_name provided it will pass old_name to the update function for unlinking the index (symlink inside accounts_by_name/ dir)
+ * if a new_access_key provided it will pass the cur_access_key for unlinking the index (symlink inside access_keys/ dir)
+ * @param {Object} data
+ * @returns { Promise<{ code: typeof ManageCLIResponse.AccountUpdated, detail: Object }>} 
+ */
+async function update_account(data) {
     const cur_name = data.name;
     const new_name = data.new_name;
     const cur_access_key = has_access_keys(data.access_keys) ? data.access_keys[0].access_key : undefined;
-    const update_name = new_name && cur_name && data.new_name !== cur_name;
-    const update_access_key = data.new_access_key && cur_access_key && data.new_access_key.unwrap() !== cur_access_key.unwrap();
+    const update_name = is_name_update(data);
+    const update_access_key = is_access_key_update(data);
 
-    if (!update_name && !update_access_key) {
-        if (data.new_access_key) {
-            // the user set the same access-key as was before
-            data.access_keys[0] = _.pick(data.access_keys[0], ['access_key', 'secret_key']);
-            data = _.omit(data, ['new_access_key']);
-        }
-        const encrypted_account = await nc_mkm.encrypt_access_keys(data);
-        data.master_key_id = encrypted_account.master_key_id;
-        const encrypted_data = JSON.stringify(encrypted_account);
-        data = _.omitBy(data, _.isUndefined);
-        // We take an object that was stringify
-        // (it unwraps ths sensitive strings, creation_date to string and removes undefined parameters)
-        // for validating against the schema we need an object, hence we parse it back to object
-        const account = encrypted_data ? JSON.parse(encrypted_data) : data;
-        nsfs_schema_utils.validate_account_schema(account);
-        await config_fs.update_account_config_file(account);
-        write_stdout_response(ManageCLIResponse.AccountUpdated, data);
-        return;
+    const account_name = new_name || cur_name;
+    data.name = account_name;
+    data.email = account_name; // saved internally
+    if (data.new_access_key) {
+        data.access_keys[0] = {
+            access_key: data.new_access_key,
+            secret_key: data.access_keys[0].secret_key,
+        };
     }
-    const data_name = new_name || cur_name;
-    data.name = data_name;
-    data.email = data_name; // saved internally
-    data.access_keys[0] = {
-        access_key: data.new_access_key || cur_access_key,
-        secret_key: data.access_keys[0].secret_key,
-    };
+    const cli_account_flags_to_remove = ['new_name', 'new_access_key'];
+    data = _.omit(data, cli_account_flags_to_remove);
 
-    const name_exists = update_name && await config_fs.is_account_exists_by_name(data.name, undefined);
-    const access_key_exists = update_access_key &&
-        await config_fs.is_account_exists_by_access_key(data.access_keys[0].access_key.unwrap());
-
-    if (name_exists || access_key_exists) {
-        const err_code = name_exists ? ManageCLIError.AccountNameAlreadyExists : ManageCLIError.AccountAccessKeyAlreadyExists;
-        throw_cli_error(err_code);
-    }
-    data = _.omit(data, ['new_name', 'new_access_key']);
-    const encrypted_account = await nc_mkm.encrypt_access_keys(data);
-    data.master_key_id = encrypted_account.master_key_id;
-    const encrypted_data = JSON.stringify(encrypted_account);
-    data = JSON.stringify(data);
-
-    // We take an object that was stringify
-    // (it unwraps ths sensitive strings, creation_date to string and removes undefined parameters)
-    // for validating against the schema we need an object, hence we parse it back to object
-    const parsed_data = JSON.parse(encrypted_data);
-    nsfs_schema_utils.validate_account_schema(parsed_data);
-    await config_fs.update_account_config_file(parsed_data, {
+    await config_fs.update_account_config_file(data, {
         old_name: update_name && cur_name,
-        new_access_keys_to_link: update_access_key && parsed_data.access_keys,
+        new_access_keys_to_link: update_access_key && data.access_keys,
         access_keys_to_delete: update_access_key && [{ access_key: cur_access_key }]
     });
-    write_stdout_response(ManageCLIResponse.AccountUpdated, data);
+    return { code: ManageCLIResponse.AccountUpdated, detail: data };
 }
 
+/**
+ * delete_account deletes an account 
+ * @param {Object} data 
+ * @returns { Promise<{ code: typeof ManageCLIResponse.AccountDeleted, detail: Object, event_arg: Object }>} 
+ */
 async function delete_account(data) {
-    await manage_nsfs_validations.validate_account_args(config_fs, data, ACTIONS.DELETE, undefined);
     await config_fs.delete_account_config_file(data);
-    write_stdout_response(ManageCLIResponse.AccountDeleted, '', { account: data.name });
+    return { code: ManageCLIResponse.AccountDeleted, detail: '', event_arg: { account: data.name } };
 }
 
+/**
+ * get_account_status returns the account data by the provided account name/access key
+ * @param {Object} data 
+ * @param {Boolean} [show_secrets]
+ * @returns { Promise<{ code: typeof ManageCLIResponse.AccountStatus, detail: Object }>} 
+ */
 async function get_account_status(data, show_secrets) {
-    await manage_nsfs_validations.validate_account_args(config_fs, data, ACTIONS.STATUS, undefined);
     const options = { show_secrets, decrypt_secret_key: show_secrets };
 
     try {
-        const config_data = data.name === undefined ?
+        const account_data = data.name === undefined ?
             await config_fs.get_account_by_access_key(data.access_keys[0].access_key, options) :
             await config_fs.get_account_by_name(data.name, options);
-        write_stdout_response(ManageCLIResponse.AccountStatus, config_data);
+        return { code: ManageCLIResponse.AccountStatus, detail: account_data };
     } catch (err) {
         if (err.code !== 'ENOENT') throw err;
         if (data.name === undefined) {
@@ -510,25 +469,49 @@ async function get_account_status(data, show_secrets) {
     }
 }
 
-async function manage_account_operations(action, data, show_secrets, user_input) {
+/**
+ * account_management does the following - 
+ * 1. sets variables by the user input options
+ * 2. iniates nc_master_key_manager on UPDATE/ADD/show_secrets
+ * 2. validates account args - TODO - we should split it to validate_account_args 
+ * and validations of the merged account (user_input + existing account config)
+ * 3. call account operation based on the action argument
+ * 4. write output to stdout
+ * @param {'add'|'update'|'delete'|'status'|'list'} action 
+ * @param {Object} user_input 
+ */
+async function account_management(action, user_input) {
+    const show_secrets = get_boolean_or_string_value(user_input.show_secrets);
+    const is_flag_iam_operate_on_root_account = get_boolean_or_string_value(user_input.iam_operate_on_root_account);
+    const account_filters = _.pick(user_input, LIST_ACCOUNT_FILTERS);
+    const wide = get_boolean_or_string_value(user_input.wide);
+    if (get_boolean_or_string_value(user_input.anonymous)) {
+        user_input.name = config.ANONYMOUS_ACCOUNT_NAME;
+        user_input.email = config.ANONYMOUS_ACCOUNT_NAME;
+    }
+    // init nc_mkm here to avoid concurrent initializations
+    // init if actions is add/update (require encryption) or show_secrets = true (require decryption)
+    if ([ACTIONS.ADD, ACTIONS.UPDATE].includes(action) || show_secrets) await nc_mkm.init();
+    const data = action === ACTIONS.LIST ? undefined : await fetch_account_data(action, user_input);
+    await manage_nsfs_validations.validate_account_args(config_fs, data, action, is_flag_iam_operate_on_root_account);
+
+    let response = {};
     if (action === ACTIONS.ADD) {
-        await add_account(data);
+        response = await add_account(data);
     } else if (action === ACTIONS.STATUS) {
-        await get_account_status(data, show_secrets);
+        response = await get_account_status(data, show_secrets);
     } else if (action === ACTIONS.UPDATE) {
-        const is_flag_iam_operate_on_root_account = get_boolean_or_string_value(user_input.iam_operate_on_root_account);
-        await update_account(data, is_flag_iam_operate_on_root_account);
+        response = await update_account(data);
     } else if (action === ACTIONS.DELETE) {
-        await delete_account(data);
+        response = await delete_account(data);
     } else if (action === ACTIONS.LIST) {
-        const account_filters = _.pick(user_input, LIST_ACCOUNT_FILTERS);
-        const wide = get_boolean_or_string_value(user_input.wide);
         const accounts = await list_config_files(TYPES.ACCOUNT, wide, show_secrets, account_filters);
-        write_stdout_response(ManageCLIResponse.AccountList, accounts);
+        response = { code: ManageCLIResponse.AccountList, detail: accounts };
     } else {
-        // we should not get here (we check it before)
         throw_cli_error(ManageCLIError.InvalidAction);
     }
+    write_stdout_response(response.code, response.detail, response.event_arg);
+
 }
 
 /**

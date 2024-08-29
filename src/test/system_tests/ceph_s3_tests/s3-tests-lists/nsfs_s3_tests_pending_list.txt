@@ -163,9 +163,6 @@ s3tests_boto3/functional/test_s3.py::test_multipart_upload_missing_part
 s3tests_boto3/functional/test_s3.py::test_multipart_upload_incorrect_etag
 s3tests_boto3/functional/test_s3.py::test_set_bucket_tagging
 s3tests_boto3/functional/test_s3.py::test_atomic_dual_conditional_write_1mb
-s3tests_boto3/functional/test_s3.py::test_versioning_obj_create_read_remove
-s3tests_boto3/functional/test_s3.py::test_versioning_obj_create_versions_remove_all
-s3tests_boto3/functional/test_s3.py::test_versioning_obj_create_versions_remove_special_names
 s3tests_boto3/functional/test_s3.py::test_versioned_concurrent_object_create_concurrent_remove
 s3tests_boto3/functional/test_s3.py::test_encrypted_transfer_1b
 s3tests_boto3/functional/test_s3.py::test_encrypted_transfer_1kb

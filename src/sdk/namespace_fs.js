@@ -18,6 +18,7 @@ const stream_utils = require('../util/stream_utils');
 const buffer_utils = require('../util/buffer_utils');
 const size_utils = require('../util/size_utils');
 const native_fs_utils = require('../util/native_fs_utils');
+const js_utils = require('../util/js_utils');
 const ChunkFS = require('../util/chunk_fs');
 const LRUCache = require('../util/lru_cache');
 const nb_native = require('../util/nb_native');
@@ -90,14 +91,48 @@ const XATTR_METADATA_IGNORE_LIST = [
 ];
 
 /**
- * @param {fs.Dirent} a
- * @param {fs.Dirent} b
- * @returns {1|-1|0}
+ * get_simple_cache returns a simple function
+ * which can be used to access the cached data
+ * 
+ * If the cached data doesn't exist then the
+ * given loader function is called with the
+ * requested key and the result is cached.
+ * 
+ * There is no cache invalidation.
+ * @template {string | number | symbol} T
+ * @template U
+ * 
+ * @param {(key: T) => U} loader 
+ * @param {Partial<Record<T, U>>} [cache={}] 
+ * @returns {(key: T) => U}
  */
-function sort_entries_by_name(a, b) {
-    if (a.name < b.name) return -1;
-    if (a.name > b.name) return 1;
-    return 0;
+function get_simple_cache(loader, cache = {}) {
+    return key => {
+        const cached = cache[key];
+        if (cached) return cached;
+
+        const computed = loader(key);
+        cache[key] = computed;
+        return computed;
+    };
+}
+
+/**
+ * sort_entries_by_name_with_cache generates a sorter which
+ * sorts by UTF8 and caches the intermediate buffers generated
+ * to avoid recomputation
+ * @param {Record<string, Buffer>} [cache={}] 
+ * @returns {(a: fs.Dirent, b: fs.Dirent) => -1|0|1}
+ */
+function sort_entries_by_name_with_cache(cache = {}) {
+    const get_cached_name = get_simple_cache(name => Buffer.from(name, 'utf8'), cache);
+
+    return function(a, b) {
+        const a_name = get_cached_name(a.name);
+        const b_name = get_cached_name(b.name);
+
+        return Buffer.compare(a_name, b_name);
+    };
 }
 
 function _get_version_id_by_stat({ino, mtimeNsBigint}) {
@@ -144,27 +179,33 @@ function _get_filename(file_name) {
     }
     return file_name;
 }
+
 /**
- * @param {fs.Dirent} first_entry
- * @param {fs.Dirent} second_entry
- * @returns {Number}
+ * sort_entries_by_name_and_time_with_cache generates a sorter which sorts
+ * items but UTF8 encoding of the name and in case of conflict uses mtime
+ * to resolve it.
+ * @param {Record<string, Buffer>} [cache={}] 
+ * @returns {(first_entry: fs.Dirent, second_entry: fs.Dirent) => -1|0|1}
  */
-function sort_entries_by_name_and_time(first_entry, second_entry) {
-    const first_entry_name = _get_filename(first_entry.name);
-    const second_entry_name = _get_filename(second_entry.name);
-    if (first_entry_name === second_entry_name) {
-        const first_entry_mtime = _get_mtime_from_filename(first_entry.name);
-        const second_entry_mtime = _get_mtime_from_filename(second_entry.name);
-        // To sort the versions in the latest first order,
-        // below logic is followed
-        if (second_entry_mtime < first_entry_mtime) return -1;
-        if (second_entry_mtime > first_entry_mtime) return 1;
-        return 0;
-    } else {
-        if (first_entry_name < second_entry_name) return -1;
-        if (first_entry_name > second_entry_name) return 1;
-        return 0;
-    }
+function sort_entries_by_name_and_time_with_cache(cache = {}) {
+    const _get_filename_with_cache = get_simple_cache(name => Buffer.from(_get_filename(name), 'utf8'), cache);
+    return function(first_entry, second_entry) {
+        const first_entry_name = _get_filename_with_cache(first_entry.name);
+        const second_entry_name = _get_filename_with_cache(second_entry.name);
+
+        const compare_result = Buffer.compare(first_entry_name, second_entry_name);
+        if (compare_result === 0) {
+            const first_entry_mtime = _get_mtime_from_filename(first_entry.name);
+            const second_entry_mtime = _get_mtime_from_filename(second_entry.name);
+            // To sort the versions in the latest first order,
+            // below logic is followed
+            if (second_entry_mtime < first_entry_mtime) return -1;
+            if (second_entry_mtime > first_entry_mtime) return 1;
+            return 0;
+        }
+
+        return compare_result;
+    };
 }
 
 // This is helper function for list object version
@@ -250,14 +291,6 @@ function is_sparse_file(stat) {
 }
 
 /**
- * @param {fs.Dirent} e
- * @returns {string}
- */
-function get_entry_name(e) {
-    return e.name;
-}
-
-/**
  * @param {string} name
  * @returns {fs.Dirent}
  */
@@ -306,14 +339,14 @@ function to_fs_xattr(xattr) {
 const dir_cache = new LRUCache({
     name: 'nsfs-dir-cache',
     make_key: ({ dir_path }) => dir_path,
-    load: async ({ dir_path, fs_context }) => {
+    load: async ({ dir_path, fs_context, dirent_name_cache = {} }) => {
         const time = Date.now();
         const stat = await nb_native().fs.stat(fs_context, dir_path);
         let sorted_entries;
         let usage = config.NSFS_DIR_CACHE_MIN_DIR_SIZE;
         if (stat.size <= config.NSFS_DIR_CACHE_MAX_DIR_SIZE) {
             sorted_entries = await nb_native().fs.readdir(fs_context, dir_path);
-            sorted_entries.sort(sort_entries_by_name);
+            sorted_entries.sort(sort_entries_by_name_with_cache(dirent_name_cache));
             for (const ent of sorted_entries) {
                 usage += ent.name.length + 4;
             }
@@ -341,7 +374,7 @@ const dir_cache = new LRUCache({
 const versions_dir_cache = new LRUCache({
     name: 'nsfs-versions-dir-cache',
     make_key: ({ dir_path }) => dir_path,
-    load: async ({ dir_path, fs_context }) => {
+    load: async ({ dir_path, fs_context, dirent_name_cache = {} }) => {
         const time = Date.now();
         const stat = await nb_native().fs.stat(fs_context, dir_path);
         const version_path = dir_path + "/" + HIDDEN_VERSIONS_PATH;
@@ -375,7 +408,7 @@ const versions_dir_cache = new LRUCache({
                     old_versions_after_rename
                 } = await _rename_null_version(old_versions, fs_context, version_path);
                 const entries = latest_versions.concat(old_versions_after_rename);
-                sorted_entries = entries.sort(sort_entries_by_name_and_time);
+                sorted_entries = entries.sort(sort_entries_by_name_and_time_with_cache(dirent_name_cache));
                 // rename back version to include 'null' suffix.
                 if (renamed_null_versions_set.size > 0) {
                     for (const ent of sorted_entries) {
@@ -387,7 +420,7 @@ const versions_dir_cache = new LRUCache({
                     }
                 }
             } else {
-                sorted_entries = latest_versions.sort(sort_entries_by_name);
+                sorted_entries = latest_versions.sort(sort_entries_by_name_with_cache(dirent_name_cache));
             }
             /*eslint no-unused-expressions: ["error", { "allowTernary": true }]*/
             for (const ent of sorted_entries) {
@@ -647,6 +680,10 @@ class NamespaceFS {
             /** @type {Result[]} */
             const results = [];
 
+            const _dirent_name_cache = {};
+            /** @type {(key: string) => Buffer} */
+            const dirent_name_cache = get_simple_cache(key => Buffer.from(key, 'utf8'), _dirent_name_cache);
+
             /**
              * @param {string} dir_key
              * @returns {Promise<void>}
@@ -655,6 +692,7 @@ class NamespaceFS {
                 if (this._is_hidden_version_path(dir_key)) {
                     return;
                 }
+
                 // /** @type {fs.Dir} */
                 let dir_handle;
                 /** @type {ReaddirCacheItem} */
@@ -688,9 +726,11 @@ class NamespaceFS {
                     // Since versions are arranged next to latest object in the latest first order,
                     // no need to find the sorted last index. Push the ".versions/#VERSION_OBJECT" as
                     // they are in order
-                    if (results.length && r.key < results[results.length - 1].key &&
+
+                    const r_key_buf = dirent_name_cache(r.key);
+                    if (results.length && Buffer.compare(r_key_buf, dirent_name_cache(results[results.length - 1].key)) === -1 &&
                         !this._is_hidden_version_path(r.key)) {
-                        pos = _.sortedLastIndexBy(results, r, a => a.key);
+                        pos = js_utils.sortedLastIndexBy(results, curr => Buffer.compare(dirent_name_cache(curr.key), r_key_buf) === -1);
                     } else {
                         pos = results.length;
                     }
@@ -720,7 +760,7 @@ class NamespaceFS {
                 const process_entry = async ent => {
                     // dbg.log0('process_entry', dir_key, ent.name);
                     if ((!ent.name.startsWith(prefix_ent) ||
-                        ent.name < marker_curr ||
+                        Buffer.compare(dirent_name_cache(ent.name), dirent_name_cache(marker_curr)) === -1 ||
                         ent.name === this.get_bucket_tmpdir_name() ||
                         ent.name === config.NSFS_FOLDER_OBJECT_NAME) ||
                         this._is_hidden_version_path(ent.name)) {
@@ -748,9 +788,17 @@ class NamespaceFS {
                 if (!(await this.check_access(fs_context, dir_path))) return;
                 try {
                     if (list_versions) {
-                        cached_dir = await versions_dir_cache.get_with_cache({ dir_path, fs_context });
+                        cached_dir = await versions_dir_cache.get_with_cache({
+                            dir_path,
+                            fs_context,
+                            dirent_name_cache: _dirent_name_cache,
+                         });
                     } else {
-                        cached_dir = await dir_cache.get_with_cache({ dir_path, fs_context });
+                        cached_dir = await dir_cache.get_with_cache({
+                            dir_path,
+                            fs_context,
+                            dirent_name_cache: _dirent_name_cache,
+                        });
                     }
                 } catch (err) {
                     if (['ENOENT', 'ENOTDIR'].includes(err.code)) {
@@ -786,11 +834,13 @@ class NamespaceFS {
                             {name: start_marker}
                         ) + 1;
                     } else {
-                        marker_index = _.sortedLastIndexBy(
-                            sorted_entries,
-                            make_named_dirent(marker_curr),
-                            get_entry_name
-                        );
+                        const marker_curr_buf = dirent_name_cache(make_named_dirent(marker_curr).name);
+
+                        marker_index = js_utils.sortedLastIndexBy(sorted_entries, curr => {
+                            const curr_cache_buf = dirent_name_cache(curr.name);
+                            const compare_res = Buffer.compare(curr_cache_buf, marker_curr_buf);
+                            return compare_res === -1 || compare_res === 0;
+                        });
                     }
 
                     // handling a scenario in which key_marker points to an object inside a directory

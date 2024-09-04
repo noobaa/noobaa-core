@@ -19,8 +19,16 @@ const { ConfigFS, JSON_SUFFIX } = require('./config_fs');
 const mongo_utils = require('../util/mongo_utils');
 
 const KeysSemaphore = require('../util/keys_semaphore');
-const { get_umasked_mode, isDirectory, validate_bucket_creation, get_bucket_tmpdir_full_path, folder_delete,
-    entity_enum, translate_error_codes, get_process_fs_context} = require('../util/native_fs_utils');
+const {
+    get_umasked_mode,
+    isDirectory,
+    validate_bucket_creation,
+    get_bucket_tmpdir_full_path,
+    folder_delete,
+    entity_enum,
+    translate_error_codes,
+    get_process_fs_context
+} = require('../util/native_fs_utils');
 const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
 const { anonymous_access_key } = require('./object_sdk');
 
@@ -28,10 +36,9 @@ const dbg = require('../util/debug_module')(__filename);
 const bucket_semaphore = new KeysSemaphore(1);
 
 
-
 class BucketSpaceFS extends BucketSpaceSimpleFS {
-    constructor({config_root}, stats) {
-        super({ fs_root: ''});
+    constructor({ config_root }, stats) {
+        super({ fs_root: '' });
         this.config_root = config_root;
         this.stats = stats;
         this.fs_context = get_process_fs_context(
@@ -85,7 +92,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                 throw new RpcError('NO_SUCH_ACCOUNT', `Account with access_key not found.`, err);
             }
             //account access failed
-            new NoobaaEvent(NoobaaEvent.ACCOUNT_NOT_FOUND).create_event(access_key, {access_key: access_key}, err);
+            new NoobaaEvent(NoobaaEvent.ACCOUNT_NOT_FOUND).create_event(access_key, { access_key: access_key }, err);
             throw new RpcError('NO_SUCH_ACCOUNT', err.message);
         }
     }
@@ -145,7 +152,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
         } catch (err) {
             const rpc_error = translate_error_codes(err, entity_enum.BUCKET);
             if (err.rpc_code === 'INVALID_SCHEMA') err.rpc_code = 'INVALID_BUCKET_STATE';
-            new NoobaaEvent(NoobaaEvent[rpc_error.rpc_code]).create_event(name, {bucket_name: name}, err);
+            new NoobaaEvent(NoobaaEvent[rpc_error.rpc_code]).create_event(name, { bucket_name: name }, err);
             throw rpc_error;
         }
     }
@@ -232,7 +239,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             }
             // currently we do not allow IAM account to create a bucket (temporary)
             if (sdk.requesting_account.owner !== undefined) {
-            dbg.warn('create_bucket: account is IAM account (currently not allowed to create buckets)');
+                dbg.warn('create_bucket: account is IAM account (currently not allowed to create buckets)');
                 throw new RpcError('UNAUTHORIZED', 'Not allowed to create new buckets');
             }
             if (!sdk.requesting_account.nsfs_account_config || !sdk.requesting_account.nsfs_account_config.new_buckets_path) {
@@ -266,17 +273,18 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                 nsfs_schema_utils.validate_bucket_schema(bucket_to_validate);
                 await this.config_fs.create_bucket_config_file(name, bucket_config);
             } catch (err) {
-                new NoobaaEvent(NoobaaEvent.BUCKET_CREATION_FAILED).create_event(name, {bucket_name: name}, err);
+                new NoobaaEvent(NoobaaEvent.BUCKET_CREATION_FAILED).create_event(name, { bucket_name: name }, err);
                 throw translate_error_codes(err, entity_enum.BUCKET);
             }
 
             // create bucket's underlying storage directory
             try {
                 await nb_native().fs.mkdir(fs_context, bucket_storage_path, get_umasked_mode(config.BASE_MODE_DIR));
-                new NoobaaEvent(NoobaaEvent.BUCKET_CREATED).create_event(name, {bucket_name: name});
+                new NoobaaEvent(NoobaaEvent.BUCKET_CREATED).create_event(name, { bucket_name: name });
             } catch (err) {
                 dbg.error('BucketSpaceFS: create_bucket could not create underlying directory - nsfs, deleting bucket', err);
-                new NoobaaEvent(NoobaaEvent.BUCKET_DIR_CREATION_FAILED).create_event(name, {bucket: name, path: bucket_storage_path}, err);
+                new NoobaaEvent(NoobaaEvent.BUCKET_DIR_CREATION_FAILED)
+                    .create_event(name, { bucket: name, path: bucket_storage_path }, err);
                 await nb_native().fs.unlink(this.fs_context, bucket_config_path);
                 throw translate_error_codes(err, entity_enum.BUCKET);
             }
@@ -339,7 +347,11 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                     // 2. delete only bucket tmpdir
                     let list;
                     try {
-                        list = await ns.list_objects({ ...params, bucket: name, limit: 1 }, object_sdk);
+                        if (ns._is_versioning_disabled()) {
+                            list = await ns.list_objects({ ...params, bucket: name, limit: 1 }, object_sdk);
+                        } else {
+                            list = await ns.list_object_versions({ ...params, bucket: name, limit: 1 }, object_sdk);
+                        }
                     } catch (err) {
                         dbg.warn('delete_bucket: bucket name', name, 'got an error while trying to list_objects', err);
                         // in case the ULS was deleted - we will continue
@@ -355,8 +367,8 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                 new NoobaaEvent(NoobaaEvent.BUCKET_DELETE).create_event(name, { bucket_name: name });
             } catch (err) {
                 dbg.error('BucketSpaceFS: delete_bucket: bucket name', name, 'error', err);
-                new NoobaaEvent(NoobaaEvent.BUCKET_DELETE_FAILED).create_event(name,
-                    { bucket_name: name, bucket_path: bucket_config_path }, err);
+                new NoobaaEvent(NoobaaEvent.BUCKET_DELETE_FAILED)
+                    .create_event(name, { bucket_name: name, bucket_path: bucket_config_path }, err);
                 throw translate_error_codes(err, entity_enum.BUCKET);
             }
         });
@@ -368,15 +380,41 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
     //////////////////////
 
     async get_bucket_lifecycle_configuration_rules(params) {
-        // TODO
+        try {
+            const { name } = params;
+            dbg.log0('BucketSpaceFS.get_bucket_lifecycle_configuration_rules: Bucket name', name);
+            const bucket = await this.config_fs.get_bucket_by_name(name);
+            return bucket.lifecycle_configuration_rules || [];
+        } catch (error) {
+            throw translate_error_codes(error, entity_enum.BUCKET);
+        }
     }
 
     async set_bucket_lifecycle_configuration_rules(params) {
-        // TODO
+        try {
+            const { name, rules } = params;
+            dbg.log0('BucketSpaceFS.set_bucket_lifecycle_configuration_rules: Bucket name, rules', name, rules);
+            const bucket = await this.config_fs.get_bucket_by_name(name);
+            bucket.lifecycle_configuration_rules = rules;
+            nsfs_schema_utils.validate_bucket_schema(bucket);
+            const update_bucket = JSON.stringify(bucket);
+            await this.config_fs.update_bucket_config_file(name, update_bucket);
+        } catch (err) {
+            throw translate_error_codes(err, entity_enum.BUCKET);
+        }
     }
 
     async delete_bucket_lifecycle(params) {
-        // TODO
+        try {
+            const { name } = params;
+            dbg.log0('BucketSpaceFS.delete_bucket_lifecycle: Bucket name', name);
+            const bucket = await this.config_fs.get_bucket_by_name(name);
+            delete bucket.lifecycle_configuration_rules;
+            nsfs_schema_utils.validate_bucket_schema(bucket);
+            await this.config_fs.update_bucket_config_file(name, JSON.stringify(bucket));
+        } catch (error) {
+            throw translate_error_codes(error, entity_enum.BUCKET);
+        }
     }
 
     ///////////////////////
@@ -514,7 +552,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             // in case it is algorithm: 'AES256', the property would be undefined
             const bucket_to_validate = _.omitBy(bucket, _.isUndefined);
             dbg.log2("put_bucket_encryption: bucket properties before validate_bucket_schema",
-            bucket_to_validate);
+                bucket_to_validate);
             nsfs_schema_utils.validate_bucket_schema(bucket_to_validate);
             const update_bucket = JSON.stringify(bucket);
             await this.config_fs.update_bucket_config_file(name, update_bucket);
@@ -562,7 +600,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             bucket.website = website;
             const bucket_to_validate = _.omitBy(bucket, _.isUndefined);
             dbg.log2("put_bucket_website: bucket properties before validate_bucket_schema",
-            bucket_to_validate);
+                bucket_to_validate);
             nsfs_schema_utils.validate_bucket_schema(bucket_to_validate);
             const update_bucket = JSON.stringify(bucket);
             await this.config_fs.update_bucket_config_file(name, update_bucket);
@@ -588,9 +626,9 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
     }
 
     /**
-    * @param {object} params
-    * @returns {Promise<object>}
-    */
+     * @param {object} params
+     * @returns {Promise<object>}
+     */
     async get_bucket_website(params) {
         try {
             const { name } = params;
@@ -617,7 +655,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             dbg.log2('put_bucket_policy: bucket properties before validate_bucket_schema', bucket_to_validate);
             nsfs_schema_utils.validate_bucket_schema(bucket_to_validate);
             await bucket_policy_utils.validate_s3_policy(bucket.s3_policy, bucket.name, async principal =>
-                 this.config_fs.get_account_by_name(principal, { silent_if_missing: true }));
+                this.config_fs.get_account_by_name(principal, { silent_if_missing: true }));
             const update_bucket = JSON.stringify(bucket);
             await this.config_fs.update_bucket_config_file(name, update_bucket);
         } catch (err) {
@@ -683,10 +721,10 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
         const bucket_policy = bucket.s3_policy;
 
         if (!bucket_policy) {
-        // in case we do not have bucket policy
-        // we allow IAM account to access a bucket that that is owned by their root account
-        const is_iam_and_same_root_account_owner = account.owner !== undefined &&
-            account.owner === bucket.owner_account.id;
+            // in case we do not have bucket policy
+            // we allow IAM account to access a bucket that that is owned by their root account
+            const is_iam_and_same_root_account_owner = account.owner !== undefined &&
+                account.owner === bucket.owner_account.id;
             return is_owner || is_iam_and_same_root_account_owner;
         }
         if (!action) {

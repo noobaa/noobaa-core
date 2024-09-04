@@ -195,6 +195,12 @@ module.exports = {
                 }
             }
         },
+        bucket_lifecycle_configuration: {
+            type: 'array',
+            items: {
+                $ref: '#/definitions/bucket_lifecycle_rule'
+            }
+        },
         bucket_lifecycle_rule: {
             type: 'object',
             required: ['id', 'filter', 'expiration', 'status'],
@@ -259,27 +265,26 @@ module.exports = {
 
         bucket_policy_principal: {
             anyOf: [{
-                    wrapper: SensitiveString
-                }, {
-                    type: 'object',
-                    required: ['AWS'],
-                    properties: {
-                        AWS: {
-                            anyOf: [{
-                                    wrapper: SensitiveString
-                                }, {
-                                    type: 'array',
-                                    items: {
-                                        wrapper: SensitiveString
-                                    }
-                                }]
-                        }
+                wrapper: SensitiveString
+            }, {
+                type: 'object',
+                required: ['AWS'],
+                properties: {
+                    AWS: {
+                        anyOf: [{
+                            wrapper: SensitiveString
+                        }, {
+                            type: 'array',
+                            items: {
+                                wrapper: SensitiveString
+                            }
+                        }]
                     }
                 }
-            ]},
+            }]
+        },
         string_or_string_array: {
-            anyOf: [
-                {
+            anyOf: [{
                     type: 'string'
                 },
                 {
@@ -288,7 +293,7 @@ module.exports = {
                         type: 'string'
                     }
                 }
-              ]
+            ]
         },
 
         bucket_policy_string_condition: {
@@ -314,8 +319,7 @@ module.exports = {
                 Statement: {
                     type: 'array',
                     items: {
-                        allOf: [
-                            {
+                        allOf: [{
                                 type: 'object',
                                 required: ['Effect'],
                                 properties: {
@@ -378,8 +382,7 @@ module.exports = {
                             // the schema above. these schemas are only here to validate the mutually exclusive required fields
                             // they should be replaced once we support allOf for individual fields
                             {
-                                oneOf: [
-                                    {
+                                oneOf: [{
                                         type: 'object',
                                         required: ["Principal"],
                                         additionalProperties: true,
@@ -394,8 +397,7 @@ module.exports = {
                                 ],
                             },
                             {
-                                oneOf: [
-                                    {
+                                oneOf: [{
                                         type: 'object',
                                         required: ["Action"],
                                         additionalProperties: true,
@@ -407,11 +409,10 @@ module.exports = {
                                         additionalProperties: true,
                                         properties: {}
                                     }
-                                    ],
+                                ],
                             },
                             {
-                                oneOf: [
-                                    {
+                                oneOf: [{
                                         type: 'object',
                                         required: ["Resource"],
                                         additionalProperties: true,
@@ -1270,7 +1271,7 @@ module.exports = {
             }
         },
 
-        // nsfs 
+        // nsfs
 
         fs_backend: {
             type: 'string',
@@ -1301,7 +1302,7 @@ module.exports = {
                 }
             }, {
                 type: 'object',
-                required: [ 'distinguished_name', 'new_buckets_path', 'nsfs_only'],
+                required: ['distinguished_name', 'new_buckets_path', 'nsfs_only'],
                 properties: {
                     distinguished_name: { wrapper: SensitiveString },
                     new_buckets_path: { type: 'string' },

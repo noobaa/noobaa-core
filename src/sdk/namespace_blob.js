@@ -747,6 +747,7 @@ class NamespaceBlob {
             size,
             etag,
             create_time: flat_obj.lastModified,
+            last_modified_time: flat_obj.lastModified,
             content_type: flat_obj.contentType,
             xattr: modified_xattr,
             tag_count: tag_count,

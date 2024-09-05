@@ -36,6 +36,8 @@ const DEFAULT_OBJECT_ACL = Object.freeze({
 const XATTR_SORT_SYMBOL = Symbol('XATTR_SORT_SYMBOL');
 const base64_regex = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
 
+const X_NOOBAA_AVAILABLE_STORAGE_CLASSES = 'x-noobaa-available-storage-classes';
+
 function decode_chunked_upload(source_stream) {
     const decoder = new ChunkedContentDecoder();
     // pipeline will back-propagate errors from the decoder to stop streaming from the source,
@@ -281,6 +283,14 @@ function set_response_object_md(res, object_md) {
 
         res.setHeader('x-amz-restore', restore);
     }
+}
+
+/**
+ * @param {nb.S3Response} res 
+ * @param {Array<string>} [supported_storage_classes]
+ */
+function set_response_supported_storage_classes(res, supported_storage_classes = []) {
+    res.setHeader(X_NOOBAA_AVAILABLE_STORAGE_CLASSES, supported_storage_classes);
 }
 
 /**
@@ -694,3 +704,4 @@ exports.get_response_field_encoder = get_response_field_encoder;
 exports.parse_decimal_int = parse_decimal_int;
 exports.parse_restore_request_days = parse_restore_request_days;
 exports.parse_version_id = parse_version_id;
+exports.set_response_supported_storage_classes = set_response_supported_storage_classes;

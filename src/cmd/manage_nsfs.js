@@ -18,6 +18,7 @@ const ManageCLIResponse = require('../manage_nsfs/manage_nsfs_cli_responses').Ma
 const manage_nsfs_glacier = require('../manage_nsfs/manage_nsfs_glacier');
 const manage_nsfs_logging = require('../manage_nsfs/manage_nsfs_logging');
 const noobaa_cli_diagnose = require('../manage_nsfs/diagnose');
+const noobaa_cli_upgrade = require('../manage_nsfs/upgrade');
 const { print_usage } = require('../manage_nsfs/manage_nsfs_help_utils');
 const { TYPES, ACTIONS, LIST_ACCOUNT_FILTERS, LIST_BUCKET_FILTERS, GLACIER_ACTIONS } = require('../manage_nsfs/manage_nsfs_constants');
 const { throw_cli_error, get_bucket_owner_account, write_stdout_response, get_boolean_or_string_value, has_access_keys, set_debug_level,
@@ -65,6 +66,8 @@ async function main(argv = minimist(process.argv.slice(2))) {
             await logging_management();
         } else if (type === TYPES.DIAGNOSE) {
             await noobaa_cli_diagnose.manage_diagnose_operations(action, user_input, config_fs);
+        } else if (type === TYPES.UPGRADE) {
+            await noobaa_cli_upgrade.manage_upgrade_operations(action, config_fs);
         } else {
             throw_cli_error(ManageCLIError.InvalidType);
         }

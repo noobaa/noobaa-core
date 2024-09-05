@@ -7,9 +7,10 @@ const net = require('net');
 const P = require('../util/promise');
 const string_utils = require('../util/string_utils');
 const native_fs_utils = require('../util/native_fs_utils');
+const { account_id_cache } = require('../sdk/accountspace_fs');
 const ManageCLIError = require('../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
 const bucket_policy_utils = require('../endpoint/s3/s3_bucket_policy_utils');
-const { throw_cli_error, get_bucket_owner_account, get_options_from_file, get_boolean_or_string_value,
+const { throw_cli_error, get_options_from_file, get_boolean_or_string_value,
     check_root_account_owns_user, is_name_update, is_access_key_update } = require('../manage_nsfs/manage_nsfs_cli_utils');
 const { TYPES, ACTIONS, VALID_OPTIONS, OPTION_TYPE, FROM_FILE, BOOLEAN_STRING_VALUES, BOOLEAN_STRING_OPTIONS,
     GLACIER_ACTIONS, LIST_UNSETABLE_OPTIONS, ANONYMOUS, DIAGNOSE_ACTIONS, UPGRADE_ACTIONS } = require('../manage_nsfs/manage_nsfs_constants');
@@ -364,7 +365,14 @@ async function validate_bucket_args(config_fs, data, action) {
         }
 
         // bucket owner account validations 
-        const owner_account_data = await get_bucket_owner_account(config_fs, undefined, data.owner_account);
+        let owner_account_data;
+        try {
+            owner_account_data = await account_id_cache.get_with_cache({ _id: data.owner_account, config_fs });
+        } catch (err) {
+            throw_cli_error(ManageCLIError.BucketSetForbiddenBucketOwnerNotExists,
+                `could not find bucket owner by id ${data.owner_account}, could not validate its access to the bucket`,
+                { owner_account: data.owner_account });
+        }
         const account_fs_context = await native_fs_utils.get_fs_context(owner_account_data.nsfs_account_config,
             owner_account_data.nsfs_account_config.fs_backend);
         if (!config.NC_DISABLE_ACCESS_CHECK) {

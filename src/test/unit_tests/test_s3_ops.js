@@ -153,6 +153,48 @@ mocha.describe('s3_ops', function() {
             const res = await s3.listBuckets({});
             assert(!res.Buckets.find(bucket => bucket.Name === BKT1));
         });
+
+        // Test that bucket_deletion is not allowed for an obc account
+        mocha.it('OBC account should not be allowed to delete a bucket', async function() {
+            // create the bucket to be deleted. use rpc to create, which is the same flow as the operator does
+            await rpc_client.bucket.create_bucket({ name: "obc-bucket" });
+            // create an obc account that is the bucket_claim_owner of the bucket
+            const obc_account = await rpc_client.account.create_account({
+                name: "obc-account",
+                email: "obc-account@noobaa.io",
+                has_login: false,
+                s3_access: true,
+                bucket_claim_owner: "obc-bucket",
+            });
+            const obc_s3_client = new S3({
+                endpoint: coretest.get_http_address(),
+                credentials: {
+                    accessKeyId: obc_account.access_keys[0].access_key.unwrap(),
+                    secretAccessKey: obc_account.access_keys[0].secret_key.unwrap(),
+                },
+                forcePathStyle: true,
+                region: config.DEFAULT_REGION,
+                requestHandler: new NodeHttpHandler({
+                    httpAgent: http_utils.get_unsecured_agent(coretest.get_http_address()),
+                }),
+            });
+            try {
+                await obc_s3_client.deleteBucket({ Bucket: "obc-bucket" });
+                assert.fail('expected AccessDenied error. bucket deletion should not be allowed for obc account');
+            } catch (err) {
+                assert.strictEqual(err.Code, 'AccessDenied');
+                assert.strictEqual(err.$metadata.httpStatusCode, 403);
+            }
+
+            try {
+                // bucket deletion should be allowed for regular accounts (not obc)
+                await s3.deleteBucket({ Bucket: "obc-bucket" });
+            } catch (err) {
+                assert.fail('expected bucket deletion to be successful for regular accounts');
+            }
+            // cleanup
+            await rpc_client.account.delete_account({ email: "obc-account@noobaa.io" });
+        });
     });
 
     async function test_object_ops(bucket_name, bucket_type, caching, remote_endpoint_options) {
@@ -201,7 +243,7 @@ mocha.describe('s3_ops', function() {
                 const ENDPOINT_TYPE = USE_REMOTE_ENDPOINT ? process.env.ENDPOINT_TYPE : 'S3_COMPATIBLE';
                 const AWS_ACCESS_KEY_ID = USE_REMOTE_ENDPOINT ? process.env.AWS_ACCESS_KEY_ID : s3_client_params.credentials.accessKeyId;
                 const AWS_SECRET_ACCESS_KEY = USE_REMOTE_ENDPOINT ? process.env.AWS_SECRET_ACCESS_KEY :
-                                                                    s3_client_params.credentials.secretAccessKey;
+                    s3_client_params.credentials.secretAccessKey;
                 coretest.log("before creating azure target bucket: ", source_namespace_bucket, target_namespace_bucket);
                 if (is_azure_mock) {
                     coretest.log("creating azure target bucket: ", source_namespace_bucket, target_namespace_bucket);
@@ -341,7 +383,7 @@ mocha.describe('s3_ops', function() {
                 s3.middlewareStack.add(next => args => {
                     args.request.query.get_from_cache = 'true'; // represents query_params = { get_from_cache: true }
                     return next(args);
-                }, {step: 'build', name: 'getFromCache'});
+                }, { step: 'build', name: 'getFromCache' });
                 res = await s3.getObjectTagging(params_req);
                 s3.middlewareStack.remove('getFromCache');
             } else {
@@ -404,7 +446,7 @@ mocha.describe('s3_ops', function() {
                     s3.middlewareStack.add(next => args => {
                         args.request.query.get_from_cache = 'true'; // represents query_params = { get_from_cache: true }
                         return next(args);
-                    }, {step: 'build', name: 'getFromCache'});
+                    }, { step: 'build', name: 'getFromCache' });
                     res = await s3.getObjectTagging(params_req);
                     s3.middlewareStack.remove('getFromCache');
                 } else {
@@ -604,7 +646,7 @@ mocha.describe('s3_ops', function() {
                 CopySource: `/${bucket_name}/${text_file1}`,
             });
 
-            const res = await s3.getObjectTagging({Bucket: bucket_name, Key: text_file2});
+            const res = await s3.getObjectTagging({ Bucket: bucket_name, Key: text_file2 });
 
             assert.strictEqual(res.TagSet.length, params.Tagging.TagSet.length, 'Should be 1');
             assert.strictEqual(res.TagSet[0].Value, params.Tagging.TagSet[0].Value);
@@ -631,7 +673,7 @@ mocha.describe('s3_ops', function() {
                 Key: text_file2,
                 CopySource: `/${other_platform_bucket}/${text_file1}`,
             });
-            const res = await s3.getObjectTagging({Bucket: bucket_name, Key: text_file2});
+            const res = await s3.getObjectTagging({ Bucket: bucket_name, Key: text_file2 });
             assert.strictEqual(res.TagSet.length, 1, 'Should be 1');
             assert.strictEqual(res.TagSet[0].Value, params.Tagging.TagSet[0].Value);
             assert.strictEqual(res.TagSet[0].Key, params.Tagging.TagSet[0].Key);
@@ -808,7 +850,7 @@ mocha.describe('s3_ops', function() {
             s3.middlewareStack.add(next => args => {
                 args.request.query.get_from_cache = 'true'; // represents query_params = { get_from_cache: true }
                 return next(args);
-            }, {step: 'build', name: 'getFromCache'});
+            }, { step: 'build', name: 'getFromCache' });
             const res2 = await s3.listObjects(params_req);
             s3.middlewareStack.remove('getFromCache');
 
@@ -825,7 +867,7 @@ mocha.describe('s3_ops', function() {
         mocha.it('should delete non existing object without failing', async function() {
             this.timeout(60000);
             const key_to_delete = 'non-existing-obj';
-            const res = await s3.deleteObject({ Bucket: bucket_name, Key: key_to_delete});
+            const res = await s3.deleteObject({ Bucket: bucket_name, Key: key_to_delete });
             const res_without_metadata = _.omit(res, '$metadata');
             assert.deepEqual(res_without_metadata, {});
 
@@ -838,7 +880,8 @@ mocha.describe('s3_ops', function() {
                 { Key: 'non-existing-obj2' },
                 { Key: 'non-existing-obj3' }
             ];
-            const res = await s3.deleteObjects({ Bucket: bucket_name,
+            const res = await s3.deleteObjects({
+                Bucket: bucket_name,
                 Delete: {
                     Objects: keys_to_delete
                 }

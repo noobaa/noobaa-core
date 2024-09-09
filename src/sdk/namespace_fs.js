@@ -399,17 +399,21 @@ const versions_dir_cache = new LRUCache({
     },
     validate: async ({ stat, ver_dir_stat }, { dir_path, fs_context }) => {
         const new_stat = await nb_native().fs.stat(fs_context, dir_path);
-        if (ver_dir_stat) {
-            const versions_dir_path = path.normalize(path.join(dir_path, '/', HIDDEN_VERSIONS_PATH));
-            const new_versions_stat = await nb_native().fs.stat(fs_context, versions_dir_path);
-            return (new_stat.ino === stat.ino &&
-                    new_stat.mtimeNsBigint === stat.mtimeNsBigint &&
-                    new_versions_stat.ino === ver_dir_stat.ino &&
-                    new_versions_stat.mtimeNsBigint === ver_dir_stat.mtimeNsBigint);
-        } else {
-            return (new_stat.ino === stat.ino &&
-            new_stat.mtimeNsBigint === stat.mtimeNsBigint);
+        const versions_dir_path = path.normalize(path.join(dir_path, '/', HIDDEN_VERSIONS_PATH));
+        let new_versions_stat;
+        try {
+            new_versions_stat = await nb_native().fs.stat(fs_context, versions_dir_path);
+        } catch (err) {
+            if (err.code === 'ENOENT') {
+                dbg.log0('NamespaceFS: Version dir not found, ', versions_dir_path);
+            } else {
+                throw err;
+            }
         }
+        return (new_stat.ino === stat.ino &&
+            new_stat.mtimeNsBigint === stat.mtimeNsBigint &&
+            new_versions_stat?.ino === ver_dir_stat?.ino &&
+            new_versions_stat?.mtimeNsBigint === ver_dir_stat?.mtimeNsBigint);
     },
     item_usage: ({ usage }, dir_path) => usage,
     max_usage: config.NSFS_DIR_CACHE_MAX_TOTAL_SIZE,

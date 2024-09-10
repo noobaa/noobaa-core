@@ -1380,18 +1380,18 @@ module.exports = {
         },
         bucket_notification: {
             type: 'object',
-            required: ['name', 'target_type', 'topic', 'connect'],
+            required: ['name', /*'target_type', 'topic',*/ 'connect'],
             properties: {
                 name: {
                     type: 'string'
                 },
-                target_type: {
+                /*target_type: {
                     type: 'string',
                     enum: ['kafka']
                 },
                 topic: {
                     type: 'string'
-                },
+                },*/
                 connect: {
                     type: 'string'
                 },

@@ -765,6 +765,7 @@ config.NSFS_BUF_POOL_WARNING_TIMEOUT = 2 * 60 * 1000;
 config.NSFS_SEM_WARNING_TIMEOUT = 10 * 60 * 1000;
 // number of rename retries in case of deleted destination directory
 config.NSFS_RENAME_RETRIES = 10;
+config.NSFS_MKDIR_PATH_RETRIES = 3;
 
 config.NSFS_VERSIONING_ENABLED = true;
 config.NSFS_UPDATE_ISSUES_REPORT_ENABLED = true;

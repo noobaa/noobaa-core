@@ -1291,7 +1291,7 @@ class NamespaceFS {
         const same_inode = params.copy_source && copy_res === copy_status_enum.SAME_INODE;
         const is_dir_content = this._is_directory_content(file_path, params.key);
 
-        let stat = await target_file.stat(fs_context);
+        const stat = await target_file.stat(fs_context);
         this._verify_encryption(params.encryption, this._get_encryption_info(stat));
 
         // handle xattr
@@ -1335,7 +1335,6 @@ class NamespaceFS {
 
         if (!same_inode && !part_upload) {
             await this._move_to_dest(fs_context, upload_path, file_path, target_file, open_mode, params.key);
-            if (config.NSFS_TRIGGER_FSYNC) await nb_native().fs.fsync(fs_context, path.dirname(file_path));
         }
 
         // when object is a dir, xattr are set on the folder itself and the content is in .folder file
@@ -1343,7 +1342,7 @@ class NamespaceFS {
             if (params.copy_source) fs_xattr = await this._get_copy_source_xattr(params, fs_context, fs_xattr);
             await this._assign_dir_content_to_xattr(fs_context, fs_xattr, { ...params, size: stat.size }, copy_xattr);
         }
-        stat = await nb_native().fs.stat(fs_context, file_path);
+        stat.xattr = { ...stat.xattr, ...fs_xattr };
         const upload_info = this._get_upload_info(stat, fs_xattr && fs_xattr[XATTR_VERSION_ID]);
         return upload_info;
     }
@@ -1396,6 +1395,7 @@ class NamespaceFS {
                 } else {
                     await this._move_to_dest_version(fs_context, source_path, dest_path, target_file, key, open_mode);
                 }
+                if (config.NSFS_TRIGGER_FSYNC) await nb_native().fs.fsync(fs_context, path.dirname(dest_path));
                 break;
             } catch (err) {
                 retries -= 1;

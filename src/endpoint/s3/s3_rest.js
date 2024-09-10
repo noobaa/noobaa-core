@@ -229,9 +229,16 @@ async function authorize_request_policy(req) {
 
     const account = req.object_sdk.requesting_account;
     const account_identifier = req.object_sdk.nsfs_config_root ? account.name.unwrap() : account.email.unwrap();
-    const is_system_owner = account_identifier === system_owner.unwrap();
+
+    // deny delete_bucket permissions from bucket_claim_owner accounts (accounts that were created by OBC from openshift\k8s)
+    // the OBC bucket can still be delete by normal accounts according to the access policy which is checked below
+    if (req.op_name === 'delete_bucket' && account.bucket_claim_owner) {
+        dbg.error(`delete bucket request by an OBC account is restricted. an attempt to delete bucket by account ${account_identifier}`);
+        throw new S3Error(S3Error.AccessDenied);
+    }
 
     // @TODO: System owner as a construct should be removed - Temporary
+    const is_system_owner = account_identifier === system_owner.unwrap();
     if (is_system_owner) return;
 
     const is_owner = (function() {

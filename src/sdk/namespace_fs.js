@@ -943,7 +943,7 @@ class NamespaceFS {
                     stat = { ...dir_content_path_stat, xattr };
                 }
             }
-            this._throw_if_delete_marker(stat);
+            this._throw_if_delete_marker(stat, params);
             return this._get_object_info(params.bucket, params.key, stat, isDir);
         } catch (err) {
             if (this._should_update_issues_report(params, file_path, err)) {
@@ -989,7 +989,7 @@ class NamespaceFS {
             );
 
             const stat = await file.stat(fs_context);
-            this._throw_if_delete_marker(stat);
+            this._throw_if_delete_marker(stat, params);
             // await this._fail_if_archived_or_sparse_file(fs_context, file_path, stat);
 
             const start = Number(params.start) || 0;
@@ -2714,11 +2714,19 @@ class NamespaceFS {
         return versioned_path;
     }
 
-    _throw_if_delete_marker(stat) {
+    _throw_if_delete_marker(stat, params) {
         if (this.versioning === versioning_status_enum.VER_ENABLED || this.versioning === versioning_status_enum.VER_SUSPENDED) {
             const xattr_delete_marker = stat.xattr[XATTR_DELETE_MARKER];
             if (xattr_delete_marker) {
-                throw error_utils.new_error_code('ENOENT', 'Entry is a delete marker');
+                const basic_err = error_utils.new_error_code('ENOENT', 'Entry is a delete marker');
+                if (params.version_id) {
+                    // If the specified version in the request is a delete marker,
+                    // the response returns a 405 Method Not Allowed error and the Last-Modified: timestamp response header.
+                    throw new RpcError('METHOD_NOT_ALLOWED',
+                        'Method not allowed, delete object id of entry delete marker',
+                        { last_modified: new Date(stat.mtime), delete_marker: true });
+                }
+                throw basic_err;
             }
         }
     }

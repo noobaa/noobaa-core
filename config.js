@@ -905,6 +905,8 @@ config.QUOTA_MAX_OBJECTS = Number.MAX_SAFE_INTEGER;
 //////////////////////////
 
 config.STS_DEFAULT_SESSION_TOKEN_EXPIRY_MS = 60 * 60 * 1000; // 1 hour
+config.STS_MIN_DURATION_SECONDS = 15 * 60; // 15 minutes
+config.STS_MAX_DURATION_SECONDS = 12 * 60 * 60; // 12 hours
 
 /////////////////////////
 // BLOCK STORE FS      //

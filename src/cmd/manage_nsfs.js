@@ -25,7 +25,7 @@ const { throw_cli_error, get_bucket_owner_account, write_stdout_response, get_bo
     is_name_update, is_access_key_update } = require('../manage_nsfs/manage_nsfs_cli_utils');
 const manage_nsfs_validations = require('../manage_nsfs/manage_nsfs_validations');
 const nc_mkm = require('../manage_nsfs/nc_master_key_manager').get_instance();
-const { KafkaNotificator } = require('../util/notifications_util');
+const notifications_util = require('../util/notifications_util');
 
 let config_fs;
 
@@ -102,7 +102,7 @@ async function fetch_bucket_data(action, user_input) {
         new_name: user_input.new_name === undefined ? undefined : String(user_input.new_name),
         fs_backend: user_input.fs_backend === undefined ? config.NSFS_NC_STORAGE_BACKEND : String(user_input.fs_backend),
         force_md5_etag: user_input.force_md5_etag === undefined || user_input.force_md5_etag === '' ? user_input.force_md5_etag : get_boolean_or_string_value(user_input.force_md5_etag),
-        notifications: user_input.notifications
+        notifications: user_input.notifications ? JSON.parse(user_input.notifications) : undefined
         };
 
     if (user_input.bucket_policy !== undefined) {
@@ -198,7 +198,7 @@ async function get_bucket_status(data) {
  * @param {Object} data
  * @returns { Promise<{ code: typeof ManageCLIResponse.BucketUpdated, detail: Object }>} 
  */
-async function update_bucket(data) {
+async function update_bucket(data, user_input) {
     const cur_name = data.name;
     const new_name = data.new_name;
     const name_update = is_name_update(data);
@@ -206,6 +206,14 @@ async function update_bucket(data) {
     data = _.omit(data, cli_bucket_flags_to_remove);
 
     let parsed_bucket_data;
+
+    if (user_input.notifications) {
+        //notifications are tested before they can be updated
+        const test_notif_err = await notifications_util.test_notifications(data);
+        if (test_notif_err) {
+            throw_cli_error(ManageCLIError.InvalidArgument, "Failed to update notifications", test_notif_err);
+        }
+    }
     if (name_update) {
         parsed_bucket_data = await config_fs.create_bucket_config_file({ ...data, name: new_name });
         await config_fs.delete_bucket_config_file(cur_name);
@@ -273,7 +281,7 @@ async function bucket_management(action, user_input) {
     } else if (action === ACTIONS.STATUS) {
         response = await get_bucket_status(data);
     } else if (action === ACTIONS.UPDATE) {
-        response = await update_bucket(data);
+        response = await update_bucket(data, user_input);
     } else if (action === ACTIONS.DELETE) {
         const force = get_boolean_or_string_value(user_input.force);
         response = await delete_bucket(data, force);
@@ -710,7 +718,7 @@ async function logging_management() {
 }
 
 async function notification_management() {
-    new KafkaNotificator(config_fs.fs_context).process_notification_files();
+    new notifications_util.Notificator(config_fs.fs_context).process_notification_files();
 }
 
 exports.main = main;

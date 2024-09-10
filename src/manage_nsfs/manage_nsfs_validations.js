@@ -173,6 +173,7 @@ function validate_options_type_by_value(input_options_with_data) {
                 continue;
             }
             const details = `type of flag ${option} should be ${type_of_option}`;
+            console.log("option = ", option, " typepof option = ", typeof value, " should be ", type_of_option);
             throw_cli_error(ManageCLIError.InvalidArgumentType, details);
         }
     }

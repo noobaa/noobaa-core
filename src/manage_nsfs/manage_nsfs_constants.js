@@ -60,7 +60,7 @@ const VALID_OPTIONS_ANONYMOUS_ACCOUNT = {
 
 const VALID_OPTIONS_BUCKET = {
     'add': new Set(['name', 'owner', 'path', 'bucket_policy', 'fs_backend', 'force_md5_etag', 'notifications', FROM_FILE, ...CLI_MUTUAL_OPTIONS]),
-    'update': new Set(['name', 'owner', 'path', 'bucket_policy', 'fs_backend', 'new_name', 'force_md5_etag', ...CLI_MUTUAL_OPTIONS]),
+    'update': new Set(['name', 'owner', 'path', 'bucket_policy', 'fs_backend', 'new_name', 'force_md5_etag', 'notifications', ...CLI_MUTUAL_OPTIONS]),
     'delete': new Set(['name', 'force', ...CLI_MUTUAL_OPTIONS]),
     'list': new Set(['wide', 'name', ...CLI_MUTUAL_OPTIONS]),
     'status': new Set(['name', ...CLI_MUTUAL_OPTIONS]),
@@ -124,7 +124,7 @@ const OPTION_TYPE = {
     all_bucket_details: 'boolean',
     https_port: 'number',
     debug: 'number',
-    notifications: 'object'
+    notifications: 'string'
 };
 
 const BOOLEAN_STRING_VALUES = ['true', 'false'];

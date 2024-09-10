@@ -68,15 +68,29 @@ async function _generate_unique_path(fs_context, tmp_dir_path) {
 // opens open_path on POSIX, and on GPFS it will open open_path parent folder
 async function open_file(fs_context, bucket_path, open_path, open_mode = config.NSFS_OPEN_READ_MODE,
         file_permissions = config.BASE_MODE_FILE) {
+    let retries = config.NSFS_MKDIR_PATH_RETRIES;
+
     const dir_path = path.dirname(open_path);
-    if ((open_mode === 'wt' || open_mode === 'w') && dir_path !== bucket_path) {
-        dbg.log1(`NamespaceFS._open_file: mode=${open_mode} creating dirs`, open_path, bucket_path);
-        await _make_path_dirs(open_path, fs_context);
-    }
-    dbg.log1(`NamespaceFS._open_file: mode=${open_mode}`, open_path);
-    // for 'wt' open the tmpfile with the parent dir path
     const actual_open_path = open_mode === 'wt' ? dir_path : open_path;
-    return nb_native().fs.open(fs_context, actual_open_path, open_mode, get_umasked_mode(file_permissions));
+    const should_create_path_dirs = (open_mode === 'wt' || open_mode === 'w') && dir_path !== bucket_path;
+    for (;;) {
+        try {
+            if (should_create_path_dirs) {
+                dbg.log1(`NamespaceFS._open_file: mode=${open_mode} creating dirs`, open_path, bucket_path);
+                await _make_path_dirs(open_path, fs_context);
+            }
+            dbg.log1(`NamespaceFS._open_file: mode=${open_mode}`, open_path);
+            // for 'wt' open the tmpfile with the parent dir path
+            const fd = await nb_native().fs.open(fs_context, actual_open_path, open_mode, get_umasked_mode(file_permissions));
+            return fd;
+        } catch (err) {
+            dbg.warn(`native_fs_utils.open_file Retrying retries=${retries} mode=${open_mode} open_path=${open_path} dir_path=${dir_path} actual_open_path=${actual_open_path}`, err);
+            if (err.code !== 'ENOENT') throw err;
+            // case of concurrennt deletion of the dir_path
+            if (retries <= 0 || !should_create_path_dirs) throw err;
+            retries -= 1;
+        }
+    }
 }
 
 /**

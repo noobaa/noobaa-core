@@ -49,7 +49,7 @@ async function send_bucket_op_logs(req, res) {
                     const s3_log = {
                         meta: {
                             connect: notif.connect,
-                            topic: notif.topic
+                            name: notif.name
                         },
                         notif: get_bucket_log_record(req.op_name, bucket_info, req, res, "NOTIF")
                     };

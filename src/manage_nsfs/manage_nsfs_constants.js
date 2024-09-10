@@ -51,10 +51,10 @@ const VALID_OPTIONS_ACCOUNT = {
 };
 
 const VALID_OPTIONS_ANONYMOUS_ACCOUNT = {
-    'add': new Set(['uid', 'gid', 'user', 'anonymous', CONFIG_ROOT_FLAG]),
-    'update': new Set(['uid', 'gid', 'user', 'anonymous', CONFIG_ROOT_FLAG]),
-    'delete': new Set(['anonymous', CONFIG_ROOT_FLAG]),
-    'status': new Set(['anonymous', CONFIG_ROOT_FLAG]),
+    'add': new Set(['uid', 'gid', 'user', 'anonymous', ...CLI_MUTUAL_OPTIONS]),
+    'update': new Set(['uid', 'gid', 'user', 'anonymous', ...CLI_MUTUAL_OPTIONS]),
+    'delete': new Set(['anonymous', ...CLI_MUTUAL_OPTIONS]),
+    'status': new Set(['anonymous', ...CLI_MUTUAL_OPTIONS]),
 };
 
 const VALID_OPTIONS_BUCKET = {

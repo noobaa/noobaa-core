@@ -2664,6 +2664,33 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                 assert.fail(`Failed with an error: ${err.Code}`);
             }
         });
+
+        mocha.it('head object, with version enabled, version id specified delete marker - should throw error with code 405', async function() {
+            try {
+                await s3_client.headObject({Bucket: bucket_name, Key: en_version_key, VersionId: versionID_1});
+                assert.fail('Should fail');
+            } catch (err) {
+                assert.strictEqual(err.$metadata.httpStatusCode, 405);
+                // In headObject the AWS SDK doesn't return the err.Code
+                // In AWS CLI it looks:
+                // An error occurred (405) when calling the HeadObject operation: Method Not Allowed
+                // in the docs: https://docs.aws.amazon.com/AmazonS3/latest/API/API_HeadObject.html
+                //    if the HEAD request generates an error, it returns a generic code, such as ...
+                //    405 Method Not Allowed, ... It's not possible to retrieve the exact exception of these error codes.
+            }
+        });
+
+        mocha.it('get object, with version enabled, version id specified delete marker - should throw error with code 405', async function() {
+            try {
+                await s3_client.getObject({Bucket: bucket_name, Key: en_version_key, VersionId: versionID_1});
+                assert.fail('Should fail');
+            } catch (err) {
+                assert.strictEqual(err.$metadata.httpStatusCode, 405);
+                assert.strictEqual(err.Code, 'MethodNotAllowed');
+                // In AWS CLI it looks:
+                // An error occurred (MethodNotAllowed) when calling the GetObject operation: The specified method is not allowed against this resource.
+            }
+        });
     });
 });
 

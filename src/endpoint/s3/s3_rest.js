@@ -397,7 +397,7 @@ function parse_op_name(req) {
     return `${method}_object`;
 }
 
-function handle_error(req, res, err) {
+function _prepare_error(req, res, err) {
     let s3err =
         ((err instanceof S3Error) && err) ||
         new S3Error(S3Error.RPC_ERRORS_TO_S3[err.rpc_code] || S3Error.InternalError);
@@ -407,19 +407,26 @@ function handle_error(req, res, err) {
         s3err.detail = err.rpc_data.detail;
     }
 
-    if (s3err.rpc_data) {
-        if (s3err.rpc_data.etag) {
+    if (err.rpc_data) {
+        if (err.rpc_data.etag) {
             if (res.headersSent) {
                 dbg.log0('Sent reply in body, bit too late for Etag header');
             } else {
-                res.setHeader('ETag', s3err.rpc_data.etag);
+                res.setHeader('ETag', err.rpc_data.etag);
             }
         }
-        if (s3err.rpc_data.last_modified) {
+        if (err.rpc_data.last_modified) {
             if (res.headersSent) {
                 dbg.log0('Sent reply in body, bit too late for Last-Modified header');
             } else {
-                res.setHeader('Last-Modified', time_utils.format_http_header_date(new Date(s3err.rpc_data.last_modified)));
+                res.setHeader('Last-Modified', time_utils.format_http_header_date(new Date(err.rpc_data.last_modified)));
+            }
+        }
+        if (err.rpc_data.delete_marker) {
+            if (res.headersSent) {
+                dbg.log0('Sent reply in body, bit too late for x-amz-delete-marker header');
+            } else {
+                res.setHeader('x-amz-delete-marker', String(err.rpc_data.delete_marker));
             }
         }
     }
@@ -431,6 +438,12 @@ function handle_error(req, res, err) {
 
     usage_report.s3_errors_info.total_errors += 1;
     usage_report.s3_errors_info[s3err.code] = (usage_report.s3_errors_info[s3err.code] || 0) + 1;
+
+    return s3err;
+}
+
+function handle_error(req, res, err) {
+    const s3err = _prepare_error(req, res, err);
 
     const reply = s3err.reply(req.originalUrl, req.request_id);
     dbg.error('S3 ERROR', reply,
@@ -450,26 +463,7 @@ function handle_error(req, res, err) {
 }
 
 async function _handle_html_response(req, res, err) {
-    let s3err =
-        ((err instanceof S3Error) && err) ||
-        new S3Error(S3Error.RPC_ERRORS_TO_S3[err.rpc_code] || S3Error.InternalError);
-
-    if (s3err.rpc_data) {
-        if (s3err.rpc_data.etag) {
-            res.setHeader('ETag', s3err.rpc_data.etag);
-        }
-        if (s3err.rpc_data.last_modified) {
-            res.setHeader('Last-Modified', time_utils.format_http_header_date(new Date(s3err.rpc_data.last_modified)));
-        }
-    }
-
-    // md_conditions used for PUT/POST/DELETE should return PreconditionFailed instead of NotModified
-    if (s3err.code === 'NotModified' && req.method !== 'HEAD' && req.method !== 'GET') {
-        s3err = new S3Error(S3Error.PreconditionFailed);
-    }
-
-    usage_report.s3_errors_info.total_errors += 1;
-    usage_report.s3_errors_info[s3err.code] = (usage_report.s3_errors_info[s3err.code] || 0) + 1;
+    const s3err = _prepare_error(req, res, err);
 
     const reply = `<html> \
         <head><title>${s3err.http_code} ${s3err.code}</title></head> \

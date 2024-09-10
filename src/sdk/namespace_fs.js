@@ -1473,9 +1473,10 @@ class NamespaceFS {
                 break;
             } catch (err) {
                 retries -= 1;
-                if (retries <= 0 || !native_fs_utils.should_retry_link_unlink(is_gpfs, err)) throw err;
-                dbg.warn(`NamespaceFS._move_to_dest_version retrying retries=${retries}` +
+                const should_retry = native_fs_utils.should_retry_link_unlink(is_gpfs, err);
+                dbg.warn(`NamespaceFS._move_to_dest_version retrying retries=${retries} should_retry=${should_retry}` +
                     ` new_ver_tmp_path=${new_ver_tmp_path} latest_ver_path=${latest_ver_path}`, err);
+                if (!should_retry || retries <= 0) throw err;
             } finally {
                 if (gpfs_options) await this._close_files_gpfs(fs_context, gpfs_options.move_to_dst, open_mode);
             }

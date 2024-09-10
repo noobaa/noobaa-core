@@ -336,6 +336,7 @@ async function check_new_name_exists(type, config_fs, action, data) {
 async function check_new_access_key_exists(config_fs, action, data) {
     const new_access_key = action === ACTIONS.ADD ? data.access_keys?.[0]?.access_key : data.new_access_key;
     if (action === ACTIONS.UPDATE && !is_access_key_update(data)) return;
+    if (!new_access_key) return; // for anonymous account and users without access keys
     const exists = await config_fs.is_account_exists({ access_key: new_access_key });
     if (exists) throw_cli_error(ManageCLIError.AccountAccessKeyAlreadyExists, new_access_key, { account: new_access_key });
 }
@@ -455,11 +456,12 @@ async function validate_account_args(config_fs, data, action, is_flag_iam_operat
         if (!exists) {
             throw_cli_error(ManageCLIError.InvalidAccountNewBucketsPath, data.nsfs_account_config.new_buckets_path);
         }
-        if (config.NC_DISABLE_ACCESS_CHECK) return;
-        const account_fs_context = await native_fs_utils.get_fs_context(data.nsfs_account_config, data.fs_backend);
-        const accessible = await native_fs_utils.is_dir_rw_accessible(account_fs_context, data.nsfs_account_config.new_buckets_path);
-        if (!accessible) {
-            throw_cli_error(ManageCLIError.InaccessibleAccountNewBucketsPath, data.nsfs_account_config.new_buckets_path);
+        if (!config.NC_DISABLE_ACCESS_CHECK) {
+            const account_fs_context = await native_fs_utils.get_fs_context(data.nsfs_account_config, data.fs_backend);
+            const accessible = await native_fs_utils.is_dir_rw_accessible(account_fs_context, data.nsfs_account_config.new_buckets_path);
+            if (!accessible) {
+                throw_cli_error(ManageCLIError.InaccessibleAccountNewBucketsPath, data.nsfs_account_config.new_buckets_path);
+            }
         }
         if (action === ACTIONS.UPDATE && is_flag_iam_operate_on_root_account_update_action) {
             await validate_root_accounts_manager_update(config_fs, data);

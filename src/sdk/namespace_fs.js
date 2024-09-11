@@ -1147,6 +1147,7 @@ class NamespaceFS {
         const file_path = this._get_file_path(params);
         let upload_params;
         try {
+            const override_params = await this._handle_object_override(fs_context, file_path);
             await this._check_path_in_bucket_boundaries(fs_context, file_path);
 
             if (this.empty_dir_content_flow(file_path, params)) {
@@ -1157,6 +1158,7 @@ class NamespaceFS {
             await this._throw_if_storage_class_not_supported(params.storage_class);
 
             upload_params = await this._start_upload(fs_context, object_sdk, file_path, params, open_mode);
+            // Method will handle Key and Key/ overriding, object `obj1` overriding with
 
             if (!params.copy_source || upload_params.copy_res === copy_status_enum.FALLBACK) {
                 // We are taking the buffer size closest to the sized upload
@@ -1165,8 +1167,17 @@ class NamespaceFS {
                     bp.buf_size, async () => this._upload_stream(upload_params));
                 upload_params.digest = upload_res.digest;
             }
-
+            // TODO : uploading file replacing .folder file wth file, both have same file
+            // its no happening for folder
+            if (override_params.override_with_file) {
+                upload_params.file_path = file_path + '/.file';
+            }
             const upload_info = await this._finish_upload(upload_params);
+            if (override_params.override_with_folder) {
+                params.copy_source = { key: params.key, undefined };
+                await this._try_copy_file(fs_context, params, file_path.replace('/.folder', '') + '_test', file_path.replace('/.folder', '') + '/.file');
+                await nb_native().fs.unlink(fs_context, override_params.temp_file_name);
+            }
             return upload_info;
         } catch (err) {
             this.run_update_issues_report(object_sdk, err);
@@ -1182,6 +1193,40 @@ class NamespaceFS {
                 dbg.warn('NamespaceFS: upload_object file close error', err);
             }
         }
+    }
+    /*  
+     Method will handle Key and Key/ overriding, object `obj1` overriding with `obj1/` should not fail and vice versa
+     1. unlink the file `obj1` when try to override with dir `obj1/` to avoid Not a directory error
+     2. delete the folder `obj1/` when try to override with file `obj1` to avoid error InternalError
+     normal override(object1 overrides object1 or dir1/ overrides dir1/) will not delete the file/folder
+    */
+    async _handle_object_override(fs_context, file_path) {
+        const actual_file_path = file_path.replace('/.folder', '');
+        let override_with_folder = false;
+        let override_with_file = false;
+        let temp_file_name;
+        try {
+            const stat = await nb_native().fs.stat(fs_context, actual_file_path);
+            if (await this.is_override_with_folder(file_path) && !native_fs_utils.isDirectory(stat)) {
+                dbg.warn('NamespaceFS: _handle_object_override unlink file before overriding the key with folde, file_path: ', file_path);
+                const temp_id = uuidv4();
+                temp_file_name = actual_file_path + '_' + temp_id;
+                await nb_native().fs.rename(fs_context, actual_file_path, temp_file_name);
+                override_with_folder = true;
+            } else if (!await this.is_override_with_folder(file_path) && native_fs_utils.isDirectory(stat)) {
+                dbg.warn('NamespaceFS: _handle_object_override delete folder before overriding the key with file, file_path: ', file_path);
+                file_path = path.join(actual_file_path, '/.file');
+                override_with_file = true;
+                return { file_path, override_with_folder, override_with_file, temp_file_name};
+            }
+        } catch (err) {
+            if (err.code !== 'ENOENT') throw err;
+        }
+        return {file_path, override_with_folder, override_with_file, temp_file_name};
+    }
+
+    async is_override_with_folder(file_path) {
+        return file_path.includes('/.folder');
     }
 
     // creates upload_path if needed

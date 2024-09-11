@@ -74,7 +74,7 @@ async function copy_objects_mixed_types(req) {
     await P.map_with_concurrency(100, keys, async key => {
         const params = {
             Bucket: dst_bucket_name.unwrap(),
-            CopySource: `/${src_bucket_name.unwrap()}/${key}`, // encodeURI for special chars is needed
+            CopySource: encodeURI(`/${src_bucket_name.unwrap()}/${key}`),
             Key: key
         };
         try {

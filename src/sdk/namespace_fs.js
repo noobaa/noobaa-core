@@ -59,7 +59,6 @@ const XATTR_PART_OFFSET = XATTR_NOOBAA_INTERNAL_PREFIX + 'part_offset';
 const XATTR_PART_SIZE = XATTR_NOOBAA_INTERNAL_PREFIX + 'part_size';
 const XATTR_PART_ETAG = XATTR_NOOBAA_INTERNAL_PREFIX + 'part_etag';
 const XATTR_VERSION_ID = XATTR_NOOBAA_INTERNAL_PREFIX + 'version_id';
-const XATTR_PREV_VERSION_ID = XATTR_NOOBAA_INTERNAL_PREFIX + 'prev_version_id';
 const XATTR_DELETE_MARKER = XATTR_NOOBAA_INTERNAL_PREFIX + 'delete_marker';
 const XATTR_DIR_CONTENT = XATTR_NOOBAA_INTERNAL_PREFIX + 'dir_content';
 const XATTR_TAG = XATTR_NOOBAA_INTERNAL_PREFIX + 'tag.';
@@ -1314,8 +1313,7 @@ class NamespaceFS {
             fs_xattr = await this._assign_part_props_to_fs_xattr(fs_context, params.size, digest, offset, fs_xattr);
         }
         if (!part_upload && (this._is_versioning_enabled() || this._is_versioning_suspended())) {
-            const cur_ver_info = await this._get_version_info(fs_context, file_path);
-            fs_xattr = await this._assign_versions_to_fs_xattr(fs_context, cur_ver_info, stat, params.key, fs_xattr);
+            fs_xattr = await this._assign_versions_to_fs_xattr(stat, fs_xattr, undefined);
         }
         if (!part_upload && params.storage_class) {
             fs_xattr = Object.assign(fs_xattr || {}, {
@@ -2175,14 +2173,11 @@ class NamespaceFS {
         return fs_xattr;
     }
 
-    async _assign_versions_to_fs_xattr(fs_context, prev_ver_info, new_ver_stat, key, fs_xattr, delete_marker) {
-        if (!prev_ver_info) prev_ver_info = await this.find_max_version_past(fs_context, key);
-
+    async _assign_versions_to_fs_xattr(new_ver_stat, fs_xattr, delete_marker) {
         fs_xattr = Object.assign(fs_xattr || {}, {
             [XATTR_VERSION_ID]: this._get_version_id_by_mode(new_ver_stat)
         });
 
-        if (prev_ver_info) fs_xattr[XATTR_PREV_VERSION_ID] = prev_ver_info.version_id_str;
         if (delete_marker) fs_xattr[XATTR_DELETE_MARKER] = delete_marker;
 
         return fs_xattr;
@@ -2661,7 +2656,6 @@ class NamespaceFS {
     // mtimeNsBigint - modified timestmap in bigint - last time the content of the file was modified
     // ino - refers to the data stored in a particular location
     // delete_marker - specifies if the version is a delete marker
-    // prev_version_id - specifies the previous version of the wanted version
     // path - specifies the path to version
     // if version xattr contains version info - return info by xattr
     // else - it's a null version - return stat
@@ -2676,7 +2670,6 @@ class NamespaceFS {
                 ...(ver_info_by_xattr || stat),
                 version_id_str,
                 delete_marker: stat.xattr[XATTR_DELETE_MARKER],
-                prev_version_id: stat.xattr[XATTR_PREV_VERSION_ID],
                 path: version_path
             };
         } catch (err) {
@@ -2732,13 +2725,12 @@ class NamespaceFS {
     }
 
     /**
-     * @param {nb.NativeFSContext} fs_context 
-     * @param {string} key 
-     * @param {string} version_id 
+     * @param {nb.NativeFSContext} fs_context
+     * @param {string} key
+     * @param {string} version_id
      * @returns {Promise<{
      *   version_id_str: any;
      *   delete_marker: string;
-     *   prev_version_id: string;
      *   path: any;
      *   mtimeNsBigint: bigint;
      *   ino: number;
@@ -2857,17 +2849,13 @@ class NamespaceFS {
     // condition 2 guards on situations where we don't want to try move max version past to latest
     async _promote_version_to_latest(fs_context, params, deleted_version_info, latest_ver_path) {
         dbg.log1('Namespace_fs._promote_version_to_latest', params, deleted_version_info, latest_ver_path);
-        const deleted_latest = deleted_version_info && deleted_version_info.path === latest_ver_path;
-        const prev_version_id = deleted_latest && deleted_version_info.prev_version_id;
 
         let retries = config.NSFS_RENAME_RETRIES;
         for (;;) {
             try {
                 const latest_version_info = await this._get_version_info(fs_context, latest_ver_path);
                 if (latest_version_info) return;
-                const max_past_ver_info = (prev_version_id &&
-                    (await this.get_prev_version_info(fs_context, params.key, prev_version_id))) ||
-                    (await this.find_max_version_past(fs_context, params.key));
+                const max_past_ver_info = await this.find_max_version_past(fs_context, params.key);
 
                 if (!max_past_ver_info || max_past_ver_info.delete_marker) return;
                 // 2 - if deleted file is a delete marker and is older than max past version - no need to promote max - return
@@ -3013,16 +3001,7 @@ class NamespaceFS {
                 }
                 const file_path = this._get_version_path(params.key, delete_marker_version_id);
 
-                let fs_xattr;
-                if (this._is_versioning_suspended() &&
-                    (deleted_version_info?.version_id_str === NULL_VERSION_ID)) {
-                    fs_xattr = await this._assign_versions_to_fs_xattr(fs_context, undefined,
-                        stat, params.key, undefined, true);
-                } else {
-                    // the previous version will be the deleted version
-                    fs_xattr = await this._assign_versions_to_fs_xattr(fs_context, deleted_version_info,
-                        stat, params.key, undefined, true);
-                }
+                const fs_xattr = await this._assign_versions_to_fs_xattr(stat, undefined, true);
                 if (fs_xattr) await upload_params.target_file.replacexattr(fs_context, fs_xattr);
                 // create .version in case we don't have it yet
                 await native_fs_utils._make_path_dirs(file_path, fs_context);
@@ -3040,12 +3019,6 @@ class NamespaceFS {
                 if (upload_params) await this.complete_object_upload_finally(undefined, undefined, upload_params.target_file, fs_context);
             }
         }
-    }
-
-    async get_prev_version_info(fs_context, key, prev_version_id) {
-        const prev_path = this._get_version_path(key, prev_version_id);
-        const prev_path_info = await this._get_version_info(fs_context, prev_path);
-        return prev_path_info;
     }
 
     // try find prev version by hint or by iterating on .versions/ dir

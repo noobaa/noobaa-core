@@ -161,11 +161,17 @@ class NamespaceBlob {
         } catch (err) {
             this._translate_error_code(err);
             dbg.warn('NamespaceBlob.read_object_md:', inspect(err));
-            object_sdk.rpc_client.pool.update_issues_report({
-                namespace_resource_id: this.namespace_resource_id,
-                error_code: err.code || (err.details && err.details.errorCode) || 'InternalError',
-                time: Date.now(),
-            });
+
+            // It's totally expected to issue `HeadObject` against an object that doesn't exist
+            // this shouldn't be counted as an issue for the namespace store
+            if (err.rpc_code !== 'NO_SUCH_OBJECT') {
+                object_sdk.rpc_client.pool.update_issues_report({
+                    namespace_resource_id: this.namespace_resource_id,
+                    error_code: err.code || (err.details && err.details.errorCode) || 'InternalError',
+                    time: Date.now(),
+                });
+            }
+
             throw err;
         }
     }

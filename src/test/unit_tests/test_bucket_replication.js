@@ -271,6 +271,8 @@ mocha.describe('replication configuration bg worker tests', function() {
     const bucket_for_replications = 'bucket5-br-bg';
     const bucket_to_delete = 'bucket-to-delete';
     const buckets = [bucket1, bucket2, bucket_to_delete, bucket3, bucket4, bucket_for_replications];
+    let uploaded_objects_count = 0;
+    let uploaded_prefix_objects_count = 0;
     //const namespace_buckets = [];
     let s3_owner;
     let scanner;
@@ -282,6 +284,13 @@ mocha.describe('replication configuration bg worker tests', function() {
         region: 'us-east-1',
         httpOptions: { agent: new http.Agent({ keepAlive: false }) },
     };
+
+    // Special character items to ensure encoding of URI works OK in the replication scanner
+    const special_character_items = [
+        'key1273-2__#$!@%!#__BED-END-1-Carton-13.jpeg',
+        'key1278-1__4267%2524__BED-END-1-Carton-13.jpeg'
+    ];
+
     mocha.before('init scanner & populate buckets', async function() {
         // create buckets
         await P.all(_.map(buckets, async bucket_name => {
@@ -298,9 +307,23 @@ mocha.describe('replication configuration bg worker tests', function() {
         // populate buckets
         for (let i = 0; i < 10; i++) {
             let key = `key${i}`;
-            if (i % 2 === 0) key = 'pref' + key;
+            if (i % 2 === 0) {
+                key = 'pref' + key;
+                uploaded_prefix_objects_count += 1;
+            }
             await put_object(s3_owner, bucket1, key);
+            uploaded_objects_count += 1;
         }
+
+        // Add special characters items with prefix to the bucket
+        await Promise.all(special_character_items.map(item => put_object(s3_owner, bucket1, 'pref' + item)));
+        uploaded_objects_count += special_character_items.length;
+
+        // Add special characters items without prefix to the bucket
+        await Promise.all(special_character_items.map(item => put_object(s3_owner, bucket1, item)));
+        uploaded_objects_count += special_character_items.length;
+        uploaded_prefix_objects_count += special_character_items.length;
+
         cloud_utils.set_noobaa_s3_connection = () => {
             console.log('setting connection to coretest endpoint and access key');
             return s3_owner;
@@ -320,11 +343,13 @@ mocha.describe('replication configuration bg worker tests', function() {
                 if (i % 2 === 0) key = 'pref' + key;
                 await delete_object(s3_owner, bucket_name, key);
             }
+            await Promise.all(special_character_items.map(item => delete_object(s3_owner, bucket_name, 'pref' + item)));
+            await Promise.all(special_character_items.map(item => delete_object(s3_owner, bucket_name, item)));
             await rpc_client.bucket.delete_bucket({ name: bucket_name });
         }));
     });
 
-    mocha.it('run replication scanner and wait - no replication - nothing to upload', async function() {
+    mocha.it('run replication scanner and wait - no replication rule - nothing to upload', async function() {
         const res1 = await scanner.run_batch();
         console.log('waiting for replication objects no objects to upload', res1);
         await _list_objects_and_wait(s3_owner, bucket_for_replications, 0);
@@ -345,16 +370,16 @@ mocha.describe('replication configuration bg worker tests', function() {
             [{ rule_id: 'rule-1', destination_bucket: bucket_for_replications, sync_versions: false, filter: { prefix: 'pref' } }], false);
         let res1 = await scanner.run_batch();
         console.log('waiting for replication objects - one rule one prefix', res1);
-        let contents = await _list_objects_and_wait(s3_owner, bucket_for_replications, 5); //Check that the 5 objects were replicated
+        let contents = await _list_objects_and_wait(s3_owner, bucket_for_replications, uploaded_prefix_objects_count); //Check that the desired objects were replicated
         console.log('contents', contents);
 
         // delete object from dst
         await s3_owner.deleteObject({ Bucket: bucket_for_replications, Key: contents[0].Key }).promise();
-        await _list_objects_and_wait(s3_owner, bucket_for_replications, 4); //Verify that the object was deleted 
+        await _list_objects_and_wait(s3_owner, bucket_for_replications, uploaded_prefix_objects_count - 1); //Verify that one object was deleted 
         // sync again
         res1 = await scanner.run_batch();
         console.log('waiting for replication objects - one rule one prefix', res1);
-        contents = await _list_objects_and_wait(s3_owner, bucket_for_replications, 5); //Check that the delete object was replicate again
+        contents = await _list_objects_and_wait(s3_owner, bucket_for_replications, uploaded_prefix_objects_count); //Check that the delete object was replicate again
         const key1 = contents[0].Key;
         // override object in dst
         const dst_obj1 = await s3_owner.getObject({ Bucket: bucket_for_replications, Key: key1 }).promise();
@@ -421,7 +446,7 @@ mocha.describe('replication configuration bg worker tests', function() {
     });
 
     mocha.it('run replication scanner and wait - no prefix - all objects should be uploaded', async function() {
-        const contents = await _list_objects_and_wait(s3_owner, bucket_for_replications, 5);
+        const contents = await _list_objects_and_wait(s3_owner, bucket_for_replications, uploaded_prefix_objects_count);
         for (const content of contents) {
             const key = content.Key;
             await s3_owner.deleteObject({ Bucket: bucket_for_replications, Key: key }).promise();
@@ -430,7 +455,7 @@ mocha.describe('replication configuration bg worker tests', function() {
             [{ rule_id: 'rule-1', destination_bucket: bucket_for_replications, sync_versions: false }], false);
         const res1 = await scanner.run_batch();
         console.log('waiting for replication objects - one rule no prefix', res1);
-        await _list_objects_and_wait(s3_owner, bucket_for_replications, 10);
+        await _list_objects_and_wait(s3_owner, bucket_for_replications, uploaded_objects_count);
     });
 
     mocha.it('run replication scanner and wait - 2 prefixes - all objects should be uploaded', async function() {
@@ -440,14 +465,14 @@ mocha.describe('replication configuration bg worker tests', function() {
                 { rule_id: 'rule-2', destination_bucket: bucket2, sync_versions: false, filter: { prefix: 'pref' } }
             ], false);
 
-        const res = await _list_objects_and_wait(s3_owner, bucket1, 10);
+        const res = await _list_objects_and_wait(s3_owner, bucket1, uploaded_objects_count);
         console.log('waiting for replication objects original bucket ', res);
         let res1 = await scanner.run_batch();
         console.log('waiting for replication objects - 2 rules 1 prefix1 ', res1);
-        await _list_objects_and_wait(s3_owner, bucket2, 5);
+        await _list_objects_and_wait(s3_owner, bucket2, 5 + special_character_items.length);
         res1 = await scanner.run_batch();
         console.log('waiting for replication objects - 2 rules 1 prefix2 ', res1);
-        await _list_objects_and_wait(s3_owner, bucket2, 10);
+        await _list_objects_and_wait(s3_owner, bucket2, uploaded_objects_count);
     });
 
     mocha.it('run replication scanner and wait - 2 buckets - all objects should be uploaded', async function() {
@@ -458,18 +483,20 @@ mocha.describe('replication configuration bg worker tests', function() {
             ], false);
 
         await _put_replication(bucket2,
-            [{ rule_id: 'rule-1', destination_bucket: bucket4, sync_versions: false, filter: { prefix: 'key' } },
+            [
+                { rule_id: 'rule-1', destination_bucket: bucket4, sync_versions: false, filter: { prefix: 'key' } },
                 { rule_id: 'rule-2', destination_bucket: bucket3, sync_versions: false, filter: { prefix: 'pref' } }
             ], false);
         let res1 = await scanner.run_batch();
         console.log('waiting for replication objects - 2 rules 1 prefix1 ', res1);
-        await _list_objects_and_wait(s3_owner, bucket3, 5);
-        await _list_objects_and_wait(s3_owner, bucket4, 5);
+        await _list_objects_and_wait(s3_owner, bucket3, 5 + special_character_items.length);
+        await _list_objects_and_wait(s3_owner, bucket4, uploaded_prefix_objects_count);
 
         res1 = await scanner.run_batch();
         console.log('waiting for replication objects - 2 rules 1 prefix2 ', res1);
-        await _list_objects_and_wait(s3_owner, bucket3, 10);
-        await _list_objects_and_wait(s3_owner, bucket4, 10);
+        // everything is uploaded by combination of above 2
+        await _list_objects_and_wait(s3_owner, bucket3, uploaded_objects_count);
+        await _list_objects_and_wait(s3_owner, bucket4, uploaded_objects_count);
     });
 
 });

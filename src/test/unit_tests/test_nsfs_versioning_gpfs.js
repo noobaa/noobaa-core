@@ -196,6 +196,18 @@ mocha.describe('namespace_fs gpfs- versioning', async function() {
         assert.equal(head_res.version_id, latest_version_id);
     });
 
+    mocha.it('delete object with version id - versioning enabled', async function() {
+        // 1. put bucket versioning enabled
+        await ns_obj.set_bucket_versioning('ENABLED', dummy_object_sdk);
+        // 2. create multiple versions (2)
+        const key2 = 'my-key-to-delete.txt';
+        await put_object(dummy_object_sdk, ns_obj, gpfs_bucket, key2);
+        const put_res2 = await put_object(dummy_object_sdk, ns_obj, gpfs_bucket, key2);
+        // 3. delete object by version-id
+        const delete_res = await delete_object(dummy_object_sdk, ns_obj, gpfs_bucket, key, put_res2.version_id);
+        assert.equal(delete_res.version_id, put_res2.version_id);
+    });
+
 });
 
 async function put_object(dummy_object_sdk, ns, bucket, key) {

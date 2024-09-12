@@ -2911,13 +2911,13 @@ class NamespaceFS {
                 const versioned_path = latest_ver_info && this._get_version_path(params.key, latest_ver_info.version_id_str);
                 const versioned_info = latest_ver_info && await this._get_version_info(fs_context, versioned_path);
 
-                gpfs_options = is_gpfs ?
+                dbg.log1('Namespace_fs._delete_latest_version:', latest_ver_info, versioned_path, versioned_info);
+                if (latest_ver_info) {
+                    gpfs_options = is_gpfs ?
                     await this._open_files_gpfs(fs_context, latest_ver_path,
                         undefined, undefined, undefined, undefined, true, versioned_info) :
                     undefined;
 
-                dbg.log1('Namespace_fs._delete_latest_version:', latest_ver_info, versioned_path, versioned_info, gpfs_options);
-                if (latest_ver_info) {
                     const suspended_and_latest_is_not_null = this._is_versioning_suspended() &&
                         latest_ver_info.version_id_str !== NULL_VERSION_ID;
                     const bucket_tmp_dir_path = this.get_bucket_tmpdir_full_path();

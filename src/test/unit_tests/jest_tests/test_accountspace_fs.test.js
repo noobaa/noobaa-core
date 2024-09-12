@@ -19,8 +19,6 @@ const { IAM_DEFAULT_PATH, ACCESS_KEY_STATUS_ENUM } = require('../../../endpoint/
 const fs_utils = require('../../../util/fs_utils');
 const { IamError } = require('../../../endpoint/iam/iam_errors');
 const nc_mkm = require('../../../manage_nsfs/nc_master_key_manager').get_instance();
-const native_fs_utils = require('../../../util/native_fs_utils');
-const nsfs_schema_utils = require('../../../manage_nsfs/nsfs_schema_utils');
 
 class NoErrorThrownError extends Error {}
 
@@ -1853,16 +1851,8 @@ async function read_config_file(account_path, config_file_name, is_symlink) {
 async function create_dummy_bucket(account, bucket_name) {
     const bucket_storage_path = path.join(account.nsfs_account_config.new_buckets_path, bucket_name);
     const bucket = _new_bucket_defaults(account, bucket_name, bucket_storage_path);
-    const bucket_config = JSON.stringify(bucket);
-    const bucket_to_validate = JSON.parse(bucket_config);
-    nsfs_schema_utils.validate_bucket_schema(bucket_to_validate);
-    const bucket_config_path = path.join(accountspace_fs.config_fs.buckets_dir_path, bucket_name + JSON_SUFFIX);
-    await native_fs_utils.create_config_file(
-        accountspace_fs.fs_context,
-        accountspace_fs.config_fs.buckets_dir_path,
-        bucket_config_path,
-        bucket_config
-    );
+    await accountspace_fs.config_fs.create_bucket_config_file(bucket);
+    const bucket_config_path = accountspace_fs.config_fs.get_bucket_path_by_name(bucket_name);
     return bucket_config_path;
 }
 

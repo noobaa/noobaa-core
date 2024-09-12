@@ -10,7 +10,6 @@ const native_fs_utils = require('../util/native_fs_utils');
 const { create_arn, get_action_message_title, check_iam_path_was_set } = require('../endpoint/iam/iam_utils');
 const { IAM_ACTIONS, MAX_NUMBER_OF_ACCESS_KEYS, IAM_DEFAULT_PATH,
     ACCESS_KEY_STATUS_ENUM, IDENTITY_ENUM } = require('../endpoint/iam/iam_constants');
-const nsfs_schema_utils = require('../manage_nsfs/nsfs_schema_utils');
 const IamError = require('../endpoint/iam/iam_errors').IamError;
 const cloud_utils = require('../util/cloud_utils');
 const SensitiveString = require('../util/sensitive_string');
@@ -150,10 +149,7 @@ class AccountSpaceFS {
                     is_username_update);
                 await this._update_account_config_new_username(action, params, requested_account);
             } else {
-                const requested_account_encrypted = await nc_mkm.encrypt_access_keys(requested_account);
-                const account_string = JSON.stringify(requested_account_encrypted);
-                nsfs_schema_utils.validate_account_schema(JSON.parse(account_string));
-                await this.config_fs.update_account_config_file(params.username, JSON.parse(account_string));
+                await this.config_fs.update_account_config_file(params.username, requested_account);
             }
             this._clean_account_cache(requested_account);
             return {
@@ -265,11 +261,9 @@ class AccountSpaceFS {
                 deactivated: false,
             };
             requested_account.access_keys.push(created_access_key_obj);
-            const requested_account_encrypted = await nc_mkm.encrypt_access_keys(requested_account);
-            const account_to_create_access_keys_string = JSON.stringify(requested_account_encrypted);
-            nsfs_schema_utils.validate_account_schema(JSON.parse(account_to_create_access_keys_string));
-            await this.config_fs.update_account_config_file(name_for_access_key, JSON.parse(account_to_create_access_keys_string),
+            await this.config_fs.update_account_config_file(name_for_access_key, requested_account,
                 [created_access_key_obj]);
+
             return {
                 username: requested_account.name,
                 access_key: created_access_key_obj.access_key,
@@ -353,11 +347,8 @@ class AccountSpaceFS {
                 return;
             }
             access_key_obj.deactivated = this._check_access_key_is_deactivated(params.status);
-            const requested_account_encrypted = await nc_mkm.encrypt_access_keys(requested_account);
-            const account_string = JSON.stringify(requested_account_encrypted);
-            nsfs_schema_utils.validate_account_schema(JSON.parse(account_string));
             const name_for_access_key = params.username ?? requester.name;
-            await this.config_fs.update_account_config_file(name_for_access_key, JSON.parse(account_string));
+            await this.config_fs.update_account_config_file(name_for_access_key, requested_account);
             this._clean_account_cache(requested_account);
         } catch (err) {
             dbg.error(`AccountSpaceFS.${action} error`, err);
@@ -397,16 +388,12 @@ class AccountSpaceFS {
             }
             requested_account.access_keys = requested_account.access_keys.filter(access_key_obj =>
                 access_key_obj.access_key !== access_key_id);
-            const requested_account_encrypted = await nc_mkm.encrypt_access_keys(requested_account);
-            const account_string = JSON.stringify(requested_account_encrypted);
-            nsfs_schema_utils.validate_account_schema(JSON.parse(account_string));
             const name_for_access_key = params.username ?? requester.name;
             await this.config_fs.update_account_config_file(
                 name_for_access_key,
-                JSON.parse(account_string),
+                requested_account,
                 undefined,
-                [params.access_key]
-            );
+                [params.access_key]);
             this._clean_account_cache(requested_account);
         } catch (err) {
             dbg.error(`AccountSpaceFS.${action} error`, err);
@@ -633,9 +620,7 @@ class AccountSpaceFS {
         const master_key_id = await nc_mkm.get_active_master_key_id();
         const created_account = this._new_user_defaults(requesting_account, params, master_key_id);
         dbg.log1(`AccountSpaceFS.${action} new_account`, created_account);
-        const new_account_string = JSON.stringify(created_account);
-        nsfs_schema_utils.validate_account_schema(JSON.parse(new_account_string));
-        await this.config_fs.create_account_config_file(params.username, JSON.parse(new_account_string), false);
+        await this.config_fs.create_account_config_file(params.username, created_account, false);
         return created_account;
     }
 
@@ -670,8 +655,6 @@ class AccountSpaceFS {
         this._check_if_user_does_not_have_access_keys_before_deletion(action, account_to_delete);
     }
 
-    // TODO - when we have the structure of config we can check easily which buckets are owned by the root account
-    // currently, partial copy from verify_account_not_owns_bucket
     async _check_if_root_account_does_not_have_buckets_before_deletion(action, account_to_delete) {
         const resource_name = 'buckets';
         const entries = await this.config_fs.list_buckets();
@@ -723,13 +706,9 @@ class AccountSpaceFS {
         for (const access_keys of requested_account.access_keys) {
             access_key_ids.push(access_keys.access_key);
         }
-        // handle account config creation
-        const requested_account_encrypted = await nc_mkm.encrypt_access_keys(requested_account);
-        const account_string = JSON.stringify(requested_account_encrypted);
-        nsfs_schema_utils.validate_account_schema(JSON.parse(account_string));
         // handle account config creation and 
         // access keys(unlink and then create the new symbolic link)
-        await this.config_fs.create_account_config_file(params.new_username, JSON.parse(account_string), true, access_key_ids);
+        await this.config_fs.create_account_config_file(params.new_username, requested_account, true, access_key_ids);
         // handle account config deletion
         await this.config_fs.delete_account_config_file(params.username);
     }

@@ -692,10 +692,10 @@ mocha.describe('bucketspace_fs', function() {
             };
             const param = { name: test_bucket, policy: policy };
             await bucketspace_fs.put_bucket_policy(param);
-            const policy_res = await bucketspace_fs.get_bucket_policy(param, dummy_object_sdk);
-            assert.deepEqual(policy_res.policy, policy);
+            const bucket_policy_res = await bucketspace_fs.get_bucket_policy(param, dummy_object_sdk);
+            assert_bucket_policies(bucket_policy_res.policy, policy);
             const info_res = await bucketspace_fs.read_bucket_sdk_info(param);
-            assert.deepEqual(info_res.s3_policy, policy);
+            assert_bucket_policies(info_res.s3_policy, policy);
         });
 
         mocha.it('delete_bucket_policy ', async function() {
@@ -718,10 +718,10 @@ mocha.describe('bucketspace_fs', function() {
             };
             const param = { name: test_bucket, policy: policy };
             await bucketspace_fs.put_bucket_policy(param);
-            const bucket_policy = await bucketspace_fs.get_bucket_policy(param, dummy_object_sdk);
-            assert.deepEqual(bucket_policy.policy, policy);
+            const bucket_policy_res = await bucketspace_fs.get_bucket_policy(param, dummy_object_sdk);
+            assert_bucket_policies(bucket_policy_res.policy, policy);
             const info_res = await bucketspace_fs.read_bucket_sdk_info(param);
-            assert.deepEqual(info_res.s3_policy, policy);
+            assert_bucket_policies(info_res.s3_policy, policy);
         });
 
         mocha.it('put_bucket_policy other account object - account does not exist', async function() {
@@ -758,10 +758,10 @@ mocha.describe('bucketspace_fs', function() {
             };
             const param = { name: test_bucket, policy: policy };
             await bucketspace_fs.put_bucket_policy(param);
-            const bucket_policy = await bucketspace_fs.get_bucket_policy(param, dummy_object_sdk);
-            assert.deepEqual(bucket_policy.policy, policy);
+            const bucket_policy_res = await bucketspace_fs.get_bucket_policy(param, dummy_object_sdk);
+            assert_bucket_policies(bucket_policy_res.policy, policy);
             const info_res = await bucketspace_fs.read_bucket_sdk_info(param);
-            assert.deepEqual(info_res.s3_policy, policy);
+            assert_bucket_policies(info_res.s3_policy, policy);
         });
 
         mocha.it('put_bucket_policy other account all', async function() {
@@ -777,17 +777,17 @@ mocha.describe('bucketspace_fs', function() {
             };
             const param = { name: test_bucket, policy: policy };
             await bucketspace_fs.put_bucket_policy(param);
-            const bucket_policy = await bucketspace_fs.get_bucket_policy(param, dummy_object_sdk);
-            assert.deepEqual(bucket_policy.policy, policy);
+            const bucket_policy_res = await bucketspace_fs.get_bucket_policy(param, dummy_object_sdk);
+            assert_bucket_policies(bucket_policy_res.policy, policy);
             const info_res = await bucketspace_fs.read_bucket_sdk_info(param);
-            assert.deepEqual(info_res.s3_policy, policy);
+            assert_bucket_policies(info_res.s3_policy, policy);
         });
 
         mocha.it('delete_bucket_policy ', async function() {
             const param = { name: test_bucket };
             await bucketspace_fs.delete_bucket_policy(param);
-            const bucket_policy = await bucketspace_fs.get_bucket_policy(param, dummy_object_sdk);
-            assert.ok(bucket_policy.policy === undefined);
+            const bucket_policy_res = await bucketspace_fs.get_bucket_policy(param, dummy_object_sdk);
+            assert.ok(bucket_policy_res.policy === undefined);
         });
     });
 
@@ -878,3 +878,16 @@ function get_config_file_path(config_type_path, file_name) {
 function get_access_key_symlink_path(config_type_path, file_name) {
     return path.join(config_root, config_type_path, file_name + SYMLINK_SUFFIX);
 }
+/**
+ * assert_bucket_policies asserts equality of the stringified bucket policies
+ * we need to stringify before because the original policy prinicples are unwrapped and
+ * and read_bucket_sdk_info returns wrapped sensitive strings
+ * @param {Object} expected_policy 
+ * @param {Object} actual_policy 
+ */
+function assert_bucket_policies(expected_policy, actual_policy) {
+    const string_expected_policy = JSON.stringify(expected_policy);
+    const string_actual_policy = JSON.stringify(actual_policy);
+    assert.deepEqual(string_actual_policy, string_expected_policy);
+}
+

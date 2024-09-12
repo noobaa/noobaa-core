@@ -106,8 +106,8 @@ class ObjectSDK {
      * in order to handle aborting requests gracefully. The `abort_controller` member will
      * be used to signal async flows that abort was detected.
      * @see {@link https://nodejs.org/docs/latest/api/globals.html#class-abortcontroller}
-     * @param {import('http').IncomingMessage} req 
-     * @param {import('http').ServerResponse} res 
+     * @param {import('http').IncomingMessage} req
+     * @param {import('http').ServerResponse} res
      */
     setup_abort_controller(req, res) {
         res.once('error', err => {
@@ -158,7 +158,7 @@ class ObjectSDK {
     }
 
     /**
-     * @param {string} name 
+     * @param {string} name
      * @returns {Promise<nb.Namespace>}
      */
     async _get_bucket_namespace(name) {
@@ -268,7 +268,7 @@ class ObjectSDK {
         return Boolean(fs_root_path || fs_root_path === '');
     }
 
-    // validates requests for non nsfs buckets from accounts which are nsfs_only 
+    // validates requests for non nsfs buckets from accounts which are nsfs_only
     has_non_nsfs_bucket_access(account, ns) {
         dbg.log1('validate_non_nsfs_bucket: ', account, ns?.write_resource?.resource);
         if (!account) return false;
@@ -524,7 +524,7 @@ class ObjectSDK {
     /**
      * Calls the op and report time and error to stats collector.
      * on_success can be added to update read/write stats (but on_success shouln't throw)
-     * 
+     *
      * @template T
      * @param {{
      *      op_name: string;
@@ -642,7 +642,9 @@ class ObjectSDK {
             params.content_type = source_md.content_type;
         }
         try {
-            if (params.xattr) params.xattr = _.omitBy(params.xattr, (val, name) => name.startsWith('noobaa-namespace'));
+            //omitBy iterates all xattr calling startsWith on them. this can include symbols such as XATTR_SORT_SYMBOL.
+            //in that case startsWith will not apply
+            if (params.xattr) params.xattr = _.omitBy(params.xattr, (val, name) => name.startsWith?.('noobaa-namespace'));
         } catch (e) {
             dbg.log3("Got an error while trying to omitBy param.xattr:", params.xattr, "error:", e);
         }
@@ -658,12 +660,6 @@ class ObjectSDK {
             params.copy_source.bucket = actual_source_ns.get_bucket(bucket);
             params.copy_source.obj_id = source_md.obj_id;
             params.copy_source.version_id = source_md.version_id;
-            if (source_ns instanceof NamespaceFS) {
-                params.copy_source.nsfs_copy_fallback = () => {
-                    this._populate_nsfs_copy_fallback({ source_params, source_ns, params });
-                    params.copy_source = null;
-                };
-            }
         } else {
             // source cannot be copied directly (different plaforms, accounts, etc.)
             // set the source_stream to read from the copy source
@@ -671,6 +667,7 @@ class ObjectSDK {
             source_params.object_md = source_md;
             source_params.obj_id = source_md.obj_id;
             source_params.version_id = source_md.version_id;
+            source_params.bucket = actual_source_ns.get_bucket(bucket);
             // param size is needed when doing an upload. Can be overrided during ranged writes
             params.size = source_md.size;
 
@@ -684,7 +681,13 @@ class ObjectSDK {
 
             // if the source namespace is NSFS then we need to pass the read_object_stream the read_stream
             if (source_ns instanceof NamespaceFS) {
-                this._populate_nsfs_copy_fallback({ source_params, source_ns, params });
+                if (target_ns instanceof NamespaceFS) {
+                    params.source_ns = actual_source_ns;
+                    params.source_params = source_params;
+                } else {
+                    //this._populate_nsfs_copy_fallback({ source_params, source_ns, params });
+                    throw new Error('TODO fix _populate_nsfs_copy_fallback');
+                }
             } else {
                 params.source_stream = await source_ns.read_object_stream(source_params, this);
             }
@@ -701,9 +704,9 @@ class ObjectSDK {
         }
     }
 
-    // nsfs copy_object & server side copy consisted of link and a fallback to 
+    // nsfs copy_object & server side copy consisted of link and a fallback to
     // read stream and then upload stream
-    // nsfs copy object when can't server side copy - fallback directly 
+    // nsfs copy object when can't server side copy - fallback directly
     _populate_nsfs_copy_fallback({ source_ns, params, source_params }) {
         const read_stream = new stream.PassThrough();
         source_ns.read_object_stream(source_params, this, read_stream)

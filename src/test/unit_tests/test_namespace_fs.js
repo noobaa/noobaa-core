@@ -1575,12 +1575,14 @@ mocha.describe('namespace_fs copy object', function() {
             assert.deepStrictEqual(xattr, { ...add_user_prefix(read_md_res.xattr), [XATTR_DIR_CONTENT]: `${read_md_res.size}` });
             assert.equal(stream_content_type, read_md_res.content_type);
 
+            const copy_source = { bucket: upload_bkt, key: key1 };
             await ns_tmp.upload_object({
                 bucket: upload_bkt,
                 key: key2,
-                copy_source: { bucket: upload_bkt, key: key1 },
+                copy_source: copy_source,
                 size: 100,
-                xattr_copy: true
+                xattr_copy: true,
+                xattr: await _get_source_copy_xattr(copy_source, ns_tmp, dummy_object_sdk)
             }, dummy_object_sdk);
             const file_path2 = ns_tmp_bucket_path + '/' + key2;
             xattr = await get_xattr(file_path2);
@@ -1615,12 +1617,14 @@ mocha.describe('namespace_fs copy object', function() {
             assert.deepStrictEqual(xattr, { ...add_user_prefix(read_md_res.xattr) });
             assert.equal(stream_content_type, read_md_res.content_type);
 
+            const copy_source = { bucket: upload_bkt, key: src_key };
             await ns_tmp.upload_object({
                 bucket: upload_bkt,
                 key: dst_key,
-                copy_source: { bucket: upload_bkt, key: src_key },
+                copy_source: copy_source,
                 size: 100,
                 xattr_copy: true,
+                xattr: await _get_source_copy_xattr(copy_source, ns_tmp, dummy_object_sdk)
             }, dummy_object_sdk);
             const file_path2 = ns_tmp_bucket_path + '/' + dst_key;
             xattr = await get_xattr(file_path2);
@@ -1656,12 +1660,14 @@ mocha.describe('namespace_fs copy object', function() {
             assert.deepStrictEqual(xattr, { ...add_user_prefix(read_md_res.xattr) });
             assert.equal(stream_content_type, read_md_res.content_type);
 
+            const copy_source = { bucket: upload_bkt, key: src_key };
             await ns_tmp.upload_object({
                 bucket: upload_bkt,
                 key: dst_key,
-                copy_source: { bucket: upload_bkt, key: src_key },
+                copy_source: copy_source,
                 size: 0,
-                xattr_copy: true
+                xattr_copy: true,
+                xattr: await _get_source_copy_xattr(copy_source, ns_tmp, dummy_object_sdk)
             }, dummy_object_sdk);
             const file_path2 = ns_tmp_bucket_path + '/' + dst_key;
             xattr = await get_xattr(file_path2);
@@ -1686,6 +1692,16 @@ mocha.describe('namespace_fs copy object', function() {
     });
 
 });
+
+//simulates object_sdk.fix_copy_source_params filtering of source xattr for copy object tests
+async function _get_source_copy_xattr(copy_source, source_ns, object_sdk) {
+    const read_md_res = await source_ns.read_object_md({
+        bucket: copy_source.bucket,
+        key: copy_source.key
+    }, object_sdk);
+    const res = _.omitBy(read_md_res.xattr, (val, name) => name.startsWith?.('noobaa-namespace'));
+    return res;
+}
 
 async function list_objects(ns, bucket, delimiter, prefix, dummy_object_sdk) {
     const res = await ns.list_objects({

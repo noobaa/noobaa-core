@@ -9,6 +9,7 @@ const mocha = require('mocha');
 const sinon = require('sinon');
 const assert = require('assert');
 const P = require('../../util/promise');
+const config = require('../../../config');
 const fs_utils = require('../../util/fs_utils');
 const nb_native = require('../../util/nb_native');
 const { ConfigFS, CONFIG_SUBDIRS } = require('../../sdk/config_fs');
@@ -330,7 +331,8 @@ mocha.describe('nsfs nc health', function() {
 
         mocha.it('Account with inaccessible path - uid gid', async function() {
             await config_fs.create_config_json_file(JSON.stringify({ NC_DISABLE_ACCESS_CHECK: true }));
-            await exec_manage_cli(TYPES.ACCOUNT, ACTIONS.ADD, { config_root, ...account_inaccessible_options});
+            await exec_manage_cli(TYPES.ACCOUNT, ACTIONS.ADD, { config_root, ...account_inaccessible_options });
+            await config_fs.delete_config_json_file();
             Health.get_service_state.restore();
             Health.get_endpoint_response.restore();
             Health.all_account_details = true;
@@ -349,6 +351,56 @@ mocha.describe('nsfs nc health', function() {
             await exec_manage_cli(TYPES.ACCOUNT, ACTIONS.DELETE, { config_root, name: account_inaccessible_options.name});
         });
 
+        mocha.it('Account with inaccessible path - uid gid - NC_DISABLE_ACCESS_CHECK: true - should be valid', async function() {
+            await config_fs.create_config_json_file(JSON.stringify({ NC_DISABLE_ACCESS_CHECK: true }));
+            await exec_manage_cli(TYPES.ACCOUNT, ACTIONS.ADD, { config_root, debug: 5, ...account_inaccessible_options});
+            await config_fs.delete_config_json_file();
+            Health.get_service_state.restore();
+            Health.get_endpoint_response.restore();
+            Health.all_account_details = true;
+            Health.all_bucket_details = true;
+            const get_service_state = sinon.stub(Health, "get_service_state");
+            get_service_state.onFirstCall().returns(Promise.resolve({ service_status: 'active', pid: 1000 }))
+                .onSecondCall().returns(Promise.resolve({ service_status: 'active', pid: 2000 }));
+            const get_endpoint_response = sinon.stub(Health, "get_endpoint_response");
+            get_endpoint_response.onFirstCall().returns(Promise.resolve({response: {response_code: 'RUNNING', total_fork_count: 0}}));
+            config.NC_DISABLE_ACCESS_CHECK = true;
+            const health_status = await Health.nc_nsfs_health();
+            config.NC_DISABLE_ACCESS_CHECK = false;
+            await exec_manage_cli(TYPES.ACCOUNT, ACTIONS.DELETE, { config_root, name: account_inaccessible_options.name});
+            assert.strictEqual(health_status.checks.buckets_status.valid_buckets.length, 1);
+            assert.strictEqual(health_status.checks.accounts_status.valid_accounts.length, 2);
+            assert.strictEqual(health_status.checks.accounts_status.invalid_accounts.length, 0);
+            const inaccessible_is_valid = health_status.checks.accounts_status.valid_accounts.find(account =>
+                account.name === account_inaccessible_options.name);
+            assert.strictEqual(inaccessible_is_valid.storage_path, account_inaccessible_options.new_buckets_path);
+        });
+
+        mocha.it('Account with inaccessible path - uid gid - NC_DISABLE_HEALTH_ACCESS_CHECK: true - should be valid', async function() {
+            await config_fs.create_config_json_file(JSON.stringify({ NC_DISABLE_ACCESS_CHECK: true }));
+            await exec_manage_cli(TYPES.ACCOUNT, ACTIONS.ADD, { config_root, ...account_inaccessible_options });
+            await config_fs.delete_config_json_file();
+            Health.get_service_state.restore();
+            Health.get_endpoint_response.restore();
+            Health.all_account_details = true;
+            Health.all_bucket_details = true;
+            const get_service_state = sinon.stub(Health, "get_service_state");
+            get_service_state.onFirstCall().returns(Promise.resolve({ service_status: 'active', pid: 1000 }))
+                .onSecondCall().returns(Promise.resolve({ service_status: 'active', pid: 2000 }));
+            const get_endpoint_response = sinon.stub(Health, "get_endpoint_response");
+            get_endpoint_response.onFirstCall().returns(Promise.resolve({response: {response_code: 'RUNNING', total_fork_count: 0}}));
+            config.NC_DISABLE_HEALTH_ACCESS_CHECK = true;
+            const health_status = await Health.nc_nsfs_health();
+            config.NC_DISABLE_HEALTH_ACCESS_CHECK = false;
+            await exec_manage_cli(TYPES.ACCOUNT, ACTIONS.DELETE, { config_root, name: account_inaccessible_options.name });
+            assert.strictEqual(health_status.checks.buckets_status.valid_buckets.length, 1);
+            assert.strictEqual(health_status.checks.accounts_status.valid_accounts.length, 2);
+            assert.strictEqual(health_status.checks.accounts_status.invalid_accounts.length, 0);
+            const inaccessible_is_valid = health_status.checks.accounts_status.valid_accounts.find(account =>
+                account.name === account_inaccessible_options.name);
+            assert.strictEqual(inaccessible_is_valid.storage_path, account_inaccessible_options.new_buckets_path);
+        });
+
         mocha.it('Account with inaccessible path - dn', async function() {
             await config_fs.create_config_json_file(JSON.stringify({ NC_DISABLE_ACCESS_CHECK: true }));
             await exec_manage_cli(TYPES.ACCOUNT, ACTIONS.ADD, { config_root, ...account_inaccessible_dn_options });
@@ -362,12 +414,60 @@ mocha.describe('nsfs nc health', function() {
             const get_endpoint_response = sinon.stub(Health, "get_endpoint_response");
             get_endpoint_response.onFirstCall().returns(Promise.resolve({response: {response_code: 'RUNNING', total_fork_count: 0}}));
             const health_status = await Health.nc_nsfs_health();
+            await exec_manage_cli(TYPES.ACCOUNT, ACTIONS.DELETE, { config_root, name: account_inaccessible_dn_options.name });
             assert.strictEqual(health_status.checks.buckets_status.valid_buckets.length, 1);
             assert.strictEqual(health_status.checks.accounts_status.valid_accounts.length, 1);
             assert.strictEqual(health_status.checks.accounts_status.invalid_accounts.length, 1);
             assert.strictEqual(health_status.checks.accounts_status.invalid_accounts[0].code, "ACCESS_DENIED");
             assert.strictEqual(health_status.checks.accounts_status.invalid_accounts[0].name, account_inaccessible_dn_options.name);
+        });
+
+        mocha.it('Account with inaccessible path - dn - NC_DISABLE_ACCESS_CHECK: true - should be valid', async function() {
+            await config_fs.create_config_json_file(JSON.stringify({ NC_DISABLE_ACCESS_CHECK: true }));
+            await exec_manage_cli(TYPES.ACCOUNT, ACTIONS.ADD, { config_root, ...account_inaccessible_dn_options });
+            Health.get_service_state.restore();
+            Health.get_endpoint_response.restore();
+            Health.all_account_details = true;
+            Health.all_bucket_details = true;
+            const get_service_state = sinon.stub(Health, "get_service_state");
+            get_service_state.onFirstCall().returns(Promise.resolve({ service_status: 'active', pid: 1000 }))
+                .onSecondCall().returns(Promise.resolve({ service_status: 'active', pid: 2000 }));
+            const get_endpoint_response = sinon.stub(Health, "get_endpoint_response");
+            get_endpoint_response.onFirstCall().returns(Promise.resolve({ response: { response_code: 'RUNNING', total_fork_count: 0 } }));
+            config.NC_DISABLE_ACCESS_CHECK = true;
+            const health_status = await Health.nc_nsfs_health();
+            config.NC_DISABLE_ACCESS_CHECK = false;
             await exec_manage_cli(TYPES.ACCOUNT, ACTIONS.DELETE, { config_root, name: account_inaccessible_dn_options.name });
+            assert.strictEqual(health_status.checks.buckets_status.valid_buckets.length, 1);
+            assert.strictEqual(health_status.checks.accounts_status.valid_accounts.length, 2);
+            assert.strictEqual(health_status.checks.accounts_status.invalid_accounts.length, 0);
+            const inaccessible_is_valid = health_status.checks.accounts_status.valid_accounts.find(account =>
+                account.name === account_inaccessible_dn_options.name);
+            assert.strictEqual(inaccessible_is_valid.storage_path, account_inaccessible_dn_options.new_buckets_path);
+        });
+
+        mocha.it('Account with inaccessible path - dn - NC_DISABLE_HEALTH_ACCESS_CHECK: true - should be valid', async function() {
+            await config_fs.create_config_json_file(JSON.stringify({ NC_DISABLE_ACCESS_CHECK: true }));
+            await exec_manage_cli(TYPES.ACCOUNT, ACTIONS.ADD, { config_root, ...account_inaccessible_dn_options });
+            Health.get_service_state.restore();
+            Health.get_endpoint_response.restore();
+            Health.all_account_details = true;
+            Health.all_bucket_details = true;
+            const get_service_state = sinon.stub(Health, "get_service_state");
+            get_service_state.onFirstCall().returns(Promise.resolve({ service_status: 'active', pid: 1000 }))
+                .onSecondCall().returns(Promise.resolve({ service_status: 'active', pid: 2000 }));
+            const get_endpoint_response = sinon.stub(Health, "get_endpoint_response");
+            get_endpoint_response.onFirstCall().returns(Promise.resolve({ response: { response_code: 'RUNNING', total_fork_count: 0 } }));
+            config.NC_DISABLE_HEALTH_ACCESS_CHECK = true;
+            const health_status = await Health.nc_nsfs_health();
+            config.NC_DISABLE_HEALTH_ACCESS_CHECK = false;
+            await exec_manage_cli(TYPES.ACCOUNT, ACTIONS.DELETE, { config_root, name: account_inaccessible_dn_options.name });
+            assert.strictEqual(health_status.checks.buckets_status.valid_buckets.length, 1);
+            assert.strictEqual(health_status.checks.accounts_status.valid_accounts.length, 2);
+            assert.strictEqual(health_status.checks.accounts_status.invalid_accounts.length, 0);
+            const inaccessible_is_valid = health_status.checks.accounts_status.valid_accounts.find(account =>
+                account.name === account_inaccessible_dn_options.name);
+            assert.strictEqual(inaccessible_is_valid.storage_path, account_inaccessible_dn_options.new_buckets_path);
         });
 
         mocha.it('Account with invalid dn', async function() {
@@ -406,10 +506,10 @@ mocha.describe('nsfs nc health', function() {
             const get_endpoint_response = sinon.stub(Health, "get_endpoint_response");
             get_endpoint_response.onFirstCall().returns(Promise.resolve({response: {response_code: 'RUNNING', total_fork_count: 0}}));
             const health_status = await Health.nc_nsfs_health();
+            await exec_manage_cli(TYPES.ACCOUNT, ACTIONS.DELETE, { config_root, name: account_valid.name });
             assert.strictEqual(health_status.checks.accounts_status.valid_accounts.length, 1);
             assert.strictEqual(health_status.checks.accounts_status.invalid_accounts.length, 1);
             assert.strictEqual(health_status.checks.accounts_status.invalid_accounts[0].name, account_valid.name);
-            await exec_manage_cli(TYPES.ACCOUNT, ACTIONS.DELETE, { config_root, name: account_valid.name });
         });
 
         mocha.it('Account with new_buckets_path missing and allow_bucket_creation true, invalid account', async function() {

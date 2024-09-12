@@ -1805,7 +1805,9 @@ describe('manage nsfs cli account flow', () => {
 describe('cli account flow distinguished_name - permissions', function() {
     const type = TYPES.ACCOUNT;
     const config_root = path.join(tmp_fs_path, 'config_root_manage_dn');
+    const config_fs = new ConfigFS(config_root);
     const new_buckets_path = path.join(tmp_fs_path, 'new_buckets_path_user_dn_test/');
+
     const accounts = {
         root: {
             cli_options: {
@@ -1935,32 +1937,34 @@ describe('cli account flow distinguished_name - permissions', function() {
     }, timeout);
 
     it('cli account update - should fail - no permissions to new_buckets_path', async function() {
-        const no_permissions_new_buckets_path = `${tmp_fs_path}/new_buckets_path_no_perm_to_owner/`;
+        const no_permissions_new_buckets_path = `${tmp_fs_path}/new_buckets_path_no_perm_to_owner1/`;
         await fs_utils.create_fresh_path(no_permissions_new_buckets_path);
         await fs_utils.file_must_exist(no_permissions_new_buckets_path);
-        await set_path_permissions_and_owner(new_buckets_path, accounts.accessible_user.fs_options, 0o077);
+        await set_path_permissions_and_owner(no_permissions_new_buckets_path, accounts.accessible_user.fs_options, 0o000);
         const action = ACTIONS.UPDATE;
         const update_options = {
             config_root,
-            name: accounts.root.cli_options.name,
+            ...accounts.accessible_user.cli_options,
             new_buckets_path: no_permissions_new_buckets_path,
         };
         const res = await exec_manage_cli(type, action, update_options);
         expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InaccessibleAccountNewBucketsPath.code);
     }, timeout);
 
-    it('cli account update - should fail - no write permissions of new_buckets_path', async function() {
+    it('cli account update - should fail - posix mode write permissions of new_buckets_path', async function() {
         const no_permissions_new_buckets_path = `${tmp_fs_path}/new_buckets_path_no_r_perm_to_owner/`;
         await fs_utils.create_fresh_path(no_permissions_new_buckets_path);
         await fs_utils.file_must_exist(no_permissions_new_buckets_path);
-        await set_path_permissions_and_owner(new_buckets_path, accounts.accessible_user.fs_options, 0o477);
+        await set_path_permissions_and_owner(no_permissions_new_buckets_path, accounts.accessible_user.fs_options, 0o477);
         const action = ACTIONS.UPDATE;
         const update_options = {
             config_root,
-            name: accounts.root.cli_options.name,
+            ...accounts.accessible_user.cli_options,
             new_buckets_path: no_permissions_new_buckets_path,
         };
+        await config_fs.create_config_json_file(JSON.stringify({ NC_DISABLE_POSIX_MODE_ACCESS_CHECK: false }));
         const res = await exec_manage_cli(type, action, update_options);
+        await config_fs.delete_config_json_file();
         expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InaccessibleAccountNewBucketsPath.code);
     }, timeout);
 
@@ -1968,23 +1972,42 @@ describe('cli account flow distinguished_name - permissions', function() {
         const no_permissions_new_buckets_path = `${tmp_fs_path}/new_buckets_path_no_w_perm_to_owner/`;
         await fs_utils.create_fresh_path(no_permissions_new_buckets_path);
         await fs_utils.file_must_exist(no_permissions_new_buckets_path);
-        await set_path_permissions_and_owner(new_buckets_path, accounts.accessible_user.fs_options, 0o277);
+        await set_path_permissions_and_owner(no_permissions_new_buckets_path, accounts.accessible_user.fs_options, 0o000);
         const action = ACTIONS.UPDATE;
         const update_options = {
             config_root,
-            name: accounts.root.cli_options.name,
+            ...accounts.accessible_user.cli_options,
             new_buckets_path: no_permissions_new_buckets_path,
         };
         const res = await exec_manage_cli(type, action, update_options);
         expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InaccessibleAccountNewBucketsPath.code);
     });
 
+    it('cli account update - should succeed - no read permissions of new_buckets_path - NC_DISABLE_ACCESS_CHECK: true', async function() {
+        const no_permissions_new_buckets_path = `${tmp_fs_path}/new_buckets_path_no_w_perm_to_owner/`;
+        await fs_utils.create_fresh_path(no_permissions_new_buckets_path);
+        await fs_utils.file_must_exist(no_permissions_new_buckets_path);
+
+        await set_path_permissions_and_owner(no_permissions_new_buckets_path, accounts.accessible_user.fs_options, 0o000);
+        const action = ACTIONS.UPDATE;
+        const update_options = {
+            config_root,
+            ...accounts.accessible_user.cli_options,
+            new_buckets_path: no_permissions_new_buckets_path,
+        };
+        await config_fs.create_config_json_file(JSON.stringify({ NC_DISABLE_ACCESS_CHECK: true }));
+        const res = await exec_manage_cli(type, action, update_options);
+        await config_fs.delete_config_json_file();
+        assert_account(JSON.parse(res).response.reply, update_options, false);
+    });
+
     it('cli account create - account cant access new_bucket_path - NC_DISABLE_ACCESS_CHECK = true', async function() {
         let action = ACTIONS.ADD;
         config.NC_DISABLE_ACCESS_CHECK = true;
         set_nc_config_dir_in_config(config_root);
-        await fs.promises.writeFile(path.join(config_root, 'config.json'), JSON.stringify({ NC_DISABLE_ACCESS_CHECK: true }));
+        await config_fs.create_config_json_file(JSON.stringify({ NC_DISABLE_ACCESS_CHECK: true }));
         const res = await exec_manage_cli(type, action, accounts.inaccessible_user.cli_options);
+        await config_fs.delete_config_json_file();
         expect(JSON.parse(res).response.code).toEqual(ManageCLIResponse.AccountCreated.code);
         assert_account(JSON.parse(res).response.reply, { ...accounts.inaccessible_user.cli_options }, false);
         action = ACTIONS.DELETE;

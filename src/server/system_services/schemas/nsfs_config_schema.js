@@ -124,7 +124,15 @@ const nsfs_node_config_schema = {
         },
         NC_DISABLE_ACCESS_CHECK: {
             type: 'boolean',
-            doc: 'indicate whether read/write access will be validated on bucket/account creation/update.'
+            doc: 'indicate whether read access will be validated on bucket/account creation/update and on the health check.'
+        },
+        NC_DISABLE_HEALTH_ACCESS_CHECK: {
+            type: 'boolean',
+            doc: 'indicate whether read access will be validated on bucket/account health check.'
+        },
+        NC_DISABLE_POSIX_MODE_ACCESS_CHECK: {
+            type: 'boolean',
+            doc: 'indicate whether posix mode read/write access will be validated on bucket/account creation/update and health check.'
         },
         ENDPOINT_PROCESS_TITLE: {
             type: 'string',

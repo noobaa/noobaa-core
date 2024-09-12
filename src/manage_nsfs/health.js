@@ -474,12 +474,14 @@ async function is_new_buckets_path_valid(config_file_path, config_data, new_buck
     }
 
     try {
-        await nb_native().fs.stat(account_fs_context, new_buckets_path);
-        const accessible = await native_fs_utils.is_dir_rw_accessible(account_fs_context, new_buckets_path);
-        if (!accessible) {
-            const new_err = new Error('ACCESS DENIED');
-            new_err.code = 'EACCES';
-            throw new_err;
+        if (!_should_skip_health_access_check()) {
+            await nb_native().fs.stat(account_fs_context, new_buckets_path);
+            const accessible = await native_fs_utils.is_dir_accessible(account_fs_context, new_buckets_path);
+            if (!accessible) {
+                const new_err = new Error('ACCESS DENIED');
+                new_err.code = 'EACCES';
+                throw new_err;
+            }
         }
         res_obj = get_valid_object(config_data.name, undefined, new_buckets_path);
     } catch (err) {
@@ -505,7 +507,9 @@ async function is_new_buckets_path_valid(config_file_path, config_data, new_buck
 async function is_bucket_storage_path_exists(fs_context, config_data, storage_path) {
     let res_obj;
     try {
-        await nb_native().fs.stat(fs_context, storage_path);
+        if (!_should_skip_health_access_check()) {
+            await nb_native().fs.stat(fs_context, storage_path);
+        }
         res_obj = get_valid_object(config_data.name, undefined, storage_path);
     } catch (err) {
         let err_code;
@@ -554,6 +558,14 @@ function get_invalid_object(name, config_path, storage_path, err_code) {
             code: err_code || health_errors.UNKNOWN_ERROR.error_code
         }, _.isUndefined)
     };
+}
+
+/**
+ * _should_skip_access_check returns true if the health CLI should skip access check
+ * @returns {Boolean}
+ */
+function _should_skip_health_access_check() {
+    return config.NC_DISABLE_HEALTH_ACCESS_CHECK || config.NC_DISABLE_ACCESS_CHECK;
 }
 
 exports.get_health_status = get_health_status;

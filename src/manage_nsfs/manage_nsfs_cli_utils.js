@@ -3,6 +3,7 @@
 
 const dbg = require('../util/debug_module')(__filename);
 const nb_native = require('../util/nb_native');
+const { CONFIG_TYPES } = require('../sdk/config_fs');
 const native_fs_utils = require('../util/native_fs_utils');
 const ManageCLIError = require('../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
 const NSFS_CLI_ERROR_EVENT_MAP = require('../manage_nsfs/manage_nsfs_cli_errors').NSFS_CLI_ERROR_EVENT_MAP;
@@ -44,7 +45,7 @@ async function get_bucket_owner_account(config_fs, bucket_owner, owner_account_i
     try {
         const account = bucket_owner ?
             await config_fs.get_account_by_name(bucket_owner) :
-            await config_fs.get_identity_by_id(owner_account_id);
+            await config_fs.get_identity_by_id(owner_account_id, CONFIG_TYPES.ACCOUNT);
         return account;
     } catch (err) {
         if (err.code === 'ENOENT') {

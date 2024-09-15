@@ -52,7 +52,6 @@ const multi_buffer_pool = new buffer_utils.MultiSizeBuffersPool({
 
 const XATTR_USER_PREFIX = 'user.';
 const XATTR_NOOBAA_INTERNAL_PREFIX = XATTR_USER_PREFIX + 'noobaa.';
-const XATTR_NOOBAA_CUSTOM_PREFIX = XATTR_NOOBAA_INTERNAL_PREFIX + 'tag.';
 // TODO: In order to verify validity add content_md5_mtime as well
 const XATTR_MD5_KEY = XATTR_USER_PREFIX + 'content_md5';
 const XATTR_CONTENT_TYPE = XATTR_NOOBAA_INTERNAL_PREFIX + 'content_type';
@@ -63,6 +62,7 @@ const XATTR_VERSION_ID = XATTR_NOOBAA_INTERNAL_PREFIX + 'version_id';
 const XATTR_PREV_VERSION_ID = XATTR_NOOBAA_INTERNAL_PREFIX + 'prev_version_id';
 const XATTR_DELETE_MARKER = XATTR_NOOBAA_INTERNAL_PREFIX + 'delete_marker';
 const XATTR_DIR_CONTENT = XATTR_NOOBAA_INTERNAL_PREFIX + 'dir_content';
+const XATTR_TAG = XATTR_NOOBAA_INTERNAL_PREFIX + 'tag.';
 const HIDDEN_VERSIONS_PATH = '.versions';
 const NULL_VERSION_ID = 'null';
 const NULL_VERSION_SUFFIX = '_' + NULL_VERSION_ID;
@@ -1967,9 +1967,9 @@ class NamespaceFS {
             const stat = await file.stat(fs_context);
             if (stat.xattr) {
                 for (const [xattr_key, xattr_value] of Object.entries(stat.xattr)) {
-                    if (xattr_key.includes(XATTR_NOOBAA_CUSTOM_PREFIX)) {
+                    if (xattr_key.includes(XATTR_TAG)) {
                         tag_set.push({
-                            key: xattr_key.replace(XATTR_NOOBAA_CUSTOM_PREFIX, ''),
+                            key: xattr_key.replace(XATTR_TAG, ''),
                             value: xattr_value,
                         });
                     }
@@ -1993,7 +1993,7 @@ class NamespaceFS {
         }
         const fs_context = this.prepare_fs_context(object_sdk);
         try {
-            await this._clear_user_xattr(fs_context, file_path, XATTR_NOOBAA_CUSTOM_PREFIX);
+            await this._clear_user_xattr(fs_context, file_path, XATTR_TAG);
         } catch (err) {
             dbg.error(`NamespaceFS.delete_object_tagging: failed in dir ${file_path} with error: `, err);
             throw native_fs_utils.translate_error_codes(err, native_fs_utils.entity_enum.OBJECT);
@@ -2005,7 +2005,7 @@ class NamespaceFS {
         const fs_xattr = {};
         const tagging = params.tagging && Object.fromEntries(params.tagging.map(tag => ([tag.key, tag.value])));
         for (const [xattr_key, xattr_value] of Object.entries(tagging)) {
-              fs_xattr[XATTR_NOOBAA_CUSTOM_PREFIX + xattr_key] = xattr_value;
+              fs_xattr[XATTR_TAG + xattr_key] = xattr_value;
         }
         let file_path;
         if (params.version_id && this._is_versioning_enabled()) {
@@ -2017,7 +2017,7 @@ class NamespaceFS {
         dbg.log0('NamespaceFS.put_object_tagging: fs_xattr ', fs_xattr, 'file_path :', file_path);
         try {
             // remove existng tag before putting new tags
-            await this._clear_user_xattr(fs_context, file_path, XATTR_NOOBAA_CUSTOM_PREFIX);
+            await this._clear_user_xattr(fs_context, file_path, XATTR_TAG);
             await this.set_fs_xattr_op(fs_context, file_path, fs_xattr, undefined);
         } catch (err) {
             dbg.error(`NamespaceFS.put_object_tagging: failed in dir ${file_path} with error: `, err);
@@ -2316,6 +2316,10 @@ class NamespaceFS {
         return xattr[XATTR_MD5_KEY];
     }
 
+    _number_of_tags_fs_xttr(xattr) {
+        return Object.keys(xattr).filter(xattr_key => xattr_key.includes(XATTR_TAG)).length;
+    }
+
     /**
      * @param {string} bucket
      * @param {string} key
@@ -2336,6 +2340,7 @@ class NamespaceFS {
             mime.getType(key) || 'application/octet-stream';
         const storage_class = s3_utils.parse_storage_class(stat.xattr?.[XATTR_STORAGE_CLASS_KEY]);
         const size = Number(stat.xattr?.[XATTR_DIR_CONTENT] || stat.size);
+        const tag_count = stat.xattr ? this._number_of_tags_fs_xttr(stat.xattr) : 0;
 
         return {
             obj_id: etag,
@@ -2352,9 +2357,9 @@ class NamespaceFS {
             storage_class,
             restore_status: GlacierBackend.get_restore_status(stat.xattr, new Date(), this._get_file_path({key})),
             xattr: to_xattr(stat.xattr),
+            tag_count,
 
             // temp:
-            tag_count: 0,
             lock_settings: undefined,
             md5_b64: undefined,
             num_parts: undefined,

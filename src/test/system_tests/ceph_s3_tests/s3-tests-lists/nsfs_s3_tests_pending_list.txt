@@ -177,7 +177,6 @@ s3tests_boto3/functional/test_s3.py::test_bucketv2_policy
 s3tests_boto3/functional/test_s3.py::test_bucket_policy_another_bucket
 s3tests_boto3/functional/test_s3.py::test_bucketv2_policy_another_bucket
 s3tests_boto3/functional/test_s3.py::test_get_obj_tagging
-s3tests_boto3/functional/test_s3.py::test_get_obj_head_tagging
 s3tests_boto3/functional/test_s3.py::test_put_max_tags
 s3tests_boto3/functional/test_s3.py::test_bucket_policy_put_obj_s3_noenc
 s3tests_boto3/functional/test_s3.py::test_copy_object_ifmatch_failed

@@ -361,7 +361,7 @@ class NSFSHealth {
                 config_data.nsfs_account_config.new_buckets_path;
 
             if (type === TYPES.ACCOUNT) {
-                const config_file_path = this.config_fs.get_account_path_by_name(config_file.name);
+                const config_file_path = this.config_fs.get_account_path_by_name(config_file);
                 res = await is_new_buckets_path_valid(config_file_path, config_data, storage_path);
             } else if (type === TYPES.BUCKET) {
                 res = await is_bucket_storage_path_exists(this.config_fs.fs_context, config_data, storage_path);

@@ -616,10 +616,7 @@ async function list_config_files(type, wide, show_secrets, filters = {}) {
  * @param {object} user_input
  */
 function get_access_keys(action, user_input) {
-    let access_keys = [{
-        access_key: undefined,
-        secret_key: undefined,
-    }];
+    let access_keys = [];
     let new_access_key;
     if (action === ACTIONS.ADD || action === ACTIONS.UPDATE || action === ACTIONS.DELETE) {
         manage_nsfs_validations._validate_access_keys(user_input.access_key, user_input.secret_key);

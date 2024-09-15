@@ -10,7 +10,7 @@ const os_util = require('../../../util/os_utils');
 const fs_utils = require('../../../util/fs_utils');
 const { ConfigFS } = require('../../../sdk/config_fs');
 const { set_path_permissions_and_owner, TMP_PATH, generate_s3_policy,
-    set_nc_config_dir_in_config } = require('../../system_tests/test_utils');
+    set_nc_config_dir_in_config, write_file } = require('../../system_tests/test_utils');
 const { ACTIONS, TYPES } = require('../../../manage_nsfs/manage_nsfs_constants');
 const { get_process_fs_context, is_path_exists, get_bucket_tmpdir_full_path } = require('../../../util/native_fs_utils');
 const ManageCLIError = require('../../../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
@@ -825,8 +825,9 @@ describe('manage nsfs cli bucket flow', () => {
 
     });
 
-    describe('cli list bucket', () => {
+    describe('cli list buckets', () => {
         const config_root = path.join(tmp_fs_path, 'config_root_manage_nsfs5');
+        const config_fs = new ConfigFS(config_root);
         const root_path = path.join(tmp_fs_path, 'root_path_manage_nsfs5/');
         const bucket_storage_path = path.join(tmp_fs_path, 'root_path_manage_nsfs5', 'bucket1');
         set_nc_config_dir_in_config(config_root);
@@ -879,6 +880,7 @@ describe('manage nsfs cli bucket flow', () => {
             const bucket_options = { config_root, name: 'bucket2' };
             const action = ACTIONS.LIST;
             const res = await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
+            expect(Array.isArray(JSON.parse(res).response.reply)).toBe(true);
             expect(JSON.parse(res).response.reply.map(item => item.name))
                 .toEqual(expect.arrayContaining([]));
         });
@@ -887,8 +889,31 @@ describe('manage nsfs cli bucket flow', () => {
             const bucket_options = { config_root, name: 'bucket1' };
             const action = ACTIONS.LIST;
             const res = await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
+            expect(Array.isArray(JSON.parse(res).response.reply)).toBe(true);
             expect(JSON.parse(res).response.reply.map(item => item.name))
                 .toEqual(expect.arrayContaining(['bucket1']));
+        });
+
+        it('cli list wide with an invalid JSON file', async () => {
+            // corrupt bucket1 json file
+            const bucket_name = 'bucket1';
+            const account = await config_fs.get_bucket_by_name(bucket_name);
+            const config_path = config_fs.get_bucket_path_by_name(account._id);
+            const invalid_str = '{{{'; // use this string to make the JSON invalid
+            await write_file(config_fs, account, config_path, invalid_str);
+
+            // list the buckets
+            const bucket_options = { config_root, wide: true};
+            const action = ACTIONS.LIST;
+            const type = TYPES.BUCKET;
+            const res = await exec_manage_cli(type, action, bucket_options);
+            expect(Array.isArray(JSON.parse(res).response.reply)).toBe(true);
+            const res_arr = JSON.parse(res).response.reply;
+            let is_item_with_json_warning = false;
+            for (const item of res_arr) {
+                if (item.json_warning !== undefined) is_item_with_json_warning = true;
+            }
+            expect(is_item_with_json_warning).toBe(true);
         });
 
     });

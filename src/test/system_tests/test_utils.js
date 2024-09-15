@@ -432,6 +432,27 @@ function get_new_buckets_path_by_test_env(new_buckets_full_path, new_buckets_dir
     return is_nc_coretest ? path.join(new_buckets_full_path, new_buckets_dir) : new_buckets_dir;
 }
 
+
+/**
+ * write_file writes an object as JSON file (it can overwrite existing file)
+ * it is used as an helper for function write_manual_config_file or
+ * directly when you want to corrupt the JSON of existing file (make it invalid JSON)
+ * @param {import("../../sdk/config_fs").ConfigFS} config_fs
+ * @param {Object} config_data
+ * @param {string} config_path
+ * @param {String} [invalid_str]
+ */
+async function write_file(config_fs, config_data, config_path, invalid_str = '') {
+    await nb_native().fs.writeFile(
+        config_fs.fs_context,
+        config_path,
+        Buffer.from(JSON.stringify(config_data) + invalid_str),
+        {
+            mode: native_fs_utils.get_umasked_mode(config.BASE_MODE_FILE)
+        }
+    );
+}
+
 /**
  * write_manual_config_file writes config file directly to the file system without using config FS
  * used for creating backward compatibility tests, invalid config files etc
@@ -448,14 +469,7 @@ async function write_manual_config_file(type, config_fs, config_data, invalid_st
         const dir_path = config_fs.get_identity_dir_path_by_id(config_data._id);
         await nb_native().fs.mkdir(config_fs.fs_context, dir_path, native_fs_utils.get_umasked_mode(config.BASE_MODE_DIR));
     }
-    await nb_native().fs.writeFile(
-        config_fs.fs_context,
-        config_path,
-        Buffer.from(JSON.stringify(config_data) + invalid_str),
-        {
-            mode: native_fs_utils.get_umasked_mode(config.BASE_MODE_FILE)
-        }
-    );
+    await write_file(config_fs, config_data, config_path, invalid_str = '');
 
     if (type === CONFIG_TYPES.ACCOUNT) {
         const id_relative_path = config_fs.get_account_relative_path_by_id(config_data._id);
@@ -504,4 +518,4 @@ exports.generate_nsfs_account = generate_nsfs_account;
 exports.get_new_buckets_path_by_test_env = get_new_buckets_path_by_test_env;
 exports.write_manual_config_file = write_manual_config_file;
 exports.write_manual_old_account_config_file = write_manual_old_account_config_file;
-
+exports.write_file = write_file;

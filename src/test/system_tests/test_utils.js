@@ -435,6 +435,7 @@ function get_new_buckets_path_by_test_env(new_buckets_full_path, new_buckets_dir
 /**
  * write_manual_config_file writes config file directly to the file system without using config FS
  * used for creating backward compatibility tests, invalid config files etc
+ * @param {String} type 
  * @param {import('../../sdk/config_fs').ConfigFS} config_fs
  * @param {Object} config_data 
  * @param {String} [invalid_str]
@@ -483,6 +484,32 @@ async function write_manual_old_account_config_file(config_fs, config_data) {
     );
 }
 
+/**
+ * delete_manual_config_file deletes config file directly from the file system without using config FS
+ * used for deleting invalid config files etc
+ * @param {String} type 
+ * @param {import('../../sdk/config_fs').ConfigFS} config_fs
+ * @param {Object} config_data 
+ * @returns {Promise<Void>}
+ */
+async function delete_manual_config_file(type, config_fs, config_data) {
+    if (type === CONFIG_TYPES.ACCOUNT) {
+        const name_symlink_path = config_fs.get_account_or_user_path_by_name(config_data.name);
+        await nb_native().fs.unlink(config_fs.fs_context, name_symlink_path);
+    }
+
+    const config_path = type === CONFIG_TYPES.BUCKET ?
+        config_fs.get_bucket_path_by_name(config_data.name) :
+        config_fs.get_identity_path_by_id(config_data._id);
+
+    await nb_native().fs.unlink(config_fs.fs_context, config_path);
+
+    if (type === CONFIG_TYPES.ACCOUNT) {
+        const dir_path = config_fs.get_identity_dir_path_by_id(config_data._id);
+        await nb_native().fs.rmdir(config_fs.fs_context, dir_path);
+    }
+}
+
 exports.blocks_exist_on_cloud = blocks_exist_on_cloud;
 exports.create_hosts_pool = create_hosts_pool;
 exports.delete_hosts_pool = delete_hosts_pool;
@@ -504,4 +531,5 @@ exports.generate_nsfs_account = generate_nsfs_account;
 exports.get_new_buckets_path_by_test_env = get_new_buckets_path_by_test_env;
 exports.write_manual_config_file = write_manual_config_file;
 exports.write_manual_old_account_config_file = write_manual_old_account_config_file;
+exports.delete_manual_config_file = delete_manual_config_file;
 

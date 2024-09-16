@@ -1356,12 +1356,7 @@ class NamespaceFS {
 
         await this._assign_dir_content_to_xattr(fs_context, fs_xattr, params, copy_xattr);
         // when .folder exist and it's no upload flow - .folder should be deleted if it exists
-        try {
-            await nb_native().fs.unlink(fs_context, file_path);
-        } catch (err) {
-            if (err.code !== 'ENOENT') throw err;
-            dbg.log0(`namespace_fs._create_empty_dir_content: dir object file ${config.NSFS_FOLDER_OBJECT_NAME} was already deleted`);
-        }
+        await native_fs_utils.unlink_ignore_enoent(fs_context, file_path);
         const dir_path = this._get_file_md_path(params);
         const stat = await nb_native().fs.stat(fs_context, dir_path);
         const upload_info = this._get_upload_info(stat, fs_xattr[XATTR_VERSION_ID]);
@@ -1916,11 +1911,7 @@ class NamespaceFS {
 
 
     async _delete_single_object(fs_context, file_path, params) {
-        try {
-            await nb_native().fs.unlink(fs_context, file_path);
-        } catch (err) {
-            if (err.code !== 'ENOENT') throw err;
-        }
+        await native_fs_utils.unlink_ignore_enoent(fs_context, file_path);
         await this._delete_path_dirs(file_path, fs_context);
         // when deleting the data of a directory object, we need to remove the directory dir object xattr
         // if the dir still exists - occurs when deleting dir while the dir still has entries in it
@@ -2777,7 +2768,7 @@ class NamespaceFS {
                     await native_fs_utils.safe_unlink(fs_context, file_path, version_info, gpfs_options, bucket_tmp_dir_path);
                     return { ...version_info, latest: true };
                 } else {
-                    await nb_native().fs.unlink(fs_context, file_path);
+                    await native_fs_utils.unlink_ignore_enoent(fs_context, file_path);
                 }
                 return version_info;
             } catch (err) {

@@ -250,6 +250,7 @@ mocha.describe('Bucket Namespace S3 Encryption Operations', function() {
     mocha.after(async function() {
         const self = this; // eslint-disable-line no-invalid-this
         self.timeout(60000);
+        if (SKIP_TEST) return;
         await rpc_client.bucket.delete_bucket({ name: BKT });
         await rpc_client.pool.delete_namespace_resource({
             name: RESOURCE_NAME,

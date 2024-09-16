@@ -163,9 +163,6 @@ s3tests_boto3/functional/test_s3.py::test_multipart_upload_missing_part
 s3tests_boto3/functional/test_s3.py::test_multipart_upload_incorrect_etag
 s3tests_boto3/functional/test_s3.py::test_set_bucket_tagging
 s3tests_boto3/functional/test_s3.py::test_atomic_dual_conditional_write_1mb
-s3tests_boto3/functional/test_s3.py::test_versioning_obj_create_read_remove
-s3tests_boto3/functional/test_s3.py::test_versioning_obj_create_versions_remove_all
-s3tests_boto3/functional/test_s3.py::test_versioning_obj_create_versions_remove_special_names
 s3tests_boto3/functional/test_s3.py::test_versioned_concurrent_object_create_concurrent_remove
 s3tests_boto3/functional/test_s3.py::test_encrypted_transfer_1b
 s3tests_boto3/functional/test_s3.py::test_encrypted_transfer_1kb
@@ -180,7 +177,6 @@ s3tests_boto3/functional/test_s3.py::test_bucketv2_policy
 s3tests_boto3/functional/test_s3.py::test_bucket_policy_another_bucket
 s3tests_boto3/functional/test_s3.py::test_bucketv2_policy_another_bucket
 s3tests_boto3/functional/test_s3.py::test_get_obj_tagging
-s3tests_boto3/functional/test_s3.py::test_get_obj_head_tagging
 s3tests_boto3/functional/test_s3.py::test_put_max_tags
 s3tests_boto3/functional/test_s3.py::test_bucket_policy_put_obj_s3_noenc
 s3tests_boto3/functional/test_s3.py::test_copy_object_ifmatch_failed

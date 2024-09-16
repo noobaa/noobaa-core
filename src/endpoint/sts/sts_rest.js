@@ -215,7 +215,7 @@ function _is_statements_fit(statements, method, cur_account_email) {
         // who can do that action
         for (const principal of statement.principal) {
             dbg.log0('assume_role_policy: principal fit?', principal.unwrap().toString(), cur_account_email);
-            if (principal.unwrap() === cur_account_email) {
+            if ((principal.unwrap() === cur_account_email) || (principal.unwrap() === '*')) {
                 principal_fit = true;
             }
         }

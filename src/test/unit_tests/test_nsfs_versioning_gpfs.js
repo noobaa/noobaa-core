@@ -37,7 +37,7 @@ function make_dummy_object_sdk(nsfs_config, uid, gid) {
     };
 }
 
-mocha.describe('namespace_fs gpfs- versioning', async function() {
+mocha.describe('namespace_fs gpfs- versioning', function() {
     const gpfs_root_path = process.env.GPFS_ROOT_PATH;
     const gpfs_nsr = 'versioned-gpfs-nsr';
     const gpfs_bucket = 'gpfs_bucket';

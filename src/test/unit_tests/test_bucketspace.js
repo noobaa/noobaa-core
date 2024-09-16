@@ -940,7 +940,7 @@ mocha.describe('bucket operations - namespace_fs', function() {
     });
 });
 
-mocha.describe('list objects - namespace_fs', async function() {
+mocha.describe('list objects - namespace_fs', function() {
     const namespace_resource_name = 'nsr1-list';
     const bucket_name = 'bucket-to-list1';
     const tmp_fs_root_ls1 = path.join(TMP_PATH, 'test_bucket_namespace_fs1');
@@ -1510,7 +1510,7 @@ mocha.describe('nsfs account configurations', function() {
     });
 });
 
-mocha.describe('list buckets - namespace_fs', async function() {
+mocha.describe('list buckets - namespace_fs', function() {
     const tmp_fs_root_ls = path.join(TMP_PATH, 'test_bucket_namespace_ls');
     const new_buckets_dir = '/lb_new_buckets_path';
     const new_buckets_path = path.join(tmp_fs_root_ls, new_buckets_dir);
@@ -1704,7 +1704,7 @@ mocha.describe('list buckets - namespace_fs', async function() {
     });
 });
 
-mocha.describe('s3 whitelist flow', async function() {
+mocha.describe('s3 whitelist flow', function() {
     this.timeout(50000); // eslint-disable-line no-invalid-this
     const nsr = 'server_ip_whitelist_nsr';
     const account_name = 'server_ip_whitelist_account';

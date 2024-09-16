@@ -6,7 +6,7 @@ const assert = require('assert');
 const crypto = require('crypto');
 const nb_native = require('../../util/nb_native');
 
-mocha.describe('nb_native hashes', async function() {
+mocha.describe('nb_native hashes', function() {
     function md5(input) {
         const MD5 = new (nb_native().MD5_MB)();
         const native_md5 = MD5.update(Buffer.from(input)).digest().toString('hex');

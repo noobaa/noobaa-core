@@ -45,7 +45,7 @@ const metrics_obj_mock = {
 
 describe('noobaa cli - diagnose flow', () => {
 
-    describe('gather-logs flow', async => {
+    describe('gather-logs flow', () => {
         it('gather-logs - should fail with not implemented', async () => {
             const res = await exec_manage_cli(TYPES.DIAGNOSE, DIAGNOSE_ACTIONS.GATHER_LOGS, {}, true);
             expect(JSON.parse(res.stdout).error.message).toBe(ManageCLIError.NotImplemented.message);

@@ -484,7 +484,7 @@ mocha.describe('bucketspace_fs', function() {
         });
     });
 
-    mocha.describe('list_buckets', async function() {
+    mocha.describe('list_buckets', function() {
         mocha.beforeEach(async function() {
             await create_bucket(test_bucket);
         });

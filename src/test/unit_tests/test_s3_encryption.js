@@ -58,7 +58,7 @@ async function get_s3_instances() {
     return { aws_s3, local_s3 };
 }
 
-mocha.describe('Bucket Encryption Operations', async () => {
+mocha.describe('Bucket Encryption Operations', function() {
 
     const BKT = 'sloth-bucket-encryption';
     let local_s3;
@@ -144,7 +144,7 @@ mocha.describe('Bucket Encryption Operations', async () => {
     });
 });
 
-mocha.describe('Bucket Namespace S3 Encryption Operations', async function() {
+mocha.describe('Bucket Namespace S3 Encryption Operations', function() {
     const BKT = 'sloth-ns-bucket-encryption';
     const CONNECTION_NAME = 'aws_connection1';
     const AWS_TARGET_BUCKET = 'test-sloth-ns-bucket-encryption';

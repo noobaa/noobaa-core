@@ -17,7 +17,7 @@ const coretest_path = get_coretest_path();
 const coretest = require(coretest_path);
 coretest.setup({});
 
-mocha.describe('cli logging flow', async function() {
+mocha.describe('cli logging flow', function() {
     this.timeout(50000); // eslint-disable-line no-invalid-this
     const bucket_path = path.join(TMP_PATH, 'log_bucket');
     const pers_log_path = path.join(TMP_PATH, 'pers_logs');

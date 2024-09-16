@@ -13,9 +13,9 @@ const { get_process_fs_context } = require('../../util/native_fs_utils');
 
 const DEFAULT_FS_CONFIG = get_process_fs_context();
 
-mocha.describe('nb_native fs', async function() {
+mocha.describe('nb_native fs', function() {
 
-    mocha.describe('stat', async function() {
+    mocha.describe('stat', function() {
         mocha.it('works', async function() {
             const path = 'package.json';
             const res = await nb_native().fs.stat(DEFAULT_FS_CONFIG, path);
@@ -33,7 +33,7 @@ mocha.describe('nb_native fs', async function() {
         });
     });
 
-    mocha.describe('lstat', async function() {
+    mocha.describe('lstat', function() {
         const link_name = 'link.json';
         const file_name = 'file.json';
         const PATH = `/tmp/lstat${file_name}`;
@@ -104,7 +104,7 @@ mocha.describe('nb_native fs', async function() {
     //     });
     // });
 
-    mocha.describe('open', async function() {
+    mocha.describe('open', function() {
         mocha.it.skip('open + close', async function() {
             const path = 'package.json';
             const fh = await nb_native().fs.open(DEFAULT_FS_CONFIG, path);
@@ -169,7 +169,7 @@ mocha.describe('nb_native fs', async function() {
     // });
 
 
-    mocha.describe('Readdir', async function() {
+    mocha.describe('Readdir', function() {
         mocha.it('works', async function() {
             const { readdir } = nb_native().fs;
             const r = await readdir(DEFAULT_FS_CONFIG, '.');
@@ -183,7 +183,7 @@ mocha.describe('nb_native fs', async function() {
 
     });
 
-    mocha.describe('Readdir DIRWRAP', async function() {
+    mocha.describe('Readdir DIRWRAP', function() {
         mocha.it('works', async function() {
             const { opendir } = nb_native().fs;
             const r = await opendir(DEFAULT_FS_CONFIG, '.');
@@ -218,7 +218,7 @@ mocha.describe('nb_native fs', async function() {
     //     });
     // });
 
-    mocha.describe('FileWrap Getxattr, Replacexattr', async function() {
+    mocha.describe('FileWrap Getxattr, Replacexattr', function() {
         mocha.it('set, get', async function() {
             const { open } = nb_native().fs;
             const PATH = `/tmp/xattrtest_1_${Date.now()}`;
@@ -231,7 +231,7 @@ mocha.describe('nb_native fs', async function() {
         });
     });
 
-    mocha.describe('FileWrap Getxattr, Replacexattr clear prefixes override', async function() {
+    mocha.describe('FileWrap Getxattr, Replacexattr clear prefixes override', function() {
         mocha.it('set, get', async function() {
             const { open } = nb_native().fs;
             const PATH = `/tmp/xattrtest_2_${Date.now()}_clear`;
@@ -251,7 +251,7 @@ mocha.describe('nb_native fs', async function() {
     });
 
 
-    mocha.describe('FileWrap Getxattr, Replacexattr clear prefixes add xattr - no clear', async function() {
+    mocha.describe('FileWrap Getxattr, Replacexattr clear prefixes add xattr - no clear', function() {
         mocha.it('set, get', async function() {
             const { open } = nb_native().fs;
             const PATH = `/tmp/xattrtest_3_${Date.now()}`;
@@ -270,7 +270,7 @@ mocha.describe('nb_native fs', async function() {
     });
 
 
-    mocha.describe('FileWrap GetSinglexattr', async function() {
+    mocha.describe('FileWrap GetSinglexattr', function() {
         mocha.it('get single existing xattr', async function() {
             const { open } = nb_native().fs;
             const PATH = `/tmp/xattrtest_4_${Date.now()}`;
@@ -317,7 +317,7 @@ mocha.describe('nb_native fs', async function() {
         });
     });
 
-    mocha.describe('Stat with xattr', async function() {
+    mocha.describe('Stat with xattr', function() {
         mocha.it('get xattr with FileWrap Stat', async function() {
             const { open } = nb_native().fs;
             const PATH = `/tmp/xattrtest_7_${Date.now()}`;
@@ -353,7 +353,7 @@ mocha.describe('nb_native fs', async function() {
     });
 
 
-    mocha.describe('Safe link/unlink', async function() {
+    mocha.describe('Safe link/unlink', function() {
         mocha.it('safe link - success', async function() {
             const { safe_link } = nb_native().fs;
             const PATH1 = `/tmp/safe_link${Date.now()}_1`;

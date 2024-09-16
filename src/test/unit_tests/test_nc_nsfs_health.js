@@ -92,7 +92,7 @@ mocha.describe('nsfs nc health', function() {
         });
     });
 
-    mocha.describe('health check', async function() {
+    mocha.describe('health check', function() {
         const new_buckets_path = `${root_path}new_buckets_path_user1/`;
         const account1_options = {
             name: 'account1',

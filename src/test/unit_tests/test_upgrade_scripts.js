@@ -26,7 +26,7 @@ async function _clean_all_bucket_policies() {
     }
 }
 
-mocha.describe('test upgrade scripts', async function() {
+mocha.describe('test upgrade scripts', function() {
     mocha.before(async function() {
         this.timeout(600000); // eslint-disable-line no-invalid-this
         await system_store.load();

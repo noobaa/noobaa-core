@@ -932,7 +932,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
 
         let account_with_access;
         mocha.describe('delete object - versioning enabled', function() {
-            mocha.describe('delete object - regular version - versioning enabled', async function() {
+            mocha.describe('delete object - regular version - versioning enabled', function() {
                 mocha.before(async function() {
                     const res = await generate_nsfs_account(rpc_client, EMAIL, new_bucket_path_param, { default_resource: nsr});
                     account_with_access = generate_s3_client(res.access_key, res.secret_key, CORETEST_ENDPOINT);
@@ -1255,7 +1255,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             await put_allow_all_bucket_policy(account_with_access, delete_object_test_bucket_dm);
         });
 
-        mocha.describe('delete object - regular version - versioning suspended', async function() {
+        mocha.describe('delete object - regular version - versioning suspended', function() {
 
             mocha.it('delete version id - fake id - nothing to remove - bucket will be suspended', async function() {
                 const max_version1 = await find_max_version_past(full_delete_path, key1, '');
@@ -1399,7 +1399,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             });
         });
 
-        mocha.describe('delete object - null version - versioning suspended', async function() {
+        mocha.describe('delete object - null version - versioning suspended', function() {
 
             mocha.it('delete object version null - latest, no second latest - versioning suspended', async function() {
                 const upload_res_arr = await upload_object_versions(account_with_access, delete_object_test_bucket_null, key1, ['null']);
@@ -1447,7 +1447,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             });
         });
 
-        mocha.describe('delete object - delete marker version - versioning suspended', async function() {
+        mocha.describe('delete object - delete marker version - versioning suspended', function() {
 
             mocha.it('delete object version delete marker - latest - second latest is a null version - versioning suspended', async function() {
                 await upload_object_versions(account_with_access, delete_object_test_bucket_dm, key1, ['null', 'delete_marker']);

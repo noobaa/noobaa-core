@@ -42,7 +42,7 @@ mocha.describe('manage_nsfs cli', function() {
         config.NC_MASTER_KEYS_FILE_LOCATION = nc_coretest_master_key_location;
     });
 
-    mocha.describe('cli bucket flow ', async function() {
+    mocha.describe('cli bucket flow ', function() {
         const type = TYPES.BUCKET;
         const account_name = 'user1';
         const account_name2 = 'user2';
@@ -496,7 +496,7 @@ mocha.describe('manage_nsfs cli', function() {
 
     });
 
-    mocha.describe('cli invalid actions and types', async function() {
+    mocha.describe('cli invalid actions and types', function() {
 
         mocha.it('cli account invalid_action', async function() {
             const type = TYPES.ACCOUNT;
@@ -533,7 +533,7 @@ mocha.describe('manage_nsfs cli', function() {
 
     });
 
-    mocha.describe('cli account flow', async function() {
+    mocha.describe('cli account flow', function() {
         const type = TYPES.ACCOUNT;
         const name = 'account1';
         const gpfs_account = 'gpfs_account';
@@ -820,7 +820,7 @@ mocha.describe('manage_nsfs cli', function() {
         });
     });
 
-    mocha.describe('cli account flow - updates', async function() {
+    mocha.describe('cli account flow - updates', function() {
         this.timeout(50000); // eslint-disable-line no-invalid-this
         const type = TYPES.ACCOUNT;
         const name1 = 'account1';
@@ -872,7 +872,7 @@ mocha.describe('manage_nsfs cli', function() {
         });
     });
 
-    mocha.describe('cli account flow distinguished_name - happy path', async function() {
+    mocha.describe('cli account flow distinguished_name - happy path', function() {
         this.timeout(50000); // eslint-disable-line no-invalid-this
         const type = TYPES.ACCOUNT;
         const name = 'account2';
@@ -951,7 +951,7 @@ mocha.describe('manage_nsfs cli', function() {
         });
     });
 
-    mocha.describe('cli whitelist flow', async function() {
+    mocha.describe('cli whitelist flow', function() {
         this.timeout(50000); // eslint-disable-line no-invalid-this
         const type = TYPES.IP_WHITELIST;
         const config_options = { ENDPOINT_FORKS: 1, UV_THREADPOOL_SIZE: 4 };

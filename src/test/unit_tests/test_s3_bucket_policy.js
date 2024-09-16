@@ -1142,7 +1142,7 @@ mocha.describe('s3_bucket_policy', function() {
         }));
     });
 
-    mocha.describe('should only one of Argument or NotArgument', async function() {
+    mocha.describe('should only one of Argument or NotArgument', function() {
 
         mocha.it('should not allow both Action and NotAction', async function() {
             const self = this; // eslint-disable-line no-invalid-this
@@ -1318,7 +1318,7 @@ mocha.describe('s3_bucket_policy', function() {
         });
     });
 
-    mocha.describe('get-bucket-policy status should work', async function() {
+    mocha.describe('get-bucket-policy status should work', function() {
 
         mocha.it('get-bucket-policy status should return true for public policy', async function() {
             const self = this; // eslint-disable-line no-invalid-this

@@ -37,7 +37,7 @@ mocha.describe('Encryption tests', function() {
     const namespace_buckets = [];
     const namespace_resources = [];
 
-    mocha.describe('Check master keys in system', async function() {
+    mocha.describe('Check master keys in system', function() {
         mocha.it('load system store', async function() {
             this.timeout(600000); // eslint-disable-line no-invalid-this
             await system_store.load();

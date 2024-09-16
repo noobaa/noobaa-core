@@ -14,7 +14,7 @@ const old_umask = process.umask(new_umask);
 console.log('test_nsfs_access: replacing old umask: ', old_umask.toString(8), 'with new umask: ', new_umask.toString(8));
 
 
-mocha.describe('new tests check', async function() {
+mocha.describe('new tests check', function() {
     const p = '/tmp/dir/';
     const root_dir = 'root_dir';
     const non_root_dir = 'non_root_dir';

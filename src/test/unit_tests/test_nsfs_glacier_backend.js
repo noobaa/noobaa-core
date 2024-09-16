@@ -79,7 +79,7 @@ function assert_date(date, from, expected, tz = 'LOCAL') {
     }
 }
 
-mocha.describe('nsfs_glacier', async () => {
+mocha.describe('nsfs_glacier', () => {
 	const src_bkt = 'nsfs_glacier_src';
 
 	const dummy_object_sdk = make_dummy_object_sdk();
@@ -125,7 +125,7 @@ mocha.describe('nsfs_glacier', async () => {
 		if (restore_wal) await restore_wal.close();
 	});
 
-	mocha.describe('nsfs_glacier_tapecloud', async () => {
+	mocha.describe('nsfs_glacier_tapecloud', () => {
         const upload_key = 'upload_key_1';
         const restore_key = 'restore_key_1';
         const xattr = { key: 'value', key2: 'value2' };
@@ -333,7 +333,7 @@ mocha.describe('nsfs_glacier', async () => {
         });
 	});
 
-    mocha.describe('nsfs_glacier_s3_flow', async () => {
+    mocha.describe('nsfs_glacier_s3_flow', () => {
         mocha.it('list_objects should throw error with incorrect optional object attributes', async () => {
             const req = generate_noobaa_req_obj();
             req.params.bucket = src_bkt;

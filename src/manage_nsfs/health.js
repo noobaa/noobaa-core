@@ -338,16 +338,16 @@ class NSFSHealth {
             };
         }
 
-        let config_files;
+        let config_files_names;
         if (type === TYPES.BUCKET) {
-            config_files = await this.config_fs.list_buckets();
+            config_files_names = await this.config_fs.list_buckets();
         } else {
-            config_files = await this.config_fs.list_accounts();
+            config_files_names = await this.config_fs.list_accounts();
         }
-        for (const config_file of config_files) {
+        for (const config_file_name of config_files_names) {
             // config_file get data or push error
             const { config_data = undefined, err_obj = undefined } =
-                await this.get_config_file_data_or_error_object(type, config_file);
+                await this.get_config_file_data_or_error_object(type, config_file_name);
             if (!config_data && err_obj) {
                 invalid_storages.push(err_obj.invalid_storage);
                 continue;
@@ -361,7 +361,7 @@ class NSFSHealth {
                 config_data.nsfs_account_config.new_buckets_path;
 
             if (type === TYPES.ACCOUNT) {
-                const config_file_path = this.config_fs.get_account_path_by_name(config_file.name);
+                const config_file_path = this.config_fs.get_account_path_by_name(config_file_name);
                 res = await is_new_buckets_path_valid(config_file_path, config_data, storage_path);
             } else if (type === TYPES.BUCKET) {
                 res = await is_bucket_storage_path_exists(this.config_fs.fs_context, config_data, storage_path);

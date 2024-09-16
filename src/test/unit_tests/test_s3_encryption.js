@@ -153,14 +153,13 @@ mocha.describe('Bucket Namespace S3 Encryption Operations', function() {
     let aws_s3;
     let local_s3;
 
-    if (SKIP_TEST) {
-        coretest.log('No AWS credentials found in env. Skipping test');
-        this.skip(); // eslint-disable-line no-invalid-this
-    }
-
     mocha.before(async function() {
         const self = this; // eslint-disable-line no-invalid-this
         self.timeout(60000);
+        if (SKIP_TEST) {
+            coretest.log('No AWS credentials found in env. Skipping test');
+            this.skip(); // eslint-disable-line no-invalid-this
+        }
         [aws_s3, local_s3] = Object.values(await get_s3_instances());
         const nsr = { resource: RESOURCE_NAME };
         const read_resources = [nsr];

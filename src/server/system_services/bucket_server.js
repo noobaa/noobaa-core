@@ -551,6 +551,35 @@ async function delete_bucket_encryption(req) {
 
 /**
  *
+ * NOTIFICATIONS
+ *
+ */
+async function put_bucket_notification(req) {
+    dbg.log0('put_bucket_notification:', req.rpc_params);
+    const bucket = find_bucket(req);
+    await system_store.make_changes({
+        update: {
+            buckets: [{
+                _id: bucket._id,
+                notifications: req.rpc_params.notifications
+            }]
+        }
+    });
+}
+
+
+async function get_bucket_notification(req) {
+    dbg.log0('get_bucket_notification:', req.rpc_params);
+    const bucket = find_bucket(req);
+    return {
+        notifications: bucket.notifications ? bucket.notifications : [],
+    };
+    return res;
+}
+
+
+/**
+ *
  * DELETE_BUCKET_WEBSITE
  *
  */
@@ -2066,6 +2095,8 @@ exports.get_bucket_website = get_bucket_website;
 exports.delete_bucket_policy = delete_bucket_policy;
 exports.put_bucket_policy = put_bucket_policy;
 exports.get_bucket_policy = get_bucket_policy;
+exports.put_bucket_notification = put_bucket_notification;
+exports.get_bucket_notification = get_bucket_notification;
 
 exports.update_all_buckets_default_pool = update_all_buckets_default_pool;
 

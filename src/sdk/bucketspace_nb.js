@@ -230,6 +230,23 @@ class BucketSpaceNB {
     }
 
     /////////////////////////
+    // BUCKET NOTIFICATION //
+    /////////////////////////
+
+    async put_bucket_notification(params) {
+        return this.rpc_client.bucket.put_bucket_notification({
+            name: params.bucket_name,
+            notifications: params.notifications
+        });
+    }
+
+    async get_bucket_notification(params) {
+        return this.rpc_client.bucket.get_bucket_notification({
+            name: params.bucket_name
+        });
+    }
+
+    /////////////////////////
     // DEFAULT OBJECT LOCK //
     /////////////////////////
 

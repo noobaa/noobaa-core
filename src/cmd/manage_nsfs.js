@@ -102,8 +102,8 @@ async function fetch_bucket_data(action, user_input) {
         new_name: user_input.new_name === undefined ? undefined : String(user_input.new_name),
         fs_backend: user_input.fs_backend === undefined ? config.NSFS_NC_STORAGE_BACKEND : String(user_input.fs_backend),
         force_md5_etag: user_input.force_md5_etag === undefined || user_input.force_md5_etag === '' ? user_input.force_md5_etag : get_boolean_or_string_value(user_input.force_md5_etag),
-        notifications: user_input.notifications ? JSON.parse(user_input.notifications) : undefined
-        };
+        notifications: user_input.notifications
+    };
 
     if (user_input.bucket_policy !== undefined) {
         if (typeof user_input.bucket_policy === 'string') {

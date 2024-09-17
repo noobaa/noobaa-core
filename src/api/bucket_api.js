@@ -300,6 +300,59 @@ module.exports = {
             }
         },
 
+        get_bucket_notification: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: [
+                    'name'
+                ],
+                properties: {
+                    name: { $ref: 'common_api#/definitions/bucket_name' },
+                }
+            },
+            reply: {
+                type: 'object',
+                required: [
+                    'notifications'
+                ],
+                properties: {
+                    notifications: {
+                        type: 'array',
+                        items: {
+                            $ref: 'common_api#/definitions/bucket_notification'
+                        }
+                    }
+                }
+            },
+            auth: {
+                system: ['admin', 'user']
+            }
+        },
+
+        put_bucket_notification: {
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: [
+                    'notifications',
+                    'name',
+                ],
+                properties: {
+                    name: { $ref: 'common_api#/definitions/bucket_name' },
+                    notifications: {
+                        type: 'array',
+                        items: {
+                             $ref: 'common_api#/definitions/bucket_notification'
+                        }
+                    }
+                }
+            },
+            auth: {
+                system: ['admin', 'user'],
+            }
+        },
+
         read_bucket_sdk_info: {
             method: 'GET',
             params: {

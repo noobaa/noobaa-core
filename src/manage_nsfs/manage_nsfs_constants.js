@@ -124,7 +124,7 @@ const OPTION_TYPE = {
     all_bucket_details: 'boolean',
     https_port: 'number',
     debug: 'number',
-    notifications: 'string'
+    notifications: 'object'
 };
 
 const BOOLEAN_STRING_VALUES = ['true', 'false'];

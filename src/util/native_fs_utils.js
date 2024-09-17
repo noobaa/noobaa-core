@@ -229,6 +229,23 @@ async function safe_unlink_posix(fs_context, to_delete_path, to_delete_version_i
     }
 }
 
+/**
+ * unlink_ignore_enoent unlinks a file and if recieved an ENOENT error it'll not fail
+ * @param {nb.NativeFSContext} fs_context 
+ * @param {String} to_delete_path 
+ * @returns {Promise<Void>}
+ */
+async function unlink_ignore_enoent(fs_context, to_delete_path) {
+    dbg.log1('native_fs_utils.unlink_ignore_enoent:', to_delete_path);
+    try {
+        await nb_native().fs.unlink(fs_context, to_delete_path);
+    } catch (err) {
+        dbg.warn(`native_fs_utils.unlink_ignore_enoent unlink error: file path ${to_delete_path} error`, err);
+        if (err.code !== 'ENOENT') throw err;
+        dbg.warn(`native_fs_utils.unlink_ignore_enoent unlink: file ${to_delete_path} already deleted, ignoring..`);
+    }
+}
+
 // safe_link_gpfs links source_path to dest_path while verifing dest.fd
 async function safe_link_gpfs(fs_context, dst_path, src_file, dst_file) {
     dbg.log1('Namespace_fs.safe_link_gpfs source_file:', src_file, src_file.fd, dst_file, dst_file && dst_file.fd);
@@ -671,6 +688,7 @@ exports.validate_bucket_creation = validate_bucket_creation;
 exports.is_path_exists = is_path_exists;
 exports.is_dir_rw_accessible = is_dir_rw_accessible;
 exports.folder_delete = folder_delete;
+exports.unlink_ignore_enoent = unlink_ignore_enoent;
 exports.get_bucket_tmpdir_full_path = get_bucket_tmpdir_full_path;
 exports.get_bucket_tmpdir_name = get_bucket_tmpdir_name;
 exports.entity_enum = entity_enum;

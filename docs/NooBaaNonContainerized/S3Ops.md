@@ -95,7 +95,7 @@ Warning: this policy allows `<account-name>` to run all S3 operations.
 ##### Principal Field:
 A bucket policy defines which principals can perform actions on the bucket. The Principal element specifies the user or account that is either allowed or denied access to a resource.
 Currently we support a couple of options:
-1. Grant anonymous permissions (all principals): either `"Principal": { "AWS": "*" }` or `"Principal": { "*" }`.
+1. All principals (includes anonymous account): either `"Principal": { "AWS": "*" }` or `"Principal": "*"`.
 2. Principal by account name: `"Principal": { "AWS": [ "<account-name-1>", "<account-name-2>", ... ,"<account-name-n>"] }`
 3. Principal by account ID: `"Principal": { "AWS": [ "<account-ID-1>", "<account-ID-2>", ... ,"<account-ID-n>"] }`
 

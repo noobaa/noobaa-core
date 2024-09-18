@@ -8,6 +8,7 @@
      4) Debug a Single Ceph S3 Test
      5) Compare to AWS Response (Inside Tester Pod)
      6) Examples
+     7) Run a Single Ceph S3 Test in NC deployment Manually
 * This guide describes developer steps to run Ceph S3 on a Noobaa system on minikube.
 
 ## General Settings For Ceph S3 Tests
@@ -287,4 +288,48 @@ S3TEST_CONF=${PWD}/src/test/system_tests/ceph_s3_tests/test_ceph_s3_config.conf 
 
 Notice that even though test commands succeeded the test itself was skipped. The test prints `1 skipped` meaning one test was skipped
 
+## Run a Single Ceph S3 Test in NC deployment Manually
+
+### NC local on your machine
+#### Account creation
+Create the needed accounts for the Ceph configurations, for example: 
+1. ceph (main account)
+2. ceph_alt (an account that is used on tests when two different accounts are needed, this is the alternative account - for example I saw it used in one of the bucket policy tests)
+3. ceph_tenant  
+
+In cases that you don't need additional account you can simply copy the main account access keys in the ceph configuration file.
+
+To create the accounts in NC with access key and secret key that you chose is by running:  
+`sudo node src/cmd/manage_nsfs account add --name ceph --new_buckets_path <new-buckets-path> --access_key <access-key> --secret_key <secret-key> --uid <uid> --gid <gid>`   
+(more information can be found in [NooBaa CLI](./../../NooBaaNonContainerized/NooBaaCLI.md))  
+for example:  
+`sudo node src/cmd/manage_nsfs account add --name ceph --new_buckets_path /private/tmp/nsfs_root1 --access_key <access-key> --secret_key <secret-key> --uid 1001 --gid 1001`.  
+Note: before creating the account need to give permission to the `new_buckets_path`, in this example: `mkdir -p /private/tmp/nsfs_root1; sudo chmod 777 /private/tmp/nsfs_root1`.
+
+#### NSFS Server
+Start the NSFS server with: `sudo node src/cmd/nsfs --debug 5`  
+Note: on every code change you would need to stop the server (ctrl + c) and run it again.
+
+### Ceph S3 repository:
+1) Clone the repository [ceph/s3-test](https://github.com/ceph/s3-tests):  
+`git clone https://github.com/ceph/s3-tests.git`
+
+2) Edit the attached config, you can rename it and use this config only in the commands that you run, for example:  
+`cp s3tests.conf.SAMPLE test_nsfs_ceph_s3_config.conf`, inside the file change the following values `vi test_nsfs_ceph_s3_config.conf`:
+  - host = localhost
+  - port = 6443
+  - is_secure = True
+  - ssl_verify = False
+  - bucket prefix = your-name-{random}
+  - under "[s3 main]" under "main AWS access key" add the ceph account credentials
+  - under "[s3 alt]" under "alt AWS access key set in vstart.sh" add the ceph_alt credentials (if your tests do not need it you can copy the ceph credentials)
+  - under "[s3 tenant]" under "tenant AWS secret key set in vstart.sh" add 3. ceph_tenant credentials (if your tests do not need it you can copy the ceph credentials)
+  - user_id - it depends if your tests uses it and for what purpose, usually you can add the account id, I saw a case where it was for principal in bucket policy and there you can add the account name
+
+3) Run a single test by running:  
+`S3TEST_CONF=<configuration-file> tox -- <test-full-name>`  
+for example:  
+`S3TEST_CONF=test_nsfs_ceph_s3_config.conf tox -- s3tests_boto3/functional/test_s3.py::test_versioning_multi_object_delete_with_marker_create`.  
+Make sure that you run it from the Ceph repo: `pwd` will be `<path-to-ceph-S3-repo>/s3-tests`.  
+Note: In case you need install boto3 and tox: `python3 -m pip install boto3` and `python3 -m pip install tox`
 

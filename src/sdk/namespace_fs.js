@@ -1429,7 +1429,8 @@ class NamespaceFS {
                 if (this._is_versioning_suspended()) {
                     if (latest_ver_info?.version_id_str === NULL_VERSION_ID) {
                         dbg.log1('NamespaceFS._move_to_dest_version suspended: version ID of the latest version is null - the file will be unlinked');
-                        await native_fs_utils.safe_unlink(fs_context, latest_ver_path, latest_ver_info, gpfs_options, bucket_tmp_dir_path);
+                        await native_fs_utils.safe_unlink(fs_context, latest_ver_path, latest_ver_info,
+                            gpfs_options?.delete_version, bucket_tmp_dir_path);
                     } else {
                         // remove a version (or delete marker) with null version ID from .versions/ (if exists)
                         await this._delete_null_version_from_versions_directory(key, fs_context);
@@ -2757,7 +2758,8 @@ class NamespaceFS {
                         await this._open_files_gpfs(fs_context, file_path, undefined, undefined, undefined, undefined, true) :
                         undefined;
                     const bucket_tmp_dir_path = this.get_bucket_tmpdir_full_path();
-                    await native_fs_utils.safe_unlink(fs_context, file_path, version_info, gpfs_options, bucket_tmp_dir_path);
+                    await native_fs_utils.safe_unlink(fs_context, file_path, version_info,
+                        gpfs_options?.delete_version, bucket_tmp_dir_path);
                     return { ...version_info, latest: true };
                 } else {
                     await native_fs_utils.unlink_ignore_enoent(fs_context, file_path);
@@ -2930,7 +2932,8 @@ class NamespaceFS {
                     } else {
                         // versioning suspended and version_id is null
                         dbg.log1('NamespaceFS._delete_latest_version: suspended mode version ID of the latest version is null - file will be unlinked');
-                        await native_fs_utils.safe_unlink(fs_context, latest_ver_path, latest_ver_info, gpfs_options, bucket_tmp_dir_path);
+                        await native_fs_utils.safe_unlink(fs_context, latest_ver_path, latest_ver_info,
+                            gpfs_options?.delete_version, bucket_tmp_dir_path);
                     }
                 }
                 break;

@@ -21,7 +21,6 @@ coretest.setup({});
 
 const XATTR_INTERNAL_NOOBAA_PREFIX = 'user.noobaa.';
 const XATTR_VERSION_ID = XATTR_INTERNAL_NOOBAA_PREFIX + 'version_id';
-const XATTR_PREV_VERSION_ID = XATTR_INTERNAL_NOOBAA_PREFIX + 'prev_version_id';
 const XATTR_DELETE_MARKER = XATTR_INTERNAL_NOOBAA_PREFIX + 'delete_marker';
 const NULL_VERSION_ID = 'null';
 
@@ -916,7 +915,6 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             assert.ok(is_dm);
             const version_path = path.join(suspended_full_path, '.versions', key_to_delete3 + '_' + latest_dm_version);
             const version_info = await stat_and_get_all(version_path, '');
-            assert.equal(version_info.xattr[XATTR_PREV_VERSION_ID], prev_dm.VersionId);
             assert.equal(version_info.xattr[XATTR_VERSION_ID], NULL_VERSION_ID);
         });
     });
@@ -975,8 +973,6 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                 const max_version0 = await find_max_version_past(full_delete_path, key1, '');
                 const cur_version_id1 = await stat_and_get_version_id(full_delete_path, key1);
                 assert.equal(upload_res_arr[2].VersionId, cur_version_id1);
-                const cur_ver_info = await stat_and_get_all(full_delete_path, key1);
-                assert.equal(cur_ver_info.xattr[XATTR_PREV_VERSION_ID], max_version0);
                 const is_dm = await is_delete_marker(full_delete_path, '', key1, max_version0);
                 assert.ok(is_dm);
 
@@ -1292,8 +1288,6 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
 
                 const cur_version_id1 = await stat_and_get_version_id(full_delete_path, key1);
                 assert.equal(upload_res_arr[2].VersionId, cur_version_id1);
-                const cur_ver_info = await stat_and_get_all(full_delete_path, key1);
-                assert.equal(cur_ver_info.xattr[XATTR_PREV_VERSION_ID], max_version0);
                 const is_dm = await is_delete_marker(full_delete_path, '', key1, max_version0);
                 assert.ok(is_dm);
 
@@ -2832,13 +2826,11 @@ async function compare_version_ids(full_path, key, put_result_version_id, prev_v
     }
     assert.equal(new_version_id, xattr_version_id);
     if (prev_version_id) {
-        const xattr_prev_version_id = get_version_id_by_xattr(stat, true);
         if (is_enabled) {
             // When versioning is Enabled the version IDs are unique.
             // Hence, the new version ID must be different than the previous one.
             assert.notEqual(new_version_id, prev_version_id);
         }
-        assert.equal(xattr_prev_version_id, prev_version_id);
     }
     return true;
 }
@@ -2847,8 +2839,7 @@ function get_version_id_by_stat(stat) {
     return 'mtime-' + stat.mtimeNsBigint.toString(36) + '-ino-' + stat.ino.toString(36);
 }
 
-function get_version_id_by_xattr(stat, prev) {
-    if (prev) return stat && stat.xattr[XATTR_PREV_VERSION_ID];
+function get_version_id_by_xattr(stat) {
     return (stat && stat.xattr[XATTR_VERSION_ID]) || 'null';
 }
 

@@ -152,12 +152,7 @@ s3tests_boto3/functional/test_s3.py::test_put_object_ifmatch_failed
 s3tests_boto3/functional/test_s3.py::test_put_object_ifnonmatch_failed
 s3tests_boto3/functional/test_s3.py::test_put_object_ifnonmatch_overwrite_existed_failed
 s3tests_boto3/functional/test_s3.py::test_object_raw_authenticated_bucket_gone
-s3tests_boto3/functional/test_s3.py::test_object_copy_to_itself_with_metadata
 s3tests_boto3/functional/test_s3.py::test_object_copy_canned_acl
-s3tests_boto3/functional/test_s3.py::test_object_copy_retaining_metadata
-s3tests_boto3/functional/test_s3.py::test_object_copy_replacing_metadata
-s3tests_boto3/functional/test_s3.py::test_object_copy_versioning_multipart_upload
-s3tests_boto3/functional/test_s3.py::test_list_multipart_upload
 s3tests_boto3/functional/test_s3.py::test_multipart_upload_missing_part
 s3tests_boto3/functional/test_s3.py::test_multipart_upload_incorrect_etag
 s3tests_boto3/functional/test_s3.py::test_set_bucket_tagging

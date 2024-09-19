@@ -2766,9 +2766,16 @@ class NamespaceFS {
                 }
                 return version_info;
             } catch (err) {
-                retries -= 1;
-                if (retries <= 0 || !native_fs_utils.should_retry_link_unlink(is_gpfs, err)) throw err;
                 dbg.warn(`NamespaceFS._delete_single_object_versioned: retrying retries=${retries} file_path=${file_path}`, err);
+                retries -= 1;
+                // there are a few concurrency scenarios that might happen we should retry for -
+                // 1. the version id is the latest, concurrent put will might move the version id from being the latest to .versions/ -
+                // will throw safe unlink failed on non matching fd (on GPFS) or inode/mtime (on POSIX).
+                // 2. the version id is the second latest and stays under .versions/ - on concurrent delete of the latest, 
+                // the version id might move to be the latest and we will get ENOENT
+                // 3. concurrent delete of this version - will get ENOENT, doing a retry will return successfully 
+                // after we will see that the version was already deleted
+                if (retries <= 0 || !native_fs_utils.should_retry_link_unlink(is_gpfs, err)) throw err;
             } finally {
                 if (gpfs_options) await this._close_files_gpfs(fs_context, gpfs_options.delete_version, undefined, true);
             }

@@ -59,4 +59,26 @@ describe('test versioning concurrency', () => {
         const versions = await nsfs.list_object_versions({ bucket: bucket }, DUMMY_OBJECT_SDK);
         expect(versions.objects.length).toBe(5);
     });
+
+    it('multiple delete version id and key', async () => {
+        const bucket = 'bucket1';
+        const key = 'key2';
+        const versions_arr = [];
+        // upload 5 versions of key2
+        for (let i = 0; i < 5; i++) {
+            const random_data = Buffer.from(String(i));
+            const body = buffer_utils.buffer_to_read_stream(random_data);
+            const res = await nsfs.upload_object({ bucket: bucket, key: key, source_stream: body }, DUMMY_OBJECT_SDK).catch(err => console.log('put error - ', err));
+            versions_arr.push(res.etag);
+        }
+        const mid_version_id = versions_arr[3];
+        const number_of_successful_operations = [];
+        for (let i = 0; i < 15; i++) {
+            nsfs.delete_object({ bucket: bucket, key: key, version_id: mid_version_id }, DUMMY_OBJECT_SDK)
+                .then(res => number_of_successful_operations.push(res))
+                .catch(err => console.log('delete the same key & version id error - ', err));
+        }
+        await P.delay(1000);
+        expect(number_of_successful_operations.length).toBe(15);
+    });
 });

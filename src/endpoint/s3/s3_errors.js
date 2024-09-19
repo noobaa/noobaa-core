@@ -609,6 +609,7 @@ S3Error.RPC_ERRORS_TO_S3 = Object.freeze({
     NO_SUCH_TAG: S3Error.NoSuchTagSet,
     INVALID_ENCODING_TYPE: S3Error.InvalidEncodingType,
     INVALID_TARGET_BUCKET: S3Error.InvalidTargetBucketForLogging,
+    METHOD_NOT_ALLOWED: S3Error.MethodNotAllowed,
 });
 
 exports.S3Error = S3Error;

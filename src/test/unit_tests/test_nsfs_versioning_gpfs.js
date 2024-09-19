@@ -196,6 +196,28 @@ mocha.describe('namespace_fs gpfs- versioning', async function() {
         assert.equal(head_res.version_id, latest_version_id);
     });
 
+    mocha.it('delete object with version id - versioning enabled', async function() {
+        // 1. put bucket versioning enabled
+        await ns_obj.set_bucket_versioning('ENABLED', dummy_object_sdk);
+        // 2. create multiple versions (2)
+        const key2 = 'my-key-to-delete.txt';
+        await put_object(dummy_object_sdk, ns_obj, gpfs_bucket, key2);
+        const put_res2 = await put_object(dummy_object_sdk, ns_obj, gpfs_bucket, key2);
+        // 3. delete object by version-id
+        const delete_res = await delete_object(dummy_object_sdk, ns_obj, gpfs_bucket, key, put_res2.version_id);
+        assert.equal(delete_res.version_id, put_res2.version_id);
+    });
+
+    mocha.it('delete objects - versioning enabled - use delete_multiple_objects to delete a single non-existing key', async function() {
+        // 1. put bucket versioning enabled
+        await ns_obj.set_bucket_versioning('ENABLED', dummy_object_sdk);
+        // 2. delete objects (a single non existing key)
+        const objects = [{ key: 'non-existing-key', version_id: undefined }];
+        const delete_objects_res = await delete_multiple_objects(dummy_object_sdk, ns_obj, gpfs_bucket, objects);
+        assert.equal(delete_objects_res.created_delete_marker, true);
+        assert.ok(delete_objects_res.created_version_id !== undefined);
+    });
+
 });
 
 async function put_object(dummy_object_sdk, ns, bucket, key) {
@@ -227,6 +249,15 @@ async function delete_object(dummy_object_sdk, ns, bucket, key, version_id) {
     }, dummy_object_sdk);
     console.log('delete_object response', util.inspect(delete_res));
     return delete_res;
+}
+
+async function delete_multiple_objects(dummy_object_sdk, ns, bucket, objects) {
+    const delete_objects_res = await ns.delete_multiple_objects({
+        bucket,
+        objects
+    }, dummy_object_sdk);
+    console.log('delete_multiple_objects response', util.inspect(delete_objects_res));
+    return delete_objects_res;
 }
 
 

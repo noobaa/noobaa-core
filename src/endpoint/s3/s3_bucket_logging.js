@@ -10,8 +10,8 @@ const config = require('../../../config');
 function check_notif_relevant(notif, req) {
     //if no events were specified, always notify
     if (!notif.events) return true;
-    //check request's event is in notification's events list
 
+    //check request's event is in notification's events list
     for (const notif_event of notif.events) {
         const notif_event_elems = notif_event.split(':');
         const event_name = notif_event_elems[1];
@@ -29,7 +29,11 @@ function check_notif_relevant(notif, req) {
 }
 
 async function send_bucket_op_logs(req, res) {
-    if (req.params && req.params.bucket && req.op_name !== 'put_bucket') {
+    if (req.params && req.params.bucket &&
+        !(req.op_name === 'put_bucket' ||
+         req.op_name === 'put_bucket_notification' ||
+         req.op_name === 'get_bucket_notification'
+        )) {
         //potentially, there could be two writes to two different files.
         //we want to await for all writes together, instead of serially
         //so we aggregate and issue the writes only in the end
@@ -44,6 +48,7 @@ async function send_bucket_op_logs(req, res) {
         }
 
         if (req.notification_logger && bucket_info.notifications) {
+
             for (const notif of bucket_info.notifications) {
                 if (check_notif_relevant(notif, req)) {
                     const s3_log = {
@@ -53,7 +58,7 @@ async function send_bucket_op_logs(req, res) {
                         },
                         notif: get_bucket_log_record(req.op_name, bucket_info, req, res, "NOTIF")
                     };
-                    dbg.log2("logging notif ", notif, ", s3_log = ", s3_log);
+                    dbg.log1("logging notif ", notif, ", s3_log = ", s3_log);
                     writes_aggregate.push({
                         file: req.notification_logger,
                         buffer: JSON.stringify(s3_log)

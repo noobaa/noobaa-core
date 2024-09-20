@@ -548,7 +548,6 @@ async function delete_bucket_encryption(req) {
     });
 }
 
-
 /**
  *
  * NOTIFICATIONS
@@ -576,7 +575,6 @@ async function get_bucket_notification(req) {
     };
     return res;
 }
-
 
 /**
  *
@@ -641,6 +639,7 @@ async function read_bucket_sdk_info(req) {
                 unused_refresh_tiering_alloc: bucket.tiering && node_allocator.refresh_tiering_alloc(bucket.tiering),
             })
             .then(get_bucket_info),
+        notifications: bucket.notifications,
     };
 
     if (bucket.namespace) {

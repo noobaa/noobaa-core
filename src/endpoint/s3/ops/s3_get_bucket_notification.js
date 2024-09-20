@@ -11,11 +11,11 @@ async function get_bucket_notification(req) {
     });
 
 
-    const reply = result.notifications.length > 0 ?
+    const reply = result && result.length > 0 ?
         {
             //return result inside TopicConfiguration tag
             NotificationConfiguration: {
-                TopicConfiguration: result.notifications
+                TopicConfiguration: result
             }
         } :
         //if there's no notification, reuturn empty NotificationConfiguration tag

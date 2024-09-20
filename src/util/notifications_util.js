@@ -2,24 +2,54 @@
 'use strict';
 
 const dbg = require('../util/debug_module')(__filename);
+const system_store = require('../server/system_services/system_store').get_instance();
+const system_utils = require('../server/utils/system_utils');
 const config = require('../../config');
 const { PersistentLogger, LogFile } = require('../util/persistent_logger');
 const Kafka = require('node-rdkafka');
 const os = require('os');
 const fs = require('fs');
 const http = require('http');
+const path = require('path');
+const { get_process_fs_context } = require('./native_fs_utils');
+const nb_native = require('../util/nb_native');
 
 class Notificator {
 
     /**
      *
-     * @param {nb.NativeFSContext} fs_context
+     * @param {Object} options
      */
 
-    constructor(fs_context) {
+    constructor({name, fs_context}) {
+        this.name = name;
         this.connect_str_to_connection = new Map();
         this.notif_to_connect = new Map();
-        this.fs_context = fs_context;
+        this.fs_context = fs_context ?? get_process_fs_context();
+    }
+
+    async run_batch() {
+        if (!this._can_run()) return;
+        dbg.log0('Notificator', this.name, " is starting.");
+        try {
+            await this.process_notification_files();
+        } catch (err) {
+            dbg.error('Notificator failure:', err);
+        }
+
+        return 100; //TODO
+    }
+
+    _can_run() {
+
+        if (!system_store.is_finished_initial_load) {
+            dbg.log0('system_store did not finish initial load');
+            return false;
+        }
+        const system = system_store.data.systems[0];
+        if (!system || system_utils.system_in_maintenance(system._id)) return false;
+
+        return true;
     }
 
     /**
@@ -27,17 +57,17 @@ class Notificator {
      * and will send its notifications
      */
     async process_notification_files() {
-        const node_name = process.env.NODE_NAME || os.hostname();
-        const log = new PersistentLogger(config.NOTIFICATION_LOG_DIR, config.NOTIFICATION_LOG_NS + '_' + node_name, { locking: 'EXCLUSIVE' });
-        try {
-            await log.process(async (file, failure_append) => this._notify(this.fs_context, file, failure_append));
-        } catch (err) {
-            dbg.error('processing notifications log file failed', log.file);
-            throw err;
-        } finally {
-            await log.close();
-            for (const connection of this.connect_str_to_connection.values()) {
-                connection.destroy();
+        const entries = await nb_native().fs.readdir(this.fs_context, config.NOTIFICATION_LOG_DIR);
+        for(const file of entries) {
+            if (!file.name.endsWith('.log')) return;
+            const log = new PersistentLogger(config.NOTIFICATION_LOG_DIR, path.parse(file.name).name, { locking: 'EXCLUSIVE' });
+            try {
+                await log.process(async (file, failure_append) => this._notify(this.fs_context, file, failure_append));
+            } catch (err) {
+                dbg.error('processing notifications log file failed', log.file);
+                throw err;
+            } finally {
+                await log.close();
             }
         }
     }
@@ -49,7 +79,7 @@ class Notificator {
      */
     async _notify(fs_context, log_file, failure_append) {
         const file = new LogFile(fs_context, log_file);
-        dbg.log1('sending out notificatoins from file ', log_file);
+        dbg.log2('sending out notificatoins from file ', log_file);
         const send_promises = [];
         await file.collect_and_process(async str => {
             const notif = JSON.parse(str);

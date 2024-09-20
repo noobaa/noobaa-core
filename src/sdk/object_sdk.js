@@ -1071,12 +1071,14 @@ class ObjectSDK {
 
     async put_bucket_notification(params) {
         const bs = this._get_bucketspace();
-        return bs.put_bucket_notification(params);
+        const res = bs.put_bucket_notification(params);
+        bucket_namespace_cache.invalidate_key(params.bucket_name);
+        return res;
     }
 
     async get_bucket_notification(params) {
-        const bs = this._get_bucketspace();
-        return bs.get_bucket_notification(params);
+        const { bucket } = await bucket_namespace_cache.get_with_cache({ sdk: this, name: params.bucket_name });
+        return bucket.notifications;
     }
 
     ////////////////////

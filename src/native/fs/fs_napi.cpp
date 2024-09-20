@@ -2176,7 +2176,7 @@ set_debug_level(const Napi::CallbackInfo& info)
 {
     int level = info[0].As<Napi::Number>();
     DBG_SET_LEVEL(level);
-    LOG("FS::set_debug_level " << level);
+    DBG1("FS::set_debug_level " << level);
     return info.Env().Undefined();
 }
 
@@ -2187,7 +2187,7 @@ set_log_config(const Napi::CallbackInfo& info)
     bool syslog_enabled = info[1].As<Napi::Boolean>();
     LOG_TO_STDERR_ENABLED = stderr_enabled;
     LOG_TO_SYSLOG_ENABLED = syslog_enabled;
-    LOG("FS::set_log_config: " <<  DVAL(LOG_TO_STDERR_ENABLED) << DVAL(LOG_TO_SYSLOG_ENABLED));
+    DBG1("FS::set_log_config: " <<  DVAL(LOG_TO_STDERR_ENABLED) << DVAL(LOG_TO_SYSLOG_ENABLED));
     return info.Env().Undefined();
 }
 

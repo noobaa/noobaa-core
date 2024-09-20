@@ -1183,6 +1183,12 @@ module.exports = {
                 bucket_info: {
                     $ref: '#/definitions/bucket_info'
                 },
+                notifications: {
+                    type: 'array',
+                    items: {
+                        $ref: 'common_api#/definitions/bucket_notification'
+                    }
+                }
             }
         },
 

@@ -977,7 +977,7 @@ interface NativeFS {
 
     dio_buffer_alloc(size: number): Buffer;
     set_debug_level(level: number);
-    set_log_config(stderr_enabled: boolean, syslog_enabled: boolean,);
+    set_log_config(stderr_enabled: boolean, syslog_enabled: boolean);
 
     S_IFMT: number;
     S_IFDIR: number;

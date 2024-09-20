@@ -45,7 +45,7 @@ extern bool LOG_TO_SYSLOG_ENABLED;
     do {                                                \
         const char* log_msg = x.c_str();                \
         int facility = LOG_LOCAL0;                      \
-        int priority = 0;                               \
+        int priority = 5;                               \
         ::syslog(priority | facility, "%s", log_msg);   \
     } while (0)
 

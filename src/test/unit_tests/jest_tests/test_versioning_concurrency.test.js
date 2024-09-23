@@ -83,7 +83,7 @@ describe('test versioning concurrency', () => {
         expect(number_of_successful_operations.length).toBe(15);
     });
 
-    // same as s3tests_boto3/functional/test_s3.py::test_versioning_concurrent_multi_object_delete, 
+    // same as s3tests_boto3/functional/test_s3.py::test_versioning_concurrent_multi_object_delete,
     // this test has a bug, it tries to create the bucket twice and fails
     // https://github.com/ceph/s3-tests/blob/master/s3tests_boto3/functional/test_s3.py#L1642
     // see - https://github.com/ceph/s3-tests/issues/588
@@ -124,4 +124,64 @@ describe('test versioning concurrency', () => {
         const list_res = await nsfs.list_objects({ bucket: bucket }, DUMMY_OBJECT_SDK);
         expect(list_res.objects.length).toBe(0);
     }, 8000);
+
+    it('multiple delete different keys', async () => {
+        const bucket = 'bucket1';
+        const key_prefix = 'key_deleted';
+        const versions_arr = [];
+        const num_deletes = 5;
+        const num_objects = 7;
+
+        for (let i = 0; i < num_objects; i++) {
+            const random_data = Buffer.from(String(i));
+            const body = buffer_utils.buffer_to_read_stream(random_data);
+            const res = await nsfs.upload_object({ bucket: bucket, key: key_prefix + i, source_stream: body }, DUMMY_OBJECT_SDK).catch(err => console.log('put error - ', err));
+            versions_arr.push(res.version_id);
+        }
+        const number_of_successful_operations = [];
+        for (let i = 0; i < num_deletes; i++) {
+            nsfs.delete_object({ bucket: bucket, key: key_prefix + i, version_id: versions_arr[i]}, DUMMY_OBJECT_SDK)
+                .then(res => number_of_successful_operations.push(res));
+        }
+        await P.delay(1000);
+        expect(number_of_successful_operations.length).toBe(num_deletes);
+        const list_objects = await nsfs.list_objects({bucket: 'bucket1'}, DUMMY_OBJECT_SDK);
+        let num_objs = 0;
+        list_objects.objects.forEach(obj => {
+            if (obj.key.startsWith(key_prefix)) {
+                num_objs += 1;
+            }
+        });
+        expect(num_objs).toBe(num_objects - num_deletes);
+
+    });
+
+    it('copy-object to same target', async () => {
+        const num_copies = 5;
+        const copy_source = {bucket: 'bucket1', key: 'key1'};
+        const random_data = Buffer.from("test data, it is test data");
+        const body = buffer_utils.buffer_to_read_stream(random_data);
+        const source_res = await nsfs.upload_object({ bucket: copy_source.bucket,
+            key: copy_source.key, source_stream: body }, DUMMY_OBJECT_SDK);
+        copy_source.version_id = source_res.etag;
+
+        const bucket = 'bucket1';
+        const key = 'key3';
+        const versions_arr = [];
+        // copy key2 5 times
+        for (let i = 0; i < num_copies; i++) {
+            nsfs.upload_object({ bucket: bucket, key: key, source_stream: body, copy_source }, DUMMY_OBJECT_SDK)
+            .then(res => versions_arr.push(res.etag));
+        }
+        await P.delay(1000);
+        expect(versions_arr.length).toBe(num_copies);
+        const list_objects = await nsfs.list_object_versions({bucket: 'bucket1'}, DUMMY_OBJECT_SDK);
+        let num_versions = 0;
+        list_objects.objects.forEach(obj => {
+            if (obj.key === key) {
+                num_versions += 1;
+            }
+        });
+        expect(num_versions).toBe(num_copies);
+    });
 });

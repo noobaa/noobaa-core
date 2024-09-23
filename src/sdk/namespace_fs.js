@@ -1288,6 +1288,7 @@ class NamespaceFS {
             copy_res = undefined, offset }) {
         const part_upload = file_path === upload_path;
         const same_inode = params.copy_source && copy_res === copy_status_enum.SAME_INODE;
+        const should_replace_xattr = params.copy_source ? copy_res === copy_status_enum.FALLBACK : true;
         const is_dir_content = this._is_directory_content(file_path, params.key);
 
         const stat = await target_file.stat(fs_context);
@@ -1324,7 +1325,7 @@ class NamespaceFS {
                 await this.append_to_migrate_wal(file_path);
             }
         }
-        if (fs_xattr && !is_dir_content) await target_file.replacexattr(fs_context, fs_xattr);
+        if (fs_xattr && !is_dir_content && should_replace_xattr) await target_file.replacexattr(fs_context, fs_xattr);
         // fsync
         if (config.NSFS_TRIGGER_FSYNC) await target_file.fsync(fs_context);
         dbg.log1('NamespaceFS._finish_upload:', open_mode, file_path, upload_path, fs_xattr);
@@ -1334,6 +1335,7 @@ class NamespaceFS {
         }
 
         // when object is a dir, xattr are set on the folder itself and the content is in .folder file
+        // we still should put the xattr if copy is link/same inode because we put the xattr on the directory
         if (is_dir_content) {
             await this._assign_dir_content_to_xattr(fs_context, fs_xattr, { ...params, size: stat.size }, copy_xattr);
         }

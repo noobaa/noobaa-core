@@ -38,6 +38,8 @@ const dir_content_type = 'application/x-directory';
 const stream_content_type = 'application/octet-stream';
 
 const DEFAULT_FS_CONFIG = get_process_fs_context();
+const empty_data = crypto.randomBytes(0);
+const empty_stream = () => buffer_utils.buffer_to_read_stream(empty_data);
 
 function make_dummy_object_sdk(config_root) {
     return {
@@ -1357,7 +1359,6 @@ mocha.describe('namespace_fs copy object', function() {
         const copy_xattr = {};
         const copy_key_1 = 'copy_key_1';
         const data = crypto.randomBytes(100);
-        const empty_data = crypto.randomBytes(0);
 
         mocha.before(async function() {
             const upload_res = await ns_tmp.upload_object({
@@ -1497,7 +1498,7 @@ mocha.describe('namespace_fs copy object', function() {
             res = await ns_tmp.upload_object({
                 bucket: upload_bkt,
                 key,
-                source_stream: buffer_utils.buffer_to_read_stream(empty_data),
+                source_stream: empty_stream(),
                 size: 0,
             }, dummy_object_sdk);
             xattr = await get_xattr(file_path);
@@ -1524,7 +1525,7 @@ mocha.describe('namespace_fs copy object', function() {
                 bucket: upload_bkt,
                 key: key,
                 xattr: md1,
-                source_stream: buffer_utils.buffer_to_read_stream(empty_data),
+                source_stream: empty_stream(),
                 size: 0
             }, dummy_object_sdk);
             const file_path = ns_tmp_bucket_path + '/' + key;
@@ -1652,7 +1653,7 @@ mocha.describe('namespace_fs copy object', function() {
             await ns_tmp.upload_object({
                 bucket: upload_bkt,
                 key: src_key,
-                source_stream: buffer_utils.buffer_to_read_stream(empty_data),
+                source_stream: empty_stream(),
                 size: 0,
                 xattr: md1
             }, dummy_object_sdk);
@@ -1686,7 +1687,72 @@ mocha.describe('namespace_fs copy object', function() {
             assert.deepStrictEqual(xattr, { ...add_user_prefix(copy_read_md_res.xattr), [XATTR_DIR_CONTENT]: `${copy_read_md_res.size}` });
             assert.deepStrictEqual(md1, copy_read_md_res.xattr);
             assert.equal(dir_content_type, copy_read_md_res.content_type);
+        });
 
+        mocha.it(`copy object link - with new content type and xattr - should not change`, async function() {
+            const bucket = upload_bkt;
+            const src_key = 'obj_src1';
+            const dst_key = 'obj_dst_link_and_sc';
+
+            await ns_tmp.upload_object({ bucket, key: src_key, source_stream: empty_stream(), size: 0, xattr: md1 }, dummy_object_sdk);
+            const read_md_res = await ns_tmp.read_object_md({ bucket, key: src_key }, dummy_object_sdk);
+
+            assert.deepStrictEqual(md1, read_md_res.xattr);
+            assert.equal(stream_content_type, read_md_res.content_type);
+            const new_xattr = { 'copy_new_xattr_key': 'copy_new_xattr_val' };
+
+            const copy_source = { bucket, key: src_key };
+            await ns_tmp.upload_object({
+                bucket,
+                key: dst_key,
+                copy_source,
+                size: 0,
+                xattr_copy: true,
+                content_type: dir_content_type,
+                xattr: new_xattr
+            }, dummy_object_sdk);
+
+            const dst_md_res = await ns_tmp.read_object_md({ bucket, key: dst_key }, dummy_object_sdk);
+            const src_md_res = await ns_tmp.read_object_md({ bucket, key: src_key }, dummy_object_sdk);
+
+            // on link - content type and xattr should not be changed on src and dst
+            assert.deepStrictEqual(md1, src_md_res.xattr);
+            assert.equal(stream_content_type, src_md_res.content_type);
+            assert.deepStrictEqual(md1, dst_md_res.xattr);
+            assert.equal(stream_content_type, dst_md_res.content_type);
+
+        });
+
+        mocha.it(`copy object fallback - with new content type and xattr`, async function() {
+            const bucket = upload_bkt;
+            const src_key = 'obj_src1';
+            const dst_key = 'obj_dst_fallback_and_sc';
+            // force fallback copy using versioning enabled/suspended
+            ns_tmp.versioning = 'SUSPENDED';
+            await ns_tmp.upload_object({ bucket, key: src_key, source_stream: empty_stream(), size: 0, xattr: md1 }, dummy_object_sdk);
+            const read_md_res = await ns_tmp.read_object_md({ bucket, key: src_key }, dummy_object_sdk);
+
+            assert.deepStrictEqual(md1, read_md_res.xattr);
+            assert.equal(stream_content_type, read_md_res.content_type);
+
+            const copy_source = { bucket, key: src_key };
+            const new_xattr = { 'copy_new_xattr_key': 'copy_new_xattr_val' };
+            await ns_tmp.upload_object({ bucket, key: dst_key, copy_source: copy_source, size: 0,
+                xattr_copy: false,
+                content_type: dir_content_type,
+                xattr: new_xattr,
+            }, dummy_object_sdk);
+
+            const dst_md_res = await ns_tmp.read_object_md({ bucket, key: dst_key }, dummy_object_sdk);
+            const src_md_res = await ns_tmp.read_object_md({ bucket, key: src_key }, dummy_object_sdk);
+
+            // on fallback - content type and xattr should be changed on dst but not on src
+            new_xattr[s3_utils.XATTR_SORT_SYMBOL] = true;
+            assert.deepStrictEqual(md1, src_md_res.xattr);
+            assert.equal(stream_content_type, src_md_res.content_type);
+            assert.deepStrictEqual(new_xattr, dst_md_res.xattr);
+            assert.equal(dir_content_type, dst_md_res.content_type);
+            assert.deepStrictEqual(md1, read_md_res.xattr);
         });
 
         mocha.after(async function() {

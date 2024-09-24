@@ -53,7 +53,7 @@ mocha.describe('namespace_fs gpfs- versioning', async function() {
             console.log('No Root permissions found in env. Skipping test');
             this.skip(); // eslint-disable-line no-invalid-this
         }
-        fs_utils.create_path(gpfs_bucket_path, 0o770);
+        await fs_utils.create_path(gpfs_bucket_path, 0o770);
         const fs_root_stat = await stat_and_get_all(gpfs_root_path, '');
         if (!fs_root_stat) {
             console.log(`gpfs_root_path - ${gpfs_root_path} doesn't exist. Skipping test`);
@@ -204,7 +204,7 @@ mocha.describe('namespace_fs gpfs- versioning', async function() {
         await put_object(dummy_object_sdk, ns_obj, gpfs_bucket, key2);
         const put_res2 = await put_object(dummy_object_sdk, ns_obj, gpfs_bucket, key2);
         // 3. delete object by version-id
-        const delete_res = await delete_object(dummy_object_sdk, ns_obj, gpfs_bucket, key, put_res2.version_id);
+        const delete_res = await delete_object(dummy_object_sdk, ns_obj, gpfs_bucket, key2, put_res2.version_id);
         assert.equal(delete_res.version_id, put_res2.version_id);
     });
 
@@ -214,8 +214,8 @@ mocha.describe('namespace_fs gpfs- versioning', async function() {
         // 2. delete objects (a single non existing key)
         const objects = [{ key: 'non-existing-key', version_id: undefined }];
         const delete_objects_res = await delete_multiple_objects(dummy_object_sdk, ns_obj, gpfs_bucket, objects);
-        assert.equal(delete_objects_res.created_delete_marker, true);
-        assert.ok(delete_objects_res.created_version_id !== undefined);
+        assert.equal(delete_objects_res[0].created_delete_marker, true);
+        assert.ok(delete_objects_res[0].created_version_id !== undefined);
     });
 
     mocha.it('Suspended mode - add object null version twice', async function() {

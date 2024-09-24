@@ -13,7 +13,7 @@ const P = require('../../../util/promise');
 const os_util = require('../../../util/os_utils');
 const fs_utils = require('../../../util/fs_utils');
 const nb_native = require('../../../util/nb_native');
-const { CONFIG_SUBDIRS, JSON_SUFFIX, SYMLINK_SUFFIX } = require('../../../sdk/config_fs');
+const { CONFIG_SUBDIRS, JSON_SUFFIX, SYMLINK_SUFFIX, ConfigFS } = require('../../../sdk/config_fs');
 const { set_path_permissions_and_owner, create_fs_user_by_platform,
     delete_fs_user_by_platform, TMP_PATH, set_nc_config_dir_in_config } = require('../../system_tests/test_utils');
 const { get_process_fs_context, update_config_file } = require('../../../util/native_fs_utils');

@@ -268,10 +268,10 @@ async function safe_unlink_gpfs(fs_context, to_delete_path, to_delete_file, dir_
 }
 
 function should_retry_link_unlink(is_gpfs, err) {
-    return is_gpfs ?
-        [gpfs_link_unlink_retry_err, gpfs_unlink_retry_catch].includes(err.code) :
-        [posix_link_retry_err, posix_unlink_retry_err].includes(err.message) ||
-        ['EEXIST'].includes(err.code);
+    const should_retry_general = ['ENOENT', 'EEXIST'].includes(err.code);
+    const should_retry_gpfs = [gpfs_link_unlink_retry_err, gpfs_unlink_retry_catch].includes(err.code);
+    const should_retry_posix = [posix_link_retry_err, posix_unlink_retry_err].includes(err.message);
+    return should_retry_general || is_gpfs ? should_retry_gpfs : should_retry_posix;
 }
 
 ////////////////////////

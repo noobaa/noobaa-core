@@ -50,3 +50,4 @@ Attached a table with tests that where investigated and their status (this table
 change in our repo) - stopped passing between the update of commit hash 6861c3d81081a6883fb90d66cb60392e1abdf3ca to da91ad8bbf899c72199df35b69e9393c706aabee |
 | test_get_object_ifmodifiedsince_failed                     | Internal Component |                    | It used to pass in the past (not related to code 
 change in our repo) - stopped passing between the update of commit hash 6861c3d81081a6883fb90d66cb60392e1abdf3ca to da91ad8bbf899c72199df35b69e9393c706aabee |
+| test_versioning_concurrent_multi_object_delete | Faulty Test | [588](https://github.com/ceph/s3-tests/issues/588) | 

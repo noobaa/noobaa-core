@@ -1413,12 +1413,20 @@ class NamespaceFS {
         let retries = config.NSFS_RENAME_RETRIES;
         for (;;) {
             try {
-                const new_ver_info = !is_gpfs && await this._get_version_info(fs_context, new_ver_tmp_path);
                 // get latest version_id if exists
                 const latest_ver_info = await this._get_version_info(fs_context, latest_ver_path);
+                if (this._is_versioning_suspended()) {
+                    if (latest_ver_info?.version_id_str === NULL_VERSION_ID) {
+                        dbg.log1('NamespaceFS._move_to_dest_version suspended: version ID of the latest version is null - the file will be unlinked');
+                        await native_fs_utils.unlink_ignore_enoent(fs_context, latest_ver_path);
+                    } else {
+                        // remove a version (or delete marker) with null version ID from .versions/ (if exists)
+                        await this._delete_null_version_from_versions_directory(key, fs_context);
+                    }
+                }
+                const new_ver_info = !is_gpfs && await this._get_version_info(fs_context, new_ver_tmp_path);
                 const versioned_path = latest_ver_info && this._get_version_path(key, latest_ver_info.version_id_str);
                 const versioned_info = latest_ver_info && await this._get_version_info(fs_context, versioned_path);
-
                 gpfs_options = is_gpfs ?
                     await this._open_files_gpfs(fs_context, new_ver_tmp_path, latest_ver_path, upload_file,
                         latest_ver_info, open_mode, undefined, versioned_info) :
@@ -1426,16 +1434,6 @@ class NamespaceFS {
                 const bucket_tmp_dir_path = this.get_bucket_tmpdir_full_path();
                 dbg.log1('Namespace_fs._move_to_dest_version:', latest_ver_info, new_ver_info, gpfs_options);
 
-                if (this._is_versioning_suspended()) {
-                    if (latest_ver_info?.version_id_str === NULL_VERSION_ID) {
-                        dbg.log1('NamespaceFS._move_to_dest_version suspended: version ID of the latest version is null - the file will be unlinked');
-                        await native_fs_utils.safe_unlink(fs_context, latest_ver_path, latest_ver_info,
-                            gpfs_options?.delete_version, bucket_tmp_dir_path);
-                    } else {
-                        // remove a version (or delete marker) with null version ID from .versions/ (if exists)
-                        await this._delete_null_version_from_versions_directory(key, fs_context);
-                    }
-                }
                 if (latest_ver_info &&
                     ((this._is_versioning_enabled()) ||
                         (this._is_versioning_suspended() && latest_ver_info.version_id_str !== NULL_VERSION_ID))) {
@@ -1446,8 +1444,12 @@ class NamespaceFS {
                 }
                 try {
                     // move new version to latest_ver_path (key path)
-                    await native_fs_utils.safe_move(fs_context, new_ver_tmp_path, latest_ver_path, new_ver_info,
-                        gpfs_options && gpfs_options.move_to_dst, bucket_tmp_dir_path);
+                    if (this._is_versioning_suspended() && latest_ver_info?.version_id_str === NULL_VERSION_ID) {
+                        await nb_native().fs.rename(fs_context, new_ver_tmp_path, latest_ver_path);
+                    } else {
+                        await native_fs_utils.safe_move(fs_context, new_ver_tmp_path, latest_ver_path, new_ver_info,
+                            gpfs_options && gpfs_options.move_to_dst, bucket_tmp_dir_path);
+                    }
                 } catch (err) {
                     if (err.message !== native_fs_utils.posix_unlink_retry_err &&
                         err.code !== native_fs_utils.gpfs_unlink_retry_catch) throw err;
@@ -2932,8 +2934,7 @@ class NamespaceFS {
                     } else {
                         // versioning suspended and version_id is null
                         dbg.log1('NamespaceFS._delete_latest_version: suspended mode version ID of the latest version is null - file will be unlinked');
-                        await native_fs_utils.safe_unlink(fs_context, latest_ver_path, latest_ver_info,
-                            gpfs_options?.delete_version, bucket_tmp_dir_path);
+                        await native_fs_utils.unlink_ignore_enoent(fs_context, latest_ver_path);
                     }
                 }
                 break;
@@ -2967,14 +2968,7 @@ class NamespaceFS {
                 const null_versioned_path_info = await this._get_version_info(fs_context, null_versioned_path);
                 dbg.log1('Namespace_fs._delete_null_version_from_versions_directory:', null_versioned_path, null_versioned_path_info);
                 if (null_versioned_path_info) {
-                    const gpfs_options = is_gpfs ?
-                        await this._open_files_gpfs(fs_context, null_versioned_path, undefined, undefined, undefined, undefined, true) :
-                        undefined;
-                    const bucket_tmp_dir_path = this.get_bucket_tmpdir_full_path();
-                    await native_fs_utils.safe_unlink(fs_context, null_versioned_path, null_versioned_path_info,
-                        gpfs_options, bucket_tmp_dir_path);
-
-                    if (gpfs_options) await this._close_files_gpfs(fs_context, gpfs_options.delete_version, undefined, true);
+                    await native_fs_utils.unlink_ignore_enoent(fs_context, null_versioned_path);
                 }
                 break;
             } catch (err) {

@@ -12,7 +12,7 @@ const P = require('../../util/promise');
 const config = require('../../../config');
 const fs_utils = require('../../util/fs_utils');
 const nb_native = require('../../util/nb_native');
-const { ConfigFS, CONFIG_SUBDIRS } = require('../../sdk/config_fs');
+const { ConfigFS, CONFIG_SUBDIRS, JSON_SUFFIX } = require('../../sdk/config_fs');
 const mongo_utils = require('../../util/mongo_utils');
 const test_utils = require('../system_tests/test_utils');
 const NSFSHealth = require('../../manage_nsfs/health').NSFSHealth;
@@ -245,7 +245,7 @@ mocha.describe('nsfs nc health', function() {
             const health_status = await Health.nc_nsfs_health();
             assert.strictEqual(health_status.status, 'OK');
             assert.strictEqual(health_status.checks.buckets_status.invalid_buckets.length, 1);
-            assert.strictEqual(health_status.checks.buckets_status.invalid_buckets[0].name, bucket_invalid_schema.name);
+            assert.strictEqual(health_status.checks.buckets_status.invalid_buckets[0].name, bucket_invalid_schema.name + JSON_SUFFIX);
             // delete it manually because we can not read non json files using the CLI
             await test_utils.delete_manual_config_file(TYPES.BUCKET, config_fs, bucket_invalid_schema);
         });
@@ -264,7 +264,7 @@ mocha.describe('nsfs nc health', function() {
             const health_status = await Health.nc_nsfs_health();
             assert.strictEqual(health_status.status, 'OK');
             assert.strictEqual(health_status.checks.accounts_status.invalid_accounts.length, 1);
-            assert.strictEqual(health_status.checks.accounts_status.invalid_accounts[0].name, account_invalid_schema.name);
+            assert.strictEqual(health_status.checks.accounts_status.invalid_accounts[0].name, account_invalid_schema.name + JSON_SUFFIX);
             // delete it manually because we can not read non json files using the CLI
             await test_utils.delete_manual_config_file(TYPES.ACCOUNT, config_fs, account_invalid_schema);
         });

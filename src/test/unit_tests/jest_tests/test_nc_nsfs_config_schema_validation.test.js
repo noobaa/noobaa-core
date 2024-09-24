@@ -180,6 +180,47 @@ describe('schema validation NC NSFS config', () => {
             assert_validation(config_data, reason, message);
         });
 
+        it('nsfs_config valid config disable access check', () => {
+            const config_data = { NC_DISABLE_ACCESS_CHECK: true };
+            nsfs_schema_utils.validate_nsfs_config_schema(config_data);
+        });
+
+        it('nsfs_config invalid config disable access check', () => {
+            const config_data = { NC_DISABLE_ACCESS_CHECK: 'bla' }; // string instead of boolean
+            const reason = 'Test should have failed because of wrong type ' +
+                'NC_DISABLE_ACCESS_CHECK with string (instead of boolean)';
+            const message = 'must be boolean';
+            assert_validation(config_data, reason, message);
+        });
+
+        it('nsfs_config valid config disable health access check', () => {
+            const config_data = { NC_DISABLE_HEALTH_ACCESS_CHECK: true };
+            nsfs_schema_utils.validate_nsfs_config_schema(config_data);
+        });
+
+        it('nsfs_config invalid config disable health access check', () => {
+            const config_data = { NC_DISABLE_HEALTH_ACCESS_CHECK: 'bla' }; // string instead of boolean
+            const reason = 'Test should have failed because of wrong type ' +
+                'NC_DISABLE_HEALTH_ACCESS_CHECK with string (instead of boolean)';
+            const message = 'must be boolean';
+            assert_validation(config_data, reason, message);
+        });
+
+        it('nsfs_config valid config disable posix access check', () => {
+            const config_data = { NC_DISABLE_POSIX_MODE_ACCESS_CHECK: false };
+            nsfs_schema_utils.validate_nsfs_config_schema(config_data);
+        });
+
+        it('nsfs_config invalid config disable posix access check', () => {
+            const config_data = {
+                NC_DISABLE_POSIX_MODE_ACCESS_CHECK: 'bla'// string instead of boolean
+            };
+            const reason = 'Test should have failed because of wrong type ' +
+                'NC_DISABLE_POSIX_MODE_ACCESS_CHECK with string (instead of boolean)';
+            const message = 'must be boolean';
+            assert_validation(config_data, reason, message);
+        });
+
         it('nsfs_config valid config virtual hosts', () => {
             const config_data = {
                 VIRTUAL_HOSTS: 'my.virtual.domain1 my.virtual.domain2'

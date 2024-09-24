@@ -161,7 +161,7 @@ class ConfigFS {
     }
 
     /**
-     * create_config_json_file created the config.json file with the configuration data
+     * create_config_json_file creates the config.json file with the configuration data
      * @param {object} data
      * @returns {Promise<void>} 
      */
@@ -178,6 +178,13 @@ class ConfigFS {
         await native_fs_utils.update_config_file(this.fs_context, this.config_root, this.config_json_path, data);
     }
 
+    /**
+     * delete_config_json_file deletes the config.json file
+     * @returns {Promise<void>} 
+     */
+    async delete_config_json_file() {
+        await native_fs_utils.delete_config_file(this.fs_context, this.config_root, this.config_json_path);
+    }
 
     /**
      * get_config_data reads a config file and returns its content 

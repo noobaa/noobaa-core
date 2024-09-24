@@ -535,19 +535,24 @@ async function is_path_exists(fs_context, config_path, use_lstat = false) {
 }
 
 /**
- * is_dir_rw_accessible validate the dir param accessible for read and write
+ * is_dir_accessible validate the dir param accessible for read by default
+ * if NC_DISABLE_POSIX_MODE_ACCESS_CHECK=false a read and write access check
+ * will be executed by checking mode bits 
  * @param {nb.NativeFSContext} fs_context
  * @param {string} dir_path
  * @returns {Promise<boolean>}
  */
 /* eslint-disable no-bitwise */
-async function is_dir_rw_accessible(fs_context, dir_path) {
+async function is_dir_accessible(fs_context, dir_path) {
     let stat;
     try {
         stat = await nb_native().fs.stat(fs_context, dir_path);
     } catch (err) {
         return false;
     }
+
+    if (config.NC_DISABLE_POSIX_MODE_ACCESS_CHECK) return true;
+
     const is_owner = fs_context.uid === stat.uid;
     const is_group = fs_context.gid === stat.gid;
 
@@ -686,7 +691,7 @@ exports.get_process_fs_context = get_process_fs_context;
 exports.get_fs_context = get_fs_context;
 exports.validate_bucket_creation = validate_bucket_creation;
 exports.is_path_exists = is_path_exists;
-exports.is_dir_rw_accessible = is_dir_rw_accessible;
+exports.is_dir_accessible = is_dir_accessible;
 exports.folder_delete = folder_delete;
 exports.unlink_ignore_enoent = unlink_ignore_enoent;
 exports.get_bucket_tmpdir_full_path = get_bucket_tmpdir_full_path;

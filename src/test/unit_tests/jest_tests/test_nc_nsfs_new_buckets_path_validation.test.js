@@ -6,9 +6,10 @@ process.env.DISABLE_INIT_RANDOM_SEED = "true";
 
 const fs = require('fs');
 const path = require('path');
+const config = require('../../../../config');
 const fs_utils = require('../../../util/fs_utils');
 const test_utils = require('../../system_tests/test_utils');
-const { get_fs_context, is_dir_rw_accessible } = require('../../../util/native_fs_utils');
+const { get_fs_context, is_dir_accessible } = require('../../../util/native_fs_utils');
 
 const MAC_PLATFORM = 'darwin';
 let tmp_fs_path = '/tmp/test_nc_nsfs_new_buckets_path_validation';
@@ -17,8 +18,9 @@ if (process.platform === MAC_PLATFORM) {
 }
 const timeout = 50000;
 
-describe('new_buckets_path access validation account', () => {
+describe('new_buckets_path posix mode access validation account', () => {
     const new_buckets_path = path.join(tmp_fs_path, 'new_buckets_path');
+    config.NC_DISABLE_POSIX_MODE_ACCESS_CHECK = false;
     const owner_user = 'owner_user';
     const group_user = 'group_user';
     const other_user = 'other_user';
@@ -237,7 +239,7 @@ async function set_path_permissions(path_to_change, new_path_mode) {
  */
 async function path_accessible_to_account(path_to_check, account_data, is_accessible) {
     const fs_context = await get_fs_context(account_data);
-    const accessible = await is_dir_rw_accessible(fs_context, path_to_check);
+    const accessible = await is_dir_accessible(fs_context, path_to_check);
     if (is_accessible) {
         expect(accessible).toBe(true);
     } else {

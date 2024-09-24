@@ -359,9 +359,11 @@ async function validate_bucket_args(config_fs, data, action) {
         await check_new_name_exists(TYPES.BUCKET, config_fs, action, data);
         // in case we have the fs_backend it changes the fs_context that we use for the path
         const fs_context_fs_backend = native_fs_utils.get_process_fs_context(data.fs_backend);
-        const exists = await native_fs_utils.is_path_exists(fs_context_fs_backend, data.path);
-        if (!exists) {
-            throw_cli_error(ManageCLIError.InvalidStoragePath, data.path);
+        if (!config.NC_DISABLE_ACCESS_CHECK) {
+            const exists = await native_fs_utils.is_path_exists(fs_context_fs_backend, data.path);
+            if (!exists) {
+                throw_cli_error(ManageCLIError.InvalidStoragePath, data.path);
+            }
         }
 
         // bucket owner account validations 
@@ -369,7 +371,7 @@ async function validate_bucket_args(config_fs, data, action) {
         const account_fs_context = await native_fs_utils.get_fs_context(owner_account_data.nsfs_account_config,
             owner_account_data.nsfs_account_config.fs_backend);
         if (!config.NC_DISABLE_ACCESS_CHECK) {
-            const accessible = await native_fs_utils.is_dir_rw_accessible(account_fs_context, data.path);
+            const accessible = await native_fs_utils.is_dir_accessible(account_fs_context, data.path);
             if (!accessible) {
                 throw_cli_error(ManageCLIError.InaccessibleStoragePath, data.path);
             }
@@ -454,13 +456,15 @@ async function validate_account_args(config_fs, data, action, is_flag_iam_operat
         }
         // in case we have the fs_backend it changes the fs_context that we use for the new_buckets_path
         const fs_context_fs_backend = native_fs_utils.get_process_fs_context(data.fs_backend);
-        const exists = await native_fs_utils.is_path_exists(fs_context_fs_backend, data.nsfs_account_config.new_buckets_path);
-        if (!exists) {
-            throw_cli_error(ManageCLIError.InvalidAccountNewBucketsPath, data.nsfs_account_config.new_buckets_path);
+        if (!config.NC_DISABLE_ACCESS_CHECK) {
+            const exists = await native_fs_utils.is_path_exists(fs_context_fs_backend, data.nsfs_account_config.new_buckets_path);
+            if (!exists) {
+                throw_cli_error(ManageCLIError.InvalidAccountNewBucketsPath, data.nsfs_account_config.new_buckets_path);
+            }
         }
         if (!config.NC_DISABLE_ACCESS_CHECK) {
             const account_fs_context = await native_fs_utils.get_fs_context(data.nsfs_account_config, data.fs_backend);
-            const accessible = await native_fs_utils.is_dir_rw_accessible(account_fs_context, data.nsfs_account_config.new_buckets_path);
+            const accessible = await native_fs_utils.is_dir_accessible(account_fs_context, data.nsfs_account_config.new_buckets_path);
             if (!accessible) {
                 throw_cli_error(ManageCLIError.InaccessibleAccountNewBucketsPath, data.nsfs_account_config.new_buckets_path);
             }

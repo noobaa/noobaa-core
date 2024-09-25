@@ -949,6 +949,115 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
         });
     });
 
+    mocha.describe('get object attributes', function() {
+        const key = 'my-key-att';
+        let version_id;
+
+        mocha.before(async function() {
+            await s3_uid6.putBucketVersioning({ Bucket: bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
+            const res_put = await s3_uid6.putObject({ Bucket: bucket_name, Key: key, Body: body1 });
+            await s3_uid6.putObject({ Bucket: bucket_name, Key: key, Body: body1 });
+            version_id = res_put.VersionId;
+        });
+
+        mocha.it("get object attributes - attributes (only ETag)", async function() {
+            const res = await s3_uid6.getObjectAttributes({
+                Bucket: bucket_name,
+                Key: key,
+                VersionId: version_id,
+                ObjectAttributes: ['ETag'],
+            });
+            assert.ok(res.$metadata.httpStatusCode === 200);
+            assert.ok(res.ETag !== undefined);
+            assert.ok(res.VersionId === version_id);
+            assert.ok(res.LastModified !== undefined);
+            // was not send in ObjectAttributes
+            assert.ok(res.StorageClass === undefined);
+            assert.ok(res.ObjectSize === undefined);
+        });
+
+        mocha.it("get object attributes - attributes (only StorageClass)", async function() {
+            const res = await s3_uid6.getObjectAttributes({
+                Bucket: bucket_name,
+                Key: key,
+                VersionId: version_id,
+                ObjectAttributes: ['StorageClass'],
+            });
+            assert.ok(res.$metadata.httpStatusCode === 200);
+            assert.ok(res.StorageClass === 'STANDARD');
+            assert.ok(res.VersionId === version_id);
+            assert.ok(res.LastModified !== undefined);
+            // was not send in ObjectAttributes
+            assert.ok(res.ETag === undefined);
+            assert.ok(res.ObjectSize === undefined);
+        });
+
+        mocha.it("get object attributes - attributes (only ObjectSize)", async function() {
+            const res = await s3_uid6.getObjectAttributes({
+                Bucket: bucket_name,
+                Key: key,
+                VersionId: version_id,
+                ObjectAttributes: ['ObjectSize'],
+            });
+            assert.ok(res.$metadata.httpStatusCode === 200);
+            assert.ok(res.ObjectSize === body1.length);
+            assert.ok(res.VersionId === version_id);
+            assert.ok(res.LastModified !== undefined);
+            // was not send in ObjectAttributes
+            assert.ok(res.ETag === undefined);
+            assert.ok(res.StorageClass === undefined);
+        });
+
+        mocha.it("get object attributes - attributes (all 3 supported attributes)", async function() {
+            const res = await s3_uid6.getObjectAttributes({
+                Bucket: bucket_name,
+                Key: key,
+                VersionId: version_id,
+                ObjectAttributes: ['ETag', 'ObjectSize', 'StorageClass'],
+            });
+            assert.ok(res.$metadata.httpStatusCode === 200);
+            assert.ok(res.ETag !== undefined);
+            assert.ok(res.ObjectSize === body1.length);
+            assert.ok(res.StorageClass === 'STANDARD');
+            assert.ok(res.VersionId === version_id);
+            assert.ok(res.LastModified !== undefined);
+        });
+
+        mocha.it("get object attributes - should fail - with invalid attribute", async function() {
+            try {
+                await s3_uid6.getObjectAttributes({
+                    Bucket: bucket_name,
+                    Key: key,
+                    VersionId: version_id,
+                    ObjectAttributes: ['non-existing-attribute'],
+                });
+            } catch (err) {
+                assert.strictEqual(err.$metadata.httpStatusCode, 400);
+                assert.strictEqual(err.Code, 'InvalidArgument');
+            }
+        });
+
+        mocha.it("get object attributes - check version-id header", async function() {
+            s3_uid6.middlewareStack.add(
+                next => async args => {
+                  const result = await next(args);
+                  result.output.$metadata.headers = result.response.headers;
+                  return result;
+                }
+              );
+
+            const res = await s3_uid6.getObjectAttributes({
+                Bucket: bucket_name,
+                Key: key,
+                VersionId: version_id,
+                ObjectAttributes: ['ETag', 'ObjectSize', 'StorageClass'],
+            });
+            assert.ok(res.$metadata.httpStatusCode === 200);
+            assert.equal(res.$metadata.headers['x-amz-version-id'], version_id);
+        });
+    });
+
+
     // dm = delete marker
     mocha.describe('delete object latest - versioning suspended', function() {
         const key_to_delete = 'mango.txt';
@@ -2913,6 +3022,20 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                 assert.ok(err.$response.headers['x-amz-delete-marker'] === 'true', 'Should have x-amz-delete-marker header with value true');
                 // In AWS CLI it looks:
                 // An error occurred (MethodNotAllowed) when calling the GetObject operation: The specified method is not allowed against this resource.
+            }
+        });
+
+        mocha.it('get object attributes, with version enabled, version id specified delete marker - should throw error with code 405', async function() {
+            try {
+                await s3_client.getObjectAttributes({Bucket: bucket_name, Key: en_version_key, VersionId: versionID_1, ObjectAttributes: ['ETag']});
+                assert.fail('Should fail');
+            } catch (err) {
+                assert.strictEqual(err.$metadata.httpStatusCode, 405);
+                assert.strictEqual(err.Code, 'MethodNotAllowed');
+                assert.ok(err.$response.headers['last-modified'] !== undefined, 'Should have last-modified header');
+                assert.ok(err.$response.headers['x-amz-delete-marker'] === 'true', 'Should have x-amz-delete-marker header with value true');
+                // In AWS CLI it looks:
+                // An error occurred (MethodNotAllowed) when calling the GetObjectAttributes operation: The specified method is not allowed against this resource.
             }
         });
     });

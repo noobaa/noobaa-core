@@ -1127,6 +1127,24 @@ class ObjectSDK {
         this._check_is_readonly_namespace(ns);
         return ns.put_object_acl(params, this);
     }
+
+    //////////////////////////
+    //  OBJECT ATTRIBUTES   //
+    //////////////////////////
+
+    async get_object_attributes(params) {
+        const ns = await this._get_bucket_namespace(params.bucket);
+        if (ns.get_object_attributes) {
+            return ns.get_object_attributes(params, this);
+          } else {
+            // fallback to calling get_object_md without attributes params
+            dbg.warn('namespace does not implement get_object_attributes action, fallback to read_object_md');
+            const md_params = { ...params };
+            delete md_params.attributes; // not part of the schema of read_object_md
+            return ns.read_object_md(md_params, this);
+          }
+    }
+
 }
 
 // EXPORT

@@ -1288,6 +1288,7 @@ class NamespaceFS {
             copy_res = undefined, offset }) {
         const part_upload = file_path === upload_path;
         const same_inode = params.copy_source && copy_res === copy_status_enum.SAME_INODE;
+        const should_replace_xattr = params.copy_source ? copy_res === copy_status_enum.FALLBACK : true;
         const is_dir_content = this._is_directory_content(file_path, params.key);
 
         const stat = await target_file.stat(fs_context);
@@ -1324,7 +1325,7 @@ class NamespaceFS {
                 await this.append_to_migrate_wal(file_path);
             }
         }
-        if (fs_xattr && !is_dir_content) await target_file.replacexattr(fs_context, fs_xattr);
+        if (fs_xattr && !is_dir_content && should_replace_xattr) await target_file.replacexattr(fs_context, fs_xattr);
         // fsync
         if (config.NSFS_TRIGGER_FSYNC) await target_file.fsync(fs_context);
         dbg.log1('NamespaceFS._finish_upload:', open_mode, file_path, upload_path, fs_xattr);
@@ -1334,6 +1335,7 @@ class NamespaceFS {
         }
 
         // when object is a dir, xattr are set on the folder itself and the content is in .folder file
+        // we still should put the xattr if copy is link/same inode because we put the xattr on the directory
         if (is_dir_content) {
             await this._assign_dir_content_to_xattr(fs_context, fs_xattr, { ...params, size: stat.size }, copy_xattr);
         }
@@ -1428,9 +1430,11 @@ class NamespaceFS {
 
                 if (this._is_versioning_suspended()) {
                     if (latest_ver_info?.version_id_str === NULL_VERSION_ID) {
-                        dbg.log1('NamespaceFS._move_to_dest_version suspended: version ID of the latest version is null - the file will be unlinked');
-                        await native_fs_utils.safe_unlink(fs_context, latest_ver_path, latest_ver_info,
-                            gpfs_options?.delete_version, bucket_tmp_dir_path);
+                        //on GPFS safe_move overrides the latest object so no need to unlink
+                        if (!is_gpfs) {
+                            dbg.log1('NamespaceFS._move_to_dest_version suspended: version ID of the latest version is null - the file will be unlinked');
+                            await native_fs_utils.safe_unlink(fs_context, latest_ver_path, latest_ver_info, undefined, bucket_tmp_dir_path);
+                        }
                     } else {
                         // remove a version (or delete marker) with null version ID from .versions/ (if exists)
                         await this._delete_null_version_from_versions_directory(key, fs_context);
@@ -2766,9 +2770,16 @@ class NamespaceFS {
                 }
                 return version_info;
             } catch (err) {
-                retries -= 1;
-                if (retries <= 0 || !native_fs_utils.should_retry_link_unlink(is_gpfs, err)) throw err;
                 dbg.warn(`NamespaceFS._delete_single_object_versioned: retrying retries=${retries} file_path=${file_path}`, err);
+                retries -= 1;
+                // there are a few concurrency scenarios that might happen we should retry for -
+                // 1. the version id is the latest, concurrent put will might move the version id from being the latest to .versions/ -
+                // will throw safe unlink failed on non matching fd (on GPFS) or inode/mtime (on POSIX).
+                // 2. the version id is the second latest and stays under .versions/ - on concurrent delete of the latest, 
+                // the version id might move to be the latest and we will get ENOENT
+                // 3. concurrent delete of this version - will get ENOENT, doing a retry will return successfully 
+                // after we will see that the version was already deleted
+                if (retries <= 0 || !native_fs_utils.should_retry_link_unlink(is_gpfs, err)) throw err;
             } finally {
                 if (gpfs_options) await this._close_files_gpfs(fs_context, gpfs_options.delete_version, undefined, true);
             }
@@ -2972,9 +2983,9 @@ class NamespaceFS {
                         undefined;
                     const bucket_tmp_dir_path = this.get_bucket_tmpdir_full_path();
                     await native_fs_utils.safe_unlink(fs_context, null_versioned_path, null_versioned_path_info,
-                        gpfs_options, bucket_tmp_dir_path);
+                        gpfs_options?.delete_version, bucket_tmp_dir_path);
 
-                    if (gpfs_options) await this._close_files_gpfs(fs_context, gpfs_options.delete_version, undefined, true);
+                    if (gpfs_options) await this._close_files_gpfs(fs_context, gpfs_options?.delete_version, undefined, true);
                 }
                 break;
             } catch (err) {

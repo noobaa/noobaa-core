@@ -890,6 +890,8 @@ config.NC_MASTER_KEYS_MANAGER_REFRESH_THRESHOLD = -1; // currently we want to di
 config.MASTER_KEYS_EXEC_MAX_RETRIES = 3;
 
 config.NC_DISABLE_ACCESS_CHECK = false;
+config.NC_DISABLE_HEALTH_ACCESS_CHECK = false;
+config.NC_DISABLE_POSIX_MODE_ACCESS_CHECK = true;
 config.NC_DISABLE_SCHEMA_CHECK = false;
 
 ////////// GPFS //////////

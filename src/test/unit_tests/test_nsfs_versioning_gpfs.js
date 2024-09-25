@@ -218,6 +218,16 @@ mocha.describe('namespace_fs gpfs- versioning', async function() {
         assert.ok(delete_objects_res.created_version_id !== undefined);
     });
 
+    mocha.it('Suspended mode - add object null version twice', async function() {
+        await ns_obj.set_bucket_versioning('SUSPENDED', dummy_object_sdk);
+        const key3 = 'key3';
+        const put_res = await put_object(dummy_object_sdk, ns_obj, gpfs_bucket, key3);
+        assert.equal(put_res.version_id, 'null');
+        //issue #8379, overwriting null value should not fail on GPFS
+        const put_res2 = await put_object(dummy_object_sdk, ns_obj, gpfs_bucket, key3);
+        assert.equal(put_res2.version_id, 'null');
+    });
+
 });
 
 async function put_object(dummy_object_sdk, ns, bucket, key) {

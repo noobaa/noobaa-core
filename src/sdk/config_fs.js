@@ -113,12 +113,46 @@ class ConfigFS {
     }
 
     /**
+     * get_config_json_path returns config.json file path
+     * @returns {String} 
+     */
+    get_config_json_path() {
+        return this.config_json_path;
+    }
+
+    /**
+     * get_config_json returns config.json file data
+     * @returns {Promise<Object>} 
+     */
+    async get_config_json() {
+        const config_json_data = await this.get_config_data(this.config_json_path);
+        return config_json_data;
+    }
+
+    /**
+     * create_config_json_file creates the config.json file with the configuration data
+     * @param {object} data
+     * @returns {Promise<void>} 
+     */
+    async create_config_json_file(data) {
+        await native_fs_utils.create_config_file(this.fs_context, this.config_root, this.config_json_path, data);
+    }
+
+    /**
      * update_config_json_file updates the config.json file with the new configuration data
      * @param {object} data
      * @returns {Promise<void>} 
      */
     async update_config_json_file(data) {
         await native_fs_utils.update_config_file(this.fs_context, this.config_root, this.config_json_path, data);
+    }
+
+    /**
+     * delete_config_json_file deletes the config.json file
+     * @returns {Promise<void>} 
+     */
+    async delete_config_json_file() {
+        await native_fs_utils.delete_config_file(this.fs_context, this.config_root, this.config_json_path);
     }
 
     /**

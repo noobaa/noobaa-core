@@ -356,20 +356,54 @@ Warning: After setting this configuration, NooBaa will skip schema validations a
     ```
 
 
-### 25. Disable Read/Write accessibility check -
+### 25. Disable Read accessibility check -
 * <u>Key</u>: `NC_DISABLE_ACCESS_CHECK`  
 * <u>Type</u>: Boolean  
 * <u>Default</u>: false  
-* <u>Description</u>: This flag will disable Read/Write accessibility validations in the following flows -  
-    1. Bucket creation/update - NooBaa will not validate that the bucket owner has read/write permissions to the bucket's path.  
-    2. Account creation/update - NooBaa will not validate that the account owner has read/write permissions to the account's new_buckets_path.  
-    Warning - setting this configuration to true might result with unexpected behavior.  
+* <u>Description</u>: Setting this flag to true will disable Read accessibility validations in the following flows -  
+    1. Bucket creation/update - NooBaa will not validate that the bucket owner has read permissions to the bucket's path.  
+    2. Account creation/update - NooBaa will not validate that the account owner has read permissions to the account's new_buckets_path.  
+    3. Health buckets and accounts accessibility check.
+    Warning - setting this configuration to true might result with unexpected behavior. 
+
 * <u>Steps</u>:  
     ```
     1. Open /path/to/config_dir/config.json file.
     2. Set the config key -
     Example:
     "NC_DISABLE_ACCESS_CHECK": true
+    ```
+
+### 26. Disable Read accessibility check on the Health CLI -
+* <u>Key</u>: `NC_DISABLE_HEALTH_ACCESS_CHECK`  
+* <u>Type</u>: Boolean  
+* <u>Default</u>: false  
+* <u>Description</u>: This flag will disable Read accessibility validations in Health check of buckets and accounts.
+
+* <u>Steps</u>:  
+    ```
+    1. Open /path/to/config_dir/config.json file.
+    2. Set the config key -
+    Example:
+    "NC_DISABLE_HEALTH_ACCESS_CHECK": true
+    ```
+
+### 27. Disable Read/Write POSIX mode bits check -
+* <u>Key</u>: `NC_DISABLE_POSIX_MODE_ACCESS_CHECK`  
+* <u>Type</u>: Boolean  
+* <u>Default</u>: true  
+* <u>Description</u>: Setting this flag to false will enable Read/Write mode bits accessibility validations by in the following flows -  
+    1. Bucket creation/update - NooBaa will validate that the bucket owner has read/write permissions to the bucket's path.  
+    2. Account creation/update - NooBaa will validate that the account owner has read/write permissions to the account's new_buckets_path.  
+    3. Health buckets and accounts accessibility check.
+    Warning - This configuration is disabled by default because it's not supporting ACLs, setting this configuration to false won't support a check of the ACLs and be based only on mode bits check.
+
+* <u>Steps</u>:  
+    ```
+    1. Open /path/to/config_dir/config.json file.
+    2. Set the config key -
+    Example:
+    "NC_DISABLE_POSIX_MODE_ACCESS_CHECK": false
     ```
 
 

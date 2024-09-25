@@ -38,6 +38,8 @@ const base64_regex = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{
 
 const X_NOOBAA_AVAILABLE_STORAGE_CLASSES = 'x-noobaa-available-storage-classes';
 
+const OBJECT_ATTRIBUTES = Object.freeze(['ETag', 'Checksum', 'ObjectParts', 'StorageClass', 'ObjectSize']);
+
  /**
  * get_default_object_owner returns bucket_owner info if exists
  * else it'll return the default owner
@@ -763,3 +765,5 @@ exports.parse_version_id = parse_version_id;
 exports.get_object_owner = get_object_owner;
 exports.get_default_object_owner = get_default_object_owner;
 exports.set_response_supported_storage_classes = set_response_supported_storage_classes;
+exports.parse_sse_c = parse_sse_c;
+exports.OBJECT_ATTRIBUTES = OBJECT_ATTRIBUTES;

@@ -683,6 +683,44 @@ mocha.describe('namespace_fs', function() {
             });
         });
     });
+
+    mocha.describe('get_object_attributes', function() {
+        const key = 'my-key';
+        const size = 100;
+        const data = crypto.randomBytes(size);
+
+        mocha.before(async function() {
+            const upload_res = await ns_tmp.upload_object({
+                bucket: upload_bkt,
+                key: key,
+                source_stream: buffer_utils.buffer_to_read_stream(data)
+            }, dummy_object_sdk);
+
+            console.log('upload_object response', inspect(upload_res));
+        });
+
+        mocha.after(async function() {
+            const delete_res = await ns_tmp.delete_object({
+                bucket: upload_bkt,
+                key: key,
+            }, dummy_object_sdk);
+
+            console.log('delete_object response', inspect(delete_res));
+        });
+
+        mocha.it('get_object_attributes basic returned value check', async function() {
+            const res = await ns_tmp.get_object_attributes({
+                    bucket: upload_bkt,
+                    key: key,
+                }, dummy_object_sdk);
+
+                assert.ok(res.etag !== undefined);
+                assert.ok(res.size === size);
+                assert.ok(res.storage_class === s3_utils.STORAGE_CLASS_STANDARD);
+                assert.ok(res.version_id === undefined);
+        });
+
+    });
 });
 
 const add_user_prefix = user_xattr => _.mapKeys(user_xattr, (val, key) => 'user.' + key);

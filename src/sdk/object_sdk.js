@@ -1110,6 +1110,16 @@ class ObjectSDK {
         this._check_is_readonly_namespace(ns);
         return ns.put_object_acl(params, this);
     }
+
+    //////////////////////////
+    //  OBJECT ATTRIBUTES   //
+    //////////////////////////
+
+    async get_object_attributes(params) {
+        const ns = await this._get_bucket_namespace(params.bucket);
+        return ns.get_object_attributes(params, this);
+    }
+
 }
 
 // EXPORT

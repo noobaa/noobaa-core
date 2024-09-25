@@ -32,6 +32,7 @@ async function assert_throws_async(promise, expected_message = 'Access Denied') 
 }
 const BKT = 'test2-bucket-policy-ops';
 const BKT_B = 'test2-bucket-policy-ops-1';
+const BKT_C = 'test2-bucket-policy-ops-2';
 const KEY = 'file1.txt';
 const user_a = 'alice';
 const user_b = 'bob';
@@ -132,6 +133,7 @@ async function setup() {
     };
     s3_owner = new S3(s3_creds);
     await s3_owner.createBucket({ Bucket: BKT });
+    await s3_owner.createBucket({ Bucket: BKT_C });
     s3_anon = new S3({
         ...s3_creds,
         credentials: {
@@ -145,7 +147,7 @@ async function setup() {
     });
 }
 
-/*eslint max-lines-per-function: ["error", 1300]*/
+/*eslint max-lines-per-function: ["error", 1600]*/
 mocha.describe('s3_bucket_policy', function() {
     mocha.before(setup);
     mocha.it('should fail setting bucket policy when user doesn\'t exist', async function() {
@@ -582,6 +584,247 @@ mocha.describe('s3_bucket_policy', function() {
             Bucket: BKT,
             Key: new_key,
             VersionId: process.env.NC_CORETEST ? first_version_etag : 'nbver-' + (seq - 1)
+        });
+    });
+
+    mocha.describe('bucket policy on get object attributes', async function() {
+        const new_key = 'file105.txt';
+        const body = 'Some data for the file... bla bla bla...';
+
+        mocha.describe('bucket policy on get object attributes - versioning disabled', async function() {
+            mocha.before('put object', async function() {
+                await s3_owner.putObject({
+                    Body: body,
+                    Bucket: BKT_C,
+                    Key: new_key
+                });
+            });
+
+            mocha.after('delete object', async function() {
+                await s3_owner.deleteObject({
+                    Body: body,
+                    Bucket: BKT_C,
+                    Key: new_key
+                });
+            });
+
+            mocha.it('should be able to get object attributes when bucket policy permits - 1 statement (versioning disabled)', async function() {
+                const self = this; // eslint-disable-line no-invalid-this
+                self.timeout(15000);
+
+                const policy = {
+                    Version: '2012-10-17',
+                    Statement: [{
+                        Sid: 'id-1',
+                        Effect: 'Allow',
+                        Principal: { AWS: user_a },
+                        Action: ['s3:GetObject', 's3:GetObjectAttributes'],
+                        Resource: [`arn:aws:s3:::${BKT_C}/*`]
+                    }]
+                };
+                await s3_owner.putBucketPolicy({
+                    Bucket: BKT_C,
+                    Policy: JSON.stringify(policy)
+                });
+                await s3_a.getObjectAttributes({
+                    Bucket: BKT_C,
+                    Key: new_key,
+                    ObjectAttributes: ['ObjectSize'],
+                });
+                await assert_throws_async(s3_b.getObjectAttributes({
+                    Bucket: BKT_C,
+                    Key: new_key,
+                    ObjectAttributes: ['ObjectSize'],
+                }));
+            });
+
+            mocha.it('should be able to get object attributes when bucket policy permits - 2 statements (versioning disabled)', async function() {
+                const self = this; // eslint-disable-line no-invalid-this
+                self.timeout(15000);
+
+                const policy = {
+                    Version: '2012-10-17',
+                    Statement: [{
+                        Sid: 'id-1',
+                        Effect: 'Allow',
+                        Principal: { AWS: user_a },
+                        Action: ['s3:GetObject'],
+                        Resource: [`arn:aws:s3:::${BKT_C}/*`]
+                    },
+                    {
+                        Sid: 'id-1',
+                        Effect: 'Allow',
+                        Principal: { AWS: user_a },
+                        Action: ['s3:GetObjectAttributes'],
+                        Resource: [`arn:aws:s3:::${BKT_C}/*`]
+                    }]
+                };
+                await s3_owner.putBucketPolicy({
+                    Bucket: BKT_C,
+                    Policy: JSON.stringify(policy)
+                });
+                await s3_a.getObjectAttributes({
+                    Bucket: BKT_C,
+                    Key: new_key,
+                    ObjectAttributes: ['ObjectSize'],
+                });
+                await assert_throws_async(s3_b.getObjectAttributes({
+                    Bucket: BKT_C,
+                    Key: new_key,
+                    ObjectAttributes: ['ObjectSize'],
+                }));
+            });
+
+            mocha.it('should not be able to get object attributes when bucket policy permits - partial permissions (versioning disabled)', async function() {
+                const self = this; // eslint-disable-line no-invalid-this
+                self.timeout(15000);
+
+                const policy = {
+                    Version: '2012-10-17',
+                    Statement: [{
+                        Sid: 'id-1',
+                        Effect: 'Allow',
+                        Principal: { AWS: user_a },
+                        Action: ['s3:GetObject'], // missing 's3:GetObjectAttributes'
+                        Resource: [`arn:aws:s3:::${BKT_C}/*`]
+                    }]
+                };
+                await s3_owner.putBucketPolicy({
+                    Bucket: BKT_C,
+                    Policy: JSON.stringify(policy)
+                });
+                await assert_throws_async(s3_a.getObjectAttributes({
+                    Bucket: BKT_C,
+                    Key: new_key,
+                    ObjectAttributes: ['ObjectSize'],
+                }));
+            });
+        });
+
+        mocha.describe('bucket policy on get object attributes - versioning enabled', async function() {
+            let version_id;
+
+            mocha.before('put object', async function() {
+                await s3_owner.putBucketVersioning({
+                    Bucket: BKT_C,
+                    VersioningConfiguration: {
+                        MFADelete: 'Disabled',
+                        Status: 'Enabled'
+                    }
+                });
+
+                const res_put = await s3_owner.putObject({
+                    Body: body,
+                    Bucket: BKT_C,
+                    Key: new_key
+                });
+                version_id = res_put.VersionId;
+            });
+
+            mocha.after('delete object', async function() {
+                await s3_owner.deleteObject({
+                    Body: body,
+                    Bucket: BKT_C,
+                    Key: new_key,
+                    VersionId: version_id
+                });
+            });
+
+            mocha.it('should be able to get object attributes when bucket policy permits - 1 statement (versioning enabled)', async function() {
+                const self = this; // eslint-disable-line no-invalid-this
+                self.timeout(15000);
+
+                const policy = {
+                    Version: '2012-10-17',
+                    Statement: [{
+                        Sid: 'id-1',
+                        Effect: 'Allow',
+                        Principal: { AWS: user_a },
+                        Action: ['s3:GetObjectVersion', 's3:GetObjectVersionAttributes'],
+                        Resource: [`arn:aws:s3:::${BKT_C}/*`]
+                    }]
+                };
+                await s3_owner.putBucketPolicy({
+                    Bucket: BKT_C,
+                    Policy: JSON.stringify(policy)
+                });
+                await s3_a.getObjectAttributes({
+                    Bucket: BKT_C,
+                    Key: new_key,
+                    VersionId: version_id,
+                    ObjectAttributes: ['ETag'],
+                });
+                await assert_throws_async(s3_b.getObjectAttributes({
+                    Bucket: BKT_C,
+                    Key: new_key,
+                    VersionId: version_id,
+                    ObjectAttributes: ['VersionId'],
+                }));
+            });
+
+            mocha.it('should be able to get object attributes when bucket policy permits - 2 statements (versioning enabled)', async function() {
+                const self = this; // eslint-disable-line no-invalid-this
+                self.timeout(15000);
+
+                const policy = {
+                    Version: '2012-10-17',
+                    Statement: [{
+                        Sid: 'id-1',
+                        Effect: 'Allow',
+                        Principal: { AWS: user_a },
+                        Action: ['s3:GetObjectVersion'],
+                        Resource: [`arn:aws:s3:::${BKT_C}/*`]
+                    },
+                    {
+                        Sid: 'id-1',
+                        Effect: 'Allow',
+                        Principal: { AWS: user_a },
+                        Action: ['s3:GetObjectVersionAttributes'],
+                        Resource: [`arn:aws:s3:::${BKT_C}/*`]
+                    }]
+                };
+                await s3_owner.putBucketPolicy({
+                    Bucket: BKT_C,
+                    Policy: JSON.stringify(policy)
+                });
+                await s3_a.getObjectAttributes({
+                    Bucket: BKT_C,
+                    Key: new_key,
+                    VersionId: version_id,
+                    ObjectAttributes: ['ObjectSize'],
+                });
+                await assert_throws_async(s3_b.getObjectAttributes({
+                    Bucket: BKT_C,
+                    Key: new_key,
+                    VersionId: version_id,
+                    ObjectAttributes: ['ObjectSize'],
+                }));
+            });
+
+            mocha.it('should not be able to get object attributes when bucket policy permits - partial permissions (versioning enabled)', async function() {
+                const self = this; // eslint-disable-line no-invalid-this
+                self.timeout(15000);
+
+                const policy = {
+                    Version: '2012-10-17',
+                    Statement: [{
+                        Sid: 'id-1',
+                        Effect: 'Allow',
+                        Principal: { AWS: user_a },
+                        Action: ['s3:GetObjectVersion'], // missing 's3:GetObjectVersionAttributes'
+                        Resource: [`arn:aws:s3:::${BKT_C}/*`]
+                    }]
+                };
+                await s3_owner.putBucketPolicy({
+                    Bucket: BKT_C,
+                    Policy: JSON.stringify(policy)
+                });
+                await assert_throws_async(s3_a.getObjectAttributes({
+                    Bucket: BKT_C,
+                    Key: new_key,
+                    ObjectAttributes: ['ObjectSize'],
+                }));
+            });
         });
     });
 

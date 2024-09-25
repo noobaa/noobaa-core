@@ -1,6 +1,6 @@
 /* Copyright (C) 2020 NooBaa */
 /* eslint-disable max-lines-per-function */
-/*eslint max-lines: ["error",3200]*/
+/*eslint max-lines: ["error",3300]*/
 'use strict';
 
 const fs = require('fs');
@@ -804,38 +804,72 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
         const tagging_key = "key_tagging";
         const tag_set1 = {TagSet: [{Key: "key1", Value: "Value1"}]};
         const tag_set2 = {TagSet: [{Key: "key2", Value: "Value2"}]};
+        const tag_set3 = { TagSet: [{ "Key": "designation", "Value": "confidential" },
+            { "Key": "department", "Value": "finance" },
+            { "Key": "team", "Value": "payroll" }]
+            };
         let version_id;
 
         mocha.before(async function() {
-            await s3_uid6.putBucketVersioning({ Bucket: suspended_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
-            const res_put = await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: tagging_key, Body: body1 });
-            await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: tagging_key, Body: body1 });
+            await s3_uid6.putBucketVersioning({ Bucket: bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
+            const res_put = await s3_uid6.putObject({ Bucket: bucket_name, Key: tagging_key, Body: body1 });
+            await s3_uid6.putObject({ Bucket: bucket_name, Key: tagging_key, Body: body1 });
             version_id = res_put.VersionId;
         });
 
         mocha.it("put object tagging - no versionId", async function() {
-            await s3_uid6.putObjectTagging({ Bucket: suspended_bucket_name, Key: tagging_key, Tagging: tag_set1});
-            const res = await s3_uid6.getObjectTagging({Bucket: suspended_bucket_name, Key: tagging_key});
+            await s3_uid6.putObjectTagging({ Bucket: bucket_name, Key: tagging_key, Tagging: tag_set1});
+            const res = await s3_uid6.getObjectTagging({Bucket: bucket_name, Key: tagging_key});
             assert.deepEqual(res.TagSet, tag_set1.TagSet);
         });
 
         mocha.it("put object tagging - specific versionId", async function() {
-            await s3_uid6.putObjectTagging({ Bucket: suspended_bucket_name, Key: tagging_key, Tagging: tag_set2, versionId: version_id});
-            const res = await s3_uid6.getObjectTagging({Bucket: suspended_bucket_name, Key: tagging_key});
+            await s3_uid6.putObjectTagging({ Bucket: bucket_name, Key: tagging_key, Tagging: tag_set2, versionId: version_id});
+            const res = await s3_uid6.getObjectTagging({Bucket: bucket_name, Key: tagging_key});
             assert.notDeepEqual(res.TagSet, tag_set2);
-            const version_res = await s3_uid6.getObjectTagging({Bucket: suspended_bucket_name, Key: tagging_key});
+            const version_res = await s3_uid6.getObjectTagging({Bucket: bucket_name, Key: tagging_key});
             assert.deepEqual(version_res.TagSet, tag_set2.TagSet);
         });
 
+        mocha.it("head object with tagging - test header x-amz-tagging-count (1 tag)", async function() {
+            await s3_uid6.putBucketVersioning({ Bucket: bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
+            await s3_uid6.putObjectTagging({ Bucket: bucket_name, Key: tagging_key, Tagging: tag_set2, versionId: version_id});
+            s3_uid6.middlewareStack.add(
+                next => async args => {
+                  const result = await next(args);
+                  result.output.$metadata.headers = result.response.headers;
+                  return result;
+                }
+              );
+
+              const res = await s3_uid6.headObject({ Bucket: bucket_name, Key: tagging_key, versionId: version_id});
+              assert.equal(res.$metadata.headers['x-amz-tagging-count'], tag_set2.TagSet.length);
+        });
+
+        mocha.it("head object with tagging - test header x-amz-tagging-count (3 tags)", async function() {
+            await s3_uid6.putBucketVersioning({ Bucket: bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
+            await s3_uid6.putObjectTagging({ Bucket: bucket_name, Key: tagging_key, Tagging: tag_set3, versionId: version_id});
+            s3_uid6.middlewareStack.add(
+                next => async args => {
+                  const result = await next(args);
+                  result.output.$metadata.headers = result.response.headers;
+                  return result;
+                }
+              );
+
+              const res = await s3_uid6.headObject({ Bucket: bucket_name, Key: tagging_key, versionId: version_id});
+              assert.equal(res.$metadata.headers['x-amz-tagging-count'], tag_set3.TagSet.length);
+        });
+
         mocha.it("delete object tagging - no versionId", async function() {
-            await s3_uid6.deleteObjectTagging({ Bucket: suspended_bucket_name, Key: tagging_key});
-            const res = await s3_uid6.getObjectTagging({Bucket: suspended_bucket_name, Key: tagging_key});
+            await s3_uid6.deleteObjectTagging({ Bucket: bucket_name, Key: tagging_key});
+            const res = await s3_uid6.getObjectTagging({Bucket: bucket_name, Key: tagging_key});
             assert.equal(res.TagSet.length, 0);
         });
 
         mocha.it("delete object tagging - specific versionId", async function() {
-            await s3_uid6.deleteObjectTagging({ Bucket: suspended_bucket_name, Key: tagging_key, versionId: version_id});
-            const res = await s3_uid6.getObjectTagging({Bucket: suspended_bucket_name, Key: tagging_key, versionId: version_id});
+            await s3_uid6.deleteObjectTagging({ Bucket: bucket_name, Key: tagging_key, versionId: version_id});
+            const res = await s3_uid6.getObjectTagging({Bucket: bucket_name, Key: tagging_key, versionId: version_id});
             assert.equal(res.TagSet.length, 0);
         });
     });
@@ -2665,6 +2699,8 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                 assert.fail('Should fail');
             } catch (err) {
                 assert.strictEqual(err.$metadata.httpStatusCode, 405);
+                assert.ok(err.$response.headers['last-modified'] !== undefined, 'Should have last-modified header');
+                assert.ok(err.$response.headers['x-amz-delete-marker'] === 'true', 'Should have x-amz-delete-marker header with value true');
                 // In headObject the AWS SDK doesn't return the err.Code
                 // In AWS CLI it looks:
                 // An error occurred (405) when calling the HeadObject operation: Method Not Allowed
@@ -2681,6 +2717,8 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             } catch (err) {
                 assert.strictEqual(err.$metadata.httpStatusCode, 405);
                 assert.strictEqual(err.Code, 'MethodNotAllowed');
+                assert.ok(err.$response.headers['last-modified'] !== undefined, 'Should have last-modified header');
+                assert.ok(err.$response.headers['x-amz-delete-marker'] === 'true', 'Should have x-amz-delete-marker header with value true');
                 // In AWS CLI it looks:
                 // An error occurred (MethodNotAllowed) when calling the GetObject operation: The specified method is not allowed against this resource.
             }

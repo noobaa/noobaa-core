@@ -720,6 +720,9 @@ module.exports = {
                     limit: {
                         type: 'integer'
                     },
+                    list_type: {
+                        type: 'string',
+                    },
                 }
             },
             reply: {
@@ -773,6 +776,9 @@ module.exports = {
                     },
                     limit: {
                         type: 'integer'
+                    },
+                    list_type: {
+                        type: 'string',
                     },
                 }
             },

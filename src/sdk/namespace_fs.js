@@ -811,10 +811,6 @@ class NamespaceFS {
                     }
                     for (let i = marker_index; i < sorted_entries.length; ++i) {
                         const ent = sorted_entries[i];
-                        if (list_versions && marker_curr) {
-                            const ent_name = _get_filename(ent.name);
-                            if (ent_name !== marker_curr) break;
-                        }
                         // when entry is NSFS_FOLDER_OBJECT_NAME=.folder file,
                         // and the dir key marker is the name of the curr directory - skip on adding it
                         if (ent.name === config.NSFS_FOLDER_OBJECT_NAME && dir_key === marker_dir) {

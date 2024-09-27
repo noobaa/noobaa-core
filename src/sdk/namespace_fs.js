@@ -257,6 +257,11 @@ function get_entry_name(e) {
     return e.name;
 }
 
+function get_entry_for_sorting(e) {
+    const check = e.key.includes('.') ? e.key.slice(e.key.indexOf(".")).includes('/') : false;
+    return check ? e.key.slice('/')[0] : e.key;
+}
+
 /**
  * @param {string} name
  * @returns {fs.Dirent}
@@ -668,14 +673,20 @@ class NamespaceFS {
                 }
                 const marker_dir = key_marker.slice(0, dir_key.length);
                 const marker_ent = key_marker.slice(dir_key.length);
+                // dir_key and marker_dir comparison will fail when there are folder with structure slimier to 
+                // "dir_prfix.12345/" and "dir_prfix.12345.old/" because "/" considered greater than "."  to fix this 
+                // all the backslash is replaced with space. This updated marker and dir_key used only for comparison.
+                const updated_marker_dir = marker_dir.replaceAll('/', ' ');
+                const updated_dir_key = dir_key.replaceAll('/', ' ');
                 // marker is after dir so no keys in this dir can apply
-                if (dir_key < marker_dir) {
+                if (updated_dir_key < updated_marker_dir) {
                     // dbg.log0(`marker is after dir so no keys in this dir can apply: dir_key=${dir_key} marker_dir=${marker_dir}`);
                     return;
                 }
                 // when the dir portion of the marker is completely below the current dir
                 // then every key in this dir satisfies the marker and marker_ent should not be used.
-                const marker_curr = (marker_dir < dir_key) ? '' : marker_ent;
+                const marker_curr = (updated_marker_dir < updated_dir_key) ? '' : marker_ent;
+                const marker_sorting_entry = get_entry_for_sorting({key: marker_curr});
                 // dbg.log0(`process_dir: dir_key=${dir_key} prefix_ent=${prefix_ent} marker_curr=${marker_curr}`);
                 /**
                  * @typedef {{
@@ -690,7 +701,7 @@ class NamespaceFS {
                     // they are in order
                     if (results.length && r.key < results[results.length - 1].key &&
                         !this._is_hidden_version_path(r.key)) {
-                        pos = _.sortedLastIndexBy(results, r, a => a.key);
+                        pos = _.sortedLastIndexBy(results, r, get_entry_for_sorting);
                     } else {
                         pos = results.length;
                     }
@@ -720,7 +731,7 @@ class NamespaceFS {
                 const process_entry = async ent => {
                     // dbg.log0('process_entry', dir_key, ent.name);
                     if ((!ent.name.startsWith(prefix_ent) ||
-                        ent.name < marker_curr ||
+                        ent.name < marker_sorting_entry ||
                         ent.name === this.get_bucket_tmpdir_name() ||
                         ent.name === config.NSFS_FOLDER_OBJECT_NAME) ||
                         this._is_hidden_version_path(ent.name)) {
@@ -763,7 +774,7 @@ class NamespaceFS {
                 // insert dir object to objects list if its key is lexicographicly bigger than the key marker &&
                 // no delimiter OR prefix is the current directory entry
                 const is_dir_content = cached_dir.stat.xattr && cached_dir.stat.xattr[XATTR_DIR_CONTENT];
-                if (is_dir_content && dir_key > key_marker && (!delimiter || dir_key === prefix)) {
+                if (is_dir_content && updated_dir_key > updated_marker_dir && (!delimiter || dir_key === prefix)) {
                     const r = { key: dir_key, common_prefix: false };
                     await insert_entry_to_results_arr(r);
                 }
@@ -788,7 +799,7 @@ class NamespaceFS {
                     } else {
                         marker_index = _.sortedLastIndexBy(
                             sorted_entries,
-                            make_named_dirent(marker_curr),
+                            make_named_dirent(marker_sorting_entry),
                             get_entry_name
                         );
                     }
@@ -3246,4 +3257,3 @@ NamespaceFS._restore_wal = null;
 
 module.exports = NamespaceFS;
 module.exports.multi_buffer_pool = multi_buffer_pool;
-

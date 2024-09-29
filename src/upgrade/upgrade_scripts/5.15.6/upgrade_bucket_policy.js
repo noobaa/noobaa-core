@@ -8,7 +8,11 @@ const _ = require('lodash');
 
 function _create_actions_map() {
     const actions_map = new Map();
-    for (const action of Object.values(OP_NAME_TO_ACTION)) {
+    // since we didn't have this API in version 5.14.0 and now the map includes array
+    // we delete this property not to harm this test
+    const op_name_to_action_without_get_object_attributes = { ...OP_NAME_TO_ACTION };
+    delete op_name_to_action_without_get_object_attributes.get_object_attributes;
+    for (const action of Object.values(op_name_to_action_without_get_object_attributes)) {
         actions_map.set(action.regular.toLowerCase(), action.regular);
         if (action.versioned) {
             actions_map.set(action.versioned.toLowerCase(), action.versioned);

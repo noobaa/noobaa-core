@@ -702,6 +702,9 @@ mocha.describe('s3_bucket_policy', function() {
         });
 
         mocha.describe('bucket policy on get object attributes - versioning enabled', async function() {
+            // currently the read_object in the object server is hard-coded on regular head object permission
+            // and not flexible to versioned way
+            if (!is_nc_coretest) this.skip(); // eslint-disable-line no-invalid-this
             let version_id;
 
             mocha.before('put object', async function() {

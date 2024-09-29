@@ -39,11 +39,11 @@ async function manage_upgrade_operations(action, user_input, config_fs) {
  */
 async function exec_config_dir_upgrade(user_input, config_fs) {
     try {
-        const force = user_input.force;
+        const skip_verification = user_input.skip_verification;
         const expected_version = user_input.expected_version;
         const custom_upgrade_scripts_dir = user_input.custom_upgrade_scripts_dir;
 
-        const upgrade_res = await upgrade_config_dir(config_fs, { custom_upgrade_scripts_dir, expected_version, force });
+        const upgrade_res = await upgrade_config_dir(config_fs, { custom_upgrade_scripts_dir, expected_version, skip_verification });
         if (!upgrade_res) throw new Error('Upgrade config directory failed', { cause: upgrade_res });
         write_stdout_response(ManageCLIResponse.UpgradeSuccessful, upgrade_res);
     } catch (err) {

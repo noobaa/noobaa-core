@@ -78,7 +78,7 @@ const VALID_OPTIONS_DIAGNOSE = {
 };
 
 const VALID_OPTIONS_UPGRADE = {
-    'start': new Set([ 'force', 'expected_version', 'custom_upgrade_scripts_dir', ...CLI_MUTUAL_OPTIONS]),
+    'start': new Set([ 'skip_verification', 'expected_version', 'custom_upgrade_scripts_dir', ...CLI_MUTUAL_OPTIONS]),
     'status': new Set([ ...CLI_MUTUAL_OPTIONS]),
     'history': new Set([...CLI_MUTUAL_OPTIONS])
 };
@@ -132,7 +132,8 @@ const OPTION_TYPE = {
     debug: 'number',
     // upgrade options
     expected_version: 'string',
-    custom_upgrade_scripts_dir: 'string'
+    custom_upgrade_scripts_dir: 'string',
+    skip_verification: 'boolean'
 };
 
 const BOOLEAN_STRING_VALUES = ['true', 'false'];

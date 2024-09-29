@@ -78,7 +78,7 @@ async function update_rpm_upgrade(config_fs) {
  *    4.4. moves the current upgrade from in_progress_upgrade to the upgrade_history.successful_upgrades 
  *    4.5. is 5.17.0 is a good default for from_version?
  * @param {import('../sdk/config_fs').ConfigFS} config_fs
- * @param {{custom_upgrade_scripts_dir?: string, expected_version?: string, force?: boolean}} [upgrade_options]
+ * @param {{custom_upgrade_scripts_dir?: string, expected_version?: string, skip_verification?: boolean}} [upgrade_options]
  * @returns {Promise<Object>}
  */
 async function upgrade_config_dir(config_fs, upgrade_options = {}) {
@@ -91,11 +91,11 @@ async function upgrade_config_dir(config_fs, upgrade_options = {}) {
     const package_from_version = system_data.config_directory.upgrade_package_version;
     const package_to_version = pkg.version;
     const this_upgrade_versions = { config_dir_from_version, config_dir_to_version, package_from_version, package_to_version };
-    const { custom_upgrade_scripts_dir, expected_version, force } = upgrade_options;
+    const { custom_upgrade_scripts_dir, expected_version, skip_verification } = upgrade_options;
 
     if (!should_upgrade(config_dir_from_version, config_dir_to_version)) return { message: 'config_dir_version on system.json and config_fs.config_dir_version match, nothing to upgrade' };
 
-    if (!force) await _verify_config_dir_upgrade(system_data, expected_version);
+    if (!skip_verification) await _verify_config_dir_upgrade(system_data, expected_version);
 
     system_data = await _update_config_dir_upgrade_start(config_fs, system_data, this_upgrade_versions);
     const this_upgrade = system_data.config_directory.in_progress_upgrade;

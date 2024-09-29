@@ -109,3 +109,4 @@ async function load_required_scripts(server_version, container_version, upgrade_
 
 exports.should_upgrade = should_upgrade;
 exports.load_required_scripts = load_required_scripts;
+exports.version_compare = version_compare;

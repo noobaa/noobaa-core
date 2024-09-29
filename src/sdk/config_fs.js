@@ -14,6 +14,7 @@ const native_fs_utils = require('../util/native_fs_utils');
 const { RpcError } = require('../rpc');
 const nc_mkm = require('../manage_nsfs/nc_master_key_manager').get_instance();
 const nsfs_schema_utils = require('../manage_nsfs/nsfs_schema_utils');
+const { version_compare } = require('../upgrade/upgrade_utils');
 
 /** @typedef {import('fs').Dirent} Dirent */
 
@@ -56,6 +57,15 @@ const SYMLINK_SUFFIX = '.symlink';
 // safe_link / safe_unlink can be better but the current impl causing ELOOP - Too many levels of symbolic links
 // need to find a better way for atomic unlinking of symbolic links
 // handle atomicity for symlinks
+
+
+/**
+ * config_dir_version is a semver that describes the config directory's version.  
+ * config_dir_version is planned to be upgraded when a change that can not be solved only by backward compatibility 
+ * and must require a use of an upgrade script.
+ * The config directory upgrade script will handle config directory changes of the structure or content of the config files.
+ * The upgrade script will run via `noobaa-cli upgrade run command`
+ */
 
 class ConfigFS {
 
@@ -987,8 +997,16 @@ class ConfigFS {
     async _throw_if_config_dir_locked() {
         const system_data = await this.get_system_config_file({silent_if_missing: true});
         if (!system_data) return;
-        if (this.config_dir_version !== system_data.config_directory.config_dir_version) {
-            throw new RpcError('BAD_REQUEST');
+        const running_code_config_dir_version = this.config_dir_version;
+        const system_config_dir_version = system_data.config_directory.config_dir_version;
+        const ver_comparison = version_compare(running_code_config_dir_version, system_config_dir_version);
+        if (ver_comparison > 0) {
+            throw new RpcError('CONFIG_DIR_VERSION_MISMATCH', `running code config_dir_version=${running_code_config_dir_version} is higher than the config dir version` +
+                `mentioned in system.json =${system_config_dir_version}, any updates to the config directory are blocked until the config dir upgrade`);
+        }
+        if (ver_comparison < 0) {
+            throw new RpcError('CONFIG_DIR_VERSION_MISMATCH', `running code config_dir_version=${running_code_config_dir_version} is lower than the config dir version` +
+                `mentioned in system.json =${system_config_dir_version}, any updates to the config directory are blocked until the source code upgrade`);
         }
     }
 }

@@ -264,10 +264,15 @@ async function init_nc_system(config_root) {
         };
     }
     try {
-        await config_fs.create_system_config_file(JSON.stringify(updated_system_json));
-        console.log('created NSFS system data with version: ', pkg.version);
+        if (system_data) {
+            await config_fs.update_system_config_file(JSON.stringify(updated_system_json));
+            console.log('updated NC system data with version: ', pkg.version);
+        } else {
+            await config_fs.create_system_config_file(JSON.stringify(updated_system_json));
+            console.log('created NC system data with version: ', pkg.version);
+        }
     } catch (err) {
-        const msg = 'failed to create NSFS system data due to - ' + err.message;
+        const msg = 'failed to create/update NC system data due to - ' + err.message;
         const error = new Error(msg);
         console.error(msg, err);
         throw error;

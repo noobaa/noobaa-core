@@ -10,6 +10,7 @@ const Kafka = require('node-rdkafka');
 const os = require('os');
 const fs = require('fs');
 const http = require('http');
+const https = require('https');
 const path = require('path');
 const { get_process_fs_context } = require('./native_fs_utils');
 const nb_native = require('../util/nb_native');
@@ -123,15 +124,20 @@ class HttpNotificator {
     constructor(connect_obj, promise_failure_cb) {
         this.connect_obj = connect_obj;
         this.promise_failure_cb = promise_failure_cb;
+        this.protocol = connect_obj.notification_protocol.toLowerCase() === 'https' ? https : http;
     }
 
     connect() {
-        this.agent = new http.Agent(this.connect_obj.http_object);
+        this.agent = new this.protocol.Agent(this.connect_obj.agent_request_object);
     }
 
     promise_notify(notif) {
         return new Promise(resolve => {
-            const req = http.request({agent: this.agent, method: 'POST'}, result => {
+            const req = this.protocol.request({
+                agent: this.agent,
+                method: 'POST',
+                ...this.connect_obj.request_options_object},
+                result => {
                 //result.pipe(process.stdout);
                 resolve();
             });
@@ -231,6 +237,9 @@ function parse_connect_file(connect_filepath) {
 function get_connection(connect, promise_failure_cb) {
     switch (connect.notification_protocol.toLowerCase()) {
         case 'http': {
+            return new HttpNotificator(connect, promise_failure_cb);
+        }
+        case 'https': {
             return new HttpNotificator(connect, promise_failure_cb);
         }
         case 'kafka': {

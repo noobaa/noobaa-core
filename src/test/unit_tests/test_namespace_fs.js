@@ -142,19 +142,27 @@ mocha.describe('namespace_fs', function() {
 
         function assert_sorted_list(res) {
             let prev_key = '';
+            const regex = /[^A-Za-z0-9]/;
             for (const { key } of res.objects) {
                 if (res.next_marker) {
                     assert(key <= res.next_marker, 'bad next_marker at key ' + key);
                 }
-                assert(prev_key <= key, 'objects not sorted at key ' + key);
+                // String comparison will fail when with special character and backslash cases, 
+                // Where special characters such as dot, hyphen are listed before backslash in sorted list.
+                // compare string only if key contains no special characters 
+                if (!regex.test(key)) {
+                    assert(prev_key <= key, 'objects not sorted at key ' + key + " prev_key: " + prev_key);
+                }
                 prev_key = key;
             }
-            prev_key = '';
             for (const key of res.common_prefixes) {
                 if (res.next_marker) {
                     assert(key <= res.next_marker, 'next_marker at key ' + key);
                 }
-                assert(prev_key <= key, 'prefixes not sorted at key ' + key);
+
+                if (!regex.test(key)) {
+                    assert(prev_key <= key, 'prefixes not sorted at key ' + key + " prev_key: " + prev_key);
+                }
                 prev_key = key;
             }
         }

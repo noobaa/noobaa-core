@@ -6,22 +6,22 @@ const { v4: uuid } = require('uuid');
 const dbg = require('../../../util/debug_module')(__filename);
 const S3Error = require('../s3_errors').S3Error;
 
+const true_regex = /true/i;
+
 // parse lifecycle rule filter
 function parse_filter(filter) {
     const current_rule_filter = {};
-    if (filter.Tag && filter.Tag.length === 1) {
+    if (filter.Tag?.length === 1) {
         const tag = filter.Tag[0];
         current_rule_filter.tags = [{ key: tag.Key[0], value: tag.Value[0] }];
     }
-    if (filter.Prefix && filter.Prefix.length === 1) {
+    if (filter.Prefix?.length === 1) {
         current_rule_filter.prefix = filter.Prefix[0];
     }
-    if (filter.ObjectSizeGreaterThan &&
-        filter.ObjectSizeGreaterThan.length === 1) {
+    if (filter.ObjectSizeGreaterThan?.length === 1) {
         current_rule_filter.object_size_greater_than = parseInt(filter.ObjectSizeGreaterThan[0], 10);
     }
-    if (filter.ObjectSizeLessThan &&
-        filter.ObjectSizeLessThan.length === 1) {
+    if (filter.ObjectSizeLessThan?.length === 1) {
         current_rule_filter.object_size_less_than = parseInt(filter.ObjectSizeLessThan[0], 10);
     }
     if (current_rule_filter.object_size_greater_than !== undefined &&
@@ -30,21 +30,16 @@ function parse_filter(filter) {
         dbg.error('Invalid size range: filter', filter, 'size range: object_size_greater_than', current_rule_filter.object_size_greater_than, '>= object_size_less_than', current_rule_filter.object_size_less_than);
         throw new S3Error(S3Error.InvalidArgument);
     }
-    if (filter.And &&
-        filter.And.length === 1) {
-
+    if (filter.And?.length === 1) {
         current_rule_filter.and = true;
-        if (filter.And[0].Prefix &&
-            filter.And[0].Prefix.length === 1) {
-                current_rule_filter.prefix = filter.And[0].Prefix[0];
+        if (filter.And[0].Prefix?.length === 1) {
+            current_rule_filter.prefix = filter.And[0].Prefix[0];
         }
-        current_rule_filter.tags = _.map(filter.And[0].Tag, tag => ({ key: tag.Key[0], value: tag.Value[0]}));
-        if (filter.And[0].ObjectSizeGreaterThan &&
-            filter.And[0].ObjectSizeGreaterThan.length === 1) {
+        current_rule_filter.tags = _.map(filter.And[0].Tag, tag => ({ key: tag.Key[0], value: tag.Value[0] }));
+        if (filter.And[0].ObjectSizeGreaterThan?.length === 1) {
             current_rule_filter.object_size_greater_than = parseInt(filter.And[0].ObjectSizeGreaterThan[0], 10);
         }
-        if (filter.And[0].ObjectSizeLessThan &&
-            filter.And[0].ObjectSizeLessThan.length === 1) {
+        if (filter.And[0].ObjectSizeLessThan?.length === 1) {
             current_rule_filter.object_size_less_than = parseInt(filter.And[0].ObjectSizeLessThan[0], 10);
         }
     }
@@ -54,22 +49,26 @@ function parse_filter(filter) {
 // parse lifecycle rule expiration
 function parse_expiration(expiration) {
     const output_expiration = {};
-    if (expiration.Days && expiration.Days.length === 1) {
+    if (expiration.Days?.length === 1) {
         output_expiration.days = parseInt(expiration.Days[0], 10);
         if (output_expiration.days < 1) {
             dbg.error('Minimum value for expiration days is 1, actual', expiration.Days,
                 'converted', output_expiration.days);
             throw new S3Error(S3Error.InvalidArgument);
         }
-    } else if (expiration.Date && expiration.Date.length === 1) {
+    } else if (expiration.Date?.length === 1) {
         output_expiration.date = (new Date(expiration.Date[0])).getTime();
-    } else if (expiration.ExpiredObjectDeleteMarker &&
-               expiration.ExpiredObjectDeleteMarker.length === 1 &&
-               expiration.ExpiredObjectDeleteMarker[0] === 'true') {
-        dbg.error('ExpiredObjectDeleteMarker is not implemented, expiration:', expiration);
-        throw new S3Error(S3Error.NotImplemented);
+    } else if (expiration.ExpiredObjectDeleteMarker?.length === 1) {
+        output_expiration.expired_object_delete_marker = true_regex.test(expiration.ExpiredObjectDeleteMarker[0]);
     }
     return output_expiration;
+}
+
+function parse_lifecycle_field(field, field_parser = parseInt) {
+    if (field?.length === 1) {
+        return field_parser(field[0]);
+    }
+    return undefined;
 }
 
 /**
@@ -81,53 +80,65 @@ async function put_bucket_lifecycle(req) {
             filter: {},
         };
 
-        if (rule.ID && rule.ID.length === 1) {
+        if (rule.ID?.length === 1) {
             current_rule.id = rule.ID[0];
         } else {
             // Generate a random ID if missing
             current_rule.id = uuid();
         }
 
-        if (!(rule.Status && rule.Status.length === 1)) {
+        if (rule.Status?.length !== 1) {
             dbg.error('Rule should have status', rule);
             throw new S3Error(S3Error.InvalidArgument);
         }
         current_rule.status = rule.Status[0];
 
         if (rule.Prefix) {
-            dbg.error('Rule should not have prefix, it should be filter.prefix', rule);
-            throw new S3Error(S3Error.InvalidArgument);
+            if (rule.Filter?.length === 1) {
+                dbg.error('Rule should not have prefix together with a filter', rule);
+                throw new S3Error(S3Error.InvalidArgument);
+            }
+            current_rule.filter.prefix = rule.Prefix[0];
+
+        } else {
+            if (rule.Filter?.length !== 1) {
+                dbg.error('Rule should have filter', rule);
+                throw new S3Error(S3Error.InvalidArgument);
+            }
+            current_rule.filter = parse_filter(rule.Filter[0]);
         }
 
-        if (!(rule.Filter && rule.Filter.length === 1)) {
-            dbg.error('Rule should have filter', rule);
-            throw new S3Error(S3Error.InvalidArgument);
+        if (rule.Expiration?.length === 1) {
+            current_rule.expiration = parse_expiration(rule.Expiration[0]);
         }
-        current_rule.filter = parse_filter(rule.Filter[0]);
 
-        // Since other actions are not implemented, Expiration
-        // is expected here
-        if (!(rule.Expiration && rule.Expiration.length === 1)) {
-            dbg.error('Rule is expected to have expiration', rule);
-            throw new S3Error(S3Error.NotImplemented);
+        if (rule.AbortIncompleteMultipartUpload?.length === 1) {
+            current_rule.abort_incomplete_multipart_upload = _.omitBy({
+                days_after_initiation: parse_lifecycle_field(rule.AbortIncompleteMultipartUpload[0].DaysAfterInitiation),
+            }, _.isUndefined);
         }
-        current_rule.expiration = parse_expiration(rule.Expiration[0]);
 
-        if (rule.AbortIncompleteMultipartUpload) {
-            dbg.error('AbortIncompleteMultipartUpload is not implemented, rule:', rule);
-            throw new S3Error(S3Error.NotImplemented);
+        if (rule.Transition?.length === 1) {
+            current_rule.transition = _.omitBy({
+                storage_class: parse_lifecycle_field(rule.Transition[0].StorageClass, String),
+                date: parse_lifecycle_field(rule.Transition[0].Date, s => new Date(s)),
+                days: parse_lifecycle_field(rule.Transition[0].Days),
+            }, _.isUndefined);
         }
-        if (rule.Transition) {
-            dbg.error('Transition is not implemented, rule:', rule);
-            throw new S3Error(S3Error.NotImplemented);
+
+        if (rule.NoncurrentVersionExpiration?.length === 1) {
+            current_rule.noncurrent_version_expiration = _.omitBy({
+                noncurrent_days: parse_lifecycle_field(rule.NoncurrentVersionExpiration[0].NoncurrentDays),
+                newer_noncurrent_versions: parse_lifecycle_field(rule.NoncurrentVersionExpiration[0].NewerNoncurrentVersions),
+            }, _.isUndefined);
         }
-        if (rule.NoncurrentVersionExpiration) {
-            dbg.error('NoncurrentVersionExpiration is not implemented, rule:', rule);
-            throw new S3Error(S3Error.NotImplemented);
-        }
-        if (rule.NoncurrentVersionTransition) {
-            dbg.error('NoncurrentVersionTransition is not implemented, rule:', rule);
-            throw new S3Error(S3Error.NotImplemented);
+
+        if (rule.NoncurrentVersionTransition?.length === 1) {
+            current_rule.noncurrent_version_transition = _.omitBy({
+                storage_class: parse_lifecycle_field(rule.NoncurrentVersionTransition[0].StorageClass, String),
+                noncurrent_days: parse_lifecycle_field(rule.NoncurrentVersionTransition[0].NoncurrentDays),
+                newer_noncurrent_versions: parse_lifecycle_field(rule.NoncurrentVersionTransition[0].NewerNoncurrentVersions),
+            }, _.isUndefined);
         }
 
         return current_rule;

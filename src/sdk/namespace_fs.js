@@ -2930,9 +2930,9 @@ class NamespaceFS {
                     const bucket_tmp_dir_path = this.get_bucket_tmpdir_full_path();
                     if (this._is_versioning_enabled() || suspended_and_latest_is_not_null) {
                         await native_fs_utils._make_path_dirs(versioned_path, fs_context);
-                         await native_fs_utils.safe_move(fs_context, latest_ver_path, versioned_path, latest_ver_info,
+                        await native_fs_utils.safe_move(fs_context, latest_ver_path, versioned_path, latest_ver_info,
                             gpfs_options && gpfs_options.delete_version, bucket_tmp_dir_path);
-                         if (suspended_and_latest_is_not_null) {
+                        if (suspended_and_latest_is_not_null) {
                             // remove a version (or delete marker) with null version ID from .versions/ (if exists)
                             await this._delete_null_version_from_versions_directory(params.key, fs_context);
                         }
@@ -2945,9 +2945,9 @@ class NamespaceFS {
                 }
                 break;
             } catch (err) {
+                dbg.warn(`NamespaceFS._delete_latest_version: Retrying retries=${retries} latest_ver_path=${latest_ver_path}`, err);
                 retries -= 1;
                 if (retries <= 0 || !native_fs_utils.should_retry_link_unlink(is_gpfs, err)) throw err;
-                dbg.warn(`NamespaceFS._delete_latest_version: Retrying retries=${retries} latest_ver_path=${latest_ver_path}`, err);
             } finally {
                 if (gpfs_options) await this._close_files_gpfs(fs_context, gpfs_options.delete_version, undefined, true);
             }

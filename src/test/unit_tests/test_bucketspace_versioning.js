@@ -1,12 +1,14 @@
 /* Copyright (C) 2020 NooBaa */
 /* eslint-disable max-lines-per-function */
-/*eslint max-lines: ["error",3300]*/
+/*eslint max-lines: ["error",4500]*/
+/* eslint-disable max-statements */
 'use strict';
 
 const fs = require('fs');
 const path = require('path');
 const mocha = require('mocha');
 const assert = require('assert');
+const P = require('../../util/promise');
 const fs_utils = require('../../util/fs_utils');
 const nb_native = require('../../util/nb_native');
 const size_utils = require('../../util/size_utils');
@@ -2917,11 +2919,15 @@ async function put_allow_all_bucket_policy(s3_client, bucket) {
 }
 
 mocha.describe('List-objects', function() {
+    const DEFAULT_MAX_KEYS = 1000;
     const nsr = 'noobaa-nsr-object-vesions';
     const bucket_name = 'noobaa-bucket-object-vesions';
+    const bucket_name2 = 'noobaa-bucket-object-versions-2';
     const tmp_fs_root4 = path.join(TMP_PATH, 'test_bucketspace_list_object_versions');
     const bucket_path = '/bucket';
+    const bucket_path2 = '/bucket2';
     const full_path = tmp_fs_root4 + bucket_path;
+    const full_path2 = tmp_fs_root4 + bucket_path2;
     const version_dir = '/.versions';
     const full_path_version_dir = full_path + `${version_dir}`;
     const dir1 = full_path + '/dir1';
@@ -2954,6 +2960,8 @@ mocha.describe('List-objects', function() {
         await fs_utils.create_fresh_path(tmp_fs_root4, 0o777);
         await fs_utils.create_fresh_path(full_path, 0o770);
         await fs_utils.file_must_exist(full_path);
+        await fs_utils.create_fresh_path(full_path2, 0o777);
+        await fs_utils.file_must_exist(full_path2);
         await fs_utils.create_fresh_path(full_path_version_dir, 0o770);
         await fs_utils.file_must_exist(full_path_version_dir);
         await fs_utils.create_fresh_path(dir1, 0o770);
@@ -2973,11 +2981,19 @@ mocha.describe('List-objects', function() {
             }
         });
         const obj_nsr = { resource: nsr, path: bucket_path };
+        const obj_nsr2 = { resource: nsr, path: bucket_path2 };
         await rpc_client.bucket.create_bucket({
             name: bucket_name,
             namespace: {
                 read_resources: [obj_nsr],
                 write_resource: obj_nsr
+            }
+        });
+        await rpc_client.bucket.create_bucket({
+            name: bucket_name2,
+            namespace: {
+                read_resources: [obj_nsr2],
+                write_resource: obj_nsr2
             }
         });
         const policy = {
@@ -2998,11 +3014,16 @@ mocha.describe('List-objects', function() {
             Bucket: bucket_name,
             Policy: JSON.stringify(policy)
         });
+        await s3_admin.putBucketPolicy({
+            Bucket: bucket_name2,
+            Policy: JSON.stringify(policy)
+        });
         // create nsfs account
         res = await generate_nsfs_account(rpc_client, EMAIL, new_bucket_path4);
         s3_client = generate_s3_client(res.access_key, res.secret_key, CORETEST_ENDPOINT);
         accounts.push(res.email);
         await s3_client.putBucketVersioning({ Bucket: bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
+        await s3_client.putBucketVersioning({ Bucket: bucket_name2, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
         const bucket_ver = await s3_client.getBucketVersioning({ Bucket: bucket_name });
         assert.equal(bucket_ver.Status, 'Enabled');
         await create_object(`${full_path}/${key}`, body, key_version);
@@ -3020,6 +3041,13 @@ mocha.describe('List-objects', function() {
         for (const email of accounts) {
             await rpc_client.account.delete_account({ email });
         }
+    });
+
+    mocha.beforeEach(async () => {
+        await fs_utils.create_fresh_path(full_path2, 0o777);
+        await P.delay(100); // sometime we saw that the check failed although the path is created a line before
+        const file_exists = await fs_utils.file_exists(full_path2);
+        assert.ok(file_exists);
     });
 
     mocha.it('list objects - should return only latest object', async function() {
@@ -3190,6 +3218,628 @@ mocha.describe('List-objects', function() {
         });
         assert.equal(count, 6);
     });
+
+    mocha.it('list object versions - no objects in the bucket (versioning enabled)', async function() {
+        await s3_client.putBucketVersioning({ Bucket: bucket_name2, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
+        const res = await s3_client.listObjectVersions({ Bucket: bucket_name2 });
+        assert.equal(res.$metadata.httpStatusCode, 200);
+        assert.equal(res.IsTruncated, false);
+        assert.equal(res.MaxKeys, DEFAULT_MAX_KEYS);
+        assert.ok(res.Versions === undefined); // no versions yet
+    });
+
+    mocha.it('list object versions - no objects in the bucket (versioning suspended)', async function() {
+        await s3_client.putBucketVersioning({ Bucket: bucket_name2, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } });
+        const res = await s3_client.listObjectVersions({ Bucket: bucket_name2 });
+        assert.equal(res.$metadata.httpStatusCode, 200);
+        assert.equal(res.IsTruncated, false);
+        assert.equal(res.MaxKeys, DEFAULT_MAX_KEYS);
+        assert.ok(res.Versions === undefined); // no versions yet
+    });
+
+    mocha.it('list object versions - 1 nested object in the bucket with unique version id (versioning enabled)', async function() {
+        await s3_client.putBucketVersioning({ Bucket: bucket_name2, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
+        const key1 = 'New/Year/Happy.txt';
+        const put_res = await s3_client.putObject({ Bucket: bucket_name2, Key: key1, Body: body });
+        const res = await s3_client.listObjectVersions({ Bucket: bucket_name2 });
+        assert.equal(res.$metadata.httpStatusCode, 200);
+        assert.equal(res.IsTruncated, false);
+        assert.equal(res.MaxKeys, DEFAULT_MAX_KEYS);
+        assert.equal(res.Versions.length, 1);
+        assert.equal(res.Versions[0].VersionId, put_res.VersionId);
+    });
+
+    mocha.it('list object versions - 1 nested object in the bucket with version id null (versioning suspended)', async function() {
+        await s3_client.putBucketVersioning({ Bucket: bucket_name2, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } });
+        const key1 = 'New/Year/Happy.txt';
+        await s3_client.putObject({ Bucket: bucket_name2, Key: key1, Body: body });
+        const res = await s3_client.listObjectVersions({ Bucket: bucket_name2 });
+        assert.equal(res.$metadata.httpStatusCode, 200);
+        assert.equal(res.IsTruncated, false);
+        assert.equal(res.MaxKeys, DEFAULT_MAX_KEYS);
+        assert.equal(res.Versions.length, 1);
+        assert.equal(res.Versions[0].VersionId, NULL_VERSION_ID);
+    });
+
+    mocha.it('list object versions - 1 delete marker only (versioning enabled)', async function() {
+        await s3_client.putBucketVersioning({ Bucket: bucket_name2, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
+        const key1 = 'Moo/Koo/Loo.txt';
+        const put_res = await s3_client.putObject({ Bucket: bucket_name2, Key: key1, Body: body });
+        const delete_res = await s3_client.deleteObject({ Bucket: bucket_name2, Key: key1 }); // create delete-marker
+        await s3_client.deleteObject({ Bucket: bucket_name2, Key: key1, VersionId: put_res.VersionId }); // delete the version
+
+        const res = await s3_client.listObjectVersions({ Bucket: bucket_name2 });
+        assert.equal(res.$metadata.httpStatusCode, 200);
+        assert.equal(res.IsTruncated, false);
+        assert.equal(res.MaxKeys, DEFAULT_MAX_KEYS);
+        assert.ok(res.Versions === undefined);
+        assert.equal(res.DeleteMarkers.length, 1);
+        assert.equal(res.DeleteMarkers[0].VersionId, delete_res.VersionId);
+        assert.equal(res.DeleteMarkers[0].IsLatest, true);
+    });
+
+    mocha.it('list object versions - 1 delete marker only (versioning suspended)', async function() {
+        await s3_client.putBucketVersioning({ Bucket: bucket_name2, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
+        const key1 = 'Moo/Koo/Loo.txt';
+        const put_res = await s3_client.putObject({ Bucket: bucket_name2, Key: key1, Body: body });
+        const delete_res = await s3_client.deleteObject({ Bucket: bucket_name2, Key: key1 }); // create delete-marker
+        await s3_client.deleteObject({ Bucket: bucket_name2, Key: key1, VersionId: put_res.VersionId }); // delete the version
+
+        await s3_client.putBucketVersioning({ Bucket: bucket_name2, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } });
+        const res = await s3_client.listObjectVersions({ Bucket: bucket_name2 });
+        assert.equal(res.$metadata.httpStatusCode, 200);
+        assert.equal(res.IsTruncated, false);
+        assert.equal(res.MaxKeys, DEFAULT_MAX_KEYS);
+        assert.ok(res.Versions === undefined);
+        assert.equal(res.DeleteMarkers.length, 1);
+        assert.equal(res.DeleteMarkers[0].VersionId, delete_res.VersionId);
+        assert.equal(res.DeleteMarkers[0].IsLatest, true);
+    });
+
+    mocha.it('list object versions - 3 objects (1 of them with 2 versions) - ' +
+        'check the sorting (versioning enabled)', async function() {
+        await s3_client.putBucketVersioning({ Bucket: bucket_name2, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
+        const key1 = 'zoom.txt';
+        const key2 = 'all.txt';
+        const key3 = 'big.txt';
+
+        await s3_client.putObject({ Bucket: bucket_name2, Key: key1, Body: body });
+        await s3_client.putObject({ Bucket: bucket_name2, Key: key2, Body: body });
+        await s3_client.putObject({ Bucket: bucket_name2, Key: key3, Body: body });
+        await s3_client.putObject({ Bucket: bucket_name2, Key: key1, Body: body }); // another version
+
+        const res = await s3_client.listObjectVersions({ Bucket: bucket_name2 });
+        assert.equal(res.$metadata.httpStatusCode, 200);
+        assert.equal(res.IsTruncated, false);
+        assert.equal(res.MaxKeys, DEFAULT_MAX_KEYS);
+        assert.equal(res.Versions.length, 4);
+        // expect: all.txt, big.txt, zoom.txt (latest) and then another zoom.txt
+        assert.equal(res.Versions[0].Key, key2);
+        assert.equal(res.Versions[0].IsLatest, true);
+        assert.equal(res.Versions[1].Key, key3);
+        assert.equal(res.Versions[1].IsLatest, true);
+        assert.equal(res.Versions[2].Key, key1);
+        assert.equal(res.Versions[2].IsLatest, true);
+        assert.equal(res.Versions[3].Key, key1);
+        assert.equal(res.Versions[3].IsLatest, false);
+    });
+
+    mocha.it('list object versions - 3 objects (1 of them with 2 versions) - ' +
+        'check the sorting (versioning suspended)', async function() {
+        await s3_client.putBucketVersioning({ Bucket: bucket_name2, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
+        const key1 = 'zoom.txt';
+        const key2 = 'all.txt';
+        const key3 = 'big.txt';
+
+        await s3_client.putObject({ Bucket: bucket_name2, Key: key1, Body: body });
+        await s3_client.putObject({ Bucket: bucket_name2, Key: key2, Body: body });
+        await s3_client.putObject({ Bucket: bucket_name2, Key: key3, Body: body });
+        await s3_client.putObject({ Bucket: bucket_name2, Key: key1, Body: body }); // another version
+
+        await s3_client.putBucketVersioning({ Bucket: bucket_name2, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } });
+        const res = await s3_client.listObjectVersions({ Bucket: bucket_name2 });
+        assert.equal(res.$metadata.httpStatusCode, 200);
+        assert.equal(res.IsTruncated, false);
+        assert.equal(res.MaxKeys, DEFAULT_MAX_KEYS);
+        assert.equal(res.Versions.length, 4);
+        // expect: all.txt, big.txt, zoom.txt (latest) and then another zoom.txt
+        assert.equal(res.Versions[0].Key, key2);
+        assert.equal(res.Versions[0].IsLatest, true);
+        assert.equal(res.Versions[1].Key, key3);
+        assert.equal(res.Versions[1].IsLatest, true);
+        assert.equal(res.Versions[2].Key, key1);
+        assert.equal(res.Versions[2].IsLatest, true);
+        assert.equal(res.Versions[3].Key, key1);
+        assert.equal(res.Versions[3].IsLatest, false);
+    });
+
+    mocha.it('list object versions - 4 objects (3 of them deleted) - ' +
+        'check the sorting (versioning enabled)', async function() {
+        await s3_client.putBucketVersioning({ Bucket: bucket_name2, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
+        const key1 = 'aa.txt';
+        const key2 = 'af.txt';
+        const key3 = 'am.txt';
+        const key4 = 'ay.txt';
+
+        await s3_client.putObject({ Bucket: bucket_name2, Key: key3, Body: body });
+        await s3_client.putObject({ Bucket: bucket_name2, Key: key4, Body: body });
+        await s3_client.putObject({ Bucket: bucket_name2, Key: key2, Body: body });
+        await s3_client.putObject({ Bucket: bucket_name2, Key: key1, Body: body });
+
+        await s3_client.deleteObject({ Bucket: bucket_name2, Key: key1});
+        await s3_client.deleteObject({ Bucket: bucket_name2, Key: key2});
+        await s3_client.deleteObject({ Bucket: bucket_name2, Key: key3});
+
+
+        const res = await s3_client.listObjectVersions({ Bucket: bucket_name2 });
+        assert.equal(res.$metadata.httpStatusCode, 200);
+        assert.equal(res.IsTruncated, false);
+        assert.equal(res.MaxKeys, DEFAULT_MAX_KEYS);
+        assert.equal(res.Versions.length, 4);
+        assert.equal(res.DeleteMarkers.length, 3);
+        // expect: versions: aa.txt, af.txt, am.txt (not latest) ay.txt (only latest), delete markers: aa.txt, af.txt, am.txt
+        assert.equal(res.Versions[3].Key, key4);
+        assert.equal(res.Versions[3].IsLatest, true);
+        const arr_to_compare = res.Versions.slice(0, -1); //without the last item
+        const comp_res = arr_to_compare.every(item => item.IsLatest === false);
+        assert.ok(comp_res);
+        assert.equal(res.DeleteMarkers[0].Key, key1);
+        assert.equal(res.DeleteMarkers[1].Key, key2);
+        assert.equal(res.DeleteMarkers[2].Key, key3);
+        const comp_res2 = res.DeleteMarkers.every(item => item.IsLatest === true);
+        assert.ok(comp_res2);
+    });
+
+    mocha.it('list object versions - 4 objects (3 of them deleted) - ' +
+        'check the sorting (versioning suspended)', async function() {
+        await s3_client.putBucketVersioning({ Bucket: bucket_name2, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
+        const key1 = 'aa.txt';
+        const key2 = 'af.txt';
+        const key3 = 'am.txt';
+        const key4 = 'ay.txt';
+
+        await s3_client.putObject({ Bucket: bucket_name2, Key: key3, Body: body });
+        await s3_client.putObject({ Bucket: bucket_name2, Key: key4, Body: body });
+        await s3_client.putObject({ Bucket: bucket_name2, Key: key2, Body: body });
+        await s3_client.putObject({ Bucket: bucket_name2, Key: key1, Body: body });
+
+        await s3_client.deleteObject({ Bucket: bucket_name2, Key: key1});
+        await s3_client.deleteObject({ Bucket: bucket_name2, Key: key2});
+        await s3_client.deleteObject({ Bucket: bucket_name2, Key: key3});
+
+        await s3_client.putBucketVersioning({ Bucket: bucket_name2, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } });
+        const res = await s3_client.listObjectVersions({ Bucket: bucket_name2 });
+        assert.equal(res.$metadata.httpStatusCode, 200);
+        assert.equal(res.IsTruncated, false);
+        assert.equal(res.MaxKeys, DEFAULT_MAX_KEYS);
+        assert.equal(res.Versions.length, 4);
+        assert.equal(res.DeleteMarkers.length, 3);
+        // expect: versions: aa.txt, af.txt, am.txt (not latest) ay.txt (only latest), delete markers: aa.txt, af.txt, am.txt
+        assert.equal(res.Versions[3].Key, key4);
+        assert.equal(res.Versions[3].IsLatest, true);
+        const arr_to_compare = res.Versions.slice(0, -1); //without the last item
+        const comp_res = arr_to_compare.every(item => item.IsLatest === false);
+        assert.ok(comp_res);
+        assert.equal(res.DeleteMarkers[0].Key, key1);
+        assert.equal(res.DeleteMarkers[1].Key, key2);
+        assert.equal(res.DeleteMarkers[2].Key, key3);
+        const comp_res2 = res.DeleteMarkers.every(item => item.IsLatest === true);
+        assert.ok(comp_res2);
+    });
+
+    mocha.it('list object versions - 10 versions of the same key in the bucket (versioning enabled)', async function() {
+        await s3_client.putBucketVersioning({ Bucket: bucket_name2, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
+        const key1 = 'NiceDay.txt';
+        const number_of_versions = 10;
+        const versions_arr = await _upload_versions(bucket_name2, key1, number_of_versions, s3_client);
+        const res = await s3_client.listObjectVersions({ Bucket: bucket_name2 });
+        assert.equal(res.$metadata.httpStatusCode, 200);
+        assert.equal(res.IsTruncated, false);
+        assert.equal(res.MaxKeys, DEFAULT_MAX_KEYS);
+        assert.equal(res.Versions.length, number_of_versions);
+        const latest_versions = res.Versions.filter(version => version.IsLatest);
+        assert.equal(latest_versions.length, 1);
+        assert.equal(latest_versions[0].VersionId, versions_arr[number_of_versions - 1]);
+    });
+
+    mocha.it('list object versions - 10 uploads of the same key in the bucket (versioning suspended)', async function() {
+        await s3_client.putBucketVersioning({ Bucket: bucket_name2, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } });
+        const key1 = 'NiceDay.txt';
+        const number_of_versions = 10;
+        await _upload_versions(bucket_name2, key1, number_of_versions, s3_client);
+        const res = await s3_client.listObjectVersions({ Bucket: bucket_name2 });
+        assert.equal(res.$metadata.httpStatusCode, 200);
+        assert.equal(res.IsTruncated, false);
+        assert.equal(res.MaxKeys, DEFAULT_MAX_KEYS);
+        assert.equal(res.Versions.length, 1);
+        const latest_versions = res.Versions.filter(version => version.IsLatest);
+        assert.equal(latest_versions.length, 1);
+        assert.equal(res.Versions[0].VersionId, NULL_VERSION_ID);
+    });
+
+    mocha.it('list object versions - 10 versions of the same key in the bucket (versioning suspended)', async function() {
+        await s3_client.putBucketVersioning({ Bucket: bucket_name2, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
+        const key1 = 'NiceDay.txt';
+        const number_of_versions = 10;
+        const versions_arr = await _upload_versions(bucket_name2, key1, number_of_versions, s3_client);
+        await s3_client.putBucketVersioning({ Bucket: bucket_name2, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } });
+        const res = await s3_client.listObjectVersions({ Bucket: bucket_name2 });
+        assert.equal(res.$metadata.httpStatusCode, 200);
+        assert.equal(res.IsTruncated, false);
+        assert.equal(res.MaxKeys, DEFAULT_MAX_KEYS);
+        assert.equal(res.Versions.length, number_of_versions);
+        const latest_versions = res.Versions.filter(version => version.IsLatest);
+        assert.equal(latest_versions.length, 1);
+        assert.equal(latest_versions[0].VersionId, versions_arr[number_of_versions - 1]);
+    });
+
+    mocha.it('list object versions - 1001 versions of the same key in the bucket - ' +
+        'use NextKeyMarker and NextVersionIdMarker for listing over 1,000 versions (versioning enabled)', async function() {
+        const self = this; // eslint-disable-line no-invalid-this
+        self.timeout(150000);
+        await s3_client.putBucketVersioning({ Bucket: bucket_name2, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
+        const key1 = 'NiceDay.txt';
+        const number_of_versions = 1001;
+        await _upload_versions(bucket_name2, key1, number_of_versions, s3_client);
+        // list the first 1,000 keys
+        const res = await s3_client.listObjectVersions({ Bucket: bucket_name2 });
+        assert.equal(res.$metadata.httpStatusCode, 200);
+        assert.equal(res.IsTruncated, true);
+        assert.equal(res.MaxKeys, DEFAULT_MAX_KEYS);
+        assert.equal(res.Versions.length, DEFAULT_MAX_KEYS);
+        const latest_versions = res.Versions.filter(version => version.IsLatest);
+        assert.equal(latest_versions.length, 1);
+        // list the next keys (1)
+        const res2 = await s3_client.listObjectVersions({ Bucket: bucket_name2,
+            KeyMarker: res.NextKeyMarker, VersionIdMarker: res.NextVersionIdMarker});
+        assert.equal(res2.IsTruncated, false);
+        assert.equal(res2.Versions.length, number_of_versions - DEFAULT_MAX_KEYS);
+    });
+
+    mocha.it('list object versions - 1001 versions of the same key in the bucket - ' +
+        'use NextKeyMarker and NextVersionIdMarker for listing over 1,000 versions (versioning suspended)', async function() {
+        const self = this; // eslint-disable-line no-invalid-this
+        self.timeout(150000);
+        await s3_client.putBucketVersioning({ Bucket: bucket_name2, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
+        const key1 = 'NiceDay.txt';
+        const number_of_versions = 1001;
+        await _upload_versions(bucket_name2, key1, number_of_versions, s3_client);
+        // list the first 1,000 keys
+        await s3_client.putBucketVersioning({ Bucket: bucket_name2, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } });
+        const res = await s3_client.listObjectVersions({ Bucket: bucket_name2 });
+        assert.equal(res.$metadata.httpStatusCode, 200);
+        assert.equal(res.IsTruncated, true);
+        assert.equal(res.MaxKeys, DEFAULT_MAX_KEYS);
+        assert.equal(res.Versions.length, DEFAULT_MAX_KEYS);
+        const latest_versions = res.Versions.filter(version => version.IsLatest);
+        assert.equal(latest_versions.length, 1);
+        // list the next keys (1)
+        const res2 = await s3_client.listObjectVersions({ Bucket: bucket_name2,
+            KeyMarker: res.NextKeyMarker, VersionIdMarker: res.NextVersionIdMarker});
+        assert.equal(res2.IsTruncated, false);
+        assert.equal(res2.Versions.length, number_of_versions - DEFAULT_MAX_KEYS);
+    });
+
+    mocha.it('list object versions - 5 versions of each key out of 3 keys in the bucket - ' +
+        'use KeyMarkerKey and MaxKeys (versioning enabled)', async function() {
+        await s3_client.putBucketVersioning({ Bucket: bucket_name2, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
+        const key1 = 'Day1.txt';
+        const key2 = 'Day2.txt';
+        const key3 = 'Day3.txt';
+        const max_keys = 3;
+        const number_of_versions = 5;
+        const versions_arr1 = await _upload_versions(bucket_name2, key1, number_of_versions, s3_client);
+        await _upload_versions(bucket_name2, key2, number_of_versions, s3_client);
+        await _upload_versions(bucket_name2, key3, number_of_versions, s3_client);
+
+        const res = await s3_client.listObjectVersions({ Bucket: bucket_name2,
+            KeyMarkerKey: 'Day1', MaxKeys: max_keys});
+        assert.equal(res.$metadata.httpStatusCode, 200);
+        assert.equal(res.IsTruncated, true);
+        assert.equal(res.MaxKeys, max_keys);
+        assert.equal(res.Versions.length, max_keys);
+        const res2 = await s3_client.listObjectVersions({ Bucket: bucket_name2,
+            KeyMarker: 'Day1', VersionIdMarker: res.NextVersionIdMarker, MaxKeys: number_of_versions - max_keys});
+        assert.equal(res2.$metadata.httpStatusCode, 200);
+        assert.equal(res2.IsTruncated, true);
+        assert.equal(res2.MaxKeys, number_of_versions - max_keys);
+        assert.equal(res2.Versions.length, number_of_versions - max_keys);
+        const arr_day1_versions = [...res.Versions, ...res2.Versions];
+        const latest_versions = arr_day1_versions.filter(version => version.IsLatest);
+        assert.equal(latest_versions.length, 1);
+        assert.equal(latest_versions[0].VersionId, versions_arr1[number_of_versions - 1]);
+    });
+
+    mocha.it('list object versions - 5 versions of each key out of 3 keys in the bucket - ' +
+        'use KeyMarkerKey and MaxKeys (versioning suspended)', async function() {
+        await s3_client.putBucketVersioning({ Bucket: bucket_name2, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
+        const key1 = 'Day1.txt';
+        const key2 = 'Day2.txt';
+        const key3 = 'Day3.txt';
+        const max_keys = 3;
+        const number_of_versions = 5;
+        const versions_arr1 = await _upload_versions(bucket_name2, key1, number_of_versions, s3_client);
+        await _upload_versions(bucket_name2, key2, number_of_versions, s3_client);
+        await _upload_versions(bucket_name2, key3, number_of_versions, s3_client);
+
+        await s3_client.putBucketVersioning({ Bucket: bucket_name2, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } });
+        const res = await s3_client.listObjectVersions({ Bucket: bucket_name2,
+            KeyMarkerKey: 'Day1', MaxKeys: max_keys});
+        assert.equal(res.$metadata.httpStatusCode, 200);
+        assert.equal(res.IsTruncated, true);
+        assert.equal(res.MaxKeys, max_keys);
+        assert.equal(res.Versions.length, max_keys);
+        const res2 = await s3_client.listObjectVersions({ Bucket: bucket_name2,
+            KeyMarker: 'Day1', VersionIdMarker: res.NextVersionIdMarker, MaxKeys: number_of_versions - max_keys});
+        assert.equal(res2.$metadata.httpStatusCode, 200);
+        assert.equal(res2.IsTruncated, true);
+        assert.equal(res2.MaxKeys, number_of_versions - max_keys);
+        assert.equal(res2.Versions.length, number_of_versions - max_keys);
+        const arr_day1_versions = [...res.Versions, ...res2.Versions];
+        const latest_versions = arr_day1_versions.filter(version => version.IsLatest);
+        assert.equal(latest_versions.length, 1);
+        assert.equal(latest_versions[0].VersionId, versions_arr1[number_of_versions - 1]);
+    });
+
+    mocha.it('list object versions - using Delimiter and Prefix parameters (versioning enabled)', async function() {
+        await s3_client.putBucketVersioning({ Bucket: bucket_name2, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
+        const key1 = 'photos/2006/January/sample.jpg';
+        const key2 = 'photos/2006/February/sample.jpg';
+        const key3 = 'photos/2006/March/sample.jpg';
+        const key4 = 'videos/2006/March/sample.wmv';
+        const key5 = 'sample.jpg';
+        await s3_client.putObject({ Bucket: bucket_name2, Key: key1, Body: body });
+        await s3_client.putObject({ Bucket: bucket_name2, Key: key2, Body: body });
+        await s3_client.putObject({ Bucket: bucket_name2, Key: key3, Body: body });
+        await s3_client.putObject({ Bucket: bucket_name2, Key: key4, Body: body });
+        const put_res = await s3_client.putObject({ Bucket: bucket_name2, Key: key5, Body: body });
+
+        const res = await s3_client.listObjectVersions({ Bucket: bucket_name2, Delimiter: '/'});
+        assert.equal(res.$metadata.httpStatusCode, 200);
+        assert.equal(res.IsTruncated, false);
+        assert.equal(res.CommonPrefixes.length, 2);
+        const comp_res = res.CommonPrefixes.every(item => ['photos/', 'videos/'].includes(item.Prefix));
+        assert.ok(comp_res);
+        assert.equal(res.Versions.length, 1);
+        assert.equal(res.Versions[0].Key, key5);
+        assert.equal(res.Versions[0].VersionId, put_res.VersionId);
+        assert.equal(res.Versions[0].IsLatest, true);
+
+        const res2 = await s3_client.listObjectVersions({ Bucket: bucket_name2, Delimiter: '/', Prefix: 'photos/2006/'});
+        assert.equal(res2.$metadata.httpStatusCode, 200);
+        assert.equal(res2.IsTruncated, false);
+        assert.equal(res2.CommonPrefixes.length, 3);
+        const comp_res2 = res2.CommonPrefixes.every(item => ['photos/2006/January/', 'photos/2006/February/', 'photos/2006/March/'].includes(item.Prefix));
+        assert.ok(comp_res2);
+        assert.ok(res2.Versions === undefined);
+    });
+
+    mocha.it('list object versions - using Delimiter and Prefix parameters (versioning suspended)', async function() {
+        await s3_client.putBucketVersioning({ Bucket: bucket_name2, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
+        const key1 = 'photos/2006/January/sample.jpg';
+        const key2 = 'photos/2006/February/sample.jpg';
+        const key3 = 'photos/2006/March/sample.jpg';
+        const key4 = 'videos/2006/March/sample.wmv';
+        const key5 = 'sample.jpg';
+        await s3_client.putObject({ Bucket: bucket_name2, Key: key1, Body: body });
+        await s3_client.putObject({ Bucket: bucket_name2, Key: key2, Body: body });
+        await s3_client.putObject({ Bucket: bucket_name2, Key: key3, Body: body });
+        await s3_client.putObject({ Bucket: bucket_name2, Key: key4, Body: body });
+        const put_res = await s3_client.putObject({ Bucket: bucket_name2, Key: key5, Body: body });
+
+        await s3_client.putBucketVersioning({ Bucket: bucket_name2, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } });
+        const res = await s3_client.listObjectVersions({ Bucket: bucket_name2, Delimiter: '/'});
+        assert.equal(res.$metadata.httpStatusCode, 200);
+        assert.equal(res.IsTruncated, false);
+        assert.equal(res.CommonPrefixes.length, 2);
+        const comp_res = res.CommonPrefixes.every(item => ['photos/', 'videos/'].includes(item.Prefix));
+        assert.ok(comp_res);
+        assert.equal(res.Versions.length, 1);
+        assert.equal(res.Versions[0].Key, key5);
+        assert.equal(res.Versions[0].VersionId, put_res.VersionId);
+        assert.equal(res.Versions[0].IsLatest, true);
+
+        const res2 = await s3_client.listObjectVersions({ Bucket: bucket_name2, Delimiter: '/', Prefix: 'photos/2006/'});
+        assert.equal(res2.$metadata.httpStatusCode, 200);
+        assert.equal(res2.IsTruncated, false);
+        assert.equal(res2.CommonPrefixes.length, 3);
+        const comp_res2 = res2.CommonPrefixes.every(item => ['photos/2006/January/', 'photos/2006/February/', 'photos/2006/March/'].includes(item.Prefix));
+        assert.ok(comp_res2);
+        assert.ok(res2.Versions === undefined);
+    });
+
+    mocha.it('list object versions - after multipart upload 1 part (versioning enabled)', async function() {
+        await s3_client.putBucketVersioning({ Bucket: bucket_name2, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
+        const mpu_key1 = 'mpu_key1.txt';
+        const res_mpu = await s3_client.createMultipartUpload({ Bucket: bucket_name2, Key: mpu_key1 });
+        const upload_id = res_mpu.UploadId;
+        const body1 = 'AAAAABBBBBCCCCC';
+        const part1 = await s3_client.uploadPart({
+            Bucket: bucket_name2, Key: mpu_key1, Body: body1, UploadId: upload_id, PartNumber: 1 });
+        const res_cmpu = await s3_client.completeMultipartUpload({
+            Bucket: bucket_name2,
+            Key: mpu_key1,
+            UploadId: upload_id,
+            MultipartUpload: {
+                Parts: [{
+                    ETag: part1.ETag,
+                    PartNumber: 1
+                }]
+            }
+        });
+        const res = await s3_client.listObjectVersions({ Bucket: bucket_name2});
+        assert.equal(res.$metadata.httpStatusCode, 200);
+        assert.equal(res.IsTruncated, false);
+        assert.equal(res.Versions[0].VersionId, res_cmpu.VersionId);
+    });
+
+    mocha.it('list object versions - after multipart upload 2 parts (versioning enabled)', async function() {
+        await s3_client.putBucketVersioning({ Bucket: bucket_name2, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
+        const mpu_key1 = 'mpu_key1.txt';
+        const res_mpu = await s3_client.createMultipartUpload({ Bucket: bucket_name2, Key: mpu_key1 });
+        const upload_id = res_mpu.UploadId;
+        const body1 = 'AAAAABBBBBCCCCC';
+        const body2 = 'DDDDDEEEEEEFFFF';
+        const part1 = await s3_client.uploadPart({
+            Bucket: bucket_name2, Key: mpu_key1, Body: body1, UploadId: upload_id, PartNumber: 1 });
+        const part2 = await s3_client.uploadPart({
+            Bucket: bucket_name2, Key: mpu_key1, Body: body2, UploadId: upload_id, PartNumber: 2 });
+        const res_cmpu = await s3_client.completeMultipartUpload({
+            Bucket: bucket_name2,
+            Key: mpu_key1,
+            UploadId: upload_id,
+            MultipartUpload: {
+                Parts: [{
+                    ETag: part1.ETag,
+                    PartNumber: 1
+                },
+                {
+                    ETag: part2.ETag,
+                    PartNumber: 2
+                }]
+            }
+        });
+        const res = await s3_client.listObjectVersions({ Bucket: bucket_name2});
+        assert.equal(res.$metadata.httpStatusCode, 200);
+        assert.equal(res.IsTruncated, false);
+        assert.equal(res.Versions[0].VersionId, res_cmpu.VersionId);
+    });
+
+    mocha.it('list object versions - after multipart upload 1 part (versioning suspended)', async function() {
+        await s3_client.putBucketVersioning({ Bucket: bucket_name2, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } });
+        const mpu_key1 = 'mpu_key1.txt';
+        const res_mpu = await s3_client.createMultipartUpload({ Bucket: bucket_name2, Key: mpu_key1 });
+        const upload_id = res_mpu.UploadId;
+        const body1 = 'AAAAABBBBBCCCCC';
+        const part1 = await s3_client.uploadPart({
+            Bucket: bucket_name2, Key: mpu_key1, Body: body1, UploadId: upload_id, PartNumber: 1 });
+        await s3_client.completeMultipartUpload({
+            Bucket: bucket_name2,
+            Key: mpu_key1,
+            UploadId: upload_id,
+            MultipartUpload: {
+                Parts: [{
+                    ETag: part1.ETag,
+                    PartNumber: 1
+                }]
+            }
+        });
+        const res = await s3_client.listObjectVersions({ Bucket: bucket_name2});
+        assert.equal(res.$metadata.httpStatusCode, 200);
+        assert.equal(res.IsTruncated, false);
+        assert.equal(res.Versions[0].VersionId, NULL_VERSION_ID);
+    });
+
+    mocha.it('list object versions - after multipart upload 2 parts (versioning suspended)', async function() {
+        await s3_client.putBucketVersioning({ Bucket: bucket_name2, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } });
+        const mpu_key1 = 'mpu_key1.txt';
+        const res_mpu = await s3_client.createMultipartUpload({ Bucket: bucket_name2, Key: mpu_key1 });
+        const upload_id = res_mpu.UploadId;
+        const body1 = 'AAAAABBBBBCCCCC';
+        const body2 = 'DDDDDEEEEEEFFFF';
+        const part1 = await s3_client.uploadPart({
+            Bucket: bucket_name2, Key: mpu_key1, Body: body1, UploadId: upload_id, PartNumber: 1 });
+        const part2 = await s3_client.uploadPart({
+            Bucket: bucket_name2, Key: mpu_key1, Body: body2, UploadId: upload_id, PartNumber: 2 });
+        await s3_client.completeMultipartUpload({
+            Bucket: bucket_name2,
+            Key: mpu_key1,
+            UploadId: upload_id,
+            MultipartUpload: {
+                Parts: [{
+                    ETag: part1.ETag,
+                    PartNumber: 1
+                },
+                {
+                    ETag: part2.ETag,
+                    PartNumber: 2
+                }]
+            }
+        });
+        const res = await s3_client.listObjectVersions({ Bucket: bucket_name2});
+        assert.equal(res.$metadata.httpStatusCode, 200);
+        assert.equal(res.IsTruncated, false);
+        assert.equal(res.Versions[0].VersionId, NULL_VERSION_ID);
+    });
+
+    mocha.it('list object versions - after 3 deletes (non-existing keys) (versioning enabled)', async function() {
+        await s3_client.putBucketVersioning({ Bucket: bucket_name2, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
+        const key1 = 'NiceMonth.txt';
+        const delete_arr = [];
+        const res_delete1 = await s3_client.deleteObject({Bucket: bucket_name2, Key: key1});
+        delete_arr.push(res_delete1.VersionId);
+        const res_delete2 = await s3_client.deleteObject({Bucket: bucket_name2, Key: key1});
+        delete_arr.push(res_delete2.VersionId);
+        const res_delete3 = await s3_client.deleteObject({Bucket: bucket_name2, Key: key1});
+        delete_arr.push(res_delete3.VersionId);
+        const res = await s3_client.listObjectVersions({ Bucket: bucket_name2 });
+        assert.equal(res.$metadata.httpStatusCode, 200);
+        assert.equal(res.IsTruncated, false);
+        assert.equal(res.MaxKeys, DEFAULT_MAX_KEYS);
+        assert.equal(res.Versions, undefined);
+        assert.equal(res.DeleteMarkers.length, 3);
+        const comp_res = res.DeleteMarkers.every(item => delete_arr.includes(item.VersionId));
+        assert.ok(comp_res);
+    });
+
+    mocha.it('list object versions - after 3 deletes (non-existing keys) (versioning suspended)', async function() {
+        await s3_client.putBucketVersioning({ Bucket: bucket_name2, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
+        const key1 = 'NiceMonth.txt';
+        const delete_arr = [];
+        const res_delete1 = await s3_client.deleteObject({Bucket: bucket_name2, Key: key1});
+        delete_arr.push(res_delete1.VersionId);
+        const res_delete2 = await s3_client.deleteObject({Bucket: bucket_name2, Key: key1});
+        delete_arr.push(res_delete2.VersionId);
+        const res_delete3 = await s3_client.deleteObject({Bucket: bucket_name2, Key: key1});
+        delete_arr.push(res_delete3.VersionId);
+        await s3_client.putBucketVersioning({ Bucket: bucket_name2, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } });
+        const res = await s3_client.listObjectVersions({ Bucket: bucket_name2 });
+        assert.equal(res.$metadata.httpStatusCode, 200);
+        assert.equal(res.IsTruncated, false);
+        assert.equal(res.MaxKeys, DEFAULT_MAX_KEYS);
+        assert.equal(res.Versions, undefined);
+        assert.equal(res.DeleteMarkers.length, 3);
+        const comp_res = res.DeleteMarkers.every(item => delete_arr.includes(item.VersionId));
+        assert.ok(comp_res);
+    });
+
+    mocha.it('list object versions - 2 versions of the same key, 1 delete latest (versioning enabled)', async function() {
+        await s3_client.putBucketVersioning({ Bucket: bucket_name2, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
+        const key1 = 'NiceWeek.txt';
+        const number_of_versions = 2;
+        const versions_arr = await _upload_versions(bucket_name2, key1, number_of_versions, s3_client);
+        const res_delete = await s3_client.deleteObject({Bucket: bucket_name2, Key: key1});
+        const res = await s3_client.listObjectVersions({ Bucket: bucket_name2 });
+        assert.equal(res.$metadata.httpStatusCode, 200);
+        assert.equal(res.IsTruncated, false);
+        assert.equal(res.MaxKeys, DEFAULT_MAX_KEYS);
+        assert.equal(res.Versions.length, number_of_versions);
+        const comp_res = res.Versions.every(item => versions_arr.includes(item.VersionId));
+        assert.ok(comp_res);
+        assert.equal(res.DeleteMarkers.length, 1);
+        assert.equal(res.DeleteMarkers[0].VersionId, res_delete.VersionId);
+        assert.equal(res.DeleteMarkers[0].IsLatest, true);
+    });
+
+    mocha.it('list object versions - 2 versions of the same key, 1 delete latest (versioning suspended)', async function() {
+        await s3_client.putBucketVersioning({ Bucket: bucket_name2, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
+        const key1 = 'NiceWeek.txt';
+        const number_of_versions = 2;
+        const versions_arr = await _upload_versions(bucket_name2, key1, number_of_versions, s3_client);
+        const res_delete = await s3_client.deleteObject({Bucket: bucket_name2, Key: key1});
+        await s3_client.putBucketVersioning({ Bucket: bucket_name2, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } });
+        const res = await s3_client.listObjectVersions({ Bucket: bucket_name2 });
+        assert.equal(res.$metadata.httpStatusCode, 200);
+        assert.equal(res.IsTruncated, false);
+        assert.equal(res.MaxKeys, DEFAULT_MAX_KEYS);
+        assert.equal(res.Versions.length, number_of_versions);
+        const comp_res = res.Versions.every(item => versions_arr.includes(item.VersionId));
+        assert.ok(comp_res);
+        assert.equal(res.DeleteMarkers.length, 1);
+        assert.equal(res.DeleteMarkers[0].VersionId, res_delete.VersionId);
+        assert.equal(res.DeleteMarkers[0].IsLatest, true);
+    });
+
 });
 
 async function create_object(object_path, data, version_id, return_fd) {
@@ -3201,4 +3851,22 @@ async function create_object(object_path, data, version_id, return_fd) {
     }
     if (return_fd) return target_file;
     await target_file.close(DEFAULT_FS_CONFIG);
+}
+
+/**
+ * _upload_versions uploads number_of_versions of key in bucket with a body of random data
+ * note: this function is not concurrent, it's a helper function for preparing a bucket with a couple of versions
+ * @param {string} bucket
+ * @param {string} key
+ * @param {number} number_of_versions
+ * @param {object} s3_client
+ */
+async function _upload_versions(bucket, key, number_of_versions, s3_client) {
+    const versions_arr = [];
+    for (let i = 0; i < number_of_versions; i++) {
+        const body = `some-data-${i}-` + 'A'.repeat(i);
+        const res = await s3_client.putObject({ Bucket: bucket, Key: key, Body: body });
+        versions_arr.push(res.VersionId);
+    }
+    return versions_arr;
 }

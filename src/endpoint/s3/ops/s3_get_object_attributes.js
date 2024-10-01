@@ -3,6 +3,7 @@
 
 const dbg = require('../../../util/debug_module')(__filename);
 const s3_utils = require('../s3_utils');
+const time_utils = require('../../../util/time_utils');
 const http_utils = require('../../../util/http_utils');
 const S3Error = require('../s3_errors').S3Error;
 
@@ -24,9 +25,7 @@ async function get_object_attributes(req, res) {
     };
     dbg.log2('params after parsing', params);
     const reply = await req.object_sdk.get_object_attributes(params);
-    s3_utils.set_response_object_md(res, reply);
-    s3_utils.set_encryption_response_headers(req, res, reply.encryption);
-
+    _set_response_headers(req, res, reply, version_id);
     return _parse_reply_according_to_attributes(reply, attributes);
 }
 
@@ -70,6 +69,21 @@ function _parse_attributes(req) {
         throw new S3Error(S3Error.InvalidArgument);
     }
     return attributes;
+}
+
+function _set_response_headers(req, res, reply, version_id) {
+    if (version_id) {
+        res.setHeader('x-amz-version-id', version_id);
+        if (reply.delete_marker) {
+            res.setHeader('x-amz-delete-marker', 'true');
+        }
+    }
+    if (reply.last_modified_time) {
+        res.setHeader('Last-Modified', time_utils.format_http_header_date(new Date(reply.last_modified_time)));
+    } else {
+        res.setHeader('Last-Modified', time_utils.format_http_header_date(new Date(reply.create_time)));
+    }
+    s3_utils.set_encryption_response_headers(req, res, reply.encryption);
 }
 
 /**

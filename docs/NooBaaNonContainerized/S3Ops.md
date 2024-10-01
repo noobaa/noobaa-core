@@ -34,7 +34,6 @@ The following lists describe the bucket and object operations available in NooBa
 
 - S3 PutObject
 - S3 GetObject
-- S3 GetObjectAttributes (partial support)
 - S3 HeadObject
 - S3 CopyObject
 - S3 DeleteObject

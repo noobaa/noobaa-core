@@ -749,16 +749,37 @@ class NamespaceS3 {
     //  OBJECT ATTRIBUTES   //
     //////////////////////////
 
-    /**
-     * get_object_attributes is partially implemented and currently calls headObject
-     * @param {object} params 
-     * @param {nb.ObjectSDK} object_sdk 
-     * @returns {Promise<object>}
-     */
     async get_object_attributes(params, object_sdk) {
-        delete params.attributes; // not part of the schema of read_object_md
-        const object_md = await this.read_object_md(params, object_sdk);
-        return object_md;
+        dbg.log0('NamespaceS3.get_object_attributes:', this.bucket, inspect(params));
+        await this._prepare_sts_client();
+
+        /** @type {AWS.S3.GetObjectAttributesRequest} */
+        const request = {
+            Bucket: this.bucket,
+            Key: params.key,
+            VersionId: params.version_id,
+            ObjectAttributes: [params.attributes.join(',')],
+        };
+        this._set_md_conditions(params, request);
+        this._assign_encryption_to_request(params, request);
+        try {
+            const res = await this.s3.getObjectAttributes(request).promise();
+            dbg.log0('NamespaceS3.get_object_attributes:', this.bucket, inspect(params), 'res', inspect(res));
+            return this._get_s3_object_info(res, params.bucket);
+        } catch (err) {
+            this._translate_error_code(params, err);
+            dbg.warn('NamespaceS3.get_object_attributes:', inspect(err));
+            // It's totally expected to issue `HeadObject` against an object that doesn't exist
+            // this shouldn't be counted as an issue for the namespace store
+            if (err.rpc_code !== 'NO_SUCH_OBJECT') {
+                object_sdk.rpc_client.pool.update_issues_report({
+                    namespace_resource_id: this.namespace_resource_id,
+                    error_code: String(err.code),
+                    time: Date.now(),
+                });
+            }
+            throw err;
+        }
     }
 
     ///////////////

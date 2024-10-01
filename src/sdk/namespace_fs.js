@@ -2142,22 +2142,6 @@ class NamespaceFS {
         }
     }
 
-    //////////////////////////
-    //  OBJECT ATTRIBUTES   //
-    //////////////////////////
-
-    /**
-     * get_object_attributes is partially implemented and currently calls headObject
-     * @param {object} params 
-     * @param {nb.ObjectSDK} object_sdk 
-     * @returns {Promise<object>}
-     */
-    async get_object_attributes(params, object_sdk) {
-        delete params.attributes; // not part of the schema of read_object_md
-        const object_md = await this.read_object_md(params, object_sdk);
-        return object_md;
-    }
-
     ///////////////
     // INTERNALS //
     ///////////////

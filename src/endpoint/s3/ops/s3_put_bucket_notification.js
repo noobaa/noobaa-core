@@ -1,21 +1,20 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const s3_utils = require('../s3_utils');
 const S3Error = require('../s3_errors').S3Error;
 
 /**
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketPUTnotification.html
  */
 async function put_bucket_notification(req) {
-    
+
     const topic_configuration = req.body.NotificationConfiguration?.TopicConfiguration;
-    if (!topic_configuration || 
+    if (!topic_configuration ||
         typeof topic_configuration !== 'object') throw new S3Error(S3Error.MalformedXML);
 
 
     //align request aws s3api sends
-    for(const notif of topic_configuration) {
+    for (const notif of topic_configuration) {
         if (Array.isArray(notif.Id)) notif.Id = notif.Id[0];
         notif.Connect = Array.isArray(notif.Topic) ? notif.Topic[0] : notif.Topic;
         notif.Events = notif.Event;
@@ -27,7 +26,7 @@ async function put_bucket_notification(req) {
         bucket_name: req.params.bucket,
         notifications: topic_configuration
     });
-    
+
     return reply;
 }
 

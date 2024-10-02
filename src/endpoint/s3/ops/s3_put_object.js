@@ -79,6 +79,11 @@ async function put_object(req, res) {
         };
     }
     res.setHeader('ETag', `"${reply.etag}"`);
+
+    if (reply.seq) {
+        res.seq = reply.seq;
+        delete reply.seq;
+    }
 }
 
 

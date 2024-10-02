@@ -573,7 +573,6 @@ async function get_bucket_notification(req) {
     return {
         notifications: bucket.notifications ? bucket.notifications : [],
     };
-    return res;
 }
 
 /**

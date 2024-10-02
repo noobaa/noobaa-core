@@ -2140,7 +2140,7 @@ class NamespaceFS {
      * - XATTR_RESTORE_EXPIRY
      * @param {*} params 
      * @param {nb.ObjectSDK} object_sdk 
-     * @returns {Promise<boolean>}
+     * @returns {Promise<Object>}
      */
     async restore_object(params, object_sdk) {
         dbg.log0('namespace_fs.restore_object:', params);
@@ -2177,7 +2177,7 @@ class NamespaceFS {
                 });
 
                 // Should result in HTTP: 202 Accepted
-                return true;
+                return {accepted: true};
             }
 
             if (restore_status.state === GlacierBackend.RESTORE_STATUS_ONGOING) {
@@ -2197,7 +2197,9 @@ class NamespaceFS {
                 });
 
                 // Should result in HTTP: 200 OK
-                return false;
+                return {accepted: false,
+                    expires_on,
+                    storage_class: s3_utils.STORAGE_CLASS_GLACIER};
             }
         } catch (error) {
             dbg.error('namespace_fs.restore_object: failed with error: ', error, file_path);

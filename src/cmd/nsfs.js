@@ -122,7 +122,7 @@ function print_usage() {
 let nsfs_config_root;
 
 class NsfsObjectSDK extends ObjectSDK {
-    constructor(fs_root, fs_config, account, versioning, config_root) {
+    constructor(fs_root, fs_config, account, versioning, config_root, nsfs_system) {
         // const rpc_client_hooks = new_rpc_client_hooks();
         // rpc_client_hooks.account.read_account_by_access_key = async ({ access_key }) => {
         //     if (access_key) {
@@ -153,6 +153,7 @@ class NsfsObjectSDK extends ObjectSDK {
         this.nsfs_account = account;
         this.nsfs_versioning = versioning;
         this.nsfs_namespaces = {};
+        this.nsfs_system = nsfs_system;
         if (!config_root) {
             this._get_bucket_namespace = bucket_name => this._simple_get_single_bucket_namespace(bucket_name);
             this.load_requesting_account = auth_req => this._simple_load_requesting_account(auth_req);
@@ -247,7 +248,7 @@ async function init_nsfs_system(config_root) {
     const data = await system_data.read();
     const hostname = os.hostname();
     // If the system data already exists, we should not create it again
-    if (data?.[hostname]?.current_version) return;
+    if (data?.[hostname]?.current_version) return data;
 
     try {
         await system_data.update({
@@ -261,6 +262,7 @@ async function init_nsfs_system(config_root) {
             }
         });
         console.log('created NSFS system data with version: ', pkg.version);
+        return data;
     } catch (err) {
         const msg = 'failed to create NSFS system data due to - ' + err.message;
         const error = new Error(msg);
@@ -348,7 +350,8 @@ async function main(argv = minimist(process.argv.slice(2))) {
             nsfs_config_root,
         });
 
-        if (!simple_mode) await init_nsfs_system(nsfs_config_root);
+        let nsfs_system;
+        if (!simple_mode) nsfs_system = await init_nsfs_system(nsfs_config_root);
 
         const endpoint = require('../endpoint/endpoint');
         await endpoint.main({
@@ -360,7 +363,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
             forks,
             nsfs_config_root,
             init_request_sdk: (req, res) => {
-                req.object_sdk = new NsfsObjectSDK(fs_root, fs_config, account, versioning, nsfs_config_root);
+                req.object_sdk = new NsfsObjectSDK(fs_root, fs_config, account, versioning, nsfs_config_root, nsfs_system);
                 req.account_sdk = new NsfsAccountSDK(fs_root, fs_config, account, nsfs_config_root);
             }
         });

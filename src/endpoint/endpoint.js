@@ -140,7 +140,7 @@ async function main(options = {}) {
             });
 
         notification_logger = config.NOTIFICATION_LOG_DIR &&
-            new PersistentLogger(config.NOTIFICATION_LOG_DIR, config.NOTIFICATION_LOG_NS + '_' + node_name, {
+            new PersistentLogger(config.NOTIFICATION_LOG_DIR, node_name + '_' + config.NOTIFICATION_LOG_NS, {
                 locking: 'SHARED',
                 poll_interval: config.NSFS_GLACIER_LOGS_POLL_INTERVAL,
             });

@@ -29,6 +29,7 @@ async function delete_object(req, res) {
         res.setHeader('x-amz-delete-marker', 'true');
         req.s3event_op = 'DeleteMarkerCreated';
     }
+    res.seq = del_res.seq;
 }
 
 module.exports = {

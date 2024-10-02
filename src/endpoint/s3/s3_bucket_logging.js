@@ -6,6 +6,7 @@ const http_utils = require('../../util/http_utils');
 const dgram = require('node:dgram');
 const { Buffer } = require('node:buffer');
 const config = require('../../../config');
+const {compose_notification} = require('../../util/notifications_util');
 
 function check_notif_relevant(notif, req) {
     //if no events were specified, always notify
@@ -18,10 +19,10 @@ function check_notif_relevant(notif, req) {
         const event_method = notif_event_elems[2];
         const req_s3_event_op = req.s3_event_op || req.method;
         if (!req.s3event) return false;
-        if (event_name.toLowerCase() !== req.s3event.toLowerCase()) return false; //TODO
+        if (event_name.toLowerCase() !== req.s3event.toLowerCase()) return false;
         if (event_method === '*') return true;
         if (!req_s3_event_op) return false;
-        if (event_method.toLowerCase() === req_s3_event_op.toLowerCase()) return true; //TODO
+        if (event_method.toLowerCase() === req_s3_event_op.toLowerCase()) return true;
     }
 
     //request does not match any of the requested events
@@ -31,8 +32,8 @@ function check_notif_relevant(notif, req) {
 async function send_bucket_op_logs(req, res) {
     if (req.params && req.params.bucket &&
         !(req.op_name === 'put_bucket' ||
-         req.op_name === 'put_bucket_notification' ||
-         req.op_name === 'get_bucket_notification'
+          req.op_name === 'put_bucket_notification' ||
+          req.op_name === 'get_bucket_notification'
         )) {
         //potentially, there could be two writes to two different files.
         //we want to await for all writes together, instead of serially
@@ -48,20 +49,19 @@ async function send_bucket_op_logs(req, res) {
         }
 
         if (req.notification_logger && bucket_info.notifications) {
-
-            for (const notif of bucket_info.notifications) {
-                if (check_notif_relevant(notif, req)) {
-                    const s3_log = {
+            for (const notif_conf of bucket_info.notifications) {
+                if (check_notif_relevant(notif_conf, req)) {
+                    const notif = {
                         meta: {
-                            connect: notif.Connect,
-                            name: notif.name
+                            connect: notif_conf.Connect,
+                            name: notif_conf.name
                         },
-                        notif: get_bucket_log_record(req.op_name, bucket_info, req, res, "NOTIF")
+                        notif: compose_notification(req, res, bucket_info, notif_conf)
                     };
-                    dbg.log1("logging notif ", notif, ", s3_log = ", s3_log);
+                    dbg.log1("logging notif ", notif_conf, ", notif = ", notif);
                     writes_aggregate.push({
                         file: req.notification_logger,
-                        buffer: JSON.stringify(s3_log)
+                        buffer: JSON.stringify(notif)
                     });
                 }
             }
@@ -119,7 +119,7 @@ function endpoint_bucket_op_logs(op_name, req, res, source_bucket, writes_aggreg
 
     // 1 - Get all the information to be logged in a log message.
     // 2 - Format it and send it to log bucket/syslog.
-    const s3_log = get_bucket_log_record(op_name, source_bucket, req, res, "LOG");
+    const s3_log = get_bucket_log_record(op_name, source_bucket, req, res);
     dbg.log1("Bucket operation logs = ", s3_log);
 
     switch (config.BUCKET_LOG_TYPE) {
@@ -152,7 +152,7 @@ function send_op_logs_to_syslog(syslog, s3_log) {
     }
 }
 
-function get_bucket_log_record(op_name, source_bucket, req, res, type) {
+function get_bucket_log_record(op_name, source_bucket, req, res) {
 
     const client_ip = http_utils.parse_client_ip(req);
     let status_code = 102;
@@ -167,15 +167,11 @@ function get_bucket_log_record(op_name, source_bucket, req, res, type) {
         remote_ip: client_ip,
         request_uri: req.originalUrl,
         http_status: status_code,
-        request_id: req.request_id
+        request_id: req.request_id,
+        noobaa_bucket_logging: true,
+        log_bucket: source_bucket.bucket_info.logging.log_bucket,
+        log_prefix: source_bucket.bucket_info.logging.log_prefix,
     };
-
-    //add fields unique to bucket logging
-    if (type === 'LOG') {
-        log.noobaa_bucket_logging = true;
-        log.log_bucket = source_bucket.bucket_info.logging.log_bucket;
-        log.log_prefix = source_bucket.bucket_info.logging.log_prefix;
-    }
 
     return log;
 }

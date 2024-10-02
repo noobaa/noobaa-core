@@ -462,6 +462,7 @@ async function complete_object_upload(req) {
         encryption: obj.encryption,
         size: set_updates.size,
         content_type: obj.content_type,
+        seq: set_updates.version_seq,
     };
 }
 
@@ -881,6 +882,7 @@ async function delete_object(req) {
     if (obj) {
         dbg.log1(`${obj.key} was deleted by ${req.account && req.account.email.unwrap()}`);
     }
+    reply.seq = await MDStore.instance().alloc_object_version_seq();
     return reply;
 }
 

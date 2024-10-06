@@ -148,7 +148,6 @@ module.exports = {
         },
 
         // bucket lifecycle
-
         bucket_lifecycle_rule_expiration: {
             type: 'object',
             properties: {
@@ -159,11 +158,9 @@ module.exports = {
                 date: {
                     idate: true
                 },
-                /*
                 expired_object_delete_marker: {
                     type: 'boolean'
                 }
-                */
             }
         },
         bucket_lifecycle_rule_status: {
@@ -203,7 +200,7 @@ module.exports = {
         },
         bucket_lifecycle_rule: {
             type: 'object',
-            required: ['id', 'filter', 'expiration', 'status'],
+            required: ['id', 'filter', 'status'],
             properties: {
                 id: {
                     type: 'string'
@@ -220,9 +217,9 @@ module.exports = {
                 last_sync: {
                     idate: true
                 },
-                /*
                 abort_incomplete_multipart_upload: {
                     type: 'object',
+                    required: ['days_after_initiation'],
                     properties: {
                         days_after_initiation: {
                             type: 'integer'
@@ -235,6 +232,9 @@ module.exports = {
                         date: {
                             idate: true
                         },
+                        days: {
+                            type: 'integer'
+                        },
                         storage_class: {
                             $ref: '#/definitions/storage_class_enum'
                         }
@@ -246,6 +246,9 @@ module.exports = {
                         noncurrent_days: {
                             type: 'integer'
                         },
+                        newer_noncurrent_versions: {
+                            type: 'integer'
+                        }
                     }
                 },
                 noncurrent_version_transition: {
@@ -254,12 +257,14 @@ module.exports = {
                         noncurrent_days: {
                             type: 'integer'
                         },
+                        newer_noncurrent_versions: {
+                            type: 'integer'
+                        },
                         storage_class: {
                             $ref: '#/definitions/storage_class_enum'
                         }
                     }
                 },
-                */
             }
         },
 

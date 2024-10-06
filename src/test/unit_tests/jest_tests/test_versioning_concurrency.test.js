@@ -3,7 +3,6 @@
 'use strict';
 
 const path = require('path');
-const config = require('../../../../config');
 const P = require('../../../util/promise');
 const fs_utils = require('../../../util/fs_utils');
 const NamespaceFS = require('../../../sdk/namespace_fs');
@@ -42,7 +41,6 @@ const nsfs = new NamespaceFS({
 
 const DUMMY_OBJECT_SDK = make_dummy_object_sdk(true);
 describe('test versioning concurrency', () => {
-    const prior_value_of_nsfs_rename_retries = config.NSFS_RENAME_RETRIES;
 
     beforeEach(async () => {
         await fs_utils.create_fresh_path(tmp_fs_path);
@@ -50,7 +48,6 @@ describe('test versioning concurrency', () => {
 
     afterEach(async () => {
         await fs_utils.folder_delete(tmp_fs_path);
-        config.NSFS_RENAME_RETRIES = prior_value_of_nsfs_rename_retries;
     });
 
     it('multiple puts of the same key', async () => {
@@ -58,7 +55,7 @@ describe('test versioning concurrency', () => {
         const key = 'key1';
         const failed_operations = [];
         const successful_operations = [];
-        const num_of_concurrency = 5;
+        const num_of_concurrency = 10;
         for (let i = 0; i < num_of_concurrency; i++) {
             const random_data = Buffer.from(String(i));
             const body = buffer_utils.buffer_to_read_stream(random_data);
@@ -169,7 +166,6 @@ describe('test versioning concurrency', () => {
         const failed_put_operations = [];
         const failed_head_operations = [];
         const number_of_iterations = 10;
-        config.NSFS_RENAME_RETRIES = 40;
         for (let i = 0; i < number_of_iterations; i++) {
             const random_data = Buffer.from(String(i));
             const body = buffer_utils.buffer_to_read_stream(random_data);
@@ -187,6 +183,7 @@ describe('test versioning concurrency', () => {
         const versions = await nsfs.list_object_versions({ bucket: bucket }, DUMMY_OBJECT_SDK);
         expect(versions.objects.length).toBe(number_of_iterations + 1); // 1 version before + 10 versions concurrent
     });
+
     it('concurrent puts & delete latest objects', async () => {
         const bucket = 'bucket1';
         const key = 'key3';
@@ -255,8 +252,7 @@ describe('test versioning concurrency', () => {
         expect(num_of_latest_versions).toBe(1);
     }, 6000);
 
-    // currently being skipped because it's not passing - probably a bug that we need to fix
-    it.skip('concurrent delete objects by version id/latest', async () => {
+    it('concurrent delete objects by version id/latest', async () => {
         const bucket = 'bucket1';
         const key = 'key5';
         const delete_ver_res_arr = [];

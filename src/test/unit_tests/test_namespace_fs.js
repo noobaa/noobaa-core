@@ -1,5 +1,6 @@
 /* Copyright (C) 2020 NooBaa */
 /*eslint max-lines-per-function: ["error", 900]*/
+/*eslint max-lines: ["error", 2100]*/
 'use strict';
 
 const _ = require('lodash');
@@ -1764,7 +1765,265 @@ mocha.describe('namespace_fs copy object', function() {
         });
     });
 
+    mocha.describe('namespace_fs upload object with tagging', function() {
+
+        const upload_bkt_tagging = 'test_ns_uploads_object_tagging';
+        const tmp_fs_path_tagging = path.join(TMP_PATH, 'test_namespace_fs_tagging');
+        const ns_tmp_bucket_path_tagging = `${tmp_fs_path_tagging}/${src_bkt}`;
+        const ns_tmp_tagging = new NamespaceFS({ bucket_path: ns_tmp_bucket_path_tagging, bucket_id: '3', namespace_resource_id: undefined });
+        mocha.before(async () => {
+            await P.all(_.map([src_bkt, upload_bkt_tagging], async buck =>
+                fs_utils.create_fresh_path(`${tmp_fs_path_tagging}/${buck}`)));
+        });
+        mocha.after(async () => {
+            await P.all(_.map([src_bkt, upload_bkt_tagging], async buck =>
+                fs_utils.folder_delete(`${tmp_fs_path_tagging}/${buck}`)));
+            await fs_utils.folder_delete(tmp_fs_path_tagging);
+        });
+        mocha.describe('upload_object (tagging)', function() {
+            const upload_key = 'upload_key_1';
+            const upload_folder_key = 'upload_folder_key1/';
+            const upload_folder_key_without_slash = 'upload_folder_key';
+            const data = crypto.randomBytes(100);
+            const tagging_1 = [{ key: 'tag1', value: 'val1' }];
+            const xattr = { key: 'key1', key2: 'value1' };
+
+            mocha.it('Upload object with tagging', async function() {
+                const params = {
+                    bucket: upload_bkt_tagging,
+                    key: upload_key,
+                    xattr,
+                    source_stream: buffer_utils.buffer_to_read_stream(data),
+                    tagging: tagging_1,
+                };
+                const upload_res = await ns_tmp_tagging.upload_object(params, dummy_object_sdk);
+                console.log('upload_object (tag) response', inspect(upload_res));
+                const tag_res = await ns_tmp_tagging.get_object_tagging({
+                    bucket: upload_bkt_tagging,
+                    key: upload_key,
+                }, dummy_object_sdk);
+                console.log('get_object_tagging response', inspect(tag_res));
+                await validate_tagging(tag_res.tagging, tagging_1);
+            });
+
+            mocha.it('Upload object with multiple tagging', async function() {
+                const tagging_multi = [{ key: 'tag1', value: 'val1' },
+                    { key: 'tag2', value: 'val2' },
+                    { key: 'tag3', value: 'val3' }
+                ];
+                const params = {
+                    bucket: upload_bkt_tagging,
+                    key: upload_key,
+                    xattr,
+                    source_stream: buffer_utils.buffer_to_read_stream(data),
+                    tagging: tagging_multi,
+                };
+                const upload_res = await ns_tmp_tagging.upload_object(params, dummy_object_sdk);
+                console.log('upload_object (tag) response', inspect(upload_res));
+                const tag_res = await ns_tmp_tagging.get_object_tagging({
+                    bucket: upload_bkt_tagging,
+                    key: upload_key,
+                }, dummy_object_sdk);
+                console.log('get_object_tagging response', inspect(tag_res));
+                await validate_tagging(tag_res.tagging, tagging_multi);
+            });
+
+            mocha.it('Upload object with tagging, update tag', async function() {
+                const tagging_2 = [{ key: 'tag2', value: 'val2' }];
+                const params = {
+                    bucket: upload_bkt_tagging,
+                    key: upload_key,
+                    xattr,
+                    source_stream: buffer_utils.buffer_to_read_stream(data),
+                    tagging: tagging_1,
+                };
+                const upload_res = await ns_tmp_tagging.upload_object(params, dummy_object_sdk);
+                console.log('upload_object (tag) response', inspect(upload_res));
+                const tag_res = await ns_tmp_tagging.get_object_tagging({
+                    bucket: upload_bkt_tagging,
+                    key: upload_key,
+                }, dummy_object_sdk);
+                console.log('get_object_tagging response', inspect(tag_res));
+                await validate_tagging(tag_res.tagging, tagging_1);
+
+                const update_params = {
+                    bucket: upload_bkt_tagging,
+                    key: upload_key,
+                    xattr,
+                    source_stream: buffer_utils.buffer_to_read_stream(data),
+                    tagging: tagging_2,
+                };
+                const update_upload_res = await ns_tmp_tagging.upload_object(update_params, dummy_object_sdk);
+                console.log('upload_object (tag) response after update', inspect(update_upload_res));
+                const update_tag_res = await ns_tmp_tagging.get_object_tagging({
+                    bucket: upload_bkt_tagging,
+                    key: upload_key,
+                }, dummy_object_sdk);
+                console.log('get_object_tagging response after update', inspect(tag_res));
+                await validate_tagging(update_tag_res.tagging, tagging_2);
+            });
+
+            mocha.it('Upload folder object with tagging', async function() {
+                const params = {
+                    bucket: upload_bkt_tagging,
+                    key: upload_folder_key,
+                    source_stream: buffer_utils.buffer_to_read_stream(data),
+                    tagging: tagging_1,
+                };
+                const upload_res = await ns_tmp_tagging.upload_object(params, dummy_object_sdk);
+                console.log('upload_object (tag) response', inspect(upload_res));
+                const tag_res = await ns_tmp_tagging.get_object_tagging({
+                    bucket: upload_bkt_tagging,
+                    key: upload_folder_key,
+                }, dummy_object_sdk);
+                console.log('get_object_tagging response', inspect(tag_res));
+                await validate_tagging(tag_res.tagging, tagging_1);
+            });
+
+            mocha.it('Upload folder object with tagging, get object tagging key without slash', async function() {
+                const tagging_2 = [{ key: 'tag2', value: 'val2' }];
+                const params = {
+                    bucket: upload_bkt_tagging,
+                    key: upload_folder_key_without_slash,
+                    xattr,
+                    source_stream: buffer_utils.buffer_to_read_stream(data),
+                    tagging: tagging_2,
+                };
+                const upload_res = await ns_tmp_tagging.upload_object(params, dummy_object_sdk);
+                console.log('upload_object (tag) response', inspect(upload_res));
+                const tag_res = await ns_tmp_tagging.get_object_tagging({
+                    bucket: upload_bkt_tagging,
+                    key: upload_folder_key_without_slash,
+                }, dummy_object_sdk);
+                console.log('get_object_tagging response', inspect(tag_res));
+                await validate_tagging(tag_res.tagging, tagging_2);
+            });
+
+            mocha.it('Upload folder object with tagging and version enabled', async function() {
+                ns_tmp_tagging.set_bucket_versioning('ENABLED', dummy_object_sdk);
+                const tagging_2 = [{ key: 'tag2', value: 'val2' }];
+                const tagging_3 = [{ key: 'tag3', value: 'val3' }];
+                const upload_key_2 = 'tagging_upload_key_2';
+                const params1 = {
+                    bucket: upload_bkt_tagging,
+                    key: upload_key_2,
+                    source_stream: buffer_utils.buffer_to_read_stream(data),
+                    tagging: tagging_1,
+                };
+                const upload_res = await ns_tmp_tagging.upload_object(params1, dummy_object_sdk);
+                console.log('upload_object (tag) response', inspect(upload_res));
+                const params2 = {
+                    bucket: upload_bkt_tagging,
+                    key: upload_key_2,
+                    source_stream: buffer_utils.buffer_to_read_stream(data),
+                    tagging: tagging_2,
+                };
+                const upload_res1 = await ns_tmp_tagging.upload_object(params2, dummy_object_sdk);
+                console.log('upload_object (tag) response', inspect(upload_res1));
+
+                //get tag for first version
+                const tag_res = await ns_tmp_tagging.get_object_tagging({
+                    bucket: upload_bkt_tagging,
+                    key: upload_key_2,
+                    version_id: upload_res.version_id,
+                }, dummy_object_sdk);
+                console.log('get_object_tagging response', inspect(tag_res));
+                await validate_tagging(tag_res.tagging, tagging_1);
+
+                // suspend versioning, verion specific tag should retun.
+                ns_tmp_tagging.set_bucket_versioning('SUSPENDED', dummy_object_sdk);
+                const params3 = {
+                    bucket: upload_bkt_tagging,
+                    key: upload_key_2,
+                    source_stream: buffer_utils.buffer_to_read_stream(data),
+                    tagging: tagging_3,
+                };
+                const upload_res2 = await ns_tmp_tagging.upload_object(params3, dummy_object_sdk);
+                console.log('upload_object (tag) response', inspect(upload_res2));
+
+                //get tag for second version, after disabling version
+                const tag_res1 = await ns_tmp_tagging.get_object_tagging({
+                    bucket: upload_bkt_tagging,
+                    key: upload_key_2,
+                    version_id: upload_res1.version_id,
+                }, dummy_object_sdk);
+                console.log('get_object_tagging response', inspect(tag_res1));
+                await validate_tagging(tag_res1.tagging, tagging_2);
+
+                //get tag for last item without version id
+                const tag_res2 = await ns_tmp_tagging.get_object_tagging({
+                    bucket: upload_bkt_tagging,
+                    key: upload_key_2,
+                }, dummy_object_sdk);
+                console.log('get_object_tagging response', inspect(tag_res2));
+                await validate_tagging(tag_res2.tagging, tagging_3);
+            });
+
+            mocha.it('get tag with last version', async function() {
+                ns_tmp_tagging.set_bucket_versioning('ENABLED', dummy_object_sdk);
+                const tagging_2 = [{ key: 'tag2', value: 'val2' }];
+                const upload_key_2 = 'tagging_upload_key_2';
+                const params1 = {
+                    bucket: upload_bkt_tagging,
+                    key: upload_key_2,
+                    source_stream: buffer_utils.buffer_to_read_stream(data),
+                    tagging: tagging_1,
+                };
+                const upload_res = await ns_tmp_tagging.upload_object(params1, dummy_object_sdk);
+                console.log('upload_object (tag) response@@@', inspect(upload_res));
+                //get tag for first version, with version id
+                const tag_res = await ns_tmp_tagging.get_object_tagging({
+                    bucket: upload_bkt_tagging,
+                    key: upload_key_2,
+                    version_id: upload_res.version_id,
+                }, dummy_object_sdk);
+                await validate_tagging(tag_res.tagging, tagging_1);
+                //get tag for first version, without version id
+                const tag_res_1 = await ns_tmp_tagging.get_object_tagging({
+                    bucket: upload_bkt_tagging,
+                    key: upload_key_2,
+                }, dummy_object_sdk);
+                await validate_tagging(tag_res_1.tagging, tagging_1);
+                const params2 = {
+                    bucket: upload_bkt_tagging,
+                    key: upload_key_2,
+                    source_stream: buffer_utils.buffer_to_read_stream(data),
+                    tagging: tagging_2,
+                };
+                const upload_res1 = await ns_tmp_tagging.upload_object(params2, dummy_object_sdk);
+                console.log('upload_object (tag) response', inspect(upload_res1));
+
+                //get tag for lates version, with version id
+                const tag_res1 = await ns_tmp_tagging.get_object_tagging({
+                    bucket: upload_bkt_tagging,
+                    key: upload_key_2,
+                    version_id: upload_res1.version_id,
+                }, dummy_object_sdk);
+                await validate_tagging(tag_res1.tagging, tagging_2);
+                //get tag for lates version, without version id
+                const tag_res1_1 = await ns_tmp_tagging.get_object_tagging({
+                    bucket: upload_bkt_tagging,
+                    key: upload_key_2,
+                }, dummy_object_sdk);
+                await validate_tagging(tag_res1_1.tagging, tagging_2);
+
+            });
+
+        });
+    });
 });
+
+async function validate_tagging(tag_res, tag_req) {
+    let count = 0;
+    if (tag_res.length === 0) {
+        assert.fail('object tag should not be empty');
+    }
+    for (const tagging of tag_res) {
+        assert.deepStrictEqual(tagging.key, tag_req[count].key);
+        assert.deepStrictEqual(tagging.value, tag_req[count].value);
+        count += 1;
+    }
+}
 
 //simulates object_sdk.fix_copy_source_params filtering of source xattr for copy object tests
 async function _get_source_copy_xattr(copy_source, source_ns, object_sdk) {

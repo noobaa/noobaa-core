@@ -1165,7 +1165,6 @@ class NamespaceFS {
             await this._throw_if_storage_class_not_supported(params.storage_class);
 
             upload_params = await this._start_upload(fs_context, object_sdk, file_path, params, open_mode);
-
             if (!params.copy_source || upload_params.copy_res === copy_status_enum.FALLBACK) {
                 // We are taking the buffer size closest to the sized upload
                 const bp = multi_buffer_pool.get_buffers_pool(params.size);
@@ -1330,6 +1329,13 @@ class NamespaceFS {
 
             if (params.storage_class === s3_utils.STORAGE_CLASS_GLACIER) {
                 await this.append_to_migrate_wal(file_path);
+            }
+        }
+        if (params.tagging) {
+            for (const { key, value } of params.tagging) {
+                fs_xattr = Object.assign(fs_xattr || {}, {
+                    [XATTR_TAG + key]: value
+                });
             }
         }
         if (fs_xattr && !is_dir_content && should_replace_xattr) await target_file.replacexattr(fs_context, fs_xattr);
@@ -1952,15 +1958,17 @@ class NamespaceFS {
     async get_object_tagging(params, object_sdk) {
         const tag_set = [];
         let file_path;
-        if (params.version_id && this._is_versioning_enabled()) {
-            file_path = this._get_version_path(params.key, params.version_id);
+        let file;
+        const fs_context = this.prepare_fs_context(object_sdk);
+        // Version specific tag will return even if versioning suspended.
+        if (params.version_id) {
+            file_path = await this._find_version_path(fs_context, params, true);
         } else {
-            file_path = this._get_file_path(params);
+            file_path = this._get_file_md_path(params);
         }
         try {
-            const fs_context = this.prepare_fs_context(object_sdk);
             dbg.log0('NamespaceFS.get_object_tagging: param ', params, 'file_path :', file_path);
-            const file = await nb_native().fs.open(fs_context, file_path);
+            file = await nb_native().fs.open(fs_context, file_path);
             const stat = await file.stat(fs_context);
             if (stat.xattr) {
                 for (const [xattr_key, xattr_value] of Object.entries(stat.xattr)) {
@@ -1975,6 +1983,8 @@ class NamespaceFS {
         } catch (err) {
             dbg.error(`NamespaceFS.get_object_tagging: failed in dir ${file_path} with error: `, err);
             throw native_fs_utils.translate_error_codes(err, native_fs_utils.entity_enum.OBJECT);
+        } finally {
+            if (file) await file.close(fs_context);
         }
         dbg.log0('NamespaceFS.get_object_tagging: return tagging ', tag_set, 'file_path :', file_path);
         return { tagging: tag_set };

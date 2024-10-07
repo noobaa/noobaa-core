@@ -2740,7 +2740,7 @@ class NamespaceFS {
             };
         } catch (err) {
             if (err.code !== 'ENOENT') throw err;
-            dbg.warn(`NamespaceFS._get_version_info version of ${version_path} doesn't exist`, err);
+            dbg.log1(`NamespaceFS._get_version_info version of ${version_path} doesn't exist`, err);
         }
         // if stat failed, undefined will return
     }

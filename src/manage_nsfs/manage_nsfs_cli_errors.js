@@ -1,7 +1,12 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+const config = require('../../config');
 const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
+
+// by default NC_DISABLE_POSIX_MODE_ACCESS_CHECK=true, therefore CLI access check of account/bucket will be based on stat (open file)
+// which checks only read permissions. 
+const CLI_ACCESS_CHECK_PERMISSIONS = config.NC_DISABLE_POSIX_MODE_ACCESS_CHECK ? 'read' : 'read & write';
 
 /**
  * @typedef {{
@@ -327,7 +332,7 @@ ManageCLIError.InvalidBooleanValue = Object.freeze({
 
 ManageCLIError.InaccessibleAccountNewBucketsPath = Object.freeze({
     code: 'InaccessibleAccountNewBucketsPath',
-    message: 'Account should have read & write access to the specified new_buckets_path',
+    message: `Account should have ${CLI_ACCESS_CHECK_PERMISSIONS} access to the specified new_buckets_path`,
     http_code: 400,
 });
 
@@ -435,7 +440,7 @@ ManageCLIError.MalformedPolicy = Object.freeze({
 
 ManageCLIError.InaccessibleStoragePath = Object.freeze({
     code: 'InaccessibleStoragePath',
-    message: 'Bucket owner should have read & write access to the specified bucket storage path',
+    message: `Bucket owner should have ${CLI_ACCESS_CHECK_PERMISSIONS} access to the specified bucket storage path`,
     http_code: 400,
 });
 

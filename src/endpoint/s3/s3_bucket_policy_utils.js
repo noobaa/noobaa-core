@@ -45,6 +45,7 @@ const OP_NAME_TO_ACTION = Object.freeze({
     get_bucket_object_lock: { regular: "s3:GetBucketObjectLockConfiguration" },
     get_bucket: { regular: "s3:ListBucket" },
     get_object_acl: { regular: "s3:GetObjectAcl" },
+    get_object_attributes: { regular: ["s3:GetObject", "s3:GetObjectAttributes"], versioned: ["s3:GetObjectVersion", "s3:GetObjectVersionAttributes"] }, // Notice - special case
     get_object_tagging: { regular: "s3:GetObjectTagging", versioned: "s3:GetObjectVersionTagging" },
     get_object_uploadId: { regular: "s3:ListMultipartUploadParts" },
     get_object_retention: { regular: "s3:GetObjectRetention"},
@@ -139,11 +140,16 @@ async function _is_object_tag_fit(req, predicate, value) {
 async function has_bucket_policy_permission(policy, account, method, arn_path, req) {
     const [allow_statements, deny_statements] = _.partition(policy.Statement, statement => statement.Effect === 'Allow');
 
+    // the case where the permission is an array started in op get_object_attributes
+    const method_arr = Array.isArray(method) ? method : [method];
+
     // look for explicit denies
-    if (await _is_statements_fit(deny_statements, account, method, arn_path, req)) return 'DENY';
+    const res_arr_deny = await is_statement_fit_of_method_array(deny_statements, account, method_arr, arn_path, req);
+    if (res_arr_deny.every(item => item)) return 'DENY';
 
     // look for explicit allows
-    if (await _is_statements_fit(allow_statements, account, method, arn_path, req)) return 'ALLOW';
+    const res_arr_allow = await is_statement_fit_of_method_array(allow_statements, account, method_arr, arn_path, req);
+    if (res_arr_allow.every(item => item)) return 'ALLOW';
 
     // implicit deny
     return 'IMPLICIT_DENY';
@@ -156,6 +162,7 @@ function _is_action_fit(method, statement) {
         dbg.log1('bucket_policy: ', statement.Action ? 'Action' : 'NotAction', ' fit?', action, method);
         if ((action === '*') || (action === 's3:*') || (action === method)) {
             action_fit = true;
+            break;
         }
     }
     return statement.Action ? action_fit : !action_fit;
@@ -170,6 +177,7 @@ function _is_principal_fit(account, statement) {
         dbg.log1('bucket_policy: ', statement.Principal ? 'Principal' : 'NotPrincipal', ' fit?', principal, account);
         if ((principal.unwrap() === '*') || (principal.unwrap() === account)) {
             principal_fit = true;
+            break;
         }
     }
     return statement.Principal ? principal_fit : !principal_fit;
@@ -184,9 +192,18 @@ function _is_resource_fit(arn_path, statement) {
         dbg.log1('bucket_policy: ', statement.Resource ? 'Resource' : 'NotResource', ' fit?', resource_regex, arn_path);
         if (resource_regex.test(arn_path)) {
             resource_fit = true;
+            break;
         }
     }
     return statement.Resource ? resource_fit : !resource_fit;
+}
+
+async function is_statement_fit_of_method_array(statements, account, method_arr, arn_path, req) {
+    const res_arr = [];
+    for (const method_permission of method_arr) {
+        res_arr.push(await _is_statements_fit(statements, account, method_permission, arn_path, req));
+    }
+    return res_arr;
 }
 
 async function _is_statements_fit(statements, account, method, arn_path, req) {
@@ -237,7 +254,7 @@ function _parse_condition_keys(condition_statement) {
 }
 
 async function validate_s3_policy(policy, bucket_name, get_account_handler) {
-    const all_op_names = _.compact(_.flatMap(OP_NAME_TO_ACTION, action => [action.regular, action.versioned]));
+    const all_op_names = _.flatten(_.compact(_.flatMap(OP_NAME_TO_ACTION, action => [action.regular, action.versioned])));
     for (const statement of policy.Statement) {
 
         const statement_principal = statement.Principal || statement.NotPrincipal;

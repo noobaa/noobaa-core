@@ -1110,6 +1110,24 @@ class ObjectSDK {
         this._check_is_readonly_namespace(ns);
         return ns.put_object_acl(params, this);
     }
+
+    //////////////////////////
+    //  OBJECT ATTRIBUTES   //
+    //////////////////////////
+
+    async get_object_attributes(params) {
+        const ns = await this._get_bucket_namespace(params.bucket);
+        try {
+            return ns.get_object_attributes(params, this);
+        } catch (err) {
+            if (err instanceof TypeError &&
+                err.message.includes('get_object_attributes is not a function')) {
+                    delete params.attributes; // not part of the schema of read_object_md
+                    return ns.read_object_md(params, this);
+                }
+        }
+    }
+
 }
 
 // EXPORT

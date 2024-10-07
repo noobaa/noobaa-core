@@ -814,6 +814,7 @@ interface Namespace {
     get_blob_block_lists(params: object, object_sdk: ObjectSDK): Promise<any>;
 
     restore_object(params: object, object_sdk: ObjectSDK): Promise<any>;
+    get_object_attributes(params: object, object_sdk: ObjectSDK): Promise<any>;
 }
 
 interface BucketSpace {

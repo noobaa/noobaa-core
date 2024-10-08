@@ -4,7 +4,7 @@
 const argv = require('minimist')(process.argv);
 const _ = require('lodash');
 const pkg = require('../../package.json');
-const { should_upgrade, load_required_scripts } = require('./upgrade_utils');
+const { should_upgrade, run_upgrade_scripts } = require('./upgrade_utils');
 const dbg = require('../util/debug_module')('UPGRADE');
 dbg.set_process_name('Upgrade');
 
@@ -52,18 +52,7 @@ async function upgrade_db() {
         };
         const upgrade_history = system_store.data.systems[0].upgrade_history;
         try {
-            const upgrade_scripts = await load_required_scripts(server_version, container_version, upgrade_scripts_dir);
-            for (const script of upgrade_scripts) {
-                dbg.log0(`running upgrade script ${script.file}: ${script.description}`);
-                try {
-                    await script.run({ dbg, db_client, system_store, system_server });
-                    this_upgrade.completed_scripts.push(script.file);
-                } catch (err) {
-                    dbg.error(`failed running upgrade script ${script.file}`, err);
-                    this_upgrade.error = err.stack;
-                    throw err;
-                }
-            }
+            await run_upgrade_scripts(this_upgrade, upgrade_scripts_dir, { dbg, db_client, system_store, system_server });
             upgrade_history.successful_upgrades = [this_upgrade, ...upgrade_history.successful_upgrades];
             current_version = container_version;
         } catch (err) {

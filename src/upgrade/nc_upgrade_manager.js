@@ -6,7 +6,7 @@ const _ = require('lodash');
 const path = require('path');
 const pkg = require('../../package.json');
 const dbg = require('../util/debug_module')('UPGRADE');
-const { should_upgrade, load_required_scripts } = require('./upgrade_utils');
+const { should_upgrade, run_upgrade_scripts } = require('./upgrade_utils');
 
 dbg.set_process_name('Upgrade');
 const hostname = os.hostname();
@@ -209,20 +209,8 @@ async function _run_nc_upgrade_scripts(config_fs, system_data, this_upgrade, cus
     const completed_scripts = [];
     const upgrade_scripts_dir = custom_upgrade_scripts_dir || path.join(__dirname, 'nc_upgrade_scripts');
 
-    const { config_dir_from_version, config_dir_to_version } = this_upgrade;
     try {
-        const upgrade_scripts = await load_required_scripts(config_dir_from_version, config_dir_to_version, upgrade_scripts_dir);
-        for (const script of upgrade_scripts) {
-            dbg.log0(`_run_nc_upgrade_scripts: running upgrade script ${script.file}: ${script.description}`);
-            try {
-                await script.run({ dbg, db_client: null, system_store: null, system_server: null });
-                completed_scripts.push(script.file);
-            } catch (err) {
-                dbg.error(`_run_nc_upgrade_scripts: failed running upgrade script ${script.file}`, err);
-                this_upgrade.error = err.stack;
-                throw err;
-            }
-        }
+      await run_upgrade_scripts(this_upgrade, upgrade_scripts_dir, { dbg });
     } catch (err) {
         const upgrade_failed_msg = `_run_nc_upgrade_scripts: nc upgrade manager failed!!!, ${err}`;
         dbg.error(upgrade_failed_msg);

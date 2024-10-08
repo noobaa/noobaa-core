@@ -107,6 +107,30 @@ async function load_required_scripts(server_version, container_version, upgrade_
     }));
 }
 
+/**
+ * 
+ * @param {Object} this_upgrade 
+ * @param {string} upgrade_scripts_dir 
+ * @param {Object} options 
+ */
+async function run_upgrade_scripts(this_upgrade, upgrade_scripts_dir, options) {
+    const from_version = this_upgrade.from_version || this_upgrade.config_dir_from_version;
+    const to_version = this_upgrade.to_version || this_upgrade.config_dir_to_version;
+    const upgrade_scripts = await load_required_scripts(from_version, to_version, upgrade_scripts_dir);
+    for (const script of upgrade_scripts) {
+        dbg.log0(`upgrade_utils.run_upgrade_scripts: running upgrade script ${script.file}: ${script.description}`);
+        try {
+            await script.run(options);
+            this_upgrade.completed_scripts.push(script.file);
+        } catch (err) {
+            dbg.error(`upgrade_utils.run_upgrade_scripts: failed running upgrade script ${script.file}`, err);
+            this_upgrade.error = err.stack;
+            throw err;
+        }
+    }
+}
+
 exports.should_upgrade = should_upgrade;
 exports.load_required_scripts = load_required_scripts;
 exports.version_compare = version_compare;
+exports.run_upgrade_scripts = run_upgrade_scripts;

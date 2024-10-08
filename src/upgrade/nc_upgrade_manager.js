@@ -142,9 +142,9 @@ function config_directory_defaults(system_data) {
 async function _verify_config_dir_upgrade(system_data, expected_version) {
     const new_version = pkg.version;
     const hosts_data = _.omit(system_data, 'config_directory');
-    for (const val of Object.values(hosts_data)) {
-        if (should_upgrade(val.current_version, new_version)) {
-            const message = 'config dir upgrade can not be started until all nodes have the expected version';
+    for (const [host, host_data] of Object.entries(hosts_data)) {
+        if (should_upgrade(host_data.current_version, new_version)) {
+            const message = `config dir upgrade can not be started until all nodes have the expected version=${new_version}, host=${host} host's current_version=${host_data.current_version}`;
             dbg.error(`_verify_config_dir_upgrade: ${message}`);
             throw new Error(message);
         }
@@ -252,3 +252,7 @@ async function _update_config_dir_upgrade_finish(config_fs, system_data, this_up
 
 exports.update_rpm_upgrade = update_rpm_upgrade;
 exports.upgrade_config_dir = upgrade_config_dir;
+exports.config_directory_defaults = config_directory_defaults;
+exports.CONFIG_DIR_UNLOCKED = CONFIG_DIR_UNLOCKED;
+exports.CONFIG_DIR_LOCKED = CONFIG_DIR_LOCKED;
+

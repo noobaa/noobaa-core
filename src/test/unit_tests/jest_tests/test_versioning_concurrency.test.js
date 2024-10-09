@@ -46,13 +46,14 @@ describe('test versioning concurrency', () => {
 
     beforeEach(async () => {
         await fs_utils.create_fresh_path(tmp_fs_path);
+        nsfs.versioning = 'ENABLED';
     });
 
     afterEach(async () => {
         await fs_utils.folder_delete(tmp_fs_path);
     });
 
-    it('multiple puts of the same key', async () => {
+    it('multiple puts of the same key - enabled', async () => {
         const bucket = 'bucket1';
         const key = 'key1';
         const failed_operations = [];
@@ -433,6 +434,61 @@ describe('test versioning concurrency', () => {
         expect(num_of_delete_markers).toBe(0);
         const num_of_latest_versions = (merged_versions.filter(version => version.is_latest === true)).length;
         expect(num_of_latest_versions).toBe(initial_num_of_objects);
+    }, test_timeout);
+
+    it('multiple puts of the same key - suspended', async () => {
+        const bucket = 'bucket-s';
+        const key = 'key-s';
+        nsfs.versioning = 'SUSPENDED';
+        const failed_operations = [];
+        const successful_operations = [];
+        const num_of_concurrency = 10;
+        for (let i = 0; i < num_of_concurrency; i++) {
+            const random_data = Buffer.from(String(i));
+            const body = buffer_utils.buffer_to_read_stream(random_data);
+            nsfs.upload_object({ bucket: bucket, key: key, source_stream: body }, DUMMY_OBJECT_SDK)
+                .catch(err => failed_operations.push(err))
+                .then(res => successful_operations.push(res));
+        }
+        await P.delay(2000);
+        expect(successful_operations).toHaveLength(num_of_concurrency);
+        expect(failed_operations).toHaveLength(0);
+        const versions = await nsfs.list_object_versions({ bucket: bucket }, DUMMY_OBJECT_SDK);
+        expect(versions.objects.length).toBe(1); // save only the null version
+    }, test_timeout);
+
+    it('multiple puts of the same key - enabled and suspended', async () => {
+        const bucket = 'bucket-es';
+        const key = 'key-es';
+        const failed_operations1 = [];
+        const successful_operations1 = [];
+        const num_of_concurrency1 = 2;
+        for (let i = 0; i < num_of_concurrency1; i++) {
+            const random_data = Buffer.from(String(i));
+            const body = buffer_utils.buffer_to_read_stream(random_data);
+            nsfs.upload_object({ bucket: bucket, key: key, source_stream: body }, DUMMY_OBJECT_SDK)
+                .catch(err => failed_operations1.push(err))
+                .then(res => successful_operations1.push(res));
+        }
+        await P.delay(2000);
+        nsfs.versioning = 'SUSPENDED';
+        const failed_operations2 = [];
+        const successful_operations2 = [];
+        const num_of_concurrency2 = 3;
+        for (let i = 0; i < num_of_concurrency2; i++) {
+            const random_data = Buffer.from(String(i));
+            const body = buffer_utils.buffer_to_read_stream(random_data);
+            nsfs.upload_object({ bucket: bucket, key: key, source_stream: body }, DUMMY_OBJECT_SDK)
+                .catch(err => failed_operations2.push(err))
+                .then(res => successful_operations2.push(res));
+        }
+        await P.delay(2000);
+        expect(successful_operations1).toHaveLength(num_of_concurrency1);
+        expect(failed_operations1).toHaveLength(0);
+        expect(successful_operations2).toHaveLength(num_of_concurrency2);
+        expect(failed_operations1).toHaveLength(0);
+        const versions = await nsfs.list_object_versions({ bucket: bucket }, DUMMY_OBJECT_SDK);
+        expect(versions.objects.length).toBe(num_of_concurrency1 + 1); // num_of_concurrency1 is the number of versions uploaded when versioning was enabled + 1 null version 
     }, test_timeout);
 });
 

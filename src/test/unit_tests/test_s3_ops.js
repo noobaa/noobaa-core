@@ -195,6 +195,219 @@ mocha.describe('s3_ops', function() {
             // cleanup
             await rpc_client.account.delete_account({ email: "obc-account@noobaa.io" });
         });
+
+
+        mocha.describe('bucket-lifecycle', function() {
+
+            mocha.before(async function() {
+                await s3.createBucket({ Bucket: "lifecycle-bucket" });
+            });
+
+            mocha.it('should put and get bucket lifecycle with Prefix', async function() {
+
+                // put bucket lifecycle
+                const params = {
+                    Bucket: "lifecycle-bucket",
+                    LifecycleConfiguration: {
+                        Rules: [{
+                            ID: 'rule1',
+                            Status: 'Enabled',
+                            Prefix: 'prefix1-prefix',
+                            Expiration: {
+                                Days: 1
+                            }
+                        }]
+                    }
+                };
+                await s3.putBucketLifecycleConfiguration(params);
+
+                // get` bucket lifecycle
+                const res = await s3.getBucketLifecycleConfiguration({ Bucket: "lifecycle-bucket" });
+                assert.strictEqual(res.Rules.length, 1);
+                assert.strictEqual(res.Rules[0].ID, 'rule1');
+                assert.strictEqual(res.Rules[0].Status, 'Enabled');
+                assert.strictEqual(res.Rules[0].Prefix, 'prefix1-prefix');
+                assert.strictEqual(res.Rules[0].Expiration.Days, 1);
+            });
+
+            mocha.it('should put and get bucket lifecycle with Filter', async function() {
+                // put bucket lifecycle
+                const params = {
+                    Bucket: "lifecycle-bucket",
+                    LifecycleConfiguration: {
+                        Rules: [{
+                            ID: 'rule1',
+                            Status: 'Enabled',
+                            Filter: {
+                                And: {
+                                    Prefix: 'prefix1',
+                                    Tags: [{
+                                        Key: 'key1',
+                                        Value: 'value1'
+                                    }]
+                                }
+                            },
+                            Expiration: {
+                                Days: 1
+                            }
+                        }]
+                    }
+                };
+                await s3.putBucketLifecycleConfiguration(params);
+
+                // get bucket lifecycle
+                const res = await s3.getBucketLifecycleConfiguration({ Bucket: "lifecycle-bucket" });
+                assert.strictEqual(res.Rules.length, 1);
+                assert.strictEqual(res.Rules[0].ID, 'rule1');
+                assert.strictEqual(res.Rules[0].Status, 'Enabled');
+                assert.strictEqual(res.Rules[0].Filter.And.Prefix, 'prefix1');
+                assert.strictEqual(res.Rules[0].Filter.And.Tags[0].Key, 'key1');
+                assert.strictEqual(res.Rules[0].Filter.And.Tags[0].Value, 'value1');
+                assert.strictEqual(res.Rules[0].Expiration.Days, 1);
+            });
+
+            mocha.it('should put and get bucket lifecycle with Transitions', async function() {
+                // put bucket lifecycle
+                const params = {
+                    Bucket: "lifecycle-bucket",
+                    LifecycleConfiguration: {
+                        Rules: [{
+                            ID: 'rule1',
+                            Status: 'Enabled',
+                            Prefix: 'prefix1-transition',
+                            Transitions: [{
+                                Days: 1,
+                                StorageClass: 'STANDARD_IA'
+                            }]
+                        }]
+                    }
+                };
+                await s3.putBucketLifecycleConfiguration(params);
+
+                // get bucket lifecycle
+                const res = await s3.getBucketLifecycleConfiguration({ Bucket: "lifecycle-bucket" });
+                assert.strictEqual(res.Rules.length, 1);
+                assert.strictEqual(res.Rules[0].ID, 'rule1');
+                assert.strictEqual(res.Rules[0].Status, 'Enabled');
+                assert.strictEqual(res.Rules[0].Prefix, 'prefix1-transition');
+                assert.strictEqual(res.Rules[0].Transitions[0].Days, 1);
+                assert.strictEqual(res.Rules[0].Transitions[0].StorageClass, 'STANDARD_IA');
+            });
+
+            mocha.it('should put and get bucket lifecycle with NoncurrentVersionTransition', async function() {
+                // put bucket lifecycle
+                const params = {
+                    Bucket: "lifecycle-bucket",
+                    LifecycleConfiguration: {
+                        Rules: [{
+                            ID: 'rule1',
+                            Status: 'Enabled',
+                            Prefix: 'prefix1-noncurrent-version-transition',
+                            NoncurrentVersionTransitions: [{
+                                NoncurrentDays: 1,
+                                StorageClass: 'STANDARD_IA'
+                            }]
+                        }]
+                    }
+                };
+                await s3.putBucketLifecycleConfiguration(params);
+
+                // get bucket lifecycle
+                const res = await s3.getBucketLifecycleConfiguration({ Bucket: "lifecycle-bucket" });
+                assert.strictEqual(res.Rules.length, 1);
+                assert.strictEqual(res.Rules[0].ID, 'rule1');
+                assert.strictEqual(res.Rules[0].Status, 'Enabled');
+                assert.strictEqual(res.Rules[0].Prefix, 'prefix1-noncurrent-version-transition');
+                assert.strictEqual(res.Rules[0].NoncurrentVersionTransitions[0].NoncurrentDays, 1);
+                assert.strictEqual(res.Rules[0].NoncurrentVersionTransitions[0].StorageClass, 'STANDARD_IA');
+            });
+
+            mocha.it('should put and get bucket lifecycle with AbortIncompleteMultipartUpload', async function() {
+                // put bucket lifecycle
+                const params = {
+                    Bucket: "lifecycle-bucket",
+                    LifecycleConfiguration: {
+                        Rules: [{
+                            ID: 'rule1',
+                            Status: 'Enabled',
+                            Prefix: 'prefix1-abort-incomplete',
+                            AbortIncompleteMultipartUpload: {
+                                DaysAfterInitiation: 1
+                            }
+                        }]
+                    }
+                };
+                await s3.putBucketLifecycleConfiguration(params);
+
+                // get bucket lifecycle
+                const res = await s3.getBucketLifecycleConfiguration({ Bucket: "lifecycle-bucket" });
+                assert.strictEqual(res.Rules.length, 1);
+                assert.strictEqual(res.Rules[0].ID, 'rule1');
+                assert.strictEqual(res.Rules[0].Status, 'Enabled');
+                assert.strictEqual(res.Rules[0].Prefix, 'prefix1-abort-incomplete');
+                assert.strictEqual(res.Rules[0].AbortIncompleteMultipartUpload.DaysAfterInitiation, 1);
+
+            });
+
+            mocha.it('should put and get bucket lifecycle with Expiration', async function() {
+                // put bucket lifecycle
+                const params = {
+                    Bucket: "lifecycle-bucket",
+                    LifecycleConfiguration: {
+                        Rules: [{
+                            ID: 'rule1',
+                            Status: 'Enabled',
+                            Prefix: 'prefix1-expiration',
+                            Expiration: {
+                                Days: 1
+                            }
+                        }]
+                    }
+                };
+                await s3.putBucketLifecycleConfiguration(params);
+
+                // get bucket lifecycle
+                const res = await s3.getBucketLifecycleConfiguration({ Bucket: "lifecycle-bucket" });
+                assert.strictEqual(res.Rules.length, 1);
+                assert.strictEqual(res.Rules[0].ID, 'rule1');
+                assert.strictEqual(res.Rules[0].Status, 'Enabled');
+                assert.strictEqual(res.Rules[0].Prefix, 'prefix1-expiration');
+                assert.strictEqual(res.Rules[0].Expiration.Days, 1);
+            });
+
+            mocha.it('should put and get bucket lifecycle with NoncurrentVersionExpiration', async function() {
+                // put bucket lifecycle
+                const params = {
+                    Bucket: "lifecycle-bucket",
+                    LifecycleConfiguration: {
+                        Rules: [{
+                            ID: 'rule1',
+                            Status: 'Enabled',
+                            Filter: {
+                                Prefix: 'prefix1-noncurrent-version-expiration'
+                            },
+                            NoncurrentVersionExpiration: {
+                                NoncurrentDays: 1
+                            }
+                        }]
+                    }
+                };
+                await s3.putBucketLifecycleConfiguration(params);
+
+                // get bucket lifecycle
+                const res = await s3.getBucketLifecycleConfiguration({ Bucket: "lifecycle-bucket" });
+                assert.strictEqual(res.Rules.length, 1);
+                assert.strictEqual(res.Rules[0].ID, 'rule1');
+                assert.strictEqual(res.Rules[0].Status, 'Enabled');
+                assert.strictEqual(res.Rules[0].Filter.Prefix, 'prefix1-noncurrent-version-expiration');
+                assert.strictEqual(res.Rules[0].NoncurrentVersionExpiration.NoncurrentDays, 1);
+            });
+
+            mocha.after(async function() {
+                await s3.deleteBucket({ Bucket: "lifecycle-bucket" });
+            });
+
+        });
     });
 
     async function test_object_ops(bucket_name, bucket_type, caching, remote_endpoint_options) {

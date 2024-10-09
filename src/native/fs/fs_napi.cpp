@@ -2105,7 +2105,7 @@ struct TellDir : public FSWrapWorker<DirWrap>
     }
     virtual void OnOK()
     {
-        DBG0("FS::Telldir::OnOK: " << DVAL(_wrap->_path) << DVAL(_tell_res));
+        DBG1("FS::Telldir::OnOK: " << DVAL(_wrap->_path) << DVAL(_tell_res));
         Napi::Env env = Env();
         auto res = Napi::BigInt::New(env, _tell_res);
         _deferred.Resolve(res);

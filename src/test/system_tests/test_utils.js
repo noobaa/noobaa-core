@@ -491,6 +491,26 @@ function get_new_buckets_path_by_test_env(new_buckets_full_path, new_buckets_dir
     return is_nc_coretest ? path.join(new_buckets_full_path, new_buckets_dir) : new_buckets_dir;
 }
 
+
+/**
+ * common dummy SDK for testing
+ */
+function make_dummy_object_sdk() {
+    return {
+        requesting_account: {
+            force_md5_etag: false,
+            nsfs_account_config: {
+                uid: process.getuid(),
+                gid: process.getgid(),
+            }
+        },
+        abort_controller: new AbortController(),
+        throw_if_aborted() {
+            if (this.abort_controller.signal.aborted) throw new Error('request aborted signal');
+        }
+    };
+}
+
 /**
  * write_manual_config_file writes config file directly to the file system without using config FS
  * used for creating backward compatibility tests, invalid config files etc
@@ -758,6 +778,7 @@ exports.create_identity_dir_if_missing = create_identity_dir_if_missing;
 exports.symlink_account_name = symlink_account_name;
 exports.symlink_account_access_keys = symlink_account_access_keys;
 exports.create_file = create_file;
+exports.make_dummy_object_sdk = make_dummy_object_sdk;
 exports.create_redirect_file = create_redirect_file;
 exports.delete_redirect_file = delete_redirect_file;
 exports.create_system_json = create_system_json;
@@ -765,3 +786,4 @@ exports.update_system_json = update_system_json;
 exports.fail_test_if_default_config_dir_exists = fail_test_if_default_config_dir_exists;
 exports.create_config_dir = create_config_dir;
 exports.clean_config_dir = clean_config_dir;
+

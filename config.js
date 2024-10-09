@@ -843,6 +843,9 @@ config.NSFS_GLACIER_MIGRATE_INTERVAL = 15 * 60 * 1000;
 // of `manage_nsfs glacier restore`
 config.NSFS_GLACIER_RESTORE_INTERVAL = 15 * 60 * 1000;
 
+// enable/disable unsorted listing application level
+config.NSFS_LIST_OBJECTS_V2_UNSORTED_ENABLED = false;
+
 // NSFS_GLACIER_EXPIRY_RUN_TIME must be of the format hh:mm which specifies
 // when NooBaa should allow running glacier expiry process
 // NOTE: This will also be in the same timezone as specified in

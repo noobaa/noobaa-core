@@ -41,6 +41,7 @@ async function get_bucket(req) {
         bucket: req.params.bucket,
         prefix: req.query.prefix,
         delimiter: req.query.delimiter,
+        list_type: list_type,
         limit: Math.min(max_keys_received, 1000),
         key_marker: list_type === '2' ?
             (s3_utils.cont_tok_to_key_marker(cont_tok) || start_after) : req.query.marker,

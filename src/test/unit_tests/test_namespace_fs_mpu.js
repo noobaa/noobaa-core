@@ -17,34 +17,17 @@ const time_utils = require('../../util/time_utils');
 const NamespaceFS = require('../../sdk/namespace_fs');
 const s3_utils = require('../../endpoint/s3/s3_utils');
 const buffer_utils = require('../../util/buffer_utils');
-const { TMP_PATH } = require('../system_tests/test_utils');
+const { TMP_PATH, make_dummy_object_sdk } = require('../system_tests/test_utils');
 const endpoint_stats_collector = require('../../sdk/endpoint_stats_collector');
 
 const inspect = (x, max_arr = 5) => util.inspect(x, { colors: true, depth: null, maxArrayLength: max_arr });
 
 const XATTR_MD5_KEY = 'content_md5';
-const DUMMY_OBJECT_SDK = make_DUMMY_OBJECT_SDK();
+const DUMMY_OBJECT_SDK = make_dummy_object_sdk();
 
 const src_bkt = 'src';
 const tmp_fs_path = path.join(TMP_PATH, 'test_namespace_fs_mpu');
 const ns_tmp_bucket_path = `${tmp_fs_path}/${src_bkt}`;
-
-function make_DUMMY_OBJECT_SDK() {
-    return {
-        requesting_account: {
-            force_md5_etag: false,
-            nsfs_account_config: {
-                uid: process.getuid(),
-                gid: process.getgid(),
-            }
-        },
-        abort_controller: new AbortController(),
-        throw_if_aborted() {
-            if (this.abort_controller.signal.aborted) throw new Error('request aborted signal');
-        }
-    };
-}
-
 
 mocha.describe('namespace_fs mpu optimization tests', function() {
 

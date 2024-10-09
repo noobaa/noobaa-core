@@ -99,6 +99,7 @@ async function put_bucket_lifecycle(req) {
                 throw new S3Error(S3Error.InvalidArgument);
             }
             current_rule.filter.prefix = rule.Prefix[0];
+            current_rule.uses_prefix = true;
 
         } else {
             if (rule.Filter?.length !== 1) {

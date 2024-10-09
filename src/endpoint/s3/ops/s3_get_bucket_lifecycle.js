@@ -15,7 +15,9 @@ async function get_bucket_lifecycle(req) {
         };
 
 
-        if (rule.filter.and) {
+        if (rule.uses_prefix) {
+            current_rule.Prefix = rule.filter.prefix;
+        } else if (rule.filter.and) {
             current_rule.Filter = {
                 And: [{
                         Prefix: rule.filter.prefix,
@@ -40,14 +42,51 @@ async function get_bucket_lifecycle(req) {
             }
         }
 
-        // Generally expiration is optional,
-        // however NooBaa implements expiration only, so it is expected here.
-        current_rule.Expiration = {
-            Days: rule.expiration.days,
-        };
-        if (rule.expiration.date) {
-            current_rule.Expiration.Date = new Date(rule.expiration.date).toISOString();
+
+        if (rule.expiration) {
+            current_rule.Expiration = {
+                Days: rule.expiration.days,
+                Date: rule.expiration.date ? new Date(rule.expiration.date).toISOString() : undefined,
+            };
+            _.omitBy(current_rule.Expiration, _.isUndefined);
         }
+
+        if (rule.transition) {
+            current_rule.Transition = {
+                Days: rule.transition.days,
+                Date: rule.transition.date ? new Date(rule.transition.date).toISOString() : undefined,
+                StorageClass: rule.transition.storage_class,
+            };
+            _.omitBy(current_rule.Transition, _.isUndefined);
+        }
+
+        if (rule.noncurrent_version_transition) {
+            current_rule.NoncurrentVersionTransition = {
+                NoncurrentDays: rule.noncurrent_version_transition.noncurrent_days,
+                NewerNoncurrentVersions: rule.noncurrent_version_transition.newer_noncurrent_versions,
+                StorageClass: rule.noncurrent_version_transition.storage_class,
+            };
+            _.omitBy(current_rule.NoncurrentVersionTransition, _.isUndefined);
+        }
+
+        if (rule.noncurrent_version_expiration) {
+            current_rule.NoncurrentVersionExpiration = {
+                NoncurrentDays: rule.noncurrent_version_expiration.noncurrent_days,
+                NewerNoncurrentVersions: rule.noncurrent_version_expiration.newer_noncurrent_versions,
+            };
+            _.omitBy(current_rule.NoncurrentVersionExpiration, _.isUndefined);
+        }
+
+        if (rule.abort_incomplete_multipart_upload) {
+            current_rule.AbortIncompleteMultipartUpload = {
+                DaysAfterInitiation: rule.abort_incomplete_multipart_upload.days_after_initiation,
+            };
+            _.omitBy(current_rule.AbortIncompleteMultipartUpload, _.isUndefined);
+        }
+
+
+
+
         return { Rule: current_rule };
     });
 

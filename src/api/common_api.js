@@ -211,6 +211,9 @@ module.exports = {
                 filter: {
                     $ref: '#/definitions/bucket_lifecycle_rule_filter'
                 },
+                uses_prefix: {
+                    type: 'boolean'
+                },
                 expiration: {
                     $ref: '#/definitions/bucket_lifecycle_rule_expiration'
                 },
@@ -1359,7 +1362,9 @@ module.exports = {
 
         storage_class_enum: {
             type: 'string',
-            enum: ['STANDARD', 'GLACIER', 'GLACIER_IR']
+            // added values according to the docs here:
+            // https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3-bucket-noncurrentversiontransition.html#cfn-s3-bucket-noncurrentversiontransition-storageclass
+            enum: ['STANDARD', 'GLACIER', 'GLACIER_IR', 'Glacier', 'DEEP_ARCHIVE', 'INTELLIGENT_TIERING', 'ONEZONE_IA', 'STANDARD_IA']
         },
         bucket_logging: {
             type: 'object',

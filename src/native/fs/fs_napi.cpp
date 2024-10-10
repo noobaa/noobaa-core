@@ -21,6 +21,7 @@
 #include <sys/uio.h>
 #include <sys/xattr.h>
 #include <sys/file.h>
+#include <sys/capability.h>
 #include <thread>
 #include <typeinfo>
 #include <unistd.h>
@@ -185,6 +186,15 @@ struct gpfs_ganesha_noobaa_arg
 #define OPENHANDLE_REGISTER_NOOBAA 157
 
 static const int DIO_BUFFER_MEMALIGN = 4096;
+
+static void set_capabilities() {
+    const std::string _desc = "set_capabilities";
+    cap_t caps = cap_get_proc();
+    cap_value_t newcaps[1] = { CAP_DAC_READ_SEARCH, };
+    SYSCALL_OR_WARN(cap_set_flag(caps, CAP_EFFECTIVE, 1, newcaps, CAP_SET));
+    SYSCALL_OR_WARN(cap_set_proc(caps));
+    SYSCALL_OR_WARN(cap_free(caps));
+}
 
 static void
 buffer_releaser(Napi::Env env, uint8_t* buf)
@@ -605,6 +615,8 @@ struct FSWorker : public Napi::AsyncWorker
         DBG1("FS::FSWorker::Execute: " << _desc << DVAL(_uid) << DVAL(_gid) << DVAL(_backend));
         ThreadScope tx;
         tx.set_user(_uid, _gid);
+        //set thread capabilities to allow linkat from user other than root. should run after set_user
+        set_capabilities();
         DBG1("FS::FSWorker::Execute: " << _desc << DVAL(_uid) << DVAL(_gid) << DVAL(geteuid()) << DVAL(getegid()) << DVAL(getuid()) << DVAL(getgid()));
 
         auto start_time = std::chrono::high_resolution_clock::now();
@@ -1639,7 +1651,7 @@ struct LinkFileAt : public FSWrapWorker<FileWrap>
         if (_replace_fd >= 0) {
             SYSCALL_OR_RETURN(dlsym_gpfs_linkatif(fd, "", AT_FDCWD, _filepath.c_str(), AT_EMPTY_PATH, _replace_fd));
         } else {
-            SYSCALL_OR_RETURN(dlsym_gpfs_linkat(fd, "", AT_FDCWD, _filepath.c_str(), AT_EMPTY_PATH));
+            SYSCALL_OR_RETURN(linkat(fd, "", AT_FDCWD, _filepath.c_str(), AT_EMPTY_PATH));
         }
     }
 };

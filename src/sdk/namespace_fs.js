@@ -1473,15 +1473,23 @@ class NamespaceFS {
         let retries = config.NSFS_RENAME_RETRIES;
         for (;;) {
             try {
-                const new_ver_info = !is_gpfs && await this._get_version_info(fs_context, new_ver_tmp_path);
-                // get latest version_id if exists
-                const latest_ver_info = await this._get_version_info(fs_context, latest_ver_path);
-                const versioned_path = latest_ver_info && this._get_version_path(key, latest_ver_info.version_id_str);
-                const versioned_info = latest_ver_info && await this._get_version_info(fs_context, versioned_path);
+                let new_ver_info;
+                let latest_ver_info;
+                if (is_gpfs) {
+                    const latest_ver_info_exist = await native_fs_utils.is_path_exists(fs_context, latest_ver_path);
+                    gpfs_options = await this._open_files_gpfs(fs_context, new_ver_tmp_path, latest_ver_path, upload_file,
+                        latest_ver_info_exist, open_mode, undefined, undefined);
 
-                gpfs_options = await this._open_files_gpfs(fs_context, new_ver_tmp_path, latest_ver_path, upload_file,
-                    latest_ver_info, open_mode, undefined, versioned_info);
+                    //get latest version if exists
+                    const latest_fd = gpfs_options?.move_to_dst?.dst_file;
+                    latest_ver_info = latest_fd && await this._get_version_info(fs_context, undefined, latest_fd);
+                } else {
+                    new_ver_info = await this._get_version_info(fs_context, new_ver_tmp_path);
+                    //get latest version if exists. TODO use fd like in GPFS
+                    latest_ver_info = await this._get_version_info(fs_context, latest_ver_path);
+                }
                 const bucket_tmp_dir_path = this.get_bucket_tmpdir_full_path();
+                const versioned_path = latest_ver_info && this._get_version_path(key, latest_ver_info.version_id_str);
                 dbg.log1('Namespace_fs._move_to_dest_version:', latest_ver_info, new_ver_info, gpfs_options);
 
                 if (this._is_versioning_suspended()) {
@@ -2725,10 +2733,12 @@ class NamespaceFS {
     // path - specifies the path to version
     // if version xattr contains version info - return info by xattr
     // else - it's a null version - return stat
-    async _get_version_info(fs_context, version_path) {
+    // if fd is passed, will use fd instead of path to stat
+    async _get_version_info(fs_context, version_path, fd) {
         try {
-            const stat = await nb_native().fs.stat(fs_context, version_path, { skip_user_xattr: true });
-            dbg.log1('NamespaceFS._get_version_info stat ', stat, version_path);
+            const stat = fd ? await fd.stat(fs_context, { skip_user_xattr: true }) :
+                await nb_native().fs.stat(fs_context, version_path, { skip_user_xattr: true });
+            dbg.log1('NamespaceFS._get_version_info stat ', stat, version_path, fd);
 
             const version_id_str = this._get_version_id_by_xattr(stat);
             const ver_info_by_xattr = this._extract_version_info_from_xattr(version_id_str);
@@ -3152,8 +3162,8 @@ class NamespaceFS {
     // opens the unopened files involved in the version move during upload/deletion
     // returns an object contains the relevant options for the move/unlink flow
     // eslint-disable-next-line max-params
-    async _open_files_gpfs(fs_context, src_path, dst_path, upload_or_dir_file, dst_ver_info, open_mode, delete_version, versioned_info) {
-        dbg.log1('Namespace_fs._open_files_gpfs:', src_path, src_path && path.dirname(src_path), dst_path, upload_or_dir_file, dst_ver_info, open_mode, delete_version, versioned_info);
+    async _open_files_gpfs(fs_context, src_path, dst_path, upload_or_dir_file, dst_ver_exist, open_mode, delete_version, versioned_info) {
+        dbg.log1('Namespace_fs._open_files_gpfs:', src_path, src_path && path.dirname(src_path), dst_path, upload_or_dir_file, Boolean(dst_ver_exist), open_mode, delete_version, versioned_info);
         const is_gpfs = native_fs_utils._is_gpfs(fs_context);
         if (!is_gpfs) return;
 
@@ -3179,13 +3189,13 @@ class NamespaceFS {
                 src_file = upload_or_dir_file;
                 dir_file = await native_fs_utils.open_file(fs_context, this.bucket_path, path.dirname(src_path), 'r');
             }
-            if (dst_ver_info) {
+            if (dst_ver_exist) {
                 dbg.log1('NamespaceFS._open_files_gpfs dst version exist - opening dst version file...');
                 dst_file = await native_fs_utils.open_file(fs_context, this.bucket_path, dst_path, 'r');
             }
             return {
-                move_to_versions: { src_file: dst_file, dir_file, should_override: false },
-                move_to_dst: { src_file, dst_file, dir_file, versioned_file }
+                move_to_versions: { src_file: dst_file, dir_file },
+                move_to_dst: { src_file, dst_file, dir_file}
             };
         } catch (err) {
             dbg.error('NamespaceFS._open_files_gpfs couldn\'t open files', err);

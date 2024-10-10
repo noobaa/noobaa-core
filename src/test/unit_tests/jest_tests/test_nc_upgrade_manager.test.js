@@ -6,6 +6,7 @@ process.env.DISABLE_INIT_RANDOM_SEED = 'true';
 
 const fs = require('fs');
 const os = require('os');
+const _ = require('lodash');
 const path = require('path');
 const fs_utils = require('../../../util/fs_utils');
 const config = require('../../../../config');
@@ -219,52 +220,33 @@ describe('nc upgrade manager - upgrade config directory', () => {
     describe('nc upgrade manager - _verify_config_dir_upgrade', () => {
         it('_verify_config_dir_upgrade - empty hosts system_data', async () => {
             const system_data = {};
-            try {
-                await _verify_config_dir_upgrade(system_data);
-                fail('should have failed on invalid system_data');
-            } catch (err) {
-                expect(err.message).toBe('config dir upgrade can not be started missing hosts_data hosts_data={}');
-            }
+            const expected_err_msg = 'config dir upgrade can not be started missing hosts_data hosts_data={}';
+            await expect(_verify_config_dir_upgrade(system_data)).rejects.toThrow(expected_err_msg);
         });
 
         it('_verify_config_dir_upgrade - empty host current_version', async () => {
             const system_data = { [hostname]: []};
-            try {
-                await _verify_config_dir_upgrade(system_data);
-                fail('should have failed on invalid system_data');
-            } catch (err) {
-                expect(err.message).toBe(`config dir upgrade can not be started until all nodes have the expected version=${pkg.version}, host=${hostname} host's current_version=undefined`);
-            }
+            const expected_err_msg = `config dir upgrade can not be started until all nodes have the expected version=${pkg.version}, host=${hostname} host's current_version=undefined`;
+            await expect(_verify_config_dir_upgrade(system_data)).rejects.toThrow(expected_err_msg);
         });
 
         it('_verify_config_dir_upgrade - host current_version < new_version should upgrade RPM', async () => {
             const old_version = '5.16.0';
             const system_data = { [hostname]: { current_version: old_version }, other_hostname: { current_version: pkg.version } };
-            try {
-                await _verify_config_dir_upgrade(system_data);
-                fail('should have failed on mismatch system and package version');
-            } catch (err) {
-                expect(err.message).toBe(`config dir upgrade can not be started until all nodes have the expected version=${pkg.version}, host=${hostname} host's current_version=${old_version}`);
-            }
+            const expected_err_msg = `config dir upgrade can not be started until all nodes have the expected version=${pkg.version}, host=${hostname} host's current_version=${old_version}`;
+            await expect(_verify_config_dir_upgrade(system_data)).rejects.toThrow(expected_err_msg);
         });
 
         it('_verify_config_dir_upgrade - should upgrade config dir', async () => {
-            const system_data = {
-                [hostname]: { current_version: pkg.version, other_hostname: { current_version: pkg.version } }
-            };
+            const system_data = {[hostname]: { current_version: pkg.version, other_hostname: { current_version: pkg.version } }};
             await _verify_config_dir_upgrade(system_data);
         });
 
         it('_verify_config_dir_upgrade - host current_version > new_version should upgrade RPM', async () => {
             const newer_version = pkg.version + '.1';
-
             const system_data = { [hostname]: { current_version: newer_version }, other_hostname: { current_version: pkg.version } };
-            try {
-                await _verify_config_dir_upgrade(system_data);
-                fail('should have failed on mismatch system and package version');
-            } catch (err) {
-                expect(err.message).toBe(`config dir upgrade can not be started until all nodes have the expected version=${pkg.version}, host=${hostname} host's current_version=${newer_version}`);
-            }
+            const expected_err_msg = `config dir upgrade can not be started until all nodes have the expected version=${pkg.version}, host=${hostname} host's current_version=${newer_version}`;
+            await expect(_verify_config_dir_upgrade(system_data)).rejects.toThrow(expected_err_msg);
         });
 
         it('_verify_config_dir_upgrade - should upgrade config dir', async () => {
@@ -277,21 +259,28 @@ describe('nc upgrade manager - upgrade config directory', () => {
 
         it('_verify_config_dir_upgrade - fail on mismatch expected_version', async () => {
             const expected_version = pkg.version + '.1';
-            const system_data = {
-                [hostname]: { current_version: pkg.version, other_hostname: { current_version: pkg.version } }
-            };
-            try {
-                await _verify_config_dir_upgrade(system_data, expected_version);
-                fail('should have failed on mismatch system and package version');
-            } catch (err) {
-                expect(err.message).toBe(`config dir upgrade can not be started - the host's package version=${pkg.version} does not match the user's expected version=${expected_version}`);
-            }
+            const system_data = { [hostname]: { current_version: pkg.version, other_hostname: { current_version: pkg.version } }};
+            const expected_err_msg = `config dir upgrade can not be started - the host's package version=${pkg.version} does not match the user's expected version=${expected_version}`;
+            await expect(_verify_config_dir_upgrade(system_data, expected_version)).rejects.toThrow(expected_err_msg);
         });
     });
 
     describe('nc upgrade manager - _run_nc_upgrade_scripts', () => {
+        const from_version = '0.0.0';
+        const to_version = '1.0.0';
         const custom_upgrade_script_dir = path.join(TMP_PATH, 'custom_upgrade_script_dir');
-        const custom_upgrade_script_dir_version_path = path.join(TMP_PATH, 'custom_upgrade_script_dir', '1.0.0');
+        const custom_upgrade_script_dir_version_path = path.join(TMP_PATH, 'custom_upgrade_script_dir', to_version);
+        const successful_upgrade_scripts_obj = { dummy_upgrade_script_1, dummy_upgrade_script_2 };
+        const failing_upgrade_scripts_obj = { ...successful_upgrade_scripts_obj, dummy_failing_upgrade_script_3 };
+        const default_this_upgrade = Object.freeze({
+            config_dir_from_version: from_version, config_dir_to_version: to_version,
+            completed_scripts: []
+        });
+        const default_upgrade_script_paths = Object.keys(successful_upgrade_scripts_obj).map(script_name =>
+            get_upgrade_script_path(DEFAULT_NC_UPGRADE_SCRIPTS_DIR, to_version, script_name));
+        const custom_upgrade_script_paths = Object.keys(successful_upgrade_scripts_obj).map(script_name =>
+            get_upgrade_script_path(custom_upgrade_script_dir, to_version, script_name));
+
         beforeEach(async () => {
             await fs_utils.create_path(custom_upgrade_script_dir_version_path, 777);
         });
@@ -302,82 +291,53 @@ describe('nc upgrade manager - upgrade config directory', () => {
         });
 
         it('_run_nc_upgrade_scripts - no scripts', async () => {
-            const this_upgrade = { config_dir_from_version: '0.0.0', config_dir_to_version: '1.0.0', completed_scripts: []};
+            const this_upgrade = _.cloneDeep(default_this_upgrade);
             await _run_nc_upgrade_scripts(this_upgrade);
             expect(this_upgrade.completed_scripts).toEqual([]);
         });
 
         it('_run_nc_upgrade_scripts - no upgrade scripts dir', async () => {
-            const this_upgrade = { config_dir_from_version: '0.0.0', config_dir_to_version: '1.0.0', completed_scripts: [] };
+            const this_upgrade = _.cloneDeep(default_this_upgrade);
             await fs_utils.folder_delete(custom_upgrade_script_dir_version_path);
             await fs_utils.folder_delete(custom_upgrade_script_dir);
             await _run_nc_upgrade_scripts(this_upgrade, custom_upgrade_script_dir);
             expect(this_upgrade.completed_scripts).toEqual([]);
         });
 
-        it('_run_nc_upgrade_scripts - custom_upgrade_script_dir - 2 successful scripts', async () => {
-            const dummy_script1_path = path.join(custom_upgrade_script_dir_version_path, 'dummy_upgrade_script_1.js');
-            const dummy_script2_path = path.join(custom_upgrade_script_dir_version_path, 'dummy_upgrade_script_2.js');
-            await fs.promises.writeFile(dummy_script1_path, Buffer.from(dummy_upgrade_script_1));
-            await fs.promises.writeFile(dummy_script2_path, Buffer.from(dummy_upgrade_script_2));
-
-            const this_upgrade = { config_dir_from_version: '0.0.0', config_dir_to_version: '1.0.0', completed_scripts: []};
+        it('_run_nc_upgrade_scripts - custom_upgrade_script_dir - successful scripts', async () => {
+            await populate_upgrade_scripts_dir(custom_upgrade_script_dir, to_version, successful_upgrade_scripts_obj);
+            const this_upgrade = _.cloneDeep(default_this_upgrade);
             await _run_nc_upgrade_scripts(this_upgrade, custom_upgrade_script_dir);
-            expect(this_upgrade.completed_scripts).toEqual([dummy_script1_path, dummy_script2_path]);
+            expect(this_upgrade.completed_scripts).toEqual(custom_upgrade_script_paths);
         });
 
-        it('_run_nc_upgrade_scripts - custom_upgrade_script_dir - 2 successful scripts, 1 failing script', async () => {
-            const dummy_script1_path = path.join(custom_upgrade_script_dir_version_path, 'dummy_upgrade_script_1.js');
-            const dummy_script2_path = path.join(custom_upgrade_script_dir_version_path, 'dummy_upgrade_script_2.js');
-            const dummy_script3_path = path.join(custom_upgrade_script_dir_version_path, 'dummy_failing_upgrade_script_3.js');
-            await fs.promises.writeFile(dummy_script1_path, Buffer.from(dummy_upgrade_script_1));
-            await fs.promises.writeFile(dummy_script2_path, Buffer.from(dummy_upgrade_script_2));
-            await fs.promises.writeFile(dummy_script3_path, Buffer.from(dummy_failing_upgrade_script_3));
-
-            const this_upgrade = { config_dir_from_version: '0.0.0', config_dir_to_version: '1.0.0', completed_scripts: []};
-            try {
-                await _run_nc_upgrade_scripts(this_upgrade, custom_upgrade_script_dir);
-                fail('should have failed on script number 3 failed');
-            } catch (err) {
-                expect(err.message).toBe('_run_nc_upgrade_scripts: nc upgrade manager failed!!!, Error: script number 3 failed');
-            }
+        it('_run_nc_upgrade_scripts - custom_upgrade_script_dir - failing scripts', async () => {
+            await populate_upgrade_scripts_dir(custom_upgrade_script_dir, to_version, failing_upgrade_scripts_obj);
+            const this_upgrade = _.cloneDeep(default_this_upgrade);
+            const expected_err_msg = '_run_nc_upgrade_scripts: nc upgrade manager failed!!!, Error: script number 3 failed';
+            await expect(_run_nc_upgrade_scripts(this_upgrade, custom_upgrade_script_dir)).rejects.toThrow(expected_err_msg);
+            expect(this_upgrade.completed_scripts).toEqual([]);
+            expect(this_upgrade.error).toContain('Error: script number 3 failed');
         });
 
-        it('_run_nc_upgrade_scripts - 2 successful scripts', async () => {
-            const dummy_script1_path = path.join(DEFAULT_NC_UPGRADE_SCRIPTS_DIR, '1.0.0', 'dummy_upgrade_script_1.js');
-            const dummy_script2_path = path.join(DEFAULT_NC_UPGRADE_SCRIPTS_DIR, '1.0.0', 'dummy_upgrade_script_2.js');
-            await fs.promises.writeFile(dummy_script1_path, Buffer.from(dummy_upgrade_script_1));
-            await fs.promises.writeFile(dummy_script2_path, Buffer.from(dummy_upgrade_script_2));
-            const this_upgrade = { config_dir_from_version: '0.0.0', config_dir_to_version: '1.0.0', completed_scripts: []};
+        it('_run_nc_upgrade_scripts - default upgrade scripts dir - successful scripts', async () => {
+            await populate_upgrade_scripts_dir(DEFAULT_NC_UPGRADE_SCRIPTS_DIR, to_version, successful_upgrade_scripts_obj);
+            const this_upgrade = _.cloneDeep(default_this_upgrade);
             await _run_nc_upgrade_scripts(this_upgrade);
-            expect(this_upgrade.completed_scripts).toEqual([dummy_script1_path, dummy_script2_path]);
-            await fs_utils.file_delete(dummy_script1_path);
-            await fs_utils.file_delete(dummy_script2_path);
+            expect(this_upgrade.completed_scripts).toEqual(default_upgrade_script_paths);
+            await delete_upgrade_scripts(DEFAULT_NC_UPGRADE_SCRIPTS_DIR, to_version, successful_upgrade_scripts_obj);
         });
 
-        it('_run_nc_upgrade_scripts - 2 successful scripts, 1 failing script', async () => {
-            const dummy_script1_path = path.join(DEFAULT_NC_UPGRADE_SCRIPTS_DIR, '1.0.0', 'dummy_upgrade_script_1.js');
-            const dummy_script2_path = path.join(DEFAULT_NC_UPGRADE_SCRIPTS_DIR, '1.0.0', 'dummy_upgrade_script_2.js');
-            const dummy_script3_path = path.join(DEFAULT_NC_UPGRADE_SCRIPTS_DIR, '1.0.0', 'dummy_failing_upgrade_script_3.js');
-            await fs.promises.writeFile(dummy_script1_path, Buffer.from(dummy_upgrade_script_1));
-            await fs.promises.writeFile(dummy_script2_path, Buffer.from(dummy_upgrade_script_2));
-            await fs.promises.writeFile(dummy_script3_path, Buffer.from(dummy_failing_upgrade_script_3));
-
-            const this_upgrade = { config_dir_from_version: '0.0.0', config_dir_to_version: '1.0.0', completed_scripts: []};
-            try {
-                await _run_nc_upgrade_scripts(this_upgrade);
-                fail('should have failed on script number 3 failed');
-            } catch (err) {
-                expect(err.message).toBe('_run_nc_upgrade_scripts: nc upgrade manager failed!!!, Error: script number 3 failed');
-            } finally {
-                await fs_utils.file_delete(dummy_script1_path);
-                await fs_utils.file_delete(dummy_script2_path);
-                await fs_utils.file_delete(dummy_script3_path);
-            }
+        it('_run_nc_upgrade_scripts - default upgrade scripts dir - failing scripts', async () => {
+            await populate_upgrade_scripts_dir(DEFAULT_NC_UPGRADE_SCRIPTS_DIR, to_version, failing_upgrade_scripts_obj);
+            const this_upgrade = _.cloneDeep(default_this_upgrade);
+            const expected_err_msg = '_run_nc_upgrade_scripts: nc upgrade manager failed!!!, Error: script number 3 failed';
+            await expect(_run_nc_upgrade_scripts(this_upgrade)).rejects.toThrow(expected_err_msg);
+            expect(this_upgrade.completed_scripts).toEqual([]);
+            expect(this_upgrade.error).toContain('Error: script number 3 failed');
+            await delete_upgrade_scripts(DEFAULT_NC_UPGRADE_SCRIPTS_DIR, to_version, failing_upgrade_scripts_obj);
         });
-
     });
-
 });
 
 // Jest has builtin function fail that based on Jasmine
@@ -387,7 +347,11 @@ function fail(reason) {
     throw new Error(reason);
 }
 
-
+/**
+ * assert_config_dir_defaults asserts that the expected config dir properties in the system_data matches the actual config dir defaults
+ * @param {Object} actual_config_dir_defaults 
+ * @param {Object} system_data 
+ */
 function assert_config_dir_defaults(actual_config_dir_defaults, system_data) {
     const { config_dir_version, upgrade_package_version, phase, upgrade_history } = actual_config_dir_defaults;
     const expected_package_from_version = system_data?.[hostname]?.upgrade_history?.successful_upgrades?.[0]?.from_version ||
@@ -396,4 +360,41 @@ function assert_config_dir_defaults(actual_config_dir_defaults, system_data) {
     expect(upgrade_package_version).toBe(expected_package_from_version);
     expect(phase).toBe(CONFIG_DIR_UNLOCKED);
     expect(upgrade_history).toEqual({ successful_upgrades: [] });
+}
+
+/**
+ * populate_upgrade_scripts_dir created all upgrade scripts based on the patameters
+ * @param {String} upgrade_scripts_dir 
+ * @param {String} version 
+ * @param {Object} scripts_obj 
+ */
+async function populate_upgrade_scripts_dir(upgrade_scripts_dir, version, scripts_obj) {
+    for (const [script_name, upgrade_script] of Object.entries(scripts_obj)) {
+        const dummy_script_path = get_upgrade_script_path(upgrade_scripts_dir, version, script_name);
+        await fs.promises.writeFile(dummy_script_path, Buffer.from(upgrade_script));
+    }
+}
+
+/**
+ * delete_upgrade_scripts deletes all upgrade scripts based on the patameters
+ * @param {String} upgrade_scripts_dir 
+ * @param {String} version 
+ * @param {Object} scripts_obj 
+ */
+async function delete_upgrade_scripts(upgrade_scripts_dir, version, scripts_obj) {
+    for (const [script_name] of Object.entries(scripts_obj)) {
+        const dummy_script_path = get_upgrade_script_path(upgrade_scripts_dir, version, script_name);
+        await fs_utils.file_delete(dummy_script_path);
+    }
+}
+
+/**
+ * get_upgrade_script_path returns upgrade script full path
+ * @param {String} upgrade_scripts_dir 
+ * @param {String} version 
+ * @param {String} script_name 
+ * @returns {String}
+ */
+function get_upgrade_script_path(upgrade_scripts_dir, version, script_name) {
+    return path.join(upgrade_scripts_dir, version, script_name + '.js');
 }

@@ -13,6 +13,17 @@ const { get_process_fs_context } = require('./native_fs_utils');
 const nb_native = require('../util/nb_native');
 const http_utils = require('../util/http_utils');
 
+const OP_TO_EVENT = Object.freeze({
+    put_object: { name: 'ObjectCreated' },
+    post_object: { name: 'ObjectCreated' },
+    post_object_uploadId: { name: 'ObjectCreated', method: 'CompleteMultipartUpload' },
+    delete_object: { name: 'ObjectRemoved' },
+    post_object_restore: { name: 'ObjectRestore' },
+    put_object_acl: { name: 'ObjectAcl' },
+    put_object_tagging: { name: 'ObjectTagging' },
+    delete_object_tagging: { name: 'ObjectTagging' },
+});
+
 class Notificator {
 
     /**
@@ -156,9 +167,11 @@ class HttpNotificator {
                     //error emitted because of timeout, nothing more to do
                     return;
                 }
+                dbg.error("Notify err =", err);
                 promise_failure_cb(JSON.stringify(notif)).then(resolve);
             });
             req.on('timeout', () => {
+                dbg.error("Notify timeout");
                 req.destroy();
                 promise_failure_cb(JSON.stringify(notif)).then(resolve);
             });
@@ -305,11 +318,15 @@ function compose_notification(req, res, bucket, notif_conf) {
         eTag = eTag.substring(2, eTag.length - 2);
     }
 
+    const event = OP_TO_EVENT[req.op_name];
+    const http_verb_capitalized = req.method.charAt(0).toUpperCase() + req.method.slice(1).toLowerCase();
+    const event_time = new Date();
+
     const notif = {
         eventVersion: '2.3',
         eventSource: _get_system_name(req) + ':s3',
-        eventTime: new Date().toISOString,
-        eventName: req.s3event + ':' + (req.s3_event_op || req.method),
+        eventTime: event_time.toISOString(),
+        eventName: event.name + ':' + (event.method || req.s3_event_method || http_verb_capitalized),
         userIdentity: {
             principalId: req.object_sdk.requesting_account.name,
         },
@@ -351,11 +368,14 @@ function compose_notification(req, res, bucket, notif_conf) {
 
     //handle sequencer
     if (res.seq) {
+        //in noobaa-ns we have a sequence from db
         notif.s3.object.sequencer = res.seq;
+    } else {
+        //fallback to time-based sequence
+        notif.s3.object.sequencer = event_time.getTime().toString(16);
     }
 
-    const records = [];
-    records.push(notif);
+    const records = [notif];
 
     return {Records: records};
 }
@@ -374,6 +394,40 @@ function _get_system_name(req) {
     }
 }
 
+function check_notif_relevant(notif, req) {
+    const op_event = OP_TO_EVENT[req.op_name];
+    if (!op_event) {
+        //s3 op is not relevant for notifications
+        return false;
+    }
+
+    //if no events were specified, always notify
+    if (!notif.Events) return true;
+
+    //check request's event is in notification's events list
+    for (const notif_event of notif.Events) {
+        const notif_event_elems = notif_event.split(':');
+        const notif_event_name = notif_event_elems[1];
+        const notif_event_method = notif_event_elems[2];
+        if (notif_event_name.toLowerCase() !== op_event.name.toLowerCase()) return false;
+        //is there filter by method?
+        if (notif_event_method === '*') {
+            //no filtering on method. we've passed the filter and need to send a notification
+            return true;
+        }
+        //take request method by this order
+        //1 op_event.method - in case method can be inferred from req.op_name, eg s3_post_object_uploadId
+        //2 op explicitly set req.s3_event_method, eg DeleteMarkerCreated
+        //3 default to req.method (aka "http verb") eg get/post/delete
+        const op_method = op_event.method || req.s3_event_method || req.method;
+        if (notif_event_method.toLowerCase() === op_method.toLowerCase()) return true;
+    }
+
+    //request does not match any of the requested events
+    return false;
+}
+
 exports.Notificator = Notificator;
 exports.test_notifications = test_notifications;
 exports.compose_notification = compose_notification;
+exports.check_notif_relevant = check_notif_relevant;

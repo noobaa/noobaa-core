@@ -6,28 +6,7 @@ const http_utils = require('../../util/http_utils');
 const dgram = require('node:dgram');
 const { Buffer } = require('node:buffer');
 const config = require('../../../config');
-const {compose_notification} = require('../../util/notifications_util');
-
-function check_notif_relevant(notif, req) {
-    //if no events were specified, always notify
-    if (!notif.events) return true;
-
-    //check request's event is in notification's events list
-    for (const notif_event of notif.events) {
-        const notif_event_elems = notif_event.split(':');
-        const event_name = notif_event_elems[1];
-        const event_method = notif_event_elems[2];
-        const req_s3_event_op = req.s3_event_op || req.method;
-        if (!req.s3event) return false;
-        if (event_name.toLowerCase() !== req.s3event.toLowerCase()) return false;
-        if (event_method === '*') return true;
-        if (!req_s3_event_op) return false;
-        if (event_method.toLowerCase() === req_s3_event_op.toLowerCase()) return true;
-    }
-
-    //request does not match any of the requested events
-    return false;
-}
+const {compose_notification, check_notif_relevant} = require('../../util/notifications_util');
 
 async function send_bucket_op_logs(req, res) {
     if (req.params && req.params.bucket &&
@@ -73,7 +52,7 @@ async function send_bucket_op_logs(req, res) {
             const promises = [];
             for (const write of writes_aggregate) {
                 promises.push(new Promise((resolve, reject) => {
-                    write.file.append(write.buffer).then(resolve());
+                    write.file.append(write.buffer).then(resolve);
                 }));
             }
             await Promise.all(promises);

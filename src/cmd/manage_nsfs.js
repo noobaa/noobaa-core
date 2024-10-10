@@ -719,7 +719,7 @@ async function logging_management() {
 }
 
 async function notification_management() {
-    new notifications_util.Notificator(config_fs.fs_context).process_notification_files();
+    new notifications_util.Notificator({fs_context: config_fs.fs_context}).process_notification_files();
 }
 
 exports.main = main;

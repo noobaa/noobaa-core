@@ -1048,12 +1048,14 @@ class ConfigFS {
                 updated_system_json = this._get_new_system_json_data();
                 await this.create_system_config_file(JSON.stringify(updated_system_json));
                 dbg.log0('created NC system data with version: ', pkg.version);
+                return updated_system_json;
             } else {
                 if (updated_system_json[hostname]?.current_version) return;
                 const new_host_data = this._get_new_hostname_data();
                 updated_system_json = { ...updated_system_json, new_host_data };
                 await this.update_system_config_file(JSON.stringify(updated_system_json));
                 dbg.log0('updated NC system data with version: ', pkg.version);
+                return updated_system_json;
             }
         } catch (err) {
             const msg = 'failed to create/update NC system data due to - ' + err.message;

@@ -21,7 +21,7 @@ RUN dnf update -y -q --nobest && \
 COPY ./src/deploy/NVA_build/install_arrow_build.sh ./src/deploy/NVA_build/install_arrow_build.sh
 ARG BUILD_S3SELECT_PARQUET=0
 RUN ./src/deploy/NVA_build/install_arrow_build.sh $BUILD_S3SELECT_PARQUET
-RUN dnf install -y -q wget unzip which vim python3 boost-devel && \
+RUN dnf install -y -q wget unzip which vim python3 boost-devel libcap-devel && \
     dnf group install -y -q "Development Tools" && \
     dnf clean all
 RUN version="2.15.05" && \

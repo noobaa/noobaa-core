@@ -40,6 +40,7 @@
                 ],
                 'ldflags': [
                     '-lrt', # librt
+                    '-lcap',
                 ],
             }],
 

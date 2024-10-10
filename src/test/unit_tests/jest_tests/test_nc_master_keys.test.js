@@ -11,6 +11,7 @@ const cloud_utils = require('../../../util/cloud_utils');
 const nc_mkm = require('../../../manage_nsfs/nc_master_key_manager');
 const { get_process_fs_context } = require('../../../util/native_fs_utils');
 const nsfs_schema_utils = require('../../../manage_nsfs/nsfs_schema_utils');
+const { fail_test_if_default_config_dir_exists } = require('../../../test/system_tests/test_utils');
 
 const DEFAULT_FS_CONFIG = get_process_fs_context();
 const MASTER_KEYS_JSON_PATH = path.join(config.NSFS_NC_DEFAULT_CONF_DIR, 'master_keys.json');
@@ -18,12 +19,13 @@ const MASTER_KEYS_JSON_PATH = path.join(config.NSFS_NC_DEFAULT_CONF_DIR, 'master
 describe('NC master key manager tests - file store type', () => {
 
     beforeAll(async () => {
+        await fail_test_if_default_config_dir_exists('test_nc_master_keys');
         await fs_utils.create_fresh_path(config.NSFS_NC_DEFAULT_CONF_DIR);
     });
 
     afterAll(async () => {
         await fs.promises.rm(MASTER_KEYS_JSON_PATH);
-        //await fs.promises.rm(config.NSFS_NC_DEFAULT_CONF_DIR, { recursive: true, force: true });
+        await fs.promises.rm(config.NSFS_NC_DEFAULT_CONF_DIR, { recursive: true, force: true });
     });
 
     let initial_master_key;

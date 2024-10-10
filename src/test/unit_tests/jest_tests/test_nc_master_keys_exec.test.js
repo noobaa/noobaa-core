@@ -4,12 +4,12 @@
 
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const config = require('../../../../config');
 const fs_utils = require('../../../util/fs_utils');
 const cloud_utils = require('../../../util/cloud_utils');
-const { TMP_PATH } = require('../../system_tests/test_utils');
-const crypto = require('crypto');
 const db_client = require('../../../util/db_client').instance();
+const { TMP_PATH, fail_test_if_default_config_dir_exists } = require('../../system_tests/test_utils');
 
 const MKM_GET_EXEC_PATH = path.join(config.NSFS_NC_DEFAULT_CONF_DIR, 'file_get');
 const MKM_PUT_EXEC_PATH = path.join(config.NSFS_NC_DEFAULT_CONF_DIR, 'file_put');
@@ -70,6 +70,7 @@ describe('NC master key manager tests - exec store type', () => {
     const MASTER_KEYS_JSON_PATH = path.join(TMP_PATH, 'noobaa.master_keys');
 
     beforeAll(async () => {
+        await fail_test_if_default_config_dir_exists('test_nc_master_keys_exec');
         await fs_utils.create_fresh_path(config.NSFS_NC_DEFAULT_CONF_DIR);
         await fs.promises.writeFile(MKM_GET_EXEC_PATH, Buffer.from(get_script_content));
         await fs.promises.writeFile(MKM_PUT_EXEC_PATH, Buffer.from(put_script_content));
@@ -84,6 +85,7 @@ describe('NC master key manager tests - exec store type', () => {
         await fs.promises.rm(MASTER_KEYS_JSON_PATH);
         await fs.promises.rm(MKM_GET_EXEC_PATH);
         await fs.promises.rm(MKM_PUT_EXEC_PATH);
+        await fs.promises.rm(config.NSFS_NC_DEFAULT_CONF_DIR, { recursive: true, force: true });
     });
 
     let initial_master_key;

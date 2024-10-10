@@ -1848,8 +1848,6 @@ describe('cli account flow distinguished_name - permissions', function() {
             await delete_fs_user_by_platform(distinguished_name);
         }
         await fs_utils.folder_delete(config_root);
-        await fs_utils.folder_delete(config_root);
-        await fs_utils.folder_delete(config.NSFS_NC_DEFAULT_CONF_DIR);
     }, timeout);
 
     it('cli account create - should fail - user does not exist', async function() {

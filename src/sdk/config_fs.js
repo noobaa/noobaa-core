@@ -1,16 +1,22 @@
 /* Copyright (C) 2024 NooBaa */
 'use strict';
 
-const config = require('../../config');
-const dbg = require('../util/debug_module')(__filename);
+const util = require('util');
 const _ = require('lodash');
 const path = require('path');
+const P = require('../util/promise');
+const config = require('../../config');
+const dbg = require('../util/debug_module')(__filename);
 const os_utils = require('../util/os_utils');
 const SensitiveString = require('../util/sensitive_string');
 const nb_native = require('../util/nb_native');
 const native_fs_utils = require('../util/native_fs_utils');
+const { RpcError } = require('../rpc');
 const nc_mkm = require('../manage_nsfs/nc_master_key_manager').get_instance();
 const nsfs_schema_utils = require('../manage_nsfs/nsfs_schema_utils');
+const { version_compare } = require('../upgrade/upgrade_utils');
+
+/** @typedef {import('fs').Dirent} Dirent */
 
 /* Config directory sub directory comments - 
    On 5.18 - 
@@ -52,6 +58,15 @@ const SYMLINK_SUFFIX = '.symlink';
 // need to find a better way for atomic unlinking of symbolic links
 // handle atomicity for symlinks
 
+
+/**
+ * config_dir_version is a semver that describes the config directory's version.  
+ * config_dir_version is planned to be upgraded when a change that can not be solved only by backward compatibility 
+ * and must require a use of an upgrade script.
+ * The config directory upgrade script will handle config directory changes of the structure or content of the config files.
+ * The upgrade script will run via `noobaa-cli upgrade run command`
+ */
+
 class ConfigFS {
 
     /**
@@ -62,6 +77,7 @@ class ConfigFS {
     constructor(config_root, config_root_backend, fs_context) {
         this.config_root = config_root;
         this.config_root_backend = config_root_backend || config.NSFS_NC_CONFIG_DIR_BACKEND;
+        this.config_dir_version = '1.0.0';
         this.old_accounts_dir_path = path.join(config_root, CONFIG_SUBDIRS.ACCOUNTS);
         this.accounts_by_name_dir_path = path.join(config_root, CONFIG_SUBDIRS.ACCOUNTS_BY_NAME);
         this.identities_dir_path = path.join(config_root, CONFIG_SUBDIRS.IDENTITIES);
@@ -555,6 +571,7 @@ class ConfigFS {
      * @returns {Promise<Object>} 
      */
     async create_account_config_file(account_data) {
+        await this._throw_if_config_dir_locked();
         const { _id, name, owner = undefined } = account_data;
         const { parsed_account_data, string_account_data} = await this._prepare_for_account_schema(account_data);
         const account_path = this.get_identity_path_by_id(_id);
@@ -583,6 +600,7 @@ class ConfigFS {
      * @returns {Promise<Object>}
      */
     async update_account_config_file(account_new_data, options = {}) {
+        await this._throw_if_config_dir_locked();
         const { _id, name, owner = undefined } = account_new_data;
         const { parsed_account_data, string_account_data} = await this._prepare_for_account_schema(account_new_data);
         const account_path = this.get_identity_path_by_id(_id);
@@ -609,6 +627,7 @@ class ConfigFS {
      * @returns {Promise<void>}
      */
     async delete_account_config_file(data) {
+        await this._throw_if_config_dir_locked();
         const { _id, name, access_keys = [] } = data;
         const account_id_config_path = this.get_identity_path_by_id(_id);
         const account_dir_path = this.get_identity_dir_path_by_id(_id);
@@ -805,6 +824,7 @@ class ConfigFS {
      * @returns {Promise<String>} 
      */
     async create_bucket_config_file(bucket_data) {
+        await this._throw_if_config_dir_locked();
         const { parsed_bucket_data, string_bucket_data } = this._prepare_for_bucket_schema(bucket_data);
         const bucket_path = this.get_bucket_path_by_name(bucket_data.name);
         await native_fs_utils.create_config_file(this.fs_context, this.buckets_dir_path, bucket_path, string_bucket_data);
@@ -833,6 +853,7 @@ class ConfigFS {
      * @returns {Promise<String>} 
      */
     async update_bucket_config_file(bucket_data) {
+        await this._throw_if_config_dir_locked();
         const { parsed_bucket_data, string_bucket_data } = this._prepare_for_bucket_schema(bucket_data);
         const bucket_config_path = this.get_bucket_path_by_name(bucket_data.name);
         await native_fs_utils.update_config_file(this.fs_context, this.buckets_dir_path, bucket_config_path, string_bucket_data);
@@ -845,18 +866,66 @@ class ConfigFS {
      * @returns {Promise<void>} 
      */
     async delete_bucket_config_file(bucket_name) {
+        await this._throw_if_config_dir_locked();
         const bucket_config_path = this.get_bucket_path_by_name(bucket_name);
         await native_fs_utils.delete_config_file(this.fs_context, this.buckets_dir_path, bucket_config_path);
     }
 
+    ////////////////////////
+    ///     SYSTEM      ////
+    ////////////////////////
+
     /**
      * get_system_config_file read system.json file
-     * @param {{silent_if_missing?: boolean}} options 
+     * @param {{silent_if_missing?: boolean}} [options]
      * @returns {Promise<Object>}
      */
-    async get_system_config_file(options) {
+    async get_system_config_file(options = {}) {
         const system_data = await this.get_config_data(this.system_json_path, options);
         return system_data;
+    }
+
+    /**
+     * create_system_config_file creates a new system.json file
+     * @returns {Promise<Void>}
+     */
+    async create_system_config_file(system_data) {
+        await native_fs_utils.create_config_file(this.fs_context, this.config_root, this.system_json_path, system_data);
+    }
+
+    /**
+     * update_system_config_file updates system.json file
+     * @returns {Promise<Void>}
+     */
+    async update_system_config_file(system_data) {
+        await native_fs_utils.update_config_file(this.fs_context, this.config_root, this.system_json_path, system_data);
+    }
+
+    /**
+     * @param {Object} new_system_data
+     * @returns {Promise<Void>}
+     */
+    async update_system_json_with_retries(new_system_data, { max_retries = 3, delay = 1000 } = {}) {
+        let retries = 0;
+        let changes_updated = false;
+        while (!changes_updated) {
+            try {
+                await this.update_system_config_file(new_system_data);
+                changes_updated = true;
+            } catch (err) {
+                if (retries === max_retries) {
+                    const message = `update_system_json_with_retries failed. aborting after ${max_retries} retries. 
+                    new_system_data=${util.inspect(new_system_data, { depth: 5 })} error= ${err}`;
+                    dbg.error(message);
+                    throw new Error(message);
+                }
+                dbg.warn(`update_system_json_with_retries failed. will retry in ${delay / 1000} seconds. changes=`,
+                    util.inspect(new_system_data, { depth: 5 }),
+                    'error=', err);
+                retries += 1;
+                await P.delay(delay);
+            }
+        }
     }
 
     ////////////////////////
@@ -880,7 +949,7 @@ class ConfigFS {
     }
 
     /**
-    * @param {fs.Dirent} entry
+    * @param {Dirent} entry
     * @param {string} suffix
     * @returns {boolean}
     */
@@ -893,7 +962,7 @@ class ConfigFS {
     /**
     * _get_config_entry_name returns config file entry name if it adheres a config file name format, 
     * else returns undefined
-    * @param {fs.Dirent} entry
+    * @param {Dirent} entry
     * @param {string} suffix
     * @returns {string | undefined}
     */
@@ -905,7 +974,7 @@ class ConfigFS {
 
     /**
     * _get_config_entries_names returns config file names array 
-    * @param {fs.Dirent[]} entries
+    * @param {Dirent[]} entries
     * @param {string} suffix
     * @returns {string[]}
     */
@@ -917,6 +986,28 @@ class ConfigFS {
             }
         }
         return config_file_names;
+    }
+
+    /**
+     * _throw_if_config_dir_locked validates that
+     * config dir schema version on system.json matches the config_dir_version on package.json
+     * throws an error if they do not match.
+     * @returns {Promise<void>}
+     */
+    async _throw_if_config_dir_locked() {
+        const system_data = await this.get_system_config_file({silent_if_missing: true});
+        if (!system_data) return;
+        const running_code_config_dir_version = this.config_dir_version;
+        const system_config_dir_version = system_data.config_directory.config_dir_version;
+        const ver_comparison = version_compare(running_code_config_dir_version, system_config_dir_version);
+        if (ver_comparison > 0) {
+            throw new RpcError('CONFIG_DIR_VERSION_MISMATCH', `running code config_dir_version=${running_code_config_dir_version} is higher than the config dir version` +
+                `mentioned in system.json =${system_config_dir_version}, any updates to the config directory are blocked until the config dir upgrade`);
+        }
+        if (ver_comparison < 0) {
+            throw new RpcError('CONFIG_DIR_VERSION_MISMATCH', `running code config_dir_version=${running_code_config_dir_version} is lower than the config dir version` +
+                `mentioned in system.json =${system_config_dir_version}, any updates to the config directory are blocked until the source code upgrade`);
+        }
     }
 }
 

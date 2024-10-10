@@ -4,13 +4,16 @@
 // disabling init_rand_seed as it takes longer than the actual test execution
 process.env.DISABLE_INIT_RANDOM_SEED = "true";
 
+const path = require('path');
 const express = require('express');
 const config = require('../../../../config');
-const { exec_manage_cli } = require('../../system_tests/test_utils');
+const { folder_delete } = require('../../../util/fs_utils');
+const { exec_manage_cli, TMP_PATH } = require('../../system_tests/test_utils');
 const { TYPES, DIAGNOSE_ACTIONS } = require('../../../manage_nsfs/manage_nsfs_constants');
 const ManageCLIError = require('../../../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
 const { ManageCLIResponse } = require('../../../manage_nsfs/manage_nsfs_cli_responses');
 
+const config_root = path.join(TMP_PATH, 'test_cli_diagnose');
 const metrics_url = `http://127.0.0.1:${config.EP_METRICS_SERVER_PORT}/metrics/nsfs_stats`;
 const metrics_obj_mock = {
     "nsfs_counters": {
@@ -45,9 +48,11 @@ const metrics_obj_mock = {
 
 describe('noobaa cli - diagnose flow', () => {
 
+    afterAll(async () => await folder_delete(config_root));
+
     describe('gather-logs flow', async => {
         it('gather-logs - should fail with not implemented', async () => {
-            const res = await exec_manage_cli(TYPES.DIAGNOSE, DIAGNOSE_ACTIONS.GATHER_LOGS, {}, true);
+            const res = await exec_manage_cli(TYPES.DIAGNOSE, DIAGNOSE_ACTIONS.GATHER_LOGS, { config_root }, true);
             expect(JSON.parse(res.stdout).error.message).toBe(ManageCLIError.NotImplemented.message);
         });
     });
@@ -58,7 +63,7 @@ describe('noobaa cli - diagnose flow', () => {
             let metrics_server;
             try {
                 metrics_server = start_metrics_mock_server();
-                const res = await exec_manage_cli(TYPES.DIAGNOSE, DIAGNOSE_ACTIONS.METRICS, {}, true);
+                const res = await exec_manage_cli(TYPES.DIAGNOSE, DIAGNOSE_ACTIONS.METRICS, { config_root }, true);
                 const parsed_res = JSON.parse(res);
                 expect(parsed_res.response.code).toBe(ManageCLIResponse.MetricsStatus.code);
                 expect(parsed_res.response.reply).toMatchObject(metrics_obj_mock);
@@ -68,7 +73,7 @@ describe('noobaa cli - diagnose flow', () => {
         });
 
         it('diagnose metrics - should fail, metrics server is down', async () => {
-            const res = await exec_manage_cli(TYPES.DIAGNOSE, DIAGNOSE_ACTIONS.METRICS, {}, true);
+            const res = await exec_manage_cli(TYPES.DIAGNOSE, DIAGNOSE_ACTIONS.METRICS, { config_root }, true);
             const parsed_res = JSON.parse(res.stdout);
             expect(parsed_res.error.code).toBe(ManageCLIError.MetricsStatusFailed.code);
             expect(parsed_res.error.message).toBe(ManageCLIError.MetricsStatusFailed.message);

@@ -3,16 +3,17 @@
 
 const fs = require('fs');
 const _ = require('lodash');
+const path = require('path');
 const http = require('http');
 const P = require('../../util/promise');
-const os_utils = require('../../util/os_utils');
-const nb_native = require('../../util/nb_native');
-const native_fs_utils = require('../../util/native_fs_utils');
 const config = require('../../../config');
 const { S3 } = require('@aws-sdk/client-s3');
-const { NodeHttpHandler } = require("@smithy/node-http-handler");
-const path = require('path');
+const os_utils = require('../../util/os_utils');
+const fs_utils = require('../../util/fs_utils');
+const nb_native = require('../../util/nb_native');
 const { CONFIG_TYPES } = require('../../sdk/config_fs');
+const native_fs_utils = require('../../util/native_fs_utils');
+const { NodeHttpHandler } = require("@smithy/node-http-handler");
 
 /**
  * TMP_PATH is a path to the tmp path based on the process platform
@@ -343,6 +344,33 @@ function set_nc_config_dir_in_config(config_root) {
     config.NSFS_NC_CONF_DIR = config_root;
 }
 
+
+///////////////////////////////
+///     REDIRECT FILE      ////
+///////////////////////////////
+
+
+/**
+ * create_redirect_file will create the redirect file inside the default config directory,
+ * its content is a path to a custom config directory
+ * @returns {Promise<Void>}
+ */
+async function create_redirect_file(config_fs, custom_config_root_path) {
+    const redirect_file_path = path.join(config.NSFS_NC_DEFAULT_CONF_DIR, config.NSFS_NC_CONF_DIR_REDIRECT_FILE);
+    await nb_native().fs.writeFile(config_fs.fs_context, redirect_file_path, Buffer.from(custom_config_root_path)
+    );
+}
+
+/**
+ * delete_redirect_file will delete the redirect file inside the default config directory,
+ * WARNING - this will cause loosing of contact to the existing custom config directory
+ * @returns {Promise<Void>}
+ */
+async function delete_redirect_file(config_fs) {
+    const redirect_file_path = path.join(config.NSFS_NC_DEFAULT_CONF_DIR, config.NSFS_NC_CONF_DIR_REDIRECT_FILE);
+    await nb_native().fs.unlink(config_fs.fs_context, redirect_file_path);
+}
+
 function generate_anon_s3_client(endpoint) {
     return new S3({
         forcePathStyle: true,
@@ -510,6 +538,58 @@ async function delete_manual_config_file(type, config_fs, config_data) {
     }
 }
 
+
+/**
+ * @param {any} test_name
+ * @param {Object} [config_fs]
+ */
+async function fail_test_if_default_config_dir_exists(test_name, config_fs = {}) {
+    const fs_context = config_fs?.fs_context || native_fs_utils.get_process_fs_context();
+    const config_dir_exists = await native_fs_utils.is_path_exists(fs_context, config.NSFS_NC_DEFAULT_CONF_DIR);
+    const msg = `${test_name} found an existing default config directory ${config.NSFS_NC_DEFAULT_CONF_DIR},` +
+        `this test needs to test the creation of the config directory elements, therefore make sure ` +
+        `the content of the config directory is not needed and remove it for ensuring a used config directory will not get deleted`;
+    if (config_dir_exists) {
+        console.error(msg);
+        process.exit(1);
+    }
+}
+
+
+/**
+ * create_config_dir will create the config directory on the file system
+ * @param {String} config_dir 
+ * @returns {Promise<Void>}
+ */
+async function create_config_dir(config_dir) {
+    await fs_utils.create_fresh_path(config_dir);
+}
+
+
+/**
+ * clean_config_dir cleans the config directory
+ * @returns {Promise<Void>}
+ */
+async function clean_config_dir(config_fs, custom_config_dir_path) {
+    const buckets_dir_name = '/buckets/';
+    const identities_dir_name = '/identities/';
+    const accounts_by_name = '/accounts_by_name/';
+    const access_keys_dir_name = '/access_keys/';
+    const system_json = '/system.json';
+    for (const dir of [buckets_dir_name, identities_dir_name, access_keys_dir_name, accounts_by_name]) {
+        const default_path = path.join(config.NSFS_NC_DEFAULT_CONF_DIR, dir);
+        await fs_utils.folder_delete(default_path);
+        const custom_path = path.join(custom_config_dir_path, dir);
+        await fs_utils.folder_delete(custom_path);
+
+    }
+    await delete_redirect_file(config_fs);
+    await fs_utils.file_delete(system_json);
+    await fs_utils.folder_delete(config.NSFS_NC_DEFAULT_CONF_DIR);
+    await fs_utils.folder_delete(custom_config_dir_path);
+}
+
+
 exports.blocks_exist_on_cloud = blocks_exist_on_cloud;
 exports.create_hosts_pool = create_hosts_pool;
 exports.delete_hosts_pool = delete_hosts_pool;
@@ -532,4 +612,8 @@ exports.get_new_buckets_path_by_test_env = get_new_buckets_path_by_test_env;
 exports.write_manual_config_file = write_manual_config_file;
 exports.write_manual_old_account_config_file = write_manual_old_account_config_file;
 exports.delete_manual_config_file = delete_manual_config_file;
-
+exports.create_redirect_file = create_redirect_file;
+exports.delete_redirect_file = delete_redirect_file;
+exports.fail_test_if_default_config_dir_exists = fail_test_if_default_config_dir_exists;
+exports.create_config_dir = create_config_dir;
+exports.clean_config_dir = clean_config_dir;

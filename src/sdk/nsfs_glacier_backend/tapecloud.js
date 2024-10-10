@@ -51,7 +51,7 @@ class TapeCloudUtils {
                 throw new Error('process exited with non-zero exit code:', errcode);
             }
 
-            reader = new NewlineReader(fs_context, tmp);
+            reader = new NewlineReader(fs_context, tmp, { skip_overflow_lines: true });
             await reader.forEach(async line => {
                 const failure_case = line.startsWith("Fail");
                 const success_case = line.startsWith("Success");

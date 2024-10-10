@@ -151,7 +151,7 @@ mocha.describe('nsfs_glacier', async () => {
             let found = false;
             await NamespaceFS.migrate_wal._process(async file => {
                 const fs_context = glacier_ns.prepare_fs_context(dummy_object_sdk);
-                const reader = new NewlineReader(fs_context, file, 'EXCLUSIVE');
+                const reader = new NewlineReader(fs_context, file, { lock: 'EXCLUSIVE' });
 
                 await reader.forEachFilePathEntry(async entry => {
                     if (entry.path.endsWith(`${upload_key}`)) {

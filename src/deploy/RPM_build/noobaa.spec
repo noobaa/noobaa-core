@@ -30,6 +30,7 @@ BuildRequires:  python3
 BuildRequires:  make
 BuildRequires:  gcc-c++
 BuildRequires:  boost-devel
+BuildRequires:  libcap-devel
 
 Recommends:     jemalloc
 

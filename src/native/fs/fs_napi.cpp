@@ -559,6 +559,7 @@ struct FSWorker : public Napi::AsyncWorker
     int _warn_threshold_ms;
     double _took_time;
     Napi::FunctionReference _report_fs_stats;
+    bool _should_add_thread_capabilities;
 
     // executes the ctime check in the stat and read file fuctions
     // NOTE: If _do_ctime_check = false, then some functions will fallback to using mtime check
@@ -574,6 +575,7 @@ struct FSWorker : public Napi::AsyncWorker
         , _errno(0)
         , _warn_threshold_ms(0)
         , _took_time(0)
+        , _should_add_thread_capabilities(false)
         , _do_ctime_check(false)
     {
         for (int i = 0; i < (int)info.Length(); ++i) _args_ref.Set(i, info[i]);
@@ -607,6 +609,9 @@ struct FSWorker : public Napi::AsyncWorker
         tx.set_user(_uid, _gid);
         DBG1("FS::FSWorker::Execute: " << _desc << DVAL(_uid) << DVAL(_gid) << DVAL(geteuid()) << DVAL(getegid()) << DVAL(getuid()) << DVAL(getgid()));
 
+        if(_should_add_thread_capabilities) {
+            tx.add_thread_capabilities();
+        }
         auto start_time = std::chrono::high_resolution_clock::now();
         Work();
         auto end_time = std::chrono::high_resolution_clock::now();
@@ -640,6 +645,9 @@ struct FSWorker : public Napi::AsyncWorker
     bool use_gpfs_lib()
     {
         return gpfs_dl_path != NULL && gpfs_lib_file_exists > -1 && _backend == GPFS_BACKEND;
+    }
+    void AddThreadCapabilities() {
+        _should_add_thread_capabilities = true;
     }
     virtual void OnOK() override
     {
@@ -1619,15 +1627,24 @@ struct LinkFileAt : public FSWrapWorker<FileWrap>
 {
     std::string _filepath;
     int _replace_fd;
+    bool _should_not_override;
     LinkFileAt(const Napi::CallbackInfo& info)
         : FSWrapWorker<FileWrap>(info)
         , _replace_fd(-1)
+        , _should_not_override(false)
     {
         _filepath = info[1].As<Napi::String>();
         if (info.Length() > 2 && !info[2].IsUndefined()) {
             _replace_fd = info[2].As<Napi::Number>();
         }
-        Begin(XSTR() << "LinkFileAt " << DVAL(_wrap->_path) << DVAL(_wrap->_fd) << DVAL(_filepath));
+        if (info.Length() > 3 && !info[3].IsUndefined()) {
+            _should_not_override = info[3].As<Napi::Boolean>();
+        }
+        if(_replace_fd < 0  && _should_not_override) {
+            //set thread capabilities to allow linkat from user other than root.
+            AddThreadCapabilities();
+        }
+        Begin(XSTR() << "LinkFileAt " << DVAL(_wrap->_path) << DVAL(_wrap->_fd) << DVAL(_filepath) << DVAL(_should_not_override));
     }
     virtual void Work()
     {
@@ -1638,6 +1655,8 @@ struct LinkFileAt : public FSWrapWorker<FileWrap>
         // Linux will fail the linkat() if the file already exist and we want to replace it if it existed.
         if (_replace_fd >= 0) {
             SYSCALL_OR_RETURN(dlsym_gpfs_linkatif(fd, "", AT_FDCWD, _filepath.c_str(), AT_EMPTY_PATH, _replace_fd));
+        } else if (_should_not_override){
+            SYSCALL_OR_RETURN(linkat(fd, "", AT_FDCWD, _filepath.c_str(), AT_EMPTY_PATH));
         } else {
             SYSCALL_OR_RETURN(dlsym_gpfs_linkat(fd, "", AT_FDCWD, _filepath.c_str(), AT_EMPTY_PATH));
         }

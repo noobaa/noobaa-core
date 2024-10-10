@@ -54,6 +54,14 @@ ThreadScope::restore_user()
     }
 }
 
+int
+ThreadScope::add_thread_capabilities()
+{
+    //set capabilities not used in darwin
+    LOG("function set_capabilities_linkat is unsupported in darwin");
+    return -1;
+}
+
 } // namespace noobaa
 
 #endif

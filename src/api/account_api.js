@@ -461,6 +461,9 @@ module.exports = {
                     },
                     endpoint_type: {
                         $ref: 'common_api#/definitions/endpoint_type'
+                    },
+                    gcp_hmac_key: {
+                        $ref: 'common_api#/definitions/gcp_hmac_key'
                     }
 
                 }

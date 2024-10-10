@@ -648,6 +648,33 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
     }
 
     /////////////////////////
+    // BUCKET NOTIFICATION //
+    /////////////////////////
+
+    async put_bucket_notification(params) {
+        try {
+            const { bucket_name, notifications } = params;
+            dbg.log0('BucketSpaceFS.put_bucket_notification: Bucket name', bucket_name, ", notifications ", notifications);
+            const bucket = await this.config_fs.get_bucket_by_name(bucket_name);
+            bucket.notifications = notifications;
+            await this.config_fs.update_bucket_config_file(bucket);
+        } catch (error) {
+            throw translate_error_codes(error, entity_enum.BUCKET);
+        }
+    }
+
+    async get_bucket_notification(params) {
+        try {
+            const { bucket_name } = params;
+            dbg.log0('BucketSpaceFS.get_bucket_notification: Bucket name', bucket_name);
+            const bucket = await this.config_fs.get_bucket_by_name(bucket_name);
+            return { notifications: bucket.notifications || [] };
+        } catch (error) {
+            throw translate_error_codes(error, entity_enum.BUCKET);
+        }
+    }
+
+    /////////////////////////
     // DEFAULT OBJECT LOCK //
     /////////////////////////
 

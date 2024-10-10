@@ -168,8 +168,8 @@ function validate_options_type_by_value(input_options_with_data) {
             if (BOOLEAN_STRING_OPTIONS.has(option) && validate_boolean_string_value(value)) {
                 continue;
             }
-            // special case for bucket_policy (from_file)
-            if (option === 'bucket_policy' && type_of_value === 'object') {
+            // special case for bucket_policy and notifications(from_file)
+            if ((option === 'bucket_policy' || option === 'notifications') && type_of_value === 'object') {
                 continue;
             }
             const details = `type of flag ${option} should be ${type_of_option}`;

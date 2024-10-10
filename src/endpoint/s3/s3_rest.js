@@ -243,9 +243,17 @@ async function authorize_request_policy(req) {
     if (is_system_owner) return;
 
     const is_owner = (function() {
+        // Containerized condition for bucket ownership
+        // 1. by bucket_claim_owner
+        // 2. by email
         if (account.bucket_claim_owner && account.bucket_claim_owner.unwrap() === req.params.bucket) return true;
+        // NC conditions for bucket ownership
+        // 1. by ID (when creating the bucket the owner is always an account) - comparison to ID which is unique
+        // 2. by name - account_identifier can be username which is not unique
+        //    to make sure it is only on accounts (account names are unique) we check there's no account's ownership
         if (owner_account && owner_account.id === account._id) return true;
-        if (account_identifier_name === bucket_owner.unwrap()) return true; // TODO: change it to root accounts after we will have the /users structure
+        // checked last on purpose (NC first checks the ID and then name for backward computability)
+        if (account.owner === undefined && account_identifier_name === bucket_owner.unwrap()) return true; // mutual check
         return false;
     }());
 
@@ -267,7 +275,7 @@ async function authorize_request_policy(req) {
             s3_policy, account_identifier_id, method, arn_path, req);
     }
 
-    if (!account_identifier_id || permission === "IMPLICIT_DENY") {
+    if ((!account_identifier_id || permission === "IMPLICIT_DENY") && account.owner === undefined) {
         permission = await s3_bucket_policy_utils.has_bucket_policy_permission(
             s3_policy, account_identifier_name, method, arn_path, req);
     }

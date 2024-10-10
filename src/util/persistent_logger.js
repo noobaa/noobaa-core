@@ -282,7 +282,11 @@ class LogFile {
                 { locking: 'EXCLUSIVE'}
             );
 
-            log_reader = new NewlineReader(this.fs_context, this.log_path, 'EXCLUSIVE');
+            log_reader = new NewlineReader(
+                this.fs_context,
+                this.log_path,
+                { lock: 'EXCLUSIVE', skip_overflow_lines: true, skip_leftover_line: true },
+            );
             await log_reader.forEach(async entry => {
                 await collect(entry, filtered_log.append.bind(filtered_log));
                 return true;

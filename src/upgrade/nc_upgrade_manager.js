@@ -276,6 +276,7 @@ exports.upgrade_config_dir = upgrade_config_dir;
 exports.config_directory_defaults = config_directory_defaults;
 exports._verify_config_dir_upgrade = _verify_config_dir_upgrade;
 exports._run_nc_upgrade_scripts = _run_nc_upgrade_scripts;
+exports._update_config_dir_upgrade_start = _update_config_dir_upgrade_start;
 exports.CONFIG_DIR_UNLOCKED = CONFIG_DIR_UNLOCKED;
 exports.CONFIG_DIR_LOCKED = CONFIG_DIR_LOCKED;
 exports.OLD_DEFAULT_CONFIG_DIR_VERSION = OLD_DEFAULT_CONFIG_DIR_VERSION;

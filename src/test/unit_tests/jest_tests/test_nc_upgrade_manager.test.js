@@ -12,7 +12,9 @@ const fs_utils = require('../../../util/fs_utils');
 const config = require('../../../../config');
 const pkg = require('../../../../package.json');
 const { update_rpm_upgrade, _verify_config_dir_upgrade, config_directory_defaults, _run_nc_upgrade_scripts,
-    CONFIG_DIR_UNLOCKED, OLD_DEFAULT_CONFIG_DIR_VERSION, OLD_DEFAULT_PACKAGE_VERSION, DEFAULT_NC_UPGRADE_SCRIPTS_DIR } = require('../../../upgrade/nc_upgrade_manager');
+    _update_config_dir_upgrade_start,
+    CONFIG_DIR_UNLOCKED, OLD_DEFAULT_CONFIG_DIR_VERSION, OLD_DEFAULT_PACKAGE_VERSION, DEFAULT_NC_UPGRADE_SCRIPTS_DIR, 
+    CONFIG_DIR_LOCKED} = require('../../../upgrade/nc_upgrade_manager');
 const { ConfigFS } = require('../../../sdk/config_fs');
 const { TMP_PATH, create_redirect_file, create_config_dir,
     fail_test_if_default_config_dir_exists, clean_config_dir } = require('../../system_tests/test_utils');
@@ -65,6 +67,31 @@ const old_expected_system_json = {
                 'to_version': '5.17.0'
             }]
         },
+    }
+};
+
+const old_expected_system_json_has_config_directory = {
+    [hostname]: {
+        'current_version': '5.18.1',
+        'upgrade_history': {
+            'successful_upgrades': [{
+                'timestamp': 1724687496424,
+                'from_version': '5.18.0',
+                'to_version': '5.18.1'
+            }]
+        },
+    },
+    config_directory: {
+        'config_dir_version': '1',
+        'phase': 'CONFIG_DIR_UNLOCK',
+        'upgrade_history': {
+            'successful_upgrades': [{
+                'timestamp': 1724687496424,
+                'completed_scripts': [],
+                'package_from_version': '5.17.0',
+                'package_to_version': '5.18.0'
+            }]
+        }
     }
 };
 
@@ -338,13 +365,102 @@ describe('nc upgrade manager - upgrade config directory', () => {
             await delete_upgrade_scripts(DEFAULT_NC_UPGRADE_SCRIPTS_DIR, to_version, failing_upgrade_scripts_obj);
         });
     });
+
+    describe('nc upgrade manager - _update_config_dir_upgrade_start', () => {
+
+        beforeAll(async () => {
+            await fail_test_if_default_config_dir_exists('test_config_dir_nc_upgrade_manager', config_fs);
+        });
+
+        beforeEach(async () => {
+            await create_config_dir(config.NSFS_NC_DEFAULT_CONF_DIR);
+            await create_config_dir(config_root);
+            await create_redirect_file(config_fs, config_root);
+        });
+
+        afterEach(async () => {
+            await clean_config_dir(config_fs, config_root);
+        });
+
+        it('_update_config_dir_upgrade_start - system_data doesn\'t contain old config_directory data', async () => {
+            const system_data = old_expected_system_json;
+            const options = {
+                config_dir_from_version: '0.0.0',
+                config_dir_to_version: '1.0.0',
+                package_from_version: '5.16.0',
+                package_to_version: '5.17.0',
+            };
+            await config_fs.create_system_config_file(JSON.stringify(system_data));
+            const upgrade_start_data = await _update_config_dir_upgrade_start(config_fs, system_data, options);
+            const expected_data = {
+                ...system_data,
+                config_dir_version: options.config_dir_from_version,
+                upgrade_package_version: options.package_from_version,
+                in_progress_upgrade: {
+                    completed_scripts: [],
+                    running_host: hostname,
+                    ...options
+                }
+            };
+            assert_upgrade_start_data(upgrade_start_data, expected_data);
+            const system_json_data = await config_fs.get_system_config_file();
+            assert_upgrade_start_data(system_json_data, expected_data);
+        });
+
+        it('_update_config_dir_upgrade_start - system_data contains old config_directory data', async () => {
+            const system_data = old_expected_system_json_has_config_directory;
+            const options = {
+                config_dir_from_version: '1.0.0',
+                config_dir_to_version: '2.0.0',
+                package_from_version: '5.18.0',
+                package_to_version: '5.18.1',
+            };
+            await config_fs.create_system_config_file(JSON.stringify(system_data));
+
+            const upgrade_start_data = await _update_config_dir_upgrade_start(config_fs, system_data, options);
+            const expected_data = {
+                ...system_data,
+                config_dir_version: options.config_dir_from_version,
+                upgrade_package_version: options.package_from_version,
+                in_progress_upgrade: {
+                    completed_scripts: [],
+                    running_host: hostname,
+                    ...options
+                }
+            };
+            assert_upgrade_start_data(upgrade_start_data, expected_data);
+            const system_json_data = await config_fs.get_system_config_file();
+            assert_upgrade_start_data(system_json_data, expected_data);
+        });
+    });
 });
 
-// Jest has builtin function fail that based on Jasmine
-// in case Jasmine would get removed from jest, created this one
-// based on this: https://stackoverflow.com/a/55526098/16571658
-function fail(reason) {
-    throw new Error(reason);
+/**
+ * assert_upgrade_start_data asserts that 
+ * 1. the expected upgrade start properties in the system_data matches the actual system_data written to system.json
+ * 2. the expected upgrade start properties in the system_data matches the return value
+ * @param {Object} actual_upgrade_start 
+ * @param {Object} expected_system_data 
+ */
+function assert_upgrade_start_data(actual_upgrade_start, expected_system_data) {
+    const { config_dir_version, upgrade_package_version, phase, upgrade_history, in_progress_upgrade, current_version } =
+        actual_upgrade_start.config_directory;
+    const expected_in_progress_upgrade = expected_system_data.in_progress_upgrade;
+
+    expect(phase).toBe(CONFIG_DIR_LOCKED);
+    expect(config_dir_version).toBe(expected_system_data.config_dir_version);
+    expect(upgrade_package_version).toBe(expected_system_data.upgrade_package_version);
+    expect(upgrade_history).toEqual(expected_system_data.config_directory?.upgrade_history);
+    expect(current_version).toEqual(expected_system_data.config_directory?.current_version);
+
+    expect(in_progress_upgrade.completed_scripts).toEqual(expected_in_progress_upgrade.completed_scripts);
+    expect(in_progress_upgrade.running_host).toEqual(expected_in_progress_upgrade.running_host);
+    expect(in_progress_upgrade.config_dir_from_version).toEqual(expected_in_progress_upgrade.config_dir_from_version);
+    expect(in_progress_upgrade.config_dir_to_version).toEqual(expected_in_progress_upgrade.config_dir_to_version);
+    expect(in_progress_upgrade.package_from_version).toEqual(expected_in_progress_upgrade.package_from_version);
+    expect(in_progress_upgrade.package_to_version).toEqual(expected_in_progress_upgrade.package_to_version);
+
+    expect(actual_upgrade_start[hostname]).toEqual(expected_system_data[hostname]);
 }
 
 /**

@@ -4,14 +4,14 @@
 // disabling init_rand_seed as it takes longer than the actual test execution
 process.env.DISABLE_INIT_RANDOM_SEED = 'true';
 
-
+const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const fs_utils = require('../../../util/fs_utils');
 const config = require('../../../../config');
 const pkg = require('../../../../package.json');
-const { update_rpm_upgrade, _verify_config_dir_upgrade, config_directory_defaults, CONFIG_DIR_UNLOCKED,
-    OLD_DEFAULT_CONFIG_DIR_VERSION,
-    OLD_DEFAULT_PACKAGE_VERSION } = require('../../../upgrade/nc_upgrade_manager');
+const { update_rpm_upgrade, _verify_config_dir_upgrade, config_directory_defaults, _run_nc_upgrade_scripts,
+    CONFIG_DIR_UNLOCKED, OLD_DEFAULT_CONFIG_DIR_VERSION, OLD_DEFAULT_PACKAGE_VERSION } = require('../../../upgrade/nc_upgrade_manager');
 const { ConfigFS } = require('../../../sdk/config_fs');
 const { TMP_PATH, create_redirect_file, create_config_dir,
     fail_test_if_default_config_dir_exists, clean_config_dir } = require('../../system_tests/test_utils');
@@ -19,6 +19,28 @@ const { TMP_PATH, create_redirect_file, create_config_dir,
 const config_root = path.join(TMP_PATH, 'config_root_nc_upgrade_manager_test');
 const config_fs = new ConfigFS(config_root);
 const hostname = os.hostname();
+
+const dummy_upgrade_script_1 =
+`/* Copyright (C) 2024 NooBaa */
+'use strict';
+async function run() {
+    console.log('script number 1');
+}
+module.exports = {
+    run,
+    description: 'dummy upgrade script file 1'
+};
+`;
+const dummy_upgrade_script_2 =
+`/* Copyright (C) 2024 NooBaa */
+'use strict';
+async function run() {
+    console.log('script number 2');
+}
+module.exports = {
+    run,
+    description: 'dummy upgrade script file 2'
+};`;
 
 const old_expected_system_json = {
     [hostname]: {
@@ -253,6 +275,30 @@ describe('nc upgrade manager - upgrade config directory', () => {
                 expect(err.message).toBe(`config dir upgrade can not be started - the host's package version=${pkg.version} does not match the user's expected version=${expected_version}`);
             }
         });
+    });
+
+    describe('nc upgrade manager - _run_nc_upgrade_scripts', () => {
+        it('_run_nc_upgrade_scripts - no scripts', async () => {
+            const this_upgrade = { config_dir_from_version: '0.0.0', config_dir_to_version: '1.0.0', completed_scripts: []};
+            await _run_nc_upgrade_scripts(this_upgrade);
+            expect(this_upgrade.completed_scripts).toEqual([]);
+        });
+
+        it('_run_nc_upgrade_scripts - 2 successful scripts', async () => {
+            const custom_upgrade_script_dir = path.join(TMP_PATH, 'custom_upgrade_script_dir');
+
+            const custom_upgrade_script_dir_version_path = path.join(TMP_PATH, 'custom_upgrade_script_dir', '1.0.0');
+            await fs_utils.create_path(custom_upgrade_script_dir_version_path, 777);
+            const dummy_script1_path = path.join(custom_upgrade_script_dir_version_path, 'dummy_upgrade_script_1.js');
+            const dummy_script2_path = path.join(custom_upgrade_script_dir_version_path, 'dummy_upgrade_script_2.js');
+            await fs.promises.writeFile(dummy_script1_path, Buffer.from(dummy_upgrade_script_1));
+            await fs.promises.writeFile(dummy_script2_path, Buffer.from(dummy_upgrade_script_2));
+
+            const this_upgrade = { config_dir_from_version: '0.0.0', config_dir_to_version: '1.0.0', completed_scripts: []};
+            await _run_nc_upgrade_scripts(this_upgrade, custom_upgrade_script_dir);
+            expect(this_upgrade.completed_scripts).toEqual([dummy_script1_path, dummy_script2_path]);
+        });
+
     });
 
 });

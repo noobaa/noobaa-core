@@ -104,8 +104,12 @@ async function upgrade_config_dir(config_fs, upgrade_options = {}) {
     system_data = await _update_config_dir_upgrade_start(config_fs, system_data, this_upgrade_versions);
     const this_upgrade = system_data.config_directory.in_progress_upgrade;
 
-    const completed_scripts = await _run_nc_upgrade_scripts(config_fs, system_data, this_upgrade, custom_upgrade_scripts_dir);
-    this_upgrade.completed_scripts = completed_scripts;
+    try {
+        await _run_nc_upgrade_scripts(this_upgrade, custom_upgrade_scripts_dir);
+    } catch (err) {
+        await _update_config_dir_upgrade_failed(config_fs, system_data, this_upgrade, err);
+        throw err;
+    }
 
     await _update_config_dir_upgrade_finish(config_fs, system_data, this_upgrade);
     return this_upgrade;
@@ -211,27 +215,19 @@ async function _update_config_dir_upgrade_start(config_fs, system_data, options)
 
 /**
  * _run_nc_upgrade_scripts runs the config directory upgrade scripts 
- * @param {import('../sdk/config_fs').ConfigFS} config_fs
- * @param {Object} system_data
  * @param {Object} this_upgrade
- * @param {String} custom_upgrade_scripts_dir 
+ * @param {String} [custom_upgrade_scripts_dir]
  */
-async function _run_nc_upgrade_scripts(config_fs, system_data, this_upgrade, custom_upgrade_scripts_dir) {
-    const completed_scripts = [];
+async function _run_nc_upgrade_scripts(this_upgrade, custom_upgrade_scripts_dir) {
     const upgrade_scripts_dir = custom_upgrade_scripts_dir || path.join(__dirname, 'nc_upgrade_scripts');
 
     try {
-      await run_upgrade_scripts(this_upgrade, upgrade_scripts_dir, { dbg });
+        await run_upgrade_scripts(this_upgrade, upgrade_scripts_dir, { dbg });
     } catch (err) {
         const upgrade_failed_msg = `_run_nc_upgrade_scripts: nc upgrade manager failed!!!, ${err}`;
         dbg.error(upgrade_failed_msg);
-        system_data.config_directory.upgrade_history.last_failure = this_upgrade;
-        system_data.config_directory.upgrade_history.last_failure.error = err.stack;
-        delete system_data.config_directory.in_progress_upgrade;
-        await config_fs.update_system_json_with_retries(JSON.stringify(system_data));
         throw new Error(upgrade_failed_msg);
     }
-    return completed_scripts;
 }
 
 /**
@@ -240,6 +236,7 @@ async function _run_nc_upgrade_scripts(config_fs, system_data, this_upgrade, cus
  * 2. config_dir_version is the new version
  * 3. upgrade_package_version is the new source code version
  * 4. add the finished upgrade to the successful_upgrades array
+ * @param {import('../sdk/config_fs').ConfigFS} config_fs
  * @param {Object} system_data
  * @returns {Promise<Void>}
  */
@@ -261,10 +258,23 @@ async function _update_config_dir_upgrade_finish(config_fs, system_data, this_up
     await config_fs.update_system_json_with_retries(JSON.stringify(updated_system_data));
 }
 
+/**
+ * _update_config_dir_upgrade_failed updates the system.json on failure of the upgrade
+ * @param {import('../sdk/config_fs').ConfigFS} config_fs
+ * @param {Object} system_data 
+ */
+async function _update_config_dir_upgrade_failed(config_fs, system_data, this_upgrade, error) {
+    system_data.config_directory.upgrade_history.last_failure = this_upgrade;
+    system_data.config_directory.upgrade_history.last_failure.error = error.stack;
+    delete system_data.config_directory.in_progress_upgrade;
+    await config_fs.update_system_json_with_retries(JSON.stringify(system_data));
+}
+
 exports.update_rpm_upgrade = update_rpm_upgrade;
 exports.upgrade_config_dir = upgrade_config_dir;
 exports.config_directory_defaults = config_directory_defaults;
 exports._verify_config_dir_upgrade = _verify_config_dir_upgrade;
+exports._run_nc_upgrade_scripts = _run_nc_upgrade_scripts;
 exports.CONFIG_DIR_UNLOCKED = CONFIG_DIR_UNLOCKED;
 exports.CONFIG_DIR_LOCKED = CONFIG_DIR_LOCKED;
 exports.OLD_DEFAULT_CONFIG_DIR_VERSION = OLD_DEFAULT_CONFIG_DIR_VERSION;

@@ -3,6 +3,7 @@
 
 const _ = require('lodash');
 const bcrypt = require('bcrypt');
+const node_hash = require('../../util/account_password_hash');
 const ip_module = require('ip');
 
 const P = require('../../util/promise');
@@ -20,6 +21,14 @@ const jwt_utils = require('../../util/jwt_utils');
 const config = require('../../../config');
 const s3_bucket_policy_utils = require('../../endpoint/s3/s3_bucket_policy_utils');
 
+
+
+function compare_password_hash(password, target_account) {
+    if (bcrypt.compare(password.unwrap(), target_account.password.unwrap())) {
+        return true;
+    }
+    return (node_hash.verify_node_password_hash(password.unwrap(), target_account.password.unwrap()));
+}
 
 /**
  *
@@ -66,7 +75,7 @@ function create_auth(req) {
             if (!password) return;
 
             return P.resolve()
-                .then(() => bcrypt.compare(password.unwrap(), target_account.password.unwrap()))
+                .then(() => compare_password_hash(password, target_account))
                 .then(match => {
                     if (!match) {
                         dbg.log0('password mismatch', email, system_name);

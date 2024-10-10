@@ -240,63 +240,7 @@ class NsfsAccountSDK extends AccountSDK {
     }
 }
 
-async function init_nc_system(config_root) {
-    const config_fs = new ConfigFS(config_root);
-    const system_data = await config_fs.get_system_config_file({silent_if_missing: true});
-    const hostname = os.hostname();
-    
-    // If the system data already exists, we should not create it again
-    const updated_system_json = system_data || {};
-    if (updated_system_json[hostname]?.current_version && updated_system_json.config_directory) return;
-    if (!updated_system_json[hostname]?.current_version) {
-        updated_system_json[hostname] = {
-            current_version: pkg.version,
-            upgrade_history: { successful_upgrades: [], last_failure: undefined }
-        };
-    }
-    // If it's the first time a config_directory data is added to system.json
-    if (!updated_system_json.config_directory) {
-        updated_system_json.config_directory = {
-            config_dir_version: config_fs.config_dir_version,
-            upgrade_package_version: pkg.version,
-            phase: 'CONFIG_DIR_UNLOCKED',
-            upgrade_history: { successful_upgrades: [], last_failure: undefined }
-        };
-    }
-    try {
-        if (system_data) {
-            await config_fs.update_system_config_file(JSON.stringify(updated_system_json));
-            console.log('updated NC system data with version: ', pkg.version);
-        } else {
-            await config_fs.create_system_config_file(JSON.stringify(updated_system_json));
-            console.log('created NC system data with version: ', pkg.version);
-        }
-=======
-    if (data?.[hostname]?.current_version) return data;
-
-    try {
-        await system_data.update({
-            ...data,
-            [hostname]: {
-                current_version: pkg.version,
-                upgrade_history: {
-                    successful_upgrades: [],
-                    last_failure: undefined
-                }
-            }
-        });
-        console.log('created NSFS system data with version: ', pkg.version);
-        return data;
->>>>>>> 06c911d8c (notifications | align with official content (also change persistent namespace for easier parsing))
-    } catch (err) {
-        const msg = 'failed to create/update NC system data due to - ' + err.message;
-        const error = new Error(msg);
-        console.error(msg, err);
-        throw error;
-    }
-}
-
->>>>>>> 78d41d050 (notifications | align with official content (also change persistent namespace for easier parsing))
+/* eslint-disable max-statements */
 async function main(argv = minimist(process.argv.slice(2))) {
     try {
         config.DB_TYPE = 'none';

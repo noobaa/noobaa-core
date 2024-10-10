@@ -10,7 +10,6 @@ const config = require('../../../../config');
  */
 async function delete_object(req, res) {
     const version_id = s3_utils.parse_version_id(req.query.versionId);
-    req.s3event = 'ObjectRemoved';
     const del_res = await req.object_sdk.delete_object({
         bucket: req.params.bucket,
         key: req.params.key,
@@ -27,7 +26,7 @@ async function delete_object(req, res) {
     } else if (del_res.created_delete_marker) {
         res.setHeader('x-amz-version-id', del_res.created_version_id);
         res.setHeader('x-amz-delete-marker', 'true');
-        req.s3event_op = 'DeleteMarkerCreated';
+        req.s3_event_method = 'DeleteMarkerCreated';
     }
     res.seq = del_res.seq;
 }

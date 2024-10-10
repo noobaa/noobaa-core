@@ -18,7 +18,7 @@ const { throw_cli_error, write_stdout_response } = require('./manage_nsfs_cli_ut
 async function manage_upgrade_operations(action, user_input, config_fs) {
     switch (action) {
         case UPGRADE_ACTIONS.START:
-            await exec_config_dir_upgrade(user_input, config_fs);
+            await start_config_dir_upgrade(user_input, config_fs);
             break;
         case UPGRADE_ACTIONS.STATUS:
             await get_upgrade_status(config_fs);
@@ -32,12 +32,12 @@ async function manage_upgrade_operations(action, user_input, config_fs) {
 }
 
 /**
- * exec_config_dir_upgrade handles cli upgrade operation
+ * start_config_dir_upgrade handles cli upgrade operation
  * @param {Object} user_input
  * @param {import('../sdk/config_fs').ConfigFS} config_fs
  * @returns {Promise<Void>}
  */
-async function exec_config_dir_upgrade(user_input, config_fs) {
+async function start_config_dir_upgrade(user_input, config_fs) {
     try {
         const skip_verification = user_input.skip_verification;
         const expected_version = user_input.expected_version;

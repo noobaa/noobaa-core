@@ -4,15 +4,19 @@
 const os = require('os');
 const _ = require('lodash');
 const path = require('path');
+const util = require('util');
 const pkg = require('../../package.json');
 const dbg = require('../util/debug_module')('UPGRADE');
-const { should_upgrade, run_upgrade_scripts } = require('./upgrade_utils');
+const { should_upgrade, run_upgrade_scripts, version_compare } = require('./upgrade_utils');
 
 dbg.set_process_name('Upgrade');
 const hostname = os.hostname();
 
 const CONFIG_DIR_LOCKED = 'CONFIG_DIR_LOCKED';
 const CONFIG_DIR_UNLOCKED = 'CONFIG_DIR_UNLOCKED';
+// prior to 5.18.0 - there is no config dir version, the config dir version to be used on the first upgrade is 0.0.0 (5.17.0 -> 5.18.0)
+const OLD_DEFAULT_CONFIG_DIR_VERSION = '0.0.0';
+const OLD_DEFAULT_PACKAGE_VERSION = '5.17.0';
 
 /////////////////////////////
 //       NC UPGRADES       //
@@ -113,12 +117,14 @@ async function upgrade_config_dir(config_fs, upgrade_options = {}) {
 
 
 /**
+ * config_directory_defaults returns a default initial config directory object
  * @param {Object} system_data
  */
 function config_directory_defaults(system_data) {
+    const hosts_old_package_version = system_data?.[hostname]?.upgrade_history?.successful_upgrades?.[0]?.from_version;
     return {
-        config_dir_version: '0.0.0', // the version to use when config_directory has no version
-        upgrade_package_version: system_data?.[hostname]?.upgrade_history?.successful_upgrades?.[0]?.from_version || '5.17.0',
+        config_dir_version: OLD_DEFAULT_CONFIG_DIR_VERSION,
+        upgrade_package_version: hosts_old_package_version || OLD_DEFAULT_PACKAGE_VERSION,
         phase: CONFIG_DIR_UNLOCKED,
         upgrade_history: { successful_upgrades: [] }
     };
@@ -126,7 +132,7 @@ function config_directory_defaults(system_data) {
 
 /**
  * _verify_config_dir_upgrade verifies that - 
- * 1. All hosts appearing in system.json were RPM upgraded
+ * 1. All hosts appearing in system.json were RPM upgraded to the same version the host running the upgrade
  * 2. The user's expected_version is the host's package version - 
  *    expected_version is the expected source code version that the user asks to upgrade to, it's an optional verification, 
  *    if expected_version was not provided we assume that the source code on this host is 
@@ -142,18 +148,23 @@ function config_directory_defaults(system_data) {
 async function _verify_config_dir_upgrade(system_data, expected_version) {
     const new_version = pkg.version;
     const hosts_data = _.omit(system_data, 'config_directory');
-    for (const [host, host_data] of Object.entries(hosts_data)) {
-        if (should_upgrade(host_data.current_version, new_version)) {
-            const message = `config dir upgrade can not be started until all nodes have the expected version=${new_version}, host=${host} host's current_version=${host_data.current_version}`;
-            dbg.error(`_verify_config_dir_upgrade: ${message}`);
-            throw new Error(message);
-        }
+    let err_message;
+    if (expected_version && expected_version !== new_version) {
+        err_message = `config dir upgrade can not be started - the host's package version=${new_version} does not match the user's expected version=${expected_version}`;
     }
 
-    if (expected_version && expected_version !== new_version) {
-        const message = 'config dir upgrade can not be started the host\'s package version does not match the user\'s expected version';
-        dbg.error(`_verify_config_dir_upgrade: ${message}`);
-        throw new Error(message);
+    if (!hosts_data || !Object.keys(hosts_data).length) {
+        err_message = `config dir upgrade can not be started missing hosts_data hosts_data=${util.inspect(hosts_data)}`;
+    }
+
+    for (const [host, host_data] of Object.entries(hosts_data)) {
+        if (!host_data.current_version || version_compare(host_data.current_version, new_version) !== 0) {
+            err_message = `config dir upgrade can not be started until all nodes have the expected version=${new_version}, host=${host} host's current_version=${host_data.current_version}`;
+        }
+    }
+    if (err_message) {
+        dbg.error(`_verify_config_dir_upgrade: ${err_message}`);
+        throw new Error(err_message);
     }
 }
 
@@ -253,6 +264,9 @@ async function _update_config_dir_upgrade_finish(config_fs, system_data, this_up
 exports.update_rpm_upgrade = update_rpm_upgrade;
 exports.upgrade_config_dir = upgrade_config_dir;
 exports.config_directory_defaults = config_directory_defaults;
+exports._verify_config_dir_upgrade = _verify_config_dir_upgrade;
 exports.CONFIG_DIR_UNLOCKED = CONFIG_DIR_UNLOCKED;
 exports.CONFIG_DIR_LOCKED = CONFIG_DIR_LOCKED;
+exports.OLD_DEFAULT_CONFIG_DIR_VERSION = OLD_DEFAULT_CONFIG_DIR_VERSION;
+exports.OLD_DEFAULT_PACKAGE_VERSION = OLD_DEFAULT_PACKAGE_VERSION;
 

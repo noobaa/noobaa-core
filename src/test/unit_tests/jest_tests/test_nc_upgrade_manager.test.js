@@ -9,7 +9,9 @@ const os = require('os');
 const path = require('path');
 const config = require('../../../../config');
 const pkg = require('../../../../package.json');
-const { update_rpm_upgrade, CONFIG_DIR_UNLOCKED, config_directory_defaults } = require('../../../upgrade/nc_upgrade_manager');
+const { update_rpm_upgrade, _verify_config_dir_upgrade, config_directory_defaults, CONFIG_DIR_UNLOCKED,
+    OLD_DEFAULT_CONFIG_DIR_VERSION,
+    OLD_DEFAULT_PACKAGE_VERSION } = require('../../../upgrade/nc_upgrade_manager');
 const { ConfigFS } = require('../../../sdk/config_fs');
 const { TMP_PATH, create_redirect_file, create_config_dir,
     fail_test_if_default_config_dir_exists, clean_config_dir } = require('../../system_tests/test_utils');
@@ -147,7 +149,7 @@ describe('nc upgrade manager - upgrade config directory', () => {
         await fail_test_if_default_config_dir_exists('test_config_dir_nc_upgrade_manager', config_fs);
     });
 
-    describe('nc upgrade manager - upgrade config directory', () => {
+    describe('nc upgrade manager - config_directory_defaults', () => {
 
         it('config_directory_defaults - hostname from_version exists - 5.16.0', () => {
             const system_data = old_expected_system_json;
@@ -179,13 +181,95 @@ describe('nc upgrade manager - upgrade config directory', () => {
             assert_config_dir_defaults(config_dir_defaults, system_data);
         });
     });
+
+    describe('nc upgrade manager - _verify_config_dir_upgrade', () => {
+        it('_verify_config_dir_upgrade - empty hosts system_data', async () => {
+            const system_data = {};
+            try {
+                await _verify_config_dir_upgrade(system_data);
+                fail('should have failed on invalid system_data');
+            } catch (err) {
+                expect(err.message).toBe('config dir upgrade can not be started missing hosts_data hosts_data={}');
+            }
+        });
+
+        it('_verify_config_dir_upgrade - empty host current_version', async () => {
+            const system_data = { [hostname]: []};
+            try {
+                await _verify_config_dir_upgrade(system_data);
+                fail('should have failed on invalid system_data');
+            } catch (err) {
+                expect(err.message).toBe(`config dir upgrade can not be started until all nodes have the expected version=${pkg.version}, host=${hostname} host's current_version=undefined`);
+            }
+        });
+
+        it('_verify_config_dir_upgrade - host current_version < new_version should upgrade RPM', async () => {
+            const old_version = '5.16.0';
+            const system_data = { [hostname]: { current_version: old_version }, other_hostname: { current_version: pkg.version } };
+            try {
+                await _verify_config_dir_upgrade(system_data);
+                fail('should have failed on mismatch system and package version');
+            } catch (err) {
+                expect(err.message).toBe(`config dir upgrade can not be started until all nodes have the expected version=${pkg.version}, host=${hostname} host's current_version=${old_version}`);
+            }
+        });
+
+        it('_verify_config_dir_upgrade - should upgrade config dir', async () => {
+            const system_data = {
+                [hostname]: { current_version: pkg.version, other_hostname: { current_version: pkg.version } }
+            };
+            await _verify_config_dir_upgrade(system_data);
+        });
+
+        it('_verify_config_dir_upgrade - host current_version > new_version should upgrade RPM', async () => {
+            const newer_version = pkg.version + '.1';
+
+            const system_data = { [hostname]: { current_version: newer_version }, other_hostname: { current_version: pkg.version } };
+            try {
+                await _verify_config_dir_upgrade(system_data);
+                fail('should have failed on mismatch system and package version');
+            } catch (err) {
+                expect(err.message).toBe(`config dir upgrade can not be started until all nodes have the expected version=${pkg.version}, host=${hostname} host's current_version=${newer_version}`);
+            }
+        });
+
+        it('_verify_config_dir_upgrade - should upgrade config dir', async () => {
+            const expected_version = pkg.version;
+            const system_data = {
+                [hostname]: { current_version: pkg.version, other_hostname: { current_version: pkg.version } }
+            };
+            await _verify_config_dir_upgrade(system_data, expected_version);
+        });
+
+        it('_verify_config_dir_upgrade - fail on mismatch expected_version', async () => {
+            const expected_version = pkg.version + '.1';
+            const system_data = {
+                [hostname]: { current_version: pkg.version, other_hostname: { current_version: pkg.version } }
+            };
+            try {
+                await _verify_config_dir_upgrade(system_data, expected_version);
+                fail('should have failed on mismatch system and package version');
+            } catch (err) {
+                expect(err.message).toBe(`config dir upgrade can not be started - the host's package version=${pkg.version} does not match the user's expected version=${expected_version}`);
+            }
+        });
+    });
+
 });
+
+// Jest has builtin function fail that based on Jasmine
+// in case Jasmine would get removed from jest, created this one
+// based on this: https://stackoverflow.com/a/55526098/16571658
+function fail(reason) {
+    throw new Error(reason);
+}
 
 
 function assert_config_dir_defaults(actual_config_dir_defaults, system_data) {
     const { config_dir_version, upgrade_package_version, phase, upgrade_history } = actual_config_dir_defaults;
-    const expected_package_from_version = system_data?.[hostname]?.upgrade_history?.successful_upgrades?.[0]?.from_version || '5.17.0';
-    expect(config_dir_version).toBe('0.0.0');
+    const expected_package_from_version = system_data?.[hostname]?.upgrade_history?.successful_upgrades?.[0]?.from_version ||
+        OLD_DEFAULT_PACKAGE_VERSION;
+    expect(config_dir_version).toBe(OLD_DEFAULT_CONFIG_DIR_VERSION);
     expect(upgrade_package_version).toBe(expected_package_from_version);
     expect(phase).toBe(CONFIG_DIR_UNLOCKED);
     expect(upgrade_history).toEqual({ successful_upgrades: [] });

@@ -432,6 +432,26 @@ function get_new_buckets_path_by_test_env(new_buckets_full_path, new_buckets_dir
     return is_nc_coretest ? path.join(new_buckets_full_path, new_buckets_dir) : new_buckets_dir;
 }
 
+
+/**
+ * common dummy SDK for testing
+ */
+function make_dummy_object_sdk() {
+    return {
+        requesting_account: {
+            force_md5_etag: false,
+            nsfs_account_config: {
+                uid: process.getuid(),
+                gid: process.getgid(),
+            }
+        },
+        abort_controller: new AbortController(),
+        throw_if_aborted() {
+            if (this.abort_controller.signal.aborted) throw new Error('request aborted signal');
+        }
+    };
+}
+
 /**
  * write_manual_config_file writes config file directly to the file system without using config FS
  * used for creating backward compatibility tests, invalid config files etc
@@ -532,4 +552,5 @@ exports.get_new_buckets_path_by_test_env = get_new_buckets_path_by_test_env;
 exports.write_manual_config_file = write_manual_config_file;
 exports.write_manual_old_account_config_file = write_manual_old_account_config_file;
 exports.delete_manual_config_file = delete_manual_config_file;
+exports.make_dummy_object_sdk = make_dummy_object_sdk;
 

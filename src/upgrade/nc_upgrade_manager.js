@@ -17,6 +17,7 @@ const CONFIG_DIR_UNLOCKED = 'CONFIG_DIR_UNLOCKED';
 // prior to 5.18.0 - there is no config dir version, the config dir version to be used on the first upgrade is 0.0.0 (5.17.0 -> 5.18.0)
 const OLD_DEFAULT_CONFIG_DIR_VERSION = '0.0.0';
 const OLD_DEFAULT_PACKAGE_VERSION = '5.17.0';
+const DEFAULT_NC_UPGRADE_SCRIPTS_DIR = path.join(__dirname, 'nc_upgrade_scripts');
 
 /////////////////////////////
 //       NC UPGRADES       //
@@ -219,7 +220,7 @@ async function _update_config_dir_upgrade_start(config_fs, system_data, options)
  * @param {String} [custom_upgrade_scripts_dir]
  */
 async function _run_nc_upgrade_scripts(this_upgrade, custom_upgrade_scripts_dir) {
-    const upgrade_scripts_dir = custom_upgrade_scripts_dir || path.join(__dirname, 'nc_upgrade_scripts');
+    const upgrade_scripts_dir = custom_upgrade_scripts_dir || DEFAULT_NC_UPGRADE_SCRIPTS_DIR;
 
     try {
         await run_upgrade_scripts(this_upgrade, upgrade_scripts_dir, { dbg });
@@ -279,4 +280,4 @@ exports.CONFIG_DIR_UNLOCKED = CONFIG_DIR_UNLOCKED;
 exports.CONFIG_DIR_LOCKED = CONFIG_DIR_LOCKED;
 exports.OLD_DEFAULT_CONFIG_DIR_VERSION = OLD_DEFAULT_CONFIG_DIR_VERSION;
 exports.OLD_DEFAULT_PACKAGE_VERSION = OLD_DEFAULT_PACKAGE_VERSION;
-
+exports.DEFAULT_NC_UPGRADE_SCRIPTS_DIR = DEFAULT_NC_UPGRADE_SCRIPTS_DIR;

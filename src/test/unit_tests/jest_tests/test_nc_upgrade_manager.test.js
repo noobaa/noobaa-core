@@ -11,7 +11,7 @@ const fs_utils = require('../../../util/fs_utils');
 const config = require('../../../../config');
 const pkg = require('../../../../package.json');
 const { update_rpm_upgrade, _verify_config_dir_upgrade, config_directory_defaults, _run_nc_upgrade_scripts,
-    CONFIG_DIR_UNLOCKED, OLD_DEFAULT_CONFIG_DIR_VERSION, OLD_DEFAULT_PACKAGE_VERSION } = require('../../../upgrade/nc_upgrade_manager');
+    CONFIG_DIR_UNLOCKED, OLD_DEFAULT_CONFIG_DIR_VERSION, OLD_DEFAULT_PACKAGE_VERSION, DEFAULT_NC_UPGRADE_SCRIPTS_DIR } = require('../../../upgrade/nc_upgrade_manager');
 const { ConfigFS } = require('../../../sdk/config_fs');
 const { TMP_PATH, create_redirect_file, create_config_dir,
     fail_test_if_default_config_dir_exists, clean_config_dir } = require('../../system_tests/test_utils');
@@ -42,6 +42,18 @@ module.exports = {
     description: 'dummy upgrade script file 2'
 };`;
 
+const dummy_failing_upgrade_script_3 =
+`/* Copyright (C) 2024 NooBaa */
+'use strict';
+async function run() {
+    console.log('script number 3');
+    throw new Error('script number 3 failed')
+}
+module.exports = {
+    run,
+    description: 'dummy upgrade script file 1'
+};
+`;
 const old_expected_system_json = {
     [hostname]: {
         'current_version': '5.17.0',
@@ -278,17 +290,32 @@ describe('nc upgrade manager - upgrade config directory', () => {
     });
 
     describe('nc upgrade manager - _run_nc_upgrade_scripts', () => {
+        const custom_upgrade_script_dir = path.join(TMP_PATH, 'custom_upgrade_script_dir');
+        const custom_upgrade_script_dir_version_path = path.join(TMP_PATH, 'custom_upgrade_script_dir', '1.0.0');
+        beforeEach(async () => {
+            await fs_utils.create_path(custom_upgrade_script_dir_version_path, 777);
+        });
+
+        afterEach(async () => {
+            await fs_utils.folder_delete(custom_upgrade_script_dir_version_path);
+            await fs_utils.folder_delete(custom_upgrade_script_dir);
+        });
+
         it('_run_nc_upgrade_scripts - no scripts', async () => {
             const this_upgrade = { config_dir_from_version: '0.0.0', config_dir_to_version: '1.0.0', completed_scripts: []};
             await _run_nc_upgrade_scripts(this_upgrade);
             expect(this_upgrade.completed_scripts).toEqual([]);
         });
 
-        it('_run_nc_upgrade_scripts - 2 successful scripts', async () => {
-            const custom_upgrade_script_dir = path.join(TMP_PATH, 'custom_upgrade_script_dir');
+        it('_run_nc_upgrade_scripts - no upgrade scripts dir', async () => {
+            const this_upgrade = { config_dir_from_version: '0.0.0', config_dir_to_version: '1.0.0', completed_scripts: [] };
+            await fs_utils.folder_delete(custom_upgrade_script_dir_version_path);
+            await fs_utils.folder_delete(custom_upgrade_script_dir);
+            await _run_nc_upgrade_scripts(this_upgrade, custom_upgrade_script_dir);
+            expect(this_upgrade.completed_scripts).toEqual([]);
+        });
 
-            const custom_upgrade_script_dir_version_path = path.join(TMP_PATH, 'custom_upgrade_script_dir', '1.0.0');
-            await fs_utils.create_path(custom_upgrade_script_dir_version_path, 777);
+        it('_run_nc_upgrade_scripts - custom_upgrade_script_dir - 2 successful scripts', async () => {
             const dummy_script1_path = path.join(custom_upgrade_script_dir_version_path, 'dummy_upgrade_script_1.js');
             const dummy_script2_path = path.join(custom_upgrade_script_dir_version_path, 'dummy_upgrade_script_2.js');
             await fs.promises.writeFile(dummy_script1_path, Buffer.from(dummy_upgrade_script_1));
@@ -297,6 +324,56 @@ describe('nc upgrade manager - upgrade config directory', () => {
             const this_upgrade = { config_dir_from_version: '0.0.0', config_dir_to_version: '1.0.0', completed_scripts: []};
             await _run_nc_upgrade_scripts(this_upgrade, custom_upgrade_script_dir);
             expect(this_upgrade.completed_scripts).toEqual([dummy_script1_path, dummy_script2_path]);
+        });
+
+        it('_run_nc_upgrade_scripts - custom_upgrade_script_dir - 2 successful scripts, 1 failing script', async () => {
+            const dummy_script1_path = path.join(custom_upgrade_script_dir_version_path, 'dummy_upgrade_script_1.js');
+            const dummy_script2_path = path.join(custom_upgrade_script_dir_version_path, 'dummy_upgrade_script_2.js');
+            const dummy_script3_path = path.join(custom_upgrade_script_dir_version_path, 'dummy_failing_upgrade_script_3.js');
+            await fs.promises.writeFile(dummy_script1_path, Buffer.from(dummy_upgrade_script_1));
+            await fs.promises.writeFile(dummy_script2_path, Buffer.from(dummy_upgrade_script_2));
+            await fs.promises.writeFile(dummy_script3_path, Buffer.from(dummy_failing_upgrade_script_3));
+
+            const this_upgrade = { config_dir_from_version: '0.0.0', config_dir_to_version: '1.0.0', completed_scripts: []};
+            try {
+                await _run_nc_upgrade_scripts(this_upgrade, custom_upgrade_script_dir);
+                fail('should have failed on script number 3 failed');
+            } catch (err) {
+                expect(err.message).toBe('_run_nc_upgrade_scripts: nc upgrade manager failed!!!, Error: script number 3 failed');
+            }
+        });
+
+        it('_run_nc_upgrade_scripts - 2 successful scripts', async () => {
+            const dummy_script1_path = path.join(DEFAULT_NC_UPGRADE_SCRIPTS_DIR, '1.0.0', 'dummy_upgrade_script_1.js');
+            const dummy_script2_path = path.join(DEFAULT_NC_UPGRADE_SCRIPTS_DIR, '1.0.0', 'dummy_upgrade_script_2.js');
+            await fs.promises.writeFile(dummy_script1_path, Buffer.from(dummy_upgrade_script_1));
+            await fs.promises.writeFile(dummy_script2_path, Buffer.from(dummy_upgrade_script_2));
+            const this_upgrade = { config_dir_from_version: '0.0.0', config_dir_to_version: '1.0.0', completed_scripts: []};
+            await _run_nc_upgrade_scripts(this_upgrade);
+            expect(this_upgrade.completed_scripts).toEqual([dummy_script1_path, dummy_script2_path]);
+            await fs_utils.file_delete(dummy_script1_path);
+            await fs_utils.file_delete(dummy_script2_path);
+        });
+
+        it('_run_nc_upgrade_scripts - 2 successful scripts, 1 failing script', async () => {
+            const dummy_script1_path = path.join(DEFAULT_NC_UPGRADE_SCRIPTS_DIR, '1.0.0', 'dummy_upgrade_script_1.js');
+            const dummy_script2_path = path.join(DEFAULT_NC_UPGRADE_SCRIPTS_DIR, '1.0.0', 'dummy_upgrade_script_2.js');
+            const dummy_script3_path = path.join(DEFAULT_NC_UPGRADE_SCRIPTS_DIR, '1.0.0', 'dummy_failing_upgrade_script_3.js');
+            await fs.promises.writeFile(dummy_script1_path, Buffer.from(dummy_upgrade_script_1));
+            await fs.promises.writeFile(dummy_script2_path, Buffer.from(dummy_upgrade_script_2));
+            await fs.promises.writeFile(dummy_script3_path, Buffer.from(dummy_failing_upgrade_script_3));
+
+            const this_upgrade = { config_dir_from_version: '0.0.0', config_dir_to_version: '1.0.0', completed_scripts: []};
+            try {
+                await _run_nc_upgrade_scripts(this_upgrade);
+                fail('should have failed on script number 3 failed');
+            } catch (err) {
+                expect(err.message).toBe('_run_nc_upgrade_scripts: nc upgrade manager failed!!!, Error: script number 3 failed');
+            } finally {
+                await fs_utils.file_delete(dummy_script1_path);
+                await fs_utils.file_delete(dummy_script2_path);
+                await fs_utils.file_delete(dummy_script3_path);
+            }
         });
 
     });

@@ -842,7 +842,7 @@ describe('manage nsfs cli bucket flow', () => {
 
     });
 
-    describe('cli list bucket', () => {
+    describe('cli list buckets', () => {
         const config_root = path.join(tmp_fs_path, 'config_root_manage_nsfs5');
         const root_path = path.join(tmp_fs_path, 'root_path_manage_nsfs5/');
         const bucket_storage_path = path.join(tmp_fs_path, 'root_path_manage_nsfs5', 'bucket1');
@@ -896,6 +896,7 @@ describe('manage nsfs cli bucket flow', () => {
             const bucket_options = { config_root, name: 'bucket2' };
             const action = ACTIONS.LIST;
             const res = await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
+            expect(Array.isArray(JSON.parse(res).response.reply)).toBe(true);
             expect(JSON.parse(res).response.reply.map(item => item.name))
                 .toEqual(expect.arrayContaining([]));
         });
@@ -904,6 +905,7 @@ describe('manage nsfs cli bucket flow', () => {
             const bucket_options = { config_root, name: 'bucket1' };
             const action = ACTIONS.LIST;
             const res = await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
+            expect(Array.isArray(JSON.parse(res).response.reply)).toBe(true);
             expect(JSON.parse(res).response.reply.map(item => item.name))
                 .toEqual(expect.arrayContaining(['bucket1']));
         });

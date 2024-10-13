@@ -187,26 +187,30 @@ class ConfigFS {
     }
 
     /**
-     * get_config_data reads a config file and returns its content 
+     * get_identity_config_data reads a config file and returns its content 
      * while omitting secrets if show_secrets flag was not provided
      * and decrypts the account's secret_key if decrypt_secret_key is true
      * if silent_if_missing is true -      
      *   if the config file was deleted (encounter ENOENT error) - continue (returns undefined)
      * @param {string} config_file_path
-     * @param {{show_secrets?: boolean, decrypt_secret_key?: boolean, silent_if_missing?: boolean}} [options]
+     * @param {{show_secrets?: boolean, decrypt_secret_key?: boolean, silent_if_missing?: boolean,
+     *          return_encrypted_if_decryption_fails?:boolean}} [options]
      * @returns {Promise<Object>}
      */
     async get_identity_config_data(config_file_path, options = {}) {
-        const { show_secrets = false, decrypt_secret_key = false, silent_if_missing = false } = options;
+        const { show_secrets = false, decrypt_secret_key = false, silent_if_missing = false,
+            return_encrypted_if_decryption_fails = false } = options;
+         let config_data;
         try {
             const data = await this.get_config_data(config_file_path, options);
             if (!data && silent_if_missing) return;
-            const config_data = _.omit(data, show_secrets ? [] : ['access_keys']);
+            config_data = _.omit(data, show_secrets ? [] : ['access_keys']);
             if (decrypt_secret_key) config_data.access_keys = await nc_mkm.decrypt_access_keys(config_data);
             return config_data;
         } catch (err) {
             dbg.warn('get_identity_config_data: with config_file_path', config_file_path, 'got an error', err);
             if (err.code === 'ENOENT' && silent_if_missing) return;
+            if (return_encrypted_if_decryption_fails && err.rpc_code === 'INVALID_MASTER_KEY') return config_data;
             throw err;
         }
     }
@@ -456,7 +460,8 @@ class ConfigFS {
      * as a part of iterating the file, therefore we continue
      * (not throwing this error and return undefined)
      * @param {string} account_name
-     * @param {{show_secrets?: boolean, decrypt_secret_key?: boolean, silent_if_missing?: boolean}} [options]
+     * @param {{show_secrets?: boolean, decrypt_secret_key?: boolean, silent_if_missing?: boolean,
+     *          return_encrypted_if_decryption_fails?:boolean}} [options]
      * @returns {Promise<Object>}
      */
     async get_account_by_name(account_name, options = {}) {

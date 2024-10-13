@@ -167,7 +167,7 @@ function _is_gpfs(fs_context) {
 
 async function safe_move(fs_context, src_path, dst_path, src_ver_info, gpfs_options, tmp_dir_path) {
     if (_is_gpfs(fs_context)) {
-        await safe_move_gpfs(fs_context, src_path, dst_path, gpfs_options, src_ver_info);
+        await safe_move_gpfs(fs_context, src_path, dst_path, gpfs_options);
     } else {
         await safe_move_posix(fs_context, src_path, dst_path, src_ver_info, tmp_dir_path);
     }
@@ -199,15 +199,10 @@ async function safe_move_posix(fs_context, src_path, dst_path, src_ver_info, tmp
 // safe_link_posix links src_path to dst_path while verifing dst_path has the expected ino and mtimeNsBigint values
 // src_file exists on uploads (open mode = 'w' ) or deletions
 // on uploads (open mode 'wt') the dir_file is used as the link source
-async function safe_move_gpfs(fs_context, src_path, dst_path, gpfs_options, src_ver_info) {
-    const { src_file = undefined, dst_file = undefined, dir_file = undefined, should_unlink = false,
-        should_override = true } = gpfs_options;
+async function safe_move_gpfs(fs_context, src_path, dst_path, gpfs_options) {
+    const { src_file = undefined, dst_file = undefined, dir_file = undefined, should_unlink = false } = gpfs_options;
     dbg.log1('Namespace_fs.safe_move_gpfs', src_path, dst_path, dst_file, should_unlink);
-    if (should_override) {
-        await safe_link_gpfs(fs_context, dst_path, src_file || dir_file, dst_file);
-    } else {
-        await safe_link_posix(fs_context, src_path, dst_path, src_ver_info);
-    }
+    await safe_link_gpfs(fs_context, dst_path, src_file || dir_file, dst_file);
     if (should_unlink) await safe_unlink_gpfs(fs_context, src_path, src_file, dir_file);
 }
 
@@ -253,8 +248,9 @@ async function unlink_ignore_enoent(fs_context, to_delete_path) {
 
 // safe_link_gpfs links source_path to dest_path while verifing dest.fd
 async function safe_link_gpfs(fs_context, dst_path, src_file, dst_file) {
-    dbg.log1('Namespace_fs.safe_link_gpfs source_file:', src_file, src_file.fd, dst_file, dst_file && dst_file.fd);
-    await src_file.linkfileat(fs_context, dst_path, dst_file && dst_file.fd);
+    const should_not_override = !(dst_file && dst_file.fd);
+    dbg.log1('Namespace_fs.safe_link_gpfs source_file:', src_file, src_file.fd, dst_file, dst_file && dst_file.fd, should_not_override);
+    await src_file.linkfileat(fs_context, dst_path, dst_file && dst_file.fd, should_not_override);
 }
 
 // safe_unlink_gpfs unlinks to_delete_path while verifing to_delete_path.fd

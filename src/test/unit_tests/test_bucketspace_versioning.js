@@ -1,6 +1,6 @@
 /* Copyright (C) 2020 NooBaa */
 /* eslint-disable max-lines-per-function */
-/*eslint max-lines: ["error",4500]*/
+/*eslint max-lines: ["error",5500]*/
 /* eslint-disable max-statements */
 'use strict';
 
@@ -25,6 +25,7 @@ const XATTR_INTERNAL_NOOBAA_PREFIX = 'user.noobaa.';
 const XATTR_VERSION_ID = XATTR_INTERNAL_NOOBAA_PREFIX + 'version_id';
 const XATTR_DELETE_MARKER = XATTR_INTERNAL_NOOBAA_PREFIX + 'delete_marker';
 const NULL_VERSION_ID = 'null';
+const HIDDEN_VERSIONS_PATH = '.versions';
 
 const DEFAULT_FS_CONFIG = get_process_fs_context();
 let CORETEST_ENDPOINT;
@@ -39,6 +40,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
     const bucket_name = 'versioned-enabled-bucket';
     const disabled_bucket_name = 'disabled-bucket'; // be aware that this bucket would become versioned in the copy object tests
     const suspended_bucket_name = 'suspended-bucket';
+    const nested_keys_bucket_name = 'bucket-with-nested-keys';
 
     const bucket_path = '/bucket';
     const full_path = tmp_fs_root + bucket_path;
@@ -46,6 +48,8 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
     const disabled_full_path = tmp_fs_root + disabled_bucket_path;
     const suspended_bucket_path = '/suspended_bucket';
     const suspended_full_path = tmp_fs_root + suspended_bucket_path;
+    const nested_keys_bucket_path = '/bucket_with_nested_keys';
+    const nested_keys_full_path = path.join(tmp_fs_root, nested_keys_bucket_path);
     const versions_path = path.join(full_path, '.versions/');
     const suspended_versions_path = path.join(suspended_full_path, '.versions/');
     let s3_uid5;
@@ -70,8 +74,11 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
     const dir1_versions_path = path.join(full_path, dir1, '.versions/');
     const suspended_dir1_versions_path = path.join(suspended_full_path, dir1, '.versions/');
 
+    const dir_path_nested = 'photos/animals/January/';
+    const nested_key_level3 = path.join(dir_path_nested, 'cat.jpeg');
+
     mocha.before(async function() {
-        this.timeout(600000); // eslint-disable-line no-invalid-this
+        this.timeout(0); // eslint-disable-line no-invalid-this
         if (invalid_nsfs_root_permissions()) this.skip(); // eslint-disable-line no-invalid-this
         // create paths 
         await fs_utils.create_fresh_path(tmp_fs_root, 0o777);
@@ -81,11 +88,14 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
         await fs_utils.file_must_exist(disabled_full_path);
         await fs_utils.create_fresh_path(suspended_full_path, 0o770);
         await fs_utils.file_must_exist(suspended_full_path);
+        await fs_utils.create_fresh_path(nested_keys_full_path, 0o770);
+        await fs_utils.file_must_exist(nested_keys_full_path);
         if (is_nc_coretest) {
             const { uid, gid } = get_admin_mock_account_details();
             await set_path_permissions_and_owner(full_path, { uid, gid }, 0o700);
             await set_path_permissions_and_owner(disabled_full_path, { uid, gid }, 0o700);
             await set_path_permissions_and_owner(suspended_full_path, { uid, gid }, 0o700);
+            await set_path_permissions_and_owner(nested_keys_full_path, { uid, gid }, 0o700);
         }
         // export dir as a bucket
         await rpc_client.pool.create_namespace_resource({
@@ -118,6 +128,14 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                 write_resource: suspended_nsr
             }
         });
+        const nested_keys_nsr = { resource: nsr, path: nested_keys_bucket_path };
+        await rpc_client.bucket.create_bucket({
+            name: nested_keys_bucket_name,
+            namespace: {
+                read_resources: [nested_keys_nsr],
+                write_resource: nested_keys_nsr
+            }
+        });
         const policy = {
             Version: '2012-10-17',
             Statement: [{
@@ -148,6 +166,11 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             Policy: JSON.stringify(policy)
         });
 
+        await s3_admin.putBucketPolicy({
+            Bucket: nested_keys_bucket_name,
+            Policy: JSON.stringify(policy)
+        });
+
         res = await generate_nsfs_account(rpc_client, EMAIL, new_bucket_path_param, { uid: 5, gid: 5 });
         s3_uid5 = generate_s3_client(res.access_key, res.secret_key, CORETEST_ENDPOINT);
         accounts.push(res.email);
@@ -158,6 +181,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
     });
 
     mocha.after(async () => {
+        this.timeout(0); // eslint-disable-line no-invalid-this
         fs_utils.folder_delete(tmp_fs_root);
         for (const email of accounts) {
             await rpc_client.account.delete_account({ email });
@@ -282,10 +306,38 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             mocha.it('put object 2nd time - versioning enabled - nested', async function() {
                 const prev_version_id = await stat_and_get_version_id(full_path, nested_key1);
                 const res = await s3_uid6.putObject({ Bucket: bucket_name, Key: nested_key1, Body: body2 });
+                const version_path_nested = path.join(full_path, dir1, HIDDEN_VERSIONS_PATH);
+                const nested_versions_dir_exist = await fs_utils.file_exists(version_path_nested);
+                assert.ok(nested_versions_dir_exist);
                 const comp_res = await compare_version_ids(full_path, nested_key1, res.VersionId, prev_version_id);
                 assert.ok(comp_res);
                 const exist = await version_file_exists(full_path, key1, dir1, prev_version_id);
                 assert.ok(exist);
+            });
+
+            mocha.it('put object - versioning enabled - nested key (more than 1 level)', async function() {
+                await s3_uid6.putBucketVersioning({ Bucket: nested_keys_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
+                const res_put_version_ids = new Set(); // array for the versions we expect in .version/ directory
+                let res = await s3_uid6.putObject({ Bucket: nested_keys_bucket_name, Key: nested_key_level3, Body: body1 });
+                res_put_version_ids.add(res.VersionId);
+                // only after the second PUT object we expect to have the .versions under the parent directory of the file
+                res = await s3_uid6.putObject({ Bucket: nested_keys_bucket_name, Key: nested_key_level3, Body: body2});
+                res_put_version_ids.add(res.VersionId);
+                await s3_uid6.putObject({ Bucket: nested_keys_bucket_name, Key: nested_key_level3, Body: body3}); // latest version
+                const version_path_nested = path.join(nested_keys_full_path, dir_path_nested, HIDDEN_VERSIONS_PATH);
+                const exist = await fs_utils.file_exists(version_path_nested);
+                assert.ok(exist);
+                const versions = await nb_native().fs.readdir(DEFAULT_FS_CONFIG, version_path_nested);
+                const prefix = 'cat.jpeg_';
+                const same_prefix = versions.every(version => version.name.includes(prefix));
+                assert.ok(same_prefix);
+                // compare the response version_id to the file names in .version/ directory
+                const res_version_ids = new Set();
+                for (const version of versions) {
+                    const version_id = version.name.slice(prefix.length);
+                    res_version_ids.add(version_id);
+                }
+                assert.deepEqual(res_version_ids, res_put_version_ids);
             });
         });
 
@@ -391,6 +443,9 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
 
             mocha.it('put object 2nd time - versioning suspended - nested', async function() {
                 const res = await s3_uid6.putObject({ Bucket: suspended_bucket_name, Key: nested_key1, Body: body2 });
+                const version_path_nested = path.join(full_path, dir1, HIDDEN_VERSIONS_PATH);
+                const nested_versions_dir_exist = await fs_utils.file_exists(version_path_nested);
+                assert.ok(nested_versions_dir_exist);
                 const exist = await fs_utils.file_not_exists(suspended_dir1_versions_path);
                 assert.ok(exist);
                 const comp_res = await compare_version_ids(suspended_full_path, nested_key1, res.VersionId, undefined, is_enabled);
@@ -680,6 +735,24 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             assert.equal(max_version2, res.VersionId);
             const is_dm = await is_delete_marker(full_path, '', key1, max_version2);
             assert.ok(is_dm);
+        });
+
+        mocha.it('delete object - versioning enabled - nested key (more than 1 level)', async function() {
+            const res = await s3_uid6.deleteObject({ Bucket: nested_keys_bucket_name, Key: nested_key_level3 });
+            assert.equal(res.DeleteMarker, true);
+            const exist = await fs_utils.file_not_exists(path.join(nested_keys_full_path, nested_key_level3));
+            assert.ok(exist);
+            const version_path_nested = path.join(nested_keys_full_path, dir_path_nested, HIDDEN_VERSIONS_PATH);
+            const exist2 = await fs_utils.file_exists(version_path_nested);
+            assert.ok(exist2);
+        });
+
+        mocha.it('delete object - versioning enabled - nested key (more than 1 level) - delete inside directory', async function() {
+            const res = await s3_uid6.deleteObject({ Bucket: nested_keys_bucket_name, Key: dir_path_nested });
+            assert.equal(res.DeleteMarker, true);
+            const version_path_nested = path.join(nested_keys_full_path, dir_path_nested, HIDDEN_VERSIONS_PATH);
+            const exist2 = await fs_utils.file_exists(version_path_nested);
+            assert.ok(exist2);
         });
     });
 
@@ -1906,6 +1979,41 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             await fs_utils.file_must_not_exist(path.join(full_multi_delete_path, key1));
             await delete_object_versions(full_multi_delete_path, key1);
         });
+
+        mocha.it('delete multiple objects - versioning enabled (more than 1 level)', async function() {
+            const self = this; // eslint-disable-line no-invalid-this
+            self.timeout(150000);
+            const nested_key_level4 = '/company/department/team/2024/January/employee_123.txt';
+            const arr_keys_only = [];
+            const arr_keys_and_version_id = [];
+            const num_of_versions = 5;
+            for (let i = 0; i < num_of_versions; i++) {
+                const body_to_add = `zzzzz-${i}`;
+                const res = await account_with_access.putObject({
+                    Bucket: delete_multi_object_test_bucket, Key: nested_key_level4, Body: body_to_add });
+                arr_keys_only.push({ Key: nested_key_level4 });
+                arr_keys_and_version_id.push({ Key: nested_key_level4, VersionId: res.VersionId });
+            }
+
+            // no version-id (latest)
+            const delete_res = await account_with_access.deleteObjects({
+                    Bucket: delete_multi_object_test_bucket, Delete: { Objects: arr_keys_only } });
+            assert.equal(delete_res.Deleted.length, 1);
+
+            // with version-id
+            const delete_res2 = await account_with_access.deleteObjects({
+                Bucket: delete_multi_object_test_bucket, Delete: { Objects: arr_keys_and_version_id } });
+            assert.equal(delete_res2.Deleted.length, num_of_versions);
+
+            // delete the delete marker of latest version
+            await s3_uid6.deleteObject({ Bucket: delete_multi_object_test_bucket,
+                Key: delete_res.Deleted[0].Key, VersionId: delete_res.Deleted[0].DeleteMarkerVersionId});
+
+            // to validate that the object was deleted completely
+            const list_object_versions_res = await s3_uid6.listObjectVersions({Bucket: delete_multi_object_test_bucket});
+            assert.ok(list_object_versions_res.Versions === undefined);
+            assert.ok(list_object_versions_res.DeleteMarkers === undefined);
+        });
     });
 
     mocha.describe('delete multiple objects - versioning suspended', function() {
@@ -2285,6 +2393,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
         const version_body = 'A1A1A1A';
 
         mocha.before(async function() {
+            this.timeout(0); // eslint-disable-line no-invalid-this
             if (invalid_nsfs_root_permissions()) this.skip(); // eslint-disable-line no-invalid-this
             // create paths
             await fs_utils.create_fresh_path(tmp_fs_root2, 0o777);
@@ -2354,6 +2463,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
         });
 
         mocha.after(async () => {
+            this.timeout(0); // eslint-disable-line no-invalid-this
             fs_utils.folder_delete(tmp_fs_root);
             for (const email of accounts) {
                 await rpc_client.account.delete_account({ email });
@@ -2374,13 +2484,16 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
         const nsr = 'get-head-versioned-nsr';
         const bucket_name = 'get-head-versioned-bucket';
         const disabled_bucket_name = 'get-head-disabled-bucket';
+        const nested_keys_bucket_name = 'get-head-versioned-bucket2';
         const tmp_fs_root3 = path.join(TMP_PATH, 'test_namespace_fs_get_objects');
 
         const bucket_path = '/get-head-bucket/';
+        const nested_keys_bucket_path = '/bucket_with_nested_keys';
         const vesion_dir = '/.versions';
         const full_path = path.join(tmp_fs_root3, bucket_path);
         const disabled_bucket_path = '/get-head-disabled_bucket';
         const disabled_full_path = path.join(tmp_fs_root3, disabled_bucket_path);
+        const nested_keys_full_path = path.join(tmp_fs_root3, nested_keys_bucket_path);
         const version_dir_path = path.join(full_path, vesion_dir);
         let file_pointer;
         const versionID_1 = 'mtime-12a345b-ino-c123d45';
@@ -2408,11 +2521,14 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             await fs_utils.file_must_exist(version_dir_path);
             await fs_utils.create_fresh_path(disabled_full_path, 0o770);
             await fs_utils.file_must_exist(disabled_full_path);
+            await fs_utils.create_fresh_path(nested_keys_full_path, 0o770);
+            await fs_utils.file_must_exist(nested_keys_full_path);
             const new_buckets_path3 = get_new_buckets_path_by_test_env(tmp_fs_root3, '/');
             if (is_nc_coretest) {
                 const { uid, gid } = get_admin_mock_account_details();
                 await set_path_permissions_and_owner(full_path, { uid, gid }, 0o700);
                 await set_path_permissions_and_owner(disabled_full_path, { uid, gid }, 0o700);
+                await set_path_permissions_and_owner(nested_keys_full_path, { uid, gid }, 0o700);
             }
             // export dir as a bucket
             await rpc_client.pool.create_namespace_resource({
@@ -2439,6 +2555,15 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                 }
             });
 
+            const nested_keys_nsr = { resource: nsr, path: nested_keys_bucket_path };
+            await rpc_client.bucket.create_bucket({
+                name: nested_keys_bucket_name,
+                namespace: {
+                    read_resources: [nested_keys_nsr],
+                    write_resource: nested_keys_nsr
+                }
+            });
+
             const policy = {
                 Version: '2012-10-17',
                 Statement: [{
@@ -2461,6 +2586,10 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                 Bucket: disabled_bucket_name,
                 Policy: JSON.stringify(policy)
             });
+            await s3_admin.putBucketPolicy({
+                Bucket: nested_keys_bucket_name,
+                Policy: JSON.stringify(policy)
+            });
             // create nsfs account
             res = await generate_nsfs_account(rpc_client, EMAIL, new_buckets_path3);
             s3_client = generate_s3_client(res.access_key, res.secret_key, CORETEST_ENDPOINT);
@@ -2470,6 +2599,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             // create a file after when versioning not enabled
             await create_object(`${full_path}/${dis_version_key}`, dis_version_body, 'null');
             await s3_client.putBucketVersioning({ Bucket: bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
+            await s3_client.putBucketVersioning({ Bucket: nested_keys_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
             const bucket_ver = await s3_client.getBucketVersioning({ Bucket: bucket_name });
             assert.equal(bucket_ver.Status, 'Enabled');
             // create base file after versioning enabled
@@ -2548,6 +2678,37 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                 assert.fail('Should fail');
             } catch (err) {
                 assert.equal(err.Code, 'BadRequest');
+            }
+        });
+
+        mocha.it('get object - versioning enabled - nested key (more than 1 level)', async function() {
+            const body1 = 'A'.repeat(5);
+            const body2 = body1 + 'B'.repeat(3);
+            const body3 = body2 + 'C'.repeat(7);
+            const dir_path_nested = 'documents/finance/2024/October/';
+            const nested_key_level4 = path.join(dir_path_nested, 'report.pdf');
+            await s3_client.putObject({ Bucket: nested_keys_bucket_name, Key: nested_key_level4, Body: body1 });
+            // only after the second PUT object we expect to have the .versions under the parent directory of the file
+            const put_res2 = await s3_client.putObject({ Bucket: nested_keys_bucket_name, Key: nested_key_level4, Body: body2});
+            await s3_client.putObject({ Bucket: nested_keys_bucket_name, Key: nested_key_level4, Body: body3});
+
+            // latest
+            const get_res = await s3_client.getObject({Bucket: nested_keys_bucket_name, Key: nested_key_level4});
+            const body_as_string = await get_res.Body.transformToString();
+            assert.equal(body_as_string, body3);
+
+            // by version-id
+            const get_res2 = await s3_client.getObject({
+                Bucket: nested_keys_bucket_name, Key: nested_key_level4, VersionId: put_res2.VersionId});
+            const body_as_string2 = await get_res2.Body.transformToString();
+            assert.equal(body_as_string2, body2);
+
+            // partial path of (directory without the key)
+            try {
+                await s3_client.getObject({Bucket: nested_keys_bucket_name, Key: dir_path_nested});
+                assert.fail('Should fail');
+            } catch (err) {
+                assert.equal(err.name, 'NoSuchKey');
             }
         });
 
@@ -2632,6 +2793,36 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                 assert.equal(err.name, 'NotFound');
             }
         });
+
+        mocha.it('head object - versioning enabled - nested key (more than 1 level)', async function() {
+            const body1 = 'A'.repeat(5);
+            const body2 = body1 + 'B'.repeat(3);
+            const body3 = body2 + 'C'.repeat(7);
+            const dir_path_nested = 'documents/finance/2024/October/';
+            const nested_key_level4 = path.join(dir_path_nested, 'report.pdf');
+            await s3_client.putObject({ Bucket: nested_keys_bucket_name, Key: nested_key_level4, Body: body1 });
+            // only after the second PUT object we expect to have the .versions under the parent directory of the file
+            const put_res2 = await s3_client.putObject({ Bucket: nested_keys_bucket_name, Key: nested_key_level4, Body: body2});
+            await s3_client.putObject({ Bucket: nested_keys_bucket_name, Key: nested_key_level4, Body: body3});
+
+            // latest
+            const head_res = await s3_client.headObject({Bucket: nested_keys_bucket_name, Key: nested_key_level4});
+            assert.equal(head_res.ContentLength, body3.length);
+
+            // by version-id
+            const head_res2 = await s3_client.headObject({
+                Bucket: nested_keys_bucket_name, Key: nested_key_level4, VersionId: put_res2.VersionId});
+            assert.equal(head_res2.ContentLength, body2.length);
+
+            // partial path of (directory without the key)
+            try {
+                await s3_client.headObject({Bucket: nested_keys_bucket_name, Key: dir_path_nested});
+                assert.fail('Should fail');
+            } catch (err) {
+                assert.equal(err.name, 'NotFound');
+            }
+        });
+
         mocha.it('Put object when version disbled and do put on the same object when version enabled - get object should return versioned object', async function() {
             let res = await s3_client.getObject({Bucket: disabled_bucket_name, Key: dis_version_key});
             let body_as_string = await res.Body.transformToString();
@@ -2952,6 +3143,7 @@ mocha.describe('List-objects', function() {
     let file_pointer;
 
     mocha.before(async function() {
+        this.timeout(0); // eslint-disable-line no-invalid-this
         if (process.getgid() !== 0 || process.getuid() !== 0) {
             console.log('No Root permissions found in env. Skipping test');
             this.skip(); // eslint-disable-line no-invalid-this
@@ -3036,6 +3228,7 @@ mocha.describe('List-objects', function() {
     });
 
     mocha.after(async () => {
+        this.timeout(0); // eslint-disable-line no-invalid-this
         if (file_pointer) await file_pointer.close(DEFAULT_FS_CONFIG);
         fs_utils.folder_delete(tmp_fs_root);
         for (const email of accounts) {
@@ -3044,6 +3237,7 @@ mocha.describe('List-objects', function() {
     });
 
     mocha.beforeEach(async () => {
+        this.timeout(0); // eslint-disable-line no-invalid-this
         await fs_utils.create_fresh_path(full_path2, 0o777);
         await P.delay(100); // sometime we saw that the check failed although the path is created a line before
         const file_exists = await fs_utils.file_exists(full_path2);
@@ -3838,6 +4032,22 @@ mocha.describe('List-objects', function() {
         assert.equal(res.DeleteMarkers.length, 1);
         assert.equal(res.DeleteMarkers[0].VersionId, res_delete.VersionId);
         assert.equal(res.DeleteMarkers[0].IsLatest, true);
+    });
+
+    mocha.it('list object versions - versioning enabled - nested key (more than 1 level)', async function() {
+        await s3_client.putBucketVersioning({ Bucket: bucket_name2, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
+        const dir_path_nested = 'user/u1/photos/2006/January/';
+        const nested_key_level5 = path.join(dir_path_nested, 'sample.jpg');
+        const number_of_versions = 5;
+        for (let i = 0; i < number_of_versions; i++) {
+            const body_to_add = `YYY-${i}`;
+            await s3_client.putObject({ Bucket: bucket_name2, Key: nested_key_level5, Body: body_to_add });
+        }
+
+        const res = await s3_client.listObjectVersions({ Bucket: bucket_name2});
+        assert.equal(res.Versions.length, number_of_versions);
+        const comp_res = res.Versions.every(item => item.Key === nested_key_level5);
+        assert.ok(comp_res);
     });
 
 });

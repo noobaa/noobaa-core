@@ -12,7 +12,7 @@ const P = require('../../util/promise');
 const fs_utils = require('../../util/fs_utils');
 const nb_native = require('../../util/nb_native');
 const size_utils = require('../../util/size_utils');
-const { TMP_PATH, is_nc_coretest, set_path_permissions_and_owner, generate_nsfs_account, get_new_buckets_path_by_test_env,
+const { TMP_PATH, IS_GPFS, is_nc_coretest, set_path_permissions_and_owner, generate_nsfs_account, get_new_buckets_path_by_test_env,
     invalid_nsfs_root_permissions, generate_s3_client, get_coretest_path } = require('../system_tests/test_utils');
 const { get_process_fs_context } = require('../../util/native_fs_utils');
 
@@ -27,7 +27,7 @@ const XATTR_DELETE_MARKER = XATTR_INTERNAL_NOOBAA_PREFIX + 'delete_marker';
 const NULL_VERSION_ID = 'null';
 const HIDDEN_VERSIONS_PATH = '.versions';
 
-const DEFAULT_FS_CONFIG = get_process_fs_context();
+const DEFAULT_FS_CONFIG = get_process_fs_context(IS_GPFS ? 'GPFS' : '');
 let CORETEST_ENDPOINT;
 
 const tmp_fs_root = path.join(TMP_PATH, 'test_bucket_namespace_fs_versioning');

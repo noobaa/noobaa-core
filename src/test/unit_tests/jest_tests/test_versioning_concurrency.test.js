@@ -7,7 +7,7 @@ const P = require('../../../util/promise');
 const fs_utils = require('../../../util/fs_utils');
 const NamespaceFS = require('../../../sdk/namespace_fs');
 const buffer_utils = require('../../../util/buffer_utils');
-const { TMP_PATH } = require('../../system_tests/test_utils');
+const { TMP_PATH, IS_GPFS } = require('../../system_tests/test_utils');
 const { crypto_random_string } = require('../../../util/string_utils');
 const endpoint_stats_collector = require('../../../sdk/endpoint_stats_collector');
 const SECONDS = 1000;
@@ -19,7 +19,7 @@ function make_dummy_object_sdk(nsfs_config, uid, gid) {
             nsfs_account_config: nsfs_config && {
                 uid: uid || process.getuid(),
                 gid: gid || process.getgid(),
-                backend: '',
+                backend: IS_GPFS ? 'GPFS' : '',
             }
         },
         abort_controller: new AbortController(),

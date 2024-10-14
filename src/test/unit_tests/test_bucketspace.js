@@ -19,7 +19,7 @@ const { stat, open } = require('../../util/nb_native')().fs;
 const { get_process_fs_context } = require('../../util/native_fs_utils');
 const { TYPES } = require('../../manage_nsfs/manage_nsfs_constants');
 const ManageCLIError = require('../../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
-const { TMP_PATH, is_nc_coretest, get_coretest_path, invalid_nsfs_root_permissions,
+const { TMP_PATH, IS_GPFS, is_nc_coretest, get_coretest_path, invalid_nsfs_root_permissions,
     generate_s3_policy, create_fs_user_by_platform, delete_fs_user_by_platform, get_new_buckets_path_by_test_env,
     generate_s3_client, exec_manage_cli, generate_anon_s3_client, generate_nsfs_account } = require('../system_tests/test_utils');
 const nc_mkm = require('../../manage_nsfs/nc_master_key_manager').get_instance();
@@ -37,7 +37,7 @@ coretest.setup({});
 let CORETEST_ENDPOINT;
 const inspect = (x, max_arr = 5) => util.inspect(x, { colors: true, depth: null, maxArrayLength: max_arr });
 
-const DEFAULT_FS_CONFIG = get_process_fs_context();
+const DEFAULT_FS_CONFIG = get_process_fs_context(IS_GPFS ? 'GPFS' : '');
 const new_account_params = {
     has_login: false,
     s3_access: true,
@@ -147,6 +147,7 @@ mocha.describe('bucket operations - namespace_fs', function() {
         }
     });
     mocha.it('export other dir as bucket - and update bucket path to original bucket path', async function() {
+        this.timeout(600000); // eslint-disable-line no-invalid-this
         const obj_nsr = { resource: nsr, path: bucket_path };
         const other_obj_nsr = { resource: nsr, path: other_bucket_path };
         // give read and write permission to owner
@@ -188,6 +189,7 @@ mocha.describe('bucket operations - namespace_fs', function() {
     });
 
     mocha.it('list buckets without uid, gid', async function() {
+        this.timeout(600000); // eslint-disable-line no-invalid-this
         // Give s3_owner access to the required buckets
         const generated = generate_s3_policy(EMAIL, first_bucket, ['s3:*']);
         await rpc_client.bucket.put_bucket_policy({ name: first_bucket, policy: generated.policy });
@@ -576,11 +578,13 @@ mocha.describe('bucket operations - namespace_fs', function() {
         const s3_xattr = {}; // invalid xattr won't return on s3 head object
         await tmpfile.replacexattr(DEFAULT_FS_CONFIG, fs_xattr);
         const xattr_res = (await tmpfile.stat(DEFAULT_FS_CONFIG)).xattr;
+        //filter unrelated xattr added by operating system
+        const xattr_res_filtered = _.pickBy(xattr_res, (val, name) => name.startsWith("user."));
         await tmpfile.close(DEFAULT_FS_CONFIG);
 
         const head_res = await s3_client.headObject({ Bucket: bucket, Key: key });
         assert.deepStrictEqual(head_res.Metadata, s3_xattr);
-        assert.deepStrictEqual(fs_xattr, xattr_res);
+        assert.deepStrictEqual(fs_xattr, xattr_res_filtered);
         const get_res = await s3_client.getObject({ Bucket: bucket, Key: key });
         assert.deepStrictEqual(get_res.Metadata, s3_xattr);
         await s3_client.deleteObject({ Bucket: bucket, Key: key });
@@ -599,11 +603,13 @@ mocha.describe('bucket operations - namespace_fs', function() {
         const s3_xattr = { 'key1.2.3': encoded_xattr };
         await tmpfile.replacexattr(DEFAULT_FS_CONFIG, fs_xattr);
         const xattr_res = (await tmpfile.stat(DEFAULT_FS_CONFIG)).xattr;
+        //filter unrelated xattr added by operating system
+        const xattr_res_filtered = _.pickBy(xattr_res, (val, name) => name.startsWith("user."));
         await tmpfile.close(DEFAULT_FS_CONFIG);
 
         const head_res = await s3_client.headObject({ Bucket: bucket, Key: key });
         assert.deepStrictEqual(head_res.Metadata, s3_xattr);
-        assert.deepStrictEqual(fs_xattr, xattr_res);
+        assert.deepStrictEqual(fs_xattr, xattr_res_filtered);
         const get_res = await s3_client.getObject({ Bucket: bucket, Key: key });
         assert.deepStrictEqual(get_res.Metadata, s3_xattr);
         await s3_client.deleteObject({ Bucket: bucket, Key: key });
@@ -818,6 +824,7 @@ mocha.describe('bucket operations - namespace_fs', function() {
     });
 
     mocha.it('delete bucket with uid, gid - bucket is empty', async function() {
+        this.timeout(600000); // eslint-disable-line no-invalid-this
         const res = await s3_correct_uid_default_nsr.deleteBucket({ Bucket: bucket_name + '-s3' });
         console.log(inspect(res));
     });
@@ -924,6 +931,7 @@ mocha.describe('bucket operations - namespace_fs', function() {
         }
     });
     mocha.it('delete bucket with uid, gid - bucket is empty', async function() {
+        this.timeout(600000); // eslint-disable-line no-invalid-this
         // Give s3_correct_uid_default_nsr access to the required buckets
         await Promise.all(
             [bucket_name + '-other1', bucket_name]
@@ -1148,6 +1156,7 @@ mocha.describe('nsfs account configurations', function() {
         await fs_utils.folder_delete(tmp_fs_root1);
     });
     mocha.it('export dir as a bucket', async function() {
+        this.timeout(600000); // eslint-disable-line no-invalid-this
         await rpc_client.pool.create_namespace_resource({
             name: nsr1,
             nsfs_config: {
@@ -1628,6 +1637,7 @@ mocha.describe('list buckets - namespace_fs', async function() {
     });
 
     mocha.it('account1 - all accounts are allowed to list bucket1', async function() {
+        this.timeout(50000); // eslint-disable-line no-invalid-this
         // allow all accounts to list bucket1
         const public_bucket = accounts.account1.bucket;
         const bucket_policy = generate_s3_policy('*', public_bucket, ['s3:ListBucket']);
@@ -1666,6 +1676,7 @@ mocha.describe('list buckets - namespace_fs', async function() {
     });
 
     mocha.it('account2 - set allow only account1 list bucket2, account1/account2 can list bucket2 but account3 cant', async function() {
+        this.timeout(50000); // eslint-disable-line no-invalid-this
         const bucket2 = accounts.account2.bucket;
         const account_name = 'account1';
         // on NC the account identifier is account name, and on containerized it's the account's email

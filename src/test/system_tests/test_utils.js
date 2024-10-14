@@ -15,11 +15,25 @@ const { CONFIG_TYPES } = require('../../sdk/config_fs');
 const native_fs_utils = require('../../util/native_fs_utils');
 const { NodeHttpHandler } = require("@smithy/node-http-handler");
 
+const GPFS_ROOT_PATH = process.env.GPFS_ROOT_PATH;
+const IS_GPFS = !_.isUndefined(GPFS_ROOT_PATH);
+const TMP_PATH = get_tmp_path();
+
 /**
  * TMP_PATH is a path to the tmp path based on the process platform
  * in contrast to linux, /tmp/ path on mac is a symlink to /private/tmp/
+ * on gpfs should point to GPFS file system. should create tmp dir on file system and pass it as process.env.GPFS_ROOT_PATH
  */
-const TMP_PATH = os_utils.IS_MAC ? '/private/tmp/' : '/tmp/';
+function get_tmp_path() {
+    if (os_utils.IS_MAC) {
+        return '/private/tmp/';
+    } else if (IS_GPFS) {
+        return GPFS_ROOT_PATH;
+    } else {
+        return '/tmp/';
+    }
+}
+
 
 /**
  * is_nc_coretest returns true when the test runs on NC env
@@ -606,6 +620,7 @@ exports.set_path_permissions_and_owner = set_path_permissions_and_owner;
 exports.set_nc_config_dir_in_config = set_nc_config_dir_in_config;
 exports.generate_anon_s3_client = generate_anon_s3_client;
 exports.TMP_PATH = TMP_PATH;
+exports.IS_GPFS = IS_GPFS;
 exports.is_nc_coretest = is_nc_coretest;
 exports.generate_nsfs_account = generate_nsfs_account;
 exports.get_new_buckets_path_by_test_env = get_new_buckets_path_by_test_env;

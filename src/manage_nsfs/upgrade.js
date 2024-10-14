@@ -1,21 +1,25 @@
 /* Copyright (C) 2024 NooBaa */
 'use strict';
 
+const _ = require('lodash');
 const dbg = require('../util/debug_module')(__filename);
 const { ManageCLIError } = require('./manage_nsfs_cli_errors');
 const { UPGRADE_ACTIONS } = require('./manage_nsfs_constants');
+const { NCUpgradeManager } = require('../upgrade/nc_upgrade_manager');
 const { ManageCLIResponse } = require('../manage_nsfs/manage_nsfs_cli_responses');
 const { throw_cli_error, write_stdout_response } = require('./manage_nsfs_cli_utils');
 
 /**
  * manage_upgrade_operations handles cli upgrade operations
  * @param {string} action 
+ * @param {string} user_input 
+ * @param {import('../sdk/config_fs').ConfigFS} config_fs
  * @returns {Promise<Void>}
  */
-async function manage_upgrade_operations(action, config_fs) {
+async function manage_upgrade_operations(action, user_input, config_fs) {
     switch (action) {
         case UPGRADE_ACTIONS.START:
-            await exec_config_dir_upgrade();
+            await start_config_dir_upgrade(user_input, config_fs);
             break;
         case UPGRADE_ACTIONS.STATUS:
             await get_upgrade_status(config_fs);
@@ -29,13 +33,25 @@ async function manage_upgrade_operations(action, config_fs) {
 }
 
 /**
- * exec_config_dir_upgrade handles cli upgrade operation
+ * start_config_dir_upgrade handles cli upgrade operation
+ * @param {Object} user_input
+ * @param {import('../sdk/config_fs').ConfigFS} config_fs
  * @returns {Promise<Void>}
  */
-async function exec_config_dir_upgrade() {
+async function start_config_dir_upgrade(user_input, config_fs) {
     try {
-        // TODO - add verifications and a call to the config directory upgrade
-        throw new Error('Upgrade Config Directory is not implemented yet');
+        const skip_verification = user_input.skip_verification;
+        const expected_version = user_input.expected_version;
+        const expected_hosts = user_input.expected_hosts && user_input.expected_hosts.split(',').filter(host => !_.isEmpty(host));
+        const custom_upgrade_scripts_dir = user_input.custom_upgrade_scripts_dir;
+
+        if (!expected_version) throw new Error('expected_version flag is required');
+        if (!expected_hosts) throw new Error('expected_hosts flag is required');
+
+        const nc_upgrade_manager = new NCUpgradeManager(config_fs, { custom_upgrade_scripts_dir });
+        const upgrade_res = await nc_upgrade_manager.upgrade_config_dir(expected_version, expected_hosts, { skip_verification });
+        if (!upgrade_res) throw new Error('Upgrade config directory failed', { cause: upgrade_res });
+        write_stdout_response(ManageCLIResponse.UpgradeSuccessful, upgrade_res);
     } catch (err) {
         dbg.error('could not upgrade config directory successfully - err', err);
         throw_cli_error({ ...ManageCLIError.UpgradeFailed, cause: err });

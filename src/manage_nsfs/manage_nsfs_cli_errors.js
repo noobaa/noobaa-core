@@ -479,6 +479,12 @@ ManageCLIError.UpgradeHistoryFailed = Object.freeze({
     http_code: 500,
 });
 
+ManageCLIError.ConfigDirUpdateBlocked = Object.freeze({
+    code: 'ConfigDirUpdateBlocked',
+    message: 'Config directory updates are not allowed on mismatch of the config directory version mentioned in system.json and the config directory version of the source code',
+    http_code: 500,
+});
+
 ///////////////////////////////
 //       ERRORS MAPPING      //
 ///////////////////////////////
@@ -500,7 +506,8 @@ ManageCLIError.RPC_ERROR_TO_MANAGE = Object.freeze({
     INVALID_SCHEMA: ManageCLIError.InvalidSchema,
     NO_SUCH_USER: ManageCLIError.InvalidAccountDistinguishedName,
     INVALID_MASTER_KEY: ManageCLIError.InvalidMasterKey,
-    INVALID_BUCKET_NAME: ManageCLIError.InvalidBucketName
+    INVALID_BUCKET_NAME: ManageCLIError.InvalidBucketName,
+    CONFIG_DIR_VERSION_MISMATCH: ManageCLIError.ConfigDirUpdateBlocked
 });
 
 const NSFS_CLI_ERROR_EVENT_MAP = {

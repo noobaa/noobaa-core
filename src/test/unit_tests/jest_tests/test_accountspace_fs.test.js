@@ -11,7 +11,7 @@ const fs = require('fs');
 const path = require('path');
 const SensitiveString = require('../../../util/sensitive_string');
 const AccountSpaceFS = require('../../../sdk/accountspace_fs');
-const { TMP_PATH } = require('../../system_tests/test_utils');
+const { TMP_PATH, set_nc_config_dir_in_config } = require('../../system_tests/test_utils');
 const { IAM_DEFAULT_PATH, ACCESS_KEY_STATUS_ENUM } = require('../../../endpoint/iam/iam_constants');
 const fs_utils = require('../../../util/fs_utils');
 const { IamError } = require('../../../endpoint/iam/iam_errors');
@@ -26,6 +26,7 @@ const new_buckets_path3 = path.join(tmp_fs_path, 'new_buckets_path3', '/');
 
 const accountspace_fs = new AccountSpaceFS({ config_root });
 const config_fs_account_options = { show_secrets: true, decrypt_secret_key: true };
+set_nc_config_dir_in_config(config_root);
 
 const root_user_account = {
     _id: '65a8edc9bc5d5bbf9db71b91',

@@ -652,7 +652,9 @@ async function update_hosts_pool(req) {
 
 function delete_pool(req) {
     const pool = find_pool_by_name(req);
-    check_deletion_ownership(req, pool.owner_id);
+    // rebuild_object_links() resolves the pool's owner_id to the account object
+    // which is why we have to access ._id to get the actual ID
+    check_deletion_ownership(req, pool.owner_id._id);
     if (pool.hosts_pool_info) {
         return delete_hosts_pool(req, pool);
     } else {
@@ -662,7 +664,7 @@ function delete_pool(req) {
 
 function delete_namespace_resource(req) {
     const ns = find_namespace_resource_by_name(req);
-    check_deletion_ownership(req, ns.account);
+    check_deletion_ownership(req, ns.account._id);
     dbg.log0('Deleting namespace resource', ns.name);
     return P.resolve()
         .then(() => {

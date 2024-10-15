@@ -94,7 +94,7 @@ function check_deletion_ownership(req, resource_owner_id) {
     if (config.RESTRICT_RESOURCE_DELETION) {
         if (!resource_owner_id) {
             dbg.error('check_deletion_ownership: pool has no owner');
-            throw new RpcError('UNAUTHORIZED', 'The pool has no owner, and thus cannot be deleted');
+            throw new RpcError('INTERNAL_ERROR', 'The pool has no owner, and thus cannot be deleted');
         }
         const requester_is_sys_owner = String(req.account._id) === String(req.system.owner._id);
         if (!requester_is_sys_owner && String(resource_owner_id) !== String(req.account._id)) {

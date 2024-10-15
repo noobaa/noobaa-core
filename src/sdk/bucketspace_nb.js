@@ -32,8 +32,9 @@ class BucketSpaceNB {
     // BUCKET //
     ////////////
 
-    async list_buckets(object_sdk) {
-        const { buckets } = (await this.rpc_client.bucket.list_buckets());
+    async list_buckets(params, object_sdk) {
+        const { buckets, continuation_token} = (await this.rpc_client.bucket.list_buckets(params));
+
         const has_access_buckets = (await P.all(_.map(
             buckets,
             async bucket => {
@@ -43,7 +44,7 @@ class BucketSpaceNB {
                     object_sdk.has_non_nsfs_bucket_access(object_sdk.requesting_account, ns);
                 return has_access_to_bucket && bucket;
             }))).filter(bucket => bucket);
-        return { buckets: has_access_buckets };
+        return { buckets: has_access_buckets, continuation_token};
     }
 
     async read_bucket(params) {

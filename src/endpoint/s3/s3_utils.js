@@ -724,6 +724,42 @@ function parse_restore_request_days(req) {
     return days;
 }
 
+/**
+ * cont_tok_to_key_marker takes an encoded string and decodes it.
+ * cont_tok is the token which represents the next item in
+ * the list which some API returns to user in parts.
+ * @param {string} cont_tok
+ * @returns {string}
+ */
+function cont_tok_to_key_marker(cont_tok) {
+    if (!cont_tok) return;
+    try {
+        const b = Buffer.from(cont_tok, 'base64');
+        const j = JSON.parse(b.toString());
+        return j.key;
+    } catch (err) {
+        throw new S3Error(S3Error.InvalidArgument);
+    }
+}
+
+/**
+ * key_marker_to_cont_tok takes a string and returns an encoded
+ * string. key_marker is the token which represents the next item in
+ * the list which some API returns to user in parts.
+ * @param {string} key_marker
+ * @param {array} objects_arr
+ * @param {boolean} is_truncated
+ * @returns {string}
+ */
+
+function key_marker_to_cont_tok(key_marker, objects_arr, is_truncated) {
+    if (!key_marker && !is_truncated) return;
+    // next marker is the key marker we got or the key of the last item in the objects list.
+    const next_marker = key_marker || (objects_arr && objects_arr.length > 0 ? objects_arr[objects_arr.length - 1].key : undefined);
+    const j = JSON.stringify({ key: next_marker });
+    return Buffer.from(j).toString('base64');
+}
+
 exports.STORAGE_CLASS_STANDARD = STORAGE_CLASS_STANDARD;
 exports.STORAGE_CLASS_GLACIER = STORAGE_CLASS_GLACIER;
 exports.STORAGE_CLASS_GLACIER_IR = STORAGE_CLASS_GLACIER_IR;
@@ -763,3 +799,5 @@ exports.parse_version_id = parse_version_id;
 exports.get_object_owner = get_object_owner;
 exports.get_default_object_owner = get_default_object_owner;
 exports.set_response_supported_storage_classes = set_response_supported_storage_classes;
+exports.cont_tok_to_key_marker = cont_tok_to_key_marker;
+exports.key_marker_to_cont_tok = key_marker_to_cont_tok;

@@ -1210,6 +1210,10 @@ module.exports = {
             wrapper: SensitiveString,
         },
 
+        continuation_token: {
+            wrapper: SensitiveString,
+        },
+
         port: {
             type: 'integer',
             minimum: 0,

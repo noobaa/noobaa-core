@@ -489,34 +489,33 @@ mocha.describe('bucketspace_fs', function() {
             await create_bucket(test_bucket);
         });
         mocha.it('list buckets', async function() {
-            const objects = await bucketspace_fs.list_buckets(dummy_object_sdk);
+            const objects = await bucketspace_fs.list_buckets({}, dummy_object_sdk);
             assert.equal(objects.buckets.length, 1);
             assert.equal(objects.buckets[0].name.unwrap(), 'bucket1');
         });
         mocha.it('list buckets - only for bucket with config', async function() {
             await fs_utils.create_path(`${new_buckets_path}/${test_bucket_invalid}`);
-            const objects = await bucketspace_fs.list_buckets(dummy_object_sdk);
+            const objects = await bucketspace_fs.list_buckets({}, dummy_object_sdk);
             assert.equal(objects.buckets.length, 1);
         });
         mocha.it('list buckets - iam accounts', async function() {
             // root account created a bucket
-
             // account_iam_user2 can list the created bucket (the implicit policy - same root account)
             const dummy_object_sdk_for_iam_account = make_dummy_object_sdk_for_account(dummy_object_sdk, account_iam_user1);
-            const res = await bucketspace_fs.list_buckets(dummy_object_sdk_for_iam_account);
+            const res = await bucketspace_fs.list_buckets({}, dummy_object_sdk_for_iam_account);
             assert.equal(res.buckets.length, 1);
             assert.equal(res.buckets[0].name.unwrap(), test_bucket);
 
             // account_iam_user2 can list the created bucket (the implicit policy - same root account)
             const dummy_object_sdk_for_iam_account2 = make_dummy_object_sdk_for_account(dummy_object_sdk, account_iam_user2);
-            const res2 = await bucketspace_fs.list_buckets(dummy_object_sdk_for_iam_account2);
+            const res2 = await bucketspace_fs.list_buckets({}, dummy_object_sdk_for_iam_account2);
             assert.equal(res2.buckets.length, 1);
             assert.equal(res2.buckets[0].name.unwrap(), test_bucket);
         });
         mocha.it('list buckets - different account', async function() {
             // another user created a bucket (account_user3 cannot list it)
             const dummy_object_sdk_for_iam_account = make_dummy_object_sdk_for_account(dummy_object_sdk, account_user3);
-            const res = await bucketspace_fs.list_buckets(dummy_object_sdk_for_iam_account);
+            const res = await bucketspace_fs.list_buckets({}, dummy_object_sdk_for_iam_account);
             assert.equal(res.buckets.length, 0);
         });
         mocha.it('list buckets - different account with bucket policy (principal by name)', async function() {
@@ -526,7 +525,7 @@ mocha.describe('bucketspace_fs', function() {
             const param = { name: test_bucket, policy: policy };
             await bucketspace_fs.put_bucket_policy(param);
             const dummy_object_sdk_for_iam_account = make_dummy_object_sdk_for_account(dummy_object_sdk, account_user4);
-            const res = await bucketspace_fs.list_buckets(dummy_object_sdk_for_iam_account);
+            const res = await bucketspace_fs.list_buckets({}, dummy_object_sdk_for_iam_account);
             assert.equal(res.buckets.length, 1);
             assert.equal(res.buckets[0].name.unwrap(), test_bucket);
         });
@@ -537,7 +536,7 @@ mocha.describe('bucketspace_fs', function() {
             const param = { name: test_bucket, policy: policy };
             await bucketspace_fs.put_bucket_policy(param);
             const dummy_object_sdk_for_iam_account = make_dummy_object_sdk_for_account(dummy_object_sdk, account_user4);
-            const res = await bucketspace_fs.list_buckets(dummy_object_sdk_for_iam_account);
+            const res = await bucketspace_fs.list_buckets({}, dummy_object_sdk_for_iam_account);
             assert.equal(res.buckets.length, 1);
             assert.equal(res.buckets[0].name.unwrap(), test_bucket);
         });
@@ -548,7 +547,7 @@ mocha.describe('bucketspace_fs', function() {
         });
         mocha.it('list buckets - validate creation_date', async function() {
             const expected_bucket_name = 'bucket1';
-            const objects = await bucketspace_fs.list_buckets(dummy_object_sdk);
+            const objects = await bucketspace_fs.list_buckets({}, dummy_object_sdk);
             assert.equal(objects.buckets.length, 1);
             assert.equal(objects.buckets[0].name.unwrap(), expected_bucket_name);
             const bucket_config_path = get_config_file_path(CONFIG_SUBDIRS.BUCKETS, expected_bucket_name);
@@ -565,7 +564,7 @@ mocha.describe('bucketspace_fs', function() {
         mocha.it('delete_bucket with valid bucket name ', async function() {
             const param = { name: test_bucket };
             await bucketspace_fs.delete_bucket(param, dummy_object_sdk);
-            const objects = await bucketspace_fs.list_buckets(dummy_object_sdk);
+            const objects = await bucketspace_fs.list_buckets({}, dummy_object_sdk);
             assert.equal(objects.buckets.length, 0);
         });
         mocha.it('delete_bucket with invalid bucket name ', async function() {
@@ -628,7 +627,7 @@ mocha.describe('bucketspace_fs', function() {
 
             // account_iam_user1 can see the bucket in the list
             const dummy_object_sdk_for_account_iam_user1 = make_dummy_object_sdk_for_account(dummy_object_sdk, account_iam_user1);
-            const res = await bucketspace_fs.list_buckets(dummy_object_sdk_for_account_iam_user1);
+            const res = await bucketspace_fs.list_buckets({}, dummy_object_sdk_for_account_iam_user1);
             assert.ok(res.buckets.length > 0);
             assert.ok(res.buckets.some(bucket => bucket.name.unwrap() === test_bucket_iam_account));
 

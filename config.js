@@ -895,6 +895,7 @@ config.NC_DISABLE_HEALTH_ACCESS_CHECK = false;
 config.NC_DISABLE_POSIX_MODE_ACCESS_CHECK = true;
 config.NC_DISABLE_SCHEMA_CHECK = false;
 
+config.ACCOUNTS_ID_CACHE_EXPIRY = 3 * 60 * 1000;
 ////////// GPFS //////////
 config.GPFS_DOWN_DELAY = 1000;
 

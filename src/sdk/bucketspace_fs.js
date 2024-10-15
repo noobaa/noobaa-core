@@ -1,23 +1,15 @@
 /* Copyright (C) 2020 NooBaa */
 'use strict';
 
-const path = require('path');
-const config = require('../../config');
-const nb_native = require('../util/nb_native');
-const SensitiveString = require('../util/sensitive_string');
-const { S3Error } = require('../endpoint/s3/s3_errors');
-const RpcError = require('../rpc/rpc_error');
-const js_utils = require('../util/js_utils');
-const P = require('../util/promise');
-const BucketSpaceSimpleFS = require('./bucketspace_simple_fs');
 const _ = require('lodash');
 const util = require('util');
-const bucket_policy_utils = require('../endpoint/s3/s3_bucket_policy_utils');
-const nsfs_schema_utils = require('../manage_nsfs/nsfs_schema_utils');
-const nc_mkm = require('../manage_nsfs/nc_master_key_manager').get_instance();
-const { ConfigFS, JSON_SUFFIX, CONFIG_TYPES } = require('./config_fs');
+const path = require('path');
+const P = require('../util/promise');
+const config = require('../../config');
+const RpcError = require('../rpc/rpc_error');
+const js_utils = require('../util/js_utils');
+const nb_native = require('../util/nb_native');
 const mongo_utils = require('../util/mongo_utils');
-
 const KeysSemaphore = require('../util/keys_semaphore');
 const {
     get_umasked_mode,
@@ -28,9 +20,17 @@ const {
     translate_error_codes,
     get_process_fs_context
 } = require('../util/native_fs_utils');
-const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
+const { S3Error } = require('../endpoint/s3/s3_errors');
 const { anonymous_access_key } = require('./object_sdk');
 const s3_utils = require('../endpoint/s3/s3_utils');
+const { ConfigFS, JSON_SUFFIX } = require('./config_fs');
+const SensitiveString = require('../util/sensitive_string');
+const BucketSpaceSimpleFS = require('./bucketspace_simple_fs');
+const { account_id_cache } = require('../sdk/accountspace_fs');
+const nsfs_schema_utils = require('../manage_nsfs/nsfs_schema_utils');
+const bucket_policy_utils = require('../endpoint/s3/s3_bucket_policy_utils');
+const nc_mkm = require('../manage_nsfs/nc_master_key_manager').get_instance();
+const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
 
 const dbg = require('../util/debug_module')(__filename);
 const bucket_semaphore = new KeysSemaphore(1);
@@ -128,14 +128,12 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             };
 
             bucket.name = new SensitiveString(bucket.name);
-            const account_config = await this.config_fs.get_identity_by_id(
-                bucket.owner_account,
-                CONFIG_TYPES.ACCOUNT,
-                { silent_if_missing: true }
-            );
 
-            if (!account_config) {
-                dbg.warn(`Bucket Owner does not exist ${bucket.owner_account}`);
+            let account_config;
+            try {
+                account_config = await account_id_cache.get_with_cache({ _id: bucket.owner_account, config_fs: this.config_fs });
+            } catch (err) {
+                dbg.warn(`BucketspaceFS.read_bucket_sdk_info could not find bucket owner by id ${bucket.owner_account}`);
             }
             bucket.bucket_owner = new SensitiveString(account_config?.name);
             bucket.owner_account = {

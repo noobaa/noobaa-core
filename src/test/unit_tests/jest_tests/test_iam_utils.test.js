@@ -7,42 +7,52 @@ const { IamError } = require('../../../endpoint/iam/iam_errors');
 
 class NoErrorThrownError extends Error {}
 
-describe('create_arn', () => {
+describe('create_arn_for_user', () => {
     const dummy_account_id = '12345678012'; // for the example
     const dummy_username = 'Bob';
     const dummy_iam_path = '/division_abc/subdivision_xyz/';
     const arn_prefix = 'arn:aws:iam::';
 
-    it('create_arn without username should return basic structure', () => {
+    it('create_arn_for_user without username should return basic structure', () => {
         const user_details = {};
-        const res = iam_utils.create_arn(dummy_account_id, user_details.username, user_details.iam_path);
+        const res = iam_utils.create_arn_for_user(dummy_account_id, user_details.username, user_details.iam_path);
         expect(res).toBe(`${arn_prefix}${dummy_account_id}:user/`);
     });
 
-    it('create_arn with username and no iam_path should return only username in arn', () => {
+    it('create_arn_for_user with username and no iam_path should return only username in arn', () => {
         const user_details = {
             username: dummy_username,
         };
-        const res = iam_utils.create_arn(dummy_account_id, user_details.username, user_details.iam_path);
+        const res = iam_utils.create_arn_for_user(dummy_account_id, user_details.username, user_details.iam_path);
         expect(res).toBe(`${arn_prefix}${dummy_account_id}:user/${dummy_username}`);
     });
 
-    it('create_arn with username and AWS DEFAULT PATH should return only username in arn', () => {
+    it('create_arn_for_user with username and AWS DEFAULT PATH should return only username in arn', () => {
         const user_details = {
             username: dummy_username,
             iam_path: iam_constants.IAM_DEFAULT_PATH
         };
-        const res = iam_utils.create_arn(dummy_account_id, user_details.username, user_details.iam_path);
+        const res = iam_utils.create_arn_for_user(dummy_account_id, user_details.username, user_details.iam_path);
         expect(res).toBe(`${arn_prefix}${dummy_account_id}:user/${dummy_username}`);
     });
 
-    it('create_arn with username and iam_path should return them in arn', () => {
+    it('create_arn_for_user with username and iam_path should return them in arn', () => {
         const user_details = {
             username: dummy_username,
             iam_path: dummy_iam_path,
         };
-        const res = iam_utils.create_arn(dummy_account_id, user_details.username, user_details.iam_path);
+        const res = iam_utils.create_arn_for_user(dummy_account_id, user_details.username, user_details.iam_path);
         expect(res).toBe(`${arn_prefix}${dummy_account_id}:user${dummy_iam_path}${dummy_username}`);
+    });
+});
+
+describe('create_arn_for_root', () => {
+    const dummy_account_id = '12345678012'; // for the example
+    const arn_prefix = 'arn:aws:iam::';
+
+    it('create_arn_for_user without username should root arn', () => {
+        const res = iam_utils.create_arn_for_root(dummy_account_id);
+        expect(res).toBe(`${arn_prefix}${dummy_account_id}:root`);
     });
 });
 

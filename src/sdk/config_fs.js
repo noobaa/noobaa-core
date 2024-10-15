@@ -42,6 +42,7 @@ const CONFIG_SUBDIRS = Object.freeze({
     IDENTITIES: 'identities',
     ACCOUNTS_BY_NAME: 'accounts_by_name',
     ACCOUNTS: 'accounts', // deprecated on 5.18
+    USERS: 'users',
 });
 
 const CONFIG_TYPES = Object.freeze({
@@ -129,8 +130,27 @@ class ConfigFS {
     }
 
     /**
-    * create_config_dirs_if_missing creates config directory sub directories if missing
-    */
+     * create_dir_if_missing creates a directory specified by dir_path if it does not exist
+     * @param {string} dir_path
+     * @returns {Promise<void>}
+     */
+    async create_dir_if_missing(dir_path) {
+        try {
+            const dir_exists = await this.validate_config_dir_exists(dir_path);
+            if (dir_exists) {
+                dbg.log1('create_dir_if_missing: config dir exists:', dir_path);
+            } else {
+                await native_fs_utils._create_path(dir_path, this.fs_context, config.BASE_MODE_CONFIG_DIR);
+                dbg.log1('create_dir_if_missing: config dir was created:', dir_path);
+            }
+        } catch (err) {
+            dbg.log1('create_dir_if_missing: could not create prerequisite path', dir_path);
+        }
+    }
+
+    /**
+     * create_config_dirs_if_missing creates config directory sub directories if missing
+     */
     async create_config_dirs_if_missing() {
         const pre_req_dirs = [
             this.config_root,
@@ -145,17 +165,7 @@ class ConfigFS {
         }
 
         for (const dir_path of pre_req_dirs) {
-            try {
-                const dir_exists = await this.validate_config_dir_exists(dir_path);
-                if (dir_exists) {
-                    dbg.log1('create_config_dirs_if_missing: config dir exists:', dir_path);
-                } else {
-                    await native_fs_utils._create_path(dir_path, this.fs_context, config.BASE_MODE_CONFIG_DIR);
-                    dbg.log1('create_config_dirs_if_missing: config dir was created:', dir_path);
-                }
-            } catch (err) {
-                dbg.log1('create_config_dirs_if_missing: could not create prerequisite path', dir_path);
-            }
+            await this.create_dir_if_missing(dir_path);
         }
     }
 
@@ -249,7 +259,7 @@ class ConfigFS {
     ///////////////////////////////////////
 
     /**
-     * get_account_path_by_name returns the full account path by name
+     * get_account_path_by_name returns the full user or account path by name
      * @param {string} account_name
      * @param {string} [owner_account_id]
      * @returns {string} 
@@ -272,14 +282,13 @@ class ConfigFS {
 
     /**
      * get_user_path_by_name returns the full iam user path by name
-     * iam user can be found by name under identities/owner_account_id/users/iam_account_name.symlink
-     * @param {string} account_name
+     * user can be found by name under identities/<owner_account_id>/users/<user_name>.symlink
+     * @param {string} username
      * @param {string} owner_account_id
      * @returns {string} 
-    */
-    get_user_path_by_name(account_name, owner_account_id) {
-        // TODO - change to return path.join(this.identities_dir_path, owner_account_id, 'users', this.symlink(account_name));
-        return path.join(this.accounts_by_name_dir_path, this.symlink(account_name));
+     */
+    get_user_path_by_name(username, owner_account_id) {
+        return path.join(this.identities_dir_path, owner_account_id, CONFIG_SUBDIRS.USERS, this.symlink(username));
     }
 
     /**
@@ -292,6 +301,19 @@ class ConfigFS {
     }
 
     /**
+     * get_account_or_user_relative_path_by_id returns the full user/account path by id
+     * in case it is user the account ID is the user ID (_id in the config file)
+     * @param {string} account_id
+     * @param {string} [owner_account_id]
+     * @returns {string} 
+    */
+    get_account_or_user_relative_path_by_id(account_id, owner_account_id) {
+        return owner_account_id === undefined ?
+            this.get_account_relative_path_by_id(account_id) :
+            this.get_user_relative_path_by_id(account_id);
+    }
+
+    /**
      * get_account_relative_path_by_id returns the full account path by id
      * the target of symlinks will be the 
      * @param {string} account_id
@@ -299,6 +321,15 @@ class ConfigFS {
     */
     get_account_relative_path_by_id(account_id) {
        return path.join('../', CONFIG_SUBDIRS.IDENTITIES, account_id, this.json('identity'));
+    }
+
+    /**
+     * get_account_relative_path_by_id returns the full user path by id
+     * @param {string} user_id
+     * @returns {string} 
+    */
+    get_user_relative_path_by_id(user_id) {
+        return path.join('../', '../', user_id, this.json('identity'));
     }
 
     /**
@@ -374,6 +405,15 @@ class ConfigFS {
     */
     get_identity_dir_path_by_id(id) {
         return path.join(this.identities_dir_path, id, '/');
+    }
+
+    /**
+     * get_users_dir_path_by_id returns the path {config_dir}/identities/{account_id}/users
+     * @param {string} id
+     * @returns {string} 
+     */
+    get_users_dir_path_by_id(id) {
+        return path.join(this.identities_dir_path, id, CONFIG_SUBDIRS.USERS);
     }
 
     /**
@@ -461,6 +501,20 @@ class ConfigFS {
         return account;
     }
 
+     /**
+     * get_account_or_user_by_name returns the account/user data based on name
+     * in case it is user - must pass the owner_account_id
+     * @param {string} account_name
+     * @param {string} [owner_account_id]
+     * @param {{show_secrets?: boolean, decrypt_secret_key?: boolean, silent_if_missing?: boolean}} [options]
+     * @returns {Promise<Object>}
+     */
+    async get_account_or_user_by_name(account_name, owner_account_id, options = {}) {
+        return owner_account_id ?
+            await this.get_user_by_name(account_name, owner_account_id, options) :
+            await this.get_account_by_name(account_name, options);
+    }
+
     /**
      * get_account_by_name returns the account data based on name
      * while omitting secrets if show_secrets flag was not provided
@@ -519,6 +573,19 @@ class ConfigFS {
     }
 
     /**
+     * get_user_by_name returns the user data based on username and owner_account_id
+     * @param {string} username
+     * @param {string} owner_account_id
+     * @param {{show_secrets?: boolean, decrypt_secret_key?: boolean, silent_if_missing?: boolean}} [options]
+     * @returns {Promise<Object>}
+     */
+    async get_user_by_name(username, owner_account_id, options = {}) {
+        const user_path = this.get_user_path_by_name(username, owner_account_id);
+        const user = await this.get_identity_config_data(user_path, { ...options, silent_if_missing: true });
+        return user;
+    }
+
+    /**
      * list_accounts returns the account names array - 
      * 1. get new accounts names
      * 2. check old accounts/ dir exists
@@ -533,6 +600,22 @@ class ConfigFS {
         const new_accounts_names = this._get_config_entries_names(new_entries, SYMLINK_SUFFIX);
         const old_accounts_names = await this.list_old_accounts();
         return this.unify_old_and_new_accounts(new_accounts_names, old_accounts_names);
+    }
+
+    /**
+     * list_users_under_account returns the users names array - 
+     * under /users directory in the account
+     * in case the /users dir does not exist it will return an empty array
+     * @param {string} owner_account_id
+     * @returns {Promise<string[]>} 
+     */
+    async list_users_under_account(owner_account_id) {
+        const users_dir_path = this.get_users_dir_path_by_id(owner_account_id);
+        const is_users_dir_exists = await this.validate_config_dir_exists(users_dir_path);
+        if (!is_users_dir_exists) return [];
+        const entries = await nb_native().fs.readdir(this.fs_context, users_dir_path);
+        const usernames = this._get_config_entries_names(entries, SYMLINK_SUFFIX);
+        return usernames;
     }
 
     /**
@@ -564,7 +647,9 @@ class ConfigFS {
      * create_account_config_file creates account config file
      * 1. create /identities/account_id/ directory
      * 2. create /identities/account_id/identity.json file
-     * 3. symlink /accounts_by_name/account_name -> /identities/account_id/identity.json
+     * 3. create symlink:
+     *    - account case: symlink /accounts_by_name/account_name -> /identities/account_id/identity.json
+     *    - user case: symlink /identities/<account_id>/users/<user-name>  -> /identities/<user_id>/identity.json
      * 4. symlink new access keys if account_data.access_keys is an array that contains at least 1 item -
      *      link each item in account_data.access_keys to the relative path of the newly created config file
      * @param {Object} account_data
@@ -582,6 +667,16 @@ class ConfigFS {
         await this.link_account_name_index(_id, name, owner);
         await this.link_access_keys_index(_id, account_data.access_keys);
         return parsed_account_data;
+    }
+
+    /**
+     * create_users_dir_if_missing create /identities/<account_id>/users if does not exist
+     * @param {string} id
+     * @returns {Promise<void>} 
+     */
+    async create_users_dir_if_missing(id) {
+        const dir_path = this.get_users_dir_path_by_id(id);
+        await this.create_dir_if_missing(dir_path);
     }
 
     /**
@@ -609,7 +704,7 @@ class ConfigFS {
 
         if (options.old_name) {
             await this.link_account_name_index(_id, name, owner);
-            await this.unlink_account_name_index(options.old_name, account_path);
+            await this.unlink_account_name_index(options.old_name, account_path, owner);
         }
         await this.link_access_keys_index(_id, options.new_access_keys_to_link);
         await this.unlink_access_keys_indexes(options.access_keys_to_delete, account_path);
@@ -628,12 +723,12 @@ class ConfigFS {
      */
     async delete_account_config_file(data) {
         await this._throw_if_config_dir_locked();
-        const { _id, name, access_keys = [] } = data;
+        const { _id, name, owner, access_keys = [] } = data;
         const account_id_config_path = this.get_identity_path_by_id(_id);
         const account_dir_path = this.get_identity_dir_path_by_id(_id);
 
         await this.unlink_access_keys_indexes(access_keys, account_id_config_path);
-        await this.unlink_account_name_index(name, account_id_config_path);
+        await this.unlink_account_name_index(name, account_id_config_path, owner);
         await native_fs_utils.delete_config_file(this.fs_context, account_dir_path, account_id_config_path);
         await native_fs_utils.folder_delete(account_dir_path, this.fs_context, undefined, true);
     }
@@ -665,12 +760,13 @@ class ConfigFS {
      * link_account_name_index links the access key to the relative path of the account id config file
      * @param {string} account_id
      * @param {string} account_name
-     * @param {string} owner_id
+     * @param {string} owner_account_id
      * @returns {Promise<void>} 
      */
-    async link_account_name_index(account_id, account_name, owner_id) {
-        const account_name_path = this.get_account_or_user_path_by_name(account_name, owner_id);
-        const account_id_relative_path = this.get_account_relative_path_by_id(account_id);
+    async link_account_name_index(account_id, account_name, owner_account_id) {
+        if (owner_account_id !== undefined) await this.create_users_dir_if_missing(owner_account_id);
+        const account_name_path = this.get_account_or_user_path_by_name(account_name, owner_account_id);
+        const account_id_relative_path = this.get_account_or_user_relative_path_by_id(account_id, owner_account_id);
         await nb_native().fs.symlink(this.fs_context, account_id_relative_path, account_name_path);
     }
 
@@ -682,10 +778,12 @@ class ConfigFS {
      * 4. unlink the account name path
      * 5. else, do nothing as the name path might already point to a new identity/deleted by concurrent calls 
      * @param {string} account_name
+     * @param {string} account_id_config_path
+     * @param {string} [owner_account_id]
      * @returns {Promise<void>} 
      */
-    async unlink_account_name_index(account_name, account_id_config_path) {
-        const account_name_path = this.get_account_path_by_name(account_name);
+    async unlink_account_name_index(account_name, account_id_config_path, owner_account_id) {
+        const account_name_path = this.get_account_or_user_path_by_name(account_name, owner_account_id);
         const should_unlink = await this._is_symlink_pointing_to_identity(account_name_path, account_id_config_path);
         if (should_unlink) {
             try {

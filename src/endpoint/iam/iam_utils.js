@@ -19,13 +19,23 @@ function format_iam_xml_date(input) {
 }
 
 /**
- * create_arn creates the AWS ARN for user
+ * create_arn_for_root creates the AWS ARN for root account user
+ * see: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_identifiers.html#identifiers-arns
+ * @param {string} account_id (the root user account id)
+ */
+function create_arn_for_root(account_id) {
+    return `arn:aws:iam::${account_id}:root`;
+
+}
+
+/**
+ * create_arn_for_user creates the AWS ARN for user
  * see: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_identifiers.html#identifiers-arns
  * @param {string} account_id (the root user account id)
  * @param {string} username
  * @param {string} iam_path
  */
-function create_arn(account_id, username, iam_path) {
+function create_arn_for_user(account_id, username, iam_path) {
     const basic_structure = `arn:aws:iam::${account_id}:user`;
     if (username === undefined) return `${basic_structure}/`;
     if (check_iam_path_was_set(iam_path)) {
@@ -508,7 +518,8 @@ function validate_status(input_status) {
 
 // EXPORTS
 exports.format_iam_xml_date = format_iam_xml_date;
-exports.create_arn = create_arn;
+exports.create_arn_for_user = create_arn_for_user;
+exports.create_arn_for_root = create_arn_for_root;
 exports.get_action_message_title = get_action_message_title;
 exports.check_iam_path_was_set = check_iam_path_was_set;
 exports.parse_max_items = parse_max_items;

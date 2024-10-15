@@ -696,7 +696,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
         );
         // we (currently) allow account identified to be both id and name,
         // so if by-id failed, try also name
-        if (permission === 'IMPLICIT_DENY') {
+        if (account.owner === undefined && permission === 'IMPLICIT_DENY') {
             permission = await bucket_policy_utils.has_bucket_policy_permission(
                 bucket_policy,
                 account.name.unwrap(),

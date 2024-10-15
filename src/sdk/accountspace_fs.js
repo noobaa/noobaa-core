@@ -7,7 +7,7 @@ const dbg = require('../util/debug_module')(__filename);
 const P = require('../util/promise');
 const { ConfigFS } = require('./config_fs');
 const native_fs_utils = require('../util/native_fs_utils');
-const { create_arn, get_action_message_title, check_iam_path_was_set } = require('../endpoint/iam/iam_utils');
+const { create_arn_for_user, create_arn_for_root, get_action_message_title, check_iam_path_was_set } = require('../endpoint/iam/iam_utils');
 const { IAM_ACTIONS, MAX_NUMBER_OF_ACCESS_KEYS, IAM_DEFAULT_PATH,
     ACCESS_KEY_STATUS_ENUM, IDENTITY_ENUM } = require('../endpoint/iam/iam_constants');
 const IamError = require('../endpoint/iam/iam_errors').IamError;
@@ -54,9 +54,12 @@ class AccountSpaceFS {
     ////////////
 
     // 1 - check that the requesting account is a root user account
-    // 2 - check if username already exists
-    //     GAP - it should be only under the root account in the future
+    // 2 - check if username already exists:
+    //   for users - only under the requesting account
+    //   for accounts (by root accounts manager) - no other account with this name
     // 3 - copy the data from the root account user details to a new config file
+    // note: when it is root account manager account name is returned in the username field,
+    //       and the arn is arn root
     async create_user(params, account_sdk) {
         const action = IAM_ACTIONS.CREATE_USER;
         dbg.log1(`AccountSpaceFS.${action}`, params);
@@ -64,13 +67,15 @@ class AccountSpaceFS {
             const requesting_account = account_sdk.requesting_account;
             this._check_if_requesting_account_is_root_account(action, requesting_account,
                 { username: params.username, iam_path: params.iam_path });
-            await this._check_username_already_exists(action, params.username);
+            await this._check_username_already_exists(action, params, requesting_account);
             const created_account = await this._copy_data_from_requesting_account_to_account_config(action, requesting_account, params);
+            await this.config_fs.create_account_config_file(created_account);
+            const account_id_for_arn = this._get_account_owner_id_for_arn(requesting_account, created_account);
             return {
                 iam_path: created_account.iam_path || IAM_DEFAULT_PATH,
                 username: created_account.name,
                 user_id: created_account._id,
-                arn: create_arn(requesting_account._id, created_account.name, created_account.iam_path),
+                arn: this._create_arn_for_account_or_user(account_id_for_arn, created_account, requesting_account),
                 create_date: created_account.creation_date,
             };
         } catch (err) {
@@ -83,11 +88,13 @@ class AccountSpaceFS {
     // 2 - find the username (flag username is not required)
     // 3 - check that the user account config file exists
     // 4 - read the account config file (no decryption)
-    // if the requesting account is root account that creates IAM user:
+    // if the requesting account is root account that gets IAM user:
     //    5 - check that the user to get is not a root account
     //    6 - check that the user account to get is owned by the root account
-    // if the requesting account is root accounts manager that creates root account user:
+    // if the requesting account is root accounts manager that gets root account user:
     //    5 - check that the user to get is not an IAM user
+    // note: when it is root account manager account name is returned in the username field,
+    //       and the arn is arn root
     async get_user(params, account_sdk) {
         const action = IAM_ACTIONS.GET_USER;
         dbg.log1(`AccountSpaceFS.${action}`, params);
@@ -97,15 +104,17 @@ class AccountSpaceFS {
             const username = params.username ?? requester.name; // username is not required
             // GAP - we do not have the user iam_path at this point (error message)
             this._check_if_requesting_account_is_root_account(action, requesting_account, { username: username });
-            await this._check_if_account_config_file_exists(action, username);
-            const account_to_get = await this.config_fs.get_account_by_name(username);
+            await this._check_if_account_config_file_exists(action, username, params, requesting_account);
+            const owner_account_id = this._get_owner_account_argument(requesting_account);
+            const account_to_get = await this.config_fs.get_account_or_user_by_name(username, owner_account_id);
             this._check_if_requested_account_is_root_account_or_IAM_user(action, requesting_account, account_to_get);
             this._check_if_requested_is_owned_by_root_account(action, requesting_account, account_to_get);
+            const account_id_for_arn = this._get_account_owner_id_for_arn(requesting_account, account_to_get);
             return {
                 user_id: account_to_get._id,
                 iam_path: account_to_get.iam_path || IAM_DEFAULT_PATH,
                 username: account_to_get.name,
-                arn: create_arn(requesting_account._id, account_to_get.name, account_to_get.iam_path),
+                arn: this._create_arn_for_account_or_user(account_id_for_arn, account_to_get, requesting_account),
                 create_date: account_to_get.creation_date,
                 password_last_used: account_to_get.creation_date, // GAP
             };
@@ -133,30 +142,33 @@ class AccountSpaceFS {
         try {
             dbg.log1(`AccountSpaceFS.${action}`, params);
             const requesting_account = account_sdk.requesting_account;
+            const username = params.username;
             // GAP - we do not have the user iam_path at this point (error message)
             this._check_if_requesting_account_is_root_account(action, requesting_account,
-                { username: params.username});
-            await this._check_if_account_config_file_exists(action, params.username);
-            const requested_account = await this.config_fs.get_account_by_name(params.username,
+                { username: username});
+            await this._check_if_account_config_file_exists(action, username, params, requesting_account);
+            const owner_account_id = this._get_owner_account_argument(requesting_account);
+            const requested_account = await this.config_fs.get_account_or_user_by_name(username, owner_account_id,
                 { show_secrets: true, decrypt_secret_key: true });
             this._check_if_requested_account_is_root_account_or_IAM_user(action, requesting_account, requested_account);
             this._check_if_requested_is_owned_by_root_account(action, requesting_account, requested_account);
             const is_username_update = params.new_username !== undefined &&
-                params.new_username !== params.username;
+                params.new_username !== username;
             if (params.new_iam_path !== undefined) requested_account.iam_path = params.new_iam_path;
             if (is_username_update) {
                 dbg.log1(`AccountSpaceFS.${action} username was updated, is_username_update`,
                     is_username_update);
-                await this._update_account_config_new_username(action, params, requested_account);
+                await this._update_account_config_new_username(action, params, requested_account, requesting_account);
             } else {
                 await this.config_fs.update_account_config_file(requested_account);
             }
             this._clean_account_cache(requested_account);
+            const account_id_for_arn = this._get_account_owner_id_for_arn(requesting_account, requested_account);
             return {
                 iam_path: requested_account.iam_path || IAM_DEFAULT_PATH,
                 username: requested_account.name,
                 user_id: requested_account._id,
-                arn: create_arn(requesting_account._id, requested_account.name, requested_account.iam_path),
+                arn: this._create_arn_for_account_or_user(account_id_for_arn, requested_account, requesting_account),
             };
         } catch (err) {
             dbg.error(`AccountSpaceFS.${action} error`, err);
@@ -182,10 +194,13 @@ class AccountSpaceFS {
         dbg.log1(`AccountSpaceFS.${action}`, params);
         try {
             const requesting_account = account_sdk.requesting_account;
+            const username = params.username;
             // GAP - we do not have the user iam_path at this point (error message)
             this._check_if_requesting_account_is_root_account(action, requesting_account, { username: params.username });
-            await this._check_if_account_config_file_exists(action, params.username);
-            const account_to_delete = await this.config_fs.get_account_by_name(params.username, { show_secrets: true });
+            await this._check_if_account_config_file_exists(action, username, params, requesting_account);
+            const owner_account_id = this._get_owner_account_argument(requesting_account);
+            const account_to_delete = await this.config_fs.get_account_or_user_by_name(
+                username, owner_account_id, { show_secrets: true });
             this._check_if_requested_account_is_root_account_or_IAM_user(action, requesting_account, account_to_delete);
             this._check_if_requested_is_owned_by_root_account(action, requesting_account, account_to_delete);
             await this._check_if_user_does_not_have_resources_before_deletion(action, account_to_delete);
@@ -242,10 +257,12 @@ class AccountSpaceFS {
             const requesting_account = account_sdk.requesting_account;
             const requester = this._check_if_requesting_account_is_root_account_or_user_om_himself(action,
                 requesting_account, params.username);
-            const name_for_access_key = params.username ?? requester.name;
-            await this._check_if_account_config_file_exists(action, name_for_access_key);
-            const requested_account = await this.config_fs.get_account_by_name(name_for_access_key,
-                { show_secrets: true, decrypt_secret_key: true });
+            const username = params.username ?? requester.name;
+            const on_itself = !params.username;
+            await this._check_if_account_config_file_exists(action, username, params, requesting_account);
+            const owner_account_id = this._get_owner_account_argument(requesting_account);
+            const requested_account = await this.config_fs.get_account_or_user_by_name(username,
+                owner_account_id, { show_secrets: true, decrypt_secret_key: true });
             if (requester.identity === IDENTITY_ENUM.ROOT_ACCOUNT) {
                 this._check_if_requested_is_owned_by_root_account(action, requesting_account, requested_account);
                 if (requesting_account.iam_operate_on_root_account) {
@@ -266,7 +283,7 @@ class AccountSpaceFS {
                 { new_access_keys_to_link: [created_access_key_obj] }
             );
             return {
-                username: requested_account.name,
+                username: this._returned_username(requesting_account, requested_account.name, on_itself),
                 access_key: created_access_key_obj.access_key,
                 create_date: created_access_key_obj.creation_date,
                 status: this._get_access_key_status(created_access_key_obj.deactivated),
@@ -297,11 +314,12 @@ class AccountSpaceFS {
             if (requesting_account.iam_operate_on_root_account) {
                 this._check_if_requested_account_is_root_account_or_IAM_user(action, requesting_account, requested_account);
             }
+            const on_itself = requested_account._id === requesting_account._id;
             return {
                 region: dummy_region, // GAP
                 last_used_date: new Date(), // GAP
                 service_name: dummy_service_name, // GAP
-                username: requested_account.name,
+                username: this._returned_username(requesting_account, requested_account.name, on_itself),
             };
         } catch (err) {
             dbg.error('AccountSpaceFS.get_access_key_last_used error', err);
@@ -333,7 +351,7 @@ class AccountSpaceFS {
             await this._check_if_account_exists_by_access_key_symlink(action, access_key_id);
             const requested_account = await this.config_fs.get_account_by_access_key(params.access_key,
                 { show_secrets: true, decrypt_secret_key: true });
-            this._check_username_match_to_requested_account(action, username, requested_account);
+            this._check_username_match_to_requested_account(action, username, requested_account, params, access_key_id);
             this._check_access_key_belongs_to_account(action, requested_account, access_key_id);
             this._check_if_requested_account_same_root_account_as_requesting_account(action,
                 requesting_account, requested_account);
@@ -379,7 +397,7 @@ class AccountSpaceFS {
             const username = params.username ?? requester.name; // username is not required
             await this._check_if_account_exists_by_access_key_symlink(action, access_key_id);
             const requested_account = await this.config_fs.get_account_by_access_key(access_key_id, { show_secrets: true});
-            this._check_username_match_to_requested_account(action, username, requested_account);
+            this._check_username_match_to_requested_account(action, username, requested_account, params, access_key_id);
             this._check_access_key_belongs_to_account(action, requested_account, access_key_id);
             this._check_if_requested_account_same_root_account_as_requesting_account(action,
                 requesting_account, requested_account);
@@ -414,18 +432,21 @@ class AccountSpaceFS {
             const requesting_account = account_sdk.requesting_account;
             const requester = this._check_if_requesting_account_is_root_account_or_user_om_himself(action,
                 requesting_account, params.username);
-            const name_for_access_key = params.username ?? requester.name;
-            await this._check_if_account_config_file_exists(action, name_for_access_key);
-            const requested_account = await this.config_fs.get_account_by_name(name_for_access_key, { show_secrets: true });
+            const username = params.username ?? requester.name;
+            const on_itself = !params.username;
+            await this._check_if_account_config_file_exists(action, username, params, requesting_account);
+            const owner_account_id = this._get_owner_account_argument(requesting_account);
+            const requested_account = await this.config_fs.get_account_or_user_by_name(username,
+                owner_account_id, { show_secrets: true });
             this._check_if_requested_account_same_root_account_as_requesting_account(action,
                 requesting_account, requested_account);
             if (requesting_account.iam_operate_on_root_account) {
                 this._check_if_requested_account_is_root_account_or_IAM_user(action, requesting_account, requested_account);
             }
-            const is_truncated = false; // path_prefix is not supported
-            let members = this._list_access_keys_from_account(requested_account);
+            const is_truncated = false; // // GAP - no pagination at this point
+            let members = this._list_access_keys_from_account(requesting_account, requested_account, on_itself);
             members = members.sort((a, b) => a.access_key.localeCompare(b.access_key));
-            return { members, is_truncated, username: name_for_access_key };
+            return { members, is_truncated, username: this._returned_username(requesting_account, requested_account.name, on_itself) };
         } catch (err) {
             dbg.error(`AccountSpaceFS.${action} error`, err);
             throw native_fs_utils.translate_error_codes(err, native_fs_utils.entity_enum.ACCESS_KEY);
@@ -470,11 +491,7 @@ class AccountSpaceFS {
     }
 
     _check_root_account(account) {
-        if (account.owner === undefined ||
-            account.owner === account._id) {
-            return true;
-        }
-        return false;
+        return account.owner === undefined;
     }
 
     _check_root_account_owns_user(root_account, user_account) {
@@ -482,10 +499,50 @@ class AccountSpaceFS {
         return root_account._id === user_account.owner;
     }
 
+
+    /**
+     * _get_account_owner_id_for_arn will return the account ID
+     * that we need for creating the ARN, the cases:
+     *   1. iam user - it's owner property
+     *   2. root account - it's account ID
+     *   3. root accounts manager - the account ID of the account that it operates on
+     * @param {object} requesting_account
+     * @param {object} [requested_account]
+     * @returns {string|undefined}
+     */
+    _get_account_owner_id_for_arn(requesting_account, requested_account) {
+        if (!requesting_account.iam_operate_on_root_account) {
+            if (requesting_account.owner !== undefined) {
+                return requesting_account.owner;
+            }
+            return requesting_account._id;
+        }
+        return requested_account?._id;
+    }
+
+    /**
+     * _get_owner_account_argument returns the account ID which is the owner account, the cases:
+     *   1. root accounts manager - undefined (will not owned the root account)
+     *   2. root account on iam user - his account ID
+     *   3. iam user - it's owner property
+     * @param {object} requesting_account
+     */
+    _get_owner_account_argument(requesting_account) {
+        const is_root_account = this._check_root_account(requesting_account);
+        if (is_root_account) {
+            if (requesting_account.iam_operate_on_root_account) {
+                return undefined;
+            }
+            return requesting_account._id;
+        }
+        return requesting_account.owner;
+    }
+
     // TODO: move to IamError class with a template
     _throw_access_denied_error(action, requesting_account, details, entity) {
         const full_action_name = get_action_message_title(action);
-        const arn_for_requesting_account = create_arn(requesting_account._id,
+        const account_id_for_arn = this._get_account_owner_id_for_arn(requesting_account);
+        const arn_for_requesting_account = create_arn_for_user(account_id_for_arn,
             requesting_account.name.unwrap(), requesting_account.path);
         const basic_message = `User: ${arn_for_requesting_account} is not authorized to perform:` +
         `${full_action_name} on resource: `;
@@ -493,9 +550,9 @@ class AccountSpaceFS {
         if (entity === native_fs_utils.entity_enum.USER) {
             let user_message;
             if (action === IAM_ACTIONS.LIST_ACCESS_KEYS) {
-                user_message = `user ${requesting_account.name.unwrap()}`;
+                user_message = `user ${details.username}`;
             } else {
-                user_message = create_arn(requesting_account._id, details.username, details.path);
+                user_message = create_arn_for_user(account_id_for_arn, details.username, details.path);
             }
             message_with_details = basic_message +
             `${user_message} because no identity-based policy allows the ${full_action_name} action`;
@@ -542,33 +599,37 @@ class AccountSpaceFS {
         throw new IamError({ code, message: message_with_details, http_code, type });
     }
 
-    // based on the function from manage_nsfs
     async _list_config_files_for_users(requesting_account, iam_path_prefix) {
-        // TODO - currently handles only root accounts, need to add iam_accounts
-        const account_names = await this.config_fs.list_accounts();
+        let names;
+        let owner_account_id;
+        if (requesting_account.iam_operate_on_root_account) {
+            const accounts_names = await this.config_fs.list_accounts();
+            names = accounts_names;
+            owner_account_id = undefined;
+        } else {
+            const usernames = await this.config_fs.list_users_under_account(requesting_account._id);
+            names = usernames;
+            owner_account_id = requesting_account._id;
+        }
         const should_filter_by_prefix = check_iam_path_was_set(iam_path_prefix);
 
-        const config_files_list = await P.map_with_concurrency(10, account_names, async account_name => {
-            const account_data = await this.config_fs.get_account_by_name(account_name, { silent_if_missing: true });
+        const config_files_list = await P.map_with_concurrency(10, names, async name => {
+            const account_data = await this.config_fs.get_account_or_user_by_name(name, owner_account_id);
             if (!account_data) return undefined;
-            const is_root_account_owns_user = this._check_root_account_owns_user(requesting_account, account_data);
-            if ((!requesting_account.iam_operate_on_root_account && is_root_account_owns_user) ||
-                (requesting_account.iam_operate_on_root_account && this._check_root_account(account_data))) {
-                if (should_filter_by_prefix) {
-                    if (account_data.iam_path === undefined) return undefined;
-                    if (!account_data.iam_path.startsWith(iam_path_prefix)) return undefined;
-                }
-                const user_data = {
-                    user_id: account_data._id,
-                    iam_path: account_data.iam_path || IAM_DEFAULT_PATH,
-                    username: account_data.name,
-                    arn: create_arn(requesting_account._id, account_data.name, account_data.iam_path),
-                    create_date: account_data.creation_date,
-                    password_last_used: Date.now(), // GAP
-                };
-                return user_data;
+            const account_id_for_arn = this._get_account_owner_id_for_arn(requesting_account, account_data);
+            if (should_filter_by_prefix) {
+                if (account_data.iam_path === undefined) return undefined;
+                if (!account_data.iam_path.startsWith(iam_path_prefix)) return undefined;
             }
-            return undefined;
+            const user_data = {
+                user_id: account_data._id,
+                iam_path: account_data.iam_path || IAM_DEFAULT_PATH,
+                username: account_data.name,
+                arn: this._create_arn_for_account_or_user(account_id_for_arn, account_data, requesting_account),
+                create_date: account_data.creation_date,
+                password_last_used: Date.now(), // GAP
+            };
+            return user_data;
         });
         // remove undefined entries
         return config_files_list.filter(item => item);
@@ -601,8 +662,10 @@ class AccountSpaceFS {
         }
     }
 
-    async _check_username_already_exists(action, username) {
-        const name_exists = await this.config_fs.is_account_exists_by_name(username);
+    async _check_username_already_exists(action, params, requesting_account) {
+        const owner_account_id = this._get_owner_account_argument(requesting_account, params);
+        const username = params.username;
+        const name_exists = await this.config_fs.is_account_exists_by_name(username, owner_account_id);
         if (name_exists) {
             dbg.error(`AccountSpaceFS.${action} username already exists`, username);
             const message_with_details = `User with name ${username} already exists.`;
@@ -615,12 +678,12 @@ class AccountSpaceFS {
         const master_key_id = await nc_mkm.get_active_master_key_id();
         const created_account = this._new_user_defaults(requesting_account, params, master_key_id);
         dbg.log1(`AccountSpaceFS.${action} new_account`, created_account);
-        await this.config_fs.create_account_config_file(created_account);
         return created_account;
     }
 
-    async _check_if_account_config_file_exists(action, username) {
-        const is_user_account_exists = await this.config_fs.is_account_exists_by_name(username);
+    async _check_if_account_config_file_exists(action, username, params, requesting_account) {
+        const owner_account_id = this._get_owner_account_argument(requesting_account);
+        const is_user_account_exists = await this.config_fs.is_account_exists_by_name(username, owner_account_id);
         if (!is_user_account_exists) {
             dbg.error(`AccountSpaceFS.${action} username does not exist`, username);
             const message_with_details = `The user with name ${username} cannot be found.`;
@@ -662,21 +725,12 @@ class AccountSpaceFS {
         });
     }
 
-    // TODO - when we have the structure of config we can check easily which IAM users are owned by the root account
-    // currently, partial copy from _list_config_files_for_users
     async _check_if_root_account_does_not_have_IAM_users_before_deletion(action, account_to_delete) {
         const resource_name = 'IAM users';
-        const account_names = await this.config_fs.list_accounts();
-        await P.map_with_concurrency(10, account_names, async account_name => {
-            const account_data = await this.config_fs.get_account_by_name(account_name, { silent_if_missing: true });
-            if (!account_data) return undefined;
-            const is_root_account_owns_user = this._check_root_account_owns_user(account_to_delete, account_data);
-            if ((!account_to_delete.iam_operate_on_root_account && is_root_account_owns_user) ||
-                (account_to_delete.iam_operate_on_root_account && this._check_root_account(account_data))) {
-                    this._throw_error_delete_conflict(action, account_to_delete, resource_name);
-            }
-            return account_data;
-        });
+        const usernames = await this.config_fs.list_users_under_account(account_to_delete._id);
+        if (usernames.length > 0) {
+            this._throw_error_delete_conflict(action, account_to_delete, resource_name);
+        }
     }
 
     _check_if_user_does_not_have_access_keys_before_deletion(action, account_to_delete) {
@@ -687,8 +741,9 @@ class AccountSpaceFS {
         }
     }
 
-    async _update_account_config_new_username(action, params, requested_account) {
-        await this._check_username_already_exists(action, params.new_username);
+    async _update_account_config_new_username(action, params, requested_account, requesting_account) {
+        await this._check_username_already_exists(action, { username: params.new_username },
+            requesting_account);
         // prepare
         requested_account.name = params.new_username;
         requested_account.email = params.new_username; // internally saved
@@ -723,6 +778,38 @@ class AccountSpaceFS {
         return { is_root_account_or_user_on_itself, requester };
     }
 
+    /**
+     * _create_arn_for_account_or_user would create 2 types of arn:
+     * 1. arn root - would be created for root accounts manager on root account
+     * 2. arn user - would be created for IAM user
+     * @param {string} account_id_for_arn
+     * @param {object} requested_account
+     * @param {object} requesting_account
+     */
+    _create_arn_for_account_or_user(account_id_for_arn, requested_account, requesting_account) {
+        if (requesting_account.iam_operate_on_root_account) {
+            return create_arn_for_root(account_id_for_arn);
+        }
+        return create_arn_for_user(account_id_for_arn, requested_account.name, requested_account.iam_path);
+    }
+
+    /**
+    * _returned_username would return the username of IAM Access key API:
+     * 1. undefined - for root accounts manager on root account (no username, only account name)
+     *                for root account on itself 
+     * 2. username - for IAM user
+     * @param {object} requesting_account
+     * @param {string} username
+     * @param {boolean} on_itself
+     */
+    _returned_username(requesting_account, username, on_itself) {
+        if ((requesting_account.iam_operate_on_root_account) ||
+            (this._check_root_account(requesting_account) && on_itself)) {
+                return undefined;
+        }
+        return username;
+    }
+
     // TODO reuse set_access_keys from manage_nsfs
     _generate_access_key() {
         let generated_access_key;
@@ -752,11 +839,11 @@ class AccountSpaceFS {
         return status === ACCESS_KEY_STATUS_ENUM.INACTIVE;
     }
 
-    _list_access_keys_from_account(account) {
+    _list_access_keys_from_account(requesting_account, account, on_itself) {
         const members = [];
         for (const access_key of account.access_keys) {
             const member = {
-                username: account.name,
+                username: this._returned_username(requesting_account, account.name, on_itself),
                 access_key: access_key.access_key,
                 status: this._get_access_key_status(access_key.deactivated),
                 create_date: access_key.creation_date ?? account.creation_date,
@@ -799,10 +886,18 @@ class AccountSpaceFS {
         }
     }
 
-    _check_username_match_to_requested_account(action, username, requested_account) {
-        if (username !== requested_account.name) {
+    _check_username_match_to_requested_account(action, username, requested_account, params, access_key_id) {
+        // --user-name flag was passed
+        if (params.username && username !== requested_account.name) {
             dbg.error(`AccountSpaceFS.${action} user with name ${username} cannot be found`);
             const message_with_details = `The user with name ${username} cannot be found.`;
+            const { code, http_code, type } = IamError.NoSuchEntity;
+            throw new IamError({ code, message: message_with_details, http_code, type });
+        }
+        // --user-name flag was not passed
+        if (username !== requested_account.name) {
+            dbg.error(`AccountSpaceFS.${action} user with name ${username} cannot be found`);
+            const message_with_details = `The Access Key with id ${access_key_id} cannot be found.`;
             const { code, http_code, type } = IamError.NoSuchEntity;
             throw new IamError({ code, message: message_with_details, http_code, type });
         }

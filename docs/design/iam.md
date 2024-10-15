@@ -127,6 +127,76 @@ Here attached a diagram with all the accounts that we have in our system:
 - IAM DeleteAccessKey: AccessKeyId, UserName
 - IAM ListAccessKeys: UserName (not supported: Marker, MaxItems)
 
+### Configuration Directory Components With users
+If account creates a user its config file will be created under identities/<user-id>.identity.json and under the account will be created `users/` directory and inside it it will link to the config.
+Example:
+Note: In this example, we didn't use `system.json`, `config.json`, and `certificates/`.
+1. Configuration directory with 1 account (name: alice, ID: 1111):
+
+```sh
+  > tree /etc/noobaa.conf.d/
+├── access_keys
+│   └── Zzto3OwtGflQrqD41h3SEXAMPLE.symlink -> ../identities/1111/identity.json
+├── accounts_by_name
+│   └── alice.symlink -> ../identities/1111/identity.json
+├── buckets
+├── identities
+│   └── 1111
+│       └── identity.json
+└── master_keys.json
+```
+
+2. Configuration directory with 1 account (name: alice, ID: 1111) and 1 user (name: Robert, ID: 9999, without access key) - 
+Notice the `users/` directory with a symlink of the username to its config file
+
+```sh
+├── access_keys
+│   └── Zzto3OwtGflQrqD41h3SEXAMPLE.symlink -> ../identities/1111/identity.json
+├── accounts_by_name
+│   └── alice.symlink -> ../identities/1111/identity.json
+├── buckets
+├── identities
+│   ├── 1111
+│   │   ├── identity.json
+│   │   └── users
+│   │       └── Robert.symlink -> ../../9999/identity.json
+│   └── 9999
+│       └── identity.json
+├── master_keys.json
+└── system.json
+```
+
+#### Naming Scope
+- Account names are unique between the accounts, for example, if we have account with name John, you cannot create a new account with the name John (and also cannot update the name of an existing account to John).
+- Usernames are unique only inside the account, for example: username Robert can be under account-1, and another user with username Robert can be under account-2.
+Note: The username cannot be the same as the account, for example: under account John we cannot create a username John (and also cannot update the name of an existing username to John). The reason for limiting it is that in the IAM API of Access Key (for example ListAccessKeys) it can be done by account on himself or on another user, and it passes the `--user-name` flag.
+
+Example: 2 accounts (alice and bob) both of them have user with username Robert (notice the different ID number).
+```sh
+├── access_keys
+│   ├── Zzto3OwtGflQrqD41h3SEXAMPLE.symlink -> ../identities/66d81ec79eac82ed43cdee73/identity.json
+│   └── Yser45gyHaghebY62wsUEXAMPLE.symlink -> ../identities/66d8351a92b8dd91b550aa71/identity.json
+├── accounts_by_name
+│   ├── alice.symlink -> ../identities/66d81ec79eac82ed43cdee73/identity.json
+│   └── bob.symlink -> ../identities/66d8351a92b8dd91b550aa71/identity.json
+├── buckets
+├── identities
+│   ├── 66d81ec79eac82ed43cdee73
+│   │   ├── identity.json
+│   │   └── users
+│   │       └── Robert.symlink -> ../../66d834df78e973023abd80cb/identity.json
+│   ├── 66d834df78e973023abd80cb
+│   │   └── identity.json
+│   ├── 66d8351a92b8dd91b550aa71
+│   │   ├── identity.json
+│   │   └── users
+│   │       └── Robert.symlink -> ../../66d83529e09267f53e705373/identity.json
+│   └── 66d83529e09267f53e705373
+│       └── identity.json
+├── master_keys.json
+└── system.json
+```
+
 ## Other
 ### Terminology - AWS vs NooBaa
 |   | AWS | NooBaa |

@@ -137,6 +137,7 @@ class NCUpgradeManager {
     /**
      * config_directory_defaults returns a default initial config directory object
      * @param {Object} system_data
+     * @returns {Object}
      */
     config_directory_defaults(system_data) {
         const hosts_old_package_version = system_data?.[hostname]?.upgrade_history?.successful_upgrades?.[0]?.from_version;
@@ -241,6 +242,7 @@ class NCUpgradeManager {
     /**
      * _run_nc_upgrade_scripts runs the config directory upgrade scripts 
      * @param {Object} this_upgrade
+     * @returns {Promise<Void>}
      */
     async _run_nc_upgrade_scripts(this_upgrade) {
         try {
@@ -259,6 +261,7 @@ class NCUpgradeManager {
      * 3. upgrade_package_version is the new source code version
      * 4. add the finished upgrade to the successful_upgrades array
      * @param {Object} system_data
+     * @param {Object} this_upgrade 
      * @returns {Promise<Void>}
      */
     async _update_config_dir_upgrade_finish(system_data, this_upgrade) {
@@ -281,6 +284,9 @@ class NCUpgradeManager {
     /**
      * _update_config_dir_upgrade_failed updates the system.json on failure of the upgrade
      * @param {Object} system_data 
+     * @param {Object} this_upgrade 
+     * @param {Error} error
+     * @returns {Promise<Void>}
      */
     async _update_config_dir_upgrade_failed(system_data, this_upgrade, error) {
         system_data.config_directory.upgrade_history.last_failure = this_upgrade;

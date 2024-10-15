@@ -1,11 +1,13 @@
 /* Copyright (C) 2024 NooBaa */
 'use strict';
 
+const os = require('os');
 const util = require('util');
 const _ = require('lodash');
 const path = require('path');
 const P = require('../util/promise');
 const config = require('../../config');
+const pkg = require('../../package.json');
 const dbg = require('../util/debug_module')(__filename);
 const os_utils = require('../util/os_utils');
 const SensitiveString = require('../util/sensitive_string');
@@ -1026,6 +1028,41 @@ class ConfigFS {
         }
     }
 
+    /**
+     * init_nc_system creates/updates system.json file
+     * if system.json does not exist (a new system) - host and config dir data will be set on the newly created file
+     * else -
+     *  1. if the host data already exist in system.json - return
+     *  2. set the host data on system.json data and update the file
+     * Note - config directory data on upgraded systems will be set by nc_upgrade_manager
+     * @returns 
+     */
+    async init_nc_system() {
+        const system_data = await this.get_system_config_file({silent_if_missing: true});
+
+        let updated_system_json = system_data || {};
+        const is_new_system = !system_data;
+        const hostname = os.hostname();
+        try {
+            if (is_new_system) {
+                updated_system_json = this._get_new_system_json_data();
+                await this.create_system_config_file(JSON.stringify(updated_system_json));
+                dbg.log0('created NC system data with version: ', pkg.version);
+            } else {
+                if (updated_system_json[hostname]?.current_version) return;
+                const new_host_data = this._get_new_hostname_data();
+                updated_system_json = { ...updated_system_json, new_host_data };
+                await this.update_system_config_file(JSON.stringify(updated_system_json));
+                dbg.log0('updated NC system data with version: ', pkg.version);
+            }
+        } catch (err) {
+            const msg = 'failed to create/update NC system data due to - ' + err.message;
+            const error = new Error(msg);
+            dbg.error(msg, err);
+            throw error;
+        }
+    }
+
     ////////////////////////
     ///     HELPERS     ////
     ////////////////////////
@@ -1093,8 +1130,13 @@ class ConfigFS {
      * @returns {Promise<void>}
      */
     async _throw_if_config_dir_locked() {
-        const system_data = await this.get_system_config_file({silent_if_missing: true});
+        const system_data = await this.get_system_config_file({ silent_if_missing: true });
+        // if system was never created, currently we allow using the CLI without creating system
+        // we should consider changing it to throw on this scenario as well
         if (!system_data) return;
+        if (!system_data.config_directory) {
+            throw new RpcError('CONFIG_DIR_VERSION_MISMATCH', `config_directory data is missing in system.json, any updates to the config directory are blocked until the config dir upgrade`);
+        }
         const running_code_config_dir_version = this.config_dir_version;
         const system_config_dir_version = system_data.config_directory.config_dir_version;
         const ver_comparison = version_compare(running_code_config_dir_version, system_config_dir_version);
@@ -1106,6 +1148,40 @@ class ConfigFS {
             throw new RpcError('CONFIG_DIR_VERSION_MISMATCH', `running code config_dir_version=${running_code_config_dir_version} is lower than the config dir version` +
                 `mentioned in system.json =${system_config_dir_version}, any updates to the config directory are blocked until the source code upgrade`);
         }
+    }
+
+    /**
+     * _get_new_hostname_data returns new hostanme data for system.json
+     * @returns {Object}
+     */
+    _get_new_hostname_data() {
+        return {
+            [os.hostname()]: {
+                current_version: pkg.version,
+                    upgrade_history: {
+                    successful_upgrades: []
+                },
+            },
+        };
+    }
+
+    /**
+     * _get_new_system_json_data returns new system.json data
+     * @returns {Object}
+     */
+    _get_new_system_json_data() {
+        return {
+            ...this._get_new_hostname_data(),
+            config_directory: {
+                config_dir_version: this.config_dir_version,
+                upgrade_package_version: pkg.version,
+                phase: 'CONFIG_DIR_UNLOCKED',
+                upgrade_history: {
+                    successful_upgrades: [],
+                    last_failure: undefined
+                }
+            }
+        };
     }
 }
 

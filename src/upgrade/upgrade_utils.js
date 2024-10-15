@@ -67,6 +67,7 @@ function should_upgrade(server_version, container_version) {
  * load_required_scripts loads all scripts that should be run according to the given versions
  * @param {string} server_version
  * @param {string} container_version
+ * @param {string} upgrade_scripts_dir
  */
 async function load_required_scripts(server_version, container_version, upgrade_scripts_dir) {
     // expecting scripts directories to be in a semver format. e.g. ./upgrade_scripts/5.0.1

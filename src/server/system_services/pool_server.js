@@ -92,6 +92,10 @@ function set_pool_controller_factory(pool_controller_factory) {
 // and only allows deletion in case that the owner is also the requester of the deletion
 function check_deletion_ownership(req, resource_owner_id) {
     if (config.RESTRICT_RESOURCE_DELETION) {
+        if (!resource_owner_id) {
+            dbg.error('check_deletion_ownership: pool has no owner');
+            throw new RpcError('UNAUTHORIZED', 'The pool has no owner, and thus cannot be deleted');
+        }
         const requester_is_sys_owner = String(req.account._id) === String(req.system.owner._id);
         if (!requester_is_sys_owner && String(resource_owner_id) !== String(req.account._id)) {
             dbg.error('check_deletion_ownership: requester (', req.account._id, ') is not the owner (', resource_owner_id, ') of the resource');
@@ -654,7 +658,7 @@ function delete_pool(req) {
     const pool = find_pool_by_name(req);
     // rebuild_object_links() resolves the pool's owner_id to the account object
     // which is why we have to access ._id to get the actual ID
-    check_deletion_ownership(req, pool.owner_id._id);
+    check_deletion_ownership(req, pool.owner_id?._id);
     if (pool.hosts_pool_info) {
         return delete_hosts_pool(req, pool);
     } else {

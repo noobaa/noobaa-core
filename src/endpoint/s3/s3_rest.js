@@ -57,6 +57,7 @@ const OBJECT_SUB_RESOURCES = Object.freeze({
     'legal-hold': 'legal_hold',
     'retention': 'retention',
     'select': 'select',
+    'attributes': 'attributes',
 });
 
 let usage_report = new_usage_report();
@@ -296,6 +297,11 @@ async function authorize_anonymous_access(s3_policy, method, arn_path, req) {
     throw new S3Error(S3Error.AccessDenied);
 }
 
+/**
+ * _get_method_from_req parses the permission needed according to the bucket policy
+ * @param {nb.S3Request} req
+ * @returns {string|string[]}
+ */
 function _get_method_from_req(req) {
     const s3_op = s3_bucket_policy_utils.OP_NAME_TO_ACTION[req.op_name];
     if (!s3_op) {

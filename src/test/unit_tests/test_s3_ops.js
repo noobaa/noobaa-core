@@ -1261,6 +1261,29 @@ mocha.describe('s3_ops', function() {
             assert.equal(res_copy.$metadata.httpStatusCode, 200);
         });
 
+        mocha.it('should getObjectAttributes', async function() {
+            if (is_azure_mock) this.skip();
+            this.timeout(120000);
+            const key = 'HappyDay';
+            const body = 'hello_world';
+            await s3.putObject({
+                Bucket: bucket_name,
+                Key: key,
+                Body: body
+            });
+            const res = await s3.getObjectAttributes({
+                Bucket: bucket_name,
+                Key: key,
+                ObjectAttributes: ['ETag'],
+            });
+            assert.equal(res.$metadata.httpStatusCode, 200);
+            assert.ok(res.ETag !== undefined);
+            await s3.deleteObject({
+                Bucket: bucket_name,
+                Key: key,
+            });
+        });
+
         mocha.after(async function() {
             this.timeout(100000);
             if (bucket_type === "regular") {

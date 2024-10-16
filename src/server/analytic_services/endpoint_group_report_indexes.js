@@ -4,10 +4,10 @@
 module.exports = [{
     fields: {
         start_time: 1,
-        aggregated_time: -1,
-        aggregated_time_range: 1,
+        end_time: 1,
+        group_name: 1,
     },
     options: {
         unique: false,
     }
-}, ];
+}];

@@ -167,17 +167,17 @@ class EndpointStatsStore {
 
     async get_endpoint_group_reports(params) {
         dbg.log1('get_endpoint_group_reports', params);
-        const query = this._format_endpoint_gorup_report_query(params);
+        const query = this._format_endpoint_group_report_query(params);
         return this._endpoint_group_reports.find(query);
     }
 
     async clean_endpoint_group_reports(params) {
         dbg.log1('clean_endpoint_group_reports', params);
-        const query = this._format_endpoint_gorup_report_query(params);
+        const query = this._format_endpoint_group_report_query(params);
         return this._endpoint_group_reports.deleteMany(query);
     }
 
-    _format_endpoint_gorup_report_query(params) {
+    _format_endpoint_group_report_query(params) {
         const { groups, since, till } = params;
         const query = {};
         if (groups) _.set(query, ['group_name', '$in'], _.castArray(groups));
@@ -196,6 +196,7 @@ class EndpointStatsStore {
             group_name: report.endpoint_group,
         };
         const update = {
+            $set: selector,
             $push: {
                 endpoints: _.pick(report, [
                     'hostname',

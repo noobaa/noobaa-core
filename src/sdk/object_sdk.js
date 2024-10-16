@@ -1064,6 +1064,23 @@ class ObjectSDK {
             });
         }
     }
+
+    /////////////////////////
+    // BUCKET NOTIFICATION //
+    /////////////////////////
+
+    async put_bucket_notification(params) {
+        const bs = this._get_bucketspace();
+        const res = bs.put_bucket_notification(params);
+        bucket_namespace_cache.invalidate_key(params.bucket_name);
+        return res;
+    }
+
+    async get_bucket_notification(params) {
+        const { bucket } = await bucket_namespace_cache.get_with_cache({ sdk: this, name: params.bucket_name });
+        return bucket.notifications;
+    }
+
     ////////////////////
     //  OBJECT LOCK   //
     ////////////////////

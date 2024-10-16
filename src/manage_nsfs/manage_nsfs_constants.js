@@ -8,7 +8,8 @@ const TYPES = Object.freeze({
     GLACIER: 'glacier',
     LOGGING: 'logging',
     DIAGNOSE: 'diagnose',
-    UPGRADE: 'upgrade'
+    UPGRADE: 'upgrade',
+    NOTIFICATION: 'notification'
 });
 
 const ACTIONS = Object.freeze({
@@ -58,8 +59,8 @@ const VALID_OPTIONS_ANONYMOUS_ACCOUNT = {
 };
 
 const VALID_OPTIONS_BUCKET = {
-    'add': new Set(['name', 'owner', 'path', 'bucket_policy', 'fs_backend', 'force_md5_etag', FROM_FILE, ...CLI_MUTUAL_OPTIONS]),
-    'update': new Set(['name', 'owner', 'path', 'bucket_policy', 'fs_backend', 'new_name', 'force_md5_etag', ...CLI_MUTUAL_OPTIONS]),
+    'add': new Set(['name', 'owner', 'path', 'bucket_policy', 'fs_backend', 'force_md5_etag', 'notifications', FROM_FILE, ...CLI_MUTUAL_OPTIONS]),
+    'update': new Set(['name', 'owner', 'path', 'bucket_policy', 'fs_backend', 'new_name', 'force_md5_etag', 'notifications', ...CLI_MUTUAL_OPTIONS]),
     'delete': new Set(['name', 'force', ...CLI_MUTUAL_OPTIONS]),
     'list': new Set(['wide', 'name', ...CLI_MUTUAL_OPTIONS]),
     'status': new Set(['name', ...CLI_MUTUAL_OPTIONS]),
@@ -134,7 +135,9 @@ const OPTION_TYPE = {
     expected_version: 'string',
     expected_hosts: 'string',
     custom_upgrade_scripts_dir: 'string',
-    skip_verification: 'boolean'
+    skip_verification: 'boolean',
+    //notifications
+    notifications: 'object'
 };
 
 const BOOLEAN_STRING_VALUES = ['true', 'false'];

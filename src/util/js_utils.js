@@ -237,6 +237,31 @@ function omit_symbol(maybe_obj, sym) {
     return _.omit(obj, sym);
 }
 
+/**
+ * sortedLastIndexBy is like lodash's sortedLastIndexBy except that
+ * instead of taking a iteratee, it takes a function `less` which should
+ * return `true` when `curr < value`.
+ * @template T
+ * @param {Array<T>} array 
+ * @param {(curr: T) => Boolean} less 
+ * @returns 
+ */
+function sortedLastIndexBy(array, less) {
+    let low = 0;
+    let high = array === null ? low : array.length;
+
+    while (low < high) {
+        const mid = Math.floor(low + ((high - low) / 2));
+        if (less(array[mid])) {
+            low = mid + 1;
+        } else {
+            high = mid;
+        }
+    }
+
+    return high;
+}
+
 exports.self_bind = self_bind;
 exports.array_push_all = array_push_all;
 exports.array_push_keep_latest = array_push_keep_latest;
@@ -250,3 +275,4 @@ exports.inspect_lazy = inspect_lazy;
 exports.make_array = make_array;
 exports.map_get_or_create = map_get_or_create;
 exports.omit_symbol = omit_symbol;
+exports.sortedLastIndexBy = sortedLastIndexBy;

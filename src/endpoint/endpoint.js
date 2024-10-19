@@ -231,12 +231,15 @@ async function main(options = {}) {
         if (internal_rpc_client && config.NAMESPACE_MONITOR_ENABLED) {
             endpoint_stats_collector.instance().set_rpc_client(internal_rpc_client);
 
-            // Register a bg monitor on the endpoint
-            background_scheduler.register_bg_worker(new NamespaceMonitor({
-                name: 'namespace_fs_monitor',
-                client: internal_rpc_client,
-                should_monitor: nsr => Boolean(nsr.nsfs_config),
-            }));
+            //wait with monitoring until pod has started
+            setTimeout(() => {
+                // Register a bg monitor on the endpoint
+                background_scheduler.register_bg_worker(new NamespaceMonitor({
+                    name: 'namespace_fs_monitor',
+                    client: internal_rpc_client,
+                    should_monitor: nsr => Boolean(nsr.nsfs_config),
+                }));
+            }, 1000 * 60);
         }
 
         if (config.ENABLE_SEMAPHORE_MONITOR) {

@@ -1022,7 +1022,7 @@ class ObjectSDK {
 
     async put_bucket_policy(params) {
         const bs = this._get_bucketspace();
-        const result = await bs.put_bucket_policy(params);
+        const result = await bs.put_bucket_policy(params, this);
         bucket_namespace_cache.invalidate_key(params.name);
         return result;
     }
@@ -1030,7 +1030,7 @@ class ObjectSDK {
     async delete_bucket_policy(params) {
         const bs = this._get_bucketspace();
         bucket_namespace_cache.invalidate_key(params.name);
-        return bs.delete_bucket_policy(params);
+        return bs.delete_bucket_policy(params, this);
     }
 
     async get_bucket_policy(params) {

@@ -221,7 +221,8 @@ mocha.describe('s3_bucket_policy', function() {
             Bucket: BKT,
             Policy: JSON.stringify(policy)
         });
-        const res_a = await s3_a.getBucketPolicy({ // should work - user a has get_bucket_policy permission
+        // Bucket Policy Should Be Managed Only by Bucket Owner
+        const res_a = await s3_owner.getBucketPolicy({
             Bucket: BKT,
         });
         console.log('Policy set', res_a);
@@ -1033,7 +1034,8 @@ mocha.describe('s3_bucket_policy', function() {
             Bucket: BKT,
             Policy: JSON.stringify(encryption_policy)
         });
-       const res = await s3_a.getBucketPolicy({Bucket: BKT});
+        // Bucket Policy Should Be Managed Only by Bucket Owner
+       const res = await s3_owner.getBucketPolicy({Bucket: BKT});
        const policy = JSON.parse(res.Policy);
        const actualEncryptionCondition = policy.Statement[1].Condition;
        assert.strictEqual(Object.keys(actualEncryptionCondition)[0], "StringNotEquals");

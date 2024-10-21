@@ -20,7 +20,8 @@ let s3;
 
 async function _clean_all_bucket_policies() {
     for (const bucket of system_store.data.buckets) {
-        if (bucket.s3_policy) {
+        // delete policy only for test-bucket
+        if (bucket.s3_policy && bucket.name === BKT) {
             await s3.deleteBucketPolicy({ Bucket: bucket.name.unwrap() });
         }
     }
@@ -31,7 +32,7 @@ mocha.describe('test upgrade scripts', async function() {
         this.timeout(600000); // eslint-disable-line no-invalid-this
         await system_store.load();
 
-        const account_info = await rpc_client.account.read_account({ email: EMAIL, });
+        const account_info = await rpc_client.account.read_account({ email: EMAIL });
         s3 = new S3({
             endpoint: coretest.get_http_address(),
             credentials: {

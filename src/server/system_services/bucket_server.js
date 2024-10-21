@@ -479,6 +479,7 @@ async function put_bucket_encryption(req) {
 async function get_bucket_policy(req) {
     dbg.log0('get_bucket_policy:', req.rpc_params);
     const bucket = find_bucket(req, req.rpc_params.name);
+    await bucket_policy_utils.validate_s3_policy_owner(bucket.owner_account._id, req.account._id);
     return {
         policy: bucket.s3_policy,
     };
@@ -488,6 +489,7 @@ async function get_bucket_policy(req) {
 async function put_bucket_policy(req) {
     dbg.log0('put_bucket_policy:', req.rpc_params);
     const bucket = find_bucket(req, req.rpc_params.name);
+    await bucket_policy_utils.validate_s3_policy_owner(bucket.owner_account._id, req.account._id);
     await bucket_policy_utils.validate_s3_policy(req.rpc_params.policy, bucket.name,
         principal => system_store.get_account_by_email(principal));
     await system_store.make_changes({
@@ -505,6 +507,7 @@ async function put_bucket_policy(req) {
 async function delete_bucket_policy(req) {
     dbg.log0('delete_bucket_policy:', req.rpc_params);
     const bucket = find_bucket(req, req.rpc_params.name);
+    await bucket_policy_utils.validate_s3_policy_owner(bucket.owner_account._id, req.account._id);
     await system_store.make_changes({
         update: {
             buckets: [{

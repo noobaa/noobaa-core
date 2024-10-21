@@ -32,6 +32,7 @@ const XATTR_DELETE_MARKER = XATTR_INTERNAL_NOOBAA_PREFIX + 'delete_marker';
 
 const test_bucket = 'bucket1';
 const test_bucket2 = 'bucket2';
+const test_bucket3 = 'bucket3';
 const test_not_empty_bucket = 'notemptybucket';
 const test_bucket_temp_dir = 'buckettempdir';
 const test_bucket_invalid = 'bucket_invalid';
@@ -148,7 +149,7 @@ const dummy_ns = {
 function make_dummy_object_sdk() {
     return {
         requesting_account: {
-            _id: '65b3c68b59ab67b16f98c26e',
+            _id: account_user2._id,
             force_md5_etag: false,
             name: new SensitiveString('user2'),
             email: new SensitiveString('user2@noobaa.io'),
@@ -524,7 +525,7 @@ mocha.describe('bucketspace_fs', function() {
             // with bucket policy account_user3 can list it
             const policy = generate_s3_policy(account_user4.name, test_bucket, ['s3:*']).policy;
             const param = { name: test_bucket, policy: policy };
-            await bucketspace_fs.put_bucket_policy(param);
+            await bucketspace_fs.put_bucket_policy(param, dummy_object_sdk);
             const dummy_object_sdk_for_iam_account = make_dummy_object_sdk_for_account(dummy_object_sdk, account_user4);
             const res = await bucketspace_fs.list_buckets(dummy_object_sdk_for_iam_account);
             assert.equal(res.buckets.length, 1);
@@ -535,7 +536,7 @@ mocha.describe('bucketspace_fs', function() {
             // with bucket policy account_user3 can list it
             const policy = generate_s3_policy(account_user4._id, test_bucket, ['s3:*']).policy;
             const param = { name: test_bucket, policy: policy };
-            await bucketspace_fs.put_bucket_policy(param);
+            await bucketspace_fs.put_bucket_policy(param, dummy_object_sdk);
             const dummy_object_sdk_for_iam_account = make_dummy_object_sdk_for_account(dummy_object_sdk, account_user4);
             const res = await bucketspace_fs.list_buckets(dummy_object_sdk_for_iam_account);
             assert.equal(res.buckets.length, 1);
@@ -778,7 +779,7 @@ mocha.describe('bucketspace_fs', function() {
                 }]
             };
             const param = { name: test_bucket, policy: policy };
-            await bucketspace_fs.put_bucket_policy(param);
+            await bucketspace_fs.put_bucket_policy(param, dummy_object_sdk);
             const bucket_policy_res = await bucketspace_fs.get_bucket_policy(param, dummy_object_sdk);
             assert_bucket_policies(bucket_policy_res.policy, policy);
             const info_res = await bucketspace_fs.read_bucket_sdk_info(param);
@@ -787,7 +788,7 @@ mocha.describe('bucketspace_fs', function() {
 
         mocha.it('delete_bucket_policy ', async function() {
             const param = { name: test_bucket };
-            await bucketspace_fs.delete_bucket_policy(param);
+            await bucketspace_fs.delete_bucket_policy(param, dummy_object_sdk);
             const delete_res = await bucketspace_fs.get_bucket_policy(param, dummy_object_sdk);
             assert.ok(delete_res.policy === undefined);
         });
@@ -805,7 +806,7 @@ mocha.describe('bucketspace_fs', function() {
                     ]
                 };
             const param = { name: test_bucket, policy: policy };
-            await bucketspace_fs.put_bucket_policy(param);
+            await bucketspace_fs.put_bucket_policy(param, dummy_object_sdk);
             const bucket_policy = await bucketspace_fs.get_bucket_policy(param, dummy_object_sdk);
             assert.deepEqual(bucket_policy.policy, policy);
             const info_res = await bucketspace_fs.read_bucket_sdk_info(param);
@@ -824,7 +825,7 @@ mocha.describe('bucketspace_fs', function() {
                     ]
                 };
             const param = { name: test_bucket, policy: policy };
-            await bucketspace_fs.put_bucket_policy(param);
+            await bucketspace_fs.put_bucket_policy(param, dummy_object_sdk);
             const bucket_policy_res = await bucketspace_fs.get_bucket_policy(param, dummy_object_sdk);
             assert_bucket_policies(bucket_policy_res.policy, policy);
             const info_res = await bucketspace_fs.read_bucket_sdk_info(param);
@@ -844,7 +845,7 @@ mocha.describe('bucketspace_fs', function() {
             };
             const param = { name: test_bucket, policy: policy };
             try {
-                await bucketspace_fs.put_bucket_policy(param);
+                await bucketspace_fs.put_bucket_policy(param, dummy_object_sdk);
                 assert.fail('should have failed with invalid principal in policy');
             } catch (err) {
                 assert.equal(err.rpc_code, 'MALFORMED_POLICY');
@@ -864,7 +865,7 @@ mocha.describe('bucketspace_fs', function() {
                 }]
             };
             const param = { name: test_bucket, policy: policy };
-            await bucketspace_fs.put_bucket_policy(param);
+            await bucketspace_fs.put_bucket_policy(param, dummy_object_sdk);
             const bucket_policy_res = await bucketspace_fs.get_bucket_policy(param, dummy_object_sdk);
             assert_bucket_policies(bucket_policy_res.policy, policy);
             const info_res = await bucketspace_fs.read_bucket_sdk_info(param);
@@ -883,7 +884,7 @@ mocha.describe('bucketspace_fs', function() {
                 }]
             };
             const param = { name: test_bucket, policy: policy };
-            await bucketspace_fs.put_bucket_policy(param);
+            await bucketspace_fs.put_bucket_policy(param, dummy_object_sdk);
             const bucket_policy_res = await bucketspace_fs.get_bucket_policy(param, dummy_object_sdk);
             assert_bucket_policies(bucket_policy_res.policy, policy);
             const info_res = await bucketspace_fs.read_bucket_sdk_info(param);
@@ -892,7 +893,7 @@ mocha.describe('bucketspace_fs', function() {
 
         mocha.it('delete_bucket_policy ', async function() {
             const param = { name: test_bucket };
-            await bucketspace_fs.delete_bucket_policy(param);
+            await bucketspace_fs.delete_bucket_policy(param, dummy_object_sdk);
             const bucket_policy_res = await bucketspace_fs.get_bucket_policy(param, dummy_object_sdk);
             assert.ok(bucket_policy_res.policy === undefined);
         });
@@ -952,6 +953,57 @@ mocha.describe('bucketspace_fs', function() {
             await bucketspace_fs.delete_bucket_lifecycle(param);
             const output_lifecycle = await bucketspace_fs.get_bucket_lifecycle_configuration_rules(param);
             assert.deepEqual(output_lifecycle, []);
+        });
+    });
+
+    mocha.describe('bucket policy ownership validations', function() {
+        const bucket_policy = generate_s3_policy(account_user1.name, test_bucket3, ['s3:*']).policy;
+        const bucket_policy_param = { name: test_bucket3, policy: bucket_policy };
+        mocha.before(async function() {
+            const param = { name: test_bucket3 };
+            await bucketspace_fs.create_bucket(param, dummy_object_sdk);
+            await bucketspace_fs.put_bucket_policy(bucket_policy_param, dummy_object_sdk);
+            const res = await bucketspace_fs.get_bucket_policy(bucket_policy_param, dummy_object_sdk);
+            assert_bucket_policies(bucket_policy, res.policy);
+        });
+        mocha.after(async function() {
+            await fs_utils.folder_delete(`${new_buckets_path}/${test_bucket}`);
+            const file_path = get_config_file_path(CONFIG_SUBDIRS.BUCKETS, test_bucket3);
+            await fs_utils.file_delete(file_path);
+        });
+
+        mocha.it('get bucket policy not allowed non owner user', async function() {
+            try {
+                const dummy_object_sdk_not_owner = make_dummy_object_sdk_for_account(dummy_object_sdk, account_user1);
+                await bucketspace_fs.get_bucket_policy(bucket_policy_param, dummy_object_sdk_not_owner);
+                assert.fail('should have failed with METHOD_NOT_ALLOWED');
+            } catch (err) {
+                assert.ok(err.rpc_code === 'METHOD_NOT_ALLOWED');
+            }
+        });
+
+        mocha.it('put bucket policy not allowed non owner user', async function() {
+            try {
+                const dummy_object_sdk_not_owner = make_dummy_object_sdk_for_account(dummy_object_sdk, account_user1);
+                await bucketspace_fs.put_bucket_policy(bucket_policy_param, dummy_object_sdk_not_owner);
+                assert.fail('should have failed with METHOD_NOT_ALLOWED');
+            } catch (err) {
+                assert.ok(err.rpc_code === 'METHOD_NOT_ALLOWED');
+            }
+        });
+
+        mocha.it('delete bucket policy not allowed non owner user', async function() {
+            try {
+                const dummy_object_sdk_not_owner = make_dummy_object_sdk_for_account(dummy_object_sdk, account_user1);
+                await bucketspace_fs.delete_bucket_policy(bucket_policy_param, dummy_object_sdk_not_owner);
+                assert.fail('should have failed with METHOD_NOT_ALLOWED');
+            } catch (err) {
+                assert.ok(err.rpc_code === 'METHOD_NOT_ALLOWED');
+            }
+            // check delete policy works for owner.
+            await bucketspace_fs.delete_bucket_policy(bucket_policy_param, dummy_object_sdk);
+            const resp = await bucketspace_fs.get_bucket_policy(bucket_policy_param, dummy_object_sdk);
+            assert_bucket_policies(undefined, resp.policy);
         });
     });
 });

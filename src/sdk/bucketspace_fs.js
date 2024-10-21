@@ -605,7 +605,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
     ////////////////////
 
 
-    async put_bucket_policy(params) {
+    async put_bucket_policy(params, object_sdk) {
         try {
             const { name, policy } = params;
             dbg.log0('BucketSpaceFS.put_bucket_policy: Bucket name, policy', name, policy);
@@ -613,6 +613,8 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             bucket.s3_policy = policy;
             // We need to validate bucket schema here as well for checking the policy schema
             nsfs_schema_utils.validate_bucket_schema(_.omitBy(bucket, _.isUndefined));
+            const account = object_sdk.requesting_account;
+            await bucket_policy_utils.validate_s3_policy_owner(bucket.owner_account, account._id);
             await bucket_policy_utils.validate_s3_policy(bucket.s3_policy, bucket.name, async principal =>
                 this.config_fs.is_account_exists_by_principal(principal, { silent_if_missing: true }));
             await this.config_fs.update_bucket_config_file(bucket);
@@ -621,11 +623,13 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
         }
     }
 
-    async delete_bucket_policy(params) {
+    async delete_bucket_policy(params, object_sdk) {
         try {
             const { name } = params;
             dbg.log0('BucketSpaceFS.delete_bucket_policy: Bucket name', name);
             const bucket = await this.config_fs.get_bucket_by_name(name);
+            const account = object_sdk.requesting_account;
+            await bucket_policy_utils.validate_s3_policy_owner(bucket.owner_account, account._id);
             delete bucket.s3_policy;
             await this.config_fs.update_bucket_config_file(bucket);
         } catch (err) {
@@ -637,6 +641,9 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
         try {
             const { name } = params;
             dbg.log0('BucketSpaceFS.get_bucket_policy: Bucket name', name);
+            const bucket = await this.config_fs.get_bucket_by_name(name);
+            const account = object_sdk.requesting_account;
+            await bucket_policy_utils.validate_s3_policy_owner(bucket.owner_account, account._id);
             const bucket_policy_info = await object_sdk.read_bucket_sdk_policy_info(name);
             dbg.log0('BucketSpaceFS.get_bucket_policy: policy', bucket_policy_info);
             return { policy: bucket_policy_info.s3_policy };

@@ -73,6 +73,9 @@ function new_bucket_defaults(name, system_id, tiering_policy_id, owner_account_i
         object_lock_configuration: config.WORM_ENABLED ? {
             object_lock_enabled: lock_enabled ? 'Enabled' : 'Disabled',
         } : undefined,
+        encryption: {
+            "algorithm": "AES256",
+        },
     };
 }
 

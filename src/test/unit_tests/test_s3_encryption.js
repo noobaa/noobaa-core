@@ -71,14 +71,22 @@ mocha.describe('Bucket Encryption Operations', async () => {
         await local_s3.createBucket({ Bucket: BKT });
     });
 
-    mocha.it('should get bucket encryption error without encryption configured', async () => {
+    mocha.it('getBucketEncryption should return the default server side encryption configuration', async () => {
         try {
             const res = await local_s3.getBucketEncryption({ Bucket: BKT });
-            throw new Error(`Expected to get error with unconfigured bucket encryption ${res}`);
+            const expected_response = {
+                ServerSideEncryptionConfiguration: {
+                    Rules: [{
+                        ApplyServerSideEncryptionByDefault: {
+                            SSEAlgorithm: 'AES256'
+                        }
+                    }]
+                }
+            };
+            const res_without_metadata = _.omit(res, '$metadata');
+            assert.deepEqual(res_without_metadata, expected_response);
         } catch (error) {
-            assert(error.message === 'The server side encryption configuration was not found.', `Error message does not match got: ${error.message}`);
-            assert(error.Code === 'ServerSideEncryptionConfigurationNotFoundError', `Error code does not match got: ${error.Code}`);
-            assert(error.$metadata.httpStatusCode === 404, `Error status code does not match got: ${error.$metadata.httpStatusCode}`);
+            throw new Error(`The server side encryption configuration was not found ${error.message}`);
         }
     });
 

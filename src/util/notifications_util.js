@@ -22,6 +22,7 @@ const OP_TO_EVENT = Object.freeze({
     put_object_acl: { name: 'ObjectAcl' },
     put_object_tagging: { name: 'ObjectTagging' },
     delete_object_tagging: { name: 'ObjectTagging' },
+    lifecycle_delete: { name: 'LifecycleExpiration' },
 });
 
 class Notificator {
@@ -86,7 +87,7 @@ class Notificator {
                 seen_nodes.add(node_namespace);
             }
             dbg.log1("process_notification_files node_namespace =", node_namespace, ", file =", entry.name);
-            const log = new PersistentLogger(config.NOTIFICATION_LOG_DIR, node_namespace, { locking: 'EXCLUSIVE' });
+            const log = get_notification_logger('EXCLUSIVE', node_namespace);
             try {
                 await log.process(async (file, failure_append) => await this._notify(this.fs_context, file, failure_append));
             } catch (err) {
@@ -310,8 +311,39 @@ async function test_notifications(bucket) {
     }
 }
 
+function compose_notification_base(notif_conf, bucket, req) {
+
+    const event_time = new Date();
+
+    const notif = {
+        eventVersion: '2.3',
+        eventSource: _get_system_name(req) + ':s3',
+        eventTime: event_time.toISOString(),
+
+        s3: {
+            s3SchemaVersion: "1.0",
+            configurationId: notif_conf.name,
+            object: {
+                //default for sequencer, overriden in compose_notification_req for noobaa ns
+                sequencer: event_time.getTime().toString(16),
+            },
+            bucket: {
+                name: bucket.name,
+                ownerIdentity: {
+                    //buckets from s3 reqs are sdk-style, from lifcycle are "raw" system store object
+                    principalId: bucket.bucket_owner ? bucket.bucket_owner.unwrap() : bucket.owner_account.name.unwrap(),
+                },
+                arn: "arn:aws:s3:::" + bucket.name,
+            },
+        }
+    };
+
+    return notif;
+
+}
+
 //see https://docs.aws.amazon.com/AmazonS3/latest/userguide/notification-content-structure.html
-function compose_notification(req, res, bucket, notif_conf) {
+function compose_notification_req(req, res, bucket, notif_conf) {
     let eTag = res.getHeader('ETag');
     //eslint-disable-next-line
     if (eTag && eTag.startsWith('\"') && eTag.endsWith('\"')) {
@@ -320,41 +352,24 @@ function compose_notification(req, res, bucket, notif_conf) {
 
     const event = OP_TO_EVENT[req.op_name];
     const http_verb_capitalized = req.method.charAt(0).toUpperCase() + req.method.slice(1).toLowerCase();
-    const event_time = new Date();
 
-    const notif = {
-        eventVersion: '2.3',
-        eventSource: _get_system_name(req) + ':s3',
-        eventTime: event_time.toISOString(),
-        eventName: event.name + ':' + (event.method || req.s3_event_method || http_verb_capitalized),
-        userIdentity: {
-            principalId: req.object_sdk.requesting_account.name,
-        },
-        requestParameters: {
-            sourceIPAddress: http_utils.parse_client_ip(req),
-        },
-        responseElements: {
+    const notif = compose_notification_base(notif_conf, bucket, req);
+
+    notif.eventName = event.name + ':' + (event.method || req.s3_event_method || http_verb_capitalized);
+    notif.userIdentity = {
+        principalId: req.object_sdk.requesting_account.name,
+    };
+    notif.requestParameters = {
+        sourceIPAddress: http_utils.parse_client_ip(req),
+        };
+    notif.responseElements = {
             "x-amz-request-id": req.request_id,
             "x-amz-id-2": req.request_id,
-        },
-        s3: {
-            s3SchemaVersion: "1.0",
-            configurationId: notif_conf.name,
-            bucket: {
-                name: bucket.name,
-                ownerIdentity: {
-                    principalId: bucket.bucket_owner.unwrap(),
-                },
-                arn: "arn:aws:s3:::" + bucket.name,
-            },
-            object: {
-                key: req.params.key,
-                size: res.getHeader('content-length'),
-                eTag,
-                versionId: res.getHeader('x-amz-version-id'),
-            },
-        }
     };
+    notif.s3.object.key = req.params.key;
+    notif.s3.object.size = res.getHeader('content-length');
+    notif.s3.object.eTag = eTag;
+    notif.s3.object.versionId = res.getHeader('x-amz-version-id');
 
     //handle glacierEventData
     if (res.restore_object_result) {
@@ -370,21 +385,41 @@ function compose_notification(req, res, bucket, notif_conf) {
     if (res.seq) {
         //in noobaa-ns we have a sequence from db
         notif.s3.object.sequencer = res.seq;
-    } else {
-        //fallback to time-based sequence
-        notif.s3.object.sequencer = event_time.getTime().toString(16);
     }
 
-    const records = [notif];
-
-    return {Records: records};
+    return compose_meta(notif, notif_conf);
 }
 
+function compose_notification_lifecycle(deleted_obj, notif_conf, bucket) {
 
+    const notif = compose_notification_base(notif_conf, bucket);
+
+    notif.eventName = OP_TO_EVENT.lifecycle_delete.name + ':' +
+        (deleted_obj.created_delete_marker ? 'DeleteMarkerCreated' : 'Delete');
+    notif.s3.object.key = deleted_obj.key;
+    notif.s3.object.size = deleted_obj.size;
+    notif.s3.object.eTag = deleted_obj.etag;
+    notif.s3.object.versionId = deleted_obj.version_id;
+
+    return compose_meta(notif, notif_conf);
+
+}
+
+function compose_meta(record, notif_conf) {
+    return {
+        meta: {
+            connect: notif_conf.Connect,
+            name: notif_conf.Id
+        },
+        notif: {
+            Records: [record],
+        }
+    };
+}
 
 function _get_system_name(req) {
 
-    if (req.object_sdk.nsfs_config_root) {
+    if (req && req.object_sdk && req.object_sdk.nsfs_system) {
         const name = Object.keys(req.object_sdk.nsfs_system)[0];
         return name;
     } else {
@@ -427,7 +462,26 @@ function check_notif_relevant(notif, req) {
     return false;
 }
 
+/**
+ *
+ * @param {"SHARED" | "EXCLUSIVE"} locking counterintuitively, either 'SHARED' for writing or 'EXCLUSIVE' for reading
+ */
+function get_notification_logger(locking, namespace, poll_interval) {
+    if (!namespace) {
+        const node_name = process.env.NODE_NAME || os.hostname();
+        namespace = node_name + '_' + config.NOTIFICATION_LOG_NS;
+    }
+
+    return new PersistentLogger(config.NOTIFICATION_LOG_DIR, namespace, {
+        locking,
+        poll_interval,
+    });
+}
+
 exports.Notificator = Notificator;
 exports.test_notifications = test_notifications;
-exports.compose_notification = compose_notification;
+exports.compose_notification_req = compose_notification_req;
+exports.compose_notification_lifecycle = compose_notification_lifecycle;
 exports.check_notif_relevant = check_notif_relevant;
+exports.get_notification_logger = get_notification_logger;
+exports.OP_TO_EVENT = OP_TO_EVENT;

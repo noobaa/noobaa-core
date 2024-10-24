@@ -949,6 +949,7 @@ async function delete_multiple_objects_by_filter(req) {
     dbg.log1(`delete_multiple_objects_by_filter: bucket=${req.bucket.name} filter=${util.inspect(req.rpc_params)}`);
     const key = new RegExp('^' + _.escapeRegExp(req.rpc_params.prefix));
     const bucket_id = req.bucket._id;
+    const reply_objects = req.rpc_params.reply_objects;
     // TODO: change it to perform changes in batch. Won't scale.
     const query = {
         bucket_id,
@@ -972,7 +973,16 @@ async function delete_multiple_objects_by_filter(req) {
             }))
         }
     }));
-    return { num_objects_deleted: objects.length };
+
+    const reply = { num_objects_deleted: objects.length };
+    if (reply_objects) {
+        //reply needs to include deleted objects
+        //(this is used for LifecycleExpiratoin event notifications)
+        //so map the md into (api friendly) object info
+        reply.deleted_objects = _.map(objects, get_object_info);
+    }
+
+    return reply;
 }
 
 /**

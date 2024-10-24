@@ -1151,6 +1151,9 @@ module.exports = {
                     },
                     limit: {
                         type: 'integer'
+                    },
+                    reply_objects: {
+                        type: 'boolean'
                     }
                 }
             },
@@ -1159,6 +1162,12 @@ module.exports = {
                 properties: {
                     num_objects_deleted: {
                         type: 'integer'
+                    },
+                    deleted_objects: {
+                        type: 'array',
+                        items: {
+                            $ref: '#/definitions/object_info'
+                        }
                     }
                 }
             },

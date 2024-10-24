@@ -43,6 +43,7 @@ const { NamespaceMonitor } = require('../server/bg_services/namespace_monitor');
 const { SemaphoreMonitor } = require('../server/bg_services/semaphore_monitor');
 const prom_reporting = require('../server/analytic_services/prometheus_reporting');
 const { PersistentLogger } = require('../util/persistent_logger');
+const { get_notification_logger } = require('../util/notifications_util');
 const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
 const cluster = /** @type {import('node:cluster').Cluster} */ (
     /** @type {unknown} */ (require('node:cluster'))
@@ -139,11 +140,10 @@ async function main(options = {}) {
                 poll_interval: config.NSFS_GLACIER_LOGS_POLL_INTERVAL,
             });
 
-        notification_logger = config.NOTIFICATION_LOG_DIR &&
-            new PersistentLogger(config.NOTIFICATION_LOG_DIR, node_name + '_' + config.NOTIFICATION_LOG_NS, {
-                locking: 'SHARED',
-                poll_interval: config.NSFS_GLACIER_LOGS_POLL_INTERVAL,
-            });
+        notification_logger = config.NOTIFICATION_LOG_DIR && get_notification_logger(
+            'SHARED', //shared locking for endpoitns
+            undefined, //use default namespace based on hostname
+            config.NSFS_GLACIER_LOGS_POLL_INTERVAL);
 
         process.on('warning', e => dbg.warn(e.stack));
 

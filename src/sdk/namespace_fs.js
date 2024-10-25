@@ -1926,7 +1926,10 @@ class NamespaceFS {
             await this._check_path_in_bucket_boundaries(fs_context, file_path);
             dbg.log0('NamespaceFS: delete_object', file_path);
             let res;
-            if (this._is_versioning_disabled()) {
+            const is_key_dir_path = await this._is_key_dir_path(fs_context, params.key);
+            if (this._is_versioning_disabled() || is_key_dir_path) {
+                // TODO- Directory object (key/) is currently can't co-exist while key (without slash) exists. see -https://github.com/noobaa/noobaa-core/issues/8320
+                // Also, Directory object (key/) is currently not supported combined with versioning - see - https://github.com/noobaa/noobaa-core/issues/8531
                 await this._delete_single_object(fs_context, file_path, params);
             } else {
                 res = params.version_id ?
@@ -2783,6 +2786,23 @@ class NamespaceFS {
 
         const versioned_path = this._get_version_path(key, version_id);
         return versioned_path;
+    }
+    /** 
+    * _is_key_dir_path will check if key is pointing to a directory or a file
+    * @param {nb.NativeFSContext} fs_context
+    * @param {string} key
+    * @returns {Promise<boolean>}
+    */
+    async _is_key_dir_path(fs_context, key) {
+        try {
+            const key_path = path.normalize(path.join(this.bucket_path, key));
+            const key_stat = await nb_native().fs.stat(fs_context, key_path, { skip_user_xattr: true });
+            const is_dir = native_fs_utils.isDirectory(key_stat);
+            return is_dir;
+        } catch (err) {
+            dbg.warn('NamespaceFS._is_key_dir_path : error while getting state for key ', key, err);
+        }
+        return false;
     }
 
     _throw_if_delete_marker(stat, params) {

@@ -26,6 +26,7 @@ const XATTR_VERSION_ID = XATTR_INTERNAL_NOOBAA_PREFIX + 'version_id';
 const XATTR_DELETE_MARKER = XATTR_INTERNAL_NOOBAA_PREFIX + 'delete_marker';
 const NULL_VERSION_ID = 'null';
 const HIDDEN_VERSIONS_PATH = '.versions';
+const NSFS_FOLDER_OBJECT_NAME = '.folder';
 
 const DEFAULT_FS_CONFIG = get_process_fs_context(IS_GPFS ? 'GPFS' : '');
 let CORETEST_ENDPOINT;
@@ -75,6 +76,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
     const suspended_dir1_versions_path = path.join(suspended_full_path, dir1, '.versions/');
 
     const dir_path_nested = 'photos/animals/January/';
+    const dir_path_complete = 'animal/mammals/dog/';
     const nested_key_level3 = path.join(dir_path_nested, 'cat.jpeg');
 
     mocha.before(async function() {
@@ -764,10 +766,30 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
 
         mocha.it('delete object - versioning enabled - nested key (more than 1 level) - delete inside directory', async function() {
             const res = await s3_uid6.deleteObject({ Bucket: nested_keys_bucket_name, Key: dir_path_nested });
-            assert.equal(res.DeleteMarker, true);
+            // object versioning is not enabled for dir, because of this no delete_marker.
+            assert.equal(res.DeleteMarker, undefined);
             const version_path_nested = path.join(nested_keys_full_path, dir_path_nested, HIDDEN_VERSIONS_PATH);
             const exist2 = await fs_utils.file_exists(version_path_nested);
             assert.ok(exist2);
+        });
+
+        mocha.it('delete object - versioning enabled - nested key (more than 1 level)- delete partial directory', async function() {
+            const parital_nested_directory = dir_path_complete.slice(0, -1); // the directory without the last slash
+            const folder_path_nested = path.join(nested_keys_full_path, dir_path_complete, NSFS_FOLDER_OBJECT_NAME);
+            const body_of_copied_key = 'make the lemon lemonade';
+            await s3_uid6.putObject({ Bucket: nested_keys_bucket_name, Key: dir_path_complete, Body: body_of_copied_key });
+            await fs_utils.file_must_exist(folder_path_nested);
+            await s3_uid6.deleteObject({ Bucket: nested_keys_bucket_name, Key: parital_nested_directory });
+            await fs_utils.file_must_exist(folder_path_nested);
+        });
+
+        mocha.it('delete object - versioning enabled - nested key (more than 1 level)- delete complete directory', async function() {
+            const res = await s3_uid6.deleteObject({ Bucket: nested_keys_bucket_name, Key: dir_path_complete });
+            // object versioning is not enabled for dir, because of this no delete_marker.
+            assert.equal(res.DeleteMarker, undefined);
+            const folder_path_nested = path.join(nested_keys_full_path, dir_path_complete, NSFS_FOLDER_OBJECT_NAME);
+            await fs_utils.file_must_not_exist(folder_path_nested);
+            await fs_utils.file_must_not_exist(path.join(nested_keys_full_path, dir_path_complete));
         });
     });
 

@@ -46,6 +46,13 @@ function parse_filter(filter) {
     return current_rule_filter;
 }
 
+function reject_empty_field(field) {
+    if (_.isEmpty(field)) {
+        dbg.error('Invalid field - empty', field);
+        throw new S3Error(S3Error.MalformedXML);
+    }
+}
+
 // parse lifecycle rule expiration
 function parse_expiration(expiration) {
     const output_expiration = {};
@@ -111,12 +118,14 @@ async function put_bucket_lifecycle(req) {
 
         if (rule.Expiration?.length === 1) {
             current_rule.expiration = parse_expiration(rule.Expiration[0]);
+            reject_empty_field(current_rule.expiration);
         }
 
         if (rule.AbortIncompleteMultipartUpload?.length === 1) {
             current_rule.abort_incomplete_multipart_upload = _.omitBy({
                 days_after_initiation: parse_lifecycle_field(rule.AbortIncompleteMultipartUpload[0].DaysAfterInitiation),
             }, _.isUndefined);
+            reject_empty_field(current_rule.abort_incomplete_multipart_upload);
         }
 
         if (rule.Transition?.length === 1) {
@@ -125,6 +134,7 @@ async function put_bucket_lifecycle(req) {
                 date: parse_lifecycle_field(rule.Transition[0].Date, s => new Date(s)),
                 days: parse_lifecycle_field(rule.Transition[0].Days),
             }, _.isUndefined);
+            reject_empty_field(current_rule.transition);
         }
 
         if (rule.NoncurrentVersionExpiration?.length === 1) {
@@ -132,6 +142,7 @@ async function put_bucket_lifecycle(req) {
                 noncurrent_days: parse_lifecycle_field(rule.NoncurrentVersionExpiration[0].NoncurrentDays),
                 newer_noncurrent_versions: parse_lifecycle_field(rule.NoncurrentVersionExpiration[0].NewerNoncurrentVersions),
             }, _.isUndefined);
+            reject_empty_field(current_rule.noncurrent_version_expiration);
         }
 
         if (rule.NoncurrentVersionTransition?.length === 1) {
@@ -140,6 +151,7 @@ async function put_bucket_lifecycle(req) {
                 noncurrent_days: parse_lifecycle_field(rule.NoncurrentVersionTransition[0].NoncurrentDays),
                 newer_noncurrent_versions: parse_lifecycle_field(rule.NoncurrentVersionTransition[0].NewerNoncurrentVersions),
             }, _.isUndefined);
+            reject_empty_field(current_rule.noncurrent_version_transition);
         }
 
         return current_rule;

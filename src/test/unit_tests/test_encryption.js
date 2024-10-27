@@ -29,6 +29,8 @@ let wrapped_coretest_secret_key;
 const BKT = `bucket.example`;
 const key_rotator = new KeyRotator({ name: 'kr'});
 
+config.MIN_CHUNK_AGE_FOR_DEDUP = 0;
+
 mocha.describe('Encryption tests', function() {
     const { rpc_client, EMAIL, SYSTEM } = coretest;
     let response_account;
@@ -991,10 +993,10 @@ mocha.describe('Rotation tests', function() {
             compare_secrets(secrets, system_store_account.master_key_id._id);
         });
 });
-// TODO: 
+// TODO:
         // 1. add more tests for checking namespace resources
         // 2. add tests for enable/disable account that has pool/namespace resource
-////////////// HELPERS 
+////////////// HELPERS
 
 async function multipart_upload(bucket, key, s3_conf) {
     let res = await s3_conf.createMultipartUpload({Bucket: bucket, Key: key, ContentType: 'text/plain'});

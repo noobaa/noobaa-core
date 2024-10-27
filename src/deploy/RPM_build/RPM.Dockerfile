@@ -36,6 +36,7 @@ COPY ./src/deploy/standalone/noobaa_rsyslog.conf ./src/deploy/standalone/noobaa_
 COPY ./src/deploy/standalone/noobaa_syslog.conf ./src/deploy/standalone/noobaa_syslog.conf
 COPY ./src/deploy/standalone/noobaa-logrotate ./src/deploy/standalone/noobaa-logrotate
 COPY ./src/manage_nsfs ./src/manage_nsfs
+COPY ./src/nc ./src/nc
 
 WORKDIR /build
 

@@ -403,6 +403,57 @@ mocha.describe('s3_ops', function() {
                 assert.strictEqual(res.Rules[0].NoncurrentVersionExpiration.NoncurrentDays, 1);
             });
 
+            mocha.it('should put and get bucket lifecycle with expired object delete marker', async function() {
+                // put bucket lifecycle
+                const params = {
+                    Bucket: "lifecycle-bucket",
+                    LifecycleConfiguration: {
+                        Rules: [{
+                            ID: 'rule1',
+                            Status: 'Enabled',
+                            Prefix: 'prefix1-expired-object-delete-marker',
+                            Expiration: {
+                                ExpiredObjectDeleteMarker: true
+                            }
+                        }]
+                    }
+                };
+                await s3.putBucketLifecycleConfiguration(params);
+
+                // get bucket lifecycle
+                const res = await s3.getBucketLifecycleConfiguration({ Bucket: "lifecycle-bucket" });
+                assert.strictEqual(res.Rules.length, 1);
+                assert.strictEqual(res.Rules[0].ID, 'rule1');
+                assert.strictEqual(res.Rules[0].Status, 'Enabled');
+                assert.strictEqual(res.Rules[0].Prefix, 'prefix1-expired-object-delete-marker');
+                assert.strictEqual(res.Rules[0].Expiration.ExpiredObjectDeleteMarker, true);
+            });
+
+            mocha.it('should reject put bucket lifecycle with empty fields', async function() {
+                const lifecycle_fields = ['Expiration', 'NoncurrentVersionExpiration', 'AbortIncompleteMultipartUpload'];
+                for (const field of lifecycle_fields) {
+                    const params = {
+                        Bucket: "lifecycle-bucket",
+                        LifecycleConfiguration: {
+                            Rules: [{
+                                ID: 'rule1',
+                                Status: 'Enabled',
+                                Prefix: `prefix1-empty-${field}`,
+                            }]
+                        }
+                    };
+                    params.LifecycleConfiguration.Rules[0][field] = {};
+                    try {
+                        await s3.putBucketLifecycleConfiguration(params);
+                        assert.fail(`should reject put bucket lifecycle with empty ${field}`);
+                    } catch (err) {
+                        assert.strictEqual(err.Code, 'MalformedXML', `should reject put bucket lifecycle with empty ${field}`);
+                        assert.strictEqual(err.$metadata.httpStatusCode, 400);
+                    }
+                }
+            });
+
+
             mocha.after(async function() {
                 await s3.deleteBucket({ Bucket: "lifecycle-bucket" });
             });

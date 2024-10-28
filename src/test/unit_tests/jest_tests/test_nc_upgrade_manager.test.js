@@ -16,7 +16,7 @@ const { NCUpgradeManager, DEFAULT_NC_UPGRADE_SCRIPTS_DIR, OLD_DEFAULT_PACKAGE_VE
     OLD_DEFAULT_CONFIG_DIR_VERSION, CONFIG_DIR_UNLOCKED, CONFIG_DIR_LOCKED } = require('../../../upgrade/nc_upgrade_manager');
 const { ConfigFS } = require('../../../sdk/config_fs');
 const { TMP_PATH, create_redirect_file, create_config_dir,
-    fail_test_if_default_config_dir_exists, clean_config_dir } = require('../../system_tests/test_utils');
+    fail_test_if_default_config_dir_exists, clean_config_dir, TEST_TIMEOUT } = require('../../system_tests/test_utils');
 
 const config_root = path.join(TMP_PATH, 'config_root_nc_upgrade_manager_test');
 const config_fs = new ConfigFS(config_root);
@@ -185,7 +185,7 @@ describe('nc upgrade manager - upgrade RPM', () => {
 
     afterEach(async () => {
         await clean_config_dir(config_fs, config_root);
-    });
+    }, TEST_TIMEOUT);
 
     it('upgrade rpm - nothing to upgrade - no changes in system.json', async () => {
         await config_fs.create_system_config_file(JSON.stringify(current_expected_system_json));
@@ -233,6 +233,10 @@ describe('nc upgrade manager - upgrade config directory', () => {
         nc_upgrade_manager = new NCUpgradeManager(config_fs);
         await fail_test_if_default_config_dir_exists('test_config_dir_nc_upgrade_manager', config_fs);
     });
+
+    afterEach(async () => {
+        await clean_config_dir(config_fs, config_root);
+    }, TEST_TIMEOUT);
 
     describe('nc upgrade manager - config_directory_defaults', () => {
 
@@ -323,7 +327,7 @@ describe('nc upgrade manager - upgrade config directory', () => {
 
     describe('nc upgrade manager - _run_nc_upgrade_scripts', () => {
         const from_version = '0.0.0';
-        const to_version = '1.0.0';
+        const to_version = '0.0.9';
         const custom_upgrade_scripts_dir = path.join(TMP_PATH, 'custom_upgrade_scripts_dir');
         const custom_upgrade_scripts_dir_version_path = path.join(TMP_PATH, 'custom_upgrade_scripts_dir', to_version);
         const default_upgrade_script_dir_version_path = path.join(DEFAULT_NC_UPGRADE_SCRIPTS_DIR, to_version);
@@ -419,13 +423,13 @@ describe('nc upgrade manager - upgrade config directory', () => {
 
         afterEach(async () => {
             await clean_config_dir(config_fs, config_root);
-        });
+        }, TEST_TIMEOUT);
 
         it('_update_config_dir_upgrade_start - system_data doesn\'t contain old config_directory data', async () => {
             const system_data = old_expected_system_json;
             const options = {
                 config_dir_from_version: '0.0.0',
-                config_dir_to_version: '1.0.0',
+                config_dir_to_version: '0.0.9',
                 package_from_version: '5.16.0',
                 package_to_version: '5.17.0',
             };
@@ -484,7 +488,7 @@ describe('nc upgrade manager - upgrade config directory', () => {
 
         afterEach(async () => {
             await clean_config_dir(config_fs, config_root);
-        });
+        }, TEST_TIMEOUT);
 
         it('_update_config_dir_upgrade_finish - system_data doesn\'t contain old successful_upgrades data', async () => {
             const system_data = _.cloneDeep(old_expected_system_json_empty_successful_upgrades);
@@ -527,7 +531,7 @@ describe('nc upgrade manager - upgrade config directory', () => {
                 'running_host': hostname,
                 'completed_scripts': [],
                 'config_dir_from_version': '0.0.0',
-                'config_dir_to_version': '1.0.0',
+                'config_dir_to_version': '0.0.9',
                 'package_from_version': '5.17.0',
                 'package_to_version': '5.18.0',
                 'error': new Error('this is a last failure error').stack
@@ -575,7 +579,7 @@ describe('nc upgrade manager - upgrade config directory', () => {
 
         afterEach(async () => {
             await clean_config_dir(config_fs, config_root);
-        });
+        }, TEST_TIMEOUT);
 
         it('_update_config_dir_upgrade_failed - system_data doesn\'t contain old upgrade_history data', async () => {
             const system_data = _.cloneDeep(old_expected_system_json_empty_successful_upgrades);
@@ -622,7 +626,7 @@ describe('nc upgrade manager - upgrade config directory', () => {
                 'running_host': hostname,
                 'completed_scripts': [],
                 'config_dir_from_version': '0.0.0',
-                'config_dir_to_version': '1.0.0',
+                'config_dir_to_version': '0.0.9',
                 'package_from_version': '5.17.0',
                 'package_to_version': '5.18.0',
                 'error': new Error('this is a last failure error').stack

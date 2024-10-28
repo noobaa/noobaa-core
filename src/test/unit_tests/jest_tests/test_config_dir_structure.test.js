@@ -5,7 +5,7 @@ const path = require('path');
 const config = require('../../../../config');
 const { ConfigFS } = require('../../../sdk/config_fs');
 const { TMP_PATH, create_redirect_file, create_config_dir, clean_config_dir,
-    fail_test_if_default_config_dir_exists } = require('../../system_tests/test_utils');
+    fail_test_if_default_config_dir_exists, TEST_TIMEOUT } = require('../../system_tests/test_utils');
 const { get_process_fs_context, is_path_exists } = require('../../../util/native_fs_utils');
 
 const tmp_fs_path = path.join(TMP_PATH, 'test_config_fs');
@@ -35,7 +35,7 @@ describe('create_config_dirs_if_missing', () => {
 
     afterEach(async () => {
         await clean_config_dir(config_fs, CUSTOM_CONF_DIR_PATH);
-    });
+    }, TEST_TIMEOUT);
 
     it('create_config_dirs_if_missing() first time - nothing exists - everything should be created', async () => {
         await default_config_fs.create_config_dirs_if_missing();

@@ -362,6 +362,14 @@ function get_bucket_and_key(req) {
             key = suffix;
         }
     }
+
+    if (key?.length > config.S3_MAX_KEY_LENGTH) {
+        throw new S3Error(S3Error.KeyTooLongError);
+    }
+    if (bucket?.length > config.S3_MAX_BUCKET_NAME_LENGTH) {
+        throw new S3Error(S3Error.InvalidBucketName);
+    }
+
     return {
         bucket,
         // decode and replace hadoop _$folder$ in key

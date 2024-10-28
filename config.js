@@ -198,6 +198,22 @@ config.S3_RESTORE_REQUEST_MAX_DAYS = 30;
  */
 config.S3_RESTORE_REQUEST_MAX_DAYS_BEHAVIOUR = 'TRUNCATE';
 
+/**
+ * S3_MAX_KEY_LENGTH controls the maximum key length that will be accepted
+ * by NooBaa endpoints.
+ * 
+ * This value is 1024 bytes for S3 but the default is `Infinity`
+ */
+config.S3_MAX_KEY_LENGTH = Infinity;
+
+/**
+ * S3_MAX_BUCKET_NAME_LENGTH controls the maximum bucket name length that
+ * will be accepted by NooBaa endpoints.
+ * 
+ * This value is 63 bytes for S3 but the default is `Infinity`
+ */
+config.S3_MAX_BUCKET_NAME_LENGTH = Infinity;
+
 /////////////////////
 // SECRETS CONFIG  //
 /////////////////////

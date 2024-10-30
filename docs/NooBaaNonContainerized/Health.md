@@ -351,3 +351,18 @@ The following error codes will be associated with a specific Bucket or Account s
   - Resolutions:
     - Check for FS user on the host running the Health CLI.
 
+#### 6. Bucket with invalid account owner
+  - Error code: `INVALID_ACCOUNT_OWNER`
+  - Error message: Bucket account owner is invalid
+  - Reasons:
+    - The bucket owner account is invalid.
+  - Resolutions:
+    - Compare bucket account owner and account ids in account dir.
+
+#### 7. Bucket missing account owner
+  - Error code: `MISSING_ACCOUNT_OWNER`
+  - Error message: Bucket account owner not found
+  - Reasons:
+    - Bucket missing owner account.
+  - Resolutions:
+    - Check for owner_account property in bucket config file.

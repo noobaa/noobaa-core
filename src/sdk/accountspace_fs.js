@@ -30,12 +30,18 @@ const account_id_cache = new LRUCache({
     name: 'AccountIDCache',
     // TODO: Decide on a time that we want to invalidate
     expiry_ms: Number(config.ACCOUNTS_ID_CACHE_EXPIRY),
-    /**
-     * @param {{ _id: string, config_fs: import('./config_fs').ConfigFS }} params
-     */
     make_key: ({ _id }) => _id,
-    load: async ({ _id, config_fs }) => config_fs.get_identity_by_id(_id, CONFIG_TYPES.ACCOUNT,
-        { show_secrets: true, decrypt_secret_key: true }),
+    /**
+     * Accounts are added to the cache based on id, Default value for show_secrets and decrypt_secret_key will be true, 
+     * and show_secrets and decrypt_secret_key `false` only when we load cache from the health script, 
+     * health script doesn't need to fetch or decrypt the secret.
+     * @param {{ _id: string, 
+     * show_secrets?: boolean,
+     * decrypt_secret_key?: boolean, 
+     * config_fs: import('./config_fs').ConfigFS }} params
+    */
+    load: async ({ _id, show_secrets = true, decrypt_secret_key = true, config_fs}) =>
+        config_fs.get_identity_by_id(_id, CONFIG_TYPES.ACCOUNT, { show_secrets: show_secrets, decrypt_secret_key: decrypt_secret_key }),
 });
 
 

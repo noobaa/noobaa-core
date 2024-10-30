@@ -3025,8 +3025,9 @@ class NamespaceFS {
                             undefined, true);
                         const latest_fd = gpfs_options?.move_to_dst?.dst_file;
                         latest_ver_info = latest_fd && await this._get_version_info(fs_context, undefined, latest_fd);
+                        if (!latest_ver_info) break;
                     }
-                    const versioned_path = latest_ver_info && this._get_version_path(params.key, latest_ver_info.version_id_str);
+                    const versioned_path = this._get_version_path(params.key, latest_ver_info.version_id_str);
 
                     const suspended_and_latest_is_not_null = this._is_versioning_suspended() &&
                         latest_ver_info.version_id_str !== NULL_VERSION_ID;

@@ -339,6 +339,21 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                 }
                 assert.deepEqual(res_version_ids, res_put_version_ids);
             });
+
+            // dir_content is not supported in versioning, but we want to make sure there are no errors
+            mocha.it('put object - versioning enabled - directory content', async function() {
+                await s3_uid6.putBucketVersioning({ Bucket: nested_keys_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
+                const key_as_dir_content = '/a/b/c/';
+                const size = 4; // in the original issue the error started on the 3rd PUT of dir content
+                const res_put_object = [];
+                for (let i = 0; i < size; i++) {
+                    const res = await s3_uid6.putObject({ Bucket: nested_keys_bucket_name, Key: key_as_dir_content, Body: body1 });
+                    res_put_object.push(res);
+                }
+                assert(res_put_object.length === size);
+                const check_version_id_exists = res_put_object.every(res => res.VersionId !== undefined);
+                assert.ok(check_version_id_exists);
+            });
         });
 
         mocha.describe('mpu object', function() {

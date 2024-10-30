@@ -1388,7 +1388,7 @@ class NamespaceFS {
         dbg.log1('NamespaceFS._finish_upload:', open_mode, file_path, upload_path, fs_xattr);
 
         if (!same_inode && !part_upload) {
-            await this._move_to_dest(fs_context, upload_path, file_path, target_file, open_mode, params.key);
+            await this._move_to_dest(fs_context, upload_path, file_path, target_file, open_mode, params.key, is_dir_content);
         }
 
         // when object is a dir, xattr are set on the folder itself and the content is in .folder file
@@ -1421,13 +1421,16 @@ class NamespaceFS {
     }
 
     // move to dest GPFS (wt) / POSIX (w / undefined) - non part upload
-    async _move_to_dest(fs_context, source_path, dest_path, target_file, open_mode, key) {
+    async _move_to_dest(fs_context, source_path, dest_path, target_file, open_mode, key, is_dir_content) {
+        dbg.log2('_move_to_dest', fs_context, source_path, dest_path, target_file, open_mode, key, is_dir_content);
         let retries = config.NSFS_RENAME_RETRIES;
         // will retry renaming a file in case of parallel deleting of the destination path
         for (;;) {
             try {
                 await native_fs_utils._make_path_dirs(dest_path, fs_context);
-                if (this._is_versioning_disabled()) {
+                if (this._is_versioning_disabled() ||
+                    (this._is_versioning_enabled() && is_dir_content)) {
+                // dir_content is not supported in versioning, hence we will treat it like versioning disabled
                     if (open_mode === 'wt') {
                         await target_file.linkfileat(fs_context, dest_path);
                     } else {

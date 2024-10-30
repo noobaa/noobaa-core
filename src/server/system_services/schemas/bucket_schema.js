@@ -275,5 +275,11 @@ module.exports = {
         logging: {
             $ref: 'common_api#/definitions/bucket_logging',
         },
+        notifications: {
+            type: 'array',
+            items: {
+                 $ref: 'common_api#/definitions/bucket_notification'
+            }
+        },
     }
 };

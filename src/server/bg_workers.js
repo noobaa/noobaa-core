@@ -41,6 +41,7 @@ const db_cleaner = require('./bg_services/db_cleaner');
 const { KeyRotator } = require('./bg_services/key_rotator');
 const prom_reporting = require('./analytic_services/prometheus_reporting');
 const { TieringTTLWorker } = require('./bg_services/tier_ttl_worker');
+const { Notificator } = require('../util/notifications_util');
 
 const MASTER_BG_WORKERS = [
     'scrubber',
@@ -235,6 +236,15 @@ function run_master_workers() {
             name: 'tiering_ttl_worker',
             client: server_rpc.client
         }));
+    }
+
+    if (config.NOTIFICATION_LOG_DIR) {
+        register_bg_worker(new Notificator({
+            name: 'Notificator',
+            client: server_rpc.client,
+        }));
+    } else {
+        dbg.warn('NOTIFICATIONS NOT ENABLED');
     }
 }
 

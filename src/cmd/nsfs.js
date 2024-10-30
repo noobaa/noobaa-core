@@ -121,7 +121,7 @@ function print_usage() {
 let nsfs_config_root;
 
 class NsfsObjectSDK extends ObjectSDK {
-    constructor(fs_root, fs_config, account, versioning, config_root) {
+    constructor(fs_root, fs_config, account, versioning, config_root, nsfs_system) {
         // const rpc_client_hooks = new_rpc_client_hooks();
         // rpc_client_hooks.account.read_account_by_access_key = async ({ access_key }) => {
         //     if (access_key) {
@@ -152,6 +152,7 @@ class NsfsObjectSDK extends ObjectSDK {
         this.nsfs_account = account;
         this.nsfs_versioning = versioning;
         this.nsfs_namespaces = {};
+        this.nsfs_system = nsfs_system;
         if (!config_root) {
             this._get_bucket_namespace = bucket_name => this._simple_get_single_bucket_namespace(bucket_name);
             this.load_requesting_account = auth_req => this._simple_load_requesting_account(auth_req);
@@ -239,6 +240,7 @@ class NsfsAccountSDK extends AccountSDK {
     }
 }
 
+/* eslint-disable max-statements */
 async function main(argv = minimist(process.argv.slice(2))) {
     try {
         config.DB_TYPE = 'none';
@@ -318,15 +320,16 @@ async function main(argv = minimist(process.argv.slice(2))) {
             nsfs_config_root,
         });
 
+        let system_data;
         if (!simple_mode) {
             // Do not move this function - we need to create/update RPM changes before starting the endpoint
             const config_fs = new ConfigFS(nsfs_config_root);
-            const system_data = await config_fs.get_system_config_file({ silent_if_missing: true });
+            system_data = await config_fs.get_system_config_file({ silent_if_missing: true });
             if (system_data && system_data[os.hostname()]) {
                 const nc_upgrade_manager = new NCUpgradeManager(config_fs);
                 await nc_upgrade_manager.update_rpm_upgrade();
             } else {
-                await config_fs.init_nc_system();
+                system_data = await config_fs.init_nc_system();
             }
         }
 
@@ -340,7 +343,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
             forks,
             nsfs_config_root,
             init_request_sdk: (req, res) => {
-                req.object_sdk = new NsfsObjectSDK(fs_root, fs_config, account, versioning, nsfs_config_root);
+                req.object_sdk = new NsfsObjectSDK(fs_root, fs_config, account, versioning, nsfs_config_root, system_data);
                 req.account_sdk = new NsfsAccountSDK(fs_root, fs_config, account, nsfs_config_root);
             }
         });

@@ -8,6 +8,7 @@ const url = require('url');
 const path = require('path');
 const crypto = require('crypto');
 const S3Error = require('../endpoint/s3/s3_errors').S3Error;
+const time_utils = require('./time_utils');
 
 
 ///////////////////////////////////////
@@ -124,9 +125,9 @@ function _string_to_sign_v4(req, signed_headers, xamzdate, region, service) {
 
 function _check_expiry_query_v4(request_date, expires_seconds) {
     const now = Date.now();
-    const expires = (new Date(request_date).getTime()) + (Number(expires_seconds) * 1000);
+    const expires = (new Date(time_utils.parse_amz_date(request_date)).getTime()) + (Number(expires_seconds) * 1000);
     if (now > expires) {
-        throw new Error('Authentication Expired (V4)');
+        throw new S3Error(S3Error.RequestExpired);
     }
 }
 
@@ -178,7 +179,7 @@ function _check_expiry_query_s3(expires_epoch) {
     const now = Date.now();
     const expires = Number(expires_epoch) * 1000;
     if (now > expires) {
-        throw new Error('Authentication Expired (S3)');
+        throw new S3Error(S3Error.RequestExpired);
     }
 }
 
@@ -283,12 +284,20 @@ function make_auth_token_from_request(req) {
  */
 function check_request_expiry(req) {
     if (req.query['X-Amz-Date'] && req.query['X-Amz-Expires']) {
+        _check_expiry_limit(req.query['X-Amz-Expires']);
         _check_expiry_query_v4(req.query['X-Amz-Date'], req.query['X-Amz-Expires']);
     } else if (req.query.Expires) {
+        _check_expiry_limit(req.query.Expires);
         _check_expiry_query_s3(req.query.Expires);
     }
 }
 
+// expiry_seconds limit is 7 days
+function _check_expiry_limit(expiry_seconds) {
+    if (Number(expiry_seconds) > 7 * 24 * 60 * 60 * 1000) {
+        throw new S3Error(S3Error.AuthorizationQueryParametersError);
+    }
+}
 
 /**
  *

@@ -1,5 +1,5 @@
 ARG CENTOS_VER=9
-FROM quay.io/centos/centos:stream${CENTOS_VER}
+FROM quay.io/centos/centos:stream${CENTOS_VER} AS noobaa-builder
 #Needs to reapply ARG, it was cleaned by FROM command.
 ARG CENTOS_VER
 LABEL maintainer="Liran Mauda (lmauda@redhat.com)"

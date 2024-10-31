@@ -1,5 +1,5 @@
 ARG CENTOS_VER=9
-FROM noobaa-base as server_builder
+FROM noobaa-base AS server_builder
 
 RUN mkdir -p /noobaa_init_files && \
     cp -p ./build/Release/kube_pv_chown /noobaa_init_files
@@ -39,18 +39,18 @@ RUN tar \
 #   Cache: Rebuild when any layer is changing
 ##############################################################
 
-FROM quay.io/centos/centos:stream${CENTOS_VER}
+FROM quay.io/centos/centos:stream${CENTOS_VER} AS noobaa
 
 # The ports are overridden for Ceph Test later
-ENV container docker
-ENV PORT 8080
-ENV SSL_PORT 8443
-ENV ENDPOINT_PORT 6001
-ENV ENDPOINT_SSL_PORT 6443
-ENV WEB_NODE_OPTIONS ''
-ENV BG_NODE_OPTIONS ''
-ENV HOSTED_AGENTS_NODE_OPTIONS ''
-ENV ENDPOINT_NODE_OPTIONS ''
+ENV container=docker
+ENV PORT=8080
+ENV SSL_PORT=8443
+ENV ENDPOINT_PORT=6001
+ENV ENDPOINT_SSL_PORT=6443
+ENV WEB_NODE_OPTIONS=''
+ENV BG_NODE_OPTIONS=''
+ENV HOSTED_AGENTS_NODE_OPTIONS=''
+ENV ENDPOINT_NODE_OPTIONS=''
 
 ##############################################################
 # Layers:
@@ -153,7 +153,7 @@ EXPOSE 27000
 EXPOSE 26050
 
 # Needs to be added only after installing jemalloc in dependencies section (our env section is before) - otherwise it will fail
-ENV LD_PRELOAD /usr/lib64/libjemalloc.so.2
+ENV LD_PRELOAD=/usr/lib64/libjemalloc.so.2
 
 #RUN mkdir -p /nsfs/fs1/amitpb && chmod -R 777 /nsfs/
 #RUN mkdir -p /nsfsAA/fs1/amitpb && chmod -R 777 /nsfsAA/

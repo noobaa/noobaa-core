@@ -2,7 +2,7 @@
 ARG CENTOS_VER=9
 FROM quay.io/centos/centos:stream${CENTOS_VER}
 
-ENV container docker
+ENV container=docker
 
 RUN dnf update -y -q && \
     dnf install -y -q \

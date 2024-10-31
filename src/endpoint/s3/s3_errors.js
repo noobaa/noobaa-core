@@ -519,6 +519,21 @@ S3Error.InvalidEncodingType = Object.freeze({
     message: 'Invalid Encoding Method specified in Request',
     http_code: 400,
 });
+S3Error.AuthorizationQueryParametersError = Object.freeze({
+    code: 'AuthorizationQueryParametersError',
+    message: 'X-Amz-Expires must be less than a week (in seconds); that is, the given X-Amz-Expires must be less than 604800 seconds',
+    http_code: 400,
+});
+S3Error.RequestExpired = Object.freeze({
+    code: 'AccessDenied',
+    message: 'Request has expired',
+    http_code: 403,
+});
+S3Error.RequestNotValidYet = Object.freeze({
+    code: 'AccessDenied',
+    message: 'request is not valid yet',
+    http_code: 403,
+});
 
 ////////////////////////////////////////////////////////////////
 // S3 Select                                                  //

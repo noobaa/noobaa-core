@@ -249,8 +249,8 @@ S3Error.InvalidURI = Object.freeze({
     message: 'Couldn\'t parse the specified URI.',
     http_code: 400,
 });
-S3Error.KeyTooLong = Object.freeze({
-    code: 'KeyTooLong',
+S3Error.KeyTooLongError = Object.freeze({
+    code: 'KeyTooLongError',
     message: 'Your key is too long.',
     http_code: 400,
 });

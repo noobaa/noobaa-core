@@ -445,7 +445,7 @@ mocha.describe('system_servers', function() {
             .then(() => rpc_client.bucket.read_bucket({
                 name: BUCKET,
             }))
-            .then(() => rpc_client.bucket.list_buckets())
+            .then(() => rpc_client.bucket.list_buckets({}))
             .then(() => rpc_client.bucket.update_bucket({
                 name: BUCKET,
                 new_name: BUCKET + 1,

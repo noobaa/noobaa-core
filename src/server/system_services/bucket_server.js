@@ -999,19 +999,60 @@ async function delete_bucket_lifecycle(req) {
  * LIST_BUCKETS
  *
  */
+
 async function list_buckets(req) {
-    const buckets_by_name = _.filter(
-        req.system.buckets_by_name,
+
+    let next_index = 0;
+    let is_truncated = false;
+
+    let continuation_token = req.rpc_params?.continuation_token;
+    const max_buckets = req.rpc_params?.max_buckets;
+
+    const accessible_bucket_list = system_store.data.buckets.filter(
         async bucket => await req.has_s3_bucket_permission(bucket, "s3:ListBucket", req) && !bucket.deleting
     );
-    return {
-        buckets: _.map(buckets_by_name, function(bucket) {
-            return {
-                name: bucket.name,
-                creation_date: bucket._id.getTimestamp().getTime()
-            };
-        })
-    };
+
+    accessible_bucket_list.sort((a, b) => a.name.unwrap().localeCompare(b.name.unwrap()));
+
+    if (!max_buckets) {
+        const buckets = accessible_bucket_list.map(b => ({
+            name: b.name,
+            creation_date: b._id.getTimestamp().getTime()
+        }));
+        return {
+            buckets,
+        };
+    }
+
+    if (continuation_token) {
+        const index = accessible_bucket_list.findIndex(
+            bucket => bucket.name.unwrap().localeCompare(continuation_token.unwrap()) >= 0
+        );
+        if (index !== -1) {
+            next_index = index + 1;
+        }
+    }
+
+    const paged_bucket_list = accessible_bucket_list.slice(next_index, next_index + max_buckets);
+
+    const buckets = paged_bucket_list.map(bucket => ({
+        name: bucket.name,
+        creation_date: bucket._id.getTimestamp().getTime()
+    }));
+
+    is_truncated = accessible_bucket_list.length > next_index + max_buckets;
+    continuation_token = is_truncated ? accessible_bucket_list[next_index + max_buckets - 1].name : undefined;
+
+    if (continuation_token) {
+        return {
+            buckets,
+            continuation_token,
+        };
+    } else {
+        return {
+            buckets,
+        };
+    }
 }
 
 

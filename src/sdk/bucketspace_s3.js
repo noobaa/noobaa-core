@@ -27,7 +27,7 @@ class BucketSpaceS3 {
     // BUCKET //
     ////////////
 
-    async list_buckets() {
+    async list_buckets(params) {
         try {
             console.log(`bss3: list_buckets`);
             const res = await this.s3.listBuckets({});

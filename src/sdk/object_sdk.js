@@ -877,12 +877,12 @@ class ObjectSDK {
     // BUCKET //
     ////////////
 
-    async list_buckets() {
+    async list_buckets(params = {}) {
         return this._call_op_and_update_stats({
             op_name: 'list_buckets',
             op_func: async () => {
                 const bs = this._get_bucketspace();
-                return bs.list_buckets(this);
+                return bs.list_buckets(params, this);
             },
         });
     }

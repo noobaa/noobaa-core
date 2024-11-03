@@ -43,7 +43,7 @@ async function get_bucket(req) {
         delimiter: req.query.delimiter,
         limit: Math.min(max_keys_received, 1000),
         key_marker: list_type === '2' ?
-            (cont_tok_to_key_marker(cont_tok) || start_after) : req.query.marker,
+            (s3_utils.cont_tok_to_key_marker(cont_tok) || start_after) : req.query.marker,
     };
 
     if (req.query.get_from_cache) {
@@ -66,7 +66,7 @@ async function get_bucket(req) {
                 ContinuationToken: cont_tok,
                 StartAfter: field_encoder(start_after),
                 KeyCount: reply.objects.length + reply.common_prefixes.length,
-                NextContinuationToken: key_marker_to_cont_tok(
+                NextContinuationToken: s3_utils.key_marker_to_cont_tok(
                     reply.next_marker, reply.objects, reply.is_truncated),
             } : { // list_type v1
                 Marker: req.query.marker || '',
@@ -94,25 +94,6 @@ async function get_bucket(req) {
         }))
         ]
     };
-}
-
-function cont_tok_to_key_marker(cont_tok) {
-    if (!cont_tok) return;
-    try {
-        const b = Buffer.from(cont_tok, 'base64');
-        const j = JSON.parse(b.toString());
-        return j.key;
-    } catch (err) {
-        throw new S3Error(S3Error.InvalidArgument);
-    }
-}
-
-function key_marker_to_cont_tok(key_marker, objects_arr, is_truncated) {
-    if (!key_marker && !is_truncated) return;
-    // next marker is the key marker we got or the key of the last item in the objects list.
-    const next_marker = key_marker || objects_arr[objects_arr.length - 1].key;
-    const j = JSON.stringify({ key: next_marker });
-    return Buffer.from(j).toString('base64');
 }
 
 function get_object_restore_status(obj, restore_status_requested) {

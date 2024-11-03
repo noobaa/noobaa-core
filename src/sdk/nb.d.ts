@@ -821,7 +821,7 @@ interface BucketSpace {
     read_account_by_access_key({ access_key: string }): Promise<any>;
     read_bucket_sdk_info({ name: string }): Promise<any>;
 
-    list_buckets(object_sdk: ObjectSDK): Promise<any>;
+    list_buckets(params: object, object_sdk: ObjectSDK): Promise<any>;
     read_bucket(params: object): Promise<any>;
     create_bucket(params: object, object_sdk: ObjectSDK): Promise<any>;
     delete_bucket(params: object, object_sdk: ObjectSDK): Promise<any>;
@@ -1099,7 +1099,7 @@ interface X509Name {
     O: string;
 }
 
-type select_input_format =  'CSV' | 'JSON' | 'Parquet';
+type select_input_format = 'CSV' | 'JSON' | 'Parquet';
 interface S3SelectOptions {
     query: string;
     input_format: select_input_format;
@@ -1125,7 +1125,7 @@ type NodeCallback<T = void> = (err: Error | null, res?: T) => void;
 type RestoreState = 'CAN_RESTORE' | 'ONGOING' | 'RESTORED';
 
 interface RestoreStatus {
-  state: nb.RestoreState;
-  ongoing?: boolean;
-  expiry_time?: Date;
+    state: nb.RestoreState;
+    ongoing?: boolean;
+    expiry_time?: Date;
 }

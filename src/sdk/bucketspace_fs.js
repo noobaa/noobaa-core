@@ -192,7 +192,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
      * @param {nb.ObjectSDK} object_sdk
      * @returns {Promise<object>}
      */
-    async list_buckets(object_sdk) {
+    async list_buckets(params, object_sdk) {
         let bucket_names;
         try {
             bucket_names = await this.config_fs.list_buckets();

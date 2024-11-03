@@ -3025,7 +3025,7 @@ class NamespaceFS {
                     if (is_gpfs) {
                     gpfs_options = await this._open_files_gpfs(fs_context, latest_ver_path, undefined, undefined, undefined,
                             undefined, true);
-                        const latest_fd = gpfs_options?.move_to_dst?.dst_file;
+                        const latest_fd = gpfs_options?.delete_version?.src_file;
                         latest_ver_info = latest_fd && await this._get_version_info(fs_context, undefined, latest_fd);
                         if (!latest_ver_info) break;
                     }

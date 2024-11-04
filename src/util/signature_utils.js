@@ -287,14 +287,15 @@ function check_request_expiry(req) {
         _check_expiry_limit(req.query['X-Amz-Expires']);
         _check_expiry_query_v4(req.query['X-Amz-Date'], req.query['X-Amz-Expires']);
     } else if (req.query.Expires) {
-        _check_expiry_limit(req.query.Expires);
+        const expiry_seconds = req.query.Expires - Math.ceil(Date.now() / 1000);
+        _check_expiry_limit(expiry_seconds);
         _check_expiry_query_s3(req.query.Expires);
     }
 }
 
-// expiry_seconds limit is 7 days
+// expiry_seconds limit is 7 days = 604800 seconds
 function _check_expiry_limit(expiry_seconds) {
-    if (Number(expiry_seconds) > 7 * 24 * 60 * 60 * 1000) {
+    if (Number(expiry_seconds) > 604800) {
         throw new S3Error(S3Error.AuthorizationQueryParametersError);
     }
 }

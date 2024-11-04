@@ -934,7 +934,6 @@ class NamespaceFS {
         let stat;
         let isDir;
         let retries = (this._is_versioning_enabled() || this._is_versioning_suspended()) ? config.NSFS_RENAME_RETRIES : 0;
-        const is_gpfs = native_fs_utils._is_gpfs(fs_context);
         try {
             for (;;) {
             try {
@@ -962,7 +961,7 @@ class NamespaceFS {
                 } catch (err) {
                     dbg.warn(`NamespaceFS.read_object_md: retrying retries=${retries} file_path=${file_path}`, err);
                     retries -= 1;
-                    if (retries <= 0 || !native_fs_utils.should_retry_link_unlink(is_gpfs, err)) throw err;
+                    if (retries <= 0 || !native_fs_utils.should_retry_link_unlink(err)) throw err;
                     await P.delay(get_random_delay(config.NSFS_RANDOM_DELAY_BASE, 0, 50));
                 }
             }
@@ -1002,7 +1001,6 @@ class NamespaceFS {
         try {
             await this._load_bucket(params, fs_context);
             let retries = (this._is_versioning_enabled() || this._is_versioning_suspended()) ? config.NSFS_RENAME_RETRIES : 0;
-            const is_gpfs = native_fs_utils._is_gpfs(fs_context);
             let stat;
             for (;;) {
                 try {
@@ -1033,7 +1031,7 @@ class NamespaceFS {
                         file = null;
                     }
                     retries -= 1;
-                    if (retries <= 0 || !native_fs_utils.should_retry_link_unlink(is_gpfs, err)) {
+                    if (retries <= 0 || !native_fs_utils.should_retry_link_unlink(err)) {
                         new NoobaaEvent(NoobaaEvent.OBJECT_GET_FAILED).create_event(params.key,
                             {bucket_path: this.bucket_path, object_name: params.key}, err);
                         throw err;
@@ -1526,7 +1524,7 @@ class NamespaceFS {
                 break;
             } catch (err) {
                 retries -= 1;
-                const should_retry = native_fs_utils.should_retry_link_unlink(is_gpfs, err);
+                const should_retry = native_fs_utils.should_retry_link_unlink(err);
                 dbg.warn(`NamespaceFS._move_to_dest_version error: retries=${retries} should_retry=${should_retry}` +
                     ` new_ver_tmp_path=${new_ver_tmp_path} latest_ver_path=${latest_ver_path}`, err);
                 if (!should_retry || retries <= 0) throw err;
@@ -2835,7 +2833,6 @@ class NamespaceFS {
      */
     async _delete_single_object_versioned(fs_context, key, version_id) {
         let retries = config.NSFS_RENAME_RETRIES;
-        const is_gpfs = native_fs_utils._is_gpfs(fs_context);
         const latest_version_path = this._get_file_path({ key });
         for (;;) {
             let file_path;
@@ -2872,11 +2869,11 @@ class NamespaceFS {
                 // there are a few concurrency scenarios that might happen we should retry for -
                 // 1. the version id is the latest, concurrent put will might move the version id from being the latest to .versions/ -
                 // will throw safe unlink failed on non matching fd (on GPFS) or inode/mtime (on POSIX).
-                // 2. the version id is the second latest and stays under .versions/ - on concurrent delete of the latest, 
+                // 2. the version id is the second latest and stays under .versions/ - on concurrent delete of the latest,
                 // the version id might move to be the latest and we will get ENOENT
-                // 3. concurrent delete of this version - will get ENOENT, doing a retry will return successfully 
+                // 3. concurrent delete of this version - will get ENOENT, doing a retry will return successfully
                 // after we will see that the version was already deleted
-                if (retries <= 0 || !native_fs_utils.should_retry_link_unlink(is_gpfs, err)) throw err;
+                if (retries <= 0 || !native_fs_utils.should_retry_link_unlink(err)) throw err;
                 await P.delay(get_random_delay(config.NSFS_RANDOM_DELAY_BASE, 0, 50));
             } finally {
                 if (gpfs_options) await this._close_files_gpfs(fs_context, gpfs_options.delete_version, undefined, true);
@@ -3023,10 +3020,11 @@ class NamespaceFS {
                     if (is_gpfs) {
                     gpfs_options = await this._open_files_gpfs(fs_context, latest_ver_path, undefined, undefined, undefined,
                             undefined, true);
-                        const latest_fd = gpfs_options?.move_to_dst?.dst_file;
+                        const latest_fd = gpfs_options?.delete_version?.src_file;
                         latest_ver_info = latest_fd && await this._get_version_info(fs_context, undefined, latest_fd);
+                        if (!latest_ver_info) break;
                     }
-                    const versioned_path = latest_ver_info && this._get_version_path(params.key, latest_ver_info.version_id_str);
+                    const versioned_path = this._get_version_path(params.key, latest_ver_info.version_id_str);
 
                     const suspended_and_latest_is_not_null = this._is_versioning_suspended() &&
                         latest_ver_info.version_id_str !== NULL_VERSION_ID;
@@ -3050,7 +3048,7 @@ class NamespaceFS {
             } catch (err) {
                 dbg.warn(`NamespaceFS._delete_latest_version error: retries=${retries} latest_ver_path=${latest_ver_path}`, err);
                 retries -= 1;
-                if (retries <= 0 || !native_fs_utils.should_retry_link_unlink(is_gpfs, err)) throw err;
+                if (retries <= 0 || !native_fs_utils.should_retry_link_unlink(err)) throw err;
                 await P.delay(get_random_delay(config.NSFS_RANDOM_DELAY_BASE, 0, 50));
             } finally {
                 if (gpfs_options) await this._close_files_gpfs(fs_context, gpfs_options.delete_version, undefined, true);
@@ -3066,9 +3064,8 @@ class NamespaceFS {
 
     // We can have only one versioned object with null version ID per key.
     // It can be latest version, old version in .version/ directory or delete marker
-    // This function removes an object version or delete marker with a null version ID inside .version/ directory 
+    // This function removes an object version or delete marker with a null version ID inside .version/ directory
     async _delete_null_version_from_versions_directory(key, fs_context) {
-        const is_gpfs = native_fs_utils._is_gpfs(fs_context);
         const null_versioned_path = this._get_version_path(key, NULL_VERSION_ID);
         await this._check_path_in_bucket_boundaries(fs_context, null_versioned_path);
         let gpfs_options;
@@ -3088,7 +3085,7 @@ class NamespaceFS {
             } catch (err) {
                 dbg.warn(`NamespaceFS._delete_null_version_from_versions_directory error: retries=${retries} null_versioned_path=${null_versioned_path}`, err);
                 retries -= 1;
-                if (retries <= 0 || !native_fs_utils.should_retry_link_unlink(is_gpfs, err)) throw err;
+                if (retries <= 0 || !native_fs_utils.should_retry_link_unlink(err)) throw err;
                 await P.delay(get_random_delay(config.NSFS_RANDOM_DELAY_BASE, 0, 50));
             } finally {
                 if (gpfs_options) await this._close_files_gpfs(fs_context, gpfs_options.delete_version, undefined, true);

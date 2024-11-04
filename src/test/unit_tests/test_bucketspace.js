@@ -1,5 +1,5 @@
 /* Copyright (C) 2020 NooBaa */
-/*eslint max-lines: ["error", 2200]*/
+/*eslint max-lines: ["error", 2500]*/
 /*eslint max-lines-per-function: ["error", 1300]*/
 /*eslint max-statements: ["error", 80, { "ignoreTopLevelFunctions": true }]*/
 'use strict';
@@ -12,8 +12,14 @@ const util = require('util');
 const http = require('http');
 const mocha = require('mocha');
 const assert = require('assert');
+const http_utils = require('../../util/http_utils');
 const config = require('../../../config');
 const fs_utils = require('../../util/fs_utils');
+const fetch = require('node-fetch');
+const P = require('../../util/promise');
+const cloud_utils = require('../../util/cloud_utils');
+const SensitiveString = require('../../util/sensitive_string');
+const S3Error = require('../../../src/endpoint/s3/s3_errors').S3Error;
 const test_utils = require('../system_tests/test_utils');
 const { stat, open } = require('../../util/nb_native')().fs;
 const { get_process_fs_context } = require('../../util/native_fs_utils');
@@ -1849,3 +1855,140 @@ async function update_account_nsfs_config(email, default_resource, new_nsfs_acco
     }
 }
 
+mocha.describe('Presigned URL tests', function() {
+    this.timeout(50000); // eslint-disable-line no-invalid-this
+    const nsr = 'presigned_url_nsr';
+    const account_name = 'presigned_url_account';
+    const fs_path = path.join(TMP_PATH, 'presigned_url_tests/');
+    const presigned_url_bucket = 'presigned-url-bucket';
+    const presigned_url_object = 'presigned-url-object.txt';
+    const presigned_body = 'presigned_body';
+    let s3_client;
+    let access_key;
+    let secret_key;
+    CORETEST_ENDPOINT = coretest.get_http_address();
+    let valid_default_presigned_url;
+    let presigned_url_params;
+
+    mocha.before(async function() {
+        await fs_utils.create_fresh_path(fs_path);
+        await rpc_client.pool.create_namespace_resource({ name: nsr, nsfs_config: { fs_root_path: fs_path } });
+        const new_buckets_path = is_nc_coretest ? fs_path : '/';
+        const nsfs_account_config = {
+            uid: process.getuid(), gid: process.getgid(), new_buckets_path, nsfs_only: true
+        };
+        const account_params = { ...new_account_params, email: `${account_name}@noobaa.io`, name: account_name, default_resource: nsr, nsfs_account_config };
+        const res = await rpc_client.account.create_account(account_params);
+        access_key = res.access_keys[0].access_key;
+        secret_key = res.access_keys[0].secret_key;
+        s3_client = generate_s3_client(access_key.unwrap(), secret_key.unwrap(), CORETEST_ENDPOINT);
+        await s3_client.createBucket({ Bucket: presigned_url_bucket });
+        await s3_client.putObject({ Bucket: presigned_url_bucket, Key: presigned_url_object, Body: presigned_body });
+
+        presigned_url_params = {
+            bucket: new SensitiveString(presigned_url_bucket),
+            key: presigned_url_object,
+            endpoint: CORETEST_ENDPOINT,
+            access_key: access_key,
+            secret_key: secret_key
+        };
+        valid_default_presigned_url = cloud_utils.get_signed_url(presigned_url_params);
+    });
+
+    mocha.after(async function() {
+        if (!is_nc_coretest) return;
+        await s3_client.deleteObject({ Bucket: presigned_url_bucket, Key: presigned_url_object });
+        await s3_client.deleteBucket({ Bucket: presigned_url_bucket });
+        await rpc_client.account.delete_account({ email: `${account_name}@noobaa.io` });
+        await fs_utils.folder_delete(fs_path);
+    });
+
+    it('fetch valid presigned URL - 604800 seconds - epoch expiry - should return object data', async () => {
+        const data = await fetchData(valid_default_presigned_url);
+        assert.equal(data, presigned_body);
+    });
+
+    it('fetch valid presigned URL - 604800 seconds - should return object data - with valid date + expiry in seconds', async () => {
+        const now = new Date();
+        const valid_url_with_date = valid_default_presigned_url + '&X-Amz-Date=' + now.toISOString() + '&X-Amz-Expires=' + 604800;
+        const data = await fetchData(valid_url_with_date);
+        assert.equal(data, presigned_body);
+    });
+
+    it('fetch invalid presigned URL - 604800 seconds - epoch expiry + with future date', async () => {
+        const now = new Date();
+        // Add one hour (3600000 milliseconds)
+        const one_hour_in_ms = 60 * 60 * 1000;
+        const one_hour_from_now = new Date(now.getTime() + one_hour_in_ms);
+        const future_presigned_url = valid_default_presigned_url + '&X-Amz-Date=' + one_hour_from_now.toISOString();
+        const expected_err = new S3Error(S3Error.RequestNotValidYet);
+        await assert_throws_async(fetchData(future_presigned_url), expected_err.message);
+    });
+
+    it('fetch invalid presigned URL - 604800 expiry seconds + with future date', async () => {
+        const now = new Date();
+        // Add one hour (3600000 milliseconds)
+        const one_hour_in_ms = 60 * 60 * 1000;
+        const one_hour_from_now = new Date(now.getTime() + one_hour_in_ms);
+        const future_presigned_url = valid_default_presigned_url + '&X-Amz-Date=' + one_hour_from_now.toISOString() + '&X-Amz-Expires=' + 604800;
+        const expected_err = new S3Error(S3Error.RequestNotValidYet);
+        await assert_throws_async(fetchData(future_presigned_url), expected_err.message);
+    });
+
+    it('fetch invalid presigned URL - 604800 seconds - epoch expiry - URL expired', async () => {
+        const expired_presigned_url = cloud_utils.get_signed_url(presigned_url_params, 1);
+        // wait for 2 seconds before fetching the url
+        await P.delay(2000);
+        const expected_err = new S3Error(S3Error.RequestExpired);
+        await assert_throws_async(fetchData(expired_presigned_url), expected_err.message);
+    });
+
+    it('fetch invalid presigned URL - 604800 expiry seconds - URL expired', async () => {
+        const now = new Date();
+        const expired_presigned_url = cloud_utils.get_signed_url(presigned_url_params, 1) + '&X-Amz-Date=' + now.toISOString() + '&X-Amz-Expires=' + 1;
+        // wait for 2 seconds before fetching the url
+        await P.delay(2000);
+        const expected_err = new S3Error(S3Error.RequestExpired);
+        await assert_throws_async(fetchData(expired_presigned_url), expected_err.message);
+    });
+
+    it('fetch invalid presigned URL - expiry expoch - expire in bigger than limit', async () => {
+        const invalid_expiry = 604800 + 10;
+        const invalid_expiry_presigned_url = cloud_utils.get_signed_url(presigned_url_params, invalid_expiry);
+        const expected_err = new S3Error(S3Error.AuthorizationQueryParametersError);
+        await assert_throws_async(fetchData(invalid_expiry_presigned_url), expected_err.message);
+    });
+
+    it('fetch invalid presigned URL - expire in bigger than limit', async () => {
+        const now = new Date();
+        const invalid_expiry = 604800 + 10;
+        const invalid_expiry_presigned_url = cloud_utils.get_signed_url(presigned_url_params, invalid_expiry) + '&X-Amz-Date=' + now.toISOString() + '&X-Amz-Expires=' + invalid_expiry;
+        const expected_err = new S3Error(S3Error.AuthorizationQueryParametersError);
+        await assert_throws_async(fetchData(invalid_expiry_presigned_url), expected_err.message);
+    });
+});
+
+async function fetchData(presigned_url) {
+    const response = await fetch(presigned_url, { agent: new http.Agent({ keepAlive: false }) });
+    let data;
+    if (!response.ok) {
+        data = (await response.text()).trim();
+        const err_json = (await http_utils.parse_xml_to_js(data)).Error;
+        const err = new Error(err_json.Message);
+        err.code = err_json.Code;
+        throw err;
+    }
+    data = await response.text();
+    return data.trim();
+}
+
+async function assert_throws_async(promise, expected_message = 'Access Denied') {
+    try {
+        await promise;
+        assert.fail('Test was suppose to fail on ' + expected_message);
+    } catch (err) {
+        if (err.message !== expected_message) {
+            throw err;
+        }
+    }
+}

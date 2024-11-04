@@ -58,7 +58,7 @@ async function generate_aws_sts_creds(params, roleSessionName) {
     );
 }
 
-function get_signed_url(params) {
+function get_signed_url(params, expiry = 604800) {
     const s3 = new AWS.S3({
         endpoint: params.endpoint,
         credentials: {
@@ -81,7 +81,7 @@ function get_signed_url(params) {
             Bucket: params.bucket.unwrap(),
             Key: params.key,
             VersionId: params.version_id,
-            Expires: 604800
+            Expires: expiry
         }
     );
 }

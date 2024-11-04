@@ -15,7 +15,7 @@ const config = exports;
 config.DEFAULT_POOL_TYPE = 'HOSTS';
 config.AGENT_RPC_PORT = '9999';
 config.AGENT_RPC_PROTOCOL = 'tcp';
-config.POSTGRES_MAX_CLIENTS = 10;
+config.POSTGRES_DEFAULT_MAX_CLIENTS = 10;
 EOF
 
 # setup_env is not needed when running inside a container because the container

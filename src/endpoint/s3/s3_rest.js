@@ -12,6 +12,7 @@ const s3_logging = require('./s3_bucket_logging');
 const time_utils = require('../../util/time_utils');
 const http_utils = require('../../util/http_utils');
 const signature_utils = require('../../util/signature_utils');
+const config = require('../../../config');
 
 const S3_MAX_BODY_LEN = 4 * 1024 * 1024;
 
@@ -326,6 +327,14 @@ function get_bucket_and_key(req) {
             key = suffix;
         }
     }
+
+    if (key?.length > config.S3_MAX_KEY_LENGTH) {
+        throw new S3Error(S3Error.KeyTooLongError);
+    }
+    if (bucket?.length > config.S3_MAX_BUCKET_NAME_LENGTH) {
+        throw new S3Error(S3Error.InvalidBucketName);
+    }
+
     return {
         bucket,
         // decode and replace hadoop _$folder$ in key

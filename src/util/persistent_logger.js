@@ -59,7 +59,7 @@ class PersistentLogger {
                 let fh = null;
                 try {
                     fh = await this._open();
-                    if (this.locking) await fh.flock(this.fs_context, this.locking);
+                    if (this.locking) await fh.fcntllock(this.fs_context, this.locking);
 
                     const fh_stat = await fh.stat(this.fs_context);
                     const path_stat = await nb_native().fs.stat(this.fs_context, this.active_path);
@@ -216,7 +216,13 @@ class PersistentLogger {
 
     async _open() {
         await native_fs_utils._create_path(this.dir, this.fs_context);
-        return nb_native().fs.open(this.fs_context, this.active_path, 'as');
+
+        // here we are opening the file with both read and write to make sure
+        // fcntlock can acquire both `EXCLUSIVE` as well as `SHARED` lock based
+        // on the need.
+        // If incompatible file descriptor and lock types are used then fcntl
+        // throws `EBADF`.
+        return nb_native().fs.open(this.fs_context, this.active_path, 'as+');
     }
 
     _poll_active_file_change(poll_interval) {
@@ -276,7 +282,11 @@ class LogFile {
                 { locking: 'EXCLUSIVE'}
             );
 
-            log_reader = new NewlineReader(this.fs_context, this.log_path, 'EXCLUSIVE');
+            log_reader = new NewlineReader(
+                this.fs_context,
+                this.log_path,
+                { lock: 'EXCLUSIVE', skip_overflow_lines: true, skip_leftover_line: true },
+            );
             await log_reader.forEach(async entry => {
                 await collect(entry, filtered_log.append.bind(filtered_log));
                 return true;

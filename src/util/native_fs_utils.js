@@ -268,11 +268,11 @@ async function safe_unlink_gpfs(fs_context, to_delete_path, to_delete_file, dir_
     }
 }
 
-function should_retry_link_unlink(is_gpfs, err) {
+function should_retry_link_unlink(err) {
     const should_retry_general = ['ENOENT', 'EEXIST', 'VERSION_MOVED', 'MISMATCH_VERSION'].includes(err.code);
     const should_retry_gpfs = [gpfs_link_unlink_retry_err, gpfs_unlink_retry_catch].includes(err.code);
     const should_retry_posix = [posix_link_retry_err, posix_unlink_retry_err].includes(err.message);
-    return should_retry_general || (is_gpfs ? should_retry_gpfs : should_retry_posix);
+    return should_retry_general || should_retry_gpfs || should_retry_posix;
 }
 
 ////////////////////////
@@ -434,7 +434,7 @@ async function update_config_file(fs_context, schema_dir, config_path, config_da
                 break;
             } catch (err) {
                 retries -= 1;
-                if (retries <= 0 || !should_retry_link_unlink(is_gpfs, err)) throw err;
+                if (retries <= 0 || !should_retry_link_unlink(err)) throw err;
                 dbg.warn(`native_fs_utils.update_config_file: Retrying failed move to dest retries=${retries}` +
                     ` source_path=${open_path} dest_path=${config_path}`, err);
                 if (is_gpfs) {

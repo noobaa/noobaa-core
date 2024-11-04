@@ -47,6 +47,7 @@ async function get_bucket_lifecycle(req) {
             current_rule.Expiration = {
                 Days: rule.expiration.days,
                 Date: rule.expiration.date ? new Date(rule.expiration.date).toISOString() : undefined,
+                ExpiredObjectDeleteMarker: rule.expiration.expired_object_delete_marker,
             };
             _.omitBy(current_rule.Expiration, _.isUndefined);
         }

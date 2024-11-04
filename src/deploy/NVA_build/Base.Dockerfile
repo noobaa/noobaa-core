@@ -1,4 +1,4 @@
-FROM noobaa-builder
+FROM noobaa-builder AS noobaa-base
 
 ######################################################################
 # Layers:

@@ -1,9 +1,9 @@
-FROM noobaa
+FROM noobaa AS noobaa-tester
 
 USER 0:0
 
-ENV container docker
-ENV TEST_CONTAINER true
+ENV container=docker
+ENV TEST_CONTAINER=true
 
 ##############################################################
 # Layers:
@@ -13,6 +13,7 @@ ENV TEST_CONTAINER true
 ##############################################################
 
 RUN dnf config-manager --enable crb || true
+RUN dnf clean all
 
 RUN dnf group install -y -q "Development Tools" && \
     dnf install -y -q --nogpgcheck vim \
@@ -62,7 +63,7 @@ COPY .eslintignore /root/node_modules/noobaa-core
 # Making mocha accessible 
 RUN ln -s /root/node_modules/noobaa-core/node_modules/mocha/bin/mocha.js /usr/local/bin
 
-ENV SPAWN_WRAP_SHIM_ROOT /data
+ENV SPAWN_WRAP_SHIM_ROOT=/data
 RUN mkdir -p /data && \
     chgrp -R 0 /data && \
     chmod -R g=u /data 

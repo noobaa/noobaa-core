@@ -57,10 +57,12 @@ async function get_bucket_owner_account_by_name(config_fs, bucket_owner) {
  * otherwise it would throw an error
  * @param {import('../sdk/config_fs').ConfigFS} config_fs
  * @param {string} owner_account
+ * @param {boolean} show_secrets
+ * @param {boolean} decrypt_secret_key
  */
-async function get_bucket_owner_account_by_id(config_fs, owner_account) {
+async function get_bucket_owner_account_by_id(config_fs, owner_account, show_secrets = true, decrypt_secret_key = true) {
     try {
-        const account = await account_id_cache.get_with_cache({ _id: owner_account, config_fs });
+        const account = await account_id_cache.get_with_cache({ _id: owner_account, show_secrets, decrypt_secret_key, config_fs });
         return account;
     } catch (err) {
         if (err.code === 'ENOENT') {

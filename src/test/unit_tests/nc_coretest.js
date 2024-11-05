@@ -51,7 +51,7 @@ const http_address = `http://localhost:${http_port}`;
 const https_address = `https://localhost:${https_port}`;
 
 const FIRST_BUCKET = 'first.bucket';
-const NC_CORETEST_STORAGE_PATH = p.join(TMP_PATH, '/nc_coretest_storage_root_path/');
+const NC_CORETEST_STORAGE_PATH = p.join(TMP_PATH, 'nc_coretest_storage_root_path/');
 const FIRST_BUCKET_PATH = p.join(NC_CORETEST_STORAGE_PATH, FIRST_BUCKET, '/');
 const CONFIG_FILE_PATH = p.join(NC_CORETEST_CONFIG_DIR_PATH, 'config.json');
 const NC_CORETEST_CONFIG_FS = new ConfigFS(NC_CORETEST_CONFIG_DIR_PATH);

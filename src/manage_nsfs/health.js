@@ -11,7 +11,7 @@ const native_fs_utils = require('../util/native_fs_utils');
 const { read_stream_join } = require('../util/buffer_utils');
 const { make_https_request } = require('../util/http_utils');
 const { TYPES } = require('./manage_nsfs_constants');
-const { get_boolean_or_string_value, throw_cli_error, write_stdout_response } = require('./manage_nsfs_cli_utils');
+const { get_boolean_or_string_value, throw_cli_error, write_stdout_response, get_bucket_owner_account_by_id } = require('./manage_nsfs_cli_utils');
 const { ManageCLIResponse } = require('./manage_nsfs_cli_responses');
 const ManageCLIError = require('./manage_nsfs_cli_errors').ManageCLIError;
 
@@ -51,6 +51,14 @@ const health_errors = {
     INVALID_DISTINGUISHED_NAME: {
         error_code: 'INVALID_DISTINGUISHED_NAME',
         error_message: 'Account distinguished name was not found',
+    },
+    INVALID_ACCOUNT_OWNER: {
+        error_code: 'INVALID_ACCOUNT_OWNER',
+        error_message: 'Bucket account owner is invalid',
+    },
+    MISSING_ACCOUNT_OWNER: {
+        error_code: 'MISSING_ACCOUNT_OWNER',
+        error_message: 'Bucket account owner not found',
     },
     UNKNOWN_ERROR: {
         error_code: 'UNKNOWN_ERROR',
@@ -364,7 +372,7 @@ class NSFSHealth {
                 const config_file_path = this.config_fs.get_account_path_by_name(config_file_name);
                 res = await is_new_buckets_path_valid(config_file_path, config_data, storage_path);
             } else if (type === TYPES.BUCKET) {
-                res = await is_bucket_storage_path_exists(this.config_fs.fs_context, config_data, storage_path);
+                res = await is_bucket_storage_and_owner_exists(this.config_fs, config_data, storage_path);
             }
             if (all_details && res.valid_storage) {
                 valid_storages.push(res.valid_storage);
@@ -498,17 +506,18 @@ async function is_new_buckets_path_valid(config_file_path, config_data, new_buck
 }
 
 /**
- * is_bucket_storage_path_exists checks if the underlying storage path of a bucket exists 
- * @param {nb.NativeFSContext} fs_context
+ * is_bucket_storage_and_owner_exists checks if the underlying storage path of a bucket exists
+ * @param {import('../sdk/config_fs').ConfigFS} config_fs
  * @param {object} config_data
  * @param {string} storage_path
  * @returns {Promise<object>}
  */
-async function is_bucket_storage_path_exists(fs_context, config_data, storage_path) {
+async function is_bucket_storage_and_owner_exists(config_fs, config_data, storage_path) {
     let res_obj;
     try {
         if (!_should_skip_health_access_check()) {
-            await nb_native().fs.stat(fs_context, storage_path);
+            const account_fs_context = await get_account_owner_context(config_fs, config_data.owner_account);
+            await nb_native().fs.stat(account_fs_context, storage_path);
         }
         res_obj = get_valid_object(config_data.name, undefined, storage_path);
     } catch (err) {
@@ -519,12 +528,40 @@ async function is_bucket_storage_path_exists(fs_context, config_data, storage_pa
         } else if (err.code === 'EACCES' || (err.code === 'EPERM' && err.message === 'Operation not permitted')) {
             dbg.log1('Error:  Storage path should be accessible to account: ', storage_path);
             err_code = health_errors.ACCESS_DENIED.error_code;
+        } else if (err.code === health_errors.INVALID_ACCOUNT_OWNER.error_code ||
+                err.code === health_errors.MISSING_ACCOUNT_OWNER.error_code) {
+            dbg.log1('Error: Bucket account owner should be existing and valid account', config_data.owner_account);
+            err_code = err.code;
         }
         res_obj = get_invalid_object(config_data.name, undefined, storage_path, err_code);
     }
     return res_obj;
 }
 
+/**
+ * get_account_owner_context returns bucket account owner specific FS context
+ * @param {import('../sdk/config_fs').ConfigFS} config_fs
+ * @param {string} owner_account
+ * @returns {Promise<object>}
+ */
+async function get_account_owner_context(config_fs, owner_account) {
+    if (!owner_account) {
+        const new_err = new Error(health_errors.MISSING_ACCOUNT_OWNER.error_message);
+        new_err.code = health_errors.MISSING_ACCOUNT_OWNER.error_code;
+        throw new_err;
+    }
+    try {
+        // when account owner is invalid method will throw error
+        const owner_account_data = await get_bucket_owner_account_by_id(config_fs, owner_account, false, false);
+        const account_fs_context = await native_fs_utils.get_fs_context(owner_account_data.nsfs_account_config,
+            owner_account_data.nsfs_account_config.fs_backend);
+        return account_fs_context;
+    } catch (err) {
+        const new_err = new Error(`Bucket account owner ${owner_account} is invalid`);
+        new_err.code = health_errors.INVALID_ACCOUNT_OWNER.error_code;
+        throw new_err;
+    }
+}
 
 /**
  * get_valid_object returns an object which repersents a valid account/bucket and contains defined parameters

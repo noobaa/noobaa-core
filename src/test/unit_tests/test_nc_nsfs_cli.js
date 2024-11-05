@@ -80,6 +80,7 @@ mocha.describe('manage_nsfs cli', function() {
         };
 
         mocha.before(async () => {
+            config.NSFS_NC_CONF_DIR = config_root;
             await fs_utils.create_fresh_path(root_path);
         });
         mocha.after(async () => {

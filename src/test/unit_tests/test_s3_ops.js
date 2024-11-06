@@ -8,13 +8,18 @@ const _ = require('lodash');
 const coretest = require('./coretest');
 coretest.setup({ pools_to_create: coretest.POOL_LIST });
 const config = require('../../../config');
-const { S3 } = require('@aws-sdk/client-s3');
+const { S3, S3Client, CreateBucketCommand, PutObjectCommand, DeleteBucketCommand, DeleteObjectCommand } = require("@aws-sdk/client-s3");
 const { NodeHttpHandler } = require("@smithy/node-http-handler");
 const http_utils = require('../../util/http_utils');
 const mocha = require('mocha');
 const assert = require('assert');
 const P = require('../../util/promise');
 const azure_storage = require('@azure/storage-blob');
+const SensitiveString = require('../../util/sensitive_string');
+const cloud_utils = require('../../util/cloud_utils');
+const S3Error = require('../../../src/endpoint/s3/s3_errors').S3Error;
+const http = require('http');
+const fetch = require('node-fetch');
 
 // If any of these variables are not defined,
 // use the noobaa endpoint to create buckets
@@ -1373,6 +1378,160 @@ mocha.describe('s3_ops', function() {
         test_object_ops(BKT7, 'namespace', undefined, options);
     });
 });
+
+mocha.describe('Presigned URL tests - S3 bucket', function() {
+    this.timeout(50000); // eslint-disable-line no-invalid-this
+    const presigned_url_bucket = 'presigned-url-bucket';
+    const presigned_url_object = 'presigned-url-object.txt';
+    const presigned_body = 'presigned_body';
+    let s3_client;
+    const CORETEST_ENDPOINT = coretest.get_http_address();
+    let valid_default_presigned_url;
+    let presigned_url_params;
+
+    let s3_client_params;
+
+    mocha.before(async function() {
+        const account_info = await rpc_client.account.read_account({ email: EMAIL });
+        s3_client_params = {
+            endpoint: coretest.get_http_address(),
+            credentials: {
+                accessKeyId: account_info.access_keys[0].access_key.unwrap(),
+                secretAccessKey: account_info.access_keys[0].secret_key.unwrap(),
+            },
+            forcePathStyle: true,
+            region: config.DEFAULT_REGION,
+            requestHandler: new NodeHttpHandler({
+                httpAgent: http_utils.get_unsecured_agent(coretest.get_http_address()),
+            }),
+        };
+        s3_client = new S3Client(s3_client_params);
+        coretest.log('S3 CONFIG', s3_client.config);
+
+        const create_bucket = new CreateBucketCommand({
+            Bucket: presigned_url_bucket,
+        });
+        await s3_client.send(create_bucket);
+
+        const put_bucket = new PutObjectCommand({
+            Bucket: presigned_url_bucket,
+            Key: presigned_url_object,
+            Body: presigned_body
+        });
+        await s3_client.send(put_bucket);
+
+        presigned_url_params = {
+            bucket: new SensitiveString(presigned_url_bucket),
+            key: presigned_url_object,
+            endpoint: CORETEST_ENDPOINT,
+            access_key: account_info.access_keys[0].access_key,
+            secret_key: account_info.access_keys[0].secret_key,
+        };
+        valid_default_presigned_url = cloud_utils.get_signed_url(presigned_url_params);
+    });
+
+    mocha.after(async function() {
+        const delete_object = new DeleteObjectCommand({
+            Bucket: presigned_url_bucket,
+            Key: presigned_url_object
+        });
+        await s3_client.send(delete_object);
+
+        const delete_bucket = new DeleteBucketCommand({
+            Bucket: presigned_url_bucket,
+        });
+        await s3_client.send(delete_bucket);
+    });
+
+    it('fetch valid presigned URL - 604800 seconds - epoch expiry - should return object data', async () => {
+        const data = await fetchData(valid_default_presigned_url);
+        assert.equal(data, presigned_body);
+    });
+
+    it('fetch valid presigned URL - 604800 seconds - should return object data - with valid date + expiry in seconds', async () => {
+        const now = new Date();
+        const valid_url_with_date = valid_default_presigned_url + '&X-Amz-Date=' + now.toISOString() + '&X-Amz-Expires=' + 604800;
+        const data = await fetchData(valid_url_with_date);
+        assert.equal(data, presigned_body);
+    });
+
+    it('fetch invalid presigned URL - 604800 seconds - epoch expiry + with future date', async () => {
+        const now = new Date();
+        // Add one hour (3600000 milliseconds)
+        const one_hour_in_ms = 60 * 60 * 1000;
+        const one_hour_from_now = new Date(now.getTime() + one_hour_in_ms);
+        const future_presigned_url = valid_default_presigned_url + '&X-Amz-Date=' + one_hour_from_now.toISOString();
+        const expected_err = new S3Error(S3Error.RequestNotValidYet);
+        await assert_throws_async(fetchData(future_presigned_url), expected_err.message);
+    });
+
+    it('fetch invalid presigned URL - 604800 expiry seconds + with future date', async () => {
+        const now = new Date();
+        // Add one hour (3600000 milliseconds)
+        const one_hour_in_ms = 60 * 60 * 1000;
+        const one_hour_from_now = new Date(now.getTime() + one_hour_in_ms);
+        const future_presigned_url = valid_default_presigned_url + '&X-Amz-Date=' + one_hour_from_now.toISOString() + '&X-Amz-Expires=' + 604800;
+        const expected_err = new S3Error(S3Error.RequestNotValidYet);
+        await assert_throws_async(fetchData(future_presigned_url), expected_err.message);
+    });
+
+    it('fetch invalid presigned URL - 604800 seconds - epoch expiry - URL expired', async () => {
+        const expired_presigned_url = cloud_utils.get_signed_url(presigned_url_params, 1);
+        // wait for 2 seconds before fetching the url
+        await P.delay(2000);
+        const expected_err = new S3Error(S3Error.RequestExpired);
+        await assert_throws_async(fetchData(expired_presigned_url), expected_err.message);
+    });
+
+    it('fetch invalid presigned URL - 604800 expiry seconds - URL expired', async () => {
+        const now = new Date();
+        const expired_presigned_url = cloud_utils.get_signed_url(presigned_url_params, 1) + '&X-Amz-Date=' + now.toISOString() + '&X-Amz-Expires=' + 1;
+        // wait for 2 seconds before fetching the url
+        await P.delay(2000);
+        const expected_err = new S3Error(S3Error.RequestExpired);
+        await assert_throws_async(fetchData(expired_presigned_url), expected_err.message);
+    });
+
+    it('fetch invalid presigned URL - expiry expoch - expire in bigger than limit', async () => {
+        const invalid_expiry = 604800 + 10;
+        const invalid_expiry_presigned_url = cloud_utils.get_signed_url(presigned_url_params, invalid_expiry);
+        const expected_err = new S3Error(S3Error.AuthorizationQueryParametersError);
+        await assert_throws_async(fetchData(invalid_expiry_presigned_url), expected_err.message);
+    });
+
+    it('fetch invalid presigned URL - expire in bigger than limit', async () => {
+        const now = new Date();
+        const invalid_expiry = 604800 + 10;
+        const invalid_expiry_presigned_url = cloud_utils.get_signed_url(presigned_url_params, invalid_expiry) + '&X-Amz-Date=' + now.toISOString() + '&X-Amz-Expires=' + invalid_expiry;
+        const expected_err = new S3Error(S3Error.AuthorizationQueryParametersError);
+        await assert_throws_async(fetchData(invalid_expiry_presigned_url), expected_err.message);
+    });
+});
+
+async function assert_throws_async(promise, expected_message = 'Access Denied') {
+    try {
+        await promise;
+        assert.fail('Test was suppose to fail on ' + expected_message);
+    } catch (err) {
+        if (err.message !== expected_message) {
+            throw err;
+        }
+    }
+}
+
+async function fetchData(presigned_url) {
+    const response = await fetch(presigned_url, { agent: new http.Agent({ keepAlive: false }) });
+    let data;
+    if (!response.ok) {
+        data = (await response.text()).trim();
+        const err_json = (await http_utils.parse_xml_to_js(data)).Error;
+        const err = new Error(err_json.Message);
+        err.code = err_json.Code;
+        throw err;
+    }
+    data = await response.text();
+    return data.trim();
+}
 
 function is_namespace_blob_bucket(bucket_type, remote_endpoint_type) {
     return remote_endpoint_type === 'AZURE' && bucket_type === 'namespace';

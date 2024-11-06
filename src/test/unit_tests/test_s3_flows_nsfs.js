@@ -30,8 +30,7 @@ const { TMP_PATH, IS_GPFS, is_nc_coretest, get_coretest_path, invalid_nsfs_root_
     generate_s3_client, exec_manage_cli, generate_anon_s3_client, generate_nsfs_account } = require('../system_tests/test_utils');
 const nc_mkm = require('../../manage_nsfs/nc_master_key_manager').get_instance();
 
-
-const { S3 } = require('@aws-sdk/client-s3');
+const { S3 } = require("@aws-sdk/client-s3");
 const { NodeHttpHandler } = require("@smithy/node-http-handler");
 const native_fs_utils = require('../../util/native_fs_utils');
 const mongo_utils = require('../../util/mongo_utils');

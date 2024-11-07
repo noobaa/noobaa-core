@@ -232,9 +232,9 @@ class PersistentLogger {
 
                 // Don't race with init process - Can happen if arogue/misconfigured
                 // process is continuously moving the active file
-                this.init_lock.surround(async () => {
+                await this.init_lock.surround(async () => {
                     // If the file has changed, re-init
-                    if (stat.ino !== this.fh_stat.ino) {
+                    if (this.fh_stat && stat.ino !== this.fh_stat.ino) {
                         dbg.log1('active file changed, closing for namespace:', this.namespace);
                         await this.close();
                     }

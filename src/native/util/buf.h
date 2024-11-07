@@ -168,12 +168,6 @@ public:
     }
 
     inline bool
-    unique_alloc()
-    {
-        return _alloc.unique();
-    }
-
-    inline bool
     same(const Buf& buf) const
     {
         return (_len == buf._len) && !memcmp(_data, buf._data, _len);

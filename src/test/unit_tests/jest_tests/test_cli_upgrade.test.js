@@ -4,13 +4,13 @@
 // disabling init_rand_seed as it takes longer than the actual test execution
 process.env.DISABLE_INIT_RANDOM_SEED = 'true';
 
-
 const os = require('os');
 const path = require('path');
+const config = require('../../../../config');
 const pkg = require('../../../../package.json');
 const fs_utils = require('../../../util/fs_utils');
 const { ConfigFS } = require('../../../sdk/config_fs');
-const { TMP_PATH, exec_manage_cli } = require('../../system_tests/test_utils');
+const { TMP_PATH, exec_manage_cli, clean_config_dir, fail_test_if_default_config_dir_exists, TEST_TIMEOUT } = require('../../system_tests/test_utils');
 const { ManageCLIError } = require('../../../manage_nsfs/manage_nsfs_cli_errors');
 const { ManageCLIResponse } = require('../../../manage_nsfs/manage_nsfs_cli_responses');
 const { TYPES, UPGRADE_ACTIONS } = require('../../../manage_nsfs/manage_nsfs_constants');
@@ -242,7 +242,16 @@ const invalid_hostname_system_json = {
 };
 
 describe('noobaa cli - upgrade', () => {
+    beforeAll(async () => {
+        await fail_test_if_default_config_dir_exists('test_cli_upgrade');
+        await fs_utils.create_fresh_path(config.NSFS_NC_DEFAULT_CONF_DIR);
+    });
+
     afterEach(async () => await fs_utils.file_delete(config_fs.system_json_path));
+
+    afterAll(async () => {
+        await clean_config_dir(config_fs, config_root);
+    }, TEST_TIMEOUT);
 
     it('upgrade start - should fail on no system', async () => {
         const options = { config_root, expected_version: pkg.version, expected_hosts };

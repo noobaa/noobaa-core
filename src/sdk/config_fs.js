@@ -660,7 +660,7 @@ class ConfigFS {
     async create_account_config_file(account_data) {
         await this._throw_if_config_dir_locked();
         const { _id, name, owner = undefined } = account_data;
-        const { parsed_account_data, string_account_data} = await this._prepare_for_account_schema(account_data);
+        const { parsed_account_data, string_account_data } = await this._prepare_for_account_schema(account_data);
         const account_path = this.get_identity_path_by_id(_id);
         const account_dir_path = this.get_identity_dir_path_by_id(_id);
 
@@ -762,7 +762,7 @@ class ConfigFS {
      * link_account_name_index links the access key to the relative path of the account id config file
      * @param {string} account_id
      * @param {string} account_name
-     * @param {string} owner_account_id
+     * @param {string} [owner_account_id]
      * @returns {Promise<void>} 
      */
     async link_account_name_index(account_id, account_name, owner_account_id) {
@@ -821,22 +821,22 @@ class ConfigFS {
     /**
      * unlink_access_key_index unlinks the access key from the config directory
      * 1. get the account access_key path
-     * 2. check realpath on the account access_key path to make sure it belongs to the account id we meant to delete
-     * 3. check if the account id path is the same as the account name path 
-     * 4. unlink the account name path
-     * 5. else, do nothing as the name path might already point to a new identity/deleted by concurrent calls 
+     * 2. check realpath on the account access_key path to make sure it belongs to the account id (or account_name on versions older than 5.18) we meant to delete
+     * 3. check if the account id path is the same as the account access_key path 
+     * 4. unlink the account access_key path
+     * 5. else, do nothing as the access_key path might already point to a new identity/deleted by concurrent calls 
      * @param {string} access_key
      * @returns {Promise<void>} 
      */
-    async unlink_access_key_index(access_key, account_id_config_path) {
+    async unlink_access_key_index(access_key, account_config_path) {
         const access_key_path = this.get_account_or_user_path_by_access_key(access_key);
-        const should_unlink = await this._is_symlink_pointing_to_identity(access_key_path, account_id_config_path);
+        const should_unlink = await this._is_symlink_pointing_to_identity(access_key_path, account_config_path);
         if (should_unlink) {
             try {
                 await nb_native().fs.unlink(this.fs_context, access_key_path);
             } catch (err) {
                 if (err.code === 'ENOENT') {
-                    dbg.warn(`config_fs.unlink_access_key_index: account access_key already unlinked ${access_key} ${account_id_config_path}`);
+                    dbg.warn(`config_fs.unlink_access_key_index: account access_key already unlinked ${access_key} ${account_config_path}`);
                     return;
                 }
                 throw err;

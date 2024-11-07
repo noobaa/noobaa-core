@@ -187,6 +187,20 @@ async function safe_unlink(fs_context, src_path, src_ver_info, gpfs_options, tmp
     }
 }
 
+async function safe_link(fs_context, src_path, dst_path, src_ver_info, gpfs_options) {
+    if (_is_gpfs(fs_context)) {
+        const { src_file = undefined, dir_file = undefined } = gpfs_options;
+        if (dir_file) {
+            await safe_link_gpfs(fs_context, src_path, src_file, dir_file);
+        } else {
+            dbg.error(`safe_link: dir_file is ${dir_file}, cannot use it to call safe_unlink_gpfs`);
+            throw new Error(`dir_file is ${dir_file}, need a value to safe unlink GPFS`);
+        }
+    } else {
+        await safe_link_posix(fs_context, src_path, dst_path, src_ver_info);
+    }
+}
+
 // this function handles best effort of files move in posix file systems
 // 1. safe_link
 // 2. safe_unlink
@@ -669,10 +683,12 @@ exports.open_file = open_file;
 exports.copy_bytes = copy_bytes;
 exports.finally_close_files = finally_close_files;
 exports.get_user_by_distinguished_name = get_user_by_distinguished_name;
+exports.get_config_files_tmpdir = get_config_files_tmpdir;
 
 exports._is_gpfs = _is_gpfs;
 exports.safe_move = safe_move;
 exports.safe_unlink = safe_unlink;
+exports.safe_link = safe_link;
 exports.safe_move_posix = safe_move_posix;
 exports.safe_move_gpfs = safe_move_gpfs;
 exports.safe_link_posix = safe_link_posix;

@@ -18,6 +18,7 @@ const { NodeHttpHandler } = require("@smithy/node-http-handler");
 const GPFS_ROOT_PATH = process.env.GPFS_ROOT_PATH;
 const IS_GPFS = !_.isUndefined(GPFS_ROOT_PATH);
 const TMP_PATH = get_tmp_path();
+const TEST_TIMEOUT = 60 * 1000;
 
 /**
  * TMP_PATH is a path to the tmp path based on the process platform
@@ -382,7 +383,7 @@ async function create_redirect_file(config_fs, custom_config_root_path) {
  */
 async function delete_redirect_file(config_fs) {
     const redirect_file_path = path.join(config.NSFS_NC_DEFAULT_CONF_DIR, config.NSFS_NC_CONF_DIR_REDIRECT_FILE);
-    await nb_native().fs.unlink(config_fs.fs_context, redirect_file_path);
+    await fs_utils.file_delete(redirect_file_path);
 }
 
 function generate_anon_s3_client(endpoint) {
@@ -590,7 +591,7 @@ async function clean_config_dir(config_fs, custom_config_dir_path) {
     const accounts_by_name = '/accounts_by_name/';
     const access_keys_dir_name = '/access_keys/';
     const system_json = '/system.json';
-    for (const dir of [buckets_dir_name, identities_dir_name, access_keys_dir_name, accounts_by_name]) {
+    for (const dir of [buckets_dir_name, identities_dir_name, access_keys_dir_name, accounts_by_name, config.NSFS_TEMP_CONF_DIR_NAME]) {
         const default_path = path.join(config.NSFS_NC_DEFAULT_CONF_DIR, dir);
         await fs_utils.folder_delete(default_path);
         const custom_path = path.join(custom_config_dir_path, dir);
@@ -622,6 +623,7 @@ exports.generate_anon_s3_client = generate_anon_s3_client;
 exports.TMP_PATH = TMP_PATH;
 exports.IS_GPFS = IS_GPFS;
 exports.is_nc_coretest = is_nc_coretest;
+exports.TEST_TIMEOUT = TEST_TIMEOUT;
 exports.generate_nsfs_account = generate_nsfs_account;
 exports.get_new_buckets_path_by_test_env = get_new_buckets_path_by_test_env;
 exports.write_manual_config_file = write_manual_config_file;

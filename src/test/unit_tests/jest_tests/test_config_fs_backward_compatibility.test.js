@@ -4,7 +4,7 @@
 const path = require('path');
 const fs_utils = require('../../../util/fs_utils');
 const { ConfigFS, CONFIG_TYPES } = require('../../../sdk/config_fs');
-const { TMP_PATH, write_manual_config_file, write_manual_old_account_config_file } = require('../../system_tests/test_utils');
+const { TMP_PATH, TEST_TIMEOUT, write_manual_config_file, write_manual_old_account_config_file } = require('../../system_tests/test_utils');
 
 
 const tmp_fs_path = path.join(TMP_PATH, 'test_config_fs_backward_compatibility');
@@ -38,7 +38,7 @@ describe('ConfigFS Backwards Compatibility', () => {
 
     afterAll(async () => {
         await fs_utils.folder_delete(config_root);
-    });
+    }, TEST_TIMEOUT);
 
     afterEach(async () => {
         await clean_accounts();

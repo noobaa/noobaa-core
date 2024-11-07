@@ -71,12 +71,6 @@ NanKey(std::string s)
 #define NAN_SET_NUM(obj, key, val) (NAN_SET(obj, key, Nan::New<v8::Number>(val)))
 #define NAN_SET_BUF_COPY(obj, key, buf) \
     (NAN_SET(obj, key, Nan::CopyBuffer(buf.cdata(), buf.length()).ToLocalChecked()))
-#define NAN_SET_BUF_DETACH(obj, key, buf)                                              \
-    do {                                                                               \
-        assert(buf.unique_alloc());                                                    \
-        NAN_SET(obj, key, Nan::NewBuffer(buf.cdata(), buf.length()).ToLocalChecked()); \
-        buf.detach_alloc();                                                            \
-    } while (0)
 
 #define NAN_ERR(msg) (Nan::To<v8::Object>(Nan::Error(msg)).ToLocalChecked())
 #define NAN_RETURN(val)                 \

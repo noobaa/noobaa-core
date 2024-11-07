@@ -38,6 +38,9 @@ const base64_regex = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{
 
 const X_NOOBAA_AVAILABLE_STORAGE_CLASSES = 'x-noobaa-available-storage-classes';
 
+const OBJECT_ATTRIBUTES = Object.freeze(['ETag', 'Checksum', 'ObjectParts', 'StorageClass', 'ObjectSize']);
+const OBJECT_ATTRIBUTES_UNSUPPORTED = Object.freeze(['Checksum', 'ObjectParts']);
+
  /**
  * get_default_object_owner returns bucket_owner info if exists
  * else it'll return the default owner
@@ -322,6 +325,28 @@ function set_response_object_md(res, object_md) {
 
         res.setHeader('x-amz-restore', restore);
     }
+}
+
+/** set_response_headers_get_object_attributes is based on set_response_object_md
+ * and serves get_object_attributes
+ * @param {nb.S3Request} req
+ * @param {nb.S3Response} res
+ * @param {object} reply
+ * @param {string} version_id 
+ */
+function set_response_headers_get_object_attributes(req, res, reply, version_id) {
+    if (version_id) {
+        res.setHeader('x-amz-version-id', version_id);
+        if (reply.delete_marker) {
+            res.setHeader('x-amz-delete-marker', 'true');
+        }
+    }
+    if (reply.last_modified_time) {
+        res.setHeader('Last-Modified', time_utils.format_http_header_date(new Date(reply.last_modified_time)));
+    } else {
+        res.setHeader('Last-Modified', time_utils.format_http_header_date(new Date(reply.create_time)));
+    }
+    set_encryption_response_headers(req, res, reply.encryption);
 }
 
 /**
@@ -774,6 +799,7 @@ exports.parse_part_number = parse_part_number;
 exports.parse_copy_source = parse_copy_source;
 exports.format_copy_source = format_copy_source;
 exports.set_response_object_md = set_response_object_md;
+exports.set_response_headers_get_object_attributes = set_response_headers_get_object_attributes;
 exports.parse_storage_class = parse_storage_class;
 exports.parse_storage_class_header = parse_storage_class_header;
 exports.parse_encryption = parse_encryption;
@@ -801,3 +827,6 @@ exports.get_default_object_owner = get_default_object_owner;
 exports.set_response_supported_storage_classes = set_response_supported_storage_classes;
 exports.cont_tok_to_key_marker = cont_tok_to_key_marker;
 exports.key_marker_to_cont_tok = key_marker_to_cont_tok;
+exports.parse_sse_c = parse_sse_c;
+exports.OBJECT_ATTRIBUTES = OBJECT_ATTRIBUTES;
+exports.OBJECT_ATTRIBUTES_UNSUPPORTED = OBJECT_ATTRIBUTES_UNSUPPORTED;

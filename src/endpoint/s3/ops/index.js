@@ -39,6 +39,7 @@ exports.get_bucket_versions = require('./s3_get_bucket_versions');
 exports.get_bucket_website = require('./s3_get_bucket_website');
 exports.get_object = require('./s3_get_object');
 exports.get_object_acl = require('./s3_get_object_acl');
+exports.get_object_attributes = require('./s3_get_object_attributes');
 exports.get_object_legal_hold = require('./s3_get_object_legal_hold');
 exports.get_object_retention = require('./s3_get_object_retention');
 exports.get_object_tagging = require('./s3_get_object_tagging');

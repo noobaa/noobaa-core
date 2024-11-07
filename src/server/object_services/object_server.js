@@ -777,7 +777,7 @@ async function read_node_mapping(req) {
  */
 async function read_object_md(req) {
     dbg.log1('object_server.read_object_md:', req.rpc_params);
-    const { bucket, key, md_conditions, adminfo, encryption } = req.rpc_params;
+    const { bucket, key, md_conditions, adminfo, encryption, version_id } = req.rpc_params;
 
     if (adminfo && req.role !== 'admin') {
         throw new RpcError('UNAUTHORIZED', 'read_object_md: role should be admin');
@@ -786,7 +786,8 @@ async function read_object_md(req) {
     const obj = await find_object_md(req);
 
     // Check if the requesting account is authorized to read the object
-    if (!await req.has_s3_bucket_permission(req.bucket, 's3:GetObject', '/' + obj.key)) {
+    const action = version_id ? 's3:GetObjectVersion' : 's3:GetObject';
+    if (!await req.has_s3_bucket_permission(req.bucket, action, '/' + obj.key)) {
         throw new RpcError('UNAUTHORIZED', 'requesting account is not authorized to read the object');
     }
 

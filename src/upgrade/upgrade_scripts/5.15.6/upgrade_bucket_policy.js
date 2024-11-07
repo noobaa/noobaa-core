@@ -9,6 +9,11 @@ const _ = require('lodash');
 function _create_actions_map() {
     const actions_map = new Map();
     for (const action of Object.values(OP_NAME_TO_ACTION)) {
+        if (Array.isArray(action.regular)) {
+            // API's with array actions were added after version 5.15.z (e.g get_object_attributes)
+            // we skip this because there were no policies to fix
+            continue;
+        }
         actions_map.set(action.regular.toLowerCase(), action.regular);
         if (action.versioned) {
             actions_map.set(action.versioned.toLowerCase(), action.versioned);

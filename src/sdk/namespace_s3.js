@@ -745,6 +745,43 @@ class NamespaceS3 {
         throw new S3Error(S3Error.NotImplemented);
     }
 
+    //////////////////////////
+    //  OBJECT ATTRIBUTES   //
+    //////////////////////////
+
+    async get_object_attributes(params, object_sdk) {
+        dbg.log0('NamespaceS3.get_object_attributes:', this.bucket, inspect(params));
+        await this._prepare_sts_client();
+
+        /** @type {AWS.S3.GetObjectAttributesRequest} */
+        const request = {
+            Bucket: this.bucket,
+            Key: params.key,
+            VersionId: params.version_id,
+            ObjectAttributes: params.attributes,
+        };
+        this._set_md_conditions(params, request);
+        this._assign_encryption_to_request(params, request);
+        try {
+            const res = await this.s3.getObjectAttributes(request).promise();
+            dbg.log0('NamespaceS3.get_object_attributes:', this.bucket, inspect(params), 'res', inspect(res));
+            return this._get_s3_object_info(res, params.bucket);
+        } catch (err) {
+            this._translate_error_code(params, err);
+            dbg.warn('NamespaceS3.get_object_attributes:', inspect(err));
+            // It's totally expected to issue `HeadObject` against an object that doesn't exist
+            // this shouldn't be counted as an issue for the namespace store
+            if (err.rpc_code !== 'NO_SUCH_OBJECT') {
+                object_sdk.rpc_client.pool.update_issues_report({
+                    namespace_resource_id: this.namespace_resource_id,
+                    error_code: String(err.code),
+                    time: Date.now(),
+                });
+            }
+            throw err;
+        }
+    }
+
     ///////////////
     // INTERNALS //
     ///////////////
@@ -756,7 +793,8 @@ class NamespaceS3 {
      *   AWS.S3.ObjectVersion &
      *   AWS.S3.DeleteMarkerEntry &
      *   AWS.S3.MultipartUpload &
-     *   AWS.S3.GetObjectOutput
+     *   AWS.S3.GetObjectOutput &
+     *   AWS.S3.GetObjectAttributesOutput
      * >, 'ChecksumAlgorithm'>} res 
      * @param {string} bucket 
      * @param {number} [part_number]
@@ -796,7 +834,10 @@ class NamespaceS3 {
             sha256_b64: undefined,
             stats: undefined,
             tagging: undefined,
-            object_owner: this._get_object_owner()
+            object_owner: this._get_object_owner(),
+            checksum: res.Checksum,
+            // @ts-ignore // See note in GetObjectAttributesParts in file nb.d.ts
+            object_parts: res.ObjectParts,
         };
     }
 

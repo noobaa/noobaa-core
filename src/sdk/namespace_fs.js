@@ -3212,7 +3212,7 @@ class NamespaceFS {
                 move_to_dst: { src_file, dst_file, dir_file}
             };
         } catch (err) {
-            dbg.error('NamespaceFS._open_files_gpfs couldn\'t open files', err);
+            dbg.warn('NamespaceFS._open_files_gpfs couldn\'t open files', err);
             await this._close_files_gpfs(fs_context, { src_file, dst_file, dir_file, versioned_file }, open_mode, delete_version);
             throw err;
         }

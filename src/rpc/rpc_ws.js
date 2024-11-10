@@ -1,7 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const WS = global.WebSocket || require('ws');
+const WS = require('ws');
 
 const dbg = require('../util/debug_module')(__filename);
 const http_utils = require('../util/http_utils');

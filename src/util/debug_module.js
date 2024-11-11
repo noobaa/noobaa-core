@@ -509,7 +509,6 @@ function log_syslog_builder(syslevel) {
 */
 function log_event(event) {
     if (!config.EVENT_LOGGING_ENABLED) {
-        console.info('Event logging not enabled');
         return;
     }
     event.pid = process.pid;

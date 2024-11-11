@@ -13,6 +13,23 @@ const { get_process_fs_context } = require('../../util/native_fs_utils');
 
 const DEFAULT_FS_CONFIG = get_process_fs_context();
 
+/**
+ * Node.js 22 changes fs.Stats Date values to be populated lazily for improving performance.
+ * @param {fs.Stats} fs_stat
+ */
+function get_fs_stat_with_lazy_date(fs_stat) {
+    const stats_obj = { ...fs_stat };
+    if (!os_utils.IS_MAC) {
+        stats_obj.birthtime = fs_stat.ctime;
+        stats_obj.birthtimeMs = fs_stat.ctimeMs;
+    }
+    stats_obj.atime = fs_stat.atime;
+    stats_obj.ctime = fs_stat.ctime;
+    stats_obj.mtime = fs_stat.mtime;
+    return stats_obj;
+}
+
+
 mocha.describe('nb_native fs', async function() {
 
     mocha.describe('stat', async function() {
@@ -20,15 +37,18 @@ mocha.describe('nb_native fs', async function() {
             const path = 'package.json';
             const res = await nb_native().fs.stat(DEFAULT_FS_CONFIG, path);
             const res2 = await fs.promises.stat(path);
+            console.log("res2.atime: ", res2.atime, "res2.mtime: ", res2.mtime, "res2.ctime: ", res2.ctime);
+
             // birthtime in non mac platforms is ctime
             //https://nodejs.org/api/fs.html#statsbirthtime
-            if (!os_utils.IS_MAC) {
-                res2.birthtime = res2.ctime;
-                res2.birthtimeMs = res2.ctimeMs;
-            }
+            //Node 22 creates Date objects lazily to improve performance.
+            //To get these objects we have to access it and just printing
+            //would not do that, we have to assign it.
+            const fs_stat_all_dates = get_fs_stat_with_lazy_date(res2);
+
             assert.deepStrictEqual(
                 _.omit(res, 'xattr', 'mtimeNsBigint', 'atimeNsBigint', 'ctimeNsBigint'), // we need to remove xattr, mtimeSec, mtimeNsec from fs_napi response as the node JS stat doesn't return them
-                _.omitBy(res2, v => typeof v === 'function'),
+                _.omitBy(fs_stat_all_dates, v => typeof v === 'function'),
             );
         });
     });
@@ -56,15 +76,15 @@ mocha.describe('nb_native fs', async function() {
             // stat_res is the stat of the regular file (follows the link)
             const stat_res = await fs.promises.stat(LINK_PATH);
 
+            console.log("lstat_res.atime: ", lstat_res.atime, "lstat_res.mtime: ", lstat_res.mtime, "lstat_res.ctime: ", lstat_res.ctime);
+
             // birthtime in non mac platforms is ctime
             // https://nodejs.org/api/fs.html#statsbirthtime
-            if (!os_utils.IS_MAC) {
-                lstat_res.birthtime = lstat_res.ctime;
-                lstat_res.birthtimeMs = lstat_res.ctimeMs;
-            }
+            const fs_lstat_all_dates = get_fs_stat_with_lazy_date(lstat_res);
+
             assert.deepStrictEqual(
                 _.omit(native_lstat_res, 'xattr', 'mtimeNsBigint', 'atimeNsBigint', 'ctimeNsBigint'), // we need to remove xattr, mtimeNsBigint, atimeNsBigint, ctimeNsBigint from fs_napi response as the node JS stat doesn't return them
-                _.omitBy(lstat_res, v => typeof v === 'function'),
+                _.omitBy(fs_lstat_all_dates, v => typeof v === 'function'),
             );
 
             assert.notDeepStrictEqual(

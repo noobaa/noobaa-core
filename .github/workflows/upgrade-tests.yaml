@@ -1,0 +1,94 @@
+name: Upgrade Tests
+on: [push, pull_request, workflow_dispatch]
+
+jobs:
+  upgrade-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+
+    env:
+      BRANCH_NAME: ${{ github.event.inputs.branch || 'master' }}
+
+    steps:
+      - name: Checkout noobaa-core (master/input branch)
+        uses: actions/checkout@v4
+        with:
+          repository: 'noobaa/noobaa-core'
+          path: 'noobaa-core'
+          ref: ${{ env.BRANCH_NAME }}
+
+      - name: Deploy minikube
+        run: |
+          cd ./noobaa-core
+          sudo bash ./.travis/deploy_minikube.sh
+
+      - name: Build noobaa (from master)
+        run: |
+          cd ./noobaa-core
+          make noobaa NOOBAA_TAG=noobaa-core:master
+
+      - name: Checkout noobaa-core (latest)
+        uses: actions/checkout@v4
+        with:
+          repository: 'noobaa/noobaa-core'
+          path: 'noobaa-core'
+
+      - name: Build noobaa (latest)
+        run: |
+          cd ./noobaa-core
+          make noobaa NOOBAA_TAG=noobaa-core:upgrade-tests
+
+      - name: Checkout noobaa-operator
+        uses: actions/checkout@v3
+        with:
+          repository: 'noobaa/noobaa-operator'
+          path: 'noobaa-operator'
+
+      - name: Change settings for k8s and minikube
+        run: |
+          sudo mv /root/.kube /root/.minikube $HOME
+          sudo chown -R $USER $HOME/.kube $HOME/.minikube
+          sed "s/root/home\/$USER/g" $HOME/.kube/config > tmp; mv tmp $HOME/.kube/config
+
+      - name: Build operator
+        run: |
+          cd ./noobaa-operator
+          make all
+
+      - name: Install noobaa system (from master)
+        run: |
+          cd ./noobaa-operator
+          ./build/_output/bin/noobaa-operator crd create
+          ./build/_output/bin/noobaa-operator operator install
+          ./build/_output/bin/noobaa-operator system create  \
+          --db-resources='{ "limits": {"cpu": "200m","memory": "2G"}, "requests": {"cpu": "200m","memory": "2G"}}' \
+          --core-resources='{ "limits": {"cpu": "200m","memory": "1G"}, "requests": {"cpu": "200m","memory": "1G"}}' \
+          --endpoint-resources='{ "limits": {"cpu": "200m","memory": "1G"}, "requests": {"cpu": "200m","memory": "1G"}}' \
+          --noobaa-image='noobaa-core:master'
+          ./build/_output/bin/noobaa-operator status
+
+      - name: Wait for phase Ready in the backingstore pod
+        run: |
+          cd ./noobaa-operator
+          ./.travis/number_of_pods_in_system.sh --pods 5
+          kubectl wait --for=condition=available backingstore/noobaa-default-backing-store --timeout=5m
+
+      - name: Upgrade noobaa to latest
+        run: |
+          cd ./noobaa-operator
+          ./build/_output/bin/noobaa-operator upgrade --noobaa-image='noobaa-core:upgrade-tests'
+
+      - name: Wait for phase Ready in the backingstore pod
+        run: |
+          cd ./noobaa-operator
+          ./.travis/number_of_pods_in_system.sh --pods 5
+          kubectl wait --for=condition=available backingstore/noobaa-default-backing-store --timeout=5m 
+
+      - name: Run Upgrade Tests (PR code)
+        run: |
+          set -x
+          cd ./noobaa-core
+          make test-upgrade

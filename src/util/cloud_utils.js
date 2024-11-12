@@ -58,6 +58,14 @@ async function generate_aws_sts_creds(params, roleSessionName) {
     );
 }
 
+async function createAzureSTSClient(params, additionalParams) {
+    //TODO - Requires example secret to implement
+}
+
+async function generate_azure_sts_creds(params, roleSessionName) {
+    //TODO - Requires example secret to implement
+}
+
 function get_signed_url(params, expiry = 604800) {
     const s3 = new AWS.S3({
         endpoint: params.endpoint,
@@ -205,3 +213,5 @@ exports.set_noobaa_s3_connection = set_noobaa_s3_connection;
 exports.createSTSS3Client = createSTSS3Client;
 exports.generate_aws_sts_creds = generate_aws_sts_creds;
 exports.generate_access_keys = generate_access_keys;
+exports.createSTSS3Client = createSTSS3Client;
+exports.createAzureSTSClient = createAzureSTSClient;

@@ -369,6 +369,10 @@ async function create_cloud_pool(req) {
             account_id: req.account._id
         },
         aws_sts_arn: connection.aws_sts_arn,
+        azure_subscription_id: connection.azure_subscription_id,
+        azure_tenant_id: connection.azure_tenant_id,
+        azure_client_id: connection.azure_client_id,
+        azure_region: connection.azure_region,
         region: connection.region,
         endpoint_type: connection.endpoint_type || 'AWS',
         backingstore: req.rpc_params.backingstore,
@@ -416,6 +420,7 @@ async function create_cloud_pool(req) {
         FLASHBLADE: 'BLOCK_STORE_S3',
         IBM_COS: 'BLOCK_STORE_S3',
         AZURE: 'BLOCK_STORE_AZURE',
+        AZURESTS: 'BLOCK_STORE_AZURE',
         GOOGLE: 'BLOCK_STORE_GOOGLE'
     };
 

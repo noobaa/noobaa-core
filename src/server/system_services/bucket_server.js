@@ -1196,6 +1196,7 @@ async function get_cloud_buckets(req) {
             req.rpc_params.connection
         );
         if (connection.endpoint_type === 'AZURE') {
+            // TODO - utilize CCO secret for authentication
             const blob_svc = azure_storage.BlobServiceClient.fromConnectionString(
                 cloud_utils.get_azure_new_connection_string(connection));
             const used_cloud_buckets = cloud_utils.get_used_cloud_targets(['AZURE'],

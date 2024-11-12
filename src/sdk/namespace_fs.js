@@ -68,11 +68,11 @@ const NULL_VERSION_ID = 'null';
 const NULL_VERSION_SUFFIX = '_' + NULL_VERSION_ID;
 const XATTR_STORAGE_CLASS_KEY = XATTR_USER_PREFIX + 'storage_class';
 
-const versioning_status_enum = {
+const VERSIONING_STATUS_ENUM = Object.freeze({
     VER_ENABLED: 'ENABLED',
     VER_SUSPENDED: 'SUSPENDED',
     VER_DISABLED: 'DISABLED'
-};
+});
 const version_format = /^[a-z0-9]+$/;
 
 // describes the status of the copy that was done, default is fallback
@@ -80,11 +80,11 @@ const version_format = /^[a-z0-9]+$/;
 // IS_SAME_INODE = source and target are the same inode, nothing to copy
 // FALLBACK = will be reported when link on server side copy failed
 // or on non server side copy
-const copy_status_enum = {
+const COPY_STATUS_ENUM = Object.freeze({
     LINKED: 'LINKED',
     SAME_INODE: 'SAME_INODE',
     FALLBACK: 'FALLBACK'
-};
+});
 
 const XATTR_METADATA_IGNORE_LIST = [
     XATTR_STORAGE_CLASS_KEY,
@@ -486,7 +486,7 @@ class NamespaceFS {
         this.bucket_id = bucket_id;
         this.namespace_resource_id = namespace_resource_id;
         this.access_mode = access_mode;
-        this.versioning = (config.NSFS_VERSIONING_ENABLED && versioning) || versioning_status_enum.VER_DISABLED;
+        this.versioning = (config.NSFS_VERSIONING_ENABLED && versioning) || VERSIONING_STATUS_ENUM.VER_DISABLED;
         this.stats = stats;
         this.force_md5_etag = force_md5_etag;
         this.warmup_buffer = nb_native().fs.dio_buffer_alloc(4096);
@@ -1209,7 +1209,7 @@ class NamespaceFS {
             await this._throw_if_storage_class_not_supported(params.storage_class);
 
             upload_params = await this._start_upload(fs_context, object_sdk, file_path, params, open_mode);
-            if (!params.copy_source || upload_params.copy_res === copy_status_enum.FALLBACK) {
+            if (!params.copy_source || upload_params.copy_res === COPY_STATUS_ENUM.FALLBACK) {
                 // We are taking the buffer size closest to the sized upload
                 const bp = multi_buffer_pool.get_buffers_pool(params.size);
                 const upload_res = await bp.sem.surround_count(
@@ -1254,16 +1254,16 @@ class NamespaceFS {
 
         let copy_res;
         if (force_copy_fallback) {
-            copy_res = copy_status_enum.FALLBACK;
+            copy_res = COPY_STATUS_ENUM.FALLBACK;
         } else if (params.copy_source) {
             copy_res = await this._try_copy_file(fs_context, params, file_path, upload_path);
         }
 
         if (copy_res) {
-            if (copy_res !== copy_status_enum.FALLBACK) {
+            if (copy_res !== COPY_STATUS_ENUM.FALLBACK) {
                 // open file after copy link/same inode should use read open mode
                 open_mode = config.NSFS_OPEN_READ_MODE;
-                if (copy_res === copy_status_enum.SAME_INODE) open_path = file_path;
+                if (copy_res === COPY_STATUS_ENUM.SAME_INODE) open_path = file_path;
             }
         }
         const target_file = await native_fs_utils.open_file(fs_context, this.bucket_path, open_path, open_mode);
@@ -1280,15 +1280,15 @@ class NamespaceFS {
         const source_file_path = await this._find_version_path(fs_context, params.copy_source);
         await this._check_path_in_bucket_boundaries(fs_context, source_file_path);
         // await this._fail_if_archived_or_sparse_file(fs_context, source_file_path, stat);
-        let res = copy_status_enum.FALLBACK;
+        let res = COPY_STATUS_ENUM.FALLBACK;
         if (this._is_versioning_disabled()) {
             try {
                 // indicates a retry situation in which the source and target point to the same inode
                 const same_inode = await this._is_same_inode(fs_context, source_file_path, file_path);
-                if (same_inode) return copy_status_enum.SAME_INODE;
+                if (same_inode) return COPY_STATUS_ENUM.SAME_INODE;
                 // Doing a hard link.
                 await nb_native().fs.link(fs_context, source_file_path, upload_path);
-                res = copy_status_enum.LINKED;
+                res = COPY_STATUS_ENUM.LINKED;
             } catch (e) {
                 dbg.warn('NamespaceFS: COPY using link failed with:', e);
             }
@@ -1337,8 +1337,8 @@ class NamespaceFS {
     async _finish_upload({ fs_context, params, open_mode, target_file, upload_path, file_path, digest = undefined,
             copy_res = undefined, offset }) {
         const part_upload = file_path === upload_path;
-        const same_inode = params.copy_source && copy_res === copy_status_enum.SAME_INODE;
-        const should_replace_xattr = params.copy_source ? copy_res === copy_status_enum.FALLBACK : true;
+        const same_inode = params.copy_source && copy_res === COPY_STATUS_ENUM.SAME_INODE;
+        const should_replace_xattr = params.copy_source ? copy_res === COPY_STATUS_ENUM.FALLBACK : true;
         const is_dir_content = this._is_directory_content(file_path, params.key);
 
         const stat = await target_file.stat(fs_context);
@@ -2693,15 +2693,15 @@ class NamespaceFS {
     //////////////////////////
 
     _is_versioning_enabled() {
-        return this.versioning === versioning_status_enum.VER_ENABLED;
+        return this.versioning === VERSIONING_STATUS_ENUM.VER_ENABLED;
     }
 
     _is_versioning_disabled() {
-        return this.versioning === versioning_status_enum.VER_DISABLED;
+        return this.versioning === VERSIONING_STATUS_ENUM.VER_DISABLED;
     }
 
     _is_versioning_suspended() {
-        return this.versioning === versioning_status_enum.VER_SUSPENDED;
+        return this.versioning === VERSIONING_STATUS_ENUM.VER_SUSPENDED;
     }
 
     _get_version_id_by_mode(stat) {
@@ -2786,7 +2786,7 @@ class NamespaceFS {
     }
 
     _throw_if_delete_marker(stat, params) {
-        if (this.versioning === versioning_status_enum.VER_ENABLED || this.versioning === versioning_status_enum.VER_SUSPENDED) {
+        if (this.versioning === VERSIONING_STATUS_ENUM.VER_ENABLED || this.versioning === VERSIONING_STATUS_ENUM.VER_SUSPENDED) {
             const xattr_delete_marker = stat.xattr[XATTR_DELETE_MARKER];
             if (xattr_delete_marker) {
                 const basic_err = error_utils.new_error_code('ENOENT', 'Entry is a delete marker');

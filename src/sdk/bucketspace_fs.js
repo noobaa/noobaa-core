@@ -104,9 +104,9 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             const bucket = await this.config_fs.get_bucket_by_name(name);
             nsfs_schema_utils.validate_bucket_schema(bucket);
 
-            const is_valid = await this.check_bucket_config(bucket);
+            const is_valid = await this.check_stat_bucket_storage_path(bucket.path);
             if (!is_valid) {
-                dbg.warn('BucketSpaceFS: one or more bucket config check is failed for bucket : ', name);
+                dbg.warn('BucketSpaceFS: invalid storage path for bucket : ', name);
             }
 
             const nsr = {
@@ -155,6 +155,11 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                     }
                 }
             }
+            try {
+                bucket.stat = await this.config_fs.stat_bucket_config_file(bucket.name.unwrap());
+            } catch (err) {
+                dbg.warn(`BucketspaceFS.read_bucket_sdk_info could not stat_bucket_config_file ${bucket.name.unwrap()}`);
+            }
             return bucket;
         } catch (err) {
             const rpc_error = translate_error_codes(err, entity_enum.BUCKET);
@@ -164,17 +169,37 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
         }
     }
 
-    async check_bucket_config(bucket) {
-        const bucket_storage_path = bucket.path;
+    /**
+     * check_stat_bucket_storage_path will return the true
+     * if there is stat output on the bucket storage path
+     * (in case the stat throws an error it would return false)
+     * @param {string} bucket_storage_path
+     * @returns {Promise<boolean>}
+     */
+    async check_stat_bucket_storage_path(bucket_storage_path) {
         try {
             await nb_native().fs.stat(this.fs_context, bucket_storage_path);
-            //TODO: Bucket owner check
             return true;
         } catch (err) {
             return false;
         }
     }
 
+    /**
+     * check_same_stat will return true the config file was not changed
+     * @param {nb.NativeFSStats} bucket_stat
+     * @returns Promise<{boolean>}
+     */
+    async check_same_stat(bucket_name, bucket_stat) {
+        try {
+            const current_stat = await this.config_fs.stat_bucket_config_file(bucket_name);
+            if (current_stat) {
+                return current_stat.ino === bucket_stat.ino && current_stat.mtimeNsBigint === bucket_stat.mtimeNsBigint;
+            }
+        } catch (err) {
+            dbg.warn('check_same_stat: current_stat got an error', err, 'ignoring...');
+        }
+    }
 
     ////////////
     // BUCKET //

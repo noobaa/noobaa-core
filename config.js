@@ -637,6 +637,9 @@ config.INLINE_MAX_SIZE = 4096;
 // Object SDK bucket cache expiration time
 config.OBJECT_SDK_BUCKET_CACHE_EXPIRY_MS = 60000;
 
+// Object SDK bucket_namespace_cache allow stat of the config file
+config.NC_ENABLE_BUCKET_NS_CACHE_STAT_VALIDATION = true;
+
 //////////////////////////////
 // OPERATOR RELATED         //
 //////////////////////////////

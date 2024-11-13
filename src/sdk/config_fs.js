@@ -886,6 +886,17 @@ class ConfigFS {
     }
 
     /**
+     * stat_bucket_config_file will return the stat output on bucket config file
+     * please notice that stat might throw an error - you should wrap it with try-catch and handle the error
+     * @param {string} bucket_name
+     * @returns {Promise<nb.NativeFSStats>}
+     */
+    stat_bucket_config_file(bucket_name) {
+        const bucket_config_path = this.get_bucket_path_by_name(bucket_name);
+        return nb_native().fs.stat(this.fs_context, bucket_config_path);
+    }
+
+    /**
      * is_bucket_exists returns true if bucket config path exists in config dir
      * @param {string} bucket_name
      * @returns {Promise<boolean>} 

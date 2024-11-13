@@ -30,7 +30,7 @@ export FS_ROOT_2=/tmp/nsfs_root2/
 # 1. Create configuration directory
 # 2. Create config.json file
 mkdir -p ${CONFIG_DIR}
-config='{"ALLOW_HTTP":true}'
+config='{"ALLOW_HTTP":true, "ENDPOINT_FORKS":2}'
 echo "$config" > ${CONFIG_DIR}/config.json
 
 # 1. Create root directory for bucket creation

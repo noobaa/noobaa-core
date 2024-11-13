@@ -13,7 +13,7 @@ require('./test_nb_native_fs');
 require('./test_nc_nsfs_cli');
 require('./test_nc_nsfs_health');
 require('./test_nsfs_access');
-require('./test_bucketspace');
+require('./test_s3_flows_nsfs.js');
 require('./test_bucketspace_fs');
 require('./test_nsfs_glacier_backend');
 require('./test_s3_bucket_policy');

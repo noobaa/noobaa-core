@@ -11,7 +11,7 @@ ExecStart=/usr/local/noobaa-core/bin/node /usr/local/noobaa-core/src/cmd/nsfs.js
 EnvironmentFile=-/etc/sysconfig/noobaa
 ExecStop=/bin/kill $MAINPID
 WorkingDirectory=/usr/local/noobaa-core/
-LimitNOFILE=65536
+LimitNOFILE=600000
 
 [Install]
 WantedBy=multi-user.target

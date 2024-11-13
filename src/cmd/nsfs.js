@@ -244,6 +244,7 @@ class NsfsAccountSDK extends AccountSDK {
 async function main(argv = minimist(process.argv.slice(2))) {
     try {
         config.DB_TYPE = 'none';
+        config.EVENT_LOGGING_ENABLED = true;
         config.NSFS_VERSIONING_ENABLED = true;
         // when using data buckets on noobaa standalone we should set it to true
         config.ENABLE_OBJECT_IO_SEMAPHORE_MONITOR = false;

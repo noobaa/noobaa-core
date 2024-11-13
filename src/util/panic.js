@@ -8,12 +8,16 @@ const child_process = require('child_process');
 process.on('uncaughtException', err => panic('process uncaughtException', err));
 
 function panic(message, err) {
+    // this printing is duplicated here in case LOOP_ON_PANIC is true (the process will not be exit)
     console.error('PANIC:', message, err.stack || err);
     while (process.env.LOOP_ON_PANIC === 'true') {
         console.warn('Encountered an error, holding the process on an infinite loop');
         child_process.execSync('sleep 10');
     }
-    process.exit(1);
+    // to avoid cases where the process can exit without printing the error
+    process.stderr.write('PANIC: ' + message + (err.stack || err) + '\n', () => {
+        process.exit(1);
+    });
 }
 
 // dump heap with kill -USR2 <pid>
@@ -37,25 +41,32 @@ function enable_heapdump(name, next_mb, step_mb) {
 }
 
 function memory_monitor() {
-    const m = process.memoryUsage();
-    const c = memory_monitor_config;
-    const h = c.heapdump;
-    const current = m.heapUsed;
-    if (c.logging_threshold &&
-        c.logging_threshold <= current) {
-        const usage = (m.heapUsed / 1024 / 1024).toFixed(0);
-        const total = (m.heapTotal / 1024 / 1024).toFixed(0);
-        const resident = (m.rss / 1024 / 1024).toFixed(0);
-        console.log(`memory_monitor: heap ${usage} MB | total ${total} MB | resident ${resident} MB`);
-    }
-    if (h && h.next && h.next <= current) {
-        const size_mb = (current / 1024 / 1024).toFixed(0);
-        const snapshot_name = `heapdump-${h.name}-${process.pid}-${new Date().toISOString()}-${size_mb}MB.heapsnapshot`;
-        console.log(`memory_monitor: writing ${snapshot_name}`);
-        heapdump.writeSnapshot(snapshot_name);
-        const increase = current - h.next;
-        const align = h.step - (increase % h.step);
-        h.next += increase + align;
+    try {
+        const m = process.memoryUsage();
+        const c = memory_monitor_config;
+        const h = c.heapdump;
+        const current = m.heapUsed;
+        if (c.logging_threshold &&
+            c.logging_threshold <= current) {
+            const usage = (m.heapUsed / 1024 / 1024).toFixed(0);
+            const total = (m.heapTotal / 1024 / 1024).toFixed(0);
+            const resident = (m.rss / 1024 / 1024).toFixed(0);
+            console.log(`memory_monitor: heap ${usage} MB | total ${total} MB | resident ${resident} MB`);
+        }
+        if (h && h.next && h.next <= current) {
+            const size_mb = (current / 1024 / 1024).toFixed(0);
+            const snapshot_name = `heapdump-${h.name}-${process.pid}-${new Date().toISOString()}-${size_mb}MB.heapsnapshot`;
+            console.log(`memory_monitor: writing ${snapshot_name}`);
+            heapdump.writeSnapshot(snapshot_name);
+            const increase = current - h.next;
+            const align = h.step - (increase % h.step);
+            h.next += increase + align;
+        }
+    } catch (err) {
+        console.error('memory_monitor got an error', err);
+        // we saw cases where the number of open files (file descriptors) was a reason for uncaught error during the memory_monitor
+        // we don't want the process to fail on that
+        if (err.code !== 'EMFILE') throw err;
     }
 }
 

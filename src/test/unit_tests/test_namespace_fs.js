@@ -1,6 +1,6 @@
 /* Copyright (C) 2020 NooBaa */
 /*eslint max-lines-per-function: ["error", 900]*/
-/*eslint max-lines: ["error", 2100]*/
+/*eslint max-lines: ["error", 2200]*/
 'use strict';
 
 const _ = require('lodash');
@@ -426,6 +426,7 @@ mocha.describe('namespace_fs', function() {
 
         const dir_1 = '/a/b/c/';
         const dir_2 = '/a/b/';
+        const dir_3 = '/x/y/z/';
         const upload_key_1 = dir_1 + 'upload_key_1';
         const upload_key_2 = dir_1 + 'upload_key_2';
         const upload_key_3 = dir_2 + 'upload_key_3';
@@ -460,16 +461,64 @@ mocha.describe('namespace_fs', function() {
             const source = buffer_utils.buffer_to_read_stream(data);
             await upload_object(ns_tmp, upload_bkt, upload_key_3, dummy_object_sdk, source);
             await delete_object(ns_tmp, upload_bkt, upload_key_1, dummy_object_sdk);
-
             let entries;
             try {
                 entries = await nb_native().fs.readdir(DEFAULT_FS_CONFIG, ns_tmp_bucket_path + dir_2);
             } catch (e) {
                 assert.ifError(e);
             }
-            console.log('stop when not empty - entries', entries);
             assert.strictEqual(entries.length, 1);
 
+        });
+
+        mocha.it('delete partial dir object without last slash version enabled - /x/y/z', async function() {
+            const source = buffer_utils.buffer_to_read_stream(data);
+            ns_tmp.set_bucket_versioning('ENABLED', dummy_object_sdk);
+            await upload_object(ns_tmp, upload_bkt, dir_3, dummy_object_sdk, source);
+            await fs_utils.file_must_exist(path.join(ns_tmp_bucket_path, '/x/y/z/', config.NSFS_FOLDER_OBJECT_NAME));
+            const partial_dir_3 = dir_3.slice(0, -1); // the path without the last slash
+            await delete_object(ns_tmp, upload_bkt, partial_dir_3, dummy_object_sdk);
+            await fs_utils.file_must_exist(path.join(ns_tmp_bucket_path, '/x/y/z/', config.NSFS_FOLDER_OBJECT_NAME));
+            await delete_object(ns_tmp, upload_bkt, dir_3, dummy_object_sdk);
+        });
+
+        mocha.it('delete dir object, version enabled - /x/y/z/', async function() {
+            const source = buffer_utils.buffer_to_read_stream(data);
+            ns_tmp.set_bucket_versioning('ENABLED', dummy_object_sdk);
+            await upload_object(ns_tmp, upload_bkt, dir_3, dummy_object_sdk, source);
+            await fs_utils.file_must_exist(path.join(ns_tmp_bucket_path, '/x/y/z/', config.NSFS_FOLDER_OBJECT_NAME));
+            const resp = await delete_object(ns_tmp, upload_bkt, dir_3, dummy_object_sdk);
+            await fs_utils.file_must_not_exist(path.join(ns_tmp_bucket_path, '/x/y/z/', config.NSFS_FOLDER_OBJECT_NAME));
+            await fs_utils.file_must_not_exist(path.join(ns_tmp_bucket_path, '/x/y/z/'));
+            // object versioning is not enabled for dir, because of this no delete_marker.
+            assert.deepEqual(resp, {});
+            const res = await ns_tmp.list_object_versions({
+                bucket: upload_bkt,
+                prefix: '/x/y/'
+            }, dummy_object_sdk);
+            assert.equal(res.objects.length, 0);
+        });
+
+        mocha.it('delete dir object, version enabled - /x/y/z/ - multiple files', async function() {
+            const source = buffer_utils.buffer_to_read_stream(data);
+            const source1 = buffer_utils.buffer_to_read_stream(data);
+            ns_tmp.set_bucket_versioning('ENABLED', dummy_object_sdk);
+            const dir_3_object = path.join(dir_3, 'obj1');
+            await upload_object(ns_tmp, upload_bkt, dir_3, dummy_object_sdk, source);
+            await upload_object(ns_tmp, upload_bkt, dir_3_object, dummy_object_sdk, source1);
+            await fs_utils.file_must_exist(path.join(ns_tmp_bucket_path, dir_3, config.NSFS_FOLDER_OBJECT_NAME));
+            await fs_utils.file_must_exist(path.join(ns_tmp_bucket_path, dir_3_object));
+            const resp = await delete_object(ns_tmp, upload_bkt, dir_3, dummy_object_sdk);
+            await fs_utils.file_must_not_exist(path.join(ns_tmp_bucket_path, dir_3, config.NSFS_FOLDER_OBJECT_NAME));
+            await fs_utils.file_must_exist(path.join(ns_tmp_bucket_path, dir_3));
+            await fs_utils.file_must_exist(path.join(ns_tmp_bucket_path, dir_3_object));
+            // object versioning is not enabled for dir, because of this no delete_marker.
+            assert.deepEqual(resp, {});
+            const res = await ns_tmp.list_object_versions({
+                bucket: upload_bkt,
+                prefix: '/x/y/'
+            }, dummy_object_sdk);
+            assert.equal(res.objects.length, 1);
         });
 
         mocha.after(async function() {
@@ -477,18 +526,17 @@ mocha.describe('namespace_fs', function() {
             let entries_after;
             try {
                 entries_before = await nb_native().fs.readdir(DEFAULT_FS_CONFIG, ns_tmp_bucket_path);
-
                 const delete_res = await ns_tmp.delete_object({
                     bucket: upload_bkt,
                     key: upload_key_3,
                 }, dummy_object_sdk);
                 console.log('delete_object response', inspect(delete_res));
-
                 entries_after = await nb_native().fs.readdir(DEFAULT_FS_CONFIG, ns_tmp_bucket_path);
             } catch (e) {
                 assert.ifError(e);
             }
-            assert.strictEqual(entries_after.length, entries_before.length - 1);
+            ns_tmp.set_bucket_versioning('DISABLED', dummy_object_sdk);
+            assert.strictEqual(entries_after.length, entries_before.length);
         });
     });
 

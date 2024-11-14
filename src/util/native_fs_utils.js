@@ -254,9 +254,9 @@ async function unlink_ignore_enoent(fs_context, to_delete_path) {
     try {
         await nb_native().fs.unlink(fs_context, to_delete_path);
     } catch (err) {
-        dbg.warn(`native_fs_utils.unlink_ignore_enoent unlink error: file path ${to_delete_path} error`, err);
-        if (err.code !== 'ENOENT') throw err;
-        dbg.warn(`native_fs_utils.unlink_ignore_enoent unlink: file ${to_delete_path} already deleted, ignoring..`);
+        dbg.warn(`native_fs_utils.unlink_ignore_enoent unlink error: file path ${to_delete_path} error`, err, err.code, err.code !== 'EISDIR');
+        if (err.code !== 'ENOENT' && err.code !== 'EISDIR') throw err;
+        dbg.warn(`native_fs_utils.unlink_ignore_enoent unlink: file ${to_delete_path} already deleted or key is pointing to dir, ignoring..`);
     }
 }
 

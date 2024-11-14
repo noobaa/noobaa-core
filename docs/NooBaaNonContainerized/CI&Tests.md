@@ -88,7 +88,7 @@ Run `NC mocha tests` with root permissions -
 #### NC mocha tests 
 The following is a list of `NC mocha test` files -   
 1. `test_nc_nsfs_cli.js` - Tests NooBaa CLI.  
-2. `test_nc_nsfs_health` - Tests NooBaa Health CLI.  
+2. `test_nc_health` - Tests NooBaa Health CLI.  
 3. `test_nsfs_glacier_backend.js` - Tests NooBaa Glacier Backend.  
 4. `test_nc_with_a_couple_of_forks.js` - Tests the `bucket_namespace_cache` when running with a couple of forks. Please notice that it uses `nc_coretest` with setup that includes a couple of forks.
 

@@ -11,7 +11,7 @@ require('./test_chunk_fs');
 require('./test_namespace_fs_mpu');
 require('./test_nb_native_fs');
 require('./test_nc_nsfs_cli');
-require('./test_nc_nsfs_health');
+require('./test_nc_health');
 require('./test_nsfs_access');
 require('./test_nsfs_integration');
 require('./test_bucketspace_fs');

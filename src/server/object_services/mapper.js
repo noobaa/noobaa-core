@@ -186,7 +186,7 @@ function map_chunk(chunk, tier, tiering, tiering_status, location_info) {
         }
 
         /**
-         * @param {nb.TierMirror} mirror 
+         * @param {nb.TierMirror} mirror
          */
         function map_frag_in_mirror(mirror) {
             const used_blocks = [];
@@ -291,6 +291,13 @@ function is_chunk_good_for_dedup(chunk) {
     if (!chunk.is_accessible) return false;
     if (chunk.is_building_blocks) return false;
     if (chunk.is_building_frags) return false;
+
+    // reject chunks that are not at least config.MIN_CHUNK_AGE_FOR_DEDUP old
+    // this is to avoid deduping chunks that might be from a previous attempt to write the same object
+    // see https://bugzilla.redhat.com/show_bug.cgi?id=2256223
+    const chunk_age = Date.now() - chunk._id.getTimestamp().getTime();
+    if (chunk_age < config.MIN_CHUNK_AGE_FOR_DEDUP) return false;
+
     return true;
 }
 
@@ -360,7 +367,7 @@ function _block_sort_newer_first(block1, block2) {
 
 
 /**
- * @param {nb.Pool} pool 
+ * @param {nb.Pool} pool
  * @returns {boolean}
  */
 function _pool_has_redundancy(pool) {
@@ -368,7 +375,7 @@ function _pool_has_redundancy(pool) {
 }
 
 // /**
-//  * 
+//  *
 //  * @param {nb.Chunk} chunk
 //  * @param {nb.LocationInfo} [location_info]
 //  */

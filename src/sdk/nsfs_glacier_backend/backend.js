@@ -156,7 +156,7 @@ class GlacierBackend {
     static get_restore_status(xattr, now, file_path) {
         if (xattr[GlacierBackend.STORAGE_CLASS_XATTR] !== s3_utils.STORAGE_CLASS_GLACIER) return;
 
-        // Total 6 states (2x restore_request, 3x restore_expiry)
+        // Total 8 states (2x restore_request, 4x restore_expiry)
         let restore_request;
         let restore_expiry;
 

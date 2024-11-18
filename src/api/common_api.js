@@ -1413,10 +1413,9 @@ module.exports = {
                             's3:ObjectTagging:*',
                             's3:ObjectTagging:Put',
                             's3:ObjectTagging:Delete',
-                            /*We plan to support LifecycleExpiration
                             's3:LifecycleExpiration:*',
                             's3:LifecycleExpiration:Delete',
-                            's3:LifecycleExpiration:DeleteMarkerCreated',*/
+                            's3:LifecycleExpiration:DeleteMarkerCreated',
                         ],
                     }
                 }

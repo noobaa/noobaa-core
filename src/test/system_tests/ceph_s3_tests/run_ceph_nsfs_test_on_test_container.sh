@@ -24,6 +24,7 @@ export CEPH_TEST_LOGS_DIR=/logs/ceph-nsfs-test-logs
 export CONFIG_DIR=/etc/noobaa.conf.d/
 export FS_ROOT_1=/tmp/nsfs_root1/
 export FS_ROOT_2=/tmp/nsfs_root2/
+export CONFIG_JS_allow_anonymous_access_in_test=true # Needed for allowing anon access for tests using ACL='public-read-write'
 
 # ====================================================================================
 

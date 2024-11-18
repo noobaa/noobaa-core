@@ -271,6 +271,50 @@ module.exports = {
             }
         },
 
+        bucket_cors_configuration: {
+            type: 'array',
+            items: {
+                $ref: '#/definitions/bucket_cors_rule'
+            }
+        },
+
+        bucket_cors_rule: {
+            type: 'object',
+            required: ['allowed_methods', 'allowed_origins'],
+            properties: {
+                id: {
+                    type: 'string'
+                },
+                allowed_methods: {
+                    type: 'array',
+                    items: {
+                        type: 'string'
+                    }
+                },
+                allowed_origins: {
+                    type: 'array',
+                    items: {
+                        type: 'string'
+                    }
+                },
+                allowed_headers: {
+                    type: 'array',
+                    items: {
+                        type: 'string'
+                    }
+                },
+                expose_headers: {
+                    type: 'array',
+                    items: {
+                        type: 'string'
+                    }
+                },
+                max_age_seconds: {
+                    type: 'integer'
+                },
+            }
+        },
+
         bucket_policy_principal: {
             anyOf: [{
                 wrapper: SensitiveString

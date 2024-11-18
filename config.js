@@ -64,7 +64,7 @@ config.BUFFERS_MEM_LIMIT_MIN = 32 * 1024 * 1024; // just some workable minimum s
 config.BUFFERS_MEM_LIMIT_MAX = 4 * 1024 * 1024 * 1024;
 config.BUFFERS_MEM_LIMIT = Math.min(
     config.BUFFERS_MEM_LIMIT_MAX,
-    Math.max(Math.floor(config.CONTAINER_MEM_LIMIT / 4), config.BUFFERS_MEM_LIMIT_MIN, )
+    Math.max(Math.floor(config.CONTAINER_MEM_LIMIT / 4), config.BUFFERS_MEM_LIMIT_MIN)
 );
 
 ////////////////////////
@@ -152,9 +152,8 @@ config.ENDPOINT_HTTP_SERVER_REQUEST_TIMEOUT = 300 * 1000;
 config.ENDPOINT_HTTP_SERVER_KEEPALIVE_TIMEOUT = 5 * 1000;
 config.ENDPOINT_HTTP_MAX_REQUESTS_PER_SOCKET = 0; // 0 = no limit
 
-// For now we enable fixed CORS for all buckets
-// but this should become a setting per bucket which is configurable
-// with the s3 put-bucket-cors api.
+// For now we enable fixed CORS only for sts
+// for S3 per bucket is configurabl with the s3 put-bucket-cors api.
 // note that browsers do not really allow origin=* with credentials,
 // but we just allow both from our side for simplicity.
 config.S3_CORS_ENABLED = true;
@@ -502,6 +501,7 @@ config.LOG_COLOR_ENABLED = process.env.NOOBAA_LOG_COLOR ? process.env.NOOBAA_LOG
 
 // TEST Mode
 config.test_mode = false;
+config.allow_anonymous_access_in_test = false; // used for emulating ACL='public-read' for ceph-s3 tests
 
 // On Premise NVA params
 config.on_premise = {
@@ -753,11 +753,11 @@ config.NSFS_BUF_POOL_MEM_LIMIT_XS = Math.min(Math.floor(config.NSFS_MAX_MEM_SIZE
 config.NSFS_BUF_POOL_MEM_LIMIT_S = Math.min(Math.floor(config.NSFS_MAX_MEM_SIZE_S / config.NSFS_BUF_SIZE_S),
     config.NSFS_WANTED_BUFFERS_NUMBER) * config.NSFS_BUF_SIZE_S;
 // Semaphore size will give 90% of remainning memory to large buffer size, 10% to medium
-config.NSFS_BUF_POOL_MEM_LIMIT_M = range_utils.align_down((config.BUFFERS_MEM_LIMIT -
-        config.NSFS_BUF_POOL_MEM_LIMIT_S - config.NSFS_BUF_POOL_MEM_LIMIT_XS) * 0.1,
+config.NSFS_BUF_POOL_MEM_LIMIT_M = range_utils.align_down(
+    (config.BUFFERS_MEM_LIMIT - config.NSFS_BUF_POOL_MEM_LIMIT_S - config.NSFS_BUF_POOL_MEM_LIMIT_XS) * 0.1,
     config.NSFS_BUF_SIZE_M);
-config.NSFS_BUF_POOL_MEM_LIMIT_L = range_utils.align_down((config.BUFFERS_MEM_LIMIT -
-        config.NSFS_BUF_POOL_MEM_LIMIT_S - config.NSFS_BUF_POOL_MEM_LIMIT_XS) * 0.9,
+config.NSFS_BUF_POOL_MEM_LIMIT_L = range_utils.align_down(
+    (config.BUFFERS_MEM_LIMIT - config.NSFS_BUF_POOL_MEM_LIMIT_S - config.NSFS_BUF_POOL_MEM_LIMIT_XS) * 0.9,
     config.NSFS_BUF_SIZE_L);
 
 config.NSFS_BUF_WARMUP_SPARSE_FILE_READS = true;

@@ -697,6 +697,47 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
         }
     }
 
+    ////////////////////
+    // BUCKET CORS //
+    ////////////////////
+
+    async put_bucket_cors(params) {
+        try {
+            const { name, cors_rules } = params;
+            dbg.log0('BucketSpaceFS.put_bucket_cors: Bucket name', name, ", cors configuration ", cors_rules);
+            const bucket = await this.config_fs.get_bucket_by_name(name);
+            bucket.cors_configuration_rules = cors_rules;
+            await this.config_fs.update_bucket_config_file(bucket);
+        } catch (error) {
+            throw translate_error_codes(error, entity_enum.BUCKET);
+        }
+    }
+
+    async delete_bucket_cors(params) {
+        try {
+            const { name } = params;
+            dbg.log0('BucketSpaceFS.delete_bucket_cors: Bucket name', name);
+            const bucket = await this.config_fs.get_bucket_by_name(name);
+            delete bucket.cors_configuration_rules;
+            await this.config_fs.update_bucket_config_file(bucket);
+        } catch (err) {
+            throw translate_error_codes(err, entity_enum.BUCKET);
+        }
+    }
+
+    async get_bucket_cors(params) {
+        try {
+            const { name } = params;
+            dbg.log0('BucketSpaceFS.get_bucket_cors: Bucket name', name);
+            const bucket = await this.config_fs.get_bucket_by_name(name);
+            return {
+                cors: bucket.cors_configuration_rules || [],
+            };
+        } catch (error) {
+            throw translate_error_codes(error, entity_enum.BUCKET);
+        }
+    }
+
     /////////////////////////
     // DEFAULT OBJECT LOCK //
     /////////////////////////

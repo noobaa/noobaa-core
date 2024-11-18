@@ -339,6 +339,11 @@ S3Error.NoSuchLifecycleConfiguration = Object.freeze({
     message: 'The lifecycle configuration does not exist.',
     http_code: 404,
 });
+S3Error.NoSuchCORSConfiguration = Object.freeze({
+    code: 'NoSuchCORSConfiguration',
+    message: 'The specified bucket does not have a CORS configuration.',
+    http_code: 404,
+});
 S3Error.NoSuchUpload = Object.freeze({
     code: 'NoSuchUpload',
     message: 'The specified multipart upload does not exist. The upload ID might be invalid, or the multipart upload might have been aborted or completed.',

@@ -67,12 +67,12 @@ const dn_cache = new LRUCache({
     /**
      * Set type for the generic template
      * @param {{
-    *      distinguished_name: string;
-    * }} params
-    */
+     *      distinguished_name: string;
+     * }} params
+     */
     make_key: ({ distinguished_name }) => distinguished_name,
     load: async ({ distinguished_name }) => native_fs_utils.get_user_by_distinguished_name({ distinguished_name }),
- });
+});
 
 const MULTIPART_NAMESPACES = [
     'NET_STORAGE'
@@ -210,6 +210,16 @@ class ObjectSDK {
         return bucket_namespace_cache.get_with_cache({ sdk: this, name });
     }
 
+    async read_bucket_sdk_cors_info(name) {
+        try {
+            const { bucket } = await bucket_namespace_cache.get_with_cache({ sdk: this, name });
+            return bucket.cors_configuration_rules;
+        } catch (error) {
+            if (error.rpc_code === 'NO_SUCH_BUCKET') return undefined;
+            throw error;
+        }
+    }
+
     async load_requesting_account(req) {
         try {
             const token = this.get_auth_token();
@@ -342,8 +352,7 @@ class ObjectSDK {
                     return {
                         ns: this._setup_single_namespace(
                             bucket.namespace.read_resources[0],
-                            bucket._id,
-                            {
+                            bucket._id, {
                                 versioning: bucket.bucket_info && bucket.bucket_info.versioning,
                                 force_md5_etag: bucket.force_md5_etag
                             },
@@ -400,8 +409,8 @@ class ObjectSDK {
                 write_resource: wr,
                 read_resources: _.map(rr, it => (
                     it.resource.endpoint_type === 'MULTIPART' ?
-                        it.ns :
-                        this._setup_single_namespace(it)
+                    it.ns :
+                    this._setup_single_namespace(it)
                 ))
             },
             active_triggers: bucket.active_triggers
@@ -1091,6 +1100,25 @@ class ObjectSDK {
     }
 
     ////////////////////
+    // BUCKET CORS //
+    ////////////////////
+
+    async put_bucket_cors(params) {
+        const bs = this._get_bucketspace();
+        return bs.put_bucket_cors(params);
+    }
+
+    async delete_bucket_cors(params) {
+        const bs = this._get_bucketspace();
+        return bs.delete_bucket_cors(params);
+    }
+
+    async get_bucket_cors(params) {
+        const bs = this._get_bucketspace();
+        return bs.get_bucket_cors(params);
+    }
+
+    ////////////////////
     //  OBJECT LOCK   //
     ////////////////////
 
@@ -1145,13 +1173,13 @@ class ObjectSDK {
         const ns = await this._get_bucket_namespace(params.bucket);
         if (ns.get_object_attributes) {
             return ns.get_object_attributes(params, this);
-          } else {
+        } else {
             // fallback to calling get_object_md without attributes params
             dbg.warn('namespace does not implement get_object_attributes action, fallback to read_object_md');
             const md_params = { ...params };
             delete md_params.attributes; // not part of the schema of read_object_md
             return ns.read_object_md(md_params, this);
-          }
+        }
     }
 
 }

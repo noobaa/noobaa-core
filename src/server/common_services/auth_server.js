@@ -668,7 +668,7 @@ function _get_auth_info(account, system, authorized_by, role, extra) {
  * @param {Record<string, any>} account requesting account
  * @param {string} action s3 bucket action (lowercased only)
  * @param {string} bucket_path s3 bucket path (must start from "/")
- * @returns {boolean} true if the account has permission to perform the action on the bucket
+ * @returns  {Promise<boolean>} true if the account has permission to perform the action on the bucket
  */
 async function has_bucket_action_permission(bucket, account, action, bucket_path = "") {
     dbg.log1('has_bucket_action_permission:', bucket.name, account.email, bucket.owner_account.email);
@@ -703,7 +703,7 @@ async function has_bucket_action_permission(bucket, account, action, bucket_path
  * @param {Record<string, any>} bucket bucket
  * @param {string} action s3 action (lowercased)
  * @param {string} bucket_path bucket path
- * @returns {boolean} true if the bucket is configured to serve anonymous requests
+ * @returns {Promise<boolean>} true if the bucket is configured to serve anonymous requests
  */
 async function has_bucket_anonymous_permission(bucket, action, bucket_path = "") {
     const bucket_policy = bucket.s3_policy;

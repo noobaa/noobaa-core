@@ -12,6 +12,9 @@ class NodeJsReport extends BasePrometheusReport {
     constructor() {
         super();
 
+        // creating new instance of registry to collect default metrics for nodejs
+        this._register = new this.prom_client.Registry();
+
         if (this.enabled) {
             this.prom_client.collectDefaultMetrics({
                 register: this.register,

@@ -285,5 +285,8 @@ module.exports = {
                 $ref: 'common_api#/definitions/bucket_notification'
             }
         },
+        public_access_block: {
+            $ref: 'common_api#/definitions/public_access_block',
+        }
     }
 };

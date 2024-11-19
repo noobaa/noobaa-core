@@ -519,6 +519,15 @@ async function put_bucket_policy(req) {
     const bucket = find_bucket(req, req.rpc_params.name);
     await bucket_policy_utils.validate_s3_policy(req.rpc_params.policy, bucket.name,
         principal => system_store.get_account_by_email(principal));
+
+    if (
+        bucket.public_access_block?.block_public_policy &&
+        bucket_policy_utils.allows_public_access(req.rpc_params.policy)
+    ) {
+            // Should result in AccessDenied error
+            throw new RpcError('UNAUTHORIZED');
+    }
+
     await system_store.make_changes({
         update: {
             buckets: [{
@@ -1448,6 +1457,46 @@ async function update_all_buckets_default_pool(req) {
     });
 }
 
+/**
+ * 
+ * PUBLIC_ACCESS_BLOCK
+ * 
+ */
+
+async function get_public_access_block(req) {
+    dbg.log0('get_public_access_block:', req.rpc_params);
+    const bucket = find_bucket(req, req.rpc_params.bucket_name);
+    return {
+        public_access_block: bucket.public_access_block,
+    };
+}
+
+async function put_public_access_block(req) {
+    dbg.log0('put_public_access_block:', req.rpc_params);
+    const bucket = find_bucket(req, req.rpc_params.bucket_name);
+    await system_store.make_changes({
+        update: {
+            buckets: [{
+                _id: bucket._id,
+                public_access_block: req.rpc_params.public_access_block,
+            }]
+        }
+    });
+}
+
+async function delete_public_access_block(req) {
+    dbg.log0('delete_public_access_block:', req.rpc_params);
+    const bucket = find_bucket(req, req.rpc_params.bucket_name);
+    await system_store.make_changes({
+        update: {
+            buckets: [{
+                _id: bucket._id,
+                $unset: { public_access_block: 1 }
+            }]
+        }
+    });
+}
+
 // UTILS //////////////////////////////////////////////////////////
 
 function validate_bucket_creation(req) {
@@ -2221,3 +2270,7 @@ exports.put_bucket_replication = put_bucket_replication;
 exports.get_bucket_replication = get_bucket_replication;
 exports.delete_bucket_replication = delete_bucket_replication;
 exports.validate_replication = validate_replication;
+
+exports.get_public_access_block = get_public_access_block;
+exports.put_public_access_block = put_public_access_block;
+exports.delete_public_access_block = delete_public_access_block;

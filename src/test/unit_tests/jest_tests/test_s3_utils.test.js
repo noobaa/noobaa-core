@@ -115,4 +115,89 @@ describe('s3_utils', () => {
             expect(res.headers['x-amz-restore']).toBeDefined();
         });
     });
+
+    describe('parse_body_public_access_block', () => {
+        it('should throw error if config has ACL', () => {
+            const req = {
+                body: {
+                    PublicAccessBlockConfiguration: {
+                        BlockPublicAcls: true
+                    }
+                }
+            };
+            expect(() => {
+                s3_utils.parse_body_public_access_block(req);
+            }).toThrow();
+
+            req.body.PublicAccessBlockConfiguration.BlockPublicAcls = false;
+            req.body.PublicAccessBlockConfiguration.IgnorePublicAcls = true;
+            expect(() => {
+                s3_utils.parse_body_public_access_block(req);
+            }).toThrow();
+
+            req.body.PublicAccessBlockConfiguration.BlockPublicAcls = true;
+            req.body.PublicAccessBlockConfiguration.IgnorePublicAcls = true;
+            expect(() => {
+                s3_utils.parse_body_public_access_block(req);
+            }).toThrow();
+        });
+
+        it('should throw error if it is Malformed XML', () => {
+            const req = {};
+            expect(() => {
+                s3_utils.parse_body_public_access_block(req);
+            }).toThrow();
+
+            req.body = {};
+            expect(() => {
+                s3_utils.parse_body_public_access_block(req);
+            }).toThrow();
+        });
+
+        it('should parse properly when XML is well formatted', () => {
+            const req = {
+                body: {
+                    PublicAccessBlockConfiguration: {
+                        BlockPublicPolicy: ["TRUE"]
+                    }
+                }
+            };
+
+            let res = s3_utils.parse_body_public_access_block(req);
+            expect(res.block_public_policy).toBe(true);
+            expect(res.restrict_public_buckets).toBe(undefined);
+
+            req.body = {
+                // @ts-ignore
+                PublicAccessBlockConfiguration: {
+                    RestrictPublicBuckets: ["TRUE"]
+                }
+            };
+            res = s3_utils.parse_body_public_access_block(req);
+            expect(res.block_public_policy).toBe(undefined);
+            expect(res.restrict_public_buckets).toBe(true);
+
+            req.body = {
+                // @ts-ignore
+                PublicAccessBlockConfiguration: {
+                    BlockPublicPolicy: ["TRUE"],
+                    RestrictPublicBuckets: ["TRUE"]
+                }
+            };
+            res = s3_utils.parse_body_public_access_block(req);
+            expect(res.block_public_policy).toBe(true);
+            expect(res.restrict_public_buckets).toBe(true);
+
+            req.body = {
+                // @ts-ignore
+                PublicAccessBlockConfiguration: {
+                    BlockPublicPolicy: ["FALSE"],
+                    RestrictPublicBuckets: ["FALSE"]
+                }
+            };
+            res = s3_utils.parse_body_public_access_block(req);
+            expect(res.block_public_policy).toBe(false);
+            expect(res.restrict_public_buckets).toBe(false);
+        });
+    });
 });

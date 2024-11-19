@@ -282,6 +282,22 @@ class BucketSpaceNB {
         return this.rpc_client.bucket.put_object_lock_configuration(params);
     }
 
+    /////////////////////////
+    // PUBLIC ACCESS BLOCK //
+    /////////////////////////
+
+    async get_public_access_block(params, object_sdk) {
+        return this.rpc_client.bucket.get_public_access_block(params);
+    }
+
+    async put_public_access_block(params, object_sdk) {
+        return this.rpc_client.bucket.put_public_access_block(params);
+    }
+
+    async delete_public_access_block(params, object_sdk) {
+        return this.rpc_client.bucket.delete_public_access_block(params);
+    }
+
     //  nsfs
 
 

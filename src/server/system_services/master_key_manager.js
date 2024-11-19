@@ -132,7 +132,7 @@ class MasterKeysManager {
      */
     new_master_key(options) {
         const { description, master_key_id, root_key_id, cipher_type } = options;
-        const _id = db_client.new_object_id();
+        const _id = db_client.new_object_id().toString();
         const master_id = (master_key_id && db_client.parse_object_id(master_key_id)) || undefined;
         const m_key = _.omitBy({
             _id,

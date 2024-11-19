@@ -9,9 +9,11 @@ const _ = require('lodash');
 const mocha = require('mocha');
 const assert = require('assert');
 const config = require('./../../../config');
+const ObjectID = require('../../util/objectid.js');
 
 // const P = require('../../util/promise');
 const MDStore = require('../../server/object_services/md_store').MDStore;
+
 
 mocha.describe('md_store', function() {
 
@@ -35,10 +37,12 @@ mocha.describe('md_store', function() {
 
             await md_store.insert_object(info);
             obj = await md_store.find_object_by_id(info._id);
+
             assert_equal(obj, info);
 
             await md_store.update_object_by_id(info._id, { size: 777 }, { upload_size: 1 }, { num_parts: 88 });
             obj = await md_store.find_object_latest(bucket_id, info.key);
+
             assert_equal(obj, _.defaults({ size: 777, num_parts: 88 }, info));
 
             await md_store.update_object_by_id(info._id, { deleted: new Date() });
@@ -258,14 +262,15 @@ mocha.describe('md_store', function() {
 
         mocha.it('find_chunks_by_ids()', async function() {
             const res = await md_store.find_chunks_by_ids(_.map(chunks, '_id'));
-            if (config.DB_TYPE === 'mongodb') {
+            // if (config.DB_TYPE === 'mongodb') {
                 res.forEach(chunk => {
                     if (chunk.digest) chunk.digest = chunk.digest.buffer;
                     if (chunk.cipher_key) chunk.cipher_key = chunk.cipher_key.buffer;
                     if (chunk.cipher_iv) chunk.cipher_iv = chunk.cipher_iv.buffer;
                     if (chunk.cipher_auth_tag) chunk.cipher_auth_tag = chunk.cipher_auth_tag.buffer;
                 });
-            }
+            // }
+
             assert_equal_docs_list(res, chunks);
         });
 
@@ -320,6 +325,20 @@ function assert_equal(a, b) {
         assert.fail(a, b, undefined, 'equal');
     }
 }
+
+function customEqual(actual, expected) {
+    if (actual && expected && actual.id && expected.id) {
+        if (Buffer.isBuffer(actual.id) && Buffer.isBuffer(expected.id)) {
+            return actual.id.equals(expected.id);
+        }
+        if (actual.id instanceof ObjectID && expected.id instanceof ObjectID) {
+            return actual.id.id.equals(expected.id.id);
+        }
+    }
+
+    return _.isEqual(actual, expected);
+}
+
 
 function assert_equal_docs_list(a, b) {
     const a_sorted = _.sortBy(a, x => x._id);

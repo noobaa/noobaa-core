@@ -524,7 +524,7 @@ class SystemStore extends EventEmitter {
     }
 
     new_system_store_id() {
-        return db_client.instance().new_object_id();
+        return db_client.instance().new_object_id().toString();
     }
 
     parse_system_store_id(id_str) {

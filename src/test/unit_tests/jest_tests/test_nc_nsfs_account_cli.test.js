@@ -1836,6 +1836,7 @@ describe('cli account flow distinguished_name - permissions', function() {
         await fs_utils.file_must_exist(new_buckets_path);
         await set_path_permissions_and_owner(new_buckets_path, { uid: 0, gid: 0 }, 0o700);
         const res = await exec_manage_cli(type, ACTIONS.ADD, accounts.root.cli_options);
+        console.log("res ======================", res);
         assert_account(JSON.parse(res).response.reply, accounts.root.cli_options, false);
     }, timeout);
 

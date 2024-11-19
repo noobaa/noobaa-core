@@ -1,17 +1,16 @@
 /* Copyright (C) 2024 NooBaa */
 'use strict';
 
-const mongo_utils = require('../util/mongo_utils');
-
+const objectid = require('../util/objectid.js');
 /**
  * generate_id will generate an id that we use to identify entities (such as account, bucket, etc.). 
  */
 // TODO: 
 // - reuse this function in NC NSFS where we used the mongo_utils module
-// - this function implantation should be db_client.new_object_id(), 
+// - this function implantation should be db_client.new_object_id().toString(), 
 //   but to align with manage nsfs we won't change it now
 function generate_id() {
-    return mongo_utils.mongoObjectId();
+    return objectid();
 }
 
 /**

@@ -109,7 +109,7 @@ class NCMasterKeysManager {
      */
     async _create_master_key() {
         const master_key = {
-            id: db_client.new_object_id(),
+            id: db_client.new_object_id().toString(),
             cipher_key: crypto.randomBytes(32),
             cipher_iv: crypto.randomBytes(16),
             encryption_type: 'aes-256-gcm'

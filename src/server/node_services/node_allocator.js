@@ -140,7 +140,7 @@ async function refresh_tiering_alloc(tiering, force) {
  * @returns {Promise<void>}
  */
 async function refresh_pool_alloc(pool, force) {
-    const pool_id_str = pool._id.toHexString();
+    const pool_id_str = pool._id;
     let group = alloc_group_by_pool[pool_id_str];
     if (!group) {
         group = {
@@ -202,7 +202,7 @@ async function refresh_tiers_alloc(tiering_list, force) {
     const wait_list = [];
 
     for (const tiering of tiering_list) {
-        const tiering_id_str = tiering._id.toHexString();
+        const tiering_id_str = tiering._id;
         let group = alloc_group_by_tiering[tiering_id_str];
         if (!group) {
             group = {
@@ -266,10 +266,10 @@ function get_tiering_status(tiering) {
     /** @type {nb.TieringStatus} */
     const tiering_status_by_tier = {};
     if (!tiering) return tiering_status_by_tier;
-    const tiering_id_str = tiering._id.toHexString();
+    const tiering_id_str = tiering._id;
     const alloc_group = alloc_group_by_tiering[tiering_id_str];
     _.each(tiering.tiers, ({ tier }) => {
-        const tier_id_str = tier._id.toHexString();
+        const tier_id_str = tier._id;
         const mirrors_storage = alloc_group && alloc_group.mirrors_storage_by_tier_id[tier_id_str];
         let tier_pools = [];
         // Inside the Tier, pools are unique and we don't need to filter afterwards
@@ -310,7 +310,7 @@ function _get_tier_pools_status(pools, required_valid_nodes) {
         } else if (num_nodes < required_valid_nodes) {
             valid_for_allocation = false;
         }
-        pools_status_by_id[pool._id.toHexString()] = {
+        pools_status_by_id[pool._id] = {
             valid_for_allocation,
             num_nodes,
             resource_type: pool.resource_type
@@ -344,7 +344,7 @@ function allocate_node({ avoid_nodes, allocated_hosts, pools = [] }) {
         // Since we will merge the two groups we will eventually have two average groups
         // This is bad since we will have two groups with each having fast and slow drives
         pools.forEach(pool => {
-            const group = alloc_group_by_pool[pool._id.toHexString()];
+            const group = alloc_group_by_pool[pool._id];
             if (group && group.latency_groups) {
                 group.latency_groups.forEach((value, index) => {
                     if (pools_latency_groups[index]) {

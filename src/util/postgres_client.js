@@ -30,6 +30,9 @@ const config = require('../../config');
 const ssl_utils = require('./ssl_utils');
 
 const DB_CONNECT_ERROR_MESSAGE = 'Could not acquire client from DB connection pool';
+
+const ObjectID = require('../util/objectid.js');
+
 mongodb.Binary.prototype[util.inspect.custom] = function custom_inspect_binary() {
     return `<mongodb.Binary ${this.buffer.toString('base64')} >`;
 };
@@ -54,7 +57,7 @@ function decode_json(schema, val) {
         return val;
     }
     if (schema.objectid === true) {
-        return new mongodb.ObjectId(val);
+        return new ObjectID(val);
     }
     if (schema.date === true) {
         return new Date(val);
@@ -97,7 +100,7 @@ function encode_json(schema, val) {
     const ops = handle_ops_encoding(schema, val);
     if (ops) return ops;
 
-    if (schema.objectid === true && val instanceof mongodb.ObjectID) {
+    if (schema.objectid === true && val instanceof ObjectID) {
         return val.toString();
     }
 
@@ -1162,7 +1165,7 @@ class PostgresTable {
                 const new_row = {};
                 for (const key of Object.keys(row)) {
                     if (key === '_id') {
-                        new_row._id = new mongodb.ObjectID(row[key]);
+                        new_row._id = new ObjectID(row[key]);
                     } else {
                         new_row[key] = parseInt(row[key], 10);
                     }
@@ -1585,7 +1588,7 @@ class PostgresClient extends EventEmitter {
     }
 
     generate_id() {
-        return new mongodb.ObjectId();
+        return (new ObjectID(null)).toString();
     }
 
     collection(name) {
@@ -1688,8 +1691,8 @@ class PostgresClient extends EventEmitter {
     }
 
     /**
-     * make a list of ObjectId unique by indexing their string value
-     * this is needed since ObjectId is an object so === comparison is not
+     * make a list of ObjectID unique by indexing their string value
+     * this is needed since ObjectID is an object so === comparison is not
      * logically correct for it even for two objects with the same id.
      */
     uniq_ids(docs, doc_path) {
@@ -1732,9 +1735,9 @@ class PostgresClient extends EventEmitter {
 
     resolve_object_ids_recursive(idmap, item) {
         _.each(item, (val, key) => {
-            if (val instanceof mongodb.ObjectId) {
+            if (val instanceof ObjectID) {
                 if (key !== '_id') {
-                    const obj = idmap[val.toHexString()];
+                    const obj = idmap[val];
                     if (obj) {
                         item[key] = obj;
                     }
@@ -1770,8 +1773,8 @@ class PostgresClient extends EventEmitter {
     /**
      * @returns {nb.ID}
      */
-    new_object_id() {
-        return new mongodb.ObjectId();
+    new_object_id().toString() {
+        return (new ObjectID(null)).toString();
     }
 
     /**
@@ -1779,20 +1782,20 @@ class PostgresClient extends EventEmitter {
      * @returns {nb.ID}
      */
     parse_object_id(id_str) {
-        return new mongodb.ObjectId(String(id_str || undefined));
+        return (new ObjectID(String(id_str || undefined))).toString();
     }
 
     fix_id_type(doc) {
         if (_.isArray(doc)) {
             _.each(doc, d => this.fix_id_type(d));
         } else if (doc && doc._id) {
-            doc._id = new mongodb.ObjectId(doc._id);
+            doc._id = new ObjectID(doc._id);
         }
         return doc;
     }
 
     is_object_id(id) {
-        return (id instanceof mongodb.ObjectId);
+        return (id instanceof ObjectID);
     }
 
     // TODO: Figure out error codes

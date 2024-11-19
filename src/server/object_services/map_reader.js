@@ -89,7 +89,7 @@ async function read_object_mapping_admin(obj, skip, limit) {
 async function read_node_mapping(node_ids, skip, limit) {
     const chunk_ids = await MDStore.instance().find_blocks_chunks_by_node_ids(node_ids, skip, limit);
     const parts = await MDStore.instance().find_parts_by_chunk_ids(chunk_ids);
-    const chunks = await read_parts_mapping(_.uniqBy(parts, part => part.chunk.toHexString()));
+    const chunks = await read_parts_mapping(_.uniqBy(parts, part => part.chunk));
     return chunks;
 }
 
@@ -106,7 +106,7 @@ async function read_parts_mapping(parts, location_info) {
     await MDStore.instance().load_blocks_for_chunks(chunks_db, sorter);
     const chunks_db_by_id = _.keyBy(chunks_db, '_id');
     const chunks = parts.map(part => {
-        const chunk = new ChunkDB({ ...chunks_db_by_id[part.chunk.toHexString()], parts: [part] });
+        const chunk = new ChunkDB({ ...chunks_db_by_id[part.chunk], parts: [part] });
         return chunk;
     });
     await map_server.prepare_chunks({ chunks });

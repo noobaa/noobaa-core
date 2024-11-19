@@ -5,8 +5,8 @@ const mocha = require('mocha');
 const { default: Ajv } = require('ajv');
 const schema_keywords = require('../../util/schema_keywords');
 const SensitiveString = require('../../util/sensitive_string');
-const mongodb = require('mongodb');
 const assert = require('assert');
+const ObjectID = require('../../util/objectid.js');
 
 /**
  * @typedef {import('ajv').KeywordCxt} KeywordCxt
@@ -75,7 +75,7 @@ mocha.describe('Test Schema Keywords', function() {
 
     mocha.it('Test keyword objectid', async function() {
         const validator = ajv.getSchema('test_schema_keywords#/methods/params');
-        const should_pass = { key3: new mongodb.ObjectId() };
+        const should_pass = { key3: (new ObjectID(null)).toString() };
         assert.strictEqual(validator(should_pass), true);
         const should_fail = { key3: 'not_an_objectid' };
         assert.strictEqual(validator(should_fail), false);

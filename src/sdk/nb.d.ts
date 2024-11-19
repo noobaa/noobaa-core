@@ -1,11 +1,13 @@
 export as namespace nb;
 
 import * as fs from 'fs';
-import * as mongodb from 'mongodb';
 import { EventEmitter } from 'events';
 import { Readable, Writable } from 'stream';
 import { IncomingMessage, ServerResponse } from 'http';
-import { ObjectPart, Checksum} from '@aws-sdk/client-s3';
+import { ObjectPart, Checksum } from '@aws-sdk/client-s3';
+import * as mongodb from 'mongodb';
+
+import ObjectID = require("../util/objectid.js");
 
 type Semaphore = import('../util/semaphore');
 type KeysSemaphore = import('../util/keys_semaphore');
@@ -39,6 +41,8 @@ type ReplicationLogCandidates = Record<string, { action: ReplicationLogAction, t
 
 type BucketDiffKeysDiff = { [key: string]: Array<object> };
 
+
+
 interface MapByID<T> { [id: string]: T }
 
 interface Base {
@@ -46,8 +50,8 @@ interface Base {
     toString?(): string;
 }
 
-type ID = mongodb.ObjectID;
-type DBBuffer = mongodb.Binary | Buffer;
+type ID = ObjectID;
+type DBBuffer = Buffer;
 
 interface System extends Base {
     _id: ID;
@@ -720,8 +724,8 @@ interface DBClient {
     populate(docs: object[] | object, doc_path: string, collection: DBCollection, fields: object): Promise<object[] | object>;
     resolve_object_ids_recursive(idmap: object, item: object): object;
     resolve_object_ids_paths(idmap: object, item: object, paths: string[], allow_missing: boolean): object;
-    new_object_id(): mongodb.ObjectId;
-    parse_object_id(id_str: string): mongodb.ObjectId;
+    new_object_id().toString(): ObjectID;
+    parse_object_id(id_str: string): ObjectID;
     fix_id_type(doc: object[] | object): object[] | object;
     is_object_id(id: object[] | object): boolean;
     is_err_duplicate_key(err: object): boolean;
@@ -824,7 +828,7 @@ interface BucketSpace {
 
     read_account_by_access_key({ access_key: string }): Promise<any>;
     read_bucket_sdk_info({ name: string }): Promise<any>;
-    check_same_stat(bucket_name: string, bucket_stat:  nb.NativeFSStats); // only implemented in bucketspace_fs
+    check_same_stat(bucket_name: string, bucket_stat: nb.NativeFSStats); // only implemented in bucketspace_fs
 
     list_buckets(params: object, object_sdk: ObjectSDK): Promise<any>;
     read_bucket(params: object): Promise<any>;
@@ -1150,4 +1154,4 @@ interface GetObjectAttributesParts {
     MaxParts?: number;
     IsTruncated?: boolean;
     Parts?: ObjectPart[];
-  }
+}

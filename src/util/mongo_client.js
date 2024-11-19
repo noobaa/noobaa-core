@@ -251,7 +251,7 @@ class MongoClient extends EventEmitter {
         _.each(item, (val, key) => {
             if (val instanceof mongodb.ObjectId) {
                 if (key !== '_id') {
-                    const obj = idmap[val.toHexString()];
+                    const obj = idmap[val];
                     if (obj) {
                         item[key] = obj;
                     }
@@ -287,7 +287,7 @@ class MongoClient extends EventEmitter {
     /**
      * @returns {nb.ID}
      */
-    new_object_id() {
+    new_object_id().toString() {
         return new mongodb.ObjectId();
     }
 

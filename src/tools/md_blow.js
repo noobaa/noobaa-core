@@ -102,7 +102,7 @@ async function blow_parts(params) {
                     allocations: [{
                         mirror_group: 'abc',
                         block_md: {
-                            id: db_client.instance().new_object_id().toHexString(),
+                            id: db_client.instance().new_object_id().toString(),
                             node: node._id,
                             pool: pool_db._id,
                             size: argv.chunk_size

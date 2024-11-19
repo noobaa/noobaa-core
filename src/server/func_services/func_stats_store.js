@@ -2,8 +2,7 @@
 'use strict';
 
 // const _ = require('lodash');
-const mongodb = require('mongodb');
-
+const ObjectID = require('../../util/objectid.js');
 // const dbg = require('../../util/debug_module')(__filename);
 const db_client = require('../../util/db_client');
 
@@ -26,7 +25,7 @@ class FuncStatsStore {
     }
 
     make_func_stat_id(id_str) {
-        return new mongodb.ObjectId(id_str);
+        return (new ObjectID(id_str)).toString();
     }
 
     async create_func_stat(stat) {

@@ -2,11 +2,10 @@
 'use strict';
 
 const _ = require('lodash');
-const mongodb = require('mongodb');
 const db_client = require('../../util/db_client');
 const dbg = require('../../util/debug_module')(__filename);
 const replication_schema = require('./schemas/replication_configuration_schema');
-
+const ObjectID = require('../../util/objectid.js');
 class ReplicationStore {
 
     constructor() {
@@ -25,7 +24,7 @@ class ReplicationStore {
         item = _.omitBy(item, _.isNil);
         dbg.log1(`insert_replication`, item);
         const record = {
-            _id: new mongodb.ObjectId(),
+            _id: (new ObjectID(null)).toString(),
             ...item
         };
         this._replicationconfigs.validate(record);

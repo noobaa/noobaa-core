@@ -1,10 +1,10 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const mongodb = require('mongodb');
 const _ = require('lodash');
 
 const db_client = require('../../util/db_client');
+const ObjectID = require('../../util/objectid.js');
 const P = require('../../util/promise');
 const activity_log_schema = require('./activity_log_schema');
 const activity_log_indexes = require('./activity_log_indexes');
@@ -25,7 +25,7 @@ class ActivityLogStore {
     }
 
     make_activity_log_id(id_str) {
-        return new mongodb.ObjectID(id_str);
+        return (new ObjectID(id_str)).toString();
     }
 
 

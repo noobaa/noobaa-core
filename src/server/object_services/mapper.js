@@ -24,7 +24,7 @@ function select_tier_for_write(tiering, tiering_status, start_tier_order) {
         if (t.disabled) continue;
         if (start_tier_order >= 0 && t.order < start_tier_order) continue;
         if (!selected) selected = t;
-        const tier_status = tiering_status[t.tier._id.toHexString()];
+        const tier_status = tiering_status[t.tier._id];
         const tier_has_space = t.tier.mirrors.every((mirror, i) =>
             size_utils.json_to_bigint(tier_status.mirrors_storage[i].free)
             .greater(config.MIN_TIER_FREE_THRESHOLD)
@@ -47,7 +47,7 @@ function select_tier_for_write(tiering, tiering_status, start_tier_order) {
  * @returns {nb.TierMirror}
  */
 function select_mirror_for_write(tier, tiering, tiering_status, location_info) {
-    const tier_status = tiering_status[tier._id.toHexString()];
+    const tier_status = tiering_status[tier._id];
     let mirror_index = 0;
     let selected;
     let selected_weight;
@@ -55,7 +55,7 @@ function select_mirror_for_write(tier, tiering, tiering_status, location_info) {
         const mirror_status = tier_status.mirrors_storage[mirror_index];
         const local_pool = find_local_pool(mirror.spread_pools, location_info);
         const is_mongo_included = mirror.spread_pools.some(pool => Boolean(pool.mongo_pool_info));
-        const is_local_pool_valid = local_pool && tier_status.pools[local_pool._id.toHexString()].valid_for_allocation;
+        const is_local_pool_valid = local_pool && tier_status.pools[local_pool._id].valid_for_allocation;
         const is_regular_pools_valid = size_utils.json_to_bigint(mirror_status.regular_free).greater(config.MIN_TIER_FREE_THRESHOLD);
         const is_redundant_pools_valid = size_utils.json_to_bigint(mirror_status.redundant_free).greater(config.MIN_TIER_FREE_THRESHOLD);
 
@@ -91,7 +91,7 @@ function select_mirror_for_write(tier, tiering, tiering_status, location_info) {
  * @param {nb.LocationInfo} [location_info]
  */
 function map_chunk(chunk, tier, tiering, tiering_status, location_info) {
-    const tier_status = tiering_status[tier._id.toHexString()];
+    const tier_status = tiering_status[tier._id];
     const blocks_in_use = new Set();
     const is_new_chunk = !chunk._id;
 
@@ -203,7 +203,7 @@ function map_chunk(chunk, tier, tiering, tiering_status, location_info) {
             for (const block of accessible_blocks) {
                 // block on pools that do not belong to the current mirror anymore
                 // can be accessible but will eventually be deallocated
-                const block_pool_in_mirror = mirror.spread_pools.find(pool => pool._id.toHexString() === block.pool_id.toHexString());
+                const block_pool_in_mirror = mirror.spread_pools.find(pool => pool._id === block.pool_id);
                 const is_misplaced = !block.node.writable;
                 if (!is_misplaced && block_pool_in_mirror) {
                     used_blocks.push(block);
@@ -418,7 +418,7 @@ function _pool_has_redundancy(pool) {
 function find_local_pool(pools, location_info) {
     return location_info && pools.find(pool =>
         (location_info.region && location_info.region === pool.region) ||
-        (location_info.pool_id === pool._id.toHexString())
+        (location_info.pool_id === pool._id)
     );
 }
 

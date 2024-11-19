@@ -8,9 +8,8 @@ const { NodeHttpHandler } = require("@smithy/node-http-handler");
 const util = require('util');
 const mocha = require('mocha');
 const assert = require('assert');
-const mongodb = require('mongodb');
 const { v4: uuid } = require('uuid');
-
+const ObjectID = require('../../util/objectid.js');
 const P = require('../../util/promise');
 const config = require('../../../config');
 const MDStore = require('../../server/object_services/md_store').MDStore;
@@ -108,7 +107,7 @@ mocha.describe('lifecycle', () => {
             if (tagging) update.tagging = tagging;
 
             console.log('create_mock_object bucket', bucket, 'key', key, 'update', util.inspect(update));
-            const id = new mongodb.ObjectId(obj_id);
+            const id = new ObjectID(obj_id);
             console.log('create_mock_object id', id, 'obj_id', obj_id);
 
             const updateResult = await MDStore.instance().update_object_by_id(id, update);

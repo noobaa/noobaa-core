@@ -77,6 +77,7 @@ exports.put_object_legal_hold = require('./s3_put_object_legal_hold');
 exports.put_object_retention = require('./s3_put_object_retention');
 exports.put_object_tagging = require('./s3_put_object_tagging');
 exports.put_object_uploadId = require('./s3_put_object_uploadId');
+exports.put_public_access_block = require('./s3_put_public_access_block');
 
 const js_utils = require('../../../util/js_utils');
 js_utils.deep_freeze(exports);

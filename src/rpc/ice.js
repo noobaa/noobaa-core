@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/* eslint max-lines: ['error', 1550] */
+/* eslint max-lines: ['error', 1650] */
 'use strict';
 
 module.exports = Ice;
@@ -450,7 +450,7 @@ Ice.prototype._add_tcp_transient_passive_candidates = function() {
                     conn.destroy();
                     return;
                 }
-                dbg.log3('ICE TCP ACCEPTED CONNECTION', conn.remoteAddress + ':' + conn.remotePort);
+                dbg.log3('ICE TCP ACCEPTED CONNECTION', get_connection_remote_address(conn) + ':' + conn.remotePort);
                 self._init_tcp_connection(conn);
             });
 
@@ -764,9 +764,9 @@ Ice.prototype._init_tcp_connection = function(conn, session) {
 function init_tcp_connection(conn, session, ice, ice_lookup) {
     const info = {
         family: conn.remoteFamily,
-        address: conn.remoteAddress,
+        address: get_connection_remote_address(conn),
         port: conn.remotePort,
-        key: make_candidate_key('tcp', conn.remoteFamily, conn.remoteAddress, conn.remotePort),
+        key: make_candidate_key('tcp', conn.remoteFamily, get_connection_remote_address(conn), conn.remotePort),
         tcp: conn,
         transport: 'tcp',
         session: session,
@@ -1308,12 +1308,19 @@ Ice.prototype.close = function() {
 
 
 function IceCandidate(cand) {
+    const is_private_no_throw = address => {
+        try {
+            return ip_module.isPrivate(address);
+        } catch (err) {
+            return false;
+        }
+    };
     // the key is used finding duplicates or locating the candidate
     // on successful connect check, so is crucial to identify exactly
     // the needed properties, not less, and no more.
     cand.key = make_candidate_key(cand.transport, cand.family, cand.address, cand.port);
     cand.priority =
-        (ip_module.isPrivate(cand.address) ? 1000 : 0) +
+        (is_private_no_throw(cand.address) ? 1000 : 0) +
         (cand.transport === 'tcp' ? 100 : 0) +
         // (cand.family === 'IPv4' ? 10 : 0) +
         (cand.tcp_type === CAND_TCP_TYPE_SO ? 0 : 1);
@@ -1536,4 +1543,11 @@ function allocate_port_in_range(port_range) {
             server.close();
             return port;
         });
+}
+
+
+// get remote address from the connection and remove the link-local suffix (e.g.: %eth0)
+function get_connection_remote_address(conn) {
+    const ip = conn.remoteAddress;
+    return ip.split('%')[0];
 }

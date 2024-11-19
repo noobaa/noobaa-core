@@ -45,7 +45,8 @@ const BUCKET_SUB_RESOURCES = Object.freeze({
     'encryption': 'encryption',
     'object-lock': 'object_lock',
     'legal-hold': 'legal_hold',
-    'retention': 'retention'
+    'retention': 'retention',
+    'publicAccessBlock': 'public_access_block'
 });
 
 const OBJECT_SUB_RESOURCES = Object.freeze({
@@ -281,20 +282,23 @@ async function authorize_request_policy(req) {
     // in case we have bucket policy
     let permission_by_id;
     let permission_by_name;
+
+    const public_access_block_cfg = await req.object_sdk.get_public_access_block({ name: req.params.bucket });
     // In NC, we allow principal to be:
     // 1. account name (for backwards compatibility)
     // 2. account id
     // we start the permission check on account identifier intentionally
     if (account_identifier_id) {
         permission_by_id = await s3_bucket_policy_utils.has_bucket_policy_permission(
-            s3_policy, account_identifier_id, method, arn_path, req);
+            s3_policy, account_identifier_id, method, arn_path, req, public_access_block_cfg?.public_access_block?.restrict_public_buckets);
         dbg.log3('authorize_request_policy: permission_by_id', permission_by_id);
     }
     if (permission_by_id === "DENY") throw new S3Error(S3Error.AccessDenied);
 
     if ((!account_identifier_id || permission_by_id !== "DENY") && account.owner === undefined) {
         permission_by_name = await s3_bucket_policy_utils.has_bucket_policy_permission(
-            s3_policy, account_identifier_name, method, arn_path, req);
+            s3_policy, account_identifier_name, method, arn_path, req, public_access_block_cfg?.public_access_block?.restrict_public_buckets
+        );
         dbg.log3('authorize_request_policy: permission_by_name', permission_by_name);
     }
     if (permission_by_name === "DENY") throw new S3Error(S3Error.AccessDenied);

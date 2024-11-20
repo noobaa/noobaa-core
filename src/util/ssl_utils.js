@@ -46,6 +46,7 @@ const certs = {
     S3: new CertInfo(config.S3_SERVICE_CERT_PATH),
     EXTERNAL_DB: new CertInfo(config.EXTERNAL_DB_SERVICE_CERT_PATH),
     STS: new CertInfo(config.STS_SERVICE_CERT_PATH),
+    IAM: new CertInfo(config.IAM_SERVICE_CERT_PATH)
 };
 
 function generate_ssl_certificate() {

@@ -11,6 +11,7 @@ const {compose_notification_req, check_notif_relevant} = require('../../util/not
 async function send_bucket_op_logs(req, res) {
     if (req.params && req.params.bucket &&
         !(req.op_name === 'put_bucket' ||
+          req.op_name === 'delete_bucket' ||
           req.op_name === 'put_bucket_notification' ||
           req.op_name === 'get_bucket_notification'
         )) {
@@ -19,8 +20,14 @@ async function send_bucket_op_logs(req, res) {
         //so we aggregate and issue the writes only in the end
         const writes_aggregate = [];
 
-        const bucket_info = await req.object_sdk.read_bucket_sdk_config_info(req.params.bucket);
-        dbg.log2("read_bucket_sdk_config_info =  ", bucket_info);
+        let bucket_info;
+        try {
+            bucket_info = await req.object_sdk.read_bucket_sdk_config_info(req.params.bucket);
+            dbg.log2("read_bucket_sdk_config_info =  ", bucket_info);
+        } catch (err) {
+            dbg.warn(`send_bucket_op_logs of bucket ${req.params.bucket} got an error:`, err);
+            return;
+        }
 
         if (is_bucket_logging_enabled(bucket_info)) {
             dbg.log2("Bucket logging is enabled for Bucket : ", req.params.bucket);

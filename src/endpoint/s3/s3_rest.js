@@ -73,7 +73,7 @@ async function s3_rest(req, res) {
             try {
                 await s3_logging.send_bucket_op_logs(req, res); // logging again with error
             } catch (err1) {
-                dbg.error("Could not log bucket operation:", err1);
+                dbg.error("Could not log bucket operation (after handle_error):", err1);
             }
         }
     }
@@ -134,7 +134,7 @@ async function handle_request(req, res) {
         try {
             await s3_logging.send_bucket_op_logs(req); // logging intension - no result
         } catch (err) {
-            dbg.error("Could not log bucket operation:", err);
+            dbg.error(`Could not log bucket operation (before operation ${req.op_name}):`, err);
         }
     }
 
@@ -165,7 +165,7 @@ async function handle_request(req, res) {
     try {
         await s3_logging.send_bucket_op_logs(req, res); // logging again with result
     } catch (err) {
-        dbg.error("Could not log bucket operation:", err);
+        dbg.error(`Could not log bucket operation (after operation ${req.op_name}):`, err);
     }
 
 }

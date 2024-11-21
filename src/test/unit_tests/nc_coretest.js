@@ -41,6 +41,7 @@ dbg.set_module_level(dbg_level, 'core');
 
 const P = require('../../util/promise');
 let _setup = false;
+let _nsfs_process = false;
 
 const SYSTEM = NC_CORETEST;
 const EMAIL = NC_CORETEST;
@@ -58,13 +59,17 @@ const NC_CORETEST_CONFIG_FS = new ConfigFS(NC_CORETEST_CONFIG_DIR_PATH);
 
 const nsrs_to_root_paths = {};
 let nsfs_process;
+let current_setup_options = {};
 
 
 /**
  * setup will setup nc coretest
- * @param {object} options
+ * currently the setup_options we use are for the nsfs process: fork and debug
+ * @param {object} setup_options
  */
-function setup(options = {}) {
+function setup(setup_options = {}) {
+    console.log(`in setup - variables values: _setup ${_setup} _nsfs_process ${_nsfs_process}`);
+    current_setup_options = setup_options;
     if (_setup) return;
     _setup = true;
 
@@ -76,30 +81,9 @@ function setup(options = {}) {
         await config_dir_setup();
         await admin_account_creation();
         await first_bucket_creation();
-
-        await announce('start nsfs script');
-        const logStream = fs.createWriteStream('src/logfile.txt', { flags: 'a' });
-
-        nsfs_process = child_process.spawn('node', ['src/cmd/nsfs.js'], {
-            detached: true
-        });
-        nsfs_process.stdout.pipe(logStream);
-        nsfs_process.stderr.pipe(logStream);
-
-
-        nsfs_process.on('exit', (code, signal) => {
-            dbg.error(`nsfs.js exited code=${code}, signal=${signal}`);
-            logStream.end();
-        });
-
-        nsfs_process.on('error', err => {
-            dbg.error(`nsfs.js exited with error`, err);
-            logStream.end();
-        });
+        await start_nsfs_process(setup_options);
 
         // TODO - run health
-        // wait 2 seconds before announcing nc coretes is ready
-        await P.delay(2000);
         await announce(`nc coretest ready... (took ${((Date.now() - start) / 1000).toFixed(1)} sec)`);
     });
 
@@ -107,14 +91,78 @@ function setup(options = {}) {
     mocha.after('nc-coretest-after', async function() {
         this.timeout(60000); // eslint-disable-line no-invalid-this
         try {
-            await announce('stop nsfs script');
-            if (nsfs_process) nsfs_process.kill('SIGKILL');
+            await stop_nsfs_process();
             await config_dir_teardown();
             await announce('nc coretest done ...');
         } catch (err) {
             dbg.error('got error on mocha.after', err);
         }
     });
+}
+
+/**
+ * start_nsfs_process starts the NSFS process and attach the logs in a file
+ * the setup_options we support:
+ * 1. forks (number of processes to run)
+ * 2. debug (for logs printing level)
+ * @param {object} setup_options
+ */
+async function start_nsfs_process(setup_options) {
+    console.log(`in start_nsfs_process - variables values: _setup ${_setup} _nsfs_process ${_nsfs_process}`);
+    const { forks, debug } = setup_options;
+    console.log(`setup_options: forks ${forks} debug ${debug}`);
+    if (_nsfs_process) return;
+    await announce('start nsfs script');
+    const logStream = fs.createWriteStream('nsfs_integration_test_log.txt', { flags: 'a' });
+
+    const arguments_for_command = ['src/cmd/nsfs.js'];
+    if (forks) {
+        arguments_for_command.push('--forks');
+        arguments_for_command.push(`${forks}`);
+    }
+    if (debug) {
+        arguments_for_command.push('--debug');
+        arguments_for_command.push(`${debug}`);
+    }
+    nsfs_process = child_process.spawn('node', arguments_for_command, {
+        detached: true
+    });
+
+    _nsfs_process = true;
+
+    nsfs_process.stdout.pipe(logStream);
+    nsfs_process.stderr.pipe(logStream);
+
+
+    nsfs_process.on('exit', (code, signal) => {
+        dbg.error(`nsfs.js exited code=${code}, signal=${signal}`);
+        logStream.end();
+    });
+
+    nsfs_process.on('error', err => {
+        dbg.error(`nsfs.js exited with error`, err);
+        logStream.end();
+    });
+    // wait for the process to be ready (else would see ECONNREFUSED issue)
+    await P.delay(5000);
+}
+
+/**
+ * stop_nsfs_process stops the NSFS
+ */
+async function stop_nsfs_process() {
+    console.log(`in stop_nsfs_process - variables values: _setup ${_setup} _nsfs_process ${_nsfs_process}`);
+    _nsfs_process = false;
+    await announce('stop nsfs script');
+    if (nsfs_process) nsfs_process.kill('SIGKILL');
+}
+
+/**
+ * get_current_setup_options returns the current_setup_options
+ * currently the setup_options we use are for the nsfs process: fork and debug
+ */
+function get_current_setup_options() {
+    return current_setup_options;
 }
 
 /**
@@ -472,6 +520,9 @@ const rpc_cli_funcs_to_manage_nsfs_cli_cmds = {
 };
 
 exports.setup = setup;
+exports.get_current_setup_options = get_current_setup_options;
+exports.stop_nsfs_process = stop_nsfs_process;
+exports.start_nsfs_process = start_nsfs_process;
 exports.no_setup = _.noop;
 exports.log = log;
 exports.SYSTEM = SYSTEM;

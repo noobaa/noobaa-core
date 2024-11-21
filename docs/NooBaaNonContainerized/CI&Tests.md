@@ -90,6 +90,7 @@ The following is a list of `NC mocha test` files -
 1. `test_nc_nsfs_cli.js` - Tests NooBaa CLI.  
 2. `test_nc_nsfs_health` - Tests NooBaa Health CLI.  
 3. `test_nsfs_glacier_backend.js` - Tests NooBaa Glacier Backend.  
+4. `test_nc_with_a_couple_of_forks.js` - Tests the `bucket_namespace_cache` when running with a couple of forks. Please notice that it uses `nc_coretest` with setup that includes a couple of forks.
 
 #### NC Jest test files
 The following is a list of `NC jest tests` files -   
@@ -114,7 +115,7 @@ The following is a list of `NC jest tests` files -
 #### nc_coretest.js File
 * The `nc_coretest.js` is a file that runs setup and teardown before/after NC integration tests run.  
 * Moreover, `nc_coretest.js` includes mapping between RPC API calls to NooBaa CLI calls in order to be able to run same integration tests on both containerized and non containerized deployments.  
-* Use `NC_CORETEST=true` environment variable when running NC NSFS integration test (test_bucketspace.js).
+* Use `NC_CORETEST=true` environment variable when running NC NSFS integration test (test_nsfs_integration.js).
 
 ##### Differences Between Containerized and Non Containerized
 * `new_buckets_path` -
@@ -164,7 +165,7 @@ Consequently, there are now distinct test files, each with a unique scope -
 1. `test_namespace_fs.js` - Tests NamespaceFS API.
 2. `test_ns_list_objects.js` - Tests NamespaceFS list objects API.
 3. `test_nsfs_access.js` - Tests uid and gid accessibility of Napi native code.  
-4. `test_bucketspace.js` - Tests s3 flows on top of NSFS namespace resources.
+4. `test_nsfs_integration.js` - Tests s3 flows on top of NSFS namespace resources.
 5. `test_nb_native_fs.js` - Tests Napi native code.
 6. `test_nb_native_gpfs.js` - Tests Napi native code on top of GPFS.
 7. `test_nsfs_versioning.js` - Tests NamespaceFS versioning API.

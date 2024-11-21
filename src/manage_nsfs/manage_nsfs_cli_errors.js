@@ -346,6 +346,11 @@ ManageCLIError.InvalidGlacierOperation = Object.freeze({
     message: 'only "migrate", "restore" and "expiry" subcommands are supported',
     http_code: 400,
 });
+ManageCLIError.InvalidSupplementalGroupsList = Object.freeze({
+    code: 'InvalidSupplementalGroupsList',
+    message: 'supplemental groups must be a list of comma seperated gids (positive integers)',
+    http_code: 400,
+});
 
 
 ////////////////////////

@@ -31,10 +31,11 @@ public:
         restore_user();
     }
 
-    void set_user(uid_t uid, gid_t gid)
+    void set_user(uid_t uid, gid_t gid, std::vector<gid_t>& groups)
     {
         _uid = uid;
         _gid = gid;
+        _groups = groups;
         change_user();
     }
 
@@ -49,6 +50,7 @@ private:
     void restore_user();
     uid_t _uid;
     gid_t _gid;
+    std::vector<gid_t> _groups;
 };
 
 } // namespace noobaa

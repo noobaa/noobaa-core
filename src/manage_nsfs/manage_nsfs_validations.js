@@ -175,7 +175,11 @@ function validate_options_type_by_value(input_options_with_data) {
             if ((option === 'bucket_policy' || option === 'notifications') && type_of_value === 'object') {
                 continue;
             }
-            const details = `type of flag ${option} should be ${type_of_option}`;
+            //special case for supplemental groups
+            if (option === 'supplemental_groups' && validate_supplemental_groups(value)) {
+                continue;
+            }
+            const details = `type of flag ${option} should be ${type_of_option} ${type_of_value} ${value}`;
             throw_cli_error(ManageCLIError.InvalidArgumentType, details);
         }
     }
@@ -193,6 +197,24 @@ function validate_boolean_string_value(value) {
             throw_cli_error(ManageCLIError.InvalidBooleanValue);
         }
         return true;
+    }
+    return false;
+}
+
+/**
+ * validates supplemental groups array. verifies that string is comma seperated positive numbers. string should not
+ * begin or end with a comma. if only one number it should be positive
+ * @param {number|string} value
+ */
+function validate_supplemental_groups(value) {
+    if (value && typeof value === 'string') {
+        const regex = /^[0-9]+(,[0-9]+)+$/;
+        if (!regex.test(value)) {
+            throw_cli_error(ManageCLIError.InvalidSupplementalGroupsList);
+        }
+        return true;
+    } else if (typeof value === 'number') {
+        return value > 0;
     }
     return false;
 }

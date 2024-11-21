@@ -78,6 +78,7 @@ Flags:
 --name <string>                                                         Set the name for the account
 --uid <number>                                                          Set the User Identifier (UID) (UID and GID can be replaced by --user option)
 --gid <number>                                                          Set the Group Identifier (GID) (UID and GID can be replaced by --user option)
+--supplemental_groups <number[]>                      (optional)        Set the supplemntal group list (List of GID) seperated by comma (,) example: '212,211,202'
 --new_buckets_path <string>                           (optional)        Set the filesystem's root path where each subdirectory is a bucket
 --user <string>                                       (optional)        Set the OS user name (instead of UID and GID)
 --access_key <string>                                 (optional)        Set the access key for the account (default is generated)
@@ -98,6 +99,7 @@ Flags:
 --new_name <string>                                   (optional)        Update the account name
 --uid <number>                                        (optional)        Update the User Identifier (UID)
 --gid <number>                                        (optional)        Update the Group Identifier (GID)
+--supplemental_groups <number[]>                      (optional)        Update the list of supplemental groups (List of GID) seperated by comma(,) (example: 211,202,23) (will override existing list)
 --new_buckets_path <string>                           (optional)        Update the filesystem's root path where each subdirectory is a bucket
 --user <string>                                       (optional)        Update the OS user name (instead of uid and gid)
 --regenerate                                          (optional)        Update automatically generated access key and secret key
@@ -303,13 +305,13 @@ But updates of the config directory will be blocked during the upgrade of the co
 'upgrade start' should be executed on one node, the config directory changes will be available for all the nodes of the cluster.
 
 Usage:
-        
+
     noobaa-cli upgrade start [flags]
 
 Flags:
 
 --expected_version                             <string>                             The expected target version of the upgrade
---expected_hosts                               <string>                             The expected hosts running NooBaa NC, a string of hosts separated by , 
+--expected_hosts                               <string>                             The expected hosts running NooBaa NC, a string of hosts separated by ,
 --skip_verification                            <boolean>        (optional)          skip verification of the hosts package version
                                                                                     WARNING: can cause corrupted config dir files created by hosts running old code
 --custom_upgrade_scripts_dir                   <string>         (optional)          custom upgrade scripts dir, use for running custom config dir upgrade scripts

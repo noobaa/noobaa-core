@@ -24,7 +24,7 @@ const { print_usage } = require('../manage_nsfs/manage_nsfs_help_utils');
 const { TYPES, ACTIONS, LIST_ACCOUNT_FILTERS, LIST_BUCKET_FILTERS, GLACIER_ACTIONS } = require('../manage_nsfs/manage_nsfs_constants');
 const { throw_cli_error, get_bucket_owner_account_by_name,
     write_stdout_response, get_boolean_or_string_value, has_access_keys, set_debug_level,
-    is_name_update, is_access_key_update } = require('../manage_nsfs/manage_nsfs_cli_utils');
+    is_name_update, is_access_key_update, parse_comma_delimited_string } = require('../manage_nsfs/manage_nsfs_cli_utils');
 const manage_nsfs_validations = require('../manage_nsfs/manage_nsfs_validations');
 const nc_mkm = require('../manage_nsfs/nc_master_key_manager').get_instance();
 const notifications_util = require('../util/notifications_util');
@@ -359,6 +359,11 @@ async function fetch_account_data(action, user_input) {
         data.access_keys[0].secret_key = data.access_keys[0].secret_key === undefined ? undefined :
             new SensitiveString(String(data.access_keys[0].secret_key));
     }
+    //since supplemental_groups is an array, new list will merge with the old one instead of replacing it in fetch_existing_account_data
+    //so we need to replace this value after merging the data
+    data.nsfs_account_config.supplemental_groups = user_input.supplemental_groups === undefined ?
+        data.nsfs_account_config.supplemental_groups : parse_comma_delimited_string(user_input.supplemental_groups);
+
     if (data.new_access_key) data.new_access_key = new SensitiveString(data.new_access_key);
     // fs_backend deletion specified with empty string '' (but it is not part of the schema)
     data.nsfs_account_config.fs_backend = data.nsfs_account_config.fs_backend || undefined;

@@ -8,7 +8,7 @@ Help:
 
     "NSFS" (Namespace FileSystem) is a NooBaa system that runs a local S3 endpoint on top of a filesystem.
     Each subdirectory of the root filesystem represents an S3 bucket.
-    "noobaa-cli" will provide a command line interface (CLI) to create new accounts and map existing directories 
+    "noobaa-cli" will provide a command line interface (CLI) to create new accounts and map existing directories
     to NooBaa as buckets. For more information refer to the NooBaa docs.
 
 `;
@@ -111,10 +111,10 @@ Usage:
     account add [flags]
 
 Flags:
-
     --name <string>                                                         Set the name for the account
     --uid <number>                                                          Set the User Identifier (UID) (UID and GID can be replaced by --user option)
     --gid <number>                                                          Set the Group Identifier (GID) (UID and GID can be replaced by --user option)
+    --supplemental_groups <string>                        (optional)        Set the supplemental group list (List of GIDs) separated by commas (,) example: '212,211,202'
     --new_buckets_path <string>                           (optional)        Set the filesystem's root path where each subdirectory is a bucket
     --user <string>                                       (optional)        Set the OS user name (instead of UID and GID)
     --access_key <string>                                 (optional)        Set the access key for the account (default is generated)
@@ -124,7 +124,6 @@ Flags:
     --force_md5_etag <true | false>                       (optional)        Set the account to force md5 etag calculation. (unset with '') (will override default config.NSFS_NC_STORAGE_BACKEND)
     --iam_operate_on_root_account <true | false>          (optional)        Set the account to create root accounts instead of IAM users in IAM API requests.
     --from_file <string>                                  (optional)        Use details from the JSON file, there is no need to mention all the properties individually in the CLI
-
 `;
 
 const ACCOUNT_FLAGS_UPDATE = `
@@ -142,6 +141,7 @@ Flags:
     --new_name <string>                                   (optional)        Update the account name
     --uid <number>                                        (optional)        Update the User Identifier (UID)
     --gid <number>                                        (optional)        Update the Group Identifier (GID)
+    --supplemental_groups <number[]>                      (optional)        Update the list of supplemental groups (List of GID) seperated by comma(,) example: 211,202,23 - it will override existing list
     --new_buckets_path <string>                           (optional)        Update the filesystem's root path where each subdirectory is a bucket
     --user <string>                                       (optional)        Update the OS user name (instead of uid and gid)
     --regenerate                                          (optional)        Update automatically generated access key and secret key
@@ -151,7 +151,6 @@ Flags:
     --allow_bucket_creation <true | false>                (optional)        Update the account to explicitly allow or block bucket creation
     --force_md5_etag <true | false>                       (optional)        Update the account to force md5 etag calculation (unset with '') (will override default config.NSFS_NC_STORAGE_BACKEND)
     --iam_operate_on_root_account <true | false>          (optional)        Update the account to create root accounts instead of IAM users in IAM API requests.
-
 `;
 
 const ACCOUNT_FLAGS_DELETE = `
@@ -334,7 +333,7 @@ List of actions supported:
     health
     gather-logs
     metrics
-    
+
 `;
 
 const DIAGNOSE_HEALTH_OPTIONS = `
@@ -400,7 +399,7 @@ List of actions supported:
     start
     status
     history
-    
+
 `;
 
 const UPGRADE_START_OPTIONS = `
@@ -413,13 +412,13 @@ Help:
     'upgrade start' should be executed on one node, the config directory changes will be available for all the nodes of the cluster.
 
 Usage:
-        
+
     noobaa-cli upgrade start [flags]
 
 Flags:
 
     --expected_version                             <string>                             The expected target version of the upgrade
-    --expected_hosts                               <string>                             The expected hosts running NooBaa NC, a string of hosts separated by , 
+    --expected_hosts                               <string>                             The expected hosts running NooBaa NC, a string of hosts separated by ,
     --skip_verification                            <boolean>        (optional)          skip verification of the hosts package version
                                                                                         WARNING: can cause corrupted config dir files created by hosts running old code
     --custom_upgrade_scripts_dir                   <string>         (optional)          custom upgrade scripts dir, use for running custom config dir upgrade scripts
@@ -453,7 +452,7 @@ Usage:
 `;
 
 
-/** 
+/**
  * print_usage would print the help according to the arguments that were passed
  * @param {string} type
  * @param {string} action
@@ -489,7 +488,7 @@ function print_usage(type, action) {
     process.exit(0);
 }
 
-/** 
+/**
  * print_help_account would print the help options for account
  * @param {string} action
  */
@@ -516,7 +515,7 @@ function print_help_account(action) {
     process.exit(0);
 }
 
-/** 
+/**
  * print_help_bucket would print the help options for bucket
  * @param {string} action
  */

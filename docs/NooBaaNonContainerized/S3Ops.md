@@ -52,7 +52,7 @@ The following lists describe the bucket and object operations available in NooBa
 - Bucket policies are an access policy option available to grant permission to buckets and objects (see [bucket policy](https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucket-policies.html) in AWS documentation). You can use bucket policies to add or deny permissions for the objects in a bucket. Bucket policies can allow or deny requests based on the elements in the policy.
 - Bucket policies use JSON-based policy language (for more information see [basic elements in bucket policy](https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-policy-language-overview.html) in AWS documentation)
 - Bucket policy can be added to a bucket using the S3 API or the noobaa-cli.
-- Bucket policy is an additional layer of permissions to the FS permissions (UID and GID), which means that if two accounts do not have the same permissions (UID, GID) just setting bucket policy on the bucket is not enough.
+- Bucket policy is an additional layer of permissions to the FS permissions (UID, GID, supplemental GIDs), which means that if two accounts do not have the same permissions (UID, GID, supplemental GIDs) just setting bucket policy on the bucket is not enough.
 
 #### Bucket Policy in NooBaa CLI
 1. Adding a bucket policy:

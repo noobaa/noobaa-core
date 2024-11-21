@@ -1346,6 +1346,13 @@ module.exports = {
                 }
             }
         },
+        supplemental_groups: {
+            type: 'array',
+            items: {
+                type: 'integer',
+                'minimum': 0
+            }
+        },
         nsfs_account_config: {
             oneOf: [{
                 type: 'object',
@@ -1354,7 +1361,10 @@ module.exports = {
                     uid: { type: 'number' },
                     gid: { type: 'number' },
                     new_buckets_path: { type: 'string' },
-                    nsfs_only: { type: 'boolean' }
+                    nsfs_only: { type: 'boolean' },
+                    supplemental_groups: {
+                        $ref: '#/definitions/supplemental_groups'
+                    },
                 }
             }, {
                 type: 'object',

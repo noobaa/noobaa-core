@@ -29,7 +29,11 @@ See all available account properties - [NC Account Schema](../../src/server/syst
 #### Important properties  
   - `encrypted_secret_key` - Account's secrets will be kept encrypted in the account's configuration file.  
 
-  - `uid/gid/user` - An account's access key is mapped to a file system uid/gid (or user). Before performing any file system operation, NooBaa switches to the account's UID/GID, ensuring that accounts access to buckets and objects is enforced by the file system.
+  - `uid/gid/user` - An account's access key is mapped to a file system uid/gid (or user). Before performing any file system operation, NooBaa switches to the account's UID/GID, ensuring that accounts access to buckets and objects is enforced by the file system.  
+  
+  - `supplemental_groups` - In addition to the account main GID, an account can have supplementary group IDs that are used to determine permissions for accessing files. These GIDs are validated against a files group (GID) permissions.
+  Note: depending on the file system there may be 'sticky bit' enabled somewhere on the files path. 'sticky bit' is a user ownership access right flag that prevents other users than the file owner and root from deleting or moving files.
+  In that case some actions will still get access denied regardless of group permissions enabled. sticky bit is denoted by `t` at the end of the permissions list (example: `drwxrwxrwt`). see https://en.wikipedia.org/wiki/Sticky_bit
 
   - `new_buckets_path` - When an account creates a bucket using the S3 protocol, NooBaa will create the underlying file system directory. This directory will be created under new_buckets_path. Note that the account must have read and write access to its `new_buckets_path`.  Must be an absolute path.  
 

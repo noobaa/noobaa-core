@@ -432,6 +432,7 @@ class BlockStoreBase {
             });
             // cleanup old versions for block stores that have versioning enabled
             if (this._delete_block_past_versions) await this._delete_block_past_versions(block_md);
+            dbg.log1(`test_store_perf for node ${this.node_name}. results:`, reply);
             return reply;
         } catch (err) {
             if (err.rpc_code !== 'AUTH_FAILED' && err.rpc_code !== 'STORAGE_NOT_EXIST') {

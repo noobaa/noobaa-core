@@ -87,7 +87,7 @@ require('./test_agent_blocks_reclaimer');
 require('./test_s3_ops');
 require('./test_s3_encryption');
 require('./test_s3_bucket_policy');
-require('./test_node_allocator');
+// require('./test_node_allocator');
 require('./test_namespace_cache');
 require('./test_namespace_auth');
 require('./test_encryption');

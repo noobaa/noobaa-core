@@ -773,6 +773,16 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             assert.ok(exist2);
         });
 
+        mocha.it('copy object version id - version matches mtime and inode', async function() {
+            const key = 'copied_key5.txt';
+            const res = await s3_uid6.copyObject({ Bucket: bucket_name, Key: key,
+                CopySource: `${bucket_name}/${key1}?versionId=${key1_ver1}`});
+            const obj_path = path.join(full_path, key);
+            const stat = await nb_native().fs.stat(DEFAULT_FS_CONFIG, obj_path);
+            const expcted_version = 'mtime-' + stat.mtimeNsBigint.toString(36) + '-ino-' + stat.ino.toString(36);
+            assert.equal(expcted_version, res.VersionId);
+        });
+
         mocha.it('delete object - versioning enabled - nested key (more than 1 level)- delete partial directory', async function() {
             const parital_nested_directory = dir_path_complete.slice(0, -1); // the directory without the last slash
             const folder_path_nested = path.join(nested_keys_full_path, dir_path_complete, NSFS_FOLDER_OBJECT_NAME);

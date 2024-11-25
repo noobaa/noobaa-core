@@ -1140,9 +1140,7 @@ class NamespaceFS {
             // end the stream
             res.end();
 
-            // in case of transform streams such as ChunkFS there is also a readable part. since we expect write stream
-            // and don't care about the readable part, set readable: false
-            await stream_utils.wait_finished(res, { readable: false, signal: object_sdk.abort_controller.signal });
+            await stream_utils.wait_finished(res, { signal: object_sdk.abort_controller.signal });
             object_sdk.throw_if_aborted();
 
             dbg.log0('NamespaceFS: read_object_stream completed file', file_path, {
@@ -1581,9 +1579,15 @@ class NamespaceFS {
                 large_buf_size: multi_buffer_pool.get_buffers_pool(undefined).buf_size
             });
             chunk_fs.on('error', err1 => dbg.error('namespace_fs._upload_stream: error occured on stream ChunkFS: ', err1));
+            chunk_fs.on('finish', arg => dbg.error('namespace_fs._upload_stream: finish occured on stream ChunkFS: ', arg));
+            chunk_fs.on('close', arg => dbg.error('namespace_fs._upload_stream: close occured on stream ChunkFS: ', arg));
             if (copy_source) {
+                // ChunkFS is a Transform stream, however read_object_stream expects a write stream. call resume to close the read part
+                // we need to close both read and write parts for Transform stream to properly close and release resorces
+                chunk_fs.resume();
                 await this.read_object_stream(copy_source, object_sdk, chunk_fs);
             } else if (params.source_params) {
+                chunk_fs.resume();
                 await params.source_ns.read_object_stream(params.source_params, object_sdk, chunk_fs);
             } else {
                 await stream_utils.pipeline([source_stream, chunk_fs]);

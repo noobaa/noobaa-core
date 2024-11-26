@@ -449,6 +449,18 @@ Warning: After setting this configuration, NooBaa will skip schema validations a
     "LOG_TO_STDERR_ENABLED": false
     3. systemctl restart noobaa
     ```
+### 30. Notification log directory
+* <u>Key</u> `NOTIFICATION_LOG_DIR`
+* <u>Type</u> String
+* <u>Default</u> empty
+* <u>Description</u> Path to directory that will hold pending notifications to be sent,
+* <u>Steps</u>
+    ```
+    1. Open /path/to/config_dir/config.json file.
+    2. Set the config key -
+    Example:
+    "NOTIFICATION_LOG_DIR": "/etc/notif"
+    3. systemctl restart noobaa
 
 ### 31. Prometheus HTTP enable flag -
 * <u>Key</u>: `ALLOW_HTTP_METRICS`  

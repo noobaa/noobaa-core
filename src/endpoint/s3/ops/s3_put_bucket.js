@@ -9,6 +9,15 @@ async function put_bucket(req, res) {
     const lock_enabled = config.WORM_ENABLED ? req.headers['x-amz-bucket-object-lock-enabled'] &&
         req.headers['x-amz-bucket-object-lock-enabled'].toUpperCase() === 'TRUE' : undefined;
     await req.object_sdk.create_bucket({ name: req.params.bucket, lock_enabled: lock_enabled });
+
+    // Set default server side bucket encryption
+    // More details: https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucket-encryption.html
+    await req.object_sdk.put_bucket_encryption({
+        name: req.params.bucket,
+        encryption: {
+            "algorithm": "AES256",
+        }
+    });
     res.setHeader('Location', '/' + req.params.bucket);
 }
 

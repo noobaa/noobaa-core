@@ -1,6 +1,7 @@
 /* Copyright (C) 2024 NooBaa */
 'use strict';
 
+const util = require('util');
 const path = require('path');
 const P = require('../../../util/promise');
 const config = require('../../../../config');
@@ -37,13 +38,11 @@ async function run({ dbg }) {
 
         await config_fs.create_dir_if_missing(config_fs.identities_dir_path);
         await config_fs.create_dir_if_missing(config_fs.accounts_by_name_dir_path);
-        const tmp_access_keys_path = path.join(config_fs.access_keys_dir_path, native_fs_utils.get_config_files_tmpdir());
-        await config_fs.create_dir_if_missing(tmp_access_keys_path);
 
         const old_account_names = await config_fs.list_old_accounts();
-        const failed_accounts = await upgrade_accounts_config_files(config_fs, old_account_names, tmp_access_keys_path, dbg);
+        const failed_accounts = await upgrade_accounts_config_files(config_fs, old_account_names, dbg);
 
-        if (failed_accounts.length > 0) throw new Error('NC upgrade process failed, failed_accounts array length is bigger than 0' + failed_accounts);
+        if (failed_accounts.length > 0) throw new Error('NC upgrade process failed, failed_accounts array length is bigger than 0' + util.inspect(failed_accounts));
         await move_old_accounts_dir(fs_context, config_fs, old_account_names, dbg);
     } catch (err) {
         dbg.error('NC upgrade process failed due to - ', err);
@@ -60,13 +59,17 @@ async function run({ dbg }) {
  * @param {*} dbg 
  * @returns {Promise<Object[]>}
  */
-async function upgrade_accounts_config_files(config_fs, old_account_names, tmp_access_keys_path, dbg) {
+async function upgrade_accounts_config_files(config_fs, old_account_names, dbg) {
     const failed_accounts = [];
+
+    const backup_access_keys_path = path.join(config_fs.config_root, '.backup_access_keys_dir/');
+    await config_fs.create_dir_if_missing(backup_access_keys_path);
+
     for (const account_name of old_account_names) {
         let retries = 3;
         while (retries > 0) {
             try {
-                await upgrade_account_config_file(config_fs, account_name, tmp_access_keys_path, dbg);
+                await upgrade_account_config_file(config_fs, account_name, backup_access_keys_path, dbg);
                 break;
             } catch (err) {
                 retries -= 1;
@@ -79,6 +82,12 @@ async function upgrade_accounts_config_files(config_fs, old_account_names, tmp_a
             }
         }
     }
+    try {
+        // delete dir only if it's empty
+        await nb_native().fs.rmdir(config_fs.fs_context, backup_access_keys_path);
+    } catch (err) {
+        dbg.warn(`config_dir_restructure.upgrade_accounts_cofig_files could not delete access keys backup directory ${backup_access_keys_path} err ${err}`);
+    }
     return failed_accounts;
 }
 
@@ -90,18 +99,18 @@ async function upgrade_accounts_config_files(config_fs, old_account_names, tmp_a
  * 1.4. delete account old path
  * @param {import('../../../sdk/config_fs').ConfigFS} config_fs 
  * @param {String} account_name 
- * @param {String} tmp_access_keys_path 
+ * @param {String} backup_access_keys_path
  * @param {*} dbg 
  * @returns 
  */
-async function upgrade_account_config_file(config_fs, account_name, tmp_access_keys_path, dbg) {
+async function upgrade_account_config_file(config_fs, account_name, backup_access_keys_path, dbg) {
     let account_upgrade_params;
     const fs_context = config_fs.fs_context;
     try {
         account_upgrade_params = await prepare_account_upgrade_params(config_fs, account_name);
         await create_identity_if_missing(fs_context, account_upgrade_params, dbg);
         await create_account_name_index_if_missing(config_fs, account_upgrade_params, dbg);
-        await create_account_access_keys_index_if_missing(config_fs, account_upgrade_params, tmp_access_keys_path, dbg);
+        await create_account_access_keys_index_if_missing(config_fs, account_upgrade_params, backup_access_keys_path, dbg);
     } catch (err) {
         dbg.warn(`upgrade account config failed ${account_name}, err ${err}`);
         throw err;
@@ -130,7 +139,7 @@ async function prepare_account_upgrade_params(config_fs, account_name) {
     const identity_dir_path = config_fs.get_identity_dir_path_by_id(_id);
 
     const is_gpfs = native_fs_utils._is_gpfs(fs_context);
-    const dst_file = is_gpfs ? await native_fs_utils.open_file(fs_context, undefined, identity_path, 'r') : undefined;
+    const dst_file = is_gpfs ? await native_fs_utils.open_file(fs_context, undefined, identity_path, 'w') : undefined;
 
     return {
         account_name,
@@ -192,28 +201,29 @@ async function create_account_name_index_if_missing(config_fs, account_upgrade_p
  * 1. iterate all access keys array (there should be only one access_key)
  * 2. check if we already have an access_key symlink pointing to the identity, if there is, continue
  * 3. symlink tmp access_key path to the identity path
- * 4. if GPFS - linkfileat the tmp access_key path to access_key path
- * 5. if POSIX - rename tmp access_key path to access_key path
- * on GPFS it's better to use linkfileat for performance improvements rather then rename
- * linkfileat also overrides the existing file
- * TODO - test on GPFS
+ * 4. rename tmp access_key path to access_key path - this will replace atomically the old symlink with the new one
  * @param {import('../../../sdk/config_fs').ConfigFS} config_fs 
  * @param {AccountUpgradeParams} account_upgrade_params 
+ * @param {String} backup_access_keys_path
  * @param {*} dbg 
  * @returns {Promise<Void>}
  */
-async function create_account_access_keys_index_if_missing(config_fs, account_upgrade_params, tmp_access_keys_path, dbg) {
+async function create_account_access_keys_index_if_missing(config_fs, account_upgrade_params, backup_access_keys_path, dbg) {
     const { fs_context } = config_fs;
     const { access_keys, _id, identity_path } = account_upgrade_params;
 
     if (access_keys) {
         for (const { access_key } of access_keys) {
             const access_key_path = config_fs.get_account_or_user_path_by_access_key(access_key);
-            const tmp_access_key_path = path.join(tmp_access_keys_path, native_fs_utils.get_config_files_tmpdir());
+            const tmp_access_key_path = path.join(backup_access_keys_path, config_fs.symlink(access_key));
             const account_config_relative_path = config_fs.get_account_relative_path_by_id(_id);
 
-            const access_key_already_linked = await config_fs._is_symlink_pointing_to_identity(access_key_path, identity_path);
-            if (access_key_already_linked) continue;
+            try {
+                const access_key_already_linked = await config_fs._is_symlink_pointing_to_identity(access_key_path, identity_path);
+                if (access_key_already_linked) continue;
+            } catch (err) {
+                dbg.warn(`config_dir_restructure.create_account_access_keys_index_if_missing _is_symlink_pointing_to_identity failed ${access_key}`, err);
+            }
 
             try {
                 await nb_native().fs.symlink(fs_context, account_config_relative_path, tmp_access_key_path);
@@ -221,19 +231,11 @@ async function create_account_access_keys_index_if_missing(config_fs, account_up
                 if (err.code !== 'EEXIST') throw err;
                 dbg.warn(`account access key backup was already linked on a previous run of the upgrade script, continue ${access_keys}, ${tmp_access_key_path}`);
             }
-            let src_file;
             try {
-                if (native_fs_utils._is_gpfs(fs_context)) {
-                    src_file = await nb_native().fs.open(fs_context, tmp_access_key_path, 'r', native_fs_utils.get_umasked_mode(config.BASE_MODE_CONFIG_FILE));
-                    await src_file.linkfileat(fs_context, access_key_path);
-                } else {
-                    await nb_native().fs.rename(fs_context, tmp_access_key_path, access_key_path);
-                }
+                await nb_native().fs.rename(fs_context, tmp_access_key_path, access_key_path);
             } catch (err) {
                 if (err.code !== 'EEXIST') throw err;
                 dbg.warn(`account access key was already linked on a previous run of the upgrade script, skipping ${access_keys}, ${_id}`);
-            } finally {
-                if (src_file) await src_file.close(fs_context);
             }
         }
     }

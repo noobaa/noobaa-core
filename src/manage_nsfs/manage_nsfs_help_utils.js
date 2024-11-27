@@ -23,7 +23,7 @@ Usage:
 const ARGUMENTS = `
 Arguments:
 
-    <type>    Set the resource type: account, bucket, whitelist, diagnose or logging
+    <type>    Set the resource type: account, bucket, whitelist, diagnose, logging or upgrade
     <action>  Action could be: add, update, list, status, and delete for accounts/buckets
 `;
 

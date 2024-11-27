@@ -30,9 +30,9 @@ const fs_workers_stats = {};
  * 
  * @param {number?} count number of workers to start.
  * @param {number?} metrics_port prometheus metris port.
- * @returns {boolean} true if workers were started.
+ * @returns {Promise<boolean>} true if workers were started.
  */
-function start_workers(metrics_port, count = 0) {
+async function start_workers(metrics_port, count = 0) {
     const exit_events = [];
     if (cluster.isPrimary && count > 0) {
         for (let i = 0; i < count; ++i) {
@@ -68,12 +68,12 @@ function start_workers(metrics_port, count = 0) {
         });
         for (const id in cluster.workers) {
             if (id) {
-                cluster.workers[id].on('message', nsfs_io_state_handler);
+                cluster.workers[id].on('message', nsfs_io_stats_handler);
             }
         }
         if (metrics_port > 0) {
             dbg.log0('Starting metrics server', metrics_port);
-            prom_reporting.start_server(metrics_port, true);
+            await prom_reporting.start_server(metrics_port, true);
             dbg.log0('Started metrics server successfully');
         }
         return true;
@@ -82,7 +82,7 @@ function start_workers(metrics_port, count = 0) {
     return false;
 }
 
-function nsfs_io_state_handler(msg) {
+function nsfs_io_stats_handler(msg) {
     if (msg.io_stats) {
         for (const [key, value] of Object.entries(msg.io_stats)) {
             io_stats[key] += value;

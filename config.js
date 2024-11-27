@@ -64,7 +64,7 @@ config.BUFFERS_MEM_LIMIT_MIN = 32 * 1024 * 1024; // just some workable minimum s
 config.BUFFERS_MEM_LIMIT_MAX = 4 * 1024 * 1024 * 1024;
 config.BUFFERS_MEM_LIMIT = Math.min(
     config.BUFFERS_MEM_LIMIT_MAX,
-    Math.max(Math.floor(config.CONTAINER_MEM_LIMIT / 4), config.BUFFERS_MEM_LIMIT_MIN,)
+    Math.max(Math.floor(config.CONTAINER_MEM_LIMIT / 4), config.BUFFERS_MEM_LIMIT_MIN, )
 );
 
 ////////////////////////
@@ -104,7 +104,6 @@ config.AGENT_HEARTBEAT_GRACE_TIME = 10 * 60 * 1000; // grace period before an ag
 config.CLOUD_ALERT_GRACE_TIME = 3 * 60 * 1000; // grace period before dispatching alert on cloud node status
 config.AGENT_RESPONSE_TIMEOUT = 1 * 60 * 1000;
 config.AGENT_TEST_CONNECTION_TIMEOUT = 1 * 60 * 1000;
-config.STORE_PERF_TEST_INTERVAL = 60 * 60 * 1000; // perform test_store_perf every 1 hour
 config.CLOUD_MAX_ALLOWED_IO_TEST_ERRORS = 3;
 
 config.ENABLE_DEV_RANDOM_SEED = process.env.DISABLE_DEV_RANDOM_SEED === 'false' || false;
@@ -755,10 +754,10 @@ config.NSFS_BUF_POOL_MEM_LIMIT_S = Math.min(Math.floor(config.NSFS_MAX_MEM_SIZE_
     config.NSFS_WANTED_BUFFERS_NUMBER) * config.NSFS_BUF_SIZE_S;
 // Semaphore size will give 90% of remainning memory to large buffer size, 10% to medium
 config.NSFS_BUF_POOL_MEM_LIMIT_M = range_utils.align_down((config.BUFFERS_MEM_LIMIT -
-    config.NSFS_BUF_POOL_MEM_LIMIT_S - config.NSFS_BUF_POOL_MEM_LIMIT_XS) * 0.1,
+        config.NSFS_BUF_POOL_MEM_LIMIT_S - config.NSFS_BUF_POOL_MEM_LIMIT_XS) * 0.1,
     config.NSFS_BUF_SIZE_M);
 config.NSFS_BUF_POOL_MEM_LIMIT_L = range_utils.align_down((config.BUFFERS_MEM_LIMIT -
-    config.NSFS_BUF_POOL_MEM_LIMIT_S - config.NSFS_BUF_POOL_MEM_LIMIT_XS) * 0.9,
+        config.NSFS_BUF_POOL_MEM_LIMIT_S - config.NSFS_BUF_POOL_MEM_LIMIT_XS) * 0.9,
     config.NSFS_BUF_SIZE_L);
 
 config.NSFS_BUF_WARMUP_SPARSE_FILE_READS = true;

@@ -217,29 +217,6 @@ module.exports = {
             },
         },
 
-        test_store_perf: {
-            method: 'POST',
-            params: {
-                type: 'object',
-                properties: {
-                    count: {
-                        type: 'integer'
-                    }
-                }
-            },
-            reply: {
-                type: 'object',
-                properties: {
-                    write: {
-                        $ref: 'node_api#/definitions/latency_array'
-                    },
-                    read: {
-                        $ref: 'node_api#/definitions/latency_array'
-                    }
-                }
-            }
-        },
-
         test_store_validity: {
             method: 'POST',
         },

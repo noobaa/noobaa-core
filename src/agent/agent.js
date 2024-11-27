@@ -164,7 +164,6 @@ class Agent {
             'update_create_node_token',
             'update_rpc_config',
             'n2n_signal',
-            'test_store_perf',
             'test_store_validity',
             'test_network_perf',
             'test_network_perf_to_peer',
@@ -955,11 +954,6 @@ class Agent {
 
     n2n_signal(req) {
         return this.rpc.accept_n2n_signal(req.rpc_params);
-    }
-
-    async test_store_perf(req) {
-        if (!this.block_store) return {};
-        return this.block_store.test_store_perf(req.rpc_params);
     }
 
     async test_store_validity(req) {

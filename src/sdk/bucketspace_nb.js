@@ -33,7 +33,7 @@ class BucketSpaceNB {
     ////////////
 
     async list_buckets(params, object_sdk) {
-        const { buckets, continuation_token} = (await this.rpc_client.bucket.list_buckets(params));
+        const { buckets, continuation_token } = (await this.rpc_client.bucket.list_buckets(params));
 
         const has_access_buckets = (await P.all(_.map(
             buckets,
@@ -44,7 +44,7 @@ class BucketSpaceNB {
                     object_sdk.has_non_nsfs_bucket_access(object_sdk.requesting_account, ns);
                 return has_access_to_bucket && bucket;
             }))).filter(bucket => bucket);
-        return { buckets: has_access_buckets, continuation_token};
+        return { buckets: has_access_buckets, continuation_token };
     }
 
     async read_bucket(params) {
@@ -244,6 +244,29 @@ class BucketSpaceNB {
     async get_bucket_notification(params) {
         return this.rpc_client.bucket.get_bucket_notification({
             name: params.bucket_name
+        });
+    }
+
+    ////////////////////
+    // BUCKET CORS //
+    ////////////////////
+
+    async put_bucket_cors(params) {
+        return this.rpc_client.bucket.put_bucket_cors({
+            name: params.name,
+            cors_rules: params.cors_rules
+        });
+    }
+
+    async delete_bucket_cors(params) {
+        return this.rpc_client.bucket.delete_bucket_cors({
+            name: params.name
+        });
+    }
+
+    async get_bucket_cors(params) {
+        return this.rpc_client.bucket.get_bucket_cors({
+            name: params.name
         });
     }
 

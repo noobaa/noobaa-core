@@ -343,7 +343,7 @@ module.exports = {
                     notifications: {
                         type: 'array',
                         items: {
-                             $ref: 'common_api#/definitions/bucket_notification'
+                            $ref: 'common_api#/definitions/bucket_notification'
                         }
                     }
                 }
@@ -890,6 +890,65 @@ module.exports = {
                 system: ['admin', 'user']
             }
         },
+
+        get_bucket_cors: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['name'],
+                properties: {
+                    name: {
+                        $ref: 'common_api#/definitions/bucket_name'
+                    },
+                },
+            },
+            reply: {
+                type: 'object',
+                properties: {
+                    cors: {
+                        $ref: 'common_api#/definitions/bucket_cors_configuration'
+                    }
+                }
+            },
+            auth: {
+                system: ['admin', 'user']
+            }
+        },
+
+        put_bucket_cors: {
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: ['name', 'cors_rules'],
+                properties: {
+                    name: {
+                        $ref: 'common_api#/definitions/bucket_name'
+                    },
+                    cors_rules: {
+                        $ref: 'common_api#/definitions/bucket_cors_configuration'
+                    },
+                },
+            },
+            auth: {
+                system: ['admin', 'user']
+            }
+        },
+
+        delete_bucket_cors: {
+            method: 'DELETE',
+            params: {
+                type: 'object',
+                required: ['name'],
+                properties: {
+                    name: {
+                        $ref: 'common_api#/definitions/bucket_name'
+                    },
+                },
+            },
+            auth: {
+                system: ['admin', 'user']
+            }
+        },
     },
 
     definitions: {
@@ -1200,6 +1259,9 @@ module.exports = {
                     items: {
                         $ref: 'common_api#/definitions/bucket_notification'
                     }
+                },
+                cors_configuration_rules: {
+                    $ref: 'common_api#/definitions/bucket_cors_configuration',
                 }
             }
         },

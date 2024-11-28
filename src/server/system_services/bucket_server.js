@@ -279,8 +279,8 @@ async function create_bucket(req) {
             };
 
             // reorder read resources so that the write resource is the first in the list
-            const ordered_read_resources = write_resource ?
-                [write_resource].concat(read_resources.filter(rr => rr.resource !== write_resource.resource)) : read_resources;
+            const ordered_read_resources = write_resource ? [write_resource].concat(
+                read_resources.filter(rr => rr.resource !== write_resource.resource)) : read_resources;
 
             bucket.namespace = {
                 read_resources: ordered_read_resources,
@@ -593,6 +593,44 @@ async function delete_bucket_website(req) {
     });
 }
 
+/**
+ *
+ * CORS
+ *
+ */
+async function put_bucket_cors(req) {
+    dbg.log0('put_bucket_cors:', req.rpc_params);
+    const bucket = find_bucket(req);
+    await system_store.make_changes({
+        update: {
+            buckets: [{
+                _id: bucket._id,
+                cors_configuration_rules: req.rpc_params.cors_rules
+            }]
+        }
+    });
+}
+
+async function get_bucket_cors(req) {
+    dbg.log0('get_bucket_cors:', req.rpc_params);
+    const bucket = find_bucket(req, req.rpc_params.name);
+    return {
+        cors: bucket.cors_configuration_rules || [],
+    };
+}
+
+async function delete_bucket_cors(req) {
+    dbg.log0('delete_bucket_cors:', req.rpc_params);
+    const bucket = find_bucket(req, req.rpc_params.name);
+    await system_store.make_changes({
+        update: {
+            buckets: [{
+                _id: bucket._id,
+                $unset: { cors_configuration_rules: 1 }
+            }]
+        }
+    });
+}
 
 /**
  *
@@ -639,6 +677,7 @@ async function read_bucket_sdk_info(req) {
             })
             .then(get_bucket_info),
         notifications: bucket.notifications,
+        cors_configuration_rules: bucket.cors_configuration_rules,
     };
 
     if (bucket.namespace) {
@@ -2019,9 +2058,9 @@ async function validate_replication(req) {
                 if (_.isEqual(db_rules._id, dst_bucket.replication_policy_id)) {
                     const matching_rule = db_rules.rules.find(
                         db_rule =>
-                            _.isEqual(src_bucket._id, db_rule.destination_bucket) &&
-                            (!db_rule.filter || db_rule.filter.prefix.toString().startsWith(prefix) ||
-                             prefix.toString().startsWith(db_rule.filter.prefix.toString()))
+                        _.isEqual(src_bucket._id, db_rule.destination_bucket) &&
+                        (!db_rule.filter || db_rule.filter.prefix.toString().startsWith(prefix) ||
+                            prefix.toString().startsWith(db_rule.filter.prefix.toString()))
                     );
                     if (matching_rule) {
                         throw new RpcError('INVALID_REPLICATION_POLICY',
@@ -2136,6 +2175,9 @@ exports.put_bucket_policy = put_bucket_policy;
 exports.get_bucket_policy = get_bucket_policy;
 exports.put_bucket_notification = put_bucket_notification;
 exports.get_bucket_notification = get_bucket_notification;
+exports.put_bucket_cors = put_bucket_cors;
+exports.get_bucket_cors = get_bucket_cors;
+exports.delete_bucket_cors = delete_bucket_cors;
 
 exports.update_all_buckets_default_pool = update_all_buckets_default_pool;
 

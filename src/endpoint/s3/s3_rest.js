@@ -83,14 +83,6 @@ async function handle_request(req, res) {
 
     http_utils.validate_server_ip_whitelist(req);
     http_utils.set_amz_headers(req, res);
-    http_utils.set_cors_headers_s3(req, res);
-
-    if (req.method === 'OPTIONS') {
-        dbg.log1('OPTIONS!');
-        res.statusCode = 200;
-        res.end();
-        return;
-    }
 
     const headers_options = {
         ErrorClass: S3Error,
@@ -115,6 +107,18 @@ async function handle_request(req, res) {
     }
 
     const op_name = parse_op_name(req);
+    const cors = req.params.bucket && await req.object_sdk.read_bucket_sdk_cors_info(req.params.bucket);
+
+    http_utils.set_cors_headers_s3(req, res, cors);
+
+    if (req.method === 'OPTIONS') {
+        dbg.log1('OPTIONS!');
+        const error_code = req.headers.origin && req.headers['access-control-request-method'] ? 403 : 400;
+        const res_headers = res.getHeaders(); // We will check if we found a matching rule - if no we will return error_code
+        res.statusCode = res_headers['access-control-allow-origin'] && res_headers['access-control-allow-methods'] ? 200 : error_code;
+        res.end();
+        return;
+    }
     const op = s3_ops[op_name];
     if (!op || !op.handler) {
         dbg.error('S3 NotImplemented', op_name, req.method, req.originalUrl);

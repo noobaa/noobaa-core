@@ -1,15 +1,26 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const S3Error = require('../s3_errors').S3Error;
+const _ = require('lodash');
 
 /**
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketPUTcors.html
  */
 async function put_bucket_cors(req) {
-    await req.object_sdk.read_bucket({ name: req.params.bucket });
-    // TODO S3 put_bucket_cors not implemented
-    throw new S3Error(S3Error.NotImplemented);
+    const cors_rules = req.body.CORSConfiguration.CORSRule.map(rule =>
+        _.omitBy({
+            allowed_headers: rule.AllowedHeader,
+            allowed_methods: rule.AllowedMethod,
+            allowed_origins: rule.AllowedOrigin,
+            expose_headers: rule.ExposeHeader,
+            id: rule.ID,
+            max_age_seconds: rule.MaxAgeSeconds,
+        }, _.isUndefined)
+    );
+    await req.object_sdk.put_bucket_cors({
+        name: req.params.bucket,
+        cors_rules
+    });
 }
 
 module.exports = {

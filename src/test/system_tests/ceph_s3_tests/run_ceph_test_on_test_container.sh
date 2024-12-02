@@ -25,6 +25,10 @@ export JWT_SECRET=123456789
 export NOOBAA_ROOT_SECRET='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA='
 export LOCAL_MD_SERVER=true
 
+#The default max connections for postgres is 100. limit max clients to 10 per pool (per process). 
+export CONFIG_JS_POSTGRES_MD_MAX_CLIENTS=10
+export CONFIG_JS_POSTGRES_DEFAULT_MAX_CLIENTS=10
+
 export POSTGRES_HOST=${POSTGRES_HOST:-localhost}
 export MGMT_ADDR=wss://${NOOBAA_MGMT_SERVICE_HOST:-localhost}:${NOOBAA_MGMT_SERVICE_PORT:-5443}
 export BG_ADDR=wss://localhost:5445

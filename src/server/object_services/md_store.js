@@ -30,33 +30,43 @@ const config = require('../../../config');
 class MDStore {
 
     constructor(test_suffix = '') {
+
+
+        const postgres_pool = 'md';
+
         this._objects = db_client.instance().define_collection({
             name: 'objectmds' + test_suffix,
             schema: object_md_schema,
             db_indexes: object_md_indexes,
+            postgres_pool,
         });
         this._multiparts = db_client.instance().define_collection({
             name: 'objectmultiparts' + test_suffix,
             schema: object_multipart_schema,
             db_indexes: object_multipart_indexes,
+            postgres_pool,
         });
         this._parts = db_client.instance().define_collection({
             name: 'objectparts' + test_suffix,
             schema: object_part_schema,
             db_indexes: object_part_indexes,
+            postgres_pool,
         });
         this._chunks = db_client.instance().define_collection({
             name: 'datachunks' + test_suffix,
             schema: data_chunk_schema,
             db_indexes: data_chunk_indexes,
+            postgres_pool,
         });
         this._blocks = db_client.instance().define_collection({
             name: 'datablocks' + test_suffix,
             schema: data_block_schema,
             db_indexes: data_block_indexes,
+            postgres_pool,
         });
         this._sequences = db_client.instance().define_sequence({
             name: 'mdsequences' + test_suffix,
+            postgres_pool,
         });
     }
 
@@ -248,19 +258,16 @@ class MDStore {
     async remove_objects_and_unset_latest(objs) {
         if (!objs || !objs.length) return;
 
-        await this._objects.updateMany(
-            {
-                _id: {
-                    $in: objs.map(obj => obj._id),
-                }
-            },
-            {
-                $set: {
-                    deleted: new Date(),
-                    version_past: true,
-                },
+        await this._objects.updateMany({
+            _id: {
+                $in: objs.map(obj => obj._id),
             }
-        );
+        }, {
+            $set: {
+                deleted: new Date(),
+                version_past: true,
+            },
+        });
     }
 
     // 2, 3, 4
@@ -1362,7 +1369,7 @@ class MDStore {
     }
 
     /**
-     * 
+     *
      * @param {{
      *  tier: nb.ID,
      *  limit: number,
@@ -1387,14 +1394,14 @@ class MDStore {
         }
 
         return this._chunks
-          .find(selectors, {
-            projection: { _id: 1 },
-            hint: "tiering_index",
-            sort,
-            limit,
-          })
+            .find(selectors, {
+                projection: { _id: 1 },
+                hint: "tiering_index",
+                sort,
+                limit,
+            })
 
-          .then(chunks => db_client.instance().uniq_ids(chunks, "_id"));
+            .then(chunks => db_client.instance().uniq_ids(chunks, "_id"));
     }
 
 
@@ -1775,8 +1782,7 @@ class MDStore {
     find_deleted_blocks(max_delete_time, limit) {
         const query = {
             deleted: {
-                $lt: new Date(max_delete_time),
-                $exists: true // Force index usage
+                $lt: new Date(max_delete_time)
             },
         };
         return this._blocks.find(query, {

@@ -199,7 +199,7 @@ config.S3_RESTORE_REQUEST_MAX_DAYS_BEHAVIOUR = 'TRUNCATE';
 /**
  * S3_MAX_KEY_LENGTH controls the maximum key length that will be accepted
  * by NooBaa endpoints.
- * 
+ *
  * This value is 1024 bytes for S3 but the default is `Infinity`
  */
 config.S3_MAX_KEY_LENGTH = Infinity;
@@ -207,7 +207,7 @@ config.S3_MAX_KEY_LENGTH = Infinity;
 /**
  * S3_MAX_BUCKET_NAME_LENGTH controls the maximum bucket name length that
  * will be accepted by NooBaa endpoints.
- * 
+ *
  * This value is 63 bytes for S3 but the default is `Infinity`
  */
 config.S3_MAX_BUCKET_NAME_LENGTH = Infinity;
@@ -229,7 +229,8 @@ config.ROOT_KEY_MOUNT = '/etc/noobaa-server/root_keys';
 
 config.DB_TYPE = /** @type {nb.DBType} */ (process.env.DB_TYPE || 'postgres');
 
-config.POSTGRES_MAX_CLIENTS = (process.env.LOCAL_MD_SERVER === 'true') ? 80 : 10;
+config.POSTGRES_DEFAULT_MAX_CLIENTS = 10;
+config.POSTGRES_MD_MAX_CLIENTS = (process.env.LOCAL_MD_SERVER === 'true') ? 70 : 10;
 
 ///////////////////
 // SYSTEM CONFIG //

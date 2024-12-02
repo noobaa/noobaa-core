@@ -54,6 +54,12 @@ if (process.env.NOOBAA_LOG_LEVEL) {
     dbg_conf.endpoint.map(module => dbg.set_module_level(dbg_conf.level, module));
 }
 
+const SERVICES_TYPES_ENUM = Object.freeze({
+    S3: 'S3',
+    STS: 'STS',
+    IAM: 'IAM'
+});
+
 const new_umask = process.env.NOOBAA_ENDPOINT_UMASK || 0o000;
 const old_umask = process.umask(new_umask);
 let fork_count;
@@ -114,10 +120,6 @@ async function main(options = {}) {
         const metrics_port = options.metrics_port || config.EP_METRICS_SERVER_PORT;
         if (fork_utils.start_workers(metrics_port, fork_count)) return;
 
-        const http_port = options.http_port || config.ENDPOINT_PORT;
-        const https_port = options.https_port || config.ENDPOINT_SSL_PORT;
-        const https_port_sts = options.https_port_sts || Number(process.env.ENDPOINT_SSL_PORT_STS) || 7443;
-        const https_port_iam = options.https_port_iam || config.ENDPOINT_SSL_IAM_PORT;
         const endpoint_group_id = process.env.ENDPOINT_GROUP_ID || 'default-endpoint-group';
 
         const virtual_hosts = Object.freeze(
@@ -182,59 +184,25 @@ async function main(options = {}) {
             init_request_sdk = create_init_request_sdk(rpc, internal_rpc_client, object_io);
         }
 
-        const endpoint_request_handler = create_endpoint_handler(init_request_sdk, virtual_hosts, /*is_sts?*/ false,
-            bucket_logger, notification_logger);
-        const endpoint_request_handler_sts = create_endpoint_handler(init_request_sdk, virtual_hosts, /*is_sts?*/ true);
+        // START S3, STS & IAM SERVERS & CERTS
+        const http_port_s3 = options.http_port || config.ENDPOINT_PORT;
+        const https_port_s3 = options.https_port || config.ENDPOINT_SSL_PORT;
+        const https_port_sts = options.https_port_sts || Number(process.env.ENDPOINT_SSL_PORT_STS) || 7443; // || (process.env.NC_NSFS_NO_DB_ENV === 'true' ? -1 : 7443);
+        const https_port_iam = options.https_port_iam || config.ENDPOINT_SSL_IAM_PORT;
 
-        const ssl_cert_info = await ssl_utils.get_ssl_cert_info('S3', options.nsfs_config_root);
-        const https_server = await create_https_server(ssl_cert_info, true, endpoint_request_handler);
-        const sts_ssl_cert_info = await ssl_utils.get_ssl_cert_info('STS');
-        const https_server_sts = await create_https_server(sts_ssl_cert_info, true, endpoint_request_handler_sts);
+        await start_server_and_cert(SERVICES_TYPES_ENUM.S3, init_request_sdk,
+            { ...options, https_port: https_port_s3, http_port: http_port_s3, virtual_hosts, bucket_logger, notification_logger });
+        await start_server_and_cert(SERVICES_TYPES_ENUM.STS, init_request_sdk, { https_port: https_port_sts, virtual_hosts });
+        await start_server_and_cert(SERVICES_TYPES_ENUM.IAM, init_request_sdk, { https_port: https_port_iam });
 
-        ssl_cert_info.on('update', updated_ssl_cert_info => {
-            dbg.log0("Setting updated S3 ssl certs for endpoint.");
-            const updated_ssl_options = { ...updated_ssl_cert_info.cert, honorCipherOrder: true };
-            https_server.setSecureContext(updated_ssl_options);
-        });
-        sts_ssl_cert_info.on('update', updated_sts_ssl_cert_info => {
-            dbg.log0("Setting updated STS ssl certs for endpoint.");
-            const updated_ssl_options = { ...updated_sts_ssl_cert_info.cert, honorCipherOrder: true };
-            https_server_sts.setSecureContext(updated_ssl_options);
-        });
-        if (options.nsfs_config_root && !config.ALLOW_HTTP) {
-            dbg.warn('HTTP is not allowed for NC NSFS.');
-        } else {
-            const http_server = http.createServer(endpoint_request_handler);
-            if (http_port > 0) {
-                dbg.log0('Starting S3 HTTP', http_port);
-                await listen_http(http_port, http_server);
-                dbg.log0('Started S3 HTTP successfully');
-            }
-        }
-        if (https_port > 0) {
-            dbg.log0('Starting S3 HTTPS', https_port);
-            await listen_http(https_port, https_server);
-            dbg.log0('Started S3 HTTPS successfully');
-        }
-        if (https_port_sts > 0) {
-            dbg.log0('Starting STS HTTPS', https_port_sts);
-            await listen_http(https_port_sts, https_server_sts);
-            dbg.log0('Started STS HTTPS successfully');
-        }
-        if (https_port_iam > 0) {
-            dbg.log0('Starting IAM HTTPS', https_port_iam);
-            const endpoint_request_handler_iam = create_endpoint_handler_iam(init_request_sdk);
-            // NOTE: The IAM server currently uses the S3 server's certificate. This *will* cause route failures in Openshift.
-            // TODO: Generate, mount and utilize an appropriate IAM certificate once the service and route are implemented
-            const https_server_iam = await create_https_server(ssl_cert_info, true, endpoint_request_handler_iam);
-            await listen_http(https_port_iam, https_server_iam);
-            dbg.log0('Started IAM HTTPS successfully');
-        }
+
+        // START METRICS SERVER
         if (metrics_port > 0 && cluster.isPrimary) {
             dbg.log0('Starting metrics server', metrics_port);
             await prom_reporting.start_server(metrics_port, false);
             dbg.log0('Started metrics server successfully');
         }
+
         // TODO: currently NC NSFS deployments don't have internal_rpc_client nor db, 
         // there for namespace monitor won't be registered
         if (internal_rpc_client && config.NAMESPACE_MONITOR_ENABLED) {
@@ -271,54 +239,99 @@ async function main(options = {}) {
 }
 
 /**
- * @param {EndpointHandler} init_request_sdk
- * @param {readonly string[]} virtual_hosts
- * @returns {EndpointHandler}
+ * start_server_and_cert starts the server by type and options and creates a certificate if required
+ * @param {('S3'|'IAM'|'STS')} server_type 
+ * @param {EndpointHandler} init_request_sdk 
+ * @param {{ http_port?: number, https_port?: number, virtual_hosts?: readonly string[], 
+ * bucket_logger?: PersistentLogger, notification_logger?: PersistentLogger, 
+ * nsfs_config_root?: string}} options 
  */
-function create_endpoint_handler(init_request_sdk, virtual_hosts, sts, logger, notification_logger) {
-    const blob_rest_handler = process.env.ENDPOINT_BLOB_ENABLED === 'true' ? blob_rest : unavailable_handler;
-    const lambda_rest_handler = config.DB_TYPE === 'mongodb' ? lambda_rest : unavailable_handler;
+async function start_server_and_cert(server_type, init_request_sdk, options = {}) {
+    const { http_port, https_port, nsfs_config_root } = options;
+    const endpoint_request_handler = create_endpoint_handler(server_type, init_request_sdk, options);
 
-    /** @type {EndpointHandler} */
-    const endpoint_request_handler = (req, res) => {
-        endpoint_utils.set_noobaa_server_header(res);
-        endpoint_utils.prepare_rest_request(req);
-        req.virtual_hosts = virtual_hosts;
-        if (logger) req.bucket_logger = logger;
-        if (notification_logger) req.notification_logger = notification_logger;
-        init_request_sdk(req, res);
-        if (req.url.startsWith('/2015-03-31/functions')) {
-            return lambda_rest_handler(req, res);
-        } else if (req.headers['x-ms-version']) {
-            return blob_rest_handler(req, res);
-        } else if (req.url.startsWith('/total_fork_count')) {
-            return fork_count_handler(req, res);
-        } else if (req.url.startsWith('/endpoint_fork_id')) {
-            return endpoint_fork_id_handler(req, res);
+    if (server_type === SERVICES_TYPES_ENUM.S3) {
+        if (nsfs_config_root && !config.ALLOW_HTTP) {
+            dbg.warn('HTTP is not allowed for NC NSFS.');
         } else {
-            return s3_rest.handler(req, res);
+            const http_server = http.createServer(endpoint_request_handler);
+            if (http_port > 0) {
+                dbg.log0(`Starting ${server_type} HTTP - ${http_port}`);
+                await listen_http(http_port, http_server);
+                dbg.log0(`Started ${server_type} HTTP successfully`);
+            }
         }
-    };
-    /** @type {EndpointHandler} */
-    const endpoint_sts_request_handler = (req, res) => {
-        endpoint_utils.set_noobaa_server_header(res);
-        endpoint_utils.prepare_rest_request(req);
-        init_request_sdk(req, res);
-        return sts_rest(req, res);
-    };
-
-    return sts ? endpoint_sts_request_handler : endpoint_request_handler;
+    }
+    if (https_port > 0) {
+        const ssl_cert_info = await ssl_utils.get_ssl_cert_info(server_type, nsfs_config_root);
+        const https_server = await create_https_server(ssl_cert_info, true, endpoint_request_handler);
+        ssl_cert_info.on('update', updated_ssl_cert_info => {
+            dbg.log0(`Setting updated ${server_type} ssl certs for endpoint.`);
+            const updated_ssl_options = { ...updated_ssl_cert_info.cert, honorCipherOrder: true };
+            https_server.setSecureContext(updated_ssl_options);
+        });
+        dbg.log0(`Starting ${server_type} HTTPS - ${https_port}`);
+        await listen_http(https_port, https_server);
+        dbg.log0(`Started ${server_type} HTTPS successfully`);
+    }
 }
 
-function create_endpoint_handler_iam(init_request_sdk) {
-    /** @type {EndpointHandler} */
-    const endpoint_iam_request_handler = (req, res) => {
-        endpoint_utils.set_noobaa_server_header(res);
-        endpoint_utils.prepare_rest_request(req);
-        init_request_sdk(req, res);
-        return iam_rest(req, res);
-    };
-    return endpoint_iam_request_handler;
+/**
+ * @param {('S3'|'IAM'|'STS')} server_type 
+ * @param {EndpointHandler} init_request_sdk 
+ * @param {{virtual_hosts?: readonly string[], bucket_logger?: PersistentLogger, notification_logger?: PersistentLogger}} options 
+ * @returns {EndpointHandler}
+ */
+function create_endpoint_handler(server_type, init_request_sdk, { virtual_hosts, bucket_logger, notification_logger }) {
+    if (server_type === SERVICES_TYPES_ENUM.S3) {
+        const blob_rest_handler = process.env.ENDPOINT_BLOB_ENABLED === 'true' ? blob_rest : unavailable_handler;
+        const lambda_rest_handler = config.DB_TYPE === 'mongodb' ? lambda_rest : unavailable_handler;
+
+        /** @type {EndpointHandler} */
+        const s3_endpoint_request_handler = (req, res) => {
+            endpoint_utils.set_noobaa_server_header(res);
+            endpoint_utils.prepare_rest_request(req);
+            req.virtual_hosts = virtual_hosts;
+            if (bucket_logger) req.bucket_logger = bucket_logger;
+            if (notification_logger) req.notification_logger = notification_logger;
+            init_request_sdk(req, res);
+            if (req.url.startsWith('/2015-03-31/functions')) {
+                return lambda_rest_handler(req, res);
+            } else if (req.headers['x-ms-version']) {
+                return blob_rest_handler(req, res);
+            } else if (req.url.startsWith('/total_fork_count')) {
+                return fork_count_handler(req, res);
+            } else if (req.url.startsWith('/endpoint_fork_id')) {
+                return endpoint_fork_id_handler(req, res);
+            } else {
+                return s3_rest.handler(req, res);
+            }
+        };
+        return s3_endpoint_request_handler;
+    }
+
+    if (server_type === SERVICES_TYPES_ENUM.STS) {
+        /** @type {EndpointHandler} */
+        const sts_endpoint_request_handler = (req, res) => {
+            endpoint_utils.set_noobaa_server_header(res);
+            endpoint_utils.prepare_rest_request(req);
+            // req.virtual_hosts = virtual_hosts;
+            init_request_sdk(req, res);
+            return sts_rest(req, res);
+        };
+        return sts_endpoint_request_handler;
+    }
+
+    if (server_type === SERVICES_TYPES_ENUM.IAM) {
+        /** @type {EndpointHandler} */
+        const iam_endpoint_request_handler = (req, res) => {
+            endpoint_utils.set_noobaa_server_header(res);
+            endpoint_utils.prepare_rest_request(req);
+            init_request_sdk(req, res);
+            return iam_rest(req, res);
+        };
+        return iam_endpoint_request_handler;
+    }
 }
 
 function endpoint_fork_id_handler(req, res) {
@@ -547,7 +560,6 @@ function setup_http_server(server) {
 
 exports.main = main;
 exports.create_endpoint_handler = create_endpoint_handler;
-exports.create_endpoint_handler_iam = create_endpoint_handler_iam;
 exports.create_init_request_sdk = create_init_request_sdk;
 
 if (require.main === module) main();

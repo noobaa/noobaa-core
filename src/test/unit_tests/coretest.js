@@ -133,10 +133,10 @@ function setup(options = {}) {
         (service, srv) => api_coverage.add(srv));
 
     const object_io = new ObjectIO();
-    const endpoint_request_handler = endpoint.create_endpoint_handler(
-        endpoint.create_init_request_sdk(server_rpc.rpc, rpc_client, object_io), [], false);
-    const endpoint_request_handler_sts = endpoint.create_endpoint_handler(
-        endpoint.create_init_request_sdk(server_rpc.rpc, rpc_client, object_io), [], true);
+    const endpoint_request_handler = endpoint.create_endpoint_handler('S3',
+        endpoint.create_init_request_sdk(server_rpc.rpc, rpc_client, object_io), { virtual_hosts: [] });
+    const endpoint_request_handler_sts = endpoint.create_endpoint_handler('STS',
+        endpoint.create_init_request_sdk(server_rpc.rpc, rpc_client, object_io), { virtual_hosts: [] });
 
     async function announce(msg) {
         if (process.env.SUPPRESS_LOGS) return;

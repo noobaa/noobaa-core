@@ -71,8 +71,9 @@ config.BUFFERS_MEM_LIMIT = Math.min(
 // CERTIFICATE CONFIG //
 ////////////////////////
 
-config.STS_SERVICE_CERT_PATH = '/etc/sts-secret';
 config.S3_SERVICE_CERT_PATH = '/etc/s3-secret';
+config.STS_SERVICE_CERT_PATH = '/etc/sts-secret';
+config.IAM_SERVICE_CERT_PATH = '/etc/iam-secret';
 config.MGMT_SERVICE_CERT_PATH = '/etc/mgmt-secret';
 config.EXTERNAL_DB_SERVICE_CERT_PATH = '/etc/external-db-secret';
 

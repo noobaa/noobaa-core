@@ -1063,7 +1063,7 @@ class ConfigFS {
             } else {
                 if (updated_system_json[hostname]?.current_version) return;
                 const new_host_data = this._get_new_hostname_data();
-                updated_system_json = { ...updated_system_json, new_host_data };
+                updated_system_json = { ...updated_system_json, ...new_host_data };
                 await this.update_system_config_file(JSON.stringify(updated_system_json));
                 dbg.log0('updated NC system data with version: ', pkg.version);
                 return updated_system_json;
@@ -1171,7 +1171,7 @@ class ConfigFS {
         return {
             [os.hostname()]: {
                 current_version: pkg.version,
-                    upgrade_history: {
+                upgrade_history: {
                     successful_upgrades: []
                 },
             },

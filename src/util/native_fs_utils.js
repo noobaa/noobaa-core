@@ -189,12 +189,12 @@ async function safe_unlink(fs_context, src_path, src_ver_info, gpfs_options, tmp
 
 async function safe_link(fs_context, src_path, dst_path, src_ver_info, gpfs_options) {
     if (_is_gpfs(fs_context)) {
-        const { src_file = undefined, dir_file = undefined } = gpfs_options;
-        if (dir_file) {
-            await safe_link_gpfs(fs_context, src_path, src_file, dir_file);
+        const { src_file = undefined, dst_file = undefined } = gpfs_options;
+        if (dst_file) {
+            await safe_link_gpfs(fs_context, dst_path, src_file, dst_file);
         } else {
-            dbg.error(`safe_link: dir_file is ${dir_file}, cannot use it to call safe_unlink_gpfs`);
-            throw new Error(`dir_file is ${dir_file}, need a value to safe unlink GPFS`);
+            dbg.error(`safe_link: dst_file is ${dst_file}, cannot use it to call safe_link_gpfs`);
+            throw new Error(`dst_file is ${dst_file}, need a value to safe link GPFS`);
         }
     } else {
         await safe_link_posix(fs_context, src_path, dst_path, src_ver_info);

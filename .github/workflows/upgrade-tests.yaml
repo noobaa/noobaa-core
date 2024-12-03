@@ -25,7 +25,7 @@ jobs:
           cd ./noobaa-core
           sudo bash ./.travis/deploy_minikube.sh
 
-      - name: Build noobaa (from master)
+      - name: Build noobaa
         run: |
           cd ./noobaa-core
           make noobaa NOOBAA_TAG=noobaa-core:master
@@ -42,7 +42,7 @@ jobs:
           make noobaa NOOBAA_TAG=noobaa-core:upgrade-tests
 
       - name: Checkout noobaa-operator
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: 'noobaa/noobaa-operator'
           path: 'noobaa-operator'
@@ -79,15 +79,10 @@ jobs:
       - name: Upgrade noobaa to latest
         run: |
           cd ./noobaa-operator
-          ./build/_output/bin/noobaa-operator upgrade --noobaa-image='noobaa-core:upgrade-tests'
+          VERSION=$(go run cmd/version/main.go)
+          ./build/_output/bin/noobaa-operator upgrade --noobaa-image='noobaa-core:upgrade-tests' --operator-image='noobaa/noobaa-operator:$VERSION'
 
-      - name: Wait for phase Ready in the backingstore pod
-        run: |
-          cd ./noobaa-operator
-          ./.travis/number_of_pods_in_system.sh --pods 5
-          kubectl wait --for=condition=available backingstore/noobaa-default-backing-store --timeout=5m 
-
-      - name: Run Upgrade Tests (PR code)
+      - name: Run Upgrade Tests
         run: |
           set -x
           cd ./noobaa-core

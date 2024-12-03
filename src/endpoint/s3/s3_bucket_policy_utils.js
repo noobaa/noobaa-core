@@ -295,6 +295,34 @@ async function validate_s3_policy(policy, bucket_name, get_account_handler) {
     }
 }
 
+/**
+ * allows_public_access returns true if a policy will allow public access
+ * to a resource
+ * 
+ * NOTE: It assumes that the given policy has already been validated
+ * @param {*} policy 
+ * @returns {boolean}
+ */
+function allows_public_access(policy) {
+    for (const statement of policy.statement) {
+        if (statement.Effect === 'Deny') continue;
+
+        const statement_principal = statement.principal;
+        if (statement_principal.AWS) {
+            for (const principal of _.flatten([statement_principal.AWS])) {
+                if (typeof principal === 'string' ? principal === '*' : principal.unwrap() === '*') {
+                    return true;
+                }
+            }
+        } else if (typeof statement_principal === 'string' ? statement_principal === '*' : statement_principal.unwrap() === '*') {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 exports.OP_NAME_TO_ACTION = OP_NAME_TO_ACTION;
 exports.has_bucket_policy_permission = has_bucket_policy_permission;
 exports.validate_s3_policy = validate_s3_policy;
+exports.allows_public_access = allows_public_access;

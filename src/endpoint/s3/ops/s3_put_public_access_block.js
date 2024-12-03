@@ -1,13 +1,16 @@
 /* Copyright (C) 2024 NooBaa */
 'use strict';
 
+const s3_utils = require('../s3_utils');
+
 /**
  * https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutPublicAccessBlock.html
  * @param {*} req 
  * @param {*} res 
  */
 async function put_public_access_block(req, res) {
-	// Do something in this function
+    const public_access_block = s3_utils.parse_body_public_access_block(req);
+    await req.object_sdk.put_public_access_block({ name: req.params.bucket, public_access_block });
 }
 
 module.exports = {

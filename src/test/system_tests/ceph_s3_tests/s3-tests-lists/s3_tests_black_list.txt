@@ -209,10 +209,6 @@ s3tests_boto3/functional/test_s3.py::test_multipart_upload_size_too_small
 s3tests_boto3/functional/test_s3.py::test_abort_multipart_upload
 s3tests_boto3/functional/test_s3.py::test_multipart_copy_improper_range
 s3tests_boto3/functional/test_s3.py::test_100_continue
-s3tests_boto3/functional/test_s3.py::test_set_cors
-s3tests_boto3/functional/test_s3.py::test_cors_origin_wildcard
-s3tests_boto3/functional/test_s3.py::test_cors_origin_response
-s3tests_boto3/functional/test_s3.py::test_cors_header_option
 s3tests_boto3/functional/test_s3.py::test_set_tagging
 s3tests_boto3/functional/test_s3.py::test_multipart_resend_first_finishes_last
 s3tests_boto3/functional/test_s3.py::test_versioned_object_acl
@@ -354,7 +350,5 @@ s3tests_boto3/functional/test_sts.py::test_assume_role_with_web_identity_wrong_r
 s3tests_boto3/functional/test_sts.py::test_assume_role_with_web_identity_resource_tag_princ_tag
 s3tests_boto3/functional/test_sts.py::test_assume_role_with_web_identity_resource_tag_copy_obj
 s3tests_boto3/functional/test_sts.py::test_assume_role_with_web_identity_role_resource_tag
-s3tests_boto3/functional/test_s3.py::test_cors_presigned_get_object
-s3tests_boto3/functional/test_s3.py::test_cors_presigned_put_object
 s3tests_boto3/functional/test_s3.py::test_cors_presigned_put_object_with_acl
 s3tests_boto3/functional/test_s3.py::test_cors_presigned_put_object_tenant_with_acl

@@ -336,9 +336,8 @@ test-external-pg-sanity: build-ssl-postgres
 .PHONY: test-external-pg-sanity
 
 test-upgrade: tester
-	@echo "\033[1;34mRunning Upgrade Tests - after upgrading from master to latest\033[0m"
-	chmod +x ./src/test/system_tests/run_upgrade_tests.sh
-	./src/test/system_tests/run_upgrade_tests.sh || exit 1
+	@echo "\033[1;34mRunning Upgrade Tests - after upgrading to latest\033[0m"
+	chmod +x ./src/test/system_tests/run_upgrade_tests.sh && ./src/test/system_tests/run_upgrade_tests.sh
 .PHONY: test-upgrade
 
 clean:

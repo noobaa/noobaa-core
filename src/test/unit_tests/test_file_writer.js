@@ -3,24 +3,24 @@
 'use strict';
 
 const mocha = require('mocha');
-const chunk_fs_hashing = require('../../tools/chunk_fs_hashing');
+const file_writer_hashing = require('../../tools/file_writer_hashing');
 
-mocha.describe('ChunkFS', function() {
+mocha.describe('FileWriter', function() {
     const RUN_TIMEOUT = 10 * 60 * 1000;
 
-    mocha.it('Concurrent ChunkFS with hash target', async function() {
+    mocha.it('Concurrent FileWriter with hash target', async function() {
         const self = this;
         self.timeout(RUN_TIMEOUT);
-        await chunk_fs_hashing.hash_target();
+        await file_writer_hashing.hash_target();
     });
 
-    mocha.it('Concurrent ChunkFS with file target', async function() {
+    mocha.it('Concurrent FileWriter with file target', async function() {
         const self = this;
         self.timeout(RUN_TIMEOUT);
-        await chunk_fs_hashing.file_target();
+        await file_writer_hashing.file_target();
     });
 
-    mocha.it('Concurrent ChunkFS with file target - produce num_chunks > 1024 && total_chunks_size < config.NSFS_BUF_SIZE_L', async function() {
+    mocha.it('Concurrent FileWriter with file target - produce num_chunks > 1024 && total_chunks_size < config.NSFS_BUF_SIZE_L', async function() {
         const self = this;
         self.timeout(RUN_TIMEOUT);
         // The goal of this test is to produce num_chunks > 1024 && total_chunks_size < config.NSFS_BUF_SIZE_L
@@ -29,6 +29,6 @@ mocha.describe('ChunkFS', function() {
         // chunk size = 100, total_chunks_size after having 1024 chunks is = 100 * 1024 < config.NSFS_BUF_SIZE_L
         const chunk_size = 100;
         const parts_s = 50;
-        await chunk_fs_hashing.file_target(chunk_size, parts_s);
+        await file_writer_hashing.file_target(chunk_size, parts_s);
     });
 });

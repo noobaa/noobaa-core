@@ -18,7 +18,7 @@ const stream_utils = require('../util/stream_utils');
 const buffer_utils = require('../util/buffer_utils');
 const size_utils = require('../util/size_utils');
 const native_fs_utils = require('../util/native_fs_utils');
-const ChunkFS = require('../util/chunk_fs');
+const FileWriter = require('../util/file_writer');
 const LRUCache = require('../util/lru_cache');
 const nb_native = require('../util/nb_native');
 const RpcError = require('../rpc/rpc_error');
@@ -1483,31 +1483,34 @@ class NamespaceFS {
     // Can be finetuned further on if needed and inserting the Semaphore logic inside
     // Instead of wrapping the whole _upload_stream function (q_buffers lives outside of the data scope of the stream)
     async _upload_stream({ fs_context, params, target_file, object_sdk, offset }) {
-        const { source_stream, copy_source } = params;
+        const { copy_source } = params;
         try {
             // Not using async iterators with ReadableStreams due to unsettled promises issues on abort/destroy
             const md5_enabled = config.NSFS_CALCULATE_MD5 || (this.force_md5_etag ||
                 object_sdk?.requesting_account?.force_md5_etag);
-            const chunk_fs = new ChunkFS({
+            const file_writer = new FileWriter({
                 target_file,
                 fs_context,
-                stats: this.stats,
-                namespace_resource_id: this.namespace_resource_id,
-                md5_enabled,
                 offset,
+                md5_enabled,
+                stats: this.stats,
                 bucket: params.bucket,
-                large_buf_size: multi_buffer_pool.get_buffers_pool(undefined).buf_size
+                large_buf_size: multi_buffer_pool.get_buffers_pool(undefined).buf_size,
+                namespace_resource_id: this.namespace_resource_id,
             });
-            chunk_fs.on('error', err1 => dbg.error('namespace_fs._upload_stream: error occured on stream ChunkFS: ', err1));
+            file_writer.on('error', err => dbg.error('namespace_fs._upload_stream: error occured on FileWriter: ', err));
+            file_writer.on('finish', arg => dbg.log1('namespace_fs._upload_stream: finish occured on stream FileWriter: ', arg));
+            file_writer.on('close', arg => dbg.log1('namespace_fs._upload_stream: close occured on stream FileWriter: ', arg));
+
             if (copy_source) {
-                await this.read_object_stream(copy_source, object_sdk, chunk_fs);
+                await this.read_object_stream(copy_source, object_sdk, file_writer);
             } else if (params.source_params) {
-                await params.source_ns.read_object_stream(params.source_params, object_sdk, chunk_fs);
+                await params.source_ns.read_object_stream(params.source_params, object_sdk, file_writer);
             } else {
-                await stream_utils.pipeline([source_stream, chunk_fs]);
-                await stream_utils.wait_finished(chunk_fs);
+                await stream_utils.pipeline([params.source_stream, file_writer]);
+                await stream_utils.wait_finished(file_writer);
             }
-            return { digest: chunk_fs.digest, total_bytes: chunk_fs.total_bytes };
+            return { digest: file_writer.digest, total_bytes: file_writer.total_bytes };
         } catch (error) {
             dbg.error('_upload_stream had error: ', error);
             throw error;

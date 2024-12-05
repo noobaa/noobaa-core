@@ -112,7 +112,7 @@ async function handle_request(req, res) {
     http_utils.set_cors_headers_s3(req, res, cors);
 
     if (req.method === 'OPTIONS') {
-        dbg.log1('OPTIONS!');
+        dbg.log1('s3_rest : S3 request method is ', req.method);
         const error_code = req.headers.origin && req.headers['access-control-request-method'] ? 403 : 400;
         const res_headers = res.getHeaders(); // We will check if we found a matching rule - if no we will return error_code
         res.statusCode = res_headers['access-control-allow-origin'] && res_headers['access-control-allow-methods'] ? 200 : error_code;
@@ -334,7 +334,7 @@ function _get_arn_from_req_path(req) {
 // we will reintreduce it together with bucket site support.
 function parse_bucket_and_key(req) {
     const { url, headers, virtual_hosts } = req;
-    const host = headers.host.split(':')[0]; // cutting off port
+    const host = headers?.host?.split(':')[0]; // cutting off port
 
     let virtual_host = null;
     if (host && host !== 'localhost' && !net.isIP(host)) {

@@ -45,10 +45,10 @@ const bucket_namespace_cache = new LRUCache({
     validate: (data, params) => params.sdk._validate_bucket_namespace(data, params),
 });
 
+// TODO: account_cache should be in account_sdk
 const account_cache = new LRUCache({
     name: 'AccountCache',
-    // TODO: Decide on a time that we want to invalidate
-    expiry_ms: Number(process.env.ACCOUNTS_CACHE_EXPIRY) || 10 * 60 * 1000,
+    expiry_ms: config.OBJECT_SDK_ACCOUNT_CACHE_EXPIRY_MS,
     /**
      * Set type for the generic template
      * @param {{
@@ -58,6 +58,7 @@ const account_cache = new LRUCache({
      */
     make_key: ({ access_key }) => access_key,
     load: async ({ bucketspace, access_key }) => bucketspace.read_account_by_access_key({ access_key }),
+    validate: (data, params) => _validate_account(data, params),
 });
 
 const dn_cache = new LRUCache({
@@ -78,6 +79,26 @@ const MULTIPART_NAMESPACES = [
     'NET_STORAGE'
 ];
 const required_obj_properties = ['obj_id', 'bucket', 'key', 'size', 'content_type', 'etag'];
+
+/** _validate_account is an additional layer (to expiry_ms)
+ * and in NC deployment it checks the stat of the config file
+ * @param {object} data
+ * @param {object} params
+ * @returns Promise<{boolean>}
+ */
+// TODO: account function should be handled in account_sdk 
+async function _validate_account(data, params) {
+    // stat check (only in bucketspace FS)
+    const bs = params.bucketspace;
+    const bs_allow_stat_account = Boolean(bs.check_same_stat_account);
+    if (bs_allow_stat_account && config.NC_ENABLE_ACCOUNT_CACHE_STAT_VALIDATION) {
+        const same_stat = await bs.check_same_stat_account(params.access_key, data.stat);
+        if (!same_stat) { // config file of bucket was changed
+            return false;
+        }
+    }
+    return true;
+}
 
 class ObjectSDK {
 
@@ -298,9 +319,9 @@ class ObjectSDK {
         const time = Date.now();
         // stat check (only in bucketspace FS)
         const bs = this._get_bucketspace();
-        const ns_allow_stat_bucket = Boolean(bs.check_same_stat);
-        if (ns_allow_stat_bucket && config.NC_ENABLE_BUCKET_NS_CACHE_STAT_VALIDATION) {
-            const same_stat = await bs.check_same_stat(params.name, data.bucket.stat);
+        const bs_allow_stat_bucket = Boolean(bs.check_same_stat_bucket);
+        if (bs_allow_stat_bucket && config.NC_ENABLE_BUCKET_NS_CACHE_STAT_VALIDATION) {
+            const same_stat = await bs.check_same_stat_bucket(params.name, data.bucket.stat);
             if (!same_stat) { // config file of bucket was changed
                 return false;
             }

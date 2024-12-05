@@ -784,6 +784,16 @@ async function add_external_connection(req) {
         };
     }
 
+    if (req.rpc_params.azure_subscription_id &&
+    req.rpc_params.azure_tenant_id &&
+    req.rpc_params.azure_client_id &&
+    req.rpc_params.azure_client_secret) {
+        info.azure_subscription_id = req.rpc_params.azure_subscription_id;
+        info.azure_tenant_id = req.rpc_params.azure_tenant_id;
+        info.azure_client_id = req.rpc_params.azure_client_id;
+        info.azure_region = req.rpc_params.azure_region;
+    }
+
     info.cp_code = req.rpc_params.cp_code || undefined;
     info.auth_method = req.rpc_params.auth_method || config.DEFAULT_S3_AUTH_METHOD[info.endpoint_type] || undefined;
     info = _.omitBy(info, _.isUndefined);
@@ -957,6 +967,10 @@ async function _check_external_connection_internal(connection) {
     switch (endpoint_type) {
         case 'AZURE': {
             return check_azure_connection(connection);
+        }
+        case 'AZURESTS': {
+            // TODO - Requires example secret to implement
+            return check_azure_sts_connection(connection);
         }
         case 'AWSSTS': {
             return check_aws_sts_connection(connection);

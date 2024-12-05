@@ -298,9 +298,9 @@ class ObjectSDK {
         const time = Date.now();
         // stat check (only in bucketspace FS)
         const bs = this._get_bucketspace();
-        const ns_allow_stat_bucket = Boolean(bs.check_same_stat);
-        if (ns_allow_stat_bucket && config.NC_ENABLE_BUCKET_NS_CACHE_STAT_VALIDATION) {
-            const same_stat = await bs.check_same_stat(params.name, data.bucket.stat);
+        const bs_allow_stat_bucket = Boolean(bs.check_same_stat_bucket);
+        if (bs_allow_stat_bucket && config.NC_ENABLE_BUCKET_NS_CACHE_STAT_VALIDATION) {
+            const same_stat = await bs.check_same_stat_bucket(params.name, data.bucket.stat);
             if (!same_stat) { // config file of bucket was changed
                 return false;
             }

@@ -186,18 +186,19 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
     }
 
     /**
-     * check_same_stat will return true the config file was not changed
+     * check_same_stat_bucket will return true the config file was not changed
+     * @param {string} bucket_name
      * @param {nb.NativeFSStats} bucket_stat
      * @returns Promise<{boolean>}
      */
-    async check_same_stat(bucket_name, bucket_stat) {
+    async check_same_stat_bucket(bucket_name, bucket_stat) {
         try {
             const current_stat = await this.config_fs.stat_bucket_config_file(bucket_name);
             if (current_stat) {
                 return current_stat.ino === bucket_stat.ino && current_stat.mtimeNsBigint === bucket_stat.mtimeNsBigint;
             }
         } catch (err) {
-            dbg.warn('check_same_stat: current_stat got an error', err, 'ignoring...');
+            dbg.warn('check_same_stat_bucket: current_stat got an error', err, 'ignoring...');
         }
     }
 

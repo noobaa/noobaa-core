@@ -312,12 +312,12 @@ function set_response_object_md(res, object_md) {
         res.setHeader('x-amz-storage-class', storage_class);
     }
     if (object_md.restore_status?.ongoing || object_md.restore_status?.expiry_time) {
-        const restore = [`ongoing-request="${object_md.restore_status.ongoing}"`];
+        let restore = `ongoing-request="${object_md.restore_status.ongoing}"`;
         if (!object_md.restore_status.ongoing && object_md.restore_status.expiry_time) {
             // Expiry time is in UTC format
             const expiry_date = new Date(object_md.restore_status.expiry_time).toUTCString();
 
-            restore.push(`expiry-date="${expiry_date}"`);
+            restore += `, expiry-date="${expiry_date}"`;
         }
 
         res.setHeader('x-amz-restore', restore);

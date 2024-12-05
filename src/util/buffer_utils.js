@@ -217,7 +217,7 @@ class BuffersPool {
         if (this.warning_timeout) {
             const err = new Error('Warning stuck buffer_pool buffer');
             warning_timer = setTimeout(() => {
-                console.error(err.stack);
+                console.warn(err.stack);
             }, this.warning_timeout);
             warning_timer.unref();
         }

@@ -47,17 +47,18 @@ const bucket_namespace_cache = new LRUCache({
 
 const account_cache = new LRUCache({
     name: 'AccountCache',
-    // TODO: Decide on a time that we want to invalidate
-    expiry_ms: Number(process.env.ACCOUNTS_CACHE_EXPIRY) || 10 * 60 * 1000,
+    expiry_ms: config.OBJECT_SDK_ACCOUNT_CACHE_EXPIRY_MS,
     /**
      * Set type for the generic template
      * @param {{
      *      access_key: string;
      *      bucketspace: nb.BucketSpace;
+     *      validation_callback: function;
      * }} params
      */
     make_key: ({ access_key }) => access_key,
     load: async ({ bucketspace, access_key }) => bucketspace.read_account_by_access_key({ access_key }),
+    validate: (data, params) => params.validation_callback(data, params),
 });
 
 const dn_cache = new LRUCache({
@@ -78,6 +79,25 @@ const MULTIPART_NAMESPACES = [
     'NET_STORAGE'
 ];
 const required_obj_properties = ['obj_id', 'bucket', 'key', 'size', 'content_type', 'etag'];
+
+/** validation function that is used as a callback from all the services:
+ * S3 (object_sdk), IAM (account_sdk), STS (sts_sdk)
+ * It is the validation_callback
+ * @param {object} data
+ * @param {object} params
+ */
+async function _validate_account(data, params) {
+    // stat check (only in bucketspace FS)
+    const bs = params.bucketspace;
+    const bs_allow_stat_account = Boolean(bs.check_same_stat_account);
+    if (bs_allow_stat_account && config.NC_ENABLE_ACCOUNT_CACHE_STAT_VALIDATION) {
+        const same_stat = await bs.check_same_stat_account(params.access_key, data.stat);
+        if (!same_stat) { // config file of bucket was changed
+            return false;
+        }
+    }
+    return true;
+}
 
 class ObjectSDK {
 
@@ -227,6 +247,7 @@ class ObjectSDK {
             this.requesting_account = await account_cache.get_with_cache({
                 bucketspace: this._get_bucketspace(),
                 access_key: token ? token.access_key : anonymous_access_key,
+                validation_callback: _validate_account
             });
             if (this.requesting_account?.nsfs_account_config?.distinguished_name) {
                 const distinguished_name = this.requesting_account.nsfs_account_config.distinguished_name.unwrap();
@@ -298,9 +319,9 @@ class ObjectSDK {
         const time = Date.now();
         // stat check (only in bucketspace FS)
         const bs = this._get_bucketspace();
-        const ns_allow_stat_bucket = Boolean(bs.check_same_stat);
-        if (ns_allow_stat_bucket && config.NC_ENABLE_BUCKET_NS_CACHE_STAT_VALIDATION) {
-            const same_stat = await bs.check_same_stat(params.name, data.bucket.stat);
+        const bs_allow_stat_bucket = Boolean(bs.check_same_stat_bucket);
+        if (bs_allow_stat_bucket && config.NC_ENABLE_BUCKET_NS_CACHE_STAT_VALIDATION) {
+            const same_stat = await bs.check_same_stat_bucket(params.name, data.bucket.stat);
             if (!same_stat) { // config file of bucket was changed
                 return false;
             }
@@ -1195,4 +1216,5 @@ module.exports = {
 module.exports = ObjectSDK;
 module.exports.anonymous_access_key = anonymous_access_key;
 module.exports.account_cache = account_cache;
+module.exports._validate_account = _validate_account;
 module.exports.dn_cache = dn_cache;

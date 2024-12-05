@@ -637,9 +637,14 @@ config.INLINE_MAX_SIZE = 4096;
 
 // Object SDK bucket cache expiration time
 config.OBJECT_SDK_BUCKET_CACHE_EXPIRY_MS = 60000;
+// Object SDK account cache expiration time
+config.OBJECT_SDK_ACCOUNT_CACHE_EXPIRY_MS = Number(process.env.ACCOUNTS_CACHE_EXPIRY) || 10 * 60 * 1000; // TODO: Decide on a time that we want to invalidate
+
 
 // Object SDK bucket_namespace_cache allow stat of the config file
 config.NC_ENABLE_BUCKET_NS_CACHE_STAT_VALIDATION = true;
+// Object SDK account_cache allow stat of the config file
+config.NC_ENABLE_ACCOUNT_CACHE_STAT_VALIDATION = true;
 
 //////////////////////////////
 // OPERATOR RELATED         //

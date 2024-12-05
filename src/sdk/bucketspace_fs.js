@@ -85,6 +85,14 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             if (account.nsfs_account_config.distinguished_name) {
                 account.nsfs_account_config.distinguished_name = new SensitiveString(account.nsfs_account_config.distinguished_name);
             }
+            try {
+                const path_for_account_or_user_config_file = access_key === anonymous_access_key ?
+                this.config_fs.get_account_path_by_name(config.ANONYMOUS_ACCOUNT_NAME) :
+                this.config_fs.get_account_or_user_path_by_access_key(access_key);
+                account.stat = await this.config_fs.stat_account_config_file(path_for_account_or_user_config_file);
+            } catch (err) {
+                dbg.warn(`BucketspaceFS.read_account_by_access_key could not stat_account_config_file ${account.name.unwrap()}`);
+            }
             return account;
         } catch (err) {
             dbg.error('BucketSpaceFS.read_account_by_access_key: failed with error', err);
@@ -199,6 +207,24 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             }
         } catch (err) {
             dbg.warn('check_same_stat_bucket: current_stat got an error', err, 'ignoring...');
+        }
+    }
+
+    /**
+     * check_same_stat_bucket will return true the config file was not changed
+     * @param {string} account_id
+     * @param {nb.NativeFSStats} account_stat
+     * @returns Promise<{boolean>}
+     */
+    async check_same_stat_account(account_id, account_stat) {
+        try {
+            const path_for_account_or_user_config_file = this.config_fs.get_identity_path_by_id(account_id);
+            const current_stat = await this.config_fs.stat_account_config_file(path_for_account_or_user_config_file);
+            if (current_stat) {
+                return current_stat.ino === account_stat.ino && current_stat.mtimeNsBigint === account_stat.mtimeNsBigint;
+            }
+        } catch (err) {
+            dbg.warn('check_same_stat_account: current_stat got an error', err, 'ignoring...');
         }
     }
 

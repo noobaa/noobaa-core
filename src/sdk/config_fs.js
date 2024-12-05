@@ -439,6 +439,16 @@ class ConfigFS {
     }
 
     /**
+     * stat_account_config_file will return the stat output on account config file
+     * please notice that stat might throw an error - you should wrap it with try-catch and handle the error
+     * @param {string} path_for_account_or_user_config_file
+     * @returns {Promise<nb.NativeFSStats>}
+     */
+    stat_account_config_file(path_for_account_or_user_config_file) {
+        return nb_native().fs.stat(this.fs_context, path_for_account_or_user_config_file);
+    }
+
+    /**
      * is_account_exists_by_name returns true if account config path exists in config dir
      * if account does not exist and it's a regular account (not an IAM user) 
      * try to locate it under the old accounts/ directory

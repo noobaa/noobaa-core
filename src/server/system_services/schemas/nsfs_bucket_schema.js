@@ -87,5 +87,8 @@ module.exports = {
         cors_configuration_rules: {
             $ref: 'common_api#/definitions/bucket_cors_configuration'
         },
+        public_access_block: {
+            $ref: 'common_api#/definitions/public_access_block',
+        }
     }
 };

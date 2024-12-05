@@ -17,6 +17,7 @@ const { RpcError } = require('../rpc');
 const nc_mkm = require('../manage_nsfs/nc_master_key_manager').get_instance();
 const nsfs_schema_utils = require('../manage_nsfs/nsfs_schema_utils');
 const { version_compare } = require('../upgrade/upgrade_utils');
+const { anonymous_access_key } = require('./object_sdk');
 
 /** @typedef {import('fs').Dirent} Dirent */
 
@@ -446,6 +447,25 @@ class ConfigFS {
     */
     _get_old_account_path_by_name(account_name) {
         return path.join(this.old_accounts_dir_path, this.json(account_name));
+    }
+
+    /**
+     * stat_account_config_file will return the stat output on account config file
+     * please notice that stat might throw an error - you should wrap it with try-catch and handle the error
+     * Note: access_key type of anonymous_access_key is a symbol, otherwise it is a string (not SensitiveString)
+     * @param {Symbol|string} access_key
+     * @returns {Promise<nb.NativeFSStats>}
+     */
+    stat_account_config_file(access_key) {
+        let path_for_account_or_user_config_file;
+        if (typeof access_key === 'symbol' && access_key === anonymous_access_key) { // anonymous account case
+            path_for_account_or_user_config_file = this.get_account_path_by_name(config.ANONYMOUS_ACCOUNT_NAME);
+        } else if (typeof access_key === 'string') { // rest of the cases
+            path_for_account_or_user_config_file = this.get_account_or_user_path_by_access_key(access_key);
+        } else { // we should not get here
+            throw new Error(`access_key must be a from valid type ${typeof access_key} ${access_key}`);
+        }
+        return nb_native().fs.stat(this.fs_context, path_for_account_or_user_config_file);
     }
 
     /**

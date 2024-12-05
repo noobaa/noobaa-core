@@ -154,7 +154,7 @@ class MapBuilder {
             }
         });
 
-        const chunks_to_delete_uniq = _.uniqBy(chunks_to_delete, chunk => chunk._id.toHexString());
+        const chunks_to_delete_uniq = _.uniqBy(chunks_to_delete, chunk => chunk._id);
 
         dbg.log1('MapBuilder.update_db:',
             'chunks_to_build', chunks_to_build.length,
@@ -190,7 +190,7 @@ class MapBuilder {
         // const all_blocks = get_all_chunks_blocks(chunks);
         // await P.map(all_blocks, async block => {
         //     const node = await nodes_client.read_node_by_id(system_store.data.systems[0]._id,
-        //         block.node_id.toHexString());
+        //         block.node_id);
         //     block.set_node(node);
         // });
 

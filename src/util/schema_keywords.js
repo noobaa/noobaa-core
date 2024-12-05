@@ -65,17 +65,17 @@ const KEYWORDS = js_utils.deep_freeze({
         keyword: 'objectid',
         // schemaType: 'boolean',
         /**
-         * 
-         * @param {KeywordCxt} cxt 
-         * 
+         *
+         * @param {KeywordCxt} cxt
+         *
          */
         code(cxt) {
             const d = cxt.it.data;
             cxt.gen
                 .if(CG `
                     typeof ${d} === 'object' &&
-                    ${d} && 
-                    ${d}.constructor && 
+                    ${d} &&
+                    ${d}.constructor &&
                     ${d}.constructor.name === 'ObjectID'
                 `)
                 .elseIf(CG `

@@ -20,7 +20,7 @@ const undefined_buffer = undefined;
  * @returns {string | undefined}
  */
 function optional_id_str(id) {
-    return id === undefined ? undefined : id.toHexString();
+    return id === undefined ? undefined : id;
 }
 
 /**
@@ -100,14 +100,14 @@ class ChunkDB {
      */
     add_block_allocation(frag, pools, mirror) {
         const block_md = {
-            id: db_client.instance().new_object_id().toHexString(),
+            id: db_client.instance().new_object_id().toString(),
             size: this.frag_size,
             digest_b64: frag.digest_b64,
             digest_type: this.chunk_coder_config.frag_digest_type,
         };
         if (!frag.allocations) frag.allocations = [];
         frag.allocations.push({
-            mirror_group: mirror._id.toHexString(),
+            mirror_group: mirror._id,
             block_md,
             mirror,
             pools,

@@ -197,7 +197,7 @@ async function main(options = {}) {
         // START S3, STS & IAM SERVERS & CERTS
         const http_port_s3 = options.http_port || config.ENDPOINT_PORT;
         const https_port_s3 = options.https_port || config.ENDPOINT_SSL_PORT;
-        const https_port_sts = options.https_port_sts || Number(process.env.ENDPOINT_SSL_PORT_STS) || 7443; // || (process.env.NC_NSFS_NO_DB_ENV === 'true' ? -1 : 7443);
+        const https_port_sts = options.https_port_sts || config.ENDPOINT_SSL_STS_PORT;
         const https_port_iam = options.https_port_iam || config.ENDPOINT_SSL_IAM_PORT;
 
         await start_server_and_cert(SERVICES_TYPES_ENUM.S3, init_request_sdk,

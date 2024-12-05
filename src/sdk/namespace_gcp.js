@@ -7,9 +7,21 @@ const util = require('util');
 const P = require('../util/promise');
 const stream_utils = require('../util/stream_utils');
 const dbg = require('../util/debug_module')(__filename);
+const s3_utils = require('../endpoint/s3/s3_utils');
 const S3Error = require('../endpoint/s3/s3_errors').S3Error;
 // we use this wrapper to set a custom user agent
 const GoogleCloudStorage = require('../util/google_storage_wrap');
+const {
+    AbortMultipartUploadCommand,
+    CompleteMultipartUploadCommand,
+    CreateMultipartUploadCommand,
+    ListPartsCommand,
+    S3Client,
+    UploadPartCommand,
+    UploadPartCopyCommand,
+} = require('@aws-sdk/client-s3');
+
+const { fix_error_object } = require('./noobaa_s3_client/noobaa_s3_client');
 
 /**
  * @implements {nb.Namespace}
@@ -25,6 +37,10 @@ class NamespaceGCP {
     *      private_key: string,
     *      access_mode: string,
     *      stats: import('./endpoint_stats_collector').EndpointStatsCollector,
+    *      hmac_key: {
+    *         access_id: string,
+    *         secret_key: string,
+    *      }
     * }} params
     */
     constructor({
@@ -35,6 +51,7 @@ class NamespaceGCP {
         private_key,
         access_mode,
         stats,
+        hmac_key,
     }) {
         this.namespace_resource_id = namespace_resource_id;
         this.project_id = project_id;
@@ -47,6 +64,20 @@ class NamespaceGCP {
                 private_key: this.private_key,
             }
         });
+        /* An S3 client is needed for multipart upload since GCP only supports multipart uploads via the S3-compatible XML API
+        *  https://cloud.google.com/storage/docs/multipart-uploads
+        *  This is also the reason an HMAC key is generated as part of `add_external_connection` - since the standard GCP credentials
+        *  cannot be used in conjunction with the S3 client.
+        */
+        this.s3_client = new S3Client({
+            endpoint: 'https://storage.googleapis.com',
+            region: 'auto', //https://cloud.google.com/storage/docs/aws-simple-migration#storage-list-buckets-s3-python
+            credentials: {
+                accessKeyId: hmac_key.access_id,
+                secretAccessKey: hmac_key.secret_key,
+            },
+        });
+
         this.bucket = target_bucket;
         this.access_mode = access_mode;
         this.stats = stats;
@@ -191,7 +222,7 @@ class NamespaceGCP {
             read_stream.on('response', () => {
                 let count = 1;
                 const count_stream = stream_utils.get_tap_stream(data => {
-                    this.stats_collector.update_namespace_write_stats({
+                    this.stats.update_namespace_write_stats({
                         namespace_resource_id: this.namespace_resource_id,
                         bucket_name: params.bucket,
                         size: data.length,
@@ -297,27 +328,135 @@ class NamespaceGCP {
 
     async create_object_upload(params, object_sdk) {
         dbg.log0('NamespaceGCP.create_object_upload:', this.bucket, inspect(params));
-        throw new S3Error(S3Error.NotImplemented);
+        const tagging = params.tagging && params.tagging.map(tag => tag.key + '=' + tag.value).join('&');
+
+        const res = await this.s3_client.send(
+            new CreateMultipartUploadCommand({
+                Bucket: this.bucket,
+                Key: params.key,
+                ContentType: params.content_type,
+                StorageClass: params.storage_class,
+                Metadata: params.xattr,
+                Tagging: tagging
+        }));
+
+        dbg.log0('NamespaceGCP.create_object_upload:', this.bucket, inspect(params), 'res', inspect(res));
+        return { obj_id: res.UploadId };
     }
 
     async upload_multipart(params, object_sdk) {
         dbg.log0('NamespaceGCP.upload_multipart:', this.bucket, inspect(params));
-        throw new S3Error(S3Error.NotImplemented);
+        let etag;
+        let res;
+        if (params.copy_source) {
+            const { copy_source, copy_source_range } = s3_utils.format_copy_source(params.copy_source);
+
+            res = await this.s3_client.send(
+                new UploadPartCopyCommand({
+                    Bucket: this.bucket,
+                    Key: params.key,
+                    UploadId: params.obj_id,
+                    PartNumber: params.num,
+                    CopySource: copy_source,
+                    CopySourceRange: copy_source_range,
+            }));
+            etag = s3_utils.parse_etag(res.CopyPartResult.ETag);
+            return { etag };
+        }
+
+        let count = 1;
+        const count_stream = stream_utils.get_tap_stream(data => {
+            this.stats?.update_namespace_write_stats({
+                namespace_resource_id: this.namespace_resource_id,
+                size: data.length,
+                count
+            });
+            // clear count for next updates
+            count = 0;
+        });
+        try {
+            res = await this.s3_client.send(
+                new UploadPartCommand({
+                    Bucket: this.bucket,
+                    Key: params.key,
+                    UploadId: params.obj_id,
+                    PartNumber: params.num,
+                    Body: params.source_stream.pipe(count_stream),
+                    ContentMD5: params.md5_b64,
+                    ContentLength: params.size,
+            }));
+        } catch (err) {
+            fix_error_object(err);
+            object_sdk.rpc_client.pool.update_issues_report({
+                namespace_resource_id: this.namespace_resource_id,
+                error_code: String(err.code),
+                time: Date.now(),
+            });
+            throw err;
+        }
+        etag = s3_utils.parse_etag(res.ETag);
+
+        dbg.log0('NamespaceGCP.upload_multipart:', this.bucket, inspect(params), 'res', inspect(res));
+        return { etag };
     }
 
     async list_multiparts(params, object_sdk) {
         dbg.log0('NamespaceGCP.list_multiparts:', this.bucket, inspect(params));
-        throw new S3Error(S3Error.NotImplemented);
+
+        const res = await this.s3_client.send(
+            new ListPartsCommand({
+                Bucket: this.bucket,
+                Key: params.key,
+                UploadId: params.obj_id,
+                MaxParts: params.max,
+                PartNumberMarker: params.num_marker,
+        }));
+
+        dbg.log0('NamespaceGCP.list_multiparts:', this.bucket, inspect(params), 'res', inspect(res));
+        return {
+            is_truncated: res.IsTruncated,
+            next_num_marker: res.NextPartNumberMarker,
+            multiparts: _.map(res.Parts, p => ({
+                num: p.PartNumber,
+                size: p.Size,
+                etag: s3_utils.parse_etag(p.ETag),
+                last_modified: p.LastModified,
+            }))
+        };
     }
 
     async complete_object_upload(params, object_sdk) {
         dbg.log0('NamespaceGCP.complete_object_upload:', this.bucket, inspect(params));
-        throw new S3Error(S3Error.NotImplemented);
+
+        const res = await this.s3_client.send(
+            new CompleteMultipartUploadCommand({
+                Bucket: this.bucket,
+                Key: params.key,
+                UploadId: params.obj_id,
+                MultipartUpload: {
+                    Parts: _.map(params.multiparts, p => ({
+                        PartNumber: p.num,
+                        ETag: `"${p.etag}"`,
+                    }))
+                }
+        }));
+
+        dbg.log0('NamespaceGCP.complete_object_upload:', this.bucket, inspect(params), 'res', inspect(res));
+        const etag = s3_utils.parse_etag(res.ETag);
+        return { etag, version_id: res.VersionId };
     }
 
     async abort_object_upload(params, object_sdk) {
         dbg.log0('NamespaceGCP.abort_object_upload:', this.bucket, inspect(params));
-        throw new S3Error(S3Error.NotImplemented);
+
+        const res = await this.s3_client.send(
+            new AbortMultipartUploadCommand({
+                Bucket: this.bucket,
+                Key: params.key,
+                UploadId: params.obj_id,
+        }));
+
+        dbg.log0('NamespaceGCP.abort_object_upload:', this.bucket, inspect(params), 'res', inspect(res));
     }
 
     //////////
@@ -332,12 +471,13 @@ class NamespaceGCP {
     */
     async get_object_acl(params, object_sdk) {
         dbg.log0('NamespaceGCP.get_object_acl:', this.bucket, inspect(params));
-        throw new S3Error(S3Error.NotImplemented);
+        await this.read_object_md(params, object_sdk);
+        return s3_utils.DEFAULT_OBJECT_ACL;
     }
 
     async put_object_acl(params, object_sdk) {
         dbg.log0('NamespaceGCP.put_object_acl:', this.bucket, inspect(params));
-        throw new S3Error(S3Error.NotImplemented);
+        await this.read_object_md(params, object_sdk);
     }
 
     ///////////////////
@@ -363,8 +503,8 @@ class NamespaceGCP {
 
         const res = await P.map_with_concurrency(10, params.objects, obj =>
             this.gcs.bucket(this.bucket).file(obj.key).delete()
-            .then(() => ({}))
-            .catch(err => ({ err_code: err.code, err_message: err.errors[0].reason || 'InternalError' })));
+                .then(() => ({}))
+                .catch(err => ({ err_code: err.code, err_message: err.errors[0].reason || 'InternalError' })));
 
         dbg.log1('NamespaceGCP.delete_multiple_objects:', this.bucket, inspect(params), 'res', inspect(res));
 
@@ -378,13 +518,35 @@ class NamespaceGCP {
     ////////////////////
 
     async get_object_tagging(params, object_sdk) {
-        throw new Error('TODO');
+        dbg.log0('NamespaceGCP.get_object_tagging:', this.bucket, inspect(params));
+        const obj_tags = (await this.read_object_md(params, object_sdk)).xattr;
+        // Converting tag dictionary to array of key-value object pairs
+        const tags = Object.entries(obj_tags).map(([key, value]) => ({ key, value }));
+        return {
+            tagging: tags
+        };
     }
     async delete_object_tagging(params, object_sdk) {
-        throw new Error('TODO');
+        dbg.log0('NamespaceGCP.delete_object_tagging:', this.bucket, inspect(params));
+        try {
+            // Set an empty metadata object to remove all tags
+            const res = await this.gcs.bucket(this.bucket).file(params.key).setMetadata({});
+            dbg.log0('NamespaceGCP.delete_object_tagging:', this.bucket, inspect(params), 'res', inspect(res));
+        } catch (err) {
+            dbg.error('NamespaceGCP.delete_object_tagging error:', err);
+        }
     }
     async put_object_tagging(params, object_sdk) {
-        throw new Error('TODO');
+        dbg.log0('NamespaceGCP.put_object_tagging:', this.bucket, inspect(params));
+        try {
+            // Convert the array of key-value object pairs to a dictionary
+            const tags_to_put = Object.fromEntries(params.tagging.map(tag => ([tag.key, tag.value])));
+            const res = await this.gcs.bucket(this.bucket).file(params.key).setMetadata({ metadata: tags_to_put });
+            dbg.log0('NamespaceGCP.put_object_tagging:', this.bucket, inspect(params), 'res', inspect(res));
+        } catch (err) {
+            dbg.error('NamespaceGCP.put_object_tagging error:', err);
+        }
+
     }
 
     ///////////////////

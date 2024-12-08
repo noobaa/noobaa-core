@@ -645,6 +645,7 @@ config.OBJECT_SDK_ACCOUNT_CACHE_EXPIRY_MS = 10 * 60 * 1000; // TODO: Decide on a
 config.NC_ENABLE_BUCKET_NS_CACHE_STAT_VALIDATION = true;
 // Object SDK account_cache allow stat of the config file
 config.NC_ENABLE_ACCOUNT_CACHE_STAT_VALIDATION = true;
+config.NC_ENABLE_ACCOUNT_CACHE_STAT_VALIDATION_STS = false; // TODO: remove this env once STS is enabled in NC
 
 //////////////////////////////
 // OPERATOR RELATED         //

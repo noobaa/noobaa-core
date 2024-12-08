@@ -40,7 +40,8 @@ class StsSDK {
         // stat check (only in bucketspace FS)
         const bs = params.bucketspace;
         const bs_allow_stat_account = Boolean(bs.check_same_stat_account);
-        if (bs_allow_stat_account && config.NC_ENABLE_ACCOUNT_CACHE_STAT_VALIDATION) {
+        if (bs_allow_stat_account && config.NC_ENABLE_ACCOUNT_CACHE_STAT_VALIDATION &&
+            config.NC_ENABLE_ACCOUNT_CACHE_STAT_VALIDATION_STS) { // TODO: remove this condition once STS is enabled in NC
             const same_stat = await bs.check_same_stat_account(data._id, data.stat);
             if (!same_stat) { // config file of bucket was changed
                 return false;

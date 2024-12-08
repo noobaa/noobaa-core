@@ -20,6 +20,30 @@ mocha.describe('FileWriter', function() {
         await file_writer_hashing.file_target();
     });
 
+    mocha.it('Concurrent FileWriter with hash target - iov_max=1', async function() {
+        const self = this;
+        self.timeout(RUN_TIMEOUT);
+        await file_writer_hashing.hash_target(1);
+    });
+
+    mocha.it('Concurrent FileWriter with file target - iov_max=1', async function() {
+        const self = this;
+        self.timeout(RUN_TIMEOUT);
+        await file_writer_hashing.file_target(undefined, undefined, 1);
+    });
+
+    mocha.it('Concurrent FileWriter with hash target - iov_max=2', async function() {
+        const self = this;
+        self.timeout(RUN_TIMEOUT);
+        await file_writer_hashing.hash_target(2);
+    });
+
+    mocha.it('Concurrent FileWriter with file target - iov_max=2', async function() {
+        const self = this;
+        self.timeout(RUN_TIMEOUT);
+        await file_writer_hashing.file_target(undefined, undefined, 2);
+    });
+
     mocha.it('Concurrent FileWriter with file target - produce num_chunks > 1024 && total_chunks_size < config.NSFS_BUF_SIZE_L', async function() {
         const self = this;
         self.timeout(RUN_TIMEOUT);

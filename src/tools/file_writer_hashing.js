@@ -20,6 +20,7 @@ const CONCURRENCY = Number(argv.concurrency) || 20;
 const CHUNK = Number(argv.chunk) || 16 * 1024;
 const PART_SIZE = Number(argv.part_size) || 20 * 1024 * 1024;
 const F_PREFIX = argv.dst_folder || '/tmp/file_writer_hashing/';
+const IOV_MAX = argv.iov_max || config.NSFS_DEFAULT_IOV_MAX;
 
 const DEFAULT_FS_CONFIG = {
     uid: Number(argv.uid) || process.getuid(),
@@ -58,7 +59,8 @@ function assign_md5_to_fs_xattr(md5_digest, fs_xattr) {
     return fs_xattr;
 }
 
-async function hash_target() {
+async function hash_target(iov_max = IOV_MAX) {
+    config.NSFS_DEFAULT_IOV_MAX = iov_max;
     await P.map_with_concurrency(CONCURRENCY, Array(PARTS).fill(), async () => {
         const data = crypto.randomBytes(PART_SIZE);
         const content_md5 = crypto.createHash('md5').update(data).digest('hex');
@@ -91,7 +93,8 @@ async function hash_target() {
     });
 }
 
-async function file_target(chunk_size = CHUNK, parts = PARTS) {
+async function file_target(chunk_size = CHUNK, parts = PARTS, iov_max = IOV_MAX) {
+    config.NSFS_DEFAULT_IOV_MAX = iov_max;
     fs.mkdirSync(F_PREFIX);
     await P.map_with_concurrency(CONCURRENCY, Array(parts).fill(), async () => {
         let target_file;

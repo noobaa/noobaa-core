@@ -115,34 +115,34 @@ mocha.describe('operations with a couple of forks', async function() {
 
         // a couple of requests with the previous access keys (all should failed)
         // without checking the stat the expiry is OBJECT_SDK_ACCOUNT_CACHE_EXPIRY_MS
-        const failed_operations = [];
-        const successful_operations = [];
+        let failed_operations = 0;
+        let successful_operations = 0;
         const number_of_requests = 5;
         for (let i = 0; i < number_of_requests; i++) {
             try {
-                const res = await s3_uid5_before_access_keys_update.listBuckets({});
-                successful_operations.push(res);
+                await s3_uid5_before_access_keys_update.listBuckets({});
+                successful_operations += 1;
             } catch (err) {
-                failed_operations.push(err);
+                failed_operations += 1;
             }
         }
-        assert.equal(successful_operations.length, 0);
-        assert.equal(failed_operations.length, number_of_requests);
+        assert.equal(successful_operations, 0);
+        assert.equal(failed_operations, number_of_requests);
 
         // a couple of requests with the updated access keys (all should success)
-        const failed_operations2 = [];
-        const successful_operations2 = [];
+        let failed_operations2 = 0;
+        let successful_operations2 = 0;
         const number_of_requests2 = 5;
         for (let i = 0; i < number_of_requests2; i++) {
             try {
-                const res = await s3_uid5_after_access_keys_update.listBuckets({});
-                successful_operations2.push(res);
+                await s3_uid5_after_access_keys_update.listBuckets({});
+                successful_operations2 += 1;
             } catch (err) {
-                failed_operations2.push(err);
+                failed_operations2 += 1;
             }
         }
-        assert.equal(successful_operations2.length, number_of_requests2);
-        assert.equal(failed_operations2.length, 0);
+        assert.equal(successful_operations2, number_of_requests2);
+        assert.equal(failed_operations2, 0);
 
         // cleanup
         await s3_uid5_after_access_keys_update.deleteBucket({ Bucket: bucket_name2 });

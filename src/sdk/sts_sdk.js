@@ -78,6 +78,7 @@ class StsSDK {
         const account = await account_cache.get_with_cache({
             bucketspace: this._get_bucketspace(),
             access_key: access_key,
+            validation_callback: this._validate_account,
         });
         if (!account) {
             throw new RpcError('NO_SUCH_ACCOUNT', 'No such account with access_key: ' + access_key);

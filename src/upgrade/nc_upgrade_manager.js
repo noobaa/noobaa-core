@@ -6,10 +6,9 @@ const _ = require('lodash');
 const path = require('path');
 const util = require('util');
 const pkg = require('../../package.json');
-const dbg = require('../util/debug_module')('UPGRADE');
+const dbg = require('../util/debug_module')(__filename);
 const { should_upgrade, run_upgrade_scripts, version_compare } = require('./upgrade_utils');
 
-dbg.set_process_name('Upgrade');
 const hostname = os.hostname();
 
 const CONFIG_DIR_LOCKED = 'CONFIG_DIR_LOCKED';

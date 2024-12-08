@@ -34,6 +34,14 @@ For more details about NooBaa RPM installation, see - [Getting Started](./Gettin
     - Iterating buckets under the config directory.
     - Confirming the existence of the bucket's configuration file and its validity as a JSON file.
     - Verifying that the underlying storage path of a bucket exists.
+  - `Config directory health`
+    - checks if config system and directory data exists
+    - returns the config directory status 
+  - `Config directory upgrade health`
+    - checks if config system and directory data exists
+    - checks if there is ongoing upgrade
+    - returns error if there is no ongoing upgrade, but the config directory phase is locked
+    - returns message if there is no ongoing upgrade and the config directory is unlocked
 
 * Health CLI requires root permissions.
 
@@ -148,6 +156,11 @@ The output of the Health CLI is a JSON object containing the following propertie
   - Enum: 'PERSISTENT' | 'TEMPORARY'
   - Description: For TEMPORARY error types, NooBaa attempts multiple retries before updating the status to reflect an error. Currently, TEMPORARY error types are only observed in checks for invalid NooBaa endpoints.
  
+- `config_directory`
+  - Type: Object {"phase": "CONFIG_DIR_UNLOCKED" | "CONFIG_DIR_LOCKED","config_dir_version": String,
+  "upgrade_package_version": String, "upgrade_status": Object, "error": Object }.
+  - Description: An object that consists config directory information, config directory upgrade information etc.
+  - Example: { "phase": "CONFIG_DIR_UNLOCKED", "config_dir_version": "1.0.0", "upgrade_package_version": "5.18.0", "upgrade_status": { "message": "there is no in-progress upgrade" }}
 
 ## Example 
 ```sh
@@ -225,6 +238,14 @@ Output:
         }
       ],
       "error_type": "PERSISTENT"
+    },
+    "config_directory": {
+      "phase": "CONFIG_DIR_UNLOCKED",
+      "config_dir_version": "1.0.0",
+      "upgrade_package_version": "5.18.0",
+      "upgrade_status": {
+        "message": "there is no in-progress upgrade"
+      }
     }
   }
 }
@@ -243,7 +264,8 @@ Output:
   - The config file of bucket1 is invalid. Therefore, NooBaa health reports INVALID_CONFIG.
   - The underlying file system directory of bucket3 is missing. Therefore, NooBaa health reports STORAGE_NOT_EXIST.
 
-
+- config_directory: 
+  - the config directory phase is unlocked, config directory version is "1.0.0", matching source code/package version is "5.18.0" and there is no ongoing upgrade.
 
 
 ## Health Errors
@@ -366,3 +388,15 @@ The following error codes will be associated with a specific Bucket or Account s
     - Bucket missing owner account.
   - Resolutions:
     - Check for owner_account property in bucket config file.
+
+#### 8. Config Directory is invalid
+  - Error code: `INVALID_CONFIG_DIR`
+  - Error message: Config directory is invalid
+  - Reasons:
+    - System.json is missing - NooBaa was never started
+    - Config directory property is missing in system.json - the user didn't run config directory upgrade when upgrading from 5.17.z to 5.18.0
+    - Config directory upgrade error.
+  - Resolutions:
+    - Start NooBaa service
+    - Run `noobaa-cli upgrade`
+    - Check the in_progress_upgrade the exact reason for the failure.

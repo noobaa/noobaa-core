@@ -14,6 +14,7 @@ const { TYPES } = require('./manage_nsfs_constants');
 const { get_boolean_or_string_value, throw_cli_error, write_stdout_response, get_bucket_owner_account_by_id } = require('./manage_nsfs_cli_utils');
 const { ManageCLIResponse } = require('./manage_nsfs_cli_responses');
 const ManageCLIError = require('./manage_nsfs_cli_errors').ManageCLIError;
+const { CONFIG_DIR_LOCKED, CONFIG_DIR_UNLOCKED } = require('../upgrade/nc_upgrade_manager');
 
 
 const HOSTNAME = 'localhost';
@@ -59,6 +60,10 @@ const health_errors = {
     MISSING_ACCOUNT_OWNER: {
         error_code: 'MISSING_ACCOUNT_OWNER',
         error_message: 'Bucket account owner not found',
+    },
+    INVALID_CONFIG_DIR: {
+        error_code: 'INVALID_CONFIG_DIR',
+        error_message: 'Config directory is invalid',
     },
     UNKNOWN_ERROR: {
         error_code: 'UNKNOWN_ERROR',
@@ -117,12 +122,16 @@ class NSFSHealth {
             endpoint_state = await this.get_endpoint_response();
             memory = await this.get_service_memory_usage();
         }
+        // TODO: add more health status based on system.json, e.g. RPM upgrade issues
+        const system_data = await this.config_fs.get_system_config_file({ silent_if_missing: true });
+        const config_directory_status = this._get_config_dir_status(system_data);
+
         let bucket_details;
         let account_details;
-        const response_code = endpoint_state ? endpoint_state.response.response_code : 'NOT_RUNNING';
-        const service_health = service_status !== 'active' || pid === '0' || response_code !== 'RUNNING' ? 'NOTOK' : 'OK';
-
-        const error_code = await this.get_error_code(service_status, pid, response_code);
+        const endpoint_response_code = (endpoint_state && endpoint_state.response?.response_code) || 'UNKNOWN_ERROR';
+        const health_check_params = { service_status, pid, endpoint_response_code, config_directory_status };
+        const service_health = this._calc_health_status(health_check_params);
+        const error_code = this.get_error_code(health_check_params);
         if (this.all_bucket_details) bucket_details = await this.get_bucket_status();
         if (this.all_account_details) account_details = await this.get_account_status();
         const health = {
@@ -136,6 +145,7 @@ class NSFSHealth {
                     endpoint_state,
                     error_type: health_errors_tyes.TEMPORARY,
                 },
+                config_directory_status,
                 accounts_status: {
                     invalid_accounts: account_details === undefined ? undefined : account_details.invalid_storages,
                     valid_accounts: account_details === undefined ? undefined : account_details.valid_storages,
@@ -161,7 +171,7 @@ class NSFSHealth {
                 delay_ms: config.NC_HEALTH_ENDPOINT_RETRY_DELAY,
                 func: async () => {
                     endpoint_state = await this.get_endpoint_fork_response();
-                    if (endpoint_state.response.response_code === fork_response_code.NOT_RUNNING.response_code) {
+                    if (endpoint_state.response?.response_code === fork_response_code.NOT_RUNNING.response_code) {
                         throw new Error('Noobaa endpoint is not running, all the retries failed');
                     }
                 }
@@ -173,13 +183,23 @@ class NSFSHealth {
         return endpoint_state;
     }
 
-    async get_error_code(nsfs_status, pid, endpoint_response_code) {
-        if (nsfs_status !== 'active' || pid === '0') {
+    /**
+     * get_error_code returns the error code per the failed check
+     * @param {{service_status: String, 
+     * pid: string, 
+     * endpoint_response_code: string, 
+     * config_directory_status: Object }} health_check_params
+     * @returns {Object}
+    */
+    get_error_code({ service_status, pid, endpoint_response_code, config_directory_status }) {
+        if (service_status !== 'active' || pid === '0') {
             return health_errors.NOOBAA_SERVICE_FAILED;
         } else if (endpoint_response_code === 'NOT_RUNNING') {
             return health_errors.NOOBAA_ENDPOINT_FAILED;
         } else if (endpoint_response_code === 'MISSING_FORKS') {
             return health_errors.NOOBAA_ENDPOINT_FORK_MISSING;
+        } else if (config_directory_status.error) {
+            return health_errors.CONFIG_DIR_ERROR;
         }
     }
 
@@ -239,7 +259,7 @@ class NSFSHealth {
             const fork_count_response = await this.make_endpoint_health_request(url_path);
             if (!fork_count_response) {
                 return {
-                    response_code: fork_response_code.NOT_RUNNING,
+                    response: fork_response_code.NOT_RUNNING,
                     total_fork_count: total_fork_count,
                     running_workers: worker_ids,
                 };
@@ -420,6 +440,60 @@ class NSFSHealth {
             config_data,
             err_obj
         };
+    }
+
+    /**
+     * _get_config_dir_status returns the config directory phase, version, 
+     * matching package_version, upgrade_status and error if occured.
+     * @param {Object} system_data 
+     * @returns {Object}
+     */
+    _get_config_dir_status(system_data) {
+        if (!system_data) return { error: 'system data is missing' };
+        const config_dir_data = system_data.config_directory;
+        if (!config_dir_data) return { error: 'config directory data is missing, must upgrade config directory' };
+        const config_dir_upgrade_status = this._get_config_dir_upgrade_status(config_dir_data);
+        return {
+            phase: config_dir_data.phase,
+            config_dir_version: config_dir_data.config_dir_version,
+            upgrade_package_version: config_dir_data.upgrade_package_version,
+            upgrade_status: config_dir_upgrade_status,
+            error: config_dir_upgrade_status.error || undefined
+        };
+    }
+
+    /**
+     * _get_config_dir_upgrade_status returns one of the following
+     * 1. the status of an ongoing upgrade, if valid it returns an object with upgrade details
+     * 2. if upgrade is not ongoing but config dir is locked, the error details of the upgrade's last_failure will return
+     * 3. if upgrade is not ongoing and config dir is unlocked, a corresponding message will return
+     * @param {Object} config_dir_data 
+     * @returns {Object}
+     */
+    _get_config_dir_upgrade_status(config_dir_data) {
+        if (config_dir_data.in_progress_upgrade) return { in_progress_upgrade: config_dir_data.in_progress_upgrade };
+        if (config_dir_data.phase === CONFIG_DIR_LOCKED) {
+            return { error: 'last_upgrade_failed', last_failure: config_dir_data.upgrade_history.last_failure };
+        }
+        if (config_dir_data.phase === CONFIG_DIR_UNLOCKED) {
+            return { message: 'there is no in-progress upgrade' };
+        }
+    }
+
+    /**
+     *  _calc_health_status calcs the overall health status of NooBaa NC
+     * @param {{service_status: String, 
+     * pid: string, 
+     * endpoint_response_code: string, 
+     * config_directory_status: Object }} health_check_params
+     * @returns {'OK' | 'NOTOK'}
+     */
+    _calc_health_status({ service_status, pid, endpoint_response_code, config_directory_status }) {
+        const is_unhealthy = service_status !== 'active' ||
+            pid === '0' ||
+            endpoint_response_code !== 'RUNNING' ||
+            config_directory_status.error;
+        return is_unhealthy ? 'NOTOK' : 'OK';
     }
 }
 

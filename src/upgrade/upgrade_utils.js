@@ -4,9 +4,7 @@
 const fs = require('fs');
 const _ = require('lodash');
 const path = require('path');
-const dbg = require('../util/debug_module')('UPGRADE');
-dbg.set_process_name('Upgrade');
-
+const dbg = require('../util/debug_module')(__filename);
 
 /**
  * @param {string} ver

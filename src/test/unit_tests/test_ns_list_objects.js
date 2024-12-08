@@ -186,6 +186,55 @@ function test_ns_list_objects(ns, object_sdk, bucket) {
 
     });
 
+    mocha.describe('utf8 specific basic tests', function() {
+        // source of keys: https://forum.moonwalkinc.com/t/determining-s3-listing-order/116
+        const strange_utf8_keys = ["file_ꦏ_1.txt", "file__2.txt", "file_￼_3.txt", "file_𐎣_4.txt"];
+
+        mocha.before(async function() {
+            await create_keys([
+                ...strange_utf8_keys,
+            ]);
+        });
+        mocha.after(async function() {
+            await delete_keys([
+                ...strange_utf8_keys,
+            ]);
+        });
+
+        mocha.it('verify byte-by-byte order sort for utf8 encoded keys', async function() {
+            const r = await ns.list_objects({ bucket }, object_sdk);
+            assert.deepStrictEqual(r.is_truncated, false);
+            assert.deepStrictEqual(r.common_prefixes, []);
+            assert.deepStrictEqual(r.objects.map(it => it.key), strange_utf8_keys);
+        });
+
+        mocha.it('verify byte-by-byte order sort for utf8 encoded keys with markers', async function() {
+            const test_table = [
+                {
+                    limit: 1,
+                },
+                {
+                    limit: 2,
+                },
+                {
+                    limit: 3,
+                },
+                {
+                    limit: 4,
+                },
+                {
+                    limit: 5,
+                }
+            ];
+            for (const test of test_table) {
+                const r = await truncated_listing({ bucket, limit: test.limit });
+                assert.deepStrictEqual(r.is_truncated, false);
+                assert.deepStrictEqual(r.common_prefixes, []);
+                assert.deepStrictEqual(r.objects.map(it => it.key), strange_utf8_keys);
+            }
+        });
+    });
+
     mocha.describe('list objects - dirs', function() {
 
         this.timeout(10 * 60 * 1000); // eslint-disable-line no-invalid-this

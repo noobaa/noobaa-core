@@ -59,15 +59,15 @@ function assign_md5_to_fs_xattr(md5_digest, fs_xattr) {
     return fs_xattr;
 }
 
-async function hash_target(iov_max = IOV_MAX) {
+async function hash_target(chunk_size = CHUNK, parts = PARTS, iov_max = IOV_MAX) {
     config.NSFS_DEFAULT_IOV_MAX = iov_max;
-    await P.map_with_concurrency(CONCURRENCY, Array(PARTS).fill(), async () => {
+    await P.map_with_concurrency(CONCURRENCY, Array(parts).fill(), async () => {
         const data = crypto.randomBytes(PART_SIZE);
         const content_md5 = crypto.createHash('md5').update(data).digest('hex');
         // Using async generator function in order to push data in small chunks
         const source_stream = stream.Readable.from(async function*() {
-            for (let i = 0; i < data.length; i += CHUNK) {
-                yield data.slice(i, i + CHUNK);
+            for (let i = 0; i < data.length; i += chunk_size) {
+                yield data.slice(i, i + chunk_size);
             }
         }());
         const target = new TargetHash();

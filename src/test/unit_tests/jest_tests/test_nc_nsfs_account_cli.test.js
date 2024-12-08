@@ -504,6 +504,69 @@ describe('manage nsfs cli account flow', () => {
             const res = await exec_manage_cli(type, action, account_options);
             expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidAccountName.code);
         });
+
+        it('cli account add - cli create account with supplemental groups)', async function() {
+            const { type, new_buckets_path, uid, gid, name } = defaults;
+            const supplemental_groups = "303,211";
+            const account_options = { config_root, name, new_buckets_path, uid, gid, supplemental_groups};
+            const action = ACTIONS.ADD;
+            await fs_utils.create_fresh_path(new_buckets_path);
+            await fs_utils.file_must_exist(new_buckets_path);
+            await set_path_permissions_and_owner(new_buckets_path, account_options, 0o700);
+            await exec_manage_cli(type, action, account_options);
+            const account = await config_fs.get_account_by_name(name, config_fs_account_options);
+            expect(account.nsfs_account_config.supplemental_groups).toStrictEqual(supplemental_groups.split(',').map(val => Number(val)));
+        });
+
+        it('cli account add - cli create account with supplemental groups - single group (string))', async function() {
+            const { type, new_buckets_path, uid, gid, name } = defaults;
+            const supplemental_groups = "303";
+            const account_options = { config_root, name, new_buckets_path, uid, gid, supplemental_groups};
+            const action = ACTIONS.ADD;
+            await fs_utils.create_fresh_path(new_buckets_path);
+            await fs_utils.file_must_exist(new_buckets_path);
+            await set_path_permissions_and_owner(new_buckets_path, account_options, 0o700);
+            await exec_manage_cli(type, action, account_options);
+            const account = await config_fs.get_account_by_name(name, config_fs_account_options);
+            expect(account.nsfs_account_config.supplemental_groups).toStrictEqual([Number(supplemental_groups)]);
+        });
+
+        it('cli account add - cli create account with supplemental groups - single group (number))', async function() {
+            const { type, new_buckets_path, uid, gid, name } = defaults;
+            const supplemental_groups = 303;
+            const account_options = { config_root, name, new_buckets_path, uid, gid, supplemental_groups};
+            const action = ACTIONS.ADD;
+            await fs_utils.create_fresh_path(new_buckets_path);
+            await fs_utils.file_must_exist(new_buckets_path);
+            await set_path_permissions_and_owner(new_buckets_path, account_options, 0o700);
+            await exec_manage_cli(type, action, account_options);
+            const account = await config_fs.get_account_by_name(name, config_fs_account_options);
+            expect(account.nsfs_account_config.supplemental_groups).toStrictEqual([supplemental_groups]);
+        });
+
+        it('cli account add - cli create account with supplemental groups - invalid list', async function() {
+            const { type, new_buckets_path, uid, gid, name } = defaults;
+            const supplemental_groups = "303l,201"; //group cannot contain charecters
+            const account_options = { config_root, name, new_buckets_path, uid, gid, supplemental_groups};
+            const action = ACTIONS.ADD;
+            await fs_utils.create_fresh_path(new_buckets_path);
+            await fs_utils.file_must_exist(new_buckets_path);
+            await set_path_permissions_and_owner(new_buckets_path, account_options, 0o700);
+            const res = await exec_manage_cli(type, action, account_options);
+            expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidSupplementalGroupsList.code);
+        });
+
+        it('cli account add - cli create account with supplemental groups - invalid list end with comma', async function() {
+            const { type, new_buckets_path, uid, gid, name } = defaults;
+            const supplemental_groups = "303,"; //group cannot end with comma
+            const account_options = { config_root, name, new_buckets_path, uid, gid, supplemental_groups};
+            const action = ACTIONS.ADD;
+            await fs_utils.create_fresh_path(new_buckets_path);
+            await fs_utils.file_must_exist(new_buckets_path);
+            await set_path_permissions_and_owner(new_buckets_path, account_options, 0o700);
+            const res = await exec_manage_cli(type, action, account_options);
+            expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidSupplementalGroupsList.code);
+        });
     });
 
     describe('cli update account', () => {
@@ -1003,6 +1066,33 @@ describe('manage nsfs cli account flow', () => {
                 const account_options = { config_root, name, new_name: '.'}; // invalid new_name (we don't allow '.' as name)
                 const res = await exec_manage_cli(type, ACTIONS.UPDATE, account_options);
                 expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidAccountName.code);
+            });
+
+            it('cli account add - cli update account with supplemental groups)', async function() {
+                const { name } = defaults;
+                const supplemental_groups = "303,211";
+                const account_options = { config_root, name, supplemental_groups};
+                await exec_manage_cli(type, ACTIONS.UPDATE, account_options);
+                const account = await config_fs.get_account_by_name(name, config_fs_account_options);
+                expect(account.nsfs_account_config.supplemental_groups).toStrictEqual(supplemental_groups.split(',').map(val => Number(val)));
+            });
+
+            it('cli account add - cli update account with supplemental groups - single group (string))', async function() {
+                const { name } = defaults;
+                const supplemental_groups = "303";
+                const account_options = { config_root, name, supplemental_groups};
+                await exec_manage_cli(type, ACTIONS.UPDATE, account_options);
+                const account = await config_fs.get_account_by_name(name, config_fs_account_options);
+                expect(account.nsfs_account_config.supplemental_groups).toStrictEqual([Number(supplemental_groups)]);
+            });
+
+            it('cli account add - cli update account with supplemental groups - single group (number))', async function() {
+                const { name } = defaults;
+                const supplemental_groups = 303;
+                const account_options = { config_root, name, supplemental_groups};
+                await exec_manage_cli(type, ACTIONS.UPDATE, account_options);
+                const account = await config_fs.get_account_by_name(name, config_fs_account_options);
+                expect(account.nsfs_account_config.supplemental_groups).toStrictEqual([supplemental_groups]);
             });
         });
 

@@ -520,7 +520,8 @@ async function get_fs_context(nsfs_account_config, fs_backend) {
         uid: (account_ids_by_dn && account_ids_by_dn.uid) ?? nsfs_account_config.uid,
         gid: (account_ids_by_dn && account_ids_by_dn.gid) ?? nsfs_account_config.gid,
         warn_threshold_ms: config.NSFS_WARN_THRESHOLD_MS,
-        backend: fs_backend
+        backend: fs_backend,
+        ...(nsfs_account_config.supplemental_groups && {supplemental_groups: nsfs_account_config.supplemental_groups})
     };
 }
 

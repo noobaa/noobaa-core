@@ -81,6 +81,12 @@ module.exports = {
                 properties: {
                     uid: { type: 'number' },
                     gid: { type: 'number' },
+                    supplemental_groups: {
+                        type: 'array',
+                        items: {
+                            type: 'number'
+                        }
+                    },
                     new_buckets_path: { type: 'string' },
                     fs_backend: {
                         $ref: 'common_api#/definitions/fs_backend'

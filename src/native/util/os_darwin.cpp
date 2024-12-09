@@ -3,6 +3,8 @@
 
 #include "common.h"
 #include <sys/kauth.h> // for KAUTH_UID_NONE
+#include <sys/param.h>
+#include <unistd.h>
 
 namespace noobaa
 {
@@ -42,6 +44,12 @@ void
 ThreadScope::change_user()
 {
     if (_uid != orig_uid || _gid != orig_gid) {
+        if (_groups.empty()) {
+            MUST_SYS(syscall(SYS_setgroups, 0, NULL));
+        }
+        else {
+            MUST_SYS(syscall(SYS_setgroups, _groups.size(), &_groups[0]));
+        }
         MUST_SYS(_mac_thread_setugid(_uid, _gid));
     }
 }
@@ -51,6 +59,7 @@ ThreadScope::restore_user()
 {
     if (_uid != orig_uid || _gid != orig_gid) {
         MUST_SYS(_mac_thread_setugid(KAUTH_UID_NONE, KAUTH_UID_NONE));
+        MUST_SYS(syscall(SYS_setgroups, orig_groups.size(), &orig_groups[0]));
     }
 }
 

@@ -90,8 +90,15 @@ function get_boolean_or_string_value(value) {
     }
 }
 
+function parse_comma_delimited_string(value) {
+    if (typeof value === 'number') {
+        return [value];
+    }
+    return value.split(',').map(val => Number(val));
+}
+
 /**
- * get_options_from_file will read a JSON file that include key-value of the options 
+ * get_options_from_file will read a JSON file that include key-value of the options
  * (instead of flags) and return its content
  * @param {string} file_path
  */
@@ -156,6 +163,7 @@ function is_access_key_update(data) {
 exports.throw_cli_error = throw_cli_error;
 exports.write_stdout_response = write_stdout_response;
 exports.get_boolean_or_string_value = get_boolean_or_string_value;
+exports.parse_comma_delimited_string = parse_comma_delimited_string;
 exports.get_bucket_owner_account_by_name = get_bucket_owner_account_by_name;
 exports.get_bucket_owner_account_by_id = get_bucket_owner_account_by_id;
 exports.get_options_from_file = get_options_from_file;

@@ -300,6 +300,7 @@ async function setup_pools(pools_to_create) {
 }
 
 function log(...args) {
+    console.log(...args);
     if (process.env.SUPPRESS_LOGS) return;
     console.log(...args);
 }

@@ -101,7 +101,7 @@ const mongodb = require('mongodb');
 //     _.each(item, (val, key) => {
 //         if (val instanceof mongodb.ObjectId) {
 //             if (key !== '_id') {
-//                 const obj = idmap[val.toHexString()];
+//                 const obj = idmap[val];
 //                 if (obj) {
 //                     item[key] = obj;
 //                 }
@@ -137,7 +137,7 @@ const mongodb = require('mongodb');
 // /**
 //  * @returns {nb.ID}
 //  */
-// function new_object_id() {
+// function new_object_id().toString() {
 //     return new mongodb.ObjectId();
 // }
 

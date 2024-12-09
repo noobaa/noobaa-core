@@ -1412,7 +1412,7 @@ function report_endpoint_problems(req) {
 function get_object_info(md, options = {}) {
     const bucket = system_store.data.get_by_id(md.bucket);
     return {
-        obj_id: md._id.toHexString(),
+        obj_id: md._id,
         bucket: bucket.name,
         key: md.key,
         size: md.size || 0,
@@ -1671,7 +1671,7 @@ function get_etag(entity, updates) {
    if (sha256_b64) return 'sha256-' + Buffer.from(sha256_b64, 'base64').toString('hex');
 
    const id = updates?._id || entity._id;
-   if (id) return 'id-' + id.toHexString();
+   if (id) return 'id-' + id;
 
    return '';
 }
@@ -2045,7 +2045,7 @@ async function _complete_object_multiparts(obj, multipart_req) {
         } else {
             md5.update(get_etag(mp));
         }
-        const mp_parts = parts_by_mp[mp._id.toHexString()] || [];
+        const mp_parts = parts_by_mp[mp._id] || [];
         _complete_next_parts(mp_parts, context);
         used_multiparts.push(mp);
         for (const part of mp_parts) {

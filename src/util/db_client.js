@@ -2,14 +2,13 @@
 /** @typedef {typeof import('../sdk/nb')} nb */
 'use strict';
 
-const mongodb = require('mongodb');
 const { EventEmitter } = require('events');
 
 const dbg = require('./debug_module')(__filename);
 const config = require('../../config');
 const mongo_client = require('./mongo_client');
 const postgres_client = require('./postgres_client');
-
+const ObjectID = require('../util/objectid.js');
 /**
  * A simple noop db client for cases where we run without a DB.
  * @implements {nb.DBClient}
@@ -36,8 +35,8 @@ class NoneDBClient extends EventEmitter {
     async populate(docs, doc_path, collection, fields) { return this.noop(); }
     resolve_object_ids_recursive(idmap, item) { return this.noop(); }
     resolve_object_ids_paths(idmap, item, paths, allow_missing) { return this.noop(); }
-    new_object_id() { return new mongodb.ObjectId(); }
-    parse_object_id(id_str) { return new mongodb.ObjectId(String(id_str || undefined)); }
+    new_object_id().toString() { return (new ObjectID(null)).toString(); }
+    parse_object_id(id_str) { return new ObjectID(String(id_str || undefined)); }
     fix_id_type(doc) { return doc; }
     is_object_id(id) { return false; }
     is_err_duplicate_key(err) { return false; }

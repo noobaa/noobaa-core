@@ -14,10 +14,9 @@ const P = require('../../util/promise');
 const AgentBlocksVerifier = require('../../server/bg_services/agent_blocks_verifier').AgentBlocksVerifier;
 const db_client = require('../../util/db_client');
 const schema_utils = require('../../util/schema_utils');
-const mongodb = require('mongodb');
 const config = require('../../../config');
 const { ChunkDB, BlockDB } = require('../../server/object_services/map_db_types');
-
+const ObjectID = require('../../util/objectid.js');
 class VerifierMock extends AgentBlocksVerifier {
     /**
      *
@@ -75,7 +74,7 @@ class VerifierMock extends AgentBlocksVerifier {
         const pools_name = _.keyBy(this.pools, 'name');
         const db_blocks = blocks.map(block => {
             const chunk_id = _.get(block, 'chunk');
-            const chunk = new ChunkDB(chunks_idmap[chunk_id.toHexString()]);
+            const chunk = new ChunkDB(chunks_idmap[chunk_id]);
             const frag = chunk.frags[0];
             const db_block = new BlockDB(block, frag, chunk);
             const id = _.get(block, doc_path);
@@ -122,15 +121,15 @@ class VerifierMock extends AgentBlocksVerifier {
 
 
 mocha.describe('mocked agent_blocks_verifier', function() {
-    const tier_id = new mongodb.ObjectId();
-    const bucket_id = new mongodb.ObjectId();
-    const system_id = new mongodb.ObjectId();
+    const tier_id = (new ObjectID(null)).toString();
+    const bucket_id = (new ObjectID(null)).toString();
+    const system_id = (new ObjectID(null)).toString();
 
     mocha.it('should verify blocks on nodes', function() {
         const self = this; // eslint-disable-line no-invalid-this
         const nodes = [make_node('bla2', false)];
         const chunk_coder_configs = [{
-            _id: new mongodb.ObjectId(),
+            _id: (new ObjectID(null)).toString(),
             chunk_coder_config: {
                 frag_digest_type: 'sloth_type'
             }
@@ -154,7 +153,7 @@ mocha.describe('mocked agent_blocks_verifier', function() {
         const self = this; // eslint-disable-line no-invalid-this
         const nodes = [make_node('bla1', true)];
         const chunk_coder_configs = [{
-            _id: new mongodb.ObjectId(),
+            _id: (new ObjectID(null)).toString(),
             chunk_coder_config: {
                 frag_digest_type: 'sloth_type'
             }
@@ -179,7 +178,7 @@ mocha.describe('mocked agent_blocks_verifier', function() {
         const self = this; // eslint-disable-line no-invalid-this
         // const nodes = [make_node('node1')];
         const chunk_coder_configs = [{
-            _id: new mongodb.ObjectId(),
+            _id: (new ObjectID(null)).toString(),
             system: system_id,
             chunk_coder_config: {
                 frag_digest_type: 'sloth_type'
@@ -187,7 +186,7 @@ mocha.describe('mocked agent_blocks_verifier', function() {
         }];
         const chunks = [make_schema_chunk(chunk_coder_configs[0]._id, [make_schema_frag()])];
         const pools = [make_schema_pool('pool1')];
-        const blocks = [make_schema_block(chunks[0].frags[0]._id, chunks[0]._id, new mongodb.ObjectId(), pools[0]._id)];
+        const blocks = [make_schema_block(chunks[0].frags[0]._id, chunks[0]._id, (new ObjectID(null)).toString(), pools[0]._id)];
 
         const verifier_mock = new VerifierMock(blocks, [], chunks, pools);
         return P.resolve()
@@ -209,7 +208,7 @@ mocha.describe('mocked agent_blocks_verifier', function() {
      */
     function make_schema_block(frag_id, chunk_id, node_id, pool_id) {
         return {
-            _id: new mongodb.ObjectId(),
+            _id: (new ObjectID(null)).toString(),
             node: node_id,
             frag: frag_id,
             chunk: chunk_id,
@@ -226,7 +225,7 @@ mocha.describe('mocked agent_blocks_verifier', function() {
      */
     function make_schema_frag() {
         return {
-            _id: new mongodb.ObjectId(),
+            _id: (new ObjectID(null)).toString(),
             digest: Buffer.from('bla')
         };
     }
@@ -237,7 +236,7 @@ mocha.describe('mocked agent_blocks_verifier', function() {
      */
     function make_schema_chunk(cc_id, frags) {
         return {
-            _id: new mongodb.ObjectId(),
+            _id: (new ObjectID(null)).toString(),
             system: system_id,
             bucket: bucket_id,
             tier: tier_id,
@@ -263,7 +262,7 @@ mocha.describe('mocked agent_blocks_verifier', function() {
      */
     function make_node(node_name, offline) {
         return {
-            _id: new mongodb.ObjectId(),
+            _id: (new ObjectID(null)).toString(),
             name: node_name,
             pool: 'pool1',
             node_type: 'BLOCK_STORE_FS',
@@ -293,7 +292,7 @@ mocha.describe('mocked agent_blocks_verifier', function() {
      */
     function make_schema_pool(name) {
         return {
-            _id: new mongodb.ObjectId(),
+            _id: (new ObjectID(null)).toString(),
             name: name,
             system: undefined,
             resource_type: 'HOSTS',

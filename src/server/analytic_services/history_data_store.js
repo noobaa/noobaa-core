@@ -1,8 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const mongodb = require('mongodb');
-
 // const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config.js');
 // const pkg = require('../../../package.json');
@@ -11,6 +9,7 @@ const P = require('../../util/promise');
 const db_client = require('../../util/db_client');
 const system_history_schema = require('../analytic_services/system_history_schema');
 
+const ObjectID = require('../../util/objectid.js');
 class HistoryDataStore {
 
     constructor() {
@@ -30,7 +29,7 @@ class HistoryDataStore {
             const time_stamp = new Date();
             const record_expiration_date = new Date(time_stamp.getTime() - config.STATISTICS_COLLECTOR_EXPIRATION);
             const record = {
-                _id: new mongodb.ObjectId(),
+                _id: (new ObjectID(null)).toString(),
                 time_stamp,
                 system_snapshot: item,
                 history_type: 'SYSTEM'

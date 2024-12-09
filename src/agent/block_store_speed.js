@@ -4,7 +4,6 @@
 // const _ = require('lodash');
 const argv = require('minimist')(process.argv);
 const cluster = require('cluster');
-const mongodb = require('mongodb');
 
 const api = require('../api');
 const config = require('../../config');
@@ -12,6 +11,7 @@ const dotenv = require('../util/dotenv');
 const Speedometer = require('../util/speedometer');
 const { RPC_BUFFERS } = require('../rpc');
 
+const ObjectID = require('../util/objectid.js');
 dotenv.load();
 
 argv.email = argv.email || 'demo@noobaa.com';
@@ -60,7 +60,7 @@ async function worker(client) {
 }
 
 async function write_block(client) {
-    const block_id = new mongodb.ObjectId();
+    const block_id = (new ObjectID(null)).toString();
     return client.block_store.write_block({
         [RPC_BUFFERS]: { data: Buffer.allocUnsafe(argv.size) },
         block_md: {

@@ -3,6 +3,7 @@
 
 const cloud_utils = require('../util/cloud_utils');
 const dbg = require('../util/debug_module')(__filename);
+const config = require('../../config');
 const { RpcError } = require('../rpc');
 const signature_utils = require('../util/signature_utils');
 const { account_cache } = require('./object_sdk');
@@ -34,6 +35,21 @@ class StsSDK {
         return this.bucketspace;
     }
 
+    async _validate_account(data, params) {
+        const time = Date.now();
+        // stat check (only in bucketspace FS)
+        const bs = params.bucketspace;
+        const bs_allow_stat_account = Boolean(bs.check_same_stat_account);
+        if (bs_allow_stat_account && config.NC_ENABLE_ACCOUNT_CACHE_STAT_VALIDATION &&
+            config.NC_ENABLE_ACCOUNT_CACHE_STAT_VALIDATION_STS) { // TODO: remove this condition once STS is enabled in NC
+            const same_stat = await bs.check_same_stat_account(data._id, data.stat);
+            if (!same_stat) { // config file of bucket was changed
+                return false;
+            }
+        }
+        if (time <= data.valid_until) return true;
+    }
+
     async load_requesting_account(req) {
         try {
             const token = this.get_auth_token();
@@ -41,6 +57,7 @@ class StsSDK {
             this.requesting_account = await account_cache.get_with_cache({
                 bucketspace: this._get_bucketspace(),
                 access_key: token.access_key,
+                validation_callback: this._validate_account,
             });
         } catch (error) {
             dbg.error('authorize_request_account error:', error);
@@ -61,6 +78,7 @@ class StsSDK {
         const account = await account_cache.get_with_cache({
             bucketspace: this._get_bucketspace(),
             access_key: access_key,
+            validation_callback: this._validate_account,
         });
         if (!account) {
             throw new RpcError('NO_SUCH_ACCOUNT', 'No such account with access_key: ' + access_key);

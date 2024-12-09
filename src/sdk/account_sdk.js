@@ -45,6 +45,20 @@ class AccountSDK {
         return this.bucketspace;
     }
 
+    async _validate_account(data, params) {
+        const time = Date.now();
+        // stat check (only in bucketspace FS)
+        const bs = params.bucketspace;
+        const bs_allow_stat_account = Boolean(bs.check_same_stat_account);
+        if (bs_allow_stat_account && config.NC_ENABLE_ACCOUNT_CACHE_STAT_VALIDATION) {
+            const same_stat = await bs.check_same_stat_account(data._id, data.stat);
+            if (!same_stat) { // config file of bucket was changed
+                return false;
+            }
+        }
+        if (time <= data.valid_until) return true;
+    }
+
     async load_requesting_account(req) {
         try {
             const token = this.get_auth_token();
@@ -52,6 +66,7 @@ class AccountSDK {
             this.requesting_account = await account_cache.get_with_cache({
                 bucketspace: this._get_bucketspace(),
                 access_key: token.access_key,
+                validation_callback: this._validate_account,
             });
             if (this.requesting_account?.nsfs_account_config?.distinguished_name) {
                 const distinguished_name = this.requesting_account.nsfs_account_config.distinguished_name.unwrap();

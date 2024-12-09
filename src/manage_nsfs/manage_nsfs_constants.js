@@ -29,7 +29,8 @@ const GLACIER_ACTIONS = Object.freeze({
 const DIAGNOSE_ACTIONS = Object.freeze({
     HEALTH: 'health',
     GATHER_LOGS: 'gather-logs',
-    METRICS: 'metrics'
+    METRICS: 'metrics',
+    NETWORK: 'network'
 });
 
 const UPGRADE_ACTIONS = Object.freeze({
@@ -75,7 +76,9 @@ const VALID_OPTIONS_GLACIER = {
 const VALID_OPTIONS_DIAGNOSE = {
     'health': new Set([ 'https_port', 'deployment_type', 'all_account_details', 'all_bucket_details', ...CLI_MUTUAL_OPTIONS]),
     'gather-logs': new Set([ CONFIG_ROOT_FLAG]),
-    'metrics': new Set([CONFIG_ROOT_FLAG])
+    'metrics': new Set([CONFIG_ROOT_FLAG]),
+    'network': new Set([ 'deployment_type', ...CLI_MUTUAL_OPTIONS]),
+
 };
 
 const VALID_OPTIONS_UPGRADE = {

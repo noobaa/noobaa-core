@@ -52,6 +52,11 @@ ManageCLIResponse.MetricsStatus = Object.freeze({
     status: {}
 });
 
+ManageCLIResponse.NetworkStatus = Object.freeze({
+    code: 'NetworkStatus',
+    status: {}
+});
+
 ///////////////////////////////
 // IPS WHITE LIST RESPONSES ///
 ///////////////////////////////

@@ -12,6 +12,8 @@ const { ManageCLIResponse } = require('../../manage_nsfs/manage_nsfs_cli_respons
 const { throw_cli_error, write_stdout_response } = require('../../manage_nsfs/manage_nsfs_cli_utils');
 const { call_forks } = require('../../manage_nsfs/health');
 const os_utils = require('../../util/os_utils');
+const { make_http_request } = require('../../util/http_utils');
+const { read_stream_join } = require('../../util/buffer_utils');
 
 // ❌
 // ✅
@@ -73,7 +75,7 @@ async function test_nc_network(config_fs) {
 /**
  * 
  */
-async function test_network(services_info) {
+async function test_network() {
     const analyze_network_res = [];
     const services = await os_utils.discover_k8s_services();
     const [external_services, internal_services] = _.partition(services, s => s.kind === 'EXTERNAL');
@@ -118,7 +120,7 @@ async function analyze_service(service_type, service_info) {
     const curl_status = await curl_service(service_info);
     const analyze_service_func = ANALYZE_FUNCTION_BY_SERVICE_TYPE[service_type];
     const analyze_service_func_status = await analyze_service_func(service_info);
-    return { nslookup_status, ping_dns_status, ping_ip_status, curl_status, analyze_service_func_status};
+    return { nslookup_status, ping_dns_status, ping_ip_status, curl_status, service_call_status: analyze_service_func_status};
 }
 
 
@@ -162,8 +164,51 @@ async function analyze_mgmt(service_info) {
     return { status: OK };
 }
 
+/**
+ * analyze_metrics checks the connectivity to the metrics server on each host and checks that recieved nsfs metrics
+ * TODO: add other metrics like '/metrics/web_server':WS_METRICS_SERVER_PORT '/metrics/bg_workers':BG_METRICS_SERVER_PORT '/metrics/hosted_agents':HA_METRICS_SERVER_PORT
+ * TODO: add port from config.json of this specific host
+ * @param {Object} service_info 
+ * @returns {Promise<Object>}
+ */
 async function analyze_metrics(service_info) {
-    return { status: OK };
+    try {
+        const { res, metrics_output = undefined, error_output = undefined } = await fetch_nsfs_metrics(service_info.hostname);
+        const status = (res.statusCode !== 200 || !metrics_output || !metrics_output.nsfs_counters ||
+            !metrics_output.op_stats_counters || !metrics_output.fs_worker_stats_counters) ? NOT_OK : OK;
+        return { status, metrics_output, error_output};
+    } catch (err) {
+        dbg.error('analyze_network.analyze_metrics err', err);
+        return { status: NOT_OK, error_output: err};
+    }
+}
+
+
+/**
+ * fetch_nsfs_metrics runs http request to a noobaa metrics server for fetching nsfs metrics
+ * @param {String} hostname 
+ */
+async function fetch_nsfs_metrics(hostname = 'localhost') {
+    console.log('ROMY bla', hostname);
+    const res = await make_http_request({
+        hostname: hostname,
+        port: config.EP_METRICS_SERVER_PORT,
+        path: '/metrics/nsfs_stats',
+        method: 'GET'
+    });
+    if (res.statusCode === 200) {
+        const buffer = await read_stream_join(res);
+        const body = buffer.toString('utf8');
+        const metrics_output = JSON.parse(body);
+        return { metrics_output, res };
+    } else if (res.statusCode >= 500 && res.rawHeaders.includes('application/json')) {
+        const buffer = await read_stream_join(res);
+        const body = buffer.toString('utf8');
+        const error_output = JSON.parse(body);
+        return { error_output, res };
+    } else {
+        throw new Error('received empty metrics response', { cause: res.statusCode });
+    }
 }
 
 /////////////////////////////////

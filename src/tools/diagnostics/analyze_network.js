@@ -58,10 +58,9 @@ async function test_nc_network(config_fs) {
     const forks_info = await analyze_forks(services_info);
     console.log('ROMY services info', services_info);
 
-    const nc_enabled_services = ['S3', 'METRICS'];
     const analyze_network_res = [];
-    for (const service of nc_enabled_services) {
-        const analyze_service_res = await analyze_service(service, services_info[service]);
+    for (const service of services_info) {
+        const analyze_service_res = await analyze_service(service.service, service);
         analyze_network_res.push({ service, analyze_service_res });
     }
     return { forks_info, analyze_network_res };
@@ -196,10 +195,13 @@ async function nc_prepare_services_info(config_fs) {
         // TODO: 
         // 1. need to take the port from config.json per host and not from the general config
         // 2. add other service in the future
-        const s3_ssl_info = { service: 's3', hostname, port: config.ENDPOINT_PORT, secure: false };
-        const s3_info = { service: 's3', hostname, port: config.ENDPOINT_SSL_PORT, secure: true };
-        const metrics_info = { service: 'metrics', hostname, port: config.EP_METRICS_SERVER_PORT, secure: false };
-        nc_services_info.push([s3_ssl_info, s3_info, metrics_info]);
+        const s3_info = { service: 'S3-HTTP', hostname, port: config.ENDPOINT_PORT, secure: false };
+        const s3_ssl_info = { service: 'S3', hostname, port: config.ENDPOINT_SSL_PORT, secure: true };
+        const metrics_info = { service: 'METRICS', hostname, port: config.EP_METRICS_SERVER_PORT, secure: false };
+        nc_services_info.push(s3_info);
+        nc_services_info.push(s3_ssl_info);
+        nc_services_info.push(metrics_info);
+
     }
     return nc_services_info;
 }

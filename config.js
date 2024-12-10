@@ -872,6 +872,8 @@ config.NSFS_LOW_FREE_SPACE_PERCENT_UNLEASH = 0.10;
 // anonymous account name
 config.ANONYMOUS_ACCOUNT_NAME = 'anonymous';
 
+config.NFSF_UPLOAD_STREAM_MEM_THRESHOLD = 8 * 1024 * 1024;
+
 ////////////////////////////
 // NSFS NON CONTAINERIZED //
 ////////////////////////////

@@ -61,12 +61,7 @@ async function start_server(
     const server = http.createServer(async (req, res) => {
         // Serve all metrics on the root path for system that do have one or more fork running.
         if (fork_enabled) {
-            const metrics = await aggregatorRegistry.clusterMetrics();
-            if (req.url === '' || req.url === '/') {
-                res.writeHead(200, { 'Content-Type': aggregatorRegistry.contentType });
-                res.end(metrics);
-                return;
-            }
+            // we would like this part to be first as clusterMetrics might fail.
             if (req.url === '/metrics/nsfs_stats') {
                 res.writeHead(200, { 'Content-Type': 'text/plain' });
                 const nsfs_report = {
@@ -75,6 +70,24 @@ async function start_server(
                     fs_worker_stats_counters: fs_worker_stats_complete
                 };
                 res.end(JSON.stringify(nsfs_report));
+                return;
+            }
+            let metrics;
+            try {
+                metrics = await aggregatorRegistry.clusterMetrics();
+            } catch (err) {
+                dbg.error('start_server: Could not get the metrics, got an error', err);
+                res.writeHead(504, { 'Content-Type': 'application/json' });
+                const reply = JSON.stringify({
+                    error: 'Internal server error - timeout',
+                    message: 'Looks like the server is taking a long time to respond (Could not get the metrics)',
+                });
+                res.end(reply);
+                return;
+            }
+            if (req.url === '' || req.url === '/') {
+                res.writeHead(200, { 'Content-Type': aggregatorRegistry.contentType });
+                res.end(metrics);
                 return;
             }
             // Serve report's metrics on the report name path
@@ -165,7 +178,7 @@ async function metrics_nsfs_stats_handler() {
         op_stats_counters: op_stats_counters,
         fs_worker_stats_counters: fs_worker_stats_counters
     };
-    dbg.log1(`_create_nsfs_report: nsfs_report ${nsfs_report}`);
+    dbg.log1('_create_nsfs_report: nsfs_report', nsfs_report);
     return JSON.stringify(nsfs_report);
 }
 

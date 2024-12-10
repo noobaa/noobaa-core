@@ -57,7 +57,7 @@ require('./test_bucket_chunks_builder');
 require('./test_mirror_writer');
 require('./test_namespace_fs');
 require('./test_ns_list_objects');
-require('./test_chunk_fs');
+require('./test_file_writer');
 require('./test_namespace_fs_mpu');
 require('./test_nb_native_fs');
 require('./test_s3select');

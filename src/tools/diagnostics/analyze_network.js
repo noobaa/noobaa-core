@@ -1,6 +1,7 @@
 /* Copyright (C) 2023 NooBaa */
 'use strict';
 
+const os = require('os');
 const _ = require('lodash');
 const dbg = require('../../util/debug_module')(__filename);
 dbg.set_process_name('analyze_network');
@@ -178,10 +179,11 @@ async function analyze_forks(services_info) {
     const res = {};
     for (const service_info of services_info) {
         const num_of_forks = config.ENDPOINT_FORKS;
-        if (service_info.service !== 's3' || service_info.secure === false) continue;
+        if (service_info.service !== 'S3_HTTPS' || service_info.secure === false) continue;
         try {
             // TODO - check if doing calls to the running host with full hostname works
-            const responsive_fork_ids = await call_forks(num_of_forks, service_info.hostname, service_info.port);
+            const hostname = os.hostname() === service_info.hostname ? '' : service_info.hostname;
+            const responsive_fork_ids = await call_forks(num_of_forks, hostname, service_info.port);
             res[service_info.hostname] = { total_fork_count: num_of_forks, responsive_fork_ids };
         } catch (err) {
             res[service_info.hostname] = { total_fork_count: num_of_forks, responsive_forks: [], error: err };

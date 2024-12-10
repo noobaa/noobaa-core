@@ -684,13 +684,15 @@ async function make_endpoint_health_request(url_path, https_port) {
  * @returns {Promise<Number[]>}
  */
 async function call_forks(fork_count, hostname, https_port) {
+    console.log('hostname', hostname);
+    const url = `${hostname || ''}/endpoint_fork_id`;
     if (fork_count > 0) {
         const worker_ids = [];
         await P.retry({
             attempts: fork_count * 2,
             delay_ms: 1,
             func: async () => {
-                const fork_id_response = await make_endpoint_health_request(`${hostname || ''}/endpoint_fork_id`, https_port);
+                const fork_id_response = await make_endpoint_health_request(url, https_port);
                 if (fork_id_response.worker_id && !worker_ids.includes(fork_id_response.worker_id)) {
                     worker_ids.push(fork_id_response.worker_id);
                 }

@@ -1,13 +1,11 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const mongodb = require('mongodb');
-
 const db_client = require('../../util/db_client');
 
 const func_schema = require('./func_schema');
 const func_indexes = require('./func_indexes');
-
+const ObjectID = require('../../util/objectid.js');
 class FuncStore {
 
     constructor() {
@@ -24,7 +22,7 @@ class FuncStore {
     }
 
     make_func_id(id_str) {
-        return new mongodb.ObjectId(id_str);
+        return (new ObjectID(id_str)).toString();
     }
 
     async create_func(func) {

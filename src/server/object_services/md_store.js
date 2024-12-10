@@ -6,9 +6,8 @@
 const _ = require('lodash');
 const assert = require('assert');
 const moment = require('moment');
-const mongodb = require('mongodb');
 const mime = require('mime');
-
+const ObjectID = require('../../util/objectid.js');
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const db_client = require('../../util/db_client');
@@ -90,18 +89,18 @@ class MDStore {
         if (zero_suffix) {
             suffix = '0'.repeat(16);
         } else {
-            suffix = String(new mongodb.ObjectId()).slice(8, 24);
+            suffix = String((new ObjectID(null)).toString()).slice(8, 24);
         }
         const hex_id = padded_hex_time + suffix;
         assert(padded_hex_time.length === 8);
         assert(suffix.length === 16);
         assert(hex_id.length === 24);
         assert(parseInt(padded_hex_time, 16) === Math.floor(time / 1000));
-        return new mongodb.ObjectId(hex_id);
+        return new ObjectID(hex_id);
     }
 
     is_valid_md_id(id_str) {
-        return mongodb.ObjectId.isValid(id_str);
+        return ObjectID.isValid(id_str);
     }
 
     /////////////
@@ -115,6 +114,7 @@ class MDStore {
     }
 
     async update_object_by_id(obj_id, set_updates, unset_updates, inc_updates) {
+        dbg.error('update_object_by_id xxxxxxxxxxxxxxx ', obj_id);
         dbg.log1('update_object_by_id:', obj_id, compact_updates(set_updates, unset_updates, inc_updates));
         const res = await this._objects.updateOne({ _id: obj_id },
             compact_updates(set_updates, unset_updates, inc_updates)
@@ -166,6 +166,7 @@ class MDStore {
     }
 
     async find_object_latest(bucket_id, key) {
+        dbg.error('find_object_latest xxxxxxxxxxxxxxx ', bucket_id);
         return this._objects.findOne({
             // index fields:
             bucket: bucket_id,
@@ -1195,8 +1196,8 @@ class MDStore {
         const parts_by_chunk = _.groupBy(parts, 'chunk');
         const objects_by_id = _.keyBy(objects, '_id');
         for (const chunk of chunks) {
-            chunk.parts = parts_by_chunk[chunk._id.toHexString()] || [];
-            chunk.objects = _.uniq(_.compact(_.map(chunk.parts, part => objects_by_id[part.obj.toHexString()])));
+            chunk.parts = parts_by_chunk[chunk._id] || [];
+            chunk.objects = _.uniq(_.compact(_.map(chunk.parts, part => objects_by_id[part.obj])));
         }
     }
 
@@ -1640,9 +1641,9 @@ class MDStore {
         });
         const blocks_by_chunk = _.groupBy(blocks, 'chunk');
         for (const chunk of chunks) {
-            const blocks_by_frag = _.groupBy(blocks_by_chunk[chunk._id.toHexString()], 'frag');
+            const blocks_by_frag = _.groupBy(blocks_by_chunk[chunk._id], 'frag');
             for (const frag of chunk.frags) {
-                const frag_blocks = blocks_by_frag[frag._id.toHexString()] || [];
+                const frag_blocks = blocks_by_frag[frag._id] || [];
                 frag.blocks = sorter ? frag_blocks.sort(sorter) : frag_blocks;
             }
         }
@@ -1875,7 +1876,7 @@ function sort_list_uploads_with_delimiter(a, b) {
  * @returns {nb.ID}
  */
 function make_md_id(id_str) {
-    return new mongodb.ObjectId(id_str);
+    return (new ObjectID(id_str).toString());
 }
 
 

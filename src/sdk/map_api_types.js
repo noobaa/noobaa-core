@@ -77,7 +77,7 @@ class ChunkAPI {
     get is_building_frags() { return this.chunk_info.is_building_frags; }
     set is_building_frags(val) { this.chunk_info.is_building_frags = val; }
     get dup_chunk_id() { return parse_optional_id(this.chunk_info.dup_chunk); }
-    set dup_chunk_id(val) { this.chunk_info.dup_chunk = val.toHexString(); }
+    set dup_chunk_id(val) { this.chunk_info.dup_chunk = val; }
 
     get frags() {
         if (!this.__frags) {
@@ -102,7 +102,7 @@ class ChunkAPI {
 
     set_new_chunk_id() {
         if (this._id) throw new Error(`ChunkAPI.set_new_chunk_id: unexpected call for existing chunk ${this._id}`);
-        this.chunk_info._id = db_client.instance().new_object_id().toHexString();
+        this.chunk_info._id = db_client.instance().new_object_id().toString();
     }
 
     /**
@@ -112,14 +112,14 @@ class ChunkAPI {
      */
     add_block_allocation(frag, pools, mirror) {
         const block_md = {
-            id: db_client.instance().new_object_id().toHexString(),
+            id: db_client.instance().new_object_id().toString(),
             size: this.frag_size,
             digest_b64: frag.digest_b64,
             digest_type: this.chunk_coder_config.frag_digest_type,
         };
         if (!frag.allocations) frag.allocations = [];
         frag.allocations.push({
-            mirror_group: mirror._id.toHexString(),
+            mirror_group: mirror._id,
             block_md,
             mirror,
             pools,
@@ -238,7 +238,7 @@ class FragAPI {
     set allocations(val) { this.frag_info.allocations = val; }
 
     set_new_frag_id() {
-        this.frag_info._id = db_client.instance().new_object_id().toHexString();
+        this.frag_info._id = db_client.instance().new_object_id().toString();
     }
 
     /**
@@ -344,8 +344,8 @@ class BlockAPI {
         /** @type {nb.Pool} */
         const pool = this.system_store.data.systems[0].pools_by_name[node.pool];
         this.node = node;
-        this.block_md.node = node._id.toHexString();
-        this.block_md.pool = pool._id.toHexString();
+        this.block_md.node = node._id;
+        this.block_md.pool = pool._id;
         this.block_md.address = node.rpc_address;
         this.block_md.node_type = node.node_type;
         const adminfo = this.block_info.adminfo;
@@ -423,18 +423,18 @@ class PartAPI {
 
     set_new_part_id() {
         if (this._id) throw new Error(`PartAPI.set_new_part_id: already has id ${this._id}`);
-        this._id = db_client.instance().new_object_id();
+        this._id = db_client.instance().new_object_id().toString();
     }
 
     /**
      * @param {nb.ID} chunk_id
      */
-    set_chunk(chunk_id) { this.part_info.chunk_id = chunk_id.toHexString(); }
+    set_chunk(chunk_id) { this.part_info.chunk_id = chunk_id.toString(); }
 
     /**
      * @param {nb.ID} obj_id
      */
-    set_obj_id(obj_id) { this.part_info.obj_id = obj_id.toHexString(); }
+    set_obj_id(obj_id) { this.part_info.obj_id = obj_id.toString(); }
 
     /** @returns {nb.PartInfo} */
     to_api() {

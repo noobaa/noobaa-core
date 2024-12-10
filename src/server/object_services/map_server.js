@@ -169,8 +169,8 @@ class GetMapping {
                     return false;
                 }
                 const pool = chunk.tier.system.pools_by_name[node.pool];
-                alloc.block_md.node = node._id.toHexString();
-                alloc.block_md.pool = pool._id.toHexString();
+                alloc.block_md.node = node._id;
+                alloc.block_md.pool = pool._id;
                 alloc.block_md.address = node.rpc_address;
                 alloc.block_md.node_type = node.node_type;
                 alloc.locality_level = 0;
@@ -505,7 +505,7 @@ async function ensure_room_in_tier(tier, bucket) {
  */
 function enough_room_in_tier(tier, bucket) {
     const tiering = bucket.tiering;
-    const tier_id_str = tier._id.toHexString();
+    const tier_id_str = tier._id;
     const tiering_status = node_allocator.get_tiering_status(tiering);
     const tier_status = tiering_status[tier_id_str];
     const tier_in_tiering = _.find(tiering.tiers, t => String(t.tier._id) === tier_id_str);
@@ -607,16 +607,16 @@ async function _prepare_chunks_group({ chunks, move_to_tier, location_info }) {
  */
 async function prepare_blocks(blocks) {
     if (!blocks || !blocks.length) return;
-    const node_ids = _.uniqBy(blocks.map(block => block.node_id), id => id.toHexString());
+    const node_ids = _.uniqBy(blocks.map(block => block.node_id), id => id);
     const system_id = blocks[0].system._id;
     const { nodes } = await nodes_client.instance().list_nodes_by_identity(
         system_id,
-        node_ids.map(id => ({ id: id.toHexString() })),
+        node_ids.map(id => ({ id: id })),
         nodes_client.NODE_FIELDS_FOR_MAP
     );
     const nodes_by_id = _.keyBy(nodes, '_id');
     for (const block of blocks) {
-        const node = nodes_by_id[block.node_id.toHexString()];
+        const node = nodes_by_id[block.node_id];
         /** @type {nb.Pool} */
         const pool = system_store.data.systems[0].pools_by_name[node.pool];
         block.set_node(node, pool);
@@ -633,9 +633,9 @@ async function prepare_blocks_from_db(blocks) {
     const chunks = await MDStore.instance().find_chunks_by_ids(chunk_ids);
     const chunks_by_id = _.keyBy(chunks, '_id');
     const db_blocks = blocks.map(block => {
-        const chunk_db = new ChunkDB(chunks_by_id[block.chunk.toHexString()]);
+        const chunk_db = new ChunkDB(chunks_by_id[block.chunk]);
         const frag_db = _.find(chunk_db.frags, frag =>
-            frag._id.toHexString() === block.frag.toHexString());
+            frag._id === block.frag);
         const block_db = new BlockDB(block, frag_db, chunk_db);
         return block_db;
     });

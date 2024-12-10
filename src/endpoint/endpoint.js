@@ -118,7 +118,17 @@ async function main(options = {}) {
         // the primary just forks and returns, workers will continue to serve
         fork_count = options.forks ?? config.ENDPOINT_FORKS;
         const metrics_port = options.metrics_port || config.EP_METRICS_SERVER_PORT;
-        if (fork_utils.start_workers(metrics_port, fork_count)) return;
+        /**
+        * Please notice that we can run the main in 2 states:
+        * 1. Only the primary process runs the main (fork is 0 or undefined) - everything that 
+        *    is implemented here would be run by this process.
+        * 2. A primary process with multiple forks (IMPORTANT) - if there is implementation that 
+        *    in only relevant to the primary process it should be implemented in 
+        *    fork_utils.start_workers because the primary process returns after start_workers 
+        *    and the forks will continue executing the code lines in this function
+        *  */
+        const is_workers_started_from_primary = await fork_utils.start_workers(metrics_port, fork_count);
+        if (is_workers_started_from_primary) return;
 
         const endpoint_group_id = process.env.ENDPOINT_GROUP_ID || 'default-endpoint-group';
 

@@ -41,14 +41,14 @@ async function get_network_status(argv, config_fs) {
         dbg.log0('starting to analyze network');
         if (is_nc_deployment) {
             const nc_network_status = await test_nc_network(config_fs);
-            write_stdout_response(ManageCLIResponse.HealthStatus, nc_network_status);
+            write_stdout_response(ManageCLIResponse.NetworkStatus, nc_network_status);
         } else {
             const network_status = await test_network();
             dbg.log0('network_status', network_status);
         }
     } catch (err) {
         dbg.error('Health: exit on error', err.stack || err);
-        if (is_nc_deployment) throw_cli_error({ ...ManageCLIError.HealthStatusFailed, cause: err });
+        if (is_nc_deployment) throw_cli_error({ ...ManageCLIError.NetworkStatusFailed, cause: err });
     }
     process.exit(0);
 }

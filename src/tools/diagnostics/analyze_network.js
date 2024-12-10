@@ -1,7 +1,6 @@
 /* Copyright (C) 2023 NooBaa */
 'use strict';
 
-const os = require('os');
 const _ = require('lodash');
 const dbg = require('../../util/debug_module')(__filename);
 dbg.set_process_name('analyze_network');
@@ -12,11 +11,9 @@ const { ManageCLIResponse } = require('../../manage_nsfs/manage_nsfs_cli_respons
 const { throw_cli_error, write_stdout_response } = require('../../manage_nsfs/manage_nsfs_cli_utils');
 const { call_forks } = require('../../manage_nsfs/health');
 const os_utils = require('../../util/os_utils');
-const { make_http_request } = require('../../util/http_utils');
+const { make_https_request, make_http_request } = require('../../util/http_utils');
 const { read_stream_join } = require('../../util/buffer_utils');
-
-// ❌
-// ✅
+const { dns_resolve, ping } = require('../../util/net_utils');
 
 const ANALYZE_FUNCTION_BY_SERVICE_TYPE = {
     S3_HTTP: analyze_s3,
@@ -28,8 +25,9 @@ const ANALYZE_FUNCTION_BY_SERVICE_TYPE = {
     METRICS: analyze_metrics
 };
 
-const OK = 'OK';
-const NOT_OK = 'NOT_OK';
+const SUCCESS = '✅ SUCCESS';
+const FAILURE = '❌ FAILURE';
+const SKIPPED_TEST = '⏭️ SKIPPED_TEST';
 
 /**
  * get_network_status runs network tests and returns/prints the analyzed network information 
@@ -64,16 +62,16 @@ async function get_network_status(argv, config_fs) {
 async function test_nc_network(config_fs) {
     const services_info = await nc_prepare_services_info(config_fs);
     const forks_info = await analyze_forks(services_info);
-    const analyze_network_res = [];
+    const analyze_network_response = [];
     for (const service of services_info) {
-        const analyze_service_res = await analyze_service(service.service, service);
-        analyze_network_res.push({ service, analyze_service_res });
+        const checks = await analyze_service(service.service, service);
+        analyze_network_response.push({ ...service, ...checks });
     }
-    return { forks_info, analyze_network_res };
+    return { forks_info, analyze_network_response };
 }
 
 /**
- * 
+ * test_network runs network tests on NooBaa containerized environment
  */
 async function test_network() {
     const analyze_network_res = [];
@@ -115,8 +113,10 @@ function get_service_type(info) {
  */
 async function analyze_service(service_type, service_info) {
     const nslookup_status = await nslookup_service(service_info);
-    const ping_dns_status = await ping_service(service_info); // ping DNS
-    const ping_ip_status = await ping_service(service_info); // ping IP
+    const hostname = service_info.localhost ? 'localhost' : service_info.hostname;
+    const ping_dns_status = await ping_service(hostname); // ping DNS
+    const ip = service_info.localhost ? ['127.0.0.1'] : service_info.ip;
+    const ping_ip_status = await ping_service(ip); // ping IP
     const curl_status = await curl_service(service_info);
     const analyze_service_func = ANALYZE_FUNCTION_BY_SERVICE_TYPE[service_type];
     const analyze_service_func_status = await analyze_service_func(service_info);
@@ -128,40 +128,94 @@ async function analyze_service(service_type, service_info) {
 //          GENERAL HELPERS      //
 ///////////////////////////////////
 
-async function ping_service(service_info) {
-    return { status: 'OK' };
+async function ping_service(host) {
+    const err_arr = [];
+    for (let i = 0; i < 3; i += 1) {
+        try {
+            await ping(host);
+        } catch (err) {
+            err_arr.push(err);
+            console.log("❌ ping node failed", host, err);
+            continue;
+        }
+        console.log("✅ ping node success!", host);
+    }
+    if (err_arr.length > 0) {
+        return { status: FAILURE, error: err_arr };
+    }
+    return { status: SUCCESS };
 }
 
 async function nslookup_service(service_info) {
-    return { status: OK };
+    const hostname = service_info.localhost ? 'localhost' : service_info.hostname;
+    try {
+        service_info.ip = await dns_resolve(hostname);
+    } catch (err) {
+        console.log("❌ dns resolve failed service_info.hostname", service_info.hostname, 'hostname', hostname);
+        return { status: FAILURE, error: err };
+    }
+    console.log("✅ dns resolve success!", service_info.hostname, service_info.ip);
+    return { status: SUCCESS };
 }
 
+/**
+ * curl_service runs curl on the service and returns OK/NOT_OK per the response
+ * @param {Object} service_info 
+ * @returns {Promise<Object>}
+ */
 async function curl_service(service_info) {
-    return { status: OK };
+    const hostname = service_info.localhost ? 'localhost' : service_info.hostname;
+    const options = {
+        hostname: hostname,
+        port: service_info.port,
+        method: 'GET',
+        rejectUnauthorized: false
+      };
+      try {
+        let res;
+        if (service_info.secure) {
+            res = await make_https_request(options);
+        } else {
+            res = await make_http_request(options);
+        }
+        if (res.statusCode === 200 ||
+            //on s3 we will get 403 responce for InvalidAccessKeyId
+            (res.statusCode === 403 && (service_info.service === 'S3_HTTP' || service_info.service === 'S3_HTTPS'))) {
+            console.log('✅ http connection success!', service_info.hostname, service_info.port);
+            return { status: SUCCESS };
+        } else {
+            console.log('❌ http connection failed', service_info.hostname, service_info.port, res.statusCode);
+            // TODO: need to add error
+            return { status: FAILURE, error: res.statusCode};
+        }
+      } catch (err) {
+        console.log('❌ http connection failed nadav', service_info.hostname, service_info.port, err);
+        return { status: FAILURE, error: err };
+      }
 }
 
 async function analyze_s3(service_info) {
-    return { status: OK };
+    return { status: SKIPPED_TEST };
 }
 
 async function analyze_s3_secure(service_info) {
-    return { status: OK };
+    return { status: SKIPPED_TEST };
 }
 
 async function analyze_sts(service_info) {
-    return { status: OK };
+    return { status: SKIPPED_TEST };
 }
 
 async function analyze_iam(service_info) {
-    // nice to have
+    return { status: SKIPPED_TEST };
 }
 
 async function analyze_db(service_info) {
-    return { status: OK };
+    return { status: SKIPPED_TEST };
 }
 
 async function analyze_mgmt(service_info) {
-    return { status: OK };
+    return { status: SKIPPED_TEST };
 }
 
 /**
@@ -175,11 +229,11 @@ async function analyze_metrics(service_info) {
     try {
         const { res, metrics_output = undefined, error_output = undefined } = await fetch_nsfs_metrics(service_info.hostname);
         const status = (res.statusCode !== 200 || !metrics_output || !metrics_output.nsfs_counters ||
-            !metrics_output.op_stats_counters || !metrics_output.fs_worker_stats_counters) ? NOT_OK : OK;
+            !metrics_output.op_stats_counters || !metrics_output.fs_worker_stats_counters) ? FAILURE : SUCCESS;
         return { status, metrics_output, error_output};
     } catch (err) {
         dbg.error('analyze_network.analyze_metrics err', err);
-        return { status: NOT_OK, error_output: err};
+        return { status: FAILURE, error_output: err};
     }
 }
 
@@ -189,7 +243,6 @@ async function analyze_metrics(service_info) {
  * @param {String} hostname 
  */
 async function fetch_nsfs_metrics(hostname = 'localhost') {
-    console.log('ROMY bla', hostname);
     const res = await make_http_request({
         hostname: hostname,
         port: config.EP_METRICS_SERVER_PORT,
@@ -227,8 +280,7 @@ async function analyze_forks(services_info) {
         if (service_info.service !== 'S3_HTTPS' || service_info.secure === false) continue;
         try {
             // TODO - check if doing calls to the running host with full hostname works
-            const hostname = os.hostname() === service_info.hostname ? '' : service_info.hostname;
-            const responsive_fork_ids = await call_forks(num_of_forks, hostname, service_info.port);
+            const responsive_fork_ids = await call_forks(num_of_forks, service_info.hostname, service_info.port);
             res[service_info.hostname] = { total_fork_count: num_of_forks, responsive_fork_ids };
         } catch (err) {
             res[service_info.hostname] = { total_fork_count: num_of_forks, responsive_forks: [], error: err };

@@ -52,90 +52,388 @@ It performs the following checks:
 
 
 ## Example -
+
+* NooBaa on `host1` is running.
+* NooBaa on `host2` is not running.
+
 Run -
 ```bash
 $ noobaa-cli diagnose network --deployment_type=nc 2>/dev/null
 ```
+
 Output - 
 ```json
 {
   "response": {
     "code": "NetworkStatus",
     "reply": {
-      "forks_info": {},
-      "analyze_network_res": [
+      "forks_info": {
+        "host2": {
+          "total_fork_count": 3,
+          "responsive_forks": [],
+          "error": {
+            "code": "ECONNRESET"
+          }
+        },
+        "host1": {
+          "total_fork_count": 3,
+          "responsive_forks": [],
+          "error": {
+            "code": "ECONNRESET"
+          }
+        }
+      },
+      "analyze_network_response": [
         {
-          "service": {
-            "service": "S3_HTTP",
-            "hostname": "hostname1",
-            "port": 6001,
-            "secure": false
+          "service": "S3_HTTP",
+          "hostname": "host2",
+          "port": 6001,
+          "secure": false,
+          "nslookup_status": {
+            "status": "❌ FAILURE",
+            "error": {
+              "code": "ENOTFOUND",
+              "syscall": "queryA",
+              "hostname": "host2"
+            }
           },
-          "analyze_service_res": {
-            "nslookup_status": {
-              "status": "OK"
-            },
-            "ping_dns_status": {
-              "status": "OK"
-            },
-            "ping_ip_status": {
-              "status": "OK"
-            },
-            "curl_status": {
-              "status": "OK"
-            },
-            "analyze_service_func_status": {
-              "status": "OK"
+          "ping_dns_status": {
+            "status": "❌ FAILURE",
+            "error": [
+              {
+                "code": "ENOTFOUND",
+                "syscall": "queryA",
+                "hostname": "host2"
+              },
+              {
+                "code": "ENOTFOUND",
+                "syscall": "queryA",
+                "hostname": "host2"
+              },
+              {
+                "code": "ENOTFOUND",
+                "syscall": "queryA",
+                "hostname": "host2"
+              }
+            ]
+          },
+          "ping_ip_status": {
+            "status": "❌ FAILURE",
+            "error": [
+              {
+                "code": "ERR_INVALID_ARG_TYPE"
+              },
+              {
+                "code": "ERR_INVALID_ARG_TYPE"
+              },
+              {
+                "code": "ERR_INVALID_ARG_TYPE"
+              }
+            ]
+          },
+          "curl_status": {
+            "status": "❌ FAILURE",
+            "error": {
+              "errno": -3008,
+              "code": "ENOTFOUND",
+              "syscall": "getaddrinfo",
+              "hostname": "host2"
+            }
+          },
+          "service_call_status": {
+            "status": "⏭️ SKIPPED_TEST"
+          }
+        },
+        {
+          "service": "S3_HTTPS",
+          "hostname": "host2",
+          "port": 6443,
+          "secure": true,
+          "nslookup_status": {
+            "status": "❌ FAILURE",
+            "error": {
+              "code": "ENOTFOUND",
+              "syscall": "queryA",
+              "hostname": "host2"
+            }
+          },
+          "ping_dns_status": {
+            "status": "❌ FAILURE",
+            "error": [
+              {
+                "code": "ENOTFOUND",
+                "syscall": "queryA",
+                "hostname": "host2"
+              },
+              {
+                "code": "ENOTFOUND",
+                "syscall": "queryA",
+                "hostname": "host2"
+              },
+              {
+                "code": "ENOTFOUND",
+                "syscall": "queryA",
+                "hostname": "host2"
+              }
+            ]
+          },
+          "ping_ip_status": {
+            "status": "❌ FAILURE",
+            "error": [
+              {
+                "code": "ERR_INVALID_ARG_TYPE"
+              },
+              {
+                "code": "ERR_INVALID_ARG_TYPE"
+              },
+              {
+                "code": "ERR_INVALID_ARG_TYPE"
+              }
+            ]
+          },
+          "curl_status": {
+            "status": "❌ FAILURE",
+            "error": {
+              "errno": -3008,
+              "code": "ENOTFOUND",
+              "syscall": "getaddrinfo",
+              "hostname": "host2"
+            }
+          },
+          "service_call_status": {
+            "status": "⏭️ SKIPPED_TEST"
+          }
+        },
+        {
+          "service": "METRICS",
+          "hostname": "host2",
+          "port": 7004,
+          "secure": false,
+          "nslookup_status": {
+            "status": "❌ FAILURE",
+            "error": {
+              "code": "ENOTFOUND",
+              "syscall": "queryA",
+              "hostname": "host2"
+            }
+          },
+          "ping_dns_status": {
+            "status": "❌ FAILURE",
+            "error": [
+              {
+                "code": "ENOTFOUND",
+                "syscall": "queryA",
+                "hostname": "host2"
+              },
+              {
+                "code": "ENOTFOUND",
+                "syscall": "queryA",
+                "hostname": "host2"
+              },
+              {
+                "code": "ENOTFOUND",
+                "syscall": "queryA",
+                "hostname": "host2"
+              }
+            ]
+          },
+          "ping_ip_status": {
+            "status": "❌ FAILURE",
+            "error": [
+              {
+                "code": "ERR_INVALID_ARG_TYPE"
+              },
+              {
+                "code": "ERR_INVALID_ARG_TYPE"
+              },
+              {
+                "code": "ERR_INVALID_ARG_TYPE"
+              }
+            ]
+          },
+          "curl_status": {
+            "status": "❌ FAILURE",
+            "error": {
+              "errno": -3008,
+              "code": "ENOTFOUND",
+              "syscall": "getaddrinfo",
+              "hostname": "host2"
+            }
+          },
+          "service_call_status": {
+            "status": "❌ FAILURE",
+            "error_output": {
+              "errno": -3008,
+              "code": "ENOTFOUND",
+              "syscall": "getaddrinfo",
+              "hostname": "host2"
             }
           }
         },
         {
-          "service": {
-            "service": "S3_HTTPS",
-            "hostname": "hostname1",
-            "port": 6443,
-            "secure": true
-          },
-          "analyze_service_res": {
-            "nslookup_status": {
-              "status": "OK"
-            },
-            "ping_dns_status": {
-              "status": "OK"
-            },
-            "ping_ip_status": {
-              "status": "OK"
-            },
-            "curl_status": {
-              "status": "OK"
-            },
-            "analyze_service_func_status": {
-              "status": "OK"
+          "service": "S3_HTTP",
+          "hostname": "host1",
+          "port": 6001,
+          "secure": false,
+          "nslookup_status": {
+            "status": "❌ FAILURE",
+            "error": {
+              "code": "ENOTFOUND",
+              "syscall": "queryA",
+              "hostname": "host1"
             }
+          },
+          "ping_dns_status": {
+            "status": "❌ FAILURE",
+            "error": [
+              {
+                "code": "ENOTFOUND",
+                "syscall": "queryA",
+                "hostname": "host1"
+              },
+              {
+                "code": "ENOTFOUND",
+                "syscall": "queryA",
+                "hostname": "host1"
+              },
+              {
+                "code": "ENOTFOUND",
+                "syscall": "queryA",
+                "hostname": "host1"
+              }
+            ]
+          },
+          "ping_ip_status": {
+            "status": "❌ FAILURE",
+            "error": [
+              {
+                "code": "ERR_INVALID_ARG_TYPE"
+              },
+              {
+                "code": "ERR_INVALID_ARG_TYPE"
+              },
+              {
+                "code": "ERR_INVALID_ARG_TYPE"
+              }
+            ]
+          },
+          "curl_status": {
+            "status": "✅ SUCCESS"
+          },
+          "service_call_status": {
+            "status": "⏭️ SKIPPED_TEST"
           }
         },
         {
-          "service": {
-            "service": "METRICS",
-            "hostname": "hostname1",
-            "port": 7004,
-            "secure": false
+          "service": "S3_HTTPS",
+          "hostname": "host1",
+          "port": 6443,
+          "secure": true,
+          "nslookup_status": {
+            "status": "❌ FAILURE",
+            "error": {
+              "code": "ENOTFOUND",
+              "syscall": "queryA",
+              "hostname": "host1"
+            }
           },
-          "analyze_service_res": {
-            "nslookup_status": {
-              "status": "OK"
-            },
-            "ping_dns_status": {
-              "status": "OK"
-            },
-            "ping_ip_status": {
-              "status": "OK"
-            },
-            "curl_status": {
-              "status": "OK"
-            },
-            "analyze_service_func_status": {
-              "status": "OK"
+          "ping_dns_status": {
+            "status": "❌ FAILURE",
+            "error": [
+              {
+                "code": "ENOTFOUND",
+                "syscall": "queryA",
+                "hostname": "host1"
+              },
+              {
+                "code": "ENOTFOUND",
+                "syscall": "queryA",
+                "hostname": "host1"
+              },
+              {
+                "code": "ENOTFOUND",
+                "syscall": "queryA",
+                "hostname": "host1"
+              }
+            ]
+          },
+          "ping_ip_status": {
+            "status": "❌ FAILURE",
+            "error": [
+              {
+                "code": "ERR_INVALID_ARG_TYPE"
+              },
+              {
+                "code": "ERR_INVALID_ARG_TYPE"
+              },
+              {
+                "code": "ERR_INVALID_ARG_TYPE"
+              }
+            ]
+          },
+          "curl_status": {
+            "status": "✅ SUCCESS"
+          },
+          "service_call_status": {
+            "status": "⏭️ SKIPPED_TEST"
+          }
+        },
+        {
+          "service": "METRICS",
+          "hostname": "host1",
+          "port": 7004,
+          "secure": false,
+          "nslookup_status": {
+            "status": "❌ FAILURE",
+            "error": {
+              "code": "ENOTFOUND",
+              "syscall": "queryA",
+              "hostname": "host1"
+            }
+          },
+          "ping_dns_status": {
+            "status": "❌ FAILURE",
+            "error": [
+              {
+                "code": "ENOTFOUND",
+                "syscall": "queryA",
+                "hostname": "host1"
+              },
+              {
+                "code": "ENOTFOUND",
+                "syscall": "queryA",
+                "hostname": "host1"
+              },
+              {
+                "code": "ENOTFOUND",
+                "syscall": "queryA",
+                "hostname": "host1"
+              }
+            ]
+          },
+          "ping_ip_status": {
+            "status": "❌ FAILURE",
+            "error": [
+              {
+                "code": "ERR_INVALID_ARG_TYPE"
+              },
+              {
+                "code": "ERR_INVALID_ARG_TYPE"
+              },
+              {
+                "code": "ERR_INVALID_ARG_TYPE"
+              }
+            ]
+          },
+          "curl_status": {
+            "status": "✅ SUCCESS"
+          },
+          "service_call_status": {
+            "status": "✅ SUCCESS",
+            "metrics_output": {
+              "nsfs_counters": {},
+              "op_stats_counters": {},
+              "fs_worker_stats_counters": {}
             }
           }
         }

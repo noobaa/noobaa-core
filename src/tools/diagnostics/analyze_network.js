@@ -1,7 +1,11 @@
 /* Copyright (C) 2023 NooBaa */
 'use strict';
 
+const os = require('os');
+const dns = require('dns');
 const _ = require('lodash');
+const ping = require('ping');
+const util = require('util');
 const dbg = require('../../util/debug_module')(__filename);
 dbg.set_process_name('analyze_network');
 const { is_fqdn } = require('../../util/net_utils');
@@ -13,7 +17,7 @@ const { call_forks } = require('../../manage_nsfs/health');
 const os_utils = require('../../util/os_utils');
 const { make_https_request, make_http_request } = require('../../util/http_utils');
 const { read_stream_join } = require('../../util/buffer_utils');
-const { dns_resolve, ping } = require('../../util/net_utils');
+
 
 const ANALYZE_FUNCTION_BY_SERVICE_TYPE = {
     S3_HTTP: analyze_s3,
@@ -91,11 +95,14 @@ async function test_network() {
             analyze_network_res.push({ service_type, analyze_service_res });
         }
     }
-
     return { analyze_network_res };
-
 }
 
+/**
+ * get_service_type is a function used for containerized deployment for mapping the api to the service type
+ * @param {Object} info 
+ * @returns {String}
+ */
 function get_service_type(info) {
     if (info.api === 'metrics') return 'METRICS';
     if (info.api === 's3') {
@@ -113,10 +120,8 @@ function get_service_type(info) {
  */
 async function analyze_service(service_type, service_info) {
     const nslookup_status = await nslookup_service(service_info);
-    const hostname = service_info.localhost ? 'localhost' : service_info.hostname;
-    const ping_dns_status = await ping_service(hostname); // ping DNS
-    const ip = service_info.localhost ? ['127.0.0.1'] : service_info.ip;
-    const ping_ip_status = await ping_service(ip); // ping IP
+    const ping_dns_status = await ping_service(service_info.hostname); // ping DNS
+    const ping_ip_status = await ping_service(service_info.ip); // ping IP
     const curl_status = await curl_service(service_info);
     const analyze_service_func = ANALYZE_FUNCTION_BY_SERVICE_TYPE[service_type];
     const analyze_service_func_status = await analyze_service_func(service_info);
@@ -130,31 +135,39 @@ async function analyze_service(service_type, service_info) {
 
 async function ping_service(host) {
     const err_arr = [];
+    if (!host) return { status: FAILURE, error: `host is missing ${host}` };
     for (let i = 0; i < 3; i += 1) {
         try {
-            await ping(host);
+            const res = await ping.promise.probe(host);
+            if (res.alive) {
+                console.log('✅ ping_service: ping host success!', host);
+            } else {
+                err_arr.push(`ping_service: ping node failed', host, ${util.inspect(res.output)}`);
+            }
         } catch (err) {
             err_arr.push(err);
-            console.log("❌ ping node failed", host, err);
             continue;
         }
-        console.log("✅ ping node success!", host);
     }
     if (err_arr.length > 0) {
+        console.log('❌ ping_service: ping host failed', host, err_arr);
         return { status: FAILURE, error: err_arr };
+    } else {
+        console.log('✅ ping_service: ping host success!', host);
     }
     return { status: SUCCESS };
 }
 
 async function nslookup_service(service_info) {
-    const hostname = service_info.localhost ? 'localhost' : service_info.hostname;
     try {
-        service_info.ip = await dns_resolve(hostname);
+        await os_utils.get_dns_config();
+        const res = await dns.promises.lookup(service_info.hostname, { family: 4 });
+        service_info.ip = res.address;
     } catch (err) {
-        console.log("❌ dns resolve failed service_info.hostname", service_info.hostname, 'hostname', hostname);
+        console.log('❌ nslookup_service: dns resolve failed service_info.hostname', service_info.hostname);
         return { status: FAILURE, error: err };
     }
-    console.log("✅ dns resolve success!", service_info.hostname, service_info.ip);
+    console.log('✅ nslookup_service: dns resolve success!', service_info.hostname, service_info.ip);
     return { status: SUCCESS };
 }
 
@@ -164,9 +177,8 @@ async function nslookup_service(service_info) {
  * @returns {Promise<Object>}
  */
 async function curl_service(service_info) {
-    const hostname = service_info.localhost ? 'localhost' : service_info.hostname;
     const options = {
-        hostname: hostname,
+        hostname: service_info.hostname,
         port: service_info.port,
         method: 'GET',
         rejectUnauthorized: false
@@ -181,15 +193,15 @@ async function curl_service(service_info) {
         if (res.statusCode === 200 ||
             //on s3 we will get 403 responce for InvalidAccessKeyId
             (res.statusCode === 403 && (service_info.service === 'S3_HTTP' || service_info.service === 'S3_HTTPS'))) {
-            console.log('✅ http connection success!', service_info.hostname, service_info.port);
+            console.log('✅ curl_service: http connection success!', service_info.hostname, service_info.port);
             return { status: SUCCESS };
         } else {
-            console.log('❌ http connection failed', service_info.hostname, service_info.port, res.statusCode);
+            console.log('❌ curl_service: http connection failed', service_info.hostname, service_info.port, res.statusCode);
             // TODO: need to add error
             return { status: FAILURE, error: res.statusCode};
         }
       } catch (err) {
-        console.log('❌ http connection failed nadav', service_info.hostname, service_info.port, err);
+        console.log('❌ curl_service: http connection failed', service_info.hostname, service_info.port, err);
         return { status: FAILURE, error: err };
       }
 }
@@ -232,7 +244,7 @@ async function analyze_metrics(service_info) {
             !metrics_output.op_stats_counters || !metrics_output.fs_worker_stats_counters) ? FAILURE : SUCCESS;
         return { status, metrics_output, error_output};
     } catch (err) {
-        dbg.error('analyze_network.analyze_metrics err', err);
+        dbg.error('analyze_metrics: err', err);
         return { status: FAILURE, error_output: err};
     }
 }
@@ -242,7 +254,7 @@ async function analyze_metrics(service_info) {
  * fetch_nsfs_metrics runs http request to a noobaa metrics server for fetching nsfs metrics
  * @param {String} hostname 
  */
-async function fetch_nsfs_metrics(hostname = 'localhost') {
+async function fetch_nsfs_metrics(hostname) {
     const res = await make_http_request({
         hostname: hostname,
         port: config.EP_METRICS_SERVER_PORT,
@@ -279,8 +291,9 @@ async function analyze_forks(services_info) {
         const num_of_forks = config.ENDPOINT_FORKS;
         if (service_info.service !== 'S3_HTTPS' || service_info.secure === false) continue;
         try {
+            const hostname = os.hostname() === service_info.hostname ? '' : service_info.hostname;
             // TODO - check if doing calls to the running host with full hostname works
-            const responsive_fork_ids = await call_forks(num_of_forks, service_info.hostname, service_info.port);
+            const responsive_fork_ids = await call_forks(num_of_forks, hostname, service_info.port);
             res[service_info.hostname] = { total_fork_count: num_of_forks, responsive_fork_ids };
         } catch (err) {
             res[service_info.hostname] = { total_fork_count: num_of_forks, responsive_forks: [], error: err };

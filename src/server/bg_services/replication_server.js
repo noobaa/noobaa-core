@@ -79,7 +79,7 @@ async function copy_objects_mixed_types(req) {
         if (keys_diff_map[key].length === 1) {
             const params = {
                 Bucket: dst_bucket_name.unwrap(),
-                CopySource: `/${src_bucket_name.unwrap()}/${key}`, // encodeURI for special chars is needed
+                CopySource: encodeURI(`/${src_bucket_name.unwrap()}/${key}`),
                 Key: key
             };
             try {
@@ -94,7 +94,7 @@ async function copy_objects_mixed_types(req) {
                 const version = keys_diff_map[key][i].VersionId;
                 const params = {
                     Bucket: dst_bucket_name.unwrap(),
-                    CopySource: `/${src_bucket_name.unwrap()}/${key}?versionId=${version}`, // encodeURI for special chars is needed
+                    CopySource: encodeURI(`/${src_bucket_name.unwrap()}/${key}?versionId=${version}`),
                     Key: key
                 };
                 try {

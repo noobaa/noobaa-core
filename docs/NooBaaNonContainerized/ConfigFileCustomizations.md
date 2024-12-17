@@ -137,21 +137,7 @@ The following list consists of supported optional developer customization -
     3. systemctl restart noobaa
     ```
 
-### 9. Buffer size -
-* <u>Key</u>: `NSFS_BUF_SIZE`  
-* <u>Type</u>: Number  
-* <u>Default</u>: 8MB = 8388608 bytes = 8 * 1024 * 1024  
-* <u>Description</u>: Set Buffer size in order to increase performance of small/large objects requests, service restart required.  
-* <u>Steps</u>:  
-    ```
-    1. Open /path/to/config_dir/config.json file.
-    2. Set the config key in bytes-
-    Example:
-    "NSFS_BUF_SIZE": 10485760
-    3. systemctl restart noobaa
-    ```
-
-### 10. Open read mode -
+### 9. Open read mode -
 * <u>Key</u>: `NSFS_OPEN_READ_MODE`  
 * <u>Type</u>: String   
 * <u>Default</u>: 'r'   
@@ -164,7 +150,7 @@ The following list consists of supported optional developer customization -
     "NSFS_OPEN_READ_MODE": "rd"
     ```
 
-### 11. Trigger Check bucket boundaries -
+### 10. Trigger Check bucket boundaries -
 * <u>Key</u>: `NSFS_CHECK_BUCKET_BOUNDARIES`    
 * <u>Type</u>: Boolean   
 * <u>Default</u>: true  
@@ -177,7 +163,7 @@ The following list consists of supported optional developer customization -
     "NSFS_CHECK_BUCKET_BOUNDARIES": false
     ```
 
-### 12. Trigger Fsync -
+### 11. Trigger Fsync -
 * <u>Key</u>: `NSFS_TRIGGER_FSYNC`  
 * <u>Type</u>: Boolean   
 * <u>Default</u>: true    
@@ -190,7 +176,7 @@ The following list consists of supported optional developer customization -
     "NSFS_TRIGGER_FSYNC": false
     ```
 
-### 13. Whitelist IPs -
+### 12. Whitelist IPs -
 * <u>Key</u>: `S3_SERVER_IP_WHITELIST`  
 * <u>Type</u>:* Array  
 * <u>Default</u>: false  
@@ -201,7 +187,7 @@ The following list consists of supported optional developer customization -
     sudo noobaa-cli whitelist --ips '["127.0.0.1", "192.000.10.000", "3002:0bd6:0000:0000:0000:ee00:0033:000"]'  2>/dev/null
     ```
 
-### 14. Config directory backend -
+### 13. Config directory backend -
 * <u>Key</u>: `NSFS_NC_CONFIG_DIR_BACKEND`  
 * <u>Type</u>: String  
 * <u>Default</u>: ''  
@@ -214,7 +200,7 @@ The following list consists of supported optional developer customization -
     "NSFS_NC_CONFIG_DIR_BACKEND": "GPFS"
     ```
 
-### 15. Storage Backend -
+### 14. Storage Backend -
 * <u>Key</u>: `NSFS_NC_STORAGE_BACKEND`  
 * <u>Type</u>: String  
 * <u>Default</u>: ''  
@@ -228,7 +214,7 @@ The following list consists of supported optional developer customization -
     3. systemctl restart noobaa
     ```
 
-### 16. Directories cache max directory size -
+### 15. Directories cache max directory size -
 * <u>Key</u>: `NSFS_DIR_CACHE_MAX_DIR_SIZE`  
 * <u>Type</u>: Number  
 * <u>Default</u>: 67108864 // 64MB = 64 * 1024 * 1024  
@@ -242,7 +228,7 @@ The following list consists of supported optional developer customization -
     3. systemctl restart noobaa
     ```
 
-### 17. Directories cache max total usage size -
+### 16. Directories cache max total usage size -
 * <u>Key</u>: `NSFS_DIR_CACHE_MAX_TOTAL_SIZE`  
 * <u>Type</u>: Number  
 * <u>Default</u>: 268435456 // 256MB = 4 * config.NSFS_DIR_CACHE_MAX_DIR_SIZE = 4 * 1024 * 1024  
@@ -257,7 +243,7 @@ The following list consists of supported optional developer customization -
     ```
 
 
-### 18. Disable random seeding -
+### 17. Disable random seeding -
 * <u>Key</u>: `ENABLE_DEV_RANDOM_SEED`  
 * <u>Type</u>: Boolean  
 * <u>Default</u>: false  
@@ -271,7 +257,7 @@ The following list consists of supported optional developer customization -
     3. systemctl restart noobaa
     ```
 
-### 19. Set Master Keys Store type-
+### 18. Set Master Keys Store type-
 * <u>Key</u>: `NC_MASTER_KEYS_STORE_TYPE`  
 * <u>Type</u>: String  
 * <u>Default</u>: 'file'  
@@ -285,7 +271,7 @@ The following list consists of supported optional developer customization -
     3. systemctl restart noobaa
     ```
 
-### 20. Set Master Keys File Location -
+### 19. Set Master Keys File Location -
 * <u>Key</u>: `NC_MASTER_KEYS_FILE_LOCATION`    
 * <u>Type</u>: String  
 * <u>Default</u>: '/etc/noobaa.conf.d/master_keys.json'  
@@ -299,7 +285,7 @@ The following list consists of supported optional developer customization -
     3. systemctl restart noobaa
     ```
 
-### 21. Set Master Keys GET executable script -
+### 20. Set Master Keys GET executable script -
 * <u>Key</u>: `NC_MASTER_KEYS_GET_EXECUTABLE`  
 * <u>Type</u>: String  
 * <u>Default</u>: undefined  
@@ -313,7 +299,7 @@ The following list consists of supported optional developer customization -
     3. systemctl restart noobaa
     ```
 
-### 22. Set Master Keys PUT executable script -
+### 21. Set Master Keys PUT executable script -
 * <u>Key</u>: `NC_MASTER_KEYS_PUT_EXECUTABLE`  
 * <u>Type</u>: String  
 * <u>Default</u>: undefined  
@@ -327,7 +313,7 @@ The following list consists of supported optional developer customization -
     3. systemctl restart noobaa
     ```
 
-### 23. Set Virtual hosts -
+### 22. Set Virtual hosts -
 * <u>Key</u>: `VIRTUAL_HOSTS`   
 * <u>Type</u>: String  
 * <u>Default</u>: ''  
@@ -341,7 +327,7 @@ The following list consists of supported optional developer customization -
     3. systemctl restart noobaa_nsfs
     ```
 
-### 24. Disable schema check -
+### 23. Disable schema check -
 * <u>Key</u>: `NC_DISABLE_SCHEMA_CHECK`  
 * <u>Type</u>: Boolean  
 * <u>Default</u>: false  
@@ -356,7 +342,7 @@ Warning: After setting this configuration, NooBaa will skip schema validations a
     ```
 
 
-### 25. Disable Read accessibility check -
+### 24. Disable Read accessibility check -
 * <u>Key</u>: `NC_DISABLE_ACCESS_CHECK`  
 * <u>Type</u>: Boolean  
 * <u>Default</u>: false  
@@ -374,7 +360,7 @@ Warning: After setting this configuration, NooBaa will skip schema validations a
     "NC_DISABLE_ACCESS_CHECK": true
     ```
 
-### 26. Disable Read accessibility check on the Health CLI -
+### 25. Disable Read accessibility check on the Health CLI -
 * <u>Key</u>: `NC_DISABLE_HEALTH_ACCESS_CHECK`  
 * <u>Type</u>: Boolean  
 * <u>Default</u>: false  
@@ -388,7 +374,7 @@ Warning: After setting this configuration, NooBaa will skip schema validations a
     "NC_DISABLE_HEALTH_ACCESS_CHECK": true
     ```
 
-### 27. Disable Read/Write POSIX mode bits check -
+### 26. Disable Read/Write POSIX mode bits check -
 * <u>Key</u>: `NC_DISABLE_POSIX_MODE_ACCESS_CHECK`  
 * <u>Type</u>: Boolean  
 * <u>Default</u>: true  
@@ -407,7 +393,7 @@ Warning: After setting this configuration, NooBaa will skip schema validations a
     ```
 
 
-### 26. Set Endpoint process title -
+### 27. Set Endpoint process title -
 * <u>Key</u>: `ENDPOINT_PROCESS_TITLE`  
 * <u>Type</u>: String  
 * <u>Default</u>: 'noobaa'  
@@ -422,7 +408,7 @@ Warning: After setting this configuration, NooBaa will skip schema validations a
     ## Config.json example 
     ```
 
-### 27. GPFS down delay -
+### 28. GPFS down delay -
 * <u>Key</u>: `GPFS_DOWN_DELAY`  
 * <u>Type</u>: Number  
 * <u>Default</u>: 1000  
@@ -436,7 +422,7 @@ Warning: After setting this configuration, NooBaa will skip schema validations a
     3. systemctl restart noobaa
     ```
 
-### 28. Syslog enable flag -
+### 29. Syslog enable flag -
 * <u>Key</u>: `LOG_TO_SYSLOG_ENABLED`  
 * <u>Type</u>: Boolean  
 * <u>Default</u>: true  
@@ -450,7 +436,7 @@ Warning: After setting this configuration, NooBaa will skip schema validations a
     3. systemctl restart noobaa
     ```
 
-### 29. Stderr enable flag -
+### 30. Stderr enable flag -
 * <u>Key</u>: `LOG_TO_STDERR_ENABLED`  
 * <u>Type</u>: Boolean  
 * <u>Default</u>: false  
@@ -476,7 +462,6 @@ The following is an example of a config.json file -
     "UV_THREADPOOL_SIZE": 256,
     "GPFS_DL_PATH": "/usr/lpp/mmfs/lib/libgpfs.so",
     "NSFS_BUF_POOL_MEM_LIMIT": 4294967296,
-    "NSFS_BUF_SIZE": 16777216,
     "NSFS_OPEN_READ_MODE": "rd",
     "NSFS_CHECK_BUCKET_BOUNDARIES": false,
     "ALLOW_HTTP": true,

@@ -1,7 +1,7 @@
 name: Nightly RPM Build - Master Branch
 on: 
   schedule:
-    - cron: '0 23 * * *'
+    - cron: '0 0 * * *'
 
 jobs:
   call-master-rpm-build-and-upload:

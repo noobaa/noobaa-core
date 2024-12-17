@@ -1,7 +1,7 @@
 name: Nightly RPM Build - 5.15 Branch
 on: 
   schedule:
-    - cron: '0 23 * * *'
+    - cron: '0 0 * * *'
 
 jobs:
   call-stage-5-15-4-rpm-build-and-upload:

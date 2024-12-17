@@ -212,7 +212,10 @@ class BuffersPool {
         if (this.buffers.length) {
             buffer = this.buffers.shift();
         } else {
+            const start = performance.now();
             buffer = this.buffer_alloc(this.buf_size);
+            const end = performance.now();
+            dbg.log2(`get_buffer: Time taken to execute buffer_alloc function with buf_size ${this.buf_size} is ${end - start} ms.`);
         }
         if (this.warning_timeout) {
             const err = new Error('Warning stuck buffer_pool buffer');

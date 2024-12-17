@@ -62,10 +62,6 @@ const nsfs_node_config_schema = {
             type: 'number',
             doc: 'number of nsfs buffer pool memory limit, suggested values 1-4GB, service restart required'
         },
-        NSFS_BUF_SIZE: {
-            type: 'number',
-            doc: 'number of nsfs buffer size, service restart required'
-        },
         NSFS_OPEN_READ_MODE: {
             type: 'string',
             doc: `describes the mode of open for read, use 'rd' for direct-io reads, hot reload`

@@ -32,7 +32,6 @@ describe('schema validation NC NSFS config', () => {
                 NSFS_NC_STORAGE_BACKEND: 'GPFS',
                 NSFS_NC_CONFIG_DIR_BACKEND: 'GPFS',
                 NSFS_BUF_POOL_MEM_LIMIT: 4294967296,
-                NSFS_BUF_SIZE: 16777216,
                 NSFS_OPEN_READ_MODE: 'rd',
                 NSFS_CHECK_BUCKET_BOUNDARIES: false,
                 ALLOW_HTTP: true,

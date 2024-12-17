@@ -96,6 +96,8 @@ function setup(options = {}) {
         });
 
         // TODO - run health
+        // wait 2 seconds before announcing nc coretes is ready
+        await P.delay(2000);
         await announce(`nc coretest ready... (took ${((Date.now() - start) / 1000).toFixed(1)} sec)`);
     });
 

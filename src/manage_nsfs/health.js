@@ -235,28 +235,13 @@ class NSFSHealth {
         return service_health;
     }
 
-    async make_endpoint_health_request(url_path) {
-        const response = await make_https_request({
-            HOSTNAME,
-            port: this.https_port,
-            path: url_path,
-            method: 'GET',
-            rejectUnauthorized: false,
-        });
-        if (response && response.statusCode === 200) {
-            const buffer = await read_stream_join(response);
-            const body = buffer.toString('utf8');
-            return JSON.parse(body);
-        }
-    }
-
     async get_endpoint_fork_response() {
-        let url_path = '/total_fork_count';
-        const worker_ids = [];
+        const url_path = '/total_fork_count';
+        let worker_ids = [];
         let total_fork_count = 0;
         let response;
         try {
-            const fork_count_response = await this.make_endpoint_health_request(url_path);
+            const fork_count_response = await make_endpoint_health_request(url_path, this.https_port);
             if (!fork_count_response) {
                 return {
                     response: fork_response_code.NOT_RUNNING,
@@ -266,20 +251,7 @@ class NSFSHealth {
             }
             total_fork_count = fork_count_response.fork_count;
             if (total_fork_count > 0) {
-                url_path = '/endpoint_fork_id';
-                await P.retry({
-                    attempts: total_fork_count * 2,
-                    delay_ms: 1,
-                    func: async () => {
-                        const fork_id_response = await this.make_endpoint_health_request(url_path);
-                        if (fork_id_response.worker_id && !worker_ids.includes(fork_id_response.worker_id)) {
-                            worker_ids.push(fork_id_response.worker_id);
-                        }
-                        if (worker_ids.length < total_fork_count) {
-                            throw new Error('Number of running forks is less than the expected fork count.');
-                        }
-                    }
-                });
+                worker_ids = await call_forks(total_fork_count, '', this.https_port);
                 if (worker_ids.length === total_fork_count) {
                     response = fork_response_code.RUNNING;
                 } else {
@@ -679,5 +651,63 @@ function _should_skip_health_access_check() {
     return config.NC_DISABLE_HEALTH_ACCESS_CHECK || config.NC_DISABLE_ACCESS_CHECK;
 }
 
+/**
+ * make_endpoint_health_request runs https request to the endpoint server
+ * @param {String} url_path 
+ * @param {Number} https_port 
+ * @param {string} [hostname] 
+ * @returns {Promise<Object>}
+ * // TODO: need to return on error
+ */
+async function make_endpoint_health_request(url_path, https_port, hostname = HOSTNAME) {
+    const response = await make_https_request({
+        hostname,
+        port: https_port,
+        path: url_path,
+        method: 'GET',
+        rejectUnauthorized: false,
+    });
+    if (response && response.statusCode === 200) {
+        const buffer = await read_stream_join(response);
+        const body = buffer.toString('utf8');
+        return JSON.parse(body);
+    }
+}
+
+/**
+ * call_forks executes http request to the endpoint and adds the worker_id to an array
+ * throws an error as long as the worker ids count is smaller than fork_count 
+ * TODO: consider removing the forks check from here and have it on the network analyzer/both
+ * // TODO: move to forks util
+ * @param {Number} fork_count 
+ * @param {String} hostname
+ * @param {Number} https_port 
+ * @returns {Promise<Number[]>}
+ */
+async function call_forks(fork_count, hostname, https_port) {
+    const url = `/endpoint_fork_id`;
+    if (fork_count > 0) {
+        const worker_ids = [];
+        await P.retry({
+            attempts: fork_count * 2,
+            delay_ms: 1,
+            func: async () => {
+                const fork_id_response = await make_endpoint_health_request(url, https_port, hostname);
+                if (fork_id_response.worker_id && !worker_ids.includes(fork_id_response.worker_id)) {
+                    worker_ids.push(fork_id_response.worker_id);
+                }
+                // TODO: we should have a more concise information about which forks didn't respond instead of just failing on 
+                // unequal worker ids amount and fork_count
+                if (worker_ids.length < fork_count) {
+                    throw new Error(`Number of running forks ${worker_ids.length} is less than the expected fork count ${fork_count}`);
+                }
+            }
+        });
+        return worker_ids;
+    }
+}
+
+exports.make_endpoint_health_request = make_endpoint_health_request;
+exports.call_forks = call_forks;
 exports.get_health_status = get_health_status;
 exports.NSFSHealth = NSFSHealth;

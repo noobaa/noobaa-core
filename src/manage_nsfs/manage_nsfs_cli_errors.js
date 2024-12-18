@@ -197,6 +197,17 @@ ManageCLIError.HealthStatusFailed = Object.freeze({
     http_code: 500,
 });
 
+////////////////////////////////////////
+//////// NETWORK ANALYZER ERRORS ///////
+////////////////////////////////////////
+
+ManageCLIError.NetworkStatusFailed = Object.freeze({
+    code: 'NetworkStatusFailed',
+    message: 'Network status request failed',
+    http_code: 500,
+});
+
+
 ////////////////////////
 //// ACCOUNT ERRORS ////
 ////////////////////////

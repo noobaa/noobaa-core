@@ -154,11 +154,11 @@ class NCUpgradeManager {
      * 2. The user's expected_version is the host's package version - 
      *    expected_version is the expected source code version that the user asks to upgrade to, it's an optional verification, 
      *    if expected_version was not provided we assume that the source code on this host is 
-     * 3. TODO? - verifies a backup confirmation of the config directory received by the user/location exists
-     * updated and that the source code version and the schema version is the one we want to upgrade to
-     * QUESTION -
-     * 3. should we verify a backup, by stat of the backup location just have a confirmation of the user in the CLI
-     * 4. are there more verifications we should do?
+     * 3. The user's expected_hosts exist in system.json
+     * 4. If there are hosts in system.json that ere not provided in the expected_hosts we will print a warning but won't fail
+     * we do that because of hostname can be renamed, hosts that are on maintainance and we don't want to block the upgrade becuase it might take a lot of time,
+     * or because of hosts that used to be a part of the cluster and they were removed from the cluster, we don't get the updated info of the hosts on system.json 
+     * therefore we can not treat the system.json as the source of truth of the hosts information
      * @param {Object} system_data
      * @param {String} expected_version
      * @param {[String]} expected_hosts
@@ -176,20 +176,22 @@ class NCUpgradeManager {
         if (!err_message && !hostnames.length) {
             err_message = `config dir upgrade can not be started missing hosts_data hosts_data=${util.inspect(hosts_data)}`;
         }
-        const missing_expected_hosts = !(expected_hosts.every(item => hostnames.includes(item)));
-        const missing_hostnames = !(hostnames.every(item => expected_hosts.includes(item)));
 
-        if (!err_message && missing_expected_hosts) {
-            err_message = `config dir upgrade can not be started - expected_hosts missing one or more hosts specified in system.json  hosts_data=${util.inspect(hosts_data)}`;
+        const all_hostnames_exist_in_expected_hosts = hostnames.every(item => expected_hosts.includes(item));
+        if (!all_hostnames_exist_in_expected_hosts) {
+            dbg.warn(`_verify_config_dir_upgrade - system.json contains one or more hosts info that are not specified in expected_hosts: hosts_data=${util.inspect(hosts_data)} expected_hosts=${util.inspect(expected_hosts)}`);
         }
-        if (!err_message && missing_hostnames) {
-            err_message = `config dir upgrade can not be started - system.json missing one or more hosts info specified in expected_hosts hosts_data=${util.inspect(hosts_data)}`;
+
+        const all_expected_hosts_exist_in_system_json = expected_hosts.every(item => hostnames.includes(item));
+        if (!err_message && !all_expected_hosts_exist_in_system_json) {
+            err_message = `config dir upgrade can not be started - expected_hosts contains one or more hosts that are not specified in system.json hosts_data=${util.inspect(hosts_data)} expected_hosts=${util.inspect(expected_hosts)}`;
         }
 
         if (!err_message) {
-            for (const [host, host_data] of Object.entries(hosts_data)) {
+            for (const cur_hostname of expected_hosts) {
+                const host_data = hosts_data[cur_hostname];
                 if (!host_data.current_version || version_compare(host_data.current_version, new_version) !== 0) {
-                    err_message = `config dir upgrade can not be started until all nodes have the expected version=${new_version}, host=${host} host's current_version=${host_data.current_version}`;
+                    err_message = `config dir upgrade can not be started until all expected hosts have the expected version=${new_version}, host=${cur_hostname} host's current_version=${host_data.current_version}`;
                 }
             }
         }

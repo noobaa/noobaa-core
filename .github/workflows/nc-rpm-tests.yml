@@ -1,0 +1,22 @@
+name: Non Containerized RPM Tests
+on: [push, pull_request]
+
+jobs:
+  run-nc-rpm-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: Run Non Containerized RPM Test
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libboost-thread-dev libboost-system-dev
+
+          make rpm BUILD_S3SELECT=0
+          noobaa_pkg=$(ls build/rpm/ | grep noobaa | grep .x86_64.rpm)
+          rpm -i build/rpm/$noobaa_pkg

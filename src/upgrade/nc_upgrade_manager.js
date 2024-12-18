@@ -178,6 +178,7 @@ class NCUpgradeManager {
         }
         const missing_expected_hosts = !(expected_hosts.every(item => hostnames.includes(item)));
         const missing_hostnames = !(hostnames.every(item => expected_hosts.includes(item)));
+
         if (!err_message && missing_expected_hosts) {
             err_message = `config dir upgrade can not be started - expected_hosts missing one or more hosts specified in system.json  hosts_data=${util.inspect(hosts_data)}`;
         }
@@ -192,6 +193,11 @@ class NCUpgradeManager {
                 }
             }
         }
+
+        if (!err_message && system_data.config_directory?.in_progress_upgrade) {
+            err_message = `config dir upgrade can not be started - there is already an ongoing upgrade system_data.config_directory.in_progess_upgrade=${util.inspect(system_data.config_directory.in_progress_upgrade)}`;
+        }
+
         if (err_message) {
             dbg.error(`_verify_config_dir_upgrade: ${err_message}`);
             throw new Error(err_message);

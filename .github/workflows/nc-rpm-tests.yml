@@ -14,11 +14,8 @@ jobs:
 
       - name: Run Non Containerized RPM Test
         run: |
-          sudo apt-get -y install wget
-          wget https://rpmfind.net/linux/centos-stream/9-stream/AppStream/x86_64/os/Packages/boost-system-1.75.0-8.el9.x86_64.rpm
-          wget https://rpmfind.net/linux/centos-stream/9-stream/AppStream/x86_64/os/Packages/boost-thread-1.75.0-8.el9.x86_64.rpm
-          rpm -i boost-system-1.75.0-8.el9.x86_64.rpm
-          rpm -i boost-thread-1.75.0-8.el9.x86_64.rpm
+          sudo apt-get update
+          sudo apt-get install -y libboost-thread-dev libboost-system-dev
 
           make rpm BUILD_S3SELECT=0
           noobaa_pkg=$(ls build/rpm/ | grep noobaa | grep .x86_64.rpm)

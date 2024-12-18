@@ -84,7 +84,7 @@ ln -s /usr/local/noobaa-core/node/bin/npx $RPM_BUILD_ROOT/usr/local/%{noobaa_cor
 
 mkdir -p $RPM_BUILD_ROOT/usr/local/bin/
 chmod +x $RPM_BUILD_ROOT/usr/local/%{noobaa_core_version_path}/src/deploy/noobaa-cli
-cp $RPM_BUILD_ROOT/usr/local/%{noobaa_core_version_path}/src/deploy/noobaa-cli $RPM_BUILD_ROOT/usr/local/bin/.noobaa-cli-%{noobaaver}
+cp $RPM_BUILD_ROOT/usr/local/%{noobaa_core_version_path}/src/deploy/noobaa-cli $RPM_BUILD_ROOT/usr/local/bin/noobaa-cli
 
 mkdir -p $RPM_BUILD_ROOT%{_unitdir}/
 mv $RPM_BUILD_ROOT/usr/local/%{noobaa_core_version_path}/src/deploy/noobaa.service $RPM_BUILD_ROOT%{_unitdir}/noobaa.service
@@ -102,16 +102,14 @@ mv $RPM_BUILD_ROOT/usr/local/%{noobaa_core_version_path}/src/deploy/standalone/n
 %config(noreplace) /etc/logrotate.d/noobaa-logrotate
 %config(noreplace) /etc/rsyslog.d/noobaa_syslog.conf
 /etc/noobaa.conf.d/
-/usr/local/bin/.noobaa-cli-%{noobaaver}
+/usr/local/bin/noobaa-cli
 %doc
 
 %post
 if [ -n "$current_version" ]; then
   mv $RPM_BUILD_ROOT/usr/local/noobaa-core $RPM_BUILD_ROOT/usr/local/.noobaa-core-%{current_version}
-  mv $RPM_BUILD_ROOT/usr/local/bin/noobaa-cli $RPM_BUILD_ROOT/usr/local/bin/.noobaa-cli-%{current_version}
 fi
 mv $RPM_BUILD_ROOT/usr/local/%{noobaa_core_version_path} $RPM_BUILD_ROOT/usr/local/noobaa-core
-mv $RPM_BUILD_ROOT/usr/local/bin/.noobaa-cli-%{noobaaver} $RPM_BUILD_ROOT/usr/local/bin/noobaa-cli
 
 state=$(systemctl show -p ActiveState --value rsyslog)
 if [ "${state}" == "active" ]; then

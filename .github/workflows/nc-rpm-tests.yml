@@ -16,4 +16,4 @@ jobs:
         run: |
           make rpm BUILD_S3SELECT=0
           noobaa_pkg=$(ls build/rpm/ | grep noobaa | grep .x86_64.rpm)
-          rpm -i $noobaa_pkg
+          rpm -i build/rpm/$noobaa_pkg

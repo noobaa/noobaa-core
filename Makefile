@@ -168,10 +168,13 @@ nbdev:
 rpm: builder
 	echo "\033[1;34mStarting RPM build for $${CONTAINER_PLATFORM}.\033[0m"
 	mkdir -p build/rpm
+	$(CONTAINER_ENGINE) rm -f noobaa-rpm-build-env
 	$(CONTAINER_ENGINE) build $(CONTAINER_PLATFORM_FLAG) $(CPUSET) -f src/deploy/RPM_build/RPM.Dockerfile $(CACHE_FLAG) -t $(NOOBAA_RPM_TAG) --build-arg CENTOS_VER=$(CENTOS_VER) --build-arg BUILD_S3SELECT=$(BUILD_S3SELECT) --build-arg BUILD_S3SELECT_PARQUET=$(BUILD_S3SELECT_PARQUET) --build-arg SRPM_ONLY=$(SRPM_ONLY) --build-arg GIT_COMMIT=$(GIT_COMMIT) . $(REDIRECT_STDOUT)
 	echo "\033[1;32mImage \"$(NOOBAA_RPM_TAG)\" is ready.\033[0m"
 	echo "Generating RPM..."
-	$(CONTAINER_ENGINE) run --rm -v $(PWD)/build/rpm:/export:z -t $(NOOBAA_RPM_TAG)
+	$(CONTAINER_ENGINE) run --name noobaa-rpm-build-env -t $(NOOBAA_RPM_TAG)
+	mkdir -p $(PWD)/build/rpm && $(CONTAINER_ENGINE) cp noobaa-rpm-build-env:/export/. $(PWD)/build/rpm/
+	$(CONTAINER_ENGINE) rm -f noobaa-rpm-build-env
 	echo "\033[1;32mRPM for platform \"$(NOOBAA_RPM_TAG)\" is ready in build/rpm.\033[0m";
 .PHONY: rpm
 

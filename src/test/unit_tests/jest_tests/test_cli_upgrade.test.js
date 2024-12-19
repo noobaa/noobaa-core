@@ -14,6 +14,7 @@ const { TMP_PATH, exec_manage_cli, clean_config_dir, fail_test_if_default_config
 const { ManageCLIError } = require('../../../manage_nsfs/manage_nsfs_cli_errors');
 const { ManageCLIResponse } = require('../../../manage_nsfs/manage_nsfs_cli_responses');
 const { TYPES, UPGRADE_ACTIONS } = require('../../../manage_nsfs/manage_nsfs_constants');
+const { CONFIG_DIR_PHASES } = require('../../../sdk/config_fs');
 
 const config_root = path.join(TMP_PATH, 'config_root_cli_upgrade_test');
 const config_fs = new ConfigFS(config_root);
@@ -73,7 +74,7 @@ const old_expected_system_json2 = {
     config_directory: {
         'config_dir_version': '1.0.0',
         'upgrade_package_version': '5.18.0',
-        'phase': 'CONFIG_DIR_UNLOCKED',
+        'phase': CONFIG_DIR_PHASES.CONFIG_DIR_UNLOCKED,
         'upgrade_history': {
             'successful_upgrades': [
                 {
@@ -102,7 +103,7 @@ const old_expected_system_json5 = {
     config_directory: {
         'config_dir_version': '0.0.0',
         'upgrade_package_version': '5.17.0',
-        'phase': 'CONFIG_DIR_UNLOCKED',
+        'phase': CONFIG_DIR_PHASES.CONFIG_DIR_UNLOCKED,
         'upgrade_history': {
             'successful_upgrades': [
                 {
@@ -130,7 +131,7 @@ const new_expected_system_json = {
     },
     config_directory: {
         'config_dir_version': '1.0.0',
-        'phase': 'CONFIG_DIR_UNLOCKED',
+        'phase': CONFIG_DIR_PHASES.CONFIG_DIR_UNLOCKED,
         'upgrade_history': {
             'successful_upgrades': [
                 {
@@ -164,7 +165,7 @@ const new_expected_system_json = {
 //     },
 //     config_directory: {
 //         'config_dir_version': '1',
-//         'phase': 'CONFIG_DIR_UNLOCKED',
+//         'phase': CONFIG_DIR_PHASES.CONFIG_DIR_UNLOCKED,
 //         'upgrade_history': {
 //             'successful_upgrades': [
 //                 {

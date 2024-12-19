@@ -211,7 +211,7 @@ async function update_bucket(data, user_input) {
 
     if (user_input.notifications) {
         //notifications are tested before they can be updated
-        const test_notif_err = await notifications_util.test_notifications(data);
+        const test_notif_err = await notifications_util.test_notifications(data, config_fs.connect_dir_path);
         if (test_notif_err) {
             throw_cli_error(ManageCLIError.InvalidArgument, "Failed to update notifications", test_notif_err);
         }
@@ -719,7 +719,11 @@ async function logging_management() {
 }
 
 async function notification_management() {
-    new notifications_util.Notificator({fs_context: config_fs.fs_context}).process_notification_files();
+    new notifications_util.Notificator({
+        fs_context: config_fs.fs_context,
+        connect_files_dir: config_fs.connections_dir_path,
+        nc_config_fs: config_fs,
+    }).process_notification_files();
 }
 
 exports.main = main;

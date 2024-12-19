@@ -7,6 +7,7 @@ process.env.DISABLE_INIT_RANDOM_SEED = 'true';
 
 const fs = require('fs');
 const os = require('os');
+const util = require('util');
 const _ = require('lodash');
 const path = require('path');
 const fs_utils = require('../../../util/fs_utils');
@@ -294,11 +295,6 @@ describe('nc upgrade manager - upgrade config directory', () => {
                 .rejects.toThrow(expected_err_msg);
         });
 
-        it('_verify_config_dir_upgrade - should upgrade config dir', async () => {
-            const system_data = {[hostname]: { current_version: pkg.version, other_hostname: { current_version: pkg.version } }};
-            await nc_upgrade_manager._verify_config_dir_upgrade(system_data, pkg.version, [hostname]);
-        });
-
         it('_verify_config_dir_upgrade - host current_version > new_version should upgrade RPM', async () => {
             const newer_version = pkg.version + '.1';
             const system_data = { [hostname]: { current_version: newer_version }, other_hostname: { current_version: pkg.version } };
@@ -310,7 +306,7 @@ describe('nc upgrade manager - upgrade config directory', () => {
         it('_verify_config_dir_upgrade - should upgrade config dir', async () => {
             const expected_version = pkg.version;
             const system_data = {
-                [hostname]: { current_version: pkg.version, other_hostname: { current_version: pkg.version } }
+                [hostname]: { current_version: pkg.version }
             };
             await nc_upgrade_manager._verify_config_dir_upgrade(system_data, expected_version, [hostname]);
         });
@@ -321,6 +317,17 @@ describe('nc upgrade manager - upgrade config directory', () => {
             const nc_upgrade_manager_higher_version = new NCUpgradeManager(config_fs);
             const expected_err_msg = `config dir upgrade can not be started - the host's package version=${pkg.version} does not match the user's expected version=${expected_version}`;
             await expect(nc_upgrade_manager_higher_version._verify_config_dir_upgrade(system_data, expected_version, [hostname]))
+                .rejects.toThrow(expected_err_msg);
+        });
+
+        it('fail on already in progress upgrade', async () => {
+            const expected_version = pkg.version;
+            const system_data = {
+                [hostname]: { current_version: pkg.version },
+                config_directory: { in_progress_upgrade: { from_version: 'mock-version' } }
+            };
+            const expected_err_msg = `config dir upgrade can not be started - there is already an ongoing upgrade system_data.config_directory.in_progess_upgrade=${util.inspect(system_data.config_directory.in_progress_upgrade)}`;
+            await expect(nc_upgrade_manager._verify_config_dir_upgrade(system_data, expected_version, [hostname]))
                 .rejects.toThrow(expected_err_msg);
         });
     });

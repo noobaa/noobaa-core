@@ -7,6 +7,7 @@ const P = require('../util/promise');
 const config = require('../../config');
 const os_util = require('../util/os_utils');
 const nb_native = require('../util/nb_native');
+const { CONFIG_DIR_PHASES } = require('../sdk/config_fs');
 const native_fs_utils = require('../util/native_fs_utils');
 const { read_stream_join } = require('../util/buffer_utils');
 const { make_https_request } = require('../util/http_utils');
@@ -14,7 +15,6 @@ const { TYPES } = require('./manage_nsfs_constants');
 const { get_boolean_or_string_value, throw_cli_error, write_stdout_response, get_bucket_owner_account_by_id } = require('./manage_nsfs_cli_utils');
 const { ManageCLIResponse } = require('./manage_nsfs_cli_responses');
 const ManageCLIError = require('./manage_nsfs_cli_errors').ManageCLIError;
-const { CONFIG_DIR_LOCKED, CONFIG_DIR_UNLOCKED } = require('../upgrade/nc_upgrade_manager');
 
 
 const HOSTNAME = 'localhost';
@@ -472,10 +472,10 @@ class NSFSHealth {
      */
     _get_config_dir_upgrade_status(config_dir_data) {
         if (config_dir_data.in_progress_upgrade) return { in_progress_upgrade: config_dir_data.in_progress_upgrade };
-        if (config_dir_data.phase === CONFIG_DIR_LOCKED) {
+        if (config_dir_data.phase === CONFIG_DIR_PHASES.CONFIG_DIR_LOCKED) {
             return { error: 'last_upgrade_failed', last_failure: config_dir_data.upgrade_history.last_failure };
         }
-        if (config_dir_data.phase === CONFIG_DIR_UNLOCKED) {
+        if (config_dir_data.phase === CONFIG_DIR_PHASES.CONFIG_DIR_UNLOCKED) {
             return { message: 'there is no in-progress upgrade' };
         }
     }

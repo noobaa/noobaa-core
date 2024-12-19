@@ -56,6 +56,11 @@ const CONFIG_TYPES = Object.freeze({
 const JSON_SUFFIX = '.json';
 const SYMLINK_SUFFIX = '.symlink';
 
+const CONFIG_DIR_PHASES = Object.freeze({
+    CONFIG_DIR_LOCKED: 'CONFIG_DIR_LOCKED',
+    CONFIG_DIR_UNLOCKED: 'CONFIG_DIR_UNLOCKED'
+});
+
 // TODO: A General Disclaimer about symlinks manipulated by this class - 
 // currently we use direct symlink()/ unlink()
 // safe_link / safe_unlink can be better but the current impl causing ELOOP - Too many levels of symbolic links
@@ -71,6 +76,8 @@ const SYMLINK_SUFFIX = '.symlink';
  * The upgrade script will run via `noobaa-cli upgrade run command`
  */
 
+const CONFIG_DIR_VERSION = '1.0.0';
+
 class ConfigFS {
 
     /**
@@ -81,7 +88,7 @@ class ConfigFS {
     constructor(config_root, config_root_backend, fs_context) {
         this.config_root = config_root;
         this.config_root_backend = config_root_backend || config.NSFS_NC_CONFIG_DIR_BACKEND;
-        this.config_dir_version = '1.0.0';
+        this.config_dir_version = CONFIG_DIR_VERSION;
         this.old_accounts_dir_path = path.join(config_root, CONFIG_SUBDIRS.ACCOUNTS);
         this.accounts_by_name_dir_path = path.join(config_root, CONFIG_SUBDIRS.ACCOUNTS_BY_NAME);
         this.identities_dir_path = path.join(config_root, CONFIG_SUBDIRS.IDENTITIES);
@@ -1191,7 +1198,7 @@ class ConfigFS {
             config_directory: {
                 config_dir_version: this.config_dir_version,
                 upgrade_package_version: pkg.version,
-                phase: 'CONFIG_DIR_UNLOCKED',
+                phase: CONFIG_DIR_PHASES.CONFIG_DIR_UNLOCKED,
                 upgrade_history: {
                     successful_upgrades: [],
                     last_failure: undefined
@@ -1206,4 +1213,5 @@ exports.SYMLINK_SUFFIX = SYMLINK_SUFFIX;
 exports.JSON_SUFFIX = JSON_SUFFIX;
 exports.CONFIG_SUBDIRS = CONFIG_SUBDIRS;
 exports.CONFIG_TYPES = CONFIG_TYPES;
+exports.CONFIG_DIR_PHASES = CONFIG_DIR_PHASES;
 exports.ConfigFS = ConfigFS;

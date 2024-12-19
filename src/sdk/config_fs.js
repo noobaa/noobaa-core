@@ -439,6 +439,25 @@ class ConfigFS {
     }
 
     /**
+     * stat_account_config_file will return the stat output on account config file
+     * please notice that stat might throw an error - you should wrap it with try-catch and handle the error
+     * Note: access_key type of anonymous_access_key is a symbol, otherwise it is a string (not SensitiveString)
+     * @param {Symbol|string} access_key
+     * @returns {Promise<nb.NativeFSStats>}
+     */
+    stat_account_config_file(access_key) {
+        let path_for_account_or_user_config_file;
+        if (typeof access_key === 'symbol') { // anonymous account case
+            path_for_account_or_user_config_file = this.get_account_path_by_name(config.ANONYMOUS_ACCOUNT_NAME);
+        } else if (typeof access_key === 'string') { // rest of the cases
+            path_for_account_or_user_config_file = this.get_account_or_user_path_by_access_key(access_key);
+        } else { // we should not get here
+            throw new Error(`access_key must be a from valid type ${access_key}`);
+        }
+        return nb_native().fs.stat(this.fs_context, path_for_account_or_user_config_file);
+    }
+
+    /**
      * is_account_exists_by_name returns true if account config path exists in config dir
      * if account does not exist and it's a regular account (not an IAM user) 
      * try to locate it under the old accounts/ directory

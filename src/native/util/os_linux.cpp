@@ -27,25 +27,24 @@ get_current_uid()
 const uid_t ThreadScope::orig_uid = getuid();
 const gid_t ThreadScope::orig_gid = getgid();
 
-const std::vector<gid_t> ThreadScope::orig_groups = [] {
-    std::vector<gid_t> groups(NGROUPS_MAX);
-    int r = getgroups(NGROUPS_MAX, &groups[0]);
-    groups.resize(r);
-    return groups;
-}();
+const std::vector<gid_t> ThreadScope::orig_groups = get_process_groups();
 
 /**
- * set the effective uid/gid of the current thread using direct syscalls
- * unsets the supplementary group IDs for the current thread using direct syscall
+ * set the effective uid/gid/supplemental_groups of the current thread using direct syscalls
  * we have to bypass the libc wrappers because posix requires it to syncronize
- * uid & gid to all threads which is undesirable in our case.
+ * uid, gid & supplemental_groups to all threads which is undesirable in our case.
  */
 void
 ThreadScope::change_user()
 {
     if (_uid != orig_uid || _gid != orig_gid) {
+        if (_groups.empty()) {
+            MUST_SYS(syscall(SYS_setgroups, 0, NULL));
+        }
+        else {
+            MUST_SYS(syscall(SYS_setgroups, _groups.size(), &_groups[0]));
+        }
         // must change gid first otherwise will fail on permission
-        MUST_SYS(syscall(SYS_setgroups, 0, NULL));
         MUST_SYS(syscall(SYS_setresgid, -1, _gid, -1));
         MUST_SYS(syscall(SYS_setresuid, -1, _uid, -1));
     }
@@ -61,7 +60,7 @@ ThreadScope::restore_user()
         // must restore uid first otherwise will fail on permission
         MUST_SYS(syscall(SYS_setresuid, -1, orig_uid, -1));
         MUST_SYS(syscall(SYS_setresgid, -1, orig_gid, -1));
-        MUST_SYS(syscall(SYS_setgroups, ThreadScope::orig_groups.size(), &ThreadScope::orig_groups[0]));
+        MUST_SYS(syscall(SYS_setgroups, orig_groups.size(), &orig_groups[0]));
     }
 }
 
@@ -98,6 +97,14 @@ ThreadScope::add_thread_capabilities() {
         LOG("cap_free failed");
     }
     return 0;
+}
+
+std::vector<gid_t>
+ThreadScope::get_process_groups() {
+    std::vector<gid_t> groups(NGROUPS_MAX);
+    int r = getgroups(NGROUPS_MAX, &groups[0]);
+    groups.resize(r);
+    return groups;
 }
 
 } // namespace noobaa

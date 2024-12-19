@@ -503,6 +503,7 @@ class AccountSpaceFS {
                 distinguished_name: distinguished_name,
                 uid: distinguished_name ? undefined : requesting_account.nsfs_account_config.uid,
                 gid: distinguished_name ? undefined : requesting_account.nsfs_account_config.gid,
+                supplemental_groups: requesting_account.nsfs_account_config.supplemental_groups,
                 new_buckets_path: requesting_account.nsfs_account_config.new_buckets_path,
                 fs_backend: requesting_account.nsfs_account_config.fs_backend,
             }

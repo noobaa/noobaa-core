@@ -14,8 +14,8 @@ const fs_utils = require('../../../util/fs_utils');
 const config = require('../../../../config');
 const pkg = require('../../../../package.json');
 const { NCUpgradeManager, DEFAULT_NC_UPGRADE_SCRIPTS_DIR, OLD_DEFAULT_PACKAGE_VERSION,
-    OLD_DEFAULT_CONFIG_DIR_VERSION, CONFIG_DIR_UNLOCKED, CONFIG_DIR_LOCKED } = require('../../../upgrade/nc_upgrade_manager');
-const { ConfigFS } = require('../../../sdk/config_fs');
+    OLD_DEFAULT_CONFIG_DIR_VERSION } = require('../../../upgrade/nc_upgrade_manager');
+const { ConfigFS, CONFIG_DIR_PHASES } = require('../../../sdk/config_fs');
 const { TMP_PATH, create_redirect_file, create_config_dir,
     fail_test_if_default_config_dir_exists, clean_config_dir, TEST_TIMEOUT } = require('../../system_tests/test_utils');
 
@@ -84,7 +84,7 @@ const old_expected_system_json_has_config_directory = {
     config_directory: {
         'config_dir_version': '1.0.0',
         'upgrade_package_version': '5.18.0',
-        'phase': 'CONFIG_DIR_UNLOCKED',
+        'phase': CONFIG_DIR_PHASES.CONFIG_DIR_UNLOCKED,
         'upgrade_history': {
             'successful_upgrades': [{
                 'timestamp': 1724687496424,
@@ -158,7 +158,7 @@ const old_expected_system_json_empty_successful_upgrades = {
     },
     config_directory: {
         'config_dir_version': '1',
-        'phase': 'CONFIG_DIR_UNLOCKED',
+        'phase': CONFIG_DIR_PHASES.CONFIG_DIR_UNLOCKED,
         'upgrade_history': {
             'successful_upgrades': []
         }
@@ -513,7 +513,7 @@ describe('nc upgrade manager - upgrade config directory', () => {
             const expected_data = {
                 ...system_data,
                 config_directory: {
-                    phase: CONFIG_DIR_UNLOCKED,
+                    phase: CONFIG_DIR_PHASES.CONFIG_DIR_UNLOCKED,
                     config_dir_version: this_upgrade.config_dir_to_version,
                     upgrade_package_version: this_upgrade.package_to_version,
                     upgrade_history: {
@@ -558,7 +558,7 @@ describe('nc upgrade manager - upgrade config directory', () => {
             const expected_data = {
                 ...system_data,
                 config_directory: {
-                    phase: CONFIG_DIR_UNLOCKED,
+                    phase: CONFIG_DIR_PHASES.CONFIG_DIR_UNLOCKED,
                     config_dir_version: this_upgrade.config_dir_to_version,
                     upgrade_package_version: this_upgrade.package_to_version,
                     upgrade_history: {
@@ -599,14 +599,14 @@ describe('nc upgrade manager - upgrade config directory', () => {
                 package_from_version: '5.18.0',
                 package_to_version: '5.18.1',
             };
-            system_data.config_directory.phase = CONFIG_DIR_LOCKED;
+            system_data.config_directory.phase = CONFIG_DIR_PHASES.CONFIG_DIR_LOCKED;
             const new_error = new Error('this is a new last failure error');
             await config_fs.create_system_config_file(JSON.stringify(system_data));
             await nc_upgrade_manager._update_config_dir_upgrade_failed(system_data, this_upgrade, new_error);
             const expected_data = {
                 ...system_data,
                 config_directory: {
-                    phase: CONFIG_DIR_LOCKED,
+                    phase: CONFIG_DIR_PHASES.CONFIG_DIR_LOCKED,
                     config_dir_version: system_data.config_directory.config_dir_version,
                     upgrade_package_version: system_data.config_directory.upgrade_package_version,
                     upgrade_history: {
@@ -627,7 +627,7 @@ describe('nc upgrade manager - upgrade config directory', () => {
                 'package_from_version': '5.17.0',
                 'package_to_version': '5.18.0'
             }];
-            system_data.config_directory.phase = CONFIG_DIR_LOCKED;
+            system_data.config_directory.phase = CONFIG_DIR_PHASES.CONFIG_DIR_LOCKED;
             system_data.config_directory.upgrade_history.last_failure = {
                 'timestamp': 1714687496424,
                 'running_host': hostname,
@@ -653,7 +653,7 @@ describe('nc upgrade manager - upgrade config directory', () => {
             const expected_data = {
                 ...system_data,
                 config_directory: {
-                    phase: CONFIG_DIR_LOCKED,
+                    phase: CONFIG_DIR_PHASES.CONFIG_DIR_LOCKED,
                     config_dir_version: system_data.config_directory.config_dir_version,
                     upgrade_package_version: system_data.config_directory.upgrade_package_version,
                     upgrade_history: {
@@ -680,7 +680,7 @@ function assert_upgrade_start_data(actual_upgrade_start, expected_system_data) {
         actual_upgrade_start.config_directory;
     const expected_in_progress_upgrade = expected_system_data.config_directory?.in_progress_upgrade;
 
-    expect(phase).toBe(CONFIG_DIR_LOCKED);
+    expect(phase).toBe(CONFIG_DIR_PHASES.CONFIG_DIR_LOCKED);
     expect(config_dir_version).toBe(expected_system_data.config_directory?.config_dir_version);
     expect(upgrade_package_version).toBe(expected_system_data.config_directory?.upgrade_package_version);
     expect(upgrade_history).toEqual(expected_system_data.config_directory?.upgrade_history);
@@ -727,7 +727,7 @@ function assert_config_dir_defaults(actual_config_dir_defaults, system_data) {
         OLD_DEFAULT_PACKAGE_VERSION;
     expect(config_dir_version).toBe(OLD_DEFAULT_CONFIG_DIR_VERSION);
     expect(upgrade_package_version).toBe(expected_package_from_version);
-    expect(phase).toBe(CONFIG_DIR_UNLOCKED);
+    expect(phase).toBe(CONFIG_DIR_PHASES.CONFIG_DIR_UNLOCKED);
     expect(upgrade_history).toEqual({ successful_upgrades: [] });
 }
 

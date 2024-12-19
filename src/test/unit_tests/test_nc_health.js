@@ -19,7 +19,7 @@ const { get_process_fs_context } = require('../../util/native_fs_utils');
 const { ManageCLIError } = require('../../manage_nsfs/manage_nsfs_cli_errors');
 const { TYPES, DIAGNOSE_ACTIONS, ACTIONS } = require('../../manage_nsfs/manage_nsfs_constants');
 const { TMP_PATH, create_fs_user_by_platform, delete_fs_user_by_platform, exec_manage_cli } = require('../system_tests/test_utils');
-const { CONFIG_DIR_UNLOCKED, CONFIG_DIR_LOCKED } = require('../../upgrade/nc_upgrade_manager');
+const { CONFIG_DIR_PHASES } = require('../../sdk/config_fs');
 
 const tmp_fs_path = path.join(TMP_PATH, 'test_nc_health');
 const DEFAULT_FS_CONFIG = get_process_fs_context();
@@ -39,7 +39,7 @@ const get_service_state_mock_default_response = [{ service_status: 'active', pid
 const get_endpoint_response_mock_default_response = [{ response: { response_code: 'RUNNING', total_fork_count: 0 } }];
 const get_system_config_mock_default_response = [{
     ...valid_system_json, config_directory: {
-        phase: CONFIG_DIR_UNLOCKED, config_dir_version: '1.0.0',
+        phase: CONFIG_DIR_PHASES.CONFIG_DIR_UNLOCKED, config_dir_version: '1.0.0',
         package_version: pkg.version, upgrade_history: []
 } }];
 const default_mock_upgrade_status = { message: 'there is no in-progress upgrade' };
@@ -188,7 +188,7 @@ mocha.describe('nsfs nc health', function() {
             valid_system_json.config_directory = {
                 'config_dir_version': config_fs.config_dir_version,
                 'upgrade_package_version': pkg.version,
-                'phase': CONFIG_DIR_UNLOCKED
+                'phase': CONFIG_DIR_PHASES.CONFIG_DIR_UNLOCKED
             };
             await Health.config_fs.create_system_config_file(JSON.stringify(valid_system_json));
             set_mock_functions(Health, {
@@ -608,7 +608,7 @@ mocha.describe('nsfs nc health', function() {
             valid_system_json.config_directory = {
                 'config_dir_version': config_fs.config_dir_version,
                 'upgrade_package_version': pkg.version,
-                'phase': CONFIG_DIR_LOCKED,
+                'phase': CONFIG_DIR_PHASES.CONFIG_DIR_LOCKED,
                 upgrade_history: {
                     successful_upgrades: [],
                     last_failure: { error: 'mock error'}
@@ -624,7 +624,7 @@ mocha.describe('nsfs nc health', function() {
             valid_system_json.config_directory = {
                 config_dir_version: config_fs.config_dir_version,
                 upgrade_package_version: pkg.version,
-                phase: CONFIG_DIR_LOCKED,
+                phase: CONFIG_DIR_PHASES.CONFIG_DIR_LOCKED,
                 upgrade_history: {
                     successful_upgrades: [],
                 },

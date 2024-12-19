@@ -119,7 +119,7 @@ describe('NC master key manager tests - exec store type', () => {
 
     it('_create_master_keys_exec when master keys exist -', async () => {
         const new_key = {
-            id: db_client.new_object_id(),
+            id: db_client.new_object_id().toString(),
             cipher_key: crypto.randomBytes(32).toString('base64'),
             cipher_iv: crypto.randomBytes(16).toString('base64'),
             encryption_type: 'aes-256-gcm'

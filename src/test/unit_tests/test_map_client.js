@@ -67,7 +67,7 @@ coretest.describe_mapper_test_case({
     //             data_index: 1,
     //             blocks: [{
     //                 block_md: {
-    //                     id: db_client.instance().new_object_id(),
+    //                     id: db_client.instance().new_object_id().toString(),
     //                     node: nodes[0]._id,
     //                     pool: system.pools_by_name[nodes[0].pool]._id,
     //                 }
@@ -405,7 +405,7 @@ coretest.describe_mapper_test_case({
                   blocks: [
                     {
                       block_md: {
-                        id: db_client.instance().new_object_id(),
+                        id: db_client.instance().new_object_id().toString(),
                         pool: Object.values(system.pools_by_name)[0]._id,
                         address: 'fcall://mocked_address',
                       },
@@ -432,12 +432,12 @@ coretest.describe_mapper_test_case({
         };
 
         const tier = {
-            _id: db_client.instance().new_object_id(),
+            _id: db_client.instance().new_object_id().toString(),
             name: 'mocked_tier',
             system: system,
             data_placement: 'MIRROR',
             chunk_config: {
-                _id: db_client.instance().new_object_id(),
+                _id: db_client.instance().new_object_id().toString(),
                 system: system,
                 chunk_coder_config: chunk_config
             },
@@ -445,7 +445,7 @@ coretest.describe_mapper_test_case({
                 {
                     spread_pools: [
                         {
-                            _id: db_client.instance().new_object_id(),
+                            _id: db_client.instance().new_object_id().toString(),
                             name: 'mocked_pool',
                         }
                     ]

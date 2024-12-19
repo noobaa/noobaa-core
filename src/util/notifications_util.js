@@ -9,6 +9,7 @@ const os = require('os');
 const fs = require('fs');
 const http = require('http');
 const https = require('https');
+const path = require('path');
 const { get_process_fs_context } = require('./native_fs_utils');
 const nb_native = require('../util/nb_native');
 const http_utils = require('../util/http_utils');
@@ -25,6 +26,8 @@ const OP_TO_EVENT = Object.freeze({
     lifecycle_delete: { name: 'LifecycleExpiration' },
 });
 
+const DEFAULT_CONNECT_FILES_DIR = '/etc/notif_connect/';
+
 class Notificator {
 
     /**
@@ -32,11 +35,13 @@ class Notificator {
      * @param {Object} options
      */
 
-    constructor({name, fs_context}) {
+    constructor({name, fs_context, connect_files_dir, nc_config_fs}) {
         this.name = name;
         this.connect_str_to_connection = new Map();
         this.notif_to_connect = new Map();
         this.fs_context = fs_context ?? get_process_fs_context();
+        this.connect_files_dir = connect_files_dir ?? DEFAULT_CONNECT_FILES_DIR;
+        this.nc_config_fs = nc_config_fs;
     }
 
     async run_batch() {
@@ -113,7 +118,7 @@ class Notificator {
             dbg.log2("notifying with notification =", notif);
             let connect = this.notif_to_connect.get(notif.meta.name);
             if (!connect) {
-                connect = parse_connect_file(notif.meta.connect);
+                connect = await this.parse_connect_file(notif.meta.connect);
                 this.notif_to_connect.set(notif.meta.name, connect);
             }
             let connection = this.connect_str_to_connection.get(notif.meta.name);
@@ -139,6 +144,19 @@ class Notificator {
         //as failed sends are written to failure log,
         //we can remove the currently processed persistent file
         return true;
+    }
+
+    async parse_connect_file(connect_filename) {
+        const filepath = path.join(this.connect_files_dir, connect_filename);
+        let connect;
+        if (this.nc_config_fs) {
+            connect = await this.nc_config_fs.get_config_data(filepath);
+        } else {
+            const connect_str = fs.readFileSync(filepath, 'utf-8');
+            connect = JSON.parse(connect_str);
+        }
+        load_files(connect);
+        return connect;
     }
 }
 
@@ -259,24 +277,6 @@ function load_files(object) {
     dbg.log2('load_files for obj =', object);
 }
 
-function parse_connect_file(connect_filepath) {
-    const connect = {};
-    const connect_strs = fs.readFileSync(connect_filepath, 'utf-8').split(os.EOL);
-    for (const connect_str of connect_strs) {
-        if (connect_str === '') continue;
-        const kv = connect_str.split('=');
-        //parse JSONs-
-        if (kv[0].endsWith('object')) {
-            kv[1] = JSON.parse(kv[1]);
-        }
-        connect[kv[0]] = kv[1];
-    }
-    //parse file contents (useful for tls cert files)
-    load_files(connect);
-    return connect;
-}
-
-
 function get_connection(connect) {
     switch (connect.notification_protocol.toLowerCase()) {
         case 'http':
@@ -295,9 +295,10 @@ function get_connection(connect) {
 }
 
 
-async function test_notifications(bucket) {
+async function test_notifications(bucket, connect_files_dir) {
+    const notificator = new Notificator({connect_files_dir});
     for (const notif of bucket.notifications) {
-        const connect = parse_connect_file(notif.connect);
+        const connect = await notificator.parse_connect_file(notif.connect);
         dbg.log1("testing notif", notif);
         try {
             const connection = get_connection(connect);
@@ -408,8 +409,8 @@ function compose_notification_lifecycle(deleted_obj, notif_conf, bucket) {
 function compose_meta(record, notif_conf) {
     return {
         meta: {
-            connect: notif_conf.Connect,
-            name: notif_conf.Id
+            connect: notif_conf.topic[0],
+            name: notif_conf.id[0],
         },
         notif: {
             Records: [record],
@@ -437,10 +438,10 @@ function check_notif_relevant(notif, req) {
     }
 
     //if no events were specified, always notify
-    if (!notif.Events) return true;
+    if (!notif.events) return true;
 
     //check request's event is in notification's events list
-    for (const notif_event of notif.Events) {
+    for (const notif_event of notif.events) {
         const notif_event_elems = notif_event.split(':');
         const notif_event_name = notif_event_elems[1];
         const notif_event_method = notif_event_elems[2];

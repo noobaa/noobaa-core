@@ -45,6 +45,7 @@ const CONFIG_SUBDIRS = Object.freeze({
     ACCOUNTS_BY_NAME: 'accounts_by_name',
     ACCOUNTS: 'accounts', // deprecated on 5.18
     USERS: 'users',
+    CONNECTIONS: 'connections',
 });
 
 const CONFIG_TYPES = Object.freeze({
@@ -86,6 +87,7 @@ class ConfigFS {
         this.identities_dir_path = path.join(config_root, CONFIG_SUBDIRS.IDENTITIES);
         this.access_keys_dir_path = path.join(config_root, CONFIG_SUBDIRS.ACCESS_KEYS);
         this.buckets_dir_path = path.join(config_root, CONFIG_SUBDIRS.BUCKETS);
+        this.connections_dir_path = path.join(config_root, CONFIG_SUBDIRS.CONNECTIONS);
         this.system_json_path = path.join(config_root, 'system.json');
         this.config_json_path = path.join(config_root, 'config.json');
         this.fs_context = fs_context || native_fs_utils.get_process_fs_context(this.config_root_backend);
@@ -160,6 +162,7 @@ class ConfigFS {
             this.accounts_by_name_dir_path,
             this.identities_dir_path,
             this.access_keys_dir_path,
+            this.connections_dir_path,
         ];
 
         if (config.NSFS_GLACIER_LOGS_ENABLED) {

@@ -406,9 +406,15 @@ async function complete_object_upload(req) {
         set_updates.sha256_b64 = req.rpc_params.sha256_b64;
     }
 
-    const map_res = req.rpc_params.multiparts ?
-        await _complete_object_multiparts(obj, req.rpc_params.multiparts) :
-        await _complete_object_parts(obj);
+    let map_res;
+    if (req.rpc_params.multiparts) {
+        map_res = await _complete_object_multiparts(obj, req.rpc_params.multiparts);
+    } else if (req.rpc_params.num_parts) {
+        // in this case we got all the info we need and can avoid quering md_store
+        map_res = {size: obj.size, num_parts: req.rpc_params.num_parts};
+    } else {
+        map_res = await _complete_object_parts(obj);
+    }
 
     if (req.rpc_params.size !== map_res.size) {
         if (req.rpc_params.size >= 0) {
@@ -677,8 +683,10 @@ async function copy_object_mapping(req) {
         part._id = MDStore.instance().make_md_id();
         part.obj = obj._id;
         part.bucket = req.bucket._id;
-        part.multipart = multipart ? multipart._id : undefined;
-        part.uncommitted = true;
+        if (multipart) {
+            part.multipart = multipart._id;
+            part.uncommitted = true;
+        }
     }
     await MDStore.instance().insert_parts(parts);
     return {
@@ -1982,6 +1990,7 @@ async function update_endpoint_stats(req) {
  * @param {nb.ObjectMD} obj
  */
 async function _complete_object_parts(obj) {
+
     const context = {
         pos: 0,
         seq: 0,
@@ -2103,7 +2112,11 @@ function _complete_next_parts(parts, context) {
                 end: context.pos + len,
             };
         }
-        context.parts_updates.push(updates);
+        //if this part is committed and it's seq does not need to be updated,
+        //we don't need to change it in the db.
+        if (part.uncommitted || updates.set_updates) {
+            context.parts_updates.push(updates);
+        }
         context.pos += len;
         context.seq += 1;
         context.num_parts += 1;

@@ -96,6 +96,13 @@ async function handle_request(req, res) {
         error_token_expired: S3Error.ExpiredToken,
         auth_token: () => signature_utils.make_auth_token_from_request(req)
     };
+    // AWS s3 returns an empty response when s3 request sends without host header.
+    if (!req.headers.host) {
+        dbg.warn('s3_rest: handle_request: S3 request is missing host header, header ', req.headers);
+        res.statusCode = 400;
+        res.end();
+        return;
+    }
     http_utils.check_headers(req, headers_options);
 
     const redirect = await populate_request_additional_info_or_redirect(req);
@@ -112,7 +119,7 @@ async function handle_request(req, res) {
     http_utils.set_cors_headers_s3(req, res, cors);
 
     if (req.method === 'OPTIONS') {
-        dbg.log1('OPTIONS!');
+        dbg.log1('s3_rest: handle_request : S3 request method is ', req.method);
         const error_code = req.headers.origin && req.headers['access-control-request-method'] ? 403 : 400;
         const res_headers = res.getHeaders(); // We will check if we found a matching rule - if no we will return error_code
         res.statusCode = res_headers['access-control-allow-origin'] && res_headers['access-control-allow-methods'] ? 200 : error_code;

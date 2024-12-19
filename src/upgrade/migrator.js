@@ -53,7 +53,7 @@ class Migrator {
         this.migrate_status = await this.upgrade_table.findOne({});
         if (!this.migrate_status) {
             this.migrate_status = {
-                _id: this.to_client.new_object_id(),
+                _id: this.to_client.new_object_id().toString(),
                 collection_index: 0,
                 collection_name: this.collection_list[0].name,
                 last_move_size: 0,

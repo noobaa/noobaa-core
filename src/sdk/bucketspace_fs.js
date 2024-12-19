@@ -1,6 +1,7 @@
 /* Copyright (C) 2020 NooBaa */
 'use strict';
 
+const objectid = require('../util/objectid.js');
 const _ = require('lodash');
 const util = require('util');
 const path = require('path');
@@ -9,7 +10,6 @@ const config = require('../../config');
 const RpcError = require('../rpc/rpc_error');
 const js_utils = require('../util/js_utils');
 const nb_native = require('../util/nb_native');
-const mongo_utils = require('../util/mongo_utils');
 const KeysSemaphore = require('../util/keys_semaphore');
 const {
     get_umasked_mode,
@@ -314,7 +314,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
 
     new_bucket_defaults(account, { name, tag, lock_enabled, force_md5_etag }, create_uls, bucket_storage_path) {
         return {
-            _id: mongo_utils.mongoObjectId(),
+            _id: objectid(),
             name,
             tag: js_utils.default_value(tag, undefined),
             owner_account: account._id,

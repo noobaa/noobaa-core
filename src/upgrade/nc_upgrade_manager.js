@@ -176,19 +176,22 @@ class NCUpgradeManager {
         if (!err_message && !hostnames.length) {
             err_message = `config dir upgrade can not be started missing hosts_data hosts_data=${util.inspect(hosts_data)}`;
         }
-        const missing_expected_hosts = !(expected_hosts.every(item => hostnames.includes(item)));
-        const missing_hostnames = !(hostnames.every(item => expected_hosts.includes(item)));
-        if (!err_message && missing_expected_hosts) {
-            err_message = `config dir upgrade can not be started - expected_hosts missing one or more hosts specified in system.json  hosts_data=${util.inspect(hosts_data)}`;
+
+        const all_hostnames_exist_in_expected_hosts = hostnames.every(item => expected_hosts.includes(item));
+        if (!err_message && !all_hostnames_exist_in_expected_hosts) {
+            dbg.warn(`_verify_config_dir_upgrade - system.json contains one or more hosts info that are not specified in expected_hosts hosts_data=${util.inspect(hosts_data)} expected_hosts=${util.inspect(expected_hosts)}`);
         }
-        if (!err_message && missing_hostnames) {
-            err_message = `config dir upgrade can not be started - system.json missing one or more hosts info specified in expected_hosts hosts_data=${util.inspect(hosts_data)}`;
+
+        const all_expected_hosts_exist_in_system_json = expected_hosts.every(item => hostnames.includes(item));
+        if (!err_message && !all_expected_hosts_exist_in_system_json) {
+            err_message = `config dir upgrade can not be started - expected_hosts contains one or more hosts that are not specified in system.json hosts_data=${util.inspect(hosts_data)} expected_hosts=${util.inspect(expected_hosts)}`;
         }
 
         if (!err_message) {
-            for (const [host, host_data] of Object.entries(hosts_data)) {
+            for (const cur_hostname of expected_hosts) {
+                const host_data = hosts_data[cur_hostname];
                 if (!host_data.current_version || version_compare(host_data.current_version, new_version) !== 0) {
-                    err_message = `config dir upgrade can not be started until all nodes have the expected version=${new_version}, host=${host} host's current_version=${host_data.current_version}`;
+                    err_message = `config dir upgrade can not be started until all expected hosts have the expected version=${new_version}, host=${cur_hostname} host's current_version=${host_data.current_version}`;
                 }
             }
         }

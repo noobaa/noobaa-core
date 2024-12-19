@@ -818,6 +818,10 @@ interface Namespace {
 
     restore_object(params: object, object_sdk: ObjectSDK): Promise<any>;
     get_object_attributes(params: object, object_sdk: ObjectSDK): Promise<any>;
+
+    get_public_access_block(params, object_sdk: ObjectSDK): Promise<any>;
+    put_public_access_block(params, object_sdk: ObjectSDK): Promise<any>;
+    delete_public_access_block(params, object_sdk: ObjectSDK): Promise<any>;
 }
 
 interface BucketSpace {

@@ -1428,15 +1428,21 @@ module.exports = {
         },
         bucket_notification: {
             type: 'object',
-            required: ['Id', 'Connect'],
+            required: ['id', 'topic'],
             properties: {
-                Id: {
-                    type: 'string'
+                id: {
+                    type: 'array',
+                    items: {
+                        type: 'string',
+                    },
                 },
-                Connect: {
-                    type: 'string'
+                topic: {
+                    type: 'array',
+                    items: {
+                        type: 'string',
+                    },
                 },
-                Events: {
+                event: {
                     type: 'array',
                     items: {
                         type: 'string',

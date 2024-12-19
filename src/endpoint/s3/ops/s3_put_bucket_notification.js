@@ -12,14 +12,14 @@ async function put_bucket_notification(req) {
     if (!topic_configuration ||
         typeof topic_configuration !== 'object') throw new S3Error(S3Error.MalformedXML);
 
-
-    //align request aws s3api sends
-    for (const notif of topic_configuration) {
-        if (Array.isArray(notif.Id)) notif.Id = notif.Id[0];
-        notif.Connect = Array.isArray(notif.Topic) ? notif.Topic[0] : notif.Topic;
-        notif.Events = notif.Event;
-        delete notif.Event;
-        delete notif.Topic;
+    //adapt to db shcema
+    for (const conf of topic_configuration) {
+        conf.id = conf.Id;
+        conf.event = conf.Event;
+        conf.topic = conf.Topic;
+        delete conf.Id;
+        delete conf.Event;
+        delete conf.Topic;
     }
 
     const reply = await req.object_sdk.put_bucket_notification({

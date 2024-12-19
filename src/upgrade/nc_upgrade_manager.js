@@ -7,12 +7,10 @@ const path = require('path');
 const util = require('util');
 const pkg = require('../../package.json');
 const dbg = require('../util/debug_module')(__filename);
+const { CONFIG_DIR_PHASES } = require('../sdk/config_fs');
 const { should_upgrade, run_upgrade_scripts, version_compare } = require('./upgrade_utils');
 
 const hostname = os.hostname();
-
-const CONFIG_DIR_LOCKED = 'CONFIG_DIR_LOCKED';
-const CONFIG_DIR_UNLOCKED = 'CONFIG_DIR_UNLOCKED';
 // prior to 5.18.0 - there is no config dir version, the config dir version to be used on the first upgrade is 0.0.0 (5.17.0 -> 5.18.0)
 const OLD_DEFAULT_CONFIG_DIR_VERSION = '0.0.0';
 const OLD_DEFAULT_PACKAGE_VERSION = '5.17.0';
@@ -143,7 +141,7 @@ class NCUpgradeManager {
         return {
             config_dir_version: OLD_DEFAULT_CONFIG_DIR_VERSION,
             upgrade_package_version: hosts_old_package_version || OLD_DEFAULT_PACKAGE_VERSION,
-            phase: CONFIG_DIR_UNLOCKED,
+            phase: CONFIG_DIR_PHASES.CONFIG_DIR_UNLOCKED,
             upgrade_history: { successful_upgrades: [] }
         };
     }
@@ -227,7 +225,7 @@ class NCUpgradeManager {
     async _update_config_dir_upgrade_start(system_data, options) {
         const updated_config_directory = {
             ...system_data.config_directory,
-            phase: CONFIG_DIR_LOCKED,
+            phase: CONFIG_DIR_PHASES.CONFIG_DIR_LOCKED,
             config_dir_version: options.config_dir_from_version,
             upgrade_package_version: options.package_from_version,
             in_progress_upgrade: {
@@ -276,7 +274,7 @@ class NCUpgradeManager {
         const successful_upgrades = upgrade_history?.successful_upgrades || [];
 
         const updated_config_directory = {
-            phase: CONFIG_DIR_UNLOCKED,
+            phase: CONFIG_DIR_PHASES.CONFIG_DIR_UNLOCKED,
             config_dir_version: this_upgrade.config_dir_to_version,
             upgrade_package_version: this_upgrade.package_to_version,
             upgrade_history: {
@@ -305,8 +303,6 @@ class NCUpgradeManager {
 
 
 exports.NCUpgradeManager = NCUpgradeManager;
-exports.CONFIG_DIR_UNLOCKED = CONFIG_DIR_UNLOCKED;
-exports.CONFIG_DIR_LOCKED = CONFIG_DIR_LOCKED;
 exports.OLD_DEFAULT_CONFIG_DIR_VERSION = OLD_DEFAULT_CONFIG_DIR_VERSION;
 exports.OLD_DEFAULT_PACKAGE_VERSION = OLD_DEFAULT_PACKAGE_VERSION;
 exports.DEFAULT_NC_UPGRADE_SCRIPTS_DIR = DEFAULT_NC_UPGRADE_SCRIPTS_DIR;

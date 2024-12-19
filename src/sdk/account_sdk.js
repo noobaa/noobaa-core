@@ -5,7 +5,7 @@ const dbg = require('../util/debug_module')(__filename);
 const config = require('../../config');
 const { RpcError } = require('../rpc');
 const signature_utils = require('../util/signature_utils');
-const { account_cache, dn_cache } = require('./object_sdk');
+const { account_cache, dn_cache, _validate_account } = require('./object_sdk');
 const BucketSpaceNB = require('./bucketspace_nb');
 const AccountSpaceFS = require('./accountspace_fs');
 
@@ -52,6 +52,7 @@ class AccountSDK {
             this.requesting_account = await account_cache.get_with_cache({
                 bucketspace: this._get_bucketspace(),
                 access_key: token.access_key,
+                validation_callback: _validate_account
             });
             if (this.requesting_account?.nsfs_account_config?.distinguished_name) {
                 const distinguished_name = this.requesting_account.nsfs_account_config.distinguished_name.unwrap();

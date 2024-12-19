@@ -18,7 +18,7 @@ const config_dir_name = 'nc_coretest_config_root_path';
 const master_key_location = `${TMP_PATH}/${config_dir_name}/master_keys.json`;
 const NC_CORETEST_CONFIG_DIR_PATH = `${TMP_PATH}/${config_dir_name}`;
 process.env.DEBUG_MODE = 'true';
-process.env.ACCOUNTS_CACHE_EXPIRY = '1';
+// process.env.ACCOUNTS_CACHE_EXPIRY = '1'; In NC we check if the config file was changed as validation
 process.env.NC_CORETEST = 'true';
 
 require('../../util/dotenv').load();

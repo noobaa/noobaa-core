@@ -5,7 +5,7 @@ const cloud_utils = require('../util/cloud_utils');
 const dbg = require('../util/debug_module')(__filename);
 const { RpcError } = require('../rpc');
 const signature_utils = require('../util/signature_utils');
-const { account_cache } = require('./object_sdk');
+const { account_cache, _validate_account } = require('./object_sdk');
 const BucketSpaceNB = require('./bucketspace_nb');
 
 class StsSDK {
@@ -41,6 +41,7 @@ class StsSDK {
             this.requesting_account = await account_cache.get_with_cache({
                 bucketspace: this._get_bucketspace(),
                 access_key: token.access_key,
+                validation_callback: _validate_account
             });
         } catch (error) {
             dbg.error('authorize_request_account error:', error);
@@ -61,6 +62,7 @@ class StsSDK {
         const account = await account_cache.get_with_cache({
             bucketspace: this._get_bucketspace(),
             access_key: access_key,
+            validation_callback: _validate_account
         });
         if (!account) {
             throw new RpcError('NO_SUCH_ACCOUNT', 'No such account with access_key: ' + access_key);
@@ -70,7 +72,6 @@ class StsSDK {
         }
         dbg.log0('sts_sdk.get_assumed_role res', account,
             'account.role_config: ', account.role_config);
-
         return {
             access_key,
             role_config: account.role_config

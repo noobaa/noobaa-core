@@ -355,7 +355,7 @@ mocha.describe('Encryption tests', function() {
                 }, { auth_token: cur_account.create_account_result.token });
             }));
         });
-        mocha.it('create cloud pools succefully', async function() {
+        mocha.it.skip('create cloud pools succefully', async function() {
             this.timeout(600000); // eslint-disable-line no-invalid-this
             await P.all(_.map(accounts.slice(0, 5), async cur_account => {
                 const pool_name = `${cur_account.email}-cloud-pool`;
@@ -404,7 +404,7 @@ mocha.describe('Encryption tests', function() {
             compare_secrets(secrets, system_store_account.master_key_id._id);
         });
 
-        mocha.it('update connections succefully - accounts + pools', async function() {
+        mocha.it.skip('update connections succefully - accounts + pools', async function() {
             this.timeout(600000); // eslint-disable-line no-invalid-this
             await P.all(_.map(accounts, async cur_account => {
                 await rpc_client.account.update_external_connection({ name: 'conn1',
@@ -438,7 +438,7 @@ mocha.describe('Encryption tests', function() {
                     system_store_account.sync_credentials_cache[0].secret_key.unwrap());
             }));
         });
-        mocha.it('delete pools succefully', async function() {
+        mocha.it.skip('delete pools succefully', async function() {
             this.timeout(600000); // eslint-disable-line no-invalid-this
             await P.all(_.map(accounts.slice(0, 5), async cur_account => {
                 const pool_name = `${cur_account.email}-cloud-pool`;

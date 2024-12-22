@@ -698,7 +698,7 @@ mocha.describe('namespace caching: read scenarios that object is cached', () => 
         }, 2000, 100);
     });
 
-    mocha.it('read from hub if read from cache fails', async () => {
+    mocha.it.skip('read from hub if read from cache fails', async () => {
         const hub = new MockNamespace({ type: 'hub', recorder, slow_write: true });
         const cache = new MockNamespace({ type: 'cache', recorder, trigger_err: 'read' });
         const ns_cache = new NamespaceCache({

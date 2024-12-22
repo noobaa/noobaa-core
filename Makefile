@@ -231,7 +231,7 @@ run-single-test: tester
 	@$(call run_mongo)
 	@$(call run_blob_mock)
 	@echo "\033[1;34mRunning tests\033[0m"
-	$(CONTAINER_ENGINE) run $(CPUSET) --network noobaa-net --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) --env "SUPPRESS_LOGS=$(SUPPRESS_LOGS)" --env "DB_TYPE=mongodb" --env "MONGODB_URL=mongodb://noobaa:noobaa@coretest-mongo-$(GIT_COMMIT)-$(NAME_POSTFIX)" --env "BLOB_HOST=blob-mock-$(GIT_COMMIT)-$(NAME_POSTFIX)" $(TESTER_TAG) ./src/test/unit_tests/run_npm_test_on_test_container.sh -s $(testname)
+	$(CONTAINER_ENGINE) run $(CPUSET) --network noobaa-net --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) --env "SUPPRESS_LOGS=$(SUPPRESS_LOGS)" --env "DB_TYPE=mongodb" --env "MONGODB_URL=mongodb://noobaa:noobaa@coretest-mongo-$(GIT_COMMIT)-$(NAME_POSTFIX)" --env "BLOB_HOST=blob-mock-$(GIT_COMMIT)-$(NAME_POSTFIX)" --env "NOOBAA_LOG_LEVEL=all" $(TESTER_TAG) ./src/test/unit_tests/run_npm_test_on_test_container.sh -s $(testname)
 	@$(call stop_noobaa)
 	@$(call stop_blob_mock)
 	@$(call stop_mongo)

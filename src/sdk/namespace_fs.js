@@ -1086,7 +1086,10 @@ class NamespaceFS {
                 const bytesRead = await file.read(fs_context, buffer, 0, read_size, pos);
                 if (!bytesRead) {
                     buffer_pool_cleanup = null;
+                    const start_time = performance.now();
                     callback();
+                    const end_time = performance.now();
+                    dbg.log2(`get_buffer: Time taken to execute callback is ${end_time - start_time} ms.`);
                     break;
                 }
                 object_sdk.throw_if_aborted();
@@ -1111,15 +1114,22 @@ class NamespaceFS {
 
                 // wait for response buffer to drain before adding more data if needed -
                 // this occurs when the output network is slower than the input file
+                const start_time_drain_promise = performance.now();
                 if (drain_promise) {
+                    dbg.log2('iniside condition: drain_promise');
                     await drain_promise;
                     drain_promise = null;
                     object_sdk.throw_if_aborted();
                 }
+                const end_time_drain_promise = performance.now();
+                dbg.log2(`drain_promise: Time taken to execute is ${end_time_drain_promise - start_time_drain_promise} ms.`);
 
                 // write the data out to response
                 buffer_pool_cleanup = null; // cleanup is now in the socket responsibility
+                const start_time_write = performance.now();
                 const write_ok = res.write(data, null, callback);
+                const end_time_write = performance.now();
+                dbg.log2(`write to socket: Time taken to execute is ${end_time_write - start_time_write} ms.`);
                 if (!write_ok) {
                     drain_promise = stream_utils.wait_drain(res, { signal: object_sdk.abort_controller.signal });
                     drain_promise.catch(() => undefined); // this avoids UnhandledPromiseRejection
@@ -1132,6 +1142,7 @@ class NamespaceFS {
 
             // wait for the last drain if pending.
             if (drain_promise) {
+                dbg.log2('iniside condition2 (last drain): drain_promise');
                 await drain_promise;
                 drain_promise = null;
                 object_sdk.throw_if_aborted();

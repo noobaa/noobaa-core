@@ -2240,9 +2240,14 @@ register_gpfs_noobaa(const Napi::CallbackInfo& info)
 static Napi::Value
 dio_buffer_alloc(const Napi::CallbackInfo& info)
 {
+    auto start_time = std::chrono::high_resolution_clock::now();
+    double _took_time;
     int size = info[0].As<Napi::Number>();
     uint8_t* buf = 0;
     int r = posix_memalign((void**)&buf, DIO_BUFFER_MEMALIGN, size);
+    auto end_time = std::chrono::high_resolution_clock::now();
+    _took_time = std::chrono::duration<double, std::milli>(end_time - start_time).count();
+    DBG2("dio_buffer_alloc took: " << _took_time << " ms");
     if (r || (!buf && size > 0)) {
         throw Napi::Error::New(info.Env(), "FS::dio_buffer_alloc: failed to allocate memory");
     }

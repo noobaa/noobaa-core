@@ -28,7 +28,7 @@ jobs:
       - name: Build noobaa
         run: |
           cd ./noobaa-core
-          make noobaa NOOBAA_TAG=noobaa-core:master
+          make noobaa NOOBAA_TAG=noobaa-core:${{ env.BRANCH_NAME || 'master' }}
 
       - name: Checkout noobaa-core (latest)
         uses: actions/checkout@v4
@@ -67,7 +67,7 @@ jobs:
           --db-resources='{ "limits": {"cpu": "200m","memory": "2G"}, "requests": {"cpu": "200m","memory": "2G"}}' \
           --core-resources='{ "limits": {"cpu": "200m","memory": "1G"}, "requests": {"cpu": "200m","memory": "1G"}}' \
           --endpoint-resources='{ "limits": {"cpu": "200m","memory": "1G"}, "requests": {"cpu": "200m","memory": "1G"}}' \
-          --noobaa-image='noobaa-core:master'
+          --noobaa-image='noobaa-core:${{ env.BRANCH_NAME || 'master' }}'
           ./build/_output/bin/noobaa-operator status
 
       - name: Wait for phase Ready in the backingstore pod

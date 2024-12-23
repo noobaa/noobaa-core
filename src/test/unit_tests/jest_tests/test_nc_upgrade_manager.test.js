@@ -282,7 +282,7 @@ describe('nc upgrade manager - upgrade config directory', () => {
 
         it('_verify_config_dir_upgrade - empty host current_version', async () => {
             const system_data = { [hostname]: []};
-            const expected_err_msg = `config dir upgrade can not be started until all nodes have the expected version=${pkg.version}, host=${hostname} host's current_version=undefined`;
+            const expected_err_msg = `config dir upgrade can not be started until all expected hosts have the expected version=${pkg.version}, host=${hostname} host's current_version=undefined`;
             await expect(nc_upgrade_manager._verify_config_dir_upgrade(system_data, pkg.version, [hostname]))
                 .rejects.toThrow(expected_err_msg);
         });
@@ -290,7 +290,7 @@ describe('nc upgrade manager - upgrade config directory', () => {
         it('_verify_config_dir_upgrade - host current_version < new_version should upgrade RPM', async () => {
             const old_version = '5.16.0';
             const system_data = { [hostname]: { current_version: old_version }, other_hostname: { current_version: pkg.version } };
-            const expected_err_msg = `config dir upgrade can not be started until all nodes have the expected version=${pkg.version}, host=${hostname} host's current_version=${old_version}`;
+            const expected_err_msg = `config dir upgrade can not be started until all expected hosts have the expected version=${pkg.version}, host=${hostname} host's current_version=${old_version}`;
             await expect(nc_upgrade_manager._verify_config_dir_upgrade(system_data, pkg.version, [hostname, 'other_hostname']))
                 .rejects.toThrow(expected_err_msg);
         });
@@ -298,7 +298,7 @@ describe('nc upgrade manager - upgrade config directory', () => {
         it('_verify_config_dir_upgrade - host current_version > new_version should upgrade RPM', async () => {
             const newer_version = pkg.version + '.1';
             const system_data = { [hostname]: { current_version: newer_version }, other_hostname: { current_version: pkg.version } };
-            const expected_err_msg = `config dir upgrade can not be started until all nodes have the expected version=${pkg.version}, host=${hostname} host's current_version=${newer_version}`;
+            const expected_err_msg = `config dir upgrade can not be started until all expected hosts have the expected version=${pkg.version}, host=${hostname} host's current_version=${newer_version}`;
             await expect(nc_upgrade_manager._verify_config_dir_upgrade(system_data, pkg.version, [hostname, 'other_hostname']))
                 .rejects.toThrow(expected_err_msg);
         });

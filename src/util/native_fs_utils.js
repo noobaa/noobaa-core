@@ -660,6 +660,7 @@ function get_bucket_tmpdir_full_path(bucket_path, bucket_id) {
 /**
  * translate_error_codes we translate FS error codes to rpc_codes (strings)
  * and add the rpc_code property to the original error object
+ * default rpc_code is internal error
  * @param {object} err
  * @param {('OBJECT'|'BUCKET'|'USER'|'ACCESS_KEY')} entity
  */
@@ -671,7 +672,7 @@ function translate_error_codes(err, entity) {
     if (err.code === 'EEXIST') err.rpc_code = `${entity}_ALREADY_EXISTS`;
     if (err.code === 'EPERM' || err.code === 'EACCES') err.rpc_code = 'UNAUTHORIZED';
     if (err.code === 'IO_STREAM_ITEM_TIMEOUT') err.rpc_code = 'IO_STREAM_ITEM_TIMEOUT';
-    if (err.code === 'INTERNAL_ERROR') err.rpc_code = 'INTERNAL_ERROR';
+    if (err.code === 'INTERNAL_ERROR' || !err.rpc_code) err.rpc_code = 'INTERNAL_ERROR';
     return err;
 }
 

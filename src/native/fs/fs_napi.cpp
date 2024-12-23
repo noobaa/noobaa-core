@@ -538,6 +538,43 @@ load_xattr_get_keys(Napi::Object& options, std::vector<std::string>& _xattr_get_
 }
 
 /**
+* converts Napi::Array of numbers to std::vector
+* typename T - type of the vector to convert to (e.g int, uint, gid_t)
+* warning: function will only work on vector with numeric types. should not be used with other types
+*/
+template<typename T>
+static std::vector<T>
+convert_napi_number_array_to_number_vector(const Napi::Array& arr) {
+    std::vector<T> new_vector;
+    const std::size_t arr_length = arr.Length();
+    for (std::size_t i = 0; i < arr_length; ++i) {
+        new_vector.push_back(static_cast<Napi::Value>(arr[i]).ToNumber());
+    }
+    return new_vector;
+}
+
+/**
+ * converts std::vector to comma seperated string so it can be printed to logs
+ */
+template<typename T>
+static std::string
+stringfy_vector(std::vector<T>& vec) {
+    std::stringstream ss;
+    std::size_t size = vec.size();
+    for(std::size_t i = 0; i < size; ++i) {
+        if (i > 0) ss << ',';
+        ss << vec[i];
+    }
+    return ss.str();
+}
+
+
+static std::string get_groups_as_string() {
+    std::vector<gid_t> groups = ThreadScope::get_process_groups();
+    return stringfy_vector(groups);
+}
+
+/**
  * FSWorker is a general async worker for our fs operations
  */
 struct FSWorker : public Napi::AsyncWorker
@@ -560,6 +597,7 @@ struct FSWorker : public Napi::AsyncWorker
     double _took_time;
     Napi::FunctionReference _report_fs_stats;
     bool _should_add_thread_capabilities;
+    std::vector<gid_t> _supplemental_groups;
 
     // executes the ctime check in the stat and read file fuctions
     // NOTE: If _do_ctime_check = false, then some functions will fallback to using mtime check
@@ -576,6 +614,7 @@ struct FSWorker : public Napi::AsyncWorker
         , _warn_threshold_ms(0)
         , _took_time(0)
         , _should_add_thread_capabilities(false)
+        , _supplemental_groups()
         , _do_ctime_check(false)
     {
         for (int i = 0; i < (int)info.Length(); ++i) _args_ref.Set(i, info[i]);
@@ -585,6 +624,9 @@ struct FSWorker : public Napi::AsyncWorker
             if (fs_context.Get("gid").IsNumber()) _gid = fs_context.Get("gid").ToNumber();
             if (fs_context.Get("backend").ToBoolean()) {
                 _backend = fs_context.Get("backend").ToString();
+            }
+            if (fs_context.Has("supplemental_groups")) {
+                _supplemental_groups = convert_napi_number_array_to_number_vector<gid_t>(fs_context.Get("supplemental_groups").As<Napi::Array>());
             }
             if (fs_context.Get("warn_threshold_ms").ToBoolean()) {
                 _warn_threshold_ms = fs_context.Get("warn_threshold_ms").ToNumber();
@@ -604,10 +646,12 @@ struct FSWorker : public Napi::AsyncWorker
     virtual void Work() = 0;
     void Execute() override
     {
-        DBG1("FS::FSWorker::Execute: " << _desc << DVAL(_uid) << DVAL(_gid) << DVAL(_backend));
+        const std::string supplemental_groups = stringfy_vector(_supplemental_groups);
+        DBG1("FS::FSWorker::Execute: " << _desc << DVAL(_uid) << DVAL(_gid) << DVAL(_backend) << DVAL(supplemental_groups));
         ThreadScope tx;
-        tx.set_user(_uid, _gid);
-        DBG1("FS::FSWorker::Execute: " << _desc << DVAL(_uid) << DVAL(_gid) << DVAL(geteuid()) << DVAL(getegid()) << DVAL(getuid()) << DVAL(getgid()));
+        tx.set_user(_uid, _gid, _supplemental_groups);
+        std::string new_supplemental_groups = get_groups_as_string();
+        DBG1("FS::FSWorker::Execute: " << _desc << DVAL(_uid) << DVAL(_gid) << DVAL(geteuid()) << DVAL(getegid()) << DVAL(getuid()) << DVAL(getgid()) << DVAL(new_supplemental_groups));
 
         if(_should_add_thread_capabilities) {
             tx.add_thread_capabilities();

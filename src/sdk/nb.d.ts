@@ -1032,6 +1032,7 @@ interface NativeFSContext {
     uid?: number;
     gid?: number;
     backend?: string;
+    supplemental_groups?: number[];
     warn_threshold_ms?: number;
     report_fs_stats?: Function;
     do_ctime_check?: boolean;

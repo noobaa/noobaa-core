@@ -824,7 +824,8 @@ interface BucketSpace {
 
     read_account_by_access_key({ access_key: string }): Promise<any>;
     read_bucket_sdk_info({ name: string }): Promise<any>;
-    check_same_stat(bucket_name: string, bucket_stat:  nb.NativeFSStats); // only implemented in bucketspace_fs
+    check_same_stat_bucket(bucket_name: string, bucket_stat:  nb.NativeFSStats); // only implemented in bucketspace_fs
+    check_same_stat_account(account_name: string|Symbol, account_stat:  nb.NativeFSStats); // only implemented in bucketspace_fs
 
     list_buckets(params: object, object_sdk: ObjectSDK): Promise<any>;
     read_bucket(params: object): Promise<any>;

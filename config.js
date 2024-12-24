@@ -637,9 +637,14 @@ config.INLINE_MAX_SIZE = 4096;
 
 // Object SDK bucket cache expiration time
 config.OBJECT_SDK_BUCKET_CACHE_EXPIRY_MS = 60000;
+// Object SDK account cache expiration time
+config.OBJECT_SDK_ACCOUNT_CACHE_EXPIRY_MS = Number(process.env.ACCOUNTS_CACHE_EXPIRY) || 10 * 60 * 1000; // TODO: Decide on a time that we want to invalidate
+
 
 // Object SDK bucket_namespace_cache allow stat of the config file
 config.NC_ENABLE_BUCKET_NS_CACHE_STAT_VALIDATION = true;
+// Object SDK account_cache allow stat of the config file
+config.NC_ENABLE_ACCOUNT_CACHE_STAT_VALIDATION = true;
 
 //////////////////////////////
 // OPERATOR RELATED         //
@@ -898,7 +903,8 @@ config.NSFS_NC_CONFIG_DIR_BACKEND = '';
 config.NSFS_NC_STORAGE_BACKEND = '';
 config.ENDPOINT_PORT = Number(process.env.ENDPOINT_PORT) || 6001;
 config.ENDPOINT_SSL_PORT = Number(process.env.ENDPOINT_SSL_PORT) || 6443;
-config.ENDPOINT_SSL_STS_PORT = Number(process.env.ENDPOINT_SSL_STS_PORT) || -1;
+// Remove the NSFS condition when NSFS starts to support STS.
+config.ENDPOINT_SSL_STS_PORT = Number(process.env.ENDPOINT_SSL_STS_PORT) || (process.env.NC_NSFS_NO_DB_ENV === 'true' ? -1 : 7443);
 config.ENDPOINT_SSL_IAM_PORT = Number(process.env.ENDPOINT_SSL_IAM_PORT) || -1;
 config.ALLOW_HTTP = false;
 // config files should allow access to the owner of the files

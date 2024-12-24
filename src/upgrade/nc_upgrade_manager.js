@@ -7,12 +7,10 @@ const path = require('path');
 const util = require('util');
 const pkg = require('../../package.json');
 const dbg = require('../util/debug_module')(__filename);
+const { CONFIG_DIR_PHASES } = require('../sdk/config_fs');
 const { should_upgrade, run_upgrade_scripts, version_compare } = require('./upgrade_utils');
 
 const hostname = os.hostname();
-
-const CONFIG_DIR_LOCKED = 'CONFIG_DIR_LOCKED';
-const CONFIG_DIR_UNLOCKED = 'CONFIG_DIR_UNLOCKED';
 // prior to 5.18.0 - there is no config dir version, the config dir version to be used on the first upgrade is 0.0.0 (5.17.0 -> 5.18.0)
 const OLD_DEFAULT_CONFIG_DIR_VERSION = '0.0.0';
 const OLD_DEFAULT_PACKAGE_VERSION = '5.17.0';
@@ -143,7 +141,7 @@ class NCUpgradeManager {
         return {
             config_dir_version: OLD_DEFAULT_CONFIG_DIR_VERSION,
             upgrade_package_version: hosts_old_package_version || OLD_DEFAULT_PACKAGE_VERSION,
-            phase: CONFIG_DIR_UNLOCKED,
+            phase: CONFIG_DIR_PHASES.CONFIG_DIR_UNLOCKED,
             upgrade_history: { successful_upgrades: [] }
         };
     }
@@ -154,11 +152,11 @@ class NCUpgradeManager {
      * 2. The user's expected_version is the host's package version - 
      *    expected_version is the expected source code version that the user asks to upgrade to, it's an optional verification, 
      *    if expected_version was not provided we assume that the source code on this host is 
-     * 3. TODO? - verifies a backup confirmation of the config directory received by the user/location exists
-     * updated and that the source code version and the schema version is the one we want to upgrade to
-     * QUESTION -
-     * 3. should we verify a backup, by stat of the backup location just have a confirmation of the user in the CLI
-     * 4. are there more verifications we should do?
+     * 3. The user's expected_hosts exist in system.json
+     * 4. If there are hosts in system.json that ere not provided in the expected_hosts we will print a warning but won't fail
+     * we do that because of hostname can be renamed, hosts that are on maintainance and we don't want to block the upgrade becuase it might take a lot of time,
+     * or because of hosts that used to be a part of the cluster and they were removed from the cluster, we don't get the updated info of the hosts on system.json 
+     * therefore we can not treat the system.json as the source of truth of the hosts information
      * @param {Object} system_data
      * @param {String} expected_version
      * @param {[String]} expected_hosts
@@ -176,22 +174,30 @@ class NCUpgradeManager {
         if (!err_message && !hostnames.length) {
             err_message = `config dir upgrade can not be started missing hosts_data hosts_data=${util.inspect(hosts_data)}`;
         }
-        const missing_expected_hosts = !(expected_hosts.every(item => hostnames.includes(item)));
-        const missing_hostnames = !(hostnames.every(item => expected_hosts.includes(item)));
-        if (!err_message && missing_expected_hosts) {
-            err_message = `config dir upgrade can not be started - expected_hosts missing one or more hosts specified in system.json  hosts_data=${util.inspect(hosts_data)}`;
+
+        const all_hostnames_exist_in_expected_hosts = hostnames.every(item => expected_hosts.includes(item));
+        if (!all_hostnames_exist_in_expected_hosts) {
+            dbg.warn(`_verify_config_dir_upgrade - system.json contains one or more hosts info that are not specified in expected_hosts: hosts_data=${util.inspect(hosts_data)} expected_hosts=${util.inspect(expected_hosts)}`);
         }
-        if (!err_message && missing_hostnames) {
-            err_message = `config dir upgrade can not be started - system.json missing one or more hosts info specified in expected_hosts hosts_data=${util.inspect(hosts_data)}`;
+
+        const all_expected_hosts_exist_in_system_json = expected_hosts.every(item => hostnames.includes(item));
+        if (!err_message && !all_expected_hosts_exist_in_system_json) {
+            err_message = `config dir upgrade can not be started - expected_hosts contains one or more hosts that are not specified in system.json hosts_data=${util.inspect(hosts_data)} expected_hosts=${util.inspect(expected_hosts)}`;
         }
 
         if (!err_message) {
-            for (const [host, host_data] of Object.entries(hosts_data)) {
+            for (const cur_hostname of expected_hosts) {
+                const host_data = hosts_data[cur_hostname];
                 if (!host_data.current_version || version_compare(host_data.current_version, new_version) !== 0) {
-                    err_message = `config dir upgrade can not be started until all nodes have the expected version=${new_version}, host=${host} host's current_version=${host_data.current_version}`;
+                    err_message = `config dir upgrade can not be started until all expected hosts have the expected version=${new_version}, host=${cur_hostname} host's current_version=${host_data.current_version}`;
                 }
             }
         }
+
+        if (!err_message && system_data.config_directory?.in_progress_upgrade) {
+            err_message = `config dir upgrade can not be started - there is already an ongoing upgrade system_data.config_directory.in_progess_upgrade=${util.inspect(system_data.config_directory.in_progress_upgrade)}`;
+        }
+
         if (err_message) {
             dbg.error(`_verify_config_dir_upgrade: ${err_message}`);
             throw new Error(err_message);
@@ -219,7 +225,7 @@ class NCUpgradeManager {
     async _update_config_dir_upgrade_start(system_data, options) {
         const updated_config_directory = {
             ...system_data.config_directory,
-            phase: CONFIG_DIR_LOCKED,
+            phase: CONFIG_DIR_PHASES.CONFIG_DIR_LOCKED,
             config_dir_version: options.config_dir_from_version,
             upgrade_package_version: options.package_from_version,
             in_progress_upgrade: {
@@ -268,7 +274,7 @@ class NCUpgradeManager {
         const successful_upgrades = upgrade_history?.successful_upgrades || [];
 
         const updated_config_directory = {
-            phase: CONFIG_DIR_UNLOCKED,
+            phase: CONFIG_DIR_PHASES.CONFIG_DIR_UNLOCKED,
             config_dir_version: this_upgrade.config_dir_to_version,
             upgrade_package_version: this_upgrade.package_to_version,
             upgrade_history: {
@@ -297,8 +303,6 @@ class NCUpgradeManager {
 
 
 exports.NCUpgradeManager = NCUpgradeManager;
-exports.CONFIG_DIR_UNLOCKED = CONFIG_DIR_UNLOCKED;
-exports.CONFIG_DIR_LOCKED = CONFIG_DIR_LOCKED;
 exports.OLD_DEFAULT_CONFIG_DIR_VERSION = OLD_DEFAULT_CONFIG_DIR_VERSION;
 exports.OLD_DEFAULT_PACKAGE_VERSION = OLD_DEFAULT_PACKAGE_VERSION;
 exports.DEFAULT_NC_UPGRADE_SCRIPTS_DIR = DEFAULT_NC_UPGRADE_SCRIPTS_DIR;

@@ -168,10 +168,13 @@ nbdev:
 rpm: builder
 	echo "\033[1;34mStarting RPM build for $${CONTAINER_PLATFORM}.\033[0m"
 	mkdir -p build/rpm
+	$(CONTAINER_ENGINE) rm -f noobaa-rpm-build-env
 	$(CONTAINER_ENGINE) build $(CONTAINER_PLATFORM_FLAG) $(CPUSET) -f src/deploy/RPM_build/RPM.Dockerfile $(CACHE_FLAG) -t $(NOOBAA_RPM_TAG) --build-arg CENTOS_VER=$(CENTOS_VER) --build-arg BUILD_S3SELECT=$(BUILD_S3SELECT) --build-arg BUILD_S3SELECT_PARQUET=$(BUILD_S3SELECT_PARQUET) --build-arg SRPM_ONLY=$(SRPM_ONLY) --build-arg GIT_COMMIT=$(GIT_COMMIT) . $(REDIRECT_STDOUT)
 	echo "\033[1;32mImage \"$(NOOBAA_RPM_TAG)\" is ready.\033[0m"
 	echo "Generating RPM..."
-	$(CONTAINER_ENGINE) run --rm -v $(PWD)/build/rpm:/export:z -t $(NOOBAA_RPM_TAG)
+	$(CONTAINER_ENGINE) run --name noobaa-rpm-build-env -t $(NOOBAA_RPM_TAG)
+	mkdir -p $(PWD)/build/rpm && $(CONTAINER_ENGINE) cp noobaa-rpm-build-env:/export/. $(PWD)/build/rpm/
+	$(CONTAINER_ENGINE) rm -f noobaa-rpm-build-env
 	echo "\033[1;32mRPM for platform \"$(NOOBAA_RPM_TAG)\" is ready in build/rpm.\033[0m";
 .PHONY: rpm
 
@@ -228,7 +231,7 @@ run-single-test: tester
 	@$(call run_mongo)
 	@$(call run_blob_mock)
 	@echo "\033[1;34mRunning tests\033[0m"
-	$(CONTAINER_ENGINE) run $(CPUSET) --network noobaa-net --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) --env "SUPPRESS_LOGS=$(SUPPRESS_LOGS)" --env "DB_TYPE=mongodb" --env "MONGODB_URL=mongodb://noobaa:noobaa@coretest-mongo-$(GIT_COMMIT)-$(NAME_POSTFIX)" --env "BLOB_HOST=blob-mock-$(GIT_COMMIT)-$(NAME_POSTFIX)" $(TESTER_TAG) ./src/test/unit_tests/run_npm_test_on_test_container.sh -s $(testname)
+	$(CONTAINER_ENGINE) run $(CPUSET) --network noobaa-net --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) --env "SUPPRESS_LOGS=$(SUPPRESS_LOGS)" --env "DB_TYPE=mongodb" --env "MONGODB_URL=mongodb://noobaa:noobaa@coretest-mongo-$(GIT_COMMIT)-$(NAME_POSTFIX)" --env "BLOB_HOST=blob-mock-$(GIT_COMMIT)-$(NAME_POSTFIX)" --env "NOOBAA_LOG_LEVEL=all" $(TESTER_TAG) ./src/test/unit_tests/run_npm_test_on_test_container.sh -s $(testname)
 	@$(call stop_noobaa)
 	@$(call stop_blob_mock)
 	@$(call stop_mongo)

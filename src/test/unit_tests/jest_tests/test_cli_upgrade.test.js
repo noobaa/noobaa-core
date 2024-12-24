@@ -14,6 +14,7 @@ const { TMP_PATH, exec_manage_cli, clean_config_dir, fail_test_if_default_config
 const { ManageCLIError } = require('../../../manage_nsfs/manage_nsfs_cli_errors');
 const { ManageCLIResponse } = require('../../../manage_nsfs/manage_nsfs_cli_responses');
 const { TYPES, UPGRADE_ACTIONS } = require('../../../manage_nsfs/manage_nsfs_constants');
+const { CONFIG_DIR_PHASES } = require('../../../sdk/config_fs');
 
 const config_root = path.join(TMP_PATH, 'config_root_cli_upgrade_test');
 const config_fs = new ConfigFS(config_root);
@@ -73,7 +74,7 @@ const old_expected_system_json2 = {
     config_directory: {
         'config_dir_version': '1.0.0',
         'upgrade_package_version': '5.18.0',
-        'phase': 'CONFIG_DIR_UNLOCKED',
+        'phase': CONFIG_DIR_PHASES.CONFIG_DIR_UNLOCKED,
         'upgrade_history': {
             'successful_upgrades': [
                 {
@@ -102,7 +103,7 @@ const old_expected_system_json5 = {
     config_directory: {
         'config_dir_version': '0.0.0',
         'upgrade_package_version': '5.17.0',
-        'phase': 'CONFIG_DIR_UNLOCKED',
+        'phase': CONFIG_DIR_PHASES.CONFIG_DIR_UNLOCKED,
         'upgrade_history': {
             'successful_upgrades': [
                 {
@@ -130,7 +131,7 @@ const new_expected_system_json = {
     },
     config_directory: {
         'config_dir_version': '1.0.0',
-        'phase': 'CONFIG_DIR_UNLOCKED',
+        'phase': CONFIG_DIR_PHASES.CONFIG_DIR_UNLOCKED,
         'upgrade_history': {
             'successful_upgrades': [
                 {
@@ -164,7 +165,7 @@ const new_expected_system_json = {
 //     },
 //     config_directory: {
 //         'config_dir_version': '1',
-//         'phase': 'CONFIG_DIR_UNLOCKED',
+//         'phase': CONFIG_DIR_PHASES.CONFIG_DIR_UNLOCKED,
 //         'upgrade_history': {
 //             'successful_upgrades': [
 //                 {
@@ -282,23 +283,22 @@ describe('noobaa cli - upgrade', () => {
         const res = await exec_manage_cli(TYPES.UPGRADE, UPGRADE_ACTIONS.START, { config_root, expected_version: pkg.version, expected_hosts: `${hostname},bla1,bla2` }, true);
         const parsed_res = JSON.parse(res.stdout);
         expect(parsed_res.error.message).toBe(ManageCLIError.UpgradeFailed.message);
-        expect(parsed_res.error.cause).toContain('config dir upgrade can not be started - expected_hosts missing one or more hosts specified in system.json  hosts_data=');
+        expect(parsed_res.error.cause).toContain('config dir upgrade can not be started - expected_hosts contains one or more hosts that are not specified in system.json hosts_data=');
     });
 
-    it('upgrade start - should fail on missing system.json hosts in expected_hosts', async () => {
+    it('upgrade start - should succeed although system.json contains extra hosts than specified in expected_hosts', async () => {
         await fs_utils.replace_file(config_fs.system_json_path, JSON.stringify(invalid_hostname_system_json));
         const res = await exec_manage_cli(TYPES.UPGRADE, UPGRADE_ACTIONS.START, { config_root, expected_version: pkg.version, expected_hosts: `${hostname}` }, true);
-        const parsed_res = JSON.parse(res.stdout);
-        expect(parsed_res.error.message).toBe(ManageCLIError.UpgradeFailed.message);
-        expect(parsed_res.error.cause).toContain('config dir upgrade can not be started - system.json missing one or more hosts info specified in expected_hosts hosts_data');
+        const parsed_res = JSON.parse(res);
+        expect(parsed_res.response.code).toBe(ManageCLIResponse.UpgradeSuccessful.code);
     });
 
-    it('upgrade start - should fail on missing system.json hosts in expected_hosts1', async () => {
+    it('upgrade start - should succeed although on missing system.json hosts in expected_hosts with comma', async () => {
+        // we set intentionally comma at the end so we will test we know how to parse it
         await fs_utils.replace_file(config_fs.system_json_path, JSON.stringify(invalid_hostname_system_json));
         const res = await exec_manage_cli(TYPES.UPGRADE, UPGRADE_ACTIONS.START, { config_root, expected_version: pkg.version, expected_hosts: `${hostname},` }, true);
-        const parsed_res = JSON.parse(res.stdout);
-        expect(parsed_res.error.message).toBe(ManageCLIError.UpgradeFailed.message);
-        expect(parsed_res.error.cause).toContain('config dir upgrade can not be started - system.json missing one or more hosts info specified in expected_hosts hosts_data');
+        const parsed_res = JSON.parse(res);
+        expect(parsed_res.response.code).toBe(ManageCLIResponse.UpgradeSuccessful.code);
     });
 
     it('upgrade start - should fail expected_version invalid', async () => {
@@ -316,7 +316,7 @@ describe('noobaa cli - upgrade', () => {
         const res = await exec_manage_cli(TYPES.UPGRADE, UPGRADE_ACTIONS.START, options, true);
         const parsed_res = JSON.parse(res.stdout);
         expect(parsed_res.error.message).toBe(ManageCLIError.UpgradeFailed.message);
-        expect(parsed_res.error.cause).toContain('config dir upgrade can not be started until all nodes have the expected version');
+        expect(parsed_res.error.cause).toContain('config dir upgrade can not be started until all expected hosts have the expected version');
     });
 
     it('upgrade start - should fail - RPM version is higher than source code version', async () => {
@@ -326,7 +326,7 @@ describe('noobaa cli - upgrade', () => {
         const res = await exec_manage_cli(TYPES.UPGRADE, UPGRADE_ACTIONS.START, options, true);
         const parsed_res = JSON.parse(res.stdout);
         expect(parsed_res.error.code).toBe(ManageCLIError.UpgradeFailed.code);
-        expect(parsed_res.error.cause).toContain('config dir upgrade can not be started until all nodes have the expected');
+        expect(parsed_res.error.cause).toContain('config dir upgrade can not be started until all expected hosts have the expected');
         const system_data_after_upgrade = await config_fs.get_system_config_file();
         // check that in the hostname section nothing changed
         expect(system_data_before_upgrade[hostname]).toStrictEqual(system_data_after_upgrade[hostname]);

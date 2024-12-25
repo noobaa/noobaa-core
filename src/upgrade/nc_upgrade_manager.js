@@ -2,7 +2,6 @@
 "use strict";
 
 const os = require('os');
-const _ = require('lodash');
 const path = require('path');
 const util = require('util');
 const pkg = require('../../package.json');
@@ -74,6 +73,7 @@ class NCUpgradeManager {
 
         const this_upgrade = { timestamp: Date.now(), from_version, to_version };
         system_data[hostname].current_version = to_version;
+        system_data[hostname].config_dir_version = this.config_fs.config_dir_version;
         system_data[hostname]?.upgrade_history?.successful_upgrades.unshift(this_upgrade);
         await this.config_fs.update_system_json_with_retries(JSON.stringify(system_data));
     }
@@ -164,7 +164,7 @@ class NCUpgradeManager {
      */
     async _verify_config_dir_upgrade(system_data, expected_version, expected_hosts) {
         const new_version = this.package_version;
-        const hosts_data = _.omit(system_data, 'config_directory');
+        const hosts_data = this.config_fs.get_hosts_data(system_data);
         let err_message;
         if (expected_version !== new_version) {
             err_message = `config dir upgrade can not be started - the host's package version=${new_version} does not match the user's expected version=${expected_version}`;

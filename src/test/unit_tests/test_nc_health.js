@@ -30,8 +30,8 @@ const hostname = os.hostname();
 
 const valid_system_json = {
     [hostname]: {
-        'current_version': pkg.version,
-        'upgrade_history': { 'successful_upgrades': [] },
+        current_version: pkg.version,
+        upgrade_history: { successful_upgrades: [] },
     },
 };
 
@@ -186,10 +186,12 @@ mocha.describe('nsfs nc health', function() {
 
         mocha.it('Health all condition is success', async function() {
             valid_system_json.config_directory = {
-                'config_dir_version': config_fs.config_dir_version,
-                'upgrade_package_version': pkg.version,
-                'phase': CONFIG_DIR_PHASES.CONFIG_DIR_UNLOCKED
+                config_dir_version: config_fs.config_dir_version,
+                upgrade_package_version: pkg.version,
+                phase: CONFIG_DIR_PHASES.CONFIG_DIR_UNLOCKED,
+                upgrade_status: default_mock_upgrade_status
             };
+            valid_system_json[hostname].config_dir_version = config_fs.config_dir_version;
             await Health.config_fs.create_system_config_file(JSON.stringify(valid_system_json));
             set_mock_functions(Health, {
                 get_service_state: get_service_state_mock_default_response,
@@ -606,14 +608,16 @@ mocha.describe('nsfs nc health', function() {
 
         mocha.it('Health all condition - failed config directory upgrade status', async function() {
             valid_system_json.config_directory = {
-                'config_dir_version': config_fs.config_dir_version,
-                'upgrade_package_version': pkg.version,
-                'phase': CONFIG_DIR_PHASES.CONFIG_DIR_LOCKED,
+                config_dir_version: config_fs.config_dir_version,
+                upgrade_package_version: pkg.version,
+                phase: CONFIG_DIR_PHASES.CONFIG_DIR_LOCKED,
                 upgrade_history: {
                     successful_upgrades: [],
                     last_failure: { error: 'mock error'}
-                }
+                },
+                error: 'last_upgrade_failed'
             };
+            valid_system_json[hostname].config_dir_version = config_fs.config_dir_version;
             await Health.config_fs.create_system_config_file(JSON.stringify(valid_system_json));
             const health_status = await Health.nc_nsfs_health();
             await fs_utils.file_delete(Health.config_fs.system_json_path);
@@ -635,6 +639,24 @@ mocha.describe('nsfs nc health', function() {
             await fs_utils.file_delete(Health.config_fs.system_json_path);
             assert_config_dir_status(health_status, valid_system_json.config_directory);
         });
+
+        mocha.it('health should report on blocked hosts - config directory data is missing, host is blocked for updates', async function() {
+            valid_system_json.config_directory = undefined;
+            valid_system_json[hostname].config_dir_version = config_fs.config_dir_version;
+            await Health.config_fs.create_system_config_file(JSON.stringify(valid_system_json));
+            const health_status = await Health.nc_nsfs_health();
+            await fs_utils.file_delete(Health.config_fs.system_json_path);
+            assert_config_dir_status(health_status, {
+                error: 'config directory data is missing, must upgrade config directory',
+                blocked_hosts: {
+                    [hostname]: {
+                        host_version: valid_system_json[hostname].current_version,
+                        host_config_dir_version: valid_system_json[hostname].config_dir_version,
+                        error: `host's config_dir_version is ${valid_system_json[hostname].config_dir_version}, system's config_dir_version is undefined, updates to the config directory will be blocked until the config dir upgrade`
+                    }
+                }
+            });
+        });
     });
 });
 
@@ -645,23 +667,27 @@ mocha.describe('nsfs nc health', function() {
  */
 function assert_config_dir_status(health_status, expected_config_dir) {
     const actual_config_dir_health = health_status.checks.config_directory_status;
+    assert.strictEqual(actual_config_dir_health.error, expected_config_dir.error);
+    assert.deepStrictEqual(actual_config_dir_health.blocked_hosts, expected_config_dir.blocked_hosts);
     assert.strictEqual(actual_config_dir_health.phase, expected_config_dir.phase);
     assert.strictEqual(actual_config_dir_health.config_dir_version, expected_config_dir.config_dir_version);
     assert.strictEqual(actual_config_dir_health.upgrade_package_version, expected_config_dir.upgrade_package_version);
-    const expected_upgrade_status = expected_config_dir.in_progress_upgrade || expected_config_dir.upgrade_history?.last_failure;
-    assert_upgrade_status(actual_config_dir_health.upgrade_status, expected_upgrade_status);
+    assert_upgrade_status(actual_config_dir_health.upgrade_status, expected_config_dir);
 }
 
 /**
  * assert_upgrade_status asserts there the actual and expected upgrade_status
  * @param {Object} actual_upgrade_status 
- * @param {Object} [expected_upgrade_status]
+ * @param {Object} expected_upgrade_status
  */
-function assert_upgrade_status(actual_upgrade_status, expected_upgrade_status = default_mock_upgrade_status.message) {
-    const actual_upgrade_status_res = actual_upgrade_status.in_progress_upgrade ||
-        actual_upgrade_status.last_failure ||
-        actual_upgrade_status.message;
-    assert.deepStrictEqual(actual_upgrade_status_res, expected_upgrade_status);
+function assert_upgrade_status(actual_upgrade_status, expected_upgrade_status) {
+    const actual_upgrade_status_res = actual_upgrade_status?.in_progress_upgrade ||
+        actual_upgrade_status?.last_failure ||
+        actual_upgrade_status?.message;
+    const expected_upgrade_status_res = expected_upgrade_status?.in_progress_upgrade ||
+        expected_upgrade_status?.upgrade_history?.last_failure ||
+        expected_upgrade_status?.upgrade_status?.message;
+    assert.deepStrictEqual(actual_upgrade_status_res, expected_upgrade_status_res);
 }
 
 /**

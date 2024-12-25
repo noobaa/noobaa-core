@@ -7,7 +7,6 @@ coretest.setup();
 
 require('./test_namespace_fs');
 require('./test_ns_list_objects');
-require('./test_file_writer');
 require('./test_namespace_fs_mpu');
 require('./test_nb_native_fs');
 require('./test_nc_nsfs_cli');

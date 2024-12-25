@@ -1070,7 +1070,7 @@ class ConfigFS {
     }
 
     /**
-     * init_nc_system creates/updates system.json file
+     * register_hostname_in_system_json creates/updates system.json file
      * if system.json does not exist (a new system) - host and config dir data will be set on the newly created file
      * else -
      *  1. if the host data already exist in system.json - return
@@ -1078,7 +1078,7 @@ class ConfigFS {
      * Note - config directory data on upgraded systems will be set by nc_upgrade_manager
      * @returns 
      */
-    async init_nc_system() {
+    async register_hostname_in_system_json() {
         const system_data = await this.get_system_config_file({silent_if_missing: true});
 
         let updated_system_json = system_data || {};
@@ -1182,15 +1182,31 @@ class ConfigFS {
         }
         const running_code_config_dir_version = this.config_dir_version;
         const system_config_dir_version = system_data.config_directory.config_dir_version;
+        const ver_comparison_err = this.compare_host_and_config_dir_version(running_code_config_dir_version, system_config_dir_version);
+        if (ver_comparison_err !== undefined) {
+            throw new RpcError('CONFIG_DIR_VERSION_MISMATCH', ver_comparison_err);
+        }
+    }
+
+    /**
+     * compare_host_and_config_dir_version compares the version of the config dir in the system.json file 
+     * with the config dir version of the running host
+     * @param {String} running_code_config_dir_version 
+     * @param {String} system_config_dir_version 
+     * @returns {String | Undefined}
+     */
+    compare_host_and_config_dir_version(running_code_config_dir_version, system_config_dir_version) {
         const ver_comparison = version_compare(running_code_config_dir_version, system_config_dir_version);
+        dbg.log0('config_fs.compare_host_and_config_dir_version', running_code_config_dir_version, system_config_dir_version, ver_comparison);
         if (ver_comparison > 0) {
-            throw new RpcError('CONFIG_DIR_VERSION_MISMATCH', `running code config_dir_version=${running_code_config_dir_version} is higher than the config dir version` +
-                `mentioned in system.json =${system_config_dir_version}, any updates to the config directory are blocked until the config dir upgrade`);
+            return `running code config_dir_version=${running_code_config_dir_version} is higher than the config dir version ` +
+                `mentioned in system.json=${system_config_dir_version}, any updates to the config directory are blocked until the config dir upgrade`;
         }
         if (ver_comparison < 0) {
-            throw new RpcError('CONFIG_DIR_VERSION_MISMATCH', `running code config_dir_version=${running_code_config_dir_version} is lower than the config dir version` +
-                `mentioned in system.json =${system_config_dir_version}, any updates to the config directory are blocked until the source code upgrade`);
+            return `running code config_dir_version=${running_code_config_dir_version} is lower than the config dir version ` +
+                `mentioned in system.json=${system_config_dir_version}, any updates to the config directory are blocked until the source code upgrade`;
         }
+        return undefined;
     }
 
     /**
@@ -1201,6 +1217,7 @@ class ConfigFS {
         return {
             [os.hostname()]: {
                 current_version: pkg.version,
+                config_dir_version: this.config_dir_version,
                 upgrade_history: {
                     successful_upgrades: []
                 },

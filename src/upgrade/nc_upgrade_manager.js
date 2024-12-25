@@ -74,6 +74,7 @@ class NCUpgradeManager {
 
         const this_upgrade = { timestamp: Date.now(), from_version, to_version };
         system_data[hostname].current_version = to_version;
+        system_data[hostname].config_dir_version = this.config_fs.config_dir_version;
         system_data[hostname]?.upgrade_history?.successful_upgrades.unshift(this_upgrade);
         await this.config_fs.update_system_json_with_retries(JSON.stringify(system_data));
     }

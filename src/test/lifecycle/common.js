@@ -359,6 +359,36 @@ function id_lifecycle_configuration(Bucket, Key) {
     };
 }
 
+function duplicate_id_lifecycle_configuration(Bucket, Key) {
+    const ID1 = 'rule_id';
+    const ID2 = ID1; // set duplicate ID
+    return {
+        Bucket,
+        LifecycleConfiguration: {
+            Rules: [{
+                ID1,
+                Expiration: {
+                    Days: 17,
+                },
+                Filter: {
+                    Prefix: Key,
+                },
+                Status: 'Enabled',
+            },
+            {
+                ID2,
+                Expiration: {
+                    Days: 18,
+                },
+                Filter: {
+                    Prefix: Key,
+                },
+                Status: 'Enabled',
+            }, ],
+        },
+    };
+}
+
 async function put_get_lifecycle_configuration(Bucket, putLifecycleParams, s3) {
     const putLifecycleResult = await s3.putBucketLifecycleConfiguration(putLifecycleParams);
     console.log('put lifecycle params:', putLifecycleParams, 'result', putLifecycleResult);
@@ -526,5 +556,16 @@ exports.test_rule_id_length = async function(Bucket, Key, s3) {
         assert.fail(`Expected error for ID length exceeding maximum allowed characters ${s3_const.MAX_RULE_ID_LENGTH}, but request was successful`);
     } catch (error) {
         assert(error.code === 'InvalidArgument', `Expected InvalidArgument: id length exceeding ${s3_const.MAX_RULE_ID_LENGTH} characters`);
+    }
+};
+
+exports.test_rule_duplicate_id = async function(Bucket, Key, s3) {
+    const putLifecycleParams = duplicate_id_lifecycle_configuration(Bucket, Key);
+
+    try {
+        await s3.putBucketLifecycleConfiguration(putLifecycleParams);
+        assert.fail('Expected error for duplicate rule ID, but request was successful');
+    } catch (error) {
+        assert(error.code === 'InvalidArgument', 'Expected InvalidArgument: duplicate ID found in the rules');
     }
 };

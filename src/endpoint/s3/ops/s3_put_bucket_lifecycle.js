@@ -83,6 +83,7 @@ function parse_lifecycle_field(field, field_parser = parseInt) {
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketPUTlifecycle.html
  */
 async function put_bucket_lifecycle(req) {
+    const id_set = new Set();
     const lifecycle_rules = _.map(req.body.LifecycleConfiguration.Rule, rule => {
         const current_rule = {
             filter: {},
@@ -99,6 +100,13 @@ async function put_bucket_lifecycle(req) {
             // Generate a random ID if missing
             current_rule.id = uuid();
         }
+
+        // Check for duplicate ID in the rules
+        if (id_set.has(current_rule.id)) {
+            dbg.error('Rule ID must be unique. Found same ID for more than one rule: ', current_rule.id);
+            throw new S3Error({ ...S3Error.InvalidArgument, message: 'Rule ID must be unique. Found same ID for more than one rule'});
+        }
+        id_set.add(current_rule.id);
 
         if (rule.Status?.length !== 1) {
             dbg.error('Rule should have status', rule);

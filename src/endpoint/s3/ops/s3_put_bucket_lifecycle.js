@@ -64,7 +64,16 @@ function parse_expiration(expiration) {
             throw new S3Error(S3Error.InvalidArgument);
         }
     } else if (expiration.Date?.length === 1) {
-        output_expiration.date = (new Date(expiration.Date[0])).getTime();
+        const parsed_date = (new Date(expiration.Date[0]));
+        if (isNaN(parsed_date.getTime())) {
+            dbg.error('Invalid expiration date provided:', expiration.Date[0]);
+            throw new S3Error(S3Error.InvalidArgument);
+        }
+        if (parsed_date.getTime() <= Date.now()) {
+            dbg.error('Expiration date is in the past or current date:', expiration.Date[0], 'Parsed value:', parsed_date);
+            throw new S3Error(S3Error.InvalidArgument);
+        }
+        output_expiration.date = parsed_date.getTime();
     } else if (expiration.ExpiredObjectDeleteMarker?.length === 1) {
         output_expiration.expired_object_delete_marker = true_regex.test(expiration.ExpiredObjectDeleteMarker[0]);
     }

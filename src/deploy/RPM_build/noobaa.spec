@@ -43,6 +43,10 @@ NooBaa is a data service for cloud environments, providing S3 object-store inter
 %pre
 # Get the current installed version of the package
 current_version=$(rpm -q --qf '%{VERSION}-%{RELEASE}' noobaa 2>/dev/null || echo "")
+echo "ROMY current_version $current_version"
+echo "ROMY current_version .noobaa-core-$current_version"
+
+echo "ROMY new_version $noobaa_core_version_path"
 
 %prep
 %setup -n noobaa -q

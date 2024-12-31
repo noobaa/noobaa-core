@@ -569,7 +569,7 @@ describe('nc upgrade manager - upgrade config directory', () => {
                     config_dir_version: this_upgrade.config_dir_to_version,
                     upgrade_package_version: this_upgrade.package_to_version,
                     upgrade_history: {
-                        last_failure: system_data.config_directory.upgrade_history.last_failure,
+                        // last_failure should be removed after a successful upgrade
                         successful_upgrades: [this_upgrade, ...system_data.config_directory.upgrade_history.successful_upgrades]
                     }
                 }

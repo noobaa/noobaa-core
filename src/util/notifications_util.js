@@ -438,10 +438,10 @@ function check_notif_relevant(notif, req) {
     }
 
     //if no events were specified, always notify
-    if (!notif.events) return true;
+    if (!notif.event) return true;
 
     //check request's event is in notification's events list
-    for (const notif_event of notif.events) {
+    for (const notif_event of notif.event) {
         const notif_event_elems = notif_event.split(':');
         const notif_event_name = notif_event_elems[1];
         const notif_event_method = notif_event_elems[2];

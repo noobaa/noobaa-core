@@ -29,9 +29,9 @@ const nb_native = require('../../../util/nb_native');
  * 2. creation of accounts_by_name/ directory
  * 3. Upgrade config files of all accounts under accounts/ (old directory) 
  * 4. delete accounts/ directory
- * @param {*} dbg 
+ * @param {{dbg: *, from_version: String}} params 
  */
-async function run({ dbg }) {
+async function run({ dbg, from_version }) {
     try {
         const config_fs = new ConfigFS(config.NSFS_NC_CONF_DIR, config.NSFS_NC_CONFIG_DIR_BACKEND);
         const fs_context = config_fs.fs_context;
@@ -40,10 +40,10 @@ async function run({ dbg }) {
         await config_fs.create_dir_if_missing(config_fs.accounts_by_name_dir_path);
 
         const old_account_names = await config_fs.list_old_accounts();
-        const failed_accounts = await upgrade_accounts_config_files(config_fs, old_account_names, dbg);
+        const failed_accounts = await upgrade_accounts_config_files(config_fs, old_account_names, from_version, dbg);
 
         if (failed_accounts.length > 0) throw new Error('NC upgrade process failed, failed_accounts array length is bigger than 0' + util.inspect(failed_accounts));
-        await move_old_accounts_dir(fs_context, config_fs, old_account_names, dbg);
+        await move_old_accounts_dir(fs_context, config_fs, old_account_names, from_version, dbg);
     } catch (err) {
         dbg.error('NC upgrade process failed due to - ', err);
         throw err;
@@ -56,13 +56,14 @@ async function run({ dbg }) {
  * 2. upgrade account config file with 3 retries
  * @param {import('../../../sdk/config_fs').ConfigFS} config_fs 
  * @param {String[]} old_account_names 
+ * @param {String} from_version 
  * @param {*} dbg 
  * @returns {Promise<Object[]>}
  */
-async function upgrade_accounts_config_files(config_fs, old_account_names, dbg) {
+async function upgrade_accounts_config_files(config_fs, old_account_names, from_version, dbg) {
     const failed_accounts = [];
 
-    const backup_access_keys_path = path.join(config_fs.config_root, '.backup_access_keys_dir/');
+    const backup_access_keys_path = path.join(config_fs.config_root, `.backup_access_keys_dir_${from_version}/`);
     await config_fs.create_dir_if_missing(backup_access_keys_path);
 
     for (const account_name of old_account_names) {
@@ -250,12 +251,13 @@ async function create_account_access_keys_index_if_missing(config_fs, account_up
  * @param {nb.NativeFSContext} fs_context 
  * @param {import('../../../sdk/config_fs').ConfigFS} config_fs 
  * @param {String[]} old_account_names 
+ * @param {String} from_version 
  * @param {*} dbg 
  * @returns {Promise<Void>}
  */
-async function move_old_accounts_dir(fs_context, config_fs, old_account_names, dbg) {
+async function move_old_accounts_dir(fs_context, config_fs, old_account_names, from_version, dbg) {
     const old_account_tmp_dir_path = path.join(config_fs.old_accounts_dir_path, native_fs_utils.get_config_files_tmpdir());
-    const hidden_old_accounts_path = path.join(config_fs.config_root, '.backup_accounts_dir/');
+    const hidden_old_accounts_path = path.join(config_fs.config_root, `.backup_accounts_dir_${from_version}/`);
     try {
         await nb_native().fs.mkdir(fs_context, hidden_old_accounts_path);
     } catch (err) {

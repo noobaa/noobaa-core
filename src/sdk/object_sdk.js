@@ -27,6 +27,7 @@ const BucketSpaceNB = require('./bucketspace_nb');
 const { RpcError } = require('../rpc');
 
 const anonymous_access_key = Symbol('anonymous_access_key');
+
 const bucket_namespace_cache = new LRUCache({
     name: 'ObjectSDK-Bucket-Namespace-Cache',
     // This is intentional. Cache entry expiration is handled by _validate_bucket_namespace().
@@ -93,7 +94,7 @@ async function _validate_account(data, params) {
     const bs_allow_stat_account = Boolean(bs.check_same_stat_account);
     if (bs_allow_stat_account && config.NC_ENABLE_ACCOUNT_CACHE_STAT_VALIDATION) {
         const same_stat = await bs.check_same_stat_account(params.access_key, data.stat);
-        if (!same_stat) { // config file of bucket was changed
+        if (!same_stat) { // config file of account was changed
             return false;
         }
     }

@@ -379,6 +379,53 @@ class ConfigFS {
     }
 
     /**
+     * get_identity_by_id_and_stat_file returns the full account/user data and stat the file:
+     * 1. try by identity path
+     * 2. if not found - try by account name with new accounts path
+     * 3. if not found - try by account name with old accounts path
+     * @param {string} id
+     * @param {string} [type]
+     * @param {{show_secrets?: boolean, decrypt_secret_key?: boolean, silent_if_missing?: boolean}} [options]
+     * @returns {Promise<Object>} 
+    */
+    async get_identity_by_id_and_stat_file(id, type, options = {}) {
+        const identity_path = this.get_identity_path_by_id(id);
+        const identity = await this.get_identity_by_id(id, type, options);
+        try {
+            const stat_by_identity_path = await nb_native().fs.stat(this.fs_context, identity_path);
+            identity.stat = stat_by_identity_path;
+        } catch (err_stat_by_identity_path) {
+            if (err_stat_by_identity_path.code === 'ENOENT') {
+                dbg.warn('get_identity_by_id_and_stat_file: could not stat by identity ID will try to stat by account name');
+                const account_name = identity.name;
+                const account_name_new_path = this.get_account_path_by_name(account_name);
+                try {
+                    const stat_by_account_name = await nb_native().fs.stat(this.fs_context, account_name_new_path);
+                    identity.stat = stat_by_account_name;
+                } catch (err_stat_by_account_name_new_path) {
+                    if (err_stat_by_identity_path.code === 'ENOENT') {
+                        dbg.warn('get_identity_by_id_and_stat_file: could not stat by by account name (new accounts path)');
+                        const account_name_old_path = this._get_old_account_path_by_name(account_name);
+                        try {
+                            const stat_by_account_name_old = await nb_native().fs.stat(this.fs_context, account_name_old_path);
+                            identity.stat = stat_by_account_name_old;
+                        } catch (err_stat_by_account_name_old_path) {
+                            dbg.warn('get_identity_by_id_and_stat_file: could not stat by by account name (old accounts path)');
+                            // eslint-disable-next-line max-depth
+                            if (!options.silent_if_missing) {
+                                const error_to_throw = new Error(`Could not stat identity by id ${id} or by account name ${account_name}`);
+                                error_to_throw.code = 'ENOENT';
+                                throw error_to_throw;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return identity; // this identity object should have also a stat property
+    }
+
+    /**
      * search_accounts_by_id searches old accounts directory and finds an account that its _id matches the given id param
      * @param {string} id
      * @param {{show_secrets?: boolean, decrypt_secret_key?: boolean, silent_if_missing?: boolean}} [options]

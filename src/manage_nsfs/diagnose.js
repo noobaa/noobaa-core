@@ -10,6 +10,7 @@ const { DIAGNOSE_ACTIONS } = require('./manage_nsfs_constants');
 const ManageCLIError = require('./manage_nsfs_cli_errors').ManageCLIError;
 const { throw_cli_error, write_stdout_response } = require('./manage_nsfs_cli_utils');
 const ManageCLIResponse = require('../manage_nsfs/manage_nsfs_cli_responses').ManageCLIResponse;
+const analyze_network = require('../tools/diagnostics/analyze_network');
 
 /**
  * manage_diagnose_operations handles cli diagnose operations
@@ -28,6 +29,9 @@ async function manage_diagnose_operations(action, user_input, config_fs) {
             break;
         case DIAGNOSE_ACTIONS.METRICS:
             await gather_metrics();
+            break;
+        case DIAGNOSE_ACTIONS.NETWORK:
+            await analyze_network.get_network_status(user_input, config_fs);
             break;
         default:
             throw_cli_error(ManageCLIError.InvalidAction);

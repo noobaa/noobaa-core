@@ -49,14 +49,13 @@ const account_id_cache = new LRUCache({
 
 /** _validate_account_id is an additional layer (to expiry_ms)
  * to checks the stat of the config file
- * NOTE: this function was copied from object_sdk file (with needed changes)
  * @param {object} data
  * @param {object} params
  * @returns Promise<{boolean>}
  */
 async function _validate_account_id(params, data) {
     if (config.NC_ENABLE_ACCOUNT_ID_CACHE_STAT_VALIDATION) {
-        const same_stat = await check_same_stat_account(params.access_keys[0].access_key, params.stat, data.config_fs);
+        const same_stat = await check_same_stat_account(params._id, params.stat, data.config_fs);
         if (!same_stat) { // config file of account was changed
             return false;
         }
@@ -67,16 +66,16 @@ async function _validate_account_id(params, data) {
     /**
      * check_same_stat_account will return true the config file was not changed
      * in case we had any issue (for example error during stat) the returned value will be undefined
-     * NOTE: this function was copied from object_sdk file (with needed changes - passing the argument of config_fs)
-     * @param {Symbol|string} access_key
+     * @param {string} _id
      * @param {nb.NativeFSStats} account_stat
      * @param {ConfigFS} config_fs
      * @returns Promise<{boolean|undefined>}
      */
-    async function check_same_stat_account(access_key, account_stat, config_fs) {
+    async function check_same_stat_account(_id, account_stat, config_fs) {
         if (!config_fs) return;
         try {
-            const current_stat = await config_fs.stat_account_config_file(access_key);
+            const identity = await config_fs.get_identity_by_id_and_stat_file(_id, CONFIG_TYPES.ACCOUNT);
+            const current_stat = identity.stat;
             if (current_stat) {
                 return current_stat.ino === account_stat.ino && current_stat.mtimeNsBigint === account_stat.mtimeNsBigint;
             }

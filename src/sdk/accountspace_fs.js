@@ -28,22 +28,61 @@ const dummy_service_name = 's3';
 
 const account_id_cache = new LRUCache({
     name: 'AccountIDCache',
-    // TODO: Decide on a time that we want to invalidate
-    expiry_ms: Number(config.ACCOUNTS_ID_CACHE_EXPIRY),
+    expiry_ms: config.ACCOUNTS_ID_CACHE_EXPIRY,
     make_key: ({ _id }) => _id,
     /**
      * Accounts are added to the cache based on id, Default value for show_secrets and decrypt_secret_key will be true, 
      * and show_secrets and decrypt_secret_key `false` only when we load cache from the health script, 
      * health script doesn't need to fetch or decrypt the secret.
-     * @param {{ _id: string, 
-     * show_secrets?: boolean,
-     * decrypt_secret_key?: boolean, 
-     * config_fs: import('./config_fs').ConfigFS }} params
+     * @param {{
+        * _id: string,
+        * show_secrets?: boolean,
+        * decrypt_secret_key?: boolean,
+        * config_fs: ConfigFS
+     * }} params
     */
-    load: async ({ _id, show_secrets = true, decrypt_secret_key = true, config_fs}) =>
-        config_fs.get_identity_by_id(_id, CONFIG_TYPES.ACCOUNT, { show_secrets: show_secrets, decrypt_secret_key: decrypt_secret_key }),
+    load: async ({ _id, show_secrets = true, decrypt_secret_key = true, config_fs }) =>
+        config_fs.get_identity_by_id_and_stat_file(
+            _id, CONFIG_TYPES.ACCOUNT, { show_secrets: show_secrets, decrypt_secret_key: decrypt_secret_key }),
+    validate: (params, data) => _validate_account_id(params, data),
 });
 
+/** _validate_account_id is an additional layer (to expiry_ms)
+ * to checks the stat of the config file
+ * @param {object} data
+ * @param {object} params
+ * @returns Promise<{boolean>}
+ */
+async function _validate_account_id(params, data) {
+    if (config.NC_ENABLE_ACCOUNT_ID_CACHE_STAT_VALIDATION) {
+        const same_stat = await check_same_stat_account(params._id, params.name, params.stat, data.config_fs);
+        if (!same_stat) { // config file of account was changed
+            return false;
+        }
+    }
+    return true;
+}
+
+    /**
+     * check_same_stat_account will return true the config file was not changed
+     * in case we had any issue (for example error during stat) the returned value will be undefined
+     * @param {string} id
+     * @param {string} account_name
+     * @param {nb.NativeFSStats} account_stat
+     * @param {ConfigFS} config_fs
+     * @returns Promise<{boolean|undefined>}
+     */
+    async function check_same_stat_account(id, account_name, account_stat, config_fs) {
+        if (!config_fs) return;
+        try {
+            const current_stat = await config_fs.stat_account_config_file_by_identity(id, account_name);
+            if (current_stat) {
+                return current_stat.ino === account_stat.ino && current_stat.mtimeNsBigint === account_stat.mtimeNsBigint;
+            }
+        } catch (err) {
+            dbg.warn('check_same_stat_account: current_stat got an error', err, 'ignoring...');
+        }
+    }
 
 /**
  * @param {Object} requested_account

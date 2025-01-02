@@ -1201,6 +1201,9 @@ module.exports = {
                 },
                 safeunlink: {
                     $ref: 'common_api#/definitions/op_stats_val'
+                },
+                utimensat: {
+                    $ref: 'common_api#/definitions/op_stats_val'
                 }
             }
         },

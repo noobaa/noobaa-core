@@ -407,7 +407,87 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                 const exist = await version_file_exists(full_path, mpu_key1, '', prev_version_id);
                 assert.ok(exist);
             });
+
+            mocha.it('mpu object - versioning enabled - put object before running mpu complete. mpu version should move to .versions dir and not latest', async function() {
+                const mpu_res = await s3_uid6.createMultipartUpload({ Bucket: bucket_name, Key: mpu_key1 });
+                const upload_id = mpu_res.UploadId;
+                const part1 = await s3_uid6.uploadPart({
+                    Bucket: bucket_name, Key: mpu_key1, Body: body1, UploadId: upload_id, PartNumber: 1 });
+                const res_put_object = await s3_uid6.putObject({Bucket: bucket_name, Key: mpu_key1, Body: body1});
+                const res = await s3_uid6.completeMultipartUpload({
+                    Bucket: bucket_name,
+                    Key: mpu_key1,
+                    UploadId: upload_id,
+                    MultipartUpload: {
+                        Parts: [{
+                            ETag: part1.ETag,
+                            PartNumber: 1
+                        }]
+                    }
+                });
+                const exist = await version_file_exists(full_path, mpu_key1, '', res.VersionId);
+                assert.ok(exist);
+                const comp_res = await compare_version_ids(full_path, mpu_key1, res_put_object.VersionId, res.VersionId);
+                assert.ok(comp_res);
+
+                const res_head_object = await s3_uid6.headObject({Bucket: bucket_name, Key: mpu_key1});
+                assert.equal(res_head_object.VersionId, res_put_object.VersionId);
+            });
+
+            mocha.it('mpu object - versioning enabled - create delete marker before running mpu complete. mpu should move to .versions dir and not latest', async function() {
+                const mpu_res = await s3_uid6.createMultipartUpload({ Bucket: bucket_name, Key: mpu_key1 });
+                const upload_id = mpu_res.UploadId;
+                const part1 = await s3_uid6.uploadPart({
+                    Bucket: bucket_name, Key: mpu_key1, Body: body1, UploadId: upload_id, PartNumber: 1 });
+                await s3_uid6.deleteObject({Bucket: bucket_name, Key: mpu_key1});
+                const res = await s3_uid6.completeMultipartUpload({
+                    Bucket: bucket_name,
+                    Key: mpu_key1,
+                    UploadId: upload_id,
+                    MultipartUpload: {
+                        Parts: [{
+                            ETag: part1.ETag,
+                            PartNumber: 1
+                        }]
+                    }
+                });
+                const exist = await version_file_exists(full_path, mpu_key1, '', res.VersionId);
+                assert.ok(exist);
+                const latest_version_dont_exist = fs_utils.file_not_exists(path.join(full_path, mpu_key1));
+                assert.ok(latest_version_dont_exist);
+            });
+
+            mocha.it('mpu object - versioning enabled - put null object before running mpu complete. mpu version should move to .versions dir and not latest', async function() {
+                const mpu_res = await s3_uid6.createMultipartUpload({ Bucket: bucket_name, Key: mpu_key1 });
+                const upload_id = mpu_res.UploadId;
+                const part1 = await s3_uid6.uploadPart({
+                    Bucket: bucket_name, Key: mpu_key1, Body: body1, UploadId: upload_id, PartNumber: 1 });
+
+                //change to suspended mode to put null version id
+                await s3_uid6.putBucketVersioning({ Bucket: bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } });
+                await s3_uid6.putObject({Bucket: bucket_name, Key: mpu_key1, Body: body1});
+
+                //enable versioning so mpu will have version id
+                await s3_uid6.putBucketVersioning({ Bucket: bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
+                const res = await s3_uid6.completeMultipartUpload({
+                    Bucket: bucket_name,
+                    Key: mpu_key1,
+                    UploadId: upload_id,
+                    MultipartUpload: {
+                        Parts: [{
+                            ETag: part1.ETag,
+                            PartNumber: 1
+                        }]
+                    }
+                });
+                const exist = await version_file_exists(full_path, mpu_key1, '', res.VersionId);
+                assert.ok(exist);
+
+                const res_head_object = await s3_uid6.headObject({Bucket: bucket_name, Key: mpu_key1});
+                assert.equal(res_head_object.VersionId, 'null');
+            });
         });
+
     });
 
     // The res of putBucketVersioning is different depends on the versioning state:

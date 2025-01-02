@@ -330,7 +330,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
                 const nc_upgrade_manager = new NCUpgradeManager(config_fs);
                 await nc_upgrade_manager.update_rpm_upgrade();
             } else {
-                system_data = await config_fs.init_nc_system();
+                system_data = await config_fs.register_hostname_in_system_json();
             }
         }
 

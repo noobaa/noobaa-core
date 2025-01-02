@@ -1074,9 +1074,9 @@ class ConfigFS {
      * if system.json does not exist (a new system) - host and config dir data will be set on the newly created file
      * else -
      *  1. if the host data already exist in system.json - return
-     *  2. set the host data on system.json data and update the file
+     *  2. update the host data on system.json
      * Note - config directory data on upgraded systems will be set by nc_upgrade_manager
-     * @returns 
+     * @returns {Promise<Object>}
      */
     async register_hostname_in_system_json() {
         const system_data = await this.get_system_config_file({silent_if_missing: true});
@@ -1176,6 +1176,7 @@ class ConfigFS {
         const system_data = await this.get_system_config_file({ silent_if_missing: true });
         // if system was never created, currently we allow using the CLI without creating system
         // we should consider changing it to throw on this scenario as well
+        // https://github.com/noobaa/noobaa-core/issues/8468
         if (!system_data) return;
         if (!system_data.config_directory) {
             throw new RpcError('CONFIG_DIR_VERSION_MISMATCH', `config_directory data is missing in system.json, any updates to the config directory are blocked until the config dir upgrade`);
@@ -1191,13 +1192,15 @@ class ConfigFS {
     /**
      * compare_host_and_config_dir_version compares the version of the config dir in the system.json file 
      * with the config dir version of the running host
+     * if compare result is 0 - undefined will be returned
+     * else - an appropriate error string will be returned
      * @param {String} running_code_config_dir_version 
      * @param {String} system_config_dir_version 
      * @returns {String | Undefined}
      */
     compare_host_and_config_dir_version(running_code_config_dir_version, system_config_dir_version) {
         const ver_comparison = version_compare(running_code_config_dir_version, system_config_dir_version);
-        dbg.log0('config_fs.compare_host_and_config_dir_version', running_code_config_dir_version, system_config_dir_version, ver_comparison);
+        dbg.log0(`config_fs.compare_host_and_config_dir_version: ver_comparison ${ver_comparison} running_code_config_dir_version ${running_code_config_dir_version} system_config_dir_version ${system_config_dir_version}`);
         if (ver_comparison > 0) {
             return `running code config_dir_version=${running_code_config_dir_version} is higher than the config dir version ` +
                 `mentioned in system.json=${system_config_dir_version}, any updates to the config directory are blocked until the config dir upgrade`;
@@ -1242,6 +1245,15 @@ class ConfigFS {
                 }
             }
         };
+    }
+
+    /**
+     * get_hosts_data recieves system_data and returns only the hosts data
+     * @param {Object} system_data 
+     * @returns {Object}
+     */
+    get_hosts_data(system_data) {
+        return _.omit(system_data, 'config_directory');
     }
 }
 

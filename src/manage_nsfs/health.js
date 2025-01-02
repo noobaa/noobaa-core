@@ -450,9 +450,9 @@ class NSFSHealth {
      */
     _get_config_dir_status(system_data) {
         if (!system_data) return { error: 'system data is missing' };
-        const blocked_hosts = this._get_blocked_hosts_status(this.config_fs, system_data);
+        const blocked_hosts_status = this._get_blocked_hosts_status(this.config_fs, system_data);
         const config_dir_data = system_data.config_directory;
-        if (!config_dir_data) return { error: 'config directory data is missing, must upgrade config directory', blocked_hosts };
+        if (!config_dir_data) return { error: 'config directory data is missing, must upgrade config directory', blocked_hosts: blocked_hosts_status };
         const config_dir_upgrade_status = this._get_config_dir_upgrade_status(config_dir_data);
         return {
             phase: config_dir_data.phase,
@@ -460,7 +460,7 @@ class NSFSHealth {
             upgrade_package_version: config_dir_data.upgrade_package_version,
             upgrade_status: config_dir_upgrade_status,
             error: config_dir_upgrade_status.error || undefined,
-            blocked_hosts
+            blocked_hosts: blocked_hosts_status
         };
     }
 
@@ -484,16 +484,18 @@ class NSFSHealth {
 
     /**
      * _get_blocked_hosts_status checks if there are any hosts blocked for updating the config directory
-     * 1. when host's config_dir_version older than 5.18.0 and system's config_dit_version is 5.18.0 and higher it means it's not blocked 
-     * because the source code won't include _throw_if_config_dir_locked() but it's still can cause invalid config files, therefore including it in the blocked list
-     * 2. when system's config_dir_version older than 5.18.0 and hosts's config_dir_version is 5.18.0 and higher
-     * it means updated to the config directory from this host are blocked
+     * 1. if only config dir was upgraded (>=5.18.0) - host's config_dir_version doesn not exist (<5.18.0) and system's config_dir_version exists (>=5.18.0)
+     * it means it's not blocked because the source code won't include _throw_if_config_dir_locked() but it still can create invalid config files, therefore including it in the blocked list
+     * 2. if system's config_dir_version wasn't upgraded yet and hosts's config_dir_version exist (>= 5.18.0)
+     * it means updates to the config directory from this host are blocked
+     * 3. if system's config dir version does not match the hosts's config_dir_version - updates to the config directory from this host are blocked
+     * @param {import('../sdk/config_fs').ConfigFS} config_fs
      * @param {Object} system_data 
      * @returns {Object}
      */
     _get_blocked_hosts_status(config_fs, system_data) {
         const system_config_dir_version = system_data.config_directory?.config_dir_version;
-        const hosts_data = _.omit(system_data, 'config_directory');
+        const hosts_data = config_fs.get_hosts_data(system_data);
         let res;
         for (const host_name of Object.keys(hosts_data)) {
             const host_data = hosts_data[host_name];
@@ -501,9 +503,9 @@ class NSFSHealth {
             const only_config_dir_upgraded = !host_data.config_dir_version && system_config_dir_version;
             const only_host_upgraded = host_data.config_dir_version && !system_config_dir_version;
             if (only_config_dir_upgraded) {
-                version_compare_err = `host's config_dir_version is undefined, system's config_dir_version already upgraded to ${system_config_dir_version}, updates to the config directory via the host will result with invalid config_dir files`;
+                version_compare_err = `host's config_dir_version is undefined, system's config_dir_version already upgraded to ${system_config_dir_version}, updates to the config directory via the host will result with invalid config_dir files until the host source code upgrade`;
             } else if (only_host_upgraded) {
-                version_compare_err = `host's config_dir_version is ${host_data.config_dir_version}, system's config_dir_version is undefined`;
+                version_compare_err = `host's config_dir_version is ${host_data.config_dir_version}, system's config_dir_version is undefined, updates to the config directory will be blocked until the config dir upgrade`;
             } else {
                 version_compare_err = host_data.config_dir_version && system_config_dir_version &&
                     config_fs.compare_host_and_config_dir_version(host_data.config_dir_version, system_config_dir_version);

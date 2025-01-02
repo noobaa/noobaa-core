@@ -186,9 +186,9 @@ mocha.describe('nsfs nc health', function() {
 
         mocha.it('Health all condition is success', async function() {
             valid_system_json.config_directory = {
-                'config_dir_version': config_fs.config_dir_version,
-                'upgrade_package_version': pkg.version,
-                'phase': CONFIG_DIR_PHASES.CONFIG_DIR_UNLOCKED,
+                config_dir_version: config_fs.config_dir_version,
+                upgrade_package_version: pkg.version,
+                phase: CONFIG_DIR_PHASES.CONFIG_DIR_UNLOCKED,
                 upgrade_status: default_mock_upgrade_status
             };
             valid_system_json[hostname].config_dir_version = config_fs.config_dir_version;
@@ -640,7 +640,7 @@ mocha.describe('nsfs nc health', function() {
             assert_config_dir_status(health_status, valid_system_json.config_directory);
         });
 
-        mocha.it('invalid blocked hosts', async function() {
+        mocha.it('health should report on blocked hosts - config directory data is missing, host is blocked for updates', async function() {
             valid_system_json.config_directory = undefined;
             valid_system_json[hostname].config_dir_version = config_fs.config_dir_version;
             await Health.config_fs.create_system_config_file(JSON.stringify(valid_system_json));
@@ -652,7 +652,7 @@ mocha.describe('nsfs nc health', function() {
                     [hostname]: {
                         host_version: valid_system_json[hostname].current_version,
                         host_config_dir_version: valid_system_json[hostname].config_dir_version,
-                        error: `host's config_dir_version is ${valid_system_json[hostname].config_dir_version}, system's config_dir_version is undefined`
+                        error: `host's config_dir_version is ${valid_system_json[hostname].config_dir_version}, system's config_dir_version is undefined, updates to the config directory will be blocked until the config dir upgrade`
                     }
                 }
             });

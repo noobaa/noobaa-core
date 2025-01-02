@@ -953,6 +953,10 @@ interface NativeFS {
     checkAccess(fs_context: NativeFSContext, path: string): Promise<void>;
     getsinglexattr(fs_context: NativeFSContext, path: string, key: string): Promise<string>;
     getpwname(fs_context: NativeFSContext, user: string): Promise<NativeFSUserObject>;
+    utimensat(fs_context: NativeFSContext, path: string, times: {
+        modtime?: bigint,
+        actime?: bigint
+    }): Promise<void>;
 
     readFile(
         fs_context: NativeFSContext,

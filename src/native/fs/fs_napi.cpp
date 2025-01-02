@@ -17,6 +17,7 @@
 #include <sys/fcntl.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include <sys/uio.h>
 #include <sys/xattr.h>
@@ -1351,6 +1352,48 @@ struct GetPwName : public FSWorker
     }
 };
 
+/**
+ * Utimensat is an fs op
+ * change file times with nanosecond percision (access and modification times)
+ * see https://man7.org/linux/man-pages/man3/utimensat.3p.html
+ */
+struct Utimensat : public FSWorker
+{
+    std::string _path;
+    struct timespec _times[2];
+    Utimensat(const Napi::CallbackInfo& info)
+        : FSWorker(info)
+    {
+        _path = info[1].As<Napi::String>();
+        Napi::Object napi_times = info[2].As<Napi::Object>();
+        if(napi_times.Get("actime").IsBigInt()) {
+            const Napi::BigInt ctime = napi_times.Get("actime").As<Napi::BigInt>();
+            get_time_from_bigint(ctime, _times[0]);
+        } else {
+            _times[0].tv_nsec = UTIME_OMIT;
+        }
+        if(napi_times.Get("modtime").IsBigInt()) {
+            const Napi::BigInt mtime = napi_times.Get("modtime").As<Napi::BigInt>();
+            get_time_from_bigint(mtime, _times[1]);
+        } else {
+            _times[1].tv_nsec = UTIME_OMIT;
+        }
+        Begin(XSTR() << "utimensat " << DVAL(_path) << DVAL(_times[0].tv_sec) << DVAL(_times[0].tv_nsec) << DVAL(_times[1].tv_sec) << DVAL(_times[1].tv_nsec));
+    }
+    virtual void Work()
+    {
+        SYSCALL_OR_RETURN(utimensat(AT_FDCWD, _path.c_str(), _times, 0));
+    }
+
+   void get_time_from_bigint(const Napi::BigInt& _bigint, struct timespec& timeval) {
+        bool lossless = true;
+        const int64_t time = _bigint.Int64Value(&lossless);
+        timeval.tv_sec = time / int64_t(1e9);
+        timeval.tv_nsec = time % int64_t(1e9);
+        DBG1(DVAL(time) << DVAL(timeval.tv_sec) << DVAL(timeval.tv_nsec) << DVAL(lossless));
+    }
+};
+
 struct FileWrap : public Napi::ObjectWrap<FileWrap>
 {
     std::string _path;
@@ -1374,6 +1417,7 @@ struct FileWrap : public Napi::ObjectWrap<FileWrap>
                 InstanceMethod<&FileWrap::flock>("flock"),
                 InstanceMethod<&FileWrap::fcntllock>("fcntllock"),
                 InstanceAccessor<&FileWrap::getfd>("fd"),
+                InstanceMethod<&FileWrap::utimensat>("utimensat"),
             }));
         constructor.SuppressDestruct();
     }
@@ -1403,6 +1447,7 @@ struct FileWrap : public Napi::ObjectWrap<FileWrap>
     Napi::Value getfd(const Napi::CallbackInfo& info);
     Napi::Value flock(const Napi::CallbackInfo& info);
     Napi::Value fcntllock(const Napi::CallbackInfo& info);
+    Napi::Value utimensat(const Napi::CallbackInfo& info);
 };
 
 Napi::FunctionReference FileWrap::constructor;
@@ -2320,6 +2365,7 @@ fs_napi(Napi::Env env, Napi::Object exports)
     exports_fs["getsinglexattr"] = Napi::Function::New(env, api<GetSingleXattr>);
     exports_fs["getpwname"] = Napi::Function::New(env, api<GetPwName>);
     exports_fs["symlink"]  = Napi::Function::New(env, api<Symlink>);
+    exports_fs["utimensat"]  = Napi::Function::New(env, api<Utimensat>);
 
     FileWrap::init(env);
     exports_fs["open"] = Napi::Function::New(env, api<FileOpen>);

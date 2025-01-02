@@ -10,6 +10,7 @@ const fs_utils = require('../../util/fs_utils');
 const os_utils = require('../../util/os_utils');
 const nb_native = require('../../util/nb_native');
 const { get_process_fs_context } = require('../../util/native_fs_utils');
+const bigInt = require('big-integer');
 
 const DEFAULT_FS_CONFIG = get_process_fs_context();
 
@@ -443,6 +444,31 @@ mocha.describe('nb_native fs', async function() {
                 await fs_utils.file_delete(PATH1);
                 await fs_utils.file_delete(tmp_mv_path);
             }
+        });
+
+        mocha.describe('Utimensat', async function() {
+            mocha.it('Utimensat - change both atime and mtime', async function() {
+                const { utimensat } = nb_native().fs;
+                const PATH1 = `/tmp/utimensat${Date.now()}_1`;
+                await create_file(PATH1);
+                const new_time = BigInt(Date.now());
+                await utimensat(DEFAULT_FS_CONFIG, PATH1, {modtime: new_time, actime: new_time});
+                const res = await nb_native().fs.stat(DEFAULT_FS_CONFIG, PATH1);
+                assert.equal(res.atimeNsBigint, new_time);
+                assert.equal(res.mtimeNsBigint, new_time);
+            });
+
+            mocha.it('Utimensat - change only mtime', async function() {
+                const { utimensat } = nb_native().fs;
+                const PATH1 = `/tmp/utimensat${Date.now()}_1`;
+                await create_file(PATH1);
+                const new_time = BigInt(Date.now());
+                const res0 = await nb_native().fs.stat(DEFAULT_FS_CONFIG, PATH1);
+                await utimensat(DEFAULT_FS_CONFIG, PATH1, {modtime: new_time});
+                const res1 = await nb_native().fs.stat(DEFAULT_FS_CONFIG, PATH1);
+                assert.equal(res1.atimeNsBigint, res0.atimeNsBigint);
+                assert.equal(res1.mtimeNsBigint, new_time);
+            });
         });
     });
 });

@@ -1505,6 +1505,15 @@ class NamespaceFS {
                         await this._delete_null_version_from_versions_directory(key, fs_context);
                     }
                 }
+                //in case new version is not he actual latest move strait to .versions dir. can happen for multipart upload
+                const prev_version_info = latest_ver_info || await this.find_max_version_past(fs_context, key);
+                if (this._is_versioning_enabled() && prev_version_info &&
+                    this.compare_version_time(prev_version_info.version_id_str, new_ver_info.version_id_str)) {
+                        const new_versioned_path = this._get_version_path(key, new_ver_info.version_id_str);
+                        await native_fs_utils.safe_move(fs_context, new_ver_tmp_path, new_versioned_path, new_ver_info,
+                            gpfs_options?.move_source_to_version, bucket_tmp_dir_path);
+                        break; //since moving staight to .version, no need to change the latest version
+                }
                 if (latest_ver_info &&
                     ((this._is_versioning_enabled()) ||
                         (this._is_versioning_suspended() && latest_ver_info.version_id_str !== NULL_VERSION_ID))) {
@@ -1865,9 +1874,12 @@ class NamespaceFS {
             }
             if (!target_file) target_file = await native_fs_utils.open_file(fs_context, this.bucket_path, upload_path, open_mode);
 
+            const create_object_upload_path = path.join(params.mpu_path, 'create_object_upload');
+            const create_object_upload_stat = await nb_native().fs.stat(fs_context, create_object_upload_path);
+            await nb_native().fs.utimensat(fs_context, upload_path, {modtime: create_object_upload_stat.mtimeNsBigint});
             const { data: create_params_buffer } = await nb_native().fs.readFile(
                 fs_context,
-                path.join(params.mpu_path, 'create_object_upload')
+                create_object_upload_path
             );
 
             const upload_params = { fs_context, upload_path, open_mode, file_path, params, target_file };
@@ -2725,6 +2737,17 @@ class NamespaceFS {
         return { mtimeNsBigint: size_utils.string_to_bigint(arr[0], 36), ino: parseInt(arr[1], 36) };
     }
 
+    /**
+     * compares two version strings, and returns if ver1 is larger then ver2
+     * returns true if ver1 is larger, otherwise return false
+     * if at least one of the versions is null return false
+     */
+    compare_version_time(ver1, ver2) {
+        const ver1_info = this._extract_version_info_from_xattr(ver1);
+        const ver2_info = this._extract_version_info_from_xattr(ver2);
+        return ver1_info && ver2_info && ver1_info.mtimeNsBigint > ver2_info.mtimeNsBigint;
+    }
+
     _get_version_id_by_xattr(stat) {
        return (stat && stat.xattr[XATTR_VERSION_ID]) || 'null';
     }
@@ -3230,7 +3253,8 @@ class NamespaceFS {
             }
             return {
                 move_to_versions: { src_file: dst_file, dir_file },
-                move_to_dst: { src_file, dst_file, dir_file}
+                move_to_dst: { src_file, dst_file, dir_file},
+                move_source_to_version: {src_file, dir_file}
             };
         } catch (err) {
             dbg.warn('NamespaceFS._open_files_gpfs couldn\'t open files', err);

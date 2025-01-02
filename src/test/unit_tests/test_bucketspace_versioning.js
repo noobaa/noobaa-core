@@ -408,6 +408,30 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                 assert.ok(exist);
             });
         });
+
+        mocha.it('mpu object - versioning enabled - put object while running mpu. mpu should move to .versions dir and not latest', async function() {
+            const mpu_res = await s3_uid6.createMultipartUpload({ Bucket: bucket_name, Key: mpu_key1 });
+            const upload_id = mpu_res.UploadId;
+            const part1 = await s3_uid6.uploadPart({
+                Bucket: bucket_name, Key: mpu_key1, Body: body1, UploadId: upload_id, PartNumber: 1 });
+            const res_put_object = await s3_uid6.putObject({Bucket: bucket_name, Key: mpu_key1, Body: body1});
+            const res = await s3_uid6.completeMultipartUpload({
+                Bucket: bucket_name,
+                Key: mpu_key1,
+                UploadId: upload_id,
+                MultipartUpload: {
+                    Parts: [{
+                        ETag: part1.ETag,
+                        PartNumber: 1
+                    }]
+                }
+            });
+            const exist = await version_file_exists(full_path, mpu_key1, '', res.VersionId);
+            assert.ok(exist);
+            const comp_res = await compare_version_ids(full_path, mpu_key1, res_put_object.VersionId, res.VersionId);
+            assert.ok(comp_res);
+        });
+
     });
 
     // The res of putBucketVersioning is different depends on the versioning state:

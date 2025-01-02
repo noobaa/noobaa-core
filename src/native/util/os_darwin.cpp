@@ -3,6 +3,8 @@
 
 #include "common.h"
 #include <sys/kauth.h> // for KAUTH_UID_NONE
+#include <sys/param.h>
+#include <unistd.h>
 
 namespace noobaa
 {
@@ -37,12 +39,28 @@ get_current_uid()
 
 const uid_t ThreadScope::orig_uid = getuid();
 const gid_t ThreadScope::orig_gid = getgid();
+const std::vector<gid_t> ThreadScope::orig_groups = get_process_groups();
 
+
+/**
+ * set the effective uid/gid/supplemental_groups of the current thread using pthread_getugid_np and setgroups
+ * we have to bypass the libc wrappers because posix requires it to syncronize
+ * uid, gid & supplemental_groups to all threads which is undesirable in our case.
+ * this way is deprecated, but we don't seem to have another way.
+ * pthread_setugid_np sets the effective uid/gid and clears the supplementary groups of the current thread
+ * See https://www.unix.com/man-page/osx/2/pthread_setugid_np/
+ * regarding setgroups When called from a thread running under an assumed per-thread identity,
+ * this function will operate against the per-thread. so we have to run it after _mac_thread_setugid
+ * https://github.com/apple/darwin-xnu/blame/main/bsd/kern/kern_prot.c (see setgroups1)
+ */
 void
 ThreadScope::change_user()
 {
     if (_uid != orig_uid || _gid != orig_gid) {
         MUST_SYS(_mac_thread_setugid(_uid, _gid));
+        if (!_groups.empty()) {
+            MUST_SYS(initgroups(_groups.size(), &_groups[0]));
+        }
     }
 }
 
@@ -51,6 +69,7 @@ ThreadScope::restore_user()
 {
     if (_uid != orig_uid || _gid != orig_gid) {
         MUST_SYS(_mac_thread_setugid(KAUTH_UID_NONE, KAUTH_UID_NONE));
+        MUST_SYS(setgroups(orig_groups.size(), &orig_groups[0]));
     }
 }
 
@@ -60,6 +79,14 @@ ThreadScope::add_thread_capabilities()
     //set capabilities not used in darwin
     LOG("function set_capabilities_linkat is unsupported in darwin");
     return -1;
+}
+
+std::vector<gid_t>
+ThreadScope::get_process_groups() {
+    std::vector<gid_t> groups(NGROUPS_MAX);
+    int r = getgroups(NGROUPS_MAX, &groups[0]);
+    groups.resize(r);
+    return groups;
 }
 
 } // namespace noobaa

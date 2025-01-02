@@ -55,7 +55,7 @@ const account_id_cache = new LRUCache({
  */
 async function _validate_account_id(params, data) {
     if (config.NC_ENABLE_ACCOUNT_ID_CACHE_STAT_VALIDATION) {
-        const same_stat = await check_same_stat_account(params._id, params.stat, data.config_fs);
+        const same_stat = await check_same_stat_account(params._id, params.name, params.stat, data.config_fs);
         if (!same_stat) { // config file of account was changed
             return false;
         }
@@ -66,16 +66,16 @@ async function _validate_account_id(params, data) {
     /**
      * check_same_stat_account will return true the config file was not changed
      * in case we had any issue (for example error during stat) the returned value will be undefined
-     * @param {string} _id
+     * @param {string} id
+     * @param {string} account_name
      * @param {nb.NativeFSStats} account_stat
      * @param {ConfigFS} config_fs
      * @returns Promise<{boolean|undefined>}
      */
-    async function check_same_stat_account(_id, account_stat, config_fs) {
+    async function check_same_stat_account(id, account_name, account_stat, config_fs) {
         if (!config_fs) return;
         try {
-            const identity = await config_fs.get_identity_by_id_and_stat_file(_id, CONFIG_TYPES.ACCOUNT);
-            const current_stat = identity.stat;
+            const current_stat = await config_fs.stat_account_config_file_by_identity(id, account_name);
             if (current_stat) {
                 return current_stat.ino === account_stat.ino && current_stat.mtimeNsBigint === account_stat.mtimeNsBigint;
             }

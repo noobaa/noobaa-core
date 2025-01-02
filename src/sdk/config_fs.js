@@ -383,43 +383,24 @@ class ConfigFS {
      * 1. try by identity path
      * 2. if not found - try by account name with new accounts path
      * 3. if not found - try by account name with old accounts path
+     * silent_if_missing is used only on get identity (if stat fails, it will throw an error)
      * @param {string} id
      * @param {string} [type]
      * @param {{show_secrets?: boolean, decrypt_secret_key?: boolean, silent_if_missing?: boolean}} [options]
      * @returns {Promise<Object>} 
     */
     async get_identity_by_id_and_stat_file(id, type, options = {}) {
-        const identity_path = this.get_identity_path_by_id(id);
-        const identity = await this.get_identity_by_id(id, type, options);
+        let identity;
         try {
-            const stat_by_identity_path = await nb_native().fs.stat(this.fs_context, identity_path);
-            identity.stat = stat_by_identity_path;
-        } catch (err_stat_by_identity_path) {
-            if (err_stat_by_identity_path.code === 'ENOENT') {
-                dbg.warn('get_identity_by_id_and_stat_file: could not stat by identity ID will try to stat by account name');
-                const account_name = identity.name;
-                const account_name_new_path = this.get_account_path_by_name(account_name);
-                try {
-                    const stat_by_account_name = await nb_native().fs.stat(this.fs_context, account_name_new_path);
-                    identity.stat = stat_by_account_name;
-                } catch (err_stat_by_account_name_new_path) {
-                    if (err_stat_by_identity_path.code === 'ENOENT') {
-                        dbg.warn('get_identity_by_id_and_stat_file: could not stat by by account name (new accounts path)');
-                        const account_name_old_path = this._get_old_account_path_by_name(account_name);
-                        try {
-                            const stat_by_account_name_old = await nb_native().fs.stat(this.fs_context, account_name_old_path);
-                            identity.stat = stat_by_account_name_old;
-                        } catch (err_stat_by_account_name_old_path) {
-                            dbg.warn('get_identity_by_id_and_stat_file: could not stat by by account name (old accounts path)');
-                            // eslint-disable-next-line max-depth
-                            if (!options.silent_if_missing) {
-                                const error_to_throw = new Error(`Could not stat identity by id ${id} or by account name ${account_name}`);
-                                error_to_throw.code = 'ENOENT';
-                                throw error_to_throw;
-                            }
-                        }
-                    }
-                }
+            identity = await this.get_identity_by_id(id, type, options);
+            const stat = await this.stat_account_config_file_by_identity(id, identity.name);
+            identity.stat = stat;
+        } catch (err) {
+            dbg.error('get_identity_by_id_and_stat_file: got an error', err);
+            if (!identity && !options.silent_if_missing) {
+                const err_to_throw = new Error(`Could not find identity by id ${id}`);
+                err_to_throw.code = 'ENOENT';
+                throw err_to_throw;
             }
         }
         return identity; // this identity object should have also a stat property
@@ -497,7 +478,7 @@ class ConfigFS {
     }
 
     /**
-     * stat_account_config_file will return the stat output on account config file
+     * stat_account_config_file will return the stat output on account config file by access key
      * please notice that stat might throw an error - you should wrap it with try-catch and handle the error
      * Note: access_key type of anonymous_access_key is a symbol, otherwise it is a string (not SensitiveString)
      * @param {Symbol|string} access_key
@@ -513,6 +494,46 @@ class ConfigFS {
             throw new Error(`access_key must be a from valid type ${typeof access_key} ${access_key}`);
         }
         return nb_native().fs.stat(this.fs_context, path_for_account_or_user_config_file);
+    }
+
+    /**
+     * stat_account_config_file_by_identity will return the stat output on account config file by id or by account name
+     * @param {string} id
+     * @param {string} account_name
+     * @returns {Promise<nb.NativeFSStats>}
+     */
+    async stat_account_config_file_by_identity(id, account_name) {
+        const identity_path = this.get_identity_path_by_id(id);
+        let stat;
+        try {
+            const stat_by_identity_path = await nb_native().fs.stat(this.fs_context, identity_path);
+            stat = stat_by_identity_path;
+        } catch (err_stat_by_identity_path) {
+            if (err_stat_by_identity_path.code === 'ENOENT') {
+                dbg.warn('get_identity_by_id_and_stat_file: could not stat by identity ID will try to stat by account name');
+                const account_name_new_path = this.get_account_path_by_name(account_name);
+                try {
+                    const stat_by_account_name = await nb_native().fs.stat(this.fs_context, account_name_new_path);
+                    stat = stat_by_account_name;
+                } catch (err_stat_by_account_name_new_path) {
+                    if (err_stat_by_identity_path.code === 'ENOENT') {
+                        dbg.warn('get_identity_by_id_and_stat_file: could not stat by by account name (new accounts path)');
+                        const account_name_old_path = this._get_old_account_path_by_name(account_name);
+                        try {
+                            const stat_by_account_name_old = await nb_native().fs.stat(this.fs_context, account_name_old_path);
+                            stat = stat_by_account_name_old;
+                        } catch (err_stat_by_account_name_old_path) {
+                            dbg.warn('get_identity_by_id_and_stat_file: could not stat by by account name (old accounts path)');
+                            // eslint-disable-next-line max-depth
+                            const error_to_throw = new Error(`Could not stat identity by id ${id} or by account name ${account_name}`);
+                            error_to_throw.code = 'ENOENT';
+                            throw error_to_throw;
+                        }
+                    }
+                }
+            }
+        }
+        return stat;
     }
 
     /**

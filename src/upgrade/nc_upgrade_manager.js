@@ -251,7 +251,7 @@ class NCUpgradeManager {
      */
     async _run_nc_upgrade_scripts(this_upgrade) {
         try {
-            await run_upgrade_scripts(this_upgrade, this.upgrade_scripts_dir, { dbg });
+            await run_upgrade_scripts(this_upgrade, this.upgrade_scripts_dir, { dbg, from_version: this_upgrade.package_from_version });
         } catch (err) {
             const upgrade_failed_msg = `_run_nc_upgrade_scripts: nc upgrade manager failed!!!, ${err}`;
             dbg.error(upgrade_failed_msg);
@@ -279,7 +279,8 @@ class NCUpgradeManager {
             upgrade_package_version: this_upgrade.package_to_version,
             upgrade_history: {
                 ...upgrade_history,
-                successful_upgrades: [this_upgrade, ...successful_upgrades]
+                successful_upgrades: [this_upgrade, ...successful_upgrades],
+                last_failure: undefined
             }
         };
         const updated_system_data = { ...system_data, config_directory: updated_config_directory };

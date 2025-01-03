@@ -88,7 +88,12 @@ async function put_bucket_lifecycle(req) {
         };
 
         if (rule.ID?.length === 1) {
-            current_rule.id = rule.ID[0];
+            if (rule.ID[0].length > 255) {
+                dbg.error('Rule should not have ID length exceeding 255 characters', rule);
+                throw new S3Error(S3Error.InvalidArgument);
+            } else {
+                current_rule.id = rule.ID[0];
+            }
         } else {
             // Generate a random ID if missing
             current_rule.id = uuid();

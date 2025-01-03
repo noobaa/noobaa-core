@@ -79,8 +79,8 @@ jobs:
       - name: Upgrade noobaa to latest
         run: |
           cd ./noobaa-operator
-          VERSION=$(go run cmd/version/main.go)
-          ./build/_output/bin/noobaa-operator upgrade --noobaa-image='noobaa-core:upgrade-tests' --operator-image='noobaa/noobaa-operator:$VERSION'
+          OPERATOR_VERSION=$(go run cmd/version/main.go)
+          ./build/_output/bin/noobaa-operator upgrade --noobaa-image='noobaa-core:upgrade-tests' --operator-image='noobaa/noobaa-operator:$OPERATOR_VERSION'
 
       - name: Run Upgrade Tests
         run: |

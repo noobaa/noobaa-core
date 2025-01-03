@@ -358,6 +358,25 @@ function id_lifecycle_configuration(Bucket, Key) {
     };
 }
 
+function id_length_lifecycle_configuration(Bucket, Key) {
+    const ID = 'A'.repeat(260); // ID contains more then 255 characters
+    return {
+        Bucket,
+        LifecycleConfiguration: {
+            Rules: [{
+                ID,
+                Expiration: {
+                    Days: 17,
+                },
+                Filter: {
+                    Prefix: Key,
+                },
+                Status: 'Enabled',
+            }, ],
+        },
+    };
+}
+
 async function put_get_lifecycle_configuration(Bucket, putLifecycleParams, s3) {
     const putLifecycleResult = await s3.putBucketLifecycleConfiguration(putLifecycleParams);
     console.log('put lifecycle params:', putLifecycleParams, 'result', putLifecycleResult);
@@ -511,4 +530,14 @@ exports.test_and_prefix_size = async function(Bucket, Key, s3) {
     assert(actualFilter.Prefix === expectedFilter.Prefix, 'and prefix size filter - Prefix');
     assert(actualFilter.ObjectSizeGreaterThan === expectedFilter.ObjectSizeGreaterThan, 'and prefix size filter - ObjectSizeGreaterThan');
     assert(actualFilter.ObjectSizeLessThan === expectedFilter.ObjectSizeLessThan, 'and prefix size filter - ObjectSizeLessThan');
+};
+
+exports.test_rule_id_length = async function(Bucket, Key, s3) {
+    const putLifecycleParams = id_length_lifecycle_configuration(Bucket, Key);
+
+    await s3.putBucketLifecycleConfiguration(putLifecycleParams)
+        .catch(error => {
+            assert(error.code === 'InvalidArgument', 'Expected InvalidArgument: id length exceeding 255 characters');
+            console.log('Expected error received, id length exceeding 255 characters');
+        });
 };

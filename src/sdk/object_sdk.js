@@ -1203,6 +1203,24 @@ class ObjectSDK {
         }
     }
 
+    //////////////////////////
+    // PUBLIC ACCESS BLOCK  //
+    //////////////////////////
+
+    async get_public_access_block(params) {
+        const ns = await this._get_bucket_namespace(params.bucket);
+        return ns.get_public_access_block?.(params, this);
+    }
+
+    async put_public_access_block(params) {
+        const ns = await this._get_bucket_namespace(params.bucket);
+        return ns.put_public_access_block?.(params, this);
+    }
+
+    async delete_public_access_block(params) {
+        const ns = await this._get_bucket_namespace(params.bucket);
+        return ns.delete_public_access_block?.(params, this);
+    }
 }
 
 // EXPORT

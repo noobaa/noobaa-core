@@ -358,6 +358,36 @@ function id_lifecycle_configuration(Bucket, Key) {
     };
 }
 
+function duplicate_id_lifecycle_configuration(Bucket, Key) {
+    const ID1 = 'rule_id1';
+    const ID2 = 'rule_id2';
+    return {
+        Bucket,
+        LifecycleConfiguration: {
+            Rules: [{
+                ID1,
+                Expiration: {
+                    Days: 17,
+                },
+                Filter: {
+                    Prefix: Key,
+                },
+                Status: 'Enabled',
+            },
+            {
+                ID2,
+                Expiration: {
+                    Days: 18,
+                },
+                Filter: {
+                    Prefix: Key,
+                },
+                Status: 'Enabled',
+            }, ],
+        },
+    };
+}
+
 async function put_get_lifecycle_configuration(Bucket, putLifecycleParams, s3) {
     const putLifecycleResult = await s3.putBucketLifecycleConfiguration(putLifecycleParams);
     console.log('put lifecycle params:', putLifecycleParams, 'result', putLifecycleResult);
@@ -511,4 +541,14 @@ exports.test_and_prefix_size = async function(Bucket, Key, s3) {
     assert(actualFilter.Prefix === expectedFilter.Prefix, 'and prefix size filter - Prefix');
     assert(actualFilter.ObjectSizeGreaterThan === expectedFilter.ObjectSizeGreaterThan, 'and prefix size filter - ObjectSizeGreaterThan');
     assert(actualFilter.ObjectSizeLessThan === expectedFilter.ObjectSizeLessThan, 'and prefix size filter - ObjectSizeLessThan');
+};
+
+exports.test_rule_duplicate_id = async function(Bucket, Key, s3) {
+    const putLifecycleParams = duplicate_id_lifecycle_configuration(Bucket, Key);
+
+    await s3.putBucketLifecycleConfiguration(putLifecycleParams)
+        .catch(error => {
+            assert(error.code === 'InvalidArgument', 'Expected InvalidArgument: duplicate id found in the rules');
+            console.log('Expected error received, duplicate id found in the rules each rule must have a unique id');
+        });
 };

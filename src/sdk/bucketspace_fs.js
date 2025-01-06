@@ -294,11 +294,6 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             if (!sdk.requesting_account.allow_bucket_creation) {
                 throw new RpcError('UNAUTHORIZED', 'Not allowed to create new buckets');
             }
-            // currently we do not allow IAM account to create a bucket (temporary)
-            if (sdk.requesting_account.owner !== undefined) {
-                dbg.warn('create_bucket: account is IAM account (currently not allowed to create buckets)');
-                throw new RpcError('UNAUTHORIZED', 'Not allowed to create new buckets');
-            }
             if (!sdk.requesting_account.nsfs_account_config || !sdk.requesting_account.nsfs_account_config.new_buckets_path) {
                 throw new RpcError('MISSING_NSFS_ACCOUNT_CONFIGURATION');
             }
@@ -345,7 +340,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             _id: mongo_utils.mongoObjectId(),
             name,
             tag: js_utils.default_value(tag, undefined),
-            owner_account: account._id,
+            owner_account: account.owner ? account.owner : account._id, // The account is the owner of the buckets that were created by it or by its users.
             creator: account._id,
             versioning: config.NSFS_VERSIONING_ENABLED && lock_enabled ? 'ENABLED' : 'DISABLED',
             object_lock_configuration: config.WORM_ENABLED ? {

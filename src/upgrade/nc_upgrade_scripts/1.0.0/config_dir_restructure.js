@@ -34,7 +34,6 @@ const nb_native = require('../../../util/nb_native');
 async function run({ dbg, from_version }) {
     try {
         const config_fs = new ConfigFS(config.NSFS_NC_CONF_DIR, config.NSFS_NC_CONFIG_DIR_BACKEND);
-        const fs_context = config_fs.fs_context;
 
         await config_fs.create_dir_if_missing(config_fs.identities_dir_path);
         await config_fs.create_dir_if_missing(config_fs.accounts_by_name_dir_path);
@@ -43,7 +42,7 @@ async function run({ dbg, from_version }) {
         const failed_accounts = await upgrade_accounts_config_files(config_fs, old_account_names, from_version, dbg);
 
         if (failed_accounts.length > 0) throw new Error('NC upgrade process failed, failed_accounts array length is bigger than 0' + util.inspect(failed_accounts));
-        await move_old_accounts_dir(fs_context, config_fs, old_account_names, from_version, dbg);
+        await move_old_accounts_dir(config_fs, old_account_names, from_version, dbg);
     } catch (err) {
         dbg.error('NC upgrade process failed due to - ', err);
         throw err;
@@ -74,7 +73,7 @@ async function upgrade_accounts_config_files(config_fs, old_account_names, from_
                 break;
             } catch (err) {
                 retries -= 1;
-                dbg.warn(`upgrade account config failed ${account_name}, err ${err} retries left ${retries}`);
+                dbg.warn(`upgrade accounts config failed ${account_name}, err ${err} retries left ${retries}`);
                 if (retries <= 0) {
                     failed_accounts.push({ account_name, err });
                     break;
@@ -124,7 +123,7 @@ async function upgrade_account_config_file(config_fs, account_name, backup_acces
 }
 
 /**
- * 
+ * prepare_account_upgrade_params is creating account upgrade params
  * @param {import('../../../sdk/config_fs').ConfigFS} config_fs 
  * @param {String} account_name 
  * @returns {Promise<AccountUpgradeParams>}
@@ -187,10 +186,15 @@ async function create_account_name_index_if_missing(config_fs, account_upgrade_p
     const { account_name, _id, identity_path } = account_upgrade_params;
     try {
         const account_name_path = config_fs.get_account_path_by_name(account_name);
-        const is_account_symlink_exists = await native_fs_utils.is_path_exists(config_fs.fs_context, account_name_path);
-        const account_name_already_linked = is_account_symlink_exists &&
+        const is_account_symlink_exists = await native_fs_utils.is_path_exists(config_fs.fs_context, account_name_path, true);
+        const is_account_symlink_target_exists = await native_fs_utils.is_path_exists(config_fs.fs_context, account_name_path);
+        const account_name_already_linked_to_identity = is_account_symlink_target_exists &&
             await config_fs._is_symlink_pointing_to_identity(account_name_path, identity_path);
-        if (!account_name_already_linked) await config_fs.link_account_name_index(_id, account_name);
+        if (!account_name_already_linked_to_identity) {
+            // in case it was linked to a wrong location or the target does not exist, delete it
+            if (is_account_symlink_exists) await native_fs_utils.unlink_ignore_enoent(config_fs.fs_context, account_name_path);
+            await config_fs.link_account_name_index(_id, account_name);
+        }
     } catch (err) {
         if (err.code !== 'EEXIST') throw err;
         dbg.warn(`account name was already linked on a previous run of the upgrade script, skipping ${account_name}, ${_id}`);
@@ -248,23 +252,23 @@ async function create_account_access_keys_index_if_missing(config_fs, account_up
  * 2. iterates all old accounts to a hidden directory
  * 3. deletes the accounts/ directory
  * // TODO - consider removing the accounts in the future, currently we decide to not delete old accounts
- * @param {nb.NativeFSContext} fs_context 
  * @param {import('../../../sdk/config_fs').ConfigFS} config_fs 
- * @param {String[]} old_account_names 
+ * @param {String[]} account_names 
  * @param {String} from_version 
  * @param {*} dbg 
  * @returns {Promise<Void>}
  */
-async function move_old_accounts_dir(fs_context, config_fs, old_account_names, from_version, dbg) {
+async function move_old_accounts_dir(config_fs, account_names, from_version, dbg) {
+    const fs_context = config_fs.fs_context;
     const old_account_tmp_dir_path = path.join(config_fs.old_accounts_dir_path, native_fs_utils.get_config_files_tmpdir());
     const hidden_old_accounts_path = path.join(config_fs.config_root, `.backup_accounts_dir_${from_version}/`);
     try {
         await nb_native().fs.mkdir(fs_context, hidden_old_accounts_path);
     } catch (err) {
         if (err.code !== 'EEXIST') throw err;
-        dbg.warn(`config_dir_restructure.move_old_accounts_dir backup dir for old accounts allready exists ${hidden_old_accounts_path}, skipping`);
+        dbg.warn(`config_dir_restructure.move_old_accounts_dir backup dir for old accounts already exists ${hidden_old_accounts_path}, skipping`);
     }
-    for (const account_name of old_account_names) {
+    for (const account_name of account_names) {
         const old_account_path = path.join(config_fs.old_accounts_dir_path, config_fs.json(account_name));
         const hidden_old_account_path = path.join(hidden_old_accounts_path, config_fs.json(account_name));
         try {
@@ -276,8 +280,8 @@ async function move_old_accounts_dir(fs_context, config_fs, old_account_names, f
             dbg.warn(`config_dir_restructure.move_old_accounts_dir old account file does not exist ${old_account_path}, skipping`);
         }
     }
-    await native_fs_utils.folder_delete(old_account_tmp_dir_path, fs_context, true);
     try {
+        await native_fs_utils.folder_delete(old_account_tmp_dir_path, fs_context, true);
         await nb_native().fs.rmdir(fs_context, config_fs.old_accounts_dir_path);
     } catch (err) {
         if (err.code !== 'ENOENT') throw err;
@@ -289,3 +293,11 @@ module.exports = {
     run,
     description: 'Config directory resturcture'
 };
+
+module.exports.move_old_accounts_dir = move_old_accounts_dir;
+module.exports.create_identity_if_missing = create_identity_if_missing;
+module.exports.upgrade_account_config_file = upgrade_account_config_file;
+module.exports.prepare_account_upgrade_params = prepare_account_upgrade_params;
+module.exports.create_account_name_index_if_missing = create_account_name_index_if_missing;
+module.exports.create_account_access_keys_index_if_missing = create_account_access_keys_index_if_missing;
+module.exports.upgrade_accounts_config_files = upgrade_accounts_config_files;

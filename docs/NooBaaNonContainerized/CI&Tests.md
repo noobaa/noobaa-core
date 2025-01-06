@@ -105,8 +105,13 @@ The following is a list of `NC jest tests` files -
 9. `test_nc_nsfs_account_schema_validation.test.js` - Tests NC account schema validation.  
 10. `test_nc_nsfs_new_buckets_path_validation.test.js` - Tests new_buckets_path RW access.  
 11. `test_config_fs.test.js` - Tests ConfigFS methods.
-12. `test_nsfs_concurrency` - Tests concurrent operations.
-13. `test_versioning_concurrency` - Tests concurrent operations on versioned enabled bucket.
+12. `test_nsfs_concurrency.test.js` - Tests concurrent operations.
+13. `test_versioning_concurrency.test.js` - Tests concurrent operations on versioned enabled bucket.
+14. `test_config_dir_restructure_upgrade_script.test.js` - Tests of the config directory restructure upgrade script.
+15. `test_config_dir_structure.test.js` - Tests of the configFS functions created for the new config directory structure.
+16. `test_config_fs_backward_compatibility.test.js` - Tests of the backwards compatibility of configFS functions.
+17. `test_nc_upgrade_manager.test.js` - Tests of the NC upgrade manager.
+18. `test_cli_upgrade.test.js` - Tests of the upgrade CLI commands.
 
 #### nc_index.js File
 * The `nc_index.js` is a file that runs several NC and NSFS mocha related tests.  

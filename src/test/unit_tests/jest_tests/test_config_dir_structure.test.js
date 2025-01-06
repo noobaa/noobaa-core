@@ -8,7 +8,7 @@ const { TMP_PATH, create_redirect_file, create_config_dir, clean_config_dir,
     fail_test_if_default_config_dir_exists, TEST_TIMEOUT } = require('../../system_tests/test_utils');
 const { get_process_fs_context, is_path_exists } = require('../../../util/native_fs_utils');
 
-const tmp_fs_path = path.join(TMP_PATH, 'test_config_fs');
+const tmp_fs_path = path.join(TMP_PATH, 'test_config_dir_restructure');
 const config_root = path.join(tmp_fs_path, 'config_root');
 const config_root_backend = config.NSFS_NC_CONFIG_DIR_BACKEND;
 const fs_context = get_process_fs_context(config_root_backend);

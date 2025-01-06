@@ -43,9 +43,9 @@ function empty_filter_marker_lifecycle_configuration(Bucket) {
 exports.empty_filter_marker_lifecycle_configuration = empty_filter_marker_lifecycle_configuration;
 
 function date_lifecycle_configuration(Bucket, Key) {
-    const now = new Date(Date.now());
-    now.setDate(now.getDate() + 1); // Increases date by 1 day; past/current dates can't be set
-    const midnight = new Date(now.setUTCHours(0, 0, 0, 0));
+    const date = new Date(Date.now());
+    date.setDate(date.getDate() + 1); // Increases date by 1 day; past/current dates can't be set
+    const midnight = new Date(date.setUTCHours(0, 0, 0, 0));
 
     return {
         Bucket,
@@ -64,32 +64,10 @@ function date_lifecycle_configuration(Bucket, Key) {
 }
 exports.date_lifecycle_configuration = date_lifecycle_configuration;
 
-function past_date_lifecycle_configuration(Bucket, Key) {
-    const now = new Date(Date.now());
-    now.setDate(now.getDate() - 1); // decreases date by 1 day
-    const midnight = new Date(now.setUTCHours(0, 0, 0, 0));
-
-    return {
-        Bucket,
-        LifecycleConfiguration: {
-            Rules: [{
-                Expiration: {
-                    Date: midnight,
-                },
-                Filter: {
-                    Prefix: Key,
-                },
-                Status: 'Enabled',
-            }, ],
-        },
-    };
-}
-exports.past_date_lifecycle_configuration = past_date_lifecycle_configuration;
-
 function date_lifecycle_configuration_and_tags(Bucket, Prefix, tagging) {
-    const now = new Date(Date.now());
-    now.setDate(now.getDate() + 1); // Increases date by 1 day; past/current dates can't be set
-    const midnight = new Date(now.setUTCHours(0, 0, 0, 0));
+    const date = new Date(Date.now());
+    date.setDate(date.getDate() + 1); // Increases date by 1 day; past/current dates can't be set
+    const midnight = new Date(date.setUTCHours(0, 0, 0, 0));
     const Tags = tagging.map((e, _) => ({Key: e.key, Value: e.value}));
 
     return {
@@ -113,9 +91,9 @@ function date_lifecycle_configuration_and_tags(Bucket, Prefix, tagging) {
 exports.date_lifecycle_configuration_and_tags = date_lifecycle_configuration_and_tags;
 
 function size_less_lifecycle_configuration(Bucket, ObjectSizeLessThan) {
-    const now = new Date(Date.now());
-    now.setDate(now.getDate() + 1); // Increases date by 1 day; past/current dates can't be set
-    const midnight = new Date(now.setUTCHours(0, 0, 0, 0));
+    const date = new Date(Date.now());
+    date.setDate(date.getDate() + 1); // Increases date by 1 day; past/current dates can't be set
+    const midnight = new Date(date.setUTCHours(0, 0, 0, 0));
 
     return {
         Bucket,
@@ -174,9 +152,9 @@ function tag_days_lifecycle_configuration(Bucket, Days, tag) {
 exports.tag_days_lifecycle_configuration = tag_days_lifecycle_configuration;
 
 function size_gt_lt_lifecycle_configuration(Bucket, gt, lt) {
-    const now = new Date(Date.now());
-    now.setDate(now.getDate() + 1); // Increases date by 1 day; past/current dates can't be set
-    const midnight = new Date(now.setUTCHours(0, 0, 0, 0));
+    const date = new Date(Date.now());
+    date.setDate(date.getDate() + 1); // Increases date by 1 day; past/current dates can't be set
+    const midnight = new Date(date.setUTCHours(0, 0, 0, 0));
 
     return {
         Bucket,
@@ -332,9 +310,9 @@ function and_prefix_size_lifecycle_configuration(Bucket, Key) {
 }
 
 function rules_length_lifecycle_configuration(Bucket, Key) {
-    const now = new Date(Date.now());
-    now.setDate(now.getDate() + 1); // Increases date by 1 day; past/current dates can't be set
-    const midnight = new Date(now.setUTCHours(0, 0, 0, 0));
+    const date = new Date(Date.now());
+    date.setDate(date.getDate() + 1); // Increases date by 1 day; past/current dates can't be set
+    const midnight = new Date(date.setUTCHours(0, 0, 0, 0));
 
     return {
         Bucket,
@@ -541,11 +519,18 @@ exports.test_and_prefix_size = async function(Bucket, Key, s3) {
 };
 
 exports.test_expiration_date_in_past = async function(Bucket, Key, s3) {
-    const putLifecycleParams = past_date_lifecycle_configuration(Bucket, Key);
+    const putLifecycleParams = date_lifecycle_configuration(Bucket, Key);
 
-    await s3.putBucketLifecycleConfiguration(putLifecycleParams)
-        .catch(error => {
-            assert(error.code === 'InvalidArgument', 'Expected InvalidArgument: expiration date in the past');
-            console.log('Expected error received, expiration date in the past');
-        });
+    // decrease expiration date by 2 days to set it in the past
+    const date = new Date(Date.now());
+    date.setDate(date.getDate() - 2);
+    const past_date = new Date(date.setUTCHours(0, 0, 0, 0));
+    putLifecycleParams.LifecycleConfiguration.Rules[0].Expiration.Date = past_date;
+
+    try {
+        await s3.putBucketLifecycleConfiguration(putLifecycleParams);
+    } catch (error) {
+        assert(error.code === 'InvalidArgument', 'Expected InvalidArgument: expiration date in the past');
+        console.log('Expected error received, expiration date in the past');
+    }
 };

@@ -1,14 +1,18 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+const _ = require('lodash');
+
 /**
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGETnotification.html
  */
 async function get_bucket_notification(req) {
 
-    const result = await req.object_sdk.get_bucket_notification({
+    let result = await req.object_sdk.get_bucket_notification({
         bucket_name: req.params.bucket,
     });
+
+    result = _.cloneDeep(result);
 
     //adapt to aws cli structure
     if (result && result.length > 0) {
@@ -16,7 +20,7 @@ async function get_bucket_notification(req) {
             conf.Event = conf.event;
             conf.Topic = conf.topic;
             conf.Id = conf.id;
-            delete conf.vent;
+            delete conf.event;
             delete conf.topic;
             delete conf.id;
         }

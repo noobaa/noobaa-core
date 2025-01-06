@@ -19,7 +19,8 @@ const RPC_ERRORS_TO_IAM = Object.freeze({
     INVALID_ACCESS_KEY_ID: IamError.InvalidClientTokenId,
     DEACTIVATED_ACCESS_KEY_ID: IamError.InvalidClientTokenIdInactiveAccessKey,
     NO_SUCH_ACCOUNT: IamError.AccessDeniedException,
-    NO_SUCH_ROLE: IamError.AccessDeniedException
+    NO_SUCH_ROLE: IamError.AccessDeniedException,
+    VALIDATION_ERROR: IamError.ValidationError,
 });
 
 const ACTIONS = Object.freeze({

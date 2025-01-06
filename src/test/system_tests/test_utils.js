@@ -5,9 +5,11 @@ const fs = require('fs');
 const _ = require('lodash');
 const path = require('path');
 const http = require('http');
+const https = require('https');
 const P = require('../../util/promise');
 const config = require('../../../config');
 const { S3 } = require('@aws-sdk/client-s3');
+const { IAMClient } = require('@aws-sdk/client-iam');
 const os_utils = require('../../util/os_utils');
 const fs_utils = require('../../util/fs_utils');
 const nb_native = require('../../util/nb_native');
@@ -416,6 +418,20 @@ function generate_s3_client(access_key, secret_key, endpoint) {
         endpoint
     });
 }
+
+function generate_iam_client(access_key, secret_key, endpoint) {
+    const httpsAgent = new https.Agent({ rejectUnauthorized: false }); // disable SSL certificate validation
+    return new IAMClient({
+        region: config.DEFAULT_REGION,
+        credentials: {
+            accessKeyId: access_key,
+            secretAccessKey: secret_key,
+        },
+        endpoint,
+        requestHandler: new NodeHttpHandler({ httpsAgent }),
+    });
+}
+
 /**
  * generate_nsfs_account generate an nsfs account and returns its credentials
  * if the admin flag is received (in the options object) the function will not create 
@@ -720,6 +736,7 @@ exports.empty_and_delete_buckets = empty_and_delete_buckets;
 exports.disable_accounts_s3_access = disable_accounts_s3_access;
 exports.generate_s3_policy = generate_s3_policy;
 exports.generate_s3_client = generate_s3_client;
+exports.generate_iam_client = generate_iam_client;
 exports.invalid_nsfs_root_permissions = invalid_nsfs_root_permissions;
 exports.get_coretest_path = get_coretest_path;
 exports.exec_manage_cli = exec_manage_cli;

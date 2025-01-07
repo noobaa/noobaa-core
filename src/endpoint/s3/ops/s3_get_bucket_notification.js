@@ -14,6 +14,8 @@ async function get_bucket_notification(req) {
 
     result = _.cloneDeep(result);
 
+    const TopicConfiguration = [];
+
     //adapt to aws cli structure
     if (result && result.length > 0) {
         for (const conf of result) {
@@ -23,19 +25,19 @@ async function get_bucket_notification(req) {
             delete conf.event;
             delete conf.topic;
             delete conf.id;
+
+            TopicConfiguration.push({TopicConfiguration: conf});
         }
     }
 
     const reply = result && result.length > 0 ?
         {
             //return result inside TopicConfiguration tag
-            NotificationConfiguration: {
-                TopicConfiguration: result
-            }
+            NotificationConfiguration:
+                TopicConfiguration
         } :
         //if there's no notification, return empty NotificationConfiguration tag
         { NotificationConfiguration: {} };
-
 
     return reply;
 }

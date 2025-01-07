@@ -569,3 +569,17 @@ exports.test_rule_duplicate_id = async function(Bucket, Key, s3) {
         assert(error.code === 'InvalidArgument', 'Expected InvalidArgument: duplicate ID found in the rules');
     }
 };
+
+exports.test_rule_status_value = async function(Bucket, Key, s3) {
+    const putLifecycleParams = id_lifecycle_configuration(Bucket, Key);
+
+    // set the status value to an invalid value - other than 'Enabled' and 'Disabled'
+    putLifecycleParams.LifecycleConfiguration.Rules[0].Status = 'enabled';
+
+    try {
+        await s3.putBucketLifecycleConfiguration(putLifecycleParams);
+        assert.fail('Expected MalformedXML error due to wrong status value, but received a different response');
+    } catch (error) {
+        assert(error.code === 'MalformedXML', `Expected MalformedXML error: due to invalid status value`);
+    }
+};

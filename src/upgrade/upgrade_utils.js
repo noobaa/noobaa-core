@@ -110,7 +110,13 @@ async function load_required_scripts(server_version, container_version, upgrade_
  * 
  * @param {Object} this_upgrade 
  * @param {string} upgrade_scripts_dir 
- * @param {Object} options 
+ * @param {{
+    * dbg?: *, 
+    * db_client?: import('../util/db_client'), 
+    * system_store?: import('../server/system_services/system_store').SystemStore, 
+    * system_server?: import('../server/system_services/system_server'),
+    * from_version?: String
+ * }} options 
  */
 async function run_upgrade_scripts(this_upgrade, upgrade_scripts_dir, options) {
     const from_version = this_upgrade.from_version || this_upgrade.config_dir_from_version;

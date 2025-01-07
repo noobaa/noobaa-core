@@ -59,12 +59,12 @@ module.exports = {
 `;
 const old_expected_system_json = {
     [hostname]: {
-        'current_version': '5.17.0',
-        'upgrade_history': {
-            'successful_upgrades': [{
-                'timestamp': 1724687496424,
-                'from_version': '5.16.0',
-                'to_version': '5.17.0'
+        current_version: '5.17.0',
+        upgrade_history: {
+            successful_upgrades: [{
+                timestamp: 1724687496424,
+                from_version: '5.16.0',
+                to_version: '5.17.0'
             }]
         },
     }
@@ -72,25 +72,25 @@ const old_expected_system_json = {
 
 const old_expected_system_json_has_config_directory = {
     [hostname]: {
-        'current_version': '5.18.1',
-        'upgrade_history': {
-            'successful_upgrades': [{
-                'timestamp': 1724687496424,
-                'from_version': '5.18.0',
-                'to_version': '5.18.1'
+        current_version: '5.18.1',
+        upgrade_history: {
+            successful_upgrades: [{
+                timestamp: 1724687496424,
+                from_version: '5.18.0',
+                to_version: '5.18.1'
             }]
         },
     },
     config_directory: {
-        'config_dir_version': '1.0.0',
-        'upgrade_package_version': '5.18.0',
-        'phase': CONFIG_DIR_PHASES.CONFIG_DIR_UNLOCKED,
-        'upgrade_history': {
-            'successful_upgrades': [{
-                'timestamp': 1724687496424,
-                'completed_scripts': [],
-                'package_from_version': '5.17.0',
-                'package_to_version': '5.18.0'
+        config_dir_version: '1.0.0',
+        upgrade_package_version: '5.18.0',
+        phase: CONFIG_DIR_PHASES.CONFIG_DIR_UNLOCKED,
+        upgrade_history: {
+            successful_upgrades: [{
+                timestamp: 1724687496424,
+                completed_scripts: [],
+                package_from_version: '5.17.0',
+                package_to_version: '5.18.0'
             }]
         }
     }
@@ -98,21 +98,22 @@ const old_expected_system_json_has_config_directory = {
 
 const old_expected_system_json_no_successful_upgrades = {
     [hostname]: {
-        'current_version': '5.17.0',
-        'upgrade_history': {
-            'successful_upgrades': []
+        current_version: '5.17.0',
+        upgrade_history: {
+            successful_upgrades: []
         },
     }
 };
 
 const current_expected_system_json = {
     [hostname]: {
-        'current_version': pkg.version,
-        'upgrade_history': {
-            'successful_upgrades': [{
-                'timestamp': 1724687496424,
-                'from_version': '5.17.0',
-                'to_version': pkg.version
+        current_version: pkg.version,
+        config_dir_version: config_fs.config_dir_version,
+        upgrade_history: {
+            successful_upgrades: [{
+                timestamp: 1724687496424,
+                from_version: '5.17.0',
+                to_version: pkg.version
             }]
         },
     }
@@ -121,9 +122,10 @@ const current_expected_system_json = {
 
 const current_expected_system_json_no_successful_upgrades = {
     [hostname]: {
-        'current_version': pkg.version,
-        'upgrade_history': {
-            'successful_upgrades': []
+        current_version: pkg.version,
+        config_dir_version: config_fs.config_dir_version,
+        upgrade_history: {
+            successful_upgrades: []
         },
     }
 };
@@ -207,8 +209,10 @@ describe('nc upgrade manager - upgrade RPM', () => {
         await nc_upgrade_manager.update_rpm_upgrade(config_fs);
         const system_data_after_upgrade_run = await config_fs.get_system_config_file();
         const new_version = pkg.version;
+        const new_config_dir_version = config_fs.config_dir_version;
         const host_data_after_upgrade = system_data_after_upgrade_run[hostname];
         expect(host_data_after_upgrade.current_version).toStrictEqual(new_version);
+        expect(host_data_after_upgrade.config_dir_version).toStrictEqual(new_config_dir_version);
         expect(host_data_after_upgrade.upgrade_history.successful_upgrades[0].from_version).toStrictEqual(
             old_expected_system_json[hostname].current_version);
         expect(host_data_after_upgrade.upgrade_history.successful_upgrades[0].to_version).toStrictEqual(new_version);
@@ -219,8 +223,10 @@ describe('nc upgrade manager - upgrade RPM', () => {
         await nc_upgrade_manager.update_rpm_upgrade(config_fs);
         const system_data_after_upgrade_run = await config_fs.get_system_config_file();
         const new_version = pkg.version;
+        const new_config_dir_version = config_fs.config_dir_version;
         const host_data_after_upgrade = system_data_after_upgrade_run[hostname];
         expect(host_data_after_upgrade.current_version).toStrictEqual(new_version);
+        expect(host_data_after_upgrade.config_dir_version).toStrictEqual(new_config_dir_version);
         expect(host_data_after_upgrade.upgrade_history.successful_upgrades[0].from_version).toStrictEqual(
             old_expected_system_json_no_successful_upgrades[hostname].current_version);
         expect(host_data_after_upgrade.upgrade_history.successful_upgrades[0].to_version).toStrictEqual(new_version);
@@ -334,7 +340,7 @@ describe('nc upgrade manager - upgrade config directory', () => {
 
     describe('nc upgrade manager - _run_nc_upgrade_scripts', () => {
         const from_version = '0.0.0';
-        const to_version = '0.0.9';
+        const to_version = '0.0.9-test-nc-upgrade-manager';
         const custom_upgrade_scripts_dir = path.join(TMP_PATH, 'custom_upgrade_scripts_dir');
         const custom_upgrade_scripts_dir_version_path = path.join(TMP_PATH, 'custom_upgrade_scripts_dir', to_version);
         const default_upgrade_script_dir_version_path = path.join(DEFAULT_NC_UPGRADE_SCRIPTS_DIR, to_version);
@@ -352,11 +358,11 @@ describe('nc upgrade manager - upgrade config directory', () => {
         const nc_upgrade_manager_custom_dir = new NCUpgradeManager(config_fs, { custom_upgrade_scripts_dir });
 
         beforeEach(async () => {
-            await fs_utils.create_path(custom_upgrade_scripts_dir_version_path, 777);
+            await fs_utils.create_path(custom_upgrade_scripts_dir_version_path, config.BASE_MODE_DIR);
 
             try {
-                await fs_utils.create_path(DEFAULT_NC_UPGRADE_SCRIPTS_DIR, 777);
-                await fs_utils.create_path(default_upgrade_script_dir_version_path, 777);
+                await fs_utils.create_path(DEFAULT_NC_UPGRADE_SCRIPTS_DIR, config.BASE_MODE_DIR);
+                await fs_utils.create_path(default_upgrade_script_dir_version_path, config.BASE_MODE_DIR);
             } catch (err) {
                 console.log('couldnt create upgrade scripts dir err', default_upgrade_script_dir_version_path, err);
             }
@@ -365,6 +371,7 @@ describe('nc upgrade manager - upgrade config directory', () => {
         afterEach(async () => {
             await fs_utils.folder_delete(custom_upgrade_scripts_dir_version_path);
             await fs_utils.folder_delete(custom_upgrade_scripts_dir);
+            await fs_utils.folder_delete(default_upgrade_script_dir_version_path);
         });
 
         it('_run_nc_upgrade_scripts - no scripts', async () => {
@@ -436,7 +443,7 @@ describe('nc upgrade manager - upgrade config directory', () => {
             const system_data = old_expected_system_json;
             const options = {
                 config_dir_from_version: '0.0.0',
-                config_dir_to_version: '0.0.9',
+                config_dir_to_version: '0.0.9-test-nc-upgrade-manager',
                 package_from_version: '5.16.0',
                 package_to_version: '5.17.0',
             };
@@ -538,7 +545,7 @@ describe('nc upgrade manager - upgrade config directory', () => {
                 'running_host': hostname,
                 'completed_scripts': [],
                 'config_dir_from_version': '0.0.0',
-                'config_dir_to_version': '0.0.9',
+                'config_dir_to_version': '0.0.9-test-nc-upgrade-manager',
                 'package_from_version': '5.17.0',
                 'package_to_version': '5.18.0',
                 'error': new Error('this is a last failure error').stack
@@ -562,7 +569,7 @@ describe('nc upgrade manager - upgrade config directory', () => {
                     config_dir_version: this_upgrade.config_dir_to_version,
                     upgrade_package_version: this_upgrade.package_to_version,
                     upgrade_history: {
-                        last_failure: system_data.config_directory.upgrade_history.last_failure,
+                        // last_failure should be removed after a successful upgrade
                         successful_upgrades: [this_upgrade, ...system_data.config_directory.upgrade_history.successful_upgrades]
                     }
                 }
@@ -633,7 +640,7 @@ describe('nc upgrade manager - upgrade config directory', () => {
                 'running_host': hostname,
                 'completed_scripts': [],
                 'config_dir_from_version': '0.0.0',
-                'config_dir_to_version': '0.0.9',
+                'config_dir_to_version': '0.0.9-test-nc-upgrade-manager',
                 'package_from_version': '5.17.0',
                 'package_to_version': '5.18.0',
                 'error': new Error('this is a last failure error').stack

@@ -10,3 +10,7 @@ const s3_const = exports;
 ///////////////
 
 s3_const.MAX_RULE_ID_LENGTH = 255;
+s3_const.LIFECYCLE_STATUS = Object.freeze({
+    STAT_ENABLED: 'Enabled',
+    STAT_DISABLED: 'Disabled'
+});

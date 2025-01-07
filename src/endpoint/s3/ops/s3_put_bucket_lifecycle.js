@@ -108,9 +108,10 @@ async function put_bucket_lifecycle(req) {
         }
         id_set.add(current_rule.id);
 
-        if (rule.Status?.length !== 1) {
-            dbg.error('Rule should have status', rule);
-            throw new S3Error(S3Error.InvalidArgument);
+        if (!rule.Status || rule.Status.length !== 1 ||
+            (rule.Status[0] !== s3_const.LIFECYCLE_STATUS.STAT_ENABLED && rule.Status[0] !== s3_const.LIFECYCLE_STATUS.STAT_DISABLED)) {
+            dbg.error(`Rule should have a status value of "${s3_const.LIFECYCLE_STATUS.STAT_ENABLED}" or "${s3_const.LIFECYCLE_STATUS.STAT_DISABLED}".`, rule);
+            throw new S3Error(S3Error.MalformedXML);
         }
         current_rule.status = rule.Status[0];
 

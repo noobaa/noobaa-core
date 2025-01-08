@@ -3,7 +3,6 @@
 
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
-const http = require('http');
 const config = require('../../../config');
 
 // Import the reports.
@@ -13,6 +12,7 @@ const { NooBaaEndpointReport } = require('./prometheus_reports/noobaa_endpoint_r
 const stats_aggregator = require('../system_services/stats_aggregator');
 const AggregatorRegistry = require('prom-client').AggregatorRegistry;
 const aggregatorRegistry = new AggregatorRegistry();
+const http_utils = require('../../util/http_utils');
 
 // Currenty supported reprots
 const reports = Object.seal({
@@ -48,17 +48,27 @@ async function export_all_metrics() {
     return all_metrics.join('\n\n');
 }
 
+/**
+ * Start Noobaa metrics server for http and https server
+ * 
+ * @param {number?} port prometheus metris port.
+ * @param {number?} ssl_port prometheus metris https port.
+ * @param {boolean?} fork_enabled request from frok or not.
+ * @param {string?} nsfs_config_root nsfs configuration path
+ */
 async function start_server(
     port,
-    fork_enabled,
+    ssl_port = 0,
+    fork_enabled = false,
+    nsfs_config_root = '',
     retry_count = config.PROMETHEUS_SERVER_RETRY_COUNT,
+    retry_https_count = config.PROMETHEUS_SERVER_RETRY_COUNT,
     delay = config.PROMETHEUS_SERVER_RETRY_DELAY
 ) {
     if (!config.PROMETHEUS_ENABLED) {
         return;
     }
-
-    const server = http.createServer(async (req, res) => {
+    const metrics_request_handler = async (req, res) => {
         // Serve all metrics on the root path for system that do have one or more fork running.
         if (fork_enabled) {
             // we would like this part to be first as clusterMetrics might fail.
@@ -121,16 +131,18 @@ async function start_server(
 
         res.writeHead(404, { 'Content-Type': 'text/plain' });
         res.end();
-    });
+    };
 
     // Try to open the port for listening, will retry then exist.
-    dbg.log0('Starting prometheus metrics server on HTTP port', port);
     while (retry_count) {
         try {
-            await new Promise((resolve, reject) => {
-                server.listen(port, err => (err ? reject(err) : resolve()));
-            });
-
+            if (nsfs_config_root && !config.ALLOW_HTTP_METRICS) {
+                dbg.warn('HTTP is not allowed for NC NSFS metrics server.');
+            } else if (port > 0) {
+                await http_utils.start_http_server(port, 'METRICS', metrics_request_handler);
+            } else {
+                dbg.warn('Port is not configured for metrics server');
+            }
             // Set retry_count to 0 to exit the loop
             retry_count = 0;
 
@@ -140,6 +152,27 @@ async function start_server(
                 await P.delay_unblocking(delay);
             } else {
                 dbg.error(`Metrics server failed to listen on ${port} too many times, existing the process`);
+                process.exit();
+            }
+        }
+    }
+
+    while (retry_https_count) {
+        try {
+            if (ssl_port > 0 && config.ALLOW_HTTPS_METRICS) {
+                await http_utils.start_https_server(ssl_port, 'METRICS', metrics_request_handler, nsfs_config_root);
+            } else {
+                dbg.warn('HTTPS is not allowed or ssl port missing for Noobaa metrics server. ssl_port: ', ssl_port);
+            }
+            // Set retry_https_count to 0 to exit the loop
+            retry_https_count = 0;
+
+        } catch (err) {
+            if (retry_https_count) {
+                dbg.error(`Metrics server failed to listen on ${ssl_port} (retries left: ${retry_https_count}), got`, err);
+                await P.delay_unblocking(delay);
+            } else {
+                dbg.error(`Metrics server failed to listen on ${ssl_port} too many times, existing the process`);
                 process.exit();
             }
         }

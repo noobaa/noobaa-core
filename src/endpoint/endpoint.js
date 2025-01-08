@@ -11,8 +11,6 @@ const dbg = require('../util/debug_module')(__filename);
 if (!dbg.get_process_name()) dbg.set_process_name('Endpoint');
 
 const util = require('util');
-const http = require('http');
-const https = require('https');
 const os = require('os');
 
 const P = require('../util/promise');
@@ -28,7 +26,7 @@ const StsSDK = require('../sdk/sts_sdk');
 const ObjectIO = require('../sdk/object_io');
 const ObjectSDK = require('../sdk/object_sdk');
 const xml_utils = require('../util/xml_utils');
-const ssl_utils = require('../util/ssl_utils');
+const http_utils = require('../util/http_utils');
 const net_utils = require('../util/net_utils');
 const addr_utils = require('../util/addr_utils');
 const fork_utils = require('../util/fork_utils');
@@ -57,7 +55,8 @@ if (process.env.NOOBAA_LOG_LEVEL) {
 const SERVICES_TYPES_ENUM = Object.freeze({
     S3: 'S3',
     STS: 'STS',
-    IAM: 'IAM'
+    IAM: 'IAM',
+    METRICS: 'METRICS'
 });
 
 const new_umask = process.env.NOOBAA_ENDPOINT_UMASK || 0o000;
@@ -66,7 +65,7 @@ let fork_count;
 dbg.log0('endpoint: replacing old umask: ', old_umask.toString(8), 'with new umask: ', new_umask.toString(8));
 
 /**
- * @typedef {http.IncomingMessage & {
+ * @typedef {import('http').IncomingMessage & {
  *  object_sdk?: ObjectSDK;
  *  func_sdk?: FuncSDK;
  *  sts_sdk?: StsSDK;
@@ -79,7 +78,7 @@ dbg.log0('endpoint: replacing old umask: ', old_umask.toString(8), 'with new uma
 /**
  * @typedef {(
  *  req: EndpointRequest,
- *  res: http.ServerResponse
+ *  res: import('http').ServerResponse
  * ) => void | Promise<void>} EndpointHandler 
  */
 
@@ -89,18 +88,14 @@ dbg.log0('endpoint: replacing old umask: ', old_umask.toString(8), 'with new uma
  *  https_port?: number;
  *  https_port_sts?: number;
  *  https_port_iam?: number;
- *  metrics_port?: number;
+ *  http_metrics_port?: number;
+ *  https_metrics_port?: number;
  *  nsfs_config_root?: string;
  *  init_request_sdk?: EndpointHandler;
  *  forks?: number;
  * }} EndpointOptions
  */
 
-// An internal function to prevent code duplication
-async function create_https_server(ssl_cert_info, honorCipherOrder, endpoint_handler) {
-    const ssl_options = {...ssl_cert_info.cert, honorCipherOrder: honorCipherOrder};
-    return https.createServer(ssl_options, endpoint_handler);
-}
 
 /**
  * @param {EndpointOptions} options
@@ -117,7 +112,8 @@ async function main(options = {}) {
 
         // the primary just forks and returns, workers will continue to serve
         fork_count = options.forks ?? config.ENDPOINT_FORKS;
-        const metrics_port = options.metrics_port || config.EP_METRICS_SERVER_PORT;
+        const http_metrics_port = options.http_metrics_port || config.EP_METRICS_SERVER_PORT;
+        const https_metrics_port = options.https_metrics_port || config.EP_METRICS_SERVER_SSL_PORT;
         /**
         * Please notice that we can run the main in 2 states:
         * 1. Only the primary process runs the main (fork is 0 or undefined) - everything that 
@@ -127,7 +123,8 @@ async function main(options = {}) {
         *    fork_utils.start_workers because the primary process returns after start_workers 
         *    and the forks will continue executing the code lines in this function
         *  */
-        const is_workers_started_from_primary = await fork_utils.start_workers(metrics_port, fork_count);
+        const is_workers_started_from_primary = await fork_utils.start_workers(http_metrics_port, https_metrics_port,
+                                                    options.nsfs_config_root, fork_count);
         if (is_workers_started_from_primary) return;
 
         const endpoint_group_id = process.env.ENDPOINT_GROUP_ID || 'default-endpoint-group';
@@ -200,17 +197,15 @@ async function main(options = {}) {
         const https_port_sts = options.https_port_sts || config.ENDPOINT_SSL_STS_PORT;
         const https_port_iam = options.https_port_iam || config.ENDPOINT_SSL_IAM_PORT;
 
-        await start_server_and_cert(SERVICES_TYPES_ENUM.S3, init_request_sdk,
+        await start_endpoint_server_and_cert(SERVICES_TYPES_ENUM.S3, init_request_sdk,
             { ...options, https_port: https_port_s3, http_port: http_port_s3, virtual_hosts, bucket_logger, notification_logger });
-        await start_server_and_cert(SERVICES_TYPES_ENUM.STS, init_request_sdk, { https_port: https_port_sts, virtual_hosts });
-        await start_server_and_cert(SERVICES_TYPES_ENUM.IAM, init_request_sdk, { https_port: https_port_iam });
+        await start_endpoint_server_and_cert(SERVICES_TYPES_ENUM.STS, init_request_sdk, { https_port: https_port_sts, virtual_hosts });
+        await start_endpoint_server_and_cert(SERVICES_TYPES_ENUM.IAM, init_request_sdk, { https_port: https_port_iam });
 
 
         // START METRICS SERVER
-        if (metrics_port > 0 && cluster.isPrimary) {
-            dbg.log0('Starting metrics server', metrics_port);
-            await prom_reporting.start_server(metrics_port, false);
-            dbg.log0('Started metrics server successfully');
+        if ((http_metrics_port > 0 || https_metrics_port > 0) && cluster.isPrimary) {
+            await prom_reporting.start_server(http_metrics_port, https_metrics_port, false, options.nsfs_config_root);
         }
 
         // TODO: currently NC NSFS deployments don't have internal_rpc_client nor db, 
@@ -249,14 +244,14 @@ async function main(options = {}) {
 }
 
 /**
- * start_server_and_cert starts the server by type and options and creates a certificate if required
+ * start_endpoint_server_and_cert starts the server by type and options and creates a certificate if required
  * @param {('S3'|'IAM'|'STS')} server_type 
  * @param {EndpointHandler} init_request_sdk 
  * @param {{ http_port?: number, https_port?: number, virtual_hosts?: readonly string[], 
  * bucket_logger?: PersistentLogger, notification_logger?: PersistentLogger, 
  * nsfs_config_root?: string}} options 
  */
-async function start_server_and_cert(server_type, init_request_sdk, options = {}) {
+async function start_endpoint_server_and_cert(server_type, init_request_sdk, options = {}) {
     const { http_port, https_port, nsfs_config_root } = options;
     const endpoint_request_handler = create_endpoint_handler(server_type, init_request_sdk, options);
 
@@ -264,25 +259,11 @@ async function start_server_and_cert(server_type, init_request_sdk, options = {}
         if (nsfs_config_root && !config.ALLOW_HTTP) {
             dbg.warn('HTTP is not allowed for NC NSFS.');
         } else {
-            const http_server = http.createServer(endpoint_request_handler);
-            if (http_port > 0) {
-                dbg.log0(`Starting ${server_type} HTTP - ${http_port}`);
-                await listen_http(http_port, http_server);
-                dbg.log0(`Started ${server_type} HTTP successfully`);
-            }
+            await http_utils.start_http_server(http_port, server_type, endpoint_request_handler);
         }
     }
     if (https_port > 0) {
-        const ssl_cert_info = await ssl_utils.get_ssl_cert_info(server_type, nsfs_config_root);
-        const https_server = await create_https_server(ssl_cert_info, true, endpoint_request_handler);
-        ssl_cert_info.on('update', updated_ssl_cert_info => {
-            dbg.log0(`Setting updated ${server_type} ssl certs for endpoint.`);
-            const updated_ssl_options = { ...updated_ssl_cert_info.cert, honorCipherOrder: true };
-            https_server.setSecureContext(updated_ssl_options);
-        });
-        dbg.log0(`Starting ${server_type} HTTPS - ${https_port}`);
-        await listen_http(https_port, https_server);
-        dbg.log0(`Started ${server_type} HTTPS successfully`);
+        await http_utils.start_https_server(https_port, server_type, endpoint_request_handler, nsfs_config_root);
     }
 }
 
@@ -504,68 +485,6 @@ function unavailable_handler(req, res) {
     res.setHeader('Content-Type', 'application/xml');
     res.setHeader('Content-Length', Buffer.byteLength(reply));
     res.end(reply);
-}
-
-function listen_http(port, server) {
-    return new Promise((resolve, reject) => {
-        setup_http_server(server);
-        server.listen(port, err => {
-            if (err) {
-                dbg.error('ENDPOINT FAILED to listen', err);
-                reject(err);
-            } else {
-                resolve();
-            }
-        });
-    });
-}
-
-function setup_http_server(server) {
-    // Handle 'Expect' header different than 100-continue to conform with AWS.
-    // Consider any expect value as if the client is expecting 100-continue.
-    // See https://github.com/ceph/s3-tests/blob/master/s3tests/functional/test_headers.py:
-    // - test_object_create_bad_expect_mismatch()
-    // - test_object_create_bad_expect_empty()
-    // - test_object_create_bad_expect_none()
-    // - test_object_create_bad_expect_unreadable()
-    // See https://nodejs.org/api/http.html#http_event_checkexpectation
-    server.on('checkExpectation', function on_s3_check_expectation(req, res) {
-        res.writeContinue();
-        server.emit('request', req, res);
-    });
-
-    // See https://nodejs.org/api/http.html#http_event_clienterror
-    server.on('clientError', function on_s3_client_error(err, socket) {
-
-        // On parsing errors we reply 400 Bad Request to conform with AWS
-        // These errors come from the nodejs native http parser.
-        if (typeof err.code === 'string' &&
-            err.code.startsWith('HPE_INVALID_') &&
-            err.bytesParsed > 0) {
-            console.error('ENDPOINT CLIENT ERROR - REPLY WITH BAD REQUEST', err);
-            socket.write('HTTP/1.1 400 Bad Request\r\n');
-            socket.write(`Date: ${new Date().toUTCString()}\r\n`);
-            socket.write('Connection: close\r\n');
-            socket.write('Content-Length: 0\r\n');
-            socket.end('\r\n');
-        }
-
-        // in any case we destroy the socket
-        socket.destroy();
-    });
-
-    server.keepAliveTimeout = config.ENDPOINT_HTTP_SERVER_KEEPALIVE_TIMEOUT;
-    server.requestTimeout = config.ENDPOINT_HTTP_SERVER_REQUEST_TIMEOUT;
-    server.maxRequestsPerSocket = config.ENDPOINT_HTTP_MAX_REQUESTS_PER_SOCKET;
-
-    server.on('error', handle_server_error);
-
-    // This was an attempt to read from the socket in large chunks,
-    // but it seems like it has no effect and we still get small chunks
-    // server.on('connection', function on_s3_connection(socket) {
-    // socket._readableState.highWaterMark = 1024 * 1024;
-    // socket.setNoDelay(true);
-    // });
 }
 
 exports.main = main;

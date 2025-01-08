@@ -28,11 +28,13 @@ const fs_workers_stats = {};
  * In case of any worker exit, also the entire process group will exit.
  * @see https://nodejs.org/api/cluster.html
  * 
- * @param {number?} count number of workers to start.
- * @param {number?} metrics_port prometheus metris port.
+ * @param {number} [metrics_port]
+ * @param {number} [https_metrics_port]
+ * @param {string} [nsfs_config_root] nsfs configuration path
+ * @param {number} [count] number of workers to start.
  * @returns {Promise<boolean>} true if workers were started.
  */
-async function start_workers(metrics_port, count = 0) {
+async function start_workers(metrics_port, https_metrics_port, nsfs_config_root, count = 0) {
     const exit_events = [];
     if (cluster.isPrimary && count > 0) {
         for (let i = 0; i < count; ++i) {
@@ -71,9 +73,9 @@ async function start_workers(metrics_port, count = 0) {
                 cluster.workers[id].on('message', nsfs_io_stats_handler);
             }
         }
-        if (metrics_port > 0) {
+        if (metrics_port > 0 || https_metrics_port > 0) {
             dbg.log0('Starting metrics server', metrics_port);
-            await prom_reporting.start_server(metrics_port, true);
+            await prom_reporting.start_server(metrics_port, https_metrics_port, true, nsfs_config_root);
             dbg.log0('Started metrics server successfully');
         }
         return true;

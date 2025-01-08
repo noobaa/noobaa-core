@@ -16,12 +16,27 @@ Read more about NSFS metrics at - [NSFS metrics design](./../design/NSFSMetrics.
 
 This section provides details about the metrics URL and port configuration necessary for accessing and monitoring system metrics.
 
-#### Prometheus Metrics URL - </br>
-- NooBaa exports the system statistics via the following URL - </br> `http://{host}:{metrics_port}/metrics/nsfs_stats`
+#### Prometheus Metrics HTTP URL - </br>
+- NooBaa exports the system statistics via the following URL - </br> `http://{host}:{http_metrics_port}/metrics/nsfs_stats`
 
 - Default port - 7004
 
 - Prometheus metrics port configuration -  </br> Changing Prometheus metrics port can be done by changing EP_METRICS_SERVER_PORT in config.json.  </br>
+
+- Prometheus metrics HTTP service can be enabled/disabled by changing `ALLOW_HTTP_METRICS` in config.json for Non Containerized Noobaa, for containerized deployments HTTP is always enabled.
+
+#### Prometheus Metrics HTTPS URL - </br>
+
+- NooBaa exports the system statistics via the following SSL URL - </br> `https://{host}:{https_metrics_port}/metrics/nsfs_stats`
+
+- Default port - 9443
+
+- Prometheus metrics port configuration -  </br> Changing Prometheus metrics HTTPS port can be done by changing EP_METRICS_SERVER_SSL_PORT in config.json.  </br>
+
+- Prometheus metrics HTTP service can be enabled/disabled by changing `ALLOW_HTTPS_METRICS` in config.json
+
+- Secure Prometheus metrics will reuse the existing S3 certificates from cert path S3_SERVICE_CERT_PATH (`/etc/s3-secret`) for containerized deployments and  `{nsfs_config_root}/certificates/` for non-containerized NSFS deployments. </br> Prometheus metrics SSL cert dir path can be changed by updating S3_SERVICE_CERT_PATH in config.json. for containerized deployments </br>
+
 For more details about configuring metrics port see - [Non Containerized NooBaa Developer Customization](./ConfigFileCustomizations.md)
 
 

@@ -594,6 +594,7 @@ config.WS_METRICS_SERVER_PORT = 7001;
 config.BG_METRICS_SERVER_PORT = 7002;
 config.HA_METRICS_SERVER_PORT = 7003;
 config.EP_METRICS_SERVER_PORT = 7004;
+config.EP_METRICS_SERVER_SSL_PORT = 9443;
 
 //////////////////////////////
 // OAUTH RELATES            //
@@ -916,6 +917,8 @@ config.ENDPOINT_SSL_PORT = Number(process.env.ENDPOINT_SSL_PORT) || 6443;
 config.ENDPOINT_SSL_STS_PORT = Number(process.env.ENDPOINT_SSL_STS_PORT) || (process.env.NC_NSFS_NO_DB_ENV === 'true' ? -1 : 7443);
 config.ENDPOINT_SSL_IAM_PORT = Number(process.env.ENDPOINT_SSL_IAM_PORT) || -1;
 config.ALLOW_HTTP = false;
+config.ALLOW_HTTP_METRICS = true;
+config.ALLOW_HTTPS_METRICS = true;
 // config files should allow access to the owner of the files
 config.BASE_MODE_CONFIG_FILE = 0o600;
 config.BASE_MODE_CONFIG_DIR = 0o700;

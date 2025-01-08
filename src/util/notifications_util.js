@@ -445,7 +445,7 @@ function check_notif_relevant(notif, req) {
         const notif_event_elems = notif_event.split(':');
         const notif_event_name = notif_event_elems[1];
         const notif_event_method = notif_event_elems[2];
-        if (notif_event_name.toLowerCase() !== op_event.name.toLowerCase()) return false;
+        if (notif_event_name.toLowerCase() !== op_event.name.toLowerCase()) continue;
         //is there filter by method?
         if (notif_event_method === '*') {
             //no filtering on method. we've passed the filter and need to send a notification

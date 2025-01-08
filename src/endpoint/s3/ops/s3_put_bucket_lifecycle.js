@@ -2,6 +2,7 @@
 'use strict';
 
 const _ = require('lodash');
+const s3_const = require('../s3_constants');
 const { v4: uuid } = require('uuid');
 const dbg = require('../../../util/debug_module')(__filename);
 const S3Error = require('../s3_errors').S3Error;
@@ -88,7 +89,12 @@ async function put_bucket_lifecycle(req) {
         };
 
         if (rule.ID?.length === 1) {
-            current_rule.id = rule.ID[0];
+            if (rule.ID[0].length > s3_const.MAX_RULE_ID_LENGTH) {
+                dbg.error('Rule should not have ID length exceed allowed limit of ', s3_const.MAX_RULE_ID_LENGTH, ' characters', rule);
+                throw new S3Error({ ...S3Error.InvalidArgument, message: `ID length should not exceed allowed limit of ${s3_const.MAX_RULE_ID_LENGTH}` });
+            } else {
+                current_rule.id = rule.ID[0];
+            }
         } else {
             // Generate a random ID if missing
             current_rule.id = uuid();

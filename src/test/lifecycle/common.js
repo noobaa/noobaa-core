@@ -2,6 +2,7 @@
 'use strict';
 
 const assert = require('assert');
+const s3_const = require('../../endpoint/s3/s3_constants');
 
 /*
  *  https://docs.aws.amazon.com/AmazonS3/latest/userguide/intro-lifecycle-rules.html
@@ -511,4 +512,19 @@ exports.test_and_prefix_size = async function(Bucket, Key, s3) {
     assert(actualFilter.Prefix === expectedFilter.Prefix, 'and prefix size filter - Prefix');
     assert(actualFilter.ObjectSizeGreaterThan === expectedFilter.ObjectSizeGreaterThan, 'and prefix size filter - ObjectSizeGreaterThan');
     assert(actualFilter.ObjectSizeLessThan === expectedFilter.ObjectSizeLessThan, 'and prefix size filter - ObjectSizeLessThan');
+};
+
+exports.test_rule_id_length = async function(Bucket, Key, s3) {
+    const putLifecycleParams = id_lifecycle_configuration(Bucket, Key);
+
+    // set the ID to a value with more than 'MAX_RULE_ID_LENGTH' characters
+    const ID = 'A'.repeat(s3_const.MAX_RULE_ID_LENGTH + 5);
+    putLifecycleParams.LifecycleConfiguration.Rules[0].ID = ID;
+
+    try {
+        await s3.putBucketLifecycleConfiguration(putLifecycleParams);
+        assert.fail(`Expected error for ID length exceeding maximum allowed characters ${s3_const.MAX_RULE_ID_LENGTH}, but request was successful`);
+    } catch (error) {
+        assert(error.code === 'InvalidArgument', `Expected InvalidArgument: id length exceeding ${s3_const.MAX_RULE_ID_LENGTH} characters`);
+    }
 };

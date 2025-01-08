@@ -20,6 +20,7 @@ const xml_utils = require('./xml_utils');
 const jwt_utils = require('./jwt_utils');
 const time_utils = require('./time_utils');
 const cloud_utils = require('./cloud_utils');
+const ssl_utils = require('../util/ssl_utils');
 
 const UNSIGNED_PAYLOAD = 'UNSIGNED-PAYLOAD';
 const STREAMING_PAYLOAD = 'STREAMING-AWS4-HMAC-SHA256-PAYLOAD';
@@ -760,7 +761,118 @@ function http_get(uri, options) {
         client.get(uri, options, resolve).on('error', reject);
     });
 }
+/**
+ * start_https_server starts the secure https server by type and options and creates a certificate if required
+ * @param {number} https_port
+ * @param {('S3'|'IAM'|'STS'|'METRICS')} server_type 
+ * @param {Object} request_handler 
+*/
+async function start_https_server(https_port, server_type, request_handler, nsfs_config_root) {
+    const ssl_cert_info = await ssl_utils.get_ssl_cert_info(server_type, nsfs_config_root);
+    const https_server = await ssl_utils.create_https_server(ssl_cert_info, true, request_handler);
+    ssl_cert_info.on('update', updated_ssl_cert_info => {
+        dbg.log0(`Setting updated ${server_type} ssl certs for endpoint.`);
+        const updated_ssl_options = { ...updated_ssl_cert_info.cert, honorCipherOrder: true };
+        https_server.setSecureContext(updated_ssl_options);
+    });
+    dbg.log0(`Starting ${server_type} server on HTTPS port ${https_port}`);
+    await listen_port(https_port, https_server, server_type);
+    dbg.log0(`Started ${server_type} HTTPS server successfully`);
+}
 
+/**
+ * start_http_server starts the non-secure http server by type
+ * @param {number} http_port
+ * @param {('S3'|'IAM'|'STS'|'METRICS')} server_type 
+ * @param {Object} request_handler 
+*/
+async function start_http_server(http_port, server_type, request_handler) {
+    const http_server = http.createServer(request_handler);
+    if (http_port > 0) {
+        dbg.log0(`Starting ${server_type} server on HTTP port ${http_port}`);
+        await listen_port(http_port, http_server, server_type);
+        dbg.log0(`Started ${server_type} HTTP server successfully`);
+    }
+}
+
+/**
+ * Listen server for http/https ports
+ * @param {number} port
+ * @param {http.Server} server
+ * @param {('S3'|'IAM'|'STS'|'METRICS')} server_type 
+*/
+function listen_port(port, server, server_type) {
+    return new Promise((resolve, reject) => {
+        if (server_type !== 'METRICS') {
+            setup_endpoint_server(server);
+        }
+        server.listen(port, err => {
+            if (err) {
+                dbg.error('ENDPOINT FAILED to listen', err);
+                reject(err);
+            } else {
+                resolve();
+            }
+        });
+    });
+}
+
+/**
+ * Setup endpoint socket and server, Setup is not used for non-endpoint servers.
+ * @param {http.Server} server
+*/
+function setup_endpoint_server(server) {
+    // Handle 'Expect' header different than 100-continue to conform with AWS.
+    // Consider any expect value as if the client is expecting 100-continue.
+    // See https://github.com/ceph/s3-tests/blob/master/s3tests/functional/test_headers.py:
+    // - test_object_create_bad_expect_mismatch()
+    // - test_object_create_bad_expect_empty()
+    // - test_object_create_bad_expect_none()
+    // - test_object_create_bad_expect_unreadable()
+    // See https://nodejs.org/api/http.html#http_event_checkexpectation
+    server.on('checkExpectation', function on_s3_check_expectation(req, res) {
+        res.writeContinue();
+        server.emit('request', req, res);
+    });
+
+    // See https://nodejs.org/api/http.html#http_event_clienterror
+    server.on('clientError', function on_s3_client_error(err, socket) {
+
+        // On parsing errors we reply 400 Bad Request to conform with AWS
+        // These errors come from the nodejs native http parser.
+        if (typeof err.code === 'string' &&
+            err.code.startsWith('HPE_INVALID_') &&
+            err.bytesParsed > 0) {
+            console.error('ENDPOINT CLIENT ERROR - REPLY WITH BAD REQUEST', err);
+            socket.write('HTTP/1.1 400 Bad Request\r\n');
+            socket.write(`Date: ${new Date().toUTCString()}\r\n`);
+            socket.write('Connection: close\r\n');
+            socket.write('Content-Length: 0\r\n');
+            socket.end('\r\n');
+        }
+
+        // in any case we destroy the socket
+        socket.destroy();
+    });
+
+    server.keepAliveTimeout = config.ENDPOINT_HTTP_SERVER_KEEPALIVE_TIMEOUT;
+    server.requestTimeout = config.ENDPOINT_HTTP_SERVER_REQUEST_TIMEOUT;
+    server.maxRequestsPerSocket = config.ENDPOINT_HTTP_MAX_REQUESTS_PER_SOCKET;
+
+    server.on('error', handle_server_error);
+
+    // This was an attempt to read from the socket in large chunks,
+    // but it seems like it has no effect and we still get small chunks
+    // server.on('connection', function on_s3_connection(socket) {
+    // socket._readableState.highWaterMark = 1024 * 1024;
+    // socket.setNoDelay(true);
+    // });
+}
+
+function handle_server_error(err) {
+    dbg.error('ENDPOINT FAILED TO START on error:', err.code, err.message, err.stack || err);
+    process.exit(1);
+}
 
 exports.parse_url_query = parse_url_query;
 exports.parse_client_ip = parse_client_ip;
@@ -790,6 +902,8 @@ exports.authorize_session_token = authorize_session_token;
 exports.get_agent_by_endpoint = get_agent_by_endpoint;
 exports.validate_server_ip_whitelist = validate_server_ip_whitelist;
 exports.http_get = http_get;
+exports.start_http_server = start_http_server;
+exports.start_https_server = start_https_server;
 exports.CONTENT_TYPE_TEXT_PLAIN = CONTENT_TYPE_TEXT_PLAIN;
 exports.CONTENT_TYPE_APP_OCTET_STREAM = CONTENT_TYPE_APP_OCTET_STREAM;
 exports.CONTENT_TYPE_APP_JSON = CONTENT_TYPE_APP_JSON;

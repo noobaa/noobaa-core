@@ -450,6 +450,34 @@ Warning: After setting this configuration, NooBaa will skip schema validations a
     3. systemctl restart noobaa
     ```
 
+### 31. Prometheus HTTP enable flag -
+* <u>Key</u>: `ALLOW_HTTP_METRICS`  
+* <u>Type</u>: Boolean  
+* <u>Default</u>: true  
+* <u>Description</u>: This flag will decide whether to enable HTTP service for Prometheus metrics.
+* <u>Steps</u>:  
+    ```
+    1. Open /path/to/config_dir/config.json file.
+    2. Set the config key -
+    Example:
+    "ALLOW_HTTP_METRICS": true
+    3. systemctl restart noobaa
+    ```
+
+### 32. Prometheus HTTPS enable flag -
+* <u>Key</u>: `ALLOW_HTTPS_METRICS`  
+* <u>Type</u>: Boolean  
+* <u>Default</u>: true  
+* <u>Description</u>: This flag will decide whether to enable HTTPS service for Prometheus metrics.
+* <u>Steps</u>:  
+    ```
+    1. Open /path/to/config_dir/config.json file.
+    2. Set the config key -
+    Example:
+    "ALLOW_HTTPS_METRICS": true
+    3. systemctl restart noobaa
+    ```
+
 ## Config.json File Examples
 The following is an example of a config.json file - 
 

@@ -15,6 +15,7 @@ const nb_native = require('../util/nb_native');
 const http_utils = require('../util/http_utils');
 const nc_mkm = require('../manage_nsfs/nc_master_key_manager').get_instance();
 const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
+const {ConfigFS} = require('../sdk/config_fs');
 
 const OP_TO_EVENT = Object.freeze({
     put_object: { name: 'ObjectCreated' },
@@ -338,23 +339,51 @@ function get_connection(connect) {
     }
 }
 
+/**
+ * Try to send a test notification for each of the notification configuration.
+ * If there's a failure, return it.
+ * @param {*} notifs notificatoin config to test
+ * @param {*} nc_config_dir path to NC conf dir (if system is NC)
+ * @returns {Promise} Error while testing, if any.
+ */
 
-async function test_notifications(bucket, connect_files_dir) {
-    if (!bucket.notifications) {
+async function test_notifications(notifs, nc_config_dir) {
+    //notifs can be empty in case we're removing the notification from the bucket
+    if (!notifs) {
         return;
     }
+    let connect_files_dir = DEFAULT_CONNECT_FILES_DIR;
+    if (nc_config_dir) {
+        connect_files_dir = new ConfigFS(nc_config_dir).connections_dir_path;
+    }
     const notificator = new Notificator({connect_files_dir});
-    for (const notif of bucket.notifications) {
-        const connect = await notificator.parse_connect_file(notif.connect, true);
-        dbg.log1("testing notif", notif);
+    for (const notif of notifs) {
+        let connect;
+        let connection;
+        let failure = false;
+        let notif_failure;
         try {
-            const connection = get_connection(connect);
+            connect = await notificator.parse_connect_file(notif.topic[0]);
+            connection = get_connection(connect);
             await connection.connect();
-            await connection.promise_notify({notif: "test notification"}, async err => err);
-            connection.destroy();
+            await connection.promise_notify({notif: "test notification"}, async (notif_cb, err_cb) => {
+                failure = true;
+                notif_failure = err_cb;
+            });
+            if (failure) {
+                if (notif_failure) {
+                    throw notif_failure;
+                }
+                //no error was thrown during notify, throw generic error
+                throw new Error();
+            }
         } catch (err) {
-            dbg.error("Connection failed for", connect);
+            dbg.error("Connection failed for", notif, ", connect =", connect, ", err = ", err);
             return err;
+        } finally {
+            if (connection) {
+                connection.destroy();
+            }
         }
     }
 }

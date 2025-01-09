@@ -520,6 +520,7 @@ const NSFS_CLI_ERROR_EVENT_MAP = {
     BucketSetForbiddenBucketOwnerNotExists: NoobaaEvent.UNAUTHORIZED, // GAP - add event
     BucketSetForbiddenBucketOwnerIsIAMAccount: NoobaaEvent.UNAUTHORIZED, // // GAP - add event
     LoggingExportFailed: NoobaaEvent.LOGGING_FAILED,
+    UpgradeFailed: NoobaaEvent.CONFIG_DIR_UPGRADE_FAILED
 };
 
 exports.ManageCLIError = ManageCLIError;

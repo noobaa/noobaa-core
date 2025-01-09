@@ -20,7 +20,7 @@ const { check_root_account_owns_user } = require('../nc/nc_utils');
 //// GENERAL VALIDATIONS ////
 /////////////////////////////
 
-/** 
+/**
  * validate_input_types checks if input option are valid.
  * if the the user uses from_file then the validation is on the file (in different iteration)
  * @param {string} type
@@ -41,6 +41,7 @@ async function validate_input_types(type, action, argv) {
     validate_flags_combination(type, action, input_options);
     validate_flags_value_combination(type, action, input_options_with_data);
     validate_account_name(type, action, input_options_with_data);
+    validate_supplemental_groups(input_options_with_data);
     if (action === ACTIONS.UPDATE) validate_min_flags_for_update(type, input_options_with_data);
 
     // currently we use from_file only in add action
@@ -58,6 +59,7 @@ async function validate_input_types(type, action, argv) {
         validate_flags_combination(type, action, input_options_from_file);
         validate_flags_value_combination(type, action, input_options_with_data_from_file);
         validate_account_name(type, action, input_options_with_data_from_file);
+        validate_supplemental_groups(input_options_with_data_from_file);
         return input_options_with_data_from_file;
     }
 }
@@ -175,7 +177,11 @@ function validate_options_type_by_value(input_options_with_data) {
             if ((option === 'bucket_policy' || option === 'notifications') && type_of_value === 'object') {
                 continue;
             }
-            const details = `type of flag ${option} should be ${type_of_option}`;
+            //special case for supplemental groups
+            if (option === 'supplemental_groups' && ((type_of_value === 'object') || (type_of_value === 'number'))) {
+                continue;
+            }
+            const details = `type of flag ${option} should be ${type_of_option} (and the received value is ${value})`;
             throw_cli_error(ManageCLIError.InvalidArgumentType, details);
         }
     }
@@ -195,6 +201,36 @@ function validate_boolean_string_value(value) {
         return true;
     }
     return false;
+}
+
+/**
+ * validates supplemental groups array.
+ * string type: is comma seperated positive numbers. should not begin or end with a comma.
+ * number type: the number should be positive
+ * object type: should be array of possitive integers
+ * @param {object} input_options_with_data
+ */
+function validate_supplemental_groups(input_options_with_data) {
+    const value = input_options_with_data.supplemental_groups;
+    if (!value) {
+        return;
+    }
+    if (typeof value === 'string') {
+        const regex = /^[0-9]+(,[0-9]+)+$/;
+        if (!regex.test(value)) {
+            throw_cli_error(ManageCLIError.InvalidSupplementalGroupsList);
+        }
+    } else if (typeof value === 'number') {
+        if (value < 0) {
+            throw_cli_error(ManageCLIError.InvalidSupplementalGroupsList);
+        }
+    } else if (typeof value === 'object') {
+        for (const entry of Object.values(value)) {
+            if (isNaN(Number(entry)) || Number(entry) < 0) {
+                throw_cli_error(ManageCLIError.InvalidSupplementalGroupsList);
+            }
+        }
+    }
 }
 
 /**

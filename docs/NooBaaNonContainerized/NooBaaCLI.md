@@ -84,6 +84,10 @@ noobaa-cli account add --name <account_name> --uid <uid> --gid <gid> [--user]
     - Type: String
     - Description: Specifies the File system user representing the account. (user can be replaced by --uid and --gid option)
 
+- `supplemental_groups`
+    - Type: String
+    - Description: Specifies additional FS groups (GID) a user can be a part of. Allows access to directories/files having one or more of the provided groups. A String of GIDs separated by commas.
+
 - `new_buckets_path` 
     - Type: String
     - Description: Specifies a file system directory to be used for creating underlying directories that represent buckets created by an account using the S3 API.
@@ -151,6 +155,10 @@ noobaa-cli account update --name <account_name> [--new_name][--uid][--gid][--use
 - `user`
     - Type: Number
     - Description: Specifies the File system user representing the account. (user can be replaced by --uid and --gid option)
+
+- `supplemental_groups`
+    - Type: String
+    - Description: Specifies additional FS groups (GID) a user can be a part of. Allows access to directories/files having one or more of the provided groups. A String of GIDs separated by commas.
 
 - `new_buckets_path` 
     - Type: String

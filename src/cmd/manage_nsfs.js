@@ -33,6 +33,7 @@ let config_fs;
 
 async function main(argv = minimist(process.argv.slice(2))) {
     try {
+        config.EVENT_LOGGING_ENABLED = true;
         if (process.getuid() !== 0 || process.getgid() !== 0) {
             throw new Error('Root permissions required for Manage NSFS execution.');
         }

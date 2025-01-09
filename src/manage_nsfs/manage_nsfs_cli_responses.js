@@ -155,6 +155,8 @@ const NSFS_CLI_SUCCESS_EVENT_MAP = {
     BucketDeleted: NoobaaEvent.BUCKET_DELETE,
     WhiteListIPUpdated: NoobaaEvent.WHITELIST_UPDATED,
     LoggingExported: NoobaaEvent.LOGGING_EXPORTED,
+    UpgradeStarted: NoobaaEvent.CONFIG_DIR_UPGRADE_STARTED,
+    UpgradeSuccessful: NoobaaEvent.CONFIG_DIR_UPGRADE_SUCCESSFUL
 };
 
 exports.ManageCLIResponse = ManageCLIResponse;

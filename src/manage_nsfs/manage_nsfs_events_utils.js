@@ -347,4 +347,41 @@ NoobaaEvent.LOGGING_FAILED = Object.freeze({
     state: 'DEGRADED',
 });
 
+/////////////////////////////////////
+// CONFIG DIRECTORY UPGRADE EVENTS //
+/////////////////////////////////////
+
+NoobaaEvent.CONFIG_DIR_UPGRADE_STARTED = Object.freeze({
+    event_code: 'config_dir_upgrade_started',
+    entity_type: 'NODE',
+    event_type: 'INFO',
+    message: 'Config directory upgrade started.',
+    description: 'Config directory upgrade started.',
+    scope: 'NODE',
+    severity: 'INFO',
+    state: 'HEALTHY',
+});
+
+NoobaaEvent.CONFIG_DIR_UPGRADE_SUCCESSFUL = Object.freeze({
+    event_code: 'config_dir_upgrade_successful',
+    entity_type: 'NODE',
+    event_type: 'INFO',
+    message: 'Config directory upgrade finished successfully.',
+    description: 'Config directory upgrade finished successfully.',
+    scope: 'NODE',
+    severity: 'INFO',
+    state: 'HEALTHY',
+});
+
+NoobaaEvent.CONFIG_DIR_UPGRADE_FAILED = Object.freeze({
+    event_code: 'config_dir_upgrade_failed',
+    entity_type: 'NODE',
+    event_type: 'ERROR',
+    message: 'Config directory upgrade failed.',
+    description: 'Config directory upgrade failed due to an error',
+    scope: 'NODE',
+    severity: 'ERROR',
+    state: 'DEGRADED',
+});
+
 exports.NoobaaEvent = NoobaaEvent;

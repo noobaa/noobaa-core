@@ -8,6 +8,7 @@ const { UPGRADE_ACTIONS } = require('./manage_nsfs_constants');
 const { NCUpgradeManager } = require('../upgrade/nc_upgrade_manager');
 const { ManageCLIResponse } = require('../manage_nsfs/manage_nsfs_cli_responses');
 const { throw_cli_error, write_stdout_response } = require('./manage_nsfs_cli_utils');
+const { NoobaaEvent } = require('./manage_nsfs_events_utils');
 
 /**
  * manage_upgrade_operations handles cli upgrade operations
@@ -45,16 +46,18 @@ async function start_config_dir_upgrade(user_input, config_fs) {
         const expected_hosts = user_input.expected_hosts && user_input.expected_hosts.split(',').filter(host => !_.isEmpty(host));
         const custom_upgrade_scripts_dir = user_input.custom_upgrade_scripts_dir;
 
+        new NoobaaEvent(NoobaaEvent.CONFIG_DIR_UPGRADE_STARTED).create_event(undefined, { expected_version, expected_hosts }, undefined);
+
         if (!expected_version) throw new Error('expected_version flag is required');
         if (!expected_hosts) throw new Error('expected_hosts flag is required');
 
         const nc_upgrade_manager = new NCUpgradeManager(config_fs, { custom_upgrade_scripts_dir });
         const upgrade_res = await nc_upgrade_manager.upgrade_config_dir(expected_version, expected_hosts, { skip_verification });
         if (!upgrade_res) throw new Error('Upgrade config directory failed', { cause: upgrade_res });
-        write_stdout_response(ManageCLIResponse.UpgradeSuccessful, upgrade_res);
+        write_stdout_response(ManageCLIResponse.UpgradeSuccessful, upgrade_res, { expected_version, expected_hosts });
     } catch (err) {
-        dbg.error('could not upgrade config directory successfully - err', err);
-        throw_cli_error({ ...ManageCLIError.UpgradeFailed, cause: err });
+        dbg.error('could not upgrade config directory successfully - error', err);
+        throw_cli_error({ ...ManageCLIError.UpgradeFailed, cause: err }, undefined, { error: err.stack || err });
     }
 }
 

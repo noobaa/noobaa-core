@@ -22,6 +22,7 @@ const { TMP_PATH, create_redirect_file, create_config_dir,
 const config_root = path.join(TMP_PATH, 'config_root_nc_upgrade_manager_test');
 const config_fs = new ConfigFS(config_root);
 const hostname = os.hostname();
+const mock_higher_version_than_pkg_version = pkg.version + '.1';
 
 const dummy_upgrade_script_1 =
 `/* Copyright (C) 2024 NooBaa */
@@ -57,6 +58,7 @@ module.exports = {
     description: 'dummy upgrade script file 1'
 };
 `;
+
 const old_expected_system_json = {
     [hostname]: {
         current_version: '5.17.0',
@@ -72,25 +74,87 @@ const old_expected_system_json = {
 
 const old_expected_system_json_has_config_directory = {
     [hostname]: {
-        current_version: '5.18.1',
+        current_version: mock_higher_version_than_pkg_version,
         upgrade_history: {
             successful_upgrades: [{
                 timestamp: 1724687496424,
-                from_version: '5.18.0',
-                to_version: '5.18.1'
+                from_version: pkg.version,
+                to_version: mock_higher_version_than_pkg_version
             }]
         },
     },
     config_directory: {
-        config_dir_version: '1.0.0',
-        upgrade_package_version: '5.18.0',
+        config_dir_version: config_fs.config_dir_version,
+        upgrade_package_version: pkg.version,
         phase: CONFIG_DIR_PHASES.CONFIG_DIR_UNLOCKED,
         upgrade_history: {
             successful_upgrades: [{
                 timestamp: 1724687496424,
                 completed_scripts: [],
                 package_from_version: '5.17.0',
-                package_to_version: '5.18.0'
+                package_to_version: pkg.version
+            }]
+        }
+    }
+};
+
+const failed_expected_system_json_has_config_directory = {
+    [hostname]: {
+        current_version: pkg.version,
+        upgrade_history: {
+            successful_upgrades: [{
+                timestamp: 1724687496424,
+                from_version: pkg.version,
+                to_version: pkg.version
+            }]
+        },
+    },
+    config_directory: {
+        config_dir_version: '0.0.0',
+        upgrade_package_version: '5.17.0',
+        phase: CONFIG_DIR_PHASES.CONFIG_DIR_UNLOCKED,
+        upgrade_history: {
+            last_failure: {
+                'timestamp': 1714687496424,
+                'running_host': hostname,
+                'completed_scripts': [],
+                'config_dir_from_version': '0.0.0',
+                'config_dir_to_version': '1.0.0',
+                'package_from_version': '5.17.0',
+                'package_to_version': '5.18.0',
+                'error': new Error('this is a last failure error').stack
+            },
+            successful_upgrades: [{ // mock successful upgrade
+                timestamp: 1724687496424,
+                completed_scripts: [],
+                package_from_version: '5.16.0',
+                package_to_version: '5.17.0'
+            }]
+        }
+    }
+};
+
+const newer_expected_system_json_has_config_directory = {
+    [hostname]: {
+        current_version: mock_higher_version_than_pkg_version,
+        upgrade_history: {
+            successful_upgrades: [{
+                timestamp: 1724687496424,
+                from_version: pkg.version,
+                to_version: mock_higher_version_than_pkg_version
+            }]
+        },
+    },
+    config_directory: {
+        config_dir_version: config_fs.config_dir_version + '.1',
+        upgrade_package_version: mock_higher_version_than_pkg_version,
+        phase: CONFIG_DIR_PHASES.CONFIG_DIR_UNLOCKED,
+        upgrade_history: {
+            successful_upgrades: [{
+                timestamp: 1724687496424,
+                completed_scripts: [],
+                package_from_version: '5.17.0',
+                package_to_version: mock_higher_version_than_pkg_version
             }]
         }
     }
@@ -105,7 +169,9 @@ const old_expected_system_json_no_successful_upgrades = {
     }
 };
 
-const current_expected_system_json = {
+// config_directory property is missing because this system.json info is before the config directory upgrade
+// and after the RPM upgrade
+const system_json_only_rpm_upgraded = {
     [hostname]: {
         current_version: pkg.version,
         config_dir_version: config_fs.config_dir_version,
@@ -191,10 +257,10 @@ describe('nc upgrade manager - upgrade RPM', () => {
     }, TEST_TIMEOUT);
 
     it('upgrade rpm - nothing to upgrade - no changes in system.json', async () => {
-        await config_fs.create_system_config_file(JSON.stringify(current_expected_system_json));
+        await config_fs.create_system_config_file(JSON.stringify(system_json_only_rpm_upgraded));
         await nc_upgrade_manager.update_rpm_upgrade(config_fs);
         const system_data_after_upgrade_run = await config_fs.get_system_config_file();
-        expect(current_expected_system_json).toStrictEqual(system_data_after_upgrade_run);
+        expect(system_json_only_rpm_upgraded).toStrictEqual(system_data_after_upgrade_run);
     });
 
     it('upgrade rpm - nothing to upgrade - no changes in system.json - no successful upgrades', async () => {
@@ -254,7 +320,7 @@ describe('nc upgrade manager - upgrade config directory', () => {
         });
 
         it('config_directory_defaults - hostname from_version exists - 5.17.0', () => {
-            const system_data = current_expected_system_json;
+            const system_data = system_json_only_rpm_upgraded;
             const config_dir_defaults = nc_upgrade_manager.config_directory_defaults(system_data);
             assert_config_dir_defaults(config_dir_defaults, system_data);
         });
@@ -302,7 +368,7 @@ describe('nc upgrade manager - upgrade config directory', () => {
         });
 
         it('_verify_config_dir_upgrade - host current_version > new_version should upgrade RPM', async () => {
-            const newer_version = pkg.version + '.1';
+            const newer_version = mock_higher_version_than_pkg_version;
             const system_data = { [hostname]: { current_version: newer_version }, other_hostname: { current_version: pkg.version } };
             const expected_err_msg = `config dir upgrade can not be started until all expected hosts have the expected version=${pkg.version}, host=${hostname} host's current_version=${newer_version}`;
             await expect(nc_upgrade_manager._verify_config_dir_upgrade(system_data, pkg.version, [hostname, 'other_hostname']))
@@ -318,7 +384,7 @@ describe('nc upgrade manager - upgrade config directory', () => {
         });
 
         it('_verify_config_dir_upgrade - fail on mismatch expected_version', async () => {
-            const expected_version = pkg.version + '.1';
+            const expected_version = mock_higher_version_than_pkg_version;
             const system_data = { [hostname]: { current_version: pkg.version, other_hostname: { current_version: pkg.version } }};
             const nc_upgrade_manager_higher_version = new NCUpgradeManager(config_fs);
             const expected_err_msg = `config dir upgrade can not be started - the host's package version=${pkg.version} does not match the user's expected version=${expected_version}`;
@@ -670,6 +736,101 @@ describe('nc upgrade manager - upgrade config directory', () => {
                 }
             };
             const system_json_data = await config_fs.get_system_config_file();
+            assert_upgrade_finish_or_fail_data(system_json_data, expected_data);
+        });
+    });
+
+    describe('nc upgrade manager - upgrade_config_dir', () => {
+        beforeEach(async () => {
+            await create_config_dir(config.NSFS_NC_DEFAULT_CONF_DIR);
+            await create_config_dir(config_root);
+            await create_redirect_file(config_fs, config_root);
+        });
+
+        afterEach(async () => {
+            await clean_config_dir(config_fs, config_root);
+        }, TEST_TIMEOUT);
+
+        it('upgrade_config_dir - empty system_data - should fail', async () => {
+            const expected_version = pkg.version;
+            const hosts_list = [hostname];
+            const expected_err_msg = 'system does not exist';
+            await expect(nc_upgrade_manager.upgrade_config_dir(expected_version, hosts_list))
+                .rejects.toThrow(expected_err_msg);
+        });
+
+        it('upgrade_config_dir - config_directory property is missing in system.json', async () => {
+            const system_data = _.cloneDeep(system_json_only_rpm_upgraded);
+            const expected_version = pkg.version;
+            const hosts_list = [hostname];
+            await config_fs.create_system_config_file(JSON.stringify(system_data));
+            const res = await nc_upgrade_manager.upgrade_config_dir(expected_version, hosts_list);
+            const system_json_data = await config_fs.get_system_config_file();
+            const expected_data = {
+                ...system_data,
+                config_directory: {
+                    phase: CONFIG_DIR_PHASES.CONFIG_DIR_UNLOCKED,
+                    config_dir_version: config_fs.config_dir_version,
+                    upgrade_package_version: expected_version,
+                    upgrade_history: {
+                        successful_upgrades: [res]
+                    }
+                }
+            };
+            assert_upgrade_finish_or_fail_data(system_json_data, expected_data);
+        });
+
+        it('upgrade_config_dir - system.json and package.json have the same version', async () => {
+            const system_data = _.cloneDeep(old_expected_system_json_has_config_directory);
+            const expected_version = pkg.version;
+            const hosts_list = [hostname];
+            await config_fs.create_system_config_file(JSON.stringify(system_data));
+            const expected_msg = { "message": "config_dir_version on system.json and config_fs.config_dir_version match, nothing to upgrade" };
+            const res = await nc_upgrade_manager.upgrade_config_dir(expected_version, hosts_list);
+            expect(res).toStrictEqual(expected_msg);
+        });
+
+        it('upgrade_config_dir - config_dir_version in system.json is newer than the hosts current config_dir_version', async () => {
+            const system_data = _.cloneDeep(newer_expected_system_json_has_config_directory);
+            const expected_version = pkg.version;
+            const hosts_list = [hostname];
+            await config_fs.create_system_config_file(JSON.stringify(system_data));
+            const expected_err_msg = 'attempt to run old container version with newer server version';
+            await expect(nc_upgrade_manager.upgrade_config_dir(expected_version, hosts_list))
+                .rejects.toThrow(expected_err_msg);
+        });
+
+        it('upgrade_config_dir - host RPM is not upgraded to the expectced version', async () => {
+            const system_data = _.cloneDeep(old_expected_system_json);
+            const expected_version = pkg.version;
+            const hosts_list = [hostname];
+            await config_fs.create_system_config_file(JSON.stringify(system_data));
+            const expected_err_msg = `config dir upgrade can not be started until all expected hosts have the expected version=${pkg.version}, host=${hostname} host's current_version=${system_data[hostname].current_version}`;
+            await expect(nc_upgrade_manager.upgrade_config_dir(expected_version, hosts_list))
+                .rejects.toThrow(expected_err_msg);
+        });
+
+        it('upgrade_config_dir - old successful upgrades is not empty', async () => {
+            const system_data = _.cloneDeep(failed_expected_system_json_has_config_directory);
+            const expected_version = pkg.version;
+            const hosts_list = [hostname];
+            await config_fs.create_system_config_file(JSON.stringify(system_data));
+            const res = await nc_upgrade_manager.upgrade_config_dir(expected_version, hosts_list);
+            const system_json_data = await config_fs.get_system_config_file();
+            const expected_data = {
+                ...system_data,
+                config_directory: {
+                    phase: CONFIG_DIR_PHASES.CONFIG_DIR_UNLOCKED,
+                    config_dir_version: config_fs.config_dir_version,
+                    upgrade_package_version: expected_version,
+                    upgrade_history: {
+                        successful_upgrades: [
+                            res,
+                            ...failed_expected_system_json_has_config_directory.config_directory.upgrade_history.successful_upgrades,
+                        ]
+                    }
+                }
+            };
             assert_upgrade_finish_or_fail_data(system_json_data, expected_data);
         });
     });

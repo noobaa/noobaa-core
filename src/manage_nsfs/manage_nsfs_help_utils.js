@@ -68,6 +68,25 @@ List of actions supported:
 
 `;
 
+const CONNECTION_ACTIONS = `
+Help:
+
+    Use this CLI to execute all the connection related actions.
+
+Usage:
+
+    connection <action> [flags]
+
+List of actions supported:
+
+    add
+    update
+    list
+    status
+    delete
+
+`;
+
 const WHITELIST_FLAGS = `
 Help:
 
@@ -458,6 +477,86 @@ Usage:
 `;
 
 
+const CONNECTION_FLAGS_ADD = `
+Help:
+
+    Use this CLI to add a connection.
+
+Usage:
+
+    connection add [flags]
+
+Flags:
+
+    --name <string>                                                         Set the name for the connection
+    --agent_request_object <object>                                         Value of agent request objects, used for http(s) connection, as defined by nodejs http(s) agent options
+    --request_options_object <object>                                       Value of http(s) request option, as defined by nodejs http(s) request option. "auth" field would be encrypted.
+    --notification_protocol <string>                                        One of http, https, kafka.
+    --from_file <string>                                  (optional)        Use details from the JSON file, there is no need to mention all the properties individually in the CLI
+
+`;
+
+const CONNECTION_FLAGS_UPDATE = `
+Help:
+
+    Use this CLI to update a connection.
+
+Usage:
+
+    connection update [flags]
+
+Flags:
+
+    --name <string>                                                         The name of the connection to update.
+    --key <string>                                                          Name of field to update
+    --value <string>                                                        Value of the field to update
+    --remove_key <string>                                                   Removes a key from the connection.
+`;
+
+const CONNECTION_FLAGS_DELETE = `
+Help:
+
+    Use this CLI to delete a connection.
+
+Usage:
+
+    connection delete [flags]
+
+Flags:
+
+    --name <string>                                                         The name of the connection to delete.
+
+`;
+
+const CONNECTION_FLAGS_STATUS = `
+Help:
+
+    Use this CLI to get connection status.
+
+Usage:
+
+    connection status [flags]
+
+Flags:
+
+    --name <string>                                                         The name of the connection.
+    --decrypt <boolean>                                                     Wether to decrypt the auth field of the request.
+
+`;
+
+const CONNECTION_FLAGS_LIST = `
+Help:
+
+    Use this CLI to list connections.
+
+Usage:
+
+    connection list [flags]
+
+Flags:
+
+`;
+
 /**
  * print_usage would print the help according to the arguments that were passed
  * @param {string} type
@@ -485,6 +584,9 @@ function print_usage(type, action) {
             break;
         case TYPES.UPGRADE:
             print_help_upgrade(action);
+            break;
+        case TYPES.CONNECTION:
+            print_help_connection(action);
             break;
         default:
             process.stdout.write(HELP + '\n');
@@ -603,6 +705,33 @@ function print_help_upgrade(action) {
         default:
             process.stdout.write(UPGRADE_OPTIONS.trimStart());
     }
+}
+
+/**
+ * print_help_connection would print the help options for connection
+ * @param {string} action
+ */
+function print_help_connection(action) {
+    switch (action) {
+        case ACTIONS.ADD:
+            process.stdout.write(CONNECTION_FLAGS_ADD.trimStart() + CLI_MUTUAL_FLAGS);
+            break;
+        case ACTIONS.UPDATE:
+            process.stdout.write(CONNECTION_FLAGS_UPDATE.trimStart() + CLI_MUTUAL_FLAGS);
+            break;
+        case ACTIONS.DELETE:
+            process.stdout.write(CONNECTION_FLAGS_DELETE.trimStart() + CLI_MUTUAL_FLAGS);
+            break;
+        case ACTIONS.STATUS:
+            process.stdout.write(CONNECTION_FLAGS_STATUS.trimStart() + CLI_MUTUAL_FLAGS);
+            break;
+        case ACTIONS.LIST:
+            process.stdout.write(CONNECTION_FLAGS_LIST.trimStart() + CLI_MUTUAL_FLAGS);
+            break;
+        default:
+            process.stdout.write(CONNECTION_ACTIONS.trimStart());
+    }
+    process.exit(0);
 }
 
 

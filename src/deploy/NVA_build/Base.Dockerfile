@@ -1,5 +1,8 @@
 FROM noobaa-builder AS noobaa-base
 
+# By default we build the image with rdkafka support, but can be overridden
+ARG USE_RDKAFKA=1
+
 ######################################################################
 # Layers:
 #   Title: npm install (using package.json)
@@ -11,6 +14,13 @@ RUN npm install --omit=dev && \
     npm cache clean --force
 RUN rm -rf node_modules/node-rdkafka/deps/librdkafka/examples/
 RUN rm -rf node_modules/node-rdkafka/deps/librdkafka/src/
+
+# Build time check that rdkafka was installed by npm in the image.
+# It was added to optionalDependencies because it's not available 
+# on all platforms, so we check explicitly.
+RUN if [ "$USE_RDKAFKA" = "1" ]; then \
+        node -p 'require("node-rdkafka").librdkafkaVersion'; \
+    fi
 
 ##############################################################
 # Layers:

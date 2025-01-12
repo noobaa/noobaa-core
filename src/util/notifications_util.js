@@ -4,7 +4,8 @@
 const dbg = require('../util/debug_module')(__filename);
 const config = require('../../config');
 const { PersistentLogger } = require('../util/persistent_logger');
-const Kafka = require('node-rdkafka');
+const { require_optional } = require('../util/js_utils');
+const Kafka = require_optional('node-rdkafka');
 const os = require('os');
 const fs = require('fs');
 const http = require('http');
@@ -267,6 +268,9 @@ class HttpNotificator {
 class KafkaNotificator {
 
     constructor(connect_obj) {
+        if (!Kafka) {
+            throw new Error('Kafka module is not available, cannot use Kafka notifications');
+        }
         this.connect_obj = connect_obj;
     }
 

@@ -4,7 +4,7 @@
 const dbg = require('../util/debug_module')(__filename);
 const config = require('../../config');
 const { PersistentLogger, LogFile } = require('../util/persistent_logger');
-const Kafka = require('node-rdkafka');
+const Kafka = null; //require('node-rdkafka');
 const os = require('os');
 const fs = require('fs');
 const http = require('http');

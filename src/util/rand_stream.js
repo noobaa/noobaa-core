@@ -33,7 +33,7 @@ class RandStream extends stream.Readable {
         super(options);
         this.max_length = max_length;
         this.chunk_size = (options && options.highWaterMark) || 1024 * 1024;
-        this.generator = this[`generate_${(options && options.generator) || 'cipher'}`];
+        this.generator = this[`generate_${(options && options.generator) || 'crypto'}`];
         this.cipher_seed = options && options.cipher_seed;
         this.pos = 0;
         this.ticks = 0;
@@ -44,7 +44,7 @@ class RandStream extends stream.Readable {
      *
      * crypto.randomBytes() used to be slow ~50 MB/sec - BUT it is no longer so...
      * 
-     * The speed of this mode is ~2000 MB/sec.
+     * The speed of this mode is ~4000 MB/sec.
      */
     generate_crypto(size) {
         return crypto.randomBytes(size);
@@ -106,7 +106,7 @@ class RandStream extends stream.Readable {
      * The overall expected speed can be calculated by:
      * speed = fake_factor * speed(crypto.randomBytes)
      *
-     * The speed of this mode is ~4500 MB/sec (with fake_factor=64)
+     * The speed of this mode is ~16,000 MB/sec (with fake_factor=64)
      *
      */
     generate_fake(size) {
@@ -135,7 +135,7 @@ class RandStream extends stream.Readable {
     /**
      * generate_zeros:
      * 
-     * The speed of this mode is ~7000 MB/sec.
+     * The speed of this mode is ~30,000 MB/sec.
      */
     generate_zeros(size) {
         return Buffer.alloc(size);
@@ -144,7 +144,7 @@ class RandStream extends stream.Readable {
     /**
      * generate_fill:
      * 
-     * The speed of this mode is ~7000 MB/sec.
+     * The speed of this mode is ~30,000 MB/sec.
      */
     generate_fill(size) {
         return Buffer.alloc(size, crypto.randomInt(0, 256));
@@ -156,7 +156,7 @@ class RandStream extends stream.Readable {
      * Just allocates memory, no initialization.
      * Do not use if your process memory might contain sensitive data.
      * 
-     * The speed of this mode is ~100,000 MB/sec.
+     * The speed of this mode is ~250,000 MB/sec.
      */
     generate_noinit(size) {
         return Buffer.allocUnsafe(size);

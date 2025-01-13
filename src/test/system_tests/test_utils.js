@@ -687,6 +687,32 @@ async function create_file(fs_context, file_path, file_data) {
     );
 }
 
+/**
+ * create_system_json creates the system.json file
+ * if mock_config_dir_version it sets it before creating the file
+ * @param {import('../../sdk/config_fs').ConfigFS} config_fs
+ * @param {String} [mock_config_dir_version] 
+ * @returns {Promise<Void>}
+ */
+async function create_system_json(config_fs, mock_config_dir_version) {
+    const system_data = await config_fs._get_new_system_json_data();
+    if (mock_config_dir_version) system_data.config_directory.config_dir_version = mock_config_dir_version;
+    await config_fs.create_system_config_file(JSON.stringify(system_data));
+}
+
+/**
+ * update_system_json updates the system.json file
+ * if mock_config_dir_version it sets it before creating the file
+ * @param {import('../../sdk/config_fs').ConfigFS} config_fs
+ * @param {String} [mock_config_dir_version] 
+ * @returns {Promise<Void>}
+ */
+async function update_system_json(config_fs, mock_config_dir_version) {
+    const system_data = await config_fs.get_system_config_file();
+    if (mock_config_dir_version) system_data.config_directory.config_dir_version = mock_config_dir_version;
+    await config_fs.update_system_config_file(JSON.stringify(system_data));
+}
+
 exports.blocks_exist_on_cloud = blocks_exist_on_cloud;
 exports.create_hosts_pool = create_hosts_pool;
 exports.delete_hosts_pool = delete_hosts_pool;
@@ -717,6 +743,8 @@ exports.symlink_account_access_keys = symlink_account_access_keys;
 exports.create_file = create_file;
 exports.create_redirect_file = create_redirect_file;
 exports.delete_redirect_file = delete_redirect_file;
+exports.create_system_json = create_system_json;
+exports.update_system_json = update_system_json;
 exports.fail_test_if_default_config_dir_exists = fail_test_if_default_config_dir_exists;
 exports.create_config_dir = create_config_dir;
 exports.clean_config_dir = clean_config_dir;

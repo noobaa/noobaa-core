@@ -16,7 +16,7 @@ function print_usage() {
     console.log(`
 Usage:
   --help            show this usage
-  --dir <path>      (default "./fs_speed_output") where to write the files
+  --path <path>     (default "./fs_speed_output") where to write the files
   --time <sec>      (default 10) limit time to run
   --concur <n>      (default 1) number of concurrent writers
   --forks <n>       (default 1) number of forks to create (total writers is concur * forks).
@@ -47,7 +47,7 @@ if (argv.help) {
     process.exit(0);
 }
 
-argv.dir = argv.dir || 'fs_speed_output';
+argv.path = argv.path || 'fs_speed_output';
 argv.time = argv.time || 10; // stop after X seconds
 argv.concur = argv.concur || 1;
 argv.forks = argv.forks || 1;
@@ -102,7 +102,7 @@ speedometer.run_workers(argv.forks, main, argv);
 async function main() {
     // nb_native().fs.set_debug_level(5);
     const promises = [];
-    fs.mkdirSync(argv.dir, { recursive: true });
+    fs.mkdirSync(argv.path, { recursive: true });
     for (let i = 0; i < argv.concur; ++i) promises.push(worker(i));
     await Promise.all(promises);
     speedometer.clear_interval();
@@ -115,7 +115,7 @@ async function main() {
  */
 async function worker(id) {
     const dir = path.join(
-        argv.dir,
+        argv.path,
         `${id}`, // first level is id so that repeating runs will be collected together
         // `pid-${process.pid}`,
     );

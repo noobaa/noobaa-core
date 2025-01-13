@@ -43,16 +43,25 @@ BuildRequires:  python3
 BuildRequires:  python3.9
 %endif
 
+# we turn on RDMA support by default on RHEL 9 x86_64
+# this might not be the best place to decide this because it forces
+%ifarch x86_64
+%if 0%{?rhel} == 9
+%if "%{USE_RDMA}" != "1"
+%define USE_RDMA 1
+%define GYP_DEFINES "%{GYP_DEFINES} USE_RDMA=1 USE_CUOBJ_SERVER=1"
+%endif
+%endif
+%endif
+
 %if "%{USE_RDMA}" == "1"
-Recommends:     rdma-core
-Recommends:     libcufile-13-1
-#BuildRequires: rdma-core-devel
-#BuildRequires: libcufile-devel-13-1
+BuildRequires: cuobjserver
+Recommends:     cuobjserver
 %endif
 
 %if "%{USE_CUDA}" == "1"
+BuildRequires: cuda-toolkit-13-1
 Recommends:     cuda-toolkit-13-1
-#BuildRequires: cuda-toolkit-13-1
 %endif
 
 Recommends:     jemalloc

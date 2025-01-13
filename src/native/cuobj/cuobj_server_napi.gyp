@@ -12,7 +12,7 @@
             # By default do not link with cuobj libraries on build time -
             # linking will be done dynamically at runtime (LD_PRELOAD or dlopen).
             # set USE_CUOBJ_LIBS=1 to link with cuobj libraries on build time.
-            'USE_CUOBJ_LIBS%': 0, 
+            'USE_CUOBJ_LIBS%': 0,
             'CUOBJ_INC_PATH%': '/opt/cuObject/src/include',
             'CUOBJ_LIB_PATH%': '/opt/cuObject/src/lib',
         },

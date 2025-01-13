@@ -61,7 +61,17 @@ RUN if [ "$BUILD_S3SELECT_PARQUET" = "1" ]; then ./src/deploy/NVA_build/install_
 #   Cache: Rebuild when USE_RDMA arg changes
 ##############################################################
 
-RUN if [ "$USE_RDMA" = "1" ]; then dnf install -y -q rdma-core-devel libibverbs-devel && dnf clean all; fi
+RUN if [ "$USE_RDMA" = "1" ]; then \
+    dnf install -y -q rdma-core-devel libibverbs-devel && dnf clean all; \
+fi
+
+RUN if [ "$USE_RDMA" = "1" ] && [ "$CENTOS_VER" == "9" ]; then \
+  echo "Installing RDMA cuobjserver rpm" && \
+  wget https://developer.download.nvidia.com/compute/cuobjserver/1.0.0/local_installers/cuobjserver-local-repo-rhel9-1.0.0-1.0.0-1.x86_64.rpm && \
+  rpm -i cuobjserver-local-repo-rhel9-1.0.0-1.0.0-1.x86_64.rpm && \
+  dnf clean all && \
+  dnf -y install cuobjserver; \
+fi
 
 # copy cuobj headers and libs if provided (provide dummy empty context dir otherwise)
 COPY --from=cuobj_inc . $CUOBJ_INC_PATH

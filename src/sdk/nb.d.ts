@@ -5,7 +5,7 @@ import * as mongodb from 'mongodb';
 import { EventEmitter } from 'events';
 import { Readable, Writable } from 'stream';
 import { IncomingMessage, ServerResponse } from 'http';
-import { ObjectPart, Checksum} from '@aws-sdk/client-s3';
+import { ObjectPart, Checksum } from '@aws-sdk/client-s3';
 
 type Semaphore = import('../util/semaphore').Semaphore;
 type KeysSemaphore = import('../util/keys_semaphore');
@@ -27,9 +27,28 @@ type NodeType =
     'BLOCK_STORE_FS' |
     'ENDPOINT_S3';
 
-type S3Response = ServerResponse;
 type S3Request = IncomingMessage & {
+    path: any;
+    query: any;
+    body?: any;
+    params: {
+        bucket: string;
+        key: string;
+    },
+    op_name: string;
     object_sdk: ObjectSDK;
+    virtual_hosted_bucket?: string;
+    content_md5?: Buffer;
+    content_sha256_buf?: Buffer;
+    content_sha256_sig?: string;
+    chunked_content?: boolean;
+    s3_event_method?: string;
+};
+
+type S3Response = ServerResponse & {
+    // notifications fields:
+    size_for_notif?: number;
+    seq?: number; // TODO rename for clarity
 };
 
 type ReplicationLogAction = 'copy' | 'delete' | 'conflict';
@@ -445,7 +464,7 @@ interface ObjectInfo {
     restore_status?: RestoreStatus;
     checksum?: Checksum;
     object_parts?: GetObjectAttributesParts;
-    nc_noncurrent_time ?: number;
+    nc_noncurrent_time?: number;
 }
 
 
@@ -829,15 +848,15 @@ interface Namespace {
     get_blob_block_lists(params: object, object_sdk: ObjectSDK): Promise<any>;
 
     restore_object(params: object, object_sdk: ObjectSDK): Promise<any>;
-    get_object_attributes(params: object, object_sdk: ObjectSDK): Promise<any>;
+    get_object_attribute?(params: object, object_sdk: ObjectSDK): Promise<any>;
 }
 
 interface BucketSpace {
 
     read_account_by_access_key({ access_key: string }): Promise<any>;
     read_bucket_sdk_info({ name: string }): Promise<any>;
-    check_same_stat_bucket(bucket_name: string, bucket_stat:  nb.NativeFSStats); // only implemented in bucketspace_fs
-    check_same_stat_account(account_name: string|Symbol, account_stat:  nb.NativeFSStats); // only implemented in bucketspace_fs
+    check_same_stat_bucket(bucket_name: string, bucket_stat: nb.NativeFSStats); // only implemented in bucketspace_fs
+    check_same_stat_account(account_name: string | Symbol, account_stat: nb.NativeFSStats); // only implemented in bucketspace_fs
 
     list_buckets(params: object, object_sdk: ObjectSDK): Promise<any>;
     read_bucket(params: object): Promise<any>;
@@ -884,7 +903,7 @@ interface BucketSpace {
     is_nsfs_non_containerized_user_anonymous(token: string): boolean;
 
     get_public_access_block({ bucket_name }): Promise<any>;
-    put_public_access_block({ bucket_name , public_access_block }): Promise<any>;
+    put_public_access_block({ bucket_name, public_access_block }): Promise<any>;
     delete_public_access_block({ bucket_name }): Promise<any>;
 }
 
@@ -958,6 +977,10 @@ interface Native {
 
     S3Select: { new(options: S3SelectOptions): S3Select };
     select_parquet: boolean;
+
+    CuObjServerNapi: { new(params: CuObjServerNapiParams): CuObjServerNapi };
+    CuObjClientNapi: { new(): CuObjClientNapi };
+    CudaMemory: { new(size: number): CudaMemory };
 }
 
 interface NativeFS {
@@ -1029,6 +1052,7 @@ interface NativeFS {
 
     gpfs?: {
         register_gpfs_noobaa(gpfs_noobaa_args: GPFSNooBaaArgs);
+        rdma_enabled?: boolean;
     };
 }
 
@@ -1052,6 +1076,24 @@ interface NativeFile {
      * @param fs_context 
      */
     fcntlgetlock(fs_context: NativeFSContext): Promise<LockType>;
+    read_rdma(
+        fs_context: NativeFSContext,
+        client_buf_desc: string,
+        client_buf_offset: number,
+        pos: number,
+        size: number,
+        dc_key: number,
+        fabnum: number)
+        : Promise<number>;
+    write_rdma(
+        fs_context: NativeFSContext,
+        client_buf_desc: string,
+        client_buf_offset: number,
+        pos: number,
+        size: number,
+        dc_key: number,
+        fabnum: number)
+        : Promise<number>;
 }
 
 interface NativeDir {
@@ -1166,6 +1208,78 @@ interface S3Select {
     select_parquet(): Promise<Buffer>;
 }
 
+//////////
+// RDMA //
+//////////
+
+interface RdmaInfo {
+    desc: string; // rdma buffer descriptor (token)
+    offset: number; // byte offset in the buffer
+    size: number; // max buffer size in bytes
+    ip: string; // rdma interface ip
+}
+
+interface RdmaReply {
+    status_code: number; // 501 for not supported, 200,204,206 for success
+    num_bytes?: number;
+}
+
+interface CuObjServerNapiParams {
+    ip: string;
+    port: number;
+    log_level?: 'ERROR' | 'INFO' | 'DEBUG';
+    use_telemetry?: boolean;
+    use_async_events?: boolean;
+    num_dcis?: number;
+    cq_depth?: number;
+    dc_key?: number;
+    ibv_poll_max_comp_event?: number;
+    service_level?: number;
+    hop_limit?: number;
+    pkey_index?: number;
+    max_wr?: number;
+    max_sge?: number;
+    delay_mode?: number;
+    delay_interval?: number;
+    qp_reset_on_failure?: boolean;
+    retry_count?: number;
+}
+
+interface CuObjServerNapi {
+    register_buffer(server_buf: Buffer): void;
+    deregister_buffer(server_buf: Buffer): void;
+    is_registered_buffer(server_buf: Buffer): boolean;
+    rdma(
+        op_type: 'GET' | 'PUT',
+        op_key: string,
+        client_buf_desc: string,
+        client_buf_offset: number,
+        server_buf: Buffer,
+        server_buf_offset: number,
+        max_size: number,
+    ): Promise<number>;
+}
+
+interface CuObjClientNapi {
+    register_buffer(client_buf: Buffer): void;
+    deregister_buffer(client_buf: Buffer): void;
+    is_registered_buffer(client_buf: Buffer): boolean;
+    rdma(
+        op_type: 'GET' | 'PUT',
+        client_buf: Buffer,
+        func: (client_buf_desc: string, callback: NodeCallback<number>) => void,
+    ): Promise<number>;
+}
+
+interface CudaMemory {
+    free(): void;
+    fill(value: number, start?: number, end?: number): number;
+    as_buffer(start?: number, end?: number): Buffer;
+    copy_to_host_new(start?: number, end?: number): Buffer;
+    copy_to_host(buffer: Buffer, start?: number, end?: number): number;
+    copy_from_host(buffer: Buffer, start?: number, end?: number): number;
+}
+
 type NodeCallback<T = void> = (err: Error | null, res?: T) => void;
 
 type RestoreState = 'CAN_RESTORE' | 'ONGOING' | 'RESTORED';
@@ -1199,4 +1313,4 @@ interface GetObjectAttributesParts {
     MaxParts?: number;
     IsTruncated?: boolean;
     Parts?: ObjectPart[];
-  }
+}

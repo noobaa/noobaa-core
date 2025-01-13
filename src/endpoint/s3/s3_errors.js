@@ -16,9 +16,12 @@ class S3Error extends Error {
 
     /**
      * @param {S3ErrorSpec} error_spec 
+     * @param {string} [message_override] if provided, this will be used as the message instead of the default one from error_spec, but the code and http_code will still be from error_spec. 
+     * This is needed for some cases like MalformedPolicy where AWS returns the same error code but with different messages depending on the exact error in the policy document, 
+     * and we want to preserve the exact message from AWS for better compatibility with s3-tests.  
      */
-    constructor({ code, message, http_code, detail }) {
-        super(message); // sets this.message
+    constructor({ code, message, http_code, detail }, message_override) {
+        super(message_override || message); // sets this.message
         this.code = code;
         this.http_code = http_code;
         this.detail = detail;
@@ -601,6 +604,29 @@ S3Error.InvalidObjectStorageClass = Object.freeze({
     message: 'Restore is not allowed for the object\'s current storage class.',
     http_code: 403,
 });
+
+////////////////////////////////////////////////////////////////
+// S3 RDMA
+////////////////////////////////////////////////////////////////
+
+S3Error.S3InvalidRdmaToken = Object.freeze({
+    code: 'S3InvalidRdmaToken',
+    message: 'The specified S3-RDMA token is not valid.',
+    http_code: 400,
+});
+
+S3Error.S3RdmaNotSupported = Object.freeze({
+    code: 'S3RdmaNotSupported',
+    message: 'S3-RDMA is not supported.',
+    http_code: 501,
+});
+
+S3Error.S3RdmaIoError = Object.freeze({
+    code: 'S3RdmaIoError',
+    message: 'S3-RDMA I/O error occurred.',
+    http_code: 500,
+});
+
 
 S3Error.RPC_ERRORS_TO_S3 = Object.freeze({
     UNAUTHORIZED: S3Error.AccessDenied,

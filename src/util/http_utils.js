@@ -74,7 +74,55 @@ const no_proxy_list = (NO_PROXY ? NO_PROXY.split(',') : []).map(addr => {
 const parse_xml_to_js = xml2js.parseStringPromise;
 const non_printable_regexp = /[\x00-\x1F]/;
 
+/**
+ * Since header values can be either string or array of strings we need to handle both cases.
+ * While most callers might prefer to always handle a single string value, which is why we 
+ * have this helper, some callers might prefer to always convert to array of strings,
+ * which is why we have hdr_as_arr().
+ * 
+ * @param {import('http').IncomingHttpHeaders} headers
+ * @param {string} key the header name
+ * @param {string} [join_sep] optional separator to join multiple values, if not provided only the first value is returned
+ * @returns {string|undefined} the header string value or undefined if not found
+ */
+function hdr_as_str(headers, key, join_sep) {
+    const v = headers[key];
+    if (v === undefined) return undefined;
+    if (typeof v === 'string') return v;
+    if (!Array.isArray(v)) return String(v); // should not happen but would not fail a request for it
+    if (join_sep === undefined) return String(v[0]); // if not joining - return just the first
+    return v.join(join_sep); // join all values with the separator
+}
+
+/**
+ * Since header values can be either string or array of strings we need to handle both cases.
+ * While most callers might prefer to always handle a single string value, which is why we 
+ * have hdr_as_str(), some callers might prefer to always convert to array of strings,
+ * which is why we have this helper.
+ * 
+ * @param {import('http').IncomingHttpHeaders} headers
+ * @param {string} key the header name
+ * @returns {string[]|undefined} the header string value or undefined if not found
+ */
+function hdr_as_arr(headers, key) {
+    const v = headers[key];
+    if (v === undefined) return undefined;
+    if (typeof v === 'string') return [v];
+    if (!Array.isArray(v)) return [String(v)]; // should not happen but would not fail a request for it
+    return v;
+}
+
+/**
+ * @param {http.IncomingMessage & NodeJS.Dict} req 
+ * @returns {querystring.ParsedUrlQuery}
+ */
 function parse_url_query(req) {
+    // some clients include host in http url
+    if (req.url.startsWith('http://')) {
+        req.url = req.url.slice(req.url.indexOf('/', 'http://'.length));
+    } else if (req.url.startsWith('https://')) {
+        req.url = req.url.slice(req.url.indexOf('/', 'https://'.length));
+    }
     req.originalUrl = req.url;
     const query_pos = req.url.indexOf('?');
     if (query_pos < 0) {
@@ -83,6 +131,7 @@ function parse_url_query(req) {
         req.query = querystring.parse(req.url.slice(query_pos + 1));
         req.url = req.url.slice(0, query_pos);
     }
+    return req.query;
 }
 
 function parse_client_ip(req) {
@@ -93,7 +142,6 @@ function parse_client_ip(req) {
         '';
     return fwd.includes(',') ? fwd.split(',', 1)[0] : fwd;
 }
-
 
 /**
  * @typedef {{
@@ -550,6 +598,12 @@ function make_https_request(options, body, body_encoding) {
     });
 }
 
+/**
+ * 
+ * @param {http.RequestOptions} options 
+ * @param {*} body 
+ * @returns {Promise<http.IncomingMessage>}
+ */
 async function make_http_request(options, body) {
     return new Promise((resolve, reject) => {
         http.request(options, resolve)
@@ -689,6 +743,8 @@ function set_amz_headers(req, res) {
  * @param {Object} object_info
  */
 async function set_expiration_header(req, res, object_info) {
+    if (!config.S3_LIFECYCLE_EXPIRATION_HEADER_ENABLED) return;
+
     const rules = req.params.bucket && await req.object_sdk.get_bucket_lifecycle_configuration_rules({ name: req.params.bucket });
 
     const matched_rule = lifecycle_utils.get_lifecycle_rule_for_object(rules, object_info);
@@ -807,10 +863,10 @@ function authorize_session_token(req, options) {
 }
 
 function validate_server_ip_whitelist(req) {
+    if (config.S3_SERVER_IP_WHITELIST.length === 0) return;
     // remove prefix for V4 IPs for whitelist validation
     // TODO: replace the equality check with net.BlockList() usage
     const server_ip = req.connection.localAddress.replace(/^::ffff:/, '');
-    if (config.S3_SERVER_IP_WHITELIST.length === 0) return;
     for (const whitelist_ip of config.S3_SERVER_IP_WHITELIST) {
         if (server_ip === whitelist_ip) {
             return;
@@ -833,6 +889,22 @@ function http_get(uri, options) {
         client.get(uri, options, resolve).on('error', reject);
     });
 }
+
+/**
+ * Log on accepted and closed connections to the http server, 
+ * including fd and remote address for better debugging of connection issues
+ * @param {net.Socket} conn 
+ */
+function http_server_connections_logger(conn) {
+    // @ts-ignore
+    const fd = conn._handle?.fd;
+    const info = { port: conn.localPort, fd, remote: conn.remoteAddress };
+    dbg.log0('HTTP connection accepted', info);
+    conn.once('close', () => {
+        dbg.log0('HTTP connection closed', info);
+    });
+}
+
 /**
  * start_https_server starts the secure https server by type and options and creates a certificate if required
  * @param {number} https_port
@@ -842,6 +914,7 @@ function http_get(uri, options) {
 async function start_https_server(https_port, server_type, request_handler, nsfs_config_root) {
     const ssl_cert_info = await ssl_utils.get_ssl_cert_info(server_type, nsfs_config_root);
     const https_server = await ssl_utils.create_https_server(ssl_cert_info, true, request_handler);
+    https_server.on('connection', http_server_connections_logger);
     ssl_cert_info.on('update', updated_ssl_cert_info => {
         dbg.log0(`Setting updated ${server_type} ssl certs for endpoint.`);
         const updated_ssl_options = { ...updated_ssl_cert_info.cert, honorCipherOrder: true };
@@ -850,6 +923,7 @@ async function start_https_server(https_port, server_type, request_handler, nsfs
     dbg.log0(`Starting ${server_type} server on HTTPS port ${https_port}`);
     await listen_port(https_port, https_server, server_type);
     dbg.log0(`Started ${server_type} HTTPS server successfully`);
+    return https_server;
 }
 
 /**
@@ -860,11 +934,13 @@ async function start_https_server(https_port, server_type, request_handler, nsfs
  */
 async function start_http_server(http_port, server_type, request_handler) {
     const http_server = http.createServer(request_handler);
+    http_server.on('connection', http_server_connections_logger);
     if (http_port > 0) {
         dbg.log0(`Starting ${server_type} server on HTTP port ${http_port}`);
         await listen_port(http_port, http_server, server_type);
         dbg.log0(`Started ${server_type} HTTP server successfully`);
     }
+    return http_server;
 }
 
 /**
@@ -878,7 +954,8 @@ function listen_port(port, server, server_type) {
         if (server_type !== 'METRICS' && server_type !== 'FORK_HEALTH') {
             setup_endpoint_server(server);
         }
-        server.listen(port, err => {
+        const local_ip = process.env.LOCAL_IP || '0.0.0.0';
+        server.listen(port, local_ip, err => {
             if (err) {
                 dbg.error('ENDPOINT FAILED to listen', err);
                 reject(err);
@@ -908,24 +985,32 @@ function setup_endpoint_server(server) {
     });
 
     // See https://nodejs.org/api/http.html#http_event_clienterror
-    server.on('clientError', function on_s3_client_error(err, socket) {
+    server.on('clientError',
+        /**
+         * @param {Error & { code?: string, bytesParsed?: number }} err
+         * @param {net.Socket} socket
+         */
+        (err, socket) => {
 
-        // On parsing errors we reply 400 Bad Request to conform with AWS
-        // These errors come from the nodejs native http parser.
-        if (typeof err.code === 'string' &&
-            err.code.startsWith('HPE_INVALID_') &&
-            err.bytesParsed > 0) {
-            console.error('ENDPOINT CLIENT ERROR - REPLY WITH BAD REQUEST', err);
-            socket.write('HTTP/1.1 400 Bad Request\r\n');
-            socket.write(`Date: ${new Date().toUTCString()}\r\n`);
-            socket.write('Connection: close\r\n');
-            socket.write('Content-Length: 0\r\n');
-            socket.end('\r\n');
-        }
+            if (err.code === 'ECONNRESET' || !socket.writable) {
+                return;
+            }
+            // On parsing errors we reply 400 Bad Request to conform with AWS
+            // These errors come from the nodejs native http parser.
+            if (typeof err.code === 'string' &&
+                err.code.startsWith('HPE_INVALID_') &&
+                err.bytesParsed > 0) {
+                console.error('ENDPOINT CLIENT ERROR - REPLY WITH BAD REQUEST', err);
+                socket.write('HTTP/1.1 400 Bad Request\r\n');
+                socket.write(`Date: ${new Date().toUTCString()}\r\n`);
+                socket.write('Connection: close\r\n');
+                socket.write('Content-Length: 0\r\n');
+                socket.end('\r\n');
+            }
 
-        // in any case we destroy the socket
-        socket.destroy();
-    });
+            // in any case we destroy the socket
+            socket.destroy();
+        });
 
     server.keepAliveTimeout = config.ENDPOINT_HTTP_SERVER_KEEPALIVE_TIMEOUT;
     server.requestTimeout = config.ENDPOINT_HTTP_SERVER_REQUEST_TIMEOUT;
@@ -949,7 +1034,7 @@ function handle_server_error(err) {
 /**
  * set_response_headers_from_request sets the response headers based on the request headers
  * gap - response-content-encoding needs to be added with a more complex logic
- * @param {http.IncomingMessage} req 
+ * @param {http.IncomingMessage & { query: querystring.ParsedUrlQuery }} req 
  * @param {http.ServerResponse} res 
  */
 function set_response_headers_from_request(req, res) {
@@ -1012,6 +1097,8 @@ function authorize_bearer(req, res, roles = undefined) {
     return true;
 }
 
+exports.hdr_as_str = hdr_as_str;
+exports.hdr_as_arr = hdr_as_arr;
 exports.parse_url_query = parse_url_query;
 exports.parse_client_ip = parse_client_ip;
 exports.get_md_conditions = get_md_conditions;
@@ -1044,6 +1131,7 @@ exports.validate_server_ip_whitelist = validate_server_ip_whitelist;
 exports.http_get = http_get;
 exports.start_http_server = start_http_server;
 exports.start_https_server = start_https_server;
+exports.http_server_connections_logger = http_server_connections_logger;
 exports.CONTENT_TYPE_TEXT_PLAIN = CONTENT_TYPE_TEXT_PLAIN;
 exports.CONTENT_TYPE_APP_OCTET_STREAM = CONTENT_TYPE_APP_OCTET_STREAM;
 exports.CONTENT_TYPE_APP_JSON = CONTENT_TYPE_APP_JSON;

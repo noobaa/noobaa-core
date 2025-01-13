@@ -5,9 +5,14 @@ const dbg = require('../../../util/debug_module')(__filename);
 const S3Error = require('../s3_errors').S3Error;
 const s3_utils = require('../s3_utils');
 const http_utils = require('../../../util/http_utils');
+const rdma_utils = require('../../../util/rdma_utils');
+
+/* eslint-disable max-statements */
 
 /**
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectGET.html
+ * @param {nb.S3Request} req
+ * @param {nb.S3Response} res
  */
 async function get_object(req, res) {
 
@@ -16,6 +21,7 @@ async function get_object(req, res) {
     const noobaa_trigger_agent = agent_header && agent_header.includes('exec-env/NOOBAA_FUNCTION');
     const encryption = s3_utils.parse_encryption(req);
     const version_id = s3_utils.parse_version_id(req.query.versionId);
+    const rdma_info = rdma_utils.parse_rdma_info(req);
     let part_number;
     // If set, part_number should be positive integer from 1 to 10000
     if (req.query.partNumber) {
@@ -61,6 +67,7 @@ async function get_object(req, res) {
         noobaa_trigger_agent,
         md_conditions,
         encryption,
+        rdma_info,
     };
 
     if (md_params.get_from_cache) {

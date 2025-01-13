@@ -3,11 +3,13 @@
 
 // const S3Error = require('../s3_errors').S3Error;
 const s3_utils = require('../s3_utils');
-const http_utils = require('../../../util/http_utils');
 const S3Error = require('../s3_errors').S3Error;
+const http_utils = require('../../../util/http_utils');
 
 /**
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectHEAD.html
+ * @param {nb.S3Request} req
+ * @param {nb.S3Response} res
  */
 async function head_object(req, res) {
     const encryption = s3_utils.parse_encryption(req);
@@ -16,7 +18,7 @@ async function head_object(req, res) {
         key: req.params.key,
         version_id: s3_utils.parse_version_id(req.query.versionId),
         md_conditions: http_utils.get_md_conditions(req),
-        encryption
+        encryption,
     };
     if (req.query.partNumber) {
         params.part_number = s3_utils.parse_part_number(req.query.partNumber, S3Error.InvalidArgument);

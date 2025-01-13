@@ -346,6 +346,11 @@ ManageCLIError.InvalidGlacierOperation = Object.freeze({
     message: 'only "migrate", "restore" and "expiry" subcommands are supported',
     http_code: 400,
 });
+ManageCLIError.InvalidSupplementalGroupsList = Object.freeze({
+    code: 'InvalidSupplementalGroupsList',
+    message: 'supplemental groups must be a list of group ids (group id is zero or a positive integer)',
+    http_code: 400,
+});
 
 
 ////////////////////////
@@ -520,6 +525,7 @@ const NSFS_CLI_ERROR_EVENT_MAP = {
     BucketSetForbiddenBucketOwnerNotExists: NoobaaEvent.UNAUTHORIZED, // GAP - add event
     BucketSetForbiddenBucketOwnerIsIAMAccount: NoobaaEvent.UNAUTHORIZED, // // GAP - add event
     LoggingExportFailed: NoobaaEvent.LOGGING_FAILED,
+    UpgradeFailed: NoobaaEvent.CONFIG_DIR_UPGRADE_FAILED
 };
 
 exports.ManageCLIError = ManageCLIError;

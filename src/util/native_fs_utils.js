@@ -516,12 +516,18 @@ async function get_fs_context(nsfs_account_config, fs_backend) {
     if (nsfs_account_config.distinguished_name) {
         account_ids_by_dn = await get_user_by_distinguished_name({ distinguished_name: nsfs_account_config.distinguished_name });
     }
-    return {
+    const fs_context = {
         uid: (account_ids_by_dn && account_ids_by_dn.uid) ?? nsfs_account_config.uid,
         gid: (account_ids_by_dn && account_ids_by_dn.gid) ?? nsfs_account_config.gid,
         warn_threshold_ms: config.NSFS_WARN_THRESHOLD_MS,
         backend: fs_backend
     };
+
+    //napi does not accepts undefined value for an array. if supplemental_groups is undefined don't include this property at all
+    if (nsfs_account_config.supplemental_groups) {
+        fs_context.supplemental_groups = nsfs_account_config.supplemental_groups;
+     }
+    return fs_context;
 }
 
 function validate_bucket_creation(params) {

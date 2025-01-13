@@ -91,7 +91,25 @@ function get_boolean_or_string_value(value) {
 }
 
 /**
- * get_options_from_file will read a JSON file that include key-value of the options 
+ * This function parse a comma delimited string of numbers ('0,212,111') to an array of numbers.
+ * This function assumes string format was validated before calling the function, wrong string format can
+ * lead to unexpected output (usually array of NaN)
+ * 1. if the value is a number return array with this number (3 => [3])
+ * 2. if the value is a string return an array of numbers ('0,212,111' => [0,212,111])
+ * 3. for all other types (including object and undefined) return the value itself
+ */
+function parse_comma_delimited_string(value) {
+    if (typeof value === 'number') {
+        return [value];
+    }
+    if (typeof value === 'string') {
+        return value.split(',').map(val => Number(val));
+    }
+    return value;
+}
+
+/**_
+ * get_options_fromfile will read a JSON file that include key-value of the options
  * (instead of flags) and return its content
  * @param {string} file_path
  */
@@ -156,6 +174,7 @@ function is_access_key_update(data) {
 exports.throw_cli_error = throw_cli_error;
 exports.write_stdout_response = write_stdout_response;
 exports.get_boolean_or_string_value = get_boolean_or_string_value;
+exports.parse_comma_delimited_string = parse_comma_delimited_string;
 exports.get_bucket_owner_account_by_name = get_bucket_owner_account_by_name;
 exports.get_bucket_owner_account_by_id = get_bucket_owner_account_by_id;
 exports.get_options_from_file = get_options_from_file;

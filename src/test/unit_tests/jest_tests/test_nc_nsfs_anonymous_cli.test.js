@@ -123,6 +123,59 @@ describe('manage nsfs cli anonymous account flow', () => {
             const resp = await exec_manage_cli(type, action, account_options);
             expect(JSON.parse(resp.stdout).error.message).toBe(ManageCLIError.InvalidArgument.message);
         });
+
+        it('cli create anonymous account with supplemental_groups - string', async () => {
+            //first delete the existing anonymous account
+            let action = ACTIONS.DELETE;
+            const { type, anonymous, uid, gid } = defaults;
+            let account_options = { anonymous, config_root };
+            const resp = await exec_manage_cli(type, action, account_options);
+            const res_json = JSON.parse(resp.trim());
+            expect(res_json.response.code).toBe(ManageCLIResponse.AccountDeleted.code);
+
+            action = ACTIONS.ADD;
+            const supplemental_groups = '0,202,101';
+            const expected_groups = [0, 202, 101];
+            account_options = { anonymous, config_root, uid, gid, supplemental_groups };
+            await exec_manage_cli(type, action, account_options);
+            const account = await config_fs.get_account_by_name(config.ANONYMOUS_ACCOUNT_NAME);
+            expect(account.nsfs_account_config.supplemental_groups).toStrictEqual(expected_groups);
+        });
+
+        it('cli create anonymous account with supplemental_groups - number', async () => {
+            let action = ACTIONS.DELETE;
+            const { type, anonymous, uid, gid } = defaults;
+            let account_options = { anonymous, config_root };
+            const resp = await exec_manage_cli(type, action, account_options);
+            const res_json = JSON.parse(resp.trim());
+            expect(res_json.response.code).toBe(ManageCLIResponse.AccountDeleted.code);
+
+            action = ACTIONS.ADD;
+            const supplemental_groups = 0;
+            const expected_groups = [0];
+            account_options = { anonymous, config_root, uid, gid, supplemental_groups };
+            await exec_manage_cli(type, action, account_options);
+            const account = await config_fs.get_account_by_name(config.ANONYMOUS_ACCOUNT_NAME);
+            expect(account.nsfs_account_config.supplemental_groups).toStrictEqual(expected_groups);
+        });
+
+        it('should fail - cli create anonymous account with invalid supplemental_groups - not a number', async () => {
+            const action = ACTIONS.ADD;
+            const { type, uid, gid, anonymous } = defaults;
+            const supplemental_groups = '303g,202,101';
+            const account_options = { anonymous, config_root, uid, gid, supplemental_groups };
+            const resp = await exec_manage_cli(type, action, account_options);
+            expect(JSON.parse(resp.stdout).error.message).toBe(ManageCLIError.InvalidSupplementalGroupsList.message);
+        });
+
+        it('should fail - cli create anonymous account with invalid supplemental_groups - negative number', async () => {
+            const action = ACTIONS.ADD;
+            const { type, uid, gid, anonymous } = defaults;
+            const supplemental_groups = '0,-202,101';
+            const account_options = { anonymous, config_root, uid, gid, supplemental_groups };
+            const resp = await exec_manage_cli(type, action, account_options);
+            expect(JSON.parse(resp.stdout).error.message).toBe(ManageCLIError.InvalidSupplementalGroupsList.message);
+        });
     });
 
     describe('cli update anonymous account', () => {
@@ -178,6 +231,28 @@ describe('manage nsfs cli anonymous account flow', () => {
             const account_update_options = { anonymous, config_root, user };
             const resp = await exec_manage_cli(type, action, account_update_options);
             expect(JSON.parse(resp.stdout).error.message).toBe(ManageCLIError.InvalidArgumentType.message);
+        });
+
+        it('cli update anonymous account with supplemental_groups - string', async () => {
+            const action = ACTIONS.UPDATE;
+            const { type, uid, gid, anonymous } = defaults;
+            const supplemental_groups = '0,202,101';
+            const expected_groups = [0, 202, 101];
+            const account_update_options = { anonymous, config_root, uid, gid, supplemental_groups };
+            await exec_manage_cli(type, action, account_update_options);
+            const account = await config_fs.get_account_by_name(config.ANONYMOUS_ACCOUNT_NAME);
+            expect(account.nsfs_account_config.supplemental_groups).toStrictEqual(expected_groups);
+        });
+
+        it('cli update anonymous account with supplemental_groups - number', async () => {
+            const action = ACTIONS.UPDATE;
+            const { type, uid, gid, anonymous } = defaults;
+            const supplemental_groups = 0;
+            const expected_groups = [0];
+            const account_update_options = { anonymous, config_root, uid, gid, supplemental_groups };
+            await exec_manage_cli(type, action, account_update_options);
+            const account = await config_fs.get_account_by_name(config.ANONYMOUS_ACCOUNT_NAME);
+            expect(account.nsfs_account_config.supplemental_groups).toStrictEqual(expected_groups);
         });
     });
 

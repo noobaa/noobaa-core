@@ -2,6 +2,7 @@
 'use strict';
 
 const _ = require('lodash');
+const s3_const = require('../s3_constants');
 const { v4: uuid } = require('uuid');
 const dbg = require('../../../util/debug_module')(__filename);
 const S3Error = require('../s3_errors').S3Error;
@@ -82,17 +83,30 @@ function parse_lifecycle_field(field, field_parser = parseInt) {
  * http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketPUTlifecycle.html
  */
 async function put_bucket_lifecycle(req) {
+    const id_set = new Set();
     const lifecycle_rules = _.map(req.body.LifecycleConfiguration.Rule, rule => {
         const current_rule = {
             filter: {},
         };
 
         if (rule.ID?.length === 1) {
-            current_rule.id = rule.ID[0];
+            if (rule.ID[0].length > s3_const.MAX_RULE_ID_LENGTH) {
+                dbg.error('Rule should not have ID length exceed allowed limit of ', s3_const.MAX_RULE_ID_LENGTH, ' characters', rule);
+                throw new S3Error({ ...S3Error.InvalidArgument, message: `ID length should not exceed allowed limit of ${s3_const.MAX_RULE_ID_LENGTH}` });
+            } else {
+                current_rule.id = rule.ID[0];
+            }
         } else {
             // Generate a random ID if missing
             current_rule.id = uuid();
         }
+
+        // Check for duplicate ID in the rules
+        if (id_set.has(current_rule.id)) {
+            dbg.error('Rule ID must be unique. Found same ID for more than one rule: ', current_rule.id);
+            throw new S3Error({ ...S3Error.InvalidArgument, message: 'Rule ID must be unique. Found same ID for more than one rule'});
+        }
+        id_set.add(current_rule.id);
 
         if (rule.Status?.length !== 1) {
             dbg.error('Rule should have status', rule);

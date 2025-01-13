@@ -1,15 +1,6 @@
 # Copyright (C) 2016 NooBaa
 {
     'variables': { # NOTE: variables in the same scope cannot expand each other!
-        'cflags_warnings': [
-            '-W',
-            '-Wall',
-            '-Wextra',
-            '-Werror',
-            '-Wpedantic',
-#Can be removed when https://github.com/nodejs/nan/issues/953 is resolved.
-            '-Wno-error=deprecated-declarations'
-        ],
         # see https://nodejs.org/docs/latest-v12.x/api/process.html#process_process_arch
         # Possible values are: 
         # 'arm', 'arm64', 'ia32', 'mips','mipsel', 'ppc', 'ppc64', 's390', 's390x', 'x32', and 'x64'.

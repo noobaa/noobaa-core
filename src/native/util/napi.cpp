@@ -2,8 +2,27 @@
 #include "napi.h"
 #include "b64.h"
 
+#include <uv.h>
+
 namespace noobaa
 {
+
+// send errno value after syscall failure, or explicit (e.g. EOPNOTSUPP)
+Napi::Error
+napi_sys_error(Napi::Env env, int errno_val, std::string msg)
+{
+    const char* err_code = uv_err_name(uv_translate_sys_error(errno_val));
+    const char* err_desc = uv_strerror(uv_translate_sys_error(errno_val));
+    if (msg.empty()) {
+        msg = err_desc;
+    } else {
+        msg += ": ";
+        msg += err_desc;
+    }
+    auto err = Napi::Error::New(env, msg);
+    err.Set("code", Napi::String::New(env, err_code));
+    return err;
+}
 
 void
 nb_napi_get_int(napi_env env, napi_value obj, const char* name, int* p_num)

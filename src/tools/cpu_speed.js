@@ -3,36 +3,35 @@
 
 require('../util/fips');
 const crypto = require('crypto');
-const cluster = require('cluster');
 const argv = require('minimist')(process.argv);
+const setImmediateAsync = require('timers/promises').setImmediate;
 const Speedometer = require('../util/speedometer');
 
 require('../util/console_wrapper').original_console();
 
-argv.forks = argv.forks || 1;
-argv.size = argv.size || (10 * 1024);
+argv.forks = Number(argv.forks ?? 1);
+argv.size = Number(argv.size ?? (10 * 1024));
 argv.hash = argv.hash || 'sha256';
 
-if (argv.forks > 1 && cluster.isMaster) {
-    const master_speedometer = new Speedometer('Total Speed');
-    master_speedometer.fork(argv.forks);
-} else {
-    main();
-}
+const speedometer = new Speedometer({
+    name: `CPU(${argv.hash})`,
+    argv,
+    num_workers: argv.forks,
+    workers_func,
+});
+speedometer.start();
 
-function main() {
+async function workers_func() {
     const hasher = crypto.createHash(argv.hash);
     const buf = crypto.randomBytes(1024 * 1024);
-    const speedometer = new Speedometer('CPU Speed');
     let size = argv.size * 1024 * 1024;
     console.log(`Crunching ${argv.size} MB with ${argv.hash}...`);
-    run();
-
-    function run() {
-        if (size <= 0) process.exit();
-        hasher.update(buf);
-        speedometer.update(buf.length);
+    while (size > 0) {
+        await speedometer.measure(async () => {
+            hasher.update(buf);
+            return buf.length;
+        });
         size -= buf.length;
-        setImmediate(run);
+        await setImmediateAsync(); // release CPU
     }
 }

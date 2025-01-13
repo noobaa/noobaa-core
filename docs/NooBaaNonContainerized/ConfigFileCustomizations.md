@@ -545,6 +545,132 @@ Warning: After setting this configuration, NooBaa will skip schema validations a
     "NSFS_CHECK_BUCKET_PATH_EXISTS": false
     ```
 
+### 38. RDMA enable flag -
+* <u>Key</u>: `S3_RDMA_ENABLED`  
+* <u>Type</u>: Boolean  
+* <u>Default</u>: false  
+* <u>Description</u>: Enable RDMA support on the S3 endpoint. When enabled, the server will accept and process `x-amz-rdma-token` headers for RDMA data transfers. Requires RDMA-capable network hardware. See [S3 over RDMA](../design/S3-over-RDMA.md) for details.  
+* <u>Steps</u>:  
+    ```
+    1. Open /path/to/config_dir/config.json file.
+    2. Set the config key -
+    Example:
+    "S3_RDMA_ENABLED": true
+    3. systemctl restart noobaa
+    ```
+
+### 39. RDMA GPFS zero-copy flag -
+* <u>Key</u>: `S3_RDMA_GPFS_ZERO_COPY_ENABLED`  
+* <u>Type</u>: Boolean  
+* <u>Default</u>: false  
+* <u>Description</u>: Enable direct RDMA-to-GPFS zero-copy data path, bypassing intermediate buffer copies. Requires RDMA to be enabled and a GPFS library version with zero-copy support (auto-detected at runtime).  
+* <u>Steps</u>:  
+    ```
+    1. Open /path/to/config_dir/config.json file.
+    2. Set the config key -
+    Example:
+    "S3_RDMA_GPFS_ZERO_COPY_ENABLED": true
+    3. systemctl restart noobaa
+    ```
+
+### 40. RDMA server IPs -
+* <u>Key</u>: `S3_RDMA_SERVER_IPS`  
+* <u>Type</u>: Array of strings  
+* <u>Default</u>: []  
+* <u>Description</u>: List of server IP addresses to bind for RDMA transport. These must be IPs on RDMA-capable network interfaces (InfiniBand or RoCE). Env variable `S3_RDMA_SERVER_IP` takes precedence over this config key. When empty, NooBaa will attempt to use the server IPs that received the S3 request.
+* <u>Steps</u>:  
+    ```
+    1. Open /path/to/config_dir/config.json file.
+    2. Set the config key -
+    Example:
+    "S3_RDMA_SERVER_IPS": ["172.16.0.61", "172.16.0.62"]
+    3. systemctl restart noobaa
+    ```
+
+### 41. RDMA log level -
+* <u>Key</u>: `S3_RDMA_LOG_LEVEL`  
+* <u>Type</u>: String  
+* <u>Default</u>: 'INFO'  
+* <u>Description</u>: Log level for the RDMA subsystem. Supported values: `ERROR`, `INFO`, `DEBUG`.  
+* <u>Steps</u>:  
+    ```
+    1. Open /path/to/config_dir/config.json file.
+    2. Set the config key -
+    Example:
+    "S3_RDMA_LOG_LEVEL": "DEBUG"
+    3. systemctl restart noobaa
+    ```
+
+### 42. RDMA telemetry flag -
+* <u>Key</u>: `S3_RDMA_USE_TELEMETRY`  
+* <u>Type</u>: Boolean  
+* <u>Default</u>: true  
+* <u>Description</u>: Enable telemetry and metrics collection for RDMA transfers.  
+* <u>Steps</u>:  
+    ```
+    1. Open /path/to/config_dir/config.json file.
+    2. Set the config key -
+    Example:
+    "S3_RDMA_USE_TELEMETRY": false
+    3. systemctl restart noobaa
+    ```
+
+### 43. RDMA DC key -
+* <u>Key</u>: `S3_RDMA_DC_KEY`  
+* <u>Type</u>: Number  
+* <u>Default</u>: 0xffeeddcc  
+* <u>Description</u>: Dynamic Connection (DC) key value used for RDMA secure communication. Must match between client and server.  
+* <u>Steps</u>:  
+    ```
+    1. Open /path/to/config_dir/config.json file.
+    2. Set the config key -
+    Example:
+    "S3_RDMA_DC_KEY": 4293844428
+    3. systemctl restart noobaa
+    ```
+
+### 44. RDMA number of DCIs -
+* <u>Key</u>: `S3_RDMA_NUM_DCIS`  
+* <u>Type</u>: Number  
+* <u>Default</u>: 128  
+* <u>Description</u>: Number of Dynamic Connection Interfaces (DCIs). Controls the maximum number of concurrent RDMA connections. Increase for higher concurrency workloads.  
+* <u>Steps</u>:  
+    ```
+    1. Open /path/to/config_dir/config.json file.
+    2. Set the config key -
+    Example:
+    "S3_RDMA_NUM_DCIS": 256
+    3. systemctl restart noobaa
+    ```
+
+### 45. RDMA async events flag -
+* <u>Key</u>: `S3_RDMA_USE_ASYNC_EVENTS`  
+* <u>Type</u>: Boolean  
+* <u>Default</u>: false  
+* <u>Description</u>: Use async events instead of thread pool for RDMA operations. Default is false because thread pool provides better performance in most workloads.  
+* <u>Steps</u>:  
+    ```
+    1. Open /path/to/config_dir/config.json file.
+    2. Set the config key -
+    Example:
+    "S3_RDMA_USE_ASYNC_EVENTS": true
+    3. systemctl restart noobaa
+    ```
+
+### 46. RDMA token validation flag -
+* <u>Key</u>: `S3_RDMA_VALIDATE_TOKEN_HDR`  
+* <u>Type</u>: Boolean  
+* <u>Default</u>: true  
+* <u>Description</u>: Enable validation of the `x-amz-rdma-token` header contents before processing RDMA requests. Disabling is not recommended.  
+* <u>Steps</u>:  
+    ```
+    1. Open /path/to/config_dir/config.json file.
+    2. Set the config key -
+    Example:
+    "S3_RDMA_VALIDATE_TOKEN_HDR": true
+    3. systemctl restart noobaa
+    ```
+
 
 ## Config.json File Examples
 The following is an example of a config.json file - 
@@ -562,6 +688,22 @@ The following is an example of a config.json file -
     "NSFS_CHECK_BUCKET_BOUNDARIES": false,
     "ALLOW_HTTP": true,
     "S3_SERVER_IP_WHITELIST":["127.0.0.1","192.000.10.000","3002:0bd6:0000:0000:0000:ee00:0033:000"]
+}
+
+```
+
+The following is an example of a config.json file with RDMA enabled -
+
+```sh
+> cat /path/to/config_dir/config.json
+{
+    "ENDPOINT_FORKS": 16,
+    "UV_THREADPOOL_SIZE": 256,
+    "ALLOW_HTTP": true,
+    "S3_RDMA_ENABLED": true,
+    "S3_RDMA_SERVER_IPS": ["172.16.0.61"],
+    "S3_RDMA_NUM_DCIS": 256,
+    "S3_RDMA_LOG_LEVEL": "INFO"
 }
 
 ```

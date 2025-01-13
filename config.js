@@ -1030,6 +1030,8 @@ config.NSFS_LIST_IGNORE_ENTRY_ON_EINVAL = true;
 config.NSFS_CUSTOM_BUCKET_PATH_HTTP_HEADER = 'x-noobaa-custom-bucket-path';
 config.NSFS_CUSTOM_BUCKET_PATH_ALLOWED_LIST = ''; // colon separated list of paths prefixes
 
+config.NSFS_SPEEDOMETER_ENABLED = false;
+
 ////////////////////////////
 // NSFS NON CONTAINERIZED //
 ////////////////////////////

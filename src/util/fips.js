@@ -106,7 +106,9 @@ function detect_fips_mode() {
     const fips_proc_file = process.env.FIPS_PROC_FILE || '/proc/sys/crypto/fips_enabled';
     try {
         const value = fs.readFileSync(fips_proc_file, 'utf8').trim();
-        console.log(`detect_fips_mode: found ${fips_proc_file} with value ${value}`);
+        if (value !== '0') {
+            console.log(`detect_fips_mode: found ${fips_proc_file} with value ${value}`);
+        }
         return value === '1';
     } catch (err) {
         if (err.code !== 'ENOENT' && err.code !== 'ENOTDIR') {

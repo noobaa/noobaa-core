@@ -6,6 +6,7 @@ require('../util/panic');
 const fs = require('fs');
 const util = require('util');
 const path = require('path');
+const crypto = require('crypto');
 const argv = require('minimist')(process.argv);
 const { cluster } = require('../util/fork_utils');
 const execAsync = util.promisify(require('child_process').exec);
@@ -16,7 +17,7 @@ function print_usage() {
     console.log(`
 Usage:
   --help            show this usage
-  --dir <path>      (default "./fs_speed_output") where to write the files
+  --path <path>     (default "./fs_speed_output") where to write the files
   --time <sec>      (default 10) limit time to run
   --concur <n>      (default 1) number of concurrent writers
   --forks <n>       (default 1) number of forks to create (total writers is concur * forks).
@@ -47,11 +48,11 @@ if (argv.help) {
     process.exit(0);
 }
 
-argv.dir = argv.dir || 'fs_speed_output';
+argv.path = argv.path || 'fs_speed_output';
 argv.time = argv.time || 10; // stop after X seconds
 argv.concur = argv.concur || 1;
 argv.forks = argv.forks || 1;
-argv.file_size = argv.file_size || 1024;
+argv.file_size = argv.file_size || 64;
 argv.block_size = argv.block_size || 8;
 argv.file_size_units = argv.file_size_units || 'MB';
 argv.block_size_units = argv.block_size_units || 'MB';
@@ -89,6 +90,7 @@ if (!size_units_table[argv.block_size_units]) {
 
 const block_size = argv.block_size * size_units_table[argv.block_size_units];
 const file_size = argv.file_size * size_units_table[argv.file_size_units];
+const size_name = String(argv.file_size) + String(argv.file_size_units);
 const block_count = Math.ceil(file_size / block_size);
 const file_size_aligned = block_count * block_size;
 const nb_native = argv.mode === 'nsfs' && require('../util/nb_native');
@@ -96,14 +98,46 @@ const is_master = cluster.isPrimary;
 const start_time = Date.now();
 const end_time = start_time + (argv.time * 1000);
 
-const speedometer = new Speedometer('FS Speed');
-speedometer.run_workers(argv.forks, main, argv);
+const speedometer = new Speedometer({
+    name: 'FS Speed',
+    argv,
+    num_workers: argv.forks,
+    primary_init,
+    workers_init,
+    workers_func,
+});
+speedometer.start();
 
-async function main() {
+let _read_files = [];
+
+async function primary_init() {
+    if (argv.read) {
+        const dir = path.join(argv.path, size_name);
+        console.log('Reading dir', dir, '(recursive) ...');
+        const entries = await fs.promises.readdir(dir, { recursive: true, withFileTypes: true });
+        for (const entry of entries) {
+            if (entry.isFile()) {
+                const file_path = path.join(entry.parentPath, entry.name);
+                _read_files.push(file_path);
+            }
+        }
+        console.log('Found', _read_files.length, 'files to read in dir', dir);
+        return _read_files;
+    }
+}
+
+async function workers_init(worker_id, worker_info) {
+    if (argv.read) {
+        _read_files = worker_info;
+        console.log('Workers got', _read_files.length, 'files to read');
+    }
+}
+
+async function workers_func(worker_id, worker_info) {
     // nb_native().fs.set_debug_level(5);
     const promises = [];
-    fs.mkdirSync(argv.dir, { recursive: true });
-    for (let i = 0; i < argv.concur; ++i) promises.push(worker(i));
+    fs.mkdirSync(argv.path, { recursive: true });
+    for (let i = 0; i < argv.concur; ++i) promises.push(io_worker(worker_id, i));
     await Promise.all(promises);
     speedometer.clear_interval();
     if (is_master) speedometer.report();
@@ -111,22 +145,28 @@ async function main() {
 }
 
 /**
- * @param {number} id
+ * @param {number} worker_id
+ * @param {number} io_worker_id
  */
-async function worker(id) {
+async function io_worker(worker_id, io_worker_id) {
     const dir = path.join(
-        argv.dir,
-        `${id}`, // first level is id so that repeating runs will be collected together
-        // `pid-${process.pid}`,
+        argv.path,
+        size_name,
+        `${worker_id}`,
+        `${io_worker_id}`,
     );
     await fs.promises.mkdir(dir, { recursive: true });
 
-    let file_id = 0;
-    for (;;) {
+    for (; ;) {
         const file_start_time = Date.now();
         if (file_start_time >= end_time) break;
-        const file_path = path.join(dir, `file-${file_id}`);
-        file_id += 1;
+        let file_path;
+        const hash_dir = path.join(dir, String(file_start_time % 256));
+        if (argv.read) {
+            file_path = _read_files[crypto.randomInt(0, _read_files.length)];
+        } else {
+            file_path = path.join(hash_dir, `file${size_name}-${file_start_time.toString(36)}`);
+        }
         try {
             if (argv.mode === 'nsfs') {
                 await work_with_nsfs(file_path);
@@ -136,10 +176,11 @@ async function worker(id) {
                 await work_with_dd(file_path);
             }
             const took_ms = Date.now() - file_start_time;
-            speedometer.add_op(took_ms);
+            speedometer.update(0, took_ms);
         } catch (err) {
             if (argv.read && err.code === 'ENOENT') {
-                file_id = 0;
+                // console.warn('file not found', file_path);
+                await fs.promises.mkdir(hash_dir, { recursive: true });
             } else {
                 throw err;
             }

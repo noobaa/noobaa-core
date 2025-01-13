@@ -805,18 +805,19 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             throw new Error('has_bucket_action_permission: action is required');
         }
 
-        let permission;
-        permission = await bucket_policy_utils.has_bucket_policy_permission(
+        let permission_by_name;
+        const permission_by_id = await bucket_policy_utils.has_bucket_policy_permission(
             bucket_policy,
             account._id,
             action,
             `arn:aws:s3:::${bucket.name.unwrap()}${bucket_path}`,
             undefined
         );
+        if (permission_by_id === "DENY") return false;
         // we (currently) allow account identified to be both id and name,
         // so if by-id failed, try also name
-        if (account.owner === undefined && permission === 'IMPLICIT_DENY') {
-            permission = await bucket_policy_utils.has_bucket_policy_permission(
+        if (account.owner === undefined) {
+            permission_by_name = await bucket_policy_utils.has_bucket_policy_permission(
                 bucket_policy,
                 account.name.unwrap(),
                 action,
@@ -824,9 +825,8 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                 undefined
             );
         }
-
-        if (permission === 'DENY') return false;
-        return is_owner || permission === 'ALLOW';
+        if (permission_by_name === 'DENY') return false;
+        return is_owner || (permission_by_id === 'ALLOW' || permission_by_name === 'ALLOW');
     }
 
     async validate_fs_bucket_access(bucket, object_sdk) {

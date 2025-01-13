@@ -102,6 +102,10 @@ function hdr_as_arr(headers, key) {
     return v;
 }
 
+/**
+ * @param {http.IncomingMessage & NodeJS.Dict} req 
+ * @returns {querystring.ParsedUrlQuery}
+ */
 function parse_url_query(req) {
     req.originalUrl = req.url;
     const query_pos = req.url.indexOf('?');
@@ -111,6 +115,7 @@ function parse_url_query(req) {
         req.query = querystring.parse(req.url.slice(query_pos + 1));
         req.url = req.url.slice(0, query_pos);
     }
+    return req.query;
 }
 
 function parse_client_ip(req) {
@@ -839,6 +844,21 @@ function http_get(uri, options) {
         client.get(uri, options, resolve).on('error', reject);
     });
 }
+
+/**
+ * 
+ * @param {net.Socket} conn 
+ */
+function http_server_connections_logger(conn) {
+    // @ts-ignore
+    const fd = conn._handle.fd;
+    const info = { port: conn.localPort, fd, remote: conn.remoteAddress };
+    dbg.log0('HTTP connection accepted', info);
+    conn.once('close', () => {
+        dbg.log0('HTTP connection closed', info);
+    });
+}
+
 /**
  * start_https_server starts the secure https server by type and options and creates a certificate if required
  * @param {number} https_port
@@ -848,6 +868,7 @@ function http_get(uri, options) {
 async function start_https_server(https_port, server_type, request_handler, nsfs_config_root) {
     const ssl_cert_info = await ssl_utils.get_ssl_cert_info(server_type, nsfs_config_root);
     const https_server = await ssl_utils.create_https_server(ssl_cert_info, true, request_handler);
+    https_server.on('connection', http_server_connections_logger);
     ssl_cert_info.on('update', updated_ssl_cert_info => {
         dbg.log0(`Setting updated ${server_type} ssl certs for endpoint.`);
         const updated_ssl_options = { ...updated_ssl_cert_info.cert, honorCipherOrder: true };
@@ -856,6 +877,7 @@ async function start_https_server(https_port, server_type, request_handler, nsfs
     dbg.log0(`Starting ${server_type} server on HTTPS port ${https_port}`);
     await listen_port(https_port, https_server, server_type);
     dbg.log0(`Started ${server_type} HTTPS server successfully`);
+    return https_server;
 }
 
 /**
@@ -866,11 +888,13 @@ async function start_https_server(https_port, server_type, request_handler, nsfs
  */
 async function start_http_server(http_port, server_type, request_handler) {
     const http_server = http.createServer(request_handler);
+    http_server.on('connection', http_server_connections_logger);
     if (http_port > 0) {
         dbg.log0(`Starting ${server_type} server on HTTP port ${http_port}`);
         await listen_port(http_port, http_server, server_type);
         dbg.log0(`Started ${server_type} HTTP server successfully`);
     }
+    return http_server;
 }
 
 /**
@@ -1009,6 +1033,7 @@ exports.validate_server_ip_whitelist = validate_server_ip_whitelist;
 exports.http_get = http_get;
 exports.start_http_server = start_http_server;
 exports.start_https_server = start_https_server;
+exports.http_server_connections_logger = http_server_connections_logger;
 exports.CONTENT_TYPE_TEXT_PLAIN = CONTENT_TYPE_TEXT_PLAIN;
 exports.CONTENT_TYPE_APP_OCTET_STREAM = CONTENT_TYPE_APP_OCTET_STREAM;
 exports.CONTENT_TYPE_APP_JSON = CONTENT_TYPE_APP_JSON;

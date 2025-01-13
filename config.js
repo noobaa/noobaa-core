@@ -958,6 +958,7 @@ config.NSFS_GLACIER_MIGRATE_LOG_THRESHOLD = 50 * 1024;
 config.ANONYMOUS_ACCOUNT_NAME = 'anonymous';
 
 config.NFSF_UPLOAD_STREAM_MEM_THRESHOLD = 8 * 1024 * 1024;
+config.NFSF_DOWNLOAD_STREAM_MEM_THRESHOLD = 8 * 1024 * 1024;
 
 // we want to change our handling related to EACCESS error
 config.NSFS_LIST_IGNORE_ENTRY_ON_EACCES = true;
@@ -1090,6 +1091,14 @@ config.DEFAULT_REGION = 'us-east-1';
 /////////////////////////
 
 config.VACCUM_ANALYZER_INTERVAL = 86400000;
+
+
+//////////////
+///  RDMA  ///
+//////////////
+
+config.RDMA_ENABLED = true; // TODO STILL EXPERIMENTAL - should be false by default
+
 
 /////////////////////
 //                 //

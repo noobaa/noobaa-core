@@ -84,6 +84,13 @@ endif
 BUILD_S3SELECT?=1
 BUILD_S3SELECT_PARQUET?=0
 
+GYP_DEFINES?=
+GYP_DEFINES+=$(if $(RDMA),"BUILD_RDMA_NAPI=1",)
+GYP_DEFINES+=$(if $(CUDA),"BUILD_CUDA_NAPI=1",)
+GYP_DEFINES+=$(if $(CUDA_PATH),"CUDA_PATH=$(CUDA_PATH)",)
+GYP_DEFINES+=$(if $(CUOBJ_PATH),"CUOBJ_PATH=$(CUOBJ_PATH)",)
+
+
 ## RPM VARIABLES 
 DATE := $(shell date +'%Y%m%d')
 NOOBAA_PKG_VERSION := $(shell jq -r '.version' < ./package.json)
@@ -106,7 +113,7 @@ default: build
 # this target builds incrementally
 build:
 	npm install
-	npm run build
+	GYP_DEFINES='$(GYP_DEFINES)' npm run build --verbose
 .PHONY: build
 
 clean_build:

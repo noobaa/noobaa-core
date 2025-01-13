@@ -51,15 +51,26 @@ public:
             if (!dladdr(trace[i], &info)) {
                 break;
             }
-            int status;
-            std::string file(info.dli_fname);
-            std::string func(info.dli_sname);
-            char* demangled = abi::__cxa_demangle(info.dli_sname, NULL, 0, &status);
-            if (status == 0 && demangled) {
-                func = demangled;
+            std::string func;
+            if (info.dli_sname) {
+                int status = -1;
+                char* demangled = abi::__cxa_demangle(info.dli_sname, NULL, 0, &status);
+                if (status == 0 && demangled) {
+                    func = demangled;
+                } else {
+                    func = info.dli_sname;
+                }
+                if (demangled) {
+                    free(demangled);
+                }
+            } else {
+                std::stringstream s;
+                s << "0x" << std::hex << uintptr_t(info.dli_saddr);
+                func = s.str();
             }
-            if (demangled) {
-                free(demangled);
+            std::string file;
+            if (info.dli_fname) {
+                file = info.dli_fname;
             }
             if (file.empty()) {
                 break; // entries after main

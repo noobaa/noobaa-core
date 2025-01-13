@@ -25,10 +25,15 @@ argv.timeout = argv.timeout || 60000;
 
 let block_index = 0;
 
-const speedometer = new Speedometer('Block Store Speed');
-speedometer.run_workers(argv.forks, main, argv);
+const speedometer = new Speedometer({
+    name: 'Block Store Speed',
+    argv,
+    num_workers: argv.forks,
+    workers_func,
+});
+speedometer.start();
 
-async function main() {
+async function workers_func() {
     const rpc = api.new_rpc();
     const client = rpc.new_client();
     const signal_client = rpc.new_client();
@@ -40,20 +45,18 @@ async function main() {
         system: argv.system,
     });
     await Promise.all(Array(argv.concur).fill(0).map(() => worker(client)));
-    process.exit();
 }
 
 async function worker(client) {
     while (block_index < argv.count) {
         block_index += 1;
-        await write_block(client);
-        speedometer.update(argv.size);
+        await speedometer.measure(async () => write_block(client));
     }
 }
 
 async function write_block(client) {
     const block_id = new mongodb.ObjectId();
-    return client.block_store.write_block({
+    await client.block_store.write_block({
         [RPC_BUFFERS]: { data: Buffer.allocUnsafe(argv.size) },
         block_md: {
             id: block_id,
@@ -64,4 +67,5 @@ async function write_block(client) {
         address: argv.address,
         timeout: argv.timeout,
     });
+    return argv.size;
 }

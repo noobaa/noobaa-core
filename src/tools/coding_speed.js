@@ -33,10 +33,15 @@ argv.verbose = Boolean(argv.verbose); // default is false
 argv.sse_c = Boolean(argv.sse_c); // default is false
 delete argv._;
 
-const speedometer = new Speedometer('Chunk Coder Speed');
-speedometer.run_workers(argv.forks, main, argv);
+const speedometer = new Speedometer({
+    name: 'Chunk Coder Speed',
+    argv,
+    num_workers: argv.forks,
+    workers_func,
+});
+speedometer.start();
 
-function main() {
+async function workers_func() {
 
     const chunk_split_config = {
         avg_chunk: config.CHUNK_SPLIT_AVG_CHUNK,
@@ -127,22 +132,22 @@ function main() {
         transforms.push(new FlattenStream());
     }
     transforms.push(reporter);
-    return stream.promises.pipeline(transforms)
-        .then(() => {
-            console.log('AVERAGE CHUNK SIZE', (total_size / num_parts).toFixed(0));
-            if (splitter.md5) {
-                console.log('MD5 =', splitter.md5.toString('base64'));
-            }
-            if (splitter.sha256) {
-                console.log('SHA256 =', splitter.sha256.toString('base64'));
-            }
-        })
-        .catch(err => {
-            if (!err.chunks) throw err;
-            let message = '';
-            for (const chunk of err.chunks) {
-                message += 'CHUNK ERRORS: ' + chunk.errors.join(',') + '\n';
-            }
-            throw new Error(err.message + '\n' + message);
-        });
+
+    try {
+        await stream.promises.pipeline(transforms);
+        console.log('AVERAGE CHUNK SIZE', (total_size / num_parts).toFixed(0));
+        if (splitter.md5) {
+            console.log('MD5 =', splitter.md5.toString('base64'));
+        }
+        if (splitter.sha256) {
+            console.log('SHA256 =', splitter.sha256.toString('base64'));
+        }
+    } catch (err) {
+        if (!err.chunks) throw err;
+        let message = '';
+        for (const chunk of err.chunks) {
+            message += 'CHUNK ERRORS: ' + chunk.errors.join(',') + '\n';
+        }
+        throw new Error(err.message + '\n' + message);
+    }
 }

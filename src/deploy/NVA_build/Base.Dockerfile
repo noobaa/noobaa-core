@@ -2,6 +2,9 @@ FROM noobaa-builder AS noobaa-base
 
 # By default we build the image with rdkafka support, but can be overridden
 ARG USE_RDKAFKA=1
+# By default we build the image with s3select support, but can be overridden
+ARG BUILD_S3SELECT=1
+ARG GYP_DEFINES
 
 ######################################################################
 # Layers:
@@ -11,9 +14,9 @@ ARG USE_RDKAFKA=1
 ######################################################################
 COPY ./package*.json ./
 RUN npm install --omit=dev && \
-    npm cache clean --force
-RUN rm -rf node_modules/node-rdkafka/deps/librdkafka/examples/
-RUN rm -rf node_modules/node-rdkafka/deps/librdkafka/src/
+    npm cache clean --force && \
+    rm -rf node_modules/node-rdkafka/deps/librdkafka/examples/ && \
+    rm -rf node_modules/node-rdkafka/deps/librdkafka/src/
 
 # Build time check that rdkafka was installed by npm in the image.
 # It was added to optionalDependencies because it's not available 
@@ -35,15 +38,11 @@ COPY ./src/deploy/noobaa.service ./src/deploy/
 COPY ./src/deploy/nsfs_env.env ./src/deploy/
 COPY ./src/deploy/NVA_build/clone_submodule.sh ./src/deploy/NVA_build/
 COPY ./src/deploy/NVA_build/clone_s3select_submodules.sh ./src/deploy/NVA_build/
-ARG BUILD_S3SELECT=1
-ARG BUILD_S3SELECT_PARQUET=0
+
 #Clone S3Select and its two submodules, but only if BUILD_S3SELECT=1.
-RUN ./src/deploy/NVA_build/clone_s3select_submodules.sh
+RUN if [ "$BUILD_S3SELECT" = "1" ]; then ./src/deploy/NVA_build/clone_s3select_submodules.sh; fi
 RUN ln -s /lib64/libboost_thread.so.1.66.0 /lib64/libboost_thread.so.1.75.0 || true
-#Pass BUILD_S3SELECT down to GYP native build.
-#S3Select will be built only if this parameter is equal to "1".
-#Next step would fail for RHEL8 and derivatives
-RUN GYP_DEFINES="BUILD_S3SELECT=$BUILD_S3SELECT BUILD_S3SELECT_PARQUET=$BUILD_S3SELECT_PARQUET" npm run build
+RUN npm run build
 
 ##############################################################
 # Layers:

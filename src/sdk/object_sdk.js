@@ -142,25 +142,25 @@ class ObjectSDK {
             this.abort_controller.abort(err);
         });
 
-        // TODO: aborted event is being deprecated since nodejs 16
-        // https://nodejs.org/dist/latest-v16.x/docs/api/http.html#event-aborted recommends on listening to close event
-        // req.once('close', () => {
-        //     dbg.log0('request aborted1', req.url);
-
-        //     if (req.destroyed) {
-        //         dbg.log0('request aborted', req.url);
-        //         this.abort_controller.abort(new Error('request aborted ' + req.url));
-        //     }
+        // Note: aborted event is deprecated in favor of the close event
+        // https://nodejs.org/dist/latest-v16.x/docs/api/http.html#event-aborted
+        // req.once('aborted', () => {
+        //     dbg.log0('request aborted', req.url);
+        //     this.abort_controller.abort(new Error('request aborted ' + req.url));
         // });
-
-        req.once('aborted', () => {
-            dbg.log0('request aborted', req.url);
-            this.abort_controller.abort(new Error('request aborted ' + req.url));
+        req.once('close', () => {
+            // dbg.log1('request closed', req.url);
+            if (req.errored) {
+                dbg.log0('request aborted', req.url);
+                this.abort_controller.abort(new Error('request aborted ' + req.url));
+            }
         });
+
     }
 
     throw_if_aborted() {
-        if (this.abort_controller.signal.aborted) throw new Error('request aborted signal');
+        this.abort_controller.signal.throwIfAborted();
+        // if (this.abort_controller.signal.aborted) throw new Error('request aborted signal');
     }
 
     add_abort_handler(handler) {

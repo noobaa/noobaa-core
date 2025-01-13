@@ -64,6 +64,44 @@ const no_proxy_list = (NO_PROXY ? NO_PROXY.split(',') : []).map(addr => {
 const parse_xml_to_js = xml2js.parseStringPromise;
 const non_printable_regexp = /[\x00-\x1F]/;
 
+/**
+ * Since header values can be either string or array of strings we need to handle both cases.
+ * While most callers might prefer to always handle a single string value, which is why we 
+ * have this helper, some callers might prefer to always convert to array of strings,
+ * which is why we have hdr_as_arr().
+ * 
+ * @param {import('http').IncomingHttpHeaders} headers
+ * @param {string} key the header name
+ * @param {string} [join_sep] optional separator to join multiple values, if not provided only the first value is returned
+ * @returns {string|undefined} the header string value or undefined if not found
+ */
+function hdr_as_str(headers, key, join_sep) {
+    const v = headers[key];
+    if (v === undefined) return undefined;
+    if (typeof v === 'string') return v;
+    if (!Array.isArray(v)) return String(v); // should not happen but would not fail a request for it
+    if (join_sep === undefined) return String(v[0]); // if not joining - return just the first
+    return v.join(join_sep); // join all values with the separator
+}
+
+/**
+ * Since header values can be either string or array of strings we need to handle both cases.
+ * While most callers might prefer to always handle a single string value, which is why we 
+ * have hdr_as_str(), some callers might prefer to always convert to array of strings,
+ * which is why we have this helper.
+ * 
+ * @param {import('http').IncomingHttpHeaders} headers
+ * @param {string} key the header name
+ * @returns {string[]|undefined} the header string value or undefined if not found
+ */
+function hdr_as_arr(headers, key) {
+    const v = headers[key];
+    if (v === undefined) return undefined;
+    if (typeof v === 'string') return [v];
+    if (!Array.isArray(v)) return [String(v)]; // should not happen but would not fail a request for it
+    return v;
+}
+
 function parse_url_query(req) {
     req.originalUrl = req.url;
     const query_pos = req.url.indexOf('?');
@@ -83,7 +121,6 @@ function parse_client_ip(req) {
         '';
     return fwd.includes(',') ? fwd.split(',', 1)[0] : fwd;
 }
-
 
 /**
  * @typedef {{
@@ -534,6 +571,12 @@ function make_https_request(options, body, body_encoding) {
     });
 }
 
+/**
+ * 
+ * @param {http.RequestOptions} options 
+ * @param {*} body 
+ * @returns {Promise<http.IncomingMessage>}
+ */
 async function make_http_request(options, body) {
     return new Promise((resolve, reject) => {
         http.request(options, resolve)
@@ -770,10 +813,10 @@ function authorize_session_token(req, options) {
 }
 
 function validate_server_ip_whitelist(req) {
+    if (config.S3_SERVER_IP_WHITELIST.length === 0) return;
     // remove prefix for V4 IPs for whitelist validation
     // TODO: replace the equality check with net.BlockList() usage
     const server_ip = req.connection.localAddress.replace(/^::ffff:/, '');
-    if (config.S3_SERVER_IP_WHITELIST.length === 0) return;
     for (const whitelist_ip of config.S3_SERVER_IP_WHITELIST) {
         if (server_ip === whitelist_ip) {
             return;
@@ -841,7 +884,8 @@ function listen_port(port, server, server_type) {
         if (server_type !== 'METRICS') {
             setup_endpoint_server(server);
         }
-        server.listen(port, err => {
+        const local_ip = process.env.LOCAL_IP || '0.0.0.0';
+        server.listen(port, local_ip, err => {
             if (err) {
                 dbg.error('ENDPOINT FAILED to listen', err);
                 reject(err);
@@ -871,24 +915,32 @@ function setup_endpoint_server(server) {
     });
 
     // See https://nodejs.org/api/http.html#http_event_clienterror
-    server.on('clientError', function on_s3_client_error(err, socket) {
+    server.on('clientError',
+        /**
+         * @param {Error & { code?: string, bytesParsed?: number }} err
+         * @param {net.Socket} socket
+         */
+        (err, socket) => {
 
-        // On parsing errors we reply 400 Bad Request to conform with AWS
-        // These errors come from the nodejs native http parser.
-        if (typeof err.code === 'string' &&
-            err.code.startsWith('HPE_INVALID_') &&
-            err.bytesParsed > 0) {
-            console.error('ENDPOINT CLIENT ERROR - REPLY WITH BAD REQUEST', err);
-            socket.write('HTTP/1.1 400 Bad Request\r\n');
-            socket.write(`Date: ${new Date().toUTCString()}\r\n`);
-            socket.write('Connection: close\r\n');
-            socket.write('Content-Length: 0\r\n');
-            socket.end('\r\n');
-        }
+            if (err.code === 'ECONNRESET' || !socket.writable) {
+                return;
+            }
+            // On parsing errors we reply 400 Bad Request to conform with AWS
+            // These errors come from the nodejs native http parser.
+            if (typeof err.code === 'string' &&
+                err.code.startsWith('HPE_INVALID_') &&
+                err.bytesParsed > 0) {
+                console.error('ENDPOINT CLIENT ERROR - REPLY WITH BAD REQUEST', err);
+                socket.write('HTTP/1.1 400 Bad Request\r\n');
+                socket.write(`Date: ${new Date().toUTCString()}\r\n`);
+                socket.write('Connection: close\r\n');
+                socket.write('Content-Length: 0\r\n');
+                socket.end('\r\n');
+            }
 
-        // in any case we destroy the socket
-        socket.destroy();
-    });
+            // in any case we destroy the socket
+            socket.destroy();
+        });
 
     server.keepAliveTimeout = config.ENDPOINT_HTTP_SERVER_KEEPALIVE_TIMEOUT;
     server.requestTimeout = config.ENDPOINT_HTTP_SERVER_REQUEST_TIMEOUT;
@@ -924,6 +976,8 @@ function set_response_headers_from_request(req, res) {
     if (req.query['response-expires']) res.setHeader('Expires', req.query['response-expires']);
 }
 
+exports.hdr_as_str = hdr_as_str;
+exports.hdr_as_arr = hdr_as_arr;
 exports.parse_url_query = parse_url_query;
 exports.parse_client_ip = parse_client_ip;
 exports.get_md_conditions = get_md_conditions;

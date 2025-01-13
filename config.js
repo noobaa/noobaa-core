@@ -1173,7 +1173,7 @@ function _get_data_from_file(file_name) {
     try {
         data = fs.readFileSync(file_name).toString();
     } catch (e) {
-        console.warn(`Error accrued while getting the data from ${file_name}: ${e}`);
+        // console.log(`Error accrued while getting the data from ${file_name}: ${e}`);
         return;
     }
     return data;
@@ -1189,7 +1189,7 @@ function _get_config_root() {
         const data = _get_data_from_file(redirect_path);
         config_root = data.toString().trim();
     } catch (err) {
-        console.warn('config.get_config_root - could not find custom config_root, will use the default config_root ', config_root);
+        // console.log('config.get_config_root - could not find custom config_root, will use the default config_root ', config_root);
     }
     return config_root;
 }
@@ -1244,7 +1244,7 @@ function load_nsfs_nc_config() {
     try {
         if (!config.NSFS_NC_CONF_DIR) {
             config.NSFS_NC_CONF_DIR = _get_config_root();
-            console.warn('load_nsfs_nc_config.setting config.NSFS_NC_CONF_DIR', config.NSFS_NC_CONF_DIR);
+            // console.warn('load_nsfs_nc_config.setting config.NSFS_NC_CONF_DIR', config.NSFS_NC_CONF_DIR);
         }
         const config_path = path.join(config.NSFS_NC_CONF_DIR, 'config.json');
         const config_data = require(config_path);

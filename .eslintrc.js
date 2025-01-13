@@ -138,7 +138,7 @@ module.exports = {
         'one-var': ['error', 'never'],
 
         '@stylistic/js/space-before-function-paren': ['error', {
-            'anonymous': 'never',
+            'anonymous': 'ignore',
             'named': 'never',
             'asyncArrow': 'always'
         }],

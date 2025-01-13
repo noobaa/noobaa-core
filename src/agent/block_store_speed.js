@@ -3,7 +3,6 @@
 
 // const _ = require('lodash');
 const argv = require('minimist')(process.argv);
-const cluster = require('cluster');
 const mongodb = require('mongodb');
 
 const api = require('../api');
@@ -26,17 +25,10 @@ argv.timeout = argv.timeout || 60000;
 
 let block_index = 0;
 
-const master_speedometer = new Speedometer('Total Speed');
 const speedometer = new Speedometer('Block Store Speed');
-
-if (argv.forks > 1 && cluster.isMaster) {
-    master_speedometer.fork(argv.forks);
-} else {
-    main();
-}
+speedometer.run_workers(argv.forks, main, argv);
 
 async function main() {
-    console.log('ARGS', argv);
     const rpc = api.new_rpc();
     const client = rpc.new_client();
     const signal_client = rpc.new_client();

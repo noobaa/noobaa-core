@@ -8,13 +8,13 @@ const fs = require('fs');
 const path = require('path');
 const util = require('util');
 const mime = require('mime-types');
+const stream = require('stream');
 const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
 const config = require('../../config');
 const crypto = require('crypto');
 const s3_utils = require('../endpoint/s3/s3_utils');
 const error_utils = require('../util/error_utils');
-const stream_utils = require('../util/stream_utils');
 const buffer_utils = require('../util/buffer_utils');
 const size_utils = require('../util/size_utils');
 const http_utils = require('../util/http_utils');
@@ -28,6 +28,7 @@ const lifecycle_utils = require('../util/lifecycle_utils');
 const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
 const { PersistentLogger } = require('../util/persistent_logger');
 const { Glacier } = require('./glacier');
+const { FileReader } = require('../util/file_reader');
 
 const multi_buffer_pool = new buffer_utils.MultiSizeBuffersPool({
     sorted_buf_sizes: [
@@ -102,7 +103,7 @@ function sort_entries_by_name(a, b) {
     return 0;
 }
 
-function _get_version_id_by_stat({ino, mtimeNsBigint}) {
+function _get_version_id_by_stat({ ino, mtimeNsBigint }) {
     // TODO: GPFS might require generation number to be added to version_id
     return 'mtime-' + mtimeNsBigint.toString(36) + '-ino-' + ino.toString(36);
 }
@@ -234,21 +235,6 @@ function is_symbolic_link(stat) {
     } else {
         throw new Error(`isSymbolicLink: stat ${stat} is not supported`);
     }
-}
-
-/**
- * NOTICE that even files that were written sequentially, can still be identified as sparse:
- * 1. After writing, but before all the data is synced, the size is higher than blocks size.
- * 2. For files that were moved to an archive tier.
- * 3. For files that fetch and cache data from remote storage, which are still not in the cache.
- * It's not good enough for avoiding recall storms as needed by _fail_if_archived_or_sparse_file.
- * However, using this check is useful for guessing that a reads is going to take more time
- * and avoid holding off large buffers from the buffers_pool.
- * @param {nb.NativeFSStats} stat
- * @returns {boolean}
- */
-function is_sparse_file(stat) {
-    return (stat.blocks * 512 < stat.size);
 }
 
 /**
@@ -512,7 +498,6 @@ class NamespaceFS {
         this.versioning = (config.NSFS_VERSIONING_ENABLED && versioning) || VERSIONING_STATUS_ENUM.VER_DISABLED;
         this.stats = stats;
         this.force_md5_etag = force_md5_etag;
-        this.warmup_buffer = nb_native().fs.dio_buffer_alloc(4096);
     }
 
     /**
@@ -838,7 +823,7 @@ class NamespaceFS {
                         if (version_id_marker) start_marker = version_id_marker;
                         marker_index = _.findIndex(
                             sorted_entries,
-                            {name: start_marker}
+                            { name: start_marker }
                         ) + 1;
                     } else {
                         marker_index = _.sortedLastIndexBy(
@@ -981,6 +966,7 @@ class NamespaceFS {
         try {
             for (;;) {
                 try {
+                    object_sdk.throw_if_aborted();
                     file_path = await this._find_version_path(fs_context, params, true);
                     await this._check_path_in_bucket_boundaries(fs_context, file_path);
                     await this._load_bucket(params, fs_context);
@@ -1006,6 +992,7 @@ class NamespaceFS {
                     dbg.warn(`NamespaceFS.read_object_md: retrying retries=${retries} file_path=${file_path}`, err);
                     retries -= 1;
                     if (retries <= 0 || !native_fs_utils.should_retry_link_unlink(err)) throw err;
+                    object_sdk.throw_if_aborted();
                     await P.delay(get_random_delay(config.NSFS_RANDOM_DELAY_BASE, 0, 50));
                 }
             }
@@ -1033,25 +1020,33 @@ class NamespaceFS {
             } catch (err) {
                 //failed to get object
                 new NoobaaEvent(NoobaaEvent.OBJECT_GET_FAILED).create_event(params.key,
-                                        {bucket_path: this.bucket_path, object_name: params.key}, err);
+                    { bucket_path: this.bucket_path, object_name: params.key }, err);
                 dbg.log0('NamespaceFS: read_object_stream couldnt find dir content xattr', err);
             }
         }
         return false;
     }
 
-    // eslint-disable-next-line max-statements
+    /**
+     * 
+     * @param {*} params
+     * @param {nb.ObjectSDK} object_sdk
+     * @param {nb.S3Response|stream.Writable} res
+     * @returns 
+     */
     async read_object_stream(params, object_sdk, res) {
-        let buffer_pool_cleanup = null;
         const fs_context = this.prepare_fs_context(object_sdk);
+        const signal = object_sdk.abort_controller.signal;
         let file_path;
         let file;
+
         try {
             await this._load_bucket(params, fs_context);
             let retries = (this._is_versioning_enabled() || this._is_versioning_suspended()) ? config.NSFS_RENAME_RETRIES : 0;
             let stat;
             for (;;) {
                 try {
+                    object_sdk.throw_if_aborted();
                     file_path = await this._find_version_path(fs_context, params);
                     await this._check_path_in_bucket_boundaries(fs_context, file_path);
 
@@ -1060,8 +1055,10 @@ class NamespaceFS {
                     // if entry is a directory object and its content size = 0 - return empty response
                     if (await this._is_empty_directory_content(file_path, fs_context, params)) {
                         res.end();
-                        // since we don't write anything to the stream wait_finished might not be needed. added just in case there is a delay
-                        await stream_utils.wait_finished(res, { signal: object_sdk.abort_controller.signal });
+                        // since we don't write anything to the stream waiting for finished might not be needed,
+                        // added just in case there is a delay.
+                        object_sdk.throw_if_aborted();
+                        await stream.promises.finished(res, { signal });
                         return null;
                     }
 
@@ -1096,9 +1093,10 @@ class NamespaceFS {
                     retries -= 1;
                     if (retries <= 0 || !native_fs_utils.should_retry_link_unlink(err)) {
                         new NoobaaEvent(NoobaaEvent.OBJECT_GET_FAILED).create_event(params.key,
-                            {bucket_path: this.bucket_path, object_name: params.key}, err);
+                            { bucket_path: this.bucket_path, object_name: params.key }, err);
                         throw err;
                     }
+                    object_sdk.throw_if_aborted();
                     await P.delay(get_random_delay(config.NSFS_RANDOM_DELAY_BASE, 0, 50));
                 }
             }
@@ -1112,86 +1110,30 @@ class NamespaceFS {
             const start = Number(params.start) || 0;
             const end = isNaN(Number(params.end)) ? Infinity : Number(params.end);
 
-            let num_bytes = 0;
-            let num_buffers = 0;
-            const log2_size_histogram = {};
-            let drain_promise = null;
+            object_sdk.throw_if_aborted();
 
-            dbg.log0('NamespaceFS: read_object_stream', {
+            dbg.log1('NamespaceFS: read_object_stream', {
                 file_path, start, end, size: stat.size,
             });
 
-            let count = 1;
-            for (let pos = start; pos < end;) {
-                object_sdk.throw_if_aborted();
+            const file_reader = new FileReader({
+                fs_context,
+                file,
+                file_path,
+                start,
+                end,
+                stat,
+                multi_buffer_pool,
+                signal,
+                stats: this.stats,
+                bucket: params.bucket,
+                namespace_resource_id: this.namespace_resource_id,
+            });
 
-                // Our buffer pool keeps large buffers and we want to avoid spending
-                // all our large buffers and then have them waiting for high latency calls
-                // such as reading from archive/on-demand cache files.
-                // Instead, we detect the case where a file is "sparse",
-                // and then use just a small buffer to wait for a tiny read,
-                // which will recall the file from archive or load from remote into cache,
-                // and once it returns we can continue to the full fledged read.
-                if (config.NSFS_BUF_WARMUP_SPARSE_FILE_READS && is_sparse_file(stat)) {
-                    dbg.log0('NamespaceFS: read_object_stream - warmup sparse file', {
-                        file_path, pos, size: stat.size, blocks: stat.blocks,
-                    });
-                    await file.read(fs_context, this.warmup_buffer, 0, 1, pos);
-                }
-
-                const remain_size = Math.min(Math.max(0, end - pos), stat.size);
-
-                // allocate or reuse buffer
-                // TODO buffers_pool and the underlying semaphore should support abort signal
-                // to avoid sleeping inside the semaphore until the timeout while the request is already aborted.
-                const { buffer, callback } = await multi_buffer_pool.get_buffers_pool(remain_size).get_buffer();
-                buffer_pool_cleanup = callback; // must be called ***IMMEDIATELY*** after get_buffer
-                object_sdk.throw_if_aborted();
-
-                // read from file
-                const read_size = Math.min(buffer.length, remain_size);
-                const bytesRead = await file.read(fs_context, buffer, 0, read_size, pos);
-                if (!bytesRead) {
-                    buffer_pool_cleanup = null;
-                    callback();
-                    break;
-                }
-                object_sdk.throw_if_aborted();
-                const data = buffer.slice(0, bytesRead);
-
-                // update stats
-                pos += bytesRead;
-                num_bytes += bytesRead;
-                num_buffers += 1;
-                const log2_size = Math.ceil(Math.log2(bytesRead));
-                log2_size_histogram[log2_size] = (log2_size_histogram[log2_size] || 0) + 1;
-
-                // collect read stats
-                this.stats?.update_nsfs_read_stats({
-                    namespace_resource_id: this.namespace_resource_id,
-                    bucket_name: params.bucket,
-                    size: bytesRead,
-                    count
-                });
-                // clear count for next updates
-                count = 0;
-
-                // wait for response buffer to drain before adding more data if needed -
-                // this occurs when the output network is slower than the input file
-                if (drain_promise) {
-                    await drain_promise;
-                    drain_promise = null;
-                    object_sdk.throw_if_aborted();
-                }
-
-                // write the data out to response
-                buffer_pool_cleanup = null; // cleanup is now in the socket responsibility
-                const write_ok = res.write(data, null, callback);
-                if (!write_ok) {
-                    drain_promise = stream_utils.wait_drain(res, { signal: object_sdk.abort_controller.signal });
-                    drain_promise.catch(() => undefined); // this avoids UnhandledPromiseRejection
-                }
-            }
+            const start_time = process.hrtime.bigint();
+            await file_reader.read_into_stream(res);
+            res.end();
+            const took_ms = Number(process.hrtime.bigint() - start_time) / 1e6;
 
             // Force evict only if the entire object is being read as part
             // of the same request
@@ -1201,36 +1143,27 @@ class NamespaceFS {
 
             await file.close(fs_context);
             file = null;
+
+            // wait for the response to finish to make sure we handled the error if any
             object_sdk.throw_if_aborted();
+            await stream.promises.finished(res, { signal });
 
-            // wait for the last drain if pending.
-            if (drain_promise) {
-                await drain_promise;
-                drain_promise = null;
-                object_sdk.throw_if_aborted();
-            }
-
-            // end the stream
-            res.end();
-
-            await stream_utils.wait_finished(res, { signal: object_sdk.abort_controller.signal });
-            object_sdk.throw_if_aborted();
-
-            dbg.log0('NamespaceFS: read_object_stream completed file', file_path, {
-                num_bytes,
-                num_buffers,
-                avg_buffer: num_bytes / num_buffers,
-                log2_size_histogram,
+            dbg.log1('NamespaceFS: read_object_stream completed', {
+                file_path, start, end, size: stat.size, took_ms,
+                num_bytes: file_reader.num_bytes,
+                num_buffers: file_reader.num_buffers,
+                avg_buffer: file_reader.num_bytes / file_reader.num_buffers,
+                log2_size_histogram: file_reader.log2_size_histogram,
             });
 
-            // return null to signal the caller that we already handled the response
+            // return null to let the caller know that we already handled the response
             return null;
 
         } catch (err) {
             dbg.log0('NamespaceFS: read_object_stream error file', file_path, err);
             //failed to get object
             new NoobaaEvent(NoobaaEvent.OBJECT_STREAM_GET_FAILED).create_event(params.key,
-                                    {bucket_path: this.bucket_path, object_name: params.key}, err);
+                { bucket_path: this.bucket_path, object_name: params.key }, err);
             throw native_fs_utils.translate_error_codes(err, native_fs_utils.entity_enum.OBJECT);
 
         } finally {
@@ -1241,18 +1174,6 @@ class NamespaceFS {
                 }
             } catch (err) {
                 dbg.warn('NamespaceFS: read_object_stream file close error', err);
-            }
-            try {
-                // release buffer back to pool if needed
-                if (buffer_pool_cleanup) {
-                    dbg.log0('NamespaceFS: read_object_stream finally buffer_pool_cleanup', file_path);
-                    buffer_pool_cleanup();
-                }
-            } catch (err) {
-                //failed to get object
-                new NoobaaEvent(NoobaaEvent.OBJECT_CLEANUP_FAILED).create_event(params.key,
-                                        { bucket_path: this.bucket_path, object_name: params.key }, err);
-                dbg.warn('NamespaceFS: read_object_stream buffer pool cleanup error', err);
             }
         }
     }
@@ -1294,7 +1215,7 @@ class NamespaceFS {
             this.run_update_issues_report(object_sdk, err);
             //filed to put object
             new NoobaaEvent(NoobaaEvent.OBJECT_UPLOAD_FAILED).create_event(params.key,
-                {bucket_path: this.bucket_path, object_name: params.key}, err);
+                { bucket_path: this.bucket_path, object_name: params.key }, err);
             dbg.warn('NamespaceFS: upload_object buffer pool cleanup error', err);
             throw native_fs_utils.translate_error_codes(err, native_fs_utils.entity_enum.OBJECT);
         } finally {
@@ -1406,7 +1327,7 @@ class NamespaceFS {
     // xattr_copy = false implies on non server side copy fallback copy (copy status = FALLBACK)
     // target file can be undefined when it's a folder created and size is 0
     async _finish_upload({ fs_context, params, open_mode, target_file, upload_path, file_path, digest = undefined,
-            copy_res = undefined, offset }) {
+        copy_res = undefined, offset }) {
         const part_upload = file_path === upload_path;
         const same_inode = params.copy_source && copy_res === COPY_STATUS_ENUM.SAME_INODE;
         const should_replace_xattr = params.copy_source ? copy_res === COPY_STATUS_ENUM.FALLBACK : true;
@@ -1680,8 +1601,8 @@ class NamespaceFS {
     // Instead of wrapping the whole _upload_stream function (q_buffers lives outside of the data scope of the stream)
     async _upload_stream({ fs_context, params, target_file, object_sdk, offset }) {
         const { copy_source } = params;
+        const signal = object_sdk.abort_controller.signal;
         try {
-            // Not using async iterators with ReadableStreams due to unsettled promises issues on abort/destroy
             const md5_enabled = this._is_force_md5_enabled(object_sdk);
             const file_writer = new FileWriter({
                 target_file,
@@ -1690,7 +1611,6 @@ class NamespaceFS {
                 md5_enabled,
                 stats: this.stats,
                 bucket: params.bucket,
-                large_buf_size: multi_buffer_pool.get_buffers_pool(undefined).buf_size,
                 namespace_resource_id: this.namespace_resource_id,
             });
             file_writer.on('error', err => dbg.error('namespace_fs._upload_stream: error occured on FileWriter: ', err));
@@ -1702,8 +1622,7 @@ class NamespaceFS {
             } else if (params.source_params) {
                 await params.source_ns.read_object_stream(params.source_params, object_sdk, file_writer);
             } else {
-                await stream_utils.pipeline([params.source_stream, file_writer]);
-                await stream_utils.wait_finished(file_writer);
+                await file_writer.write_entire_stream(params.source_stream, { signal });
             }
             return { digest: file_writer.digest, total_bytes: file_writer.total_bytes };
         } catch (error) {
@@ -1777,8 +1696,8 @@ class NamespaceFS {
                 fs_context,
                 path.join(params.mpu_path, 'create_object_upload'),
                 Buffer.from(create_params), {
-                    mode: native_fs_utils.get_umasked_mode(config.BASE_MODE_FILE),
-                },
+                mode: native_fs_utils.get_umasked_mode(config.BASE_MODE_FILE),
+            },
             );
             return { obj_id: params.obj_id };
         } catch (err) {
@@ -1875,8 +1794,7 @@ class NamespaceFS {
                 throw new S3Error(S3Error.NoSuchUpload);
             }
             const entries = await nb_native().fs.readdir(fs_context, params.mpu_path);
-            const multiparts = await Promise.all(
-                entries
+            const multiparts = await Promise.all(entries
                 .filter(e => e.name.startsWith('part-'))
                 .map(async e => {
                     const num = Number(e.name.slice('part-'.length));
@@ -2200,14 +2118,14 @@ class NamespaceFS {
             dbg.error(`NamespaceFS.delete_object_tagging: failed in dir ${file_path} with error: `, err);
             throw native_fs_utils.translate_error_codes(err, native_fs_utils.entity_enum.OBJECT);
         }
-        return {version_id: params.version_id};
+        return { version_id: params.version_id };
     }
 
     async put_object_tagging(params, object_sdk) {
         const fs_xattr = {};
         const tagging = params.tagging && Object.fromEntries(params.tagging.map(tag => ([tag.key, tag.value])));
         for (const [xattr_key, xattr_value] of Object.entries(tagging)) {
-              fs_xattr[XATTR_TAG + xattr_key] = xattr_value;
+            fs_xattr[XATTR_TAG + xattr_key] = xattr_value;
         }
         const fs_context = this.prepare_fs_context(object_sdk);
         const file_path = await this._find_version_path(fs_context, params, true);
@@ -2394,7 +2312,7 @@ class NamespaceFS {
     // INTERNALS //
     ///////////////
 
-    _get_file_path({key}) {
+    _get_file_path({ key }) {
         // not allowing keys with dots follow by slash which can be treated as relative paths and "leave" the bucket_path
         // We are not using `path.isAbsolute` as path like '/../..' will return true and we can still "leave" the bucket_path
         if (key.includes('./')) throw new Error('Bad relative path key ' + key);
@@ -2601,7 +2519,7 @@ class NamespaceFS {
      * @param {fs.Dirent} ent
      * @returns {string}
      */
-     _get_version_entry_key(dir_key, ent) {
+    _get_version_entry_key(dir_key, ent) {
         return dir_key + HIDDEN_VERSIONS_PATH + '/' + ent.name;
     }
 
@@ -2649,6 +2567,7 @@ class NamespaceFS {
         const storage_class = Glacier.storage_class_from_xattr(stat.xattr);
         const size = Number(stat.xattr?.[XATTR_DIR_CONTENT] || stat.size);
         const tag_count = stat.xattr ? this._number_of_tags_fs_xttr(stat.xattr) : 0;
+        const restore_status = Glacier.get_restore_status(stat.xattr, new Date(), this._get_file_path({ key }));
         const nc_noncurrent_time = (stat.xattr?.[XATTR_NON_CURRENT_TIMESTASMP] && Number(stat.xattr[XATTR_NON_CURRENT_TIMESTASMP])) ||
             stat.ctime.getTime();
 
@@ -2665,7 +2584,7 @@ class NamespaceFS {
             is_latest,
             delete_marker,
             storage_class,
-            restore_status: Glacier.get_restore_status(stat.xattr, new Date(), this._get_file_path({key})),
+            restore_status,
             xattr: to_xattr(stat.xattr),
             tag_count,
             tagging: get_tags_from_xattr(stat.xattr),
@@ -2721,6 +2640,8 @@ class NamespaceFS {
     }
 
     async _load_bucket(params, fs_context) {
+        // TODO(guymguym): for performance tests we can skip stat, but for prod we might want small cache (even 1 second ttl)
+        if (!config.NSFS_CHECK_BUCKET_PATH_EXISTS) return;
         try {
             await nb_native().fs.stat(fs_context, this.bucket_path);
         } catch (err) {
@@ -2993,7 +2914,7 @@ class NamespaceFS {
     }
 
     _get_version_id_by_xattr(stat) {
-       return (stat && stat.xattr[XATTR_VERSION_ID]) || 'null';
+        return (stat && stat.xattr[XATTR_VERSION_ID]) || 'null';
     }
 
     _get_versions_dir_path(key, is_dir_content) {
@@ -3504,12 +3425,12 @@ class NamespaceFS {
 
             // find max past version by comparing the mtimeNsBigint val
             const max_entry_info = arr.reduce((acc, cur) => (cur && cur.mtimeNsBigint > acc.mtimeNsBigint ? cur : acc),
-                                        { mtimeNsBigint: BigInt(0), name: undefined });
+                { mtimeNsBigint: BigInt(0), name: undefined });
             return max_entry_info.mtimeNsBigint > BigInt(0) &&
                 this._get_version_info(fs_context, path.join(versions_dir, max_entry_info.name));
         } catch (err) {
             dbg.warn('namespace_fs.find_max_version_past: .versions/ folder could not be found', err);
-       }
+        }
     }
 
     _is_hidden_version_path(dir_key) {
@@ -3557,7 +3478,7 @@ class NamespaceFS {
             }
             return {
                 move_to_versions: { src_file: dst_file, dir_file },
-                move_to_dst: { src_file, dst_file, dir_file}
+                move_to_dst: { src_file, dst_file, dir_file }
             };
         } catch (err) {
             dbg.warn('NamespaceFS._open_files couldn\'t open files', err);

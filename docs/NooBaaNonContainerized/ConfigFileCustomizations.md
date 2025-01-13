@@ -532,6 +532,20 @@ Warning: After setting this configuration, NooBaa will skip schema validations a
     3. systemctl restart noobaa
     ```
 
+### 37. Trigger Check bucket path exists -
+* <u>Key</u>: `NSFS_CHECK_BUCKET_PATH_EXISTS`    
+* <u>Type</u>: Boolean   
+* <u>Default</u>: true  
+* <u>Description</u>: Enable/Disable bucket path existance checks. This is EXPERIMENTAL and NOT recommended for production! When disabled, will reduce some latency on object operations, but calls to non existing bucket paths will result with unexpected behavior (e.g. could return NO_SUCH_OBJECT instead of NO_SUCH_BUCKET).
+* <u>Steps</u>:  
+    ```
+    1. Open /path/to/config_dir/config.json file.
+    2. Set the config key -
+    Example:
+    "NSFS_CHECK_BUCKET_PATH_EXISTS": false
+    ```
+
+
 ## Config.json File Examples
 The following is an example of a config.json file - 
 

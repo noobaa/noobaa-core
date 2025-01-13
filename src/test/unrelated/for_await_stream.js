@@ -1,11 +1,9 @@
 /* Copyright (C) 2020 NooBaa */
 'use strict';
 
-const util = require('util');
 const events = require('events');
 const stream = require('stream');
 const argv = require('minimist')(process.argv);
-const stream_finished = util.promisify(stream.finished);
 
 async function test(mode) {
     try {
@@ -68,7 +66,7 @@ async function test(mode) {
 
         }
 
-        await stream_finished(output);
+        await stream.promises.finished(output);
         console.log(`${mode}: done.`);
 
     } catch (err) {

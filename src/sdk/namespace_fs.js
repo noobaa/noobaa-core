@@ -30,6 +30,12 @@ const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEve
 const { PersistentLogger } = require('../util/persistent_logger');
 const { Glacier } = require('./glacier');
 const { FileReader } = require('../util/file_reader');
+const Speedometer = require('../util/speedometer');
+
+const speedometer = new Speedometer({ name: 'NSFS READ' });
+if (config.NSFS_SPEEDOMETER_ENABLED) {
+    speedometer.start_lite();
+}
 
 const multi_buffer_pool = new buffer_utils.MultiSizeBuffersPool({
     sorted_buf_sizes: [

@@ -16,8 +16,11 @@ const moment = require('moment');
 const size_utils = require('../util/size_utils');
 const RandStream = require('../util/rand_stream');
 const Speedometer = require('../util/speedometer');
+const assert = require('assert');
 
 let argv;
+
+/** @type {AWS.S3} */
 let s3;
 
 async function main() {
@@ -229,7 +232,7 @@ function head_object() {
 }
 
 function delete_objects() {
-    if (typeof(argv.rm) !== 'string') {
+    if (typeof argv.rm !== 'string') {
         console.error('missing keys to delete, for example: --rm "key1,/path/to/key2"');
         return;
     }
@@ -243,7 +246,7 @@ function delete_objects() {
     });
 }
 
-function upload_object() {
+async function upload_object() {
     const file_path = argv.file || '';
     let upload_key =
         (_.isString(argv.upload) && argv.upload) ||
@@ -254,9 +257,11 @@ function upload_object() {
     argv.part_size = argv.part_size || 32;
     let data_source;
     let data_size;
+    let content_type;
     const part_size = argv.part_size * 1024 * 1024;
     if (file_path) {
         upload_key = upload_key || file_path + '-' + Date.now().toString(36);
+        content_type = mime.getType(file_path) || '';
         data_source = fs.createReadStream(file_path, {
             highWaterMark: part_size
         });
@@ -265,6 +270,7 @@ function upload_object() {
             'of size', size_utils.human_size(data_size));
     } else {
         upload_key = upload_key || 'upload-' + Date.now().toString(36);
+        content_type = mime.getType(upload_key) || '';
         data_size = Math.round(argv.size * 1024 * 1024);
         data_source = argv.buf ?
             crypto.randomBytes(data_size) :
@@ -276,7 +282,7 @@ function upload_object() {
     }
 
     const start_time = Date.now();
-    const speedometer = new Speedometer('Upload Speed');
+    const speedometer = new Speedometer({ name: 'Upload Speed' });
     let last_progress_loaded = 0;
 
     function on_progress(progress) {
@@ -295,15 +301,21 @@ function upload_object() {
         console.log('upload done.', speed_str, 'MB/sec');
     }
 
+    if (argv.rdma) {
+        return put_object_rdma(upload_key, data_size, content_type, on_progress, on_finish);
+    }
+
     if (argv.copy) {
         const params = {
             Bucket: argv.bucket,
             Key: upload_key,
             CopySource: argv.bucket + '/' + argv.copy,
-            ContentType: mime.lookup(upload_key) || '',
+            ContentType: content_type,
         };
         if (argv.presign) return make_simple_request('copyObject', params);
-        return s3.copyObject(params, on_finish);
+        await s3.copyObject(params).promise();
+        on_finish();
+        return;
     }
 
     if (argv.put) {
@@ -311,155 +323,215 @@ function upload_object() {
             Bucket: argv.bucket,
             Key: upload_key,
             Body: data_source,
-            ContentType: mime.lookup(file_path) || '',
+            ContentType: content_type,
             ContentLength: data_size
         };
         if (argv.presign) return make_simple_request('putObject', params);
-        return s3.putObject(params, on_finish).on('httpUploadProgress', on_progress);
+        const upload = s3.putObject(params);
+        upload.on('httpUploadProgress', on_progress);
+        await upload.promise();
+        on_finish();
+        return;
     }
 
     if (!argv.perf) {
-        s3.upload({
-                Bucket: argv.bucket,
-                Key: upload_key,
-                Body: data_source,
-                ContentType: mime.lookup(file_path),
-                ContentLength: data_size
-            }, {
-                partSize: part_size,
-                queueSize: argv.concur
-            }, on_finish)
-            .on('httpUploadProgress', on_progress);
+        const upload = s3.upload({
+            Bucket: argv.bucket,
+            Key: upload_key,
+            Body: data_source,
+            ContentType: content_type,
+            ContentLength: data_size
+        }, {
+            partSize: part_size,
+            queueSize: argv.concur
+        });
+        upload.on('httpUploadProgress', on_progress);
+        await upload.promise();
+        on_finish();
         return;
     }
 
     if (argv.perf) {
-        const progress = {
-            loaded: 0
-        };
-        s3.createMultipartUpload({
-            Bucket: argv.bucket,
-            Key: upload_key,
-            ContentType: mime.lookup(file_path),
-        }, (err, create_res) => {
-            if (err) {
-                console.error('s3.createMultipartUpload ERROR', err);
-                return;
-            }
-            let next_part_num = 0;
-            let concur = 0;
-            let finished = false;
-            let latency_avg = 0;
-
-            function complete() {
-                s3.completeMultipartUpload({
-                    Bucket: argv.bucket,
-                    Key: upload_key,
-                    UploadId: create_res.UploadId,
-                    // MultipartUpload: {
-                    //     Parts: [{
-                    //         ETag: etag,
-                    //         PartNumber: part_num
-                    //     }]
-                    // }
-                }, function(err2, complete_res) {
-                    if (err2) {
-                        console.error('s3.completeMultipartUpload ERROR', err2);
-                        return;
-                    }
-                    console.log('uploadPart average latency',
-                        (latency_avg / next_part_num).toFixed(0), 'ms');
-                    on_finish();
-                });
-            }
-
-            data_source.on('data', data => {
-                next_part_num += 1;
-                concur += 1;
-                if (concur >= argv.concur) {
-                    //console.log('=== pause source stream ===');
-                    data_source.pause();
-                }
-                //console.log('uploadPart');
-                const data_start_time = Date.now();
-                const part_num = next_part_num;
-                s3.uploadPart({
-                    Bucket: argv.bucket,
-                    Key: upload_key,
-                    PartNumber: part_num,
-                    UploadId: create_res.UploadId,
-                    Body: data,
-                }, (err2, res) => {
-                    concur -= 1;
-                    if (err2) {
-                        data_source.close();
-                        console.error('s3.uploadPart ERROR', err2);
-                        return;
-                    }
-                    const took = Date.now() - data_start_time;
-                    // console.log('Part', part_num, 'Took', took, 'ms');
-                    latency_avg += took;
-                    data_source.resume();
-                    progress.loaded += data.length;
-                    if (finished && !concur) {
-                        complete();
-                    } else {
-                        on_progress(progress);
-                    }
-                });
-            });
-            data_source.on('end', () => {
-                finished = true;
-                if (!concur) {
-                    complete();
-                }
-            });
-        });
+        return put_object_multipart_perf(upload_key, data_source, content_type, on_progress, on_finish);
     }
 }
 
-function get_object() {
+async function put_object_multipart_perf(upload_key, data_source, content_type, on_progress, on_finish) {
+    const progress = {
+        loaded: 0
+    };
+    const create_res = await s3.createMultipartUpload({
+        Bucket: argv.bucket,
+        Key: upload_key,
+        ContentType: content_type,
+    }).promise();
+
+    let next_part_num = 0;
+    let concur = 0;
+    let finished = false;
+    let latency_avg = 0;
+
+    function complete() {
+        s3.completeMultipartUpload({
+            Bucket: argv.bucket,
+            Key: upload_key,
+            UploadId: create_res.UploadId,
+            // MultipartUpload: {
+            //     Parts: [{
+            //         ETag: etag,
+            //         PartNumber: part_num
+            //     }]
+            // }
+        }, function(err2, complete_res) {
+            if (err2) {
+                console.error('s3.completeMultipartUpload ERROR', err2);
+                return;
+            }
+            console.log('uploadPart average latency',
+                (latency_avg / next_part_num).toFixed(0), 'ms');
+            on_finish();
+        });
+    }
+
+    data_source.on('data', data => {
+        next_part_num += 1;
+        concur += 1;
+        if (concur >= argv.concur) {
+            //console.log('=== pause source stream ===');
+            data_source.pause();
+        }
+        //console.log('uploadPart');
+        const data_start_time = Date.now();
+        const part_num = next_part_num;
+        s3.uploadPart({
+            Bucket: argv.bucket,
+            Key: upload_key,
+            PartNumber: part_num,
+            UploadId: create_res.UploadId,
+            Body: data,
+        }, (err2, res) => {
+            concur -= 1;
+            if (err2) {
+                data_source.close();
+                console.error('s3.uploadPart ERROR', err2);
+                return;
+            }
+            const took = Date.now() - data_start_time;
+            // console.log('Part', part_num, 'Took', took, 'ms');
+            latency_avg += took;
+            data_source.resume();
+            progress.loaded += data.length;
+            if (finished && !concur) {
+                complete();
+            } else {
+                on_progress(progress);
+            }
+        });
+    });
+    data_source.on('end', () => {
+        finished = true;
+        if (!concur) {
+            complete();
+        }
+    });
+}
+
+async function get_object() {
     const params = {
         Bucket: argv.bucket,
         Key: argv.get,
     };
     if (argv.presign) return make_simple_request('getObject', params);
-    s3.headObject(params, function(err, data) {
-        if (err) {
-            console.error('HEAD ERROR:', err);
+
+    const res_head = await s3.headObject(params).promise();
+    const data_size = Number(res_head.ContentLength);
+    const start_time = Date.now();
+    const speedometer = new Speedometer({ name: 'Download Speed' });
+    console.log('object size', size_utils.human_size(data_size));
+
+    function on_finish(err2) {
+        if (err2) {
+            console.error('GET ERROR:', err2);
             return;
         }
+        const end_time = Date.now();
+        const total_seconds = (end_time - start_time) / 1000;
+        const speed_str = (data_size / total_seconds / 1024 / 1024).toFixed(0);
+        console.log('get done.', speed_str, 'MB/sec');
+    }
 
-        const data_size = Number(data.ContentLength);
-        const start_time = Date.now();
-        const speedometer = new Speedometer('Download Speed');
+    if (argv.rdma) {
+        return get_object_rdma(params, data_size, speedometer, on_finish);
+    }
 
-        console.log('object size', size_utils.human_size(data_size));
-
-        function on_finish(err2) {
-            if (err2) {
-                console.error('GET ERROR:', err2);
-                return;
+    s3.getObject(params)
+        .createReadStream()
+        .on('error', on_finish)
+        .pipe(new stream.Transform({
+            transform: function(buf, encoding, callback) {
+                speedometer.update(buf.length);
+                callback();
             }
-            const end_time = Date.now();
-            const total_seconds = (end_time - start_time) / 1000;
-            const speed_str = (data_size / total_seconds / 1024 / 1024).toFixed(0);
-            console.log('get done.', speed_str, 'MB/sec');
-        }
-
-        s3.getObject(params)
-            .createReadStream()
-            .on('error', on_finish)
-            .pipe(new stream.Transform({
-                transform: function(buf, encoding, callback) {
-                    speedometer.update(buf.length);
-                    callback();
-                }
-            }))
-            .on('finish', on_finish);
-    });
+        }))
+        .on('finish', on_finish);
 }
 
+async function get_object_rdma(params, data_size, speedometer, on_finish) {
+    const nb_native = require('../util/nb_native');
+    const rdma_utils = require('../util/rdma_utils');
+    const rdma_client = new (nb_native().CuObjClientNapi)();
+    const buffer = nb_native().fs.dio_buffer_alloc(data_size);
+    const cuda_mem = argv.cuda ? new (nb_native().CudaMemory)(data_size) : undefined;
+    const rdma_buf = argv.cuda ? cuda_mem.as_buffer() : buffer;
+    const ret_size = await rdma_client.rdma('GET', rdma_buf, async (rdma_info, callback) => {
+        try {
+            const req = s3.getObject(params);
+            req.on('build', () => {
+                rdma_utils.set_rdma_request_headers(req.httpRequest.headers, rdma_info);
+            });
+            const res = await req.promise();
+            const rdma_reply = rdma_utils.parse_rdma_reply(res.$response.httpResponse.headers);
+            callback(null, Number(rdma_reply.num_bytes ?? -1));
+        } catch (err) {
+            callback(err);
+        }
+    });
+    assert.strictEqual(ret_size, data_size);
+    speedometer.update(ret_size);
+    on_finish();
+}
+
+async function put_object_rdma(upload_key, data_size, content_type, on_progress, on_finish) {
+    const nb_native = require('../util/nb_native');
+    const rdma_utils = require('../util/rdma_utils');
+    const rdma_client = new (nb_native().CuObjClientNapi)();
+    const buffer = nb_native().fs.dio_buffer_alloc(data_size);
+    const cuda_mem = argv.cuda ? new (nb_native().CudaMemory)(data_size) : undefined;
+    const rdma_buf = argv.cuda ? cuda_mem.as_buffer() : buffer;
+    // TODO fill buffer with data
+    const ret_size = await rdma_client.rdma('PUT', rdma_buf, async (rdma_info, callback) => {
+        try {
+            const params = {
+                Bucket: argv.bucket,
+                Key: upload_key,
+                ContentType: content_type,
+            };
+            const req = s3.putObject(params);
+            req.on('build', () => {
+                rdma_utils.set_rdma_request_headers(req.httpRequest.headers, rdma_info);
+            });
+            const res = await req.promise();
+            const rdma_reply = rdma_utils.parse_rdma_reply(res.$response.httpResponse.headers);
+            const reply_size = Number(rdma_reply.num_bytes ?? -1);
+            on_progress(reply_size);
+            callback(null, reply_size);
+        } catch (err) {
+            callback(err);
+        }
+    });
+    assert.strictEqual(ret_size, data_size);
+    on_finish();
+}
 
 
 function print_usage() {
@@ -498,6 +570,8 @@ General S3 Flags:
   --aws                (default is false) Use AWS endpoint and subdomain-style buckets
   --checksum           (default is false) Calculate checksums on data. slower.
   --presign <sec>      print a presigned url instead of sending the request, value is expiry in seconds (default 3600 if not set).
+  --rdma               (default is false) Use RDMA for data transfer
+  --cuda               (default is false) Use CUDA memory over RDMA
 `);
 }
 

@@ -91,6 +91,7 @@ The following is a list of `NC mocha test` files -
 2. `test_nc_health` - Tests NooBaa Health CLI.  
 3. `test_nsfs_glacier_backend.js` - Tests NooBaa Glacier Backend.  
 4. `test_nc_with_a_couple_of_forks.js` - Tests the `bucket_namespace_cache` when running with a couple of forks. Please notice that it uses `nc_coretest` with setup that includes a couple of forks.
+5. `test_nc_online_upgrade_s3_integrations.js` - Tests S3 operations during mocked config directory upgrade.
 
 #### NC Jest test files
 The following is a list of `NC jest tests` files -   
@@ -112,6 +113,7 @@ The following is a list of `NC jest tests` files -
 16. `test_config_fs_backward_compatibility.test.js` - Tests of the backwards compatibility of configFS functions.
 17. `test_nc_upgrade_manager.test.js` - Tests of the NC upgrade manager.
 18. `test_cli_upgrade.test.js` - Tests of the upgrade CLI commands.
+19. `test_nc_online_upgrade_cli_integrations.test.js` - Tests CLI commands during mocked config directory upgrade.
 
 #### nc_index.js File
 * The `nc_index.js` is a file that runs several NC and NSFS mocha related tests.  

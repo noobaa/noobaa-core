@@ -478,19 +478,26 @@ function get_new_buckets_path_by_test_env(new_buckets_full_path, new_buckets_dir
 /**
  * write_manual_config_file writes config file directly to the file system without using config FS
  * used for creating backward compatibility tests, invalid config files etc
+ * 1. if it's account - 
+ *    1.1. create identity directory /{config_dir_path}/identities/{id}/
+ * 2. create the config file - 
+ *    2.1. if it's a bucket - create it in /{config_dir_path}/buckets/{bucket_name}.json
+ *    2.2. if it's an account - create it in /{config_dir_path}/identities/{id}/identity.json
+ * 3. if it's an account and symlink_name is true - create /{config_dir_path}/accounts_by_name/{account_name}.symlink -> /{config_dir_path}/identities/{id}/identity.json
+ * 4. if it's an account and symlink_access_key is true and there is access key in the account config - create /{config_dir_path}/access_keys/{access_key}.symlink -> /{config_dir_path}/identities/{id}/identity.json
  * @param {String} type 
  * @param {import('../../sdk/config_fs').ConfigFS} config_fs
  * @param {Object} config_data 
  * @param {String} [invalid_str]
+ * @param {{symlink_name?: Boolean, symlink_access_key?: Boolean}} [options]
  * @returns {Promise<Void>}
  */
-async function write_manual_config_file(type, config_fs, config_data, invalid_str = '') {
+async function write_manual_config_file(type, config_fs, config_data, invalid_str = '', { symlink_name, symlink_access_key} = {symlink_name: true, symlink_access_key: true}) {
     const config_path = type === CONFIG_TYPES.BUCKET ?
         config_fs.get_bucket_path_by_name(config_data.name) :
         config_fs.get_identity_path_by_id(config_data._id);
     if (type === CONFIG_TYPES.ACCOUNT) {
-        const dir_path = config_fs.get_identity_dir_path_by_id(config_data._id);
-        await nb_native().fs.mkdir(config_fs.fs_context, dir_path, native_fs_utils.get_umasked_mode(config.BASE_MODE_DIR));
+        await create_identity_dir_if_missing(config_fs, config_data._id);
     }
     await nb_native().fs.writeFile(
         config_fs.fs_context,
@@ -500,22 +507,69 @@ async function write_manual_config_file(type, config_fs, config_data, invalid_st
             mode: native_fs_utils.get_umasked_mode(config.BASE_MODE_FILE)
         }
     );
+    const id_relative_path = config_fs.get_account_relative_path_by_id(config_data._id);
 
-    if (type === CONFIG_TYPES.ACCOUNT) {
-        const id_relative_path = config_fs.get_account_relative_path_by_id(config_data._id);
-        const name_symlink_path = config_fs.get_account_or_user_path_by_name(config_data.name);
-        await nb_native().fs.symlink(config_fs.fs_context, id_relative_path, name_symlink_path);
+    if (type === CONFIG_TYPES.ACCOUNT && symlink_name) {
+        await symlink_account_name(config_fs, config_data.name, id_relative_path);
+    }
+
+    if (type === CONFIG_TYPES.ACCOUNT && symlink_access_key && config_data.access_keys &&
+            Object.keys(config_data.access_keys).length > 0) {
+        await symlink_account_access_keys(config_fs, config_data.access_keys, id_relative_path);
     }
 }
 
+/**
+ * symlink_account_name symlinks the account's name path to the target link path
+ * used for manual creation of the account name symlink
+ * @param {import('../../sdk/config_fs').ConfigFS} config_fs
+ * @param {String} account_name 
+ * @param {String} link_target 
+ */
+async function symlink_account_name(config_fs, account_name, link_target) {
+    const name_symlink_path = config_fs.get_account_or_user_path_by_name(account_name);
+    await nb_native().fs.symlink(config_fs.fs_context, link_target, name_symlink_path);
+}
+
+/**
+ * symlink_account_access_keys symlinks the account's access key path to the target link path
+ * used for manual creation of the account access key symlink
+ * @param {import('../../sdk/config_fs').ConfigFS} config_fs
+ * @param {Object} access_keys
+ * @param {String} link_target 
+ */
+async function symlink_account_access_keys(config_fs, access_keys, link_target) {
+    for (const { access_key } of access_keys) {
+        const access_key_symlink_path = config_fs.get_account_or_user_path_by_access_key(access_key);
+        await nb_native().fs.symlink(config_fs.fs_context, link_target, access_key_symlink_path);
+    }
+}
+
+/**
+ * create_identity_dir_if_missing created the identity directory if missing
+ * @param {import('../../sdk/config_fs').ConfigFS} config_fs
+ * @param {String} _id 
+ * @returns {Promise<Void>}
+ */
+async function create_identity_dir_if_missing(config_fs, _id) {
+    const dir_path = config_fs.get_identity_dir_path_by_id(_id);
+    try {
+        await nb_native().fs.mkdir(config_fs.fs_context, dir_path, native_fs_utils.get_umasked_mode(config.BASE_MODE_DIR));
+    } catch (err) {
+        if (err.code !== 'ENOENT') throw err;
+    }
+}
 
 /**
  * write_manual_old_account_config_file writes account config file directly to the old file system account path without using config FS
+ * 1. create old json file in /config_dir_path/accounts/account.json
+ * 2. if symlink_access_key is true - create old access key symlink /config_dir_path/access_keys/{access_key}.symlink -> /config_dir_path/accounts/account.json
  * @param {import('../../sdk/config_fs').ConfigFS} config_fs
  * @param {Object} config_data 
+ * @param {{symlink_access_key?: Boolean}} [options]
  * @returns {Promise<Void>}
  */
-async function write_manual_old_account_config_file(config_fs, config_data) {
+async function write_manual_old_account_config_file(config_fs, config_data, { symlink_access_key } = { symlink_access_key: false }) {
     const config_path = config_fs._get_old_account_path_by_name(config_data.name);
     await nb_native().fs.writeFile(
         config_fs.fs_context,
@@ -525,6 +579,12 @@ async function write_manual_old_account_config_file(config_fs, config_data) {
             mode: native_fs_utils.get_umasked_mode(config.BASE_MODE_FILE)
         }
     );
+
+    const account_name_relative_path = config_fs.get_old_account_relative_path_by_name(config_data.name);
+    if (symlink_access_key) {
+        const access_key_symlink_path = config_fs.get_account_or_user_path_by_access_key(config_data.access_keys[0].access_key);
+        await nb_native().fs.symlink(config_fs.fs_context, account_name_relative_path, access_key_symlink_path);
+    }
 }
 
 /**
@@ -556,9 +616,9 @@ async function delete_manual_config_file(type, config_fs, config_data) {
 
 /**
  * @param {any} test_name
- * @param {Object} [config_fs]
+ * @param {import('../../sdk/config_fs').ConfigFS} [config_fs]
  */
-async function fail_test_if_default_config_dir_exists(test_name, config_fs = {}) {
+async function fail_test_if_default_config_dir_exists(test_name, config_fs) {
     const fs_context = config_fs?.fs_context || native_fs_utils.get_process_fs_context();
     const config_dir_exists = await native_fs_utils.is_path_exists(fs_context, config.NSFS_NC_DEFAULT_CONF_DIR);
     const msg = `${test_name} found an existing default config directory ${config.NSFS_NC_DEFAULT_CONF_DIR},` +
@@ -583,6 +643,10 @@ async function create_config_dir(config_dir) {
 
 /**
  * clean_config_dir cleans the config directory
+ * custom_config_dir_path is created in some tests that are not using the default /etc/noobaa.conf.d/
+ * config directory path
+ * @param {import('../../sdk/config_fs').ConfigFS} config_fs
+ * @param {String} [custom_config_dir_path]
  * @returns {Promise<Void>}
  */
 async function clean_config_dir(config_fs, custom_config_dir_path) {
@@ -593,17 +657,35 @@ async function clean_config_dir(config_fs, custom_config_dir_path) {
     const system_json = '/system.json';
     for (const dir of [buckets_dir_name, identities_dir_name, access_keys_dir_name, accounts_by_name, config.NSFS_TEMP_CONF_DIR_NAME]) {
         const default_path = path.join(config.NSFS_NC_DEFAULT_CONF_DIR, dir);
-        await fs_utils.folder_delete(default_path);
-        const custom_path = path.join(custom_config_dir_path, dir);
-        await fs_utils.folder_delete(custom_path);
-
+        await fs_utils.folder_delete_skip_enoent(default_path);
+        if (custom_config_dir_path) {
+            const custom_path = path.join(custom_config_dir_path, dir);
+            await fs_utils.folder_delete_skip_enoent(custom_path);
+        }
     }
+
     await delete_redirect_file(config_fs);
     await fs_utils.file_delete(system_json);
-    await fs_utils.folder_delete(config.NSFS_NC_DEFAULT_CONF_DIR);
-    await fs_utils.folder_delete(custom_config_dir_path);
+    await fs_utils.folder_delete_skip_enoent(config.NSFS_NC_DEFAULT_CONF_DIR);
+    await fs_utils.folder_delete_skip_enoent(custom_config_dir_path);
 }
 
+/**
+ * create_file creates a file in the file system
+ * @param {nb.NativeFSContext} fs_context 
+ * @param {String} file_path 
+ * @param {Object} file_data 
+ */
+async function create_file(fs_context, file_path, file_data) {
+    await nb_native().fs.writeFile(
+        fs_context,
+        file_path,
+        Buffer.from(JSON.stringify(file_data)),
+        {
+            mode: native_fs_utils.get_umasked_mode(config.BASE_MODE_FILE)
+        }
+    );
+}
 
 exports.blocks_exist_on_cloud = blocks_exist_on_cloud;
 exports.create_hosts_pool = create_hosts_pool;
@@ -629,6 +711,10 @@ exports.get_new_buckets_path_by_test_env = get_new_buckets_path_by_test_env;
 exports.write_manual_config_file = write_manual_config_file;
 exports.write_manual_old_account_config_file = write_manual_old_account_config_file;
 exports.delete_manual_config_file = delete_manual_config_file;
+exports.create_identity_dir_if_missing = create_identity_dir_if_missing;
+exports.symlink_account_name = symlink_account_name;
+exports.symlink_account_access_keys = symlink_account_access_keys;
+exports.create_file = create_file;
 exports.create_redirect_file = create_redirect_file;
 exports.delete_redirect_file = delete_redirect_file;
 exports.fail_test_if_default_config_dir_exists = fail_test_if_default_config_dir_exists;

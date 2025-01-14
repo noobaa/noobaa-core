@@ -337,7 +337,54 @@ async function delete_fs_user_by_platform(name) {
     }
 }
 
-/** 
+/**
+ * creates a new file system group. if user_name is define add it to the group
+ * @param {string} group_name
+ * @param {number} gid
+ * @param {string} [user_name]
+ */
+async function create_fs_group_by_platform(group_name, gid, user_name) {
+    if (process.platform === 'darwin') {
+        const create_group_cmd = `sudo dscl . create /Groups/${group_name} UserShell /bin/bash`;
+        const create_group_realname_cmd = `sudo dscl . create /Groups/${group_name} RealName ${group_name}`;
+        const create_group_gid_cmd = `sudo dscl . create /Groups/${group_name} gid ${gid}`;
+        await os_utils.exec(create_group_cmd, { return_stdout: true });
+        await os_utils.exec(create_group_realname_cmd, { return_stdout: true });
+        await os_utils.exec(create_group_gid_cmd, { return_stdout: true });
+        if (user_name) {
+            const add_user_to_group_cmd = `sudo dscl . append /Groups/${group_name} GroupMembership ${user_name}`;
+            await os_utils.exec(add_user_to_group_cmd, { return_stdout: true });
+        }
+
+    } else {
+        const create_group_cmd = `groupadd -g ${gid} ${group_name}`;
+        await os_utils.exec(create_group_cmd, { return_stdout: true });
+        if (user_name) {
+            const add_user_to_group_cmd = `usermod -a -G ${group_name} ${user_name}`;
+            await os_utils.exec(add_user_to_group_cmd, { return_stdout: true });
+        }
+    }
+}
+
+/**
+ * deletes a file system group. if force is true, delete the group even if its the primary group of a user
+ * @param {string} group_name
+ * @param {boolean} [force]
+ */
+async function delete_fs_group_by_platform(group_name, force = false) {
+    if (process.platform === 'darwin') {
+        const delete_group_cmd = `sudo dscl . -delete /Groups/${group_name}`;
+        const delete_group_home_cmd = `sudo rm -rf /Groups/${group_name}`;
+        await os_utils.exec(delete_group_cmd, { return_stdout: true });
+        await os_utils.exec(delete_group_home_cmd, { return_stdout: true });
+    } else {
+        const flags = force ? '-f' : '';
+        const delete_group_cmd = `groupdel ${flags} ${group_name}`;
+        await os_utils.exec(delete_group_cmd, { return_stdout: true });
+    }
+}
+
+/**
  * set_path_permissions_and_owner sets path permissions and owner and group
  * @param {string} p
  * @param {object} owner_options
@@ -742,6 +789,8 @@ exports.get_coretest_path = get_coretest_path;
 exports.exec_manage_cli = exec_manage_cli;
 exports.create_fs_user_by_platform = create_fs_user_by_platform;
 exports.delete_fs_user_by_platform = delete_fs_user_by_platform;
+exports.create_fs_group_by_platform = create_fs_group_by_platform;
+exports.delete_fs_group_by_platform = delete_fs_group_by_platform;
 exports.set_path_permissions_and_owner = set_path_permissions_and_owner;
 exports.set_nc_config_dir_in_config = set_nc_config_dir_in_config;
 exports.generate_anon_s3_client = generate_anon_s3_client;

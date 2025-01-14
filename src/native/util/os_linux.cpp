@@ -8,6 +8,7 @@
 #include <sys/capability.h>
 #include <grp.h>
 #include <limits.h>
+#include <pwd.h>
 
 namespace noobaa
 {
@@ -29,6 +30,50 @@ const gid_t ThreadScope::orig_gid = getgid();
 
 const std::vector<gid_t> ThreadScope::orig_groups = get_process_groups();
 
+static int
+get_supplemental_groups_by_uid(uid_t uid, std::vector<gid_t>& groups)
+{
+    // getpwuid will only indicate if an error happened by setting errno. set it to 0, so will know if there is a change
+    errno = 0;
+    struct passwd* pw = getpwuid(uid);
+    if (pw == NULL) {
+        if (errno == 0) {
+            LOG("get_supplemental_groups_by_uid: no record for uid " << uid);
+        } else {
+            LOG("WARNING: get_supplemental_groups_by_uid: getpwuid failed: " << strerror(errno));
+        }
+        return -1;
+    }
+    int ngroups = NGROUPS_MAX;
+    groups.resize(ngroups);
+    if (getgrouplist(pw->pw_name, pw->pw_gid, &groups[0], &ngroups) < 0) {
+        LOG("get_supplemental_groups_by_uid: getgrouplist failed: ngroups too small " << ngroups);
+        return -1;
+    }
+    groups.resize(ngroups);
+    return 0;
+}
+
+/**
+ * set supplemental groups of the thread according to the following:
+ * 1. if groups were defined in the account configuration, set the groups list to the one defined
+ * 2. try to get the list of groups corresponding to the user in the system recods, and set it to it
+ * 3. if supplemental groups were not defined for the account and getting it from system record failed (either because record doesn't exist ot because of an error)
+ *    set it to be an empty set
+ */
+static void
+set_supplemental_groups(uid_t uid, std::vector<gid_t>& groups) {
+    //first check if groups were defined in the account configuration
+    if (groups.empty()) {
+        if (get_supplemental_groups_by_uid(uid, groups) < 0) {
+            //couldn't get supplemental groups dynamically. set it to be an empty set
+            MUST_SYS(syscall(SYS_setgroups, 0, NULL));
+            return;
+        }
+    }
+    MUST_SYS(syscall(SYS_setgroups, groups.size(), &groups[0]));
+}
+
 /**
  * set the effective uid/gid/supplemental_groups of the current thread using direct syscalls
  * we have to bypass the libc wrappers because posix requires it to syncronize
@@ -38,12 +83,7 @@ void
 ThreadScope::change_user()
 {
     if (_uid != orig_uid || _gid != orig_gid) {
-        if (_groups.empty()) {
-            MUST_SYS(syscall(SYS_setgroups, 0, NULL));
-        }
-        else {
-            MUST_SYS(syscall(SYS_setgroups, _groups.size(), &_groups[0]));
-        }
+        set_supplemental_groups(_uid, _groups);
         // must change gid first otherwise will fail on permission
         MUST_SYS(syscall(SYS_setresgid, -1, _gid, -1));
         MUST_SYS(syscall(SYS_setresuid, -1, _uid, -1));

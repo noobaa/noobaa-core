@@ -53,7 +53,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
     const nested_keys_full_path = path.join(tmp_fs_root, nested_keys_bucket_path);
     const versions_path = path.join(full_path, '.versions/');
     const suspended_versions_path = path.join(suspended_full_path, '.versions/');
-    let s3_uid5;
+    let s3_uid1055;
     let s3_uid6;
     let s3_admin;
     const accounts = [];
@@ -173,8 +173,8 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             Policy: JSON.stringify(policy)
         });
 
-        res = await generate_nsfs_account(rpc_client, EMAIL, new_bucket_path_param, { uid: 5, gid: 5 });
-        s3_uid5 = generate_s3_client(res.access_key, res.secret_key, CORETEST_ENDPOINT);
+        res = await generate_nsfs_account(rpc_client, EMAIL, new_bucket_path_param, { uid: 1055, gid: 1055 });
+        s3_uid1055 = generate_s3_client(res.access_key, res.secret_key, CORETEST_ENDPOINT);
         accounts.push(res.email);
 
         res = await generate_nsfs_account(rpc_client, EMAIL, new_bucket_path_param);
@@ -206,7 +206,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
 
         mocha.it('set bucket versioning - Enabled - should fail - no permissions', async function() {
             try {
-                await s3_uid5.putBucketVersioning({ Bucket: bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
+                await s3_uid1055.putBucketVersioning({ Bucket: bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
                 assert.fail(`put bucket versioning succeeded for account without permissions`);
             } catch (err) {
                 assert.equal(err.Code, 'AccessDenied');
@@ -232,7 +232,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
 
         mocha.it('set bucket versioning - Suspended - should fail - no permissions', async function() {
             try {
-                await s3_uid5.putBucketVersioning({ Bucket: suspended_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } });
+                await s3_uid1055.putBucketVersioning({ Bucket: suspended_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } });
                 assert.fail(`put bucket versioning succeeded for account without permissions`);
             } catch (err) {
                 assert.equal(err.Code, 'AccessDenied');

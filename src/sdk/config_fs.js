@@ -379,6 +379,29 @@ class ConfigFS {
     }
 
     /**
+     * get_identity_by_id_and_stat_file returns the full account/user data and stat the file:
+     * @param {string} id
+     * @param {string} [type]
+     * @param {{show_secrets?: boolean, decrypt_secret_key?: boolean, silent_if_missing?: boolean}} [options]
+     * @returns {Promise<Object>} 
+    */
+    async get_identity_by_id_and_stat_file(id, type, options = {}) {
+        let identity;
+        try {
+            identity = await this.get_identity_by_id(id, type, options);
+            if (!identity && options.silent_if_missing) {
+                return undefined; // we don't have the identity, so we can't add the property of stat to it
+            }
+            const stat = await this.stat_account_config_file_by_identity(id, identity.name);
+            identity.stat = stat;
+            return identity; // this identity object should have also a stat property
+        } catch (err) {
+            dbg.error('get_identity_by_id_and_stat_file: got an error', err);
+            throw err;
+        }
+    }
+
+    /**
      * search_accounts_by_id searches old accounts directory and finds an account that its _id matches the given id param
      * @param {string} id
      * @param {{show_secrets?: boolean, decrypt_secret_key?: boolean, silent_if_missing?: boolean}} [options]
@@ -450,7 +473,7 @@ class ConfigFS {
     }
 
     /**
-     * stat_account_config_file will return the stat output on account config file
+     * stat_account_config_file will return the stat output on account config file by access key
      * please notice that stat might throw an error - you should wrap it with try-catch and handle the error
      * Note: access_key type of anonymous_access_key is a symbol, otherwise it is a string (not SensitiveString)
      * @param {Symbol|string} access_key
@@ -466,6 +489,38 @@ class ConfigFS {
             throw new Error(`access_key must be a from valid type ${typeof access_key} ${access_key}`);
         }
         return nb_native().fs.stat(this.fs_context, path_for_account_or_user_config_file);
+    }
+
+    /**
+     * stat_account_config_file_by_identity will return the stat output on account config file by id or by account name
+     * 1. try by identity path
+     * 2. if not found - try by account name with new accounts path
+     * 3. if not found - try by account name with old accounts path
+     * 4. else throw an error
+     * @param {string} id
+     * @param {string} account_name
+     * @returns {Promise<nb.NativeFSStats>}
+     */
+    async stat_account_config_file_by_identity(id, account_name) {
+        const options = { silent_if_missing: true };
+
+        const identity_path = this.get_identity_path_by_id(id);
+        dbg.log2('stat_account_config_file_by_identity: will try to stat by identity (identities path)');
+        let stat = await this.stat_config_file_general_use(identity_path, options);
+        if (stat) return stat;
+
+        dbg.log2('stat_account_config_file_by_identity: will try to stat by account name (new accounts path)');
+        const account_name_new_path = this.get_account_path_by_name(account_name);
+        stat = await this.stat_config_file_general_use(account_name_new_path, options);
+        if (stat) return stat;
+
+        dbg.log2('stat_account_config_file_by_identity: will try to stat by account name (old accounts path)');
+        const account_name_old_path = this._get_old_account_path_by_name(account_name);
+        stat = await this.stat_config_file_general_use(account_name_old_path, options);
+        if (stat) return stat;
+
+        dbg.error(`stat_account_config_file_by_identity: could not stat identity by id ${id} or by account name ${account_name} (new and old accounts path)`);
+        throw new Error('Could not stat account (identities path, new accounts path and old accounts path)');
     }
 
     /**
@@ -1254,6 +1309,24 @@ class ConfigFS {
      */
     get_hosts_data(system_data) {
         return _.omit(system_data, 'config_directory');
+    }
+
+    /** stat_config_file_general_use will stat a file by a path
+     * if the file is not found:
+     * - using the options with silent_if_missing true on ENOENT it would return undefined
+     * - else it would throw an error
+     * @param {string} path_to_stat
+     * @param {{ silent_if_missing: any; }} options
+     */
+    async stat_config_file_general_use(path_to_stat, options) {
+        try {
+            const stat_by_identity_path = await nb_native().fs.stat(this.fs_context, path_to_stat);
+            return stat_by_identity_path;
+        } catch (err) {
+            if (err.code === 'ENOENT' && options.silent_if_missing) return;
+            dbg.error('stat_account_config_file_by_identity: could not stat by identity ID, got an error', err);
+            throw err;
+        }
     }
 }
 

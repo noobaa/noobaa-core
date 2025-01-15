@@ -35,13 +35,14 @@ class Notificator {
      * @param {Object} options
      */
 
-    constructor({name, fs_context, connect_files_dir, nc_config_fs}) {
+    constructor({name, fs_context, connect_files_dir, nc_config_fs, batch_size}) {
         this.name = name;
         this.connect_str_to_connection = new Map();
         this.notif_to_connect = new Map();
         this.fs_context = fs_context ?? get_process_fs_context();
         this.connect_files_dir = connect_files_dir ?? DEFAULT_CONNECT_FILES_DIR;
         this.nc_config_fs = nc_config_fs;
+        this.batch_size = batch_size || config.NOTIFICATION_BATCH || 10;
     }
 
     async run_batch() {
@@ -112,7 +113,7 @@ class Notificator {
      */
     async _notify(fs_context, log_file, failure_append) {
         const file = new LogFile(fs_context, log_file);
-        const send_promises = [];
+        let send_promises = [];
         await file.collect_and_process(async str => {
             try {
                 const notif = JSON.parse(str);
@@ -137,6 +138,10 @@ class Notificator {
                 }
                 const send_promise = connection.promise_notify(notif, failure_append);
                 if (send_promise) send_promises.push(send_promise);
+                if (send_promises.length > this.batch_size) {
+                    await Promise.all(send_promises);
+                    send_promises = [];
+                }
             } catch (err) {
                 dbg.error("Failed to notify. err = ", err, ", str =", str);
                 await failure_append(str);

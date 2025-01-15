@@ -187,8 +187,27 @@ function file_copy(src, dst) {
     return os_utils.exec(cmd);
 }
 
-function folder_delete(dir) {
+/**
+ * folder_delete deletes a folder
+ * @param {String} dir 
+ * @returns {Promise<Boolean>}
+ */
+async function folder_delete(dir) {
     return rimraf(dir);
+}
+
+/**
+ * folder_delete_skip_enoent deletes a folder and won't throw on ENOENT error 
+ * @param {String} dir 
+ * @returns {Promise<Boolean>}
+ */
+async function folder_delete_skip_enoent(dir) {
+    if (!dir) return;
+    try {
+        return folder_delete(dir);
+    } catch (err) {
+        if (err.code !== 'ENOENT') throw err;
+    }
 }
 
 async function file_delete(file_name) {
@@ -304,6 +323,7 @@ exports.full_dir_copy = full_dir_copy;
 exports.file_copy = file_copy;
 exports.file_delete = file_delete;
 exports.folder_delete = folder_delete;
+exports.folder_delete_skip_enoent = folder_delete_skip_enoent;
 exports.tar_pack = tar_pack;
 exports.write_file_from_stream = write_file_from_stream;
 exports.replace_file = replace_file;

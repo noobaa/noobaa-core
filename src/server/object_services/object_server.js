@@ -1700,7 +1700,7 @@ function check_quota(bucket) {
     if (major_messages.length > 0) {
         const message = major_messages.join();
         dbg.error(message);
-        throw new RpcError('INVALID_BUCKET_STATE', message);
+        throw new RpcError('OBJECT_QUOTA_EXCEEDED', message);
     }
 }
 

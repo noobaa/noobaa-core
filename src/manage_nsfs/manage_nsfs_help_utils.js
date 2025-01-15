@@ -417,11 +417,17 @@ Usage:
 
 Flags:
 
-    --expected_version                             <string>                             The expected target version of the upgrade
-    --expected_hosts                               <string>                             The expected hosts running NooBaa NC, a string of hosts separated by ,
-    --skip_verification                            <boolean>        (optional)          skip verification of the hosts package version
-                                                                                        WARNING: can cause corrupted config dir files created by hosts running old code
-    --custom_upgrade_scripts_dir                   <string>         (optional)          custom upgrade scripts dir, use for running custom config dir upgrade scripts
+    --expected_version              <string>                            The expected target version of the upgrade
+    --expected_hosts                <string>                            The expected hosts running NooBaa NC, a string of hosts separated by ,
+    --skip_verification             <boolean>        (optional)         skip upgrade verification
+                                                                        WARNING: can cause corrupted config dir files created by hosts running old code.
+                                                                        this should generally not be used and is intended exclusively for NooBaa team support. 
+    --custom_upgrade_scripts_dir    <string>         (optional)         a custom upgrade scripts dir, use for running custom config dir upgrade scripts.
+                                                                        WARNING: can cause corrupted config directory. specifying a custom upgrade scripts directory
+                                                                        will initiate a non NooBaa official config directory upgrade.
+                                                                        this should generally not be used and is intended exclusively for NooBaa team support.
+                                                                        requires a special code fix provided by NooBaa dev team and stored in the
+                                                                        custom_upgrade_scripts_dir directory.
 
 `;
 
@@ -429,7 +435,7 @@ const UPGRADE_STATUS_OPTIONS = `
 Help:
 
     'upgrade status' is a noobaa-cli command that will return the status of an ongoing upgrade run,
-    the available status information is upgrade start timestmp, from_version, to_version, config_dir_from_version,
+    the available status information is upgrade start timestamp, from_version, to_version, config_dir_from_version,
     config_dir_to_version, running_host etc.
 
 Usage:
@@ -442,7 +448,7 @@ const UPGRADE_HISTORY_OPTIONS = `
 Help:
 
     'upgrade history' is a noobaa-cli command that will return the history of past upgrades,
-    the available history information is an array of upgrade information - upgrade start timestmp, from_version, to_version, config_dir_from_version,
+    the available history information is an array of upgrade information - upgrade start timestamp, from_version, to_version, config_dir_from_version,
     config_dir_to_version, running_host etc.
 
 Usage:

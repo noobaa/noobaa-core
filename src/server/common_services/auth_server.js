@@ -621,12 +621,6 @@ function _prepare_auth_request(req) {
         return false;
     };
 
-    req.check_bucket_action_permission = async function(bucket, action, bucket_path) {
-        if (!await has_bucket_action_permission(bucket, req.account, action, bucket_path)) {
-            throw new RpcError('UNAUTHORIZED', 'No permission to access bucket');
-        }
-    };
-
     req.has_bucket_action_permission = async function(bucket, action, bucket_path) {
         return has_bucket_action_permission(bucket, req.account, action, bucket_path);
     };
@@ -690,7 +684,7 @@ async function has_bucket_action_permission(bucket, account, action, bucket_path
         account.email.unwrap(),
         action,
         `arn:aws:s3:::${bucket.name.unwrap()}${bucket_path}`,
-        undefined
+        undefined,
     );
 
     if (result === 'DENY') return false;

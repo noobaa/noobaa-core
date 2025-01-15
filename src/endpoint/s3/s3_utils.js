@@ -785,6 +785,25 @@ function key_marker_to_cont_tok(key_marker, objects_arr, is_truncated) {
     return Buffer.from(j).toString('base64');
 }
 
+function parse_body_public_access_block(req) {
+    const parsed = {};
+
+    const access_cfg = req.body.PublicAccessBlockConfiguration;
+    if (!access_cfg) throw new S3Error(S3Error.MalformedXML);
+
+    if (access_cfg.BlockPublicAcls || access_cfg.IgnorePublicAcls) {
+        throw new S3Error(S3Error.AccessControlListNotSupported);
+    }
+    if (access_cfg.BlockPublicPolicy) {
+        parsed.block_public_policy = access_cfg.BlockPublicPolicy?.[0].toLowerCase?.() === 'true';
+    }
+    if (access_cfg.RestrictPublicBuckets) {
+        parsed.restrict_public_buckets = access_cfg.RestrictPublicBuckets?.[0].toLowerCase?.() === 'true';
+    }
+
+    return parsed;
+}
+
 exports.STORAGE_CLASS_STANDARD = STORAGE_CLASS_STANDARD;
 exports.STORAGE_CLASS_GLACIER = STORAGE_CLASS_GLACIER;
 exports.STORAGE_CLASS_GLACIER_IR = STORAGE_CLASS_GLACIER_IR;
@@ -828,5 +847,6 @@ exports.set_response_supported_storage_classes = set_response_supported_storage_
 exports.cont_tok_to_key_marker = cont_tok_to_key_marker;
 exports.key_marker_to_cont_tok = key_marker_to_cont_tok;
 exports.parse_sse_c = parse_sse_c;
+exports.parse_body_public_access_block = parse_body_public_access_block;
 exports.OBJECT_ATTRIBUTES = OBJECT_ATTRIBUTES;
 exports.OBJECT_ATTRIBUTES_UNSUPPORTED = OBJECT_ATTRIBUTES_UNSUPPORTED;

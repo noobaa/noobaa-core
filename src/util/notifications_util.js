@@ -306,6 +306,9 @@ function get_connection(connect) {
 
 
 async function test_notifications(bucket, connect_files_dir) {
+    if (!bucket.notifications) {
+        return;
+    }
     const notificator = new Notificator({connect_files_dir});
     for (const notif of bucket.notifications) {
         const connect = await notificator.parse_connect_file(notif.connect);

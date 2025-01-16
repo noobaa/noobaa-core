@@ -795,7 +795,7 @@ describe('nc upgrade manager - upgrade config directory', () => {
             const expected_version = pkg.version;
             const hosts_list = [hostname];
             await config_fs.create_system_config_file(JSON.stringify(system_data));
-            const expected_err_msg = 'attempt to run old container version with newer server version';
+            const expected_err_msg = 'attempt to upgrade to an older version while server\'s version is newer';
             await expect(nc_upgrade_manager.upgrade_config_dir(expected_version, hosts_list))
                 .rejects.toThrow(expected_err_msg);
         });

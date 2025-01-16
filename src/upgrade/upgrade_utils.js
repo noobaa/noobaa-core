@@ -35,39 +35,39 @@ function version_compare(ver1, ver2) {
 }
 
 /**
- * @param {string} server_version
- * @param {string} container_version
+ * @param {string} current_version
+ * @param {string} new_version
  */
-function should_upgrade(server_version, container_version) {
-    if (!server_version) {
+function should_upgrade(current_version, new_version) {
+    if (!current_version) {
         dbg.log('system does not exist. no need for an upgrade');
         return false;
     }
-    const ver_comparison = version_compare(container_version, server_version);
+    const ver_comparison = version_compare(new_version, current_version);
     if (ver_comparison === 0) {
-        if (server_version !== container_version) {
-            dbg.warn(`the container and server appear to be the same version but different builds. (container: ${container_version}), (server: ${server_version})`);
+        if (current_version !== new_version) {
+            dbg.warn(`the new_version and current_version (server) appear to be the same version but different builds. (new_version: ${new_version}), (current_version: ${current_version})`);
             dbg.warn(`upgrade is not supported for different builds of the same version!!`);
         }
-        dbg.log0('the versions of the container and the server match. no need to upgrade');
+        dbg.log0('the versions of the new_version and the current_version match. no need to upgrade');
         return false;
     } else if (ver_comparison < 0) {
-        // container version is older than the server version - can't downgrade
-        dbg.error(`the container version (${container_version}) appear to be older than the current server version (${server_version}). cannot downgrade`);
-        throw new Error('attempt to run old container version with newer server version');
+        // new_version is older than the current server version - can't downgrade
+        dbg.error(`the new_version (${new_version}) appears to be older than the current_version (server)  (${current_version}). cannot downgrade`);
+        throw new Error('attempt to upgrade to an older version while server\'s version is newer');
     } else {
-        dbg.log0(`container version is ${container_version} and server version is ${server_version}. will upgrade`);
+        dbg.log0(`new_version is ${new_version} and current server version is ${current_version}. will upgrade`);
         return true;
     }
 }
 
 /**
  * load_required_scripts loads all scripts that should be run according to the given versions
- * @param {string} server_version
- * @param {string} container_version
+ * @param {string} current_version
+ * @param {string} new_version
  * @param {string} upgrade_scripts_dir
  */
-async function load_required_scripts(server_version, container_version, upgrade_scripts_dir) {
+async function load_required_scripts(current_version, new_version, upgrade_scripts_dir) {
     // expecting scripts directories to be in a semver format. e.g. ./upgrade_scripts/5.0.1
     let upgrade_dir_content = [];
     try {
@@ -79,12 +79,12 @@ async function load_required_scripts(server_version, container_version, upgrade_
             throw err;
         }
     }
-    // get all dirs for versions newer than server_version
+    // get all dirs for versions newer than current_version
     const newer_versions = upgrade_dir_content.filter(ver =>
-            version_compare(ver, server_version) > 0 &&
-            version_compare(ver, container_version) <= 0)
+            version_compare(ver, current_version) > 0 &&
+            version_compare(ver, new_version) <= 0)
         .sort(version_compare);
-    dbg.log0(`found the following versions with upgrade scripts which are newer than server version (${server_version}):`, newer_versions);
+    dbg.log0(`found the following versions with upgrade scripts which are newer than server version (${current_version}):`, newer_versions);
     // get all scripts under new_versions
     const upgrade_scripts = _.flatMap(newer_versions, ver => {
         const full_path = path.join(upgrade_scripts_dir, ver);

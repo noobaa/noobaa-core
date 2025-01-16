@@ -19,6 +19,7 @@ require('./test_s3_bucket_policy');
 require('./test_nsfs_versioning');
 require('./test_bucketspace_versioning');
 require('./test_nc_bucket_logging');
+require('./test_nc_online_upgrade_s3_integrations');
 
 // running with a couple of forks - please notice and add only relevant tests here
 require('./test_nc_with_a_couple_of_forks.js'); // please notice that we use a different setup

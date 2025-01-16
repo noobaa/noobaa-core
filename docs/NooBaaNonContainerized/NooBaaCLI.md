@@ -21,8 +21,12 @@
     1. [Health](#health)
     2. [Metrics](#metrics)
     3. [Gather Logs](#gather-logs)
-9. [Global Options](#global-options)
-10. [Examples](#examples)
+9. [Upgrade](#upgrade)
+    1. [Upgrade Start](#upgrade-start)
+    2. [Upgrade Status](#upgrade-status)
+    3. [Upgrade History](#upgrade-history)
+10. [Global Options](#global-options)
+11. [Examples](#examples)
     1. [Bucket Commands Examples](#bucket-commands-examples)
     2. [Account Commands Examples](#account-commands-examples)
     3. [White List Server IP Command Example](#white-list-server-ip-command-example)
@@ -458,8 +462,70 @@ noobaa-cli diagnose metrics
 The `gather-logs` command is used for extract NooBaa non containerized logs.
 Not implemented yet, running this command will fail with not implemented error.
 
+## Upgrade
 
-## Global Flags
+The `upgrade` command is being used for running config directory upgrade operations.
+- **[Start](#upgrade-start)**: Initiate config directory upgrade.
+- **[Status](#upgrade-status)**: Retrieve the in progress config directory upgrade status.
+- **[History](#upgrade-history)**: Retrieve the history information of past config directory upgrades.
+
+For more information about the config directory upgrade, See - [Upgrade](./Upgrade.md#online-upgrade-version--5180)
+
+### Upgrade Start
+
+The `upgrade start` command is used to start a config directory upgrade run.
+
+#### Usage
+```sh
+noobaa-cli upgrade start --expected_version <expected-version> --expected_hosts <expected-hosts> [--skip-verification] [--custom_upgrade_scripts_dir]
+```
+
+#### Flags -
+- `expected_version` (Required)
+    - Type: String
+    - Description: Specifies the upgrade's expected target version.
+    - Example - `--expected_version 5.18.0`
+
+- `expected_hosts` (Required)
+    - Type: String
+    - Description: Specifies the upgrade's expected hosts. String of hostnames separated by comma (,). 
+    - Example - `--expected_hosts hostname1,hostname2,hostname3`
+
+- `skip_verification`
+    - Type: Boolean
+    - Description: Specifies if NooBaa should skip upgrade verification. </br>
+      The upgrade verification process contains the following checks - </br>
+        * The expected_hosts appear in system.json.
+        * The expected_version is the version that runs in the host that is running the upgrade.
+        * The source code (RPM) in all the expected_hosts is upgraded to the expected_version.
+    - **WARNING:** Can cause corrupted config directory files created by hosts running old code. This should generally not be used and is intended exclusively for NooBaa team support. 
+
+- `custom_upgrade_scripts_dir`
+    - Type: String
+    - Description: Specifies a custom upgrade scripts directory. Used for running custom config directory upgrade scripts.
+    - **WARNING:** Can cause corrupted config directory, specifying a custom upgrade scripts directory will initiate a non NooBaa official config directory upgrade. This should generally not be used and is intended exclusively for NooBaa team support. Requires a special code fix provided by NooBaa dev team and stored in the custom_upgrade_scripts_dir.
+
+### Upgrade Status
+
+The `upgrade status` command is used for displaying the status of an ongoing upgrade run. </br>
+The available status information is upgrade start timestamp, from_version, to_version, config_dir_from_version, config_dir_to_version, running_host etc.
+
+#### Usage
+```sh
+noobaa-cli upgrade status
+```
+
+### Upgrade History
+
+The `upgrade history` command is used for displaying the history information of past config directory upgrades. </br> 
+The available history information is an array of upgrade information - upgrade start timestamp, from_version, to_version, config_dir_from_version,config_dir_to_version, running_host etc.
+
+#### Usage
+```sh
+noobaa-cli upgrade history
+```
+
+## Global Options
 
 Global options used by the CLI to define the config directory settings. 
 

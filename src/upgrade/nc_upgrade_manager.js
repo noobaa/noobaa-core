@@ -148,12 +148,12 @@ class NCUpgradeManager {
 
     /**
      * _verify_config_dir_upgrade verifies that - 
-     * 1. All hosts appearing in system.json were RPM upgraded to the same version the host running the upgrade
+     * 1. All hosts appearing in expected_hosts were RPM upgraded to the same version the host running the upgrade
      * 2. The user's expected_version is the host's package version - 
      *    expected_version is the expected source code version that the user asks to upgrade to, it's an optional verification, 
      *    if expected_version was not provided we assume that the source code on this host is 
      * 3. The user's expected_hosts exist in system.json
-     * 4. If there are hosts in system.json that ere not provided in the expected_hosts we will print a warning but won't fail
+     * 4. If there are hosts in system.json thatwere not provided in the expected_hosts we will print a warning but won't fail
      * we do that because of hostname can be renamed, hosts that are on maintainance and we don't want to block the upgrade becuase it might take a lot of time,
      * or because of hosts that used to be a part of the cluster and they were removed from the cluster, we don't get the updated info of the hosts on system.json 
      * therefore we can not treat the system.json as the source of truth of the hosts information

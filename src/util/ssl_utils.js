@@ -46,7 +46,8 @@ const certs = {
     S3: new CertInfo(config.S3_SERVICE_CERT_PATH),
     EXTERNAL_DB: new CertInfo(config.EXTERNAL_DB_SERVICE_CERT_PATH),
     STS: new CertInfo(config.STS_SERVICE_CERT_PATH),
-    IAM: new CertInfo(config.IAM_SERVICE_CERT_PATH)
+    IAM: new CertInfo(config.IAM_SERVICE_CERT_PATH),
+    METRICS: new CertInfo(config.S3_SERVICE_CERT_PATH) // metric server will use the S3 cert.
 };
 
 function generate_ssl_certificate() {
@@ -65,7 +66,7 @@ function verify_ssl_certificate(certificate) {
 // Get SSL certificate (load once then serve from cache)
 async function get_ssl_cert_info(service, nsfs_config_root) {
     let cert_info;
-    if (service === 'S3' && nsfs_config_root) {
+    if ((service === 'S3' || service === 'METRICS') && nsfs_config_root) {
         const nsfs_ssl_cert_dir = path.join(nsfs_config_root, 'certificates/');
         cert_info = new CertInfo(nsfs_ssl_cert_dir);
     } else {
@@ -91,7 +92,7 @@ async function get_ssl_cert_info(service, nsfs_config_root) {
 
         } catch (err) {
             if (err.code === 'ENOENT') {
-                dbg.log0(`SSL certificate not found in dir ${cert_info.dir}`);
+                dbg.log0(`SSL certificate not found in dir ${cert_info.dir} for service ${service}`);
             } else {
                 dbg.error(`SSL certificate failed to load from dir ${cert_info.dir}:`, err.message);
             }
@@ -165,10 +166,17 @@ function run_https_test_server() {
     server.listen();
 }
 
+// An internal function to prevent code duplication
+async function create_https_server(ssl_cert_info, honorCipherOrder, endpoint_handler) {
+    const ssl_options = {...ssl_cert_info.cert, honorCipherOrder: honorCipherOrder};
+    return https.createServer(ssl_options, endpoint_handler);
+}
+
 exports.generate_ssl_certificate = generate_ssl_certificate;
 exports.verify_ssl_certificate = verify_ssl_certificate;
 exports.get_ssl_cert_info = get_ssl_cert_info;
 exports.is_using_generated_certs = is_using_generated_certs;
 exports.get_cert_dir = get_cert_dir;
+exports.create_https_server = create_https_server;
 
 if (require.main === module) run_https_test_server();

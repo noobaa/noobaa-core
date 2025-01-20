@@ -84,6 +84,18 @@ endif
 BUILD_S3SELECT?=1
 BUILD_S3SELECT_PARQUET?=0
 
+## RPM VARIABLES 
+DATE := $(shell date +'%Y%m%d')
+NOOBAA_PKG_VERSION := $(shell jq -r '.version' < ./package.json)
+RPM_BASE_VERSION := noobaa-core-$(NOOBAA_PKG_VERSION)-${DATE}
+ifeq ($(CONTAINER_PLATFORM), linux/amd64)
+  ARCH_SUFFIX := x86_64
+else ifeq ($(CONTAINER_PLATFORM), linux/ppc64le)
+  ARCH_SUFFIX := ppc64le
+endif
+RPM_FULL_PATH := $(RPM_BASE_VERSION).el${CENTOS_VER}.$(ARCH_SUFFIX).rpm
+install_rpm_and_deps_command := dnf install -y make && rpm -i $(RPM_FULL_PATH) && systemctl enable noobaa --now && systemctl status noobaa && systemctl stop noobaa
+
 ###############
 # BUILD LOCAL #
 ###############
@@ -177,6 +189,22 @@ rpm: builder
 	$(CONTAINER_ENGINE) rm -f noobaa-rpm-build-env
 	echo "\033[1;32mRPM for platform \"$(NOOBAA_RPM_TAG)\" is ready in build/rpm.\033[0m";
 .PHONY: rpm
+
+assert-rpm-build-and-install-test-platform:
+	@ if [ "${CONTAINER_PLATFORM}" != "linux/amd64" ]; then \
+		echo "\n  Error: Running rpm-build-and-install-test linux/amd64 is currently the only supported container platform\n"; \
+		exit 1; \
+	fi
+.PHONY: assert-rpm-build-and-install-test-platform
+
+rpm-build-and-install-test: assert-rpm-build-and-install-test-platform rpm
+	@echo "Running RHEL linux/amd64 (currently only supported) container..."
+	$(CONTAINER_ENGINE) run --name noobaa-rpm-build-and-install-test --privileged --user root -dit --platform=linux/amd64 redhat/ubi$(CENTOS_VER)-init
+	@echo "Copying rpm_full_path=$(RPM_FULL_PATH) to the container..."
+	$(CONTAINER_ENGINE) cp ./build/rpm/$(RPM_FULL_PATH) noobaa-rpm-build-and-install-test:$(RPM_FULL_PATH)
+	@echo "Installing RPM and dependencies in the container... $(install_rpm_and_deps_command)"
+	$(CONTAINER_ENGINE) exec noobaa-rpm-build-and-install-test bash -c "$(install_rpm_and_deps_command)"
+.PHONY: rpm-build-and-install-test
 
 ###############
 # TEST IMAGES #

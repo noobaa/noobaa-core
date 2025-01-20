@@ -432,6 +432,7 @@ config.DB_CLEANER_BACK_TIME = 3 * 30 * 24 * 60 * 60 * 1000; // 3 months
 config.DB_CLEANER_DOCS_LIMIT = 1000;
 config.DB_CLEANER_MAX_TOTAL_DOCS = 10000;
 
+config.MD_STORE_MAX_DELETED_OBJECTS_LIMIT = 100;
 /////////////////////
 // CLOUD RESOURCES //
 /////////////////////

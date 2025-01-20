@@ -7,6 +7,7 @@ const MDStore = require('../object_services/md_store').MDStore;
 const system_store = require('../system_services/system_store').get_instance();
 const system_utils = require('../utils/system_utils');
 const map_deleter = require('../object_services/map_deleter');
+const {clean_md_store_objects} = require('./db_cleaner');
 const P = require('../../util/promise');
 
 class ObjectsReclaimer {
@@ -42,6 +43,9 @@ class ObjectsReclaimer {
         if (has_errors) {
             return config.OBJECT_RECLAIMER_ERROR_DELAY;
         }
+
+        await clean_md_store_objects(Date.now());
+
         return config.OBJECT_RECLAIMER_BATCH_DELAY;
 
     }

@@ -26,7 +26,7 @@ URL:  https://www.noobaa.io/
 Source0:  %{noobaatar}
 
 BuildRequires:  systemd
-BuildRequires:  python3
+BuildRequires:  python3.9
 BuildRequires:  make
 BuildRequires:  gcc-c++
 BuildRequires:  boost-devel

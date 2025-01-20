@@ -1,4 +1,4 @@
-[NooBaa Operator](../README.md) /
+[NooBaa Core](../../README.md) /
 
 # AWS APIs Compatibility Table
 The chart below strives to provide an up-to-date overview of which AWS API calls are supported by NooBaa, and to what extent.

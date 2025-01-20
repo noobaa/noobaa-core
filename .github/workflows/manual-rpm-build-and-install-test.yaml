@@ -1,0 +1,22 @@
+name: Manual RPM Build and Install Test Dispatch
+on: 
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to RPM Build and Install From'
+        required: true
+      centos_ver:
+        type: choice
+        description: 'Centos Base image (options: 8/9) - Optional, default is 9'
+        default: '9'
+        options: 
+          - '8'
+          - '9'
+
+# Currently the only supported arch is linux/amd64 (x86_64)
+jobs:
+  manual-build-rpm-and-install:
+    uses: ./.github/workflows/rpm-build-and-install-test-base.yaml
+    with:
+      branch: ${{ github.event.inputs.branch }}
+      centos_ver: ${{ github.event.inputs.centos_ver }}

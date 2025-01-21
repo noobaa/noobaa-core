@@ -9,6 +9,8 @@ FROM noobaa-builder AS noobaa-base
 COPY ./package*.json ./
 RUN npm install --omit=dev && \
     npm cache clean --force
+RUN rm -rf node_modules/node-rdkafka/deps/librdkafka/examples/
+RUN rm -rf node_modules/node-rdkafka/deps/librdkafka/src/
 
 ##############################################################
 # Layers:

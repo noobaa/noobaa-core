@@ -9,7 +9,8 @@ const TYPES = Object.freeze({
     LOGGING: 'logging',
     DIAGNOSE: 'diagnose',
     UPGRADE: 'upgrade',
-    NOTIFICATION: 'notification'
+    NOTIFICATION: 'notification',
+    CONNECTION: 'connection'
 });
 
 const ACTIONS = Object.freeze({
@@ -84,6 +85,16 @@ const VALID_OPTIONS_UPGRADE = {
     'history': new Set([...CLI_MUTUAL_OPTIONS])
 };
 
+const VALID_OPTIONS_NOTIFICATION = {};
+
+const VALID_OPTIONS_CONNECTION = {
+    'add': new Set(['name', 'notification_protocol', 'agent_request_object', 'request_options_object', FROM_FILE, ...CLI_MUTUAL_OPTIONS]),
+    'update': new Set(['name', 'key', 'value', 'remove_key', ...CLI_MUTUAL_OPTIONS]),
+    'delete': new Set(['name', ...CLI_MUTUAL_OPTIONS]),
+    'list': new Set(CLI_MUTUAL_OPTIONS),
+    'status': new Set(['name', 'decrypt', ...CLI_MUTUAL_OPTIONS]),
+};
+
 
 const VALID_OPTIONS_WHITELIST = new Set(['ips', ...CLI_MUTUAL_OPTIONS]);
 
@@ -97,7 +108,9 @@ const VALID_OPTIONS = {
     from_file_options: VALID_OPTIONS_FROM_FILE,
     anonymous_account_options: VALID_OPTIONS_ANONYMOUS_ACCOUNT,
     diagnose_options: VALID_OPTIONS_DIAGNOSE,
-    upgrade_options: VALID_OPTIONS_UPGRADE
+    upgrade_options: VALID_OPTIONS_UPGRADE,
+    notification_options: VALID_OPTIONS_NOTIFICATION,
+    connection_options: VALID_OPTIONS_CONNECTION,
 };
 
 const OPTION_TYPE = {
@@ -137,8 +150,14 @@ const OPTION_TYPE = {
     expected_hosts: 'string',
     custom_upgrade_scripts_dir: 'string',
     skip_verification: 'boolean',
-    //notifications
-    notifications: 'object'
+    //connection
+    notification_protocol: 'string',
+    agent_request_object: 'string',
+    request_options_object: 'string',
+    decrypt: 'boolean',
+    key: 'string',
+    value: 'string',
+    remove_key: 'boolean',
 };
 
 const BOOLEAN_STRING_VALUES = ['true', 'false'];

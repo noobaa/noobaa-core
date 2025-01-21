@@ -885,6 +885,29 @@ class ConfigFS {
         }
     }
 
+    /////////////////////////////////////////
+    ///// CONNECTION  CONFIG DIR FUNCS //////
+    /////////////////////////////////////////
+
+    /**
+     * Returns the path to a connection file
+     * @param {string} connection_name name of the desired connection
+     * @returns {string} connection file path
+     */
+    get_connection_path_by_name(connection_name) {
+        return path.join(this.connections_dir_path, this.json(connection_name));
+    }
+
+    /**
+     * Return content of connection file
+     * @param {string} connection_name 
+     * @returns {Promise<Object>} connetion file content
+     */
+    async get_connection_by_name(connection_name) {
+        const filepath = path.join(this.connections_dir_path, this.json(connection_name));
+        return await this.get_config_data(filepath);
+    }
+
     //////////////////////////////////////
     //////   ACCESS KEYS INDEXES    //////
     //////////////////////////////////////
@@ -1327,6 +1350,49 @@ class ConfigFS {
             dbg.error('stat_account_config_file_by_identity: could not stat by identity ID, got an error', err);
             throw err;
         }
+    }
+
+    /**
+     * create_connection_config_file creates a new connection file in the config dir
+     * @param {Object} name filename for the new file
+     * @param {Object} connection_data content of new file
+     * @returns {Promise<Object>} 
+     */
+    async create_connection_config_file(name, connection_data) {
+        await this._throw_if_config_dir_locked();
+        const filepath = this.get_connection_path_by_name(name);
+        await native_fs_utils.create_config_file(this.fs_context, this.connections_dir_path, filepath, JSON.stringify(connection_data));
+    }
+
+    /**
+     * delete_connection_config_file deletes a connection file
+     * @param {string} name connection file to delete
+     */
+    async delete_connection_config_file(name) {
+        await this._throw_if_config_dir_locked();
+        const filepath = this.get_connection_path_by_name(name);
+        await native_fs_utils.delete_config_file(this.fs_context, this.connections_dir_path, filepath);
+    }
+
+    /**
+     * update_connection_file updates content of connection file
+     * @param {string} name connetion file to update
+     * @param {Object} data new content for connection file
+     */
+    async update_connection_file(name, data) {
+        await this._throw_if_config_dir_locked();
+        const filepath = this.get_connection_path_by_name(name);
+        await native_fs_utils.update_config_file(this.fs_context, this.config_root, filepath, JSON.stringify(data));
+    }
+
+    /**
+     * list_connections returns the array of connections that exists under the config dir
+     * @returns {Promise<string[]>} 
+     */
+    async list_connections() {
+        const connections_entries = await nb_native().fs.readdir(this.fs_context, this.connections_dir_path);
+        const connection_names = this._get_config_entries_names(connections_entries, JSON_SUFFIX);
+        return connection_names;
     }
 }
 

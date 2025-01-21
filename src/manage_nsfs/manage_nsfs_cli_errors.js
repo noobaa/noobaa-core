@@ -94,7 +94,7 @@ ManageCLIError.InvalidArgumentType = Object.freeze({
 
 ManageCLIError.InvalidType = Object.freeze({
     code: 'InvalidType',
-    message: 'Invalid type, available types are account, bucket, logging, whitelist, upgrade or notification',
+    message: 'Invalid type, available types are account, bucket, logging, whitelist, upgrade, notification or connection.',
     http_code: 400,
 });
 
@@ -488,6 +488,16 @@ ManageCLIError.ConfigDirUpdateBlocked = Object.freeze({
     code: 'ConfigDirUpdateBlocked',
     message: 'Config directory updates are not allowed on mismatch of the config directory version mentioned in system.json and the config directory version of the source code',
     http_code: 500,
+});
+
+///////////////////////////////
+//     CONNECTION ERRORS     //
+///////////////////////////////
+
+ManageCLIError.MissingCliParam = Object.freeze({
+    code: 'MissingCliParam',
+    message: 'Required cli parameter is missing.',
+    http_code: 400,
 });
 
 ///////////////////////////////

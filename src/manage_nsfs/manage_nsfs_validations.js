@@ -46,7 +46,7 @@ async function validate_input_types(type, action, argv) {
 
     // currently we use from_file only in add action
     const path_to_json_options = argv.from_file ? String(argv.from_file) : '';
-    if ((type === TYPES.ACCOUNT || type === TYPES.BUCKET) && action === ACTIONS.ADD && path_to_json_options) {
+    if ((type === TYPES.ACCOUNT || type === TYPES.BUCKET || type === TYPES.CONNECTION) && action === ACTIONS.ADD && path_to_json_options) {
         const input_options_with_data_from_file = await get_options_from_file(path_to_json_options);
         const input_options_from_file = Object.keys(input_options_with_data_from_file);
         if (input_options_from_file.includes(FROM_FILE)) {
@@ -112,7 +112,7 @@ function validate_identifier(type, action, input_options, is_options_from_file) 
  */
 function validate_no_extra_options(type, action, input_options, is_options_from_file) {
     let valid_options; // for performance, we use Set as data structure
-    const from_file_condition = (type === TYPES.ACCOUNT || type === TYPES.BUCKET) &&
+    const from_file_condition = (type === TYPES.ACCOUNT || type === TYPES.BUCKET || type === TYPES.CONNECTION) &&
         action === ACTIONS.ADD && input_options.includes(FROM_FILE);
     if (from_file_condition) {
         valid_options = VALID_OPTIONS.from_file_options;
@@ -130,6 +130,10 @@ function validate_no_extra_options(type, action, input_options, is_options_from_
         valid_options = VALID_OPTIONS.diagnose_options[action];
     } else if (type === TYPES.UPGRADE) {
         valid_options = VALID_OPTIONS.upgrade_options[action];
+    } else if (type === TYPES.NOTIFICATION) {
+        valid_options = VALID_OPTIONS.notification_options[action];
+    } else if (type === TYPES.CONNECTION) {
+        valid_options = VALID_OPTIONS.connection_options[action];
     } else {
         valid_options = VALID_OPTIONS.whitelist_options;
     }
@@ -173,8 +177,11 @@ function validate_options_type_by_value(input_options_with_data) {
             if (BOOLEAN_STRING_OPTIONS.has(option) && validate_boolean_string_value(value)) {
                 continue;
             }
-            // special case for bucket_policy and notifications(from_file)
-            if ((option === 'bucket_policy' || option === 'notifications') && type_of_value === 'object') {
+            // special case for bucket_policy, notifications and connections(from_file)
+            if ((option === 'bucket_policy' ||
+                 option === 'notifications' ||
+                 option === 'agent_request_object' ||
+                 option === 'request_options_object') && type_of_value === 'object') {
                 continue;
             }
             //special case for supplemental groups
@@ -636,6 +643,42 @@ function validate_whitelist_ips(ips_to_validate) {
     }
 }
 
+///////////////////////////////////
+////  CONNECTION VALIDATIONS   ////
+///////////////////////////////////
+
+/**
+ * Checks that combination of cli parameters is valid for the given action.
+ * @param {Object} user_input 
+ * @param {string} action 
+ */
+function validate_connection_args(user_input, action) {
+
+    //name is mandatory for all except LIST
+    if (action !== ACTIONS.LIST && !user_input.name) {
+        throw_cli_error(ManageCLIError.MissingCliParam, "CLI parameter 'name' is mandatory.");
+    }
+
+    //action specific mandatory options
+    switch (action) {
+        case ACTIONS.ADD:
+            if (!user_input.notification_protocol) {
+                throw_cli_error(ManageCLIError.MissingCliParam, "CLI parameter 'notification_protocol' is missing");
+            }
+            break;
+        case ACTIONS.UPDATE:
+            if (!user_input.key) {
+                throw_cli_error(ManageCLIError.MissingCliParam, "CLI parameter 'key' is mandatory.");
+            }
+            if (!user_input.value && !user_input.remove_key) {
+                throw_cli_error(ManageCLIError.MissingCliParam, "Either 'value' or 'remove_key' is required.");
+            }
+            break;
+        default:
+    }
+}
+
+
 // EXPORTS
 exports.validate_input_types = validate_input_types;
 exports.validate_bucket_args = validate_bucket_args;
@@ -645,3 +688,4 @@ exports.validate_root_accounts_manager_update = validate_root_accounts_manager_u
 exports.validate_whitelist_arg = validate_whitelist_arg;
 exports.validate_whitelist_ips = validate_whitelist_ips;
 exports.validate_flags_combination = validate_flags_combination;
+exports.validate_connection_args = validate_connection_args;

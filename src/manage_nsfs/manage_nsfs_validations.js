@@ -13,8 +13,8 @@ const { throw_cli_error, get_options_from_file, get_boolean_or_string_value, get
     is_name_update, is_access_key_update } = require('../manage_nsfs/manage_nsfs_cli_utils');
 const { TYPES, ACTIONS, VALID_OPTIONS, OPTION_TYPE, FROM_FILE, BOOLEAN_STRING_VALUES, BOOLEAN_STRING_OPTIONS,
     GLACIER_ACTIONS, LIST_UNSETABLE_OPTIONS, ANONYMOUS, DIAGNOSE_ACTIONS, UPGRADE_ACTIONS } = require('../manage_nsfs/manage_nsfs_constants');
-const iam_utils = require('../endpoint/iam/iam_utils');
 const { check_root_account_owns_user } = require('../nc/nc_utils');
+const { validate_username } = require('../util/validation_utils');
 
 /////////////////////////////
 //// GENERAL VALIDATIONS ////
@@ -317,15 +317,14 @@ function validate_account_name(type, action, input_options_with_data) {
     try {
         if (action === ACTIONS.ADD) {
             account_name = String(input_options_with_data.name);
-            iam_utils.validate_username(account_name, 'name');
+            validate_username(account_name, 'name');
         } else if (action === ACTIONS.UPDATE && input_options_with_data.new_name !== undefined) {
             account_name = String(input_options_with_data.new_name);
-            iam_utils.validate_username(account_name, 'new_name');
+            validate_username(account_name, 'new_name');
         }
     } catch (err) {
         if (err instanceof ManageCLIError) throw err;
-        // we receive IAMError and replace it to ManageCLIError
-        // we do not use the mapping errors because it is a general error ValidationError
+        // we replace it to ManageCLIError
         const detail = err.message;
         throw_cli_error(ManageCLIError.InvalidAccountName, detail);
     }

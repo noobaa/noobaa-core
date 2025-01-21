@@ -6,7 +6,7 @@ const http_utils = require('../../util/http_utils');
 const dgram = require('node:dgram');
 const { Buffer } = require('node:buffer');
 const config = require('../../../config');
-const {compose_notification_req, check_notif_relevant} = require('../../util/notifications_util');
+const {compose_notification_req, check_notif_relevant, check_free_space} = require('../../util/notifications_util');
 
 async function send_bucket_op_logs(req, res) {
     if (req.params && req.params.bucket &&
@@ -43,6 +43,8 @@ async function send_bucket_op_logs(req, res) {
                         file: req.notification_logger,
                         buffer: JSON.stringify(notif)
                     });
+
+                    check_free_space(req);
                 }
             }
         }

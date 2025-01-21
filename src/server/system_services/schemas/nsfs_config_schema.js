@@ -142,6 +142,14 @@ const nsfs_node_config_schema = {
             type: 'boolean',
             doc: 'This flag will decide whether need to push logs to the console or not.'
         },
+        NOTIFICATION_REQ_PER_SPACE_CHECK: {
+            type: 'number',
+            doc: 'Number of pending notifications per node in between of free space check. 0 to disable.'
+        },
+        NOTIFICATION_SPACE_CHECK_THRESHOLD: {
+            type: 'number',
+            doc: 'Fraction (more than 0, less than 1) of free blocks in, below which free space check creates an event.'
+        }
     }
 };
 

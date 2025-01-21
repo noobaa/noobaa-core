@@ -1,4 +1,5 @@
 /* Copyright (C) 2024 NooBaa */
+/* eslint-disable max-lines-per-function */
 
 'use strict';
 
@@ -290,6 +291,47 @@ describe('schema validation NC NSFS config', () => {
                 "ENDPOINT_PROCESS_TITLE": '',
             };
             nsfs_schema_utils.validate_nsfs_config_schema(config_data);
+        });
+
+        it('nsfs_config valid NOTIFICATION_REQ_PER_SPACE_CHECK', () => {
+            const config_data = {
+                NOTIFICATION_REQ_PER_SPACE_CHECK: 300
+            };
+            nsfs_schema_utils.validate_nsfs_config_schema(config_data);
+        });
+
+        it('nsfs_config valid NOTIFICATION_REQ_PER_SPACE_CHECK', () => {
+            const config_data = {
+                NOTIFICATION_REQ_PER_SPACE_CHECK: 0
+            };
+            nsfs_schema_utils.validate_nsfs_config_schema(config_data);
+        });
+
+        it('nsfs_config valid NOTIFICATION_SPACE_CHECK_THRESHOLD', () => {
+            const config_data = {
+                NOTIFICATION_SPACE_CHECK_THRESHOLD: 0.11
+            };
+            nsfs_schema_utils.validate_nsfs_config_schema(config_data);
+        });
+
+        it('nsfs_config check invalid NOTIFICATION_REQ_PER_SPACE_CHECK', () => {
+            const config_data = {
+                "NOTIFICATION_REQ_PER_SPACE_CHECK": 'asd',
+            };
+            const reason = 'Test should have failed because of wrong type ' +
+            'NOTIFICATION_REQ_PER_SPACE_CHECK with string (instead of number)';
+            const message = 'must be number';
+            assert_validation(config_data, reason, message);
+        });
+
+        it('nsfs_config check invalid NOTIFICATION_SPACE_CHECK_THRESHOLD', () => {
+            const config_data = {
+                "NOTIFICATION_SPACE_CHECK_THRESHOLD": 'asd',
+            };
+            const reason = 'Test should have failed because of wrong type ' +
+            'NOTIFICATION_SPACE_CHECK_THRESHOLD with string (instead of number)';
+            const message = 'must be number';
+            assert_validation(config_data, reason, message);
         });
     });
 

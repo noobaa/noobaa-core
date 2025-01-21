@@ -164,6 +164,11 @@ S3Error.InvalidBucketState = Object.freeze({
     message: 'The request is not valid with the current state of the bucket.',
     http_code: 409,
 });
+S3Error.ObjectQuotaExceeded = Object.freeze({
+    code: 'ObjectQuotaExceeded',
+    message: 'Object quota exceeded for the bucket.',
+    http_code: 409,
+});
 S3Error.InvalidDigest = Object.freeze({
     code: 'InvalidDigest',
     message: 'The Content-MD5 you specified is not valid.',
@@ -266,7 +271,8 @@ S3Error.MalformedPOSTRequest = Object.freeze({
 });
 S3Error.MalformedXML = Object.freeze({
     code: 'MalformedXML',
-    message: 'This happens when the user sends malformed xml (xml that doesn\'t conform to the published xsd) for the configuration. The error message is, "The XML you provided was not well-formed or did not validate against our published schema."',
+    // This happens when the user sends malformed xml (xml that doesn't conform to the published xsd) for the configuration.
+    message: 'The XML you provided was not well-formed or did not validate against our published schema.',
     http_code: 400,
 });
 S3Error.InvalidTag = Object.freeze({
@@ -613,6 +619,7 @@ S3Error.RPC_ERRORS_TO_S3 = Object.freeze({
     INVALID_PORT_ORDER: S3Error.InvalidPartOrder,
     INVALID_BUCKET_STATE: S3Error.InvalidBucketState,
     NOT_ENOUGH_SPACE: S3Error.InvalidBucketState,
+    OBJECT_QUOTA_EXCEEDED: S3Error.ObjectQuotaExceeded,
     MALFORMED_POLICY: S3Error.MalformedPolicy,
     NO_SUCH_OBJECT_LOCK_CONFIGURATION: S3Error.NoSuchObjectLockConfiguration,
     OBJECT_LOCK_CONFIGURATION_NOT_FOUND_ERROR: S3Error.ObjectLockConfigurationNotFoundError,

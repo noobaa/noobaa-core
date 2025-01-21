@@ -594,6 +594,7 @@ config.WS_METRICS_SERVER_PORT = 7001;
 config.BG_METRICS_SERVER_PORT = 7002;
 config.HA_METRICS_SERVER_PORT = 7003;
 config.EP_METRICS_SERVER_PORT = 7004;
+config.EP_METRICS_SERVER_SSL_PORT = 9443;
 
 //////////////////////////////
 // OAUTH RELATES            //
@@ -635,16 +636,24 @@ config.REMOTE_NOOAA_NAMESPACE = `remote-${config.KUBE_APP_LABEL}`;
 ///////////////////////////////
 config.INLINE_MAX_SIZE = 4096;
 
+///////////////////////////////
+// CACHE (ACCOUNT, BUCKET)   //
+///////////////////////////////
+
 // Object SDK bucket cache expiration time
 config.OBJECT_SDK_BUCKET_CACHE_EXPIRY_MS = 60000;
 // Object SDK account cache expiration time
 config.OBJECT_SDK_ACCOUNT_CACHE_EXPIRY_MS = Number(process.env.ACCOUNTS_CACHE_EXPIRY) || 10 * 60 * 1000; // TODO: Decide on a time that we want to invalidate
+// Accountspace_fs account id cache expiration time
+config.ACCOUNTS_ID_CACHE_EXPIRY = 3 * 60 * 1000; // TODO: Decide on a time that we want to invalidate
 
 
 // Object SDK bucket_namespace_cache allow stat of the config file
 config.NC_ENABLE_BUCKET_NS_CACHE_STAT_VALIDATION = true;
 // Object SDK account_cache allow stat of the config file
 config.NC_ENABLE_ACCOUNT_CACHE_STAT_VALIDATION = true;
+// accountspace_fs allow stat of the config file
+config.NC_ENABLE_ACCOUNT_ID_CACHE_STAT_VALIDATION = true;
 
 //////////////////////////////
 // OPERATOR RELATED         //
@@ -908,6 +917,8 @@ config.ENDPOINT_SSL_PORT = Number(process.env.ENDPOINT_SSL_PORT) || 6443;
 config.ENDPOINT_SSL_STS_PORT = Number(process.env.ENDPOINT_SSL_STS_PORT) || (process.env.NC_NSFS_NO_DB_ENV === 'true' ? -1 : 7443);
 config.ENDPOINT_SSL_IAM_PORT = Number(process.env.ENDPOINT_SSL_IAM_PORT) || -1;
 config.ALLOW_HTTP = false;
+config.ALLOW_HTTP_METRICS = true;
+config.ALLOW_HTTPS_METRICS = true;
 // config files should allow access to the owner of the files
 config.BASE_MODE_CONFIG_FILE = 0o600;
 config.BASE_MODE_CONFIG_DIR = 0o700;
@@ -933,7 +944,6 @@ config.NC_DISABLE_HEALTH_ACCESS_CHECK = false;
 config.NC_DISABLE_POSIX_MODE_ACCESS_CHECK = true;
 config.NC_DISABLE_SCHEMA_CHECK = false;
 
-config.ACCOUNTS_ID_CACHE_EXPIRY = 3 * 60 * 1000;
 ////////// GPFS //////////
 config.GPFS_DOWN_DELAY = 1000;
 

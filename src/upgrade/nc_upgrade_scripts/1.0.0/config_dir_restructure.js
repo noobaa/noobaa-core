@@ -51,7 +51,7 @@ async function run({ dbg, from_version }) {
 
 /**
  * upgrade_accounts_config_files list all old accounts and upgrade their config files by doing the following - 
- * 1. Iterate all accounts under accounts/ (old dire
+ * 1. Iterate all accounts under accounts/ (old directory)
  * 2. upgrade account config file with 3 retries
  * @param {import('../../../sdk/config_fs').ConfigFS} config_fs 
  * @param {String[]} old_account_names 
@@ -96,7 +96,6 @@ async function upgrade_accounts_config_files(config_fs, old_account_names, from_
  * 1.1. identity creation
  * 1.2. account name symlink creation
  * 1.3. account access key symlink update
- * 1.4. delete account old path
  * @param {import('../../../sdk/config_fs').ConfigFS} config_fs 
  * @param {String} account_name 
  * @param {String} backup_access_keys_path

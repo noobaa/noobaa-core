@@ -431,16 +431,17 @@ mocha.describe('bucketspace_fs', function() {
                 assert.ok(err.rpc_code === 'UNAUTHORIZED');
             }
         });
-        mocha.it('should fail - create bucket by iam account', async function() {
-            // currently we do not allow IAM accounts to create buckets
-            try {
-                const param = { name: test_bucket_iam_account };
-                const dummy_object_sdk_for_iam_account = make_dummy_object_sdk_for_account(dummy_object_sdk, account_iam_user1);
-                await bucketspace_fs.create_bucket(param, dummy_object_sdk_for_iam_account);
-                assert.fail('should have failed with UNAUTHORIZED bucket creation');
-            } catch (err) {
-                assert.ok(err.rpc_code === 'UNAUTHORIZED');
-            }
+        mocha.it('create bucket by iam account', async function() {
+            const param = { name: test_bucket_iam_account };
+            const dummy_object_sdk_for_iam_account = make_dummy_object_sdk_for_account(dummy_object_sdk, account_iam_user1);
+            await bucketspace_fs.create_bucket(param, dummy_object_sdk_for_iam_account);
+            const bucket_config_path = get_config_file_path(CONFIG_SUBDIRS.BUCKETS, param.name);
+            const stat1 = await fs.promises.stat(bucket_config_path);
+            assert.equal(stat1.nlink, 1);
+
+            // check that the owner is the account (not the user)
+            const bucket = await bucketspace_fs.read_bucket_sdk_info(param);
+            assert.ok(bucket.owner_account.id === account_iam_user1.owner);
         });
         mocha.after(async function() {
             await fs_utils.folder_delete(`${new_buckets_path}/${test_bucket}`);

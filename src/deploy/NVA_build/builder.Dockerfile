@@ -21,9 +21,13 @@ RUN dnf update -y -q --nobest && \
 COPY ./src/deploy/NVA_build/install_arrow_build.sh ./src/deploy/NVA_build/install_arrow_build.sh
 ARG BUILD_S3SELECT_PARQUET=0
 RUN ./src/deploy/NVA_build/install_arrow_build.sh $BUILD_S3SELECT_PARQUET
-RUN dnf install -y -q wget unzip which vim python3 boost-devel libcap-devel && \
+RUN dnf install -y -q wget unzip which vim python3.9 boost-devel libcap-devel && \
     dnf group install -y -q "Development Tools" && \
     dnf clean all
+
+# It's not important to report this failure (fails for Centos9)
+RUN alternatives --auto python3 || exit 0
+
 RUN version="2.15.05" && \
     wget -q -O nasm-${version}.tar.gz https://github.com/netwide-assembler/nasm/archive/nasm-${version}.tar.gz && \
     tar -xf nasm-${version}.tar.gz && \

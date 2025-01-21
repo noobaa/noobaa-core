@@ -1196,7 +1196,7 @@ describe('manage nsfs cli account flow', () => {
                 await set_path_permissions_and_owner(account_options.new_buckets_path, account_options, 0o700);
                 await exec_manage_cli(type, action, account_options);
             }
-        });
+        }, timeout);
 
         afterAll(async () => {
             await fs_utils.folder_delete(`${config_root}`);

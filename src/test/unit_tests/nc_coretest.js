@@ -48,8 +48,10 @@ const EMAIL = NC_CORETEST;
 const PASSWORD = NC_CORETEST;
 const http_port = 6001;
 const https_port = 6443;
+const https_port_iam = 7005;
 const http_address = `http://localhost:${http_port}`;
 const https_address = `https://localhost:${https_port}`;
+const https_address_iam = `https://localhost:${https_port_iam}`;
 
 const FIRST_BUCKET = 'first.bucket';
 const NC_CORETEST_STORAGE_PATH = p.join(TMP_PATH, 'nc_coretest_storage_root_path/');
@@ -68,8 +70,8 @@ let current_setup_options = {};
  * @param {object} setup_options
  */
 function setup(setup_options = {}) {
-    console.log(`in setup - variables values: _setup ${_setup} _nsfs_process ${_nsfs_process}`);
-    current_setup_options = setup_options;
+    console.log(`in setup - variables values: _setup ${_setup} _nsfs_process ${_nsfs_process} ` +
+        `setup_options`, setup_options);
     if (_setup) return;
     _setup = true;
 
@@ -84,6 +86,7 @@ function setup(setup_options = {}) {
         await start_nsfs_process(setup_options);
 
         // TODO - run health
+        current_setup_options = setup_options;
         await announce(`nc coretest ready... (took ${((Date.now() - start) / 1000).toFixed(1)} sec)`);
     });
 
@@ -109,8 +112,8 @@ function setup(setup_options = {}) {
  */
 async function start_nsfs_process(setup_options) {
     console.log(`in start_nsfs_process - variables values: _setup ${_setup} _nsfs_process ${_nsfs_process}`);
-    const { forks, debug } = setup_options;
-    console.log(`setup_options: forks ${forks} debug ${debug}`);
+    const { forks, debug, should_run_iam } = setup_options;
+    console.log(`setup_options: forks ${forks} debug ${debug} should_run_iam ${should_run_iam}`);
     if (_nsfs_process) return;
     await announce('start nsfs script');
     const logStream = fs.createWriteStream('nsfs_integration_test_log.txt', { flags: 'a' });
@@ -123,6 +126,10 @@ async function start_nsfs_process(setup_options) {
     if (debug) {
         arguments_for_command.push('--debug');
         arguments_for_command.push(`${debug}`);
+    }
+    if (should_run_iam && https_port_iam) {
+        arguments_for_command.push('--https_port_iam');
+        arguments_for_command.push(`${https_port_iam}`);
     }
     nsfs_process = child_process.spawn('node', arguments_for_command, {
         detached: true
@@ -265,6 +272,14 @@ function get_http_address() {
  */
 function get_https_address() {
     return https_address;
+}
+
+/**
+ * get_iam_https_address return nc coretest https_address_iam variable
+ * @returns {string}
+ */
+function get_iam_https_address() {
+    return https_address_iam;
 }
 
 ///////////////////////////////////
@@ -532,6 +547,7 @@ exports.get_dbg_level = get_dbg_level;
 exports.rpc_client = rpc_cli_funcs_to_manage_nsfs_cli_cmds;
 exports.get_http_address = get_http_address;
 exports.get_https_address = get_https_address;
+exports.get_iam_https_address = get_iam_https_address;
 exports.get_admin_mock_account_details = get_admin_mock_account_details;
 exports.NC_CORETEST_CONFIG_DIR_PATH = NC_CORETEST_CONFIG_DIR_PATH;
 exports.NC_CORETEST_CONFIG_FS = NC_CORETEST_CONFIG_FS;

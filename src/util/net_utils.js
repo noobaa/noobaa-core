@@ -3,7 +3,6 @@
 
 const _ = require('lodash');
 const os = require('os');
-const url = require('url');
 const net = require('net');
 const dns = require('dns');
 const ip_module = require('ip');
@@ -26,7 +25,7 @@ async function ping(target, options) {
 
     options = options || DEFAULT_PING_OPTIONS;
     _.defaults(options, DEFAULT_PING_OPTIONS);
-    const candidate_ip = url.parse(target).hostname || target;
+    const candidate_ip = new URL(target).hostname || target;
 
     if (net.isIP(candidate_ip)) {
         await _ping_ip(candidate_ip);
@@ -49,7 +48,7 @@ function _ping_ip(session, ip) {
 }
 
 async function dns_resolve(target, options) {
-    const modified_target = url.parse(target).hostname || target;
+    const modified_target = new URL(target).hostname || target;
     await os_utils.get_dns_config(); // unused? needed?
     const res = await dns.promises.resolve(modified_target, (options && options.rrtype) || 'A');
     return res;
@@ -90,18 +89,24 @@ function unwrap_ipv6(ip) {
     return ip;
 }
 
+//the name ip_toLong consist of camel case and underscore, to indicate that toLong is the function we had in node-ip
+function ip_toLong(ip) {
+    // eslint-disable-next-line no-bitwise
+    return ip.split('.').reduce((acc, octet) => (acc << 8) + parseInt(octet, 10), 0) >>> 0;
+}
+
 function ip_to_long(ip) {
-    return ip_module.toLong(unwrap_ipv6(ip));
+    return ip_toLong(unwrap_ipv6(ip));
 }
 
 function is_ip(address) {
-    return ip_module.isV4Format(address) || ip_module.isV6Format(address);
+    return net.isIPv4(address) || net.isIPv6(address);
 }
 
 function find_ifc_containing_address(address) {
     const family =
-        (ip_module.isV4Format(address) && 'IPv4') ||
-        (ip_module.isV6Format(address) && 'IPv6') ||
+        (net.isIPv4(address) && 'IPv4') ||
+        (net.isIPv6(address) && 'IPv6') ||
         '';
     if (!family) return;
     for (const [ifc, arr] of Object.entries(os.networkInterfaces())) {
@@ -120,5 +125,6 @@ exports.is_ip = is_ip;
 exports.is_fqdn = is_fqdn;
 exports.is_localhost = is_localhost;
 exports.unwrap_ipv6 = unwrap_ipv6;
+exports.ip_toLong = ip_toLong;
 exports.ip_to_long = ip_to_long;
 exports.find_ifc_containing_address = find_ifc_containing_address;

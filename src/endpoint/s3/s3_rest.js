@@ -13,6 +13,7 @@ const time_utils = require('../../util/time_utils');
 const http_utils = require('../../util/http_utils');
 const signature_utils = require('../../util/signature_utils');
 const config = require('../../../config');
+const s3_utils = require('./s3_utils');
 
 const S3_MAX_BODY_LEN = 4 * 1024 * 1024;
 
@@ -341,10 +342,10 @@ function get_bucket_and_key(req) {
         }
     }
 
-    if (key?.length > config.S3_MAX_KEY_LENGTH) {
+    if (key?.length && !s3_utils.verify_string_byte_length(key, config.S3_MAX_KEY_LENGTH)) {
         throw new S3Error(S3Error.KeyTooLongError);
     }
-    if (bucket?.length > config.S3_MAX_BUCKET_NAME_LENGTH) {
+    if (bucket?.length && !s3_utils.verify_string_byte_length(bucket, config.S3_MAX_BUCKET_NAME_LENGTH)) {
         throw new S3Error(S3Error.InvalidBucketName);
     }
 

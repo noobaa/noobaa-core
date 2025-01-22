@@ -785,6 +785,24 @@ function key_marker_to_cont_tok(key_marker, objects_arr, is_truncated) {
     return Buffer.from(j).toString('base64');
 }
 
+/**
+ * Returns true if the byte length of the key
+ * is within the range [0, max_length]
+ * @param {string} key 
+ * @param {number} max_length 
+ * @returns 
+ */
+function verify_string_byte_length(key, max_length) {
+    // Fast path
+    const MAX_UTF8_WIDTH = 4;
+    if (key.length * MAX_UTF8_WIDTH <= max_length) {
+        return true;
+    }
+
+    // Slow path
+    return Buffer.byteLength(key, 'utf8') <= max_length;
+}
+
 exports.STORAGE_CLASS_STANDARD = STORAGE_CLASS_STANDARD;
 exports.STORAGE_CLASS_GLACIER = STORAGE_CLASS_GLACIER;
 exports.STORAGE_CLASS_GLACIER_IR = STORAGE_CLASS_GLACIER_IR;
@@ -828,5 +846,6 @@ exports.set_response_supported_storage_classes = set_response_supported_storage_
 exports.cont_tok_to_key_marker = cont_tok_to_key_marker;
 exports.key_marker_to_cont_tok = key_marker_to_cont_tok;
 exports.parse_sse_c = parse_sse_c;
+exports.verify_string_byte_length = verify_string_byte_length;
 exports.OBJECT_ATTRIBUTES = OBJECT_ATTRIBUTES;
 exports.OBJECT_ATTRIBUTES_UNSUPPORTED = OBJECT_ATTRIBUTES_UNSUPPORTED;

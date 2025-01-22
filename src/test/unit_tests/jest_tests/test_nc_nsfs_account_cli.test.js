@@ -1100,6 +1100,39 @@ describe('manage nsfs cli account flow', () => {
                 const account = await config_fs.get_account_by_name(name, config_fs_account_options);
                 expect(account.nsfs_account_config.supplemental_groups).toStrictEqual(expected_groups);
             });
+
+            it('cli account update - cli update account with empty supplemental groups (unset)', async function() {
+                const { name } = defaults;
+                const supplemental_groups = '303,211';
+                const expected_groups = [303, 211];
+                const empty_set = '\'\'';
+                const account_options = { config_root, name, supplemental_groups};
+                await exec_manage_cli(type, ACTIONS.UPDATE, account_options);
+                const account = await config_fs.get_account_by_name(name, config_fs_account_options);
+                expect(account.nsfs_account_config.supplemental_groups).toStrictEqual(expected_groups);
+
+                //unset the value
+                account_options.supplemental_groups = empty_set;
+                await exec_manage_cli(type, ACTIONS.UPDATE, account_options);
+                const updated_account = await config_fs.get_account_by_name(name, config_fs_account_options);
+                expect(updated_account.nsfs_account_config.supplemental_groups).toBeUndefined();
+            });
+
+            it('cli account update - cli update account with no supplemental groups - list remains the same', async function() {
+                const { name } = defaults;
+                const supplemental_groups = '303,211';
+                const expected_groups = [303, 211];
+                const account_options = { config_root, name, supplemental_groups};
+                await exec_manage_cli(type, ACTIONS.UPDATE, account_options);
+                const account = await config_fs.get_account_by_name(name, config_fs_account_options);
+                expect(account.nsfs_account_config.supplemental_groups).toStrictEqual(expected_groups);
+
+                //unset the value
+                const new_account_options = {config_root, name};
+                await exec_manage_cli(type, ACTIONS.UPDATE, new_account_options);
+                const updated_account = await config_fs.get_account_by_name(name, config_fs_account_options);
+                expect(updated_account.nsfs_account_config.supplemental_groups).toStrictEqual(expected_groups);
+            });
         });
 
         describe('cli update account (has distinguished name)', () => {

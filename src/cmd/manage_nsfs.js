@@ -74,6 +74,8 @@ async function main(argv = minimist(process.argv.slice(2))) {
             await noobaa_cli_upgrade.manage_upgrade_operations(action, user_input, config_fs);
         } else if (type === TYPES.NOTIFICATION) {
             await notification_management();
+        } else if (type === TYPES.CONNECTION) {
+            await connection_management(action, user_input);
         } else {
             throw_cli_error(ManageCLIError.InvalidType);
         }
@@ -643,6 +645,19 @@ async function list_config_files(type, wide, show_secrets, filters = {}) {
 }
 
 /**
+ * list_connections
+ * @returns An array with names of all connection files.
+ */
+async function list_connections() {
+    let conns = await config_fs.list_connections();
+    // it inserts undefined for the entry '.noobaa-config-nsfs' and we wish to remove it
+    // in case the entry was deleted during the list it also inserts undefined
+    conns = conns.filter(item => item);
+
+    return conns;
+}
+
+/**
  * get_access_keys will return the access_keys and new_access_key according to the user input
  * and action
  * @param {string} action
@@ -725,11 +740,50 @@ async function logging_management() {
 }
 
 async function notification_management() {
-    new notifications_util.Notificator({
+    await new notifications_util.Notificator({
         fs_context: config_fs.fs_context,
         connect_files_dir: config_fs.connections_dir_path,
         nc_config_fs: config_fs,
     }).process_notification_files();
+}
+
+async function connection_management(action, user_input) {
+    manage_nsfs_validations.validate_connection_args(user_input, action);
+
+    let response = {};
+    let data;
+
+    switch (action) {
+        case ACTIONS.ADD:
+            data = await notifications_util.add_connect_file(user_input, config_fs);
+            response = { code: ManageCLIResponse.ConnectionCreated, detail: data };
+            break;
+        case ACTIONS.DELETE:
+            await config_fs.delete_connection_config_file(user_input.name);
+            response = { code: ManageCLIResponse.ConnectionDeleted };
+            break;
+        case ACTIONS.UPDATE:
+            await notifications_util.update_connect_file(user_input.name, user_input.key,
+                user_input.value, user_input.remove_key, config_fs);
+            response = { code: ManageCLIResponse.ConnectionUpdated };
+            break;
+        case ACTIONS.STATUS:
+            data = await new notifications_util.Notificator({
+                fs_context: config_fs.fs_context,
+                connect_files_dir: config_fs.connections_dir_path,
+                nc_config_fs: config_fs,
+            }).parse_connect_file(user_input.name, user_input.decrypt);
+            response = { code: ManageCLIResponse.ConnectionStatus, detail: data };
+            break;
+        case ACTIONS.LIST:
+            data = await list_connections();
+            response = { code: ManageCLIResponse.ConnectionList, detail: data };
+            break;
+        default:
+            throw_cli_error(ManageCLIError.InvalidAction);
+    }
+
+    write_stdout_response(response.code, response.detail, response.event_arg);
 }
 
 exports.main = main;

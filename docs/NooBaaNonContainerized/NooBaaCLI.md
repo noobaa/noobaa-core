@@ -25,8 +25,14 @@
     1. [Upgrade Start](#upgrade-start)
     2. [Upgrade Status](#upgrade-status)
     3. [Upgrade History](#upgrade-history)
-10. [Global Options](#global-options)
-11. [Examples](#examples)
+10. [Connections](#connection)
+    1. [Add Connection](#add-connection)
+    2. [Update Connection](#update-connection)
+    3. [Connection Status](#connection-status)
+    4. [List Connections][#list-connections]
+    5. [Delete Connection](#delete-connection)
+11. [Global Options](#global-options)
+12. [Examples](#examples)
     1. [Bucket Commands Examples](#bucket-commands-examples)
     2. [Account Commands Examples](#account-commands-examples)
     3. [White List Server IP Command Example](#white-list-server-ip-command-example)
@@ -525,6 +531,109 @@ The available history information is an array of upgrade information - upgrade s
 noobaa-cli upgrade history
 ```
 
+## Managing Connections
+
+A connection file holds information needed to send out a notification to an external server.
+The connection files is specified in each notification configuration of the bucket.
+
+- **[Add Connection](#add-connection)**: Create new connections with customizable options.
+- **[Update Connection](#update-connection)**: Modify the settings and configurations of existing connections.
+- **[Connection Status](#connection-status)**: Retrieve the current status and detailed information about a specific connection.
+- **[List Connections](#list-connections)**: Display a list of all existing connections.
+- **[Delete Connection](#delete-connection)**: Remove unwanted or obsolete connections from the system.
+
+### Add Connection
+
+The `connection add` command is used to create a new connection with customizable options.
+
+#### Usage
+```sh
+noobaa-cli connection add --from_file
+```
+#### Flags -
+
+- `name` (Required)
+    - Type: String
+    - Description: A name to identify the connection.
+
+- `notification_protocol` (Required)
+   - Type: String
+   - Enum: http | https | kafka
+   - Description - Target external server's protocol.
+
+- `agent_request_object`
+   - Type: Object
+   - Description: An object given as options to node http(s) agent.
+
+- `request_options_object`
+   - Type: Object
+   - Description: An object given as options to node http(s) request. If "auth" field is specified, it's value is encrypted.
+
+- `from_file`
+    - Type: String
+    - Description: Path to a JSON file which includes connection properties. When using `from_file` flag the connection details must only appear inside the options JSON file. See example below.
+
+### Update Connection
+
+The `connection update` command is used to update an existing bucket with customizable options.
+
+#### Usage
+```sh
+noobaa-cli connection update --name <connection_name> --key [--value] [--remove_key]
+```
+#### Flags -
+- `name` (Required)
+    - Type: String
+    - Description: Specifies the name of the updated connection.
+
+- `key` (Required)
+    - Type: String
+    - Description: Specifies the key to be updated.
+
+- `value`
+    - Type: String
+    - Description: Specifies the new value of the specified key.  
+
+- `remove_key`
+    - Type: Boolean
+    - Description: Specifies that the specified key should be removed.
+
+### Connection Status
+
+The `connection status` command is used to print the status of the connection.
+
+#### Usage
+```sh
+noobaa-cli connection status --name <connection_name>
+```
+#### Flags -
+- `name` (Required)
+    - Type: String
+    - Description: Specifies the name of the connection.
+
+### List Connections
+
+The `connection list` command is used to display a list of all existing connections.
+
+
+#### Usage
+```sh
+noobaa-cli connection list
+```
+
+### Delete Connection
+
+The `connection delete` command is used to delete an existing connection.
+
+#### Usage
+```sh
+noobaa-cli connection delete --name <connection_name>
+```
+#### Flags -
+- `name` (Required)
+    - Type: String
+    - Description: Specifies the name of the connection to be deleted.
+
 ## Global Options
 
 Global options used by the CLI to define the config directory settings. 
@@ -658,7 +767,21 @@ sudo noobaa-cli bucket delete --name bucket1 2>/dev/null
 ```
 
 -----
+### Connection Commands Examples
 
+#### Create Connection in CLI
+
+```sh
+sudo noobaa-cli connection add --name conn1 --notification_protocol http --request_options_object '{"auth": "user:passw"}'
+```
+
+#### Update Connection Field
+
+```sh
+sudo noobaa-cli connection update --name conn1 --key request_options_object --value '{"auth":"user2:pw2"}'
+```
+
+-----
 #### `--from-file` flag usage example
 
 Using `from_file` flag:
@@ -693,6 +816,21 @@ sudo noobaa-cli account add --from_file <options_account_JSON_file_path>
 
 ```bash
 sudo noobaa-cli bucket add --from_file <options_bucket_JSON_file_path>
+```
+
+##### 2. Create JSON file for connection:
+
+```json
+{
+    "name": "http_conn",
+    "notification_protocol": "http",
+    "agent_request_object": {"host": "localhost", "port": 9999, "timeout": 100},
+    "request_options_object": {"auth": "user:passw", "path": "/query"}
+}
+```
+
+```bash
+sudo noobaa-cli connection add --from_file <options_connection_JSON_file_path>
 ```
 
 ------

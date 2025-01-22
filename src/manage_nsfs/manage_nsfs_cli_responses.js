@@ -145,6 +145,34 @@ ManageCLIResponse.UpgradeHistory = Object.freeze({
 });
 
 ///////////////////////////////
+//   CONNECTION RESPONSES    //
+///////////////////////////////
+
+ManageCLIResponse.ConnectionCreated = Object.freeze({
+    code: 'ConnectionCreated',
+    status: {}
+});
+
+ManageCLIResponse.ConnectionDeleted = Object.freeze({
+    code: 'ConnectionDeleted',
+});
+
+ManageCLIResponse.ConnectionUpdated = Object.freeze({
+    code: 'ConnectionUpdated',
+    status: {}
+});
+
+ManageCLIResponse.ConnectionStatus = Object.freeze({
+    code: 'ConnectionStatus',
+    status: {}
+});
+
+ManageCLIResponse.ConnectionList = Object.freeze({
+    code: 'ConnectionList',
+    list: {}
+});
+
+///////////////////////////////
 //  RESPONSES-EVENT MAPPING  //
 ///////////////////////////////
 

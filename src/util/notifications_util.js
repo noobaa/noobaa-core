@@ -13,6 +13,7 @@ const path = require('path');
 const { get_process_fs_context } = require('./native_fs_utils');
 const nb_native = require('../util/nb_native');
 const http_utils = require('../util/http_utils');
+const nc_mkm = require('../manage_nsfs/nc_master_key_manager').get_instance();
 
 const OP_TO_EVENT = Object.freeze({
     put_object: { name: 'ObjectCreated' },
@@ -120,7 +121,7 @@ class Notificator {
                 dbg.log2("notifying with notification =", notif);
                 let connect = this.notif_to_connect.get(notif.meta.name);
                 if (!connect) {
-                    connect = await this.parse_connect_file(notif.meta.connect);
+                    connect = await this.parse_connect_file(notif.meta.connect, true);
                     this.notif_to_connect.set(notif.meta.name, connect);
                 }
                 let connection = this.connect_str_to_connection.get(notif.meta.name);
@@ -156,14 +157,21 @@ class Notificator {
         return true;
     }
 
-    async parse_connect_file(connect_filename) {
-        const filepath = path.join(this.connect_files_dir, connect_filename);
+    async parse_connect_file(connect_filename, decrypt = false) {
         let connect;
         if (this.nc_config_fs) {
-            connect = await this.nc_config_fs.get_config_data(filepath);
+            connect = await this.nc_config_fs.get_connection_by_name(connect_filename);
         } else {
+            const filepath = path.join(this.connect_files_dir, connect_filename);
             const connect_str = fs.readFileSync(filepath, 'utf-8');
             connect = JSON.parse(connect_str);
+        }
+
+        //if connect file is encrypted (and decryption is requested),
+        //decrypt the auth field
+        if (connect.master_key_id && connect.request_options_object.auth && decrypt) {
+            connect.request_options_object.auth = await nc_mkm.decrypt(
+                connect.request_options_object.auth, connect.master_key_id);
         }
         load_files(connect);
         return connect;
@@ -311,7 +319,7 @@ async function test_notifications(bucket, connect_files_dir) {
     }
     const notificator = new Notificator({connect_files_dir});
     for (const notif of bucket.notifications) {
-        const connect = await notificator.parse_connect_file(notif.connect);
+        const connect = await notificator.parse_connect_file(notif.connect, true);
         dbg.log1("testing notif", notif);
         try {
             const connection = get_connection(connect);
@@ -492,10 +500,68 @@ function get_notification_logger(locking, namespace, poll_interval) {
     });
 }
 
+/**
+ * add_connect_file Creates a new connection file from the given content.
+ * If content has an auth field in it's request_options_object, it is encrypted.
+ * @param {Object} content  connection file content
+ * @param {Object} nc_config_fs NC config fs object
+ * @returns A possible encrypted target connection file
+ */
+async function add_connect_file(content, nc_config_fs) {
+    for (const key in content) {
+        if (key.endsWith("_object") && typeof content[key] === 'string') {
+            content[key] = JSON.parse(content[key]);
+        }
+    }
+    await encrypt_connect_file(content);
+    await nc_config_fs.create_connection_config_file(content.name, content);
+    return content;
+}
+
+/**
+ * update_connect_file Updates given key in the connection file.
+ * If value is specified, this value is assigned to the key.
+ * If remove_key is specified, key is removed.
+ * @param {string} name connection file name
+ * @param {string} key key name to be updated
+ * @param {string} value new value for the key
+ * @param {boolean} remove_key should key be removed
+ * @param {Object} nc_config_fs NC config fs
+ */
+async function update_connect_file(name, key, value, remove_key, nc_config_fs) {
+    const data = await nc_config_fs.get_connection_by_name(name);
+    if (remove_key) {
+        delete data[key];
+    } else {
+        //if update initiated in cli, object fields need to be parsed
+        if (key.endsWith('_object') && typeof value === 'string') {
+            value = JSON.parse(value);
+        }
+        data[key] = value;
+    }
+    await encrypt_connect_file(data);
+    await nc_config_fs.update_connection_file(name, data);
+}
+
+/**
+ * encrypt_connect_file Encrypted request_options_object.auth field, if present.
+ * Sets the 'encrypt' field to true.
+ * @param {Object} data connection's file content
+ */
+async function encrypt_connect_file(data) {
+    if (data.request_options_object && data.request_options_object.auth && !data.master_key_id) {
+        await nc_mkm.init();
+        data.request_options_object.auth = nc_mkm.encryptSync(data.request_options_object.auth);
+        data.master_key_id = nc_mkm.active_master_key.id;
+    }
+}
+
 exports.Notificator = Notificator;
 exports.test_notifications = test_notifications;
 exports.compose_notification_req = compose_notification_req;
 exports.compose_notification_lifecycle = compose_notification_lifecycle;
 exports.check_notif_relevant = check_notif_relevant;
 exports.get_notification_logger = get_notification_logger;
+exports.add_connect_file = add_connect_file;
+exports.update_connect_file = update_connect_file;
 exports.OP_TO_EVENT = OP_TO_EVENT;

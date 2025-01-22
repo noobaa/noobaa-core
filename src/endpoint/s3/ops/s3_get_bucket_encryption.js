@@ -1,6 +1,8 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+const _ = require('lodash');
+
 const S3Error = require('../s3_errors').S3Error;
 
 /**
@@ -13,18 +15,27 @@ async function get_bucket_encryption(req) {
 
     if (!reply.encryption) throw new S3Error(S3Error.ServerSideEncryptionConfigurationNotFoundError);
 
-    const rule_details = {
-        SSEAlgorithm: reply.encryption.algorithm
+    const applied_encryption = {
+        ApplyServerSideEncryptionByDefault: {
+            SSEAlgorithm: reply.encryption.algorithm
+        },
     };
 
-    if (reply.encryption.kms_key_id) rule_details.KMSMasterKeyID = reply.encryption.kms_key_id;
+    if (reply.encryption.kms_key_id) {
+        applied_encryption.ApplyServerSideEncryptionByDefault.KMSMasterKeyID =
+            reply.encryption.kms_key_id;
+    }
+    if (!_.isUndefined(reply.encryption.bucket_key_enabled)) {
+        applied_encryption.BucketKeyEnabled =
+            reply.encryption.bucket_key_enabled;
+    }
 
     return {
         ServerSideEncryptionConfiguration: {
-            Rule: [{
-                ApplyServerSideEncryptionByDefault: rule_details
-            }]
-        }
+            Rule: [
+                applied_encryption
+            ]
+        },
     };
 }
 

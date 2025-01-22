@@ -168,7 +168,7 @@ noobaa-cli account update --name <account_name> [--new_name][--uid][--gid][--use
 
 - `supplemental_groups`
     - Type: String
-    - Description: Specifies additional FS groups (GID) a user can be a part of. Allows access to directories/files having one or more of the provided groups. A String of GIDs separated by commas.
+    - Description: Specifies additional FS groups (GID) a user can be a part of. Allows access to directories/files having one or more of the provided groups. A String of GIDs separated by commas. unset with ''
 
 - `new_buckets_path` 
     - Type: String

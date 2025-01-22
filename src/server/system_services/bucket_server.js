@@ -45,6 +45,7 @@ const VALID_BUCKET_NAME_REGEXP =
     /^(([a-z0-9]|[a-z0-9][a-z0-9-]*[a-z0-9])\.)*([a-z0-9]|[a-z0-9][a-z0-9-]*[a-z0-9])$/;
 
 const EXTERNAL_BUCKET_LIST_TO = 30 * 1000; //30s
+const EXTERNAL_BUCKET_ENCRYPTION = 30 * 1000; //30s
 
 const trigger_properties = ['event_name', 'object_prefix', 'object_suffix'];
 
@@ -443,9 +444,31 @@ async function delete_bucket_logging(req) {
 async function get_bucket_encryption(req) {
     dbg.log0('get_bucket_encryption:', req.rpc_params);
     const bucket = find_bucket(req);
-    return {
-        encryption: bucket.encryption,
-    };
+    // we will return default encryption for data buckets
+    const encryption = bucket.encryption || (bucket.tiering && { algorithm: "AES256" });
+    // bucket_key_enabled not supported yet - will default to false  
+    if (encryption) return { encryption: { ...encryption, bucket_key_enabled: false } };
+    const connection = bucket.namespace?.write_resource.resource.connection;
+    if (connection && (connection.endpoint_type === 'AWS' || connection.endpoint_type === 'AWSSTS' ||
+            connection.endpoint_type === 'S3_COMPATIBLE')) {
+        const s3 = await _get_s3_client(connection);
+        try {
+            const res = await P.timeout(EXTERNAL_BUCKET_ENCRYPTION,
+                s3.getBucketEncryption({ Bucket: connection.target_bucket }));
+            const enc = res.ServerSideEncryptionConfiguration.Rules[0];
+            return {
+                encryption: {
+                    algorithm: enc.ApplyServerSideEncryptionByDefault.SSEAlgorithm,
+                    kms_key_id: enc.ApplyServerSideEncryptionByDefault.KMSMasterKeyID,
+                    bucket_key_enabled: enc.BucketKeyEnabled
+                }
+            };
+        } catch (err) {
+            dbg.error('get_bucket_encryption: failed to get bucket encryption from external bucket',
+                err, 'returning default encryption');
+        }
+    } // for now - for the other namspace types we will return undefined
+    return { encryption: undefined };
 }
 
 
@@ -1291,29 +1314,7 @@ async function get_cloud_buckets(req) {
                 .then(data => data[0].map(bucket =>
                     _inject_usage_to_cloud_bucket(bucket.name, connection.endpoint, used_cloud_buckets)));
         } else { // else if AWS(s3-compatible/aws/sts-aws)/Flashblade/IBM_COS
-            let access_key;
-            let secret_key;
-            if (connection.aws_sts_arn) {
-                const creds = await cloud_utils.generate_aws_sts_creds(connection, "get_cloud_buckets_session");
-                access_key = creds.accessKeyId;
-                secret_key = creds.secretAccessKey;
-                connection.sessionToken = creds.sessionToken;
-            } else {
-                access_key = connection.access_key.unwrap();
-                secret_key = connection.secret_key.unwrap();
-            }
-            const s3_params = {
-                endpoint: connection.endpoint,
-                credentials: {
-                    accessKeyId: access_key,
-                    secretAccessKey: secret_key,
-                    sessionToken: connection.sessionToken,
-                },
-                signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(connection.endpoint, connection.auth_method),
-                requestHandler: noobaa_s3_client.get_requestHandler_with_suitable_agent(connection.endpoint),
-                region: connection.region || config.DEFAULT_REGION
-            };
-            const s3 = noobaa_s3_client.get_s3_client_v3_params(s3_params);
+            const s3 = await _get_s3_client(connection);
             const used_cloud_buckets = cloud_utils.get_used_cloud_targets(['AWS', 'AWSSTS', 'AWS_STS', 'S3_COMPATIBLE', 'FLASHBLADE', 'IBM_COS'],
                 system_store.data.buckets, system_store.data.pools, system_store.data.namespace_resources);
             const res = await P.timeout(EXTERNAL_BUCKET_LIST_TO, s3.listBuckets({}));
@@ -2126,6 +2127,32 @@ function normalize_replication(req) {
 
 
     return validated_replication;
+}
+
+async function _get_s3_client(connection) {
+    let access_key;
+    let secret_key;
+    if (connection.aws_sts_arn) {
+        const creds = await cloud_utils.generate_aws_sts_creds(connection, "get_cloud_buckets_session");
+        access_key = creds.accessKeyId;
+        secret_key = creds.secretAccessKey;
+        connection.sessionToken = creds.sessionToken;
+    } else {
+        access_key = connection.access_key.unwrap();
+        secret_key = connection.secret_key.unwrap();
+    }
+    const s3_params = {
+        endpoint: connection.endpoint,
+        credentials: {
+            accessKeyId: access_key,
+            secretAccessKey: secret_key,
+            sessionToken: connection.sessionToken,
+        },
+        signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(connection.endpoint, connection.auth_method),
+        requestHandler: noobaa_s3_client.get_requestHandler_with_suitable_agent(connection.endpoint),
+        region: connection.region || config.DEFAULT_REGION
+    };
+    return noobaa_s3_client.get_s3_client_v3_params(s3_params);
 }
 
 // EXPORTS

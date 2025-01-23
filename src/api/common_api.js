@@ -105,7 +105,10 @@ module.exports = {
                 },
                 kms_key_id: {
                     type: 'string'
-                }
+                },
+                bucket_key_enabled: {
+                    type: 'boolean'
+                },
             }
         },
 

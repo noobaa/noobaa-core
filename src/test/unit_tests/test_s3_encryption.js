@@ -3,7 +3,7 @@
 
 // setup coretest first to prepare the env
 const coretest = require('./coretest');
-coretest.setup({ pools_to_create: [coretest.POOL_LIST[0]] });
+coretest.setup({ pools_to_create: [coretest.POOL_LIST[1]] });
 const { rpc_client, EMAIL } = coretest;
 
 const _ = require('lodash');
@@ -71,15 +71,20 @@ mocha.describe('Bucket Encryption Operations', async () => {
         await local_s3.createBucket({ Bucket: BKT });
     });
 
-    mocha.it('should get bucket encryption error without encryption configured', async () => {
-        try {
-            const res = await local_s3.getBucketEncryption({ Bucket: BKT });
-            throw new Error(`Expected to get error with unconfigured bucket encryption ${res}`);
-        } catch (error) {
-            assert(error.message === 'The server side encryption configuration was not found.', `Error message does not match got: ${error.message}`);
-            assert(error.Code === 'ServerSideEncryptionConfigurationNotFoundError', `Error code does not match got: ${error.Code}`);
-            assert(error.$metadata.httpStatusCode === 404, `Error status code does not match got: ${error.$metadata.httpStatusCode}`);
-        }
+    mocha.it('should get default bucket encryption without encryption configured', async () => {
+        const res = await local_s3.getBucketEncryption({ Bucket: BKT });
+        const expected_response = {
+            ServerSideEncryptionConfiguration: {
+                Rules: [{
+                    ApplyServerSideEncryptionByDefault: {
+                        SSEAlgorithm: 'AES256'
+                    },
+                    BucketKeyEnabled: false
+                }]
+            }
+        };
+        const res_without_metadata = _.omit(res, '$metadata');
+        assert.deepEqual(res_without_metadata, expected_response);
     });
 
     mocha.it('should configure bucket encryption', async () => {
@@ -90,7 +95,8 @@ mocha.describe('Bucket Encryption Operations', async () => {
                     ApplyServerSideEncryptionByDefault: {
                         SSEAlgorithm: 'AES256',
                         // KMSMasterKeyID: 'Sloth'
-                    }
+                    },
+                    BucketKeyEnabled: false
                 }, ]
             },
         };
@@ -104,7 +110,8 @@ mocha.describe('Bucket Encryption Operations', async () => {
                 Rules: [{
                     ApplyServerSideEncryptionByDefault: {
                         SSEAlgorithm: 'AES256'
-                    }
+                    },
+                    BucketKeyEnabled: false
                 }]
             }
         };
@@ -116,15 +123,20 @@ mocha.describe('Bucket Encryption Operations', async () => {
         await local_s3.deleteBucketEncryption({ Bucket: BKT });
     });
 
-    mocha.it('should get bucket encryption error without encryption configured', async () => {
-        try {
-            const res = await local_s3.getBucketEncryption({ Bucket: BKT });
-            throw new Error(`Expected to get an error with unconfigured bucket encryption ${res}`);
-        } catch (error) {
-            assert(error.message === 'The server side encryption configuration was not found.', `Error message does not match got: ${error.message}`);
-            assert(error.Code === 'ServerSideEncryptionConfigurationNotFoundError', `Error code does not match got: ${error.Code}`);
-            assert(error.$metadata.httpStatusCode === 404, `Error status code does not match got: ${error.$metadata.httpStatusCode}`);
-        }
+    mocha.it('should get default bucket encryption without encryption configured', async () => {
+        const res = await local_s3.getBucketEncryption({ Bucket: BKT });
+        const expected_response = {
+            ServerSideEncryptionConfiguration: {
+                Rules: [{
+                    ApplyServerSideEncryptionByDefault: {
+                        SSEAlgorithm: 'AES256'
+                    },
+                    BucketKeyEnabled: false
+                }]
+            }
+        };
+        const res_without_metadata = _.omit(res, '$metadata');
+        assert.deepEqual(res_without_metadata, expected_response);
     });
 
     mocha.it('should put encrypted object and copy with different encryption', async function() {
@@ -181,15 +193,20 @@ mocha.describe('Bucket Namespace S3 Encryption Operations', async function() {
         await rpc_client.bucket.create_bucket({ name: BKT, namespace: { read_resources, write_resource } });
     });
 
-    mocha.it('should get bucket encryption error without encryption configured', async () => {
-        try {
-            const res = await local_s3.getBucketEncryption({ Bucket: BKT });
-            throw new Error(`Expected to get error with unconfigured bucket encryption ${res}`);
-        } catch (error) {
-            assert(error.message === 'The server side encryption configuration was not found.', `Error message does not match got: ${error.message}`);
-            assert(error.Code === 'ServerSideEncryptionConfigurationNotFoundError', `Error code does not match got: ${error.Code}`);
-            assert(error.$metadata.httpStatusCode === 404, `Error status code does not match got: ${error.$metadata.httpStatusCode}`);
-        }
+    mocha.it('should get default bucket encryption without encryption configured', async () => {
+        const res = await local_s3.getBucketEncryption({ Bucket: BKT });
+        const expected_response = {
+            ServerSideEncryptionConfiguration: {
+                Rules: [{
+                    ApplyServerSideEncryptionByDefault: {
+                        SSEAlgorithm: 'AES256'
+                    },
+                    BucketKeyEnabled: false
+                }]
+            }
+        };
+        const res_without_metadata = _.omit(res, '$metadata');
+        assert.deepEqual(res_without_metadata, expected_response);
     });
 
     mocha.it('should configure bucket encryption', async () => {
@@ -200,7 +217,8 @@ mocha.describe('Bucket Namespace S3 Encryption Operations', async function() {
                     ApplyServerSideEncryptionByDefault: {
                         SSEAlgorithm: 'AES256',
                         // KMSMasterKeyID: 'Sloth'
-                    }
+                    },
+                    BucketKeyEnabled: false
                 }, ]
             },
         };
@@ -214,26 +232,33 @@ mocha.describe('Bucket Namespace S3 Encryption Operations', async function() {
                 Rules: [{
                     ApplyServerSideEncryptionByDefault: {
                         SSEAlgorithm: 'AES256'
-                    }
+                    },
+                    BucketKeyEnabled: false
                 }]
             }
         };
-        assert.deepEqual(res, expected_response);
+        const res_without_metadata = _.omit(res, '$metadata');
+        assert.deepEqual(res_without_metadata, expected_response);
     });
 
     mocha.it('should delete bucket encryption', async () => {
         await local_s3.deleteBucketEncryption({ Bucket: BKT });
     });
 
-    mocha.it('should get bucket encryption error without encryption configured', async () => {
-        try {
-            const res = await local_s3.getBucketEncryption({ Bucket: BKT });
-            throw new Error(`Expected to get error with unconfigured bucket encryption ${res}`);
-        } catch (error) {
-            assert(error.message === 'The server side encryption configuration was not found.', `Error message does not match got: ${error.message}`);
-            assert(error.Code === 'ServerSideEncryptionConfigurationNotFoundError', `Error code does not match got: ${error.Code}`);
-            assert(error.$metadata.httpStatusCode === 404, `Error status code does not match got: ${error.$metadata.httpStatusCode}`);
-        }
+    mocha.it('should get default bucket encryption without encryption configured', async () => {
+        const res = await local_s3.getBucketEncryption({ Bucket: BKT });
+        const expected_response = {
+            ServerSideEncryptionConfiguration: {
+                Rules: [{
+                    ApplyServerSideEncryptionByDefault: {
+                        SSEAlgorithm: 'AES256'
+                    },
+                    BucketKeyEnabled: false
+                }]
+            }
+        };
+        const res_without_metadata = _.omit(res, '$metadata');
+        assert.deepEqual(res_without_metadata, expected_response);
     });
 
     mocha.it('should put encrypted object and copy with different encryption', async function() {

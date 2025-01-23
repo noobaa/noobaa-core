@@ -95,7 +95,9 @@ function get_boolean_or_string_value(value) {
  * This function assumes string format was validated before calling the function, wrong string format can
  * lead to unexpected output (usually array of NaN)
  * 1. if the value is a number return array with this number (3 => [3])
- * 2. if the value is a string return an array of numbers ('0,212,111' => [0,212,111])
+ * 2. if the value is a string:
+ *   2.1 if value is an empty string (""). unset the value
+ *   2.2 else return an array of numbers ('0,212,111' => [0,212,111])
  * 3. for all other types (including object and undefined) return the value itself
  */
 function parse_comma_delimited_string(value) {
@@ -103,6 +105,9 @@ function parse_comma_delimited_string(value) {
         return [value];
     }
     if (typeof value === 'string') {
+        if (value === '') {
+            return undefined;
+        }
         return value.split(',').map(val => Number(val));
     }
     return value;

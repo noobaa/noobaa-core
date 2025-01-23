@@ -160,7 +160,7 @@ Flags:
     --new_name <string>                                   (optional)        Update the account name
     --uid <number>                                        (optional)        Update the User Identifier (UID)
     --gid <number>                                        (optional)        Update the Group Identifier (GID)
-    --supplemental_groups <number[]>                      (optional)        Update the list of supplemental groups (List of GID) seperated by comma(,) example: 211,202,23 - it will override existing list
+    --supplemental_groups <string>                        (optional)        Update the list of supplemental groups (List of GID) seperated by comma(,) example: 211,202,23 - it will override existing list (unset with '')
     --new_buckets_path <string>                           (optional)        Update the filesystem's root path where each subdirectory is a bucket
     --user <string>                                       (optional)        Update the OS user name (instead of uid and gid)
     --regenerate                                          (optional)        Update automatically generated access key and secret key

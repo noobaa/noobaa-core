@@ -28,7 +28,7 @@ class S3ClientAutoRegion extends S3 {
             const region = err.$response?.headers?.['x-amz-bucket-region'];
             if (!region) throw err;
             dbg.log0(`Updating region to new region ${region} in bucket ${args[0].input.Bucket}, will call ${args[0].constructor.name} again with the new region`);
-            this.config.region = region;
+            this.config.region = async () => region;
             const res = await super.send(...args);
             return res;
         }

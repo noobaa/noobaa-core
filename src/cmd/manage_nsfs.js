@@ -266,7 +266,7 @@ async function delete_bucket(data, force) {
         }
         await native_fs_utils.folder_delete(bucket_temp_dir_path, fs_context_fs_backend, true);
         await config_fs.delete_bucket_config_file(data.name);
-        return { code: ManageCLIResponse.BucketDeleted, detail: '', event_arg: { bucket: data.name } };
+        return { code: ManageCLIResponse.BucketDeleted, detail: { name: data.name }, event_arg: { bucket: data.name } };
     } catch (err) {
         if (err.code === 'ENOENT') throw_cli_error(ManageCLIError.NoSuchBucket, data.name);
         throw err;
@@ -475,7 +475,7 @@ async function update_account(data) {
  */
 async function delete_account(data) {
     await config_fs.delete_account_config_file(data);
-    return { code: ManageCLIResponse.AccountDeleted, detail: '', event_arg: { account: data.name } };
+    return { code: ManageCLIResponse.AccountDeleted, detail: { name: data.name }, event_arg: { account: data.name } };
 }
 
 /**
@@ -768,12 +768,12 @@ async function connection_management(action, user_input) {
             break;
         case ACTIONS.DELETE:
             await config_fs.delete_connection_config_file(user_input.name);
-            response = { code: ManageCLIResponse.ConnectionDeleted };
+            response = { code: ManageCLIResponse.ConnectionDeleted, detail: {name: user_input.name} };
             break;
         case ACTIONS.UPDATE:
             await notifications_util.update_connect_file(user_input.name, user_input.key,
                 user_input.value, user_input.remove_key, config_fs);
-            response = { code: ManageCLIResponse.ConnectionUpdated };
+            response = { code: ManageCLIResponse.ConnectionUpdated, detail: {name: user_input.name} };
             break;
         case ACTIONS.STATUS:
             data = await new notifications_util.Notificator({

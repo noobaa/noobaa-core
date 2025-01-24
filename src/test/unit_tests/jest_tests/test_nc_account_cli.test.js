@@ -1518,6 +1518,8 @@ describe('manage nsfs cli account flow', () => {
             const res = await exec_manage_cli(type, action, account_options);
             const res_json = JSON.parse(res.trim());
             expect(res_json.response.code).toBe(ManageCLIResponse.AccountDeleted.code);
+            const message = `Account has been deleted successfully: ${name}`;
+            expect(res_json.response.message).toBe(message);
             const account_by_name_exists = await config_fs.is_account_exists_by_name(name);
             expect(account_by_name_exists).toBe(false);
             const account_by_access_key_exists = await config_fs.is_account_exists_by_access_key(defaults.access_key);

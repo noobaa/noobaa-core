@@ -45,7 +45,7 @@ mocha.describe('namespace_fs - versioning', function() {
 
     const dummy_object_sdk = make_dummy_object_sdk(true);
     const dummy_object_sdk_no_nsfs_config = make_dummy_object_sdk(false);
-    const dummy_object_sdk_no_nsfs_permissions = make_dummy_object_sdk(true, 5, 5);
+    const dummy_object_sdk_no_nsfs_permissions = make_dummy_object_sdk(true, 1055, 1055);
     const ns_tmp = new NamespaceFS({ bucket_path: ns_tmp_bucket_path, bucket_id: '1', namespace_resource_id: undefined });
 
     mocha.it('set bucket versioning - Enabled - should fail - no permissions', async function() {

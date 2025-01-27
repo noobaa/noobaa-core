@@ -6,7 +6,7 @@
  */
 async function put_bucket_notification(req) {
 
-    const topic_configuration = req.body.NotificationConfiguration?.TopicConfiguration;
+    let topic_configuration = req.body.NotificationConfiguration?.TopicConfiguration;
 
     //adapt to db shcema
     if (topic_configuration) {
@@ -18,6 +18,8 @@ async function put_bucket_notification(req) {
             delete conf.Event;
             delete conf.Topic;
         }
+    } else {
+        topic_configuration = [];
     }
 
     const reply = await req.object_sdk.put_bucket_notification({

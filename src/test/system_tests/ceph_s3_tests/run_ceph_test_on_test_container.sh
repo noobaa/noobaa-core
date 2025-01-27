@@ -38,6 +38,7 @@ export CEPH_TEST_LOGS_DIR=/logs/ceph-test-logs
 
 export CONFIG_JS_OBJECT_SDK_BUCKET_CACHE_EXPIRY_MS=0 # Needed for disabling cache for ceph cors test and maybe some more
 export CONFIG_JS_allow_anonymous_access_in_test=true # Needed for allowing anon access for tests using ACL='public-read-write'
+export CONFIG_JS_S3_CORS_DEFAULTS_ENABLED=false # Needed for disabling cors defaults for ceph cors test
 
 # ====================================================================================
 

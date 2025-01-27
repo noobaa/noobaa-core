@@ -74,6 +74,12 @@ function new_bucket_defaults(name, system_id, tiering_policy_id, owner_account_i
         object_lock_configuration: config.WORM_ENABLED ? {
             object_lock_enabled: lock_enabled ? 'Enabled' : 'Disabled',
         } : undefined,
+        cors_configuration_rules: config.S3_CORS_DEFAULTS_ENABLED ? [{
+            allowed_origins: config.S3_CORS_ALLOW_ORIGIN,
+            allowed_methods: config.S3_CORS_ALLOW_METHODS,
+            allowed_headers: config.S3_CORS_ALLOW_HEADERS,
+            expose_headers: config.S3_CORS_EXPOSE_HEADERS,
+        }] : undefined,
     };
 }
 

@@ -14,6 +14,7 @@ const { get_process_fs_context } = require('./native_fs_utils');
 const nb_native = require('../util/nb_native');
 const http_utils = require('../util/http_utils');
 const nc_mkm = require('../manage_nsfs/nc_master_key_manager').get_instance();
+const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
 
 const OP_TO_EVENT = Object.freeze({
     put_object: { name: 'ObjectCreated' },
@@ -141,9 +142,7 @@ class Notificator {
             } catch (err) {
                 dbg.error("Failed to notify. err = ", err, ", str =", str);
                 //re-write the failed notification if it's still configured on the bucket
-                if (notif) {
-                    this.handle_failed_notification(notif, failure_append);
-                }
+                this.handle_failed_notification(notif, failure_append, err);
             }
         });
         //note we can't reject promises here, since Promise.all() is rejected on
@@ -155,22 +154,28 @@ class Notificator {
         return true;
     }
 
-    async handle_failed_notification(notif, failure_append) {
-        let bucket;
-        //re-write the failed notification in the persitent log, unless
-        //it is no longer configured on the bucket
+    async handle_failed_notification(notif, failure_append, err) {
         if (this.nc_config_fs) {
-            bucket = await this.nc_config_fs.get_bucket_by_name(notif.meta.bucket);
-        } else {
-            const system = this.system_store.data.systems[0];
-            bucket = system.buckets_by_name && system.buckets_by_name[notif.meta.bucket];
+            new NoobaaEvent(NoobaaEvent.NOTIFICATION_FAILED).create_event(notif?.meta?.name, err, err.toString());
         }
-        if (bucket.notifications) {
-            for (const notif_conf of bucket.notifications) {
-                if (notif_conf.id[0] === notif.meta.name) {
-                    //notification is still configured, rewrite it
-                    await failure_append(JSON.stringify(notif));
-                    break;
+
+        if (notif) {
+            let bucket;
+            //re-write the failed notification in the persitent log, unless
+            //it is no longer configured on the bucket
+            if (this.nc_config_fs) {
+                bucket = await this.nc_config_fs.get_bucket_by_name(notif.meta.bucket);
+            } else {
+                const system = this.system_store.data.systems[0];
+                bucket = system.buckets_by_name && system.buckets_by_name[notif.meta.bucket];
+            }
+            if (bucket.notifications) {
+                for (const notif_conf of bucket.notifications) {
+                    if (notif_conf.id[0] === notif.meta.name) {
+                        //notification is still configured, rewrite it
+                        await failure_append(JSON.stringify(notif));
+                        break;
+                    }
                 }
             }
         }
@@ -224,7 +229,7 @@ class HttpNotificator {
                     return;
                 }
                 dbg.error("Notify err =", err);
-                promise_failure_cb(notif, failure_ctxt).then(resolve);
+                promise_failure_cb(notif, failure_ctxt, err).then(resolve);
             });
             req.on('timeout', () => {
                 dbg.error("Notify timeout");
@@ -281,7 +286,7 @@ class KafkaNotificator {
                 Date.now(),
                 (err, offset) => {
                     if (err) {
-                        promise_failure_cb(notif, failure_ctxt).then(resolve);
+                        promise_failure_cb(notif, failure_ctxt, err).then(resolve);
                     } else {
                         resolve();
                     }
@@ -514,10 +519,36 @@ function get_notification_logger(locking, namespace, poll_interval) {
         namespace = node_name + '_' + config.NOTIFICATION_LOG_NS;
     }
 
-    return new PersistentLogger(config.NOTIFICATION_LOG_DIR, namespace, {
+    const logger = new PersistentLogger(config.NOTIFICATION_LOG_DIR, namespace, {
         locking,
         poll_interval,
     });
+
+    //initialize writes_counter, used in check_free_space
+    logger.writes_counter = 0;
+
+    return logger;
+}
+
+//If space check is configures, create an event in case free space is below threshold.
+function check_free_space(req) {
+    if (!req.object_sdk.nsfs_config_root || !config.NOTIFICATION_REQ_PER_SPACE_CHECK) {
+        //free space check is disabled. nothing to do.
+        return;
+    }
+    req.notification_logger.writes_counter += 1;
+
+    //is it time to check?
+    if (req.notification_logger.writes_counter > config.NOTIFICATION_REQ_PER_SPACE_CHECK) {
+        //yes. remember we've just ran  the check by zero-ing the counter.
+        req.notification_logger.writes_counter = 0;
+        const fs_stat = fs.statfsSync(config.NOTIFICATION_LOG_DIR);
+        //is the ratio of available blocks less than the configures threshold?
+        if (fs_stat.bavail / fs_stat.blocks < config.NOTIFICATION_SPACE_CHECK_THRESHOLD) {
+            //yes. raise an event.
+            new NoobaaEvent(NoobaaEvent.NOTIFICATION_LOW_SPACE).create_event(null, {fs_stat});
+        }
+    }
 }
 
 /**
@@ -584,4 +615,5 @@ exports.check_notif_relevant = check_notif_relevant;
 exports.get_notification_logger = get_notification_logger;
 exports.add_connect_file = add_connect_file;
 exports.update_connect_file = update_connect_file;
+exports.check_free_space = check_free_space;
 exports.OP_TO_EVENT = OP_TO_EVENT;

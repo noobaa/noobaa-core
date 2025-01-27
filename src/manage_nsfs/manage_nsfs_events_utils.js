@@ -384,4 +384,30 @@ NoobaaEvent.CONFIG_DIR_UPGRADE_FAILED = Object.freeze({
     state: 'DEGRADED',
 });
 
+///////////////////////////////
+//   NOTIFICATION EVENTS     //
+///////////////////////////////
+
+NoobaaEvent.NOTIFICATION_LOW_SPACE = Object.freeze({
+    event_code: 'noobaa_notification_low_space',
+    message: 'Pending notification log dir low on space',
+    description: 'Low space',
+    entity_type: 'NODE',
+    event_type: 'WARN',
+    scope: 'NODE',
+    severity: 'WARN',
+    state: 'HEALTHY',
+});
+
+NoobaaEvent.NOTIFICATION_FAILED = Object.freeze({
+    event_code: 'noobaa_notification_failed',
+    message: 'Failed to send notification.',
+    description: 'Notification failed.',
+    entity_type: 'NODE',
+    event_type: 'WARN',
+    scope: 'NODE',
+    severity: 'WARN',
+    state: 'HEALTHY',
+});
+
 exports.NoobaaEvent = NoobaaEvent;

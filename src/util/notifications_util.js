@@ -142,7 +142,9 @@ class Notificator {
             } catch (err) {
                 dbg.error("Failed to notify. err = ", err, ", str =", str);
                 //re-write the failed notification if it's still configured on the bucket
-                this.handle_failed_notification(notif, failure_append, err);
+                if (notif) {
+                    await this.handle_failed_notification(notif, failure_append, err);
+                }
             }
         });
         //note we can't reject promises here, since Promise.all() is rejected on

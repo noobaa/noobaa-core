@@ -203,7 +203,7 @@ async function get_bucket_status(data) {
  * @param {Object} data
  * @returns { Promise<{ code: typeof ManageCLIResponse.BucketUpdated, detail: Object }>} 
  */
-async function update_bucket(data, user_input) {
+async function update_bucket(data) {
     const cur_name = data.name;
     const new_name = data.new_name;
     const name_update = is_name_update(data);
@@ -212,13 +212,6 @@ async function update_bucket(data, user_input) {
 
     let parsed_bucket_data;
 
-    if (user_input.notifications) {
-        //notifications are tested before they can be updated
-        const test_notif_err = await notifications_util.test_notifications(data, config_fs.connect_dir_path);
-        if (test_notif_err) {
-            throw_cli_error(ManageCLIError.InvalidArgument, "Failed to update notifications", test_notif_err);
-        }
-    }
     if (name_update) {
         parsed_bucket_data = await config_fs.create_bucket_config_file({ ...data, name: new_name });
         await config_fs.delete_bucket_config_file(cur_name);
@@ -279,6 +272,7 @@ async function delete_bucket(data, force) {
 async function bucket_management(action, user_input) {
     const data = action === ACTIONS.LIST ? undefined : await fetch_bucket_data(action, user_input);
     await manage_nsfs_validations.validate_bucket_args(config_fs, data, action);
+    await manage_nsfs_validations.validate_bucket_notifications(config_fs, user_input.notifications);
 
     let response = {};
     if (action === ACTIONS.ADD) {
@@ -286,7 +280,7 @@ async function bucket_management(action, user_input) {
     } else if (action === ACTIONS.STATUS) {
         response = await get_bucket_status(data);
     } else if (action === ACTIONS.UPDATE) {
-        response = await update_bucket(data, user_input);
+        response = await update_bucket(data);
     } else if (action === ACTIONS.DELETE) {
         const force = get_boolean_or_string_value(user_input.force);
         response = await delete_bucket(data, force);

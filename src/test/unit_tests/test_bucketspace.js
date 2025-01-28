@@ -1872,7 +1872,7 @@ mocha.describe('Presigned URL tests', function() {
     mocha.before(async function() {
         await fs_utils.create_fresh_path(fs_path);
         await rpc_client.pool.create_namespace_resource({ name: nsr, nsfs_config: { fs_root_path: fs_path } });
-        const new_buckets_path = is_nc_coretest ? fs_path : '/';
+        const new_buckets_path = '/'; // manual fix for 5.16/5.15 since we didn't backport the related test refactoring
         const nsfs_account_config = {
             uid: process.getuid(), gid: process.getgid(), new_buckets_path, nsfs_only: true
         };

@@ -36,12 +36,12 @@ const old_rpm_expected_system_json = {
 
 const old_expected_system_json = {
     [hostname]: {
-        'current_version': '5.18.0',
+        'current_version': pkg.version,
         'upgrade_history': {
             'successful_upgrades': [{
                 'timestamp': 1724687496424,
                 'from_version': '5.17.0',
-                'to_version': '5.18.0'
+                'to_version': pkg.version
             }]
         },
     }
@@ -91,12 +91,12 @@ const old_expected_system_json2 = {
 
 const old_expected_system_json5 = {
     [hostname]: {
-        'current_version': '5.18.0',
+        'current_version': pkg.version,
         'upgrade_history': {
             'successful_upgrades': [{
                 'timestamp': 1724687496424,
                 'from_version': '5.17.0',
-                'to_version': '5.18.0'
+                'to_version': pkg.version
             }]
         },
     },
@@ -120,12 +120,12 @@ const old_expected_system_json5 = {
 
 const new_expected_system_json = {
     [hostname]: {
-        'current_version': '5.18.0',
+        'current_version': pkg.version,
         'upgrade_history': {
             'successful_upgrades': [{
                 'timestamp': 1724687496424,
                 'from_version': '5.17.0',
-                'to_version': '5.18.0'
+                'to_version': pkg.version
             }]
         },
     },
@@ -138,7 +138,7 @@ const new_expected_system_json = {
                     'timestamp': 1724687496424,
                     'running_host': hostname,
                     'package_from_version': '5.17.0',
-                    'package_to_version': '5.18.0',
+                    'package_to_version': pkg.version,
                     'config_dir_from_version': '0.0.0',
                     'config_dir_to_version': '1.0.0'
                 },
@@ -221,22 +221,22 @@ const expected_system_json = {
 
 const invalid_hostname_system_json = {
     [hostname]: {
-        'current_version': '5.18.0',
+        'current_version': pkg.version,
         'upgrade_history': {
             'successful_upgrades': [{
                 'timestamp': 1724687496424,
                 'from_version': '5.17.0',
-                'to_version': '5.18.0'
+                'to_version': pkg.version
             }]
         },
     },
     'hostname1': {
-        'current_version': '5.18.0',
+        'current_version': pkg.version,
         'upgrade_history': {
             'successful_upgrades': [{
                 'timestamp': 1724687496424,
                 'from_version': '5.17.0',
-                'to_version': '5.18.0'
+                'to_version': pkg.version
             }]
         },
     },

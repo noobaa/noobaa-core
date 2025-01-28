@@ -204,3 +204,19 @@ The following list includes events that indicate on some sort of malfunction or 
     - Bucket is in invalid state. Bucket schema missing required property or invalid property gets added.  
 - Resolutions:
     - Check the bucket schema definition and make sure the required property is missing and the invalid property gets added in the config root path.
+
+#### 18. `noobaa_notification_failed`
+- Arguments
+    - `name`
+- Reasons:
+    - No connectivity to external server.
+- Resolutions:
+    - Check if external server is reachable.
+
+#### 19. `noobaa_notification_low_space`
+- Arguments
+    - `fs_stat`
+- Reasons:
+    - Free space in notification log dir FS is below threshold.
+- Resolutions:
+    - Free up space is FS.

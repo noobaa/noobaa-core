@@ -478,6 +478,34 @@ Warning: After setting this configuration, NooBaa will skip schema validations a
     3. systemctl restart noobaa
     ```
 
+### 33. Notification space monitor frequency flag -
+* <u>Key</u>: `NOTIFICATION_REQ_PER_SPACE_CHECK`
+* <u>Type</u>: Positive integer
+* <u>Default</u>: 0
+* <u>Description</u>: Free space check will run per this many notifications (per node). 0 to disable.
+* <u>Steps</u>:
+    ```
+    1. Open /path/to/config_dir/config.json file.
+    2. Set the config key to run free space check each 1000 notifications -
+    Example:
+    "NOTIFICATION_REQ_PER_SPACE_CHECK": 1000
+    3. systemctl restart noobaa
+    ```
+
+### 34. Notification space monitor threshold flag -
+* <u>Key</u>: `NOTIFICATION_SPACE_CHECK_THRESHOLD`
+* <u>Type</u>: Number
+* <u>Default</u>: 0.1
+* <u>Description</u>: Fraction (more than zero, less than 1) of availble block, below which event is logged.
+* <u>Steps</u>:
+    ```
+    1. Open /path/to/config_dir/config.json file.
+    2. Set the config key -
+    Example:
+    "NOTIFICATION_SPACE_CHECK_THRESHOLD": 0.1
+    3. systemctl restart noobaa
+    ```
+
 ## Config.json File Examples
 The following is an example of a config.json file - 
 

@@ -2,6 +2,7 @@
 'use strict';
 
 const P = require('../../util/promise');
+const Defer = require('../../util/defer');
 const mocha = require('mocha');
 const assert = require('assert');
 
@@ -91,22 +92,22 @@ mocha.describe('promise utils', function() {
 
     mocha.describe('P.defer', function() {
         mocha.it('resolves immediately', /** @this {Mocha.Context} */ async function() {
-            const defer = new P.Defer();
+            const defer = new Defer();
             defer.resolve(this.test.title);
             assert.strictEqual(await defer.promise, this.test.title);
         });
         mocha.it('resolves later', /** @this {Mocha.Context} */ async function() {
-            const defer = new P.Defer();
+            const defer = new Defer();
             setTimeout(() => defer.resolve(this.test.title), 12);
             assert.strictEqual(await defer.promise, this.test.title);
         });
         mocha.it('rejects immediately', /** @this {Mocha.Context} */ async function() {
-            const defer = new P.Defer();
+            const defer = new Defer();
             defer.reject(new Error(this.test.title));
             assert.rejects(defer.promise);
         });
         mocha.it('rejects later', /** @this {Mocha.Context} */ async function() {
-            const defer = new P.Defer();
+            const defer = new Defer();
             setTimeout(() => defer.reject(new Error(this.test.title)), 12);
             assert.rejects(defer.promise);
         });

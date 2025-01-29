@@ -11,6 +11,7 @@ const assert = require('assert');
 const EventEmitter = require('events').EventEmitter;
 
 const P = require('../util/promise');
+const Defer = require('../util/defer');
 const js_utils = require('../util/js_utils');
 const dbg = require('../util/debug_module')(__filename);
 const config = require('../../config');
@@ -191,7 +192,7 @@ class RPC extends EventEmitter {
 
             // initialize the request
             req._new_request(api, method_api, params, options.auth_token);
-            req._response_defer = new P.Defer();
+            req._response_defer = new Defer();
             req._response_defer.promise.catch(_.noop); // to prevent error log of unhandled rejection
 
             if (options.tracker) {

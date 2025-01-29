@@ -6,7 +6,7 @@ const fs = require('fs');
 const tls = require('tls');
 const path = require('path');
 const https = require('https');
-const Semaphore = require('../util/semaphore');
+const semaphore = require('../util/semaphore');
 const dbg = require('./debug_module')(__filename);
 const nb_native = require('./nb_native');
 const { EventEmitter } = require('events');
@@ -19,7 +19,7 @@ class CertInfo extends EventEmitter {
         this.cert = null;
         this.is_loaded = false;
         this.is_generated = false;
-        this.sem = new Semaphore(1);
+        this.sem = new semaphore.Semaphore(1);
     }
 
     async file_notification(event, filename) {
@@ -168,7 +168,7 @@ function run_https_test_server() {
 
 // An internal function to prevent code duplication
 async function create_https_server(ssl_cert_info, honorCipherOrder, endpoint_handler) {
-    const ssl_options = {...ssl_cert_info.cert, honorCipherOrder: honorCipherOrder};
+    const ssl_options = { ...ssl_cert_info.cert, honorCipherOrder: honorCipherOrder };
     return https.createServer(ssl_options, endpoint_handler);
 }
 

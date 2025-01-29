@@ -7,7 +7,7 @@ const dbg = require('../../util/debug_module')(__filename);
 const system_utils = require('../utils/system_utils');
 const config = require('../../../config');
 const P = require('../../util/promise');
-const Semaphore = require('../../util/semaphore');
+const semaphore = require('../../util/semaphore');
 const replication_store = require('../system_services/replication_store').instance();
 const cloud_utils = require('../../util/cloud_utils');
 const log_parser = require('./replication_log_parser');
@@ -25,7 +25,7 @@ class LogReplicationScanner {
     constructor({ name, client }) {
         this.name = name;
         this.client = client;
-        this._scanner_sem = new Semaphore(config.REPLICATION_SEMAPHORE_CAP, {
+        this._scanner_sem = new semaphore.Semaphore(config.REPLICATION_SEMAPHORE_CAP, {
             timeout: config.REPLICATION_SEMAPHORE_TIMEOUT,
             timeout_error_code: 'LOG_REPLICATION_ITEM_TIMEOUT',
             verbose: true

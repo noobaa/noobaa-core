@@ -11,13 +11,13 @@ const RangeStream = require('../util/range_stream');
 const P = require('../util/promise');
 const buffer_utils = require('../util/buffer_utils');
 const stream_utils = require('../util/stream_utils');
-const Semaphore = require('../util/semaphore');
+const semaphore = require('../util/semaphore');
 const S3Error = require('../endpoint/s3/s3_errors').S3Error;
 const s3_utils = require('../endpoint/s3/s3_utils');
 const config = require('../../config');
 const size_utils = require('../util/size_utils');
 
-const _global_cache_uploader = new Semaphore(cache_config.UPLOAD_SEMAPHORE_CAP, {
+const _global_cache_uploader = new semaphore.Semaphore(cache_config.UPLOAD_SEMAPHORE_CAP, {
     timeout: cache_config.UPLOAD_SEMAPHORE_TIMEOUT,
     timeout_error_code: 'NAMESPACE_CACHE_UPLOAD_TIMEOUT'
 });
@@ -36,7 +36,7 @@ class NamespaceCache {
      *      stats: import('./endpoint_stats_collector').EndpointStatsCollector,
      * }} params
      */
-   constructor({ namespace_hub, namespace_nb, caching, active_triggers, stats }) {
+    constructor({ namespace_hub, namespace_nb, caching, active_triggers, stats }) {
         this.namespace_hub = namespace_hub;
         this.namespace_nb = namespace_nb;
         this.active_triggers = active_triggers;

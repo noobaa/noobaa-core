@@ -16,7 +16,7 @@ const LRUCache = require('../util/lru_cache');
 const s3_utils = require('../endpoint/s3/s3_utils');
 const db_client = require('../util/db_client');
 const nb_native = require('../util/nb_native');
-const Semaphore = require('../util/semaphore');
+const semaphore = require('../util/semaphore');
 const KeysSemaphore = require('../util/keys_semaphore');
 const block_store_client = require('../agent/block_store_services/block_store_client').instance();
 const system_store = require('../server/system_services/system_store').get_instance();
@@ -25,9 +25,9 @@ const { ChunkAPI } = require('./map_api_types');
 const { RpcError, RPC_BUFFERS } = require('../rpc');
 
 // semphores global to the client
-const block_write_sem_global = new Semaphore(config.IO_WRITE_CONCURRENCY_GLOBAL);
-const block_replicate_sem_global = new Semaphore(config.IO_REPLICATE_CONCURRENCY_GLOBAL);
-const block_read_sem_global = new Semaphore(config.IO_READ_CONCURRENCY_GLOBAL);
+const block_write_sem_global = new semaphore.Semaphore(config.IO_WRITE_CONCURRENCY_GLOBAL);
+const block_replicate_sem_global = new semaphore.Semaphore(config.IO_REPLICATE_CONCURRENCY_GLOBAL);
+const block_read_sem_global = new semaphore.Semaphore(config.IO_READ_CONCURRENCY_GLOBAL);
 
 // semphores specific to an agent
 const block_write_sem_agent = new KeysSemaphore(config.IO_WRITE_CONCURRENCY_AGENT);
@@ -652,7 +652,7 @@ class MapClient {
                 });
                 dbg.log1('MapClient: move_blocks_to_storage_class SUCCEEDED', 'ADDR:', agent_address, 'MOVED:', moved);
             } catch (err) {
-                dbg.error('MapClient: move_blocks_to_storage_class FAILED', 'ADDR:', agent_address, 'ERROR', err,);
+                dbg.error('MapClient: move_blocks_to_storage_class FAILED', 'ADDR:', agent_address, 'ERROR', err);
             }
         });
     }

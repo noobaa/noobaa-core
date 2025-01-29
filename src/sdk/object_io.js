@@ -7,7 +7,7 @@ const stream = require('stream');
 
 const dbg = require('../util/debug_module')(__filename);
 const config = require('../../config');
-const Semaphore = require('../util/semaphore');
+const semaphore = require('../util/semaphore');
 const ChunkCoder = require('../util/chunk_coder');
 const range_utils = require('../util/range_utils');
 const buffer_utils = require('../util/buffer_utils');
@@ -122,7 +122,7 @@ class ObjectIO {
         this._last_io_bottleneck_report = 0;
         this.location_info = location_info;
 
-        this._io_buffers_sem = new Semaphore(config.IO_SEMAPHORE_CAP, {
+        this._io_buffers_sem = new semaphore.Semaphore(config.IO_SEMAPHORE_CAP, {
             timeout: config.IO_STREAM_SEMAPHORE_TIMEOUT,
             timeout_error_code: 'IO_STREAM_ITEM_TIMEOUT'
         });

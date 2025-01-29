@@ -1568,6 +1568,12 @@ function get_obj_id(req, rpc_code) {
  * @param {string} rpc_code
  */
 function check_object_mode(req, obj, rpc_code) {
+    if (obj && obj.delete_marker && req.rpc_params.version_id) {
+        throw new RpcError('METHOD_NOT_ALLOWED',
+            'Method not allowed, delete object id of entry delete marker',
+            { last_modified: obj.last_modified_time, delete_marker: true });
+    }
+
     if (!obj || obj.deleted || obj.delete_marker) {
         throw new RpcError(rpc_code,
             `No such object: obj_id ${req.rpc_params.obj_id} bucket ${req.rpc_params.bucket} key ${req.rpc_params.key}`);

@@ -2,7 +2,7 @@
 'use strict';
 
 /** @typedef {import('./rpc_base_conn')} RpcBaseConnection */
-/** @typedef {import('../util/promise').Defer} Defer */
+/** @typedef {import('../util/defer')} Defer */
 
 const _ = require('lodash');
 const RpcMessage = require('./rpc_message');

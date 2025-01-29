@@ -1,7 +1,7 @@
 /* Copyright (C) 2023 NooBaa */
 'use strict';
 
-const Semaphore = require('./semaphore');
+const semaphore = require('./semaphore');
 
 /**
  * DelayedTrigger is used to invoke a batch handling from smaller triggers.
@@ -22,7 +22,7 @@ class DelayedTrigger {
         this._max_retries = max_retries;
         this._num_retries = 0;
         this._timer = null;
-        this._sem = new Semaphore(1);
+        this._sem = new semaphore.Semaphore(1);
     }
 
     trigger() {

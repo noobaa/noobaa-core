@@ -4,14 +4,14 @@
 const util = require('util');
 const mocha = require('mocha');
 const assert = require('assert');
-const Semaphore = require('../../util/semaphore');
+const semaphore = require('../../util/semaphore');
 
 const setImmediateAsync = util.promisify(setImmediate);
 
 mocha.describe('semaphore', function() {
 
     mocha.it('should create ok', function() {
-        const sem = new Semaphore(0);
+        const sem = new semaphore.Semaphore(0);
         assert.strictEqual(sem.length, 0);
         assert.strictEqual(sem.value, 0);
     });
@@ -23,7 +23,7 @@ mocha.describe('semaphore', function() {
             woke += 1;
         }
 
-        const sem = new Semaphore(10);
+        const sem = new semaphore.Semaphore(10);
         assert.strictEqual(sem.length, 0);
         assert.strictEqual(sem.value, 10);
 
@@ -75,7 +75,7 @@ mocha.describe('semaphore', function() {
 
     mocha.it('should surround', async function() {
         const throw_err = new Error();
-        const sem = new Semaphore(10);
+        const sem = new semaphore.Semaphore(10);
         assert.strictEqual(sem.length, 0);
         assert.strictEqual(sem.value, 10);
 
@@ -112,7 +112,7 @@ mocha.describe('semaphore', function() {
     });
 
     mocha.it('should fail on timeout in surround', async function() {
-        const sem = new Semaphore(1, {
+        const sem = new semaphore.Semaphore(1, {
             // Just using the minimum timeout without any place inside the semaphore
             // This means that we are just interested in failing as quickly as we can
             // With the item inside the waiting queue
@@ -135,7 +135,7 @@ mocha.describe('semaphore', function() {
     });
 
     mocha.it('should release value on non settled worker', async function() {
-        const sem = new Semaphore(1, {
+        const sem = new semaphore.Semaphore(1, {
             work_timeout: 1,
             work_timeout_error_code: 'MAJESTIC_SLOTH_TIMEOUT'
         });

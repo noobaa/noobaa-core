@@ -7,7 +7,7 @@ import { Readable, Writable } from 'stream';
 import { IncomingMessage, ServerResponse } from 'http';
 import { ObjectPart, Checksum} from '@aws-sdk/client-s3';
 
-type Semaphore = import('../util/semaphore');
+type Semaphore = import('../util/semaphore').Semaphore;
 type KeysSemaphore = import('../util/keys_semaphore');
 type SensitiveString = import('../util/sensitive_string');
 

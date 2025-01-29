@@ -3,7 +3,7 @@
 
 const _ = require('lodash');
 const util = require('util');
-const Semaphore = require('./semaphore');
+const semaphore = require('./semaphore');
 
 require('setimmediate'); // shim for the browser
 
@@ -50,7 +50,7 @@ async function map(arr, func) {
  * @returns {Promise<Array<V>>}
  */
 async function map_with_concurrency(concurrency, arr, func) {
-    const sem = new Semaphore(concurrency);
+    const sem = new semaphore.Semaphore(concurrency);
     return Promise.all(arr.map(async (key, index) => sem.surround(async () => func(key, index))));
 }
 

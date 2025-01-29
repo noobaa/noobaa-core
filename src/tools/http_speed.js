@@ -8,7 +8,7 @@ const stream = require('stream');
 const crypto = require('crypto');
 const cluster = require('cluster');
 const ssl_utils = require('../util/ssl_utils');
-const Semaphore = require('../util/semaphore');
+const semaphore = require('../util/semaphore');
 const Speedometer = require('../util/speedometer');
 const buffer_utils = require('../util/buffer_utils');
 
@@ -42,7 +42,7 @@ const http_agent = argv.ssl ?
     new https.Agent({ keepAlive: true }) :
     new http.Agent({ keepAlive: true });
 
-const buffers_pool_sem = new Semaphore(1024 * 1024 * 1024, {
+const buffers_pool_sem = new semaphore.Semaphore(1024 * 1024 * 1024, {
     timeout: 2 * 60 * 1000,
     timeout_error_code: 'HTTP_SPEED_BUFFER_POOL_TIMEOUT',
     warning_timeout: 10 * 60 * 1000,

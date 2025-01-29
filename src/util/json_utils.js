@@ -7,13 +7,13 @@ const fs = require('fs');
 const P = require('./promise');
 const dbg = require('./debug_module')(__filename);
 const fs_utils = require('./fs_utils');
-const Semaphore = require('./semaphore');
+const semaphore = require('./semaphore');
 
 class JsonFileWrapper {
 
     constructor(json_path) {
         this.json_path = json_path;
-        this.json_sem = new Semaphore(1);
+        this.json_sem = new semaphore.Semaphore(1);
     }
 
     read() {

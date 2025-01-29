@@ -15,6 +15,7 @@ const { TYPES, ACTIONS, VALID_OPTIONS, OPTION_TYPE, FROM_FILE, BOOLEAN_STRING_VA
     GLACIER_ACTIONS, LIST_UNSETABLE_OPTIONS, ANONYMOUS, DIAGNOSE_ACTIONS, UPGRADE_ACTIONS } = require('../manage_nsfs/manage_nsfs_constants');
 const { check_root_account_owns_user } = require('../nc/nc_utils');
 const { validate_username } = require('../util/validation_utils');
+const notifications_util = require('../util/notifications_util');
 
 /////////////////////////////
 //// GENERAL VALIDATIONS ////
@@ -447,6 +448,24 @@ async function validate_bucket_args(config_fs, data, action) {
     }
 }
 
+/**
+ * When setting notifications, we are supposed to send a test notification.
+ * If this test fails, we fail the user's request.
+ * @param {object} config_fs
+ * @param {object} notifications bucket's notification conf
+ * @returns {Promise} Error encountered during notification test, if any
+ */
+async function validate_bucket_notifications(config_fs, notifications) {
+    if (!notifications) {
+        return;
+    }
+    //test_notification returns an error if notification fails for the given config
+    const test_notif_err = await notifications_util.test_notifications(notifications, config_fs.config_root);
+    if (test_notif_err) {
+        throw_cli_error(ManageCLIError.InvalidArgument, "Failed to update notifications", test_notif_err);
+    }
+}
+
 /////////////////////////////
 //// ACCOUNT VALIDATIONS ////
 /////////////////////////////
@@ -682,6 +701,7 @@ function validate_connection_args(user_input, action) {
 // EXPORTS
 exports.validate_input_types = validate_input_types;
 exports.validate_bucket_args = validate_bucket_args;
+exports.validate_bucket_notifications = validate_bucket_notifications;
 exports.validate_account_args = validate_account_args;
 exports._validate_access_keys = _validate_access_keys;
 exports.validate_root_accounts_manager_update = validate_root_accounts_manager_update;

@@ -584,8 +584,15 @@ function check_headers(req, options) {
     if (isNaN(req_time) && !req.query.Expires && is_not_anonymous_req) {
         throw new options.ErrorClass(options.error_access_denied);
     }
-
-    if (Math.abs(Date.now() - req_time) > config.AMZ_DATE_MAX_TIME_SKEW_MILLIS) {
+    // futureus presigned url request should throw AccessDenied with request is no valid yet message
+    // we add a grace period of one second
+    const is_presigned_url = req.query.Expires || (req.query['X-Amz-Date'] && req.query['X-Amz-Expires']);
+    if (is_presigned_url && (req_time > (Date.now() + 2000))) {
+        throw new S3Error(S3Error.RequestNotValidYet);
+    }
+    // on regular requests the skew limit is 15 minutes
+    // on presigned url requests we don't need to check skew
+    if (!is_presigned_url && (Math.abs(Date.now() - req_time) > config.AMZ_DATE_MAX_TIME_SKEW_MILLIS)) {
         throw new options.ErrorClass(options.error_request_time_too_skewed);
     }
 }

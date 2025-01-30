@@ -848,6 +848,8 @@ config.NSFS_LOW_FREE_SPACE_MB_UNLEASH = 10 * 1024;
 // operations safely.
 config.NSFS_LOW_FREE_SPACE_PERCENT_UNLEASH = 0.10;
 
+config.NFSF_UPLOAD_STREAM_MEM_THRESHOLD = 8 * 1024 * 1024;
+
 ////////////////////////////
 // NSFS NON CONTAINERIZED //
 ////////////////////////////

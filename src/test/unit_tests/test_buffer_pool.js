@@ -3,7 +3,7 @@
 const mocha = require('mocha');
 const assert = require('assert');
 const buffer_utils = require('../../util/buffer_utils');
-const Semaphore = require('../../util/semaphore');
+const semaphore = require('../../util/semaphore');
 
 mocha.describe('Test buffers pool', function() {
 
@@ -12,7 +12,7 @@ mocha.describe('Test buffers pool', function() {
         const BUF_LIMIT = 8 * 1024 * 1024;
         const MAX_POOL_ALLOWED = SEM_LIMIT / BUF_LIMIT;
         const SLEEP_BEFORE_RELEASE = 264;
-        const buffers_pool_sem = new Semaphore(SEM_LIMIT);
+        const buffers_pool_sem = new semaphore.Semaphore(SEM_LIMIT);
         const buffers_pool = new buffer_utils.BuffersPool({
             buf_size: BUF_LIMIT,
             sem: buffers_pool_sem,
@@ -54,18 +54,16 @@ mocha.describe('Test buffers pool', function() {
         const MAX_POOL_ALLOWED1 = SEM_LIMIT1 / BUF_LIMIT1;
         const SLEEP_BEFORE_RELEASE = 264;
         const multi_buffer_pool = new buffer_utils.MultiSizeBuffersPool({
-            sorted_buf_sizes: [
-                {
-                    size: BUF_LIMIT1,
-                    sem_size: SEM_LIMIT1,
-                }, {
-                    size: BUF_LIMIT2,
-                    sem_size: SEM_LIMIT2,
-                }, {
-                    size: BUF_LIMIT3,
-                    sem_size: SEM_LIMIT3,
-                },
-            ],
+            sorted_buf_sizes: [{
+                size: BUF_LIMIT1,
+                sem_size: SEM_LIMIT1,
+            }, {
+                size: BUF_LIMIT2,
+                sem_size: SEM_LIMIT2,
+            }, {
+                size: BUF_LIMIT3,
+                sem_size: SEM_LIMIT3,
+            }, ],
             warning_timeout: 0,
         });
         const lazy_fill = new Array(MAX_POOL_ALLOWED1 + 2).fill(0);
@@ -79,7 +77,7 @@ mocha.describe('Test buffers pool', function() {
         });
         let buf = await multi_buffer_pool.get_buffers_pool(BUF_LIMIT1 + 500).get_buffer();
         console.log('From pool allocations', buf.buffer.length,
-                multi_buffer_pool.pools[1].buffers.length, multi_buffer_pool.pools[1].sem.value);
+            multi_buffer_pool.pools[1].buffers.length, multi_buffer_pool.pools[1].sem.value);
         buf.callback();
         assert(buf.buffer.length === BUF_LIMIT2, 'Allocated different buffer size than expected');
         const from_pool_buffers = await Promise.all(from_pool_allocation);
@@ -89,7 +87,7 @@ mocha.describe('Test buffers pool', function() {
         assert(multi_buffer_pool.pools[0].sem.value === SEM_LIMIT1, 'Sempahore did not deallocate after buffers release');
         buf = await multi_buffer_pool.get_buffers_pool(BUF_LIMIT2 + 500).get_buffer();
         console.log('From pool allocations', buf.buffer.length,
-                multi_buffer_pool.pools[2].buffers.length, multi_buffer_pool.pools[2].sem.value);
+            multi_buffer_pool.pools[2].buffers.length, multi_buffer_pool.pools[2].sem.value);
         buf.callback();
         assert(buf.buffer.length === BUF_LIMIT3, 'Allocated different buffer size than expected');
         buf = await multi_buffer_pool.get_buffers_pool(0).get_buffer();

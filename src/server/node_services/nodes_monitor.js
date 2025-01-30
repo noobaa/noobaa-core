@@ -15,7 +15,7 @@ const dbg = require('../../util/debug_module')(__filename);
 const config = require('../../../config');
 const js_utils = require('../../util/js_utils');
 const MDStore = require('../object_services/md_store').MDStore;
-const Semaphore = require('../../util/semaphore');
+const semaphore = require('../../util/semaphore');
 const NodesStore = require('./nodes_store').NodesStore;
 const IoStatsStore = require('../analytic_services/io_stats_store').IoStatsStore;
 const size_utils = require('../../util/size_utils');
@@ -187,8 +187,8 @@ class NodesMonitor extends EventEmitter {
         this._started = false;
         this._loaded = false;
         this._num_running_rebuilds = 0;
-        this._run_serial = new Semaphore(1);
-        this._update_nodes_store_serial = new Semaphore(1);
+        this._run_serial = new semaphore.Semaphore(1);
+        this._update_nodes_store_serial = new semaphore.Semaphore(1);
 
         // This is used in order to test n2n connection from node_monitor to agents
         this.n2n_rpc = api.new_rpc();
@@ -851,7 +851,7 @@ class NodesMonitor extends EventEmitter {
 
     _run_node(item) {
         if (!this._started) return P.reject(new Error('monitor has not started'));
-        item._run_node_serial = item._run_node_serial || new Semaphore(1);
+        item._run_node_serial = item._run_node_serial || new semaphore.Semaphore(1);
         if (item.node.deleted) return P.reject(new Error(`node ${item.node.name} is deleted`));
         return item._run_node_serial.surround(() =>
             P.resolve()

@@ -7,6 +7,8 @@ const _ = require('lodash');
 const events = require('events');
 
 const P = require('../util/promise');
+const Defer = require('../util/defer');
+
 const dbg = require('../util/debug_module')(__filename);
 const config = require('../../config');
 const time_utils = require('../util/time_utils');
@@ -38,7 +40,7 @@ class RpcBaseConnection extends events.EventEmitter {
         this._state = STATE_INIT;
 
         // the connecting_defer is used by connect() to wait for the connected event
-        this.connecting_defer = new P.Defer();
+        this.connecting_defer = new Defer();
         this._connect_promise = events.once(this, 'connect');
         this._connect_promise.catch(_.noop); // to prevent error log of unhandled rejection
 

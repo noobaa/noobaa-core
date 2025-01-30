@@ -31,7 +31,7 @@ const agent_config_indexes = require('./schemas/agent_config_indexes');
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const js_utils = require('../../util/js_utils');
-const Semaphore = require('../../util/semaphore');
+const semaphore = require('../../util/semaphore');
 const server_rpc = require('../server_rpc');
 const time_utils = require('../../util/time_utils');
 const size_utils = require('../../util/size_utils');
@@ -351,7 +351,7 @@ class SystemStore extends EventEmitter {
         this.is_finished_initial_load = false;
         this.START_REFRESH_THRESHOLD = 10 * 60 * 1000;
         this.FORCE_REFRESH_THRESHOLD = 60 * 60 * 1000;
-        this._load_serial = new Semaphore(1, { warning_timeout: this.START_REFRESH_THRESHOLD });
+        this._load_serial = new semaphore.Semaphore(1, { warning_timeout: this.START_REFRESH_THRESHOLD });
         for (const col of COLLECTIONS) {
             db_client.instance().define_collection(col);
         }
@@ -813,9 +813,9 @@ class SystemStore extends EventEmitter {
     get_accounts_by_nsfs_account_config(nsfs_account_config) {
         if (this.data && !_.isEmpty(this.data.accounts)) {
             return this.data.accounts.filter(account => account.nsfs_account_config &&
-                    _.isEqual(account.nsfs_account_config.distinguished_name, nsfs_account_config.distinguished_name) &&
-                    account.nsfs_account_config.uid === nsfs_account_config.uid &&
-                    account.nsfs_account_config.gid === nsfs_account_config.gid);
+                _.isEqual(account.nsfs_account_config.distinguished_name, nsfs_account_config.distinguished_name) &&
+                account.nsfs_account_config.uid === nsfs_account_config.uid &&
+                account.nsfs_account_config.gid === nsfs_account_config.gid);
         }
     }
 

@@ -9,7 +9,7 @@ const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
 const { RpcError, RPC_BUFFERS } = require('../../rpc');
 const fs_utils = require('../../util/fs_utils');
-const Semaphore = require('../../util/semaphore');
+const semaphore = require('../../util/semaphore');
 const zip_utils = require('../../util/zip_utils');
 
 const FUNC_PROC_PATH = path.resolve(__dirname, 'func_proc.js');
@@ -22,7 +22,7 @@ class FuncNode {
         this.storage_path = params.storage_path || '.';
         this.functions_path = path.join(this.storage_path, 'functions');
         this.functions_loading_path = path.join(this.storage_path, 'functions_loading');
-        this.loading_serial = new Semaphore(1);
+        this.loading_serial = new semaphore.Semaphore(1);
     }
 
     async invoke_func(req) {

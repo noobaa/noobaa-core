@@ -6,7 +6,7 @@ const fs = require('fs');
 const argv = require('minimist')(process.argv);
 const AWS = require('aws-sdk');
 const P = require('../../util/promise');
-const Semaphore = require('../../util/semaphore');
+const semaphore = require('../../util/semaphore');
 const os_utils = require('../../util/os_utils');
 
 const UL_TEST = {
@@ -97,7 +97,7 @@ function upload_test() {
         Bucket: UL_TEST.bucket_name
     });
 
-    const upload_semaphore = new Semaphore(UL_TEST.num_threads);
+    const upload_semaphore = new semaphore.Semaphore(UL_TEST.num_threads);
     return P.all(_.map(UL_TEST.files, function(f) {
         return upload_semaphore.surround(function() {
             return upload_file(f);

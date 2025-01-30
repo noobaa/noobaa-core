@@ -4,7 +4,7 @@
 const stream = require('stream');
 
 const P = require('./promise');
-const Semaphore = require('./semaphore');
+const semaphore = require('./semaphore');
 const nb_native = require('./nb_native');
 
 /**
@@ -19,14 +19,14 @@ class ChunkCoder extends stream.Transform {
 
     /**
      * @param {{
-    *      watermark?: number,
-    *      concurrency?: number,
-    *      coder?: string,
-    *      chunk_coder_config?: object,
-    *      cipher_key_b64?: string,
-    * }} args 
-    */
-   constructor({ watermark, concurrency, coder, chunk_coder_config, cipher_key_b64 }) {
+     *      watermark?: number,
+     *      concurrency?: number,
+     *      coder?: string,
+     *      chunk_coder_config?: object,
+     *      cipher_key_b64?: string,
+     * }} args 
+     */
+    constructor({ watermark, concurrency, coder, chunk_coder_config, cipher_key_b64 }) {
         super({
             objectMode: true,
             allowHalfOpen: false,
@@ -37,8 +37,8 @@ class ChunkCoder extends stream.Transform {
         this.chunk_coder_config = chunk_coder_config;
         this.stream_promise = P.resolve();
         // using both local and global semaphore to avoid one stream overwhelming the global sem
-        this.stream_sem = new Semaphore(concurrency);
-        ChunkCoder.global_sem = ChunkCoder.global_sem || new Semaphore(concurrency);
+        this.stream_sem = new semaphore.Semaphore(concurrency);
+        ChunkCoder.global_sem = ChunkCoder.global_sem || new semaphore.Semaphore(concurrency);
     }
 
     // Our goal here is to process chunks in concurrency.

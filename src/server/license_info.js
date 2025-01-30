@@ -8,12 +8,12 @@ const minimist = require('minimist');
 
 const P = require('../util/promise');
 const pkg = require('../../package.json');
-const Semaphore = require('../util/semaphore');
+const semaphore = require('../util/semaphore');
 const os_utils = require('../util/os_utils');
 const license_utils = require('../util/license_utils');
 
 const LICENSE_INFO_JSON_PATH = path.resolve('license_info.json');
-const serial = new Semaphore(1);
+const serial = new semaphore.Semaphore(1);
 
 /**
  * Handle the license info http request

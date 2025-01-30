@@ -158,7 +158,8 @@ config.ENDPOINT_HTTP_MAX_REQUESTS_PER_SOCKET = 0; // 0 = no limit
 // note that browsers do not really allow origin=* with credentials,
 // but we just allow both from our side for simplicity.
 config.S3_CORS_ENABLED = true;
-config.S3_CORS_ALLOW_ORIGIN = '*';
+config.S3_CORS_DEFAULTS_ENABLED = true;
+config.S3_CORS_ALLOW_ORIGIN = ['*'];
 config.S3_CORS_ALLOW_CREDENTIAL = 'true';
 config.S3_CORS_ALLOW_METHODS = [
     'GET',
@@ -166,7 +167,7 @@ config.S3_CORS_ALLOW_METHODS = [
     'PUT',
     'DELETE',
     'OPTIONS'
-].join(',');
+];
 config.S3_CORS_ALLOW_HEADERS = [
     'Content-Type',
     'Content-MD5',
@@ -177,11 +178,11 @@ config.S3_CORS_ALLOW_HEADERS = [
     'X-Amz-Content-Sha256',
     'amz-sdk-invocation-id',
     'amz-sdk-request',
-].join(',');
+];
 config.S3_CORS_EXPOSE_HEADERS = [
     'ETag',
     'X-Amz-Version-Id'
-].join(',');
+];
 config.STS_CORS_EXPOSE_HEADERS = 'ETag';
 
 config.DENY_UPLOAD_TO_STORAGE_CLASS_STANDARD = false;

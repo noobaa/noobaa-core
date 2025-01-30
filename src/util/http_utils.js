@@ -692,10 +692,10 @@ function set_cors_headers_s3(req, res, cors_rules) {
 function set_cors_headers_sts(req, res) {
     if (config.S3_CORS_ENABLED) {
         set_cors_headers(req, res, {
-            allow_origin: config.S3_CORS_ALLOW_ORIGIN,
+            allow_origin: config.S3_CORS_ALLOW_ORIGIN[0],
             allow_credentials: config.S3_CORS_ALLOW_CREDENTIAL,
-            allow_methods: config.S3_CORS_ALLOW_METHODS,
-            allow_headers: config.S3_CORS_ALLOW_HEADERS,
+            allow_methods: config.S3_CORS_ALLOW_METHODS.join(','),
+            allow_headers: config.S3_CORS_ALLOW_HEADERS.join(','),
             expose_headers: config.STS_CORS_EXPOSE_HEADERS,
         });
     }
@@ -756,7 +756,7 @@ function http_get(uri, options) {
  * @param {number} https_port
  * @param {('S3'|'IAM'|'STS'|'METRICS')} server_type 
  * @param {Object} request_handler 
-*/
+ */
 async function start_https_server(https_port, server_type, request_handler, nsfs_config_root) {
     const ssl_cert_info = await ssl_utils.get_ssl_cert_info(server_type, nsfs_config_root);
     const https_server = await ssl_utils.create_https_server(ssl_cert_info, true, request_handler);
@@ -775,7 +775,7 @@ async function start_https_server(https_port, server_type, request_handler, nsfs
  * @param {number} http_port
  * @param {('S3'|'IAM'|'STS'|'METRICS')} server_type 
  * @param {Object} request_handler 
-*/
+ */
 async function start_http_server(http_port, server_type, request_handler) {
     const http_server = http.createServer(request_handler);
     if (http_port > 0) {
@@ -790,7 +790,7 @@ async function start_http_server(http_port, server_type, request_handler) {
  * @param {number} port
  * @param {http.Server} server
  * @param {('S3'|'IAM'|'STS'|'METRICS')} server_type 
-*/
+ */
 function listen_port(port, server, server_type) {
     return new Promise((resolve, reject) => {
         if (server_type !== 'METRICS') {
@@ -810,7 +810,7 @@ function listen_port(port, server, server_type) {
 /**
  * Setup endpoint socket and server, Setup is not used for non-endpoint servers.
  * @param {http.Server} server
-*/
+ */
 function setup_endpoint_server(server) {
     // Handle 'Expect' header different than 100-continue to conform with AWS.
     // Consider any expect value as if the client is expecting 100-continue.

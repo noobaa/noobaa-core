@@ -10,20 +10,38 @@ const { NodeHttpHandler } = require("@smithy/node-http-handler");
 const http = require('http');
 const system_store = require('../../server/system_services/system_store').get_instance();
 const upgrade_bucket_policy = require('../../upgrade/upgrade_scripts/5.15.6/upgrade_bucket_policy');
+const upgrade_bucket_cors = require('../../upgrade/upgrade_scripts/5.19.0/upgrade_bucket_cors');
 const dbg = require('../../util/debug_module')(__filename);
 const assert = require('assert');
 const mocha = require('mocha');
 const config = require('../../../config');
 
 const BKT = 'test-bucket';
+/** @type {S3} */
 let s3;
 
 async function _clean_all_bucket_policies() {
-    for (const bucket of system_store.data.buckets) {
-        if (bucket.s3_policy) {
-            await s3.deleteBucketPolicy({ Bucket: bucket.name.unwrap() });
+    const buckets = system_store.data.buckets.map(bucket => ({
+        _id: bucket._id,
+        $unset: { s3_policy: 1 }
+    }));
+    await system_store.make_changes({
+        update: {
+            buckets
         }
-    }
+    });
+}
+
+async function _clean_all_bucket_cors() {
+    const buckets = system_store.data.buckets.map(bucket => ({
+        _id: bucket._id,
+        $unset: { cors_configuration_rules: 1 }
+    }));
+    await system_store.make_changes({
+        update: {
+            buckets
+        }
+    });
 }
 
 mocha.describe('test upgrade scripts', async function() {
@@ -91,6 +109,24 @@ mocha.describe('test upgrade scripts', async function() {
         assert.strictEqual(new_policy.Statement[0].Action[0], 's3:GetObject');
         assert.strictEqual(new_policy.Statement[0].Action[1], 's3:*');
         assert.strictEqual(new_policy.Statement[0].Resource[0], old_policy.statement[0].resource[0]);
+    });
+
+    mocha.it('test upgrade bucket cors to version 5.19.0', async function() {
+
+        // clean all leftover bucket CORS configurations
+        await _clean_all_bucket_cors();
+
+        await upgrade_bucket_cors.run({ dbg, system_store });
+        const cors = await s3.getBucketCors({
+            Bucket: BKT,
+        });
+
+        dbg.log0('cors:', cors);
+
+        assert.deepEqual(cors.CORSRules[0].AllowedHeaders, config.S3_CORS_ALLOW_HEADERS);
+        assert.deepEqual(cors.CORSRules[0].AllowedMethods, config.S3_CORS_ALLOW_METHODS);
+        assert.deepEqual(cors.CORSRules[0].AllowedOrigins, config.S3_CORS_ALLOW_ORIGIN);
+        assert.deepEqual(cors.CORSRules[0].ExposeHeaders, config.S3_CORS_EXPOSE_HEADERS);
     });
 
     mocha.after(async function() {

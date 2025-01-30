@@ -350,7 +350,14 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             force_md5_etag: force_md5_etag,
             path: bucket_storage_path,
             should_create_underlying_storage: create_uls,
-            fs_backend: account.nsfs_account_config.fs_backend
+            fs_backend: account.nsfs_account_config.fs_backend,
+            cors_configuration_rules: config.S3_CORS_DEFAULTS_ENABLED ? [{
+                allowed_origins: config.S3_CORS_ALLOW_ORIGIN,
+                allowed_methods: config.S3_CORS_ALLOW_METHODS,
+                allowed_headers: config.S3_CORS_ALLOW_HEADERS,
+                expose_headers: config.S3_CORS_EXPOSE_HEADERS,
+
+            }] : undefined,
         };
     }
 

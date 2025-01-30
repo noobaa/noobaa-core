@@ -6,6 +6,7 @@ module.exports = Ice;
 
 const _ = require('lodash');
 const P = require('../util/promise');
+const Defer = require('../util/defer');
 const os = require('os');
 const net = require('net');
 const tls = require('tls');
@@ -1341,7 +1342,7 @@ function IceSession(local, remote, packet, udp) {
     self.state = 'init';
     js_utils.self_bind(self, 'run_udp_request_loop');
     js_utils.self_bind(self, 'run_udp_indication_loop');
-    self.defer = new P.Defer();
+    self.defer = new Defer();
     self.defer.promise.catch(_.noop); // to ignore 'Unhandled rejection' printouts
     // set session timeout
     self.ready_timeout = setTimeout(function() {

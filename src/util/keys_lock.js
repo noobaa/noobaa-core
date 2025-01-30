@@ -3,6 +3,7 @@
 
 const _ = require('lodash');
 const P = require('../util/promise');
+const Defer = require('../util/defer');
 const LinkedList = require('./linked_list');
 
 class KeysLock {
@@ -43,7 +44,7 @@ class KeysLock {
             return P.resolve();
         }
 
-        const defer = new P.Defer();
+        const defer = new Defer();
         lock_item.defer = defer;
         this._wait_list.push_back(lock_item);
         return defer.promise;

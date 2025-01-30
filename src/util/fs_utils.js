@@ -8,7 +8,7 @@ const { rimraf } = require('rimraf');
 const crypto = require('crypto');
 
 const P = require('./promise');
-const Semaphore = require('./semaphore');
+const semaphore = require('./semaphore');
 const os_utils = require('../util/os_utils');
 
 const PRIVATE_DIR_PERMISSIONS = 0o700; // octal 700
@@ -62,9 +62,9 @@ async function read_dir_recursive(options) {
     const root = options.root || '.';
     const depth = options.depth || Infinity;
     const level = options.level || 0;
-    const dir_sem = options.dir_semaphore || new Semaphore(32);
+    const dir_sem = options.dir_semaphore || new semaphore.Semaphore(32);
     options.dir_semaphore = dir_sem;
-    const stat_sem = options.stat_semaphore || new Semaphore(128);
+    const stat_sem = options.stat_semaphore || new semaphore.Semaphore(128);
     options.stat_semaphore = stat_sem;
     const sub_dirs = [];
 
@@ -281,7 +281,7 @@ function replace_file(file_path, data) {
     const tmp_name = `${file_path}.${unique_suffix}`;
     const lock_key = path.resolve(file_path);
     if (!process_file_locks.has(lock_key)) {
-        process_file_locks.set(lock_key, new Semaphore(1));
+        process_file_locks.set(lock_key, new semaphore.Semaphore(1));
     }
     const lock = process_file_locks.get(lock_key);
     return lock.surround(() =>

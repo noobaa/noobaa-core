@@ -1,7 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const Semaphore = require('./semaphore');
+const semaphore = require('./semaphore');
 
 
 class KeysSemaphore {
@@ -21,7 +21,7 @@ class KeysSemaphore {
     async surround_key(key, func) {
         let sem = this._keys_map.get(key);
         if (!sem) {
-            sem = new Semaphore(this._initial, this._params);
+            sem = new semaphore.Semaphore(this._initial, this._params);
             this._keys_map.set(key, sem);
         }
         try {

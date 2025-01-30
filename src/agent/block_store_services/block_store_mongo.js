@@ -9,15 +9,15 @@ const size_utils = require('../../util/size_utils');
 const mongo_client = require('../../util/mongo_client');
 const buffer_utils = require('../../util/buffer_utils');
 const BlockStoreBase = require('./block_store_base').BlockStoreBase;
-const Semaphore = require('../../util/semaphore');
+const semaphore = require('../../util/semaphore');
 
 // limiting the IO concurrency on mongo
 // we use a very low limit since this is used only for temporary internal storage
 // which is meant for quick onboarding, and not for performance/production.
-const sem_head = new Semaphore(3);
-const sem_read = new Semaphore(1);
-const sem_write = new Semaphore(1);
-const sem_delete = new Semaphore(1);
+const sem_head = new semaphore.Semaphore(3);
+const sem_read = new semaphore.Semaphore(1);
+const sem_write = new semaphore.Semaphore(1);
+const sem_delete = new semaphore.Semaphore(1);
 
 const GRID_FS_BUCKET_NAME = 'mongo_internal_agent';
 const GRID_FS_BUCKET_NAME_FILES = `${GRID_FS_BUCKET_NAME}.files`;

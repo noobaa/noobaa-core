@@ -275,4 +275,4 @@ function to_sem_count(count) {
     return (typeof(count) === 'number' && count >= 0) ? Math.floor(count) : 1;
 }
 
-module.exports = Semaphore;
+exports.Semaphore = Semaphore;

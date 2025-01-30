@@ -2,7 +2,7 @@
 'use strict';
 
 const stream = require('stream');
-const Semaphore = require('./semaphore');
+const semaphore = require('./semaphore');
 const dbg = require('./debug_module')(__filename);
 const util = require('util');
 
@@ -182,7 +182,7 @@ class BuffersPool {
     /**
      * @param {{
      *      buf_size: number;
-     *      sem: import('./semaphore');
+     *      sem: import('./semaphore').Semaphore;
      *      warning_timeout: number;
      *      buffer_alloc?: (size: number) => Buffer;
      * }} params
@@ -239,34 +239,34 @@ class BuffersPool {
 class MultiSizeBuffersPool {
     /**
      * @param {{
-    *      sorted_buf_sizes: Array<{
-    *           size: number;
-    *           sem_size: number;
-    *      }>;
-    *      warning_timeout?: number;
-    *      sem_timeout?: number,
-    *      sem_timeout_error_code?: string;
-    *      sem_warning_timeout?: number;
-    *      buffer_alloc?: (size: number) => Buffer;
-    * }} params
-    */
-    constructor({ sorted_buf_sizes, warning_timeout, sem_timeout, sem_timeout_error_code, sem_warning_timeout, buffer_alloc}) {
+     *      sorted_buf_sizes: Array<{
+     *           size: number;
+     *           sem_size: number;
+     *      }>;
+     *      warning_timeout?: number;
+     *      sem_timeout?: number,
+     *      sem_timeout_error_code?: string;
+     *      sem_warning_timeout?: number;
+     *      buffer_alloc?: (size: number) => Buffer;
+     * }} params
+     */
+    constructor({ sorted_buf_sizes, warning_timeout, sem_timeout, sem_timeout_error_code, sem_warning_timeout, buffer_alloc }) {
         this.pools = sorted_buf_sizes.map(({ size, sem_size }) =>
             new BuffersPool({
                 buf_size: size,
-                sem: new Semaphore(sem_size, {
+                sem: new semaphore.Semaphore(sem_size, {
                     timeout: sem_timeout,
                     timeout_error_code: sem_timeout_error_code,
                     warning_timeout: sem_warning_timeout,
                 }),
                 warning_timeout: warning_timeout,
                 buffer_alloc
-        }));
+            }));
     }
 
     /**
      * @returns {BuffersPool}
-    */
+     */
     get_buffers_pool(size) {
         const largest = this.pools[this.pools.length - 1];
         if (typeof size !== 'number' || size < 0) {

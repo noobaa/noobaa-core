@@ -350,8 +350,8 @@ function send_reply(req, res, reply, options) {
             reply;
         // TODO: Refactor later on to support potential headers response and delayed XML body
         // This is done for the complete since we assign the XML header only in body prior to responding
-        const xml_reply = xml_utils.encode_xml(xml_root, /* ignore_header */ res.headersSent);
-        dbg.log1('HTTP REPLY XML', req.method, req.originalUrl,
+        const xml_reply = xml_utils.encode_xml(xml_root, /* ignore_header */ res.headersSent, options.reply.repeat_array_tags);
+        dbg.log0('HTTP REPLY XML', req.method, req.originalUrl,
             JSON.stringify(req.headers),
             xml_reply.length <= 2000 ?
             xml_reply : xml_reply.slice(0, 1000) + ' ... ' + xml_reply.slice(-1000));

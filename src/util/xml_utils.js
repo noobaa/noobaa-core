@@ -18,7 +18,7 @@ const XML_HEADER = '<?xml version="1.0" encoding="UTF-8"?>';
  *
  * the object will be traveresed recursively:
  *  - any object will be encoded such that keys are xml tags.
- *  - any array will be encode without introducing new keys, meaning items are flattened.
+ *  - any array will be encode without introducing new keys, meaning items are flattened, unless repeat_array_tags is true.
  *  - string/number/boolean/date will be converted to strings.
  *  - {key: null} will encode an empty tag - <key></key>
  *  - {key: undefined} will not encode the tag at all.
@@ -31,22 +31,24 @@ const XML_HEADER = '<?xml version="1.0" encoding="UTF-8"?>';
  *   <root> <a>1</a> <b>2</b> <a>3</a> <b>4</b> <z>42</z> <c d="5"></c> </root>
  *
  */
-function encode_xml(object, ignore_header) {
+function encode_xml(object, ignore_header, repeat_array_tags) {
     let output = ignore_header ? '' : XML_HEADER;
     append_object(s => {
         output += s;
-    }, object);
+    }, object, repeat_array_tags);
     return output;
 }
 
-function append_object(append, object) {
+function append_object(append, object, repeat_array_tags, father) {
     if (typeof(object) !== 'object') {
         append(encode_xml_str(object));
     } else if (Array.isArray(object)) {
         // arrays are encoded without adding new tags
         // which allows repeating keys with the same name
         for (let i = 0; i < object.length; ++i) {
-            append_object(append, object[i]);
+            if (repeat_array_tags && i !== 0) append('<' + father + '>');
+            append_object(append, object[i], repeat_array_tags, father);
+            if (repeat_array_tags && object.length !== i + 1) append('</' + father + '>');
         }
     } else {
         // skip any keys from the prototype
@@ -63,7 +65,7 @@ function append_object(append, object) {
             // otherwise ignore the key and value altogether
             if (key[0] === '_') {
                 if (key === '_content') {
-                    append_object(append, val);
+                    append_object(append, val, repeat_array_tags, key);
                 }
                 continue;
             }
@@ -79,7 +81,7 @@ function append_object(append, object) {
                 } else {
                     append('<' + key + '>');
                 }
-                append_object(append, val);
+                append_object(append, val, repeat_array_tags, key);
                 append('</' + key + '>');
             } else {
                 append('<' + key + '>');

@@ -49,5 +49,6 @@ module.exports = {
     },
     reply: {
         type: 'xml',
+        repeat_array_tags: true,
     },
 };

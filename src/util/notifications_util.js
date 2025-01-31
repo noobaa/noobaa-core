@@ -29,8 +29,6 @@ const OP_TO_EVENT = Object.freeze({
     lifecycle_delete: { name: 'LifecycleExpiration' },
 });
 
-const DEFAULT_CONNECT_FILES_DIR = '/etc/notif_connect/';
-
 class Notificator {
 
     /**
@@ -43,7 +41,7 @@ class Notificator {
         this.connect_str_to_connection = new Map();
         this.notif_to_connect = new Map();
         this.fs_context = fs_context ?? get_process_fs_context();
-        this.connect_files_dir = connect_files_dir ?? DEFAULT_CONNECT_FILES_DIR;
+        this.connect_files_dir = connect_files_dir ?? config.NOTIFICATION_CONNECT_DIR;
         this.nc_config_fs = nc_config_fs;
         this.batch_size = batch_size || config.NOTIFICATION_BATCH || 10;
 
@@ -352,7 +350,7 @@ async function test_notifications(notifs, nc_config_dir) {
     if (!notifs) {
         return;
     }
-    let connect_files_dir = DEFAULT_CONNECT_FILES_DIR;
+    let connect_files_dir = config.NOTIFICATION_CONNECT_DIR;
     if (nc_config_dir) {
         connect_files_dir = new ConfigFS(nc_config_dir).connections_dir_path;
     }

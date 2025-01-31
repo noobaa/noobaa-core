@@ -8,38 +8,25 @@ const _ = require('lodash');
  */
 async function get_bucket_notification(req) {
 
-    let result = await req.object_sdk.get_bucket_notification({
+    const result = await req.object_sdk.get_bucket_notification({
         bucket_name: req.params.bucket,
     });
 
-    result = _.cloneDeep(result);
-
-    const TopicConfiguration = [];
-
-    //adapt to aws cli structure
-    if (result && result.length > 0) {
-        for (const conf of result) {
-            conf.Event = conf.event;
-            conf.Topic = conf.topic;
-            conf.Id = conf.id;
-            delete conf.event;
-            delete conf.topic;
-            delete conf.id;
-
-            TopicConfiguration.push({TopicConfiguration: conf});
-        }
-    }
-
-    const reply = result && result.length > 0 ?
-        {
-            //return result inside TopicConfiguration tag
-            NotificationConfiguration:
-                TopicConfiguration
-        } :
-        //if there's no notification, return empty NotificationConfiguration tag
-        { NotificationConfiguration: {} };
-
-    return reply;
+    //adapt to structure that xml_utils.encode_xml() will then
+    //encode into aws compliant reply
+    return {
+        NotificationConfiguration: [_.map(result, t => ({
+            TopicConfiguration: [
+                {
+                    Id: t.id,
+                    Topic: t.topic,
+                },
+                _.map(t.event, e => ({
+                    Event: e
+                }))
+            ]
+        }))]
+    };
 }
 
 module.exports = {

@@ -711,6 +711,7 @@ config.BUCKET_LOG_CONCURRENCY = 10;
 ////////////////////////////////
 //      NOTIFICATIONS         //
 ////////////////////////////////
+config.NOTIFICATION_CONNECT_DIR = process.env.NOTIFICATION_CONNECT_DIR || '/etc/notif_connect/';
 config.NOTIFICATION_LOG_NS = 'notification_logging';
 config.NOTIFICATION_LOG_DIR = process.env.NOTIFICATION_LOG_DIR;
 config.NOTIFICATION_BATCH = process.env.BATCH || 10;

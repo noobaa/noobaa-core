@@ -29,6 +29,10 @@ const manage_nsfs_validations = require('../manage_nsfs/manage_nsfs_validations'
 const nc_mkm = require('../manage_nsfs/nc_master_key_manager').get_instance();
 const notifications_util = require('../util/notifications_util');
 
+///////////////
+//// GENERAL //
+///////////////
+
 let config_fs;
 
 async function main(argv = minimist(process.argv.slice(2))) {
@@ -92,6 +96,10 @@ async function main(argv = minimist(process.argv.slice(2))) {
     }
 }
 
+///////////////
+//// BUCKETS //
+///////////////
+
 // in name and new_name we allow type number, hence convert it to string
 async function fetch_bucket_data(action, user_input) {
     let data = {
@@ -145,7 +153,6 @@ async function fetch_bucket_data(action, user_input) {
 
     return data;
 }
-
 
 /**
  * merge_new_and_existing_config_data returns the merged object of the existing bucket data and the user data
@@ -259,6 +266,62 @@ async function delete_bucket(data, force) {
     }
 }
 
+
+/**
+ * filter_bucket will return true or false based on whether a bucket meets the criteria defined by the supported flags.
+ * @param {object} bucket
+ * @param {object} [filters]
+ */
+function filter_bucket(bucket, filters) {
+    for (const [key, val] of Object.entries(filters)) {
+        if (bucket[key] !== val) { // We will never reach here if we will not add an appropriate field to the filter 
+            return false;
+        }
+    }
+    return true;
+}
+
+/**
+ * list_bucket_config_files will list all the bucket config files (json) in a given config directory
+ * @param {boolean} [wide]
+ * @param {object} [filters]
+ */
+async function list_bucket_config_files(wide, filters = {}) {
+    let entry_names = [];
+    const should_filter = Object.keys(filters).length > 0;
+    const is_filter_by_name = filters.name !== undefined;
+
+    const options = {
+        silent_if_missing: true
+    };
+
+    // in case we have a filter by name, we don't need to read all the entries and iterate them
+    // instead we "mock" the entries array to have one entry and it is the name by the filter (we add it for performance)
+    if (is_filter_by_name) {
+        entry_names = [filters.name];
+    } else {
+        entry_names = await config_fs.list_buckets();
+    }
+
+    let config_files_list = await P.map_with_concurrency(10, entry_names, async entry_name => {
+        if (wide || should_filter) {
+            const data = await config_fs.get_bucket_by_name(entry_name, options);
+            if (!data) return undefined;
+            if (should_filter && !filter_bucket(data, filters)) return undefined;
+            if (!wide) return { name: entry_name };
+            await set_bucker_owner(data);
+            return data;
+        } else {
+            return { name: entry_name };
+        }
+    });
+    // it inserts undefined for the entry '.noobaa-config-nsfs' and we wish to remove it
+    // in case the entry was deleted during the list it also inserts undefined
+    config_files_list = config_files_list.filter(item => item);
+
+    return config_files_list;
+}
+
 /**
  * bucket_management does the following - 
  * 1. fetches the bucket data if this is not a list operation
@@ -287,13 +350,17 @@ async function bucket_management(action, user_input) {
     } else if (action === ACTIONS.LIST) {
         const bucket_filters = _.pick(user_input, LIST_BUCKET_FILTERS);
         const wide = get_boolean_or_string_value(user_input.wide);
-        const buckets = await list_config_files(TYPES.BUCKET, wide, undefined, bucket_filters);
+        const buckets = await list_bucket_config_files(wide, bucket_filters);
         response = { code: ManageCLIResponse.BucketList, detail: buckets };
     } else {
         throw_cli_error(ManageCLIError.InvalidAction);
     }
     write_stdout_response(response.code, response.detail, response.event_arg);
 }
+
+////////////////
+//// ACCOUNTS //
+////////////////
 
 /**
  * set_access_keys will set the access keys either given or generated.
@@ -489,6 +556,78 @@ async function get_account_status(data, show_secrets) {
 }
 
 /**
+ * filter_account will return true or false based on whether an account meets the criteria defined by the supported flags.
+ * @param {object} account
+ * @param {object} [filters]
+ */
+function filter_account(account, filters) {
+    for (const [key, val] of Object.entries(filters)) {
+        if (key === 'uid' || key === 'gid') {
+            if (account.nsfs_account_config && account.nsfs_account_config[key] !== val) {
+                return false;
+            }
+        } else if (key === 'user') {
+            if (account.nsfs_account_config && account.nsfs_account_config.distinguished_name !== val) {
+                return false;
+            }
+        } else if (key === 'access_key') {
+            if (account.access_keys && account.access_keys[0][key] !== val) {
+                return false;
+            }
+        } else if (account[key] !== val) { // We will never reach here if we will not add an appropriate field to the filter 
+            return false;
+        }
+    }
+    return true;
+}
+
+/**
+ * list_account_config_files will list all the account config files (json) in a given config directory
+ * @param {boolean} [wide]
+ * @param {boolean} [show_secrets]
+ * @param {object} [filters]
+ */
+async function list_account_config_files(wide, show_secrets, filters = {}) {
+    let entry_names = [];
+    const should_filter = Object.keys(filters).length > 0;
+    const is_filter_by_name = filters.name !== undefined;
+
+    // decryption causing mkm initialization
+    // decrypt only if data has access_keys and show_secrets = true (no need to decrypt if show_secrets = false but should_filter = true)
+    const options = {
+        show_secrets: show_secrets || should_filter,
+        decrypt_secret_key: show_secrets,
+        silent_if_missing: true
+    };
+
+    // in case we have a filter by name, we don't need to read all the entries and iterate them
+    // instead we "mock" the entries array to have one entry and it is the name by the filter (we add it for performance)
+    if (is_filter_by_name) {
+        entry_names = [filters.name];
+    } else {
+        entry_names = await config_fs.list_accounts();
+    }
+
+    let config_files_list = await P.map_with_concurrency(10, entry_names, async entry_name => {
+        if (wide || should_filter) {
+            const data = await config_fs.get_account_by_name(entry_name, options);
+            if (!data) return undefined;
+            if (should_filter && !filter_account(data, filters)) return undefined;
+            // remove secrets on !show_secrets && should filter
+            if (!wide) return { name: entry_name };
+            return _.omit(data, show_secrets ? [] : ['access_keys']);
+        } else {
+            return { name: entry_name };
+        }
+    });
+    // it inserts undefined for the entry '.noobaa-config-nsfs' and we wish to remove it
+    // in case the entry was deleted during the list it also inserts undefined
+    config_files_list = config_files_list.filter(item => item);
+
+    return config_files_list;
+}
+
+/**
  * account_management does the following - 
  * 1. sets variables by the user input options
  * 2. iniates nc_master_key_manager on UPDATE/ADD/show_secrets
@@ -524,131 +663,13 @@ async function account_management(action, user_input) {
     } else if (action === ACTIONS.DELETE) {
         response = await delete_account(data);
     } else if (action === ACTIONS.LIST) {
-        const accounts = await list_config_files(TYPES.ACCOUNT, wide, show_secrets, account_filters);
+        const accounts = await list_account_config_files(wide, show_secrets, account_filters);
         response = { code: ManageCLIResponse.AccountList, detail: accounts };
     } else {
         throw_cli_error(ManageCLIError.InvalidAction);
     }
     write_stdout_response(response.code, response.detail, response.event_arg);
 
-}
-
-/**
- * filter_list_item will return an answer of filter_account() or filter_bucket() based on the entity type
- * @param {string} type
- * @param {object} entity
- * @param {string[]} [filters]
- */
-function filter_list_item(type, entity, filters) {
-    return type === TYPES.ACCOUNT ? filter_account(entity, filters) : filter_bucket(entity, filters);
-}
-
-/**
- * filter_account will return true or false based on whether an account meets the criteria defined by the supported flags.
- * @param {object} account
- * @param {string[]} [filters]
- */
-function filter_account(account, filters) {
-    for (const [key, val] of Object.entries(filters)) {
-        if (key === 'uid' || key === 'gid') {
-            if (account.nsfs_account_config && account.nsfs_account_config[key] !== val) {
-                return false;
-            }
-        } else if (key === 'user') {
-            if (account.nsfs_account_config && account.nsfs_account_config.distinguished_name !== val) {
-                return false;
-            }
-        } else if (key === 'access_key') {
-            if (account.access_keys && account.access_keys[0][key] !== val) {
-                return false;
-            }
-        } else if (account[key] !== val) { // We will never reach here if we will not add an appropriate field to the filter 
-            return false;
-        }
-    }
-    return true;
-}
-
-/**
- * filter_bucket will return true or false based on whether a bucket meets the criteria defined by the supported flags.
- * currently not implemented
- * @param {object} bucket
- * @param {string[]} [filters]
- */
-function filter_bucket(bucket, filters) {
-    for (const [key, val] of Object.entries(filters)) {
-        if (bucket[key] !== val) { // We will never reach here if we will not add an appropriate field to the filter 
-            return false;
-        }
-    }
-    return true;
-}
-/**
- * list_config_files will list all the config files (json) in a given config directory
- * @param {string} type
- * @param {boolean} [wide]
- * @param {boolean} [show_secrets]
- * @param {object} [filters]
- */
-async function list_config_files(type, wide, show_secrets, filters = {}) {
-    let entry_names = [];
-    const should_filter = Object.keys(filters).length > 0;
-    const is_filter_by_name = filters.name !== undefined;
-
-    // decryption causing mkm initalization
-    // decrypt only if data has access_keys and show_secrets = true (no need to decrypt if show_secrets = false but should_filter = true)
-    const options = {
-        show_secrets: show_secrets || should_filter,
-        decrypt_secret_key: show_secrets,
-        silent_if_missing: true
-    };
-
-    // in case we have a filter by name, we don't need to read all the entries and iterate them
-    // instead we "mock" the entries array to have one entry and it is the name by the filter (we add it for performance)
-    if (is_filter_by_name) {
-        entry_names = [filters.name];
-    } else if (type === TYPES.ACCOUNT) {
-        entry_names = await config_fs.list_accounts();
-    } else if (type === TYPES.BUCKET) {
-        entry_names = await config_fs.list_buckets();
-    }
-
-    let config_files_list = await P.map_with_concurrency(10, entry_names, async entry_name => {
-        if (wide || should_filter) {
-            const data = type === TYPES.ACCOUNT ?
-                await config_fs.get_account_by_name(entry_name, options) :
-                await config_fs.get_bucket_by_name(entry_name, options);
-            if (!data) return undefined;
-            if (should_filter && !filter_list_item(type, data, filters)) return undefined;
-            // remove secrets on !show_secrets && should filter
-            if (!wide) return { name: entry_name };
-            if (type === TYPES.ACCOUNT) return _.omit(data, show_secrets ? [] : ['access_keys']);
-            if (type === TYPES.BUCKET) {
-                await set_bucker_owner(data);
-                return data;
-            }
-        } else {
-            return { name: entry_name };
-        }
-    });
-    // it inserts undefined for the entry '.noobaa-config-nsfs' and we wish to remove it
-    // in case the entry was deleted during the list it also inserts undefined
-    config_files_list = config_files_list.filter(item => item);
-
-    return config_files_list;
-}
-
-/**
- * list_connections
- * @returns An array with names of all connection files.
- */
-async function list_connections() {
-    let conns = await config_fs.list_connections();
-    // it inserts undefined for the entry '.noobaa-config-nsfs' and we wish to remove it
-    // in case the entry was deleted during the list it also inserts undefined
-    conns = conns.filter(item => item);
-
-    return conns;
 }
 
 /**
@@ -689,6 +710,10 @@ async function set_bucker_owner(bucket_data) {
     bucket_data.bucket_owner = account_data?.name;
 }
 
+////////////////////
+//// IP WHITELIST //
+////////////////////
+
 async function whitelist_ips_management(args) {
     const ips = args.ips;
     manage_nsfs_validations.validate_whitelist_arg(ips);
@@ -707,6 +732,10 @@ async function whitelist_ips_management(args) {
     }
     write_stdout_response(ManageCLIResponse.WhiteListIPUpdated, ips);
 }
+
+///////////////
+//// GLACIER //
+///////////////
 
 async function glacier_management(argv) {
     const action = argv._[1] || '';
@@ -729,9 +758,17 @@ async function manage_glacier_operations(action, argv) {
     }
 }
 
+//////////////////////
+//// BUCKET LOGGING //
+//////////////////////
+
 async function logging_management() {
     await manage_nsfs_logging.export_bucket_logging(config_fs);
 }
+
+/////////////////////
+//// NOTIFICATIONS //
+////////////////////
 
 async function notification_management() {
     await new notifications_util.Notificator({
@@ -778,6 +815,19 @@ async function connection_management(action, user_input) {
     }
 
     write_stdout_response(response.code, response.detail, response.event_arg);
+}
+
+/**
+ * list_connections
+ * @returns An array with names of all connection files.
+ */
+async function list_connections() {
+    let conns = await config_fs.list_connections();
+    // it inserts undefined for the entry '.noobaa-config-nsfs' and we wish to remove it
+    // in case the entry was deleted during the list it also inserts undefined
+    conns = conns.filter(item => item);
+
+    return conns;
 }
 
 exports.main = main;

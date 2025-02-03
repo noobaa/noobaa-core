@@ -14,7 +14,7 @@ async function put_bucket_cors(req) {
             allowed_origins: rule.AllowedOrigin,
             expose_headers: rule.ExposeHeader,
             id: rule.ID,
-            max_age_seconds: rule.MaxAgeSeconds,
+            max_age_seconds: rule.MaxAgeSeconds && parseInt(rule.MaxAgeSeconds, 10),
         }, _.isUndefined)
     );
     await req.object_sdk.put_bucket_cors({

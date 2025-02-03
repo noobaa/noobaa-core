@@ -673,6 +673,7 @@ function set_cors_headers_s3(req, res, cors_rules) {
         }));
     if (matched_rule) {
         // https://docs.aws.amazon.com/AmazonS3/latest/API/RESTCommonResponseHeaders.html
+        dbg.log0('set_cors_headers_s3: found matching CORS rule:', matched_rule);
         set_cors_headers(req, res, {
             allow_origin: matched_rule.allowed_origins.includes('*') ? '*' : req.headers.origin,
             allow_methods: matched_rule.allowed_methods.join(','),

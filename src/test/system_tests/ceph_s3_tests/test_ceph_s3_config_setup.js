@@ -19,7 +19,7 @@ const { CEPH_TEST } = require('./test_ceph_s3_constants.js');
 // the client is used to perform setup operations on noobaa system
 const rpc = api.new_rpc();
 const client = rpc.new_client({
-    address: `ws://${process.env.NOOBAA_MGMT_SERVICE_HOST}:${process.env.NOOBAA_MGMT_SERVICE_PORT}`
+    address: `${process.env.NOOBAA_MGMT_SERVICE_PROTO || 'ws'}://${process.env.NOOBAA_MGMT_SERVICE_HOST}:${process.env.NOOBAA_MGMT_SERVICE_PORT}`
 });
 
 async function main() {

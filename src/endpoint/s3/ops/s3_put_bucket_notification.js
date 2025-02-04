@@ -29,10 +29,21 @@ async function put_bucket_notification(req) {
     //if test notification fails, fail the put op
     const err = await notif_util.test_notifications(topic_configuration,
         req.object_sdk.nsfs_config_root);
+
     if (err) {
+        let message = "Test notification failed: " + (err.message || err.code);
+        //if there's an aggregated error, it will probably have more details in its message
+        if (err.name === 'AggregateError' && err.errors && err.errors[0]) {
+            const aggregated = err.errors[0];
+            message += "," + aggregated.message;
+        }
+        //for some reason in scale we are not allowed to show the config directory name in user's output
+        if (req.object_sdk.nsfs_config_root) {
+            message = message.replaceAll(req.object_sdk.nsfs_config_root, "");
+        }
         throw new S3Error({
             code: 'InvalidArgument',
-            message: JSON.stringify(err.message),
+            message,
             http_code: 400,
             detail: err.toString()
         });

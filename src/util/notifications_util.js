@@ -364,9 +364,9 @@ async function test_notifications(notifs, nc_config_dir) {
             connect = await notificator.parse_connect_file(notif.topic[0]);
             connection = get_connection(connect);
             await connection.connect();
-            await connection.promise_notify({notif: "test notification"}, async (notif_cb, err_cb) => {
+            await connection.promise_notify({notif: "test notification"}, async (notif_cb, err_cb, err) => {
                 failure = true;
-                notif_failure = err_cb;
+                notif_failure = err;
             });
             if (failure) {
                 if (notif_failure) {

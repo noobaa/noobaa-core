@@ -30,12 +30,6 @@ async function get_bucket_notification(req) {
         }
     }
 
-    if (result && result.length > 0) {
-        for (const conf of result) {
-            TopicConfiguration.push({TopicConfiguration: conf});
-        }
-    }
-
     const reply = result && result.length > 0 ?
         {
             //return result inside TopicConfiguration tag

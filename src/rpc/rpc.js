@@ -7,7 +7,6 @@
 const _ = require('lodash');
 const util = require('util');
 const assert = require('assert');
-// const ip_module = require('ip');
 const EventEmitter = require('events').EventEmitter;
 
 const P = require('../util/promise');

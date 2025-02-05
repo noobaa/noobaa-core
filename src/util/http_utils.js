@@ -3,7 +3,8 @@
 /* eslint-disable no-control-regex */
 
 const _ = require('lodash');
-const ip = require('ip');
+const ip_module = require('ip');
+const net = require('net');
 const url = require('url');
 const http = require('http');
 const https = require('https');
@@ -44,7 +45,7 @@ const unsecured_https_proxy_agent = HTTPS_PROXY ?
 
 const no_proxy_list =
     (NO_PROXY ? NO_PROXY.split(',') : []).map(addr => {
-        if (ip.isV4Format(addr) || ip.isV6Format(addr)) {
+        if (net.isIPv4(addr) || net.isIPv6(addr)) {
             return {
                 kind: 'IP',
                 addr
@@ -52,7 +53,7 @@ const no_proxy_list =
         }
 
         try {
-            ip.cidr(addr);
+            ip_module.cidr(addr);
             return {
                 kind: 'CIDR',
                 addr
@@ -383,16 +384,16 @@ function send_reply(req, res, reply, options) {
  * Check if a hostname should be proxied or not
  */
 function should_proxy(hostname) {
-    const isIp = ip.isV4Format(hostname) || ip.isV6Format(hostname);
+    const isIp = net.isIPv4(hostname) || net.isIPv6(hostname);
     dbg.log2(`should_proxy: hostname ${hostname} isIp ${isIp}`);
 
     for (const { kind, addr } of no_proxy_list) {
         dbg.log3(`should_proxy: an item from no_proxy_list: kind ${kind} addr ${addr}`);
         if (isIp) {
-            if (kind === 'IP' && ip.isEqual(addr, hostname)) {
+            if (kind === 'IP' && ip_module.isEqual(addr, hostname)) {
                 return false;
             }
-            if (kind === 'CIDR' && ip.cidrSubnet(addr).contains(hostname)) {
+            if (kind === 'CIDR' && ip_module.cidrSubnet(addr).contains(hostname)) {
                 return false;
             }
 

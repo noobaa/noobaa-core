@@ -3,7 +3,6 @@
 
 const _ = require('lodash');
 const bcrypt = require('bcrypt');
-const ip_module = require('ip');
 
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
@@ -578,10 +577,10 @@ function _prepare_auth_request(req) {
             const client_ip = net_utils.unwrap_ipv6(req.auth.client_ip);
             if (client_ip) {
                 let is_allowed = false;
-                const client_ip_val = ip_module.toLong(client_ip);
+                const client_ip_val = net_utils.ip_toLong(client_ip);
                 for (const ip_range of req.account.allowed_ips) {
-                    const start = ip_module.toLong(ip_range.start);
-                    const end = ip_module.toLong(ip_range.end);
+                    const start = net_utils.ip_toLong(ip_range.start);
+                    const end = net_utils.ip_toLong(ip_range.end);
                     if (client_ip_val >= start && client_ip_val <= end) {
                         is_allowed = true;
                         break;

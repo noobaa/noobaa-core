@@ -162,6 +162,17 @@ mocha.describe('new tests check', async function() {
             assert.equal(err.code, 'EACCES');
         }
     });
+
+    mocha.it('NON ROOT 4 with disabled dynamicly suplemental groups - failure', async function() {
+        try {
+            process.env.NSFS_ENABLE_DYNAMIC_SUPPLEMENTAL_GROUPS = 'false';
+            const non_root_entries = await nb_native().fs.readdir(NON_ROOT4_FS_CONFIG, full_path_non_root1);
+            assert.fail(`non root 4 has access to a folder with disabled supplemental groups - ${p} ${non_root_entries}`);
+        } catch (err) {
+            assert.equal(err.code, 'EACCES');
+        }
+        process.env.NSFS_ENABLE_DYNAMIC_SUPPLEMENTAL_GROUPS = 'true';
+    });
 });
 
 

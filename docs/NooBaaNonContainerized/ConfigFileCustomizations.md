@@ -506,6 +506,20 @@ Warning: After setting this configuration, NooBaa will skip schema validations a
     3. systemctl restart noobaa
     ```
 
+### 34. Dynamic supplemental groups allocation flag -
+* <u>Key</u>: `NSFS_ENABLE_DYNAMIC_SUPPLEMENTAL_GROUPS`
+* <u>Type</u>: boolean
+* <u>Default</u>: true
+* <u>Description</u>: whether to fetch supplemental groups dynamicly from FS user record.
+* <u>Steps</u>:
+    ```
+    1. Open /path/to/config_dir/config.json file.
+    2. Set the config key -
+    Example:
+    "NSFS_ENABLE_DYNAMIC_SUPPLEMENTAL_GROUPS": false
+    3. systemctl restart noobaa
+    ```
+
 ## Config.json File Examples
 The following is an example of a config.json file - 
 

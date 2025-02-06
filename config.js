@@ -1009,6 +1009,9 @@ config.NC_DISABLE_HEALTH_ACCESS_CHECK = false;
 config.NC_DISABLE_POSIX_MODE_ACCESS_CHECK = true;
 config.NC_DISABLE_SCHEMA_CHECK = false;
 
+config.ENTROPY_DISK_SIZE_THRESHOLD = 100 * 1024 * 1024;
+config.ENTROPY_MIN_THRESHOLD = 512;
+
 ////////// NC LIFECYLE  //////////
 
 config.NC_LIFECYCLE_LOGS_DIR = '/var/log/noobaa/lifecycle';

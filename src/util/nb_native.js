@@ -5,12 +5,10 @@ const _ = require('lodash');
 const fs = require('fs');
 const util = require('util');
 const events = require('events');
-const chance = require('chance')();
 const bindings = require('bindings');
-const child_process = require('child_process');
 const config = require('../../config');
+const entropy_utils = require('./entropy_utils');
 
-const async_exec = util.promisify(child_process.exec);
 const async_delay = util.promisify(setTimeout);
 
 let nb_native_napi;
@@ -51,7 +49,7 @@ async function init_rand_seed() {
         console.log('init_rand_seed: starting ...');
     }
     let still_reading = true;
-    const promise = generate_entropy(() => still_reading);
+    const promise = entropy_utils.generate_entropy(() => still_reading);
 
     const seed = await read_rand_seed(32);
     if (seed) {
@@ -105,45 +103,6 @@ async function read_rand_seed(seed_bytes) {
     }
     await clean_fh();
     return buf;
-}
-
-async function generate_entropy(loop_cond) {
-    if (process.platform !== 'linux' || process.env.container === 'docker') return;
-    while (loop_cond()) {
-        try {
-            await async_delay(1000);
-            const ENTROPY_AVAIL_PATH = '/proc/sys/kernel/random/entropy_avail';
-            const entropy_avail = parseInt(await fs.promises.readFile(ENTROPY_AVAIL_PATH, 'utf8'), 10);
-            console.log(`generate_entropy: entropy_avail ${entropy_avail}`);
-            if (entropy_avail < 512) {
-                const bs = 1024 * 1024;
-                const count = 32;
-                let disk;
-                let disk_size;
-                // this is as a temporary and partial solution -
-                // adding the NVMe disk with namespace
-                for (disk of ['/dev/sda', '/dev/vda', '/dev/xvda', '/dev/dasda', '/dev/nvme0n1', '/dev/nvme1n1']) {
-                    try {
-                        const res = await async_exec(`blockdev --getsize64 ${disk}`);
-                        disk_size = res.stdout;
-                        break;
-                    } catch (err) {
-                        //continue to next candidate
-                    }
-                }
-                if (disk_size) {
-                    const disk_size_in_blocks = parseInt(disk_size, 10) / bs;
-                    const skip = chance.integer({ min: 0, max: disk_size_in_blocks });
-                    console.log(`generate_entropy: adding entropy: dd if=${disk} bs=${bs} count=${count} skip=${skip} | md5sum`);
-                    await async_exec(`dd if=${disk} bs=${bs} count=${count} skip=${skip} | md5sum`);
-                } else {
-                    throw new Error('No disk candidates found');
-                }
-            }
-        } catch (err) {
-            console.log('generate_entropy: error', err);
-        }
-    }
 }
 
 module.exports = nb_native;

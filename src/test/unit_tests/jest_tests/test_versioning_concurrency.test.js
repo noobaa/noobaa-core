@@ -10,6 +10,8 @@ const buffer_utils = require('../../../util/buffer_utils');
 const { TMP_PATH, IS_GPFS, TEST_TIMEOUT } = require('../../system_tests/test_utils');
 const { crypto_random_string } = require('../../../util/string_utils');
 const endpoint_stats_collector = require('../../../sdk/endpoint_stats_collector');
+const config = require('../../../../config');
+config.NSFS_CONTENT_DIRECTORY_VERSIONING_ENABLED = true;
 
 function make_dummy_object_sdk(nsfs_config, uid, gid) {
     return {
@@ -553,6 +555,33 @@ describe('test versioning concurrency', () => {
             }
         });
         expect(num_versions).toBe(num_copies);
+    }, TEST_TIMEOUT);
+
+    it('content dir multiple puts of the same key - enabled', async () => {
+        const bucket = 'bucket-directory';
+        const key = 'key-s/';
+
+        //upload disabled mode empty content dir, to check the creation of new
+        nsfs.versioning = 'DISABLED';
+        await nsfs.upload_object({ bucket: bucket, key: key, size: 0 }, DUMMY_OBJECT_SDK);
+
+        nsfs.versioning = 'ENABLED';
+        const failed_operations = [];
+        const successful_operations = [];
+        const num_of_concurrency = 10;
+        for (let i = 0; i < num_of_concurrency; i++) {
+            const random_data = Buffer.from(String(i));
+            const body = buffer_utils.buffer_to_read_stream(random_data);
+            nsfs.upload_object({ bucket: bucket, key: key, source_stream: body }, DUMMY_OBJECT_SDK)
+                .catch(err => failed_operations.push(err))
+                .then(res => successful_operations.push(res));
+        }
+        await P.delay(2000);
+        expect(successful_operations).toHaveLength(num_of_concurrency);
+        expect(failed_operations).toHaveLength(0);
+        const versions = await nsfs.list_object_versions({ bucket: bucket }, DUMMY_OBJECT_SDK);
+        //TODO should be num_of_concurrency + 1 (the null version). list-object-version currently ignores the latest .folder file
+        expect(versions.objects.length).toBe(num_of_concurrency);
     }, TEST_TIMEOUT);
 });
 

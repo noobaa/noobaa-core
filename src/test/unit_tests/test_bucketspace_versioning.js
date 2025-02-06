@@ -15,6 +15,7 @@ const size_utils = require('../../util/size_utils');
 const { TMP_PATH, IS_GPFS, is_nc_coretest, set_path_permissions_and_owner, generate_nsfs_account, get_new_buckets_path_by_test_env,
     invalid_nsfs_root_permissions, generate_s3_client, get_coretest_path } = require('../system_tests/test_utils');
 const { get_process_fs_context } = require('../../util/native_fs_utils');
+const _ = require('lodash');
 
 const coretest_path = get_coretest_path();
 const coretest = require(coretest_path);
@@ -24,6 +25,8 @@ coretest.setup({});
 const XATTR_INTERNAL_NOOBAA_PREFIX = 'user.noobaa.';
 const XATTR_VERSION_ID = XATTR_INTERNAL_NOOBAA_PREFIX + 'version_id';
 const XATTR_DELETE_MARKER = XATTR_INTERNAL_NOOBAA_PREFIX + 'delete_marker';
+const XATTR_DIR_CONTENT = XATTR_INTERNAL_NOOBAA_PREFIX + "dir_content";
+const XATTR_USER_PREFIX = 'user.';
 const NULL_VERSION_ID = 'null';
 const HIDDEN_VERSIONS_PATH = '.versions';
 const NSFS_FOLDER_OBJECT_NAME = '.folder';
@@ -42,6 +45,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
     const disabled_bucket_name = 'disabled-bucket'; // be aware that this bucket would become versioned in the copy object tests
     const suspended_bucket_name = 'suspended-bucket';
     const nested_keys_bucket_name = 'bucket-with-nested-keys';
+    const content_dir_bucket_name = 'content-dir-bucket';
 
     const bucket_path = '/bucket';
     const full_path = tmp_fs_root + bucket_path;
@@ -51,6 +55,8 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
     const suspended_full_path = tmp_fs_root + suspended_bucket_path;
     const nested_keys_bucket_path = '/bucket_with_nested_keys';
     const nested_keys_full_path = path.join(tmp_fs_root, nested_keys_bucket_path);
+    const content_dir_bucket_path = '/content_dir_bucket';
+    const content_dir_full_path = tmp_fs_root + content_dir_bucket_path;
     const versions_path = path.join(full_path, '.versions/');
     const suspended_versions_path = path.join(suspended_full_path, '.versions/');
     let s3_uid1055;
@@ -82,7 +88,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
     mocha.before(async function() {
         this.timeout(0); // eslint-disable-line no-invalid-this
         if (invalid_nsfs_root_permissions()) this.skip(); // eslint-disable-line no-invalid-this
-        // create paths 
+        // create paths
         await fs_utils.create_fresh_path(tmp_fs_root, 0o777);
         await fs_utils.create_fresh_path(full_path, 0o770);
         await fs_utils.file_must_exist(full_path);
@@ -92,12 +98,15 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
         await fs_utils.file_must_exist(suspended_full_path);
         await fs_utils.create_fresh_path(nested_keys_full_path, 0o770);
         await fs_utils.file_must_exist(nested_keys_full_path);
+        await fs_utils.create_fresh_path(content_dir_full_path, 0o770);
+        await fs_utils.file_must_exist(content_dir_full_path);
         if (is_nc_coretest) {
             const { uid, gid } = get_admin_mock_account_details();
             await set_path_permissions_and_owner(full_path, { uid, gid }, 0o700);
             await set_path_permissions_and_owner(disabled_full_path, { uid, gid }, 0o700);
             await set_path_permissions_and_owner(suspended_full_path, { uid, gid }, 0o700);
             await set_path_permissions_and_owner(nested_keys_full_path, { uid, gid }, 0o700);
+            await set_path_permissions_and_owner(content_dir_full_path, { uid, gid }, 0o700);
         }
         // export dir as a bucket
         await rpc_client.pool.create_namespace_resource({
@@ -138,6 +147,14 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                 write_resource: nested_keys_nsr
             }
         });
+        const content_dir_nsr = { resource: nsr, path: content_dir_bucket_path };
+        await rpc_client.bucket.create_bucket({
+            name: content_dir_bucket_name,
+            namespace: {
+                read_resources: [content_dir_nsr],
+                write_resource: content_dir_nsr
+            }
+        });
         const policy = {
             Version: '2012-10-17',
             Statement: [{
@@ -170,6 +187,11 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
 
         await s3_admin.putBucketPolicy({
             Bucket: nested_keys_bucket_name,
+            Policy: JSON.stringify(policy)
+        });
+
+        await s3_admin.putBucketPolicy({
+            Bucket: content_dir_bucket_name,
             Policy: JSON.stringify(policy)
         });
 
@@ -407,6 +429,114 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                 const exist = await version_file_exists(full_path, mpu_key1, '', prev_version_id);
                 assert.ok(exist);
             });
+        });
+    });
+
+    mocha.describe('content directory', function() {
+        const put_object_key_new = 'put_object_key_new/';
+        const put_object_key = 'put_object_key/';
+        const put_object_empty_key = 'put_object_empty_key/';
+        const put_object_key_suspended = 'put_object_key_suspended/';
+        const put_object_empty_key_suspended = 'put_object_empty_key_suspended/';
+
+        mocha.before('put content directory on version disabled bucket', async function() {
+            await s3_uid6.putObject({ Bucket: content_dir_bucket_name, Key: put_object_key, Body: body1 });
+            await create_empty_content_dir(DEFAULT_FS_CONFIG, content_dir_full_path, put_object_empty_key);
+            await s3_uid6.putObject({ Bucket: content_dir_bucket_name, Key: put_object_key_suspended, Body: body1 });
+            await create_empty_content_dir(DEFAULT_FS_CONFIG, content_dir_full_path, put_object_empty_key_suspended);
+
+            await s3_uid6.putBucketVersioning({ Bucket: content_dir_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
+        });
+
+        mocha.it('content directory - put object 1st put - versioning enabled', async function() {
+            const res = await s3_uid6.putObject({ Bucket: content_dir_bucket_name, Key: put_object_key_new, Body: body1 });
+            const comp_res = await compare_version_ids(content_dir_full_path, put_object_key_new + '.folder', res.VersionId);
+            assert.ok(comp_res);
+            await fs_utils.file_must_not_exist(path.join(content_dir_full_path, put_object_key_new, '.versions'));
+        });
+
+        mocha.it('content directory - put object 2nd put - versioning enabled', async function() {
+            const prev_version_id = await stat_and_get_version_id(content_dir_full_path, put_object_key_new + '.folder');
+            const res = await s3_uid6.putObject({ Bucket: content_dir_bucket_name, Key: put_object_key_new, Body: body2 });
+            const comp_res = await compare_version_ids(content_dir_full_path, put_object_key_new + '.folder', res.VersionId, prev_version_id);
+            assert.ok(comp_res);
+            const exist = await version_file_exists(content_dir_full_path, '.folder', put_object_key_new, prev_version_id);
+            assert.ok(exist);
+        });
+
+        mocha.it('content directory - put object after disabled conent directory - versioning enabled', async function() {
+            const prev_version_id = 'null';
+            const res = await s3_uid6.putObject({ Bucket: content_dir_bucket_name, Key: put_object_key, Body: body2 });
+            const comp_res = await compare_version_ids(content_dir_full_path, put_object_key + '.folder', res.VersionId, prev_version_id);
+            assert.ok(comp_res);
+            const exist = await version_file_exists(content_dir_full_path, '.folder', put_object_key, prev_version_id);
+            assert.ok(exist);
+            const dir_xattr_res = await check_no_user_attributes(content_dir_full_path, put_object_key);
+            assert.ok(dir_xattr_res);
+        });
+
+        mocha.it('content directory - put object after disabled empty content directory - versioning enabled', async function() {
+            const prev_version_id = 'null';
+            const res = await s3_uid6.putObject({ Bucket: content_dir_bucket_name, Key: put_object_empty_key, Body: body2 });
+            const comp_res = await compare_version_ids(content_dir_full_path, put_object_empty_key + '.folder', res.VersionId, prev_version_id);
+            assert.ok(comp_res);
+            const exist = await version_file_exists(content_dir_full_path, '.folder', put_object_empty_key, prev_version_id);
+            assert.ok(exist);
+            const dir_xattr_res = await check_no_user_attributes(content_dir_full_path, put_object_empty_key);
+            assert.ok(dir_xattr_res);
+        });
+
+        mocha.it('content directory - should upload multipart object with versioning enabled', async function() {
+            const key = 'mpu_key/';
+            const res_mpu = await s3_uid6.createMultipartUpload({ Bucket: content_dir_bucket_name, Key: key });
+            const upload_id = res_mpu.UploadId;
+            const part1 = await s3_uid6.uploadPart({
+                Bucket: content_dir_bucket_name, Key: key, Body: body1, UploadId: upload_id, PartNumber: 1 });
+            const part2 = await s3_uid6.uploadPart({
+                Bucket: content_dir_bucket_name, Key: key, Body: body2, UploadId: upload_id, PartNumber: 2 });
+            const res_cmpu = await s3_uid6.completeMultipartUpload({
+                Bucket: content_dir_bucket_name,
+                Key: key,
+                UploadId: upload_id,
+                MultipartUpload: {
+                    Parts: [{
+                        ETag: part1.ETag,
+                        PartNumber: 1
+                    },
+                    {
+                        ETag: part2.ETag,
+                        PartNumber: 2
+                    }]
+                }
+            });
+
+            const comp_res = await compare_version_ids(content_dir_full_path, key + '.folder', res_cmpu.VersionId);
+            assert.ok(comp_res);
+            await fs_utils.file_must_not_exist(path.join(content_dir_full_path, key, '.versions'));
+        });
+
+        mocha.it('content directory - put object after disabled conent directory - versioning suspended', async function() {
+            await s3_uid6.putBucketVersioning({ Bucket: content_dir_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } });
+
+            const prev_version_id = 'null';
+            const res = await s3_uid6.putObject({ Bucket: content_dir_bucket_name, Key: put_object_key_suspended, Body: body2 });
+            const comp_res = await compare_version_ids(content_dir_full_path, put_object_key_suspended + '.folder', res.VersionId, undefined, false);
+            assert.ok(comp_res);
+            const not_exist = await version_file_must_not_exists(content_dir_full_path, '.folder', put_object_key_suspended, prev_version_id);
+            assert.ok(not_exist);
+            const dir_xattr_res = await check_no_user_attributes(content_dir_full_path, put_object_key_suspended);
+            assert.ok(dir_xattr_res);
+        });
+
+        mocha.it('content directory - put object after disabled empty conent directory - versioning suspended', async function() {
+            const prev_version_id = 'null';
+            const res = await s3_uid6.putObject({ Bucket: content_dir_bucket_name, Key: put_object_empty_key_suspended, Body: body2 });
+            const comp_res = await compare_version_ids(content_dir_full_path, put_object_empty_key_suspended + '.folder', res.VersionId, undefined, false);
+            assert.ok(comp_res);
+            const not_exist = await version_file_must_not_exists(content_dir_full_path, '.folder', put_object_empty_key_suspended, prev_version_id);
+            assert.ok(not_exist);
+            const dir_xattr_res = await check_no_user_attributes(content_dir_full_path, put_object_empty_key_suspended);
+            assert.ok(dir_xattr_res);
         });
     });
 
@@ -3137,7 +3267,7 @@ async function upload_object_versions(s3_client, bucket, key, object_types_arr) 
     }
     return res;
 }
-// add the prev xattr optimization 
+// add the prev xattr optimization
 async function find_max_version_past(full_path, key, dir, skip_list) {
     const versions_dir = path.join(full_path, dir || '', '.versions');
     try {
@@ -3258,6 +3388,21 @@ function check_enable_version_format(version_id) {
 
 function check_null_version_id(version_id) {
     return version_id === NULL_VERSION_ID;
+}
+
+async function check_no_user_attributes(full_path, key) {
+    const stat = await stat_and_get_all(full_path, key);
+    const user_xattr = _.pickBy(stat?.xattr, (val, name) => name?.startsWith(XATTR_USER_PREFIX));
+    return Object.keys(user_xattr).length === 0;
+}
+
+async function create_empty_content_dir(fs_context, bucket_path, key) {
+    const full_path = path.join(bucket_path, key);
+    await nb_native().fs.mkdir(fs_context, full_path);
+    const fd = await nb_native().fs.open(fs_context, full_path, 'r');
+    await fd.replacexattr(fs_context, {[XATTR_DIR_CONTENT]: '0'});
+    fd.close(fs_context);
+
 }
 
 async function put_allow_all_bucket_policy(s3_client, bucket) {

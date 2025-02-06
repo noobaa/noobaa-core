@@ -301,9 +301,9 @@ function filter_fs_xattr(xattr) {
 
 /**
  * get_random_delay returns a random delay number between base + min and max
- * @param {number} base 
- * @param {number} min 
- * @param {number} max 
+ * @param {number} base
+ * @param {number} min
+ * @param {number} max
  * @returns {number}
  */
 function get_random_delay(base, min, max) {
@@ -1312,14 +1312,14 @@ class NamespaceFS {
 
     /**
      * _check_copy_storage_class returns true if a copy is needed to be forced.
-     * 
+     *
      * This might be needed if we need to manage xattr separately on the source
      * object and target object (eg. GLACIER objects).
-     * 
+     *
      * NOTE: The function will throw S3 error if source object storage class is
      * "GLACIER" but it is not in restored state (AWS behaviour).
-     * @param {nb.NativeFSContext} fs_context 
-     * @param {Record<any, any>} params 
+     * @param {nb.NativeFSContext} fs_context
+     * @param {Record<any, any>} params
      * @returns {Promise<boolean>}
      */
     async _check_copy_storage_class(fs_context, params) {
@@ -1472,7 +1472,7 @@ class NamespaceFS {
 
     // 1. get latest version_id
     // 2. if versioning is suspended -
-    //     2.1 if version ID of the latest version is null - 
+    //     2.1 if version ID of the latest version is null -
     //       2.1.1. if it's POSIX backend - unlink the null version
     //       2.1.2. if it's GPFS backend - nothing to do, the linkatif will override it
     //     2.2 else (version ID of the latest version is unique or there is no latest version) -
@@ -1683,7 +1683,7 @@ class NamespaceFS {
                 const delimiter_idx = create_params_parsed.key.indexOf(params.delimiter, start_idx);
                 if (delimiter_idx > 0) {
                     common_prefixes_set.add(create_params_parsed.key.substring(0, delimiter_idx + 1));
-                    // if key has common prefix it should not be returned as an upload object 
+                    // if key has common prefix it should not be returned as an upload object
                     return undefined;
                 }
             }
@@ -1732,7 +1732,7 @@ class NamespaceFS {
         return path.join(params.mpu_path, `part-${params.num}`);
     }
 
-    // optimized version of upload_multipart - 
+    // optimized version of upload_multipart -
     // 1. if size is pre known -
     //    1.1. calc offset
     //    1.2. upload data to by_size file in offset position
@@ -2209,12 +2209,12 @@ class NamespaceFS {
     /**
      * restore_object simply sets the restore request xattr
      * which should be picked by another mechanism.
-     * 
+     *
      * restore_object internally relies on 2 xattrs:
      * - XATTR_RESTORE_REQUEST
      * - XATTR_RESTORE_EXPIRY
-     * @param {*} params 
-     * @param {nb.ObjectSDK} object_sdk 
+     * @param {*} params
+     * @param {nb.ObjectSDK} object_sdk
      * @returns {Promise<Object>}
      */
     async restore_object(params, object_sdk) {
@@ -2352,7 +2352,7 @@ class NamespaceFS {
     }
 
     /**
-     * 
+     *
      * @param {*} fs_context - fs context object
      * @param {string} file_path - path to file
      * @param {*} set - the xattr object to be set
@@ -2706,7 +2706,7 @@ class NamespaceFS {
         }
         try {
             // Returns the real path of the entry.
-            // The entry path may point to regular file or directory, but can have symbolic links  
+            // The entry path may point to regular file or directory, but can have symbolic links
             const full_path = await nb_native().fs.realpath(fs_context, entry_path);
             if (!full_path.startsWith(this.bucket_path)) {
                 dbg.log0('check_bucket_boundaries: the path', entry_path, 'is not in the bucket', this.bucket_path, 'boundaries');
@@ -3380,9 +3380,9 @@ class NamespaceFS {
     /**
      * _check_version_moved recieves key and version_id and checks if the version still exists in one of the optional locations
      * latest version location or .versions/ directory
-     * @param {import('./nb').NativeFSContext} fs_context 
-     * @param {string} key 
-     * @param {string} version_id 
+     * @param {import('./nb').NativeFSContext} fs_context
+     * @param {string} key
+     * @param {string} version_id
      */
     async _check_version_moved(fs_context, key, version_id) {
         const latest_version_path = this._get_file_path({ key });

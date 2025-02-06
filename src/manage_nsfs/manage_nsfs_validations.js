@@ -12,7 +12,7 @@ const bucket_policy_utils = require('../endpoint/s3/s3_bucket_policy_utils');
 const { throw_cli_error, get_options_from_file, get_boolean_or_string_value, get_bucket_owner_account_by_id,
     is_name_update, is_access_key_update } = require('../manage_nsfs/manage_nsfs_cli_utils');
 const { TYPES, ACTIONS, VALID_OPTIONS, OPTION_TYPE, FROM_FILE, BOOLEAN_STRING_VALUES, BOOLEAN_STRING_OPTIONS,
-    GLACIER_ACTIONS, LIST_UNSETABLE_OPTIONS, ANONYMOUS, DIAGNOSE_ACTIONS, UPGRADE_ACTIONS } = require('../manage_nsfs/manage_nsfs_constants');
+    GLACIER_ACTIONS, UNSETTABLE_OPTIONS_OBJ, CLI_EMPTY_VALUES, ANONYMOUS, DIAGNOSE_ACTIONS, UPGRADE_ACTIONS } = require('../manage_nsfs/manage_nsfs_constants');
 const { check_root_account_owns_user } = require('../nc/nc_utils');
 const { validate_username } = require('../util/validation_utils');
 const notifications_util = require('../util/notifications_util');
@@ -158,16 +158,19 @@ function validate_no_extra_options(type, action, input_options, is_options_from_
 }
 
 /**
- * validate_options_type_by_value check the type of the value that match what we expect.
+ * validate_options_type_by_value checks the type of the value that match what we expect.
+ * another check is for unset value (specified by ''/'[]') - it'll be allowed only for flags specified in UNSETTABLE_OPTIONS_OBJ
  * @param {object} input_options_with_data object with flag (key) and value
  */
 function validate_options_type_by_value(input_options_with_data) {
     for (const [option, value] of Object.entries(input_options_with_data)) {
         const type_of_option = OPTION_TYPE[option];
         const type_of_value = typeof value;
+        const is_empty_cli_value = CLI_EMPTY_VALUES.has(value);
+        const is_unsettable_option_match_value = UNSETTABLE_OPTIONS_OBJ[option] === value;
         if (type_of_value !== type_of_option) {
-            // special case for unset value (specified by '').
-            if (LIST_UNSETABLE_OPTIONS.includes(option) && value === '') {
+            // if unset is allowed but the type is not string, we allow it
+            if (is_empty_cli_value && is_unsettable_option_match_value) {
                 continue;
             }
             // special case for names, although the type is string we want to allow numbers as well
@@ -191,6 +194,12 @@ function validate_options_type_by_value(input_options_with_data) {
             }
             const details = `type of flag ${option} should be ${type_of_option} (and the received value is ${value})`;
             throw_cli_error(ManageCLIError.InvalidArgumentType, details);
+        }
+        // special case for unset value (specified by '' or '[]').
+        if (is_empty_cli_value && !is_unsettable_option_match_value) {
+            let details = `flag value of ${option} is '${value}' but this option can't be unset via '${value}'.`;
+            if (UNSETTABLE_OPTIONS_OBJ[option] !== undefined) details += ` Please use '${UNSETTABLE_OPTIONS_OBJ[option]}' instead.`;
+            throw_cli_error(ManageCLIError.UnsetArgumentIsInvalid, details);
         }
     }
 }

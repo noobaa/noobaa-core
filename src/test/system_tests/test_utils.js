@@ -22,6 +22,9 @@ const IS_GPFS = !_.isUndefined(GPFS_ROOT_PATH);
 const TMP_PATH = get_tmp_path();
 const TEST_TIMEOUT = 60 * 1000;
 
+// NC CLI Constants
+const CLI_UNSET_EMPTY_STRING = "''";
+
 /**
  * TMP_PATH is a path to the tmp path based on the process platform
  * in contrast to linux, /tmp/ path on mac is a symlink to /private/tmp/
@@ -814,3 +817,4 @@ exports.update_system_json = update_system_json;
 exports.fail_test_if_default_config_dir_exists = fail_test_if_default_config_dir_exists;
 exports.create_config_dir = create_config_dir;
 exports.clean_config_dir = clean_config_dir;
+exports.CLI_UNSET_EMPTY_STRING = CLI_UNSET_EMPTY_STRING;

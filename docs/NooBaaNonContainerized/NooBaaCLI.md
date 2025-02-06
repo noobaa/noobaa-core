@@ -168,11 +168,11 @@ noobaa-cli account update --name <account_name> [--new_name][--uid][--gid][--use
 
 - `supplemental_groups`
     - Type: String
-    - Description: Specifies additional FS groups (GID) a user can be a part of. Allows access to directories/files having one or more of the provided groups. A String of GIDs separated by commas. unset with ''
+    - Description: Specifies additional FS groups (GID) a user can be a part of. Allows access to directories/files having one or more of the provided groups. A String of GIDs separated by commas. Unset with ''.
 
 - `new_buckets_path` 
     - Type: String
-    - Description: Specifies a file system directory to be used for creating underlying directories that represent buckets created by an account using the S3 API.
+    - Description: Specifies a file system directory to be used for creating underlying directories that represent buckets created by an account using the S3 API. Unset with ''.
 
 - `regenerate`
     - Type: Boolean
@@ -189,7 +189,7 @@ noobaa-cli account update --name <account_name> [--new_name][--uid][--gid][--use
 - `fs_backend`
     - Type: String
     - Enum: none | GPFS | CEPH_FS | NFSv4
-    - Description: Specifies the file system of new_buckets_path (default config.NSFS_NC_STORAGE_BACKEND).
+    - Description: Specifies the file system of new_buckets_path (default config.NSFS_NC_STORAGE_BACKEND). Unset with ''.
 
 - `allow_bucket_creation`
     - Type: Boolean
@@ -197,7 +197,7 @@ noobaa-cli account update --name <account_name> [--new_name][--uid][--gid][--use
 
 - `force_md5_etag`
     - Type: Boolean
-    - Description: Set the account to force md5 ETag calculation.
+    - Description: Set the account to force md5 ETag calculation. Unset with ''.
 
 - `anonymous`
     - Type: Boolean
@@ -365,16 +365,16 @@ noobaa-cli bucket update --name <bucket_name> [--new_name] [--owner]
 
 - `bucket_policy`
     - Type: String
-    - Description: Set the bucket policy, type is a string of valid JSON policy.
+    - Description: Set the bucket policy, type is a string of valid JSON policy. Unset with ''.
 
 - `fs_backend`
     - Type: String
     - Enum: none | GPFS | CEPH_FS | NFSv4
-    - Description: Specifies the file system of the bucket (default config.NSFS_NC_STORAGE_BACKEND), unset with ''.
+    - Description: Specifies the file system of the bucket (default config.NSFS_NC_STORAGE_BACKEND), Unset with ''.
 
 - `force_md5_etag`
     - Type: Boolean
-    - Description: Set the bucket to force md5 ETag calculation.
+    - Description: Set the bucket to force md5 ETag calculation. Unset with ''.
 
 
 ### Bucket Status
@@ -441,7 +441,7 @@ noobaa-cli whitelist --ips <ips>
 #### Flags -
 - `ips` (Required)
     - Type: String
-    - Description: Specifies the white list of server IPs for S3 access. Example - '["127.0.0.1", "192.0.10.0", "3002:0bd6:0000:0000:0000:ee00:0033:6778"]'
+    - Description: Specifies the white list of server IPs for S3 access. Example - '["127.0.0.1", "192.0.10.0", "3002:0bd6:0000:0000:0000:ee00:0033:6778"]'. Unset with '[]'.
 
 
 ## Managing Glacier

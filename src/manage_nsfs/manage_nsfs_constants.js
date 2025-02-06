@@ -164,8 +164,21 @@ const BOOLEAN_STRING_VALUES = ['true', 'false'];
 const BOOLEAN_STRING_OPTIONS = new Set(['allow_bucket_creation', 'regenerate', 'wide', 'show_secrets', 'force',
     'force_md5_etag', 'iam_operate_on_root_account', 'all_account_details', 'all_bucket_details', 'anonymous']);
 
-//options that can be unset using ''
-const LIST_UNSETABLE_OPTIONS = ['fs_backend', 's3_policy', 'force_md5_etag'];
+// CLI UNSET VALUES
+const CLI_EMPTY_STRING = '';
+const CLI_EMPTY_STRING_ARRAY = '[]';
+
+const CLI_EMPTY_VALUES = new Set([CLI_EMPTY_STRING, CLI_EMPTY_STRING_ARRAY]);
+
+// options that can be unset using '' / '[]'
+const UNSETTABLE_OPTIONS_OBJ = Object.freeze({
+    'fs_backend': CLI_EMPTY_STRING,
+    'bucket_policy': CLI_EMPTY_STRING,
+    'force_md5_etag': CLI_EMPTY_STRING,
+    'supplemental_groups': CLI_EMPTY_STRING,
+    'new_buckets_path': CLI_EMPTY_STRING,
+    'ips': CLI_EMPTY_STRING_ARRAY,
+});
 
 const LIST_ACCOUNT_FILTERS = ['uid', 'gid', 'user', 'name', 'access_key'];
 const LIST_BUCKET_FILTERS = ['name'];
@@ -181,7 +194,10 @@ exports.OPTION_TYPE = OPTION_TYPE;
 exports.FROM_FILE = FROM_FILE;
 exports.BOOLEAN_STRING_VALUES = BOOLEAN_STRING_VALUES;
 exports.BOOLEAN_STRING_OPTIONS = BOOLEAN_STRING_OPTIONS;
-exports.LIST_UNSETABLE_OPTIONS = LIST_UNSETABLE_OPTIONS;
+exports.UNSETTABLE_OPTIONS_OBJ = UNSETTABLE_OPTIONS_OBJ;
+exports.CLI_EMPTY_VALUES = CLI_EMPTY_VALUES;
+exports.CLI_EMPTY_STRING = CLI_EMPTY_STRING;
+exports.CLI_EMPTY_STRING_ARRAY = CLI_EMPTY_STRING_ARRAY;
 
 exports.LIST_ACCOUNT_FILTERS = LIST_ACCOUNT_FILTERS;
 exports.LIST_BUCKET_FILTERS = LIST_BUCKET_FILTERS;

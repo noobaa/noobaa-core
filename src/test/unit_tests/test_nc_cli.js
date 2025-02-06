@@ -991,16 +991,25 @@ mocha.describe('manage_nsfs cli', function() {
             assert_whitelist(config_data, config_options);
         });
 
-        mocha.it('cli whitelist ips is empty', async function() {
+        mocha.it('should fail - cli whitelist ips is an empty string', async function() {
             try {
                 await exec_manage_cli(type, '', { config_root, ips: '' });
                 assert.fail('should have failed with whitelist ips should not be empty.');
             } catch (err) {
-                assert_error(err, ManageCLIError.InvalidWhiteListIPFormat);
+                assert_error(err, ManageCLIError.UnsetArgumentIsInvalid);
             }
         });
 
-        mocha.it('cli whitelist formate is invalid', async function() {
+        mocha.it('cli whitelist ips is empty array', async function() {
+            const ips = [];
+            const res = await exec_manage_cli(type, '', { config_root, ips: JSON.stringify(ips) });
+            config_options.S3_SERVER_IP_WHITELIST = ips;
+            const config_data = await config_fs.get_config_json();
+            await assert_response('', type, res, ips);
+            assert_whitelist(config_data, config_options);
+        });
+
+        mocha.it('should fail - cli whitelist format is invalid', async function() {
             try {
                 const ips = ['127.0.0.1'];
                 const ip_list_invalid_format = JSON.stringify(ips) + 'invalid';
@@ -1011,7 +1020,7 @@ mocha.describe('manage_nsfs cli', function() {
             }
         });
 
-        mocha.it('cli whitelist has invalid IP address (one item in the list)', async function() {
+        mocha.it('should fail - cli whitelist has invalid IP address (one item in the list)', async function() {
             const ip_list_with_invalid_ip_address = ['10.1.11']; // missing a class in the IP address
             try {
                 await exec_manage_cli(type, '', { config_root, ips: ip_list_with_invalid_ip_address});
@@ -1021,7 +1030,7 @@ mocha.describe('manage_nsfs cli', function() {
             }
         });
 
-        mocha.it('cli whitelist has invalid IP address (a couple of items in the list)', async function() {
+        mocha.it('should fail - cli whitelist has invalid IP address (a couple of items in the list)', async function() {
             const invalid_ip_address = '10.1.11'; // missing a class in the IP address
             const ips = ['127.0.0.1', '::ffff:7f00:3', '0000:0000:0000:0000:0000:ffff:7f00:0002'];
             ips.push(invalid_ip_address);
@@ -1033,7 +1042,7 @@ mocha.describe('manage_nsfs cli', function() {
             }
         });
 
-        mocha.it('cli whitelist with invalid option', async function() {
+        mocha.it('should fail -  cli whitelist with invalid option', async function() {
             const ips = ['127.0.0.1']; // IPV4 format
             try {
                 await exec_manage_cli(type, '', {

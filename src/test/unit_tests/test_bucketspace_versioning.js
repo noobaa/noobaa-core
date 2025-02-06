@@ -742,7 +742,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             const list_res = await s3_uid6.listObjectVersions({ Bucket: content_dir_bucket_name });
             const key_list_versions = list_res.Versions.filter(v => v.Key === key);
             assert.equal(key_list_versions.length, 3);
-            assert.equal(list_res.DeleteMarkers.length, 3); // 2 previous delete markers + 1 new delete marker 
+            assert.equal(list_res.DeleteMarkers.length, 3); // 2 previous delete markers + 1 new delete marker
             let is_delete_marker_present = false;
             for (const delete_marker of list_res.DeleteMarkers) {
                 if (delete_marker.versionId === delete_res.created_version_id) {
@@ -3658,8 +3658,8 @@ async function create_empty_content_dir(fs_context, bucket_path, key) {
 
 /**
  * check_non_current_xattr_exists checks that the XATTR_NON_CURRENT_TIMESTASMP xattr exists
- * @param {String} full_path 
- * @param {String} [key] 
+ * @param {String} full_path
+ * @param {String} [key]
  * @returns {Promise<Void>}
  */
 async function check_non_current_xattr_exists(full_path, key = '') {
@@ -3669,8 +3669,8 @@ async function check_non_current_xattr_exists(full_path, key = '') {
 
 /**
  * check_non_current_xattr_does_not_exist checks that the XATTR_NON_CURRENT_TIMESTASMP xattr does not exist
- * @param {String} full_path 
- * @param {String} [key] 
+ * @param {String} full_path
+ * @param {String} [key]
  * @returns {Promise<Void>}
  */
 async function check_non_current_xattr_does_not_exist(full_path, key = '') {

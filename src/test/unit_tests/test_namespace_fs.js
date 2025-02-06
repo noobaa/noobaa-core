@@ -1,6 +1,6 @@
 /* Copyright (C) 2020 NooBaa */
 /*eslint max-lines-per-function: ["error", 900]*/
-/*eslint max-lines: ["error", 2200]*/
+/*eslint max-lines: ["error", 3000]*/
 'use strict';
 
 const _ = require('lodash');
@@ -494,8 +494,8 @@ mocha.describe('namespace_fs', function() {
                 bucket: upload_bkt,
                 prefix: '/x/y/'
             }, dummy_object_sdk);
-            //two objects and two delete markers (one of each from last test).
-            assert.equal(res.objects.length, 4);
+            //two objects and two delete markers (one of each from last test) + delete marker for partial object.
+            assert.equal(res.objects.length, 5);
         });
 
         mocha.it('delete dir object, version enabled - /x/y/z/ - multiple files', async function() {
@@ -516,8 +516,8 @@ mocha.describe('namespace_fs', function() {
                 bucket: upload_bkt,
                 prefix: '/x/y/'
             }, dummy_object_sdk);
-            //4 from previous tests + 3 from this test(two objects and one delete marker)
-            assert.equal(res.objects.length, 7);
+            //5 from previous tests + 3 from this test(two objects and one delete marker)
+            assert.equal(res.objects.length, 8);
         });
 
         mocha.after(async function() {
@@ -2111,6 +2111,214 @@ mocha.describe('namespace_fs copy object', function() {
 
         });
     });
+});
+
+mocha.describe('namespace_fs directory and file collision', function() {
+    const upload_bkt = 'test_ns_uploads_object';
+    const mpu_bkt = 'test_ns_multipart_upload';
+    const upload_key1 = 'upload_key_1';
+    const upload_dir1 = upload_key1 + '/';
+    const upload_key2 = 'upload_key_2';
+    const upload_dir2 = upload_key2 + '/';
+    const xattr_key = { key: 'value1', key2: 'key' };
+    const xattr_dir = { key: 'value2', key2: 'dir' };
+
+    const tmp_fs_path = path.join(TMP_PATH, 'test_namespace_fs');
+    const dummy_object_sdk = make_dummy_object_sdk(tmp_fs_path);
+    const ns_tmp_bucket_path = `${tmp_fs_path}/${upload_bkt}`;
+
+    const ns_tmp = new NamespaceFS({
+        bucket_path: ns_tmp_bucket_path,
+        bucket_id: '2',
+        namespace_resource_id: undefined,
+        access_mode: undefined,
+        versioning: undefined,
+        force_md5_etag: false,
+        stats: endpoint_stats_collector.instance(),
+    });
+
+    mocha.before(async () => {
+        await P.all(_.map([upload_bkt, mpu_bkt], async buck =>
+            fs_utils.create_fresh_path(`${tmp_fs_path}/${buck}`)));
+    });
+    mocha.after(async () => {
+        await P.all(_.map([upload_bkt, mpu_bkt], async buck =>
+            fs_utils.folder_delete(`${tmp_fs_path}/${buck}`)));
+    });
+    mocha.after(async () => fs_utils.folder_delete(tmp_fs_path));
+
+    mocha.describe('upload_object', function() {
+        mocha.it('upload_object: directory and file same name collision - key first', async function() {
+            const data_key = crypto.randomBytes(100);
+            const data_dir = crypto.randomBytes(100);
+
+            await ns_tmp.upload_object({
+                bucket: upload_bkt,
+                key: upload_key1,
+                xattr: xattr_key,
+                source_stream: buffer_utils.buffer_to_read_stream(data_key)
+            }, dummy_object_sdk);
+
+            await ns_tmp.upload_object({
+                bucket: upload_bkt,
+                key: upload_dir1,
+                xattr: xattr_dir,
+                source_stream: buffer_utils.buffer_to_read_stream(data_dir)
+            }, dummy_object_sdk);
+
+            let read_res = buffer_utils.write_stream();
+            await ns_tmp.read_object_stream({
+                bucket: upload_bkt,
+                key: upload_key1,
+            }, dummy_object_sdk, read_res);
+            let read_data = read_res.join();
+            assert.strictEqual(Buffer.compare(read_data, data_key), 0);
+
+            read_res = buffer_utils.write_stream();
+            await ns_tmp.read_object_stream({
+                bucket: upload_bkt,
+                key: upload_dir1,
+            }, dummy_object_sdk, read_res);
+            read_data = read_res.join();
+            assert.strictEqual(Buffer.compare(read_data, data_dir), 0);
+        });
+
+        mocha.it('upload_object: directory and file same name collision - directory first', async function() {
+            const data_key = crypto.randomBytes(100);
+            const data_dir = crypto.randomBytes(100);
+
+            await ns_tmp.upload_object({
+                bucket: upload_bkt,
+                key: upload_dir2,
+                xattr: xattr_dir,
+                source_stream: buffer_utils.buffer_to_read_stream(data_dir)
+            }, dummy_object_sdk);
+
+            await ns_tmp.upload_object({
+                bucket: upload_bkt,
+                key: upload_key2,
+                xattr: xattr_key,
+                source_stream: buffer_utils.buffer_to_read_stream(data_key)
+            }, dummy_object_sdk);
+
+            let read_res = buffer_utils.write_stream();
+            await ns_tmp.read_object_stream({
+                bucket: upload_bkt,
+                key: upload_key2,
+            }, dummy_object_sdk, read_res);
+            let read_data = read_res.join();
+            assert.strictEqual(Buffer.compare(read_data, data_key), 0);
+
+            read_res = buffer_utils.write_stream();
+            await ns_tmp.read_object_stream({
+                bucket: upload_bkt,
+                key: upload_dir2,
+            }, dummy_object_sdk, read_res);
+            read_data = read_res.join();
+            assert.strictEqual(Buffer.compare(read_data, data_dir), 0);
+        });
+
+        mocha.it('upload_object: override file after collision', async function() {
+            const data_key = crypto.randomBytes(100);
+            await ns_tmp.upload_object({
+                bucket: upload_bkt,
+                key: upload_key1,
+                xattr: xattr_key,
+                source_stream: buffer_utils.buffer_to_read_stream(data_key)
+            }, dummy_object_sdk);
+
+            const read_res = buffer_utils.write_stream();
+            await ns_tmp.read_object_stream({
+                bucket: upload_bkt,
+                key: upload_key1,
+            }, dummy_object_sdk, read_res);
+            const read_data = read_res.join();
+            assert.strictEqual(Buffer.compare(read_data, data_key), 0);
+        });
+    });
+
+    mocha.describe('list objects', function() {
+        mocha.it('list-objects: key after collision should use key name instead of .object', async function() {
+            const res = await list_objects(ns_tmp, upload_bkt, undefined, undefined, dummy_object_sdk);
+            assert.strictEqual(res.objects.length, 4, 'amount of files is not as expected');
+            const key_set = new Set([upload_key1, upload_key2, upload_dir1, upload_dir2]);
+            res.objects.forEach(element => {
+                assert(key_set.has(element.key));
+            });
+        });
+
+        mocha.it('list-objects: .object file should appear in the level above the directory', async function() {
+            const res = await list_objects(ns_tmp, upload_bkt, '/', undefined, dummy_object_sdk);
+            assert.strictEqual(res.objects.length, 2, 'amount of files is not as expected'); //dir objects are common_prefix
+            const key_set = new Set([upload_key1, upload_key2]);
+            res.objects.forEach(element => {
+                assert(key_set.has(element.key));
+            });
+        });
+    });
+
+    mocha.describe('head object', function() {
+        mocha.it('head object: directory, file collision', async function() {
+            let res_md = await ns_tmp.read_object_md({
+                bucket: upload_bkt,
+                key: upload_key1,
+            }, dummy_object_sdk);
+
+            assert.deepEqual(res_md?.xattr, xattr_key);
+
+            res_md = await ns_tmp.read_object_md({
+                bucket: upload_bkt,
+                key: upload_dir1,
+            }, dummy_object_sdk);
+
+            assert.deepEqual(res_md?.xattr, xattr_dir);
+        });
+    });
+
+    mocha.describe('delete object', function() {
+        mocha.it('delete object - file,directory collition - delete directory, object is still accessable', async function() {
+            await ns_tmp.delete_object({
+                bucket: upload_bkt,
+                key: upload_dir1,
+            }, dummy_object_sdk);
+            const p1 = path.join(ns_tmp_bucket_path, upload_dir1);
+            await fs_utils.file_must_not_exist(path.join(p1, config.NSFS_FOLDER_OBJECT_NAME));
+
+            const res_md = await ns_tmp.read_object_md({
+                bucket: upload_bkt,
+                key: upload_key1,
+            }, dummy_object_sdk);
+
+            assert.deepEqual(res_md?.xattr, xattr_key);
+        });
+
+        mocha.it('delete object - file,directory collition - delete object, directory still accessable', async function() {
+            await ns_tmp.delete_object({
+                bucket: upload_bkt,
+                key: upload_key2,
+            }, dummy_object_sdk);
+            const p1 = path.join(ns_tmp_bucket_path, upload_key2);
+            await fs_utils.file_must_not_exist(path.join(p1, config.NSFS_COLLITION_OBJECT_NAME));
+
+            const res_md = await ns_tmp.read_object_md({
+                bucket: upload_bkt,
+                key: upload_dir2,
+            }, dummy_object_sdk);
+
+            assert.deepEqual(res_md?.xattr, xattr_dir);
+        });
+
+        mocha.it('delete object - delete object after deleting directory, empty directory is deleted', async function() {
+            await ns_tmp.delete_object({
+                bucket: upload_bkt,
+                key: upload_key1,
+            }, dummy_object_sdk);
+            const p2 = path.join(ns_tmp_bucket_path, upload_dir1);
+            await fs_utils.file_must_not_exist(path.join(p2, config.NSFS_COLLITION_OBJECT_NAME));
+            await fs_utils.file_must_not_exist(p2);
+        });
+    });
+
 });
 
 async function validate_tagging(tag_res, tag_req) {

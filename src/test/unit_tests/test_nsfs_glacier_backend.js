@@ -259,8 +259,8 @@ mocha.describe('nsfs_glacier', function() {
                 source_stream: buffer_utils.buffer_to_read_stream(data)
             };
 
-            const failed_file_path = glacier_ns._get_file_path(failed_params);
-            const success_file_path = glacier_ns._get_file_path(success_params);
+            const failed_file_path = await glacier_ns._get_file_path(dummy_object_sdk, failed_params);
+            const success_file_path = await glacier_ns._get_file_path(dummy_object_sdk, success_params);
 
             const failure_backend = new TapeCloudGlacier();
             failure_backend._migrate = async () => true;
@@ -435,7 +435,7 @@ mocha.describe('nsfs_glacier', function() {
                 objs.map(async obj => {
                     // obj.Key will be the same as original key for as long as
                     // no custom encoding is provided
-                    const file_path = glacier_ns._get_file_path({ key: obj.Contents.Key });
+                    const file_path = await glacier_ns._get_file_path(fs_context, { key: obj.Contents.Key });
                     const stat = await nb_native().fs.stat(fs_context, file_path);
 
                     // @ts-ignore

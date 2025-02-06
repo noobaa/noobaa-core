@@ -19,7 +19,7 @@ const VALID_BUCKET_NAME_REGEXP = /^(([a-z0-9]|[a-z0-9][a-z0-9-]*[a-z0-9])\.)*([a
 
 /** @typedef {import('../util/buffer_utils').MultiSizeBuffersPool} MultiSizeBuffersPool */
 
-// we will use this object to determined the entity for the rpc_code error message 
+// we will use this object to determined the entity for the rpc_code error message
 const entity_enum = Object.freeze({
     OBJECT: 'OBJECT',
     BUCKET: 'BUCKET',
@@ -60,10 +60,10 @@ async function _generate_unique_path(fs_context, tmp_dir_path) {
 
 
 /**
- * @param {nb.NativeFSContext} fs_context 
+ * @param {nb.NativeFSContext} fs_context
  * @param {string} bucket_path
- * @param {string} open_path 
- * @param {string} open_mode 
+ * @param {string} open_path
+ * @param {string} open_mode
  */
 // opens open_path on POSIX, and on GPFS it will open open_path parent folder
 async function open_file(fs_context, bucket_path, open_path, open_mode = config.NSFS_OPEN_READ_MODE,
@@ -94,13 +94,13 @@ async function open_file(fs_context, bucket_path, open_path, open_mode = config.
 }
 
 /**
- * @param {MultiSizeBuffersPool} multi_buffers_pool 
- * @param {nb.NativeFSContext} fs_context 
+ * @param {MultiSizeBuffersPool} multi_buffers_pool
+ * @param {nb.NativeFSContext} fs_context
  * @param {nb.NativeFile} src_file
- * @param {nb.NativeFile} dst_file 
- * @param {number} size 
- * @param {number} write_offset 
- * @param {number} read_offset 
+ * @param {nb.NativeFile} dst_file
+ * @param {number} size
+ * @param {number} write_offset
+ * @param {number} read_offset
  */
 async function copy_bytes(multi_buffers_pool, fs_context, src_file, dst_file, size, write_offset, read_offset) {
     dbg.log1(`Native_fs_utils.copy_bytes size=${size} read_offset=${read_offset} write_offset=${write_offset}`);
@@ -148,7 +148,7 @@ async function copy_bytes(multi_buffers_pool, fs_context, src_file, dst_file, si
 
 
 /**
- * @param {nb.NativeFSContext} fs_context 
+ * @param {nb.NativeFSContext} fs_context
  * @param {nb.NativeFile[]} list_of_files
  */
 async function finally_close_files(fs_context, list_of_files = []) {
@@ -245,8 +245,8 @@ async function safe_unlink_posix(fs_context, to_delete_path, to_delete_version_i
 
 /**
  * unlink_ignore_enoent unlinks a file and if recieved an ENOENT error it'll not fail
- * @param {nb.NativeFSContext} fs_context 
- * @param {String} to_delete_path 
+ * @param {nb.NativeFSContext} fs_context
+ * @param {String} to_delete_path
  * @returns {Promise<Void>}
  */
 async function unlink_ignore_enoent(fs_context, to_delete_path) {
@@ -337,10 +337,10 @@ function get_config_files_tmpdir() {
 
 /**
  * create_config_file created the config file at config_path under schema_dir containig config_data
- * @param {nb.NativeFSContext} fs_context 
+ * @param {nb.NativeFSContext} fs_context
  * @param {string} schema_dir
- * @param {string} config_path 
- * @param {string} config_data 
+ * @param {string} config_path
+ * @param {string} config_data
  */
 async function create_config_file(fs_context, schema_dir, config_path, config_data) {
     const open_mode = 'w';
@@ -388,9 +388,9 @@ async function create_config_file(fs_context, schema_dir, config_path, config_da
 
 /**
  * delete_config_file deletes the config file at config_path under schema_dir
- * @param {nb.NativeFSContext} fs_context 
+ * @param {nb.NativeFSContext} fs_context
  * @param {string} schema_dir
- * @param {string} config_path 
+ * @param {string} config_path
  */
 async function delete_config_file(fs_context, schema_dir, config_path) {
     const is_gpfs = _is_gpfs(fs_context);
@@ -433,10 +433,10 @@ async function delete_config_file(fs_context, schema_dir, config_path) {
 
 /**
  * update_config_file updated the config file at config_path under schema_dir with the new config_data
- * @param {nb.NativeFSContext} fs_context 
+ * @param {nb.NativeFSContext} fs_context
  * @param {string} schema_dir
- * @param {string} config_path 
- * @param {string} config_data 
+ * @param {string} config_path
+ * @param {string} config_data
  */
 async function update_config_file(fs_context, schema_dir, config_path, config_data) {
     const is_gpfs = _is_gpfs(fs_context);
@@ -454,7 +454,7 @@ async function update_config_file(fs_context, schema_dir, config_path, config_da
             gpfs_dst_file = await open_file(fs_context, schema_dir, config_path, 'r');
             upload_tmp_file = await open_file(fs_context, schema_dir, config_path, 'wt');
             gpfs_options = { dst_file: gpfs_dst_file, dir_file: upload_tmp_file };
-            // open path in GPFS is the parent dir 
+            // open path in GPFS is the parent dir
             open_path = schema_dir;
         } else {
             stat = await nb_native().fs.stat(fs_context, config_path);
@@ -571,7 +571,7 @@ function validate_bucket_creation(params) {
 
 /**
  * Validate the path param exists or not
- * @param {nb.NativeFSContext} fs_context 
+ * @param {nb.NativeFSContext} fs_context
  * @param {string} config_path
  * @param {boolean} use_lstat
  */
@@ -586,9 +586,24 @@ async function is_path_exists(fs_context, config_path, use_lstat = false) {
 }
 
 /**
+ * Validate if path param exists, and user has permissions to access it
+ * @param {nb.NativeFSContext} fs_context
+ * @param {string} file_path
+ */
+async function is_path_accessable(fs_context, file_path) {
+    try {
+        await nb_native().fs.stat(fs_context, file_path);
+    } catch (err) {
+        if (err.code === 'ENOENT' || err.code === 'EACCES') return false;
+        throw err;
+    }
+    return true;
+}
+
+/**
  * is_dir_accessible validate the dir param accessible for read by default
  * if NC_DISABLE_POSIX_MODE_ACCESS_CHECK=false a read and write access check
- * will be executed by checking mode bits 
+ * will be executed by checking mode bits
  * @param {nb.NativeFSContext} fs_context
  * @param {string} dir_path
  * @returns {Promise<boolean>}
@@ -627,7 +642,7 @@ async function is_dir_accessible(fs_context, dir_path) {
 
 /**
  * delete bucket specific temp folder from bucket storage path, config.NSFS_TEMP_DIR_NAME_<bucket_id>
- * @param {string} dir 
+ * @param {string} dir
  * @param {nb.NativeFSContext} fs_context
  * @param {boolean} [is_temp]
  * @param {boolean} [silent_if_missing]
@@ -662,9 +677,9 @@ async function folder_delete(dir, fs_context, is_temp, silent_if_missing) {
 /**
  * read_file reads file and returns the parsed file data as object
  * @param {nb.NativeFSContext} fs_context
- * @param {string} _path 
+ * @param {string} _path
  * @param {{parse_json?: Boolean}} [options]
- * @return {Promise<object>} 
+ * @return {Promise<object>}
  */
 async function read_file(fs_context, _path, options = {}) {
     const { data } = await nb_native().fs.readFile(fs_context, _path);
@@ -676,7 +691,7 @@ async function read_file(fs_context, _path, options = {}) {
 
 /**
  * get_bucket_tmpdir_name returns the bucket tmp dir name
- * @param {string} bucket_id 
+ * @param {string} bucket_id
  * @returns {string}
  */
 function get_bucket_tmpdir_name(bucket_id) {
@@ -686,9 +701,9 @@ function get_bucket_tmpdir_name(bucket_id) {
 
 /**
  * get_bucket_tmpdir_full_path returns the bucket tmp dir path
- * @param {string} bucket_path 
- * @param {string} bucket_id 
- * @return {string} 
+ * @param {string} bucket_path
+ * @param {string} bucket_id
+ * @return {string}
  */
 function get_bucket_tmpdir_full_path(bucket_path, bucket_id) {
     return path.join(bucket_path, get_bucket_tmpdir_name(bucket_id));
@@ -717,9 +732,9 @@ function translate_error_codes(err, entity) {
 /**
  * lock_and_run acquires a fcntl and calls the given callback after
  * acquiring the lock
- * @param {nb.NativeFSContext} fs_context 
+ * @param {nb.NativeFSContext} fs_context
  * @param {string} lock_path
- * @param {Function} cb 
+ * @param {Function} cb
  */
 async function lock_and_run(fs_context, lock_path, cb) {
     const lockfd = await nb_native().fs.open(fs_context, lock_path, 'w');
@@ -767,6 +782,7 @@ exports.get_process_fs_context = get_process_fs_context;
 exports.get_fs_context = get_fs_context;
 exports.validate_bucket_creation = validate_bucket_creation;
 exports.is_path_exists = is_path_exists;
+exports.is_path_accessable = is_path_accessable;
 exports.is_dir_accessible = is_dir_accessible;
 exports.folder_delete = folder_delete;
 exports.unlink_ignore_enoent = unlink_ignore_enoent;

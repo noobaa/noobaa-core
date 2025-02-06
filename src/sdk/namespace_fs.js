@@ -301,7 +301,7 @@ function filter_fs_xattr(xattr) {
 
 /**
  * get_tags_from_xattr converts relevant xattr to tags format
- * @param {Object} xattr 
+ * @param {Object} xattr
  * @returns {Object}
  */
 function get_tags_from_xattr(xattr) {
@@ -742,7 +742,7 @@ class NamespaceFS {
                         const use_lstat = !(await this._is_path_in_bucket_boundaries(fs_context, entry_path));
                         const stat = await native_fs_utils.stat_if_exists(fs_context, entry_path,
                             use_lstat, config.NSFS_LIST_IGNORE_ENTRY_ON_EACCES);
-                        // TODO - GAP of .folder files - we return stat of the directory for the 
+                        // TODO - GAP of .folder files - we return stat of the directory for the
                         // xattr, but the creation time should be of the .folder files (and maybe more )
                         if (stat) {
                             r.stat = stat;
@@ -757,6 +757,28 @@ class NamespaceFS {
                             results.length = limit;
                             is_truncated = true;
                         }
+                    }
+                };
+
+                /**
+                 * special case for .object keys. even though .object keys are inside the directory, they should be added as being on the level bellow it
+                 * so need to process them even if delimiter exists
+                 * @param {fs.Dirent} parent_ent
+                 */
+                const process_object_entry = async parent_ent => {
+                    const full_path = path.join(dir_path, parent_ent.name, config.NSFS_COLLITION_OBJECT_NAME);
+                    if (await native_fs_utils.is_path_accessable(fs_context, full_path)) {
+                        const new_key = path.join(dir_key, parent_ent.name, config.NSFS_COLLITION_OBJECT_NAME);
+                        if (await this._is_key_dir_path(fs_context, new_key)) {
+                            //.object file is a directory, shouldn't happen, but it is possible
+                            return;
+                        }
+                        const r = {
+                            key: new_key,
+                            common_prefix: false,
+                            is_latest: true
+                        };
+                        await insert_entry_to_results_arr(r);
                     }
                 };
 
@@ -789,6 +811,10 @@ class NamespaceFS {
                         };
                     }
                     await insert_entry_to_results_arr(r);
+
+                    if (isDir && delimiter) {
+                        await process_object_entry(ent);
+                    }
                 };
 
                 // our current mechanism - list the files and skipping inaccessible directory (invisible in the list).
@@ -882,7 +908,7 @@ class NamespaceFS {
                     for (;;) {
                         const dir_entry = await dir_handle.read(fs_context);
                         if (!dir_entry) break;
-                        await process_entry(dir_entry);
+                        await process_entry(dir_entry, is_disabled_dir_content);
                         // since we dir entries streaming order is not sorted,
                         // we have to keep scanning all the keys before we can stop.
                     }
@@ -922,6 +948,10 @@ class NamespaceFS {
                 }
                 if (obj_info.key.endsWith(config.NSFS_FOLDER_OBJECT_NAME)) {
                     obj_info.key = obj_info.key.slice(0, -config.NSFS_FOLDER_OBJECT_NAME.length);
+                }
+                if (obj_info.key.endsWith(config.NSFS_COLLITION_OBJECT_NAME)) {
+                    //+1 to remove the '/' charecter
+                    obj_info.key = obj_info.key.slice(0, -(config.NSFS_COLLITION_OBJECT_NAME.length + 1));
                 }
             };
 
@@ -1249,7 +1279,7 @@ class NamespaceFS {
         await this._load_bucket(params, fs_context);
         await this._throw_if_low_space(fs_context, params.size);
         const open_mode = native_fs_utils._is_gpfs(fs_context) ? 'wt' : 'w';
-        const file_path = this._get_file_path(params);
+        const file_path = await this._get_file_path(fs_context, params);
         let upload_params;
         try {
             await this._check_path_in_bucket_boundaries(fs_context, file_path);
@@ -1469,10 +1499,25 @@ class NamespaceFS {
         await this._assign_dir_content_to_xattr(fs_context, fs_xattr, params, copy_xattr);
         // when .folder exist and it's no upload flow - .folder should be deleted if it exists
         await native_fs_utils.unlink_ignore_enoent(fs_context, file_path);
-        const dir_path = this._get_directory_path(params);
+        const dir_path = await this._get_directory_path(fs_context, params);
         const stat = await nb_native().fs.stat(fs_context, dir_path);
         const upload_info = this._get_upload_info(stat, fs_xattr[XATTR_VERSION_ID]);
         return upload_info;
+    }
+
+    async _handle_directory_key_collision(fs_context, dest_path, key, source_path) {
+        const is_dir_content = this._is_directory_content(dest_path, key);
+        //only needed for collison of directory. collision of key already handled by _get_file_path
+        const key_path = path.dirname(dest_path);
+        const stat = is_dir_content && await native_fs_utils.stat_ignore_enoent(fs_context, key_path);
+        if (stat && !native_fs_utils.isDirectory(stat)) {
+            // currently there is no function that is able to move file into a directory with the same name. use intermidiery tmp path
+            const tmp_path = source_path + config.NSFS_COLLITION_OBJECT_NAME;
+            const collision_path = path.join(key_path, config.NSFS_COLLITION_OBJECT_NAME);
+            await nb_native().fs.rename(fs_context, key_path, tmp_path);
+            await native_fs_utils._make_path_dirs(collision_path, fs_context);
+            await nb_native().fs.rename(fs_context, tmp_path, collision_path);
+        }
     }
 
     // move to dest GPFS (wt) / POSIX (w / undefined) - non part upload
@@ -1482,6 +1527,7 @@ class NamespaceFS {
         // will retry renaming a file in case of parallel deleting of the destination path
         for (;;) {
             try {
+                await this._handle_directory_key_collision(fs_context, dest_path, key, source_path);
                 if (this._is_versioning_disabled()) {
                     await native_fs_utils._make_path_dirs(dest_path, fs_context);
                     if (open_mode === 'wt') {
@@ -1907,7 +1953,7 @@ class NamespaceFS {
             const { multiparts = [] } = params;
             multiparts.sort((a, b) => a.num - b.num);
             await this._load_multipart(params, fs_context);
-            const file_path = this._get_file_path(params);
+            const file_path = await this._get_file_path(fs_context, params);
 
             await this._check_path_in_bucket_boundaries(fs_context, file_path);
             const upload_path = path.join(params.mpu_path, 'final');
@@ -2029,12 +2075,7 @@ class NamespaceFS {
             await this._check_path_in_bucket_boundaries(fs_context, file_path);
             dbg.log0('NamespaceFS: delete_object', file_path);
             let res;
-            const is_key_dir_path = await this._is_key_dir_path(fs_context, params.key);
-            if (is_key_dir_path && !params.key.endsWith('/')) {
-                return {};
-            }
             if (this._is_versioning_disabled()) {
-                // TODO- Directory object (key/) is currently can't co-exist while key (without slash) exists. see -https://github.com/noobaa/noobaa-core/issues/8320
                 await this._delete_single_object(fs_context, file_path, params);
             } else {
                 res = params.version_id ?
@@ -2060,7 +2101,7 @@ class NamespaceFS {
                         continue;
                     }
                     try {
-                        const file_path = this._get_file_path({ key });
+                        const file_path = await this._get_file_path(fs_context, { key });
                         await this._check_path_in_bucket_boundaries(fs_context, file_path);
                         dbg.log1('NamespaceFS: delete_multiple_objects', file_path);
                         await this._delete_single_object(fs_context, file_path, { key, filter_func: params.filter_func });
@@ -2090,11 +2131,11 @@ class NamespaceFS {
 
     /**
      * _delete_single_object does the following before deleting the object
-     * 1. if is_lifecycle_deletion - 
+     * 1. if is_lifecycle_deletion -
      * 1.1. open dir_file and src_file fd
      * 1.2. _verify_lifecycle_filter_and_unlink - which means it stats the to be deleted file, validate filter if exists, unlink safely
      * 2. else - unlink_ignore_enoent
-     * 3. deleted parent directories if they are empty 
+     * 3. deleted parent directories if they are empty
      * 4. clears directory object xattr if relevant
      * 5. closes file and dir_file
      */
@@ -2373,7 +2414,7 @@ class NamespaceFS {
     // INTERNALS //
     ///////////////
 
-    _get_file_path({key}) {
+    async _get_file_path(fs_context, {key}) {
         // not allowing keys with dots follow by slash which can be treated as relative paths and "leave" the bucket_path
         // We are not using `path.isAbsolute` as path like '/../..' will return true and we can still "leave" the bucket_path
         if (key.includes('./')) throw new Error('Bad relative path key ' + key);
@@ -2383,7 +2424,11 @@ class NamespaceFS {
 
         // when the key refers to a directory (trailing /) we append a unique entry name
         // so that we can upload/download the object content to that dir entry.
-        return p.endsWith('/') ? p + config.NSFS_FOLDER_OBJECT_NAME : p;
+        if (p.endsWith('/')) return p + config.NSFS_FOLDER_OBJECT_NAME;
+
+        const stat = await native_fs_utils.stat_ignore_enoent(fs_context, p);
+        const is_dir = stat && native_fs_utils.isDirectory(stat);
+        return is_dir ? path.join(p, config.NSFS_COLLITION_OBJECT_NAME) : p;
     }
 
     /**
@@ -2395,7 +2440,7 @@ class NamespaceFS {
      * we will return the actual directory path
      */
     async _get_file_md_path(fs_context, { key }) {
-        const p = this._get_file_path({ key });
+        const p = await this._get_file_path(fs_context, { key });
         const is_disabled_dir_content = await this._is_disabled_content_dir(fs_context, p, key);
         return (is_disabled_dir_content) ? path.join(path.dirname(p), '/') : p;
     }
@@ -2403,8 +2448,8 @@ class NamespaceFS {
     /**
      * returns the directory path of a content dir object
      */
-    _get_directory_path({ key }) {
-        const p = this._get_file_path({ key });
+    async _get_directory_path(fs_context, { key }) {
+        const p = await this._get_file_path(fs_context, { key });
         return path.dirname(p);
     }
 
@@ -2417,13 +2462,13 @@ class NamespaceFS {
     }
 
     /**
-     * _assign_versions_to_fs_xattr assigns version related xattrs to the file 
+     * _assign_versions_to_fs_xattr assigns version related xattrs to the file
      * 1. assign version_id xattr
-     * 2. if delete_marker - 
+     * 2. if delete_marker -
      * 2.1. assigns delete_marker xattr
      * 2.2. assigns non_current_timestamp xattr - on the current structure - delete marker is under .versions/
-     * @param {nb.NativeFSStats} new_ver_stat 
-     * @param {nb.NativeFSXattr} fs_xattr 
+     * @param {nb.NativeFSStats} new_ver_stat
+     * @param {nb.NativeFSXattr} fs_xattr
      * @param {Boolean} [delete_marker]
      * @returns {nb.NativeFSXattr}
      */
@@ -2451,7 +2496,7 @@ class NamespaceFS {
 
     /**
      * _assign_non_current_timestamp_xattr assigns non current timestamp xattr to file xattr
-     * @param {nb.NativeFSXattr} fs_xattr 
+     * @param {nb.NativeFSXattr} fs_xattr
      * @returns {nb.NativeFSXattr}
      */
     _assign_non_current_timestamp_xattr(fs_xattr = {}) {
@@ -2463,8 +2508,8 @@ class NamespaceFS {
 
     /**
      * _set_non_current_timestamp_on_past_version sets non current timestamp on past version - used as a hint for lifecycle process
-     * @param {nb.NativeFSContext} fs_context 
-     * @param {String} versioned_path 
+     * @param {nb.NativeFSContext} fs_context
+     * @param {String} versioned_path
      * @returns {Promise<Void>}
      */
     async _set_non_current_timestamp_on_past_version(fs_context, versioned_path) {
@@ -2474,8 +2519,8 @@ class NamespaceFS {
 
     /**
      * _unset_non_current_timestamp_on_past_version unsets non current timestamp on past version - used as a hint for lifecycle process
-     * @param {nb.NativeFSContext} fs_context 
-     * @param {String} versioned_path 
+     * @param {nb.NativeFSContext} fs_context
+     * @param {String} versioned_path
      * @returns {Promise<Void>}
      */
     async _unset_non_current_timestamp_on_past_version(fs_context, versioned_path) {
@@ -2531,7 +2576,7 @@ class NamespaceFS {
      * existing xattr starting with XATTR_USER_PREFIX will be cleared
     */
     async _assign_dir_content_to_xattr(fs_context, fs_xattr, params, copy_xattr) {
-        const dir_path = this._get_directory_path(params);
+        const dir_path = await this._get_directory_path(fs_context, params);
         fs_xattr = Object.assign(fs_xattr || {}, {
             [XATTR_DIR_CONTENT]: params.size || 0
         });
@@ -2644,7 +2689,8 @@ class NamespaceFS {
             is_latest,
             delete_marker,
             storage_class,
-            restore_status: Glacier.get_restore_status(stat.xattr, new Date(), this._get_file_path({key})),
+            //TODO ask utkarsh
+            restore_status: Glacier.get_restore_status(stat.xattr, new Date(), undefined),
             xattr: to_xattr(stat.xattr),
             tag_count,
             tagging: get_tags_from_xattr(stat.xattr),
@@ -3000,9 +3046,9 @@ class NamespaceFS {
      * if version xattr contains version info - return info by xattr
      * else - it's a null version - return stat
      * if file is passed, will use file instead of path to stat
-     * @param {nb.NativeFSContext} fs_context 
-     * @param {String} version_path 
-     * @param {nb.NativeFile} [file] 
+     * @param {nb.NativeFSContext} fs_context
+     * @param {String} version_path
+     * @param {nb.NativeFile} [file]
      * @returns {Promise<object>}
      */
     async _get_version_info(fs_context, version_path, file = undefined) {
@@ -3038,7 +3084,8 @@ class NamespaceFS {
      * @returns {Promise<string>}
      */
     async _find_version_path(fs_context, { key, version_id }, return_md_path) {
-        const cur_ver_path = return_md_path ? await this._get_file_md_path(fs_context, { key }) : this._get_file_path({ key });
+        const cur_ver_path = return_md_path ? await this._get_file_md_path(fs_context, { key }) :
+            await this._get_file_path(fs_context, { key });
         if (!version_id) return cur_ver_path;
 
         this._throw_if_wrong_version_format(version_id);
@@ -3099,8 +3146,8 @@ class NamespaceFS {
 
     /**
      * _is_mismatch_version_id checks if the expected_version_id equals to the version_id_str received by version_info or by version_id xattr coming from stat
-     * @param {nb.NativeFSStats} stat 
-     * @param {String} expected_version_id 
+     * @param {nb.NativeFSStats} stat
+     * @param {String} expected_version_id
      * @returns {Boolean}
      */
     _is_mismatch_version_id(stat, expected_version_id) {
@@ -3128,7 +3175,7 @@ class NamespaceFS {
     async _delete_single_object_versioned(fs_context, params) {
         let retries = config.NSFS_RENAME_RETRIES;
         const { key, version_id } = params;
-        const latest_version_path = this._get_file_path({ key });
+        const latest_version_path = await this._get_file_path(fs_context, { key });
         const is_lifecycle_deletion = this.is_lifecycle_deletion_flow(params);
         const is_gpfs = native_fs_utils._is_gpfs(fs_context);
 
@@ -3201,7 +3248,7 @@ class NamespaceFS {
         let deleted_delete_marker;
         let delete_marker_created;
         let latest_ver_info;
-        const latest_version_path = this._get_file_path({ key });
+        const latest_version_path = await this._get_file_path(fs_context, { key });
         await this._check_path_in_bucket_boundaries(fs_context, latest_version_path);
         for (const version_id of versions) {
             try {
@@ -3257,7 +3304,7 @@ class NamespaceFS {
 
         // we try promote only if the latest version was deleted or we deleted a delete marker
         if (del_obj_version_info.latest || del_obj_version_info.delete_marker) {
-            const latest_version_path = this._get_file_path({ key: params.key });
+            const latest_version_path = await this._get_file_path(fs_context, { key: params.key });
             await this._promote_version_to_latest(fs_context, params, del_obj_version_info, latest_version_path);
         }
         await this._delete_path_dirs(file_path, fs_context);
@@ -3467,7 +3514,8 @@ class NamespaceFS {
 
     // try find prev version by hint or by iterating on .versions/ dir
     async find_max_version_past(fs_context, key) {
-        const is_dir_content = await this._is_key_dir_path(fs_context, key);
+        const file_path = await this._get_file_path(fs_context, {key});
+        const is_dir_content = await this._is_directory_content(file_path, key);
         const key_name = is_dir_content ? config.NSFS_FOLDER_OBJECT_NAME : path.basename(key);
         const versions_dir = this._get_versions_dir_path(key, is_dir_content);
         try {
@@ -3578,7 +3626,7 @@ class NamespaceFS {
      * @param {string} version_id
      */
     async _check_version_moved(fs_context, key, version_id) {
-        const latest_version_path = this._get_file_path({ key });
+        const latest_version_path = await this._get_file_path(fs_context, { key });
         const versioned_path = this._get_version_path(key, version_id);
         const versioned_path_info = await this._get_version_info(fs_context, versioned_path);
         if (versioned_path_info) throw error_utils.new_error_code('VERSION_MOVED', `version file moved from latest ${latest_version_path} to .versions/ ${versioned_path}, retrying`);
@@ -3723,15 +3771,15 @@ class NamespaceFS {
     ////////////////////////////
 
     /**
-     * _verify_lifecycle_filter_and_unlink does the following - 
+     * _verify_lifecycle_filter_and_unlink does the following -
      * 1. stat the to be deleted file
      * 2. checks that the file should be deleted based on lifecycle filter (if the flow is not lifecycle the check will be skipped)
      * 3. calls safe_unlink that inside checks that the path to be deleted has the same inode/fd of the file that should be deleted
      * GAP - in .folder if exists we should take mtime from the file and not from the directory, this is a bug in get_object_info we should fix
-     * @param {nb.NativeFSContext} fs_context 
-     * @param {Object} params 
-     * @param {String} file_path 
-     * @param {{dir_file: nb.NativeFile, src_file: nb.NativeFile }} files 
+     * @param {nb.NativeFSContext} fs_context
+     * @param {Object} params
+     * @param {String} file_path
+     * @param {{dir_file: nb.NativeFile, src_file: nb.NativeFile }} files
      */
     async _verify_lifecycle_filter_and_unlink(fs_context, params, file_path, { dir_file, src_file }) {
         try {
@@ -3752,9 +3800,9 @@ class NamespaceFS {
 
     /**
      * _check_lifecycle_filter_before_deletion checks if filter_func provided that we want to delete the object
-     * @param {Object} params 
+     * @param {Object} params
      * @param {nb.NativeFSStats} stat
-     * @returns {Void} 
+     * @returns {Void}
      */
     _check_lifecycle_filter_before_deletion(params, stat) {
         if (!params.filter_func) return;
@@ -3774,9 +3822,9 @@ class NamespaceFS {
     }
 
     /**
-     * is_lifecycle_deletion_flow returns true if params contain filter_func which occurs when calling the function 
+     * is_lifecycle_deletion_flow returns true if params contain filter_func which occurs when calling the function
      * from lifecycle deletion flow
-     * @param {Object} params 
+     * @param {Object} params
      * @returns {Boolean}
      */
     is_lifecycle_deletion_flow(params) {

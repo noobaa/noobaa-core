@@ -794,6 +794,7 @@ config.NSFS_DEFAULT_IOV_MAX = 1024; // see IOV_MAX in https://man7.org/linux/man
 config.NSFS_TEMP_DIR_NAME = '.noobaa-nsfs';
 
 config.NSFS_FOLDER_OBJECT_NAME = '.folder';
+config.NSFS_COLLITION_OBJECT_NAME = '.object';
 
 config.NSFS_DIR_CACHE_MAX_DIR_SIZE = 64 * 1024 * 1024;
 config.NSFS_DIR_CACHE_MIN_DIR_SIZE = 64;

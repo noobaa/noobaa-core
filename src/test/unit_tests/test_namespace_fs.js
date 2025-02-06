@@ -42,6 +42,8 @@ const DEFAULT_FS_CONFIG = get_process_fs_context();
 const empty_data = crypto.randomBytes(0);
 const empty_stream = () => buffer_utils.buffer_to_read_stream(empty_data);
 
+config.NSFS_CONTENT_DIRECTORY_VERSIONING_ENABLED = true;
+
 function make_dummy_object_sdk(config_root) {
     return {
         requesting_account: {
@@ -489,14 +491,13 @@ mocha.describe('namespace_fs', function() {
             await fs_utils.file_must_exist(path.join(ns_tmp_bucket_path, '/x/y/z/', config.NSFS_FOLDER_OBJECT_NAME));
             const resp = await delete_object(ns_tmp, upload_bkt, dir_3, dummy_object_sdk);
             await fs_utils.file_must_not_exist(path.join(ns_tmp_bucket_path, '/x/y/z/', config.NSFS_FOLDER_OBJECT_NAME));
-            await fs_utils.file_must_not_exist(path.join(ns_tmp_bucket_path, '/x/y/z/'));
-            // object versioning is not enabled for dir, because of this no delete_marker.
-            assert.deepEqual(resp, {});
+            assert.equal(resp?.created_delete_marker, true);
             const res = await ns_tmp.list_object_versions({
                 bucket: upload_bkt,
                 prefix: '/x/y/'
             }, dummy_object_sdk);
-            assert.equal(res.objects.length, 0);
+            //two objects and two delete markers (one of each from last test).
+            assert.equal(res.objects.length, 4);
         });
 
         mocha.it('delete dir object, version enabled - /x/y/z/ - multiple files', async function() {
@@ -512,13 +513,13 @@ mocha.describe('namespace_fs', function() {
             await fs_utils.file_must_not_exist(path.join(ns_tmp_bucket_path, dir_3, config.NSFS_FOLDER_OBJECT_NAME));
             await fs_utils.file_must_exist(path.join(ns_tmp_bucket_path, dir_3));
             await fs_utils.file_must_exist(path.join(ns_tmp_bucket_path, dir_3_object));
-            // object versioning is not enabled for dir, because of this no delete_marker.
-            assert.deepEqual(resp, {});
+            assert.equal(resp?.created_delete_marker, true);
             const res = await ns_tmp.list_object_versions({
                 bucket: upload_bkt,
                 prefix: '/x/y/'
             }, dummy_object_sdk);
-            assert.equal(res.objects.length, 1);
+            //4 from previous tests + 3 from this test(two objects and one delete marker)
+            assert.equal(res.objects.length, 7);
         });
 
         mocha.after(async function() {

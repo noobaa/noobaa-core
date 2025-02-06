@@ -25,6 +25,8 @@ const ssl_utils = require('../util/ssl_utils');
 
 const UNSIGNED_PAYLOAD = 'UNSIGNED-PAYLOAD';
 const STREAMING_PAYLOAD = 'STREAMING-AWS4-HMAC-SHA256-PAYLOAD';
+const STREAMING_UNSIGNED_PAYLOAD_TRAILER = 'STREAMING-UNSIGNED-PAYLOAD-TRAILER';
+const STREAMING_AWS4_HMAC_SHA256_PAYLOAD_TRAILER = 'STREAMING-AWS4-HMAC-SHA256-PAYLOAD-TRAILER';
 
 const CONTENT_TYPE_TEXT_PLAIN = 'text/plain';
 const CONTENT_TYPE_APP_OCTET_STREAM = 'application/octet-stream';
@@ -577,7 +579,9 @@ function check_headers(req, options) {
         content_sha256_hdr;
     if (typeof content_sha256_hdr === 'string' &&
         content_sha256_hdr !== UNSIGNED_PAYLOAD &&
-        content_sha256_hdr !== STREAMING_PAYLOAD) {
+        content_sha256_hdr !== STREAMING_PAYLOAD &&
+        content_sha256_hdr !== STREAMING_UNSIGNED_PAYLOAD_TRAILER &&
+        content_sha256_hdr !== STREAMING_AWS4_HMAC_SHA256_PAYLOAD_TRAILER) {
         req.content_sha256_buf = Buffer.from(content_sha256_hdr, 'hex');
         if (req.content_sha256_buf.length !== 32) {
             throw new options.ErrorClass(options.error_invalid_digest);

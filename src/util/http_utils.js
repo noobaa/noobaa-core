@@ -19,6 +19,7 @@ const dbg = require('./debug_module')(__filename);
 const config = require('../../config');
 const xml_utils = require('./xml_utils');
 const jwt_utils = require('./jwt_utils');
+const net_utils = require('./net_utils');
 const time_utils = require('./time_utils');
 const cloud_utils = require('./cloud_utils');
 const ssl_utils = require('../util/ssl_utils');
@@ -45,38 +46,18 @@ const https_proxy_agent = HTTPS_PROXY ?
 const unsecured_https_proxy_agent = HTTPS_PROXY ?
     new HttpsProxyAgent(HTTPS_PROXY, { rejectUnauthorized: false }) : null;
 
-const no_proxy_list =
-    (NO_PROXY ? NO_PROXY.split(',') : []).map(addr => {
-        if (net.isIPv4(addr) || net.isIPv6(addr)) {
-            return {
-                kind: 'IP',
-                addr
-            };
-        }
+const no_proxy_list = (NO_PROXY ? NO_PROXY.split(',') : []).map(addr => {
+    let kind = 'FQDN';
+    if (net.isIPv4(addr) || net.isIPv6(addr)) {
+        kind = 'IP';
+    } else if (net_utils.is_cidr(addr)) {
+        kind = 'CIDR';
+    } else if (addr.startsWith('.')) {
+        kind = 'FQDN_SUFFIX';
+    }
 
-        try {
-            ip_module.cidr(addr);
-            return {
-                kind: 'CIDR',
-                addr
-            };
-        } catch {
-            // noop
-        }
-
-        if (addr.startsWith('.')) {
-            return {
-                kind: 'FQDN_SUFFIX',
-                addr
-            };
-        }
-
-        return {
-            kind: 'FQDN',
-            addr
-        };
-    });
-
+    return { kind, addr };
+});
 
 const parse_xml_to_js = xml2js.parseStringPromise;
 const non_printable_regexp = /[\x00-\x1F]/;

@@ -98,9 +98,9 @@ The following is a list of `NC jest tests` files -
 1. `test_nc_account_invalid_mkm_integration.test.js` - Tests NC invalid master key manager scenarios.  
 2. `test_nc_master_keys.test.js` - Tests NC master key manager (store type = file).  
 3. `test_nc_master_keys_exec.test.js` - Tests NC master key manager (store type = executable).  
-4. `test_nc_nsfs_bucket_cli.test.js` - Tests NooBaa CLI bucket commands.  
+4. `test_nc_bucket_cli.test.js` - Tests NooBaa CLI bucket commands.  
 5. `test_nc_account_cli.test.js` - Tests NooBaa CLI account commands.  
-6. `test_nc_nsfs_anonymous_cli.test.js` - Tests NooBaa CLI anonymous account commands.  
+6. `test_nc_anonymous_cli.test.js` - Tests NooBaa CLI anonymous account commands.  
 7. `test_nc_nsfs_config_schema_validation.test.js` - Tests NC config.json schema validation.  
 8. `test_nc_nsfs_bucket_schema_validation.test.js` - Tests NC bucket schema validation.  
 9. `test_nc_nsfs_account_schema_validation.test.js` - Tests NC account schema validation.  
@@ -114,6 +114,7 @@ The following is a list of `NC jest tests` files -
 17. `test_nc_upgrade_manager.test.js` - Tests of the NC upgrade manager.
 18. `test_cli_upgrade.test.js` - Tests of the upgrade CLI commands.
 19. `test_nc_online_upgrade_cli_integrations.test.js` - Tests CLI commands during mocked config directory upgrade.
+20. `test_nc_connection_cli.test.js` - Tests NooBaa CLI connection commands.
 
 #### nc_index.js File
 * The `nc_index.js` is a file that runs several NC and NSFS mocha related tests.  

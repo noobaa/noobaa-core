@@ -98,7 +98,7 @@ Usage:
 
 Flags:
 
-    --ips <string>                                          Set configuring for allowed IP addresses; format: '["127.0.0.1", "192.0.10.0", "3002:0bd6:0000:0000:0000:ee00:0033:6778"]'
+    --ips <string>                                          Set configuring for allowed IP addresses; format: '["127.0.0.1", "192.0.10.0", "3002:0bd6:0000:0000:0000:ee00:0033:6778"]', unset using '[]'
 
 `;
 
@@ -161,12 +161,12 @@ Flags:
     --uid <number>                                        (optional)        Update the User Identifier (UID)
     --gid <number>                                        (optional)        Update the Group Identifier (GID)
     --supplemental_groups <string>                        (optional)        Update the list of supplemental groups (List of GID) seperated by comma(,) example: 211,202,23 - it will override existing list (unset with '')
-    --new_buckets_path <string>                           (optional)        Update the filesystem's root path where each subdirectory is a bucket
+    --new_buckets_path <string>                           (optional)        Update the filesystem's root path where each subdirectory is a bucket (unset with '')
     --user <string>                                       (optional)        Update the OS user name (instead of uid and gid)
     --regenerate                                          (optional)        Update automatically generated access key and secret key
     --access_key <string>                                 (optional)        Update the access key
     --secret_key <string>                                 (optional)        Update the secret key
-    --fs_backend <none | GPFS | CEPH_FS | NFSv4>          (optional)        Update the filesystem type of new_buckets_path (default config.NSFS_NC_STORAGE_BACKEND)
+    --fs_backend <none | GPFS | CEPH_FS | NFSv4>          (optional)        Update the filesystem type of new_buckets_path (default config.NSFS_NC_STORAGE_BACKEND), (unset with '')
     --allow_bucket_creation <true | false>                (optional)        Update the account to explicitly allow or block bucket creation
     --force_md5_etag <true | false>                       (optional)        Update the account to force md5 etag calculation (unset with '') (will override default config.NSFS_NC_STORAGE_BACKEND)
     --iam_operate_on_root_account <true | false>          (optional)        Update the account to create root accounts instead of IAM users in IAM API requests.

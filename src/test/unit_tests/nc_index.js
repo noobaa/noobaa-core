@@ -9,7 +9,7 @@ require('./test_namespace_fs');
 require('./test_ns_list_objects');
 require('./test_namespace_fs_mpu');
 require('./test_nb_native_fs');
-require('./test_nc_nsfs_cli');
+require('./test_nc_cli');
 require('./test_nc_health');
 require('./test_nsfs_access');
 require('./test_nsfs_integration');

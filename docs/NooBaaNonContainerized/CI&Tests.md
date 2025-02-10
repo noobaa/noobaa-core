@@ -87,7 +87,7 @@ Run `NC mocha tests` with root permissions -
 
 #### NC mocha tests 
 The following is a list of `NC mocha test` files -   
-1. `test_nc_nsfs_cli.js` - Tests NooBaa CLI.  
+1. `test_nc_cli.js` - Tests NooBaa CLI.  
 2. `test_nc_health` - Tests NooBaa Health CLI.  
 3. `test_nsfs_glacier_backend.js` - Tests NooBaa Glacier Backend.  
 4. `test_nc_with_a_couple_of_forks.js` - Tests the `bucket_namespace_cache` when running with a couple of forks. Please notice that it uses `nc_coretest` with setup that includes a couple of forks.
@@ -99,7 +99,7 @@ The following is a list of `NC jest tests` files -
 2. `test_nc_master_keys.test.js` - Tests NC master key manager (store type = file).  
 3. `test_nc_master_keys_exec.test.js` - Tests NC master key manager (store type = executable).  
 4. `test_nc_nsfs_bucket_cli.test.js` - Tests NooBaa CLI bucket commands.  
-5. `test_nc_nsfs_account_cli.test.js` - Tests NooBaa CLI account commands.  
+5. `test_nc_account_cli.test.js` - Tests NooBaa CLI account commands.  
 6. `test_nc_nsfs_anonymous_cli.test.js` - Tests NooBaa CLI anonymous account commands.  
 7. `test_nc_nsfs_config_schema_validation.test.js` - Tests NC config.json schema validation.  
 8. `test_nc_nsfs_bucket_schema_validation.test.js` - Tests NC bucket schema validation.  

@@ -9,7 +9,7 @@ const path = require('path');
 const os_util = require('../../../util/os_utils');
 const fs_utils = require('../../../util/fs_utils');
 const { ConfigFS } = require('../../../sdk/config_fs');
-const { set_path_permissions_and_owner, TMP_PATH, generate_s3_policy,
+const { set_path_permissions_and_owner, TMP_PATH, generate_s3_policy, CLI_UNSET_EMPTY_STRING,
     set_nc_config_dir_in_config } = require('../../system_tests/test_utils');
 const { ACTIONS, TYPES } = require('../../../manage_nsfs/manage_nsfs_constants');
 const { get_process_fs_context, is_path_exists, get_bucket_tmpdir_full_path } = require('../../../util/native_fs_utils');
@@ -505,8 +505,7 @@ describe('manage nsfs cli bucket flow', () => {
             expect(bucket_config.force_md5_etag).toBe(true);
 
             // unset force_md5_etag
-            const empty_string = '\'\'';
-            bucket_options.force_md5_etag = empty_string;
+            bucket_options.force_md5_etag = CLI_UNSET_EMPTY_STRING;
             await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
             bucket_config = await config_fs.get_bucket_by_name(bucket_defaults.name);
             expect(bucket_config.force_md5_etag).toBeUndefined();

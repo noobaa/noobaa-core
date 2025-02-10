@@ -92,6 +92,12 @@ ManageCLIError.InvalidArgumentType = Object.freeze({
     http_code: 400,
 });
 
+ManageCLIError.UnsetArgumentIsInvalid = Object.freeze({
+    code: 'UnsetArgumentIsInvalid',
+    message: 'Argument can not be unset or it was unset incorrectly, its value must be set or unset correctly or check there are no leading spaces',
+    http_code: 400,
+});
+
 ManageCLIError.InvalidType = Object.freeze({
     code: 'InvalidType',
     message: 'Invalid type, available types are account, bucket, logging, whitelist, upgrade, notification or connection.',

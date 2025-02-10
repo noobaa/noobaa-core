@@ -12,7 +12,7 @@ const path = require('path');
 const os_util = require('../../../util/os_utils');
 const fs_utils = require('../../../util/fs_utils');
 const { ConfigFS } = require('../../../sdk/config_fs');
-const { set_path_permissions_and_owner, create_fs_user_by_platform,
+const { set_path_permissions_and_owner, create_fs_user_by_platform, CLI_UNSET_EMPTY_STRING,
     delete_fs_user_by_platform, TMP_PATH, set_nc_config_dir_in_config } = require('../../system_tests/test_utils');
 const { TYPES, ACTIONS, ANONYMOUS } = require('../../../manage_nsfs/manage_nsfs_constants');
 const ManageCLIError = require('../../../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
@@ -801,8 +801,7 @@ describe('manage nsfs cli account flow', () => {
             it('cli update account unset new_buckets_path', async () => {
                 const { name } = defaults;
                 //in exec_manage_cli an empty string is passed as no input. so operation fails on invalid type. use the string '' instead 
-                const empty_string = '\'\'';
-                const account_options = { config_root, name, new_buckets_path: empty_string};
+                const account_options = { config_root, name, new_buckets_path: CLI_UNSET_EMPTY_STRING};
                 const action = ACTIONS.UPDATE;
                 await exec_manage_cli(type, action, account_options);
                 let new_account_details = await config_fs.get_account_by_name(name, config_fs_account_options);
@@ -859,8 +858,7 @@ describe('manage nsfs cli account flow', () => {
                 expect(new_account_details.force_md5_etag).toBe(true);
 
                 // unset force_md5_etag
-                const empty_string = '\'\'';
-                account_options.force_md5_etag = empty_string;
+                account_options.force_md5_etag = CLI_UNSET_EMPTY_STRING;
                 await exec_manage_cli(type, action, account_options);
                 new_account_details = await config_fs.get_account_by_name(name, config_fs_account_options);
                 expect(new_account_details.force_md5_etag).toBeUndefined();
@@ -890,11 +888,19 @@ describe('manage nsfs cli account flow', () => {
                 expect(new_account_details.iam_operate_on_root_account).toBe(true);
 
                 // unset iam_operate_on_root_account (is not allowed)
-                const empty_string = '\'\'';
-                account_options.iam_operate_on_root_account = empty_string;
+                account_options.iam_operate_on_root_account = CLI_UNSET_EMPTY_STRING;
                 const res = await exec_manage_cli(type, action, account_options);
                 expect(JSON.parse(res.stdout).error.code).toBe(
                     ManageCLIError.InvalidArgumentType.code);
+            });
+
+            it(`should fail - cli update account unset flag access_key with ''`, async function() {
+                // unset access_key (is not allowed)
+                const action = ACTIONS.UPDATE;
+                const { name } = defaults;
+                const account_options = { config_root, name, access_key: CLI_UNSET_EMPTY_STRING };
+                const res = await exec_manage_cli(type, action, account_options);
+                expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.UnsetArgumentIsInvalid.code);
             });
 
             it('cli update account iam_operate_on_root_account true when account owns a bucket', async function() {

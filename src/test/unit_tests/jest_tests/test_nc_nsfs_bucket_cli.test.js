@@ -858,8 +858,9 @@ describe('manage nsfs cli bucket flow', () => {
             secret_key: 'G2AYaMpU3zRDcRFWmvzgQr9MoHIAsD+3oEXAMPLE',
         };
 
+        const bucket_name = 'bucket1';
         const bucket_defaults = {
-            name: 'bucket1',
+            name: bucket_name,
             owner: account_name,
             path: bucket_storage_path,
         };
@@ -901,11 +902,37 @@ describe('manage nsfs cli bucket flow', () => {
         });
 
         it('cli list filter by name (bucket1)', async () => {
-            const bucket_options = { config_root, name: 'bucket1' };
+            const bucket_options = { config_root, name: bucket_name };
             const action = ACTIONS.LIST;
             const res = await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
             expect(JSON.parse(res).response.reply.map(item => item.name))
-                .toEqual(expect.arrayContaining(['bucket1']));
+                .toEqual(expect.arrayContaining([bucket_name]));
+        });
+
+        it('cli list no flags - expect to see bucket1 only', async () => {
+            const bucket_options = { config_root };
+            const action = ACTIONS.LIST;
+            const res = await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
+            const buckets_arr = JSON.parse(res).response.reply.map(item => item.name);
+            expect(buckets_arr.length).toBe(1);
+            expect(buckets_arr[0]).toEqual(bucket_name);
+        });
+
+        it('cli list with flag wide - expect to see bucket1 with additional properties', async () => {
+            const bucket_options = { config_root, wide: true};
+            const action = ACTIONS.LIST;
+            const res = await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
+            const buckets_arr = JSON.parse(res).response.reply;
+            expect(buckets_arr.length).toBe(1);
+            expect(buckets_arr[0].name).toEqual(bucket_name);
+            // check additional properties in the output that we expect to see when using wide flag
+            expect(buckets_arr[0]._id).toBeDefined();
+            expect(buckets_arr[0].owner_account).toBeDefined();
+            expect(buckets_arr[0].versioning).toBeDefined();
+            expect(buckets_arr[0].creation_date).toBeDefined();
+            expect(buckets_arr[0].path).toBeDefined();
+            expect(buckets_arr[0].should_create_underlying_storage).toBeDefined();
+            expect(buckets_arr[0].bucket_owner).toBeDefined();
         });
 
     });

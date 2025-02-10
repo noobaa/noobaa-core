@@ -80,7 +80,8 @@ static void
 set_supplemental_groups(uid_t uid, gid_t gid, std::vector<gid_t>& groups) {
     //first check if groups were defined in the account configuration
     if (groups.empty()) {
-        if (get_supplemental_groups_by_uid(uid, groups) < 0) {
+        const char* is_enabled = getenv("NSFS_ENABLE_DYNAMIC_SUPPLEMENTAL_GROUPS");
+        if ((is_enabled == NULL) || (strcmp(is_enabled, "true") != 0) || get_supplemental_groups_by_uid(uid, groups) < 0) {
             //aready unset by _mac_thread_setugid
             return;
         }

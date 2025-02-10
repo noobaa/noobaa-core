@@ -231,24 +231,35 @@ class ConfigFS {
      * and decrypts the account's secret_key if decrypt_secret_key is true
      * if silent_if_missing is true -      
      *   if the config file was deleted (encounter ENOENT error) - continue (returns undefined)
+     * if decrypt_secret_key is true and the decryption failed with rpc error of INVALID_MASTER_KEY
+     *    and return_on_decryption_error is true - 
+     *        add a property decryption_err with the error we've got
+     *        if  return_on_decryption_error is false - throw the error (as it was before)
      * @param {string} config_file_path
-     * @param {{show_secrets?: boolean, decrypt_secret_key?: boolean, silent_if_missing?: boolean}} [options]
+     * @param {{show_secrets?: boolean, decrypt_secret_key?: boolean, silent_if_missing?: boolean,
+     *          return_on_decryption_error?: boolean}} [options]
      * @returns {Promise<Object>}
      */
     async get_identity_config_data(config_file_path, options = {}) {
         const { show_secrets = false, decrypt_secret_key = false, silent_if_missing = false } = options;
+        let config_data;
         try {
             const data = await this.get_config_data(config_file_path, options);
             if (!data && silent_if_missing) return;
-            const config_data = _.omit(data, show_secrets ? [] : ['access_keys']);
+            config_data = _.omit(data, show_secrets ? [] : ['access_keys']);
             if (decrypt_secret_key) config_data.access_keys = await nc_mkm.decrypt_access_keys(config_data);
             return config_data;
         } catch (err) {
             dbg.warn('get_identity_config_data: with config_file_path', config_file_path, 'got an error', err);
+            if (err.rpc_code === 'INVALID_MASTER_KEY' && options.return_on_decryption_error) {
+                config_data.decryption_err = err.message;
+                return this.remove_encrypted_secret_key(config_data);
+            }
             if (err.code === 'ENOENT' && silent_if_missing) return;
             throw err;
         }
     }
+
     /**
      * get_config_data reads a config file and returns its content
      * @param {string} config_file_path
@@ -820,7 +831,6 @@ class ConfigFS {
         await native_fs_utils.folder_delete(account_dir_path, this.fs_context, undefined, true);
     }
 
-
     /**
      * _prepare_for_account_schema processes account data before writing it to the config dir and does the following -
      * 1. encrypts its access keys
@@ -837,6 +847,19 @@ class ConfigFS {
         const parsed_account_data = JSON.parse(string_account_data);
         nsfs_schema_utils.validate_account_schema(parsed_account_data);
         return { parsed_account_data, string_account_data };
+    }
+
+    /**
+     * remove_encrypted_secret_key will remove the encrypted_secret_key property from an identity
+     * @param {object} config_data
+     * @returns {object}
+     */
+    remove_encrypted_secret_key(config_data) {
+        const size = config_data.access_keys.length;
+        for (let index = 0; index < size; index++) {
+            config_data.access_keys[index] = _.omit(config_data.access_keys[index], ['encrypted_secret_key']);
+        }
+        return config_data;
     }
 
     /////////////////////////////////////

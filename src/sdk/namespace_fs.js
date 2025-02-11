@@ -736,12 +736,12 @@ class NamespaceFS {
                 /**
                  * @param {fs.Dirent} ent
                  */
-                const process_entry = async ent => {
+                const process_entry = async (ent, is_disabled_dir_content) => {
                     // dbg.log0('process_entry', dir_key, ent.name);
-                    if ((!ent.name.startsWith(prefix_ent) ||
+                    if (!ent.name.startsWith(prefix_ent) ||
                         ent.name < marker_curr ||
                         ent.name === this.get_bucket_tmpdir_name() ||
-                        ent.name === config.NSFS_FOLDER_OBJECT_NAME) ||
+                        (ent.name === config.NSFS_FOLDER_OBJECT_NAME && is_disabled_dir_content) ||
                         this._is_hidden_version_path(ent.name)) {
                         return;
                     }
@@ -756,7 +756,7 @@ class NamespaceFS {
                         };
                     } else {
                         r = {
-                            key: this._get_entry_key(dir_key, ent, isDir),
+                            key: this._get_entry_key(dir_key, ent, isDir, is_disabled_dir_content),
                             common_prefix: isDir,
                             is_latest: true
                         };
@@ -781,8 +781,8 @@ class NamespaceFS {
 
                 // insert dir object to objects list if its key is lexicographicly bigger than the key marker &&
                 // no delimiter OR prefix is the current directory entry
-                const is_dir_content = cached_dir.stat.xattr && cached_dir.stat.xattr[XATTR_DIR_CONTENT];
-                if (is_dir_content && dir_key > key_marker && (!delimiter || dir_key === prefix)) {
+                const is_disabled_dir_content = cached_dir.stat.xattr && cached_dir.stat.xattr[XATTR_DIR_CONTENT];
+                if (is_disabled_dir_content && dir_key > key_marker && (!delimiter || dir_key === prefix)) {
                     const r = { key: dir_key, common_prefix: false };
                     await insert_entry_to_results_arr(r);
                 }
@@ -835,7 +835,7 @@ class NamespaceFS {
                         if (ent.name === config.NSFS_FOLDER_OBJECT_NAME && dir_key === marker_dir) {
                             continue;
                         }
-                        await process_entry(ent);
+                        await process_entry(ent, is_disabled_dir_content);
                         // since we traverse entries in sorted order,
                         // we can break as soon as enough keys are collected.
                         if (is_truncated) break;
@@ -883,6 +883,17 @@ class NamespaceFS {
                 }
             };
 
+            const format_key_name = obj_info => {
+                if (this._is_hidden_version_path(obj_info.key)) {
+                    obj_info.key = path.normalize(obj_info.key.replace(HIDDEN_VERSIONS_PATH + '/', ''));
+                    obj_info.key = _get_filename(obj_info.key);
+                    set_latest_delete_marker(obj_info);
+                }
+                if (obj_info.key.endsWith(config.NSFS_FOLDER_OBJECT_NAME)) {
+                    obj_info.key = obj_info.key.slice(0, -config.NSFS_FOLDER_OBJECT_NAME.length);
+                }
+            };
+
             const prefix_dir_key = prefix.slice(0, prefix.lastIndexOf('/') + 1);
             await process_dir(prefix_dir_key);
             await Promise.all(results.map(async r => {
@@ -908,11 +919,7 @@ class NamespaceFS {
                     if (!list_versions && obj_info.delete_marker) {
                         continue;
                     }
-                    if (this._is_hidden_version_path(obj_info.key)) {
-                        obj_info.key = path.normalize(obj_info.key.replace(HIDDEN_VERSIONS_PATH + '/', ''));
-                        obj_info.key = _get_filename(obj_info.key);
-                        set_latest_delete_marker(obj_info);
-                    }
+                    format_key_name(obj_info);
                     res.objects.push(obj_info);
                     previous_key = obj_info.key;
                 }
@@ -1215,7 +1222,7 @@ class NamespaceFS {
         try {
             await this._check_path_in_bucket_boundaries(fs_context, file_path);
 
-            if (this.should_use_empty_content_dir_optimization() && this.empty_dir_content_flow(file_path, params)) {
+            if (this._is_versioning_disabled() && this.empty_dir_content_flow(file_path, params)) {
                 const content_dir_info = await this._create_empty_dir_content(fs_context, params, file_path);
                 return content_dir_info;
             }
@@ -1353,8 +1360,7 @@ class NamespaceFS {
         const part_upload = file_path === upload_path;
         const same_inode = params.copy_source && copy_res === COPY_STATUS_ENUM.SAME_INODE;
         const should_replace_xattr = params.copy_source ? copy_res === COPY_STATUS_ENUM.FALLBACK : true;
-        const is_dir_content_optimized_flow = this._is_directory_content(file_path, params.key) &&
-            this.should_use_empty_content_dir_optimization();
+        const is_disabled_dir_content = this._is_directory_content(file_path, params.key) && this._is_versioning_disabled();
 
         const stat = await target_file.stat(fs_context);
         this._verify_encryption(params.encryption, this._get_encryption_info(stat));
@@ -1397,7 +1403,7 @@ class NamespaceFS {
                 });
             }
         }
-        if (fs_xattr && !is_dir_content_optimized_flow && should_replace_xattr) {
+        if (fs_xattr && !is_disabled_dir_content && should_replace_xattr) {
             await target_file.replacexattr(fs_context, fs_xattr);
         }
         // fsync
@@ -1405,13 +1411,12 @@ class NamespaceFS {
         dbg.log1('NamespaceFS._finish_upload:', open_mode, file_path, upload_path, fs_xattr);
 
         if (!same_inode && !part_upload) {
-            await this._move_to_dest(fs_context, upload_path, file_path, target_file, open_mode, params.key,
-                is_dir_content_optimized_flow);
+            await this._move_to_dest(fs_context, upload_path, file_path, target_file, open_mode, params.key);
         }
 
         // when object is a dir, xattr are set on the folder itself and the content is in .folder file
         // we still should put the xattr if copy is link/same inode because we put the xattr on the directory
-        if (is_dir_content_optimized_flow) {
+        if (is_disabled_dir_content) {
             await this._assign_dir_content_to_xattr(fs_context, fs_xattr, { ...params, size: stat.size }, copy_xattr);
         }
         stat.xattr = { ...stat.xattr, ...fs_xattr };
@@ -1439,14 +1444,14 @@ class NamespaceFS {
     }
 
     // move to dest GPFS (wt) / POSIX (w / undefined) - non part upload
-    async _move_to_dest(fs_context, source_path, dest_path, target_file, open_mode, key, is_dir_content_optimized_flow) {
-        dbg.log2('_move_to_dest', fs_context, source_path, dest_path, target_file, open_mode, key, is_dir_content_optimized_flow);
+    async _move_to_dest(fs_context, source_path, dest_path, target_file, open_mode, key) {
+        dbg.log2('_move_to_dest', fs_context, source_path, dest_path, target_file, open_mode, key);
         let retries = config.NSFS_RENAME_RETRIES;
         // will retry renaming a file in case of parallel deleting of the destination path
         for (;;) {
             try {
                 await native_fs_utils._make_path_dirs(dest_path, fs_context);
-                if (this._is_versioning_disabled() || is_dir_content_optimized_flow) {
+                if (this._is_versioning_disabled()) {
                     if (open_mode === 'wt') {
                         await target_file.linkfileat(fs_context, dest_path);
                     } else {
@@ -1989,7 +1994,7 @@ class NamespaceFS {
             if (is_key_dir_path && !params.key.endsWith('/')) {
                 return {};
             }
-            if (this._is_versioning_disabled() || (is_key_dir_path && this.should_use_empty_content_dir_optimization())) {
+            if (this._is_versioning_disabled()) {
                 // TODO- Directory object (key/) is currently can't co-exist while key (without slash) exists. see -https://github.com/noobaa/noobaa-core/issues/8320
                 await this._delete_single_object(fs_context, file_path, params);
             } else {
@@ -2111,13 +2116,8 @@ class NamespaceFS {
 
     async delete_object_tagging(params, object_sdk) {
         dbg.log0('NamespaceFS.delete_object_tagging:', params);
-        let file_path;
-        if (params.version_id && this._is_versioning_enabled()) {
-            file_path = this._get_version_path(params.key, params.version_id);
-        } else {
-            file_path = this._get_file_path(params);
-        }
         const fs_context = this.prepare_fs_context(object_sdk);
+        const file_path = await this._find_version_path(fs_context, params, true);
         try {
             await this._clear_user_xattr(fs_context, file_path, XATTR_TAG);
         } catch (err) {
@@ -2133,13 +2133,8 @@ class NamespaceFS {
         for (const [xattr_key, xattr_value] of Object.entries(tagging)) {
               fs_xattr[XATTR_TAG + xattr_key] = xattr_value;
         }
-        let file_path;
-        if (params.version_id && this._is_versioning_enabled()) {
-            file_path = this._get_version_path(params.key, params.version_id);
-        } else {
-            file_path = this._get_file_path(params);
-        }
         const fs_context = this.prepare_fs_context(object_sdk);
+        const file_path = await this._find_version_path(fs_context, params, true);
         dbg.log0('NamespaceFS.put_object_tagging: fs_xattr ', fs_xattr, 'file_path :', file_path);
         try {
             // remove existng tag before putting new tags
@@ -2439,8 +2434,8 @@ class NamespaceFS {
      * @param {fs.Dirent} ent
      * @returns {string}
      */
-    _get_entry_key(dir_key, ent, isDir) {
-        if (ent.name === config.NSFS_FOLDER_OBJECT_NAME) return dir_key;
+    _get_entry_key(dir_key, ent, isDir, is_disabled_dir_content) {
+        if (ent.name === config.NSFS_FOLDER_OBJECT_NAME && is_disabled_dir_content) return dir_key;
         return dir_key + ent.name + (isDir ? '/' : '');
     }
 
@@ -2450,7 +2445,6 @@ class NamespaceFS {
      * @returns {string}
      */
      _get_version_entry_key(dir_key, ent) {
-        if (ent.name === config.NSFS_FOLDER_OBJECT_NAME) return dir_key;
         return dir_key + HIDDEN_VERSIONS_PATH + '/' + ent.name;
     }
 
@@ -2764,9 +2758,6 @@ class NamespaceFS {
         return is_dir_content && params.size === 0;
     }
 
-    should_use_empty_content_dir_optimization() {
-        return this._is_versioning_disabled() || !config.NSFS_CONTENT_DIRECTORY_VERSIONING_ENABLED;
-    }
     /**
      * returns if should force md5 calculation for the bucket/account.
      * first check if defined for bucket / account, if not use global default

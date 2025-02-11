@@ -7,9 +7,10 @@ const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEve
 /**
  * @typedef {{
  *      code?: string, 
+ *      message?: string,
  *      http_code: number,
  *      list?: object,
- *      status?: object,  
+ *      status?: object
  * }} ManageCLIResponseSpec
  */
 
@@ -18,17 +19,19 @@ class ManageCLIResponse {
     /**
      * @param {ManageCLIResponseSpec} response_spec 
      */
-    constructor({ code, status, list }) {
+    constructor({ code, status, list, message }) {
         this.code = code;
         this.http_code = 200;
         this.status = status;
         this.list = list;
+        this.message = message;
     }
 
     to_string(detail) {
         const json = {
             response: {
                 code: this.code,
+                message: detail?.name ? `${this.message}: ${detail.name}` : this.message,
             }
         };
         if (this.list || this.status) json.response.reply = typeof detail === 'string' ? JSON.parse(detail) : detail;
@@ -44,11 +47,13 @@ class ManageCLIResponse {
 
 ManageCLIResponse.HealthStatus = Object.freeze({
     code: 'HealthStatus',
+    message: 'Health status retrieved successfully',
     status: {}
 });
 
 ManageCLIResponse.MetricsStatus = Object.freeze({
     code: 'MetricsStatus',
+    message: 'Metrics status retrieved successfully',
     status: {}
 });
 
@@ -57,6 +62,7 @@ ManageCLIResponse.MetricsStatus = Object.freeze({
 ///////////////////////////////
 ManageCLIResponse.WhiteListIPUpdated = Object.freeze({
     code: 'WhiteListIPUpdated',
+    message: 'WhiteListIP has been updated successfully',
     status: {}
 });
 
@@ -66,25 +72,30 @@ ManageCLIResponse.WhiteListIPUpdated = Object.freeze({
 
 ManageCLIResponse.AccountCreated = Object.freeze({
     code: 'AccountCreated',
+    message: 'Account has been created successfully',
     status: {}
 });
 
 ManageCLIResponse.AccountDeleted = Object.freeze({
     code: 'AccountDeleted',
+    message: 'Account has been deleted successfully'
 });
 
 ManageCLIResponse.AccountUpdated = Object.freeze({
     code: 'AccountUpdated',
+    message: 'Account has been updated successfully',
     status: {}
 });
 
 ManageCLIResponse.AccountStatus = Object.freeze({
     code: 'AccountStatus',
+    message: 'Account status retrieved successfully',
     status: {}
 });
 
 ManageCLIResponse.AccountList = Object.freeze({
     code: 'AccountList',
+    message: 'Account list retrieved successfully',
     list: {}
 });
 
@@ -94,25 +105,30 @@ ManageCLIResponse.AccountList = Object.freeze({
 
 ManageCLIResponse.BucketCreated = Object.freeze({
     code: 'BucketCreated',
+    message: 'Bucket has been created successfully',
     status: {}
 });
 
 ManageCLIResponse.BucketDeleted = Object.freeze({
     code: 'BucketDeleted',
+    message: 'Bucket has been deleted successfully'
 });
 
 ManageCLIResponse.BucketUpdated = Object.freeze({
     code: 'BucketUpdated',
+    message: 'Bucket has been updated successfully',
     status: {}
 });
 
 ManageCLIResponse.BucketStatus = Object.freeze({
     code: 'BucketStatus',
+    message: 'Bucket status retrieved successfully',
     status: {}
 });
 
 ManageCLIResponse.BucketList = Object.freeze({
     code: 'BucketList',
+    message: 'Bucket list retrieved successfully',
     list: {}
 });
 
@@ -122,6 +138,7 @@ ManageCLIResponse.BucketList = Object.freeze({
 
 ManageCLIResponse.LoggingExported = Object.freeze({
     code: 'LoggingExported',
+    message: 'Logging data exported successfully',
     status: {}
 });
 
@@ -131,16 +148,19 @@ ManageCLIResponse.LoggingExported = Object.freeze({
 
 ManageCLIResponse.UpgradeSuccessful = Object.freeze({
     code: 'UpgradeSuccessful',
+    message: 'Config directory upgrade completed successfully',
     status: {}
 });
 
 ManageCLIResponse.UpgradeStatus = Object.freeze({
     code: 'UpgradeStatus',
+    message: 'Config directory upgrade status retrieved successfully',
     status: {}
 });
 
 ManageCLIResponse.UpgradeHistory = Object.freeze({
     code: 'UpgradeHistory',
+    message: 'Config directory upgrade history retrieved successfully',
     status: {}
 });
 
@@ -150,25 +170,30 @@ ManageCLIResponse.UpgradeHistory = Object.freeze({
 
 ManageCLIResponse.ConnectionCreated = Object.freeze({
     code: 'ConnectionCreated',
+    message: 'Notification connection has been created successfully',
     status: {}
 });
 
 ManageCLIResponse.ConnectionDeleted = Object.freeze({
     code: 'ConnectionDeleted',
+    message: 'Notification connection has been deleted successfully'
 });
 
 ManageCLIResponse.ConnectionUpdated = Object.freeze({
     code: 'ConnectionUpdated',
+    message: 'Notification connection has been updated successfully',
     status: {}
 });
 
 ManageCLIResponse.ConnectionStatus = Object.freeze({
     code: 'ConnectionStatus',
+    message: 'Notification connection status retrieved successfully',
     status: {}
 });
 
 ManageCLIResponse.ConnectionList = Object.freeze({
     code: 'ConnectionList',
+    message: 'Notification connection list retrieved successfully',
     list: {}
 });
 

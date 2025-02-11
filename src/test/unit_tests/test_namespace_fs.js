@@ -42,8 +42,6 @@ const DEFAULT_FS_CONFIG = get_process_fs_context();
 const empty_data = crypto.randomBytes(0);
 const empty_stream = () => buffer_utils.buffer_to_read_stream(empty_data);
 
-config.NSFS_CONTENT_DIRECTORY_VERSIONING_ENABLED = true;
-
 function make_dummy_object_sdk(config_root) {
     return {
         requesting_account: {

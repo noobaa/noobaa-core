@@ -6,6 +6,7 @@
 require('../util/dotenv').load();
 require('../util/panic');
 require('../util/fips');
+const pkg = require('../../package.json');
 
 const dbg = require('../util/debug_module')(__filename);
 if (!dbg.get_process_name()) dbg.set_process_name('Endpoint');
@@ -294,6 +295,14 @@ function create_endpoint_handler(server_type, init_request_sdk, { virtual_hosts,
                 return fork_count_handler(req, res);
             } else if (req.url.startsWith('/endpoint_fork_id')) {
                 return endpoint_fork_id_handler(req, res);
+            } else if (req.url.startsWith('/_/')) {
+                // internals non S3 requests
+                const api = req.url.slice('/_/'.length);
+                if (api === 'version') {
+                    return version_handler(req, res);
+                } else {
+                    return internal_api_error(req, res, `Unknown API call ${api}`);
+                }
             } else {
                 return s3_rest.handler(req, res);
             }
@@ -325,28 +334,67 @@ function create_endpoint_handler(server_type, init_request_sdk, { virtual_hosts,
     }
 }
 
+///////////////////////////
+// INTERNAL API HANDLERS //
+///////////////////////////
+
+/**
+ * version_handler returns the version of noobaa package
+ * @param {EndpointRequest} req 
+ * @param {import('http').ServerResponse} res 
+ */
+function version_handler(req, res) {
+    const noobaa_package_version = pkg.version;
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'text/plain');
+    res.setHeader('Content-Length', Buffer.byteLength(noobaa_package_version));
+    res.end(noobaa_package_version);
+}
+
+/**
+ * internal_api_error returns an internal api error response
+ * @param {EndpointRequest} req 
+ * @param {import('http').ServerResponse} res 
+ * @param {string} error_message 
+ */
+function internal_api_error(req, res, error_message) {
+    const buffer = Buffer.from(JSON.stringify({ error: 'Internal Server Error', message: error_message }));
+    res.statusCode = 500;
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Length', buffer.length);
+    res.end(buffer);
+}
+
+/**
+ * endpoint_fork_id_handler returns the worker id of the current fork
+ * @param {EndpointRequest} req 
+ * @param {import('http').ServerResponse} res 
+ */
 function endpoint_fork_id_handler(req, res) {
     let reply = {};
     if (cluster.isWorker) {
-        reply = {
-            worker_id: cluster.worker.id,
-        };
+        reply = { worker_id: cluster.worker.id };
     }
     P.delay(500);
     res.statusCode = 200;
+    const buffer = Buffer.from(JSON.stringify(reply));
     res.setHeader('Content-Type', 'application/json');
-    res.setHeader('Content-Length', Buffer.byteLength(JSON.stringify(reply)));
-    res.end(JSON.stringify(reply));
+    res.setHeader('Content-Length', buffer.length);
+    res.end(buffer);
 }
 
+/**
+ * fork_count_handler returns the total number of forks
+ * @param {EndpointRequest} req 
+ * @param {import('http').ServerResponse} res 
+ */
 function fork_count_handler(req, res) {
-    const reply = {
-        fork_count: fork_count,
-    };
+    const reply = { fork_count: fork_count };
     res.statusCode = 200;
+    const buffer = Buffer.from(JSON.stringify(reply));
     res.setHeader('Content-Type', 'application/json');
-    res.setHeader('Content-Length', Buffer.byteLength(JSON.stringify(reply)));
-    res.end(JSON.stringify(reply));
+    res.setHeader('Content-Length', buffer.length);
+    res.end(buffer);
 }
 
 /**

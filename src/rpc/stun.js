@@ -2,14 +2,14 @@
 /* eslint-disable no-bitwise */
 'use strict';
 
+const url = require('url');
 const _ = require('lodash');
 const util = require('util');
-const P = require('../util/promise');
-const url = require('url');
 const dgram = require('dgram');
 const crypto = require('crypto');
-const ip_module = require('ip');
 const chance = require('chance')();
+const P = require('../util/promise');
+const net_utils = require('../util/net_utils');
 
 // https://tools.ietf.org/html/rfc5389
 const stun = {
@@ -435,7 +435,7 @@ function encode_attrs(buffer, attrs) {
 function decode_attr_mapped_addr(buffer, start, end) {
     const family = (buffer.readUInt16BE(start) === 0x02) ? 6 : 4;
     const port = buffer.readUInt16BE(start + 2);
-    const address = ip_module.toString(buffer, start + 4, family);
+    const address = net_utils.ip_toString(buffer, start + 4, family);
 
     return {
         family: 'IPv' + family,
@@ -463,7 +463,7 @@ function decode_attr_xor_mapped_addr(buffer, start, end) {
         xor_buf[i] = addr_buf[i] ^ buffer[k];
         k += 1;
     }
-    const address = ip_module.toString(xor_buf, 0, family);
+    const address = net_utils.ip_toString(xor_buf, 0, family);
 
     return {
         family: 'IPv' + family,
@@ -510,7 +510,7 @@ function encode_attr_mapped_addr(addr, buffer, offset, end) {
     // xor the port against the magic key
     buffer.writeUInt16BE(addr.port, offset + 2);
 
-    ip_module.toBuffer(addr.address, buffer, offset + 4);
+    net_utils.ip_toBuffer(addr.address, buffer, offset + 4);
 }
 
 
@@ -524,7 +524,7 @@ function encode_attr_xor_mapped_addr(addr, buffer, offset, end) {
     // xor the port against the magic key
     buffer.writeUInt16BE(addr.port ^ buffer.readUInt16BE(stun.XOR_KEY_OFFSET), offset + 2);
 
-    ip_module.toBuffer(addr.address, buffer, offset + 4);
+    net_utils.ip_toBuffer(addr.address, buffer, offset + 4);
     let k = stun.XOR_KEY_OFFSET;
     for (let i = offset + 4; i < end; ++i) {
         buffer[i] ^= buffer[k];
@@ -615,7 +615,8 @@ function test() {
                 }
                 return Promise.all([
                         P.ninvoke(socket, 'send', req, 0, req.length, stun_url.port, stun_url.hostname),
-                        P.ninvoke(socket, 'send', ind, 0, ind.length, stun_url.port, stun_url.hostname)])
+                        P.ninvoke(socket, 'send', ind, 0, ind.length, stun_url.port, stun_url.hostname)
+                    ])
                     .then(() => P.delay(stun.INDICATION_INTERVAL * chance.floating(stun.INDICATION_JITTER)))
                     .then(loop);
             }

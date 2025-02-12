@@ -1824,15 +1824,20 @@ class NamespaceFS {
         }
     }
 
-    // iterate over multiparts array - 
+    // iterate over multiparts array -
     // 1. if num of unique sizes is 1
     //    1.1. if this is the last part - link the size file and break the loop
     //    1.2. else, continue the loop
     // 2. if num of unique sizes is 2
     //    2.1. if should_copy_file_prefix
-    //         2.1.1. if the cur part is the last, link the previous part file to upload_path and copy the last part (tail) to upload_path  
+    //         2.1.1. if the cur part is the last, link the previous part file to upload_path and copy the last part (tail) to upload_path
     //         2.1.2. else - copy the prev part size file prefix to upload_path
     // 3. copy bytes of the current's part size file
+    // NOTE on versioning - according to general aws specifications, the version_id time should be based on when we created the upload.
+    // for directory buckets, on AWS, the object creation time is the completion date of the multipart upload
+    // on our design we decided to do it based on when the upload was completed.
+    // see https://docs.aws.amazon.com/AmazonS3/latest/userguide/mpuoverview.html#distributedmpupload
+    // see https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-express-using-multipart-upload.html#s3-express-distributedmpupload
     async complete_object_upload(params, object_sdk) {
         const part_size_to_fd_map = new Map(); // { size: fd }
         let read_file;

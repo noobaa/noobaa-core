@@ -103,7 +103,9 @@ Online Upgrade Algorithm commands examples -
 2. Stop NooBaa service - `systemctl stop noobaa`
 3. RPM upgrade on a specific node - `rpm -Uvh /path/to/new_noobaa_rpm_version.rpm`
 4. Restart NooBaa service - `systemctl restart noobaa`
-5. `noobaa-cli upgrade start --expected_version=5.18.0 --expected_hosts=hostname1,hostname2,hostname3` 
+5. Check that each node has NooBaa service running with the new code - `curl -k https://localhost:6443/_/version` or `curl http://${host_address}:6001/_/version`
+6. `noobaa-cli upgrade start --expected_version=5.18.0`
+
 
 ### Additional Upgrade Properties of `system.json`
 

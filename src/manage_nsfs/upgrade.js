@@ -49,7 +49,7 @@ async function start_config_dir_upgrade(user_input, config_fs) {
         new NoobaaEvent(NoobaaEvent.CONFIG_DIR_UPGRADE_STARTED).create_event(undefined, { expected_version, expected_hosts }, undefined);
 
         if (!expected_version) throw new Error('expected_version flag is required');
-        if (!expected_hosts) throw new Error('expected_hosts flag is required');
+        if (!expected_hosts) dbg.warn('expected_hosts flag is empty, config dir upgrade will be performed without hosts version verification');
 
         const nc_upgrade_manager = new NCUpgradeManager(config_fs, { custom_upgrade_scripts_dir });
         const upgrade_res = await nc_upgrade_manager.upgrade_config_dir(expected_version, expected_hosts, { skip_verification });

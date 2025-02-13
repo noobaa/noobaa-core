@@ -14,7 +14,7 @@ const { ConfigFS } = require('../../../sdk/config_fs');
 const { TMP_PATH, set_nc_config_dir_in_config } = require('../../system_tests/test_utils');
 const { TYPES, ACTIONS } = require('../../../manage_nsfs/manage_nsfs_constants');
 
-const tmp_fs_path = path.join(TMP_PATH, 'test_nc_nsfs_account_cli');
+const tmp_fs_path = path.join(TMP_PATH, 'test_nc_connection_cli.test');
 const timeout = 5000;
 
 // eslint-disable-next-line max-lines-per-function

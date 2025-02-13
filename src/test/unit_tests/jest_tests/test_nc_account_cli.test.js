@@ -18,7 +18,7 @@ const { TYPES, ACTIONS, ANONYMOUS } = require('../../../manage_nsfs/manage_nsfs_
 const ManageCLIError = require('../../../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
 const ManageCLIResponse = require('../../../manage_nsfs/manage_nsfs_cli_responses').ManageCLIResponse;
 
-const tmp_fs_path = path.join(TMP_PATH, 'test_nc_nsfs_account_cli');
+const tmp_fs_path = path.join(TMP_PATH, 'test_nc_account_cli');
 const timeout = 50000;
 const config = require('../../../../config');
 const config_fs_account_options = { show_secrets: true, decrypt_secret_key: true };

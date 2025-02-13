@@ -12,7 +12,7 @@ const { TYPES, ACTIONS } = require('../../../manage_nsfs/manage_nsfs_constants')
 const ManageCLIError = require('../../../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
 const ManageCLIResponse = require('../../../manage_nsfs/manage_nsfs_cli_responses').ManageCLIResponse;
 
-const tmp_fs_path = path.join(TMP_PATH, 'test_nc_nsfs_account_cli');
+const tmp_fs_path = path.join(TMP_PATH, 'test_nc_invalid_mkm_integration');
 const config_root = path.join(tmp_fs_path, 'config_root_account_mkm_integration');
 const root_path = path.join(tmp_fs_path, 'root_path_account_mkm_integration/');
 const defaults = {

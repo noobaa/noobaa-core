@@ -36,7 +36,7 @@ class MasterKeysManager {
                     decipher = crypto.createDecipheriv(m_key.cipher_type, m_key.cipher_key, m_key.cipher_iv);
                 }
                 return new SensitiveString(decipher.update(
-                Buffer.from(params.encrypted_value, 'base64')).toString());
+                    Buffer.from(params.encrypted_value, 'base64')).toString());
             }
         });
     }
@@ -86,6 +86,9 @@ class MasterKeysManager {
         this.last_load_time = new Date();
         const root_keys = await fs.promises.readdir(config.ROOT_KEY_MOUNT);
         const active_root_key_id = await fs.promises.readFile(active_root_key_path, 'utf8');
+        this.active_root_key = active_root_key_id;
+        dbg.log0(`load_root_keys_from_mount: Root keys was updated at: ${this.last_load_time}. ` +
+            `active root key is: ${this.active_root_key}`);
         for (const key_id of root_keys) {
             // skipping file named active_root_key - as we already handled it
             // also skipping some garbage files k8s adding to the mount
@@ -95,9 +98,6 @@ class MasterKeysManager {
             const r_key = this._add_to_resolved_keys(key_id, key_cipher, key_id !== active_root_key_id);
             this.root_keys_by_id[key_id] = r_key;
         }
-        this.active_root_key = active_root_key_id;
-        dbg.log0(`load_root_keys_from_mount: Root keys was updated at: ${this.last_load_time}. ` +
-            `active root key is: ${this.active_root_key}`);
         this.is_initialized = true;
     }
 
@@ -298,7 +298,7 @@ class MasterKeysManager {
         if (!_id) throw new Error(`set_m_key_disabled_val: master key id ${_id} was not found`);
         const m_key = this.get_master_key_by_id(_id);
         if (!m_key) throw new Error('NO_SUCH_KEY');
-        this.resolved_master_keys_by_id[_id.toString()] = {...m_key, disabled: val };
+        this.resolved_master_keys_by_id[_id.toString()] = { ...m_key, disabled: val };
     }
 
     remove_secret_key_pair_from_cache(old_encrypted_sec_key) {

@@ -115,6 +115,7 @@ The following is a list of `NC jest tests` files -
 18. `test_cli_upgrade.test.js` - Tests of the upgrade CLI commands.
 19. `test_nc_online_upgrade_cli_integrations.test.js` - Tests CLI commands during mocked config directory upgrade.
 20. `test_nc_connection_cli.test.js` - Tests NooBaa CLI connection commands.
+21. `test_cli_versions.test.js` - Tests NooBaa CLI versions command.
 
 #### nc_index.js File
 * The `nc_index.js` is a file that runs several NC and NSFS mocha related tests.  

@@ -31,8 +31,9 @@
     3. [Connection Status](#connection-status)
     4. [List Connections][#list-connections]
     5. [Delete Connection](#delete-connection)
-11. [Global Options](#global-options)
-12. [Examples](#examples)
+11. [Fetching Versions Status](#fetching-versions-status)
+12. [Global Options](#global-options)
+13. [Examples](#examples)
     1. [Bucket Commands Examples](#bucket-commands-examples)
     2. [Account Commands Examples](#account-commands-examples)
     3. [White List Server IP Command Example](#white-list-server-ip-command-example)
@@ -633,6 +634,19 @@ noobaa-cli connection delete --name <connection_name>
 - `name` (Required)
     - Type: String
     - Description: Specifies the name of the connection to be deleted.
+
+
+## Fetching Versions Status
+
+The `versions` command is used to print the status of the rpm_source_code_versions, host_running_service_versions and config_dir_version.
+- rpm_source_code_versions consists of the package_version and the config_fs version.
+- host_running_service_versions consists of the running service package_version and config_fs version.
+- config_dir_version is the current config_dir_version registered in system.json.
+
+#### Usage
+```sh
+noobaa-cli versions
+```
 
 ## Global Options
 

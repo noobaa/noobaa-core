@@ -20,6 +20,7 @@ const s3_rest = require('./s3/s3_rest');
 const blob_rest = require('./blob/blob_rest');
 const sts_rest = require('./sts/sts_rest');
 const iam_rest = require('./iam/iam_rest');
+const { CONFIG_DIR_VERSION } = require('../sdk/config_fs');
 const lambda_rest = require('./lambda/lambda_rest');
 const endpoint_utils = require('./endpoint_utils');
 const FuncSDK = require('../sdk/func_sdk');
@@ -58,6 +59,13 @@ const SERVICES_TYPES_ENUM = Object.freeze({
     STS: 'STS',
     IAM: 'IAM',
     METRICS: 'METRICS'
+});
+
+const INTERNAL_APIS_OBJ = Object.freeze({
+    VERSION: 'version',
+    CONFIG_FS_VERSION: 'config_fs_version',
+    ENDPOINT_FORK_ID: 'endpoint_fork_id',
+    TOTAL_FORK_COUNT: 'total_fork_count'
 });
 
 const new_umask = process.env.NOOBAA_ENDPOINT_UMASK || 0o000;
@@ -291,15 +299,17 @@ function create_endpoint_handler(server_type, init_request_sdk, { virtual_hosts,
                 return lambda_rest_handler(req, res);
             } else if (req.headers['x-ms-version']) {
                 return blob_rest_handler(req, res);
-            } else if (req.url.startsWith('/total_fork_count')) {
-                return fork_count_handler(req, res);
-            } else if (req.url.startsWith('/endpoint_fork_id')) {
-                return endpoint_fork_id_handler(req, res);
             } else if (req.url.startsWith('/_/')) {
                 // internals non S3 requests
                 const api = req.url.slice('/_/'.length);
-                if (api === 'version') {
+                if (api === INTERNAL_APIS_OBJ.VERSION) {
                     return version_handler(req, res);
+                } else if (api === INTERNAL_APIS_OBJ.CONFIG_FS_VERSION) {
+                    return config_fs_version_handler(req, res);
+                } else if (api === INTERNAL_APIS_OBJ.ENDPOINT_FORK_ID) {
+                    return endpoint_fork_id_handler(req, res);
+                } else if (api === INTERNAL_APIS_OBJ.TOTAL_FORK_COUNT) {
+                    return fork_count_handler(req, res);
                 } else {
                     return internal_api_error(req, res, `Unknown API call ${api}`);
                 }
@@ -349,6 +359,21 @@ function version_handler(req, res) {
     res.setHeader('Content-Type', 'text/plain');
     res.setHeader('Content-Length', Buffer.byteLength(noobaa_package_version));
     res.end(noobaa_package_version);
+}
+
+/**
+ * config_fs_version_handler returns the version of configFS
+ * this is not the actual config dir version
+ * this is the version that NooBaa targets for writing configuration files.
+ * @param {EndpointRequest} req 
+ * @param {import('http').ServerResponse} res 
+ */
+function config_fs_version_handler(req, res) {
+    const config_dir_version = CONFIG_DIR_VERSION;
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'text/plain');
+    res.setHeader('Content-Length', Buffer.byteLength(config_dir_version));
+    res.end(config_dir_version);
 }
 
 /**

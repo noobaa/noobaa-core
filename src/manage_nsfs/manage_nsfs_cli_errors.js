@@ -100,7 +100,7 @@ ManageCLIError.UnsetArgumentIsInvalid = Object.freeze({
 
 ManageCLIError.InvalidType = Object.freeze({
     code: 'InvalidType',
-    message: 'Invalid type, available types are account, bucket, logging, whitelist, upgrade, notification or connection.',
+    message: 'Invalid type, available types are account, bucket, logging, whitelist, upgrade, notification, connection, or versions.',
     http_code: 400,
 });
 

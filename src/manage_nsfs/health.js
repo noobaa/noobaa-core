@@ -251,7 +251,7 @@ class NSFSHealth {
     }
 
     async get_endpoint_fork_response() {
-        let url_path = '/total_fork_count';
+        let url_path = '/_/total_fork_count';
         const worker_ids = [];
         let total_fork_count = 0;
         let response;
@@ -266,7 +266,7 @@ class NSFSHealth {
             }
             total_fork_count = fork_count_response.fork_count;
             if (total_fork_count > 0) {
-                url_path = '/endpoint_fork_id';
+                url_path = '/_/endpoint_fork_id';
                 await P.retry({
                     attempts: total_fork_count * 2,
                     delay_ms: 1,

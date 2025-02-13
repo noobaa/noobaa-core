@@ -800,6 +800,8 @@ function http_get(uri, options) {
  * @param {number} https_port
  * @param {('S3'|'IAM'|'STS'|'METRICS')} server_type 
  * @param {Object} request_handler 
+ * @param {string} nsfs_config_root
+ * @returns {Promise<https.Server>}
  */
 async function start_https_server(https_port, server_type, request_handler, nsfs_config_root) {
     const ssl_cert_info = await ssl_utils.get_ssl_cert_info(server_type, nsfs_config_root);
@@ -812,6 +814,7 @@ async function start_https_server(https_port, server_type, request_handler, nsfs
     dbg.log0(`Starting ${server_type} server on HTTPS port ${https_port}`);
     await listen_port(https_port, https_server, server_type);
     dbg.log0(`Started ${server_type} HTTPS server successfully`);
+    return https_server;
 }
 
 /**

@@ -483,7 +483,7 @@ The `upgrade start` command is used to start a config directory upgrade run.
 
 #### Usage
 ```sh
-noobaa-cli upgrade start --expected_version <expected-version> --expected_hosts <expected-hosts> [--skip-verification] [--custom_upgrade_scripts_dir]
+noobaa-cli upgrade start --expected_version <expected-version> [--expected_hosts] <expected-hosts> [--skip-verification] [--custom_upgrade_scripts_dir]
 ```
 
 #### Flags -
@@ -492,7 +492,7 @@ noobaa-cli upgrade start --expected_version <expected-version> --expected_hosts 
     - Description: Specifies the upgrade's expected target version.
     - Example - `--expected_version 5.18.0`
 
-- `expected_hosts` (Required)
+- `expected_hosts`
     - Type: String
     - Description: Specifies the upgrade's expected hosts. String of hostnames separated by comma (,). 
     - Example - `--expected_hosts hostname1,hostname2,hostname3`

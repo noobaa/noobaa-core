@@ -116,10 +116,6 @@ s3tests_boto3/functional/test_s3.py::test_multi_object_delete_key_limit
 s3tests_boto3/functional/test_s3.py::test_multi_objectv2_delete_key_limit
 s3tests_boto3/functional/test_s3.py::test_object_write_check_etag
 s3tests_boto3/functional/test_s3.py::test_object_metadata_replaced_on_put
-s3tests_boto3/functional/test_s3.py::test_get_object_ifmatch_failed
-s3tests_boto3/functional/test_s3.py::test_get_object_ifnonematch_good
-s3tests_boto3/functional/test_s3.py::test_get_object_ifmodifiedsince_failed
-s3tests_boto3/functional/test_s3.py::test_get_object_ifunmodifiedsince_good
 s3tests_boto3/functional/test_s3.py::test_put_object_ifmatch_failed
 s3tests_boto3/functional/test_s3.py::test_put_object_ifnonmatch_failed
 s3tests_boto3/functional/test_s3.py::test_put_object_ifnonmatch_overwrite_existed_failed

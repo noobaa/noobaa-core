@@ -123,7 +123,6 @@ s3tests_boto3/functional/test_s3.py::test_post_object_missing_content_length_arg
 s3tests_boto3/functional/test_s3.py::test_post_object_invalid_content_length_argument
 s3tests_boto3/functional/test_s3.py::test_post_object_upload_size_below_minimum
 s3tests_boto3/functional/test_s3.py::test_post_object_empty_conditions
-s3tests_boto3/functional/test_s3.py::test_put_object_ifmatch_nonexisted_failed
 s3tests_boto3/functional/test_s3.py::test_object_raw_get_bucket_gone
 s3tests_boto3/functional/test_s3.py::test_object_raw_get
 s3tests_boto3/functional/test_s3.py::test_object_delete_key_bucket_gone

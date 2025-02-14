@@ -18,6 +18,7 @@ const error_utils = require('../util/error_utils');
 const stream_utils = require('../util/stream_utils');
 const buffer_utils = require('../util/buffer_utils');
 const size_utils = require('../util/size_utils');
+const http_utils = require('../util/http_utils');
 const native_fs_utils = require('../util/native_fs_utils');
 const FileWriter = require('../util/file_writer');
 const LRUCache = require('../util/lru_cache');
@@ -970,6 +971,10 @@ class NamespaceFS {
                 }
             }
             this._throw_if_delete_marker(stat, params);
+            http_utils.check_md_conditions(params.md_conditions, {
+                etag: this._get_etag(stat),
+                last_modified_time: stat.mtime,
+            });
             return this._get_object_info(params.bucket, params.key, stat, isDir);
         } catch (err) {
             if (this._should_update_issues_report(params, file_path, err)) {
@@ -1045,6 +1050,10 @@ class NamespaceFS {
             }
             this._throw_if_delete_marker(stat, params);
             // await this._fail_if_archived_or_sparse_file(fs_context, file_path, stat);
+            http_utils.check_md_conditions(params.md_conditions, {
+                etag: this._get_etag(stat),
+                last_modified_time: stat.mtime,
+            });
 
             const start = Number(params.start) || 0;
             const end = isNaN(Number(params.end)) ? Infinity : Number(params.end);

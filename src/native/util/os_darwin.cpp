@@ -52,7 +52,7 @@ get_supplemental_groups_by_uid(uid_t uid, std::vector<gid_t>& groups)
     struct passwd* pw = getpwuid(uid);
     if (pw == NULL) {
         if (errno == 0) {
-            LOG("get_supplemental_groups_by_uid: no record for uid " << uid);
+            // LOG("get_supplemental_groups_by_uid: no record for uid " << uid);
         } else {
             LOG("WARNING: get_supplemental_groups_by_uid: getpwuid failed: " << strerror(errno));
         }

@@ -29,16 +29,55 @@ function is_cidr(ip) {
 }
 
 /**
+ * normalize_family will normalize the family
+ * @param {string|number} family
+ * @returns {string}
+ */
+function normalize_family(family) {
+    if (family === 4) return 'ipv4';
+    if (family === 6) return 'ipv6';
+    return family ? String(family).toLowerCase() : 'ipv4';
+}
+
+/**
+ * is_loopback will check if the address is a loop back address
+ * any address that starts with 127. or is ::1 is considered loopback
+ * @param {string} address
+ * @returns {boolean}
+ */
+function is_loopback(address) {
+    return address.startsWith('127.') || address === '::1';
+}
+
+/**
  * is_localhost will check if the address is localhost
  * @param {string} address
  * @returns {boolean}
  */
 function is_localhost(address) {
+    return is_loopback(address) || address.toLowerCase() === 'localhost';
+}
+
+/**
+ * is_private will check if the address is private
+ * @param {string} address
+ * @returns {boolean}
+ */
+function is_private(address) {
     return (
-        address === '127.0.0.1' ||
-        address === '::1' ||
-        address.toLowerCase() === 'localhost'
+        address.startsWith('10.') ||
+        address.startsWith('172.') ||
+        address.startsWith('192.168.')
     );
+}
+
+/**
+ * is_public will check if the address is public
+ * @param {string} address
+ * @returns {boolean}
+ */
+function is_public(address) {
+    return !is_private(address);
 }
 
 function unwrap_ipv6(ip) {
@@ -201,6 +240,10 @@ exports.ip_to_long = ip_to_long;
 exports.find_ifc_containing_address = find_ifc_containing_address;
 
 /// EXPORTS FOR TESTING:
+exports.normalize_family = normalize_family;
+exports.is_loopback = is_loopback;
+exports.is_private = is_private;
+exports.is_public = is_public;
 exports.ipv4_to_buffer = ipv4_to_buffer;
 exports.ipv6_to_buffer = ipv6_to_buffer;
 exports.expend_ipv6 = expend_ipv6;

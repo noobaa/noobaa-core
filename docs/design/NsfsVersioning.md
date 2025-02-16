@@ -89,6 +89,12 @@ In order to support best effort on scale of these scenarios, for POSIX file syst
 5. else - unlink unique_tmp_path
 ```
 
+### Multipart upload version order
+According to AWS specifications, multipart upload version time should be calculated based on multipart upload creation time rather than completion time (see [AWS Documentation](https://docs.aws.amazon.com/AmazonS3/latest/userguide/mpuoverview.html#distributedmpupload)).   
+On the other hand, for directory buckets, the object creation time is the completion date of the multipart upload  (see [AWS Documentation](https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-express-using-multipart-upload.html#s3-express-distributedmpupload)).
+There are performance issues for calculating the latest version after complete multipart whe using creation time.  
+In our design, due to the performance issues and to be aligned with AWS directory buckets, the version-id time is calculated based on completion time.
+
 ## OUT OF SCOPE
 ### TODO
 * Add GPFS design.

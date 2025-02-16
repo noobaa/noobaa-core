@@ -194,7 +194,8 @@ async function add_entropy(disk_name, disk_size) {
 
 /**
  * get_disk_names will return the disk names using lsblk command
- * we use this function in case we didn't found a candidate from the hard-coded disk name 
+ * we use this function in case we didn't found a candidate from the hard-coded disk name
+ * for security reasons - we will add additional filtering to get only the disks that starts with "nvme"
  * @returns {Promise<string[]>}
  */
 async function get_disk_names() {
@@ -202,8 +203,9 @@ async function get_disk_names() {
         const res = await async_exec(`lsblk --json`);
         const res_json = JSON.parse(res.stdout);
         const disks = res_json.blockdevices.filter(block_device => block_device.type === 'disk');
+        const nvme_disks = disks.filter(disk => disk.name.startsWith("nvme"));
         // will take the disk name add add '/dev/ prefix to it (to match the original array)
-        const array_of_disk_names = disks.map(disk => '/dev/' + disk.name);
+        const array_of_disk_names = nvme_disks.map(nvme_disk => '/dev/' + nvme_disk.name);
         return array_of_disk_names;
     } catch (err) {
         console.log('get_disk_names: got an error:', err);

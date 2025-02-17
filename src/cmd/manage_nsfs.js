@@ -781,40 +781,49 @@ async function notification_management() {
 async function connection_management(action, user_input) {
     manage_nsfs_validations.validate_connection_args(user_input, action);
 
+    //don't reply the internal '_' field.
+    delete user_input._;
+
     let response = {};
     let data;
 
-    switch (action) {
-        case ACTIONS.ADD:
-            data = await notifications_util.add_connect_file(user_input, config_fs);
-            response = { code: ManageCLIResponse.ConnectionCreated, detail: data };
-            break;
-        case ACTIONS.DELETE:
-            await config_fs.delete_connection_config_file(user_input.name);
-            response = { code: ManageCLIResponse.ConnectionDeleted, detail: {name: user_input.name} };
-            break;
-        case ACTIONS.UPDATE:
-            await notifications_util.update_connect_file(user_input.name, user_input.key,
-                user_input.value, user_input.remove_key, config_fs);
-            response = { code: ManageCLIResponse.ConnectionUpdated, detail: {name: user_input.name} };
-            break;
-        case ACTIONS.STATUS:
-            data = await new notifications_util.Notificator({
-                fs_context: config_fs.fs_context,
-                connect_files_dir: config_fs.connections_dir_path,
-                nc_config_fs: config_fs,
-            }).parse_connect_file(user_input.name, user_input.decrypt);
-            response = { code: ManageCLIResponse.ConnectionStatus, detail: data };
-            break;
-        case ACTIONS.LIST:
-            data = await list_connections();
-            response = { code: ManageCLIResponse.ConnectionList, detail: data };
-            break;
-        default:
-            throw_cli_error(ManageCLIError.InvalidAction);
-    }
+    try {
+        switch (action) {
+            case ACTIONS.ADD:
+                data = await notifications_util.add_connect_file(user_input, config_fs);
+                response = { code: ManageCLIResponse.ConnectionCreated, detail: data };
+                break;
+            case ACTIONS.DELETE:
+                await config_fs.delete_connection_config_file(user_input.name);
+                response = { code: ManageCLIResponse.ConnectionDeleted, detail: {name: user_input.name} };
+                break;
+            case ACTIONS.UPDATE:
+                await notifications_util.update_connect_file(user_input.name, user_input.key,
+                    user_input.value, user_input.remove_key, config_fs);
+                response = { code: ManageCLIResponse.ConnectionUpdated, detail: {name: user_input.name} };
+                break;
+            case ACTIONS.STATUS:
+                data = await new notifications_util.Notificator({
+                    fs_context: config_fs.fs_context,
+                    connect_files_dir: config_fs.connections_dir_path,
+                    nc_config_fs: config_fs,
+                }).parse_connect_file(user_input.name, user_input.decrypt);
+                response = { code: ManageCLIResponse.ConnectionStatus, detail: data };
+                break;
+            case ACTIONS.LIST:
+                data = await list_connections();
+                response = { code: ManageCLIResponse.ConnectionList, detail: data };
+                break;
+            default:
+                throw_cli_error(ManageCLIError.InvalidAction);
+        }
 
-    write_stdout_response(response.code, response.detail, response.event_arg);
+        write_stdout_response(response.code, response.detail, response.event_arg);
+    } catch (err) {
+        if (err.code === 'EEXIST') throw_cli_error(ManageCLIError.ConnectionAlreadyExists, user_input.name);
+        if (err.code === 'ENOENT') throw_cli_error(ManageCLIError.NoSuchConnection, user_input.name);
+        throw err;
+    }
 }
 
 /**

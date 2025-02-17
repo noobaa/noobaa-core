@@ -23,6 +23,12 @@ const timeout = 50000;
 const config = require('../../../../config');
 const config_fs_account_options = { show_secrets: true, decrypt_secret_key: true };
 
+const quoted_type = Object.freeze({
+    SPACE_ONLY: "s", // space only
+    QUOTE_SPACE: "qs", // quote then space
+    SPACE_QUOTE: "sq", // space then quote
+});
+
 // eslint-disable-next-line max-lines-per-function
 describe('manage nsfs cli account flow', () => {
     describe('cli create account', () => {
@@ -101,6 +107,33 @@ describe('manage nsfs cli account flow', () => {
             assert_account(account, account_options, true);
             const account_symlink = await config_fs.get_account_by_access_key(access_key, config_fs_account_options);
             assert_account(account_symlink, account_options);
+        });
+
+        it('should fail - cli create account invalid new_buckets_path (leading space in new_buckets_path)', async () => {
+            const { type, name, uid, gid, new_buckets_path } = defaults;
+            const account_options = { config_root, name, uid, gid}; // will add new_buckets_path with leading space later
+            const action = ACTIONS.ADD;
+            const command = create_command(type, action, account_options);
+            const res = await exec_manage_cli_add_leading_space_option(command, 'new_buckets_path', new_buckets_path, quoted_type.SPACE_ONLY);
+            expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidArgument.code);
+        });
+
+        it('should fail - cli create account invalid new_buckets_path (leading space in quoted new_buckets_path)', async () => {
+            const { type, name, uid, gid, new_buckets_path } = defaults;
+            const account_options = { config_root, name, uid, gid}; // will add quoted new_buckets_path with leading space later
+            const action = ACTIONS.ADD;
+            const command = create_command(type, action, account_options);
+            const res = await exec_manage_cli_add_leading_space_option(command, 'new_buckets_path', new_buckets_path, quoted_type.SPACE_QUOTE);
+            expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidArgument.code);
+        });
+
+        it('should fail - cli create account invalid new_buckets_path (quoted leading space in new_buckets_path)', async () => {
+            const { type, name, uid, gid, new_buckets_path } = defaults;
+            const account_options = { config_root, name, uid, gid}; // will add new_buckets_path with quoted leading space later
+            const action = ACTIONS.ADD;
+            const command = create_command(type, action, account_options);
+            const res = await exec_manage_cli_add_leading_space_option(command, 'new_buckets_path', new_buckets_path, quoted_type.QUOTE_SPACE);
+            expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidAccountNewBucketsPath.code); // should get this error if space is also quoted with the value
         });
 
         it('should fail - cli update account invalid access_key - invalid size', async () => {
@@ -2209,6 +2242,52 @@ async function exec_manage_cli(type, action, options) {
  */
 async function exec_manage_cli_add_empty_option(command, option) {
     const changed_command = command + ` --${option}`;
+    let res;
+    try {
+        res = await os_util.exec(changed_command, { return_stdout: true });
+    } catch (e) {
+        res = e;
+    }
+    return res;
+}
+
+/**
+ * exec_manage_cli_add_leading_space_option modifies the command by appending a flag with a value(quoted or non-quoted) that includes a leading space to test CLI parsing behavior
+ * @param {string} command
+ * @param {string} option
+ * @param {string} value
+ * @param {"s" | "qs" | "sq" | "default"} quoted
+ *
+ * @examples
+ * - await exec_manage_cli_add_leading_space_option("cli_command", "flag", "val", quoted_type.SPACE_ONLY);
+ *   // cli_command --flag= val  (Space before value)
+ *
+ * - await exec_manage_cli_add_leading_space_option("cli_command", "flag", "val", quoted_type.QUOTE_SPACE);
+ *   // cli_command --flag=" val"  (quote then space)
+ *
+ * - await exec_manage_cli_add_leading_space_option("cli_command", "flag", "val", quoted_type.SPACE_QUOTE);
+ *   // cli_command --flag= "val"  (space then quote)
+ *
+ * - await exec_manage_cli_add_leading_space_option("cli_command", "flag", "val");
+ *   // cli_command --flag=val  (No special formatting)
+ */
+async function exec_manage_cli_add_leading_space_option(command, option, value, quoted = "default") {
+    let changed_command;
+
+    switch (quoted) {
+        case quoted_type.SPACE_ONLY:
+            changed_command = `${command} --${option}= ${value}`;
+            break;
+        case quoted_type.QUOTE_SPACE:
+            changed_command = `${command} --${option}=" ${value}"`;
+            break;
+        case quoted_type.SPACE_QUOTE:
+            changed_command = `${command} --${option}= "${value}"`;
+            break;
+        default:
+            changed_command = `${command} --${option}=${value}`;
+    }
+
     let res;
     try {
         res = await os_util.exec(changed_command, { return_stdout: true });

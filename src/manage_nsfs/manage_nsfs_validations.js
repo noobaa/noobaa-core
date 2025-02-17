@@ -29,6 +29,7 @@ const notifications_util = require('../util/notifications_util');
  * @param {object} argv
  */
 async function validate_input_types(type, action, argv) {
+    validate_no_extra_args(argv._);
     validate_type_and_action(type, action);
     // when we use validate_no_extra_options we don't care about the value, only the flags
     const input_options = Object.keys(argv);
@@ -82,6 +83,35 @@ function validate_type_and_action(type, action) {
         if (!Object.values(DIAGNOSE_ACTIONS).includes(action)) throw_cli_error(ManageCLIError.InvalidDiagnoseAction);
     } else if (type === TYPES.UPGRADE) {
         if (!Object.values(UPGRADE_ACTIONS).includes(action)) throw_cli_error(ManageCLIError.InvalidUpgradeAction);
+    }
+}
+
+/**
+ * validate_no_extra_args ensures that the parsed arguments contain only the expected type and action
+ * if `argv_` contains more than two elements (type and action), it indicate extra argument which may be due to:
+ *  - Leading spaces in flag values (e.g., `--new_buckets_path= abc/`)
+ *  - Additional unexpected arguments passed from the command line
+ *
+ * ### CLI Parsing Behavior:
+ * When passing arguments via CLI, if a flag's value starts with a space or consists only of whitespace,
+ * the shell may treat it differently:
+ *  - Leading spaces - might be preserved when quoted (`--new_buckets_path=" abc/"`).
+ *  - Unquoted values with spaces - may cause incorrect parsing (`--new_buckets_path= abc/` is interpreted as an empty value).
+ *  - The parsed argument structure typically follows:
+ *      ```json
+ *      { _: [ "command", "action" ], flag1: "value1", flag2: "value2", ... }
+ *      ```
+ *  - The `_` array should contain only the command and action. If additional elements appear,
+ *    it suggests an issue with flag values (e.g., an incorrectly formatted or empty value).
+ *
+ * @param {string[]} argv_
+ * @throws {ManageCLIError}
+ */
+function validate_no_extra_args(argv_) {
+    // checking if 'argv_' contains more then 2 values (i.e, type and action)
+    if (argv_.length > 2) {
+        const details = `unexpected extra arguments detected: ${JSON.stringify(argv_.slice(2))}, ensure flag values are correctly formatted.`;
+        throw_cli_error(ManageCLIError.InvalidArgument, details);
     }
 }
 
@@ -718,3 +748,4 @@ exports.validate_whitelist_arg = validate_whitelist_arg;
 exports.validate_whitelist_ips = validate_whitelist_ips;
 exports.validate_flags_combination = validate_flags_combination;
 exports.validate_connection_args = validate_connection_args;
+exports.validate_no_extra_args = validate_no_extra_args;

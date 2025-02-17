@@ -270,12 +270,11 @@ describe('noobaa cli - upgrade', () => {
         expect(parsed_res.error.cause).toContain('expected_version flag is required');
     });
 
-    it('upgrade start - should fail on no expected_hosts', async () => {
+    it('upgrade start - should succeed although missing expected hosts', async () => {
         await fs_utils.replace_file(config_fs.system_json_path, JSON.stringify(old_rpm_expected_system_json));
         const res = await exec_manage_cli(TYPES.UPGRADE, UPGRADE_ACTIONS.START, { config_root, expected_version: pkg.version }, true);
-        const parsed_res = JSON.parse(res.stdout);
-        expect(parsed_res.error.message).toBe(ManageCLIError.UpgradeFailed.message);
-        expect(parsed_res.error.cause).toContain('expected_hosts flag is required');
+        const parsed_res = JSON.parse(res);
+        expect(parsed_res.response.code).toBe(ManageCLIResponse.UpgradeSuccessful.code);
     });
 
     it('upgrade start - should fail on missing expected_hosts in system.json', async () => {

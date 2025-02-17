@@ -437,7 +437,7 @@ Usage:
 Flags:
 
     --expected_version              <string>                            The expected target version of the upgrade
-    --expected_hosts                <string>                            The expected hosts running NooBaa NC, a string of hosts separated by ,
+    --expected_hosts                <string>         (optional)         The expected hosts running NooBaa NC, a string of hosts separated by ,
     --skip_verification             <boolean>        (optional)         skip upgrade verification
                                                                         WARNING: can cause corrupted config dir files created by hosts running old code.
                                                                         this should generally not be used and is intended exclusively for NooBaa team support. 

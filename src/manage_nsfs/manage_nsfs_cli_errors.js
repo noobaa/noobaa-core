@@ -528,6 +528,18 @@ ManageCLIError.LifecycleWorkerReachedTimeout = Object.freeze({
     http_code: 400,
 });
 
+ManageCLIError.ConnectionAlreadyExists = Object.freeze({
+    code: 'ConnectionAlreadyExists',
+    message: 'The requested connection name is not available. Please select a different name and try again.',
+    http_code: 409,
+});
+
+ManageCLIError.NoSuchConnection = Object.freeze({
+    code: 'NoSuchConnection',
+    message: 'Connection does not exist.',
+    http_code: 404,
+});
+
 ///////////////////////////////
 //       ERRORS MAPPING      //
 ///////////////////////////////

@@ -13,7 +13,6 @@ const xml2js = require('xml2js');
 const querystring = require('querystring');
 const { HttpProxyAgent } = require('http-proxy-agent');
 const { HttpsProxyAgent } = require('https-proxy-agent');
-const S3Error = require('../endpoint/s3/s3_errors').S3Error;
 
 const dbg = require('./debug_module')(__filename);
 const config = require('../../config');
@@ -23,6 +22,8 @@ const net_utils = require('./net_utils');
 const time_utils = require('./time_utils');
 const cloud_utils = require('./cloud_utils');
 const ssl_utils = require('../util/ssl_utils');
+const RpcError = require('../rpc/rpc_error');
+const S3Error = require('../endpoint/s3/s3_errors').S3Error;
 
 const UNSIGNED_PAYLOAD = 'UNSIGNED-PAYLOAD';
 const STREAMING_PAYLOAD = 'STREAMING-AWS4-HMAC-SHA256-PAYLOAD';
@@ -124,7 +125,63 @@ function get_md_conditions(req, prefix) {
 }
 
 /**
+ * See http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectHEAD.html#req-header-consideration-1
+ * See https://tools.ietf.org/html/rfc7232 (HTTP Conditional Requests)
+ * @param {MDConditions} [conditions] the conditions to check from the request headers
+ * @param {{
+ *   etag?: string,
+ *   last_modified_time?: Date,
+ *   create_time?: Date,
+ *   _id?: nb.ID,
+ * }} [obj] the object to check the conditions against if exists
+ */
+function check_md_conditions(conditions, obj) {
+    if (!conditions) return;
+    const { if_match_etag, if_none_match_etag, if_modified_since, if_unmodified_since } = conditions;
+    if (!if_match_etag && !if_none_match_etag && !if_modified_since && !if_unmodified_since) return;
+
+    const etag = obj?.etag || '';
+    const last_modified =
+        obj?.last_modified_time?.getTime() ||
+        obj?.create_time?.getTime() ||
+        obj?._id?.getTimestamp()?.getTime() ||
+        0;
+
+    // Using RpcError in order to return the proper headers in case of error
+    // see _prepare_error() in s3_rest.
+    const rpc_data = { etag, last_modified };
+
+    // obj must exist to count as matched.
+    const matched = if_match_etag && (obj && match_etag(if_match_etag, etag));
+    if (if_match_etag && !matched) {
+        throw new RpcError('IF_MATCH_ETAG', 'check_md_conditions failed', rpc_data);
+    }
+
+    // when obj does not exist it is a valid none matched condition
+    const none_matched = if_none_match_etag && !(obj && match_etag(if_none_match_etag, etag));
+    if (if_none_match_etag && !none_matched) {
+        throw new RpcError('IF_NONE_MATCH_ETAG', 'check_md_conditions failed', rpc_data);
+    }
+
+    // obj must exist to count as modified.
+    // none_matched must be false to check for modified condition (per the spec)
+    const modified = if_modified_since && obj && (last_modified > if_modified_since);
+    if (if_modified_since && !none_matched && !modified) {
+        throw new RpcError('IF_MODIFIED_SINCE', 'check_md_conditions failed', rpc_data);
+    }
+
+    // non existing obj counts as modified.
+    // matched must be false to check for unmodified condition (per the spec)
+    const unmodified = if_unmodified_since && !(obj && (last_modified > if_unmodified_since));
+    if (if_unmodified_since && !matched && !unmodified) {
+        throw new RpcError('IF_UNMODIFIED_SINCE', 'check_md_conditions failed', rpc_data);
+    }
+}
+
+/**
  * see https://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.24
+ * @param {string} condition the condition string from the header
+ * @param {string} etag the object etag to match
  */
 function match_etag(condition, etag) {
 
@@ -338,7 +395,7 @@ function send_reply(req, res, reply, options) {
         dbg.log1('HTTP REPLY XML', req.method, req.originalUrl,
             JSON.stringify(req.headers),
             xml_reply.length <= 2000 ?
-            xml_reply : xml_reply.slice(0, 1000) + ' ... ' + xml_reply.slice(-1000));
+                xml_reply : xml_reply.slice(0, 1000) + ' ... ' + xml_reply.slice(-1000));
         if (res.headersSent) {
             dbg.log0('Sending xml reply in body, bit too late for headers');
         } else {
@@ -854,6 +911,7 @@ function handle_server_error(err) {
 exports.parse_url_query = parse_url_query;
 exports.parse_client_ip = parse_client_ip;
 exports.get_md_conditions = get_md_conditions;
+exports.check_md_conditions = check_md_conditions;
 exports.match_etag = match_etag;
 exports.parse_http_ranges = parse_http_ranges;
 exports.format_http_ranges = format_http_ranges;

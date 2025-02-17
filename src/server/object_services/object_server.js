@@ -791,7 +791,7 @@ async function read_object_md(req) {
         throw new RpcError('UNAUTHORIZED', 'requesting account is not authorized to read the object');
     }
 
-    check_md_conditions(md_conditions, obj);
+    http_utils.check_md_conditions(md_conditions, obj);
     const info = get_object_info(obj, { role: req.role });
     _check_encryption_permissions(obj.encryption, encryption);
 
@@ -1593,51 +1593,6 @@ function check_object_mode(req, obj, rpc_code) {
     return obj;
 }
 
-function check_md_conditions(conditions, obj) {
-    if (!conditions) return;
-    if (!conditions.if_match_etag &&
-        !conditions.if_none_match_etag &&
-        !conditions.if_modified_since &&
-        !conditions.if_unmodified_since) return;
-
-    const data = obj ? {
-        etag: obj.etag,
-        last_modified: obj.create_time ?
-            obj.create_time.getTime() : obj._id.getTimestamp().getTime(),
-    } : {
-        etag: '',
-        last_modified: 0,
-    };
-
-    // See http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectHEAD.html#req-header-consideration-1
-    // See https://tools.ietf.org/html/rfc7232 (HTTP Conditional Requests)
-    let matched = false;
-    let unmatched = false;
-
-    if (conditions.if_match_etag) {
-        if (!(obj && http_utils.match_etag(conditions.if_match_etag, data.etag))) {
-            throw new RpcError('IF_MATCH_ETAG', 'check_md_conditions failed', data);
-        }
-        matched = true;
-    }
-    if (conditions.if_none_match_etag) {
-        if (obj && http_utils.match_etag(conditions.if_none_match_etag, data.etag)) {
-            throw new RpcError('IF_NONE_MATCH_ETAG', 'check_md_conditions failed', data);
-        }
-        unmatched = true;
-    }
-    if (conditions.if_modified_since) {
-        if (!unmatched && (!obj || conditions.if_modified_since > data.last_modified)) {
-            throw new RpcError('IF_MODIFIED_SINCE', 'check_md_conditions failed', data);
-        }
-    }
-    if (conditions.if_unmodified_since) {
-        if (!matched && (!obj || conditions.if_unmodified_since < data.last_modified)) {
-            throw new RpcError('IF_UNMODIFIED_SINCE', 'check_md_conditions failed', data);
-        }
-    }
-}
-
 /**
  * Return the etag ("Entity tag") for the given entity.
  * Entity can be ObjectMD or ObjectMultipart or an updates for one of those.
@@ -1736,8 +1691,8 @@ async function _put_object_handle_latest({ req, put_obj, set_updates, unset_upda
 
     if (bucket_versioning === 'DISABLED') {
         const obj = await MDStore.instance().find_object_null_version(req.bucket._id, put_obj.key);
+        http_utils.check_md_conditions(req.rpc_params.md_conditions, obj);
         if (obj) {
-            check_md_conditions(req.rpc_params.md_conditions, obj);
             // 2, 3, 6, 7
             await MDStore.instance().complete_object_upload_latest_mark_remove_current_and_delete({
                 unmark_obj: obj,
@@ -1754,8 +1709,8 @@ async function _put_object_handle_latest({ req, put_obj, set_updates, unset_upda
 
     if (bucket_versioning === 'ENABLED') {
         const obj = await MDStore.instance().find_object_latest(req.bucket._id, put_obj.key);
+        http_utils.check_md_conditions(req.rpc_params.md_conditions, obj);
         if (obj) {
-            check_md_conditions(req.rpc_params.md_conditions, obj);
             // 3, 6
             await MDStore.instance().complete_object_upload_latest_mark_remove_current({
                 unmark_obj: obj,
@@ -1773,12 +1728,11 @@ async function _put_object_handle_latest({ req, put_obj, set_updates, unset_upda
     if (bucket_versioning === 'SUSPENDED') {
         const obj = await MDStore.instance().find_object_null_version(req.bucket._id, put_obj.key);
         if (obj) {
-            check_md_conditions(req.rpc_params.md_conditions, obj);
             // 2, 3, 6, 7
             if (obj.version_past) {
                 const latest_obj = await MDStore.instance().find_object_latest(req.bucket._id, put_obj.key);
+                http_utils.check_md_conditions(req.rpc_params.md_conditions, latest_obj);
                 if (latest_obj) {
-                    check_md_conditions(req.rpc_params.md_conditions, latest_obj);
                     // 2, 3, 6, 7
                     await MDStore.instance().complete_object_upload_latest_mark_remove_current_and_delete({
                         delete_obj: obj,
@@ -1792,6 +1746,7 @@ async function _put_object_handle_latest({ req, put_obj, set_updates, unset_upda
                     await MDStore.instance().update_object_by_id(put_obj._id, set_updates, unset_updates);
                 }
             } else {
+                http_utils.check_md_conditions(req.rpc_params.md_conditions, obj);
                 await MDStore.instance().complete_object_upload_latest_mark_remove_current_and_delete({
                     unmark_obj: obj,
                     put_obj,
@@ -1801,8 +1756,8 @@ async function _put_object_handle_latest({ req, put_obj, set_updates, unset_upda
             }
         } else {
             const latest_obj = await MDStore.instance().find_object_latest(req.bucket._id, put_obj.key);
+            http_utils.check_md_conditions(req.rpc_params.md_conditions, latest_obj);
             if (latest_obj) {
-                check_md_conditions(req.rpc_params.md_conditions, latest_obj);
                 // 3, 6
                 await MDStore.instance().complete_object_upload_latest_mark_remove_current({
                     unmark_obj: latest_obj,
@@ -1828,10 +1783,10 @@ async function _delete_object_version(req) {
 
     if (bucket_versioning === 'DISABLED') {
         const obj = version_id === 'null' && await MDStore.instance().find_object_or_upload_null_version(req.bucket._id, req.rpc_params.key);
+        http_utils.check_md_conditions(req.rpc_params.md_conditions, obj);
 
         if (!obj) return { reply: {} };
         if (obj.delete_marker) dbg.error('versioning disabled bucket null objects should not have delete_markers', obj);
-        check_md_conditions(req.rpc_params.md_conditions, obj);
         // 2, 3, 8
         await MDStore.instance().remove_object_and_unset_latest(obj);
         return { obj, reply: _get_delete_obj_reply(obj) };
@@ -1841,6 +1796,7 @@ async function _delete_object_version(req) {
         const obj = version_id === 'null' ?
             await MDStore.instance().find_object_or_upload_null_version(req.bucket._id, req.rpc_params.key) :
             await MDStore.instance().find_object_by_version(req.bucket._id, req.rpc_params.key, version_seq);
+        http_utils.check_md_conditions(req.rpc_params.md_conditions, obj);
         if (!obj) return { reply: {} };
 
         if (config.WORM_ENABLED && obj.lock_settings) {
@@ -1863,7 +1819,6 @@ async function _delete_object_version(req) {
                 }
             }
         }
-        check_md_conditions(req.rpc_params.md_conditions, obj);
         if (obj.version_past) {
             // 2, 8
             await MDStore.instance().delete_object_by_id(obj._id);
@@ -1873,7 +1828,6 @@ async function _delete_object_version(req) {
             // we need to find the previous and make it the new latest
             const prev_version = await MDStore.instance().find_object_prev_version(req.bucket._id, req.rpc_params.key);
             if (prev_version) {
-                check_md_conditions(req.rpc_params.md_conditions, prev_version);
                 // 2, 3, 4, 8
                 await MDStore.instance().remove_object_move_latest(obj, prev_version);
                 return { obj, reply: _get_delete_obj_reply(obj) };
@@ -1891,8 +1845,8 @@ async function _delete_object_only_key(req) {
 
     if (bucket_versioning === 'DISABLED') {
         const obj = await MDStore.instance().find_object_latest(req.bucket._id, req.rpc_params.key);
+        http_utils.check_md_conditions(req.rpc_params.md_conditions, obj);
         if (!obj) return { reply: {} };
-        check_md_conditions(req.rpc_params.md_conditions, obj);
         if (obj.delete_marker) dbg.error('versioning disabled bucket null objects should not have delete_markers', obj);
         // 2, 3, 8
         await MDStore.instance().remove_object_and_unset_latest(obj);
@@ -1901,8 +1855,8 @@ async function _delete_object_only_key(req) {
 
     if (bucket_versioning === 'ENABLED') {
         const obj = await MDStore.instance().find_object_latest(req.bucket._id, req.rpc_params.key);
+        http_utils.check_md_conditions(req.rpc_params.md_conditions, obj);
         if (obj) {
-            check_md_conditions(req.rpc_params.md_conditions, obj);
             // 3, 5
             const delete_marker = await MDStore.instance().insert_object_delete_marker_move_latest(
                 obj, /* version_enabled: */ true);
@@ -1922,12 +1876,11 @@ async function _delete_object_only_key(req) {
     if (bucket_versioning === 'SUSPENDED') {
         const obj = await MDStore.instance().find_object_null_version(req.bucket._id, req.rpc_params.key);
         if (obj) {
-            check_md_conditions(req.rpc_params.md_conditions, obj);
             if (obj.version_past) {
                 const latest_obj = await MDStore.instance().find_object_latest(req.bucket._id, req.rpc_params.key);
                 if (latest_obj) {
-                    check_md_conditions(req.rpc_params.md_conditions, latest_obj);
                     // 3, 5
+                    http_utils.check_md_conditions(req.rpc_params.md_conditions, latest_obj);
                     const delete_marker = await MDStore.instance().insert_object_delete_marker_move_latest_with_delete(obj, latest_obj);
                     return { obj, reply: _get_delete_obj_reply(obj, delete_marker) };
                 } else {
@@ -1936,13 +1889,14 @@ async function _delete_object_only_key(req) {
                 }
             } else {
                 // 2, 3, 5
+                http_utils.check_md_conditions(req.rpc_params.md_conditions, obj);
                 const delete_marker = await MDStore.instance().insert_object_delete_marker_move_latest_with_delete(obj);
                 return { obj, reply: _get_delete_obj_reply(obj, delete_marker) };
             }
         } else {
             const latest_obj = await MDStore.instance().find_object_latest(req.bucket._id, req.rpc_params.key);
+            http_utils.check_md_conditions(req.rpc_params.md_conditions, latest_obj);
             if (latest_obj) {
-                check_md_conditions(req.rpc_params.md_conditions, latest_obj);
                 // 3, 5
                 const delete_marker = await MDStore.instance().insert_object_delete_marker_move_latest(latest_obj);
                 return { reply: _get_delete_obj_reply(null, delete_marker) };

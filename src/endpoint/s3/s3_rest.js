@@ -450,7 +450,7 @@ function _prepare_error(req, res, err) {
             if (res.headersSent) {
                 dbg.log0('Sent reply in body, bit too late for Etag header');
             } else {
-                res.setHeader('ETag', err.rpc_data.etag);
+                res.setHeader('ETag', '"' + err.rpc_data.etag + '"');
             }
         }
         if (err.rpc_data.last_modified) {

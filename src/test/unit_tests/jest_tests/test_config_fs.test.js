@@ -1,6 +1,7 @@
 /* Copyright (C) 2024 NooBaa */
 'use strict';
 
+const _ = require('lodash');
 const os = require('os');
 const path = require('path');
 const config = require('../../../../config');
@@ -69,5 +70,47 @@ describe('compare_host_and_config_dir_version', () => {
         const ver_compare_err = config_fs.compare_host_and_config_dir_version(running_code_config_dir_version, system_config_dir_version);
         expect(ver_compare_err).toBe(`running code config_dir_version=${running_code_config_dir_version} is lower than the config dir version ` +
                 `mentioned in system.json=${system_config_dir_version}, any updates to the config directory are blocked until the source code upgrade`);
+    });
+});
+
+describe('remove_encrypted_secret_key', () => {
+    const account_data = {
+        _id: '6784bccb9c05f2fb04c38dd5',
+        name: 'account-1',
+        email: 'account-1',
+        creation_date: '2025-01-13T07:12:11.145Z',
+        access_keys: [ {access_key: 'GIGiFBmjaaE7OKD5N7hA', encrypted_secret_key: 'jrE1UT9AKtqn2g57GlAAjNttqeKBtEyy4uIl4rjfqHSJ22gvt9dflw==EXAMPLE'} ],
+        nsfs_account_config: {uid: 1001, gid: 1001, new_buckets_path: '/User/buckets'},
+        allow_bucket_creation: true,
+        master_key_id: '6767ff7b12869117a8221e62EXAMPLE',
+        decryption_err: 'master key id is missing in master_keys_by_id',
+    };
+
+    it('remove_encrypted_secret_key on account with 1 pair of access keys', () => {
+        const account_data_without_encrypted_secret_key = config_fs.remove_encrypted_secret_key(account_data);
+        expect(account_data_without_encrypted_secret_key.length).toEqual(account_data.length);
+        expect(Array.isArray(account_data_without_encrypted_secret_key.access_keys)).toBe(true);
+        expect(account_data_without_encrypted_secret_key.access_keys[0].encrypted_secret_key).toBeUndefined();
+    });
+
+    it('remove_encrypted_secret_key on account with 0 pairs of access keys', () => {
+        const account_data_no_access_keys = _.cloneDeep(account_data);
+        account_data_no_access_keys.access_keys = [];
+        const account_data_without_encrypted_secret_key = config_fs.remove_encrypted_secret_key(account_data_no_access_keys);
+        expect(account_data_without_encrypted_secret_key.length).toEqual(account_data.length);
+        expect(Array.isArray(account_data_without_encrypted_secret_key.access_keys)).toBe(true);
+        expect(account_data_without_encrypted_secret_key.access_keys.length).toBe(0);
+    });
+
+    it('remove_encrypted_secret_key on account with 2 pairs of access keys', () => {
+        const account_data_with_2_pair_access_keys = _.cloneDeep(account_data);
+        account_data_with_2_pair_access_keys.access_keys[1] = {
+            access_key: 'GIGiFBmjaaE7OKD5N8kB',
+            encrypted_secret_key: 'jrE1UT9AKtqn2g57GlAAjNttqeKBtEyy4uIl4rjfqHSJ22gvt9ddeu==EXAMPLE'
+        };
+        const account_data_without_encrypted_secret_key = config_fs.remove_encrypted_secret_key(account_data_with_2_pair_access_keys);
+        expect(account_data_without_encrypted_secret_key.length).toEqual(account_data.length);
+        expect(Array.isArray(account_data_without_encrypted_secret_key.access_keys)).toBe(true);
+        expect(account_data_without_encrypted_secret_key.access_keys.length).toBe(2);
     });
 });

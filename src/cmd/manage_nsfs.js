@@ -597,6 +597,10 @@ async function list_account_config_files(wide, show_secrets, filters = {}) {
     const options = {
         show_secrets: show_secrets || should_filter,
         decrypt_secret_key: show_secrets,
+        // in case we have an error on secret_key decryption 
+        // we will neither return the secret_key nor the encrypted_secret_key
+        // and add the property of decryption_err with the error we had
+        return_on_decryption_error: true,
         silent_if_missing: true
     };
 

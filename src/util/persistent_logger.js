@@ -198,7 +198,7 @@ class PersistentLogger {
 
             try {
                 // Finally replace the current active so as to consume them in the next iteration
-                await failure_log._replace_active();
+                await failure_log._replace_active(!result);
             } catch (error) {
                 dbg.error('failed to replace active failure log:', error, 'log_namespace:', this.namespace);
             }
@@ -208,14 +208,16 @@ class PersistentLogger {
         }
     }
 
-    async _replace_active() {
+    async _replace_active(log_noent) {
         const inactive_file = `${this.namespace}.${Date.now()}.log`;
         const inactive_file_path = path.join(this.dir, inactive_file);
 
         try {
             await nb_native().fs.rename(this.fs_context, this.active_path, inactive_file_path);
         } catch (error) {
-            dbg.warn('failed to rename active file:', error);
+            if (log_noent || error.code !== 'ENOENT') {
+                dbg.warn('failed to rename active file:', error);
+            }
         }
     }
 

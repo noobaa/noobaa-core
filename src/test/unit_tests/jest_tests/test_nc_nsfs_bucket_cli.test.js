@@ -27,7 +27,8 @@ describe('manage nsfs cli bucket flow', () => {
         const config_root = path.join(tmp_fs_path, 'config_root_manage_nsfs');
         const config_fs = new ConfigFS(config_root);
         const root_path = path.join(tmp_fs_path, 'root_path_manage_nsfs/');
-        const bucket_storage_path = path.join(tmp_fs_path, 'root_path_manage_nsfs', 'bucket1');
+        const bucket_storage_path = path.join(root_path, 'bucket1');
+        const bucket_json_storage_path = path.join(root_path, 'bucket3.json');
         set_nc_config_dir_in_config(config_root);
 
         const account_defaults = {
@@ -52,6 +53,12 @@ describe('manage nsfs cli bucket flow', () => {
             name: 'bucket1',
             owner: account_defaults.name,
             path: bucket_storage_path,
+        };
+
+        const bucket_suffix_json = {
+            name: 'bucket3.json',
+            owner: account_defaults.name,
+            path: bucket_json_storage_path,
         };
 
         beforeEach(async () => {
@@ -241,6 +248,22 @@ describe('manage nsfs cli bucket flow', () => {
             const bucket = await config_fs.get_bucket_by_name(bucket_defaults.name);
             await assert_bucket(bucket, bucket_options, config_fs);
             expect(bucket.s3_policy).toStrictEqual(bucket_policy);
+        });
+
+        it('cli create bucket - with bucket name suffix `.json`', async () => {
+            await fs_utils.create_fresh_path(bucket_json_storage_path);
+            await fs_utils.file_must_exist(bucket_json_storage_path);
+            const action = ACTIONS.ADD;
+            const bucket_options = { config_root, ...bucket_suffix_json };
+            await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
+            const bucket = await config_fs.get_bucket_by_name(bucket_suffix_json.name);
+            expect(bucket).toBeDefined();
+            expect(bucket.name).toBe(bucket_options.name);
+            const res = await exec_manage_cli(TYPES.BUCKET, ACTIONS.STATUS, { name: bucket_suffix_json.name, config_root });
+            expect(JSON.parse(res).response.reply.name).toBe(bucket_options.name);
+            const res_list = await exec_manage_cli(TYPES.BUCKET, ACTIONS.LIST, { config_root });
+            expect(JSON.parse(res_list).response.reply.map(item => item.name))
+                .toEqual(expect.arrayContaining([bucket_options.name]));
         });
     });
 

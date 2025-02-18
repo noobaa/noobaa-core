@@ -698,7 +698,7 @@ async function read_object_mapping(req) {
     const obj = await find_object_md(req);
 
     // Check if the requesting account is authorized to read the object
-    if (!await req.has_s3_bucket_permission(req.bucket, 's3:GetObject', '/' + obj.key)) {
+    if (!await req.has_s3_bucket_permission(req.bucket, 's3:GetObject', '/' + obj.key, undefined)) {
         throw new RpcError('UNAUTHORIZED', 'requesting account is not authorized to read the object');
     }
 
@@ -771,6 +771,26 @@ async function read_node_mapping(req) {
 }
 
 /**
+ * Converts RPC parameters to a bucket policy request query.
+ * Extracts the version ID (if present) to construct a query object.
+ * @param {object} rpc_params - The RPC parameters object.
+ * @returns {object|null} A query object or null.
+ */
+
+function _convert_rpc_params_to_bucket_policy_req(rpc_params) {
+
+    let req_query = null;
+    if (rpc_params && rpc_params.version_id) {
+        req_query = {
+            query: {
+                versionId: rpc_params.version_id
+            }
+        };
+    }
+    return req_query;
+}
+
+/**
  *
  * READ_OBJECT_MD
  *
@@ -783,11 +803,13 @@ async function read_object_md(req) {
         throw new RpcError('UNAUTHORIZED', 'read_object_md: role should be admin');
     }
 
+    const req_query = _convert_rpc_params_to_bucket_policy_req(req.rpc_params);
     const obj = await find_object_md(req);
 
     // Check if the requesting account is authorized to read the object
     const action = version_id ? 's3:GetObjectVersion' : 's3:GetObject';
-    if (!await req.has_s3_bucket_permission(req.bucket, action, '/' + obj.key)) {
+
+    if (!await req.has_s3_bucket_permission(req.bucket, action, '/' + obj.key, req_query)) {
         throw new RpcError('UNAUTHORIZED', 'requesting account is not authorized to read the object');
     }
 

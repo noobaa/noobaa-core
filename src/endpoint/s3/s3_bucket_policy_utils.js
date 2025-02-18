@@ -110,12 +110,15 @@ const predicate_map = {
 
 const condition_fit_functions = {
     's3:ExistingObjectTag': _is_object_tag_fit,
-    's3:x-amz-server-side-encryption': _is_server_side_encryption_fit
+    's3:x-amz-server-side-encryption': _is_server_side_encryption_fit,
+    's3:VersionId': _is_object_version_fit
 };
 
+//https://docs.aws.amazon.com/service-authorization/latest/reference/list_amazons3.html#amazons3-policy-keys
 const supported_actions = {
     's3:ExistingObjectTag': ['s3:DeleteObjectTagging', 's3:DeleteObjectVersionTagging', 's3:GetObject', 's3:GetObjectAcl', 's3:GetObjectTagging', 's3:GetObjectVersion', 's3:GetObjectVersionTagging', 's3:PutObjectAcl', 's3:PutObjectTagging', 's3:PutObjectVersionTagging'],
-    's3:x-amz-server-side-encryption': ['s3:PutObject']
+    's3:x-amz-server-side-encryption': ['s3:PutObject'],
+    's3:VersionId': ['s3:GetObjectVersion', 's3:DeleteObjectVersion', 's3:GetObjectVersionAttributes', 's3:GetObjectVersionTagging', 's3:PutObjectVersionTagging', 's3:DeleteObjectVersionTagging']
 };
 
 const SUPPORTED_BUCKET_POLICY_CONDITIONS = Object.keys(supported_actions);
@@ -134,6 +137,12 @@ async function _is_object_tag_fit(req, predicate, value) {
     const tag_value = tag ? tag.value : null;
     const res = predicate(tag_value, value.value);
     dbg.log1('bucket_policy: object tag fit?', value, tag, res);
+    return res;
+}
+async function _is_object_version_fit(req, predicate, value) {
+    const version_id = req.query.versionId;
+    const res = predicate(version_id, value);
+    dbg.log1('bucket_policy: version-id fit? version-id, policy version-id, match :', version_id, value, res);
     return res;
 }
 
@@ -210,7 +219,7 @@ async function _is_statements_fit(statements, account, method, arn_path, req) {
         const resource_fit = _is_resource_fit(arn_path, statement);
         const condition_fit = await _is_condition_fit(statement, req, method);
 
-        dbg.log1('bucket_policy: is_statements_fit', action_fit, principal_fit, resource_fit, condition_fit);
+        dbg.log1('bucket_policy - is_statements_fit: action_fit, principal_fit, resource_fit, condition_fit', action_fit, principal_fit, resource_fit, condition_fit);
         if (action_fit && principal_fit && resource_fit && condition_fit) return true;
     }
     return false;

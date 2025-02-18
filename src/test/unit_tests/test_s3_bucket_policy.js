@@ -1,5 +1,6 @@
 /* Copyright (C) 2016 NooBaa */
 /* eslint max-lines-per-function: ['error', 650] */
+/* eslint max-lines: ["error", 2500] */
 'use strict';
 
 // setup coretest first to prepare the env
@@ -35,6 +36,8 @@ const BKT = 'test2-bucket-policy-ops';
 const BKT_B = 'test2-bucket-policy-ops-1';
 const BKT_C = 'test2-bucket-policy-ops-2';
 const BKT_D = 'test2-bucket-policy-ops-3';
+const VER_BKT = 'test-object-ver-policy-ops';
+
 const KEY = 'file1.txt';
 const user_a = 'alice';
 const user_b = 'bob';
@@ -137,6 +140,8 @@ async function setup() {
     await s3_owner.createBucket({ Bucket: BKT });
     await s3_owner.createBucket({ Bucket: BKT_C });
     await s3_owner.createBucket({ Bucket: BKT_D });
+    await s3_owner.createBucket({ Bucket: VER_BKT });
+
     s3_anon = new S3({
         ...s3_creds,
         credentials: {
@@ -150,7 +155,7 @@ async function setup() {
     });
 }
 
-/*eslint max-lines-per-function: ["error", 2000]*/
+/*eslint max-lines-per-function: ["error", 3000]*/
 mocha.describe('s3_bucket_policy', function() {
     mocha.before(setup);
     mocha.it('should fail setting bucket policy when user doesn\'t exist', async function() {
@@ -1961,6 +1966,131 @@ mocha.describe('s3_bucket_policy', function() {
             });
             const res = await s3_owner.getBucketPolicyStatus({Bucket: BKT});
             assert.strictEqual(res.PolicyStatus.IsPublic, true);
+        });
+    });
+    mocha.describe('s3_bucket_policy: Granting access to a specific version of an object ', function() {
+        mocha.it('should be able to put access permission based on VersionId', async function() {
+            const self = this; // eslint-disable-line no-invalid-this
+            self.timeout(15000);
+            const object_key = 'allowed_file_1.txt';
+
+            await s3_owner.putBucketVersioning({
+                Bucket: VER_BKT,
+                VersioningConfiguration: {
+                    MFADelete: 'Disabled',
+                    Status: 'Enabled'
+                }
+            });
+
+            // Create an object and upload different copies of same object
+            const first_res = await s3_owner.putObject({
+                Body: 'Some data for the file... bla bla bla... version I',
+                Bucket: VER_BKT,
+                Key: object_key
+            });
+
+            await s3_owner.putObject({
+                Body: 'Some data for the file... bla bla bla bla... version II',
+                Bucket: VER_BKT,
+                Key: object_key
+            });
+
+            const third_res = await s3_owner.putObject({
+                Body: 'Some data for the file... bla bla bla bla... version III',
+                Bucket: VER_BKT,
+                Key: object_key
+            });
+
+            const version_policy = {
+                Version: '2012-10-17',
+                Statement: [
+                    {
+                        Sid: 'id-1',
+                        Effect: 'Allow',
+                        Principal: { AWS: user_b },
+                        Action: ['s3:*'],
+                        Resource: [`arn:aws:s3:::${VER_BKT}/${object_key}`]
+                    },
+                    {
+                        Sid: 'id-2',
+                        Effect: 'Allow',
+                        Principal: { AWS: user_a },
+                        Action: ['s3:*'],
+                        Resource: [`arn:aws:s3:::${VER_BKT}/${object_key}`]
+                    },
+                    {
+                        Sid: 'id-3',
+                        Effect: 'Deny',
+                        Principal: { AWS: user_a },
+                        Action: ['s3:GetObjectVersion'],
+                        Resource: [`arn:aws:s3:::${VER_BKT}/${object_key}`],
+                        Condition: {
+                            StringNotEquals: {
+                                's3:VersionId': first_res.VersionId // Use one of the VersionId to set policy
+                            }
+                        }
+                    },
+                    {
+                        Sid: 'id-4',
+                        Effect: 'Deny',
+                        Principal: { AWS: user_a },
+                        Action: ['s3:DeleteObjectVersion'],
+                        Resource: [`arn:aws:s3:::${VER_BKT}/${object_key}`],
+                        Condition: {
+                            StringNotEquals: {
+                                's3:VersionId': first_res.VersionId // Use one of the VersionId to set policy
+                            }
+                        }
+                    }
+                ]
+            };
+            // Put new policy to allow user_b full access while user_a has access on one VersionId
+            const res_put_bucket_policy = await s3_owner.putBucketPolicy({
+                Bucket: VER_BKT,
+                Policy: JSON.stringify(version_policy)
+            });
+            assert.equal(res_put_bucket_policy.$metadata.httpStatusCode, 200);
+
+            const res_get_bucket_policy = await s3_owner.getBucketPolicy({
+                Bucket: VER_BKT,
+            });
+            assert.equal(res_get_bucket_policy.$metadata.httpStatusCode, 200);
+
+            // Access should be Allowed
+            const res1 = await s3_a.getObject({
+                Bucket: VER_BKT,
+                Key: object_key,
+                VersionId: first_res.VersionId
+            });
+            assert.equal(res1.$metadata.httpStatusCode, 200);
+
+            // Access should be Denied
+            await assert_throws_async(s3_a.getObject({
+                Bucket: VER_BKT,
+                Key: object_key,
+                VersionId: third_res.VersionId
+            }));
+
+            // All Access should be allowed : For user_b
+            const res2 = await s3_b.getObject({
+                Bucket: VER_BKT,
+                Key: object_key,
+                VersionId: first_res.VersionId
+            });
+            assert.equal(res2.$metadata.httpStatusCode, 200);
+
+            const res4 = await s3_b.getObject({
+                Bucket: VER_BKT,
+                Key: object_key,
+            });
+            assert.equal(res4.$metadata.httpStatusCode, 200);
+
+            // DELETE should be Allowed : First Version
+            await s3_a.deleteObject({
+                Bucket: VER_BKT,
+                Key: object_key,
+                VersionId: first_res.VersionId
+            });
         });
     });
 });

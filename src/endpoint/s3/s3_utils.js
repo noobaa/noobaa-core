@@ -724,6 +724,24 @@ function parse_restore_request_days(req) {
     return days;
 }
 
+/**
+ * Returns true if the byte length of the key
+ * is within the range [0, max_length]
+ * @param {string} key 
+ * @param {number} max_length 
+ * @returns 
+ */
+function verify_string_byte_length(key, max_length) {
+    // Fast path
+    const MAX_UTF8_WIDTH = 4;
+    if (key.length * MAX_UTF8_WIDTH <= max_length) {
+        return true;
+    }
+
+    // Slow path
+    return Buffer.byteLength(key, 'utf8') <= max_length;
+}
+
 exports.STORAGE_CLASS_STANDARD = STORAGE_CLASS_STANDARD;
 exports.STORAGE_CLASS_GLACIER = STORAGE_CLASS_GLACIER;
 exports.STORAGE_CLASS_GLACIER_IR = STORAGE_CLASS_GLACIER_IR;
@@ -763,3 +781,4 @@ exports.parse_version_id = parse_version_id;
 exports.get_object_owner = get_object_owner;
 exports.get_default_object_owner = get_default_object_owner;
 exports.set_response_supported_storage_classes = set_response_supported_storage_classes;
+exports.verify_string_byte_length = verify_string_byte_length;

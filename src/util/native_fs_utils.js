@@ -696,6 +696,16 @@ function translate_error_codes(err, entity) {
     return err;
 }
 
+async function stat_ignore_eacces(bucket_path, result, fs_context) {
+    const entry_path = path.join(bucket_path, result.key);
+    try {
+        return await nb_native().fs.stat(fs_context, entry_path);
+    } catch (err) {
+        if (err.code !== 'EACCES') throw err;
+        dbg.log0('NamespaceFS: check_stats_for_object : couldnt access file entry_path', entry_path, ", skipping...");
+    }
+}
+
 exports.get_umasked_mode = get_umasked_mode;
 exports._make_path_dirs = _make_path_dirs;
 exports._create_path = _create_path;
@@ -737,3 +747,4 @@ exports.get_bucket_tmpdir_full_path = get_bucket_tmpdir_full_path;
 exports.get_bucket_tmpdir_name = get_bucket_tmpdir_name;
 exports.entity_enum = entity_enum;
 exports.translate_error_codes = translate_error_codes;
+exports.stat_ignore_eacces = stat_ignore_eacces;

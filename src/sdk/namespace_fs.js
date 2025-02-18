@@ -2618,12 +2618,32 @@ class NamespaceFS {
         }
     }
 
+    /**
+     * _delete_path_dirs deletes all the paths in the hierarchy that are empty after a successful delete
+     * if the original file_path to be deleted is a regular object which means file_path is not a directory and it's not a directory object path - 
+     * before deletion of the parent directory  - 
+     * if the parent directory is a directory object (has CONTENT_DIR xattr) - stop the deletion loop
+     * else - delete the directory - if dir is not empty it will stop at the first non empty dir
+     * NOTE - the directory object check is needed because when object size is zero we won't create a .folder file and the dir will be empty
+     * therefore the deletion will succeed although we shouldn't delete the directory object
+     * @param {String} file_path 
+     * @param {nb.NativeFSContext} fs_context 
+     */
     async _delete_path_dirs(file_path, fs_context) {
         try {
-            let dir = path.dirname(file_path);
-            while (dir !== this.bucket_path) {
-                await nb_native().fs.rmdir(fs_context, dir);
-                dir = path.dirname(dir);
+            let dir_path = path.dirname(file_path);
+            const deleted_file_is_dir = file_path.endsWith('/');
+            const deleted_file_is_dir_object = file_path.endsWith(config.NSFS_FOLDER_OBJECT_NAME);
+            let should_check_dir_path_is_content_dir = !deleted_file_is_dir && !deleted_file_is_dir_object;
+            while (dir_path !== this.bucket_path) {
+                if (should_check_dir_path_is_content_dir) {
+                    const dir_stat = await nb_native().fs.stat(fs_context, dir_path);
+                    const file_is_disabled_dir_content = dir_stat.xattr && dir_stat.xattr[XATTR_DIR_CONTENT] !== undefined;
+                    if (file_is_disabled_dir_content) break;
+                }
+                await nb_native().fs.rmdir(fs_context, dir_path);
+                dir_path = path.dirname(dir_path);
+                should_check_dir_path_is_content_dir = true;
             }
         } catch (err) {
             if (err.code !== 'ENOTEMPTY' &&
@@ -3068,10 +3088,18 @@ class NamespaceFS {
         return res;
     }
 
-    // delete version_id -
-    // 1. get version info, if it's empty - return
-    // 2. unlink key
-    // 3. if version is latest version - promote second latest -> latest
+    /**
+     * delete version_id does the following - 
+     * 1. get version info, if it's empty - return
+     * 2. unlink key
+     * 3. if version is latest version - promote second latest -> latest
+     * 4. if it's the latest version - delete the directory hirerachy of the key if it's empty
+     *    if it's a past version - delete .versions/ and the directory hirerachy if it's empty
+     * @param {nb.NativeFSContext} fs_context 
+     * @param {String} file_path 
+     * @param {Object} params 
+     * @returns {Promise<{deleted_delete_marker?: string, version_id?: string}>}
+     */
     async _delete_version_id(fs_context, file_path, params) {
         // TODO optimization - GPFS link overrides, no need to unlink before promoting, but if there is nothing to promote we should unlink
         const del_obj_version_info = await this._delete_single_object_versioned(fs_context, params.key, params.version_id);

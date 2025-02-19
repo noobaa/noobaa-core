@@ -58,7 +58,8 @@ async function generate_aws_sts_creds(params, roleSessionName) {
     );
 }
 
-function get_signed_url(params, expiry = 604800) {
+function get_signed_url(params, expiry = 604800, custom_operation = 'getObject') {
+    const op = custom_operation;
     const s3 = new AWS.S3({
         endpoint: params.endpoint,
         credentials: {
@@ -76,12 +77,14 @@ function get_signed_url(params, expiry = 604800) {
             agent: http_utils.get_unsecured_agent(params.endpoint)
         }
     });
+    const response_queries = params.response_queries || {};
     return s3.getSignedUrl(
-        'getObject', {
+        op, {
             Bucket: params.bucket.unwrap(),
             Key: params.key,
             VersionId: params.version_id,
-            Expires: expiry
+            Expires: expiry,
+            ...response_queries
         }
     );
 }

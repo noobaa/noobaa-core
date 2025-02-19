@@ -290,16 +290,21 @@ function should_retry_link_unlink(err) {
 }
 
 /**
- * stat_ignore_enoent unlinks a file and if recieved an ENOENT error it'll not fail
+ * stat_ignore_enoent returns the stat of a file, in case of ENOENT error it would skip it
  * @param {nb.NativeFSContext} fs_context
  * @param {string} file_path
+ * @param {object} [options] (the options we use in stat function)
  * @returns {Promise<nb.NativeFSStats>}
  */
-async function stat_ignore_enoent(fs_context, file_path) {
+async function stat_ignore_enoent(fs_context, file_path, options) {
     try {
+        if (options) {
+            return await nb_native().fs.stat(fs_context, file_path, options);
+        }
         return await nb_native().fs.stat(fs_context, file_path);
     } catch (err) {
         if (err.code !== 'ENOENT') throw err;
+        dbg.log0('stat_ignore_enoent: Could not access file file_path', file_path, ', skipping...');
     }
 }
 

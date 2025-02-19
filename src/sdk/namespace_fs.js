@@ -656,6 +656,7 @@ class NamespaceFS {
              *  key: string,
              *  common_prefix: boolean,
              *  stat?: nb.NativeFSStats,
+             *  previous_stat?: nb.NativeFSStats,
              *  is_latest: boolean,
              * }} Result
              */
@@ -724,6 +725,7 @@ class NamespaceFS {
                             const stat = await native_fs_utils.stat_ignore_eacces_enoent(this.bucket_path, r.key, fs_context);
                             if (stat) {
                                 results.push(r);
+                                r.previous_stat = stat; // as the future stat might fail, better return non-updated data than a failure
                             }
                         }
                         if (results.length > limit) {
@@ -890,7 +892,8 @@ class NamespaceFS {
                 const entry_path = path.join(this.bucket_path, r.key);
                 //If entry is outside of bucket, returns stat of symbolic link
                 const use_lstat = !(await this._is_path_in_bucket_boundaries(fs_context, entry_path));
-                r.stat = await nb_native().fs.stat(fs_context, entry_path, { use_lstat });
+                const result_stat = await native_fs_utils.stat_ignore_enoent(fs_context, entry_path, { use_lstat });
+                r.stat = result_stat || r.previous_stat; // must have stat for _get_object_info - we will use the previous stat in case of failure
             }));
             const res = {
                 objects: [],

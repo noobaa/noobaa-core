@@ -721,7 +721,7 @@ class NamespaceFS {
                         if (pos < results.length) {
                             results.splice(pos, 0, r);
                         } else {
-                            const stat = await native_fs_utils.stat_ignore_eacces(this.bucket_path, r, fs_context);
+                            const stat = await native_fs_utils.stat_ignore_eacces_enoent(this.bucket_path, r.key, fs_context);
                             if (stat) {
                                 results.push(r);
                             }

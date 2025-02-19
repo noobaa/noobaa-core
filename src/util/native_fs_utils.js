@@ -696,13 +696,26 @@ function translate_error_codes(err, entity) {
     return err;
 }
 
-async function stat_ignore_eacces(bucket_path, result, fs_context) {
-    const entry_path = path.join(bucket_path, result.key);
+/**
+ * stat_ignore_eacces_enoent will stat the entry_path and ignore in in the following cases:
+ * 1. EACCES - we use it in case the path has different permission
+ * 2. ENOENT - we use it in case the path was already deleted
+ * we use this function as an helper function during _list_objects
+ * @param {string} bucket_path
+ * @param {string} key
+ * @param {nb.NativeFSContext} fs_context
+ */
+async function stat_ignore_eacces_enoent(bucket_path, key, fs_context) {
+    const entry_path = path.join(bucket_path, key);
     try {
         return await nb_native().fs.stat(fs_context, entry_path);
     } catch (err) {
-        if (err.code !== 'EACCES') throw err;
-        dbg.log0('NamespaceFS: check_stats_for_object : couldnt access file entry_path', entry_path, ", skipping...");
+        if (err.code === 'EACCES' || err.code === 'ENOENT') {
+            dbg.log0('stat_ignore_eacces_enoent: Could not access file entry_path',
+                entry_path, 'error code', err.code, ', skipping...');
+        } else {
+            throw err;
+        }
     }
 }
 
@@ -747,4 +760,4 @@ exports.get_bucket_tmpdir_full_path = get_bucket_tmpdir_full_path;
 exports.get_bucket_tmpdir_name = get_bucket_tmpdir_name;
 exports.entity_enum = entity_enum;
 exports.translate_error_codes = translate_error_codes;
-exports.stat_ignore_eacces = stat_ignore_eacces;
+exports.stat_ignore_eacces_enoent = stat_ignore_eacces_enoent;

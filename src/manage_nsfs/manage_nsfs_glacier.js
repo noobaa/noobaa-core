@@ -20,7 +20,8 @@ async function process_migrations() {
 
         if (
             await backend.low_free_space() ||
-            await time_exceeded(fs_context, config.NSFS_GLACIER_MIGRATE_INTERVAL, GlacierBackend.MIGRATE_TIMESTAMP_FILE)
+            await time_exceeded(fs_context, config.NSFS_GLACIER_MIGRATE_INTERVAL, GlacierBackend.MIGRATE_TIMESTAMP_FILE) ||
+            await migrate_queue_too_long()
         ) {
             await run_glacier_migrations(fs_context, backend);
             await record_current_time(fs_context, GlacierBackend.MIGRATE_TIMESTAMP_FILE);
@@ -152,6 +153,21 @@ async function time_exceeded(fs_context, interval, timestamp_file) {
     }
 
     return false;
+}
+
+/**
+ * migrate_queue_too_long returns true if the underlying backend
+ * decides that the migrate batch size has exceeded the configured
+ * (NSFS_GLACIER_DESIRED_MIGRATE_QUEUE_SZ) approximate number of
+ * entries pending for migration
+ * 
+ * @returns {Promise<boolean>}
+ */
+async function migrate_queue_too_long() {
+    const log = new PersistentLogger(config.NSFS_GLACIER_LOGS_DIR, GlacierBackend.MIGRATE_WAL_NAME, { locking: null });
+    const approx_entries = await log.approx_entries({ samples: 10 });
+
+    return approx_entries > config.NSFS_GLACIER_DESIRED_MIGRATE_QUEUE_SIZE;
 }
 
 /**

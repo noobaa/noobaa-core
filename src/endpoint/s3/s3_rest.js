@@ -287,14 +287,14 @@ async function authorize_request_policy(req) {
     // we start the permission check on account identifier intentionally
     if (account_identifier_id) {
         permission_by_id = await s3_bucket_policy_utils.has_bucket_policy_permission(
-            s3_policy, account_identifier_id, method, arn_path, req);
+            s3_policy, account_identifier_id, method, arn_path, req, account_identifier_name);
         dbg.log3('authorize_request_policy: permission_by_id', permission_by_id);
     }
     if (permission_by_id === "DENY") throw new S3Error(S3Error.AccessDenied);
 
     if ((!account_identifier_id || permission_by_id !== "DENY") && account.owner === undefined) {
         permission_by_name = await s3_bucket_policy_utils.has_bucket_policy_permission(
-            s3_policy, account_identifier_name, method, arn_path, req);
+            s3_policy, {account_identifier_name, account_identifier_id}, method, arn_path, req, account_identifier_name);
         dbg.log3('authorize_request_policy: permission_by_name', permission_by_name);
     }
     if (permission_by_name === "DENY") throw new S3Error(S3Error.AccessDenied);

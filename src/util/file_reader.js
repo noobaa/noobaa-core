@@ -61,70 +61,11 @@ class NewlineReader {
      * @returns {Promise<string | null>}
      */
     async nextline() {
-        if (!this.fh) await this.init();
+        const next = await this.next();
+        if (!next) return null;
 
-        while (!this.eof) {
-            // extract next line if terminated in current buffer
-            if (this.start < this.end) {
-                const term_idx = this.buf.subarray(this.start, this.end).indexOf(10);
-                if (term_idx >= 0) {
-                    if (this.overflow_state) {
-                        console.warn('line too long finally terminated:', this.info());
-                        this.overflow_state = false;
-                        this.start += term_idx + 1;
-                        continue;
-                    }
-
-                    const line = this.buf.toString('utf8', this.start, this.start + term_idx);
-                    this.start += term_idx + 1;
-                    return line;
-                }
-            }
-
-            // relocate existing data to offset 0 in buf
-            if (this.start > 0) {
-                const n = this.buf.copy(this.buf, 0, this.start, this.end);
-                this.start = 0;
-                this.end = n;
-            }
-
-            // check limits
-            if (this.buf.length <= this.end) {
-                if (!this.skip_overflow_lines) {
-                    throw new Error("line too long or non terminated");
-                }
-
-                console.warn('line too long or non terminated:', this.info());
-                this.end = 0;
-                this.start = 0;
-                this.overflow_state = true;
-            }
-
-            // read from file
-            const avail = this.buf.length - this.end;
-            const read = await this.fh.read(this.fs_context, this.buf, this.end, avail, this.readoffset);
-            if (!read) {
-                this.eof = true;
-
-                // what to do with the leftover in the buffer on eof
-                if (this.end > this.start) {
-                    if (this.skip_leftover_line) {
-                        console.warn("leftover at eof:", this.info());
-                    } else if (this.overflow_state) {
-                        console.warn('line too long finally terminated at eof:', this.info());
-                    } else {
-                        const line = this.buf.toString('utf8', this.start, this.end);
-                        return line;
-                    }
-                }
-
-                return null;
-            }
-            this.readoffset += read;
-            this.end += read;
-        }
-
-        return null;
+        const [start, end] = next;
+        return this.buf.toString('utf8', start, end);
     }
 
     /**
@@ -158,6 +99,100 @@ class NewlineReader {
      */
     async forEachFilePathEntry(cb) {
         return this.forEach(entry => cb(new NewlineReaderFilePathEntry(this.fs_context, entry)));
+    }
+
+    /**
+     * next iterates over the file and returns start and end index for the new line
+     * with `this.buf`.
+     * 
+     * This function can help avoid the heavy cost of converting buffer to an encoded
+     * string and also gives an opportunity to the caller to use any other encoding
+     * than 'utf8' which is the default for `nextline()`.
+     * 
+     * NOTE: If `prevent_file_read` is provided then `next()` can return `null`
+     * even if the file has not reached EOF, the caller should confirm EOF it with
+     * `is_eof()`.
+     * @param {boolean} [prevent_file_read]
+     * @returns {Promise<[number, number]>}
+     */
+    async next(prevent_file_read) {
+        if (!this.fh) await this.init();
+
+        while (!this.eof) {
+            // extract next line if terminated in current buffer
+            if (this.start < this.end) {
+                // here 10 is the value for the newline character
+                const term_idx = this.buf.subarray(this.start, this.end).indexOf(10);
+                if (term_idx >= 0) {
+                    if (this.overflow_state) {
+                        console.warn('line too long finally terminated:', this.info());
+                        this.overflow_state = false;
+                        this.start += term_idx + 1;
+                        continue;
+                    }
+
+                    const start = this.start;
+                    const end = this.start + term_idx;
+
+                    this.start += term_idx + 1;
+                    return [start, end];
+                }
+            }
+
+            // relocate existing data to offset 0 in buf
+            if (this.start > 0) {
+                const n = this.buf.copy(this.buf, 0, this.start, this.end);
+                this.start = 0;
+                this.end = n;
+            }
+
+            // check limits
+            if (this.buf.length <= this.end) {
+                if (!this.skip_overflow_lines) {
+                    throw new Error("line too long or non terminated");
+                }
+
+                console.warn('line too long or non terminated:', this.info());
+                this.end = 0;
+                this.start = 0;
+                this.overflow_state = true;
+            }
+
+            if (prevent_file_read) return null;
+
+            // read from file
+            const avail = this.buf.length - this.end;
+            const read = await this.fh.read(this.fs_context, this.buf, this.end, avail, this.readoffset);
+            if (!read) {
+                this.eof = true;
+
+                // what to do with the leftover in the buffer on eof
+                if (this.end > this.start) {
+                    if (this.skip_leftover_line) {
+                        console.warn("leftover at eof:", this.info());
+                    } else if (this.overflow_state) {
+                        console.warn('line too long finally terminated at eof:', this.info());
+                    } else {
+                        return [this.start, this.end];
+                    }
+                }
+
+                return null;
+            }
+
+            this.readoffset += read;
+            this.end += read;
+        }
+
+        return null;
+    }
+
+    /**
+     * is_eof returns true if the reader has reached EOF
+     * @returns {boolean}
+     */
+    is_eof() {
+        return this.eof;
     }
 
     // reset will reset the reader and will allow reading the file from

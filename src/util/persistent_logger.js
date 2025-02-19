@@ -8,6 +8,7 @@ const P = require('./promise');
 const semaphore = require('./semaphore');
 const { NewlineReader } = require('./file_reader');
 const dbg = require('./debug_module')(__filename);
+const config = require('../../config');
 
 /**
  * PersistentLogger is a logger that is used to record data onto disk separated by newlines.
@@ -206,6 +207,146 @@ class PersistentLogger {
         } finally {
             if (failure_log) await failure_log.close();
         }
+    }
+
+    /**
+     * approx_entries returns approximate number of enties in the current active file
+     * based on the chosen strategy and sample size
+     * @param {{
+     *  strategy?: "TOP_K" | "MID_K" | "MIXED_K",
+     *  samples?: number
+     * }} cfg
+     * @returns {Promise<number>}
+     */
+    async approx_entries(cfg) {
+        const { strategy = config.NSFS_GLACIER_DEFAULT_APPROX_STRATEGY, samples = 10 } = cfg;
+
+        // Open the reader with NO lock so that we don't interfere
+        // with the current writer
+        //
+        // We don't need any consistency guarantees etc here either so
+        // it's okay to even read partial writes
+        const reader = new NewlineReader(
+            this.fs_context,
+            this.active_path,
+            { lock: null, skip_overflow_lines: true },
+        );
+
+        try {
+            await reader.init();
+
+            let avg_length;
+            switch (strategy) {
+                case "TOP_K": {
+                    avg_length = await this._get_top_k_entries_avg_length(reader, samples);
+                    break;
+                }
+                case "MID_K": {
+                    avg_length = await this._get_mid_k_entries_avg_length(reader, samples);
+                    break;
+                }
+                case "MIXED_K": {
+                    const top_avg_len = await this._get_top_k_entries_avg_length(reader, Math.floor(samples / 2));
+                    const mid_avg_len = await this._get_mid_k_entries_avg_length(reader, Math.floor(samples / 2));
+                    avg_length = Math.floor((top_avg_len + mid_avg_len) / 2);
+                    break;
+                }
+                default:
+                    throw new Error("unsupported strategy:" + strategy);
+            }
+
+            const stat = await reader.fh.stat(this.fs_context);
+            return Math.floor(stat.size / avg_length);
+        } finally {
+            await reader.close();
+        }
+    }
+
+    /**
+     * _get_top_k_entries_avg_length takes a new line reader and sample count
+     * and returns the average length of the entries from the sample
+     * @param {NewlineReader} reader 
+     * @param {number} samples 
+     */
+    async _get_top_k_entries_avg_length(reader, samples) {
+        let count = 0;
+        let total_length = 0;
+
+        reader.reset();
+        while (!reader.is_eof() && count < samples) {
+            let entry = await reader.next();
+            let local_total_length = 0;
+
+            // Extract all the lines from this buffer till the point
+            // where we have to read the next chunk
+            //
+            // This is essentially free as it barely involves any compute
+            // and no IO and will give better approximation.
+            while (entry !== null) {
+                const [start, end] = entry;
+                count += 1;
+                local_total_length += (end - start + 1);
+                entry = await reader.next(true);
+            }
+
+            total_length += local_total_length;
+        }
+
+        if (count < samples) {
+            dbg.log1("not enough samples in the active log file:", this.active_path, count);
+        }
+
+        return Math.floor(total_length / count);
+    }
+
+    /**
+     * _get_mid_k_entries_avg_length takes a new line reader and sample count
+     * and returns the average length of the entries from the sample
+     * @param {NewlineReader} reader 
+     * @param {number} samples 
+     */
+    async _get_mid_k_entries_avg_length(reader, samples) {
+        let count = 0;
+        let total_length = 0;
+
+        const { size } = await reader.fh.stat(this.fs_context);
+        const readstart = Math.floor(size / 2);
+
+        // Reset the reader to ensure we read exactly from where intended
+        reader.reset();
+        reader.readoffset = readstart;
+
+        while (!reader.is_eof() && count < samples) {
+            let entry = await reader.next();
+            let local_total_length = 0;
+
+            // Discard the first read as it could be partial unless
+            // we are actually at the start of the file
+            if (readstart !== 0) {
+                const new_entry = await reader.next();
+                if (new_entry !== null) entry = new_entry;
+            }
+
+            // Extract all the lines from this buffer till the point
+            // where we have to read the next chunk
+            //
+            // This is essentially free as it barely involves any compute
+            // and no IO and will give better approximation.
+            while (entry !== null) {
+                const [start, end] = entry;
+                count += 1;
+                local_total_length += (end - start + 1);
+                entry = await reader.next(true);
+            }
+
+            total_length += local_total_length;
+        }
+
+        if (count < samples) {
+            dbg.log1("not enough samples in the active log file:", this.active_path, count);
+        }
+
+        return Math.floor(total_length / count);
     }
 
     async _replace_active(log_noent) {

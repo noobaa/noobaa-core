@@ -19,7 +19,8 @@ async function process_migrations() {
 
         if (
             await backend.low_free_space() ||
-            await time_exceeded(fs_context, config.NSFS_GLACIER_MIGRATE_INTERVAL, Glacier.MIGRATE_TIMESTAMP_FILE)
+            await time_exceeded(fs_context, config.NSFS_GLACIER_MIGRATE_INTERVAL, Glacier.MIGRATE_TIMESTAMP_FILE) ||
+            await migrate_log_exceeds_threshold()
         ) {
             await run_glacier_migrations(fs_context, backend);
             await record_current_time(fs_context, Glacier.MIGRATE_TIMESTAMP_FILE);
@@ -168,6 +169,20 @@ async function record_current_time(fs_context, timestamp_file) {
 }
 
 /**
+ * migrate_log_exceeds_threshold returns true if the underlying backend
+ * decides that the migrate log size has exceeded the given size threshold.
+ * @param {number} [threshold]
+ * @returns {Promise<boolean>}
+ */
+async function migrate_log_exceeds_threshold(threshold = config.NSFS_GLACIER_MIGRATE_LOG_THRESHOLD) {
+    const log = new PersistentLogger(config.NSFS_GLACIER_LOGS_DIR, Glacier.MIGRATE_WAL_NAME, { locking: null });
+    await log._open();
+
+    const { size } = await log.fh.stat(log.fs_context);
+    return size > threshold;
+}
+
+/**
  * run_glacier_operations takes a log_namespace and a callback and executes the
  * callback on each log file in that namespace. It will also generate a failure
  * log file and persist the failures in that log file.
@@ -231,7 +246,8 @@ async function lock_and_run(fs_context, lockfilename, cb) {
     }
 }
 
-/** prepare_galcier_fs_context returns a shallow copy of given
+/**
+ * prepare_galcier_fs_context returns a shallow copy of given
  * fs_context with backend set to 'GPFS'.
  *
  * NOTE: The function will throw error if it detects that libgfs

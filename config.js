@@ -935,6 +935,16 @@ config.NSFS_LOW_FREE_SPACE_MB_UNLEASH = 10 * 1024;
 // operations safely.
 config.NSFS_LOW_FREE_SPACE_PERCENT_UNLEASH = 0.10;
 
+// NSFS_GLACIER_GET_FORCE_EXPIRE if set to true then any restored item in the GLACIER
+// storage class will expire as soon as first GET request is received for it or
+// if the previous restore time has exceed, whichever is the earlier.
+config.NSFS_GLACIER_FORCE_EXPIRE_ON_GET = false;
+
+// NSFS_GLACIER_MIGRATE_LOG_THRESHOLD controls that how big the migration log file should be
+// Once this size is exceeded, migrate calls are supposed to kick in regardless of configured
+// interval
+config.NSFS_GLACIER_MIGRATE_LOG_THRESHOLD = 50 * 1024;
+
 // anonymous account name
 config.ANONYMOUS_ACCOUNT_NAME = 'anonymous';
 

@@ -1151,6 +1151,8 @@ class NamespaceFS {
                 }
             }
 
+            await this._glacier_force_expire_on_get(fs_context, file_path, file, stat);
+
             await file.close(fs_context);
             file = null;
             object_sdk.throw_if_aborted();
@@ -3537,6 +3539,30 @@ class NamespaceFS {
     _get_free_space_threshold(in_bytes, in_percentage, total_space) {
         const free_from_percentage = in_percentage * total_space;
         return Math.max(in_bytes, free_from_percentage);
+    }
+
+    /**
+     * _glacier_force_expire_on_get expires a object if the object has storage
+     * class set to GLACIER and NooBaa is configured for forced get based
+     * eviction
+     * @param {nb.NativeFSContext} fs_context
+     * @param {string} file_path 
+     * @param {nb.NativeFile} file 
+     * @param {nb.NativeFSStats} stat
+     */
+    async _glacier_force_expire_on_get(fs_context, file_path, file, stat) {
+        if (!config.NSFS_GLACIER_FORCE_EXPIRE_ON_GET) return;
+
+        const storage_class = s3_utils.parse_storage_class(stat.xattr[Glacier.STORAGE_CLASS_XATTR]);
+        if (storage_class !== s3_utils.STORAGE_CLASS_GLACIER) return;
+
+        // Remove all the restore related xattrs
+        await file.replacexattr(fs_context, {
+            // Set date to 1970-01-01 to force expiry
+            [Glacier.XATTR_RESTORE_EXPIRY]: new Date(0).toISOString()
+        }, Glacier.XATTR_RESTORE_REQUEST);
+
+        await this.append_to_migrate_wal(file_path);
     }
 
     async append_to_migrate_wal(entry) {

@@ -48,7 +48,7 @@ async function get_object(req, res) {
             throw new S3Error(S3Error.InvalidObjectState);
         }
     }
-
+    http_utils.set_response_headers_from_request(req, res);
     const obj_size = object_md.size;
     const params = {
         object_md,

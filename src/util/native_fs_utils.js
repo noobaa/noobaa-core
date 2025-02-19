@@ -303,6 +303,30 @@ async function stat_ignore_enoent(fs_context, file_path) {
     }
 }
 
+/**
+ * stat_if_exists execute stat on entry_path and ignores on certain error codes.
+ * @param {nb.NativeFSContext} fs_context
+ * @param {string} entry_path
+ * @param {boolean} use_lstat
+ * @param {boolean} should_ignore_eacces
+ * @returns {Promise<nb.NativeFSStats | undefined>}
+ */
+async function stat_if_exists(fs_context, entry_path, use_lstat, should_ignore_eacces) {
+    try {
+        return await nb_native().fs.stat(fs_context, entry_path, { use_lstat });
+    } catch (err) {
+        // we might want to expand the error list due to permission/structure
+        // change (for example: ELOOP, ENAMETOOLONG) or other reason (EPERM) - need to be decided
+        if ((err.code === 'EACCES' && should_ignore_eacces) ||
+             err.code === 'ENOENT' || err.code === 'ENOTDIR') {
+            dbg.log0('stat_if_exists: Could not access file entry_path',
+                entry_path, 'error code', err.code, ', skipping...');
+        } else {
+            throw err;
+        }
+    }
+}
+
 ////////////////////////
 /// NON CONTAINERIZED //
 ////////////////////////
@@ -688,16 +712,6 @@ function translate_error_codes(err, entity) {
     return err;
 }
 
-async function stat_ignore_eacces(bucket_path, result, fs_context) {
-    const entry_path = path.join(bucket_path, result.key);
-    try {
-        return await nb_native().fs.stat(fs_context, entry_path);
-    } catch (err) {
-        if (err.code !== 'EACCES') throw err;
-        dbg.log0('NamespaceFS: check_stats_for_object : couldnt access file entry_path', entry_path, ", skipping...");
-    }
-}
-
 exports.get_umasked_mode = get_umasked_mode;
 exports._make_path_dirs = _make_path_dirs;
 exports._create_path = _create_path;
@@ -708,6 +722,7 @@ exports.finally_close_files = finally_close_files;
 exports.get_user_by_distinguished_name = get_user_by_distinguished_name;
 exports.get_config_files_tmpdir = get_config_files_tmpdir;
 exports.stat_ignore_enoent = stat_ignore_enoent;
+exports.stat_if_exists = stat_if_exists;
 
 exports._is_gpfs = _is_gpfs;
 exports.safe_move = safe_move;
@@ -739,4 +754,3 @@ exports.get_bucket_tmpdir_full_path = get_bucket_tmpdir_full_path;
 exports.get_bucket_tmpdir_name = get_bucket_tmpdir_name;
 exports.entity_enum = entity_enum;
 exports.translate_error_codes = translate_error_codes;
-exports.stat_ignore_eacces = stat_ignore_eacces;

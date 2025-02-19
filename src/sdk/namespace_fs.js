@@ -718,11 +718,17 @@ class NamespaceFS {
                     if (!delimiter && r.common_prefix) {
                         await process_dir(r.key);
                     } else {
-                        if (pos < results.length) {
-                            results.splice(pos, 0, r);
-                        } else {
-                            const stat = await native_fs_utils.stat_ignore_eacces(this.bucket_path, r, fs_context);
-                            if (stat) {
+                        const entry_path = path.join(this.bucket_path, r.key);
+                        // If entry is outside of bucket, returns stat of symbolic link
+                        const use_lstat = !(await this._is_path_in_bucket_boundaries(fs_context, entry_path));
+                        const stat = await native_fs_utils.stat_if_exists(fs_context, entry_path,
+                            use_lstat, config.NSFS_LIST_IGNORE_ENTRY_ON_EACCES);
+                        if (stat) {
+                            r.stat = stat;
+                            // add the result only if we have the stat information
+                            if (pos < results.length) {
+                                results.splice(pos, 0, r);
+                            } else {
                                 results.push(r);
                             }
                         }
@@ -764,6 +770,11 @@ class NamespaceFS {
                     await insert_entry_to_results_arr(r);
                 };
 
+                // our current mechanism - list the files and skipping inaccessible directory (invisible in the list).
+                // We use this check_access in case the directory is not accessible inside a bucket.
+                // In a directory if we don’t have access to the directory, we want to skip the directory and its sub directories from the list.
+                // We did it outside to avoid undefined values in the cache.
+                // Note: It is not the same case as a file without permission.
                 if (!(await this.check_access(fs_context, dir_path))) return;
                 try {
                     if (list_versions) {
@@ -885,13 +896,6 @@ class NamespaceFS {
 
             const prefix_dir_key = prefix.slice(0, prefix.lastIndexOf('/') + 1);
             await process_dir(prefix_dir_key);
-            await Promise.all(results.map(async r => {
-                if (r.common_prefix) return;
-                const entry_path = path.join(this.bucket_path, r.key);
-                //If entry is outside of bucket, returns stat of symbolic link
-                const use_lstat = !(await this._is_path_in_bucket_boundaries(fs_context, entry_path));
-                r.stat = await nb_native().fs.stat(fs_context, entry_path, { use_lstat });
-            }));
             const res = {
                 objects: [],
                 common_prefixes: [],

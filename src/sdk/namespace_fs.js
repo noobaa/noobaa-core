@@ -2580,6 +2580,7 @@ class NamespaceFS {
 
     /**
      * _delete_path_dirs deletes all the paths in the hierarchy that are empty after a successful delete
+     * if the original file_path to be deleted is a directory object we want it to delete the directory
      * if dir is not empty it will stop at the first non empty dir
      * if dir is also a directory object (disabled mode optimization - CONTENT_DIR xattr is on the directory) we stop the loop
      * @param {String} file_path 
@@ -2587,12 +2588,14 @@ class NamespaceFS {
      */
     async _delete_path_dirs(file_path, fs_context) {
         try {
-            let dir = path.dirname(file_path);
-            while (dir !== this.bucket_path) {
-                const dir_stat = await nb_native().fs.stat(fs_context, dir);
-                if (dir_stat.xattr && dir_stat.xattr[XATTR_DIR_CONTENT]) break;
-                await nb_native().fs.rmdir(fs_context, dir);
-                dir = path.dirname(dir);
+            let dir_path = path.dirname(file_path);
+            while (dir_path !== this.bucket_path) {
+                if (file_path !== path.join(dir_path, '/') && file_path !== path.join(dir_path, config.NSFS_FOLDER_OBJECT_NAME)) {
+                    const dir_stat = await nb_native().fs.stat(fs_context, dir_path);
+                    if (dir_stat.xattr && dir_stat.xattr[XATTR_DIR_CONTENT]) break;
+                }
+                await nb_native().fs.rmdir(fs_context, dir_path);
+                dir_path = path.dirname(dir_path);
             }
         } catch (err) {
             if (err.code !== 'ENOTEMPTY' &&

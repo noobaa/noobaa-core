@@ -208,6 +208,118 @@ class PersistentLogger {
         }
     }
 
+    /**
+     * approx_entries returns approximate number of enties in the current active file
+     * based on the chosen strategy and sample size
+     * @param {{
+     *  strategy?: "TOP_K" | "MID_K" | "MIXED_K",
+     *  samples?: number
+     * }} cfg
+     * @returns {Promise<number>}
+     */
+    async approx_entries(cfg) {
+        const { strategy = "TOP_K", samples = 10 } = cfg;
+
+        // Open the reader with NO lock so that we don't interfere
+        // with the current writer
+        //
+        // We don't need any consistency guarantees etc here either so
+        // it's okay to even read partial writes
+        const reader = new NewlineReader(
+            this.fs_context,
+            this.active_path,
+            { lock: null, skip_overflow_lines: true },
+        );
+
+        try {
+            let avg_length;
+            switch (strategy) {
+                case "TOP_K": {
+                    avg_length = await this._get_top_k_entries_avg_length(reader, samples);
+                    break;
+                }
+                case "MID_K": {
+                    avg_length = await this._get_mid_k_entries_avg_length(reader, samples);
+                    break;
+                }
+                case "MIXED_K": {
+                    const top_avg_len = await this._get_top_k_entries_avg_length(reader, Math.floor(samples / 2));
+                    const mid_avg_len = await this._get_mid_k_entries_avg_length(reader, Math.floor(samples / 2));
+                    avg_length = Math.round((top_avg_len + mid_avg_len) / 2);
+                    break;
+                }
+                default:
+                    throw new Error("unsupported strategy:" + strategy);
+            }
+
+            const stat = await reader.fh.stat(this.fs_context);
+            return Math.round(stat.size / avg_length);
+        } finally {
+            await reader.close();
+        }
+    }
+
+    /**
+     * _get_top_k_entries_avg_length takes a new line reader and sample count
+     * and returns the average length of the entries from the sample
+     * @param {NewlineReader} reader 
+     * @param {number} samples 
+     */
+    async _get_top_k_entries_avg_length(reader, samples) {
+        let count = 0;
+        let total_length = 0;
+        let entry = await reader.nextline();
+
+        while (entry !== null && count < samples) {
+            count += 1;
+            total_length += entry.length;
+
+            entry = await reader.nextline();
+        }
+
+        if (count < samples) {
+            dbg.log1("not enough samples in the active log file:", this.active_path, count);
+        }
+
+        return Math.round(total_length / count);
+    }
+
+    /**
+     * _get_mid_k_entries_avg_length takes a new line reader and sample count
+     * and returns the average length of the entries from the sample
+     * @param {NewlineReader} reader 
+     * @param {number} samples 
+     */
+    async _get_mid_k_entries_avg_length(reader, samples) {
+        let count = 0;
+        let total_length = 0;
+
+        const { size } = await reader.fh.stat(this.fs_context);
+        // Reset the reader to ensure we read exactly from where intended
+        reader.reset();
+        reader.readoffset = Math.floor(size / 2);
+
+        // This line is most probably partial but terminates with a new line
+        // character but it is good enough for approximation
+        //
+        // Landing on a new line character itself should be safe as well as
+        // new line reader can handle files with just newline characters too
+        let entry = await reader.nextline();
+
+        while (entry !== null && count < samples) {
+            count += 1;
+            total_length += entry.length;
+
+            entry = await reader.nextline();
+        }
+
+        if (count < samples) {
+            dbg.log1("not enough samples in the active log file:", this.active_path, count);
+        }
+
+        return Math.round(total_length / count);
+    }
+
     async _replace_active(log_noent) {
         const inactive_file = `${this.namespace}.${Date.now()}.log`;
         const inactive_file_path = path.join(this.dir, inactive_file);

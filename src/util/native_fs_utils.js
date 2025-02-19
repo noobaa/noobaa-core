@@ -275,6 +275,30 @@ function should_retry_link_unlink(err) {
     return should_retry_general || should_retry_gpfs || should_retry_posix;
 }
 
+/**
+ * stat_if_exists execute stat on entry_path and ignores on certain error codes.
+ * @param {nb.NativeFSContext} fs_context
+ * @param {string} entry_path
+ * @param {boolean} use_lstat
+ * @param {boolean} should_ignore_eacces
+ * @returns {Promise<nb.NativeFSStats | undefined>}
+ */
+async function stat_if_exists(fs_context, entry_path, use_lstat, should_ignore_eacces) {
+    try {
+        return await nb_native().fs.stat(fs_context, entry_path, { use_lstat });
+    } catch (err) {
+        // we might want to expand the error list due to permission/structure
+        // change (for example: ELOOP, ENAMETOOLONG) or other reason (EPERM) - need to be decided
+        if ((err.code === 'EACCES' && should_ignore_eacces) ||
+             err.code === 'ENOENT' || err.code === 'ENOTDIR') {
+            dbg.log0('stat_if_exists: Could not access file entry_path',
+                entry_path, 'error code', err.code, ', skipping...');
+        } else {
+            throw err;
+        }
+    }
+}
+
 ////////////////////////
 /// NON CONTAINERIZED //
 ////////////////////////
@@ -645,6 +669,7 @@ exports.open_file = open_file;
 exports.copy_bytes = copy_bytes;
 exports.finally_close_files = finally_close_files;
 exports.get_user_by_distinguished_name = get_user_by_distinguished_name;
+exports.stat_if_exists = stat_if_exists;
 
 exports._is_gpfs = _is_gpfs;
 exports.safe_move = safe_move;

@@ -20,6 +20,7 @@ const manage_nsfs_glacier = require('../manage_nsfs/manage_nsfs_glacier');
 const manage_nsfs_logging = require('../manage_nsfs/manage_nsfs_logging');
 const noobaa_cli_diagnose = require('../manage_nsfs/diagnose');
 const noobaa_cli_upgrade = require('../manage_nsfs/upgrade');
+const noobaa_cli_versions = require('../manage_nsfs/versions');
 const { print_usage } = require('../manage_nsfs/manage_nsfs_help_utils');
 const { TYPES, ACTIONS, LIST_ACCOUNT_FILTERS, LIST_BUCKET_FILTERS, GLACIER_ACTIONS } = require('../manage_nsfs/manage_nsfs_constants');
 const { throw_cli_error, get_bucket_owner_account_by_name,
@@ -80,6 +81,8 @@ async function main(argv = minimist(process.argv.slice(2))) {
             await notification_management();
         } else if (type === TYPES.CONNECTION) {
             await connection_management(action, user_input);
+        } else if (type === TYPES.VERSIONS) {
+            await noobaa_cli_versions.versions_management(config_fs);
         } else {
             throw_cli_error(ManageCLIError.InvalidType);
         }

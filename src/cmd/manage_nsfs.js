@@ -3,7 +3,6 @@
 
 const dbg = require('../util/debug_module')(__filename);
 const _ = require('lodash');
-const path = require('path');
 const minimist = require('minimist');
 const config = require('../../config');
 const P = require('../util/promise');
@@ -717,6 +716,19 @@ async function set_bucker_owner(bucket_data) {
 ////////////////////
 //// IP WHITELIST //
 ////////////////////
+/**
+ * @returns {Promise<[boolean, object]>} - [config_exists, config_data] - config_exists is a boolean that indicates if the config.json exists
+ * and config_data is the parsed data from the config.json file. returns empty object for config_data if config.json does not exist.
+ */
+async function _get_config_json_if_exist() {
+    try {
+        const config_json = await config_fs.get_config_json();
+        return [true, config_json];
+    } catch (err) {
+        if (err.code !== 'ENOENT') throw err;
+        return [false, {}];
+    }
+}
 
 async function whitelist_ips_management(args) {
     const ips = args.ips;
@@ -724,15 +736,18 @@ async function whitelist_ips_management(args) {
 
     const whitelist_ips = JSON.parse(ips);
     manage_nsfs_validations.validate_whitelist_ips(whitelist_ips);
-    const config_path = path.join(config_fs.config_root, 'config.json');
     try {
-        const config_data = require(config_path);
+        const [config_exists, config_data] = await _get_config_json_if_exist();
         config_data.S3_SERVER_IP_WHITELIST = whitelist_ips;
         const data = JSON.stringify(config_data);
-        await config_fs.update_config_json_file(data);
+        if (config_exists) {
+            await config_fs.update_config_json_file(data);
+        } else {
+            await config_fs.create_config_json_file(data);
+        }
     } catch (err) {
-        dbg.error('manage_nsfs.whitelist_ips_management: Error while updation config.json,  path ' + config_path, err);
-        throw_cli_error(ManageCLIError.WhiteListIPUpdateFailed, config_path);
+        dbg.error('manage_nsfs.whitelist_ips_management: Error while updation config.json, path:', config_fs.config_json_path, err);
+        throw_cli_error(ManageCLIError.WhiteListIPUpdateFailed);
     }
     write_stdout_response(ManageCLIResponse.WhiteListIPUpdated, ips);
 }

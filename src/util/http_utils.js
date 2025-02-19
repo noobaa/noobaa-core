@@ -3,6 +3,7 @@
 /* eslint-disable no-control-regex */
 
 const _ = require('lodash');
+const util = require('util');
 const ip_module = require('ip');
 const net = require('net');
 const url = require('url');
@@ -908,6 +909,21 @@ function handle_server_error(err) {
     process.exit(1);
 }
 
+/**
+ * set_response_headers_from_request sets the response headers based on the request headers
+ * gap - response-content-encoding needs to be added with a more complex logic
+ * @param {http.IncomingMessage} req 
+ * @param {http.ServerResponse} res 
+ */
+function set_response_headers_from_request(req, res) {
+    dbg.log2(`set_response_headers_from_request req.query ${util.inspect(req.query)}`);
+    if (req.query['response-cache-control']) res.setHeader('Cache-Control', req.query['response-cache-control']);
+    if (req.query['response-content-disposition']) res.setHeader('Content-Disposition', req.query['response-content-disposition']);
+    if (req.query['response-content-language']) res.setHeader('Content-Language', req.query['response-content-language']);
+    if (req.query['response-content-type']) res.setHeader('Content-Type', req.query['response-content-type']);
+    if (req.query['response-expires']) res.setHeader('Expires', req.query['response-expires']);
+}
+
 exports.parse_url_query = parse_url_query;
 exports.parse_client_ip = parse_client_ip;
 exports.get_md_conditions = get_md_conditions;
@@ -944,3 +960,4 @@ exports.CONTENT_TYPE_APP_OCTET_STREAM = CONTENT_TYPE_APP_OCTET_STREAM;
 exports.CONTENT_TYPE_APP_JSON = CONTENT_TYPE_APP_JSON;
 exports.CONTENT_TYPE_APP_XML = CONTENT_TYPE_APP_XML;
 exports.CONTENT_TYPE_APP_FORM_URLENCODED = CONTENT_TYPE_APP_FORM_URLENCODED;
+exports.set_response_headers_from_request = set_response_headers_from_request;

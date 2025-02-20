@@ -892,7 +892,12 @@ class NamespaceFS {
                 const entry_path = path.join(this.bucket_path, r.key);
                 //If entry is outside of bucket, returns stat of symbolic link
                 const use_lstat = !(await this._is_path_in_bucket_boundaries(fs_context, entry_path));
-                const result_stat = await native_fs_utils.stat_ignore_enoent(fs_context, entry_path, { use_lstat });
+                let result_stat;
+                try {
+                    result_stat = await nb_native().fs.stat(fs_context, entry_path, { use_lstat });
+                } catch (err) {
+                    dbg.log0('_list_objects (second stat): Could not stat entry_path', entry_path, ', skipping...');
+                }
                 r.stat = result_stat || r.previous_stat; // must have stat for _get_object_info - we will use the previous stat in case of failure
             }));
             const res = {

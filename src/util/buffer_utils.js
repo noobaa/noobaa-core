@@ -87,12 +87,12 @@ async function read_stream(readable) {
     };
     await new Promise((resolve, reject) =>
         readable
-        .on('data', data => {
-            res.buffers.push(data);
-            res.total_length += data.length;
-        })
-        .once('error', reject)
-        .once('end', resolve)
+            .on('data', data => {
+                res.buffers.push(data);
+                res.total_length += data.length;
+            })
+            .once('error', reject)
+            .once('end', resolve)
     );
     return res;
 }
@@ -227,6 +227,24 @@ class BuffersPool {
             this.sem.release(this.buf_size);
         };
         return { buffer, callback };
+    }
+
+    /**
+     * Invoke an async callback with a buffer from the pool,
+     * and release the buffer back to the pool when its promise is fulfilled.
+     * 
+     * @template T
+     * @param {(buffer: Buffer) => Promise<T>} func 
+     * @returns {Promise<T>}
+     */
+    async use_buffer(func) {
+        const { buffer, callback } = await this.get_buffer();
+        try {
+            const ret = await func(buffer);
+            return ret;
+        } finally {
+            callback();
+        }
     }
 
     [util.inspect.custom]() {

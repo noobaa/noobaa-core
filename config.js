@@ -905,6 +905,7 @@ config.NSFS_LOW_FREE_SPACE_PERCENT_UNLEASH = 0.10;
 config.ANONYMOUS_ACCOUNT_NAME = 'anonymous';
 
 config.NFSF_UPLOAD_STREAM_MEM_THRESHOLD = 8 * 1024 * 1024;
+config.NFSF_DOWNLOAD_STREAM_MEM_THRESHOLD = 8 * 1024 * 1024;
 
 ////////////////////////////
 // NSFS NON CONTAINERIZED //
@@ -1005,6 +1006,14 @@ config.DEFAULT_REGION = 'us-east-1';
 
 config.VACCUM_ANALYZER_INTERVAL = 86400000;
 
+
+//////////////
+///  RDMA  ///
+//////////////
+
+config.RDMA_ENABLED = true; // TODO STILL EXPERIMENTAL - should be false by default
+
+
 /////////////////////
 //                 //
 //    OVERRIDES    //
@@ -1087,7 +1096,7 @@ function _get_data_from_file(file_name) {
     try {
         data = fs.readFileSync(file_name).toString();
     } catch (e) {
-        console.warn(`Error accrued while getting the data from ${file_name}: ${e}`);
+        // console.log(`Error accrued while getting the data from ${file_name}: ${e}`);
         return;
     }
     return data;
@@ -1103,7 +1112,7 @@ function _get_config_root() {
         const data = _get_data_from_file(redirect_path);
         config_root = data.toString().trim();
     } catch (err) {
-        console.warn('config.get_config_root - could not find custom config_root, will use the default config_root ', config_root);
+        // console.log('config.get_config_root - could not find custom config_root, will use the default config_root ', config_root);
     }
     return config_root;
 }
@@ -1114,7 +1123,7 @@ function _get_config_root() {
 function _set_nc_config_to_env() {
     const config_to_env = ['NOOBAA_LOG_LEVEL', 'UV_THREADPOOL_SIZE', 'GPFS_DL_PATH', 'NSFS_ENABLE_DYNAMIC_SUPPLEMENTAL_GROUPS'];
     Object.values(config_to_env).forEach(function(key) {
-        if (config[key] !== undefined) {
+        if (key in config && config[key] !== undefined) {
             process.env[key] = config[key];
         }
     });
@@ -1157,7 +1166,7 @@ function load_nsfs_nc_config() {
     try {
         if (!config.NSFS_NC_CONF_DIR) {
             config.NSFS_NC_CONF_DIR = _get_config_root();
-            console.warn('load_nsfs_nc_config.setting config.NSFS_NC_CONF_DIR', config.NSFS_NC_CONF_DIR);
+            // console.warn('load_nsfs_nc_config.setting config.NSFS_NC_CONF_DIR', config.NSFS_NC_CONF_DIR);
         }
         const config_path = path.join(config.NSFS_NC_CONF_DIR, 'config.json');
         const config_data = require(config_path);

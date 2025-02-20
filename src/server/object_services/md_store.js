@@ -270,6 +270,27 @@ class MDStore {
         });
     }
 
+    /*
+    This function is identical to remove_object_and_unset_latest but
+    does not unset latest since incomplete uploads don't have versions.
+    For our matter, incomplete uploads are object MDs that have:
+    upload_started: { $exists: true }
+    create_time < expiration threshold
+    */
+    async remove_incomplete_uploads(objs) {
+        if (!objs || !objs.length) return;
+
+        await this._objects.updateMany({
+            _id: {
+                $in: objs.map(obj => obj._id),
+            }
+        }, {
+            $set: {
+                deleted: new Date(),
+            },
+        });
+    }
+
     // 2, 3, 4
     async remove_object_move_latest(old_latest_obj, new_latest_obj) {
         const bulk = this._objects.initializeOrderedBulkOp();
@@ -695,6 +716,39 @@ class MDStore {
             });
             return results;
         }
+    }
+
+    async list_uploads_until_date({
+        bucket_id,
+        delimiter,
+        prefix,
+        key_marker,
+        limit,
+        upload_started_marker,
+        expiration_threshold
+    }) {
+        const hint = 'upload_index';
+        const sort = { bucket: 1, key: 1, upload_started: 1 };
+
+        const { key_query } = this._build_list_key_query_from_markers(
+            prefix, delimiter, key_marker, upload_started_marker, /*version_seq_marker*/ undefined
+        );
+
+        const query = compact({
+            bucket: bucket_id,
+            key: key_query,
+            deleted: null,
+            // Note: $exists is less optimized than comparing to null
+            upload_started: { $exists: true },
+            create_time: { $lte: this.make_md_id_from_time(expiration_threshold, "") }
+        });
+
+        const results = await this._objects.find(query, {
+            limit,
+            sort,
+            hint,
+        });
+        return results;
     }
 
     _build_list_key_query_from_prefix(prefix) {

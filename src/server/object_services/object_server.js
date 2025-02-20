@@ -1040,6 +1040,17 @@ async function delete_multiple_objects_unordered(req) {
     return { is_empty: !bucket_has_objects };
 }
 
+// Sets the "deleted" field for all Object MDs with `upload_started: { $exists: true } and create_time < expiration threshold
+async function delete_incomplete_multiparts(req) {
+    load_bucket(req);
+    dbg.log1(`delete_incomplete_multiparts from ${req.bucket.name} that were uploaded before ${req.rpc_params.expiration_threshold}`);
+    const { objects } = await list_uploads(req);
+    await MDStore.instance().remove_incomplete_uploads(objects);
+
+    const reply = { num_objects_deleted: objects.length };
+    return reply;
+}
+
 
 // async function delete_all_objects(req) {
 //     dbg.log1('delete_all_objects. limit =', req.params.limit);
@@ -1168,6 +1179,7 @@ async function list_object_versions(req) {
 
 async function list_uploads(req) {
     dbg.log1('list_uploads', req.rpc_params);
+    let list_uploads_func = MDStore.instance().list_uploads;
     load_bucket(req);
 
     const limit = _list_limit(req.rpc_params.limit);
@@ -1187,9 +1199,12 @@ async function list_uploads(req) {
         is_truncated: false,
         done: false,
     };
-
+    if (req.rpc_params.expiration_threshold) {
+        list_uploads_func = MDStore.instance().list_uploads_until_date;
+        state.expiration_threshold = req.rpc_params.expiration_threshold;
+    }
     while (!state.done) {
-        const results = await MDStore.instance().list_uploads(state);
+        const results = await list_uploads_func(state);
         _list_add_results(state, results);
     }
 
@@ -2114,6 +2129,7 @@ exports.update_object_md = update_object_md;
 // deletion
 exports.delete_object = delete_object;
 exports.delete_multiple_objects = delete_multiple_objects;
+exports.delete_incomplete_multiparts = delete_incomplete_multiparts;
 exports.delete_multiple_objects_by_filter = delete_multiple_objects_by_filter;
 exports.delete_multiple_objects_unordered = delete_multiple_objects_unordered;
 // listing

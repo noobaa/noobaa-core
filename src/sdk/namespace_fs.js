@@ -656,6 +656,7 @@ class NamespaceFS {
              *  key: string,
              *  common_prefix: boolean,
              *  stat?: nb.NativeFSStats,
+             *  previous_stat?: nb.NativeFSStats,
              *  is_latest: boolean,
              * }} Result
              */
@@ -721,9 +722,10 @@ class NamespaceFS {
                         if (pos < results.length) {
                             results.splice(pos, 0, r);
                         } else {
-                            const stat = await native_fs_utils.stat_ignore_eacces(this.bucket_path, r, fs_context);
+                            const stat = await native_fs_utils.stat_ignore_eacces_enoent(this.bucket_path, r.key, fs_context);
                             if (stat) {
                                 results.push(r);
+                                r.previous_stat = stat; // as the future stat might fail, better return non-updated data than a failure
                             }
                         }
                         if (results.length > limit) {
@@ -890,7 +892,13 @@ class NamespaceFS {
                 const entry_path = path.join(this.bucket_path, r.key);
                 //If entry is outside of bucket, returns stat of symbolic link
                 const use_lstat = !(await this._is_path_in_bucket_boundaries(fs_context, entry_path));
-                r.stat = await nb_native().fs.stat(fs_context, entry_path, { use_lstat });
+                let result_stat;
+                try {
+                    result_stat = await nb_native().fs.stat(fs_context, entry_path, { use_lstat });
+                } catch (err) {
+                    dbg.log0('_list_objects (second stat): Could not stat entry_path', entry_path, ', skipping...');
+                }
+                r.stat = result_stat || r.previous_stat; // must have stat for _get_object_info - we will use the previous stat in case of failure
             }));
             const res = {
                 objects: [],

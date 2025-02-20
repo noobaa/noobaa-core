@@ -2,7 +2,6 @@
 'use strict';
 
 const path = require('path');
-const _ = require('lodash');
 const P = require('../../../util/promise');
 const fs_utils = require('../../../util/fs_utils');
 const NamespaceFS = require('../../../sdk/namespace_fs');
@@ -73,38 +72,75 @@ describe('test nsfs concurrency', () => {
         expect(res_etags).toHaveLength(15);
     }, TEST_TIMEOUT);
 
-    it('list objects and delete an object during it', async () => {
-        const bucket = 'bucket1';
-        const num_of_objects = 5;
-        const keys_names = await _upload_objects(bucket, num_of_objects);
-        const random_num = random_integer(1, keys_names.length);
-        const key_to_delete = `my-key-${random_num}`;
+    test_list_and_delete({
+        test_name: 'list objects and delete an object during it - random deletion',
+        bucket_name: 'bucket1',
+        num_of_objects_to_upload: 5,
+        expected_num_of_object_in_list: 4,
+        key_to_delete: `my-key-${random_integer(1, 5)}`,
+        iterations: 5,
+    });
 
-        nsfs.list_objects({ bucket: bucket }, DUMMY_OBJECT_SDK)
-            .catch(err => {
-                console.log('error during list_objects', err);
-                throw err;
-            }).then(res => {
-                console.log('list was successful');
-            });
-        nsfs.delete_object({ bucket: bucket, key: key_to_delete }, DUMMY_OBJECT_SDK)
-            .catch(err => {
-                console.log('delete_object', key_to_delete, 'got an error', err);
-                throw err;
-            }).then(res => {
-                console.log('delete_object during list objects was successful');
-            });
-        await P.delay(5000);
-        // up to this point if it was successful, the race between the delete object and list object went fine.
+    test_list_and_delete({
+        test_name: 'list objects and delete an object during it - delete the last object',
+        bucket_name: 'bucket2',
+        num_of_objects_to_upload: 1000,
+        expected_num_of_object_in_list: 999,
+        key_to_delete: `my-key-1000`,
+        iterations: 1
+    });
 
-        // now we will just check that the updated list does not contain the deleted object as expected
-        const res_list_objects = await nsfs.list_objects({ bucket: bucket }, DUMMY_OBJECT_SDK);
-        const array_of_objects = res_list_objects.objects;
-        expect(array_of_objects).toHaveLength(num_of_objects - 1);
-        const objects_without_deleted_key = _.every(array_of_objects, object => object.key !== key_to_delete);
-        expect(objects_without_deleted_key).toBe(true);
-    }, TEST_TIMEOUT);
 });
+
+    /**
+     * @param {{
+    *      test_name: string,
+    *      bucket_name: string,
+    *      num_of_objects_to_upload: number,
+    *      expected_num_of_object_in_list: number,
+    *      key_to_delete?: string,
+    *      iterations?: number,
+    * }} params
+    */
+   function test_list_and_delete({
+       test_name,
+       bucket_name,
+       num_of_objects_to_upload,
+       expected_num_of_object_in_list,
+       key_to_delete,
+       iterations = 1
+   }) {
+
+    it(test_name, async () => {
+        await _upload_objects(bucket_name, num_of_objects_to_upload);
+        if (key_to_delete === undefined) {
+            key_to_delete = `my-key-${random_integer(1, expected_num_of_object_in_list)}`;
+            console.log('test_list_and_delete: key_to_delete', key_to_delete);
+        }
+
+        console.log(`test_list_and_delete: ${test_name} ${bucket_name} num_of_objects_to_upload: ${num_of_objects_to_upload},
+            expected_num_of_object_in_list ${expected_num_of_object_in_list} key_to_delete ${key_to_delete}`);
+
+        for (let i = 0; i < iterations; ++i) {
+                nsfs.list_objects({ bucket: bucket_name }, DUMMY_OBJECT_SDK)
+                .catch(err => {
+                    console.log('error during list_objects', err);
+                    throw err;
+                }).then(res => {
+                    console.log('list was successful');
+                });
+            nsfs.delete_object({ bucket: bucket_name, key: key_to_delete }, DUMMY_OBJECT_SDK)
+                .catch(err => {
+                    console.log('delete_object got an error', err);
+                    throw err;
+                }).then(res => {
+                    console.log('delete_object during list objects was successful');
+                });
+            await P.delay(5000);
+            // up to this point if it was successful, the race between the delete object and list object went fine.
+        }
+    }, TEST_TIMEOUT);
+}
 
 /**
  * _upload_objects uploads number_of_versions of objects in bucket

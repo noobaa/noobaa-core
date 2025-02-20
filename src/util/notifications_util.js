@@ -422,7 +422,7 @@ function compose_notification_req(req, res, bucket, notif_conf) {
     let eTag = res.getHeader('ETag');
     //eslint-disable-next-line
     if (eTag && eTag.startsWith('\"') && eTag.endsWith('\"')) {
-        eTag = eTag.substring(2, eTag.length - 2);
+        eTag = eTag.substring(1, eTag.length - 1);
     }
 
     const event = OP_TO_EVENT[req.op_name];
@@ -442,7 +442,7 @@ function compose_notification_req(req, res, bucket, notif_conf) {
             "x-amz-id-2": req.request_id,
     };
     notif.s3.object.key = req.params.key;
-    notif.s3.object.size = res.getHeader('content-length');
+    notif.s3.object.size = res.size_for_notif;
     notif.s3.object.eTag = eTag;
     notif.s3.object.versionId = res.getHeader('x-amz-version-id');
 
@@ -461,6 +461,8 @@ function compose_notification_req(req, res, bucket, notif_conf) {
         //in noobaa-ns we have a sequence from db
         notif.s3.object.sequencer = res.seq;
     }
+
+    delete res.size_for_notif;
 
     return compose_meta(notif, notif_conf, bucket);
 }

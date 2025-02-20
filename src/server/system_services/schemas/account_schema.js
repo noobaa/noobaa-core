@@ -70,6 +70,10 @@ module.exports = {
                     access_key: { $ref: 'common_api#/definitions/access_key' },
                     secret_key: { $ref: 'common_api#/definitions/secret_key' },
                     azure_log_access_keys: { $ref: 'common_api#/definitions/azure_log_access_keys' },
+                    azure_subscription_id: { type: 'string' },
+                    azure_tenant_id: { type: 'string' },
+                    azure_client_id: { type: 'string' },
+                    azure_region: { type: 'string' },
                     aws_sts_arn: {
                         type: 'string'
                     },
@@ -82,7 +86,7 @@ module.exports = {
                     cp_code: { type: 'string' },
                     endpoint_type: {
                         type: 'string',
-                        enum: ['AWSSTS', 'AWS', 'AZURE', 'S3_COMPATIBLE', 'GOOGLE', 'FLASHBLADE', 'NET_STORAGE', 'IBM_COS']
+                        enum: ['AWSSTS', 'AWS', 'AZURE', 'AZURESTS', 'S3_COMPATIBLE', 'GOOGLE', 'FLASHBLADE', 'NET_STORAGE', 'IBM_COS']
                     },
                 }
             }

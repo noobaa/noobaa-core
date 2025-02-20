@@ -164,6 +164,10 @@ class HostedAgents {
                 secret_key: pool.cloud_pool_info.access_keys.secret_key
             },
             aws_sts_arn: pool.cloud_pool_info.aws_sts_arn,
+            azure_client_id: pool.cloud_pool_info.azure_client_id,
+            azure_tenant_id: pool.cloud_pool_info.azure_tenant_id,
+            azure_region: pool.cloud_pool_info.azure_region,
+            azure_subscription_id: pool.cloud_pool_info.azure_subscription_id,
             region: pool.cloud_pool_info.region,
             pool_name: pool.name
         } : {
@@ -174,7 +178,7 @@ class HostedAgents {
             node_name,
             host_id,
             storage_path,
-            token_wrapper,
+        token_wrapper,
             create_node_token_wrapper,
             routing_hint: 'LOOPBACK'
         };
@@ -182,6 +186,13 @@ class HostedAgents {
         agent_params[pool_info_property] = pool_info;
         if (pool.cloud_pool_info && pool.cloud_pool_info.storage_limit) agent_params.storage_limit = pool.cloud_pool_info.storage_limit;
         if (pool.cloud_pool_info && pool.cloud_pool_info.aws_sts_arn) agent_params.aws_sts_arn = pool.cloud_pool_info.aws_sts_arn;
+        if (pool.cloud_pool_info) {
+            const { azure_client_id, azure_tenant_id, azure_region, azure_subscription_id } = pool.cloud_pool_info;
+            if (azure_client_id) agent_params.azure_client_id = azure_client_id;
+            if (azure_tenant_id) agent_params.azure_tenant_id = azure_tenant_id;
+            if (azure_region) agent_params.azure_region = azure_region;
+            if (azure_subscription_id) agent_params.azure_subscription_id = azure_subscription_id;
+        }
         dbg.log0(`running agent with params ${util.inspect(agent_params)}`);
         const agent = new Agent(agent_params);
         this._started_agents[node_name] = {

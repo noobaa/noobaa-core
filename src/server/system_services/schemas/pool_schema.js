@@ -108,6 +108,10 @@ module.exports = {
                 aws_sts_arn: {
                     type: 'string'
                 },
+azure_subscription_id: { type: 'string' },
+                    azure_tenant_id: { type: 'string' },
+                    azure_client_id: { type: 'string' },
+                    azure_region: { type: 'string' },
                 backingstore: {
                     type: 'object',
                     properties: {
@@ -138,7 +142,7 @@ module.exports = {
                 },
                 endpoint_type: {
                     type: 'string',
-                    enum: ['AWSSTS', 'AWS', 'AZURE', 'S3_COMPATIBLE', 'GOOGLE', 'FLASHBLADE', 'NET_STORAGE', 'IBM_COS']
+                    enum: ['AWSSTS', 'AWS', 'AZURE', 'AZURESTS', 'S3_COMPATIBLE', 'GOOGLE', 'FLASHBLADE', 'NET_STORAGE', 'IBM_COS']
                 },
                 agent_info: {
                     type: 'object',

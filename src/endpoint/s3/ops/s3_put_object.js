@@ -65,6 +65,8 @@ async function put_object(req, res) {
     }
     s3_utils.set_encryption_response_headers(req, res, reply.encryption);
 
+    res.size_for_notif = size || reply.size;
+
     if (copy_source) {
         // TODO: This needs to be checked regarding copy between diff namespaces
         // In that case we do not have the copy_source property and just read and upload the stream

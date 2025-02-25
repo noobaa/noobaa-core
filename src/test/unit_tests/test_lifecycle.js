@@ -1,5 +1,6 @@
 /* Copyright (C) 2022 NooBaa */
 /* eslint-disable no-invalid-this */
+/* eslint max-lines-per-function: ["error", 2000]*/
 
 'use strict';
 
@@ -12,6 +13,7 @@ const mongodb = require('mongodb');
 const _ = require('lodash');
 const crypto = require('crypto');
 const stream = require('stream');
+const moment = require('moment');
 
 const ObjectIO = require('../../sdk/object_io');
 const P = require('../../util/promise');
@@ -233,14 +235,114 @@ mocha.describe('lifecycle', () => {
     });
 
     mocha.describe('bucket-lifecycle-multipart-upload', function() {
+        // Not supported in other DBs
+        if (config.DB_TYPE !== 'postgres') return;
+
         this.timeout(60000);
         const multipart_bucket = 'test-multipart-bucket';
-        mocha.after(async function() {
-            //TODO Delete bucket
-            //await rpc_client.bucket.delete_bucket({ name: multipart_bucket });
+
+        mocha.before(async function() {
+            await rpc_client.bucket.create_bucket({ name: multipart_bucket });
         });
+
+        mocha.after(async function() {
+            await rpc_client.bucket.delete_bucket({ name: multipart_bucket });
+        });
+
+        mocha.it('basic test cleanup abandoned multipart upload', async function() {
+            const bucket = multipart_bucket;
+            const key = 'test-lifecycle-multipart-basic-0';
+            const parts_age = 3;
+            const parts_count = 7;
+            const part_size = 45;
+
+            const putLifecycleParams = {
+                Bucket: bucket,
+                LifecycleConfiguration: {
+                    Rules: [
+                        {
+                            AbortIncompleteMultipartUpload: {
+                                // 10 less days have gone by since upload created
+                                DaysAfterInitiation: parts_age + 10,
+                            },
+                            Filter: {
+                                Prefix: ''
+                            },
+                            Status: 'Enabled',
+                        }
+                    ],
+                },
+            };
+
+            await s3.putBucketLifecycleConfiguration(putLifecycleParams);
+            const obj_id = await create_mock_multipart_upload(key, multipart_bucket, parts_age, part_size, parts_count);
+            await lifecycle.background_worker();
+
+            // Ensure that there are still same number of parts
+            const mp_list = await rpc_client.object.list_multiparts({ obj_id, bucket, key });
+            assert.strictEqual(mp_list.multiparts.length, parts_count);
+
+            // Change DaysAfterInitiation
+            putLifecycleParams.LifecycleConfiguration.Rules[0].AbortIncompleteMultipartUpload.DaysAfterInitiation = parts_age - 10;
+            await s3.putBucketLifecycleConfiguration(putLifecycleParams);
+            await lifecycle.background_worker();
+
+            // Ensure the object is gone
+            await verify_mulitparts_aborted(obj_id, bucket, key);
+        });
+
+        mocha.it('test cleanup abandoned multipart upload with prefix', async function() {
+            const bucket = multipart_bucket;
+            const prefix = 'test-lifecycle-multipart-with-prefix-';
+            const parts_age = 3;
+            const parts_count = 7;
+            const part_size = 45;
+
+            const putLifecycleParams = {
+                Bucket: bucket,
+                LifecycleConfiguration: {
+                    Rules: [
+                        {
+                            AbortIncompleteMultipartUpload: {
+                                // 10 less days have gone by since upload created
+                                DaysAfterInitiation: parts_age + 10,
+                            },
+                            Filter: {
+                                Prefix: prefix,
+                            },
+                            Status: 'Enabled',
+                        }
+                    ],
+                },
+            };
+
+            await s3.putBucketLifecycleConfiguration(putLifecycleParams);
+            const obj_id_1 = await create_mock_multipart_upload(prefix + "0", multipart_bucket, parts_age, part_size, parts_count);
+            const obj_id_2 = await create_mock_multipart_upload(prefix + "1", multipart_bucket, parts_age, part_size, parts_count);
+            await lifecycle.background_worker();
+
+            // Ensure that there are still same number of parts
+            const mp_list_1 = await rpc_client.object.list_multiparts({ obj_id: obj_id_1, bucket, key: prefix + "0" });
+            const mp_list_2 = await rpc_client.object.list_multiparts({ obj_id: obj_id_2, bucket, key: prefix + "1" });
+            assert.strictEqual(mp_list_1.multiparts.length, parts_count);
+            assert.strictEqual(mp_list_2.multiparts.length, parts_count);
+
+            // Change DaysAfterInitiation
+            putLifecycleParams.LifecycleConfiguration.Rules[0].AbortIncompleteMultipartUpload.DaysAfterInitiation = parts_age - 10;
+            await s3.putBucketLifecycleConfiguration(putLifecycleParams);
+            await lifecycle.background_worker();
+
+            // Ensure the object is gone
+            await verify_mulitparts_aborted(obj_id_1, bucket, prefix + "0");
+            await verify_mulitparts_aborted(obj_id_2, bucket, prefix + "1");
+        });
+
+        async function verify_mulitparts_aborted(obj_id, bucket, key) {
+            // @ts-ignore
+            assert.rejects(() => rpc_client.object.list_multiparts({ obj_id, bucket, key }), err => err.rpc_code === 'NO_SUCH_UPLOAD');
+        }
+
         async function create_mock_multipart_upload(key, bucket, age, part_size, num_parts) {
-            await rpc_client.bucket.create_bucket({ name: bucket });
             const content_type = 'test/test';
             const size = num_parts * part_size;
             const data = generator.update(Buffer.alloc(size));
@@ -270,20 +372,19 @@ mocha.describe('lifecycle', () => {
             ));
 
             // go back in time
-            const create_time = new Date();
-            create_time.setDate(create_time.getDate() - age);
             const update = {
-                create_time,
+                // eslint-disable-next-line new-cap
+                upload_started: new mongodb.ObjectId(moment().subtract(age, 'days').unix()),
             };
 
             console.log('create_mock_multipart_upload bucket', bucket, 'obj_id', obj_id, 'multiparts_ids', multiparts_ids);
-            await MDStore.instance().update_multiparts_by_ids(multiparts_ids, update);
+            await MDStore.instance().update_object_by_id(obj_id, update);
 
             const mp_list_after = await rpc_client.object.list_multiparts({ obj_id, bucket, key });
             coretest.log('mp_list_after after', mp_list_after);
             assert.strictEqual(mp_list_after.multiparts.length, num_parts);
-            const actual_create_time = mp_list_after.multiparts[0].last_modified;
-            assert.strictEqual(actual_create_time, create_time.getTime(), `object create_time/getTime actual ${actual_create_time} !== expected ${create_time.getTime()}`);
+
+            return obj_id;
         }
 
         mocha.it('lifecyle - listMultiPart verify', async () => {
@@ -292,52 +393,170 @@ mocha.describe('lifecycle', () => {
     });
 
     mocha.describe('bucket-lifecycle-version', function() {
+        // Not supported in other DBs
+        if (config.DB_TYPE !== 'postgres') return;
+
         this.timeout(60000);
         const version_bucket = 'test-version-bucket';
+
+        mocha.before(async function() {
+            await rpc_client.bucket.create_bucket({ name: version_bucket });
+            await rpc_client.bucket.update_bucket({
+                name: version_bucket,
+                versioning: 'ENABLED'
+            });
+        });
+
         mocha.after(async function() {
-            //TODO Delete bucket
-            //await rpc_client.bucket.delete_bucket({ name: version_bucket });
+            await rpc_client.bucket.delete_bucket({ name: version_bucket }).catch(_.noop); // might fail, that's okay
+        });
+
+        mocha.it('basic test cleanup noncurrent versions', async function() {
+            const bucket = version_bucket;
+            const key = 'test-lifecycle-version-basic-0';
+            const age = 30;
+            const versions_count = 7;
+
+            const putLifecycleParams = {
+                Bucket: bucket,
+                LifecycleConfiguration: {
+                    Rules: [
+                        {
+                            NoncurrentVersionExpiration: {
+                                NoncurrentDays: age + 10,
+                            },
+                            Filter: {
+                                Prefix: ''
+                            },
+                            Status: 'Enabled',
+                        }
+                    ],
+                },
+            };
+
+            await s3.putBucketLifecycleConfiguration(putLifecycleParams);
+            await create_mock_version(key, bucket, age, versions_count);
+            await lifecycle.background_worker();
+
+            // Ensure that there are still same number of parts
+            let versions_list = await rpc_client.object.list_object_versions({ bucket, prefix: key });
+            assert.strictEqual(versions_list.objects.length, versions_count);
+
+            // Change NoncurrentDays
+            putLifecycleParams.LifecycleConfiguration.Rules[0].NoncurrentVersionExpiration.NoncurrentDays = age - 10;
+            await s3.putBucketLifecycleConfiguration(putLifecycleParams);
+            await lifecycle.background_worker();
+
+            versions_list = await rpc_client.object.list_object_versions({ bucket, prefix: key });
+            assert.strictEqual(versions_list.objects.length, 2);
+        });
+
+        mocha.it('basic test cleanup noncurrent versions with prefix', async function() {
+            const bucket = version_bucket;
+            const prefix = 'test-lifecycle-version-with-prefix-' + crypto.randomBytes(8).toString('hex') + "-";
+            const age = 30;
+            const versions_count = 7;
+
+            const putLifecycleParams = {
+                Bucket: bucket,
+                LifecycleConfiguration: {
+                    Rules: [
+                        {
+                            NoncurrentVersionExpiration: {
+                                NoncurrentDays: age + 10,
+                            },
+                            Filter: {
+                                Prefix: prefix,
+                            },
+                            Status: 'Enabled',
+                        }
+                    ],
+                },
+            };
+
+            await s3.putBucketLifecycleConfiguration(putLifecycleParams);
+            await create_mock_version(prefix + "0", bucket, age, versions_count);
+            await create_mock_version(prefix + "1", bucket, age, versions_count);
+            await lifecycle.background_worker();
+
+            // Ensure that there are still same number of parts
+            let versions_list = await rpc_client.object.list_object_versions({ bucket, prefix });
+            assert.strictEqual(versions_list.objects.length, versions_count * 2);
+
+            // Change NoncurrentDays
+            putLifecycleParams.LifecycleConfiguration.Rules[0].NoncurrentVersionExpiration.NoncurrentDays = age - 10;
+            await s3.putBucketLifecycleConfiguration(putLifecycleParams);
+            await lifecycle.background_worker();
+
+            versions_list = await rpc_client.object.list_object_versions({ bucket, prefix });
+            assert.strictEqual(versions_list.objects.length, 2 * 2);
+        });
+
+        mocha.it('test cleanup noncurrent versions with newer noncurrent versions', async function() {
+            const bucket = version_bucket;
+            const key = 'test-lifecycle-version-newer-noncurrent-0';
+            const age = 30;
+            const versions_count = 7;
+
+            const putLifecycleParams = {
+                Bucket: bucket,
+                LifecycleConfiguration: {
+                    Rules: [
+                        {
+                            NoncurrentVersionExpiration: {
+                                // Age exceeds but newernoncurrent versions doesn't
+                                // so no expiration should happen
+                                NoncurrentDays: age - 10,
+                                NewerNoncurrentVersions: 10
+                            },
+                            Filter: {
+                                Prefix: ''
+                            },
+                            Status: 'Enabled',
+                        }
+                    ],
+                },
+            };
+
+            await s3.putBucketLifecycleConfiguration(putLifecycleParams);
+            await create_mock_version(key, bucket, age, versions_count);
+            await lifecycle.background_worker();
+
+            // Ensure that there are still same number of parts
+            let versions_list = await rpc_client.object.list_object_versions({ bucket, prefix: key });
+            assert.strictEqual(versions_list.objects.length, versions_count);
+
+            // Change NewerNoncurrentVersions
+            putLifecycleParams.LifecycleConfiguration.Rules[0].NoncurrentVersionExpiration.NewerNoncurrentVersions = 1;
+            await s3.putBucketLifecycleConfiguration(putLifecycleParams);
+            await lifecycle.background_worker();
+
+            versions_list = await rpc_client.object.list_object_versions({ bucket, prefix: key });
+            assert.strictEqual(versions_list.objects.length, 2);
         });
 
         async function create_mock_version(version_key, bucket, age, version_count) {
-            await rpc_client.bucket.create_bucket({ name: bucket });
-            rpc_client.bucket.update_bucket({
-                name: bucket,
-                versioning: 'ENABLED'
-            });
-
             const obj_upload_ids = [];
             for (let i = 0; i < version_count; ++i) {
                 const content_type = 'application/octet_stream';
                 const { obj_id } = await rpc_client.object.create_object_upload({ bucket, key: version_key, content_type });
                 await rpc_client.object.complete_object_upload({ obj_id, bucket, key: version_key });
-                if (i < version_count - 2) {
+
+                // everything but last will be aged
+                if (i < version_count - 1) {
                     obj_upload_ids.push(new mongodb.ObjectId(obj_id));
                 }
             }
             // go back in time
             if (age > 0) {
-                const create_time = new Date();
-                create_time.setDate(create_time.getDate() - age);
                 const update = {
-                    create_time,
+                    create_time: moment().subtract(age, 'days').toDate(),
                 };
                 console.log('blow_version_objects: bucket', bucket, 'multiparts_ids', obj_upload_ids, " obj_upload_ids length: ", obj_upload_ids.length, "update :", update);
                 const update_result = await MDStore.instance().update_objects_by_ids(obj_upload_ids, update);
                 console.log('blow_version_objects: update_objects_by_ids', update_result);
             }
-
-            const obj_params = {
-                bucket,
-            };
-            const list_obj = await rpc_client.object.list_object_versions(obj_params);
-            console.log("List updated objects : ", list_obj);
-            assert.strictEqual(list_obj.objects.length, version_count, `object total count  ${list_obj.objects.length} !== expected ${version_count}`);
         }
-
-        mocha.it('lifecyle - version expiration', async () => {
-            await create_mock_version('test-lifecycle-version', version_bucket, 30, 10);
-        });
     });
 
     function readable_buffer(data, split = 1, finish = 'end') {

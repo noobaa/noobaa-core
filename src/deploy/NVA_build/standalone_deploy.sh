@@ -73,6 +73,9 @@ function main() {
     mkdir -p storage/backingstores/drive1
     execute "npm -- run backingstore storage/backingstores/drive1 --port 9991" backingstore1.log
     sleep 30
+
+    # Wait if stdin is attached
+    if [ -t 0 ]; then wait; fi
 }
 
 main

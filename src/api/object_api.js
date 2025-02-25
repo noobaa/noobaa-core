@@ -1424,6 +1424,130 @@ module.exports = {
             auth: { system: ['admin', 'user'] }
         },
 
+        delete_incomplete_multiparts: {
+            method: 'DELETE',
+            params: {
+                type: 'object',
+                required: [
+                    'bucket',
+                    'days_after_initiation',
+                ],
+                properties: {
+                    bucket: { $ref: 'common_api#/definitions/bucket_name' },
+                    days_after_initiation: {
+                        type: 'integer',
+                    },
+                    prefix: {
+                        type: 'string',
+                    },
+                    size_less: {
+                        type: 'integer'
+                    },
+                    size_greater: {
+                        type: 'integer'
+                    },
+                    limit: {
+                        type: 'integer'
+                    },
+                    reply_objects: {
+                        type: 'boolean'
+                    }
+                },
+            },
+            reply: {
+                type: 'object',
+                properties: {
+                    num_objects_deleted: {
+                        type: 'integer'
+                    }
+                }
+            },
+            auth: { system: ['admin', 'user'] }
+        },
+
+        delete_noncurrent_versions: {
+            method: 'DELETE',
+            params: {
+                type: 'object',
+                required: [
+                    'bucket',
+                    'noncurrent_days'
+                ],
+                properties: {
+                    bucket: { $ref: 'common_api#/definitions/bucket_name' },
+                    noncurrent_days: {
+                        type: 'integer',
+                    },
+                    newer_noncurrent_versions: {
+                        type: 'integer',
+                    },
+                    prefix: {
+                        type: 'string',
+                    },
+                    size_less: {
+                        type: 'integer'
+                    },
+                    size_greater: {
+                        type: 'integer'
+                    },
+                    tags: {
+                        $ref: 'common_api#/definitions/tagging'
+                    },
+                    limit: {
+                        type: 'integer'
+                    },
+                    reply_objects: {
+                        type: 'boolean'
+                    }
+                },
+            },
+            reply: {
+                type: 'object',
+                properties: {
+                    num_objects_deleted: {
+                        type: 'integer'
+                    }
+                }
+            },
+            auth: { system: ['admin', 'user'] }
+        },
+
+        delete_expired_delete_markers: {
+            method: 'DELETE',
+            params: {
+                type: 'object',
+                required: [
+                    'bucket',
+                ],
+                properties: {
+                    bucket: { $ref: 'common_api#/definitions/bucket_name' },
+                    prefix: {
+                        type: 'string',
+                    },
+                    size_less: {
+                        type: 'integer'
+                    },
+                    size_greater: {
+                        type: 'integer'
+                    },
+                    limit: {
+                        type: 'integer'
+                    },
+                    reply_objects: {
+                        type: 'boolean'
+                    }
+                },
+            },
+            reply: {
+                type: 'object',
+                properties: {
+                    num_objects_deleted: {
+                        type: 'integer'
+                    }
+                }
+            },
+            auth: { system: ['admin', 'user'] }
+        },
     },
 
     definitions: {

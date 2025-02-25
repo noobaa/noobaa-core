@@ -1,4 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
+/*eslint max-lines: ["error", 2200]*/
 'use strict';
 
 /** @typedef {typeof import('../../sdk/nb')} nb */
@@ -27,11 +28,12 @@ const data_block_indexes = require('./schemas/data_block_indexes');
 const config = require('../../../config');
 
 
+// const sql_or_conditions = (...conditions) => conditions.filter(Boolean).join(' OR ');
+const sql_and_conditions = (...conditions) => conditions.filter(Boolean).join(' AND ');
+
 class MDStore {
 
     constructor(test_suffix = '') {
-
-
         const postgres_pool = 'md';
 
         this._objects = db_client.instance().define_collection({
@@ -268,6 +270,188 @@ class MDStore {
                 version_past: true,
             },
         });
+    }
+
+    /**
+     * 
+     * @param {{
+     *  bucket_id: string,
+     *  prefix?: string,
+     *  days_after_initiation: number,
+     *  size_less?: number,
+     *  size_greater?: number,
+     *  tags?: Array<string>,
+     *  limit: number
+     * }} config
+     */
+    async remove_pending_multiparts({
+        bucket_id,
+        prefix,
+        days_after_initiation,
+        size_less,
+        size_greater,
+        tags,
+        limit,
+    }) {
+        const table_name = this._objects.name;
+        function convert_mongoid_to_timestamp_sql(field) {
+            return `(('x' || substring(${field} FROM 1 FOR 8))::bit(32)::bigint)`;
+        }
+
+        const sql_condition0 = prefix ? `data->>'key' LIKE '${prefix}%'` : "";
+        const sql_condition1 = size_less === undefined ? "" : `data->>'size' < ${size_less}`;
+        const sql_condition2 = size_greater === undefined ? "" : `data->>'size' > ${size_greater}`;
+        const sql_condition3 = tags && tags.length ? `ranked.tags @> '${JSON.stringify(tags)}'::jsonb` : "";
+
+        const query = `
+            UPDATE ${table_name}
+            SET data = jsonb_set(data, '{deleted}', to_jsonb($1::text), true)
+            WHERE
+                ${sql_and_conditions(
+                    `data->>'bucket' = '${bucket_id}'`,
+                    `data->>'deleted' IS NULL`,
+                    `data->>'upload_started' IS NOT NULL`,
+                    `(EXTRACT(EPOCH FROM NOW()) - ${convert_mongoid_to_timestamp_sql("data->>'upload_started'")}) / 86400 > ${days_after_initiation}`,
+                    sql_condition0, sql_condition1, sql_condition2, sql_condition3,
+                )};`;
+
+        dbg.log1('[remove_pending_multiparts] generated query:', query);
+        const result = await this._objects.executeSQL(query, [new Date()]);
+        return result.rowCount;
+    }
+
+    /**
+     * 
+     * @param {{
+     *  bucket_id: string,
+     *  noncurrent_days: number,
+     *  prefix?: string,
+     *  newer_noncurrent_versions?: number,
+     *  size_less?: number,
+     *  size_greater?: number,
+     *  tags?: Array<string>,
+     *  limit: number
+     * }} config
+     */
+    async remove_noncurrent_versions({
+        bucket_id,
+        noncurrent_days,
+        prefix,
+        newer_noncurrent_versions,
+        size_less,
+        size_greater,
+        tags,
+        limit,
+    }) {
+        const table_name = this._objects.name;
+
+        if (noncurrent_days === undefined) throw new Error('noncurrent_days is required');
+
+        const sql_condition0 = prefix ? `data->>'key' LIKE '${prefix}%'` : "";
+        const sql_condition1 = `(successor_time IS NOT NULL AND (CURRENT_TIMESTAMP - successor_time) >= interval '${noncurrent_days} days')`;
+        const sql_condition2 = newer_noncurrent_versions ? `(rn > (${newer_noncurrent_versions} + 1))` : "";
+
+        const sql_condition3 = size_less === undefined ? "" : `data->>'size' < ${size_less}`;
+        const sql_condition4 = size_greater === undefined ? "" : `data->>'size' > ${size_greater}`;
+        const sql_condition5 = tags && tags.length ? `ranked.tags @> '${JSON.stringify(tags)}'::jsonb` : "";
+
+        const sql_limit = limit === undefined ? "" : `LIMIT ${limit}`;
+
+        const query = `
+            WITH ranked AS (
+                SELECT 
+                    _id,
+                    (data->>'size')::BIGINT AS size,
+                    data->'tagging' AS tags,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY data->>'key' 
+                        ORDER BY (data->>'version_seq')::BIGINT DESC
+                    ) AS rn,
+                    LEAD((data->>'create_time')::timestamptz) OVER (
+                        PARTITION BY data->>'key' 
+                        ORDER BY (data->>'version_seq')::BIGINT
+                    ) AS successor_time
+                FROM objectmds
+                WHERE
+                    ${sql_and_conditions(
+                        `data->>'bucket' = '${bucket_id}'`,
+                        sql_condition0,
+                        `data->>'deleted' IS NULL`
+                    )}
+            )
+            UPDATE ${table_name}
+            SET data = jsonb_set(data, '{deleted}', to_jsonb($1::text), true)
+            WHERE _id IN (
+                SELECT ranked._id FROM ranked
+                WHERE 
+                    ${sql_and_conditions(
+                        sql_condition1, sql_condition2,
+                        sql_condition3, sql_condition4, sql_condition5,
+                    )}
+                ${sql_limit}
+            );`;
+
+        dbg.log1('[remove_noncurrent_versions] generated query:', query);
+        const result = await this._objects.executeSQL(query, [new Date()]);
+        return result.rowCount;
+    }
+
+    /**
+     * 
+     * @param {{
+     *  bucket_id: string,
+     *  prefix?: string,
+     *  size_less?: number,
+     *  size_greater?: number,
+     *  tags?: Array<string>,
+     *  limit: number
+     * }} config
+     * 
+     * @returns {Promise<number>}
+     */
+    async delete_orphaned_delete_marker({
+        bucket_id,
+        prefix,
+        size_less,
+        size_greater,
+        tags,
+        limit,
+    }) {
+        const table_name = this._objects.name;
+
+        const sql_condition0 = prefix ? `data->>'key' LIKE '${prefix}%'` : "";
+        const sql_condition1 = size_less === undefined ? "" : `data->>'size' < ${size_less}`;
+        const sql_condition2 = size_greater === undefined ? "" : `data->>'size' > ${size_greater}`;
+        const sql_condition3 = tags && tags.length ? `data->'tagging' @> '${JSON.stringify(tags)}'::jsonb` : "";
+
+        const sql_limit = limit === undefined ? "" : `LIMIT ${limit}`;
+
+        const query = `
+        DELETE FROM ${table_name}
+        WHERE ctid in (
+            SELECT ctid
+            FROM ${table_name} t1
+            WHERE t1.data->>'bucket' = '${bucket_id}'
+                AND t1.data->>'deleted' IS NULL
+                AND t1.data->>'delete_marker' IS NOT NULL
+                AND t1.data->>'version_past' IS NULL
+                AND NOT EXISTS (
+                    SELECT 1
+                    FROM ${table_name} t2
+                    WHERE t2.data->>'key' = t1.data->>'key'
+                        AND t2._id <> t1._id
+                        AND (
+                            t2.data->>'deleted' IS NULL -- is not deleted
+                            OR t2.data->>'delete_marker' IS NOT NULL -- is a delete marker
+                        )
+                )
+                ${sql_and_conditions(sql_condition0, sql_condition1, sql_condition2, sql_condition3)}
+            ${sql_limit}
+        );`;
+
+        dbg.log1('[delete_orphaned_delete_marker] generated query:', query);
+        const result = await this._objects.executeSQL(query, []);
+        return result.rowCount;
     }
 
     // 2, 3, 4

@@ -14,6 +14,7 @@ jobs:
 
       - name: Run Jest Unit Test
         run: |
+          sudo apt-get update --fix-missing
           sudo apt-get -y install nasm libcap-dev
           npm install
           npm run build

@@ -30,8 +30,6 @@ const config = require('../../../config');
 class MDStore {
 
     constructor(test_suffix = '') {
-
-
         const postgres_pool = 'md';
 
         this._objects = db_client.instance().define_collection({
@@ -268,6 +266,38 @@ class MDStore {
                 version_past: true,
             },
         });
+    }
+
+    /**
+     * 
+     * @param {{
+     *  bucket_id: string,
+     *  prefix?: string,
+     *  days_after_initiation: number,
+     * }} config
+     */
+    async remove_pending_multiparts({
+        bucket_id,
+        prefix = '',
+        days_after_initiation,
+    }) {
+        const table_name = this._objects.name;
+        function convert_mongoid_to_timestamp_sql(field) {
+            return `(('x' || substring(${field} FROM 1 FOR 8))::bit(32)::bigint)`;
+        }
+
+        const query = `
+            UPDATE ${table_name}
+            SET data = jsonb_set(data, '{deleted}', to_jsonb($1::text), true)
+            WHERE
+                data->>'bucket' = '${bucket_id}'
+                AND data->>'key' LIKE $2
+                AND data->>'deleted' IS NULL
+                AND data->>'upload_started' IS NOT NULL
+                AND (EXTRACT(EPOCH FROM NOW()) - ${convert_mongoid_to_timestamp_sql("data->>'upload_started'")}) / 86400 > ${days_after_initiation};`;
+        dbg.log1('[remove_pedning_multiparts] generated query:', query);
+        const result = await this._objects.executeSQL(query, [new Date(), prefix + "%"]);
+        return result.rowCount;
     }
 
     // 2, 3, 4

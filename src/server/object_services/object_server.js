@@ -1040,6 +1040,21 @@ async function delete_multiple_objects_unordered(req) {
     return { is_empty: !bucket_has_objects };
 }
 
+// Sets the "deleted" field for all Object MDs with `upload_started: { $exists: true } and create_time < expiration threshold
+async function delete_incomplete_multiparts(req) {
+    load_bucket(req);
+    dbg.log1(`[delete_incomplete_multiparts] LIFECYCLE from ${req.bucket.name} with days_after_initiation: ${req.rpc_params.days_after_initiation}`);
+    const delete_count = await MDStore.instance().remove_pending_multiparts({
+        bucket_id: req.bucket._id,
+        days_after_initiation: req.rpc_params.days_after_initiation,
+        prefix: req.rpc_params.prefix,
+    });
+    dbg.log1(`[delete_incomplete_multiparts] LIFECYCLE multipart deleted ${delete_count}`);
+
+    const reply = { num_objects_deleted: delete_count };
+    return reply;
+}
+
 
 // async function delete_all_objects(req) {
 //     dbg.log1('delete_all_objects. limit =', req.params.limit);
@@ -1187,7 +1202,6 @@ async function list_uploads(req) {
         is_truncated: false,
         done: false,
     };
-
     while (!state.done) {
         const results = await MDStore.instance().list_uploads(state);
         _list_add_results(state, results);
@@ -2114,6 +2128,7 @@ exports.update_object_md = update_object_md;
 // deletion
 exports.delete_object = delete_object;
 exports.delete_multiple_objects = delete_multiple_objects;
+exports.delete_incomplete_multiparts = delete_incomplete_multiparts;
 exports.delete_multiple_objects_by_filter = delete_multiple_objects_by_filter;
 exports.delete_multiple_objects_unordered = delete_multiple_objects_unordered;
 // listing

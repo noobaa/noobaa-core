@@ -371,7 +371,6 @@ class PgTransaction {
             this.pg_client = null;
         }
     }
-
 }
 
 
@@ -386,9 +385,6 @@ class BulkOp {
         // this.nMatched = 0;
         // this.nModified = 0;
     }
-
-
-
 
     insert(data) {
         const _id = get_id(data);
@@ -705,6 +701,42 @@ class PostgresTable {
         if (!skip_init) await this.init_promise;
         const q = { text, values };
         return _do_query(client || this.get_pool(), q, 0);
+    }
+
+   /**
+     * executeSQL takes a raw SQL query and params and runs it against
+     * the database. If `query_name` is passed then it prepares a
+     * statement on the first execution while the further executions
+     * will re-utilize the prepared statement (pre-parsed).
+     * 
+     * @template T
+     * 
+     * @param {string} query 
+     * @param {Array<any>} params 
+     * @param {{
+     *  query_name?: string,
+     * }} [options = {}]
+     * 
+     * @returns {Promise<import('pg').QueryResult<T>>}
+     */
+    async executeSQL(query, params, options = {}) {
+        /** @type {Pool} */
+        const pool = this.get_pool();
+        const client = await pool.connect();
+
+        const q = {
+            text: query,
+            values: params,
+        };
+
+        if (options.query_name) {
+            q.name = options.query_name;
+        }
+
+        const res = await _do_query(client, q, 0);
+        client.release();
+
+        return res;
     }
 
     get_id(data) {

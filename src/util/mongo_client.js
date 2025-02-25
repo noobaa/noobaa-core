@@ -73,6 +73,17 @@ class MongoCollection {
     async estimatedDocumentCount(options = {}) { return this._get_mongo_col().estimatedDocumentCount(options); }
     async estimatedQueryCount(query) { return this._get_mongo_col().countDocuments(query); }
     async stats() { return this._get_mongo_col().stats(); }
+
+    /**
+     * 
+     * @param {*} query 
+     * @param {*} params 
+     * @param {*} options 
+     * @returns {Promise<any>}
+     */
+    async executeSQL(query, params, options) {
+        throw new Error("NOT SUPPORTED");
+    }
 }
 
 class MongoSequence {
@@ -943,7 +954,6 @@ class MongoClient extends EventEmitter {
         clearTimeout(this.connect_timeout);
         this.connect_timeout = null;
     }
-
 }
 
 MongoClient._instance = undefined;

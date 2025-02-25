@@ -82,7 +82,13 @@ config.NODES_FREE_SPACE_RESERVE = 100 * (1024 ** 2);
 // don't use agents with less than reserve + 5 GB
 config.MINIMUM_AGENT_TOTAL_STORAGE = config.NODES_FREE_SPACE_RESERVE + (5 * (1024 ** 3));
 
-config.NODE_IO_DETENTION_DISABLE = false;
+
+// by default not disconnecting nodes on error. This caused more issues than benefits
+config.NODES_DISCONNECT_ON_ERROR = false;
+
+// by default not detaining nodes on io errors. This caused more issues than benefits
+config.NODE_IO_DETENTION_DISABLE = true;
+
 config.NODE_IO_DETENTION_THRESHOLD = 60 * 1000;
 config.NODE_IO_DETENTION_RECENT_ISSUES = 5;
 // Picked two because minimum of nodes per pool is three

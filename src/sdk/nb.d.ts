@@ -737,6 +737,11 @@ interface DBSequence {
     nextsequence(): Promise<number>;
 }
 
+interface sqlResult<T> {
+    rows: T[],
+    rowCount: number | null,
+}
+
 interface DBCollection {
     find(query?: object, options?: object): Promise<DBDoc[]>;
     findOne(query?: object, options?: object): Promise<DBDoc>;
@@ -761,6 +766,9 @@ interface DBCollection {
     stats(): Promise<mongodb.CollStats>;
 
     validate(doc: object, warn?: 'warn'): object;
+
+    executeSQL<T>(query: string, params: Array<any>, options?: { query_name?: string }): Promise<sqlResult<T>>;
+    name: any;
 }
 
 type DBDoc = any;

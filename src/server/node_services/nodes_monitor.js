@@ -247,7 +247,7 @@ class NodesMonitor extends EventEmitter {
         return P.resolve()
             .then(() => this._run())
             .then(() => {
-                // do nothing. 
+                // do nothing.
             });
     }
 
@@ -1012,7 +1012,7 @@ class NodesMonitor extends EventEmitter {
             })
             .then(() => this._update_nodes_store('force'))
             .then(() => {
-                // do nothing. 
+                // do nothing.
             });
     }
 
@@ -1236,7 +1236,7 @@ class NodesMonitor extends EventEmitter {
         if (item.node.deleted) return;
         if (!item.connection) return;
         if (!item.agent_info) return;
-        //The node should be set as enable if it is not decommissioned. 
+        //The node should be set as enable if it is not decommissioned.
         const should_enable = !item.node.decommissioned;
         const item_pool = system_store.data.get_by_id(item.node.pool);
         const location_info = {
@@ -1244,7 +1244,7 @@ class NodesMonitor extends EventEmitter {
             host_id: String(item.node.host_id),
             pool_id: String(item.node.pool),
         };
-        // We should only add region if it is defined. 
+        // We should only add region if it is defined.
         if (item_pool && !_.isUndefined(item_pool.region)) location_info.region = item_pool.region;
         // We should change the service enable field if the field is not equal to the decommissioned decision.
         const service_enabled_not_changed = (item.node.enabled === should_enable);
@@ -3373,12 +3373,16 @@ class NodesMonitor extends EventEmitter {
                 'node', item.node.name,
                 'issues_report', item.node.issues_report,
                 'block_report', block_report);
-            // disconnect from the node to force reconnect
-            // only disconnect if enough time passed since last disconnect to avoid amplification of errors in R\W flows
-            const DISCONNECT_GRACE_PERIOD = 2 * 60 * 1000; // 2 minutes grace before another disconnect
-            if (!item.disconnect_time || item.disconnect_time + DISCONNECT_GRACE_PERIOD < Date.now()) {
-                dbg.log0('disconnecting node to force reconnect. node:', item.node.name);
-                this._disconnect_node(item);
+
+
+            if (config.NODES_DISCONNECT_ON_ERROR) {
+                // disconnect from the node to force reconnect
+                // only disconnect if enough time passed since last disconnect to avoid amplification of errors in R\W flows
+                const DISCONNECT_GRACE_PERIOD = 2 * 60 * 1000; // 2 minutes grace before another disconnect
+                if (!item.disconnect_time || item.disconnect_time + DISCONNECT_GRACE_PERIOD < Date.now()) {
+                    dbg.log0('disconnecting node to force reconnect. node:', item.node.name);
+                    this._disconnect_node(item);
+                }
             }
         }
     }

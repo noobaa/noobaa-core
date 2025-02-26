@@ -54,6 +54,29 @@ In the figure, each original directory contains a hidden .versions/ sub- directo
 * When A delete marker is the latest version of an object, it indicates that the object is deleted.
 * A unique version ID will be allocated to the delete marker as for regular versions.
 
+### content Dir versioning
+content dir structure has two modes:
+1. versioning disabled mode,at this mode xattr are located at the directory. we create `.folder` file inside the directory only if the object has data in it. in that case `.folder` file contains the objects body.
+example bucket tree:
+```
+bucket
+└── dir <= directory object (dir/), includes xattr
+    └──.folder <= file containing dir/ object body
+```
+2. versioning enabled / suspended mode. at this mode we always create `.folder` file. xatrr are located at the `.folder` file. the transition between the disable and enabled/disabled is lazy. meaning that we only change the key structure after a put operation for that key. non-latest versions and delete markers are saved in the directories .versions directory as `.folder-<version-id>`. versioning handling is the same as for non-directory objects. only that the object file used is the  `.folder` file
+example bucket tree:
+```
+bucket
+└── dir
+    ├── .folder <= contains both body (can be empty) and xattr - dir/
+    ├── key1 <= nested object - dir/key1
+    └── .versions
+        ├── .folder_mtime-dzdz6vlnbzblk-ino-4hbc <= version of dir/
+        ├── .folder_mtime-dzdz5vlasfsaw-ino-4hia
+        ├── key1_mtime-d6u6vlnbzklc-ino-3ehc <= version of dir/key1
+        └── key1_mtime-d6u6vnztsiyo-ino-3eik
+```   
+
 ### Posix safe rename
 
 #### In the following cases NooBaa will move files between a directory and its .versions/ directory:

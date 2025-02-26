@@ -451,6 +451,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             await s3_uid6.putObject({ Bucket: content_dir_bucket_name, Key: head_object_key, Body: body1 });
             await s3_uid6.putObject({ Bucket: content_dir_bucket_name, Key: get_object_key, Body: body1 });
             await s3_uid6.putObject({ Bucket: content_dir_bucket_name, Key: delete_latest_object_key, Body: body1 });
+            await s3_uid6.putObject({ Bucket: content_dir_bucket_name, Key: delete_latest_object_key_suspended, Body: body1 });
 
             await s3_uid6.putBucketVersioning({ Bucket: content_dir_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
         });
@@ -639,7 +640,63 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
 
             const get_res = await s3_uid6.getObject({ Bucket: content_dir_bucket_name, Key: key });
             assert.equal(get_res.VersionId, res2.VersionId);
+        });
 
+        mocha.it('content directory - object tagging', async function() {
+            const dir_tagging_key = 'dir_tagging/';
+            const tag_set1 = { TagSet: [{ Key: "key1", Value: "Value1" }] };
+            const tag_set2 = { TagSet: [{ Key: "key2", Value: "Value2" }] };
+
+            await s3_uid6.putBucketVersioning({ Bucket: content_dir_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
+            const res_put = await s3_uid6.putObject({ Bucket: content_dir_bucket_name, Key: dir_tagging_key, Body: body1 });
+            await s3_uid6.putObject({ Bucket: content_dir_bucket_name, Key: dir_tagging_key, Body: body1 });
+            const version_id = res_put.VersionId;
+
+            await s3_uid6.putObjectTagging({ Bucket: content_dir_bucket_name, Key: dir_tagging_key, Tagging: tag_set1 });
+            let res = await s3_uid6.getObjectTagging({ Bucket: content_dir_bucket_name, Key: dir_tagging_key });
+            assert.deepEqual(res.TagSet, tag_set1.TagSet);
+
+            await s3_uid6.putObjectTagging({ Bucket: content_dir_bucket_name, Key: dir_tagging_key,
+                Tagging: tag_set2, VersionId: version_id });
+            res = await s3_uid6.getObjectTagging({ Bucket: content_dir_bucket_name, Key: dir_tagging_key });
+            assert.notDeepEqual(res.TagSet, tag_set2);
+
+            const version_res = await s3_uid6.getObjectTagging({ Bucket: content_dir_bucket_name,
+                Key: dir_tagging_key, VersionId: version_id });
+            assert.deepEqual(version_res.TagSet, tag_set2.TagSet);
+
+            await s3_uid6.deleteObjectTagging({ Bucket: content_dir_bucket_name, Key: dir_tagging_key });
+            res = await s3_uid6.getObjectTagging({ Bucket: content_dir_bucket_name, Key: dir_tagging_key });
+            assert.equal(res.TagSet.length, 0);
+
+            await s3_uid6.deleteObjectTagging({ Bucket: content_dir_bucket_name, Key: dir_tagging_key, VersionId: version_id });
+            res = await s3_uid6.getObjectTagging({ Bucket: content_dir_bucket_name, Key: dir_tagging_key, VersionId: version_id });
+            assert.equal(res.TagSet.length, 0);
+        });
+
+        mocha.it('content directory - list object', async function() {
+            const res = await s3_uid6.listObjects({ Bucket: content_dir_bucket_name });
+            assert.equal(res.Contents.length, 10);
+        });
+
+        mocha.it('content directory - list object versions', async function() {
+            const key = "list_key/";
+            const version_ids = new Set();
+            let push_res = await s3_uid6.putObject({ Bucket: content_dir_bucket_name, Key: key, Body: body1 });
+            version_ids.add(push_res.VersionId);
+            push_res = await s3_uid6.putObject({ Bucket: content_dir_bucket_name, Key: key, Body: body1 });
+            version_ids.add(push_res.VersionId);
+            push_res = await s3_uid6.putObject({ Bucket: content_dir_bucket_name, Key: key, Body: body1 });
+            version_ids.add(push_res.VersionId);
+            const list_res = await s3_uid6.listObjectVersions({ Bucket: content_dir_bucket_name });
+            const key_list_versions = list_res.Versions.filter(v => v.Key === key);
+            assert.equal(key_list_versions.length, version_ids.size);
+            key_list_versions.forEach(v => {
+                assert(version_ids.has(v.VersionId));
+                if (v.VersionId === push_res.VersionId) {
+                    assert.equal(v.IsLatest, true);
+                }
+            });
         });
     });
 

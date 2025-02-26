@@ -688,29 +688,6 @@ function translate_error_codes(err, entity) {
     return err;
 }
 
-/**
- * stat_ignore_error_codes will stat the entry_path and ignore in in the following cases:
- * 1. EACCES - we use it in case the path has different permission
- * 2. ENOENT - we use it in case the path was already deleted
- * we use this function as an helper function during _list_objects
- * @param {string} bucket_path
- * @param {string} key
- * @param {nb.NativeFSContext} fs_context
- */
-async function stat_ignore_error_codes(bucket_path, key, fs_context) {
-    const entry_path = path.join(bucket_path, key);
-    try {
-        return await nb_native().fs.stat(fs_context, entry_path);
-    } catch (err) {
-        if (err.code === 'EACCES' || err.code === 'ENOENT' || err.code === 'ENOTDIR') {
-            dbg.log0('stat_ignore_error_codes: Could not access file entry_path',
-                entry_path, 'error code', err.code, ', skipping...');
-        } else {
-            throw err;
-        }
-    }
-}
-
 exports.get_umasked_mode = get_umasked_mode;
 exports._make_path_dirs = _make_path_dirs;
 exports._create_path = _create_path;
@@ -752,4 +729,3 @@ exports.get_bucket_tmpdir_full_path = get_bucket_tmpdir_full_path;
 exports.get_bucket_tmpdir_name = get_bucket_tmpdir_name;
 exports.entity_enum = entity_enum;
 exports.translate_error_codes = translate_error_codes;
-exports.stat_ignore_error_codes = stat_ignore_error_codes;

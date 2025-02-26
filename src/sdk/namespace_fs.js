@@ -945,7 +945,13 @@ class NamespaceFS {
             }
             return res;
         } catch (err) {
-            throw native_fs_utils.translate_error_codes(err, native_fs_utils.entity_enum.OBJECT);
+            // we don't use here translate_error_codes
+            // because we only want an S3 error of NoSuchBucket (or Internal error for all the rest)
+            if (err.code === 'ENOENT' || err.code === 'ENOTDIR') {
+                err.rpc_code = `NO_SUCH_BUCKET`;
+            }
+            if (err.code === 'INTERNAL_ERROR' || !err.rpc_code) err.rpc_code = 'INTERNAL_ERROR';
+            throw err;
         }
     }
 

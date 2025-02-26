@@ -1055,6 +1055,21 @@ mocha.describe('manage_nsfs cli', function() {
                 assert_error(err, ManageCLIError.InvalidArgument);
             }
         });
+
+        mocha.it('cli add whitelist config file doesnt exist', async function() {
+            //delete existing config file
+            const config_file_path = config_fs.get_config_json_path();
+            await fs_utils.file_delete(config_file_path);
+
+            const ips = ['127.0.0.1']; // IPV4 format
+            const res = await exec_manage_cli(type, '', { config_root, ips: JSON.stringify(ips) });
+            await assert_response('', type, res, ips);
+            const new_config_options = { S3_SERVER_IP_WHITELIST: ips};
+            const config_data = await config_fs.get_config_json();
+            console.log(config_data);
+            assert_whitelist(config_data, new_config_options);
+        });
+
     });
 
 });

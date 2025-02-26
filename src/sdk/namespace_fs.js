@@ -781,6 +781,11 @@ class NamespaceFS {
                     await insert_entry_to_results_arr(r);
                 };
 
+                // our current mechanism - list the files and skipping inaccessible directory (invisible in the list).
+                // We use this check_access in case the directory is not accessible inside a bucket.
+                // In a directory if we don’t have access to the directory, we want to skip the directory and its sub directories from the list.
+                // We did it outside to avoid undefined values in the cache.
+                // Note: It is not the same case as a file without permission.
                 if (!(await this.check_access(fs_context, dir_path))) return;
                 try {
                     if (list_versions) {

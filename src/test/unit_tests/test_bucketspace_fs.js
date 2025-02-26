@@ -1,5 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
-/*eslint max-lines-per-function: ["error", 800]*/
+/*eslint max-lines-per-function: ['error', 800]*/
 'use strict';
 
 const fs = require('fs');
@@ -90,7 +90,7 @@ const account_user2 = {
         secret_key: 's-abcdefghijklmn123457'
     }],
     nsfs_account_config: {
-        distinguished_name: "root",
+        distinguished_name: 'root',
         new_buckets_path: new_buckets_path_user2,
     },
     creation_date: '2023-10-30T04:46:33.815Z',
@@ -581,7 +581,7 @@ mocha.describe('bucketspace_fs', function() {
             await create_bucket(param.name);
             const bucket_file_path = path.join(new_buckets_path, param.name, 'dummy.txt');
             await nb_native().fs.writeFile(ACCOUNT_FS_CONFIG, bucket_file_path,
-                Buffer.from(JSON.stringify("data")), {
+                Buffer.from(JSON.stringify('data')), {
                     mode: config.BASE_MODE_FILE,
                 });
             try {
@@ -676,28 +676,33 @@ mocha.describe('bucketspace_fs', function() {
         });
 
         mocha.it('delete_bucket with delete marker', async function() {
-            const versioning_sdk = make_versioning_object_sdk();
-            const param = { name: test_bucket_delete_marker };
-            await create_bucket(param.name);
-
-            await bucketspace_fs.set_bucket_versioning({ name: param.name, versioning: 'ENABLED' }, versioning_sdk);
-            const version_dir = path.join(new_buckets_path, param.name, '.versions');
-            await nb_native().fs.mkdir(ACCOUNT_FS_CONFIG, version_dir);
-
-            const versioned_path = path.join(version_dir, 'dummy_mtime-crkfjum9883k-ino-guu7');
-            await create_versioned_object(versioned_path, Buffer.from(JSON.stringify("data")), 'mtime-crkfjum9883k-ino-guu7', false);
-
-            const delete_marker_path = path.join(version_dir, 'dummy_mtime-crkfjx1hui2o-ino-guu9');
-            const delete_marker_obj = await create_versioned_object(delete_marker_path, Buffer.from(JSON.stringify("data")), 'mtime-crkfjx1hui2o-ino-guu9', true);
-            const xattr_delete_marker = { [XATTR_DELETE_MARKER]: 'true' };
-            delete_marker_obj.replacexattr(DEFAULT_FS_CONFIG, xattr_delete_marker);
-
+            let delete_marker_fd;
             try {
-                await bucketspace_fs.delete_bucket(param, versioning_sdk);
-                assert.fail('should have failed with NOT EMPTY');
-            } catch (err) {
-                assert.strictEqual(err.rpc_code, 'NOT_EMPTY');
-                assert.equal(err.message, 'underlying directory has files in it');
+                const versioning_sdk = make_versioning_object_sdk();
+                const param = { name: test_bucket_delete_marker };
+                await create_bucket(param.name);
+
+                await bucketspace_fs.set_bucket_versioning({ name: param.name, versioning: 'ENABLED' }, versioning_sdk);
+                const version_dir = path.join(new_buckets_path, param.name, '.versions');
+                await nb_native().fs.mkdir(ACCOUNT_FS_CONFIG, version_dir);
+
+                const versioned_path = path.join(version_dir, 'dummy_mtime-crkfjum9883k-ino-guu7');
+                await create_versioned_object(versioned_path, Buffer.from(JSON.stringify('data')), 'mtime-crkfjum9883k-ino-guu7', false);
+
+                const delete_marker_path = path.join(version_dir, 'dummy_mtime-crkfjx1hui2o-ino-guu9');
+                delete_marker_fd = await create_versioned_object(delete_marker_path, Buffer.from(JSON.stringify('data')), 'mtime-crkfjx1hui2o-ino-guu9', true);
+                const xattr_delete_marker = { [XATTR_DELETE_MARKER]: 'true' };
+                delete_marker_fd.replacexattr(DEFAULT_FS_CONFIG, xattr_delete_marker);
+
+                try {
+                    await bucketspace_fs.delete_bucket(param, versioning_sdk);
+                    assert.fail('should have failed with NOT EMPTY');
+                } catch (err) {
+                    assert.strictEqual(err.rpc_code, 'NOT_EMPTY');
+                    assert.equal(err.message, 'underlying directory has files in it');
+                }
+            } finally {
+                if (delete_marker_fd) await delete_marker_fd.close(ACCOUNT_FS_CONFIG);
             }
         });
     });
@@ -964,6 +969,15 @@ async function create_bucket(bucket_name) {
     assert.equal(stat1.nlink, 1);
 }
 
+/**
+ * create_versioned_object creates a versioned object in the filesystem
+ * IMPORTANT - if return_fd is true, the file will not be closed and should be closed manually by the test
+ * @param {String} object_path 
+ * @param {Object} data 
+ * @param {String} version_id 
+ * @param {Boolean} return_fd 
+ * @returns {Promise<Void | nb.NativeFile>}
+ */
 async function create_versioned_object(object_path, data, version_id, return_fd) {
     console.log(object_path);
     const target_file = await nb_native().fs.open(ACCOUNT_FS_CONFIG, object_path, 'w+');

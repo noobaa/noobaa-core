@@ -90,6 +90,19 @@ describe('test nsfs concurrency', () => {
         iterations: 1
     });
 
+    it('list objects times', async () => {
+        // we use this test for basic time measurements
+        // If you run it on your machine we recommend to use UV_THREADPOOL_SIZE 16 and not the default
+        const bucket_name = 'bucket3';
+        const num_of_objects_to_upload = 1000;
+        await _upload_objects(bucket_name, num_of_objects_to_upload);
+        const start = performance.now();
+        const list_res = await nsfs.list_objects({ bucket: bucket_name }, DUMMY_OBJECT_SDK);
+        const end = performance.now();
+        console.log(`list ${list_res.objects.length} keys took ${end - start} ms`);
+        expect(list_res.objects).toHaveLength(num_of_objects_to_upload);
+    }, TEST_TIMEOUT);
+
 });
 
     /**

@@ -9,6 +9,7 @@ const sinon = require('sinon');
 const assert = require('assert');
 const config = require('../../../config');
 const pkg = require('../../../package.json');
+const fs = require('fs');
 const fs_utils = require('../../util/fs_utils');
 const nb_native = require('../../util/nb_native');
 const { ConfigFS } = require('../../sdk/config_fs');
@@ -43,6 +44,17 @@ const get_system_config_mock_default_response = [{
         package_version: pkg.version, upgrade_history: []
 } }];
 const default_mock_upgrade_status = { message: 'there is no in-progress upgrade' };
+
+const connection_from_file_path = path.join(tmp_fs_path, 'connection_from_file');
+const connection_from_file = {
+  agent_request_object: {
+    host: "localhost",
+    port: 9999,
+    timeout: 100
+  },
+  notification_protocol: "http",
+  name: "http_notif",
+};
 
 mocha.describe('nsfs nc health', function() {
 
@@ -208,6 +220,17 @@ mocha.describe('nsfs nc health', function() {
             assert.strictEqual(health_status.checks.buckets_status.valid_buckets.length, 1);
             assert.strictEqual(health_status.checks.buckets_status.valid_buckets[0].name, 'bucket1');
             assert_config_dir_status(health_status, valid_system_json.config_directory);
+        });
+
+        mocha.it('health should report on invalid connections', async function() {
+            fs.writeFileSync(connection_from_file_path, JSON.stringify(connection_from_file));
+            await exec_manage_cli(TYPES.CONNECTION, ACTIONS.ADD, { config_root, from_file: connection_from_file_path });
+
+            Health.all_connection_details = true;
+            const health_status = await Health.nc_nsfs_health();
+            Health.all_connection_details = false;
+
+            assert.strictEqual(health_status.checks.connections_status.invalid_storages[0].name, connection_from_file.name);
         });
 
         mocha.it('NooBaa service is inactive', async function() {

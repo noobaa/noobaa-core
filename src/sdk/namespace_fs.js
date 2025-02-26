@@ -722,7 +722,7 @@ class NamespaceFS {
                         if (pos < results.length) {
                             results.splice(pos, 0, r);
                         } else {
-                            const stat = await native_fs_utils.stat_ignore_eacces_enoent(this.bucket_path, r.key, fs_context);
+                            const stat = await native_fs_utils.stat_ignore_error_codes(this.bucket_path, r.key, fs_context);
                             if (stat) {
                                 results.push(r);
                                 r.previous_stat = stat; // as the future stat might fail, better return non-updated data than a failure

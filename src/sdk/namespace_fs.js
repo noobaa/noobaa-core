@@ -1427,10 +1427,10 @@ class NamespaceFS {
         // will retry renaming a file in case of parallel deleting of the destination path
         for (;;) {
             try {
-                await native_fs_utils._make_path_dirs(dest_path, fs_context);
                 if (this._is_versioning_disabled() ||
                     (this._is_versioning_enabled() && is_dir_content)) {
-                // dir_content is not supported in versioning, hence we will treat it like versioning disabled
+                    // dir_content is not supported in versioning, hence we will treat it like versioning disabled
+                    await native_fs_utils._make_path_dirs(dest_path, fs_context);
                     if (open_mode === 'wt') {
                         await target_file.linkfileat(fs_context, dest_path);
                     } else {
@@ -1478,6 +1478,8 @@ class NamespaceFS {
             try {
                 let new_ver_info;
                 let latest_ver_info;
+                // dir might be deleted by other thread. will recreacte if missing
+                await native_fs_utils._make_path_dirs(latest_ver_path, fs_context);
                 if (is_gpfs) {
                     const latest_ver_info_exist = await native_fs_utils.is_path_exists(fs_context, latest_ver_path);
                     gpfs_options = await this._open_files_gpfs(fs_context, new_ver_tmp_path, latest_ver_path, upload_file,

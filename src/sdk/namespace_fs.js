@@ -715,33 +715,34 @@ class NamespaceFS {
                         is_truncated = true;
                         return; // not added
                     }
+
                     if (!delimiter && r.common_prefix) {
                         await process_dir(r.key);
                     } else {
+                        const entry_path = path.join(this.bucket_path, r.key);
+                        // If entry is outside of bucket, returns stat of symbolic link
+                        const use_lstat = !(await this._is_path_in_bucket_boundaries(fs_context, entry_path));
+                        let stat;
+                        // we didn't move this code block to function on purpose
+                        try {
+                            stat = await nb_native().fs.stat(fs_context, entry_path, { use_lstat });
+                        } catch (err) {
+                            // we want to change our handling on EACCES in the future (not to skip it)
+                            if ((err.code === 'EACCES' && config.EACCES_IGNORE_ENTRY) ||
+                                 err.code === 'ENOENT' || err.code === 'ENOTDIR') {
+                                dbg.log0('_list_objects: stat during process dir: Could not access file entry_path',
+                                    entry_path, 'error code', err.code, ', skipping...');
+                            } else {
+                                throw err;
+                            }
+                        }
+                        if (stat) {
+                            r.stat = stat;
+                        }
                         if (pos < results.length) {
                             results.splice(pos, 0, r);
                         } else {
-                            const entry_path = path.join(this.bucket_path, r.key);
-                            // If entry is outside of bucket, returns stat of symbolic link
-                            const use_lstat = !(await this._is_path_in_bucket_boundaries(fs_context, entry_path));
-                            let stat;
-                            // we didn't move this code block to function on purpose
-                            try {
-                                stat = await nb_native().fs.stat(fs_context, entry_path, { use_lstat });
-                            } catch (err) {
-                                // we want to change our handling on EACCES in the future (not to skip it)
-                                if ((err.code === 'EACCES' && config.EACCES_IGNORE_ENTRY) ||
-                                     err.code === 'ENOENT' || err.code === 'ENOTDIR') {
-                                    dbg.log0('_list_objects: stat during process dir: Could not access file entry_path',
-                                        entry_path, 'error code', err.code, ', skipping...');
-                                } else {
-                                    throw err;
-                                }
-                            }
-                            if (stat) {
-                                results.push(r);
-                                r.stat = stat;
-                            }
+                            results.push(r);
                         }
                         if (results.length > limit) {
                             results.length = limit;

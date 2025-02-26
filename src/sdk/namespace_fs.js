@@ -738,11 +738,12 @@ class NamespaceFS {
                         }
                         if (stat) {
                             r.stat = stat;
-                        }
-                        if (pos < results.length) {
-                            results.splice(pos, 0, r);
-                        } else {
-                            results.push(r);
+                            // add the result only if we have the stat information
+                            if (pos < results.length) {
+                                results.splice(pos, 0, r);
+                            } else {
+                                results.push(r);
+                            }
                         }
                         if (results.length > limit) {
                             results.length = limit;

@@ -62,6 +62,14 @@ const tmp_fs_root = path.join(TMP_PATH, 'test_bucket_namespace_fs');
 // on Containerized - new_buckets_path is the directory
 const new_bucket_path_param = get_new_buckets_path_by_test_env(tmp_fs_root, '/');
 
+// response headers
+const response_content_disposition = 'attachment';
+const response_content_language = 'hebrew';
+const response_content_type = 'application/json';
+const response_cache_control = 'no-cache';
+const response_expires = new Date();
+response_expires.setMilliseconds(0);
+
 // currently will pass only when running locally
 mocha.describe('bucket operations - namespace_fs', function() {
     const nsr = 'nsr';
@@ -2233,6 +2241,115 @@ mocha.describe('Presigned URL tests', function() {
         const expected_err = new S3Error(S3Error.AuthorizationQueryParametersError);
         await assert_throws_async(fetchData(invalid_expiry_presigned_url), expected_err.message);
     });
+
+    it('get-object - fetch valid presigned URL - 604800 seconds - epoch expiry - should return object data + return response headers', async () => {
+        const response_queries = {
+            ResponseContentDisposition: response_content_disposition,
+            ResponseContentLanguage: response_content_language,
+            ResponseContentType: response_content_type,
+            ResponseCacheControl: response_cache_control,
+            ResponseExpires: response_expires
+        };
+        const presigned_url_params_with_response_headers = { ...presigned_url_params, response_queries };
+        const url_with_response_headers = cloud_utils.get_signed_url(presigned_url_params_with_response_headers, 604800);
+        const headers = await fetchHeaders(url_with_response_headers);
+        assert.equal(headers.get('content-disposition'), response_content_disposition);
+        assert.equal(headers.get('content-language'), response_content_language);
+        assert.equal(headers.get('content-type'), response_content_type);
+        assert.equal(headers.get('cache-control'), response_cache_control);
+        assert.deepStrictEqual(headers.get('expires'), response_expires.toUTCString());
+    });
+
+    it('head-object - fetch valid presigned URL - 604800 seconds - epoch expiry - should return object data + return response headers', async () => {
+        const response_queries = {
+            ResponseContentDisposition: response_content_disposition,
+            ResponseContentLanguage: response_content_language,
+            ResponseContentType: response_content_type,
+            ResponseCacheControl: response_cache_control,
+            ResponseExpires: response_expires
+        };
+        const presigned_url_params_with_response_headers = { ...presigned_url_params, response_queries };
+        const url_with_response_headers = cloud_utils.get_signed_url(presigned_url_params_with_response_headers, 604800, 'headObject');
+        const headers = await fetchHeaders(url_with_response_headers, { method: 'HEAD' });
+        assert.equal(headers.get('content-disposition'), response_content_disposition);
+        assert.equal(headers.get('content-language'), response_content_language);
+        assert.equal(headers.get('content-type'), response_content_type);
+        assert.equal(headers.get('cache-control'), response_cache_control);
+        assert.deepStrictEqual(headers.get('expires'), response_expires.toUTCString());
+    });
+});
+
+mocha.describe('response headers test - regular request', function() {
+    this.timeout(50000); // eslint-disable-line no-invalid-this
+    const nsr = 'response_headers_nsr';
+    const account_name = 'response_header_account';
+    const fs_path = path.join(TMP_PATH, 'response_header_tests/');
+    const response_header_bucket = 'response-headerbucket';
+    const response_header_object = 'response-header-object.txt';
+    const response_header_body = 'response_header_body';
+    let s3_client;
+    let access_key;
+    let secret_key;
+    CORETEST_ENDPOINT = coretest.get_http_address();
+
+    mocha.before(async function() {
+        await fs_utils.create_fresh_path(fs_path);
+        await rpc_client.pool.create_namespace_resource({ name: nsr, nsfs_config: { fs_root_path: fs_path } });
+        const new_buckets_path = is_nc_coretest ? fs_path : '/';
+        const nsfs_account_config = {
+            uid: process.getuid(), gid: process.getgid(), new_buckets_path, nsfs_only: true
+        };
+        const account_params = { ...new_account_params, email: `${account_name}@noobaa.io`, name: account_name, default_resource: nsr, nsfs_account_config };
+        const res = await rpc_client.account.create_account(account_params);
+        access_key = res.access_keys[0].access_key;
+        secret_key = res.access_keys[0].secret_key;
+        s3_client = generate_s3_client(access_key.unwrap(), secret_key.unwrap(), CORETEST_ENDPOINT);
+        await s3_client.createBucket({ Bucket: response_header_bucket });
+        await s3_client.putObject({ Bucket: response_header_bucket, Key: response_header_object, Body: response_header_body });
+    });
+
+    mocha.after(async function() {
+        if (!is_nc_coretest) return;
+        await s3_client.deleteObject({ Bucket: response_header_bucket, Key: response_header_object });
+        await s3_client.deleteBucket({ Bucket: response_header_bucket });
+        await rpc_client.account.delete_account({ email: `${account_name}@noobaa.io` });
+        await fs_utils.folder_delete(fs_path);
+    });
+
+    it('get-object - response headers', async () => {
+        const res = await s3_client.getObject({
+            Bucket: response_header_bucket,
+            Key: response_header_object,
+            ResponseContentDisposition: response_content_disposition,
+            ResponseContentLanguage: response_content_language,
+            ResponseContentType: response_content_type,
+            ResponseCacheControl: response_cache_control,
+            ResponseExpires: response_expires,
+        });
+        assert.equal(res.ContentDisposition, response_content_disposition);
+        assert.equal(res.ContentLanguage, response_content_language);
+        assert.equal(res.ContentType, response_content_type);
+        assert.equal(res.CacheControl, response_cache_control);
+        assert.deepStrictEqual(res.Expires, response_expires);
+    });
+
+    it('head-object - response headers', async () => {
+        const res = await s3_client.headObject({
+            Bucket: response_header_bucket,
+            Key: response_header_object,
+            ResponseContentDisposition: response_content_disposition,
+            ResponseContentLanguage: response_content_language,
+            ResponseContentType: response_content_type,
+            ResponseCacheControl: response_cache_control,
+            ResponseExpires: response_expires,
+        });
+        assert.equal(res.ContentDisposition, response_content_disposition);
+        assert.equal(res.ContentLanguage, response_content_language);
+        assert.equal(res.ContentType, response_content_type);
+        assert.equal(res.CacheControl, response_cache_control);
+        assert.deepStrictEqual(res.Expires, response_expires);
+    });
+
 });
 
 async function fetchData(presigned_url) {
@@ -2248,3 +2365,17 @@ async function fetchData(presigned_url) {
     data = await response.text();
     return data.trim();
 }
+
+async function fetchHeaders(presigned_url, options) {
+    const response = await fetch(presigned_url, { ...options, agent: new http.Agent({ keepAlive: false }) });
+    let data;
+    if (!response.ok) {
+        data = (await response.text()).trim();
+        const err_json = (await http_utils.parse_xml_to_js(data)).Error;
+        const err = new Error(err_json.Message);
+        err.code = err_json.Code;
+        throw err;
+    }
+    return response.headers;
+}
+

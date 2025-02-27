@@ -209,11 +209,21 @@ class NamespaceS3 {
         } catch (err) {
             this._translate_error_code(params, err);
             dbg.warn('NamespaceS3.read_object_md:', inspect(err));
-            object_sdk.rpc_client.pool.update_issues_report({
-                namespace_resource_id: this.namespace_resource_id,
-                error_code: String(err.code),
-                time: Date.now(),
-            });
+
+            // It's totally expected to issue `HeadObject` against an object that doesn't exist
+            // this shouldn't be counted as an issue for the namespace store
+            //
+            // @TODO: Another error to tolerate is 'InvalidObjectState'. This shouldn't also
+            // result in IO_ERROR for the namespace however that means we can not do `getObject`
+            // even when `can_use_get_inline` is true.
+            if (err.rpc_code !== 'NO_SUCH_OBJECT') {
+                object_sdk.rpc_client.pool.update_issues_report({
+                    namespace_resource_id: this.namespace_resource_id,
+                    error_code: String(err.code),
+                    time: Date.now(),
+                });
+            }
+
             throw err;
         }
     }

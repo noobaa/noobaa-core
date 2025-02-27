@@ -2,6 +2,7 @@
 'use strict';
 
 const dbg = require('../util/debug_module')(__filename);
+const os_util = require('../util/os_utils');
 const nb_native = require('../util/nb_native');
 const native_fs_utils = require('../util/native_fs_utils');
 const ManageCLIError = require('../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
@@ -12,6 +13,7 @@ const { BOOLEAN_STRING_VALUES } = require('../manage_nsfs/manage_nsfs_constants'
 const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
 const { account_id_cache } = require('../sdk/accountspace_fs');
 
+const NOOBAA_SERVICE_NAME = 'noobaa';
 
 function throw_cli_error(error, detail, event_arg) {
     const error_event = NSFS_CLI_ERROR_EVENT_MAP[error.code];
@@ -175,6 +177,27 @@ function is_access_key_update(data) {
     return new_access_key && cur_access_key && new_access_key !== cur_access_key;
 }
 
+/**
+ * get_service_status returns the active state of a service
+ * TODO: probablt better to return boolean but requires refactoring in Health script
+ * @param {String} service_name 
+ * @returns {Promise<String>}
+ */
+async function get_service_status(service_name) {
+    let service_status;
+    try {
+        service_status = await os_util.exec('systemctl show -p ActiveState --value ' + service_name, {
+            ignore_rc: false,
+            return_stdout: true,
+            trim_stdout: true,
+        });
+    } catch (err) {
+        dbg.warn('could not receive service active state', service_name, err);
+        service_status = 'missing service status info';
+    }
+    return service_status;
+}
+
 // EXPORTS
 exports.throw_cli_error = throw_cli_error;
 exports.write_stdout_response = write_stdout_response;
@@ -187,3 +210,5 @@ exports.has_access_keys = has_access_keys;
 exports.set_debug_level = set_debug_level;
 exports.is_name_update = is_name_update;
 exports.is_access_key_update = is_access_key_update;
+exports.get_service_status = get_service_status;
+exports.NOOBAA_SERVICE_NAME = NOOBAA_SERVICE_NAME;

@@ -106,4 +106,53 @@ describe('IP Utils', () => {
         expect(() => net_utils.ip_toBuffer('invalid_ip', Buffer.alloc(16), 0)).toThrow('Invalid IP address: invalid_ip');
         expect(() => net_utils.ip_toBuffer('10.0.0.1')).toThrow('Offset is required');
     });
+
+    it('normalize_family should return the proper family', () => {
+        expect(net_utils.normalize_family(4)).toBe('ipv4');
+        expect(net_utils.normalize_family(6)).toBe('ipv6');
+        expect(net_utils.normalize_family('IPv4')).toBe('ipv4');
+        expect(net_utils.normalize_family('IPv6')).toBe('ipv6');
+        expect(net_utils.normalize_family('customFamily')).toBe('customfamily');
+        expect(net_utils.normalize_family(undefined)).toBe('ipv4');
+        expect(net_utils.normalize_family(null)).toBe('ipv4');
+    });
+
+    it('should return true for loopback addresses and false if not', () => {
+        expect(net_utils.is_loopback('127.0.0.1')).toBe(true);
+        expect(net_utils.is_loopback('127.255.255.255')).toBe(true);
+        expect(net_utils.is_loopback('::1')).toBe(true);
+        expect(net_utils.is_loopback('192.168.1.1')).toBe(false);
+        expect(net_utils.is_loopback('10.0.0.1')).toBe(false);
+        expect(net_utils.is_loopback('8.8.8.8')).toBe(false);
+        expect(net_utils.is_loopback('2001:db8::1')).toBe(false);
+    });
+
+    it('should return true for localhost and loopback addresses and false if not', () => {
+        expect(net_utils.is_localhost('127.0.0.1')).toBe(true);
+        expect(net_utils.is_localhost('::1')).toBe(true);
+        expect(net_utils.is_localhost('localhost')).toBe(true);
+        expect(net_utils.is_localhost('192.168.1.1')).toBe(false);
+        expect(net_utils.is_localhost('10.0.0.1')).toBe(false);
+        expect(net_utils.is_localhost('google.com')).toBe(false);
+    });
+
+    it('should return true for private IPv4 addresses or false to any other address', () => {
+        expect(net_utils.is_private('10.0.0.1')).toBe(true);
+        expect(net_utils.is_private('172.16.0.1')).toBe(true);
+        expect(net_utils.is_private('192.168.1.1')).toBe(true);
+        expect(net_utils.is_private('8.8.8.8')).toBe(false);
+        expect(net_utils.is_private('1.1.1.1')).toBe(false);
+        expect(net_utils.is_private('2001:db8::1')).toBe(false);
+    });
+
+
+    it('should return true for public addresses or false for private addresses', () => {
+        expect(net_utils.is_public('10.0.0.1')).toBe(false);
+        expect(net_utils.is_public('172.16.0.1')).toBe(false);
+        expect(net_utils.is_public('192.168.1.1')).toBe(false);
+        expect(net_utils.is_public('8.8.8.8')).toBe(true);
+        expect(net_utils.is_public('1.1.1.1')).toBe(true);
+        expect(net_utils.is_public('2001:db8::1')).toBe(true);
+    });
+
 });

@@ -10,7 +10,8 @@ const TYPES = Object.freeze({
     DIAGNOSE: 'diagnose',
     UPGRADE: 'upgrade',
     NOTIFICATION: 'notification',
-    CONNECTION: 'connection'
+    CONNECTION: 'connection',
+    LIFECYCLE: 'lifecycle'
 });
 
 const ACTIONS = Object.freeze({
@@ -95,6 +96,7 @@ const VALID_OPTIONS_CONNECTION = {
     'status': new Set(['name', 'decrypt', ...CLI_MUTUAL_OPTIONS]),
 };
 
+const VALID_OPTIONS_LIFECYCLE = new Set([...CLI_MUTUAL_OPTIONS]);
 
 const VALID_OPTIONS_WHITELIST = new Set(['ips', ...CLI_MUTUAL_OPTIONS]);
 
@@ -111,6 +113,7 @@ const VALID_OPTIONS = {
     upgrade_options: VALID_OPTIONS_UPGRADE,
     notification_options: VALID_OPTIONS_NOTIFICATION,
     connection_options: VALID_OPTIONS_CONNECTION,
+    lifecycle_options: VALID_OPTIONS_LIFECYCLE
 };
 
 const OPTION_TYPE = {

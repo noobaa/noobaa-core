@@ -730,6 +730,8 @@ class NamespaceFS {
                             // we want to change our handling on EACCES in the future (not to skip it)
                             if ((err.code === 'EACCES' && config.EACCES_IGNORE_ENTRY) ||
                                  err.code === 'ENOENT' || err.code === 'ENOTDIR') {
+                            // we might want to expand the error list due to permission/structure
+                            // change (for example: ELOOP, ENAMETOOLONG) or other reason (EPERM) - need to be decided
                                 dbg.log0('_list_objects: stat during process dir: Could not access file entry_path',
                                     entry_path, 'error code', err.code, ', skipping...');
                             } else {
@@ -945,8 +947,11 @@ class NamespaceFS {
             }
             return res;
         } catch (err) {
+            dbg.error('_list_objects with params,', params, 'got an error', err);
             // we don't use here translate_error_codes
             // because we only want an S3 error of NoSuchBucket (or Internal error for all the rest)
+            // the error message and the final error might be inaccurate - 
+            // as the error code can be on a a key path, while the error indicates a bucket 
             if (err.code === 'ENOENT' || err.code === 'ENOTDIR') {
                 err.rpc_code = `NO_SUCH_BUCKET`;
             }

@@ -95,7 +95,6 @@ For example:
 - root account creates 2 users (both are owned by it): user1, user2 and a bucket (bucket owner: <root-account-id>, bucket creator: <account-id-user1>).
 - user1 upload a file to the bucket 
 - user2 can delete this bucket (after it is empty): although user2 is not the creator, without a bucket policy his root account is the owner so it can delete the bucket.
-Note: Currently, we do not allow users to create a bucket.
 
 ### Root Accounts Manager
 The root accounts managers are a solution for creating root accounts using the IAM API.

@@ -48,6 +48,7 @@ async function handle_bucket_rule(system, rule, j, bucket) {
     //3.1. notification is without event filtering OR
     //3.2. notification is for LifecycleExpiration event
     //if so, we need the metadata of the deleted objects from the object server
+    // TODO - should move to the upper for, looks like it's per bucket and not per rule
     const reply_objects = config.NOTIFICATION_LOG_DIR && bucket.notifications &&
          _.some(bucket.notifications, notif =>
             (!notif.Events || _.some(notif.Events, event => event.includes(OP_TO_EVENT.lifecycle_delete.name))));

@@ -518,6 +518,22 @@ ManageCLIError.NoSuchConnection = Object.freeze({
     http_code: 404,
 });
 
+//////////////////////////////
+//     LIFECYCLE ERRORS     //
+//////////////////////////////
+
+ManageCLIError.SystemJsonIsMissing = Object.freeze({
+    code: 'SystemJsonIsMissing',
+    message: 'Lifecycle worker can not run when system.json is missing.',
+    http_code: 400,
+});
+
+ManageCLIError.NooBaaServiceIsNotActive = Object.freeze({
+    code: 'NooBaaServiceIsNotActive',
+    message: 'Lifecycle worker can not run when NooBaa service is not active.',
+    http_code: 400,
+});
+
 ///////////////////////////////
 //       ERRORS MAPPING      //
 ///////////////////////////////

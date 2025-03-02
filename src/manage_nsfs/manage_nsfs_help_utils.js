@@ -476,6 +476,19 @@ Usage:
 
 `;
 
+const NOTIFICATION_OPTIONS = `
+Help:
+
+    'notification' is a noobaa-cli command that will process pending event notifications in the NOTIFICATION_LOG_DIR directory.
+    It will attempt to send each notification to its respective external server.
+    Note notifications that fail to be sent will be re-written in NOTIFICATION_LOG_DIR.
+
+Usage:
+
+    noobaa-cli notification
+
+`;
+
 
 const CONNECTION_FLAGS_ADD = `
 Help:
@@ -587,6 +600,9 @@ function print_usage(type, action) {
             break;
         case TYPES.CONNECTION:
             print_help_connection(action);
+            break;
+        case TYPES.NOTIFICATION:
+            print_help_notification();
             break;
         default:
             process.stdout.write(HELP + '\n');
@@ -732,6 +748,10 @@ function print_help_connection(action) {
             process.stdout.write(CONNECTION_ACTIONS.trimStart());
     }
     process.exit(0);
+}
+
+function print_help_notification(action) {
+    process.stdout.write(NOTIFICATION_OPTIONS);
 }
 
 

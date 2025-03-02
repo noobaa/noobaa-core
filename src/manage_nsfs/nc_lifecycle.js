@@ -18,7 +18,7 @@ const _ = require('lodash');
 const util = require('util');
 const P = require('../util/promise');
 const config = require('../../config');
-const nb_native = require('../util/nb_native');
+//const nb_native = require('../util/nb_native');
 const NsfsObjectSDK = require('../sdk/nsfs_object_sdk');
 const ManageCLIError = require('./manage_nsfs_cli_errors').ManageCLIError;
 const { throw_cli_error, get_service_status, NOOBAA_SERVICE_NAME } = require('./manage_nsfs_cli_utils');
@@ -142,7 +142,7 @@ function validate_rule_enabled(rule, bucket, now) {
  * @param {Object} bucket_json 
  */
 async function get_candidates_by_expiration_rule(lifecycle_rule, bucket_json) {
-    const is_gpfs = nb_native().fs.gpfs;
+    const is_gpfs = false; //nb_native().fs.gpfs;
     if (is_gpfs) {
         await get_candidates_by_expiration_rule_gpfs(lifecycle_rule, bucket_json);
     } else {

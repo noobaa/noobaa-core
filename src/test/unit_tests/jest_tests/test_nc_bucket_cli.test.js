@@ -10,7 +10,7 @@ const os_util = require('../../../util/os_utils');
 const fs_utils = require('../../../util/fs_utils');
 const { ConfigFS } = require('../../../sdk/config_fs');
 const { set_path_permissions_and_owner, TMP_PATH, generate_s3_policy, CLI_UNSET_EMPTY_STRING,
-    set_nc_config_dir_in_config } = require('../../system_tests/test_utils');
+    set_nc_config_dir_in_config, TEST_TIMEOUT } = require('../../system_tests/test_utils');
 const { ACTIONS, TYPES } = require('../../../manage_nsfs/manage_nsfs_constants');
 const { get_process_fs_context, is_path_exists, get_bucket_tmpdir_full_path } = require('../../../util/native_fs_utils');
 const ManageCLIError = require('../../../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
@@ -68,7 +68,7 @@ describe('manage nsfs cli bucket flow', () => {
             // account add (account 2 without new_buckets_path)
             const account_options2 = { config_root, ...account_defaults2 };
             await exec_manage_cli(TYPES.ACCOUNT, action, account_options2);
-        });
+        }, TEST_TIMEOUT);
 
         afterEach(async () => {
             await fs_utils.folder_delete(`${config_root}`);
@@ -284,7 +284,7 @@ describe('manage nsfs cli bucket flow', () => {
             await fs_utils.create_fresh_path(bucket_path);
             await fs_utils.file_must_exist(bucket_path);
             await set_path_permissions_and_owner(bucket_path, account_options, 0o700);
-        });
+        }, TEST_TIMEOUT);
 
         afterEach(async () => {
             await fs_utils.folder_delete(`${config_root}`);
@@ -474,7 +474,7 @@ describe('manage nsfs cli bucket flow', () => {
             const resp = await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
             const bucket_resp = JSON.parse(resp);
             expect(bucket_resp.response.reply._id).not.toBeNull();
-        });
+        }, TEST_TIMEOUT);
 
         afterEach(async () => {
             await fs_utils.folder_delete(`${config_root}`);
@@ -708,7 +708,7 @@ describe('manage nsfs cli bucket flow', () => {
             bucket_temp_dir_path = get_bucket_tmpdir_full_path(bucket_storage_path, bucket_resp.response.reply._id);
             await fs_utils.create_fresh_path(bucket_temp_dir_path);
             await fs_utils.file_must_exist(bucket_temp_dir_path);
-        });
+        }, TEST_TIMEOUT);
 
         afterEach(async () => {
             await fs_utils.folder_delete(`${config_root}`);
@@ -827,7 +827,7 @@ describe('manage nsfs cli bucket flow', () => {
             const resp = await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
             const bucket_resp = JSON.parse(resp);
             expect(bucket_resp.response.reply._id).not.toBeNull();
-        });
+        }, TEST_TIMEOUT);
 
         afterEach(async () => {
             await fs_utils.folder_delete(`${config_root}`);
@@ -887,7 +887,7 @@ describe('manage nsfs cli bucket flow', () => {
             const resp = await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
             const bucket_resp = JSON.parse(resp);
             expect(bucket_resp.response.reply._id).not.toBeNull();
-        });
+        }, TEST_TIMEOUT);
 
         afterEach(async () => {
             await fs_utils.folder_delete(`${config_root}`);

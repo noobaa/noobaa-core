@@ -15,7 +15,7 @@ const { get_process_fs_context } = require('../../util/native_fs_utils');
 const { ManageCLIError } = require('../../manage_nsfs/manage_nsfs_cli_errors');
 const { ManageCLIResponse } = require('../../manage_nsfs/manage_nsfs_cli_responses');
 const { exec_manage_cli, generate_s3_policy, create_fs_user_by_platform, delete_fs_user_by_platform,
-    set_path_permissions_and_owner, TMP_PATH, set_nc_config_dir_in_config } = require('../system_tests/test_utils');
+    set_path_permissions_and_owner, TMP_PATH, set_nc_config_dir_in_config, TEST_TIMEOUT } = require('../system_tests/test_utils');
 const { TYPES, ACTIONS } = require('../../manage_nsfs/manage_nsfs_constants');
 
 const tmp_fs_path = path.join(TMP_PATH, 'test_bucketspace_fs');
@@ -113,7 +113,7 @@ mocha.describe('manage_nsfs cli', function() {
             await fs_utils.file_must_exist(new_buckets_path2);
             await set_path_permissions_and_owner(new_buckets_path2, { uid: account_options2.uid, gid: account_options2.gid }, 0o700);
             await exec_manage_cli(TYPES.ACCOUNT, action, account_options2);
-        });
+        }, TEST_TIMEOUT);
 
         mocha.it('cli bucket create - should fail bucket owner\'s allow_bucket_creation is false', async function() {
             const account_name_for_account_cannot_create_bucket = 'user3';

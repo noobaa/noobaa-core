@@ -2618,12 +2618,24 @@ class NamespaceFS {
         }
     }
 
+    /**
+     * _delete_path_dirs deletes all the paths in the hierarchy that are empty after a successful delete
+     * if the original file_path to be deleted is a directory object we want it to delete the directory
+     * if dir is not empty it will stop at the first non empty dir
+     * if dir is also a directory object (disabled mode optimization - CONTENT_DIR xattr is on the directory) we stop the loop
+     * @param {String} file_path 
+     * @param {nb.NativeFSContext} fs_context 
+     */
     async _delete_path_dirs(file_path, fs_context) {
         try {
-            let dir = path.dirname(file_path);
-            while (dir !== this.bucket_path) {
-                await nb_native().fs.rmdir(fs_context, dir);
-                dir = path.dirname(dir);
+            let dir_path = path.dirname(file_path);
+            while (dir_path !== this.bucket_path) {
+                if (file_path !== path.join(dir_path, '/') && file_path !== path.join(dir_path, config.NSFS_FOLDER_OBJECT_NAME)) {
+                    const dir_stat = await nb_native().fs.stat(fs_context, dir_path);
+                    if (dir_stat.xattr && dir_stat.xattr[XATTR_DIR_CONTENT]) break;
+                }
+                await nb_native().fs.rmdir(fs_context, dir_path);
+                dir_path = path.dirname(dir_path);
             }
         } catch (err) {
             if (err.code !== 'ENOTEMPTY' &&
@@ -3068,10 +3080,18 @@ class NamespaceFS {
         return res;
     }
 
-    // delete version_id -
-    // 1. get version info, if it's empty - return
-    // 2. unlink key
-    // 3. if version is latest version - promote second latest -> latest
+    /**
+     * delete version_id does the following - 
+     * 1. get version info, if it's empty - return
+     * 2. unlink key
+     * 3. if version is latest version - promote second latest -> latest
+     * 4. if it's the latest version - delete the directory hirerachy of the key if it's empty
+     *    if it's a past version - delete .versions/ and the directory hirerachy if it's empty
+     * @param {nb.NativeFSContext} fs_context 
+     * @param {String} file_path 
+     * @param {Object} params 
+     * @returns {Promise<{deleted_delete_marker?: string, version_id?: string}>}
+     */
     async _delete_version_id(fs_context, file_path, params) {
         // TODO optimization - GPFS link overrides, no need to unlink before promoting, but if there is nothing to promote we should unlink
         const del_obj_version_info = await this._delete_single_object_versioned(fs_context, params.key, params.version_id);

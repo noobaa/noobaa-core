@@ -1,6 +1,5 @@
 /* Copyright (C) 2020 NooBaa */
 'use strict';
-/* eslint-disable complexity */
 
 const RpcError = require('../rpc/rpc_error');
 const ObjectSDK = require('../sdk/object_sdk');
@@ -8,13 +7,16 @@ const NamespaceFS = require('../sdk/namespace_fs');
 const BucketSpaceSimpleFS = require('../sdk/bucketspace_simple_fs');
 const BucketSpaceFS = require('../sdk/bucketspace_fs');
 const SensitiveString = require('../util/sensitive_string');
-const endpoint_stats_collector = require('../sdk/endpoint_stats_collector');
-
+const dbg = require('../util/debug_module')(__filename);
+let endpoint_stats_collector;
+if (dbg.get_process_name() === 'nsfs') {
+    endpoint_stats_collector = require('../sdk/endpoint_stats_collector');
+}
 class NsfsObjectSDK extends ObjectSDK {
     constructor(fs_root, fs_config, account, versioning, config_root, nsfs_system) {
         let bucketspace;
         if (config_root) {
-            bucketspace = new BucketSpaceFS({ config_root }, endpoint_stats_collector.instance());
+            bucketspace = new BucketSpaceFS({ config_root }, endpoint_stats_collector && endpoint_stats_collector.instance());
         } else {
             bucketspace = new BucketSpaceSimpleFS({ fs_root });
         }
@@ -23,7 +25,7 @@ class NsfsObjectSDK extends ObjectSDK {
             internal_rpc_client: null,
             object_io: null,
             bucketspace,
-            stats: endpoint_stats_collector.instance(),
+            stats: endpoint_stats_collector && endpoint_stats_collector.instance(),
         });
         this.nsfs_config_root = config_root;
         this.nsfs_fs_root = fs_root;
@@ -54,7 +56,7 @@ class NsfsObjectSDK extends ObjectSDK {
             namespace_resource_id: undefined,
             access_mode: undefined,
             versioning: this.nsfs_versioning,
-            stats: endpoint_stats_collector.instance(),
+            stats: endpoint_stats_collector && endpoint_stats_collector.instance(),
             force_md5_etag: false,
         });
         this.nsfs_namespaces[bucket_name] = ns_fs;

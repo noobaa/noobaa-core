@@ -1,6 +1,15 @@
 /* Copyright (C) 2024 NooBaa */
 'use strict';
 
+// DO NOT PUT NEW REQUIREMENTS BEFORE SETTING process.env.NC_NSFS_NO_DB_ENV = 'true' 
+// NC nsfs deployments specifying process.env.LOCAL_MD_SERVER=true deployed together with a db
+// when a system_store object is initialized VaccumAnalyzer is being called once a day.
+// when NC nsfs deployed without db we would like to avoid running VaccumAnalyzer in any flow there is
+// because running it will cause a panic.
+if (process.env.LOCAL_MD_SERVER !== 'true') {
+    process.env.NC_NSFS_NO_DB_ENV = 'true';
+}
+
 const dbg = require('../util/debug_module')(__filename);
 const _ = require('lodash');
 const util = require('util');

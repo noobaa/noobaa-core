@@ -829,6 +829,7 @@ config.NSFS_CONTENT_DIRECTORY_VERSIONING_ENABLED = false;
 config.NSFS_EXIT_EVENTS_TIME_FRAME_MIN = 24 * 60; // per day
 config.NSFS_MAX_EXIT_EVENTS_PER_TIME_FRAME = 10; // allow max 10 failed forks per day
 
+config.GPFS_DL_PATH = '/usr/lpp/mmfs/lib/libgpfs.so';
 config.NSFS_ENABLE_DYNAMIC_SUPPLEMENTAL_GROUPS = 'true';
 
 config.NSFS_GLACIER_LOGS_DIR = '/var/run/noobaa-nsfs/wal';
@@ -1119,11 +1120,12 @@ function _get_config_root() {
 */
 function _set_nc_config_to_env() {
     const config_to_env = ['NOOBAA_LOG_LEVEL', 'UV_THREADPOOL_SIZE', 'GPFS_DL_PATH', 'NSFS_ENABLE_DYNAMIC_SUPPLEMENTAL_GROUPS'];
-    Object.values(config_to_env).forEach(function(key) {
-        if (config[key] !== undefined) {
-            process.env[key] = config[key];
+    for (const configuration_key of config_to_env) {
+        if (config && Object.keys(config).includes(configuration_key) && config[configuration_key] !== undefined) {
+            console.warn('setting configuration_key as env var', configuration_key, config[configuration_key]);
+            process.env[configuration_key] = config[configuration_key];
         }
-    });
+    }
 }
 
 /**
@@ -1181,7 +1183,7 @@ function load_nsfs_nc_config() {
         console.warn(`nsfs: config.json= ${util.inspect(config_data)}`);
         console.warn(`nsfs: merged config.json= ${util.inspect(merged_config)}`);
         validate_nc_master_keys_config(config);
-        config.event_emitter.emit("config_updated");
+        config.event_emitter.emit('config_updated');
     } catch (err) {
         if (err.code !== 'MODULE_NOT_FOUND' && err.code !== 'ENOENT') throw err;
         console.warn('config.load_nsfs_nc_config could not find config.json... skipping');

@@ -1,6 +1,9 @@
 /* Copyright (C) 2024 NooBaa */
 'use strict';
 
+// disabling init_rand_seed as it takes longer than the actual test execution
+process.env.DISABLE_INIT_RANDOM_SEED = "true";
+
 // DO NOT PUT NEW REQUIREMENTS BEFORE SETTING process.env.NC_NSFS_NO_DB_ENV = 'true' 
 // NC nsfs deployments specifying process.env.LOCAL_MD_SERVER=true deployed together with a db
 // when a system_store object is initialized VaccumAnalyzer is being called once a day.

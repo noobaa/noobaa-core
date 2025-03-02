@@ -12,13 +12,13 @@ const native_fs_utils = require('../util/native_fs_utils');
 const { read_stream_join } = require('../util/buffer_utils');
 const { make_https_request } = require('../util/http_utils');
 const { TYPES } = require('./manage_nsfs_constants');
-const { get_boolean_or_string_value, throw_cli_error, write_stdout_response, get_bucket_owner_account_by_id } = require('./manage_nsfs_cli_utils');
+const { get_boolean_or_string_value, throw_cli_error, write_stdout_response,
+    get_bucket_owner_account_by_id, get_service_status, NOOBAA_SERVICE_NAME } = require('./manage_nsfs_cli_utils');
 const { ManageCLIResponse } = require('./manage_nsfs_cli_responses');
 const ManageCLIError = require('./manage_nsfs_cli_errors').ManageCLIError;
 
 
 const HOSTNAME = 'localhost';
-const NOOBAA_SERVICE = 'noobaa';
 
 const health_errors = {
     NOOBAA_SERVICE_FAILED: {
@@ -116,7 +116,7 @@ class NSFSHealth {
     async nc_nsfs_health() {
         let endpoint_state;
         let memory;
-        const noobaa_service_state = await this.get_service_state(NOOBAA_SERVICE);
+        const noobaa_service_state = await this.get_service_state(NOOBAA_SERVICE_NAME);
         const { service_status, pid } = noobaa_service_state;
         if (pid !== '0') {
             endpoint_state = await this.get_endpoint_response();
@@ -135,7 +135,7 @@ class NSFSHealth {
         if (this.all_bucket_details) bucket_details = await this.get_bucket_status();
         if (this.all_account_details) account_details = await this.get_account_status();
         const health = {
-            service_name: NOOBAA_SERVICE,
+            service_name: NOOBAA_SERVICE_NAME,
             status: service_health,
             memory: memory,
             error: error_code,
@@ -204,18 +204,8 @@ class NSFSHealth {
     }
 
     async get_service_state(service_name) {
-        let service_status;
         let pid;
-        try {
-            service_status = await os_util.exec('systemctl show -p ActiveState --value ' + service_name, {
-                ignore_rc: false,
-                return_stdout: true,
-                trim_stdout: true,
-            });
-        } catch (err) {
-            dbg.warn('could not receive service active state', service_name, err);
-            service_status = 'missing service status info';
-        }
+        const service_status = await get_service_status(service_name);
         try {
             pid = await os_util.exec('systemctl show --property MainPID --value ' + service_name, {
                 ignore_rc: false,
@@ -302,13 +292,13 @@ class NSFSHealth {
     async get_service_memory_usage() {
         let memory_status;
         try {
-            memory_status = await os_util.exec('systemctl status ' + NOOBAA_SERVICE + ' | grep Memory ', {
+            memory_status = await os_util.exec('systemctl status ' + NOOBAA_SERVICE_NAME + ' | grep Memory ', {
                 ignore_rc: false,
                 return_stdout: true,
                 trim_stdout: true,
             });
         } catch (err) {
-            dbg.warn('could not receive service active state', NOOBAA_SERVICE, err);
+            dbg.warn('could not receive service active state', NOOBAA_SERVICE_NAME, err);
             memory_status = 'Memory: missing memory info';
         }
         if (memory_status) {

@@ -10,7 +10,8 @@ const TYPES = Object.freeze({
     DIAGNOSE: 'diagnose',
     UPGRADE: 'upgrade',
     NOTIFICATION: 'notification',
-    CONNECTION: 'connection'
+    CONNECTION: 'connection',
+    VERSIONS: 'versions'
 });
 
 const ACTIONS = Object.freeze({

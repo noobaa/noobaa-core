@@ -715,14 +715,35 @@ class NamespaceFS {
                         is_truncated = true;
                         return; // not added
                     }
+
                     if (!delimiter && r.common_prefix) {
                         await process_dir(r.key);
                     } else {
-                        if (pos < results.length) {
-                            results.splice(pos, 0, r);
-                        } else {
-                            const stat = await native_fs_utils.stat_ignore_eacces(this.bucket_path, r, fs_context);
-                            if (stat) {
+                        const entry_path = path.join(this.bucket_path, r.key);
+                        // If entry is outside of bucket, returns stat of symbolic link
+                        const use_lstat = !(await this._is_path_in_bucket_boundaries(fs_context, entry_path));
+                        let stat;
+                        // we didn't move this code block to function on purpose
+                        try {
+                            stat = await nb_native().fs.stat(fs_context, entry_path, { use_lstat });
+                        } catch (err) {
+                            // we want to change our handling on EACCES in the future (not to skip it)
+                            if ((err.code === 'EACCES' && config.EACCES_IGNORE_ENTRY) ||
+                                 err.code === 'ENOENT' || err.code === 'ENOTDIR') {
+                            // we might want to expand the error list due to permission/structure
+                            // change (for example: ELOOP, ENAMETOOLONG) or other reason (EPERM) - need to be decided
+                                dbg.log0('_list_objects: stat during process dir: Could not access file entry_path',
+                                    entry_path, 'error code', err.code, ', skipping...');
+                            } else {
+                                throw err;
+                            }
+                        }
+                        if (stat) {
+                            r.stat = stat;
+                            // add the result only if we have the stat information
+                            if (pos < results.length) {
+                                results.splice(pos, 0, r);
+                            } else {
                                 results.push(r);
                             }
                         }
@@ -764,6 +785,11 @@ class NamespaceFS {
                     await insert_entry_to_results_arr(r);
                 };
 
+                // our current mechanism - list the files and skipping inaccessible directory (invisible in the list).
+                // We use this check_access in case the directory is not accessible inside a bucket.
+                // In a directory if we don’t have access to the directory, we want to skip the directory and its sub directories from the list.
+                // We did it outside to avoid undefined values in the cache.
+                // Note: It is not the same case as a file without permission.
                 if (!(await this.check_access(fs_context, dir_path))) return;
                 try {
                     if (list_versions) {
@@ -885,13 +911,6 @@ class NamespaceFS {
 
             const prefix_dir_key = prefix.slice(0, prefix.lastIndexOf('/') + 1);
             await process_dir(prefix_dir_key);
-            await Promise.all(results.map(async r => {
-                if (r.common_prefix) return;
-                const entry_path = path.join(this.bucket_path, r.key);
-                //If entry is outside of bucket, returns stat of symbolic link
-                const use_lstat = !(await this._is_path_in_bucket_boundaries(fs_context, entry_path));
-                r.stat = await nb_native().fs.stat(fs_context, entry_path, { use_lstat });
-            }));
             const res = {
                 objects: [],
                 common_prefixes: [],
@@ -928,7 +947,16 @@ class NamespaceFS {
             }
             return res;
         } catch (err) {
-            throw native_fs_utils.translate_error_codes(err, native_fs_utils.entity_enum.OBJECT);
+            dbg.error('_list_objects with params,', params, 'got an error', err);
+            // we don't use here translate_error_codes
+            // because we only want an S3 error of NoSuchBucket (or Internal error for all the rest)
+            // the error message and the final error might be inaccurate - 
+            // as the error code can be on a a key path, while the error indicates a bucket 
+            if (err.code === 'ENOENT' || err.code === 'ENOTDIR') {
+                err.rpc_code = `NO_SUCH_BUCKET`;
+            }
+            if (err.code === 'INTERNAL_ERROR' || !err.rpc_code) err.rpc_code = 'INTERNAL_ERROR';
+            throw err;
         }
     }
 

@@ -16,6 +16,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          repository: 'noobaa/noobaa-core'
+          path: 'noobaa-core'
 
       - name: Run AWS SDK Clients
         run: |

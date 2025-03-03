@@ -233,6 +233,7 @@ function setup(options = {}) {
         });
         rpc_client.options.auth_token = token;
         await overwrite_system_address(SYSTEM);
+        console.log('pools_to_create.length', pools_to_create.length);
         if (pools_to_create.length > 0) {
             await announce('setup_pools()');
             await setup_pools(pools_to_create);

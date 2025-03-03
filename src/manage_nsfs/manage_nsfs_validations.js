@@ -165,6 +165,8 @@ function validate_no_extra_options(type, action, input_options, is_options_from_
         valid_options = VALID_OPTIONS.notification_options[action];
     } else if (type === TYPES.CONNECTION) {
         valid_options = VALID_OPTIONS.connection_options[action];
+    } else if (type === TYPES.LIFECYCLE) {
+        valid_options = VALID_OPTIONS.lifecycle_options;
     } else {
         valid_options = VALID_OPTIONS.whitelist_options;
     }

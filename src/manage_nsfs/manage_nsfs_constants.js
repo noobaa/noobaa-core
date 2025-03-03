@@ -96,7 +96,7 @@ const VALID_OPTIONS_CONNECTION = {
     'status': new Set(['name', 'decrypt', ...CLI_MUTUAL_OPTIONS]),
 };
 
-const VALID_OPTIONS_LIFECYCLE = new Set([...CLI_MUTUAL_OPTIONS]);
+const VALID_OPTIONS_LIFECYCLE = new Set(['disable_service_validation', ...CLI_MUTUAL_OPTIONS]);
 
 const VALID_OPTIONS_WHITELIST = new Set(['ips', ...CLI_MUTUAL_OPTIONS]);
 
@@ -154,6 +154,8 @@ const OPTION_TYPE = {
     expected_hosts: 'string',
     custom_upgrade_scripts_dir: 'string',
     skip_verification: 'boolean',
+    // lifecycle options
+    disable_service_validation: 'string',
     //connection
     notification_protocol: 'string',
     agent_request_object: 'string',

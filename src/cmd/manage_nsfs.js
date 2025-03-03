@@ -89,7 +89,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
         } else if (type === TYPES.CONNECTION) {
             await connection_management(action, user_input);
         } else if (type === TYPES.LIFECYCLE) {
-            await lifecycle_management();
+            await lifecycle_management(argv);
         } else {
             throw_cli_error(ManageCLIError.InvalidType);
         }
@@ -802,8 +802,9 @@ async function connection_management(action, user_input) {
  * lifecycle_management runs the nc lifecycle management
  * @returns {Promise<void>}
  */
-async function lifecycle_management() {
-    await noobaa_cli_lifecycle.run_lifecycle(config_fs);
+async function lifecycle_management(args) {
+    const disable_service_validation = args.disable_service_validation === 'true';
+    await noobaa_cli_lifecycle.run_lifecycle(config_fs, disable_service_validation);
 }
 
 exports.main = main;

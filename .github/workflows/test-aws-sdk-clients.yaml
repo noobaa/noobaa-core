@@ -1,0 +1,24 @@
+name: Test AWS SDK Clients
+on: [push, pull_request, workflow_dispatch]
+# it should run nightly, in the push only for CR step
+# on: 
+#   schedule:
+#     - cron: "0 1 * * *"
+#   workflow_dispatch:
+
+jobs:
+  test-aws-sdk-clients:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run AWS SDK Clients
+        run: |
+          set -x
+          cd ./noobaa-core
+          make test-aws-sdk-clients

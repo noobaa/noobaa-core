@@ -58,6 +58,16 @@ ManageCLIResponse.MetricsStatus = Object.freeze({
 });
 
 ///////////////////////////////
+//////  VERSIONS RESPONSES ////
+///////////////////////////////
+
+ManageCLIResponse.VersionsStatus = Object.freeze({
+    code: 'VersionsStatus',
+    message: 'Versions status retrieved successfully',
+    status: {}
+});
+
+///////////////////////////////
 // IPS WHITE LIST RESPONSES ///
 ///////////////////////////////
 ManageCLIResponse.WhiteListIPUpdated = Object.freeze({

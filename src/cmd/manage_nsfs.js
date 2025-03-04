@@ -1,7 +1,18 @@
 /* Copyright (C) 2020 NooBaa */
 'use strict';
 
+// DO NOT PUT NEW REQUIREMENTS BEFORE SETTING process.env.NC_NSFS_NO_DB_ENV = 'true' 
+// NC nsfs deployments specifying process.env.LOCAL_MD_SERVER=true deployed together with a db
+// when a system_store object is initialized VaccumAnalyzer is being called once a day.
+// when NC nsfs deployed without db we would like to avoid running VaccumAnalyzer in any flow there is
+// because running it will cause a panic.
+if (process.env.LOCAL_MD_SERVER !== 'true') {
+    process.env.NC_NSFS_NO_DB_ENV = 'true';
+}
+
 const dbg = require('../util/debug_module')(__filename);
+if (!dbg.get_process_name()) dbg.set_process_name('noobaa-cli');
+
 const _ = require('lodash');
 const minimist = require('minimist');
 const config = require('../../config');
@@ -16,6 +27,7 @@ const { account_id_cache } = require('../sdk/accountspace_fs');
 const ManageCLIError = require('../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
 const ManageCLIResponse = require('../manage_nsfs/manage_nsfs_cli_responses').ManageCLIResponse;
 const manage_nsfs_glacier = require('../manage_nsfs/manage_nsfs_glacier');
+const noobaa_cli_lifecycle = require('../manage_nsfs/nc_lifecycle');
 const manage_nsfs_logging = require('../manage_nsfs/manage_nsfs_logging');
 const noobaa_cli_diagnose = require('../manage_nsfs/diagnose');
 const noobaa_cli_upgrade = require('../manage_nsfs/upgrade');
@@ -79,6 +91,8 @@ async function main(argv = minimist(process.argv.slice(2))) {
             await notification_management();
         } else if (type === TYPES.CONNECTION) {
             await connection_management(action, user_input);
+        } else if (type === TYPES.LIFECYCLE) {
+            await lifecycle_management();
         } else {
             throw_cli_error(ManageCLIError.InvalidType);
         }
@@ -856,6 +870,18 @@ async function list_connections() {
     conns = conns.filter(item => item);
 
     return conns;
+}
+
+////////////////////
+///// LIFECYCLE ////
+////////////////////
+
+/**
+ * lifecycle_management runs the nc lifecycle management
+ * @returns {Promise<void>}
+ */
+async function lifecycle_management() {
+    await noobaa_cli_lifecycle.run_lifecycle(config_fs);
 }
 
 exports.main = main;

@@ -112,7 +112,7 @@ The following list consists of supported optional developer customization -
 ### 7. GPFS library path -
 * <u>Key</u>: `GPFS_DL_PATH`  
 * <u>Type</u>: String  
-* <u>Default</u>: ''   
+* <u>Default</u>: '/usr/lpp/mmfs/lib/libgpfs.so'  
 * <u>Description</u>: Set GPFS library path location.  
 * <u>Steps</u>:  
     ```

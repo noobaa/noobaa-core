@@ -16,6 +16,7 @@ const { get_boolean_or_string_value, throw_cli_error, write_stdout_response,
     get_bucket_owner_account_by_id, get_service_status, NOOBAA_SERVICE_NAME } = require('./manage_nsfs_cli_utils');
 const { ManageCLIResponse } = require('./manage_nsfs_cli_responses');
 const ManageCLIError = require('./manage_nsfs_cli_errors').ManageCLIError;
+const notifications_util = require('../util/notifications_util');
 
 
 const HOSTNAME = 'localhost';
@@ -101,6 +102,7 @@ class NSFSHealth {
         this.https_port = options.https_port;
         this.all_account_details = options.all_account_details;
         this.all_bucket_details = options.all_bucket_details;
+        this.all_connection_details = options.all_connection_details;
         this.config_fs = options.config_fs;
     }
 
@@ -128,12 +130,14 @@ class NSFSHealth {
 
         let bucket_details;
         let account_details;
+        let connection_details;
         const endpoint_response_code = (endpoint_state && endpoint_state.response?.response_code) || 'UNKNOWN_ERROR';
         const health_check_params = { service_status, pid, endpoint_response_code, config_directory_status };
         const service_health = this._calc_health_status(health_check_params);
         const error_code = this.get_error_code(health_check_params);
         if (this.all_bucket_details) bucket_details = await this.get_bucket_status();
         if (this.all_account_details) account_details = await this.get_account_status();
+        if (this.all_connection_details) connection_details = await this.get_connection_status();
         const health = {
             service_name: NOOBAA_SERVICE_NAME,
             status: service_health,
@@ -155,11 +159,13 @@ class NSFSHealth {
                     invalid_buckets: bucket_details === undefined ? undefined : bucket_details.invalid_storages,
                     valid_buckets: bucket_details === undefined ? undefined : bucket_details.valid_storages,
                     error_type: health_errors_tyes.PERSISTENT,
-                }
+                },
+                connections_status: connection_details
             }
         };
         if (!this.all_account_details) delete health.checks.accounts_status;
         if (!this.all_bucket_details) delete health.checks.buckets_status;
+        if (!this.all_connection_details) delete health.checks.connections_status;
         return health;
     }
 
@@ -323,6 +329,17 @@ class NSFSHealth {
         };
     }
 
+    async validate_config_dir_exists(path, type) {
+        const config_root_type_exists = await this.config_fs.validate_config_dir_exists(path);
+        if (!config_root_type_exists) {
+            dbg.log1(`Config directory type - ${type} is missing, ${path}`);
+            return {
+                invalid_storages: [],
+                valid_storages: []
+            };
+        }
+    }
+
     async get_bucket_status() {
         const bucket_details = await this.get_storage_status(TYPES.BUCKET, this.all_bucket_details);
         return bucket_details;
@@ -333,34 +350,38 @@ class NSFSHealth {
         return account_details;
     }
 
+    async get_connection_status() {
+        const connection_details = await this.get_storage_status(TYPES.CONNECTION, this.all_connection_details);
+        //if there were in failed test notifications, mark error as temp
+        if (connection_details.invalid_storages && connection_details.invalid_storages.length > 0) {
+            connection_details.error_type = health_errors_tyes.TEMPORARY;
+        }
+        return connection_details;
+    }
+
     async get_storage_status(type, all_details) {
         const invalid_storages = [];
         const valid_storages = [];
         //check for account and buckets dir paths
-        let config_root_type_exists;
         let config_dir_path;
         if (type === TYPES.BUCKET) {
             config_dir_path = this.config_fs.buckets_dir_path;
-            config_root_type_exists = await this.config_fs.validate_config_dir_exists(config_dir_path);
         } else if (type === TYPES.ACCOUNT) {
             // TODO - handle iam accounts when directory structure changes - read_account_by_id
             config_dir_path = this.config_fs.accounts_by_name_dir_path;
-            config_root_type_exists = await this.config_fs.validate_config_dir_exists(config_dir_path);
+        } else {
+            config_dir_path = this.config_fs.connections_dir_path;
         }
-        // TODO - this is not a good handling for that - we need to take it to an upper level
-        if (!config_root_type_exists) {
-            dbg.log1(`Config directory type - ${type} is missing, ${config_dir_path}`);
-            return {
-                invalid_storages: invalid_storages,
-                valid_storages: valid_storages
-            };
-        }
+        const missing = await this.validate_config_dir_exists(config_dir_path, type);
+        if (missing) return missing;
 
         let config_files_names;
         if (type === TYPES.BUCKET) {
             config_files_names = await this.config_fs.list_buckets();
-        } else {
+        } else if (type === TYPES.ACCOUNT) {
             config_files_names = await this.config_fs.list_accounts();
+        } else {
+            config_files_names = await this.config_fs.list_connections();
         }
         for (const config_file_name of config_files_names) {
             // config_file get data or push error
@@ -376,13 +397,24 @@ class NSFSHealth {
             let res;
             const storage_path = type === TYPES.BUCKET ?
                 config_data.path :
-                config_data.nsfs_account_config.new_buckets_path;
+                config_data.nsfs_account_config?.new_buckets_path;
 
             if (type === TYPES.ACCOUNT) {
                 const config_file_path = this.config_fs.get_account_path_by_name(config_file_name);
                 res = await is_new_buckets_path_valid(config_file_path, config_data, storage_path);
             } else if (type === TYPES.BUCKET) {
                 res = await is_bucket_storage_and_owner_exists(this.config_fs, config_data, storage_path);
+            } else {
+                const connection_file_path = this.config_fs.get_connection_path_by_name(config_file_name);
+                const test_notif_err = await notifications_util.test_notifications([{
+                    name: config_data.name,
+                    topic: [this.config_fs.json(config_file_name)]
+                }], this.config_fs.config_root);
+                if (test_notif_err) {
+                    res = get_invalid_object(config_data.name, connection_file_path, undefined, test_notif_err.code);
+                } else {
+                    res = get_valid_object(config_data.name, connection_file_path, undefined);
+                }
             }
             if (all_details && res.valid_storage) {
                 valid_storages.push(res.valid_storage);
@@ -406,16 +438,41 @@ class NSFSHealth {
         let config_data;
         let err_obj;
         try {
-            config_data = type === TYPES.BUCKET ?
-                await this.config_fs.get_bucket_by_name(config_file_name) :
-                // TODO - should be changed to id when moving to new structure for supporting iam accounts
-                await this.config_fs.get_account_by_name(config_file_name);
+            switch (type) {
+                case TYPES.BUCKET: {
+                    config_data = await this.config_fs.get_bucket_by_name(config_file_name);
+                    break;
+                }
+                case TYPES.ACCOUNT: {
+                    // TODO - should be changed to id when moving to new structure for supporting iam accounts
+                    config_data = await this.config_fs.get_account_by_name(config_file_name);
+                    break;
+                }
+                case TYPES.CONNECTION: {
+                    config_data = await this.config_fs.get_connection_by_name(config_file_name);
+                    break;
+                }
+                default: //shouldn't happen, for js-lint
+            }
         } catch (err) {
             let err_code;
-            const config_file_path = type === TYPES.BUCKET ?
-                this.config_fs.get_bucket_path_by_name(config_file_name) :
-                // TODO - should be changed to id when moving to new structure for supporting iam accounts
-                this.config_fs.get_account_path_by_name(config_file_name);
+            let config_file_path;
+            switch (type) {
+                case TYPES.BUCKET: {
+                    config_file_path = await this.config_fs.get_bucket_path_by_name(config_file_name);
+                    break;
+                }
+                case TYPES.ACCOUNT: {
+                    // TODO - should be changed to id when moving to new structure for supporting iam accounts
+                    config_file_path = await this.config_fs.get_account_path_by_name(config_file_name);
+                    break;
+                }
+                case TYPES.CONNECTION: {
+                    config_file_path = await this.config_fs.get_connection_path_by_name(config_file_name);
+                    break;
+                }
+                default: //shouldn't happen, for js-lint
+            }
 
             if (err.code === 'ENOENT') {
                 dbg.log1(`Error: Config file path should be a valid path`, config_file_path, err);
@@ -536,9 +593,10 @@ async function get_health_status(argv, config_fs) {
         const deployment_type = argv.deployment_type || 'nc';
         const all_account_details = get_boolean_or_string_value(argv.all_account_details);
         const all_bucket_details = get_boolean_or_string_value(argv.all_bucket_details);
+        const all_connection_details = get_boolean_or_string_value(argv.all_connection_details);
 
         if (deployment_type === 'nc') {
-            const health = new NSFSHealth({ https_port, all_account_details, all_bucket_details, config_fs });
+            const health = new NSFSHealth({ https_port, all_account_details, all_bucket_details, all_connection_details, config_fs });
             const health_status = await health.nc_nsfs_health();
             write_stdout_response(ManageCLIResponse.HealthStatus, health_status);
         } else {

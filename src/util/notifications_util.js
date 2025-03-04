@@ -351,10 +351,12 @@ async function test_notifications(notifs, nc_config_dir) {
         return;
     }
     let connect_files_dir = config.NOTIFICATION_CONNECT_DIR;
+    let config_fs;
     if (nc_config_dir) {
-        connect_files_dir = new ConfigFS(nc_config_dir).connections_dir_path;
+        config_fs = new ConfigFS(nc_config_dir);
+        connect_files_dir = config_fs.connections_dir_path;
     }
-    const notificator = new Notificator({connect_files_dir});
+    const notificator = new Notificator({connect_files_dir, nc_config_fs: config_fs});
     for (const notif of notifs) {
         let connect;
         let connection;

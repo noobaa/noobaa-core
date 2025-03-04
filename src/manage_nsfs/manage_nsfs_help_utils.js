@@ -366,12 +366,13 @@ Usage:
 
 Flags:
 
-    --deployment_type       <string>        (optional)          Set the nsfs type for heath check.(default nc; Non Containerized)
-    --https_port            <number>        (optional)          Set the S3 endpoint listening HTTPS port to serve. (default config.ENDPOINT_SSL_PORT)
-    --all_account_details   <boolean>       (optional)          Set a flag for returning all account details.
-    --all_bucket_details    <boolean>       (optional)          Set a flag for returning all bucket details.
-    --debug                 <number>        (optional)          Use for increasing the log verbosity of health cli commands.
-    --config_root           <string>        (optional)          Set Configuration files path for Noobaa standalon NSFS. (default config.NSFS_NC_DEFAULT_CONF_DIR)
+    --deployment_type        <string>        (optional)          Set the nsfs type for heath check.(default nc; Non Containerized)
+    --https_port             <number>        (optional)          Set the S3 endpoint listening HTTPS port to serve. (default config.ENDPOINT_SSL_PORT)
+    --all_account_details    <boolean>       (optional)          Set a flag for returning all account details.
+    --all_bucket_details     <boolean>       (optional)          Set a flag for returning all bucket details.
+    --all_connection_details <boolean>       (optional)          Set a flag for returning all connection details.
+    --debug                  <number>        (optional)          Use for increasing the log verbosity of health cli commands.
+    --config_root            <string>        (optional)          Set Configuration files path for Noobaa standalon NSFS. (default config.NSFS_NC_DEFAULT_CONF_DIR)
 
 `;
 

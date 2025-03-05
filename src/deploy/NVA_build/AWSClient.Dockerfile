@@ -1,6 +1,13 @@
-FROM noobaa-tester
+FROM noobaa
 
 USER 0:0
+
+ENV container=docker
+ENV TEST_CONTAINER=true
+
+WORKDIR /root/node_modules/noobaa-core/
+
+RUN npm install --only=dev
 
 ##############################################################
 # Layers:

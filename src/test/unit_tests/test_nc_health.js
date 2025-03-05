@@ -233,6 +233,16 @@ mocha.describe('nsfs nc health', function() {
             assert.strictEqual(health_status.checks.connections_status.invalid_storages[0].name, connection_from_file.name);
         });
 
+        mocha.it('health should test notification storage', async function() {
+            Health.notif_storage_threshold = true;
+            config.NOTIFICATION_LOG_DIR = TMP_PATH;
+            const health_status = await Health.nc_nsfs_health();
+            Health.notif_storage_limit = false;
+
+            assert.strictEqual(health_status.checks.notif_storage_threshold_details.result, 'above threshold');
+            assert.strictEqual(health_status.checks.notif_storage_threshold_details.threshold, config.NOTIFICATION_SPACE_CHECK_THRESHOLD);
+        });
+
         mocha.it('NooBaa service is inactive', async function() {
             set_mock_functions(Health, {
                 get_service_state: [{ service_status: 'inactive', pid: 0 }],

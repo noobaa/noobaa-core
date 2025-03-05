@@ -17,10 +17,7 @@ RUN go version
 ENV PATH="/usr/local/go/bin:$PATH"
 
 # install the needed modules
-RUN go install github.com/aws/aws-sdk-go-v2/config@latest
-RUN go install github.com/aws/aws-sdk-go-v2/credentials@latest
-RUN go install github.com/aws/aws-sdk-go-v2/service/s3@latest
-RUN go install github.com/aws/aws-sdk-go-v2/service/s3/types@latest
+RUN go mod init src/test/unit_tests/different_clients
 RUN go mod tidy
 # copy the files
 # COPY go.mod /root/node_modules/noobaa-core

@@ -1201,6 +1201,36 @@ mocha.describe('namespace_fs folders tests', function() {
 
         });
 
+        mocha.it('delete inner object in directory object size 0 - no .folder file but directory still exists', async function() {
+            const inner_key = '/inner_obj';
+            const key = upload_key_3 + inner_key;
+            const source = buffer_utils.buffer_to_read_stream(data);
+            await upload_object(ns_tmp, upload_bkt, key, dummy_object_sdk, source);
+            const p1 = path.join(ns_tmp_bucket_path, upload_key_3);
+            const p2 = path.join(ns_tmp_bucket_path, key);
+            await fs_utils.file_must_not_exist(path.join(p1, config.NSFS_FOLDER_OBJECT_NAME));
+            const full_xattr1 = await get_xattr(p1);
+            assert.deepEqual(full_xattr1, { ...user_md_and_dir_content_xattr, [XATTR_DIR_CONTENT]: obj_sizes_map[upload_key_3] });
+            await ns_tmp.delete_object({ bucket: upload_bkt, key: key }, dummy_object_sdk);
+            await fs_utils.file_must_exist(p1);
+            await fs_utils.file_must_not_exist(p2);
+        });
+
+        mocha.it('delete inner directory object size > 0 in directory object size 0 - no .folder file but directory still exists', async function() {
+            const inner_dir_obj_key = '/inner_dir_obj_key';
+            const key = upload_key_3 + inner_dir_obj_key;
+            const source = buffer_utils.buffer_to_read_stream(data);
+            await upload_object(ns_tmp, upload_bkt, key, dummy_object_sdk, source);
+            const p1 = path.join(ns_tmp_bucket_path, upload_key_3);
+            const p2 = path.join(ns_tmp_bucket_path, key);
+            await fs_utils.file_must_not_exist(path.join(p1, config.NSFS_FOLDER_OBJECT_NAME));
+            const full_xattr1 = await get_xattr(p1);
+            assert.deepEqual(full_xattr1, { ...user_md_and_dir_content_xattr, [XATTR_DIR_CONTENT]: obj_sizes_map[upload_key_3] });
+            await ns_tmp.delete_object({ bucket: upload_bkt, key: key }, dummy_object_sdk);
+            await fs_utils.file_must_exist(p1);
+            await fs_utils.file_must_not_exist(p2);
+        });
+
         mocha.it('delete object content 0 - no .folder file', async function() {
             const p1 = path.join(ns_tmp_bucket_path, upload_key_3);
             const full_xattr1 = await get_xattr(p1);

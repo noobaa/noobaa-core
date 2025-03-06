@@ -33,7 +33,6 @@ mocha.describe('Go AWS SDK V2 Client script execution', function() {
             const bucket_name = 'lala-bucket';
             const key_name = 'test-key';
             const mpu_key_name = 'test-mpu-key';
-            // const endpoint = 'https://localhost:12443';
             const endpoint = coretest.get_http_address();
             console.log('test_go_sdkv2_script: endpoint', endpoint);
 
@@ -47,7 +46,7 @@ mocha.describe('Go AWS SDK V2 Client script execution', function() {
             assert.equal(number_of_failing_tests, 0);
         } catch (err) {
             console.log('while execution of aws go client had the err', err);
-            assert.fail(`aws go client failed ${err}, ${err.stack}`);
+            assert.fail(`test aws go client failed with: ${err}, ${err.stack}`);
         }
     });
 });

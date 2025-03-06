@@ -26,14 +26,21 @@ jobs:
           cd ./noobaa-core
           make test-aws-sdk-clients
 
+      # # this should be removed
+      # - name: Test slack webhook
+      #   uses: slackapi/slack-github-action@v2.0.0
+      #   with:
+      #     webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+      #     webhook-type: incoming-webhook
+      #     payload: |
+      #       text: "Hello world (Shira is testing webhook)"
+
       # this should be removed
-      - name: Test slack webhook
-        uses: slackapi/slack-github-action@v2.0.0
-        with:
-          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
-          webhook-type: incoming-webhook
-          payload: |
-            text: "Hello world (Shira is testing webhook)"
+      - name: Test slack webhook 2
+        run: | 
+          curl -X POST ${{ secrets.SLACK_WEBHOOK_URL }} \
+          -H "Content-type: application/json" \
+          -d '{"text": "hello_world (Shira) with curl in github action"}'
 
       # this should be added
       # later we would add the if: ${{ failure() }} condition

@@ -38,11 +38,11 @@ RUN cd ./src/test/system_tests/ceph_s3_tests/ && \
 
 ##############################################################
 # Layers:
-#   Title: npm install --only=dev to add dev dependencies (noobaa is build with npm install --prod) 
+#   Title: npm install to add dev dependencies (noobaa is build with npm install --prod) 
 #   Size: ~ 33 MB
 #
 ##############################################################
-RUN npm install --only=dev
+RUN npm install
 
 ##############################################################
 # Layers:

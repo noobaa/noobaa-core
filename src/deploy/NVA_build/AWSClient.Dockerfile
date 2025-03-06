@@ -7,7 +7,9 @@ ENV TEST_CONTAINER=true
 
 WORKDIR /root/node_modules/noobaa-core/
 
-RUN npm install --only=dev
+# check npm version (installing dev dependency in different between npm version pre version 7 that was --only=dev)
+RUN npm -v
+RUN npm install --omit=prod
 
 ############################################################################
 # Layers:

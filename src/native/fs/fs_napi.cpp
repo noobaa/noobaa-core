@@ -752,6 +752,11 @@ struct FSWrapWorker : public FSWorker
 
 /**
  * Stat is an fs op
+ * 
+ * Note: this stat operation contains the system call of open.
+ *       Currently, we use it in list objects, but might want to create a different stat call
+ *       (or add changes inside this) to avoid permission check during list objects
+ *       while we stat each file (to avoid EACCES error)
  */
 struct Stat : public FSWorker
 {

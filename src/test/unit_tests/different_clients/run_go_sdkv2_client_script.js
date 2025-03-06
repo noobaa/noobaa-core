@@ -31,4 +31,4 @@ async function run_go_sdk_v2_client_script(bucket_name, key_name, mpu_key_name, 
      }
 }
 
-module.exports = { run_go_sdk_v2_client_script };
+exports.run_go_sdk_v2_client_script = run_go_sdk_v2_client_script;

@@ -38,6 +38,9 @@ jobs:
       # this should be removed
       - name: Test slack webhook 2
         run: | 
+          echo "check the variable" 
+          echo "${{ secrets.SLACK_WEBHOOK_URL }}" | wc -c
+          echo "send the massage"
           curl -X POST ${{ secrets.SLACK_WEBHOOK_URL }} \
           -H "Content-type: application/json" \
           -d '{"text": "hello_world (Shira) with curl in github action"}'

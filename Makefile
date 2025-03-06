@@ -229,7 +229,7 @@ build-ssl-postgres: tester
 	@echo "##\033[1;32m Build image postgres:ssl done.\033[0m"
 .PHONY: build-ssl-postgres
 
-build-aws-client: tester
+build-aws-client: noobaa
 	@echo "\n##\033[1;32m Build image for AWS Client tests ...\033[0m"
 	$(CONTAINER_ENGINE) build $(CONTAINER_PLATFORM_FLAG) $(CPUSET) -f src/deploy/NVA_build/AWSClient.Dockerfile $(CACHE_FLAG) $(NETWORK_FLAG) -t noobaa-aws-client . $(REDIRECT_STDOUT)
 	@echo "\033[1;32mBuild image for AWS Client tests done.\033[0m"

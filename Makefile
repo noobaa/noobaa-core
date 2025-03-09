@@ -363,6 +363,11 @@ test-external-pg-sanity: build-ssl-postgres
 	@$(call remove_docker_network)
 .PHONY: test-external-pg-sanity
 
+test-upgrade: tester
+	@echo "\033[1;34mRunning Upgrade Tests - after upgrading to latest\033[0m"
+	chmod +x ./src/test/system_tests/run_upgrade_tests.sh && ./src/test/system_tests/run_upgrade_tests.sh
+.PHONY: test-upgrade
+
 clean:
 	@echo Stopping and Deleting containers
 	@$(CONTAINER_ENGINE) ps -a | grep noobaa_ | awk '{print $1}' | xargs $(CONTAINER_ENGINE) stop &> /dev/null

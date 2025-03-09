@@ -14,8 +14,8 @@ const SCAN_LOCK = 'scan.lock';
 
 async function process_migrations() {
     const fs_context = native_fs_utils.get_process_fs_context();
-
-    await lock_and_run(fs_context, CLUSTER_LOCK, async () => {
+    const lock_path = path.join(config.NSFS_GLACIER_LOGS_DIR, CLUSTER_LOCK);
+    await native_fs_utils.lock_and_run(fs_context, lock_path, async () => {
         const backend = getGlacierBackend();
 
         if (
@@ -40,8 +40,8 @@ async function run_glacier_migrations(fs_context, backend) {
 
 async function process_restores() {
     const fs_context = native_fs_utils.get_process_fs_context();
-
-    await lock_and_run(fs_context, CLUSTER_LOCK, async () => {
+    const lock_path = path.join(config.NSFS_GLACIER_LOGS_DIR, CLUSTER_LOCK);
+    await native_fs_utils.lock_and_run(fs_context, lock_path, async () => {
         const backend = getGlacierBackend();
 
         if (
@@ -67,8 +67,8 @@ async function run_glacier_restore(fs_context, backend) {
 
 async function process_expiry() {
     const fs_context = native_fs_utils.get_process_fs_context();
-
-    await lock_and_run(fs_context, SCAN_LOCK, async () => {
+    const lock_path = path.join(config.NSFS_GLACIER_LOGS_DIR, SCAN_LOCK);
+    await native_fs_utils.lock_and_run(fs_context, lock_path, async () => {
         const backend = getGlacierBackend();
         if (
             await backend.low_free_space() ||
@@ -210,24 +210,6 @@ function get_tz_date(hours, mins, secs, tz) {
     }
 
     return date;
-}
-
-/**
- * lock_and_run acquires a flock and calls the given callback after
- * acquiring the lock
- * @param {nb.NativeFSContext} fs_context 
- * @param {string} lockfilename
- * @param {Function} cb 
- */
-async function lock_and_run(fs_context, lockfilename, cb) {
-    const lockfd = await nb_native().fs.open(fs_context, path.join(config.NSFS_GLACIER_LOGS_DIR, lockfilename), 'w');
-
-    try {
-        await lockfd.fcntllock(fs_context, 'EXCLUSIVE');
-        await cb();
-    } finally {
-        await lockfd.close(fs_context);
-    }
 }
 
 exports.process_migrations = process_migrations;

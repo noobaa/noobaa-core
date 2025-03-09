@@ -534,6 +534,12 @@ ManageCLIError.NooBaaServiceIsNotActive = Object.freeze({
     http_code: 400,
 });
 
+ManageCLIError.LifecycleFailed = Object.freeze({
+    code: 'LifecycleFailed',
+    message: 'Lifecycle worker run failed.',
+    http_code: 400,
+});
+
 ///////////////////////////////
 //       ERRORS MAPPING      //
 ///////////////////////////////
@@ -569,7 +575,8 @@ const NSFS_CLI_ERROR_EVENT_MAP = {
     BucketSetForbiddenBucketOwnerNotExists: NoobaaEvent.UNAUTHORIZED, // GAP - add event
     BucketSetForbiddenBucketOwnerIsIAMAccount: NoobaaEvent.UNAUTHORIZED, // // GAP - add event
     LoggingExportFailed: NoobaaEvent.LOGGING_FAILED,
-    UpgradeFailed: NoobaaEvent.CONFIG_DIR_UPGRADE_FAILED
+    UpgradeFailed: NoobaaEvent.CONFIG_DIR_UPGRADE_FAILED,
+    LifecycleFailed: NoobaaEvent.LIFECYCLE_FAILED
 };
 
 exports.ManageCLIError = ManageCLIError;

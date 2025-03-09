@@ -961,6 +961,9 @@ config.NC_DISABLE_HEALTH_ACCESS_CHECK = false;
 config.NC_DISABLE_POSIX_MODE_ACCESS_CHECK = true;
 config.NC_DISABLE_SCHEMA_CHECK = false;
 
+config.LIFECYCLE_LOGS_DIR = '/var/log/noobaa/lifecycle';
+config.NC_LIFECYCLE_TIMEOUT = 6 * 60 * 60 * 1000;
+
 ////////// GPFS //////////
 config.GPFS_DOWN_DELAY = 1000;
 

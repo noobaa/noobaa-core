@@ -32,7 +32,7 @@ async function run_lifecycle_under_lock(config_fs) {
         dbg.log0('run_lifecycle_under_lock acquired lock - start lifecycle');
         await run_lifecycle(config_fs);
         dbg.log0('run_lifecycle_under_lock done lifecycle - released lock');
-    });
+    }, true);
 }
 
 /**

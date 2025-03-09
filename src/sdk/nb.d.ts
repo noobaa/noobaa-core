@@ -1017,7 +1017,7 @@ interface NativeFile {
     fsync(fs_context: NativeFSContext): Promise<void>;
     fd: number;
     flock(fs_context: NativeFSContext, operation: "EXCLUSIVE" | "SHARED" | "UNLOCK"): Promise<void>;
-    fcntllock(fs_context: NativeFSContext, operation: "EXCLUSIVE" | "SHARED" | "UNLOCK"): Promise<void>;
+    fcntllock(fs_context: NativeFSContext, type: "EXCLUSIVE" | "SHARED" | "UNLOCK", op?: "THROW" | "WAIT"): Promise<void>;
 }
 
 interface NativeDir {

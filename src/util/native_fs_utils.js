@@ -718,13 +718,19 @@ function translate_error_codes(err, entity) {
  * @param {nb.NativeFSContext} fs_context 
  * @param {string} lock_path
  * @param {Function} cb 
+ * @param {boolean} [throw_if_locked]
  */
-async function lock_and_run(fs_context, lock_path, cb) {
+async function lock_and_run(fs_context, lock_path, cb, throw_if_locked = false) {
     const lockfd = await nb_native().fs.open(fs_context, lock_path, 'w');
 
     try {
-        await lockfd.fcntllock(fs_context, 'EXCLUSIVE');
+        await lockfd.fcntllock(fs_context, 'EXCLUSIVE', throw_if_locked ? 'THROW' : undefined);
         await cb();
+    } catch (err) {
+        dbg.error('lock_and_run: error', err);
+        if (err.code === 'EAGAIN' && throw_if_locked) {
+            throw new RpcError('LOCKED', `Resource is locked - lock path= ${lock_path}`);
+        }
     } finally {
         await lockfd.close(fs_context);
     }

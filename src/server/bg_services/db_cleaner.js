@@ -58,23 +58,39 @@ async function clean_md_store(last_date_to_remove) {
         ${total_objects_count} objects - Skipping...`);
         return;
     }
+    const objects_to_remove = await clean_md_store_objects(last_date_to_remove, config.DB_CLEANER_DOCS_LIMIT);
+    const blocks_to_remove = await clean_md_store_blocks(last_date_to_remove, config.DB_CLEANER_DOCS_LIMIT);
+    const filtered_chunks = await clean_md_store_chunks(last_date_to_remove, config.DB_CLEANER_DOCS_LIMIT);
+
+    dbg.log0(`DB_CLEANER: removed ${objects_to_remove.length + blocks_to_remove.length + filtered_chunks.length} documents from md-store`);
+}
+
+async function clean_md_store_objects(last_date_to_remove, limit) {
     dbg.log0('DB_CLEANER: checking md-store for documents deleted before', new Date(last_date_to_remove));
-    const objects_to_remove = await MDStore.instance().find_deleted_objects(last_date_to_remove, config.DB_CLEANER_DOCS_LIMIT);
+    const objects_to_remove = await MDStore.instance().find_deleted_objects(last_date_to_remove, limit);
     dbg.log2('DB_CLEANER: list objects:', objects_to_remove);
-    if (objects_to_remove.length) {
+    if (objects_to_remove.length > config.MD_STORE_MAX_DELETED_OBJECTS_LIMIT) {
         await P.map_with_concurrency(10, objects_to_remove, obj => db_delete_object_parts(obj));
         await MDStore.instance().db_delete_objects(objects_to_remove);
     }
-    const blocks_to_remove = await MDStore.instance().find_deleted_blocks(last_date_to_remove, config.DB_CLEANER_DOCS_LIMIT);
+    return objects_to_remove;
+}
+
+async function clean_md_store_blocks(last_date_to_remove, limit) {
+    const blocks_to_remove = await MDStore.instance().find_deleted_blocks(last_date_to_remove, limit);
     dbg.log2('DB_CLEANER: list blocks:', blocks_to_remove);
     if (blocks_to_remove.length) await MDStore.instance().db_delete_blocks(blocks_to_remove);
-    const chunks_to_remove = await MDStore.instance().find_deleted_chunks(last_date_to_remove, config.DB_CLEANER_DOCS_LIMIT);
+    return blocks_to_remove;
+}
+
+async function clean_md_store_chunks(last_date_to_remove, limit) {
+    const chunks_to_remove = await MDStore.instance().find_deleted_chunks(last_date_to_remove, limit);
     const filtered_chunks = chunks_to_remove.filter(async chunk =>
         !(await MDStore.instance().has_any_blocks_for_chunk(chunk)) &&
         !(await MDStore.instance().has_any_parts_for_chunk(chunk)));
     dbg.log2('DB_CLEANER: list chunks with no blocks and no parts to be removed from DB', filtered_chunks);
     if (filtered_chunks.length) await MDStore.instance().db_delete_chunks(filtered_chunks);
-    dbg.log0(`DB_CLEANER: removed ${objects_to_remove.length + blocks_to_remove.length + filtered_chunks.length} documents from md-store`);
+    return filtered_chunks;
 }
 
 async function db_delete_object_parts(id) {
@@ -145,3 +161,4 @@ async function clean_system_store(last_date_to_remove) {
 
 // EXPORTS
 exports.background_worker = background_worker;
+exports.clean_md_store_objects = clean_md_store_objects;

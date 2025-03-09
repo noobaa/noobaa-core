@@ -3,19 +3,37 @@
 
 const dbg = require('../util/debug_module')(__filename);
 const _ = require('lodash');
+const path = require('path');
 const util = require('util');
 const P = require('../util/promise');
 const config = require('../../config');
 const nb_native = require('../util/nb_native');
 const NsfsObjectSDK = require('../sdk/nsfs_object_sdk');
+const native_fs_utils = require('../util/native_fs_utils');
 const ManageCLIError = require('./manage_nsfs_cli_errors').ManageCLIError;
 const { throw_cli_error, get_service_status, NOOBAA_SERVICE_NAME } = require('./manage_nsfs_cli_utils');
 
-// TODO: 
+// TODO:
 // implement 
 // 1. notifications
 // 2. POSIX scanning and filtering per rule
 // 3. GPFS ILM policy and apply for scanning and filtering optimization
+
+const CLUSTER_LOCK = 'cluster.lock';
+
+/**
+ * run_lifecycle_under_lock runs the lifecycle workflow under a file system lock
+ * lifecycle workflow is being locked to prevent multiple instances from running the lifecycle workflow
+ * @param {import('../sdk/config_fs').ConfigFS} config_fs 
+ */
+async function run_lifecycle_under_lock(config_fs) {
+    const lock_path = path.join(config_fs.config_root, CLUSTER_LOCK);
+    await native_fs_utils.lock_and_run(config_fs.fs_context, lock_path, async () => {
+        dbg.log0('run_lifecycle_under_lock acquired lock - start lifecycle');
+        await run_lifecycle(config_fs);
+        dbg.log0('run_lifecycle_under_lock done lifecycle - released lock');
+    });
+}
 
 /**
  * run_lifecycle runs the lifecycle workflow
@@ -204,5 +222,5 @@ async function update_lifecycle_rules_last_sync(config_fs, bucket_json, j, num_o
 }
 
 // EXPORTS
-exports.run_lifecycle = run_lifecycle;
+exports.run_lifecycle_under_lock = run_lifecycle_under_lock;
 

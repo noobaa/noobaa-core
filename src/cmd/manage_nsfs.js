@@ -881,7 +881,7 @@ async function list_connections() {
  * @returns {Promise<void>}
  */
 async function lifecycle_management() {
-    await noobaa_cli_lifecycle.run_lifecycle(config_fs);
+    await noobaa_cli_lifecycle.run_lifecycle_under_lock(config_fs);
 }
 
 exports.main = main;

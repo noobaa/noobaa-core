@@ -712,6 +712,30 @@ function translate_error_codes(err, entity) {
     return err;
 }
 
+/**
+ * lock_and_run acquires a flock and calls the given callback after
+ * acquiring the lock
+ * @param {nb.NativeFSContext} fs_context 
+ * @param {string} lock_path
+ * @param {Function} cb 
+ * @param {boolean} [throw_if_locked]
+ */
+async function lock_and_run(fs_context, lock_path, cb, throw_if_locked = false) {
+    const lockfd = await nb_native().fs.open(fs_context, lock_path, 'w');
+
+    try {
+        await lockfd.fcntllock(fs_context, 'EXCLUSIVE', throw_if_locked ? 'THROW' : undefined);
+        await cb();
+    } catch (err) {
+        dbg.error('lock_and_run: error', err);
+        if (err.code === 'EAGAIN' && throw_if_locked) {
+            throw new RpcError('LOCKED', `Resource is locked - lock path= ${lock_path}`);
+        }
+    } finally {
+        await lockfd.close(fs_context);
+    }
+}
+
 exports.get_umasked_mode = get_umasked_mode;
 exports._make_path_dirs = _make_path_dirs;
 exports._create_path = _create_path;
@@ -754,3 +778,6 @@ exports.get_bucket_tmpdir_full_path = get_bucket_tmpdir_full_path;
 exports.get_bucket_tmpdir_name = get_bucket_tmpdir_name;
 exports.entity_enum = entity_enum;
 exports.translate_error_codes = translate_error_codes;
+
+exports.lock_and_run = lock_and_run;
+

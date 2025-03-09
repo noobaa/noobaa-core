@@ -534,6 +534,15 @@ ManageCLIError.NooBaaServiceIsNotActive = Object.freeze({
     http_code: 400,
 });
 
+// TEMPORARY - 
+// currently, only one lifecyle worker process can run at a time
+// in the fututre, we will allow multiple workers to run while they are not working on the same buckets
+ManageCLIError.LifecyleWorkerAlreadyRunning = Object.freeze({
+    code: 'LifecyleWorkerAlreadyRunning',
+    message: 'Lifecycle worker can not run another lifecyle worker process is already running.',
+    http_code: 400,
+});
+
 ///////////////////////////////
 //       ERRORS MAPPING      //
 ///////////////////////////////
@@ -556,7 +565,8 @@ ManageCLIError.RPC_ERROR_TO_MANAGE = Object.freeze({
     NO_SUCH_USER: ManageCLIError.InvalidAccountDistinguishedName,
     INVALID_MASTER_KEY: ManageCLIError.InvalidMasterKey,
     INVALID_BUCKET_NAME: ManageCLIError.InvalidBucketName,
-    CONFIG_DIR_VERSION_MISMATCH: ManageCLIError.ConfigDirUpdateBlocked
+    CONFIG_DIR_VERSION_MISMATCH: ManageCLIError.ConfigDirUpdateBlocked,
+    LOCKED: ManageCLIError.LifecyleWorkerAlreadyRunning
 });
 
 const NSFS_CLI_ERROR_EVENT_MAP = {

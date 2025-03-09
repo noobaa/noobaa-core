@@ -1823,9 +1823,11 @@ struct FileFlock : public FSWrapWorker<FileWrap>
 struct FileFcntlLock : public FSWrapWorker<FileWrap>
 {
     struct flock fl;
+    int op;
     FileFcntlLock(const Napi::CallbackInfo& info)
         : FSWrapWorker<FileWrap>(info)
         , fl()
+        , op(F_OFD_SETLKW)
     {
         // lock entire file
         fl.l_whence = SEEK_SET;
@@ -1846,6 +1848,16 @@ struct FileFcntlLock : public FSWrapWorker<FileWrap>
                 SetError("invalid lock type");
             }
         }
+        if (info.Length() > 2 && !info[2].IsUndefined()) {
+            auto op_string = info[2].As<Napi::String>().Utf8Value();
+            if (op_string == "THROW") {
+                op = F_OFD_SETLK;
+            } else if (op_string == "WAIT") {
+                op = F_OFD_SETLKW;
+            } else {
+                SetError("invalid lock operation");
+            }
+        }
 
         Begin(XSTR() << "FileFcntlLock" << DVAL(_wrap->_path));
     }
@@ -1855,7 +1867,7 @@ struct FileFcntlLock : public FSWrapWorker<FileWrap>
         CHECK_WRAP_FD(fd);
         // This uses F_OFD_SETLKW instead for discussion related to this choice
         // refer: https://github.com/noobaa/noobaa-core/pull/8174
-        SYSCALL_OR_RETURN(fcntl(fd, F_OFD_SETLKW, &fl));
+        SYSCALL_OR_RETURN(fcntl(fd, op, &fl));
     }
 };
 

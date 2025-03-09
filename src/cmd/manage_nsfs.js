@@ -803,8 +803,9 @@ async function connection_management(action, user_input) {
  * @returns {Promise<void>}
  */
 async function lifecycle_management(args) {
-    const disable_service_validation = args.disable_service_validation === 'true';
-    await noobaa_cli_lifecycle.run_lifecycle(config_fs, disable_service_validation);
+    const disable_service_validation = get_boolean_or_string_value(args.disable_service_validation);
+    const disable_runtime_validation = get_boolean_or_string_value(args.disable_runtime_validation);
+    await noobaa_cli_lifecycle.run_lifecycle_under_lock(config_fs, disable_service_validation, disable_runtime_validation);
 }
 
 exports.main = main;

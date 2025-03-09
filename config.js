@@ -908,6 +908,19 @@ config.NSFS_LOW_FREE_SPACE_MB_UNLEASH = 10 * 1024;
 // operations safely.
 config.NSFS_LOW_FREE_SPACE_PERCENT_UNLEASH = 0.10;
 
+// NSFS_GLACIER_GET_FORCE_EXPIRE if set to true then any restored item in the GLACIER
+// storage class will expire as soon as first GET request is received for it or
+// if the previous restore time has exceed, whichever is the earlier.
+config.NSFS_GLACIER_FORCE_EXPIRE_ON_GET = false;
+
+// NSFS_GLACIER_DESIRED_MIGRATE_QUEUE_SIZE controls that how long migration queue/batch
+// Once exceeded, migration calls are supposed to kick in regardless of configured
+// interval
+config.NSFS_GLACIER_DESIRED_MIGRATE_QUEUE_SIZE = 50;
+
+/** @type {"TOP_K" | "MID_K" | "MIX_K"} */
+config.NSFS_GLACIER_DEFAULT_APPROX_STRATEGY = 'TOP_K';
+
 // anonymous account name
 config.ANONYMOUS_ACCOUNT_NAME = 'anonymous';
 

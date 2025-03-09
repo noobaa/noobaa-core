@@ -92,7 +92,7 @@ describe('noobaa cli - lifecycle', () => {
         const res = await ns_src.create_object_upload({ key: test_key1, bucket: test_bucket }, dummy_sdk);
         await ns_src.create_object_upload({ key: test_key1, bucket: test_bucket }, dummy_sdk);
         await update_mpu_mtime(res.obj_id);
-        await exec_manage_cli(TYPES.LIFECYCLE, '', {disable_service_validation: "true", config_root}, undefined, undefined);
+        await exec_manage_cli(TYPES.LIFECYCLE, '', {disable_service_validation: "true", disable_runtime_validation: "true", config_root}, undefined, undefined);
         const mpu_list = await ns_src.list_uploads({ bucket: test_bucket }, dummy_sdk);
         expect(mpu_list.objects.length).toBe(1); //removed the mpu that was created 5 days ago
     });
@@ -113,7 +113,7 @@ describe('noobaa cli - lifecycle', () => {
         await update_mpu_mtime(res.obj_id);
         res = await ns_src.create_object_upload({ key: test_prefix_key, bucket: test_bucket }, dummy_sdk);
         await update_mpu_mtime(res.obj_id);
-        await exec_manage_cli(TYPES.LIFECYCLE, '', {disable_service_validation: "true", config_root}, undefined, undefined);
+        await exec_manage_cli(TYPES.LIFECYCLE, '', {disable_service_validation: "true", disable_runtime_validation: "true", config_root}, undefined, undefined);
         const mpu_list = await ns_src.list_uploads({ bucket: test_bucket }, dummy_sdk);
         expect(mpu_list.objects.length).toBe(2); //only removed test_prefix_key
     });
@@ -141,7 +141,7 @@ describe('noobaa cli - lifecycle', () => {
         await update_mpu_mtime(res.obj_id);
         res = await ns_src.create_object_upload({ key: test_key1, bucket: test_bucket, tagging: different_tag_set}, dummy_sdk);
         await update_mpu_mtime(res.obj_id);
-        await exec_manage_cli(TYPES.LIFECYCLE, '', {disable_service_validation: "true", config_root}, undefined, undefined);
+        await exec_manage_cli(TYPES.LIFECYCLE, '', {disable_service_validation: "true", disable_runtime_validation: "true", config_root}, undefined, undefined);
         const mpu_list = await ns_src.list_uploads({ bucket: test_bucket }, dummy_sdk);
         expect(mpu_list.objects.length).toBe(3); //two from previous tests + one new undeleted mpu
     });
@@ -154,6 +154,6 @@ describe('noobaa cli - lifecycle', () => {
 });
 
 async function update_file_mtime(target_path) {
-    const update_file_mtime_cmp = `touch -d "5 days ago" ${target_path}`;
+    const update_file_mtime_cmp = os_utils.IS_MAC ? `touch -t $(date -v -5d +"%Y%m%d%H%M.%S") ${target_path}` : `touch -d "5 days ago" ${target_path}`;
     await os_utils.exec(update_file_mtime_cmp, { return_stdout: true });
 }

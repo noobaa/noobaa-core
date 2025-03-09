@@ -3,24 +3,63 @@
 
 const dbg = require('../util/debug_module')(__filename);
 const _ = require('lodash');
+const path = require('path');
 const util = require('util');
 const P = require('../util/promise');
 const config = require('../../config');
 const nb_native = require('../util/nb_native');
 const NsfsObjectSDK = require('../sdk/nsfs_object_sdk');
+const native_fs_utils = require('../util/native_fs_utils');
 const ManageCLIError = require('./manage_nsfs_cli_errors').ManageCLIError;
-const path = require('path');
 const { throw_cli_error, get_service_status, NOOBAA_SERVICE_NAME } = require('./manage_nsfs_cli_utils');
+const { is_desired_time, record_current_time } = require('./manage_nsfs_cli_utils');
 
-// TODO: 
+// TODO:
 // implement 
 // 1. notifications
 // 2. POSIX scanning and filtering per rule
 // 3. GPFS ILM policy and apply for scanning and filtering optimization
 
+const CLUSTER_LOCK = 'cluster.lock';
+const LIFECYLE_TIMESTAMP_FILE = 'lifecycle.timestamp';
+
+/**
+ * run_lifecycle_under_lock runs the lifecycle workflow under a file system lock
+ * lifecycle workflow is being locked to prevent multiple instances from running the lifecycle workflow
+ * @param {import('../sdk/config_fs').ConfigFS} config_fs 
+ * @param {boolean} disable_service_validation 
+ * @param {boolean} disable_runtime_validation
+ */
+async function run_lifecycle_under_lock(config_fs, disable_service_validation, disable_runtime_validation) {
+    const lifecyle_logs_dir_path = config.LIFECYCLE_LOGS_DIR;
+    await config_fs.create_dir_if_missing(lifecyle_logs_dir_path);
+    const lock_path = path.join(lifecyle_logs_dir_path, CLUSTER_LOCK);
+    const fs_context = config_fs.fs_context;
+
+    await native_fs_utils.lock_and_run(fs_context, lock_path, async () => {
+        dbg.log0('run_lifecycle_under_lock acquired lock - start lifecycle');
+        const lifecycle_timestamp_file_path = path.join(lifecyle_logs_dir_path, LIFECYLE_TIMESTAMP_FILE);
+        const should_run = disable_runtime_validation ? true :
+            await is_desired_time(
+                fs_context,
+                new Date(),
+                config.NC_LIFECYCLE_RUN_TIME,
+                config.NC_LIFECYCLE_RUN_DELAY_LIMIT_MINS,
+                lifecycle_timestamp_file_path,
+                config.NC_LIFECYCLE_TZ);
+        dbg.log0('run_lifecycle_under_lock should_run', should_run);
+        if (should_run) {
+            await run_lifecycle(config_fs, disable_service_validation);
+            await record_current_time(fs_context, lifecycle_timestamp_file_path);
+        }
+        dbg.log0('run_lifecycle_under_lock done lifecycle - released lock');
+    });
+}
+
 /**
  * run_lifecycle runs the lifecycle workflow
  * @param {import('../sdk/config_fs').ConfigFS} config_fs 
+ * @param {boolean} disable_service_validation
  * @returns {Promise<Void>}
  */
 async function run_lifecycle(config_fs, disable_service_validation) {
@@ -319,5 +358,5 @@ async function update_lifecycle_rules_last_sync(config_fs, bucket_json, j, num_o
 }
 
 // EXPORTS
-exports.run_lifecycle = run_lifecycle;
+exports.run_lifecycle_under_lock = run_lifecycle_under_lock;
 

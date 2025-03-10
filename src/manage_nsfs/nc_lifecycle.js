@@ -21,7 +21,7 @@ const { is_desired_time, record_current_time } = require('./manage_nsfs_cli_util
 // 3. GPFS ILM policy and apply for scanning and filtering optimization
 
 const CLUSTER_LOCK = 'cluster.lock';
-const LIFECYLE_TIMESTAMP_FILE = 'lifecyle.timestamp';
+const LIFECYLE_TIMESTAMP_FILE = 'lifecycle.timestamp';
 
 /**
  * run_lifecycle_under_lock runs the lifecycle workflow under a file system lock

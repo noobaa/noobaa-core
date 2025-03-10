@@ -49,7 +49,7 @@ async function init_rand_seed() {
         console.log('init_rand_seed: starting ...');
     }
     let still_reading = true;
-    const promise = entropy_utils.generate_entropy(() => still_reading);
+    const promise = generate_entropy(() => still_reading);
 
     const seed = await read_rand_seed(32);
     if (seed) {
@@ -103,6 +103,34 @@ async function read_rand_seed(seed_bytes) {
     }
     await clean_fh();
     return buf;
+}
+
+/**
+ * generate_entropy will create randomness by changing the MD5
+ * using information from the device (disk)
+ * it will run as long as the callback it true
+ * @param {function} loop_cond
+ */
+async function generate_entropy(loop_cond) {
+    if (process.platform !== 'linux' || process.env.container === 'docker') return;
+    while (loop_cond()) {
+        try {
+            await async_delay(1000);
+            const ENTROPY_AVAIL_PATH = '/proc/sys/kernel/random/entropy_avail';
+            const entropy_avail = parseInt(await fs.promises.readFile(ENTROPY_AVAIL_PATH, 'utf8'), 10);
+            console.log(`generate_entropy: entropy_avail ${entropy_avail}`);
+            if (entropy_avail >= 512) return;
+            const available_disks = await entropy_utils.get_block_device_disk_info();
+            const disk_details = await entropy_utils.pick_a_disk(available_disks);
+            if (disk_details) {
+                entropy_utils.add_entropy(disk_details.name, disk_details.size);
+            } else {
+                throw new Error('No disk candidates found');
+            }
+        } catch (err) {
+            console.log('generate_entropy: error', err);
+        }
+    }
 }
 
 module.exports = nb_native;

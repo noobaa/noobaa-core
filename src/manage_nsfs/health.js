@@ -66,6 +66,10 @@ const health_errors = {
         error_code: 'INVALID_CONFIG_DIR',
         error_message: 'Config directory is invalid',
     },
+    NOTIF_LOW_STORAGE: {
+        error_code: 'LOW_STORAGE',
+        error_message: 'Notification log dir\'s FS storage is low.'
+    },
     UNKNOWN_ERROR: {
         error_code: 'UNKNOWN_ERROR',
         error_message: 'An unknown error occurred',
@@ -103,6 +107,7 @@ class NSFSHealth {
         this.all_account_details = options.all_account_details;
         this.all_bucket_details = options.all_bucket_details;
         this.all_connection_details = options.all_connection_details;
+        this.notif_storage_threshold = options.notif_storage_threshold;
         this.config_fs = options.config_fs;
     }
 
@@ -131,6 +136,7 @@ class NSFSHealth {
         let bucket_details;
         let account_details;
         let connection_details;
+        let notif_storage_threshold_details;
         const endpoint_response_code = (endpoint_state && endpoint_state.response?.response_code) || 'UNKNOWN_ERROR';
         const health_check_params = { service_status, pid, endpoint_response_code, config_directory_status };
         const service_health = this._calc_health_status(health_check_params);
@@ -138,6 +144,7 @@ class NSFSHealth {
         if (this.all_bucket_details) bucket_details = await this.get_bucket_status();
         if (this.all_account_details) account_details = await this.get_account_status();
         if (this.all_connection_details) connection_details = await this.get_connection_status();
+        if (this.notif_storage_threshold) notif_storage_threshold_details = this.get_notif_storage_threshold_status();
         const health = {
             service_name: NOOBAA_SERVICE_NAME,
             status: service_health,
@@ -160,7 +167,8 @@ class NSFSHealth {
                     valid_buckets: bucket_details === undefined ? undefined : bucket_details.valid_storages,
                     error_type: health_errors_tyes.PERSISTENT,
                 },
-                connections_status: connection_details
+                connections_status: connection_details,
+                notif_storage_threshold_details
             }
         };
         if (!this.all_account_details) delete health.checks.accounts_status;
@@ -428,6 +436,20 @@ class NSFSHealth {
         };
     }
 
+    get_notif_storage_threshold_status() {
+        const check = notifications_util.check_free_space();
+        const res = {
+            threshold: config.NOTIFICATION_SPACE_CHECK_THRESHOLD,
+            ratio: check.ratio
+        };
+        if (check.below) {
+            res.result = 'below threshold';
+        } else {
+            res.result = 'above threshold';
+        }
+        return res;
+    }
+
     /**
      * get_config_file_data_or_error_object return an object containing config_data or err_obj if error occurred
      * @param {string} type
@@ -594,9 +616,11 @@ async function get_health_status(argv, config_fs) {
         const all_account_details = get_boolean_or_string_value(argv.all_account_details);
         const all_bucket_details = get_boolean_or_string_value(argv.all_bucket_details);
         const all_connection_details = get_boolean_or_string_value(argv.all_connection_details);
+        const notif_storage_threshold = get_boolean_or_string_value(argv.notif_storage_threshold);
 
         if (deployment_type === 'nc') {
-            const health = new NSFSHealth({ https_port, all_account_details, all_bucket_details, all_connection_details, config_fs });
+            const health = new NSFSHealth({ https_port,
+                all_account_details, all_bucket_details, all_connection_details, notif_storage_threshold, config_fs });
             const health_status = await health.nc_nsfs_health();
             write_stdout_response(ManageCLIResponse.HealthStatus, health_status);
         } else {

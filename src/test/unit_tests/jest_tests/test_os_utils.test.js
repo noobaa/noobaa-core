@@ -49,4 +49,24 @@ describe('os_utils', () => {
         });
 
     });
+
+    describe('get_block_device_disk_info', () => {
+
+        it('(on Linux) should return array of disk devices that their names starts with' +
+            '/dev/, and their size it a number in bytes' +
+            '(else) empty array', async () => {
+            const res = await os_utils.get_block_device_disk_info();
+            expect(Array.isArray(res)).toBe(true);
+            console.log('os_utils.IS_LINUX', os_utils.IS_LINUX);
+            if (os_utils.IS_LINUX) {
+                res.forEach(item => {
+                    expect(item.name.startsWith('/dev/')).toBe(true);
+                    expect(typeof(item.size)).toBe('number');
+                });
+            } else {
+                expect(res.length).toBe(0);
+            }
+        });
+
+    });
 });

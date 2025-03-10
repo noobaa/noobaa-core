@@ -18,7 +18,7 @@ const { write_stdout_response, throw_cli_error, get_service_status, NOOBAA_SERVI
     is_desired_time, record_current_time } = require('./manage_nsfs_cli_utils');
 
 // TODO:
-// implement 
+// implement
 // 1. notifications
 // 2. POSIX scanning and filtering per rule
 // 3. GPFS ILM policy and apply for scanning and filtering optimization
@@ -49,7 +49,7 @@ const TIMED_OPS = Object.freeze({
 /**
  * run_lifecycle_under_lock runs the lifecycle workflow under a file system lock
  * lifecycle workflow is being locked to prevent multiple instances from running the lifecycle workflow
- * @param {import('../sdk/config_fs').ConfigFS} config_fs 
+ * @param {import('../sdk/config_fs').ConfigFS} config_fs
  * @param {{disable_service_validation?: boolean, disable_runtime_validation?: boolean, short?: boolean}} flags
  */
 async function run_lifecycle_under_lock(config_fs, flags) {
@@ -83,9 +83,9 @@ async function run_lifecycle_under_lock(config_fs, flags) {
 }
 
 /**
- * run_lifecycle_or_timeout runs the lifecycle workflow or times out while calculating 
+ * run_lifecycle_or_timeout runs the lifecycle workflow or times out while calculating
  * and saving times and stats of the run on the global lifecycle status
- * @param {import('../sdk/config_fs').ConfigFS} config_fs 
+ * @param {import('../sdk/config_fs').ConfigFS} config_fs
  * @param {boolean} disable_service_validation
  * @returns {Promise<Void>}
  */
@@ -104,7 +104,7 @@ async function run_lifecycle_or_timeout(config_fs, disable_service_validation) {
 
 /**
  * run_lifecycle runs the lifecycle workflow
- * @param {import('../sdk/config_fs').ConfigFS} config_fs 
+ * @param {import('../sdk/config_fs').ConfigFS} config_fs
  * @param {boolean} disable_service_validation
  * @returns {Promise<Void>}
  */
@@ -125,13 +125,13 @@ async function run_lifecycle(config_fs, disable_service_validation) {
 
 /**
  * process_buckets iterates over buckets and handles their rules
- * @param {import('../sdk/config_fs').ConfigFS} config_fs 
- * @param {String[]} bucket_names 
+ * @param {import('../sdk/config_fs').ConfigFS} config_fs
+ * @param {String[]} bucket_names
  * @param {Object} system_json
  * @returns {Promise<Void>}
  */
 async function process_buckets(config_fs, bucket_names, system_json) {
-    const buckets_concurrency = 10; // TODO - think about it 
+    const buckets_concurrency = 10; // TODO - think about it
     await P.map_with_concurrency(buckets_concurrency, bucket_names, async bucket_name =>
         await _call_op_and_update_status({
             bucket_name,
@@ -182,10 +182,10 @@ async function process_rules(config_fs, bucket_json, object_sdk) {
 /**
  * process_rule processes the lifecycle rule for a bucket
  * TODO - implement notifications for the deleted objects (check if needed for abort mpus as well)
- * @param {import('../sdk/config_fs').ConfigFS} config_fs 
- * @param {Object} lifecycle_rule 
- * @param {number} index 
- * @param {Object} bucket_json 
+ * @param {import('../sdk/config_fs').ConfigFS} config_fs
+ * @param {Object} lifecycle_rule
+ * @param {number} index
+ * @param {Object} bucket_json
  * @param {nb.ObjectSDK} object_sdk
  * @returns {Promise<Void>}
  */
@@ -233,14 +233,14 @@ async function process_rule(config_fs, lifecycle_rule, index, bucket_json, objec
 
 /**
  * abort_mpus iterates over the abort mpu candidates and calls abort_object_upload
- * since abort_object_upload is not returning anything, we catch it in case of an error and assign err_code 
+ * since abort_object_upload is not returning anything, we catch it in case of an error and assign err_code
  * so it can be translated to error on stats
  * @param {*} candidates
- * @param {nb.ObjectSDK} object_sdk  
+ * @param {nb.ObjectSDK} object_sdk
  * @returns {Promise<Object[]>}
  */
 async function abort_mpus(candidates, object_sdk) {
-    const aborts_concurrency = 10; // TODO - think about it 
+    const aborts_concurrency = 10; // TODO - think about it
     const abort_mpus_reply = await P.map_with_concurrency(aborts_concurrency, candidates.abort_mpu_candidates,
         async candidate => {
             const candidate_info = { key: candidate.key, upload_id: candidate.obj_id };
@@ -261,13 +261,13 @@ async function abort_mpus(candidates, object_sdk) {
 /////////////////////////////////
 
 /**
- * _should_lifecycle_run checks if lifecycle worker should run based on the followings - 
- * 1. lifecycle workrer can be disabled 
+ * _should_lifecycle_run checks if lifecycle worker should run based on the followings -
+ * 1. lifecycle workrer can be disabled
  * 2. lifecycle worker might run at time that does not match config.NC_LIFECYCLE_RUN_TIME
  * 3. previous run was in the delay time frame
- * @param {nb.NativeFSContext} fs_context 
- * @param {String} lifecycle_timestamp_file_path 
- * @param {Boolean} disable_runtime_validation 
+ * @param {nb.NativeFSContext} fs_context
+ * @param {String} lifecycle_timestamp_file_path
+ * @param {Boolean} disable_runtime_validation
  * @returns {Promise<Boolean>}
  */
 async function _should_lifecycle_run(fs_context, lifecycle_timestamp_file_path, disable_runtime_validation) {
@@ -284,7 +284,7 @@ async function _should_lifecycle_run(fs_context, lifecycle_timestamp_file_path, 
 
 /**
  * throw_if_noobaa_not_active checks if system.json exists and the noobaa service is active
- * @param {import('../sdk/config_fs').ConfigFS} config_fs 
+ * @param {import('../sdk/config_fs').ConfigFS} config_fs
  * @param {Object} system_json
  */
 async function throw_if_noobaa_not_active(config_fs, system_json) {
@@ -308,7 +308,7 @@ async function throw_if_noobaa_not_active(config_fs, system_json) {
 async function get_candidates(bucket_json, lifecycle_rule, object_sdk, fs_context) {
     const candidates = { abort_mpu_candidates: [], delete_candidates: [] };
     if (lifecycle_rule.expiration) {
-        candidates.delete_candidates = await get_candidates_by_expiration_rule(lifecycle_rule, bucket_json);
+        candidates.delete_candidates = await get_candidates_by_expiration_rule(lifecycle_rule, bucket_json, object_sdk);
         if (lifecycle_rule.expiration.days || lifecycle_rule.expiration.expired_object_delete_marker) {
             const dm_candidates = await get_candidates_by_expiration_delete_marker_rule(lifecycle_rule, bucket_json);
             candidates.delete_candidates = candidates.delete_candidates.concat(dm_candidates);
@@ -325,10 +325,11 @@ async function get_candidates(bucket_json, lifecycle_rule, object_sdk, fs_contex
     return candidates;
 }
 
+
 /**
  * validate_rule_enabled checks if the rule is enabled and should be processed
- * @param {*} rule 
- * @param {Object} bucket 
+ * @param {*} rule
+ * @param {Object} bucket
  * @returns {boolean}
  */
 function validate_rule_enabled(rule, bucket) {
@@ -349,24 +350,36 @@ function validate_rule_enabled(rule, bucket) {
 ////////////////////////////////////
 
 /**
+ * @param {Object} entry list object entry
+ */
+function _get_lifecycle_object_info_from_list_object_entry(entry) {
+    return {
+        key: entry.key,
+        age: _get_file_age_days(entry.create_time),
+        size: entry.size,
+        tags: entry.tagging,
+    };
+}
+
+/**
  * get_candidates_by_expiration_rule processes the expiration rule
- * @param {*} lifecycle_rule 
- * @param {Object} bucket_json 
+ * @param {*} lifecycle_rule
+ * @param {Object} bucket_json
  * @returns {Promise<Object[]>}
  */
-async function get_candidates_by_expiration_rule(lifecycle_rule, bucket_json) {
+async function get_candidates_by_expiration_rule(lifecycle_rule, bucket_json, object_sdk) {
     const is_gpfs = nb_native().fs.gpfs;
     if (is_gpfs) {
         return get_candidates_by_expiration_rule_gpfs(lifecycle_rule, bucket_json);
     } else {
-        return get_candidates_by_expiration_rule_posix(lifecycle_rule, bucket_json);
+        return get_candidates_by_expiration_rule_posix(lifecycle_rule, bucket_json, object_sdk);
     }
 }
 
 /**
- * 
- * @param {*} lifecycle_rule 
- * @param {Object} bucket_json 
+ *
+ * @param {*} lifecycle_rule
+ * @param {Object} bucket_json
  * @returns {Promise<Object[]>}
  */
 async function get_candidates_by_expiration_rule_gpfs(lifecycle_rule, bucket_json) {
@@ -375,20 +388,34 @@ async function get_candidates_by_expiration_rule_gpfs(lifecycle_rule, bucket_jso
 }
 
 /**
- * 
- * @param {*} lifecycle_rule 
+ *
+ * @param {*} lifecycle_rule
  * @param {Object} bucket_json
- * @returns {Promise<Object[]>} 
+ * @returns {Promise<Object[]>}
  */
-async function get_candidates_by_expiration_rule_posix(lifecycle_rule, bucket_json) {
-    // TODO - implement
-    return [];
+async function get_candidates_by_expiration_rule_posix(lifecycle_rule, bucket_json, object_sdk) {
+    const expiration = _get_expiration_time(lifecycle_rule.expiration);
+    if (expiration < 0) return [];
+    const filter_func = _build_lifecycle_filter({filter: lifecycle_rule.filter, expiration});
+
+    const filtered_objects = [];
+    // TODO list_objects does not accept a filter and works in batch sizes of 1000. should handle batching
+    // also should maybe create a helper function or add argument for a filter in list object
+    const objects_list = await object_sdk.list_objects({bucket: bucket_json.name, prefix: lifecycle_rule.filter?.prefix});
+    objects_list.objects.forEach(obj => {
+        const object_info = _get_lifecycle_object_info_from_list_object_entry(obj);
+        if (filter_func(object_info)) {
+            filtered_objects.push({key: object_info.key});
+        }
+    });
+    return filtered_objects;
+
 }
 
 /**
  * get_candidates_by_expiration_delete_marker_rule processes the expiration delete marker rule
- * @param {*} lifecycle_rule 
- * @param {Object} bucket_json 
+ * @param {*} lifecycle_rule
+ * @param {Object} bucket_json
  * @returns {Promise<Object[]>}
  */
 async function get_candidates_by_expiration_delete_marker_rule(lifecycle_rule, bucket_json) {
@@ -462,13 +489,13 @@ async function get_candidates_by_abort_incomplete_multipart_upload_rule(lifecycl
 }
 
 /**
- * @param {*} create_params_parsed
+ * @param {Object} create_params_parsed
  * @param {nb.NativeFSStats} stat
  */
 function _get_lifecycle_object_info_for_mpu(create_params_parsed, stat) {
     return {
         key: create_params_parsed.key,
-        age: _get_file_age_days(stat),
+        age: _get_file_age_days(stat.mtime.getTime()),
         tags: create_params_parsed.tagging,
     };
 }
@@ -502,12 +529,31 @@ function _build_lifecycle_filter(params) {
 
 /**
  * get file time since last modified in days
- * @param {nb.NativeFSStats} stat
+ * @param {Number} mtime
+ * @returns {Number} days since object was last modified
  */
-function _get_file_age_days(stat) {
-    //TODO how much do we care about rounding errors? (it is by days after all)
-    return (Date.now() - Number(stat.mtimeNsBigint) / 1e6) / 24 / 60 / 60 / 1000;
+function _get_file_age_days(mtime) {
+    return Math.floor((Date.now() - mtime) / 24 / 60 / 60 / 1000);
 }
+
+/**
+ * get the expiration time in days of an object
+ * if rule is set with date, then rule is applied for all objects after that date
+ * return -1 to indicate that the date hasn't arrived, so rule should not be applied
+ * return 0 in case date has arrived so expiration is true for all elements
+ * return days in case days was defined and not date
+ * @param {Object} expiration_rule
+ * @returns {Number}
+ */
+function _get_expiration_time(expiration_rule) {
+    if (expiration_rule.date) {
+        const expiration_date = new Date(expiration_rule.date).getTime();
+        if (Date.now() < expiration_date) return -1;
+        return 0;
+    }
+    return expiration_rule.days;
+}
+
 
 /**
  * checks if tag query_tag is in the list tag_set
@@ -545,7 +591,7 @@ function _file_contain_tags(object_info, filter_tags) {
  * update_lifecycle_rules_last_sync updates the last sync time of the lifecycle rule
  * @param {import('../sdk/config_fs').ConfigFS} config_fs
  * @param {Object} bucket_json
- * @param {String} rule_id 
+ * @param {String} rule_id
  * @param {number} index
  * @returns {Promise<Void>}
  */
@@ -601,14 +647,14 @@ async function _call_op_and_update_status({ bucket_name = undefined, rule_id = u
  * 2. update times
  * 3. update errors
  * 4. update stats if the op is at rule level
- * @param {{ 
+ * @param {{
  * op_name: string,
  * bucket_name?: string,
- * rule_id?: string, 
+ * rule_id?: string,
  * op_times: { start_time?: number, end_time?: number, took_ms?: number },
  * reply?: Object[],
  * error?: Error}
- * } params 
+ * } params
  * @returns {Void}
 */
 function update_status({ bucket_name, rule_id, op_name, op_times, reply = [], error = undefined }) {
@@ -629,7 +675,7 @@ function update_status({ bucket_name, rule_id, op_name, op_times, reply = [], er
 
 /**
  * _calc_stats accumulates stats for global/bucket stats
- * @param {Object} stats_acc 
+ * @param {Object} stats_acc
  * @param {Object} [cur_op_stats]
  * @returns {Object}
  */
@@ -649,17 +695,17 @@ function _acc_stats(stats_acc, cur_op_stats = {}) {
 
 /**
  * update_stats_on_status updates stats on rule context status and adds the rule status to the summarized bucket/global context stats
- * @param {{ 
- * op_name: string, 
- * bucket_name: string, 
- * rule_id: string, 
- * op_times: { 
- *  start_time?: number, 
- *  end_time?: number, 
- *  took_ms?: number 
+ * @param {{
+ * op_name: string,
+ * bucket_name: string,
+ * rule_id: string,
+ * op_times: {
+ *  start_time?: number,
+ *  end_time?: number,
+ *  took_ms?: number
  * },
  * reply?: Object[],
- * }} params 
+ * }} params
  * @returns {Void}
  */
 function update_stats_on_status({ bucket_name, rule_id, op_name, op_times, reply = [] }) {
@@ -689,9 +735,9 @@ function update_stats_on_status({ bucket_name, rule_id, op_name, op_times, reply
 
 /**
  * _update_times_on_status updates start/end & took times in lifecycle status
- * @param {{op_name: String, op_times: {start_time?: number, end_time?: number, took_ms?: number }, 
+ * @param {{op_name: String, op_times: {start_time?: number, end_time?: number, took_ms?: number },
  * bucket_name?: String, rule_id?: String}} params
- * @returns 
+ * @returns
  */
 function _update_times_on_status({ op_name, op_times, bucket_name = undefined, rule_id = undefined }) {
     for (const [key, value] of Object.entries(op_times)) {
@@ -709,7 +755,7 @@ function _update_times_on_status({ op_name, op_times, bucket_name = undefined, r
 /**
  * _update_error_on_status updates an error occured in lifecycle status
  * @param {{error: Error, bucket_name?: string, rule_id?: string}} params
- * @returns 
+ * @returns
  */
 function _update_error_on_status({ error, bucket_name = undefined, rule_id = undefined }) {
     if (!error) return;

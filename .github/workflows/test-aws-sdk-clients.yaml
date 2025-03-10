@@ -1,0 +1,62 @@
+name: Test AWS SDK Clients
+on: [push, pull_request, workflow_dispatch]
+# it should run nightly, in the push only for CR step
+# on: 
+#   schedule:
+#     - cron: "0 1 * * *"
+#   workflow_dispatch:
+
+jobs:
+  test-aws-sdk-clients:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          repository: 'noobaa/noobaa-core'
+          path: 'noobaa-core'
+
+      - name: Run AWS SDK Clients
+        run: |
+          set -x
+          cd ./noobaa-core
+          make test-aws-sdk-clients
+
+      # # this should be removed
+      # - name: Test slack webhook
+      #   uses: slackapi/slack-github-action@v2.0.0
+      #   with:
+      #     webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+      #     webhook-type: incoming-webhook
+      #     payload: |
+      #       text: "Hello world (Shira is testing webhook)"
+
+      # this should be removed
+      - name: Test slack webhook 2
+        run: | 
+          echo "check the variable" 
+          echo "${{ secrets.SLACK_WEBHOOK_URL }}" | wc -c
+          echo "send the massage"
+          curl -X POST ${{ secrets.SLACK_WEBHOOK_URL }} \
+          -H "Content-type: application/json" \
+          -d '{"text": "hello_world (Shira) with curl in github action"}'
+
+      # this should be added
+      # later we would add the if: ${{ failure() }} condition
+      # - name: Post a message in a channel
+      #   uses: slackapi/slack-github-action@v2.0.0
+      #   with:
+      #     webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+      #     webhook-type: incoming-webhook
+      #     payload: |
+      #       text: "*GitHub Action Test AWS SDK Clients Result*: ${{ job.status }}\n"
+      #       blocks:
+      #         - type: "section"
+      #           text:
+      #           type: "mrkdwn"
+      #           text: "GitHub Action build result: ${{ job.status }}\n"
+

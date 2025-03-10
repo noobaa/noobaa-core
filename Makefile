@@ -229,6 +229,12 @@ build-ssl-postgres: tester
 	@echo "##\033[1;32m Build image postgres:ssl done.\033[0m"
 .PHONY: build-ssl-postgres
 
+build-aws-client: noobaa
+	@echo "\n##\033[1;32m Build image for AWS Client tests ...\033[0m"
+	$(CONTAINER_ENGINE) build $(CONTAINER_PLATFORM_FLAG) $(CPUSET) -f src/deploy/NVA_build/AWSClient.Dockerfile $(CACHE_FLAG) $(NETWORK_FLAG) -t noobaa-aws-client . $(REDIRECT_STDOUT)
+	@echo "\033[1;32mBuild image for AWS Client tests done.\033[0m"
+.PHONY: build-aws-client
+
 test: tester
 	@echo "\033[1;34mRunning tests with Mongo.\033[0m"
 	@$(call create_docker_network)
@@ -362,6 +368,17 @@ test-external-pg-sanity: build-ssl-postgres
 	@$(call stop_external_postgres)
 	@$(call remove_docker_network)
 .PHONY: test-external-pg-sanity
+
+test-aws-sdk-clients: build-aws-client
+	@echo "\033[1;34mRunning tests with Postgres.\033[0m"
+	@$(call create_docker_network)
+	@$(call run_postgres)
+	@echo "\033[1;34mRunning aws sdk clients tests\033[0m"
+	$(CONTAINER_ENGINE) run $(CPUSET) --network noobaa-net --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) --env "SUPPRESS_LOGS=$(SUPPRESS_LOGS)" --env "POSTGRES_HOST=coretest-postgres-$(GIT_COMMIT)-$(NAME_POSTFIX)" --env "POSTGRES_USER=noobaa" --env "DB_TYPE=postgres" --env "POSTGRES_DBNAME=coretest" --env "NOOBAA_LOG_LEVEL=all" -v $(PWD)/logs:/logs  noobaa-aws-client ./src/test/unit_tests/run_npm_test_on_test_container.sh -c ./node_modules/mocha/bin/mocha.js src/test/unit_tests/different_clients/test_go_sdkv2_script.js
+	@$(call stop_noobaa)
+	@$(call stop_postgres)
+	@$(call remove_docker_network)
+.PHONY: test-aws-sdk-clients
 
 clean:
 	@echo Stopping and Deleting containers

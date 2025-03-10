@@ -198,6 +198,91 @@ async function get_service_status(service_name) {
     return service_status;
 }
 
+/**
+ * is_desired_time returns true if the given time matches with
+ * the desired time or if 
+ * @param {nb.NativeFSContext} fs_context 
+ * @param {Date} current
+ * @param {string} desire time in format 'hh:mm'
+ * @param {number} delay_limit_mins
+ * @param {string} timestamp_file_path 
+ * @param {"UTC" | "LOCAL"} timezone
+ * @returns {Promise<boolean>}
+ */
+async function is_desired_time(fs_context, current, desire, delay_limit_mins, timestamp_file_path, timezone) {
+    const [desired_hour, desired_min] = desire.split(':').map(Number);
+    if (
+        isNaN(desired_hour) ||
+        isNaN(desired_min) ||
+        (desired_hour < 0 || desired_hour >= 24) ||
+        (desired_min < 0 || desired_min >= 60)
+    ) {
+        throw new Error('invalid desired_time - must be hh:mm');
+    }
+
+    const min_time = get_tz_date(desired_hour, desired_min, 0, timezone);
+    const max_time = get_tz_date(desired_hour, desired_min + delay_limit_mins, 0, timezone);
+
+    if (current >= min_time && current <= max_time) {
+        try {
+            const { data } = await nb_native().fs.readFile(fs_context, timestamp_file_path);
+            const lastrun = new Date(data.toString());
+
+            // Last run should NOT be in this window
+            if (lastrun >= min_time && lastrun <= max_time) return false;
+        } catch (error) {
+            if (error.code === 'ENOENT') return true;
+            console.error('failed to read last run timestamp:', error, 'timestamp_file_path:', timestamp_file_path);
+
+            throw error;
+        }
+
+        return true;
+    }
+
+    return false;
+}
+
+
+/**
+ * record_current_time stores the current timestamp in ISO format into
+ * the given timestamp file
+ * @param {nb.NativeFSContext} fs_context 
+ * @param {string} timestamp_file_path 
+ */
+async function record_current_time(fs_context, timestamp_file_path) {
+    await nb_native().fs.writeFile(
+        fs_context,
+        timestamp_file_path,
+        Buffer.from(new Date().toISOString()),
+    );
+}
+
+/**
+ * @param {number} hours
+ * @param {number} mins
+ * @param {number} secs
+ * @param {'UTC' | 'LOCAL'} tz
+ * @returns {Date}
+ */
+function get_tz_date(hours, mins, secs, tz) {
+    const date = new Date();
+
+    if (tz === 'UTC') {
+        date.setUTCHours(hours);
+        date.setUTCMinutes(hours);
+        date.setUTCSeconds(secs);
+        date.setUTCMilliseconds(0);
+    } else {
+        date.setHours(hours);
+        date.setMinutes(mins);
+        date.setSeconds(secs);
+        date.setMilliseconds(0);
+    }
+
+    return date;
+}
+
 // EXPORTS
 exports.throw_cli_error = throw_cli_error;
 exports.write_stdout_response = write_stdout_response;
@@ -212,3 +297,6 @@ exports.is_name_update = is_name_update;
 exports.is_access_key_update = is_access_key_update;
 exports.get_service_status = get_service_status;
 exports.NOOBAA_SERVICE_NAME = NOOBAA_SERVICE_NAME;
+exports.is_desired_time = is_desired_time;
+exports.record_current_time = record_current_time;
+exports.get_tz_date = get_tz_date;

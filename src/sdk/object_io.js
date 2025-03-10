@@ -290,7 +290,9 @@ class ObjectIO {
                 await this._upload_stream(params, complete_params);
             }
             dbg.log0('upload_multipart: complete upload', complete_params);
-            return params.client.object.complete_multipart(complete_params);
+            const multipart_params = await params.client.object.complete_multipart(complete_params);
+            multipart_params.multipart_id = complete_params.multipart_id;
+            return multipart_params;
         } catch (err) {
             dbg.warn('upload_multipart: failed', complete_params, err);
             // we leave the cleanup of failed multiparts to complete_object_upload or abort_object_upload

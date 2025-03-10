@@ -25,6 +25,7 @@ const ADMIN_WIN_USERS = Object.freeze([
     'NT AUTHORITY\\SYSTEM',
     'BUILTIN\\Administrators'
 ]);
+const DEVICE_TYPE_DISK = 'disk';
 
 const IS_WIN = process.platform === 'win32';
 const IS_MAC = process.platform === 'darwin';
@@ -42,6 +43,7 @@ const exec_async = util.promisify(child_process.exec);
 // const fork_async = util.promisify(child_process.fork);
 // const spawn_async = util.promisify(child_process.spawn);
 const warn_once = _.once((...args) => dbg.warn(...args));
+const get_block_info_async = util.promisify(blockutils.getBlockInfo);
 
 /**
  * @param {string} command
@@ -418,6 +420,36 @@ async function get_block_device_sizes() {
         res[`/dev/${bd.NAME}`] = Number(bd.SIZE);
         return res;
     }, {});
+}
+
+/**
+ * get_block_device_disk_info
+ * (on Linux) will return array of disk devices
+ *            that their names starts with /dev/
+ *            and their size it a number in bytes
+ * (else) will return an empty array
+ * Note: under the hood it uses blockutils.getBlockInfo which calls lsblk command
+ * @returns {Promise<object[]>}
+ */
+async function get_block_device_disk_info() {
+    if (!IS_LINUX) return [];
+    try {
+        const block_devices = await get_block_info_async({});
+        if (!block_devices) return [];
+
+        return block_devices.reduce((acc, block_device) => {
+            if (block_device.TYPE === DEVICE_TYPE_DISK) {
+                acc.push({
+                        name: `/dev/${block_device.NAME}`,
+                        size: Number(block_device.SIZE),
+                    });
+            }
+            return acc;
+        }, []);
+    } catch (err) {
+        dbg.error('get_block_device_info got an error', err);
+        return [];
+    }
 }
 
 async function get_drive_of_path(file_path) {
@@ -1032,3 +1064,4 @@ exports.get_process_parent_pid = get_process_parent_pid;
 exports.get_agent_platform_path = get_agent_platform_path;
 exports.discover_k8s_services = discover_k8s_services;
 exports.restart_services = restart_services;
+exports.get_block_device_disk_info = get_block_device_disk_info;

@@ -43,7 +43,7 @@ async function run_lifecycle_under_lock(config_fs, disable_service_validation, d
             await is_desired_time(
                 fs_context,
                 new Date(),
-                config.NC_LIFECYLE_RUN_TIME,
+                config.NC_LIFECYCLE_RUN_TIME,
                 config.NC_LIFECYCLE_RUN_DELAY_LIMIT_MINS,
                 lifecycle_timestamp_file_path,
                 config.NC_LIFECYCLE_TZ);

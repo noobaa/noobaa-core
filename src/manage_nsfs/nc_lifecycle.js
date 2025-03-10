@@ -12,15 +12,15 @@ const ManageCLIError = require('./manage_nsfs_cli_errors').ManageCLIError;
 const path = require('path');
 const { throw_cli_error, get_service_status, NOOBAA_SERVICE_NAME } = require('./manage_nsfs_cli_utils');
 
-// TODO: 
-// implement 
+// TODO:
+// implement
 // 1. notifications
 // 2. POSIX scanning and filtering per rule
 // 3. GPFS ILM policy and apply for scanning and filtering optimization
 
 /**
  * run_lifecycle runs the lifecycle workflow
- * @param {import('../sdk/config_fs').ConfigFS} config_fs 
+ * @param {import('../sdk/config_fs').ConfigFS} config_fs
  * @returns {Promise<Void>}
  */
 async function run_lifecycle(config_fs, disable_service_validation) {
@@ -47,7 +47,7 @@ async function run_lifecycle(config_fs, disable_service_validation) {
 
 /**
  * throw_if_noobaa_not_active checks if system.json exists and the noobaa service is active
- * @param {import('../sdk/config_fs').ConfigFS} config_fs 
+ * @param {import('../sdk/config_fs').ConfigFS} config_fs
  * @param {Object} system_json
  */
 async function throw_if_noobaa_not_active(config_fs, system_json) {
@@ -64,13 +64,31 @@ async function throw_if_noobaa_not_active(config_fs, system_json) {
 }
 
 /**
- * get file time since last modified in days
- * @param {nb.NativeFSStats} stat
+ * @param {Number} mtime
+ * @returns {Number} days since object was last modified
  */
-function _get_file_age_days(stat) {
-    //TODO how much do we care about rounding errors? (it is by days after all)
-    return (Date.now() - Number(stat.mtimeNsBigint) / 1e6) / 24 / 60 / 60 / 1000;
+function _get_file_age_days(mtime) {
+    return Math.floor((Date.now() - mtime) / 24 / 60 / 60 / 1000);
 }
+
+/**
+ * get the expiration time in days of an object
+ * if rule is set with date, then rule is applied for all objects after that date
+ * return -1 to indicate that the date hasn't arrived, so rule should not be applied
+ * return 0 in case date has arrived so expiration is true for all elements
+ * return days in case days was defined and not date
+ * @param {Object} expiration_rule
+ * @returns {Number}
+ */
+function _get_expiration_time(expiration_rule) {
+    if (expiration_rule.date) {
+        const expiration_date = new Date(expiration_rule.date).getTime();
+        if (Date.now() < expiration_date) return -1;
+        return 0;
+    }
+    return expiration_rule.days;
+}
+
 
 /**
  * checks if tag query_tag is in the list tag_set
@@ -101,17 +119,28 @@ function _file_contain_tags(object_info, filter_tags) {
 }
 
 /**
- * @param {*} create_params_parsed
+ * @param {Object} create_params_parsed
  * @param {nb.NativeFSStats} stat
  */
 function _get_lifecycle_object_info_for_mpu(create_params_parsed, stat) {
     return {
         key: create_params_parsed.key,
-        age: _get_file_age_days(stat),
+        age: _get_file_age_days(stat.mtime.getTime()),
         tags: create_params_parsed.tagging,
     };
 }
 
+/**
+ * @param {Object} entry list object entry
+ */
+function _get_lifecycle_object_info_from_list_object_entry(entry) {
+    return {
+        key: entry.key,
+        age: _get_file_age_days(entry.create_time),
+        size: entry.size,
+        tags: entry.tagging,
+    };
+}
 
 /**
  * @typedef {{
@@ -170,7 +199,8 @@ async function get_delete_candidates(bucket_json, lifecycle_rule, object_sdk, fs
     // let reply_objects = []; // TODO: needed for the notification log file
     const candidates = {delete_candidates: []};
     if (lifecycle_rule.expiration) {
-        await get_candidates_by_expiration_rule(lifecycle_rule, bucket_json);
+        const expiration_candidates = await get_candidates_by_expiration_rule(lifecycle_rule, bucket_json, object_sdk);
+        candidates.delete_candidates = candidates.delete_candidates.concat(expiration_candidates);
         if (lifecycle_rule.expiration.days || lifecycle_rule.expiration.expired_object_delete_marker) {
             await get_candidates_by_expiration_delete_marker_rule(lifecycle_rule, bucket_json);
         }
@@ -187,9 +217,9 @@ async function get_delete_candidates(bucket_json, lifecycle_rule, object_sdk, fs
 
 /**
  * validate_rule_enabled checks if the rule is enabled and should be processed
- * @param {*} rule 
- * @param {Object} bucket 
- * @param {*} now 
+ * @param {*} rule
+ * @param {Object} bucket
+ * @param {*} now
  * @returns {boolean}
  */
 function validate_rule_enabled(rule, bucket, now) {
@@ -208,40 +238,55 @@ function validate_rule_enabled(rule, bucket, now) {
 
 /**
  * get_candidates_by_expiration_rule processes the expiration rule
- * @param {*} lifecycle_rule 
- * @param {Object} bucket_json 
+ * @param {*} lifecycle_rule
+ * @param {Object} bucket_json
  */
-async function get_candidates_by_expiration_rule(lifecycle_rule, bucket_json) {
+async function get_candidates_by_expiration_rule(lifecycle_rule, bucket_json, object_sdk) {
     const is_gpfs = nb_native().fs.gpfs;
     if (is_gpfs) {
-        await get_candidates_by_expiration_rule_gpfs(lifecycle_rule, bucket_json);
+        return await get_candidates_by_expiration_rule_gpfs(lifecycle_rule, bucket_json);
     } else {
-        await get_candidates_by_expiration_rule_posix(lifecycle_rule, bucket_json);
+        return await get_candidates_by_expiration_rule_posix(lifecycle_rule, bucket_json, object_sdk);
     }
 }
 
 /**
- * 
- * @param {*} lifecycle_rule 
- * @param {Object} bucket_json 
+ *
+ * @param {*} lifecycle_rule
+ * @param {Object} bucket_json
  */
 async function get_candidates_by_expiration_rule_gpfs(lifecycle_rule, bucket_json) {
     // TODO - implement
 }
 
 /**
- * 
- * @param {*} lifecycle_rule 
- * @param {Object} bucket_json 
+ *
+ * @param {*} lifecycle_rule
+ * @param {Object} bucket_json
  */
-async function get_candidates_by_expiration_rule_posix(lifecycle_rule, bucket_json) {
-    // TODO - implement
+async function get_candidates_by_expiration_rule_posix(lifecycle_rule, bucket_json, object_sdk) {
+    const expiration = _get_expiration_time(lifecycle_rule.expiration);
+    if (expiration < 0) return [];
+    const filter_func = _build_lifecycle_filter({filter: lifecycle_rule.filter, expiration});
+
+    const filtered_objects = [];
+    // TODO list_objects does not accept a filter and works in batch sizes of 1000. should handle batching
+    // also should maybe create a helper function or add argument for a filter in list object
+    const objects_list = await object_sdk.list_objects({bucket: bucket_json.name, prefix: lifecycle_rule.filter?.prefix});
+    objects_list.objects.forEach(obj => {
+        const object_info = _get_lifecycle_object_info_from_list_object_entry(obj);
+        if (filter_func(object_info)) {
+            filtered_objects.push({key: object_info.key});
+        }
+    });
+    return filtered_objects;
+
 }
 
 /**
  * get_candidates_by_expiration_delete_marker_rule processes the expiration delete marker rule
- * @param {*} lifecycle_rule 
- * @param {Object} bucket_json 
+ * @param {*} lifecycle_rule
+ * @param {Object} bucket_json
  */
 async function get_candidates_by_expiration_delete_marker_rule(lifecycle_rule, bucket_json) {
     // TODO - implement

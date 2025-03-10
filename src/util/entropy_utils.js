@@ -1,41 +1,44 @@
 /* Copyright (C) 2025 NooBaa */
 'use strict';
 
-const fs = require('fs');
 const util = require('util');
 const chance = require('chance')();
 const child_process = require('child_process');
 const config = require('../../config');
-const os_utils = require('../util/os_utils');
+const blockutils = require('linux-blockutils');
+
+const DEVICE_TYPE_DISK = 'disk';
 
 const async_exec = util.promisify(child_process.exec);
-const async_delay = util.promisify(setTimeout);
-
+const get_block_info_async = util.promisify(blockutils.getBlockInfo);
 
 /**
- * generate_entropy will create randomness by changing the MD5
- * using information from the device (disk)
- * it will run as long as the callback it true
- * @param {function} loop_cond
+ * get_block_device_disk_info
+ * (on Linux) will return array of disk devices
+ *            that their names starts with /dev/
+ *            and their size it a number in bytes
+ * (else) will return an empty array
+ * Note: under the hood it uses blockutils.getBlockInfo which calls lsblk command
+ * @returns {Promise<object[]>}
  */
-async function generate_entropy(loop_cond) {
-    if (process.platform !== 'linux' || process.env.container === 'docker') return;
-    while (loop_cond()) {
-        try {
-            await async_delay(1000);
-            const ENTROPY_AVAIL_PATH = '/proc/sys/kernel/random/entropy_avail';
-            const entropy_avail = parseInt(await fs.promises.readFile(ENTROPY_AVAIL_PATH, 'utf8'), 10);
-            console.log(`generate_entropy: entropy_avail ${entropy_avail}`);
-            if (entropy_avail >= 512) return;
-            const disk_details = await pick_a_disk();
-            if (disk_details) {
-                add_entropy(disk_details.name, disk_details.size);
-            } else {
-                throw new Error('No disk candidates found');
+async function get_block_device_disk_info() {
+    if (!config.IS_LINUX) return [];
+    try {
+        const block_devices = await get_block_info_async({});
+        if (!block_devices) return [];
+
+        return block_devices.reduce((acc, block_device) => {
+            if (block_device.TYPE === DEVICE_TYPE_DISK) {
+                acc.push({
+                        name: `/dev/${block_device.NAME}`,
+                        size: Number(block_device.SIZE),
+                    });
             }
-        } catch (err) {
-            console.log('generate_entropy: error', err);
-        }
+            return acc;
+        }, []);
+    } catch (err) {
+        console.error('get_block_device_info got an error', err);
+        return [];
     }
 }
 
@@ -48,14 +51,14 @@ async function generate_entropy(loop_cond) {
  * (we could delete the priority property as it is used only inside this function)
  * 
  * if none matches then it would return undefined
+ * @param {object[]} available_disks
  * @returns {Promise<object | undefined>}
  */
-async function pick_a_disk() {
-    const disk_array = await os_utils.get_block_device_disk_info();
+async function pick_a_disk(available_disks) {
     // the priority array is the whitelist and also sets the priority
     // (0 index highest priority, n-1 index lowest priority)
     const priority = ['/dev/sd', '/dev/vd', '/dev/xvd', 'dev/dasd', '/dev/nvme'];
-    const priority_disk_array = disk_array.reduce((acc, disk) => {
+    const priority_disk_array = available_disks.reduce((acc, disk) => {
         // in add_entropy we read 32 MiB from the disk, we decided on a threshold of 100 MB
         if (disk.size > config.DISK_SIZE_THRESHOLD) {
             for (let index = 0; index < priority.length; index++) {
@@ -90,5 +93,6 @@ async function add_entropy(disk_name, disk_size) {
     await async_exec(`dd if=${disk_name} bs=${bs} count=${count} skip=${skip} | md5sum`);
 }
 
-exports.generate_entropy = generate_entropy;
+exports.get_block_device_disk_info = get_block_device_disk_info;
 exports.pick_a_disk = pick_a_disk;
+exports.add_entropy = add_entropy;

@@ -1005,6 +1005,8 @@ config.TIERING_TTL_MS = 30 * 60 * 1000; // 30 minutes
 //////////////////////
 // LINUX DEPLOYMENT //
 //////////////////////
+
+config.IS_LINUX = process.platform === 'linux';
 config.DISK_SIZE_THRESHOLD = 100 * 1024 * 1024;
 
 /////////////////////////

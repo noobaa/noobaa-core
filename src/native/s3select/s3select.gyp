@@ -4,6 +4,7 @@
         'target_name': 's3select',
         'type': 'static_library',
         'cflags_cc!': ['-fno-rtti'],
+        'cflags_cc': ['-std=c++17'],
         'include_dirs': [
             '<@(napi_include_dirs)',
             '../../../submodules/s3select/include',

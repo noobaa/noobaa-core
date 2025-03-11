@@ -43,7 +43,7 @@ describe('noobaa cli - lifecycle - lock check', () => {
     afterEach(async () => {
         config.NC_LIFECYCLE_RUN_TIME = original_lifecycle_run_time;
         config.NC_LIFECYCLE_RUN_DELAY_LIMIT_MINS = original_lifecycle_run_delay;
-        await fs_utils.folder_delete(config.LIFECYCLE_LOGS_DIR);
+        await fs_utils.folder_delete(config.NC_LIFECYCLE_LOGS_DIR);
     });
 
     afterAll(async () => {

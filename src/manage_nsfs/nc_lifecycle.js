@@ -36,7 +36,7 @@ const config_fs_options = { silent_if_missing: true };
  * @param {boolean} disable_runtime_validation
  */
 async function run_lifecycle_under_lock(config_fs, disable_service_validation, disable_runtime_validation) {
-    const lifecyle_logs_dir_path = config.LIFECYCLE_LOGS_DIR;
+    const lifecyle_logs_dir_path = config.NC_LIFECYCLE_LOGS_DIR;
     await config_fs.create_dir_if_missing(lifecyle_logs_dir_path);
     const lock_path = path.join(lifecyle_logs_dir_path, CLUSTER_LOCK);
     const fs_context = config_fs.fs_context;
@@ -77,7 +77,7 @@ async function run_lifecycle_under_lock(config_fs, disable_service_validation, d
                 ...get_lifecycle_run_status(lifecycle_run_times),
                 errors: [error]
             };
-            throw_cli_error(ManageCLIError.LifecycleFailed, error);
+            throw_cli_error(err);
         } finally {
             await record_current_time(fs_context, lifecycle_timestamp_file_path);
             await write_lifecycle_log_file(config_fs.fs_context, lifecyle_logs_dir_path, lifecycle_run_status);
@@ -208,8 +208,10 @@ async function handle_bucket_rule(config_fs, lifecycle_rule, index, bucket_json,
  * @returns {Promise}
  */
 async function lifecycle_timeout() {
-    // TODO - change to manage_nsfs_error?
-    return new Promise((resolve, reject) => setTimeout(() => reject(new Error('lifecycle worker reached timeout')), config.NC_LIFECYCLE_TIMEOUT_MS));
+    return new Promise((resolve, reject) => setTimeout(() =>
+        reject(ManageCLIError.LifecycleWorkerReachedTimeout),
+        config.NC_LIFECYCLE_TIMEOUT_MS)
+    );
 }
 
 /**

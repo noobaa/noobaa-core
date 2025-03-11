@@ -963,7 +963,7 @@ config.NC_DISABLE_SCHEMA_CHECK = false;
 
 ////////// NC LIFECYLE  //////////
 
-config.LIFECYCLE_LOGS_DIR = '/var/log/noobaa/lifecycle';
+config.NC_LIFECYCLE_LOGS_DIR = '/var/log/noobaa/lifecycle';
 config.NC_LIFECYCLE_TIMEOUT_MS = 6 * 60 * 60 * 1000;
 
 // NC_LIFECYCLE_RUN_TIME must be of the format hh:mm which specifies

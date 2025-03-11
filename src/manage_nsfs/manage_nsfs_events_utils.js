@@ -447,4 +447,15 @@ NoobaaEvent.LIFECYCLE_FAILED = Object.freeze({
     state: 'DEGRADED',
 });
 
+NoobaaEvent.LIFECYCLE_TIMEOUT = Object.freeze({
+    event_code: 'noobaa_lifecycle_worker_timeout',
+    message: 'NooBaa lifecycle worker run timed out.',
+    description: 'NooBaa Lifecycle worker run timed out.',
+    entity_type: 'NODE',
+    event_type: 'ERROR',
+    scope: 'NODE',
+    severity: 'ERROR',
+    state: 'DEGRADED',
+});
+
 exports.NoobaaEvent = NoobaaEvent;

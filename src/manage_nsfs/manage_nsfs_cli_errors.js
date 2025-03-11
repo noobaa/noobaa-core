@@ -540,6 +540,12 @@ ManageCLIError.LifecycleFailed = Object.freeze({
     http_code: 400,
 });
 
+ManageCLIError.LifecycleWorkerReachedTimeout = Object.freeze({
+    code: 'LifecycleWorkerReachedTimeout',
+    message: `Lifecycle worker reached timeout - configured timeout is ${config.NC_LIFECYCLE_TIMEOUT_MS} ms`,
+    http_code: 400,
+});
+
 ///////////////////////////////
 //       ERRORS MAPPING      //
 ///////////////////////////////
@@ -562,7 +568,8 @@ ManageCLIError.RPC_ERROR_TO_MANAGE = Object.freeze({
     NO_SUCH_USER: ManageCLIError.InvalidAccountDistinguishedName,
     INVALID_MASTER_KEY: ManageCLIError.InvalidMasterKey,
     INVALID_BUCKET_NAME: ManageCLIError.InvalidBucketName,
-    CONFIG_DIR_VERSION_MISMATCH: ManageCLIError.ConfigDirUpdateBlocked
+    CONFIG_DIR_VERSION_MISMATCH: ManageCLIError.ConfigDirUpdateBlocked,
+    LIFECYCLE_WORKER_TIMEOUT: ManageCLIError.LifecycleWorkerReachedTimeout
 });
 
 const NSFS_CLI_ERROR_EVENT_MAP = {
@@ -576,7 +583,8 @@ const NSFS_CLI_ERROR_EVENT_MAP = {
     BucketSetForbiddenBucketOwnerIsIAMAccount: NoobaaEvent.UNAUTHORIZED, // // GAP - add event
     LoggingExportFailed: NoobaaEvent.LOGGING_FAILED,
     UpgradeFailed: NoobaaEvent.CONFIG_DIR_UPGRADE_FAILED,
-    LifecycleFailed: NoobaaEvent.LIFECYCLE_FAILED
+    LifecycleFailed: NoobaaEvent.LIFECYCLE_FAILED,
+    LifecycleWorkerReachedTimeout: NoobaaEvent.LIFECYCLE_TIMEOUT
 };
 
 exports.ManageCLIError = ManageCLIError;

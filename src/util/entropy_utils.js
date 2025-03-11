@@ -1,6 +1,7 @@
 /* Copyright (C) 2025 NooBaa */
 'use strict';
 
+const fs = require('fs');
 const util = require('util');
 const chance = require('chance')();
 const child_process = require('child_process');
@@ -9,8 +10,37 @@ const blockutils = require('linux-blockutils');
 
 const DEVICE_TYPE_DISK = 'disk';
 
+const async_delay = util.promisify(setTimeout);
 const async_exec = util.promisify(child_process.exec);
 const get_block_info_async = util.promisify(blockutils.getBlockInfo);
+
+/**
+ * generate_entropy will create randomness by changing the MD5
+ * using information from the device (disk)
+ * it will run as long as the callback it true
+ * @param {function} loop_cond
+ */
+async function generate_entropy(loop_cond) {
+    if (process.platform !== 'linux' || process.env.container === 'docker') return;
+    while (loop_cond()) {
+        try {
+            await async_delay(1000);
+            const ENTROPY_AVAIL_PATH = '/proc/sys/kernel/random/entropy_avail';
+            const entropy_avail = parseInt(await fs.promises.readFile(ENTROPY_AVAIL_PATH, 'utf8'), 10);
+            console.log(`generate_entropy: entropy_avail ${entropy_avail}`);
+            if (entropy_avail >= 512) return;
+            const available_disks = await get_block_device_disk_info();
+            const disk_details = await pick_a_disk(available_disks);
+            if (disk_details) {
+                add_entropy(disk_details.name, disk_details.size);
+            } else {
+                throw new Error('No disk candidates found');
+            }
+        } catch (err) {
+            console.log('generate_entropy: error', err);
+        }
+    }
+}
 
 /**
  * get_block_device_disk_info
@@ -93,6 +123,7 @@ async function add_entropy(disk_name, disk_size) {
     await async_exec(`dd if=${disk_name} bs=${bs} count=${count} skip=${skip} | md5sum`);
 }
 
+exports.generate_entropy = generate_entropy;
 exports.get_block_device_disk_info = get_block_device_disk_info;
 exports.pick_a_disk = pick_a_disk;
 exports.add_entropy = add_entropy;

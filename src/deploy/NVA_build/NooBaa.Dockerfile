@@ -1,8 +1,7 @@
 ARG CENTOS_VER=9
 FROM noobaa-base as server_builder
 
-RUN mkdir -p /noobaa_init_files && \
-    cp -p ./build/Release/kube_pv_chown /noobaa_init_files
+RUN mkdir -p /noobaa_init_files
 
 COPY . ./
 ARG GIT_COMMIT 
@@ -122,11 +121,7 @@ RUN chmod 775 /noobaa_init_files && \
 
 
 COPY --from=server_builder /kubectl /usr/local/bin/kubectl
-COPY --from=server_builder ./noobaa_init_files/kube_pv_chown /noobaa_init_files
-RUN mkdir -m 777 /root/node_modules && \
-    chown root:root /noobaa_init_files/kube_pv_chown && \
-    chmod 750 /noobaa_init_files/kube_pv_chown && \
-    chmod u+s /noobaa_init_files/kube_pv_chown
+RUN mkdir -m 777 /root/node_modules
 
 ##############################################################
 # Layers:

@@ -275,7 +275,6 @@ spec:
         - name: init-mongo
           image: noobaa/noobaa-core:5.0.1
           imagePullPolicy: IfNotPresent
-          # command: ['/noobaa_init_files/kube_pv_chown', 'server']
           command: ["/noobaa_init_files/noobaa_init.sh", "init_mongo"]
           volumeMounts:
             - mountPath: /mongo_data

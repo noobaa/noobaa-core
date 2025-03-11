@@ -4,7 +4,6 @@ RUN_INIT=${1}
 NOOBAA_SUPERVISOR="/data/noobaa_supervisor.conf"
 NOOBAA_DATA_VERSION="/data/noobaa_version"
 NOOBAA_PACKAGE_PATH="/root/node_modules/noobaa-core/package.json"
-KUBE_PV_CHOWN="/noobaa_init_files/kube_pv_chown"
 
 update_services_autostart() {
   local programs=(webserver bg_workers hosted_agents s3rver)
@@ -143,37 +142,13 @@ prepare_server_pvs() {
 }
 
 prepare_mongo_pv() {
-  local main_dir="/mongo_data"
   local shard_dir="/mongo_data/mongo/cluster/shard1"
-  local recursive_file="/mongo_data/recursive_file"
-  local dir_id=$(stat -c '%u' ${main_dir})
-  local current_id=$(id -u)
-
-  # change ownership and permissions of mongo db path
-  if [ "${dir_id}" != "${current_id}" ] || [ ! -f ${recursive_file} ]; then
-    echo "uid change has been identified - will change from uid: ${dir_id} to new uid: ${current_id}"
-    time ${KUBE_PV_CHOWN} mongo ${current_id}
-    touch ${recursive_file}
-  fi
 
   if [ ! -d ${shard_dir} ]; then
     echo "creating shard directory: ${shard_dir}" 
     mkdir -p ${shard_dir}
     chgrp 0 ${shard_dir}
     chmod g=u ${shard_dir}
-  fi
-}
-
-prepare_postgres_pv() {
-  local dir="/var/lib/pgsql"
-  local dir_id=$(stat -c '%u' ${dir})    
-  local current_id=$(id -u)
-
-  # change ownership and permissions of mongo db path
-  if [ "${dir_id}" != "${current_id}" ]
-  then
-    echo "uid change has been identified - will change from uid: ${dir_id} to new uid: ${current_id}"
-    time ${KUBE_PV_CHOWN} postgres ${current_id}
   fi
 }
 
@@ -200,18 +175,6 @@ init_noobaa_server() {
 init_noobaa_agent() {
   fix_non_root_user
 
-  local dir="/noobaa_storage"
-  mkdir -p ${dir}
-  local dir_id=$(stat -c '%u' ${dir})    
-  local current_id=$(id -u)
-
-  # change ownership and permissions of noobaa_storage path
-  if [ "${dir_id}" != "${current_id}" ]
-  then
-    echo "uid change has been identified - will change from uid: ${dir_id} to new uid: ${current_id}"
-    time ${KUBE_PV_CHOWN} agent ${current_id}
-  fi
-
   cd /root/node_modules/noobaa-core/
   prepare_agent_conf
   run_internal_process node --unhandled-rejections=warn ./src/agent/agent_cli
@@ -230,9 +193,6 @@ then
 elif [ "${RUN_INIT}" == "init_mongo" ]
 then
   prepare_mongo_pv
-elif [ "${RUN_INIT}" == "init_postgres" ]
-then
-  prepare_postgres_pv
 elif [ "${RUN_INIT}" == "db_migrate" ]
 then
   migrate_dbs

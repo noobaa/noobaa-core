@@ -1,6 +1,8 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+const config = require('../../config');
+
 const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
 
 // TODO : define list & status types
@@ -204,6 +206,14 @@ ManageCLIResponse.ConnectionList = Object.freeze({
 ManageCLIResponse.LifecycleSuccessful = Object.freeze({
     code: 'LifecycleSuccessful',
     message: 'Lifecycle worker run finished successfully',
+    status: {}
+});
+
+ManageCLIResponse.LifecycleWorkerNotRunning = Object.freeze({
+    code: 'LifecycleWorkerNotRunning',
+    message: `Lifecycle worker must run at ${config.NC_LIFECYCLE_RUN_TIME} ` +
+        `with delay of ${config.NC_LIFECYCLE_RUN_DELAY_LIMIT_MINS} minutes ` +
+        `in timezone ${config.NC_LIFECYCLE_TZ}`,
     status: {}
 });
 

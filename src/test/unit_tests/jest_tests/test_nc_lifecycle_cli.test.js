@@ -14,6 +14,7 @@ const { TYPES, ACTIONS } = require('../../../manage_nsfs/manage_nsfs_constants')
 const NamespaceFS = require('../../../sdk/namespace_fs');
 const endpoint_stats_collector = require('../../../sdk/endpoint_stats_collector');
 const os_utils = require('../../../util/os_utils');
+const { ManageCLIResponse } = require('../../../manage_nsfs/manage_nsfs_cli_responses');
 
 const new_umask = process.env.NOOBAA_ENDPOINT_UMASK || 0o000;
 const old_umask = process.umask(new_umask);
@@ -30,10 +31,6 @@ function make_dummy_object_sdk(account_json) {
 }
 
 describe('noobaa cli - lifecycle - lock check', () => {
-    const bucketspace_fs = new BucketSpaceFS({ config_root }, undefined);
-    const test_bucket = 'test-bucket';
-    const account_options1 = { uid: 2002, gid: 2002, new_buckets_path: root_path, name: 'user2', config_root, allow_bucket_creation: "true" };
-    let dummy_sdk;
     const original_lifecycle_run_time = config.NC_LIFECYCLE_RUN_TIME;
     const original_lifecycle_run_delay = config.NC_LIFECYCLE_RUN_DELAY_LIMIT_MINS;
 
@@ -41,40 +38,41 @@ describe('noobaa cli - lifecycle - lock check', () => {
         await fs_utils.create_fresh_path(config_root, 0o777);
         set_nc_config_dir_in_config(config_root);
         await fs_utils.create_fresh_path(root_path, 0o777);
-        const res = await exec_manage_cli(TYPES.ACCOUNT, ACTIONS.ADD, account_options1);
-        const json_account = JSON.parse(res).response.reply;
-        console.log(json_account);
-        dummy_sdk = make_dummy_object_sdk(json_account);
-        await bucketspace_fs.create_bucket({ name: test_bucket }, dummy_sdk);
     });
 
     afterEach(async () => {
-        await bucketspace_fs.delete_bucket_lifecycle({ name: test_bucket });
         config.NC_LIFECYCLE_RUN_TIME = original_lifecycle_run_time;
         config.NC_LIFECYCLE_RUN_DELAY_LIMIT_MINS = original_lifecycle_run_delay;
         await fs_utils.folder_delete(config.LIFECYCLE_LOGS_DIR);
     });
 
     afterAll(async () => {
-        await fs_utils.folder_delete(`${root_path}/${test_bucket}`);
         await fs_utils.folder_delete(root_path);
         await fs_utils.folder_delete(config_root);
     }, TEST_TIMEOUT);
 
     it('lifecycle_cli - - change run time to now - 2 locks - the second should fail ', async () => {
         await config_fs.create_config_json_file(JSON.stringify({ NC_LIFECYCLE_RUN_TIME: date_to_run_time_format()}));
-        const res_run1 = await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: "true", config_root }, undefined, undefined);
-        const res_run2 = await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: "true", config_root }, undefined, undefined);
-        console.log('res_run1 ', res_run1, 'res_run2', res_run2);
+        const res1 = await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', config_root }, undefined, undefined);
+        const res2 = await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', config_root }, undefined, undefined);
         await config_fs.delete_config_json_file();
-        // TODO - add verification with stdout after the next PR will get in
+        const parsed_res1 = JSON.parse(res1).response;
+        expect(parsed_res1.code).toBe(ManageCLIResponse.LifecycleSuccessful.code);
+        expect(parsed_res1.message).toBe(ManageCLIResponse.LifecycleSuccessful.message);
+        const parsed_res2 = JSON.parse(res2).response;
+        expect(parsed_res2.code).toBe(ManageCLIResponse.LifecycleWorkerNotRunning.code);
+        expect(parsed_res2.message).toBe(ManageCLIResponse.LifecycleWorkerNotRunning.message);
     });
 
     it('lifecycle_cli - no run time change - 2 locks - both should fail ', async () => {
-        const res_run3 = await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: "true", config_root }, undefined, undefined);
-        const res_run4 = await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: "true", config_root }, undefined, undefined);
-        console.log('res_run3 ', res_run3, 'res_run4', res_run4);
-        // TODO - add verification with stdout after the next PR will get in
+        const res1 = await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', config_root }, undefined, undefined);
+        const res2 = await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', config_root }, undefined, undefined);
+        const parsed_res1 = JSON.parse(res1).response;
+        expect(parsed_res1.code).toBe(ManageCLIResponse.LifecycleWorkerNotRunning.code);
+        expect(parsed_res1.message).toBe(ManageCLIResponse.LifecycleWorkerNotRunning.message);
+        const parsed_res2 = JSON.parse(res2).response;
+        expect(parsed_res2.code).toBe(ManageCLIResponse.LifecycleWorkerNotRunning.code);
+        expect(parsed_res2.message).toBe(ManageCLIResponse.LifecycleWorkerNotRunning.message);
     });
 
     it('lifecycle_cli - change run time to 4 minutes ago - should fail ', async () => {
@@ -83,10 +81,11 @@ describe('noobaa cli - lifecycle - lock check', () => {
         await config_fs.create_config_json_file(JSON.stringify({
             NC_LIFECYCLE_RUN_TIME: date_to_run_time_format(lifecyle_run_date)
         }));
-        const res_run5 = await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: "true", config_root }, undefined, undefined);
-        console.log('res_run5 ', res_run5);
+        const res = await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', config_root }, undefined, undefined);
         await config_fs.delete_config_json_file();
-        // TODO - add verification with stdout after the next PR will get in
+        const parsed_res = JSON.parse(res).response;
+        expect(parsed_res.code).toBe(ManageCLIResponse.LifecycleWorkerNotRunning.code);
+        expect(parsed_res.message).toBe(ManageCLIResponse.LifecycleWorkerNotRunning.message);
     });
 
     it('lifecycle_cli - - change run time to 1 minutes ago - should succeed ', async () => {
@@ -95,10 +94,11 @@ describe('noobaa cli - lifecycle - lock check', () => {
         await config_fs.create_config_json_file(JSON.stringify({
             NC_LIFECYCLE_RUN_TIME: date_to_run_time_format(lifecyle_run_date)
         }));
-        const res_run6 = await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: "true", config_root }, undefined, undefined);
-        console.log('res_run6 ', res_run6);
+        const res = await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', config_root }, undefined, undefined);
         await config_fs.delete_config_json_file();
-        // TODO - add verification with stdout after the next PR will get in
+        const parsed_res = JSON.parse(res).response;
+        expect(parsed_res.code).toBe(ManageCLIResponse.LifecycleSuccessful.code);
+        expect(parsed_res.message).toBe(ManageCLIResponse.LifecycleSuccessful.message);
     });
 
     it('lifecycle_cli - - change run time to 1 minutes ago - should fail ', async () => {
@@ -107,10 +107,11 @@ describe('noobaa cli - lifecycle - lock check', () => {
         await config_fs.create_config_json_file(JSON.stringify({
             NC_LIFECYCLE_RUN_TIME: date_to_run_time_format(lifecyle_run_date)
         }));
-        const res_run6 = await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: "true", config_root }, undefined, undefined);
-        console.log('res_run6 ', res_run6);
+        const res = await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', config_root }, undefined, undefined);
         await config_fs.delete_config_json_file();
-        // TODO - add verification with stdout after the next PR will get in
+        const parsed_res = JSON.parse(res).response;
+        expect(parsed_res.code).toBe(ManageCLIResponse.LifecycleWorkerNotRunning.code);
+        expect(parsed_res.message).toBe(ManageCLIResponse.LifecycleWorkerNotRunning.message);
     });
 });
 
@@ -130,7 +131,7 @@ describe('noobaa cli - lifecycle', () => {
     const test_key1 = 'test_key1';
     const prefix = 'test/';
     const test_prefix_key = `${prefix}/test_key1`;
-    const account_options1 = {uid: 2002, gid: 2002, new_buckets_path: root_path, name: 'user2', config_root, allow_bucket_creation: "true"};
+    const account_options1 = {uid: 2002, gid: 2002, new_buckets_path: root_path, name: 'user2', config_root, allow_bucket_creation: 'true'};
     let dummy_sdk;
     let ns_src;
 
@@ -185,7 +186,7 @@ describe('noobaa cli - lifecycle', () => {
         const res = await ns_src.create_object_upload({ key: test_key1, bucket: test_bucket }, dummy_sdk);
         await ns_src.create_object_upload({ key: test_key1, bucket: test_bucket }, dummy_sdk);
         await update_mpu_mtime(res.obj_id);
-        await exec_manage_cli(TYPES.LIFECYCLE, '', {disable_service_validation: "true", disable_runtime_validation: "true", config_root}, undefined, undefined);
+        await exec_manage_cli(TYPES.LIFECYCLE, '', {disable_service_validation: 'true', disable_runtime_validation: 'true', config_root}, undefined, undefined);
         const mpu_list = await ns_src.list_uploads({ bucket: test_bucket }, dummy_sdk);
         expect(mpu_list.objects.length).toBe(1); //removed the mpu that was created 5 days ago
     });
@@ -206,7 +207,7 @@ describe('noobaa cli - lifecycle', () => {
         await update_mpu_mtime(res.obj_id);
         res = await ns_src.create_object_upload({ key: test_prefix_key, bucket: test_bucket }, dummy_sdk);
         await update_mpu_mtime(res.obj_id);
-        await exec_manage_cli(TYPES.LIFECYCLE, '', {disable_service_validation: "true", disable_runtime_validation: "true", config_root}, undefined, undefined);
+        await exec_manage_cli(TYPES.LIFECYCLE, '', {disable_service_validation: 'true', disable_runtime_validation: 'true', config_root}, undefined, undefined);
         const mpu_list = await ns_src.list_uploads({ bucket: test_bucket }, dummy_sdk);
         expect(mpu_list.objects.length).toBe(2); //only removed test_prefix_key
     });
@@ -234,7 +235,7 @@ describe('noobaa cli - lifecycle', () => {
         await update_mpu_mtime(res.obj_id);
         res = await ns_src.create_object_upload({ key: test_key1, bucket: test_bucket, tagging: different_tag_set}, dummy_sdk);
         await update_mpu_mtime(res.obj_id);
-        await exec_manage_cli(TYPES.LIFECYCLE, '', {disable_service_validation: "true", disable_runtime_validation: "true", config_root}, undefined, undefined);
+        await exec_manage_cli(TYPES.LIFECYCLE, '', {disable_service_validation: 'true', disable_runtime_validation: 'true', config_root}, undefined, undefined);
         const mpu_list = await ns_src.list_uploads({ bucket: test_bucket }, dummy_sdk);
         expect(mpu_list.objects.length).toBe(3); //two from previous tests + one new undeleted mpu
     });

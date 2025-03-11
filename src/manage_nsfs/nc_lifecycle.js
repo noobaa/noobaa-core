@@ -55,33 +55,33 @@ async function run_lifecycle_under_lock(config_fs, disable_service_validation, d
 
         dbg.log0('run_lifecycle_under_lock should_run', should_run);
 
-        if (should_run) {
-            const start_time = Date.now();
-            let lifecycle_run_status;
+        if (!should_run) write_stdout_response(ManageCLIResponse.LifecycleWorkerNotRunning);
 
-            try {
-                dbg.log0('run_lifecycle_under_lock acquired lock - start lifecycle');
-                new NoobaaEvent(NoobaaEvent.LIFECYCLE_STARTED).create_event();
-                lifecycle_run_status = await Promise.race([
-                    run_lifecycle(config_fs, disable_service_validation, start_time),
-                    lifecycle_timeout()
-                ]);
-                write_stdout_response(ManageCLIResponse.LifecycleSuccessful, lifecycle_run_status);
-            } catch (err) {
-                dbg.error('run_lifecycle_under_lock failed with error', err, err.code, err.message);
-                const end_time = Date.now();
-                const lifecycle_run_times = { start_time, end_time };
-                const error = { code: err.code, message: err.message, stack: err.stack };
-                lifecycle_run_status = {
-                    ...get_lifecycle_run_status(lifecycle_run_times),
-                    errors: [error]
-                };
-                throw_cli_error(ManageCLIError.LifecycleFailed, error);
-            } finally {
-                await record_current_time(fs_context, lifecycle_timestamp_file_path);
-                await write_lifecycle_log_file(config_fs.fs_context, lifecyle_logs_dir_path, lifecycle_run_status);
-                dbg.log0('run_lifecycle_under_lock done lifecycle - released lock');
-            }
+        const start_time = Date.now();
+        let lifecycle_run_status;
+
+        try {
+            dbg.log0('run_lifecycle_under_lock acquired lock - start lifecycle');
+            new NoobaaEvent(NoobaaEvent.LIFECYCLE_STARTED).create_event();
+            lifecycle_run_status = await Promise.race([
+                run_lifecycle(config_fs, disable_service_validation, start_time),
+                lifecycle_timeout()
+            ]);
+            write_stdout_response(ManageCLIResponse.LifecycleSuccessful, lifecycle_run_status);
+        } catch (err) {
+            dbg.error('run_lifecycle_under_lock failed with error', err, err.code, err.message);
+            const end_time = Date.now();
+            const lifecycle_run_times = { start_time, end_time };
+            const error = { code: err.code, message: err.message, stack: err.stack };
+            lifecycle_run_status = {
+                ...get_lifecycle_run_status(lifecycle_run_times),
+                errors: [error]
+            };
+            throw_cli_error(ManageCLIError.LifecycleFailed, error);
+        } finally {
+            await record_current_time(fs_context, lifecycle_timestamp_file_path);
+            await write_lifecycle_log_file(config_fs.fs_context, lifecyle_logs_dir_path, lifecycle_run_status);
+            dbg.log0('run_lifecycle_under_lock done lifecycle - released lock');
         }
     });
 }
@@ -174,14 +174,16 @@ async function handle_bucket_rule(config_fs, lifecycle_rule, index, bucket_json,
         const candidates = await get_delete_candidates(bucket_json, lifecycle_rule, object_sdk, config_fs.fs_context);
 
         rule_process_times.delete_candidates_start_time = Date.now();
-        delete_objects_reply = candidates.length > 0 ? [] : await object_sdk.delete_multiple_objects({
-            bucket: bucket_json.name,
-            objects: candidates.delete_candidates // probably need to convert to the format expected by delete_multiple_objects
-        });
+        if (candidates.delete_candidates) {
+            delete_objects_reply = candidates.delete_candidates.length > 0 ? [] : await object_sdk.delete_multiple_objects({
+                bucket: bucket_json.name,
+                objects: candidates.delete_candidates // probably need to convert to the format expected by delete_multiple_objects
+            });
+        }
         rule_process_times.delete_candidates_end_time = Date.now();
         rule_process_times.abort_candidates_start_time = Date.now();
 
-        await candidates.abort_mpus?.forEach(async element => {
+        await candidates.abort_mpu_candidates?.forEach(async element => {
             await object_sdk.abort_object_upload(element);
         });
         rule_process_times.abort_candidates_end_time = Date.now();
@@ -234,15 +236,15 @@ async function throw_if_noobaa_not_active(config_fs, system_json) {
  * @param {*} lifecycle_rule
  */
 async function get_delete_candidates(bucket_json, lifecycle_rule, object_sdk, fs_context) {
-    const candidates = { abort_mpu_candidates: [], expiry_candidates: [], expiry_dm_candidates: [], non_cur_candidates: [] };
+    const candidates = { abort_mpu_candidates: [], delete_candidates: []};
     if (lifecycle_rule.expiration) {
-        candidates.expiry_candidates = await get_candidates_by_expiration_rule(lifecycle_rule, bucket_json);
+        candidates.delete_candidates = await get_candidates_by_expiration_rule(lifecycle_rule, bucket_json);
         if (lifecycle_rule.expiration.days || lifecycle_rule.expiration.expired_object_delete_marker) {
-            candidates.expiry_dm_candidates = await get_candidates_by_expiration_delete_marker_rule(lifecycle_rule, bucket_json);
+            candidates.delete_candidates = await get_candidates_by_expiration_delete_marker_rule(lifecycle_rule, bucket_json);
         }
     }
     if (lifecycle_rule.noncurrent_version_expiration) {
-        candidates.non_cur_candidates = await get_candidates_by_noncurrent_version_expiration_rule(lifecycle_rule, bucket_json);
+        candidates.delete_candidates = await get_candidates_by_noncurrent_version_expiration_rule(lifecycle_rule, bucket_json);
     }
     if (lifecycle_rule.abort_incomplete_multipart_upload) {
         candidates.abort_mpu_candidates = await get_candidates_by_abort_incomplete_multipart_upload_rule(

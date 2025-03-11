@@ -33,9 +33,8 @@ class MongoCollection {
         MongoCollection.implements_interface(this);
         this.schema = col.schema;
         this.name = col.name;
-        this.db_indexes = col.db_indexes;
+        this.db_indexes = col.db_indexes?.filter(index => !index?.options?.postgres_only);
         this.mongo_client = mongo_client;
-
     }
 
     /**
@@ -46,9 +45,9 @@ class MongoCollection {
     }
 
     /**
-     * 
-     * @param {object} doc 
-     * @param {'warn'} [warn] 
+     *
+     * @param {object} doc
+     * @param {'warn'} [warn]
      */
     validate(doc, warn) {
         if (this.schema) {
@@ -553,7 +552,7 @@ class MongoClient extends EventEmitter {
     }
 
     /**
-     * 
+     *
      * @returns {nb.DBCollection}
      */
     define_collection(col) {
@@ -585,7 +584,7 @@ class MongoClient extends EventEmitter {
     }
 
     /**
-     * 
+     *
      * @returns {nb.DBCollection}
      */
     collection(col_name) {

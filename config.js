@@ -421,7 +421,7 @@ config.MIN_CHUNK_AGE_FOR_DEDUP = 60 * 60 * 1000; // 1 hour
 //////////////////////////
 // DEDUP INDEXER CONFIG //
 //////////////////////////
-config.DEDUP_INDEXER_ENABLED = true;
+config.DEDUP_INDEXER_ENABLED = false;
 config.DEDUP_INDEXER_BATCH_SIZE = 200;
 config.DEDUP_INDEXER_BATCH_DELAY = 1000;
 config.DEDUP_INDEXER_ERROR_DELAY = 10 * 1000;

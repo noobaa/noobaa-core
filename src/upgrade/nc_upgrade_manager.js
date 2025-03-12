@@ -7,7 +7,8 @@ const util = require('util');
 const pkg = require('../../package.json');
 const dbg = require('../util/debug_module')(__filename);
 const { CONFIG_DIR_PHASES } = require('../sdk/config_fs');
-const { should_upgrade, run_upgrade_scripts, version_compare } = require('./upgrade_utils');
+const { should_upgrade, run_upgrade_scripts } = require('./upgrade_utils');
+const { version_compare } = require('../util/versions_utils');
 
 const hostname = os.hostname();
 // prior to 5.18.0 - there is no config dir version, the config dir version to be used on the first upgrade is 0.0.0 (5.17.0 -> 5.18.0)
@@ -108,7 +109,11 @@ class NCUpgradeManager {
         const package_to_version = this.package_version;
         const this_upgrade_versions = { config_dir_from_version, config_dir_to_version, package_from_version, package_to_version };
 
-        if (!should_upgrade(config_dir_from_version, config_dir_to_version)) return { message: 'config_dir_version on system.json and config_fs.config_dir_version match, nothing to upgrade' };
+        if (!should_upgrade(config_dir_from_version, config_dir_to_version)) {
+            const err_message = 'config_dir_version on system.json and config_fs.config_dir_version match, nothing to upgrade';
+            dbg.error(`upgrade_config_dir: ${err_message}`);
+            throw new Error(err_message);
+        }
 
         if (!skip_verification) await this._verify_config_dir_upgrade(system_data, expected_version, hosts_list);
 

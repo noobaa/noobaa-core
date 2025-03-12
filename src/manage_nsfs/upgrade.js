@@ -9,6 +9,7 @@ const { NCUpgradeManager } = require('../upgrade/nc_upgrade_manager');
 const { ManageCLIResponse } = require('../manage_nsfs/manage_nsfs_cli_responses');
 const { throw_cli_error, write_stdout_response } = require('./manage_nsfs_cli_utils');
 const { NoobaaEvent } = require('./manage_nsfs_events_utils');
+const { validate_expected_version } = require('./manage_nsfs_validations');
 
 /**
  * manage_upgrade_operations handles cli upgrade operations
@@ -48,7 +49,7 @@ async function start_config_dir_upgrade(user_input, config_fs) {
 
         new NoobaaEvent(NoobaaEvent.CONFIG_DIR_UPGRADE_STARTED).create_event(undefined, { expected_version, expected_hosts }, undefined);
 
-        if (!expected_version) throw new Error('expected_version flag is required');
+        validate_expected_version(expected_version);
         if (!expected_hosts) dbg.warn('expected_hosts flag is empty, config dir upgrade will be performed without hosts version verification');
 
         const nc_upgrade_manager = new NCUpgradeManager(config_fs, { custom_upgrade_scripts_dir });

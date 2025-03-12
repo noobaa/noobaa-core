@@ -270,6 +270,30 @@ describe('noobaa cli - upgrade', () => {
         expect(parsed_res.error.cause).toContain('expected_version flag is required');
     });
 
+    it('upgrade start - should fail on expected_version with wrong type (number instead of string)', async () => {
+        await fs_utils.replace_file(config_fs.system_json_path, JSON.stringify(old_rpm_expected_system_json));
+        const res = await exec_manage_cli(TYPES.UPGRADE, UPGRADE_ACTIONS.START, { config_root, expected_version: 5, expected_hosts }, true);
+        const parsed_res = JSON.parse(res.stdout);
+        expect(parsed_res.error.code).toBe(ManageCLIError.InvalidArgumentType.code);
+        expect(parsed_res.error.detail).toContain('type of flag expected_version should be string');
+    });
+
+    it('upgrade start - should fail on expected_version not in the format on sematic version', async () => {
+        await fs_utils.replace_file(config_fs.system_json_path, JSON.stringify(old_rpm_expected_system_json));
+        const res = await exec_manage_cli(TYPES.UPGRADE, UPGRADE_ACTIONS.START, { config_root, expected_version: 'bla', expected_hosts }, true);
+        const parsed_res = JSON.parse(res.stdout);
+        expect(parsed_res.error.code).toBe(ManageCLIError.UpgradeFailed.code);
+        expect(parsed_res.error.cause).toContain('expected_version must have sematic version structure');
+    });
+
+    it('upgrade start - should fail on expected_version that is later that package version', async () => {
+        await fs_utils.replace_file(config_fs.system_json_path, JSON.stringify(old_rpm_expected_system_json));
+        const res = await exec_manage_cli(TYPES.UPGRADE, UPGRADE_ACTIONS.START, { config_root, expected_version: '6.18.0', expected_hosts }, true);
+        const parsed_res = JSON.parse(res.stdout);
+        expect(parsed_res.error.code).toBe(ManageCLIError.UpgradeFailed.code);
+        expect(parsed_res.error.cause).toContain('expected_version cannot be later that the package version');
+    });
+
     it('upgrade start - should succeed although missing expected hosts', async () => {
         await fs_utils.replace_file(config_fs.system_json_path, JSON.stringify(old_rpm_expected_system_json));
         const res = await exec_manage_cli(TYPES.UPGRADE, UPGRADE_ACTIONS.START, { config_root, expected_version: pkg.version }, true);

@@ -7,7 +7,8 @@ const util = require('util');
 const pkg = require('../../package.json');
 const dbg = require('../util/debug_module')(__filename);
 const { CONFIG_DIR_PHASES } = require('../sdk/config_fs');
-const { should_upgrade, run_upgrade_scripts, version_compare } = require('./upgrade_utils');
+const { should_upgrade, run_upgrade_scripts } = require('./upgrade_utils');
+const { version_compare } = require('../util/versions_utils');
 
 const hostname = os.hostname();
 // prior to 5.18.0 - there is no config dir version, the config dir version to be used on the first upgrade is 0.0.0 (5.17.0 -> 5.18.0)

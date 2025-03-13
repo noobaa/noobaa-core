@@ -410,4 +410,52 @@ NoobaaEvent.NOTIFICATION_FAILED = Object.freeze({
     state: 'HEALTHY',
 });
 
+////////////////////////////
+//   LIFECYCLE EVENTS     //
+////////////////////////////
+
+NoobaaEvent.LIFECYCLE_STARTED = Object.freeze({
+    event_code: 'noobaa_lifecycle_worker_started',
+    entity_type: 'NODE',
+    event_type: 'INFO',
+    message: 'NooBaa Lifecycle worker run started.',
+    description: 'NooBaa Lifecycle worker run started.',
+    scope: 'NODE',
+    severity: 'INFO',
+    state: 'HEALTHY',
+});
+
+NoobaaEvent.LIFECYCLE_SUCCESSFUL = Object.freeze({
+    event_code: 'noobaa_lifecycle_worker_finished_successfully',
+    entity_type: 'NODE',
+    event_type: 'INFO',
+    message: 'NooBaa Lifecycle worker run finished successfully.',
+    description: 'NooBaa Lifecycle worker finished successfully.',
+    scope: 'NODE',
+    severity: 'INFO',
+    state: 'HEALTHY',
+});
+
+NoobaaEvent.LIFECYCLE_FAILED = Object.freeze({
+    event_code: 'noobaa_lifecycle_worker_failed',
+    message: 'NooBaa Failed to run lifecycle worker.',
+    description: 'NooBaa Lifecycle worker run failed due to an error.',
+    entity_type: 'NODE',
+    event_type: 'ERROR',
+    scope: 'NODE',
+    severity: 'ERROR',
+    state: 'DEGRADED',
+});
+
+NoobaaEvent.LIFECYCLE_TIMEOUT = Object.freeze({
+    event_code: 'noobaa_lifecycle_worker_timeout',
+    message: 'NooBaa lifecycle worker run timed out.',
+    description: 'NooBaa Lifecycle worker run timed out.',
+    entity_type: 'NODE',
+    event_type: 'ERROR',
+    scope: 'NODE',
+    severity: 'ERROR',
+    state: 'DEGRADED',
+});
+
 exports.NoobaaEvent = NoobaaEvent;

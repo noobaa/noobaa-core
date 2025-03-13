@@ -149,6 +149,27 @@ const nsfs_node_config_schema = {
         NOTIFICATION_SPACE_CHECK_THRESHOLD: {
             type: 'number',
             doc: 'Fraction (more than 0, less than 1) of free blocks in, below which free space check creates an event.'
+        },
+        NC_LIFECYCLE_TIMEOUT_MS: {
+            type: 'number',
+            doc: 'The timeout of NC lifecycle worker in milliseconds.'
+        },
+        NC_LIFECYCLE_LOGS_DIR: {
+            type: 'string',
+            doc: 'The directory in which NC lifecycle worker writes logs'
+        },
+        NC_LIFECYCLE_RUN_TIME: {
+            type: 'string',
+            doc: 'NC lifecycle worker run time, worker running on different time will not be able to start, format "HH:MM"'
+        },
+        NC_LIFECYCLE_RUN_DELAY_LIMIT_MINS: {
+            type: 'number',
+            doc: 'Configures the delay tolerance in minutes. Default is 2 minutes.'
+        },
+        NC_LIFECYCLE_TZ: {
+            type: 'string',
+            enum: ['UTC', 'LOCAL'],
+            doc: 'The timezone used for calculating NC lifecycle worker run time. Default is LOCAL.'
         }
     }
 };

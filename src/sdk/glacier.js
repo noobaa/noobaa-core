@@ -1,12 +1,13 @@
 /* Copyright (C) 2024 NooBaa */
 'use strict';
 
-const nb_native = require('../../util/nb_native');
-const s3_utils = require('../../endpoint/s3/s3_utils');
-const { round_up_to_next_time_of_day } = require('../../util/time_utils');
-const dbg = require('../../util/debug_module')(__filename);
+const nb_native = require('../util/nb_native');
+const s3_utils = require('../endpoint/s3/s3_utils');
+const { round_up_to_next_time_of_day } = require('../util/time_utils');
+const dbg = require('../util/debug_module')(__filename);
+const config = require('../../config');
 
-class GlacierBackend {
+class Glacier {
     // These names start with the word 'timestamp' so as to assure
     // that it acts like a 'namespace' for the these kind of files.
     //
@@ -17,9 +18,9 @@ class GlacierBackend {
     static EXPIRY_TIMESTAMP_FILE = 'expiry.timestamp';
 
     /**
-     * XATTR_RESTORE_REQUEST is set to a NUMBER (expiry days) by `restore_object` when 
-     * a restore request is made. This is unset by the underlying restore process when 
-     * it finishes the request, this  is to ensure that the same object is not queued 
+     * XATTR_RESTORE_REQUEST is set to a NUMBER (expiry days) by `restore_object` when
+     * a restore request is made. This is unset by the underlying restore process when
+     * it finishes the request, this  is to ensure that the same object is not queued
      * for restoration multiple times.
      */
     static XATTR_RESTORE_REQUEST = 'user.noobaa.restore.request';
@@ -29,7 +30,7 @@ class GlacierBackend {
      * NooBaa (in case restore is issued again while the object is on disk).
      * This is read by the underlying "disk evict" process to determine if the object
      * should be evicted from the disk or not.
-     * 
+     *
      * NooBaa will use this date to determine if the object is on disk or not, if the
      * expiry date is in the future, the object is on disk, if the expiry date is in
      * the past, the object is not on disk. This may or may not represent the actual
@@ -39,6 +40,29 @@ class GlacierBackend {
     static XATTR_RESTORE_EXPIRY = 'user.noobaa.restore.expiry';
 
     static STORAGE_CLASS_XATTR = 'user.storage_class';
+
+    /**
+     * GPFS_DMAPI_XATTR_TAPE_INDICATOR if set on a file indicates that the file is on tape.
+     *
+     * NOTE: The existence of the xattr only indicates if a copy of the file is on the tape
+     * or not, it doesn't tell the file state (premigrated, etc.).
+     */
+    static GPFS_DMAPI_XATTR_TAPE_INDICATOR = 'dmapi.IBMObj';
+
+    /**
+     * GPFS_DMAPI_XATTR_TAPE_PREMIG if set indicates if a file is not only on tape but is
+     * also in premigrated state (that is a copy of the file exists on the disk as well).
+     */
+    static GPFS_DMAPI_XATTR_TAPE_PREMIG = 'dmapi.IBMPMig';
+
+    /**
+     * GPFS_DMAPI_XATTR_TAPE_TPS xattr contains tape related information.
+     * 
+     * Example: `1 <volser>@<poolid>@<libid>:<volser>@<poolid>@<libid>...`
+     * 
+     * NOTE: If IBMTPS EA exists, that means the file is either migrated or premigrated.
+     */
+    static GPFS_DMAPI_XATTR_TAPE_TPS = 'dmapi.IBMTPS';
 
     static MIGRATE_WAL_NAME = 'migrate';
     static RESTORE_WAL_NAME = 'restore';
@@ -117,6 +141,7 @@ class GlacierBackend {
      * 
      * The caller can pass the stat data, if none is passed, stat is
      * called internally.
+     * @param {nb.NativeFSContext} fs_context
      * @param {string} file name of the file
      * @param {nb.NativeFSStats} [stat]
      * @returns {Promise<boolean>}
@@ -125,9 +150,9 @@ class GlacierBackend {
         if (!stat) {
             stat = await nb_native().fs.stat(fs_context, file, {
                 xattr_get_keys: [
-                    GlacierBackend.XATTR_RESTORE_REQUEST,
-                    GlacierBackend.XATTR_RESTORE_EXPIRY,
-                    GlacierBackend.STORAGE_CLASS_XATTR,
+                    Glacier.XATTR_RESTORE_REQUEST,
+                    Glacier.XATTR_RESTORE_EXPIRY,
+                    Glacier.STORAGE_CLASS_XATTR,
                 ],
             });
         }
@@ -136,10 +161,10 @@ class GlacierBackend {
         // the migration.
         if (stat.blocks === 0) return false;
 
-        const restore_status = GlacierBackend.get_restore_status(stat.xattr, new Date(), file);
+        const restore_status = Glacier.get_restore_status(stat.xattr, new Date(), file);
         if (!restore_status) return false;
 
-        return restore_status.state === GlacierBackend.RESTORE_STATUS_CAN_RESTORE;
+        return restore_status.state === Glacier.RESTORE_STATUS_CAN_RESTORE;
     }
 
     /**
@@ -154,13 +179,18 @@ class GlacierBackend {
      * @returns {nb.RestoreStatus | undefined}
      */
     static get_restore_status(xattr, now, file_path) {
-        if (xattr[GlacierBackend.STORAGE_CLASS_XATTR] !== s3_utils.STORAGE_CLASS_GLACIER) return;
+        const storage_class = Glacier.storage_class_from_xattr(xattr);
+        if (storage_class !== s3_utils.STORAGE_CLASS_GLACIER) {
+            return;
+        }
+
+        const tape_info = Glacier.parse_tape_info(xattr);
 
         // Total 8 states (2x restore_request, 4x restore_expiry)
         let restore_request;
         let restore_expiry;
 
-        const restore_request_xattr = xattr[GlacierBackend.XATTR_RESTORE_REQUEST];
+        const restore_request_xattr = xattr[Glacier.XATTR_RESTORE_REQUEST];
         if (restore_request_xattr) {
             const num = Number(restore_request_xattr);
             if (!isNaN(num) && num > 0) {
@@ -169,8 +199,8 @@ class GlacierBackend {
                 dbg.error('unexpected value for restore request for', file_path);
             }
         }
-        if (xattr[GlacierBackend.XATTR_RESTORE_EXPIRY]) {
-            const expiry = new Date(xattr[GlacierBackend.XATTR_RESTORE_EXPIRY]);
+        if (xattr[Glacier.XATTR_RESTORE_EXPIRY]) {
+            const expiry = new Date(xattr[Glacier.XATTR_RESTORE_EXPIRY]);
             if (isNaN(expiry.getTime())) {
                 dbg.error('unexpected value for restore expiry for', file_path);
             } else {
@@ -185,20 +215,52 @@ class GlacierBackend {
 
             return {
                 ongoing: true,
-                state: GlacierBackend.RESTORE_STATUS_ONGOING,
+                state: Glacier.RESTORE_STATUS_ONGOING,
+                tape_info: tape_info,
             };
         } else {
+            // If NooBaa had never set a restore expiry on this but NooBaa is configured
+            // to derive restore status from DMAPI xattrs.
+            if (
+                !restore_expiry &&
+                Glacier.is_implicitly_restored(xattr)
+            ) {
+                const premig_expiry = new Date();
+                // we do not know for how long the file is going to remain available,
+                // the expiry is set to now + fixed config, which means it's always appears
+                // to the user with the same amount of time left before it expires.
+                premig_expiry.setDate(premig_expiry.getDate() + config.NSFS_GLACIER_DMAPI_PMIG_DAYS);
+
+                return {
+                    state: Glacier.RESTORE_STATUS_RESTORED,
+                    ongoing: false,
+                    expiry_time: premig_expiry,
+                    tape_info: tape_info,
+                };
+            }
+
             if (!restore_expiry || restore_expiry <= now) {
                 return {
                     ongoing: false,
-                    state: GlacierBackend.RESTORE_STATUS_CAN_RESTORE,
+                    state: Glacier.RESTORE_STATUS_CAN_RESTORE,
+                    tape_info: tape_info,
                 };
+            }
+
+            if (config.NSFS_GLACIER_DMAPI_IMPLICIT_SC && !xattr[Glacier.GPFS_DMAPI_XATTR_TAPE_PREMIG]) {
+                dbg.warn(
+                    'NooBaa object state for file:', file_path,
+                    'diverged from actual file state - file not on disk',
+                    'allowing transparent read to converge file states',
+                    'xattr:', xattr,
+                );
             }
 
             return {
                 ongoing: false,
                 expiry_time: restore_expiry,
-                state: GlacierBackend.RESTORE_STATUS_RESTORED,
+                state: Glacier.RESTORE_STATUS_RESTORED,
+                tape_info: tape_info,
             };
         }
     }
@@ -246,21 +308,22 @@ class GlacierBackend {
      * 
      * The caller can pass the stat data, if none is passed, stat is
      * called internally.
+     * @param {nb.NativeFSContext} fs_context
      * @param {string} file name of the file
      * @param {nb.NativeFSStats} [stat]
      * @returns {Promise<boolean>}
      */
-    async should_restore(fs_context, file, stat) {
+    static async should_restore(fs_context, file, stat) {
         if (!stat) {
             stat = await nb_native().fs.stat(fs_context, file, {
                 xattr_get_keys: [
-                    GlacierBackend.XATTR_RESTORE_REQUEST,
-                    GlacierBackend.STORAGE_CLASS_XATTR,
+                    Glacier.XATTR_RESTORE_REQUEST,
+                    Glacier.STORAGE_CLASS_XATTR,
                 ],
             });
         }
 
-        const restore_status = GlacierBackend.get_restore_status(stat.xattr, new Date(), file);
+        const restore_status = Glacier.get_restore_status(stat.xattr, new Date(), file);
         if (!restore_status) return false;
 
         // We don't check for pre-existing expiry here, it can happen in 2 cases
@@ -271,8 +334,106 @@ class GlacierBackend {
         // removing the request extended attribute. In such case, NSFS would still
         // report the object restore status to be `ONGOING` and we are going
         // to allow a retry of that entry.
-        return restore_status.state === GlacierBackend.RESTORE_STATUS_ONGOING;
+        return restore_status.state === Glacier.RESTORE_STATUS_ONGOING;
+    }
+
+    /**
+     * storage_class_from_xattr returns a parsed storage class derived from the given
+     * extended attribute. It will use DMAPI EA if `use_dmapi` is set to true.
+     *
+     * NOTE: For `use_dmapi` to work, the xattr must have been retrieved using fs_context
+     * where backend is set to 'GPFS'.
+     *
+     * @param {nb.NativeFSXattr} xattr
+     * @param {Boolean} [use_dmapi]
+     * @returns {nb.StorageClass}
+     */
+   static storage_class_from_xattr(xattr, use_dmapi = config.NSFS_GLACIER_DMAPI_IMPLICIT_SC) {
+        if (
+            use_dmapi &&
+            xattr[Glacier.GPFS_DMAPI_XATTR_TAPE_INDICATOR]
+        ) {
+            return s3_utils.STORAGE_CLASS_GLACIER;
+        }
+
+        return s3_utils.parse_storage_class(xattr[Glacier.STORAGE_CLASS_XATTR]);
+    }
+
+    /**
+     * is_externally_managed returns true if given extended attributes
+     * have tape indicator on them or not (only if `NSFS_GLACIER_USE_DMAPI`
+     * is set to true) and the storage class xattr is empty (ie none assigned
+     * by NooBaa).
+     *
+     * @param {nb.NativeFSXattr} xattr
+     * @returns {boolean}
+     */
+    static is_externally_managed(xattr) {
+        return Boolean(
+            config.NSFS_GLACIER_DMAPI_IMPLICIT_SC &&
+            !xattr[Glacier.STORAGE_CLASS_XATTR] &&
+            (
+                xattr[Glacier.GPFS_DMAPI_XATTR_TAPE_INDICATOR] ||
+                xattr[Glacier.GPFS_DMAPI_XATTR_TAPE_PREMIG]
+            )
+        );
+    }
+
+    /**
+     * is_implicitly_restored returns true if according to DMAPI xattrs,
+     * the file is either in premigrated state or is resident.
+     * 
+     * @param {nb.NativeFSXattr} xattr
+     * @returns {boolean}
+     */
+    static is_implicitly_restored(xattr) {
+        const is_resident = Boolean(!xattr[Glacier.GPFS_DMAPI_XATTR_TAPE_INDICATOR]);
+        const is_premig = Boolean(xattr[Glacier.GPFS_DMAPI_XATTR_TAPE_PREMIG]);
+
+        return config.NSFS_GLACIER_DMAPI_IMPLICIT_RESTORE_STATUS && (is_resident || is_premig);
+    }
+
+    /**
+     * parse_tape_info takes xattr for a file and parses out tape infos
+     * from the `dmapi.IBMTPS` headers.
+     * 
+     * @param {nb.NativeFSXattr} xattr
+     * @returns {nb.TapeInfo[]}
+     */
+    static parse_tape_info(xattr) {
+        const tape_info_extended = xattr[Glacier.GPFS_DMAPI_XATTR_TAPE_TPS];
+        if (!tape_info_extended) return [];
+
+        const tape_info = tape_info_extended.split(" ")[1];
+        if (!tape_info) return [];
+
+        return tape_info.split(':').map(info => {
+            const parsed_info = info.split("@");
+            if (parsed_info.length !== 3) {
+                dbg.warn("Glacier.parse_tape_info: found unexpected dmapi.IBMTPS xattr:", info);
+                return null;
+            }
+
+            return {
+                volser: parsed_info[0],
+                poolid: parsed_info[1],
+                libid: parsed_info[2],
+            };
+        }).filter(Boolean);
+    }
+
+    /**
+     * getBackend returns appropriate backend for the provided type
+     * @param {string} [typ]
+     * @returns {Glacier}
+     */
+    static getBackend(typ = config.NSFS_GLACIER_BACKEND) {
+        switch (typ) {
+            case 'TAPECLOUD': return new (require('./glacier_tapecloud').TapeCloudGlacier)();
+            default:
+                throw new Error('invalid backend type provided');
+        }
     }
 }
 
-exports.GlacierBackend = GlacierBackend;
+exports.Glacier = Glacier;

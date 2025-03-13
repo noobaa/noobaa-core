@@ -716,7 +716,7 @@ config.NOTIFICATION_LOG_NS = 'notification_logging';
 config.NOTIFICATION_LOG_DIR = process.env.NOTIFICATION_LOG_DIR;
 config.NOTIFICATION_BATCH = process.env.BATCH || 10;
 config.NOTIFICATION_REQ_PER_SPACE_CHECK = process.env.NOTIFICATION_REQ_PER_SPACE_CHECK || 0;
-config.NOTIFICATION_SPACE_CHECK_THRESHOLD = parseInt(process.env.NOTIFICATION_SPACE_CHECK_THRESHOLD, 10) || 0.1;
+config.NOTIFICATION_SPACE_CHECK_THRESHOLD = parseFloat(process.env.NOTIFICATION_SPACE_CHECK_THRESHOLD) || 0.2;
 
 ///////////////////////////
 //      KEY ROTATOR      //

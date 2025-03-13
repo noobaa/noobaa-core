@@ -565,7 +565,7 @@ function get_notification_logger(locking, namespace, poll_interval) {
 }
 
 //If space check is configures, create an event in case free space is below threshold.
-function check_free_space(req) {
+function check_free_space_if_needed(req) {
     if (!req.object_sdk.nsfs_config_root || !config.NOTIFICATION_REQ_PER_SPACE_CHECK) {
         //free space check is disabled. nothing to do.
         return;
@@ -578,11 +578,21 @@ function check_free_space(req) {
         req.notification_logger.writes_counter = 0;
         const fs_stat = fs.statfsSync(config.NOTIFICATION_LOG_DIR);
         //is the ratio of available blocks less than the configures threshold?
-        if (fs_stat.bavail / fs_stat.blocks < config.NOTIFICATION_SPACE_CHECK_THRESHOLD) {
+        if (check_free_space().below) {
             //yes. raise an event.
             new NoobaaEvent(NoobaaEvent.NOTIFICATION_LOW_SPACE).create_event(null, {fs_stat});
         }
     }
+}
+
+function check_free_space() {
+    const fs_stat = fs.statfsSync(config.NOTIFICATION_LOG_DIR);
+    const ratio = fs_stat.bavail / fs_stat.blocks;
+    //is the ratio of available blocks less than the configures threshold?
+    return {
+        below: ratio < config.NOTIFICATION_SPACE_CHECK_THRESHOLD,
+        ratio
+    };
 }
 
 /**
@@ -662,4 +672,5 @@ exports.add_connect_file = add_connect_file;
 exports.update_connect_file = update_connect_file;
 exports.check_free_space = check_free_space;
 exports.should_notify_on_event = should_notify_on_event;
+exports.check_free_space_if_needed = check_free_space_if_needed;
 exports.OP_TO_EVENT = OP_TO_EVENT;

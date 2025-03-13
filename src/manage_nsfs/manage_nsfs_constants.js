@@ -75,7 +75,7 @@ const VALID_OPTIONS_GLACIER = {
 };
 
 const VALID_OPTIONS_DIAGNOSE = {
-    'health': new Set([ 'https_port', 'deployment_type', 'all_account_details', 'all_bucket_details', 'all_connection_details', ...CLI_MUTUAL_OPTIONS]),
+    'health': new Set([ 'https_port', 'deployment_type', 'all_account_details', 'all_bucket_details', 'all_connection_details', 'notif_storage_threshold', ...CLI_MUTUAL_OPTIONS]),
     'gather-logs': new Set([ CONFIG_ROOT_FLAG]),
     'metrics': new Set([CONFIG_ROOT_FLAG])
 };
@@ -147,6 +147,7 @@ const OPTION_TYPE = {
     all_account_details: 'boolean',
     all_bucket_details: 'boolean',
     all_connection_details: 'boolean',
+    notif_storage_threshold: 'boolean',
     https_port: 'number',
     debug: 'number',
     // upgrade options

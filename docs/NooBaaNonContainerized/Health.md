@@ -55,7 +55,7 @@ The `health` command is used to analyze NooBaa health with customizable options.
 
 ```sh
 noobaa-cli diagnose health [--deployment_type][--https_port]
-[--all_account_details][--all_bucket_details][--config_root][--debug]
+[--all_account_details][--all_bucket_details][--all_connection_details][--notif_storage_threshold][--config_root][--debug]
 ```
 ### Flags -
 
@@ -83,6 +83,11 @@ noobaa-cli diagnose health [--deployment_type][--https_port]
     - Type: Boolean
     - Default: false
     - Description: Indicates if health output should contain connection test result.
+
+- `notif_storage_threshold`
+    - Type: Boolean
+    - Default: false
+    - Description: Whether health ouput should check if notification storage FS is below threshold.
 
 - `config_root`
     - Type: String
@@ -269,6 +274,11 @@ Output:
         }
       ]
     },
+    "notif_storage_threshold_details": {
+      "threshold": 0.2,
+      "ratio": 0.9,
+      "result": "above threshold"
+    }
     "config_directory": {
       "phase": "CONFIG_DIR_UNLOCKED",
       "config_dir_version": "1.0.0",

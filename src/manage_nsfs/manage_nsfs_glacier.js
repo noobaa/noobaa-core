@@ -20,7 +20,8 @@ async function process_migrations() {
 
         if (
             await backend.low_free_space() ||
-            await time_exceeded(fs_context, config.NSFS_GLACIER_MIGRATE_INTERVAL, Glacier.MIGRATE_TIMESTAMP_FILE)
+            await time_exceeded(fs_context, config.NSFS_GLACIER_MIGRATE_INTERVAL, Glacier.MIGRATE_TIMESTAMP_FILE) ||
+            await migrate_log_exceeds_threshold()
         ) {
             await run_glacier_migrations(fs_context, backend);
             const timestamp_file_path = path.join(config.NSFS_GLACIER_LOGS_DIR, Glacier.MIGRATE_TIMESTAMP_FILE);
@@ -113,6 +114,20 @@ async function time_exceeded(fs_context, interval, timestamp_file) {
     }
 
     return false;
+}
+
+/**
+ * migrate_log_exceeds_threshold returns true if the underlying backend
+ * decides that the migrate log size has exceeded the given size threshold.
+ * @param {number} [threshold]
+ * @returns {Promise<boolean>}
+ */
+async function migrate_log_exceeds_threshold(threshold = config.NSFS_GLACIER_MIGRATE_LOG_THRESHOLD) {
+    const log = new PersistentLogger(config.NSFS_GLACIER_LOGS_DIR, Glacier.MIGRATE_WAL_NAME, { locking: null });
+    await log._open();
+
+    const { size } = await log.fh.stat(log.fs_context);
+    return size > threshold;
 }
 
 /**

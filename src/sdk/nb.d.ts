@@ -870,6 +870,10 @@ interface BucketSpace {
 
     is_nsfs_containerized_user_anonymous(token: string): boolean;
     is_nsfs_non_containerized_user_anonymous(token: string): boolean;
+
+    get_public_access_block({ bucket_name }): Promise<any>;
+    put_public_access_block({ bucket_name , public_access_block }): Promise<any>;
+    delete_public_access_block({ bucket_name }): Promise<any>;
 }
 
 /**********************************************************

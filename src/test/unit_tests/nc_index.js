@@ -20,6 +20,7 @@ require('./test_nsfs_versioning');
 require('./test_bucketspace_versioning');
 require('./test_nc_bucket_logging');
 require('./test_nc_online_upgrade_s3_integrations');
+require('./test_public_access_block');
 
 // running with iam port
 require('./test_nc_iam_basic_integration.js'); // please notice that we use a different setup

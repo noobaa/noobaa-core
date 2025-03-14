@@ -949,6 +949,65 @@ module.exports = {
                 system: ['admin', 'user']
             }
         },
+
+        get_public_access_block: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['bucket_name'],
+                properties: {
+                    bucket_name: {
+                        $ref: 'common_api#/definitions/bucket_name'
+                    }
+                }
+            },
+            reply: {
+                type: 'object',
+                properties: {
+                    public_access_block: {
+                        $ref: 'common_api#/definitions/public_access_block'
+                    }
+                }
+            },
+            auth: {
+                system: ['admin', 'user']
+            }
+        },
+
+        put_public_access_block: {
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: ['bucket_name', 'public_access_block'],
+                properties: {
+                    bucket_name: {
+                        $ref: 'common_api#/definitions/bucket_name'
+                    },
+                    public_access_block: {
+                        $ref: 'common_api#/definitions/public_access_block'
+                    },
+                },
+            },
+            auth: {
+                system: ['admin', 'user']
+            }
+        },
+
+        delete_public_access_block: {
+            method: 'DELETE',
+            params: {
+                type: 'object',
+                required: ['bucket_name'],
+                properties: {
+                    bucket_name: {
+                        $ref: 'common_api#/definitions/bucket_name'
+                    },
+                },
+            },
+            auth: {
+                system: ['admin', 'user']
+            }
+        },
     },
 
     definitions: {

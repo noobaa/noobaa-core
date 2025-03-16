@@ -32,6 +32,8 @@ namespace noobaa
 #endif
 
 #define DVAL(x) #x "=" << x << " "
+#define DMEM(x,ptr,len) #x "=[" << ((void*)ptr) << "+" << ((void*)len) << "] "
+#define DBUF(x) DMEM(x,(x).Data(),(x).Length())
 
 extern bool LOG_TO_STDERR_ENABLED;
 extern bool LOG_TO_SYSLOG_ENABLED;

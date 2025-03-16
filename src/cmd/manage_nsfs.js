@@ -883,7 +883,8 @@ async function list_connections() {
 async function lifecycle_management(args) {
     const disable_service_validation = get_boolean_or_string_value(args.disable_service_validation);
     const disable_runtime_validation = get_boolean_or_string_value(args.disable_runtime_validation);
-    await noobaa_cli_lifecycle.run_lifecycle_under_lock(config_fs, disable_service_validation, disable_runtime_validation);
+    const short = get_boolean_or_string_value(args.short);
+    await noobaa_cli_lifecycle.run_lifecycle_under_lock(config_fs, { disable_service_validation, disable_runtime_validation, short });
 }
 
 exports.main = main;

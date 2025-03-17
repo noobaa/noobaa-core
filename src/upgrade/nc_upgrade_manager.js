@@ -109,7 +109,11 @@ class NCUpgradeManager {
         const package_to_version = this.package_version;
         const this_upgrade_versions = { config_dir_from_version, config_dir_to_version, package_from_version, package_to_version };
 
-        if (!should_upgrade(config_dir_from_version, config_dir_to_version)) return { message: 'config_dir_version on system.json and config_fs.config_dir_version match, nothing to upgrade' };
+        if (!should_upgrade(config_dir_from_version, config_dir_to_version)) {
+            const err_message = 'config_dir_version on system.json and config_fs.config_dir_version match, nothing to upgrade';
+            dbg.error(`upgrade_config_dir: ${err_message}`);
+            throw new Error(err_message);
+        }
 
         if (!skip_verification) await this._verify_config_dir_upgrade(system_data, expected_version, hosts_list);
 

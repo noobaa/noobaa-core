@@ -356,18 +356,17 @@ describe('noobaa cli - upgrade', () => {
         expect(system_data_after_upgrade.config_directory).toBeUndefined();
     });
 
-    it('upgrade start - should succeed - same version, nothing to upgrade - config directory property exists', async () => {
+    it('upgrade start - should fail - same version, nothing to upgrade - config directory property exists', async () => {
         await fs_utils.replace_file(config_fs.system_json_path, JSON.stringify(old_expected_system_json2));
         const system_data_before_upgrade = await config_fs.get_system_config_file();
         const options = { config_root, expected_version: pkg.version, expected_hosts };
         const res = await exec_manage_cli(TYPES.UPGRADE, UPGRADE_ACTIONS.START, options, true);
-        const parsed_res = JSON.parse(res);
-        expect(parsed_res.response.code).toBe(ManageCLIResponse.UpgradeSuccessful.code);
-        expect(parsed_res.response.reply.message).toBe('config_dir_version on system.json and config_fs.config_dir_version match, nothing to upgrade');
+        const parsed_res = JSON.parse(res.stdout);
+        expect(parsed_res.error.message).toBe(ManageCLIError.UpgradeFailed.message);
+        expect(parsed_res.error.cause).toContain(`config_dir_version on system.json and config_fs.config_dir_version match, nothing to upgrade`);
         const system_data_after_upgrade = await config_fs.get_system_config_file();
         // check that in the hostname section nothing changed
         expect(system_data_before_upgrade[hostname]).toStrictEqual(system_data_after_upgrade[hostname]);
-        expect(system_data_after_upgrade.config_directory).toStrictEqual(old_expected_system_json2.config_directory);
     });
 
     it('upgrade start - should succeed - no old config directory', async () => {

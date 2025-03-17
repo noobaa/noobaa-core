@@ -1,4 +1,4 @@
-/* Copyright (C) 2016 NooBaa */
+/* Copyright (C) 2025 NooBaa */
 "use strict";
 
 /**

@@ -145,7 +145,7 @@ class NCLifecycle {
     }
 
     /**
-     * process_buckets does the following - 
+     * process_buckets does the following -
      * 1. if it's a GPFS optimization - create candidates files
      * 2. iterates over buckets and handles their rules
      * @param {String[]} bucket_names
@@ -364,6 +364,7 @@ class NCLifecycle {
      */
     async get_candidates(bucket_json, lifecycle_rule, object_sdk) {
         const candidates = { abort_mpu_candidates: [], delete_candidates: [] };
+        const versions_list = undefined;
         if (lifecycle_rule.expiration) {
             candidates.delete_candidates = await this.get_candidates_by_expiration_rule(lifecycle_rule, bucket_json,
                 object_sdk);
@@ -373,7 +374,12 @@ class NCLifecycle {
             }
         }
         if (lifecycle_rule.noncurrent_version_expiration) {
-            const non_current_candidates = await this.get_candidates_by_noncurrent_version_expiration_rule(lifecycle_rule, bucket_json);
+            const non_current_candidates = await this.get_candidates_by_noncurrent_version_expiration_rule(
+                lifecycle_rule,
+                bucket_json,
+                object_sdk,
+                {versions_list}
+            );
             candidates.delete_candidates = candidates.delete_candidates.concat(non_current_candidates);
         }
         if (lifecycle_rule.abort_incomplete_multipart_upload) {
@@ -429,13 +435,41 @@ class NCLifecycle {
     }
 
     /**
+     * load objects list batch and update state for the next cycle
+     * @param {Object} object_sdk
+     * @param {Object} lifecycle_rule
+     * @param {Object} bucket_json
+     * @param {Object} rule_state
+     * @returns
+     */
+    async load_objects_list(object_sdk, lifecycle_rule, bucket_json, rule_state) {
+        const objects_list = await object_sdk.list_objects({
+            bucket: bucket_json.name,
+            prefix: lifecycle_rule.filter?.prefix,
+            key_marker: rule_state.key_marker,
+            limit: config.NC_LIFECYCLE_LIST_BATCH_SIZE
+        });
+        if (objects_list.is_truncated) {
+            rule_state.key_marker = objects_list.next_marker;
+            rule_state.is_finished = false;
+        } else {
+            rule_state.is_finished = true;
+        }
+        const bucket_state = this.lifecycle_run_status.buckets_statuses[bucket_json.name].state;
+        bucket_state.num_processed_objects += objects_list.objects.length;
+        return objects_list;
+    }
+
+    /**
      *
      * @param {*} lifecycle_rule
      * @param {Object} bucket_json
-     * @param {nb.ObjectSDK} object_sdk 
+     * @param {nb.ObjectSDK} object_sdk
      * @returns {Promise<Object[]>}
      */
     async get_candidates_by_expiration_rule_posix(lifecycle_rule, bucket_json, object_sdk) {
+        const rule_state = this.lifecycle_run_status.buckets_statuses[bucket_json.name].rules_statuses[lifecycle_rule.id].state.expire;
+        if (rule_state.is_finished) return [];
         const expiration = this._get_expiration_time(lifecycle_rule.expiration);
         if (expiration < 0) return [];
         const filter_func = this._build_lifecycle_filter({filter: lifecycle_rule.filter, expiration});
@@ -443,14 +477,7 @@ class NCLifecycle {
         const filtered_objects = [];
         // TODO list_objects does not accept a filter and works in batch sizes of 1000. should handle batching
         // also should maybe create a helper function or add argument for a filter in list object
-        const rule_state = this._get_rule_state(bucket_json, lifecycle_rule);
-
-        const objects_list = await object_sdk.list_objects({
-            bucket: bucket_json.name,
-            prefix: lifecycle_rule.filter?.prefix,
-            key_marker: rule_state.key_marker,
-            limit: config.NC_LIFECYCLE_LIST_BATCH_SIZE
-        });
+        const objects_list = await this.load_objects_list(object_sdk, lifecycle_rule, bucket_json, rule_state);
         objects_list.objects.forEach(obj => {
             const lifecycle_object = this._get_lifecycle_object_info_from_list_object_entry(obj);
             if (filter_func(lifecycle_object)) {
@@ -459,19 +486,11 @@ class NCLifecycle {
                 filtered_objects.push(candidate);
             }
         });
-
-        const bucket_state = this.lifecycle_run_status.buckets_statuses[bucket_json.name].state;
-        bucket_state.num_processed_objects += objects_list.objects.length;
-        if (objects_list.is_truncated) {
-            rule_state.key_marker = objects_list.next_marker;
-        } else {
-            rule_state.is_finished = true;
-        }
         return filtered_objects;
     }
 
     /**
-     * get_candidates_by_expiration_rule_gpfs does the following - 
+     * get_candidates_by_expiration_rule_gpfs does the following -
      * 1. gets the ilm candidates file path
      * 2. parses and returns the candidates from the files
      * @param {*} lifecycle_rule
@@ -498,6 +517,64 @@ class NCLifecycle {
     /////////////////////////////////////////////
     //////// NON CURRENT VERSION HELPERS ////////
     /////////////////////////////////////////////
+    /**
+     * load versions list batch and update state for the next cycle
+     * @param {Object} object_sdk
+     * @param {Object} lifecycle_rule
+     * @param {Object} bucket_json
+     * @param {Object} rule_state
+     * @returns
+     */
+    async load_versions_list(object_sdk, lifecycle_rule, bucket_json, rule_state) {
+        const list_versions = await object_sdk.list_object_versions({
+            bucket: bucket_json.name,
+            prefix: lifecycle_rule.filter?.prefix,
+            limit: config.NC_LIFECYCLE_LIST_BATCH_SIZE,
+            key_marker: rule_state.key_marker_versioned,
+            version_id_marker: rule_state.version_id_marker
+        });
+        if (list_versions.is_truncated) {
+            rule_state.is_finished = false;
+            rule_state.key_marker_versioned = list_versions.next_marker;
+            rule_state.version_id_marker = list_versions.next_version_id_marker;
+        } else {
+            rule_state.is_finished = true;
+        }
+        const bucket_state = this.lifecycle_run_status.buckets_statuses[bucket_json.name].state;
+        bucket_state.num_processed_objects += list_versions.objects.length;
+        return list_versions;
+    }
+
+    /**
+     * check if object is delete candidate based on newer noncurrent versions rule
+     * @param {Object} object_info
+     * @param {Object} newer_noncurrent_state
+     * @param {Number} num_newer_versions
+     * @returns
+     */
+    filter_newer_versions(object_info, newer_noncurrent_state, num_newer_versions) {
+        if (object_info.is_latest) {
+            newer_noncurrent_state.version_count = 0; //latest
+            newer_noncurrent_state.current_version = object_info.key;
+            return false;
+        }
+        newer_noncurrent_state.version_count += 1;
+        if (newer_noncurrent_state.version_count > num_newer_versions) {
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * check if object is delete candidate based on number of noncurrent days rule
+     * @param {Object} object_info
+     * @param {Number} num_non_current_days
+     * @returns
+     */
+    filter_noncurrent_days(object_info, num_non_current_days) {
+        //TODO implement
+        return true;
+    }
 
     /**
      * get_candidates_by_noncurrent_version_expiration_rule processes the noncurrent version expiration rule
@@ -508,11 +585,31 @@ class NCLifecycle {
      * @param {Object} bucket_json
      * @returns {Promise<Object[]>}
      */
-    async get_candidates_by_noncurrent_version_expiration_rule(lifecycle_rule, bucket_json) {
-        // TODO - implement
-        return [];
-    }
+    async get_candidates_by_noncurrent_version_expiration_rule(lifecycle_rule, bucket_json, object_sdk, {versions_list}) {
+        const rule_state = this.lifecycle_run_status.buckets_statuses[bucket_json.name].rules_statuses[lifecycle_rule.id].state.noncurrent;
+        if (rule_state.is_finished) return [];
 
+        if (!versions_list) {
+            versions_list = await this.load_versions_list(object_sdk, lifecycle_rule, bucket_json, rule_state);
+        }
+
+        const filter_func = this._build_lifecycle_filter({filter: lifecycle_rule.filter, expiration: 0});
+        const num_newer_versions = lifecycle_rule.noncurrent_version_expiration.newer_noncurrent_versions;
+        const num_non_current_days = lifecycle_rule.noncurrent_version_expiration.noncurrent_days;
+        const delete_candidates = [];
+
+        for (const entry of versions_list.objects) {
+            const lifecycle_info = this._get_lifecycle_object_info_from_list_object_entry(entry);
+            if ((num_newer_versions === undefined || this.filter_newer_versions(entry, rule_state, num_newer_versions)) &&
+                (num_non_current_days === undefined || this.filter_noncurrent_days(entry, num_non_current_days))) {
+                    if (filter_func(lifecycle_info)) {
+                        delete_candidates.push({key: entry.key, version_id: entry.version_id});
+                    }
+            }
+        }
+
+        return delete_candidates;
+    }
     ////////////////////////////////////
     ///////// ABORT MPU HELPERS ////////
     ////////////////////////////////////
@@ -689,6 +786,11 @@ class NCLifecycle {
                 this.init_bucket_status(bucket_name);
             }
         }
+        if (op_times.end_time) {
+            if (op_name === TIMED_OPS.PROCESS_RULE) {
+                this.update_rule_status_is_finished(bucket_name, rule_id);
+            }
+        }
         this._update_times_on_status({ op_name, op_times, bucket_name, rule_id });
         this._update_error_on_status({ error, bucket_name, rule_id });
         if (bucket_name && rule_id) {
@@ -839,10 +941,21 @@ class NCLifecycle {
      */
     init_rule_status(bucket_name, rule_id) {
         this.lifecycle_run_status.buckets_statuses[bucket_name].rules_statuses[rule_id] ??= {};
-        this.lifecycle_run_status.buckets_statuses[bucket_name].rules_statuses[rule_id].state ??= {};
-        this.lifecycle_run_status.buckets_statuses[bucket_name].rules_statuses[rule_id].rule_process_times ??= {};
+        this.lifecycle_run_status.buckets_statuses[bucket_name].rules_statuses[rule_id].state ??= {expire: {}, noncurrent: {}};
+        this.lifecycle_run_status.buckets_statuses[bucket_name].rules_statuses[rule_id].rule_process_times = {};
         this.lifecycle_run_status.buckets_statuses[bucket_name].rules_statuses[rule_id].rule_stats ??= {};
         return this.lifecycle_run_status.buckets_statuses[bucket_name].rules_statuses[rule_id];
+    }
+
+    /**
+     * updates the rule state if all actions finished
+     * @param {string} bucket_name
+     * @param {string} rule_id
+     */
+    update_rule_status_is_finished(bucket_name, rule_id) {
+        const rule_state = this.lifecycle_run_status.buckets_statuses[bucket_name].rules_statuses[rule_id].state;
+        rule_state.is_finished = (rule_state.expire.is_finished === undefined || rule_state.expire.is_finished === true) &&
+            (rule_state.noncurrent.is_finished === undefined || rule_state.noncurrent.is_finished === true);
     }
 
     /**
@@ -872,9 +985,9 @@ class NCLifecycle {
 
     /**
      * _set_rule_state sets the current rule state on the lifecycle run status
-     * @param {Object} bucket_json 
-     * @param {*} lifecycle_rule 
-     * @param {{is_finished?: Boolean | Undefined, candidates_file_offset?: number | undefined}} rule_state 
+     * @param {Object} bucket_json
+     * @param {*} lifecycle_rule
+     * @param {{is_finished?: Boolean | Undefined, candidates_file_offset?: number | undefined}} rule_state
      * @returns {Void}
      */
     _set_rule_state(bucket_json, lifecycle_rule, rule_state) {
@@ -883,9 +996,9 @@ class NCLifecycle {
 
     /**
      * _get_rule_state gets the current rule state on the lifecycle run status
-     * @param {Object} bucket_json 
-     * @param {*} lifecycle_rule 
-     * @returns {{is_finished?: Boolean | Undefined, candidates_file_offset?: number | undefined}} rule_state 
+     * @param {Object} bucket_json
+     * @param {*} lifecycle_rule
+     * @returns {{is_finished?: Boolean | Undefined, candidates_file_offset?: number | undefined}} rule_state
      */
     _get_rule_state(bucket_json, lifecycle_rule) {
         return this.lifecycle_run_status.buckets_statuses[bucket_json.name].rules_statuses[lifecycle_rule.id].state;
@@ -969,7 +1082,7 @@ class NCLifecycle {
     }
 
     /**
-     * get_mount_points returns a map of the following format - 
+     * get_mount_points returns a map of the following format -
      * { mount_point_path1: {}, mount_point_path2: {} }
      * @returns {Promise<Object>}
      */
@@ -994,8 +1107,8 @@ class NCLifecycle {
 
     /**
      * find_mount_point_by_bucket_path finds the mount point of a given bucket path
-     * @param {Object} mount_point_to_policy_map 
-     * @param {String} bucket_path 
+     * @param {Object} mount_point_to_policy_map
+     * @param {String} bucket_path
      * @returns {String}
      */
     find_mount_point_by_bucket_path(mount_point_to_policy_map, bucket_path) {
@@ -1012,14 +1125,14 @@ class NCLifecycle {
     /**
      * create_gpfs_candidates_files creates a candidates file per mount point that is used by at least one bucket
      * 1. creates a map of mount point to buckets
-     * 2. for each bucket - 
+     * 2. for each bucket -
      * 2.1. finds the mount point it belongs to
      * 2.2. convert the bucket's lifecycle policy to a GPFS ILM policy
      * 2.3. concat the bucket's GPFS ILM policy to the mount point policy file string
-     * 3. for each mount point - 
+     * 3. for each mount point -
      * 3.1. writes the ILM policy to a tmp file
      * 3. creates the candidates file by applying the ILM policy
-     * @param {String[]} bucket_names 
+     * @param {String[]} bucket_names
      * @returns {Promise<Void>}
      */
     async create_gpfs_candidates_files(bucket_names) {
@@ -1050,10 +1163,10 @@ class NCLifecycle {
     /**
      * convert_lifecycle_policy_to_gpfs_ilm_policy converts the lifecycle rule to GPFS ILM policy
      * currently we support expiration (current version) only
-     * TODO - implement gpfs optimization for non_current_days - 
+     * TODO - implement gpfs optimization for non_current_days -
      * non current can't be on the same policy, when implementing non current we should split the policies
-     * @param {*} lifecycle_rule 
-     * @param {Object} bucket_json 
+     * @param {*} lifecycle_rule
+     * @param {Object} bucket_json
      * @returns {String}
      */
     convert_lifecycle_policy_to_gpfs_ilm_policy(lifecycle_rule, bucket_json) {
@@ -1074,7 +1187,7 @@ class NCLifecycle {
 
     /**
      * _get_gpfs_ilm_policy_base returns policy base definitions and bucket path phrase
-     * @param {{bucket_rule_id: String, in_bucket_path: String, in_bucket_internal_dir: String}} ilm_policy_helpers 
+     * @param {{bucket_rule_id: String, in_bucket_path: String, in_bucket_internal_dir: String}} ilm_policy_helpers
      * @returns {String}
      */
     _get_gpfs_ilm_policy_base(ilm_policy_helpers) {
@@ -1091,7 +1204,7 @@ class NCLifecycle {
     /**
      * convert_expiry_rule_to_gpfs_ilm_policy converts the expiry rule to GPFS ILM policy
      * expiration rule works on latest version path (not inside .versions or in nested .versions)
-     * @param {*} lifecycle_rule 
+     * @param {*} lifecycle_rule
      * @param {{in_versions_dir: String, in_nested_versions_dir: String}} ilm_policy_paths
      * @returns {String}
      */
@@ -1107,7 +1220,7 @@ class NCLifecycle {
 
     /**
      * convert_noncurrent_version_to_gpfs_ilm_policy converts the noncurrent version by days to GPFS ILM policy
-     * @param {*} lifecycle_rule 
+     * @param {*} lifecycle_rule
      * @param {{in_versions_dir: String, in_nested_versions_dir: String}} ilm_policy_paths
      * @returns {String}
      */
@@ -1118,8 +1231,8 @@ class NCLifecycle {
 
     /**
      * convert_filter_to_gpfs_ilm_policy converts the filter to GPFS ILM policy
-     * @param {*} lifecycle_rule 
-     * @param {Object} bucket_json 
+     * @param {*} lifecycle_rule
+     * @param {Object} bucket_json
      * @returns {String}
      */
     convert_filter_to_gpfs_ilm_policy(lifecycle_rule, bucket_json) {
@@ -1139,8 +1252,8 @@ class NCLifecycle {
 
     /**
      * get_lifecycle_ilm_candidates_file_name gets the ILM policy file name
-     * @param {String} bucket_name 
-     * @param {*} lifecycle_rule 
+     * @param {String} bucket_name
+     * @param {*} lifecycle_rule
      * @returns {String}
      */
     get_lifecycle_ilm_candidates_file_name(bucket_name, lifecycle_rule) {
@@ -1151,8 +1264,8 @@ class NCLifecycle {
     /**
      * get_lifecycle_ilm_candidate_file_suffix returns the suffix of a candidates file based on bucket name, rule id and lifecycle run start
      * TODO - when noncurrent_version is supported, suffix should contain expiration/non_current_version_expiration rule type
-     * @param {String} bucket_name 
-     * @param {*} lifecycle_rule 
+     * @param {String} bucket_name
+     * @param {*} lifecycle_rule
      * @returns {String}
      */
     get_lifecycle_ilm_candidate_file_suffix(bucket_name, lifecycle_rule) {
@@ -1164,7 +1277,7 @@ class NCLifecycle {
      * write_tmp_ilm_policy writes the ILM policy string to a tmp file
      * TODO - delete the policy on restart and on is_finished of the rule
      * TODO - should we unlink the policy file if the file already exists? - might be dangerous
-     * @param {String} mount_point_path 
+     * @param {String} mount_point_path
      * @param {String} ilm_policy_string
      * @returns {Promise<String>}
      */
@@ -1192,7 +1305,7 @@ class NCLifecycle {
 
     /**
      * lifecycle_ilm_policy_path returns ilm policy file path based on bucket name and rule_id
-     * @param {String} mount_point_path 
+     * @param {String} mount_point_path
      * @returns {String}
      */
     get_gpfs_ilm_policy_file_path(mount_point_path) {
@@ -1203,8 +1316,8 @@ class NCLifecycle {
 
      /**
      * get_gpfs_ilm_candidates_file_path returns ilm policy file path based on bucket name and rule_id
-     * @param {*} bucket_json 
-     * @param {*} lifecycle_rule 
+     * @param {*} bucket_json
+     * @param {*} lifecycle_rule
      * @returns {String}
      */
      get_gpfs_ilm_candidates_file_path(bucket_json, lifecycle_rule) {
@@ -1232,17 +1345,17 @@ class NCLifecycle {
     }
 
     /**
-     * parse_candidates_from_gpfs_ilm_policy does the following - 
-     * 1. reads the candidates file line by line (Note - we set read_file_offset so we will read the file from the line we stopped last iteration)- 
+     * parse_candidates_from_gpfs_ilm_policy does the following -
+     * 1. reads the candidates file line by line (Note - we set read_file_offset so we will read the file from the line we stopped last iteration)-
      * 1.1. if number of parsed candidates is above the batch size - break the loop and stop reading the candidates file
-     * 1.2. else - 
+     * 1.2. else -
      * 1.2.1. update the new rule state
      * 1.2.2. parse the key from the candidate line
      * 1.2.3. push the key to the candidates array
-     * 2. if candidates file does not exist, we return without error because it's valid that no candidates found 
+     * 2. if candidates file does not exist, we return without error because it's valid that no candidates found
      * @param {Object} bucket_json
      * @param {*} lifecycle_rule
-     * @param {String} rule_candidates_path 
+     * @param {String} rule_candidates_path
      * @returns {Promise<Object[]>} parsed_candidates_array
      */
     async parse_candidates_from_gpfs_ilm_policy(bucket_json, lifecycle_rule, rule_candidates_path) {
@@ -1284,11 +1397,11 @@ class NCLifecycle {
 
     /**
      * _parse_key_from_line parses the object key from a candidate line
-     * candidate line (when using mmapplypolicy defer) is of the following format - 
-     * example - 
+     * candidate line (when using mmapplypolicy defer) is of the following format -
+     * example -
      * 17460 1316236366 0   -- /mnt/gpfs0/account1_new_buckets_path/bucket1_storage/key1.txt
      * if file is .folder (directory object) we need to return its parent directory
-     * @param {*} entry 
+     * @param {*} entry
      */
     _parse_key_from_line(entry, bucket_json) {
         const line_array = entry.path.split(' ');

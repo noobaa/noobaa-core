@@ -149,7 +149,10 @@ async function process_buckets(config_fs, bucket_names, system_json) {
  */
 async function process_bucket(config_fs, bucket_name, system_json) {
     const bucket_json = await config_fs.get_bucket_by_name(bucket_name, config_fs_options);
-    const account = { email: '', nsfs_account_config: config_fs.fs_context, access_keys: [] };
+    let account = await config_fs.get_identity_by_id(bucket_json.owner_account, undefined, {silent_if_missing: true});
+    if (!account) {
+        account = { email: '', nsfs_account_config: config_fs.fs_context, access_keys: [] };
+    }
     const object_sdk = new NsfsObjectSDK('', config_fs, account, bucket_json.versioning, config_fs.config_root, system_json);
     await object_sdk._simple_load_requesting_account();
     if (!bucket_json.lifecycle_configuration_rules) return {};
@@ -307,15 +310,18 @@ async function throw_if_noobaa_not_active(config_fs, system_json) {
  */
 async function get_candidates(bucket_json, lifecycle_rule, object_sdk, fs_context) {
     const candidates = { abort_mpu_candidates: [], delete_candidates: [] };
+    let versions_list;
     if (lifecycle_rule.expiration) {
         candidates.delete_candidates = await get_candidates_by_expiration_rule(lifecycle_rule, bucket_json, object_sdk);
         if (lifecycle_rule.expiration.days || lifecycle_rule.expiration.expired_object_delete_marker) {
-            const dm_candidates = await get_candidates_by_expiration_delete_marker_rule(lifecycle_rule, bucket_json);
+            const dm_candidates = await get_candidates_by_expiration_delete_marker_rule(
+                lifecycle_rule, bucket_json, object_sdk, {versions_list});
             candidates.delete_candidates = candidates.delete_candidates.concat(dm_candidates);
         }
     }
     if (lifecycle_rule.noncurrent_version_expiration) {
-        const non_current_candidates = await get_candidates_by_noncurrent_version_expiration_rule(lifecycle_rule, bucket_json);
+        const non_current_candidates = await get_candidates_by_noncurrent_version_expiration_rule(
+            lifecycle_rule, bucket_json, object_sdk, {versions_list});
         candidates.delete_candidates = candidates.delete_candidates.concat(non_current_candidates);
     }
     if (lifecycle_rule.abort_incomplete_multipart_upload) {
@@ -412,20 +418,97 @@ async function get_candidates_by_expiration_rule_posix(lifecycle_rule, bucket_js
 
 }
 
+//TODO better option than global variable?
+const expire_delete_marker_filter = {
+    //private variables
+    latest_key: '',
+    delete_marker_list: [],
+    complete_delete_marker_list: [],
+    has_only_delete_markers: true,
+    process_entry: function(object_info, filter_func) {
+        if (object_info.key !== this.latest_key) {
+            if (this.has_only_delete_markers) {
+                this.complete_delete_marker_list = this.complete_delete_marker_list.concat(this.delete_marker_list);
+                this.delete_marker_list = [];
+            }
+            this.latest_key = object_info.key;
+            this.has_only_delete_markers = true;
+        }
+        if (!object_info.delete_marker) {
+            this.has_only_delete_markers = false;
+            this.delete_marker_list = [];
+        }
+        const lifecycle_info = _get_lifecycle_object_info_from_list_object_entry(object_info);
+        if (this.has_only_delete_markers && filter_func(lifecycle_info)) {
+            this.delete_marker_list.push({key: object_info.key, version_id: object_info.version_id});
+        }
+    },
+    flush_complete_delete_marker_list: function() {
+        const ret = this.complete_delete_marker_list;
+        this.complete_delete_marker_list = [];
+        return ret;
+    },
+    flush_all_delete_markers: function() {
+        const ret = this.complete_delete_marker_list.concat(this.delete_marker_list);
+        this.clear_state();
+        return ret;
+    },
+    clear_state: function() {
+        this.latest_key = '';
+        this.delete_marker_list = [];
+        this.complete_delete_marker_list = [];
+        this.has_only_delete_markers = true;
+    }
+};
+
 /**
  * get_candidates_by_expiration_delete_marker_rule processes the expiration delete marker rule
+ * TODO deside how to handle batching
  * @param {*} lifecycle_rule
  * @param {Object} bucket_json
- * @returns {Promise<Object[]>}
  */
-async function get_candidates_by_expiration_delete_marker_rule(lifecycle_rule, bucket_json) {
-    // TODO - implement
-    return [];
+async function get_candidates_by_expiration_delete_marker_rule(lifecycle_rule, bucket_json, object_sdk, {versions_list}) {
+    if (!versions_list) {
+        versions_list = await object_sdk.list_object_versions({bucket: bucket_json.name, prefix: lifecycle_rule.filter?.prefix});
+    }
+    const filter_func = _build_lifecycle_filter({filter: lifecycle_rule.filter, expiration: 0});
+    versions_list.objects.forEach(entry => {
+        expire_delete_marker_filter.process_entry(entry, filter_func);
+    });
+    if (versions_list.is_truncated) {
+        return expire_delete_marker_filter.flush_complete_delete_marker_list();
+    } else {
+        return expire_delete_marker_filter.flush_all_delete_markers();
+    }
 }
 
 /////////////////////////////////////////////
 //////// NON CURRENT VERSION HELPERS ////////
 /////////////////////////////////////////////
+
+const newer_noncurrent_versions_filter = {
+    version_count: 0,
+    current_version: '',
+
+    process_entry: function(object_info, NewerNoncurrentVersions, filter_func) {
+        if (object_info.key !== this.current_version) {
+            this.version_count = 0; //latest
+            this.current_version = object_info.key;
+            return;
+        }
+        this.version_count += 1;
+        //NewerNoncurrentVersions + latest
+        const lifecycle_info = _get_lifecycle_object_info_from_list_object_entry(object_info);
+        if (filter_func(lifecycle_info) && this.version_count >= NewerNoncurrentVersions + 1) {
+            return true;
+        }
+        return false;
+    },
+    clear_state: function() {
+        this.version_count = 0;
+        this.current_version = '';
+    }
+};
 
 /**
  * get_candidates_by_noncurrent_version_expiration_rule processes the noncurrent version expiration rule
@@ -434,13 +517,24 @@ async function get_candidates_by_expiration_delete_marker_rule(lifecycle_rule, b
  * GPFS - implement noncurrent_days using GPFS ILM policy as an optimization
  * @param {*} lifecycle_rule
  * @param {Object} bucket_json
- * @returns {Promise<Object[]>}
  */
-async function get_candidates_by_noncurrent_version_expiration_rule(lifecycle_rule, bucket_json) {
-    // TODO - implement
-    return [];
+async function get_candidates_by_noncurrent_version_expiration_rule(lifecycle_rule, bucket_json, object_sdk, {versions_list}) {
+    if (!versions_list) {
+        versions_list = await object_sdk.list_object_versions({bucket: bucket_json.name, prefix: lifecycle_rule.filter?.prefix});
+    }
+    const NewerNoncurrentVersions = lifecycle_rule.noncurrent_version_expiration.newer_noncurrent_versions;
+    const filter_func = _build_lifecycle_filter({filter: lifecycle_rule.filter, expiration: 0});
+    const delete_candidates = [];
+    versions_list.objects.forEach(entry => {
+        if (newer_noncurrent_versions_filter.process_entry(entry, NewerNoncurrentVersions, filter_func)) {
+            delete_candidates.push({key: entry.key, version_id: entry.version_id});
+        }
+    });
+    if (!versions_list.is_truncated) {
+        newer_noncurrent_versions_filter.clear_state();
+    }
+    return delete_candidates;
 }
-
 ////////////////////////////////////
 ///////// ABORT MPU HELPERS ////////
 ////////////////////////////////////
@@ -539,7 +633,7 @@ function _get_file_age_days(mtime) {
 /**
  * get the expiration time in days of an object
  * if rule is set with date, then rule is applied for all objects after that date
- * return -1 to indicate that the date hasn't arrived, so rule should not be applied
+ * return -1 to indicate that either the date hasn't arrived or there is no expiration, so rule should not be applied
  * return 0 in case date has arrived so expiration is true for all elements
  * return days in case days was defined and not date
  * @param {Object} expiration_rule
@@ -550,8 +644,11 @@ function _get_expiration_time(expiration_rule) {
         const expiration_date = new Date(expiration_rule.date).getTime();
         if (Date.now() < expiration_date) return -1;
         return 0;
+    } else if (expiration_rule.days) {
+        return expiration_rule.days;
     }
-    return expiration_rule.days;
+    //no expiration
+    return -1;
 }
 
 

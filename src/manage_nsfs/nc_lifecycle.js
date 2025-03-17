@@ -614,6 +614,44 @@ class NCLifecycle {
         return true;
     }
 
+    async load_versions_list(object_sdk, bucket_json, rule_state) {
+        const list_versions = await object_sdk.list_object_versions({
+            bucket: bucket_json.name,
+            prefix: rule_state.filter?.prefix,
+            limit: config.NC_LIFECYCLE_LIST_BATCH_SIZE,
+            key_marker: rule_state.key_marker_versioned,
+            version_id_marker: rule_state.version_id_marker
+        });
+        if (list_versions.is_truncated) {
+            rule_state.is_finished = false;
+            rule_state.key_marker_versioned = list_versions.next_marker;
+            rule_state.version_id_marker = list_versions.next_version_id_marker;
+        } else {
+            rule_state.is_finished = true;
+        }
+        const bucket_state = this.lifecycle_run_status.buckets_statuses[bucket_json.name].state;
+        bucket_state.num_processed_objects += list_versions.objects.length;
+        return list_versions;
+    }
+
+    filter_newer_versions(object_info, newer_noncurrent_state, num_newer_versions) {
+        if (object_info.is_latest) {
+            newer_noncurrent_state.version_count = 0; //latest
+            newer_noncurrent_state.current_version = object_info.key;
+            return false;
+        }
+        newer_noncurrent_state.version_count += 1;
+        if (newer_noncurrent_state.version_count > num_newer_versions) {
+            return true;
+        }
+        return false;
+    }
+
+    filter_noncurrent_days(object_info, num_non_current_days) {
+        //TODO implement
+        return false;
+    }
+
     /**
      * get_candidates_by_noncurrent_version_expiration_rule processes the noncurrent version expiration rule
      * TODO:

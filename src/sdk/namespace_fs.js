@@ -298,11 +298,24 @@ function filter_fs_xattr(xattr) {
     return _.pickBy(xattr, (val, key) => key?.startsWith(XATTR_NOOBAA_INTERNAL_PREFIX));
 }
 
+function get_tags_from_xattr(xattr) {
+    const tag_set = [];
+    for (const [xattr_key, xattr_value] of Object.entries(xattr)) {
+        if (xattr_key.includes(XATTR_TAG)) {
+            tag_set.push({
+                key: xattr_key.replace(XATTR_TAG, ''),
+                value: xattr_value,
+            });
+        }
+    }
+    return tag_set;
+}
+
 /**
  * get_random_delay returns a random delay number between base + min and max
- * @param {number} base 
- * @param {number} min 
- * @param {number} max 
+ * @param {number} base
+ * @param {number} min
+ * @param {number} max
  * @returns {number}
  */
 function get_random_delay(base, min, max) {
@@ -2088,7 +2101,7 @@ class NamespaceFS {
     ////////////////////
 
     async get_object_tagging(params, object_sdk) {
-        const tag_set = [];
+        let tag_set = [];
         let file_path;
         let file;
         const fs_context = this.prepare_fs_context(object_sdk);
@@ -2103,14 +2116,7 @@ class NamespaceFS {
             file = await nb_native().fs.open(fs_context, file_path);
             const stat = await file.stat(fs_context);
             if (stat.xattr) {
-                for (const [xattr_key, xattr_value] of Object.entries(stat.xattr)) {
-                    if (xattr_key.includes(XATTR_TAG)) {
-                        tag_set.push({
-                            key: xattr_key.replace(XATTR_TAG, ''),
-                            value: xattr_value,
-                        });
-                    }
-                }
+                tag_set = get_tags_from_xattr(stat.xattr);
             }
         } catch (err) {
             dbg.error(`NamespaceFS.get_object_tagging: failed in dir ${file_path} with error: `, err);
@@ -2563,6 +2569,7 @@ class NamespaceFS {
             restore_status: Glacier.get_restore_status(stat.xattr, new Date(), this._get_file_path({key})),
             xattr: to_xattr(stat.xattr),
             tag_count,
+            tagging: get_tags_from_xattr(stat.xattr),
 
             // temp:
             lock_settings: undefined,
@@ -2570,7 +2577,6 @@ class NamespaceFS {
             num_parts: undefined,
             sha256_b64: undefined,
             stats: undefined,
-            tagging: undefined,
             object_owner: this._get_object_owner()
         };
     }

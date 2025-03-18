@@ -883,8 +883,19 @@ async function list_connections() {
 async function lifecycle_management(args) {
     const disable_service_validation = get_boolean_or_string_value(args.disable_service_validation);
     const disable_runtime_validation = get_boolean_or_string_value(args.disable_runtime_validation);
-    const short = get_boolean_or_string_value(args.short);
-    await noobaa_cli_lifecycle.run_lifecycle_under_lock(config_fs, { disable_service_validation, disable_runtime_validation, short });
+    const short_status = get_boolean_or_string_value(args.short_status);
+    try {
+        const options = { disable_service_validation, disable_runtime_validation, short_status };
+        const { should_run, lifecycle_run_status } = await noobaa_cli_lifecycle.run_lifecycle_under_lock(config_fs, options);
+        if (should_run) {
+            write_stdout_response(ManageCLIResponse.LifecycleSuccessful, lifecycle_run_status);
+        } else {
+            write_stdout_response(ManageCLIResponse.LifecycleWorkerNotRunning);
+        }
+    } catch (err) {
+        dbg.error('manage_nsfs.lifecycle_management: Error while running run_lifecycle_under_lock', config_fs.config_json_path, err);
+        throw_cli_error(err);
+    }
 }
 
 exports.main = main;

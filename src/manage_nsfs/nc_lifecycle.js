@@ -13,8 +13,7 @@ const NsfsObjectSDK = require('../sdk/nsfs_object_sdk');
 const native_fs_utils = require('../util/native_fs_utils');
 const { NoobaaEvent } = require('./manage_nsfs_events_utils');
 const ManageCLIError = require('./manage_nsfs_cli_errors').ManageCLIError;
-const ManageCLIResponse = require('../manage_nsfs/manage_nsfs_cli_responses').ManageCLIResponse;
-const { write_stdout_response, throw_cli_error, get_service_status, NOOBAA_SERVICE_NAME,
+const { throw_cli_error, get_service_status, NOOBAA_SERVICE_NAME,
     is_desired_time, record_current_time } = require('./manage_nsfs_cli_utils');
 
 // TODO:
@@ -24,7 +23,7 @@ const { write_stdout_response, throw_cli_error, get_service_status, NOOBAA_SERVI
 // 3. GPFS ILM policy and apply for scanning and filtering optimization
 // TODO - we will filter during the scan except for get_candidates_by_expiration_rule on GPFS that does the filter on the file system
 
-const CLUSTER_LOCK = 'cluster.lock';
+const LIFECYCLE_CLUSTER_LOCK = 'lifecycle_cluster.lock';
 const LIFECYLE_TIMESTAMP_FILE = 'lifecycle.timestamp';
 const config_fs_options = { silent_if_missing: true };
 
@@ -33,7 +32,7 @@ const lifecycle_run_status = {
     total_stats: _get_default_stats(), buckets_statuses: {}
 };
 
-let short_status = false;
+let return_short_status = false;
 
 const TIMED_OPS = Object.freeze({
     RUN_LIFECYLE: 'run_lifecycle',
@@ -50,36 +49,40 @@ const TIMED_OPS = Object.freeze({
  * run_lifecycle_under_lock runs the lifecycle workflow under a file system lock
  * lifecycle workflow is being locked to prevent multiple instances from running the lifecycle workflow
  * @param {import('../sdk/config_fs').ConfigFS} config_fs
- * @param {{disable_service_validation?: boolean, disable_runtime_validation?: boolean, short?: boolean}} flags
+ * @param {{disable_service_validation?: boolean, disable_runtime_validation?: boolean, short_status?: boolean}} flags
+ * @returns {Promise<{should_run: Boolean, lifecycle_run_status: Object}>}
  */
 async function run_lifecycle_under_lock(config_fs, flags) {
-    const { disable_service_validation = false, disable_runtime_validation = false, short = false } = flags;
-    short_status = short;
+    const { disable_service_validation = false, disable_runtime_validation = false, short_status = false } = flags;
+    return_short_status = short_status;
     const fs_context = config_fs.fs_context;
     const lifecyle_logs_dir_path = config.NC_LIFECYCLE_LOGS_DIR;
-    const lock_path = path.join(lifecyle_logs_dir_path, CLUSTER_LOCK);
-    const lifecycle_timestamp_file_path = path.join(lifecyle_logs_dir_path, LIFECYLE_TIMESTAMP_FILE);
+    const lifecycle_config_dir_path = path.join(config_fs.config_root, config.NC_LIFECYCLE_CONFIG_DIR_NAME);
+    const lock_path = path.join(lifecycle_config_dir_path, LIFECYCLE_CLUSTER_LOCK);
+    const lifecycle_timestamp_file_path = path.join(lifecycle_config_dir_path, LIFECYLE_TIMESTAMP_FILE);
     await config_fs.create_dir_if_missing(lifecyle_logs_dir_path);
+    await config_fs.create_dir_if_missing(lifecycle_config_dir_path);
 
+    let should_run = true;
     await native_fs_utils.lock_and_run(fs_context, lock_path, async () => {
-        dbg.log0('run_lifecycle_under_lock acquired lock - start lifecycle');
-        const should_run = await _should_lifecycle_run(fs_context, lifecycle_timestamp_file_path, disable_runtime_validation);
-        if (!should_run) write_stdout_response(ManageCLIResponse.LifecycleWorkerNotRunning);
+        dbg.log0('run_lifecycle_under_lock acquired lock - verifying');
+        should_run = await _should_lifecycle_run(fs_context, lifecycle_timestamp_file_path, disable_runtime_validation);
+        if (!should_run) return;
 
         try {
             dbg.log0('run_lifecycle_under_lock acquired lock - start lifecycle');
             new NoobaaEvent(NoobaaEvent.LIFECYCLE_STARTED).create_event();
             await run_lifecycle_or_timeout(config_fs, disable_service_validation);
-            write_stdout_response(ManageCLIResponse.LifecycleSuccessful, lifecycle_run_status);
         } catch (err) {
             dbg.error('run_lifecycle_under_lock failed with error', err, err.code, err.message);
-            throw_cli_error(err);
+            throw err;
         } finally {
             await record_current_time(fs_context, lifecycle_timestamp_file_path);
             await write_lifecycle_log_file(config_fs.fs_context, lifecyle_logs_dir_path);
             dbg.log0('run_lifecycle_under_lock done lifecycle - released lock');
         }
     });
+    return { should_run, lifecycle_run_status };
 }
 
 /**
@@ -627,7 +630,7 @@ async function _call_op_and_update_status({ bucket_name = undefined, rule_id = u
     let error;
     let reply;
     try {
-        if (!short_status) update_status({ ...update_options, op_times: { start_time } });
+        if (!return_short_status) update_status({ ...update_options, op_times: { start_time } });
         reply = await op_func();
         return reply;
     } catch (e) {
@@ -636,7 +639,7 @@ async function _call_op_and_update_status({ bucket_name = undefined, rule_id = u
     } finally {
         end_time = Date.now();
         took_ms = end_time - start_time;
-        const op_times = short_status ? { took_ms } : { end_time, took_ms };
+        const op_times = return_short_status ? { took_ms } : { end_time, took_ms };
         update_status({ ...update_options, op_times, reply, error });
     }
 }

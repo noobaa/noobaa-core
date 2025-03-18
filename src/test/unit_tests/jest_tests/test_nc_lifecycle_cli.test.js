@@ -47,6 +47,7 @@ describe('noobaa cli - lifecycle - lock check', () => {
         config.NC_LIFECYCLE_RUN_TIME = original_lifecycle_run_time;
         config.NC_LIFECYCLE_RUN_DELAY_LIMIT_MINS = original_lifecycle_run_delay;
         await fs_utils.folder_delete(config.NC_LIFECYCLE_LOGS_DIR);
+        await fs_utils.folder_delete(config_root);
     });
 
     afterAll(async () => {
@@ -104,7 +105,7 @@ describe('noobaa cli - lifecycle - lock check', () => {
         expect(parsed_res.message).toBe(ManageCLIResponse.LifecycleSuccessful.message);
     });
 
-    it('lifecycle_cli - change run time to 1 minutes ago - should fail ', async () => {
+    it('lifecycle_cli - change run time to 1 minute in the future - should fail ', async () => {
         const lifecyle_run_date = new Date();
         lifecyle_run_date.setMinutes(lifecyle_run_date.getMinutes() + 1);
         await config_fs.create_config_json_file(JSON.stringify({

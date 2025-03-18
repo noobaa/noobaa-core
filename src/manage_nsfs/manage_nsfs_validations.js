@@ -748,29 +748,30 @@ function validate_connection_args(user_input, action) {
  * validate_expected_version checks that expected_version is valid
  * if it's not valid it throws an error
  * @param {string} expected_version
+ * @param {boolean} [skip_verification]
  */
-function validate_expected_version(expected_version) {
+function validate_expected_version(expected_version, skip_verification = false) {
     if (!expected_version) {
         throw new Error('expected_version flag is required');
     }
     if (!version_utils.is_valid_sematic_version(expected_version)) {
         throw new Error('expected_version must have sematic version structure (major.minor.patch)');
     }
-    if (compare_version_to_current_version(expected_version)) {
-        throw new Error(`expected_version cannot be later that the package version ${pkg.version}`);
+    if (!skip_verification && !version_match_to_current_version(expected_version)) {
+        throw new Error(`expected_version must match the package version ${pkg.version}`);
     }
 }
 
 /**
- * compare_version_to_current_version checks that the version
- * is not later than the one that was defined in the pkg
+ * version_match_to_current_version checks that the version
+ * is the same as the one that was defined in the pkg
  * @param {string} expected_version
  * @returns {boolean}
  */
-function compare_version_to_current_version(expected_version) {
+function version_match_to_current_version(expected_version) {
     const package_version = pkg.version;
     const diff_from_package_version = version_utils.version_compare(expected_version, package_version);
-    return diff_from_package_version === 1;
+    return diff_from_package_version === 0;
 }
 
 

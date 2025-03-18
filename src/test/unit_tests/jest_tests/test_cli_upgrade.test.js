@@ -291,7 +291,15 @@ describe('noobaa cli - upgrade', () => {
         const res = await exec_manage_cli(TYPES.UPGRADE, UPGRADE_ACTIONS.START, { config_root, expected_version: '6.18.0', expected_hosts }, true);
         const parsed_res = JSON.parse(res.stdout);
         expect(parsed_res.error.code).toBe(ManageCLIError.UpgradeFailed.code);
-        expect(parsed_res.error.cause).toContain('expected_version cannot be later that the package version');
+        expect(parsed_res.error.cause).toContain('expected_version must match the package version');
+    });
+
+    it('upgrade start - should fail on expected_version that is older that package version', async () => {
+        await fs_utils.replace_file(config_fs.system_json_path, JSON.stringify(old_rpm_expected_system_json));
+        const res = await exec_manage_cli(TYPES.UPGRADE, UPGRADE_ACTIONS.START, { config_root, expected_version: '5.16.0', expected_hosts }, true);
+        const parsed_res = JSON.parse(res.stdout);
+        expect(parsed_res.error.code).toBe(ManageCLIError.UpgradeFailed.code);
+        expect(parsed_res.error.cause).toContain('expected_version must match the package version');
     });
 
     it('upgrade start - should succeed although missing expected hosts', async () => {
@@ -330,7 +338,7 @@ describe('noobaa cli - upgrade', () => {
         const res = await exec_manage_cli(TYPES.UPGRADE, UPGRADE_ACTIONS.START, { config_root, expected_version, expected_hosts }, true);
         const parsed_res = JSON.parse(res.stdout);
         expect(parsed_res.error.message).toBe(ManageCLIError.UpgradeFailed.message);
-        expect(parsed_res.error.cause).toContain(`config dir upgrade can not be started - the host's package version=${pkg.version} does not match the user's expected version=${expected_version}`);
+        expect(parsed_res.error.cause).toContain(`expected_version must match the package version`);
     });
 
     it('upgrade start - should fail on old rpm version', async () => {

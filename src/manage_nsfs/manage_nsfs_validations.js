@@ -754,7 +754,7 @@ function validate_expected_version(expected_version, skip_verification = false) 
     if (!expected_version) {
         throw new Error('expected_version flag is required');
     }
-    if (!version_utils.is_valid_sematic_version(expected_version)) {
+    if (!version_utils.is_valid_semantic_version(expected_version)) {
         throw new Error('expected_version must have sematic version structure (major.minor.patch)');
     }
     if (!skip_verification && !version_match_to_current_version(expected_version)) {

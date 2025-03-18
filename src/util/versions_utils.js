@@ -29,13 +29,13 @@ function version_compare(ver1, ver2) {
 }
 
 /**
- * is_valid_sematic_version checks that the version string is a valid sematic version
+ * is_valid_semantic_version checks that the version string is a valid sematic version
  *   1. strips the additional "-<something>" that might be added, for example: -alpha, -beta etc
  *   2. checks that the version has the sematic version is from the structure of version: major.minor.patch
  * @param {string} version
  * @returns {boolean}
  */
-function is_valid_sematic_version(version) {
+function is_valid_semantic_version(version) {
     const stripped_ver = version.split('-')[0];
     // sematic version is from the structure of version: major.minor.patch
     const semantic_version_regex = /^\d+\.\d+.\.\d+$/;
@@ -43,5 +43,5 @@ function is_valid_sematic_version(version) {
 }
 
 exports.version_compare = version_compare;
-exports.is_valid_sematic_version = is_valid_sematic_version;
+exports.is_valid_semantic_version = is_valid_semantic_version;
 

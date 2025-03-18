@@ -1001,20 +1001,21 @@ config.NC_DISABLE_SCHEMA_CHECK = false;
 ////////// NC LIFECYLE  //////////
 
 config.NC_LIFECYCLE_LOGS_DIR = '/var/log/noobaa/lifecycle';
-config.NC_LIFECYCLE_TIMEOUT_MS = 6 * 60 * 60 * 1000;
+config.NC_LIFECYCLE_CONFIG_DIR_NAME = 'lifecycle';
+config.NC_LIFECYCLE_TIMEOUT_MS = 8 * 60 * 60 * 1000;
 
 // NC_LIFECYCLE_RUN_TIME must be of the format hh:mm which specifies
 // when NooBaa should allow running nc lifecycle process
 // NOTE: This will also be in the same timezone as specified in
 // NC_LIFECYCLE_TZ
-config.NC_LIFECYCLE_RUN_TIME = '01:00';
+config.NC_LIFECYCLE_RUN_TIME = '00:00';
 
 // NC_LIFECYCLE_RUN_DELAY_LIMIT_MINS configures the delay
 // tolerance in minutes.
 //
-// eg. If the expiry run time is set to 01:00 and the tolerance is
-// set to be 2 mins then the expiry can trigger till 01:02 (unless
-// already triggered between 01:00 - 01:02
+// eg. If the expiry run time is set to 00:00 and the tolerance is
+// set to be 2 mins then the expiry can trigger till 00:02 (unless
+// already triggered between 00:00 - 00:02
 config.NC_LIFECYCLE_RUN_DELAY_LIMIT_MINS = 2;
 
 /** @type {'UTC' | 'LOCAL'} */

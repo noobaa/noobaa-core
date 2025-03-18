@@ -13,7 +13,7 @@ async function put_bucket_cors(req) {
             allowed_methods: rule.AllowedMethod,
             allowed_origins: rule.AllowedOrigin,
             expose_headers: rule.ExposeHeader,
-            id: rule.ID,
+            id: rule.ID?.[0],
             max_age_seconds: rule.MaxAgeSeconds && parseInt(rule.MaxAgeSeconds, 10),
         }, _.isUndefined)
     );

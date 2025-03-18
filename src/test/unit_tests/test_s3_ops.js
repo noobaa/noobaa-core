@@ -461,6 +461,59 @@ mocha.describe('s3_ops', function() {
         });
     });
 
+    mocha.describe('bucket-cors', function() {
+
+        mocha.before(async function() {
+            await s3.createBucket({ Bucket: "cors-bucket" });
+        });
+
+        mocha.it('should put and get bucket cors with ID', async function() {
+
+            // put bucket cors
+            const params = {
+                Bucket: "cors-bucket",
+                CORSConfiguration: {
+                    CORSRules: [{
+                        ID: 'rule1',
+                        AllowedOrigins: ["http://www.example.com"],
+                        AllowedHeaders: ["*"],
+                        AllowedMethods: ["PUT", "POST", "DELETE"],
+                        ExposeHeaders: ["x-amz-server-side-encryption"]
+                    }]
+                }
+            };
+            await s3.putBucketCors(params);
+
+            // get bucket CORS
+            const res = await s3.getBucketCors({ Bucket: "cors-bucket" });
+            assert.deepEqual(res.CORSRules, params.CORSConfiguration.CORSRules);
+        });
+
+        mocha.it('should put and get bucket cors with max age seconds', async function() {
+
+            // put bucket cors
+            const params = {
+                Bucket: "cors-bucket",
+                CORSConfiguration: {
+                    CORSRules: [{
+                        AllowedOrigins: ["http://www.example.com"],
+                        AllowedMethods: ["PUT", "POST", "DELETE"],
+                        MaxAgeSeconds: 1500,
+                    }]
+                }
+            };
+            await s3.putBucketCors(params);
+
+            // get bucket CORS
+            const res = await s3.getBucketCors({ Bucket: "cors-bucket" });
+            assert.deepEqual(res.CORSRules, params.CORSConfiguration.CORSRules);
+        });
+
+        mocha.after(async function() {
+            await s3.deleteBucket({ Bucket: "cors-bucket" });
+        });
+    });
+
     async function test_object_ops(bucket_name, bucket_type, caching, remote_endpoint_options) {
 
         const is_azure_namespace = is_namespace_blob_bucket(bucket_type, remote_endpoint_options && remote_endpoint_options.endpoint_type);

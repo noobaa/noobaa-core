@@ -12,9 +12,11 @@ const nb_native = require('../util/nb_native');
 const NsfsObjectSDK = require('../sdk/nsfs_object_sdk');
 const native_fs_utils = require('../util/native_fs_utils');
 const { NoobaaEvent } = require('./manage_nsfs_events_utils');
+const notifications_util = require('../util/notifications_util');
 const ManageCLIError = require('./manage_nsfs_cli_errors').ManageCLIError;
 const { throw_cli_error, get_service_status, NOOBAA_SERVICE_NAME,
     is_desired_time, record_current_time } = require('./manage_nsfs_cli_utils');
+const SensitiveString = require('../util/sensitive_string');
 
 // TODO:
 // implement
@@ -155,8 +157,9 @@ async function process_bucket(config_fs, bucket_name, system_json) {
     const account = { email: '', nsfs_account_config: config_fs.fs_context, access_keys: [] };
     const object_sdk = new NsfsObjectSDK('', config_fs, account, bucket_json.versioning, config_fs.config_root, system_json);
     await object_sdk._simple_load_requesting_account();
+    const should_notify = notifications_util.should_notify_on_event(bucket_json, notifications_util.OP_TO_EVENT.lifecycle_delete.name);
     if (!bucket_json.lifecycle_configuration_rules) return {};
-    await process_rules(config_fs, bucket_json, object_sdk);
+    await process_rules(config_fs, bucket_json, object_sdk, should_notify);
 }
 
 /**
@@ -165,7 +168,7 @@ async function process_bucket(config_fs, bucket_name, system_json) {
  * @param {Object} bucket_json
  * @param {nb.ObjectSDK} object_sdk
  */
-async function process_rules(config_fs, bucket_json, object_sdk) {
+async function process_rules(config_fs, bucket_json, object_sdk, should_notify) {
     try {
         await P.all(_.map(bucket_json.lifecycle_configuration_rules,
             async (lifecycle_rule, index) =>
@@ -173,12 +176,46 @@ async function process_rules(config_fs, bucket_json, object_sdk) {
                     bucket_name: bucket_json.name,
                     rule_id: lifecycle_rule.id,
                     op_name: TIMED_OPS.PROCESS_RULE,
-                    op_func: async () => process_rule(config_fs, lifecycle_rule, index, bucket_json, object_sdk)
+                    op_func: async () => process_rule(config_fs, lifecycle_rule, index, bucket_json, object_sdk, should_notify)
                 })
             )
         );
     } catch (err) {
         dbg.error('process_rules failed with error', err, err.code, err.message);
+    }
+}
+
+async function send_lifecycle_notifications(delete_res, bucket_json, object_sdk) {
+    const writes = [];
+    for (const deleted_obj of delete_res) {
+        if (delete_res.err_code) continue;
+        for (const notif of bucket_json.notifications) {
+            if (notifications_util.check_notif_relevant(notif, {
+                op_name: 'lifecycle_delete',
+                s3_event_method: deleted_obj.delete_marker_created ? 'DeleteMarkerCreated' : 'Delete',
+            })) {
+                //remember that this deletion needs a notif for this specific notification conf
+                writes.push({notif, deleted_obj});
+            }
+        }
+    }
+
+    //required format by compose_notification_lifecycle
+    bucket_json.bucket_owner = new SensitiveString(bucket_json.bucket_owner);
+
+    //if any notifications are needed, write them in notification log file
+    //(otherwise don't do any unnecessary filesystem actions)
+    if (writes.length > 0) {
+        let logger;
+        try {
+            logger = notifications_util.get_notification_logger('SHARED');
+            await P.map_with_concurrency(100, writes, async write => {
+                const notif = notifications_util.compose_notification_lifecycle(write.deleted_obj, write.notif, bucket_json, object_sdk);
+                logger.append(JSON.stringify(notif));
+            });
+        } finally {
+            if (logger) logger.close();
+        }
     }
 }
 
@@ -192,7 +229,7 @@ async function process_rules(config_fs, bucket_json, object_sdk) {
  * @param {nb.ObjectSDK} object_sdk
  * @returns {Promise<Void>}
  */
-async function process_rule(config_fs, lifecycle_rule, index, bucket_json, object_sdk) {
+async function process_rule(config_fs, lifecycle_rule, index, bucket_json, object_sdk, should_notify) {
     dbg.log0('nc_lifecycle.process_rule: start bucket name:', bucket_json.name, 'rule', lifecycle_rule, 'index', index);
     const bucket_name = bucket_json.name;
     const rule_id = lifecycle_rule.id;
@@ -209,7 +246,7 @@ async function process_rule(config_fs, lifecycle_rule, index, bucket_json, objec
         });
 
         if (candidates.delete_candidates?.length > 0) {
-            await _call_op_and_update_status({
+            const delete_res = await _call_op_and_update_status({
                 bucket_name,
                 rule_id,
                 op_name: TIMED_OPS.DELETE_MULTIPLE_OBJECTS,
@@ -218,6 +255,9 @@ async function process_rule(config_fs, lifecycle_rule, index, bucket_json, objec
                     objects: candidates.delete_candidates
                 })
             });
+            if (should_notify) {
+                await send_lifecycle_notifications(delete_res, bucket_json, object_sdk);
+            }
         }
 
         if (candidates.abort_mpu_candidates?.length > 0) {

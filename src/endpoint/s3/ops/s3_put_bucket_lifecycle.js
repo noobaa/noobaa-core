@@ -2,7 +2,7 @@
 'use strict';
 
 const _ = require('lodash');
-const { v4: uuid } = require('uuid');
+const crypto = require('crypto');
 const dbg = require('../../../util/debug_module')(__filename);
 const S3Error = require('../s3_errors').S3Error;
 
@@ -85,7 +85,7 @@ async function put_bucket_lifecycle(req) {
             current_rule.id = rule.ID[0];
         } else {
             // Generate a random ID if missing
-            current_rule.id = uuid();
+            current_rule.id = crypto.randomUUID();
         }
 
         if (!(rule.Status && rule.Status.length === 1)) {

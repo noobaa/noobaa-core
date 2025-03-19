@@ -1,7 +1,7 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const { v4: uuid } = require('uuid');
+const crypto = require('crypto');
 const path = require('path');
 const util = require('util');
 const fs = require('fs');
@@ -197,7 +197,7 @@ class HostedAgents {
     start_local_agent(params) {
         if (!this._started) return;
 
-        const host_id = uuid();
+        const host_id = crypto.randomUUID();
         const node_name = 'noobaa-internal-agent-' + params.name;
         const storage_path = path.join(process.cwd(), 'noobaa_storage', node_name);
 

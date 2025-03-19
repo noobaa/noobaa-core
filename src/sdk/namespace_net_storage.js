@@ -5,7 +5,7 @@ const _ = require('lodash');
 const util = require('util');
 
 const P = require('../util/promise');
-const mime = require('mime');
+const mime = require('mime-types');
 const dbg = require('../util/debug_module')(__filename);
 const NetStorage = require('../util/NetStorageKit-Node-master/lib/netstorage');
 
@@ -158,7 +158,7 @@ class NamespaceNetStorage {
             size: res.size,
             etag,
             create_time: new Date(Number(res.mtime || 0) * 1000),
-            content_type: mime.getType(res.name) || 'application/octet-stream',
+            content_type: mime.lookup(res.name) || 'application/octet-stream',
             xattr,
         };
     }

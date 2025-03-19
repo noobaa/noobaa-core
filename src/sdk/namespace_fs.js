@@ -8,7 +8,6 @@ const fs = require('fs');
 const path = require('path');
 const util = require('util');
 const mime = require('mime');
-const { v4: uuidv4 } = require('uuid');
 const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
 const config = require('../../config');
@@ -1270,7 +1269,7 @@ class NamespaceFS {
         let upload_path;
         // upload path is needed only when open_mode is w / for copy
         if (open_mode === 'w' || params.copy_source) {
-            const upload_id = uuidv4();
+            const upload_id = crypto.randomUUID();
             const bucket_tmp_dir_path = this.get_bucket_tmpdir_full_path();
             upload_path = path.join(bucket_tmp_dir_path, 'uploads', upload_id);
             await native_fs_utils._make_path_dirs(upload_path, fs_context);
@@ -1680,7 +1679,7 @@ class NamespaceFS {
             const fs_context = this.prepare_fs_context(object_sdk);
             await this._load_bucket(params, fs_context);
             await this._throw_if_low_space(fs_context);
-            params.obj_id = uuidv4();
+            params.obj_id = crypto.randomUUID();
             params.mpu_path = this._mpu_path(params);
             await native_fs_utils._create_path(params.mpu_path, fs_context);
             const create_params = JSON.stringify({ ...params, source_stream: null });

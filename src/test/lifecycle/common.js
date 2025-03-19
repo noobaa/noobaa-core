@@ -389,6 +389,51 @@ function duplicate_id_lifecycle_configuration(Bucket, Key) {
     };
 }
 
+function version_lifecycle_configuration(Bucket, Key, Days, ExpiredDeleteMarker, NewnonCurrentVersion, NonCurrentDays) {
+    const ID = 'rule_id';
+    return {
+        Bucket,
+        LifecycleConfiguration: {
+            Rules: [{
+                ID,
+                Filter: {
+                    Prefix: Key,
+                },
+                Expiration: {
+                    Days: Days,
+                    ExpiredObjectDeleteMarker: ExpiredDeleteMarker,
+                },
+                NoncurrentVersionExpiration: {
+                    NewerNoncurrentVersions: NewnonCurrentVersion,
+                    NoncurrentDays: NonCurrentDays,
+                },
+                Status: 'Enabled',
+            }, ],
+        },
+    };
+}
+exports.version_lifecycle_configuration = version_lifecycle_configuration;
+
+function multipart_lifecycle_configuration(Bucket, Key, Days) {
+    const ID = 'rule_id';
+    return {
+        Bucket,
+        LifecycleConfiguration: {
+            Rules: [{
+                ID,
+                Filter: {
+                    Prefix: Key,
+                },
+                AbortIncompleteMultipartUpload: {
+                    DaysAfterInitiation: Days,
+                },
+                Status: 'Enabled',
+            }, ],
+        },
+    };
+}
+exports.multipart_lifecycle_configuration = multipart_lifecycle_configuration;
+
 async function put_get_lifecycle_configuration(Bucket, putLifecycleParams, s3) {
     const putLifecycleResult = await s3.putBucketLifecycleConfiguration(putLifecycleParams);
     console.log('put lifecycle params:', putLifecycleParams, 'result', putLifecycleResult);
@@ -408,6 +453,27 @@ async function put_get_lifecycle_configuration(Bucket, putLifecycleParams, s3) {
 
     return getLifecycleResult;
 }
+
+exports.test_multipart = async function(Bucket, Key, s3) {
+    const putLifecycleParams = multipart_lifecycle_configuration(Bucket, Key, 10);
+    const getLifecycleResult = await put_get_lifecycle_configuration(Bucket, putLifecycleParams, s3);
+
+    const expirationDays = getLifecycleResult.Rules[0].AbortIncompleteMultipartUpload.DaysAfterInitiation.Days;
+    const expectedExpirationDays = putLifecycleParams.LifecycleConfiguration.Rules[0]
+                                        .AbortIncompleteMultipartUpload.DaysAfterInitiation.Days;
+    console.log('get lifecycle multipart expiration:', expirationDays, ' expected:', expectedExpirationDays);
+    assert(expirationDays === expectedExpirationDays, 'Multipart Expiration days do not match');
+};
+
+exports.test_version = async function(Bucket, Key, s3) {
+    const putLifecycleParams = version_lifecycle_configuration(Bucket, Key, 10, true, 5, 10);
+    const getLifecycleResult = await put_get_lifecycle_configuration(Bucket, putLifecycleParams, s3);
+
+    const expirationDays = getLifecycleResult.Rules[0].Expiration.Days;
+    const expectedExpirationDays = putLifecycleParams.LifecycleConfiguration.Rules[0].Expiration.Days;
+    console.log('get lifecycle version expiration:', expirationDays, ' expected:', expectedExpirationDays);
+    assert(expirationDays === expectedExpirationDays, 'Expiration days do not match');
+};
 
 exports.test_rules_length = async function(Bucket, Key, s3) {
     const putLifecycleParams = rules_length_lifecycle_configuration(Bucket, Key);

@@ -116,7 +116,6 @@
     "seedrandom": "3.0.5",
     "setimmediate": "1.0.5",
     "typescript": "5.8.2",
-    "uuid": "10.0.0",
     "ws": "8.18.1",
     "xml2js": "0.6.2",
     "yaml": "2.7.0",

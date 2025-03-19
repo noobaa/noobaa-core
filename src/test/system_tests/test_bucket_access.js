@@ -16,7 +16,7 @@ const test_utils = require('./test_utils');
 
 const fs = require('fs');
 const AWS = require('aws-sdk');
-const { v4: uuid } = require('uuid');
+const crypto = require('crypto');
 const assert = require('assert');
 
 
@@ -114,10 +114,10 @@ async function setup() {
     // S3 policies which gives the user equivalent permissions over the buckets that permission_list was giving.
     await Promise.all(
         full_access_user
-            .allowed_buckets
-            .permission_list
-            .map(bucket => test_utils.generate_s3_policy(full_access_user.email, bucket, ['s3:*']))
-            .map(generated => client.bucket.put_bucket_policy({ name: generated.params.bucket, policy: generated.policy }))
+        .allowed_buckets
+        .permission_list
+        .map(bucket => test_utils.generate_s3_policy(full_access_user.email, bucket, ['s3:*']))
+        .map(generated => client.bucket.put_bucket_policy({ name: generated.params.bucket, policy: generated.policy }))
     );
 
     account = account_by_name(system_info.accounts, bucket1_user.email);
@@ -127,10 +127,10 @@ async function setup() {
     // S3 policies which gives the user equivalent permissions over the buckets that permission_list was giving.
     await Promise.all(
         full_access_user
-            .allowed_buckets
-            .permission_list
-            .map(bucket => test_utils.generate_s3_policy(full_access_user.email, bucket, ['s3:*']))
-            .map(generated => client.bucket.put_bucket_policy({ name: generated.params.bucket, policy: generated.policy }))
+        .allowed_buckets
+        .permission_list
+        .map(bucket => test_utils.generate_s3_policy(full_access_user.email, bucket, ['s3:*']))
+        .map(generated => client.bucket.put_bucket_policy({ name: generated.params.bucket, policy: generated.policy }))
     );
 
     account = account_by_name(system_info.accounts, no_access_user.email);
@@ -140,10 +140,10 @@ async function setup() {
     // S3 policies which gives the user equivalent permissions over the buckets that permission_list was giving.
     await Promise.all(
         full_access_user
-            .allowed_buckets
-            .permission_list
-            .map(bucket => test_utils.generate_s3_policy(full_access_user.email, bucket, ['s3:*']))
-            .map(generated => client.bucket.put_bucket_policy({ name: generated.params.bucket, policy: generated.policy }))
+        .allowed_buckets
+        .permission_list
+        .map(bucket => test_utils.generate_s3_policy(full_access_user.email, bucket, ['s3:*']))
+        .map(generated => client.bucket.put_bucket_policy({ name: generated.params.bucket, policy: generated.policy }))
     );
 }
 
@@ -322,7 +322,7 @@ async function test_bucket_list_denied() {
 async function test_create_bucket_add_creator_permissions() {
     console.log(`Starting test_create_bucket_add_creator_permissions`);
     const server = get_new_server(full_access_user);
-    const unique_bucket_name = 'bucket' + uuid();
+    const unique_bucket_name = 'bucket' + crypto.randomUUID();
     const params = {
         Bucket: unique_bucket_name
     };
@@ -336,7 +336,7 @@ async function test_create_bucket_add_creator_permissions() {
 async function test_delete_bucket_deletes_permissions() {
     console.log(`Starting test_delete_bucket_deletes_permissions`);
     const server = get_new_server(full_access_user);
-    const unique_bucket_name = 'bucket' + uuid();
+    const unique_bucket_name = 'bucket' + crypto.randomUUID();
 
     await server.createBucket({ Bucket: unique_bucket_name }).promise();
 

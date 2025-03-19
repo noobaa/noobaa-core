@@ -6,7 +6,7 @@ const fs = require('fs');
 const net = require('net');
 const path = require('path');
 const P = require('../util/promise');
-const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
 const config = require('../../config');
 const RpcError = require('../rpc/rpc_error');
 const nb_native = require('../util/nb_native');
@@ -52,7 +52,7 @@ async function _create_path(dir, fs_context, dir_permissions = config.BASE_MODE_
 }
 
 async function _generate_unique_path(fs_context, tmp_dir_path) {
-    const rand_id = uuidv4();
+    const rand_id = crypto.randomUUID();
     const unique_temp_path = path.join(tmp_dir_path, 'lost+found', rand_id);
     await _make_path_dirs(unique_temp_path, fs_context);
     return unique_temp_path;
@@ -67,7 +67,7 @@ async function _generate_unique_path(fs_context, tmp_dir_path) {
  */
 // opens open_path on POSIX, and on GPFS it will open open_path parent folder
 async function open_file(fs_context, bucket_path, open_path, open_mode = config.NSFS_OPEN_READ_MODE,
-        file_permissions = config.BASE_MODE_FILE) {
+    file_permissions = config.BASE_MODE_FILE) {
     let retries = config.NSFS_MKDIR_PATH_RETRIES;
 
     const dir_path = path.dirname(open_path);

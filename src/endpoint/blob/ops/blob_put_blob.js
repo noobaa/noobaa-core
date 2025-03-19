@@ -4,7 +4,7 @@
 const blob_utils = require('../blob_utils');
 const http_utils = require('../../../util/http_utils');
 const time_utils = require('../../../util/time_utils');
-const mime = require('mime');
+const mime = require('mime-types');
 
 
 /**
@@ -16,7 +16,7 @@ async function put_blob(req, res) {
     const { etag } = await req.object_sdk.upload_object({
         bucket: req.params.bucket,
         key: req.params.key,
-        content_type: req.headers['x-ms-blob-content-type'] || (copy_source ? undefined : (mime.getType(req.params.key) || 'application/octet-stream')),
+        content_type: req.headers['x-ms-blob-content-type'] || (copy_source ? undefined : (mime.lookup(req.params.key) || 'application/octet-stream')),
         size: req.content_length >= 0 ? req.content_length : undefined,
         md5_b64: req.content_md5 ? req.content_md5.toString('base64') : undefined,
         sha256_b64: req.content_sha256_buf ? req.content_sha256_buf.toString('base64') : undefined,

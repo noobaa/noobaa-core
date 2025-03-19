@@ -2,7 +2,7 @@
 'use strict';
 
 const _ = require('lodash');
-const mime = require('mime');
+const mime = require('mime-types');
 
 const dbg = require('../util/debug_module')(__filename);
 const prom_report = require('../server/analytic_services/prometheus_reporting');
@@ -10,7 +10,8 @@ const stats_aggregator = require('../server/system_services/stats_aggregator');
 const DelayedCollector = require('../util/delayed_collector');
 const config = require('../../config');
 const cluster = /** @type {import('node:cluster').Cluster} */ (
-    /** @type {unknown} */ (require('node:cluster'))
+    /** @type {unknown} */
+    (require('node:cluster'))
 );
 
 /**
@@ -239,16 +240,20 @@ class EndpointStatsCollector {
     }
 
     update_bucket_read_counters({ bucket_name, key, content_type, }) {
-        content_type = content_type || mime.getType(key) || 'application/octet-stream';
+        content_type = content_type || mime.lookup(key) || 'application/octet-stream';
         this.endpoint_stats_collector.update({
-            bucket_counters: { [bucket_name]: { [content_type]: { read_count: 1 } } }
+            bucket_counters: {
+                [bucket_name]: {
+                    [content_type]: { read_count: 1 } } }
         });
     }
 
     update_bucket_write_counters({ bucket_name, key, content_type, }) {
-        content_type = content_type || mime.getType(key) || 'application/octet-stream';
+        content_type = content_type || mime.lookup(key) || 'application/octet-stream';
         this.endpoint_stats_collector.update({
-            bucket_counters: { [bucket_name]: { [content_type]: { write_count: 1 } } }
+            bucket_counters: {
+                [bucket_name]: {
+                    [content_type]: { write_count: 1 } } }
         });
     }
 
@@ -361,7 +366,7 @@ class EndpointStatsCollector {
     update_fork_counter() {
         // add fork related metrics to prometheus
         const code = `worker_${cluster.worker.id}`;
-        this.prom_metrics_report.inc('fork_counter', {code});
+        this.prom_metrics_report.inc('fork_counter', { code });
     }
 }
 if (cluster.isWorker) {

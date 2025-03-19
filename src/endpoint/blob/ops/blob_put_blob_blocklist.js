@@ -5,7 +5,7 @@ const _ = require('lodash');
 
 const blob_utils = require('../blob_utils');
 const http_utils = require('../../../util/http_utils');
-const mime = require('mime');
+const mime = require('mime-types');
 
 /**
  * https://docs.microsoft.com/en-us/rest/api/storageservices/put-block-list
@@ -19,7 +19,7 @@ async function put_blob_blocklist(req, res) {
     const reply = await req.object_sdk.commit_blob_block_list({
         bucket: req.params.bucket,
         key: req.params.key,
-        content_type: req.headers['x-ms-blob-content-type'] || mime.getType(req.params.key) || 'application/octet-stream',
+        content_type: req.headers['x-ms-blob-content-type'] || mime.lookup(req.params.key) || 'application/octet-stream',
         md_conditions: http_utils.get_md_conditions(req),
         xattr: blob_utils.get_request_xattr(req),
         block_list

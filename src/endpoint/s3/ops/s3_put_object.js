@@ -5,7 +5,7 @@ const dbg = require('../../../util/debug_module')(__filename);
 const s3_utils = require('../s3_utils');
 const S3Error = require('../s3_errors').S3Error;
 const http_utils = require('../../../util/http_utils');
-const mime = require('mime');
+const mime = require('mime-types');
 const config = require('../../../../config');
 
 const s3_error_options = {
@@ -41,7 +41,7 @@ async function put_object(req, res) {
     const reply = await req.object_sdk.upload_object({
         bucket: req.params.bucket,
         key: req.params.key,
-        content_type: req.headers['content-type'] || (copy_source ? undefined : (mime.getType(req.params.key) || 'application/octet-stream')),
+        content_type: req.headers['content-type'] || (copy_source ? undefined : (mime.lookup(req.params.key) || 'application/octet-stream')),
         content_encoding: req.headers['content-encoding'],
         copy_source,
         source_stream,

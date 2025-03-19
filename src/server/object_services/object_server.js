@@ -7,7 +7,7 @@ require('../../util/fips');
 const _ = require('lodash');
 const os = require('os');
 const util = require('util');
-const mime = require('mime');
+const mime = require('mime-types');
 const crypto = require('crypto');
 const assert = require('assert');
 const glob_to_regexp = require('glob-to-regexp');
@@ -69,7 +69,7 @@ async function create_object_upload(req) {
         bucket: req.bucket._id,
         key: req.rpc_params.key,
         content_type: req.rpc_params.content_type ||
-            mime.getType(req.rpc_params.key) ||
+            mime.lookup(req.rpc_params.key) ||
             'application/octet-stream',
         tagging: req.rpc_params.tagging,
         storage_class: req.rpc_params.storage_class,
@@ -1638,19 +1638,19 @@ function check_object_mode(req, obj, rpc_code) {
  * @returns {string}
  */
 function get_etag(entity, updates) {
-   const etag = updates?.etag || entity.etag;
-   if (etag) return etag;
+    const etag = updates?.etag || entity.etag;
+    if (etag) return etag;
 
-   const md5_b64 = updates?.md5_b64 || entity.md5_b64;
-   if (md5_b64) return Buffer.from(md5_b64, 'base64').toString('hex');
+    const md5_b64 = updates?.md5_b64 || entity.md5_b64;
+    if (md5_b64) return Buffer.from(md5_b64, 'base64').toString('hex');
 
-   const sha256_b64 = updates?.sha256_b64 || entity.sha256_b64;
-   if (sha256_b64) return 'sha256-' + Buffer.from(sha256_b64, 'base64').toString('hex');
+    const sha256_b64 = updates?.sha256_b64 || entity.sha256_b64;
+    if (sha256_b64) return 'sha256-' + Buffer.from(sha256_b64, 'base64').toString('hex');
 
-   const id = updates?._id || entity._id;
-   if (id) return 'id-' + id.toHexString();
+    const id = updates?._id || entity._id;
+    if (id) return 'id-' + id.toHexString();
 
-   return '';
+    return '';
 }
 
 function throw_if_maintenance(req) {

@@ -298,8 +298,7 @@ build_gpfs_get_ea_request(gpfsRequest_t* reqP, std::string key)
     reqP->payload.structLen = reqP->header.totalLength - sizeof(reqP->header);
     reqP->payload.structType = GPFS_FCNTL_GET_XATTR;
     reqP->payload.nameLen = nameLen;
-    // bufferLen is the size of buffer - roundingup of the attribute name to 8 chars
-    reqP->payload.bufferLen = bufLen - ROUNDUP(nameLen, 8);
+    reqP->payload.bufferLen = bufLen - nameLen;
     reqP->payload.flags = GPFS_FCNTL_XATTRFLAG_NONE;
     memcpy(&reqP->payload.buffer[0], key.c_str(), nameLen);
 }
@@ -489,7 +488,7 @@ get_fd_gpfs_xattr(int fd, XattrMap& xattr, int& gpfs_error, bool use_dmapi)
         if (gpfs_error == GPFS_FCNTL_ERR_NONE) {
             int name_len = gpfsGetXattrRequest.payload.nameLen;
             int buffer_len = gpfsGetXattrRequest.payload.bufferLen;
-            xattr[key] = std::string(gpfsGetXattrRequest.buffer[ROUNDUP(name_len, 8)], buffer_len);
+            xattr[key] = std::string((char*)gpfsGetXattrRequest.buffer + name_len, buffer_len);
         } else if (gpfs_error != GPFS_FCNTL_ERR_NO_ATTR) {
             LOG("get_fd_gpfs_xattr: get GPFS xattr with fcntl failed with error." << DVAL(gpfs_error));
             return gpfs_error;

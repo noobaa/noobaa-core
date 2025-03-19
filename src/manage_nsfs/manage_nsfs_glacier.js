@@ -176,10 +176,17 @@ async function record_current_time(fs_context, timestamp_file) {
  */
 async function migrate_log_exceeds_threshold(threshold = config.NSFS_GLACIER_MIGRATE_LOG_THRESHOLD) {
     const log = new PersistentLogger(config.NSFS_GLACIER_LOGS_DIR, Glacier.MIGRATE_WAL_NAME, { locking: null });
-    await log._open();
+    let log_size = Number.MAX_SAFE_INTEGER;
+    try {
+        const fh = await log._open();
 
-    const { size } = await log.fh.stat(log.fs_context);
-    return size > threshold;
+        const { size } = await fh.stat(log.fs_context);
+        log_size = size;
+    } catch (error) {
+        console.error("failed to get size of", Glacier.MIGRATE_WAL_NAME, error);
+    }
+
+    return log_size > threshold;
 }
 
 /**

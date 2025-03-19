@@ -11,7 +11,7 @@ const system_store = require('../system_services/system_store').get_instance();
 const auth_server = require('../common_services/auth_server');
 const config = require('../../../config');
 const { get_notification_logger, check_notif_relevant,
-    OP_TO_EVENT, compose_notification_lifecycle } = require('../../util/notifications_util');
+    OP_TO_EVENT, compose_notification_lifecycle, should_notify_on_event } = require('../../util/notifications_util');
 
 function get_expiration_timestamp(expiration) {
     if (!expiration) {
@@ -49,9 +49,7 @@ async function handle_bucket_rule(system, rule, j, bucket) {
     //3.2. notification is for LifecycleExpiration event
     //if so, we need the metadata of the deleted objects from the object server
     // TODO - should move to the upper for, looks like it's per bucket and not per rule
-    const reply_objects = config.NOTIFICATION_LOG_DIR && bucket.notifications &&
-         _.some(bucket.notifications, notif =>
-            (!notif.Events || _.some(notif.Events, event => event.includes(OP_TO_EVENT.lifecycle_delete.name))));
+    const reply_objects = should_notify_on_event(bucket, OP_TO_EVENT.lifecycle_delete.name);
 
     const res = await server_rpc.client.object.delete_multiple_objects_by_filter({
         bucket: bucket.name,

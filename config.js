@@ -1021,6 +1021,7 @@ config.NC_LIFECYCLE_RUN_DELAY_LIMIT_MINS = 2;
 /** @type {'UTC' | 'LOCAL'} */
 config.NC_LIFECYCLE_TZ = 'LOCAL';
 
+config.NC_LIFECYCLE_GPFS_ILM_ENABLED = false;
 ////////// GPFS //////////
 config.GPFS_DOWN_DELAY = 1000;
 

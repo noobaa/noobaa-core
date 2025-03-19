@@ -372,7 +372,7 @@ function _get_lifecycle_object_info_from_list_object_entry(entry) {
  */
 async function get_candidates_by_expiration_rule(lifecycle_rule, bucket_json, object_sdk) {
     const is_gpfs = nb_native().fs.gpfs;
-    if (is_gpfs) {
+    if (is_gpfs && config.NC_LIFECYCLE_GPFS_ILM_ENABLED) {
         return get_candidates_by_expiration_rule_gpfs(lifecycle_rule, bucket_json);
     } else {
         return get_candidates_by_expiration_rule_posix(lifecycle_rule, bucket_json, object_sdk);

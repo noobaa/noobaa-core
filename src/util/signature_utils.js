@@ -303,7 +303,13 @@ function _check_expiry_limit(expiry_seconds) {
     }
 }
 
-// expiry_seconds should be non negative number
+/**
+ * _check_expiry_non_negative converts the expiry_seconds that we got
+ * from eq.query['X-Amz-Expires'] to number and checks that it is non negative number
+ * (throws an error otherwise)
+ * Note: we don't run it in the condition of epoch time (req.query.expires)
+ * @param {string} expiry_seconds 
+ */
 function _check_expiry_non_negative(expiry_seconds) {
     if (Number(expiry_seconds) < 0) {
         throw new S3Error(S3Error.AuthorizationQueryParametersErrorNonNegative);

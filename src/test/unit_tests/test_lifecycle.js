@@ -9,7 +9,6 @@ const util = require('util');
 const mocha = require('mocha');
 const assert = require('assert');
 const mongodb = require('mongodb');
-const { v4: uuid } = require('uuid');
 const _ = require('lodash');
 const crypto = require('crypto');
 const stream = require('stream');
@@ -149,7 +148,7 @@ mocha.describe('lifecycle', () => {
         }
 
         mocha.it('test prefix, absolute date expiration', async () => {
-            const key = uuid();
+            const key = crypto.randomUUID();
             const prefix = key.split('-')[0];
             const age = 17;
             const bucket = Bucket;
@@ -162,7 +161,7 @@ mocha.describe('lifecycle', () => {
             await verify_object_deleted(key);
         });
         mocha.it('test prefix, absolute date and tags expiration', async () => {
-            const key = uuid();
+            const key = crypto.randomUUID();
             const prefix = key.split('-')[0];
             const age = 17;
             const bucket = Bucket;
@@ -177,7 +176,7 @@ mocha.describe('lifecycle', () => {
             await verify_object_deleted(key);
         });
         mocha.it('test size less, absolute date expiration', async () => {
-            const key = uuid();
+            const key = crypto.randomUUID();
             const age = 17;
             const size = 64;
             const bucket = Bucket;
@@ -189,7 +188,7 @@ mocha.describe('lifecycle', () => {
             await verify_object_deleted(key);
         });
         mocha.it('test size interval, absolute date expiration', async () => {
-            const key = uuid();
+            const key = crypto.randomUUID();
             const age = 17;
             const gt = 1;
             const size_object = 2;
@@ -203,7 +202,7 @@ mocha.describe('lifecycle', () => {
             await verify_object_deleted(key);
         });
         mocha.it('test size less, relative days expiration', async () => {
-            const key = uuid();
+            const key = crypto.randomUUID();
             const object_age = 2;
             const days = 1;
             const size = 1;
@@ -216,7 +215,7 @@ mocha.describe('lifecycle', () => {
             await verify_object_deleted(key);
         });
         mocha.it('test tag, relative days expiration', async () => {
-            const key = uuid();
+            const key = crypto.randomUUID();
             const object_age = 2;
             const days = 1;
             const tag = { key: 'tagname', value: 'tagvalue' };

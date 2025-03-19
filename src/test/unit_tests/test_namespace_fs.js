@@ -546,6 +546,7 @@ mocha.describe('namespace_fs', function() {
         const dir_2 = '/a/b/';
         const upload_key_1 = dir_1 + 'upload_key_1/';
         const upload_key_2 = dir_2 + 'upload_key_2/';
+        const upload_key_empty = 'empty_key/';
         const data = crypto.randomBytes(100);
 
         mocha.before(async function() {
@@ -555,6 +556,22 @@ mocha.describe('namespace_fs', function() {
                 source_stream: buffer_utils.buffer_to_read_stream(data)
             }, dummy_object_sdk);
             console.log('upload_object with trailing / response', inspect(upload_res));
+        });
+
+        mocha.it('get empty content dir', async function() {
+            await ns_tmp.upload_object({
+                bucket: upload_bkt,
+                key: upload_key_empty,
+                source_stream: buffer_utils.buffer_to_read_stream(crypto.randomBytes(0)),
+                size: 0
+            }, dummy_object_sdk);
+
+            const read_res = buffer_utils.write_stream();
+            await ns_tmp.read_object_stream({
+                bucket: upload_bkt,
+                key: upload_key_empty,
+            }, dummy_object_sdk, read_res);
+            assert(read_res.writableEnded);
         });
 
         mocha.it(`delete the path - stop when not empty and key with trailing /`, async function() {
@@ -573,11 +590,17 @@ mocha.describe('namespace_fs', function() {
         });
 
         mocha.after(async function() {
-            const delete_res = await ns_tmp.delete_object({
+            let delete_res = await ns_tmp.delete_object({
                 bucket: upload_bkt,
                 key: upload_key_2,
             }, dummy_object_sdk);
             console.log('delete_object with trailing / (key 2) response', inspect(delete_res));
+
+            delete_res = await ns_tmp.delete_object({
+                bucket: upload_bkt,
+                key: upload_key_empty,
+            }, dummy_object_sdk);
+            console.log('delete_object with trailing / (empty content dir) response', inspect(delete_res));
         });
     });
 
@@ -1175,6 +1198,36 @@ mocha.describe('namespace_fs folders tests', function() {
             const full_xattr2 = await get_xattr(p2);
             assert.deepEqual(full_xattr2, { ...user_md_and_dir_content_xattr, [XATTR_DIR_CONTENT]: obj_sizes_map[upload_key_2] });
 
+        });
+
+        mocha.it('delete inner object in directory object size 0 - no .folder file but directory still exists', async function() {
+            const inner_key = '/inner_obj';
+            const key = upload_key_3 + inner_key;
+            const source = buffer_utils.buffer_to_read_stream(data);
+            await upload_object(ns_tmp, upload_bkt, key, dummy_object_sdk, source);
+            const p1 = path.join(ns_tmp_bucket_path, upload_key_3);
+            const p2 = path.join(ns_tmp_bucket_path, key);
+            await fs_utils.file_must_not_exist(path.join(p1, config.NSFS_FOLDER_OBJECT_NAME));
+            const full_xattr1 = await get_xattr(p1);
+            assert.deepEqual(full_xattr1, { ...user_md_and_dir_content_xattr, [XATTR_DIR_CONTENT]: obj_sizes_map[upload_key_3] });
+            await ns_tmp.delete_object({ bucket: upload_bkt, key: key }, dummy_object_sdk);
+            await fs_utils.file_must_exist(p1);
+            await fs_utils.file_must_not_exist(p2);
+        });
+
+        mocha.it('delete inner directory object size > 0 in directory object size 0 - no .folder file but directory still exists', async function() {
+            const inner_dir_obj_key = '/inner_dir_obj_key';
+            const key = upload_key_3 + inner_dir_obj_key;
+            const source = buffer_utils.buffer_to_read_stream(data);
+            await upload_object(ns_tmp, upload_bkt, key, dummy_object_sdk, source);
+            const p1 = path.join(ns_tmp_bucket_path, upload_key_3);
+            const p2 = path.join(ns_tmp_bucket_path, key);
+            await fs_utils.file_must_not_exist(path.join(p1, config.NSFS_FOLDER_OBJECT_NAME));
+            const full_xattr1 = await get_xattr(p1);
+            assert.deepEqual(full_xattr1, { ...user_md_and_dir_content_xattr, [XATTR_DIR_CONTENT]: obj_sizes_map[upload_key_3] });
+            await ns_tmp.delete_object({ bucket: upload_bkt, key: key }, dummy_object_sdk);
+            await fs_utils.file_must_exist(p1);
+            await fs_utils.file_must_not_exist(p2);
         });
 
         mocha.it('delete object content 0 - no .folder file', async function() {

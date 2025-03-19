@@ -839,3 +839,56 @@ sudo noobaa-cli connection add --from_file <options_connection_JSON_file_path>
 ```
 sudo noobaa-cli whitelist --ips ["127.0.0.1", "192.0.10.0", "3002:0bd6:0000:0000:0000:ee00:0033:6778"]'
 ```
+
+### Known issues
+
+1. Bucket with suffix `.json`
+    
+    When the customer creates a bucket with the suffix `.json`, suffix is removed from the bucket config file name. 
+    
+    For example 
+    ```
+    sudo noobaa-cli bucket add --name my-bucket1.json --owner <owner_name> --path <path>
+    ```
+    Actual file name : `{config_root}\buckets\my-test-bucket.json`
+
+    Expected file name : `{config_root}\buckets\my-test-bucket.json.json`
+    
+    I/O is not possible in this bucket. This issue is only reproducible in older versions(5.18.0 and older).
+    Issue fixed version is <TBD>
+    
+    solution :
+    * Recreate the bucket with same name in new version
+    ```
+    sudo noobaa-cli bucket add --name my-bucket1.json --owner <owner_name> --path <path> 
+    ```
+    * Delete invalid bucket
+    ```
+    bucket delete --name my-bucket1 (bucket name without suffix `.json`)
+    ```
+
+2. Account with suffix `.symlink`
+    
+    When the customer creates an account with the suffix `.symlink`, suffix is removed from the account config file name. 
+    
+    For example 
+    ```
+    sudo noobaa-cli account add --name acc_symlink.symlink --new_buckets_path <path> --uid <uid> --gid <gid>
+    ```
+    Actual file name : `{config_root}\accounts_by_name\acc_symlink.symlink`
+    
+    Expected file name : `{config_root}\accounts_by_name\acc_symlink.symlink.symlink`
+    
+    This issue is only reproducible in older versions(5.18.0 and older).
+    Issue fixed version is <TBD>
+    
+    solution :
+    * Recreate the account with same name in new version
+    ```
+    sudo noobaa-cli account add --name acc_symlink.symlink --new_buckets_path <path> --uid <uid> --gid <gid>
+    ```
+    * Delete invalid account
+    ```
+    sudo noobaa-cli account delete --name acc_symlink (account name without suffix `.symlink`)
+    ```
+

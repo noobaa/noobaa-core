@@ -570,6 +570,46 @@ describe('manage nsfs cli account flow', () => {
             const res = await exec_manage_cli(type, action, account_options);
             expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.InvalidSupplementalGroupsList.code);
         });
+
+        it('cli account add - with account name suffix `.json`', async function() {
+            const action = ACTIONS.ADD;
+            const { type, new_buckets_path, uid, gid } = defaults;
+            await fs_utils.create_fresh_path(new_buckets_path);
+            await fs_utils.file_must_exist(new_buckets_path);
+            const name = 'account_suffix.json';
+            const account_options = { config_root, name, new_buckets_path, uid, gid };
+            const res = await exec_manage_cli(type, action, account_options);
+            const parse_res = JSON.parse(res);
+            expect(parse_res.response.code).toEqual(ManageCLIResponse.AccountCreated.code);
+            expect(parse_res.response.reply.name).toEqual(name);
+            const account = await config_fs.get_account_by_name(name);
+            expect(account.name).toBe(name);
+            const res1 = await exec_manage_cli(TYPES.ACCOUNT, ACTIONS.STATUS, { name, config_root });
+            expect(JSON.parse(res1).response.reply.name).toBe(name);
+            const res_list = await exec_manage_cli(TYPES.ACCOUNT, ACTIONS.LIST, { config_root });
+            expect(JSON.parse(res_list).response.reply.map(item => item.name))
+                .toEqual(expect.arrayContaining([name]));
+        });
+
+        it('cli account add - with account name suffix `.symlink`', async function() {
+            const action = ACTIONS.ADD;
+            const { type, new_buckets_path, uid, gid } = defaults;
+            await fs_utils.create_fresh_path(new_buckets_path);
+            await fs_utils.file_must_exist(new_buckets_path);
+            const name = 'account_suffix.symlink';
+            const account_options = { config_root, name, new_buckets_path, uid, gid };
+            const res = await exec_manage_cli(type, action, account_options);
+            const parse_res = JSON.parse(res);
+            expect(parse_res.response.code).toEqual(ManageCLIResponse.AccountCreated.code);
+            expect(parse_res.response.reply.name).toEqual(name);
+            const account = await config_fs.get_account_by_name(name);
+            expect(account.name).toBe(name);
+            const res1 = await exec_manage_cli(TYPES.ACCOUNT, ACTIONS.STATUS, { name, config_root });
+            expect(JSON.parse(res1).response.reply.name).toBe(name);
+            const res_list = await exec_manage_cli(TYPES.ACCOUNT, ACTIONS.LIST, { config_root });
+            expect(JSON.parse(res_list).response.reply.map(item => item.name))
+                .toEqual(expect.arrayContaining([name]));
+        });
     });
 
     describe('cli update account', () => {

@@ -103,13 +103,13 @@ class ConfigFS {
 
     /**
      * add_config_file_suffix returns the config_file_name follwed by the given suffix
+     * Bucket name can have suffix `.json`. This will make sure the bucket name and bucket config file have the same name.
      * @param {string} config_file_name
      * @param {string} suffix
      * @returns {string} 
      */
     add_config_file_suffix(config_file_name, suffix) {
         if (!config_file_name) dbg.warn(`Config file name is missing - ${config_file_name}`);
-        if (String(config_file_name).endsWith(suffix)) return config_file_name;
         return config_file_name + suffix;
     }
 

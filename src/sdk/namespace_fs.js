@@ -7,7 +7,7 @@ const _ = require('lodash');
 const fs = require('fs');
 const path = require('path');
 const util = require('util');
-const mime = require('mime');
+const mime = require('mime-types');
 const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
 const config = require('../../config');
@@ -2459,7 +2459,7 @@ class NamespaceFS {
         const dir_content_type = stat.xattr?.[XATTR_DIR_CONTENT] && ((Number(stat.xattr?.[XATTR_DIR_CONTENT]) > 0 && 'application/octet-stream') || 'application/x-directory');
         const content_type = stat.xattr?.[XATTR_CONTENT_TYPE] ||
             (isDir && dir_content_type) ||
-            mime.getType(key) || 'application/octet-stream';
+            mime.lookup(key) || 'application/octet-stream';
 
         const storage_class = Glacier.storage_class_from_xattr(stat.xattr);
         const size = Number(stat.xattr?.[XATTR_DIR_CONTENT] || stat.size);

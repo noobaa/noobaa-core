@@ -3,7 +3,7 @@
 
 const _ = require('lodash');
 const s3_const = require('../s3_constants');
-const { v4: uuid } = require('uuid');
+const crypto = require('crypto');
 const dbg = require('../../../util/debug_module')(__filename);
 const S3Error = require('../s3_errors').S3Error;
 
@@ -98,13 +98,13 @@ async function put_bucket_lifecycle(req) {
             }
         } else {
             // Generate a random ID if missing
-            current_rule.id = uuid();
+            current_rule.id = crypto.randomUUID();
         }
 
         // Check for duplicate ID in the rules
         if (id_set.has(current_rule.id)) {
             dbg.error('Rule ID must be unique. Found same ID for more than one rule: ', current_rule.id);
-            throw new S3Error({ ...S3Error.InvalidArgument, message: 'Rule ID must be unique. Found same ID for more than one rule'});
+            throw new S3Error({ ...S3Error.InvalidArgument, message: 'Rule ID must be unique. Found same ID for more than one rule' });
         }
         id_set.add(current_rule.id);
 

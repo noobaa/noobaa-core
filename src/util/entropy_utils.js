@@ -37,7 +37,7 @@ async function generate_entropy(loop_cond) {
                 throw new Error('No disk candidates found');
             }
         } catch (err) {
-            console.log('generate_entropy: error', err);
+            console.warn('generate_entropy: error', err);
         }
     }
 }

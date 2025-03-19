@@ -76,7 +76,7 @@ class NamespaceMonitor {
                 this.update_last_monitoring(nsr._id, nsr.name, endpoint_type);
             } catch (err) {
                 this.run_update_issues_report(err, nsr);
-                dbg.log1(`test_namespace_resource_validity: namespace resource ${nsr.name} has error as expected`);
+                dbg.log1(`test_namespace_resource_validity: namespace resource ${nsr.name} has an unexpected error`);
             }
         });
         dbg.log1(`test_namespace_resource_validity finished successfully..`);
@@ -146,7 +146,7 @@ class NamespaceMonitor {
             if (err.code === 'AccessDenied' && nsr.is_readonly_namespace()) {
                 return;
             }
-            dbg.log1('test_s3_resource: got error:', err);
+            dbg.log1(`test_s3_resource: on bucket ${target_bucket} got error:`, err);
             if (err.code !== 'NoSuchKey') throw err;
         }
 
@@ -174,7 +174,7 @@ class NamespaceMonitor {
             if (err.code === 'InsufficientAccountPermissions' && nsr.is_readonly_namespace()) {
                 return;
             }
-            dbg.log1('test_blob_resource: got error:', err);
+            dbg.log1(`test_blob_resource: on bucket ${target_bucket} got error:`, err);
             if (err.code !== 'BlobNotFound') throw err;
         }
     }
@@ -200,7 +200,7 @@ class NamespaceMonitor {
             if (err.errors[0].reason === 'UserProjectAccessDenied' && nsr.is_readonly_namespace()) {
                 return;
             }
-            dbg.log1('test_gcs_resource: got error:', err);
+            dbg.log1(`test_gcs_resource: on bucket ${target_bucket} got error:`, err);
             // https://cloud.google.com/storage/docs/json_api/v1/status-codes
             if (err.errors[0].reason !== 'notFound') throw err;
         }

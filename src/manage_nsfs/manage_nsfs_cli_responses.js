@@ -1,6 +1,8 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
+const config = require('../../config');
+
 const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
 
 // TODO : define list & status types
@@ -173,6 +175,24 @@ ManageCLIResponse.ConnectionList = Object.freeze({
 });
 
 ///////////////////////////////
+//    LIFECYCLE RESPONSES    //
+///////////////////////////////
+
+ManageCLIResponse.LifecycleSuccessful = Object.freeze({
+    code: 'LifecycleSuccessful',
+    message: 'Lifecycle worker run finished successfully',
+    status: {}
+});
+
+ManageCLIResponse.LifecycleWorkerNotRunning = Object.freeze({
+    code: 'LifecycleWorkerNotRunning',
+    message: `Lifecycle worker must run at ${config.NC_LIFECYCLE_RUN_TIME} ` +
+        `with delay of ${config.NC_LIFECYCLE_RUN_DELAY_LIMIT_MINS} minutes ` +
+        `in timezone ${config.NC_LIFECYCLE_TZ}`,
+    status: {}
+});
+
+///////////////////////////////
 //  RESPONSES-EVENT MAPPING  //
 ///////////////////////////////
 
@@ -184,7 +204,8 @@ const NSFS_CLI_SUCCESS_EVENT_MAP = {
     WhiteListIPUpdated: NoobaaEvent.WHITELIST_UPDATED,
     LoggingExported: NoobaaEvent.LOGGING_EXPORTED,
     UpgradeStarted: NoobaaEvent.CONFIG_DIR_UPGRADE_STARTED,
-    UpgradeSuccessful: NoobaaEvent.CONFIG_DIR_UPGRADE_SUCCESSFUL
+    UpgradeSuccessful: NoobaaEvent.CONFIG_DIR_UPGRADE_SUCCESSFUL,
+    LifecycleSuccessful: NoobaaEvent.LIFECYCLE_SUCCESSFUL
 };
 
 exports.ManageCLIResponse = ManageCLIResponse;

@@ -1168,6 +1168,12 @@ module.exports = {
                         items: {
                             $ref: '#/definitions/object_info'
                         }
+                    },
+                    delete_fail: {
+                        type: 'array',
+                        items: {
+                            type: 'boolean'
+                        }
                     }
                 }
             },

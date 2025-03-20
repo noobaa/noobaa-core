@@ -286,6 +286,7 @@ function make_auth_token_from_request(req) {
  */
 function check_request_expiry(req) {
     if (req.query['X-Amz-Date'] && req.query['X-Amz-Expires']) {
+        _check_expiry_non_negative(req.query['X-Amz-Expires']);
         _check_expiry_limit(req.query['X-Amz-Expires']);
         _check_expiry_query_v4(req.query['X-Amz-Date'], req.query['X-Amz-Expires']);
     } else if (req.query.Expires) {
@@ -298,7 +299,20 @@ function check_request_expiry(req) {
 // expiry_seconds limit is 7 days = 604800 seconds
 function _check_expiry_limit(expiry_seconds) {
     if (Number(expiry_seconds) > 604800) {
-        throw new S3Error(S3Error.AuthorizationQueryParametersError);
+        throw new S3Error(S3Error.AuthorizationQueryParametersErrorWeek);
+    }
+}
+
+/**
+ * _check_expiry_non_negative converts the expiry_seconds that we got
+ * from eq.query['X-Amz-Expires'] to number and checks that it is non negative number
+ * (throws an error otherwise)
+ * Note: we don't run it in the condition of epoch time (req.query.expires)
+ * @param {string} expiry_seconds 
+ */
+function _check_expiry_non_negative(expiry_seconds) {
+    if (Number(expiry_seconds) < 0) {
+        throw new S3Error(S3Error.AuthorizationQueryParametersErrorNonNegative);
     }
 }
 

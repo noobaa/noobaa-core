@@ -146,18 +146,31 @@ async function _is_object_version_fit(req, predicate, value) {
     return res;
 }
 
-async function has_bucket_policy_permission(policy, account, method, arn_path, req) {
+async function has_bucket_policy_permission(policy, account, method, arn_path, req, account_identifier_type = 'id') {
     const [allow_statements, deny_statements] = _.partition(policy.Statement, statement => statement.Effect === 'Allow');
 
     // the case where the permission is an array started in op get_object_attributes
     const method_arr = Array.isArray(method) ? method : [method];
 
     // look for explicit denies
-    const res_arr_deny = await is_statement_fit_of_method_array(deny_statements, account, method_arr, arn_path, req);
+    const res_arr_deny = await is_statement_fit_of_method_array(deny_statements,
+        account,
+        method_arr,
+        arn_path,
+        req,
+        account_identifier_type
+    );
     if (res_arr_deny.every(item => item)) return 'DENY';
 
     // look for explicit allows
-    const res_arr_allow = await is_statement_fit_of_method_array(allow_statements, account, method_arr, arn_path, req);
+    const res_arr_allow = await is_statement_fit_of_method_array(
+        allow_statements,
+        account,
+        method_arr,
+        arn_path,
+        req,
+        account_identifier_type
+    );
     if (res_arr_allow.every(item => item)) return 'ALLOW';
 
     // implicit deny
@@ -177,9 +190,8 @@ function _is_action_fit(method, statement) {
     return statement.Action ? action_fit : !action_fit;
 }
 
-function _is_principal_fit(account, statement) {
+function _is_principal_fit(account, statement, account_identifier_type) {
     let statement_principal = statement.Principal || statement.NotPrincipal;
-
     let principal_fit = false;
     statement_principal = statement_principal.AWS ? statement_principal.AWS : statement_principal;
     for (const principal of _.flatten([statement_principal])) {
@@ -189,7 +201,23 @@ function _is_principal_fit(account, statement) {
             break;
         }
     }
-    return statement.Principal ? principal_fit : !principal_fit;
+
+    if (statement.NotPrincipal) {
+        // If the account is categorized as "Not Principal," we need to ALLOW operations
+        // for that account under the associated principal.
+        //
+        // To maintain backward compatibility, we also support name-based comparison for principal matching.
+        //
+        // - If `account_identifier_type` is "id" but the `account` parameter contains a name,
+        //   we return `false` to proceed/bypass to the next step, where we check for a name match.
+        //
+        // - In the next step, if `account_identifier_type` is "name" and the `account` also contains a name,
+        //   we return the actual value.
+
+        return account_identifier_type === 'id' ? principal_fit : !principal_fit;
+    }
+
+    return principal_fit;
 }
 
 function _is_resource_fit(arn_path, statement) {
@@ -207,15 +235,15 @@ function _is_resource_fit(arn_path, statement) {
     return statement.Resource ? resource_fit : !resource_fit;
 }
 
-async function is_statement_fit_of_method_array(statements, account, method_arr, arn_path, req) {
+async function is_statement_fit_of_method_array(statements, account, method_arr, arn_path, req, account_identifier_type) {
     return Promise.all(method_arr.map(method_permission =>
-        _is_statements_fit(statements, account, method_permission, arn_path, req)));
+        _is_statements_fit(statements, account, method_permission, arn_path, req, account_identifier_type)));
 }
 
-async function _is_statements_fit(statements, account, method, arn_path, req) {
+async function _is_statements_fit(statements, account, method, arn_path, req, account_identifier_type) {
     for (const statement of statements) {
         const action_fit = _is_action_fit(method, statement);
-        const principal_fit = _is_principal_fit(account, statement);
+        const principal_fit = _is_principal_fit(account, statement, account_identifier_type);
         const resource_fit = _is_resource_fit(arn_path, statement);
         const condition_fit = await _is_condition_fit(statement, req, method);
 

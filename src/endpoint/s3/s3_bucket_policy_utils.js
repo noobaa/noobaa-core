@@ -17,6 +17,7 @@ const OP_NAME_TO_ACTION = Object.freeze({
     delete_bucket_replication: { regular: "s3:PutReplicationConfiguration" },
     delete_bucket_tagging: { regular: "s3:PutBucketTagging" },
     delete_bucket_website: { regular: "s3:DeleteBucketWebsite" },
+    delete_bucket_public_access_block: { regular: "s3:PutBucketPublicAccessBlock" },
     delete_bucket: { regular: "s3:DeleteBucket" },
     delete_object_tagging: { regular: "s3:DeleteObjectTagging", versioned: "s3:DeleteObjectVersionTagging" },
     delete_object_uploadId: { regular: "s3:AbortMultipartUpload" },
@@ -43,6 +44,7 @@ const OP_NAME_TO_ACTION = Object.freeze({
     get_bucket_versions: { regular: "s3:ListBucketVersions" },
     get_bucket_website: { regular: "s3:GetBucketWebsite" },
     get_bucket_object_lock: { regular: "s3:GetBucketObjectLockConfiguration" },
+    get_bucket_public_access_block: { regular: "s3:GetBucketPublicAccessBlock" },
     get_bucket: { regular: "s3:ListBucket" },
     get_object_acl: { regular: "s3:GetObjectAcl" },
     get_object_attributes: { regular: ["s3:GetObject", "s3:GetObjectAttributes"], versioned: ["s3:GetObjectVersion", "s3:GetObjectVersionAttributes"] }, // Notice - special case
@@ -80,6 +82,7 @@ const OP_NAME_TO_ACTION = Object.freeze({
     put_bucket_versioning: { regular: "s3:PutBucketVersioning" },
     put_bucket_website: { regular: "s3:PutBucketWebsite" },
     put_bucket_object_lock: { regular: "s3:PutBucketObjectLockConfiguration" },
+    put_bucket_public_access_block: { regular: "s3:PutBucketPublicAccessBlock" },
     put_bucket: { regular: "s3:CreateBucket" },
     put_object_acl: { regular: "s3:PutObjectAcl" },
     put_object_tagging: { regular: "s3:PutObjectTagging", versioned: "s3:PutObjectVersionTagging" },
@@ -146,18 +149,20 @@ async function _is_object_version_fit(req, predicate, value) {
     return res;
 }
 
-async function has_bucket_policy_permission(policy, account, method, arn_path, req) {
+async function has_bucket_policy_permission(policy, account, method, arn_path, req, disallow_public_access = false) {
     const [allow_statements, deny_statements] = _.partition(policy.Statement, statement => statement.Effect === 'Allow');
 
     // the case where the permission is an array started in op get_object_attributes
     const method_arr = Array.isArray(method) ? method : [method];
 
     // look for explicit denies
-    const res_arr_deny = await is_statement_fit_of_method_array(deny_statements, account, method_arr, arn_path, req);
+    const res_arr_deny = await is_statement_fit_of_method_array(
+        deny_statements, account, method_arr, arn_path, req); // No need to disallow in "DENY"
     if (res_arr_deny.every(item => item)) return 'DENY';
 
     // look for explicit allows
-    const res_arr_allow = await is_statement_fit_of_method_array(allow_statements, account, method_arr, arn_path, req);
+    const res_arr_allow = await is_statement_fit_of_method_array(
+        allow_statements, account, method_arr, arn_path, req, disallow_public_access);
     if (res_arr_allow.every(item => item)) return 'ALLOW';
 
     // implicit deny
@@ -177,7 +182,7 @@ function _is_action_fit(method, statement) {
     return statement.Action ? action_fit : !action_fit;
 }
 
-function _is_principal_fit(account, statement) {
+function _is_principal_fit(account, statement, ignore_public_principal = false) {
     let statement_principal = statement.Principal || statement.NotPrincipal;
 
     let principal_fit = false;
@@ -185,6 +190,11 @@ function _is_principal_fit(account, statement) {
     for (const principal of _.flatten([statement_principal])) {
         dbg.log1('bucket_policy: ', statement.Principal ? 'Principal' : 'NotPrincipal', ' fit?', principal, account);
         if ((principal.unwrap() === '*') || (principal.unwrap() === account)) {
+            if (ignore_public_principal && principal.unwrap() === '*' && statement.Principal) {
+                // Ignore the "fit" if ignore_public_principal is requested
+                continue;
+            }
+
             principal_fit = true;
             break;
         }
@@ -207,15 +217,15 @@ function _is_resource_fit(arn_path, statement) {
     return statement.Resource ? resource_fit : !resource_fit;
 }
 
-async function is_statement_fit_of_method_array(statements, account, method_arr, arn_path, req) {
+async function is_statement_fit_of_method_array(statements, account, method_arr, arn_path, req, disallow_public_access = false) {
     return Promise.all(method_arr.map(method_permission =>
-        _is_statements_fit(statements, account, method_permission, arn_path, req)));
+        _is_statements_fit(statements, account, method_permission, arn_path, req, disallow_public_access)));
 }
 
-async function _is_statements_fit(statements, account, method, arn_path, req) {
+async function _is_statements_fit(statements, account, method, arn_path, req, disallow_public_access = false) {
     for (const statement of statements) {
         const action_fit = _is_action_fit(method, statement);
-        const principal_fit = _is_principal_fit(account, statement);
+        const principal_fit = _is_principal_fit(account, statement, disallow_public_access);
         const resource_fit = _is_resource_fit(arn_path, statement);
         const condition_fit = await _is_condition_fit(statement, req, method);
 
@@ -304,6 +314,34 @@ async function validate_s3_policy(policy, bucket_name, get_account_handler) {
     }
 }
 
+/**
+ * allows_public_access returns true if a policy will allow public access
+ * to a resource
+ * 
+ * NOTE: It assumes that the given policy has already been validated
+ * @param {*} policy 
+ * @returns {boolean}
+ */
+function allows_public_access(policy) {
+    for (const statement of policy.Statement) {
+        if (statement.Effect === 'Deny') continue;
+
+        const statement_principal = statement.Principal;
+        if (statement_principal.AWS) {
+            for (const principal of _.flatten([statement_principal.AWS])) {
+                if (typeof principal === 'string' ? principal === '*' : principal.unwrap() === '*') {
+                    return true;
+                }
+            }
+        } else if (typeof statement_principal === 'string' ? statement_principal === '*' : statement_principal.unwrap() === '*') {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 exports.OP_NAME_TO_ACTION = OP_NAME_TO_ACTION;
 exports.has_bucket_policy_permission = has_bucket_policy_permission;
 exports.validate_s3_policy = validate_s3_policy;
+exports.allows_public_access = allows_public_access;

@@ -665,6 +665,14 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             const { name, policy } = params;
             dbg.log0('BucketSpaceFS.put_bucket_policy: Bucket name, policy', name, policy);
             const bucket = await this.config_fs.get_bucket_by_name(name);
+
+            if (
+                bucket.public_access_block?.block_public_policy &&
+                bucket_policy_utils.allows_public_access(policy)
+            ) {
+                throw new S3Error(S3Error.AccessDenied);
+            }
+
             bucket.s3_policy = policy;
             // We need to validate bucket schema here as well for checking the policy schema
             nsfs_schema_utils.validate_bucket_schema(_.omitBy(bucket, _.isUndefined));
@@ -769,6 +777,47 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
     }
 
     /////////////////////////
+    // PUBLIC ACCESS BLOCK //
+    /////////////////////////
+
+    async get_public_access_block(params, object_sdk) {
+        try {
+            const { bucket_name } = params;
+            dbg.log0('BucketSpaceFS.get_public_access_block: Bucket name', bucket_name);
+            const bucket = await this.config_fs.get_bucket_by_name(bucket_name);
+            return {
+                public_access_block: bucket.public_access_block,
+            };
+        } catch (error) {
+            throw translate_error_codes(error, entity_enum.BUCKET);
+        }
+    }
+
+    async put_public_access_block(params, object_sdk) {
+        try {
+            const { bucket_name, public_access_block } = params;
+            dbg.log0('BucketSpaceFS.put_public_access_block: Bucket name', bucket_name, ", public_access_block ", public_access_block);
+            const bucket = await this.config_fs.get_bucket_by_name(bucket_name);
+            bucket.public_access_block = public_access_block;
+            await this.config_fs.update_bucket_config_file(bucket);
+        } catch (error) {
+            throw translate_error_codes(error, entity_enum.BUCKET);
+        }
+    }
+
+    async delete_public_access_block(params, object_sdk) {
+        try {
+            const { bucket_name } = params;
+            dbg.log0('BucketSpaceFS.delete_public_access_block: Bucket name', bucket_name);
+            const bucket = await this.config_fs.get_bucket_by_name(bucket_name);
+            delete bucket.public_access_block;
+            await this.config_fs.update_bucket_config_file(bucket);
+        } catch (error) {
+            throw translate_error_codes(error, entity_enum.BUCKET);
+        }
+    }
+
+    /////////////////////////
     // DEFAULT OBJECT LOCK //
     /////////////////////////
 
@@ -813,7 +862,8 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             account._id,
             action,
             `arn:aws:s3:::${bucket.name.unwrap()}${bucket_path}`,
-            undefined
+            undefined,
+            bucket.public_access_block?.restrict_public_buckets,
         );
         if (permission_by_id === "DENY") return false;
         // we (currently) allow account identified to be both id and name,
@@ -824,7 +874,8 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
                 account.name.unwrap(),
                 action,
                 `arn:aws:s3:::${bucket.name.unwrap()}${bucket_path}`,
-                undefined
+                undefined,
+                bucket.public_access_block?.restrict_public_buckets,
             );
         }
         if (permission_by_name === 'DENY') return false;

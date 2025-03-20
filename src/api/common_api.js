@@ -1483,6 +1483,15 @@ module.exports = {
                     }
                 }
             }
+        },
+        public_access_block: {
+            type: 'object',
+            properties: {
+                block_public_acls: { type: 'boolean' },
+                ignore_public_acls: { type: 'boolean' },
+                block_public_policy: { type: 'boolean' },
+                restrict_public_buckets: { type: 'boolean' },
+            },
         }
     }
 };

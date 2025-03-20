@@ -1410,6 +1410,37 @@ module.exports = {
             auth: { system: ['admin', 'user'] }
         },
 
+        delete_incomplete_multiparts: {
+            method: 'DELETE',
+            params: {
+                type: 'object',
+                required: [
+                    'bucket',
+                    'days_after_initiation',
+                ],
+                properties: {
+                    bucket: { $ref: 'common_api#/definitions/bucket_name' },
+                    days_after_initiation: {
+                        type: 'integer',
+                    },
+                    prefix: {
+                        type: 'string',
+                    },
+                    reply_objects: {
+                        type: 'boolean'
+                    }
+                },
+            },
+            reply: {
+                type: 'object',
+                properties: {
+                    num_objects_deleted: {
+                        type: 'integer'
+                    }
+                }
+            },
+            auth: { system: ['admin', 'user'] }
+        }
     },
 
     definitions: {

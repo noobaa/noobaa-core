@@ -27,6 +27,7 @@ function marker_lifecycle_configuration(Bucket, Key) {
         },
     };
 }
+exports.marker_lifecycle_configuration = marker_lifecycle_configuration;
 
 function empty_filter_marker_lifecycle_configuration(Bucket) {
     return {
@@ -390,7 +391,7 @@ function duplicate_id_lifecycle_configuration(Bucket, Key) {
     };
 }
 
-function version_lifecycle_configuration(Bucket, Key, Days, ExpiredDeleteMarker, NewnonCurrentVersion, NonCurrentDays) {
+function version_lifecycle_configuration(Bucket, Key, Days, NewnonCurrentVersion, NonCurrentDays) {
     const ID = 'rule_id';
     return {
         Bucket,
@@ -402,7 +403,6 @@ function version_lifecycle_configuration(Bucket, Key, Days, ExpiredDeleteMarker,
                 },
                 Expiration: {
                     Days: Days,
-                    ExpiredObjectDeleteMarker: ExpiredDeleteMarker,
                 },
                 NoncurrentVersionExpiration: {
                     NewerNoncurrentVersions: NewnonCurrentVersion,
@@ -467,7 +467,7 @@ exports.test_multipart = async function(Bucket, Key, s3) {
 };
 
 exports.test_version = async function(Bucket, Key, s3) {
-    const putLifecycleParams = version_lifecycle_configuration(Bucket, Key, 10, true, 5, 10);
+    const putLifecycleParams = version_lifecycle_configuration(Bucket, Key, 10, 5, 10);
     const getLifecycleResult = await put_get_lifecycle_configuration(Bucket, putLifecycleParams, s3);
 
     const expirationDays = getLifecycleResult.Rules[0].Expiration.Days;

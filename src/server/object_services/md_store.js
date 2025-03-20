@@ -431,11 +431,12 @@ class MDStore {
         WHERE ctid in (
             SELECT ctid
             FROM ${table_name} t1
-            WHERE t1.data->>'bucket' = '${bucket_id}'
-                AND t1.data->>'deleted' IS NULL
-                AND t1.data->>'delete_marker' IS NOT NULL
-                AND t1.data->>'version_past' IS NULL
-                AND NOT EXISTS (
+            WHERE ${sql_and_conditions(
+                `t1.data->>'bucket' = '${bucket_id}'`,
+                `t1.data->>'deleted' IS NULL`,
+                `t1.data->>'delete_marker' IS NOT NULL`,
+                `t1.data->>'version_past' IS NULL`,
+                `NOT EXISTS (
                     SELECT 1
                     FROM ${table_name} t2
                     WHERE t2.data->>'key' = t1.data->>'key'
@@ -444,8 +445,9 @@ class MDStore {
                             t2.data->>'deleted' IS NULL -- is not deleted
                             OR t2.data->>'delete_marker' IS NOT NULL -- is a delete marker
                         )
-                )
-                ${sql_and_conditions(sql_condition0, sql_condition1, sql_condition2, sql_condition3)}
+                )`,
+                sql_condition0, sql_condition1, sql_condition2, sql_condition3
+            )} 
             ${sql_limit}
         );`;
 

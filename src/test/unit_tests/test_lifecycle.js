@@ -36,7 +36,7 @@ const TagValue2 = 'tagvalue2';
 const object_io = new ObjectIO();
 object_io.set_verification_mode();
 
-
+// eslint-disable-next-line max-lines-per-function
 mocha.describe('lifecycle', () => {
 
     let s3;
@@ -240,15 +240,12 @@ mocha.describe('lifecycle', () => {
             //TODO Delete bucket
             //await rpc_client.bucket.delete_bucket({ name: multipart_bucket });
         });
-        async function create_mock_multipart_upload(key, bucket, age, part_size, num_parts) {
+        async function create_mock_multipart_upload(bucket, key, age, part_size, num_parts) {
             await rpc_client.bucket.create_bucket({ name: bucket });
             const content_type = 'test/test';
             const size = num_parts * part_size;
             const data = generator.update(Buffer.alloc(size));
             const { obj_id } = await rpc_client.object.create_object_upload({ bucket, key, content_type });
-            const mp_list_before = await rpc_client.object.list_multiparts({ obj_id, bucket, key });
-            coretest.log('list_multiparts before', mp_list_before);
-            assert.strictEqual(mp_list_before.multiparts.length, 0);
             const multiparts_ids = [];
 
             const get_part_slice = i => data.slice(i * part_size, (i + 1) * part_size);
@@ -281,15 +278,58 @@ mocha.describe('lifecycle', () => {
             await MDStore.instance().update_multiparts_by_ids(multiparts_ids, update);
 
             const mp_list_after = await rpc_client.object.list_multiparts({ obj_id, bucket, key });
-            coretest.log('mp_list_after after', mp_list_after);
+            coretest.log('mp_list_after after length : ', mp_list_after.multiparts.length);
             assert.strictEqual(mp_list_after.multiparts.length, num_parts);
             const actual_create_time = mp_list_after.multiparts[0].last_modified;
             assert.strictEqual(actual_create_time, create_time.getTime(), `object create_time/getTime actual ${actual_create_time} !== expected ${create_time.getTime()}`);
+            return obj_id;
         }
 
-        mocha.it('lifecyle - listMultiPart verify', async () => {
-            await create_mock_multipart_upload('test-lifecycle-multipart', multipart_bucket, 3, 45, 7);
+        mocha.it('lifecycle - delete multipart after 30 days', async () => {
+            const days = 30;
+            const multi_bucket_key = 'test-lifecycle-multipart1';
+            const obj_id = await create_mock_multipart_upload(multipart_bucket, multi_bucket_key, days, 45, 7);
+            const putLifecycleParams = commonTests.multipart_lifecycle_configuration(multipart_bucket, multi_bucket_key, days);
+
+            await s3.putBucketLifecycleConfiguration(putLifecycleParams);
+            await lifecycle.background_worker();
+            await verify_multipart_deleted(obj_id, multi_bucket_key, 0);
         });
+
+        mocha.it('lifecycle - delete multipart after 30 days, no key to delete', async () => {
+            const days = 30;
+            const multi_bucket_key = 'test-lifecycle-multipart2';
+            // create_time updated to 29 days and expire is 30 days, do not delete any multipart
+            const obj_id = await create_mock_multipart_upload(multipart_bucket, multi_bucket_key, days - 1, 45, 7);
+            const putLifecycleParams = commonTests.multipart_lifecycle_configuration(multipart_bucket, multi_bucket_key, days);
+
+            await s3.putBucketLifecycleConfiguration(putLifecycleParams);
+            await lifecycle.background_worker();
+            await verify_multipart_deleted(obj_id, multi_bucket_key, 7);
+        });
+
+        mocha.it('lifecycle - delete multipart after 30 days, with prfix', async () => {
+            const days = 30;
+            const multi_bucket_key_prefix = 'prefix-test-lifecycle-multipart3';
+            const multi_bucket_key = 'test-lifecycle-multipart3';
+            // create_time updated to 29 days and expire is 30 days, do not delete any multipart
+            const obj_id1 = await create_mock_multipart_upload(multipart_bucket, multi_bucket_key_prefix, days + 1, 45, 7);
+            const obj_id2 = await create_mock_multipart_upload(multipart_bucket, multi_bucket_key, days + 1, 45, 7);
+            const putLifecycleParams = commonTests.multipart_lifecycle_configuration(multipart_bucket, multi_bucket_key_prefix, days);
+
+            await s3.putBucketLifecycleConfiguration(putLifecycleParams);
+            await lifecycle.background_worker();
+            await verify_multipart_deleted(obj_id1, multi_bucket_key_prefix, 0);
+            await verify_multipart_deleted(obj_id2, multi_bucket_key, 7);
+        });
+
+        async function verify_multipart_deleted(obj_id, key, expected_length) {
+            await P.delay(100); // 0.1sec
+            const mp_list = await rpc_client.object.list_multiparts({ obj_id, multipart_bucket, key });
+            const actual_length = mp_list.objects.length;
+            console.log('list_objects_admin objects: ', util.inspect(mp_list.objects));
+            assert.strictEqual(actual_length, expected_length, `listObjectResult actual ${actual_length} !== ${expected_length}`);
+        }
     });
 
     mocha.describe('bucket-lifecycle-version', function() {
@@ -300,7 +340,7 @@ mocha.describe('lifecycle', () => {
             //await rpc_client.bucket.delete_bucket({ name: version_bucket });
         });
 
-        async function create_mock_version(version_key, bucket, age, version_count) {
+        async function create_mock_version(bucket, version_key, age, version_count) {
             await rpc_client.bucket.create_bucket({ name: bucket });
             rpc_client.bucket.update_bucket({
                 name: bucket,
@@ -336,9 +376,127 @@ mocha.describe('lifecycle', () => {
             assert.strictEqual(list_obj.objects.length, version_count, `object total count  ${list_obj.objects.length} !== expected ${version_count}`);
         }
 
-        mocha.it('lifecyle - version expiration', async () => {
-            await create_mock_version('test-lifecycle-version', version_bucket, 30, 10);
+        mocha.it('lifecyle - version not expiration', async () => {
+            //await create_mock_version('test-lifecycle-version', version_bucket, 30, 10);
+            const days = 30;
+            const version_count = 10;
+            const expired_delete_marker = false;
+            const newnon_current_version = 1;
+            const noncurrent_days = 15;
+            const version_bucket_key = 'test-lifecycle-version2';
+            // create_time updated to 29 days and expire is 30 days, do not delete any multipart
+            await create_mock_version(version_bucket, version_bucket_key, days - 1, version_count);
+            const putLifecycleParams = commonTests.version_lifecycle_configuration(version_bucket,
+                                            version_bucket_key, days, expired_delete_marker, newnon_current_version, noncurrent_days);
+
+            await s3.putBucketLifecycleConfiguration(putLifecycleParams);
+            await lifecycle.background_worker();
+            await verify_version_deleted(10);
         });
+
+        mocha.it('lifecyle - version expiration - only NewerNoncurrentVersions exceeded', async () => {
+            //await create_mock_version('test-lifecycle-version', version_bucket, 30, 10);
+            const days = 15;
+            const version_count = 10;
+            const expired_delete_marker = false;
+            const newnon_current_version = 5;
+            const noncurrent_days = 30;
+            const version_bucket_key = 'test-lifecycle-version1';
+            // create_time updated to 29 days and expire is 30 days, do not delete any multipart
+            await create_mock_version(version_bucket, version_bucket_key, days + 1, version_count);
+            const putLifecycleParams = commonTests.version_lifecycle_configuration(version_bucket,
+                                            version_bucket_key, days, expired_delete_marker, newnon_current_version, noncurrent_days);
+
+            await s3.putBucketLifecycleConfiguration(putLifecycleParams);
+            await lifecycle.background_worker();
+            // object will expire, noncurrent version count + delete marker(1)
+            await verify_version_deleted(6);
+        });
+
+        mocha.it('lifecyle - version expiration - only NoncurrentDays exceeded', async () => {
+            //await create_mock_version('test-lifecycle-version', version_bucket, 30, 10);
+            const days = 45;
+            const version_count = 10;
+            const expired_delete_marker = false;
+            const newnon_current_version = 100;
+            const noncurrent_days = 30;
+            const version_bucket_key = 'test-lifecycle-version2';
+            // create_time updated to 29 days and expire is 30 days, do not delete any multipart
+            await create_mock_version(version_bucket, version_bucket_key, days + noncurrent_days + 1, version_count);
+            const putLifecycleParams = commonTests.version_lifecycle_configuration(version_bucket,
+                                            version_bucket_key, days, expired_delete_marker, newnon_current_version, noncurrent_days);
+
+            await s3.putBucketLifecycleConfiguration(putLifecycleParams);
+            await lifecycle.background_worker();
+            // noncurrent version count + delete marker(1)
+            await verify_version_deleted(11);
+        });
+
+        mocha.it('lifecyle - version expiration - both NoncurrentDays and NewerNoncurrentVersions exceeded', async () => {
+            //await create_mock_version('test-lifecycle-version', version_bucket, 30, 10);
+            const days = 30;
+            const version_count = 10;
+            const expired_delete_marker = false;
+            const newnon_current_version = 1;
+            const noncurrent_days = 15;
+            const version_bucket_key = 'test-lifecycle-version2';
+            // create_time updated to 29 days and expire is 30 days, do not delete any multipart
+            await create_mock_version(version_bucket, version_bucket_key, days + noncurrent_days + 1, version_count);
+            const putLifecycleParams = commonTests.version_lifecycle_configuration(version_bucket,
+                                            version_bucket_key, days, expired_delete_marker, newnon_current_version, noncurrent_days);
+
+            await s3.putBucketLifecycleConfiguration(putLifecycleParams);
+            await lifecycle.background_worker();
+            // newnon_current_version count + delete marker(1)
+            await verify_version_deleted(2);
+        });
+
+        mocha.it('lifecyle - version expiration all - delete marker true', async () => {
+            //await create_mock_version('test-lifecycle-version', version_bucket, 30, 10);
+            const days = 30;
+            const version_count = 10;
+            const expired_delete_marker = true;
+            const newnon_current_version = 0;
+            const noncurrent_days = 15;
+            const version_bucket_key = 'test-lifecycle-version2';
+            // create_time updated to 29 days and expire is 30 days, do not delete any multipart
+            await create_mock_version(version_bucket, version_bucket_key, days + noncurrent_days + 1, version_count);
+            const putLifecycleParams = commonTests.version_lifecycle_configuration(version_bucket,
+                                            version_bucket_key, days, expired_delete_marker, newnon_current_version, noncurrent_days);
+
+            await s3.putBucketLifecycleConfiguration(putLifecycleParams);
+            await lifecycle.background_worker();
+            await verify_version_deleted(0);
+        });
+
+        mocha.it('lifecyle - version expiration all - delete marker false', async () => {
+            //await create_mock_version('test-lifecycle-version', version_bucket, 30, 10);
+            const days = 30;
+            const version_count = 10;
+            const expired_delete_marker = true;
+            const newnon_current_version = 0;
+            const noncurrent_days = 15;
+            const version_bucket_key = 'test-lifecycle-version2';
+            // create_time updated to 29 days and expire is 30 days, do not delete any multipart
+            await create_mock_version(version_bucket, version_bucket_key, days + noncurrent_days + 1, version_count);
+            const putLifecycleParams = commonTests.version_lifecycle_configuration(version_bucket,
+                                            version_bucket_key, days, expired_delete_marker, newnon_current_version, noncurrent_days);
+
+            await s3.putBucketLifecycleConfiguration(putLifecycleParams);
+            await lifecycle.background_worker();
+            await verify_version_deleted(1);
+        });
+
+        async function verify_version_deleted(expected_length) {
+            await P.delay(100); // 0.1sec
+            const obj_params = {
+                bucket: version_bucket,
+            };
+            const list_obj = await rpc_client.object.list_object_versions(obj_params);
+            console.log('list_objects_admin objects: ', util.inspect(list_obj.objects));
+            const actual_length = list_obj.objects.length;
+            assert.strictEqual(actual_length, expected_length, `listObjectResult actual ${actual_length} !== ${expected_length}`);
+        }
     });
 
     function readable_buffer(data, split = 1, finish = 'end') {

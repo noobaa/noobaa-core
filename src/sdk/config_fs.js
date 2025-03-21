@@ -16,7 +16,7 @@ const native_fs_utils = require('../util/native_fs_utils');
 const { RpcError } = require('../rpc');
 const nc_mkm = require('../manage_nsfs/nc_master_key_manager').get_instance();
 const nsfs_schema_utils = require('../manage_nsfs/nsfs_schema_utils');
-const { version_compare } = require('../upgrade/upgrade_utils');
+const { version_compare } = require('../util/versions_utils');
 const { anonymous_access_key } = require('./object_sdk');
 
 /** @typedef {import('fs').Dirent} Dirent */

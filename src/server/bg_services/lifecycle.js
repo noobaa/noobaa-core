@@ -68,13 +68,13 @@ async function handle_bucket_rule(system, rule, j, bucket) {
         })
     });
 
-    //dbg.log0("LIFECYCLE PROCESSING res =", res);
-
     if (res.deleted_objects) {
 
         const writes = [];
 
-        for (const deleted_obj of res.deleted_objects) {
+        for (let i = 0; i < res.deleted_objects.length; ++i) {
+            if (res.delete_fail[i]) continue;
+            const deleted_obj = res.deleted_objects[i];
             for (const notif of bucket.notifications) {
                 if (check_notif_relevant(notif, {
                     op_name: 'lifecycle_delete',

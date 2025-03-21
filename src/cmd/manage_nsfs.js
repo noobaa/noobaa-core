@@ -103,9 +103,7 @@ async function main(argv = minimist(process.argv.slice(2))) {
                 ...(ManageCLIError.FS_ERRORS_TO_MANAGE[err.code] ||
                 ManageCLIError.RPC_ERROR_TO_MANAGE[err.rpc_code] ||
                 ManageCLIError.InternalError), cause: err });
-        process.stdout.write(manage_err.to_string() + '\n', () => {
-            process.exit(1);
-        });
+        write_stdout_response(manage_err);
     }
 }
 

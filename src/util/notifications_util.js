@@ -104,6 +104,9 @@ class Notificator {
             } finally {
                 await log.close();
                 this.notif_to_connect.clear();
+                for (const conn of this.connect_str_to_connection.values()) {
+                    conn.destroy();
+                }
             }
         }
     }
@@ -255,13 +258,7 @@ class KafkaNotificator {
     }
 
     async connect() {
-        //kafka client doens't like options it's not familiar with
-        //so delete them before connecting
-        const connect_for_kafka = structuredClone(this.connect_obj);
-        delete connect_for_kafka.topic;
-        delete connect_for_kafka.notification_protocol;
-        delete connect_for_kafka.name;
-        this.connection = new Kafka.HighLevelProducer(connect_for_kafka);
+        this.connection = new Kafka.HighLevelProducer(this.connect_obj.kafka_options_object);
         await new Promise((res, rej) => {
             this.connection.on('ready', () => {
                 res();

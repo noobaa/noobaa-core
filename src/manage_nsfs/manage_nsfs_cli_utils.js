@@ -25,13 +25,13 @@ function throw_cli_error(error, detail, event_arg) {
 }
 
 function write_stdout_response(response_code, detail, event_arg) {
-    const response_event = NSFS_CLI_SUCCESS_EVENT_MAP[response_code.code];
+    const response_event = NSFS_CLI_SUCCESS_EVENT_MAP[response_code.code] || NSFS_CLI_ERROR_EVENT_MAP[response_code.code];
     if (response_event) {
         new NoobaaEvent(response_event).create_event(undefined, event_arg, undefined);
     }
     const res = new ManageCLIResponse(response_code).to_string(detail);
     process.stdout.write(res + '\n', () => {
-        process.exit(0);
+        process.exit(NSFS_CLI_ERROR_EVENT_MAP[response_code.code] ? 1 : 0);
     });
 }
 

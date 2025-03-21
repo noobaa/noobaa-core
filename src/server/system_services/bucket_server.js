@@ -1088,7 +1088,7 @@ async function list_buckets(req) {
     const accessible_bucket_list = system_store.data.buckets.filter(
         async bucket => await req.has_s3_bucket_permission(bucket, "s3:ListBucket", req) && !bucket.deleting
     );
-
+    dbg.log('inside list_buckets');
     accessible_bucket_list.sort((a, b) => a.name.unwrap().localeCompare(b.name.unwrap()));
 
     if (!max_buckets) {

@@ -89,7 +89,7 @@ const VALID_OPTIONS_UPGRADE = {
 const VALID_OPTIONS_NOTIFICATION = {};
 
 const VALID_OPTIONS_CONNECTION = {
-    'add': new Set(['name', 'notification_protocol', 'agent_request_object', 'request_options_object', FROM_FILE, ...CLI_MUTUAL_OPTIONS]),
+    'add': new Set(['name', 'notification_protocol', 'agent_request_object', 'request_options_object', 'topic', 'kafka_options_object', FROM_FILE, ...CLI_MUTUAL_OPTIONS]),
     'update': new Set(['name', 'key', 'value', 'remove_key', ...CLI_MUTUAL_OPTIONS]),
     'delete': new Set(['name', ...CLI_MUTUAL_OPTIONS]),
     'list': new Set(CLI_MUTUAL_OPTIONS),
@@ -163,6 +163,8 @@ const OPTION_TYPE = {
     notification_protocol: 'string',
     agent_request_object: 'string',
     request_options_object: 'string',
+    kafka_options_object: 'string',
+    topic: 'string',
     decrypt: 'boolean',
     key: 'string',
     value: 'string',

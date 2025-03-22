@@ -68,6 +68,23 @@ describe('manage nsfs cli connection flow', () => {
             assert_connection(connection, conn_options, true);
         }, timeout);
 
+        it('cli create connection from cli - kafka', async () => {
+            const conn_options = {
+                config_root,
+                notification_protocol: 'kafka',
+                topic: 'mytopic',
+                kafka_options_object: {
+                    'metadata.broker.list': 'localhost:9092'
+                }
+            };
+            conn_options.name = "fromcli";
+            const res = await exec_manage_cli(TYPES.CONNECTION, ACTIONS.ADD, conn_options);
+            const res_json = JSON.parse(res.trim());
+            expect(_.isEqual(new Set(Object.keys(res_json.response)), new Set(['reply', 'code', 'message']))).toBe(true);
+            const connection = await config_fs.get_connection_by_name(conn_options.name);
+            assert_connection(connection, conn_options, false, true);
+        }, timeout);
+
         it('cli delete connection ', async () => {
             await exec_manage_cli(TYPES.CONNECTION, ACTIONS.DELETE, {config_root, name: defaults.name});
             expect(fs.readdirSync(config_fs.connections_dir_path).filter(file => file.endsWith(".json")).length).toEqual(0);
@@ -130,15 +147,21 @@ describe('manage nsfs cli connection flow', () => {
  * @param {object} connection actual
  * @param {object} connection_options expected
  * @param {boolean} is_encrypted whether connection's auth field is encrypted
+ * @param {boolean} is_kafka check for kafka fields (defualt is for http fields)
  */
-function assert_connection(connection, connection_options, is_encrypted) {
+function assert_connection(connection, connection_options, is_encrypted, is_kafka) {
     expect(connection.name).toEqual(connection_options.name);
     expect(connection.notification_protocol).toEqual(connection_options.notification_protocol);
-    expect(connection.agent_request_object).toStrictEqual(connection_options.agent_request_object);
-    if (is_encrypted) {
-        expect(connection.request_options_object).not.toStrictEqual(connection_options.request_options_object);
+    if (is_kafka) {
+        expect(connection.topic).toStrictEqual(connection_options.topic);
+        expect(connection.kafka_options_object).toStrictEqual(connection_options.kafka_options_object);
     } else {
-        expect(connection.request_options_object).toStrictEqual(connection_options.request_options_object);
+        expect(connection.agent_request_object).toStrictEqual(connection_options.agent_request_object);
+        if (is_encrypted) {
+            expect(connection.request_options_object).not.toStrictEqual(connection_options.request_options_object);
+        } else {
+            expect(connection.request_options_object).toStrictEqual(connection_options.request_options_object);
+        }
     }
 }
 

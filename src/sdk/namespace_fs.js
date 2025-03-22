@@ -2450,7 +2450,8 @@ class NamespaceFS {
         return {
             etag,
             encryption,
-            version_id
+            version_id,
+            size: stat.size
         };
     }
 

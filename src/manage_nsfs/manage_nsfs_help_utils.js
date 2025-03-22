@@ -366,12 +366,13 @@ Usage:
 
 Flags:
 
-    --deployment_type       <string>        (optional)          Set the nsfs type for heath check.(default nc; Non Containerized)
-    --https_port            <number>        (optional)          Set the S3 endpoint listening HTTPS port to serve. (default config.ENDPOINT_SSL_PORT)
-    --all_account_details   <boolean>       (optional)          Set a flag for returning all account details.
-    --all_bucket_details    <boolean>       (optional)          Set a flag for returning all bucket details.
-    --debug                 <number>        (optional)          Use for increasing the log verbosity of health cli commands.
-    --config_root           <string>        (optional)          Set Configuration files path for Noobaa standalon NSFS. (default config.NSFS_NC_DEFAULT_CONF_DIR)
+    --deployment_type        <string>        (optional)          Set the nsfs type for heath check.(default nc; Non Containerized)
+    --https_port             <number>        (optional)          Set the S3 endpoint listening HTTPS port to serve. (default config.ENDPOINT_SSL_PORT)
+    --all_account_details    <boolean>       (optional)          Set a flag for returning all account details.
+    --all_bucket_details     <boolean>       (optional)          Set a flag for returning all bucket details.
+    --all_connection_details <boolean>       (optional)          Set a flag for returning all connection details.
+    --debug                  <number>        (optional)          Use for increasing the log verbosity of health cli commands.
+    --config_root            <string>        (optional)          Set Configuration files path for Noobaa standalon NSFS. (default config.NSFS_NC_DEFAULT_CONF_DIR)
 
 `;
 
@@ -473,6 +474,19 @@ Help:
 Usage:
 
     noobaa-cli upgrade history
+
+`;
+
+const NOTIFICATION_OPTIONS = `
+Help:
+
+    'notification' is a noobaa-cli command that will process pending event notifications in the NOTIFICATION_LOG_DIR directory.
+    It will attempt to send each notification to its respective external server.
+    Note notifications that fail to be sent will be re-written in NOTIFICATION_LOG_DIR.
+
+Usage:
+
+    noobaa-cli notification
 
 `;
 
@@ -587,6 +601,9 @@ function print_usage(type, action) {
             break;
         case TYPES.CONNECTION:
             print_help_connection(action);
+            break;
+        case TYPES.NOTIFICATION:
+            print_help_notification();
             break;
         default:
             process.stdout.write(HELP + '\n');
@@ -732,6 +749,10 @@ function print_help_connection(action) {
             process.stdout.write(CONNECTION_ACTIONS.trimStart());
     }
     process.exit(0);
+}
+
+function print_help_notification(action) {
+    process.stdout.write(NOTIFICATION_OPTIONS);
 }
 
 

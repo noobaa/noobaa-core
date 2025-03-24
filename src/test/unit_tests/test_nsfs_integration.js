@@ -2239,7 +2239,7 @@ mocha.describe('Presigned URL tests', function() {
     it('fetch invalid presigned URL - expiry expoch - expire in bigger than limit', async () => {
         const invalid_expiry = 604800 + 10;
         const invalid_expiry_presigned_url = cloud_utils.get_signed_url(presigned_url_params, invalid_expiry);
-        const expected_err = new S3Error(S3Error.AuthorizationQueryParametersError);
+        const expected_err = new S3Error(S3Error.AuthorizationQueryParametersErrorWeek);
         await assert_throws_async(fetchData(invalid_expiry_presigned_url), expected_err.message);
     });
 
@@ -2247,7 +2247,15 @@ mocha.describe('Presigned URL tests', function() {
         const now = new Date();
         const invalid_expiry = 604800 + 10;
         const invalid_expiry_presigned_url = cloud_utils.get_signed_url(presigned_url_params, invalid_expiry) + '&X-Amz-Date=' + now.toISOString() + '&X-Amz-Expires=' + invalid_expiry;
-        const expected_err = new S3Error(S3Error.AuthorizationQueryParametersError);
+        const expected_err = new S3Error(S3Error.AuthorizationQueryParametersErrorWeek);
+        await assert_throws_async(fetchData(invalid_expiry_presigned_url), expected_err.message);
+    });
+
+    it('fetch invalid presigned URL - throw an error on exipray with a negative number', async () => {
+        const now = new Date();
+        const invalid_expiry = -7;
+        const invalid_expiry_presigned_url = cloud_utils.get_signed_url(presigned_url_params, invalid_expiry) + '&X-Amz-Date=' + now.toISOString() + '&X-Amz-Expires=' + invalid_expiry;
+        const expected_err = new S3Error(S3Error.AuthorizationQueryParametersErrorNonNegative);
         await assert_throws_async(fetchData(invalid_expiry_presigned_url), expected_err.message);
     });
 

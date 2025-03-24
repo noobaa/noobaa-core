@@ -46,6 +46,13 @@
 #define GPFS_XATTR_PREFIX "gpfs"
 #define GPFS_DOT_ENCRYPTION_EA "Encryption"
 #define GPFS_ENCRYPTION_XATTR_NAME GPFS_XATTR_PREFIX "." GPFS_DOT_ENCRYPTION_EA
+#define GPFS_DMAPI_XATTR_PREFIX "dmapi"
+#define GPFS_DMAPI_DOT_IBMOBJ_EA "IBMObj"
+#define GPFS_DMAPI_DOT_IBMPMIG_EA "IBMPMig"
+#define GPFS_DMAPI_DOT_IBMTPS_EA "IBMTPS"
+#define GPFS_DMAPI_XATTR_TAPE_INDICATOR GPFS_DMAPI_XATTR_PREFIX "." GPFS_DMAPI_DOT_IBMOBJ_EA
+#define GPFS_DMAPI_XATTR_TAPE_PREMIG GPFS_DMAPI_XATTR_PREFIX "." GPFS_DMAPI_DOT_IBMPMIG_EA
+#define GPFS_DMAPI_XATTR_TAPE_TPS GPFS_DMAPI_XATTR_PREFIX "." GPFS_DMAPI_DOT_IBMTPS_EA
 
 // This macro should be used after openning a file
 // it will autoclose the file using AutoCloser and will throw an error in case of failures
@@ -244,6 +251,11 @@ parse_open_flags(std::string flags)
 }
 
 const static std::vector<std::string> GPFS_XATTRS{ GPFS_ENCRYPTION_XATTR_NAME };
+const static std::vector<std::string> GPFS_DMAPI_XATTRS{
+    GPFS_DMAPI_XATTR_TAPE_INDICATOR,
+    GPFS_DMAPI_XATTR_TAPE_PREMIG,
+    GPFS_DMAPI_XATTR_TAPE_TPS,
+};
 const static std::vector<std::string> USER_XATTRS{
     "user.content_type",
     "user.content_md5",
@@ -286,8 +298,7 @@ build_gpfs_get_ea_request(gpfsRequest_t* reqP, std::string key)
     reqP->payload.structLen = reqP->header.totalLength - sizeof(reqP->header);
     reqP->payload.structType = GPFS_FCNTL_GET_XATTR;
     reqP->payload.nameLen = nameLen;
-    // bufferLen is the size of buffer - roundingup of the attribute name to 8 chars
-    reqP->payload.bufferLen = bufLen - ROUNDUP(nameLen, 8);
+    reqP->payload.bufferLen = bufLen - nameLen;
     reqP->payload.flags = GPFS_FCNTL_XATTRFLAG_NONE;
     memcpy(&reqP->payload.buffer[0], key.c_str(), nameLen);
 }
@@ -461,9 +472,14 @@ get_fd_xattr(int fd, XattrMap& xattr, const std::vector<std::string>& xattr_keys
 }
 
 static int
-get_fd_gpfs_xattr(int fd, XattrMap& xattr, int& gpfs_error)
+get_fd_gpfs_xattr(int fd, XattrMap& xattr, int& gpfs_error, bool use_dmapi)
 {
-    for (auto const& key : GPFS_XATTRS) {
+    auto gpfs_xattrs { GPFS_XATTRS };
+    if (use_dmapi) {
+        gpfs_xattrs.insert(gpfs_xattrs.end(), GPFS_DMAPI_XATTRS.begin(), GPFS_DMAPI_XATTRS.end());
+    }
+
+    for (auto const& key : gpfs_xattrs) {
         gpfsRequest_t gpfsGetXattrRequest;
         build_gpfs_get_ea_request(&gpfsGetXattrRequest, key);
         int r = dlsym_gpfs_fcntl(fd, &gpfsGetXattrRequest);
@@ -472,7 +488,7 @@ get_fd_gpfs_xattr(int fd, XattrMap& xattr, int& gpfs_error)
         if (gpfs_error == GPFS_FCNTL_ERR_NONE) {
             int name_len = gpfsGetXattrRequest.payload.nameLen;
             int buffer_len = gpfsGetXattrRequest.payload.bufferLen;
-            xattr[key] = std::string(gpfsGetXattrRequest.buffer[ROUNDUP(name_len, 8)], buffer_len);
+            xattr[key] = std::string((char*)gpfsGetXattrRequest.buffer + name_len, buffer_len);
         } else if (gpfs_error != GPFS_FCNTL_ERR_NO_ATTR) {
             LOG("get_fd_gpfs_xattr: get GPFS xattr with fcntl failed with error." << DVAL(gpfs_error));
             return gpfs_error;
@@ -603,6 +619,8 @@ struct FSWorker : public Napi::AsyncWorker
     // NOTE: If _do_ctime_check = false, then some functions will fallback to using mtime check
     bool _do_ctime_check;
 
+    bool _use_dmapi;
+
     FSWorker(const Napi::CallbackInfo& info)
         : AsyncWorker(info.Env())
         , _deferred(Napi::Promise::Deferred::New(info.Env()))
@@ -616,6 +634,7 @@ struct FSWorker : public Napi::AsyncWorker
         , _should_add_thread_capabilities(false)
         , _supplemental_groups()
         , _do_ctime_check(false)
+        , _use_dmapi(false)
     {
         for (int i = 0; i < (int)info.Length(); ++i) _args_ref.Set(i, info[i]);
         if (info[0].ToBoolean()) {
@@ -635,6 +654,7 @@ struct FSWorker : public Napi::AsyncWorker
                 _report_fs_stats = Napi::Persistent(fs_context.Get("report_fs_stats").As<Napi::Function>());
             }
             _do_ctime_check = fs_context.Get("do_ctime_check").ToBoolean();
+            _use_dmapi = fs_context.Get("use_dmapi").ToBoolean();
         }
     }
     void Begin(std::string desc)
@@ -793,7 +813,7 @@ struct Stat : public FSWorker
         if (!_use_lstat) {
             SYSCALL_OR_RETURN(get_fd_xattr(fd, _xattr, _xattr_get_keys));
             if (use_gpfs_lib()) {
-                GPFS_FCNTL_OR_RETURN(get_fd_gpfs_xattr(fd, _xattr, gpfs_error));
+                GPFS_FCNTL_OR_RETURN(get_fd_gpfs_xattr(fd, _xattr, gpfs_error, _use_dmapi));
             }
         }
 
@@ -1221,7 +1241,7 @@ struct Readfile : public FSWorker
         if (_read_xattr) {
             SYSCALL_OR_RETURN(get_fd_xattr(fd, _xattr, _xattr_get_keys));
             if (use_gpfs_lib()) {
-                GPFS_FCNTL_OR_RETURN(get_fd_gpfs_xattr(fd, _xattr, gpfs_error));
+                GPFS_FCNTL_OR_RETURN(get_fd_gpfs_xattr(fd, _xattr, gpfs_error, _use_dmapi));
             }
         }
 
@@ -1752,7 +1772,7 @@ struct FileStat : public FSWrapWorker<FileWrap>
         SYSCALL_OR_RETURN(fstat(fd, &_stat_res));
         SYSCALL_OR_RETURN(get_fd_xattr(fd, _xattr, _xattr_get_keys));
         if (use_gpfs_lib()) {
-            GPFS_FCNTL_OR_RETURN(get_fd_gpfs_xattr(fd, _xattr, gpfs_error));
+            GPFS_FCNTL_OR_RETURN(get_fd_gpfs_xattr(fd, _xattr, gpfs_error, _use_dmapi));
         }
 
         if (_do_ctime_check) {

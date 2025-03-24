@@ -26,7 +26,7 @@ const RpcError = require('../rpc/rpc_error');
 const { S3Error } = require('../endpoint/s3/s3_errors');
 const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
 const { PersistentLogger } = require('../util/persistent_logger');
-const { GlacierBackend } = require('./nsfs_glacier_backend/backend');
+const { Glacier } = require('./glacier');
 
 const multi_buffer_pool = new buffer_utils.MultiSizeBuffersPool({
     sorted_buf_sizes: [
@@ -66,7 +66,6 @@ const XATTR_TAG = XATTR_NOOBAA_INTERNAL_PREFIX + 'tag.';
 const HIDDEN_VERSIONS_PATH = '.versions';
 const NULL_VERSION_ID = 'null';
 const NULL_VERSION_SUFFIX = '_' + NULL_VERSION_ID;
-const XATTR_STORAGE_CLASS_KEY = XATTR_USER_PREFIX + 'storage_class';
 
 const VERSIONING_STATUS_ENUM = Object.freeze({
     VER_ENABLED: 'ENABLED',
@@ -87,7 +86,7 @@ const COPY_STATUS_ENUM = Object.freeze({
 });
 
 const XATTR_METADATA_IGNORE_LIST = [
-    XATTR_STORAGE_CLASS_KEY,
+    Glacier.STORAGE_CLASS_XATTR,
 ];
 
 /**
@@ -502,6 +501,7 @@ class NamespaceFS {
         fs_context.backend = this.fs_backend || '';
         fs_context.warn_threshold_ms = config.NSFS_WARN_THRESHOLD_MS;
         if (this.stats) fs_context.report_fs_stats = this.stats.update_fs_stats;
+        fs_context.use_dmapi = config.NSFS_GLACIER_DMAPI_ENABLE;
         return fs_context;
     }
 
@@ -1126,6 +1126,8 @@ class NamespaceFS {
                 }
             }
 
+            await this._glacier_force_expire_on_get(fs_context, file_path, file, stat);
+
             await file.close(fs_context);
             file = null;
             object_sdk.throw_if_aborted();
@@ -1310,8 +1312,8 @@ class NamespaceFS {
         if (params.copy_source) {
             const src_file_path = await this._find_version_path(fs_context, params.copy_source);
             const stat = await nb_native().fs.stat(fs_context, src_file_path);
-            const src_storage_class = s3_utils.parse_storage_class(stat.xattr[XATTR_STORAGE_CLASS_KEY]);
-            const src_restore_status = GlacierBackend.get_restore_status(stat.xattr, new Date(), src_file_path);
+            const src_storage_class = Glacier.storage_class_from_xattr(stat.xattr);
+            const src_restore_status = Glacier.get_restore_status(stat.xattr, new Date(), src_file_path);
 
             if (src_storage_class === s3_utils.STORAGE_CLASS_GLACIER) {
                 if (src_restore_status?.ongoing || !src_restore_status?.expiry_time) {
@@ -1366,7 +1368,7 @@ class NamespaceFS {
         }
         if (!part_upload && params.storage_class) {
             fs_xattr = Object.assign(fs_xattr || {}, {
-                [XATTR_STORAGE_CLASS_KEY]: params.storage_class
+                [Glacier.STORAGE_CLASS_XATTR]: params.storage_class
             });
 
             if (params.storage_class === s3_utils.STORAGE_CLASS_GLACIER) {
@@ -1679,7 +1681,7 @@ class NamespaceFS {
         return path.join(params.mpu_path, `part-${params.num}`);
     }
 
-    // optimized version of upload_multipart - 
+    // optimized version of upload_multipart -
     // 1. if size is pre known -
     //    1.1. calc offset
     //    1.2. upload data to by_size file in offset position
@@ -2149,7 +2151,7 @@ class NamespaceFS {
     /**
      * restore_object simply sets the restore request xattr
      * which should be picked by another mechanism.
-     * 
+     *
      * restore_object internally relies on 2 xattrs:
      * - XATTR_RESTORE_REQUEST
      * - XATTR_RESTORE_EXPIRY
@@ -2170,7 +2172,7 @@ class NamespaceFS {
             const stat = await file.stat(fs_context);
 
             const now = new Date();
-            const restore_status = GlacierBackend.get_restore_status(stat.xattr, now, file_path);
+            const restore_status = Glacier.get_restore_status(stat.xattr, now, file_path);
             dbg.log1(
                 'namespace_fs.restore_object:', file_path,
                 'restore_status:', restore_status,
@@ -2181,40 +2183,75 @@ class NamespaceFS {
                 throw new S3Error(S3Error.InvalidObjectStorageClass);
             }
 
-            if (restore_status.state === GlacierBackend.RESTORE_STATUS_CAN_RESTORE) {
+            /**@type {nb.NativeFSXattr}*/
+            const restore_attrs = {};
+
+            if (Glacier.is_externally_managed(stat.xattr)) {
+                if (restore_status.state === Glacier.RESTORE_STATUS_RESTORED) {
+                    // If the item is premigrated then its a no-op
+                    // Should result in HTTP: 200 OK
+                    return { accepted: false };
+                }
+
+                if (config.NSFS_GLACIER_DMAPI_ALLOW_NOOBAA_TAKEOVER) {
+                    dbg.warn(
+                        'NSFS_GLACIER_DMAPI_ALLOW_NOOBAA_TAKEOVER is set to true - NooBaa will mark the object "GLACIER"'
+                    );
+
+                    // set the storage class here so that we stop treating the object as externally managed.
+                    //
+                    // This is important to make sure that we report correct expiry of the objects which NooBaa
+                    // restores.
+                    restore_attrs[Glacier.STORAGE_CLASS_XATTR] = s3_utils.STORAGE_CLASS_GLACIER;
+                } else {
+                    throw new Error('cannot restore externally managed object');
+                }
+            }
+
+            if (restore_status.state === Glacier.RESTORE_STATUS_CAN_RESTORE) {
                 // First add it to the log and then add the extended attribute as if we fail after
                 // this point then the restore request can be triggered again without issue but
                 // the reverse doesn't works.
                 await this.append_to_restore_wal(file_path);
 
-                await file.replacexattr(fs_context, {
-                    [GlacierBackend.XATTR_RESTORE_REQUEST]: params.days.toString(),
-                });
+                restore_attrs[Glacier.XATTR_RESTORE_REQUEST] = params.days.toString();
+                await file.replacexattr(fs_context, restore_attrs);
 
                 // Should result in HTTP: 202 Accepted
-                return {accepted: true};
+                return { accepted: true };
             }
 
-            if (restore_status.state === GlacierBackend.RESTORE_STATUS_ONGOING) {
+            if (restore_status.state === Glacier.RESTORE_STATUS_ONGOING) {
                 throw new S3Error(S3Error.RestoreAlreadyInProgress);
             }
 
-            if (restore_status.state === GlacierBackend.RESTORE_STATUS_RESTORED) {
-                const expires_on = GlacierBackend.generate_expiry(
+            if (restore_status.state === Glacier.RESTORE_STATUS_RESTORED) {
+                // Make sure we don't do any xatts manipulation on implicit restores
+                if (Glacier.is_implicitly_restored(restore_attrs)) {
+                    // Should result in HTTP: 200 OK
+                    return {
+                        accepted: false,
+                        expires_on: restore_status.expiry_time,
+                        storage_class: s3_utils.STORAGE_CLASS_GLACIER
+                    };
+                }
+
+                const expires_on = Glacier.generate_expiry(
                     now,
                     params.days,
                     config.NSFS_GLACIER_EXPIRY_TIME_OF_DAY,
                     config.NSFS_GLACIER_EXPIRY_TZ,
                 );
 
-                await file.replacexattr(fs_context, {
-                    [GlacierBackend.XATTR_RESTORE_EXPIRY]: expires_on.toISOString(),
-                });
+                restore_attrs[Glacier.XATTR_RESTORE_EXPIRY] = expires_on.toISOString();
+                await file.replacexattr(fs_context, restore_attrs);
 
                 // Should result in HTTP: 200 OK
-                return {accepted: false,
+                return {
+                    accepted: false,
                     expires_on,
-                    storage_class: s3_utils.STORAGE_CLASS_GLACIER};
+                    storage_class: s3_utils.STORAGE_CLASS_GLACIER
+                };
             }
         } catch (error) {
             dbg.error('namespace_fs.restore_object: failed with error: ', error, file_path);
@@ -2277,7 +2314,7 @@ class NamespaceFS {
     }
 
     /**
-     * 
+     *
      * @param {*} fs_context - fs context object
      * @param {string} file_path - path to file
      * @param {*} set - the xattr object to be set
@@ -2404,7 +2441,8 @@ class NamespaceFS {
         const content_type = stat.xattr?.[XATTR_CONTENT_TYPE] ||
             (isDir && dir_content_type) ||
             mime.getType(key) || 'application/octet-stream';
-        const storage_class = s3_utils.parse_storage_class(stat.xattr?.[XATTR_STORAGE_CLASS_KEY]);
+
+        const storage_class = Glacier.storage_class_from_xattr(stat.xattr);
         const size = Number(stat.xattr?.[XATTR_DIR_CONTENT] || stat.size);
         const tag_count = stat.xattr ? this._number_of_tags_fs_xttr(stat.xattr) : 0;
 
@@ -2421,7 +2459,7 @@ class NamespaceFS {
             is_latest,
             delete_marker,
             storage_class,
-            restore_status: GlacierBackend.get_restore_status(stat.xattr, new Date(), this._get_file_path({key})),
+            restore_status: Glacier.get_restore_status(stat.xattr, new Date(), this._get_file_path({key})),
             xattr: to_xattr(stat.xattr),
             tag_count,
 
@@ -3350,6 +3388,30 @@ class NamespaceFS {
         return Math.max(in_bytes, free_from_percentage);
     }
 
+    /**
+     * _glacier_force_expire_on_get expires a object if the object has storage
+     * class set to GLACIER and NooBaa is configured for forced get based
+     * eviction
+     * @param {nb.NativeFSContext} fs_context
+     * @param {string} file_path 
+     * @param {nb.NativeFile} file 
+     * @param {nb.NativeFSStats} stat
+     */
+    async _glacier_force_expire_on_get(fs_context, file_path, file, stat) {
+        if (!config.NSFS_GLACIER_FORCE_EXPIRE_ON_GET) return;
+
+        const storage_class = s3_utils.parse_storage_class(stat.xattr[Glacier.STORAGE_CLASS_XATTR]);
+        if (storage_class !== s3_utils.STORAGE_CLASS_GLACIER) return;
+
+        // Remove all the restore related xattrs
+        await file.replacexattr(fs_context, {
+            // Set date to 1970-01-01 to force expiry
+            [Glacier.XATTR_RESTORE_EXPIRY]: new Date(0).toISOString()
+        }, Glacier.XATTR_RESTORE_REQUEST);
+
+        await this.append_to_migrate_wal(file_path);
+    }
+
     async append_to_migrate_wal(entry) {
         if (!config.NSFS_GLACIER_LOGS_ENABLED) return;
 
@@ -3364,7 +3426,7 @@ class NamespaceFS {
 
     static get migrate_wal() {
         if (!NamespaceFS._migrate_wal) {
-            NamespaceFS._migrate_wal = new PersistentLogger(config.NSFS_GLACIER_LOGS_DIR, GlacierBackend.MIGRATE_WAL_NAME, {
+            NamespaceFS._migrate_wal = new PersistentLogger(config.NSFS_GLACIER_LOGS_DIR, Glacier.MIGRATE_WAL_NAME, {
                 poll_interval: config.NSFS_GLACIER_LOGS_POLL_INTERVAL,
                 locking: 'SHARED',
             });
@@ -3375,7 +3437,7 @@ class NamespaceFS {
 
     static get restore_wal() {
         if (!NamespaceFS._restore_wal) {
-            NamespaceFS._restore_wal = new PersistentLogger(config.NSFS_GLACIER_LOGS_DIR, GlacierBackend.RESTORE_WAL_NAME, {
+            NamespaceFS._restore_wal = new PersistentLogger(config.NSFS_GLACIER_LOGS_DIR, Glacier.RESTORE_WAL_NAME, {
                 poll_interval: config.NSFS_GLACIER_LOGS_POLL_INTERVAL,
                 locking: 'SHARED',
             });

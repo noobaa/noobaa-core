@@ -17,8 +17,12 @@ class NewlineReaderFilePathEntry {
 
 class NewlineReader {
     /**
-     * NewlineReader allows to read a file line by line while at max holding one line + 4096 bytes
-     * in memory.
+     * Newline character code
+     */
+    static NL_CODE = 10;
+
+    /**
+     * NewlineReader allows to read a file line by line.
      * @param {nb.NativeFSContext} fs_context 
      * @param {string} filepath 
      * @param {{
@@ -66,7 +70,7 @@ class NewlineReader {
         while (!this.eof) {
             // extract next line if terminated in current buffer
             if (this.start < this.end) {
-                const term_idx = this.buf.subarray(this.start, this.end).indexOf(10);
+                const term_idx = this.buf.subarray(this.start, this.end).indexOf(NewlineReader.NL_CODE);
                 if (term_idx >= 0) {
                     if (this.overflow_state) {
                         console.warn('line too long finally terminated:', this.info());

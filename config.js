@@ -950,6 +950,9 @@ config.ANONYMOUS_ACCOUNT_NAME = 'anonymous';
 
 config.NFSF_UPLOAD_STREAM_MEM_THRESHOLD = 8 * 1024 * 1024;
 
+// we want to change our handling related to EACCESS error
+config.NSFS_LIST_IGNORE_ENTRY_ON_EACCES = false;
+
 ////////////////////////////
 // NSFS NON CONTAINERIZED //
 ////////////////////////////

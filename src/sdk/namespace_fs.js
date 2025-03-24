@@ -713,10 +713,19 @@ class NamespaceFS {
                     if (!delimiter && r.common_prefix) {
                         await process_dir(r.key);
                     } else {
-                        if (pos < results.length) {
-                            results.splice(pos, 0, r);
-                        } else {
-                            results.push(r);
+                        const entry_path = path.join(this.bucket_path, r.key);
+                        // If entry is outside of bucket, returns stat of symbolic link
+                        const use_lstat = !(await this._is_path_in_bucket_boundaries(fs_context, entry_path));
+                        const stat = await native_fs_utils.stat_if_exists(fs_context, entry_path,
+                            use_lstat, config.NSFS_LIST_IGNORE_ENTRY_ON_EACCES);
+                        if (stat) {
+                            r.stat = stat;
+                            // add the result only if we have the stat information
+                            if (pos < results.length) {
+                                results.splice(pos, 0, r);
+                            } else {
+                                results.push(r);
+                            }
                         }
                         if (results.length > limit) {
                             results.length = limit;
@@ -756,6 +765,11 @@ class NamespaceFS {
                     await insert_entry_to_results_arr(r);
                 };
 
+                // our current mechanism - list the files and skipping inaccessible directory (invisible in the list).
+                // We use this check_access in case the directory is not accessible inside a bucket.
+                // In a directory if we don’t have access to the directory, we want to skip the directory and its sub directories from the list.
+                // We did it outside to avoid undefined values in the cache.
+                // Note: It is not the same case as a file without permission.
                 if (!(await this.check_access(fs_context, dir_path))) return;
                 try {
                     if (list_versions) {
@@ -877,13 +891,6 @@ class NamespaceFS {
 
             const prefix_dir_key = prefix.slice(0, prefix.lastIndexOf('/') + 1);
             await process_dir(prefix_dir_key);
-            await Promise.all(results.map(async r => {
-                if (r.common_prefix) return;
-                const entry_path = path.join(this.bucket_path, r.key);
-                //If entry is outside of bucket, returns stat of symbolic link
-                const use_lstat = !(await this._is_path_in_bucket_boundaries(fs_context, entry_path));
-                r.stat = await nb_native().fs.stat(fs_context, entry_path, { use_lstat });
-            }));
             const res = {
                 objects: [],
                 common_prefixes: [],
@@ -1007,10 +1014,15 @@ class NamespaceFS {
             file_path = await this._find_version_path(fs_context, params);
             await this._check_path_in_bucket_boundaries(fs_context, file_path);
 
-            // NOTE: don't move this code after the open
-            // this can lead to ENOENT failures due to file not exists when content size is 0
-            // if entry is a directory object and its content size = 0 - return empty response
-                    if (await this._is_empty_directory_content(file_path, fs_context, params)) return null;
+                    // NOTE: don't move this code after the open
+                    // this can lead to ENOENT failures due to file not exists when content size is 0
+                    // if entry is a directory object and its content size = 0 - return empty response
+                    if (await this._is_empty_directory_content(file_path, fs_context, params)) {
+                        res.end();
+                        // since we don't write anything to the stream wait_finished might not be needed. added just in case there is a delay
+                        await stream_utils.wait_finished(res, { signal: object_sdk.abort_controller.signal });
+                        return null;
+                    }
 
             file = await nb_native().fs.open(
                 fs_context,
@@ -1427,10 +1439,10 @@ class NamespaceFS {
         // will retry renaming a file in case of parallel deleting of the destination path
         for (;;) {
             try {
-                await native_fs_utils._make_path_dirs(dest_path, fs_context);
                 if (this._is_versioning_disabled() ||
                     (this._is_versioning_enabled() && is_dir_content)) {
-                // dir_content is not supported in versioning, hence we will treat it like versioning disabled
+                    // dir_content is not supported in versioning, hence we will treat it like versioning disabled
+                    await native_fs_utils._make_path_dirs(dest_path, fs_context);
                     if (open_mode === 'wt') {
                         await target_file.linkfileat(fs_context, dest_path);
                     } else {
@@ -1478,6 +1490,8 @@ class NamespaceFS {
             try {
                 let new_ver_info;
                 let latest_ver_info;
+                // dir might be deleted by other thread. will recreacte if missing
+                await native_fs_utils._make_path_dirs(latest_ver_path, fs_context);
                 if (is_gpfs) {
                     const latest_ver_info_exist = await native_fs_utils.is_path_exists(fs_context, latest_ver_path);
                     gpfs_options = await this._open_files_gpfs(fs_context, new_ver_tmp_path, latest_ver_path, upload_file,
@@ -2558,12 +2572,32 @@ class NamespaceFS {
         }
     }
 
+    /**
+     * _delete_path_dirs deletes all the paths in the hierarchy that are empty after a successful delete
+     * if the original file_path to be deleted is a regular object which means file_path is not a directory and it's not a directory object path - 
+     * before deletion of the parent directory  - 
+     * if the parent directory is a directory object (has CONTENT_DIR xattr) - stop the deletion loop
+     * else - delete the directory - if dir is not empty it will stop at the first non empty dir
+     * NOTE - the directory object check is needed because when object size is zero we won't create a .folder file and the dir will be empty
+     * therefore the deletion will succeed although we shouldn't delete the directory object
+     * @param {String} file_path 
+     * @param {nb.NativeFSContext} fs_context 
+     */
     async _delete_path_dirs(file_path, fs_context) {
         try {
-            let dir = path.dirname(file_path);
-            while (dir !== this.bucket_path) {
-                await nb_native().fs.rmdir(fs_context, dir);
-                dir = path.dirname(dir);
+            let dir_path = path.dirname(file_path);
+            const deleted_file_is_dir = file_path.endsWith('/');
+            const deleted_file_is_dir_object = file_path.endsWith(config.NSFS_FOLDER_OBJECT_NAME);
+            let should_check_dir_path_is_content_dir = !deleted_file_is_dir && !deleted_file_is_dir_object;
+            while (dir_path !== this.bucket_path) {
+                if (should_check_dir_path_is_content_dir) {
+                    const dir_stat = await nb_native().fs.stat(fs_context, dir_path);
+                    const file_is_disabled_dir_content = dir_stat.xattr && dir_stat.xattr[XATTR_DIR_CONTENT] !== undefined;
+                    if (file_is_disabled_dir_content) break;
+                }
+                await nb_native().fs.rmdir(fs_context, dir_path);
+                dir_path = path.dirname(dir_path);
+                should_check_dir_path_is_content_dir = true;
             }
         } catch (err) {
             if (err.code !== 'ENOTEMPTY' &&
@@ -2992,10 +3026,18 @@ class NamespaceFS {
         return res;
     }
 
-    // delete version_id -
-    // 1. get version info, if it's empty - return
-    // 2. unlink key
-    // 3. if version is latest version - promote second latest -> latest
+    /**
+     * delete version_id does the following - 
+     * 1. get version info, if it's empty - return
+     * 2. unlink key
+     * 3. if version is latest version - promote second latest -> latest
+     * 4. if it's the latest version - delete the directory hirerachy of the key if it's empty
+     *    if it's a past version - delete .versions/ and the directory hirerachy if it's empty
+     * @param {nb.NativeFSContext} fs_context 
+     * @param {String} file_path 
+     * @param {Object} params 
+     * @returns {Promise<{deleted_delete_marker?: string, version_id?: string}>}
+     */
     async _delete_version_id(fs_context, file_path, params) {
         // TODO optimization - GPFS link overrides, no need to unlink before promoting, but if there is nothing to promote we should unlink
         const del_obj_version_info = await this._delete_single_object_versioned(fs_context, params.key, params.version_id);

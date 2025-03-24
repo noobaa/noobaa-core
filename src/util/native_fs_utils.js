@@ -289,6 +289,31 @@ function should_retry_link_unlink(err) {
     return should_retry_general || should_retry_gpfs || should_retry_posix;
 }
 
+
+/**
+ * stat_if_exists execute stat on entry_path and ignores on certain error codes.
+ * @param {nb.NativeFSContext} fs_context
+ * @param {string} entry_path
+ * @param {boolean} use_lstat
+ * @param {boolean} should_ignore_eacces
+ * @returns {Promise<nb.NativeFSStats | undefined>}
+ */
+async function stat_if_exists(fs_context, entry_path, use_lstat, should_ignore_eacces) {
+    try {
+        return await nb_native().fs.stat(fs_context, entry_path, { use_lstat });
+    } catch (err) {
+        // we might want to expand the error list due to permission/structure
+        // change (for example: ELOOP, ENAMETOOLONG) or other reason (EPERM) - need to be decided
+        if ((err.code === 'EACCES' && should_ignore_eacces) ||
+             err.code === 'ENOENT' || err.code === 'ENOTDIR') {
+            dbg.log0('stat_if_exists: Could not access file entry_path',
+                entry_path, 'error code', err.code, ', skipping...');
+        } else {
+            throw err;
+        }
+    }
+}
+
 ////////////////////////
 /// NON CONTAINERIZED //
 ////////////////////////
@@ -305,10 +330,9 @@ function get_config_files_tmpdir() {
  * @param {string} config_data 
  */
 async function create_config_file(fs_context, schema_dir, config_path, config_data) {
-    const is_gpfs = _is_gpfs(fs_context);
-    const open_mode = is_gpfs ? 'wt' : 'w';
+    const open_mode = 'w';
+    let open_path;
     let upload_tmp_file;
-    let gpfs_dst_file;
     try {
         // validate config file doesn't exist
         try {
@@ -322,37 +346,30 @@ async function create_config_file(fs_context, schema_dir, config_path, config_da
         dbg.log1('create_config_file:: config_path:', config_path, 'config_data:', config_data, 'is_gpfs:', open_mode);
         // create config dir if it does not exist
         await _create_path(schema_dir, fs_context, config.BASE_MODE_CONFIG_DIR);
-        // when using GPFS open dst file as soon as possible for later linkat validation
-        if (is_gpfs) gpfs_dst_file = await open_file(fs_context, schema_dir, config_path, 'w*', config.BASE_MODE_CONFIG_FILE);
 
         // open tmp file (in GPFS we open the parent dir using wt open mode)
         const tmp_dir_path = path.join(schema_dir, get_config_files_tmpdir());
-        let open_path = is_gpfs ? config_path : await _generate_unique_path(fs_context, tmp_dir_path);
+        open_path = await _generate_unique_path(fs_context, tmp_dir_path);
         upload_tmp_file = await open_file(fs_context, schema_dir, open_path, open_mode, config.BASE_MODE_CONFIG_FILE);
 
         // write tmp file data
         await upload_tmp_file.writev(fs_context, [Buffer.from(config_data)], 0);
 
-        // moving tmp file to config path atomically
-        let src_stat;
-        let gpfs_options;
-        if (is_gpfs) {
-            gpfs_options = { dst_file: gpfs_dst_file, dir_file: upload_tmp_file };
-            // open path in GPFS is the parent dir 
-            open_path = schema_dir;
-        } else {
-            src_stat = await nb_native().fs.stat(fs_context, open_path);
-        }
-        dbg.log1('create_config_file:: moving from:', open_path, 'to:', config_path, 'is_gpfs=', is_gpfs);
+        dbg.log1('create_config_file:: moving from:', open_path, 'to:', config_path);
 
-        await safe_move(fs_context, open_path, config_path, src_stat, gpfs_options, tmp_dir_path);
+        await nb_native().fs.link(fs_context, open_path, config_path);
 
         dbg.log1('create_config_file:: done', config_path);
     } catch (err) {
         dbg.error('create_config_file:: error', err);
         throw err;
     } finally {
-        await finally_close_files(fs_context, [upload_tmp_file, gpfs_dst_file]);
+        await finally_close_files(fs_context, [upload_tmp_file]);
+        try {
+            await nb_native().fs.unlink(fs_context, open_path);
+        } catch (error) {
+            dbg.log0(`create_config_file:: unlink tmp file failed with error ${error}, skipping`);
+        }
     }
 }
 
@@ -691,6 +708,7 @@ exports.copy_bytes = copy_bytes;
 exports.finally_close_files = finally_close_files;
 exports.get_user_by_distinguished_name = get_user_by_distinguished_name;
 exports.get_config_files_tmpdir = get_config_files_tmpdir;
+exports.stat_if_exists = stat_if_exists;
 
 exports._is_gpfs = _is_gpfs;
 exports.safe_move = safe_move;

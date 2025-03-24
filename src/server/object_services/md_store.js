@@ -7,7 +7,7 @@ const _ = require('lodash');
 const assert = require('assert');
 const moment = require('moment');
 const mongodb = require('mongodb');
-const mime = require('mime');
+const mime = require('mime-types');
 
 const P = require('../../util/promise');
 const dbg = require('../../util/debug_module')(__filename);
@@ -292,7 +292,7 @@ class MDStore {
             system: obj.system,
             bucket: obj.bucket,
             key: obj.key,
-            content_type: obj.content_type || mime.getType(obj.key) || 'application/octet-stream',
+            content_type: obj.content_type || mime.lookup(obj.key) || 'application/octet-stream',
             delete_marker: true,
             create_time: new Date(),
             version_seq,

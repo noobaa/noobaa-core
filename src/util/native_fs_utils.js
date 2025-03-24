@@ -6,7 +6,7 @@ const fs = require('fs');
 const net = require('net');
 const path = require('path');
 const P = require('../util/promise');
-const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
 const config = require('../../config');
 const RpcError = require('../rpc/rpc_error');
 const nb_native = require('../util/nb_native');
@@ -52,7 +52,7 @@ async function _create_path(dir, fs_context, dir_permissions = config.BASE_MODE_
 }
 
 async function _generate_unique_path(fs_context, tmp_dir_path) {
-    const rand_id = uuidv4();
+    const rand_id = crypto.randomUUID();
     const unique_temp_path = path.join(tmp_dir_path, 'lost+found', rand_id);
     await _make_path_dirs(unique_temp_path, fs_context);
     return unique_temp_path;
@@ -67,7 +67,7 @@ async function _generate_unique_path(fs_context, tmp_dir_path) {
  */
 // opens open_path on POSIX, and on GPFS it will open open_path parent folder
 async function open_file(fs_context, bucket_path, open_path, open_mode = config.NSFS_OPEN_READ_MODE,
-        file_permissions = config.BASE_MODE_FILE) {
+    file_permissions = config.BASE_MODE_FILE) {
     let retries = config.NSFS_MKDIR_PATH_RETRIES;
 
     const dir_path = path.dirname(open_path);
@@ -305,7 +305,7 @@ async function stat_if_exists(fs_context, entry_path, use_lstat, should_ignore_e
         // we might want to expand the error list due to permission/structure
         // change (for example: ELOOP, ENAMETOOLONG) or other reason (EPERM) - need to be decided
         if ((err.code === 'EACCES' && should_ignore_eacces) ||
-             err.code === 'ENOENT' || err.code === 'ENOTDIR') {
+            err.code === 'ENOENT' || err.code === 'ENOTDIR') {
             dbg.log0('stat_if_exists: Could not access file entry_path',
                 entry_path, 'error code', err.code, ', skipping...');
         } else {
@@ -543,7 +543,7 @@ async function get_fs_context(nsfs_account_config, fs_backend) {
     //napi does not accepts undefined value for an array. if supplemental_groups is undefined don't include this property at all
     if (nsfs_account_config.supplemental_groups) {
         fs_context.supplemental_groups = nsfs_account_config.supplemental_groups;
-     }
+    }
     return fs_context;
 }
 
@@ -760,4 +760,3 @@ exports.entity_enum = entity_enum;
 exports.translate_error_codes = translate_error_codes;
 
 exports.lock_and_run = lock_and_run;
-

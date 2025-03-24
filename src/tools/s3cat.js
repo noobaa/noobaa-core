@@ -7,7 +7,7 @@ const _ = require('lodash');
 const fs = require('fs');
 const AWS = require('aws-sdk');
 const minimist = require('minimist');
-const mime = require('mime');
+const mime = require('mime-types');
 const http = require('http');
 const https = require('https');
 const crypto = require('crypto');
@@ -299,7 +299,7 @@ function upload_object() {
             Bucket: argv.bucket,
             Key: upload_key,
             CopySource: argv.bucket + '/' + argv.copy,
-            ContentType: mime.getType(upload_key) || '',
+            ContentType: mime.lookup(upload_key) || '',
         };
         if (argv.presign) return make_simple_request('copyObject', params);
         return s3.copyObject(params, on_finish);
@@ -310,7 +310,7 @@ function upload_object() {
             Bucket: argv.bucket,
             Key: upload_key,
             Body: data_source,
-            ContentType: mime.getType(file_path) || '',
+            ContentType: mime.lookup(file_path) || '',
             ContentLength: data_size
         };
         if (argv.presign) return make_simple_request('putObject', params);
@@ -322,7 +322,7 @@ function upload_object() {
                 Bucket: argv.bucket,
                 Key: upload_key,
                 Body: data_source,
-                ContentType: mime.getType(file_path),
+                ContentType: mime.lookup(file_path),
                 ContentLength: data_size
             }, {
                 partSize: part_size,
@@ -339,7 +339,7 @@ function upload_object() {
         s3.createMultipartUpload({
             Bucket: argv.bucket,
             Key: upload_key,
-            ContentType: mime.getType(file_path),
+            ContentType: mime.lookup(file_path),
         }, (err, create_res) => {
             if (err) {
                 console.error('s3.createMultipartUpload ERROR', err);

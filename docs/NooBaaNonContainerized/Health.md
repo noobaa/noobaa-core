@@ -42,6 +42,8 @@ For more details about NooBaa RPM installation, see - [Getting Started](./Gettin
     - checks if there is ongoing upgrade
     - returns error if there is no ongoing upgrade, but the config directory phase is locked
     - returns message if there is no ongoing upgrade and the config directory is unlocked
+  - `Bucket event notifications connections health`
+    - Sends out a test notification for each connection.
 
 * Health CLI requires root permissions.
 
@@ -53,7 +55,7 @@ The `health` command is used to analyze NooBaa health with customizable options.
 
 ```sh
 noobaa-cli diagnose health [--deployment_type][--https_port]
-[--all_account_details][--all_bucket_details][--config_root][--debug]
+[--all_account_details][--all_bucket_details][--all_connection_details][--notif_storage_threshold][--config_root][--debug]
 ```
 ### Flags -
 
@@ -75,7 +77,17 @@ noobaa-cli diagnose health [--deployment_type][--https_port]
 - `all_bucket_details`
     - Type: Boolean
     - Default: false
-    - Description: Indicates if health output should contain valid buckets.  
+    - Description: Indicates if health output should contain valid buckets.
+
+- `all_connection_details`
+    - Type: Boolean
+    - Default: false
+    - Description: Indicates if health output should contain connection test result.
+
+- `notif_storage_threshold`
+    - Type: Boolean
+    - Default: false
+    - Description: Whether health ouput should check if notification storage FS is below threshold.
 
 - `config_root`
     - Type: String
@@ -143,6 +155,10 @@ The output of the Health CLI is a JSON object containing the following propertie
     2. The account doesn't have RW access to its `new_buckets_path` or having invalid config JSON file.
     3. The account has an invalid config JSON file.
 
+- `invalid connections`:
+  - Type: [{ "name": "connection_name", "config_path": "/connection/file/path", "code": String }]
+  - Description: Array of connections that failed test notification.
+
 - `valid_accounts`
   - Type: [{ "name": account_name, "storage_path": "/path/to/accounts/new_buckets_path" }]
   - Description: Array of all the valid accounts. If the all_account_details flag is set to true, valid_accounts will be included in the Health response.
@@ -150,6 +166,10 @@ The output of the Health CLI is a JSON object containing the following propertie
 - `valid_buckets`
   - Type: [{ "name": bucket_name, "storage_path": "/path/to/bucket/path" }]
   - Description: Array of all the valid buckets. If the all_bucket_details flag is set to true, valid_buckets will be included in the Health response.
+
+- `valid_connections`:
+  - Type: [{ "name": "connection_name", "config_path": "/connection/file/path" }]
+  - Description: Array of all connections to which test notification was send successfully.
 
 - `error_type`
   - Type: String
@@ -239,6 +259,26 @@ Output:
       ],
       "error_type": "PERSISTENT"
     },
+    "connectoins_status": {
+      "invalid_connections": [
+        {
+          "name": "notif_invalid",
+          "config_path": "/etc/noobaa.conf.d/connections/notif_invalid.json",
+          "code": "ECONNREFUSED"
+        }
+      ],
+      "valid_connections": [
+        {
+          "name": "notif_valid",
+          "config_path": "/etc/noobaa.conf.d/connections/notif_valid.json"
+        }
+      ]
+    },
+    "notif_storage_threshold_details": {
+      "threshold": 0.2,
+      "ratio": 0.9,
+      "result": "above threshold"
+    }
     "config_directory": {
       "phase": "CONFIG_DIR_UNLOCKED",
       "config_dir_version": "1.0.0",

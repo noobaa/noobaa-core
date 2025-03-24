@@ -6,6 +6,7 @@
 // disabling init_rand_seed as it takes longer than the actual test execution
 process.env.DISABLE_INIT_RANDOM_SEED = "true";
 
+const _ = require('lodash');
 const fs = require('fs');
 const path = require('path');
 const os_util = require('../../../util/os_utils');
@@ -14,7 +15,10 @@ const { ConfigFS } = require('../../../sdk/config_fs');
 const { TMP_PATH, set_nc_config_dir_in_config } = require('../../system_tests/test_utils');
 const { TYPES, ACTIONS } = require('../../../manage_nsfs/manage_nsfs_constants');
 
-const tmp_fs_path = path.join(TMP_PATH, 'test_nc_nsfs_account_cli');
+const ManageCLIError = require('../../../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
+
+const tmp_fs_path = path.join(TMP_PATH, 'test_nc_connection_cli.test');
+
 const timeout = 5000;
 
 // eslint-disable-next-line max-lines-per-function
@@ -58,9 +62,28 @@ describe('manage nsfs cli connection flow', () => {
         it('cli create connection from cli', async () => {
             const conn_options = {...defaults, config_root};
             conn_options.name = "fromcli";
-            await exec_manage_cli(TYPES.CONNECTION, ACTIONS.ADD, conn_options);
+            const res = await exec_manage_cli(TYPES.CONNECTION, ACTIONS.ADD, conn_options);
+            const res_json = JSON.parse(res.trim());
+            expect(_.isEqual(new Set(Object.keys(res_json.response)), new Set(['reply', 'code', 'message']))).toBe(true);
             const connection = await config_fs.get_connection_by_name(conn_options.name);
             assert_connection(connection, conn_options, true);
+        }, timeout);
+
+        it('cli create connection from cli - kafka', async () => {
+            const conn_options = {
+                config_root,
+                notification_protocol: 'kafka',
+                topic: 'mytopic',
+                kafka_options_object: {
+                    'metadata.broker.list': 'localhost:9092'
+                }
+            };
+            conn_options.name = "fromcli";
+            const res = await exec_manage_cli(TYPES.CONNECTION, ACTIONS.ADD, conn_options);
+            const res_json = JSON.parse(res.trim());
+            expect(_.isEqual(new Set(Object.keys(res_json.response)), new Set(['reply', 'code', 'message']))).toBe(true);
+            const connection = await config_fs.get_connection_by_name(conn_options.name);
+            assert_connection(connection, conn_options, false, true);
         }, timeout);
 
         it('cli delete connection ', async () => {
@@ -96,6 +119,26 @@ describe('manage nsfs cli connection flow', () => {
             assert_connection(res.response.reply, defaults, false);
         }, timeout);
 
+        it('conn already exists', async () => {
+            const action = ACTIONS.ADD;
+            const { name, agent_request_object, request_options_object, notification_protocol } = defaults;
+            const conn_options = { config_root, name, agent_request_object, request_options_object, notification_protocol };
+            await exec_manage_cli(TYPES.CONNECTION, action, conn_options);
+            const actual = await config_fs.get_connection_by_name(name);
+            assert_connection(actual, defaults, true);
+
+            const res = await exec_manage_cli(TYPES.CONNECTION, action, conn_options, true);
+            const res_json = JSON.parse(res.trim());
+            expect(res_json.error.code).toBe(ManageCLIError.ConnectionAlreadyExists.code);
+        });
+
+        it('conn does not exist', async () => {
+            const conn_options = { config_root, name: "badname" };
+            const res = await exec_manage_cli(TYPES.CONNECTION, ACTIONS.DELETE, conn_options, true);
+            const res_json = JSON.parse(res.trim());
+            expect(res_json.error.code).toBe(ManageCLIError.NoSuchConnection.code);
+        });
+
     });
 });
 
@@ -105,15 +148,21 @@ describe('manage nsfs cli connection flow', () => {
  * @param {object} connection actual
  * @param {object} connection_options expected
  * @param {boolean} is_encrypted whether connection's auth field is encrypted
+ * @param {boolean} is_kafka check for kafka fields (defualt is for http fields)
  */
-function assert_connection(connection, connection_options, is_encrypted) {
+function assert_connection(connection, connection_options, is_encrypted, is_kafka) {
     expect(connection.name).toEqual(connection_options.name);
     expect(connection.notification_protocol).toEqual(connection_options.notification_protocol);
-    expect(connection.agent_request_object).toStrictEqual(connection_options.agent_request_object);
-    if (is_encrypted) {
-        expect(connection.request_options_object).not.toStrictEqual(connection_options.request_options_object);
+    if (is_kafka) {
+        expect(connection.topic).toStrictEqual(connection_options.topic);
+        expect(connection.kafka_options_object).toStrictEqual(connection_options.kafka_options_object);
     } else {
-        expect(connection.request_options_object).toStrictEqual(connection_options.request_options_object);
+        expect(connection.agent_request_object).toStrictEqual(connection_options.agent_request_object);
+        if (is_encrypted) {
+            expect(connection.request_options_object).not.toStrictEqual(connection_options.request_options_object);
+        } else {
+            expect(connection.request_options_object).toStrictEqual(connection_options.request_options_object);
+        }
     }
 }
 
@@ -123,13 +172,17 @@ function assert_connection(connection, connection_options, is_encrypted) {
  * @param {string} action
  * @param {object} options
  */
-async function exec_manage_cli(type, action, options) {
+async function exec_manage_cli(type, action, options, expect_failure = false) {
     const command = create_command(type, action, options);
     let res;
     try {
         res = await os_util.exec(command, { return_stdout: true });
     } catch (e) {
-        res = e;
+        if (expect_failure) {
+            res = e.stdout;
+        } else {
+            res = e;
+        }
     }
     return res;
 }

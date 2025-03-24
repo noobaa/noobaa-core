@@ -104,6 +104,9 @@ class Notificator {
             } finally {
                 await log.close();
                 this.notif_to_connect.clear();
+                for (const conn of this.connect_str_to_connection.values()) {
+                    conn.destroy();
+                }
             }
         }
     }
@@ -255,13 +258,7 @@ class KafkaNotificator {
     }
 
     async connect() {
-        //kafka client doens't like options it's not familiar with
-        //so delete them before connecting
-        const connect_for_kafka = structuredClone(this.connect_obj);
-        delete connect_for_kafka.topic;
-        delete connect_for_kafka.notification_protocol;
-        delete connect_for_kafka.name;
-        this.connection = new Kafka.HighLevelProducer(connect_for_kafka);
+        this.connection = new Kafka.HighLevelProducer(this.connect_obj.kafka_options_object);
         await new Promise((res, rej) => {
             this.connection.on('ready', () => {
                 res();
@@ -352,10 +349,12 @@ async function test_notifications(notifs, nc_config_dir) {
         return;
     }
     let connect_files_dir = config.NOTIFICATION_CONNECT_DIR;
+    let config_fs;
     if (nc_config_dir) {
-        connect_files_dir = new ConfigFS(nc_config_dir).connections_dir_path;
+        config_fs = new ConfigFS(nc_config_dir);
+        connect_files_dir = config_fs.connections_dir_path;
     }
-    const notificator = new Notificator({connect_files_dir});
+    const notificator = new Notificator({connect_files_dir, nc_config_fs: config_fs});
     for (const notif of notifs) {
         let connect;
         let connection;
@@ -423,7 +422,7 @@ function compose_notification_req(req, res, bucket, notif_conf) {
     let eTag = res.getHeader('ETag');
     //eslint-disable-next-line
     if (eTag && eTag.startsWith('\"') && eTag.endsWith('\"')) {
-        eTag = eTag.substring(2, eTag.length - 2);
+        eTag = eTag.substring(1, eTag.length - 1);
     }
 
     const event = OP_TO_EVENT[req.op_name];
@@ -443,7 +442,7 @@ function compose_notification_req(req, res, bucket, notif_conf) {
             "x-amz-id-2": req.request_id,
     };
     notif.s3.object.key = req.params.key;
-    notif.s3.object.size = res.getHeader('content-length');
+    notif.s3.object.size = res.size_for_notif;
     notif.s3.object.eTag = eTag;
     notif.s3.object.versionId = res.getHeader('x-amz-version-id');
 
@@ -462,6 +461,8 @@ function compose_notification_req(req, res, bucket, notif_conf) {
         //in noobaa-ns we have a sequence from db
         notif.s3.object.sequencer = res.seq;
     }
+
+    delete res.size_for_notif;
 
     return compose_meta(notif, notif_conf, bucket);
 }
@@ -561,7 +562,7 @@ function get_notification_logger(locking, namespace, poll_interval) {
 }
 
 //If space check is configures, create an event in case free space is below threshold.
-function check_free_space(req) {
+function check_free_space_if_needed(req) {
     if (!req.object_sdk.nsfs_config_root || !config.NOTIFICATION_REQ_PER_SPACE_CHECK) {
         //free space check is disabled. nothing to do.
         return;
@@ -574,11 +575,21 @@ function check_free_space(req) {
         req.notification_logger.writes_counter = 0;
         const fs_stat = fs.statfsSync(config.NOTIFICATION_LOG_DIR);
         //is the ratio of available blocks less than the configures threshold?
-        if (fs_stat.bavail / fs_stat.blocks < config.NOTIFICATION_SPACE_CHECK_THRESHOLD) {
+        if (check_free_space().below) {
             //yes. raise an event.
             new NoobaaEvent(NoobaaEvent.NOTIFICATION_LOW_SPACE).create_event(null, {fs_stat});
         }
     }
+}
+
+function check_free_space() {
+    const fs_stat = fs.statfsSync(config.NOTIFICATION_LOG_DIR);
+    const ratio = fs_stat.bavail / fs_stat.blocks;
+    //is the ratio of available blocks less than the configures threshold?
+    return {
+        below: ratio < config.NOTIFICATION_SPACE_CHECK_THRESHOLD,
+        ratio
+    };
 }
 
 /**
@@ -658,4 +669,5 @@ exports.add_connect_file = add_connect_file;
 exports.update_connect_file = update_connect_file;
 exports.check_free_space = check_free_space;
 exports.should_notify_on_event = should_notify_on_event;
+exports.check_free_space_if_needed = check_free_space_if_needed;
 exports.OP_TO_EVENT = OP_TO_EVENT;

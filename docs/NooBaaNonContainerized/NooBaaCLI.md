@@ -569,6 +569,16 @@ noobaa-cli connection add --from_file
    - Type: Object
    - Description: An object given as options to node http(s) request. If "auth" field is specified, it's value is encrypted.
 
+- `kafka_options_object`
+   - Type: Object
+   - Description: An object given as options to kafka client.
+     Options are listed in https://github.com/edenhill/librdkafka/blob/v2.8.0/CONFIGURATION.md.
+     Specifically, 'metadata.broker.list' is used to specify the external kafka server.
+
+- `topic`
+   - Type: String
+   - Description - Topic for kafka messages.
+
 - `from_file`
     - Type: String
     - Description: Path to a JSON file which includes connection properties. When using `from_file` flag the connection details must only appear inside the options JSON file. See example below.

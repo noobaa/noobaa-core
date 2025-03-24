@@ -75,7 +75,7 @@ const VALID_OPTIONS_GLACIER = {
 };
 
 const VALID_OPTIONS_DIAGNOSE = {
-    'health': new Set([ 'https_port', 'deployment_type', 'all_account_details', 'all_bucket_details', ...CLI_MUTUAL_OPTIONS]),
+    'health': new Set([ 'https_port', 'deployment_type', 'all_account_details', 'all_bucket_details', 'all_connection_details', 'notif_storage_threshold', ...CLI_MUTUAL_OPTIONS]),
     'gather-logs': new Set([ CONFIG_ROOT_FLAG]),
     'metrics': new Set([CONFIG_ROOT_FLAG])
 };
@@ -89,7 +89,7 @@ const VALID_OPTIONS_UPGRADE = {
 const VALID_OPTIONS_NOTIFICATION = {};
 
 const VALID_OPTIONS_CONNECTION = {
-    'add': new Set(['name', 'notification_protocol', 'agent_request_object', 'request_options_object', FROM_FILE, ...CLI_MUTUAL_OPTIONS]),
+    'add': new Set(['name', 'notification_protocol', 'agent_request_object', 'request_options_object', 'topic', 'kafka_options_object', FROM_FILE, ...CLI_MUTUAL_OPTIONS]),
     'update': new Set(['name', 'key', 'value', 'remove_key', ...CLI_MUTUAL_OPTIONS]),
     'delete': new Set(['name', ...CLI_MUTUAL_OPTIONS]),
     'list': new Set(CLI_MUTUAL_OPTIONS),
@@ -146,6 +146,8 @@ const OPTION_TYPE = {
     deployment_type: 'string',
     all_account_details: 'boolean',
     all_bucket_details: 'boolean',
+    all_connection_details: 'boolean',
+    notif_storage_threshold: 'boolean',
     https_port: 'number',
     debug: 'number',
     // upgrade options
@@ -161,6 +163,8 @@ const OPTION_TYPE = {
     notification_protocol: 'string',
     agent_request_object: 'string',
     request_options_object: 'string',
+    kafka_options_object: 'string',
+    topic: 'string',
     decrypt: 'boolean',
     key: 'string',
     value: 'string',

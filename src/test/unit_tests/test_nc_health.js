@@ -4,6 +4,7 @@
 'use strict';
 
 const path = require('path');
+const _ = require('lodash');
 const mocha = require('mocha');
 const sinon = require('sinon');
 const assert = require('assert');
@@ -19,7 +20,7 @@ const NSFSHealth = require('../../manage_nsfs/health').NSFSHealth;
 const { get_process_fs_context } = require('../../util/native_fs_utils');
 const { ManageCLIError } = require('../../manage_nsfs/manage_nsfs_cli_errors');
 const { TYPES, DIAGNOSE_ACTIONS, ACTIONS } = require('../../manage_nsfs/manage_nsfs_constants');
-const { TMP_PATH, create_fs_user_by_platform, delete_fs_user_by_platform, exec_manage_cli } = require('../system_tests/test_utils');
+const { TMP_PATH, create_fs_user_by_platform, delete_fs_user_by_platform, exec_manage_cli, TEST_TIMEOUT } = require('../system_tests/test_utils');
 const { CONFIG_DIR_PHASES } = require('../../sdk/config_fs');
 
 const tmp_fs_path = path.join(TMP_PATH, 'test_nc_health');
@@ -56,12 +57,13 @@ const connection_from_file = {
   name: "http_notif",
 };
 
-mocha.describe('nsfs nc health', function() {
+const config_root = path.join(tmp_fs_path, 'config_root_nsfs_health');
+const config_fs = new ConfigFS(config_root);
+const root_path = path.join(tmp_fs_path, 'root_path_nsfs_health/');
+const config_root_invalid = path.join(tmp_fs_path, 'config_root_nsfs_health_invalid');
+const tmp_lifecycle_logs_dir_path = path.join(TMP_PATH, 'test_lifecycle_logs');
 
-    const config_root = path.join(tmp_fs_path, 'config_root_nsfs_health');
-    const config_fs = new ConfigFS(config_root);
-    const root_path = path.join(tmp_fs_path, 'root_path_nsfs_health/');
-    const config_root_invalid = path.join(tmp_fs_path, 'config_root_nsfs_health_invalid');
+mocha.describe('nsfs nc health', function() {
     let Health;
 
     mocha.before(async () => {
@@ -693,6 +695,85 @@ mocha.describe('nsfs nc health', function() {
     });
 });
 
+
+mocha.describe('health - lifecycle', function() {
+    const Health = new NSFSHealth({ config_root, config_fs, lifecycle: true });
+    const orig_lifecycle_logs_dir = config.NC_LIFECYCLE_LOGS_DIR;
+
+    mocha.before(async () => {
+        await fs_utils.create_fresh_path(config_root);
+        config.NC_LIFECYCLE_LOGS_DIR = tmp_lifecycle_logs_dir_path;
+    });
+
+    mocha.after(async () => {
+        fs_utils.folder_delete(config_root);
+        config.NC_LIFECYCLE_LOGS_DIR = orig_lifecycle_logs_dir;
+    });
+
+    mocha.beforeEach(async () => {
+        await config_fs.create_config_json_file(JSON.stringify({ NC_LIFECYCLE_LOGS_DIR: tmp_lifecycle_logs_dir_path }));
+    });
+
+    mocha.afterEach(async () => {
+        fs_utils.folder_delete(tmp_lifecycle_logs_dir_path);
+        await config_fs.delete_config_json_file();
+    });
+
+    mocha.it('Health lifecycle - lifecycle worker never ran on host', async function() {
+        try {
+            await nb_native().fs.readdir(config_fs.fs_context, tmp_lifecycle_logs_dir_path);
+            assert.fail('tmp_lifecycle_logs_dir_path should not exist');
+        } catch (err) {
+            assert.equal(err.code, 'ENOENT');
+        }
+        const health_status = await Health.nc_nsfs_health();
+        const empty_lifecycle_health_status = {};
+        assert_lifecycle_status(health_status, empty_lifecycle_health_status, false);
+    });
+
+    mocha.it('Health lifecycle - after 1 run of the lifecycle worker', async function() {
+        await exec_manage_cli(TYPES.LIFECYCLE, '', { config_root, disable_service_validation: true, disable_runtime_validation: true }, true);
+        const lifecycle_log_entries = await nb_native().fs.readdir(config_fs.fs_context, tmp_lifecycle_logs_dir_path);
+        assert.strictEqual(lifecycle_log_entries.length, 1);
+        const log_file_path = path.join(tmp_lifecycle_logs_dir_path, lifecycle_log_entries[0].name);
+        const lifecycle_log_json = await config_fs.get_config_data(log_file_path, { silent_if_missing: true });
+        const health_status = await Health.nc_nsfs_health();
+        assert_lifecycle_status(health_status, lifecycle_log_json, false);
+    });
+
+    mocha.it('Health lifecycle - should report on timeout error', async function() {
+        await config_fs.update_config_json_file(JSON.stringify({
+            NC_LIFECYCLE_TIMEOUT_MS: 1,
+            NC_LIFECYCLE_LOGS_DIR: tmp_lifecycle_logs_dir_path
+        }));
+        await exec_manage_cli(TYPES.LIFECYCLE, '', { config_root, disable_service_validation: true, disable_runtime_validation: true }, true);
+        const lifecycle_log_entries = await nb_native().fs.readdir(config_fs.fs_context, tmp_lifecycle_logs_dir_path);
+        assert.strictEqual(lifecycle_log_entries.length, 1);
+        const log_file_path = path.join(tmp_lifecycle_logs_dir_path, lifecycle_log_entries[0].name);
+        const lifecycle_log_json = await config_fs.get_config_data(log_file_path, {silent_if_missing: true});
+        const health_status = await Health.nc_nsfs_health();
+        assert_lifecycle_status(health_status, lifecycle_log_json, true);
+    });
+
+    mocha.it('Health lifecycle - run lifecycle 3 times - should report on latest run', async function() {
+        this.timeout(TEST_TIMEOUT);// eslint-disable-line no-invalid-this
+        let latest_lifecycle;
+        for (let i = 0; i < 3; i++) {
+            latest_lifecycle = await exec_manage_cli(TYPES.LIFECYCLE, '', { config_root, disable_service_validation: true, disable_runtime_validation: true }, true);
+        }
+        const parsed_res_latest_lifecycle = JSON.parse(latest_lifecycle);
+        const lifecycle_log_entries = await nb_native().fs.readdir(config_fs.fs_context, tmp_lifecycle_logs_dir_path);
+        assert.strictEqual(lifecycle_log_entries.length, 3);
+        const latest_log_file_path = _.maxBy(lifecycle_log_entries, entry => entry.name);
+        const is_latest = latest_log_file_path.name.endsWith(parsed_res_latest_lifecycle.response.reply.lifecycle_run_times.run_lifecycle_start_time + '.json');
+        assert.equal(is_latest, true);
+        const log_file_path = path.join(tmp_lifecycle_logs_dir_path, latest_log_file_path.name);
+        const lifecycle_log_json = await config_fs.get_config_data(log_file_path, { silent_if_missing: true });
+        const health_status = await Health.nc_nsfs_health();
+        assert_lifecycle_status(health_status, lifecycle_log_json, false);
+    });
+});
+
 /**
  * assert_config_dir_status asserts config directory status
  * @param {Object} health_status 
@@ -724,6 +805,21 @@ function assert_upgrade_status(actual_upgrade_status, expected_upgrade_status) {
 }
 
 /**
+ * assert_lifecycle_status asserts the lifecycle status
+ * @param {Object} health_status 
+ * @param {Object} lifecycle_log_json 
+ * @param {Boolean} is_error_expected
+ * @returns {Void}
+ */
+function assert_lifecycle_status(health_status, lifecycle_log_json, is_error_expected = false) {
+    assert.deepStrictEqual(health_status.checks.latest_lifecycle_run_status.total_stats, lifecycle_log_json.total_stats);
+    assert.deepStrictEqual(health_status.checks.latest_lifecycle_run_status.lifecycle_run_times,
+        lifecycle_log_json.lifecycle_run_times);
+    const err_value = is_error_expected ? lifecycle_log_json.errors : undefined;
+    assert.deepStrictEqual(health_status.checks.latest_lifecycle_run_status.errors, err_value);
+}
+
+/**
  * restore_health_if_needed restores health obj functions if needed
  * @param {*} health_obj 
  */
@@ -740,7 +836,8 @@ function restore_health_if_needed(health_obj) {
  * the value is an array of responses by the order of their call
  * @param {Object} Health 
  * @param {{get_endpoint_response?: Object[], get_service_state?: Object[], 
- * get_system_config_file?: Object[], get_service_memory_usage?: Object[]}} mock_function_responses 
+ * get_system_config_file?: Object[], get_service_memory_usage?: Object[],
+ * get_lifecycle_health_status?: Object, get_latest_lifecycle_run_status?: Object}} mock_function_responses 
  */
 function set_mock_functions(Health, mock_function_responses) {
     for (const mock_function_name of Object.keys(mock_function_responses)) {

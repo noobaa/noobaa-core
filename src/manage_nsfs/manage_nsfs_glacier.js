@@ -7,6 +7,7 @@ const config = require('../../config');
 const nb_native = require('../util/nb_native');
 const { Glacier } = require('../sdk/glacier');
 const native_fs_utils = require('../util/native_fs_utils');
+const { is_desired_time, record_current_time } = require('./manage_nsfs_cli_utils');
 
 const CLUSTER_LOCK = 'cluster.lock';
 const SCAN_LOCK = 'scan.lock';
@@ -14,7 +15,8 @@ const SCAN_LOCK = 'scan.lock';
 async function process_migrations() {
     const fs_context = native_fs_utils.get_process_fs_context();
 
-    await lock_and_run(fs_context, CLUSTER_LOCK, async () => {
+    const lock_path = path.join(config.NSFS_GLACIER_LOGS_DIR, CLUSTER_LOCK);
+    await native_fs_utils.lock_and_run(fs_context, lock_path, async () => {
         const backend = Glacier.getBackend();
 
         if (
@@ -23,7 +25,8 @@ async function process_migrations() {
             await migrate_log_exceeds_threshold()
         ) {
             await run_glacier_migrations(fs_context, backend);
-            await record_current_time(fs_context, Glacier.MIGRATE_TIMESTAMP_FILE);
+            const timestamp_file_path = path.join(config.NSFS_GLACIER_LOGS_DIR, Glacier.MIGRATE_TIMESTAMP_FILE);
+            await record_current_time(fs_context, timestamp_file_path);
         }
     });
 }
@@ -41,7 +44,8 @@ async function run_glacier_migrations(fs_context, backend) {
 async function process_restores() {
     const fs_context = native_fs_utils.get_process_fs_context();
 
-    await lock_and_run(fs_context, CLUSTER_LOCK, async () => {
+    const lock_path = path.join(config.NSFS_GLACIER_LOGS_DIR, CLUSTER_LOCK);
+    await native_fs_utils.lock_and_run(fs_context, lock_path, async () => {
         const backend = Glacier.getBackend();
 
         if (
@@ -51,7 +55,8 @@ async function process_restores() {
 
 
         await run_glacier_restore(fs_context, backend);
-        await record_current_time(fs_context, Glacier.RESTORE_TIMESTAMP_FILE);
+        const timestamp_file_path = path.join(config.NSFS_GLACIER_LOGS_DIR, Glacier.RESTORE_TIMESTAMP_FILE);
+        await record_current_time(fs_context, timestamp_file_path);
     });
 }
 
@@ -67,68 +72,27 @@ async function run_glacier_restore(fs_context, backend) {
 
 async function process_expiry() {
     const fs_context = native_fs_utils.get_process_fs_context();
-
-    await lock_and_run(fs_context, SCAN_LOCK, async () => {
+    const lock_path = path.join(config.NSFS_GLACIER_LOGS_DIR, SCAN_LOCK);
+    await native_fs_utils.lock_and_run(fs_context, lock_path, async () => {
         const backend = Glacier.getBackend();
+        const timestamp_file_path = path.join(config.NSFS_GLACIER_LOGS_DIR, Glacier.EXPIRY_TIMESTAMP_FILE);
         if (
             await backend.low_free_space() ||
             await is_desired_time(
-                    fs_context,
-                    new Date(),
-                    config.NSFS_GLACIER_EXPIRY_RUN_TIME,
-                    config.NSFS_GLACIER_EXPIRY_RUN_DELAY_LIMIT_MINS,
-                    Glacier.EXPIRY_TIMESTAMP_FILE,
+                fs_context,
+                new Date(),
+                config.NSFS_GLACIER_EXPIRY_RUN_TIME,
+                config.NSFS_GLACIER_EXPIRY_RUN_DELAY_LIMIT_MINS,
+                timestamp_file_path,
+                config.NSFS_GLACIER_EXPIRY_TZ
             )
         ) {
             await backend.expiry(fs_context);
-            await record_current_time(fs_context, Glacier.EXPIRY_TIMESTAMP_FILE);
+            await record_current_time(fs_context, timestamp_file_path);
         }
     });
 }
 
-/**
- * is_desired_time returns true if the given time matches with
- * the desired time or if 
- * @param {nb.NativeFSContext} fs_context 
- * @param {Date} current
- * @param {string} desire time in format 'hh:mm'
- * @param {number} delay_limit_mins
- * @param {string} timestamp_file 
- * @returns {Promise<boolean>}
- */
-async function is_desired_time(fs_context, current, desire, delay_limit_mins, timestamp_file) {
-    const [desired_hour, desired_min] = desire.split(':').map(Number);
-    if (
-        isNaN(desired_hour) ||
-        isNaN(desired_min) ||
-        (desired_hour < 0 || desired_hour >= 24) ||
-        (desired_min < 0 || desired_min >= 60)
-    ) {
-        throw new Error('invalid desired_time - must be hh:mm');
-    }
-
-    const min_time = get_tz_date(desired_hour, desired_min, 0, config.NSFS_GLACIER_EXPIRY_TZ);
-    const max_time = get_tz_date(desired_hour, desired_min + delay_limit_mins, 0, config.NSFS_GLACIER_EXPIRY_TZ);
-
-    if (current >= min_time && current <= max_time) {
-        try {
-            const { data } = await nb_native().fs.readFile(fs_context, path.join(config.NSFS_GLACIER_LOGS_DIR, timestamp_file));
-            const lastrun = new Date(data.toString());
-
-            // Last run should NOT be in this window
-            if (lastrun >= min_time && lastrun <= max_time) return false;
-        } catch (error) {
-            if (error.code === 'ENOENT') return true;
-            console.error('failed to read last run timestamp:', error, 'timestamp_file:', timestamp_file);
-
-            throw error;
-        }
-
-        return true;
-    }
-
-    return false;
-}
 
 /**
  * time_exceeded returns true if the time between last run recorded in the given
@@ -152,20 +116,6 @@ async function time_exceeded(fs_context, interval, timestamp_file) {
     }
 
     return false;
-}
-
-/**
- * record_current_time stores the current timestamp in ISO format into
- * the given timestamp file
- * @param {nb.NativeFSContext} fs_context 
- * @param {string} timestamp_file 
- */
-async function record_current_time(fs_context, timestamp_file) {
-    await nb_native().fs.writeFile(
-        fs_context,
-        path.join(config.NSFS_GLACIER_LOGS_DIR, timestamp_file),
-        Buffer.from(new Date().toISOString()),
-    );
 }
 
 /**
@@ -207,49 +157,6 @@ async function run_glacier_operation(fs_context, log_namespace, cb) {
         console.error('failed to process log in namespace:', log_namespace);
     } finally {
         await log.close();
-    }
-}
-
-/**
- * @param {number} hours
- * @param {number} mins
- * @param {number} secs
- * @param {'UTC' | 'LOCAL'} tz
- * @returns {Date}
- */
-function get_tz_date(hours, mins, secs, tz) {
-    const date = new Date();
-
-    if (tz === 'UTC') {
-        date.setUTCHours(hours);
-        date.setUTCMinutes(hours);
-        date.setUTCSeconds(secs);
-        date.setUTCMilliseconds(0);
-    } else {
-        date.setHours(hours);
-        date.setMinutes(mins);
-        date.setSeconds(secs);
-        date.setMilliseconds(0);
-    }
-
-    return date;
-}
-
-/**
- * lock_and_run acquires a flock and calls the given callback after
- * acquiring the lock
- * @param {nb.NativeFSContext} fs_context 
- * @param {string} lockfilename
- * @param {Function} cb 
- */
-async function lock_and_run(fs_context, lockfilename, cb) {
-    const lockfd = await nb_native().fs.open(fs_context, path.join(config.NSFS_GLACIER_LOGS_DIR, lockfilename), 'w');
-
-    try {
-        await lockfd.fcntllock(fs_context, 'EXCLUSIVE');
-        await cb();
-    } finally {
-        await lockfd.close(fs_context);
     }
 }
 

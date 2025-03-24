@@ -1,7 +1,18 @@
 /* Copyright (C) 2020 NooBaa */
 'use strict';
 
+// DO NOT PUT NEW REQUIREMENTS BEFORE SETTING process.env.NC_NSFS_NO_DB_ENV = 'true' 
+// NC nsfs deployments specifying process.env.LOCAL_MD_SERVER=true deployed together with a db
+// when a system_store object is initialized VaccumAnalyzer is being called once a day.
+// when NC nsfs deployed without db we would like to avoid running VaccumAnalyzer in any flow there is
+// because running it will cause a panic.
+if (process.env.LOCAL_MD_SERVER !== 'true') {
+    process.env.NC_NSFS_NO_DB_ENV = 'true';
+}
+
 const dbg = require('../util/debug_module')(__filename);
+if (!dbg.get_process_name()) dbg.set_process_name('noobaa-cli');
+
 const _ = require('lodash');
 const path = require('path');
 const minimist = require('minimist');
@@ -17,6 +28,7 @@ const { account_id_cache } = require('../sdk/accountspace_fs');
 const ManageCLIError = require('../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
 const ManageCLIResponse = require('../manage_nsfs/manage_nsfs_cli_responses').ManageCLIResponse;
 const manage_nsfs_glacier = require('../manage_nsfs/manage_nsfs_glacier');
+const noobaa_cli_lifecycle = require('../manage_nsfs/nc_lifecycle');
 const manage_nsfs_logging = require('../manage_nsfs/manage_nsfs_logging');
 const noobaa_cli_diagnose = require('../manage_nsfs/diagnose');
 const noobaa_cli_upgrade = require('../manage_nsfs/upgrade');
@@ -76,6 +88,8 @@ async function main(argv = minimist(process.argv.slice(2))) {
             await notification_management();
         } else if (type === TYPES.CONNECTION) {
             await connection_management(action, user_input);
+        } else if (type === TYPES.LIFECYCLE) {
+            await lifecycle_management(argv);
         } else {
             throw_cli_error(ManageCLIError.InvalidType);
         }
@@ -252,7 +266,7 @@ async function delete_bucket(data, force) {
         }
         await native_fs_utils.folder_delete(bucket_temp_dir_path, fs_context_fs_backend, true);
         await config_fs.delete_bucket_config_file(data.name);
-        return { code: ManageCLIResponse.BucketDeleted, detail: '', event_arg: { bucket: data.name } };
+        return { code: ManageCLIResponse.BucketDeleted, detail: { name: data.name }, event_arg: { bucket: data.name } };
     } catch (err) {
         if (err.code === 'ENOENT') throw_cli_error(ManageCLIError.NoSuchBucket, data.name);
         throw err;
@@ -461,7 +475,7 @@ async function update_account(data) {
  */
 async function delete_account(data) {
     await config_fs.delete_account_config_file(data);
-    return { code: ManageCLIResponse.AccountDeleted, detail: '', event_arg: { account: data.name } };
+    return { code: ManageCLIResponse.AccountDeleted, detail: { name: data.name }, event_arg: { account: data.name } };
 }
 
 /**
@@ -754,12 +768,12 @@ async function connection_management(action, user_input) {
             break;
         case ACTIONS.DELETE:
             await config_fs.delete_connection_config_file(user_input.name);
-            response = { code: ManageCLIResponse.ConnectionDeleted };
+            response = { code: ManageCLIResponse.ConnectionDeleted, detail: {name: user_input.name} };
             break;
         case ACTIONS.UPDATE:
             await notifications_util.update_connect_file(user_input.name, user_input.key,
                 user_input.value, user_input.remove_key, config_fs);
-            response = { code: ManageCLIResponse.ConnectionUpdated };
+            response = { code: ManageCLIResponse.ConnectionUpdated, detail: {name: user_input.name} };
             break;
         case ACTIONS.STATUS:
             data = await new notifications_util.Notificator({
@@ -778,6 +792,32 @@ async function connection_management(action, user_input) {
     }
 
     write_stdout_response(response.code, response.detail, response.event_arg);
+}
+
+////////////////////
+///// LIFECYCLE ////
+////////////////////
+
+/**
+ * lifecycle_management runs the nc lifecycle management
+ * @returns {Promise<void>}
+ */
+async function lifecycle_management(args) {
+    const disable_service_validation = get_boolean_or_string_value(args.disable_service_validation);
+    const disable_runtime_validation = get_boolean_or_string_value(args.disable_runtime_validation);
+    const short_status = get_boolean_or_string_value(args.short_status);
+    try {
+        const options = { disable_service_validation, disable_runtime_validation, short_status };
+        const { should_run, lifecycle_run_status } = await noobaa_cli_lifecycle.run_lifecycle_under_lock(config_fs, options);
+        if (should_run) {
+            write_stdout_response(ManageCLIResponse.LifecycleSuccessful, lifecycle_run_status);
+        } else {
+            write_stdout_response(ManageCLIResponse.LifecycleWorkerNotRunning);
+        }
+    } catch (err) {
+        dbg.error('manage_nsfs.lifecycle_management: Error while running run_lifecycle_under_lock', config_fs.config_json_path, err);
+        throw_cli_error(err);
+    }
 }
 
 exports.main = main;

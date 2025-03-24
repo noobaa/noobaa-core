@@ -10,7 +10,8 @@ const TYPES = Object.freeze({
     DIAGNOSE: 'diagnose',
     UPGRADE: 'upgrade',
     NOTIFICATION: 'notification',
-    CONNECTION: 'connection'
+    CONNECTION: 'connection',
+    LIFECYCLE: 'lifecycle'
 });
 
 const ACTIONS = Object.freeze({
@@ -95,6 +96,7 @@ const VALID_OPTIONS_CONNECTION = {
     'status': new Set(['name', 'decrypt', ...CLI_MUTUAL_OPTIONS]),
 };
 
+const VALID_OPTIONS_LIFECYCLE = new Set(['disable_service_validation', 'disable_runtime_validation', 'short_status', ...CLI_MUTUAL_OPTIONS]);
 
 const VALID_OPTIONS_WHITELIST = new Set(['ips', ...CLI_MUTUAL_OPTIONS]);
 
@@ -111,6 +113,7 @@ const VALID_OPTIONS = {
     upgrade_options: VALID_OPTIONS_UPGRADE,
     notification_options: VALID_OPTIONS_NOTIFICATION,
     connection_options: VALID_OPTIONS_CONNECTION,
+    lifecycle_options: VALID_OPTIONS_LIFECYCLE
 };
 
 const OPTION_TYPE = {
@@ -150,6 +153,10 @@ const OPTION_TYPE = {
     expected_hosts: 'string',
     custom_upgrade_scripts_dir: 'string',
     skip_verification: 'boolean',
+    // lifecycle options
+    disable_service_validation: 'boolean',
+    disable_runtime_validation: 'boolean',
+    short: 'boolean',
     //connection
     notification_protocol: 'string',
     agent_request_object: 'string',
@@ -162,7 +169,7 @@ const OPTION_TYPE = {
 
 const BOOLEAN_STRING_VALUES = ['true', 'false'];
 const BOOLEAN_STRING_OPTIONS = new Set(['allow_bucket_creation', 'regenerate', 'wide', 'show_secrets', 'force',
-    'force_md5_etag', 'iam_operate_on_root_account', 'all_account_details', 'all_bucket_details', 'anonymous']);
+    'force_md5_etag', 'iam_operate_on_root_account', 'all_account_details', 'all_bucket_details', 'anonymous', 'disable_service_validation', 'disable_runtime_validation', 'short_status']);
 
 //options that can be unset using ''
 const LIST_UNSETABLE_OPTIONS = ['fs_backend', 's3_policy', 'force_md5_etag'];

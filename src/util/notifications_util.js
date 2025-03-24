@@ -16,6 +16,7 @@ const http_utils = require('../util/http_utils');
 const nc_mkm = require('../manage_nsfs/nc_master_key_manager').get_instance();
 const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
 const {ConfigFS} = require('../sdk/config_fs');
+const _ = require('lodash');
 
 const OP_TO_EVENT = Object.freeze({
     put_object: { name: 'ObjectCreated' },
@@ -465,9 +466,9 @@ function compose_notification_req(req, res, bucket, notif_conf) {
     return compose_meta(notif, notif_conf, bucket);
 }
 
-function compose_notification_lifecycle(deleted_obj, notif_conf, bucket) {
+function compose_notification_lifecycle(deleted_obj, notif_conf, bucket, object_sdk) {
 
-    const notif = compose_notification_base(notif_conf, bucket);
+    const notif = compose_notification_base(notif_conf, bucket, {object_sdk});
 
     notif.eventName = OP_TO_EVENT.lifecycle_delete.name + ':' +
         (deleted_obj.created_delete_marker ? 'DeleteMarkerCreated' : 'Delete');
@@ -636,6 +637,17 @@ async function encrypt_connect_file(data) {
     }
 }
 
+/**
+ * @param {Object} bucket
+ * @param {String} event_name
+ * @returns {Boolean}
+ */
+function should_notify_on_event(bucket, event_name) {
+    return config.NOTIFICATION_LOG_DIR && bucket.notifications &&
+    _.some(bucket.notifications, notif =>
+    (!notif.Events || _.some(notif.Events, event => event.includes(event_name))));
+}
+
 exports.Notificator = Notificator;
 exports.test_notifications = test_notifications;
 exports.compose_notification_req = compose_notification_req;
@@ -645,4 +657,5 @@ exports.get_notification_logger = get_notification_logger;
 exports.add_connect_file = add_connect_file;
 exports.update_connect_file = update_connect_file;
 exports.check_free_space = check_free_space;
+exports.should_notify_on_event = should_notify_on_event;
 exports.OP_TO_EVENT = OP_TO_EVENT;

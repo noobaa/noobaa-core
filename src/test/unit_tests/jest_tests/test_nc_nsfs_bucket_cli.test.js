@@ -755,6 +755,8 @@ describe('manage nsfs cli bucket flow', () => {
             const delete_bucket_options = { config_root, name: bucket_defaults.name, force: true};
             const resp = await exec_manage_cli(TYPES.BUCKET, ACTIONS.DELETE, delete_bucket_options);
             expect(JSON.parse(resp.trim()).response.code).toBe(ManageCLIResponse.BucketDeleted.code);
+            const message = `Bucket has been deleted successfully: ${bucket_defaults.name}`;
+            expect(JSON.parse(resp.trim()).response.message).toBe(message);
             const is_bucket_exists = await config_fs.is_bucket_exists(bucket_defaults.name);
             expect(is_bucket_exists).toBe(false);
         });

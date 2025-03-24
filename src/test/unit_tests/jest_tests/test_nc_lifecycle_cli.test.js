@@ -18,6 +18,8 @@ const { ManageCLIResponse } = require('../../../manage_nsfs/manage_nsfs_cli_resp
 const { ManageCLIError } = require('../../../manage_nsfs/manage_nsfs_cli_errors');
 const buffer_utils = require('../../../util/buffer_utils');
 const crypto = require('crypto');
+const NsfsObjectSDK = require('../../../sdk/nsfs_object_sdk');
+const nb_native = require('../../../util/nb_native');
 
 const new_umask = process.env.NOOBAA_ENDPOINT_UMASK || 0o000;
 const old_umask = process.umask(new_umask);
@@ -441,6 +443,201 @@ describe('noobaa cli lifecycle - timeout check', () => {
         expect(parsed_res1.message).toBe(ManageCLIError.LifecycleWorkerReachedTimeout.message);
     });
 });
+
+describe('noobaa cli - lifecycle batching', () => {
+    const bucketspace_fs = new BucketSpaceFS({ config_root }, undefined);
+    const test_bucket = 'test-bucket';
+    const test_bucket_path = `${root_path}/${test_bucket}`;
+    const test_key1 = 'test_key1';
+    const test_key2 = 'test_key2';
+    const account_options1 = {uid: 2002, gid: 2002, new_buckets_path: root_path, name: 'user2', config_root, allow_bucket_creation: 'true'};
+    let object_sdk;
+    const tmp_lifecycle_logs_dir_path = path.join(TMP_PATH, 'test_lifecycle_logs');
+
+    beforeAll(async () => {
+        await fs_utils.create_fresh_path(config_root, 0o777);
+        set_nc_config_dir_in_config(config_root);
+        await fs_utils.create_fresh_path(root_path, 0o777);
+        const res = await exec_manage_cli(TYPES.ACCOUNT, ACTIONS.ADD, account_options1);
+        const json_account = JSON.parse(res).response.reply;
+        console.log(json_account);
+        object_sdk = new NsfsObjectSDK('', config_fs, json_account, "DISABLED", config_fs.config_root, undefined);
+        object_sdk.requesting_account = json_account;
+        await object_sdk.create_bucket({ name: test_bucket });
+        config.NC_LIFECYCLE_LOGS_DIR = tmp_lifecycle_logs_dir_path;
+        config.NC_LIFECYCLE_LIST_BATCH_SIZE = 2;
+        config.NC_LIFECYCLE_BUCKET_BATCH_SIZE = 5;
+    });
+
+    beforeEach(async () => {
+        await config_fs.create_config_json_file(JSON.stringify({ NC_LIFECYCLE_LOGS_DIR: tmp_lifecycle_logs_dir_path }));
+    });
+
+    afterEach(async () => {
+        await bucketspace_fs.delete_bucket_lifecycle({ name: test_bucket });
+        await fs_utils.create_fresh_path(test_bucket_path);
+        fs_utils.folder_delete(tmp_lifecycle_logs_dir_path);
+        await config_fs.delete_config_json_file();
+    });
+
+    it("lifecycle batching - no lifecycle rules", async () => {
+        const latest_lifecycle = await exec_manage_cli(TYPES.LIFECYCLE, '', {disable_service_validation: 'true', disable_runtime_validation: 'true', config_root}, undefined, undefined);
+        const parsed_res_latest_lifecycle = JSON.parse(latest_lifecycle);
+        expect(parsed_res_latest_lifecycle.response.reply.state.is_finished).toBe(true);
+    });
+
+    it("lifecycle batching - with lifecycle rule, one batch", async () => {
+        const lifecycle_rule = [
+            {
+            "id": "expiration after 3 days with tags",
+            "status": "Enabled",
+            "filter": {
+                "prefix": '',
+            },
+            "expiration": {
+                "days": 3
+            }
+        }];
+        await bucketspace_fs.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule });
+
+        create_object(object_sdk, test_bucket, test_key1, 100, true);
+        create_object(object_sdk, test_bucket, test_key2, 100, true);
+        const latest_lifecycle = await exec_manage_cli(TYPES.LIFECYCLE, '', {disable_service_validation: 'true', disable_runtime_validation: 'true', config_root}, undefined, undefined);
+        const parsed_res_latest_lifecycle = JSON.parse(latest_lifecycle);
+        expect(parsed_res_latest_lifecycle.response.reply.state.is_finished).toBe(true);
+        Object.values(parsed_res_latest_lifecycle.response.reply.buckets_statuses).forEach(bucket_stat => {
+            expect(bucket_stat.state.is_finished).toBe(true);
+            Object.values(bucket_stat.rules_statuses).forEach(rule_status => {
+                expect(rule_status.state.is_finished).toBe(true);
+            });
+        });
+    });
+
+    it("lifecycle batching - with lifecycle rule, no expire statement", async () => {
+        const lifecycle_rule = [
+            {
+            "id": "expiration after 3 days with tags",
+            "status": "Enabled",
+            "filter": {
+                "prefix": '',
+            },
+            "abort_incomplete_multipart_upload": {
+                "days_after_initiation": 3
+            }
+        }];
+        await bucketspace_fs.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule });
+
+        await object_sdk.create_object_upload({ key: test_key1, bucket: test_bucket });
+        await object_sdk.create_object_upload({ key: test_key2, bucket: test_bucket });
+        const latest_lifecycle = await exec_manage_cli(TYPES.LIFECYCLE, '', {disable_service_validation: 'true', disable_runtime_validation: 'true', config_root}, undefined, undefined);
+        const parsed_res_latest_lifecycle = JSON.parse(latest_lifecycle);
+        expect(parsed_res_latest_lifecycle.response.reply.state.is_finished).toBe(true);
+        Object.values(parsed_res_latest_lifecycle.response.reply.buckets_statuses).forEach(bucket_stat => {
+            expect(bucket_stat.state.is_finished).toBe(true);
+        });
+    });
+
+    it("lifecycle batching - with lifecycle rule, multiple list batches, one bucket batch", async () => {
+        const lifecycle_rule = [
+            {
+            "id": "expiration after 3 days with tags",
+            "status": "Enabled",
+            "filter": {
+                "prefix": '',
+            },
+            "expiration": {
+                "days": 3
+            }
+        }];
+        await bucketspace_fs.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule });
+
+        create_object(object_sdk, test_bucket, test_key1, 100, true);
+        create_object(object_sdk, test_bucket, test_key2, 100, true);
+        create_object(object_sdk, test_bucket, "key3", 100, true);
+        create_object(object_sdk, test_bucket, "key4", 100, true);
+        create_object(object_sdk, test_bucket, "key5", 100, true);
+        const latest_lifecycle = await exec_manage_cli(TYPES.LIFECYCLE, '', {disable_service_validation: 'true', disable_runtime_validation: 'true', config_root}, undefined, undefined);
+        const parsed_res_latest_lifecycle = JSON.parse(latest_lifecycle);
+        expect(parsed_res_latest_lifecycle.response.reply.state.is_finished).toBe(true);
+        const object_list = await object_sdk.list_objects({bucket: test_bucket});
+        expect(object_list.objects.length).toBe(0);
+    });
+
+    it("lifecycle batching - with lifecycle rule, multiple list batches, multiple bucket batches", async () => {
+        const lifecycle_rule = [
+            {
+            "id": "expiration after 3 days with tags",
+            "status": "Enabled",
+            "filter": {
+                "prefix": '',
+            },
+            "expiration": {
+                "days": 3
+            }
+        }];
+        await bucketspace_fs.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule });
+
+        create_object(object_sdk, test_bucket, test_key1, 100, true);
+        create_object(object_sdk, test_bucket, test_key2, 100, true);
+        create_object(object_sdk, test_bucket, "key3", 100, true);
+        create_object(object_sdk, test_bucket, "key4", 100, true);
+        create_object(object_sdk, test_bucket, "key5", 100, true);
+        create_object(object_sdk, test_bucket, "key6", 100, true);
+        create_object(object_sdk, test_bucket, "key7", 100, true);
+        const latest_lifecycle = await exec_manage_cli(TYPES.LIFECYCLE, '', {disable_service_validation: 'true', disable_runtime_validation: 'true', config_root}, undefined, undefined);
+        const parsed_res_latest_lifecycle = JSON.parse(latest_lifecycle);
+        expect(parsed_res_latest_lifecycle.response.reply.state.is_finished).toBe(true);
+        const object_list = await object_sdk.list_objects({bucket: test_bucket});
+        expect(object_list.objects.length).toBe(0);
+    });
+
+    it("lifecycle batching - with lifecycle rule, multiple list batches, one bucket batch", async () => {
+        const lifecycle_rule = [
+            {
+            "id": "expiration after 3 days with tags",
+            "status": "Enabled",
+            "filter": {
+                "prefix": '',
+            },
+            "expiration": {
+                "days": 3
+            }
+        }];
+        await bucketspace_fs.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule });
+
+        create_object(object_sdk, test_bucket, test_key1, 100, true);
+        create_object(object_sdk, test_bucket, test_key2, 100, true);
+
+        await config_fs.update_config_json_file(JSON.stringify({
+            NC_LIFECYCLE_TIMEOUT_MS: 1,
+            NC_LIFECYCLE_LOGS_DIR: tmp_lifecycle_logs_dir_path
+        }));
+        await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, true, undefined);
+
+        const lifecycle_log_entries = await nb_native().fs.readdir(config_fs.fs_context, tmp_lifecycle_logs_dir_path);
+        expect(lifecycle_log_entries.length).toBe(1);
+        const log_file_path = path.join(tmp_lifecycle_logs_dir_path, lifecycle_log_entries[0].name);
+        const lifecycle_log_json = await config_fs.get_config_data(log_file_path, {silent_if_missing: true});
+        expect(lifecycle_log_json.state.is_finished).toBe(false);
+        const object_list = await object_sdk.list_objects({bucket: test_bucket});
+        expect(object_list.objects.length).not.toBe(0);
+    });
+
+    //TODO should move outside scope and change also in lifecycle tests. already done in non current lifecycle rule PR
+    async function create_object(sdk, bucket, key, size, is_old, tagging) {
+        const data = crypto.randomBytes(size);
+        const res = await sdk.upload_object({
+            bucket,
+            key,
+            source_stream: buffer_utils.buffer_to_read_stream(data),
+            size,
+            tagging
+        });
+        if (is_old) await update_file_mtime(path.join(root_path, bucket, key));
+        return res;
+    }
+});
+
 
 /**
  * update_file_mtime updates the mtime of the target path

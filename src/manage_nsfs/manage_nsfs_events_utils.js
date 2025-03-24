@@ -444,7 +444,7 @@ NoobaaEvent.LIFECYCLE_FAILED = Object.freeze({
     event_type: 'ERROR',
     scope: 'NODE',
     severity: 'ERROR',
-    state: 'DEGRADED',
+    state: 'HEALTHY',
 });
 
 NoobaaEvent.LIFECYCLE_TIMEOUT = Object.freeze({
@@ -455,7 +455,7 @@ NoobaaEvent.LIFECYCLE_TIMEOUT = Object.freeze({
     event_type: 'ERROR',
     scope: 'NODE',
     severity: 'ERROR',
-    state: 'DEGRADED',
+    state: 'HEALTHY',
 });
 
 exports.NoobaaEvent = NoobaaEvent;

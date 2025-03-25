@@ -188,6 +188,7 @@ function days_lifecycle_configuration(Bucket, Key) {
         },
     };
 }
+exports.days_lifecycle_configuration = days_lifecycle_configuration;
 
 function tags_lifecycle_configuration(Bucket, Key, Value) {
     return {

@@ -650,12 +650,14 @@ async function folder_delete(dir, fs_context, is_temp, silent_if_missing) {
  * read_file reads file and returns the parsed file data as object
  * @param {nb.NativeFSContext} fs_context
  * @param {string} _path 
+ * @param {{parse_json?: Boolean}} [options]
  * @return {Promise<object>} 
  */
-async function read_file(fs_context, _path) {
+async function read_file(fs_context, _path, options = {}) {
     const { data } = await nb_native().fs.readFile(fs_context, _path);
-    const data_parsed = JSON.parse(data.toString());
-    return data_parsed;
+    let data_parsed;
+    if (options?.parse_json) data_parsed = JSON.parse(data.toString());
+    return data_parsed || data.toString();
 }
 
 

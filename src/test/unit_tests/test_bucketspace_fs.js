@@ -552,7 +552,7 @@ mocha.describe('bucketspace_fs', function() {
             assert.equal(objects.buckets.length, 1);
             assert.equal(objects.buckets[0].name.unwrap(), expected_bucket_name);
             const bucket_config_path = get_config_file_path(CONFIG_SUBDIRS.BUCKETS, expected_bucket_name);
-            const bucket_data = await read_file(process_fs_context, bucket_config_path);
+            const bucket_data = await read_file(process_fs_context, bucket_config_path, { parse_json: true });
             assert.equal(objects.buckets[0].creation_date, bucket_data.creation_date);
         });
     });
@@ -710,7 +710,7 @@ mocha.describe('bucketspace_fs', function() {
             const param = { name: test_bucket, versioning: 'ENABLED' };
             await bucketspace_fs.set_bucket_versioning(param, dummy_object_sdk);
             const bucket_config_path = get_config_file_path(CONFIG_SUBDIRS.BUCKETS, param.name);
-            const bucket = await read_file(process_fs_context, bucket_config_path);
+            const bucket = await read_file(process_fs_context, bucket_config_path, { parse_json: true });
             assert.equal(bucket.versioning, 'ENABLED');
 
         });

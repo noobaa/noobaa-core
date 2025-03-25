@@ -6,7 +6,7 @@
 const _ = require('lodash');
 // setup coretest first to prepare the env
 const coretest = require('./coretest');
-coretest.setup({ pools_to_create: coretest.POOL_LIST });
+coretest.setup({ pools_to_create: [coretest.POOL_LIST[1]] });
 const config = require('../../../config');
 const { S3 } = require('@aws-sdk/client-s3');
 const { NodeHttpHandler } = require("@smithy/node-http-handler");
@@ -509,17 +509,41 @@ mocha.describe('s3_ops', function() {
             assert.deepEqual(res.CORSRules, params.CORSConfiguration.CORSRules);
         });
 
+        mocha.it('should fail on unsupported AllowedMethods', async function() {
+            const unsupported_method = "JACKY";
+            const params = {
+                Bucket: "cors-bucket",
+                CORSConfiguration: {
+                    CORSRules: [{
+                        AllowedOrigins: ["http://www.example.com"],
+                        AllowedMethods: ["PUT", "POST", unsupported_method, "DELETE"],
+                        MaxAgeSeconds: 1500,
+                    }]
+                }
+            };
+            try {
+                await s3.putBucketCors(params);
+                assert.fail(`should reject put bucket cors with unsupported method ${unsupported_method}`);
+            } catch (err) {
+                assert.strictEqual(err.Code, 'InvalidRequest',
+                    `Found unsupported HTTP method in CORS config. Unsupported method is ${unsupported_method}`
+                );
+                assert.strictEqual(err.$metadata.httpStatusCode, 400);
+            }
+        });
+
         mocha.after(async function() {
             await s3.deleteBucket({ Bucket: "cors-bucket" });
         });
     });
 
-    async function test_object_ops(bucket_name, bucket_type, caching, remote_endpoint_options) {
+    async function test_object_ops(bucket_name, bucket_type, caching, remote_endpoint_options, skip) {
 
         const is_azure_namespace = is_namespace_blob_bucket(bucket_type, remote_endpoint_options && remote_endpoint_options.endpoint_type);
         const is_azure_mock = is_namespace_blob_mock(bucket_type, remote_endpoint_options && remote_endpoint_options.endpoint_type);
 
         mocha.before(async function() {
+            if (skip) this.skip();
             this.timeout(100000);
             source_bucket = bucket_name + '-source';
             other_platform_bucket = bucket_name + '-other-platform';
@@ -1389,6 +1413,7 @@ mocha.describe('s3_ops', function() {
         });
 
         mocha.after(async function() {
+            if (skip) return;
             this.timeout(100000);
             if (bucket_type === "regular") {
                 await s3.deleteBucket({ Bucket: source_bucket });
@@ -1429,24 +1454,25 @@ mocha.describe('s3_ops', function() {
     });
 
     mocha.describe('azure-namespace-bucket-object-ops', function() {
+        const skip = !process.env.BLOB_HOST && (!process.env.NEWAZUREPROJKEY || !process.env.NEWAZUREPROJSECRET);
         const options = {
             endpoint: process.env.NEWAZUREPROJKEY ? 'https://blob.core.windows.net' : azure_mock_endpoint,
             endpoint_type: 'AZURE',
             identity: process.env.NEWAZUREPROJKEY || azure_mock_account,
             secret: process.env.NEWAZUREPROJSECRET || azure_mock_key
         };
-        test_object_ops(BKT6, 'namespace', undefined, options);
+        test_object_ops(BKT6, 'namespace', undefined, options, skip);
     });
 
     mocha.describe('aws-namespace-bucket-object-ops', function() {
-        if (!process.env.NEWAWSPROJKEY || !process.env.NEWAWSPROJSECRET) return;
+        const skip = !process.env.NEWAWSPROJKEY || !process.env.NEWAWSPROJSECRET;
         const options = {
             endpoint: 'https://s3.amazonaws.com',
             endpoint_type: 'AWS',
             identity: process.env.NEWAWSPROJKEY,
             secret: process.env.NEWAWSPROJSECRET
         };
-        test_object_ops(BKT7, 'namespace', undefined, options);
+        test_object_ops(BKT7, 'namespace', undefined, options, skip);
     });
 });
 

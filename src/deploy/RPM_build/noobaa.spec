@@ -31,6 +31,9 @@ BuildRequires:  make
 BuildRequires:  gcc-c++
 BuildRequires:  boost-devel
 BuildRequires:  libcap-devel
+%if 0%{?rhel} == 8
+BuildRequires:  gcc-toolset-11
+%endif
 
 Recommends:     jemalloc
 
@@ -43,6 +46,7 @@ NooBaa is a data service for cloud environments, providing S3 object-store inter
 %setup -n noobaa -q
 
 %build
+PATH=/opt/rh/gcc-toolset-11/root/bin:$PATH
 NODEJS_VERSION="%{nodever}"
 SKIP_NODE_INSTALL=1 source src/deploy/NVA_build/install_nodejs.sh $NODEJS_VERSION
 

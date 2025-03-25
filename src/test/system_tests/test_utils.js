@@ -691,12 +691,14 @@ async function clean_config_dir(config_fs, custom_config_dir_path) {
  * @param {nb.NativeFSContext} fs_context 
  * @param {String} file_path 
  * @param {Object} file_data 
+ * @param {{stringify_json?: Boolean}} [options={}] 
  */
-async function create_file(fs_context, file_path, file_data) {
+async function create_file(fs_context, file_path, file_data, options = {}) {
+    const buf = Buffer.from(options?.stringify_json ? JSON.stringify(file_data) : file_data);
     await nb_native().fs.writeFile(
         fs_context,
         file_path,
-        Buffer.from(JSON.stringify(file_data)),
+        buf,
         {
             mode: native_fs_utils.get_umasked_mode(config.BASE_MODE_FILE)
         }

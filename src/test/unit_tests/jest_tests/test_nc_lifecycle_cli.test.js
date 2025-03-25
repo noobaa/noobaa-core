@@ -739,6 +739,7 @@ describe('noobaa cli - lifecycle notifications', () => {
         config.NOTIFICATION_CONNECT_DIR = tmp_conn_dir_path;
         fs.writeFileSync(http_connect_path, JSON.stringify(http_connect));
         await object_sdk.put_bucket_notification(notifications_json);
+        await config_fs.create_config_json_file(JSON.stringify({ NOTIFICATION_LOG_DIR: tmp_lifecycle_logs_dir_path }));
     });
 
     afterEach(async () => {
@@ -754,12 +755,10 @@ describe('noobaa cli - lifecycle notifications', () => {
 
     it('lifecycle_cli - lifecycle rule with Delete notification', async () => {
         await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule_delete_all });
-
         await create_object(object_sdk, test_bucket, test_key1, 100, true);
         await create_object(object_sdk, test_bucket, test_key2, 100, true);
+        await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, true);
 
-        await exec_manage_cli(TYPES.LIFECYCLE, '', {disable_service_validation: 'true', disable_runtime_validation: 'true', config_root}, undefined,
-            {NOTIFICATION_LOG_DIR: tmp_lifecycle_logs_dir_path});
         const object_list = await object_sdk.list_objects({bucket: test_bucket});
         expect(object_list.objects.length).toBe(0);
 
@@ -781,9 +780,7 @@ describe('noobaa cli - lifecycle notifications', () => {
 
         await create_object(object_sdk, test_bucket, test_key1, 100, false);
         await create_object(object_sdk, test_bucket, test_key2, 100, false);
-
-        await exec_manage_cli(TYPES.LIFECYCLE, '', {disable_service_validation: 'true', disable_runtime_validation: 'true', config_root}, undefined,
-            {NOTIFICATION_LOG_DIR: tmp_lifecycle_logs_dir_path});
+        await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, true);
 
         const object_list = await object_sdk.list_object_versions({bucket: test_bucket});
         expect(object_list.objects.length).toBe(4);
@@ -809,8 +806,8 @@ describe('noobaa cli - lifecycle notifications', () => {
         await create_object(object_sdk, test_bucket, test_key1, 100, false);
         await create_object(object_sdk, test_bucket, test_key2, 100, false);
 
-        await exec_manage_cli(TYPES.LIFECYCLE, '', {disable_service_validation: 'true', disable_runtime_validation: 'true', config_root}, undefined,
-            {NOTIFICATION_LOG_DIR: tmp_lifecycle_logs_dir_path});
+        await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, true);
+        await config_fs.delete_config_json_file();
 
         const object_list = await object_sdk.list_object_versions({bucket: test_bucket});
         expect(object_list.objects.length).toBe(4);

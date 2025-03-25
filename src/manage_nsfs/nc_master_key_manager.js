@@ -140,7 +140,7 @@ class NCMasterKeysManager {
             try {
                 const stat = await nb_native().fs.stat(fs_context, master_keys_path);
                 if (stat.ctime.getTime() === this.last_init_time) return;
-                const master_keys = await native_fs_utils.read_file(fs_context, master_keys_path);
+                const master_keys = await native_fs_utils.read_file(fs_context, master_keys_path, { parse_json: true });
 
                 this._set_keys(master_keys);
                 this.last_init_time = stat.ctime.getTime();

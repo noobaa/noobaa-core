@@ -731,6 +731,20 @@ async function update_system_json(config_fs, mock_config_dir_version) {
     await config_fs.update_system_config_file(JSON.stringify(system_data));
 }
 
+/**
+ * run_or_skip_test checks -
+ * 1. if cond condition evaluated to true - run test
+ * 2. else - skip test 
+ * @param {*} cond 
+ * @returns {*}
+ */
+const run_or_skip_test = cond => {
+    if (cond) {
+        return it;
+    } else return it.skip;
+};
+
+exports.run_or_skip_test = run_or_skip_test;
 exports.blocks_exist_on_cloud = blocks_exist_on_cloud;
 exports.create_hosts_pool = create_hosts_pool;
 exports.delete_hosts_pool = delete_hosts_pool;

@@ -163,6 +163,7 @@ function parse_op_name(req, action) {
     if (ACTIONS[action]) {
         return `${method}_${ACTIONS[action]}`;
     }
+    dbg.error('STS parse_op_name - NotImplemented', action, method, req.originalUrl);
     throw new StsError(StsError.NotImplemented);
 }
 

@@ -292,6 +292,26 @@ NoobaaEvent.BUCKET_ALREADY_EXISTS = Object.freeze({
     severity: 'ERROR',
     state: 'HEALTHY',
 });
+NoobaaEvent.BUCKET_OWNER_NOT_EXISTS = Object.freeze({
+    event_code: 'bucket_owner_not_exists',
+    message: 'Bucket owner does not exist',
+    description: 'The specified bucket owner does not exist in the system',
+    entity_type: 'NODE',
+    event_type: 'ERROR',
+    scope: 'NODE',
+    severity: 'ERROR',
+    state: 'HEALTHY'
+});
+NoobaaEvent.BUCKET_OWNER_IS_IAM_ACCOUNT = Object.freeze({
+    event_code: 'bucket_owner_is_iam_account',
+    message: 'The bucket owner is an IAM account',
+    description: 'The specified bucket owner is an IAM account. Please set a root account as the bucket owner',
+    entity_type: 'NODE',
+    event_type: 'ERROR',
+    scope: 'NODE',
+    severity: 'ERROR',
+    state: 'HEALTHY'
+});
 NoobaaEvent.UNAUTHORIZED = Object.freeze({
     event_code: 'noobaa_bucket_access_unauthorized',
     message: 'Bucket is not accessible with current access rights ',

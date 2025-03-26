@@ -579,12 +579,13 @@ const NSFS_CLI_ERROR_EVENT_MAP = {
     AccountNameAlreadyExists: NoobaaEvent.ACCOUNT_ALREADY_EXISTS,
     AccountDeleteForbiddenHasBuckets: NoobaaEvent.ACCOUNT_DELETE_FORBIDDEN,
     BucketAlreadyExists: NoobaaEvent.BUCKET_ALREADY_EXISTS,
-    BucketSetForbiddenBucketOwnerNotExists: NoobaaEvent.UNAUTHORIZED, // GAP - add event
-    BucketSetForbiddenBucketOwnerIsIAMAccount: NoobaaEvent.UNAUTHORIZED, // // GAP - add event
+    BucketSetForbiddenBucketOwnerNotExists: NoobaaEvent.BUCKET_OWNER_NOT_EXISTS,
+    BucketSetForbiddenBucketOwnerIsIAMAccount: NoobaaEvent.BUCKET_OWNER_IS_IAM_ACCOUNT,
     LoggingExportFailed: NoobaaEvent.LOGGING_FAILED,
     UpgradeFailed: NoobaaEvent.CONFIG_DIR_UPGRADE_FAILED,
     LifecycleFailed: NoobaaEvent.LIFECYCLE_FAILED,
-    LifecycleWorkerReachedTimeout: NoobaaEvent.LIFECYCLE_TIMEOUT
+    LifecycleWorkerReachedTimeout: NoobaaEvent.LIFECYCLE_TIMEOUT,
+    InternalError: NoobaaEvent.INTERNAL_ERROR
 };
 
 exports.ManageCLIError = ManageCLIError;

@@ -857,6 +857,27 @@ mocha.describe('bucketspace_fs', function() {
             }
         });
 
+        mocha.it('put_bucket_policy, Wrong Resouce list syntax', async function() {
+            const policy = {
+                Version: '2012-10-17',
+                Statement: [{
+                    Sid: 'id-22',
+                    Effect: 'Allow',
+                    Principal: { AWS: 'user10' },
+                    Action: ['s3:*'],
+                    Resource: "['arn:aws:s3:::*']"
+                }]
+            };
+            const param = { name: test_bucket, policy: policy };
+            try {
+                await bucketspace_fs.put_bucket_policy(param);
+                assert.fail('should have failed with invalid principal in policy');
+            } catch (err) {
+                assert.equal(err.rpc_code, 'MALFORMED_POLICY');
+                assert.equal(err.message, 'Invalid principal in policy');
+            }
+        });
+
         mocha.it('put_bucket_policy other account array', async function() {
             const policy = {
                 Version: '2012-10-17',

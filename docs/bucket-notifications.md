@@ -10,7 +10,7 @@ A notification json has these fields:
           If not specified, the notification is relevant for all events.
 - TopicArn: The connection file (see below). (To specify a Kafka target topic, see "Kafka Connection Fields" below).
 
-Example for a bucket's notification configuration, in a file:
+Example for a bucket's notification configuration on containerized environment, in a file:
 {
     "TopicConfigurations": [
         {
@@ -23,6 +23,18 @@ Example for a bucket's notification configuration, in a file:
     ]
 }
 
+Example for a bucket's notification configuration on Non-containerized environment, in a file:
+{
+    "TopicConfigurations": [
+        {
+	    "Id": "created_from_s3op",
+            "TopicArn": "secret-name/connect",
+            "Events": [
+                "s3:ObjectCreated:*"
+            ]
+        }
+    ]
+}
 
 ## Connection File
 A connection file contains some fields that specify the target notification server.

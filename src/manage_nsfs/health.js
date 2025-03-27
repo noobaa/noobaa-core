@@ -418,7 +418,7 @@ class NSFSHealth {
                 const connection_file_path = this.config_fs.get_connection_path_by_name(config_file_name);
                 const test_notif_err = await notifications_util.test_notifications([{
                     name: config_data.name,
-                    topic: [this.config_fs.json(config_file_name)]
+                    topic: [config_file_name]
                 }], this.config_fs.config_root);
                 if (test_notif_err) {
                     res = get_invalid_object(config_data.name, connection_file_path, undefined, test_notif_err.code);

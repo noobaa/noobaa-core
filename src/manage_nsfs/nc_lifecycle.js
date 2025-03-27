@@ -17,6 +17,7 @@ const ManageCLIError = require('./manage_nsfs_cli_errors').ManageCLIError;
 const { throw_cli_error, get_service_status, NOOBAA_SERVICE_NAME,
     is_desired_time, record_current_time } = require('./manage_nsfs_cli_utils');
 const SensitiveString = require('../util/sensitive_string');
+const {CONFIG_TYPES} = require('../sdk/config_fs');
 
 // TODO:
 // implement
@@ -161,7 +162,11 @@ async function process_buckets(config_fs, bucket_names, system_json) {
  */
 async function process_bucket(config_fs, bucket_name, system_json) {
     const bucket_json = await config_fs.get_bucket_by_name(bucket_name, config_fs_options);
-    const account = { email: '', nsfs_account_config: config_fs.fs_context, access_keys: [] };
+    const account = await config_fs.get_identity_by_id(bucket_json.owner_account, CONFIG_TYPES.ACCOUNT, {silent_if_missing: true});
+    if (!account) {
+        dbg.warn(`process_bucket - bucket owner ${bucket_json.owner_account} does not exist for bucket ${bucket_name}. skipping lifecycle for this bucket`);
+        return;
+    }
     const object_sdk = new NsfsObjectSDK('', config_fs, account, bucket_json.versioning, config_fs.config_root, system_json);
     await object_sdk._simple_load_requesting_account();
     const should_notify = notifications_util.should_notify_on_event(bucket_json, notifications_util.OP_TO_EVENT.lifecycle_delete.name);
@@ -210,40 +215,6 @@ async function process_rules(config_fs, bucket_json, object_sdk, should_notify) 
     }
 }
 
-async function send_lifecycle_notifications(delete_res, bucket_json, object_sdk) {
-    const writes = [];
-    for (const deleted_obj of delete_res) {
-        if (delete_res.err_code) continue;
-        for (const notif of bucket_json.notifications) {
-            if (notifications_util.check_notif_relevant(notif, {
-                op_name: 'lifecycle_delete',
-                s3_event_method: deleted_obj.delete_marker_created ? 'DeleteMarkerCreated' : 'Delete',
-            })) {
-                //remember that this deletion needs a notif for this specific notification conf
-                writes.push({notif, deleted_obj});
-            }
-        }
-    }
-
-    //required format by compose_notification_lifecycle
-    bucket_json.bucket_owner = new SensitiveString(bucket_json.bucket_owner);
-
-    //if any notifications are needed, write them in notification log file
-    //(otherwise don't do any unnecessary filesystem actions)
-    if (writes.length > 0) {
-        let logger;
-        try {
-            logger = notifications_util.get_notification_logger('SHARED');
-            await P.map_with_concurrency(100, writes, async write => {
-                const notif = notifications_util.compose_notification_lifecycle(write.deleted_obj, write.notif, bucket_json, object_sdk);
-                logger.append(JSON.stringify(notif));
-            });
-        } finally {
-            if (logger) logger.close();
-        }
-    }
-}
-
 /**
  * process_rule processes the lifecycle rule for a bucket
  * TODO - implement notifications for the deleted objects (check if needed for abort mpus as well)
@@ -281,7 +252,7 @@ async function process_rule(config_fs, lifecycle_rule, index, bucket_json, objec
                 })
             });
             if (should_notify) {
-                await send_lifecycle_notifications(delete_res, bucket_json, object_sdk);
+                await send_lifecycle_notifications(delete_res, candidates.delete_candidates, bucket_json, object_sdk);
             }
         }
 
@@ -322,6 +293,70 @@ async function abort_mpus(candidates, object_sdk) {
     );
     return abort_mpus_reply;
 }
+
+/////////////////////////////////
+////// NOTIFICATION HELPERS /////
+/////////////////////////////////
+
+/**
+ *
+ * @param {Object} delete_res
+ * @param {Object} delete_obj_info
+ * @returns
+ */
+function create_notification_delete_object(delete_res, delete_obj_info) {
+    return {
+        ...delete_obj_info,
+        created_delete_marker: delete_res.created_delete_marker,
+        version_id: delete_res.created_delete_marker ? delete_res.created_version_id : delete_obj_info.version_id,
+    };
+}
+
+/**
+ *
+ * @param {Object[]} delete_res array of delete results
+ * @param {Object[]} delete_candidates array of delete candidates object info
+ * @param {Object} bucket_json
+ * @param {Object} object_sdk
+ * @returns {Promise<Void>}
+ * NOTE implementation assumes delete_candidates and delete_res uses the same index. this assumption is also made in
+ * s3_post_bucket_delete.js.
+ */
+async function send_lifecycle_notifications(delete_res, delete_candidates, bucket_json, object_sdk) {
+    const writes = [];
+    for (let i = 0; i < delete_res.length; ++i) {
+        if (delete_res[i].err_code) continue;
+        for (const notif of bucket_json.notifications) {
+            if (notifications_util.check_notif_relevant(notif, {
+                op_name: 'lifecycle_delete',
+                s3_event_method: delete_res[i].created_delete_marker ? 'DeleteMarkerCreated' : 'Delete',
+            })) {
+                const deleted_obj = create_notification_delete_object(delete_res[i], delete_candidates[i]);
+                //remember that this deletion needs a notif for this specific notification conf
+                writes.push({notif, deleted_obj});
+            }
+        }
+    }
+
+    //required format by compose_notification_lifecycle
+    bucket_json.bucket_owner = new SensitiveString(object_sdk.requesting_account.name);
+
+    //if any notifications are needed, write them in notification log file
+    //(otherwise don't do any unnecessary filesystem actions)
+    if (writes.length > 0) {
+        let logger;
+        try {
+            logger = notifications_util.get_notification_logger('SHARED');
+            await P.map_with_concurrency(100, writes, async write => {
+                const notif = notifications_util.compose_notification_lifecycle(write.deleted_obj, write.notif, bucket_json, object_sdk);
+                await logger.append(JSON.stringify(notif));
+            });
+        } finally {
+            if (logger) await logger.close();
+        }
+    }
+}
+
 
 /////////////////////////////////
 //////// GENERAL HELPERS ////////
@@ -472,9 +507,11 @@ async function get_candidates_by_expiration_rule_posix(lifecycle_rule, bucket_js
         limit: config.NC_LIFECYCLE_LIST_BATCH_SIZE
     });
     objects_list.objects.forEach(obj => {
-        const object_info = _get_lifecycle_object_info_from_list_object_entry(obj);
-        if (filter_func(object_info)) {
-            filtered_objects.push({key: object_info.key});
+        const lifecycle_object = _get_lifecycle_object_info_from_list_object_entry(obj);
+        if (filter_func(lifecycle_object)) {
+            //need to delete latest. so remove version_id if exists
+            const candidate = _.omit(obj, ['version_id']);
+            filtered_objects.push(candidate);
         }
     });
 

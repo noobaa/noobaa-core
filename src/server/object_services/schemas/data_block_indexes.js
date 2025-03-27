@@ -16,6 +16,22 @@ module.exports = [{
         }
     },
     {
+        fields: {
+            _id: 1,
+        },
+        options: {
+            unique: false,
+            // mongo does not support partial indexes on _id field
+            // This is a workaround to exclude it for mongo for tests purposes
+            postgres_only: true,
+            name: "deleted_not_reclaimed",
+            partialFilterExpression: {
+                deleted: { $exists: true },
+                reclaimed: { $exists: false }
+            }
+        }
+    },
+    {
         // iterate_node_chunks()
         // count_blocks_of_node()
         fields: {

@@ -176,7 +176,7 @@ async function handle_request(req, res) {
     http_utils.send_reply(req, res, reply, options);
     collect_bucket_usage(op, req, res);
     try {
-        await s3_logging.send_bucket_op_logs(req, res); // logging again with result
+        await s3_logging.send_bucket_op_logs(req, res, reply); // logging again with result
     } catch (err) {
         dbg.error(`Could not log bucket operation (after operation ${req.op_name}):`, err);
     }

@@ -161,7 +161,11 @@ async function process_buckets(config_fs, bucket_names, system_json) {
  */
 async function process_bucket(config_fs, bucket_name, system_json) {
     const bucket_json = await config_fs.get_bucket_by_name(bucket_name, config_fs_options);
-    const account = { email: '', nsfs_account_config: config_fs.fs_context, access_keys: [] };
+    const account = await config_fs.get_identity_by_id(bucket_json.owner_account, undefined, {silent_if_missing: true});
+    if (!account) {
+        dbg.warn("process_bucket - bucket owner does not exist. skipping lifecycle for this bucket");
+        return;
+    }
     const object_sdk = new NsfsObjectSDK('', config_fs, account, bucket_json.versioning, config_fs.config_root, system_json);
     await object_sdk._simple_load_requesting_account();
     const should_notify = notifications_util.should_notify_on_event(bucket_json, notifications_util.OP_TO_EVENT.lifecycle_delete.name);
@@ -210,15 +214,23 @@ async function process_rules(config_fs, bucket_json, object_sdk, should_notify) 
     }
 }
 
-async function send_lifecycle_notifications(delete_res, bucket_json, object_sdk) {
+function create_notification_delete_object(delete_res, delete_obj_info) {
+    return {
+        ...delete_obj_info,
+        created_delete_marker: delete_res.created_delete_marker
+    };
+}
+
+async function send_lifecycle_notifications(delete_res, delete_candidates, bucket_json, object_sdk) {
     const writes = [];
-    for (const deleted_obj of delete_res) {
-        if (delete_res.err_code) continue;
+    for (let i = 0; i < delete_res.length; ++i) {
+        if (delete_res[i].err_code) continue;
         for (const notif of bucket_json.notifications) {
             if (notifications_util.check_notif_relevant(notif, {
                 op_name: 'lifecycle_delete',
-                s3_event_method: deleted_obj.delete_marker_created ? 'DeleteMarkerCreated' : 'Delete',
+                s3_event_method: delete_res[i].delete_marker_created ? 'DeleteMarkerCreated' : 'Delete',
             })) {
+                const deleted_obj = create_notification_delete_object(delete_res[i], delete_candidates[i]);
                 //remember that this deletion needs a notif for this specific notification conf
                 writes.push({notif, deleted_obj});
             }
@@ -226,7 +238,7 @@ async function send_lifecycle_notifications(delete_res, bucket_json, object_sdk)
     }
 
     //required format by compose_notification_lifecycle
-    bucket_json.bucket_owner = new SensitiveString(bucket_json.bucket_owner);
+    bucket_json.bucket_owner = new SensitiveString(object_sdk.requesting_account.name);
 
     //if any notifications are needed, write them in notification log file
     //(otherwise don't do any unnecessary filesystem actions)
@@ -281,7 +293,7 @@ async function process_rule(config_fs, lifecycle_rule, index, bucket_json, objec
                 })
             });
             if (should_notify) {
-                await send_lifecycle_notifications(delete_res, bucket_json, object_sdk);
+                await send_lifecycle_notifications(delete_res, candidates.delete_candidates, bucket_json, object_sdk);
             }
         }
 
@@ -474,7 +486,7 @@ async function get_candidates_by_expiration_rule_posix(lifecycle_rule, bucket_js
     objects_list.objects.forEach(obj => {
         const object_info = _get_lifecycle_object_info_from_list_object_entry(obj);
         if (filter_func(object_info)) {
-            filtered_objects.push({key: object_info.key});
+            filtered_objects.push(obj);
         }
     });
 

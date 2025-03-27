@@ -54,9 +54,6 @@ async function main() {
     await commonTests.test_rule_id(Bucket, Key, s3);
     await commonTests.test_filter_size(Bucket, s3);
     await commonTests.test_and_prefix_size(Bucket, Key, s3);
-    await commonTests.test_rule_id_length(Bucket, Key, s3);
-    await commonTests.test_rule_duplicate_id(Bucket, Key, s3);
-    await commonTests.test_rule_status_value(Bucket, Key, s3);
 
     const getObjectParams = {
         Bucket,

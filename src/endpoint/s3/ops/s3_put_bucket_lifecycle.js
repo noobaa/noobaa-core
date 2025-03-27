@@ -11,6 +11,9 @@ const true_regex = /true/i;
 
 // parse lifecycle rule filter
 function parse_filter(filter) {
+    if (filter?.length > 1 && !filter?.And) {
+        throw new S3Error(S3Error.MalformedXML);
+    }
     const current_rule_filter = {};
     if (filter.Tag?.length === 1) {
         const tag = filter.Tag[0];
@@ -65,7 +68,12 @@ function parse_expiration(expiration) {
             throw new S3Error(S3Error.InvalidArgument);
         }
     } else if (expiration.Date?.length === 1) {
-        output_expiration.date = (new Date(expiration.Date[0])).getTime();
+        const date = new Date(expiration.Date[0]);
+        if (isNaN(date.getTime()) || date.getTime() !== Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())) {
+            dbg.error('Date value must conform to the ISO 8601 format and at midnight UTC (00:00:00). Provided:', expiration.Date[0]);
+            throw new S3Error({ ...S3Error.InvalidArgument, message: "'Date' must be at midnight GMT" });
+        }
+        output_expiration.date = date.getTime();
     } else if (expiration.ExpiredObjectDeleteMarker?.length === 1) {
         output_expiration.expired_object_delete_marker = true_regex.test(expiration.ExpiredObjectDeleteMarker[0]);
     }
@@ -132,11 +140,18 @@ async function put_bucket_lifecycle(req) {
         }
 
         if (rule.Expiration?.length === 1) {
+            if (rule.Expiration.length > 1) {
+                throw new S3Error(S3Error.MalformedXML);
+            }
             current_rule.expiration = parse_expiration(rule.Expiration[0]);
             reject_empty_field(current_rule.expiration);
         }
 
         if (rule.AbortIncompleteMultipartUpload?.length === 1) {
+            if (rule.Filter?.Tag || rule.Filter?.ObjectSizeGreaterThan || rule.Filter?.ObjectSizeLessThan) {
+                dbg.error('Rule should not include AbortIncompleteMultipartUpload with Tags or ObjectSize filters', rule);
+                throw new S3Error({ ...S3Error.InvalidArgument, message: 'AbortIncompleteMultipartUpload cannot be specified with Tags' });
+            }
             current_rule.abort_incomplete_multipart_upload = _.omitBy({
                 days_after_initiation: parse_lifecycle_field(rule.AbortIncompleteMultipartUpload[0].DaysAfterInitiation),
             }, _.isUndefined);

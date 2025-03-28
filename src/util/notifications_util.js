@@ -418,8 +418,9 @@ function compose_notification_base(notif_conf, bucket, req) {
 }
 
 //see https://docs.aws.amazon.com/AmazonS3/latest/userguide/notification-content-structure.html
-function compose_notification_req(req, res, bucket, notif_conf) {
-    let eTag = res.getHeader('ETag');
+function compose_notification_req(req, res, bucket, notif_conf, reply) {
+    //most s3 ops put etag in header. CompleteMultipartUploadResult is an exception.
+    let eTag = res.getHeader('ETag') || reply?.CompleteMultipartUploadResult?.ETag;
     //eslint-disable-next-line
     if (eTag && eTag.startsWith('\"') && eTag.endsWith('\"')) {
         eTag = eTag.substring(1, eTag.length - 1);

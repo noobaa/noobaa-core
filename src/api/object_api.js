@@ -1166,9 +1166,23 @@ module.exports = {
                     deleted_objects: {
                         type: 'array',
                         items: {
-                            $ref: '#/definitions/object_info'
+                            oneOf: [
+                                {
+                                    $ref: '#/definitions/object_info',
+                                },
+                                {
+                                    type: 'object',
+                                    properties: {
+                                        err_code: {
+                                            type: 'string',
+                                            enum: ['AccessDenied', 'InternalError']
+                                        },
+                                        err_message: { type: 'string' }
+                                    }
+                                }
+                            ]
                         }
-                    }
+                    },
                 }
             },
             auth: { system: 'admin' }

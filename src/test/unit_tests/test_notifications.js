@@ -52,6 +52,8 @@ let http_server = null;
 let server_done = false;
 let expected_bucket;
 let expected_event_name;
+let expected_key;
+let expected_eTag;
 
 // eslint-disable-next-line max-lines-per-function
 mocha.describe('notifications', function() {
@@ -91,9 +93,10 @@ mocha.describe('notifications', function() {
                 if (notif !== "test notification") {
                     assert.strictEqual(notif.Records[0].s3.bucket.name, expected_bucket, 'wrong bucket name in notification');
                     assert.strictEqual(notif.Records[0].eventName, expected_event_name, 'wrong event name in notification');
-
+                    assert.strictEqual(notif.Records[0].s3.object.key, expected_key, 'wrong key in notification');
+                    const expected_eTag_trimmed = expected_eTag && expected_eTag.substring(1, expected_eTag.length - 1);
+                    assert.strictEqual(notif.Records[0].s3.object.eTag, expected_eTag_trimmed, 'wrong eTag in notification');
                 }
-
                 res.writeHead(200, {'Content-Type': 'text/plain'});
                 res.end();
                 server_done = true;
@@ -120,13 +123,18 @@ mocha.describe('notifications', function() {
         });
 
         mocha.it('simple notif put', async () => {
-            await s3.putObject({
+            const res = await s3.putObject({
                 Bucket: bucket,
                 Key: 'f1',
                 Body: 'this is the body',
             });
 
-            await notify_await_result({bucket_name: bucket, event_name: 'ObjectCreated:Put'});
+            await notify_await_result({
+                bucket_name: bucket,
+                event_name: 'ObjectCreated:Put',
+                key: "f1",
+                etag: res.ETag
+            });
         });
 
 
@@ -136,7 +144,12 @@ mocha.describe('notifications', function() {
                 Key: 'f1',
             });
 
-            await notify_await_result({bucket_name: bucket, event_name: 'ObjectRemoved:Delete'});
+            await notify_await_result({
+                bucket_name: bucket,
+                event_name: 'ObjectRemoved:Delete',
+                key: "f1",
+                etag: undefined
+            });
         });
 
 
@@ -155,13 +168,18 @@ mocha.describe('notifications', function() {
 
             assert.strictEqual(set.$metadata.httpStatusCode, 200);
 
-            await s3.putObject({
+            const res = await s3.putObject({
                 Bucket: bucket,
                 Key: 'f2',
                 Body: 'this is the body',
             });
 
-            await notify_await_result({bucket_name: bucket, event_name: 'ObjectCreated:Put'});
+            await notify_await_result({
+                bucket_name: bucket,
+                event_name: 'ObjectCreated:Put',
+                key: "f2",
+                etag: res.ETag
+            });
 
             await s3.deleteObject({
                 Bucket: bucket,
@@ -171,16 +189,53 @@ mocha.describe('notifications', function() {
             //there shouldn't be a notification for the delete, wait 2 seconds to validate this
             await notify_await_result({timeout: 2000});
         });
+
+        mocha.it('multipart', async () => {
+            const res_create = await s3.createMultipartUpload({
+                Bucket: bucket,
+                Key: 'mp1'
+            });
+
+            const res_upload = await s3.uploadPart({
+                Bucket: bucket,
+                Key: 'mp1',
+                UploadId: res_create.UploadId,
+                PartNumber: 1,
+                Body: 'this is the body'
+            });
+
+            const res_complete = await s3.completeMultipartUpload({
+                Bucket: bucket,
+                Key: 'mp1',
+                UploadId: res_create.UploadId,
+                MultipartUpload: {
+                    Parts: [{
+                        ETag: res_upload.ETag,
+                        PartNumber: 1
+                    }]
+                }
+            });
+
+            await notify_await_result({
+                bucket_name: bucket,
+                event_name: 'ObjectCreated:CompleteMultipartUpload',
+                key: "mp1",
+                etag: res_complete.ETag
+            });
+        });
+
     });
 
 });
 
 const step_wait = 100;
-async function notify_await_result({bucket_name, event_name, timeout}) {
+async function notify_await_result({bucket_name, event_name, etag, key, timeout = undefined}) {
 
     //remember expected result here so server could compare it to actual result later
     expected_bucket = bucket_name;
     expected_event_name = event_name;
+    expected_eTag = etag;
+    expected_key = key;
     server_done = false;
 
     //busy-sync wait for server

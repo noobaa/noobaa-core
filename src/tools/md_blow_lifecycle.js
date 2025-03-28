@@ -3,7 +3,7 @@
 
 const _ = require('lodash');
 const mongodb = require('mongodb');
-const argv = require('minimist')(process.argv);
+const argvParse = require('minimist');
 const P = require('../util/promise');
 const api = require('../api');
 const dbg = require('../util/debug_module')(__filename);
@@ -13,12 +13,18 @@ const MDStore = require('../server/object_services/md_store').MDStore;
 const rpc = api.new_rpc();
 const client = rpc.new_client();
 
+const argv = argvParse(process.argv, {
+    string: ['email', 'password'],
+});
+
 argv.email = argv.email || 'admin@noobaa.io';
 argv.password = argv.password || 'DeMo1';
 argv.system = argv.system || 'noobaa';
 
+function thisOrThat(_this, that) { return _.isUndefined(_this) ? that : _this; }
+
 // Multipart arguments
-argv.blow_multipart_objects = argv.blow_multipart_objects || true;
+argv.blow_multipart_objects = thisOrThat(argv.blow_multipart_objects, true);
 argv.bucket = argv.bucket || 'first.bucket';
 argv.count = argv.count || 100;
 argv.chunks = argv.chunks || 128;
@@ -34,13 +40,13 @@ argv.sha256_b64 = argv.sha256_b64 || 'bla';
 argv.num_parts = argv.num_parts || 1;
 
 // Version arguments
-argv.blow_version_objects = argv.blow_version_objects || true;
+argv.blow_version_objects = thisOrThat(argv.blow_version_objects, true);
 argv.version_key = argv.version_key || ('md_version_blow-' + Date.now().toString(36));
 argv.version_age = argv.version_age || 30;
 argv.version_count = argv.version_count || 12;
 
 // Delete matker arguments
-argv.blow_expired_delete_marker = argv.blow_expired_delete_marker || true;
+argv.blow_expired_delete_marker = thisOrThat(argv.blow_expired_delete_marker, true);
 argv.delete_marker_key = argv.delete_marker_key || ('md_delete_marker-' + Date.now().toString(36));
 argv.delete_marker_count = argv.delete_marker_count || 12;
 argv.delete_marker_age = argv.delete_marker_age || 30;
@@ -134,12 +140,6 @@ async function blow_version_objects() {
         const update_result = await MDStore.instance().update_objects_by_ids(obj_upload_ids, update);
         console.log('blow_version_objects: update_objects_by_ids', update_result);
     }
-
-    const obj_params = {
-        bucket: argv.bucket,
-    };
-    const list_obj = await client.object.list_object_versions(obj_params);
-    console.log("List updated objects : ", list_obj);
 }
 
 async function blow_multipart_objects() {
@@ -181,7 +181,13 @@ async function blow_multipart_object(index) {
     complete_params.multipart_id = create_reply.multipart_id;
     complete_params.num_parts = argv.num_parts;
     dbg.log0('complete_multipart', params.id);
-    await client.object.complete_multipart(complete_params);
+    const part_complete = await client.object.complete_multipart(complete_params);
+    const complete_object_upload_params = { ...params, multiparts: [{ etag: part_complete.etag, num: 1 }] };
+    delete complete_object_upload_params.num;
+    // delete complete_object_upload_params.size;
+    // delete complete_object_upload_params.md5_b64;
+    // delete complete_object_upload_params.sha256_b64;
+    await client.object.complete_object_upload(complete_object_upload_params);
 
     // go back in time
     if (argv.multipart_age > 0) {

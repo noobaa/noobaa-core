@@ -9,11 +9,44 @@ const S3Error = require('../s3_errors').S3Error;
 
 const true_regex = /true/i;
 
-// parse lifecycle rule filter
-function parse_filter(filter) {
-    if (filter?.length > 1 && !filter?.And) {
+// validates lifecycle rule
+function validate_lifecycle_rule(rule) {
+
+    if (rule.ID?.length === 1 && rule.ID[0].length > s3_const.MAX_RULE_ID_LENGTH) {
+        dbg.error('Rule should not have ID length exceed allowed limit of ', s3_const.MAX_RULE_ID_LENGTH, ' characters', rule);
+        throw new S3Error({ ...S3Error.InvalidArgument, message: `ID length should not exceed allowed limit of ${s3_const.MAX_RULE_ID_LENGTH}` });
+    }
+
+    if (!rule.Status || rule.Status.length !== 1 ||
+        (rule.Status[0] !== s3_const.LIFECYCLE_STATUS.STAT_ENABLED && rule.Status[0] !== s3_const.LIFECYCLE_STATUS.STAT_DISABLED)) {
+        dbg.error(`Rule should have a status value of "${s3_const.LIFECYCLE_STATUS.STAT_ENABLED}" or "${s3_const.LIFECYCLE_STATUS.STAT_DISABLED}".`, rule);
         throw new S3Error(S3Error.MalformedXML);
     }
+
+    if (rule.Filter?.[0] && Object.keys(rule.Filter[0]).length > 1 && !rule.Filter[0]?.And) {
+        dbg.error('Rule should combine multiple filters using "And"', rule);
+        throw new S3Error(S3Error.MalformedXML);
+    }
+
+    if (rule.Expiration?.[0] && Object.keys(rule.Expiration[0]).length > 1) {
+        dbg.error('Rule should specify only one expiration field: Days, Date, or ExpiredObjectDeleteMarker', rule);
+        throw new S3Error(S3Error.MalformedXML);
+    }
+
+    if (rule.AbortIncompleteMultipartUpload?.length === 1 && rule.Filter?.length === 1) {
+        if (rule.Filter[0]?.Tag) {
+            dbg.error('Rule should not include AbortIncompleteMultipartUpload with Tags', rule);
+            throw new S3Error({ ...S3Error.InvalidArgument, message: 'AbortIncompleteMultipartUpload cannot be specified with Tags' });
+        }
+        if (rule.Filter[0]?.ObjectSizeGreaterThan || rule.Filter[0]?.ObjectSizeLessThan) {
+            dbg.error('Rule should not include AbortIncompleteMultipartUpload with Object Size', rule);
+            throw new S3Error({ ...S3Error.InvalidArgument, message: 'AbortIncompleteMultipartUpload cannot be specified with Object Size' });
+        }
+    }
+}
+
+// parse lifecycle rule filter
+function parse_filter(filter) {
     const current_rule_filter = {};
     if (filter.Tag?.length === 1) {
         const tag = filter.Tag[0];
@@ -97,13 +130,11 @@ async function put_bucket_lifecycle(req) {
             filter: {},
         };
 
+        // validate rule
+        validate_lifecycle_rule(rule);
+
         if (rule.ID?.length === 1) {
-            if (rule.ID[0].length > s3_const.MAX_RULE_ID_LENGTH) {
-                dbg.error('Rule should not have ID length exceed allowed limit of ', s3_const.MAX_RULE_ID_LENGTH, ' characters', rule);
-                throw new S3Error({ ...S3Error.InvalidArgument, message: `ID length should not exceed allowed limit of ${s3_const.MAX_RULE_ID_LENGTH}` });
-            } else {
-                current_rule.id = rule.ID[0];
-            }
+            current_rule.id = rule.ID[0];
         } else {
             // Generate a random ID if missing
             current_rule.id = crypto.randomUUID();
@@ -116,11 +147,6 @@ async function put_bucket_lifecycle(req) {
         }
         id_set.add(current_rule.id);
 
-        if (!rule.Status || rule.Status.length !== 1 ||
-            (rule.Status[0] !== s3_const.LIFECYCLE_STATUS.STAT_ENABLED && rule.Status[0] !== s3_const.LIFECYCLE_STATUS.STAT_DISABLED)) {
-            dbg.error(`Rule should have a status value of "${s3_const.LIFECYCLE_STATUS.STAT_ENABLED}" or "${s3_const.LIFECYCLE_STATUS.STAT_DISABLED}".`, rule);
-            throw new S3Error(S3Error.MalformedXML);
-        }
         current_rule.status = rule.Status[0];
 
         if (rule.Prefix) {
@@ -140,18 +166,11 @@ async function put_bucket_lifecycle(req) {
         }
 
         if (rule.Expiration?.length === 1) {
-            if (rule.Expiration.length > 1) {
-                throw new S3Error(S3Error.MalformedXML);
-            }
             current_rule.expiration = parse_expiration(rule.Expiration[0]);
             reject_empty_field(current_rule.expiration);
         }
 
         if (rule.AbortIncompleteMultipartUpload?.length === 1) {
-            if (rule.Filter?.Tag || rule.Filter?.ObjectSizeGreaterThan || rule.Filter?.ObjectSizeLessThan) {
-                dbg.error('Rule should not include AbortIncompleteMultipartUpload with Tags or ObjectSize filters', rule);
-                throw new S3Error({ ...S3Error.InvalidArgument, message: 'AbortIncompleteMultipartUpload cannot be specified with Tags' });
-            }
             current_rule.abort_incomplete_multipart_upload = _.omitBy({
                 days_after_initiation: parse_lifecycle_field(rule.AbortIncompleteMultipartUpload[0].DaysAfterInitiation),
             }, _.isUndefined);

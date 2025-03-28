@@ -43,6 +43,8 @@ async function post_object_uploadId(req, res) {
         res.setHeader('x-amz-version-id', reply.version_id);
     }
 
+    res.size_for_notif = reply.size;
+
     return {
         CompleteMultipartUploadResult: {
             Bucket: req.params.bucket,

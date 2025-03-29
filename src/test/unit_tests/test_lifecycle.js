@@ -535,15 +535,16 @@ mocha.describe('lifecycle', () => {
             assert.strictEqual(versions_list.objects.length, 2);
         });
 
-        async function create_mock_version(version_key, bucket, age, version_count) {
+        async function create_mock_version(version_key, bucket, age, version_count, expire_all = false) {
             const obj_upload_ids = [];
             for (let i = 0; i < version_count; ++i) {
                 const content_type = 'application/octet_stream';
                 const { obj_id } = await rpc_client.object.create_object_upload({ bucket, key: version_key, content_type });
                 await rpc_client.object.complete_object_upload({ obj_id, bucket, key: version_key });
 
-                // everything but last will be aged
-                if (i < version_count - 1) {
+                // everything but last will be aged, 
+                // For simple Expiration rule all version should be expired 
+                if (expire_all || i < version_count - 1) {
                     obj_upload_ids.push(new mongodb.ObjectId(obj_id));
                 }
             }
@@ -556,6 +557,41 @@ mocha.describe('lifecycle', () => {
                 const update_result = await MDStore.instance().update_objects_by_ids(obj_upload_ids, update);
                 console.log('blow_version_objects: update_objects_by_ids', update_result);
             }
+        }
+
+        mocha.it('lifecyle - version object expired', async () => {
+            const age = 30;
+            const version_count = 10;
+            const version_bucket_key = 'test-lifecycle-version1';
+            await create_mock_version(version_bucket_key, version_bucket, age, version_count, true);
+            const putLifecycleParams = commonTests.days_lifecycle_configuration(version_bucket, version_bucket_key);
+            await s3.putBucketLifecycleConfiguration(putLifecycleParams);
+            await lifecycle.background_worker();
+            // version_count count only, not deleted
+            await verify_version_deleted(version_count + 1, version_bucket_key);
+        });
+
+        mocha.it('lifecyle - version object not expired', async () => {
+            const age = 5;
+            const version_count = 10;
+            const version_bucket_key = 'test-lifecycle-version2';
+            await create_mock_version(version_bucket_key, version_bucket, age, version_count, true);
+            const putLifecycleParams = commonTests.days_lifecycle_configuration(version_bucket, version_bucket_key);
+            await s3.putBucketLifecycleConfiguration(putLifecycleParams);
+            await lifecycle.background_worker();
+            // version_count count plus delete marker
+            await verify_version_deleted(version_count, version_bucket_key);
+        });
+
+        async function verify_version_deleted(expected_length, key) {
+            const obj_params = {
+                bucket: version_bucket,
+                prefix: key,
+            };
+            const list_obj = await rpc_client.object.list_object_versions(obj_params);
+            console.log('list_objects_admin objects: ', util.inspect(list_obj.objects));
+            const actual_length = list_obj.objects.length;
+            assert.strictEqual(actual_length, expected_length, `listObjectResult actual ${actual_length} !== ${expected_length}`);
         }
     });
 

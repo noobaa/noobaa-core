@@ -1140,6 +1140,9 @@ module.exports = {
                     filter_delete_markers: {
                         type: 'boolean',
                     },
+                    latest_versions: {
+                        type: 'boolean',
+                    },
                     size_less: {
                         type: 'integer'
                     },
@@ -1151,6 +1154,9 @@ module.exports = {
                     },
                     limit: {
                         type: 'integer'
+                    },
+                    delete_version: {
+                        type: 'boolean'
                     },
                     reply_objects: {
                         type: 'boolean'

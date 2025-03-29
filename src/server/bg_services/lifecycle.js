@@ -38,6 +38,10 @@ async function delete_expired_objects(system, bucket, rule, reply_objects) {
         size_greater: rule.filter.object_size_greater_than,
         tags: rule.filter.tags,
         limit: config.LIFECYCLE_BATCH_SIZE,
+        filter_delete_markers: true,
+        latest_versions: true,
+        // deleting only the latest verion and creating delete marker for expired objects
+        delete_version: false,
         reply_objects,
     }, {
         auth_token: auth_server.make_auth_token({

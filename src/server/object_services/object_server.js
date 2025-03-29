@@ -978,6 +978,7 @@ async function delete_multiple_objects_by_filter(req) {
         key,
         max_create_time: req.rpc_params.create_time,
         tagging: req.rpc_params.tags,
+        latest_versions: req.rpc_params.latest_versions,
         filter_delete_markers: req.rpc_params.filter_delete_markers,
         max_size: req.rpc_params.size_less,
         min_size: req.rpc_params.size_greater,
@@ -991,7 +992,7 @@ async function delete_multiple_objects_by_filter(req) {
             bucket: req.bucket.name,
             objects: _.map(objects, obj => ({
                 key: obj.key,
-                version_id: MDStore.instance().get_object_version_id(obj),
+                version_id: req.rpc_params.delete_version ? MDStore.instance().get_object_version_id(obj) : '',
             }))
         }
     }));

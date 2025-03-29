@@ -5,34 +5,7 @@ const fs = require('fs');
 const _ = require('lodash');
 const path = require('path');
 const dbg = require('../util/debug_module')(__filename);
-
-/**
- * @param {string} ver
- */
-function parse_ver(ver) {
-    const stripped_ver = ver.split('-')[0];
-    return stripped_ver.split('.').map(i => Number.parseInt(i, 10));
-}
-
-
-/**
- * version_compare compares 2 versions. returns positive if ver1 is larger, negative if ver2, 0 if equal
- * @param {string} ver1
- * @param {string} ver2
- */
-function version_compare(ver1, ver2) {
-    const ver1_arr = parse_ver(ver1);
-    const ver2_arr = parse_ver(ver2);
-    const max_length = Math.max(ver1_arr.length, ver2_arr.length);
-    for (let i = 0; i < max_length; ++i) {
-        const comp1 = ver1_arr[i] || 0;
-        const comp2 = ver2_arr[i] || 0;
-        const diff = comp1 - comp2;
-        // if version component is not the same, return the difference
-        if (diff) return diff;
-    }
-    return 0;
-}
+const { version_compare } = require('../util/versions_utils');
 
 /**
  * @param {string} current_version
@@ -137,5 +110,4 @@ async function run_upgrade_scripts(this_upgrade, upgrade_scripts_dir, options) {
 
 exports.should_upgrade = should_upgrade;
 exports.load_required_scripts = load_required_scripts;
-exports.version_compare = version_compare;
 exports.run_upgrade_scripts = run_upgrade_scripts;

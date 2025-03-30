@@ -8,7 +8,7 @@ const { Buffer } = require('node:buffer');
 const config = require('../../../config');
 const {compose_notification_req, check_notif_relevant, check_free_space_if_needed} = require('../../util/notifications_util');
 
-async function send_bucket_op_logs(req, res) {
+async function send_bucket_op_logs(req, res, reply) {
     if (req.params && req.params.bucket &&
         !(req.op_name === 'put_bucket' ||
           req.op_name === 'delete_bucket' ||
@@ -36,8 +36,10 @@ async function send_bucket_op_logs(req, res) {
 
         if (req.notification_logger && bucket_info.notifications) {
             for (const notif_conf of bucket_info.notifications) {
-                if (check_notif_relevant(notif_conf, req)) {
-                    const notif = compose_notification_req(req, res, bucket_info, notif_conf);
+                //write the notification log only if request is successful (ie res.statusCode < 300)
+                //and event is actually relevant to the notification conf
+                if (res.statusCode < 300 && check_notif_relevant(notif_conf, req)) {
+                    const notif = compose_notification_req(req, res, bucket_info, notif_conf, reply);
                     dbg.log1("logging notif ", notif_conf, ", notif = ", notif);
                     writes_aggregate.push({
                         file: req.notification_logger,

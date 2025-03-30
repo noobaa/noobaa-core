@@ -964,7 +964,7 @@ async function delete_multiple_objects_by_filter(req) {
 
     const { objects } = await MDStore.instance().find_objects(query);
 
-    await delete_multiple_objects(_.assign(req, {
+    const delete_results = await delete_multiple_objects(_.assign(req, {
         rpc_params: {
             bucket: req.bucket.name,
             objects: _.map(objects, obj => ({
@@ -978,8 +978,19 @@ async function delete_multiple_objects_by_filter(req) {
     if (reply_objects) {
         //reply needs to include deleted objects
         //(this is used for LifecycleExpiratoin event notifications)
-        //so map the md into (api friendly) object info
-        reply.deleted_objects = _.map(objects, get_object_info);
+        //so map the md into (api friendly) object info,
+        //or incude the error if deletion failed
+        reply.deleted_objects = [];
+        for (let i = 0; i < objects.length; ++i) {
+             if (delete_results[i].err_code) {
+                reply.deleted_objects[i] = {
+                    err_code: delete_results[i].err_code,
+                    err_message: delete_results[i].err_message
+                };
+             } else {
+                reply.deleted_objects[i] = get_object_info(objects[i]);
+             }
+        }
     }
 
     return reply;

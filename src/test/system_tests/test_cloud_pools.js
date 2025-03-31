@@ -83,7 +83,7 @@ function init_s3() {
 }
 
 
-function list_all_s3_objects(bucket_name) {
+async function list_all_s3_objects(bucket_name) {
     // Initialization of IsTruncated in order to perform the first while cycle
     const listObjectsResponse = {
         is_truncated: true,
@@ -92,37 +92,31 @@ function list_all_s3_objects(bucket_name) {
         key_marker: ''
     };
 
-    return P.pwhile(
-            function() {
-                return listObjectsResponse.is_truncated;
-            },
-            function() {
-                listObjectsResponse.is_truncated = false;
-                return P.ninvoke(s3, 'listObjects', {
-                        Bucket: bucket_name,
-                        Marker: listObjectsResponse.key_marker
-                    })
-                    .then(function(res) {
-                        listObjectsResponse.is_truncated = res.is_truncated;
-                        const res_list = {
-                            objects: res.Contents,
-                            common_prefixes: res.common_prefixes
-                        };
-                        if (res_list.objects.length) {
-                            listObjectsResponse.objects = _.concat(listObjectsResponse.objects, res_list.objects);
-                        }
-                        const last_obj = _.last(listObjectsResponse.objects);
-                        listObjectsResponse.key_marker = last_obj && last_obj.key;
-                    })
-                    .catch(function(err) {
-                        console.error(err);
-                        throw err;
-                    });
-            })
-        .then(() => {
-            console.log('list_all_s3_objects - current cloud objects:', listObjectsResponse.objects);
-            return listObjectsResponse.objects;
-        });
+    while (listObjectsResponse.is_truncated) {
+        try {
+            const res = await P.ninvoke(s3, 'listObjects', {
+                Bucket: bucket_name,
+                Marker: listObjectsResponse.key_marker
+            });
+
+            listObjectsResponse.is_truncated = res.IsTruncated;
+            const res_list = {
+                objects: res.Contents,
+                common_prefixes: res.common_prefixes
+            };
+            if (res_list.objects.length) {
+                listObjectsResponse.objects = _.concat(listObjectsResponse.objects, res_list.objects);
+            }
+            const last_obj = _.last(listObjectsResponse.objects);
+            listObjectsResponse.key_marker = last_obj && last_obj.key;
+        } catch (err) {
+            console.error(err);
+            throw err;
+        }
+    }
+    console.log('list_all_s3_objects - current cloud objects:', listObjectsResponse.objects);
+    return listObjectsResponse.objects;
+
 }
 
 
@@ -158,7 +152,7 @@ function authenticate() {
 }
 
 
-function verify_object_parts_on_cloud_nodes(replicas_in_tier, bucket_name, object_key, cloud_pool) {
+async function verify_object_parts_on_cloud_nodes(replicas_in_tier, bucket_name, object_key, cloud_pool) {
     // TODO: Currently set high because there is a problem with cloud resource test block write
     // That blocks the whole replication process
     const abort_timeout_sec = 10 * 60;
@@ -167,50 +161,50 @@ function verify_object_parts_on_cloud_nodes(replicas_in_tier, bucket_name, objec
     let start_ts;
     let blocks_to_return;
 
-    return P.pwhile(
-            function() {
-                return !blocks_correct;
-            },
-            function() {
-                blocks_correct = true;
-                return client.object.read_object_mapping_admin({
-                        bucket: bucket_name,
-                        key: object_key,
-                    })
-                    .then(function(obj_mapping_arg) {
-                        const blocks_by_cloud_pool_name = {
-                            blocks: []
-                        };
-                        _.forEach(obj_mapping_arg.parts, part => {
-                            if (replicas_in_tier + 1 !== part.chunk.frags[0].blocks.length) {
-                                blocks_correct = false;
-                            }
-                            _.forEach(part.chunk.frags, frag => _.forEach(frag.blocks, block => {
-                                if (String(cloud_pool) === String(block.adminfo.pool_name)) {
-                                    blocks_by_cloud_pool_name.blocks.push(block);
-                                }
-                            }));
-                        });
+    while (!blocks_correct) {
 
-                        if (blocks_correct && blocks_by_cloud_pool_name.blocks.length === obj_mapping_arg.parts.length) {
-                            console.log('verify_object_parts_on_cloud_nodes blocks found:',
-                                util.inspect(blocks_by_cloud_pool_name, { depth: null }));
-                            blocks_to_return = blocks_by_cloud_pool_name;
-                        } else {
-                            if (first_iteration) {
-                                start_ts = Date.now();
-                                first_iteration = false;
-                            }
+        blocks_correct = true;
+        const obj_mapping_arg = await client.object.read_object_mapping_admin({
+            bucket: bucket_name,
+            key: object_key,
+        });
 
-                            const diff = Date.now() - start_ts;
-                            if (diff > abort_timeout_sec * 1000) {
-                                throw new Error('aborted verify_object_parts_on_cloud_nodes after ' + abort_timeout_sec + ' seconds');
-                            }
-                            return P.delay(500);
-                        }
-                    });
-            })
-        .then(() => blocks_to_return);
+        const blocks_by_cloud_pool_name = { blocks: [] };
+
+        for (let i = 0; i < obj_mapping_arg.parts.length; i++) {
+            const part = obj_mapping_arg.parts[i];
+            if (replicas_in_tier + 1 !== part.chunk.frags[0].blocks.length) {
+                blocks_correct = false;
+            }
+
+            part.chunk.frags.forEach(frag => {
+                frag.blocks.forEach(block => {
+                    if (String(cloud_pool) === String(block.adminfo.pool_name)) {
+                        blocks_by_cloud_pool_name.blocks.push(block);
+                    }
+                });
+            });
+        }
+
+        if (blocks_correct && blocks_by_cloud_pool_name.blocks.length === obj_mapping_arg.parts.length) {
+            console.log('verify_object_parts_on_cloud_nodes blocks found:',
+                util.inspect(blocks_by_cloud_pool_name, { depth: null }));
+            blocks_to_return = blocks_by_cloud_pool_name;
+        } else {
+            if (first_iteration) {
+                start_ts = Date.now();
+                first_iteration = false;
+            }
+
+            const diff = Date.now() - start_ts;
+            if (diff > abort_timeout_sec * 1000) {
+                throw new Error('aborted verify_object_parts_on_cloud_nodes after ' + abort_timeout_sec + ' seconds');
+            }
+            await P.delay(500);
+        }
+    }
+
+    return blocks_to_return;
 }
 
 

@@ -352,7 +352,7 @@ function verify_demo_system(ip) {
         });
 }
 
-function put_object(ip, source, bucket, key, timeout, throw_on_error) {
+async function put_object(ip, source, bucket, key, timeout, throw_on_error) {
     load_demo_config_env(); //switch to Demo system
 
     const rest_endpoint = 'http://' + ip + ':80';
@@ -374,50 +374,44 @@ function put_object(ip, source, bucket, key, timeout, throw_on_error) {
     };
     console.log('about to upload object', params);
     let start_ts = Date.now();
-    return P.ninvoke(s3bucket, 'upload', params)
-        .then(function(res) {
-            console.log('Uploaded object took', (Date.now() - start_ts) / 1000, 'seconds, result', res);
-            load_aws_config_env(); //back to EC2/S3
 
-        }, function(err) {
-            const wait_limit_in_sec = timeout || 1200;
-            const start_moment = moment();
-            let wait_for_agents = (err.statusCode === 500 || err.statusCode === 403);
-            console.log('failed to upload object in loop', err.statusCode, wait_for_agents);
-            return P.pwhile(
-                function() {
-                    return wait_for_agents;
-                },
-                function() {
-                    return P.fcall(function() {
-                        //switch to Demo system
-                        return load_demo_config_env();
-                    }).then(function() {
-                        params.Body = fs.createReadStream(source);
-                        start_ts = Date.now();
-                        return P.ninvoke(s3bucket, 'upload', params)
-                            .then(function(res) {
-                                console.log('Uploaded object took', (Date.now() - start_ts) / 1000, 'seconds, result', res);
-                                load_aws_config_env(); //back to EC2/S3
-                                wait_for_agents = false;
+    try {
+        const res = await s3bucket.upload(params).promise();
+        console.log('Uploaded object took', (Date.now() - start_ts) / 1000, 'seconds, result', res);
+        load_aws_config_env(); //back to EC2/S3
+    } catch (err) {
+        console.log('failed to upload object in loop', err.statusCode);
+        if (![500, 403].includes(err.statusCode)) throw err;
 
-                            }, function(err2) {
-                                console.log('failed to upload. Will wait 10 seconds and retry. err', err2.statusCode);
-                                const curr_time = moment();
-                                if (curr_time.subtract(wait_limit_in_sec, 'second') > start_moment) {
-                                    console.error('failed to upload. cannot wait any more', err2.statusCode);
-                                    load_aws_config_env(); //back to EC2/S3
-                                    wait_for_agents = false;
-                                    if (throw_on_error) {
-                                        throw new Error(err2);
-                                    }
-                                } else {
-                                    return P.delay(10000);
-                                }
-                            });
-                    });
-                });
-        });
+        const wait_limit_in_sec = timeout || 1200;
+        const start_moment = moment();
+
+        /* eslint-disable no-constant-condition */
+        while (true) {
+            const curr_time = moment();
+            if (curr_time.subtract(wait_limit_in_sec, 'second') > start_moment) {
+                console.error('failed to upload. cannot wait any more', err.statusCode);
+                load_aws_config_env(); //back to EC2/S3
+                if (throw_on_error) throw new Error(err);
+                return;
+            }
+
+            await P.delay(10000);
+
+            try {
+                load_demo_config_env(); //switch to Demo system
+                params.Body = fs.createReadStream(source);
+                start_ts = Date.now();
+                const res = await s3bucket.upload(params).promise();
+                console.log('Uploaded object took', (Date.now() - start_ts) / 1000, 'seconds, result', res);
+                load_aws_config_env(); //back to EC2/S3
+                return res;
+            } catch (err2) {
+                console.log('failed to upload. Will wait 10 seconds and retry. err', err2.statusCode);
+            }
+        }
+    }
+
 }
 
 function get_object(ip, obj_path) {

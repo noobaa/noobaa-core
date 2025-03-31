@@ -95,8 +95,6 @@ const block_count = Math.ceil(file_size / block_size);
 const file_size_aligned = block_count * block_size;
 const nb_native = argv.mode === 'nsfs' && require('../util/nb_native');
 const is_master = cluster.isPrimary;
-const start_time = Date.now();
-const end_time = start_time + (argv.time * 1000);
 
 const speedometer = new Speedometer({
     name: 'FS Speed',
@@ -157,6 +155,8 @@ async function io_worker(worker_id, io_worker_id) {
     );
     await fs.promises.mkdir(dir, { recursive: true });
 
+    const start_time = Date.now();
+    const end_time = start_time + (argv.time * 1000);
     for (; ;) {
         const file_start_time = Date.now();
         if (file_start_time >= end_time) break;
@@ -169,18 +169,21 @@ async function io_worker(worker_id, io_worker_id) {
         }
         try {
             if (argv.mode === 'nsfs') {
-                await work_with_nsfs(file_path);
+                await work_with_nsfs(file_path, end_time);
             } else if (argv.mode === 'nodejs') {
-                await work_with_nodejs(file_path);
+                await work_with_nodejs(file_path, end_time);
             } else if (argv.mode === 'dd') {
-                await work_with_dd(file_path);
+                await work_with_dd(file_path, end_time);
             }
             const took_ms = Date.now() - file_start_time;
             speedometer.update(0, took_ms);
         } catch (err) {
-            if (argv.read && err.code === 'ENOENT') {
-                // console.warn('file not found', file_path);
-                await fs.promises.mkdir(hash_dir, { recursive: true });
+            if (err.code === 'ENOENT') {
+                if (argv.read) {
+                    console.warn('file not found', file_path);
+                } else {
+                    await fs.promises.mkdir(hash_dir, { recursive: true });
+                }
             } else {
                 throw err;
             }
@@ -188,7 +191,7 @@ async function io_worker(worker_id, io_worker_id) {
     }
 }
 
-async function work_with_dd(file_path) {
+async function work_with_dd(file_path, end_time) {
     const cmd = argv.read ?
         `dd if=${file_path} of=/dev/null bs=${block_size} count=${block_count}` :
         `dd if=${argv.device} of=${file_path} bs=${block_size} count=${block_count}`;
@@ -198,7 +201,7 @@ async function work_with_dd(file_path) {
     speedometer.update(file_size_aligned);
 }
 
-async function work_with_nsfs(file_path) {
+async function work_with_nsfs(file_path, end_time) {
     const rand_stream = new RandStream(file_size_aligned, {
         highWaterMark: 2 * block_size,
         generator: argv.read ? 'noinit' : argv.generator,
@@ -232,7 +235,7 @@ async function work_with_nsfs(file_path) {
     await file.close(fs_context);
 }
 
-async function work_with_nodejs(file_path) {
+async function work_with_nodejs(file_path, end_time) {
     const rand_stream = new RandStream(file_size_aligned, {
         highWaterMark: 2 * block_size,
         generator: argv.read ? 'noinit' : argv.generator,

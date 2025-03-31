@@ -164,9 +164,9 @@ async function workers_func() {
 }
 
 async function init_list_existing() {
-    console.log('Listing objects in bucket', argv.bucket, 'prefix', argv.prefix);
+    console.log('Listing existing objects in bucket', argv.bucket, 'prefix', argv.prefix);
     _list_objects = await list_fanout(argv.prefix);
-    if (!_list_objects.length) throw new Error('No existing objects found');
+    if (!_list_objects.length) throw new Error(`No existing objects found in prefix ${argv.prefix}`);
     console.log('Got', _list_objects.length, 'objects');
 }
 

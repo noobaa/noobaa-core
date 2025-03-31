@@ -76,7 +76,7 @@ class Speedometer {
     set_interval(delay_ms) {
         delay_ms ||= this.is_primary() ? 1000 : 300;
         this.clear_interval();
-        this.interval = setInterval(() => this.on_interval(), delay_ms);
+        this.interval = setInterval(() => this._on_interval(), delay_ms);
         this.interval.unref();
     }
 
@@ -110,7 +110,7 @@ class Speedometer {
     /**
      * @param {Bulk} bulk
      */
-    update_bulk({ bytes, ops, sum_latency, min_latency, max_latency, latency_sketch }) {
+    _update_bulk({ bytes, ops, sum_latency, min_latency, max_latency, latency_sketch }) {
         this.num_bytes += bytes;
         this.num_ops += ops;
         this.sum_latency += sum_latency;
@@ -123,7 +123,7 @@ class Speedometer {
     /**
      * @returns {Bulk}
      */
-    get_bulk() {
+    _get_bulk() {
         const bytes = this.num_bytes;
         const ops = this.num_ops;
         const sum_latency = this.sum_latency;
@@ -133,9 +133,9 @@ class Speedometer {
         return { bytes, ops, sum_latency, min_latency, max_latency, latency_sketch };
     }
 
-    on_interval(min_delay_ms) {
+    _on_interval(min_delay_ms) {
         if (cluster.isWorker) {
-            process.send({ op: 'update', bulk: this.get_bulk() });
+            process.send({ op: 'update', bulk: this._get_bulk() });
             this.reset();
         } else {
             this.report();
@@ -144,11 +144,9 @@ class Speedometer {
 
     async start() {
         process.on('SIGINT', signal => this._on_signal(signal));
+        await this._init_primary(),
         await this._start_workers();
-        await Promise.all([
-            this._init_primary(),
-            this._workers_ready(),
-        ]);
+        await this._workers_ready(),
         await this._init_workers();
         await this._run_workers();
         if (cluster.isPrimary && this.argv) {
@@ -163,9 +161,9 @@ class Speedometer {
 
     async _start_workers() {
         if (cluster.isWorker) {
-            process.on('message', msg => this.on_message_to_worker(/** @type {Message} */(msg)));
+            process.on('message', msg => this._on_message_to_worker(/** @type {Message} */(msg)));
         } else if (cluster.isPrimary && this.num_workers > 1) {
-            cluster.on('message', (worker, msg) => this.on_message_from_worker(worker, msg));
+            cluster.on('message', (worker, msg) => this._on_message_from_worker(worker, msg));
             cluster.on('exit', (worker, code, signal) => this._on_worker_exit(worker, code, signal));
             this.workers = {};
             for (let i = 0; i < this.num_workers; ++i) {
@@ -266,7 +264,7 @@ class Speedometer {
      * @param {Worker} worker 
      * @param {Message} msg 
      */
-    on_message_from_worker(worker, msg) {
+    _on_message_from_worker(worker, msg) {
         if (!msg) return;
         // console.log(`SPEEDOMETER: on_message_from_worker ${worker.id} pid ${worker.process.pid} msg`, msg);
         if (msg.op === 'ready') {
@@ -276,7 +274,7 @@ class Speedometer {
             worker[STATE].inited = true;
             this._waitqueue.wakeup();
         } else if (msg.op === 'update') {
-            this.update_bulk(msg.bulk);
+            this._update_bulk(msg.bulk);
         } else if (msg.op === 'done') {
             worker[STATE].done = true;
             this._waitqueue.wakeup();
@@ -288,7 +286,7 @@ class Speedometer {
     /**
      * @param {Message} msg 
      */
-    on_message_to_worker(msg) {
+    _on_message_to_worker(msg) {
         if (!msg) return;
         // console.log('SPEEDOMETER: on_message_to_worker', msg);
         if (msg.op === 'init') {

@@ -105,7 +105,6 @@
     "mongodb": "3.7.4",
     "morgan": "1.10.0",
     "nan": "2.22.2",
-    "ncp": "2.0.0",
     "node-addon-api": "8.3.1",
     "node-rdkafka": "3.3.1",
     "performance-now": "2.1.0",

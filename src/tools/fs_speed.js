@@ -153,14 +153,15 @@ async function io_worker(worker_id, io_worker_id) {
     const start_time = Date.now();
     const end_time = start_time + (argv.time * 1000);
     for (; ;) {
-        const file_start_time = Date.now();
-        if (file_start_time >= end_time) break;
+        const now = Date.now();
+        if (now >= end_time) break;
+        const start = process.hrtime.bigint();
         let file_path;
-        const hash_dir = path.join(dir, String(file_start_time % 256));
+        const hash_dir = path.join(dir, String(now % 256));
         if (argv.read) {
             file_path = _read_files[crypto.randomInt(0, _read_files.length)];
         } else {
-            file_path = path.join(hash_dir, `file${size_name}-${file_start_time.toString(36)}`);
+            file_path = path.join(hash_dir, `file${size_name}-${now.toString(36)}`);
         }
         try {
             if (argv.mode === 'nsfs') {
@@ -170,7 +171,7 @@ async function io_worker(worker_id, io_worker_id) {
             } else if (argv.mode === 'dd') {
                 await work_with_dd(file_path, end_time);
             }
-            const took_ms = Date.now() - file_start_time;
+            const took_ms = Number(process.hrtime.bigint() - start) / 1e6;
             speedometer.update(0, took_ms);
         } catch (err) {
             if (err.code === 'ENOENT') {

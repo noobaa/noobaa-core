@@ -9,7 +9,6 @@ const path = require('path');
 const util = require('util');
 const mime = require('mime-types');
 const stream = require('stream');
-const { v4: uuidv4 } = require('uuid');
 const P = require('../util/promise');
 const dbg = require('../util/debug_module')(__filename);
 const config = require('../../config');

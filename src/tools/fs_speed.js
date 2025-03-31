@@ -8,7 +8,6 @@ const util = require('util');
 const path = require('path');
 const crypto = require('crypto');
 const argv = require('minimist')(process.argv);
-const { cluster } = require('../util/fork_utils');
 const execAsync = util.promisify(require('child_process').exec);
 const Speedometer = require('../util/speedometer');
 const RandStream = require('../util/rand_stream');
@@ -94,7 +93,6 @@ const size_name = String(argv.file_size) + String(argv.file_size_units);
 const block_count = Math.ceil(file_size / block_size);
 const file_size_aligned = block_count * block_size;
 const nb_native = argv.mode === 'nsfs' && require('../util/nb_native');
-const is_master = cluster.isPrimary;
 
 const speedometer = new Speedometer({
     name: 'FS Speed',
@@ -137,9 +135,6 @@ async function workers_func(worker_id, worker_info) {
     fs.mkdirSync(argv.path, { recursive: true });
     for (let i = 0; i < argv.concur; ++i) promises.push(io_worker(worker_id, i));
     await Promise.all(promises);
-    speedometer.clear_interval();
-    if (is_master) speedometer.report();
-    process.exit(0);
 }
 
 /**

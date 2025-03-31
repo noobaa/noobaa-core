@@ -69,7 +69,6 @@ if (argv.mode === 'dd') {
 }
 
 Object.freeze(argv);
-console.log(argv);
 
 if (!['nsfs', 'nodejs', 'dd'].includes(argv.mode)) {
     throw new Error('Invalid mode ' + argv.mode);

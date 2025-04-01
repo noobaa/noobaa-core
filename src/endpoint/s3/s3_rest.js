@@ -36,7 +36,7 @@ const BUCKET_SUB_RESOURCES = Object.freeze({
     'policy': 'policy',
     'policyStatus': 'policy_status',
     'replication': 'replication',
-    'requestPayment': 'requestPayment',
+    'requestPayment': 'request_payment',
     'tagging': 'tagging',
     'uploads': 'uploads',
     'versioning': 'versioning',

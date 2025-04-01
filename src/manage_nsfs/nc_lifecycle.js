@@ -18,6 +18,7 @@ const { throw_cli_error, get_service_status, NOOBAA_SERVICE_NAME,
     is_desired_time, record_current_time } = require('./manage_nsfs_cli_utils');
 const SensitiveString = require('../util/sensitive_string');
 const {CONFIG_TYPES} = require('../sdk/config_fs');
+const lifecycle_utils = require('../util/lifecycle_utils');
 
 // TODO:
 // implement
@@ -53,11 +54,12 @@ const TIMED_OPS = Object.freeze({
  * run_lifecycle_under_lock runs the lifecycle workflow under a file system lock
  * lifecycle workflow is being locked to prevent multiple instances from running the lifecycle workflow
  * @param {import('../sdk/config_fs').ConfigFS} config_fs
- * @param {{disable_service_validation?: boolean, disable_runtime_validation?: boolean, short_status?: boolean}} flags
+ * @param {{disable_service_validation?: boolean, disable_runtime_validation?: boolean, short_status?: boolean, should_continue_last_run?: boolean}} flags
  * @returns {Promise<{should_run: Boolean, lifecycle_run_status: Object}>}
  */
 async function run_lifecycle_under_lock(config_fs, flags) {
-    const { disable_service_validation = false, disable_runtime_validation = false, short_status = false } = flags;
+    const { disable_service_validation = false, disable_runtime_validation = false, short_status = false,
+        should_continue_last_run = false } = flags;
     return_short_status = short_status;
     const fs_context = config_fs.fs_context;
     const lifecyle_logs_dir_path = config.NC_LIFECYCLE_LOGS_DIR;
@@ -76,7 +78,7 @@ async function run_lifecycle_under_lock(config_fs, flags) {
         try {
             dbg.log0('run_lifecycle_under_lock acquired lock - start lifecycle');
             new NoobaaEvent(NoobaaEvent.LIFECYCLE_STARTED).create_event();
-            await run_lifecycle_or_timeout(config_fs, disable_service_validation);
+            await run_lifecycle_or_timeout(config_fs, disable_service_validation, should_continue_last_run);
         } catch (err) {
             dbg.error('run_lifecycle_under_lock failed with error', err, err.code, err.message);
             throw err;
@@ -96,13 +98,13 @@ async function run_lifecycle_under_lock(config_fs, flags) {
  * @param {boolean} disable_service_validation
  * @returns {Promise<Void>}
  */
-async function run_lifecycle_or_timeout(config_fs, disable_service_validation) {
+async function run_lifecycle_or_timeout(config_fs, disable_service_validation, should_continue_last_run) {
     await _call_op_and_update_status({
         op_name: TIMED_OPS.RUN_LIFECYLE,
         op_func: async () => {
             await P.timeout(
                 config.NC_LIFECYCLE_TIMEOUT_MS,
-                run_lifecycle(config_fs, disable_service_validation),
+                run_lifecycle(config_fs, disable_service_validation, should_continue_last_run),
                 () => ManageCLIError.LifecycleWorkerReachedTimeout
             );
         }
@@ -115,7 +117,7 @@ async function run_lifecycle_or_timeout(config_fs, disable_service_validation) {
  * @param {boolean} disable_service_validation
  * @returns {Promise<Void>}
  */
-async function run_lifecycle(config_fs, disable_service_validation) {
+async function run_lifecycle(config_fs, disable_service_validation, should_continue_last_run) {
     const system_json = await config_fs.get_system_config_file(config_fs_options);
     if (!disable_service_validation) await throw_if_noobaa_not_active(config_fs, system_json);
 
@@ -123,6 +125,10 @@ async function run_lifecycle(config_fs, disable_service_validation) {
         op_name: TIMED_OPS.LIST_BUCKETS,
         op_func: async () => config_fs.list_buckets()
     });
+
+    if (should_continue_last_run) {
+        await load_previous_run_state(bucket_names, config_fs);
+    }
 
     await _call_op_and_update_status({
         op_name: TIMED_OPS.PROCESS_BUCKETS,
@@ -185,7 +191,6 @@ async function process_bucket(config_fs, bucket_name, system_json) {
  */
 async function process_rules(config_fs, bucket_json, object_sdk, should_notify) {
     try {
-        lifecycle_run_status.buckets_statuses[bucket_json.name].state ??= {};
         const bucket_state = lifecycle_run_status.buckets_statuses[bucket_json.name].state;
         bucket_state.num_processed_objects = 0;
         while (!bucket_state.is_finished && bucket_state.num_processed_objects < config.NC_LIFECYCLE_BUCKET_BATCH_SIZE) {
@@ -409,7 +414,7 @@ async function throw_if_noobaa_not_active(config_fs, system_json) {
  */
 async function get_candidates(bucket_json, lifecycle_rule, object_sdk, fs_context) {
     const candidates = { abort_mpu_candidates: [], delete_candidates: [] };
-    const rule_state = lifecycle_run_status.buckets_statuses[bucket_json.name].rules_statuses[lifecycle_rule.id]?.state || {};
+    const rule_state = lifecycle_run_status.buckets_statuses[bucket_json.name].rules_statuses[lifecycle_rule.id].state;
     if (lifecycle_rule.expiration) {
         candidates.delete_candidates = await get_candidates_by_expiration_rule(lifecycle_rule, bucket_json, object_sdk, rule_state);
         if (lifecycle_rule.expiration.days || lifecycle_rule.expiration.expired_object_delete_marker) {
@@ -755,9 +760,9 @@ function update_status({ bucket_name, rule_id, op_name, op_times, reply = [], er
     // TODO - check errors
     if (op_times.start_time) {
         if (op_name === TIMED_OPS.PROCESS_RULE) {
-            lifecycle_run_status.buckets_statuses[bucket_name].rules_statuses[rule_id] = { rule_process_times: {}, rule_stats: {} };
+            init_rule_status(bucket_name, rule_id);
         } else if (op_name === TIMED_OPS.PROCESS_BUCKET) {
-            lifecycle_run_status.buckets_statuses[bucket_name] = { bucket_process_times: {}, bucket_stats: {}, rules_statuses: {} };
+            init_bucket_status(bucket_name);
         }
     }
     _update_times_on_status({ op_name, op_times, bucket_name, rule_id });
@@ -880,6 +885,60 @@ async function write_lifecycle_log_file(fs_context, lifecyle_logs_dir_path) {
         Buffer.from(JSON.stringify(lifecycle_run_status)),
         { mode: native_fs_utils.get_umasked_mode(config.BASE_MODE_FILE) }
     );
+}
+
+/**
+ * init the bucket status object statuses if they don't exist
+ * @param {string} bucket_name
+ * @returns {Object} created or existing bucket status
+ */
+function init_bucket_status(bucket_name) {
+    lifecycle_run_status.buckets_statuses[bucket_name] ??= {};
+    lifecycle_run_status.buckets_statuses[bucket_name].rules_statuses ??= {};
+    lifecycle_run_status.buckets_statuses[bucket_name].state ??= {};
+    lifecycle_run_status.buckets_statuses[bucket_name].bucket_process_times = {};
+    lifecycle_run_status.buckets_statuses[bucket_name].bucket_stats = {};
+    return lifecycle_run_status.buckets_statuses[bucket_name];
+}
+
+/**
+ * init the rule status object statuses if they don't exist
+ * @param {string} bucket_name
+ * @param {string} rule_id
+ * @returns {Object} created or existing rule status
+ */
+function init_rule_status(bucket_name, rule_id) {
+    lifecycle_run_status.buckets_statuses[bucket_name].rules_statuses[rule_id] ??= {};
+    lifecycle_run_status.buckets_statuses[bucket_name].rules_statuses[rule_id].state ??= {};
+    lifecycle_run_status.buckets_statuses[bucket_name].rules_statuses[rule_id].rule_process_times = {};
+    lifecycle_run_status.buckets_statuses[bucket_name].rules_statuses[rule_id].rule_stats = {};
+    return lifecycle_run_status.buckets_statuses[bucket_name].rules_statuses[rule_id];
+}
+
+/**
+ *
+ * @param {Object[]} buckets
+ * @param {Object} config_fs
+ * @returns
+ */
+async function load_previous_run_state(buckets, config_fs) {
+    const previous_run = await lifecycle_utils.get_latest_nc_lifecycle_run_status(config_fs, { silent_if_missing: true });
+    if (previous_run) {
+        lifecycle_run_status.state = previous_run.state;
+        for (const [bucket_name, prev_bucket_status] of Object.entries(previous_run.buckets_statuses)) {
+            if (!buckets.includes(bucket_name)) continue;
+            const bucket_json = await config_fs.get_bucket_by_name(bucket_name, config_fs_options);
+            if (!bucket_json.lifecycle_configuration_rules) continue;
+            const bucket_status = init_bucket_status(bucket_name);
+            bucket_status.state = prev_bucket_status.state;
+            const bucket_rules = bucket_json.lifecycle_configuration_rules.map(rule => rule.id);
+            for (const [rule_id, prev_rule_status] of Object.entries(prev_bucket_status.rules_statuses)) {
+                if (!bucket_rules.includes(rule_id)) return;
+                const rule_status = init_rule_status(bucket_name, rule_id);
+                rule_status.state = prev_rule_status.state;
+            }
+        }
+    }
 }
 
 // EXPORTS

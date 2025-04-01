@@ -3,7 +3,6 @@
 
 const dbg = require('../util/debug_module')(__filename);
 const _ = require('lodash');
-const path = require('path');
 const P = require('../util/promise');
 const config = require('../../config');
 const os_util = require('../util/os_utils');
@@ -18,6 +17,7 @@ const { get_boolean_or_string_value, throw_cli_error, write_stdout_response,
 const { ManageCLIResponse } = require('./manage_nsfs_cli_responses');
 const ManageCLIError = require('./manage_nsfs_cli_errors').ManageCLIError;
 const notifications_util = require('../util/notifications_util');
+const lifecycle_utils = require('../util/lifecycle_utils');
 
 
 const HOSTNAME = 'localhost';
@@ -462,36 +462,15 @@ class NSFSHealth {
      * @returns {Promise<object>}
      */
     async get_lifecycle_health_status() {
-        const latest_lifecycle_run_status = await this.get_latest_lifecycle_run_status({ silent_if_missing: true });
+        const latest_lifecycle_run_status = await lifecycle_utils.get_latest_nc_lifecycle_run_status(
+            this.config_fs,
+            { silent_if_missing: true });
         if (!latest_lifecycle_run_status) return {};
         return {
             total_stats: latest_lifecycle_run_status.total_stats,
             lifecycle_run_times: latest_lifecycle_run_status.lifecycle_run_times,
             errors: latest_lifecycle_run_status.errors
         };
-    }
-
-
-     /**
-     * get_latest_lifecycle_run_status returns the latest lifecycle run status
-     * latest run can be found by maxing the lifecycle log entry names, log entry name is the lifecycle_run_{timestamp}.json of the run
-     * @params {{silent_if_missing: boolean}} options
-     * @returns {Promise<object | undefined >}
-     */
-    async get_latest_lifecycle_run_status(options) {
-        const { silent_if_missing = false } = options;
-        try {
-            const lifecycle_log_entries = await nb_native().fs.readdir(this.config_fs.fs_context, config.NC_LIFECYCLE_LOGS_DIR);
-            const latest_lifecycle_run = _.maxBy(lifecycle_log_entries, entry => entry.name);
-            const latest_lifecycle_run_status_path = path.join(config.NC_LIFECYCLE_LOGS_DIR, latest_lifecycle_run.name);
-            const latest_lifecycle_run_status = await this.config_fs.get_config_data(latest_lifecycle_run_status_path, options);
-            return latest_lifecycle_run_status;
-        } catch (err) {
-            if (err.code === 'ENOENT' && silent_if_missing) {
-                return;
-            }
-            throw err;
-        }
     }
 
     /**

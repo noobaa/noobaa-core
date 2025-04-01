@@ -889,8 +889,9 @@ async function lifecycle_management(args) {
     const disable_service_validation = get_boolean_or_string_value(args.disable_service_validation);
     const disable_runtime_validation = get_boolean_or_string_value(args.disable_runtime_validation);
     const short_status = get_boolean_or_string_value(args.short_status);
+    const should_continue_last_run = get_boolean_or_string_value(args.continue);
     try {
-        const options = { disable_service_validation, disable_runtime_validation, short_status };
+        const options = { disable_service_validation, disable_runtime_validation, short_status, should_continue_last_run };
         const { should_run, lifecycle_run_status } = await noobaa_cli_lifecycle.run_lifecycle_under_lock(config_fs, options);
         if (should_run) {
             write_stdout_response(ManageCLIResponse.LifecycleSuccessful, lifecycle_run_status);

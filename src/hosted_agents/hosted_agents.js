@@ -79,8 +79,9 @@ class HostedAgents {
     }
 
 
-    _monitor_stats() {
-        P.pwhile(() => true, () => {
+    async _monitor_stats() {
+        /* eslint-disable no-constant-condition */
+        while (true) {
             const cpu_usage = process.cpuUsage(this.cpu_usage); //usage since last sample
             const mem_usage = process.memoryUsage();
             dbg.log0(`hosted_agent_stats_titles - process: cpu_usage_user, cpu_usage_sys, mem_usage_rss`);
@@ -94,11 +95,9 @@ class HostedAgents {
                 }
             }
             this.cpu_usage = cpu_usage;
-            return P.delay(60000);
-        });
+            await P.delay(60000);
+        }
     }
-
-
 
     async _start_pool_agent(pool) {
         if (!this._started) return;

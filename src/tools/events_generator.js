@@ -168,10 +168,10 @@ EventsGenerator.prototype.init = function() {
         });
 };
 
-EventsGenerator.prototype.generate_alerts = function(num, pri) {
-    let priorites = [];
+EventsGenerator.prototype.generate_alerts = async function(num, pri) {
+    let priorities = [];
     if (pri === 'ALL') {
-        priorites = ALERTS_PRI;
+        priorities = ALERTS_PRI;
     } else {
         if (!ALERTS_PRI.find(function(p) {
                 return p === pri;
@@ -179,26 +179,22 @@ EventsGenerator.prototype.generate_alerts = function(num, pri) {
             console.warn('No such priority', pri);
             events.print_usage();
         }
-        priorites = [pri];
+        priorities = [pri];
     }
 
-    const pri_size = priorites.length;
+    const pri_size = priorities.length;
     const alerts_size = ALERTS_SAMPLES.length;
-    let count = 0;
-    return P.pwhile(() => count < num,
-        () => {
-            count += 1;
-            const alchosen = Math.floor(Math.random() * (alerts_size));
-            const prichosen = Math.floor(Math.random() * (pri_size));
-            return P.resolve()
-                .then(() => Dispatcher.instance().alert(priorites[prichosen],
-                    sysid,
-                    ALERTS_SAMPLES[alchosen]))
-                .then(() => P.delay(1000));
-        });
+    for (let count = 0; count < num; ++count) {
+        const alchosen = Math.floor(Math.random() * (alerts_size));
+        const prichosen = Math.floor(Math.random() * (pri_size));
+        await Dispatcher.instance().alert(priorities[prichosen],
+            sysid,
+            ALERTS_SAMPLES[alchosen]);
+        await P.delay(1000);
+    }
 };
 
-EventsGenerator.prototype.generate_audit = function(num, cat) {
+EventsGenerator.prototype.generate_audit = async function(num, cat) {
     const events_pool = [];
     if (cat === 'ALL') {
         _.map(_.keys(EXISTING_AUDIT_LOGS), c => {
@@ -238,37 +234,34 @@ EventsGenerator.prototype.generate_audit = function(num, cat) {
     }
 
     const logs_size = events_pool.length;
-    let count = 0;
-    return P.pwhile(() => count < num,
-        () => {
-            count += 1;
-            const chosen = Math.floor(Math.random() * (logs_size));
-            return P.resolve()
-                .then(() => Dispatcher.instance().activity(_.clone(events_pool[chosen])))
-                .then(() => P.delay(1000));
-        });
+    for (let count = 0; count < num; ++count) {
+        const chosen = Math.floor(Math.random() * (logs_size));
+        await Dispatcher.instance().activity(_.clone(events_pool[chosen]));
+        await P.delay(1000);
+    }
 };
-EventsGenerator.prototype.send_alert = function(alert, sev, rule) {
-    return P.resolve()
-        .then(() => {
-            if (rule) {
-                if (!Dispatcher.rules[rule]) {
-                    console.warn('No such rule implemented', rule);
-                    process.exit(1);
-                }
-                return Dispatcher.instance().alert(sev,
-                    sysid,
-                    alert,
-                    Dispatcher.rules[rule]
-                );
-            } else {
-                return Dispatcher.instance().alert(sev,
-                    sysid,
-                    alert
-                );
-            }
-        })
-        .then(() => P.delay(500));
+
+
+EventsGenerator.prototype.send_alert = async function(alert, sev, rule) {
+
+    if (rule) {
+        if (!Dispatcher.rules[rule]) {
+            console.warn('No such rule implemented', rule);
+            process.exit(1);
+        }
+        await Dispatcher.instance().alert(sev,
+            sysid,
+            alert,
+            Dispatcher.rules[rule]
+        );
+    } else {
+        await Dispatcher.instance().alert(sev,
+            sysid,
+            alert
+        );
+    }
+
+    await P.delay(500);
 };
 
 EventsGenerator.prototype.print_usage = function() {

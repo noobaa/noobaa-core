@@ -725,117 +725,103 @@ async function upload_new_files() {
     console.timeEnd('dataset upload');
 }
 
-function run_test(throw_on_fail) {
-    return P.resolve()
-        .then(() => log_journal_file(`${CFG_MARKER}${DATASET_NAME}-${JSON.stringify(TEST_CFG)}`))
-        .then(() => upload_new_files()
-            // aging
-            .then(() => {
-                if (argv.no_aging) {
-                    console.log('skipping aging stage');
-                    return;
-                }
-                TEST_STATE.aging = true;
-                const start = Date.now();
-                if (TEST_CFG.aging_timeout !== 0) {
-                    console.log(`will run aging for ${TEST_CFG.aging_timeout} minutes`);
-                }
-                return P.pwhile(() =>
-                    (TEST_CFG.aging_timeout === 0 || ((Date.now() - start) / (60 * 1000)) < TEST_CFG.aging_timeout), () => {
-                        console.log(`Aging... currently uploaded ${TEST_STATE.current_size} ${TEST_CFG.size_units} from desired ${
-                            TEST_CFG.dataset_size} ${TEST_CFG.size_units}`);
-                        let action_type;
-                        if (TEST_STATE.current_size > TEST_CFG.dataset_size) {
-                            console.log(`${Yellow}the current dataset size is ${
-                                TEST_STATE.current_size}${TEST_CFG.size_units} and the requested dataset size is ${
-                                TEST_CFG.dataset_size}${TEST_CFG.size_units}, going to delete${NC}`);
-                            action_type = Math.round(Math.random()) ? 'DELETE' : 'MULTI_DELETE';
-                        } else {
-                            action_type = 'RANDOM';
-                        }
-                        return P.resolve()
-                            .then(() => act_and_log(action_type));
-                    });
-            })
-            .then(async () => {
-                await report.report();
-            })
-            .then(() => {
-                console.log(`Everything finished with success!`);
-                if (!TEST_CFG.no_exit_on_success) process.exit(0);
-            })
-            .catch(async err => {
-                await report.report();
-                console.error(`Errors during test`, err);
-                if (throw_on_fail) {
-                    throw new Error(`dataset failed`);
+async function run_test(throw_on_fail) {
+    try {
+        await log_journal_file(`${CFG_MARKER}${DATASET_NAME}-${JSON.stringify(TEST_CFG)}`);
+        await upload_new_files();
+
+        // aging
+        if (argv.no_aging) {
+            console.log('skipping aging stage');
+            return;
+        } else {
+            TEST_STATE.aging = true;
+            const start = Date.now();
+            if (TEST_CFG.aging_timeout !== 0) {
+                console.log(`will run aging for ${TEST_CFG.aging_timeout} minutes`);
+            }
+            while ((TEST_CFG.aging_timeout === 0 || ((Date.now() - start) / (60 * 1000)) < TEST_CFG.aging_timeout)) {
+                console.log(`Aging... currently uploaded ${TEST_STATE.current_size} ${TEST_CFG.size_units} from desired ${
+                    TEST_CFG.dataset_size} ${TEST_CFG.size_units}`);
+                let action_type;
+                if (TEST_STATE.current_size > TEST_CFG.dataset_size) {
+                    console.log(`${Yellow}the current dataset size is ${
+                        TEST_STATE.current_size}${TEST_CFG.size_units} and the requested dataset size is ${
+                        TEST_CFG.dataset_size}${TEST_CFG.size_units}, going to delete${NC}`);
+                    action_type = Math.round(Math.random()) ? 'DELETE' : 'MULTI_DELETE';
                 } else {
-                    process.exit(4);
+                    action_type = 'RANDOM';
                 }
-            }));
+                await act_and_log(action_type);
+            }
+        }
+        await report.report();
+
+        console.log(`Everything finished with success!`);
+        if (!TEST_CFG.no_exit_on_success) process.exit(0);
+
+    } catch (err) {
+        await report.report();
+        console.error(`Errors during test`, err);
+        if (throw_on_fail) {
+            throw new Error(`dataset failed`);
+        } else {
+            process.exit(4);
+        }
+    }
 }
 
-function run_replay() {
-    const journal = [];
-    const readfile = readline.createInterface({
-        input: fs.createReadStream(argv.replay),
-        terminal: false
-    });
-    return new Promise((resolve, reject) => {
-            readfile
-                .on('line', line => journal.push(line))
-                .once('error', reject)
-                .once('close', resolve);
-        })
-        .then(() => {
-            //first line should contain the TEST_CFG
-            console.log(`journal[0] ${journal[0]}`);
-            if (!journal[0].startsWith(`${CFG_MARKER}`)) {
-                console.error('Expected CFG as first line of replay');
-                process.exit(5);
-            }
-            TEST_CFG = JSON.parse(journal[0].slice(CFG_MARKER.length + DATASET_NAME.length + 1));
-            let iline = 1;
-            let idx;
-            let current_action;
-            let current_params;
-            return P.pwhile(
-                () => iline < journal.length,
-                () => P.resolve()
-                .then(() => {
-                    //split action from params
-                    current_params = JSON.parse(journal[iline].slice(ACTION_MARKER.length));
-                    current_action = current_params.action;
-                    delete current_params.action;
-                    console.log(`Calling ${current_action} with parameters ${util.inspect(current_params)}`);
-                    //run single selected activity
-                    idx = _.findIndex(ACTION_TYPES, ac => ac.name === current_action);
-                    if (idx === -1) {
-                        console.error(`Cannot find action ${current_action}`);
-                        process.exit(1);
-                    } else {
-                        return ACTION_TYPES[idx].action(current_params);
-                    }
-
-                })
-                .then(() => report.success(current_action))
-                .catch(err => report.fail(current_action)
-                    .then(() => {
-                        console.error(`Failed replaying action ${current_action} with ${err}`);
-                        throw err;
-                    })
-                )
-                .finally(() => {
-                    iline += 1;
-                })
-            );
-        })
-        .then(async () => report.report())
-        .catch(async err => {
-            await report.report();
-            console.error('Failed replaying journal file ', err);
-            process.exit(5);
+async function run_replay() {
+    try {
+        const journal = [];
+        const readfile = readline.createInterface({
+            input: fs.createReadStream(argv.replay),
+            terminal: false
         });
+
+        for await (const line of readfile) {
+            journal.push(line);
+        }
+
+        //first line should contain the TEST_CFG
+        console.log(`journal[0] ${journal[0]}`);
+        if (!journal[0].startsWith(`${CFG_MARKER}`)) {
+            console.error('Expected CFG as first line of replay');
+            process.exit(5);
+        }
+
+        TEST_CFG = JSON.parse(journal[0].slice(CFG_MARKER.length + DATASET_NAME.length + 1));
+
+        for (let iline = 1; iline < journal.length; iline++) {
+            let current_action;
+            try {
+                //split action from params
+                const current_params = JSON.parse(journal[iline].slice(ACTION_MARKER.length));
+                current_action = current_params.action;
+                delete current_params.action;
+                console.log(`Calling ${current_action} with parameters ${util.inspect(current_params)}`);
+                //run single selected activity
+                const idx = _.findIndex(ACTION_TYPES, ac => ac.name === current_action);
+                if (idx === -1) {
+                    console.error(`Cannot find action ${current_action}`);
+                    process.exit(1);
+                }
+
+                await ACTION_TYPES[idx].action(current_params);
+                report.success(current_action);
+            } catch (err) {
+                console.error(`Failed action ${journal[iline]} with error ${err}`);
+                report.fail(current_action);
+                throw err;
+            }
+        }
+
+        await report.report();
+    } catch (err) {
+        await report.report();
+        console.error('Failed replaying journal file ', err);
+        process.exit(5);
+    }
 }
 
 async function main() {

@@ -260,18 +260,6 @@ async function fromCallback(receiver) {
     });
 }
 
-
-/**
- * @deprecated LEGACY PROMISE UTILS - DEPRECATED IN FAVOR OF ASYNC-AWAIT
- * @param {() => boolean} condition 
- * @param {() => Promise} body 
- */
-async function pwhile(condition, body) {
-    while (condition()) {
-        await body();
-    }
-}
-
 /**
  * Wait until an async condition is met.
  * @deprecated LEGACY PROMISE UTILS - DEPRECATED IN FAVOR OF ASYNC-AWAIT
@@ -312,8 +300,7 @@ exports.resolve = val => Promise.resolve(val);
 exports.reject = err => Promise.reject(err);
 exports.all = arr => Promise.all(arr);
 // deprecated
-exports.fromCallback = fromCallback; // 44 occurrences
+exports.fromCallback = fromCallback; // 30 occurrences
 exports.fcall = fcall; // 59 occurrences
-exports.ninvoke = ninvoke; // 30 occurrences
-exports.wait_until = wait_until; // 20 occurrences
-exports.pwhile = pwhile; // 15 occurrences
+exports.ninvoke = ninvoke; // 26 occurrences
+exports.wait_until = wait_until; // 21 occurrences

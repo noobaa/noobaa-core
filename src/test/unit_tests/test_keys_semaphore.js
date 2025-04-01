@@ -31,35 +31,31 @@ mocha.describe('keys_semaphore', function() {
     });
 
 
-    mocha.it('should allow 2 callers', function() {
-        const ks = new KeysSemaphore(3, {
+    mocha.it('should allow 2 callers', async function() {
+        const ks = new KeysSemaphore(2, {
             timeout: 5000
         });
         let func1_executed = false;
         let func2_executed = false;
 
-        function func1() {
+        async function func1() {
             func1_executed = true;
             // func1 will not finish before func2 is executed
-            return P.pwhile(
-                () => !func2_executed,
-                () => P.delay(100));
+            await P.delay(300);
+            assert.strictEqual(func2_executed, true); // func2 should be executed before func1 finishes
         }
 
-        function func2() {
+        async function func2() {
             func2_executed = true;
+            await P.delay(100);
         }
 
-        ks.surround_key('test2', func1);
+        const key = 'test2';
+        await Promise.all([ks.surround_key(key, func1), ks.surround_key(key, func2)]);
 
-        return ks.surround_key('test2', func2)
-            .then(() => {
-                assert.strictEqual(func1_executed, true);
-                assert.strictEqual(func2_executed, true);
-            });
+        assert.strictEqual(func1_executed, true);
+        assert.strictEqual(func2_executed, true);
 
     });
-
-
 
 });

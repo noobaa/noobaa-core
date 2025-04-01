@@ -54,7 +54,7 @@ const is_nc_coretest = process.env.NC_CORETEST === 'true';
  * @param {*} blocks 
  * @param {AWS.S3} s3 
  */
-function blocks_exist_on_cloud(need_to_exist, pool_id, bucket_name, blocks, s3) {
+async function blocks_exist_on_cloud(need_to_exist, pool_id, bucket_name, blocks, s3) {
     console.log('blocks_exist_on_cloud::', need_to_exist, pool_id, bucket_name);
     let isDone = true;
     // Time in seconds to wait, notice that it will only check once a second.
@@ -62,59 +62,60 @@ function blocks_exist_on_cloud(need_to_exist, pool_id, bucket_name, blocks, s3) 
     const MAX_RETRIES = 10 * 60;
     let wait_counter = 1;
 
-    return P.pwhile(
-            () => isDone,
-            () => Promise.allSettled(_.map(blocks, block => {
+    try {
+        while (isDone) {
+            const response = Promise.allSettled(_.map(blocks, block => {
                 console.log(`noobaa_blocks/${pool_id}/blocks_tree/${block.slice(block.length - 3)}.blocks/${block}`);
                 return s3.headObject({
                     Bucket: bucket_name,
                     Key: `noobaa_blocks/${pool_id}/blocks_tree/${block.slice(block.length - 3)}.blocks/${block}`
                 }).promise();
-            }))
-            .then(response => {
-                let condition_correct;
-                if (need_to_exist) {
-                    condition_correct = true;
-                    _.forEach(response, promise_result => {
-                        if (promise_result.status === 'rejected') {
-                            condition_correct = false;
-                        }
-                    });
+            }));
 
-                    if (condition_correct) {
-                        isDone = false;
-                    } else {
-                        wait_counter += 1;
-                        if (wait_counter >= MAX_RETRIES) {
-                            throw new Error('Blocks do not exist');
-                        }
-                        return P.delay(1000);
+            let condition_correct;
+            if (need_to_exist) {
+                condition_correct = true;
+                _.forEach(response, promise_result => {
+                    if (promise_result.status === 'rejected') {
+                        condition_correct = false;
                     }
+                });
+
+                if (condition_correct) {
+                    isDone = false;
                 } else {
-                    condition_correct = true;
-                    _.forEach(response, promise_result => {
-                        if (promise_result.status === 'fulfilled') {
-                            condition_correct = false;
-                        }
-                    });
-
-                    if (condition_correct) {
-                        isDone = false;
-                    } else {
-                        wait_counter += 1;
-                        if (wait_counter >= MAX_RETRIES) {
-                            throw new Error('Blocks still exist');
-                        }
-                        return P.delay(1000);
+                    wait_counter += 1;
+                    if (wait_counter >= MAX_RETRIES) {
+                        throw new Error('Blocks do not exist');
                     }
+                    await P.delay(1000);
                 }
-            })
-        )
-        .then(() => true)
-        .catch(err => {
-            console.error('blocks_exist_on_cloud::Final Error', err);
-            throw err;
-        });
+            } else {
+                condition_correct = true;
+                _.forEach(response, promise_result => {
+                    if (promise_result.status === 'fulfilled') {
+                        condition_correct = false;
+                    }
+                });
+
+                if (condition_correct) {
+                    isDone = false;
+                } else {
+                    wait_counter += 1;
+                    if (wait_counter >= MAX_RETRIES) {
+                        throw new Error('Blocks still exist');
+                    }
+                    await P.delay(1000);
+                }
+            }
+
+        }
+    } catch (err) {
+        console.error('blocks_exist_on_cloud::Final Error', err);
+        throw err;
+    }
+
+    return true;
 }
 
 async function create_hosts_pool(
@@ -219,17 +220,15 @@ function generate_s3_policy(principal, bucket, action) {
     return {
         policy: {
             Version: '2012-10-17',
-            Statement: [
-                {
-                    Effect: 'Allow',
-                    Principal: { AWS: [principal] },
-                    Action: action,
-                    Resource: [
-                        `arn:aws:s3:::${bucket}/*`,
-                        `arn:aws:s3:::${bucket}`
-                    ]
-                }
-            ]
+            Statement: [{
+                Effect: 'Allow',
+                Principal: { AWS: [principal] },
+                Action: action,
+                Resource: [
+                    `arn:aws:s3:::${bucket}/*`,
+                    `arn:aws:s3:::${bucket}`
+                ]
+            }]
         },
         params: {
             bucket,
@@ -424,8 +423,7 @@ function set_nc_config_dir_in_config(config_root) {
  */
 async function create_redirect_file(config_fs, custom_config_root_path) {
     const redirect_file_path = path.join(config.NSFS_NC_DEFAULT_CONF_DIR, config.NSFS_NC_CONF_DIR_REDIRECT_FILE);
-    await nb_native().fs.writeFile(config_fs.fs_context, redirect_file_path, Buffer.from(custom_config_root_path)
-    );
+    await nb_native().fs.writeFile(config_fs.fs_context, redirect_file_path, Buffer.from(custom_config_root_path));
 }
 
 /**
@@ -558,7 +556,7 @@ function get_new_buckets_path_by_test_env(new_buckets_full_path, new_buckets_dir
  * @param {{symlink_name?: Boolean, symlink_access_key?: Boolean}} [options]
  * @returns {Promise<Void>}
  */
-async function write_manual_config_file(type, config_fs, config_data, invalid_str = '', { symlink_name, symlink_access_key} = {symlink_name: true, symlink_access_key: true}) {
+async function write_manual_config_file(type, config_fs, config_data, invalid_str = '', { symlink_name, symlink_access_key } = { symlink_name: true, symlink_access_key: true }) {
     const config_path = type === CONFIG_TYPES.BUCKET ?
         config_fs.get_bucket_path_by_name(config_data.name) :
         config_fs.get_identity_path_by_id(config_data._id);
@@ -568,8 +566,7 @@ async function write_manual_config_file(type, config_fs, config_data, invalid_st
     await nb_native().fs.writeFile(
         config_fs.fs_context,
         config_path,
-        Buffer.from(JSON.stringify(config_data) + invalid_str),
-        {
+        Buffer.from(JSON.stringify(config_data) + invalid_str), {
             mode: native_fs_utils.get_umasked_mode(config.BASE_MODE_FILE)
         }
     );
@@ -580,7 +577,7 @@ async function write_manual_config_file(type, config_fs, config_data, invalid_st
     }
 
     if (type === CONFIG_TYPES.ACCOUNT && symlink_access_key && config_data.access_keys &&
-            Object.keys(config_data.access_keys).length > 0) {
+        Object.keys(config_data.access_keys).length > 0) {
         await symlink_account_access_keys(config_fs, config_data.access_keys, id_relative_path);
     }
 }
@@ -640,8 +637,7 @@ async function write_manual_old_account_config_file(config_fs, config_data, { sy
     await nb_native().fs.writeFile(
         config_fs.fs_context,
         config_path,
-        Buffer.from(JSON.stringify(config_data)),
-        {
+        Buffer.from(JSON.stringify(config_data)), {
             mode: native_fs_utils.get_umasked_mode(config.BASE_MODE_FILE)
         }
     );
@@ -746,8 +742,7 @@ async function create_file(fs_context, file_path, file_data) {
     await nb_native().fs.writeFile(
         fs_context,
         file_path,
-        Buffer.from(JSON.stringify(file_data)),
-        {
+        Buffer.from(JSON.stringify(file_data)), {
             mode: native_fs_utils.get_umasked_mode(config.BASE_MODE_FILE)
         }
     );

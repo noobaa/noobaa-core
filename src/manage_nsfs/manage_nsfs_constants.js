@@ -96,7 +96,7 @@ const VALID_OPTIONS_CONNECTION = {
     'status': new Set(['name', 'decrypt', ...CLI_MUTUAL_OPTIONS]),
 };
 
-const VALID_OPTIONS_LIFECYCLE = new Set(['disable_service_validation', 'disable_runtime_validation', 'short_status', ...CLI_MUTUAL_OPTIONS]);
+const VALID_OPTIONS_LIFECYCLE = new Set(['disable_service_validation', 'disable_runtime_validation', 'short_status', 'continue', ...CLI_MUTUAL_OPTIONS]);
 
 const VALID_OPTIONS_WHITELIST = new Set(['ips', ...CLI_MUTUAL_OPTIONS]);
 
@@ -159,7 +159,8 @@ const OPTION_TYPE = {
     // lifecycle options
     disable_service_validation: 'boolean',
     disable_runtime_validation: 'boolean',
-    short: 'boolean',
+    short_status: 'boolean',
+    continue: 'boolean',
     //connection
     notification_protocol: 'string',
     agent_request_object: 'string',
@@ -174,7 +175,8 @@ const OPTION_TYPE = {
 
 const BOOLEAN_STRING_VALUES = ['true', 'false'];
 const BOOLEAN_STRING_OPTIONS = new Set(['allow_bucket_creation', 'regenerate', 'wide', 'show_secrets', 'force',
-    'force_md5_etag', 'iam_operate_on_root_account', 'all_account_details', 'all_bucket_details', 'anonymous', 'disable_service_validation', 'disable_runtime_validation', 'short_status']);
+    'force_md5_etag', 'iam_operate_on_root_account', 'all_account_details', 'all_bucket_details', 'anonymous',
+    'disable_service_validation', 'disable_runtime_validation', 'short_status', 'continue']);
 
 //options that can be unset using ''
 const LIST_UNSETABLE_OPTIONS = ['fs_backend', 's3_policy', 'force_md5_etag'];

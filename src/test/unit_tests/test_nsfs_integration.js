@@ -789,6 +789,12 @@ mocha.describe('bucket operations - namespace_fs', function() {
         const res_without_metadata = _.omit(res, '$metadata');
         assert.deepEqual(res_without_metadata, {});
     });
+    mocha.it('get bucket request payment (currently returns a mock) without failing', async function() {
+        const res = await s3_correct_uid_default_nsr.getBucketRequestPayment({ Bucket: bucket_name});
+        assert.equal(res.$metadata.httpStatusCode, 200);
+        const expected_payer = 'BucketOwner'; // this is the mock that we use
+        assert.equal(res.Payer, expected_payer);
+    });
 
     mocha.it('delete multiple non existing objects without failing', async function() {
         const keys_to_delete = [

@@ -650,3 +650,77 @@ exports.test_rule_status_value = async function(Bucket, Key, s3) {
         assert(error.code === 'MalformedXML', `Expected MalformedXML error: due to invalid status value`);
     }
 };
+
+exports.test_invalid_filter_format = async function(Bucket, Key, s3) {
+    const putLifecycleParams = id_lifecycle_configuration(Bucket, Key);
+
+    // append prefix for invalid filter: "And" condition is missing, but multiple filters are present
+    putLifecycleParams.LifecycleConfiguration.Rules[0].Filter[0].Prefix = 'test-prefix';
+
+    try {
+        await s3.putBucketLifecycleConfiguration(putLifecycleParams);
+        assert.fail('Expected MalformedXML error due to missing "And" condition for multiple filters');
+    } catch (error) {
+        assert(error.code === 'MalformedXML', 'Expected MalformedXML error: due to missing "And" condition');
+    }
+};
+
+exports.test_invalid_expiration_date_format = async function(Bucket, Key, s3) {
+    const putLifecycleParams = date_lifecycle_configuration(Bucket, Key);
+
+    // set expiration with a Date that is not at midnight UTC (incorrect time specified)
+    putLifecycleParams.LifecycleConfiguration.Rules[0].Expiration[0].Date = '2025-01-01T15:30:00Z';
+
+    try {
+        await s3.putBucketLifecycleConfiguration(putLifecycleParams);
+        assert.fail('Expected error due to incorrect date format (not at midnight UTC), but request was successful');
+    } catch (error) {
+        assert(error.code === 'InvalidArgument', 'Expected InvalidArgument error: date must be at midnight UTC');
+    }
+};
+
+exports.test_expiration_multiple_fields = async function(Bucket, Key, s3) {
+    const putLifecycleParams = days_lifecycle_configuration(Bucket, Key);
+
+    // append ExpiredObjectDeleteMarker for invalid expiration with multiple fields
+    putLifecycleParams.LifecycleConfiguration.Rules[0].Expiration[0].ExpiredObjectDeleteMarker = false;
+
+    try {
+        await s3.putBucketLifecycleConfiguration(putLifecycleParams);
+        assert.fail('Expected MalformedXML error due to multiple expiration fields');
+    } catch (error) {
+        assert(error.code === 'MalformedXML', 'Expected MalformedXML error: due to multiple expiration fields');
+    }
+};
+
+exports.test_abortincompletemultipartupload_with_tags = async function(Bucket, Key, s3) {
+    const putLifecycleParams = tags_lifecycle_configuration(Bucket);
+
+    // invalid combination of AbortIncompleteMultipartUpload with tags
+    putLifecycleParams.LifecycleConfiguration.Rules[0].AbortIncompleteMultipartUpload = {
+        DaysAfterInitiation: 5
+    };
+
+    try {
+        await s3.putBucketLifecycleConfiguration(putLifecycleParams);
+        assert.fail('Expected InvalidArgument error due to AbortIncompleteMultipartUpload specified with tags');
+    } catch (error) {
+        assert(error.code === 'InvalidArgument', 'Expected InvalidArgument: AbortIncompleteMultipartUpload cannot be specified with tags');
+    }
+};
+
+exports.test_abortincompletemultipartupload_with_sizes = async function(Bucket, Key, s3) {
+    const putLifecycleParams = filter_size_lifecycle_configuration(Bucket);
+
+    // invalid combination of AbortIncompleteMultipartUpload with object size filters
+    putLifecycleParams.LifecycleConfiguration.Rules[0].AbortIncompleteMultipartUpload = {
+        DaysAfterInitiation: 5
+    };
+
+    try {
+        await s3.putBucketLifecycleConfiguration(putLifecycleParams);
+        assert.fail('Expected InvalidArgument error due to AbortIncompleteMultipartUpload specified with object size');
+    } catch (error) {
+        assert(error.code === 'InvalidArgument', 'Expected InvalidArgument: AbortIncompleteMultipartUpload cannot be specified with object size');
+    }
+};

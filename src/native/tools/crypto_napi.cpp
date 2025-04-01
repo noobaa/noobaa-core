@@ -5,72 +5,10 @@
 #include "../util/common.h"
 #include "../util/endian.h"
 #include "../util/napi.h"
+#include "../util/worker.h"
 
 namespace noobaa
 {
-
-template <typename T>
-static Napi::Value
-api(const Napi::CallbackInfo& info)
-{
-    auto w = new T(info);
-    Napi::Promise promise = w->_deferred.Promise();
-    w->Queue();
-    return promise;
-}
-
-/**
- * CryptoWorker is a general async worker for our crypto operations
- */
-struct CryptoWorker : public Napi::AsyncWorker
-{
-    Napi::Promise::Deferred _deferred;
-    // _args_ref is used to keep refs to all the args for the worker lifetime,
-    // which is needed for workers that receive buffers,
-    // because in their ctor they copy the pointers to the buffer's memory,
-    // and if the JS caller scope does not keep a ref to the buffers until after the call,
-    // then the worker may access invalid memory...
-    Napi::ObjectReference _args_ref;
-
-    CryptoWorker(const Napi::CallbackInfo& info)
-        : AsyncWorker(info.Env())
-        , _deferred(Napi::Promise::Deferred::New(info.Env()))
-        , _args_ref(Napi::Persistent(Napi::Object::New(info.Env())))
-    {
-        for (int i = 0; i < (int)info.Length(); ++i) _args_ref.Set(i, info[i]);
-    }
-    virtual void OnOK() override
-    {
-        // LOG("CryptoWorker::OnOK: undefined");
-        _deferred.Resolve(Env().Undefined());
-    }
-    virtual void OnError(Napi::Error const& error) override
-    {
-        LOG("CryptoWorker::OnError: " << DVAL(error.Message()));
-        auto obj = error.Value();
-        _deferred.Reject(obj);
-    }
-};
-
-/**
- * CryptoWrapWorker is meant to simplify adding async CryptoWorker instance methods to ObjectWrap types
- * like MD5Wrap, while keeping the object referenced during that action.
- */
-template <typename Wrapper>
-struct CryptoWrapWorker : public CryptoWorker
-{
-    Wrapper* _wrap;
-    CryptoWrapWorker(const Napi::CallbackInfo& info)
-        : CryptoWorker(info)
-    {
-        _wrap = Wrapper::Unwrap(info.This().As<Napi::Object>());
-        _wrap->Ref();
-    }
-    ~CryptoWrapWorker()
-    {
-        _wrap->Unref();
-    }
-};
 
 struct MD5Wrap : public Napi::ObjectWrap<MD5Wrap>
 {
@@ -117,12 +55,12 @@ struct MD5Wrap : public Napi::ObjectWrap<MD5Wrap>
 
 Napi::FunctionReference MD5Wrap::constructor;
 
-struct MD5Update : public CryptoWrapWorker<MD5Wrap>
+struct MD5Update : public ObjectWrapWorker<MD5Wrap>
 {
     uint8_t* _buf;
     size_t _len;
     MD5Update(const Napi::CallbackInfo& info)
-        : CryptoWrapWorker<MD5Wrap>(info)
+        : ObjectWrapWorker<MD5Wrap>(info)
         , _buf(0)
         , _len(0)
     {
@@ -136,11 +74,11 @@ struct MD5Update : public CryptoWrapWorker<MD5Wrap>
     }
 };
 
-struct MD5Digest : public CryptoWrapWorker<MD5Wrap>
+struct MD5Digest : public ObjectWrapWorker<MD5Wrap>
 {
     std::vector<uint32_t> _digest;
     MD5Digest(const Napi::CallbackInfo& info)
-        : CryptoWrapWorker<MD5Wrap>(info)
+        : ObjectWrapWorker<MD5Wrap>(info)
     {
     }
     virtual void Execute()
@@ -154,20 +92,20 @@ struct MD5Digest : public CryptoWrapWorker<MD5Wrap>
     virtual void OnOK()
     {
         Napi::Env env = Env();
-        _deferred.Resolve(Napi::Buffer<uint32_t>::Copy(env, _digest.data(), _wrap->_NWORDS));
+        _promise.Resolve(Napi::Buffer<uint32_t>::Copy(env, _digest.data(), _wrap->_NWORDS));
     }
 };
 
 Napi::Value
 MD5Wrap::update(const Napi::CallbackInfo& info)
 {
-    return api<MD5Update>(info);
+    return await_worker<MD5Update>(info);
 }
 
 Napi::Value
 MD5Wrap::digest(const Napi::CallbackInfo& info)
 {
-    return api<MD5Digest>(info);
+    return await_worker<MD5Digest>(info);
 }
 
 void

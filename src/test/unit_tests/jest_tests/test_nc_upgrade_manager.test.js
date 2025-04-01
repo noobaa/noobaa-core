@@ -785,9 +785,9 @@ describe('nc upgrade manager - upgrade config directory', () => {
             const expected_version = pkg.version;
             const hosts_list = [hostname];
             await config_fs.create_system_config_file(JSON.stringify(system_data));
-            const expected_msg = { "message": "config_dir_version on system.json and config_fs.config_dir_version match, nothing to upgrade" };
-            const res = await nc_upgrade_manager.upgrade_config_dir(expected_version, hosts_list);
-            expect(res).toStrictEqual(expected_msg);
+            const expected_err_msg = 'config_dir_version on system.json and config_fs.config_dir_version match, nothing to upgrade';
+            await expect(nc_upgrade_manager.upgrade_config_dir(expected_version, hosts_list))
+                .rejects.toThrow(expected_err_msg);
         });
 
         it('upgrade_config_dir - config_dir_version in system.json is newer than the hosts current config_dir_version', async () => {

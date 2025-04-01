@@ -1,6 +1,7 @@
 /* Copyright (C) 2024 NooBaa */
 'use strict';
 
+const pkg = require('../../package.json');
 const config = require('../../config');
 const dbg = require('../util/debug_module')(__filename);
 const net = require('net');
@@ -16,6 +17,7 @@ const { TYPES, ACTIONS, VALID_OPTIONS, OPTION_TYPE, FROM_FILE, BOOLEAN_STRING_VA
 const { check_root_account_owns_user } = require('../nc/nc_utils');
 const { validate_username } = require('../util/validation_utils');
 const notifications_util = require('../util/notifications_util');
+const version_utils = require('../util/versions_utils');
 
 /////////////////////////////
 //// GENERAL VALIDATIONS ////
@@ -738,6 +740,43 @@ function validate_connection_args(user_input, action) {
     }
 }
 
+////////////////////////////
+//// UPGRADE VALIDATION ////
+///////////////////////////
+
+/**
+ * validate_expected_version checks that expected_version is valid
+ * if it's not valid it throws an error
+ * Note: the cases where we used ManageCLIError errors will 
+ *        not be reported as UpgradeFailed and without adding an event
+ * @param {string} expected_version
+ * @param {boolean} [skip_verification]
+ */
+function validate_expected_version(expected_version, skip_verification = false) {
+    if (!expected_version) {
+        throw_cli_error(ManageCLIError.MissingExpectedVersionFlag);
+    }
+    if (!version_utils.is_valid_semantic_version(expected_version)) {
+        const detail = 'expected_version must have sematic version structure (major.minor.patch)';
+        throw_cli_error(ManageCLIError.InvalidArgumentType, detail);
+    }
+    if (!skip_verification && !version_match_to_current_version(expected_version)) {
+        throw new Error(`expected_version must match the package version ${pkg.version}`);
+    }
+}
+
+/**
+ * version_match_to_current_version checks that the version
+ * is the same as the one that was defined in the pkg
+ * @param {string} expected_version
+ * @returns {boolean}
+ */
+function version_match_to_current_version(expected_version) {
+    const package_version = pkg.version;
+    const diff_from_package_version = version_utils.version_compare(expected_version, package_version);
+    return diff_from_package_version === 0;
+}
+
 
 // EXPORTS
 exports.validate_input_types = validate_input_types;
@@ -751,3 +790,4 @@ exports.validate_whitelist_ips = validate_whitelist_ips;
 exports.validate_flags_combination = validate_flags_combination;
 exports.validate_connection_args = validate_connection_args;
 exports.validate_no_extra_args = validate_no_extra_args;
+exports.validate_expected_version = validate_expected_version;

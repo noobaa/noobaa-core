@@ -472,6 +472,12 @@ ManageCLIError.InvalidUpgradeAction = Object.freeze({
     http_code: 400,
 });
 
+ManageCLIError.MissingExpectedVersionFlag = Object.freeze({
+    code: 'MissingExpectedVersionFlag',
+    message: 'Expected version is mandatory, please use the --expected_version flag',
+    http_code: 400,
+});
+
 ManageCLIError.UpgradeFailed = Object.freeze({
     code: 'UpgradeFailed',
     message: 'Upgrade request failed',

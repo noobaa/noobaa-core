@@ -266,8 +266,39 @@ describe('noobaa cli - upgrade', () => {
         await fs_utils.replace_file(config_fs.system_json_path, JSON.stringify(old_rpm_expected_system_json));
         const res = await exec_manage_cli(TYPES.UPGRADE, UPGRADE_ACTIONS.START, { config_root, expected_hosts }, true);
         const parsed_res = JSON.parse(res.stdout);
-        expect(parsed_res.error.message).toBe(ManageCLIError.UpgradeFailed.message);
-        expect(parsed_res.error.cause).toContain('expected_version flag is required');
+        expect(parsed_res.error.message).toBe(ManageCLIError.MissingExpectedVersionFlag.message);
+    });
+
+    it('upgrade start - should fail on expected_version with wrong type (number instead of string)', async () => {
+        await fs_utils.replace_file(config_fs.system_json_path, JSON.stringify(old_rpm_expected_system_json));
+        const res = await exec_manage_cli(TYPES.UPGRADE, UPGRADE_ACTIONS.START, { config_root, expected_version: 5, expected_hosts }, true);
+        const parsed_res = JSON.parse(res.stdout);
+        expect(parsed_res.error.code).toBe(ManageCLIError.InvalidArgumentType.code);
+        expect(parsed_res.error.detail).toContain('type of flag expected_version should be string');
+    });
+
+    it('upgrade start - should fail on expected_version is a string not in the format on sematic version', async () => {
+        await fs_utils.replace_file(config_fs.system_json_path, JSON.stringify(old_rpm_expected_system_json));
+        const res = await exec_manage_cli(TYPES.UPGRADE, UPGRADE_ACTIONS.START, { config_root, expected_version: 'invalid-semversion', expected_hosts }, true);
+        const parsed_res = JSON.parse(res.stdout);
+        expect(parsed_res.error.code).toBe(ManageCLIError.InvalidArgumentType.code);
+        expect(parsed_res.error.detail).toContain('expected_version must have sematic version structure');
+    });
+
+    it('upgrade start - should fail on expected_version that is later that package version', async () => {
+        await fs_utils.replace_file(config_fs.system_json_path, JSON.stringify(old_rpm_expected_system_json));
+        const res = await exec_manage_cli(TYPES.UPGRADE, UPGRADE_ACTIONS.START, { config_root, expected_version: '6.18.0', expected_hosts }, true);
+        const parsed_res = JSON.parse(res.stdout);
+        expect(parsed_res.error.code).toBe(ManageCLIError.UpgradeFailed.code);
+        expect(parsed_res.error.cause).toContain('expected_version must match the package version');
+    });
+
+    it('upgrade start - should fail on expected_version that is older that package version', async () => {
+        await fs_utils.replace_file(config_fs.system_json_path, JSON.stringify(old_rpm_expected_system_json));
+        const res = await exec_manage_cli(TYPES.UPGRADE, UPGRADE_ACTIONS.START, { config_root, expected_version: '5.16.0', expected_hosts }, true);
+        const parsed_res = JSON.parse(res.stdout);
+        expect(parsed_res.error.code).toBe(ManageCLIError.UpgradeFailed.code);
+        expect(parsed_res.error.cause).toContain('expected_version must match the package version');
     });
 
     it('upgrade start - should succeed although missing expected hosts', async () => {
@@ -306,7 +337,7 @@ describe('noobaa cli - upgrade', () => {
         const res = await exec_manage_cli(TYPES.UPGRADE, UPGRADE_ACTIONS.START, { config_root, expected_version, expected_hosts }, true);
         const parsed_res = JSON.parse(res.stdout);
         expect(parsed_res.error.message).toBe(ManageCLIError.UpgradeFailed.message);
-        expect(parsed_res.error.cause).toContain(`config dir upgrade can not be started - the host's package version=${pkg.version} does not match the user's expected version=${expected_version}`);
+        expect(parsed_res.error.cause).toContain(`expected_version must match the package version`);
     });
 
     it('upgrade start - should fail on old rpm version', async () => {
@@ -332,18 +363,17 @@ describe('noobaa cli - upgrade', () => {
         expect(system_data_after_upgrade.config_directory).toBeUndefined();
     });
 
-    it('upgrade start - should succeed - same version, nothing to upgrade - config directory property exists', async () => {
+    it('upgrade start - should fail - same version, nothing to upgrade - config directory property exists', async () => {
         await fs_utils.replace_file(config_fs.system_json_path, JSON.stringify(old_expected_system_json2));
         const system_data_before_upgrade = await config_fs.get_system_config_file();
         const options = { config_root, expected_version: pkg.version, expected_hosts };
         const res = await exec_manage_cli(TYPES.UPGRADE, UPGRADE_ACTIONS.START, options, true);
-        const parsed_res = JSON.parse(res);
-        expect(parsed_res.response.code).toBe(ManageCLIResponse.UpgradeSuccessful.code);
-        expect(parsed_res.response.reply.message).toBe('config_dir_version on system.json and config_fs.config_dir_version match, nothing to upgrade');
+        const parsed_res = JSON.parse(res.stdout);
+        expect(parsed_res.error.message).toBe(ManageCLIError.UpgradeFailed.message);
+        expect(parsed_res.error.cause).toContain(`config_dir_version on system.json and config_fs.config_dir_version match, nothing to upgrade`);
         const system_data_after_upgrade = await config_fs.get_system_config_file();
         // check that in the hostname section nothing changed
         expect(system_data_before_upgrade[hostname]).toStrictEqual(system_data_after_upgrade[hostname]);
-        expect(system_data_after_upgrade.config_directory).toStrictEqual(old_expected_system_json2.config_directory);
     });
 
     it('upgrade start - should succeed - no old config directory', async () => {

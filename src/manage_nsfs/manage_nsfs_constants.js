@@ -174,7 +174,8 @@ const OPTION_TYPE = {
 
 const BOOLEAN_STRING_VALUES = ['true', 'false'];
 const BOOLEAN_STRING_OPTIONS = new Set(['allow_bucket_creation', 'regenerate', 'wide', 'show_secrets', 'force',
-    'force_md5_etag', 'iam_operate_on_root_account', 'all_account_details', 'all_bucket_details', 'anonymous', 'disable_service_validation', 'disable_runtime_validation', 'short_status']);
+    'force_md5_etag', 'iam_operate_on_root_account', 'all_account_details', 'all_bucket_details', 'anonymous',
+    'disable_service_validation', 'disable_runtime_validation', 'short_status', 'skip_verification']);
 
 // CLI UNSET VALUES
 const CLI_EMPTY_STRING = '';

@@ -722,6 +722,18 @@ mocha.describe('bucketspace_fs', function() {
     });
 
     mocha.describe('bucket encryption operations', function() {
+        mocha.it('get_bucket_encryption (return mock encryption)', async function() {
+            const mock_encryption = {
+                encryption: {
+                    algorithm: 'AES256',
+                    bucket_key_enabled: false,
+                }
+            };
+            const param = { name: test_bucket };
+            await bucketspace_fs.put_bucket_encryption(param);
+            const output_encryption = await bucketspace_fs.get_bucket_encryption(param);
+            assert.deepEqual(output_encryption, mock_encryption);
+        });
         mocha.it('put_bucket_encryption ', async function() {
             const encryption = {
                 algorithm: 'AES256',
@@ -733,7 +745,7 @@ mocha.describe('bucketspace_fs', function() {
             const output_encryption = await bucketspace_fs.get_bucket_encryption(param);
             assert.deepEqual(output_encryption, encryption);
         });
-        mocha.it('delete_bucket_encryption ', async function() {
+        mocha.it('delete_bucket_encryption - will return mock encryption', async function() {
             const encryption = {
                 algorithm: 'AES256',
                 kms_key_id: 'kms-123'
@@ -742,8 +754,15 @@ mocha.describe('bucketspace_fs', function() {
             const output_encryption = await bucketspace_fs.get_bucket_encryption(param);
             assert.deepEqual(output_encryption, encryption);
             await bucketspace_fs.delete_bucket_encryption(param);
-            const empty_encryption = await bucketspace_fs.get_bucket_encryption(param);
-            assert.ok(empty_encryption === undefined);
+            // after deletion when the bucket encryption is not set, we will return  mock encryption
+            const output_encryption_after_delete = await bucketspace_fs.get_bucket_encryption(param);
+            const mock_encryption = {
+                encryption: {
+                    algorithm: 'AES256',
+                    bucket_key_enabled: false,
+                }
+            };
+            assert.deepEqual(output_encryption_after_delete, mock_encryption);
         });
     });
 

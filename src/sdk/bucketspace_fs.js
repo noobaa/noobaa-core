@@ -594,6 +594,16 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             const { name } = params;
             dbg.log0('BucketSpaceFS.get_bucket_encryption: Bucket name', name);
             const bucket = await this.config_fs.get_bucket_by_name(name);
+            // on undefined return a mock
+            if (bucket.encryption === undefined) {
+                const mock_encryption = {
+                    encryption: {
+                        algorithm: 'AES256',
+                        bucket_key_enabled: false,
+                    }
+                };
+                return mock_encryption;
+            }
             return bucket.encryption;
         } catch (err) {
             throw translate_error_codes(err, entity_enum.BUCKET);

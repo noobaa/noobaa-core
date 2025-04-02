@@ -116,6 +116,22 @@ mocha.describe('s3_ops', function() {
             const expected_payer = 'BucketOwner'; // this is the mock that we use
             assert.equal(res.Payer, expected_payer);
         });
+        mocha.it('should allow get_bucket_encryption (no put before the get)', async function() {
+            const res = await s3.getBucketEncryption({ Bucket: BKT1 });
+            const expected_response = {
+                ServerSideEncryptionConfiguration: {
+                    Rules: [{
+                        ApplyServerSideEncryptionByDefault: {
+                            SSEAlgorithm: 'AES256'
+                        },
+                        BucketKeyEnabled: false
+                    }]
+                }
+            };
+            assert.equal(res.$metadata.httpStatusCode, 200);
+            const res_without_metadata = _.omit(res, '$metadata');
+            assert.deepEqual(res_without_metadata, expected_response);
+        });
         mocha.it('should enable bucket logging', async function() {
             await s3.createBucket({ Bucket: BKT2 });
             await s3.putBucketLogging({

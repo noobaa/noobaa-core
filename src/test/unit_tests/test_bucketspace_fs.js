@@ -722,6 +722,11 @@ mocha.describe('bucketspace_fs', function() {
     });
 
     mocha.describe('bucket encryption operations', function() {
+        mocha.it('get_bucket_encryption (return empty encryption)', async function() {
+            const param = { name: test_bucket };
+            const empty_encryption = await bucketspace_fs.get_bucket_encryption(param);
+            assert.ok(empty_encryption.encryption === undefined);
+        });
         mocha.it('put_bucket_encryption ', async function() {
             const encryption = {
                 algorithm: 'AES256',
@@ -731,19 +736,19 @@ mocha.describe('bucketspace_fs', function() {
             await bucketspace_fs.put_bucket_encryption(param);
 
             const output_encryption = await bucketspace_fs.get_bucket_encryption(param);
-            assert.deepEqual(output_encryption, encryption);
+            assert.deepEqual(output_encryption.encryption, encryption);
         });
-        mocha.it('delete_bucket_encryption ', async function() {
+        mocha.it('delete_bucket_encryption', async function() {
             const encryption = {
                 algorithm: 'AES256',
                 kms_key_id: 'kms-123'
             };
             const param = { name: test_bucket };
             const output_encryption = await bucketspace_fs.get_bucket_encryption(param);
-            assert.deepEqual(output_encryption, encryption);
+            assert.deepEqual(output_encryption.encryption, encryption);
             await bucketspace_fs.delete_bucket_encryption(param);
             const empty_encryption = await bucketspace_fs.get_bucket_encryption(param);
-            assert.ok(empty_encryption === undefined);
+            assert.ok(empty_encryption.encryption === undefined);
         });
     });
 

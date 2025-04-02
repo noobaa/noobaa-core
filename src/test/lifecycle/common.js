@@ -162,8 +162,10 @@ function size_gt_lt_lifecycle_configuration(Bucket, gt, lt) {
                     Date: midnight,
                 },
                 Filter: {
-                    ObjectSizeLessThan: lt,
-                    ObjectSizeGreaterThan: gt
+                    And: {
+                        ObjectSizeLessThan: lt,
+                        ObjectSizeGreaterThan: gt,
+                    },
                 },
                 Status: 'Enabled',
             }, ],
@@ -368,7 +370,7 @@ function duplicate_id_lifecycle_configuration(Bucket, Key) {
         Bucket,
         LifecycleConfiguration: {
             Rules: [{
-                ID1,
+                ID: ID1,
                 Expiration: {
                     Days: 17,
                 },
@@ -378,7 +380,7 @@ function duplicate_id_lifecycle_configuration(Bucket, Key) {
                 Status: 'Enabled',
             },
             {
-                ID2,
+                ID: ID2,
                 Expiration: {
                     Days: 18,
                 },
@@ -622,7 +624,7 @@ exports.test_rule_id_length = async function(Bucket, Key, s3) {
         await s3.putBucketLifecycleConfiguration(putLifecycleParams);
         assert.fail(`Expected error for ID length exceeding maximum allowed characters ${s3_const.MAX_RULE_ID_LENGTH}, but request was successful`);
     } catch (error) {
-        assert(error.code === 'InvalidArgument', `Expected InvalidArgument: id length exceeding ${s3_const.MAX_RULE_ID_LENGTH} characters`);
+        assert(error.Code === 'InvalidArgument', `Expected InvalidArgument: id length exceeding ${s3_const.MAX_RULE_ID_LENGTH} characters`);
     }
 };
 
@@ -633,7 +635,8 @@ exports.test_rule_duplicate_id = async function(Bucket, Key, s3) {
         await s3.putBucketLifecycleConfiguration(putLifecycleParams);
         assert.fail('Expected error for duplicate rule ID, but request was successful');
     } catch (error) {
-        assert(error.code === 'InvalidArgument', 'Expected InvalidArgument: duplicate ID found in the rules');
+        console.log("Received error: ", error);
+        assert(error.Code === 'InvalidArgument', 'Expected InvalidArgument: duplicate ID found in the rules');
     }
 };
 
@@ -647,21 +650,21 @@ exports.test_rule_status_value = async function(Bucket, Key, s3) {
         await s3.putBucketLifecycleConfiguration(putLifecycleParams);
         assert.fail('Expected MalformedXML error due to wrong status value, but received a different response');
     } catch (error) {
-        assert(error.code === 'MalformedXML', `Expected MalformedXML error: due to invalid status value`);
+        assert(error.Code === 'MalformedXML', `Expected MalformedXML error: due to invalid status value`);
     }
 };
 
 exports.test_invalid_filter_format = async function(Bucket, Key, s3) {
-    const putLifecycleParams = id_lifecycle_configuration(Bucket, Key);
+    const putLifecycleParams = tags_lifecycle_configuration(Bucket, Key);
 
     // append prefix for invalid filter: "And" condition is missing, but multiple filters are present
-    putLifecycleParams.LifecycleConfiguration.Rules[0].Filter[0].Prefix = 'test-prefix';
+    putLifecycleParams.LifecycleConfiguration.Rules[0].Filter.Prefix = 'test-prefix';
 
     try {
         await s3.putBucketLifecycleConfiguration(putLifecycleParams);
         assert.fail('Expected MalformedXML error due to missing "And" condition for multiple filters');
     } catch (error) {
-        assert(error.code === 'MalformedXML', 'Expected MalformedXML error: due to missing "And" condition');
+        assert(error.Code === 'MalformedXML', 'Expected MalformedXML error: due to missing "And" condition');
     }
 };
 
@@ -669,13 +672,13 @@ exports.test_invalid_expiration_date_format = async function(Bucket, Key, s3) {
     const putLifecycleParams = date_lifecycle_configuration(Bucket, Key);
 
     // set expiration with a Date that is not at midnight UTC (incorrect time specified)
-    putLifecycleParams.LifecycleConfiguration.Rules[0].Expiration[0].Date = '2025-01-01T15:30:00Z';
+    putLifecycleParams.LifecycleConfiguration.Rules[0].Expiration.Date = new Date('2025-01-01T15:30:00Z');
 
     try {
         await s3.putBucketLifecycleConfiguration(putLifecycleParams);
         assert.fail('Expected error due to incorrect date format (not at midnight UTC), but request was successful');
     } catch (error) {
-        assert(error.code === 'InvalidArgument', 'Expected InvalidArgument error: date must be at midnight UTC');
+        assert(error.Code === 'InvalidArgument', 'Expected InvalidArgument error: date must be at midnight UTC');
     }
 };
 
@@ -683,13 +686,13 @@ exports.test_expiration_multiple_fields = async function(Bucket, Key, s3) {
     const putLifecycleParams = days_lifecycle_configuration(Bucket, Key);
 
     // append ExpiredObjectDeleteMarker for invalid expiration with multiple fields
-    putLifecycleParams.LifecycleConfiguration.Rules[0].Expiration[0].ExpiredObjectDeleteMarker = false;
+    putLifecycleParams.LifecycleConfiguration.Rules[0].Expiration.ExpiredObjectDeleteMarker = false;
 
     try {
         await s3.putBucketLifecycleConfiguration(putLifecycleParams);
         assert.fail('Expected MalformedXML error due to multiple expiration fields');
     } catch (error) {
-        assert(error.code === 'MalformedXML', 'Expected MalformedXML error: due to multiple expiration fields');
+        assert(error.Code === 'MalformedXML', 'Expected MalformedXML error: due to multiple expiration fields');
     }
 };
 
@@ -705,7 +708,7 @@ exports.test_abortincompletemultipartupload_with_tags = async function(Bucket, K
         await s3.putBucketLifecycleConfiguration(putLifecycleParams);
         assert.fail('Expected InvalidArgument error due to AbortIncompleteMultipartUpload specified with tags');
     } catch (error) {
-        assert(error.code === 'InvalidArgument', 'Expected InvalidArgument: AbortIncompleteMultipartUpload cannot be specified with tags');
+        assert(error.Code === 'InvalidArgument', 'Expected InvalidArgument: AbortIncompleteMultipartUpload cannot be specified with tags');
     }
 };
 
@@ -721,6 +724,6 @@ exports.test_abortincompletemultipartupload_with_sizes = async function(Bucket, 
         await s3.putBucketLifecycleConfiguration(putLifecycleParams);
         assert.fail('Expected InvalidArgument error due to AbortIncompleteMultipartUpload specified with object size');
     } catch (error) {
-        assert(error.code === 'InvalidArgument', 'Expected InvalidArgument: AbortIncompleteMultipartUpload cannot be specified with object size');
+        assert(error.Code === 'InvalidArgument', 'Expected InvalidArgument: AbortIncompleteMultipartUpload cannot be specified with object size');
     }
 };

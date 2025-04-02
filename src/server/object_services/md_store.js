@@ -669,7 +669,7 @@ class MDStore {
                 $lt: new Date(moment.unix(max_create_time).toISOString()),
                 $exists: true
             } : undefined,
-            tagging: tagging ? {
+            tagging: (tagging && tagging.length) ? {
                 $all: tagging,
             } : undefined,
             size: (max_size || min_size) ?

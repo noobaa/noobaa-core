@@ -54,14 +54,6 @@ async function main() {
     await commonTests.test_rule_id(Bucket, Key, s3);
     await commonTests.test_filter_size(Bucket, s3);
     await commonTests.test_and_prefix_size(Bucket, Key, s3);
-    await commonTests.test_rule_id_length(Bucket, Key, s3);
-    await commonTests.test_rule_duplicate_id(Bucket, Key, s3);
-    await commonTests.test_rule_status_value(Bucket, Key, s3);
-    await commonTests.test_invalid_filter_format(Bucket, Key, s3);
-    await commonTests.test_invalid_expiration_date_format(Bucket, Key, s3);
-    await commonTests.test_expiration_multiple_fields(Bucket, Key, s3);
-    await commonTests.test_abortincompletemultipartupload_with_tags(Bucket, Key, s3);
-    await commonTests.test_abortincompletemultipartupload_with_sizes(Bucket, Key, s3);
 
     const getObjectParams = {
         Bucket,

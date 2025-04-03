@@ -189,7 +189,7 @@ function _is_principal_fit(account, statement, ignore_public_principal = false) 
     statement_principal = statement_principal.AWS ? statement_principal.AWS : statement_principal;
     for (const principal of _.flatten([statement_principal])) {
         dbg.log1('bucket_policy: ', statement.Principal ? 'Principal' : 'NotPrincipal', ' fit?', principal, account);
-        if ((principal.unwrap() === '*') || (principal.unwrap() === account)) {
+        if ((principal.unwrap() === '*') || (principal.unwrap() === account.id) || (principal.unwrap() === account.name)) {
             if (ignore_public_principal && principal.unwrap() === '*' && statement.Principal) {
                 // Ignore the "fit" if ignore_public_principal is requested
                 continue;

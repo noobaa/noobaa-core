@@ -1645,6 +1645,51 @@ mocha.describe('s3_bucket_policy', function() {
             Bucket: BKT,
             Key: KEY,
         }));
+
+    });
+
+    mocha.it('should be able to use notPrincipal with Effect Deny', async function() {
+        const self = this; // eslint-disable-line no-invalid-this
+        self.timeout(15000);
+        const auth_put_policy = {
+        Version: '2012-10-17',
+        Statement: [
+            {
+                Effect: 'Allow',
+                Principal: { AWS: [user_a, user_b] },
+                Action: ['s3:*'],
+                Resource: [`arn:aws:s3:::${BKT}/*`]
+            },
+            {
+                Effect: 'Deny',
+                NotPrincipal: { AWS: user_a },
+                Action: ['s3:GetObject'],
+                Resource: [`arn:aws:s3:::${BKT}/*`]
+            }
+        ]};
+        let res = await s3_owner.putBucketPolicy({
+            Bucket: BKT,
+            Policy: JSON.stringify(auth_put_policy)
+        });
+        assert.equal(res.$metadata.httpStatusCode, 200);
+
+        res = await s3_a.putObject({
+            Body: BODY,
+            Bucket: BKT,
+            Key: KEY,
+        });
+        assert.equal(res.$metadata.httpStatusCode, 200);
+
+        res = await s3_a.getObject({
+            Bucket: BKT,
+            Key: KEY,
+        });
+        assert.equal(res.$metadata.httpStatusCode, 200);
+
+        await assert_throws_async(s3_b.getObject({
+            Bucket: BKT,
+            Key: KEY,
+        }));
     });
 
     mocha.it('should be able to use notResource', async function() {

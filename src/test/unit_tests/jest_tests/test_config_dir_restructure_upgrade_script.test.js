@@ -101,7 +101,7 @@ describe('move_old_accounts_dir', () => {
             account_names_obj[account_data.name] = account_data;
             if (account_id % 2 === 0) {
                 const backup_file_path = path.join(hidden_old_accounts_path, default_config_fs.json(account_data.name));
-                await create_file(default_config_fs.fs_context, backup_file_path, account_data);
+                await create_file(default_config_fs.fs_context, backup_file_path, account_data, { stringify_json: true });
             }
         });
         await move_old_accounts_dir(default_config_fs, Object.keys(account_names_obj), mock_old_version, dbg);
@@ -183,7 +183,7 @@ describe('create_account_access_keys_index_if_missing', () => {
         const mock_id_dir = path.join(default_config_fs.identities_dir_path, 'mock_id_dir');
         const mock_link_id_path = path.join(mock_id_dir, 'identity.json');
         await create_fresh_path(mock_id_dir);
-        await create_file(default_config_fs.fs_context, mock_link_id_path, { mock_key: 'mock_value' });
+        await create_file(default_config_fs.fs_context, mock_link_id_path, { mock_key: 'mock_value' }, { stringify_json: true });
         await symlink_account_access_keys(default_config_fs, account_data.access_keys, mock_link_id_path);
         const identity_path = default_config_fs.get_identity_path_by_id(account_data._id);
         const account_upgrade_params = { ...account_data, identity_path };
@@ -275,7 +275,7 @@ describe('create_account_name_index_if_missing', () => {
         const mock_id_dir = path.join(default_config_fs.identities_dir_path, 'mock_id_dir');
         const mock_link_id_path = path.join(mock_id_dir, 'identity.json');
         await create_fresh_path(mock_id_dir);
-        await create_file(default_config_fs.fs_context, mock_link_id_path, { mock_key: 'mock_value' });
+        await create_file(default_config_fs.fs_context, mock_link_id_path, { mock_key: 'mock_value' }, { stringify_json: true });
         await symlink_account_name(default_config_fs, account_data.name, mock_link_id_path);
         const identity_path = default_config_fs.get_identity_path_by_id(account_data._id);
         const account_upgrade_params = { ...account_data, account_name: account_data.name, identity_path };

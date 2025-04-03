@@ -126,6 +126,9 @@ Here attached a diagram with all the accounts that we have in our system:
 - IAM DeleteAccessKey: AccessKeyId, UserName
 - IAM ListAccessKeys: UserName (not supported: Marker, MaxItems)
 
+### Other
+- IAM ListGroupsForUser - would always return empty list (to check that the user exists it runs GetUser).
+
 ### Configuration Directory Components With users
 If account creates a user its config file will be created under identities/<user-id>.identity.json and under the account will be created `users/` directory and inside it it will link to the config.
 Example:

@@ -27,7 +27,7 @@ const { account_id_cache } = require('../sdk/accountspace_fs');
 const ManageCLIError = require('../manage_nsfs/manage_nsfs_cli_errors').ManageCLIError;
 const ManageCLIResponse = require('../manage_nsfs/manage_nsfs_cli_responses').ManageCLIResponse;
 const manage_nsfs_glacier = require('../manage_nsfs/manage_nsfs_glacier');
-const noobaa_cli_lifecycle = require('../manage_nsfs/nc_lifecycle');
+const { NCLifecycle } = require('../manage_nsfs/nc_lifecycle');
 const manage_nsfs_logging = require('../manage_nsfs/manage_nsfs_logging');
 const noobaa_cli_diagnose = require('../manage_nsfs/diagnose');
 const noobaa_cli_upgrade = require('../manage_nsfs/upgrade');
@@ -892,7 +892,8 @@ async function lifecycle_management(args) {
     const should_continue_last_run = get_boolean_or_string_value(args.continue);
     try {
         const options = { disable_service_validation, disable_runtime_validation, short_status, should_continue_last_run };
-        const { should_run, lifecycle_run_status } = await noobaa_cli_lifecycle.run_lifecycle_under_lock(config_fs, options);
+        const nc_lifecycle = new NCLifecycle(config_fs, options);
+        const { should_run, lifecycle_run_status } = await nc_lifecycle.run_lifecycle_under_lock();
         if (should_run) {
             write_stdout_response(ManageCLIResponse.LifecycleSuccessful, lifecycle_run_status);
         } else {

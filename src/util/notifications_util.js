@@ -186,14 +186,23 @@ class Notificator {
         }
     }
 
-    async parse_connect_file(connect_filename, decrypt = false) {
+    async parse_connect_file(connect_filename_with_overrides, decrypt = false) {
         let connect;
+        const filename_parts = connect_filename_with_overrides.split('?');
+        const connect_filename_no_overrides = filename_parts[0];
+        const overrides_str = filename_parts[1];
+
         if (this.nc_config_fs) {
-            connect = await this.nc_config_fs.get_connection_by_name(connect_filename);
+            connect = await this.nc_config_fs.get_connection_by_name(connect_filename_no_overrides);
         } else {
-            const filepath = path.join(this.connect_files_dir, connect_filename);
+            const filepath = path.join(this.connect_files_dir, connect_filename_no_overrides);
             const connect_str = fs.readFileSync(filepath, 'utf-8');
             connect = JSON.parse(connect_str);
+        }
+        if (overrides_str) {
+            const overrides_obj = JSON.parse(overrides_str);
+            _.merge(connect, overrides_obj);
+            dbg.log2("effective connect =", connect);
         }
 
         //if connect file is encrypted (and decryption is requested),

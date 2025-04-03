@@ -229,6 +229,24 @@ async function authorize_request_policy(req) {
     if (!req.params.bucket) return;
     if (req.op_name === 'put_bucket') return;
 
+    // Allow bucket owner or system owner to put a bucket policy
+    if (req.op_name === 'put_bucket_policy') {
+        const { system_owner, bucket_owner } = await req.object_sdk.read_bucket_sdk_policy_info(req.params.bucket);
+        const account = req.object_sdk.requesting_account;
+        const account_identifier_name = req.object_sdk.nsfs_config_root ? account.name.unwrap() : account.email.unwrap();
+        const account_identifier_id = req.object_sdk.nsfs_config_root ? account._id : undefined;
+
+        const is_system_owner = (Boolean(system_owner) && system_owner.unwrap() === account_identifier_name) ||
+                                (Boolean(system_owner) && system_owner.unwrap() === account_identifier_id);
+        const is_bucket_owner = (Boolean(bucket_owner) && bucket_owner.unwrap() === account_identifier_name) ||
+                                (Boolean(bucket_owner) && bucket_owner.unwrap() === account_identifier_id);
+
+        if (is_system_owner || is_bucket_owner) return;
+
+        // If the account is neither the system owner nor the bucket owner, deny access
+        throw new S3Error(S3Error.AccessDenied);
+    }
+
     // owner_account is { id: bucket.owner_account, email: bucket.bucket_owner };
     const { s3_policy, system_owner, bucket_owner, owner_account } = await req.object_sdk.read_bucket_sdk_policy_info(req.params.bucket);
     const auth_token = req.object_sdk.get_auth_token();
@@ -293,16 +311,24 @@ async function authorize_request_policy(req) {
             s3_policy, account_identifier_id, method, arn_path, req, public_access_block_cfg?.public_access_block?.restrict_public_buckets);
         dbg.log3('authorize_request_policy: permission_by_id', permission_by_id);
     }
-    if (permission_by_id === "DENY") throw new S3Error(S3Error.AccessDenied);
 
-    if ((!account_identifier_id || permission_by_id !== "DENY") && account.owner === undefined) {
+    if (account_identifier_name && permission_by_id !== "ALLOW") {
+        // we check the name only if the id check is not ALLOW
+        // this is to avoid double checking the same permission
+        // and to make sure we are not checking the same permission twice
+        // in case of NC account (which is not unique)
         permission_by_name = await s3_bucket_policy_utils.has_bucket_policy_permission(
-            s3_policy, account_identifier_name, method, arn_path, req, public_access_block_cfg?.public_access_block?.restrict_public_buckets
-        );
+            s3_policy,
+            account_identifier_name,
+            method,
+            arn_path,
+            req,
+            public_access_block_cfg?.public_access_block?.restrict_public_buckets);
         dbg.log3('authorize_request_policy: permission_by_name', permission_by_name);
     }
-    if (permission_by_name === "DENY") throw new S3Error(S3Error.AccessDenied);
-    if ((permission_by_id === "ALLOW" || permission_by_name === "ALLOW") || is_owner) return;
+
+    if (permission_by_id === "DENY" && permission_by_name === "DENY") throw new S3Error(S3Error.AccessDenied);
+    if (permission_by_id === "ALLOW" || permission_by_name === "ALLOW") return;
 
     throw new S3Error(S3Error.AccessDenied);
 }

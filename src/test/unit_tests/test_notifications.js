@@ -36,7 +36,7 @@ const http_connect_path = path.join(tmp_connect, http_connect_filename);
 //content of connect file, will be written to a file in before()
 const http_connect = {
     agent_request_object: {"host": "localhost", "port": 9998, "timeout": 1500},
-    request_options_object: {"auth": "amit:passw", "timeout": 1500},
+    request_options_object: {"auth": "amit:passw", "timeout": 1500, "path": "/default"},
     notification_protocol: 'http',
     name: 'http_notif'
 };
@@ -55,6 +55,7 @@ let expected_event_name;
 let expected_key;
 let expected_eTag;
 let expect_test;
+let expected_url;
 
 // eslint-disable-next-line max-lines-per-function
 mocha.describe('notifications', function() {
@@ -95,6 +96,7 @@ mocha.describe('notifications', function() {
                     assert.strictEqual(notif.Records[0].Event, "s3:TestEvent", 'wrong event name in notification');
                     expect_test = false;
                 } else {
+                    assert.strictEqual(req.url, expected_url);
                     assert.strictEqual(notif.Records[0].s3.bucket.name, expected_bucket, 'wrong bucket name in notification');
                     assert.strictEqual(notif.Records[0].eventName, expected_event_name, 'wrong event name in notification');
                     assert.strictEqual(notif.Records[0].s3.object.key, expected_key, 'wrong key in notification');
@@ -235,18 +237,47 @@ mocha.describe('notifications', function() {
             });
         });
 
+        mocha.it('override connection', async () => {
+            await s3.putBucketNotificationConfiguration({
+                Bucket: bucket,
+                NotificationConfiguration: {
+                    TopicConfigurations: [{
+                        "Id": "system_test_http_no_event_override",
+                        "TopicArn": http_connect_filename + "?" + JSON.stringify({
+                            request_options_object: {path: "/override"}
+                        }),
+                    }],
+                },
+            });
+
+            const res = await s3.putObject({
+                Bucket: bucket,
+                Key: 'f1',
+                Body: 'this is the body',
+            });
+
+            await notify_await_result({
+                bucket_name: bucket,
+                event_name: 'ObjectCreated:Put',
+                key: "f1",
+                etag: res.ETag,
+                url: "/override"
+            });
+        });
+
     });
 
 });
 
 const step_wait = 100;
-async function notify_await_result({bucket_name, event_name, etag, key, timeout = undefined}) {
+async function notify_await_result({bucket_name, event_name, etag, key, url = "/default", timeout = undefined}) {
 
     //remember expected result here so server could compare it to actual result later
     expected_bucket = bucket_name;
     expected_event_name = event_name;
     expected_eTag = etag;
     expected_key = key;
+    expected_url = url;
     server_done = false;
 
     //busy-sync wait for server

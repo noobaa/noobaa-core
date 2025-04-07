@@ -865,7 +865,7 @@ sudo noobaa-cli whitelist --ips ["127.0.0.1", "192.0.10.0", "3002:0bd6:0000:0000
     Expected file name : `{config_root}\buckets\my-test-bucket.json.json`
     
     I/O is not possible in this bucket. This issue is only reproducible in older versions(5.18.0 and older).
-    Issue fixed version is <TBD>
+    Issue fixed version is 5.18.2
     
     solution :
     * Recreate the bucket with same name in new version
@@ -890,7 +890,7 @@ sudo noobaa-cli whitelist --ips ["127.0.0.1", "192.0.10.0", "3002:0bd6:0000:0000
     Expected file name : `{config_root}\accounts_by_name\acc_symlink.symlink.symlink`
     
     This issue is only reproducible in older versions(5.18.0 and older).
-    Issue fixed version is <TBD>
+    Issue fixed version is 5.18.2
     
     solution :
     * Recreate the account with same name in new version

@@ -419,7 +419,7 @@ class SystemStore extends EventEmitter {
                     dbg.log0('SystemStore.load: Got load request with a timestamp older then my last update time');
                     this.last_update_time = since;
                 }
-                this.master_key_manager.load_root_key();
+                this.master_key_manager.load_root_keys_from_mount();
                 const new_data = new SystemStoreData();
                 let millistamp = time_utils.millistamp();
                 await this._register_for_changes();

@@ -250,30 +250,30 @@ mocha.describe('system_servers', function() {
     //  AUTH  //
     ////////////
 
-    mocha.it('auth works', function() {
+    mocha.it('auth works', async function() {
         this.timeout(90000); // eslint-disable-line no-invalid-this
-        return P.resolve()
-            .then(() => rpc_client.auth.read_auth())
-            .then(() => rpc_client.auth.create_auth({
+        try {
+            await rpc_client.auth.read_auth();
+            await rpc_client.auth.create_auth({
                 system: SYSTEM,
                 email: EMAIL,
                 password: PASSWORD,
-            }))
-            .then(() => rpc_client.system.read_system())
-            .then(res => rpc_client.auth.create_access_key_auth({
+            });
+            const res = await rpc_client.system.read_system();
+            await rpc_client.auth.create_access_key_auth({
                 access_key: res.owner.access_keys[0].access_key.unwrap(),
                 string_to_sign: '',
                 signature: new S3Auth().sign(res.owner.access_keys[0].secret_key.unwrap(), '')
-            }).then(() => res))
-            .then(res => rpc_client.auth.create_access_key_auth({
+            });
+            await rpc_client.auth.create_access_key_auth({
                 access_key: res.owner.access_keys[0].access_key.unwrap(),
                 string_to_sign: 'blabla',
                 signature: 'blibli'
-            }))
-            .then(
-                () => assert.ifError('should fail with UNAUTHORIZED'),
-                err => assert.strictEqual(err.rpc_code, 'UNAUTHORIZED')
-            );
+            });
+            assert.ifError('should fail with UNAUTHORIZED');
+        } catch (err) {
+            assert.strictEqual(err.rpc_code, 'UNAUTHORIZED');
+        }
     });
 
 
@@ -435,30 +435,30 @@ mocha.describe('system_servers', function() {
     //  BUCKET  //
     //////////////
 
-    mocha.it('bucket works', function() {
+    mocha.it('bucket works', async function() {
         this.timeout(90000); // eslint-disable-line no-invalid-this
-        return P.resolve()
-            .then(() => rpc_client.bucket.create_bucket({
+        try {
+            await rpc_client.bucket.create_bucket({
                 name: BUCKET,
                 tiering: TIERING_POLICY,
-            }))
-            .then(() => rpc_client.bucket.read_bucket({
+            });
+            await rpc_client.bucket.read_bucket({
                 name: BUCKET,
-            }))
-            .then(() => rpc_client.bucket.list_buckets({}))
-            .then(() => rpc_client.bucket.update_bucket({
+            });
+            await rpc_client.bucket.list_buckets({});
+            await rpc_client.bucket.update_bucket({
                 name: BUCKET,
                 new_name: BUCKET + 1,
                 tiering: TIERING_POLICY //'default_tiering',
-            }))
-            .then(() => rpc_client.bucket.read_bucket({
+            });
+            await rpc_client.bucket.read_bucket({
                 name: BUCKET + 1,
-            }))
-            .then(() => rpc_client.bucket.update_bucket({
+            });
+            await rpc_client.bucket.update_bucket({
                 name: BUCKET + 1,
                 new_name: BUCKET,
-            }))
-            .then(() => rpc_client.bucket.update_bucket({
+            });
+            await rpc_client.bucket.update_bucket({
                 name: BUCKET,
                 quota: {
                     size: {
@@ -469,33 +469,39 @@ mocha.describe('system_servers', function() {
                         value: 50
                     }
                 }
-            }))
-            .then(() => rpc_client.bucket.read_bucket({
+            });
+            const info = await rpc_client.bucket.read_bucket({
                 name: BUCKET,
-            }))
-            .then(info => assert(info.quota && info.quota.size &&
+            });
+            assert(info.quota && info.quota.size &&
                 info.quota.size.value === 10 && info.quota.size.unit === 'T' &&
-                info.quota.quantity && info.quota.quantity.value === 50))
-            .then(() => rpc_client.bucket.update_bucket({
+                info.quota.quantity && info.quota.quantity.value === 50);
+
+            await rpc_client.bucket.update_bucket({
                 name: BUCKET,
                 quota: null
-            }))
-            .then(() => rpc_client.bucket.read_bucket({
+            });
+
+            const info_after = await rpc_client.bucket.read_bucket({
                 name: BUCKET,
-            }))
-            .then(info => assert(_.isUndefined(info.quota)))
-            .then(() => rpc_client.bucket.update_bucket({
+            });
+
+            assert(_.isUndefined(info_after.quota));
+            try {
+                await rpc_client.bucket.update_bucket({
                     name: BUCKET,
                     quota: {
                         size: 0,
                         unit: 'GIGABYTE'
                     }
-                })
-                .then(() => {
-                        throw new Error('update bucket with 0 quota should fail');
-                    },
-                    () => _.noop) // update bucket with 0 quota should fail
-            );
+                });
+                throw new Error('update bucket with 0 quota should fail');
+            } catch {
+                //nothing to do here, expected error
+            }
+        } catch (err) {
+            assert.fail('should not fail with ' + err);
+        }
     });
 
     mocha.it('lambda triggers works', async function() {

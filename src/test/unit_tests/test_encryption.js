@@ -906,6 +906,7 @@ mocha.describe('Rotation tests', function() {
             await fs.promises.writeFile(config.ROOT_KEY_MOUNT + '/active_root_key', 'key1');
             system_store.master_key_manager.is_initialized = false;
             system_store.master_key_manager.resolved_master_keys_by_id = {};
+            await system_store.load();
             const new_system_store_system = system_by_name(system_store.data.systems, SYSTEM);
             const new_cipher_key = new_system_store_system.master_key_id.cipher_key;
             const new_res_master_key = system_store.master_key_manager.resolved_master_keys_by_id[master_key_id];

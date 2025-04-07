@@ -36,9 +36,14 @@ async function send_bucket_op_logs(req, res, reply) {
 
         if (req.notification_logger && bucket_info.notifications) {
             for (const notif_conf of bucket_info.notifications) {
-                //write the notification log only if request is successful (ie res.statusCode < 300)
-                //and event is actually relevant to the notification conf
-                if (res.statusCode < 300 && check_notif_relevant(notif_conf, req)) {
+                //write the notification log only if
+                // -request is successful (ie res.statusCode < 300)
+                // -event is not an "empty delte", ie on a non-existing key
+                // -event is actually relevant to the notification conf
+                const empty_delete = (res.statusCode === 204 && req.op_name === "delete_object");
+                if (res.statusCode < 300 &&
+                    !empty_delete &&
+                    check_notif_relevant(notif_conf, req)) {
                     const notif = compose_notification_req(req, res, bucket_info, notif_conf, reply);
                     dbg.log1("logging notif ", notif_conf, ", notif = ", notif);
                     writes_aggregate.push({

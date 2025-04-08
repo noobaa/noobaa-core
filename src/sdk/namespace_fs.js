@@ -24,6 +24,7 @@ const LRUCache = require('../util/lru_cache');
 const nb_native = require('../util/nb_native');
 const RpcError = require('../rpc/rpc_error');
 const { S3Error } = require('../endpoint/s3/s3_errors');
+const lifecycle_utils = require('../util/lifecycle_utils');
 const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
 const { PersistentLogger } = require('../util/persistent_logger');
 const { Glacier } = require('./glacier');
@@ -297,6 +298,11 @@ function filter_fs_xattr(xattr) {
     return _.pickBy(xattr, (val, key) => key?.startsWith(XATTR_NOOBAA_INTERNAL_PREFIX));
 }
 
+/**
+ * get_tags_from_xattr converts relevant xattr to tags format
+ * @param {Object} xattr 
+ * @returns {Object}
+ */
 function get_tags_from_xattr(xattr) {
     const tag_set = [];
     for (const [xattr_key, xattr_value] of Object.entries(xattr)) {
@@ -2044,7 +2050,7 @@ class NamespaceFS {
                         const file_path = this._get_file_path({ key });
                         await this._check_path_in_bucket_boundaries(fs_context, file_path);
                         dbg.log1('NamespaceFS: delete_multiple_objects', file_path);
-                        await this._delete_single_object(fs_context, file_path, { key });
+                        await this._delete_single_object(fs_context, file_path, { key, filter_func: params.filter_func });
                         res.push({ key });
                     } catch (err) {
                         res.push({ err_code: err.code, err_message: err.message });
@@ -2069,9 +2075,39 @@ class NamespaceFS {
         }
     }
 
-
+    /**
+     * _delete_single_object does the following before deleting the object
+     * 1. open dir_file and file fd
+     * 2. stat
+     * 3. validate filter if exists
+     * 4. unlink
+     * 5. close
+     */
     async _delete_single_object(fs_context, file_path, params) {
-        await native_fs_utils.unlink_ignore_enoent(fs_context, file_path);
+        let dir_file;
+        let file;
+        try {
+            dir_file = await nb_native().fs.open(fs_context, path.dirname(file_path));
+            file = await nb_native().fs.open(fs_context, file_path);
+            const fd = file.fd;
+            const stat = await file.stat(fs_context);
+            const obj_info = {
+                key: params.key,
+                create_time: stat.mtime.getTime(),
+                size: stat.size,
+                tagging: get_tags_from_xattr(stat.xattr)
+            };
+            const should_delete = lifecycle_utils.file_matches_filter({ obj_info, filter_func: params.filter_func });
+            if (!should_delete) throw new Error('file_matches_filter lifecycle - filter on file returned false');
+            const relative_path_to_dir = path.basename(file_path);
+            await dir_file.unlinkfileat(fs_context, relative_path_to_dir, fd, stat.ino);
+        } catch (err) {
+            if (err.code !== 'ENOENT' && err.code !== 'EISDIR') throw err;
+        } finally {
+            if (dir_file) await dir_file.close(fs_context);
+            if (file) await file.close(fs_context);
+        }
+
         await this._delete_path_dirs(file_path, fs_context);
         // when deleting the data of a directory object, we need to remove the directory dir object xattr
         // if the dir still exists - occurs when deleting dir while the dir still has entries in it
@@ -3613,4 +3649,5 @@ NamespaceFS._restore_wal = null;
 
 module.exports = NamespaceFS;
 module.exports.multi_buffer_pool = multi_buffer_pool;
+
 

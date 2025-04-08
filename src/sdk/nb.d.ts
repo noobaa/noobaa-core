@@ -991,7 +991,6 @@ interface NativeFS {
     link(fs_context: NativeFSContext, from_path: string, to_path: string): Promise<void>;
     linkat(fs_context: NativeFSContext, from_path: string, to_path: string): Promise<void>;
     unlink(fs_context: NativeFSContext, path: string): Promise<void>;
-    unlinkat(fs_context: NativeFSContext, path: string): Promise<void>;
     safe_link(fs_context: NativeFSContext, from_path: string, to_path: string, expect_mtime: bigint, expect_ino: number): Promise<void>;
     safe_unlink(fs_context: NativeFSContext, from_path: string, to_path: string, expect_mtime: bigint, expect_ino: number): Promise<void>;
     symlink(fs_context: NativeFSContext, target: string, linkpath: string): Promise<void>;
@@ -1026,6 +1025,7 @@ interface NativeFile {
     writev(fs_context: NativeFSContext, buffers: Buffer[], offset?: number): Promise<void>;
     replacexattr(fs_context: NativeFSContext, xattr: NativeFSXattr, clear_prefix?: string): Promise<void>;
     linkfileat(fs_context: NativeFSContext, path: string, fd?: number, should_not_override?: boolean): Promise<void>;
+    unlinkfileat(fs_context: NativeFSContext, path: string, delete_fd?: number, verify_inode?: number, flags?: number): Promise<void>;
     fsync(fs_context: NativeFSContext): Promise<void>;
     fd: number;
     flock(fs_context: NativeFSContext, operation: "EXCLUSIVE" | "SHARED" | "UNLOCK"): Promise<void>;

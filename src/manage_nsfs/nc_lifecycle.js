@@ -248,13 +248,17 @@ class NCLifecycle {
             });
 
             if (candidates.delete_candidates?.length > 0) {
+                const expiration = this._get_expiration_time(lifecycle_rule.expiration);
+                const filter_func = this._build_lifecycle_filter({filter: lifecycle_rule.filter, expiration});
+
                 const delete_res = await this._call_op_and_update_status({
                     bucket_name,
                     rule_id,
                     op_name: TIMED_OPS.DELETE_MULTIPLE_OBJECTS,
                     op_func: async () => object_sdk.delete_multiple_objects({
                         bucket: bucket_json.name,
-                        objects: candidates.delete_candidates
+                        objects: candidates.delete_candidates,
+                        filter_func
                     })
                 });
                 if (should_notify) {
@@ -455,18 +459,6 @@ class NCLifecycle {
 ////////////////////////////////////
 
     /**
-     * @param {Object} entry list object entry
-     */
-    _get_lifecycle_object_info_from_list_object_entry(entry) {
-        return {
-            key: entry.key,
-            age: this._get_file_age_days(entry.create_time),
-            size: entry.size,
-            tags: entry.tagging,
-        };
-    }
-
-    /**
      * get_candidates_by_expiration_rule processes the expiration rule
      * @param {*} lifecycle_rule
      * @param {Object} bucket_json
@@ -511,8 +503,8 @@ class NCLifecycle {
             limit: config.NC_LIFECYCLE_LIST_BATCH_SIZE
         });
         objects_list.objects.forEach(obj => {
-            const lifecycle_object = this._get_lifecycle_object_info_from_list_object_entry(obj);
-            if (filter_func(lifecycle_object)) {
+            const should_delete = lifecycle_utils.file_matches_filter({ obj_info: obj, filter_func });
+            if (should_delete) {
                 //need to delete latest. so remove version_id if exists
                 const candidate = _.omit(obj, ['version_id']);
                 filtered_objects.push(candidate);
@@ -612,7 +604,7 @@ class NCLifecycle {
     _get_lifecycle_object_info_for_mpu(create_params_parsed, stat) {
         return {
             key: create_params_parsed.key,
-            age: this._get_file_age_days(stat.mtime.getTime()),
+            age: lifecycle_utils.get_file_age_days(stat.mtime.getTime()),
             tags: create_params_parsed.tagging,
         };
     }
@@ -642,15 +634,6 @@ class NCLifecycle {
             if (params.filter?.object_size_less_than && object_info.size > params.filter.object_size_less_than) return false;
             return true;
         };
-    }
-
-    /**
-     * get file time since last modified in days
-     * @param {Number} mtime
-     * @returns {Number} days since object was last modified
-     */
-    _get_file_age_days(mtime) {
-        return Math.floor((Date.now() - mtime) / 24 / 60 / 60 / 1000);
     }
 
     /**

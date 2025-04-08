@@ -1,10 +1,10 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const fs = require('fs');
+const fs = require('fs'); // For createWriteStream
+const fsp = require('fs/promises');
 const ncp = require('ncp').ncp;
 const path = require('path');
-const { rimraf } = require('rimraf');
 const crypto = require('crypto');
 
 const P = require('./promise');
@@ -19,7 +19,7 @@ const PRIVATE_DIR_PERMISSIONS = 0o700; // octal 700
  *
  */
 function file_must_not_exist(file_path) {
-    return fs.promises.stat(file_path)
+    return fsp.stat(file_path)
         .then(function() {
             throw new Error(`${file_path} exists`);
         }, function(err) {
@@ -32,14 +32,14 @@ function file_must_not_exist(file_path) {
  * file_must_exist
  */
 async function file_must_exist(file_path) {
-    await fs.promises.stat(file_path);
+    await fsp.stat(file_path);
 }
 
 async function file_exists(file_path) {
     try {
         await file_must_exist(file_path);
         return true;
-    } catch (err) {
+    } catch {
         return false;
     }
 }
@@ -48,7 +48,7 @@ async function file_not_exists(file_path) {
     try {
         await file_must_not_exist(file_path);
         return true;
-    } catch (err) {
+    } catch {
         return false;
     }
 }
@@ -78,12 +78,12 @@ async function read_dir_recursive(options) {
     await dir_sem.surround(async () => {
         if (!level) console.log(`read_dir_recursive: readdir ${root}`);
 
-        const entries = await fs.promises.readdir(root);
+        const entries = await fsp.readdir(root);
 
         await Promise.all(entries.map(async entry => {
             const entry_path = path.join(root, entry);
             try {
-                const stat = await stat_sem.surround(() => fs.promises.stat(entry_path));
+                const stat = await stat_sem.surround(() => fsp.stat(entry_path));
                 if (on_entry) {
                     const res = await on_entry({ path: entry_path, stat });
                     // when on_entry returns explicit false, we stop recursing.
@@ -137,23 +137,23 @@ async function disk_usage(root) {
 
 
 // returns the first line in the file that contains the substring
-function find_line_in_file(file_name, line_sub_string) {
-    return fs.promises.readFile(file_name, 'utf8')
-        .then(data => data.split('\n')
-            .find(line => line.indexOf(line_sub_string) > -1));
+async function find_line_in_file(file_name, line_sub_string) {
+    const data = await fsp.readFile(file_name, 'utf8');
+    return data.split('\n')
+        .find(line => line.includes(line_sub_string));
 }
 
 // returns all lines in the file that contains the substring
-function find_all_lines_in_file(file_name, line_sub_string) {
-    return fs.promises.readFile(file_name, 'utf8')
-        .then(data => data.split('\n')
-            .filter(function(line) {
-                return line.indexOf(line_sub_string) > -1;
-            }));
+async function find_all_lines_in_file(file_name, line_sub_string) {
+    const data = await fsp.readFile(file_name, 'utf8');
+    return data.split('\n')
+        .filter(function(line) {
+            return line.includes(line_sub_string);
+        });
 }
 
 function get_last_line_in_file(file_name) {
-    return fs.promises.readFile(file_name, 'utf8')
+    return fsp.readFile(file_name, 'utf8')
         .then(data => {
             const lines = data.split('\n');
             let idx = lines.length - 1;
@@ -164,14 +164,13 @@ function get_last_line_in_file(file_name) {
         });
 }
 
-function create_path(dir, mode) {
-    return fs.promises.mkdir(dir, { mode, recursive: true });
+async function create_path(dir, mode) {
+    return fsp.mkdir(dir, { mode, recursive: true });
 }
 
-function create_fresh_path(dir, mode) {
-    return P.resolve()
-        .then(() => folder_delete(dir))
-        .then(() => create_path(dir, mode));
+async function create_fresh_path(dir, mode) {
+    await folder_delete(dir);
+    await create_path(dir, mode);
 }
 
 function file_copy(src, dst) {
@@ -187,13 +186,19 @@ function file_copy(src, dst) {
     return os_utils.exec(cmd);
 }
 
-function folder_delete(dir) {
-    return rimraf(dir);
+
+/**
+ * folder_delete deletes a folder
+ * @param {string} dir - The directory path to delete
+ * @returns {Promise<void>}
+ */
+async function folder_delete(dir) {
+    return fsp.rm(dir, { recursive: true, force: true });
 }
 
 async function file_delete(file_name) {
     try {
-        await fs.promises.unlink(file_name);
+        await fsp.unlink(file_name);
     } catch (err) {
         ignore_enoent(err);
     }
@@ -267,9 +272,9 @@ function replace_file(file_path, data) {
     const lock = process_file_locks.get(lock_key);
     return lock.surround(() =>
             P.resolve()
-            .then(() => fs.promises.writeFile(tmp_name, data))
-            .then(() => fs.promises.rename(tmp_name, file_path))
-            .catch(err => fs.promises.unlink(tmp_name)
+            .then(() => fsp.writeFile(tmp_name, data))
+            .then(() => fsp.rename(tmp_name, file_path))
+            .catch(err => fsp.unlink(tmp_name)
                 .then(() => {
                     throw err;
                 })

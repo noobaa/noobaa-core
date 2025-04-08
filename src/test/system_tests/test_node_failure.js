@@ -13,11 +13,11 @@ const P = require('../../util/promise');
 const api = require('../../api');
 const ops = require('../utils/basic_server_ops');
 const dotenv = require('../../util/dotenv');
-const { v4: uuid } = require('uuid');
+const crypto = require('crypto');
 dotenv.load();
 
 
-const suffix = uuid().split('-')[0];
+const suffix = crypto.randomUUID().split('-')[0];
 
 const {
     mgmt_ip = 'localhost',

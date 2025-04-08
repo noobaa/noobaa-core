@@ -54,6 +54,7 @@ let expected_bucket;
 let expected_event_name;
 let expected_key;
 let expected_eTag;
+let expect_test;
 
 // eslint-disable-next-line max-lines-per-function
 mocha.describe('notifications', function() {
@@ -90,7 +91,10 @@ mocha.describe('notifications', function() {
                 const input = Buffer.concat(chunks);
                 const notif = JSON.parse(input.toString());
 
-                if (notif !== "test notification") {
+                if (expect_test) {
+                    assert.strictEqual(notif.Records[0].Event, "s3:TestEvent", 'wrong event name in notification');
+                    expect_test = false;
+                } else {
                     assert.strictEqual(notif.Records[0].s3.bucket.name, expected_bucket, 'wrong bucket name in notification');
                     assert.strictEqual(notif.Records[0].eventName, expected_event_name, 'wrong event name in notification');
                     assert.strictEqual(notif.Records[0].s3.object.key, expected_key, 'wrong key in notification');
@@ -108,6 +112,10 @@ mocha.describe('notifications', function() {
         });
 
         mocha.it('set/get notif conf s3ops', async () => {
+
+            server_done = false;
+            expect_test = true;
+
             await s3.putBucketNotificationConfiguration({
                 Bucket: bucket,
                 NotificationConfiguration: {
@@ -117,6 +125,8 @@ mocha.describe('notifications', function() {
                     }],
                 },
             });
+
+            assert(server_done);
 
             const get = await s3.getBucketNotificationConfiguration({Bucket: bucket});
             assert.strictEqual(get.TopicConfigurations[0].Id, 'system_test_http_no_event');
@@ -155,6 +165,7 @@ mocha.describe('notifications', function() {
 
         mocha.it('notifications with event filtering', async () => {
 
+            expect_test = true;
             const set = await s3.putBucketNotificationConfiguration({
                 Bucket: bucket,
                 NotificationConfiguration: {

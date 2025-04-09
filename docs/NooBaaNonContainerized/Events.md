@@ -32,7 +32,10 @@ The following list includes events that indicate on a normal / successful operat
 - Description: NooBaa account was deleted successfully using NooBaa CLI.
 
 #### 4. `noobaa_bucket_created`
-- Arguments: `bucket_name`
+- Arguments:
+    - `bucket_name`
+    - `account_name`
+    - `<tag_value>` (if `event` is `true` for the reserved tag)
 - Description: NooBaa bucket was created successfully using NooBaa CLI or S3.
 
 #### 5. `noobaa_bucket_deleted`
@@ -43,6 +46,11 @@ The following list includes events that indicate on a normal / successful operat
 - Arguments: `whitelist_ips`
 - Description: Whitelist Server IPs updated successfully using NooBaa CLI.  
 
+#### 7. `noobaa_bucket_reserved_tag_modified`
+- Arguments:
+    - `bucket_name`
+    - `<tag_value>` (if `event` is `true` for the reserved tag)
+- Description: NooBaa bucket reserved tag was modified successfully using NooBaa CLI or S3.
 
 ### Error Indicating Events
 

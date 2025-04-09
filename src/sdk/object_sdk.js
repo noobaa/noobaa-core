@@ -223,6 +223,11 @@ class ObjectSDK {
         return policy_info;
     }
 
+    async read_bucket_lifecycle_config_info(name) {
+        const { bucket } = await bucket_namespace_cache.get_with_cache({ sdk: this, name });
+        return bucket.bucket_info.lifecycle_configuration_rules;
+    }
+
     async read_bucket_usage_info(name) {
         const { bucket } = await bucket_namespace_cache.get_with_cache({ sdk: this, name });
         return bucket.bucket_info.data;

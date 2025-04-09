@@ -665,6 +665,50 @@ function set_amz_headers(req, res) {
 }
 
 /**
+ * @param {Object} req
+ * @param {http.ServerResponse} res
+ * @param {Object} rules
+ */
+async function set_expiration_header(req, res, rules) {
+    if (req.method === 'HEAD' || req.method === 'GET' || req.method === 'PUT') {
+        // TODO: For every object key we need to apply the mupltiple rules obtained in lifecycle and then update the x-amz-expiration accordingly
+        // currently putting the first rule expiration to every object
+        if (rules?.length > 0) {
+            const expiration_head = parse_expiration_header(rules[0]?.expiration, rules[0]?.id);
+            if (expiration_head) {
+                res.setHeader('x-amz-expiration', expiration_head);
+            }
+        }
+    }
+}
+
+/**
+ * parse_expiration_header converts an expiration rule (either with `date` or `days`)
+ * into an s3 style `x-amz-expiration` header value
+ *
+ * @param {Object} expiration - expiration object from lifecycle config
+ * @param {string} rule_id - id of the lifecycle rule
+ * @returns {string|undefined}
+ *
+ * Example output:
+ *   expiry-date="Thu, 10 Apr 2025 00:00:00 GMT", rule-id="rule_id"
+ */
+function parse_expiration_header(expiration, rule_id) {
+    if (!expiration || (!expiration.date && !expiration.days)) return undefined;
+
+    const expiration_date = expiration.date ?
+        new Date(expiration.date) :
+        new Date(Date.UTC(
+            new Date().getUTCFullYear(),
+            new Date().getUTCMonth(),
+            new Date().getUTCDate() + expiration.days
+        ));
+
+    return `expiry-date="${expiration_date.toUTCString()}", rule-id="${rule_id}"`;
+}
+
+
+/**
  * @typedef {{
  *      allow_origin: string;
  *      allow_methods: string;
@@ -945,6 +989,7 @@ exports.set_keep_alive_whitespace_interval = set_keep_alive_whitespace_interval;
 exports.parse_xml_to_js = parse_xml_to_js;
 exports.check_headers = check_headers;
 exports.set_amz_headers = set_amz_headers;
+exports.set_expiration_header = set_expiration_header;
 exports.set_cors_headers = set_cors_headers;
 exports.set_cors_headers_s3 = set_cors_headers_s3;
 exports.set_cors_headers_sts = set_cors_headers_sts;

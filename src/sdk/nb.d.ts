@@ -838,7 +838,7 @@ interface BucketSpace {
 
     set_bucket_versioning(params: object, object_sdk: ObjectSDK): Promise<any>;
 
-    put_bucket_tagging(params: object): Promise<any>;
+    put_bucket_tagging(params: object, object_sdk: ObjectSDK): Promise<any>;
     delete_bucket_tagging(params: object): Promise<any>;
     get_bucket_tagging(params: object): Promise<any>;
 

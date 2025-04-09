@@ -4,6 +4,7 @@
 const _ = require('lodash');
 const util = require('util');
 const path = require('path');
+const { default: Ajv } = require('ajv');
 const P = require('../util/promise');
 const config = require('../../config');
 const RpcError = require('../rpc/rpc_error');
@@ -31,10 +32,12 @@ const nsfs_schema_utils = require('../manage_nsfs/nsfs_schema_utils');
 const bucket_policy_utils = require('../endpoint/s3/s3_bucket_policy_utils');
 const nc_mkm = require('../manage_nsfs/nc_master_key_manager').get_instance();
 const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
+const native_fs_utils = require('../util/native_fs_utils');
 
 const dbg = require('../util/debug_module')(__filename);
 const bucket_semaphore = new KeysSemaphore(1);
 
+const ajv = new Ajv();
 
 class BucketSpaceFS extends BucketSpaceSimpleFS {
     constructor({ config_root }, stats) {
@@ -323,7 +326,15 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             // create bucket's underlying storage directory
             try {
                 await nb_native().fs.mkdir(fs_context, bucket_storage_path, get_umasked_mode(config.BASE_MODE_DIR));
-                new NoobaaEvent(NoobaaEvent.BUCKET_CREATED).create_event(name, { bucket_name: name });
+                const reserved_tag_event_args = Object.keys(config.NSFS_GLACIER_RESERVED_BUCKET_TAGS).reduce((curr, tag) => {
+                    const tag_info = config.NSFS_GLACIER_RESERVED_BUCKET_TAGS[tag];
+                    if (tag_info.event) return Object.assign(curr, { [tag]: tag_info.default });
+                    return curr;
+                }, {});
+
+                new NoobaaEvent(NoobaaEvent.BUCKET_CREATED).create_event(name, {
+                    ...reserved_tag_event_args, bucket_name: name, account: sdk.requesting_account.name
+                });
             } catch (err) {
                 dbg.error('BucketSpaceFS: create_bucket could not create underlying directory - nsfs, deleting bucket', err);
                 new NoobaaEvent(NoobaaEvent.BUCKET_DIR_CREATION_FAILED)
@@ -339,7 +350,7 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
         return {
             _id: mongo_utils.mongoObjectId(),
             name,
-            tag: js_utils.default_value(tag, undefined),
+            tag: js_utils.default_value(tag, BucketSpaceFS._default_bucket_tags()),
             owner_account: account.owner ? account.owner : account._id, // The account is the owner of the buckets that were created by it or by its users.
             creator: account._id,
             versioning: config.NSFS_VERSIONING_ENABLED && lock_enabled ? 'ENABLED' : 'DISABLED',
@@ -478,13 +489,39 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
     // BUCKET TAGGING //
     ////////////////////
 
-    async put_bucket_tagging(params) {
+    /**
+     * @param {*} params 
+     * @param {nb.ObjectSDK} object_sdk 
+     */
+    async put_bucket_tagging(params, object_sdk) {
         try {
             const { name, tagging } = params;
             dbg.log0('BucketSpaceFS.put_bucket_tagging: Bucket name, tagging', name, tagging);
-            const bucket = await this.config_fs.get_bucket_by_name(name);
-            bucket.tag = tagging;
-            await this.config_fs.update_bucket_config_file(bucket);
+            const bucket_path = this.config_fs.get_bucket_path_by_name(name);
+
+            const bucket_lock_file = `${bucket_path}.lock`;
+            await native_fs_utils.lock_and_run(this.fs_context, bucket_lock_file, async () => {
+                const bucket = await this.config_fs.get_bucket_by_name(name);
+                const { ns } = await object_sdk.read_bucket_full_info(name);
+                const is_bucket_empty = await BucketSpaceFS._is_bucket_empty(name, null, ns, object_sdk);
+
+                const tagging_object = BucketSpaceFS._objectify_tagging_arr(bucket.tag);
+                const merged_tags = BucketSpaceFS._merge_reserved_tags(
+                    bucket.tag || BucketSpaceFS._default_bucket_tags(), tagging, is_bucket_empty
+                );
+
+                const [
+                    reserved_tag_event_args,
+                    reserved_tag_modified,
+                ] = BucketSpaceFS._generate_reserved_tag_event_args(tagging_object, merged_tags);
+
+                bucket.tag = merged_tags;
+                await this.config_fs.update_bucket_config_file(bucket);
+                if (reserved_tag_modified) {
+                    new NoobaaEvent(NoobaaEvent.BUCKET_RESERVED_TAG_MODIFIED)
+                        .create_event(undefined, { ...reserved_tag_event_args, bucket_name: name });
+                }
+            });
         } catch (error) {
             throw translate_error_codes(error, entity_enum.BUCKET);
         }
@@ -495,7 +532,16 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             const { name } = params;
             dbg.log0('BucketSpaceFS.delete_bucket_tagging: Bucket name', name);
             const bucket = await this.config_fs.get_bucket_by_name(name);
-            delete bucket.tag;
+
+            const preserved_tags = [];
+            for (const tag of bucket.tag) {
+                const tag_info = config.NSFS_GLACIER_RESERVED_BUCKET_TAGS[tag.key];
+                if (tag_info?.immutable) {
+                    preserved_tags.push(tag);
+                }
+            }
+
+            bucket.tag = preserved_tags;
             await this.config_fs.update_bucket_config_file(bucket);
         } catch (error) {
             throw translate_error_codes(error, entity_enum.BUCKET);
@@ -511,6 +557,56 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
         } catch (error) {
             throw translate_error_codes(error, entity_enum.BUCKET);
         }
+    }
+
+    /**
+     * _default_bucket_tags returns the default bucket tags (primarily reserved tags)
+     * in the AWS tagging format
+     *
+     * @returns {Array<{key: string, value: string}>}
+     */
+    static _default_bucket_tags() {
+        return Object.keys(
+            config.NSFS_GLACIER_RESERVED_BUCKET_TAGS
+        ).map(key => ({ key, value: config.NSFS_GLACIER_RESERVED_BUCKET_TAGS[key].default }));
+    }
+
+    /**
+     * _merge_reserved_tags takes original tags, new_tags and a boolean indicating whether
+     * the bucket is empty or not and returns an array of merged tags based on the rules
+     * of reserved tags.
+     *
+     * @param {Array<{key: string, value: string}>} new_tags 
+     * @param {Array<{key: string, value: string}>} original_tags 
+     * @param {boolean} is_bucket_empty 
+     * @returns {Array<{key: string, value: string}>}
+     */
+    static _merge_reserved_tags(original_tags, new_tags, is_bucket_empty) {
+        const merged_tags = original_tags.reduce((curr, tag) => {
+            if (!config.NSFS_GLACIER_RESERVED_BUCKET_TAGS[tag.key]) return curr;
+            return Object.assign(curr, { [tag.key]: tag.value });
+        }, {});
+
+        for (const tag of new_tags) {
+            const tag_info = config.NSFS_GLACIER_RESERVED_BUCKET_TAGS[tag.key];
+            if (!tag_info) {
+                merged_tags[tag.key] = tag.value;
+                continue;
+            }
+            if (!tag_info.immutable || (tag_info.immutable === 'if-data' && is_bucket_empty)) {
+                let validator = ajv.getSchema(tag_info.schema.$id);
+                if (!validator) {
+                    ajv.addSchema(tag_info.schema);
+                    validator = ajv.getSchema(tag_info.schema.$id);
+                }
+
+                if (validator(tag.value)) {
+                    merged_tags[tag.key] = tag.value;
+                }
+            }
+        }
+
+        return Object.keys(merged_tags).map(key => ({ key, value: merged_tags[key] }));
     }
 
     ////////////////////
@@ -874,6 +970,71 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
         }
 
         return storage_classes;
+    }
+
+    /**
+     * _is_bucket_empty returns true if the given bucket is empty
+     *
+     * @param {*} ns 
+     * @param {*} params 
+     * @param {string} name 
+     * @param {nb.ObjectSDK} object_sdk 
+     *
+     * @returns {Promise<boolean>}
+     */
+    static async _is_bucket_empty(name, params, ns, object_sdk) {
+        params = params || {};
+
+        let list;
+        try {
+            if (ns._is_versioning_disabled()) {
+                list = await ns.list_objects({ ...params, bucket: name, limit: 1 }, object_sdk);
+            } else {
+                list = await ns.list_object_versions({ ...params, bucket: name, limit: 1 }, object_sdk);
+            }
+        } catch (err) {
+            dbg.warn('_is_bucket_empty: bucket name', name, 'got an error while trying to list_objects', err);
+            // in case the ULS was deleted - we will continue
+            if (err.rpc_code !== 'NO_SUCH_BUCKET') throw err;
+        }
+
+        return !(list && list.objects && list.objects.length > 0);
+    }
+
+    /**
+     * _generate_reserved_tag_event_args returns the list of reserved
+     * bucket tags which have been modified and also returns a variable
+     * indicating if there has been any modifications at all.
+     * @param {Record<string, string>} prev_tags_objectified 
+     * @param {Array<{key: string, value: string}>} new_tags 
+     */
+    static _generate_reserved_tag_event_args(prev_tags_objectified, new_tags) {
+        let reserved_tag_modified = false;
+        const reserved_tag_event_args = new_tags?.reduce((curr, tag) => {
+            const tag_info = config.NSFS_GLACIER_RESERVED_BUCKET_TAGS[tag.key];
+
+            // If not a reserved tag - skip
+            if (!tag_info) return curr;
+
+            // If no event is requested - skip
+            if (!tag_info.event) return curr;
+
+            // If value didn't change - skip
+            if (_.isEqual(prev_tags_objectified[tag.key], tag.value)) return curr;
+
+            reserved_tag_modified = true;
+            return Object.assign(curr, { [tag.key]: tag.value });
+        }, {});
+
+        return [reserved_tag_event_args, reserved_tag_modified];
+    }
+
+    /**
+     * @param {Array<{key: string, value: string}>} tagging 
+     * @returns {Record<string, string>}
+     */
+    static _objectify_tagging_arr(tagging) {
+        return (tagging || []).reduce((curr, tag) => Object.assign(curr, { [tag.key]: tag.value }), {});
     }
 }
 

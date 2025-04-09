@@ -407,6 +407,7 @@ describe('noobaa cli - lifecycle versioning ENABLE', () => {
     const test_bucket_path = `${root_path}/${test_bucket}`;
     const test_key1 = 'test_key1';
     const test_key2 = 'test_key2';
+    const test_key3 = 'test_key3';
     const prefix = 'test/';
     const test_prefix_key = `${prefix}test_key1`;
     let object_sdk;
@@ -555,6 +556,120 @@ describe('noobaa cli - lifecycle versioning ENABLE', () => {
             if (element.delete_marker) has_delete_marker = true;
         });
         expect(has_delete_marker).toBe(true);
+    });
+
+    it('lifecycle_cli - expiration rule - expire delete marker ', async () => {
+        const lifecycle_rule = [
+                {
+                "id": "expiration after 3 days with tags",
+                "status": "Enabled",
+                "filter": {
+                    "prefix": '',
+                },
+                "expiration": {
+                    "expired_object_delete_marker": true
+                }
+            }
+        ];
+        await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule });
+        await object_sdk.delete_object({bucket: test_bucket, key: test_key1});
+        await object_sdk.delete_object({bucket: test_bucket, key: test_key2});
+
+        await create_object(object_sdk, test_bucket, test_prefix_key, 100, false);
+        await object_sdk.delete_object({bucket: test_bucket, key: test_prefix_key});
+
+        await exec_manage_cli(TYPES.LIFECYCLE, '', {disable_service_validation: 'true', disable_runtime_validation: 'true', config_root}, undefined, undefined);
+        const object_list = await object_sdk.list_object_versions({bucket: test_bucket});
+        expect(object_list.objects.length).toBe(2);
+        object_list.objects.forEach(element => {
+            expect(element.key).toBe(test_prefix_key);
+        });
+    });
+
+    it('lifecycle_cli - expiration rule - expire delete marker with filter', async () => {
+        const lifecycle_rule = [
+                {
+                "id": "expiration after 3 days with tags",
+                "status": "Enabled",
+                "filter": {
+                    "prefix": prefix,
+                    "object_size_less_than": 1
+                },
+                "expiration": {
+                    "expired_object_delete_marker": true
+                }
+            }
+        ];
+        await object_sdk.set_bucket_versioning({name: test_bucket, versioning: "ENABLED"});
+        await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule });
+
+        await object_sdk.delete_object({bucket: test_bucket, key: test_key1});
+        await object_sdk.delete_object({bucket: test_bucket, key: test_prefix_key});
+
+        await exec_manage_cli(TYPES.LIFECYCLE, '', {disable_service_validation: 'true', disable_runtime_validation: 'true', config_root}, undefined, undefined);
+        const object_list = await object_sdk.list_object_versions({bucket: test_bucket});
+        expect(object_list.objects.length).toBe(1);
+        expect(object_list.objects[0].key).toBe(test_key1);
+    });
+
+    it('lifecycle_cli - expiration rule - expire delete marker last item', async () => {
+        const lifecycle_rule = [
+                {
+                "id": "expiration after 3 days with tags",
+                "status": "Enabled",
+                "filter": {
+                    "prefix": '',
+                    "object_size_less_than": 1
+                },
+                "expiration": {
+                    "expired_object_delete_marker": true
+                }
+            }
+        ];
+        await object_sdk.set_bucket_versioning({name: test_bucket, versioning: "ENABLED"});
+        await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule });
+
+        await object_sdk.delete_object({bucket: test_bucket, key: test_key1});
+
+        await exec_manage_cli(TYPES.LIFECYCLE, '', {disable_service_validation: 'true', disable_runtime_validation: 'true', config_root}, undefined, undefined);
+        const object_list = await object_sdk.list_object_versions({bucket: test_bucket});
+        expect(object_list.objects.length).toBe(0);
+    });
+
+    it('lifecycle_cli - expiration rule - last item in batch is latest delete marker', async () => {
+        const lifecycle_rule = [
+                {
+                "id": "expiration after 3 days with tags",
+                "status": "Enabled",
+                "filter": {
+                    "prefix": '',
+                    "object_size_less_than": 1
+                },
+                "expiration": {
+                    "expired_object_delete_marker": true
+                }
+            }
+        ];
+        await config_fs.create_config_json_file(JSON.stringify({
+            NC_LIFECYCLE_LIST_BATCH_SIZE: 3,
+            NC_LIFECYCLE_BUCKET_BATCH_SIZE: 3,
+        }));
+        await object_sdk.set_bucket_versioning({name: test_bucket, versioning: "ENABLED"});
+        await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule });
+
+        await object_sdk.delete_object({bucket: test_bucket, key: test_key1});
+        await object_sdk.delete_object({bucket: test_bucket, key: test_key1});
+        await object_sdk.delete_object({bucket: test_bucket, key: test_key2}); //last in batch should not delete
+        await object_sdk.delete_object({bucket: test_bucket, key: test_key2});
+        await object_sdk.delete_object({bucket: test_bucket, key: test_key3}); // last in batch should delete
+        await object_sdk.delete_object({bucket: test_bucket, key: 'test_key4'});
+
+        await exec_manage_cli(TYPES.LIFECYCLE, '', {disable_service_validation: 'true', disable_runtime_validation: 'true', config_root}, undefined, undefined);
+        const object_list = await object_sdk.list_object_versions({bucket: test_bucket});
+        expect(object_list.objects.length).toBe(4);
+        object_list.objects.forEach(element => {
+            expect([test_key1, test_key2]).toContain(element.key);
+        });
     });
 });
 

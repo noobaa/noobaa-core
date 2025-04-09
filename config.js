@@ -951,6 +951,33 @@ config.NSFS_GLACIER_FORCE_EXPIRE_ON_GET = false;
 // interval
 config.NSFS_GLACIER_MIGRATE_LOG_THRESHOLD = 50 * 1024;
 
+/** 
+ * NSFS_GLACIER_RESERVED_BUCKET_TAGS defines an object of bucket tags which will be reserved
+ * by the system and PUT operations for them via S3 API would be limited - as in they would be
+ * mutable only if specified and only under certain conditions.
+ *
+ * @type {Record<string, {
+ *  schema: Record<any, any> & { $id: string },
+ *  immutable: true | false | 'if-data',
+ *  default: any,
+ *  event: boolean
+ * }>}
+ * 
+ * @example
+ * {
+    'deep-archive-copies': {
+        schema: {
+            $id: 'deep-archive-copies-schema-v0',
+            enum: ['1', '2']
+        }, // JSON Schema
+        immutable: 'if-data',
+        default: '1',
+        event: true
+    }
+ * }
+ */
+config.NSFS_GLACIER_RESERVED_BUCKET_TAGS = {};
+
 // anonymous account name
 config.ANONYMOUS_ACCOUNT_NAME = 'anonymous';
 

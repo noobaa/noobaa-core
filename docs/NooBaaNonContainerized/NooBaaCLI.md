@@ -376,6 +376,13 @@ noobaa-cli bucket update --name <bucket_name> [--new_name] [--owner]
     - Type: Boolean
     - Description: Set the bucket to force md5 ETag calculation.
 
+- `tag`
+    - Type: String
+    - Description: Set the bucket tags, type is a string of valid JSON. Behaviour is similar to `put-bucket-tagging` S3 API.
+
+- `merge_tag`
+    - Type: String
+    - Description: Merge the bucket tags with previous bucket tags, type is a string of valid JSON.
 
 ### Bucket Status
 

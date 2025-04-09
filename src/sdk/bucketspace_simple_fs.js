@@ -168,7 +168,12 @@ class BucketSpaceSimpleFS {
     // BUCKET TAGGING //
     ////////////////////
 
-    async put_bucket_tagging(params) {
+    /**
+     * 
+     * @param {*} params 
+     * @param {nb.ObjectSDK} object_sdk
+     */
+    async put_bucket_tagging(params, object_sdk) {
         // TODO
     }
 

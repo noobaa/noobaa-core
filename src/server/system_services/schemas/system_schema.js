@@ -78,7 +78,17 @@ module.exports = {
                 properties: {
                     service: {
                         type: 'string',
-                        enum: ['noobaa-mgmt', 's3', 'sts', 'noobaa-db', 'noobaa-db-pg', 'noobaa-syslog']
+                        enum: [
+                            'noobaa-mgmt',
+                            's3',
+                            'sts',
+                            'noobaa-db',
+                            'noobaa-db-pg',
+                            'noobaa-db-pg-cluster-rw',
+                            'noobaa-db-pg-cluster-ro',
+                            'noobaa-db-pg-cluster-r',
+                            'noobaa-syslog'
+                        ]
                     },
                     kind: {
                         type: 'string',

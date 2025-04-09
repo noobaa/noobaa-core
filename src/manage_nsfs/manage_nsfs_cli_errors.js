@@ -3,6 +3,7 @@
 
 const config = require('../../config');
 const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
+const { TYPES } = require('../manage_nsfs/manage_nsfs_constants');
 
 // by default NC_DISABLE_POSIX_MODE_ACCESS_CHECK=true, therefore CLI access check of account/bucket will be based on stat (open file)
 // which checks only read permissions. 
@@ -94,7 +95,7 @@ ManageCLIError.InvalidArgumentType = Object.freeze({
 
 ManageCLIError.InvalidType = Object.freeze({
     code: 'InvalidType',
-    message: 'Invalid type, available types are account, bucket, logging, whitelist, upgrade, notification or connection.',
+    message: `Invalid type, valid types are ${Object.values(TYPES).join(', ')}.`,
     http_code: 400,
 });
 

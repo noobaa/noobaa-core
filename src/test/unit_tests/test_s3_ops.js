@@ -532,6 +532,29 @@ mocha.describe('s3_ops', function() {
             }
         });
 
+        mocha.it('should fail on wildcar in ExposeHeader', async function() {
+            const wildcard_expose_header = "x-amz-server-side-*";
+            const params = {
+                Bucket: "cors-bucket",
+                CORSConfiguration: {
+                    CORSRules: [{
+                        AllowedOrigins: ["http://www.example.com"],
+                        AllowedMethods: ["PUT", "POST", "DELETE"],
+                        ExposeHeaders: ["Content-Length", wildcard_expose_header]
+                    }]
+                }
+            };
+            try {
+                await s3.putBucketCors(params);
+                assert.fail(`should reject put bucket cors with wildcar expose header ${wildcard_expose_header}`);
+            } catch (err) {
+                assert.strictEqual(err.Code, 'InvalidRequest',
+                    `ExposeHeader "${wildcard_expose_header}" contains wildcard. We currently do not support wildcard for ExposeHeader.`
+                );
+                assert.strictEqual(err.$metadata.httpStatusCode, 400);
+            }
+        });
+
         mocha.after(async function() {
             await s3.deleteBucket({ Bucket: "cors-bucket" });
         });

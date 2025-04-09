@@ -23,6 +23,7 @@ const net_utils = require('./net_utils');
 const time_utils = require('./time_utils');
 const cloud_utils = require('./cloud_utils');
 const ssl_utils = require('../util/ssl_utils');
+const s3_utils = require('../endpoint/s3/s3_utils');
 const RpcError = require('../rpc/rpc_error');
 const S3Error = require('../endpoint/s3/s3_errors').S3Error;
 
@@ -664,6 +665,82 @@ function set_amz_headers(req, res) {
     res.setHeader('x-amz-id-2', req.request_id);
 }
 
+const s3_error_options = {
+    ErrorClass: S3Error,
+    error_missing_content_length: S3Error.MissingContentLength
+};
+/**
+ * @param {Object} req
+ * @param {http.ServerResponse} res
+ */
+async function set_expiration_header(req, res) {
+    if (req.method === 'HEAD' || req.method === 'GET' || req.method === 'PUT') {
+        const rules = req.params.bucket && await req.object_sdk.read_bucket_lifecycle_config_info(req.params.bucket);
+        const object_md = {
+                bucket: req.params.bucket,
+                key: req.params.key,
+                size: req.headers['x-amz-decoded-content-length'] || req.headers['content-length'] ? parse_content_length(req, s3_error_options) : undefined,
+                tagging: req.body && req.body.Tagging ? s3_utils.parse_body_tagging_xml(req) : undefined,
+        };
+
+        if (object_md.key && rules?.length > 0) { // updating x-amz-expiration if object key is present
+            for (const rule of rules) {
+                if (rule?.status !== 'Enabled') continue;
+
+                const filter = rule?.filter || {};
+
+                if (filter.prefix && !object_md?.key.startsWith(filter.prefix)) continue;
+
+                if (filter.object_size_greater_than && object_md?.size <= filter.object_size_greater_than) continue;
+                if (filter.object_size_less_than && object_md?.size >= filter.object_size_less_than) continue;
+
+                if (filter.tagging && Array.isArray(filter.tagging)) {
+                    const obj_tags = object_md?.tagging || [];
+
+                    const matches_all_tags = filter.tagging.every(filter_tag =>
+                        obj_tags.some(obj_tag => obj_tag.key === filter_tag.key && obj_tag.value === filter_tag.value)
+                    );
+
+                    if (!matches_all_tags) continue;
+                }
+
+                const expiration_head = parse_expiration_header(rule?.expiration, rule?.id);
+                if (expiration_head) {
+                    dbg.log0('set x_amz_expiration header from applied rule: ', rule);
+                    res.setHeader('x-amz-expiration', expiration_head);
+                    break; // apply only for first matching rule
+                }
+            }
+        }
+    }
+}
+
+/**
+ * parse_expiration_header converts an expiration rule (either with `date` or `days`)
+ * into an s3 style `x-amz-expiration` header value
+ *
+ * @param {Object} expiration - expiration object from lifecycle config
+ * @param {string} rule_id - id of the lifecycle rule
+ * @returns {string|undefined}
+ *
+ * Example output:
+ *   expiry-date="Thu, 10 Apr 2025 00:00:00 GMT", rule-id="rule_id"
+ */
+function parse_expiration_header(expiration, rule_id) {
+    if (!expiration || (!expiration.date && !expiration.days)) return undefined;
+
+    const expiration_date = expiration.date ?
+        new Date(expiration.date) :
+        new Date(Date.UTC(
+            new Date().getUTCFullYear(),
+            new Date().getUTCMonth(),
+            new Date().getUTCDate() + expiration.days
+        ));
+
+    return `expiry-date="${expiration_date.toUTCString()}", rule-id="${rule_id}"`;
+}
+
+
 /**
  * @typedef {{
  *      allow_origin: string;
@@ -945,6 +1022,7 @@ exports.set_keep_alive_whitespace_interval = set_keep_alive_whitespace_interval;
 exports.parse_xml_to_js = parse_xml_to_js;
 exports.check_headers = check_headers;
 exports.set_amz_headers = set_amz_headers;
+exports.set_expiration_header = set_expiration_header;
 exports.set_cors_headers = set_cors_headers;
 exports.set_cors_headers_s3 = set_cors_headers_s3;
 exports.set_cors_headers_sts = set_cors_headers_sts;

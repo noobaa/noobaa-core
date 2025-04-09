@@ -1215,6 +1215,7 @@ module.exports = {
                     $ref: 'common_api#/definitions/bucket_policy'
                 },
                 replication_policy_id: { objectid: true },
+                lifecycle_configuration_rules: { $ref: 'common_api#/definitions/bucket_lifecycle_configuration' },
             }
         },
 

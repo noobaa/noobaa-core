@@ -8,7 +8,7 @@ const dbg = require('../../util/debug_module')(__filename);
 const { KubeStore } = require('../kube-store.js');
 const yaml = require('yaml');
 const Agent = require('../../agent/agent');
-const { v4: uuid } = require('uuid');
+const crypto = require('crypto');
 const js_utils = require('../../util/js_utils');
 const size_utils = require('../../util/size_utils');
 
@@ -220,7 +220,7 @@ class InProcessAgentsPoolController extends PoolController {
                 read: () => _.cloneDeep(create_node_token),
                 write: new_token => { create_node_token = _.cloneDeep(new_token); }
             },
-            host_id: uuid(),
+            host_id: crypto.randomUUID(),
             test_hostname: hostname
         });
         await agent.start();

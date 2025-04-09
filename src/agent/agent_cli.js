@@ -10,7 +10,7 @@ const os = require('os');
 const path = require('path');
 const util = require('util');
 const repl = require('repl');
-const { v4: uuid } = require('uuid');
+const crypto = require('crypto');
 const argv = require('minimist')(process.argv);
 const S3Auth = require('aws-sdk/lib/signers/s3');
 
@@ -108,7 +108,7 @@ class AgentCLI {
                     self.client.options.address = self.params.address;
                 }
                 if (!self.params.host_id) {
-                    self.params.host_id = uuid();
+                    self.params.host_id = crypto.randomUUID();
                     return self.agent_conf.update({
                         host_id: self.params.host_id
                     });

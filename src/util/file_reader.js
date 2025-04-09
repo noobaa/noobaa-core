@@ -30,6 +30,7 @@ class NewlineReader {
      *  bufsize?: number;
      *  skip_leftover_line?: boolean;
      *  skip_overflow_lines?: boolean;
+     *  read_file_offset?: number;
      * }} [cfg]
      **/
     constructor(fs_context, filepath, cfg) {
@@ -41,18 +42,19 @@ class NewlineReader {
         this.fs_context = fs_context;
         this.fh = null;
         this.eof = false;
-        this.readoffset = 0;
+        this.read_file_offset = cfg?.read_file_offset || 0;
 
         this.buf = Buffer.alloc(cfg?.bufsize || 64 * 1024);
         this.start = 0;
         this.end = 0;
         this.overflow_state = false;
+        this.next_line_file_offset = cfg?.read_file_offset || 0;
     }
 
     info() {
         return {
             path: this.path,
-            read_offset: this.readoffset,
+            read_offset: this.read_file_offset,
             overflow_state: this.overflow_state,
             start: this.start,
             end: this.end,
@@ -67,6 +69,7 @@ class NewlineReader {
     async nextline() {
         if (!this.fh) await this.init();
 
+        // TODO - in case more data will be appended to the file - after each read the reader must set reader.eof = false if someone will keep on reading from a file while it is being written.
         while (!this.eof) {
             // extract next line if terminated in current buffer
             if (this.start < this.end) {
@@ -78,9 +81,9 @@ class NewlineReader {
                         this.start += term_idx + 1;
                         continue;
                     }
-
                     const line = this.buf.toString('utf8', this.start, this.start + term_idx);
                     this.start += term_idx + 1;
+                    this.next_line_file_offset = this.read_file_offset - (this.end - this.start);
                     return line;
                 }
             }
@@ -106,7 +109,7 @@ class NewlineReader {
 
             // read from file
             const avail = this.buf.length - this.end;
-            const read = await this.fh.read(this.fs_context, this.buf, this.end, avail, this.readoffset);
+            const read = await this.fh.read(this.fs_context, this.buf, this.end, avail, this.read_file_offset);
             if (!read) {
                 this.eof = true;
 
@@ -118,13 +121,15 @@ class NewlineReader {
                         console.warn('line too long finally terminated at eof:', this.info());
                     } else {
                         const line = this.buf.toString('utf8', this.start, this.end);
+                        this.start = this.end;
+                        this.next_line_file_offset = this.read_file_offset;
                         return line;
                     }
                 }
 
                 return null;
             }
-            this.readoffset += read;
+            this.read_file_offset += read;
             this.end += read;
         }
 
@@ -169,7 +174,7 @@ class NewlineReader {
     // was moved, this will still keep on reading from the previous FD.
     reset() {
         this.eof = false;
-        this.readoffset = 0;
+        this.read_file_offset = 0;
         this.start = 0;
         this.end = 0;
         this.overflow_state = false;

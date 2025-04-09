@@ -2,7 +2,7 @@ name: Jest Unit Tests
 on: [push, pull_request, workflow_dispatch]
 
 jobs:
-  run-unit-tests:
+  run-jest-unit-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     concurrency:

@@ -49,6 +49,7 @@ async function get_object(req, res) {
         }
     }
     http_utils.set_response_headers_from_request(req, res);
+    if (!version_id) await http_utils.set_expiration_header(req, res, object_md); // setting expiration header for bucket lifecycle
     const obj_size = object_md.size;
     const params = {
         object_md,

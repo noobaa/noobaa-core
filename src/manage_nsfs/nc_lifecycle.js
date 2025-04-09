@@ -271,7 +271,7 @@ class NCLifecycle {
 
             if (candidates.delete_candidates?.length > 0) {
                 const expiration = lifecycle_rule.expiration ? this._get_expiration_time(lifecycle_rule.expiration) : 0;
-                const filter_func = this._build_lifecycle_filter({filter: lifecycle_rule.filter, expiration});
+                const filter_func = lifecycle_utils.build_lifecycle_filter({filter: lifecycle_rule.filter, expiration});
                 dbg.log0('process_rule: calling delete_multiple_objects, num of objects to be deleted', candidates.delete_candidates.length);
                 const delete_res = await this._call_op_and_update_status({
                     bucket_name,
@@ -478,7 +478,7 @@ class NCLifecycle {
         if (rule_state.is_finished) return [];
         const expiration = this._get_expiration_time(lifecycle_rule.expiration);
         if (expiration < 0) return [];
-        const filter_func = this._build_lifecycle_filter({filter: lifecycle_rule.filter, expiration});
+        const filter_func = lifecycle_utils.build_lifecycle_filter({filter: lifecycle_rule.filter, expiration});
 
         const filtered_objects = [];
         // TODO list_objects does not accept a filter and works in batch sizes of 1000. should handle batching
@@ -537,7 +537,7 @@ class NCLifecycle {
         const versions_list = params.versions_list;
         const candidates = [];
         const expiration = lifecycle_rule.expiration?.days ? this._get_expiration_time(lifecycle_rule.expiration) : 0;
-        const filter_func = this._build_lifecycle_filter({filter: lifecycle_rule.filter, expiration});
+        const filter_func = lifecycle_utils.build_lifecycle_filter({filter: lifecycle_rule.filter, expiration});
         for (let i = 0; i < versions_list.objects.length - 1; i++) {
             if (this.filter_expired_delete_marker(versions_list.objects[i], versions_list.objects[i + 1], filter_func)) {
                 candidates.push(versions_list.objects[i]);
@@ -640,7 +640,7 @@ class NCLifecycle {
         }
         const versions_list = params.versions_list;
 
-        const filter_func = this._build_lifecycle_filter({filter: lifecycle_rule.filter, expiration: 0});
+        const filter_func = lifecycle_utils.build_lifecycle_filter({filter: lifecycle_rule.filter, expiration: 0});
         const num_newer_versions = lifecycle_rule.noncurrent_version_expiration.newer_noncurrent_versions;
         const num_non_current_days = lifecycle_rule.noncurrent_version_expiration.noncurrent_days;
         const delete_candidates = [];
@@ -674,7 +674,7 @@ class NCLifecycle {
         const expiration = lifecycle_rule.abort_incomplete_multipart_upload.days_after_initiation;
         const res = [];
 
-        const filter_func = this._build_lifecycle_filter({filter, expiration});
+        const filter_func = lifecycle_utils.build_lifecycle_filter({filter, expiration});
         let dir_handle;
         //TODO this is almost identical to list_uploads except for error handling and support for pagination. should modify list-upload and use it in here instead
         try {
@@ -719,29 +719,6 @@ class NCLifecycle {
     ////////////////////////////////////
     /////////   FILTER HELPERS  ////////
     ////////////////////////////////////
-
-    /**
-     * @typedef {{
-     *     filter: Object
-     *     expiration: Number
-     * }} filter_params
-     *
-     * @param {filter_params} params
-     * @returns
-     */
-    _build_lifecycle_filter(params) {
-        /**
-         * @param {Object} object_info
-         */
-        return function(object_info) {
-            if (params.filter?.prefix && !object_info.key.startsWith(params.filter.prefix)) return false;
-            if (params.expiration && object_info.age < params.expiration) return false;
-            if (params.filter?.tags && !_file_contain_tags(object_info, params.filter.tags)) return false;
-            if (params.filter?.object_size_greater_than && object_info.size < params.filter.object_size_greater_than) return false;
-            if (params.filter?.object_size_less_than && object_info.size > params.filter.object_size_less_than) return false;
-            return true;
-        };
-    }
 
     /**
      * get the expiration time in days of an object
@@ -1466,38 +1443,6 @@ class NCLifecycle {
         }
         return file_key;
     }
-}
-
-//////////////////
-// TAGS HELPERS //
-//////////////////
-
-/**
- * checks if tag query_tag is in the list tag_set
- * @param {Object} query_tag
- * @param {Array<Object>} tag_set
- */
-function _list_contain_tag(query_tag, tag_set) {
-    for (const t of tag_set) {
-        if (t.key === query_tag.key && t.value === query_tag.value) return true;
-    }
-    return false;
-}
-
-/**
- * checks if object has all the tags in filter_tags
- * @param {Object} object_info
- * @param {Array<Object>} filter_tags
- * @returns
- */
-function _file_contain_tags(object_info, filter_tags) {
-    if (object_info.tags === undefined) return false;
-    for (const tag of filter_tags) {
-        if (!_list_contain_tag(tag, object_info.tags)) {
-            return false;
-        }
-    }
-    return true;
 }
 
 // EXPORTS

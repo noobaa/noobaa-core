@@ -39,6 +39,7 @@ const { throw_cli_error, get_bucket_owner_account_by_name,
 const manage_nsfs_validations = require('../manage_nsfs/manage_nsfs_validations');
 const nc_mkm = require('../manage_nsfs/nc_master_key_manager').get_instance();
 const notifications_util = require('../util/notifications_util');
+const BucketSpaceFS = require('../sdk/bucketspace_fs');
 
 ///////////////
 //// GENERAL //
@@ -135,7 +136,6 @@ async function fetch_bucket_data(action, user_input) {
         force_md5_etag: user_input.force_md5_etag === undefined || user_input.force_md5_etag === '' ? user_input.force_md5_etag : get_boolean_or_string_value(user_input.force_md5_etag),
         notifications: user_input.notifications
     };
-
     if (user_input.bucket_policy !== undefined) {
         if (typeof user_input.bucket_policy === 'string') {
             // bucket_policy deletion specified with empty string ''
@@ -152,6 +152,15 @@ async function fetch_bucket_data(action, user_input) {
         // @ts-ignore
         data = _.omitBy(data, _.isUndefined);
         data = await merge_new_and_existing_config_data(data);
+    }
+
+    if ((action === ACTIONS.UPDATE && user_input.tag) || (action === ACTIONS.ADD)) {
+        const tags = JSON.parse(user_input.tag || '[]');
+        data.tag = BucketSpaceFS._merge_reserved_tags(
+            data.tag || BucketSpaceFS._default_bucket_tags(),
+            tags,
+            action === ACTIONS.ADD ? true : await _is_bucket_empty(data),
+        );
     }
 
     //if we're updating the owner, needs to override owner in file with the owner from user input.
@@ -256,25 +265,14 @@ async function update_bucket(data) {
  */
 async function delete_bucket(data, force) {
     try {
-        const temp_dir_name = native_fs_utils.get_bucket_tmpdir_name(data._id);
+        const bucket_empty = await _is_bucket_empty(data);
+        if (!bucket_empty && !force) {
+            throw_cli_error(ManageCLIError.BucketDeleteForbiddenHasObjects, data.name);
+        }
+
         const bucket_temp_dir_path = native_fs_utils.get_bucket_tmpdir_full_path(data.path, data._id);
-        // fs_contexts for bucket temp dir (storage path)
         const fs_context_fs_backend = native_fs_utils.get_process_fs_context(data.fs_backend);
-        let entries;
-        try {
-            entries = await nb_native().fs.readdir(fs_context_fs_backend, data.path);
-        } catch (err) {
-            dbg.warn(`delete_bucket: bucket name ${data.name},` +
-                `got an error on readdir with path: ${data.path}`, err);
-            // if the bucket's path was deleted first (encounter ENOENT error) - continue deletion
-            if (err.code !== 'ENOENT') throw err;
-        }
-        if (entries) {
-            const object_entries = entries.filter(element => !element.name.endsWith(temp_dir_name));
-            if (object_entries.length > 0 && !force) {
-                throw_cli_error(ManageCLIError.BucketDeleteForbiddenHasObjects, data.name);
-            }
-        }
+
         await native_fs_utils.folder_delete(bucket_temp_dir_path, fs_context_fs_backend, true);
         await config_fs.delete_bucket_config_file(data.name);
         return { code: ManageCLIResponse.BucketDeleted, detail: { name: data.name }, event_arg: { bucket: data.name } };
@@ -338,6 +336,27 @@ async function list_bucket_config_files(wide, filters = {}) {
     config_files_list = config_files_list.filter(item => item);
 
     return config_files_list;
+}
+
+async function _is_bucket_empty(data) {
+    const temp_dir_name = native_fs_utils.get_bucket_tmpdir_name(data._id);
+    // fs_contexts for bucket temp dir (storage path)
+    const fs_context_fs_backend = native_fs_utils.get_process_fs_context(data.fs_backend);
+    let entries;
+    try {
+        entries = await nb_native().fs.readdir(fs_context_fs_backend, data.path);
+    } catch (err) {
+        dbg.warn(`_is_bucket_empty: bucket name ${data.name},` +
+            `got an error on readdir with path: ${data.path}`, err);
+        // if the bucket's path was deleted first (encounter ENOENT error) - continue deletion
+        if (err.code !== 'ENOENT') throw err;
+    }
+    if (entries) {
+        const object_entries = entries.filter(element => !element.name.endsWith(temp_dir_name));
+        return object_entries.length === 0;
+    }
+
+    return true;
 }
 
 /**

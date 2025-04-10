@@ -5,15 +5,10 @@ on: [push, pull_request, workflow_dispatch]
 jobs:
   check-slack-webhook:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
-    concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}
-      cancel-in-progress: true
     steps:
       - name: Test slack webhook
         uses: slackapi/slack-github-action@v2.0.0
         with:
-          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
           webhook-type: incoming-webhook
           payload: |
             text: "Hello world (Shira is testing webhook)"

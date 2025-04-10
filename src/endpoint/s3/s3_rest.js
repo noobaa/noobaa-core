@@ -139,6 +139,9 @@ async function handle_request(req, res) {
     authenticate_request(req);
     await authorize_request(req);
 
+    http_utils.set_expiration_header(req, res);
+
+
     dbg.log1('S3 REQUEST', req.method, req.originalUrl, 'op', op_name, 'request_id', req.request_id, req.headers);
     usage_report.s3_usage_info.total_calls += 1;
     usage_report.s3_usage_info[op_name] = (usage_report.s3_usage_info[op_name] || 0) + 1;

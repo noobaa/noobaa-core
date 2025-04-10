@@ -6,18 +6,13 @@ jobs:
   check-slack-webhook:
     runs-on: ubuntu-latest
     steps:
-      - name: step1
-        run: echo "$GITHUB_CONTEXT"
-
-      - name: Test slack webhook
+      - name: Greet the reader - noobaa
         uses: slackapi/slack-github-action@v2.0.0
         with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
           webhook-type: incoming-webhook
           payload: |
-            text: "Hello world (Shira is testing webhook)"
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+            text: "Greetings! (from Shira)"
 
 
 

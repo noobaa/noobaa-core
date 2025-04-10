@@ -905,30 +905,6 @@ struct Unlink : public FSWorker
 };
 
 /**
- * Unlinkat is an fs op
- */
-struct Unlinkat : public FSWorker
-{
-    int _dirfd;
-    std::string _path;
-    int _flags;
-    Unlinkat(const Napi::CallbackInfo& info)
-        : FSWorker(info)
-        , _dirfd(0)
-        , _flags(0)
-    {
-        _dirfd = info[1].As<Napi::Number>();
-        _path = info[2].As<Napi::String>();
-        _flags = info[3].As<Napi::Number>();
-        Begin(XSTR() << "Unlinkat " << DVAL(_path) << DVAL(_dirfd) << DVAL(_flags));
-    }
-    virtual void Work()
-    {
-        SYSCALL_OR_RETURN(unlinkat(_dirfd, _path.c_str(), _flags));
-    }
-};
-
-/**
  * Link is an fs op
  */
 struct Link : public FSWorker
@@ -1736,21 +1712,50 @@ struct UnlinkFileAt : public FSWrapWorker<FileWrap>
 {
     std::string _filepath;
     int _delete_fd;
+    int64_t _verify_inode;
+    int _flags;
     UnlinkFileAt(const Napi::CallbackInfo& info)
         : FSWrapWorker<FileWrap>(info)
         , _delete_fd(-1)
+        , _verify_inode(-1)
+        , _flags(0)
     {
         _filepath = info[1].As<Napi::String>();
         if (info.Length() > 2 && !info[2].IsUndefined()) {
             _delete_fd = info[2].As<Napi::Number>();
         }
-        Begin(XSTR() << "UnlinkFileAt" << DVAL(_wrap->_path.c_str()) << DVAL(_wrap->_fd) << DVAL(_filepath) << DVAL(_delete_fd));
+        if (info.Length() > 3 && !info[3].IsUndefined()) {
+            _verify_inode = info[3].As<Napi::Number>().Int64Value();
+        }
+        if (info.Length() > 4 && !info[4].IsUndefined()) {
+            _flags = info[4].As<Napi::Number>();
+        }
+        Begin(XSTR() << "UnlinkFileAt" << DVAL(_wrap->_path.c_str()) << DVAL(_wrap->_fd) << DVAL(_filepath) << DVAL(_delete_fd) << DVAL(_verify_inode));
     }
     virtual void Work()
     {
         int fd = _wrap->_fd;
+        std::string path = _wrap->_path;
         CHECK_WRAP_FD(fd);
-        SYSCALL_OR_RETURN(dlsym_gpfs_unlinkat(fd, _filepath.c_str(), _delete_fd));
+        if(use_gpfs_lib()) {
+            SYSCALL_OR_RETURN(dlsym_gpfs_unlinkat(fd, _filepath.c_str(), _delete_fd));
+        } else {
+            DBG1("Unlinkat " << DVAL(fd) << DVAL(path.c_str()) << DVAL(_filepath.c_str()) << DVAL(_flags) << DVAL(_verify_inode));
+            if (_verify_inode > 0) {
+                struct stat _stat_res;
+                std::string full_path = path + "/" + _filepath;
+                DBG1("Unlinkat " << DVAL(full_path));
+                SYSCALL_OR_RETURN(stat(full_path.c_str(), &_stat_res));
+                int64_t stat_actual_ino = _stat_res.st_ino;
+                DBG1("Unlinkat " << DVAL(stat_actual_ino) << DVAL(_verify_inode));
+                if (stat_actual_ino != _verify_inode) {
+                    SetError(XSTR() << "Unlinkat: " << DVAL(path.c_str()) << DVAL(_stat_res.st_ino) << DVAL(_verify_inode) << " inode verification failed");
+                    return;
+                }
+            }
+            DBG1("Unlinkat " << DVAL(fd) << DVAL(_filepath.c_str()));
+            SYSCALL_OR_RETURN(unlinkat(fd, _filepath.c_str(), _flags));
+        }
     }
 };
 
@@ -2373,7 +2378,6 @@ fs_napi(Napi::Env env, Napi::Object exports)
     exports_fs["statfs"] = Napi::Function::New(env, api<Statfs>);
     exports_fs["checkAccess"] = Napi::Function::New(env, api<CheckAccess>);
     exports_fs["unlink"] = Napi::Function::New(env, api<Unlink>);
-    exports_fs["unlinkat"] = Napi::Function::New(env, api<Unlinkat>);
     exports_fs["safe_unlink"] = Napi::Function::New(env, api<SafeUnlink>);
     exports_fs["rename"] = Napi::Function::New(env, api<Rename>);
     exports_fs["mkdir"] = Napi::Function::New(env, api<Mkdir>);

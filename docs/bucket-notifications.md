@@ -10,11 +10,14 @@ A notification json has these fields:
           If not specified, the notification is relevant for all events.
 - TopicArn: The connection file (see below). (To specify a Kafka target topic, see "Kafka Connection Fields" below).
 
+Note that in alignment with AWS notification configuration, a test notification is sent to the external server during put-bucket-notification-configuration execution.
+A successful test notification is a prequisite for the put-bucket-notification-configuration op.
+
 Example for a bucket's notification configuration on containerized environment, in a file:
 {
     "TopicConfigurations": [
         {
-	    "Id": "created_from_s3op",
+            "Id": "created_from_s3op",
             "TopicArn": "secret-name/connect.json",
             "Events": [
                 "s3:ObjectCreated:*"
@@ -23,12 +26,12 @@ Example for a bucket's notification configuration on containerized environment, 
     ]
 }
 
-Example for a bucket's notification configuration on Non-containerized environment, in a file:
+Example for a bucket's notification configuration on a non-containerized environment, in a file:
 {
     "TopicConfigurations": [
         {
-	    "Id": "created_from_s3op",
-            "TopicArn": "secret-name/connect",
+            "Id": "created_from_s3op",
+            "TopicArn": "connect",
             "Events": [
                 "s3:ObjectCreated:*"
             ]

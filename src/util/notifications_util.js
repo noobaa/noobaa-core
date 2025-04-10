@@ -343,7 +343,7 @@ function get_connection(connect) {
  * @returns {Promise} Error while testing, if any.
  */
 
-async function test_notifications(notifs, nc_config_dir) {
+async function test_notifications(notifs, nc_config_dir, req) {
     //notifs can be empty in case we're removing the notification from the bucket
     if (!notifs) {
         return;
@@ -364,7 +364,7 @@ async function test_notifications(notifs, nc_config_dir) {
             connect = await notificator.parse_connect_file(notif.topic[0]);
             connection = get_connection(connect);
             await connection.connect();
-            await connection.promise_notify({notif: "test notification"}, async (notif_cb, err_cb, err) => {
+            await connection.promise_notify(compose_notification_test(req), async (notif_cb, err_cb, err) => {
                 failure = true;
                 notif_failure = err;
             });
@@ -492,6 +492,21 @@ function compose_meta(record, notif_conf, bucket) {
         },
         notif: {
             Records: [record],
+        }
+    };
+}
+
+function compose_notification_test(req) {
+    return {
+        notif: {
+            Records: [{
+                Service: "NooBaa",
+                Event: "s3:TestEvent",
+                Time: new Date().toISOString(),
+                Bucket: req.params.bucket,
+                RequestId: req.request_id,
+                HostId: process.env.NODE_NAME || os.hostname()
+            }]
         }
     };
 }

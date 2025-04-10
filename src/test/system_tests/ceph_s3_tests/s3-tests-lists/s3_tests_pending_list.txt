@@ -130,7 +130,6 @@ s3tests/functional/test_headers.py::test_object_create_bad_date_none_aws2
 s3tests/functional/test_headers.py::test_bucket_create_bad_authorization_invalid_aws2
 s3tests/functional/test_headers.py::test_bucket_create_bad_date_none_aws2
 s3tests_boto3/functional/test_s3.py::test_post_object_wrong_bucket
-s3tests_boto3/functional/test_s3.py::test_cors_presigned_put_object_tenant
 s3tests_boto3/functional/test_s3.py::test_object_presigned_put_object_with_acl_tenant
 s3tests_boto3/functional/test_s3.py::test_lifecycle_expiration_newer_noncurrent
 s3tests_boto3/functional/test_s3.py::test_lifecycle_expiration_size_gt

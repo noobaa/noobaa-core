@@ -58,6 +58,13 @@ Another option, which is less recommended, is to connect to postgres container a
 Notes:
 * For running `psql` commands you would need to install it on your machine (better with the matching version of postgres).
 * In case you already run postgres on your machine (not the mentioned container) it might raise some issues, better remove it (in MacOs using the Activity Monitor and search for postgres).
+Example: you stopped the docker run, and you tried to connect to postgres, but got an error (probably password authentication failed). As it expected to see the following message when we don't have a postgres container:
+
+```
+psql: error: connection to server at "127.0.0.1", port 5432 failed: Connection refused
+	Is the server running on that host and accepting TCP/IP connections?
+```
+
 * In case a test failed with "error: database "coretest" already exists" it means that you probably forgot to drop the DB table, and you can stop (ctrl + c) and rerun the `docker run` command mentioned above and then run the test again.
 * If you want to run the test with higher debug level you can add the `NOOBAA_LOG_LEVEL=all`, for example: `NOOBAA_LOG_LEVEL=all ./node_modules/mocha/bin/mocha.js src/test/unit_tests/test_s3_bucket_policy.js` (notice that you can printings that are not only from `LOG`, `L0`, `WARN` and `ERROR`, for example: `L1`, `L2`, `L3`, etc.)
 

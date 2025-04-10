@@ -110,6 +110,12 @@ mocha.describe('s3_ops', function() {
             const res = await s3.listBuckets({});
             assert(res.Buckets.find(bucket => bucket.Name === BKT1));
         });
+        mocha.it('should not fail request of get bucket request payment (currently returns a mock)', async function() {
+            const res = await s3.getBucketRequestPayment({ Bucket: BKT1 });
+            assert.equal(res.$metadata.httpStatusCode, 200);
+            const expected_payer = 'BucketOwner'; // this is the mock that we use
+            assert.equal(res.Payer, expected_payer);
+        });
         mocha.it('should enable bucket logging', async function() {
             await s3.createBucket({ Bucket: BKT2 });
             await s3.putBucketLogging({

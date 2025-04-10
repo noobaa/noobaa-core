@@ -17,6 +17,8 @@ jobs:
           webhook-type: incoming-webhook
           payload: |
             text: "Hello world (Shira is testing webhook)"
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
 
 

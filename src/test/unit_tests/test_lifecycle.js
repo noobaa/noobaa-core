@@ -254,7 +254,7 @@ mocha.describe('lifecycle', () => {
         mocha.it('basic test cleanup abandoned multipart upload', async function() {
             const bucket = multipart_bucket;
             const key = 'test-lifecycle-multipart-basic-0';
-            const parts_age = 3;
+            const parts_age = 30;
             const parts_count = 7;
             const part_size = 45;
 
@@ -296,7 +296,7 @@ mocha.describe('lifecycle', () => {
         mocha.it('test cleanup abandoned multipart upload with prefix', async function() {
             const bucket = multipart_bucket;
             const prefix = 'test-lifecycle-multipart-with-prefix-';
-            const parts_age = 3;
+            const parts_age = 30;
             const parts_count = 7;
             const part_size = 45;
 

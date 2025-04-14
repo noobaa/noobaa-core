@@ -29,6 +29,9 @@ console.log('test_nc_lifecycle_cli: replacing old umask: ', old_umask.toString(8
 const config_root = path.join(TMP_PATH, 'config_root_nc_lifecycle');
 const root_path = path.join(TMP_PATH, 'root_path_nc_lifecycle/');
 const config_fs = new ConfigFS(config_root);
+const account_options1 = { uid: 2002, gid: 2002, new_buckets_path: root_path, name: 'user2', config_root, allow_bucket_creation: 'true' };
+const test_bucket = 'test-bucket';
+const test_bucket1 = 'test-bucket1';
 
 const yesterday = new Date();
 yesterday.setDate(yesterday.getDate() - 1); // yesterday
@@ -138,7 +141,6 @@ describe('noobaa cli - lifecycle - lock check', () => {
 
 describe('noobaa cli - lifecycle', () => {
     const bucketspace_fs = new BucketSpaceFS({ config_root }, undefined);
-    const test_bucket = 'test-bucket';
     const test_bucket_path = `${root_path}/${test_bucket}`;
     const test_bucket2 = 'test-bucket2';
     const test_bucket2_path = `${root_path}/${test_bucket2}`;
@@ -146,7 +148,6 @@ describe('noobaa cli - lifecycle', () => {
     const test_key2 = 'test_key2';
     const prefix = 'test/';
     const test_prefix_key = `${prefix}/test_key1`;
-    const account_options1 = {uid: 2002, gid: 2002, new_buckets_path: root_path, name: 'user2', config_root, allow_bucket_creation: 'true'};
     let dummy_sdk;
     let nsfs;
 
@@ -439,6 +440,15 @@ describe('noobaa cli lifecycle - timeout check', () => {
         await fs_utils.create_fresh_path(config_root, 0o777);
         set_nc_config_dir_in_config(config_root);
         await fs_utils.create_fresh_path(root_path, 0o777);
+        const res = await exec_manage_cli(TYPES.ACCOUNT, ACTIONS.ADD, account_options1);
+        const json_account = JSON.parse(res).response.reply;
+        console.log(json_account);
+        const object_sdk = new NsfsObjectSDK('', config_fs, json_account, "DISABLED", config_fs.config_root, undefined);
+        object_sdk.requesting_account = json_account;
+        // don't delete this bucket creation - it's being used for making sure that the lifecycle run will take more than 1 ms
+        await object_sdk.create_bucket({ name: test_bucket });
+        await object_sdk.create_bucket({ name: test_bucket1});
+
     });
 
     afterEach(async () => {
@@ -455,19 +465,18 @@ describe('noobaa cli lifecycle - timeout check', () => {
         await config_fs.create_config_json_file(JSON.stringify({ NC_LIFECYCLE_TIMEOUT_MS: 1 }));
         const res1 = await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, true, undefined);
         await config_fs.delete_config_json_file();
-        const parsed_res1 = JSON.parse(res1.stdout).error;
-        expect(parsed_res1.code).toBe(ManageCLIError.LifecycleWorkerReachedTimeout.code);
-        expect(parsed_res1.message).toBe(ManageCLIError.LifecycleWorkerReachedTimeout.message);
+        const parsed_res1 = JSON.parse(res1.stdout);
+        const actual_error = parsed_res1.error;
+        expect(actual_error.code).toBe(ManageCLIError.LifecycleWorkerReachedTimeout.code);
+        expect(actual_error.message).toBe(ManageCLIError.LifecycleWorkerReachedTimeout.message);
     });
 });
 
 describe('noobaa cli - lifecycle batching', () => {
     const bucketspace_fs = new BucketSpaceFS({ config_root }, undefined);
-    const test_bucket = 'test-bucket';
     const test_bucket_path = `${root_path}/${test_bucket}`;
     const test_key1 = 'test_key1';
     const test_key2 = 'test_key2';
-    const account_options1 = {uid: 2002, gid: 2002, new_buckets_path: root_path, name: 'user2', config_root, allow_bucket_creation: 'true'};
     let object_sdk;
     const tmp_lifecycle_logs_dir_path = path.join(root_path, 'test_lifecycle_logs');
 
@@ -634,7 +643,7 @@ describe('noobaa cli - lifecycle batching', () => {
         try {
             await exec_manage_cli(TYPES.LIFECYCLE, '', {disable_service_validation: 'true', disable_runtime_validation: 'true', config_root}, undefined, undefined);
         } catch (e) {
-            //ignore error
+            //ignore timout error
         }
         await exec_manage_cli(TYPES.LIFECYCLE, '', {continue: 'true', disable_service_validation: 'true', disable_runtime_validation: 'true', config_root}, undefined, undefined);
         const object_list2 = await object_sdk.list_objects({bucket: test_bucket});
@@ -687,11 +696,9 @@ describe('noobaa cli - lifecycle batching', () => {
 });
 
 describe('noobaa cli - lifecycle notifications', () => {
-    const test_bucket = 'test-bucket';
     const test_bucket_path = `${root_path}/${test_bucket}`;
     const test_key1 = 'test_key1';
     const test_key2 = 'test_key2';
-    const account_options1 = {uid: 2002, gid: 2002, new_buckets_path: root_path, name: 'user2', config_root, allow_bucket_creation: 'true'};
     let object_sdk;
     const tmp_lifecycle_logs_dir_path = path.join(root_path, 'test_lifecycle_notifications_logs');
     const tmp_conn_dir_path = path.join(root_path, 'test_notification_logs');

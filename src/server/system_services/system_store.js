@@ -364,13 +364,11 @@ class SystemStore extends EventEmitter {
     [util.inspect.custom]() { return 'SystemStore'; }
 
     async initial_load_from_mount() {
-        if (!process.env.NOOBAA_ROOT_SECRET) {
-            await P.retry({
-                attempts: 3,
-                delay_ms: 1000,
-                func: () => this.master_key_manager.load_root_keys_from_mount()
-            });
-        }
+        await P.retry({
+            attempts: 3,
+            delay_ms: 1000,
+            func: () => this.master_key_manager.load_root_keys_from_mount()
+        });
         if (db_client.instance().is_connected()) {
             return this.load();
         }

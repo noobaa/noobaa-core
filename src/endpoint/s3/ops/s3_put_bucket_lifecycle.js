@@ -141,6 +141,16 @@ async function put_bucket_lifecycle(req) {
                 days_after_initiation: parse_lifecycle_field(rule.AbortIncompleteMultipartUpload[0].DaysAfterInitiation),
             }, _.isUndefined);
             reject_empty_field(current_rule.abort_incomplete_multipart_upload);
+
+            if (current_rule.abort_incomplete_multipart_upload?.days_after_initiation === undefined) {
+                throw new S3Error(S3Error.InvalidArgument);
+            }
+            if (current_rule.abort_incomplete_multipart_upload?.days_after_initiation < 1) {
+                throw new S3Error({
+                    ...S3Error.InvalidArgument,
+                    detail: 'when calling the PutBucketLifecycleConfiguration operation: \'DaysAfterInitiation\' for AbortIncompleteMultipartUpload action must be a positive integer',
+                });
+            }
         }
 
         if (rule.Transition?.length === 1) {
@@ -158,6 +168,16 @@ async function put_bucket_lifecycle(req) {
                 newer_noncurrent_versions: parse_lifecycle_field(rule.NoncurrentVersionExpiration[0].NewerNoncurrentVersions),
             }, _.isUndefined);
             reject_empty_field(current_rule.noncurrent_version_expiration);
+
+            if (current_rule.noncurrent_version_expiration?.noncurrent_days === undefined) {
+                throw new S3Error(S3Error.InvalidArgument);
+            }
+            if (current_rule.noncurrent_version_expiration?.noncurrent_days < 1) {
+                throw new S3Error({
+                    ...S3Error.InvalidArgument,
+                    detail: 'when calling the PutBucketLifecycleConfiguration operation: \'NoncurrentDays\' for NoncurrentVersionExpiration action must be a positive integer',
+                });
+            }
         }
 
         if (rule.NoncurrentVersionTransition?.length === 1) {

@@ -143,3 +143,4 @@ s3tests_boto3/functional/test_s3.py::test_get_bucket_encryption_s3
 s3tests_boto3/functional/test_s3.py::test_get_bucket_encryption_kms
 s3tests_boto3/functional/test_s3.py::test_delete_bucket_encryption_s3
 s3tests_boto3/functional/test_s3.py::test_delete_bucket_encryption_kms
+s3tests_boto3/functional/test_s3.py::test_lifecycle_expiration_tags1

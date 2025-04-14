@@ -415,16 +415,27 @@ class NCLifecycle {
     async get_candidates(bucket_json, lifecycle_rule, object_sdk) {
         const candidates = { abort_mpu_candidates: [], delete_candidates: [] };
         const rule_state = this.lifecycle_run_status.buckets_statuses[bucket_json.name].rules_statuses[lifecycle_rule.id]?.state || {};
+        const versions_list = undefined;
         if (lifecycle_rule.expiration) {
             candidates.delete_candidates = await this.get_candidates_by_expiration_rule(lifecycle_rule, bucket_json,
-                object_sdk, rule_state);
+                object_sdk);
             if (lifecycle_rule.expiration.days || lifecycle_rule.expiration.expired_object_delete_marker) {
-                const dm_candidates = await this.get_candidates_by_expiration_delete_marker_rule(lifecycle_rule, bucket_json);
+                const dm_candidates = await this.get_candidates_by_expiration_delete_marker_rule(
+                    lifecycle_rule,
+                    bucket_json,
+                    object_sdk,
+                    {versions_list}
+                );
                 candidates.delete_candidates = candidates.delete_candidates.concat(dm_candidates);
             }
         }
         if (lifecycle_rule.noncurrent_version_expiration) {
-            const non_current_candidates = await this.get_candidates_by_noncurrent_version_expiration_rule(lifecycle_rule, bucket_json);
+            const non_current_candidates = await this.get_candidates_by_noncurrent_version_expiration_rule(
+                lifecycle_rule,
+                bucket_json,
+                object_sdk,
+                {versions_list}
+            );
             candidates.delete_candidates = candidates.delete_candidates.concat(non_current_candidates);
         }
         if (lifecycle_rule.abort_incomplete_multipart_upload) {
@@ -472,12 +483,12 @@ class NCLifecycle {
      * @param {Object} bucket_json
      * @returns {Promise<Object[]>}
      */
-    async get_candidates_by_expiration_rule(lifecycle_rule, bucket_json, object_sdk, rule_state) {
+    async get_candidates_by_expiration_rule(lifecycle_rule, bucket_json, object_sdk) {
         const is_gpfs = nb_native().fs.gpfs;
         if (is_gpfs && config.NC_LIFECYCLE_GPFS_ILM_ENABLED) {
             return this.get_candidates_by_expiration_rule_gpfs(lifecycle_rule, bucket_json);
         } else {
-            return this.get_candidates_by_expiration_rule_posix(lifecycle_rule, bucket_json, object_sdk, rule_state);
+            return this.get_candidates_by_expiration_rule_posix(lifecycle_rule, bucket_json, object_sdk);
         }
     }
 
@@ -491,12 +502,41 @@ class NCLifecycle {
     }
 
     /**
+     * loads the objects list batch using list_objects and updates the rule state
+     * @param {Object} object_sdk
+     * @param {Object} lifecycle_rule
+     * @param {Object} bucket_json
+     * @param {Object} rule_state
+     * @returns
+     */
+    async load_objects_list(object_sdk, lifecycle_rule, bucket_json, rule_state) {
+        const objects_list = await object_sdk.list_objects({
+            bucket: bucket_json.name,
+            prefix: lifecycle_rule.filter?.prefix,
+            key_marker: rule_state.key_marker,
+            limit: config.NC_LIFECYCLE_LIST_BATCH_SIZE
+        });
+        if (objects_list.is_truncated) {
+            rule_state.key_marker = objects_list.next_marker;
+            rule_state.is_finished = false;
+        } else {
+            rule_state.is_finished = true;
+        }
+        const bucket_state = this.lifecycle_run_status.buckets_statuses[bucket_json.name].state;
+        bucket_state.num_processed_objects += objects_list.objects.length;
+        return objects_list;
+    }
+
+    /**
      *
      * @param {*} lifecycle_rule
      * @param {Object} bucket_json
+     * @param {nb.ObjectSDK} object_sdk
      * @returns {Promise<Object[]>}
      */
-    async get_candidates_by_expiration_rule_posix(lifecycle_rule, bucket_json, object_sdk, rule_state) {
+    async get_candidates_by_expiration_rule_posix(lifecycle_rule, bucket_json, object_sdk) {
+        const rule_state = this.lifecycle_run_status.buckets_statuses[bucket_json.name].rules_statuses[lifecycle_rule.id].state.expire;
+        if (rule_state.is_finished) return [];
         const expiration = this._get_expiration_time(lifecycle_rule.expiration);
         if (expiration < 0) return [];
         const filter_func = this._build_lifecycle_filter({filter: lifecycle_rule.filter, expiration});
@@ -504,12 +544,7 @@ class NCLifecycle {
         const filtered_objects = [];
         // TODO list_objects does not accept a filter and works in batch sizes of 1000. should handle batching
         // also should maybe create a helper function or add argument for a filter in list object
-        const objects_list = await object_sdk.list_objects({
-            bucket: bucket_json.name,
-            prefix: lifecycle_rule.filter?.prefix,
-            key_marker: rule_state.key_marker,
-            limit: config.NC_LIFECYCLE_LIST_BATCH_SIZE
-        });
+        const objects_list = await this.load_objects_list(object_sdk, lifecycle_rule, bucket_json, rule_state);
         objects_list.objects.forEach(obj => {
             const lifecycle_object = this._get_lifecycle_object_info_from_list_object_entry(obj);
             if (filter_func(lifecycle_object)) {
@@ -518,15 +553,20 @@ class NCLifecycle {
                 filtered_objects.push(candidate);
             }
         });
-
-        const bucket_state = this.lifecycle_run_status.buckets_statuses[bucket_json.name].state;
-        bucket_state.num_processed_objects += objects_list.objects.length;
-        if (objects_list.is_truncated) {
-            rule_state.key_marker = objects_list.next_marker;
-        } else {
-            rule_state.is_finished = true;
-        }
         return filtered_objects;
+    }
+
+    /**
+     * check if delete candidate based on expired delete marker rule
+     * @param {Object} object
+     * @param {Object} next_object
+     * @param {Function} filter_func
+     * @returns
+     */
+    filter_expired_delete_marker(object, next_object, filter_func) {
+        const lifecycle_info = this._get_lifecycle_object_info_from_list_object_entry(object);
+        if (!filter_func(lifecycle_info)) return false;
+        return object.is_latest && object.delete_marker && object.key !== next_object.key;
     }
 
     /**
@@ -535,14 +575,95 @@ class NCLifecycle {
      * @param {Object} bucket_json
      * @returns {Promise<Object[]>}
      */
-    async get_candidates_by_expiration_delete_marker_rule(lifecycle_rule, bucket_json) {
-        // TODO - implement
-        return [];
+    async get_candidates_by_expiration_delete_marker_rule(lifecycle_rule, bucket_json, object_sdk, {versions_list}) {
+        const rule_state = this.lifecycle_run_status.buckets_statuses[bucket_json.name].rules_statuses[lifecycle_rule.id].state.noncurrent;
+        if (rule_state.is_finished) return [];
+        if (!versions_list) {
+            versions_list = await this.load_versions_list(object_sdk, bucket_json, rule_state);
+        }
+        const candidates = [];
+        const expiration = lifecycle_rule.expiration?.days ? this._get_expiration_time(lifecycle_rule.expiration) : 0;
+        const filter_func = this._build_lifecycle_filter({filter: lifecycle_rule.filter, expiration});
+        for (let i = 0; i < versions_list.objects.length - 1; i++) {
+            if (this.filter_expired_delete_marker(versions_list.objects[i], versions_list.objects[i + 1], filter_func)) {
+                candidates.push(versions_list.objects[i]);
+            }
+        }
+        const last_item = versions_list.objects.length > 0 && versions_list.objects[versions_list.objects.length - 1];
+        const lifecycle_info = this._get_lifecycle_object_info_from_list_object_entry(last_item);
+        if (last_item.is_latest && last_item.delete_marker && filter_func(lifecycle_info)) {
+            if (rule_state.is_finished) {
+                candidates.push(last_item);
+            } else {
+                //need the next item to decide if we need to delete. start the next cycle from this key latest
+                rule_state.key_marker_versioned = last_item.key;
+                rule_state.version_id_marker = undefined;
+            }
+        }
+        return candidates;
     }
 
 /////////////////////////////////////////////
 //////// NON CURRENT VERSION HELPERS ////////
 /////////////////////////////////////////////
+
+    /**
+     * load versions list bacth and update state for the next cycle
+     * @param {Object} object_sdk
+     * @param {Object} bucket_json
+     * @param {Object} rule_state
+     * @returns
+     */
+    async load_versions_list(object_sdk, bucket_json, rule_state) {
+        const list_versions = await object_sdk.list_object_versions({
+            bucket: bucket_json.name,
+            prefix: rule_state.filter?.prefix,
+            limit: config.NC_LIFECYCLE_LIST_BATCH_SIZE,
+            key_marker: rule_state.key_marker_versioned,
+            version_id_marker: rule_state.version_id_marker
+        });
+        if (list_versions.is_truncated) {
+            rule_state.is_finished = false;
+            rule_state.key_marker_versioned = list_versions.next_marker;
+            rule_state.version_id_marker = list_versions.next_version_id_marker;
+        } else {
+            rule_state.is_finished = true;
+        }
+        const bucket_state = this.lifecycle_run_status.buckets_statuses[bucket_json.name].state;
+        bucket_state.num_processed_objects += list_versions.objects.length;
+        return list_versions;
+    }
+
+    /**
+     * check if object is delete candidate based on newer noncurrent versions rule
+     * @param {Object} object_info
+     * @param {Object} newer_noncurrent_state
+     * @param {Number} num_newer_versions
+     * @returns
+     */
+    filter_newer_versions(object_info, newer_noncurrent_state, num_newer_versions) {
+        if (object_info.is_latest) {
+            newer_noncurrent_state.version_count = 0; //latest
+            newer_noncurrent_state.current_version = object_info.key;
+            return false;
+        }
+        newer_noncurrent_state.version_count += 1;
+        if (newer_noncurrent_state.version_count > num_newer_versions) {
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * check if object is delete candidate based on number of noncurrent days rule
+     * @param {Object} object_info
+     * @param {Number} num_non_current_days
+     * @returns
+     */
+    filter_noncurrent_days(object_info, num_non_current_days) {
+        //TODO implement
+        return true;
+    }
 
     /**
      * get_candidates_by_noncurrent_version_expiration_rule processes the noncurrent version expiration rule
@@ -553,11 +674,31 @@ class NCLifecycle {
      * @param {Object} bucket_json
      * @returns {Promise<Object[]>}
      */
-    async get_candidates_by_noncurrent_version_expiration_rule(lifecycle_rule, bucket_json) {
-        // TODO - implement
-        return [];
-    }
+    async get_candidates_by_noncurrent_version_expiration_rule(lifecycle_rule, bucket_json, object_sdk, {versions_list}) {
+        const rule_state = this.lifecycle_run_status.buckets_statuses[bucket_json.name].rules_statuses[lifecycle_rule.id].state.noncurrent;
+        if (rule_state.is_finished) return [];
 
+        if (!versions_list) {
+            versions_list = await this.load_versions_list(object_sdk, bucket_json, rule_state);
+        }
+
+        const filter_func = this._build_lifecycle_filter({filter: lifecycle_rule.filter, expiration: 0});
+        const num_newer_versions = lifecycle_rule.noncurrent_version_expiration.newer_noncurrent_versions;
+        const num_non_current_days = lifecycle_rule.noncurrent_version_expiration.noncurrent_days;
+        const delete_candidates = [];
+
+        for (const entry of versions_list.objects) {
+            const lifecycle_info = this._get_lifecycle_object_info_from_list_object_entry(entry);
+            if ((num_newer_versions === undefined || this.filter_newer_versions(entry, rule_state, num_newer_versions)) &&
+                (num_non_current_days === undefined || this.filter_noncurrent_days(entry, num_non_current_days))) {
+                    if (filter_func(lifecycle_info)) {
+                        delete_candidates.push({key: entry.key, version_id: entry.version_id});
+                    }
+            }
+        }
+
+        return delete_candidates;
+    }
 ////////////////////////////////////
 ///////// ABORT MPU HELPERS ////////
 ////////////////////////////////////
@@ -733,6 +874,11 @@ class NCLifecycle {
                 this.init_bucket_status(bucket_name);
             }
         }
+        if (op_times.end_time) {
+            if (op_name === TIMED_OPS.PROCESS_RULE) {
+                this.update_rule_status_is_finished(bucket_name, rule_id);
+            }
+        }
         this._update_times_on_status({ op_name, op_times, bucket_name, rule_id });
         this._update_error_on_status({ error, bucket_name, rule_id });
         if (bucket_name && rule_id) {
@@ -879,10 +1025,21 @@ class NCLifecycle {
      */
     init_rule_status(bucket_name, rule_id) {
         this.lifecycle_run_status.buckets_statuses[bucket_name].rules_statuses[rule_id] ??= {};
-        this.lifecycle_run_status.buckets_statuses[bucket_name].rules_statuses[rule_id].state ??= {};
+        this.lifecycle_run_status.buckets_statuses[bucket_name].rules_statuses[rule_id].state ??= {expire: {}, noncurrent: {}};
         this.lifecycle_run_status.buckets_statuses[bucket_name].rules_statuses[rule_id].rule_process_times = {};
         this.lifecycle_run_status.buckets_statuses[bucket_name].rules_statuses[rule_id].rule_stats = {};
         return this.lifecycle_run_status.buckets_statuses[bucket_name].rules_statuses[rule_id];
+    }
+
+    /**
+     * updates the rule state if all actions finished
+     * @param {string} bucket_name
+     * @param {string} rule_id
+     */
+    update_rule_status_is_finished(bucket_name, rule_id) {
+        const rule_state = this.lifecycle_run_status.buckets_statuses[bucket_name].rules_statuses[rule_id].state;
+        rule_state.is_finished = (rule_state.expire.is_finished === undefined || rule_state.expire.is_finished === true) &&
+            (rule_state.noncurrent.is_finished === undefined || rule_state.noncurrent.is_finished === true);
     }
 
     /**
@@ -908,7 +1065,7 @@ class NCLifecycle {
                 }
             }
         }
-}
+    }
 }
 
 //////////////////

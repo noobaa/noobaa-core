@@ -908,7 +908,6 @@ mocha.describe('Rotation tests', function() {
             system_store.master_key_manager.resolved_master_keys_by_id = {};
             await system_store.master_key_manager.load_root_keys_from_mount();
             await system_store.load();
-            await system_store.load();
             const new_system_store_system = system_by_name(system_store.data.systems, SYSTEM);
             const new_cipher_key = new_system_store_system.master_key_id.cipher_key;
             const new_res_master_key = system_store.master_key_manager.resolved_master_keys_by_id[master_key_id];

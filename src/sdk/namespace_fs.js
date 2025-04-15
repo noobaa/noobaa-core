@@ -1610,7 +1610,12 @@ class NamespaceFS {
                     await this.set_fs_xattr_op(fs_context, versioned_path, filter_fs_xattr(directory_stat.xattr), undefined, "w");
                 }
             }
-            await this._clear_user_xattr(fs_context, latest_version_dir_path, XATTR_USER_PREFIX);
+            try {
+                await this._clear_user_xattr(fs_context, latest_version_dir_path, XATTR_USER_PREFIX);
+            } catch (err) {
+                if (err.code !== 'ENODATA') throw err;
+                dbg.log1("_move_directory_content_xattr_to_versioned_file: xattr already removed, ignoring...");
+            }
         }
     }
 

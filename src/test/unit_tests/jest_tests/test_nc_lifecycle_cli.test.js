@@ -26,8 +26,8 @@ const new_umask = process.env.NOOBAA_ENDPOINT_UMASK || 0o000;
 const old_umask = process.umask(new_umask);
 console.log('test_nc_lifecycle_cli: replacing old umask: ', old_umask.toString(8), 'with new umask: ', new_umask.toString(8));
 
-const config_root = path.join(TMP_PATH, 'config_root_nc_lifecycle');
-const root_path = path.join(TMP_PATH, 'root_path_nc_lifecycle/');
+const config_root = path.join(TMP_PATH, 'config_root_nc_lifecycle_cli');
+const root_path = path.join(TMP_PATH, 'root_path_nc_lifecycle_cli/');
 const config_fs = new ConfigFS(config_root);
 const account_options1 = { uid: 2002, gid: 2002, new_buckets_path: root_path, name: 'user2', config_root, allow_bucket_creation: 'true' };
 const test_bucket = 'test-bucket';

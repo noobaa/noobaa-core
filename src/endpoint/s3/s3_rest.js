@@ -116,9 +116,12 @@ async function handle_request(req, res) {
     }
 
     const op_name = parse_op_name(req);
-    const cors = req.params.bucket && await req.object_sdk.read_bucket_sdk_cors_info(req.params.bucket);
 
+    const cors = req.params.bucket && await req.object_sdk.read_bucket_sdk_cors_info(req.params.bucket);
     http_utils.set_cors_headers_s3(req, res, cors);
+
+    const rules = req.params.bucket && await req.object_sdk.read_bucket_lifecycle_config_info(req.params.bucket);
+    http_utils.set_expiration_header(req, res, rules);
 
     if (req.method === 'OPTIONS') {
         dbg.log1('s3_rest: handle_request : S3 request method is ', req.method);
@@ -138,6 +141,7 @@ async function handle_request(req, res) {
     http_utils.authorize_session_token(req, headers_options);
     authenticate_request(req);
     await authorize_request(req);
+
 
     dbg.log1('S3 REQUEST', req.method, req.originalUrl, 'op', op_name, 'request_id', req.request_id, req.headers);
     usage_report.s3_usage_info.total_calls += 1;

@@ -4,6 +4,7 @@ RUN_INIT=${1}
 NOOBAA_SUPERVISOR="/data/noobaa_supervisor.conf"
 NOOBAA_DATA_VERSION="/data/noobaa_version"
 NOOBAA_PACKAGE_PATH="/root/node_modules/noobaa-core/package.json"
+CERT_MANAGER_PID=""
 
 update_services_autostart() {
   local programs=(webserver bg_workers hosted_agents s3rver)
@@ -152,8 +153,25 @@ prepare_mongo_pv() {
   fi
 }
 
+# Function to cleanup certificate manager
+cleanup_cert_manager() {
+    if [ ! -z "${CERT_MANAGER_PID}" ]; then
+        echo "Stopping certificate manager"
+        ./cert_manager.sh stop
+        wait ${CERT_MANAGER_PID} 2>/dev/null
+    fi
+}
+
 init_endpoint() {
   fix_non_root_user
+
+  # Start certificate manager in the background
+  echo "Starting certificate manager"
+  ./cert_manager.sh start &
+  CERT_MANAGER_PID=$!
+  
+  # Set up cleanup on script exit
+  trap cleanup_cert_manager EXIT
 
   # nsfs folder is a root folder of mount points to backing storages.
   # In oder to avoid access denied of sub folders, configure nsfs with full permisions (777)  

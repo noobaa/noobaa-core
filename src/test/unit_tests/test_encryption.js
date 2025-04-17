@@ -897,7 +897,7 @@ mocha.describe('Rotation tests', function() {
             });
             system_store.master_key_manager.is_initialized = false;
             system_store.master_key_manager.resolved_master_keys_by_id = {};
-            await system_store.master_key_manager.load_root_key();
+            await system_store.master_key_manager.load_root_keys_from_mount();
             await system_store.load();
             const old_cipher_key = old_system_store_system.master_key_id.cipher_key;
             const old_res_master_key = system_store.master_key_manager.resolved_master_keys_by_id[master_key_id];

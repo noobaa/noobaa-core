@@ -878,45 +878,45 @@ mocha.describe('Rotation tests', function() {
             }));
         });
 
-        // mocha.it('test moving from ENV to files', async function() {
-        //     this.timeout(600000); // eslint-disable-line no-invalid-this
-        //     // collect old data
-        //     const old_system_store_system = system_by_name(system_store.data.systems, SYSTEM);
-        //     const master_key_id = old_system_store_system.master_key_id._id;
-        //     process.env.NOOBAA_ROOT_SECRET = await fs.promises.readFile(config.ROOT_KEY_MOUNT + '/key1', 'utf8');
-        //     await system_store.make_changes({
-        //         update: {
-        //             master_keys: [{
-        //                 _id: master_key_id,
-        //                 $set: {
-        //                     master_key_id: '00000000aaaabbbbccccdddd',
-        //                 },
-        //                 $unset: { root_key_id: 1 }
-        //             }]
-        //         }
-        //     });
-        //     system_store.master_key_manager.is_initialized = false;
-        //     system_store.master_key_manager.resolved_master_keys_by_id = {};
-        //     await system_store.master_key_manager.load_root_keys_from_mount();
-        //     await system_store.load();
-        //     const old_cipher_key = old_system_store_system.master_key_id.cipher_key;
-        //     const old_res_master_key = system_store.master_key_manager.resolved_master_keys_by_id[master_key_id];
-        //     // restarting moving from env to files
-        //     delete process.env.NOOBAA_ROOT_SECRET;
-        //     await fs.promises.writeFile(config.ROOT_KEY_MOUNT + '/active_root_key', 'key1');
-        //     system_store.master_key_manager.is_initialized = false;
-        //     system_store.master_key_manager.resolved_master_keys_by_id = {};
-        //     await system_store.master_key_manager.load_root_keys_from_mount();
-        //     await system_store.load();
-        //     const new_system_store_system = system_by_name(system_store.data.systems, SYSTEM);
-        //     const new_cipher_key = new_system_store_system.master_key_id.cipher_key;
-        //     const new_res_master_key = system_store.master_key_manager.resolved_master_keys_by_id[master_key_id];
-        //     await is_master_key_disabled(master_key_id, false);
-        //     // encrypted keys be equal - as root key didn't change - just moved to file
-        //     assert.strictEqual(old_cipher_key.toString(), new_cipher_key.toString());
-        //     // decrypted keys be equal - if root secret was updated correctly
-        //     assert.strictEqual(old_res_master_key.cipher_key.toString(), new_res_master_key.cipher_key.toString());
-        // });
+        mocha.it('test moving from ENV to files', async function() {
+            this.timeout(600000); // eslint-disable-line no-invalid-this
+            // collect old data
+            const old_system_store_system = system_by_name(system_store.data.systems, SYSTEM);
+            const master_key_id = old_system_store_system.master_key_id._id;
+            process.env.NOOBAA_ROOT_SECRET = await fs.promises.readFile(config.ROOT_KEY_MOUNT + '/key1', 'utf8');
+            await system_store.make_changes({
+                update: {
+                    master_keys: [{
+                        _id: master_key_id,
+                        $set: {
+                            master_key_id: '00000000aaaabbbbccccdddd',
+                        },
+                        $unset: { root_key_id: 1 }
+                    }]
+                }
+            });
+            system_store.master_key_manager.is_initialized = false;
+            system_store.master_key_manager.resolved_master_keys_by_id = {};
+            await system_store.master_key_manager.load_root_keys_from_mount();
+            await system_store.load();
+            const old_cipher_key = old_system_store_system.master_key_id.cipher_key;
+            const old_res_master_key = system_store.master_key_manager.resolved_master_keys_by_id[master_key_id];
+            // restarting moving from env to files
+            delete process.env.NOOBAA_ROOT_SECRET;
+            await fs.promises.writeFile(config.ROOT_KEY_MOUNT + '/active_root_key', 'key1');
+            system_store.master_key_manager.is_initialized = false;
+            system_store.master_key_manager.resolved_master_keys_by_id = {};
+            await system_store.master_key_manager.load_root_keys_from_mount();
+            await system_store.load();
+            const new_system_store_system = system_by_name(system_store.data.systems, SYSTEM);
+            const new_cipher_key = new_system_store_system.master_key_id.cipher_key;
+            const new_res_master_key = system_store.master_key_manager.resolved_master_keys_by_id[master_key_id];
+            await is_master_key_disabled(master_key_id, false);
+            // encrypted keys be equal - as root key didn't change - just moved to file
+            assert.strictEqual(old_cipher_key.toString(), new_cipher_key.toString());
+            // decrypted keys be equal - if root secret was updated correctly
+            assert.strictEqual(old_res_master_key.cipher_key.toString(), new_res_master_key.cipher_key.toString());
+        });
 
         mocha.it('rotate root key test - validate key rotation', async function() {
             this.timeout(600000); // eslint-disable-line no-invalid-this

@@ -365,8 +365,8 @@ class SystemStore extends EventEmitter {
 
     async initial_load_from_mount() {
         await P.retry({
-            attempts: 3,
-            delay_ms: 1000,
+            attempts: 6,
+            delay_ms: 10000,
             func: () => this.master_key_manager.load_root_keys_from_mount()
         });
         if (db_client.instance().is_connected()) {

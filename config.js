@@ -77,6 +77,11 @@ config.IAM_SERVICE_CERT_PATH = '/etc/iam-secret';
 config.MGMT_SERVICE_CERT_PATH = '/etc/mgmt-secret';
 config.EXTERNAL_DB_SERVICE_CERT_PATH = '/etc/external-db-secret';
 
+/////////////////
+// LDAP CONFIG //
+/////////////////
+config.LDAP_CONFIG_PATH = '/etc/noobaa-server/ldap_config';
+
 //////////////////
 // NODES CONFIG //
 //////////////////
@@ -1198,7 +1203,7 @@ function _get_config_root() {
 
 /**
  * go over the config object and set the relevant configurations as environment variables
-*/
+ */
 function _set_nc_config_to_env() {
     const config_to_env = ['NOOBAA_LOG_LEVEL', 'UV_THREADPOOL_SIZE', 'GPFS_DL_PATH', 'NSFS_ENABLE_DYNAMIC_SUPPLEMENTAL_GROUPS'];
     for (const configuration_key of config_to_env) {

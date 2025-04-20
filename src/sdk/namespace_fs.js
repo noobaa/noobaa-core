@@ -62,6 +62,7 @@ const XATTR_PART_ETAG = XATTR_NOOBAA_INTERNAL_PREFIX + 'part_etag';
 const XATTR_VERSION_ID = XATTR_NOOBAA_INTERNAL_PREFIX + 'version_id';
 const XATTR_DELETE_MARKER = XATTR_NOOBAA_INTERNAL_PREFIX + 'delete_marker';
 const XATTR_DIR_CONTENT = XATTR_NOOBAA_INTERNAL_PREFIX + 'dir_content';
+const XATTR_NON_CURRENT_TIMESTASMP = XATTR_NOOBAA_INTERNAL_PREFIX + 'non_current_timestamp';
 const XATTR_TAG = XATTR_NOOBAA_INTERNAL_PREFIX + 'tag.';
 const HIDDEN_VERSIONS_PATH = '.versions';
 const NULL_VERSION_ID = 'null';
@@ -1399,10 +1400,10 @@ class NamespaceFS {
             fs_xattr = this._assign_md5_to_fs_xattr(digest, fs_xattr);
         }
         if (part_upload) {
-            fs_xattr = await this._assign_part_props_to_fs_xattr(fs_context, params.size, digest, offset, fs_xattr);
+            fs_xattr = this._assign_part_props_to_fs_xattr(params.size, digest, offset, fs_xattr);
         }
         if (!part_upload && (this._is_versioning_enabled() || this._is_versioning_suspended())) {
-            fs_xattr = await this._assign_versions_to_fs_xattr(stat, fs_xattr, undefined);
+            fs_xattr = this._assign_versions_to_fs_xattr(stat, fs_xattr, undefined);
         }
         if (!part_upload && params.storage_class) {
             fs_xattr = Object.assign(fs_xattr || {}, {
@@ -1556,6 +1557,7 @@ class NamespaceFS {
                     await native_fs_utils._make_path_dirs(versioned_path, fs_context);
                     await native_fs_utils.safe_move(fs_context, latest_ver_path, versioned_path, latest_ver_info,
                         gpfs_options?.move_to_versions, bucket_tmp_dir_path);
+                    await this._set_non_current_timestamp_on_past_version(fs_context, versioned_path);
                 }
                 if (is_dir_content) {
                     await this._move_directory_content_xattr_to_versioned_file(fs_context, key, versioned_path, latest_ver_path);
@@ -1597,17 +1599,19 @@ class NamespaceFS {
         const directory_stat = await native_fs_utils.stat_ignore_enoent(fs_context, latest_version_dir_path);
         const is_disabled_dir_content = directory_stat && directory_stat.xattr && directory_stat.xattr[XATTR_DIR_CONTENT];
         if (is_disabled_dir_content) {
+            let xattr = filter_fs_xattr(directory_stat.xattr);
+            xattr = this._assign_non_current_timestamp_xattr(xattr);
             if (this._is_versioning_enabled()) {
                 dbg.log1('NamespaceFS._move_to_dest_version latest object is a directory object with attributes on the directory. move the xattr to the new .version file');
                 if (versioned_path) {
-                    await this.set_fs_xattr_op(fs_context, versioned_path, filter_fs_xattr(directory_stat.xattr), undefined);
+                    await this.set_fs_xattr_op(fs_context, versioned_path, xattr, undefined);
                 } else {
                     //if no versioned_path, then we have empty content dir. need to create new .folder file
                     //this scenario happens only after moving from disabled to enabled mode or after upgrade. version-id is always null
                     versioned_path = this._get_version_path(key, NULL_VERSION_ID, true);
                     await native_fs_utils._make_path_dirs(versioned_path, fs_context);
                     //in case of empty directory object .folder of the latest doesn't exist. use 'w' to create it if its missing
-                    await this.set_fs_xattr_op(fs_context, versioned_path, filter_fs_xattr(directory_stat.xattr), undefined, "w");
+                    await this.set_fs_xattr_op(fs_context, versioned_path, xattr, undefined, 'w');
                 }
             }
             await this._clear_user_xattr(fs_context, latest_version_dir_path, XATTR_USER_PREFIX);
@@ -2384,17 +2388,30 @@ class NamespaceFS {
         return fs_xattr;
     }
 
-    async _assign_versions_to_fs_xattr(new_ver_stat, fs_xattr, delete_marker) {
+    /**
+     * _assign_versions_to_fs_xattr assigns version related xattrs to the file 
+     * 1. assign version_id xattr
+     * 2. if delete_marker - 
+     * 2.1. assigns delete_marker xattr
+     * 2.2. assigns non_current_timestamp xattr - on the current structure - delete marker is under .versions/
+     * @param {nb.NativeFSStats} new_ver_stat 
+     * @param {nb.NativeFSXattr} fs_xattr 
+     * @param {Boolean} [delete_marker]
+     * @returns {nb.NativeFSXattr}
+     */
+    _assign_versions_to_fs_xattr(new_ver_stat, fs_xattr, delete_marker = undefined) {
         fs_xattr = Object.assign(fs_xattr || {}, {
             [XATTR_VERSION_ID]: this._get_version_id_by_mode(new_ver_stat)
         });
 
-        if (delete_marker) fs_xattr[XATTR_DELETE_MARKER] = delete_marker;
-
+        if (delete_marker) {
+            fs_xattr[XATTR_DELETE_MARKER] = String(delete_marker);
+            fs_xattr = this._assign_non_current_timestamp_xattr(fs_xattr);
+        }
         return fs_xattr;
     }
 
-    async _assign_part_props_to_fs_xattr(fs_context, size, digest, offset, fs_xattr) {
+    _assign_part_props_to_fs_xattr(size, digest, offset, fs_xattr) {
         fs_xattr = Object.assign(fs_xattr || {}, {
             [XATTR_PART_SIZE]: size,
             [XATTR_PART_OFFSET]: offset,
@@ -2402,6 +2419,39 @@ class NamespaceFS {
 
         });
         return fs_xattr;
+    }
+
+    /**
+     * _assign_non_current_timestamp_xattr assigns non current timestamp xattr to file xattr
+     * @param {nb.NativeFSXattr} fs_xattr 
+     * @returns {nb.NativeFSXattr}
+     */
+    _assign_non_current_timestamp_xattr(fs_xattr = {}) {
+        fs_xattr = Object.assign(fs_xattr, {
+            [XATTR_NON_CURRENT_TIMESTASMP]: String(Date.now())
+        });
+        return fs_xattr;
+    }
+
+    /**
+     * _set_non_current_timestamp_on_past_version sets non current timestamp on past version - used as a hint for lifecycle process
+     * @param {nb.NativeFSContext} fs_context 
+     * @param {String} versioned_path 
+     * @returns {Promise<Void>}
+     */
+    async _set_non_current_timestamp_on_past_version(fs_context, versioned_path) {
+        const xattr = this._assign_non_current_timestamp_xattr();
+        await this.set_fs_xattr_op(fs_context, versioned_path, xattr);
+    }
+
+    /**
+     * _unset_non_current_timestamp_on_past_version unsets non current timestamp on past version - used as a hint for lifecycle process
+     * @param {nb.NativeFSContext} fs_context 
+     * @param {String} versioned_path 
+     * @returns {Promise<Void>}
+     */
+    async _unset_non_current_timestamp_on_past_version(fs_context, versioned_path) {
+        await this._clear_user_xattr(fs_context, versioned_path, XATTR_NON_CURRENT_TIMESTASMP);
     }
 
     /**
@@ -3191,6 +3241,8 @@ class NamespaceFS {
                 const bucket_tmp_dir_path = this.get_bucket_tmpdir_full_path();
                 await native_fs_utils.safe_move_posix(fs_context, max_past_ver_info.path, latest_ver_path,
                     max_past_ver_info, bucket_tmp_dir_path);
+                // TODO - catch error if no such xattr
+                await this._unset_non_current_timestamp_on_past_version(fs_context, latest_ver_path);
                 break;
             } catch (err) {
                 dbg.warn(`NamespaceFS: _promote_version_to_latest failed error: retries=${retries}`, err);
@@ -3249,8 +3301,9 @@ class NamespaceFS {
                     const bucket_tmp_dir_path = this.get_bucket_tmpdir_full_path();
                     if (this._is_versioning_enabled() || suspended_and_latest_is_not_null) {
                         await native_fs_utils._make_path_dirs(versioned_path, fs_context);
-                         await native_fs_utils.safe_move_posix(fs_context, latest_ver_path, versioned_path, latest_ver_info,
+                        await native_fs_utils.safe_move_posix(fs_context, latest_ver_path, versioned_path, latest_ver_info,
                             bucket_tmp_dir_path);
+                        await this._set_non_current_timestamp_on_past_version(fs_context, versioned_path);
                         if (suspended_and_latest_is_not_null) {
                             // remove a version (or delete marker) with null version ID from .versions/ (if exists)
                             await this._delete_null_version_from_versions_directory(params.key, fs_context);
@@ -3333,7 +3386,7 @@ class NamespaceFS {
                 }
                 const file_path = this._get_version_path(params.key, delete_marker_version_id, is_dir);
 
-                const fs_xattr = await this._assign_versions_to_fs_xattr(stat, undefined, true);
+                const fs_xattr = this._assign_versions_to_fs_xattr(stat, undefined, true);
                 if (fs_xattr) await upload_params.target_file.replacexattr(fs_context, fs_xattr);
                 // create .version in case we don't have it yet
                 await native_fs_utils._make_path_dirs(file_path, fs_context);

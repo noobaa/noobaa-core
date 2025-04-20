@@ -25,7 +25,8 @@ coretest.setup({});
 const XATTR_INTERNAL_NOOBAA_PREFIX = 'user.noobaa.';
 const XATTR_VERSION_ID = XATTR_INTERNAL_NOOBAA_PREFIX + 'version_id';
 const XATTR_DELETE_MARKER = XATTR_INTERNAL_NOOBAA_PREFIX + 'delete_marker';
-const XATTR_DIR_CONTENT = XATTR_INTERNAL_NOOBAA_PREFIX + "dir_content";
+const XATTR_NON_CURRENT_TIMESTASMP = XATTR_INTERNAL_NOOBAA_PREFIX + 'non_current_timestamp';
+const XATTR_DIR_CONTENT = XATTR_INTERNAL_NOOBAA_PREFIX + 'dir_content';
 const XATTR_USER_PREFIX = 'user.';
 const NULL_VERSION_ID = 'null';
 const HIDDEN_VERSIONS_PATH = '.versions';
@@ -1414,6 +1415,9 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             const version_path = path.join(suspended_full_path, '.versions', key_to_delete3 + '_' + latest_dm_version);
             const version_info = await stat_and_get_all(version_path, '');
             assert.equal(version_info.xattr[XATTR_VERSION_ID], NULL_VERSION_ID);
+            // check second latest is still non current xattr
+            const second_latest_version_path = path.join(suspended_full_path, '.versions', key_to_delete3 + '_' + prev_dm.VersionId);
+            await check_non_current_xattr_exists(second_latest_version_path);
         });
     });
 
@@ -1450,6 +1454,8 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             mocha.it('delete object version id - latest - second latest is null version', async function() {
                 const upload_res_arr = await upload_object_versions(account_with_access, delete_object_test_bucket_reg, key1, ['null', 'regular']);
                 const cur_version_id1 = await stat_and_get_version_id(full_delete_path, key1);
+                const second_latest_version_path = path.join(full_delete_path, '.versions', key1 + '_null');
+                await check_non_current_xattr_exists(second_latest_version_path);
 
                 const delete_res = await account_with_access.deleteObject({
                     Bucket: delete_object_test_bucket_reg,
@@ -1460,6 +1466,9 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
                 const cur_version_id2 = await stat_and_get_version_id(full_delete_path, key1);
                 assert.notEqual(cur_version_id1, cur_version_id2);
                 assert.equal('null', cur_version_id2);
+                // check second latest current xattr removed
+                const latest_version_path = path.join(full_delete_path, key1);
+                await check_non_current_xattr_does_not_exist(latest_version_path);
                 await fs_utils.file_must_not_exist(path.join(full_delete_path, key1 + '_' + upload_res_arr[1].VersionId));
                 const max_version1 = await find_max_version_past(full_delete_path, key1, '');
                 assert.equal(max_version1, undefined);
@@ -3408,9 +3417,18 @@ function _extract_version_info_from_xattr(version_id_str) {
     return { mtimeNsBigint: size_utils.string_to_bigint(arr[0], 36), ino: parseInt(arr[1], 36) };
 }
 
+/**
+ * version_file_exists returns path of version in .versions
+ * @param {String} full_path 
+ * @param {String} key 
+ * @param {String} dir 
+ * @param {String} version_id 
+ * @returns {Promise<Boolean>}
+ */
 async function version_file_exists(full_path, key, dir, version_id) {
     const version_path = path.join(full_path, dir, '.versions', key + '_' + version_id);
     await fs_utils.file_must_exist(version_path);
+    await check_non_current_xattr_exists(version_path, '');
     return true;
 }
 
@@ -3427,10 +3445,10 @@ async function get_obj_and_compare_data(s3, bucket_name, key, expected_body) {
     return true;
 }
 
-async function is_delete_marker(full_path, dir, key, version) {
+async function is_delete_marker(full_path, dir, key, version, check_non_current_version = true) {
     const version_path = path.join(full_path, dir, '.versions', key + '_' + version);
     const stat = await nb_native().fs.stat(DEFAULT_FS_CONFIG, version_path);
-    return stat && stat.xattr[XATTR_DELETE_MARKER];
+    return stat && stat.xattr[XATTR_DELETE_MARKER] && (check_non_current_version ? stat.xattr[XATTR_NON_CURRENT_TIMESTASMP] : true);
 }
 
 async function stat_and_get_version_id(full_path, key) {
@@ -3506,6 +3524,28 @@ async function create_empty_content_dir(fs_context, bucket_path, key) {
     await fd.replacexattr(fs_context, {[XATTR_DIR_CONTENT]: '0'});
     fd.close(fs_context);
 
+}
+
+/**
+ * check_non_current_xattr_exists checks that the XATTR_NON_CURRENT_TIMESTASMP xattr exists
+ * @param {String} full_path 
+ * @param {String} [key] 
+ * @returns {Promise<Void>}
+ */
+async function check_non_current_xattr_exists(full_path, key = '') {
+    const stat = await stat_and_get_all(full_path, key);
+    assert.ok(stat.xattr[XATTR_NON_CURRENT_TIMESTASMP]);
+}
+
+/**
+ * check_non_current_xattr_does_not_exist checks that the XATTR_NON_CURRENT_TIMESTASMP xattr does not exist
+ * @param {String} full_path 
+ * @param {String} [key] 
+ * @returns {Promise<Void>}
+ */
+async function check_non_current_xattr_does_not_exist(full_path, key = '') {
+    const stat = await stat_and_get_all(full_path, key);
+    assert.equal(stat.xattr[XATTR_NON_CURRENT_TIMESTASMP], undefined);
 }
 
 async function put_allow_all_bucket_policy(s3_client, bucket) {

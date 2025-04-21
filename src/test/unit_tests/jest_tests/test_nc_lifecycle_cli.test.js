@@ -10,7 +10,6 @@ const config = require('../../../../config');
 const fs_utils = require('../../../util/fs_utils');
 const { ConfigFS } = require('../../../sdk/config_fs');
 const { TMP_PATH, set_nc_config_dir_in_config, TEST_TIMEOUT, exec_manage_cli, create_system_json } = require('../../system_tests/test_utils');
-const BucketSpaceFS = require('../../../sdk/bucketspace_fs');
 const { TYPES, ACTIONS } = require('../../../manage_nsfs/manage_nsfs_constants');
 const NamespaceFS = require('../../../sdk/namespace_fs');
 const endpoint_stats_collector = require('../../../sdk/endpoint_stats_collector');
@@ -46,12 +45,6 @@ const lifecycle_rule_delete_all = [
         "date": yesterday.getTime()
     },
 }];
-
-function make_dummy_object_sdk(account_json) {
-    return {
-        requesting_account: account_json
-    };
-}
 
 describe('noobaa cli - lifecycle - lock check', () => {
     const original_lifecycle_run_time = config.NC_LIFECYCLE_RUN_TIME;
@@ -140,15 +133,12 @@ describe('noobaa cli - lifecycle - lock check', () => {
 });
 
 describe('noobaa cli - lifecycle', () => {
-    const bucketspace_fs = new BucketSpaceFS({ config_root }, undefined);
     const test_bucket_path = `${root_path}/${test_bucket}`;
-    const test_bucket2 = 'test-bucket2';
-    const test_bucket2_path = `${root_path}/${test_bucket2}`;
     const test_key1 = 'test_key1';
     const test_key2 = 'test_key2';
     const prefix = 'test/';
     const test_prefix_key = `${prefix}/test_key1`;
-    let dummy_sdk;
+    let object_sdk;
     let nsfs;
 
     beforeAll(async () => {
@@ -158,9 +148,9 @@ describe('noobaa cli - lifecycle', () => {
         const res = await exec_manage_cli(TYPES.ACCOUNT, ACTIONS.ADD, account_options1);
         const json_account = JSON.parse(res).response.reply;
         console.log(json_account);
-        dummy_sdk = make_dummy_object_sdk(json_account);
-        await bucketspace_fs.create_bucket({ name: test_bucket }, dummy_sdk);
-        await bucketspace_fs.create_bucket({ name: test_bucket2 }, dummy_sdk);
+        object_sdk = new NsfsObjectSDK('', config_fs, json_account, "DISABLED", config_fs.config_root, undefined);
+        object_sdk.requesting_account = json_account;
+        await object_sdk.create_bucket({ name: test_bucket });
         const bucket_json = await config_fs.get_bucket_by_name(test_bucket, undefined);
 
         nsfs = new NamespaceFS({
@@ -176,14 +166,12 @@ describe('noobaa cli - lifecycle', () => {
     });
 
     afterEach(async () => {
-        await bucketspace_fs.delete_bucket_lifecycle({ name: test_bucket });
-        await bucketspace_fs.delete_bucket_lifecycle({ name: test_bucket2 });
+        await object_sdk.delete_bucket_lifecycle({ name: test_bucket });
         await fs_utils.create_fresh_path(test_bucket_path);
     });
 
     afterAll(async () => {
         await fs_utils.folder_delete(test_bucket_path);
-        await fs_utils.folder_delete(test_bucket2_path);
         await fs_utils.folder_delete(root_path);
         await fs_utils.folder_delete(config_root);
     }, TEST_TIMEOUT);
@@ -199,12 +187,12 @@ describe('noobaa cli - lifecycle', () => {
                 }
             }
         ];
-        await bucketspace_fs.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule });
-        const res = await nsfs.create_object_upload({ key: test_key1, bucket: test_bucket }, dummy_sdk);
-        await nsfs.create_object_upload({ key: test_key1, bucket: test_bucket }, dummy_sdk);
+        await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule });
+        const res = await object_sdk.create_object_upload({ key: test_key1, bucket: test_bucket });
+        await object_sdk.create_object_upload({ key: test_key1, bucket: test_bucket });
         await update_mpu_mtime(res.obj_id);
         await exec_manage_cli(TYPES.LIFECYCLE, '', {disable_service_validation: 'true', disable_runtime_validation: 'true', config_root}, undefined, undefined);
-        const mpu_list = await nsfs.list_uploads({ bucket: test_bucket }, dummy_sdk);
+        const mpu_list = await object_sdk.list_uploads({ bucket: test_bucket });
         expect(mpu_list.objects.length).toBe(1); //removed the mpu that was created 5 days ago
     });
 
@@ -219,13 +207,13 @@ describe('noobaa cli - lifecycle', () => {
                 }
             }
         ];
-        await bucketspace_fs.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule });
-        let res = await nsfs.create_object_upload({ key: test_key1, bucket: test_bucket }, dummy_sdk);
+        await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule });
+        let res = await object_sdk.create_object_upload({ key: test_key1, bucket: test_bucket });
         await update_mpu_mtime(res.obj_id);
-        res = await nsfs.create_object_upload({ key: test_prefix_key, bucket: test_bucket }, dummy_sdk);
+        res = await object_sdk.create_object_upload({ key: test_prefix_key, bucket: test_bucket });
         await update_mpu_mtime(res.obj_id);
         await exec_manage_cli(TYPES.LIFECYCLE, '', {disable_service_validation: 'true', disable_runtime_validation: 'true', config_root}, undefined, undefined);
-        const mpu_list = await nsfs.list_uploads({ bucket: test_bucket }, dummy_sdk);
+        const mpu_list = await object_sdk.list_uploads({ bucket: test_bucket });
         expect(mpu_list.objects.length).toBe(1); //only removed test_prefix_key
     });
 
@@ -245,15 +233,14 @@ describe('noobaa cli - lifecycle', () => {
                 }
             }
         ];
-        await bucketspace_fs.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule });
-        let res = await nsfs.create_object_upload(
-            {key: test_key1, bucket: test_bucket, tagging: [...tag_set, ...different_tag_set]},
-            dummy_sdk);
+        await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule });
+        let res = await object_sdk.create_object_upload(
+            {key: test_key1, bucket: test_bucket, tagging: [...tag_set, ...different_tag_set]});
         await update_mpu_mtime(res.obj_id);
-        res = await nsfs.create_object_upload({ key: test_key1, bucket: test_bucket, tagging: different_tag_set}, dummy_sdk);
+        res = await object_sdk.create_object_upload({ key: test_key1, bucket: test_bucket, tagging: different_tag_set});
         await update_mpu_mtime(res.obj_id);
         await exec_manage_cli(TYPES.LIFECYCLE, '', {disable_service_validation: 'true', disable_runtime_validation: 'true', config_root}, undefined, undefined);
-        const mpu_list = await nsfs.list_uploads({ bucket: test_bucket }, dummy_sdk);
+        const mpu_list = await object_sdk.list_uploads({ bucket: test_bucket });
         expect(mpu_list.objects.length).toBe(1);
     });
 
@@ -270,12 +257,12 @@ describe('noobaa cli - lifecycle', () => {
                 }
             }
         ];
-        await bucketspace_fs.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule });
-        await create_object_lifecycle(test_bucket, test_key1, 100, true);
-        await create_object_lifecycle(test_bucket, test_key2, 100, false);
+        await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule });
+        await create_object(object_sdk, test_bucket, test_key1, 100, true);
+        await create_object(object_sdk, test_bucket, test_key2, 100, false);
 
         await exec_manage_cli(TYPES.LIFECYCLE, '', {disable_service_validation: 'true', disable_runtime_validation: 'true', config_root}, undefined, undefined);
-        const object_list = await nsfs.list_objects({bucket: test_bucket}, dummy_sdk);
+        const object_list = await object_sdk.list_objects({bucket: test_bucket});
         expect(object_list.objects.length).toBe(1);
         expect(object_list.objects[0].key).toBe(test_key2);
     });
@@ -295,13 +282,13 @@ describe('noobaa cli - lifecycle', () => {
                 }
             }
         ];
-        await bucketspace_fs.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule });
-        await create_object_lifecycle(test_bucket, test_key1, 100, false);
-        await create_object_lifecycle(test_bucket, test_key2, 100, false);
+        await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule });
+        await create_object(object_sdk, test_bucket, test_key1, 100, false);
+        await create_object(object_sdk, test_bucket, test_key2, 100, false);
 
         await update_file_mtime(path.join(test_bucket_path, test_key1));
         await exec_manage_cli(TYPES.LIFECYCLE, '', {disable_service_validation: 'true', disable_runtime_validation: 'true', config_root}, undefined, undefined);
-        const object_list = await nsfs.list_objects({bucket: test_bucket}, dummy_sdk);
+        const object_list = await object_sdk.list_objects({bucket: test_bucket});
         expect(object_list.objects.length).toBe(0); //should delete all objects
     });
 
@@ -320,13 +307,12 @@ describe('noobaa cli - lifecycle', () => {
                 }
             }
         ];
-        await bucketspace_fs.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule });
-        await create_object_lifecycle(test_bucket, test_key1, 100, false);
-        await create_object_lifecycle(test_bucket, test_key2, 100, false);
+        await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule });
+        await create_object(object_sdk, test_bucket, test_key1, 100, true);
+        await create_object(object_sdk, test_bucket, test_key2, 100, false);
 
-        await update_file_mtime(path.join(test_bucket_path, test_key1));
         await exec_manage_cli(TYPES.LIFECYCLE, '', {disable_service_validation: 'true', disable_runtime_validation: 'true', config_root}, undefined, undefined);
-        const object_list = await nsfs.list_objects({bucket: test_bucket}, dummy_sdk);
+        const object_list = await object_sdk.list_objects({bucket: test_bucket});
         expect(object_list.objects.length).toBe(2); //should not delete any entry
     });
 
@@ -345,12 +331,12 @@ describe('noobaa cli - lifecycle', () => {
                 }
             }
         ];
-        await bucketspace_fs.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule });
-        await create_object_lifecycle(test_bucket, test_key1, 100, true);
-        await create_object_lifecycle(test_bucket, test_prefix_key, 100, false);
+        await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule });
+        await create_object(object_sdk, test_bucket, test_key1, 100, true);
+        await create_object(object_sdk, test_bucket, test_prefix_key, 100, false);
 
         await exec_manage_cli(TYPES.LIFECYCLE, '', {disable_service_validation: 'true', disable_runtime_validation: 'true', config_root}, undefined, undefined);
-        const object_list = await nsfs.list_objects({bucket: test_bucket}, dummy_sdk);
+        const object_list = await object_sdk.list_objects({bucket: test_bucket});
         expect(object_list.objects.length).toBe(1);
         expect(object_list.objects[0].key).toBe(test_key1);
     });
@@ -371,13 +357,13 @@ describe('noobaa cli - lifecycle', () => {
                 }
             }
         ];
-        await bucketspace_fs.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule });
+        await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule });
         const test_key1_tags = [...tag_set, ...different_tag_set];
-        await create_object_lifecycle(test_bucket, test_key1, 100, true, test_key1_tags);
-        await create_object_lifecycle(test_bucket, test_key2, 100, true, different_tag_set);
+        await create_object(object_sdk, test_bucket, test_key1, 100, true, test_key1_tags);
+        await create_object(object_sdk, test_bucket, test_key2, 100, true, different_tag_set);
 
         await exec_manage_cli(TYPES.LIFECYCLE, '', {disable_service_validation: 'true', disable_runtime_validation: 'true', config_root}, undefined, undefined);
-        const object_list = await nsfs.list_objects({bucket: test_bucket}, dummy_sdk);
+        const object_list = await object_sdk.list_objects({bucket: test_bucket});
         expect(object_list.objects.length).toBe(1);
         expect(object_list.objects[0].key).toBe(test_key2);
     });
@@ -397,39 +383,179 @@ describe('noobaa cli - lifecycle', () => {
                 }
             }
         ];
-        await bucketspace_fs.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule });
+        await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule });
 
-        await create_object_lifecycle(test_bucket, test_key1, 100, true);
-        await create_object_lifecycle(test_bucket, test_key2, 80, true);
-        await create_object_lifecycle(test_bucket, test_prefix_key, 20, true);
+        await create_object(object_sdk, test_bucket, test_key1, 100, true);
+        await create_object(object_sdk, test_bucket, test_key2, 80, true);
+        await create_object(object_sdk, test_bucket, test_prefix_key, 20, true);
 
         await exec_manage_cli(TYPES.LIFECYCLE, '', {disable_service_validation: 'true', disable_runtime_validation: 'true', config_root}, undefined, undefined);
-        const object_list = await nsfs.list_objects({bucket: test_bucket}, dummy_sdk);
+        const object_list = await object_sdk.list_objects({bucket: test_bucket});
         expect(object_list.objects.length).toBe(2);
         object_list.objects.forEach(element => {
             expect(element.key).not.toBe(test_key2);
         });
     });
 
-    //TODO same as create_object. need to change to used object_sdk amd remove this function
-    // already done in create noncurrent PR
-    async function create_object_lifecycle(bucket, key, size, is_old, tagging) {
-        const data = crypto.randomBytes(size);
-        await nsfs.upload_object({
-            bucket,
-            key,
-            source_stream: buffer_utils.buffer_to_read_stream(data),
-            size,
-            tagging
-        }, dummy_sdk);
-        if (is_old) await update_file_mtime(path.join(root_path, bucket, key));
-    }
-
     async function update_mpu_mtime(obj_id) {
         const mpu_path = nsfs._mpu_path({obj_id});
         return await update_file_mtime(mpu_path);
     }
+});
 
+describe('noobaa cli - lifecycle versioning ENABLE', () => {
+    const test_bucket_path = `${root_path}/${test_bucket}`;
+    const test_key1 = 'test_key1';
+    const test_key2 = 'test_key2';
+    const prefix = 'test/';
+    const test_prefix_key = `${prefix}test_key1`;
+    let object_sdk;
+
+    beforeAll(async () => {
+        await fs_utils.create_fresh_path(config_root, 0o777);
+        set_nc_config_dir_in_config(config_root);
+        await fs_utils.create_fresh_path(root_path, 0o777);
+        const res = await exec_manage_cli(TYPES.ACCOUNT, ACTIONS.ADD, account_options1);
+        const json_account = JSON.parse(res).response.reply;
+        console.log(json_account);
+        object_sdk = new NsfsObjectSDK('', config_fs, json_account, "DISABLED", config_fs.config_root, undefined);
+        object_sdk.requesting_account = json_account;
+        await object_sdk.create_bucket({ name: test_bucket });
+        await object_sdk.set_bucket_versioning({name: test_bucket, versioning: "ENABLED"});
+    });
+
+    afterEach(async () => {
+        await object_sdk.delete_bucket_lifecycle({ name: test_bucket });
+        await fs_utils.create_fresh_path(test_bucket_path);
+    });
+
+    afterAll(async () => {
+        await fs_utils.folder_delete(test_bucket_path);
+        await fs_utils.folder_delete(root_path);
+        await fs_utils.folder_delete(config_root);
+    }, TEST_TIMEOUT);
+
+    it('lifecycle_cli - noncurrent expiration rule - expire older versions', async () => {
+        const lifecycle_rule = [
+                {
+                "id": "expiration after 3 days with tags",
+                "status": "Enabled",
+                "filter": {
+                    "prefix": "",
+                },
+                "noncurrent_version_expiration": {
+                    "newer_noncurrent_versions": 2
+                }
+            }
+        ];
+        await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule });
+
+        const res = await create_object(object_sdk, test_bucket, test_key1, 100, false);
+        await create_object(object_sdk, test_bucket, test_key1, 100, false);
+        await create_object(object_sdk, test_bucket, test_key1, 100, false);
+        await create_object(object_sdk, test_bucket, test_key1, 100, false);
+
+        await exec_manage_cli(TYPES.LIFECYCLE, '', {disable_service_validation: 'true', disable_runtime_validation: 'true', config_root}, undefined, undefined);
+        const object_list = await object_sdk.list_object_versions({bucket: test_bucket});
+        expect(object_list.objects.length).toBe(3);
+        object_list.objects.forEach(element => {
+            expect(element.version_id).not.toBe(res.version_id);
+        });
+    });
+
+    it('lifecycle_cli - noncurrent expiration rule - expire older versions with filter', async () => {
+        const lifecycle_rule = [
+                {
+                "id": "expiration after 3 days with tags",
+                "status": "Enabled",
+                "filter": {
+                    "prefix": prefix,
+                    "object_size_greater_than": 80,
+                },
+                "noncurrent_version_expiration": {
+                    "newer_noncurrent_versions": 1
+                }
+            }
+        ];
+        await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule });
+
+        await create_object(object_sdk, test_bucket, test_key1, 100, false);
+        await create_object(object_sdk, test_bucket, test_key1, 100, false);
+        await create_object(object_sdk, test_bucket, test_key1, 100, false);
+
+        const res = await create_object(object_sdk, test_bucket, test_prefix_key, 100, false);
+        await create_object(object_sdk, test_bucket, test_prefix_key, 60, false);
+        await create_object(object_sdk, test_bucket, test_prefix_key, 100, false);
+        await create_object(object_sdk, test_bucket, test_prefix_key, 100, false);
+
+        await exec_manage_cli(TYPES.LIFECYCLE, '', {disable_service_validation: 'true', disable_runtime_validation: 'true', config_root}, undefined, undefined);
+        const object_list = await object_sdk.list_object_versions({bucket: test_bucket});
+        expect(object_list.objects.length).toBe(6);
+        object_list.objects.forEach(element => {
+            expect(element.version_id).not.toBe(res.version_id);
+        });
+    });
+
+    it('lifecycle_cli - noncurrent expiration rule - expire older versions only delete markers', async () => {
+        const lifecycle_rule = [
+                {
+                "id": "expiration after 3 days with tags",
+                "status": "Enabled",
+                "filter": {
+                    "prefix": '',
+                    "object_size_less_than": 1,
+                },
+                "noncurrent_version_expiration": {
+                    "newer_noncurrent_versions": 1
+                }
+            }
+        ];
+        await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule });
+
+        await object_sdk.delete_object({bucket: test_bucket, key: test_key1});
+        await create_object(object_sdk, test_bucket, test_key1, 100, false);
+        await object_sdk.delete_object({bucket: test_bucket, key: test_key1});
+        await create_object(object_sdk, test_bucket, test_key1, 100, false);
+        await create_object(object_sdk, test_bucket, test_key1, 100, false);
+
+        await exec_manage_cli(TYPES.LIFECYCLE, '', {disable_service_validation: 'true', disable_runtime_validation: 'true', config_root}, undefined, undefined);
+        const object_list = await object_sdk.list_object_versions({bucket: test_bucket});
+        expect(object_list.objects.length).toBe(3);
+        object_list.objects.forEach(element => {
+            expect(element.delete_marker).not.toBe(true);
+        });
+    });
+
+    it('lifecycle_cli - noncurrent expiration rule - expire versioning enabled bucket', async () => {
+        const date = new Date();
+        date.setDate(date.getDate() - 1); // yesterday
+        const lifecycle_rule = [
+            {
+                "id": "expiration after 3 days",
+                "status": "Enabled",
+                "filter": {
+                    "prefix": prefix,
+                },
+                "expiration": {
+                    "date": date.getTime()
+                }
+            }
+        ];
+        await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule });
+
+        await create_object(object_sdk, test_bucket, test_prefix_key, 100, false);
+        await create_object(object_sdk, test_bucket, test_prefix_key, 100, false);
+        await create_object(object_sdk, test_bucket, test_key2, 100, false);
+
+        await exec_manage_cli(TYPES.LIFECYCLE, '', {disable_service_validation: 'true', disable_runtime_validation: 'true', config_root}, undefined, undefined);
+        const object_list = await object_sdk.list_object_versions({bucket: test_bucket});
+        expect(object_list.objects.length).toBe(4); //added delete marker
+        let has_delete_marker = false;
+        object_list.objects.forEach(element => {
+            if (element.delete_marker) has_delete_marker = true;
+        });
+        expect(has_delete_marker).toBe(true);
+    });
 });
 
 
@@ -473,7 +599,6 @@ describe('noobaa cli lifecycle - timeout check', () => {
 });
 
 describe('noobaa cli - lifecycle batching', () => {
-    const bucketspace_fs = new BucketSpaceFS({ config_root }, undefined);
     const test_bucket_path = `${root_path}/${test_bucket}`;
     const test_key1 = 'test_key1';
     const test_key2 = 'test_key2';
@@ -501,7 +626,7 @@ describe('noobaa cli - lifecycle batching', () => {
     });
 
     afterEach(async () => {
-        await bucketspace_fs.delete_bucket_lifecycle({ name: test_bucket });
+        await object_sdk.delete_bucket_lifecycle({ name: test_bucket });
         await fs_utils.create_fresh_path(test_bucket_path);
         fs_utils.folder_delete(tmp_lifecycle_logs_dir_path);
         await config_fs.delete_config_json_file();
@@ -514,7 +639,7 @@ describe('noobaa cli - lifecycle batching', () => {
     });
 
     it("lifecycle batching - with lifecycle rule, one batch", async () => {
-        await bucketspace_fs.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule_delete_all });
+        await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule_delete_all });
 
         await create_object(object_sdk, test_bucket, test_key1, 100, true);
         await create_object(object_sdk, test_bucket, test_key2, 100, true);
@@ -541,7 +666,7 @@ describe('noobaa cli - lifecycle batching', () => {
                 "days_after_initiation": 3
             }
         }];
-        await bucketspace_fs.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule });
+        await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule });
 
         await object_sdk.create_object_upload({ key: test_key1, bucket: test_bucket });
         await object_sdk.create_object_upload({ key: test_key2, bucket: test_bucket });
@@ -554,7 +679,7 @@ describe('noobaa cli - lifecycle batching', () => {
     });
 
     it("lifecycle batching - with lifecycle rule, multiple list batches, one bucket batch", async () => {
-        await bucketspace_fs.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule_delete_all });
+        await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule_delete_all });
 
         await create_object(object_sdk, test_bucket, test_key1, 100, true);
         await create_object(object_sdk, test_bucket, test_key2, 100, true);
@@ -569,7 +694,7 @@ describe('noobaa cli - lifecycle batching', () => {
     });
 
     it("lifecycle batching - with lifecycle rule, multiple list batches, multiple bucket batches", async () => {
-        await bucketspace_fs.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule_delete_all });
+        await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule_delete_all });
 
         await create_object(object_sdk, test_bucket, test_key1, 100, true);
         await create_object(object_sdk, test_bucket, test_key2, 100, true);
@@ -586,7 +711,7 @@ describe('noobaa cli - lifecycle batching', () => {
     });
 
     it("lifecycle batching - with lifecycle rule, multiple list batches, one bucket batch", async () => {
-        await bucketspace_fs.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule_delete_all });
+        await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule_delete_all });
 
         await create_object(object_sdk, test_bucket, test_key1, 100, true);
         await create_object(object_sdk, test_bucket, test_key2, 100, true);
@@ -609,7 +734,7 @@ describe('noobaa cli - lifecycle batching', () => {
     });
 
     it("lifecycle batching - continue finished lifecycle should do nothing", async () => {
-        await bucketspace_fs.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule_delete_all });
+        await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule_delete_all });
 
         await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, true, undefined);
         await create_object(object_sdk, test_bucket, test_key1, 100, true);
@@ -628,9 +753,9 @@ describe('noobaa cli - lifecycle batching', () => {
     });
 
     it("continue lifecycle batching should finish the run - delete all", async () => {
-        await bucketspace_fs.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule_delete_all });
+        await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule_delete_all });
         await config_fs.update_config_json_file(JSON.stringify({
-            NC_LIFECYCLE_TIMEOUT_MS: 60,
+            NC_LIFECYCLE_TIMEOUT_MS: 5,
             NC_LIFECYCLE_LOGS_DIR: tmp_lifecycle_logs_dir_path,
             NC_LIFECYCLE_BUCKET_BATCH_SIZE: 5,
             NC_LIFECYCLE_LIST_BATCH_SIZE: 2
@@ -645,13 +770,20 @@ describe('noobaa cli - lifecycle batching', () => {
         } catch (e) {
             //ignore timout error
         }
+        await config_fs.update_config_json_file(JSON.stringify({
+            NC_LIFECYCLE_TIMEOUT_MS: config.NC_LIFECYCLE_TIMEOUT_MS,
+            NC_LIFECYCLE_LOGS_DIR: tmp_lifecycle_logs_dir_path,
+            NC_LIFECYCLE_BUCKET_BATCH_SIZE: 5,
+            NC_LIFECYCLE_LIST_BATCH_SIZE: 2
+
+        }));
         await exec_manage_cli(TYPES.LIFECYCLE, '', {continue: 'true', disable_service_validation: 'true', disable_runtime_validation: 'true', config_root}, undefined, undefined);
         const object_list2 = await object_sdk.list_objects({bucket: test_bucket});
         expect(object_list2.objects.length).toBe(0);
     });
 
     it("continue lifecycle batching should finish the run - validate new run. don't delete already deleted items", async () => {
-        await bucketspace_fs.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule_delete_all });
+        await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule_delete_all });
         await config_fs.update_config_json_file(JSON.stringify({
             NC_LIFECYCLE_TIMEOUT_MS: 70,
             NC_LIFECYCLE_LOGS_DIR: tmp_lifecycle_logs_dir_path,
@@ -692,6 +824,72 @@ describe('noobaa cli - lifecycle batching', () => {
         for (const key of new_keys) {
             expect(res_keys).toContain(key);
         }
+    });
+
+    it("lifecycle batching - with lifecycle rule, multiple list batches, multiple bucket batches - newer noncurrent versions", async () => {
+        const lifecycle_rule = [
+                {
+                "id": "expiration after 3 days with tags",
+                "status": "Enabled",
+                "filter": {
+                    "prefix": "",
+                },
+                "noncurrent_version_expiration": {
+                    "newer_noncurrent_versions": 2
+                }
+            }
+        ];
+        await object_sdk.set_bucket_versioning({ name: test_bucket, versioning: 'ENABLED' });
+        await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule });
+
+        const res = await create_object(object_sdk, test_bucket, test_key1, 100, false);
+        for (let i = 0; i < 10; i++) {
+            await create_object(object_sdk, test_bucket, test_key1, 100, false);
+        }
+        const latest_lifecycle = await exec_manage_cli(TYPES.LIFECYCLE, '', {disable_service_validation: 'true', disable_runtime_validation: 'true', config_root}, undefined, undefined);
+        const parsed_res_latest_lifecycle = JSON.parse(latest_lifecycle);
+        expect(parsed_res_latest_lifecycle.response.reply.state.is_finished).toBe(true);
+
+        const object_list = await object_sdk.list_object_versions({bucket: test_bucket});
+        expect(object_list.objects.length).toBe(3);
+        object_list.objects.forEach(element => {
+            expect(element.version_id).not.toBe(res.version_id);
+        });
+    });
+
+    it("lifecycle rule, multiple list batches, multiple bucket batches - both expire and noncurrent actions", async () => {
+        const lifecycle_rule = [
+                {
+                "id": "expiration after 3 days with tags",
+                "status": "Enabled",
+                "filter": {
+                    "prefix": "",
+                },
+                "expiration": {
+                    "date": yesterday.getTime()
+                },
+                "noncurrent_version_expiration": {
+                    "newer_noncurrent_versions": 2
+                }
+            }
+        ];
+        await object_sdk.set_bucket_versioning({ name: test_bucket, versioning: 'ENABLED' });
+        await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule });
+
+        const keys = [test_key1, test_key2, "key3", "key4", "key5", "key6", "key7"];
+        for (const key of keys) {
+            await create_object(object_sdk, test_bucket, key, 100, false);
+        }
+        for (let i = 0; i < 10; i++) {
+            await create_object(object_sdk, test_bucket, test_key1, 100, false);
+        }
+        const latest_lifecycle = await exec_manage_cli(TYPES.LIFECYCLE, '', {disable_service_validation: 'true', disable_runtime_validation: 'true', config_root}, undefined, undefined);
+        const parsed_res_latest_lifecycle = JSON.parse(latest_lifecycle);
+        expect(parsed_res_latest_lifecycle.response.reply.state.is_finished).toBe(true);
+
+        const object_list = await object_sdk.list_object_versions({bucket: test_bucket});
+        const expected_length = keys.length * 2 + 1; //all keys + delete marker for each key + 1 noncurrent versions for test_key1
+        expect(object_list.objects.length).toBe(expected_length);
     });
 });
 
@@ -836,7 +1034,6 @@ describe('noobaa cli - lifecycle notifications', () => {
     }
 });
 
-//TODO should move outside scope and change also in lifecycle tests. already done in non current lifecycle rule PR
 async function create_object(sdk, bucket, key, size, is_old, tagging) {
     const data = crypto.randomBytes(size);
     const res = await sdk.upload_object({

@@ -393,6 +393,61 @@ describe('test versioning concurrency', () => {
         expect(num_of_latest_versions).toBe(initial_num_of_objects);
     }, TEST_TIMEOUT);
 
+    it('concurrent delete object version & list object versions', async () => {
+        const bucket = 'bucket1';
+        const delete_res_arr = [];
+        const delete_err_arr = [];
+        const initial_num_of_versions = 3;
+        const initial_num_of_objects = 5;
+        const version_by_key_2_dimension = [];
+        const list_res_arr_by_key_2_dimension = [];
+        const list_err_arr_by_key_2_dimension = [];
+        const object_prefix_name = 'key_put_';
+
+        // upload the object versions
+        for (let i = 0; i < initial_num_of_objects; i++) {
+            const key = object_prefix_name + i;
+            const version_arr_by_key = await _upload_versions(bucket, key, initial_num_of_versions);
+            version_by_key_2_dimension[i] = version_arr_by_key;
+        }
+
+        // delete object version during list object versions
+        const num_of_concurrency = 3;
+        for (let i = 0; i < num_of_concurrency; i++) {
+            const key = object_prefix_name + i;
+            const version_id = version_by_key_2_dimension[i][0].version_id; // always delete the first version
+            nsfs.delete_object({ bucket: bucket, key: key, version_id: version_id}, DUMMY_OBJECT_SDK)
+                .then(res => delete_res_arr.push(res))
+                .catch(err => delete_err_arr.push(err));
+            nsfs.list_object_versions({ bucket: bucket }, DUMMY_OBJECT_SDK)
+                .then(res => {
+                    list_res_arr_by_key_2_dimension[i] = res.objects;
+                })
+                .catch(err => {
+                    list_err_arr_by_key_2_dimension[i] = err;
+                });
+        }
+        await P.delay(10000);
+
+        // check for no errors
+        expect(delete_err_arr).toHaveLength(0);
+        expect(list_err_arr_by_key_2_dimension).toHaveLength(0);
+
+        // check for the right number of versions in the end
+        expect(delete_res_arr).toHaveLength(num_of_concurrency);
+        const versions = await nsfs.list_object_versions({ bucket: bucket }, DUMMY_OBJECT_SDK);
+        const expected_total_number_of_versions = initial_num_of_versions * initial_num_of_objects - num_of_concurrency;
+        expect(versions.objects).toHaveLength(expected_total_number_of_versions);
+
+        // no delete markers are expected
+        const num_of_delete_markers = (versions.objects.filter(version => version.delete_marker === true)).length;
+        expect(num_of_delete_markers).toBe(0);
+
+        // latest version for every key is expected
+        const num_of_latest_versions = (versions.objects.filter(version => version.is_latest === true)).length;
+        expect(num_of_latest_versions).toBe(initial_num_of_objects);
+    }, TEST_TIMEOUT);
+
     it('concurrent puts & list versions - version id paging', async () => {
         const bucket = 'bucket1';
         const upload_res_arr = [];

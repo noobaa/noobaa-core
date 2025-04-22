@@ -127,7 +127,38 @@ Here attached a diagram with all the accounts that we have in our system:
 - IAM ListAccessKeys: UserName (not supported: Marker, MaxItems)
 
 ### Other
-- IAM ListGroupsForUser - would always return empty list (to check that the user exists it runs GetUser).
+Would always return an empty list (to check that the user exists it runs GetUser)
+- IAM ListGroupsForUser
+- IAM ListAttachedUserPolicies
+- IAM ListMFADevices
+- IAM ListServiceSpecificCredentials
+- IAM ListSigningCertificates
+- IAM ListSSHPublicKeys
+- IAM ListUserPolicies
+- IAM ListUserTags
+Would always return an empty list
+- IAM ListAccountAliases
+- IAM ListAttachedGroupPolicies
+- IAM ListAttachedRolePolicies
+- IAM ListGroupPolicies
+- IAM ListGroups
+- IAM ListInstanceProfiles
+- IAM ListOpenIDConnectProviders
+- IAM ListPolicies
+- IAM ListRoles
+- IAM ListSAMLProviders
+- IAM ListServerCertificates
+- IAM ListVirtualMFADevices
+Would always return `NoSuchEntity` error
+- IAM ListEntitiesForPolicy
+- IAM ListInstanceProfilesForRole
+- IAM ListInstanceProfileTags
+- IAM ListMFADeviceTags
+- IAM ListOpenIDConnectProviderTags
+- IAM ListPolicyTags
+- IAM ListPolicyVersions
+- IAM ListRoleTags
+- IAM ListServerCertificateTags
 
 ### Configuration Directory Components With users
 If account creates a user its config file will be created under identities/<user-id>.identity.json and under the account will be created `users/` directory and inside it it will link to the config.

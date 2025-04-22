@@ -1,5 +1,6 @@
 /* Copyright (C) 2024 NooBaa */
 /* eslint-disable max-statements */
+/* eslint-disable max-lines-per-function */
 'use strict';
 
 const path = require('path');
@@ -12,7 +13,16 @@ const { TMP_PATH, generate_nsfs_account, get_new_buckets_path_by_test_env, gener
 const { ListUsersCommand, CreateUserCommand, GetUserCommand, UpdateUserCommand, DeleteUserCommand,
         ListAccessKeysCommand, CreateAccessKeyCommand, GetAccessKeyLastUsedCommand,
         UpdateAccessKeyCommand, DeleteAccessKeyCommand,
-        ListGroupsForUserCommand } = require('@aws-sdk/client-iam');
+        ListGroupsForUserCommand, ListAccountAliasesCommand, ListAttachedGroupPoliciesCommand,
+        ListAttachedRolePoliciesCommand, ListAttachedUserPoliciesCommand, ListEntitiesForPolicyCommand,
+        ListGroupPoliciesCommand, ListGroupsCommand, ListInstanceProfilesCommand,
+        ListInstanceProfilesForRoleCommand, ListInstanceProfileTagsCommand, ListMFADevicesCommand,
+        ListMFADeviceTagsCommand, ListOpenIDConnectProvidersCommand, ListOpenIDConnectProviderTagsCommand,
+        ListPoliciesCommand, ListPolicyTagsCommand, ListPolicyVersionsCommand, ListRolesCommand,
+        ListRoleTagsCommand, ListSAMLProvidersCommand, ListServerCertificatesCommand,
+        ListServerCertificateTagsCommand, ListServiceSpecificCredentialsCommand,
+        ListSigningCertificatesCommand, ListSSHPublicKeysCommand, ListUserPoliciesCommand,
+        ListUserTagsCommand, ListVirtualMFADevicesCommand } = require('@aws-sdk/client-iam');
 const { ACCESS_KEY_STATUS_ENUM } = require('../../endpoint/iam/iam_constants');
 const IamError = require('../../endpoint/iam/iam_errors').IamError;
 
@@ -235,6 +245,10 @@ mocha.describe('IAM basic integration tests - happy path', async function() {
 
     mocha.describe('IAM other APIs (currently returns empty value)', async function() {
         const username3 = 'Emi';
+        const group_name = 'my_group';
+        const role_name = 'my_role';
+        const instance_profile_name = 'my_instance_profile_name';
+        const policy_arn = 'arn:aws:iam::123456789012:policy/billing-access';
 
         mocha.before(async () => {
             // create a user
@@ -278,6 +292,434 @@ mocha.describe('IAM basic integration tests - happy path', async function() {
             const response = await iam_account.send(command);
             _check_status_code_ok(response);
             assert.equal(response.Groups.length, 0);
+        });
+
+        mocha.it('list account aliases - should be empty', async function() {
+            const input = {};
+            const command = new ListAccountAliasesCommand(input);
+            const response = await iam_account.send(command);
+            _check_status_code_ok(response);
+            assert.equal(response.AccountAliases.length, 0);
+        });
+
+        mocha.it('list attached group policies - should be empty', async function() {
+            const input = {
+                GroupName: group_name
+            };
+            const command = new ListAttachedGroupPoliciesCommand(input);
+            const response = await iam_account.send(command);
+            _check_status_code_ok(response);
+            assert.equal(response.AttachedPolicies.length, 0);
+        });
+
+        mocha.it('list attached role policies - should be empty', async function() {
+            const input = {
+                RoleName: role_name
+            };
+            const command = new ListAttachedRolePoliciesCommand(input);
+            const response = await iam_account.send(command);
+            _check_status_code_ok(response);
+            assert.equal(response.AttachedPolicies.length, 0);
+        });
+
+        mocha.it('list attached user policies for non existing user - should throw an error', async function() {
+            try {
+                const input = {
+                    UserName: 'non-existing-user'
+                };
+                const command = new ListAttachedUserPoliciesCommand(input);
+                await iam_account.send(command);
+                assert.fail('list attached user policies for non existing user - should throw an error');
+            } catch (err) {
+                const err_code = err.Error.Code;
+                assert.equal(err_code, IamError.NoSuchEntity.code);
+            }
+        });
+
+        mocha.it('list attached user policies for user - should be empty', async function() {
+            const input = {
+                UserName: username3
+            };
+            const command = new ListAttachedUserPoliciesCommand(input);
+            const response = await iam_account.send(command);
+            _check_status_code_ok(response);
+            assert.equal(response.AttachedPolicies.length, 0);
+        });
+
+        mocha.it('list entities for policy - should throw an error', async function() {
+            try {
+                const input = {
+                    PolicyArn: 'arn:aws:iam::123456789012:policy/TestPolicy'
+                };
+                const command = new ListEntitiesForPolicyCommand(input);
+                await iam_account.send(command);
+                assert.fail('list entities for policy - should throw an error');
+            } catch (err) {
+                const err_code = err.Error.Code;
+                assert.equal(err_code, IamError.NoSuchEntity.code);
+            }
+        });
+
+        mocha.it('list group policies - should be empty', async function() {
+            const input = {
+                GroupName: group_name
+            };
+            const command = new ListGroupPoliciesCommand(input);
+            const response = await iam_account.send(command);
+            _check_status_code_ok(response);
+            assert.equal(response.PolicyNames.length, 0);
+        });
+
+        mocha.it('list groups - should be empty', async function() {
+            const input = {};
+            const command = new ListGroupsCommand(input);
+            const response = await iam_account.send(command);
+            _check_status_code_ok(response);
+            assert.equal(response.Groups.length, 0);
+        });
+
+        mocha.it('list instance profiles - should be empty', async function() {
+            const input = {};
+            const command = new ListInstanceProfilesCommand(input);
+            const response = await iam_account.send(command);
+            _check_status_code_ok(response);
+            assert.equal(response.InstanceProfiles.length, 0);
+        });
+
+        mocha.it('list instances profiles for role - should throw an error', async function() {
+            try {
+                const input = {
+                    RoleName: role_name
+                };
+                const command = new ListInstanceProfilesForRoleCommand(input);
+                await iam_account.send(command);
+                assert.fail('list instances profiles for role - should throw an error');
+            } catch (err) {
+                const err_code = err.Error.Code;
+                assert.equal(err_code, IamError.NoSuchEntity.code);
+            }
+        });
+
+        mocha.it('list instances profiles tags - should throw an error', async function() {
+            try {
+                const input = {
+                    InstanceProfileName: instance_profile_name
+                };
+                const command = new ListInstanceProfileTagsCommand(input);
+                await iam_account.send(command);
+                assert.fail('list instances profiles tags - should throw an error');
+            } catch (err) {
+                const err_code = err.Error.Code;
+                assert.equal(err_code, IamError.NoSuchEntity.code);
+            }
+        });
+
+        mocha.it('list MFA devices for non existing user - should throw an error', async function() {
+            try {
+                const input = {
+                    UserName: 'non-existing-user'
+                };
+                const command = new ListMFADevicesCommand(input);
+                await iam_account.send(command);
+                assert.fail('list MFA devices for non existing user - should throw an error');
+            } catch (err) {
+                const err_code = err.Error.Code;
+                assert.equal(err_code, IamError.NoSuchEntity.code);
+            }
+        });
+
+        mocha.it('list MFA devices for user - should be empty', async function() {
+            const input = {
+                UserName: username3
+            };
+            const command = new ListMFADevicesCommand(input);
+            const response = await iam_account.send(command);
+            _check_status_code_ok(response);
+            assert.equal(response.MFADevices.length, 0);
+        });
+
+        mocha.it('list MFA devices (no user parameter) - should be empty', async function() {
+            const input = {};
+            const command = new ListMFADevicesCommand(input);
+            const response = await iam_account.send(command);
+            _check_status_code_ok(response);
+            assert.equal(response.MFADevices.length, 0);
+        });
+
+        mocha.it('list MFA device tags- should throw an error', async function() {
+            try {
+                const input = {
+                    SerialNumber: 'arn:aws:iam::123456789012:mfa/alice'
+                };
+                const command = new ListMFADeviceTagsCommand(input);
+                await iam_account.send(command);
+                assert.fail('list MFA device tags - should throw an error');
+            } catch (err) {
+                const err_code = err.Error.Code;
+                assert.equal(err_code, IamError.NoSuchEntity.code);
+            }
+        });
+
+        mocha.it('list open ID connect providers - should be empty', async function() {
+            const input = {};
+            const command = new ListOpenIDConnectProvidersCommand(input);
+            const response = await iam_account.send(command);
+            _check_status_code_ok(response);
+            assert.equal(response.OpenIDConnectProviderList.length, 0);
+        });
+
+        mocha.it('list open ID connect tags- should throw an error', async function() {
+            try {
+                const input = {
+                    OpenIDConnectProviderArn: 'arn:aws:iam::123456789012:mfa/alice'
+                };
+                const command = new ListOpenIDConnectProviderTagsCommand(input);
+                await iam_account.send(command);
+                assert.fail('list open ID connect tags - should throw an error');
+            } catch (err) {
+                const err_code = err.Error.Code;
+                assert.equal(err_code, IamError.NoSuchEntity.code);
+            }
+        });
+
+        mocha.it('list policies - should be empty', async function() {
+            const input = {};
+            const command = new ListPoliciesCommand(input);
+            const response = await iam_account.send(command);
+            _check_status_code_ok(response);
+            assert.equal(response.Policies.length, 0);
+        });
+
+        mocha.it('list policy tags - should throw an error', async function() {
+            try {
+                const input = {
+                    PolicyArn: policy_arn
+                };
+                const command = new ListPolicyTagsCommand(input);
+                await iam_account.send(command);
+                assert.fail('list policy tags - should throw an error');
+            } catch (err) {
+                const err_code = err.Error.Code;
+                assert.equal(err_code, IamError.NoSuchEntity.code);
+            }
+        });
+
+        mocha.it('list policy versions - should throw an error', async function() {
+            try {
+                const input = {
+                    PolicyArn: policy_arn
+                };
+                const command = new ListPolicyVersionsCommand(input);
+                await iam_account.send(command);
+                assert.fail('list policy versions - should throw an error');
+            } catch (err) {
+                const err_code = err.Error.Code;
+                assert.equal(err_code, IamError.NoSuchEntity.code);
+            }
+        });
+
+        mocha.it('list roles - should be empty', async function() {
+            const input = {};
+            const command = new ListRolesCommand(input);
+            const response = await iam_account.send(command);
+            _check_status_code_ok(response);
+            assert.equal(response.Roles.length, 0);
+        });
+
+        mocha.it('list role tags - should throw an error', async function() {
+            try {
+                const input = {
+                    RoleName: role_name
+                };
+                const command = new ListRoleTagsCommand(input);
+                await iam_account.send(command);
+                assert.fail('list role tags - should throw an error');
+            } catch (err) {
+                const err_code = err.Error.Code;
+                assert.equal(err_code, IamError.NoSuchEntity.code);
+            }
+        });
+
+        mocha.it('list SAML providers - should be empty', async function() {
+            const input = {};
+            const command = new ListSAMLProvidersCommand(input);
+            const response = await iam_account.send(command);
+            _check_status_code_ok(response);
+            assert.equal(response.SAMLProviderList.length, 0);
+        });
+
+        mocha.it('list server certificates - should be empty', async function() {
+            const input = {};
+            const command = new ListServerCertificatesCommand(input);
+            const response = await iam_account.send(command);
+            _check_status_code_ok(response);
+            assert.equal(response.ServerCertificateMetadataList.length, 0);
+        });
+
+        mocha.it('list server certificate tags - should throw an error', async function() {
+            try {
+                const input = {
+                    ServerCertificateName: 'ExampleCertificate'
+                };
+                const command = new ListServerCertificateTagsCommand(input);
+                await iam_account.send(command);
+                assert.fail('list server certificate tags - should throw an error');
+            } catch (err) {
+                const err_code = err.Error.Code;
+                assert.equal(err_code, IamError.NoSuchEntity.code);
+            }
+        });
+
+        mocha.it('list service specific credentials for non existing user - should throw an error', async function() {
+            try {
+                const input = {
+                    UserName: 'non-existing-user'
+                };
+                const command = new ListServiceSpecificCredentialsCommand(input);
+                await iam_account.send(command);
+                assert.fail('list service specific credentials for non existing user - should throw an error');
+            } catch (err) {
+                const err_code = err.Error.Code;
+                assert.equal(err_code, IamError.NoSuchEntity.code);
+            }
+        });
+
+        mocha.it('list service specific credentials for user - should be empty', async function() {
+            const input = {
+                UserName: username3
+            };
+            const command = new ListServiceSpecificCredentialsCommand(input);
+            const response = await iam_account.send(command);
+            _check_status_code_ok(response);
+            assert.equal(response.ServiceSpecificCredentials.length, 0);
+        });
+
+        mocha.it('list service specific credentials (no user parameter) - should be empty', async function() {
+            const input = {};
+            const command = new ListServiceSpecificCredentialsCommand(input);
+            const response = await iam_account.send(command);
+            _check_status_code_ok(response);
+            assert.equal(response.ServiceSpecificCredentials.length, 0);
+        });
+
+        mocha.it('list signing certificates for non existing user - should throw an error', async function() {
+            try {
+                const input = {
+                    UserName: 'non-existing-user'
+                };
+                const command = new ListSigningCertificatesCommand(input);
+                await iam_account.send(command);
+                assert.fail('list signing certificates for non existing user - should throw an error');
+            } catch (err) {
+                const err_code = err.Error.Code;
+                assert.equal(err_code, IamError.NoSuchEntity.code);
+            }
+        });
+
+        mocha.it('list signing certificates for user - should be empty', async function() {
+            const input = {
+                UserName: username3
+            };
+            const command = new ListSigningCertificatesCommand(input);
+            const response = await iam_account.send(command);
+            _check_status_code_ok(response);
+            assert.equal(response.Certificates.length, 0);
+        });
+
+        mocha.it('list signing certificates (no user parameter) - should be empty', async function() {
+            const input = {};
+            const command = new ListSigningCertificatesCommand(input);
+            const response = await iam_account.send(command);
+            _check_status_code_ok(response);
+            assert.equal(response.Certificates.length, 0);
+        });
+
+        mocha.it('list SSH public keys for non existing user - should throw an error', async function() {
+            try {
+                const input = {
+                    UserName: 'non-existing-user'
+                };
+                const command = new ListSSHPublicKeysCommand(input);
+                await iam_account.send(command);
+                assert.fail('list SSH public keys for non existing user - should throw an error');
+            } catch (err) {
+                const err_code = err.Error.Code;
+                assert.equal(err_code, IamError.NoSuchEntity.code);
+            }
+        });
+
+        mocha.it('list SSH public keys for user - should be empty', async function() {
+            const input = {
+                UserName: username3
+            };
+            const command = new ListSSHPublicKeysCommand(input);
+            const response = await iam_account.send(command);
+            _check_status_code_ok(response);
+            assert.equal(response.SSHPublicKeys.length, 0);
+        });
+
+        mocha.it('list SSH public keys (no user parameter) - should be empty', async function() {
+            const input = {};
+            const command = new ListSSHPublicKeysCommand(input);
+            const response = await iam_account.send(command);
+            _check_status_code_ok(response);
+            assert.equal(response.SSHPublicKeys.length, 0);
+        });
+
+        mocha.it('list user policies for non existing user - should throw an error', async function() {
+            try {
+                const input = {
+                    UserName: 'non-existing-user'
+                };
+                const command = new ListUserPoliciesCommand(input);
+                await iam_account.send(command);
+                assert.fail('list user policies for non existing user - should throw an error');
+            } catch (err) {
+                const err_code = err.Error.Code;
+                assert.equal(err_code, IamError.NoSuchEntity.code);
+            }
+        });
+
+        mocha.it('list user policies for user - should be empty', async function() {
+            const input = {
+                UserName: username3
+            };
+            const command = new ListUserPoliciesCommand(input);
+            const response = await iam_account.send(command);
+            _check_status_code_ok(response);
+            assert.equal(response.PolicyNames.length, 0);
+        });
+
+        mocha.it('list user tags for non existing user - should throw an error', async function() {
+            try {
+                const input = {
+                    UserName: 'non-existing-user'
+                };
+                const command = new ListUserTagsCommand(input);
+                await iam_account.send(command);
+                assert.fail('list user tags for non existing user - should throw an error');
+            } catch (err) {
+                const err_code = err.Error.Code;
+                assert.equal(err_code, IamError.NoSuchEntity.code);
+            }
+        });
+
+        mocha.it('list user tags for user - should be empty', async function() {
+            const input = {
+                UserName: username3
+            };
+            const command = new ListUserTagsCommand(input);
+            const response = await iam_account.send(command);
+            _check_status_code_ok(response);
+            assert.equal(response.Tags.length, 0);
+        });
+
+        mocha.it('list virtual MFA devices - should be empty', async function() {
+            const input = {};
+            const command = new ListVirtualMFADevicesCommand(input);
+            const response = await iam_account.send(command);
+            _check_status_code_ok(response);
+            assert.equal(response.VirtualMFADevices.length, 0);
         });
     });
 });

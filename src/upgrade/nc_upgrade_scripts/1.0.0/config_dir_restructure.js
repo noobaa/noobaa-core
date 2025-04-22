@@ -188,7 +188,7 @@ async function create_account_name_index_if_missing(config_fs, account_upgrade_p
         const is_account_symlink_exists = await native_fs_utils.is_path_exists(config_fs.fs_context, account_name_path, true);
         const is_account_symlink_target_exists = await native_fs_utils.is_path_exists(config_fs.fs_context, account_name_path);
         const account_name_already_linked_to_identity = is_account_symlink_target_exists &&
-            await config_fs._is_symlink_pointing_to_identity(account_name_path, identity_path);
+            (await config_fs._is_symlink_pointing_to_identity(account_name_path, identity_path));
         if (!account_name_already_linked_to_identity) {
             // in case it was linked to a wrong location or the target does not exist, delete it
             if (is_account_symlink_exists) await native_fs_utils.unlink_ignore_enoent(config_fs.fs_context, account_name_path);

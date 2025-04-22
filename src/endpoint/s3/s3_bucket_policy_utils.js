@@ -246,7 +246,7 @@ async function _is_condition_fit(policy_statement, req, method) {
             if (!supported_actions[condition_key].includes(method)) {
                 continue;
             }
-            if (await condition_fit_functions[condition_key](req, predicate, value) === false) {
+            if ((await condition_fit_functions[condition_key](req, predicate, value)) === false) {
                 return false;
             }
         }

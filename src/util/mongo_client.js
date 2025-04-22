@@ -806,7 +806,7 @@ class MongoClient extends EventEmitter {
                 // eslint-disable-next-line no-unmodified-loop-condition
                 while (db_is_down && !waiting_exhausted) {
                     try {
-                        const stats = this.mongo_client && await this.mongo_client.db().stats();
+                        const stats = this.mongo_client && (await this.mongo_client.db().stats());
                         db_is_down = _.get(stats, 'ok') !== 1;
                     } catch (err) {
                         dbg.error('db is still down. got error on db.stats():', err.message);

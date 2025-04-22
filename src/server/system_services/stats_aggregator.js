@@ -197,7 +197,7 @@ async function get_systems_stats(req) {
     const sys_stats = _.cloneDeep(SYSTEM_STATS_DEFAULTS);
     sys_stats.agent_version = process.env.AGENT_VERSION || 'Unknown';
     sys_stats.count = system_store.data.systems.length;
-    sys_stats.os_release = (await fs.promises.readFile('/etc/redhat-release').catch(fs_utils.ignore_enoent) || 'unkonwn').toString();
+    sys_stats.os_release = ((await fs.promises.readFile('/etc/redhat-release').catch(fs_utils.ignore_enoent)) || 'unkonwn').toString();
     sys_stats.platform = process.env.PLATFORM;
     const cluster = system_store.data.clusters[0];
     if (cluster && cluster.cluster_id) {

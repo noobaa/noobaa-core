@@ -707,14 +707,14 @@ function set_cors_headers_s3(req, res, cors_rules) {
     const match_origin = req.headers.origin;
     const match_header = req.headers['access-control-request-headers']; // not a must
     const matched_rule = req.headers.origin && ( // find the first rule with origin and method match
-        cors_rules.find(rule => {
+        (cors_rules.find(rule => {
             const allowed_origins_regex = rule.allowed_origins.map(r => RegExp(`^${r.replace(/\*/g, '.*')}$`));
             const allowed_headers_regex = rule.allowed_headers?.map(r => RegExp(`^${r.replace(/\*/g, '.*')}$`));
             return allowed_origins_regex.some(r => r.test(match_origin)) &&
                 rule.allowed_methods.includes(match_method) &&
                 // we can match if no request headers or if reuqest headers match the rule allowed headers
                 (!match_header || allowed_headers_regex?.some(r => r.test(match_header)));
-        }));
+        })));
     if (matched_rule) {
         // https://docs.aws.amazon.com/AmazonS3/latest/API/RESTCommonResponseHeaders.html
         dbg.log0('set_cors_headers_s3: found matching CORS rule:', matched_rule);

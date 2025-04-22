@@ -1500,7 +1500,7 @@ class NamespaceFS {
                 if (err.code !== 'ENOENT') throw err;
                 // checking that the source_path still exists
                 // TODO: handle tmp file - source_path is missing
-                if (source_path && !await this.check_access(fs_context, source_path)) throw err;
+                if (source_path && !(await this.check_access(fs_context, source_path))) throw err;
                 dbg.warn(`NamespaceFS: Retrying failed move to dest retries=${retries}` +
                     ` source_path=${source_path} dest_path=${dest_path}`, err);
             }
@@ -1543,7 +1543,7 @@ class NamespaceFS {
 
                     //get latest version if exists
                     const latest_fd = gpfs_options?.move_to_dst?.dst_file;
-                    latest_ver_info = latest_fd && await this._get_version_info(fs_context, undefined, latest_fd);
+                    latest_ver_info = latest_fd && (await this._get_version_info(fs_context, undefined, latest_fd));
                 } else {
                     new_ver_info = await this._get_version_info(fs_context, new_ver_tmp_path);
                     //get latest version if exists. TODO use fd like in GPFS
@@ -3343,7 +3343,7 @@ class NamespaceFS {
                     if (is_gpfs || is_lifecycle_deletion) {
                         files = await this._open_files(fs_context, { src_path: latest_ver_path, delete_version: true });
                         const latest_file = files?.delete_version?.src_file;
-                        latest_ver_info = latest_file && await this._get_version_info(fs_context, undefined, latest_file);
+                        latest_ver_info = latest_file && (await this._get_version_info(fs_context, undefined, latest_file));
                         if (!latest_ver_info) break;
                         if (is_lifecycle_deletion) {
                             const stat = await latest_file.stat(fs_context);
@@ -3514,7 +3514,7 @@ class NamespaceFS {
         let versioned_file;
         try {
             // open /versions/key_ver file if exists. TODO is versioned_file needed
-            versioned_file = versioned_info && await native_fs_utils.open_file(fs_context, this.bucket_path, versioned_info.path, 'r');
+            versioned_file = versioned_info && (await native_fs_utils.open_file(fs_context, this.bucket_path, versioned_info.path, 'r'));
 
             // open files for deletion flow
             if (delete_version) {
@@ -3591,7 +3591,7 @@ class NamespaceFS {
     /////////////////////////
 
     async _throw_if_storage_class_not_supported(storage_class) {
-        if (!await this._is_storage_class_supported(storage_class)) {
+        if (!(await this._is_storage_class_supported(storage_class))) {
             throw new S3Error(S3Error.InvalidStorageClass);
         }
     }
@@ -3736,9 +3736,9 @@ class NamespaceFS {
     async _verify_lifecycle_filter_and_unlink(fs_context, params, file_path, { dir_file, src_file }) {
         try {
             const is_dir_content = this._is_directory_content(file_path, params.key);
-            const dir_stat = is_dir_content && await dir_file.stat(fs_context);
+            const dir_stat = is_dir_content && (await dir_file.stat(fs_context));
             const is_empty_directory_content = dir_stat && dir_stat.xattr && dir_stat.xattr[XATTR_DIR_CONTENT] === '0';
-            const src_stat = !is_empty_directory_content && await src_file.stat(fs_context);
+            const src_stat = !is_empty_directory_content && (await src_file.stat(fs_context));
             const stat = is_empty_directory_content ? dir_stat : is_dir_content && { ...src_stat, xattr: dir_stat.xattr } || src_stat;
 
             this._check_lifecycle_filter_before_deletion(params, stat);

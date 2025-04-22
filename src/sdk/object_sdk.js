@@ -312,7 +312,7 @@ class ObjectSDK {
 
     async _load_bucket_namespace(params) {
         // params.bucket might be added by _validate_bucket_namespace
-        const bucket = params.bucket || await this._get_bucketspace().read_bucket_sdk_info({ name: params.name });
+        const bucket = params.bucket || (await this._get_bucketspace().read_bucket_sdk_info({ name: params.name }));
         return this._setup_bucket_namespace(bucket);
     }
 

@@ -611,7 +611,7 @@ class NamespaceCache {
             }
         }
 
-        tap_stream = tap_stream || await this._read_object_stream(params, object_sdk);
+        tap_stream = tap_stream || (await this._read_object_stream(params, object_sdk));
 
         this.stats?.update_cache_stats({
             bucket_name: params.bucket,
@@ -836,7 +836,7 @@ class NamespaceCache {
             throw new S3Error(S3Error.NotImplemented);
         }
         const load_for_trigger = object_sdk.should_run_triggers({ active_triggers: this.active_triggers, operation });
-        const head_res = load_for_trigger && await P.map(params.objects, async obj => {
+        const head_res = load_for_trigger && (await P.map(params.objects, async obj => {
             const request = {
                 bucket: params.bucket,
                 key: obj.key,
@@ -849,7 +849,7 @@ class NamespaceCache {
                 if (err.rpc_code !== 'NO_SUCH_OBJECT') throw err;
             }
             return obj_md;
-        });
+        }));
 
         const [hub_res, cache_res] = await Promise.allSettled([
             this.namespace_hub.delete_multiple_objects(params, object_sdk),

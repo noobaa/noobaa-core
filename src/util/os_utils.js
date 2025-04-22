@@ -625,7 +625,7 @@ function is_supervised_env() {
 
 // returns the ppid of the first process that matches the command
 async function get_process_parent_pid(proc) {
-    const ps_info = await P.fromCallback(callback => ps.lookup({ command: proc }, callback)) || [];
+    const ps_info = (await P.fromCallback(callback => ps.lookup({ command: proc }, callback))) || [];
     return ps_info[0] && ps_info[0].ppid;
 }
 

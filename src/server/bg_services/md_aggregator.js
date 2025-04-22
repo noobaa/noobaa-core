@@ -60,12 +60,12 @@ async function run_md_aggregator(md_store, system_store, target_now, delay) {
                 original_system_store: system_store,
             });
         }
-        const changes = range && await range_md_aggregator({
+        const changes = range && (await range_md_aggregator({
             md_store,
             system_store: md_local_store,
             range,
             global_last_update
-        });
+        }));
         if (changes) {
             const update = _.omit(changes, 'more_updates');
             await system_store.make_changes({ update });

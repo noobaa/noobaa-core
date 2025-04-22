@@ -19,9 +19,9 @@ async function process_migrations() {
         const backend = Glacier.getBackend();
 
         if (
-            await backend.low_free_space() ||
-            await time_exceeded(fs_context, config.NSFS_GLACIER_MIGRATE_INTERVAL, Glacier.MIGRATE_TIMESTAMP_FILE) ||
-            await migrate_log_exceeds_threshold()
+            (await backend.low_free_space()) ||
+            (await time_exceeded(fs_context, config.NSFS_GLACIER_MIGRATE_INTERVAL, Glacier.MIGRATE_TIMESTAMP_FILE)) ||
+            (await migrate_log_exceeds_threshold())
         ) {
             await run_glacier_migrations(fs_context, backend);
             const timestamp_file_path = path.join(config.NSFS_GLACIER_LOGS_DIR, Glacier.MIGRATE_TIMESTAMP_FILE);
@@ -47,7 +47,7 @@ async function process_restores() {
         const backend = Glacier.getBackend();
 
         if (
-            await backend.low_free_space() ||
+            (await backend.low_free_space()) ||
             !(await time_exceeded(fs_context, config.NSFS_GLACIER_RESTORE_INTERVAL, Glacier.RESTORE_TIMESTAMP_FILE))
         ) return;
 
@@ -75,15 +75,15 @@ async function process_expiry() {
         const backend = Glacier.getBackend();
         const timestamp_file_path = path.join(config.NSFS_GLACIER_LOGS_DIR, Glacier.EXPIRY_TIMESTAMP_FILE);
         if (
-            await backend.low_free_space() ||
-            await is_desired_time(
+            (await backend.low_free_space()) ||
+            (await is_desired_time(
                 fs_context,
                 new Date(),
                 config.NSFS_GLACIER_EXPIRY_RUN_TIME,
                 config.NSFS_GLACIER_EXPIRY_RUN_DELAY_LIMIT_MINS,
                 timestamp_file_path,
                 config.NSFS_GLACIER_EXPIRY_TZ
-            )
+            ))
         ) {
             await backend.expiry(fs_context);
             await record_current_time(fs_context, timestamp_file_path);

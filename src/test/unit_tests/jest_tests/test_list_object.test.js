@@ -43,8 +43,8 @@ describe('manage list objct flow', () => {
             const dir_handle = await nb_native().fs.opendir(DEFAULT_FS_CONFIG, list_dir_root);
             const tell_dir = await dir_handle.telldir(DEFAULT_FS_CONFIG);
             expect(() => dir_handle.seekdir(DEFAULT_FS_CONFIG, Number(tell_dir))).toThrow();
-            expect(() => dir_handle.seekdir(DEFAULT_FS_CONFIG, 2n ** 32n ** 32n)).toThrow();
-            expect(() => dir_handle.seekdir(DEFAULT_FS_CONFIG, -(2n ** 32n ** 32n))).toThrow();
+            expect(() => dir_handle.seekdir(DEFAULT_FS_CONFIG, 2n ** (32n ** 32n))).toThrow();
+            expect(() => dir_handle.seekdir(DEFAULT_FS_CONFIG, -(2n ** (32n ** 32n)))).toThrow();
             // valid scenario
             expect(await dir_handle.seekdir(DEFAULT_FS_CONFIG, big_int)).toBeUndefined();
 

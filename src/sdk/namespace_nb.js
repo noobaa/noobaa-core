@@ -248,7 +248,7 @@ class NamespaceNB {
         // TODO: What should I do instead of failing on one failed head request?
         // I cannot exclude the files that failed from delete since it will be considered altering the request of the client
         // TODO: Notice that we do not handle the md_conditions for the heads
-        const head_res = load_for_trigger && await P.map(params.objects, async obj => {
+        const head_res = load_for_trigger && (await P.map(params.objects, async obj => {
             const request = {
                 bucket: params.bucket,
                 key: obj.key,
@@ -261,7 +261,7 @@ class NamespaceNB {
                 if (!_.includes(EXCEPT_REASONS, error.rpc_code || 'UNKNOWN_ERR')) throw error;
             }
             return obj_md;
-        });
+        }));
         const deleted_res = await object_sdk.rpc_client.object.delete_multiple_objects(params);
         if (load_for_trigger) {
             this._dispatch_multiple_delete_triggers({

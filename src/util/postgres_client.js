@@ -1746,7 +1746,7 @@ class PostgresClient extends EventEmitter {
     }
 
     async _load_ssl_certs() {
-        this.ssl_cert_info = await ssl_utils.get_ssl_cert_info('EXTERNAL_DB') || {};
+        this.ssl_cert_info = (await ssl_utils.get_ssl_cert_info('EXTERNAL_DB')) || {};
         /** @type {import('tls').ConnectionOptions} */
         this.new_pool_params.ssl = { ...this.ssl_cert_info.cert, rejectUnauthorized: !process.env.POSTGRES_SSL_UNAUTHORIZED };
         this.ssl_cert_info.on('update', () => {

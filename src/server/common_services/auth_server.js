@@ -621,7 +621,7 @@ function _prepare_auth_request(req) {
     };
 
     req.check_bucket_action_permission = async function(bucket, action, bucket_path) {
-        if (!await has_bucket_action_permission(bucket, req.account, action, undefined, bucket_path)) {
+        if (!(await has_bucket_action_permission(bucket, req.account, action, undefined, bucket_path))) {
             throw new RpcError('UNAUTHORIZED', 'No permission to access bucket');
         }
     };
@@ -707,14 +707,14 @@ async function has_bucket_anonymous_permission(bucket, action, bucket_path, req_
     bucket_path = bucket_path ?? "";
     const bucket_policy = bucket.s3_policy;
     if (!bucket_policy) return false;
-    return await s3_bucket_policy_utils.has_bucket_policy_permission(
+    return (await s3_bucket_policy_utils.has_bucket_policy_permission(
         bucket_policy,
         // Account is anonymous
         undefined,
         action || `s3:GetObject`,
         `arn:aws:s3:::${bucket.name.unwrap()}${bucket_path}`,
         req_query
-    ) === 'ALLOW';
+    )) === 'ALLOW';
 }
 
 /**

@@ -114,7 +114,7 @@ async function create_object_upload(req) {
         info.content_encoding = req.rpc_params.content_encoding;
     }
 
-    const tier = req.bucket.tiering && await map_server.select_tier_for_write(req.bucket);
+    const tier = req.bucket.tiering && (await map_server.select_tier_for_write(req.bucket));
     if (tier && tier.storage_class && tier.storage_class !== STORAGE_CLASS_STANDARD) {
         info.storage_class = tier.storage_class;
     }
@@ -698,7 +698,7 @@ async function read_object_mapping(req) {
     const obj = await find_object_md(req);
 
     // Check if the requesting account is authorized to read the object
-    if (!await req.has_s3_bucket_permission(req.bucket, 's3:GetObject', '/' + obj.key, undefined)) {
+    if (!(await req.has_s3_bucket_permission(req.bucket, 's3:GetObject', '/' + obj.key, undefined))) {
         throw new RpcError('UNAUTHORIZED', 'requesting account is not authorized to read the object');
     }
 
@@ -809,7 +809,7 @@ async function read_object_md(req) {
     // Check if the requesting account is authorized to read the object
     const action = version_id ? 's3:GetObjectVersion' : 's3:GetObject';
 
-    if (!await req.has_s3_bucket_permission(req.bucket, action, '/' + obj.key, req_query)) {
+    if (!(await req.has_s3_bucket_permission(req.bucket, action, '/' + obj.key, req_query))) {
         throw new RpcError('UNAUTHORIZED', 'requesting account is not authorized to read the object');
     }
 
@@ -1142,7 +1142,7 @@ async function list_objects(req) {
     dbg.log1('object_server.list_objects', req.rpc_params);
     load_bucket(req);
 
-    if (!await req.has_s3_bucket_permission(req.bucket, "s3:ListBucket")) {
+    if (!(await req.has_s3_bucket_permission(req.bucket, "s3:ListBucket"))) {
         throw new RpcError('UNAUTHORIZED', 'requesting account is not authorized to list objects');
     }
 
@@ -1867,7 +1867,7 @@ async function _delete_object_version(req) {
     }
 
     if (bucket_versioning === 'DISABLED') {
-        const obj = version_id === 'null' && await MDStore.instance().find_object_or_upload_null_version(req.bucket._id, req.rpc_params.key);
+        const obj = version_id === 'null' && (await MDStore.instance().find_object_or_upload_null_version(req.bucket._id, req.rpc_params.key));
         http_utils.check_md_conditions(req.rpc_params.md_conditions, obj);
 
         if (!obj) return { reply: {} };

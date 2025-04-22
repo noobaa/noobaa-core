@@ -271,7 +271,7 @@ async function wait_until(async_cond, timeout_ms, delay_ms = 2500) {
     if (!_.isUndefined(timeout_ms)) {
         return timeout(timeout_ms, wait_until(async_cond, undefined, delay_ms));
     }
-    while (!await async_cond()) {
+    while (!(await async_cond())) {
         // TODO how do we stop this loop once the timeout is expired
         await delay(delay_ms);
     }

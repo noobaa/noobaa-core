@@ -202,7 +202,7 @@ class NamespaceMerge {
     async delete_multiple_objects(params, object_sdk) {
         const operation = 'ObjectRemoved';
         const load_for_trigger = object_sdk.should_run_triggers({ active_triggers: this.active_triggers, operation });
-        const head_res = load_for_trigger && await this._ns_map(ns => P.map(params.objects, async obj => {
+        const head_res = load_for_trigger && (await this._ns_map(ns => P.map(params.objects, async obj => {
             const request = {
                 bucket: params.bucket,
                 key: obj.key,
@@ -215,7 +215,7 @@ class NamespaceMerge {
                 if (!_.includes(EXCEPT_REASONS, error.rpc_code || 'UNKNOWN_ERR')) throw error;
             }
             return obj_md;
-        }));
+        })));
         const deleted_res = await this._ns_map(ns => ns.delete_multiple_objects(params, object_sdk));
         const merged_res = this._merge_multiple_delete_responses({
             head_res,

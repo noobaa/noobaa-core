@@ -116,7 +116,7 @@ async function handle_request(req, res) {
     }
 
     const op_name = parse_op_name(req);
-    const cors = req.params.bucket && await req.object_sdk.read_bucket_sdk_cors_info(req.params.bucket);
+    const cors = req.params.bucket && (await req.object_sdk.read_bucket_sdk_cors_info(req.params.bucket));
 
     http_utils.set_cors_headers_s3(req, res, cors);
 

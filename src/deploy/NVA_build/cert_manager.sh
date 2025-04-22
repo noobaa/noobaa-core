@@ -222,7 +222,7 @@ restart_processes() {
     # Check if we're in a core pod (supervisord available) or endpoint pod
     if command -v supervisorctl >/dev/null 2>&1 && supervisorctl status >/dev/null 2>&1; then
         log "Restarting processes using supervisorctl"
-        if ! supervisorctl restart all; then
+        if ! supervisorctl restart bg_workers hosted_agents webserver; then
             log_error "failed to restart processes using supervisorctl"
             return 1
         fi

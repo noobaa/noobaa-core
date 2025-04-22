@@ -513,10 +513,11 @@ function compose_notification_test(req) {
 
 function _get_system_name(req) {
 
+    //in NC case - return node name
     if (req && req.object_sdk && req.object_sdk.nsfs_system) {
-        const name = Object.keys(req.object_sdk.nsfs_system)[0];
+        const name = process.env.NODE_NAME || os.hostname();
         return name;
-    } else {
+    } else { //in containerized - return system's name
         //see comment on Notificator._can_run() for the require here
         const system_store = require('../server/system_services/system_store').get_instance();
         return system_store.data.systems[0].name;

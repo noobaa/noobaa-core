@@ -45,22 +45,39 @@ CERT_BUNDLE="/tmp/ca-bundle.crt"
 CERT_WATCH_PID=""
 POLL_INTERVAL=60  # Check for changes every 60 seconds
 
+# Function to log messages with timestamp
+log() {
+    local timestamp
+    timestamp=$(date '+%b-%d %H:%M:%S.%3N')
+    echo "${timestamp} [Cert Manager] $1"
+}
+
+# Function to log error messages with timestamp
+log_error() {
+    log "Error - $1" >&2
+}
+
+# Function to log warning messages with timestamp
+log_warning() {
+    log "Warning - $1" >&2
+}
+
 # Function to get file MD5 hash
 get_file_md5() {
     local file="$1"
     if [ ! -f "$file" ]; then
-        echo "Warning - certificate file not found: $file" >&2
+        log_warning "certificate file not found: $file"
         echo ""
         return 1
     fi
     if [ ! -r "$file" ]; then
-        echo "Error - cannot read certificate file: $file" >&2
+        log_error "cannot read certificate file: $file"
         echo ""
         return 1
     fi
     local hash
     if ! hash=$(md5sum "$file" 2>/dev/null | cut -d' ' -f1); then
-        echo "Error - failed to calculate MD5 hash for: $file" >&2
+        log_error "failed to calculate MD5 hash for: $file"
         echo ""
         return 1
     fi
@@ -70,24 +87,24 @@ get_file_md5() {
 
 # Function to bundle certificates
 bundle_certificates() {
-    echo "Bundling certificates"
+    log "Bundling certificates"
     local cert_paths=("${SERVICE_CA_CERT}" "${OCP_USE_CA_BUNDLE}")
     local found_certs=false
     
     # Create a temporary file for the bundle
     local temp_bundle=$(mktemp)
     if [ $? -ne 0 ]; then
-        echo "Error - failed to create temporary bundle file" >&2
+        log_error "failed to create temporary bundle file"
         return 1
     fi
     
     for cert in "${cert_paths[@]}"; do
         if [ ! -f "${cert}" ]; then
-            echo "Warning - certificate file not found: ${cert}" >&2
+            log_warning "certificate file not found: ${cert}"
             continue
         fi
         if ! cat "${cert}" >> "${temp_bundle}"; then
-            echo "Error - failed to append certificate: ${cert}" >&2
+            log_error "failed to append certificate: ${cert}"
             rm -f "${temp_bundle}"
             return 1
         fi
@@ -95,14 +112,14 @@ bundle_certificates() {
     done
     
     if [ "${found_certs}" = false ]; then
-        echo "Warning - no certificates found to bundle" >&2
+        log_warning "no certificates found to bundle"
         rm -f "${temp_bundle}"
         return 0
     fi
     
     # Atomically replace the bundle file
     if ! mv "${temp_bundle}" "${CERT_BUNDLE}"; then
-        echo "Error - failed to create certificate bundle" >&2
+        log_error "failed to create certificate bundle"
         rm -f "${temp_bundle}"
         return 1
     fi
@@ -113,42 +130,53 @@ bundle_certificates() {
 
 # Function to start certificate watcher
 start_cert_watcher() {
-    echo "Starting certificate watcher"
-    
-    # Initial check of certificate files
-    if ! get_file_md5 "${SERVICE_CA_CERT}" >/dev/null || ! get_file_md5 "${OCP_USE_CA_BUNDLE}" >/dev/null; then
-        echo "Error - one or more certificate files are not accessible" >&2
-        return 1
-    fi
+    log "Starting certificate watcher"
     
     local service_ca_last_md5=""
     local ocp_ca_last_md5=""
     
-    # Get initial hashes
-    service_ca_last_md5=$(get_file_md5 "${SERVICE_CA_CERT}")
-    ocp_ca_last_md5=$(get_file_md5 "${OCP_USE_CA_BUNDLE}")
+    # Get initial hashes if files exist
+    if [ -f "${SERVICE_CA_CERT}" ]; then
+        service_ca_last_md5=$(get_file_md5 "${SERVICE_CA_CERT}")
+    fi
+    if [ -f "${OCP_USE_CA_BUNDLE}" ]; then
+        ocp_ca_last_md5=$(get_file_md5 "${OCP_USE_CA_BUNDLE}")
+    fi
     
     while true; do
-        local service_ca_current_md5
-        local ocp_ca_current_md5
+        local service_ca_current_md5=""
+        local ocp_ca_current_md5=""
+        local has_changes=false
         
-        # Get current hashes atomically
-        service_ca_current_md5=$(get_file_md5 "${SERVICE_CA_CERT}")
-        ocp_ca_current_md5=$(get_file_md5 "${OCP_USE_CA_BUNDLE}")
+        # Check service CA certificate
+        if [ -f "${SERVICE_CA_CERT}" ]; then
+            service_ca_current_md5=$(get_file_md5 "${SERVICE_CA_CERT}")
+            if [ "${service_ca_current_md5}" != "${service_ca_last_md5}" ]; then
+                has_changes=true
+            fi
+        fi
         
-        if [ "${service_ca_current_md5}" != "${service_ca_last_md5}" ] || 
-           [ "${ocp_ca_current_md5}" != "${ocp_ca_last_md5}" ]; then
-            echo "Certificate change detected"
+        # Check OCP CA bundle
+        if [ -f "${OCP_USE_CA_BUNDLE}" ]; then
+            ocp_ca_current_md5=$(get_file_md5 "${OCP_USE_CA_BUNDLE}")
+            if [ "${ocp_ca_current_md5}" != "${ocp_ca_last_md5}" ]; then
+                has_changes=true
+            fi
+        fi
+        
+        if [ "${has_changes}" = true ]; then
+            log "Certificate change detected"
             if bundle_certificates; then
                 restart_processes
                 # Update last known hashes only after successful bundling
                 service_ca_last_md5=${service_ca_current_md5}
                 ocp_ca_last_md5=${ocp_ca_current_md5}
             else
-                echo "Error - failed to bundle certificates" >&2
+                log_error "failed to bundle certificates"
             fi
         fi
         
+        log "Polling for certificate changes (next check in ${POLL_INTERVAL} seconds)"
         sleep ${POLL_INTERVAL}
     done &
     CERT_WATCH_PID=$!
@@ -157,13 +185,13 @@ start_cert_watcher() {
 # Function to stop certificate watcher
 stop_cert_watcher() {
     if [ ! -z "${CERT_WATCH_PID}" ]; then
-        echo "Stopping certificate watcher"
+        log "Stopping certificate watcher"
         if ! kill ${CERT_WATCH_PID} 2>/dev/null; then
-            echo "Warning - certificate watcher process not found" >&2
+            log_warning "certificate watcher process not found"
         fi
         # Wait for process to terminate
         if ! wait ${CERT_WATCH_PID} 2>/dev/null; then
-            echo "Warning - certificate watcher did not terminate gracefully" >&2
+            log_warning "certificate watcher did not terminate gracefully"
             kill -9 ${CERT_WATCH_PID} 2>/dev/null
         fi
     fi
@@ -178,7 +206,7 @@ restart_processes() {
     # Store original mode if it exists
     if [ -f "${mode_file}" ]; then
         if ! original_mode=$(cat "${mode_file}"); then
-            echo "Error - failed to read mode file" >&2
+            log_error "failed to read mode file"
             return 1
         fi
     fi
@@ -186,22 +214,22 @@ restart_processes() {
     # Atomically set mode to auto in temporary file
     echo "auto" > "${temp_file}"
     if ! mv "${temp_file}" "${mode_file}"; then
-        echo "Error - failed to update mode file" >&2
+        log_error "failed to update mode file"
         rm -f "${temp_file}"
         return 1
     fi
     
     # Check if we're in a core pod (supervisord available) or endpoint pod
     if command -v supervisorctl >/dev/null 2>&1 && supervisorctl status >/dev/null 2>&1; then
-        echo "Restarting processes using supervisorctl"
+        log "Restarting processes using supervisorctl"
         if ! supervisorctl restart all; then
-            echo "Error - failed to restart processes using supervisorctl" >&2
+            log_error "failed to restart processes using supervisorctl"
             return 1
         fi
     else
-        echo "supervisorctl not available or not working, sending SIGTERM to Node processes"
+        log "supervisorctl not available or not working, sending SIGTERM to Node processes"
         if ! pkill -TERM -f "node"; then
-            echo "Warning - no Node processes found to restart" >&2
+            log_warning "no Node processes found to restart"
         fi
     fi
     
@@ -212,7 +240,7 @@ restart_processes() {
     if [ -n "${original_mode}" ]; then
         echo "${original_mode}" > "${temp_file}"
         if ! mv "${temp_file}" "${mode_file}"; then
-            echo "Error - failed to restore original mode" >&2
+            log_error "failed to restore original mode"
             rm -f "${temp_file}"
             return 1
         fi
@@ -228,7 +256,7 @@ cleanup() {
     stop_cert_watcher
     if [ -f "${CERT_BUNDLE}" ]; then
         if ! rm -f "${CERT_BUNDLE}"; then
-            echo "Warning - failed to remove certificate bundle" >&2
+            log_warning "failed to remove certificate bundle"
         fi
     fi
 }
@@ -239,16 +267,16 @@ if [ "${1}" == "start" ]; then
     trap cleanup EXIT
     
     # Set up signal handling
-    trap 'echo "Received signal, stopping..."; cleanup; exit 0' TERM INT
+    trap 'log "Received signal, stopping..."; cleanup; exit 0' TERM INT
     
     # Bundle certificates and start watcher
     if ! bundle_certificates; then
-        echo "Error - failed to bundle initial certificates" >&2
+        log_error "failed to bundle initial certificates"
         exit 1
     fi
     
     if ! start_cert_watcher; then
-        echo "Error - failed to start certificate watcher" >&2
+        log_error "failed to start certificate watcher"
         exit 1
     fi
     
@@ -257,7 +285,7 @@ if [ "${1}" == "start" ]; then
         if ! wait "${CERT_WATCH_PID}"; then
             # If wait fails, check if the process is still running
             if kill -0 "${CERT_WATCH_PID}" 2>/dev/null; then
-                echo "Error - certificate watcher process failed" >&2
+                log_error "certificate watcher process failed"
                 exit 1
             else
                 # Process terminated normally
@@ -268,6 +296,6 @@ if [ "${1}" == "start" ]; then
 elif [ "${1}" == "stop" ]; then
     cleanup
 else
-    echo "Usage: $0 [start|stop]"
+    log "Usage: $0 [start|stop]"
     exit 1
 fi 

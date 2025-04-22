@@ -168,6 +168,7 @@ typedef std::map<std::string, std::string> XattrMap;
 const char* gpfs_dl_path = std::getenv("GPFS_DL_PATH");
 
 int gpfs_lib_file_exists = -1;
+static long PASSWD_BUF_SIZE = -1;
 
 static int (*dlsym_gpfs_fcntl)(gpfs_file_t file, void* arg) = 0;
 
@@ -1397,17 +1398,29 @@ struct Fsync : public FSWorker
 struct GetPwName : public FSWorker
 {
     std::string _user;
+    struct passwd _pwd;
     struct passwd *_getpwnam_res;
+    std::unique_ptr<char[]> _buf;
     GetPwName(const Napi::CallbackInfo& info)
         : FSWorker(info)
+        , _getpwnam_res(NULL)
     {
         _user = info[1].As<Napi::String>();
         Begin(XSTR() << "GetPwName " << DVAL(_user));
     }
     virtual void Work()
     {
-        _getpwnam_res = getpwnam(_user.c_str());
-        if (_getpwnam_res == NULL) SetSyscallError();
+        _buf.reset(new char[PASSWD_BUF_SIZE]);
+        if (!_buf) {
+            SetSyscallError();
+            return;
+        }
+        int rc = getpwnam_r(_user.c_str(), &_pwd, _buf.get(), PASSWD_BUF_SIZE, &_getpwnam_res);
+        if (rc != 0) {
+            SetSyscallError();
+            return;
+        }
+        if (_getpwnam_res == NULL) SetError("NO_SUCH_USER");
     }
 
     virtual void OnOK()
@@ -2402,6 +2415,12 @@ fs_napi(Napi::Env env, Napi::Object exports)
     exports_fs["DT_DIR"] = Napi::Number::New(env, DT_DIR);
     exports_fs["DT_LNK"] = Napi::Number::New(env, DT_LNK);
     exports_fs["PLATFORM_IOV_MAX"] = Napi::Number::New(env, IOV_MAX);
+    long passwd_bufsize = sysconf(_SC_GETPW_R_SIZE_MAX);
+    if (passwd_bufsize == -1) {
+        passwd_bufsize = 16384;
+    }
+    PASSWD_BUF_SIZE = passwd_bufsize;
+
 
 #ifdef O_DIRECT
     exports_fs["O_DIRECT"] = Napi::Number::New(env, O_DIRECT);
@@ -2415,6 +2434,7 @@ fs_napi(Napi::Env env, Napi::Object exports)
     exports_fs["set_log_config"] = Napi::Function::New(env, set_log_config);
 
     exports["fs"] = exports_fs;
+
 }
 
 } // namespace noobaa

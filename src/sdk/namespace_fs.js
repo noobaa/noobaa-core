@@ -2438,8 +2438,8 @@ class NamespaceFS {
         try {
             await this.set_fs_xattr_op(fs_context, file_path, undefined, prefix);
         } catch (err) {
-            if (err.code !== 'ENOENT') throw err;
-            dbg.log0(`NamespaceFS._clear_user_xattr: dir ${file_path} was already deleted`);
+            if (err.code !== 'ENOENT' && err.code !== 'ENODATA') throw err;
+            dbg.log0(`NamespaceFS._clear_user_xattr: dir ${file_path} or xattr was already deleted`);
         }
     }
 

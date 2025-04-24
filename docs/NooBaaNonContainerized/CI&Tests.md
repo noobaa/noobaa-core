@@ -114,6 +114,8 @@ The following is a list of `NC jest tests` files -
 17. `test_nc_upgrade_manager.test.js` - Tests of the NC upgrade manager.
 18. `test_cli_upgrade.test.js` - Tests of the upgrade CLI commands.
 19. `test_nc_online_upgrade_cli_integrations.test.js` - Tests CLI commands during mocked config directory upgrade.
+21. `test_nc_lifecycle_posix_integration.test` - Tests NC lifecycle POSIX related configuration.
+(Note: in this layer we do not test the validation related to lifecycle configuration and it is done in `test_lifecycle.js` - which currently is running only in containerized deployment, but it is mutual code)
 
 #### nc_index.js File
 * The `nc_index.js` is a file that runs several NC and NSFS mocha related tests.  

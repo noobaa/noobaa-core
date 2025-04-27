@@ -2545,6 +2545,8 @@ class NamespaceFS {
         const storage_class = Glacier.storage_class_from_xattr(stat.xattr);
         const size = Number(stat.xattr?.[XATTR_DIR_CONTENT] || stat.size);
         const tag_count = stat.xattr ? this._number_of_tags_fs_xttr(stat.xattr) : 0;
+        const nc_noncurrent_time = (stat.xattr?.[XATTR_NON_CURRENT_TIMESTASMP] && Number(stat.xattr[XATTR_NON_CURRENT_TIMESTASMP])) ||
+            stat.ctime.getTime();
 
         return {
             obj_id: etag,
@@ -2563,6 +2565,7 @@ class NamespaceFS {
             xattr: to_xattr(stat.xattr),
             tag_count,
             tagging: get_tags_from_xattr(stat.xattr),
+            nc_noncurrent_time,
 
             // temp:
             lock_settings: undefined,

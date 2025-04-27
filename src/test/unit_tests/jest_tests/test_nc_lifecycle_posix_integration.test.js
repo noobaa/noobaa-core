@@ -21,6 +21,7 @@ const buffer_utils = require('../../../util/buffer_utils');
 const crypto = require('crypto');
 const NsfsObjectSDK = require('../../../sdk/nsfs_object_sdk');
 const nb_native = require('../../../util/nb_native');
+const native_fs_utils = require('../../../util/native_fs_utils');
 
 const LIFECYCLE_RULE_STATUS_ENUM = Object.freeze({
     ENABLED: 'Enabled',
@@ -480,6 +481,7 @@ describe('noobaa nc - lifecycle versioning ENABLE', () => {
             await create_object(object_sdk, test_bucket, test_key1, 100, false);
             await create_object(object_sdk, test_bucket, test_key1, 100, false);
             await create_object(object_sdk, test_bucket, test_key1, 100, false);
+            await update_version_xattr(test_bucket, test_key1, res.version_id);
 
             await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, undefined, undefined);
             const object_list = await object_sdk.list_object_versions({ bucket: test_bucket });
@@ -504,20 +506,22 @@ describe('noobaa nc - lifecycle versioning ENABLE', () => {
             }];
             await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule });
 
+            const res = await create_object(object_sdk, test_bucket, test_key1_regular, 100, false);
             await create_object(object_sdk, test_bucket, test_key1_regular, 100, false);
             await create_object(object_sdk, test_bucket, test_key1_regular, 100, false);
-            await create_object(object_sdk, test_bucket, test_key1_regular, 100, false);
+            await update_version_xattr(test_bucket, test_key1_regular, res.version_id);
 
-            const res = await create_object(object_sdk, test_bucket, test_prefix_key_regular, 100, false);
+            const res_prefix = await create_object(object_sdk, test_bucket, test_prefix_key_regular, 100, false);
             await create_object(object_sdk, test_bucket, test_prefix_key_regular, 60, false);
             await create_object(object_sdk, test_bucket, test_prefix_key_regular, 100, false);
             await create_object(object_sdk, test_bucket, test_prefix_key_regular, 100, false);
+            await update_version_xattr(test_bucket, test_prefix_key_regular, res_prefix.version_id);
 
             await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, undefined, undefined);
             const object_list = await object_sdk.list_object_versions({ bucket: test_bucket });
             expect(object_list.objects.length).toBe(6);
             object_list.objects.forEach(element => {
-                expect(element.version_id).not.toBe(res.version_id);
+                expect(element.version_id).not.toBe(res_prefix.version_id);
             });
         });
 
@@ -536,11 +540,15 @@ describe('noobaa nc - lifecycle versioning ENABLE', () => {
             }];
             await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule });
 
-            await object_sdk.delete_object({ bucket: test_bucket, key: test_prefix_key_regular });
-            await create_object(object_sdk, test_bucket, test_prefix_key_regular, 100, false);
-            await object_sdk.delete_object({ bucket: test_bucket, key: test_prefix_key_regular });
-            await create_object(object_sdk, test_bucket, test_prefix_key_regular, 100, false);
-            await create_object(object_sdk, test_bucket, test_prefix_key_regular, 100, false);
+            let res1 = await object_sdk.delete_object({ bucket: test_bucket, key: test_prefix_key_regular });
+            await update_version_xattr(test_bucket, test_prefix_key_regular, res1.created_version_id);
+            let res2 = await create_object(object_sdk, test_bucket, test_prefix_key_regular, 100, false);
+            res1 = await object_sdk.delete_object({ bucket: test_bucket, key: test_prefix_key_regular });
+            await update_version_xattr(test_bucket, test_prefix_key_regular, res1.created_version_id);
+            await update_version_xattr(test_bucket, test_prefix_key_regular, res2.version_id);
+            res2 = await create_object(object_sdk, test_bucket, test_prefix_key_regular, 100, false);
+            res1 = await create_object(object_sdk, test_bucket, test_prefix_key_regular, 100, false);
+            await update_version_xattr(test_bucket, test_prefix_key_regular, res2.version_id);
 
             await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, undefined, undefined);
             const object_list = await object_sdk.list_object_versions({ bucket: test_bucket });
@@ -577,6 +585,93 @@ describe('noobaa nc - lifecycle versioning ENABLE', () => {
                 if (element.delete_marker) has_delete_marker = true;
             });
             expect(has_delete_marker).toBe(true);
+        });
+
+        it('nc lifecycle - noncurrent expiration rule - expire older versions by number of days with filter - regular key', async () => {
+            const lifecycle_rule = [{
+                "id": "expire noncurrent versions after 3 days with size ",
+                "status": LIFECYCLE_RULE_STATUS_ENUM.ENABLED,
+                "filter": {
+                    "prefix": prefix,
+                    "object_size_greater_than": 80,
+                },
+                "noncurrent_version_expiration": {
+                    "noncurrent_days": 3
+                }
+            }];
+            await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule });
+
+            let res = await create_object(object_sdk, test_bucket, test_key1_regular, 100, false);
+            await create_object(object_sdk, test_bucket, test_key1_regular, 100, false);
+            await update_version_xattr(test_bucket, test_key1_regular, res.version_id);
+
+            const expected_res = await create_object(object_sdk, test_bucket, test_prefix_key_regular, 100, false);
+            res = await create_object(object_sdk, test_bucket, test_prefix_key_regular, 60, false);
+            await create_object(object_sdk, test_bucket, test_prefix_key_regular, 100, false);
+            await create_object(object_sdk, test_bucket, test_prefix_key_regular, 100, false);
+            await update_version_xattr(test_bucket, test_prefix_key_regular, expected_res.version_id);
+            await update_version_xattr(test_bucket, test_prefix_key_regular, res.version_id);
+
+            await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, undefined, undefined);
+            const object_list = await object_sdk.list_object_versions({ bucket: test_bucket });
+            expect(object_list.objects.length).toBe(5);
+            object_list.objects.forEach(element => {
+                expect(element.version_id).not.toBe(expected_res.version_id);
+            });
+        });
+
+        it('nc lifecycle - noncurrent expiration rule - both noncurrent days and older versions', async () => {
+            const lifecycle_rule = [{
+                "id": "expire noncurrent versions after 3 days with size ",
+                "status": LIFECYCLE_RULE_STATUS_ENUM.ENABLED,
+                "filter": {
+                    "prefix": '',
+                },
+                "noncurrent_version_expiration": {
+                    "noncurrent_days": 3,
+                    "newer_noncurrent_versions": 1
+                }
+            }];
+            await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule });
+
+            const expected_res = await create_object(object_sdk, test_bucket, test_key1_regular, 100, false);
+            const res = await create_object(object_sdk, test_bucket, test_key1_regular, 100, false);
+            await create_object(object_sdk, test_bucket, test_key1_regular, 100, false);
+            // older than 3 days but no more than one noncurrent version - don't delete
+            await update_version_xattr(test_bucket, test_key1_regular, expected_res.version_id);
+            // both older than 3 days and more than one noncurrent version - delete
+            await update_version_xattr(test_bucket, test_key1_regular, res.version_id);
+
+            await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, undefined, undefined);
+            const object_list = await object_sdk.list_object_versions({ bucket: test_bucket });
+            expect(object_list.objects.length).toBe(2);
+            object_list.objects.forEach(element => {
+                expect(element.version_id).not.toBe(expected_res.version_id);
+            });
+        });
+
+        it('nc lifecycle - noncurrent expiration rule - older versions valid but noncurrent_days not valid', async () => {
+            const lifecycle_rule = [{
+                "id": "expire noncurrent versions after 3 days with size ",
+                "status": LIFECYCLE_RULE_STATUS_ENUM.ENABLED,
+                "filter": {
+                    "prefix": '',
+                },
+                "noncurrent_version_expiration": {
+                    "noncurrent_days": 3,
+                    "newer_noncurrent_versions": 1
+                }
+            }];
+            await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule });
+
+            await create_object(object_sdk, test_bucket, test_key1_regular, 100, false);
+            await create_object(object_sdk, test_bucket, test_key1_regular, 100, false);
+            // more than one noncurrent version but not older than 3 days - don't delete
+            await create_object(object_sdk, test_bucket, test_key1_regular, 100, false);
+
+            await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, undefined, undefined);
+            const object_list = await object_sdk.list_object_versions({ bucket: test_bucket });
+            expect(object_list.objects.length).toBe(3);
         });
     });
 
@@ -806,7 +901,7 @@ describe('noobaa nc - lifecycle batching', () => {
             Object.values(parsed_res_latest_lifecycle.response.reply.buckets_statuses).forEach(bucket_status => {
                 expect(bucket_status.state.is_finished).toBe(true);
             });
-        });
+        }, TEST_TIMEOUT);
 
         it("lifecycle batching - with lifecycle rule, multiple list batches, one bucket batch", async () => {
             await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule_delete_all });
@@ -960,7 +1055,7 @@ describe('noobaa nc - lifecycle batching', () => {
             for (const key of new_keys) {
                 expect(res_keys).toContain(key);
             }
-        });
+        }, TEST_TIMEOUT);
 
         it("lifecycle batching - with lifecycle rule, multiple list batches, multiple bucket batches - newer noncurrent versions", async () => {
             const lifecycle_rule = [{
@@ -978,8 +1073,12 @@ describe('noobaa nc - lifecycle batching', () => {
             await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule });
 
             const version_arr = [];
-            for (let i = 0; i < 10; i++) {
-                const res = await create_object(object_sdk, test_bucket, test_key1, 100, false);
+            let res = await create_object(object_sdk, test_bucket, test_key1, 100, false);
+            version_arr.push(res.version_id);
+            for (let i = 0; i < 9; i++) {
+                const prev_res = res;
+                res = await create_object(object_sdk, test_bucket, test_key1, 100, false);
+                await update_version_xattr(test_bucket, test_key1, prev_res.version_id);
                 version_arr.push(res.version_id);
             }
             const last_3_versions = new Set(version_arr.slice(-3)); // latest version + 2 noncurrent versions
@@ -1013,10 +1112,16 @@ describe('noobaa nc - lifecycle batching', () => {
 
             const keys = [test_key1, test_key2, "key3", "key4", "key5", "key6", "key7"];
             for (const key of keys) {
+                if (key === test_key1) continue; //test_key1 is initialized in his own loop
                 await create_object(object_sdk, test_bucket, key, 100, false);
             }
-            for (let i = 0; i < 10; i++) {
-                await create_object(object_sdk, test_bucket, test_key1, 100, false);
+
+            let prev_res;
+            let res = await create_object(object_sdk, test_bucket, test_key1, 100, false);
+            for (let i = 0; i < 9; i++) {
+                prev_res = res;
+                res = await create_object(object_sdk, test_bucket, test_key1, 100, false);
+                await update_version_xattr(test_bucket, test_key1, prev_res.version_id);
             }
             const latest_lifecycle = await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, undefined, undefined);
             const parsed_res_latest_lifecycle = JSON.parse(latest_lifecycle);
@@ -1259,7 +1364,7 @@ describe('noobaa nc - lifecycle batching', () => {
             for (const key of new_keys) {
                 expect(res_keys).toContain(key);
             }
-        });
+        }, TEST_TIMEOUT);
 
         it("lifecycle batching - with lifecycle rule, multiple list batches, multiple bucket batches - newer noncurrent versions", async () => {
             const lifecycle_rule = [{
@@ -1277,8 +1382,12 @@ describe('noobaa nc - lifecycle batching', () => {
             await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule });
 
             const version_arr = [];
-            for (let i = 0; i < 10; i++) {
-                const res = await create_object(object_sdk, test_bucket, test_key1, 100, false);
+            let res = await create_object(object_sdk, test_bucket, test_key1, 100, false);
+            version_arr.push(res.version_id);
+            for (let i = 0; i < 9; i++) {
+                const prev_res = res;
+                res = await create_object(object_sdk, test_bucket, test_key1, 100, false);
+                await update_version_xattr(test_bucket, test_key1, prev_res.version_id);
                 version_arr.push(res.version_id);
             }
             const last_3_versions = new Set(version_arr.slice(-3)); // latest version + 2 noncurrent versions
@@ -1312,10 +1421,15 @@ describe('noobaa nc - lifecycle batching', () => {
 
             const keys = [test_key1, test_key2, "key3", "key4", "key5", "key6", "key7"];
             for (const key of keys) {
+                if (key === test_key1) continue; //test_key1 is initialized in his own loop
                 await create_object(object_sdk, test_bucket, key, 100, false);
             }
-            for (let i = 0; i < 10; i++) {
-                await create_object(object_sdk, test_bucket, test_key1, 100, false);
+            let prev_res;
+            let res = await create_object(object_sdk, test_bucket, test_key1, 100, false);
+            for (let i = 0; i < 9; i++) {
+                prev_res = res;
+                res = await create_object(object_sdk, test_bucket, test_key1, 100, false);
+                await update_version_xattr(test_bucket, test_key1, prev_res.version_id);
             }
             const latest_lifecycle = await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, undefined, undefined);
             const parsed_res_latest_lifecycle = JSON.parse(latest_lifecycle);
@@ -1488,8 +1602,12 @@ describe('noobaa nc - lifecycle batching', () => {
             await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule });
 
             const version_arr = [];
-            for (let i = 0; i < 1100; i++) {
-                const res = await create_object(object_sdk, test_bucket, test_key1, 100, false);
+            let res = await create_object(object_sdk, test_bucket, test_key1, 100, false);
+            version_arr.push(res.version_id);
+            for (let i = 0; i < 1099; i++) {
+                const prev_res = res;
+                res = await create_object(object_sdk, test_bucket, test_key1, 100, false);
+                await update_version_xattr(test_bucket, test_key1, prev_res.version_id);
                 version_arr.push(res.version_id);
             }
             const last_3_versions = new Set(version_arr.slice(-3)); // latest version + 2 noncurrent versions
@@ -1523,10 +1641,16 @@ describe('noobaa nc - lifecycle batching', () => {
 
             const keys = [test_key1, test_key2, "key3", "key4", "key5", "key6", "key7"];
             for (const key of keys) {
+                if (key === test_key1) continue; //test_key1 is initialized in his own loop
                 await create_object(object_sdk, test_bucket, key, 10, false);
             }
-            for (let i = 0; i < 1100; i++) {
-                await create_object(object_sdk, test_bucket, test_key1, 10, false);
+
+            let prev_res;
+            let res = await create_object(object_sdk, test_bucket, test_key1, 10, false);
+            for (let i = 0; i < 1099; i++) {
+                prev_res = res;
+                res = await create_object(object_sdk, test_bucket, test_key1, 10, false);
+                await update_version_xattr(test_bucket, test_key1, prev_res.version_id);
             }
             const latest_lifecycle = await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, undefined, undefined);
             const parsed_res_latest_lifecycle = JSON.parse(latest_lifecycle);
@@ -1682,16 +1806,16 @@ describe('noobaa nc - lifecycle notifications', () => {
 /**
  * create_object creates an object with random data in the bucket
  * Note: is_old - if true, would update the mtime of the file.
- * @param {object} sdk
+ * @param {object} object_sdk
  * @param {string} bucket
  * @param {string} key
  * @param {number} size
  * @param {boolean} [is_old]
  * @param {{ key: string; value: string; }[]} [tagging]
  */
-async function create_object(sdk, bucket, key, size, is_old, tagging) {
+async function create_object(object_sdk, bucket, key, size, is_old, tagging) {
     const data = crypto.randomBytes(size);
-    const res = await sdk.upload_object({
+    const res = await object_sdk.upload_object({
         bucket,
         key,
         source_stream: buffer_utils.buffer_to_read_stream(data),
@@ -1718,6 +1842,33 @@ async function create_object(sdk, bucket, key, size, is_old, tagging) {
 async function update_file_mtime(target_path) {
     const update_file_mtime_cmp = os_utils.IS_MAC ? `touch -t $(date -v -5d +"%Y%m%d%H%M.%S") ${target_path}` : `touch -d "5 days ago" ${target_path}`;
     await os_utils.exec(update_file_mtime_cmp, { return_stdout: true });
+}
+
+/**
+ * updates the number of noncurrent days xattr of target path to be 5 days older. use only on noncurrent objects.
+ * is use this function on latest object the xattr will be changed when the object turns noncurrent
+ * how to use this function:
+ * 1. create a new object but don't change its mtime (changing mtime will cause versioning functions to fail)
+ * 2. create a new object with the same key to make the object noncurrent
+ * 3. call this function to change the xattr of the noncurrent object
+ * @param {String} bucket
+ * @param {String} key
+ * @param {String} version_id
+ * @returns {Promise<Void>}
+ */
+async function update_version_xattr(bucket, key, version_id) {
+    const older_time = new Date();
+    older_time.setDate(yesterday.getDate() - 5); // 5 days ago
+
+    const target_path = path.join(root_path, bucket, path.dirname(key), '.versions', `${path.basename(key)}_${version_id}`);
+    const file = await nb_native().fs.open(config_fs.fs_context, target_path, config.NSFS_OPEN_READ_MODE,
+        native_fs_utils.get_umasked_mode(config.BASE_MODE_FILE));
+    const stat = await file.stat(config_fs.fs_context);
+    const xattr = Object.assign(stat.xattr, {
+        'user.noobaa.non_current_timestamp': older_time.getTime(),
+    });
+    await file.replacexattr(config_fs.fs_context, xattr, undefined);
+    await file.close(config_fs.fs_context);
 }
 
 /**

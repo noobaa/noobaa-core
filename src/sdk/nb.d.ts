@@ -442,6 +442,7 @@ interface ObjectInfo {
     restore_status?: RestoreStatus;
     checksum?: Checksum;
     object_parts?: GetObjectAttributesParts;
+    nc_noncurrent_time ?: number;
 }
 
 

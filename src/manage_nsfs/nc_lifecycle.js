@@ -588,7 +588,7 @@ class NCLifecycle {
 
     /**
      * check if object is delete candidate based on newer noncurrent versions rule
-     * @param {Object} object_info
+     * @param {nb.ObjectInfo} object_info
      * @param {Object} newer_noncurrent_state
      * @param {Number} num_newer_versions
      * @returns
@@ -608,13 +608,14 @@ class NCLifecycle {
 
     /**
      * check if object is delete candidate based on number of noncurrent days rule
-     * @param {Object} object_info
+     * @param {nb.ObjectInfo} object_info
      * @param {Number} num_non_current_days
      * @returns
      */
     filter_noncurrent_days(object_info, num_non_current_days) {
-        //TODO implement
-        return true;
+        if (object_info.is_latest) return false;
+        const noncurrent_time = object_info.nc_noncurrent_time;
+        return lifecycle_utils.get_file_age_days(noncurrent_time) >= num_non_current_days;
     }
 
     /**
@@ -622,7 +623,7 @@ class NCLifecycle {
      * TODO:
      * POSIX - need to support both noncurrent_days and newer_noncurrent_versions
      * GPFS - implement noncurrent_days using GPFS ILM policy as an optimization
-     * @param {*} lifecycle_rule
+     * @param {Object} lifecycle_rule
      * @param {Object} bucket_json
      * @returns {Promise<Object[]>}
      */

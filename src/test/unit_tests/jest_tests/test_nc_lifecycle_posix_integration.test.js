@@ -1,4 +1,5 @@
 /* Copyright (C) 2016 NooBaa */
+/* eslint-disable max-lines-per-function */
 'use strict';
 
 // disabling init_rand_seed as it takes longer than the actual test execution
@@ -387,7 +388,7 @@ describe('noobaa nc - lifecycle versioning DISABLED', () => {
 
         it('nc lifecycle - expiration rule - filter by size - regular key', async () => {
             const lifecycle_rule = [{
-                "id": "expiration after 3 days with tags",
+                "id": "filter by size and expiration after 3 days",
                 "status": LIFECYCLE_RULE_STATUS_ENUM.ENABLED,
                 "filter": {
                     "prefix": '',
@@ -463,13 +464,14 @@ describe('noobaa nc - lifecycle versioning ENABLE', () => {
     describe('noobaa nc - lifecycle versioning ENABLE - noncurrent expiration rule', () => {
         it.each(test_cases)('nc lifecycle - noncurrent expiration rule - expire older versions - $description', async ({ description, test_key1, test_key2, test_key3, test_prefix_key }) => {
             const lifecycle_rule = [{
-                "id": "expiration after 3 days with tags",
+                "id": "keep 2 noncurrent versions",
                 "status": "Enabled",
                 "filter": {
                     "prefix": "",
                 },
                 "noncurrent_version_expiration": {
-                    "newer_noncurrent_versions": 2
+                    "newer_noncurrent_versions": 2,
+                    "noncurrent_days": 1
                 }
             }];
             await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule });
@@ -489,14 +491,15 @@ describe('noobaa nc - lifecycle versioning ENABLE', () => {
 
         it('nc lifecycle - noncurrent expiration rule - expire older versions with filter - regular key', async () => {
             const lifecycle_rule = [{
-                "id": "expiration after 3 days with tags",
+                "id": "keep 1 noncurrent version with filter",
                 "status": LIFECYCLE_RULE_STATUS_ENUM.ENABLED,
                 "filter": {
                     "prefix": prefix,
                     "object_size_greater_than": 80,
                 },
                 "noncurrent_version_expiration": {
-                    "newer_noncurrent_versions": 1
+                    "newer_noncurrent_versions": 1,
+                    "noncurrent_days": 1
                 }
             }];
             await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule });
@@ -520,14 +523,15 @@ describe('noobaa nc - lifecycle versioning ENABLE', () => {
 
         it('nc lifecycle - noncurrent expiration rule - expire older versions only delete markers - regular key', async () => {
             const lifecycle_rule = [{
-                "id": "expiration after 3 days with tags",
+                "id": "keep 1 noncurrent with size filter",
                 "status": LIFECYCLE_RULE_STATUS_ENUM.ENABLED,
                 "filter": {
                     "prefix": '',
                     "object_size_less_than": 1,
                 },
                 "noncurrent_version_expiration": {
-                    "newer_noncurrent_versions": 1
+                    "newer_noncurrent_versions": 1,
+                    "noncurrent_days": 1
                 }
             }];
             await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule });
@@ -579,7 +583,7 @@ describe('noobaa nc - lifecycle versioning ENABLE', () => {
     describe('noobaa nc - lifecycle versioning ENABLE - expiration rule - delete marker', () => {
         it.each(test_cases)('nc lifecycle - expiration rule - expire delete marker - $description', async ({ description, test_key1, test_key2, test_key3, test_prefix_key }) => {
             const lifecycle_rule = [{
-                "id": "expiration after 3 days with tags",
+                "id": "expired_object_delete_marker no filters",
                 "status": LIFECYCLE_RULE_STATUS_ENUM.ENABLED,
                 "filter": {
                     "prefix": '',
@@ -605,7 +609,7 @@ describe('noobaa nc - lifecycle versioning ENABLE', () => {
 
         it('nc lifecycle - expiration rule - expire delete marker with filter - regular key', async () => {
             const lifecycle_rule = [{
-                "id": "expiration after 3 days with tags",
+                "id": "expired_object_delete_marker with filter by prefix and size",
                 "status": LIFECYCLE_RULE_STATUS_ENUM.ENABLED,
                 "filter": {
                     "prefix": prefix,
@@ -629,7 +633,7 @@ describe('noobaa nc - lifecycle versioning ENABLE', () => {
 
         it('nc lifecycle - expiration rule - expire delete marker last item', async () => {
             const lifecycle_rule = [{
-                "id": "expiration after 3 days with tags",
+                "id": "expiration of delete marker with filter by size and prefix",
                 "status": LIFECYCLE_RULE_STATUS_ENUM.ENABLED,
                 "filter": {
                     "prefix": '',
@@ -651,7 +655,7 @@ describe('noobaa nc - lifecycle versioning ENABLE', () => {
 
         it('nc lifecycle - expiration rule - last item in batch is latest delete marker', async () => {
             const lifecycle_rule = [{
-                "id": "expiration after 3 days with tags",
+                "id": "filter by size and no filter by prefix with expiration of delete marker",
                 "status": LIFECYCLE_RULE_STATUS_ENUM.ENABLED,
                 "filter": {
                     "prefix": '',
@@ -684,7 +688,6 @@ describe('noobaa nc - lifecycle versioning ENABLE', () => {
         });
     });
 });
-
 
 describe('noobaa nc lifecycle - timeout check', () => {
     const original_lifecycle_timeout = config.NC_LIFECYCLE_TIMEOUT_MS;
@@ -726,292 +729,813 @@ describe('noobaa nc lifecycle - timeout check', () => {
 });
 
 describe('noobaa nc - lifecycle batching', () => {
-    const test_bucket_path = `${root_path}/${test_bucket}`;
-    const test_key1 = 'test_key1';
-    const test_key2 = 'test_key2';
-    let object_sdk;
-    const tmp_lifecycle_logs_dir_path = path.join(root_path, 'test_lifecycle_logs');
+    describe('noobaa nc - lifecycle batching - bucket batch size is bigger than list batch size', () => {
+        const test_bucket_path = `${root_path}/${test_bucket}`;
+        const test_key1 = 'test_key1';
+        const test_key2 = 'test_key2';
+        let object_sdk;
+        const tmp_lifecycle_logs_dir_path = path.join(root_path, 'test_lifecycle_logs');
 
-    beforeAll(async () => {
-        await fs_utils.create_fresh_path(config_root, 0o777);
-        set_nc_config_dir_in_config(config_root);
-        await fs_utils.create_fresh_path(root_path, 0o777);
-        const res = await exec_manage_cli(TYPES.ACCOUNT, ACTIONS.ADD, account_options1);
-        const json_account = JSON.parse(res).response.reply;
-        console.log(json_account);
-        object_sdk = new NsfsObjectSDK('', config_fs, json_account, "DISABLED", config_fs.config_root, undefined);
-        object_sdk.requesting_account = json_account;
-        await object_sdk.create_bucket({ name: test_bucket });
-    });
+        beforeAll(async () => {
+            await fs_utils.create_fresh_path(config_root, 0o777);
+            set_nc_config_dir_in_config(config_root);
+            await fs_utils.create_fresh_path(root_path, 0o777);
+            const res = await exec_manage_cli(TYPES.ACCOUNT, ACTIONS.ADD, account_options1);
+            const json_account = JSON.parse(res).response.reply;
+            console.log(json_account);
+            object_sdk = new NsfsObjectSDK('', config_fs, json_account, "DISABLED", config_fs.config_root, undefined);
+            object_sdk.requesting_account = json_account;
+            await object_sdk.create_bucket({ name: test_bucket });
+        });
 
-    beforeEach(async () => {
-        await config_fs.create_config_json_file(JSON.stringify({
-            NC_LIFECYCLE_LOGS_DIR: tmp_lifecycle_logs_dir_path,
-            NC_LIFECYCLE_LIST_BATCH_SIZE: 2,
-            NC_LIFECYCLE_BUCKET_BATCH_SIZE: 5,
-        }));
-    });
+        beforeEach(async () => {
+            await config_fs.create_config_json_file(JSON.stringify({
+                NC_LIFECYCLE_LOGS_DIR: tmp_lifecycle_logs_dir_path,
+                NC_LIFECYCLE_LIST_BATCH_SIZE: 2,
+                NC_LIFECYCLE_BUCKET_BATCH_SIZE: 5, // bucket batch size is bigger than list batch size
+            }));
+        });
 
-    afterEach(async () => {
-        await object_sdk.delete_bucket_lifecycle({ name: test_bucket });
-        await fs_utils.create_fresh_path(test_bucket_path);
-        fs_utils.folder_delete(tmp_lifecycle_logs_dir_path);
-        await config_fs.delete_config_json_file();
-    });
+        afterEach(async () => {
+            await object_sdk.delete_bucket_lifecycle({ name: test_bucket });
+            await fs_utils.create_fresh_path(test_bucket_path);
+            fs_utils.folder_delete(tmp_lifecycle_logs_dir_path);
+            await config_fs.delete_config_json_file();
+        });
 
-    it("lifecycle batching - no lifecycle rules", async () => {
-        const latest_lifecycle = await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, undefined, undefined);
-        const parsed_res_latest_lifecycle = JSON.parse(latest_lifecycle);
-        expect(parsed_res_latest_lifecycle.response.reply.state.is_finished).toBe(true);
-    });
+        it("lifecycle batching - no lifecycle rules", async () => {
+            const latest_lifecycle = await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, undefined, undefined);
+            const parsed_res_latest_lifecycle = JSON.parse(latest_lifecycle);
+            expect(parsed_res_latest_lifecycle.response.reply.state.is_finished).toBe(true);
+        });
 
-    it("lifecycle batching - with lifecycle rule, one batch", async () => {
-        await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule_delete_all });
+        it("lifecycle batching - with lifecycle rule, one batch of bucket and list", async () => {
+            await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule_delete_all });
 
-        await create_object(object_sdk, test_bucket, test_key1, 100, true);
-        await create_object(object_sdk, test_bucket, test_key2, 100, true);
-        const latest_lifecycle = await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, undefined, undefined);
-        const parsed_res_latest_lifecycle = JSON.parse(latest_lifecycle);
-        expect(parsed_res_latest_lifecycle.response.reply.state.is_finished).toBe(true);
-        Object.values(parsed_res_latest_lifecycle.response.reply.buckets_statuses).forEach(bucket_stat => {
-            expect(bucket_stat.state.is_finished).toBe(true);
-            Object.values(bucket_stat.rules_statuses).forEach(rule_status => {
-                expect(rule_status.state.is_finished).toBe(true);
+            await create_object(object_sdk, test_bucket, test_key1, 100, true);
+            await create_object(object_sdk, test_bucket, test_key2, 100, true);
+            const latest_lifecycle = await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, undefined, undefined);
+            const parsed_res_latest_lifecycle = JSON.parse(latest_lifecycle);
+            expect(parsed_res_latest_lifecycle.response.reply.state.is_finished).toBe(true);
+            Object.values(parsed_res_latest_lifecycle.response.reply.buckets_statuses).forEach(bucket_status => {
+                expect(bucket_status.state.is_finished).toBe(true);
+                Object.values(bucket_status.rules_statuses).forEach(rule_status => {
+                    expect(rule_status.state.is_finished).toBe(true);
+                });
             });
         });
-    });
 
-    it("lifecycle batching - with lifecycle rule, no expire statement", async () => {
-        const lifecycle_rule = [{
-            "id": "expiration after 3 days with tags",
-            "status": LIFECYCLE_RULE_STATUS_ENUM.ENABLED,
-            "filter": {
-                "prefix": '',
-            },
-            "abort_incomplete_multipart_upload": {
-                "days_after_initiation": 3
-            }
-        }];
-        await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule });
+        it("lifecycle batching - with lifecycle rule, one batch of bucket and list, no expire statement", async () => {
+            const lifecycle_rule = [{
+                "id": "abort mpu after 3 days",
+                "status": LIFECYCLE_RULE_STATUS_ENUM.ENABLED,
+                "filter": {
+                    "prefix": '',
+                },
+                "abort_incomplete_multipart_upload": {
+                    "days_after_initiation": 3
+                }
+            }];
+            await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule });
 
-        await object_sdk.create_object_upload({ key: test_key1, bucket: test_bucket });
-        await object_sdk.create_object_upload({ key: test_key2, bucket: test_bucket });
-        const latest_lifecycle = await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, undefined, undefined);
-        const parsed_res_latest_lifecycle = JSON.parse(latest_lifecycle);
-        expect(parsed_res_latest_lifecycle.response.reply.state.is_finished).toBe(true);
-        Object.values(parsed_res_latest_lifecycle.response.reply.buckets_statuses).forEach(bucket_stat => {
-            expect(bucket_stat.state.is_finished).toBe(true);
+            await object_sdk.create_object_upload({ key: test_key1, bucket: test_bucket });
+            await object_sdk.create_object_upload({ key: test_key2, bucket: test_bucket });
+            const latest_lifecycle = await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, undefined, undefined);
+            const parsed_res_latest_lifecycle = JSON.parse(latest_lifecycle);
+            expect(parsed_res_latest_lifecycle.response.reply.state.is_finished).toBe(true);
+            Object.values(parsed_res_latest_lifecycle.response.reply.buckets_statuses).forEach(bucket_status => {
+                expect(bucket_status.state.is_finished).toBe(true);
+            });
         });
-    });
 
-    it("lifecycle batching - with lifecycle rule, multiple list batches, one bucket batch", async () => {
-        await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule_delete_all });
+        it("lifecycle batching - with lifecycle rule, multiple list batches, one bucket batch", async () => {
+            await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule_delete_all });
 
-        await create_object(object_sdk, test_bucket, test_key1, 100, true);
-        await create_object(object_sdk, test_bucket, test_key2, 100, true);
-        await create_object(object_sdk, test_bucket, "key3", 100, true);
-        await create_object(object_sdk, test_bucket, "key4", 100, true);
-        await create_object(object_sdk, test_bucket, "key5", 100, true);
-        const latest_lifecycle = await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, undefined, undefined);
-        const parsed_res_latest_lifecycle = JSON.parse(latest_lifecycle);
-        expect(parsed_res_latest_lifecycle.response.reply.state.is_finished).toBe(true);
-        const object_list = await object_sdk.list_objects({ bucket: test_bucket });
-        expect(object_list.objects.length).toBe(0);
-    });
+            await create_object(object_sdk, test_bucket, test_key1, 100, true);
+            await create_object(object_sdk, test_bucket, test_key2, 100, true);
+            await create_object(object_sdk, test_bucket, "key3", 100, true);
+            await create_object(object_sdk, test_bucket, "key4", 100, true);
+            await create_object(object_sdk, test_bucket, "key5", 100, true);
+            const latest_lifecycle = await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, undefined, undefined);
+            const parsed_res_latest_lifecycle = JSON.parse(latest_lifecycle);
+            expect(parsed_res_latest_lifecycle.response.reply.state.is_finished).toBe(true);
+            const object_list = await object_sdk.list_objects({ bucket: test_bucket });
+            expect(object_list.objects.length).toBe(0);
+        });
 
-    it("lifecycle batching - with lifecycle rule, multiple list batches, multiple bucket batches", async () => {
-        await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule_delete_all });
+        it("lifecycle batching - with lifecycle rule, multiple list batches, multiple bucket batches", async () => {
+            await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule_delete_all });
 
-        await create_object(object_sdk, test_bucket, test_key1, 100, true);
-        await create_object(object_sdk, test_bucket, test_key2, 100, true);
-        await create_object(object_sdk, test_bucket, "key3", 100, true);
-        await create_object(object_sdk, test_bucket, "key4", 100, true);
-        await create_object(object_sdk, test_bucket, "key5", 100, true);
-        await create_object(object_sdk, test_bucket, "key6", 100, true);
-        await create_object(object_sdk, test_bucket, "key7", 100, true);
-        const latest_lifecycle = await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, undefined, undefined);
-        const parsed_res_latest_lifecycle = JSON.parse(latest_lifecycle);
-        expect(parsed_res_latest_lifecycle.response.reply.state.is_finished).toBe(true);
-        const object_list = await object_sdk.list_objects({ bucket: test_bucket });
-        expect(object_list.objects.length).toBe(0);
-    });
+            await create_object(object_sdk, test_bucket, test_key1, 100, true);
+            await create_object(object_sdk, test_bucket, test_key2, 100, true);
+            await create_object(object_sdk, test_bucket, "key3", 100, true);
+            await create_object(object_sdk, test_bucket, "key4", 100, true);
+            await create_object(object_sdk, test_bucket, "key5", 100, true);
+            await create_object(object_sdk, test_bucket, "key6", 100, true);
+            await create_object(object_sdk, test_bucket, "key7", 100, true);
+            const latest_lifecycle = await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, undefined, undefined);
+            const parsed_res_latest_lifecycle = JSON.parse(latest_lifecycle);
+            expect(parsed_res_latest_lifecycle.response.reply.state.is_finished).toBe(true);
+            const object_list = await object_sdk.list_objects({ bucket: test_bucket });
+            expect(object_list.objects.length).toBe(0);
+        });
 
-    it("lifecycle batching - with lifecycle rule, multiple list batches, one bucket batch", async () => {
-        await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule_delete_all });
+        it("lifecycle batching - with lifecycle rule, multiple list batches, one bucket batch - worker did not finish", async () => {
+            await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule_delete_all });
 
-        await create_object(object_sdk, test_bucket, test_key1, 100, true);
-        await create_object(object_sdk, test_bucket, test_key2, 100, true);
+            await create_object(object_sdk, test_bucket, test_key1, 100, true);
+            await create_object(object_sdk, test_bucket, test_key2, 100, true);
 
-        await config_fs.update_config_json_file(JSON.stringify({
-            NC_LIFECYCLE_TIMEOUT_MS: 1,
-            NC_LIFECYCLE_LOGS_DIR: tmp_lifecycle_logs_dir_path,
-            NC_LIFECYCLE_BUCKET_BATCH_SIZE: 5,
-            NC_LIFECYCLE_LIST_BATCH_SIZE: 2
-        }));
-        await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, true, undefined);
+            await config_fs.update_config_json_file(JSON.stringify({
+                // set short timeout so the lifecycle run will not finish
+                NC_LIFECYCLE_TIMEOUT_MS: 1,
+                // the configs as it was before (in the beforeEach)
+                NC_LIFECYCLE_LOGS_DIR: tmp_lifecycle_logs_dir_path,
+                NC_LIFECYCLE_BUCKET_BATCH_SIZE: 5,
+                NC_LIFECYCLE_LIST_BATCH_SIZE: 2
+            }));
+            await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, true, undefined);
 
-        const lifecycle_log_entries = await nb_native().fs.readdir(config_fs.fs_context, tmp_lifecycle_logs_dir_path);
-        expect(lifecycle_log_entries.length).toBe(1);
-        const log_file_path = path.join(tmp_lifecycle_logs_dir_path, lifecycle_log_entries[0].name);
-        const lifecycle_log_json = await config_fs.get_config_data(log_file_path, { silent_if_missing: true });
-        expect(lifecycle_log_json.state.is_finished).toBe(false);
-        const object_list = await object_sdk.list_objects({ bucket: test_bucket });
-        expect(object_list.objects.length).not.toBe(0);
-    });
+            const lifecycle_log_entries = await nb_native().fs.readdir(config_fs.fs_context, tmp_lifecycle_logs_dir_path);
+            expect(lifecycle_log_entries.length).toBe(1);
+            const log_file_path = path.join(tmp_lifecycle_logs_dir_path, lifecycle_log_entries[0].name);
+            const lifecycle_log_json = await config_fs.get_config_data(log_file_path, { silent_if_missing: true });
+            expect(lifecycle_log_json.state.is_finished).toBe(false);
+            const object_list = await object_sdk.list_objects({ bucket: test_bucket });
+            expect(object_list.objects.length).not.toBe(0);
+        });
 
-    it("lifecycle batching - continue finished lifecycle should do nothing", async () => {
-        await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule_delete_all });
+        it("lifecycle batching - continue finished lifecycle should do nothing", async () => {
+            await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule_delete_all });
 
-        await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, true, undefined);
-        await create_object(object_sdk, test_bucket, test_key1, 100, true);
-        await create_object(object_sdk, test_bucket, test_key2, 100, true);
+            await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, true, undefined);
+            await create_object(object_sdk, test_bucket, test_key1, 100, true);
+            await create_object(object_sdk, test_bucket, test_key2, 100, true);
 
-        //continue finished run
-        await exec_manage_cli(TYPES.LIFECYCLE, '', { continue: 'true', disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, true, undefined);
+            //continue finished run
+            await exec_manage_cli(TYPES.LIFECYCLE, '', { continue: 'true', disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, true, undefined);
 
-        const lifecycle_log_entries = await nb_native().fs.readdir(config_fs.fs_context, tmp_lifecycle_logs_dir_path);
-        expect(lifecycle_log_entries.length).toBe(2);
-        const log_file_path = path.join(tmp_lifecycle_logs_dir_path, lifecycle_log_entries[0].name);
-        const lifecycle_log_json = await config_fs.get_config_data(log_file_path, { silent_if_missing: true });
-        expect(lifecycle_log_json.state.is_finished).toBe(true);
-        const object_list = await object_sdk.list_objects({ bucket: test_bucket });
-        expect(object_list.objects.length).toBe(2);
-    });
+            const lifecycle_log_entries = await nb_native().fs.readdir(config_fs.fs_context, tmp_lifecycle_logs_dir_path);
+            expect(lifecycle_log_entries.length).toBe(2);
+            const log_file_path = path.join(tmp_lifecycle_logs_dir_path, lifecycle_log_entries[0].name);
+            const lifecycle_log_json = await config_fs.get_config_data(log_file_path, { silent_if_missing: true });
+            expect(lifecycle_log_json.state.is_finished).toBe(true);
+            const object_list = await object_sdk.list_objects({ bucket: test_bucket });
+            expect(object_list.objects.length).toBe(2);
+        });
 
-    it("continue lifecycle batching should finish the run - delete all", async () => {
-        await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule_delete_all });
-        await config_fs.update_config_json_file(JSON.stringify({
-            NC_LIFECYCLE_TIMEOUT_MS: 5,
-            NC_LIFECYCLE_LOGS_DIR: tmp_lifecycle_logs_dir_path,
-            NC_LIFECYCLE_BUCKET_BATCH_SIZE: 5,
-            NC_LIFECYCLE_LIST_BATCH_SIZE: 2
+        it("continue lifecycle batching (running twice: worker not finish and continued worker) - should finish the run - delete all", async () => {
+            await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule_delete_all });
+            await config_fs.update_config_json_file(JSON.stringify({
+                // set short timeout so the lifecycle run will not finish
+                NC_LIFECYCLE_TIMEOUT_MS: 5,
+                // the configs as it was before (in the beforeEach)
+                NC_LIFECYCLE_LOGS_DIR: tmp_lifecycle_logs_dir_path,
+                NC_LIFECYCLE_BUCKET_BATCH_SIZE: 5,
+                NC_LIFECYCLE_LIST_BATCH_SIZE: 2
 
-        }));
-        const keys = [test_key1, test_key2, "key3", "key4", "key5", "key6", "key7"];
-        for (const key of keys) {
-            await create_object(object_sdk, test_bucket, key, 100, false);
-        }
-        try {
-            await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, undefined, undefined);
-        } catch (e) {
-            //ignore timout error
-        }
-        await config_fs.update_config_json_file(JSON.stringify({
-            NC_LIFECYCLE_TIMEOUT_MS: config.NC_LIFECYCLE_TIMEOUT_MS,
-            NC_LIFECYCLE_LOGS_DIR: tmp_lifecycle_logs_dir_path,
-            NC_LIFECYCLE_BUCKET_BATCH_SIZE: 5,
-            NC_LIFECYCLE_LIST_BATCH_SIZE: 2
-
-        }));
-        await exec_manage_cli(TYPES.LIFECYCLE, '', { continue: 'true', disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, undefined, undefined);
-        const object_list2 = await object_sdk.list_objects({ bucket: test_bucket });
-        expect(object_list2.objects.length).toBe(0);
-    });
-
-    it("continue lifecycle batching should finish the run - validate new run. don't delete already deleted items", async () => {
-        await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule_delete_all });
-        await config_fs.update_config_json_file(JSON.stringify({
-            NC_LIFECYCLE_TIMEOUT_MS: 70,
-            NC_LIFECYCLE_LOGS_DIR: tmp_lifecycle_logs_dir_path,
-            NC_LIFECYCLE_BUCKET_BATCH_SIZE: 4,
-            NC_LIFECYCLE_LIST_BATCH_SIZE: 2
-        }));
-        const keys = [];
-        for (let i = 0; i < 100; i++) {
-            const new_key = `key${i}`;
-            await create_object(object_sdk, test_bucket, new_key, 100, false);
-            keys.push(new_key);
-        }
-        try {
-            await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, undefined, undefined);
-        } catch (e) {
-            //ignore error
-        }
-
-        const object_list = await object_sdk.list_objects({ bucket: test_bucket });
-        const intermediate_key_list = object_list.objects.map(object => object.key);
-        const new_keys = [];
-        //recreate deleted key. next run should skip those keys
-        for (const key of keys) {
-            if (!intermediate_key_list.includes(key)) {
+            }));
+            const keys = [test_key1, test_key2, "key3", "key4", "key5", "key6", "key7"];
+            for (const key of keys) {
                 await create_object(object_sdk, test_bucket, key, 100, false);
-                new_keys.push(key);
             }
-        }
-        await config_fs.update_config_json_file(JSON.stringify({
-            NC_LIFECYCLE_TIMEOUT_MS: 9999,
-            NC_LIFECYCLE_LOGS_DIR: tmp_lifecycle_logs_dir_path,
-            NC_LIFECYCLE_BUCKET_BATCH_SIZE: 4,
-            NC_LIFECYCLE_LIST_BATCH_SIZE: 2,
-        }));
-        await exec_manage_cli(TYPES.LIFECYCLE, '', { continue: 'true', disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, undefined, undefined);
-        const object_list2 = await object_sdk.list_objects({ bucket: test_bucket });
-        const res_keys = object_list2.objects.map(object => object.key);
-        for (const key of new_keys) {
-            expect(res_keys).toContain(key);
-        }
-    });
-
-    it("lifecycle batching - with lifecycle rule, multiple list batches, multiple bucket batches - newer noncurrent versions", async () => {
-        const lifecycle_rule = [{
-            "id": "expiration after 3 days with tags",
-            "status": LIFECYCLE_RULE_STATUS_ENUM.ENABLED,
-            "filter": {
-                "prefix": "",
-            },
-            "noncurrent_version_expiration": {
-                "newer_noncurrent_versions": 2
+            try {
+                await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, undefined, undefined);
+            } catch (e) {
+                //ignore timeout error
             }
-        }];
-        await object_sdk.set_bucket_versioning({ name: test_bucket, versioning: 'ENABLED' });
-        await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule });
+            await config_fs.update_config_json_file(JSON.stringify({
+                // set default timeout so the lifecycle run will continue to run
+                NC_LIFECYCLE_TIMEOUT_MS: config.NC_LIFECYCLE_TIMEOUT_MS,
+                // the configs as it was before (in the beforeEach)
+                NC_LIFECYCLE_LOGS_DIR: tmp_lifecycle_logs_dir_path,
+                NC_LIFECYCLE_BUCKET_BATCH_SIZE: 5,
+                NC_LIFECYCLE_LIST_BATCH_SIZE: 2
 
-        const res = await create_object(object_sdk, test_bucket, test_key1, 100, false);
-        for (let i = 0; i < 10; i++) {
-            await create_object(object_sdk, test_bucket, test_key1, 100, false);
-        }
-        const latest_lifecycle = await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, undefined, undefined);
-        const parsed_res_latest_lifecycle = JSON.parse(latest_lifecycle);
-        expect(parsed_res_latest_lifecycle.response.reply.state.is_finished).toBe(true);
+            }));
+            await exec_manage_cli(TYPES.LIFECYCLE, '', { continue: 'true', disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, undefined, undefined);
+            const object_list = await object_sdk.list_objects({ bucket: test_bucket });
+            expect(object_list.objects.length).toBe(0);
+        });
 
-        const object_list = await object_sdk.list_object_versions({ bucket: test_bucket });
-        expect(object_list.objects.length).toBe(3);
-        object_list.objects.forEach(element => {
-            expect(element.version_id).not.toBe(res.version_id);
+        it("continue lifecycle batching should finish the run - validate new run. don't delete already deleted items", async () => {
+            await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule_delete_all });
+            await config_fs.update_config_json_file(JSON.stringify({
+                NC_LIFECYCLE_TIMEOUT_MS: 70,
+                NC_LIFECYCLE_LOGS_DIR: tmp_lifecycle_logs_dir_path,
+                NC_LIFECYCLE_BUCKET_BATCH_SIZE: 4,
+                NC_LIFECYCLE_LIST_BATCH_SIZE: 2
+            }));
+            const keys = [];
+            for (let i = 0; i < 100; i++) {
+                const new_key = `key${i}`;
+                await create_object(object_sdk, test_bucket, new_key, 100, false);
+                keys.push(new_key);
+            }
+            try {
+                await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, undefined, undefined);
+            } catch (e) {
+                //ignore error
+            }
+
+            const object_list = await object_sdk.list_objects({ bucket: test_bucket });
+            const intermediate_key_list = object_list.objects.map(object => object.key);
+            const new_keys = [];
+            //recreate deleted key. next run should skip those keys
+            for (const key of keys) {
+                if (!intermediate_key_list.includes(key)) {
+                    await create_object(object_sdk, test_bucket, key, 100, false);
+                    new_keys.push(key);
+                }
+            }
+            await config_fs.update_config_json_file(JSON.stringify({
+                NC_LIFECYCLE_TIMEOUT_MS: 9999,
+                NC_LIFECYCLE_LOGS_DIR: tmp_lifecycle_logs_dir_path,
+                NC_LIFECYCLE_BUCKET_BATCH_SIZE: 4,
+                NC_LIFECYCLE_LIST_BATCH_SIZE: 2,
+            }));
+            await exec_manage_cli(TYPES.LIFECYCLE, '', { continue: 'true', disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, undefined, undefined);
+            const object_list2 = await object_sdk.list_objects({ bucket: test_bucket });
+            const res_keys = object_list2.objects.map(object => object.key);
+            for (const key of new_keys) {
+                expect(res_keys).toContain(key);
+            }
+        });
+
+        it("lifecycle batching - with lifecycle rule, multiple list batches, multiple bucket batches - newer noncurrent versions", async () => {
+            const lifecycle_rule = [{
+                "id": "keep 2 noncurrent versions",
+                "status": LIFECYCLE_RULE_STATUS_ENUM.ENABLED,
+                "filter": {
+                    "prefix": "",
+                },
+                "noncurrent_version_expiration": {
+                    "newer_noncurrent_versions": 2,
+                    "noncurrent_days": 1
+                }
+            }];
+            await object_sdk.set_bucket_versioning({ name: test_bucket, versioning: 'ENABLED' });
+            await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule });
+
+            const version_arr = [];
+            for (let i = 0; i < 10; i++) {
+                const res = await create_object(object_sdk, test_bucket, test_key1, 100, false);
+                version_arr.push(res.version_id);
+            }
+            const last_3_versions = new Set(version_arr.slice(-3)); // latest version + 2 noncurrent versions
+            const latest_lifecycle = await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, undefined, undefined);
+            const parsed_res_latest_lifecycle = JSON.parse(latest_lifecycle);
+            expect(parsed_res_latest_lifecycle.response.reply.state.is_finished).toBe(true);
+
+            const object_list = await object_sdk.list_object_versions({ bucket: test_bucket });
+            const object_list_versions = new Set(object_list.objects.map(object => object.version_id));
+            expect(object_list.objects.length).toBe(3);
+            expect(object_list_versions).toEqual(last_3_versions);
+        });
+
+        it("lifecycle rule, multiple list batches, multiple bucket batches - both expire and noncurrent actions", async () => {
+            const lifecycle_rule = [{
+                "id": "keep 2 noncurrent versions and expire after 1 day",
+                "status": LIFECYCLE_RULE_STATUS_ENUM.ENABLED,
+                "filter": {
+                    "prefix": "",
+                },
+                "expiration": {
+                    "date": yesterday.getTime()
+                },
+                "noncurrent_version_expiration": {
+                    "newer_noncurrent_versions": 2,
+                    "noncurrent_days": 1
+                }
+            }];
+            await object_sdk.set_bucket_versioning({ name: test_bucket, versioning: 'ENABLED' });
+            await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule });
+
+            const keys = [test_key1, test_key2, "key3", "key4", "key5", "key6", "key7"];
+            for (const key of keys) {
+                await create_object(object_sdk, test_bucket, key, 100, false);
+            }
+            for (let i = 0; i < 10; i++) {
+                await create_object(object_sdk, test_bucket, test_key1, 100, false);
+            }
+            const latest_lifecycle = await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, undefined, undefined);
+            const parsed_res_latest_lifecycle = JSON.parse(latest_lifecycle);
+            expect(parsed_res_latest_lifecycle.response.reply.state.is_finished).toBe(true);
+
+            const object_list = await object_sdk.list_object_versions({ bucket: test_bucket });
+            const expected_length = keys.length * 2 + 1; //all keys + delete marker for each key + 1 noncurrent versions for test_key1
+            expect(object_list.objects.length).toBe(expected_length);
         });
     });
 
-    it("lifecycle rule, multiple list batches, multiple bucket batches - both expire and noncurrent actions", async () => {
-        const lifecycle_rule = [{
-            "id": "expiration after 3 days with tags",
-            "status": LIFECYCLE_RULE_STATUS_ENUM.ENABLED,
-            "filter": {
-                "prefix": "",
-            },
-            "expiration": {
-                "date": yesterday.getTime()
-            },
-            "noncurrent_version_expiration": {
-                "newer_noncurrent_versions": 2
+    describe('noobaa nc - lifecycle batching - bucket batch size is smaller than list batch size', () => {
+        const test_bucket_path = `${root_path}/${test_bucket}`;
+        const test_key1 = 'test_key1';
+        const test_key2 = 'test_key2';
+        let object_sdk;
+        const tmp_lifecycle_logs_dir_path = path.join(root_path, 'test_lifecycle_logs');
+
+        beforeAll(async () => {
+            await fs_utils.create_fresh_path(config_root, 0o777);
+            set_nc_config_dir_in_config(config_root);
+            await fs_utils.create_fresh_path(root_path, 0o777);
+            const res = await exec_manage_cli(TYPES.ACCOUNT, ACTIONS.ADD, account_options1);
+            const json_account = JSON.parse(res).response.reply;
+            console.log(json_account);
+            object_sdk = new NsfsObjectSDK('', config_fs, json_account, "DISABLED", config_fs.config_root, undefined);
+            object_sdk.requesting_account = json_account;
+            await object_sdk.create_bucket({ name: test_bucket });
+        });
+
+        beforeEach(async () => {
+            await config_fs.create_config_json_file(JSON.stringify({
+                NC_LIFECYCLE_LOGS_DIR: tmp_lifecycle_logs_dir_path,
+                NC_LIFECYCLE_LIST_BATCH_SIZE: 5,
+                NC_LIFECYCLE_BUCKET_BATCH_SIZE: 2, // bucket batch size is smaller than list batch size
+            }));
+        });
+
+        afterEach(async () => {
+            await object_sdk.delete_bucket_lifecycle({ name: test_bucket });
+            await fs_utils.create_fresh_path(test_bucket_path);
+            fs_utils.folder_delete(tmp_lifecycle_logs_dir_path);
+            await config_fs.delete_config_json_file();
+        });
+
+        it("lifecycle batching - no lifecycle rules", async () => {
+            const latest_lifecycle = await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, undefined, undefined);
+            const parsed_res_latest_lifecycle = JSON.parse(latest_lifecycle);
+            expect(parsed_res_latest_lifecycle.response.reply.state.is_finished).toBe(true);
+        });
+
+        it("lifecycle batching - with lifecycle rule, one batch of bucket and list", async () => {
+            await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule_delete_all });
+
+            await create_object(object_sdk, test_bucket, test_key1, 100, true);
+            await create_object(object_sdk, test_bucket, test_key2, 100, true);
+            const latest_lifecycle = await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, undefined, undefined);
+            const parsed_res_latest_lifecycle = JSON.parse(latest_lifecycle);
+            expect(parsed_res_latest_lifecycle.response.reply.state.is_finished).toBe(true);
+            Object.values(parsed_res_latest_lifecycle.response.reply.buckets_statuses).forEach(bucket_status => {
+                expect(bucket_status.state.is_finished).toBe(true);
+                Object.values(bucket_status.rules_statuses).forEach(rule_status => {
+                    expect(rule_status.state.is_finished).toBe(true);
+                });
+            });
+        });
+
+        it("lifecycle batching - with lifecycle rule, one batch of bucket and list, no expire statement", async () => {
+            const lifecycle_rule = [{
+                "id": "abort mpu after 3 days",
+                "status": LIFECYCLE_RULE_STATUS_ENUM.ENABLED,
+                "filter": {
+                    "prefix": '',
+                },
+                "abort_incomplete_multipart_upload": {
+                    "days_after_initiation": 3
+                }
+            }];
+            await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule });
+
+            await object_sdk.create_object_upload({ key: test_key1, bucket: test_bucket });
+            await object_sdk.create_object_upload({ key: test_key2, bucket: test_bucket });
+            const latest_lifecycle = await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, undefined, undefined);
+            const parsed_res_latest_lifecycle = JSON.parse(latest_lifecycle);
+            expect(parsed_res_latest_lifecycle.response.reply.state.is_finished).toBe(true);
+            Object.values(parsed_res_latest_lifecycle.response.reply.buckets_statuses).forEach(bucket_status => {
+                expect(bucket_status.state.is_finished).toBe(true);
+            });
+        });
+
+        it("lifecycle batching - with lifecycle rule, one list batch, multiple bucket batches", async () => {
+            await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule_delete_all });
+
+            await create_object(object_sdk, test_bucket, test_key1, 100, true);
+            await create_object(object_sdk, test_bucket, test_key2, 100, true);
+            await create_object(object_sdk, test_bucket, "key3", 100, true);
+            await create_object(object_sdk, test_bucket, "key4", 100, true);
+            await create_object(object_sdk, test_bucket, "key5", 100, true);
+            const latest_lifecycle = await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, undefined, undefined);
+            const parsed_res_latest_lifecycle = JSON.parse(latest_lifecycle);
+            expect(parsed_res_latest_lifecycle.response.reply.state.is_finished).toBe(true);
+            const object_list = await object_sdk.list_objects({ bucket: test_bucket });
+            expect(object_list.objects.length).toBe(0);
+        });
+
+        it("lifecycle batching - with lifecycle rule, multiple list batches, multiple bucket batches", async () => {
+            await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule_delete_all });
+
+            await create_object(object_sdk, test_bucket, test_key1, 100, true);
+            await create_object(object_sdk, test_bucket, test_key2, 100, true);
+            await create_object(object_sdk, test_bucket, "key3", 100, true);
+            await create_object(object_sdk, test_bucket, "key4", 100, true);
+            await create_object(object_sdk, test_bucket, "key5", 100, true);
+            await create_object(object_sdk, test_bucket, "key6", 100, true);
+            await create_object(object_sdk, test_bucket, "key7", 100, true);
+            const latest_lifecycle = await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, undefined, undefined);
+            const parsed_res_latest_lifecycle = JSON.parse(latest_lifecycle);
+            expect(parsed_res_latest_lifecycle.response.reply.state.is_finished).toBe(true);
+            const object_list = await object_sdk.list_objects({ bucket: test_bucket });
+            expect(object_list.objects.length).toBe(0);
+        });
+
+        it("lifecycle batching - with lifecycle rule, one list batch, multiple bucket batches - worker did not finish", async () => {
+            await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule_delete_all });
+
+            await create_object(object_sdk, test_bucket, test_key1, 100, true);
+            await create_object(object_sdk, test_bucket, test_key2, 100, true);
+
+            await config_fs.update_config_json_file(JSON.stringify({
+                // set short timeout so the lifecycle run will not finish
+                NC_LIFECYCLE_TIMEOUT_MS: 1,
+                // the configs as it was before (in the beforeEach)
+                NC_LIFECYCLE_LOGS_DIR: tmp_lifecycle_logs_dir_path,
+                NC_LIFECYCLE_BUCKET_BATCH_SIZE: 2,
+                NC_LIFECYCLE_LIST_BATCH_SIZE: 5
+            }));
+            await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, true, undefined);
+
+            const lifecycle_log_entries = await nb_native().fs.readdir(config_fs.fs_context, tmp_lifecycle_logs_dir_path);
+            expect(lifecycle_log_entries.length).toBe(1);
+            const log_file_path = path.join(tmp_lifecycle_logs_dir_path, lifecycle_log_entries[0].name);
+            const lifecycle_log_json = await config_fs.get_config_data(log_file_path, { silent_if_missing: true });
+            expect(lifecycle_log_json.state.is_finished).toBe(false);
+            const object_list = await object_sdk.list_objects({ bucket: test_bucket });
+            expect(object_list.objects.length).not.toBe(0);
+        });
+
+        it("lifecycle batching - continue finished lifecycle should do nothing", async () => {
+            await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule_delete_all });
+
+            await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, true, undefined);
+            await create_object(object_sdk, test_bucket, test_key1, 100, true);
+            await create_object(object_sdk, test_bucket, test_key2, 100, true);
+
+            //continue finished run
+            await exec_manage_cli(TYPES.LIFECYCLE, '', { continue: 'true', disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, true, undefined);
+
+            const lifecycle_log_entries = await nb_native().fs.readdir(config_fs.fs_context, tmp_lifecycle_logs_dir_path);
+            expect(lifecycle_log_entries.length).toBe(2);
+            const log_file_path = path.join(tmp_lifecycle_logs_dir_path, lifecycle_log_entries[0].name);
+            const lifecycle_log_json = await config_fs.get_config_data(log_file_path, { silent_if_missing: true });
+            expect(lifecycle_log_json.state.is_finished).toBe(true);
+            const object_list = await object_sdk.list_objects({ bucket: test_bucket });
+            expect(object_list.objects.length).toBe(2);
+        });
+
+        it("continue lifecycle batching (running twice: worker not finish and continued worker) - should finish the run - delete all", async () => {
+            await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule_delete_all });
+            await config_fs.update_config_json_file(JSON.stringify({
+                // set short timeout so the lifecycle run will not finish
+                NC_LIFECYCLE_TIMEOUT_MS: 5,
+                // the configs as it was before (in the beforeEach)
+                NC_LIFECYCLE_LOGS_DIR: tmp_lifecycle_logs_dir_path,
+                NC_LIFECYCLE_BUCKET_BATCH_SIZE: 2,
+                NC_LIFECYCLE_LIST_BATCH_SIZE: 5
+
+            }));
+            const keys = [test_key1, test_key2, "key3", "key4", "key5", "key6", "key7"];
+            for (const key of keys) {
+                await create_object(object_sdk, test_bucket, key, 100, false);
             }
-        }];
-        await object_sdk.set_bucket_versioning({ name: test_bucket, versioning: 'ENABLED' });
-        await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule });
+            try {
+                await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, undefined, undefined);
+            } catch (e) {
+                //ignore timeout error
+            }
+            await config_fs.update_config_json_file(JSON.stringify({
+                // set default timeout so the lifecycle run will continue to run
+                NC_LIFECYCLE_TIMEOUT_MS: config.NC_LIFECYCLE_TIMEOUT_MS,
+                // the configs as it was before (in the beforeEach)
+                NC_LIFECYCLE_LOGS_DIR: tmp_lifecycle_logs_dir_path,
+                NC_LIFECYCLE_BUCKET_BATCH_SIZE: 2,
+                NC_LIFECYCLE_LIST_BATCH_SIZE: 5
 
-        const keys = [test_key1, test_key2, "key3", "key4", "key5", "key6", "key7"];
-        for (const key of keys) {
-            await create_object(object_sdk, test_bucket, key, 100, false);
-        }
-        for (let i = 0; i < 10; i++) {
-            await create_object(object_sdk, test_bucket, test_key1, 100, false);
-        }
-        const latest_lifecycle = await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, undefined, undefined);
-        const parsed_res_latest_lifecycle = JSON.parse(latest_lifecycle);
-        expect(parsed_res_latest_lifecycle.response.reply.state.is_finished).toBe(true);
+            }));
+            await exec_manage_cli(TYPES.LIFECYCLE, '', { continue: 'true', disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, undefined, undefined);
+            const object_list = await object_sdk.list_objects({ bucket: test_bucket });
+            expect(object_list.objects.length).toBe(0);
+        });
 
-        const object_list = await object_sdk.list_object_versions({ bucket: test_bucket });
-        const expected_length = keys.length * 2 + 1; //all keys + delete marker for each key + 1 noncurrent versions for test_key1
-        expect(object_list.objects.length).toBe(expected_length);
+        it("continue lifecycle batching should finish the run - validate new run. don't delete already deleted items", async () => {
+            await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule_delete_all });
+            await config_fs.update_config_json_file(JSON.stringify({
+                NC_LIFECYCLE_TIMEOUT_MS: 70,
+                NC_LIFECYCLE_LOGS_DIR: tmp_lifecycle_logs_dir_path,
+                NC_LIFECYCLE_BUCKET_BATCH_SIZE: 2,
+                NC_LIFECYCLE_LIST_BATCH_SIZE: 4
+            }));
+            const keys = [];
+            for (let i = 0; i < 100; i++) {
+                const new_key = `key${i}`;
+                await create_object(object_sdk, test_bucket, new_key, 100, false);
+                keys.push(new_key);
+            }
+            try {
+                await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, undefined, undefined);
+            } catch (e) {
+                //ignore error
+            }
+
+            const object_list = await object_sdk.list_objects({ bucket: test_bucket });
+            const intermediate_key_list = object_list.objects.map(object => object.key);
+            const new_keys = [];
+            //recreate deleted key. next run should skip those keys
+            for (const key of keys) {
+                if (!intermediate_key_list.includes(key)) {
+                    await create_object(object_sdk, test_bucket, key, 100, false);
+                    new_keys.push(key);
+                }
+            }
+            await config_fs.update_config_json_file(JSON.stringify({
+                NC_LIFECYCLE_TIMEOUT_MS: 9999,
+                NC_LIFECYCLE_LOGS_DIR: tmp_lifecycle_logs_dir_path,
+                NC_LIFECYCLE_BUCKET_BATCH_SIZE: 2,
+                NC_LIFECYCLE_LIST_BATCH_SIZE: 4,
+            }));
+            await exec_manage_cli(TYPES.LIFECYCLE, '', { continue: 'true', disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, undefined, undefined);
+            const object_list2 = await object_sdk.list_objects({ bucket: test_bucket });
+            const res_keys = object_list2.objects.map(object => object.key);
+            for (const key of new_keys) {
+                expect(res_keys).toContain(key);
+            }
+        });
+
+        it("lifecycle batching - with lifecycle rule, multiple list batches, multiple bucket batches - newer noncurrent versions", async () => {
+            const lifecycle_rule = [{
+                "id": "keep 2 noncurrent versions",
+                "status": LIFECYCLE_RULE_STATUS_ENUM.ENABLED,
+                "filter": {
+                    "prefix": "",
+                },
+                "noncurrent_version_expiration": {
+                    "newer_noncurrent_versions": 2,
+                    "noncurrent_days": 1
+                }
+            }];
+            await object_sdk.set_bucket_versioning({ name: test_bucket, versioning: 'ENABLED' });
+            await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule });
+
+            const version_arr = [];
+            for (let i = 0; i < 10; i++) {
+                const res = await create_object(object_sdk, test_bucket, test_key1, 100, false);
+                version_arr.push(res.version_id);
+            }
+            const last_3_versions = new Set(version_arr.slice(-3)); // latest version + 2 noncurrent versions
+            const latest_lifecycle = await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, undefined, undefined);
+            const parsed_res_latest_lifecycle = JSON.parse(latest_lifecycle);
+            expect(parsed_res_latest_lifecycle.response.reply.state.is_finished).toBe(true);
+
+            const object_list = await object_sdk.list_object_versions({ bucket: test_bucket });
+            const object_list_versions = new Set(object_list.objects.map(object => object.version_id));
+            expect(object_list.objects.length).toBe(3);
+            expect(object_list_versions).toEqual(last_3_versions);
+        });
+
+        it("lifecycle rule, multiple list batches, multiple bucket batches - both expire and noncurrent actions", async () => {
+            const lifecycle_rule = [{
+                "id": "keep 2 noncurrent versions and expire after 1 day",
+                "status": LIFECYCLE_RULE_STATUS_ENUM.ENABLED,
+                "filter": {
+                    "prefix": "",
+                },
+                "expiration": {
+                    "date": yesterday.getTime()
+                },
+                "noncurrent_version_expiration": {
+                    "newer_noncurrent_versions": 2,
+                    "noncurrent_days": 1
+                }
+            }];
+            await object_sdk.set_bucket_versioning({ name: test_bucket, versioning: 'ENABLED' });
+            await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule });
+
+            const keys = [test_key1, test_key2, "key3", "key4", "key5", "key6", "key7"];
+            for (const key of keys) {
+                await create_object(object_sdk, test_bucket, key, 100, false);
+            }
+            for (let i = 0; i < 10; i++) {
+                await create_object(object_sdk, test_bucket, test_key1, 100, false);
+            }
+            const latest_lifecycle = await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, undefined, undefined);
+            const parsed_res_latest_lifecycle = JSON.parse(latest_lifecycle);
+            expect(parsed_res_latest_lifecycle.response.reply.state.is_finished).toBe(true);
+
+            const object_list = await object_sdk.list_object_versions({ bucket: test_bucket });
+            const expected_length = keys.length * 2 + 1; //all keys + delete marker for each key + 1 noncurrent versions for test_key1
+            expect(object_list.objects.length).toBe(expected_length);
+        });
+    });
+
+    describe('noobaa nc - lifecycle batching - thousands of objects', () => {
+        const TEST_TIMEOUT_FOR_LONG_BATCHING = 120 * 1000;
+        const test_bucket_path = `${root_path}/${test_bucket}`;
+        const test_key1 = 'test_key1';
+        const test_key2 = 'test_key2';
+        let object_sdk;
+        const tmp_lifecycle_logs_dir_path = path.join(root_path, 'test_lifecycle_logs');
+
+        beforeAll(async () => {
+            await fs_utils.create_fresh_path(config_root, 0o777);
+            set_nc_config_dir_in_config(config_root);
+            await fs_utils.create_fresh_path(root_path, 0o777);
+            const res = await exec_manage_cli(TYPES.ACCOUNT, ACTIONS.ADD, account_options1);
+            const json_account = JSON.parse(res).response.reply;
+            console.log(json_account);
+            object_sdk = new NsfsObjectSDK('', config_fs, json_account, "DISABLED", config_fs.config_root, undefined);
+            object_sdk.requesting_account = json_account;
+            await object_sdk.create_bucket({ name: test_bucket });
+        });
+
+        beforeEach(async () => {
+            await config_fs.create_config_json_file(JSON.stringify({
+                NC_LIFECYCLE_LOGS_DIR: tmp_lifecycle_logs_dir_path
+            }));
+        });
+
+        afterEach(async () => {
+            await object_sdk.delete_bucket_lifecycle({ name: test_bucket });
+            await fs_utils.create_fresh_path(test_bucket_path);
+            fs_utils.folder_delete(tmp_lifecycle_logs_dir_path);
+            await config_fs.delete_config_json_file();
+        });
+
+        it("lifecycle batching - with lifecycle rule, one batch of bucket and list", async () => {
+            await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule_delete_all });
+
+            for (let i = 0; i < 1000; i++) {
+                await create_object(object_sdk, test_bucket, `test_key${i}`, 5, true);
+            }
+            const latest_lifecycle = await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, undefined, undefined);
+            const parsed_res_latest_lifecycle = JSON.parse(latest_lifecycle);
+            expect(parsed_res_latest_lifecycle.response.reply.state.is_finished).toBe(true);
+            Object.values(parsed_res_latest_lifecycle.response.reply.buckets_statuses).forEach(bucket_status => {
+                expect(bucket_status.state.is_finished).toBe(true);
+                Object.values(bucket_status.rules_statuses).forEach(rule_status => {
+                    expect(rule_status.state.is_finished).toBe(true);
+                });
+            });
+        }, TEST_TIMEOUT_FOR_LONG_BATCHING);
+
+        it("lifecycle batching - with lifecycle rule, one batch of bucket and list, no expire statement", async () => {
+            const lifecycle_rule = [{
+                "id": "abort mpu after 3 days",
+                "status": LIFECYCLE_RULE_STATUS_ENUM.ENABLED,
+                "filter": {
+                    "prefix": '',
+                },
+                "abort_incomplete_multipart_upload": {
+                    "days_after_initiation": 3
+                }
+            }];
+            await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule });
+            for (let i = 0; i < 1000; i++) {
+                await object_sdk.create_object_upload({ key: `test_key${i}`, bucket: test_bucket });
+            }
+            const latest_lifecycle = await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, undefined, undefined);
+            const parsed_res_latest_lifecycle = JSON.parse(latest_lifecycle);
+            expect(parsed_res_latest_lifecycle.response.reply.state.is_finished).toBe(true);
+            Object.values(parsed_res_latest_lifecycle.response.reply.buckets_statuses).forEach(bucket_status => {
+                expect(bucket_status.state.is_finished).toBe(true);
+            });
+        });
+
+        it("lifecycle batching - with lifecycle rule, one list batches, one bucket batch - worker did not finish", async () => {
+            await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule_delete_all });
+
+            for (let i = 0; i < 1000; i++) {
+                await create_object(object_sdk, test_bucket, `test_key${i}`, 5, true);
+            }
+
+            await config_fs.update_config_json_file(JSON.stringify({
+                // set short timeout so the lifecycle run will not finish
+                NC_LIFECYCLE_TIMEOUT_MS: 1,
+                // the configs as it was before (in the beforeEach)
+                NC_LIFECYCLE_LOGS_DIR: tmp_lifecycle_logs_dir_path,
+            }));
+            await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, true, undefined);
+
+            const lifecycle_log_entries = await nb_native().fs.readdir(config_fs.fs_context, tmp_lifecycle_logs_dir_path);
+            expect(lifecycle_log_entries.length).toBe(1);
+            const log_file_path = path.join(tmp_lifecycle_logs_dir_path, lifecycle_log_entries[0].name);
+            const lifecycle_log_json = await config_fs.get_config_data(log_file_path, { silent_if_missing: true });
+            expect(lifecycle_log_json.state.is_finished).toBe(false);
+            const object_list = await object_sdk.list_objects({ bucket: test_bucket });
+            expect(object_list.objects.length).not.toBe(0);
+        }, TEST_TIMEOUT_FOR_LONG_BATCHING);
+
+        it("lifecycle batching - continue finished lifecycle should do nothing", async () => {
+            await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule_delete_all });
+
+            await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, true, undefined);
+            await create_object(object_sdk, test_bucket, test_key1, 100, true);
+            await create_object(object_sdk, test_bucket, test_key2, 100, true);
+
+            //continue finished run
+            await exec_manage_cli(TYPES.LIFECYCLE, '', { continue: 'true', disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, true, undefined);
+
+            const lifecycle_log_entries = await nb_native().fs.readdir(config_fs.fs_context, tmp_lifecycle_logs_dir_path);
+            expect(lifecycle_log_entries.length).toBe(2);
+            const log_file_path = path.join(tmp_lifecycle_logs_dir_path, lifecycle_log_entries[0].name);
+            const lifecycle_log_json = await config_fs.get_config_data(log_file_path, { silent_if_missing: true });
+            expect(lifecycle_log_json.state.is_finished).toBe(true);
+            const object_list = await object_sdk.list_objects({ bucket: test_bucket });
+            expect(object_list.objects.length).toBe(2);
+        });
+
+        it("continue lifecycle batching (running twice: worker not finish and continued worker) - should finish the run - delete all", async () => {
+            await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule_delete_all });
+            await config_fs.update_config_json_file(JSON.stringify({
+                // set short timeout so the lifecycle run will not finish
+                NC_LIFECYCLE_TIMEOUT_MS: 5,
+                // the configs as it was before (in the beforeEach)
+                NC_LIFECYCLE_LOGS_DIR: tmp_lifecycle_logs_dir_path,
+
+            }));
+            for (let i = 0; i < 1000; i++) {
+                await create_object(object_sdk, test_bucket, `test_key${i}`, 5, false);
+            }
+            try {
+                await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, undefined, undefined);
+            } catch (e) {
+                //ignore timeout error
+            }
+            await config_fs.update_config_json_file(JSON.stringify({
+                // set default timeout so the lifecycle run will continue to run
+                NC_LIFECYCLE_TIMEOUT_MS: config.NC_LIFECYCLE_TIMEOUT_MS,
+                // the configs as it was before (in the beforeEach)
+                NC_LIFECYCLE_LOGS_DIR: tmp_lifecycle_logs_dir_path,
+
+            }));
+            await exec_manage_cli(TYPES.LIFECYCLE, '', { continue: 'true', disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, undefined, undefined);
+            const object_list = await object_sdk.list_objects({ bucket: test_bucket });
+            expect(object_list.objects.length).toBe(0);
+        }, TEST_TIMEOUT_FOR_LONG_BATCHING);
+
+        it("lifecycle batching - with lifecycle rule, multiple list batches, multiple bucket batches - newer noncurrent versions", async () => {
+            const lifecycle_rule = [{
+                "id": "keep 2 noncurrent versions",
+                "status": LIFECYCLE_RULE_STATUS_ENUM.ENABLED,
+                "filter": {
+                    "prefix": "",
+                },
+                "noncurrent_version_expiration": {
+                    "newer_noncurrent_versions": 2,
+                    "noncurrent_days": 1
+                }
+            }];
+            await object_sdk.set_bucket_versioning({ name: test_bucket, versioning: 'ENABLED' });
+            await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule });
+
+            const version_arr = [];
+            for (let i = 0; i < 1100; i++) {
+                const res = await create_object(object_sdk, test_bucket, test_key1, 100, false);
+                version_arr.push(res.version_id);
+            }
+            const last_3_versions = new Set(version_arr.slice(-3)); // latest version + 2 noncurrent versions
+            const latest_lifecycle = await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, undefined, undefined);
+            const parsed_res_latest_lifecycle = JSON.parse(latest_lifecycle);
+            expect(parsed_res_latest_lifecycle.response.reply.state.is_finished).toBe(true);
+
+            const object_list = await object_sdk.list_object_versions({ bucket: test_bucket });
+            const object_list_versions = new Set(object_list.objects.map(object => object.version_id));
+            expect(object_list.objects.length).toBe(3);
+            expect(object_list_versions).toEqual(last_3_versions);
+        }, TEST_TIMEOUT_FOR_LONG_BATCHING);
+
+        it("lifecycle rule, multiple list batches, multiple bucket batches - both expire and noncurrent actions", async () => {
+            const lifecycle_rule = [{
+                "id": "keep 2 noncurrent versions and expire after 1 day",
+                "status": LIFECYCLE_RULE_STATUS_ENUM.ENABLED,
+                "filter": {
+                    "prefix": "",
+                },
+                "expiration": {
+                    "date": yesterday.getTime()
+                },
+                "noncurrent_version_expiration": {
+                    "newer_noncurrent_versions": 2,
+                    "noncurrent_days": 1
+                }
+            }];
+            await object_sdk.set_bucket_versioning({ name: test_bucket, versioning: 'ENABLED' });
+            await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule });
+
+            const keys = [test_key1, test_key2, "key3", "key4", "key5", "key6", "key7"];
+            for (const key of keys) {
+                await create_object(object_sdk, test_bucket, key, 10, false);
+            }
+            for (let i = 0; i < 1100; i++) {
+                await create_object(object_sdk, test_bucket, test_key1, 10, false);
+            }
+            const latest_lifecycle = await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, undefined, undefined);
+            const parsed_res_latest_lifecycle = JSON.parse(latest_lifecycle);
+            expect(parsed_res_latest_lifecycle.response.reply.state.is_finished).toBe(true);
+
+            const object_list = await object_sdk.list_object_versions({ bucket: test_bucket });
+            const expected_length = keys.length * 2 + 1; //all keys + delete marker for each key + 1 noncurrent versions for test_key1
+            expect(object_list.objects.length).toBe(expected_length);
+        }, TEST_TIMEOUT_FOR_LONG_BATCHING);
     });
 });
 
@@ -1155,6 +1679,16 @@ describe('noobaa nc - lifecycle notifications', () => {
     }
 });
 
+/**
+ * create_object creates an object with random data in the bucket
+ * Note: is_old - if true, would update the mtime of the file.
+ * @param {object} sdk
+ * @param {string} bucket
+ * @param {string} key
+ * @param {number} size
+ * @param {boolean} [is_old]
+ * @param {{ key: string; value: string; }[]} [tagging]
+ */
 async function create_object(sdk, bucket, key, size, is_old, tagging) {
     const data = crypto.randomBytes(size);
     const res = await sdk.upload_object({

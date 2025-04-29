@@ -24,4 +24,14 @@ jobs:
           cd ./noobaa-core
           make test-aws-sdk-clients
 
+      - name: Message Slack Webhook
+        # we will uncomment this after we test it in the CI
+        # if: ${{ failure() }}
+        uses: slackapi/slack-github-action@v2.0.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            text: "AWS SDK Clients Run result: ${{ job.status }}"
+
 

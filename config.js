@@ -387,10 +387,10 @@ config.BUCKET_RECLAIMER_BATCH_DELAY = 100;
 config.BUCKET_RECLAIMER_ERROR_DELAY = 3000;
 
 config.OBJECT_RECLAIMER_ENABLED = true;
-config.OBJECT_RECLAIMER_EMPTY_DELAY = 30000;
+config.OBJECT_RECLAIMER_EMPTY_DELAY = 60 * 60 * 1000; // 1 hour delay
 config.OBJECT_RECLAIMER_BATCH_SIZE = 100;
-config.OBJECT_RECLAIMER_BATCH_DELAY = 100;
-config.OBJECT_RECLAIMER_ERROR_DELAY = 3000;
+config.OBJECT_RECLAIMER_BATCH_DELAY = 10 * 60 * 1000; // 10 minutes delay between batches
+config.OBJECT_RECLAIMER_ERROR_DELAY = 10 * 60 * 1000; // 10 minutes delay between batches;
 
 
 //////////////////
@@ -1198,7 +1198,7 @@ function _get_config_root() {
 
 /**
  * go over the config object and set the relevant configurations as environment variables
-*/
+ */
 function _set_nc_config_to_env() {
     const config_to_env = ['NOOBAA_LOG_LEVEL', 'UV_THREADPOOL_SIZE', 'GPFS_DL_PATH', 'NSFS_ENABLE_DYNAMIC_SUPPLEMENTAL_GROUPS'];
     for (const configuration_key of config_to_env) {

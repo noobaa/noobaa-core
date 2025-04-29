@@ -200,4 +200,32 @@ describe('s3_utils', () => {
             expect(res.restrict_public_buckets).toBe(false);
         });
     });
+
+    describe('response_field_encoder_url', () => {
+        it('should return undefined value', () => {
+            const value = undefined;
+            const field_encoded = s3_utils.response_field_encoder_url(value);
+            expect(field_encoded).toBe(undefined);
+            expect(typeof field_encoded).not.toBe('string');
+
+        });
+        it('should encode value without spaces (no special characters)', () => {
+            const value = 'test';
+            const field_encoded = s3_utils.response_field_encoder_url(value);
+            expect(typeof field_encoded).toBe('string');
+            expect(field_encoded).toBe(value);
+        });
+        it('should encode value without spaces (with special characters)', () => {
+            const value = 'photos/';
+            const field_encoded = s3_utils.response_field_encoder_url(value);
+            expect(typeof field_encoded).toBe('string');
+            expect(field_encoded).toBe('photos%2F');
+        });
+        it('should encode value with spaces', () => {
+            const value = 'my test';
+            const field_encoded = s3_utils.response_field_encoder_url(value);
+            expect(typeof field_encoded).toBe('string');
+            expect(field_encoded).toBe('my+test');
+        });
+    });
 });

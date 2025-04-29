@@ -47,6 +47,13 @@ const TIMED_OPS = Object.freeze({
     DELETE_MULTIPLE_OBJECTS: 'delete_multiple_objects'
 });
 
+/**
+ * @typedef {{
+ * is_finished?: Boolean | Undefined,
+ * expire?: { is_finished?: Boolean | Undefined, key_marker?: String | Undefined, candidates_file_offset?: number | undefined}
+ * noncurrent?: { is_finished?: Boolean | Undefined, key_marker_versioned?: String | Undefined, version_id_marker?: String | Undefined }
+ * }} RuleState
+*/
 
 class NCLifecycle {
     constructor(config_fs, options = {}) {
@@ -265,7 +272,7 @@ class NCLifecycle {
             if (candidates.delete_candidates?.length > 0) {
                 const expiration = lifecycle_rule.expiration ? this._get_expiration_time(lifecycle_rule.expiration) : 0;
                 const filter_func = this._build_lifecycle_filter({filter: lifecycle_rule.filter, expiration});
-
+                dbg.log0('process_rule: calling delete_multiple_objects, num of objects to be deleted', candidates.delete_candidates.length);
                 const delete_res = await this._call_op_and_update_status({
                     bucket_name,
                     rule_id,
@@ -282,6 +289,7 @@ class NCLifecycle {
             }
 
             if (candidates.abort_mpu_candidates?.length > 0) {
+                dbg.log0('process_rule: calling delete_multiple_objects, num of mpu to be aborted', candidates.delete_candidates.length);
                 await this._call_op_and_update_status({
                     bucket_name,
                     rule_id,
@@ -465,7 +473,7 @@ class NCLifecycle {
      * @returns {Promise<Object[]>}
      */
     async get_candidates_by_expiration_rule_posix(lifecycle_rule, bucket_json, object_sdk) {
-        const rule_state = this.lifecycle_run_status.buckets_statuses[bucket_json.name].rules_statuses[lifecycle_rule.id].state.expire;
+        const rule_state = this._get_rule_state(bucket_json, lifecycle_rule).expire;
         if (rule_state.is_finished) return [];
         const expiration = this._get_expiration_time(lifecycle_rule.expiration);
         if (expiration < 0) return [];
@@ -520,7 +528,7 @@ class NCLifecycle {
      * @returns {Promise<Object[]>}
      */
     async get_candidates_by_expiration_delete_marker_rule(lifecycle_rule, bucket_json, object_sdk, {versions_list}) {
-        const rule_state = this.lifecycle_run_status.buckets_statuses[bucket_json.name].rules_statuses[lifecycle_rule.id].state.noncurrent;
+        const rule_state = this._get_rule_state(bucket_json, lifecycle_rule).noncurrent;
         if (rule_state.is_finished) return [];
         if (!versions_list) {
             versions_list = await this.load_versions_list(object_sdk, lifecycle_rule, bucket_json, rule_state);
@@ -619,7 +627,7 @@ class NCLifecycle {
      * @returns {Promise<Object[]>}
      */
     async get_candidates_by_noncurrent_version_expiration_rule(lifecycle_rule, bucket_json, object_sdk, {versions_list}) {
-        const rule_state = this.lifecycle_run_status.buckets_statuses[bucket_json.name].rules_statuses[lifecycle_rule.id].state.noncurrent;
+        const rule_state = this._get_rule_state(bucket_json, lifecycle_rule).noncurrent;
         if (rule_state.is_finished) return [];
 
         if (!versions_list) {
@@ -965,19 +973,22 @@ class NCLifecycle {
      */
     init_rule_status(bucket_name, rule_id) {
         this.lifecycle_run_status.buckets_statuses[bucket_name].rules_statuses[rule_id] ??= {};
-        this.lifecycle_run_status.buckets_statuses[bucket_name].rules_statuses[rule_id].state ??= {expire: {}, noncurrent: {}};
+        this.lifecycle_run_status.buckets_statuses[bucket_name].rules_statuses[rule_id].state ??= { expire: {}, noncurrent: {} };
         this.lifecycle_run_status.buckets_statuses[bucket_name].rules_statuses[rule_id].rule_process_times = {};
         this.lifecycle_run_status.buckets_statuses[bucket_name].rules_statuses[rule_id].rule_stats ??= {};
         return this.lifecycle_run_status.buckets_statuses[bucket_name].rules_statuses[rule_id];
     }
 
     /**
-     * updates the rule state if all actions finished
+     * update_rule_status_is_finished updates the rule state if all actions finished
+     * notice that expire and noncurrent properties are initiated in init_rule_status()
+     * therefore they should not be undefined
      * @param {string} bucket_name
      * @param {string} rule_id
+     * @returns {Void}
      */
     update_rule_status_is_finished(bucket_name, rule_id) {
-        const rule_state = this.lifecycle_run_status.buckets_statuses[bucket_name].rules_statuses[rule_id].state;
+        const rule_state = this._get_rule_state({ name: bucket_name }, { id: rule_id });
         rule_state.is_finished = (rule_state.expire.is_finished === undefined || rule_state.expire.is_finished === true) &&
             (rule_state.noncurrent.is_finished === undefined || rule_state.noncurrent.is_finished === true);
     }
@@ -1011,18 +1022,20 @@ class NCLifecycle {
      * _set_rule_state sets the current rule state on the lifecycle run status
      * @param {Object} bucket_json
      * @param {*} lifecycle_rule
-     * @param {{is_finished?: Boolean | Undefined, candidates_file_offset?: number | undefined}} rule_state
+     * @param {RuleState} rule_state
      * @returns {Void}
      */
     _set_rule_state(bucket_json, lifecycle_rule, rule_state) {
-        this.lifecycle_run_status.buckets_statuses[bucket_json.name].rules_statuses[lifecycle_rule.id].state = rule_state;
+        const existing_state = this._get_rule_state(bucket_json, lifecycle_rule);
+        const new_state = { ...existing_state, ...rule_state };
+        this.lifecycle_run_status.buckets_statuses[bucket_json.name].rules_statuses[lifecycle_rule.id].state = new_state;
     }
 
     /**
      * _get_rule_state gets the current rule state on the lifecycle run status
      * @param {Object} bucket_json
      * @param {*} lifecycle_rule
-     * @returns {{is_finished?: Boolean | Undefined, candidates_file_offset?: number | undefined}} rule_state
+     * @returns {RuleState}
      */
     _get_rule_state(bucket_json, lifecycle_rule) {
         return this.lifecycle_run_status.buckets_statuses[bucket_json.name].rules_statuses[lifecycle_rule.id].state;
@@ -1164,6 +1177,7 @@ class NCLifecycle {
         for (const bucket_name of bucket_names) {
             const bucket_json = await this.config_fs.get_bucket_by_name(bucket_name, config_fs_options);
             const bucket_mount_point = this.find_mount_point_by_bucket_path(mount_point_to_policy_map, bucket_json.path);
+            if (!bucket_json.lifecycle_configuration_rules?.length) continue;
             for (const lifecycle_rule of bucket_json.lifecycle_configuration_rules) {
                 // currently we support expiration (current version) only
                 if (lifecycle_rule.expiration) {
@@ -1377,6 +1391,7 @@ class NCLifecycle {
      * 1.2.2. parse the key from the candidate line
      * 1.2.3. push the key to the candidates array
      * 2. if candidates file does not exist, we return without error because it's valid that no candidates found
+     * GAP - when supporting noncurrent rule, we should update the state type to noncurrent based on the candidates file path
      * @param {Object} bucket_json
      * @param {*} lifecycle_rule
      * @param {String} rule_candidates_path
@@ -1384,15 +1399,20 @@ class NCLifecycle {
      */
     async parse_candidates_from_gpfs_ilm_policy(bucket_json, lifecycle_rule, rule_candidates_path) {
         let reader;
-        try {
-            const rule_state = this._get_rule_state(bucket_json, lifecycle_rule);
-            dbg.log2(`parse_candidates_from_gpfs_ilm_policy bucket_name=${bucket_json.name}, rule_id ${lifecycle_rule.id}, existing rule_state=${util.inspect(rule_state)}`);
+        const state_type = 'expire';
+        const rule_state = this._get_rule_state(bucket_json, lifecycle_rule)?.[state_type];
+        dbg.log2(`parse_candidates_from_gpfs_ilm_policy rule_state=${rule_state} state_type=${state_type}, currently on gpfs ilm flow - we support only expiration rule`);
+        if (rule_state?.is_finished) return [];
+        const finished_state = { [state_type]: { is_finished: true, candidates_file_offset: undefined } };
 
+        try {
+            dbg.log2(`parse_candidates_from_gpfs_ilm_policy bucket_name=${bucket_json.name}, rule_id ${lifecycle_rule.id}, existing rule_state=${util.inspect(rule_state)}`);
             const parsed_candidates_array = [];
             reader = new NewlineReader(this.non_gpfs_fs_context, rule_candidates_path, { lock: 'SHARED', read_file_offset: rule_state?.candidates_file_offset || 0 });
+
             const [count, is_finished] = await reader.forEachFilePathEntry(async entry => {
                 if (parsed_candidates_array.length >= config.NC_LIFECYCLE_LIST_BATCH_SIZE) return false;
-                const cur_rule_state = { is_finished: false, candidates_file_offset: reader.next_line_file_offset };
+                const cur_rule_state = { [state_type]: { is_finished: false, candidates_file_offset: reader.next_line_file_offset } };
                 this._set_rule_state(bucket_json, lifecycle_rule, cur_rule_state);
                 const key = this._parse_key_from_line(entry, bucket_json);
                 // TODO - need to add etag, size, version_id
@@ -1402,14 +1422,14 @@ class NCLifecycle {
             });
 
             if (is_finished) {
-                this._set_rule_state(bucket_json, lifecycle_rule, { is_finished: true, candidates_file_offset: undefined });
+                this._set_rule_state(bucket_json, lifecycle_rule, finished_state);
             }
             dbg.log2(`parse_candidates_from_gpfs_ilm_policy: parsed_candidates_array ${util.inspect(parsed_candidates_array)}, rule_state=${util.inspect(rule_state)}, count=${count} is_finished=${is_finished}`);
             return parsed_candidates_array;
         } catch (err) {
             if (err.code === 'ENOENT') {
                 dbg.log2(`parse_candidates_from_gpfs_ilm_policy ilm_candidates_file_exists does not exist, no candidates to delete`);
-                this._set_rule_state(bucket_json, lifecycle_rule, { is_finished: true, candidates_file_offset: undefined });
+                this._set_rule_state(bucket_json, lifecycle_rule, finished_state);
                 return;
             }
             dbg.error('parse_candidates_from_gpfs_ilm_policy: error', err);

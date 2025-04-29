@@ -1,10 +1,10 @@
 /* Copyright (C) 2025 NooBaa */
 'use strict';
 
-const _ = require("lodash");
-const nb_native = require("./nb_native");
-const path = require("path");
-const config = require("../../config");
+const _ = require('lodash');
+const path = require('path');
+const config = require('../../config');
+const nb_native = require('./nb_native');
 
 /**
  * get_latest_nc_lifecycle_run_status returns the latest lifecycle run status
@@ -29,5 +29,47 @@ async function get_latest_nc_lifecycle_run_status(config_fs, options) {
     }
 }
 
+/**
+ * get_lifecycle_object_info_for_filter returns an object that contains properties needed for filter check
+ * based on list_objects/stat result 
+ * @param {{key: String, create_time: Number, size: Number, tagging: Object}} entry list object entry
+ * @returns {{key: String, age: Number, size: Number, tags: Object}}
+ */
+function get_lifecycle_object_info_for_filter(entry) {
+    return {
+        key: entry.key,
+        age: get_file_age_days(entry.create_time),
+        size: entry.size,
+        tags: entry.tagging,
+    };
+}
+
+
+/**
+ * get_file_age_days gets file time since last modified in days
+ * @param {Number} mtime
+ * @returns {Number} days since object was last modified
+ */
+function get_file_age_days(mtime) {
+    return Math.floor((Date.now() - mtime) / 24 / 60 / 60 / 1000);
+}
+
+/**
+ * file_matches_filter used for checking the filter before deletion
+ * @param {{obj_info: { key: String, create_time: Number, size: Number, tagging: Object}, filter_func?: Function}} params 
+ * @returns {Boolean}
+ */
+function file_matches_filter({obj_info, filter_func = undefined}) {
+    if (filter_func) {
+        const object_info_for_filter = get_lifecycle_object_info_for_filter(obj_info);
+        if (!filter_func(object_info_for_filter)) {
+            return false;
+        }
+    }
+    return true;
+}
 
 exports.get_latest_nc_lifecycle_run_status = get_latest_nc_lifecycle_run_status;
+exports.file_matches_filter = file_matches_filter;
+exports.get_lifecycle_object_info_for_filter = get_lifecycle_object_info_for_filter;
+exports.get_file_age_days = get_file_age_days;

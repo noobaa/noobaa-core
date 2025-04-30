@@ -363,9 +363,6 @@ s3tests_boto3/functional/test_s3.py::test_lifecycle_expiration_tags2
 s3tests_boto3/functional/test_s3.py::test_lifecycle_expiration_versioned_tags2
 s3tests_boto3/functional/test_s3.py::test_lifecycle_expiration_noncur_tags1
 s3tests_boto3/functional/test_s3.py::test_lifecycle_set_date
-s3tests_boto3/functional/test_s3.py::test_lifecycle_expiration_header_put
-s3tests_boto3/functional/test_s3.py::test_lifecycle_expiration_header_head
-s3tests_boto3/functional/test_s3.py::test_lifecycle_expiration_header_tags_head
 s3tests_boto3/functional/test_s3.py::test_lifecycle_transition_set_invalid_date
 s3tests_boto3/functional/test_s3.py::test_lifecycle_expiration_newer_noncurrent
 s3tests_boto3/functional/test_s3.py::test_lifecycle_expiration_size_gt

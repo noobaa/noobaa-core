@@ -32,6 +32,8 @@ async function put_object(req, res) {
         sha256_b64: req.content_sha256_buf && req.content_sha256_buf.toString('base64'),
     };
 
+    http_utils.set_expiration_header(req, res); // setting expiration header for bucket lifecycle
+
     dbg.log0('PUT OBJECT', req.params.bucket, req.params.key,
         req.headers['x-amz-copy-source'] || '', encryption || '');
     //for copy, use correct s3_event_method. otherwise, just use default (req.method)

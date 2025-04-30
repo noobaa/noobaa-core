@@ -4,38 +4,30 @@
 
 const nb_native = require('./nb_native');
 
-class NewlineReaderFilePathEntry {
-    constructor(fs_context, filepath) {
-        this.fs_context = fs_context;
-        this.path = filepath;
-    }
-
-    async open(mode = 'rw*') {
-        return nb_native().fs.open(this.fs_context, this.path, mode);
-    }
-}
-
-class NewlineReader {
+class LineReader {
     /**
-     * Newline character code
-     */
-    static NL_CODE = 10;
-
-    /**
-     * NewlineReader allows to read a file line by line.
+     * LineReader allows to read a file line by line.
      * @param {nb.NativeFSContext} fs_context 
      * @param {string} filepath 
+     * @param {number | string} delim 
      * @param {{
      *  lock?: 'EXCLUSIVE' | 'SHARED'
      *  bufsize?: number;
      *  skip_leftover_line?: boolean;
      *  skip_overflow_lines?: boolean;
      *  read_file_offset?: number;
+     *  encoding?: BufferEncoding;
      * }} [cfg]
      **/
-    constructor(fs_context, filepath, cfg) {
+    constructor(fs_context, filepath, delim, cfg) {
+        if (!['number', 'string'].includes(typeof(delim))) {
+            throw new Error('delim must be of type string or a number');
+        }
+
         this.path = filepath;
         this.lock = cfg?.lock;
+        this.delim = delim;
+        this.encoding = cfg?.encoding || 'utf8';
         this.skip_leftover_line = Boolean(cfg?.skip_leftover_line);
         this.skip_overflow_lines = Boolean(cfg?.skip_overflow_lines);
 
@@ -69,20 +61,22 @@ class NewlineReader {
     async nextline() {
         if (!this.fh) await this.init();
 
+        const delim_length = typeof this.delim === 'string' ? Buffer.byteLength(this.delim, this.encoding) : 1;
+
         // TODO - in case more data will be appended to the file - after each read the reader must set reader.eof = false if someone will keep on reading from a file while it is being written.
         while (!this.eof) {
             // extract next line if terminated in current buffer
             if (this.start < this.end) {
-                const term_idx = this.buf.subarray(this.start, this.end).indexOf(NewlineReader.NL_CODE);
+                const term_idx = this.buf.subarray(this.start, this.end).indexOf(this.delim, null, this.encoding);
                 if (term_idx >= 0) {
                     if (this.overflow_state) {
                         console.warn('line too long finally terminated:', this.info());
                         this.overflow_state = false;
-                        this.start += term_idx + 1;
+                        this.start += term_idx + delim_length;
                         continue;
                     }
-                    const line = this.buf.toString('utf8', this.start, this.start + term_idx);
-                    this.start += term_idx + 1;
+                    const line = this.buf.toString(this.encoding, this.start, this.start + term_idx);
+                    this.start += term_idx + delim_length;
                     this.next_line_file_offset = this.read_file_offset - (this.end - this.start);
                     return line;
                 }
@@ -120,7 +114,7 @@ class NewlineReader {
                     } else if (this.overflow_state) {
                         console.warn('line too long finally terminated at eof:', this.info());
                     } else {
-                        const line = this.buf.toString('utf8', this.start, this.end);
+                        const line = this.buf.toString(this.encoding, this.start, this.end);
                         this.start = this.end;
                         this.next_line_file_offset = this.read_file_offset;
                         return line;
@@ -158,17 +152,6 @@ class NewlineReader {
         return [count, true];
     }
 
-    /**
-     * forEachFilePathEntry is a wrapper around `forEach` where each entry in
-     * log file is assumed to be a file path and the given callback function
-     * is invoked with that entry wrapped in a class with some convenient wrappers.
-     * @param {(entry: NewlineReaderFilePathEntry) => Promise<boolean>} cb 
-     * @returns {Promise<[number, boolean]>}
-     */
-    async forEachFilePathEntry(cb) {
-        return this.forEach(entry => cb(new NewlineReaderFilePathEntry(this.fs_context, entry)));
-    }
-
     // reset will reset the reader and will allow reading the file from
     // the beginning again, this does not reopens the file so if the file
     // was moved, this will still keep on reading from the previous FD.
@@ -204,5 +187,53 @@ class NewlineReader {
     }
 }
 
+class NewlineReaderFilePathEntry {
+    constructor(fs_context, filepath) {
+        this.fs_context = fs_context;
+        this.path = filepath;
+    }
+
+    async open(mode = 'rw*') {
+        return nb_native().fs.open(this.fs_context, this.path, mode);
+    }
+}
+
+class NewlineReader extends LineReader {
+    /**
+     * Newline character code
+     */
+    static NL_CODE = 10;
+
+    /**
+     * NewlineReader allows to read a file line by line.
+     * @param {nb.NativeFSContext} fs_context 
+     * @param {string} filepath 
+     * @param {{
+     *  lock?: 'EXCLUSIVE' | 'SHARED'
+     *  bufsize?: number;
+     *  skip_leftover_line?: boolean;
+     *  skip_overflow_lines?: boolean;
+     *  read_file_offset?: number;
+     *  encoding?: BufferEncoding;
+     * }} [cfg]
+     **/
+    constructor(fs_context, filepath, cfg) {
+        super(fs_context, filepath, NewlineReader.NL_CODE, cfg);
+    }
+
+    /**
+     * forEachFilePathEntry is a wrapper around `forEach` where each entry in
+     * log file is assumed to be a file path and the given callback function
+     * is invoked with that entry wrapped in a class with some convenient wrappers.
+     * @param {(entry: NewlineReaderFilePathEntry) => Promise<boolean>} cb 
+     * @returns {Promise<[number, boolean]>}
+     */
+    async forEachFilePathEntry(cb) {
+        return this.forEach(entry => cb(new NewlineReaderFilePathEntry(this.fs_context, entry)));
+    }
+}
+
 exports.NewlineReader = NewlineReader;
 exports.NewlineReaderEntry = NewlineReaderFilePathEntry;
+exports.LineReader = LineReader;
+

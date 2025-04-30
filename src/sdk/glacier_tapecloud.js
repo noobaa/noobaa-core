@@ -193,7 +193,7 @@ class TapeCloudGlacier extends Glacier {
     async migrate(fs_context, log_file, failure_recorder) {
         dbg.log2('TapeCloudGlacier.migrate starting for', log_file);
 
-        const file = new LogFile(fs_context, log_file);
+        const file = new LogFile(fs_context, log_file, '\n-- ');
 
         try {
             await file.collect_and_process(async (entry, batch_recorder) => {
@@ -243,7 +243,7 @@ class TapeCloudGlacier extends Glacier {
     async restore(fs_context, log_file, failure_recorder) {
         dbg.log2('TapeCloudGlacier.restore starting for', log_file);
 
-        const file = new LogFile(fs_context, log_file);
+        const file = new LogFile(fs_context, log_file, '\n-- ');
         try {
             await file.collect_and_process(async (entry, batch_recorder) => {
                 try {

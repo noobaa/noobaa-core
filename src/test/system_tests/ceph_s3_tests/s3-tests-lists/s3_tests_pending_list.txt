@@ -35,9 +35,6 @@ s3tests_boto3/functional/test_s3.py::test_lifecycle_expiration_tags2
 s3tests_boto3/functional/test_s3.py::test_lifecycle_expiration_versioned_tags2
 s3tests_boto3/functional/test_s3.py::test_lifecycle_expiration_noncur_tags1
 s3tests_boto3/functional/test_s3.py::test_lifecycle_set_date
-s3tests_boto3/functional/test_s3.py::test_lifecycle_expiration_header_put
-s3tests_boto3/functional/test_s3.py::test_lifecycle_expiration_header_head
-s3tests_boto3/functional/test_s3.py::test_lifecycle_expiration_header_tags_head
 s3tests_boto3/functional/test_s3.py::test_lifecycle_transition_set_invalid_date
 s3tests_boto3/functional/test_s3.py::test_put_obj_enc_conflict_c_s3
 s3tests_boto3/functional/test_s3.py::test_put_obj_enc_conflict_c_kms

@@ -24,6 +24,8 @@ async function head_object(req, res) {
     if (req.query.get_from_cache !== undefined) {
         params.get_from_cache = true;
     }
+    http_utils.set_expiration_header(req, res); // setting expiration header for bucket lifecycle
+
     const object_md = await req.object_sdk.read_object_md(params);
 
     s3_utils.set_response_object_md(res, object_md);

@@ -665,51 +665,51 @@ function set_amz_headers(req, res) {
     res.setHeader('x-amz-id-2', req.request_id);
 }
 
-const s3_error_options = {
-    ErrorClass: S3Error,
-    error_missing_content_length: S3Error.MissingContentLength
-};
 /**
+ * set_expiration_header sets the `x-amz-expiration` response header for GET, PUT, or HEAD object requests
+ * if the object matches any enabled bucket lifecycle rule
+ *
  * @param {Object} req
  * @param {http.ServerResponse} res
  */
 async function set_expiration_header(req, res) {
-    if (req.method === 'HEAD' || req.method === 'GET' || req.method === 'PUT') {
-        const rules = req.params.bucket && await req.object_sdk.read_bucket_lifecycle_config_info(req.params.bucket);
-        const object_md = {
-                bucket: req.params.bucket,
-                key: req.params.key,
-                size: req.headers['x-amz-decoded-content-length'] || req.headers['content-length'] ? parse_content_length(req, s3_error_options) : undefined,
-                tagging: req.body && req.body.Tagging ? s3_utils.parse_body_tagging_xml(req) : undefined,
-        };
+    const rules = req.params.bucket && await req.object_sdk.read_bucket_lifecycle_config_info(req.params.bucket);
+    const object_md = {
+        bucket: req.params.bucket,
+        key: req.params.key,
+        size: req.headers['x-amz-decoded-content-length'] || req.headers['content-length'] ? parse_content_length(req, {
+            ErrorClass: S3Error,
+            error_missing_content_length: S3Error.MissingContentLength
+        }) : undefined,
+        tagging: req.body && req.body.Tagging ? s3_utils.parse_body_tagging_xml(req) : undefined,
+    };
 
-        if (object_md.key && rules?.length > 0) { // updating x-amz-expiration if object key is present
-            for (const rule of rules) {
-                if (rule?.status !== 'Enabled') continue;
+    if (object_md.key && rules?.length > 0) {
+        for (const rule of rules) {
+            if (rule?.status !== 'Enabled') continue;
 
-                const filter = rule?.filter || {};
+            const filter = rule?.filter || {};
 
-                if (filter.prefix && !object_md?.key.startsWith(filter.prefix)) continue;
+            if (filter.prefix && !object_md?.key.startsWith(filter.prefix)) continue;
 
-                if (filter.object_size_greater_than && object_md?.size <= filter.object_size_greater_than) continue;
-                if (filter.object_size_less_than && object_md?.size >= filter.object_size_less_than) continue;
+            if (filter.object_size_greater_than && object_md?.size <= filter.object_size_greater_than) continue;
+            if (filter.object_size_less_than && object_md?.size >= filter.object_size_less_than) continue;
 
-                if (filter.tagging && Array.isArray(filter.tagging)) {
-                    const obj_tags = object_md?.tagging || [];
+            if (filter.tagging && Array.isArray(filter.tagging)) {
+                const obj_tags = object_md?.tagging || [];
 
-                    const matches_all_tags = filter.tagging.every(filter_tag =>
-                        obj_tags.some(obj_tag => obj_tag.key === filter_tag.key && obj_tag.value === filter_tag.value)
-                    );
+                const matches_all_tags = filter.tagging.every(filter_tag =>
+                    obj_tags.some(obj_tag => obj_tag.key === filter_tag.key && obj_tag.value === filter_tag.value)
+                );
 
-                    if (!matches_all_tags) continue;
-                }
+                if (!matches_all_tags) continue;
+            }
 
-                const expiration_head = parse_expiration_header(rule?.expiration, rule?.id);
-                if (expiration_head) {
-                    dbg.log0('set x_amz_expiration header from applied rule: ', rule);
-                    res.setHeader('x-amz-expiration', expiration_head);
-                    break; // apply only for first matching rule
-                }
+            const expiration_header = parse_expiration_header(rule?.expiration, rule?.id);
+            if (expiration_header) {
+                dbg.log1('set x_amz_expiration header from applied rule: ', rule);
+                res.setHeader('x-amz-expiration', expiration_header);
+                break; // apply only for first matching rule
             }
         }
     }

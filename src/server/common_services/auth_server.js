@@ -600,16 +600,19 @@ function _prepare_auth_request(req) {
     };
 
     req.has_s3_bucket_permission = async function(bucket, action, bucket_path, req_query) {
+        dbg.log0("Req:",req,bucket, action, bucket_path, req_query)
         // Since this method can be called both authorized and unauthorized
         // We need to check the anonymous permission only when the bucket is configured to server anonymous requests
         // In case of anonymous function but with authentication flow we roll back to previous code and not return here
         if (req.auth_token && typeof req.auth_token === 'object') {
+            dbg.info("Inside 1st ");
             return req.has_bucket_action_permission(bucket, action, bucket_path, req_query);
         }
         // If we came with a NooBaa management token then we've already checked the method permissions prior to this function
         // There is nothing specific to bucket permissions for the management credentials
         // So we allow bucket access to any valid auth token
         if (req.auth && req.system && req.account) {
+            dbg.info("Inside 2st ");
             return true;
         }
 
@@ -670,14 +673,16 @@ function _get_auth_info(account, system, authorized_by, role, extra) {
  * @returns  {Promise<boolean>} true if the account has permission to perform the action on the bucket
  */
 async function has_bucket_action_permission(bucket, account, action, req_query, bucket_path = "") {
-    dbg.log1('has_bucket_action_permission:', bucket.name, account.email, bucket.owner_account.email);
+    dbg.info('has_bucket_action_permission:', bucket.name.unwrap(),bucket.system.owner.email.unwrap(), account.email.unwrap(), bucket.owner_account.email.unwrap());
     // If the system owner account wants to access the bucket, allow it
-    if (bucket.system.owner.email.unwrap() === account.email.unwrap()) return true;
+    if (account.email.unwrap()!==bucket.owner_account.email.unwrap()) return false;
 
+    if (bucket.system.owner.email.unwrap() === account.email.unwrap()) return true;
+    
     const is_owner = (bucket.owner_account.email.unwrap() === account.email.unwrap()) ||
         (account.bucket_claim_owner && account.bucket_claim_owner.name.unwrap() === bucket.name.unwrap());
     const bucket_policy = bucket.s3_policy;
-
+    dbg.info("is_owner,s3_policy",is_owner,bucket.s3_policy);
     if (!bucket_policy) return is_owner;
     if (!action) {
         throw new Error('has_bucket_action_permission: action is required');

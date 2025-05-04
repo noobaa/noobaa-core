@@ -37,11 +37,11 @@ async function get_bucket_versions(req) {
     return {
         ListVersionsResult: [{
             Name: req.params.bucket,
-            Prefix: field_encoder(req.query.prefix),
+            Prefix: field_encoder(req.query.prefix) || '',
             Delimiter: field_encoder(req.query.delimiter),
             MaxKeys: max_keys_received,
-            KeyMarker: field_encoder(req.query['key-marker']),
-            VersionIdMarker: version_id_marker,
+            KeyMarker: field_encoder(req.query['key-marker']) || '',
+            VersionIdMarker: version_id_marker || '',
             IsTruncated: reply.is_truncated,
             NextKeyMarker: field_encoder(reply.next_marker),
             NextVersionIdMarker: reply.next_version_id_marker,

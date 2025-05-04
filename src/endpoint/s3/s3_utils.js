@@ -695,6 +695,7 @@ function response_field_encoder_none(value) {
 * with plus (+) instead of spaces (and not %20 as encodeURIComponent() does)
 */
 function response_field_encoder_url(value) {
+    if (value === undefined) return undefined; // else the undefined value will be a string of 'undefined'
     return new URLSearchParams({ 'a': value }).toString().slice(2); // slice the leading 'a='
 }
 
@@ -864,6 +865,7 @@ exports.get_http_response_from_resp = get_http_response_from_resp;
 exports.get_http_response_date = get_http_response_date;
 exports.XATTR_SORT_SYMBOL = XATTR_SORT_SYMBOL;
 exports.get_response_field_encoder = get_response_field_encoder;
+exports.response_field_encoder_url = response_field_encoder_url;
 exports.parse_decimal_int = parse_decimal_int;
 exports.parse_restore_request_days = parse_restore_request_days;
 exports.parse_version_id = parse_version_id;

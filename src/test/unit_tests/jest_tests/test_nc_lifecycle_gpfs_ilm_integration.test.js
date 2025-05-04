@@ -477,7 +477,7 @@ function get_mock_base_ilm_policy(bucket_storage_path, rule_id, lifecycle_run_st
         `define( change_age, (DAYS(CURRENT_TIMESTAMP) - DAYS(CHANGE_TIME)) )\n`;
 
     const policy_rule_id = `${bucket_name}_${rule_id}_${lifecycle_run_status.lifecycle_run_times.run_lifecycle_start_time}`;
-    const policy_base = `RULE ${policy_rule_id} LIST ${policy_rule_id}\n` +
+    const policy_base = `RULE '${policy_rule_id}' LIST '${policy_rule_id}'\n` +
     `WHERE PATH_NAME LIKE '${bucket_storage_path}/%'\n` +
     `AND PATH_NAME NOT LIKE '${bucket_storage_path}/.noobaa_nsfs%/%'\n`;
 

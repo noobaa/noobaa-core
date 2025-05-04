@@ -25,8 +25,7 @@ jobs:
           make test-aws-sdk-clients
 
       - name: Message Slack Webhook
-        # we will uncomment this after we test it in the CI
-        # if: ${{ failure() }}
+        if: ${{ !success() }}
         uses: slackapi/slack-github-action@v2.0.0
         with:
           webhook: ${{ secrets.SLACKWEBHOOKURL }}

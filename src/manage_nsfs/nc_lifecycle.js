@@ -458,6 +458,7 @@ class NCLifecycle {
             expire_state.key_marker = objects_list.next_marker;
             expire_state.is_finished = false;
         } else {
+            expire_state.key_marker = undefined;
             expire_state.is_finished = true;
         }
         const bucket_state = this.lifecycle_run_status.buckets_statuses[bucket_json.name].state;
@@ -579,6 +580,8 @@ class NCLifecycle {
             noncurrent_state.key_marker_versioned = list_versions.next_marker;
             noncurrent_state.version_id_marker = list_versions.next_version_id_marker;
         } else {
+            noncurrent_state.key_marker_versioned = undefined;
+            noncurrent_state.version_id_marker = undefined;
             noncurrent_state.is_finished = true;
         }
         const bucket_state = this.lifecycle_run_status.buckets_statuses[bucket_json.name].state;

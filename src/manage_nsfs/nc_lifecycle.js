@@ -1236,7 +1236,7 @@ class NCLifecycle {
         const { bucket_rule_id, in_bucket_path, in_bucket_internal_dir } = ilm_policy_helpers;
         const mod_age_definition = `define( mod_age, (DAYS(CURRENT_TIMESTAMP) - DAYS(MODIFICATION_TIME)) )\n`;
         const change_age_definition = `define( change_age, (DAYS(CURRENT_TIMESTAMP) - DAYS(CHANGE_TIME)) )\n`;
-        const rule_id_definition = `RULE ${bucket_rule_id} LIST ${bucket_rule_id}\n`;
+        const rule_id_definition = `RULE '${bucket_rule_id}' LIST '${bucket_rule_id}'\n`;
         const policy_path_base = `WHERE PATH_NAME LIKE '${in_bucket_path}'\n` +
             `AND PATH_NAME NOT LIKE '${in_bucket_internal_dir}'\n`;
 
@@ -1285,8 +1285,8 @@ class NCLifecycle {
             const { object_size_greater_than = undefined, object_size_less_than = undefined, tags = undefined } = filter;
             const rule_prefix = prefix || filter.prefix;
             filter_policy += rule_prefix ? `AND PATH_NAME LIKE '${path.join(bucket_path, rule_prefix)}%'\n` : '';
-            filter_policy += object_size_greater_than ? `AND FILE_SIZE > ${object_size_greater_than}\n` : '';
-            filter_policy += object_size_less_than ? `AND FILE_SIZE < ${object_size_less_than}\n` : '';
+            filter_policy += object_size_greater_than === undefined ? '' : `AND FILE_SIZE > ${object_size_greater_than}\n`;
+            filter_policy += object_size_less_than === undefined ? '' : `AND FILE_SIZE < ${object_size_less_than}\n`;
             filter_policy += tags ? tags.map(tag => `AND XATTR('user.noobaa.tag.${tag.key}') LIKE ${tag.value}\n`).join('') : '';
         }
         return filter_policy;
@@ -1434,7 +1434,7 @@ class NCLifecycle {
             if (err.code === 'ENOENT') {
                 dbg.log2(`parse_candidates_from_gpfs_ilm_policy ilm_candidates_file_exists does not exist, no candidates to delete`);
                 this._set_rule_state(bucket_json, lifecycle_rule, finished_state);
-                return;
+                return [];
             }
             dbg.error('parse_candidates_from_gpfs_ilm_policy: error', err);
             throw err;

@@ -46,7 +46,7 @@ async function run_on_random_bucket(s3, bucket_prefix, cb) {
     try {
         await cb(bucket);
     } finally {
-        await s3.deleteBucket({ Bucket: bucket });
+        await s3.deleteBucket({ Bucket: bucket }).catch(() => { /* nothing */ });
     }
 }
 
@@ -110,29 +110,33 @@ mocha.describe('noobaa public access block test', function() {
 
     mocha.it('put_public_access_block must throw when acls are used', async function() {
         await run_on_random_bucket(s3_owner, bucket_prefix, async bucket => {
-            try {
-                await s3_owner.putPublicAccessBlock({
+            await assert.rejects(
+                s3_owner.putPublicAccessBlock({
                     Bucket: bucket,
                     PublicAccessBlockConfiguration: {
                         BlockPublicAcls: true,
                     }
-                });
-                assert.fail("expected to fail");
-            } catch (error) {
-                assert(error.Code === S3Error.AccessControlListNotSupported.code);
-            }
+                }),
+                error => {
+                    // @ts-ignore
+                    assert(error.Code === S3Error.AccessControlListNotSupported.code);
+                    return true;
+                }
+            );
 
-            try {
-                await s3_owner.putPublicAccessBlock({
+            await assert.rejects(
+                s3_owner.putPublicAccessBlock({
                     Bucket: bucket,
                     PublicAccessBlockConfiguration: {
                         IgnorePublicAcls: true,
                     }
-                });
-                assert.fail("expected to fail");
-            } catch (error) {
-                assert(error.Code === S3Error.AccessControlListNotSupported.code);
-            }
+                }),
+                error => {
+                    // @ts-ignore
+                    assert(error.Code === S3Error.AccessControlListNotSupported.code);
+                    return true;
+                }
+            );
         });
     });
 
@@ -146,15 +150,12 @@ mocha.describe('noobaa public access block test', function() {
             });
 
             // Ensure we cannot put a public policy on this bucket
-            try {
-                await s3_owner.putBucketPolicy({
+            await assert.rejects(
+                s3_owner.putBucketPolicy({
                     Bucket: bucket,
                     Policy: generate_public_policy(bucket),
-                });
-                assert.fail("expected to fail");
-            } catch {
-                assert.ok(true);
-            }
+                })
+            );
 
             await s3_owner.deletePublicAccessBlock({
                 Bucket: bucket,
@@ -163,7 +164,7 @@ mocha.describe('noobaa public access block test', function() {
     });
 
     mocha.it('public_access_block should work when restrict public buckets is used', async function() {
-        await run_on_random_bucket(s3_owner, bucket_prefix, async bucket => {
+        await run_on_random_bucket(s3_owner, bucket_prefix, async function(bucket) {
             const KEY = "key";
 
             await s3_owner.putObject({
@@ -191,16 +192,13 @@ mocha.describe('noobaa public access block test', function() {
                 }
             });
 
-            try {
-                // Ensure anon can no longer access
-                await s3_anon.getObject({
+            // Ensure anon can no longer access
+            await assert.rejects(
+                s3_anon.getObject({
                     Bucket: bucket,
                     Key: KEY,
-                });
-                assert.fail("expected to fail after PublicAccessBlock");
-            } catch {
-                assert.ok(true);
-            }
+                }),
+            );
 
             await s3_owner.deletePublicAccessBlock({
                 Bucket: bucket,

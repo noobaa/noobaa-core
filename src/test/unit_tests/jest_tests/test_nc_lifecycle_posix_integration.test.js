@@ -622,6 +622,34 @@ describe('noobaa nc - lifecycle versioning ENABLED', () => {
             });
         });
 
+        it('nc lifecycle - versioning ENABLED - noncurrent expiration rule - expire older versions by number of days whith expire delete marker rule', async () => {
+            const lifecycle_rule = [{
+                "id": "expire noncurrent versions after 3 days with size ",
+                "status": LIFECYCLE_RULE_STATUS_ENUM.ENABLED,
+                "filter": {
+                    "prefix": '',
+                },
+                "expiration": {
+                    "expired_object_delete_marker": true
+                },
+                "noncurrent_version_expiration": {
+                    "noncurrent_days": 3
+                }
+            }];
+            await object_sdk.set_bucket_lifecycle_configuration_rules({ name: test_bucket, rules: lifecycle_rule });
+
+            const res = await create_object(object_sdk, test_bucket, test_key1_regular, 100, false);
+            await create_object(object_sdk, test_bucket, test_key1_regular, 100, false);
+            await update_version_xattr(test_bucket, test_key1_regular, res.version_id);
+
+            await exec_manage_cli(TYPES.LIFECYCLE, '', { disable_service_validation: 'true', disable_runtime_validation: 'true', config_root }, undefined, undefined);
+            const object_list = await object_sdk.list_object_versions({ bucket: test_bucket });
+            expect(object_list.objects.length).toBe(1);
+            object_list.objects.forEach(element => {
+                expect(element.version_id).not.toBe(res.version_id);
+            });
+        });
+
         it('nc lifecycle - versioning ENABLED - noncurrent expiration rule - both noncurrent days and older versions', async () => {
             const lifecycle_rule = [{
                 "id": "expire noncurrent versions after 3 days",

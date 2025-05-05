@@ -230,14 +230,21 @@ async function authorize_request_policy(req) {
     if (req.op_name === 'put_bucket') return;
 
     // owner_account is { id: bucket.owner_account, email: bucket.bucket_owner };
-    const { s3_policy, system_owner, bucket_owner, owner_account } = await req.object_sdk.read_bucket_sdk_policy_info(req.params.bucket);
+    const {
+        s3_policy,
+        system_owner,
+        bucket_owner,
+        owner_account,
+        public_access_block,
+    } = await req.object_sdk.read_bucket_sdk_policy_info(req.params.bucket);
+
     const auth_token = req.object_sdk.get_auth_token();
     const arn_path = _get_arn_from_req_path(req);
     const method = _get_method_from_req(req);
 
     const is_anon = !(auth_token && auth_token.access_key);
     if (is_anon) {
-        await authorize_anonymous_access(s3_policy, method, arn_path, req);
+        await authorize_anonymous_access(s3_policy, method, arn_path, req, public_access_block);
         return;
     }
 
@@ -283,21 +290,20 @@ async function authorize_request_policy(req) {
     let permission_by_id;
     let permission_by_name;
 
-    const public_access_block_cfg = await req.object_sdk.get_public_access_block({ name: req.params.bucket });
     // In NC, we allow principal to be:
     // 1. account name (for backwards compatibility)
     // 2. account id
     // we start the permission check on account identifier intentionally
     if (account_identifier_id) {
         permission_by_id = await s3_bucket_policy_utils.has_bucket_policy_permission(
-            s3_policy, account_identifier_id, method, arn_path, req, public_access_block_cfg?.public_access_block?.restrict_public_buckets);
+            s3_policy, account_identifier_id, method, arn_path, req, public_access_block?.restrict_public_buckets);
         dbg.log3('authorize_request_policy: permission_by_id', permission_by_id);
     }
     if (permission_by_id === "DENY") throw new S3Error(S3Error.AccessDenied);
 
     if ((!account_identifier_id || permission_by_id !== "DENY") && account.owner === undefined) {
         permission_by_name = await s3_bucket_policy_utils.has_bucket_policy_permission(
-            s3_policy, account_identifier_name, method, arn_path, req, public_access_block_cfg?.public_access_block?.restrict_public_buckets
+            s3_policy, account_identifier_name, method, arn_path, req, public_access_block?.restrict_public_buckets
         );
         dbg.log3('authorize_request_policy: permission_by_name', permission_by_name);
     }
@@ -307,11 +313,11 @@ async function authorize_request_policy(req) {
     throw new S3Error(S3Error.AccessDenied);
 }
 
-async function authorize_anonymous_access(s3_policy, method, arn_path, req) {
+async function authorize_anonymous_access(s3_policy, method, arn_path, req, public_access_block) {
     if (!s3_policy) throw new S3Error(S3Error.AccessDenied);
 
     const permission = await s3_bucket_policy_utils.has_bucket_policy_permission(
-        s3_policy, undefined, method, arn_path, req);
+        s3_policy, undefined, method, arn_path, req, public_access_block?.restrict_public_buckets);
     if (permission === "ALLOW") return;
 
     throw new S3Error(S3Error.AccessDenied);

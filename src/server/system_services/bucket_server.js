@@ -716,6 +716,7 @@ async function read_bucket_sdk_info(req) {
             .then(get_bucket_info),
         notifications: bucket.notifications,
         cors_configuration_rules: bucket.cors_configuration_rules,
+        public_access_block: bucket.public_access_block,
     };
 
     if (bucket.namespace) {

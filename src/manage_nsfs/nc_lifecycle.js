@@ -376,7 +376,7 @@ class NCLifecycle {
      */
     async get_candidates(bucket_json, lifecycle_rule, object_sdk) {
         const candidates = { abort_mpu_candidates: [], delete_candidates: [] };
-        const versions_list = undefined;
+        const params = {versions_list: undefined};
         if (lifecycle_rule.expiration) {
             candidates.delete_candidates = await this.get_candidates_by_expiration_rule(lifecycle_rule, bucket_json,
                 object_sdk);
@@ -385,7 +385,7 @@ class NCLifecycle {
                     lifecycle_rule,
                     bucket_json,
                     object_sdk,
-                    {versions_list}
+                    params
                 );
                 candidates.delete_candidates = candidates.delete_candidates.concat(dm_candidates);
             }
@@ -395,7 +395,7 @@ class NCLifecycle {
                 lifecycle_rule,
                 bucket_json,
                 object_sdk,
-                {versions_list}
+                params
             );
             candidates.delete_candidates = candidates.delete_candidates.concat(non_current_candidates);
         }
@@ -528,12 +528,13 @@ class NCLifecycle {
      * @param {Object} bucket_json
      * @returns {Promise<Object[]>}
      */
-    async get_candidates_by_expiration_delete_marker_rule(lifecycle_rule, bucket_json, object_sdk, {versions_list}) {
+    async get_candidates_by_expiration_delete_marker_rule(lifecycle_rule, bucket_json, object_sdk, params) {
         const rule_state = this._get_rule_state(bucket_json, lifecycle_rule).noncurrent;
-        if (rule_state.is_finished) return [];
-        if (!versions_list) {
-            versions_list = await this.load_versions_list(object_sdk, lifecycle_rule, bucket_json, rule_state);
+        if (!params.versions_list) {
+            if (rule_state.is_finished) return [];
+            params.versions_list = await this.load_versions_list(object_sdk, lifecycle_rule, bucket_json, rule_state);
         }
+        const versions_list = params.versions_list;
         const candidates = [];
         const expiration = lifecycle_rule.expiration?.days ? this._get_expiration_time(lifecycle_rule.expiration) : 0;
         const filter_func = this._build_lifecycle_filter({filter: lifecycle_rule.filter, expiration});
@@ -630,13 +631,14 @@ class NCLifecycle {
      * @param {Object} bucket_json
      * @returns {Promise<Object[]>}
      */
-    async get_candidates_by_noncurrent_version_expiration_rule(lifecycle_rule, bucket_json, object_sdk, {versions_list}) {
+    async get_candidates_by_noncurrent_version_expiration_rule(lifecycle_rule, bucket_json, object_sdk, params) {
         const rule_state = this._get_rule_state(bucket_json, lifecycle_rule).noncurrent;
-        if (rule_state.is_finished) return [];
 
-        if (!versions_list) {
-            versions_list = await this.load_versions_list(object_sdk, lifecycle_rule, bucket_json, rule_state);
+        if (!params.versions_list) {
+            if (rule_state.is_finished) return [];
+            params.versions_list = await this.load_versions_list(object_sdk, lifecycle_rule, bucket_json, rule_state);
         }
+        const versions_list = params.versions_list;
 
         const filter_func = this._build_lifecycle_filter({filter: lifecycle_rule.filter, expiration: 0});
         const num_newer_versions = lifecycle_rule.noncurrent_version_expiration.newer_noncurrent_versions;
@@ -652,7 +654,6 @@ class NCLifecycle {
                     }
             }
         }
-
         return delete_candidates;
     }
     ////////////////////////////////////
@@ -756,8 +757,12 @@ class NCLifecycle {
             const expiration_date = new Date(expiration_rule.date).getTime();
             if (Date.now() < expiration_date) return -1;
             return 0;
+        } else if (expiration_rule.days) {
+            return expiration_rule.days;
+        } else {
+            //expiration delete marker rule
+            return -1;
         }
-        return expiration_rule.days;
     }
 
     ////////////////////////////////

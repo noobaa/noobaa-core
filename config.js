@@ -172,7 +172,6 @@ config.S3_CORS_ALLOW_METHODS = [
     'POST',
     'PUT',
     'DELETE',
-    'OPTIONS'
 ];
 config.S3_CORS_ALLOW_HEADERS = [
     'Content-Type',

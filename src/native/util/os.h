@@ -41,6 +41,20 @@ public:
         change_user();
     }
 
+    static void init_passwd_buf_size()
+    {
+        long passwd_bufsize = sysconf(_SC_GETPW_R_SIZE_MAX);
+        if (passwd_bufsize == -1) {
+            passwd_bufsize = 16384;
+        }
+        passwd_buf_size = passwd_bufsize;
+    }
+
+    static long get_passwd_buf_size()
+    {
+        return passwd_buf_size;
+    }
+
     int add_thread_capabilities();
 
     const static uid_t orig_uid;
@@ -55,6 +69,8 @@ private:
     uid_t _uid;
     gid_t _gid;
     std::vector<gid_t> _groups;
+
+    static long passwd_buf_size;
 };
 
 } // namespace noobaa

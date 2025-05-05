@@ -168,7 +168,6 @@ typedef std::map<std::string, std::string> XattrMap;
 const char* gpfs_dl_path = std::getenv("GPFS_DL_PATH");
 
 int gpfs_lib_file_exists = -1;
-static long PASSWD_BUF_SIZE = -1;
 
 static int (*dlsym_gpfs_fcntl)(gpfs_file_t file, void* arg) = 0;
 
@@ -1410,12 +1409,13 @@ struct GetPwName : public FSWorker
     }
     virtual void Work()
     {
-        _buf.reset(new char[PASSWD_BUF_SIZE]);
+        const long passwd_buf_size = ThreadScope::get_passwd_buf_size();
+        _buf.reset(new char[passwd_buf_size]);
         if (!_buf) {
             SetSyscallError();
             return;
         }
-        int rc = getpwnam_r(_user.c_str(), &_pwd, _buf.get(), PASSWD_BUF_SIZE, &_getpwnam_res);
+        int rc = getpwnam_r(_user.c_str(), &_pwd, _buf.get(), passwd_buf_size, &_getpwnam_res);
         if (rc != 0) {
             SetSyscallError();
             return;
@@ -2415,11 +2415,7 @@ fs_napi(Napi::Env env, Napi::Object exports)
     exports_fs["DT_DIR"] = Napi::Number::New(env, DT_DIR);
     exports_fs["DT_LNK"] = Napi::Number::New(env, DT_LNK);
     exports_fs["PLATFORM_IOV_MAX"] = Napi::Number::New(env, IOV_MAX);
-    long passwd_bufsize = sysconf(_SC_GETPW_R_SIZE_MAX);
-    if (passwd_bufsize == -1) {
-        passwd_bufsize = 16384;
-    }
-    PASSWD_BUF_SIZE = passwd_bufsize;
+    ThreadScope::init_passwd_buf_size();
 
 
 #ifdef O_DIRECT

@@ -729,30 +729,27 @@ mocha.describe('lifecycle', () => {
         mocha.it('lifecyle - version not expiration - delete marker true', async () => {
             const days = 30;
             const version_count = 10;
-            const newnon_current_version = 0;
             const noncurrent_days = 15;
             const version_bucket_key = 'test-lifecycle-version5';
             // create_time updated to 29 days and expire is 30 days,
             await create_mock_version(version_bucket_key, version_bucket, days - 1, version_count, true);
             const putLifecycleParams = commonTests.version_lifecycle_configuration(version_bucket,
-                                            version_bucket_key, days, newnon_current_version, noncurrent_days);
+                                            version_bucket_key, days, undefined, noncurrent_days);
 
             await s3.putBucketLifecycleConfiguration(putLifecycleParams);
             await lifecycle.background_worker();
             // remove all the noncurrent version because the noncurrent_days is 15(< 30) and 
-            // newnon_current_version is 0. Only current version exists
             await verify_version_deleted(1, version_bucket_key);
         });
 
         mocha.it('lifecyle - version expiration all - delete marker true', async () => {
             const days = 30;
             const version_count = 10;
-            const newnon_current_version = 0;
             const noncurrent_days = 15;
             const version_bucket_key = 'test-lifecycle-version6';
             await create_mock_version(version_bucket_key, version_bucket, days + noncurrent_days + 1, version_count, true);
             const putLifecycleParams = commonTests.version_lifecycle_configuration(version_bucket,
-                                            version_bucket_key, days, newnon_current_version, noncurrent_days);
+                                            version_bucket_key, days, undefined, noncurrent_days);
             await s3.putBucketLifecycleConfiguration(putLifecycleParams);
             await lifecycle.background_worker();
             await verify_version_deleted(2, version_bucket_key);

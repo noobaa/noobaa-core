@@ -46,8 +46,8 @@ const FROM_FILE = 'from_file';
 const ANONYMOUS = 'anonymous';
 
 const VALID_OPTIONS_ACCOUNT = {
-    'add': new Set(['name', 'uid', 'gid', 'supplemental_groups', 'new_buckets_path', 'user', 'access_key', 'secret_key', 'fs_backend', 'allow_bucket_creation', 'force_md5_etag', 'iam_operate_on_root_account', FROM_FILE, ...CLI_MUTUAL_OPTIONS]),
-    'update': new Set(['name', 'uid', 'gid', 'supplemental_groups', 'new_buckets_path', 'user', 'access_key', 'secret_key', 'fs_backend', 'allow_bucket_creation', 'force_md5_etag', 'iam_operate_on_root_account', 'new_name', 'regenerate', ...CLI_MUTUAL_OPTIONS]),
+    'add': new Set(['name', 'uid', 'gid', 'supplemental_groups', 'new_buckets_path', 'user', 'access_key', 'secret_key', 'fs_backend', 'allow_bucket_creation', 'force_md5_etag', 'iam_operate_on_root_account', 'default_connection', FROM_FILE, ...CLI_MUTUAL_OPTIONS]),
+    'update': new Set(['name', 'uid', 'gid', 'supplemental_groups', 'new_buckets_path', 'user', 'access_key', 'secret_key', 'fs_backend', 'allow_bucket_creation', 'force_md5_etag', 'iam_operate_on_root_account', 'new_name', 'regenerate', 'default_connection', ...CLI_MUTUAL_OPTIONS]),
     'delete': new Set(['name', ...CLI_MUTUAL_OPTIONS]),
     'list': new Set(['wide', 'show_secrets', 'gid', 'uid', 'user', 'name', 'access_key', ...CLI_MUTUAL_OPTIONS]),
     'status': new Set(['name', 'access_key', 'show_secrets', ...CLI_MUTUAL_OPTIONS]),
@@ -142,6 +142,7 @@ const OPTION_TYPE = {
     ips: 'string',
     force: 'boolean',
     anonymous: 'boolean',
+    default_connection: 'string',
     // health options
     deployment_type: 'string',
     all_account_details: 'boolean',

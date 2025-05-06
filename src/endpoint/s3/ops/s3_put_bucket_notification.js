@@ -10,6 +10,7 @@ const notif_util = require('../../../util/notifications_util');
 async function put_bucket_notification(req) {
 
     let topic_configuration = req.body.NotificationConfiguration?.TopicConfiguration;
+    const default_connection = req.object_sdk.requesting_account.default_connection;
 
     //adapt to db shcema
     if (topic_configuration) {
@@ -17,6 +18,30 @@ async function put_bucket_notification(req) {
             conf.id = conf.Id;
             conf.event = conf.Event;
             conf.topic = conf.Topic;
+            //handle Kafka's topic synax, if present
+            if (conf.Topic && conf.Topic.length > 0 && conf.Topic[0].startsWith('kafka:::topic/')) {
+                //kafka_topic_parts is, by index:
+                //kafka_topic_parts[0] = 'kafka:::topic'
+                //kafka_topic_parts[1] = connection, optional
+                //kafka_topic_parts[2] = Kafka topic, mandatory
+                const kafka_topic_parts = conf.Topic[0].split('/');
+                if (kafka_topic_parts.length !== 3) {
+                    throw new S3Error({
+                        code: 'InvalidArgument',
+                        message: "kafka:::topic is invalid. Must be of syntax: kafka:::topic:/connection/topic",
+                        http_code: 400,
+                        detail: conf.Topic[0]
+                    });
+                }
+                //connection is optionally kafka_topic_parts[1], default to account's default_connection
+                let connection = default_connection;
+                if (typeof kafka_topic_parts[1] === 'string' && kafka_topic_parts[1].length > 0) {
+                    connection = kafka_topic_parts[1];
+                }
+                const topic = kafka_topic_parts[2];
+                //write the full Topic string with the connection
+                conf.topic = ['kafka:::topic/' + connection + "/" + topic];
+            }
             delete conf.Id;
             delete conf.Event;
             delete conf.Topic;

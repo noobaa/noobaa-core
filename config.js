@@ -823,7 +823,6 @@ config.NSFS_RANDOM_DELAY_BASE = 70;
 
 config.NSFS_VERSIONING_ENABLED = true;
 config.NSFS_UPDATE_ISSUES_REPORT_ENABLED = true;
-config.NSFS_CONTENT_DIRECTORY_VERSIONING_ENABLED = false;
 
 config.NSFS_EXIT_EVENTS_TIME_FRAME_MIN = 24 * 60; // per day
 config.NSFS_MAX_EXIT_EVENTS_PER_TIME_FRAME = 10; // allow max 10 failed forks per day

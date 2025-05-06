@@ -10,8 +10,6 @@ const buffer_utils = require('../../../util/buffer_utils');
 const { TMP_PATH, IS_GPFS, TEST_TIMEOUT } = require('../../system_tests/test_utils');
 const { crypto_random_string } = require('../../../util/string_utils');
 const endpoint_stats_collector = require('../../../sdk/endpoint_stats_collector');
-const config = require('../../../../config');
-config.NSFS_CONTENT_DIRECTORY_VERSIONING_ENABLED = true;
 
 function make_dummy_object_sdk(nsfs_config, uid, gid) {
     return {
@@ -635,8 +633,7 @@ describe('test versioning concurrency', () => {
         expect(successful_operations).toHaveLength(num_of_concurrency);
         expect(failed_operations).toHaveLength(0);
         const versions = await nsfs.list_object_versions({ bucket: bucket }, DUMMY_OBJECT_SDK);
-        //TODO should be num_of_concurrency + 1 (the null version). list-object-version currently ignores the latest .folder file
-        expect(versions.objects.length).toBe(num_of_concurrency);
+        expect(versions.objects.length).toBe(num_of_concurrency + 1);
     }, TEST_TIMEOUT);
 });
 

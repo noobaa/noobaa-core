@@ -286,7 +286,7 @@ async function delete_bucket(data, force) {
 async function bucket_management(action, user_input) {
     const data = action === ACTIONS.LIST ? undefined : await fetch_bucket_data(action, user_input);
     await manage_nsfs_validations.validate_bucket_args(config_fs, data, action);
-    await manage_nsfs_validations.validate_bucket_notifications(config_fs, user_input.notifications);
+    await manage_nsfs_validations.validate_bucket_notifications(config_fs, user_input);
 
     let response = {};
     if (action === ACTIONS.ADD) {

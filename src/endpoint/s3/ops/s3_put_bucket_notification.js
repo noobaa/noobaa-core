@@ -28,7 +28,7 @@ async function put_bucket_notification(req) {
     //test new notifications.
     //if test notification fails, fail the put op
     const err = await notif_util.test_notifications(topic_configuration,
-        req.object_sdk.nsfs_config_root);
+        req.object_sdk.nsfs_config_root, req);
 
     if (err) {
         let message = "Test notification failed: " + (err.message || err.code);

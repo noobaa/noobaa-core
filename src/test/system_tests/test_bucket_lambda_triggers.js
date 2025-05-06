@@ -130,16 +130,13 @@ async function authenticate() {
     await client.create_auth_token(auth_params);
 }
 
-function prepare_func(fn) {
-    return P.resolve()
-        .then(() => zip_utils.zip_from_files(fn.Files))
-        .then(zipfile => zip_utils.zip_to_buffer(zipfile))
-        .then(zip_buffer => {
-            delete fn.Files;
-            fn.Code = {
-                ZipFile: zip_buffer
-            };
-        });
+async function prepare_func(fn) {
+    const zipfile = await zip_utils.zip_from_files(fn.Files);
+    const zip_buffer = await zip_utils.zip_to_buffer(zipfile);
+    delete fn.Files;
+    fn.Code = {
+        ZipFile: zip_buffer
+    };
 }
 
 function get_new_server(user) {
@@ -218,7 +215,7 @@ async function setup() {
         await client.bucket.create_bucket({
             name: 'ns.external.bucket1',
             namespace: {
-                read_resources: [ nsr1 ],
+                read_resources: [nsr1],
                 write_resource: nsr2
             }
         });

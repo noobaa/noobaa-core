@@ -10,7 +10,6 @@ const path = require('path');
 const moment = require('moment-timezone');
 const blockutils = require('linux-blockutils');
 const child_process = require('child_process');
-const ip_module = require('ip');
 
 const P = require('./promise');
 const dbg = require('./debug_module')(__filename);
@@ -139,8 +138,8 @@ function spawn(command, args, options, ignore_rc, unref, timeout_ms) {
                 resolve(stdout);
             } else {
                 reject(new Error('spawn "' +
-                command + ' ' + args.join(' ') +
-                '" exit with error code ' + code));
+                    command + ' ' + args.join(' ') +
+                    '" exit with error code ' + code));
             }
         });
         proc.on('error', error => {
@@ -168,51 +167,44 @@ function spawn(command, args, options, ignore_rc, unref, timeout_ms) {
 }
 
 
-function os_info() {
+async function os_info() {
 
     //Convert X.Y eth name style to X-Y as mongo doesn't accept . in it's keys
     const orig_ifaces = os.networkInterfaces();
-    const interfaces = _.clone(orig_ifaces);
+    const interfaces = {};
 
-    _.each(orig_ifaces, function(iface, name) {
-        if (name.indexOf('.') !== -1) {
-            const new_name = name.replace(/\./g, '-');
-            interfaces[new_name] = iface;
-            delete interfaces[name];
-        }
-    });
-    return P.resolve()
-        .then(() => _calculate_free_mem())
-        .then(free_mem => ({
-            hostname: os.hostname(),
-            ostype: os.type(),
-            platform: os.platform(),
-            arch: os.arch(),
-            release: os.release(),
-            uptime: Date.now() - Math.floor(1000 * os.uptime()),
-            loadavg: os.loadavg(),
-            totalmem: config.CONTAINER_MEM_LIMIT,
-            freemem: free_mem,
-            cpus: os.cpus(),
-            networkInterfaces: interfaces
-        }));
+    for (const [name, iface] of Object.entries(orig_ifaces)) {
+        const new_name = name.includes('.') ? name.replace(/\./g, '-') : name;
+        interfaces[new_name] = iface;
+    }
+
+    const freemem = await _calculate_free_mem();
+
+    return {
+        hostname: os.hostname(),
+        ostype: os.type(),
+        platform: os.platform(),
+        arch: os.arch(),
+        release: os.release(),
+        uptime: Date.now() - Math.floor(1000 * os.uptime()),
+        loadavg: os.loadavg(),
+        totalmem: config.CONTAINER_MEM_LIMIT,
+        freemem,
+        cpus: os.cpus(),
+        networkInterfaces: interfaces
+    };
 }
 
-function _calculate_free_mem() {
+async function _calculate_free_mem() {
     let res = os.freemem();
     const KB_TO_BYTE = 1024;
     if (!IS_MAC) {
-        return P.resolve()
-            // get OS cached mem
-            .then(() => _exec_and_extract_num('cat /proc/meminfo | grep Buffers', 'Buffers:')
-                .then(buffers_mem_in_kb => {
-                    res += (buffers_mem_in_kb * KB_TO_BYTE);
-                }))
-            .then(() => _exec_and_extract_num('cat /proc/meminfo | grep Cached | grep -v SwapCached', 'Cached:')
-                .then(cached_mem_in_kb => {
-                    res += (cached_mem_in_kb * KB_TO_BYTE);
-                }))
-            .then(() => res);
+        // get OS cached mem
+        const buffers_mem_in_kb = await _exec_and_extract_num('cat /proc/meminfo | grep Buffers', 'Buffers:');
+        res += (buffers_mem_in_kb * KB_TO_BYTE);
+
+        const cached_mem_in_kb = await _exec_and_extract_num('cat /proc/meminfo | grep Cached | grep -v SwapCached', 'Cached:');
+        res += (cached_mem_in_kb * KB_TO_BYTE);
     }
     return res;
 }
@@ -276,21 +268,22 @@ function get_main_drive_name() {
     return '/';
 }
 
-function get_distro() {
+// get the distribution name and version (I don't really sure why we need a distro)
+async function get_distro() {
     if (IS_MAC) {
-        return P.resolve('OSX - Darwin');
+        return 'OSX - Darwin';
     }
-    return P.fromCallback(callback => os_detailed_info(callback))
-        .then(distro => {
-            let res = '';
-            if (distro && distro.dist) {
-                res = distro.dist;
-                if (distro.release) res += ` ${distro.release}`;
-                if (distro.codename) res += ` (${distro.codename})`;
-            }
-            if (!res) throw new Error('unknown distro');
-            return res;
-        });
+
+    const async_os_detailed_info = util.promisify(os_detailed_info);
+
+    const distro = await async_os_detailed_info();
+    if (distro && distro.dist) {
+        let res = distro.dist;
+        if (distro.release) res += ` ${distro.release}`;
+        if (distro.codename) res += ` (${distro.codename})`;
+        return res;
+    }
+    throw new Error('unknown distro');
 }
 
 // calculate cpu)
@@ -505,15 +498,6 @@ function top_single(dst) {
     }
 }
 
-function slabtop(dst) {
-    const file_redirect = dst ? ' &> ' + dst : '';
-    if (IS_LINUX) {
-        return exec('slabtop -o' + file_redirect);
-    } else {
-        return P.resolve();
-    }
-}
-
 async function _get_dns_servers_in_forwarders_file() {
     if (!IS_LINUX) return [];
 
@@ -687,161 +671,18 @@ function restart_noobaa_services() {
     });
 }
 
-function set_hostname(hostname) {
+async function set_hostname(hostname) {
     if (!IS_LINUX) {
-        return P.resolve();
+        return;
     }
 
-    return exec(`hostname ${hostname}`)
-        .then(() => exec(`sed -i "s/^HOSTNAME=.*/HOSTNAME=${hostname}/g" /etc/sysconfig/network`)); // keep it permanent
+    await exec(`hostname ${hostname}`);
+    await exec(`sed -i "s/^HOSTNAME=.*/HOSTNAME=${hostname}/g" /etc/sysconfig/network`); // keep it permanent
 }
 
 function is_valid_hostname(hostname_string) {
     const hostname_regex = /^(([a-zA-Z]|[a-zA-Z][a-zA-Z0-9-]*[a-zA-Z0-9])\.)*([A-Za-z]|[A-Za-z][A-Za-z0-9-]*[A-Za-z0-9])$/;
     return Boolean(hostname_regex.exec(hostname_string));
-}
-
-
-function is_port_range_open_in_firewall(dest_ips, start_port, end_port) {
-    return P.resolve()
-        .then(() => {
-            if (IS_LINUX) {
-                return _check_ports_on_linux(dest_ips, start_port, end_port);
-            }
-            return true;
-        })
-        .catch(err => {
-            dbg.error('got error on is_port_range_open_in_firewall', err);
-            return true;
-        });
-}
-
-
-function _check_ports_on_linux(dest_ips, start_port, end_port) {
-    // get iptables rules and check port range against it.
-    return get_distro()
-        .then(distro => {
-            // for now skip centos 7 since it is not using iptables
-            if (distro.startsWith('Centos 7')) return [];
-            return get_iptables_rules();
-        })
-        .then(rules => {
-            const filtered_rules = rules.filter(rule => {
-                if (
-                    // filter out rules on loopback interface
-                    rule.in === 'lo' ||
-
-                    // remove reject rules on specific interfaces, since we don't know on which interface
-                    // we will receive packets. we prefer to not give false positive (on firewall blocking)
-                    (rule.target === 'REJECT' && rule.in !== '*') ||
-
-                    // filter out rules that are not relevant for the given ips.
-                    // TODO: this is not a perfect solution. the real solution should be to get both the
-                    // interface name and address, and check for match on both. we still do not know on
-                    // what interface the traffic is coming so it's still need to be resolved
-                    dest_ips.every(dest_ip => !ip_module.cidrSubnet(rule.dst).contains(dest_ip)) ||
-
-                    // filter non tcp rules
-                    (rule.protocol !== 'tcp' && rule.protocol !== 'all') ||
-
-                    // filter out rules that are not relevant to new connections
-                    !rule.new_connection
-
-                ) {
-                    return false;
-                }
-                // otherwise return true
-                return true;
-            });
-            if (!filtered_rules.length) {
-                return true;
-            }
-
-            const ports_groups = _.groupBy(_.range(start_port, end_port + 1), port => {
-                // go over all relevant rules, and look for the first matching rule (maybe partial match)
-                for (const rule of filtered_rules) {
-                    if (port >= rule.start_port && port <= rule.end_port) {
-                        // the rule matches some of the range. return if accept or reject
-                        return rule.allow ? 'allowed' : 'blocked';
-                    }
-                }
-                return 'allowed';
-            });
-            dbg.log0(`is_port_range_open_in_firewall: checked range [${start_port}, ${end_port}]:`, ports_groups);
-            // for now if any port in the range is blocked, return false
-            return _.isUndefined(ports_groups.blocked);
-        });
-}
-
-function get_iptables_rules() {
-    if (!IS_LINUX) {
-        return P.resolve([]);
-    }
-    const iptables_command = 'iptables -L INPUT -nv';
-    return exec(iptables_command, {
-            ignore_rc: false,
-            return_stdout: true,
-            timeout: 10000
-        })
-        .then(output => {
-            // split output to lines, and remove first two lines (title lines) and empty lines
-            const raw_rules = output.split('\n')
-                .slice(2)
-                .filter(line => Boolean(line.length));
-            return raw_rules.map(line => {
-                line = line.trim();
-                // split by spaces to different attributes, but limit to 9. the last attribute
-                // can contain spaces, so we will extract it separately
-                const attributes = line.split(/\s+/, 9);
-                if (attributes.length !== 9) {
-                    throw new Error('Failed parsing iptables output. expected split to return 9 fields');
-                }
-                // split again by the last attribute, and take the last element
-                const last_attr = attributes[8];
-                const last_attr_split = line.split(last_attr);
-                const info = last_attr_split[last_attr_split.length - 1].trim();
-                // get the port out of the additional information
-                let start_port = 0; // default to 0
-                let end_port = (2 ** 16) - 1; // default to max port value
-                const dpt = 'dpt:';
-                const dports = 'dports ';
-                const dpt_index = info.indexOf(dpt);
-                const dports_index = info.indexOf(dports);
-                if (dpt_index !== -1) {
-                    // cut info to start with the port number
-                    const dpt_substr = info.substring(dpt_index + dpt.length);
-                    start_port = parseInt(dpt_substr.split(' ')[0], 10);
-                    end_port = start_port;
-                } else if (dports_index > -1) {
-                    // port range rule
-                    const dports_substr = info.substring(dports_index + dports.length);
-                    const ports_str = dports_substr.split(' ')[0];
-                    const ports = ports_str.split(':');
-                    start_port = parseInt(ports[0], 10);
-                    if (ports.length === 2) {
-                        end_port = parseInt(ports[1], 10);
-                    } else {
-                        end_port = start_port;
-                    }
-                }
-                // is the rule relevant for new connections
-                const new_connection = info.indexOf('state ') === -1 || info.indexOf('NEW') > -1;
-                return {
-                    allow: attributes[2] === 'ACCEPT',
-                    protocol: attributes[3],
-                    in: attributes[5],
-                    src: attributes[7],
-                    dst: attributes[8],
-                    new_connection,
-                    start_port,
-                    end_port,
-                };
-            });
-        })
-        .catch(err => {
-            dbg.error(`got error on get_iptables_rules:`, err);
-            return [];
-        });
 }
 
 async function discover_k8s_services(app = config.KUBE_APP_LABEL) {
@@ -1011,7 +852,6 @@ exports._df = _df;
 exports.get_mount_of_path = get_mount_of_path;
 exports.get_drive_of_path = get_drive_of_path;
 exports.top_single = top_single;
-exports.slabtop = slabtop;
 exports.get_time_config = get_time_config;
 exports.get_local_ipv4_ips = get_local_ipv4_ips;
 exports.get_networking_info = get_networking_info;
@@ -1025,8 +865,6 @@ exports.is_valid_hostname = is_valid_hostname;
 exports.get_disk_mount_points = get_disk_mount_points;
 exports.get_distro = get_distro;
 exports.calc_cpu_usage = calc_cpu_usage;
-exports.is_port_range_open_in_firewall = is_port_range_open_in_firewall;
-exports.get_iptables_rules = get_iptables_rules;
 exports.get_services_ps_info = get_services_ps_info;
 exports.get_process_parent_pid = get_process_parent_pid;
 exports.get_agent_platform_path = get_agent_platform_path;

@@ -161,7 +161,7 @@ class Notificator {
 
     async handle_failed_notification(notif, failure_append, err) {
         if (this.nc_config_fs) {
-            new NoobaaEvent(NoobaaEvent.NOTIFICATION_FAILED).create_event(notif?.meta?.name, err, err.toString());
+            new NoobaaEvent(NoobaaEvent.NOTIFICATION_FAILED).create_event(notif?.meta?.name, err, err?.toString());
         }
 
         if (notif) {

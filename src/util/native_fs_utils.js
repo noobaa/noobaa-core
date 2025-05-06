@@ -489,7 +489,7 @@ async function get_user_by_distinguished_name({ distinguished_name }) {
         const user = await nb_native().fs.getpwname(context, distinguished_name);
         return user;
     } catch (err) {
-        dbg.error('native_fs_utils.get_user_by_distinguished_name: failed with error', err, distinguished_name);
+        dbg.error('native_fs_utils.get_user_by_distinguished_name: failed with error', err, err.code, distinguished_name);
         if (err.code !== undefined) throw err;
         throw new RpcError('NO_SUCH_USER', 'User with distinguished_name not found', err);
     }

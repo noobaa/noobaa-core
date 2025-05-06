@@ -28,6 +28,15 @@ function nb_native() {
     inherits(nb_native_nan.Ntcp, events.EventEmitter);
     _.defaults(nb_native_napi, nb_native_nan);
 
+    // GGG HACK TRACING STAT CALLS - TODO: REMOVE
+    if (process.env.GGG_TRACE_STAT === 'true') {
+        const original_stat = nb_native_napi.fs.stat;
+        nb_native_napi.fs.stat = function(...args) {
+            console.trace('fs.stat', ...args, new Error('TRACE').stack);
+            return original_stat(...args);
+        };
+    }
+
     if (process.env.DISABLE_INIT_RANDOM_SEED !== 'true') {
         init_rand_seed();
     }
@@ -53,13 +62,13 @@ async function init_rand_seed() {
 
     const seed = await read_rand_seed(32);
     if (seed) {
-        console.log(`init_rand_seed: seeding with ${seed.length} bytes`);
+        // console.log(`init_rand_seed: seeding with ${seed.length} bytes`);
         nb_native_napi.rand_seed(seed);
     }
 
     still_reading = false;
     await promise;
-    console.log('init_rand_seed: done');
+    // console.log('init_rand_seed: done');
 }
 
 async function read_rand_seed(seed_bytes) {

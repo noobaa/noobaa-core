@@ -1,17 +1,17 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const _ = require('lodash');
 const AWS = require('aws-sdk');
 const argv = require('minimist')(process.argv);
 const http = require('http');
 const https = require('https');
 
-const P = require('../../util/promise');
 const Speedometer = require('../../util/speedometer');
 const RandStream = require('../../util/rand_stream');
 
+// @ts-ignore
 http.globalAgent.keepAlive = true;
+// @ts-ignore
 https.globalAgent.keepAlive = true;
 
 if (argv.endpoint) {
@@ -27,7 +27,6 @@ argv.concur = argv.concur || 16;
 argv.count = argv.count || 1;
 argv.workers = argv.workers || 1;
 
-const speedometer = new Speedometer('Capacity Upload Speed');
 const s3 = new AWS.S3({
     endpoint: argv.endpoint,
     accessKeyId: argv.access_key,
@@ -37,9 +36,6 @@ const s3 = new AWS.S3({
     computeChecksums: argv.checksum || false, // disabled by default for performance
     s3DisableBodySigning: !argv.signing || true, // disabled by default for performance
     region: argv.region || 'us-east-1',
-    params: {
-        Bucket: argv.bucket
-    },
 });
 
 // AWS config does not use https.globalAgent
@@ -54,6 +50,7 @@ if (s3.endpoint.protocol === 'https:') {
         }
     });
     if (!argv.selfsigned) {
+        // @ts-ignore
         AWS.events.on('error', err => {
             if (err.message === 'self signed certificate') {
                 setTimeout(() => console.log(
@@ -64,17 +61,34 @@ if (s3.endpoint.protocol === 'https:') {
     }
 }
 
-function upload_file() {
+const speedometer = new Speedometer({
+    name: 'Capacity Upload Speed',
+    argv,
+    workers_func,
+});
+speedometer.start();
+
+async function workers_func() {
+    await Promise.all(Array(argv.workers).fill(0).map(() => worker()));
+}
+
+async function worker() {
+    for (let i = 0; i < argv.count; ++i) {
+        await speedometer.measure(upload_file);
+    }
+}
+
+async function upload_file() {
     const key = `${argv.dir}capacity-${Date.now()}-${Math.floor(Math.random() * 1000000)}`;
     console.log(ts(), 'upload start:', key, '...');
-    let last_progress = 0;
     const upload_params = {
+        Bucket: argv.bucket,
         Key: key,
         Body: new RandStream(argv.file_size, {
             highWaterMark: argv.part_size,
         }),
         ContentType: 'application/octet-stream',
-        ContentLength: argv.file_size
+        ContentLength: argv.file_size,
     };
     const upload = argv.multipart ?
         s3.upload(upload_params, {
@@ -82,31 +96,20 @@ function upload_file() {
             queueSize: argv.concur
         }) :
         s3.putObject(upload_params);
+
+    let last_progress = 0;
     upload.on('httpUploadProgress', progress => {
         speedometer.update(progress.loaded - last_progress);
         last_progress = progress.loaded;
     });
-    return P.fromCallback(callback => upload.send(callback))
-        .then(() => console.log(ts(), 'upload done.', key))
-        .catch(err => {
-            console.error(ts(), 'UPLOAD ERROR', err);
-            return P.delay(1000);
-        });
-}
 
-function main() {
-    P.all(_.times(argv.workers, function worker() {
-            if (argv.count <= 0) return;
-            argv.count -= 1;
-            return upload_file().then(worker);
-        }))
-        .then(() => speedometer.report());
+    await upload.send();
+    console.log(ts(), 'upload done.', key);
+
+    // size already counted by httpUploadProgress event
+    return 0;
 }
 
 function ts() {
     return new Date().toISOString();
-}
-
-if (require.main === module) {
-    main();
 }

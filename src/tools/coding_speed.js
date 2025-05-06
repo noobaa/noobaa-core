@@ -7,7 +7,6 @@ const _ = require('lodash');
 const argv = require('minimist')(process.argv);
 const stream = require('stream');
 const assert = require('assert');
-const cluster = require('cluster');
 const crypto = require('crypto');
 
 const config = require('../../config');
@@ -15,7 +14,6 @@ const ChunkCoder = require('../util/chunk_coder');
 const RandStream = require('../util/rand_stream');
 const Speedometer = require('../util/speedometer');
 const ChunkEraser = require('../util/chunk_eraser');
-const stream_utils = require('../util/stream_utils');
 const ChunkSplitter = require('../util/chunk_splitter');
 const FlattenStream = require('../util/flatten_stream');
 // const CoalesceStream = require('../util/coalesce_stream');
@@ -35,17 +33,15 @@ argv.verbose = Boolean(argv.verbose); // default is false
 argv.sse_c = Boolean(argv.sse_c); // default is false
 delete argv._;
 
-const master_speedometer = new Speedometer('Total Speed');
-const speedometer = new Speedometer('Chunk Coder Speed');
+const speedometer = new Speedometer({
+    name: 'Chunk Coder Speed',
+    argv,
+    num_workers: argv.forks,
+    workers_func,
+});
+speedometer.start();
 
-if (argv.forks > 1 && cluster.isMaster) {
-    master_speedometer.fork(argv.forks);
-} else {
-    main();
-}
-
-function main() {
-    console.log('Arguments:', JSON.stringify(argv, null, 2));
+async function workers_func() {
 
     const chunk_split_config = {
         avg_chunk: config.CHUNK_SPLIT_AVG_CHUNK,
@@ -106,11 +102,10 @@ function main() {
 
     let total_size = 0;
     let num_parts = 0;
-    const reporter = new stream.Transform({
+    const reporter = new stream.Writable({
         objectMode: true,
-        allowHalfOpen: false,
         highWaterMark: 50,
-        transform(chunk, encoding, callback) {
+        write(chunk, encoding, callback) {
             if (argv.verbose) console.log({ ...chunk, data: 'ommitted' });
             if (argv.compare && chunk.original_data) {
                 assert(Buffer.concat(chunk.original_data).equals(chunk.data));
@@ -122,7 +117,7 @@ function main() {
         }
     });
 
-    /** @type {stream.Stream[]} */
+    /** @type {(stream.Readable | stream.Transform | stream.Writable)[]} */
     const transforms = [
         input,
         splitter,
@@ -137,22 +132,22 @@ function main() {
         transforms.push(new FlattenStream());
     }
     transforms.push(reporter);
-    return stream_utils.pipeline(transforms)
-        .then(() => {
-            console.log('AVERAGE CHUNK SIZE', (total_size / num_parts).toFixed(0));
-            if (splitter.md5) {
-                console.log('MD5 =', splitter.md5.toString('base64'));
-            }
-            if (splitter.sha256) {
-                console.log('SHA256 =', splitter.sha256.toString('base64'));
-            }
-        })
-        .catch(err => {
-            if (!err.chunks) throw err;
-            let message = '';
-            for (const chunk of err.chunks) {
-                message += 'CHUNK ERRORS: ' + chunk.errors.join(',') + '\n';
-            }
-            throw new Error(err.message + '\n' + message);
-        });
+
+    try {
+        await stream.promises.pipeline(transforms);
+        console.log('AVERAGE CHUNK SIZE', (total_size / num_parts).toFixed(0));
+        if (splitter.md5) {
+            console.log('MD5 =', splitter.md5.toString('base64'));
+        }
+        if (splitter.sha256) {
+            console.log('SHA256 =', splitter.sha256.toString('base64'));
+        }
+    } catch (err) {
+        if (!err.chunks) throw err;
+        let message = '';
+        for (const chunk of err.chunks) {
+            message += 'CHUNK ERRORS: ' + chunk.errors.join(',') + '\n';
+        }
+        throw new Error(err.message + '\n' + message);
+    }
 }

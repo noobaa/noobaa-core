@@ -5,7 +5,7 @@ import * as mongodb from 'mongodb';
 import { EventEmitter } from 'events';
 import { Readable, Writable } from 'stream';
 import { IncomingMessage, ServerResponse } from 'http';
-import { ObjectPart, Checksum} from '@aws-sdk/client-s3';
+import { ObjectPart, Checksum } from '@aws-sdk/client-s3';
 
 type Semaphore = import('../util/semaphore').Semaphore;
 type KeysSemaphore = import('../util/keys_semaphore');
@@ -29,7 +29,19 @@ type NodeType =
 
 type S3Response = ServerResponse;
 type S3Request = IncomingMessage & {
+    query: any;
+    body?: any;
+    params: {
+        bucket: string;
+        key: string;
+    },
+    op_name: string;
     object_sdk: ObjectSDK;
+    virtual_hosted_bucket?: string;
+    content_md5?: Buffer;
+    content_sha256_buf?: Buffer;
+    content_sha256_sig?: string;
+    chunked_content?: boolean;
 };
 
 type ReplicationLogAction = 'copy' | 'delete' | 'conflict';
@@ -826,15 +838,15 @@ interface Namespace {
     get_blob_block_lists(params: object, object_sdk: ObjectSDK): Promise<any>;
 
     restore_object(params: object, object_sdk: ObjectSDK): Promise<any>;
-    get_object_attributes(params: object, object_sdk: ObjectSDK): Promise<any>;
+    get_object_attribute?(params: object, object_sdk: ObjectSDK): Promise<any>;
 }
 
 interface BucketSpace {
 
     read_account_by_access_key({ access_key: string }): Promise<any>;
     read_bucket_sdk_info({ name: string }): Promise<any>;
-    check_same_stat_bucket(bucket_name: string, bucket_stat:  nb.NativeFSStats); // only implemented in bucketspace_fs
-    check_same_stat_account(account_name: string|Symbol, account_stat:  nb.NativeFSStats); // only implemented in bucketspace_fs
+    check_same_stat_bucket(bucket_name: string, bucket_stat: nb.NativeFSStats); // only implemented in bucketspace_fs
+    check_same_stat_account(account_name: string | Symbol, account_stat: nb.NativeFSStats); // only implemented in bucketspace_fs
 
     list_buckets(params: object, object_sdk: ObjectSDK): Promise<any>;
     read_bucket(params: object): Promise<any>;
@@ -946,6 +958,10 @@ interface Native {
 
     S3Select: { new(options: S3SelectOptions): S3Select };
     select_parquet: boolean;
+
+    RdmaServerNapi: { new(params: RdmaServerNapiParams): RdmaServerNapi };
+    RdmaClientNapi: { new(): RdmaClientNapi };
+    CudaMemory: { new(size: number): CudaMemory };
 }
 
 interface NativeFS {
@@ -1145,6 +1161,65 @@ interface S3Select {
     select_parquet(): Promise<Buffer>;
 }
 
+interface RdmaInfo {
+    desc: string;
+    addr: string;
+    size: number;
+    offset: number;
+}
+
+interface RdmaReply {
+    size: number;
+}
+
+interface RdmaServerNapiParams {
+    ip: string;
+    port: number;
+    log_level?: 'ERROR' | 'INFO' | 'DEBUG';
+    use_async_events?: boolean;
+    num_dcis?: number;
+    cq_depth?: number;
+    dc_key?: number;
+    ibv_poll_max_comp_event?: number;
+    service_level?: number;
+    min_rnr_timer?: number;
+    hop_limit?: number;
+    pkey_index?: number;
+    max_wr?: number;
+    max_sge?: number;
+    delay_mode?: number;
+    delay_interval?: number;
+}
+
+interface RdmaServerNapi {
+    register_buffer(buf: Buffer): void;
+    deregister_buffer(buf: Buffer): void;
+    is_registered_buffer(buf: Buffer): boolean;
+    rdma(
+        op_type: 'GET' | 'PUT',
+        op_key: string,
+        buf: Buffer,
+        rdma_info: RdmaInfo,
+    ): Promise<number>;
+}
+
+interface RdmaClientNapi {
+    rdma(
+        op_type: 'GET' | 'PUT',
+        buf: Buffer,
+        func: (rdma_info: RdmaInfo, callback: NodeCallback<number>) => void,
+    ): Promise<number>;
+}
+
+interface CudaMemory {
+    free(): void;
+    fill(value: number, start?: number, end?: number): number;
+    as_buffer(start?: number, end?: number): Buffer;
+    copy_to_host_new(start?: number, end?: number): Buffer;
+    copy_to_host(buffer: Buffer, start?: number, end?: number): number;
+    copy_from_host(buffer: Buffer, start?: number, end?: number): number;
+}
+
 type NodeCallback<T = void> = (err: Error | null, res?: T) => void;
 
 type RestoreState = 'CAN_RESTORE' | 'ONGOING' | 'RESTORED';
@@ -1178,4 +1253,4 @@ interface GetObjectAttributesParts {
     MaxParts?: number;
     IsTruncated?: boolean;
     Parts?: ObjectPart[];
-  }
+}

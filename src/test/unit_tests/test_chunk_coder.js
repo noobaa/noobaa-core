@@ -254,7 +254,7 @@ mocha.describe('nb_native chunk_coder', function() {
 
 async function test_stream({ erase, decode, generator, input_size, chunk_split_config, chunk_coder_config }) {
     try {
-        const speedometer = new Speedometer('Chunk Coder Speed');
+        const speedometer = new Speedometer({ name: 'Chunk Coder Speed' });
 
         const input = new RandStream(input_size, {
             highWaterMark: 16 * 1024,
@@ -285,27 +285,28 @@ async function test_stream({ erase, decode, generator, input_size, chunk_split_c
             coder: 'dec',
         });
 
-        const reporter = new stream.Transform({
+        let count = 0;
+        let pos = 0;
+        const reporter = new stream.Writable({
             objectMode: true,
-            allowHalfOpen: false,
             highWaterMark: 50,
-            transform(chunk, encoding, callback) {
-                this.count = (this.count || 0) + 1;
-                this.pos = this.pos || 0;
+            write(chunk, encoding, callback) {
+                count += 1;
                 // checking the position is continuous
-                assert.strictEqual(this.pos, chunk.pos);
-                this.pos += chunk.size;
+                assert.strictEqual(pos, chunk.pos);
+                pos += chunk.size;
                 speedometer.update(chunk.size);
                 callback();
             },
-            flush(callback) {
+            final(callback) {
                 speedometer.clear_interval();
-                // speedometer.report();
-                // console.log('AVERAGE CHUNK SIZE', (this.pos / this.count).toFixed(0));
+                speedometer.summary();
+                console.log('AVERAGE CHUNK SIZE', (pos / count).toFixed(0));
                 callback();
             }
         });
 
+        /** @type {(stream.Readable | stream.Transform | stream.Writable)[]} */
         const transforms = [input,
             splitter,
             coder,

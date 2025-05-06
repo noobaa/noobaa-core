@@ -1,6 +1,7 @@
 # BUILD
 node_modules
 /build
+/target
 /noobaa.rpm
 
 # TEST

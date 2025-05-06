@@ -16,6 +16,7 @@ const { TYPES, ACTIONS, VALID_OPTIONS, OPTION_TYPE, FROM_FILE, BOOLEAN_STRING_VA
 const { check_root_account_owns_user } = require('../nc/nc_utils');
 const { validate_username } = require('../util/validation_utils');
 const notifications_util = require('../util/notifications_util');
+const crypto = require('crypto');
 
 /////////////////////////////
 //// GENERAL VALIDATIONS ////
@@ -454,15 +455,21 @@ async function validate_bucket_args(config_fs, data, action) {
  * When setting notifications, we are supposed to send a test notification.
  * If this test fails, we fail the user's request.
  * @param {object} config_fs
- * @param {object} notifications bucket's notification conf
+ * @param {object} user_input user's input, including new notifications, if any
  * @returns {Promise} Error encountered during notification test, if any
  */
-async function validate_bucket_notifications(config_fs, notifications) {
-    if (!notifications) {
+async function validate_bucket_notifications(config_fs, user_input) {
+    if (!user_input.notifications) {
         return;
     }
     //test_notification returns an error if notification fails for the given config
-    const test_notif_err = await notifications_util.test_notifications(notifications, config_fs.config_root);
+    const test_notif_err = await notifications_util.test_notifications(
+        user_input.notifications,
+        config_fs.config_root,
+        {
+            params: {bucket: user_input.name},
+            request_id: crypto.randomUUID().toString()
+        });
     if (test_notif_err) {
         throw_cli_error(ManageCLIError.InvalidArgument, "Failed to update notifications", test_notif_err);
     }

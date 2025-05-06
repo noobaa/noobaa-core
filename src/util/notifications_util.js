@@ -161,7 +161,7 @@ class Notificator {
 
     async handle_failed_notification(notif, failure_append, err) {
         if (this.nc_config_fs) {
-            new NoobaaEvent(NoobaaEvent.NOTIFICATION_FAILED).create_event(notif?.meta?.name, err, err.toString());
+            new NoobaaEvent(NoobaaEvent.NOTIFICATION_FAILED).create_event(notif?.meta?.name, err, err?.toString());
         }
 
         if (notif) {
@@ -343,7 +343,7 @@ function get_connection(connect) {
  * @returns {Promise} Error while testing, if any.
  */
 
-async function test_notifications(notifs, nc_config_dir) {
+async function test_notifications(notifs, nc_config_dir, req) {
     //notifs can be empty in case we're removing the notification from the bucket
     if (!notifs) {
         return;
@@ -364,7 +364,7 @@ async function test_notifications(notifs, nc_config_dir) {
             connect = await notificator.parse_connect_file(notif.topic[0]);
             connection = get_connection(connect);
             await connection.connect();
-            await connection.promise_notify({notif: "test notification"}, async (notif_cb, err_cb, err) => {
+            await connection.promise_notify(compose_notification_test(req), async (notif_cb, err_cb, err) => {
                 failure = true;
                 notif_failure = err;
             });
@@ -496,12 +496,28 @@ function compose_meta(record, notif_conf, bucket) {
     };
 }
 
+function compose_notification_test(req) {
+    return {
+        notif: {
+            Records: [{
+                Service: "NooBaa",
+                Event: "s3:TestEvent",
+                Time: new Date().toISOString(),
+                Bucket: req.params.bucket,
+                RequestId: req.request_id,
+                HostId: process.env.NODE_NAME || os.hostname()
+            }]
+        }
+    };
+}
+
 function _get_system_name(req) {
 
+    //in NC case - return node name
     if (req && req.object_sdk && req.object_sdk.nsfs_system) {
-        const name = Object.keys(req.object_sdk.nsfs_system)[0];
+        const name = process.env.NODE_NAME || os.hostname();
         return name;
-    } else {
+    } else { //in containerized - return system's name
         //see comment on Notificator._can_run() for the require here
         const system_store = require('../server/system_services/system_store').get_instance();
         return system_store.data.systems[0].name;

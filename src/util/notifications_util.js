@@ -193,7 +193,7 @@ class Notificator {
         if (connection_name.startsWith("kafka:::topic/")) {
             const connection_parts = connection_name.split('/');
             connect_filename = connection_parts[1];
-            kafka_topic_from_connection_name = connection_parts.length > 2 && connection_parts[3];
+            kafka_topic_from_connection_name = connection_parts.length > 1 && connection_parts[2];
         }
 
         if (this.nc_config_fs) {

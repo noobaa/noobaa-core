@@ -293,16 +293,19 @@ async function authorize_request_policy(req) {
             s3_policy, account_identifier_id, method, arn_path, req, public_access_block_cfg?.public_access_block?.restrict_public_buckets);
         dbg.log3('authorize_request_policy: permission_by_id', permission_by_id);
     }
-    if (permission_by_id === "DENY") throw new S3Error(S3Error.AccessDenied);
 
-    if ((!account_identifier_id || permission_by_id !== "DENY") && account.owner === undefined) {
+    if (permission_by_id === "ALLOW") return;
+
+    if ((!account_identifier_id || permission_by_id === "DENY" || permission_by_id === "IMPLICIT_DENY") && account.owner === undefined) {
         permission_by_name = await s3_bucket_policy_utils.has_bucket_policy_permission(
             s3_policy, account_identifier_name, method, arn_path, req, public_access_block_cfg?.public_access_block?.restrict_public_buckets
         );
         dbg.log3('authorize_request_policy: permission_by_name', permission_by_name);
     }
+
     if (permission_by_name === "DENY") throw new S3Error(S3Error.AccessDenied);
-    if ((permission_by_id === "ALLOW" || permission_by_name === "ALLOW") || is_owner) return;
+    // Allow access if either ID or Name has ALLOW permission, or if the user is the owner
+    if (permission_by_id === "ALLOW" || permission_by_name === "ALLOW" || is_owner) return;
 
     throw new S3Error(S3Error.AccessDenied);
 }

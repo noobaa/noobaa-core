@@ -1653,7 +1653,6 @@ function get_bucket_info({
         website: bucket.website,
         s3_policy: bucket.s3_policy,
         replication_policy_id: bucket.replication_policy_id,
-        lifecycle_configuration_rules: bucket.lifecycle_configuration_rules,
     };
 
     const metrics = _calc_metrics({ bucket, nodes_aggregate_pool, hosts_aggregate_pool, tiering_pools_status, info });

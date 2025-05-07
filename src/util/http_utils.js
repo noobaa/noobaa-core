@@ -671,20 +671,53 @@ function set_amz_headers(req, res) {
  *
  * @param {Object} req
  * @param {http.ServerResponse} res
+ * @param {Object} object_md
  */
-async function set_expiration_header(req, res) {
-    const rules = req.params.bucket && await req.object_sdk.read_bucket_lifecycle_config_info(req.params.bucket);
-    const object_md = {
-        bucket: req.params.bucket,
-        key: req.params.key,
-        size: req.headers['x-amz-decoded-content-length'] || req.headers['content-length'] ? parse_content_length(req, {
-            ErrorClass: S3Error,
-            error_missing_content_length: S3Error.MissingContentLength
-        }) : undefined,
-        tagging: req.body && req.body.Tagging ? s3_utils.parse_body_tagging_xml(req) : undefined,
-    };
+async function set_expiration_header(req, res, object_md) {
+    const rules = req.params.bucket && await req.object_sdk.get_bucket_lifecycle_configuration_rules({ name: req.params.bucket });
+    if (!object_md) { // calculating object_md for putObject
+        object_md = {
+            bucket: req.params.bucket,
+            key: req.params.key,
+            create_time: new Date().getTime(),
+            size: req.headers['x-amz-decoded-content-length'] || req.headers['content-length'] ? parse_content_length(req, {
+                ErrorClass: S3Error,
+                error_missing_content_length: S3Error.MissingContentLength
+            }) : undefined,
+            tagging: req.body && req.body.Tagging ? s3_utils.parse_body_tagging_xml(req) : undefined,
+        };
+    }
 
-    if (object_md.key && rules?.length > 0) {
+    const matched_rule = get_lifecycle_rule_for_object(rules, object_md);
+    if (matched_rule) {
+        const expiration_header = parse_expiration_header(matched_rule, object_md.create_time);
+        if (expiration_header) {
+            dbg.log1('set x_amz_expiration header from applied rule: ', matched_rule);
+            res.setHeader('x-amz-expiration', expiration_header);
+        }
+    }
+}
+
+/**
+ * get_lifecycle_rule_for_object determines the most specific matching lifecycle rule for the given object metadata
+ *
+ * priority is based on:
+ *  - longest matching prefix
+ *  - most matching tags
+ *  - narrowest object size range
+ *
+ * @param {Array<Object>} rules
+ * @param {Object} object_md
+ * @returns {Object|undefined}
+ */
+function get_lifecycle_rule_for_object(rules, object_md) {
+    let matched_rule;
+    let rule_priority = {
+        prefix_len: -1,
+        tag_count: -1,
+        size_span: Infinity,
+    };
+    if (object_md?.key && rules?.length > 0) {
         for (const rule of rules) {
             if (rule?.status !== 'Enabled') continue;
 
@@ -695,47 +728,65 @@ async function set_expiration_header(req, res) {
             if (filter.object_size_greater_than && object_md?.size <= filter.object_size_greater_than) continue;
             if (filter.object_size_less_than && object_md?.size >= filter.object_size_less_than) continue;
 
-            if (filter.tagging && Array.isArray(filter.tagging)) {
+            if (filter.tags && Array.isArray(filter.tags)) {
                 const obj_tags = object_md?.tagging || [];
 
-                const matches_all_tags = filter.tagging.every(filter_tag =>
+                const matches_all_tags = filter.tags.every(filter_tag =>
                     obj_tags.some(obj_tag => obj_tag.key === filter_tag.key && obj_tag.value === filter_tag.value)
                 );
 
                 if (!matches_all_tags) continue;
             }
 
-            const expiration_header = parse_expiration_header(rule?.expiration, rule?.id);
-            if (expiration_header) {
-                dbg.log1('set x_amz_expiration header from applied rule: ', rule);
-                res.setHeader('x-amz-expiration', expiration_header);
-                break; // apply only for first matching rule
+            const priority = {
+                prefix_len: (filter?.prefix || '').length,
+                tag_count: Array.isArray(filter?.tags) ? filter?.tags.length : 0,
+                size_span: (filter?.object_size_less_than ?? Infinity) - (filter?.object_size_greater_than ?? 0)
+            };
+
+            // compare prefix length
+            const is_more_specific_prefix = priority.prefix_len > rule_priority.prefix_len;
+
+            // compare tag count (if prefixes are equal)
+            const is_more_specific_tags = priority.prefix_len === rule_priority.prefix_len &&
+                                        priority.tag_count > rule_priority.tag_count;
+
+            // compare size span (if prefixes and tags are equal)
+            const is_more_specific_size = priority.prefix_len === rule_priority.prefix_len &&
+                                        priority.tag_count === rule_priority.tag_count &&
+                                        priority.size_span < rule_priority.size_span;
+
+            if (is_more_specific_prefix || is_more_specific_tags || is_more_specific_size) {
+                matched_rule = rule;
+                rule_priority = priority;
             }
         }
     }
+    return matched_rule;
 }
 
 /**
  * parse_expiration_header converts an expiration rule (either with `date` or `days`)
  * into an s3 style `x-amz-expiration` header value
  *
- * @param {Object} expiration - expiration object from lifecycle config
- * @param {string} rule_id - id of the lifecycle rule
+ * @param {Object} rule
+ * @param {Object} create_time
  * @returns {string|undefined}
  *
  * Example output:
  *   expiry-date="Thu, 10 Apr 2025 00:00:00 GMT", rule-id="rule_id"
  */
-function parse_expiration_header(expiration, rule_id) {
+function parse_expiration_header(rule, create_time) {
+    const expiration = rule.expiration;
+    const rule_id = rule.id;
+
     if (!expiration || (!expiration.date && !expiration.days)) return undefined;
 
     const expiration_date = expiration.date ?
         new Date(expiration.date) :
-        new Date(Date.UTC(
-            new Date().getUTCFullYear(),
-            new Date().getUTCMonth(),
-            new Date().getUTCDate() + expiration.days
-        ));
+        new Date(create_time + expiration.days * 24 * 60 * 60 * 1000);
+
+    expiration_date.setUTCHours(0, 0, 0, 0); // adjust expiration to midnight UTC
 
     return `expiry-date="${expiration_date.toUTCString()}", rule-id="${rule_id}"`;
 }

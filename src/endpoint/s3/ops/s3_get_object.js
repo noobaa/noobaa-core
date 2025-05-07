@@ -39,7 +39,6 @@ async function get_object(req, res) {
 
     const object_md = await req.object_sdk.read_object_md(md_params);
 
-    http_utils.set_expiration_header(req, res); // setting expiration header for bucket lifecycle
     s3_utils.set_response_object_md(res, object_md);
     s3_utils.set_encryption_response_headers(req, res, object_md.encryption);
     if (object_md.storage_class === s3_utils.STORAGE_CLASS_GLACIER) {
@@ -50,6 +49,7 @@ async function get_object(req, res) {
         }
     }
     http_utils.set_response_headers_from_request(req, res);
+    await http_utils.set_expiration_header(req, res, object_md); // setting expiration header for bucket lifecycle
     const obj_size = object_md.size;
     const params = {
         object_md,

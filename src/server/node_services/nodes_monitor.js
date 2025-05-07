@@ -849,31 +849,31 @@ class NodesMonitor extends EventEmitter {
         });
     }
 
-    _run_node(item) {
-        if (!this._started) return P.reject(new Error('monitor has not started'));
+    async _run_node(item) {
+        if (!this._started) throw new Error('monitor has not started');
         item._run_node_serial = item._run_node_serial || new semaphore.Semaphore(1);
-        if (item.node.deleted) return P.reject(new Error(`node ${item.node.name} is deleted`));
-        return item._run_node_serial.surround(() =>
-            P.resolve()
-            .then(() => dbg.log1('_run_node:', item.node.name))
-            .then(() => this._get_agent_info(item))
-            .then(() => { //If internal or cloud resource, cut down initializing time (in update_rpc_config)
-                if (!item.node_from_store && (item.node.is_mongo_node || item.node.is_cloud_node)) {
-                    return this._update_nodes_store('force');
-                }
-            })
-            .then(() => this._uninstall_deleting_node(item))
-            .then(() => this._remove_hideable_nodes(item))
-            .then(() => this._update_node_service(item))
-            .then(() => this._update_create_node_token(item))
-            .then(() => this._update_rpc_config(item))
-            .then(() => this._test_nodes_validity(item))
-            .then(() => this._update_status(item))
-            .then(() => this._handle_issues(item))
-            .then(() => this._update_nodes_store())
-            .catch(err => {
+        if (item.node.deleted) throw new Error(`node ${item.node.name} is deleted`);
+        return item._run_node_serial.surround(async () => {
+            dbg.log1('_run_node:', item.node.name);
+            await this._get_agent_info(item);
+            //If internal or cloud resource, cut down initializing time (in update_rpc_config)
+            if (!item.node_from_store && (item.node.is_mongo_node || item.node.is_cloud_node)) {
+                return this._update_nodes_store('force');
+            }
+            try {
+                await this._uninstall_deleting_node(item);
+                this._remove_hideable_nodes(item);
+                await this._update_node_service(item);
+                await this._update_create_node_token(item);
+                await this._update_rpc_config(item);
+                await this._test_nodes_validity(item);
+                this._update_status(item);
+                this._handle_issues(item);
+                await this._update_nodes_store();
+            } catch (err) {
                 dbg.warn('_run_node: ERROR', err.stack || err, 'node', item.node);
-            }));
+            }
+        });
     }
 
     _handle_issues(item) {
@@ -1681,71 +1681,71 @@ class NodesMonitor extends EventEmitter {
     // This is why we are required to use a new variable by the name ready_to_be_deleted
     // In order to mark the nodes that wait for their processes to be removed (cloud/mongo resource)
     // If the node is not relevant to a cloud/mongo resouce it will be just marked as deleted
-    _update_deleted_nodes(deleted_nodes) {
+    async _update_deleted_nodes(deleted_nodes) {
         if (!deleted_nodes.length) return;
         const items_to_update = [];
-        return P.map_with_concurrency(10, deleted_nodes, item => {
-                dbg.log0('_update_nodes_store deleted_node:', item);
 
-                if (item.node.deleted) {
-                    if (!item.node_from_store.deleted) {
-                        items_to_update.push(item);
-                    }
-                    return;
-                }
+        await P.map_with_concurrency(10, deleted_nodes, async item => {
+            dbg.log0('_update_nodes_store deleted_node:', item);
 
-                // TODO handle deletion of normal nodes (uninstall?)
-                // Just mark the node as deleted and we will not scan it anymore
-                // This is done once the node's proccess is deleted (relevant to cloud/mongo resource)
-                // Or in a normal node it is done immediately
-                if (!item.node.is_cloud_node &&
-                    !item.node.is_mongo_node &&
-                    !item.node.is_internal_node) {
-                    item.node.deleted = Date.now();
+            if (item.node.deleted) {
+                if (!item.node_from_store.deleted) {
                     items_to_update.push(item);
-                    return;
                 }
+                return;
+            }
 
-                return P.resolve()
-                    .then(() => {
-                        if (item.node.is_internal_node) {
-                            return P.reject('Do not support internal_node deletion yet');
-                        }
-                        // Removing the internal node from the processes
-                        return server_rpc.client.hosted_agents.remove_pool_agent({
-                            node_name: item.node.name
-                        });
-                    })
-                    .then(() => {
-                        // Marking the node as deleted since we've removed it completely
-                        // If we did not succeed at removing the process we don't mark the deletion
-                        // This is done in order to cycle the node once again and attempt until
-                        // We succeed
-                        item.node.deleted = Date.now();
-                        items_to_update.push(item);
-                    })
-                    .catch(err => {
-                        // We will just wait another cycle and attempt to delete it fully again
-                        dbg.warn('delete_cloud_or_mongo_pool_node ERROR node', item.node, err);
-                    });
-            })
-            .then(() => NodesStore.instance().bulk_update(items_to_update))
-            .then(res => {
-                // mark failed updates to retry
-                if (res.failed) {
-                    for (const item of res.failed) {
-                        this._set_need_update.add(item);
-                    }
+            // TODO handle deletion of normal nodes (uninstall?)
+            // Just mark the node as deleted and we will not scan it anymore
+            // This is done once the node's proccess is deleted (relevant to cloud/mongo resource)
+            // Or in a normal node it is done immediately
+            if (!item.node.is_cloud_node &&
+                !item.node.is_mongo_node &&
+                !item.node.is_internal_node) {
+                item.node.deleted = Date.now();
+                items_to_update.push(item);
+                return;
+            }
+
+            try {
+                if (item.node.is_internal_node) {
+                    throw new Error('Do not support internal_node deletion yet');
                 }
-                if (res.updated) {
-                    for (const item of res.updated) {
-                        this._remove_node_from_maps(item);
-                    }
+                // Removing the internal node from the processes
+                await server_rpc.client.hosted_agents.remove_pool_agent({
+                    node_name: item.node.name
+                });
+
+                // Marking the node as deleted since we've removed it completely
+                // If we did not succeed at removing the process we don't mark the deletion
+                // This is done in order to cycle the node once again and attempt until
+                // We succeed
+                item.node.deleted = Date.now();
+                items_to_update.push(item);
+
+            } catch (err) {
+                // We will just wait another cycle and attempt to delete it fully again
+                dbg.warn('delete_cloud_or_mongo_pool_node ERROR node', item.node, err);
+            }
+        });
+
+        try {
+            const res = NodesStore.instance().bulk_update(items_to_update);
+
+            // mark failed updates to retry
+            if (res.failed) {
+                for (const item of res.failed) {
+                    this._set_need_update.add(item);
                 }
-            })
-            .catch(err => {
-                dbg.warn('_update_deleted_nodes: ERROR', err.stack || err);
-            });
+            }
+            if (res.updated) {
+                for (const item of res.updated) {
+                    this._remove_node_from_maps(item);
+                }
+            }
+        } catch (err) {
+            dbg.warn('_update_deleted_nodes: ERROR', err.stack || err);
+        }
     }
 
     _should_enable_agent(info, agent_config) {

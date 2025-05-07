@@ -16,6 +16,7 @@ const { TMP_PATH, IS_GPFS, is_nc_coretest, set_path_permissions_and_owner, gener
     invalid_nsfs_root_permissions, generate_s3_client, get_coretest_path } = require('../system_tests/test_utils');
 const { get_process_fs_context } = require('../../util/native_fs_utils');
 const _ = require('lodash');
+const config = require('../../../config');
 
 const coretest_path = get_coretest_path();
 const coretest = require(coretest_path);
@@ -452,6 +453,7 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
             await s3_uid6.putObject({ Bucket: content_dir_bucket_name, Key: head_object_key, Body: body1 });
             await s3_uid6.putObject({ Bucket: content_dir_bucket_name, Key: get_object_key, Body: body1 });
             await s3_uid6.putObject({ Bucket: content_dir_bucket_name, Key: delete_latest_object_key, Body: body1 });
+            await s3_uid6.putObject({ Bucket: content_dir_bucket_name, Key: delete_latest_object_key_suspended, Body: body1 });
 
             await s3_uid6.putBucketVersioning({ Bucket: content_dir_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
         });
@@ -640,7 +642,135 @@ mocha.describe('bucketspace namespace_fs - versioning', function() {
 
             const get_res = await s3_uid6.getObject({ Bucket: content_dir_bucket_name, Key: key });
             assert.equal(get_res.VersionId, res2.VersionId);
+        });
 
+        mocha.it('content directory - object tagging - versioning enabled', async function() {
+            const dir_tagging_key = 'dir_tagging/';
+            const tag_set1 = { TagSet: [{ Key: "key1", Value: "Value1" }] };
+            const tag_set2 = { TagSet: [{ Key: "key2", Value: "Value2" }] };
+
+            await s3_uid6.putBucketVersioning({ Bucket: content_dir_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
+            const res_put = await s3_uid6.putObject({ Bucket: content_dir_bucket_name, Key: dir_tagging_key, Body: body1 });
+            await s3_uid6.putObject({ Bucket: content_dir_bucket_name, Key: dir_tagging_key, Body: body1 });
+            const version_id = res_put.VersionId;
+
+            await s3_uid6.putObjectTagging({ Bucket: content_dir_bucket_name, Key: dir_tagging_key, Tagging: tag_set1 });
+            let res = await s3_uid6.getObjectTagging({ Bucket: content_dir_bucket_name, Key: dir_tagging_key });
+            assert.deepEqual(res.TagSet, tag_set1.TagSet);
+
+            await s3_uid6.putObjectTagging({ Bucket: content_dir_bucket_name, Key: dir_tagging_key,
+                Tagging: tag_set2, VersionId: version_id });
+            res = await s3_uid6.getObjectTagging({ Bucket: content_dir_bucket_name, Key: dir_tagging_key });
+            assert.notDeepEqual(res.TagSet, tag_set2);
+
+            const version_res = await s3_uid6.getObjectTagging({ Bucket: content_dir_bucket_name,
+                Key: dir_tagging_key, VersionId: version_id });
+            assert.deepEqual(version_res.TagSet, tag_set2.TagSet);
+
+            await s3_uid6.deleteObjectTagging({ Bucket: content_dir_bucket_name, Key: dir_tagging_key });
+            res = await s3_uid6.getObjectTagging({ Bucket: content_dir_bucket_name, Key: dir_tagging_key });
+            assert.equal(res.TagSet.length, 0);
+
+            await s3_uid6.deleteObjectTagging({ Bucket: content_dir_bucket_name, Key: dir_tagging_key, VersionId: version_id });
+            res = await s3_uid6.getObjectTagging({ Bucket: content_dir_bucket_name, Key: dir_tagging_key, VersionId: version_id });
+            assert.equal(res.TagSet.length, 0);
+        });
+
+        mocha.it('content directory - object tagging - versioning suspended', async function() {
+            const dir_tagging_key = 'dir_tagging/';
+            const tag_set1 = { TagSet: [{ Key: "key1", Value: "Value1" }] };
+            const tag_set2 = { TagSet: [{ Key: "key2", Value: "Value2" }] };
+
+            await s3_uid6.putBucketVersioning({ Bucket: content_dir_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } });
+            const res_put = await s3_uid6.putObject({ Bucket: content_dir_bucket_name, Key: dir_tagging_key, Body: body1 });
+            await s3_uid6.putObject({ Bucket: content_dir_bucket_name, Key: dir_tagging_key, Body: body1 });
+            const version_id = res_put.VersionId;
+
+            await s3_uid6.putObjectTagging({ Bucket: content_dir_bucket_name, Key: dir_tagging_key, Tagging: tag_set1 });
+            let res = await s3_uid6.getObjectTagging({ Bucket: content_dir_bucket_name, Key: dir_tagging_key });
+            assert.deepEqual(res.TagSet, tag_set1.TagSet);
+
+            await s3_uid6.putObjectTagging({ Bucket: content_dir_bucket_name, Key: dir_tagging_key,
+                Tagging: tag_set2, VersionId: version_id });
+            res = await s3_uid6.getObjectTagging({ Bucket: content_dir_bucket_name, Key: dir_tagging_key });
+            assert.notDeepEqual(res.TagSet, tag_set2);
+
+            const version_res = await s3_uid6.getObjectTagging({ Bucket: content_dir_bucket_name,
+                Key: dir_tagging_key, VersionId: version_id });
+            assert.deepEqual(version_res.TagSet, tag_set2.TagSet);
+
+            await s3_uid6.deleteObjectTagging({ Bucket: content_dir_bucket_name, Key: dir_tagging_key });
+            res = await s3_uid6.getObjectTagging({ Bucket: content_dir_bucket_name, Key: dir_tagging_key });
+            assert.equal(res.TagSet.length, 0);
+
+            await s3_uid6.deleteObjectTagging({ Bucket: content_dir_bucket_name, Key: dir_tagging_key, VersionId: version_id });
+            res = await s3_uid6.getObjectTagging({ Bucket: content_dir_bucket_name, Key: dir_tagging_key, VersionId: version_id });
+            assert.equal(res.TagSet.length, 0);
+        });
+
+        mocha.it('content directory - list object', async function() {
+            const res = await s3_uid6.listObjects({ Bucket: content_dir_bucket_name });
+            assert.equal(res.Contents.length, 10);
+        });
+
+        mocha.it('content directory - list object versions - enabled mode', async function() {
+            await s3_uid6.putBucketVersioning({ Bucket: content_dir_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Enabled' } });
+            const key = "list_key/";
+            const version_ids = new Set();
+            let push_res = await s3_uid6.putObject({ Bucket: content_dir_bucket_name, Key: key, Body: body1 });
+            version_ids.add(push_res.VersionId);
+            push_res = await s3_uid6.putObject({ Bucket: content_dir_bucket_name, Key: key, Body: body1 });
+            version_ids.add(push_res.VersionId);
+            push_res = await s3_uid6.putObject({ Bucket: content_dir_bucket_name, Key: key, Body: body1 });
+            version_ids.add(push_res.VersionId);
+            const list_res = await s3_uid6.listObjectVersions({ Bucket: content_dir_bucket_name });
+            const key_list_versions = list_res.Versions.filter(v => v.Key === key);
+            assert.equal(key_list_versions.length, version_ids.size);
+            key_list_versions.forEach(v => {
+                assert(version_ids.has(v.VersionId));
+                if (v.VersionId === push_res.VersionId) {
+                    assert.equal(v.IsLatest, true);
+                    assert(!v.Key.includes(config.NSFS_FOLDER_OBJECT_NAME));
+                    assert(!v.VersionId.includes(config.NSFS_FOLDER_OBJECT_NAME));
+                }
+            });
+        });
+
+        mocha.it('content directory - list object versions - delete marker', async function() {
+            const key = "list_key/";
+            const delete_res = await s3_uid6.deleteObject({ Bucket: content_dir_bucket_name, Key: key });
+            const list_res = await s3_uid6.listObjectVersions({ Bucket: content_dir_bucket_name });
+            const key_list_versions = list_res.Versions.filter(v => v.Key === key);
+            assert.equal(key_list_versions.length, 3);
+            assert.equal(list_res.DeleteMarkers.length, 3); // 2 previous delete markers + 1 new delete marker 
+            let is_delete_marker_present = false;
+            for (const delete_marker of list_res.DeleteMarkers) {
+                if (delete_marker.versionId === delete_res.created_version_id) {
+                    is_delete_marker_present = true;
+                    assert.equal(delete_marker.versionId, delete_res.created_version_id);
+                    assert.equal(delete_marker.IsLatest, true);
+                    assert(!delete_marker.Key.includes(config.NSFS_FOLDER_OBJECT_NAME));
+                    assert(!delete_marker.VersionId.includes(config.NSFS_FOLDER_OBJECT_NAME));
+                }
+            }
+            assert(is_delete_marker_present);
+        });
+
+        mocha.it('content directory - list object versions - suspended mode', async function() {
+            const key = "list_key/";
+            await s3_uid6.putBucketVersioning({ Bucket: content_dir_bucket_name, VersioningConfiguration: { MFADelete: 'Disabled', Status: 'Suspended' } });
+            const push_res = await s3_uid6.putObject({ Bucket: content_dir_bucket_name, Key: key, Body: body1 });
+            const list_res = await s3_uid6.listObjectVersions({ Bucket: content_dir_bucket_name });
+            const key_list_versions = list_res.Versions.filter(v => v.Key === key);
+            assert.equal(key_list_versions.length, 4); //3 from before + 1 new key
+            key_list_versions.forEach(v => {
+                if (v.VersionId === push_res.VersionId) {
+                    assert.equal(v.VersionId, 'null');
+                    assert.equal(v.IsLatest, true);
+                    assert(!v.key.includes(config.NSFS_FOLDER_OBJECT_NAME));
+                    assert(!v.VersionId.includes(config.NSFS_FOLDER_OBJECT_NAME));
+                }
+            });
         });
     });
 
@@ -3419,10 +3549,10 @@ function _extract_version_info_from_xattr(version_id_str) {
 
 /**
  * version_file_exists returns path of version in .versions
- * @param {String} full_path 
- * @param {String} key 
- * @param {String} dir 
- * @param {String} version_id 
+ * @param {String} full_path
+ * @param {String} key
+ * @param {String} dir
+ * @param {String} version_id
  * @returns {Promise<Boolean>}
  */
 async function version_file_exists(full_path, key, dir, version_id) {

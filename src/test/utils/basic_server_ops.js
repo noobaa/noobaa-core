@@ -81,35 +81,31 @@ function download_file(ip, path) {
         });
 }
 
-function verify_upload_download(ip, path) {
+async function verify_upload_download(ip, path) {
     let orig_md5;
     const down_path = path + '_download';
-    return P.resolve(calc_md5(path))
-        .then(function(md5) {
-            orig_md5 = md5;
-            return upload_file(ip, path);
-        })
-        .catch(function(err) {
-            console.warn('Failed to upload file', path, 'with err', err, err.stack);
-        })
-        .then(function() {
-            return download_file(ip, down_path);
-        })
-        .catch(function(err) {
-            console.warn('Failed to download file with err', err, err.stack);
-        })
-        .then(function() {
-            return P.resolve(calc_md5(down_path));
-        })
-        .then(function(md5) {
-            if (md5 === orig_md5) {
-                console.log('Original and downloaded file MDs are the same');
-                return P.resolve();
-            } else {
-                console.warn('Original and downloaded file MDs are different');
-                return P.reject();
-            }
-        });
+    try {
+        orig_md5 = await calc_md5(path);
+        await upload_file(ip, path);
+
+    } catch (err) {
+        console.warn('Failed to upload file', path, 'with err', err, err.stack);
+    }
+
+    try {
+        await download_file(ip, down_path);
+    } catch (err) {
+        console.warn('Failed to download file with err', err, err.stack);
+    }
+
+    const md5 = await calc_md5(down_path);
+    if (md5 === orig_md5) {
+        console.log('Original and downloaded file MDs are the same');
+        return P.resolve();
+    } else {
+        console.warn('Original and downloaded file MDs are different');
+        throw new Error('MD5 mismatch');
+    }
 }
 
 

@@ -296,11 +296,13 @@ exports.timeout = timeout;
 exports.TimeoutError = TimeoutError;
 exports.retry = retry;
 // should we deprecated usage of P.resolve/reject/all ?
-exports.resolve = val => Promise.resolve(val);
-exports.reject = err => Promise.reject(err);
+// we should probably keep all and remove resolve/reject
+// when resolve/reject are used, it is probably better to use async/await
+exports.resolve = val => Promise.resolve(val); // 178 occurrences
+exports.reject = err => Promise.reject(err); // 3 occurrences
 exports.all = arr => Promise.all(arr);
 // deprecated
-exports.fromCallback = fromCallback; // 30 occurrences
-exports.fcall = fcall; // 59 occurrences
+exports.fromCallback = fromCallback; // 28 occurrences
+exports.fcall = fcall; // 51 occurrences
 exports.ninvoke = ninvoke; // 26 occurrences
 exports.wait_until = wait_until; // 21 occurrences

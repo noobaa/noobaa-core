@@ -50,8 +50,6 @@ class MasterKeysManager {
 
 
     get_root_key_id() {
-        const { NOOBAA_ROOT_SECRET } = process.env;
-        if (NOOBAA_ROOT_SECRET) return ROOT_KEY;
         return this.active_root_key && this.active_root_key.toString();
     }
 
@@ -65,16 +63,6 @@ class MasterKeysManager {
      */
     get_root_key() {
         return this.resolved_master_keys_by_id[this.get_root_key_id()];
-    }
-
-    load_root_key() {
-        if (this.is_initialized) return;
-        const { NOOBAA_ROOT_SECRET } = process.env;
-        if (!NOOBAA_ROOT_SECRET && !this.active_root_key) throw new Error('NON_EXISTING_ROOT_KEY');
-        if (NOOBAA_ROOT_SECRET) {
-            this._add_to_resolved_keys(ROOT_KEY, NOOBAA_ROOT_SECRET, false);
-            this.is_initialized = true;
-        }
     }
 
     async load_root_keys_from_mount() {

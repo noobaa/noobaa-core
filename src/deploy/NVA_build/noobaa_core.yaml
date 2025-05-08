@@ -186,11 +186,6 @@ spec:
                 secretKeyRef:
                   name: noobaa-secrets
                   key: server_secret
-            - name: NOOBAA_ROOT_SECRET
-              valueFrom:
-                secretKeyRef:
-                  name: noobaa-secrets
-                  key: noobaa_root_secret
             - name: AGENT_PROFILE
               valueFrom:
                 configMapKeyRef:
@@ -256,11 +251,6 @@ spec:
                 secretKeyRef:
                   name: noobaa-secrets
                   key: jwt
-            - name: NOOBAA_ROOT_SECRET
-              valueFrom:
-                secretKeyRef:
-                  name: noobaa-secrets
-                  key: noobaa_root_secret
             - name: LOCAL_MD_SERVER
               value: "true"
           # - name: MGMT_URL

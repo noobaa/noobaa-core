@@ -219,6 +219,7 @@ class ObjectSDK {
             system_owner: bucket.system_owner, // note that bucketspace_fs currently doesn't return system_owner
             bucket_owner: bucket.bucket_owner,
             owner_account: bucket.owner_account, // in NC NSFS this is the account id that owns the bucket
+            public_access_block: bucket.public_access_block,
         };
         return policy_info;
     }

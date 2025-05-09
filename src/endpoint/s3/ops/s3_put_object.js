@@ -80,6 +80,7 @@ async function put_object(req, res) {
         };
     }
     res.setHeader('ETag', `"${reply.etag}"`);
+    await http_utils.set_expiration_header(req, res); // setting expiration header for bucket lifecycle
 
     if (reply.seq) {
         res.seq = reply.seq;

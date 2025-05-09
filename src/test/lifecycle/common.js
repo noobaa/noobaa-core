@@ -620,23 +620,27 @@ exports.test_rule_id_length = async function(Bucket, Key, s3) {
     const ID = 'A'.repeat(s3_const.MAX_RULE_ID_LENGTH + 5);
     putLifecycleParams.LifecycleConfiguration.Rules[0].ID = ID;
 
-    try {
-        await s3.putBucketLifecycleConfiguration(putLifecycleParams);
-        assert.fail(`Expected error for ID length exceeding maximum allowed characters ${s3_const.MAX_RULE_ID_LENGTH}, but request was successful`);
-    } catch (error) {
-        assert(error.Code === 'InvalidArgument', `Expected InvalidArgument: id length exceeding ${s3_const.MAX_RULE_ID_LENGTH} characters`);
-    }
+    await assert.rejects(
+        s3.putBucketLifecycleConfiguration(putLifecycleParams),
+        error => {
+            // @ts-ignore
+            assert(error.Code === 'InvalidArgument', `Expected InvalidArgument: id length exceeding ${s3_const.MAX_RULE_ID_LENGTH} characters`);
+            return true;
+        }
+    );
 };
 
 exports.test_rule_duplicate_id = async function(Bucket, Key, s3) {
     const putLifecycleParams = duplicate_id_lifecycle_configuration(Bucket, Key);
 
-    try {
-        await s3.putBucketLifecycleConfiguration(putLifecycleParams);
-        assert.fail('Expected error for duplicate rule ID, but request was successful');
-    } catch (error) {
-        assert(error.Code === 'InvalidArgument', 'Expected InvalidArgument: duplicate ID found in the rules');
-    }
+    await assert.rejects(
+        s3.putBucketLifecycleConfiguration(putLifecycleParams),
+        error => {
+            // @ts-ignore
+            assert(error.Code === 'InvalidArgument', 'Expected InvalidArgument: duplicate ID found in the rules');
+            return true;
+        }
+    );
 };
 
 exports.test_rule_status_value = async function(Bucket, Key, s3) {
@@ -645,12 +649,14 @@ exports.test_rule_status_value = async function(Bucket, Key, s3) {
     // set the status value to an invalid value - other than 'Enabled' and 'Disabled'
     putLifecycleParams.LifecycleConfiguration.Rules[0].Status = 'enabled';
 
-    try {
-        await s3.putBucketLifecycleConfiguration(putLifecycleParams);
-        assert.fail('Expected MalformedXML error due to wrong status value, but received a different response');
-    } catch (error) {
-        assert(error.Code === 'MalformedXML', `Expected MalformedXML error: due to invalid status value`);
-    }
+    await assert.rejects(
+        s3.putBucketLifecycleConfiguration(putLifecycleParams),
+        error => {
+            // @ts-ignore
+            assert(error.Code === 'MalformedXML', `Expected MalformedXML error: due to invalid status value`);
+            return true;
+        }
+    );
 };
 
 exports.test_invalid_filter_format = async function(Bucket, Key, s3) {
@@ -659,12 +665,14 @@ exports.test_invalid_filter_format = async function(Bucket, Key, s3) {
     // append prefix for invalid filter: "And" condition is missing, but multiple filters are present
     putLifecycleParams.LifecycleConfiguration.Rules[0].Filter.Prefix = 'test-prefix';
 
-    try {
-        await s3.putBucketLifecycleConfiguration(putLifecycleParams);
-        assert.fail('Expected MalformedXML error due to missing "And" condition for multiple filters');
-    } catch (error) {
-        assert(error.Code === 'MalformedXML', 'Expected MalformedXML error: due to missing "And" condition');
-    }
+    await assert.rejects(
+        s3.putBucketLifecycleConfiguration(putLifecycleParams),
+        error => {
+            // @ts-ignore
+            assert(error.Code === 'MalformedXML', 'Expected MalformedXML error: due to missing "And" condition');
+            return true;
+        }
+    );
 };
 
 exports.test_invalid_expiration_date_format = async function(Bucket, Key, s3) {
@@ -673,12 +681,14 @@ exports.test_invalid_expiration_date_format = async function(Bucket, Key, s3) {
     // set expiration with a Date that is not at midnight UTC (incorrect time specified)
     putLifecycleParams.LifecycleConfiguration.Rules[0].Expiration.Date = new Date('2025-01-01T15:30:00Z');
 
-    try {
-        await s3.putBucketLifecycleConfiguration(putLifecycleParams);
-        assert.fail('Expected error due to incorrect date format (not at midnight UTC), but request was successful');
-    } catch (error) {
-        assert(error.Code === 'InvalidArgument', 'Expected InvalidArgument error: date must be at midnight UTC');
-    }
+    await assert.rejects(
+        s3.putBucketLifecycleConfiguration(putLifecycleParams),
+        error => {
+            // @ts-ignore
+            assert(error.Code === 'InvalidArgument', 'Expected InvalidArgument error: date must be at midnight UTC');
+            return true;
+        }
+    );
 };
 
 exports.test_expiration_multiple_fields = async function(Bucket, Key, s3) {
@@ -687,12 +697,14 @@ exports.test_expiration_multiple_fields = async function(Bucket, Key, s3) {
     // append ExpiredObjectDeleteMarker for invalid expiration with multiple fields
     putLifecycleParams.LifecycleConfiguration.Rules[0].Expiration.ExpiredObjectDeleteMarker = false;
 
-    try {
-        await s3.putBucketLifecycleConfiguration(putLifecycleParams);
-        assert.fail('Expected MalformedXML error due to multiple expiration fields');
-    } catch (error) {
-        assert(error.Code === 'MalformedXML', 'Expected MalformedXML error: due to multiple expiration fields');
-    }
+    await assert.rejects(
+        s3.putBucketLifecycleConfiguration(putLifecycleParams),
+        error => {
+            // @ts-ignore
+            assert(error.Code === 'MalformedXML', 'Expected MalformedXML error: due to multiple expiration fields');
+            return true;
+        }
+    );
 };
 
 exports.test_abortincompletemultipartupload_with_tags = async function(Bucket, Key, s3) {
@@ -703,12 +715,14 @@ exports.test_abortincompletemultipartupload_with_tags = async function(Bucket, K
         DaysAfterInitiation: 5
     };
 
-    try {
-        await s3.putBucketLifecycleConfiguration(putLifecycleParams);
-        assert.fail('Expected InvalidArgument error due to AbortIncompleteMultipartUpload specified with tags');
-    } catch (error) {
-        assert(error.Code === 'InvalidArgument', 'Expected InvalidArgument: AbortIncompleteMultipartUpload cannot be specified with tags');
-    }
+    await assert.rejects(
+        s3.putBucketLifecycleConfiguration(putLifecycleParams),
+        error => {
+            // @ts-ignore
+            assert(error.Code === 'InvalidArgument', 'Expected InvalidArgument: AbortIncompleteMultipartUpload cannot be specified with tags');
+            return true;
+        }
+    );
 };
 
 exports.test_abortincompletemultipartupload_with_sizes = async function(Bucket, Key, s3) {
@@ -719,10 +733,12 @@ exports.test_abortincompletemultipartupload_with_sizes = async function(Bucket, 
         DaysAfterInitiation: 5
     };
 
-    try {
-        await s3.putBucketLifecycleConfiguration(putLifecycleParams);
-        assert.fail('Expected InvalidArgument error due to AbortIncompleteMultipartUpload specified with object size');
-    } catch (error) {
-        assert(error.Code === 'InvalidArgument', 'Expected InvalidArgument: AbortIncompleteMultipartUpload cannot be specified with object size');
-    }
+    await assert.rejects(
+        s3.putBucketLifecycleConfiguration(putLifecycleParams),
+        error => {
+            // @ts-ignore
+            assert(error.Code === 'InvalidArgument', 'Expected InvalidArgument: AbortIncompleteMultipartUpload cannot be specified with object size');
+            return true;
+        }
+    );
 };

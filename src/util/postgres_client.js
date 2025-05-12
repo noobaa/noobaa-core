@@ -28,6 +28,7 @@ const SensitiveString = require('./sensitive_string');
 const time_utils = require('./time_utils');
 const config = require('../../config');
 const ssl_utils = require('./ssl_utils');
+const fs_utils = require('./fs_utils');
 
 const DB_CONNECT_ERROR_MESSAGE = 'Could not acquire client from DB connection pool';
 mongodb.Binary.prototype[util.inspect.custom] = function custom_inspect_binary() {
@@ -703,20 +704,20 @@ class PostgresTable {
         return _do_query(client || this.get_pool(), q, 0);
     }
 
-   /**
+    /**
      * executeSQL takes a raw SQL query and params and runs it against
      * the database. If `query_name` is passed then it prepares a
      * statement on the first execution while the further executions
      * will re-utilize the prepared statement (pre-parsed).
-     * 
+     *
      * @template T
-     * 
-     * @param {string} query 
-     * @param {Array<any>} params 
+     *
+     * @param {string} query
+     * @param {Array<any>} params
      * @param {{
      *  query_name?: string,
      * }} [options = {}]
-     * 
+     *
      * @returns {Promise<import('pg').QueryResult<T>>}
      */
     async executeSQL(query, params, options = {}) {
@@ -1496,22 +1497,27 @@ class PostgresClient extends EventEmitter {
             }
         };
 
-        const postgres_port = parseInt(process.env.POSTGRES_PORT || '5432', 10);
 
-        if (process.env.POSTGRES_CONNECTION_STRING) {
+        if (process.env.POSTGRES_CONNECTION_STRING_PATH) {
             /** @type {import('pg').PoolConfig} */
             this.new_pool_params = {
-                connectionString: process.env.POSTGRES_CONNECTION_STRING,
+                connectionString: fs.readFileSync(process.env.POSTGRES_CONNECTION_STRING_PATH, "utf8"),
                 ...params,
             };
         } else {
+            // get the connection configuration. first from env, then from file, then default
+            const host = process.env.POSTGRES_HOST || fs_utils.try_read_file_sync(process.env.POSTGRES_HOST_PATH) || '127.0.0.1';
+            const user = process.env.POSTGRES_USER || fs_utils.try_read_file_sync(process.env.POSTGRES_USER_PATH) || 'postgres';
+            const password = process.env.POSTGRES_PASSWORD || fs_utils.try_read_file_sync(process.env.POSTGRES_PASSWORD_PATH) || 'noobaa';
+            const database = process.env.POSTGRES_DBNAME || fs_utils.try_read_file_sync(process.env.POSTGRES_DBNAME_PATH) || 'nbcore';
+            const port = parseInt(process.env.POSTGRES_PORT || fs_utils.try_read_file_sync(process.env.POSTGRES_PORT_PATH) || '5432', 10);
             // TODO: This need to move to another function
             this.new_pool_params = {
-                host: process.env.POSTGRES_HOST || '127.0.0.1',
-                user: process.env.POSTGRES_USER || 'postgres',
-                password: process.env.POSTGRES_PASSWORD || 'noobaa',
-                database: process.env.POSTGRES_DBNAME || 'nbcore',
-                port: postgres_port,
+                host,
+                user,
+                password,
+                database,
+                port,
                 ...params,
             };
         }

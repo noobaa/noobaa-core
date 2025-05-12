@@ -134,6 +134,22 @@ async function disk_usage(root) {
     return { size, count };
 }
 
+// try to read a file synchronously. If the file does not exist, return undefined
+// if the file exists but is not readable, throw an error
+// if the file exists and is readable, return the content
+function try_read_file_sync(file_name) {
+    if (!file_name) return;
+    try {
+        return fs.readFileSync(file_name, 'utf8');
+    } catch (err) {
+        if (err.code === 'ENOENT' || err.code === 'ENOTDIR') {
+            // file does not exist or is not a directory
+            return;
+        }
+        throw err;
+    }
+}
+
 
 // returns the first line in the file that contains the substring
 async function find_line_in_file(file_name, line_sub_string) {
@@ -356,3 +372,4 @@ exports.ignore_enoent = ignore_enoent;
 exports.PRIVATE_DIR_PERMISSIONS = PRIVATE_DIR_PERMISSIONS;
 exports.file_exists = file_exists;
 exports.file_not_exists = file_not_exists;
+exports.try_read_file_sync = try_read_file_sync;

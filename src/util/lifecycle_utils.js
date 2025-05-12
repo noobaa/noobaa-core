@@ -69,7 +69,154 @@ function file_matches_filter({obj_info, filter_func = undefined}) {
     return true;
 }
 
+/**
+ * get_lifecycle_rule_for_object determines the most specific matching lifecycle rule for the given object metadata
+ *
+ * priority is based on:
+ *  - longest matching prefix
+ *  - most matching tags
+ *  - narrowest object size range
+ *
+ * @param {Array<Object>} rules
+ * @param {Object} object_info
+ * @returns {Object|undefined}
+ */
+function get_lifecycle_rule_for_object(rules, object_info) {
+    let matched_rule;
+    let rule_priority = {
+        prefix_len: -1,
+        tag_count: -1,
+        size_span: Infinity,
+    };
+    if (object_info?.key && rules?.length > 0) {
+        for (const rule of rules) {
+            if (rule?.status !== 'Enabled') continue;
+
+            const filter = rule?.filter || {};
+
+            const filter_func = build_lifecycle_filter(filter);
+
+            if (!filter_func(object_info)) { continue; }
+
+            const priority = {
+                prefix_len: (filter?.prefix || '').length,
+                tag_count: Array.isArray(filter?.tags) ? filter?.tags.length : 0,
+                size_span: (filter?.object_size_less_than ?? Infinity) - (filter?.object_size_greater_than ?? 0)
+            };
+
+            // compare prefix length
+            const is_more_specific_prefix = priority.prefix_len > rule_priority.prefix_len;
+
+            // compare tag count (if prefixes are equal)
+            const is_more_specific_tags = priority.prefix_len === rule_priority.prefix_len &&
+                                        priority.tag_count > rule_priority.tag_count;
+
+            // compare size span (if prefixes and tags are equal)
+            const is_more_specific_size = priority.prefix_len === rule_priority.prefix_len &&
+                                        priority.tag_count === rule_priority.tag_count &&
+                                        priority.size_span < rule_priority.size_span;
+
+            if (is_more_specific_prefix || is_more_specific_tags || is_more_specific_size) {
+                matched_rule = rule;
+                rule_priority = priority;
+            }
+        }
+    }
+    return matched_rule;
+}
+
+/**
+ * build_expiration_header converts an expiration rule (either with `date` or `days`)
+ * into an s3 style `x-amz-expiration` header value
+ *
+ * @param {Object} rule
+ * @param {Object} create_time
+ * @returns {string|undefined}
+ *
+ * Example output:
+ *   expiry-date="Thu, 10 Apr 2025 00:00:00 GMT", rule-id="rule_id"
+ */
+function build_expiration_header(rule, create_time) {
+    const expiration = rule.expiration;
+    const rule_id = rule.id;
+
+    if (!expiration || (!expiration.date && !expiration.days)) return undefined;
+
+    const expiration_date = expiration.date ?
+        new Date(expiration.date) :
+        new Date(create_time + expiration.days * 24 * 60 * 60 * 1000);
+
+    expiration_date.setUTCHours(0, 0, 0, 0); // adjust expiration to midnight UTC
+
+    return `expiry-date="${expiration_date.toUTCString()}", rule-id="${rule_id}"`;
+}
+
+//////////////////
+// FILTERS HELPERS //
+//////////////////
+
+/**
+ * @typedef {{
+ *     filter: Object
+ *     expiration: Number
+ * }} filter_params
+ *
+ * builds lifecycle filter function
+ *
+ * @param {filter_params} params
+ * @returns
+ */
+function build_lifecycle_filter(params) {
+    /**
+     * @param {Object} object_info
+     */
+    return function(object_info) {
+        if (params.filter?.prefix && !object_info.key.startsWith(params.filter.prefix)) return false;
+        if (params.expiration && object_info.age < params.expiration) return false;
+        if (params.filter?.tags && !file_contain_tags(object_info, params.filter.tags)) return false;
+        if (params.filter?.object_size_greater_than && object_info.size < params.filter.object_size_greater_than) return false;
+        if (params.filter?.object_size_less_than && object_info.size > params.filter.object_size_less_than) return false;
+        return true;
+    };
+}
+
+//////////////////
+// TAGS HELPERS //
+//////////////////
+
+/**
+ * checks if tag query_tag is in the list tag_set
+ * @param {Object} query_tag
+ * @param {Array<Object>} tag_set
+ */
+function list_contain_tag(query_tag, tag_set) {
+    for (const t of tag_set) {
+        if (t.key === query_tag.key && t.value === query_tag.value) return true;
+    }
+    return false;
+}
+
+/**
+ * checks if object has all the tags in filter_tags
+ * @param {Object} object_info
+ * @param {Array<Object>} filter_tags
+ * @returns
+ */
+function file_contain_tags(object_info, filter_tags) {
+    const object_tags = object_info.tags || object_info.tagging;
+    if (!object_tags) return false;
+    for (const tag of filter_tags) {
+        if (!list_contain_tag(tag, object_tags)) {
+            return false;
+        }
+    }
+    return true;
+}
+
 exports.get_latest_nc_lifecycle_run_status = get_latest_nc_lifecycle_run_status;
 exports.file_matches_filter = file_matches_filter;
 exports.get_lifecycle_object_info_for_filter = get_lifecycle_object_info_for_filter;
 exports.get_file_age_days = get_file_age_days;
+exports.get_lifecycle_rule_for_object = get_lifecycle_rule_for_object;
+exports.build_expiration_header = build_expiration_header;
+exports.build_lifecycle_filter = build_lifecycle_filter;

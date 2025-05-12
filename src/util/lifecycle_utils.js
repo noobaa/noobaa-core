@@ -72,56 +72,37 @@ function file_matches_filter({obj_info, filter_func = undefined}) {
 /**
  * get_lifecycle_rule_for_object determines the most specific matching lifecycle rule for the given object metadata
  *
- * priority is based on:
- *  - longest matching prefix
- *  - most matching tags
- *  - narrowest object size range
- *
  * @param {Array<Object>} rules
  * @param {Object} object_info
  * @returns {Object|undefined}
  */
 function get_lifecycle_rule_for_object(rules, object_info) {
+    if (!object_info?.key || !Array.isArray(rules) || rules.length < 1) return;
+
     let matched_rule;
-    let rule_priority = {
+    let curr_priority = {
         prefix_len: -1,
         tag_count: -1,
         size_span: Infinity,
     };
-    if (object_info?.key && rules?.length > 0) {
-        for (const rule of rules) {
-            if (rule?.status !== 'Enabled') continue;
 
-            const filter = rule?.filter || {};
+    for (const rule of rules) {
+        if (rule?.status !== 'Enabled') continue;
 
-            const filter_func = build_lifecycle_filter(filter);
+        const filter = rule?.filter || {};
 
-            if (!filter_func(object_info)) { continue; }
+        const filter_func = build_lifecycle_filter(filter);
 
-            const priority = {
-                prefix_len: (filter?.prefix || '').length,
-                tag_count: Array.isArray(filter?.tags) ? filter?.tags.length : 0,
-                size_span: (filter?.object_size_less_than ?? Infinity) - (filter?.object_size_greater_than ?? 0)
-            };
+        if (!filter_func(object_info)) { continue; }
 
-            // compare prefix length
-            const is_more_specific_prefix = priority.prefix_len > rule_priority.prefix_len;
+        const new_priority = get_rule_priority(filter);
 
-            // compare tag count (if prefixes are equal)
-            const is_more_specific_tags = priority.prefix_len === rule_priority.prefix_len &&
-                                        priority.tag_count > rule_priority.tag_count;
-
-            // compare size span (if prefixes and tags are equal)
-            const is_more_specific_size = priority.prefix_len === rule_priority.prefix_len &&
-                                        priority.tag_count === rule_priority.tag_count &&
-                                        priority.size_span < rule_priority.size_span;
-
-            if (is_more_specific_prefix || is_more_specific_tags || is_more_specific_size) {
-                matched_rule = rule;
-                rule_priority = priority;
-            }
+        if (compare_rule_priority(curr_priority, new_priority)) {
+            matched_rule = rule;
+            curr_priority = new_priority;
         }
     }
+
     return matched_rule;
 }
 
@@ -178,6 +159,49 @@ function build_lifecycle_filter(params) {
         if (params.filter?.object_size_less_than && object_info.size > params.filter.object_size_less_than) return false;
         return true;
     };
+}
+
+/**
+ * get_rule_priority calculates the priority of a lifecycle rule's filter
+ *
+ * @param {Object} filter
+ * @returns {Object} priority object
+ */
+function get_rule_priority(filter) {
+    return {
+        prefix_len: (filter?.prefix || '').length,
+        tag_count: Array.isArray(filter?.tags) ? filter.tags.length : 0,
+        size_span: (filter?.object_size_less_than ?? Infinity) - (filter?.object_size_greater_than ?? 0)
+    };
+}
+
+/**
+ * compare_rule_priority determines if a new rule has higher priority
+ *
+ * priority is based on:
+ *  - longest matching prefix
+ *  - most matching tags
+ *  - narrowest object size range
+ *
+ * @param {Object} curr_priority
+ * @param {Object} new_priority
+ * @returns {boolean}
+ */
+function compare_rule_priority(curr_priority, new_priority) {
+    // compare prefix length
+    if (new_priority.prefix_len > curr_priority.prefix_len) return true;
+
+    if (new_priority.prefix_len === curr_priority.prefix_len) {
+        // compare tag count (if prefixes are equal)
+        if (new_priority.tag_count > curr_priority.tag_count) return true;
+
+        if (new_priority.tag_count === curr_priority.tag_count) {
+            // compare size span (if prefixes and tags are equal)
+            if (new_priority.size_span < curr_priority.size_span) return true;
+        }
+    }
+
+    return false;
 }
 
 //////////////////

@@ -39,6 +39,8 @@ const { throw_cli_error, get_bucket_owner_account_by_name,
 const manage_nsfs_validations = require('../manage_nsfs/manage_nsfs_validations');
 const nc_mkm = require('../manage_nsfs/nc_master_key_manager').get_instance();
 const notifications_util = require('../util/notifications_util');
+const BucketSpaceFS = require('../sdk/bucketspace_fs');
+const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
 
 ///////////////
 //// GENERAL //
@@ -135,7 +137,6 @@ async function fetch_bucket_data(action, user_input) {
         force_md5_etag: user_input.force_md5_etag === undefined || user_input.force_md5_etag === '' ? user_input.force_md5_etag : get_boolean_or_string_value(user_input.force_md5_etag),
         notifications: user_input.notifications
     };
-
     if (user_input.bucket_policy !== undefined) {
         if (typeof user_input.bucket_policy === 'string') {
             // bucket_policy deletion specified with empty string ''
@@ -152,6 +153,27 @@ async function fetch_bucket_data(action, user_input) {
         // @ts-ignore
         data = _.omitBy(data, _.isUndefined);
         data = await merge_new_and_existing_config_data(data);
+    }
+
+    if ((action === ACTIONS.UPDATE && user_input.tag) || (action === ACTIONS.ADD)) {
+        const tags = JSON.parse(user_input.tag || '[]');
+        data.tag = BucketSpaceFS._merge_reserved_tags(
+            data.tag || BucketSpaceFS._default_bucket_tags(),
+            tags,
+            action === ACTIONS.ADD ? true : await _is_bucket_empty(data),
+        );
+    }
+
+    if ((action === ACTIONS.UPDATE && user_input.merge_tag) || (action === ACTIONS.ADD)) {
+        const merge_tags = JSON.parse(user_input.merge_tag || '[]');
+        data.tag = _.merge(
+            data.tag,
+            BucketSpaceFS._merge_reserved_tags(
+                data.tag || BucketSpaceFS._default_bucket_tags(),
+                merge_tags,
+                action === ACTIONS.ADD ? true : await _is_bucket_empty(data),
+            )
+        );
     }
 
     //if we're updating the owner, needs to override owner in file with the owner from user input.
@@ -200,7 +222,14 @@ async function add_bucket(data) {
     data._id = mongo_utils.mongoObjectId();
     const parsed_bucket_data = await config_fs.create_bucket_config_file(data);
     await set_bucker_owner(parsed_bucket_data);
-    return { code: ManageCLIResponse.BucketCreated, detail: parsed_bucket_data, event_arg: { bucket: data.name }};
+
+    const [reserved_tag_event_args] = BucketSpaceFS._generate_reserved_tag_event_args({}, data.tag);
+
+    return {
+        code: ManageCLIResponse.BucketCreated,
+        detail: parsed_bucket_data,
+        event_arg: { ...(reserved_tag_event_args || {}), bucket: data.name, account: parsed_bucket_data.bucket_owner },
+    };
 }
 
 /**
@@ -256,25 +285,14 @@ async function update_bucket(data) {
  */
 async function delete_bucket(data, force) {
     try {
-        const temp_dir_name = native_fs_utils.get_bucket_tmpdir_name(data._id);
+        const bucket_empty = await _is_bucket_empty(data);
+        if (!bucket_empty && !force) {
+            throw_cli_error(ManageCLIError.BucketDeleteForbiddenHasObjects, data.name);
+        }
+
         const bucket_temp_dir_path = native_fs_utils.get_bucket_tmpdir_full_path(data.path, data._id);
-        // fs_contexts for bucket temp dir (storage path)
         const fs_context_fs_backend = native_fs_utils.get_process_fs_context(data.fs_backend);
-        let entries;
-        try {
-            entries = await nb_native().fs.readdir(fs_context_fs_backend, data.path);
-        } catch (err) {
-            dbg.warn(`delete_bucket: bucket name ${data.name},` +
-                `got an error on readdir with path: ${data.path}`, err);
-            // if the bucket's path was deleted first (encounter ENOENT error) - continue deletion
-            if (err.code !== 'ENOENT') throw err;
-        }
-        if (entries) {
-            const object_entries = entries.filter(element => !element.name.endsWith(temp_dir_name));
-            if (object_entries.length > 0 && !force) {
-                throw_cli_error(ManageCLIError.BucketDeleteForbiddenHasObjects, data.name);
-            }
-        }
+
         await native_fs_utils.folder_delete(bucket_temp_dir_path, fs_context_fs_backend, true);
         await config_fs.delete_bucket_config_file(data.name);
         return { code: ManageCLIResponse.BucketDeleted, detail: { name: data.name }, event_arg: { bucket: data.name } };
@@ -341,6 +359,33 @@ async function list_bucket_config_files(wide, filters = {}) {
 }
 
 /**
+ * _is_bucket_empty returns true if the given bucket is empty
+ *
+ * @param {*} data 
+ * @returns {Promise<boolean>}
+ */
+async function _is_bucket_empty(data) {
+    const temp_dir_name = native_fs_utils.get_bucket_tmpdir_name(data._id);
+    // fs_contexts for bucket temp dir (storage path)
+    const fs_context_fs_backend = native_fs_utils.get_process_fs_context(data.fs_backend);
+    let entries;
+    try {
+        entries = await nb_native().fs.readdir(fs_context_fs_backend, data.path);
+    } catch (err) {
+        dbg.warn(`_is_bucket_empty: bucket name ${data.name},` +
+            `got an error on readdir with path: ${data.path}`, err);
+        // if the bucket's path was deleted first (encounter ENOENT error) - continue deletion
+        if (err.code !== 'ENOENT') throw err;
+    }
+    if (entries) {
+        const object_entries = entries.filter(element => !element.name.endsWith(temp_dir_name));
+        return object_entries.length === 0;
+    }
+
+    return true;
+}
+
+/**
  * bucket_management does the following - 
  * 1. fetches the bucket data if this is not a list operation
  * 2. validates bucket args - TODO - we should split it to validate_bucket_args 
@@ -361,7 +406,24 @@ async function bucket_management(action, user_input) {
     } else if (action === ACTIONS.STATUS) {
         response = await get_bucket_status(data);
     } else if (action === ACTIONS.UPDATE) {
-        response = await update_bucket(data);
+        const bucket_path = config_fs.get_bucket_path_by_name(user_input.name);
+        const bucket_lock_file = `${bucket_path}.lock`;
+        await native_fs_utils.lock_and_run(config_fs.fs_context, bucket_lock_file, async () => {
+            const prev_bucket_info = await fetch_bucket_data(action, _.omit(user_input, ['tag', 'merge_tag']));
+            const bucket_info = await fetch_bucket_data(action, user_input);
+
+            const tagging_object = BucketSpaceFS._objectify_tagging_arr(prev_bucket_info.tag);
+            const [
+                reserved_tag_event_args,
+                reserved_tag_modified,
+            ] = BucketSpaceFS._generate_reserved_tag_event_args(tagging_object, bucket_info.tag);
+
+            response = await update_bucket(bucket_info);
+            if (reserved_tag_modified) {
+                new NoobaaEvent(NoobaaEvent.BUCKET_RESERVED_TAG_MODIFIED)
+                    .create_event(undefined, { ...reserved_tag_event_args, bucket_name: user_input.name });
+            }
+        });
     } else if (action === ACTIONS.DELETE) {
         const force = get_boolean_or_string_value(user_input.force);
         response = await delete_bucket(data, force);

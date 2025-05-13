@@ -987,7 +987,7 @@ class ObjectSDK {
 
     async put_bucket_tagging(params) {
         const bs = this._get_bucketspace();
-        return bs.put_bucket_tagging(params);
+        return bs.put_bucket_tagging(params, this);
     }
 
     async delete_bucket_tagging(params) {

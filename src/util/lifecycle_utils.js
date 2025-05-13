@@ -89,20 +89,16 @@ function get_lifecycle_rule_for_object(rules, object_info) {
     for (const rule of rules) {
         if (rule?.status !== 'Enabled') continue;
 
-        const filter = rule?.filter || {};
+        const filter_func = build_lifecycle_filter(rule);
+        if (!filter_func(object_info)) continue;
 
-        const filter_func = build_lifecycle_filter(filter);
-
-        if (!filter_func(object_info)) { continue; }
-
-        const new_priority = get_rule_priority(filter);
+        const new_priority = get_rule_priority(rule.filter);
 
         if (compare_rule_priority(curr_priority, new_priority)) {
             matched_rule = rule;
             curr_priority = new_priority;
         }
     }
-
     return matched_rule;
 }
 

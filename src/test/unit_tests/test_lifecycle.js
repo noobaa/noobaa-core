@@ -829,11 +829,13 @@ mocha.describe('lifecycle', () => {
         };
 
         function generate_rule(id, prefix, tags, size_gt, size_lt, expiration_days) {
-            const filter = {};
-            if (prefix) filter.Prefix = prefix;
-            if (tags.length) filter.Tags = tags;
-            if (size_gt !== undefined) filter.ObjectSizeGreaterThan = size_gt;
-            if (size_lt !== undefined) filter.ObjectSizeLessThan = size_lt;
+            const filters = {};
+            if (prefix) filters.Prefix = prefix;
+            if (Array.isArray(tags) && tags.length) filters.Tags = tags;
+            if (size_gt !== undefined) filters.ObjectSizeGreaterThan = size_gt;
+            if (size_lt !== undefined) filters.ObjectSizeLessThan = size_lt;
+
+            const filter = Object.keys(filters).length > 1 ? { And: filters } : filters;
 
             return {
                 ID: id,
@@ -849,11 +851,11 @@ mocha.describe('lifecycle', () => {
             console.log("match: ", match);
 
             const [, expiry_str, rule_id] = match;
-            const expiration_date = new Date(expiry_str);
+            const expiration = new Date(expiry_str);
             const start = new Date(start_time);
-            start_time.setUTCHours(0, 0, 0, 0); // adjusting to midnight UTC otherwise the tests will fail - similar to ceph-s3 tests
+            start.setUTCHours(0, 0, 0, 0); // adjusting to midnight UTC otherwise the tests will fail - fix for ceph-s3 tests
 
-            const days_diff = Math.floor((expiration_date.getTime() - start.getTime()) / (24 * 60 * 60 * 1000));
+            const days_diff = Math.floor((expiration.getTime() - start.getTime()) / (24 * 60 * 60 * 1000));
 
             return days_diff === delta_days && rule_id === expected_rule_id;
         }

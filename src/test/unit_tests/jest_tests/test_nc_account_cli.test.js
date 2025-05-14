@@ -1705,6 +1705,24 @@ describe('manage nsfs cli account flow', () => {
             expect(JSON.parse(res.stdout).error.code).toBe(ManageCLIError.AccountDeleteForbiddenHasIAMAccounts.code);
         });
 
+        it('should fail when deleting anonymous account with option (name), and succeed with option (anonymous)', async function() {
+            const { type } = defaults;
+            const user = 'test-user';
+            const account_options1 = { user: user };
+            const command = create_command(type, ACTIONS.ADD, account_options1);
+            const flag = ANONYMOUS;
+            await exec_manage_cli_add_empty_option(command, flag);
+
+            const account_options2 = { name: ANONYMOUS };
+            const res = await exec_manage_cli(type, ACTIONS.DELETE, account_options2);
+            expect(JSON.parse(res.stdout).error.message).toBe(ManageCLIError.InvalidAccountName.message);
+
+            const command2 = create_command(type, ACTIONS.DELETE);
+            const res2 = await exec_manage_cli_add_empty_option(command2, flag);
+            const res_json = JSON.parse(res2.trim());
+            expect(res_json.response.code).toBe(ManageCLIResponse.AccountDeleted.code);
+        });
+
     });
 
     describe('cli status account', () => {

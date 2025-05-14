@@ -350,6 +350,12 @@ function validate_flags_value_combination(type, action, input_options_with_data)
                 throw_cli_error(ManageCLIError.InvalidAccountName, detail);
             }
         }
+        if (action === ACTIONS.DELETE) {
+            if (input_options_with_data.name === ANONYMOUS) {
+                const detail = `Please use --${ANONYMOUS} flag to delete the ${ANONYMOUS} account`;
+                throw_cli_error(ManageCLIError.InvalidAccountName, detail);
+            }
+        }
     }
 }
 

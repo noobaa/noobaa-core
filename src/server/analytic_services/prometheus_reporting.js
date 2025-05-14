@@ -13,6 +13,7 @@ const stats_aggregator = require('../system_services/stats_aggregator');
 const AggregatorRegistry = require('prom-client').AggregatorRegistry;
 const aggregatorRegistry = new AggregatorRegistry();
 const http_utils = require('../../util/http_utils');
+const jwt_utils = require('../../util/jwt_utils');
 
 // Currenty supported reprots
 const reports = Object.seal({
@@ -69,6 +70,21 @@ async function start_server(
         return;
     }
     const metrics_request_handler = async (req, res) => {
+        // TODO: This is a temporary condition to avoid the token authentication for metrics, 
+        // Need to add authentication for NSFS NC also after confirming flow with the Scale team
+        if (!process.env.NC_NSFS_NO_DB_ENV) {
+            try {
+                jwt_utils.authenticate_jwt_token(req);
+            } catch (err) {
+                res.writeHead(403, { 'Content-Type': 'text/plain' });
+                const reply = JSON.stringify({
+                    error: 'AccessDenied',
+                    message: 'Access Denied',
+                }, null, 2) + '\n';
+                res.end(reply);
+                return;
+            }
+        }
         // Serve all metrics on the root path for system that do have one or more fork running.
         if (fork_enabled) {
             // we would like this part to be first as clusterMetrics might fail.

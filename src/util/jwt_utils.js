@@ -27,11 +27,33 @@ function make_internal_auth_token(object = {}, jwt_options = {}) {
     return make_auth_token(object, jwt_options);
 }
 
+/**
+ * authorize jwt token. Validate the jwt token inside passed validate_jwt method
+ * @param {string} token
+ */
 function authorize_jwt_token(token) {
+    if (token && token.includes('Bearer ')) {
+        token = token.split(' ')[1];
+    }
+    return jwt.verify(token, get_jwt_secret());
+}
+
+/**
+ * autheticate jwt token for prometheus metrics and version request
+ * @param {nb.S3Request} req
+ */
+function authenticate_jwt_token(req) {
+    const token = req.headers.authorization;
     try {
-        return jwt.verify(token, get_jwt_secret());
+        if (!token) {
+            throw new Error('Missing authorization header');
+        }
+        const decoded = authorize_jwt_token(token);
+        if (decoded.role !== "metrics-auth") {
+            throw new Error("Role based authorization failed");
+        }
     } catch (err) {
-        dbg.error('JWT VERIFY FAILED', token, err);
+        dbg.error('JWT verification failed for token : ', token, err);
         throw err;
     }
 }
@@ -40,3 +62,4 @@ exports.get_jwt_secret = get_jwt_secret;
 exports.make_auth_token = make_auth_token;
 exports.make_internal_auth_token = make_internal_auth_token;
 exports.authorize_jwt_token = authorize_jwt_token;
+exports.authenticate_jwt_token = authenticate_jwt_token;

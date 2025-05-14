@@ -69,6 +69,12 @@ async function start_server(
         return;
     }
     const metrics_request_handler = async (req, res) => {
+        if (config.NOOBAA_METRICS_AUTH_ENABLED) {
+            // Authorize bearer token metrics endpoint
+            // Role 'metrics' is used in operator RPC call, 
+            // Update operator RPC call first before changing role
+            if (!http_utils.authorize_bearer(req, res, [ "metrics", "admin" ])) return;
+        }
         // Serve all metrics on the root path for system that do have one or more fork running.
         if (fork_enabled) {
             // we would like this part to be first as clusterMetrics might fail.

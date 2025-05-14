@@ -217,6 +217,8 @@ async function get_log_level_handler(req, res) {
 }
 
 async function get_version_handler(req, res) {
+    // Authorize bearer token version endpoint
+    if (config.NOOBAA_VERSION_AUTH_ENABLED && !http_utils.authorize_bearer(req, res)) return;
     const { status, version } = await getVersion(req.url);
     if (version) res.send(version);
     if (status !== 200) res.status(status);

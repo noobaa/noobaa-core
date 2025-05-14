@@ -27,6 +27,10 @@ function make_internal_auth_token(object = {}, jwt_options = {}) {
     return make_auth_token(object, jwt_options);
 }
 
+/**
+ * authorize jwt token by verifying it against the jwt secret
+ * @param {string} token
+ */
 function authorize_jwt_token(token) {
     try {
         return jwt.verify(token, get_jwt_secret());

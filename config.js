@@ -1126,6 +1126,9 @@ config.DEFAULT_REGION = 'us-east-1';
 
 config.VACCUM_ANALYZER_INTERVAL = 86400000;
 
+config.NOOBAA_METRICS_AUTH_ENABLED = process.env.NOOBAA_METRICS_AUTH_ENABLED === 'true';
+config.NOOBAA_VERSION_AUTH_ENABLED = process.env.NOOBAA_VERSION_AUTH_ENABLED === 'true';
+
 /////////////////////
 //                 //
 //    OVERRIDES    //

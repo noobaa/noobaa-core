@@ -449,7 +449,7 @@ Warning: After setting this configuration, NooBaa will skip schema validations a
     "LOG_TO_STDERR_ENABLED": false
     3. systemctl restart noobaa
     ```
-### 30. Notification log directory
+### 31. Notification log directory
 * <u>Key</u> `NOTIFICATION_LOG_DIR`
 * <u>Type</u> String
 * <u>Default</u> empty
@@ -462,7 +462,7 @@ Warning: After setting this configuration, NooBaa will skip schema validations a
     "NOTIFICATION_LOG_DIR": "/etc/notif"
     3. systemctl restart noobaa
 
-### 31. Prometheus HTTP enable flag -
+### 32. Prometheus HTTP enable flag -
 * <u>Key</u>: `ALLOW_HTTP_METRICS`  
 * <u>Type</u>: Boolean  
 * <u>Default</u>: true  
@@ -476,7 +476,7 @@ Warning: After setting this configuration, NooBaa will skip schema validations a
     3. systemctl restart noobaa
     ```
 
-### 32. Prometheus HTTPS enable flag -
+### 33. Prometheus HTTPS enable flag -
 * <u>Key</u>: `ALLOW_HTTPS_METRICS`  
 * <u>Type</u>: Boolean  
 * <u>Default</u>: true  
@@ -490,7 +490,7 @@ Warning: After setting this configuration, NooBaa will skip schema validations a
     3. systemctl restart noobaa
     ```
 
-### 33. Notification space monitor frequency flag -
+### 34. Notification space monitor frequency flag -
 * <u>Key</u>: `NOTIFICATION_REQ_PER_SPACE_CHECK`
 * <u>Type</u>: Positive integer
 * <u>Default</u>: 0
@@ -504,7 +504,7 @@ Warning: After setting this configuration, NooBaa will skip schema validations a
     3. systemctl restart noobaa
     ```
 
-### 34. Notification space monitor threshold flag -
+### 35. Notification space monitor threshold flag -
 * <u>Key</u>: `NOTIFICATION_SPACE_CHECK_THRESHOLD`
 * <u>Type</u>: Number
 * <u>Default</u>: 0.1
@@ -518,7 +518,7 @@ Warning: After setting this configuration, NooBaa will skip schema validations a
     3. systemctl restart noobaa
     ```
 
-### 34. Dynamic supplemental groups allocation flag -
+### 36. Dynamic supplemental groups allocation flag -
 * <u>Key</u>: `NSFS_ENABLE_DYNAMIC_SUPPLEMENTAL_GROUPS`
 * <u>Type</u>: boolean
 * <u>Default</u>: true

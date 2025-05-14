@@ -920,7 +920,7 @@ mocha.describe('bucketspace_fs', function() {
     mocha.describe('bucket tagging operations', function() {
         mocha.it('put_bucket_tagging', async function() {
             const param = { name: test_bucket, tagging: [{ key: 'k1', value: 'v1' }] };
-            await bucketspace_fs.put_bucket_tagging(param);
+            await bucketspace_fs.put_bucket_tagging(param, dummy_object_sdk);
             const tag = await bucketspace_fs.get_bucket_tagging(param);
             assert.deepEqual(tag, { tagging: param.tagging });
         });

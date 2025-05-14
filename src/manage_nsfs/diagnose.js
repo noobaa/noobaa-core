@@ -10,6 +10,7 @@ const { DIAGNOSE_ACTIONS } = require('./manage_nsfs_constants');
 const ManageCLIError = require('./manage_nsfs_cli_errors').ManageCLIError;
 const { throw_cli_error, write_stdout_response } = require('./manage_nsfs_cli_utils');
 const ManageCLIResponse = require('../manage_nsfs/manage_nsfs_cli_responses').ManageCLIResponse;
+const manage_nsfs_validations = require('../manage_nsfs/manage_nsfs_validations');
 
 /**
  * manage_diagnose_operations handles cli diagnose operations
@@ -27,7 +28,7 @@ async function manage_diagnose_operations(action, user_input, config_fs) {
             await gather_logs();
             break;
         case DIAGNOSE_ACTIONS.METRICS:
-            await gather_metrics();
+            await gather_metrics(user_input);
             break;
         default:
             throw_cli_error(ManageCLIError.InvalidAction);
@@ -46,14 +47,19 @@ async function gather_logs() {
  * gather_metrics handles cli diagnose metrics operation
  * @returns {Promise<Void>}
  */
-async function gather_metrics() {
+async function gather_metrics(argv) {
+    const token = argv.token;
+    manage_nsfs_validations.validate_metrics_args(token);
     try {
         let metrics_output;
         const res = await http_utils.make_http_request({
             hostname: 'localhost',
             port: config.EP_METRICS_SERVER_PORT,
             path: '/metrics/nsfs_stats',
-            method: 'GET'
+            method: 'GET',
+            headers: {
+                'Authorization': token,
+            }
         });
         if (res.statusCode === 200) {
             const buffer = await buffer_utils.read_stream_join(res);
@@ -75,5 +81,6 @@ async function gather_metrics() {
         throw_cli_error({ ...ManageCLIError.MetricsStatusFailed, cause: err?.errors?.[0] || err });
     }
 }
+
 
 exports.manage_diagnose_operations = manage_diagnose_operations;

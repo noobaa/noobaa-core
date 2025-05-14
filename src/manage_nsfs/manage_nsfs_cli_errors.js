@@ -194,6 +194,17 @@ ManageCLIError.MetricsStatusFailed = Object.freeze({
     http_code: 500,
 });
 
+ManageCLIError.MetricsMissingToken = Object.freeze({
+    code: 'MetricsMissingToken',
+    message: 'Metrics fetch request missing JWT token',
+    http_code: 500,
+});
+
+ManageCLIError.InvalidMetricsTokenFormat = Object.freeze({
+    code: 'InvalidMetricsTokenFormat',
+    message: 'Metrics token should be valide JWT token',
+    http_code: 500,
+});
 //////////////////////////////
 //////// HEALTH ERRORS ///////
 //////////////////////////////
@@ -550,6 +561,12 @@ ManageCLIError.LifecycleFailed = Object.freeze({
 ManageCLIError.LifecycleWorkerReachedTimeout = Object.freeze({
     code: 'LifecycleWorkerReachedTimeout',
     message: `Lifecycle worker reached timeout - configured timeout is ${config.NC_LIFECYCLE_TIMEOUT_MS} ms`,
+    http_code: 400,
+});
+
+ManageCLIError.MetricsAuthTokenCreationFailed = Object.freeze({
+    code: 'MetricsAuthTokenCreationFailed',
+    message: `Metrics authentication token creation failed`,
     http_code: 400,
 });
 

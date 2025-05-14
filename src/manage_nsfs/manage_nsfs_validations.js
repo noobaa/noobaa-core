@@ -203,6 +203,7 @@ function validate_options_type_by_value(input_options_with_data) {
         const type_of_value = typeof value;
         const is_empty_cli_value = CLI_EMPTY_VALUES.has(value);
         const is_unsettable_option_match_value = UNSETTABLE_OPTIONS_OBJ[option] === value;
+
         if (type_of_value !== type_of_option) {
             // if unset is allowed but the type is not string, we allow it
             if (is_empty_cli_value && is_unsettable_option_match_value) {
@@ -790,6 +791,15 @@ function version_match_to_current_version(expected_version) {
     return diff_from_package_version === 0;
 }
 
+function validate_metrics_args(token) {
+    if (!token) {
+        throw_cli_error(ManageCLIError.MetricsMissingToken);
+    }
+    if (!token.startsWith("Bearer")) {
+        throw_cli_error(ManageCLIError.InvalidMetricsTokenFormat);
+    }
+}
+
 
 // EXPORTS
 exports.validate_input_types = validate_input_types;
@@ -804,3 +814,4 @@ exports.validate_flags_combination = validate_flags_combination;
 exports.validate_connection_args = validate_connection_args;
 exports.validate_no_extra_args = validate_no_extra_args;
 exports.validate_expected_version = validate_expected_version;
+exports.validate_metrics_args = validate_metrics_args;

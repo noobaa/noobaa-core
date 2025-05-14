@@ -17,6 +17,7 @@ const { ManageCLIResponse } = require('../../manage_nsfs/manage_nsfs_cli_respons
 const { exec_manage_cli, generate_s3_policy, create_fs_user_by_platform, delete_fs_user_by_platform,
     set_path_permissions_and_owner, TMP_PATH, set_nc_config_dir_in_config } = require('../system_tests/test_utils');
 const { TYPES, ACTIONS } = require('../../manage_nsfs/manage_nsfs_constants');
+const jwt_utils = require('../../util/jwt_utils');
 
 const tmp_fs_path = path.join(TMP_PATH, 'test_bucketspace_fs');
 const DEFAULT_FS_CONFIG = get_process_fs_context();
@@ -1069,9 +1070,29 @@ mocha.describe('manage_nsfs cli', function() {
             console.log(config_data);
             assert_whitelist(config_data, new_config_options);
         });
-
     });
 
+    mocha.describe('cli metrics auth flow', async function() {
+        const type = TYPES.METRICS_AUTH;
+        mocha.it('cli return metrics auth JWT token', async function() {
+            const res = await exec_manage_cli(type, '');
+            const parsed = JSON.parse(res);
+            assert.notEqual(res, undefined);
+            assert.notEqual(parsed.response.reply, undefined);
+            try {
+                jwt_utils.authorize_jwt_token(parsed.response.reply.token, function(err, decoded) {
+                if (err) {
+                    throw err;
+                }
+                if (decoded.role !== "metrics-auth") {
+                    throw new Error("Role based authorization failed");
+                }
+            });
+            } catch (err) {
+                throw new Error('Metrics auth token verification failed', err.code);
+            }
+        });
+    });
 });
 
 

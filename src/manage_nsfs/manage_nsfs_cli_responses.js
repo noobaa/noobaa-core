@@ -221,6 +221,12 @@ ManageCLIResponse.LifecycleWorkerNotRunning = Object.freeze({
 //  RESPONSES-EVENT MAPPING  //
 ///////////////////////////////
 
+ManageCLIResponse.MetricsAuthToken = Object.freeze({
+    code: 'MetricsAuthToken',
+    message: 'Metrics auth token',
+    status: {}
+});
+
 const NSFS_CLI_SUCCESS_EVENT_MAP = {
     AccountCreated: NoobaaEvent.ACCOUNT_CREATED,
     AccountDeleted: NoobaaEvent.ACCOUNT_DELETED,

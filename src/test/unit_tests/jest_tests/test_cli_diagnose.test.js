@@ -59,11 +59,32 @@ describe('noobaa cli - diagnose flow', () => {
 
     describe('metrics flow', () => {
 
+        it('diagnose metrics - should fail, token is missing', async () => {
+            const res = await exec_manage_cli(TYPES.DIAGNOSE, DIAGNOSE_ACTIONS.METRICS, { config_root}, true);
+            const parsed_res = JSON.parse(res.stdout);
+            expect(parsed_res.error.code).toBe(ManageCLIError.MetricsMissingToken.code);
+            expect(parsed_res.error.message).toBe(ManageCLIError.MetricsMissingToken.message);
+        });
+
+        it('diagnose metrics - should fail, token type is boolean', async () => {
+            const res = await exec_manage_cli(TYPES.DIAGNOSE, DIAGNOSE_ACTIONS.METRICS, { config_root, token: true}, true);
+            const parsed_res = JSON.parse(res.stdout);
+            expect(parsed_res.error.code).toBe(ManageCLIError.InvalidArgumentType.code);
+            expect(parsed_res.error.message).toBe(ManageCLIError.InvalidArgumentType.message);
+        });
+
+        it('diagnose metrics - should fail, invalid token', async () => {
+            const res = await exec_manage_cli(TYPES.DIAGNOSE, DIAGNOSE_ACTIONS.METRICS, { config_root, token: "true"}, true);
+            const parsed_res = JSON.parse(res.stdout);
+            expect(parsed_res.error.code).toBe(ManageCLIError.InvalidMetricsTokenFormat.code);
+            expect(parsed_res.error.message).toBe(ManageCLIError.InvalidMetricsTokenFormat.message);
+        });
+
         it('diagnose metrics - should fail', async () => {
             let metrics_server;
             try {
                 metrics_server = start_metrics_mock_server();
-                const res = await exec_manage_cli(TYPES.DIAGNOSE, DIAGNOSE_ACTIONS.METRICS, { config_root }, true);
+                const res = await exec_manage_cli(TYPES.DIAGNOSE, DIAGNOSE_ACTIONS.METRICS, { config_root, token: "\"Bearer ejbe\"" }, true);
                 const parsed_res = JSON.parse(res);
                 expect(parsed_res.response.code).toBe(ManageCLIResponse.MetricsStatus.code);
                 expect(parsed_res.response.reply).toMatchObject(metrics_obj_mock);
@@ -73,7 +94,7 @@ describe('noobaa cli - diagnose flow', () => {
         });
 
         it('diagnose metrics - should fail, metrics server is down', async () => {
-            const res = await exec_manage_cli(TYPES.DIAGNOSE, DIAGNOSE_ACTIONS.METRICS, { config_root }, true);
+            const res = await exec_manage_cli(TYPES.DIAGNOSE, DIAGNOSE_ACTIONS.METRICS, { config_root, token: "\"Bearer ejbe\""}, true);
             const parsed_res = JSON.parse(res.stdout);
             expect(parsed_res.error.code).toBe(ManageCLIError.MetricsStatusFailed.code);
             expect(parsed_res.error.message).toBe(ManageCLIError.MetricsStatusFailed.message);

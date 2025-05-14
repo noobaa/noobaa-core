@@ -25,6 +25,32 @@ This section provides details about the metrics URL and port configuration neces
 
 - Prometheus metrics HTTP service can be enabled/disabled by changing `ALLOW_HTTP_METRICS` in config.json for Non Containerized Noobaa, for containerized deployments HTTP is always enabled.
 
+
+#### Metrics authentication - </br>
+- Requesting Prometheus metrics using URL or CLI requires JWT based authentication token. Without this authentication token, both URL and CLI requests return error responses
+
+- Following CLI command will return authentication token
+ ```
+ node src/cmd/manage_nsfs metrics_auth 2>/dev/null
+ {
+  "response": {
+    "code": "MetricsAuthToken",
+    "message": "Metrics auth token",
+    "reply": {
+      "token": "Bearer eyJhbGciOiJIUCI6Im******e_ZC3Q1VXWe41IbhzRTvbLpKI1lg"
+    }
+  }
+}
+ ```
+ - This authentication token can be used to request metrics
+ ```
+  - CLI : 
+        node src/cmd/manage_nsfs diagnose metrics --token "{response.reply.token}" 2>/dev/null
+
+  - URL : 
+        curl -k -H "Authorization: {response.reply.token}" http://{host}:{http_metrics_port}/metrics/nsfs_stats
+ ```
+
 #### Prometheus Metrics HTTPS URL - </br>
 
 - NooBaa exports the system statistics via the following SSL URL - </br> `https://{host}:{https_metrics_port}/metrics/nsfs_stats`

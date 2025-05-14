@@ -34,6 +34,7 @@ const addr_utils = require('../util/addr_utils');
 const kube_utils = require('../util/kube_utils');
 const http_utils = require('../util/http_utils');
 const server_rpc = require('./server_rpc');
+const jwt_utils = require('../util/jwt_utils');
 
 const rootdir = path.join(__dirname, '..', '..');
 const dev_mode = (process.env.DEV_MODE === 'true');
@@ -218,6 +219,17 @@ async function get_log_level_handler(req, res) {
 }
 
 async function get_version_handler(req, res) {
+    try {
+        jwt_utils.authenticate_jwt_token(req);
+    } catch (err) {
+        res.writeHead(403, { 'Content-Type': 'text/plain' });
+        const reply = JSON.stringify({
+            error: 'AccessDenied',
+            message: 'Access Denied',
+        }, null, 2) + '\n';
+        res.end(reply);
+        return;
+    }
     const { status, version } = await getVersion(req.url);
     if (version) res.send(version);
     if (status !== 200) res.status(status);

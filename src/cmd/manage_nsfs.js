@@ -41,6 +41,7 @@ const nc_mkm = require('../manage_nsfs/nc_master_key_manager').get_instance();
 const notifications_util = require('../util/notifications_util');
 const BucketSpaceFS = require('../sdk/bucketspace_fs');
 const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
+const jwt_utils = require('../util/jwt_utils');
 
 ///////////////
 //// GENERAL //
@@ -95,6 +96,8 @@ async function main(argv = minimist(process.argv.slice(2))) {
             await connection_management(action, user_input);
         } else if (type === TYPES.LIFECYCLE) {
             await lifecycle_management(argv);
+        } else if (type === TYPES.METRICS_AUTH) {
+            await metrics_auth_management();
         } else {
             throw_cli_error(ManageCLIError.InvalidType);
         }
@@ -964,6 +967,24 @@ async function lifecycle_management(args) {
     } catch (err) {
         dbg.error('manage_nsfs.lifecycle_management: Error while running run_lifecycle_under_lock', config_fs.config_json_path, err);
         throw_cli_error(err);
+    }
+}
+
+/**
+ * metrics_auth_management get metrics auth JWT token
+ * @returns {Promise<void>}
+ */
+async function metrics_auth_management() {
+    try {
+        const token = jwt_utils.make_internal_auth_token({
+            system: process.env.CREATE_SYS_NAME,
+            email: "cli@noobaa.com",
+            role: "metrics-auth",
+        });
+        write_stdout_response(ManageCLIResponse.MetricsAuthToken, {token: "Bearer " + token});
+    } catch (err) {
+        dbg.error('manage_nsfs.metrics_auth_management: Error', err);
+        throw_cli_error(ManageCLIError.MetricsAuthTokenCreationFailed);
     }
 }
 

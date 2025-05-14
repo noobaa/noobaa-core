@@ -11,7 +11,8 @@ const TYPES = Object.freeze({
     UPGRADE: 'upgrade',
     NOTIFICATION: 'notification',
     CONNECTION: 'connection',
-    LIFECYCLE: 'lifecycle'
+    LIFECYCLE: 'lifecycle',
+    METRICS_AUTH: 'metrics_auth',
 });
 
 const ACTIONS = Object.freeze({
@@ -77,7 +78,7 @@ const VALID_OPTIONS_GLACIER = {
 const VALID_OPTIONS_DIAGNOSE = {
     'health': new Set([ 'https_port', 'deployment_type', 'all_account_details', 'all_bucket_details', 'all_connection_details', 'notif_storage_threshold', 'lifecycle', ...CLI_MUTUAL_OPTIONS]),
     'gather-logs': new Set([ CONFIG_ROOT_FLAG]),
-    'metrics': new Set([CONFIG_ROOT_FLAG])
+    'metrics': new Set([ 'token', CONFIG_ROOT_FLAG])
 };
 
 const VALID_OPTIONS_UPGRADE = {
@@ -174,6 +175,7 @@ const OPTION_TYPE = {
     // bucket tagging
     tag: 'string',
     merge_tag: 'string',
+    token: 'string',
 };
 
 const BOOLEAN_STRING_VALUES = ['true', 'false'];

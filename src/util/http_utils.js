@@ -946,6 +946,44 @@ function set_response_headers_from_request(req, res) {
     if (req.query['response-expires']) res.setHeader('Expires', req.query['response-expires']);
 }
 
+/**
+ * autheticate jwt token for prometheus metrics and version request
+ * @param {nb.S3Request} req
+ * @param {nb.S3Response} res
+ * @param {string[]} roles
+ */
+function authorize_bearer(req, res, roles = undefined) {
+    let token = req.headers.authorization;
+    try {
+        if (!token) {
+            dbg.error('Missing authorization header : ', token);
+            throw new Error('Access Denied');
+        }
+        if (!token.startsWith('Bearer ')) {
+            dbg.error('JWT token is missing the Bearer prefix, ', token);
+            throw new Error('Access Denied');
+        }
+        token = token.slice('Bearer '.length);
+        const decoded = jwt_utils.authorize_jwt_token(token);
+        // Role 'metrics-auth' is used in operator RPC call, 
+        // If needs to change update operator RPC call first
+        if (roles && !roles.includes(decoded.role)) {
+            dbg.error('Bearer token authorization failed : ', token);
+            throw new Error('Access Denied');
+        }
+    } catch (err) {
+        dbg.error('JWT verification failed for token: ', token, " req.url: ", req.url, " req.headers: ",
+             req.headers, err);
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        const reply = JSON.stringify({
+            error: 'AccessDenied',
+            message: err.message,
+        }, null, 2);
+        res.end(reply);
+        return false;
+    }
+}
+
 exports.parse_url_query = parse_url_query;
 exports.parse_client_ip = parse_client_ip;
 exports.get_md_conditions = get_md_conditions;
@@ -984,3 +1022,4 @@ exports.CONTENT_TYPE_APP_JSON = CONTENT_TYPE_APP_JSON;
 exports.CONTENT_TYPE_APP_XML = CONTENT_TYPE_APP_XML;
 exports.CONTENT_TYPE_APP_FORM_URLENCODED = CONTENT_TYPE_APP_FORM_URLENCODED;
 exports.set_response_headers_from_request = set_response_headers_from_request;
+exports.authorize_bearer = authorize_bearer;

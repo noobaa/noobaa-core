@@ -3,7 +3,7 @@
 
 // setup coretest first to prepare the env
 const coretest = require('./coretest');
-coretest.setup({ pools_to_create: [coretest.POOL_LIST[0]] });
+coretest.setup({ pools_to_create: [coretest.POOL_LIST[1]] });
 
 const _ = require('lodash');
 const mocha = require('mocha');

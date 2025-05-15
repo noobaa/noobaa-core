@@ -3,7 +3,7 @@
 
 // setup coretest first to prepare the env
 const { setup, rpc_client, POOL_LIST } = require('./coretest');
-setup({ pools_to_create: [POOL_LIST[0]] });
+setup({ pools_to_create: [POOL_LIST[1]] });
 
 // const _ = require('lodash');
 const mocha = require('mocha');

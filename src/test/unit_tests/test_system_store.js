@@ -7,7 +7,7 @@ const coretest = require('./coretest');
 const db_client = require('../../util/db_client');
 
 // setup coretest first to prepare the env
-coretest.setup({ pools_to_create: [coretest.POOL_LIST[0]] });
+coretest.setup();
 
 
 mocha.describe('system_store', function() {

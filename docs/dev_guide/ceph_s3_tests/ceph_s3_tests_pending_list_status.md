@@ -54,4 +54,5 @@ change in our repo) - stopped passing between the update of commit hash 6861c3d8
 | test_get_bucket_encryption_s3 | Faulty Test | [613](https://github.com/ceph/s3-tests/issues/613) | 
 | test_get_bucket_encryption_kms | Faulty Test | [613](https://github.com/ceph/s3-tests/issues/613) | 
 | test_delete_bucket_encryption_s3 | Faulty Test | [613](https://github.com/ceph/s3-tests/issues/613) | 
-| test_delete_bucket_encryption_kms | Faulty Test | [613](https://github.com/ceph/s3-tests/issues/613) | 
+| test_delete_bucket_encryption_kms | Faulty Test | [613](https://github.com/ceph/s3-tests/issues/613) |
+| test_lifecycle_expiration_tags1 | Faulty Test | [638](https://github.com/ceph/s3-tests/issues/638) | There can be more such tests having the same issue (`Filter` is not aligned with aws structure in bucket lifecycle configuration) |

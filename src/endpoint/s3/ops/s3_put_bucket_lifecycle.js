@@ -9,6 +9,63 @@ const S3Error = require('../s3_errors').S3Error;
 
 const true_regex = /true/i;
 
+/**
+ * validate_lifecycle_rule validates lifecycle rule structure and logical constraints
+ *
+ * validations:
+ * - ID must be ≤ MAX_RULE_ID_LENGTH
+ * - Status must be "Enabled" or "Disabled"
+ * - multiple Filters must be under "And"
+ * - only one Expiration field is allowed
+ * - Expiration.Date must be midnight UTC format
+ * - AbortIncompleteMultipartUpload cannot be combined with Tags or ObjectSize filters
+ *
+ * @param {Object} rule - lifecycle rule to validate
+ * @throws {S3Error} - on validation failure
+ */
+function validate_lifecycle_rule(rule) {
+
+    if (rule.ID?.length === 1 && rule.ID[0].length > s3_const.MAX_RULE_ID_LENGTH) {
+        dbg.error('Rule should not have ID length exceed allowed limit of ', s3_const.MAX_RULE_ID_LENGTH, ' characters', rule);
+        throw new S3Error({ ...S3Error.InvalidArgument, message: `ID length should not exceed allowed limit of ${s3_const.MAX_RULE_ID_LENGTH}` });
+    }
+
+    if (!rule.Status || rule.Status.length !== 1 ||
+        (rule.Status[0] !== s3_const.LIFECYCLE_STATUS.STAT_ENABLED && rule.Status[0] !== s3_const.LIFECYCLE_STATUS.STAT_DISABLED)) {
+        dbg.error(`Rule should have a status value of "${s3_const.LIFECYCLE_STATUS.STAT_ENABLED}" or "${s3_const.LIFECYCLE_STATUS.STAT_DISABLED}".`, rule);
+        throw new S3Error(S3Error.MalformedXML);
+    }
+
+    if (rule.Filter?.[0] && Object.keys(rule.Filter[0]).length > 1 && !rule.Filter[0]?.And) {
+        dbg.error('Rule should combine multiple filters using "And"', rule);
+        throw new S3Error(S3Error.MalformedXML);
+    }
+
+    if (rule.Expiration?.[0] && Object.keys(rule.Expiration[0]).length > 1) {
+        dbg.error('Rule should specify only one expiration field: Days, Date, or ExpiredObjectDeleteMarker', rule);
+        throw new S3Error(S3Error.MalformedXML);
+    }
+
+    if (rule.Expiration?.length === 1 && rule.Expiration[0]?.Date) {
+        const date = new Date(rule.Expiration[0].Date[0]);
+        if (isNaN(date.getTime()) || date.getTime() !== Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())) {
+            dbg.error('Date value must conform to the ISO 8601 format and at midnight UTC (00:00:00). Provided:', rule.Expiration[0].Date[0]);
+            throw new S3Error({ ...S3Error.InvalidArgument, message: "'Date' must be at midnight GMT" });
+        }
+    }
+
+    if (rule.AbortIncompleteMultipartUpload?.length === 1 && rule.Filter?.length === 1) {
+        if (rule.Filter[0]?.Tag) {
+            dbg.error('Rule should not include AbortIncompleteMultipartUpload with Tags', rule);
+            throw new S3Error({ ...S3Error.InvalidArgument, message: 'AbortIncompleteMultipartUpload cannot be specified with Tags' });
+        }
+        if (rule.Filter[0]?.ObjectSizeGreaterThan || rule.Filter[0]?.ObjectSizeLessThan) {
+            dbg.error('Rule should not include AbortIncompleteMultipartUpload with Object Size', rule);
+            throw new S3Error({ ...S3Error.InvalidArgument, message: 'AbortIncompleteMultipartUpload cannot be specified with Object Size' });
+        }
+    }
+}
+
 // parse lifecycle rule filter
 function parse_filter(filter) {
     const current_rule_filter = {};
@@ -89,13 +146,11 @@ async function put_bucket_lifecycle(req) {
             filter: {},
         };
 
+        // validate rule
+        validate_lifecycle_rule(rule);
+
         if (rule.ID?.length === 1) {
-            if (rule.ID[0].length > s3_const.MAX_RULE_ID_LENGTH) {
-                dbg.error('Rule should not have ID length exceed allowed limit of ', s3_const.MAX_RULE_ID_LENGTH, ' characters', rule);
-                throw new S3Error({ ...S3Error.InvalidArgument, message: `ID length should not exceed allowed limit of ${s3_const.MAX_RULE_ID_LENGTH}` });
-            } else {
-                current_rule.id = rule.ID[0];
-            }
+            current_rule.id = rule.ID[0];
         } else {
             // Generate a random ID if missing
             current_rule.id = crypto.randomUUID();
@@ -108,11 +163,6 @@ async function put_bucket_lifecycle(req) {
         }
         id_set.add(current_rule.id);
 
-        if (!rule.Status || rule.Status.length !== 1 ||
-            (rule.Status[0] !== s3_const.LIFECYCLE_STATUS.STAT_ENABLED && rule.Status[0] !== s3_const.LIFECYCLE_STATUS.STAT_DISABLED)) {
-            dbg.error(`Rule should have a status value of "${s3_const.LIFECYCLE_STATUS.STAT_ENABLED}" or "${s3_const.LIFECYCLE_STATUS.STAT_DISABLED}".`, rule);
-            throw new S3Error(S3Error.MalformedXML);
-        }
         current_rule.status = rule.Status[0];
 
         if (rule.Prefix) {

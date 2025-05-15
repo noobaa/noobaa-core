@@ -2,7 +2,7 @@
 'use strict';
 
 const coretest = require('./coretest');
-coretest.setup({ pools_to_create: [coretest.POOL_LIST[1]] });
+coretest.setup();
 
 const mocha = require('mocha');
 const assert = require('assert');

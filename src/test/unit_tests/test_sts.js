@@ -3,7 +3,7 @@
 
 // setup coretest first to prepare the env
 const coretest = require('./coretest');
-coretest.setup({ pools_to_create: coretest.POOL_LIST[1] });
+coretest.setup();
 const AWS = require('aws-sdk');
 const https = require('https');
 const mocha = require('mocha');

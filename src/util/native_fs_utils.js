@@ -289,6 +289,19 @@ function should_retry_link_unlink(err) {
     return should_retry_general || should_retry_gpfs || should_retry_posix;
 }
 
+/**
+ * stat_ignore_enoent unlinks a file and if recieved an ENOENT error it'll not fail
+ * @param {nb.NativeFSContext} fs_context
+ * @param {string} file_path
+ * @returns {Promise<nb.NativeFSStats>}
+ */
+async function stat_ignore_enoent(fs_context, file_path) {
+    try {
+        return await nb_native().fs.stat(fs_context, file_path);
+    } catch (err) {
+        if (err.code !== 'ENOENT') throw err;
+    }
+}
 
 /**
  * stat_if_exists execute stat on entry_path and ignores on certain error codes.
@@ -729,6 +742,7 @@ exports.finally_close_files = finally_close_files;
 exports.get_user_by_distinguished_name = get_user_by_distinguished_name;
 exports.get_config_files_tmpdir = get_config_files_tmpdir;
 exports.stat_if_exists = stat_if_exists;
+exports.stat_ignore_enoent = stat_ignore_enoent;
 
 exports._is_gpfs = _is_gpfs;
 exports.safe_move = safe_move;

@@ -1,6 +1,9 @@
 /* Copyright (C) 2022 NooBaa */
 'use strict';
 
+const coretest = require('./coretest');
+coretest.setup();
+
 const mocha = require('mocha');
 const assert = require('assert');
 const config = require('../../../config');

@@ -9,10 +9,9 @@ const path = require('path');
 const crypto = require('crypto');
 const config = require('../../../../config');
 const fs_utils = require('../../../util/fs_utils');
-const { ConfigFS } = require('../../../sdk/config_fs');
 const NamespaceFS = require('../../../sdk/namespace_fs');
 const buffer_utils = require('../../../util/buffer_utils');
-const { NCLifecycle } = require('../../../manage_nsfs/nc_lifecycle');
+const lifecycle_utils = require('../../../../src/util/lifecycle_utils');
 const endpoint_stats_collector = require('../../../sdk/endpoint_stats_collector');
 const { TMP_PATH, set_nc_config_dir_in_config, TEST_TIMEOUT } = require('../../system_tests/test_utils');
 
@@ -21,9 +20,7 @@ const config_root = path.join(TMP_PATH, 'config_root_nc_lifecycle');
 const root_path = path.join(TMP_PATH, 'root_path_nc_lifecycle/');
 const bucket_name = 'lifecycle_bucket';
 const bucket_path = path.join(root_path, bucket_name);
-const config_fs = new ConfigFS(config_root);
 const dummy_object_sdk = make_dummy_object_sdk();
-const nc_lifecycle = new NCLifecycle(config_fs);
 const key = 'obj1.txt';
 const data = crypto.randomBytes(100);
 
@@ -90,7 +87,7 @@ describe('delete_multiple_objects + filter', () => {
         it('delete_multiple_objects - filter should fail on wrong prefix - versioning DISABLED bucket', async () => {
             const data_buffer = buffer_utils.buffer_to_read_stream(data);
             await nsfs.upload_object({ bucket: bucket_name, key: key, source_stream: data_buffer }, dummy_object_sdk);
-            const filter_func = nc_lifecycle._build_lifecycle_filter({ filter: { prefix: 'd' }, expiration: 0 });
+            const filter_func = lifecycle_utils.build_lifecycle_filter({ filter: { prefix: 'd' }, expiration: 0 });
             const delete_res = await nsfs.delete_multiple_objects({ objects: [{ key }], filter_func }, dummy_object_sdk);
             await assert_object_deletion_failed(delete_res);
         });
@@ -98,7 +95,7 @@ describe('delete_multiple_objects + filter', () => {
         it('delete_multiple_objects - filter should fail on wrong object_size_less_than - versioning DISABLED bucket', async () => {
             const data_buffer = buffer_utils.buffer_to_read_stream(data);
             await nsfs.upload_object({ bucket: bucket_name, key: key, source_stream: data_buffer }, dummy_object_sdk);
-            const filter_func = nc_lifecycle._build_lifecycle_filter({ filter: { object_size_less_than: 99 }, expiration: 0 });
+            const filter_func = lifecycle_utils.build_lifecycle_filter({ filter: { object_size_less_than: 99 }, expiration: 0 });
             const delete_res = await nsfs.delete_multiple_objects({ objects: [{ key }], filter_func }, dummy_object_sdk);
             await assert_object_deletion_failed(delete_res);
         });
@@ -106,7 +103,7 @@ describe('delete_multiple_objects + filter', () => {
         it('delete_multiple_objects - filter should fail on wrong object_size_greater_than - versioning DISABLED bucket', async () => {
             const data_buffer = buffer_utils.buffer_to_read_stream(data);
             await nsfs.upload_object({ bucket: bucket_name, key: key, source_stream: data_buffer }, dummy_object_sdk);
-            const filter_func = nc_lifecycle._build_lifecycle_filter({ filter: { object_size_greater_than: 101 }, expiration: 0 });
+            const filter_func = lifecycle_utils.build_lifecycle_filter({ filter: { object_size_greater_than: 101 }, expiration: 0 });
             const delete_res = await nsfs.delete_multiple_objects({ objects: [{ key }], filter_func }, dummy_object_sdk);
             await assert_object_deletion_failed(delete_res);
         });
@@ -114,7 +111,7 @@ describe('delete_multiple_objects + filter', () => {
         it('delete_multiple_objects - filter should fail on wrong tags - versioning DISABLED bucket', async () => {
             const data_buffer = buffer_utils.buffer_to_read_stream(data);
             await nsfs.upload_object({ bucket: bucket_name, key: key, source_stream: data_buffer }, dummy_object_sdk);
-            const filter_func = nc_lifecycle._build_lifecycle_filter({ filter: { tags: [{ key: 'a', value: 'b'}] }, expiration: 0 });
+            const filter_func = lifecycle_utils.build_lifecycle_filter({ filter: { tags: [{ key: 'a', value: 'b'}] }, expiration: 0 });
             const delete_res = await nsfs.delete_multiple_objects({ objects: [{ key }], filter_func }, dummy_object_sdk);
             await assert_object_deletion_failed(delete_res);
         });
@@ -122,7 +119,7 @@ describe('delete_multiple_objects + filter', () => {
         it('delete_multiple_objects - filter should fail on expiration - versioning DISABLED bucket', async () => {
             const data_buffer = buffer_utils.buffer_to_read_stream(data);
             await nsfs.upload_object({ bucket: bucket_name, key: key, source_stream: data_buffer }, dummy_object_sdk);
-            const filter_func = nc_lifecycle._build_lifecycle_filter({ expiration: 5 });
+            const filter_func = lifecycle_utils.build_lifecycle_filter({ expiration: 5 });
             const delete_res = await nsfs.delete_multiple_objects({ objects: [{ key }], filter_func }, dummy_object_sdk);
             await assert_object_deletion_failed(delete_res);
         });
@@ -133,7 +130,7 @@ describe('delete_multiple_objects + filter', () => {
         it('delete_multiple_objects - filter should pass on wrong prefix - versioning DISABLED bucket', async () => {
             const data_buffer = buffer_utils.buffer_to_read_stream(data);
             await nsfs.upload_object({ bucket: bucket_name, key: key, source_stream: data_buffer }, dummy_object_sdk);
-            const filter_func = nc_lifecycle._build_lifecycle_filter({ filter: { prefix: 'ob' }, expiration: 0 });
+            const filter_func = lifecycle_utils.build_lifecycle_filter({ filter: { prefix: 'ob' }, expiration: 0 });
             const delete_res = await nsfs.delete_multiple_objects({ objects: [{ key }], filter_func }, dummy_object_sdk);
             await assert_object_deleted(delete_res);
         });
@@ -141,7 +138,7 @@ describe('delete_multiple_objects + filter', () => {
         it('delete_multiple_objects - filter should pass on wrong object_size_less_than - versioning DISABLED bucket', async () => {
             const data_buffer = buffer_utils.buffer_to_read_stream(data);
             await nsfs.upload_object({ bucket: bucket_name, key: key, source_stream: data_buffer }, dummy_object_sdk);
-            const filter_func = nc_lifecycle._build_lifecycle_filter({ filter: { object_size_less_than: 101 }, expiration: 0 });
+            const filter_func = lifecycle_utils.build_lifecycle_filter({ filter: { object_size_less_than: 101 }, expiration: 0 });
             const delete_res = await nsfs.delete_multiple_objects({ objects: [{ key }], filter_func }, dummy_object_sdk);
             await assert_object_deleted(delete_res);
         });
@@ -149,7 +146,7 @@ describe('delete_multiple_objects + filter', () => {
         it('delete_multiple_objects - filter should pass on wrong object_size_greater_than - versioning DISABLED bucket', async () => {
             const data_buffer = buffer_utils.buffer_to_read_stream(data);
             await nsfs.upload_object({ bucket: bucket_name, key: key, source_stream: data_buffer }, dummy_object_sdk);
-            const filter_func = nc_lifecycle._build_lifecycle_filter({ filter: { object_size_greater_than: 1 }, expiration: 0 });
+            const filter_func = lifecycle_utils.build_lifecycle_filter({ filter: { object_size_greater_than: 1 }, expiration: 0 });
             const delete_res = await nsfs.delete_multiple_objects({ objects: [{ key }], filter_func }, dummy_object_sdk);
             await assert_object_deleted(delete_res);
         });
@@ -158,7 +155,7 @@ describe('delete_multiple_objects + filter', () => {
             const data_buffer = buffer_utils.buffer_to_read_stream(data);
             const tagging = [{ key: 'a', value: 'b' }];
             await nsfs.upload_object({ bucket: bucket_name, key: key, source_stream: data_buffer, tagging }, dummy_object_sdk);
-            const filter_func = nc_lifecycle._build_lifecycle_filter({ filter: { tags: tagging }, expiration: 0 });
+            const filter_func = lifecycle_utils.build_lifecycle_filter({ filter: { tags: tagging }, expiration: 0 });
             const delete_res = await nsfs.delete_multiple_objects({ objects: [{ key }], filter_func }, dummy_object_sdk);
             await assert_object_deleted(delete_res);
         });
@@ -166,7 +163,7 @@ describe('delete_multiple_objects + filter', () => {
         it('delete_multiple_objects - filter should pass on expiration - versioning DISABLED bucket', async () => {
             const data_buffer = buffer_utils.buffer_to_read_stream(data);
             await nsfs.upload_object({ bucket: bucket_name, key: key, source_stream: data_buffer }, dummy_object_sdk);
-            const filter_func = nc_lifecycle._build_lifecycle_filter({ expiration: 0 });
+            const filter_func = lifecycle_utils.build_lifecycle_filter({ expiration: 0 });
             const delete_res = await nsfs.delete_multiple_objects({ objects: [{ key }], filter_func }, dummy_object_sdk);
             await assert_object_deleted(delete_res);
         });
@@ -178,7 +175,7 @@ describe('delete_multiple_objects + filter', () => {
             nsfs.versioning = 'ENABLED';
             const data_buffer = buffer_utils.buffer_to_read_stream(data);
             await nsfs.upload_object({ bucket: bucket_name, key: key, source_stream: data_buffer }, dummy_object_sdk);
-            const filter_func = nc_lifecycle._build_lifecycle_filter({ filter: { prefix: 'd' }, expiration: 0 });
+            const filter_func = lifecycle_utils.build_lifecycle_filter({ filter: { prefix: 'd' }, expiration: 0 });
             const delete_res = await nsfs.delete_multiple_objects({ objects: [{ key }], filter_func }, dummy_object_sdk);
             await assert_object_deletion_failed(delete_res);
         });
@@ -187,7 +184,7 @@ describe('delete_multiple_objects + filter', () => {
             nsfs.versioning = 'ENABLED';
             const data_buffer = buffer_utils.buffer_to_read_stream(data);
             await nsfs.upload_object({ bucket: bucket_name, key: key, source_stream: data_buffer }, dummy_object_sdk);
-            const filter_func = nc_lifecycle._build_lifecycle_filter({ filter: { object_size_less_than: 99 }, expiration: 0 });
+            const filter_func = lifecycle_utils.build_lifecycle_filter({ filter: { object_size_less_than: 99 }, expiration: 0 });
             const delete_res = await nsfs.delete_multiple_objects({ objects: [{ key }], filter_func }, dummy_object_sdk);
             await assert_object_deletion_failed(delete_res);
         });
@@ -196,7 +193,7 @@ describe('delete_multiple_objects + filter', () => {
             nsfs.versioning = 'ENABLED';
             const data_buffer = buffer_utils.buffer_to_read_stream(data);
             await nsfs.upload_object({ bucket: bucket_name, key: key, source_stream: data_buffer }, dummy_object_sdk);
-            const filter_func = nc_lifecycle._build_lifecycle_filter({ filter: { object_size_greater_than: 101 }, expiration: 0 });
+            const filter_func = lifecycle_utils.build_lifecycle_filter({ filter: { object_size_greater_than: 101 }, expiration: 0 });
             const delete_res = await nsfs.delete_multiple_objects({ objects: [{ key }], filter_func }, dummy_object_sdk);
             await assert_object_deletion_failed(delete_res);
         });
@@ -205,7 +202,7 @@ describe('delete_multiple_objects + filter', () => {
             nsfs.versioning = 'ENABLED';
             const data_buffer = buffer_utils.buffer_to_read_stream(data);
             await nsfs.upload_object({ bucket: bucket_name, key: key, source_stream: data_buffer }, dummy_object_sdk);
-            const filter_func = nc_lifecycle._build_lifecycle_filter({ filter: { tags: [{ key: 'a', value: 'b'}] }, expiration: 0 });
+            const filter_func = lifecycle_utils.build_lifecycle_filter({ filter: { tags: [{ key: 'a', value: 'b'}] }, expiration: 0 });
             const delete_res = await nsfs.delete_multiple_objects({ objects: [{ key }], filter_func }, dummy_object_sdk);
             await assert_object_deletion_failed(delete_res);
         });
@@ -214,7 +211,7 @@ describe('delete_multiple_objects + filter', () => {
             nsfs.versioning = 'ENABLED';
             const data_buffer = buffer_utils.buffer_to_read_stream(data);
             await nsfs.upload_object({ bucket: bucket_name, key: key, source_stream: data_buffer }, dummy_object_sdk);
-            const filter_func = nc_lifecycle._build_lifecycle_filter({ expiration: 5 });
+            const filter_func = lifecycle_utils.build_lifecycle_filter({ expiration: 5 });
             const delete_res = await nsfs.delete_multiple_objects({ objects: [{ key }], filter_func }, dummy_object_sdk);
             await assert_object_deletion_failed(delete_res);
         });
@@ -226,7 +223,7 @@ describe('delete_multiple_objects + filter', () => {
             nsfs.versioning = 'ENABLED';
             const data_buffer = buffer_utils.buffer_to_read_stream(data);
             await nsfs.upload_object({ bucket: bucket_name, key: key, source_stream: data_buffer }, dummy_object_sdk);
-            const filter_func = nc_lifecycle._build_lifecycle_filter({ filter: { prefix: 'ob' }, expiration: 0 });
+            const filter_func = lifecycle_utils.build_lifecycle_filter({ filter: { prefix: 'ob' }, expiration: 0 });
             const delete_res = await nsfs.delete_multiple_objects({ objects: [{ key }], filter_func }, dummy_object_sdk);
             await assert_object_deleted(delete_res, { should_create_a_delete_marker: true });
         });
@@ -235,7 +232,7 @@ describe('delete_multiple_objects + filter', () => {
             nsfs.versioning = 'ENABLED';
             const data_buffer = buffer_utils.buffer_to_read_stream(data);
             await nsfs.upload_object({ bucket: bucket_name, key: key, source_stream: data_buffer }, dummy_object_sdk);
-            const filter_func = nc_lifecycle._build_lifecycle_filter({ filter: { object_size_less_than: 101 }, expiration: 0 });
+            const filter_func = lifecycle_utils.build_lifecycle_filter({ filter: { object_size_less_than: 101 }, expiration: 0 });
             const delete_res = await nsfs.delete_multiple_objects({ objects: [{ key }], filter_func }, dummy_object_sdk);
             await assert_object_deleted(delete_res, { should_create_a_delete_marker: true });
         });
@@ -244,7 +241,7 @@ describe('delete_multiple_objects + filter', () => {
             nsfs.versioning = 'ENABLED';
             const data_buffer = buffer_utils.buffer_to_read_stream(data);
             await nsfs.upload_object({ bucket: bucket_name, key: key, source_stream: data_buffer }, dummy_object_sdk);
-            const filter_func = nc_lifecycle._build_lifecycle_filter({ filter: { object_size_greater_than: 1 }, expiration: 0 });
+            const filter_func = lifecycle_utils.build_lifecycle_filter({ filter: { object_size_greater_than: 1 }, expiration: 0 });
             const delete_res = await nsfs.delete_multiple_objects({ objects: [{ key }], filter_func }, dummy_object_sdk);
             await assert_object_deleted(delete_res, { should_create_a_delete_marker: true });
         });
@@ -254,7 +251,7 @@ describe('delete_multiple_objects + filter', () => {
             const data_buffer = buffer_utils.buffer_to_read_stream(data);
             const tagging = [{ key: 'a', value: 'b' }];
             await nsfs.upload_object({ bucket: bucket_name, key: key, source_stream: data_buffer, tagging }, dummy_object_sdk);
-            const filter_func = nc_lifecycle._build_lifecycle_filter({ filter: { tags: tagging }, expiration: 0 });
+            const filter_func = lifecycle_utils.build_lifecycle_filter({ filter: { tags: tagging }, expiration: 0 });
             const delete_res = await nsfs.delete_multiple_objects({ objects: [{ key }], filter_func }, dummy_object_sdk);
             await assert_object_deleted(delete_res, { should_create_a_delete_marker: true });
         });
@@ -263,7 +260,7 @@ describe('delete_multiple_objects + filter', () => {
             nsfs.versioning = 'ENABLED';
             const data_buffer = buffer_utils.buffer_to_read_stream(data);
             await nsfs.upload_object({ bucket: bucket_name, key: key, source_stream: data_buffer }, dummy_object_sdk);
-            const filter_func = nc_lifecycle._build_lifecycle_filter({ expiration: 0 });
+            const filter_func = lifecycle_utils.build_lifecycle_filter({ expiration: 0 });
             const delete_res = await nsfs.delete_multiple_objects({ objects: [{ key }], filter_func }, dummy_object_sdk);
             await assert_object_deleted(delete_res, { should_create_a_delete_marker: true });
         });
@@ -275,7 +272,7 @@ describe('delete_multiple_objects + filter', () => {
             nsfs.versioning = 'ENABLED';
             const data_buffer = buffer_utils.buffer_to_read_stream(data);
             const upload_res = await nsfs.upload_object({ bucket: bucket_name, key: key, source_stream: data_buffer }, dummy_object_sdk);
-            const filter_func = nc_lifecycle._build_lifecycle_filter({ filter: { prefix: 'd' }, expiration: 0 });
+            const filter_func = lifecycle_utils.build_lifecycle_filter({ filter: { prefix: 'd' }, expiration: 0 });
             const objects_to_delete = [{ key, version_id: upload_res.version_id }];
             const delete_res = await nsfs.delete_multiple_objects({ objects: objects_to_delete, filter_func }, dummy_object_sdk);
             await assert_object_deletion_failed(delete_res);
@@ -285,7 +282,7 @@ describe('delete_multiple_objects + filter', () => {
             nsfs.versioning = 'ENABLED';
             const data_buffer = buffer_utils.buffer_to_read_stream(data);
             const upload_res = await nsfs.upload_object({ bucket: bucket_name, key: key, source_stream: data_buffer }, dummy_object_sdk);
-            const filter_func = nc_lifecycle._build_lifecycle_filter({ filter: { object_size_less_than: 99 }, expiration: 0 });
+            const filter_func = lifecycle_utils.build_lifecycle_filter({ filter: { object_size_less_than: 99 }, expiration: 0 });
             const objects_to_delete = [{ key, version_id: upload_res.version_id }];
             const delete_res = await nsfs.delete_multiple_objects({ objects: objects_to_delete, filter_func }, dummy_object_sdk);
             await assert_object_deletion_failed(delete_res);
@@ -295,7 +292,7 @@ describe('delete_multiple_objects + filter', () => {
             nsfs.versioning = 'ENABLED';
             const data_buffer = buffer_utils.buffer_to_read_stream(data);
             const upload_res = await nsfs.upload_object({ bucket: bucket_name, key: key, source_stream: data_buffer }, dummy_object_sdk);
-            const filter_func = nc_lifecycle._build_lifecycle_filter({ filter: { object_size_greater_than: 101 }, expiration: 0 });
+            const filter_func = lifecycle_utils.build_lifecycle_filter({ filter: { object_size_greater_than: 101 }, expiration: 0 });
             const objects_to_delete = [{ key, version_id: upload_res.version_id }];
             const delete_res = await nsfs.delete_multiple_objects({ objects: objects_to_delete, filter_func }, dummy_object_sdk);
             await assert_object_deletion_failed(delete_res);
@@ -305,7 +302,7 @@ describe('delete_multiple_objects + filter', () => {
             nsfs.versioning = 'ENABLED';
             const data_buffer = buffer_utils.buffer_to_read_stream(data);
             const upload_res = await nsfs.upload_object({ bucket: bucket_name, key: key, source_stream: data_buffer }, dummy_object_sdk);
-            const filter_func = nc_lifecycle._build_lifecycle_filter({ filter: { tags: [{ key: 'a', value: 'b'}] }, expiration: 0 });
+            const filter_func = lifecycle_utils.build_lifecycle_filter({ filter: { tags: [{ key: 'a', value: 'b'}] }, expiration: 0 });
             const objects_to_delete = [{ key, version_id: upload_res.version_id }];
             const delete_res = await nsfs.delete_multiple_objects({ objects: objects_to_delete, filter_func }, dummy_object_sdk);
             await assert_object_deletion_failed(delete_res);
@@ -315,7 +312,7 @@ describe('delete_multiple_objects + filter', () => {
             nsfs.versioning = 'ENABLED';
             const data_buffer = buffer_utils.buffer_to_read_stream(data);
             const upload_res = await nsfs.upload_object({ bucket: bucket_name, key: key, source_stream: data_buffer }, dummy_object_sdk);
-            const filter_func = nc_lifecycle._build_lifecycle_filter({ expiration: 5 });
+            const filter_func = lifecycle_utils.build_lifecycle_filter({ expiration: 5 });
             const objects_to_delete = [{ key, version_id: upload_res.version_id }];
             const delete_res = await nsfs.delete_multiple_objects({ objects: objects_to_delete, filter_func }, dummy_object_sdk);
             await assert_object_deletion_failed(delete_res);
@@ -329,7 +326,7 @@ describe('delete_multiple_objects + filter', () => {
             nsfs.versioning = 'ENABLED';
             const data_buffer = buffer_utils.buffer_to_read_stream(data);
             const upload_res = await nsfs.upload_object({ bucket: bucket_name, key: key, source_stream: data_buffer }, dummy_object_sdk);
-            const filter_func = nc_lifecycle._build_lifecycle_filter({ filter: { prefix: 'ob' }, expiration: 0 });
+            const filter_func = lifecycle_utils.build_lifecycle_filter({ filter: { prefix: 'ob' }, expiration: 0 });
             const objects_to_delete = [{ key, version_id: upload_res.version_id }];
             const delete_res = await nsfs.delete_multiple_objects({ objects: objects_to_delete, filter_func }, dummy_object_sdk);
             await assert_object_deleted(delete_res);
@@ -339,7 +336,7 @@ describe('delete_multiple_objects + filter', () => {
             nsfs.versioning = 'ENABLED';
             const data_buffer = buffer_utils.buffer_to_read_stream(data);
             const upload_res = await nsfs.upload_object({ bucket: bucket_name, key: key, source_stream: data_buffer }, dummy_object_sdk);
-            const filter_func = nc_lifecycle._build_lifecycle_filter({ filter: { object_size_less_than: 101 }, expiration: 0 });
+            const filter_func = lifecycle_utils.build_lifecycle_filter({ filter: { object_size_less_than: 101 }, expiration: 0 });
             const objects_to_delete = [{ key, version_id: upload_res.version_id }];
             const delete_res = await nsfs.delete_multiple_objects({ objects: objects_to_delete, filter_func }, dummy_object_sdk);
             await assert_object_deleted(delete_res);
@@ -349,7 +346,7 @@ describe('delete_multiple_objects + filter', () => {
             nsfs.versioning = 'ENABLED';
             const data_buffer = buffer_utils.buffer_to_read_stream(data);
             const upload_res = await nsfs.upload_object({ bucket: bucket_name, key: key, source_stream: data_buffer }, dummy_object_sdk);
-            const filter_func = nc_lifecycle._build_lifecycle_filter({ filter: { object_size_greater_than: 1 }, expiration: 0 });
+            const filter_func = lifecycle_utils.build_lifecycle_filter({ filter: { object_size_greater_than: 1 }, expiration: 0 });
             const objects_to_delete = [{ key, version_id: upload_res.version_id }];
             const delete_res = await nsfs.delete_multiple_objects({ objects: objects_to_delete, filter_func }, dummy_object_sdk);
             await assert_object_deleted(delete_res);
@@ -361,7 +358,7 @@ describe('delete_multiple_objects + filter', () => {
             const tagging = [{ key: 'a', value: 'b' }];
             const upload_res = await nsfs.upload_object({ bucket: bucket_name, key: key, source_stream: data_buffer, tagging },
                 dummy_object_sdk);
-            const filter_func = nc_lifecycle._build_lifecycle_filter({ filter: { tags: tagging }, expiration: 0 });
+            const filter_func = lifecycle_utils.build_lifecycle_filter({ filter: { tags: tagging }, expiration: 0 });
             const objects_to_delete = [{ key, version_id: upload_res.version_id }];
             const delete_res = await nsfs.delete_multiple_objects({ objects: objects_to_delete, filter_func }, dummy_object_sdk);
             await assert_object_deleted(delete_res);
@@ -371,7 +368,7 @@ describe('delete_multiple_objects + filter', () => {
             nsfs.versioning = 'ENABLED';
             const data_buffer = buffer_utils.buffer_to_read_stream(data);
             const upload_res = await nsfs.upload_object({ bucket: bucket_name, key: key, source_stream: data_buffer }, dummy_object_sdk);
-            const filter_func = nc_lifecycle._build_lifecycle_filter({ expiration: 0 });
+            const filter_func = lifecycle_utils.build_lifecycle_filter({ expiration: 0 });
             const objects_to_delete = [{ key, version_id: upload_res.version_id }];
             const delete_res = await nsfs.delete_multiple_objects({ objects: objects_to_delete, filter_func }, dummy_object_sdk);
             await assert_object_deleted(delete_res);
@@ -386,7 +383,7 @@ describe('delete_multiple_objects + filter', () => {
             const data_buffer2 = buffer_utils.buffer_to_read_stream(data);
             const upload_res1 = await nsfs.upload_object({ bucket: bucket_name, key: key, source_stream: data_buffer1 }, dummy_object_sdk);
             await nsfs.upload_object({ bucket: bucket_name, key: key, source_stream: data_buffer2 }, dummy_object_sdk);
-            const filter_func = nc_lifecycle._build_lifecycle_filter({ filter: { prefix: 'd' }, expiration: 0 });
+            const filter_func = lifecycle_utils.build_lifecycle_filter({ filter: { prefix: 'd' }, expiration: 0 });
             const objects_to_delete = [{ key, version_id: upload_res1.version_id }];
             const delete_res = await nsfs.delete_multiple_objects({ objects: objects_to_delete, filter_func }, dummy_object_sdk);
             await assert_object_deletion_failed(delete_res);
@@ -398,7 +395,7 @@ describe('delete_multiple_objects + filter', () => {
             const data_buffer2 = buffer_utils.buffer_to_read_stream(data);
             const upload_res1 = await nsfs.upload_object({ bucket: bucket_name, key: key, source_stream: data_buffer1 }, dummy_object_sdk);
             await nsfs.upload_object({ bucket: bucket_name, key: key, source_stream: data_buffer2 }, dummy_object_sdk);
-            const filter_func = nc_lifecycle._build_lifecycle_filter({ filter: { object_size_less_than: 99 }, expiration: 0 });
+            const filter_func = lifecycle_utils.build_lifecycle_filter({ filter: { object_size_less_than: 99 }, expiration: 0 });
             const objects_to_delete = [{ key, version_id: upload_res1.version_id }];
             const delete_res = await nsfs.delete_multiple_objects({ objects: objects_to_delete, filter_func }, dummy_object_sdk);
             await assert_object_deletion_failed(delete_res);
@@ -410,7 +407,7 @@ describe('delete_multiple_objects + filter', () => {
             const data_buffer2 = buffer_utils.buffer_to_read_stream(data);
             const upload_res1 = await nsfs.upload_object({ bucket: bucket_name, key: key, source_stream: data_buffer1 }, dummy_object_sdk);
             await nsfs.upload_object({ bucket: bucket_name, key: key, source_stream: data_buffer2 }, dummy_object_sdk);
-            const filter_func = nc_lifecycle._build_lifecycle_filter({ filter: { object_size_greater_than: 101 }, expiration: 0 });
+            const filter_func = lifecycle_utils.build_lifecycle_filter({ filter: { object_size_greater_than: 101 }, expiration: 0 });
             const objects_to_delete = [{ key, version_id: upload_res1.version_id }];
             const delete_res = await nsfs.delete_multiple_objects({ objects: objects_to_delete, filter_func }, dummy_object_sdk);
             await assert_object_deletion_failed(delete_res);
@@ -422,7 +419,7 @@ describe('delete_multiple_objects + filter', () => {
             const data_buffer2 = buffer_utils.buffer_to_read_stream(data);
             const upload_res1 = await nsfs.upload_object({ bucket: bucket_name, key: key, source_stream: data_buffer1 }, dummy_object_sdk);
             await nsfs.upload_object({ bucket: bucket_name, key: key, source_stream: data_buffer2 }, dummy_object_sdk);
-            const filter_func = nc_lifecycle._build_lifecycle_filter({ filter: { tags: [{ key: 'a', value: 'b'}] }, expiration: 0 });
+            const filter_func = lifecycle_utils.build_lifecycle_filter({ filter: { tags: [{ key: 'a', value: 'b'}] }, expiration: 0 });
             const objects_to_delete = [{ key, version_id: upload_res1.version_id }];
             const delete_res = await nsfs.delete_multiple_objects({ objects: objects_to_delete, filter_func }, dummy_object_sdk);
             await assert_object_deletion_failed(delete_res);
@@ -434,7 +431,7 @@ describe('delete_multiple_objects + filter', () => {
             const data_buffer2 = buffer_utils.buffer_to_read_stream(data);
             const upload_res1 = await nsfs.upload_object({ bucket: bucket_name, key: key, source_stream: data_buffer1 }, dummy_object_sdk);
             await nsfs.upload_object({ bucket: bucket_name, key: key, source_stream: data_buffer2 }, dummy_object_sdk);
-            const filter_func = nc_lifecycle._build_lifecycle_filter({ expiration: 5 });
+            const filter_func = lifecycle_utils.build_lifecycle_filter({ expiration: 5 });
             const objects_to_delete = [{ key, version_id: upload_res1.version_id }];
             const delete_res = await nsfs.delete_multiple_objects({ objects: objects_to_delete, filter_func }, dummy_object_sdk);
             await assert_object_deletion_failed(delete_res);
@@ -449,7 +446,7 @@ describe('delete_multiple_objects + filter', () => {
             const data_buffer2 = buffer_utils.buffer_to_read_stream(data);
             const upload_res1 = await nsfs.upload_object({ bucket: bucket_name, key: key, source_stream: data_buffer1 }, dummy_object_sdk);
             const upload_res2 = await nsfs.upload_object({ bucket: bucket_name, key: key, source_stream: data_buffer2 }, dummy_object_sdk);
-            const filter_func = nc_lifecycle._build_lifecycle_filter({ filter: { prefix: 'ob' }, expiration: 0 });
+            const filter_func = lifecycle_utils.build_lifecycle_filter({ filter: { prefix: 'ob' }, expiration: 0 });
             const objects_to_delete = [{ key, version_id: upload_res1.version_id }];
             const delete_res = await nsfs.delete_multiple_objects({ objects: objects_to_delete, filter_func }, dummy_object_sdk);
             await assert_object_deleted(delete_res, { new_latest_version: upload_res2.version_id});
@@ -461,7 +458,7 @@ describe('delete_multiple_objects + filter', () => {
             const data_buffer2 = buffer_utils.buffer_to_read_stream(data);
             const upload_res1 = await nsfs.upload_object({ bucket: bucket_name, key: key, source_stream: data_buffer1 }, dummy_object_sdk);
             const upload_res2 = await nsfs.upload_object({ bucket: bucket_name, key: key, source_stream: data_buffer2 }, dummy_object_sdk);
-            const filter_func = nc_lifecycle._build_lifecycle_filter({ filter: { object_size_less_than: 101 }, expiration: 0 });
+            const filter_func = lifecycle_utils.build_lifecycle_filter({ filter: { object_size_less_than: 101 }, expiration: 0 });
             const objects_to_delete = [{ key, version_id: upload_res1.version_id }];
             const delete_res = await nsfs.delete_multiple_objects({ objects: objects_to_delete, filter_func }, dummy_object_sdk);
             await assert_object_deleted(delete_res, { new_latest_version: upload_res2.version_id});
@@ -473,7 +470,7 @@ describe('delete_multiple_objects + filter', () => {
             const data_buffer2 = buffer_utils.buffer_to_read_stream(data);
             const upload_res1 = await nsfs.upload_object({ bucket: bucket_name, key: key, source_stream: data_buffer1 }, dummy_object_sdk);
             const upload_res2 = await nsfs.upload_object({ bucket: bucket_name, key: key, source_stream: data_buffer2 }, dummy_object_sdk);
-            const filter_func = nc_lifecycle._build_lifecycle_filter({ filter: { object_size_greater_than: 1 }, expiration: 0 });
+            const filter_func = lifecycle_utils.build_lifecycle_filter({ filter: { object_size_greater_than: 1 }, expiration: 0 });
             const objects_to_delete = [{ key, version_id: upload_res1.version_id }];
             const delete_res = await nsfs.delete_multiple_objects({ objects: objects_to_delete, filter_func }, dummy_object_sdk);
             await assert_object_deleted(delete_res, { new_latest_version: upload_res2.version_id});
@@ -486,7 +483,7 @@ describe('delete_multiple_objects + filter', () => {
             const data_buffer2 = buffer_utils.buffer_to_read_stream(data);
             const upload_res1 = await nsfs.upload_object({ bucket: bucket_name, key: key, source_stream: data_buffer1 }, dummy_object_sdk);
             const upload_res2 = await nsfs.upload_object({ bucket: bucket_name, key: key, source_stream: data_buffer2 }, dummy_object_sdk);
-            const filter_func = nc_lifecycle._build_lifecycle_filter({ filter: { tags: tagging }, expiration: 0 });
+            const filter_func = lifecycle_utils.build_lifecycle_filter({ filter: { tags: tagging }, expiration: 0 });
             const objects_to_delete = [{ key, version_id: upload_res1.version_id }];
             const delete_res = await nsfs.delete_multiple_objects({ objects: objects_to_delete, filter_func }, dummy_object_sdk);
             await assert_object_deleted(delete_res, { new_latest_version: upload_res2.version_id});
@@ -498,7 +495,7 @@ describe('delete_multiple_objects + filter', () => {
             const data_buffer2 = buffer_utils.buffer_to_read_stream(data);
             const upload_res1 = await nsfs.upload_object({ bucket: bucket_name, key: key, source_stream: data_buffer1 }, dummy_object_sdk);
             const upload_res2 = await nsfs.upload_object({ bucket: bucket_name, key: key, source_stream: data_buffer2 }, dummy_object_sdk);
-            const filter_func = nc_lifecycle._build_lifecycle_filter({ expiration: 0 });
+            const filter_func = lifecycle_utils.build_lifecycle_filter({ expiration: 0 });
             const objects_to_delete = [{ key, version_id: upload_res1.version_id }];
             const delete_res = await nsfs.delete_multiple_objects({ objects: objects_to_delete, filter_func }, dummy_object_sdk);
             await assert_object_deleted(delete_res, { new_latest_version: upload_res2.version_id});
@@ -513,7 +510,7 @@ describe('delete_multiple_objects + filter', () => {
             await nsfs.upload_object({ bucket: bucket_name, key: key, source_stream: data_buffer1 }, dummy_object_sdk);
             const delete_res1 = await nsfs.delete_object({ bucket: bucket_name, key: key }, dummy_object_sdk);
             expect(delete_res1.created_delete_marker).toBe(true);
-            const filter_func = nc_lifecycle._build_lifecycle_filter({ filter: { prefix: 'd' }, expiration: 0 });
+            const filter_func = lifecycle_utils.build_lifecycle_filter({ filter: { prefix: 'd' }, expiration: 0 });
             const objects_to_delete = [{ key, version_id: delete_res1.created_version_id }];
             const delete_res = await nsfs.delete_multiple_objects({ objects: objects_to_delete, filter_func }, dummy_object_sdk);
             await assert_object_deletion_failed(delete_res, { latest_delete_marker: true });
@@ -525,7 +522,7 @@ describe('delete_multiple_objects + filter', () => {
             await nsfs.upload_object({ bucket: bucket_name, key: key, source_stream: data_buffer1 }, dummy_object_sdk);
             const delete_res1 = await nsfs.delete_object({ bucket: bucket_name, key: key }, dummy_object_sdk);
             expect(delete_res1.created_delete_marker).toBe(true);
-            const filter_func = nc_lifecycle._build_lifecycle_filter({ filter: { object_size_greater_than: 101 }, expiration: 0 });
+            const filter_func = lifecycle_utils.build_lifecycle_filter({ filter: { object_size_greater_than: 101 }, expiration: 0 });
             const objects_to_delete = [{ key, version_id: delete_res1.created_version_id }];
             const delete_res = await nsfs.delete_multiple_objects({ objects: objects_to_delete, filter_func }, dummy_object_sdk);
             await assert_object_deletion_failed(delete_res, { latest_delete_marker: true });
@@ -537,7 +534,7 @@ describe('delete_multiple_objects + filter', () => {
             await nsfs.upload_object({ bucket: bucket_name, key: key, source_stream: data_buffer1 }, dummy_object_sdk);
             const delete_res1 = await nsfs.delete_object({ bucket: bucket_name, key: key }, dummy_object_sdk);
             expect(delete_res1.created_delete_marker).toBe(true);
-            const filter_func = nc_lifecycle._build_lifecycle_filter({ filter: { tags: [{ key: 'a', value: 'b' }] }, expiration: 0 });
+            const filter_func = lifecycle_utils.build_lifecycle_filter({ filter: { tags: [{ key: 'a', value: 'b' }] }, expiration: 0 });
             const objects_to_delete = [{ key, version_id: delete_res1.created_version_id }];
             const delete_res = await nsfs.delete_multiple_objects({ objects: objects_to_delete, filter_func }, dummy_object_sdk);
             await assert_object_deletion_failed(delete_res, { latest_delete_marker: true });
@@ -549,7 +546,7 @@ describe('delete_multiple_objects + filter', () => {
             await nsfs.upload_object({ bucket: bucket_name, key: key, source_stream: data_buffer1 }, dummy_object_sdk);
             const delete_res1 = await nsfs.delete_object({ bucket: bucket_name, key: key }, dummy_object_sdk);
             expect(delete_res1.created_delete_marker).toBe(true);
-            const filter_func = nc_lifecycle._build_lifecycle_filter({ expiration: 5 });
+            const filter_func = lifecycle_utils.build_lifecycle_filter({ expiration: 5 });
             const objects_to_delete = [{ key, version_id: delete_res1.created_version_id }];
             const delete_res2 = await nsfs.delete_multiple_objects({ objects: objects_to_delete, filter_func }, dummy_object_sdk);
             await assert_object_deletion_failed(delete_res2, { latest_delete_marker: true });

@@ -799,6 +799,125 @@ mocha.describe('lifecycle', () => {
         }
     });
 
+    mocha.describe('bucket-lifecycle-expiration-header', function() {
+        const bucket = Bucket;
+
+        const run_expiration_test = async ({ rules, expected_id, expected_days, key, tagging = undefined, size = 1000}) => {
+            const putLifecycleParams = {
+                Bucket: bucket,
+                LifecycleConfiguration: { Rules: rules }
+            };
+            await s3.putBucketLifecycleConfiguration(putLifecycleParams);
+
+            const putObjectParams = {
+                Bucket: bucket,
+                Key: key,
+                Body: 'x'.repeat(size) // default 1KB if size not specified
+            };
+            if (tagging) {
+                putObjectParams.Tagging = tagging;
+            }
+            const start_time = new Date();
+            let res = await s3.putObject(putObjectParams);
+            assert.ok(res.Expiration, 'expiration header missing in putObject response');
+
+            res = await s3.headObject({ Bucket: bucket, Key: key });
+            assert.ok(res.Expiration, 'expiration header missing in headObject response');
+
+            const valid = validate_expiration_header(res.Expiration, start_time, expected_id, expected_days);
+            assert.ok(valid, `expected rule ${expected_id} to match`);
+        };
+
+        function generate_rule(id, prefix, tags, size_gt, size_lt, expiration_days) {
+            const filters = {};
+            if (prefix) filters.Prefix = prefix;
+            if (Array.isArray(tags) && tags.length) filters.Tags = tags;
+            if (size_gt !== undefined) filters.ObjectSizeGreaterThan = size_gt;
+            if (size_lt !== undefined) filters.ObjectSizeLessThan = size_lt;
+
+            const filter = Object.keys(filters).length > 1 ? { And: filters } : filters;
+
+            return {
+                ID: id,
+                Status: 'Enabled',
+                Filter: filter,
+                Expiration: { Days: expiration_days },
+            };
+        }
+
+        function validate_expiration_header(expiration_header, start_time, expected_rule_id, delta_days) {
+            const match = expiration_header.match(/expiry-date="(.+)", rule-id="(.+)"/);
+            if (!match) return false;
+            console.log("match: ", match);
+
+            const [, expiry_str, rule_id] = match;
+            const expiration = new Date(expiry_str);
+            const start = new Date(start_time);
+            start.setUTCHours(0, 0, 0, 0); // adjusting to midnight UTC otherwise the tests will fail - fix for ceph-s3 tests
+
+            const days_diff = Math.floor((expiration.getTime() - start.getTime()) / (24 * 60 * 60 * 1000));
+
+            return days_diff === delta_days && rule_id === expected_rule_id;
+        }
+
+        mocha.it('should select rule with longest prefix', async () => {
+            const rules = [
+                generate_rule('short-prefix', 'test1/', [], undefined, undefined, 10),
+                generate_rule('long-prefix', 'test1/logs/', [], undefined, undefined, 17),
+            ];
+            await run_expiration_test({
+                rules,
+                key: 'test1/logs//file.txt',
+                expected_id: 'long-prefix',
+                expected_days: 17
+            });
+        });
+
+        mocha.it('should select rule with more tags when prefix is same', async () => {
+            const rules = [
+                generate_rule('one-tag', 'test2/', [{ Key: 'env', Value: 'prod' }], undefined, undefined, 5),
+                generate_rule('two-tags', 'test2/', [
+                    { Key: 'env', Value: 'prod' },
+                    { Key: 'team', Value: 'backend' }
+                ], undefined, undefined, 9),
+            ];
+            await run_expiration_test({
+                rules,
+                key: 'test2/file2.txt',
+                tagging: 'env=prod&team=backend',
+                expected_id: 'two-tags',
+                expected_days: 9
+            });
+        });
+
+        mocha.it('should select rule with narrower size span when prefix and tags are matching', async () => {
+            const rules = [
+                generate_rule('wide-range', 'test3/', [], 100, 10000, 4),
+                generate_rule('narrow-range', 'test3/', [], 1000, 5000, 6),
+            ];
+            await run_expiration_test({
+                rules,
+                key: 'test3/file3.txt',
+                size: 1500,
+                expected_id: 'narrow-range',
+                expected_days: 6
+            });
+        });
+
+        mocha.it('should fallback to first matching rule if all filters are equal', async () => {
+            const rules = [
+                generate_rule('rule-a', 'test4/', [], 0, 10000, 7),
+                generate_rule('rule-b', 'test4/', [], 0, 10000, 11),
+            ];
+            await run_expiration_test({
+                rules,
+                key: 'test4/file4.txt',
+                expected_id: 'rule-a',
+                expected_days: 7
+            });
+        });
+    });
+
     function readable_buffer(data, split = 1, finish = 'end') {
         const max = Math.ceil(data.length / split);
         let pos = 0;

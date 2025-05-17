@@ -23,6 +23,7 @@ const net_utils = require('./net_utils');
 const time_utils = require('./time_utils');
 const cloud_utils = require('./cloud_utils');
 const ssl_utils = require('../util/ssl_utils');
+const lifecycle_utils = require('../../src/util/lifecycle_utils');
 const RpcError = require('../rpc/rpc_error');
 const S3Error = require('../endpoint/s3/s3_errors').S3Error;
 
@@ -665,6 +666,27 @@ function set_amz_headers(req, res) {
 }
 
 /**
+ * set_expiration_header sets the `x-amz-expiration` response header for GET, PUT, or HEAD object requests
+ * if the object matches any enabled bucket lifecycle rule
+ *
+ * @param {Object} req
+ * @param {http.ServerResponse} res
+ * @param {Object} object_info
+ */
+async function set_expiration_header(req, res, object_info) {
+    const rules = req.params.bucket && await req.object_sdk.get_bucket_lifecycle_configuration_rules({ name: req.params.bucket });
+
+    const matched_rule = lifecycle_utils.get_lifecycle_rule_for_object(rules, object_info);
+    if (matched_rule) {
+        const expiration_header = lifecycle_utils.build_expiration_header(matched_rule, object_info.create_time);
+        if (expiration_header) {
+            dbg.log1('set x_amz_expiration header from applied rule: ', matched_rule);
+            res.setHeader('x-amz-expiration', expiration_header);
+        }
+    }
+}
+
+/**
  * @typedef {{
  *      allow_origin: string;
  *      allow_methods: string;
@@ -945,6 +967,7 @@ exports.set_keep_alive_whitespace_interval = set_keep_alive_whitespace_interval;
 exports.parse_xml_to_js = parse_xml_to_js;
 exports.check_headers = check_headers;
 exports.set_amz_headers = set_amz_headers;
+exports.set_expiration_header = set_expiration_header;
 exports.set_cors_headers = set_cors_headers;
 exports.set_cors_headers_s3 = set_cors_headers_s3;
 exports.set_cors_headers_sts = set_cors_headers_sts;

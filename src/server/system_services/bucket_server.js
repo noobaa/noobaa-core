@@ -963,7 +963,7 @@ async function delete_bucket_and_objects(req) {
 
     if (bucket.replication_policy_id) {
         // delete replication from replication collection
-        await replication_store.instance().delete_replication_by_id(bucket.replication_policy_id);
+        await replication_store.instance().mark_deleted_replication_by_id(bucket.replication_policy_id);
     }
 
     const req_account = req.account &&
@@ -1027,7 +1027,7 @@ async function delete_bucket(req) {
         });
         if (bucket.replication_policy_id) {
             // delete replication from replication collection
-            await replication_store.instance().delete_replication_by_id(bucket.replication_policy_id);
+            await replication_store.instance().mark_deleted_replication_by_id(bucket.replication_policy_id);
         }
 
         await BucketStatsStore.instance().delete_stats({
@@ -2079,7 +2079,7 @@ async function delete_bucket_replication(req) {
     });
 
     // delete replication from replication collection
-    await replication_store.instance().delete_replication_by_id(replication_id);
+    await replication_store.instance().mark_deleted_replication_by_id(replication_id);
 }
 
 async function validate_replication(req) {

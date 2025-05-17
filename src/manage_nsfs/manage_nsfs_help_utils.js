@@ -403,6 +403,9 @@ Usage:
 
     noobaa-cli diagnose metrics
 
+Flags:
+
+    --token       <string>               JWT token to validate the metrics endpoint
 `;
 
 
@@ -488,6 +491,17 @@ Help:
 Usage:
 
     noobaa-cli notification
+
+`;
+
+const METRICS_AUTH_OPTIONS = `
+Help:
+
+    'metrics_auth' is a noobaa-core command that will return the JWT token to access metrics endpoint.
+
+Usage:
+
+    noobaa-cli metrics_auth
 
 `;
 
@@ -605,6 +619,9 @@ function print_usage(type, action) {
             break;
         case TYPES.NOTIFICATION:
             print_help_notification();
+            break;
+        case TYPES.METRICS_AUTH:
+            print_help_metrics_auth();
             break;
         default:
             process.stdout.write(HELP + '\n');
@@ -752,10 +769,13 @@ function print_help_connection(action) {
     process.exit(0);
 }
 
-function print_help_notification(action) {
+function print_help_notification() {
     process.stdout.write(NOTIFICATION_OPTIONS);
 }
 
+function print_help_metrics_auth() {
+    process.stdout.write(METRICS_AUTH_OPTIONS);
+}
 
 // EXPORTS
 exports.print_usage = print_usage;

@@ -484,7 +484,8 @@ async function fetch_account_data(action, user_input) {
             gid: user_input.user ? undefined : user_input.gid,
             new_buckets_path: user_input.new_buckets_path,
             fs_backend: user_input.fs_backend ? String(user_input.fs_backend) : config.NSFS_NC_STORAGE_BACKEND
-        }
+        },
+        default_connection: user_input.default_connection === undefined ? undefined : String(user_input.default_connection)
     };
     if (action === ACTIONS.UPDATE || action === ACTIONS.DELETE) {
         // @ts-ignore

@@ -8,6 +8,7 @@ const config = require('../../../config');
 const MDStore = require('../object_services/md_store').MDStore;
 const system_store = require('../system_services/system_store').get_instance();
 const nodes_store = require('../node_services/nodes_store').NodesStore.instance();
+const replication_store = require('../system_services/replication_store').instance();
 const system_utils = require('../utils/system_utils');
 const db_client = require('../../util/db_client');
 const md_aggregator = require('./md_aggregator');
@@ -47,6 +48,7 @@ async function background_worker() {
     await clean_md_store(last_date_to_remove);
     await clean_nodes_store(last_date_to_remove);
     await clean_system_store(last_date_to_remove);
+    await clean_replication_store(last_date_to_remove);
     dbg.log0('DB_CLEANER:', 'END');
     return config.DB_CLEANER_CYCLE;
 }
@@ -105,6 +107,25 @@ async function clean_nodes_store(last_date_to_remove) {
     dbg.log2('DB_CLEANER: list nodes with no agents to be removed from DB', filtered_nodes);
     if (filtered_nodes.length) await nodes_store.db_delete_nodes(filtered_nodes);
     dbg.log0(`DB_CLEANER: removed ${filtered_nodes.length} documents from nodes-store`);
+}
+
+async function clean_replication_store(last_date_to_remove) {
+    const total_replication_rules_count = await replication_store.count_total_replication_rules();
+    if (total_replication_rules_count < config.DB_CLEANER_MAX_TOTAL_DOCS) {
+        dbg.log0(`DB_CLEANER: found less than ${config.DB_CLEANER_MAX_TOTAL_DOCS} replication rules in replication-store
+        ${total_replication_rules_count} replication rules - Skipping...`);
+        return;
+    }
+    dbg.log0('DB_CLEANER: checking replication-store for replication rules deleted before', new Date(last_date_to_remove));
+    const replication_rules = await replication_store.find_deleted_rules(last_date_to_remove, config.DB_CLEANER_DOCS_LIMIT);
+    if (replication_rules.length === 0) {
+        dbg.log0("No replication rules to delete.");
+        return;
+    }
+    const rr_ids = db_client.instance().uniq_ids(replication_rules, '_id');
+    dbg.log0('DB_CLEANER: found deleted replication rules:', rr_ids);
+    await replication_store.actual_delete_replication_by_id(rr_ids);
+    dbg.log0(`DB_CLEANER: removed ${rr_ids.length} replication rules from replication-store`);
 }
 
 async function clean_system_store(last_date_to_remove) {

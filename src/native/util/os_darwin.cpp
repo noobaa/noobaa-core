@@ -43,15 +43,19 @@ get_current_uid()
 const uid_t ThreadScope::orig_uid = getuid();
 const gid_t ThreadScope::orig_gid = getgid();
 const std::vector<gid_t> ThreadScope::orig_groups = get_process_groups();
+long ThreadScope::passwd_buf_size = -1;
 
 static int
 get_supplemental_groups_by_uid(uid_t uid, std::vector<gid_t>& groups)
 {
-    // getpwuid will only indicate if an error happened by setting errno. set it to 0, so will know if there is a change
-    errno = 0;
-    struct passwd* pw = getpwuid(uid);
+    const long passwd_buf_size = ThreadScope::get_passwd_buf_size();
+    std::unique_ptr<char[]> buf(new char[passwd_buf_size]);
+    struct passwd pwd;
+    struct passwd *pw = NULL;
+
+    const int res = getpwuid_r(uid, &pwd, buf.get(), passwd_buf_size, &pw);
     if (pw == NULL) {
-        if (errno == 0) {
+        if (res == 0) {
             // LOG("get_supplemental_groups_by_uid: no record for uid " << uid);
         } else {
             LOG("WARNING: get_supplemental_groups_by_uid: getpwuid failed: " << strerror(errno));

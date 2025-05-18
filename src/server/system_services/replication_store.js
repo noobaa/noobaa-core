@@ -59,14 +59,23 @@ class ReplicationStore {
         return repl;
     }
 
+    async find_deleted_rules(last_date_to_remove, limit) {
+        const repl = this._replicationconfigs.find({
+            deleted: {
+                $lt: last_date_to_remove
+            },
+        }, { limit, projection: { _id: 1, deleted: 1 } });
+        return repl;
+    }
+
     async get_replication_by_id(replication_id) {
         dbg.log1('get_replication_by_id: ', replication_id);
         const repl = await this._replicationconfigs.findOne({ _id: db_client.instance().parse_object_id(replication_id), deleted: null });
         return repl && repl.rules;
     }
 
-    async delete_replication_by_id(_id) {
-        dbg.log1('delete_replication_by_id: ', _id);
+    async mark_deleted_replication_by_id(_id) {
+        dbg.log0('mark_deleted_replication_by_id: ', _id);
         const ans = await this._replicationconfigs.updateOne({
             _id: db_client.instance().parse_object_id(_id),
             deleted: null
@@ -76,6 +85,17 @@ class ReplicationStore {
             },
         });
         return ans;
+    }
+
+    async actual_delete_replication_by_id(ids) {
+        dbg.log0('actual_delete_replication_by_ids: ', ids);
+        if (!ids || !ids.length) return;
+        return this._replicationconfigs.deleteMany({
+            _id: {
+                $in: ids
+            },
+            deleted: { $exists: true }
+        });
     }
 
     async update_replication_status_by_id(_id, rule_id, status) {
@@ -151,6 +171,10 @@ class ReplicationStore {
         dbg.log1('find_log_based_replication_rules: ', reduced_replications);
 
         return reduced_replications;
+    }
+
+    async count_total_replication_rules() {
+        return this._replicationconfigs.countDocuments({});
     }
 
 }

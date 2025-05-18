@@ -80,8 +80,8 @@ const SYSTEM = CORETEST;
 const EMAIL = `${CORETEST}@noobaa.com`;
 const PASSWORD = CORETEST;
 const POOL_LIST = [{
-        name: 'pool-with-10-hosts',
-        host_count: 10
+        name: 'pool-with-5-hosts',
+        host_count: 5
     },
     {
         name: 'pool-with-1-host',

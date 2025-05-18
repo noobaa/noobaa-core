@@ -20,7 +20,7 @@ const check_deletion_ownership = require('../../server/system_services/pool_serv
 mocha.describe('system_servers', function() {
 
     const { rpc_client, SYSTEM, EMAIL, PASSWORD, POOL_LIST } = coretest;
-    const DEFAULT_POOL_NAME = POOL_LIST[0].name;
+    const DEFAULT_POOL_NAME = POOL_LIST[1].name;
     const PREFIX = 'system-servers';
     const TIER = `${PREFIX}-tier`;
     const TIERING_POLICY = `${PREFIX}-tiering-policy`;

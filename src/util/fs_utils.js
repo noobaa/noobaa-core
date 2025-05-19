@@ -142,8 +142,8 @@ function try_read_file_sync(file_name) {
     try {
         return fs.readFileSync(file_name, 'utf8');
     } catch (err) {
-        if (err.code === 'ENOENT' || err.code === 'ENOTDIR') {
-            // file does not exist or is not a directory
+        if (err.code === 'ENOENT') {
+            // file does not exist
             return;
         }
         throw err;

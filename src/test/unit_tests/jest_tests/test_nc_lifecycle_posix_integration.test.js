@@ -11,11 +11,10 @@ const fs = require('fs');
 const config = require('../../../../config');
 const fs_utils = require('../../../util/fs_utils');
 const { ConfigFS } = require('../../../sdk/config_fs');
-const { TMP_PATH, set_nc_config_dir_in_config, TEST_TIMEOUT, exec_manage_cli, create_system_json } = require('../../system_tests/test_utils');
+const { TMP_PATH, set_nc_config_dir_in_config, TEST_TIMEOUT, exec_manage_cli, create_system_json, update_file_mtime } = require('../../system_tests/test_utils');
 const { TYPES, ACTIONS } = require('../../../manage_nsfs/manage_nsfs_constants');
 const NamespaceFS = require('../../../sdk/namespace_fs');
 const endpoint_stats_collector = require('../../../sdk/endpoint_stats_collector');
-const os_utils = require('../../../util/os_utils');
 const { ManageCLIResponse } = require('../../../manage_nsfs/manage_nsfs_cli_responses');
 const { ManageCLIError } = require('../../../manage_nsfs/manage_nsfs_cli_errors');
 const buffer_utils = require('../../../util/buffer_utils');
@@ -2185,19 +2184,6 @@ async function create_object(object_sdk, bucket, key, size, is_old, tagging) {
         }
     }
     return res;
-}
-
-/**
- * update_file_mtime updates the mtime of the target path
- * Warnings:
- *  - This operation would change the mtime of the file to 5 days ago - which means that it changes the etag / obj_id of the object
- *  - Please do not use on versioned objects (version_id will not be changed, but the mtime will be changed) - might cause issues.
- * @param {String} target_path
- * @returns {Promise<Void>}
- */
-async function update_file_mtime(target_path) {
-    const update_file_mtime_cmp = os_utils.IS_MAC ? `touch -t $(date -v -5d +"%Y%m%d%H%M.%S") ${target_path}` : `touch -d "5 days ago" ${target_path}`;
-    await os_utils.exec(update_file_mtime_cmp, { return_stdout: true });
 }
 
 /**

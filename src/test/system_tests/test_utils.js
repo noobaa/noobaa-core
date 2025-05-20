@@ -790,6 +790,80 @@ const run_or_skip_test = cond => {
     } else return it.skip;
 };
 
+/**
+ * update_file_mtime updates the mtime of the target path
+ * Warnings:
+ *  - This operation would change the mtime of the file to 5 days ago - which means that it changes the etag / obj_id of the object
+ *  - Please do not use on versioned objects (version_id will not be changed, but the mtime will be changed) - might cause issues.
+ * @param {String} target_path
+ * @returns {Promise<Void>}
+ */
+async function update_file_mtime(target_path) {
+    const update_file_mtime_cmp = os_utils.IS_MAC ? `touch -t $(date -v -5d +"%Y%m%d%H%M.%S") ${target_path}` : `touch -d "5 days ago" ${target_path}`;
+    await os_utils.exec(update_file_mtime_cmp, { return_stdout: true });
+}
+
+/////////////////////////////////
+//////  LIFECYCLE UTILS   ///////
+/////////////////////////////////
+
+/**
+ * generate_lifecycle_rule generate an S3 lifecycle rule with optional filters and expiration currently (can be extend to support more lifecycle rule params)
+ *
+ * @param {number} expiration_days
+ * @param {string} id
+ * @param {string} [prefix]
+ * @param {Array<Object>} [tags]
+ * @param {number} [size_gt]
+ * @param {number} [size_lt]
+ * @returns {Object}
+ */
+function generate_lifecycle_rule(expiration_days, id, prefix, tags, size_gt, size_lt) {
+    const filters = {};
+    if (prefix) filters.Prefix = prefix;
+    if (Array.isArray(tags) && tags.length) filters.Tags = tags;
+    if (size_gt !== undefined) filters.ObjectSizeGreaterThan = size_gt;
+    if (size_lt !== undefined) filters.ObjectSizeLessThan = size_lt;
+
+    const filter = Object.keys(filters).length > 1 ? { And: filters } : filters;
+
+    return {
+        ID: id,
+        Status: 'Enabled',
+        Filter: filter,
+        Expiration: { Days: expiration_days },
+    };
+}
+
+/**
+ * validate_expiration_header validates the `x-amz-expiration` header against the object creation time, expected rule ID and expiration days
+ *
+ * The header is expected to have the format:
+ *   expiry-date="YYYY-MM-DDTHH:MM:SS.SSSZ", rule-id="RULE_ID"
+ *
+ * @param {string} expiration_header - expiration header value
+ * @param {string|Date} start_time - start/create time (string or Date) of the object
+ * @param {string} expected_rule_id - expected rule ID to match in the header
+ * @param {number} delta_days - expected number of days between start_time and expiry-date
+ * @returns {boolean} true if the header is valid and matches the expected_rule_id and delta_days otherwise false
+ */
+function validate_expiration_header(expiration_header, start_time, expected_rule_id, delta_days) {
+    const match = expiration_header.match(/expiry-date="(.+)", rule-id="(.+)"/);
+    if (!match) return false;
+
+    const [, expiry_str, rule_id] = match;
+    const expiration = new Date(expiry_str);
+    const start = new Date(start_time);
+    start.setUTCHours(0, 0, 0, 0); // adjusting to midnight UTC otherwise the tests will fail - fix for ceph-s3 tests
+
+    const days_diff = Math.floor((expiration.getTime() - start.getTime()) / (24 * 60 * 60 * 1000));
+
+    return days_diff === delta_days && rule_id === expected_rule_id;
+}
+
+exports.update_file_mtime = update_file_mtime;
+exports.generate_lifecycle_rule = generate_lifecycle_rule;
+exports.validate_expiration_header = validate_expiration_header;
 exports.run_or_skip_test = run_or_skip_test;
 exports.blocks_exist_on_cloud = blocks_exist_on_cloud;
 exports.create_hosts_pool = create_hosts_pool;

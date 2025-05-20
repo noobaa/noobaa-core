@@ -22,6 +22,7 @@ const MDStore = require('../../server/object_services/md_store').MDStore;
 const coretest = require('./coretest');
 const lifecycle = require('../../server/bg_services/lifecycle');
 const http_utils = require('../../util/http_utils');
+const test_utils = require('../../../src/test/system_tests/test_utils');
 const commonTests = require('../lifecycle/common');
 const seed = crypto.randomBytes(16);
 const generator = crypto.createCipheriv('aes-128-gcm', seed, Buffer.alloc(12));
@@ -797,6 +798,93 @@ mocha.describe('lifecycle', () => {
             const actual_length = list_obj.objects.length;
             assert.strictEqual(actual_length, expected_length, `listObjectResult actual ${actual_length} !== ${expected_length}`);
         }
+    });
+
+    mocha.describe('bucket-lifecycle-expiration-header', function() {
+        const bucket = Bucket;
+
+        const run_expiration_test = async ({ rules, expected_id, expected_days, key, tagging = undefined, size = 1000}) => {
+            const putLifecycleParams = {
+                Bucket: bucket,
+                LifecycleConfiguration: { Rules: rules }
+            };
+            await s3.putBucketLifecycleConfiguration(putLifecycleParams);
+
+            const putObjectParams = {
+                Bucket: bucket,
+                Key: key,
+                Body: 'x'.repeat(size) // default 1KB if size not specified
+            };
+            if (tagging) {
+                putObjectParams.Tagging = tagging;
+            }
+            const start_time = new Date();
+            let res = await s3.putObject(putObjectParams);
+            assert.ok(res.Expiration, 'expiration header missing in putObject response');
+
+            res = await s3.headObject({ Bucket: bucket, Key: key });
+            assert.ok(res.Expiration, 'expiration header missing in headObject response');
+
+            const valid = test_utils.validate_expiration_header(res.Expiration, start_time, expected_id, expected_days);
+            assert.ok(valid, `expected rule ${expected_id} to match`);
+        };
+
+        mocha.it('should select rule with longest prefix', async () => {
+            const rules = [
+                test_utils.generate_lifecycle_rule(10, 'short-prefix', 'test1/', [], undefined, undefined),
+                test_utils.generate_lifecycle_rule(17, 'long-prefix', 'test1/logs/', [], undefined, undefined),
+            ];
+            await run_expiration_test({
+                rules,
+                key: 'test1/logs//file.txt',
+                expected_id: 'long-prefix',
+                expected_days: 17
+            });
+        });
+
+        mocha.it('should select rule with more tags when prefix is same', async () => {
+            const rules = [
+                test_utils.generate_lifecycle_rule(5, 'one-tag', 'test2/', [{ Key: 'env', Value: 'prod' }], undefined, undefined),
+                test_utils.generate_lifecycle_rule(9, 'two-tags', 'test2/', [
+                    { Key: 'env', Value: 'prod' },
+                    { Key: 'team', Value: 'backend' }
+                ], undefined, undefined),
+            ];
+            await run_expiration_test({
+                rules,
+                key: 'test2/file2.txt',
+                tagging: 'env=prod&team=backend',
+                expected_id: 'two-tags',
+                expected_days: 9
+            });
+        });
+
+        mocha.it('should select rule with narrower size span when prefix and tags are matching', async () => {
+            const rules = [
+                test_utils.generate_lifecycle_rule(4, 'wide-range', 'test3/', [], 100, 10000),
+                test_utils.generate_lifecycle_rule(6, 'narrow-range', 'test3/', [], 1000, 5000),
+            ];
+            await run_expiration_test({
+                rules,
+                key: 'test3/file3.txt',
+                size: 1500,
+                expected_id: 'narrow-range',
+                expected_days: 6
+            });
+        });
+
+        mocha.it('should fallback to first matching rule if all filters are equal', async () => {
+            const rules = [
+                test_utils.generate_lifecycle_rule(7, 'rule-a', 'test4/', [], 0, 10000),
+                test_utils.generate_lifecycle_rule(11, 'rule-b', 'test4/', [], 0, 10000),
+            ];
+            await run_expiration_test({
+                rules,
+                key: 'test4/file4.txt',
+                expected_id: 'rule-a',
+                expected_days: 7
+            });
+        });
     });
 
     function readable_buffer(data, split = 1, finish = 'end') {

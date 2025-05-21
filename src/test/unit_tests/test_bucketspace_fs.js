@@ -552,7 +552,7 @@ mocha.describe('bucketspace_fs', function() {
             assert.equal(objects.buckets.length, 1);
             assert.equal(objects.buckets[0].name.unwrap(), expected_bucket_name);
             const bucket_config_path = get_config_file_path(CONFIG_SUBDIRS.BUCKETS, expected_bucket_name);
-            const bucket_data = await read_file(process_fs_context, bucket_config_path);
+            const bucket_data = await read_file(process_fs_context, bucket_config_path, { parse_json: true });
             assert.equal(objects.buckets[0].creation_date, bucket_data.creation_date);
         });
     });
@@ -710,7 +710,7 @@ mocha.describe('bucketspace_fs', function() {
             const param = { name: test_bucket, versioning: 'ENABLED' };
             await bucketspace_fs.set_bucket_versioning(param, dummy_object_sdk);
             const bucket_config_path = get_config_file_path(CONFIG_SUBDIRS.BUCKETS, param.name);
-            const bucket = await read_file(process_fs_context, bucket_config_path);
+            const bucket = await read_file(process_fs_context, bucket_config_path, { parse_json: true });
             assert.equal(bucket.versioning, 'ENABLED');
 
         });
@@ -920,7 +920,7 @@ mocha.describe('bucketspace_fs', function() {
     mocha.describe('bucket tagging operations', function() {
         mocha.it('put_bucket_tagging', async function() {
             const param = { name: test_bucket, tagging: [{ key: 'k1', value: 'v1' }] };
-            await bucketspace_fs.put_bucket_tagging(param);
+            await bucketspace_fs.put_bucket_tagging(param, dummy_object_sdk);
             const tag = await bucketspace_fs.get_bucket_tagging(param);
             assert.deepEqual(tag, { tagging: param.tagging });
         });

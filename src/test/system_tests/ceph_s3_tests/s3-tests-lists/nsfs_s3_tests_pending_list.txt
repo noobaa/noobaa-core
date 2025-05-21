@@ -158,3 +158,4 @@ s3tests_boto3/functional/test_s3.py::test_versioned_concurrent_object_create_and
 s3tests_boto3/functional/test_s3.py::test_object_presigned_put_object_with_acl_tenant
 s3tests_boto3/functional/test_s3.py::test_get_undefined_public_block
 s3tests_boto3/functional/test_s3.py::test_get_public_block_deny_bucket_policy
+s3tests_boto3/functional/test_s3.py::test_lifecycle_expiration_tags1

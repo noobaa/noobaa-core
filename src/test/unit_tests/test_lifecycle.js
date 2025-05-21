@@ -84,6 +84,30 @@ mocha.describe('lifecycle', () => {
         mocha.it('test and prefix size', async () => {
             await commonTests.test_and_prefix_size(Bucket, Key, s3);
         });
+        mocha.it('test rule ID length', async () => {
+            await commonTests.test_rule_id_length(Bucket, Key, s3);
+        });
+        mocha.it('test rule duplicate ID', async () => {
+            await commonTests.test_rule_duplicate_id(Bucket, Key, s3);
+        });
+        mocha.it('test rule status value', async () => {
+            await commonTests.test_rule_status_value(Bucket, Key, s3);
+        });
+        mocha.it('test invalid filter format', async () => {
+            await commonTests.test_invalid_filter_format(Bucket, Key, s3);
+        });
+        mocha.it('test invalid expiration date format', async () => {
+            await commonTests.test_invalid_expiration_date_format(Bucket, Key, s3);
+        });
+        mocha.it('test expiration with multiple fields', async () => {
+            await commonTests.test_expiration_multiple_fields(Bucket, Key, s3);
+        });
+        mocha.it('test AbortIncompleteMultipartUpload with tags', async () => {
+            await commonTests.test_abortincompletemultipartupload_with_tags(Bucket, Key, s3);
+        });
+        mocha.it('test AbortIncompleteMultipartUpload with object sizes', async () => {
+            await commonTests.test_abortincompletemultipartupload_with_sizes(Bucket, Key, s3);
+        });
     });
 
     mocha.describe('bucket-lifecycle-bg-worker', function() {

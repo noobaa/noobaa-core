@@ -302,6 +302,16 @@ NoobaaEvent.UNAUTHORIZED = Object.freeze({
     severity: 'ERROR',
     state: 'HEALTHY',
 });
+NoobaaEvent.BUCKET_RESERVED_TAG_MODIFIED = Object.freeze({
+    event_code: 'noobaa_bucket_reserved_tag_modified',
+    message: 'Bucket reserved tag modified',
+    description: 'Noobaa bucket reserved tag modified',
+    entity_type: 'NODE',
+    event_type: 'INFO',
+    scope: 'NODE',
+    severity: 'INFO',
+    state: 'HEALTHY',
+});
 
 NoobaaEvent.IO_STREAM_ITEM_TIMEOUT = Object.freeze({
     event_code: 'bucket_io_stream_item_timeout',

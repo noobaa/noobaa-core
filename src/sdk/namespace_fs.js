@@ -23,6 +23,7 @@ const LRUCache = require('../util/lru_cache');
 const nb_native = require('../util/nb_native');
 const RpcError = require('../rpc/rpc_error');
 const { S3Error } = require('../endpoint/s3/s3_errors');
+const lifecycle_utils = require('../util/lifecycle_utils');
 const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
 const { PersistentLogger } = require('../util/persistent_logger');
 const { Glacier } = require('./glacier');
@@ -61,6 +62,7 @@ const XATTR_PART_ETAG = XATTR_NOOBAA_INTERNAL_PREFIX + 'part_etag';
 const XATTR_VERSION_ID = XATTR_NOOBAA_INTERNAL_PREFIX + 'version_id';
 const XATTR_DELETE_MARKER = XATTR_NOOBAA_INTERNAL_PREFIX + 'delete_marker';
 const XATTR_DIR_CONTENT = XATTR_NOOBAA_INTERNAL_PREFIX + 'dir_content';
+const XATTR_NON_CURRENT_TIMESTASMP = XATTR_NOOBAA_INTERNAL_PREFIX + 'non_current_timestamp';
 const XATTR_TAG = XATTR_NOOBAA_INTERNAL_PREFIX + 'tag.';
 const HIDDEN_VERSIONS_PATH = '.versions';
 const NULL_VERSION_ID = 'null';
@@ -292,6 +294,11 @@ function to_fs_xattr(xattr) {
     return _.mapKeys(xattr, (val, key) => XATTR_USER_PREFIX + key);
 }
 
+/**
+ * get_tags_from_xattr converts relevant xattr to tags format
+ * @param {Object} xattr 
+ * @returns {Object}
+ */
 function get_tags_from_xattr(xattr) {
     const tag_set = [];
     for (const [xattr_key, xattr_value] of Object.entries(xattr)) {
@@ -730,6 +737,8 @@ class NamespaceFS {
                         const use_lstat = !(await this._is_path_in_bucket_boundaries(fs_context, entry_path));
                         const stat = await native_fs_utils.stat_if_exists(fs_context, entry_path,
                             use_lstat, config.NSFS_LIST_IGNORE_ENTRY_ON_EACCES);
+                        // TODO - GAP of .folder files - we return stat of the directory for the 
+                        // xattr, but the creation time should be of the .folder files (and maybe more )
                         if (stat) {
                             r.stat = stat;
                             // add the result only if we have the stat information
@@ -1385,10 +1394,10 @@ class NamespaceFS {
             fs_xattr = this._assign_md5_to_fs_xattr(digest, fs_xattr);
         }
         if (part_upload) {
-            fs_xattr = await this._assign_part_props_to_fs_xattr(fs_context, params.size, digest, offset, fs_xattr);
+            fs_xattr = this._assign_part_props_to_fs_xattr(params.size, digest, offset, fs_xattr);
         }
         if (!part_upload && (this._is_versioning_enabled() || this._is_versioning_suspended())) {
-            fs_xattr = await this._assign_versions_to_fs_xattr(stat, fs_xattr, undefined);
+            fs_xattr = this._assign_versions_to_fs_xattr(stat, fs_xattr, undefined);
         }
         if (!part_upload && params.storage_class) {
             fs_xattr = Object.assign(fs_xattr || {}, {
@@ -1506,8 +1515,10 @@ class NamespaceFS {
                 await native_fs_utils._make_path_dirs(latest_ver_path, fs_context);
                 if (is_gpfs) {
                     const latest_ver_info_exist = await native_fs_utils.is_path_exists(fs_context, latest_ver_path);
-                    gpfs_options = await this._open_files_gpfs(fs_context, new_ver_tmp_path, latest_ver_path, upload_file,
-                        latest_ver_info_exist, open_mode, undefined, undefined);
+                    gpfs_options = await this._open_files(fs_context, {
+                        src_path: new_ver_tmp_path, dst_path: latest_ver_path, upload_or_dir_file: upload_file,
+                        dst_ver_exist: latest_ver_info_exist, open_mode
+                    });
 
                     //get latest version if exists
                     const latest_fd = gpfs_options?.move_to_dst?.dst_file;
@@ -1540,6 +1551,7 @@ class NamespaceFS {
                     await native_fs_utils._make_path_dirs(versioned_path, fs_context);
                     await native_fs_utils.safe_move(fs_context, latest_ver_path, versioned_path, latest_ver_info,
                         gpfs_options?.move_to_versions, bucket_tmp_dir_path);
+                    await this._set_non_current_timestamp_on_past_version(fs_context, versioned_path);
                 }
                 try {
                     // move new version to latest_ver_path (key path)
@@ -1559,7 +1571,7 @@ class NamespaceFS {
                 if (!should_retry || retries <= 0) throw err;
                 await P.delay(get_random_delay(config.NSFS_RANDOM_DELAY_BASE, 0, 50));
             } finally {
-                if (gpfs_options) await this._close_files_gpfs(fs_context, gpfs_options.move_to_dst, open_mode);
+                if (gpfs_options) await this._close_files(fs_context, gpfs_options.move_to_dst, open_mode);
             }
         }
     }
@@ -1987,7 +1999,7 @@ class NamespaceFS {
                         const file_path = this._get_file_path({ key });
                         await this._check_path_in_bucket_boundaries(fs_context, file_path);
                         dbg.log1('NamespaceFS: delete_multiple_objects', file_path);
-                        await this._delete_single_object(fs_context, file_path, { key });
+                        await this._delete_single_object(fs_context, file_path, { key, filter_func: params.filter_func });
                         res.push({ key });
                     } catch (err) {
                         res.push({ err_code: err.code, err_message: err.message });
@@ -2002,7 +2014,7 @@ class NamespaceFS {
                 }
                 dbg.log3('NamespaceFS: versions_by_key_map', versions_by_key_map);
                 for (const key of Object.keys(versions_by_key_map)) {
-                    const key_res = await this._delete_objects_versioned(fs_context, key, versions_by_key_map[key]);
+                    const key_res = await this._delete_objects_versioned(fs_context, key, versions_by_key_map[key], params.filter_func);
                     res = res.concat(key_res);
                 }
             }
@@ -2012,9 +2024,32 @@ class NamespaceFS {
         }
     }
 
-
+    /**
+     * _delete_single_object does the following before deleting the object
+     * 1. if is_lifecycle_deletion - 
+     * 1.1. open dir_file and src_file fd
+     * 1.2. _verify_lifecycle_filter_and_unlink - which means it stats the to be deleted file, validate filter if exists, unlink safely
+     * 2. else - unlink_ignore_enoent
+     * 3. deleted parent directories if they are empty 
+     * 4. clears directory object xattr if relevant
+     * 5. closes file and dir_file
+     */
     async _delete_single_object(fs_context, file_path, params) {
-        await native_fs_utils.unlink_ignore_enoent(fs_context, file_path);
+        const is_lifecycle_deletion = this.is_lifecycle_deletion_flow(params);
+        if (is_lifecycle_deletion) {
+            let files;
+            try {
+                files = await this._open_files(fs_context, { src_path: file_path, delete_version: true });
+                await this._verify_lifecycle_filter_and_unlink(fs_context, params, file_path, files.delete_version);
+            } catch (err) {
+                if (err.code !== 'ENOENT') throw err;
+            } finally {
+                if (files) await this._close_files(fs_context, files.delete_version, undefined, true);
+            }
+        } else {
+            await native_fs_utils.unlink_ignore_enoent(fs_context, file_path);
+        }
+
         await this._delete_path_dirs(file_path, fs_context);
         // when deleting the data of a directory object, we need to remove the directory dir object xattr
         // if the dir still exists - occurs when deleting dir while the dir still has entries in it
@@ -2312,17 +2347,30 @@ class NamespaceFS {
         return fs_xattr;
     }
 
-    async _assign_versions_to_fs_xattr(new_ver_stat, fs_xattr, delete_marker) {
+    /**
+     * _assign_versions_to_fs_xattr assigns version related xattrs to the file 
+     * 1. assign version_id xattr
+     * 2. if delete_marker - 
+     * 2.1. assigns delete_marker xattr
+     * 2.2. assigns non_current_timestamp xattr - on the current structure - delete marker is under .versions/
+     * @param {nb.NativeFSStats} new_ver_stat 
+     * @param {nb.NativeFSXattr} fs_xattr 
+     * @param {Boolean} [delete_marker]
+     * @returns {nb.NativeFSXattr}
+     */
+    _assign_versions_to_fs_xattr(new_ver_stat, fs_xattr, delete_marker = undefined) {
         fs_xattr = Object.assign(fs_xattr || {}, {
             [XATTR_VERSION_ID]: this._get_version_id_by_mode(new_ver_stat)
         });
 
-        if (delete_marker) fs_xattr[XATTR_DELETE_MARKER] = delete_marker;
-
+        if (delete_marker) {
+            fs_xattr[XATTR_DELETE_MARKER] = String(delete_marker);
+            fs_xattr = this._assign_non_current_timestamp_xattr(fs_xattr);
+        }
         return fs_xattr;
     }
 
-    async _assign_part_props_to_fs_xattr(fs_context, size, digest, offset, fs_xattr) {
+    _assign_part_props_to_fs_xattr(size, digest, offset, fs_xattr) {
         fs_xattr = Object.assign(fs_xattr || {}, {
             [XATTR_PART_SIZE]: size,
             [XATTR_PART_OFFSET]: offset,
@@ -2330,6 +2378,39 @@ class NamespaceFS {
 
         });
         return fs_xattr;
+    }
+
+    /**
+     * _assign_non_current_timestamp_xattr assigns non current timestamp xattr to file xattr
+     * @param {nb.NativeFSXattr} fs_xattr 
+     * @returns {nb.NativeFSXattr}
+     */
+    _assign_non_current_timestamp_xattr(fs_xattr = {}) {
+        fs_xattr = Object.assign(fs_xattr, {
+            [XATTR_NON_CURRENT_TIMESTASMP]: String(Date.now())
+        });
+        return fs_xattr;
+    }
+
+    /**
+     * _set_non_current_timestamp_on_past_version sets non current timestamp on past version - used as a hint for lifecycle process
+     * @param {nb.NativeFSContext} fs_context 
+     * @param {String} versioned_path 
+     * @returns {Promise<Void>}
+     */
+    async _set_non_current_timestamp_on_past_version(fs_context, versioned_path) {
+        const xattr = this._assign_non_current_timestamp_xattr();
+        await this.set_fs_xattr_op(fs_context, versioned_path, xattr);
+    }
+
+    /**
+     * _unset_non_current_timestamp_on_past_version unsets non current timestamp on past version - used as a hint for lifecycle process
+     * @param {nb.NativeFSContext} fs_context 
+     * @param {String} versioned_path 
+     * @returns {Promise<Void>}
+     */
+    async _unset_non_current_timestamp_on_past_version(fs_context, versioned_path) {
+        await this._clear_user_xattr(fs_context, versioned_path, XATTR_NON_CURRENT_TIMESTASMP);
     }
 
     /**
@@ -2464,6 +2545,8 @@ class NamespaceFS {
         const storage_class = Glacier.storage_class_from_xattr(stat.xattr);
         const size = Number(stat.xattr?.[XATTR_DIR_CONTENT] || stat.size);
         const tag_count = stat.xattr ? this._number_of_tags_fs_xttr(stat.xattr) : 0;
+        const nc_noncurrent_time = (stat.xattr?.[XATTR_NON_CURRENT_TIMESTASMP] && Number(stat.xattr[XATTR_NON_CURRENT_TIMESTASMP])) ||
+            stat.ctime.getTime();
 
         return {
             obj_id: etag,
@@ -2482,6 +2565,7 @@ class NamespaceFS {
             xattr: to_xattr(stat.xattr),
             tag_count,
             tagging: get_tags_from_xattr(stat.xattr),
+            nc_noncurrent_time,
 
             // temp:
             lock_settings: undefined,
@@ -2813,20 +2897,26 @@ class NamespaceFS {
         return path.normalize(path.join(this.bucket_path, path.dirname(key), HIDDEN_VERSIONS_PATH, key_version));
     }
 
-    // this function returns the following version information -
-    // version_id_str - mtime-{mtimeNsBigint}-ino-{ino} | explicit null
-    // mtimeNsBigint - modified timestmap in bigint - last time the content of the file was modified
-    // ino - refers to the data stored in a particular location
-    // delete_marker - specifies if the version is a delete marker
-    // path - specifies the path to version
-    // if version xattr contains version info - return info by xattr
-    // else - it's a null version - return stat
-    // if fd is passed, will use fd instead of path to stat
-    async _get_version_info(fs_context, version_path, fd) {
+
+    /**
+     * this function returns the following version information -
+     * version_id_str - mtime-{mtimeNsBigint}-ino-{ino} | explicit null
+     * mtimeNsBigint - modified timestmap in bigint - last time the content of the file was modified
+     * ino - refers to the data stored in a particular location
+     * delete_marker - specifies if the version is a delete marker
+     * path - specifies the path to version
+     * if version xattr contains version info - return info by xattr
+     * else - it's a null version - return stat
+     * if file is passed, will use file instead of path to stat
+     * @param {nb.NativeFSContext} fs_context 
+     * @param {String} version_path 
+     * @param {nb.NativeFile} [file] 
+     * @returns {Promise<object>}
+     */
+    async _get_version_info(fs_context, version_path, file = undefined) {
         try {
-            const stat = fd ? await fd.stat(fs_context, { skip_user_xattr: true }) :
-                await nb_native().fs.stat(fs_context, version_path, { skip_user_xattr: true });
-            dbg.log1('NamespaceFS._get_version_info stat ', stat, version_path, fd);
+            const stat = file ? await file.stat(fs_context) : await nb_native().fs.stat(fs_context, version_path);
+            dbg.log1('NamespaceFS._get_version_info stat ', stat, version_path, file);
 
             const version_id_str = this._get_version_id_by_xattr(stat);
             const ver_info_by_xattr = this._extract_version_info_from_xattr(version_id_str);
@@ -2914,8 +3004,15 @@ class NamespaceFS {
         }
     }
 
-    _is_mismatch_version_id(stat, version_id) {
-        return version_id && !this._is_versioning_disabled() && this._get_version_id_by_xattr(stat) !== version_id;
+    /**
+     * _is_mismatch_version_id checks if the expected_version_id equals to the version_id_str received by version_info or by version_id xattr coming from stat
+     * @param {nb.NativeFSStats} stat 
+     * @param {String} expected_version_id 
+     * @returns {Boolean}
+     */
+    _is_mismatch_version_id(stat, expected_version_id) {
+        const actual_version_id = this._get_version_id_by_xattr(stat);
+        return expected_version_id && !this._is_versioning_disabled() && expected_version_id !== actual_version_id;
     }
 
     /**
@@ -2925,8 +3022,7 @@ class NamespaceFS {
      * we call check_version_moved() in case of concurrent puts, the version might move to .versions/
      * if the version moved we will retry
      * @param {nb.NativeFSContext} fs_context
-     * @param {string} key
-     * @param {string} version_id
+     * @param {{key: string, version_id: string, filter_func: function}} params
      * @returns {Promise<{
      *   version_id_str: any;
      *   delete_marker: string;
@@ -2936,35 +3032,48 @@ class NamespaceFS {
      *   latest?: boolean;
      * }>}
      */
-    async _delete_single_object_versioned(fs_context, key, version_id) {
+    async _delete_single_object_versioned(fs_context, params) {
         let retries = config.NSFS_RENAME_RETRIES;
+        const { key, version_id } = params;
         const latest_version_path = this._get_file_path({ key });
+        const is_lifecycle_deletion = this.is_lifecycle_deletion_flow(params);
+        const is_gpfs = native_fs_utils._is_gpfs(fs_context);
+
         for (;;) {
             let file_path;
-            let gpfs_options;
+            let files;
             try {
-                file_path = await this._find_version_path(fs_context, { key, version_id });
+                file_path = await this._find_version_path(fs_context, params);
                 await this._check_path_in_bucket_boundaries(fs_context, file_path);
                 const version_info = await this._get_version_info(fs_context, file_path);
                 if (!version_info) return;
 
                 const deleted_latest = file_path === latest_version_path;
                 if (deleted_latest) {
-                    gpfs_options = await this._open_files_gpfs(fs_context, file_path, undefined, undefined, undefined, undefined, true);
-                    if (gpfs_options) {
-                        const src_stat = await gpfs_options.delete_version.src_file.stat(fs_context);
+                    if (is_gpfs) {
+                        files = await this._open_files(fs_context, { src_path: file_path, delete_version: true });
+                        const src_stat = await files.delete_version.src_file.stat(fs_context);
                         if (this._is_mismatch_version_id(src_stat, version_id)) {
                             dbg.warn('NamespaceFS._delete_single_object_versioned mismatch version_id', file_path, version_id, this._get_version_id_by_xattr(src_stat));
                             throw error_utils.new_error_code('MISMATCH_VERSION', 'file version does not match the version we asked for');
                         }
                     }
                     const bucket_tmp_dir_path = this.get_bucket_tmpdir_full_path();
-                    await native_fs_utils.safe_unlink(fs_context, file_path, version_info,
-                        gpfs_options?.delete_version, bucket_tmp_dir_path);
+                    if (is_lifecycle_deletion) {
+                        files = await this._open_files(fs_context, { src_path: file_path, delete_version: true });
+                        await this._verify_lifecycle_filter_and_unlink(fs_context, params, file_path, files.delete_version);
+                    } else {
+                        await native_fs_utils.safe_unlink(fs_context, file_path, version_info, files?.delete_version, bucket_tmp_dir_path);
+                    }
                     await this._check_version_moved(fs_context, key, version_id);
                     return { ...version_info, latest: true };
                 } else {
-                    await native_fs_utils.unlink_ignore_enoent(fs_context, file_path);
+                    if (is_lifecycle_deletion) {
+                        files = await this._open_files(fs_context, { src_path: file_path, delete_version: true });
+                        await this._verify_lifecycle_filter_and_unlink(fs_context, params, file_path, files.delete_version);
+                    } else {
+                        await native_fs_utils.unlink_ignore_enoent(fs_context, file_path);
+                    }
                     await this._check_version_moved(fs_context, key, version_id);
                 }
                 return version_info;
@@ -2981,7 +3090,7 @@ class NamespaceFS {
                 if (retries <= 0 || !native_fs_utils.should_retry_link_unlink(err)) throw err;
                 await P.delay(get_random_delay(config.NSFS_RANDOM_DELAY_BASE, 0, 50));
             } finally {
-                if (gpfs_options) await this._close_files_gpfs(fs_context, gpfs_options.delete_version, undefined, true);
+                if (files) await this._close_files(fs_context, files.delete_version, undefined, true);
             }
         }
     }
@@ -2990,7 +3099,7 @@ class NamespaceFS {
     //    1.1 if version_id is undefined, delete latest
     //    1.2 if version exists - unlink version
     // 2. try promote second latest to latest if one of the deleted versions is the latest version (with version id specified) or a delete marker
-    async _delete_objects_versioned(fs_context, key, versions) {
+    async _delete_objects_versioned(fs_context, key, versions, filter_func) {
         dbg.log1('NamespaceFS._delete_objects_versioned', key, versions);
         const res = [];
         let deleted_delete_marker;
@@ -3001,7 +3110,7 @@ class NamespaceFS {
         for (const version_id of versions) {
             try {
                 if (version_id) {
-                    const del_ver_info = await this._delete_single_object_versioned(fs_context, key, version_id);
+                    const del_ver_info = await this._delete_single_object_versioned(fs_context, { key, version_id, filter_func });
                     if (!del_ver_info) {
                         res.push({});
                         continue;
@@ -3013,7 +3122,8 @@ class NamespaceFS {
                     }
                     res.push({ deleted_delete_marker: del_ver_info.delete_marker });
                 } else {
-                    const version_res = await this._delete_latest_version(fs_context, latest_version_path, { key, version_id });
+                    const version_res = await this._delete_latest_version(fs_context, latest_version_path,
+                        { key, version_id, filter_func });
                     res.push(version_res);
                     delete_marker_created = true;
                 }
@@ -3046,7 +3156,7 @@ class NamespaceFS {
      */
     async _delete_version_id(fs_context, file_path, params) {
         // TODO optimization - GPFS link overrides, no need to unlink before promoting, but if there is nothing to promote we should unlink
-        const del_obj_version_info = await this._delete_single_object_versioned(fs_context, params.key, params.version_id);
+        const del_obj_version_info = await this._delete_single_object_versioned(fs_context, params);
         if (!del_obj_version_info) return {};
 
         // we try promote only if the latest version was deleted or we deleted a delete marker
@@ -3088,6 +3198,8 @@ class NamespaceFS {
                 const bucket_tmp_dir_path = this.get_bucket_tmpdir_full_path();
                 await native_fs_utils.safe_move_posix(fs_context, max_past_ver_info.path, latest_ver_path,
                     max_past_ver_info, bucket_tmp_dir_path);
+                // TODO - catch error if no such xattr
+                await this._unset_non_current_timestamp_on_past_version(fs_context, latest_ver_path);
                 break;
             } catch (err) {
                 dbg.warn(`NamespaceFS: _promote_version_to_latest failed error: retries=${retries}`, err);
@@ -3120,22 +3232,25 @@ class NamespaceFS {
     async _delete_latest_version(fs_context, latest_ver_path, params) {
         dbg.log0('Namespace_fs._delete_latest_version:', latest_ver_path, params);
 
-        let gpfs_options;
+        let files;
         const is_gpfs = native_fs_utils._is_gpfs(fs_context);
         let retries = config.NSFS_RENAME_RETRIES;
         let latest_ver_info;
         for (;;) {
             try {
-                // TODO get latest version from file in POSIX like in GPFS path
                 latest_ver_info = await this._get_version_info(fs_context, latest_ver_path);
                 dbg.log1('Namespace_fs._delete_latest_version:', latest_ver_info);
                 if (latest_ver_info) {
-                    if (is_gpfs) {
-                    gpfs_options = await this._open_files_gpfs(fs_context, latest_ver_path, undefined, undefined, undefined,
-                            undefined, true);
-                        const latest_fd = gpfs_options?.delete_version?.src_file;
-                        latest_ver_info = latest_fd && await this._get_version_info(fs_context, undefined, latest_fd);
+                    const is_lifecycle_deletion = this.is_lifecycle_deletion_flow(params);
+                    if (is_gpfs || is_lifecycle_deletion) {
+                        files = await this._open_files(fs_context, { src_path: latest_ver_path, delete_version: true });
+                        const latest_file = files?.delete_version?.src_file;
+                        latest_ver_info = latest_file && await this._get_version_info(fs_context, undefined, latest_file);
                         if (!latest_ver_info) break;
+                        if (is_lifecycle_deletion) {
+                            const stat = await latest_file.stat(fs_context);
+                            this._check_lifecycle_filter_before_deletion(params, stat);
+                        }
                     }
                     const versioned_path = this._get_version_path(params.key, latest_ver_info.version_id_str);
 
@@ -3144,8 +3259,9 @@ class NamespaceFS {
                     const bucket_tmp_dir_path = this.get_bucket_tmpdir_full_path();
                     if (this._is_versioning_enabled() || suspended_and_latest_is_not_null) {
                         await native_fs_utils._make_path_dirs(versioned_path, fs_context);
-                         await native_fs_utils.safe_move_posix(fs_context, latest_ver_path, versioned_path, latest_ver_info,
+                        await native_fs_utils.safe_move_posix(fs_context, latest_ver_path, versioned_path, latest_ver_info,
                             bucket_tmp_dir_path);
+                        await this._set_non_current_timestamp_on_past_version(fs_context, versioned_path);
                         if (suspended_and_latest_is_not_null) {
                             // remove a version (or delete marker) with null version ID from .versions/ (if exists)
                             await this._delete_null_version_from_versions_directory(params.key, fs_context);
@@ -3154,7 +3270,7 @@ class NamespaceFS {
                         // versioning suspended and version_id is null
                         dbg.log1('NamespaceFS._delete_latest_version: suspended mode version ID of the latest version is null - file will be unlinked');
                         await native_fs_utils.safe_unlink(fs_context, latest_ver_path, latest_ver_info,
-                            gpfs_options?.delete_version, bucket_tmp_dir_path);
+                            files?.delete_version, bucket_tmp_dir_path);
                     }
                 }
                 break;
@@ -3164,7 +3280,7 @@ class NamespaceFS {
                 if (retries <= 0 || !native_fs_utils.should_retry_link_unlink(err)) throw err;
                 await P.delay(get_random_delay(config.NSFS_RANDOM_DELAY_BASE, 0, 50));
             } finally {
-                if (gpfs_options) await this._close_files_gpfs(fs_context, gpfs_options.delete_version, undefined, true);
+                if (files) await this._close_files(fs_context, files.delete_version, undefined, true);
             }
         }
         // create delete marker and move it to .versions/key_{delete_marker_version_id}
@@ -3182,15 +3298,17 @@ class NamespaceFS {
         const null_versioned_path = this._get_version_path(key, NULL_VERSION_ID);
         await this._check_path_in_bucket_boundaries(fs_context, null_versioned_path);
         let gpfs_options;
+        const is_gpfs = native_fs_utils._is_gpfs(fs_context);
+
         let retries = config.NSFS_RENAME_RETRIES;
         for (;;) {
             try {
                 const null_versioned_path_info = await this._get_version_info(fs_context, null_versioned_path);
                 dbg.log1('Namespace_fs._delete_null_version_from_versions_directory:', null_versioned_path, null_versioned_path_info);
                 if (!null_versioned_path_info) return;
-
-                gpfs_options = await this._open_files_gpfs(fs_context, null_versioned_path, undefined, undefined, undefined,
-                    undefined, true);
+                gpfs_options = is_gpfs ?
+                    await this._open_files(fs_context, { src_path: null_versioned_path, delete_version: true }) :
+                    undefined;
                 const bucket_tmp_dir_path = this.get_bucket_tmpdir_full_path();
                 await native_fs_utils.safe_unlink(fs_context, null_versioned_path, null_versioned_path_info,
                     gpfs_options?.delete_version, bucket_tmp_dir_path);
@@ -3201,7 +3319,7 @@ class NamespaceFS {
                 if (retries <= 0 || !native_fs_utils.should_retry_link_unlink(err)) throw err;
                 await P.delay(get_random_delay(config.NSFS_RANDOM_DELAY_BASE, 0, 50));
             } finally {
-                if (gpfs_options) await this._close_files_gpfs(fs_context, gpfs_options.delete_version, undefined, true);
+                if (gpfs_options) await this._close_files(fs_context, gpfs_options.delete_version, undefined, true);
             }
         }
     }
@@ -3225,7 +3343,7 @@ class NamespaceFS {
                 }
                 const file_path = this._get_version_path(params.key, delete_marker_version_id);
 
-                const fs_xattr = await this._assign_versions_to_fs_xattr(stat, undefined, true);
+                const fs_xattr = this._assign_versions_to_fs_xattr(stat, undefined, true);
                 if (fs_xattr) await upload_params.target_file.replacexattr(fs_context, fs_xattr);
                 // create .version in case we don't have it yet
                 await native_fs_utils._make_path_dirs(file_path, fs_context);
@@ -3282,11 +3400,10 @@ class NamespaceFS {
 
     // opens the unopened files involved in the version move during upload/deletion
     // returns an object contains the relevant options for the move/unlink flow
-    // eslint-disable-next-line max-params
-    async _open_files_gpfs(fs_context, src_path, dst_path, upload_or_dir_file, dst_ver_exist, open_mode, delete_version, versioned_info) {
-        dbg.log1('Namespace_fs._open_files_gpfs:', src_path, src_path && path.dirname(src_path), dst_path, upload_or_dir_file, Boolean(dst_ver_exist), open_mode, delete_version, versioned_info);
-        const is_gpfs = native_fs_utils._is_gpfs(fs_context);
-        if (!is_gpfs) return;
+    async _open_files(fs_context, options) {
+        const { src_path = undefined, dst_path = undefined, upload_or_dir_file = undefined,
+            dst_ver_exist = false, open_mode = undefined, delete_version = false, versioned_info = undefined } = options;
+        dbg.log1('Namespace_fs._open_files:', src_path, src_path && path.dirname(src_path), dst_path, upload_or_dir_file, Boolean(dst_ver_exist), open_mode, delete_version, versioned_info);
 
         let src_file;
         let dst_file;
@@ -3311,7 +3428,7 @@ class NamespaceFS {
                 dir_file = await native_fs_utils.open_file(fs_context, this.bucket_path, path.dirname(src_path), 'r');
             }
             if (dst_ver_exist) {
-                dbg.log1('NamespaceFS._open_files_gpfs dst version exist - opening dst version file...');
+                dbg.log1('NamespaceFS._open_files dst version exist - opening dst version file...');
                 dst_file = await native_fs_utils.open_file(fs_context, this.bucket_path, dst_path, 'r');
             }
             return {
@@ -3319,34 +3436,34 @@ class NamespaceFS {
                 move_to_dst: { src_file, dst_file, dir_file}
             };
         } catch (err) {
-            dbg.warn('NamespaceFS._open_files_gpfs couldn\'t open files', err);
-            await this._close_files_gpfs(fs_context, { src_file, dst_file, dir_file, versioned_file }, open_mode, delete_version);
+            dbg.warn('NamespaceFS._open_files couldn\'t open files', err);
+            await this._close_files(fs_context, { src_file, dst_file, dir_file, versioned_file }, open_mode, delete_version);
             throw err;
         }
     }
 
     // closes files opened during gpfs upload / deletion, avoiding closing files that opened sooner in the process
-    async _close_files_gpfs(fs_context, files_to_close, open_mode, delete_version) {
+    async _close_files(fs_context, files_to_close, open_mode, delete_version) {
         const { src_file, dst_file = undefined, dir_file, versioned_file = undefined } = files_to_close;
         try {
             if (src_file && (delete_version || open_mode === 'wt')) await src_file.close(fs_context);
         } catch (err) {
-            dbg.warn('NamespaceFS: _close_files_gpfs src_file error', err);
+            dbg.warn('NamespaceFS: _close_files src_file error', err);
         }
         try {
             if (dst_file) await dst_file.close(fs_context);
         } catch (err) {
-            dbg.warn('NamespaceFS: _close_files_gpfs dst_file error', err);
+            dbg.warn('NamespaceFS: _close_files dst_file error', err);
         }
         try {
             if (dir_file && (delete_version || open_mode !== 'wt')) await dir_file.close(fs_context);
         } catch (err) {
-            dbg.warn('NamespaceFS: _close_files_gpfs dir_file error', err);
+            dbg.warn('NamespaceFS: _close_files dir_file error', err);
         }
         try {
             if (versioned_file) await versioned_file.close(fs_context);
         } catch (err) {
-            dbg.warn('NamespaceFS: _close_files_gpfs versioned_file error', err);
+            dbg.warn('NamespaceFS: _close_files versioned_file error', err);
         }
     }
 
@@ -3365,6 +3482,10 @@ class NamespaceFS {
         const latest_ver_info = await this._get_version_info(fs_context, latest_version_path);
         if (latest_ver_info && latest_ver_info.version_id_str === version_id) throw error_utils.new_error_code('VERSION_MOVED', `version file moved from .versions/ ${versioned_path} to latest ${latest_version_path}, retrying`);
     }
+
+    /////////////////////////
+    //   GLACIER HELPERS   //
+    /////////////////////////
 
     async _throw_if_storage_class_not_supported(storage_class) {
         if (!await this._is_storage_class_supported(storage_class)) {
@@ -3493,6 +3614,71 @@ class NamespaceFS {
 
         return NamespaceFS._restore_wal;
     }
+
+    ////////////////////////////
+    //    LIFECYLE HELPERS    //
+    ////////////////////////////
+
+    /**
+     * _verify_lifecycle_filter_and_unlink does the following - 
+     * 1. stat the to be deleted file
+     * 2. checks that the file should be deleted based on lifecycle filter (if the flow is not lifecycle the check will be skipped)
+     * 3. calls safe_unlink that inside checks that the path to be deleted has the same inode/fd of the file that should be deleted
+     * GAP - in .folder if exists we should take mtime from the file and not from the directory, this is a bug in get_object_info we should fix
+     * @param {nb.NativeFSContext} fs_context 
+     * @param {Object} params 
+     * @param {String} file_path 
+     * @param {{dir_file: nb.NativeFile, src_file: nb.NativeFile }} files 
+     */
+    async _verify_lifecycle_filter_and_unlink(fs_context, params, file_path, { dir_file, src_file }) {
+        try {
+            const is_dir_content = this._is_directory_content(file_path, params.key);
+            const dir_stat = is_dir_content && await dir_file.stat(fs_context);
+            const is_empty_directory_content = dir_stat && dir_stat.xattr && dir_stat.xattr[XATTR_DIR_CONTENT] === '0';
+            const src_stat = !is_empty_directory_content && await src_file.stat(fs_context);
+            const stat = is_empty_directory_content ? dir_stat : is_dir_content && { ...src_stat, xattr: dir_stat.xattr } || src_stat;
+
+            this._check_lifecycle_filter_before_deletion(params, stat);
+            const bucket_tmp_dir_path = this.get_bucket_tmpdir_full_path();
+            await native_fs_utils.safe_unlink(fs_context, file_path, stat, { dir_file, src_file }, bucket_tmp_dir_path);
+        } catch (err) {
+            dbg.log0('_verify_lifecycle_filter_and_unlink err', err.code, err, file_path);
+            if (err.code !== 'ENOENT' && err.code !== 'EISDIR') throw err;
+        }
+    }
+
+    /**
+     * _check_lifecycle_filter_before_deletion checks if filter_func provided that we want to delete the object
+     * @param {Object} params 
+     * @param {nb.NativeFSStats} stat
+     * @returns {Void} 
+     */
+    _check_lifecycle_filter_before_deletion(params, stat) {
+        if (!params.filter_func) return;
+        const obj_info = {
+            key: params.key,
+            create_time: stat.mtime.getTime(),
+            size: stat.size,
+            tagging: get_tags_from_xattr(stat.xattr)
+        };
+        const should_delete = lifecycle_utils.file_matches_filter({ obj_info, filter_func: params.filter_func });
+        if (!should_delete) {
+            const err = new RpcError('FILTER_MATCH_FAILED', `file_matches_filter lifecycle - filter on file returned false ${obj_info.key}`);
+            dbg.error(err.message);
+            err.code = 'FILTER_MATCH_FAILED';
+            throw err;
+        }
+    }
+
+    /**
+     * is_lifecycle_deletion_flow returns true if params contain filter_func which occurs when calling the function 
+     * from lifecycle deletion flow
+     * @param {Object} params 
+     * @returns {Boolean}
+     */
+    is_lifecycle_deletion_flow(params) {
+        return params.filter_func;
+    }
 }
 
 /** @type {PersistentLogger} */
@@ -3503,4 +3689,5 @@ NamespaceFS._restore_wal = null;
 
 module.exports = NamespaceFS;
 module.exports.multi_buffer_pool = multi_buffer_pool;
+
 

@@ -124,7 +124,7 @@ async function get_options_from_file(file_path) {
     // we don't pass neither config_root_backend nor fs_backend
     const fs_context = native_fs_utils.get_process_fs_context();
     try {
-        const input_options_with_data = await native_fs_utils.read_file(fs_context, file_path);
+        const input_options_with_data = await native_fs_utils.read_file(fs_context, file_path, { parse_json: true });
         return input_options_with_data;
     } catch (err) {
         if (err.code === 'ENOENT') throw_cli_error(ManageCLIError.InvalidFilePath, file_path);

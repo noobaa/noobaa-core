@@ -854,13 +854,13 @@ class NodesMonitor extends EventEmitter {
         item._run_node_serial = item._run_node_serial || new semaphore.Semaphore(1);
         if (item.node.deleted) throw new Error(`node ${item.node.name} is deleted`);
         return item._run_node_serial.surround(async () => {
-            dbg.log1('_run_node:', item.node.name);
-            await this._get_agent_info(item);
-            //If internal or cloud resource, cut down initializing time (in update_rpc_config)
-            if (!item.node_from_store && (item.node.is_mongo_node || item.node.is_cloud_node)) {
-                return this._update_nodes_store('force');
-            }
             try {
+                dbg.log1('_run_node:', item.node.name);
+                await this._get_agent_info(item);
+                //If internal or cloud resource, cut down initializing time (in update_rpc_config)
+                if (!item.node_from_store && (item.node.is_mongo_node || item.node.is_cloud_node)) {
+                    await this._update_nodes_store('force');
+                }
                 await this._uninstall_deleting_node(item);
                 this._remove_hideable_nodes(item);
                 await this._update_node_service(item);
@@ -1730,7 +1730,7 @@ class NodesMonitor extends EventEmitter {
         });
 
         try {
-            const res = NodesStore.instance().bulk_update(items_to_update);
+            const res = await NodesStore.instance().bulk_update(items_to_update);
 
             // mark failed updates to retry
             if (res.failed) {

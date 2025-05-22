@@ -36,7 +36,7 @@ const http_connect_path = path.join(tmp_connect, http_connect_filename);
 //content of connect file, will be written to a file in before()
 const http_connect = {
     agent_request_object: {"host": "localhost", "port": 9998, "timeout": 1500},
-    request_options_object: {"auth": "amit:passw", "timeout": 1500},
+    request_options_object: {"auth": "amit:passw", "timeout": 1500, "path": "/default"},
     notification_protocol: 'http',
     name: 'http_notif'
 };
@@ -240,7 +240,7 @@ mocha.describe('notifications', function() {
 });
 
 const step_wait = 100;
-async function notify_await_result({bucket_name, event_name, etag, key, timeout = undefined}) {
+async function notify_await_result({bucket_name, event_name, etag, key, url = "/default", timeout = undefined}) {
 
     //remember expected result here so server could compare it to actual result later
     expected_bucket = bucket_name;

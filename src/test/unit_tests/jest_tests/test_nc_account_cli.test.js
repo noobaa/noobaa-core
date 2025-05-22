@@ -643,6 +643,20 @@ describe('manage nsfs cli account flow', () => {
             expect(JSON.parse(res_list).response.reply.map(item => item.name))
                 .toEqual(expect.arrayContaining([name]));
         });
+
+        it('cli account add - default connection', async function() {
+            const action = ACTIONS.ADD;
+            const { type, name, new_buckets_path, uid, gid } = defaults;
+            const default_connection = 'defcon';
+            const account_options = { config_root, name, new_buckets_path, uid, gid, default_connection };
+            await fs_utils.create_fresh_path(new_buckets_path);
+            await fs_utils.file_must_exist(new_buckets_path);
+            await set_path_permissions_and_owner(new_buckets_path, account_options, 0o700);
+            await exec_manage_cli(type, action, account_options);
+            const account = await config_fs.get_account_by_name(name, config_fs_account_options);
+            assert_account(account, account_options, false);
+            expect(account.default_connection).toBe(default_connection);
+        });
     });
 
     describe('cli update account', () => {

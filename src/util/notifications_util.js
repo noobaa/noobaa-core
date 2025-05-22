@@ -186,8 +186,16 @@ class Notificator {
         }
     }
 
-    async parse_connect_file(connect_filename, decrypt = false) {
+    async parse_connect_file(connection_name, decrypt = false) {
         let connect;
+        let connect_filename = connection_name;
+        let kafka_topic_from_connection_name;
+        if (connection_name.startsWith("kafka:::topic/")) {
+            const connection_parts = connection_name.split('/');
+            connect_filename = connection_parts[1];
+            kafka_topic_from_connection_name = connection_parts.length > 1 && connection_parts[2];
+        }
+
         if (this.nc_config_fs) {
             connect = await this.nc_config_fs.get_connection_by_name(connect_filename);
         } else {
@@ -203,6 +211,11 @@ class Notificator {
                 connect.request_options_object.auth, connect.master_key_id);
         }
         load_files(connect);
+
+        //use the kafka topic, if it was present in connection_name
+        if (kafka_topic_from_connection_name) {
+            connect.topic = kafka_topic_from_connection_name;
+        }
         return connect;
     }
 }
@@ -362,6 +375,7 @@ async function test_notifications(notifs, nc_config_dir, req) {
         let notif_failure;
         try {
             connect = await notificator.parse_connect_file(notif.topic[0]);
+            dbg.log0(`effective connect for notif ${notif.id[0]} is`, connect);
             connection = get_connection(connect);
             await connection.connect();
             await connection.promise_notify(compose_notification_test(req), async (notif_cb, err_cb, err) => {

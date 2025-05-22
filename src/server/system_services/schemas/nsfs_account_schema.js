@@ -101,5 +101,8 @@ module.exports = {
                 }
             }]
         },
+        default_connection: {
+            type: 'string'
+        }
     }
 };

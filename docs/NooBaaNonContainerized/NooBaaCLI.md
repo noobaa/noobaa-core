@@ -75,7 +75,7 @@ The `account add` command is used to create a new account with customizable opti
 ```sh
 noobaa-cli account add --name <account_name> --uid <uid> --gid <gid> [--user]
 [--new_buckets_path][--access_key][--secret_key][--fs_backend]
-[--allow_bucket_creation][--force_md5_etag][--anonymous][--from_file][--iam_operate_on_root_account]
+[--allow_bucket_creation][--force_md5_etag][--anonymous][--from_file][--iam_operate_on_root_account][--default_connection]
 ```
 #### Flags -
 - `name` (Required)
@@ -135,6 +135,10 @@ noobaa-cli account add --name <account_name> --uid <uid> --gid <gid> [--user]
     - Type: Boolean
     - Description: Specifies if the account allowed to create root accounts using the IAM API (the default behavior is to create of IAM accounts). See - [IAM - Root Accounts Manager](./../design/iam.md#root-accounts-manager).
 
+- `default_connection`
+    - Type: String
+    - Description: A default account for Kafka external servers. See bucket-notifications.md.
+
 ### Update Account
 
 The `account update` command is used to update an existing account with customizable options.
@@ -143,7 +147,7 @@ The `account update` command is used to update an existing account with customiz
 ```sh
 noobaa-cli account update --name <account_name> [--new_name][--uid][--gid][--user]
 [--new_buckets_path][--access_key][--secret_key][--regenerate][--fs_backend]
-[--allow_bucket_creation][--force_md5_etag][--anonymous][--iam_operate_on_root_account]
+[--allow_bucket_creation][--force_md5_etag][--anonymous][--iam_operate_on_root_account][--default_connection]
 ```
 #### Flags -
 - `name` (Required)
@@ -206,6 +210,10 @@ noobaa-cli account update --name <account_name> [--new_name][--uid][--gid][--use
 - `iam_operate_on_root_account`
     - Type: Boolean
     - Description: Specifies if the account allowed to create root accounts using the IAM API (the default behavior is to create of IAM accounts). See - [IAM - Root Accounts Manager](./../design/iam.md#root-accounts-manager).
+
+- `default_connection`
+    - Type: String
+    - Description: A default account for Kafka external servers. See bucket-notifications.md.
 
 ### Account Status
 

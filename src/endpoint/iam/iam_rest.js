@@ -34,6 +34,7 @@ const ACTIONS = Object.freeze({
     'UpdateAccessKey': 'update_access_key',
     'DeleteAccessKey': 'delete_access_key',
     'ListAccessKeys': 'list_access_keys',
+    'ListGroupsForUser': 'list_groups_for_user',
 });
 
 // notice: shows all methods as method post
@@ -50,6 +51,8 @@ const IAM_OPS = js_utils.deep_freeze({
     post_update_access_key: require('./ops/iam_update_access_key'),
     post_delete_access_key: require('./ops/iam_delete_access_key'),
     post_list_access_keys: require('./ops/iam_list_access_keys'),
+    // other (currently ops that return empty just not to fail them)
+    post_list_groups_for_user: require('./ops/iam_list_groups_for_user.js'),
 });
 
 async function iam_rest(req, res) {
@@ -145,6 +148,7 @@ function parse_op_name(req, action) {
     if (ACTIONS[action]) {
         return `${method}_${ACTIONS[action]}`;
     }
+    dbg.error('IAM parse_op_name - NotImplemented', action, method, req.originalUrl);
     throw new IamError(IamError.NotImplemented);
 }
 

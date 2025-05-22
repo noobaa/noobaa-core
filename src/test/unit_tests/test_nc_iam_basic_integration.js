@@ -11,8 +11,11 @@ const { TMP_PATH, generate_nsfs_account, get_new_buckets_path_by_test_env, gener
          get_coretest_path } = require('../system_tests/test_utils');
 const { ListUsersCommand, CreateUserCommand, GetUserCommand, UpdateUserCommand, DeleteUserCommand,
         ListAccessKeysCommand, CreateAccessKeyCommand, GetAccessKeyLastUsedCommand,
-        UpdateAccessKeyCommand, DeleteAccessKeyCommand } = require('@aws-sdk/client-iam');
+        UpdateAccessKeyCommand, DeleteAccessKeyCommand,
+        ListGroupsForUserCommand } = require('@aws-sdk/client-iam');
 const { ACCESS_KEY_STATUS_ENUM } = require('../../endpoint/iam/iam_constants');
+const IamError = require('../../endpoint/iam/iam_errors').IamError;
+
 
 const coretest_path = get_coretest_path();
 const coretest = require(coretest_path);
@@ -227,6 +230,54 @@ mocha.describe('IAM basic integration tests - happy path', async function() {
             const command = new DeleteAccessKeyCommand(input);
             const response = await iam_account.send(command);
             _check_status_code_ok(response);
+        });
+    });
+
+    mocha.describe('IAM other APIs (currently returns empty value)', async function() {
+        const username3 = 'Emi';
+
+        mocha.before(async () => {
+            // create a user
+            const input = {
+                UserName: username3
+            };
+            const command = new CreateUserCommand(input);
+            const response = await iam_account.send(command);
+            _check_status_code_ok(response);
+        });
+
+        mocha.after(async () => {
+            // delete a user
+            const input = {
+                UserName: username3
+            };
+            const command = new DeleteUserCommand(input);
+            const response = await iam_account.send(command);
+            _check_status_code_ok(response);
+        });
+
+        mocha.it('list groups for non existing user - should throw an error', async function() {
+            try {
+                const input = {
+                    UserName: 'non-existing-user'
+                };
+                const command = new ListGroupsForUserCommand(input);
+                await iam_account.send(command);
+                assert.fail('list groups for non existing user - should throw an error');
+            } catch (err) {
+                const err_code = err.Error.Code;
+                assert.equal(err_code, IamError.NoSuchEntity.code);
+            }
+        });
+
+        mocha.it('list groups for user - should be empty', async function() {
+            const input = {
+                UserName: username3
+            };
+            const command = new ListGroupsForUserCommand(input);
+            const response = await iam_account.send(command);
+            _check_status_code_ok(response);
+            assert.equal(response.Groups.length, 0);
         });
     });
 });

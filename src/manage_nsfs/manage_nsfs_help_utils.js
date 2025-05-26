@@ -243,7 +243,7 @@ Flags:
     --fs_backend <none | GPFS | CEPH_FS | NFSv4>          (optional)        Set the filesystem type (default config.NSFS_NC_STORAGE_BACKEND)
     --force_md5_etag <true | false>                       (optional)        Set the bucket to force md5 etag calculation (unset with '') (will override default config.NSFS_NC_STORAGE_BACKEND)
     --from_file <string>                                  (optional)        Use details from the JSON file, there is no need to mention all the properties individually in the CLI
-
+    --should_create_underlying_storage <true | false>     (optional)        Force creation of bucket's underlying storage directory
 `;
 
 const BUCKET_FLAGS_UPDATE = `
@@ -264,6 +264,7 @@ Flags:
     --bucket_policy <string>                              (optional)        Update the bucket policy, type is a string of valid JSON policy (unset with '')
     --fs_backend <none | GPFS | CEPH_FS | NFSv4>          (optional)        Update the filesystem type (unset with '') (default config.NSFS_NC_STORAGE_BACKEND)
     --force_md5_etag <true | false>                       (optional)        Update the bucket to force md5 etag calculation (unset with '') (will override default config.NSFS_NC_STORAGE_BACKEND)
+    --should_create_underlying_storage <true | false>     (optional)        Update the bucket to manage the underlying storage
 
 `;
 

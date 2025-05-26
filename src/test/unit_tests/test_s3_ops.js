@@ -484,20 +484,25 @@ mocha.describe('s3_ops', function() {
     });
 
     mocha.describe('bucket-cors', function() {
+        const cors_bucket_name = 'cors-bucket';
+        const example_origin = 'http://www.example.com';
+        const allowed_method = 'HEAD';
+        const allowed_header = 'x-lower-case-header';
+        const expose_header = 'Content-Disposition';
 
         mocha.before(async function() {
-            await s3.createBucket({ Bucket: "cors-bucket" });
+            await s3.createBucket({ Bucket: cors_bucket_name});
         });
 
         mocha.it('should put and get bucket cors with ID', async function() {
 
             // put bucket cors
             const params = {
-                Bucket: "cors-bucket",
+                Bucket: cors_bucket_name,
                 CORSConfiguration: {
                     CORSRules: [{
                         ID: 'rule1',
-                        AllowedOrigins: ["http://www.example.com"],
+                        AllowedOrigins: [example_origin],
                         AllowedHeaders: ["*"],
                         AllowedMethods: ["PUT", "POST", "DELETE"],
                         ExposeHeaders: ["x-amz-server-side-encryption"]
@@ -507,7 +512,7 @@ mocha.describe('s3_ops', function() {
             await s3.putBucketCors(params);
 
             // get bucket CORS
-            const res = await s3.getBucketCors({ Bucket: "cors-bucket" });
+            const res = await s3.getBucketCors({ Bucket: cors_bucket_name });
             assert.deepEqual(res.CORSRules, params.CORSConfiguration.CORSRules);
         });
 
@@ -515,10 +520,10 @@ mocha.describe('s3_ops', function() {
 
             // put bucket cors
             const params = {
-                Bucket: "cors-bucket",
+                Bucket: cors_bucket_name,
                 CORSConfiguration: {
                     CORSRules: [{
-                        AllowedOrigins: ["http://www.example.com"],
+                        AllowedOrigins: [example_origin],
                         AllowedMethods: ["PUT", "POST", "DELETE"],
                         MaxAgeSeconds: 1500,
                     }]
@@ -527,17 +532,17 @@ mocha.describe('s3_ops', function() {
             await s3.putBucketCors(params);
 
             // get bucket CORS
-            const res = await s3.getBucketCors({ Bucket: "cors-bucket" });
+            const res = await s3.getBucketCors({ Bucket: cors_bucket_name });
             assert.deepEqual(res.CORSRules, params.CORSConfiguration.CORSRules);
         });
 
         mocha.it('should fail on unsupported AllowedMethods', async function() {
             const unsupported_method = "JACKY";
             const params = {
-                Bucket: "cors-bucket",
+                Bucket: cors_bucket_name,
                 CORSConfiguration: {
                     CORSRules: [{
-                        AllowedOrigins: ["http://www.example.com"],
+                        AllowedOrigins: [example_origin],
                         AllowedMethods: ["PUT", "POST", unsupported_method, "DELETE"],
                         MaxAgeSeconds: 1500,
                     }]
@@ -557,10 +562,10 @@ mocha.describe('s3_ops', function() {
         mocha.it('should fail on wildcar in ExposeHeader', async function() {
             const wildcard_expose_header = "x-amz-server-side-*";
             const params = {
-                Bucket: "cors-bucket",
+                Bucket: cors_bucket_name,
                 CORSConfiguration: {
                     CORSRules: [{
-                        AllowedOrigins: ["http://www.example.com"],
+                        AllowedOrigins: [example_origin],
                         AllowedMethods: ["PUT", "POST", "DELETE"],
                         ExposeHeaders: ["Content-Length", wildcard_expose_header]
                     }]
@@ -577,8 +582,156 @@ mocha.describe('s3_ops', function() {
             }
         });
 
+        mocha.it('should put bucket cors with lower case header, no header in req', async function() {
+            // put bucket cors
+            const params = {
+                Bucket: cors_bucket_name,
+                CORSConfiguration: {
+                    CORSRules: [{
+                        ID: 'rule1',
+                        AllowedOrigins: [example_origin],
+                        AllowedHeaders: [allowed_header],
+                        AllowedMethods: [allowed_method],
+                        ExposeHeaders: [expose_header]
+                    }]
+                }
+            };
+            await s3.putBucketCors(params);
+
+            // get bucket CORS
+            const res = await s3.getBucketCors({ Bucket: cors_bucket_name });
+            assert.deepEqual(res.CORSRules, params.CORSConfiguration.CORSRules);
+
+            // make an OPTIONS request without the allowed header
+            const url = new URL(coretest.get_https_address());
+            console.log('ROMY DEBUG: url', url, url.hostname, url.port, url.pathname);
+            const response = await http_utils.make_https_request({
+                hostname: url.hostname,
+                port: url.port,
+                path: `/${cors_bucket_name}/`,
+                method: 'OPTIONS',
+                rejectUnauthorized: false,
+                headers: {
+                    'Access-Control-Request-Method': allowed_method,
+                    'Origin': example_origin,
+                }
+            });
+            assert.deepEqual(response && response.statusCode, 200);
+        });
+
+        mocha.it('should put bucket cors with lower case header, HEAD origin with upper case header', async function() {
+            // put bucket cors
+            const params = {
+                Bucket: cors_bucket_name,
+                CORSConfiguration: {
+                    CORSRules: [{
+                        ID: 'rule1',
+                        AllowedOrigins: [example_origin],
+                        AllowedHeaders: [allowed_header],
+                        AllowedMethods: [allowed_method],
+                        ExposeHeaders: [expose_header]
+                    }]
+                }
+            };
+            await s3.putBucketCors(params);
+
+            // get bucket CORS
+            const res = await s3.getBucketCors({ Bucket: cors_bucket_name });
+            assert.deepEqual(res.CORSRules, params.CORSConfiguration.CORSRules);
+
+            // make an OPTIONS request with the allowed header in lower case
+            const url = new URL(coretest.get_https_address());
+            const response = await http_utils.make_https_request({
+                hostname: url.hostname,
+                port: url.port,
+                path: `/${cors_bucket_name}/`,
+                method: 'OPTIONS',
+                rejectUnauthorized: false,
+                headers: {
+                    'Access-Control-Request-Headers': allowed_header,
+                    'Access-Control-Request-Method': allowed_method,
+                    'Origin': example_origin,
+                }
+            });
+            assert.deepEqual(response && response.statusCode, 200);
+        });
+
+        mocha.it('should put bucket cors with lower case header, HEAD origin with upper case header', async function() {
+            // put bucket cors
+            const params = {
+                Bucket: cors_bucket_name,
+                CORSConfiguration: {
+                    CORSRules: [{
+                        ID: 'rule1',
+                        AllowedOrigins: [example_origin],
+                        AllowedHeaders: [allowed_header],
+                        AllowedMethods: [allowed_method],
+                        ExposeHeaders: [expose_header]
+                    }]
+                }
+            };
+            await s3.putBucketCors(params);
+
+            // get bucket CORS
+            const res = await s3.getBucketCors({ Bucket: cors_bucket_name });
+            assert.deepEqual(res.CORSRules, params.CORSConfiguration.CORSRules);
+
+            // make an OPTIONS request with the allowed header in upper case
+            const url = new URL(coretest.get_https_address());
+            const response = await http_utils.make_https_request({
+                hostname: url.hostname,
+                port: url.port,
+                path: `/${cors_bucket_name}/`,
+                method: 'OPTIONS',
+                rejectUnauthorized: false,
+                headers: {
+                    'Access-Control-Request-Headers': allowed_header.toUpperCase(),
+                    'Access-Control-Request-Method': allowed_method,
+                    'Origin': example_origin,
+                }
+            });
+            assert.deepEqual(response && response.statusCode, 200);
+        });
+
+        mocha.it('should put bucket cors with lower case header, HEAD origin with invalid header', async function() {
+            // put bucket cors
+            const params = {
+                Bucket: cors_bucket_name,
+                CORSConfiguration: {
+                    CORSRules: [{
+                        ID: 'rule1',
+                        AllowedOrigins: [example_origin],
+                        AllowedHeaders: [allowed_header],
+                        AllowedMethods: [allowed_method],
+                        ExposeHeaders: [expose_header]
+                    }]
+                }
+            };
+            await s3.putBucketCors(params);
+
+            // get bucket CORS
+            const res = await s3.getBucketCors({ Bucket: cors_bucket_name });
+            assert.deepEqual(res.CORSRules, params.CORSConfiguration.CORSRules);
+
+            // make an OPTIONS request with the allowed header in upper case
+            const url = new URL(coretest.get_https_address());
+            const response = await http_utils.make_https_request({
+                hostname: url.hostname,
+                port: url.port,
+                path: `/${cors_bucket_name}/`,
+                method: 'OPTIONS',
+                rejectUnauthorized: false,
+                headers: {
+                    'Access-Control-Request-Headers': 'X-Invalid-Header',
+                    'Access-Control-Request-Method': allowed_method,
+                    'Origin': example_origin,
+                }
+            });
+            assert.deepEqual(response && response.statusCode, 403);
+        });
+
         mocha.after(async function() {
-            await s3.deleteBucket({ Bucket: "cors-bucket" });
+            await s3.deleteBucket({ Bucket: cors_bucket_name });
         });
     });
 

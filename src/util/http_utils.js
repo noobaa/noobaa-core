@@ -731,7 +731,7 @@ function set_cors_headers_s3(req, res, cors_rules) {
     const matched_rule = req.headers.origin && ( // find the first rule with origin and method match
         cors_rules.find(rule => {
             const allowed_origins_regex = rule.allowed_origins.map(r => RegExp(`^${r.replace(/\*/g, '.*')}$`));
-            const allowed_headers_regex = rule.allowed_headers?.map(r => RegExp(`^${r.replace(/\*/g, '.*')}$`));
+            const allowed_headers_regex = rule.allowed_headers?.map(r => RegExp(`^${r.replace(/\*/g, '.*')}$`, 'i'));
             return allowed_origins_regex.some(r => r.test(match_origin)) &&
                 rule.allowed_methods.includes(match_method) &&
                 // we can match if no request headers or if reuqest headers match the rule allowed headers

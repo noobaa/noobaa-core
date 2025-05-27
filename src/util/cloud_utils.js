@@ -6,6 +6,7 @@ const RpcError = require('../rpc/rpc_error');
 const http_utils = require('./http_utils');
 const string_utils = require('./string_utils');
 const AWS = require('aws-sdk');
+const { S3 } = require('@aws-sdk/client-s3');
 const url = require('url');
 const _ = require('lodash');
 const SensitiveString = require('./sensitive_string');
@@ -178,14 +179,14 @@ function set_noobaa_s3_connection(sys) {
         return;
     }
 
-    return new AWS.S3({
+    return new S3({
         endpoint: endpoint,
         credentials: {
             accessKeyId: access_key,
             secretAccessKey: secret_key
         },
-        s3ForcePathStyle: true,
-        sslEnabled: false
+        forcePathStyle: true,
+        tls: false
     });
 }
 

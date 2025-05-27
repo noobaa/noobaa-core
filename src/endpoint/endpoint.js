@@ -43,6 +43,7 @@ const { SemaphoreMonitor } = require('../server/bg_services/semaphore_monitor');
 const prom_reporting = require('../server/analytic_services/prometheus_reporting');
 const { PersistentLogger } = require('../util/persistent_logger');
 const { get_notification_logger } = require('../util/notifications_util');
+const { is_nc_environment } = require('../nc/nc_utils');
 const NoobaaEvent = require('../manage_nsfs/manage_nsfs_events_utils').NoobaaEvent;
 const cluster = /** @type {import('node:cluster').Cluster} */ (
     /** @type {unknown} */ (require('node:cluster'))
@@ -57,7 +58,8 @@ const SERVICES_TYPES_ENUM = Object.freeze({
     S3: 'S3',
     STS: 'STS',
     IAM: 'IAM',
-    METRICS: 'METRICS'
+    METRICS: 'METRICS',
+    FORK_HEALTH: 'FORK_HEALTH',
 });
 
 const new_umask = process.env.NOOBAA_ENDPOINT_UMASK || 0o000;
@@ -117,11 +119,11 @@ async function main(options = {}) {
         const https_metrics_port = options.https_metrics_port || config.EP_METRICS_SERVER_SSL_PORT;
         /**
         * Please notice that we can run the main in 2 states:
-        * 1. Only the primary process runs the main (fork is 0 or undefined) - everything that 
+        * 1. Only the primary process runs the main (fork is 0 or undefined) - everything that
         *    is implemented here would be run by this process.
-        * 2. A primary process with multiple forks (IMPORTANT) - if there is implementation that 
-        *    in only relevant to the primary process it should be implemented in 
-        *    fork_utils.start_workers because the primary process returns after start_workers 
+        * 2. A primary process with multiple forks (IMPORTANT) - if there is implementation that
+        *    in only relevant to the primary process it should be implemented in
+        *    fork_utils.start_workers because the primary process returns after start_workers
         *    and the forks will continue executing the code lines in this function
         *  */
         const is_workers_started_from_primary = await fork_utils.start_workers(http_metrics_port, https_metrics_port,
@@ -202,14 +204,29 @@ async function main(options = {}) {
             { ...options, https_port: https_port_s3, http_port: http_port_s3, virtual_hosts, bucket_logger, notification_logger });
         await start_endpoint_server_and_cert(SERVICES_TYPES_ENUM.STS, init_request_sdk, { https_port: https_port_sts, virtual_hosts });
         await start_endpoint_server_and_cert(SERVICES_TYPES_ENUM.IAM, init_request_sdk, { https_port: https_port_iam });
-
+        const is_nc = is_nc_environment();
+        // fork health server currently runs only on non containerized enviorment
+        if (is_nc) {
+            // current process is the primary and only fork. start the fork server directly with the base port
+            if (cluster.isPrimary) {
+                await fork_message_request_handler({
+                    nsfs_config_root: options.nsfs_config_root,
+                    health_port: config.ENDPOINT_FORK_PORT_BASE
+                });
+            // current process is a worker so we listen to get the port from the primary process.
+            } else {
+                process.on('message', fork_message_request_handler);
+                //send a message to the primary process that we are ready to receive messages
+                process.send({ready_to_start_fork_server: true});
+            }
+        }
 
         // START METRICS SERVER
         if ((http_metrics_port > 0 || https_metrics_port > 0) && cluster.isPrimary) {
             await prom_reporting.start_server(http_metrics_port, https_metrics_port, false, options.nsfs_config_root);
         }
 
-        // TODO: currently NC NSFS deployments don't have internal_rpc_client nor db, 
+        // TODO: currently NC NSFS deployments don't have internal_rpc_client nor db,
         // there for namespace monitor won't be registered
         if (internal_rpc_client && config.NAMESPACE_MONITOR_ENABLED) {
             endpoint_stats_collector.instance().set_rpc_client(internal_rpc_client);
@@ -289,8 +306,6 @@ function create_endpoint_handler(server_type, init_request_sdk, { virtual_hosts,
                 return blob_rest_handler(req, res);
             } else if (req.url.startsWith('/total_fork_count')) {
                 return fork_count_handler(req, res);
-            } else if (req.url.startsWith('/endpoint_fork_id')) {
-                return endpoint_fork_id_handler(req, res);
             } else if (req.url.startsWith('/_/')) {
                 // internals non S3 requests
                 const api = req.url.slice('/_/'.length);
@@ -531,8 +546,38 @@ function unavailable_handler(req, res) {
     res.end(reply);
 }
 
+/**
+ * handler for the inidivdual fork server. used to handle requests the get the worker id
+ * currently used to check if fork is alive by the health script
+ * @param {EndpointRequest} req
+ * @param {import('http').ServerResponse} res
+ */
+function fork_main_handler(req, res) {
+    endpoint_utils.set_noobaa_server_header(res);
+    endpoint_utils.prepare_rest_request(req);
+    if (req.url.startsWith('/endpoint_fork_id')) {
+        return endpoint_fork_id_handler(req, res);
+    } else {
+        return internal_api_error(req, res, `Unknown API call ${req.url}`);
+    }
+}
+
+/**
+ * fork_message_request_handler is used to handle messages from the primary process.
+ * the primary process sends a message with the designated port to start the fork server.
+ * @param {Object} msg
+ */
+async function fork_message_request_handler(msg) {
+    await http_utils.start_https_server(msg.health_port,
+        SERVICES_TYPES_ENUM.FORK_HEALTH,
+        fork_main_handler,
+        msg.nsfs_config_root
+    );
+}
+
 exports.main = main;
 exports.create_endpoint_handler = create_endpoint_handler;
 exports.create_init_request_sdk = create_init_request_sdk;
+exports.endpoint_fork_id_handler = endpoint_fork_id_handler;
 
 if (require.main === module) main();

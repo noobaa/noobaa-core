@@ -1,7 +1,8 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const AWS = require('aws-sdk');
+const { S3, GetObjectCommand } = require('@aws-sdk/client-s3');
+const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 const api = require('../../api');
 const rpc = api.new_rpc();
 const argv = require('minimist')(process.argv);
@@ -41,75 +42,30 @@ function authenticate() {
     });
 }
 
-function test_s3_connection() {
-    return P.fcall(function() {
-            const s3 = new AWS.S3({
-                endpoint: TEST_PARAMS.ip,
-                accessKeyId: TEST_PARAMS.access_key,
-                secretAccessKey: TEST_PARAMS.secret_key,
-                sslEnabled: false,
-                s3ForcePathStyle: true,
-                signatureVersion: 'v4',
-                region: 'eu-central-1',
-            });
-            return P.ninvoke(s3, "listBuckets");
-        })
-        .then(() => true,
-            error => {
-                console.warn('Failed with', error, error.stack);
-                throw new Error(error);
-            }
-        );
+async function test_s3_connection() {
+        try {
+            const s3 = create_s3_client();
+            await s3.listBuckets({});
+        } catch (error) {
+            console.warn('Failed with', error, error.stack);
+            throw new Error(error);
+        }
+        return true;
 }
 
-/*
-function list_buckets() {
-    return P.fcall(function() {
-            var s3 = new AWS.S3({
-                endpoint: TEST_PARAMS.ip,
-                accessKeyId: TEST_PARAMS.access_key,
-                secretAccessKey: TEST_PARAMS.secret_key,
-                sslEnabled: false,
-                s3ForcePathStyle: true,
-                signatureVersion: 'v4',
-                region: 'eu-central-1',
-            });
-            return P.ninvoke(s3, "listBuckets");
-        })
-        .then((res) => res,
-            (error) => {
-                console.warn('Failed with', error, error.stack);
-                process.exit(1);
-            }
-        );
-}
-*/
-
-function getSignedUrl(bucket, obj, expiry) {
+async function getSignedS3Url(bucket, obj, expiry) {
     console.log('GENERATE SIGNED_URL OBJECT: ', obj, ' FROM BUCKET: ', bucket);
-    return P.fcall(function() {
-            const s3 = new AWS.S3({
-                endpoint: TEST_PARAMS.ip,
-                accessKeyId: TEST_PARAMS.access_key,
-                secretAccessKey: TEST_PARAMS.secret_key,
-                sslEnabled: false,
-                s3ForcePathStyle: true,
-                signatureVersion: 'v4',
-                region: 'eu-central-1',
-            });
-            return s3.getSignedUrl('getObject', {
-                Bucket: bucket,
-                Key: obj,
-                Expires: expiry || 604800
-            });
-        })
-        .then(() => P.delay(1000))
-        .then(url => url,
-            error => {
-                console.warn('Failed with', error, error.stack);
-                throw new Error(error);
-            }
-        );
+    try {
+        const s3 = create_s3_client();
+        const command = new GetObjectCommand({
+            Bucket: bucket,
+            Key: obj,
+        });
+        return await getSignedUrl(s3, command, { expiresIn: expiry || 604800 });
+    } catch (err) {
+        console.warn('Failed with', err, err.stack);
+        throw new Error(err);
+    }
 }
 
 function httpGetAsPromise(url) {
@@ -125,185 +81,113 @@ function httpGetAsPromise(url) {
     });
 }
 
-function create_bucket(name) {
+function create_s3_client() {
+    return new S3({
+        endpoint: TEST_PARAMS.ip,
+        credentials: {
+            accessKeyId: TEST_PARAMS.access_key,
+            secretAccessKey: TEST_PARAMS.secret_key,
+        },
+        tls: false,
+        forcePathStyle: true,
+        // signatureVersion is Deprecated in SDK v3
+        //signatureVersion: 'v4',
+        region: 'eu-central-1',
+    });
+}
+
+async function create_bucket(name) {
     console.log('CREATE BUCKET: ', name);
-    return P.fcall(function() {
-        const s3 = new AWS.S3({
-            endpoint: TEST_PARAMS.ip,
-            accessKeyId: TEST_PARAMS.access_key,
-            secretAccessKey: TEST_PARAMS.secret_key,
-            sslEnabled: false,
-            s3ForcePathStyle: true,
-            signatureVersion: 'v4',
-            region: 'eu-central-1',
-        });
-        return s3.createBucket({
-            Bucket: name
-        }, function(err, data) {
-            if (err) {
-                console.warn('Failed with', err, err.stack);
-                throw new Error(err);
-            } else {
-                return data;
-            }
-        });
-    });
+    try {
+        const s3 = create_s3_client();
+        return await s3.createBucket({ Bucket: name });
+    } catch (err) {
+        console.warn('Failed with', err, err.stack);
+        throw err;
+    }
 }
 
-function create_folder(bucket, folder) {
+async function create_folder(bucket, folder) {
     console.log('CREATE FOLDER: ', folder, ' IN BUCKET: ', bucket);
-    return P.fcall(function() {
-        const s3 = new AWS.S3({
-            endpoint: TEST_PARAMS.ip,
-            accessKeyId: TEST_PARAMS.access_key,
-            secretAccessKey: TEST_PARAMS.secret_key,
-            sslEnabled: false,
-            s3ForcePathStyle: true,
-            signatureVersion: 'v4',
-            region: 'eu-central-1',
-        });
-        return s3.putObject({
+    try {
+        const s3 = create_s3_client();
+        return await s3.putObject({
             Bucket: bucket,
             Key: folder + '/'
-        }, function(err, data) {
-            if (err) {
-                console.warn('Failed with', err, err.stack);
-                throw new Error(err);
-            } else {
-                return data;
-            }
         });
-    });
+    } catch (err) {
+        console.warn('Failed with', err, err.stack);
+        throw new Error(err);
+    }
 }
 
-function head_object(bucket, key) {
+async function head_object(bucket, key) {
     console.log('HEAD OBJECT: ', key, ' FROM BUCKET: ', bucket);
-    return P.fcall(function() {
-        const s3 = new AWS.S3({
-            endpoint: TEST_PARAMS.ip,
-            accessKeyId: TEST_PARAMS.access_key,
-            secretAccessKey: TEST_PARAMS.secret_key,
-            sslEnabled: false,
-            s3ForcePathStyle: true,
-            signatureVersion: 'v4',
-            region: 'eu-central-1',
-        });
-        return s3.headObject({
+    try {
+         const s3 = create_s3_client();
+        return await s3.headObject({
             Bucket: bucket,
             Key: key
-        }, function(err, data) {
-            if (err) {
-                console.warn('Failed with', err, err.stack);
-                throw new Error(err);
-            } else {
-                return data;
-            }
         });
-    });
+    } catch (err) {
+        console.warn('Failed with', err, err.stack);
+        throw new Error(err);
+    }
 }
 
-function get_object(bucket, key) {
+async function get_object(bucket, key) {
     console.log('GET OBJECT: ', key, ' FROM BUCKET: ', bucket);
-    return P.fcall(function() {
-        const s3 = new AWS.S3({
-            endpoint: TEST_PARAMS.ip,
-            accessKeyId: TEST_PARAMS.access_key,
-            secretAccessKey: TEST_PARAMS.secret_key,
-            sslEnabled: false,
-            s3ForcePathStyle: true,
-            signatureVersion: 'v4',
-            region: 'eu-central-1',
-        });
-        return s3.getObject({
+    try {
+        const s3 = create_s3_client();
+        return await s3.getObject({
             Bucket: bucket,
             Key: key
-        }, function(err, data) {
-            if (err) {
-                console.warn('Failed with', err, err.stack);
-                throw new Error(err);
-            } else {
-                return data;
-            }
         });
-    });
+    } catch (err) {
+        console.warn('Failed with', err, err.stack);
+        throw new Error(err);
+    }
 }
 
-function delete_object(bucket, key) {
+async function delete_object(bucket, key) {
     console.log('DELETE OBJECT: ', key, ' FROM BUCKET: ', bucket);
-    return P.fcall(function() {
-        const s3 = new AWS.S3({
-            endpoint: TEST_PARAMS.ip,
-            accessKeyId: TEST_PARAMS.access_key,
-            secretAccessKey: TEST_PARAMS.secret_key,
-            sslEnabled: false,
-            s3ForcePathStyle: true,
-            signatureVersion: 'v4',
-            region: 'eu-central-1',
+    try {
+        const s3 = create_s3_client();
+        return await s3.deleteObject({
+            Bucket: bucket,
+            Key: key
         });
-        s3.deleteObject({
-                Bucket: bucket,
-                Key: key
-            },
-            function(err, data) {
-                if (err) {
-                    console.warn('Failed with', err, err.stack);
-                    throw new Error(err);
-                } else {
-                    return data;
-                }
-            });
-    });
+    } catch (err) {
+        console.warn('Failed with', err, err.stack);
+        throw new Error(err);
+    }
 }
 
-function delete_bucket(name) {
+async function delete_bucket(name) {
     console.log('DELETE BUCKET: ', name);
-    return P.fcall(function() {
-        const s3 = new AWS.S3({
-            endpoint: TEST_PARAMS.ip,
-            accessKeyId: TEST_PARAMS.access_key,
-            secretAccessKey: TEST_PARAMS.secret_key,
-            sslEnabled: false,
-            s3ForcePathStyle: true,
-            signatureVersion: 'v4',
-            region: 'eu-central-1',
-        });
-        return s3.deleteBucket({
+    try {
+        const s3 = create_s3_client();
+        return await s3.deleteBucket({
             Bucket: name
-        }, function(err, data) {
-            if (err) {
-                console.warn('Failed with', err, err.stack);
-                throw new Error(err);
-            } else {
-                return (data);
-            }
         });
-    });
+    } catch (err) {
+        console.warn('Failed with', err, err.stack);
+        throw new Error(err);
+    }
 }
 
-function delete_folder(bucket, folder) {
+async function delete_folder(bucket, folder) {
     console.log('DELETE FOLDER: ', folder, ' FROM BUCKET: ', bucket);
-    return P.fcall(function() {
-        const s3 = new AWS.S3({
-            endpoint: TEST_PARAMS.ip,
-            accessKeyId: TEST_PARAMS.access_key,
-            secretAccessKey: TEST_PARAMS.secret_key,
-            sslEnabled: false,
-            s3ForcePathStyle: true,
-            signatureVersion: 'v4',
-            region: 'eu-central-1',
-        });
-        return s3.deleteObject({
+    try {
+        const s3 = create_s3_client();
+        return await s3.deleteObject({
             Bucket: bucket,
             Key: folder + '/'
-        }, function(err, data) {
-            if (err) {
-                console.warn('Failed with', err, err.stack);
-                throw new Error(err);
-            } else {
-                return data;
-            }
         });
-    });
+    } catch (err) {
+        console.warn('Failed with', err, err.stack);
+        throw new Error(err);
+    }
 }
 
 function main() {
@@ -316,97 +200,78 @@ function main() {
         });
 }
 
-function run_test() {
+/* eslint-disable max-statements */
+async function run_test() {
     const file_sizes = [1, 2, 3];
     const file_names = ['c3_нуба_1', 'c3_нуба_2', 'c3_нуба_3'];
     let fkey;
     let signed_url;
-    return authenticate().then(() => test_s3_connection())
-        .then(() => basic_server_ops.generate_random_file(file_sizes[0]))
-        .then(fl => {
-            fkey = fl;
-            return basic_server_ops.upload_file(TEST_PARAMS.ip, fkey, 'first.bucket', file_names[0]);
-        })
-        .then(() => P.delay(1000))
-        .then(() => head_object('first.bucket', file_names[0]))
-        .then(() => P.delay(1000))
-        .then(() => get_object('first.bucket', file_names[0]))
-        .then(() => P.delay(1000))
-        .then(() => getSignedUrl('first.bucket', file_names[0]))
-        .then(url => {
-            signed_url = url;
-            return httpGetAsPromise(url);
-        })
-        .then(() => P.delay(1000))
-        .then(() => create_bucket('s3testbucket'))
-        .then(() => basic_server_ops.generate_random_file(file_sizes[1]))
-        .then(fl => {
-            fkey = fl;
-            return basic_server_ops.upload_file(TEST_PARAMS.ip, fkey, 's3testbucket', file_names[1]);
-        })
-        .then(() => P.delay(1000))
-        .then(() => head_object('s3testbucket', file_names[1]))
-        .then(() => P.delay(1000))
-        .then(() => get_object('s3testbucket', file_names[1]))
-        .then(() => P.delay(1000))
-        .then(() => getSignedUrl('s3testbucket', file_names[1]))
-        .then(url => {
-            signed_url = url;
-            return httpGetAsPromise(url);
-        })
-        .then(() => P.delay(1000))
-        .then(() => create_folder('s3testbucket', 's3folder'))
-        .then(() => basic_server_ops.generate_random_file(file_sizes[2]))
-        .then(fl => {
-            fkey = fl;
-            return basic_server_ops.upload_file(TEST_PARAMS.ip, fkey, 's3testbucket', 's3folder/' + file_names[2]);
-        })
-        .then(() => P.delay(1000))
-        .then(() => head_object('s3testbucket', 's3folder/' + file_names[2]))
-        .then(() => P.delay(1000))
-        .then(() => get_object('s3testbucket', 's3folder/' + file_names[2]))
-        .then(() => P.delay(1000))
-        .then(() => getSignedUrl('s3testbucket', 's3folder/' + file_names[2]))
-        .then(url => {
-            signed_url = url;
-            return httpGetAsPromise(url);
-        })
-        .then(() => P.delay(1000))
-        .then(() => getSignedUrl('s3testbucket', 's3folder/' + file_names[2], 1))
-        .then(url => {
-            signed_url = url;
-            return httpGetAsPromise(url);
-        })
-        .catch(err => {
+    try {
+        await authenticate();
+        await test_s3_connection();
+        fkey = await basic_server_ops.generate_random_file(file_sizes[0]);
+        await basic_server_ops.upload_file(TEST_PARAMS.ip, fkey, 'first.bucket', file_names[0]);
+        await P.delay(1000);
+        await head_object('first.bucket', file_names[0]);
+        await P.delay(1000);
+        await get_object('first.bucket', file_names[0]);
+        await P.delay(1000);
+        signed_url = await getSignedS3Url('first.bucket', file_names[0]);
+        await httpGetAsPromise(signed_url);
+        await P.delay(1000);
+        await create_bucket('s3testbucket');
+        fkey = await basic_server_ops.generate_random_file(file_sizes[1]);
+        await basic_server_ops.upload_file(TEST_PARAMS.ip, fkey, 's3testbucket', file_names[1]);
+        await P.delay(1000);
+        await head_object('s3testbucket', file_names[1]);
+        await P.delay(1000);
+        await get_object('s3testbucket', file_names[1]);
+        await P.delay(1000);
+        signed_url = await getSignedS3Url('s3testbucket', file_names[1]);
+        await httpGetAsPromise(signed_url);
+        await P.delay(1000);
+        await create_folder('s3testbucket', 's3folder');
+        fkey = await basic_server_ops.generate_random_file(file_sizes[2]);
+        await basic_server_ops.upload_file(TEST_PARAMS.ip, fkey, 's3testbucket', 's3folder/' + file_names[2]);
+        await P.delay(1000);
+        await head_object('s3testbucket', 's3folder/' + file_names[2]);
+        await P.delay(1000);
+        await get_object('s3testbucket', 's3folder/' + file_names[2]);
+        await P.delay(1000);
+        signed_url = await getSignedS3Url('s3testbucket', 's3folder/' + file_names[2]);
+        await httpGetAsPromise(signed_url);
+        await P.delay(1000);
+        try {
+            signed_url = await getSignedS3Url('s3testbucket', 's3folder/' + file_names[2], 1);
             // We expect the above URL to fail for Expiry reason
-            if (err && err.url) {
+            await httpGetAsPromise(signed_url);
+        } catch (err) {
+            if (err.url) {
                 if (String(signed_url) === String(err.url)) {
                     return true;
                 }
             }
             console.error(err.stack || err);
             throw new Error(err);
-        })
-        .then(() => P.delay(1000))
-        .then(() => delete_object('first.bucket', file_names[0]))
-        .then(() => P.delay(1000))
-        .then(() => delete_object('s3testbucket', file_names[1]))
-        .then(() => P.delay(1000))
-        .then(() => delete_object('s3testbucket', 's3folder/' + file_names[2]))
-        .then(() => P.delay(1000))
-        .then(() => delete_folder('s3testbucket', 's3folder'))
-        .then(() => P.delay(1000))
-        .then(() => delete_bucket('s3testbucket'))
-        .then(() => P.delay(1000))
-        .then(() => {
-            console.log('test_s3_authentication PASSED');
-            rpc.disconnect_all();
-        })
-        .catch(err => {
-            rpc.disconnect_all();
-            console.error('test_s3_authentication FAILED: ', err.stack || err);
-            throw new Error(`test_s3_authentication FAILED: ${err}`);
-        });
+        }
+        await P.delay(1000);
+        await delete_object('first.bucket', file_names[0]);
+        await P.delay(1000);
+        await delete_object('s3testbucket', file_names[1]);
+        await P.delay(1000);
+        await delete_object('s3testbucket', 's3folder/' + file_names[2]);
+        await P.delay(1000);
+        await delete_folder('s3testbucket', 's3folder');
+        await P.delay(1000);
+        await delete_bucket('s3testbucket');
+        await P.delay(1000);
+        console.log('test_s3_authentication PASSED');
+        rpc.disconnect_all();
+    } catch (err) {
+        rpc.disconnect_all();
+        console.error('test_s3_authentication FAILED: ', err.stack || err);
+        throw new Error(`test_s3_authentication FAILED: ${err}`);
+    }
 }
 
 if (require.main === module) {

@@ -77,7 +77,7 @@ function update_replication_prom_report(bucket_name, replication_policy_id, repl
 /**
  * @param {any} bucket_name
  * @param {string} key
- * @param {AWS.S3} s3
+ * @param {import('@aws-sdk/client-s3').S3} s3
  * @param {string} version_id
  */
 async function get_object_md(bucket_name, key, s3, version_id) {
@@ -90,7 +90,7 @@ async function get_object_md(bucket_name, key, s3, version_id) {
 
     dbg.log1('get_object_md params:', params);
     try {
-        const head = await s3.headObject(params).promise();
+        const head = await s3.headObject(params);
         //for namespace s3 we are omitting the 'noobaa-namespace-s3-bucket' as it will be defer between buckets
         if (head?.Metadata) head.Metadata = _.omit(head.Metadata, 'noobaa-namespace-s3-bucket');
         dbg.log1('get_object_md: finished successfully', head);

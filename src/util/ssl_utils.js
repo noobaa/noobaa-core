@@ -47,7 +47,8 @@ const certs = {
     EXTERNAL_DB: new CertInfo(config.EXTERNAL_DB_SERVICE_CERT_PATH),
     STS: new CertInfo(config.STS_SERVICE_CERT_PATH),
     IAM: new CertInfo(config.IAM_SERVICE_CERT_PATH),
-    METRICS: new CertInfo(config.S3_SERVICE_CERT_PATH) // metric server will use the S3 cert.
+    METRICS: new CertInfo(config.S3_SERVICE_CERT_PATH), // metric server will use the S3 cert.
+    FORK_HEALTH: new CertInfo(config.S3_SERVICE_CERT_PATH) // fork health server will use the S3 cert.
 };
 
 function generate_ssl_certificate() {
@@ -66,7 +67,7 @@ function verify_ssl_certificate(certificate) {
 // Get SSL certificate (load once then serve from cache)
 async function get_ssl_cert_info(service, nsfs_config_root) {
     let cert_info;
-    if ((service === 'S3' || service === 'METRICS') && nsfs_config_root) {
+    if ((service === 'S3' || service === 'METRICS' || service === 'FORK_HEALTH') && nsfs_config_root) {
         const nsfs_ssl_cert_dir = path.join(nsfs_config_root, 'certificates/');
         cert_info = new CertInfo(nsfs_ssl_cert_dir);
     } else {

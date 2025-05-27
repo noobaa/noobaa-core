@@ -9,8 +9,11 @@ const P = require('../../util/promise');
 const mocha = require('mocha');
 const assert = require('assert');
 const fs_utils = require('../../util/fs_utils');
-const { TMP_PATH, generate_nsfs_account, get_new_buckets_path_by_test_env, generate_s3_client, get_coretest_path, exec_manage_cli } = require('../system_tests/test_utils');
+const { TMP_PATH, generate_nsfs_account, get_new_buckets_path_by_test_env, generate_s3_client, get_coretest_path, exec_manage_cli, set_health_mock_functions, create_system_json } = require('../system_tests/test_utils');
 const { TYPES, ACTIONS } = require('../../manage_nsfs/manage_nsfs_constants');
+const { NSFSHealth } = require('../../manage_nsfs/health');
+const { ConfigFS } = require('../../sdk/config_fs');
+const config = require('../../../config');
 const ManageCLIResponse = require('../../manage_nsfs/manage_nsfs_cli_responses').ManageCLIResponse;
 
 const coretest_path = get_coretest_path();
@@ -23,6 +26,7 @@ const { rpc_client, EMAIL, get_current_setup_options, stop_nsfs_process, start_n
 const CORETEST_ENDPOINT = coretest.get_http_address();
 
 const config_root = path.join(TMP_PATH, 'test_nc_cache_stat');
+const config_fs = new ConfigFS(config_root);
 // on NC - new_buckets_path is full absolute path
 // on Containerized - new_buckets_path is the directory
 const new_bucket_path_param = get_new_buckets_path_by_test_env(config_root, '/');
@@ -222,5 +226,35 @@ const s3_uid6001 = generate_s3_client(access_details.access_key,
         // cleanup
         await s3_uid6001.deleteBucket({ Bucket: bucket_name4 });
         await fs.promises.rm(new_bucket_path_param2, { recursive: true });
+    });
+
+    mocha.it('health concurrency with load - ping forks', async function() {
+        this.timeout(100000); // eslint-disable-line no-invalid-this
+        await create_system_json(config_fs);
+        const https_port = 6443;
+        const fork_base_port = config.ENDPOINT_FORK_PORT_BASE;
+        const Health = new NSFSHealth({ config_root, https_port, config_fs, fork_base_port });
+
+        for (let i = 0; i < 10; i++) {
+            // a couple of requests for health check
+            const failed_operations = [];
+            const successful_operations = [];
+            const num_of_concurrency = 10;
+            for (let j = 0; j < num_of_concurrency; j++) {
+                set_health_mock_functions(Health, {
+                    get_service_state: [{ service_status: 'active', pid: 1000 }],
+                    get_service_memory_usage: [100]
+                });
+                Health.nc_nsfs_health()
+                    .catch(err => failed_operations.push(err))
+                    .then(res => successful_operations.push(res));
+            }
+            await P.delay(7000);
+            assert.equal(successful_operations.length, num_of_concurrency);
+            assert.equal(failed_operations.length, 0);
+            for (const res of successful_operations) {
+                assert.strictEqual(res.status, 'OK');
+            }
+        }
     });
 });

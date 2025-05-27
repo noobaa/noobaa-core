@@ -16,6 +16,7 @@ const nb_native = require('../../util/nb_native');
 const { CONFIG_TYPES } = require('../../sdk/config_fs');
 const native_fs_utils = require('../../util/native_fs_utils');
 const { NodeHttpHandler } = require("@smithy/node-http-handler");
+const sinon = require('sinon');
 
 const GPFS_ROOT_PATH = process.env.GPFS_ROOT_PATH;
 const IS_GPFS = !_.isUndefined(GPFS_ROOT_PATH);
@@ -790,6 +791,28 @@ const run_or_skip_test = cond => {
     } else return it.skip;
 };
 
+/**
+ * set_mock_functions sets mock functions used by the health script
+ * the second param is an object having the name of the mock functions as the keys and
+ * the value is an array of responses by the order of their call
+ * @param {Object} Health
+ * @param {{get_endpoint_response?: Object[], get_service_state?: Object[],
+ * get_system_config_file?: Object[], get_service_memory_usage?: Object[],
+ * get_lifecycle_health_status?: Object, get_latest_lifecycle_run_status?: Object}} mock_function_responses
+ */
+function set_health_mock_functions(Health, mock_function_responses) {
+    for (const mock_function_name of Object.keys(mock_function_responses)) {
+        const mock_function_responses_arr = mock_function_responses[mock_function_name];
+        const obj_to_stub = mock_function_name === 'get_system_config_file' ? Health.config_fs : Health;
+
+        if (obj_to_stub[mock_function_name]?.restore) obj_to_stub[mock_function_name]?.restore();
+        const stub = sinon.stub(obj_to_stub, mock_function_name);
+        for (let i = 0; i < mock_function_responses_arr.length; i++) {
+            stub.onCall(i).returns(Promise.resolve(mock_function_responses_arr[i]));
+        }
+    }
+}
+
 exports.run_or_skip_test = run_or_skip_test;
 exports.blocks_exist_on_cloud = blocks_exist_on_cloud;
 exports.create_hosts_pool = create_hosts_pool;
@@ -830,3 +853,4 @@ exports.fail_test_if_default_config_dir_exists = fail_test_if_default_config_dir
 exports.create_config_dir = create_config_dir;
 exports.clean_config_dir = clean_config_dir;
 exports.CLI_UNSET_EMPTY_STRING = CLI_UNSET_EMPTY_STRING;
+exports.set_health_mock_functions = set_health_mock_functions;

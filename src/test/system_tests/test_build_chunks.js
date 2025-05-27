@@ -10,7 +10,7 @@ dbg.set_process_name('test_build_chunks');
 
 const _ = require('lodash');
 const fs = require('fs');
-const AWS = require('aws-sdk');
+const { S3 } = require('@aws-sdk/client-s3');
 // const util = require('util');
 // const crypto = require('crypto');
 
@@ -112,23 +112,17 @@ async function setup_case(
 
 async function upload_random_file(size_mb, bucket_name, extension, content_type) {
     const filename = await ops.generate_random_file(size_mb, extension);
-    const s3bucket = new AWS.S3({
+    const s3bucket = new S3({
         endpoint: TEST_CTX.s3_endpoint,
         credentials: {
             accessKeyId: '123',
             secretAccessKey: 'abc'
         },
-        s3ForcePathStyle: true,
-        sslEnabled: false
+        forcePathStyle: true,
+        tls: false
     });
-
-    await P.ninvoke(s3bucket, 'upload', {
-        Bucket: bucket_name,
-        Key: filename,
-        Body: fs.createReadStream(filename),
-        ContentType: content_type
-    });
-
+    await s3bucket.putObject({Bucket: bucket_name, Key: filename,
+        Body: fs.createReadStream(filename), ContentType: content_type});
     return filename;
 }
 

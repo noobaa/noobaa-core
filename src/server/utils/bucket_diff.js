@@ -15,10 +15,10 @@ class BucketDiff {
      *   first_bucket: string;
      *   second_bucket: string;
      *   version: boolean;
-     *   s3_params?: AWS.S3.ClientConfiguration
-     *   connection?: AWS.S3
-     *   for_replication: boolean
-     *   for_deletion: boolean
+     *   s3_params?: AWS.S3.ClientConfiguration;
+     *   connection?: AWS.S3;
+     *   for_replication: boolean;
+     *   for_deletion: boolean;
      * }} params
      */
     constructor(params) {

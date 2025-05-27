@@ -6,9 +6,12 @@ const RpcError = require('../rpc/rpc_error');
 const http_utils = require('./http_utils');
 const string_utils = require('./string_utils');
 const AWS = require('aws-sdk');
+const { S3 } = require('@aws-sdk/client-s3');
 const url = require('url');
 const _ = require('lodash');
 const SensitiveString = require('./sensitive_string');
+const config = require('../../config');
+const noobaa_s3_client = require('../sdk/noobaa_s3_client/noobaa_s3_client');
 
 const projectedServiceAccountToken = "/var/run/secrets/openshift/serviceaccount/token";
 const defaultRoleSessionName = 'default_noobaa_s3_ops';
@@ -170,23 +173,25 @@ function get_used_cloud_targets(endpoint_type, bucket_list, pool_list, namespace
 
 function set_noobaa_s3_connection(sys) {
     const system_address = _.filter(sys.system_address, { 'api': 's3', 'kind': 'INTERNAL' });
-    const endpoint = system_address[0] && system_address[0].hostname;
+    const endpoint = system_address[0] && 'http://' + system_address[0].hostname;
     const access_key = sys.owner && sys.owner.access_keys && sys.owner.access_keys[0].access_key.unwrap();
     const secret_key = sys.owner && sys.owner.access_keys && sys.owner.access_keys[0].secret_key.unwrap();
     if (!endpoint || !access_key || !secret_key) {
         dbg.error('set_noobaa_s3_connection: temporary error: invalid noobaa s3 connection details');
         return;
     }
-
-    return new AWS.S3({
+    const s3_client = new S3({
         endpoint: endpoint,
         credentials: {
             accessKeyId: access_key,
             secretAccessKey: secret_key
         },
-        s3ForcePathStyle: true,
-        sslEnabled: false
+        forcePathStyle: true,
+        tls: false,
+        region: config.DEFAULT_REGION,
+        requestHandler: noobaa_s3_client.get_requestHandler_with_suitable_agent(endpoint),
     });
+    return s3_client;
 }
 
 function generate_access_keys() {

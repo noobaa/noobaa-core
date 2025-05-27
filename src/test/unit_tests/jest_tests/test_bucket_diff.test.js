@@ -11,6 +11,7 @@ const replication_utils = require('../../../server/utils/replication_utils');
 const mock_fn = jest.fn();
 const mock_fn2 = jest.fn();
 
+
 describe('fail on improper constructor call', () => {
     it('should fail when there is no connection and no s3_params', () => {
         const params = {
@@ -32,8 +33,10 @@ describe('BucketDiff', () => {
             let expected;
             beforeEach(() => {
                 const s3_params = {
-                    accessKeyId: 'YOUR_ACCESS_KEY_ID',
-                    secretAccessKey: 'YOUR_SECRET_ACCESS_KEY'
+                    credentials: {
+                        accessKeyId: 'YOUR_ACCESS_KEY_ID',
+                        secretAccessKey: 'YOUR_SECRET_ACCESS_KEY',
+                    },
                 };
                 bucketDiff = new BucketDiff({
                     first_bucket: 'first-bucket',
@@ -136,8 +139,10 @@ describe('BucketDiff', () => {
             let expected;
             beforeEach(() => {
                 const s3_params = {
-                    accessKeyId: 'YOUR_ACCESS_KEY_ID',
-                    secretAccessKey: 'YOUR_SECRET_ACCESS_KEY'
+                    credentials: {
+                        accessKeyId: 'YOUR_ACCESS_KEY_ID',
+                        secretAccessKey: 'YOUR_SECRET_ACCESS_KEY',
+                    },
                 };
                 bucketDiff = new BucketDiff({
                     first_bucket: 'first-bucket',
@@ -238,8 +243,10 @@ describe('BucketDiff', () => {
             let expected;
             beforeEach(() => {
                 const s3_params = {
-                    accessKeyId: 'YOUR_ACCESS_KEY_ID',
-                    secretAccessKey: 'YOUR_SECRET_ACCESS_KEY'
+                    credentials: {
+                        accessKeyId: 'YOUR_ACCESS_KEY_ID',
+                        secretAccessKey: 'YOUR_SECRET_ACCESS_KEY',
+                    },
                 };
                 bucketDiff = new BucketDiff({
                     first_bucket: 'first-bucket',
@@ -292,8 +299,10 @@ describe('BucketDiff', () => {
                 keep_listing_second_bucket: false,
             };
             const s3_params = {
-                accessKeyId: 'YOUR_ACCESS_KEY_ID',
-                secretAccessKey: 'YOUR_SECRET_ACCESS_KEY'
+                credentials: {
+                    accessKeyId: 'YOUR_ACCESS_KEY_ID',
+                    secretAccessKey: 'YOUR_SECRET_ACCESS_KEY',
+                },
             };
             bucketDiff = new BucketDiff({
                 first_bucket: 'first-bucket',
@@ -369,15 +378,15 @@ describe('BucketDiff', () => {
 
 describe('_process_keys_in_range with version', () => {
     let ans;
-    let s3_params;
     let bucketDiff;
     let second_bucket_cont_token;
     beforeEach(() => {
-        s3_params = {
-            accessKeyId: 'YOUR_ACCESS_KEY_ID',
-            secretAccessKey: 'YOUR_SECRET_ACCESS_KEY'
+        const s3_params = {
+            credentials: {
+                accessKeyId: 'YOUR_ACCESS_KEY_ID',
+                secretAccessKey: 'YOUR_SECRET_ACCESS_KEY',
+            },
         };
-
         bucketDiff = new BucketDiff({
             first_bucket: 'first-bucket',
             second_bucket: 'second-bucket',
@@ -668,6 +677,12 @@ describe('_process_keys_in_range with version', () => {
     });
 
     it('case 3: should update keys_diff_map and keys_contents_left when LastModified in the first bucket is newer', async () => {
+        const s3_params = {
+            credentials: {
+                accessKeyId: 'YOUR_ACCESS_KEY_ID',
+                secretAccessKey: 'YOUR_SECRET_ACCESS_KEY',
+            },
+        };
         bucketDiff = new BucketDiff({
             first_bucket: 'first-bucket',
             second_bucket: 'second-bucket',
@@ -703,6 +718,12 @@ describe('_process_keys_in_range with version', () => {
     });
 
     it('case 3: should update only keys_contents_left when LastModified in the second bucket is newer', async () => {
+        const s3_params = {
+            credentials: {
+                accessKeyId: 'YOUR_ACCESS_KEY_ID',
+                secretAccessKey: 'YOUR_SECRET_ACCESS_KEY',
+            },
+        };
         bucketDiff = new BucketDiff({
             first_bucket: 'first-bucket',
             second_bucket: 'second-bucket',
@@ -737,15 +758,15 @@ describe('_process_keys_in_range with version', () => {
 
 describe('_process_keys_in_range with version for for_deletion enabled', () => {
     let ans;
-    let s3_params;
     let bucketDiff;
     let second_bucket_cont_token;
     beforeEach(() => {
-        s3_params = {
-            accessKeyId: 'YOUR_ACCESS_KEY_ID',
-            secretAccessKey: 'YOUR_SECRET_ACCESS_KEY'
+        const s3_params = {
+            credentials: {
+                accessKeyId: 'YOUR_ACCESS_KEY_ID',
+                secretAccessKey: 'YOUR_SECRET_ACCESS_KEY',
+            },
         };
-
         bucketDiff = new BucketDiff({
             first_bucket: 'first-bucket',
             second_bucket: 'second-bucket',
@@ -828,14 +849,14 @@ describe('_process_keys_in_range with version for for_deletion enabled', () => {
 describe('_process_keys_in_range without version', () => {
     let ans;
     let bucketDiff;
-    let s3_params;
     let second_bucket_cont_token;
     beforeEach(() => {
-        s3_params = {
-            accessKeyId: 'YOUR_ACCESS_KEY_ID',
-            secretAccessKey: 'YOUR_SECRET_ACCESS_KEY'
+        const s3_params = {
+            credentials: {
+                accessKeyId: 'YOUR_ACCESS_KEY_ID',
+                secretAccessKey: 'YOUR_SECRET_ACCESS_KEY',
+            },
         };
-
         bucketDiff = new BucketDiff({
             first_bucket: 'first-bucket',
             second_bucket: 'second-bucket',
@@ -959,6 +980,12 @@ describe('_process_keys_in_range without version', () => {
     });
 
     it('case 3: should update keys_diff_map and keys_contents_left when LastModified in the first bucket is newer', async () => {
+        const s3_params = {
+            credentials: {
+                accessKeyId: 'YOUR_ACCESS_KEY_ID',
+                secretAccessKey: 'YOUR_SECRET_ACCESS_KEY',
+            },
+        };
         bucketDiff = new BucketDiff({
             first_bucket: 'first-bucket',
             second_bucket: 'second-bucket',
@@ -981,6 +1008,12 @@ describe('_process_keys_in_range without version', () => {
     });
 
     it('case 3: should update only keys_contents_left when LastModified in the second bucket is newer', async () => {
+        const s3_params = {
+            credentials: {
+                accessKeyId: 'YOUR_ACCESS_KEY_ID',
+                secretAccessKey: 'YOUR_SECRET_ACCESS_KEY',
+            },
+        };
         bucketDiff = new BucketDiff({
             first_bucket: 'first-bucket',
             second_bucket: 'second-bucket',
@@ -1012,10 +1045,11 @@ describe('BucketDiff aiding functions', () => {
             let bucketDiff;
             beforeEach(() => {
                 const s3_params = {
-                    accessKeyId: 'YOUR_ACCESS_KEY_ID',
-                    secretAccessKey: 'YOUR_SECRET_ACCESS_KEY'
+                    credentials: {
+                        accessKeyId: 'YOUR_ACCESS_KEY_ID',
+                        secretAccessKey: 'YOUR_SECRET_ACCESS_KEY',
+                    },
                 };
-
                 bucketDiff = new BucketDiff({
                     first_bucket: 'first-bucket',
                     second_bucket: 'second-bucket',
@@ -1100,8 +1134,10 @@ describe('BucketDiff aiding functions', () => {
             let bucketDiff;
             beforeEach(() => {
                 const s3_params = {
-                    accessKeyId: 'YOUR_ACCESS_KEY_ID',
-                    secretAccessKey: 'YOUR_SECRET_ACCESS_KEY'
+                    credentials: {
+                        accessKeyId: 'YOUR_ACCESS_KEY_ID',
+                        secretAccessKey: 'YOUR_SECRET_ACCESS_KEY',
+                    },
                 };
                 bucketDiff = new BucketDiff({
                     first_bucket: 'first-bucket',
@@ -1140,8 +1176,10 @@ describe('BucketDiff aiding functions', () => {
             let bucketDiff;
             beforeEach(() => {
                 const s3_params = {
-                    accessKeyId: 'YOUR_ACCESS_KEY_ID',
-                    secretAccessKey: 'YOUR_SECRET_ACCESS_KEY'
+                    credentials: {
+                        accessKeyId: 'YOUR_ACCESS_KEY_ID',
+                        secretAccessKey: 'YOUR_SECRET_ACCESS_KEY',
+                    },
                 };
                 bucketDiff = new BucketDiff({
                     first_bucket: 'first-bucket',
@@ -1169,10 +1207,12 @@ describe('BucketDiff aiding functions', () => {
         });
         describe('_get_next_key_marker without version', () => {
             let bucketDiff;
-            beforeEach(() => {
+             beforeEach(() => {
                 const s3_params = {
-                    accessKeyId: 'YOUR_ACCESS_KEY_ID',
-                    secretAccessKey: 'YOUR_SECRET_ACCESS_KEY'
+                    credentials: {
+                        accessKeyId: 'YOUR_ACCESS_KEY_ID',
+                        secretAccessKey: 'YOUR_SECRET_ACCESS_KEY',
+                    },
                 };
                 bucketDiff = new BucketDiff({
                     first_bucket: 'first-bucket',
@@ -1195,8 +1235,10 @@ describe('BucketDiff aiding functions', () => {
         let bucketDiff;
         beforeEach(() => {
             const s3_params = {
-                accessKeyId: 'YOUR_ACCESS_KEY_ID',
-                secretAccessKey: 'YOUR_SECRET_ACCESS_KEY'
+                credentials: {
+                    accessKeyId: 'YOUR_ACCESS_KEY_ID',
+                    secretAccessKey: 'YOUR_SECRET_ACCESS_KEY',
+                },
             };
             bucketDiff = new BucketDiff({
                 first_bucket: 'first-bucket',
@@ -1256,8 +1298,10 @@ describe('BucketDiff aiding functions', () => {
         const second_bucket_curr_obj = {};
         beforeEach(() => {
             const s3_params = {
-                accessKeyId: 'YOUR_ACCESS_KEY_ID',
-                secretAccessKey: 'YOUR_SECRET_ACCESS_KEY'
+                credentials: {
+                    accessKeyId: 'YOUR_ACCESS_KEY_ID',
+                    secretAccessKey: 'YOUR_SECRET_ACCESS_KEY',
+                },
             };
             bucketDiff = new BucketDiff({
                 first_bucket: 'first-bucket',
@@ -1352,10 +1396,11 @@ describe('BucketDiff get_keys_diff case 3 with version', () => {
     let second_bucket_cont_token;
     beforeEach(() => {
         const s3_params = {
-            accessKeyId: 'YOUR_ACCESS_KEY_ID',
-            secretAccessKey: 'YOUR_SECRET_ACCESS_KEY'
+            credentials: {
+                accessKeyId: 'YOUR_ACCESS_KEY_ID',
+                secretAccessKey: 'YOUR_SECRET_ACCESS_KEY',
+            },
         };
-
         bucketDiff = new BucketDiff({
             first_bucket: 'first-bucket',
             second_bucket: 'second-bucket',
@@ -1632,10 +1677,11 @@ describe('BucketDiff get_keys_diff', () => {
     let second_bucket_cont_token;
     beforeEach(() => {
         const s3_params = {
-            accessKeyId: 'YOUR_ACCESS_KEY_ID',
-            secretAccessKey: 'YOUR_SECRET_ACCESS_KEY'
+            credentials: {
+                accessKeyId: 'YOUR_ACCESS_KEY_ID',
+                secretAccessKey: 'YOUR_SECRET_ACCESS_KEY',
+            },
         };
-
         bucketDiff = new BucketDiff({
             first_bucket: 'first-bucket',
             second_bucket: 'second-bucket',
@@ -1774,10 +1820,11 @@ describe('BucketDiff get_buckets_diff', () => {
     let bucketDiff;
     beforeEach(() => {
         const s3_params = {
-            accessKeyId: 'YOUR_ACCESS_KEY_ID',
-            secretAccessKey: 'YOUR_SECRET_ACCESS_KEY'
+            credentials: {
+                accessKeyId: 'YOUR_ACCESS_KEY_ID',
+                secretAccessKey: 'YOUR_SECRET_ACCESS_KEY',
+            },
         };
-
         bucketDiff = new BucketDiff({
             first_bucket: 'first-bucket',
             second_bucket: 'second-bucket',

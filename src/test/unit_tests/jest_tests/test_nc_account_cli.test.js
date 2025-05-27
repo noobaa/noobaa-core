@@ -823,7 +823,7 @@ describe('manage nsfs cli account flow', () => {
                 await exec_manage_cli(type, action, account_options);
                 new_account_details = await config_fs.get_account_by_name(new_name, config_fs_account_options);
                 expect(new_account_details.name).toBe(new_name);
-            });
+            }, timeout);
 
             it('cli account update access key, secret_key & new_name by name', async function() {
                 const { name } = defaults;

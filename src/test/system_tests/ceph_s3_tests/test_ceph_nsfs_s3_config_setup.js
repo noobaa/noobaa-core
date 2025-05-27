@@ -12,9 +12,8 @@ dbg.set_process_name('test_ceph_s3');
 
 const fs = require('fs');
 const os_utils = require('../../../util/os_utils');
-const test_utils = require('../../system_tests/test_utils');
-const { TYPES, ACTIONS } = require('../../../manage_nsfs/manage_nsfs_constants');
 const { CEPH_TEST } = require('./test_ceph_s3_constants.js');
+const { get_access_keys, create_account } = require('../nc_test_utils');
 
 async function main() {
     try {
@@ -73,26 +72,7 @@ async function ceph_test_setup() {
     console.info('CEPH TEST CONFIGURATION: DONE');
 }
 
-/**
- * get_access_keys returns account access keys using noobaa-cli
- * @param {string} account_name 
- */
-async function get_access_keys(account_name) {
-    const options = { name: account_name, show_secrets: true };
-    const res = await test_utils.exec_manage_cli(TYPES.ACCOUNT, ACTIONS.STATUS, options);
-    const json_account = JSON.parse(res);
-    const account_data = json_account.response.reply;
-    return account_data.access_keys[0];
-}
 
-/**
- * create_account creates accounts using noobaa-cli
- * @param {{ name?: string, uid?: number, gid?: number, anonymous?: boolean }} [options] 
- */
-async function create_account(options = {}) {
-    const res = await test_utils.exec_manage_cli(TYPES.ACCOUNT, ACTIONS.ADD, options);
-    console.log('Account Created', res);
-}
 
 if (require.main === module) {
     main();

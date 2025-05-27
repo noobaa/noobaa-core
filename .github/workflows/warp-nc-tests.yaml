@@ -1,0 +1,31 @@
+
+name: Warp NC Tests
+on: [push, pull_request, workflow_dispatch]
+
+jobs:
+  warp-nc-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - name: Checkout noobaa-core
+        uses: actions/checkout@v4
+        with:
+          repository: 'noobaa/noobaa-core'
+          path: 'noobaa-core'
+
+      - name: Create Warp logs directory
+        run: |
+          set -x
+          cd ./noobaa-core
+          mkdir -p logs/warp-test-logs
+          chmod 777 logs/warp-test-logs
+
+      - name: Run NC Warp tests
+        run: |
+          set -x
+          cd ./noobaa-core
+          make test-nc-warp
+

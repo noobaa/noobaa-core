@@ -20,6 +20,7 @@ const P = require('../../util/promise');
 const config = require('../../../config');
 const MDStore = require('../../server/object_services/md_store').MDStore;
 const coretest = require('./coretest');
+coretest.setup({ pools_to_create: [coretest.POOL_LIST[1]] });
 const lifecycle = require('../../server/bg_services/lifecycle');
 const http_utils = require('../../util/http_utils');
 const test_utils = require('../../../src/test/system_tests/test_utils');

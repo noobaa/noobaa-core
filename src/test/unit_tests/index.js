@@ -63,7 +63,6 @@ require('./test_s3select');
 require('./test_nsfs_glacier_backend');
 
 // // SERVERS
-require('./test_agent');
 
 // ------------------------------------
 // A test that initialize the pool list

@@ -14,7 +14,7 @@ const cloud_utils = require('../../util/cloud_utils');
 const { ReplicationScanner } = require('../../server/bg_services/replication_scanner');
 
 const db_client = require('../../util/db_client').instance();
-coretest.setup({ pools_to_create: [coretest.POOL_LIST[0]] });
+coretest.setup({ pools_to_create: [coretest.POOL_LIST[1]] });
 
 mocha.describe('replication configuration validity tests', function() {
     const bucket1 = 'bucket1-br';

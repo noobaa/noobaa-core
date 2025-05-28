@@ -383,7 +383,7 @@ mocha.describe('replication configuration bg worker tests', function() {
         console.log('contents', contents);
 
         // delete object from dst
-        await s3_owner.deleteObject({ Bucket: bucket_for_replications, Key: contents[0].Key }).promise();
+        await s3_owner.deleteObject({ Bucket: bucket_for_replications, Key: contents[0].Key });
         await _list_objects_and_wait(s3_owner, bucket_for_replications, uploaded_prefix_objects_count - 1); //Verify that one object was deleted 
         // sync again
         res1 = await scanner.run_batch();
@@ -391,9 +391,9 @@ mocha.describe('replication configuration bg worker tests', function() {
         contents = await _list_objects_and_wait(s3_owner, bucket_for_replications, uploaded_prefix_objects_count); //Check that the delete object was replicate again
         const key1 = contents[0].Key;
         // override object in dst
-        const dst_obj1 = await s3_owner.getObject({ Bucket: bucket_for_replications, Key: key1 }).promise();
-        await s3_owner.putObject({ Bucket: bucket_for_replications, Key: key1, Body: 'lalalala' }).promise();
-        const dst_obj2 = await s3_owner.getObject({ Bucket: bucket_for_replications, Key: key1 }).promise();
+        const dst_obj1 = await s3_owner.getObject({ Bucket: bucket_for_replications, Key: key1 });
+        await s3_owner.putObject({ Bucket: bucket_for_replications, Key: key1, Body: 'lalalala' });
+        const dst_obj2 = await s3_owner.getObject({ Bucket: bucket_for_replications, Key: key1 });
         console.log('objs override dst1', dst_obj1, dst_obj2, dst_obj1.Body.toString(), dst_obj2.Body.toString());
 
         assert.deepStrictEqual(dst_obj2.Body.toString(), 'lalalala'); // dst object was updated correctly
@@ -403,8 +403,8 @@ mocha.describe('replication configuration bg worker tests', function() {
         // sync again - should not replicate since dst bucket is last modified
         res1 = await scanner.run_batch();
         console.log('waiting for replication objects - one rule one prefix', res1);
-        const dst_obj3 = await s3_owner.getObject({ Bucket: bucket_for_replications, Key: key1 }).promise();
-        const src_obj = await s3_owner.getObject({ Bucket: bucket1, Key: key1 }).promise();
+        const dst_obj3 = await s3_owner.getObject({ Bucket: bucket_for_replications, Key: key1 });
+        const src_obj = await s3_owner.getObject({ Bucket: bucket1, Key: key1 });
 
         console.log('objs override dst2', src_obj, dst_obj3, src_obj.Body.toString(), dst_obj3.Body.toString());
         assert.notDeepStrictEqual(src_obj.Body.toString(), dst_obj3.Body.toString()); // object in src !== object in dst 
@@ -412,14 +412,14 @@ mocha.describe('replication configuration bg worker tests', function() {
 
 
         // override object data in src
-        const obj_src_before_override = await s3_owner.getObject({ Bucket: bucket1, Key: key1 }).promise();
-        await s3_owner.putObject({ Bucket: bucket1, Key: key1, Body: 'lalalala1' }).promise();
+        const obj_src_before_override = await s3_owner.getObject({ Bucket: bucket1, Key: key1 });
+        await s3_owner.putObject({ Bucket: bucket1, Key: key1, Body: 'lalalala1' });
 
         // sync again - should replicate since src bucket is last modified
         res1 = await scanner.run_batch();
         console.log('waiting for replication objects - one rule one prefix 1', res1);
-        const obj_dst_after_repl = await s3_owner.getObject({ Bucket: bucket_for_replications, Key: key1 }).promise();
-        const obj_src_after_override = await s3_owner.getObject({ Bucket: bucket1, Key: key1 }).promise();
+        const obj_dst_after_repl = await s3_owner.getObject({ Bucket: bucket_for_replications, Key: key1 });
+        const obj_src_after_override = await s3_owner.getObject({ Bucket: bucket1, Key: key1 });
 
         console.log('objs override src obj_src_before_override:',
             obj_src_before_override, obj_src_after_override,
@@ -431,15 +431,15 @@ mocha.describe('replication configuration bg worker tests', function() {
         assert.deepStrictEqual(obj_src_after_override.Body.toString(), obj_dst_after_repl.Body.toString());
 
         // override object md in src
-        const obj_src_before_override_md = await s3_owner.getObject({ Bucket: bucket1, Key: key1 }).promise();
-        await s3_owner.putObject({ Bucket: bucket1, Key: key1, Body: 'lalalala1', Metadata: { key1: 'val1' } }).promise();
-        const obj_dst_before_repl_md = await s3_owner.getObject({ Bucket: bucket_for_replications, Key: key1 }).promise();
+        const obj_src_before_override_md = await s3_owner.getObject({ Bucket: bucket1, Key: key1 });
+        await s3_owner.putObject({ Bucket: bucket1, Key: key1, Body: 'lalalala1', Metadata: { key1: 'val1' } });
+        const obj_dst_before_repl_md = await s3_owner.getObject({ Bucket: bucket_for_replications, Key: key1 });
 
         // sync again - should replicate since src bucket md is last modified
         res1 = await scanner.run_batch();
         console.log('waiting for replication objects - one rule one prefix 2', res1);
-        const obj_dst_after_repl_md = await s3_owner.getObject({ Bucket: bucket_for_replications, Key: key1 }).promise();
-        const obj_src_after_override_md = await s3_owner.getObject({ Bucket: bucket1, Key: key1 }).promise();
+        const obj_dst_after_repl_md = await s3_owner.getObject({ Bucket: bucket_for_replications, Key: key1 });
+        const obj_src_after_override_md = await s3_owner.getObject({ Bucket: bucket1, Key: key1 });
 
         console.log('objs override src obj_src_before_override1:',
             obj_src_before_override_md, obj_src_after_override_md,
@@ -458,7 +458,7 @@ mocha.describe('replication configuration bg worker tests', function() {
         const contents = await _list_objects_and_wait(s3_owner, bucket_for_replications, uploaded_prefix_objects_count);
         for (const content of contents) {
             const key = content.Key;
-            await s3_owner.deleteObject({ Bucket: bucket_for_replications, Key: key }).promise();
+            await s3_owner.deleteObject({ Bucket: bucket_for_replications, Key: key });
         }
         await _put_replication(bucket1,
             [{ rule_id: 'rule-1', destination_bucket: bucket_for_replications, sync_versions: false }], false);
@@ -590,7 +590,7 @@ async function _list_all_objs_in_bucket(s3owner, bucket, prefix) {
         const params = { Bucket: bucket };
         if (prefix) params.Prefix = prefix;
         if (marker) params.Marker = marker;
-        const response = await s3owner.listObjects(params).promise();
+        const response = await s3owner.listObjects(params);
         elements.push.apply(elements, response.Contents);
         isTruncated = response.IsTruncated;
         if (isTruncated) {

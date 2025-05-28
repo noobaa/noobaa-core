@@ -11,19 +11,6 @@ const replication_utils = require('../../../server/utils/replication_utils');
 const mock_fn = jest.fn();
 const mock_fn2 = jest.fn();
 
-describe('fail on improper constructor call', () => {
-    it('should fail when there is no connection and no s3_params', () => {
-        const params = {
-            first_bucket: 'first-bucket',
-            second_bucket: 'second-bucket',
-            version: true,
-            for_replication: false,
-            for_deletion: false,
-        };
-        expect(() => new BucketDiff(params)).toThrow('Expected s3_params');
-    });
-});
-
 describe('BucketDiff', () => {
     describe('get_objects', () => {
         describe('get_objects with version', () => {

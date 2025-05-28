@@ -307,8 +307,10 @@ mocha.describe('replication configuration bg worker tests', function() {
         const admin_keys = admin_account.access_keys;
         //await create_namespace_buckets(admin_account);
 
-        s3_creds.credentials.accessKeyId = admin_keys[0].access_key.unwrap();
-        s3_creds.credentials.secretAccessKey = admin_keys[0].secret_key.unwrap();
+        s3_creds.credentials = {
+            accessKeyId: admin_keys[0].access_key.unwrap(),
+            secretAccessKey: admin_keys[0].secret_key.unwrap(),
+        };
         s3_creds.endpoint = coretest.get_http_address();
         s3_owner = new S3(s3_creds);
         // populate buckets
@@ -575,7 +577,7 @@ async function put_object(s3_owner, bucket_name, key, optional_body) {
 
 
 async function delete_object(s3_owner, bucket_name, key) {
-    const res = await s3_owner.deleteObject({ Bucket: bucket_name, Key: key }).promise();
+    const res = await s3_owner.deleteObject({ Bucket: bucket_name, Key: key });
     console.log('delete_object: ', util.inspect(res));
 }
 
@@ -651,8 +653,10 @@ mocha.describe('Replication pagination test', function() {
         const admin_account = await rpc_client.account.read_account({ email: EMAIL });
         const admin_keys = admin_account.access_keys;
 
-        s3_creds.credentials.accessKeyId = admin_keys[0].access_key.unwrap();
-        s3_creds.credentials.secretAccessKey = admin_keys[0].secret_key.unwrap();
+        s3_creds.credentials = {
+            accessKeyId: admin_keys[0].access_key.unwrap(),
+            secretAccessKey: admin_keys[0].secret_key.unwrap(),
+        };
         s3_creds.endpoint = coretest.get_http_address();
         s3_owner = new S3(s3_creds);
 

@@ -571,7 +571,7 @@ function create_random_body() {
 }
 
 async function put_object(s3_owner, bucket_name, key, optional_body) {
-    const res = await s3_owner.putObject({ Bucket: bucket_name, Key: key, Body: optional_body || create_random_body() }).promise();
+    const res = await s3_owner.putObject({ Bucket: bucket_name, Key: key, Body: optional_body || create_random_body() });
     console.log('put_object: ', util.inspect(res));
 }
 

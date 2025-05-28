@@ -142,14 +142,19 @@ function try_read_file_sync(file_name) {
     try {
         return fs.readFileSync(file_name, 'utf8');
     } catch (err) {
-        if (err.code === 'ENOENT' || err.code === 'ENOTDIR') {
-            // file does not exist or is not a directory
+        if (is_not_exist_err_code(err)) {
+            // file does not exist
             return;
         }
         throw err;
     }
 }
 
+// returns true if the error is ENOENT or ENOTDIR
+// ENOTDIR is relevant for cases where a directory in the middle of the path is a file and not a directory
+function is_not_exist_err_code(err) {
+    return err && (err.code === 'ENOENT' || err.code === 'ENOTDIR');
+}
 
 // returns the first line in the file that contains the substring
 async function find_line_in_file(file_name, line_sub_string) {
@@ -373,3 +378,4 @@ exports.PRIVATE_DIR_PERMISSIONS = PRIVATE_DIR_PERMISSIONS;
 exports.file_exists = file_exists;
 exports.file_not_exists = file_not_exists;
 exports.try_read_file_sync = try_read_file_sync;
+exports.is_not_exist_err_code = is_not_exist_err_code;

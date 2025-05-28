@@ -8,7 +8,9 @@ const P = require('../../util/promise');
 const coretest = require('./coretest');
 const { rpc_client, EMAIL } = coretest; //, PASSWORD, SYSTEM
 const util = require('util');
-const AWS = require('aws-sdk');
+//const AWS = require('aws-sdk');
+const { NodeHttpHandler } = require("@smithy/node-http-handler");
+const { S3 } = require('@aws-sdk/client-s3');
 const http = require('http');
 const cloud_utils = require('../../util/cloud_utils');
 const { ReplicationScanner } = require('../../server/bg_services/replication_scanner');
@@ -277,12 +279,17 @@ mocha.describe('replication configuration bg worker tests', function() {
     let s3_owner;
     let scanner;
     const s3_creds = {
-        s3ForcePathStyle: true,
-        signatureVersion: 'v4',
-        computeChecksums: true,
-        s3DisableBodySigning: false,
+        forcePathStyle: true,
+        // signatureVersion is Deprecated in SDK v3
+        //signatureVersion: 'v4',
+        // automatically compute the MD5 checksums for of the request payload in SDKV3
+        //computeChecksums: true,
+        // s3DisableBodySigning renamed to applyChecksum but can be assigned in S3 object
+        // s3DisableBodySigning: false,
         region: 'us-east-1',
-        httpOptions: { agent: new http.Agent({ keepAlive: false }) },
+        requestHandler: new NodeHttpHandler({
+            httpsAgent: new http.Agent({ keepAlive: false })
+        })
     };
 
     // Special character items to ensure encoding of URI works OK in the replication scanner
@@ -300,10 +307,10 @@ mocha.describe('replication configuration bg worker tests', function() {
         const admin_keys = admin_account.access_keys;
         //await create_namespace_buckets(admin_account);
 
-        s3_creds.accessKeyId = admin_keys[0].access_key.unwrap();
-        s3_creds.secretAccessKey = admin_keys[0].secret_key.unwrap();
+        s3_creds.credentials.accessKeyId = admin_keys[0].access_key.unwrap();
+        s3_creds.credentials.secretAccessKey = admin_keys[0].secret_key.unwrap();
         s3_creds.endpoint = coretest.get_http_address();
-        s3_owner = new AWS.S3(s3_creds);
+        s3_owner = new S3(s3_creds);
         // populate buckets
         for (let i = 0; i < 10; i++) {
             let key = `key${i}`;
@@ -618,12 +625,17 @@ mocha.describe('Replication pagination test', function() {
     let s3_owner;
     let scanner;
     const s3_creds = {
-        s3ForcePathStyle: true,
-        signatureVersion: 'v4',
-        computeChecksums: true,
-        s3DisableBodySigning: false,
+        forcePathStyle: true,
+        // signatureVersion is Deprecated in SDK v3
+        //signatureVersion: 'v4',
+        // automatically compute the MD5 checksums for of the request payload in SDKV3
+        //computeChecksums: true,
+        // s3DisableBodySigning renamed to applyChecksum but can be assigned in S3 object
+        //s3DisableBodySigning: false,
         region: 'us-east-1',
-        httpOptions: { agent: new http.Agent({ keepAlive: false }) },
+        requestHandler: new NodeHttpHandler({
+            httpsAgent: new http.Agent({ keepAlive: false })
+        })
     };
     const src_bucket_keys = [];
     const target_bucket_keys = [];
@@ -639,10 +651,10 @@ mocha.describe('Replication pagination test', function() {
         const admin_account = await rpc_client.account.read_account({ email: EMAIL });
         const admin_keys = admin_account.access_keys;
 
-        s3_creds.accessKeyId = admin_keys[0].access_key.unwrap();
-        s3_creds.secretAccessKey = admin_keys[0].secret_key.unwrap();
+        s3_creds.credentials.accessKeyId = admin_keys[0].access_key.unwrap();
+        s3_creds.credentials.secretAccessKey = admin_keys[0].secret_key.unwrap();
         s3_creds.endpoint = coretest.get_http_address();
-        s3_owner = new AWS.S3(s3_creds);
+        s3_owner = new S3(s3_creds);
 
         // populate source bucket
         for (let i = 0; i < obj_amount; i++) {

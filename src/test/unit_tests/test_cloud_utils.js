@@ -4,8 +4,7 @@
 const mocha = require('mocha');
 const assert = require('assert');
 const sinon = require('sinon');
-//const AWS = require('aws-sdk');
-const { S3 } = require('@aws-sdk/client-s3');
+const AWS = require('aws-sdk');
 const cloud_utils = require('../../util/cloud_utils');
 const dbg = require('../../util/debug_module')(__filename);
 const fs = require("fs");
@@ -39,7 +38,7 @@ mocha.describe('AWS STS tests', function() {
             }
         }),
     };
-        STSStub = sinon.stub(S3, 'STS')
+        STSStub = sinon.stub(AWS, 'STS')
             .callsFake(() => stsFake);
     });
     mocha.after('Restoring STS stub', function() {

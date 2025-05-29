@@ -223,4 +223,27 @@ const s3_uid6001 = generate_s3_client(access_details.access_key,
         await s3_uid6001.deleteBucket({ Bucket: bucket_name4 });
         await fs.promises.rm(new_bucket_path_param2, { recursive: true });
     });
+
+    mocha.it('health concurrency with load - ping forks', async function() {
+        this.timeout(100000); // eslint-disable-line no-invalid-this
+
+        for (let i = 0; i < 10; i++) {
+            // a couple of requests for health check
+            const failed_operations = [];
+            const successful_operations = [];
+            const num_of_concurrency = 10;
+            for (let j = 0; j < num_of_concurrency; j++) {
+                exec_manage_cli(TYPES.DIAGNOSE, 'health', {disable_service_validation: true})
+                    .catch(err => failed_operations.push(err))
+                    .then(res => successful_operations.push(res));
+            }
+            await P.delay(7000);
+            assert.equal(successful_operations.length, num_of_concurrency);
+            assert.equal(failed_operations.length, 0);
+            for (const res of successful_operations) {
+                const parsed_res = JSON.parse(res);
+                assert.strictEqual(parsed_res.response.reply.status, 'OK');
+            }
+        }
+    });
 });

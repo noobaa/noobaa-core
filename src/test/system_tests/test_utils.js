@@ -52,7 +52,7 @@ const is_nc_coretest = process.env.NC_CORETEST === 'true';
  * @param {*} pool_id 
  * @param {*} bucket_name 
  * @param {*} blocks 
- * @param {AWS.S3} s3 
+ * @param {S3} s3 
  */
 async function blocks_exist_on_cloud(need_to_exist, pool_id, bucket_name, blocks, s3) {
     console.log('blocks_exist_on_cloud::', need_to_exist, pool_id, bucket_name);
@@ -69,7 +69,7 @@ async function blocks_exist_on_cloud(need_to_exist, pool_id, bucket_name, blocks
                 return s3.headObject({
                     Bucket: bucket_name,
                     Key: `noobaa_blocks/${pool_id}/blocks_tree/${block.slice(block.length - 3)}.blocks/${block}`
-                }).promise();
+                });
             }));
 
             let condition_correct;

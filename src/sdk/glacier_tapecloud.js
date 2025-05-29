@@ -6,6 +6,7 @@ const events = require('events');
 const os = require("os");
 const path = require("path");
 const { LogFile } = require("../util/persistent_logger");
+const { get_bin_path } = require('../util/external_bin_util');
 const { NewlineReader, NewlineReaderEntry } = require('../util/file_reader');
 const { Glacier } = require("./glacier");
 const config = require('../../config');
@@ -15,11 +16,6 @@ const { get_process_fs_context } = require("../util/native_fs_utils");
 const dbg = require('../util/debug_module')(__filename);
 
 const ERROR_DUPLICATE_TASK = "GLESM431E";
-
-
-function get_bin_path(bin_name) {
-    return path.join(config.NSFS_GLACIER_TAPECLOUD_BIN_DIR, bin_name);
-}
 
 class TapeCloudUtils {
     static MIGRATE_SCRIPT = 'migrate';
@@ -41,8 +37,8 @@ class TapeCloudUtils {
         let reader = null;
         try {
             temp_fh = await nb_native().fs.open(fs_context, tmp, 'rw');
-
-            const proc = spawn(get_bin_path(TapeCloudUtils.TASK_SHOW_SCRIPT), [task_id], {
+            const bin_path = get_bin_path(config.NSFS_GLACIER_TAPECLOUD_BIN_DIR, TapeCloudUtils.TASK_SHOW_SCRIPT);
+            const proc = spawn(bin_path, [task_id], {
                 stdio: ['pipe', temp_fh.fd, temp_fh.fd],
             });
 
@@ -145,7 +141,8 @@ class TapeCloudUtils {
     static async migrate(file, failure_recorder) {
         try {
             dbg.log1("Starting migration for file", file);
-            const out = await exec(`${get_bin_path(TapeCloudUtils.MIGRATE_SCRIPT)} ${file}`, { return_stdout: true });
+            const bin_path = get_bin_path(config.NSFS_GLACIER_TAPECLOUD_BIN_DIR, TapeCloudUtils.MIGRATE_SCRIPT);
+            const out = await exec(`${bin_path} ${file}`, { return_stdout: true });
             dbg.log4("migrate finished with:", out);
             dbg.log1("Finished migration for file", file);
             return true;
@@ -171,7 +168,8 @@ class TapeCloudUtils {
     static async recall(file, failure_recorder, success_recorder) {
         try {
             dbg.log1("Starting recall for file", file);
-            const out = await exec(`${get_bin_path(TapeCloudUtils.RECALL_SCRIPT)} ${file}`, { return_stdout: true });
+            const bin_path = get_bin_path(config.NSFS_GLACIER_TAPECLOUD_BIN_DIR, TapeCloudUtils.RECALL_SCRIPT);
+            const out = await exec(`${bin_path} ${file}`, { return_stdout: true });
             dbg.log4("recall finished with:", out);
             dbg.log1("Finished recall for file", file);
             return true;
@@ -183,7 +181,8 @@ class TapeCloudUtils {
 
     static async process_expired() {
         dbg.log1("Starting process_expired");
-        const out = await exec(`${get_bin_path(TapeCloudUtils.PROCESS_EXPIRED_SCRIPT)}`, { return_stdout: true });
+        const bin_path = get_bin_path(config.NSFS_GLACIER_TAPECLOUD_BIN_DIR, TapeCloudUtils.PROCESS_EXPIRED_SCRIPT);
+        const out = await exec(`${bin_path}`, { return_stdout: true });
         dbg.log4("process_expired finished with:", out);
         dbg.log1("Finished process_expired");
     }
@@ -307,7 +306,8 @@ class TapeCloudGlacier extends Glacier {
     }
 
     async low_free_space() {
-        const result = await exec(get_bin_path(TapeCloudUtils.LOW_FREE_SPACE_SCRIPT), { return_stdout: true });
+        const bin_path = get_bin_path(config.NSFS_GLACIER_TAPECLOUD_BIN_DIR, TapeCloudUtils.LOW_FREE_SPACE_SCRIPT);
+        const result = await exec(bin_path, { return_stdout: true });
         return result.toLowerCase().trim() === 'true';
     }
 

@@ -313,6 +313,32 @@ function test_ns_list_objects(ns, object_sdk, bucket) {
         });
     });
 
+    mocha.describe('list objects - hidden dir', function() {
+
+        this.timeout(10 * 60 * 1000); // eslint-disable-line no-invalid-this
+
+        const dummy_file1 = 'dummy1';
+        const dummy_file2 = 'dummy2';
+        const hidden_dir_bkt = 'test_ns_hidder_dir';
+
+        mocha.before(async function() {
+            await create_keys([dummy_file1, dummy_file2]);
+        });
+        mocha.after(async function() {
+            await delete_keys([dummy_file1, dummy_file2]);
+        });
+
+        mocha.it('should not list the hidden/internal dir as common_prefixes', async function() {
+            const r = await ns.list_objects({
+                bucket: hidden_dir_bkt,
+                delimiter: '/'
+            }, object_sdk);
+            assert.deepStrictEqual(r.is_truncated, false);
+            assert.deepStrictEqual(r.common_prefixes, []);
+            assert.deepStrictEqual(r.objects.length, 2);
+        });
+    });
+
     mocha.describe('max keys test', function() {
 
         this.timeout(10 * 60 * 1000); // eslint-disable-line no-invalid-this

@@ -1,0 +1,71 @@
+name: Run PR Tests
+on: [push, pull_request, workflow_dispatch]
+concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+jobs:
+
+  run-sanity-tests:
+    needs: build-noobaa-image
+    uses: ./.github/workflows/sanity.yaml
+
+  run-sanity-ssl-tests:
+    needs: build-noobaa-image
+    uses: ./.github/workflows/sanity-ssl.yaml
+
+  run-unit-tests:
+    needs: build-noobaa-image
+    uses: ./.github/workflows/unit.yaml
+
+  run-unit-tests-postgres:
+    needs: build-noobaa-image
+    uses: ./.github/workflows/postgres-unit-tests.yaml
+
+  run-nc-unit-tests:
+    needs: build-noobaa-image
+    uses: ./.github/workflows/nc_unit.yml
+
+  ceph-s3-tests:
+    needs: build-noobaa-image
+    uses: ./.github/workflows/ceph-s3-tests.yaml
+
+  ceph-nsfs-s3-tests:
+    needs: build-noobaa-image
+    uses: ./.github/workflows/ceph-nsfs-s3-tests.yaml
+
+  warp-tests:
+    needs: build-noobaa-image
+    uses: ./.github/workflows/warp-tests.yaml
+
+  warp-nc-tests:
+    needs: build-noobaa-image
+    uses: ./.github/workflows/warp-nc-tests.yaml
+
+  build-noobaa-image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: make noobaa image
+        run: make tester
+
+      - name: create docker artifact
+        run: |
+          docker save --output noobaa.tar noobaa
+          docker save --output noobaa-tester.tar noobaa-tester
+
+      - name: upload noobaa docker image
+        uses: actions/upload-artifact@v4
+        with:
+          name: noobaa-image
+          path: noobaa.tar
+          retention-days: "1"
+
+      - name: upload noobaa-tester docker image
+        uses: actions/upload-artifact@v4
+        with:
+          name: noobaa-tester
+          path: noobaa-tester.tar
+          retention-days: "1"

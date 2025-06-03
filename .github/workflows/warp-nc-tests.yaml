@@ -1,20 +1,29 @@
 
 name: Warp NC Tests
-on: [push, pull_request, workflow_dispatch]
+on: [workflow_call]
 
 jobs:
   warp-nc-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 90
-    concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}
-      cancel-in-progress: true
+    permissions:
+      actions: read         # download-artifact
+      contents: read        # required for actions/checkout
     steps:
       - name: Checkout noobaa-core
         uses: actions/checkout@v4
         with:
           repository: 'noobaa/noobaa-core'
           path: 'noobaa-core'
+
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: noobaa-tester
+          path: /tmp
+
+      - name: Load image
+        run: docker load --input /tmp/noobaa-tester.tar
 
       - name: Create Warp logs directory
         run: |
@@ -27,5 +36,5 @@ jobs:
         run: |
           set -x
           cd ./noobaa-core
-          make test-nc-warp
+          make test-nc-warp -o tester
 

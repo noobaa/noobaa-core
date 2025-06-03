@@ -3,6 +3,7 @@ on: [workflow_call]
 
 jobs:
   warp-tests:
+    name: Warp Tests
     runs-on: ubuntu-latest
     timeout-minutes: 90
     permissions:

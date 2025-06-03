@@ -3,6 +3,7 @@ on: [workflow_call]
 
 jobs:
   run-nc-unit-tests:
+    name: Non Containerized Unit Tests
     runs-on: ubuntu-latest
     timeout-minutes: 90
     permissions:

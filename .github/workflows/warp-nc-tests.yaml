@@ -4,6 +4,7 @@ on: [workflow_call]
 
 jobs:
   warp-nc-tests:
+    name: Warp NC Tests
     runs-on: ubuntu-latest
     timeout-minutes: 90
     permissions:

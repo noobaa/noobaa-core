@@ -3,6 +3,7 @@ on: [workflow_call]
 
 jobs:
   run-unit-tests:
+    name: Unit Tests
     runs-on: ubuntu-latest
     timeout-minutes: 90
     permissions:

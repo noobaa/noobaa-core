@@ -1,5 +1,5 @@
 name: Unit Tests
-on: [push, pull_request]
+on: [workflow_call]
 
 jobs:
   run-unit-tests:
@@ -9,10 +9,24 @@ jobs:
       group: ${{ github.workflow }}-${{ github.ref }}
       cancel-in-progress: true
     steps:
-      - name: checkout
+      - name: Checkout
         uses: actions/checkout@v4
+        with:
+          repository: nadavMiz/noobaa-core
+          path: 'noobaa-core'
+
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: noobaa-tester
+          path: /tmp
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+      
+      - name: Load image
+        run: docker load --input /tmp/noobaa-tester.tar
 
       - name: Run Test
         run: |
-          make test
-          make root-perm-test
+          make test -o tester
+          make root-perm-test -o tester

@@ -1,0 +1,56 @@
+name: Build Noobaa Image
+# This workflow builds the noobaa image and uploads it as an artifact.
+on: [push, pull_request, workflow_dispatch]
+
+jobs:
+  run-unit-tests-postgres:
+    needs: build-noobaa-image
+    uses: ./.github/workflows/postgres-unit-tests.yaml
+
+  run-sanity-ssl-tests:
+    needs: build-noobaa-image
+    uses: ./.github/workflows/sanity-ssl.yaml
+
+  run-nc-unit-tests:
+    needs: build-noobaa-image
+    uses: ./.github/workflows/nc_unit.yml
+
+  nsfs-ceph-s3-tests:
+    needs: build-noobaa-image
+    uses: ./.github/workflows/ceph-s3-tests.yaml
+
+  run-unit-tests:
+    needs: build-noobaa-image
+    uses: ./.github/workflows/unit.yaml
+
+  build-noobaa-image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: make noobaa image
+        run: make tester
+
+      - name: create docker artifact
+        run: |
+          docker save --output noobaa.tar noobaa
+          docker save --output noobaa-tester.tar noobaa-tester
+
+      - name: upload noobaa docker image
+        uses: actions/upload-artifact@v4
+        with:
+          name: noobaa-image
+          path: noobaa.tar
+          retention-days: "1"
+
+      - name: upload noobaa-tester docker image
+        uses: actions/upload-artifact@v4
+        with:
+          name: noobaa-tester
+          path: noobaa-tester.tar
+          retention-days: "1"

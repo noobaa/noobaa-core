@@ -1,0 +1,25 @@
+#!/bin/sh
+
+# Get list of staged files
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '\.(js|jsx|ts|tsx)$' | sed 's| |\\ |g')
+
+# If there are no staged files, exit successfully
+if [ -z "$STAGED_FILES" ]; then
+  exit 0
+fi
+
+# Run ESLint on staged files and capture both output and exit code
+echo "Running ESLint on staged files..."
+ESLINT_OUTPUT=$(npx eslint $STAGED_FILES 2>&1)
+ESLINT_EXIT_CODE=$?
+
+# If ESLint found errors, show them and exit with error
+if [ $ESLINT_EXIT_CODE -ne 0 ]; then
+  echo "❌ ESLint found errors in staged files:"
+  echo "$ESLINT_OUTPUT"
+  echo "Please fix the errors above before committing."
+  exit 1
+fi
+
+echo "✅ ESLint passed!"
+exit 0 

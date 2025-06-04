@@ -10,7 +10,6 @@ async function register_rpc() {
     db_client.instance().connect();
 
     server_rpc.register_object_services();
-    server_rpc.register_func_services();
     server_rpc.register_common_services();
 
     const u = url.parse(server_rpc.rpc.router.md);

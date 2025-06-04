@@ -12,7 +12,6 @@ const assert = require('assert');
 const S3Auth = require('aws-sdk/lib/signers/s3');
 
 const P = require('../../util/promise');
-const zip_utils = require('../../util/zip_utils');
 const config = require('../../../config');
 
 const check_deletion_ownership = require('../../server/system_services/pool_server').check_deletion_ownership;
@@ -502,51 +501,6 @@ mocha.describe('system_servers', function() {
         } catch (err) {
             assert.fail('should not fail with ' + err);
         }
-    });
-
-    mocha.it('lambda triggers works', async function() {
-        if (config.DB_TYPE !== 'mongodb') this.skip(); // eslint-disable-line no-invalid-this
-        this.timeout(90000); // eslint-disable-line no-invalid-this
-        const zipfile = await zip_utils.zip_from_files([{
-            path: 'main.js',
-            data: `
-                    /* Copyright (C) 2016 NooBaa */
-                    'use strict';
-                    exports.handler = function(event, context, callback) {
-                    coretest.log('func event', event);
-                    callback();
-                    };
-                    `
-        }]);
-        const zipbuffer = await zip_utils.zip_to_buffer(zipfile);
-        await rpc_client.func.create_func({
-            config: {
-                name: 'func1',
-                version: '$LATEST',
-                handler: 'main.handler'
-            },
-            code: { zipfile_b64: zipbuffer.toString('base64') }
-        });
-        await rpc_client.bucket.add_bucket_lambda_trigger({
-            bucket_name: BUCKET,
-            event_name: 'ObjectCreated',
-            func_name: 'func1',
-            object_prefix: '/bla/'
-        });
-        const bucket = await rpc_client.bucket.read_bucket({ name: BUCKET });
-        await rpc_client.bucket.update_bucket_lambda_trigger({
-            bucket_name: BUCKET,
-            id: bucket.triggers[0].id,
-            enabled: false
-        });
-        await rpc_client.bucket.delete_bucket_lambda_trigger({
-            bucket_name: BUCKET,
-            id: bucket.triggers[0].id,
-        });
-        await rpc_client.func.delete_func({
-            name: 'func1',
-            version: '$LATEST'
-        });
     });
 
     mocha.it('Calculate md5_etag for bucket works', async function() {

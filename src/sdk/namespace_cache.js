@@ -8,7 +8,6 @@ const dbg = require('../util/debug_module')(__filename);
 const cache_config = require('../../config.js').NAMESPACE_CACHING;
 const range_utils = require('../util/range_utils');
 const RangeStream = require('../util/range_stream');
-const P = require('../util/promise');
 const buffer_utils = require('../util/buffer_utils');
 const stream_utils = require('../util/stream_utils');
 const semaphore = require('../util/semaphore');
@@ -619,18 +618,6 @@ class NamespaceCache {
             read_count: 1,
         });
 
-        const operation = 'ObjectRead';
-        const load_for_trigger = !params.noobaa_trigger_agent &&
-            object_sdk.should_run_triggers({ active_triggers: this.active_triggers, operation });
-        if (load_for_trigger) {
-            object_sdk.dispatch_triggers({
-                active_triggers: this.active_triggers,
-                operation,
-                obj: params.object_md,
-                bucket: params.bucket
-            });
-        }
-
         return tap_stream;
     }
 
@@ -640,12 +627,9 @@ class NamespaceCache {
 
     async upload_object(params, object_sdk) {
         dbg.log0("NamespaceCache.upload_object", _.omit(params, 'source_stream'));
-        const operation = 'ObjectCreated';
-        const load_for_trigger = object_sdk.should_run_triggers({ active_triggers: this.active_triggers, operation });
 
         const bucket_free_space_bytes = await this._get_bucket_free_space_bytes(params, object_sdk);
         let upload_response;
-        let etag;
         if (params.size > bucket_free_space_bytes) {
             dbg.log0("NamespaceCache.upload_object: object is too big, skip caching");
 
@@ -657,8 +641,6 @@ class NamespaceCache {
                 bucket_name: params.bucket,
                 hub_write_latency: Number(process.hrtime.bigint() - start_time) / 1e6,
             });
-
-            etag = upload_response.etag;
 
         } else {
 
@@ -739,18 +721,6 @@ class NamespaceCache {
             }
 
             upload_response = hub_res.value;
-            etag = upload_response.etag;
-        }
-
-        if (load_for_trigger) {
-            const obj = {
-                bucket: params.bucket,
-                key: params.key,
-                size: params.size,
-                content_type: params.content_type,
-                etag
-            };
-            object_sdk.dispatch_triggers({ active_triggers: this.active_triggers, operation, obj, bucket: params.bucket });
         }
 
         return upload_response;
@@ -773,21 +743,7 @@ class NamespaceCache {
     }
 
     async complete_object_upload(params, object_sdk) {
-        const operation = 'ObjectCreated';
-        const load_for_trigger = object_sdk.should_run_triggers({ active_triggers: this.active_triggers, operation });
-
         const res = await this.namespace_hub.complete_object_upload(params, object_sdk);
-        if (load_for_trigger) {
-            const head_res = await this.read_object_md(params, object_sdk);
-            const obj = {
-                bucket: params.bucket,
-                key: params.key,
-                size: head_res.size,
-                content_type: head_res.content_type,
-                etag: head_res.etag
-            };
-            object_sdk.dispatch_triggers({ active_triggers: this.active_triggers, operation, obj, bucket: params.bucket });
-        }
         await this._delete_object_from_cache(params, object_sdk);
         return res;
     }
@@ -814,42 +770,15 @@ class NamespaceCache {
             throw cache_res.reason;
         }
 
-        const operation = 'ObjectRemoved';
-        const load_for_trigger = object_sdk.should_run_triggers({ active_triggers: this.active_triggers, operation });
-        if (load_for_trigger) {
-            object_sdk.dispatch_triggers({
-                active_triggers: this.active_triggers,
-                operation,
-                obj: params.object_md,
-                bucket: params.bucket
-            });
-        }
-
         return hub_res.value;
     }
 
     async delete_multiple_objects(params, object_sdk) {
-        const operation = 'ObjectRemoved';
         const objects = params.objects.filter(obj => obj.version_id);
         if (objects.length > 0) {
             dbg.error('S3 Version request not (NotImplemented) for s3_post_bucket_delete', params);
             throw new S3Error(S3Error.NotImplemented);
         }
-        const load_for_trigger = object_sdk.should_run_triggers({ active_triggers: this.active_triggers, operation });
-        const head_res = load_for_trigger && await P.map(params.objects, async obj => {
-            const request = {
-                bucket: params.bucket,
-                key: obj.key,
-                version_id: obj.version_id
-            };
-            let obj_md;
-            try {
-                obj_md = _.defaults({ key: obj.key }, await this.namespace_hub.read_object_md(request, object_sdk));
-            } catch (err) {
-                if (err.rpc_code !== 'NO_SUCH_OBJECT') throw err;
-            }
-            return obj_md;
-        });
 
         const [hub_res, cache_res] = await Promise.allSettled([
             this.namespace_hub.delete_multiple_objects(params, object_sdk),
@@ -860,21 +789,6 @@ class NamespaceCache {
         }
         if (cache_res.status === 'rejected') {
             throw cache_res.reason;
-        }
-
-        if (load_for_trigger) {
-            for (let i = 0; i < hub_res.value.length; ++i) {
-                const deleted_obj = hub_res.value[i];
-                const head_obj = head_res[i];
-                if (_.isUndefined(deleted_obj && deleted_obj.err_code) && head_obj) {
-                    object_sdk.dispatch_triggers({
-                        active_triggers: this.active_triggers,
-                        operation,
-                        obj: head_obj,
-                        bucket: params.bucket
-                    });
-                }
-            }
         }
 
         return hub_res.value;

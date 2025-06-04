@@ -58,7 +58,6 @@ async function main() {
         server_rpc.register_system_services();
         server_rpc.register_node_services();
         server_rpc.register_object_services();
-        server_rpc.register_func_services();
         server_rpc.register_common_services();
         server_rpc.rpc.router.default = 'fcall://fcall';
         server_rpc.rpc.register_http_app(app);

@@ -686,43 +686,6 @@ module.exports = {
             }
         },
 
-        add_bucket_lambda_trigger: {
-            method: 'PUT',
-            params: {
-                $ref: '#/definitions/new_lambda_trigger'
-            },
-            auth: {
-                system: 'admin'
-            }
-        },
-
-        delete_bucket_lambda_trigger: {
-            method: 'DELETE',
-            required: ['id', 'bucket_name'],
-            params: {
-                type: 'object',
-                properties: {
-                    id: {
-                        objectid: true
-                    },
-                    bucket_name: { $ref: 'common_api#/definitions/bucket_name' },
-                }
-            },
-            auth: {
-                system: 'admin'
-            }
-        },
-
-        update_bucket_lambda_trigger: {
-            method: 'PUT',
-            params: {
-                $ref: '#/definitions/update_lambda_trigger'
-            },
-            auth: {
-                system: 'admin'
-            }
-        },
-
         update_all_buckets_default_pool: {
             method: 'PUT',
             params: {
@@ -1196,12 +1159,6 @@ module.exports = {
                 undeletable: {
                     $ref: '#/definitions/undeletable_bucket_reason'
                 },
-                triggers: {
-                    type: 'array',
-                    items: {
-                        $ref: '#/definitions/lambda_trigger_info'
-                    }
-                },
                 tagging: {
                     $ref: 'common_api#/definitions/tagging'
                 },
@@ -1387,105 +1344,6 @@ module.exports = {
         undeletable_bucket_reason: {
             enum: ['NOT_EMPTY'],
             type: 'string',
-        },
-
-
-        new_lambda_trigger: {
-            type: 'object',
-            required: ['bucket_name', 'event_name', 'func_name'],
-            properties: {
-                bucket_name: { $ref: 'common_api#/definitions/bucket_name' },
-                event_name: {
-                    $ref: 'common_api#/definitions/bucket_trigger_event'
-                },
-                func_name: {
-                    type: 'string'
-                },
-                func_version: {
-                    type: 'string'
-                },
-                enabled: {
-                    type: 'boolean',
-                },
-                object_prefix: {
-                    type: 'string'
-                },
-                object_suffix: {
-                    type: 'string'
-                },
-                attempts: {
-                    type: 'integer'
-                },
-            }
-        },
-
-        update_lambda_trigger: {
-            type: 'object',
-            required: ['id'],
-            properties: {
-                id: {
-                    objectid: true
-                },
-                bucket_name: { $ref: 'common_api#/definitions/bucket_name' },
-                event_name: {
-                    $ref: 'common_api#/definitions/bucket_trigger_event'
-                },
-                func_name: {
-                    type: 'string'
-                },
-                func_version: {
-                    type: 'string'
-                },
-                enabled: {
-                    type: 'boolean',
-                },
-                object_prefix: {
-                    type: 'string'
-                },
-                object_suffix: {
-                    type: 'string'
-                },
-                attempts: {
-                    type: 'integer'
-                },
-            }
-        },
-
-        lambda_trigger_info: {
-            type: 'object',
-            required: ['id', 'event_name', 'func_name'],
-            properties: {
-                id: {
-                    objectid: true
-                },
-                event_name: {
-                    $ref: 'common_api#/definitions/bucket_trigger_event'
-                },
-                func_name: {
-                    type: 'string'
-                },
-                func_version: {
-                    type: 'string'
-                },
-                enabled: {
-                    type: 'boolean',
-                },
-                permission_problem: {
-                    type: 'boolean',
-                },
-                last_run: {
-                    idate: true
-                },
-                object_prefix: {
-                    type: 'string'
-                },
-                object_suffix: {
-                    type: 'string'
-                },
-                attempts: {
-                    type: 'integer'
-                },
-            }
         },
         object_lock_configuration: {
             type: 'object',

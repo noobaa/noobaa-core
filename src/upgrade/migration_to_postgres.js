@@ -24,8 +24,6 @@ const object_part_indexes = require('../server/object_services/schemas/object_pa
 const data_chunk_indexes = require('../server/object_services/schemas/data_chunk_indexes');
 const data_block_indexes = require('../server/object_services/schemas/data_block_indexes');
 const node_schema = require('../server/node_services/node_schema');
-const func_schema = require('../server/func_services/func_schema');
-const func_stats_schema = require('../server/func_services/func_stats_schema');
 const bucket_stats_schema = require('../server/analytic_services/bucket_stats_schema');
 const endpoint_group_report_schema = require('../server/analytic_services/endpoint_group_report_schema');
 const s3_usage_schema = require('../server/analytic_services/s3_usage_schema');
@@ -162,20 +160,6 @@ const COLLECTIONS = [{
 }, { // nodes_store
     name: 'nodes',
     schema: node_schema,
-}, { // func_store
-    name: 'funcs',
-    schema: func_schema,
-    db_indexes: [{
-        fields: {
-            system: 1,
-            name: 1,
-            version: 1,
-            deleted: 1,
-        },
-        options: {
-            unique: true,
-        }
-    }]
 }, { // bucket_stats_store
     name: 'bucketstats',
     schema: bucket_stats_schema,
@@ -227,16 +211,6 @@ const COLLECTIONS = [{
             end_time: 1
         }
     }],
-}, { // func_stats_store
-    name: 'func_stats',
-    schema: func_stats_schema,
-    db_indexes: [{
-        fields: {
-            system: 1,
-            id: 1,
-            latency_ms: 1,
-        }
-    }]
 }, { // activity_log_store
     name: 'activitylogs',
     schema: activity_log_schema,

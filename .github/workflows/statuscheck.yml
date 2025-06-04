@@ -1,0 +1,12 @@
+name: PR Status Check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  check-pr:
+    name: Required PR Check
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "This is a required check"

@@ -72,8 +72,8 @@ jobs:
               const comparison = await github.rest.repos.compareCommits({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                base: `heads/${targetBranch}`,
-                base: context.payload.after
+                base: context.payload.after,
+                head: pr.head.sha
               });
             
               const isBehind = comparison.status === 'behind';

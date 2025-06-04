@@ -1,0 +1,92 @@
+name: Auto Rebase PRs
+
+on:
+  push:
+    branches:
+      - '**'  # This will trigger on pushes to all branches
+
+jobs:
+  auto-rebase:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+
+      - name: Find and rebase PRs
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const targetBranch = context.ref.replace('refs/heads/', '');
+            console.log(`Checking PRs targeting branch: ${targetBranch}`);
+
+            const { data: prs } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: ['use-auto-rebase'],
+              base: targetBranch
+            });
+
+            for (const pr of prs) {
+              try {
+                // Skip if PR is already up to date
+                const { data: comparison } = await github.rest.repos.compareCommits({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  base: pr.base.sha,
+                  head: pr.head.sha
+                });
+
+                if (comparison.behind_by === 0) {
+                  console.log(`PR #${pr.number} is already up to date`);
+                  continue;
+                }
+
+                // Create a comment to indicate rebase attempt
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: pr.number,
+                  body: `🤖 Attempting to rebase this PR onto ${targetBranch}...`
+                });
+
+                // Perform the rebase using Git commands
+                const { execSync } = require('child_process');
+                
+                // Fetch the PR branch
+                execSync(`git fetch origin pull/${pr.number}/head:pr-${pr.number}`);
+                
+                // Checkout the PR branch
+                execSync(`git checkout pr-${pr.number}`);
+                
+                // Perform the rebase
+                execSync(`git rebase origin/${targetBranch}`);
+                
+                // Force push the rebased branch
+                execSync(`git push origin pr-${pr.number}:${pr.head.ref} --force-with-lease`);
+
+                console.log(`Successfully rebased PR #${pr.number} onto ${targetBranch}`);
+              } catch (error) {
+                console.error(`Failed to rebase PR #${pr.number}:`, error.message);
+                
+                // Create a comment about the failure
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: pr.number,
+                  body: `❌ Failed to automatically rebase this PR onto ${targetBranch}. Please rebase manually.`
+                });
+              }
+            } 

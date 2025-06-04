@@ -30,8 +30,6 @@ api_schema.register_api(require('./cluster_server_api'));
 api_schema.register_api(require('./cluster_internal_api'));
 api_schema.register_api(require('./server_inter_process_api'));
 api_schema.register_api(require('./hosted_agents_api'));
-api_schema.register_api(require('./func_api'));
-api_schema.register_api(require('./func_node_api'));
 api_schema.register_api(require('./replication_api'));
 
 api_schema.compile();

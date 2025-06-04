@@ -17,7 +17,6 @@ const SensitiveString = require('../../util/sensitive_string');
 const cloud_utils = require('../../util/cloud_utils');
 const auth_server = require('../common_services/auth_server');
 const system_store = require('../system_services/system_store').get_instance();
-const bucket_server = require('../system_services/bucket_server');
 const pool_server = require('../system_services/pool_server');
 const azure_storage = require('../../util/azure_storage_wrap');
 const NetStorage = require('../../util/NetStorageKit-Node-master/lib/netstorage');
@@ -463,12 +462,6 @@ function update_account_s3_access(req) {
                 account: account._id,
                 desc: desc_string.join('\n'),
             });
-            if (removed_buckets.length) {
-                _.forEach(removed_buckets, bucket_name => {
-                    const bucket = req.system.buckets_by_name[bucket_name.unwrap()];
-                    bucket_server.check_for_lambda_permission_issue(req, bucket, [account]);
-                });
-            }
         });
 }
 

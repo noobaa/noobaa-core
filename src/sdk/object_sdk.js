@@ -79,7 +79,6 @@ const dn_cache = new LRUCache({
 const MULTIPART_NAMESPACES = [
     'NET_STORAGE'
 ];
-const required_obj_properties = ['obj_id', 'bucket', 'key', 'size', 'content_type', 'etag'];
 
 /** _validate_account is an additional layer (to expiry_ms)
  * and in NC deployment it checks the stat of the config file
@@ -1090,20 +1089,6 @@ class ObjectSDK {
             if (obj && object_suffix && !obj.key.endsWith(object_suffix)) return false;
             return true;
         });
-    }
-
-    async dispatch_triggers({ active_triggers, obj, operation, bucket }) {
-        const dispatch = this.should_run_triggers({ active_triggers, obj, operation });
-        if (dispatch) {
-            const dispatch_obj = _.pick(obj, required_obj_properties);
-            // Dummy obj_id (not all flows return with obj_id and we need it for the API schema)
-            dispatch_obj.obj_id = '10101010aaaabbbbccccdddd';
-            await this.internal_rpc_client.object.dispatch_triggers({
-                bucket,
-                event_name: operation,
-                obj: dispatch_obj
-            });
-        }
     }
 
     /////////////////////////

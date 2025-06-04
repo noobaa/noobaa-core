@@ -417,9 +417,11 @@ class NSFSHealth {
             } else {
                 const connection_file_path = this.config_fs.get_connection_path_by_name(config_file_name);
                 const test_notif_err = await notifications_util.test_notifications([{
-                    name: config_data.name,
+                    id: [config_data.name],
                     topic: [config_file_name]
-                }], this.config_fs.config_root);
+                }], this.config_fs.config_root, {
+                    params: {bucket: 'test_notif_bucket'}
+                });
                 if (test_notif_err) {
                     res = get_invalid_object(config_data.name, connection_file_path, undefined, test_notif_err.code);
                 } else {

@@ -66,8 +66,24 @@ jobs:
               state: 'open',
               base: targetBranch
             });
+            
             for (const pr of prs) {
+              // Check if PR head includes latest base commit
+              const comparison = await github.rest.repos.compareCommits({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                base: `heads/${targetBranch}`,
+                head: pr.head.sha
+              });
+            
+              const isBehind = comparison.status === 'behind';
+              if (!isBehind) {
+                console.log(`PR #${pr.number} is already based on the latest ${targetBranch}`);
+                continue;
+              }
+            
               try {
+                execSync(`git fetch origin ${targetBranch}`, { stdio: 'inherit' });
                 execSync(`git fetch origin pull/${pr.number}/head:pr-${pr.number}`, { stdio: 'inherit' });
                 execSync(`git checkout pr-${pr.number}`, { stdio: 'inherit' });
                 execSync(`git rebase --signoff origin/${targetBranch}`, { stdio: 'inherit' });
@@ -76,3 +92,4 @@ jobs:
                 console.log(`Failed to rebase PR #${pr.number}: ${err.message}`);
               }
             }
+

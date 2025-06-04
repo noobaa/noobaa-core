@@ -73,7 +73,7 @@ jobs:
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 base: `heads/${targetBranch}`,
-                head: pr.head.sha
+                base: context.payload.after
               });
             
               const isBehind = comparison.status === 'behind';

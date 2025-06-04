@@ -1,16 +1,17 @@
-name: Auto Rebase PRs
+name: Sync PRs on Push
 
 on:
   push:
     branches:
-      - '**'  # This will trigger on pushes to all branches
+      - '**'
 
 jobs:
-  auto-rebase:
+  cancel-and-rebase:
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
       contents: write
+      actions: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -23,85 +24,55 @@ jobs:
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
 
-      - name: Find and rebase PRs
+      - name: Cancel workflows for PRs targeting this branch
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const targetBranch = context.ref.replace('refs/heads/', '');
-            console.log(`Checking PRs targeting branch: ${targetBranch}`);
-
             const { data: prs } = await github.rest.pulls.list({
               owner: context.repo.owner,
               repo: context.repo.repo,
               state: 'open',
               base: targetBranch
             });
-
             for (const pr of prs) {
-              // Cancel running workflows for this PR
               const { data: runs } = await github.rest.actions.listWorkflowRunsForRepo({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
+                event: 'pull_request',
                 branch: pr.head.ref,
                 status: 'in_progress'
               });
-
               for (const run of runs.workflow_runs) {
-                console.log(`Cancelling run ${run.id} for PR #${pr.number}`);
                 await github.rest.actions.cancelWorkflowRun({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   run_id: run.id
                 });
               }
+            }
+
+      - name: Rebase PRs onto updated branch
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const targetBranch = context.ref.replace('refs/heads/', '');
+            const { execSync } = require('child_process');
+            const { data: prs } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              base: targetBranch
+            });
+            for (const pr of prs) {
               try {
-                // Skip if PR is already up to date
-                const { data: comparison } = await github.rest.repos.compareCommits({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  base: pr.base.sha,
-                  head: pr.head.sha
-                });
-
-                if (comparison.behind_by === 0) {
-                  console.log(`PR #${pr.number} is already up to date`);
-                  continue;
-                }
-
-                // Create a comment to indicate rebase attempt
-                await github.rest.issues.createComment({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: pr.number,
-                  body: `🤖 Attempting to rebase this PR onto ${targetBranch}...`
-                });
-
-                // Perform the rebase using Git commands
-                const { execSync } = require('child_process');
-                
-                // Fetch the PR branch
-                execSync(`git fetch origin pull/${pr.number}/head:pr-${pr.number}`);
-                
-                // Checkout the PR branch
-                execSync(`git checkout pr-${pr.number}`);
-                
-                // Perform the rebase
-                execSync(`git rebase --signoff origin/${targetBranch}`);
-                
-                // Force push the rebased branch
-                execSync(`git push origin pr-${pr.number}:${pr.head.ref} --force-with-lease`);
-
-                console.log(`Successfully rebased PR #${pr.number} onto ${targetBranch}`);
-              } catch (error) {
-                console.error(`Failed to rebase PR #${pr.number}:`, error.message);
-                
-                // Create a comment about the failure
-                await github.rest.issues.createComment({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: pr.number,
-                  body: `❌ Failed to automatically rebase this PR onto ${targetBranch}. Please rebase manually.`
-                });
+                execSync(`git fetch origin pull/${pr.number}/head:pr-${pr.number}`, { stdio: 'inherit' });
+                execSync(`git checkout pr-${pr.number}`, { stdio: 'inherit' });
+                execSync(`git rebase --signoff origin/${targetBranch}`, { stdio: 'inherit' });
+                execSync(`git push origin pr-${pr.number}:${pr.head.ref} --force-with-lease`, { stdio: 'inherit' });
+              } catch (err) {
+                console.log(`Failed to rebase PR #${pr.number}: ${err.message}`);
               }
-            } 
+            }

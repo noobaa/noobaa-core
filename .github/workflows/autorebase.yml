@@ -6,14 +6,14 @@ on:
       - '**'
 
 jobs:
-  cancel-and-rebase:
+  rebase-outdated-prs:
     runs-on: ubuntu-latest
     permissions:
-      pull-requests: write
       contents: write
-      actions: write
+      pull-requests: write
+
     steps:
-      - name: Checkout repository
+      - name: Checkout full repo
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -21,75 +21,52 @@ jobs:
 
       - name: Configure Git
         run: |
-          git config --global user.name 'github-actions[bot]'
-          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Cancel workflows for PRs targeting this branch
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const targetBranch = context.ref.replace('refs/heads/', '');
-            const { data: prs } = await github.rest.pulls.list({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              state: 'open',
-              base: targetBranch
-            });
-            for (const pr of prs) {
-              const { data: runs } = await github.rest.actions.listWorkflowRunsForRepo({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                event: 'pull_request',
-                branch: pr.head.ref,
-                status: 'in_progress'
-              });
-              for (const run of runs.workflow_runs) {
-                await github.rest.actions.cancelWorkflowRun({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  run_id: run.id
-                });
-              }
-            }
-
-      - name: Rebase PRs onto updated branch
+      - name: Rebase outdated PRs
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const targetBranch = context.ref.replace('refs/heads/', '');
             const { execSync } = require('child_process');
+
+            const { data: baseBranch } = await github.rest.repos.getBranch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              branch: targetBranch
+            });
+            const baseSha = baseBranch.commit.sha;
+
             const { data: prs } = await github.rest.pulls.list({
               owner: context.repo.owner,
               repo: context.repo.repo,
               state: 'open',
               base: targetBranch
             });
-            
+
             for (const pr of prs) {
-              // Check if PR head includes latest base commit
               const comparison = await github.rest.repos.compareCommits({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                base: context.payload.after,
+                base: baseSha,
                 head: pr.head.sha
               });
-            
-              const isBehind = comparison.status === 'behind';
-              if (!isBehind) {
-                console.log(`PR #${pr.number} is already based on the latest ${targetBranch}`);
+
+              if (comparison.status !== 'behind') {
+                console.log(`PR #${pr.number} is already based on latest ${targetBranch}`);
                 continue;
               }
-            
+
               try {
+                console.log(`Rebasing PR #${pr.number}`);
                 execSync(`git fetch origin ${targetBranch}`, { stdio: 'inherit' });
                 execSync(`git fetch origin pull/${pr.number}/head:pr-${pr.number}`, { stdio: 'inherit' });
                 execSync(`git checkout pr-${pr.number}`, { stdio: 'inherit' });
                 execSync(`git rebase --signoff origin/${targetBranch}`, { stdio: 'inherit' });
-                execSync(`git push origin pr-${pr.number}:${pr.head.ref} --force-with-lease`, { stdio: 'inherit' });
+                execSync(`git push origin HEAD:${pr.head.ref} --force-with-lease`, { stdio: 'inherit' });
               } catch (err) {
                 console.log(`Failed to rebase PR #${pr.number}: ${err.message}`);
               }
             }
-

@@ -6,14 +6,15 @@ on:
       - '**'
 
 jobs:
-  rebase-outdated-prs:
+  cancel-and-rebase:
     runs-on: ubuntu-latest
     permissions:
       contents: write
       pull-requests: write
+      actions: write
 
     steps:
-      - name: Checkout full repo
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -23,6 +24,38 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Cancel running workflows for PRs targeting this branch
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const targetBranch = context.ref.replace('refs/heads/', '');
+            const { data: prs } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              base: targetBranch
+            });
+
+            for (const pr of prs) {
+              const { data: runs } = await github.rest.actions.listWorkflowRunsForRepo({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                event: 'pull_request',
+                branch: pr.head.ref,
+                status: 'in_progress'
+              });
+
+              for (const run of runs.workflow_runs) {
+                console.log(`Cancelling run ${run.id} for PR #${pr.number}`);
+                await github.rest.actions.cancelWorkflowRun({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  run_id: run.id
+                });
+              }
+            }
 
       - name: Rebase outdated PRs
         uses: actions/github-script@v7

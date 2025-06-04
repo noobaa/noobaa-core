@@ -20,9 +20,7 @@ const s3_rest = require('./s3/s3_rest');
 const blob_rest = require('./blob/blob_rest');
 const sts_rest = require('./sts/sts_rest');
 const iam_rest = require('./iam/iam_rest');
-const lambda_rest = require('./lambda/lambda_rest');
 const endpoint_utils = require('./endpoint_utils');
-const FuncSDK = require('../sdk/func_sdk');
 const StsSDK = require('../sdk/sts_sdk');
 const ObjectIO = require('../sdk/object_io');
 const ObjectSDK = require('../sdk/object_sdk');
@@ -70,7 +68,6 @@ dbg.log0('endpoint: replacing old umask: ', old_umask.toString(8), 'with new uma
 /**
  * @typedef {import('http').IncomingMessage & {
  *  object_sdk?: ObjectSDK;
- *  func_sdk?: FuncSDK;
  *  sts_sdk?: StsSDK;
  *  virtual_hosts?: readonly string[];
  *  bucket_logger?: PersistentLogger;
@@ -290,7 +287,6 @@ async function start_endpoint_server_and_cert(server_type, init_request_sdk, opt
 function create_endpoint_handler(server_type, init_request_sdk, { virtual_hosts, bucket_logger, notification_logger }) {
     if (server_type === SERVICES_TYPES_ENUM.S3) {
         const blob_rest_handler = process.env.ENDPOINT_BLOB_ENABLED === 'true' ? blob_rest : unavailable_handler;
-        const lambda_rest_handler = config.DB_TYPE === 'mongodb' ? lambda_rest : unavailable_handler;
 
         /** @type {EndpointHandler} */
         const s3_endpoint_request_handler = (req, res) => {
@@ -300,9 +296,7 @@ function create_endpoint_handler(server_type, init_request_sdk, { virtual_hosts,
             if (bucket_logger) req.bucket_logger = bucket_logger;
             if (notification_logger) req.notification_logger = notification_logger;
             init_request_sdk(req, res);
-            if (req.url.startsWith('/2015-03-31/functions')) {
-                return lambda_rest_handler(req, res);
-            } else if (req.headers['x-ms-version']) {
+            if (req.headers['x-ms-version']) {
                 return blob_rest_handler(req, res);
             } else if (req.url.startsWith('/total_fork_count')) {
                 return fork_count_handler(req, res);
@@ -417,7 +411,6 @@ function fork_count_handler(req, res) {
 function create_init_request_sdk(rpc, internal_rpc_client, object_io) {
     const init_request_sdk = (req, res) => {
         const rpc_client = rpc.new_client();
-        req.func_sdk = new FuncSDK(rpc_client);
         req.sts_sdk = new StsSDK(rpc_client, internal_rpc_client);
         req.object_sdk = new ObjectSDK({
             rpc_client,

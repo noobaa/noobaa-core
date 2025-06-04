@@ -127,7 +127,6 @@ function setup(options = {}) {
     server_rpc.register_bg_services();
     server_rpc.register_hosted_agents_services();
     server_rpc.register_object_services();
-    server_rpc.register_func_services();
     server_rpc.register_common_services();
     server_rpc.rpc.set_request_logger(() => dbg.log1.apply(dbg, arguments));
     _.each(server_rpc.rpc.router, (val, key) => {

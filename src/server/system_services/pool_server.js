@@ -22,7 +22,6 @@ const auth_server = require('../common_services/auth_server');
 const HistoryDataStore = require('../analytic_services/history_data_store').HistoryDataStore;
 const IoStatsStore = require('../analytic_services/io_stats_store').IoStatsStore;
 const pool_ctrls = require('./pool_controllers');
-const func_store = require('../func_services/func_store');
 const { KubeStore } = require('../kube-store.js');
 
 
@@ -739,13 +738,6 @@ async function delete_hosts_pool(req, pool) {
             pool: pool._id,
             desc: `${pool.name} was emptyed and deleted`,
         });
-        const related_funcs = await func_store.instance().list_funcs_by_pool(req.system._id, pool._id);
-        for (const func of related_funcs) {
-            const new_pools_arr = func.pools.filter(function(obj) {
-                return obj.toString() !== (pool._id).toString();
-            });
-            await func_store.instance().update_func(func._id, { 'pools': new_pools_arr });
-        }
     }
 }
 

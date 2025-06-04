@@ -644,6 +644,7 @@ module.exports = {
                 region: {
                     type: 'string'
                 },
+                gcp_hmac_key: { $ref: 'common_api#/definitions/gcp_hmac_key' },
             }
         },
 

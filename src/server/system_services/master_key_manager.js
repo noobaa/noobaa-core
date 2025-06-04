@@ -339,6 +339,13 @@ class MasterKeysManager {
                                 decipher: crypto.createDecipheriv(m_key.cipher_type, m_key.cipher_key, m_key.cipher_iv)
                             }, undefined);
                         }
+                        if (keys.gcp_hmac_key?.secret_key) {
+                            keys.gcp_hmac_key.secret_key = await this.secret_keys_cache.get_with_cache({
+                                encrypted_value: keys.gcp_hmac_key.secret_key,
+                                decipher: crypto.createDecipheriv(m_key.cipher_type, m_key.cipher_key, m_key.cipher_iv)
+                            }, undefined);
+
+                        }
                     }
                 }
             }
@@ -367,6 +374,13 @@ class MasterKeysManager {
                     if (ns_resource.connection.azure_log_access_keys) {
                         ns_resource.connection.azure_log_access_keys.azure_client_secret = await this.secret_keys_cache.get_with_cache({
                             encrypted_value: ns_resource.connection.azure_log_access_keys.azure_client_secret.unwrap(),
+                            undefined,
+                            master_key_id: ns_resource.account.master_key_id._id
+                        }, undefined);
+                    }
+                    if (ns_resource.connection.gcp_hmac_key?.secret_key) {
+                        ns_resource.connection.gcp_hmac_key.secret_key = await this.secret_keys_cache.get_with_cache({
+                            encrypted_value: ns_resource.connection.gcp_hmac_key.secret_key.unwrap(),
                             undefined,
                             master_key_id: ns_resource.account.master_key_id._id
                         }, undefined);

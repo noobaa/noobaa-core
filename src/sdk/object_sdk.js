@@ -443,6 +443,7 @@ class ObjectSDK {
     /**
      * @returns {nb.Namespace}
      */
+    // resource contains the values of namespace_resource_extended_info
     _setup_single_namespace({ resource: r, path: p }, bucket_id, options) {
 
         if (r.endpoint_type === 'NOOBAA') {
@@ -502,6 +503,8 @@ class ObjectSDK {
                 private_key,
                 access_mode: r.access_mode,
                 stats: this.stats,
+                hmac_key: { access_id: r.gcp_hmac_key.access_id.unwrap(),
+                            secret_key: r.gcp_hmac_key.secret_key.unwrap() }
             });
         }
         if (r.fs_root_path || r.fs_root_path === '') {

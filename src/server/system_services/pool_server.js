@@ -300,6 +300,16 @@ async function create_namespace_resource(req) {
             };
         }
 
+        let gcp_hmac_key;
+        if (connection.gcp_hmac_key?.secret_key) {
+            gcp_hmac_key = {
+                access_id: connection.gcp_hmac_key.access_id,
+                secret_key: system_store.master_key_manager.encrypt_sensitive_string_with_master_key_id(
+                    connection.gcp_hmac_key.secret_key, req.account.master_key_id._id
+                )
+            };
+        }
+
         namespace_resource = new_namespace_resource_defaults(name, req.system._id, req.account._id, _.omitBy({
             aws_sts_arn: connection.aws_sts_arn,
             endpoint: connection.endpoint,
@@ -311,6 +321,7 @@ async function create_namespace_resource(req) {
             endpoint_type: connection.endpoint_type || 'AWS',
             region: connection.region,
             azure_log_access_keys,
+            gcp_hmac_key,
         }, _.isUndefined), undefined, req.rpc_params.access_mode);
 
         const cloud_buckets = await server_rpc.client.bucket.get_cloud_buckets({
@@ -1210,6 +1221,7 @@ function get_namespace_resource_extended_info(namespace_resource) {
         secret_key: namespace_resource.connection.secret_key,
         access_mode: namespace_resource.access_mode,
         aws_sts_arn: namespace_resource.connection.aws_sts_arn || undefined,
+        gcp_hmac_key: namespace_resource.connection.gcp_hmac_key,
     };
     const nsfs_info = namespace_resource.nsfs_config && {
         fs_root_path: namespace_resource.nsfs_config.fs_root_path,

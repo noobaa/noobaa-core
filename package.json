@@ -14,6 +14,7 @@
   "main": "src/api/index.js",
   "bin": "src/cmd/index.js",
   "scripts": {
+    "preinstall": "if [ -d .git ]; then git config core.hooksPath .githooks; fi",
     "install": "echo install hook override to avoid npm default hook calling node-gyp",
     "build": "npm run build:native",
     "build:native": "node-gyp configure && node-gyp build",

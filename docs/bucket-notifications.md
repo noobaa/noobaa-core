@@ -4,7 +4,7 @@
 
 Bucket's notifications can be configured with the s3api operation [put-bucket-notification-configuration](https://awscli.amazonaws.com/v2/documentation/api/latest/reference/s3api/put-bucket-notification-configuration.html).
 Specify notifications under the "TopicConfigurations" field, which is an array of jsons, one for each notification.
-A notification json has these fields:
+A notification json has these fields:fffffffff
 - Id: Mandatory. A unique string identifying the notification configuration.
 - Events: Optional. An array of [events](https://docs.aws.amazon.com/AmazonS3/latest/userguide/notification-how-to-event-types-and-destinations.html) for which the notification is relevant.
           If not specified, the notification is relevant for all events.

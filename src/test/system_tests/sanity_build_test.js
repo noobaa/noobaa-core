@@ -125,9 +125,6 @@ async function create_configuration() {
     //Create various accounts
     await _create_accounts();
 
-    //Create lambda funcs
-    await _create_lambda();
-
     await TEST_CTX.client.system.read_system();
 }
 
@@ -253,40 +250,6 @@ async function _create_accounts() {
     await TEST_CTX.client.account.create_account(ac4);
     await TEST_CTX.client.account.create_account(ac5);
     await TEST_CTX.client.account.update_account(ac5_update);
-}
-
-async function _create_lambda() {
-    console.info('Creating Functions and Triggers');
-    //Create func
-    const code_buffer = Buffer.from([80, 75, 3, 4, 10, 0, 0, 0, 8, 0, 217, 98, 219, 76, 166, 14, 198, 22, 88, 0, 0, 0, 119, 0, 0, 0, 7, 0,
-        0, 0, 109, 97, 105, 110, 46, 106, 115, 75, 43, 205, 75, 46, 201, 204, 207, 83, 200, 77, 204, 204, 211, 208, 84, 168, 230, 82, 80,
-        200, 73, 45, 81, 72, 84, 176, 85, 48, 180, 6, 114, 146, 243, 243, 138, 243, 115, 82, 245, 114, 242, 211, 53, 18, 60, 18, 21, 84,
-        170, 19, 107, 19, 52, 65, 50, 137, 218, 218, 32, 42, 45, 63, 95, 3, 200, 175, 229, 226, 74, 131, 153, 5, 22, 2, 25, 117, 104, 1,
-        178, 118, 117, 160, 184, 58, 68, 41, 0, 80, 75, 1, 2, 20, 0, 10, 0, 0, 0, 8, 0, 217, 98, 219, 76, 166, 14, 198, 22, 88, 0, 0, 0,
-        119, 0, 0, 0, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 109, 97, 105, 110, 46, 106, 115, 80, 75, 5, 6, 0, 0, 0, 0, 1,
-        0, 1, 0, 53, 0, 0, 0, 125, 0, 0, 0, 0, 0
-    ]);
-
-    await TEST_CTX.client.func.create_func({
-        config: {
-            name: 'testfunc',
-            version: '$LATEST',
-            'description': 'testytestytesyfunc',
-            'runtime': 'nodejs6',
-            'handler': 'main.main',
-            'memory_size': 128,
-            'timeout': 450
-        },
-        code: { zipfile_b64: code_buffer.toString('base64') }
-    });
-
-    //Create triggers
-    await TEST_CTX.client.bucket.add_bucket_lambda_trigger({
-        bucket_name: 'first.bucket',
-        object_suffix: '.dat',
-        func_name: 'testfunc',
-        event_name: 'ObjectRemoved'
-    });
 }
 
 async function test_data() {

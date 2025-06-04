@@ -120,14 +120,6 @@ class ServerRpc {
             require('./object_services/object_server'), options);
     }
 
-    register_func_services() {
-        const rpc = this.rpc;
-        const schema = rpc.schema;
-        const options = this.get_server_options();
-        rpc.register_service(schema.func_api,
-            require('./func_services/func_server'), options);
-    }
-
     register_bg_services() {
         const rpc = this.rpc;
         const schema = rpc.schema;

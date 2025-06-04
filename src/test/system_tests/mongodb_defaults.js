@@ -102,7 +102,6 @@ db.buckets.updateMany({}, {
             reads: 0,
             writes: 0
         },
-        lambda_triggers: [],
         versioning: 'DISABLED'
     }
 });

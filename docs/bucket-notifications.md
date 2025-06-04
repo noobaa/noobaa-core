@@ -110,7 +110,7 @@ Once NooBaa finds an event with a relevant notification configuration, the notif
 is written to a persistent file.
 Location of persistent files is determined by-
 - For containerized, the pvc specified in NooBaa Bucket Notification spec (see Operator docs for more info).
-- For NC, the env variable NOTIFICATION_LOG_DIR (see NC docs for more info).
+- For NC, the env variable NOTIFIaaaaCATION_LOG_DIR (see NC docs for more info).
 
 Files are processed by-
 - For containerized, files are contantly being processed in the background of the core pod.

@@ -8,6 +8,7 @@ const P = require('./promise');
 const semaphore = require('./semaphore');
 const { NewlineReader } = require('./file_reader');
 const dbg = require('./debug_module')(__filename);
+const APPEND_ATTEMPTS_LIMIT = 5;
 
 /**
  * PersistentLogger is a logger that is used to record data onto disk separated by newlines.
@@ -105,10 +106,20 @@ class PersistentLogger {
      * @param {string} data 
      */
     async append(data) {
-        const fh = await this.init();
-
         const buf = Buffer.from(data + '\n', 'utf8');
-        await fh.write(this.fs_context, buf, buf.length);
+
+        for (let attempt = 0; attempt < APPEND_ATTEMPTS_LIMIT; ++attempt) {
+            const fh = await this.init();
+            //if another process has deleted the active file,
+            //this process' _poll_active_file_change might have closed the fd
+            //in that case fd is -1
+            //in order to avoid inter-process locking, we just re-init
+            //the fd to the new active file.
+            if (fh.fd === -1) continue;
+            await fh.write(this.fs_context, buf, buf.length);
+            break;
+        }
+
         this.local_size += buf.length;
     }
 

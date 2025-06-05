@@ -16,6 +16,7 @@ const { NewlineReader } = require('../util/file_reader');
 const lifecycle_utils = require('../util/lifecycle_utils');
 const native_fs_utils = require('../util/native_fs_utils');
 const SensitiveString = require('../util/sensitive_string');
+const { GPFS_EXTERNAL_BINS } = require('../nc/nc_constants');
 const { NoobaaEvent } = require('./manage_nsfs_events_utils');
 const notifications_util = require('../util/notifications_util');
 const ManageCLIError = require('./manage_nsfs_cli_errors').ManageCLIError;
@@ -54,6 +55,16 @@ const TIMED_OPS = Object.freeze({
  * noncurrent?: { is_finished?: Boolean | Undefined, key_marker_versioned?: String | Undefined, version_id_marker?: String | Undefined }
  * }} RuleState
 */
+
+/**
+ * get_bin_path returns the full path to the binary file.
+ * @param {String} bin_dir 
+ * @param {String} bin_name 
+ * @returns {String}
+ */
+function get_bin_path(bin_dir, bin_name) {
+    return path.join(bin_dir, bin_name);
+}
 
 class NCLifecycle {
     constructor(config_fs, options = {}) {
@@ -1111,7 +1122,9 @@ class NCLifecycle {
      */
     async get_mount_points_map() {
         try {
-            const fs_list = await os_utils.exec(`mmlsfs all -T -Y`, { return_stdout: true });
+            const binary_file_path = get_bin_path(config.NC_GPFS_BIN_DIR, GPFS_EXTERNAL_BINS.MMLSFS);
+            const command = `${binary_file_path} all -T -Y`;
+            const fs_list = await os_utils.exec(command, { return_stdout: true });
             dbg.log2('get_mount_points fs_list res ', fs_list);
             const lines = fs_list.trim().split('\n');
             const res = {};
@@ -1353,15 +1366,16 @@ class NCLifecycle {
     /**
      * create_candidates_file_by_gpfs_ilm_policy gets the candidates by applying the ILM policy using mmapplypolicy
      * the return value is a path to the output file that contains the candidates
-     * TODO - check if the output file is created - this is probablt not the correct path
      * @param {String} mount_point_path
      * @param {String} ilm_policy_tmp_path
      * @returns {Promise<Void>}
      */
     async create_candidates_file_by_gpfs_ilm_policy(mount_point_path, ilm_policy_tmp_path) {
         try {
-            // TODO - understand which is better defer or prepare
-            const mmapply_policy_res = await os_utils.exec(`mmapplypolicy ${mount_point_path} -P ${ilm_policy_tmp_path} -f ${ILM_CANDIDATES_TMP_DIR} -I defer`, { return_stdout: true });
+            const binary_file_path = get_bin_path(config.NC_GPFS_BIN_DIR, GPFS_EXTERNAL_BINS.MMAPPLYPOLICY);
+            const allow_scan_on_remote = config.NC_LIFECYCLE_GPFS_ALLOW_SCAN_ON_REMOTE ? '--allow-scan-on-remote' : '';
+            const command = `${binary_file_path} ${mount_point_path} -P ${ilm_policy_tmp_path} ${allow_scan_on_remote} -f ${ILM_CANDIDATES_TMP_DIR} -I defer `;
+            const mmapply_policy_res = await os_utils.exec(command, { return_stdout: true });
             dbg.log2('create_candidates_file_by_gpfs_ilm_policy mmapplypolicy res ', mmapply_policy_res);
         } catch (err) {
             throw new Error(`create_candidates_file_by_gpfs_ilm_policy failed with error ${err}`);

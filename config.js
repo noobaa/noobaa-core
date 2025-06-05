@@ -1064,6 +1064,9 @@ config.NC_LIFECYCLE_LIST_BATCH_SIZE = 1000;
 config.NC_LIFECYCLE_BUCKET_BATCH_SIZE = 10000;
 
 config.NC_LIFECYCLE_GPFS_ILM_ENABLED = true;
+config.NC_LIFECYCLE_GPFS_ALLOW_SCAN_ON_REMOTE = true;
+config.NC_GPFS_BIN_DIR = '/usr/lpp/mmfs/bin/';
+
 ////////// GPFS //////////
 config.GPFS_DOWN_DELAY = 1000;
 

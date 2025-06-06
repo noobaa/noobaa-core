@@ -77,6 +77,11 @@ config.IAM_SERVICE_CERT_PATH = '/etc/iam-secret';
 config.MGMT_SERVICE_CERT_PATH = '/etc/mgmt-secret';
 config.EXTERNAL_DB_SERVICE_CERT_PATH = '/etc/external-db-secret';
 
+/////////////////
+// LDAP CONFIG //
+/////////////////
+config.LDAP_CONFIG_PATH = '/etc/noobaa-server/ldap_config';
+
 //////////////////
 // NODES CONFIG //
 //////////////////

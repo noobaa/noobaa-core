@@ -1121,6 +1121,9 @@ config.DEFAULT_REGION = 'us-east-1';
 
 config.VACCUM_ANALYZER_INTERVAL = 86400000;
 
+config.METRICS_AUTH_ENABLED = true;
+config.VERSION_AUTH_ENABLED = true;
+
 /////////////////////
 //                 //
 //    OVERRIDES    //

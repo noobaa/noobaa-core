@@ -2384,6 +2384,7 @@ mocha.describe('response headers test - regular request', function() {
 });
 
 async function fetchData(presigned_url) {
+    console.log("presigned_url=========@@@", presigned_url);
     const response = await fetch(presigned_url, { httpOptions: { agent: http_utils.get_unsecured_agent(CORETEST_ENDPOINT) } });
     let data;
     if (!response.ok) {

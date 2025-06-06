@@ -767,7 +767,7 @@ class NamespaceFS {
                     // dbg.log0('process_entry', dir_key, ent.name);
                     if (!ent.name.startsWith(prefix_ent) ||
                         ent.name < marker_curr ||
-                        ent.name === this.get_bucket_tmpdir_name() ||
+                        ent.name.startsWith(config.NSFS_TEMP_DIR_NAME) ||
                         (ent.name === config.NSFS_FOLDER_OBJECT_NAME && is_disabled_dir_content) ||
                         this._is_hidden_version_path(ent.name)) {
                         return;

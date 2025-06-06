@@ -1,7 +1,8 @@
 /* Copyright (C) 2016 NooBaa */
 'use strict';
 
-const AWS = require('aws-sdk');
+const { S3, GetObjectCommand } = require('@aws-sdk/client-s3');
+const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 const api = require('../../api');
 const rpc = api.new_rpc();
 const argv = require('minimist')(process.argv);
@@ -43,13 +44,16 @@ function authenticate() {
 
 function test_s3_connection() {
     return P.fcall(function() {
-            const s3 = new AWS.S3({
+            const s3 = new S3({
                 endpoint: TEST_PARAMS.ip,
-                accessKeyId: TEST_PARAMS.access_key,
-                secretAccessKey: TEST_PARAMS.secret_key,
-                sslEnabled: false,
-                s3ForcePathStyle: true,
-                signatureVersion: 'v4',
+                credentials: {
+                    accessKeyId: TEST_PARAMS.access_key,
+                    secretAccessKey: TEST_PARAMS.secret_key,
+                },
+                tls: false,
+                forcePathStyle: true,
+                // signatureVersion is Deprecated in SDK v3
+                //signatureVersion: 'v4',
                 region: 'eu-central-1',
             });
             return P.ninvoke(s3, "listBuckets");
@@ -85,23 +89,27 @@ function list_buckets() {
 }
 */
 
-function getSignedUrl(bucket, obj, expiry) {
+function getSignedS3Url(bucket, obj, expiry) {
     console.log('GENERATE SIGNED_URL OBJECT: ', obj, ' FROM BUCKET: ', bucket);
     return P.fcall(function() {
-            const s3 = new AWS.S3({
+            const s3 = new S3({
                 endpoint: TEST_PARAMS.ip,
-                accessKeyId: TEST_PARAMS.access_key,
-                secretAccessKey: TEST_PARAMS.secret_key,
-                sslEnabled: false,
-                s3ForcePathStyle: true,
-                signatureVersion: 'v4',
+                credentials: {
+                    accessKeyId: TEST_PARAMS.access_key,
+                    secretAccessKey: TEST_PARAMS.secret_key,
+                },
+                tls: false,
+                forcePathStyle: true,
+                // signatureVersion is Deprecated in SDK v3
+                //signatureVersion: 'v4',
                 region: 'eu-central-1',
             });
-            return s3.getSignedUrl('getObject', {
+            const command = new GetObjectCommand({
                 Bucket: bucket,
                 Key: obj,
-                Expires: expiry || 604800
+                //Expires: expiry || 604800
             });
+            return getSignedUrl(s3, command, { expiresIn: expiry || 604800 });
         })
         .then(() => P.delay(1000))
         .then(url => url,
@@ -128,13 +136,16 @@ function httpGetAsPromise(url) {
 function create_bucket(name) {
     console.log('CREATE BUCKET: ', name);
     return P.fcall(function() {
-        const s3 = new AWS.S3({
+        const s3 = new S3({
             endpoint: TEST_PARAMS.ip,
-            accessKeyId: TEST_PARAMS.access_key,
-            secretAccessKey: TEST_PARAMS.secret_key,
-            sslEnabled: false,
-            s3ForcePathStyle: true,
-            signatureVersion: 'v4',
+            credentials: {
+                accessKeyId: TEST_PARAMS.access_key,
+                secretAccessKey: TEST_PARAMS.secret_key,
+            },
+            tls: false,
+            forcePathStyle: true,
+            // signatureVersion is Deprecated in SDK v3
+            //signatureVersion: 'v4',
             region: 'eu-central-1',
         });
         return s3.createBucket({
@@ -153,13 +164,16 @@ function create_bucket(name) {
 function create_folder(bucket, folder) {
     console.log('CREATE FOLDER: ', folder, ' IN BUCKET: ', bucket);
     return P.fcall(function() {
-        const s3 = new AWS.S3({
+        const s3 = new S3({
             endpoint: TEST_PARAMS.ip,
-            accessKeyId: TEST_PARAMS.access_key,
-            secretAccessKey: TEST_PARAMS.secret_key,
-            sslEnabled: false,
-            s3ForcePathStyle: true,
-            signatureVersion: 'v4',
+            credentials: {
+                accessKeyId: TEST_PARAMS.access_key,
+                secretAccessKey: TEST_PARAMS.secret_key,
+            },
+            tls: false,
+            forcePathStyle: true,
+            // signatureVersion is Deprecated in SDK v3
+            //signatureVersion: 'v4',
             region: 'eu-central-1',
         });
         return s3.putObject({
@@ -179,13 +193,16 @@ function create_folder(bucket, folder) {
 function head_object(bucket, key) {
     console.log('HEAD OBJECT: ', key, ' FROM BUCKET: ', bucket);
     return P.fcall(function() {
-        const s3 = new AWS.S3({
+        const s3 = new S3({
             endpoint: TEST_PARAMS.ip,
-            accessKeyId: TEST_PARAMS.access_key,
-            secretAccessKey: TEST_PARAMS.secret_key,
-            sslEnabled: false,
-            s3ForcePathStyle: true,
-            signatureVersion: 'v4',
+            credentials: {
+                accessKeyId: TEST_PARAMS.access_key,
+                secretAccessKey: TEST_PARAMS.secret_key,
+            },
+            tls: false,
+            forcePathStyle: true,
+            // signatureVersion is Deprecated in SDK v3
+            //signatureVersion: 'v4',
             region: 'eu-central-1',
         });
         return s3.headObject({
@@ -205,13 +222,16 @@ function head_object(bucket, key) {
 function get_object(bucket, key) {
     console.log('GET OBJECT: ', key, ' FROM BUCKET: ', bucket);
     return P.fcall(function() {
-        const s3 = new AWS.S3({
+        const s3 = new S3({
             endpoint: TEST_PARAMS.ip,
-            accessKeyId: TEST_PARAMS.access_key,
-            secretAccessKey: TEST_PARAMS.secret_key,
-            sslEnabled: false,
-            s3ForcePathStyle: true,
-            signatureVersion: 'v4',
+            credentials: {
+                accessKeyId: TEST_PARAMS.access_key,
+                secretAccessKey: TEST_PARAMS.secret_key,
+            },
+            tls: false,
+            forcePathStyle: true,
+            // signatureVersion is Deprecated in SDK v3
+            //signatureVersion: 'v4',
             region: 'eu-central-1',
         });
         return s3.getObject({
@@ -231,13 +251,16 @@ function get_object(bucket, key) {
 function delete_object(bucket, key) {
     console.log('DELETE OBJECT: ', key, ' FROM BUCKET: ', bucket);
     return P.fcall(function() {
-        const s3 = new AWS.S3({
+        const s3 = new S3({
             endpoint: TEST_PARAMS.ip,
-            accessKeyId: TEST_PARAMS.access_key,
-            secretAccessKey: TEST_PARAMS.secret_key,
-            sslEnabled: false,
-            s3ForcePathStyle: true,
-            signatureVersion: 'v4',
+            credentials: {
+                accessKeyId: TEST_PARAMS.access_key,
+                secretAccessKey: TEST_PARAMS.secret_key,
+            },
+            tls: false,
+            forcePathStyle: true,
+            // signatureVersion is Deprecated in SDK v3
+            //signatureVersion: 'v4',
             region: 'eu-central-1',
         });
         s3.deleteObject({
@@ -258,13 +281,16 @@ function delete_object(bucket, key) {
 function delete_bucket(name) {
     console.log('DELETE BUCKET: ', name);
     return P.fcall(function() {
-        const s3 = new AWS.S3({
+        const s3 = new S3({
             endpoint: TEST_PARAMS.ip,
-            accessKeyId: TEST_PARAMS.access_key,
-            secretAccessKey: TEST_PARAMS.secret_key,
-            sslEnabled: false,
-            s3ForcePathStyle: true,
-            signatureVersion: 'v4',
+            credentials: {
+                accessKeyId: TEST_PARAMS.access_key,
+                secretAccessKey: TEST_PARAMS.secret_key,
+            },
+            tls: false,
+            forcePathStyle: true,
+            // signatureVersion is Deprecated in SDK v3
+            //signatureVersion: 'v4',
             region: 'eu-central-1',
         });
         return s3.deleteBucket({
@@ -283,13 +309,16 @@ function delete_bucket(name) {
 function delete_folder(bucket, folder) {
     console.log('DELETE FOLDER: ', folder, ' FROM BUCKET: ', bucket);
     return P.fcall(function() {
-        const s3 = new AWS.S3({
+        const s3 = new S3({
             endpoint: TEST_PARAMS.ip,
-            accessKeyId: TEST_PARAMS.access_key,
-            secretAccessKey: TEST_PARAMS.secret_key,
-            sslEnabled: false,
-            s3ForcePathStyle: true,
-            signatureVersion: 'v4',
+            credentials: {
+                accessKeyId: TEST_PARAMS.access_key,
+                secretAccessKey: TEST_PARAMS.secret_key,
+            },
+            tls: false,
+            forcePathStyle: true,
+            // signatureVersion is Deprecated in SDK v3
+            //signatureVersion: 'v4',
             region: 'eu-central-1',
         });
         return s3.deleteObject({
@@ -332,7 +361,7 @@ function run_test() {
         .then(() => P.delay(1000))
         .then(() => get_object('first.bucket', file_names[0]))
         .then(() => P.delay(1000))
-        .then(() => getSignedUrl('first.bucket', file_names[0]))
+        .then(() => getSignedS3Url('first.bucket', file_names[0]))
         .then(url => {
             signed_url = url;
             return httpGetAsPromise(url);
@@ -349,7 +378,7 @@ function run_test() {
         .then(() => P.delay(1000))
         .then(() => get_object('s3testbucket', file_names[1]))
         .then(() => P.delay(1000))
-        .then(() => getSignedUrl('s3testbucket', file_names[1]))
+        .then(() => getSignedS3Url('s3testbucket', file_names[1]))
         .then(url => {
             signed_url = url;
             return httpGetAsPromise(url);
@@ -366,13 +395,13 @@ function run_test() {
         .then(() => P.delay(1000))
         .then(() => get_object('s3testbucket', 's3folder/' + file_names[2]))
         .then(() => P.delay(1000))
-        .then(() => getSignedUrl('s3testbucket', 's3folder/' + file_names[2]))
+        .then(() => getSignedS3Url('s3testbucket', 's3folder/' + file_names[2]))
         .then(url => {
             signed_url = url;
             return httpGetAsPromise(url);
         })
         .then(() => P.delay(1000))
-        .then(() => getSignedUrl('s3testbucket', 's3folder/' + file_names[2], 1))
+        .then(() => getSignedS3Url('s3testbucket', 's3folder/' + file_names[2], 1))
         .then(url => {
             signed_url = url;
             return httpGetAsPromise(url);

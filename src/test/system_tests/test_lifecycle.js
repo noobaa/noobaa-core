@@ -2,7 +2,7 @@
 'use strict';
 
 const assert = require('assert');
-const AWS = require('aws-sdk');
+const { S3 } = require('@aws-sdk/client-s3');
 const crypto = require('crypto');
 const commonTests = require('../lifecycle/common');
 
@@ -12,14 +12,16 @@ assert(process.env.AWS_ENDPOINT, "Please set AWS_ENDPOINT env. variable, example
 assert(process.env.AWS_ACCESS_KEY_ID, "Please set AWS_ACCESS_KEY_ID env. variable, example 'XXXXXXXXXXXXXXXXXXXX'");
 assert(process.env.AWS_SECRET_ACCESS_KEY, "Please set AWS_SECRET_ACCESS_KEY env. variable, example 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'");
 
-const s3 = new AWS.S3({
+const s3 = new S3({
     endpoint: process.env.AWS_ENDPOINT, // 'https://s3.amazonaws.com/',
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+    credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    },
 });
 
 async function main() {
-    const buckets = await s3.listBuckets().promise();
+    const buckets = await s3.listBuckets();
     console.log('buckets', buckets);
     assert(buckets.Buckets);
     const Bucket = process.env.AWS_BUCKET;
@@ -38,7 +40,7 @@ async function main() {
         Body,
     };
 
-    const putObjectResult = await s3.putObject(putObjectParams).promise();
+    const putObjectResult = await s3.putObject(putObjectParams);
     console.log('put object params:', putObjectParams, 'result', putObjectResult);
     assert(putObjectResult.ETag);
 
@@ -59,7 +61,7 @@ async function main() {
         Bucket,
         Key,
     };
-    const getObjectResult = await s3.getObject(getObjectParams).promise();
+    const getObjectResult = await s3.getObject(getObjectParams);
     const getObjectEtag = getObjectResult.ETag;
     console.log("get object result", getObjectResult, "ETag", getObjectEtag);
 
@@ -67,7 +69,7 @@ async function main() {
     await s3.deleteObject({
         Bucket,
         Key
-    }).promise();
+    });
     console.log('delete test object key', Key);
     console.log('✅ The test was completed successfully');
 }

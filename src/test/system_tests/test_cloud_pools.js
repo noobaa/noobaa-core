@@ -5,7 +5,7 @@ const api = require('../../api');
 const rpc = api.new_rpc();
 const util = require('util');
 const _ = require('lodash');
-const AWS = require('aws-sdk');
+const { S3 } = require('@aws-sdk/client-s3');
 const argv = require('minimist')(process.argv);
 const P = require('../../util/promise');
 const basic_server_ops = require('../utils/basic_server_ops');
@@ -13,15 +13,16 @@ const dotenv = require('../../util/dotenv');
 dotenv.load();
 const test_utils = require('./test_utils');
 
-const s3 = new AWS.S3({
+const s3 = new S3({
     // endpoint: 'https://s3.amazonaws.com',
     credentials: {
         accessKeyId: process.env.AWS_ACCESS_KEY_ID,
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
     },
-    s3ForcePathStyle: true,
-    sslEnabled: false,
-    signatureVersion: 'v4',
+    forcePathStyle: true,
+    tls: false,
+    // signatureVersion is Deprecated in SDK v3
+    //signatureVersion: 'v4',
     // region: 'eu-central-1'
 });
 
@@ -295,15 +296,16 @@ function run_test() {
                 .then(() => block_ids);
         })
         .then(function(block_ids) {
-            return P.ninvoke(new AWS.S3({
+            return P.ninvoke(new S3({
                     endpoint: 'http://' + TEST_CTX.source_ip,
                     credentials: {
                         accessKeyId: argv.access_key || '123',
                         secretAccessKey: argv.secret_key || 'abc'
                     },
-                    s3ForcePathStyle: true,
-                    sslEnabled: false,
-                    signatureVersion: 'v4',
+                    forcePathStyle: true,
+                    tls: false,
+                    // signatureVersion is Deprecated in SDK v3
+                    //signatureVersion: 'v4',
                     // region: 'eu-central-1'
                 }), 'deleteObject', {
                     Bucket: TEST_CTX.source_bucket,

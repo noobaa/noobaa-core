@@ -4,7 +4,8 @@
 // setup coretest first to prepare the env
 const coretest = require('./coretest');
 coretest.setup({ pools_to_create: coretest.POOL_LIST });
-const AWS = require('aws-sdk');
+const { S3 } = require('@aws-sdk/client-s3');
+const { NodeHttpHandler } = require("@smithy/node-http-handler");
 const http = require('http');
 const mocha = require('mocha');
 const assert = require('assert');
@@ -22,6 +23,7 @@ async function assert_throws_async(promise, expected_code = 'AccessDenied', expe
         if (err.message !== expected_message || err.code !== expected_code) throw err;
     }
 }
+// eslint-disable-next-line max-lines-per-function
 mocha.describe('s3 worm', function() {
     const { rpc_client, EMAIL } = coretest;
     const BKT = 'wormbucket';
@@ -44,24 +46,29 @@ mocha.describe('s3 worm', function() {
         self.timeout(60000);
         const s3_creds = {
             endpoint: coretest.get_http_address(),
-            s3ForcePathStyle: true,
-            signatureVersion: 'v4',
-            computeChecksums: true,
+            forcePathStyle: true,
+            // signatureVersion is Deprecated in SDK v3
+            //signatureVersion: 'v4',
+            // automatically compute the MD5 checksums for of the request payload in SDKV3
+            //computeChecksums: true,
+            //  s3DisableBodySigning renamed to applyChecksum but can be assigned in S3 object but cant find
             s3DisableBodySigning: false,
             region: 'us-east-1',
-            httpOptions: { agent: new http.Agent({ keepAlive: false }) },
+            requestHandler: new NodeHttpHandler({
+                    httpsAgent: new http.Agent({ keepAlive: false })
+                })
         };
         const account = { has_login: false, s3_access: true };
         const admin_keys = (await rpc_client.account.read_account({ email: EMAIL, })).access_keys;
         account.name = user_a;
         account.email = user_a;
         const user_a_keys = (await rpc_client.account.create_account(account)).access_keys;
-        s3_creds.accessKeyId = user_a_keys[0].access_key.unwrap();
-        s3_creds.secretAccessKey = user_a_keys[0].secret_key.unwrap();
+        s3_creds.credentials.accessKeyId = user_a_keys[0].access_key.unwrap();
+        s3_creds.credentials.secretAccessKey = user_a_keys[0].secret_key.unwrap();
         //s3_a = new AWS.S3(s3_creds);
-        s3_creds.accessKeyId = admin_keys[0].access_key.unwrap();
-        s3_creds.secretAccessKey = admin_keys[0].secret_key.unwrap();
-        s3_owner = new AWS.S3(s3_creds);
+        s3_creds.credentials.accessKeyId = admin_keys[0].access_key.unwrap();
+        s3_creds.credentials.secretAccessKey = admin_keys[0].secret_key.unwrap();
+        s3_owner = new S3(s3_creds);
     });
     mocha.describe('buckets creation', function() {
         mocha.it('create bucket BKT & enable lock', async function() {

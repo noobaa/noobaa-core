@@ -16,6 +16,7 @@ const nb_native = require('../../util/nb_native');
 const { CONFIG_TYPES } = require('../../sdk/config_fs');
 const native_fs_utils = require('../../util/native_fs_utils');
 const { NodeHttpHandler } = require("@smithy/node-http-handler");
+const { GetObjectCommand } = require('@aws-sdk/client-s3');
 
 const GPFS_ROOT_PATH = process.env.GPFS_ROOT_PATH;
 const IS_GPFS = !_.isUndefined(GPFS_ROOT_PATH);
@@ -52,7 +53,7 @@ const is_nc_coretest = process.env.NC_CORETEST === 'true';
  * @param {*} pool_id 
  * @param {*} bucket_name 
  * @param {*} blocks 
- * @param {AWS.S3} s3 
+ * @param {S3} s3 
  */
 async function blocks_exist_on_cloud(need_to_exist, pool_id, bucket_name, blocks, s3) {
     console.log('blocks_exist_on_cloud::', need_to_exist, pool_id, bucket_name);
@@ -69,7 +70,7 @@ async function blocks_exist_on_cloud(need_to_exist, pool_id, bucket_name, blocks
                 return s3.headObject({
                     Bucket: bucket_name,
                     Key: `noobaa_blocks/${pool_id}/blocks_tree/${block.slice(block.length - 3)}.blocks/${block}`
-                }).promise();
+                });
             }));
 
             let condition_correct;
@@ -861,6 +862,30 @@ function validate_expiration_header(expiration_header, start_time, expected_rule
     return days_diff === delta_days && rule_id === expected_rule_id;
 }
 
+/**
+ * return the response body and metadata
+ * 
+ * @param {import('@aws-sdk/client-s3').S3} s3_owner
+ * @param {any} bucket_name
+ * @param {string} key
+ * 
+ * */
+async function get_object(s3_owner, bucket_name, key) {
+    try {
+        const response = await s3_owner.send(new GetObjectCommand({
+            Bucket: bucket_name,
+            Key: key,
+        }));
+        const metadata = _.omit(response.$metadata, ['extendedRequestId', 'requestId']);
+        const body = await response.Body.transformToString('utf-8');
+        return { body, metadata };
+    } catch (err) {
+      console.error("Error while getting object for bucket: ", bucket_name, " Key: ", key, err);
+      throw err;
+    }
+}
+
+
 exports.update_file_mtime = update_file_mtime;
 exports.generate_lifecycle_rule = generate_lifecycle_rule;
 exports.validate_expiration_header = validate_expiration_header;
@@ -904,3 +929,4 @@ exports.fail_test_if_default_config_dir_exists = fail_test_if_default_config_dir
 exports.create_config_dir = create_config_dir;
 exports.clean_config_dir = clean_config_dir;
 exports.CLI_UNSET_EMPTY_STRING = CLI_UNSET_EMPTY_STRING;
+exports.get_object = get_object;

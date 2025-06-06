@@ -10,6 +10,8 @@ const { S3 } = require('@aws-sdk/client-s3');
 const url = require('url');
 const _ = require('lodash');
 const SensitiveString = require('./sensitive_string');
+const { STSClient, AssumeRoleWithWebIdentityCommand } = require('@aws-sdk/client-sts');
+const { NodeHttpHandler } = require('@smithy/node-http-handler');
 const config = require('../../config');
 const noobaa_s3_client = require('../sdk/noobaa_s3_client/noobaa_s3_client');
 
@@ -59,6 +61,41 @@ async function generate_aws_sts_creds(params, roleSessionName) {
         creds.Credentials.SecretAccessKey,
         creds.Credentials.SessionToken
     );
+}
+
+async function createSTSS3SDKv3Client(params, additionalParams) {
+    const creds = await generate_aws_sdkv3_sts_creds(params, additionalParams.RoleSessionName);
+    return new S3({
+        credentials: creds,
+        region: params.region || config.DEFAULT_REGION,
+        endpoint: additionalParams.endpoint,
+        requestHandler: new NodeHttpHandler({
+            httpsAgent: additionalParams.httpOptions
+        }),
+        forcePathStyle: additionalParams.s3ForcePathStyle
+    });
+}
+
+async function generate_aws_sdkv3_sts_creds(params, roleSessionName) {
+
+    const sts_client = new STSClient({ region: params.region || config.DEFAULT_REGION });
+    const input = {
+        DurationSeconds: defaultSTSCredsValidity,
+        RoleArn: params.aws_sts_arn,
+        RoleSessionName: roleSessionName || defaultRoleSessionName,
+        WebIdentityToken: (await fs.promises.readFile(projectedServiceAccountToken)).toString(),
+    };
+    const command = new AssumeRoleWithWebIdentityCommand(input);
+    const response = await sts_client.send(command);
+    if (_.isEmpty(response) || _.isEmpty(response.Credentials)) {
+        dbg.error(`AWS STS empty creds ${params.RoleArn}, RolesessionName: ${params.RoleSessionName},Projected service Account Token Path : ${projectedServiceAccountToken}`);
+        throw new RpcError('AWS_STS_ERROR', 'Empty AWS STS creds retrieved for Role "' + params.RoleArn + '"');
+    }
+    return {
+        accessKeyId: response.Credentials.AccessKeyId,
+        secretAccessKey: response.Credentials.SecretAccessKey,
+        sessionToken: response.Credentials.SessionToken,
+    };
 }
 
 function get_signed_url(params, expiry = 604800, custom_operation = 'getObject') {
@@ -213,3 +250,5 @@ exports.set_noobaa_s3_connection = set_noobaa_s3_connection;
 exports.createSTSS3Client = createSTSS3Client;
 exports.generate_aws_sts_creds = generate_aws_sts_creds;
 exports.generate_access_keys = generate_access_keys;
+exports.createSTSS3SDKv3Client = createSTSS3SDKv3Client;
+exports.generate_aws_sdkv3_sts_creds = generate_aws_sdkv3_sts_creds;

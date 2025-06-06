@@ -69,13 +69,11 @@ function get_signed_url(params, expiry = 604800, custom_operation = 'getObject')
         forcePathStyle: true,
         tls: false,
         //signatureVersion: get_s3_endpoint_signature_ver(params.endpoint),
-        applyChecksum: disable_s3_compatible_bodysigning(params.endpoint),
+        //applyChecksum: disable_s3_compatible_bodysigning(params.endpoint),
         region: 'eu-central-1',
-        httpOptions: {
-            // Setting the agent is not mandatory in this case as this s3 client
-            // is only used to acquire a signed Url
-            agent: http_utils.get_unsecured_agent(params.endpoint)
-        }
+        requestHandler: new NodeHttpHandler({
+            httpsAgent: http_utils.get_unsecured_agent(params.endpoint)
+        })
     });
     const response_queries = params.response_queries || {};
      const command = new GetObjectCommand({

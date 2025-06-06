@@ -78,23 +78,13 @@ class NamespaceMerge {
     }
 
     async read_object_stream(params, object_sdk) {
-        const operation = 'ObjectRead';
-        const load_for_trigger = !params.noobaa_trigger_agent &&
-            object_sdk.should_run_triggers({ active_triggers: this.active_triggers, operation });
         params = _.omit(params, 'noobaa_trigger_agent');
         let reply;
-        let obj = { key: params.key };
         // use the saved ns from read_object_md
         if (params.object_md && params.object_md.ns) {
-            obj = _.defaults(obj, params.object_md);
             reply = params.object_md.ns.read_object_stream(params, object_sdk);
         } else {
-            obj = load_for_trigger && _.defaults(obj, await this.read_object_md(params, object_sdk));
             reply = this._ns_get(ns => ns.read_object_stream(params, object_sdk));
-        }
-        // Notice: We dispatch the trigger prior to the finish of the read
-        if (load_for_trigger) {
-            object_sdk.dispatch_triggers({ active_triggers: this.active_triggers, operation, obj, bucket: params.bucket });
         }
         return reply;
     }
@@ -104,20 +94,7 @@ class NamespaceMerge {
     ///////////////////
 
     async upload_object(params, object_sdk) {
-        const operation = 'ObjectCreated';
-        const load_for_trigger = object_sdk.should_run_triggers({ active_triggers: this.active_triggers, operation });
-
         const reply = await this._ns_put(ns => ns.upload_object(params, object_sdk));
-        if (load_for_trigger) {
-            const obj = {
-                bucket: params.bucket,
-                key: params.key,
-                size: params.size,
-                content_type: params.content_type,
-                etag: reply.etag
-            };
-            object_sdk.dispatch_triggers({ active_triggers: this.active_triggers, operation, obj, bucket: params.bucket });
-        }
         return reply;
     }
 
@@ -152,21 +129,7 @@ class NamespaceMerge {
     }
 
     async complete_object_upload(params, object_sdk) {
-        const operation = 'ObjectCreated';
-        const load_for_trigger = object_sdk.should_run_triggers({ active_triggers: this.active_triggers, operation });
-
         const reply = await this._ns_put(ns => ns.complete_object_upload(params, object_sdk));
-        if (load_for_trigger) {
-            const head_reply = await this.read_object_md(params, object_sdk);
-            const obj = {
-                bucket: params.bucket,
-                key: params.key,
-                size: head_reply.size,
-                content_type: head_reply.content_type,
-                etag: reply.etag
-            };
-            object_sdk.dispatch_triggers({ active_triggers: this.active_triggers, operation, obj, bucket: params.bucket });
-        }
         return reply;
     }
 
@@ -181,28 +144,14 @@ class NamespaceMerge {
     // TODO should we: (1) delete from all ns ? (2) delete from writable ns ? (3) create a "delete marker" on writable ns
 
     async delete_object(params, object_sdk) {
-        const operation = 'ObjectRemoved';
-        const load_for_trigger = object_sdk.should_run_triggers({ active_triggers: this.active_triggers, operation });
-        let obj;
-        try {
-            obj = load_for_trigger && _.defaults({ key: params.key }, await this.read_object_md(params, object_sdk));
-        } catch (error) {
-            if (!_.includes(EXCEPT_REASONS, error.rpc_code || 'UNKNOWN_ERR')) throw error;
-        }
         const reply = await this._ns_map(ns => ns.delete_object(params, object_sdk), EXCEPT_REASONS);
-        // TODO: What should I send to the trigger on non existing objects delete?
-        if (load_for_trigger && obj) {
-            object_sdk.dispatch_triggers({ active_triggers: this.active_triggers, operation, obj, bucket: params.bucket });
-        }
         // TODO: Decide which one to return (currently we do not support versioning on our namespaces)
         return _.first(reply);
     }
 
 
     async delete_multiple_objects(params, object_sdk) {
-        const operation = 'ObjectRemoved';
-        const load_for_trigger = object_sdk.should_run_triggers({ active_triggers: this.active_triggers, operation });
-        const head_res = load_for_trigger && await this._ns_map(ns => P.map(params.objects, async obj => {
+        const head_res = await this._ns_map(ns => P.map(params.objects, async obj => {
             const request = {
                 bucket: params.bucket,
                 key: obj.key,
@@ -222,15 +171,6 @@ class NamespaceMerge {
             deleted_res,
             total_objects: params.objects.length
         });
-        if (load_for_trigger) {
-            merged_res.forEach(object => {
-                const obj = object.obj;
-                if (object.success && obj) {
-                    object_sdk.dispatch_triggers({ active_triggers: this.active_triggers, operation, obj, bucket: params.bucket });
-                }
-            });
-        }
-
         return _.map(merged_res, obj => obj.res);
     }
 

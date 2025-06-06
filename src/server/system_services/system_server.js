@@ -491,7 +491,6 @@ async function read_system(req) {
         nodes_aggregate_pool_with_cloud_no_mongo,
         hosts_aggregate_pool,
         accounts,
-        funcs,
         buckets_stats,
         endpoint_groups
     } = await P.map_props({
@@ -516,15 +515,6 @@ async function read_system(req) {
         ),
 
         refresh_system_alloc_unused: node_allocator.refresh_system_alloc(system),
-
-        funcs: P.resolve()
-            // using default domain - will serve the list_funcs from web_server so if
-            // endpoint is down it will not fail the read_system
-            .then(() => server_rpc.client.func.list_funcs({}, {
-                auth_token: req.auth_token,
-                domain: 'default'
-            }))
-            .then(res => res.functions),
 
         buckets_stats: BucketStatsStore.instance().get_all_buckets_stats({ system: system._id }),
         endpoint_groups: _get_endpoint_groups()
@@ -605,12 +595,10 @@ async function read_system(req) {
             bucket => {
                 const tiering_pools_status = node_allocator.get_tiering_status(bucket.tiering);
                 Object.assign(tiering_status_by_tier, tiering_pools_status);
-                const func_configs = funcs.map(func => func.config);
                 const b = bucket_server.get_bucket_info({
                     bucket,
                     nodes_aggregate_pool: nodes_aggregate_pool_with_cloud_and_mongo,
                     hosts_aggregate_pool,
-                    func_configs,
                     bucket_stats: stats_by_bucket[bucket.name],
                 });
 
@@ -626,7 +614,6 @@ async function read_system(req) {
                 nodes_aggregate_pool_with_cloud_and_mongo,
                 tiering_status_by_tier[String(tier._id)])),
         accounts: accounts,
-        functions: funcs,
         storage: size_utils.to_bigint_storage(_.defaults({
             used: objects_sys.size,
         }, nodes_aggregate_pool_with_cloud_no_mongo.storage, SYS_STORAGE_DEFAULTS)),

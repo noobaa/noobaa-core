@@ -5,10 +5,13 @@ const fs = require('fs');
 const RpcError = require('../rpc/rpc_error');
 const http_utils = require('./http_utils');
 const string_utils = require('./string_utils');
-const AWS = require('aws-sdk');
+const { S3, GetObjectCommand } = require('@aws-sdk/client-s3');
 const url = require('url');
 const _ = require('lodash');
 const SensitiveString = require('./sensitive_string');
+const { fromWebToken } = require("@aws-sdk/credential-providers");
+const { NodeHttpHandler } = require("@smithy/node-http-handler");
+const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 
 const projectedServiceAccountToken = "/var/run/secrets/openshift/serviceaccount/token";
 const defaultRoleSessionName = 'default_noobaa_s3_ops';
@@ -28,65 +31,58 @@ function find_cloud_connection(account, conn_name) {
 
 async function createSTSS3Client(params, additionalParams) {
     const creds = await generate_aws_sts_creds(params, additionalParams.RoleSessionName);
-    return new AWS.S3({
+    return new S3({
         credentials: creds,
         region: params.region,
         endpoint: additionalParams.endpoint,
-        signatureVersion: additionalParams.signatureVersion,
-        s3DisableBodySigning: additionalParams.s3DisableBodySigning,
-        httpOptions: additionalParams.httpOptions,
-        s3ForcePathStyle: additionalParams.s3ForcePathStyle
+        //s3DisableBodySigning: additionalParams.s3DisableBodySigning,
+        requestHandler: new NodeHttpHandler({
+            httpsAgent: additionalParams.httpOptions
+        }),
+        forcePathStyle: additionalParams.s3ForcePathStyle
     });
 }
 
 async function generate_aws_sts_creds(params, roleSessionName) {
-    const sts = new AWS.STS();
-    const creds = await (sts.assumeRoleWithWebIdentity({
-        RoleArn: params.aws_sts_arn,
-        RoleSessionName: roleSessionName || defaultRoleSessionName,
-        WebIdentityToken: (await fs.promises.readFile(projectedServiceAccountToken)).toString(),
-        DurationSeconds: defaultSTSCredsValidity
-    }).promise());
-    if (_.isEmpty(creds.Credentials)) {
+
+    const credentials = fromWebToken({
+        roleArn: params.aws_sts_arn,
+        webIdentityToken: (await fs.promises.readFile(projectedServiceAccountToken)).toString(),
+        roleSessionName: roleSessionName || defaultRoleSessionName,
+        policy: "JSON_STRING",
+        durationSeconds: defaultSTSCredsValidity,
+    });
+    if (_.isEmpty(credentials)) {
         dbg.error(`AWS STS empty creds ${params.RoleArn}, RolesessionName: ${params.RoleSessionName},Projected service Account Token Path : ${projectedServiceAccountToken}`);
         throw new RpcError('AWS_STS_ERROR', 'Empty AWS STS creds retrieved for Role "' + params.RoleArn + '"');
     }
-    return new AWS.Credentials(
-        creds.Credentials.AccessKeyId,
-        creds.Credentials.SecretAccessKey,
-        creds.Credentials.SessionToken
-    );
+    return credentials;
 }
 
 function get_signed_url(params, expiry = 604800, custom_operation = 'getObject') {
-    const op = custom_operation;
-    const s3 = new AWS.S3({
+    const s3 = new S3({
         endpoint: params.endpoint,
         credentials: {
             accessKeyId: params.access_key.unwrap(),
             secretAccessKey: params.secret_key.unwrap()
         },
-        s3ForcePathStyle: true,
-        sslEnabled: false,
-        signatureVersion: get_s3_endpoint_signature_ver(params.endpoint),
-        s3DisableBodySigning: disable_s3_compatible_bodysigning(params.endpoint),
+        forcePathStyle: true,
+        tls: false,
+        //signatureVersion: get_s3_endpoint_signature_ver(params.endpoint),
+        //applyChecksum: disable_s3_compatible_bodysigning(params.endpoint),
         region: 'eu-central-1',
-        httpOptions: {
-            // Setting the agent is not mandatory in this case as this s3 client
-            // is only used to acquire a signed Url
-            agent: http_utils.get_unsecured_agent(params.endpoint)
-        }
+        requestHandler: new NodeHttpHandler({
+            httpsAgent: http_utils.get_unsecured_agent(params.endpoint)
+        })
     });
     const response_queries = params.response_queries || {};
-    return s3.getSignedUrl(
-        op, {
-            Bucket: params.bucket.unwrap(),
-            Key: params.key,
-            VersionId: params.version_id,
-            Expires: expiry,
-            ...response_queries
-        }
-    );
+     const command = new GetObjectCommand({
+        Bucket: params.bucket.unwrap(),
+        Key: params.key,
+        VersionId: params.version_id,
+        ...response_queries,
+    });
+    return getSignedUrl(s3, command, { expiresIn: expiry });
 }
 // TODO: remove it after removed all old library code
 // and rename get_azure_new_connection_string to get_azure_connection_string
@@ -178,14 +174,14 @@ function set_noobaa_s3_connection(sys) {
         return;
     }
 
-    return new AWS.S3({
+    return new S3({
         endpoint: endpoint,
         credentials: {
             accessKeyId: access_key,
             secretAccessKey: secret_key
         },
-        s3ForcePathStyle: true,
-        sslEnabled: false
+        forcePathStyle: true,
+        tls: false
     });
 }
 

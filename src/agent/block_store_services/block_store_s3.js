@@ -2,7 +2,7 @@
 'use strict';
 
 const _ = require('lodash');
-const AWS = require('aws-sdk');
+const { S3 } = require('@aws-sdk/client-s3');
 
 const config = require('../../../config');
 const P = require('../../util/promise');
@@ -12,6 +12,7 @@ const cloud_utils = require('../../util/cloud_utils');
 const size_utils = require('../../util/size_utils');
 const BlockStoreBase = require('./block_store_base').BlockStoreBase;
 const { RpcError } = require('../../rpc');
+const { NodeHttpHandler } = require("@smithy/node-http-handler");
 
 
 const DEFAULT_REGION = 'us-east-1';
@@ -39,16 +40,17 @@ class BlockStoreS3 extends BlockStoreBase {
                     RoleSessionName: 'block_store_operations'
                 };
             } else {
-                this.s3cloud = new AWS.S3({
+                this.s3cloud = new S3({
                     endpoint: endpoint,
-                    accessKeyId: this.cloud_info.access_keys.access_key.unwrap(),
-                    secretAccessKey: this.cloud_info.access_keys.secret_key.unwrap(),
-                    s3ForcePathStyle: true,
-                    signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(endpoint, this.cloud_info.auth_method),
+                    credentials: {
+                        accessKeyId: this.cloud_info.access_keys.access_key.unwrap(),
+                        secretAccessKey: this.cloud_info.access_keys.secret_key.unwrap(),
+                    },
+                    forcePathStyle: true,
                     region: DEFAULT_REGION,
-                    httpOptions: {
-                        agent: http_utils.get_default_agent(endpoint)
-                    }
+                    requestHandler: new NodeHttpHandler({
+                        httpsAgent: http_utils.get_default_agent(endpoint)
+                    }),
                 });
             }
         } else {
@@ -56,16 +58,17 @@ class BlockStoreS3 extends BlockStoreBase {
                 config.EXPERIMENTAL_DISABLE_S3_COMPATIBLE_DELEGATION.DEFAULT;
             this.disable_metadata = config.EXPERIMENTAL_DISABLE_S3_COMPATIBLE_METADATA[this.cloud_info.endpoint_type] ||
                 config.EXPERIMENTAL_DISABLE_S3_COMPATIBLE_METADATA.DEFAULT;
-            this.s3cloud = new AWS.S3({
+            this.s3cloud = new S3({
                 endpoint: endpoint,
-                s3ForcePathStyle: true,
-                accessKeyId: this.cloud_info.access_keys.access_key.unwrap(),
-                secretAccessKey: this.cloud_info.access_keys.secret_key.unwrap(),
-                signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(endpoint, this.cloud_info.auth_method),
-                s3DisableBodySigning: cloud_utils.disable_s3_compatible_bodysigning(endpoint),
-                httpOptions: {
-                    agent: http_utils.get_unsecured_agent(endpoint)
-                }
+                forcePathStyle: true,
+                credentials: {
+                    accessKeyId: this.cloud_info.access_keys.access_key.unwrap(),
+                    secretAccessKey: this.cloud_info.access_keys.secret_key.unwrap(),
+                },
+                applyChecksum: cloud_utils.disable_s3_compatible_bodysigning(endpoint),
+                requestHandler: new NodeHttpHandler({
+                    httpsAgent: http_utils.get_unsecured_agent(endpoint)
+                }),
             });
         }
 
@@ -79,7 +82,7 @@ class BlockStoreS3 extends BlockStoreBase {
             const res = await this.s3cloud.getObject({
                 Bucket: this.cloud_info.target_bucket,
                 Key: this.usage_path,
-            }).promise();
+            });
 
             const usage_data = this.disable_metadata ?
                 res.Body.toString() :
@@ -106,7 +109,7 @@ class BlockStoreS3 extends BlockStoreBase {
         const res = await this.s3cloud.headObject({
             Bucket: this.cloud_info.target_bucket,
             Key: this._block_key(block_md.id),
-        }).promise();
+        });
         return {
             block_md: this._get_store_block_md(block_md, res),
             store_md5: res.ETag.toUpperCase(),
@@ -164,7 +167,7 @@ class BlockStoreS3 extends BlockStoreBase {
             const res = await this.s3cloud.getObject({
                 Bucket: this.cloud_info.target_bucket,
                 Key: this._block_key(block_md.id),
-            }).promise();
+            });
             return {
                 data: res.Body,
                 block_md: this._get_store_block_md(block_md, res),
@@ -193,7 +196,7 @@ class BlockStoreS3 extends BlockStoreBase {
                 Key: block_key,
                 Body: data,
                 Metadata: this.disable_metadata ? undefined : { noobaablockmd: encoded_md },
-            }).promise();
+            });
             if (options && options.ignore_usage) return;
             // return usage count for the object
             return this._update_usage({
@@ -242,7 +245,7 @@ class BlockStoreS3 extends BlockStoreBase {
             Metadata: this.disable_metadata ? undefined : {
                 [this.usage_md_key]: usage_data
             },
-        }).promise();
+        });
         // if our target bucket returns version ids that means versioning is enabled
         // and for the usage file that we keep replacing we want to keep only the latest
         // so we delete the past versions of the usage file.
@@ -262,12 +265,12 @@ class BlockStoreS3 extends BlockStoreBase {
                 await this.s3cloud.deleteObjectTagging({
                     Bucket: this.cloud_info.target_bucket,
                     Key: block_key
-                }).promise();
+                });
             } else {
                 await this.s3cloud.deleteObject({
                     Bucket: this.cloud_info.target_bucket,
                     Key: block_key
-                }).promise();
+                });
             }
         } catch (err) {
             // NoSuchKey is expected
@@ -309,7 +312,7 @@ class BlockStoreS3 extends BlockStoreBase {
                 Delimiter: '/',
                 KeyMarker: key_marker,
                 VersionIdMarker: version_marker,
-            }).promise();
+            });
             is_truncated = res.IsTruncated;
             key_marker = res.NextKeyMarker;
             version_marker = res.NextVersionIdMarker;
@@ -322,7 +325,7 @@ class BlockStoreS3 extends BlockStoreBase {
                 await this.s3cloud.deleteObjects({
                     Bucket: this.cloud_info.target_bucket,
                     Delete: { Objects: delete_list },
-                }).promise();
+                });
             }
         }
     }
@@ -344,7 +347,7 @@ class BlockStoreS3 extends BlockStoreBase {
                     Bucket: this.cloud_info.target_bucket,
                     KeyMarker: key_marker,
                     VersionIdMarker: version_marker
-                }).promise();
+                });
                 const del_objs = list_res.Versions.map(ver => ({ Key: ver.Key, VersionId: ver.VersionId }));
                 if (del_objs.length > 0) {
                     await this.s3cloud.deleteObjects({
@@ -352,7 +355,7 @@ class BlockStoreS3 extends BlockStoreBase {
                         Delete: {
                             Objects: del_objs,
                         }
-                    }).promise();
+                    });
                     total += del_objs.length;
                 }
 
@@ -390,7 +393,7 @@ class BlockStoreS3 extends BlockStoreBase {
                         Key: this._block_key(block_id)
                     }))
                 }
-            }).promise();
+            });
             if (res.Errors) {
                 for (const delete_error of res.Errors) {
                     const block_id = this._block_id_from_key(delete_error.Key);
@@ -421,7 +424,7 @@ class BlockStoreS3 extends BlockStoreBase {
                 const res = await this.s3cloud.headObject({
                     Bucket: this.cloud_info.target_bucket,
                     Key: this._block_key(block_id),
-                }).promise();
+                });
                 const noobaablockmd = res.Metadata.noobaablockmd || res.Metadata.noobaa_block_md;
                 const md_size = (noobaablockmd && noobaablockmd.length) || 0;
                 usage.size += Number(res.ContentLength) + md_size;

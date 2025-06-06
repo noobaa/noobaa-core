@@ -10,6 +10,8 @@ const { S3 } = require('@aws-sdk/client-s3');
 const url = require('url');
 const _ = require('lodash');
 const SensitiveString = require('./sensitive_string');
+const { STSClient, AssumeRoleWithWebIdentityCommand } = require('@aws-sdk/client-sts');
+const { NodeHttpHandler } = require("@smithy/node-http-handler");
 const config = require('../../config');
 const noobaa_s3_client = require('../sdk/noobaa_s3_client/noobaa_s3_client');
 
@@ -31,34 +33,37 @@ function find_cloud_connection(account, conn_name) {
 
 async function createSTSS3Client(params, additionalParams) {
     const creds = await generate_aws_sts_creds(params, additionalParams.RoleSessionName);
-    return new AWS.S3({
+    return new S3({
         credentials: creds,
-        region: params.region,
+        region: params.region || config.DEFAULT_REGION,
         endpoint: additionalParams.endpoint,
-        signatureVersion: additionalParams.signatureVersion,
-        s3DisableBodySigning: additionalParams.s3DisableBodySigning,
-        httpOptions: additionalParams.httpOptions,
-        s3ForcePathStyle: additionalParams.s3ForcePathStyle
+        requestHandler: new NodeHttpHandler({
+            httpsAgent: additionalParams.httpOptions
+        }),
+        forcePathStyle: additionalParams.s3ForcePathStyle
     });
 }
 
 async function generate_aws_sts_creds(params, roleSessionName) {
-    const sts = new AWS.STS();
-    const creds = await (sts.assumeRoleWithWebIdentity({
+
+    const sts_client = new STSClient({ region: params.region || config.DEFAULT_REGION });
+    const input = {
+        DurationSeconds: defaultSTSCredsValidity,
         RoleArn: params.aws_sts_arn,
         RoleSessionName: roleSessionName || defaultRoleSessionName,
         WebIdentityToken: (await fs.promises.readFile(projectedServiceAccountToken)).toString(),
-        DurationSeconds: defaultSTSCredsValidity
-    }).promise());
-    if (_.isEmpty(creds.Credentials)) {
+    };
+    const command = new AssumeRoleWithWebIdentityCommand(input);
+    const response = await sts_client.send(command);
+    if (_.isEmpty(response) || _.isEmpty(response.Credentials)) {
         dbg.error(`AWS STS empty creds ${params.RoleArn}, RolesessionName: ${params.RoleSessionName},Projected service Account Token Path : ${projectedServiceAccountToken}`);
         throw new RpcError('AWS_STS_ERROR', 'Empty AWS STS creds retrieved for Role "' + params.RoleArn + '"');
     }
-    return new AWS.Credentials(
-        creds.Credentials.AccessKeyId,
-        creds.Credentials.SecretAccessKey,
-        creds.Credentials.SessionToken
-    );
+    return {
+        accessKeyId: response.Credentials.AccessKeyId,
+        secretAccessKey: response.Credentials.SecretAccessKey,
+        sessionToken: response.Credentials.SessionToken,
+    };
 }
 
 function get_signed_url(params, expiry = 604800, custom_operation = 'getObject') {

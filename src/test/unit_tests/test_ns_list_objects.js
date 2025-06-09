@@ -3,8 +3,10 @@
 
 const mocha = require('mocha');
 const assert = require('assert');
+const config = require('../../../config');
 
 const buffer_utils = require('../../util/buffer_utils');
+const fs_utils = require('../../util/fs_utils');
 
 // eslint-disable-next-line max-lines-per-function
 function test_ns_list_objects(ns, object_sdk, bucket) {
@@ -313,6 +315,33 @@ function test_ns_list_objects(ns, object_sdk, bucket) {
         });
     });
 
+    mocha.describe('list objects - hidden dir', function() {
+
+        this.timeout(10 * 60 * 1000); // eslint-disable-line no-invalid-this
+
+        const hidden_dir_bkt = 'test_ns_hidder_dir';
+        const dummy_file1 = 'dummy1';
+        const dummy_file2 = 'dummy2';
+        const hidden_dir = config.NSFS_TEMP_DIR_NAME + '-buck_id';
+
+        mocha.before(async function() {
+            fs_utils.create_fresh_path(`${ns.bucket_path}/${hidden_dir}`); // creating new hidden dir starting with .noobaa-nsfs
+            await create_keys([dummy_file1, dummy_file2]);
+        });
+        mocha.after(async function() {
+            await delete_keys([dummy_file1, dummy_file2]);
+        });
+
+        mocha.it('should not list the hidden/internal dir as common_prefixes', async function() {
+            const r = await ns.list_objects({
+                bucket: hidden_dir_bkt,
+                delimiter: '/'
+            }, object_sdk);
+            assert.deepStrictEqual(r.is_truncated, false);
+            assert.deepStrictEqual(r.common_prefixes, []);
+            assert.deepStrictEqual(r.objects.length, 2);
+        });
+    });
     mocha.describe('max keys test', function() {
 
         this.timeout(10 * 60 * 1000); // eslint-disable-line no-invalid-this

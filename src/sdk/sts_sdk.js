@@ -7,6 +7,8 @@ const { RpcError } = require('../rpc');
 const signature_utils = require('../util/signature_utils');
 const { account_cache } = require('./object_sdk');
 const BucketSpaceNB = require('./bucketspace_nb');
+const jwt = require('jsonwebtoken');
+const ldap_client = require('../util/ldap_client');
 
 class StsSDK {
 
@@ -27,7 +29,7 @@ class StsSDK {
         return this.auth_token;
     }
 
-     /**
+    /**
      * @returns {nb.BucketSpace}
      */
     _get_bucketspace() {
@@ -77,6 +79,51 @@ class StsSDK {
         };
     }
 
+    async get_assumed_ldap_user(req) {
+        dbg.log1('sts_sdk.get_assumed_ldap_user body', req.body);
+        const jwt_secret = ldap_client.is_ldap_configured && ldap_client.instance().ldap_params.jwt_secret;
+        if (!jwt_secret) {
+            dbg.error('get_assumed_ldap_user error: No LDAP JWT secret found');
+            throw new RpcError('INTERNAL_ERROR', 'No LDAP JWT secret found');
+        }
+        const access_key = req.body.role_arn.split(':')[4];
+        let web_token;
+        try {
+            web_token = jwt.verify(req.body.web_identity_token, jwt_secret);
+        } catch (err) {
+            dbg.error('get_assumed_ldap_user error: JWT token verification failed', err);
+            if (err.message.includes('TokenExpiredError')) {
+                throw new RpcError('EXPIRED_WEB_IDENTITY_TOKEN', err.message);
+            } else {
+                throw new RpcError('INVALID_WEB_IDENTITY_TOKEN', err.message);
+            }
+        }
+        if (!web_token.user) {
+            throw new RpcError('INVALID_WEB_IDENTITY_TOKEN', 'Missing a required claim: user');
+        }
+        if (!web_token.password) {
+            throw new RpcError('INVALID_WEB_IDENTITY_TOKEN', 'Missing a required claim: password');
+        }
+
+        const ldap_user = web_token.user;
+        const ldap_password = web_token.password;
+
+        try {
+            const dn = await ldap_client.authenticate(ldap_user, ldap_password);
+            // TODO: Add ldap user to DB
+            return {
+                access_key,
+                dn,
+                role_config: {
+                    role_name: req.body.role_arn.split('/')[1],
+                }
+            };
+        } catch (err) {
+            dbg.error('get_assumed_ldap_user error:', err);
+            throw new RpcError('ACCESS_DENIED', 'issue with LDAP authentication');
+        }
+    }
+
     generate_temp_access_keys() {
         return cloud_utils.generate_access_keys();
     }
@@ -88,7 +135,11 @@ class StsSDK {
             signature_utils.authorize_request_account_by_token(token, this.requesting_account);
             return;
         }
-        throw new RpcError('UNAUTHORIZED', `No permission to access bucket`);
+        // assume role with web identity is Anonymous
+        if (req.op_name === 'post_assume_role_with_web_identity') {
+            return;
+        }
+        throw new RpcError('UNAUTHORIZED', `No permission to sts ops`);
     }
 }
 

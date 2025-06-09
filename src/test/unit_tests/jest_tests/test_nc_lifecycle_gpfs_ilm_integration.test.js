@@ -6,6 +6,7 @@ process.env.DISABLE_INIT_RANDOM_SEED = 'true';
 
 const fs = require('fs');
 const path = require('path');
+const config = require('../../../../config');
 const { ConfigFS } = require('../../../sdk/config_fs');
 const { file_delete, create_fresh_path } = require('../../../util/fs_utils');
 const { read_file } = require('../../../util/native_fs_utils');
@@ -479,7 +480,7 @@ function get_mock_base_ilm_policy(bucket_storage_path, rule_id, lifecycle_run_st
     const policy_rule_id = `${bucket_name}_${rule_id}_${lifecycle_run_status.lifecycle_run_times.run_lifecycle_start_time}`;
     const policy_base = `RULE '${policy_rule_id}' LIST '${policy_rule_id}'\n` +
     `WHERE PATH_NAME LIKE '${bucket_storage_path}/%'\n` +
-    `AND PATH_NAME NOT LIKE '${bucket_storage_path}/.noobaa_nsfs%/%'\n`;
+    `AND PATH_NAME NOT LIKE '${bucket_storage_path}/${config.NSFS_TEMP_DIR_NAME}%/%'\n`;
 
     return definitions_base + policy_base;
 }

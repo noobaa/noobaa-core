@@ -40,6 +40,7 @@ const TIMED_OPS = Object.freeze({
     RUN_LIFECYLE: 'run_lifecycle',
     LIST_BUCKETS: 'list_buckets',
     CREATE_GPFS_CANDIDATES_FILES: 'create_gpfs_candidates_files',
+    CREATE_GPFS_CANDIDATE_FILE_BY_ILM_POLICY: 'create_candidates_file_by_gpfs_ilm_policy',
     PROCESS_BUCKETS: 'process_buckets',
     PROCESS_BUCKET: 'process_bucket',
     PROCESS_RULE: 'process_rule',
@@ -82,7 +83,8 @@ class NCLifecycle {
             lifecycle_run_times: {},
             total_stats: this._get_default_stats(),
             state: { is_finished: false },
-            buckets_statuses: {}
+            buckets_statuses: {},
+            mount_points_statuses: {}
         };
         this.return_short_status = options.short_status || false;
         this.disable_service_validation = options.disable_service_validation || false;
@@ -787,14 +789,15 @@ class NCLifecycle {
      * @param {{
     *      op_name: string;
     *      op_func: () => Promise<T>;
+    *      mount_point?: string,
     *      bucket_name?: string,
     *      rule_id?: string
     * }} params
     * @returns {Promise<T>}
     */
-    async _call_op_and_update_status({ bucket_name = undefined, rule_id = undefined, op_name, op_func }) {
+    async _call_op_and_update_status({ mount_point = undefined, bucket_name = undefined, rule_id = undefined, op_name, op_func }) {
         const start_time = Date.now();
-        const update_options = { op_name, bucket_name, rule_id };
+        const update_options = { mount_point, op_name, bucket_name, rule_id };
         let end_time;
         let took_ms;
         let error;
@@ -815,13 +818,15 @@ class NCLifecycle {
     }
 
     /**
-     * update_status updates rule/bucket/global based on the given parameters
+     * update_status updates rule/bucket/mount_point/global based on the given parameters
      * 1. initalize statuses/times/stats per level
      * 2. update times
      * 3. update errors
      * 4. update stats if the op is at rule level
+     * Note - on mount_point we won't update stats/state
      * @param {{
      * op_name: string,
+     * mount_point?: string, 
      * bucket_name?: string,
      * rule_id?: string,
      * op_times: { start_time?: number, end_time?: number, took_ms?: number },
@@ -830,12 +835,14 @@ class NCLifecycle {
      * } params
      * @returns {Void}
     */
-    update_status({ bucket_name, rule_id, op_name, op_times, reply = [], error = undefined }) {
+    update_status({ mount_point, bucket_name, rule_id, op_name, op_times, reply = [], error = undefined }) {
         if (op_times.start_time) {
             if (op_name === TIMED_OPS.PROCESS_RULE) {
                 this.init_rule_status(bucket_name, rule_id);
             } else if (op_name === TIMED_OPS.PROCESS_BUCKET) {
                 this.init_bucket_status(bucket_name);
+            } else if (op_name === TIMED_OPS.CREATE_GPFS_CANDIDATE_FILE_BY_ILM_POLICY) {
+                this.init_mount_status(mount_point);
             }
         }
         if (op_times.end_time) {
@@ -843,8 +850,8 @@ class NCLifecycle {
                 this.update_rule_status_is_finished(bucket_name, rule_id);
             }
         }
-        this._update_times_on_status({ op_name, op_times, bucket_name, rule_id });
-        this._update_error_on_status({ error, bucket_name, rule_id });
+        this._update_times_on_status({ op_name, op_times, mount_point, bucket_name, rule_id });
+        this._update_error_on_status({ error, mount_point, bucket_name, rule_id });
         if (bucket_name && rule_id) {
             this.update_stats_on_status({ bucket_name, rule_id, op_name, op_times, reply });
         }
@@ -918,16 +925,18 @@ class NCLifecycle {
     /**
      * _update_times_on_status updates start/end & took times in lifecycle status
      * @param {{op_name: String, op_times: {start_time?: number, end_time?: number, took_ms?: number },
-     * bucket_name?: String, rule_id?: String}} params
+     * mount_point?: String, bucket_name?: String, rule_id?: String}} params
      * @returns
      */
-    _update_times_on_status({ op_name, op_times, bucket_name = undefined, rule_id = undefined }) {
+    _update_times_on_status({ op_name, op_times, mount_point = undefined, bucket_name = undefined, rule_id = undefined }) {
         for (const [key, value] of Object.entries(op_times)) {
             const status_key = op_name + '_' + key;
             if (bucket_name && rule_id) {
                 this.lifecycle_run_status.buckets_statuses[bucket_name].rules_statuses[rule_id].rule_process_times[status_key] = value;
             } else if (bucket_name) {
                 this.lifecycle_run_status.buckets_statuses[bucket_name].bucket_process_times[status_key] = value;
+            } else if (mount_point) {
+                this.lifecycle_run_status.mount_points_statuses[mount_point].mount_point_process_times[status_key] = value;
             } else {
                 this.lifecycle_run_status.lifecycle_run_times[status_key] = value;
             }
@@ -936,15 +945,17 @@ class NCLifecycle {
 
     /**
      * _update_error_on_status updates an error occured in lifecycle status
-     * @param {{error: Error, bucket_name?: string, rule_id?: string}} params
+     * @param {{error: Error, mount_point?: string, bucket_name?: string, rule_id?: string}} params
      * @returns
      */
-    _update_error_on_status({ error, bucket_name = undefined, rule_id = undefined }) {
+    _update_error_on_status({ error, mount_point = undefined, bucket_name = undefined, rule_id = undefined }) {
         if (!error) return;
         if (bucket_name && rule_id) {
             (this.lifecycle_run_status.buckets_statuses[bucket_name].rules_statuses[rule_id].errors ??= []).push(error.message);
         } else if (bucket_name) {
             (this.lifecycle_run_status.buckets_statuses[bucket_name].errors ??= []).push(error.message);
+        } else if (mount_point) {
+            (this.lifecycle_run_status.mount_points_statuses[mount_point].errors ??= []).push(error.message);
         } else {
             (this.lifecycle_run_status.errors ??= []).push(error.message);
         }
@@ -984,6 +995,18 @@ class NCLifecycle {
         this.lifecycle_run_status.buckets_statuses[bucket_name].rules_statuses ??= {};
         return this.lifecycle_run_status.buckets_statuses[bucket_name];
     }
+
+    /**
+     * init the mount_point status object statuses if they don't exist
+     * @param {string} mount_point
+     * @returns {Object} created or existing mount_point status
+     */
+    init_mount_status(mount_point) {
+        this.lifecycle_run_status.mount_points_statuses[mount_point] ??= {};
+        this.lifecycle_run_status.mount_points_statuses[mount_point].mount_point_process_times ??= {};
+        return this.lifecycle_run_status.mount_points_statuses[mount_point];
+    }
+
 
     /**
      * init the rule status object statuses if they don't exist
@@ -1213,11 +1236,22 @@ class NCLifecycle {
 
         await native_fs_utils._create_path(ILM_POLICIES_TMP_DIR, this.non_gpfs_fs_context, config.BASE_MODE_CONFIG_DIR);
         await native_fs_utils._create_path(ILM_CANDIDATES_TMP_DIR, this.non_gpfs_fs_context, config.BASE_MODE_CONFIG_DIR);
-        for (const [mount_point, policy] of Object.entries(mount_point_to_policy_map)) {
-            if (policy === '') continue;
-            const ilm_policy_path = await this.write_tmp_ilm_policy(mount_point, policy);
-            await this.create_candidates_file_by_gpfs_ilm_policy(mount_point, ilm_policy_path);
-        }
+        await P.map_with_concurrency(config.NC_LIFECYCLE_GPFS_MMAPPLY_ILM_POLICY_CONCURRENCY,
+            Object.entries(mount_point_to_policy_map), async ([mount_point, policy]) => {
+            try {
+                if (policy === '') return;
+                await this._call_op_and_update_status({
+                    mount_point,
+                    op_name: TIMED_OPS.CREATE_GPFS_CANDIDATE_FILE_BY_ILM_POLICY,
+                    op_func: async () => {
+                        const ilm_policy_path = await this.write_tmp_ilm_policy(mount_point, policy);
+                        await this.create_candidates_file_by_gpfs_ilm_policy(mount_point, ilm_policy_path);
+                    }
+                });
+            } catch (err) {
+                dbg.error('create_candidates_file_by_gpfs_ilm_policy failed with error', err, err.code, err.message);
+            }
+        });
     }
 
     /**

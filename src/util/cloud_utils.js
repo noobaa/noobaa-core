@@ -59,7 +59,7 @@ async function generate_aws_sts_creds(params, roleSessionName) {
     return credentials;
 }
 
-function get_signed_url(params, expiry = 604800, custom_operation = 'getObject') {
+async function get_signed_url(params, expiry = 604800, custom_operation = 'getObject') {
     const s3 = new S3({
         endpoint: params.endpoint,
         credentials: {
@@ -82,7 +82,7 @@ function get_signed_url(params, expiry = 604800, custom_operation = 'getObject')
         VersionId: params.version_id,
         ...response_queries,
     });
-    return getSignedUrl(s3, command, { expiresIn: expiry });
+    return await getSignedUrl(s3, command, { expiresIn: expiry });
 }
 // TODO: remove it after removed all old library code
 // and rename get_azure_new_connection_string to get_azure_connection_string

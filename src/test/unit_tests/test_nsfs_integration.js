@@ -2190,7 +2190,7 @@ mocha.describe('Presigned URL tests', function() {
             access_key: access_key,
             secret_key: secret_key
         };
-        valid_default_presigned_url = cloud_utils.get_signed_url(presigned_url_params);
+        valid_default_presigned_url = await cloud_utils.get_signed_url(presigned_url_params);
     });
 
     mocha.after(async function() {
@@ -2234,7 +2234,7 @@ mocha.describe('Presigned URL tests', function() {
     });
 
     it('fetch invalid presigned URL - 604800 seconds - epoch expiry - URL expired', async () => {
-        const expired_presigned_url = cloud_utils.get_signed_url(presigned_url_params, 1);
+        const expired_presigned_url = await cloud_utils.get_signed_url(presigned_url_params, 1);
         // wait for 2 seconds before fetching the url
         await P.delay(2000);
         const expected_err = new S3Error(S3Error.RequestExpired);
@@ -2243,7 +2243,7 @@ mocha.describe('Presigned URL tests', function() {
 
     it('fetch invalid presigned URL - 604800 expiry seconds - URL expired', async () => {
         const now = new Date();
-        const expired_presigned_url = cloud_utils.get_signed_url(presigned_url_params, 1) + '&X-Amz-Date=' + now.toISOString() + '&X-Amz-Expires=' + 1;
+        const expired_presigned_url = await cloud_utils.get_signed_url(presigned_url_params, 1) + '&X-Amz-Date=' + now.toISOString() + '&X-Amz-Expires=' + 1;
         // wait for 2 seconds before fetching the url
         await P.delay(2000);
         const expected_err = new S3Error(S3Error.RequestExpired);
@@ -2252,7 +2252,7 @@ mocha.describe('Presigned URL tests', function() {
 
     it('fetch invalid presigned URL - expiry expoch - expire in bigger than limit', async () => {
         const invalid_expiry = 604800 + 10;
-        const invalid_expiry_presigned_url = cloud_utils.get_signed_url(presigned_url_params, invalid_expiry);
+        const invalid_expiry_presigned_url = await cloud_utils.get_signed_url(presigned_url_params, invalid_expiry);
         const expected_err = new S3Error(S3Error.AuthorizationQueryParametersErrorWeek);
         await assert_throws_async(fetchData(invalid_expiry_presigned_url), expected_err.message);
     });
@@ -2260,7 +2260,7 @@ mocha.describe('Presigned URL tests', function() {
     it('fetch invalid presigned URL - expire in bigger than limit', async () => {
         const now = new Date();
         const invalid_expiry = 604800 + 10;
-        const invalid_expiry_presigned_url = cloud_utils.get_signed_url(presigned_url_params, invalid_expiry) + '&X-Amz-Date=' + now.toISOString() + '&X-Amz-Expires=' + invalid_expiry;
+        const invalid_expiry_presigned_url = await cloud_utils.get_signed_url(presigned_url_params, invalid_expiry) + '&X-Amz-Date=' + now.toISOString() + '&X-Amz-Expires=' + invalid_expiry;
         const expected_err = new S3Error(S3Error.AuthorizationQueryParametersErrorWeek);
         await assert_throws_async(fetchData(invalid_expiry_presigned_url), expected_err.message);
     });
@@ -2268,7 +2268,7 @@ mocha.describe('Presigned URL tests', function() {
     it('fetch invalid presigned URL - throw an error on exipray with a negative number', async () => {
         const now = new Date();
         const invalid_expiry = -7;
-        const invalid_expiry_presigned_url = cloud_utils.get_signed_url(presigned_url_params, invalid_expiry) + '&X-Amz-Date=' + now.toISOString() + '&X-Amz-Expires=' + invalid_expiry;
+        const invalid_expiry_presigned_url = await cloud_utils.get_signed_url(presigned_url_params, invalid_expiry) + '&X-Amz-Date=' + now.toISOString() + '&X-Amz-Expires=' + invalid_expiry;
         const expected_err = new S3Error(S3Error.AuthorizationQueryParametersErrorNonNegative);
         await assert_throws_async(fetchData(invalid_expiry_presigned_url), expected_err.message);
     });
@@ -2282,7 +2282,7 @@ mocha.describe('Presigned URL tests', function() {
             ResponseExpires: response_expires
         };
         const presigned_url_params_with_response_headers = { ...presigned_url_params, response_queries };
-        const url_with_response_headers = cloud_utils.get_signed_url(presigned_url_params_with_response_headers, 604800);
+        const url_with_response_headers = await cloud_utils.get_signed_url(presigned_url_params_with_response_headers, 604800);
         const headers = await fetchHeaders(url_with_response_headers);
         assert.equal(headers.get('content-disposition'), response_content_disposition);
         assert.equal(headers.get('content-language'), response_content_language);
@@ -2300,7 +2300,7 @@ mocha.describe('Presigned URL tests', function() {
             ResponseExpires: response_expires
         };
         const presigned_url_params_with_response_headers = { ...presigned_url_params, response_queries };
-        const url_with_response_headers = cloud_utils.get_signed_url(presigned_url_params_with_response_headers, 604800, 'headObject');
+        const url_with_response_headers = await cloud_utils.get_signed_url(presigned_url_params_with_response_headers, 604800, 'headObject');
         const headers = await fetchHeaders(url_with_response_headers, { method: 'HEAD' });
         assert.equal(headers.get('content-disposition'), response_content_disposition);
         assert.equal(headers.get('content-language'), response_content_language);

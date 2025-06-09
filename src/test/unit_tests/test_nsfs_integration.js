@@ -2045,6 +2045,7 @@ async function assert_throws_async(promise, expected_message = 'Access Denied') 
         await promise;
         assert.fail('Test was suppose to fail on ' + expected_message);
     } catch (err) {
+        console.log("assert_throws_async ERRRROOORRR===== @@@@", expected_message, err);
         if (err.message !== expected_message) {
             throw err;
         }
@@ -2385,7 +2386,7 @@ mocha.describe('response headers test - regular request', function() {
 
 async function fetchData(presigned_url) {
     console.log("presigned_url=========@@@", presigned_url);
-    const response = await fetch(presigned_url, { httpOptions: { agent: http_utils.get_unsecured_agent(CORETEST_ENDPOINT) } });
+    const response = await fetch(presigned_url, { httpOptions: { agent: new http.Agent({ keepAlive: false }) } });
     let data;
     if (!response.ok) {
         data = (await response.text()).trim();

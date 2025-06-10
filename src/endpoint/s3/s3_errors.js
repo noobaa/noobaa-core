@@ -548,7 +548,7 @@ S3Error.InvalidEncodingType = Object.freeze({
 });
 S3Error.AuthorizationQueryParametersErrorWeek = Object.freeze({
     code: 'AuthorizationQueryParametersError',
-    message: 'X-Amz-Expires must be less than a week (in seconds); that is, the given X-Amz-Expires must be less than 604800 seconds',
+    message: 'Signature version 4 presigned URLs must have an expiration date less than one week in the future',
     http_code: 400,
 });
 S3Error.AuthorizationQueryParametersErrorNonNegative = Object.freeze({
@@ -566,6 +566,7 @@ S3Error.RequestNotValidYet = Object.freeze({
     message: 'request is not valid yet',
     http_code: 403,
 });
+
 
 ////////////////////////////////////////////////////////////////
 // S3 Select                                                  //

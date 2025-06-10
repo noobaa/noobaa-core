@@ -10,6 +10,7 @@ const _ = require('lodash');
 const path = require('path');
 const util = require('util');
 const http = require('http');
+const url = require('url');
 const mocha = require('mocha');
 const assert = require('assert');
 const http_utils = require('../../util/http_utils');
@@ -2045,13 +2046,11 @@ async function assert_throws_async(promise, expected_message = 'Access Denied') 
         await promise;
         assert.fail('Test was suppose to fail on ' + expected_message);
     } catch (err) {
-        console.log("assert_throws_async ERRRROOORRR===== @@@@", expected_message, err);
         if (err.message !== expected_message) {
             throw err;
         }
     }
 }
-
 
 async function put_and_delete_objects(s3_account, bucket, key, body, should_fail) {
     try {
@@ -2209,7 +2208,7 @@ mocha.describe('Presigned URL tests', function() {
 
     it('fetch valid presigned URL - 604800 seconds - should return object data - with valid date + expiry in seconds', async () => {
         const now = new Date();
-        const valid_url_with_date = valid_default_presigned_url + '&X-Amz-Date=' + now.toISOString() + '&X-Amz-Expires=' + 604800;
+        const valid_url_with_date = format_url(valid_default_presigned_url, now.toISOString(), '604800');
         const data = await fetchData(valid_url_with_date);
         assert.equal(data, presigned_body);
     });
@@ -2219,9 +2218,10 @@ mocha.describe('Presigned URL tests', function() {
         // Add one hour (3600000 milliseconds)
         const one_hour_in_ms = 60 * 60 * 1000;
         const one_hour_from_now = new Date(now.getTime() + one_hour_in_ms);
-        const future_presigned_url = valid_default_presigned_url + '&X-Amz-Date=' + one_hour_from_now.toISOString();
-        const expected_err = new S3Error(S3Error.RequestNotValidYet);
-        await assert_throws_async(fetchData(future_presigned_url), expected_err.message);
+        const future_presigned_url = format_url(valid_default_presigned_url, one_hour_from_now.toISOString());
+        // Signature version v4 do not return error for future date X-Amz-Date
+        const data = await fetchData(future_presigned_url);
+        assert.equal(data, presigned_body);
     });
 
     it('fetch invalid presigned URL - 604800 expiry seconds + with future date', async () => {
@@ -2229,9 +2229,10 @@ mocha.describe('Presigned URL tests', function() {
         // Add one hour (3600000 milliseconds)
         const one_hour_in_ms = 60 * 60 * 1000;
         const one_hour_from_now = new Date(now.getTime() + one_hour_in_ms);
-        const future_presigned_url = valid_default_presigned_url + '&X-Amz-Date=' + one_hour_from_now.toISOString() + '&X-Amz-Expires=' + 604800;
-        const expected_err = new S3Error(S3Error.RequestNotValidYet);
-        await assert_throws_async(fetchData(future_presigned_url), expected_err.message);
+        const future_presigned_url = format_url(valid_default_presigned_url, one_hour_from_now.toISOString(), '604800');
+        // Signature version v4 do not return error for future date X-Amz-Date
+        const data = await fetchData(future_presigned_url);
+        assert.equal(data, presigned_body);
     });
 
     it('fetch invalid presigned URL - 604800 seconds - epoch expiry - URL expired', async () => {
@@ -2244,7 +2245,8 @@ mocha.describe('Presigned URL tests', function() {
 
     it('fetch invalid presigned URL - 604800 expiry seconds - URL expired', async () => {
         const now = new Date();
-        const expired_presigned_url = await cloud_utils.get_signed_url(presigned_url_params, 1) + '&X-Amz-Date=' + now.toISOString() + '&X-Amz-Expires=' + 1;
+        const expired_url = await cloud_utils.get_signed_url(presigned_url_params, 1);
+        const expired_presigned_url = format_url(expired_url, now.toISOString(), '1');
         // wait for 2 seconds before fetching the url
         await P.delay(2000);
         const expected_err = new S3Error(S3Error.RequestExpired);
@@ -2253,23 +2255,24 @@ mocha.describe('Presigned URL tests', function() {
 
     it('fetch invalid presigned URL - expiry expoch - expire in bigger than limit', async () => {
         const invalid_expiry = 604800 + 10;
-        const invalid_expiry_presigned_url = await cloud_utils.get_signed_url(presigned_url_params, invalid_expiry);
         const expected_err = new S3Error(S3Error.AuthorizationQueryParametersErrorWeek);
-        await assert_throws_async(fetchData(invalid_expiry_presigned_url), expected_err.message);
+        // Signature V4 won't allow to creation of a signed URL with an invalid expiry value.
+        await assert_throws_async(cloud_utils.get_signed_url(presigned_url_params, invalid_expiry), expected_err.message);
     });
 
     it('fetch invalid presigned URL - expire in bigger than limit', async () => {
-        const now = new Date();
+        //const now = new Date();
         const invalid_expiry = 604800 + 10;
-        const invalid_expiry_presigned_url = await cloud_utils.get_signed_url(presigned_url_params, invalid_expiry) + '&X-Amz-Date=' + now.toISOString() + '&X-Amz-Expires=' + invalid_expiry;
         const expected_err = new S3Error(S3Error.AuthorizationQueryParametersErrorWeek);
-        await assert_throws_async(fetchData(invalid_expiry_presigned_url), expected_err.message);
+        // Signature V4 won't allow to creation of a signed URL with an invalid expiry value.
+        await assert_throws_async(cloud_utils.get_signed_url(presigned_url_params, invalid_expiry), expected_err.message);
     });
 
     it('fetch invalid presigned URL - throw an error on exipray with a negative number', async () => {
         const now = new Date();
         const invalid_expiry = -7;
-        const invalid_expiry_presigned_url = await cloud_utils.get_signed_url(presigned_url_params, invalid_expiry) + '&X-Amz-Date=' + now.toISOString() + '&X-Amz-Expires=' + invalid_expiry;
+        const invalid_presigned_url = await cloud_utils.get_signed_url(presigned_url_params, invalid_expiry);
+        const invalid_expiry_presigned_url = format_url(invalid_presigned_url, now.toISOString(), invalid_expiry.toString());
         const expected_err = new S3Error(S3Error.AuthorizationQueryParametersErrorNonNegative);
         await assert_throws_async(fetchData(invalid_expiry_presigned_url), expected_err.message);
     });
@@ -2301,8 +2304,8 @@ mocha.describe('Presigned URL tests', function() {
             ResponseExpires: response_expires
         };
         const presigned_url_params_with_response_headers = { ...presigned_url_params, response_queries };
-        const url_with_response_headers = await cloud_utils.get_signed_url(presigned_url_params_with_response_headers, 604800, 'headObject');
-        const headers = await fetchHeaders(url_with_response_headers, { method: 'HEAD' });
+        const url_with_response_headers = await cloud_utils.get_signed_url(presigned_url_params_with_response_headers, 604800);
+        const headers = await fetchHeaders(url_with_response_headers);
         assert.equal(headers.get('content-disposition'), response_content_disposition);
         assert.equal(headers.get('content-language'), response_content_language);
         assert.equal(headers.get('content-type'), response_content_type);
@@ -2385,7 +2388,6 @@ mocha.describe('response headers test - regular request', function() {
 });
 
 async function fetchData(presigned_url) {
-    console.log("presigned_url=========@@@", presigned_url);
     const response = await fetch(presigned_url, { httpOptions: { agent: new http.Agent({ keepAlive: false }) } });
     let data;
     if (!response.ok) {
@@ -2399,8 +2401,8 @@ async function fetchData(presigned_url) {
     return data.trim();
 }
 
-async function fetchHeaders(presigned_url, options) {
-    const response = await fetch(presigned_url, { ...options, agent: new http.Agent({ keepAlive: false }) });
+async function fetchHeaders(presigned_url) {
+    const response = await fetch(presigned_url, { agent: new http.Agent({ keepAlive: false }) });
     let data;
     if (!response.ok) {
         data = (await response.text()).trim();
@@ -2410,5 +2412,19 @@ async function fetchHeaders(presigned_url, options) {
         throw err;
     }
     return response.headers;
+}
+
+/**
+ * Format parsed url to string url
+ * 
+ * @param {string} presigned_url 
+ * @param {string} date 
+ * @param {string} expires 
+ */
+function format_url(presigned_url, date, expires = undefined) {
+    const url_object = url.parse(presigned_url, true);
+    url_object.query['X-Amz-Date'] = date;
+    url_object.query['X-Amz-Expires'] = expires;
+    return url.format(url_object);
 }
 

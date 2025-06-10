@@ -59,7 +59,7 @@ async function generate_aws_sts_creds(params, roleSessionName) {
     return credentials;
 }
 
-async function get_signed_url(params, expiry = 604800, custom_operation = 'getObject') {
+async function get_signed_url(params, expiry = 604800) {
     const s3 = new S3({
         endpoint: params.endpoint,
         credentials: {

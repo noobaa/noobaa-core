@@ -148,6 +148,11 @@ function build_lifecycle_filter(params) {
      * @param {Object} object_info
      */
     return function(object_info) {
+        // fail if object is a temp file/part or a folder object or a versioned object
+        if (object_info.key.startsWith(config.NSFS_TEMP_DIR_NAME)) return false;
+        if (object_info.key.includes(config.NSFS_FOLDER_OBJECT_NAME)) return false;
+        if (object_info.key.includes('.versions/')) return false;
+
         if (params.filter?.prefix && !object_info.key.startsWith(params.filter.prefix)) return false;
         if (params.expiration && object_info.age < params.expiration) return false;
         if (params.filter?.tags && !file_contain_tags(object_info, params.filter.tags)) return false;

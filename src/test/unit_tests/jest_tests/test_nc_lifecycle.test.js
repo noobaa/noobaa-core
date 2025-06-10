@@ -92,6 +92,44 @@ describe('delete_multiple_objects + filter', () => {
             await assert_object_deletion_failed(delete_res);
         });
 
+        it('delete_multiple_objects - filter should fail on internal dir - empty prefix - versioning DISABLED bucket', async () => {
+            const object_upload_res = await nsfs.create_object_upload({ key: key, bucket: bucket_name }, dummy_object_sdk);
+            const internal_file_path = path.join(nsfs.get_bucket_tmpdir_name(), 'multipart-uploads', object_upload_res.obj_id, 'create_object_upload');
+            const filter_func = lifecycle_utils.build_lifecycle_filter({ filter: { prefix: '' }, expiration: 0 });
+            const deleted_objects_arr = [{ key: internal_file_path }];
+            const delete_res = await nsfs.delete_multiple_objects({ objects: deleted_objects_arr, filter_func }, dummy_object_sdk);
+            await assert_object_deletion_failed(delete_res, undefined, deleted_objects_arr);
+        });
+
+        it('delete_multiple_objects - filter should fail on internal dir - versioning DISABLED bucket', async () => {
+            const object_upload_res = await nsfs.create_object_upload({ key: key, bucket: bucket_name }, dummy_object_sdk);
+            const internal_file_path = path.join(nsfs.get_bucket_tmpdir_name(), 'multipart-uploads', object_upload_res.obj_id, 'create_object_upload');
+            const filter_func = lifecycle_utils.build_lifecycle_filter({ filter: { prefix: internal_file_path }, expiration: 0 });
+            const deleted_objects_arr = [{ key: internal_file_path }];
+            const delete_res = await nsfs.delete_multiple_objects({ objects: deleted_objects_arr, filter_func }, dummy_object_sdk);
+            await assert_object_deletion_failed(delete_res, undefined, deleted_objects_arr);
+        });
+
+        it('delete_multiple_objects - filter should fail on internal .folder object - empty prefix - versioning DISABLED bucket', async () => {
+            const directory_object_key = 'folder1/';
+            const data_buffer = buffer_utils.buffer_to_read_stream(data);
+            await nsfs.upload_object({ bucket: bucket_name, key: directory_object_key, source_stream: data_buffer }, dummy_object_sdk);
+            const filter_func = lifecycle_utils.build_lifecycle_filter({ filter: { prefix: '' }, expiration: 0 });
+            const deleted_objects_arr = [{ key: `${directory_object_key}${config.NSFS_FOLDER_OBJECT_NAME}` }];
+            const delete_res = await nsfs.delete_multiple_objects({ objects: deleted_objects_arr, filter_func }, dummy_object_sdk);
+            await assert_object_deletion_failed(delete_res, undefined, deleted_objects_arr);
+        });
+
+        it('delete_multiple_objects - filter should fail on internal .folder object - versioning DISABLED bucket', async () => {
+            const directory_object_key = 'folder1/';
+            const data_buffer = buffer_utils.buffer_to_read_stream(data);
+            await nsfs.upload_object({ bucket: bucket_name, key: directory_object_key, source_stream: data_buffer }, dummy_object_sdk);
+            const filter_func = lifecycle_utils.build_lifecycle_filter({ filter: { prefix: directory_object_key }, expiration: 0 });
+            const deleted_objects_arr = [{ key: `${directory_object_key}${config.NSFS_FOLDER_OBJECT_NAME}` }];
+            const delete_res = await nsfs.delete_multiple_objects({ objects: deleted_objects_arr, filter_func }, dummy_object_sdk);
+            await assert_object_deletion_failed(delete_res, undefined, deleted_objects_arr);
+        });
+
         it('delete_multiple_objects - filter should fail on wrong object_size_less_than - versioning DISABLED bucket', async () => {
             const data_buffer = buffer_utils.buffer_to_read_stream(data);
             await nsfs.upload_object({ bucket: bucket_name, key: key, source_stream: data_buffer }, dummy_object_sdk);
@@ -178,6 +216,33 @@ describe('delete_multiple_objects + filter', () => {
             const filter_func = lifecycle_utils.build_lifecycle_filter({ filter: { prefix: 'd' }, expiration: 0 });
             const delete_res = await nsfs.delete_multiple_objects({ objects: [{ key }], filter_func }, dummy_object_sdk);
             await assert_object_deletion_failed(delete_res);
+        });
+
+        it('delete_multiple_objects - filter should fail on internal .versions file - versioning ENABLED bucket', async () => {
+            nsfs.versioning = 'ENABLED';
+            const data_buffer1 = buffer_utils.buffer_to_read_stream(data);
+            const data_buffer2 = buffer_utils.buffer_to_read_stream(data);
+            const { version_id } = await nsfs.upload_object({ bucket: bucket_name, key, source_stream: data_buffer1 }, dummy_object_sdk);
+            await nsfs.upload_object({ bucket: bucket_name, key, source_stream: data_buffer2 }, dummy_object_sdk);
+            const version_file_path = path.join('.versions', key + '_' + version_id);
+            const deleted_objects_arr = [{ key: version_file_path }];
+            const filter_func = lifecycle_utils.build_lifecycle_filter({ filter: { prefix: '' }, expiration: 0 });
+            const delete_res = await nsfs.delete_multiple_objects({ objects: deleted_objects_arr, filter_func }, dummy_object_sdk);
+            await assert_object_deletion_failed(delete_res, undefined, deleted_objects_arr);
+        });
+
+
+        it('delete_multiple_objects - filter should fail on internal .versions file - versioning ENABLED bucket', async () => {
+            nsfs.versioning = 'ENABLED';
+            const data_buffer1 = buffer_utils.buffer_to_read_stream(data);
+            const data_buffer2 = buffer_utils.buffer_to_read_stream(data);
+            const { version_id } = await nsfs.upload_object({ bucket: bucket_name, key, source_stream: data_buffer1 }, dummy_object_sdk);
+            await nsfs.upload_object({ bucket: bucket_name, key, source_stream: data_buffer2 }, dummy_object_sdk);
+            const version_file_path = path.join('.versions', key + '_' + version_id);
+            const deleted_objects_arr = [{ key: version_file_path }];
+            const filter_func = lifecycle_utils.build_lifecycle_filter({ filter: { prefix: version_file_path }, expiration: 0 });
+            const delete_res = await nsfs.delete_multiple_objects({ objects: deleted_objects_arr, filter_func }, dummy_object_sdk);
+            await assert_object_deletion_failed(delete_res, undefined, deleted_objects_arr);
         });
 
         it('delete_multiple_objects - filter should fail on wrong object_size_less_than - versioning ENABLED bucket', async () => {
@@ -561,16 +626,17 @@ describe('delete_multiple_objects + filter', () => {
  * @param {{latest_delete_marker?: boolean}} [options]
  * @returns {Promise<Void>}
  */
-async function assert_object_deletion_failed(delete_res, { latest_delete_marker = false } = {}) {
-    expect(delete_res.length).toBe(1);
+async function assert_object_deletion_failed(delete_res, { latest_delete_marker = false } = {}, delete_objects_arr = undefined) {
+    const assert_key = delete_objects_arr ? delete_objects_arr[0].key : key;
+    expect(delete_res.length).toBe(delete_objects_arr ? delete_objects_arr.length : 1);
     expect(delete_res[0].err_code).toBeDefined();
-    expect(delete_res[0].err_message).toBe('file_matches_filter lifecycle - filter on file returned false ' + key);
+    expect(delete_res[0].err_message).toBe('file_matches_filter lifecycle - filter on file returned false ' + assert_key);
     // file was not deleted
     if (latest_delete_marker) {
-        await expect(nsfs.read_object_md({ bucket: bucket_name, key: key }, dummy_object_sdk)).rejects.toThrow('No such file or directory');
+        await expect(nsfs.read_object_md({ bucket: bucket_name, key: assert_key }, dummy_object_sdk)).rejects.toThrow('No such file or directory');
     } else {
-        const object_metadata = await nsfs.read_object_md({ bucket: bucket_name, key: key }, dummy_object_sdk);
-        expect(object_metadata.key).toBe(key);
+        const object_metadata = await nsfs.read_object_md({ bucket: bucket_name, key: assert_key }, dummy_object_sdk);
+        expect(object_metadata.key).toBe(assert_key);
     }
 }
 

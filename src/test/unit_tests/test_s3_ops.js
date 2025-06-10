@@ -604,7 +604,6 @@ mocha.describe('s3_ops', function() {
 
             // make an OPTIONS request without the allowed header
             const url = new URL(coretest.get_https_address());
-            console.log('ROMY DEBUG: url', url, url.hostname, url.port, url.pathname);
             const response = await http_utils.make_https_request({
                 hostname: url.hostname,
                 port: url.port,

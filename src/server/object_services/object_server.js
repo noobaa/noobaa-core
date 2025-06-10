@@ -826,7 +826,7 @@ async function read_object_md(req) {
             addr_utils.get_base_address(req.system.system_address, { hint: 'EXTERNAL' }).hostname;
 
         const account_keys = req.account.access_keys[0];
-        info.s3_signed_url = cloud_utils.get_signed_url({
+        info.s3_signed_url = await cloud_utils.get_signed_url({
             endpoint: endpoint,
             access_key: account_keys.access_key,
             secret_key: account_keys.secret_key,
@@ -1349,7 +1349,7 @@ async function list_objects_admin(req) {
         pagination: req.rpc_params.pagination
     });
 
-    const objects_info = _.map(objects, obj => {
+    const objects_info = _.map(objects, async obj => {
         const object_info = get_object_info(obj);
         // using the internal IP doesn't work when there is a different external ip
         // or when the intention is to use dns name.
@@ -1359,7 +1359,7 @@ async function list_objects_admin(req) {
             addr_utils.get_base_address(req.system.system_address, { hint: 'EXTERNAL' }).hostname;
 
         const account_keys = req.account.access_keys[0];
-        object_info.s3_signed_url = cloud_utils.get_signed_url({
+        object_info.s3_signed_url = await cloud_utils.get_signed_url({
             endpoint: endpoint,
             access_key: account_keys.access_key,
             secret_key: account_keys.secret_key,

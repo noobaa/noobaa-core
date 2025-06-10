@@ -4,7 +4,7 @@
 const mocha = require('mocha');
 const assert = require('assert');
 const sinon = require('sinon');
-const AWS = require('aws-sdk');
+const { STSClient } = require('@aws-sdk/client-sts');
 const cloud_utils = require('../../util/cloud_utils');
 const dbg = require('../../util/debug_module')(__filename);
 const fs = require("fs");
@@ -20,6 +20,9 @@ const expectedParams = [{
     WebIdentityToken: 'web-identity-token',
     DurationSeconds: defaultSTSCredsValidity,
 }];
+const REGION = "us-east-1";
+const sts_client = new STSClient({ region: REGION });
+
 mocha.describe('AWS STS tests', function() {
     let STSStub;
     let stsFake;
@@ -38,7 +41,7 @@ mocha.describe('AWS STS tests', function() {
             }
         }),
     };
-        STSStub = sinon.stub(AWS, 'STS')
+        STSStub = sinon.stub(sts_client, 'STS')
             .callsFake(() => stsFake);
     });
     mocha.after('Restoring STS stub', function() {

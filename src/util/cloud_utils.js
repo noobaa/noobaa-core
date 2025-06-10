@@ -9,7 +9,7 @@ const { S3, GetObjectCommand } = require('@aws-sdk/client-s3');
 const url = require('url');
 const _ = require('lodash');
 const SensitiveString = require('./sensitive_string');
-const { fromWebToken } = require("@aws-sdk/credential-providers");
+const { STSClient, AssumeRoleWithWebIdentityCommand } = require('@aws-sdk/client-sts');
 const { NodeHttpHandler } = require("@smithy/node-http-handler");
 const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 
@@ -45,18 +45,24 @@ async function createSTSS3Client(params, additionalParams) {
 
 async function generate_aws_sts_creds(params, roleSessionName) {
 
-    const credentials = fromWebToken({
-        roleArn: params.aws_sts_arn,
-        webIdentityToken: (await fs.promises.readFile(projectedServiceAccountToken)).toString(),
-        roleSessionName: roleSessionName || defaultRoleSessionName,
-        policy: "JSON_STRING",
-        durationSeconds: defaultSTSCredsValidity,
-    });
-    if (_.isEmpty(credentials)) {
+    const sts_client = new STSClient();
+    const input = {
+        DurationSeconds: defaultSTSCredsValidity,
+        RoleArn: params.aws_sts_arn,
+        RoleSessionName: roleSessionName || defaultRoleSessionName,
+        WebIdentityToken: (await fs.promises.readFile(projectedServiceAccountToken)).toString(),
+    };
+    const command = new AssumeRoleWithWebIdentityCommand(input);
+    const response = await sts_client.send(command);
+    if (_.isEmpty(response) || _.isEmpty(response.Credentials)) {
         dbg.error(`AWS STS empty creds ${params.RoleArn}, RolesessionName: ${params.RoleSessionName},Projected service Account Token Path : ${projectedServiceAccountToken}`);
         throw new RpcError('AWS_STS_ERROR', 'Empty AWS STS creds retrieved for Role "' + params.RoleArn + '"');
     }
-    return credentials;
+    return {
+        accessKeyId: response.Credentials.AccessKeyId,
+        secretAccessKey: response.Credentials.SecretAccessKey,
+        sessionToken: response.Credentials.SessionToken,
+    };
 }
 
 async function get_signed_url(params, expiry = 604800) {

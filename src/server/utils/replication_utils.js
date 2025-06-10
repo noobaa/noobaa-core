@@ -74,6 +74,20 @@ function update_replication_prom_report(bucket_name, replication_policy_id, repl
     core_report.set_replication_status(last_cycle_status);
 }
 
+function get_replication_percentage(repl_obj, total_obj) {
+    return total_obj > 0 ? (repl_obj / total_obj) * 100 : 0;
+}
+
+function update_replication_prom_report_per_bucket(bucket_name, repl_percentage) {
+    const core_report = prom_reporting.get_core_report();
+    const last_cycle_status = {
+        bucket_name: bucket_name,
+        repl_percentage: repl_percentage
+    };
+
+    core_report.update_bucket_replication_percentage(last_cycle_status);
+}
+
 /**
  * @param {any} bucket_name
  * @param {string} key
@@ -187,6 +201,8 @@ async function delete_objects(scanner_semaphore, client, bucket_name, keys) {
 // EXPORTS
 exports.get_rule_status = get_rule_status;
 exports.update_replication_prom_report = update_replication_prom_report;
+exports.get_replication_percentage = get_replication_percentage;
+exports.update_replication_prom_report_per_bucket = update_replication_prom_report_per_bucket;
 exports.get_object_md = get_object_md;
 exports.find_src_and_dst_buckets = find_src_and_dst_buckets;
 exports.get_copy_type = get_copy_type;

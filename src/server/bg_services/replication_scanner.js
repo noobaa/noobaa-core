@@ -129,6 +129,11 @@ class ReplicationScanner {
                 const replication_status = replication_utils.get_rule_status(rule.rule_id, src_cont_token, keys_diff_map, copy_res);
 
                 replication_utils.update_replication_prom_report(src_bucket.name, replication_id, replication_status);
+
+                const repl_obj = Object.keys(keys_diff_map).length;
+                const total_obj = await bucketDiff.get_objects_count(src_bucket.name, prefix);
+                const replication_percentage = replication_utils.get_replication_percentage(repl_obj, total_obj);
+                replication_utils.update_replication_prom_report_per_bucket(src_bucket.name, replication_percentage);
             }
         }));
     }

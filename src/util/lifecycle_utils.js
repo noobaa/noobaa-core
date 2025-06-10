@@ -133,21 +133,23 @@ function build_expiration_header(rule, create_time) {
 //////////////////
 
 /**
- * @typedef {{
- *     filter: Object
- *     expiration: Number
- * }} filter_params
+ * Creates a filter function to determine if an object matches specified lifecycle criteria.
  *
- * builds lifecycle filter function
+ * The returned function excludes temporary files, folder marker objects, and versioned objects before applying additional filter conditions such as prefix, minimum age, tag set, and object size constraints.
  *
- * @param {filter_params} params
- * @returns
+ * @param {filter_params} params - Lifecycle filter and expiration criteria.
+ * @returns {(object_info: Object) => boolean} A function that returns true if the object matches all lifecycle filter conditions.
  */
 function build_lifecycle_filter(params) {
     /**
      * @param {Object} object_info
      */
     return function(object_info) {
+        // fail if object is a temp file/part or a folder object or a versioned object
+        if (object_info.key.startsWith(config.NSFS_TEMP_DIR_NAME)) return false;
+        if (object_info.key.includes(config.NSFS_FOLDER_OBJECT_NAME)) return false;
+        if (object_info.key.includes('.versions/')) return false;
+
         if (params.filter?.prefix && !object_info.key.startsWith(params.filter.prefix)) return false;
         if (params.expiration && object_info.age < params.expiration) return false;
         if (params.filter?.tags && !file_contain_tags(object_info, params.filter.tags)) return false;

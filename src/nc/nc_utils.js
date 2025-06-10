@@ -24,7 +24,15 @@ function check_root_account_owns_user(root_account, account) {
     return root_account._id === account.owner;
 }
 
+/**
+ * @returns {boolean} true if the current environment is a NooBaa non containerized environment
+ */
+function is_nc_environment() {
+    return process.env.NC_NSFS_NO_DB_ENV && process.env.NC_NSFS_NO_DB_ENV === 'true';
+}
+
 // EXPORTS
 exports.generate_id = generate_id;
 exports.check_root_account_owns_user = check_root_account_owns_user;
+exports.is_nc_environment = is_nc_environment;
 

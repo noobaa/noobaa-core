@@ -9,8 +9,11 @@ const P = require('../../util/promise');
 const mocha = require('mocha');
 const assert = require('assert');
 const fs_utils = require('../../util/fs_utils');
-const { TMP_PATH, generate_nsfs_account, get_new_buckets_path_by_test_env, generate_s3_client, get_coretest_path, exec_manage_cli } = require('../system_tests/test_utils');
+const { TMP_PATH, generate_nsfs_account, get_new_buckets_path_by_test_env, generate_s3_client, get_coretest_path, exec_manage_cli, set_health_mock_functions, create_system_json } = require('../system_tests/test_utils');
 const { TYPES, ACTIONS } = require('../../manage_nsfs/manage_nsfs_constants');
+const { NSFSHealth } = require('../../manage_nsfs/health');
+const { ConfigFS } = require('../../sdk/config_fs');
+const config = require('../../../config');
 const ManageCLIResponse = require('../../manage_nsfs/manage_nsfs_cli_responses').ManageCLIResponse;
 
 const coretest_path = get_coretest_path();
@@ -18,11 +21,12 @@ const coretest = require(coretest_path);
 const setup_options = { forks: 2, debug: 5 };
 coretest.setup(setup_options);
 const { rpc_client, EMAIL, get_current_setup_options, stop_nsfs_process, start_nsfs_process,
-    config_dir_name, NC_CORETEST_CONFIG_FS, NC_CORETEST_STORAGE_PATH } = coretest;
+    config_dir_name, get_nsfs_fork_pids, NC_CORETEST_CONFIG_FS, NC_CORETEST_STORAGE_PATH } = coretest;
 
 const CORETEST_ENDPOINT = coretest.get_http_address();
 
 const config_root = path.join(TMP_PATH, 'test_nc_cache_stat');
+const config_fs = new ConfigFS(config_root);
 // on NC - new_buckets_path is full absolute path
 // on Containerized - new_buckets_path is the directory
 const new_bucket_path_param = get_new_buckets_path_by_test_env(config_root, '/');
@@ -222,5 +226,58 @@ const s3_uid6001 = generate_s3_client(access_details.access_key,
         // cleanup
         await s3_uid6001.deleteBucket({ Bucket: bucket_name4 });
         await fs.promises.rm(new_bucket_path_param2, { recursive: true });
+    });
+
+    mocha.describe('health server - ping forks', async function() {
+        const https_port = 6443;
+        const fork_base_port = config.ENDPOINT_FORK_PORT_BASE;
+        const Health = new NSFSHealth({ config_root, https_port, config_fs, fork_base_port });
+
+        mocha.before(async () => {
+            await create_system_json(config_fs);
+        });
+
+        mocha.it('health concurrency with load - ping forks', async function() {
+            this.timeout(100000); // eslint-disable-line no-invalid-this
+
+            for (let i = 0; i < 10; i++) {
+                // a couple of requests for health check
+                const failed_operations = [];
+                const successful_operations = [];
+                const num_of_concurrency = 10;
+                for (let j = 0; j < num_of_concurrency; j++) {
+                    set_health_mock_functions(Health, {
+                        get_service_state: [{ service_status: 'active', pid: 1000 }],
+                        get_service_memory_usage: [100]
+                    });
+                    Health.nc_nsfs_health()
+                        .catch(err => failed_operations.push(err))
+                        .then(res => successful_operations.push(res));
+                }
+                await P.delay(7000);
+                assert.equal(successful_operations.length, num_of_concurrency);
+                assert.equal(failed_operations.length, 0);
+                for (const res of successful_operations) {
+                    assert.strictEqual(res.status, 'OK');
+                }
+            }
+        });
+
+        mocha.it('fork server get the same port after restart', async function() {
+            const forks = await get_nsfs_fork_pids();
+            assert.equal(forks.length, 2, 'There should be 2 forks running');
+            process.kill(forks[0], 'SIGTERM');
+            await P.delay(8000); // wait for the fork to be restarted
+            const new_forks = await get_nsfs_fork_pids();
+            assert.equal(new_forks.length, 2, 'There should be 2 forks running after restart');
+
+            set_health_mock_functions(Health, {
+                get_service_state: [{ service_status: 'active', pid: 1000 }],
+                get_service_memory_usage: [100]
+            });
+            const res = await Health.nc_nsfs_health();
+            assert.strictEqual(res.status, 'OK');
+            assert.strictEqual(res.checks.endpoint.endpoint_state.total_fork_count, 2, 'There should be 2 forks in the health response');
+        });
     });
 });

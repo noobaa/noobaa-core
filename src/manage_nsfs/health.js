@@ -101,6 +101,7 @@ process.env.AWS_SDK_JS_SUPPRESS_MAINTENANCE_MODE_MESSAGE = '1';
 class NSFSHealth {
     constructor(options) {
         this.https_port = options.https_port;
+        this.fork_base_port = options.fork_base_port;
         this.all_account_details = options.all_account_details;
         this.all_bucket_details = options.all_bucket_details;
         this.all_connection_details = options.all_connection_details;
@@ -241,10 +242,10 @@ class NSFSHealth {
         return service_health;
     }
 
-    async make_endpoint_health_request(url_path) {
+    async make_endpoint_health_request(url_path, port = this.https_port) {
         const response = await make_https_request({
-            HOSTNAME,
-            port: this.https_port,
+            hostname: HOSTNAME,
+            port,
             path: url_path,
             method: 'GET',
             rejectUnauthorized: false,
@@ -260,43 +261,37 @@ class NSFSHealth {
         let url_path = '/total_fork_count';
         const worker_ids = [];
         let total_fork_count = 0;
+        let fork_count_response;
         let response;
         try {
-            const fork_count_response = await this.make_endpoint_health_request(url_path);
-            if (!fork_count_response) {
-                return {
-                    response: fork_response_code.NOT_RUNNING,
-                    total_fork_count: total_fork_count,
-                    running_workers: worker_ids,
-                };
-            }
-            total_fork_count = fork_count_response.fork_count;
-            if (total_fork_count > 0) {
-                url_path = '/endpoint_fork_id';
-                await P.retry({
-                    attempts: total_fork_count * 2,
-                    delay_ms: 1,
-                    func: async () => {
-                        const fork_id_response = await this.make_endpoint_health_request(url_path);
-                        if (fork_id_response.worker_id && !worker_ids.includes(fork_id_response.worker_id)) {
-                            worker_ids.push(fork_id_response.worker_id);
-                        }
-                        if (worker_ids.length < total_fork_count) {
-                            throw new Error('Number of running forks is less than the expected fork count.');
-                        }
-                    }
-                });
-                if (worker_ids.length === total_fork_count) {
-                    response = fork_response_code.RUNNING;
-                } else {
-                    response = fork_response_code.MISSING_FORKS;
-                }
-            } else {
-                response = fork_response_code.RUNNING;
-            }
+            fork_count_response = await this.make_endpoint_health_request(url_path);
         } catch (err) {
-            dbg.log1('Error while pinging endpoint host :' + HOSTNAME + ', port ' + this.https_port, err);
-            response = fork_response_code.NOT_RUNNING;
+            dbg.log0('Error while pinging endpoint host :' + HOSTNAME, err);
+        }
+        if (!fork_count_response) {
+            return {
+                response: fork_response_code.NOT_RUNNING,
+                total_fork_count: total_fork_count,
+                running_workers: worker_ids,
+            };
+        }
+
+        total_fork_count = fork_count_response.fork_count;
+        url_path = '/endpoint_fork_id';
+        for (let i = 0; i < total_fork_count; i++) {
+            const port = this.fork_base_port + i;
+            try {
+                const fork_id_response = await this.make_endpoint_health_request(url_path, port);
+                worker_ids.push(fork_id_response.worker_id);
+            } catch (err) {
+                dbg.log0('Error while pinging fork :' + HOSTNAME + ', port ' + port, err);
+            }
+        }
+        if (worker_ids.length < total_fork_count) {
+            dbg.log0('Number of running forks is less than the expected fork count.');
+            response = fork_response_code.MISSING_FORKS;
+        } else {
+            response = fork_response_code.RUNNING;
         }
         return {
             response: response,
@@ -637,6 +632,7 @@ class NSFSHealth {
 async function get_health_status(argv, config_fs) {
     try {
         const https_port = Number(argv.https_port) || config.ENDPOINT_SSL_PORT;
+        const fork_base_port = Number(argv.fork_base_port) || config.ENDPOINT_FORK_PORT_BASE;
         const deployment_type = argv.deployment_type || 'nc';
         const all_account_details = get_boolean_or_string_value(argv.all_account_details);
         const all_bucket_details = get_boolean_or_string_value(argv.all_bucket_details);
@@ -645,8 +641,9 @@ async function get_health_status(argv, config_fs) {
         const lifecycle = get_boolean_or_string_value(argv.lifecycle);
 
         if (deployment_type === 'nc') {
-            const health = new NSFSHealth({ https_port,
-                all_account_details, all_bucket_details, all_connection_details, notif_storage_threshold, lifecycle, config_fs });
+            const health = new NSFSHealth({ https_port, fork_base_port,
+                all_account_details, all_bucket_details, all_connection_details,
+                notif_storage_threshold, lifecycle, config_fs });
             const health_status = await health.nc_nsfs_health();
             write_stdout_response(ManageCLIResponse.HealthStatus, health_status);
         } else {

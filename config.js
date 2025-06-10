@@ -1006,6 +1006,8 @@ config.ENDPOINT_SSL_PORT = Number(process.env.ENDPOINT_SSL_PORT) || 6443;
 // Remove the NSFS condition when NSFS starts to support STS.
 config.ENDPOINT_SSL_STS_PORT = Number(process.env.ENDPOINT_SSL_STS_PORT) || (process.env.NC_NSFS_NO_DB_ENV === 'true' ? -1 : 7443);
 config.ENDPOINT_SSL_IAM_PORT = Number(process.env.ENDPOINT_SSL_IAM_PORT) || -1;
+// each fork will get port in range [ENDPOINT_FORK_PORT_BASE, ENDPOINT_FORK_PORT_BASE + number of forks - 1)]
+config.ENDPOINT_FORK_PORT_BASE = Number(process.env.ENDPOINT_FORK_PORT_BASE) || 6002;
 config.ALLOW_HTTP = false;
 config.ALLOW_HTTP_METRICS = true;
 config.ALLOW_HTTPS_METRICS = true;
@@ -1018,6 +1020,8 @@ config.VIRTUAL_HOSTS = process.env.VIRTUAL_HOSTS || '';
 
 config.NC_HEALTH_ENDPOINT_RETRY_COUNT = 3;
 config.NC_HEALTH_ENDPOINT_RETRY_DELAY = 10;
+config.NC_FORK_SERVER_TIMEOUT = 5; // 5 minutes
+config.NC_FORK_SERVER_RETRIES = 10;
 
 
 /** @type {'file' | 'executable'} */

@@ -1,13 +1,13 @@
 name: Ceph S3 Tests
-on: [push, pull_request, workflow_dispatch]
+on: [workflow_call]
 
 jobs:
   ceph-s3-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 90
-    concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}
-      cancel-in-progress: true
+    permissions:
+      actions: read         # download-artifact
+      contents: read        # required for actions/checkout
     steps:
       - name: Checkout noobaa-core
         uses: actions/checkout@v4
@@ -15,10 +15,19 @@ jobs:
           repository: 'noobaa/noobaa-core'
           path: 'noobaa-core'
 
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: noobaa-tester
+          path: /tmp
+
+      - name: Load image
+        run: docker load --input /tmp/noobaa-tester.tar
+
       - name: Run Ceph s3-tests
         run: |
           set -x
           cd ./noobaa-core
           mkdir -p logs/ceph-test-logs
           chmod 777 logs/ceph-test-logs
-          make test-cephs3
+          make test-cephs3 -o tester

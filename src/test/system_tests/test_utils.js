@@ -207,7 +207,7 @@ async function disable_accounts_s3_access(rpc_client, accounts_emails) {
 }
 
 /**
- * generate_s3_policy generates S3 buket policy for the given principal
+ * generate_s3_policy generates S3 buket policy for the given principal ppp
  *
  * @param {string} principal - The principal to grant access to.
  * @param {string} bucket - The bucket to grant access to.

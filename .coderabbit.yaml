@@ -3,8 +3,13 @@ reviews:
   poem: false
   auto_review:
     enabled: true
+    auto_incremental_review: true
     drafts: false
     base_branches: ["master"]
+  path_instructions:
+    - path: "src/test/**/*.*"
+      instructions: |
+        Ensure that the PR includes tests for the changes.
   assess_linked_issues: true
   related_issues: true
   related_prs: true

@@ -1210,7 +1210,7 @@ class NCLifecycle {
         const bucket_path = bucket_json.path;
         const bucket_rule_id = this.get_lifecycle_ilm_candidate_file_suffix(bucket_json.name, lifecycle_rule);
         const in_bucket_path = path.join(bucket_path, '/%');
-        const in_bucket_internal_dir = path.join(bucket_path, '/.noobaa_nsfs%/%');
+        const in_bucket_internal_dir = path.join(bucket_path, `/${config.NSFS_TEMP_DIR_NAME}%/%`);
         const in_versions_dir = path.join(bucket_path, '/.versions/%');
         const in_nested_versions_dir = path.join(bucket_path, '/%/.versions/%');
         const ilm_policy_helpers = { bucket_rule_id, in_bucket_path, in_bucket_internal_dir, in_versions_dir, in_nested_versions_dir };

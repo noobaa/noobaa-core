@@ -1,0 +1,13 @@
+reviews:
+  profile: "chill"
+  poem: false
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches: ["master"]
+  assess_linked_issues: true
+  related_issues: true
+  related_prs: true
+  finishing_touches:
+    docstrings:
+      enabled: true

@@ -235,8 +235,8 @@ config.ROOT_KEY_MOUNT = '/etc/noobaa-server/root_keys';
 
 config.DB_TYPE = /** @type {nb.DBType} */ (process.env.DB_TYPE || 'postgres');
 
-config.POSTGRES_DEFAULT_MAX_CLIENTS = 10;
-config.POSTGRES_MD_MAX_CLIENTS = (process.env.LOCAL_MD_SERVER === 'true') ? 70 : 10;
+config.POSTGRES_DEFAULT_MAX_CLIENTS = 5;
+config.POSTGRES_MD_MAX_CLIENTS = (process.env.LOCAL_MD_SERVER === 'true') ? 70 : 5;
 
 ///////////////////
 // SYSTEM CONFIG //

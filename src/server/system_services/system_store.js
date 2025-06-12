@@ -351,6 +351,7 @@ class SystemStore extends EventEmitter {
         this.is_finished_initial_load = false;
         this.START_REFRESH_THRESHOLD = 10 * 60 * 1000;
         this.FORCE_REFRESH_THRESHOLD = 60 * 60 * 1000;
+        this.READ_NEW_DATA_CONCURRENCY = config.READ_NEW_DATA_CONCURRENCY || 5;
         this._load_serial = new semaphore.Semaphore(1, { warning_timeout: this.START_REFRESH_THRESHOLD });
         for (const col of COLLECTIONS) {
             db_client.instance().define_collection(col);
@@ -407,30 +408,33 @@ class SystemStore extends EventEmitter {
     }
 
     async load(since) {
+        const new_data = new SystemStoreData();
+
         // serializing load requests since we have to run a fresh load after the previous one will finish
         // because it might not see the latest changes if we don't reload right after make_changes.
         return this._load_serial.surround(async () => {
             try {
-                dbg.log3('SystemStore: loading ...');
+                dbg.log3('SystemStore: loading ... this.last_update_time  =', this.last_update_time, ", since =", since);
 
                 // If we get a load request with an timestamp older then our last update time
                 // we ensure we load everyting from that timestamp by updating our last_update_time.
                 if (!_.isUndefined(since) && since < this.last_update_time) {
-                    dbg.log0('SystemStore.load: Got load request with a timestamp older then my last update time');
+                    dbg.log0('SystemStore.load: Got load request with a timestamp', since, 'older than my last update time', this.last_update_time);
                     this.last_update_time = since;
                 }
                 this.master_key_manager.load_root_key();
-                const new_data = new SystemStoreData();
                 let millistamp = time_utils.millistamp();
                 await this._register_for_changes();
                 await this._read_new_data_from_db(new_data);
                 const secret = await os_utils.read_server_secret();
                 this._server_secret = secret;
-                dbg.log1('SystemStore: fetch took', time_utils.millitook(millistamp));
-                dbg.log1('SystemStore: fetch size', size_utils.human_size(JSON.stringify(new_data).length));
-                dbg.log1('SystemStore: fetch data', util.inspect(new_data, {
-                    depth: 4
-                }));
+                if (dbg.should_log(1)) { //param should match below logs' level
+                    dbg.log1('SystemStore: fetch took', time_utils.millitook(millistamp));
+                    dbg.log1('SystemStore: fetch size', size_utils.human_size(JSON.stringify(new_data).length));
+                    dbg.log1('SystemStore: fetch data', util.inspect(new_data, {
+                        depth: 4
+                    }));
+                }
                 this.old_db_data = this._update_data_from_new(this.old_db_data || {}, new_data);
                 this.data = _.cloneDeep(this.old_db_data);
                 millistamp = time_utils.millistamp();
@@ -506,7 +510,7 @@ class SystemStore extends EventEmitter {
             }
         };
         await db_client.instance().connect();
-        await P.map(COLLECTIONS, async col => {
+        await P.map_with_concurrency(this.READ_NEW_DATA_CONCURRENCY, COLLECTIONS, async col => {
             const res = await db_client.instance().collection(col.name)
                 .find(newly_updated_query, {
                     projection: { last_update: 0 }

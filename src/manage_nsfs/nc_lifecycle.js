@@ -34,7 +34,11 @@ const LIFECYLE_TIMESTAMP_FILE = 'lifecycle.timestamp';
 const config_fs_options = { silent_if_missing: true };
 const ILM_POLICIES_TMP_DIR = path.join(config.NC_LIFECYCLE_LOGS_DIR, 'lifecycle_ilm_policies');
 const ILM_CANDIDATES_TMP_DIR = path.join(config.NC_LIFECYCLE_LOGS_DIR, 'lifecycle_ilm_candidates');
-
+const escape_backslash_str = "ESCAPE '\\'";
+const underscore_wildcard_regex = /_/g;
+const precentage_wildcard_regex = /%/g;
+const single_quote_regex = /'/g;
+const backslash_regex = /\\/g;
 
 const TIMED_OPS = Object.freeze({
     RUN_LIFECYLE: 'run_lifecycle',
@@ -1280,16 +1284,17 @@ class NCLifecycle {
     convert_lifecycle_policy_to_gpfs_ilm_policy(lifecycle_rule, bucket_json) {
         const bucket_path = bucket_json.path;
         const bucket_rule_id = this.get_lifecycle_ilm_candidate_file_suffix(bucket_json.name, lifecycle_rule);
-        const in_bucket_path = path.join(bucket_path, '/%');
-        const in_bucket_internal_dir = path.join(bucket_path, `/${config.NSFS_TEMP_DIR_NAME}%/%`);
-        const in_versions_dir = path.join(bucket_path, '/.versions/%');
-        const in_nested_versions_dir = path.join(bucket_path, '/%/.versions/%');
+        const escaped_bucket_path = this._escape_like_clause_ilm_policy(bucket_path);
+        const in_bucket_path = path.join(escaped_bucket_path, '/%');
+        const in_bucket_internal_dir = path.join(escaped_bucket_path, `/${config.NSFS_TEMP_DIR_NAME}%/%`);
+        const in_versions_dir = path.join(escaped_bucket_path, '/.versions/%');
+        const in_nested_versions_dir = path.join(escaped_bucket_path, '/%/.versions/%');
         const ilm_policy_helpers = { bucket_rule_id, in_bucket_path, in_bucket_internal_dir, in_versions_dir, in_nested_versions_dir };
 
         const policy_base = this._get_gpfs_ilm_policy_base(ilm_policy_helpers);
         const expiry_string = this.convert_expiry_rule_to_gpfs_ilm_policy(lifecycle_rule, ilm_policy_helpers);
         const non_current_days_string = this.convert_noncurrent_version_by_days_to_gpfs_ilm_policy(lifecycle_rule, ilm_policy_helpers);
-        const filter_policy = this.convert_filter_to_gpfs_ilm_policy(lifecycle_rule, bucket_json);
+        const filter_policy = this.convert_filter_to_gpfs_ilm_policy(lifecycle_rule, escaped_bucket_path);
         return policy_base + non_current_days_string + expiry_string + filter_policy;
     }
 
@@ -1303,10 +1308,27 @@ class NCLifecycle {
         const mod_age_definition = `define( mod_age, (DAYS(CURRENT_TIMESTAMP) - DAYS(MODIFICATION_TIME)) )\n`;
         const change_age_definition = `define( change_age, (DAYS(CURRENT_TIMESTAMP) - DAYS(CHANGE_TIME)) )\n`;
         const rule_id_definition = `RULE '${bucket_rule_id}' LIST '${bucket_rule_id}'\n`;
-        const policy_path_base = `WHERE PATH_NAME LIKE '${in_bucket_path}'\n` +
-            `AND PATH_NAME NOT LIKE '${in_bucket_internal_dir}'\n`;
+        const policy_path_base = `WHERE PATH_NAME LIKE '${in_bucket_path}' ${escape_backslash_str}\n` +
+            `AND PATH_NAME NOT LIKE '${in_bucket_internal_dir}' ${escape_backslash_str}\n`;
 
         return mod_age_definition + change_age_definition + rule_id_definition + policy_path_base;
+    }
+
+    /**
+     * escape_like_clause_ilm_policy escapes the \ _ % and ' characters in the ILM policy string
+     * this is needed because GPFS ILM policies use _ and % as wildcards
+     * and we need to escape them to use them as normal characters
+     * since we are escaping using backslash we also need to escape the backslash itself
+     * IMPORTANT - escaping of the backslash must be done before escaping of the underscore and percentage
+     * @param {String} ilm_policy_string 
+     * @returns String 
+     */
+    _escape_like_clause_ilm_policy(ilm_policy_string) {
+        return ilm_policy_string
+            .replace(backslash_regex, '\\\\')
+            .replace(underscore_wildcard_regex, '\\_')
+            .replace(precentage_wildcard_regex, '\\%')
+            .replace(single_quote_regex, `''`);
     }
 
     /**
@@ -1319,8 +1341,8 @@ class NCLifecycle {
     convert_expiry_rule_to_gpfs_ilm_policy(lifecycle_rule, { in_versions_dir, in_nested_versions_dir }) {
         const { expiration = undefined } = lifecycle_rule;
         if (!expiration) return '';
-        const current_path_policy = `AND PATH_NAME NOT LIKE '${in_versions_dir}'\n` +
-            `AND PATH_NAME NOT LIKE '${in_nested_versions_dir}'\n`;
+        const current_path_policy = `AND PATH_NAME NOT LIKE '${in_versions_dir}' ${escape_backslash_str}\n` +
+            `AND PATH_NAME NOT LIKE '${in_nested_versions_dir}' ${escape_backslash_str}\n`;
 
         const expiry_policy = expiration.days ? `AND mod_age > ${expiration.days}\n` : '';
         return current_path_policy + expiry_policy;
@@ -1340,20 +1362,23 @@ class NCLifecycle {
     /**
      * convert_filter_to_gpfs_ilm_policy converts the filter to GPFS ILM policy
      * @param {*} lifecycle_rule
-     * @param {Object} bucket_json
+     * @param {String} escaped_bucket_path
      * @returns {String}
      */
-    convert_filter_to_gpfs_ilm_policy(lifecycle_rule, bucket_json) {
+    convert_filter_to_gpfs_ilm_policy(lifecycle_rule, escaped_bucket_path) {
         const { prefix = undefined, filter = {} } = lifecycle_rule;
-        const bucket_path = bucket_json.path;
         let filter_policy = '';
         if (prefix || Object.keys(filter).length > 0) {
             const { object_size_greater_than = undefined, object_size_less_than = undefined, tags = undefined } = filter;
             const rule_prefix = prefix || filter.prefix;
-            filter_policy += rule_prefix ? `AND PATH_NAME LIKE '${path.join(bucket_path, rule_prefix)}%'\n` : '';
+            const escaped_prefix = this._escape_like_clause_ilm_policy(rule_prefix || '');
+            filter_policy += rule_prefix ? `AND PATH_NAME LIKE '${path.join(escaped_bucket_path, escaped_prefix)}%' ${escape_backslash_str}\n` : '';
             filter_policy += object_size_greater_than === undefined ? '' : `AND FILE_SIZE > ${object_size_greater_than}\n`;
             filter_policy += object_size_less_than === undefined ? '' : `AND FILE_SIZE < ${object_size_less_than}\n`;
-            filter_policy += tags ? tags.map(tag => `AND XATTR('user.noobaa.tag.${tag.key}') LIKE ${tag.value}\n`).join('') : '';
+            filter_policy += tags ? tags.map(tag => {
+                const escaped_tag_value = this._escape_like_clause_ilm_policy(tag.value);
+                return `AND XATTR('user.noobaa.tag.${tag.key}') LIKE '${escaped_tag_value}' ${escape_backslash_str}\n`;
+            }).join('') : '';
         }
         return filter_policy;
     }
@@ -1516,16 +1541,21 @@ class NCLifecycle {
      * example -
      * 17460 1316236366 0   -- /mnt/gpfs0/account1_new_buckets_path/bucket1_storage/key1.txt
      * if file is .folder (directory object) we need to return its parent directory
-     * @param {*} entry
+     * Notice that trim() is not used here because if used will remove whitespaces from the end of the line and might delete 
+     * spaces at the end of the file name that might be part of the file name, file reader should trim the line before passing it to this function
+     * @param {Object} entry - entry from the candidates file
+     * @param {Object} bucket_json
      */
     _parse_key_from_line(entry, bucket_json) {
-        const line_array = entry.path.split(' ');
-        const file_path = line_array[line_array.length - 1];
+        dbg.log1(`_parse_key_from_line entry=${util.inspect(entry)}, bucket_json=${util.inspect(bucket_json)}`);
+        const path_start_index = entry.path.indexOf(bucket_json.path);
+        const file_path = entry.path.slice(path_start_index);
         let file_key = file_path.replace(path.join(bucket_json.path, '/'), '');
         const basename = path.basename(file_key);
         if (basename.startsWith(config.NSFS_FOLDER_OBJECT_NAME)) {
             file_key = path.join(path.dirname(file_key), '/');
         }
+        dbg.log1(`_parse_key_from_line file_path=${util.inspect(file_path)}, file_key=${util.inspect(file_key)}`);
         return file_key;
     }
 }

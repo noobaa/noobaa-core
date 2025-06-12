@@ -966,6 +966,11 @@ config.NSFS_GLACIER_FORCE_EXPIRE_ON_GET = false;
 // interval
 config.NSFS_GLACIER_MIGRATE_LOG_THRESHOLD = 50 * 1024;
 
+// NSFS_GLACIER_METRICS_STAT_PATHS if set NooBaa will start reporting the statfs info of that
+// path as part of its metrics report
+config.NSFS_GLACIER_METRICS_STATFS_PATHS = [];
+config.NSFS_GLACIER_METRICS_STATFS_INTERVAL = 60 * 1000; // Refresh statfs value every minute
+
 /** 
  * NSFS_GLACIER_RESERVED_BUCKET_TAGS defines an object of bucket tags which will be reserved
  * by the system and PUT operations for them via S3 API would be limited - as in they would be

@@ -64,7 +64,7 @@ config.BUFFERS_MEM_LIMIT_MIN = 32 * 1024 * 1024; // just some workable minimum s
 config.BUFFERS_MEM_LIMIT_MAX = 4 * 1024 * 1024 * 1024;
 config.BUFFERS_MEM_LIMIT = Math.min(
     config.BUFFERS_MEM_LIMIT_MAX,
-    Math.max(Math.floor(config.CONTAINER_MEM_LIMIT / 4), config.BUFFERS_MEM_LIMIT_MIN,)
+    Math.max(Math.floor(config.CONTAINER_MEM_LIMIT / 4), config.BUFFERS_MEM_LIMIT_MIN, )
 );
 
 
@@ -378,10 +378,10 @@ config.BUCKET_RECLAIMER_BATCH_DELAY = 100;
 config.BUCKET_RECLAIMER_ERROR_DELAY = 3000;
 
 config.OBJECT_RECLAIMER_ENABLED = true;
-config.OBJECT_RECLAIMER_EMPTY_DELAY = 30000;
+config.OBJECT_RECLAIMER_EMPTY_DELAY = 60 * 60 * 1000; // 1 hour delay
 config.OBJECT_RECLAIMER_BATCH_SIZE = 100;
-config.OBJECT_RECLAIMER_BATCH_DELAY = 100;
-config.OBJECT_RECLAIMER_ERROR_DELAY = 3000;
+config.OBJECT_RECLAIMER_BATCH_DELAY = 10 * 60 * 1000; // 10 minutes delay between batches
+config.OBJECT_RECLAIMER_ERROR_DELAY = 10 * 60 * 1000; // 10 minutes delay between batches;
 
 
 //////////////////
@@ -733,10 +733,10 @@ config.NSFS_BUF_POOL_MEM_LIMIT_S = Math.min(Math.floor(config.NSFS_MAX_MEM_SIZE_
     config.NSFS_WANTED_BUFFERS_NUMBER) * config.NSFS_BUF_SIZE_S;
 // Semaphore size will give 90% of remainning memory to large buffer size, 10% to medium
 config.NSFS_BUF_POOL_MEM_LIMIT_M = range_utils.align_down((config.BUFFERS_MEM_LIMIT -
-    config.NSFS_BUF_POOL_MEM_LIMIT_S - config.NSFS_BUF_POOL_MEM_LIMIT_XS) * 0.1,
+        config.NSFS_BUF_POOL_MEM_LIMIT_S - config.NSFS_BUF_POOL_MEM_LIMIT_XS) * 0.1,
     config.NSFS_BUF_SIZE_M);
 config.NSFS_BUF_POOL_MEM_LIMIT_L = range_utils.align_down((config.BUFFERS_MEM_LIMIT -
-    config.NSFS_BUF_POOL_MEM_LIMIT_S - config.NSFS_BUF_POOL_MEM_LIMIT_XS) * 0.9,
+        config.NSFS_BUF_POOL_MEM_LIMIT_S - config.NSFS_BUF_POOL_MEM_LIMIT_XS) * 0.9,
     config.NSFS_BUF_SIZE_L);
 
 config.NSFS_BUF_WARMUP_SPARSE_FILE_READS = true;

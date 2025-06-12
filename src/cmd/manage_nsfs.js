@@ -149,6 +149,11 @@ async function fetch_bucket_data(action, user_input) {
             data.s3_policy = user_input.bucket_policy;
         }
     }
+    if (action === ACTIONS.ADD || action === ACTIONS.UPDATE) {
+        if (user_input.should_create_underlying_storage !== undefined) {
+            data.should_create_underlying_storage = Boolean(user_input.should_create_underlying_storage);
+        }
+    }
     if (action === ACTIONS.UPDATE || action === ACTIONS.DELETE) {
         // @ts-ignore
         data = _.omitBy(data, _.isUndefined);
@@ -221,9 +226,20 @@ async function merge_new_and_existing_config_data(user_input_bucket_data) {
 async function add_bucket(data) {
     data._id = mongo_utils.mongoObjectId();
     const parsed_bucket_data = await config_fs.create_bucket_config_file(data);
-    await set_bucker_owner(parsed_bucket_data);
+
+    const account = await account_id_cache.get_with_cache({ _id: parsed_bucket_data.owner_account, config_fs });
+    await set_bucker_owner(parsed_bucket_data, account);
 
     const [reserved_tag_event_args] = BucketSpaceFS._generate_reserved_tag_event_args({}, data.tag);
+    if (parsed_bucket_data.should_create_underlying_storage) {
+        await BucketSpaceFS._create_uls(
+            config_fs.fs_context,
+            await native_fs_utils.get_fs_context(account.nsfs_account_config, parsed_bucket_data.fs_backend),
+            data.name,
+            data.path,
+            config_fs.get_bucket_path_by_name(data.name)
+        );
+    }
 
     return {
         code: ManageCLIResponse.BucketCreated,
@@ -295,6 +311,13 @@ async function delete_bucket(data, force) {
 
         await native_fs_utils.folder_delete(bucket_temp_dir_path, fs_context_fs_backend, true);
         await config_fs.delete_bucket_config_file(data.name);
+        if (data.should_create_underlying_storage) {
+            try {
+                await nb_native().fs.rmdir(config_fs.fs_context, data.path);
+            } catch (error) {
+                dbg.warn('failed to delete underlying storage directory:', error);
+            }
+        }
         return { code: ManageCLIResponse.BucketDeleted, detail: { name: data.name }, event_arg: { bucket: data.name } };
     } catch (err) {
         if (err.code === 'ENOENT') throw_cli_error(ManageCLIError.NoSuchBucket, data.name);
@@ -783,11 +806,13 @@ function get_access_keys(action, user_input) {
 /**
  * set_bucker_owner gets bucket owner from cache by its id and sets bucket_owner name on the bucket data
  * @param {object} bucket_data 
+ * @param {*} [account_data]
  */
-async function set_bucker_owner(bucket_data) {
-    let account_data;
+async function set_bucker_owner(bucket_data, account_data) {
     try {
-        account_data = await account_id_cache.get_with_cache({ _id: bucket_data.owner_account, config_fs });
+        if (!account_data) {
+            account_data = await account_id_cache.get_with_cache({ _id: bucket_data.owner_account, config_fs });
+        }
     } catch (err) {
         dbg.warn(`set_bucker_owner.couldn't find bucket owner data by id ${bucket_data.owner_account}`);
     }

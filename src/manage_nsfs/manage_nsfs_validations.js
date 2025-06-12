@@ -455,7 +455,7 @@ async function validate_bucket_args(config_fs, data, action) {
         await check_new_name_exists(TYPES.BUCKET, config_fs, action, data);
         // in case we have the fs_backend it changes the fs_context that we use for the path
         const fs_context_fs_backend = native_fs_utils.get_process_fs_context(data.fs_backend);
-        if (!config.NC_DISABLE_ACCESS_CHECK) {
+        if (!data.should_create_underlying_storage && !config.NC_DISABLE_ACCESS_CHECK) {
             const exists = await native_fs_utils.is_path_exists(fs_context_fs_backend, data.path);
             if (!exists) {
                 throw_cli_error(ManageCLIError.InvalidStoragePath, data.path);
@@ -467,7 +467,7 @@ async function validate_bucket_args(config_fs, data, action) {
 
         const account_fs_context = await native_fs_utils.get_fs_context(owner_account_data.nsfs_account_config,
             owner_account_data.nsfs_account_config.fs_backend);
-        if (!config.NC_DISABLE_ACCESS_CHECK) {
+        if (!data.should_create_underlying_storage && !config.NC_DISABLE_ACCESS_CHECK) {
             const accessible = await native_fs_utils.is_dir_accessible(account_fs_context, data.path);
             if (!accessible) {
                 throw_cli_error(ManageCLIError.InaccessibleStoragePath, data.path);

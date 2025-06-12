@@ -236,8 +236,8 @@ config.ROOT_KEY_MOUNT = '/etc/noobaa-server/root_keys';
 
 config.DB_TYPE = /** @type {nb.DBType} */ (process.env.DB_TYPE || 'postgres');
 
-config.POSTGRES_DEFAULT_MAX_CLIENTS = 10;
-config.POSTGRES_MD_MAX_CLIENTS = (process.env.LOCAL_MD_SERVER === 'true') ? 70 : 10;
+config.POSTGRES_DEFAULT_MAX_CLIENTS = 5;
+config.POSTGRES_MD_MAX_CLIENTS = (process.env.LOCAL_MD_SERVER === 'true') ? 70 : 5;
 
 ///////////////////
 // SYSTEM CONFIG //
@@ -250,6 +250,7 @@ config.INTERNAL_STORAGE_POOL_NAME = 'system-internal-storage-pool';
 // config.SPILLOVER_TIER_NAME = 'bucket-spillover-tier';
 config.ALLOW_BUCKET_CREATE_ON_INTERNAL = true;
 config.BUCKET_AUTOCONF_TIER2_ENABLED = false;
+config.SYSTEM_STORE_LOAD_CONCURRENCY = parseInt(process.env.SYSTEM_STORE_LOAD_CONCURRENCY, 10) || 5;
 
 //////////////////////////
 // MD AGGREGATOR CONFIG //

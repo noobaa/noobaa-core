@@ -68,7 +68,7 @@ async function run_md_aggregator(md_store, system_store, target_now, delay) {
         });
         if (changes) {
             const update = _.omit(changes, 'more_updates');
-            await system_store.make_changes({ update });
+            await system_store.make_changes({ update }, false);
             update_range = !changes.more_updates;
             if (update_range) {
                 await system_store.make_changes({
@@ -78,7 +78,7 @@ async function run_md_aggregator(md_store, system_store, target_now, delay) {
                             global_last_update: range.till_time,
                         }]
                     }
-                });
+                }, false);
             }
             await P.delay(delay);
         } else {
@@ -206,7 +206,7 @@ function find_next_range({
                     },
                 }))
             }
-        });
+        }, false);
     }
 
     // on normal operation the time_diff to close can be closed within a single MD_AGGREGATOR_INTERVAL

@@ -265,6 +265,26 @@ describe('manage nsfs cli bucket flow', () => {
             expect(JSON.parse(res_list).response.reply.map(item => item.name))
                 .toEqual(expect.arrayContaining([bucket_options.name]));
         });
+
+        it('cli create bucket - with ULS true', async () => {
+            await fs_utils.create_fresh_path(root_path);
+            await set_path_permissions_and_owner(root_path, account_defaults, 0o700);
+
+            const action = ACTIONS.ADD;
+            const bucket_options = { config_root, ...bucket_defaults, should_create_underlying_storage: true };
+            await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
+            await fs_utils.file_must_exist(bucket_options.path);
+
+            const bucket = await config_fs.get_bucket_by_name(bucket_options.name);
+            expect(bucket).toBeDefined();
+            expect(bucket.name).toBe(bucket_options.name);
+            expect(bucket.should_create_underlying_storage).toBe(true);
+
+            const res = await exec_manage_cli(TYPES.BUCKET, ACTIONS.STATUS, { name: bucket_options.name, config_root });
+            const parsed_res = JSON.parse(res);
+            expect(parsed_res.response.reply.name).toBe(bucket_options.name);
+            expect(parsed_res.response.reply.should_create_underlying_storage).toBe(true);
+        });
     });
 
     describe('cli create bucket using from_file', () => {
@@ -805,6 +825,26 @@ describe('manage nsfs cli bucket flow', () => {
             expect(JSON.parse(res.trim()).response.code).toBe(ManageCLIResponse.BucketDeleted.code);
             const is_bucket_exists = await config_fs.is_bucket_exists(bucket_defaults.name);
             expect(is_bucket_exists).toBe(false);
+        });
+
+
+        it('cli delete bucket when should_create_underlying_storage is true', async () => {
+            let path_exists = await is_path_exists(DEFAULT_FS_CONFIG, bucket_defaults.path);
+            expect(path_exists).toBe(true);
+
+            const bucket_options = { config_root, name: 'bucket1' };
+
+            const bucket = await config_fs.get_bucket_by_name(bucket_options.name);
+            await config_fs.update_bucket_config_file({ ...bucket, should_create_underlying_storage: true });
+
+            const action = ACTIONS.DELETE;
+            const res = await exec_manage_cli(TYPES.BUCKET, action, bucket_options);
+            expect(JSON.parse(res.trim()).response.code).toBe(ManageCLIResponse.BucketDeleted.code);
+            const is_bucket_exists = await config_fs.is_bucket_exists(bucket_defaults.name);
+            expect(is_bucket_exists).toBe(false);
+
+            path_exists = await is_path_exists(DEFAULT_FS_CONFIG, bucket_defaults.path);
+            expect(path_exists).toBe(false);
         });
     });
 

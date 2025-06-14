@@ -63,11 +63,9 @@ class Dispatcher {
             event: item.event,
         };
         // Resolve & enrich log data
-        await this._resolve_activity_item(item, l);
-
-        // Native syslog expects `{ description }`
-        console.log("#####################", l);
-        this.send_syslog(JSON.stringify(l));
+        const logitem = await this._resolve_activity_item(item, l);
+        console.log("#####################", logitem);
+        this.send_syslog(JSON.stringify(logitem));
     }
 
     async read_activity_log(req) {

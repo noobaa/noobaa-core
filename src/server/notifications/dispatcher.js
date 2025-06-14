@@ -50,7 +50,6 @@ class Dispatcher {
 
     //Activity Log
     async activity(item) {
-        const self = this;
         item.desc = new SensitiveString(item.desc);
         dbg.log0('Adding ActivityLog entry', item);
         item.time = item.time || new Date();
@@ -63,11 +62,15 @@ class Dispatcher {
             level: item.level,
             event: item.event,
         };
-        const logitem = await self._resolve_activity_item(item, l);
-        self.send_syslog(JSON.stringify(logitem));
+        // Resolve & enrich log data
+        await this._resolve_activity_item(item, l);
+
+        // Native syslog expects `{ description }`
+        console.log("#####################", l);
+        this.send_syslog(JSON.stringify(l));
     }
 
-    read_activity_log(req) {
+    async read_activity_log(req) {
         const self = this;
 
         const query = _.pick(req.rpc_params, ['till', 'since', 'skip', 'limit']);
@@ -76,22 +79,22 @@ class Dispatcher {
         }
         query.system = req.system._id;
 
-        return ActivityLogStore.instance().read_activity_log(query)
-            .then(logs => P.map(logs, async function(log_item) {
-                const l = {
-                    id: String(log_item._id),
-                    level: log_item.level,
-                    event: log_item.event,
-                    time: log_item.time.getTime(),
-                };
+        const logs = await ActivityLogStore.instance().read_activity_log(query);
+        const activity_logs = await P.map(logs, async function(log_item) {
+            const l = {
+                id: String(log_item._id),
+                level: log_item.level,
+                event: log_item.event,
+                time: log_item.time.getTime(),
+            };
 
-                if (log_item.desc) {
-                    l.desc = log_item.desc.split('\n');
-                }
-                return P.resolve(await self._resolve_activity_item(log_item, l))
-                    .then(() => l);
-            }))
-            .then(logs => ({ logs }));
+            if (log_item.desc) {
+                l.desc = log_item.desc.split('\n');
+            }
+            return await self._resolve_activity_item(log_item, l);
+        });
+        console.log("$$$$$$$$$$$$", activity_logs);
+        return activity_logs;
     }
 
     //Remote Syslog
@@ -152,8 +155,8 @@ class Dispatcher {
     }
 
     async _resolve_activity_item(log_item, l) {
-        nodes_client.instance().populate_nodes(log_item.system, log_item, 'node', 'node', NODE_POPULATE_FIELDS);
-        MDStore.instance().populate_objects(log_item, 'obj', OBJECT_POPULATE_FIELDS);
+        await nodes_client.instance().populate_nodes(log_item.system, log_item, 'node', 'node', NODE_POPULATE_FIELDS);
+        await MDStore.instance().populate_objects(log_item, 'obj', OBJECT_POPULATE_FIELDS);
         if (log_item.node) {
             const { name, pool, os_info, host_seq } = log_item.node;
             l.node = {};

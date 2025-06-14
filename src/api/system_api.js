@@ -553,12 +553,6 @@ module.exports = {
                         $ref: 'account_api#/definitions/account_info'
                     }
                 },
-                functions: {
-                    type: 'array',
-                    items: {
-                        $ref: 'func_api#/definitions/func_info'
-                    }
-                },
                 objects: {
                     type: 'integer'
                 },

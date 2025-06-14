@@ -4,7 +4,7 @@
 const _ = require('lodash');
 const fs = require('fs');
 const argv = require('minimist')(process.argv);
-const AWS = require('aws-sdk');
+const { S3 } = require('@aws-sdk/client-s3');
 const P = require('../../util/promise');
 const semaphore = require('../../util/semaphore');
 const os_utils = require('../../util/os_utils');
@@ -85,11 +85,6 @@ function pre_generation() {
 }
 
 function upload_test() {
-    AWS.config.update({
-        accessKeyId: UL_TEST.access_key,
-        secretAccessKey: UL_TEST.secret_key,
-        Bucket: UL_TEST.bucket_name
-    });
 
     const upload_semaphore = new semaphore.Semaphore(UL_TEST.num_threads);
     return P.all(_.map(UL_TEST.files, function(f) {
@@ -103,10 +98,14 @@ function upload_file(test_file) {
     let start_ts;
     console.log('Called upload_file with param', test_file);
     return P.fcall(function() {
-            const s3bucket = new AWS.S3({
+            const s3bucket = new S3({
                 endpoint: UL_TEST.target,
-                s3ForcePathStyle: true,
-                sslEnabled: false,
+                credentials: {
+                    accessKeyId: UL_TEST.access_key,
+                    secretAccessKey: UL_TEST.secret_key,
+                },
+                forcePathStyle: true,
+                tls: false,
             });
             const params = {
                 Bucket: UL_TEST.bucket_name,
@@ -114,7 +113,7 @@ function upload_file(test_file) {
                 Body: fs.createReadStream(test_file),
             };
             start_ts = Date.now();
-            return P.ninvoke(s3bucket, 'upload', params)
+            return s3bucket.putObject(params)
                 .then(function(res) {
                     console.log('Done uploading', test_file);
                     //TODO:: Add histogram as well

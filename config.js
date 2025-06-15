@@ -406,6 +406,9 @@ config.CHUNK_CODER_EC_PARITY_TYPE = 'cm256';
 config.CHUNK_CODER_EC_TOLERANCE_THRESHOLD = 2;
 config.CHUNK_CODER_EC_IS_DEFAULT = false;
 
+// DEDUP
+config.MIN_CHUNK_AGE_FOR_DEDUP = 60 * 60 * 1000; // 1 hour
+
 //////////////////////////
 // DEDUP INDEXER CONFIG //
 //////////////////////////
@@ -872,7 +875,7 @@ config.ENDPOINT_PORT = Number(process.env.ENDPOINT_PORT) || 6001;
 config.ENDPOINT_SSL_PORT = Number(process.env.ENDPOINT_SSL_PORT) || 6443;
 config.ENDPOINT_SSL_STS_PORT = Number(process.env.ENDPOINT_SSL_STS_PORT) || -1;
 config.ALLOW_HTTP = false;
-// config files should allow access to the owner of the files 
+// config files should allow access to the owner of the files
 config.BASE_MODE_CONFIG_FILE = 0o600;
 config.BASE_MODE_CONFIG_DIR = 0o700;
 
@@ -1048,10 +1051,10 @@ function _get_config_root() {
 }
 
 /**
- * validate_nc_master_keys_config validates the following - 
+ * validate_nc_master_keys_config validates the following -
  * 1. if type is file -
  *    1.1. no GET/PUT executables provided
- * 2. if type is executable - 
+ * 2. if type is executable -
  *    2.1. no file location provided
  *    2.2. GET & PUT executables exist and executables
  */

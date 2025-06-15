@@ -68,6 +68,10 @@ jobs:
         env:
           DOCKERHUB_OWNER: ${{ secrets.GHACTIONQUAYNAME }}
         run: |
+            docker tag ${{ steps.prep.outputs.basetags }} quay.io/${{ steps.prep.outputs.basetags }}
+            docker push quay.io/${{ steps.prep.outputs.basetags }}
+            docker tag ${{ steps.prep.outputs.buildertags }} quay.io/${{ steps.prep.outputs.buildertags }}
+            docker push quay.io/${{ steps.prep.outputs.buildertags }}
             docker tag ${{ steps.prep.outputs.coretags }} quay.io/${{ steps.prep.outputs.coretags }}
             docker push quay.io/${{ steps.prep.outputs.coretags }}
 

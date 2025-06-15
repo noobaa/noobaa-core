@@ -52,7 +52,7 @@ async function delete_objects(req) {
                 Delete: {
                     Objects: batch.map(key => ({ Key: key }))
                 }
-            }).promise();
+            });
 
             res.Deleted?.forEach(obj => delete_done_list.push(obj.Key));
         } catch (err) {
@@ -83,7 +83,7 @@ async function copy_objects_mixed_types(req) {
                 Key: key
             };
             try {
-                await noobaa_con.copyObject(params).promise();
+                await noobaa_con.copyObject(params);
                 copy_res.num_of_objects += 1;
                 // The size of the object can be in either Size or ContentLength, depending on whether
                 // the request was ListObjectVersions or HeadObject
@@ -100,7 +100,7 @@ async function copy_objects_mixed_types(req) {
                     Key: key
                 };
                 try {
-                    await noobaa_con.copyObject(params).promise();
+                    await noobaa_con.copyObject(params);
                     copy_res.num_of_objects += 1;
                     copy_res.size_of_objects += keys_diff_map[key][i].Size;
                 } catch (err) {

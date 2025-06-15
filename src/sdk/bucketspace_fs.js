@@ -324,24 +324,16 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
             }
 
             // create bucket's underlying storage directory
-            try {
-                await nb_native().fs.mkdir(fs_context, bucket_storage_path, get_umasked_mode(config.BASE_MODE_DIR));
-                const reserved_tag_event_args = Object.keys(config.NSFS_GLACIER_RESERVED_BUCKET_TAGS).reduce((curr, tag) => {
-                    const tag_info = config.NSFS_GLACIER_RESERVED_BUCKET_TAGS[tag];
-                    if (tag_info.event) return Object.assign(curr, { [tag]: tag_info.default });
-                    return curr;
-                }, {});
+            await BucketSpaceFS._create_uls(this.fs_context, fs_context, name, bucket_storage_path, bucket_config_path);
+            const reserved_tag_event_args = Object.keys(config.NSFS_GLACIER_RESERVED_BUCKET_TAGS).reduce((curr, tag) => {
+                const tag_info = config.NSFS_GLACIER_RESERVED_BUCKET_TAGS[tag];
+                if (tag_info.event) return Object.assign(curr, { [tag]: tag_info.default });
+                return curr;
+            }, {});
 
-                new NoobaaEvent(NoobaaEvent.BUCKET_CREATED).create_event(name, {
-                    ...reserved_tag_event_args, bucket_name: name, account: sdk.requesting_account.name
-                });
-            } catch (err) {
-                dbg.error('BucketSpaceFS: create_bucket could not create underlying directory - nsfs, deleting bucket', err);
-                new NoobaaEvent(NoobaaEvent.BUCKET_DIR_CREATION_FAILED)
-                    .create_event(name, { bucket: name, path: bucket_storage_path }, err);
-                await nb_native().fs.unlink(this.fs_context, bucket_config_path);
-                throw translate_error_codes(err, entity_enum.BUCKET);
-            }
+            new NoobaaEvent(NoobaaEvent.BUCKET_CREATED).create_event(name, {
+                ...reserved_tag_event_args, bucket_name: name, account: sdk.requesting_account.name
+            });
         });
     }
 
@@ -1035,6 +1027,26 @@ class BucketSpaceFS extends BucketSpaceSimpleFS {
      */
     static _objectify_tagging_arr(tagging) {
         return (tagging || []).reduce((curr, tag) => Object.assign(curr, { [tag.key]: tag.value }), {});
+    }
+
+    /**
+     * _create_uls creates underylying storage at the given storage_path
+     * @param {*} fs_context - root fs_context 
+     * @param {*} acc_fs_context - fs_context associated with the performing account
+     * @param {*} name - bucket name
+     * @param {*} storage_path - bucket's storage path
+     * @param {*} cfg_path - bucket's configuration path
+     */
+    static async _create_uls(fs_context, acc_fs_context, name, storage_path, cfg_path) {
+        try {
+            await nb_native().fs.mkdir(acc_fs_context, storage_path, get_umasked_mode(config.BASE_MODE_DIR));
+        } catch (error) {
+            dbg.error('BucketSpaceFS: _create_uls could not create underlying directory - nsfs, deleting bucket', error);
+            new NoobaaEvent(NoobaaEvent.BUCKET_DIR_CREATION_FAILED)
+                .create_event(name, { bucket: name, path: storage_path }, error);
+            await nb_native().fs.unlink(fs_context, cfg_path);
+            throw translate_error_codes(error, entity_enum.BUCKET);
+        }
     }
 }
 

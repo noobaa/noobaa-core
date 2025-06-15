@@ -9,7 +9,7 @@ jobs:
       actions: read         # download-artifact
       contents: read        # required for actions/checkout
     steps:
-      - name: checkout
+      - name: Checkout noobaa-core
         uses: actions/checkout@v4
 
       - name: Download artifact

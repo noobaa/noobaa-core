@@ -9,10 +9,10 @@ jobs:
       actions: read         # download-artifact
       contents: read        # required for actions/checkout
     steps:
-      - name: Checkout noobaa-core
+      - name: Checkout
         uses: actions/checkout@v4
         with:
-          repository: 'noobaa/noobaa-core'
+          repository: noobaa/noobaa-core
           path: 'noobaa-core'
 
       - name: Download artifact

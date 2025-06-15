@@ -48,6 +48,23 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Login to Quay Registry
+        run: |
+          docker login quay.io -u ${{ secrets.GHACTIONQUAYNAME }} -p ${{ secrets.GHACTIONQUAYTOKEN }}
+
+      #- name: Pull Base Docker Image from Quay
+      #  env:
+      #    DOCKERHUB_OWNER: ${{ secrets.GHACTIONQUAYNAME }}
+      #  run: |
+      #      docker pull quay.io/${{ steps.prep.outputs.basetags }}
+
+      - name: Check changed files
+        id: changed_files
+        run: |
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          git diff --name-only origin/${{ github.event.pull_request.base.ref }}...${{ github.sha }} > changed_files.txt
+          echo "changed_files=$(cat changed_files.txt)" >> $GITHUB_OUTPUT
+
       - name: make noobaa image
         run: make tester
 

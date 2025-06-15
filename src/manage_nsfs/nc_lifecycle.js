@@ -90,6 +90,9 @@ class NCLifecycle {
         this.disable_service_validation = options.disable_service_validation || false;
         this.disable_runtime_validation = options.disable_runtime_validation || false;
         this.should_continue_last_run = options.should_continue_last_run || false;
+        // used for GPFS optimization - maps bucket names to their mount points
+        // example - { 'bucket1': '/gpfs/mount/point1', 'bucket2': '/gpfs/mount/point2' }
+        this.bucket_to_mount_point_map = {};
     }
 
     /**
@@ -183,13 +186,19 @@ class NCLifecycle {
         }
 
         while (!this.lifecycle_run_status.state.is_finished) {
-            await P.map_with_concurrency(buckets_concurrency, bucket_names, async bucket_name =>
-                await this._call_op_and_update_status({
-                    bucket_name,
-                    op_name: TIMED_OPS.PROCESS_BUCKET,
-                    op_func: async () => this.process_bucket(bucket_name, system_json)
-                })
-            );
+            await P.map_with_concurrency(buckets_concurrency, bucket_names, async bucket_name => {
+                try {
+                    await this._call_op_and_update_status({
+                        bucket_name,
+                        op_name: TIMED_OPS.PROCESS_BUCKET,
+                        op_func: async () => this.process_bucket(bucket_name, system_json)
+                    });
+                } catch (err) {
+                    dbg.error('process_bucket failed with error', err, err.code, err.message);
+                    if (!this.lifecycle_run_status.buckets_statuses[bucket_name]) this.init_bucket_status(bucket_name);
+                    this.lifecycle_run_status.buckets_statuses[bucket_name].state.is_finished = true;
+                }
+            });
             this.lifecycle_run_status.state.is_finished = Object.values(this.lifecycle_run_status.buckets_statuses).reduce(
                 (acc, bucket) => acc && (bucket.state?.is_finished),
                 true
@@ -204,6 +213,12 @@ class NCLifecycle {
      */
     async process_bucket(bucket_name, system_json) {
         const bucket_json = await this.config_fs.get_bucket_by_name(bucket_name, config_fs_options);
+        if (this._should_use_gpfs_optimization()) {
+            const bucket_mount_point = this.bucket_to_mount_point_map[bucket_name];
+            if (this.lifecycle_run_status.mount_points_statuses[bucket_mount_point]?.errors?.length > 0) {
+                throw new Error(`Lifecycle run failed for bucket ${bucket_name} on mount point ${bucket_mount_point} due to errors: ${this.lifecycle_run_status.mount_points_statuses[bucket_mount_point].errors}`);
+            }
+        }
         const account = await this.config_fs.get_identity_by_id(bucket_json.owner_account, CONFIG_TYPES.ACCOUNT,
             { silent_if_missing: true });
         if (!account) {
@@ -1199,7 +1214,9 @@ class NCLifecycle {
         for (const bucket_name of bucket_names) {
             const bucket_json = await this.config_fs.get_bucket_by_name(bucket_name, config_fs_options);
             const bucket_mount_point = this.find_mount_point_by_bucket_path(mount_point_to_policy_map, bucket_json.path);
+            this.bucket_to_mount_point_map[bucket_name] = bucket_mount_point;
             if (!bucket_json.lifecycle_configuration_rules?.length) continue;
+
             for (const lifecycle_rule of bucket_json.lifecycle_configuration_rules) {
                 // currently we support expiration (current version) only
                 if (lifecycle_rule.expiration) {

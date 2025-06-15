@@ -15,8 +15,8 @@ const Dispatcher = require('../notifications/dispatcher');
  * READ_ACTIVITY_LOG
  *
  */
-function read_activity_log(req) {
-    return Dispatcher.instance().read_activity_log(req);
+async function read_activity_log(req) {
+    return await Dispatcher.instance().read_activity_log(req);
 }
 
 /**

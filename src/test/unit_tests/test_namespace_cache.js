@@ -354,7 +354,6 @@ class MockNamespace {
     async get_blob_block_lists(params, object_sdk) { return this.not_implemented(); }
     async set_triggers_for_bucket(params, object_sdk) { return this.not_implemented(); }
     async get_triggers_for_bucket(params, object_sdk) { return this.not_implemented(); }
-    async _dispatch_multiple_delete_triggers(params, object_sdk) { return this.not_implemented(); }
     async create_uls(params, object_sdk) { return this.not_implemented(); }
     async delete_uls(params, object_sdk) { return this.not_implemented(); }
 }

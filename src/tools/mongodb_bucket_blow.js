@@ -66,7 +66,6 @@ for (let j = 0; j < 5; ++j) {
                 objects_hist: [],
                 last_update: Date.now() - (2 * 90000)
             },
-            lambda_triggers: [],
             versioning: "DISABLED",
             last_update: now,
         });

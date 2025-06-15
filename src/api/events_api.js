@@ -147,18 +147,6 @@ module.exports = {
                                         }
                                     }
                                 },
-                                func: {
-                                    type: 'object',
-                                    required: ['name'],
-                                    properties: {
-                                        name: {
-                                            type: 'string'
-                                        },
-                                        linkable: {
-                                            type: 'boolean'
-                                        },
-                                    }
-                                },
                                 actor: {
                                     type: 'object',
                                     required: ['email'],

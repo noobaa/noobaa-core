@@ -6,7 +6,6 @@
 const path = require('path');
 const _ = require('lodash');
 const mocha = require('mocha');
-const sinon = require('sinon');
 const assert = require('assert');
 const config = require('../../../config');
 const pkg = require('../../../package.json');
@@ -175,7 +174,7 @@ mocha.describe('nsfs nc health', function() {
             await exec_manage_cli(TYPES.ACCOUNT, ACTIONS.ADD, {config_root, ...account1_options});
             await exec_manage_cli(TYPES.BUCKET, ACTIONS.ADD, {config_root, ...bucket1_options});
             await fs_utils.file_must_exist(path.join(config_root, 'master_keys.json'));
-            set_mock_functions(Health, { get_service_memory_usage: [100]});
+            test_utils.set_health_mock_functions(Health, { get_service_memory_usage: [100]});
             for (const user of Object.values(fs_users)) {
                 await create_fs_user_by_platform(user.distinguished_name, user.distinguished_name, user.uid, user.gid);
             }
@@ -207,7 +206,7 @@ mocha.describe('nsfs nc health', function() {
             };
             valid_system_json[hostname].config_dir_version = config_fs.config_dir_version;
             await Health.config_fs.create_system_config_file(JSON.stringify(valid_system_json));
-            set_mock_functions(Health, {
+            test_utils.set_health_mock_functions(Health, {
                 get_service_state: get_service_state_mock_default_response,
                 get_endpoint_response: get_endpoint_response_mock_default_response,
             });
@@ -246,7 +245,7 @@ mocha.describe('nsfs nc health', function() {
         });
 
         mocha.it('NooBaa service is inactive', async function() {
-            set_mock_functions(Health, {
+            test_utils.set_health_mock_functions(Health, {
                 get_service_state: [{ service_status: 'inactive', pid: 0 }],
                 get_endpoint_response: get_endpoint_response_mock_default_response,
                 get_system_config_file: get_system_config_mock_default_response
@@ -257,7 +256,7 @@ mocha.describe('nsfs nc health', function() {
         });
 
         mocha.it('NooBaa endpoint return error response is inactive', async function() {
-            set_mock_functions(Health, {
+            test_utils.set_health_mock_functions(Health, {
                 get_service_state: get_service_state_mock_default_response,
                 get_endpoint_response: [{ response: { response_code: 'MISSING_FORKS', total_fork_count: 3, running_workers: ['1', '3'] } }],
                 get_system_config_file: get_system_config_mock_default_response
@@ -271,7 +270,7 @@ mocha.describe('nsfs nc health', function() {
             // create it manually because we can not skip invalid storage path check on the CLI
             const account_invalid_options = { _id: mongo_utils.mongoObjectId(), name: 'account_invalid', nsfs_account_config: { new_buckets_path: path.join(new_buckets_path, '/invalid') } };
             await test_utils.write_manual_config_file(TYPES.ACCOUNT, config_fs, account_invalid_options);
-            set_mock_functions(Health, {
+            test_utils.set_health_mock_functions(Health, {
                 get_service_state: get_service_state_mock_default_response,
                 get_endpoint_response: get_endpoint_response_mock_default_response,
                 get_system_config_file: get_system_config_mock_default_response
@@ -290,7 +289,7 @@ mocha.describe('nsfs nc health', function() {
             // create it manually because we can not skip invalid storage path check on the CLI
             const bucket_invalid = { _id: mongo_utils.mongoObjectId(), name: 'bucket_invalid', path: new_buckets_path + '/bucket1/invalid', owner_account: parsed_res._id };
             await test_utils.write_manual_config_file(TYPES.BUCKET, config_fs, bucket_invalid);
-            set_mock_functions(Health, {
+            test_utils.set_health_mock_functions(Health, {
                 get_service_state: get_service_state_mock_default_response,
                 get_endpoint_response: get_endpoint_response_mock_default_response,
                 get_system_config_file: get_system_config_mock_default_response
@@ -312,7 +311,7 @@ mocha.describe('nsfs nc health', function() {
             await config_fs.delete_config_json_file();
             Health.all_account_details = true;
             Health.all_bucket_details = true;
-            set_mock_functions(Health, {
+            test_utils.set_health_mock_functions(Health, {
                 get_service_state: get_service_state_mock_default_response,
                 get_endpoint_response: get_endpoint_response_mock_default_response,
                 get_system_config_file: get_system_config_mock_default_response
@@ -337,7 +336,7 @@ mocha.describe('nsfs nc health', function() {
             await test_utils.write_manual_config_file(TYPES.BUCKET, config_fs, bucket_invalid_owner);
             Health.all_account_details = true;
             Health.all_bucket_details = true;
-            set_mock_functions(Health, {
+            test_utils.set_health_mock_functions(Health, {
                 get_service_state: get_service_state_mock_default_response,
                 get_endpoint_response: get_endpoint_response_mock_default_response,
                 get_system_config_file: get_system_config_mock_default_response
@@ -357,7 +356,7 @@ mocha.describe('nsfs nc health', function() {
             await test_utils.write_manual_config_file(TYPES.BUCKET, config_fs, bucket_invalid_owner);
             Health.all_account_details = true;
             Health.all_bucket_details = true;
-            set_mock_functions(Health, {
+            test_utils.set_health_mock_functions(Health, {
                 get_service_state: get_service_state_mock_default_response,
                 get_endpoint_response: get_endpoint_response_mock_default_response,
                 get_system_config_file: get_system_config_mock_default_response
@@ -374,7 +373,7 @@ mocha.describe('nsfs nc health', function() {
             // create it manually because we can not skip json schema check on the CLI
             const bucket_invalid_schema = { _id: mongo_utils.mongoObjectId(), name: 'bucket_invalid_schema', path: new_buckets_path };
             await test_utils.write_manual_config_file(TYPES.BUCKET, config_fs, bucket_invalid_schema, 'invalid');
-            set_mock_functions(Health, {
+            test_utils.set_health_mock_functions(Health, {
                 get_service_state: get_service_state_mock_default_response,
                 get_endpoint_response: get_endpoint_response_mock_default_response,
                 get_system_config_file: get_system_config_mock_default_response
@@ -391,7 +390,7 @@ mocha.describe('nsfs nc health', function() {
             // create it manually because we can not skip json schema check on the CLI
             const account_invalid_schema = { _id: mongo_utils.mongoObjectId(), name: 'account_invalid_schema', path: new_buckets_path, bla: 5 };
             await test_utils.write_manual_config_file(TYPES.ACCOUNT, config_fs, account_invalid_schema, 'invalid');
-            set_mock_functions(Health, {
+            test_utils.set_health_mock_functions(Health, {
                 get_service_state: get_service_state_mock_default_response,
                 get_endpoint_response: get_endpoint_response_mock_default_response,
                 get_system_config_file: get_system_config_mock_default_response
@@ -407,7 +406,7 @@ mocha.describe('nsfs nc health', function() {
         mocha.it('Health all condition is success, all_account_details is false', async function() {
             Health.all_account_details = false;
             Health.all_bucket_details = true;
-            set_mock_functions(Health, {
+            test_utils.set_health_mock_functions(Health, {
                 get_service_state: get_service_state_mock_default_response,
                 get_endpoint_response: get_endpoint_response_mock_default_response,
                 get_system_config_file: get_system_config_mock_default_response
@@ -423,7 +422,7 @@ mocha.describe('nsfs nc health', function() {
         mocha.it('Health all condition is success, all_bucket_details is false', async function() {
             Health.all_account_details = true;
             Health.all_bucket_details = false;
-            set_mock_functions(Health, {
+            test_utils.set_health_mock_functions(Health, {
                 get_service_state: get_service_state_mock_default_response,
                 get_endpoint_response: get_endpoint_response_mock_default_response,
                 get_system_config_file: get_system_config_mock_default_response
@@ -442,7 +441,7 @@ mocha.describe('nsfs nc health', function() {
             Health.config_root = config_root_invalid;
             const old_config_fs = Health.config_fs;
             Health.config_fs = new ConfigFS(config_root_invalid);
-            set_mock_functions(Health, {
+            test_utils.set_health_mock_functions(Health, {
                 get_service_state: get_service_state_mock_default_response,
                 get_endpoint_response: get_endpoint_response_mock_default_response,
                 get_system_config_file: get_system_config_mock_default_response
@@ -464,7 +463,7 @@ mocha.describe('nsfs nc health', function() {
             await config_fs.delete_config_json_file();
             Health.all_account_details = true;
             Health.all_bucket_details = true;
-            set_mock_functions(Health, {
+            test_utils.set_health_mock_functions(Health, {
                 get_service_state: get_service_state_mock_default_response,
                 get_endpoint_response: get_endpoint_response_mock_default_response,
                 get_system_config_file: get_system_config_mock_default_response
@@ -484,7 +483,7 @@ mocha.describe('nsfs nc health', function() {
             await config_fs.delete_config_json_file();
             Health.all_account_details = true;
             Health.all_bucket_details = true;
-            set_mock_functions(Health, {
+            test_utils.set_health_mock_functions(Health, {
                 get_service_state: get_service_state_mock_default_response,
                 get_endpoint_response: get_endpoint_response_mock_default_response,
                 get_system_config_file: get_system_config_mock_default_response
@@ -507,7 +506,7 @@ mocha.describe('nsfs nc health', function() {
             await config_fs.delete_config_json_file();
             Health.all_account_details = true;
             Health.all_bucket_details = true;
-            set_mock_functions(Health, {
+            test_utils.set_health_mock_functions(Health, {
                 get_service_state: get_service_state_mock_default_response,
                 get_endpoint_response: get_endpoint_response_mock_default_response,
                 get_system_config_file: get_system_config_mock_default_response
@@ -529,7 +528,7 @@ mocha.describe('nsfs nc health', function() {
             await exec_manage_cli(TYPES.ACCOUNT, ACTIONS.ADD, { config_root, ...account_inaccessible_dn_options });
             Health.all_account_details = true;
             Health.all_bucket_details = true;
-            set_mock_functions(Health, {
+            test_utils.set_health_mock_functions(Health, {
                 get_service_state: get_service_state_mock_default_response,
                 get_endpoint_response: get_endpoint_response_mock_default_response,
                 get_system_config_file: get_system_config_mock_default_response
@@ -548,7 +547,7 @@ mocha.describe('nsfs nc health', function() {
             await exec_manage_cli(TYPES.ACCOUNT, ACTIONS.ADD, { config_root, ...account_inaccessible_dn_options });
             Health.all_account_details = true;
             Health.all_bucket_details = true;
-            set_mock_functions(Health, {
+            test_utils.set_health_mock_functions(Health, {
                 get_service_state: get_service_state_mock_default_response,
                 get_endpoint_response: get_endpoint_response_mock_default_response,
                 get_system_config_file: get_system_config_mock_default_response
@@ -570,7 +569,7 @@ mocha.describe('nsfs nc health', function() {
             await exec_manage_cli(TYPES.ACCOUNT, ACTIONS.ADD, { config_root, ...account_inaccessible_dn_options });
             Health.all_account_details = true;
             Health.all_bucket_details = true;
-            set_mock_functions(Health, {
+            test_utils.set_health_mock_functions(Health, {
                 get_service_state: get_service_state_mock_default_response,
                 get_endpoint_response: get_endpoint_response_mock_default_response,
                 get_system_config_file: get_system_config_mock_default_response
@@ -592,7 +591,7 @@ mocha.describe('nsfs nc health', function() {
             await exec_manage_cli(TYPES.ACCOUNT, ACTIONS.ADD, { config_root, ...invalid_account_dn_options });
             Health.all_account_details = true;
             Health.all_bucket_details = true;
-            set_mock_functions(Health, {
+            test_utils.set_health_mock_functions(Health, {
                 get_service_state: get_service_state_mock_default_response,
                 get_endpoint_response: get_endpoint_response_mock_default_response,
                 get_system_config_file: get_system_config_mock_default_response
@@ -613,7 +612,7 @@ mocha.describe('nsfs nc health', function() {
             await exec_manage_cli(TYPES.ACCOUNT, ACTIONS.ADD, { config_root, ...account_valid });
             Health.all_account_details = true;
             Health.all_bucket_details = false;
-            set_mock_functions(Health, {
+            test_utils.set_health_mock_functions(Health, {
                 get_service_state: get_service_state_mock_default_response,
                 get_endpoint_response: get_endpoint_response_mock_default_response,
                 get_system_config_file: get_system_config_mock_default_response
@@ -630,7 +629,7 @@ mocha.describe('nsfs nc health', function() {
             await exec_manage_cli(TYPES.ACCOUNT, ACTIONS.ADD, { config_root, ...account_invalid });
             Health.all_account_details = true;
             Health.all_bucket_details = false;
-            set_mock_functions(Health, {
+            test_utils.set_health_mock_functions(Health, {
                 get_service_state: get_service_state_mock_default_response,
                 get_endpoint_response: get_endpoint_response_mock_default_response,
                 get_system_config_file: get_system_config_mock_default_response
@@ -828,26 +827,4 @@ function restore_health_if_needed(health_obj) {
     if (health_obj?.get_endpoint_response?.restore) health_obj.get_endpoint_response.restore();
     if (health_obj?.config_fs?.get_system_config_file?.restore) health_obj.config_fs.get_system_config_file.restore();
     if (health_obj?.get_service_memory_usage?.restore) health_obj.get_service_memory_usage.restore();
-}
-
-/**
- * set_mock_functions sets mock functions used by the health script
- * the second param is an object having the name of the mock functions as the keys and 
- * the value is an array of responses by the order of their call
- * @param {Object} Health 
- * @param {{get_endpoint_response?: Object[], get_service_state?: Object[], 
- * get_system_config_file?: Object[], get_service_memory_usage?: Object[],
- * get_lifecycle_health_status?: Object, get_latest_lifecycle_run_status?: Object}} mock_function_responses 
- */
-function set_mock_functions(Health, mock_function_responses) {
-    for (const mock_function_name of Object.keys(mock_function_responses)) {
-        const mock_function_responses_arr = mock_function_responses[mock_function_name];
-        const obj_to_stub = mock_function_name === 'get_system_config_file' ? Health.config_fs : Health;
-
-        if (obj_to_stub[mock_function_name]?.restore) obj_to_stub[mock_function_name]?.restore();
-        const stub = sinon.stub(obj_to_stub, mock_function_name);
-        for (let i = 0; i < mock_function_responses_arr.length; i++) {
-            stub.onCall(i).returns(Promise.resolve(mock_function_responses_arr[i]));
-        }
-    }
 }

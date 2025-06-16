@@ -16,6 +16,7 @@ const nb_native = require('../../util/nb_native');
 const { CONFIG_TYPES } = require('../../sdk/config_fs');
 const native_fs_utils = require('../../util/native_fs_utils');
 const { NodeHttpHandler } = require("@smithy/node-http-handler");
+const sinon = require('sinon');
 
 const GPFS_ROOT_PATH = process.env.GPFS_ROOT_PATH;
 const IS_GPFS = !_.isUndefined(GPFS_ROOT_PATH);
@@ -44,12 +45,12 @@ function get_tmp_path() {
 const is_nc_coretest = process.env.NC_CORETEST === 'true';
 
 /**
- * 
- * @param {*} need_to_exist 
- * @param {*} pool_id 
- * @param {*} bucket_name 
- * @param {*} blocks 
- * @param {AWS.S3} s3 
+ *
+ * @param {*} need_to_exist
+ * @param {*} pool_id
+ * @param {*} bucket_name
+ * @param {*} blocks
+ * @param {AWS.S3} s3
  */
 function blocks_exist_on_cloud(need_to_exist, pool_id, bucket_name, blocks, s3) {
     console.log('blocks_exist_on_cloud::', need_to_exist, pool_id, bucket_name);
@@ -203,13 +204,13 @@ async function disable_accounts_s3_access(rpc_client, accounts_emails) {
 
 /**
  * generate_s3_policy generates S3 buket policy for the given principal
- * 
+ *
  * @param {string} principal - The principal to grant access to.
  * @param {string} bucket - The bucket to grant access to.
  * @param {Array<string>} action - The action to grant access to.
- * @returns {{ 
+ * @returns {{
  *  policy: Record<string, any>,
- *  params: { bucket: string, action: Array<string>, principal: string } 
+ *  params: { bucket: string, action: Array<string>, principal: string }
  * }}
  */
 function generate_s3_policy(principal, bucket, action) {
@@ -246,7 +247,7 @@ function invalid_nsfs_root_permissions() {
 
 /**
  * get_coretest_path returns coretest path according to process.env.NC_CORETEST value
- * @returns {string} 
+ * @returns {string}
  */
 function get_coretest_path() {
     return process.env.NC_CORETEST ? './nc_coretest' : './coretest';
@@ -353,7 +354,7 @@ async function set_path_permissions_and_owner(p, owner_options, permissions = 0o
     await fs.promises.chmod(p, permissions);
 }
 
-/** 
+/**
  * set_nc_config_dir_in_config sets given config_root to be config.NSFS_NC_CONF_DIR
  * @param {string} config_root
  */
@@ -434,12 +435,12 @@ function generate_iam_client(access_key, secret_key, endpoint) {
 
 /**
  * generate_nsfs_account generate an nsfs account and returns its credentials
- * if the admin flag is received (in the options object) the function will not create 
+ * if the admin flag is received (in the options object) the function will not create
  * the account (it was already created in the system) and only return the credentials.
- * @param {nb.APIClient} rpc_client 
- * @param {String} EMAIL 
- * @param {String} default_new_buckets_path 
- * @param {Object} options 
+ * @param {nb.APIClient} rpc_client
+ * @param {String} EMAIL
+ * @param {String} default_new_buckets_path
+ * @param {Object} options
  * @returns {Promise<Object>}
  */
 async function generate_nsfs_account(rpc_client, EMAIL, default_new_buckets_path, options = {}) {
@@ -480,11 +481,11 @@ async function generate_nsfs_account(rpc_client, EMAIL, default_new_buckets_path
  * get_new_buckets_path_by_test_env returns new_buckets_path value
  * on NC - new_buckets_path is full absolute path
  * on Containerized - new_buckets_path is the directory
- * Example - 
+ * Example -
  * On NC - /private/tmp/new_buckets_path/
  * On Continerized - new_buckets_path/
- * @param {string} new_buckets_full_path 
- * @param {string} new_buckets_dir 
+ * @param {string} new_buckets_full_path
+ * @param {string} new_buckets_dir
  * @returns {string}
  */
 function get_new_buckets_path_by_test_env(new_buckets_full_path, new_buckets_dir) {
@@ -494,16 +495,16 @@ function get_new_buckets_path_by_test_env(new_buckets_full_path, new_buckets_dir
 /**
  * write_manual_config_file writes config file directly to the file system without using config FS
  * used for creating backward compatibility tests, invalid config files etc
- * 1. if it's account - 
+ * 1. if it's account -
  *    1.1. create identity directory /{config_dir_path}/identities/{id}/
- * 2. create the config file - 
+ * 2. create the config file -
  *    2.1. if it's a bucket - create it in /{config_dir_path}/buckets/{bucket_name}.json
  *    2.2. if it's an account - create it in /{config_dir_path}/identities/{id}/identity.json
  * 3. if it's an account and symlink_name is true - create /{config_dir_path}/accounts_by_name/{account_name}.symlink -> /{config_dir_path}/identities/{id}/identity.json
  * 4. if it's an account and symlink_access_key is true and there is access key in the account config - create /{config_dir_path}/access_keys/{access_key}.symlink -> /{config_dir_path}/identities/{id}/identity.json
- * @param {String} type 
+ * @param {String} type
  * @param {import('../../sdk/config_fs').ConfigFS} config_fs
- * @param {Object} config_data 
+ * @param {Object} config_data
  * @param {String} [invalid_str]
  * @param {{symlink_name?: Boolean, symlink_access_key?: Boolean}} [options]
  * @returns {Promise<Void>}
@@ -539,8 +540,8 @@ async function write_manual_config_file(type, config_fs, config_data, invalid_st
  * symlink_account_name symlinks the account's name path to the target link path
  * used for manual creation of the account name symlink
  * @param {import('../../sdk/config_fs').ConfigFS} config_fs
- * @param {String} account_name 
- * @param {String} link_target 
+ * @param {String} account_name
+ * @param {String} link_target
  */
 async function symlink_account_name(config_fs, account_name, link_target) {
     const name_symlink_path = config_fs.get_account_or_user_path_by_name(account_name);
@@ -552,7 +553,7 @@ async function symlink_account_name(config_fs, account_name, link_target) {
  * used for manual creation of the account access key symlink
  * @param {import('../../sdk/config_fs').ConfigFS} config_fs
  * @param {Object} access_keys
- * @param {String} link_target 
+ * @param {String} link_target
  */
 async function symlink_account_access_keys(config_fs, access_keys, link_target) {
     for (const { access_key } of access_keys) {
@@ -564,7 +565,7 @@ async function symlink_account_access_keys(config_fs, access_keys, link_target) 
 /**
  * create_identity_dir_if_missing created the identity directory if missing
  * @param {import('../../sdk/config_fs').ConfigFS} config_fs
- * @param {String} _id 
+ * @param {String} _id
  * @returns {Promise<Void>}
  */
 async function create_identity_dir_if_missing(config_fs, _id) {
@@ -581,7 +582,7 @@ async function create_identity_dir_if_missing(config_fs, _id) {
  * 1. create old json file in /config_dir_path/accounts/account.json
  * 2. if symlink_access_key is true - create old access key symlink /config_dir_path/access_keys/{access_key}.symlink -> /config_dir_path/accounts/account.json
  * @param {import('../../sdk/config_fs').ConfigFS} config_fs
- * @param {Object} config_data 
+ * @param {Object} config_data
  * @param {{symlink_access_key?: Boolean}} [options]
  * @returns {Promise<Void>}
  */
@@ -606,9 +607,9 @@ async function write_manual_old_account_config_file(config_fs, config_data, { sy
 /**
  * delete_manual_config_file deletes config file directly from the file system without using config FS
  * used for deleting invalid config files etc
- * @param {String} type 
+ * @param {String} type
  * @param {import('../../sdk/config_fs').ConfigFS} config_fs
- * @param {Object} config_data 
+ * @param {Object} config_data
  * @returns {Promise<Void>}
  */
 async function delete_manual_config_file(type, config_fs, config_data) {
@@ -649,7 +650,7 @@ async function fail_test_if_default_config_dir_exists(test_name, config_fs) {
 
 /**
  * create_config_dir will create the config directory on the file system
- * @param {String} config_dir 
+ * @param {String} config_dir
  * @returns {Promise<Void>}
  */
 async function create_config_dir(config_dir) {
@@ -688,10 +689,10 @@ async function clean_config_dir(config_fs, custom_config_dir_path) {
 
 /**
  * create_file creates a file in the file system
- * @param {nb.NativeFSContext} fs_context 
- * @param {String} file_path 
- * @param {Object} file_data 
- * @param {{stringify_json?: Boolean}} [options={}] 
+ * @param {nb.NativeFSContext} fs_context
+ * @param {String} file_path
+ * @param {Object} file_data
+ * @param {{stringify_json?: Boolean}} [options={}]
  */
 async function create_file(fs_context, file_path, file_data, options = {}) {
     const buf = Buffer.from(options?.stringify_json ? JSON.stringify(file_data) : file_data);
@@ -709,7 +710,7 @@ async function create_file(fs_context, file_path, file_data, options = {}) {
  * create_system_json creates the system.json file
  * if mock_config_dir_version it sets it before creating the file
  * @param {import('../../sdk/config_fs').ConfigFS} config_fs
- * @param {String} [mock_config_dir_version] 
+ * @param {String} [mock_config_dir_version]
  * @returns {Promise<Void>}
  */
 async function create_system_json(config_fs, mock_config_dir_version) {
@@ -722,7 +723,7 @@ async function create_system_json(config_fs, mock_config_dir_version) {
  * update_system_json updates the system.json file
  * if mock_config_dir_version it sets it before creating the file
  * @param {import('../../sdk/config_fs').ConfigFS} config_fs
- * @param {String} [mock_config_dir_version] 
+ * @param {String} [mock_config_dir_version]
  * @returns {Promise<Void>}
  */
 async function update_system_json(config_fs, mock_config_dir_version) {
@@ -734,8 +735,8 @@ async function update_system_json(config_fs, mock_config_dir_version) {
 /**
  * run_or_skip_test checks -
  * 1. if cond condition evaluated to true - run test
- * 2. else - skip test 
- * @param {*} cond 
+ * 2. else - skip test
+ * @param {*} cond
  * @returns {*}
  */
 const run_or_skip_test = cond => {
@@ -744,6 +745,103 @@ const run_or_skip_test = cond => {
     } else return it.skip;
 };
 
+/**
+ * update_file_mtime updates the mtime of the target path
+ * Warnings:
+ *  - This operation would change the mtime of the file to 5 days ago - which means that it changes the etag / obj_id of the object
+ *  - Please do not use on versioned objects (version_id will not be changed, but the mtime will be changed) - might cause issues.
+ * @param {String} target_path
+ * @returns {Promise<Void>}
+ */
+async function update_file_mtime(target_path) {
+    const update_file_mtime_cmp = os_utils.IS_MAC ? `touch -t $(date -v -5d +"%Y%m%d%H%M.%S") ${target_path}` : `touch -d "5 days ago" ${target_path}`;
+    await os_utils.exec(update_file_mtime_cmp, { return_stdout: true });
+}
+
+/////////////////////////////////
+//////  LIFECYCLE UTILS   ///////
+/////////////////////////////////
+
+/**
+ * generate_lifecycle_rule generate an S3 lifecycle rule with optional filters and expiration currently (can be extend to support more lifecycle rule params)
+ *
+ * @param {number} expiration_days
+ * @param {string} id
+ * @param {string} [prefix]
+ * @param {Array<Object>} [tags]
+ * @param {number} [size_gt]
+ * @param {number} [size_lt]
+ * @returns {Object}
+ */
+function generate_lifecycle_rule(expiration_days, id, prefix, tags, size_gt, size_lt) {
+    const filters = {};
+    if (prefix) filters.Prefix = prefix;
+    if (Array.isArray(tags) && tags.length) filters.Tags = tags;
+    if (size_gt !== undefined) filters.ObjectSizeGreaterThan = size_gt;
+    if (size_lt !== undefined) filters.ObjectSizeLessThan = size_lt;
+
+    const filter = Object.keys(filters).length > 1 ? { And: filters } : filters;
+
+    return {
+        ID: id,
+        Status: 'Enabled',
+        Filter: filter,
+        Expiration: { Days: expiration_days },
+    };
+}
+
+/**
+ * validate_expiration_header validates the `x-amz-expiration` header against the object creation time, expected rule ID and expiration days
+ *
+ * The header is expected to have the format:
+ *   expiry-date="YYYY-MM-DDTHH:MM:SS.SSSZ", rule-id="RULE_ID"
+ *
+ * @param {string} expiration_header - expiration header value
+ * @param {string|Date} start_time - start/create time (string or Date) of the object
+ * @param {string} expected_rule_id - expected rule ID to match in the header
+ * @param {number} delta_days - expected number of days between start_time and expiry-date
+ * @returns {boolean} true if the header is valid and matches the expected_rule_id and delta_days otherwise false
+ */
+function validate_expiration_header(expiration_header, start_time, expected_rule_id, delta_days) {
+    const match = expiration_header.match(/expiry-date="(.+)", rule-id="(.+)"/);
+    if (!match) return false;
+
+    const [, expiry_str, rule_id] = match;
+    const expiration = new Date(expiry_str);
+    const start = new Date(start_time);
+    start.setUTCHours(0, 0, 0, 0); // adjusting to midnight UTC otherwise the tests will fail - fix for ceph-s3 tests
+
+    const days_diff = Math.floor((expiration.getTime() - start.getTime()) / (24 * 60 * 60 * 1000));
+
+    return days_diff === delta_days && rule_id === expected_rule_id;
+}
+
+/**
+ * set_mock_functions sets mock functions used by the health script
+ * the second param is an object having the name of the mock functions as the keys and
+ * the value is an array of responses by the order of their call
+ * @param {Object} Health
+ * @param {{get_endpoint_response?: Object[], get_service_state?: Object[],
+ * get_system_config_file?: Object[], get_service_memory_usage?: Object[],
+ * get_lifecycle_health_status?: Object, get_latest_lifecycle_run_status?: Object}} mock_function_responses
+ */
+function set_health_mock_functions(Health, mock_function_responses) {
+    for (const mock_function_name of Object.keys(mock_function_responses)) {
+        const mock_function_responses_arr = mock_function_responses[mock_function_name];
+        const obj_to_stub = mock_function_name === 'get_system_config_file' ? Health.config_fs : Health;
+
+        if (obj_to_stub[mock_function_name]?.restore) obj_to_stub[mock_function_name]?.restore();
+        const stub = sinon.stub(obj_to_stub, mock_function_name);
+        for (let i = 0; i < mock_function_responses_arr.length; i++) {
+            stub.onCall(i).returns(Promise.resolve(mock_function_responses_arr[i]));
+        }
+    }
+}
+
+
+exports.update_file_mtime = update_file_mtime;
+exports.generate_lifecycle_rule = generate_lifecycle_rule;
+exports.validate_expiration_header = validate_expiration_header;
 exports.run_or_skip_test = run_or_skip_test;
 exports.blocks_exist_on_cloud = blocks_exist_on_cloud;
 exports.create_hosts_pool = create_hosts_pool;
@@ -781,3 +879,4 @@ exports.update_system_json = update_system_json;
 exports.fail_test_if_default_config_dir_exists = fail_test_if_default_config_dir_exists;
 exports.create_config_dir = create_config_dir;
 exports.clean_config_dir = clean_config_dir;
+exports.set_health_mock_functions = set_health_mock_functions;

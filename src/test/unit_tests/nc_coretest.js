@@ -11,6 +11,7 @@ const SensitiveString = require('../../util/sensitive_string');
 const { exec_manage_cli, TMP_PATH, create_redirect_file, delete_redirect_file } = require('../system_tests/test_utils');
 const { TYPES, ACTIONS } = require('../../manage_nsfs/manage_nsfs_constants');
 const { ConfigFS } = require('../../sdk/config_fs');
+const os_utils = require('../../util/os_utils');
 
 // keep me first - this is setting envs that should be set before other modules are required.
 const NC_CORETEST = 'nc_coretest';
@@ -162,6 +163,11 @@ async function stop_nsfs_process() {
     _nsfs_process = false;
     await announce('stop nsfs script');
     if (nsfs_process) nsfs_process.kill('SIGKILL');
+}
+
+async function get_nsfs_fork_pids() {
+    const res = await os_utils.exec(`ps -o pid --ppid ${nsfs_process.pid}`, { return_stdout: true, trim_stdout: true });
+    return res.split('\n').slice(1).map(pid => parseInt(pid, 10));
 }
 
 /**
@@ -538,6 +544,7 @@ exports.setup = setup;
 exports.get_current_setup_options = get_current_setup_options;
 exports.stop_nsfs_process = stop_nsfs_process;
 exports.start_nsfs_process = start_nsfs_process;
+exports.get_nsfs_fork_pids = get_nsfs_fork_pids;
 exports.no_setup = _.noop;
 exports.log = log;
 exports.SYSTEM = SYSTEM;

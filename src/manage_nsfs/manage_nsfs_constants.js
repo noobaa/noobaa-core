@@ -61,8 +61,8 @@ const VALID_OPTIONS_ANONYMOUS_ACCOUNT = {
 };
 
 const VALID_OPTIONS_BUCKET = {
-    'add': new Set(['name', 'owner', 'path', 'bucket_policy', 'fs_backend', 'force_md5_etag', 'notifications', FROM_FILE, ...CLI_MUTUAL_OPTIONS]),
-    'update': new Set(['name', 'owner', 'path', 'bucket_policy', 'fs_backend', 'new_name', 'force_md5_etag', 'notifications', 'tag', 'merge_tag', ...CLI_MUTUAL_OPTIONS]),
+    'add': new Set(['name', 'owner', 'path', 'bucket_policy', 'fs_backend', 'force_md5_etag', 'notifications', 'should_create_underlying_storage', FROM_FILE, ...CLI_MUTUAL_OPTIONS]),
+    'update': new Set(['name', 'owner', 'path', 'bucket_policy', 'fs_backend', 'new_name', 'force_md5_etag', 'notifications', 'tag', 'merge_tag', 'should_create_underlying_storage', ...CLI_MUTUAL_OPTIONS]),
     'delete': new Set(['name', 'force', ...CLI_MUTUAL_OPTIONS]),
     'list': new Set(['wide', 'name', ...CLI_MUTUAL_OPTIONS]),
     'status': new Set(['name', ...CLI_MUTUAL_OPTIONS]),
@@ -142,6 +142,7 @@ const OPTION_TYPE = {
     ips: 'string',
     force: 'boolean',
     anonymous: 'boolean',
+    should_create_underlying_storage: 'boolean',
     // health options
     deployment_type: 'string',
     all_account_details: 'boolean',

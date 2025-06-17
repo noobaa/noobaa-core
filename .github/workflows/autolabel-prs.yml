@@ -1,6 +1,7 @@
 name: PR Labeler
 on:
-  - pull_request_target
+  pull_request_target:
+    types: [opened]
 
 jobs:
   label:
@@ -10,7 +11,7 @@ jobs:
       pull-requests: write
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Run Labeler
         uses: actions/labeler@v5
         with:

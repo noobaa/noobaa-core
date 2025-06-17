@@ -8,13 +8,15 @@ const P = require('../../util/promise');
 const coretest = require('./coretest');
 const { rpc_client, EMAIL } = coretest; //, PASSWORD, SYSTEM
 const util = require('util');
-const AWS = require('aws-sdk');
+const { NodeHttpHandler } = require("@smithy/node-http-handler");
+const { S3 } = require('@aws-sdk/client-s3');
 const http = require('http');
 const cloud_utils = require('../../util/cloud_utils');
 const { ReplicationScanner } = require('../../server/bg_services/replication_scanner');
+const { get_object } = require('../system_tests/test_utils');
 
 const db_client = require('../../util/db_client').instance();
-coretest.setup({ pools_to_create: [coretest.POOL_LIST[1]] });
+coretest.setup({ pools_to_create: [coretest.POOL_LIST[0]] });
 
 mocha.describe('replication configuration validity tests', function() {
     const bucket1 = 'bucket1-br';
@@ -277,12 +279,17 @@ mocha.describe('replication configuration bg worker tests', function() {
     let s3_owner;
     let scanner;
     const s3_creds = {
-        s3ForcePathStyle: true,
-        signatureVersion: 'v4',
-        computeChecksums: true,
-        s3DisableBodySigning: false,
+        forcePathStyle: true,
+        // signatureVersion is Deprecated in SDK v3
+        //signatureVersion: 'v4',
+        // automatically compute the MD5 checksums for of the request payload in SDKV3
+        //computeChecksums: true,
+        // s3DisableBodySigning renamed to applyChecksum but can be assigned in S3 object
+        // s3DisableBodySigning: false,
         region: 'us-east-1',
-        httpOptions: { agent: new http.Agent({ keepAlive: false }) },
+        requestHandler: new NodeHttpHandler({
+            httpsAgent: new http.Agent({ keepAlive: false })
+        })
     };
 
     // Special character items to ensure encoding of URI works OK in the replication scanner
@@ -300,10 +307,12 @@ mocha.describe('replication configuration bg worker tests', function() {
         const admin_keys = admin_account.access_keys;
         //await create_namespace_buckets(admin_account);
 
-        s3_creds.accessKeyId = admin_keys[0].access_key.unwrap();
-        s3_creds.secretAccessKey = admin_keys[0].secret_key.unwrap();
+        s3_creds.credentials = {
+            accessKeyId: admin_keys[0].access_key.unwrap(),
+            secretAccessKey: admin_keys[0].secret_key.unwrap(),
+        };
         s3_creds.endpoint = coretest.get_http_address();
-        s3_owner = new AWS.S3(s3_creds);
+        s3_owner = new S3(s3_creds);
         // populate buckets
         for (let i = 0; i < 10; i++) {
             let key = `key${i}`;
@@ -374,7 +383,7 @@ mocha.describe('replication configuration bg worker tests', function() {
         console.log('contents', contents);
 
         // delete object from dst
-        await s3_owner.deleteObject({ Bucket: bucket_for_replications, Key: contents[0].Key }).promise();
+        await s3_owner.deleteObject({ Bucket: bucket_for_replications, Key: contents[0].Key });
         await _list_objects_and_wait(s3_owner, bucket_for_replications, uploaded_prefix_objects_count - 1); //Verify that one object was deleted 
         // sync again
         res1 = await scanner.run_batch();
@@ -382,74 +391,73 @@ mocha.describe('replication configuration bg worker tests', function() {
         contents = await _list_objects_and_wait(s3_owner, bucket_for_replications, uploaded_prefix_objects_count); //Check that the delete object was replicate again
         const key1 = contents[0].Key;
         // override object in dst
-        const dst_obj1 = await s3_owner.getObject({ Bucket: bucket_for_replications, Key: key1 }).promise();
-        await s3_owner.putObject({ Bucket: bucket_for_replications, Key: key1, Body: 'lalalala' }).promise();
-        const dst_obj2 = await s3_owner.getObject({ Bucket: bucket_for_replications, Key: key1 }).promise();
-        console.log('objs override dst1', dst_obj1, dst_obj2, dst_obj1.Body.toString(), dst_obj2.Body.toString());
+        const dst_obj1 = await get_object(s3_owner, bucket_for_replications, key1);
+        await s3_owner.putObject({ Bucket: bucket_for_replications, Key: key1, Body: 'lalalala' });
+        const dst_obj2 = await get_object(s3_owner, bucket_for_replications, key1);
+        console.log('objs override dst1', dst_obj1, dst_obj2);
 
-        assert.deepStrictEqual(dst_obj2.Body.toString(), 'lalalala'); // dst object was updated correctly
-        assert.notDeepStrictEqual(dst_obj1.Body.toString(), dst_obj2.Body.toString()); // new dst object was updated and 
+        assert.deepStrictEqual(dst_obj2.body, 'lalalala'); // dst object was updated correctly
+        assert.notDeepStrictEqual(dst_obj1.body, dst_obj2.body); // new dst object was updated and 
         // now is diff from the original dst object
 
         // sync again - should not replicate since dst bucket is last modified
         res1 = await scanner.run_batch();
         console.log('waiting for replication objects - one rule one prefix', res1);
-        const dst_obj3 = await s3_owner.getObject({ Bucket: bucket_for_replications, Key: key1 }).promise();
-        const src_obj = await s3_owner.getObject({ Bucket: bucket1, Key: key1 }).promise();
 
-        console.log('objs override dst2', src_obj, dst_obj3, src_obj.Body.toString(), dst_obj3.Body.toString());
-        assert.notDeepStrictEqual(src_obj.Body.toString(), dst_obj3.Body.toString()); // object in src !== object in dst 
-        assert.deepStrictEqual(dst_obj3.Body.toString(), 'lalalala'); //  dst object was not overridden by the object in the source
+        const dst_obj3 = await get_object(s3_owner, bucket_for_replications, key1);
+        const src_obj = await get_object(s3_owner, bucket1, key1);
+        console.log('objs override dst2', src_obj, dst_obj3);
+        assert.notDeepStrictEqual(src_obj.body, dst_obj3.body); // object in src !== object in dst 
+        assert.deepStrictEqual(dst_obj3.body, 'lalalala'); //  dst object was not overridden by the object in the source
 
 
         // override object data in src
-        const obj_src_before_override = await s3_owner.getObject({ Bucket: bucket1, Key: key1 }).promise();
-        await s3_owner.putObject({ Bucket: bucket1, Key: key1, Body: 'lalalala1' }).promise();
+        const obj_src_before_override = await get_object(s3_owner, bucket1, key1);
+        await s3_owner.putObject({ Bucket: bucket1, Key: key1, Body: 'lalalala1' });
 
         // sync again - should replicate since src bucket is last modified
         res1 = await scanner.run_batch();
         console.log('waiting for replication objects - one rule one prefix 1', res1);
-        const obj_dst_after_repl = await s3_owner.getObject({ Bucket: bucket_for_replications, Key: key1 }).promise();
-        const obj_src_after_override = await s3_owner.getObject({ Bucket: bucket1, Key: key1 }).promise();
+        const obj_dst_after_repl = await get_object(s3_owner, bucket_for_replications, key1);
+        const obj_src_after_override = await get_object(s3_owner, bucket1, key1);
 
         console.log('objs override src obj_src_before_override:',
             obj_src_before_override, obj_src_after_override,
-            obj_dst_after_repl, obj_src_before_override.Body.toString(),
-            obj_dst_after_repl.Body.toString(), obj_src_after_override.Body.toString());
+            obj_dst_after_repl, obj_src_before_override,
+            obj_dst_after_repl, obj_src_after_override);
 
-        assert.deepStrictEqual(obj_src_after_override.Body.toString(), 'lalalala1');
-        assert.notDeepStrictEqual(obj_src_after_override.Body.toString(), obj_src_before_override.Body.toString());
-        assert.deepStrictEqual(obj_src_after_override.Body.toString(), obj_dst_after_repl.Body.toString());
+        assert.deepStrictEqual(obj_src_after_override.body, 'lalalala1');
+        assert.notDeepStrictEqual(obj_src_after_override.body, obj_src_before_override.body);
+        assert.deepStrictEqual(obj_src_after_override.body, obj_dst_after_repl.body);
 
         // override object md in src
-        const obj_src_before_override_md = await s3_owner.getObject({ Bucket: bucket1, Key: key1 }).promise();
-        await s3_owner.putObject({ Bucket: bucket1, Key: key1, Body: 'lalalala1', Metadata: { key1: 'val1' } }).promise();
-        const obj_dst_before_repl_md = await s3_owner.getObject({ Bucket: bucket_for_replications, Key: key1 }).promise();
+        const obj_src_before_override_md = await get_object(s3_owner, bucket1, key1);
+        await s3_owner.putObject({ Bucket: bucket1, Key: key1, Body: 'lalalala1', Metadata: { key1: 'val1' }});
+        const obj_dst_before_repl_md = await get_object(s3_owner, bucket_for_replications, key1);
 
         // sync again - should replicate since src bucket md is last modified
         res1 = await scanner.run_batch();
         console.log('waiting for replication objects - one rule one prefix 2', res1);
-        const obj_dst_after_repl_md = await s3_owner.getObject({ Bucket: bucket_for_replications, Key: key1 }).promise();
-        const obj_src_after_override_md = await s3_owner.getObject({ Bucket: bucket1, Key: key1 }).promise();
+        const obj_dst_after_repl_md = await get_object(s3_owner, bucket_for_replications, key1);
+        const obj_src_after_override_md = await get_object(s3_owner, bucket1, key1);
 
         console.log('objs override src obj_src_before_override1:',
             obj_src_before_override_md, obj_src_after_override_md,
-            obj_dst_after_repl_md, obj_src_before_override_md.Body.toString(),
-            obj_dst_after_repl_md.Body.toString(), obj_src_after_override_md.Body.toString());
+            obj_dst_after_repl_md, obj_dst_after_repl_md);
 
-        assert.deepStrictEqual(obj_src_after_override_md.Body.toString(), 'lalalala1');
-        assert.deepStrictEqual(obj_src_after_override_md.Metadata, { key1: 'val1' });
-        assert.deepStrictEqual(obj_src_after_override_md.Body.toString(), obj_src_before_override_md.Body.toString());
-        assert.deepStrictEqual(obj_dst_after_repl_md.Body.toString(), obj_src_before_override_md.Body.toString());
-        assert.notDeepStrictEqual(obj_dst_before_repl_md.Metadata, obj_dst_after_repl_md.Metadata);
-        assert.deepStrictEqual(obj_src_after_override_md.Metadata, obj_dst_after_repl_md.Metadata);
+        assert.deepStrictEqual(obj_src_after_override_md.body, 'lalalala1');
+        assert.deepStrictEqual(obj_src_after_override_md.metadata.key1, 'val1');
+        assert.deepStrictEqual(obj_src_after_override_md.body, obj_src_before_override_md.body);
+        assert.deepStrictEqual(obj_dst_after_repl_md.body, obj_src_before_override_md.body);
+        assert.notDeepStrictEqual(obj_dst_before_repl_md.metadata, obj_dst_after_repl_md.metadata);
+        assert.deepStrictEqual(obj_src_after_override_md.metadata, obj_dst_after_repl_md.metadata);
     });
 
     mocha.it('run replication scanner and wait - no prefix - all objects should be uploaded', async function() {
         const contents = await _list_objects_and_wait(s3_owner, bucket_for_replications, uploaded_prefix_objects_count);
         for (const content of contents) {
             const key = content.Key;
-            await s3_owner.deleteObject({ Bucket: bucket_for_replications, Key: key }).promise();
+            await s3_owner.deleteObject({ Bucket: bucket_for_replications, Key: key });
         }
         await _put_replication(bucket1,
             [{ rule_id: 'rule-1', destination_bucket: bucket_for_replications, sync_versions: false }], false);
@@ -562,13 +570,13 @@ function create_random_body() {
 }
 
 async function put_object(s3_owner, bucket_name, key, optional_body) {
-    const res = await s3_owner.putObject({ Bucket: bucket_name, Key: key, Body: optional_body || create_random_body() }).promise();
+    const res = await s3_owner.putObject({ Bucket: bucket_name, Key: key, Body: optional_body || create_random_body() });
     console.log('put_object: ', util.inspect(res));
 }
 
 
 async function delete_object(s3_owner, bucket_name, key) {
-    const res = await s3_owner.deleteObject({ Bucket: bucket_name, Key: key }).promise();
+    const res = await s3_owner.deleteObject({ Bucket: bucket_name, Key: key });
     console.log('delete_object: ', util.inspect(res));
 }
 
@@ -581,7 +589,7 @@ async function _list_all_objs_in_bucket(s3owner, bucket, prefix) {
         const params = { Bucket: bucket };
         if (prefix) params.Prefix = prefix;
         if (marker) params.Marker = marker;
-        const response = await s3owner.listObjects(params).promise();
+        const response = await s3owner.listObjects(params);
         elements.push.apply(elements, response.Contents);
         isTruncated = response.IsTruncated;
         if (isTruncated) {
@@ -618,12 +626,17 @@ mocha.describe('Replication pagination test', function() {
     let s3_owner;
     let scanner;
     const s3_creds = {
-        s3ForcePathStyle: true,
-        signatureVersion: 'v4',
-        computeChecksums: true,
-        s3DisableBodySigning: false,
+        forcePathStyle: true,
+        // signatureVersion is Deprecated in SDK v3
+        //signatureVersion: 'v4',
+        // automatically compute the MD5 checksums for of the request payload in SDKV3
+        //computeChecksums: true,
+        // s3DisableBodySigning renamed to applyChecksum but can be assigned in S3 object
+        //s3DisableBodySigning: false,
         region: 'us-east-1',
-        httpOptions: { agent: new http.Agent({ keepAlive: false }) },
+        requestHandler: new NodeHttpHandler({
+            httpsAgent: new http.Agent({ keepAlive: false })
+        })
     };
     const src_bucket_keys = [];
     const target_bucket_keys = [];
@@ -639,10 +652,12 @@ mocha.describe('Replication pagination test', function() {
         const admin_account = await rpc_client.account.read_account({ email: EMAIL });
         const admin_keys = admin_account.access_keys;
 
-        s3_creds.accessKeyId = admin_keys[0].access_key.unwrap();
-        s3_creds.secretAccessKey = admin_keys[0].secret_key.unwrap();
+        s3_creds.credentials = {
+            accessKeyId: admin_keys[0].access_key.unwrap(),
+            secretAccessKey: admin_keys[0].secret_key.unwrap(),
+        };
         s3_creds.endpoint = coretest.get_http_address();
-        s3_owner = new AWS.S3(s3_creds);
+        s3_owner = new S3(s3_creds);
 
         // populate source bucket
         for (let i = 0; i < obj_amount; i++) {

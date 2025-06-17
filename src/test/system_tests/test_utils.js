@@ -48,12 +48,12 @@ function get_tmp_path() {
 const is_nc_coretest = process.env.NC_CORETEST === 'true';
 
 /**
- *
- * @param {*} need_to_exist
- * @param {*} pool_id
- * @param {*} bucket_name
- * @param {*} blocks
- * @param {AWS.S3} s3
+ * 
+ * @param {*} need_to_exist 
+ * @param {*} pool_id 
+ * @param {*} bucket_name 
+ * @param {*} blocks 
+ * @param {S3} s3 
  */
 async function blocks_exist_on_cloud(need_to_exist, pool_id, bucket_name, blocks, s3) {
     console.log('blocks_exist_on_cloud::', need_to_exist, pool_id, bucket_name);
@@ -70,7 +70,7 @@ async function blocks_exist_on_cloud(need_to_exist, pool_id, bucket_name, blocks
                 return s3.headObject({
                     Bucket: bucket_name,
                     Key: `noobaa_blocks/${pool_id}/blocks_tree/${block.slice(block.length - 3)}.blocks/${block}`
-                }).promise();
+                });
             }));
 
             let condition_correct;
@@ -885,6 +885,27 @@ function set_health_mock_functions(Health, mock_function_responses) {
 }
 
 
+/**
+ * return the response body and metadata
+ * 
+ * @param {import('@aws-sdk/client-s3').S3} s3_client
+ * @param {any} bucket_name
+ * @param {string} key
+ * 
+ * */
+async function get_object(s3_client, bucket_name, key) {
+    try {
+        const res = await s3_client.getObject({ Bucket: bucket_name, Key: key });
+        const metadata = res.Metadata;
+        const body = await res.Body.transformToString('utf-8');
+        return { body, metadata };
+    } catch (err) {
+      console.error("Error while getting object for bucket: ", bucket_name, " Key: ", key, err);
+      throw err;
+    }
+}
+
+
 exports.update_file_mtime = update_file_mtime;
 exports.generate_lifecycle_rule = generate_lifecycle_rule;
 exports.validate_expiration_header = validate_expiration_header;
@@ -929,3 +950,4 @@ exports.create_config_dir = create_config_dir;
 exports.clean_config_dir = clean_config_dir;
 exports.CLI_UNSET_EMPTY_STRING = CLI_UNSET_EMPTY_STRING;
 exports.set_health_mock_functions = set_health_mock_functions;
+exports.get_object = get_object;

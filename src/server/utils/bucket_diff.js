@@ -2,7 +2,7 @@
 'use strict';
 
 const _ = require('lodash');
-const AWS = require('aws-sdk');
+const { S3 } = require('@aws-sdk/client-s3');
 
 const SensitiveString = require('../../util/sensitive_string');
 const replication_utils = require('../utils/replication_utils');
@@ -15,10 +15,10 @@ class BucketDiff {
      *   first_bucket: string;
      *   second_bucket: string;
      *   version: boolean;
-     *   s3_params?: AWS.S3.ClientConfiguration
-     *   connection?: AWS.S3
-     *   for_replication: boolean
-     *   for_deletion: boolean
+     *   s3_params?: object;
+     *   connection?: import('@aws-sdk/client-s3').S3;
+     *   for_replication: boolean;
+     *   for_deletion: boolean;
      * }} params
      */
     constructor(params) {
@@ -40,7 +40,7 @@ class BucketDiff {
             this.s3 = connection;
         } else {
             if (!s3_params) throw new Error('Expected s3_params');
-            this.s3 = new AWS.S3(s3_params);
+            this.s3 = new S3(s3_params);
         }
         // special treatment when we want the diff for replication purpose.
         this.for_replication = for_replication;
@@ -147,10 +147,10 @@ class BucketDiff {
             };
             if (this.version) {
                 params.KeyMarker = continuation_token;
-                return await this.s3.listObjectVersions(params).promise();
+                return await this.s3.listObjectVersions(params);
             } else {
                 if (continuation_token) params.ContinuationToken = continuation_token;
-                return await this.s3.listObjectsV2(params).promise();
+                return await this.s3.listObjectsV2(params);
             }
         } catch (err) {
             dbg.error('BucketDiff _list_objects: error:', err);
@@ -159,8 +159,7 @@ class BucketDiff {
     }
 
     /**
-     * @param {import("aws-sdk/lib/request").PromiseResult<AWS.S3.ListObjectVersionsOutput, AWS.AWSError> | 
-     *         import("aws-sdk/lib/request").PromiseResult<AWS.S3.ListObjectsV2Output, AWS.AWSError>} list
+     * @param { import("@aws-sdk/client-s3").ListObjectVersionsOutput | import("@aws-sdk/client-s3").ListObjectsV2Output} list
      * 
      * _object_grouped_by_key_and_omitted will return the objects grouped by key.
      * When we have versioning enabled, if there is more than one key, it omits 
@@ -203,8 +202,7 @@ class BucketDiff {
     /**
      * @param {_.Dictionary<any[]>} list 
      * 
-     * @param {import("aws-sdk/lib/request").PromiseResult<AWS.S3.ListObjectVersionsOutput, AWS.AWSError> | 
-     *         import("aws-sdk/lib/request").PromiseResult<AWS.S3.ListObjectsV2Output, AWS.AWSError>} list_objects_response
+     * @param { import("@aws-sdk/client-s3").ListObjectVersionsOutput | import("@aws-sdk/client-s3").ListObjectsV2Output } list_objects_response
      * if the list is truncated on a version list, returns the the next key marker as the last key in the omitted objects list
      * if it is a list without versions, return NextContinuationToken.
      */

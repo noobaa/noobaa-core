@@ -4,7 +4,7 @@
 const _ = require('lodash');
 const fs = require('fs');
 const argv = require('minimist')(process.argv);
-const AWS = require('aws-sdk');
+const { S3 } = require('@aws-sdk/client-s3');
 const P = require('../../util/promise');
 const semaphore = require('../../util/semaphore');
 const os_utils = require('../../util/os_utils');
@@ -29,6 +29,16 @@ const UL_TEST = {
         mid: [],
     }
 };
+
+const s3bucket = new S3({
+    endpoint: UL_TEST.target,
+    credentials: {
+        accessKeyId: UL_TEST.access_key,
+        secretAccessKey: UL_TEST.secret_key,
+    },
+    forcePathStyle: true,
+    tls: false,
+});
 
 function show_usage() {
     console.log('usage: node test_files_ul.js --ip <S3 IP> --bucket <Bucket Name> --access <ACCESS_KEY> --secret <SECRET>');
@@ -85,58 +95,42 @@ function pre_generation() {
 }
 
 function upload_test() {
-    AWS.config.update({
-        accessKeyId: UL_TEST.access_key,
-        secretAccessKey: UL_TEST.secret_key,
-        Bucket: UL_TEST.bucket_name
-    });
 
     const upload_semaphore = new semaphore.Semaphore(UL_TEST.num_threads);
     return P.all(_.map(UL_TEST.files, function(f) {
-        return upload_semaphore.surround(function() {
-            return upload_file(f);
+        return upload_semaphore.surround(async function() {
+            return await upload_file(f);
         });
     }));
 }
 
-function upload_file(test_file) {
+async function upload_file(test_file) {
     let start_ts;
     console.log('Called upload_file with param', test_file);
-    return P.fcall(function() {
-            const s3bucket = new AWS.S3({
-                endpoint: UL_TEST.target,
-                s3ForcePathStyle: true,
-                sslEnabled: false,
-            });
-            const params = {
-                Bucket: UL_TEST.bucket_name,
-                Key: test_file,
-                Body: fs.createReadStream(test_file),
-            };
-            start_ts = Date.now();
-            return P.ninvoke(s3bucket, 'upload', params)
-                .then(function(res) {
-                    console.log('Done uploading', test_file);
-                    //TODO:: Add histogram as well
-                    UL_TEST.measurement.points += 1;
-                    UL_TEST.measurement.time += (Date.now() - start_ts) / 1000;
-
-                    if (UL_TEST.measurement.points === 1000) { //Save mid results per each 1K files
-                        UL_TEST.measurement.mid.push(UL_TEST.measurement.time / 1000);
-                        UL_TEST.measurement.points = 0;
-                        UL_TEST.measurement.time = 0;
-                    }
-                }, function(err) {
-                    console.log('failed to upload file', test_file, 'with error', err, err.stack);
-                });
-        })
-        .then(null, function(err) {
-            console.error('Error in upload_file', err);
-            UL_TEST.total_ul_errors += 1;
-            if (UL_TEST.total_ul_errors > UL_TEST.num_files * 0.1) {
-                throw new Error('Failed uploading ' + UL_TEST.total_ul_errors + ' files');
-            }
-        });
+    try {
+        const params = {
+            Bucket: UL_TEST.bucket_name,
+            Key: test_file,
+            Body: fs.createReadStream(test_file),
+        };
+        start_ts = Date.now();
+        await s3bucket.putObject(params);
+        console.log('Done uploading', test_file);
+        //TODO:: Add histogram as well
+        UL_TEST.measurement.points += 1;
+        UL_TEST.measurement.time += (Date.now() - start_ts) / 1000;
+        if (UL_TEST.measurement.points === 1000) { //Save mid results per each 1K files
+            UL_TEST.measurement.mid.push(UL_TEST.measurement.time / 1000);
+            UL_TEST.measurement.points = 0;
+            UL_TEST.measurement.time = 0;
+        }
+    } catch (err) {
+        console.error('Error in upload_file', err);
+        UL_TEST.total_ul_errors += 1;
+        if (UL_TEST.total_ul_errors > UL_TEST.num_files * 0.1) {
+            throw new Error('Failed uploading ' + UL_TEST.total_ul_errors + ' files');
+        }
+    }
 }
 
 function print_summary() {

@@ -1,23 +1,18 @@
-name: Label new PRs
-
+name: PR Labeler
 on:
   pull_request:
-    types: [opened]
+    types: [opened, reopened, synchronize]
 
 jobs:
-  add-label:
+  label:
     runs-on: ubuntu-latest
     permissions:
+      contents: read
       pull-requests: write
 
     steps:
-      - name: Add label to new PR
-        uses: actions/github-script@v7
+      - uses: actions/checkout@v3
+      - name: Run Labeler
+        uses: actions/labeler@v5
         with:
-          script: |
-            github.rest.issues.addLabels({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              labels: ['Enable-Auto-Rebase']
-            })
+          repo-token: ${{ secrets.GITHUB_TOKEN }}

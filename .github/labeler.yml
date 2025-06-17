@@ -1,0 +1,3 @@
+Enable-Auto-Rebase:
+  any:
+    head-branch: ['.*']  # matches all head branches

@@ -31,7 +31,6 @@ const nodes_client = require('../node_services/nodes_client');
 const system_store = require('../system_services/system_store').get_instance();
 const { BucketStatsStore } = require('../analytic_services/bucket_stats_store');
 const { EndpointStatsStore } = require('../analytic_services/endpoint_stats_store');
-const events_dispatcher = require('./events_dispatcher');
 const { IoStatsStore } = require('../analytic_services/io_stats_store');
 const { ChunkAPI } = require('../../sdk/map_api_types');
 const config = require('../../../config');
@@ -1744,14 +1743,6 @@ function check_quota(bucket) {
     }
 }
 
-async function dispatch_triggers(req) {
-    load_bucket(req);
-    const triggers_to_run = events_dispatcher.get_triggers_for_event(req.bucket, req.rpc_params.obj, req.rpc_params.event_name);
-    if (triggers_to_run.length === 0) return;
-    setTimeout(() => events_dispatcher.run_bucket_triggers(
-        triggers_to_run, req.bucket, req.rpc_params.obj, req.account._id, req.auth_token), 1000);
-}
-
 
 function _parse_version_seq_from_version_id(version_str) {
     return (version_str.startsWith('nbver-') && Number(version_str.slice(6))) || undefined;
@@ -2199,7 +2190,6 @@ exports.update_endpoint_stats = update_endpoint_stats;
 exports.put_object_tagging = put_object_tagging;
 exports.get_object_tagging = get_object_tagging;
 exports.delete_object_tagging = delete_object_tagging;
-exports.dispatch_triggers = dispatch_triggers;
 // object lock
 exports.put_object_legal_hold = put_object_legal_hold;
 exports.get_object_legal_hold = get_object_legal_hold;

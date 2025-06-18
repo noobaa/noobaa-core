@@ -196,7 +196,6 @@ interface Bucket extends Base {
         last_update: number;
     };
     lifecycle_configuration_rules?: object;
-    lambda_triggers?: object;
     master_key_id: ID;
 }
 

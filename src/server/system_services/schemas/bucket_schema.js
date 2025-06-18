@@ -232,43 +232,6 @@ module.exports = {
         s3_policy: {
             $ref: 'common_api#/definitions/bucket_policy',
         },
-        lambda_triggers: {
-            type: 'array',
-            items: {
-                type: 'object',
-                required: ['_id', 'event_name', 'func_name', 'func_version', 'enabled'],
-                properties: {
-                    _id: {
-                        objectid: true
-                    },
-                    event_name: {
-                        enum: ['ObjectCreated', 'ObjectRemoved', 'ObjectRead' /* 'ObjectCreated:Put', 'ObjectCreated:CompleteMultipartUpload', ... */ ],
-                        type: 'string'
-                    },
-                    func_name: {
-                        type: 'string'
-                    },
-                    func_version: {
-                        type: 'string'
-                    },
-                    enabled: {
-                        type: 'boolean',
-                    },
-                    last_run: {
-                        idate: true
-                    },
-                    object_prefix: {
-                        type: 'string'
-                    },
-                    object_suffix: {
-                        type: 'string'
-                    },
-                    attempts: {
-                        type: 'integer'
-                    },
-                }
-            }
-        },
         stats: {
             type: 'object',
             properties: {

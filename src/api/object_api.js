@@ -610,26 +610,6 @@ module.exports = {
             auth: { system: ['admin', 'user'] }
         },
 
-        dispatch_triggers: {
-            method: 'PUT',
-            params: {
-                type: 'object',
-                required: [
-                    'bucket',
-                    'obj',
-                    'event_name'
-                ],
-                properties: {
-                    bucket: { $ref: 'common_api#/definitions/bucket_name' },
-                    obj: {
-                        $ref: '#/definitions/object_info'
-                    },
-                    event_name: { $ref: 'common_api#/definitions/bucket_trigger_event' }
-                }
-            },
-            auth: { system: ['admin', 'user'] }
-        },
-
         delete_object: {
             method: 'DELETE',
             params: {

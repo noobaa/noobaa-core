@@ -17,7 +17,6 @@ const pkg = require('../../package.json');
 const DebugLogger = require('../util/debug_module');
 const diag = require('./agent_diagnostics');
 const config = require('../../config');
-const FuncNode = require('./func_services/func_node');
 const os_utils = require('../util/os_utils');
 const js_utils = require('../util/js_utils');
 const net_utils = require('../util/net_utils');
@@ -150,11 +149,6 @@ class Agent {
             this.block_store = new BlockStoreMem(block_store_options);
         }
 
-        this.func_node = new FuncNode({
-            rpc_client: this.client,
-            storage_path: this.storage_path,
-        });
-
         // AGENT API methods - bind to self
         // (rpc registration requires bound functions)
         js_utils.self_bind(this, [
@@ -190,12 +184,6 @@ class Agent {
                 }
             );
         }
-        this.rpc.register_service(
-            this.rpc.schema.func_node_api,
-            this.func_node, {
-                middleware: [req => this._authenticate_agent_api(req)]
-            }
-        );
 
         // register rpc n2n
         this.n2n_agent = this.rpc.register_n2n_agent((...args) => this.client.node.n2n_signal(...args));
@@ -602,8 +590,7 @@ class Agent {
 
         // agent_api requests allowed only on server connection
         if (!req.method_api.auth?.n2n &&
-            req.api !== this.rpc.schema.block_store_api &&
-            req.api !== this.rpc.schema.func_node_api
+            req.api !== this.rpc.schema.block_store_api
         ) {
             // delayed close the connection to give a chance to send the thrown error response
             setTimeout(() => req.connection.close(), 1000);

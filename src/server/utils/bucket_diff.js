@@ -234,19 +234,19 @@ class BucketDiff {
     /**
      * @param {string} bucket
      * @param {string} prefix
-     * @param {number} max_keys
      *
      * get_objects_count will return the total number of objects present in the specified bucket and prefix
      */
-    async get_objects_count(bucket, prefix, max_keys = 1000) {
+    async get_objects_count(bucket, prefix) {
         let continuation_token = '';
         let count = 0;
         let has_more = true;
 
-        dbg.log2('BucketDiff get_objects_count:: start', { bucket, prefix, max_keys });
+        dbg.log2('BucketDiff get_objects_count:: start', { bucket, prefix });
 
         while (has_more) {
-            const list_objects_response = await this._list_objects(bucket, prefix, max_keys, continuation_token);
+            // max 1000 keys can we retrieved in one call so we will continue the loop if more objects are present
+            const list_objects_response = await this._list_objects(bucket, prefix, 1000, continuation_token);
             if (!list_objects_response) break;
 
             const grouped_keys = this._object_grouped_by_key_and_omitted(list_objects_response);

@@ -347,7 +347,7 @@ const NOOBAA_CORE_METRICS = js_utils.deep_freeze([{
         type: 'Gauge',
         name: 'bucket_replication_percentage',
         configuration: {
-            help: 'Replication percentage per bucket',
+            help: 'Replication percentage per bucket in last replication cycle',
             labelNames: ['bucket_name']
         }
     }, {
@@ -635,7 +635,12 @@ class NooBaaCoreReport extends BasePrometheusReport {
         if (!this._metrics) return;
         const { bucket_name, repl_percentage } = repl_info;
 
-        delete this._metrics.bucket_replication_percentage.hashMap[String(bucket_name)];
+        if (typeof repl_percentage !== 'number' || Number.isNaN(repl_percentage)) {
+            dbg.error('update_bucket_replication_percentage: invalid repl_percentage', repl_info);
+            return;
+        }
+
+        this._metrics.bucket_replication_percentage.remove({ bucket_name });
         this._metrics.bucket_replication_percentage.set({bucket_name}, repl_percentage);
     }
 }

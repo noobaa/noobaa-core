@@ -81,7 +81,7 @@ function get_replication_percentage(repl_obj, total_obj) {
 function update_replication_prom_report_per_bucket(bucket_name, repl_percentage) {
     const core_report = prom_reporting.get_core_report();
     const last_cycle_status = {
-        bucket_name: bucket_name,
+        bucket_name: bucket_name.unwrap(),
         repl_percentage: repl_percentage
     };
 

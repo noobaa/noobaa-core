@@ -1,0 +1,17 @@
+pull_request_rules:
+  - name: Auto-rebase PRs
+    description: This rule automatically rebases PRs that fit the criteria
+    conditions:
+      - and:
+          - -draft
+          - label = Enable-Auto-Rebase
+          - branch-protection-review-decision = APPROVED
+          - "#check-failure = 0"
+          - "#check-neutral = 0"
+          - "#check-pending = 0"
+          - "#check-skipped = 0"
+          - "#check-stale = 0"
+    actions:
+      rebase:
+        autosquash: false
+        bot_account: nimrod-becker

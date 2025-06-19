@@ -2,15 +2,34 @@ pull_request_rules:
   - name: Auto-rebase PRs
     description: This rule automatically rebases PRs that fit the criteria
     conditions:
+      # Verify that (almost) all checks are successful, label is present, PR is approved, and PR is not a draft
       - and:
           - -draft
+          - check-success = CodeRabbit
           - label = Enable-Auto-Rebase
+          - check-success = build-noobaa-image
+          - check-success = run-jest-unit-tests
+          - check-success = warp-tests / warp-tests
+          - check-success = run-package-lock-validation
           - branch-protection-review-decision = APPROVED
-          - "#check-failure = 0"
-          - "#check-neutral = 0"
-          - "#check-pending = 0"
-          - "#check-skipped = 0"
-          - "#check-stale = 0"
+          - check-success = ceph-s3-tests / ceph-s3-tests
+          - check-success = warp-nc-tests / warp-nc-tests
+          - check-success = run-unit-tests / run-unit-tests
+          - check-success = run-sanity-tests / run-sanity-tests
+          - check-success = run-nc-unit-tests / run-nc-unit-tests
+          - check-success = ceph-nsfs-s3-tests / nsfs-ceph-s3-tests
+          - check-success = run-sanity-ssl-tests / run-sanity-ssl-tests
+          - check-success = run-unit-tests-postgres / run-unit-tests-postgres
+      # Sometimes, DCO and DeepScan fall under 'check-pending'
+      # These conditions verify they either both pass or are the only ones in 'check-pending'
+      - or:
+        - and:
+          - check-pending = DCO
+          - check-pending = DeepScan
+          - "#check-pending = 2"
+        - and:
+          - check-success = DCO
+          - check-success = DeepScan
     actions:
       rebase:
         autosquash: false

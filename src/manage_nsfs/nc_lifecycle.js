@@ -1507,8 +1507,8 @@ class NCLifecycle {
      * @param {*} entry
      */
     _parse_key_from_line(entry, bucket_json) {
-        const line_array = entry.path.split(' ');
-        const file_path = line_array[line_array.length - 1];
+        const path_start_index = entry.path.indexOf(bucket_json.path);
+        const file_path = entry.path.slice(path_start_index);
         let file_key = file_path.replace(path.join(bucket_json.path, '/'), '');
         const basename = path.basename(file_key);
         if (basename.startsWith(config.NSFS_FOLDER_OBJECT_NAME)) {

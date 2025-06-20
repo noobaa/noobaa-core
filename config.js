@@ -250,6 +250,7 @@ config.INTERNAL_STORAGE_POOL_NAME = 'system-internal-storage-pool';
 // config.SPILLOVER_TIER_NAME = 'bucket-spillover-tier';
 config.ALLOW_BUCKET_CREATE_ON_INTERNAL = true;
 config.BUCKET_AUTOCONF_TIER2_ENABLED = false;
+config.READ_NEW_DATA_CONCURRENCY = parseInt(process.env.READ_NEW_DATA_CONCURRENCY, 10) || 5;
 
 //////////////////////////
 // MD AGGREGATOR CONFIG //

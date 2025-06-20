@@ -1,0 +1,2 @@
+Enable-Auto-Rebase:
+  - head-branch: '.*'

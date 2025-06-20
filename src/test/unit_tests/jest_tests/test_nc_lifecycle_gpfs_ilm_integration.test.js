@@ -34,6 +34,7 @@ const bucket_path = path.join(TMP_PATH, 'mock_bucket_path');
 const prefix = 'mock_prefix';
 const mock_content = `mock_content`;
 const mock_bucket_json = { _id: 'mock_bucket_id', name: bucket_name, path: bucket_path };
+const escape_backslash_str = "ESCAPE '\\'";
 
 const days = 3;
 const default_lifecycle_rule = {
@@ -53,9 +54,10 @@ describe('convert_expiry_rule_to_gpfs_ilm_policy unit tests', () => {
         ...default_lifecycle_rule,
         filter: { 'prefix': '' }
     };
+    const escaped_bucket_path = get_escaped_string(bucket_path);
     const convertion_helpers = {
-        in_versions_dir: path.join(bucket_path, '/.versions/%'),
-        in_nested_versions_dir: path.join(bucket_path, '/%/.versions/%')
+        in_versions_dir: path.join(escaped_bucket_path, '/.versions/%'),
+        in_nested_versions_dir: path.join(escaped_bucket_path, '/%/.versions/%')
     };
     it('convert_expiry_rule_to_gpfs_ilm_policy - expiry days', () => {
         const lifecycle_rule = { ...lifecycle_rule_base, expiration: { days: days } };
@@ -86,45 +88,46 @@ describe('convert_filter_to_gpfs_ilm_policy unit tests', () => {
         expiration: { days: days }
     };
 
+    const escaped_bucket_path = get_escaped_string(bucket_path);
     it('convert_filter_to_gpfs_ilm_policy - filter empty', () => {
         const lifecycle_rule = lifecycle_rule_base;
-        const ilm_policy = nc_lifecycle.convert_filter_to_gpfs_ilm_policy(lifecycle_rule, mock_bucket_json);
+        const ilm_policy = nc_lifecycle.convert_filter_to_gpfs_ilm_policy(lifecycle_rule, escaped_bucket_path);
         expect(ilm_policy).toBe('');
     });
 
     it('convert_filter_to_gpfs_ilm_policy - inline prefix', () => {
         const lifecycle_rule = { ...lifecycle_rule_base, prefix };
-        const ilm_policy = nc_lifecycle.convert_filter_to_gpfs_ilm_policy(lifecycle_rule, mock_bucket_json);
+        const ilm_policy = nc_lifecycle.convert_filter_to_gpfs_ilm_policy(lifecycle_rule, escaped_bucket_path);
         expect(ilm_policy).toBe(get_expected_ilm_prefix(bucket_path, prefix));
     });
 
     it('convert_filter_to_gpfs_ilm_policy - filter with prefix', () => {
         const lifecycle_rule = { ...lifecycle_rule_base, filter: { prefix } };
-        const ilm_policy = nc_lifecycle.convert_filter_to_gpfs_ilm_policy(lifecycle_rule, mock_bucket_json);
+        const ilm_policy = nc_lifecycle.convert_filter_to_gpfs_ilm_policy(lifecycle_rule, escaped_bucket_path);
         expect(ilm_policy).toBe(get_expected_ilm_prefix(bucket_path, prefix));
     });
 
     it('convert_filter_to_gpfs_ilm_policy - filter with size gt', () => {
         const lifecycle_rule = { ...lifecycle_rule_base, filter: { object_size_greater_than } };
-        const ilm_policy = nc_lifecycle.convert_filter_to_gpfs_ilm_policy(lifecycle_rule, mock_bucket_json);
+        const ilm_policy = nc_lifecycle.convert_filter_to_gpfs_ilm_policy(lifecycle_rule, escaped_bucket_path);
         expect(ilm_policy).toBe(get_expected_ilm_size_greater_than(object_size_greater_than));
     });
 
     it('convert_filter_to_gpfs_ilm_policy - filter with size lt', () => {
         const lifecycle_rule = { ...lifecycle_rule_base, filter: { object_size_less_than } };
-        const ilm_policy = nc_lifecycle.convert_filter_to_gpfs_ilm_policy(lifecycle_rule, mock_bucket_json);
+        const ilm_policy = nc_lifecycle.convert_filter_to_gpfs_ilm_policy(lifecycle_rule, escaped_bucket_path);
         expect(ilm_policy).toBe(get_expected_ilm_size_less_than(object_size_less_than));
     });
 
     it('convert_filter_to_gpfs_ilm_policy - filter with tags', () => {
         const lifecycle_rule = { ...lifecycle_rule_base, filter: { tags } };
-        const ilm_policy = nc_lifecycle.convert_filter_to_gpfs_ilm_policy(lifecycle_rule, mock_bucket_json);
+        const ilm_policy = nc_lifecycle.convert_filter_to_gpfs_ilm_policy(lifecycle_rule, escaped_bucket_path);
         expect(ilm_policy).toBe(get_expected_ilm_tags(tags));
     });
 
     it('convert_filter_to_gpfs_ilm_policy - filter with prefix + size gt', () => {
         const lifecycle_rule = { ...lifecycle_rule_base, filter: { prefix, object_size_greater_than } };
-        const ilm_policy = nc_lifecycle.convert_filter_to_gpfs_ilm_policy(lifecycle_rule, mock_bucket_json);
+        const ilm_policy = nc_lifecycle.convert_filter_to_gpfs_ilm_policy(lifecycle_rule, escaped_bucket_path);
         const expected_ilm_filter = get_expected_ilm_prefix(bucket_path, prefix) +
             get_expected_ilm_size_greater_than(object_size_greater_than);
         expect(ilm_policy).toBe(expected_ilm_filter);
@@ -132,21 +135,21 @@ describe('convert_filter_to_gpfs_ilm_policy unit tests', () => {
 
     it('convert_filter_to_gpfs_ilm_policy - filter with prefix + size lt', () => {
         const lifecycle_rule = { ...lifecycle_rule_base, filter: { prefix, object_size_less_than } };
-        const ilm_policy = nc_lifecycle.convert_filter_to_gpfs_ilm_policy(lifecycle_rule, mock_bucket_json);
+        const ilm_policy = nc_lifecycle.convert_filter_to_gpfs_ilm_policy(lifecycle_rule, escaped_bucket_path);
         const expected_ilm_filter = get_expected_ilm_prefix(bucket_path, prefix) + get_expected_ilm_size_less_than(object_size_less_than);
         expect(ilm_policy).toBe(expected_ilm_filter);
     });
 
     it('convert_filter_to_gpfs_ilm_policy - filter with prefix + tags', () => {
         const lifecycle_rule = { ...lifecycle_rule_base, filter: { prefix, tags } };
-        const ilm_policy = nc_lifecycle.convert_filter_to_gpfs_ilm_policy(lifecycle_rule, mock_bucket_json);
+        const ilm_policy = nc_lifecycle.convert_filter_to_gpfs_ilm_policy(lifecycle_rule, escaped_bucket_path);
         const expected_ilm_filter = get_expected_ilm_prefix(bucket_path, prefix) + get_expected_ilm_tags(tags);
         expect(ilm_policy).toBe(expected_ilm_filter);
     });
 
     it('convert_filter_to_gpfs_ilm_policy - filter with size gt + size lt', () => {
         const lifecycle_rule = { ...lifecycle_rule_base, filter: { object_size_less_than, object_size_greater_than } };
-        const ilm_policy = nc_lifecycle.convert_filter_to_gpfs_ilm_policy(lifecycle_rule, mock_bucket_json);
+        const ilm_policy = nc_lifecycle.convert_filter_to_gpfs_ilm_policy(lifecycle_rule, escaped_bucket_path);
         const expected_ilm_filter = get_expected_ilm_size_greater_than(object_size_greater_than) +
             get_expected_ilm_size_less_than(object_size_less_than);
         expect(ilm_policy).toBe(expected_ilm_filter);
@@ -154,7 +157,7 @@ describe('convert_filter_to_gpfs_ilm_policy unit tests', () => {
 
     it('convert_filter_to_gpfs_ilm_policy - filter with size gt + tags', () => {
         const lifecycle_rule = { ...lifecycle_rule_base, filter: { object_size_greater_than, tags } };
-        const ilm_policy = nc_lifecycle.convert_filter_to_gpfs_ilm_policy(lifecycle_rule, mock_bucket_json);
+        const ilm_policy = nc_lifecycle.convert_filter_to_gpfs_ilm_policy(lifecycle_rule, escaped_bucket_path);
         const expected_ilm_filter = get_expected_ilm_size_greater_than(object_size_greater_than) +
             get_expected_ilm_tags(tags);
         expect(ilm_policy).toBe(expected_ilm_filter);
@@ -162,7 +165,7 @@ describe('convert_filter_to_gpfs_ilm_policy unit tests', () => {
 
     it('convert_filter_to_gpfs_ilm_policy - filter with size lt + tags', () => {
         const lifecycle_rule = { ...lifecycle_rule_base, filter: { object_size_less_than, tags } };
-        const ilm_policy = nc_lifecycle.convert_filter_to_gpfs_ilm_policy(lifecycle_rule, mock_bucket_json);
+        const ilm_policy = nc_lifecycle.convert_filter_to_gpfs_ilm_policy(lifecycle_rule, escaped_bucket_path);
         const expected_ilm_filter = get_expected_ilm_size_less_than(object_size_less_than) +
             get_expected_ilm_tags(tags);
         expect(ilm_policy).toBe(expected_ilm_filter);
@@ -170,7 +173,7 @@ describe('convert_filter_to_gpfs_ilm_policy unit tests', () => {
 
     it('convert_filter_to_gpfs_ilm_policy - filter with prefix + size gt + size lt', () => {
         const lifecycle_rule = { ...lifecycle_rule_base, filter: { prefix, object_size_greater_than, object_size_less_than } };
-        const ilm_policy = nc_lifecycle.convert_filter_to_gpfs_ilm_policy(lifecycle_rule, mock_bucket_json);
+        const ilm_policy = nc_lifecycle.convert_filter_to_gpfs_ilm_policy(lifecycle_rule, escaped_bucket_path);
         const expected_ilm_filter = get_expected_ilm_prefix(bucket_path, prefix) +
             get_expected_ilm_size_greater_than(object_size_greater_than) +
             get_expected_ilm_size_less_than(object_size_less_than);
@@ -179,7 +182,7 @@ describe('convert_filter_to_gpfs_ilm_policy unit tests', () => {
 
     it('convert_filter_to_gpfs_ilm_policy - filter with prefix + size lt + tags', () => {
         const lifecycle_rule = { ...lifecycle_rule_base, filter: { prefix, object_size_less_than, tags } };
-        const ilm_policy = nc_lifecycle.convert_filter_to_gpfs_ilm_policy(lifecycle_rule, mock_bucket_json);
+        const ilm_policy = nc_lifecycle.convert_filter_to_gpfs_ilm_policy(lifecycle_rule, escaped_bucket_path);
         const expected_ilm_filter = get_expected_ilm_prefix(bucket_path, prefix) +
             get_expected_ilm_size_less_than(object_size_less_than) +
             get_expected_ilm_tags(tags);
@@ -188,7 +191,7 @@ describe('convert_filter_to_gpfs_ilm_policy unit tests', () => {
 
     it('convert_filter_to_gpfs_ilm_policy - filter with size gt + size lt + tags', () => {
         const lifecycle_rule = { ...lifecycle_rule_base, filter: { object_size_greater_than, object_size_less_than, tags } };
-        const ilm_policy = nc_lifecycle.convert_filter_to_gpfs_ilm_policy(lifecycle_rule, mock_bucket_json);
+        const ilm_policy = nc_lifecycle.convert_filter_to_gpfs_ilm_policy(lifecycle_rule, escaped_bucket_path);
         const expected_ilm_filter = get_expected_ilm_size_greater_than(object_size_greater_than) +
             get_expected_ilm_size_less_than(object_size_less_than) +
             get_expected_ilm_tags(tags);
@@ -197,7 +200,7 @@ describe('convert_filter_to_gpfs_ilm_policy unit tests', () => {
 
     it('convert_filter_to_gpfs_ilm_policy - filter with prefix + size gt + size lt + tags', () => {
         const lifecycle_rule = { ...lifecycle_rule_base, filter: { prefix, object_size_greater_than, object_size_less_than, tags } };
-        const ilm_policy = nc_lifecycle.convert_filter_to_gpfs_ilm_policy(lifecycle_rule, mock_bucket_json);
+        const ilm_policy = nc_lifecycle.convert_filter_to_gpfs_ilm_policy(lifecycle_rule, escaped_bucket_path);
         const expected_ilm_filter = get_expected_ilm_prefix(bucket_path, prefix) +
             get_expected_ilm_size_greater_than(object_size_greater_than) +
             get_expected_ilm_size_less_than(object_size_less_than) +
@@ -476,11 +479,11 @@ async function create_mock_candidates_file(candidates_path, file_prefix, num_of_
 function get_mock_base_ilm_policy(bucket_storage_path, rule_id, lifecycle_run_status) {
     const definitions_base = `define( mod_age, (DAYS(CURRENT_TIMESTAMP) - DAYS(MODIFICATION_TIME)) )\n` +
         `define( change_age, (DAYS(CURRENT_TIMESTAMP) - DAYS(CHANGE_TIME)) )\n`;
-
+    const escaped_bucket_storage_path = get_escaped_string(bucket_storage_path);
     const policy_rule_id = `${bucket_name}_${rule_id}_${lifecycle_run_status.lifecycle_run_times.run_lifecycle_start_time}`;
     const policy_base = `RULE '${policy_rule_id}' LIST '${policy_rule_id}'\n` +
-    `WHERE PATH_NAME LIKE '${bucket_storage_path}/%'\n` +
-    `AND PATH_NAME NOT LIKE '${bucket_storage_path}/${config.NSFS_TEMP_DIR_NAME}%/%'\n`;
+    `WHERE PATH_NAME LIKE '${escaped_bucket_storage_path}/%' ${escape_backslash_str}\n` +
+    `AND PATH_NAME NOT LIKE '${escaped_bucket_storage_path}/${config.NSFS_TEMP_DIR_NAME}%/%' ${escape_backslash_str}\n`;
 
     return definitions_base + policy_base;
 }
@@ -492,8 +495,9 @@ function get_mock_base_ilm_policy(bucket_storage_path, rule_id, lifecycle_run_st
  * @returns {String}
  */
 function get_expected_ilm_expiry(expiry_days, bucket_storage_path) {
-    const path_policy = `AND PATH_NAME NOT LIKE '${bucket_storage_path}/.versions/%'\n` +
-        `AND PATH_NAME NOT LIKE '${bucket_storage_path}/%/.versions/%'\n`;
+    const escaped_bucket_storage_path = get_escaped_string(bucket_storage_path);
+    const path_policy = `AND PATH_NAME NOT LIKE '${escaped_bucket_storage_path}/.versions/%' ${escape_backslash_str}\n` +
+        `AND PATH_NAME NOT LIKE '${escaped_bucket_storage_path}/%/.versions/%' ${escape_backslash_str}\n`;
     const expiration_policy = expiry_days ? `AND mod_age > ${expiry_days}\n` : '';
     return path_policy + expiration_policy;
 }
@@ -505,7 +509,13 @@ function get_expected_ilm_expiry(expiry_days, bucket_storage_path) {
  * @returns {String}
  */
 function get_expected_ilm_prefix(bucket_storage_path, obj_prefix) {
-    return `AND PATH_NAME LIKE '${bucket_storage_path}/${obj_prefix}%'\n`;
+    const escaped_bucket_storage_path = get_escaped_string(bucket_storage_path);
+    const escaped_obj_prefix = get_escaped_string(obj_prefix);
+    return `AND PATH_NAME LIKE '${escaped_bucket_storage_path}/${escaped_obj_prefix}%' ${escape_backslash_str}\n`;
+}
+
+function get_escaped_string(str) {
+    return str.replace(/_/g, '\\_').replace(/%/g, '\\%').replace(/'/g, "''");
 }
 
 /**
@@ -532,7 +542,10 @@ function get_expected_ilm_size_less_than(size) {
  * @returns {String}
  */
 function get_expected_ilm_tags(tags) {
-    return tags.map(tag => `AND XATTR('user.noobaa.tag.${tag.key}') LIKE ${tag.value}\n`).join('');
+    return tags.map(tag => {
+        const escaped_tag_val = get_escaped_string(tag.value);
+        return `AND XATTR('user.noobaa.tag.${tag.key}') LIKE '${escaped_tag_val}' ${escape_backslash_str}\n`;
+    }).join('');
 }
 
 /**

@@ -86,6 +86,10 @@ class ReplicationScanner {
                 for_replication: config.BUCKET_DIFF_FOR_REPLICATION
             });
             dbg.log1(`scan:: cur_src_cont_token: ${cur_src_cont_token},cur_dst_cont_token: ${cur_dst_cont_token}`);
+
+            const src_total_obj = await bucketDiff.get_objects_count(src_bucket.name, prefix);
+            dbg.log1(`scan:: src_total_obj: ${src_total_obj}`);
+
             const {
                 keys_diff_map,
                 first_bucket_cont_token: src_cont_token,
@@ -130,6 +134,10 @@ class ReplicationScanner {
 
                 replication_utils.update_replication_prom_report(src_bucket.name, replication_id, replication_status);
             }
+
+            const repl_obj = copy_res.num_of_objects; // TODO: need to store count of copy_res.num_of_objects at some global level
+            const replication_percentage = replication_utils.get_replication_percentage(repl_obj, src_total_obj);
+            replication_utils.update_replication_prom_report_per_bucket(src_bucket.name, replication_percentage);
         }));
     }
 }

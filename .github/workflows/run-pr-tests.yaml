@@ -42,28 +42,112 @@ jobs:
     uses: ./.github/workflows/warp-nc-tests.yaml
 
   build-noobaa-image:
+    name: Build Noobaa Image
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: make noobaa image
-        run: make tester
+      - name: Prepare Tags
+        id: prep
+        run: |
+          DOCKER_BUILDER_IMAGE=noobaa/noobaa-builder
+          DOCKER_BASE_IMAGE=noobaa/noobaa-base
+          if [[ -n ${{github.base_ref}} ]]; then
+            #on pull request, use target branch
+            BRANCH=${{github.base_ref}}
+          else
+            #on push, use the pushed branch
+            BRANCH=${{github.ref_name}}
+          fi
+          BUILDER_TAGS="${DOCKER_BUILDER_IMAGE}:${BRANCH}-"
+          BASE_TAGS="${DOCKER_BASE_IMAGE}:${BRANCH}-"
+          EARLIEST_VERSION_PAST=20
+          echo "basetags=${BASE_TAGS}" >> $GITHUB_OUTPUT
+          echo "buildertags=${BUILDER_TAGS}" >> $GITHUB_OUTPUT
+          echo "pull_tries=${EARLIEST_VERSION_PAST}" >> $GITHUB_OUTPUT
+
+      - name: Check changed files
+        id: changed_files
+        uses: tj-actions/changed-files@v44
+
+      - name: Should build noobaa base image
+        id: should_build_base
+        run: |
+          base_files=("package.json" "base.dockerfile" ".nvmrc")
+          output=false
+          for file in ${{ steps.changed_files.outputs.all_changed_files }}; do
+            if printf '%s\n' "${base_files[@]}" | grep -x -q "$file"; then
+              echo "File ${file} has changed, building base image."
+              output=true
+              break;
+            fi
+          done
+          echo "should_build=${output}" >> $GITHUB_OUTPUT
+
+      - name: Pull noobaa-base image
+        id: pull_base_image
+        if: ${{ steps.should_build_base.outputs.should_build == 'false' }}
+        run: |
+          output=false
+          for i in $(seq 0 ${{ steps.prep.outputs.pull_tries }})
+          do
+            date=$(date -d "${i} days ago" +'%Y%m%d')
+            base_tag="quay.io/${{ steps.prep.outputs.basetags }}${date}"
+            echo "Trying to pull ${base_tag}"
+            docker pull ${base_tag} || continue
+            echo "Successfully pulled ${base_tag} from quay.io"
+            docker tag ${base_tag} noobaa-base
+            output=true
+            break
+          done
+          echo "pull_succeed=${output}" >> $GITHUB_OUTPUT
+
+      - name: Pull noobaa-builder image
+        id: should_build_builder
+        if: ${{steps.should_build_base.outputs.should_build == 'true' ||
+          steps.pull_base_image.outputs.pull_succeed == 'false'}}
+        run: |
+          output=true
+          for i in $(seq 0 ${{ steps.prep.outputs.pull_tries }})
+          do
+            date=$(date -d "${i} days ago" +'%Y%m%d')
+            builder_tag="quay.io/${{ steps.prep.outputs.buildertags }}${date}"
+            echo "Trying to pull ${builder_tag}"
+            docker pull ${builder_tag} || continue
+            echo "Successfully pulled ${builder_tag} from quay.io"
+            docker tag ${builder_tag} noobaa-builder
+            output=false
+            break
+          done
+          echo "should_build=${output}" >> $GITHUB_OUTPUT 
+
+      - name: Build noobaa-base image
+        if: ${{steps.should_build_base.outputs.should_build == 'true' ||
+          steps.pull_base_image.outputs.pull_succeed == 'false'}}
+        run: |
+          if [ "${{ steps.should_build_builder.outputs.should_build }}" = 'false' ]; then
+            flags="-o builder"
+          fi
+          make base ${flags}
+
+      - name: Build noobaa and tester images
+        run: make tester -o base
 
       - name: create docker artifact
         run: |
           docker save --output noobaa.tar noobaa
           docker save --output noobaa-tester.tar noobaa-tester
 
-      - name: upload noobaa docker image
+      - name: Upload noobaa docker image
         uses: actions/upload-artifact@v4
         with:
           name: noobaa-image
           path: noobaa.tar
           retention-days: "1"
 
-      - name: upload noobaa-tester docker image
+      - name: Upload noobaa-tester docker image
         uses: actions/upload-artifact@v4
         with:
           name: noobaa-tester

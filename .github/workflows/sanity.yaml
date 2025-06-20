@@ -3,6 +3,7 @@ on: [workflow_call]
 
 jobs:
   run-sanity-tests:
+    name: Sanity Tests
     runs-on: ubuntu-latest
     timeout-minutes: 90
     permissions:

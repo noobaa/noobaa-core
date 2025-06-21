@@ -103,10 +103,11 @@ class Notificator {
                 throw err;
             } finally {
                 await log.close();
-                this.notif_to_connect.clear();
                 for (const conn of this.connect_str_to_connection.values()) {
                     conn.destroy();
                 }
+                this.connect_str_to_connection.clear();
+                this.notif_to_connect.clear();
             }
         }
     }
@@ -272,18 +273,25 @@ class KafkaNotificator {
 
     async connect() {
         this.connection = new Kafka.HighLevelProducer(this.connect_obj.kafka_options_object);
+        dbg.log2("Kafka producer connecting, connect =", this.connect_obj);
         await new Promise((res, rej) => {
             this.connection.on('ready', () => {
+                dbg.log2("Kafka producer connected for connection =", this.connect_obj);
                 res();
             });
             this.connection.on('connection.failure', err => {
+                dbg.error("Kafka producer failed to connect. connect = ", this.connect_obj, ", err =", err);
                 rej(err);
             });
             this.connection.on('event.log', arg => {
-                dbg.log1("event log", arg);
+                dbg.log2("event log", arg);
+            });
+            this.connection.on('event.error', arg => {
+                dbg.error("event error =", arg);
             });
             this.connection.connect();
         });
+        dbg.log2("Kafka producer's connect done, connect =", this.connect_obj);
         this.connection.setPollInterval(100);
     }
 
@@ -296,10 +304,12 @@ class KafkaNotificator {
                 Buffer.from(JSON.stringify(notif.notif)),
                 null,
                 Date.now(),
-                (err, offset) => {
+                err => {
                     if (err) {
+                        dbg.error("Failed to notify. Connect =", connect_obj, ", notif =", notif);
                         promise_failure_cb(notif, failure_ctxt, err).then(resolve);
                     } else {
+                        dbg.log2("Kafka notify successful. Connect =", connect_obj, ", notif =", notif);
                         resolve();
                     }
                 }
@@ -308,8 +318,10 @@ class KafkaNotificator {
     }
 
     destroy() {
-        this.connection.flush(10000);
-        this.connection.disconnect();
+        if (this.connection.isConnected()) {
+            this.connection.flush(10000);
+            this.connection.disconnect();
+        }
     }
 }
 

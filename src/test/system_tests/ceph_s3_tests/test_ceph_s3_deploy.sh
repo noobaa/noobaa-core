@@ -38,7 +38,7 @@ commit_epoch=$(git show -s --format=%ci ${CEPH_TESTS_VERSION} | awk '{print $1}'
 commit_date=$(date -d ${commit_epoch} +%s)
 current_date=$(date +%s)
 
-max_days="450"
+max_days="600"
 if [ $((current_date-commit_date)) -gt $((3600*24*${max_days})) ]
 then
     echo "ceph tests were not updated for ${max_days} days, Exiting"

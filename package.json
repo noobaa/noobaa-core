@@ -107,7 +107,7 @@
     "nan": "2.22.2",
     "ncp": "2.0.0",
     "node-addon-api": "8.3.1",
-    "node-rdkafka": "3.4.0",
+    "node-rdkafka": "3.4.1",
     "performance-now": "2.1.0",
     "pg": "8.16.0",
     "ping": "0.4.4",

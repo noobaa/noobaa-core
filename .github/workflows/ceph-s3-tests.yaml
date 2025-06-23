@@ -3,6 +3,7 @@ on: [workflow_call]
 
 jobs:
   ceph-s3-tests:
+    name: Ceph S3 Tests
     runs-on: ubuntu-latest
     timeout-minutes: 90
     permissions:

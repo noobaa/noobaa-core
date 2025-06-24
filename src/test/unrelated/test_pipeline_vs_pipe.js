@@ -106,7 +106,7 @@ async function test_pipe(use_pipeline) {
 async function main() {
 
     console.log('');
-    console.log('*********************************');
+    console.log('**********************************');
     console.log('***          CASE 1           ***');
     console.log('***                           ***');
     console.log('*** test WITH stream.pipeline ***');

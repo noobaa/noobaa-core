@@ -345,13 +345,6 @@ const NOOBAA_CORE_METRICS = js_utils.deep_freeze([{
         }
     }, {
         type: 'Gauge',
-        name: 'bucket_replication_percentage',
-        configuration: {
-            help: 'Replication percentage per bucket in last replication cycle',
-            labelNames: ['bucket_name']
-        }
-    }, {
-        type: 'Gauge',
         name: 'replication_status',
         configuration: {
             help: 'Replication status',
@@ -388,6 +381,27 @@ const NOOBAA_CORE_METRICS = js_utils.deep_freeze([{
         configuration: {
             help: 'Number of error objects replication_id in last replication cycle',
             labelNames: ['replication_id']
+        }
+    }, {
+        type: 'Gauge',
+        name: 'bucket_last_cycle_total_objects_num',
+        configuration: {
+            help: 'Total number of objects scanned per bucket in last replication cycle',
+            labelNames: ['bucket_name']
+        }
+    }, {
+        type: 'Gauge',
+        name: 'bucket_last_cycle_replicated_objects_num',
+        configuration: {
+            help: 'Number of objects replicated per bucket in last replication cycle',
+            labelNames: ['bucket_name']
+        }
+    }, {
+        type: 'Gauge',
+        name: 'bucket_last_cycle_error_objects_num',
+        configuration: {
+            help: 'Number of objects failed to replicate per bucket in last replication cycle',
+            labelNames: ['bucket_name']
         }
     }, {
         type: 'Gauge',
@@ -613,9 +627,12 @@ class NooBaaCoreReport extends BasePrometheusReport {
     set_replication_status(repl_info) {
         if (!this._metrics) return;
         const replication_id = repl_info.replication_id;
+        const bucket_name = repl_info.bucket_name;
         delete this._metrics.replication_status.hashMap[String(repl_info.replication_id)];
         this._metrics.replication_status.set(_.omit(repl_info, ['last_cycle_writes_size',
-            'last_cycle_writes_num', 'last_cycle_error_writes_size', 'last_cycle_error_writes_num'
+            'last_cycle_writes_num', 'last_cycle_error_writes_size', 'last_cycle_error_writes_num',
+            'bucket_last_cycle_total_objects_num', 'bucket_last_cycle_replicated_objects_num',
+            'bucket_last_cycle_error_objects_num'
         ]), Date.now());
 
         delete this._metrics.replication_last_cycle_writes_size.hashMap[String(repl_info.replication_id)];
@@ -629,19 +646,15 @@ class NooBaaCoreReport extends BasePrometheusReport {
 
         delete this._metrics.replication_last_cycle_error_writes_num.hashMap[String(repl_info.replication_id)];
         this._metrics.replication_last_cycle_error_writes_num.set({ replication_id }, repl_info.last_cycle_error_writes_num);
-    }
 
-    update_bucket_replication_percentage(repl_info) {
-        if (!this._metrics) return;
-        const { bucket_name, repl_percentage } = repl_info;
+        delete this._metrics.bucket_last_cycle_total_objects_num.hashMap[String(bucket_name)];
+        this._metrics.bucket_last_cycle_total_objects_num.set({ bucket_name }, repl_info.bucket_last_cycle_total_objects_num);
 
-        if (typeof repl_percentage !== 'number' || Number.isNaN(repl_percentage)) {
-            dbg.error('update_bucket_replication_percentage: invalid repl_percentage', repl_info);
-            return;
-        }
+        delete this._metrics.bucket_last_cycle_replicated_objects_num.hashMap[String(bucket_name)];
+        this._metrics.bucket_last_cycle_replicated_objects_num.set({ bucket_name }, repl_info.bucket_last_cycle_replicated_objects_num);
 
-        this._metrics.bucket_replication_percentage.remove({ bucket_name });
-        this._metrics.bucket_replication_percentage.set({bucket_name}, repl_percentage);
+        delete this._metrics.bucket_last_cycle_error_objects_num.hashMap[String(bucket_name)];
+        this._metrics.bucket_last_cycle_error_objects_num.set({ bucket_name }, repl_info.bucket_last_cycle_error_objects_num);
     }
 }
 

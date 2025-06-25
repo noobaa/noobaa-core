@@ -87,9 +87,6 @@ class ReplicationScanner {
             });
             dbg.log1(`scan:: cur_src_cont_token: ${cur_src_cont_token},cur_dst_cont_token: ${cur_dst_cont_token}`);
 
-            const src_total_obj = await bucketDiff.get_objects_count(src_bucket.name, prefix);
-            dbg.log1(`scan:: src_total_obj: ${src_total_obj}`);
-
             const {
                 keys_diff_map,
                 first_bucket_cont_token: src_cont_token,
@@ -130,14 +127,11 @@ class ReplicationScanner {
 
             // update the prometheus metrics only if we have diff
             if (Object.keys(keys_diff_map).length) {
-                const replication_status = replication_utils.get_rule_status(rule.rule_id, src_cont_token, keys_diff_map, copy_res);
+                const {rule_status, bucket_status} = replication_utils.get_rule_and_bucket_status(
+                    rule.rule_id, src_cont_token, keys_diff_map, copy_res);
 
-                replication_utils.update_replication_prom_report(src_bucket.name, replication_id, replication_status);
+                replication_utils.update_replication_prom_report(src_bucket.name, replication_id, rule_status, bucket_status);
             }
-
-            const repl_obj = copy_res.num_of_objects; // TODO: need to store count of copy_res.num_of_objects at some global level
-            const replication_percentage = replication_utils.get_replication_percentage(repl_obj, src_total_obj);
-            replication_utils.update_replication_prom_report_per_bucket(src_bucket.name, replication_percentage);
         }));
     }
 }

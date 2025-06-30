@@ -373,10 +373,9 @@ test-mint: tester
 	@$(call create_docker_network)
 	@$(call run_postgres)
 	@echo "\033[1;34mRunning mint tests\033[0m"
-	$(CONTAINER_ENGINE) run $(CPUSET) --name noobaa-$(GIT_COMMIT)-$(NAME_POSTFIX) -dit --privileged --user root --network noobaa-net --env "SUPPRESS_LOGS=$(SUPPRESS_LOGS)" --env "POSTGRES_HOST=coretest-postgres-$(GIT_COMMIT)-$(NAME_POSTFIX)" --env "POSTGRES_USER=noobaa" --env "DB_TYPE=postgres" --env "POSTGRES_DBNAME=coretest" -v $(PWD)/logs:/logs $(TESTER_TAG) tail -f /dev/null
-	$(CONTAINER_ENGINE) exec noobaa-$(GIT_COMMIT)-$(NAME_POSTFIX) bash -c "nohup ./src/test/system_tests/mint/run_mint_on_test_container.sh > /logs/mint_tests.log 2>&1 &"
+	$(CONTAINER_ENGINE) run $(CPUSET) --name noobaa-$(GIT_COMMIT)-$(NAME_POSTFIX) -dit --privileged --user root --network noobaa-net --env "SUPPRESS_LOGS=$(SUPPRESS_LOGS)" --env "POSTGRES_HOST=coretest-postgres-$(GIT_COMMIT)-$(NAME_POSTFIX)" --env "POSTGRES_USER=noobaa" --env "DB_TYPE=postgres" --env "POSTGRES_DBNAME=coretest" -v $(PWD)/logs:/logs $(TESTER_TAG) bash -c "./src/test/system_tests/mint/run_mint_on_test_container.sh ; tail -f /dev/null"
 	sleep 90
-	$(CONTAINER_ENGINE) run --name mint-$(GIT_COMMIT)-$(NAME_POSTFIX) --network noobaa-net --env SERVER_ENDPOINT=noobaa-$(GIT_COMMIT)-$(NAME_POSTFIX):$(MINT_NOOBAA_HTTP_ENDPOINT_PORT) --env ACCESS_KEY=$(MINT_MOCK_ACCESS_KEY) --env SECRET_KEY=$(MINT_MOCK_SECRET_KEY) --env ENABLE_HTTPS=0 minio/mint aws-sdk-java minio-go s3cmd
+	$(CONTAINER_ENGINE) run --name mint-$(GIT_COMMIT)-$(NAME_POSTFIX) --network noobaa-net -v $(PWD)/logs:/mint/log --env SERVER_ENDPOINT=noobaa-$(GIT_COMMIT)-$(NAME_POSTFIX):$(MINT_NOOBAA_HTTP_ENDPOINT_PORT) --env ACCESS_KEY=$(MINT_MOCK_ACCESS_KEY) --env SECRET_KEY=$(MINT_MOCK_SECRET_KEY) --env ENABLE_HTTPS=0 minio/mint aws-sdk-java minio-go s3cmd
 	@$(call disconnect_container_from_noobaa_network, mint-$(GIT_COMMIT)-$(NAME_POSTFIX))
 	@$(call stop_noobaa, noobaa-$(GIT_COMMIT)-$(NAME_POSTFIX))
 	@$(call stop_postgres)
@@ -387,10 +386,9 @@ test-mint: tester
 test-nc-mint: tester
 	@echo "\033[1;34mRunning mint tests on NC environment\033[0m"
 	@$(call create_docker_network)
-	$(CONTAINER_ENGINE) run $(CPUSET) --name noobaa-$(GIT_COMMIT)-$(NAME_POSTFIX) -dit --privileged --user root --env "SUPPRESS_LOGS=$(SUPPRESS_LOGS)" --network noobaa-net -v $(PWD)/logs:/logs $(TESTER_TAG) tail -f /dev/null
-	$(CONTAINER_ENGINE) exec noobaa-$(GIT_COMMIT)-$(NAME_POSTFIX) bash -c "nohup ./src/test/system_tests/mint/run_nc_mint_on_test_container.sh > /logs/mint_nc_tests.log 2>&1 &"
+	$(CONTAINER_ENGINE) run $(CPUSET) --name noobaa-$(GIT_COMMIT)-$(NAME_POSTFIX) -dit --privileged --user root --env "SUPPRESS_LOGS=$(SUPPRESS_LOGS)" --network noobaa-net -v $(PWD)/logs:/logs $(TESTER_TAG) bash -c "./src/test/system_tests/mint/run_nc_mint_on_test_container.sh ; tail -f /dev/null"
 	sleep 20
-	$(CONTAINER_ENGINE) run --name mint-$(GIT_COMMIT)-$(NAME_POSTFIX) --network noobaa-net --env SERVER_ENDPOINT=noobaa-$(GIT_COMMIT)-$(NAME_POSTFIX):$(MINT_NOOBAA_HTTP_ENDPOINT_PORT) --env ACCESS_KEY=$(MINT_MOCK_ACCESS_KEY) --env SECRET_KEY=$(MINT_MOCK_SECRET_KEY) --env ENABLE_HTTPS=0 minio/mint aws-sdk-java minio-go s3cmd
+	$(CONTAINER_ENGINE) run --name mint-$(GIT_COMMIT)-$(NAME_POSTFIX) --network noobaa-net -v $(PWD)/logs:/mint/log --env SERVER_ENDPOINT=noobaa-$(GIT_COMMIT)-$(NAME_POSTFIX):$(MINT_NOOBAA_HTTP_ENDPOINT_PORT) --env ACCESS_KEY=$(MINT_MOCK_ACCESS_KEY) --env SECRET_KEY=$(MINT_MOCK_SECRET_KEY) --env ENABLE_HTTPS=0 minio/mint aws-sdk-java minio-go s3cmd
 	@$(call disconnect_container_from_noobaa_network, mint-$(GIT_COMMIT)-$(NAME_POSTFIX))
 	@$(call stop_noobaa, noobaa-$(GIT_COMMIT)-$(NAME_POSTFIX))
 	@$(call remove_docker_network)

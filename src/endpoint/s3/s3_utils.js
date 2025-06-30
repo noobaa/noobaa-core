@@ -666,16 +666,22 @@ function parse_body_logging_xml(req) {
     return logging;
 }
 
-function get_http_response_date(res) {
-    const r = get_http_response_from_resp(res);
-    if (!r.httpResponse.headers.date) throw new Error("date not found in response header");
-    return r.httpResponse.headers.date;
+async function get_http_response_date(res, s3_client, bucket, key) {
+    const r = await get_http_response_from_resp(res, s3_client, bucket, key);
+    if (!r.LastModified) throw new Error("Date not found in response header");
+    return r.LastModified;
 }
 
-function get_http_response_from_resp(res) {
-    const r = res.$response;
-    if (!r) throw new Error("no $response in s3 returned object");
-    return r;
+async function get_http_response_from_resp(res, s3_client, bucket, key) {
+    const status_code = res.$metadata.httpStatusCode;
+    if (status_code >= 300) throw new Error(`PutObject S3 request failed for bucket ${bucket}, Key: ${key} with status code :`, status_code);
+    const head_res = await s3_client.headObject({
+            Bucket: bucket,
+            Key: key,
+        });
+    const head_status_code = res.$metadata.httpStatusCode;
+    if (head_status_code >= 300) throw new Error(`headObject S3 request failed for bucket ${bucket}, Key: ${key} with status code :`, status_code);
+    return head_res;
 }
 
 function get_response_field_encoder(req) {

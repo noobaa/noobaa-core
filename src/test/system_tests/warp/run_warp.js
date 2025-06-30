@@ -8,7 +8,7 @@ delete argv._;
 
 const config = require('../../../../config');
 const os_utils = require('../../../util/os_utils');
-const { get_warp_access_keys } = require('./warp_utils');
+const { get_account_access_keys } = require('../external_tests_utils');
 const { DEFAULT_NUMBER_OF_WORKERS, WARP_TEST } = require('./warp_constants.js');
 
 const usage = `
@@ -81,7 +81,7 @@ async function run_warp() {
     }
 
     if (account_name && !access_key && !secret_key) {
-        ({ access_key, secret_key } = await get_warp_access_keys(account_name));
+        ({ access_key, secret_key } = await get_account_access_keys(account_name));
     }
 
     // TODO - add --benchdata so that the result csv will be saved in logs

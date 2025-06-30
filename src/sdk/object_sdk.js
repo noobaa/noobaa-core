@@ -467,15 +467,17 @@ class ObjectSDK {
                     params: { Bucket: r.target_bucket },
                     endpoint: r.endpoint,
                     aws_sts_arn: r.aws_sts_arn,
-                    accessKeyId: r.access_key.unwrap(),
-                    secretAccessKey: r.secret_key.unwrap(),
-                    // region: 'us-east-1', // TODO needed?
-                    signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(r.endpoint, r.auth_method),
+                    credentials: {
+                         accessKeyId: r.access_key.unwrap(),
+                        secretAccessKey: r.secret_key.unwrap(),
+                    },
+                    region: config.DEFAULT_REGION, // SDKv3 needs region
                     s3ForcePathStyle: true,
                     // computeChecksums: false, // disabled by default for performance
                     httpOptions: { agent },
                     access_mode: r.access_mode
                 },
+                bucket: r.target_bucket,
                 stats: this.stats,
             });
         }

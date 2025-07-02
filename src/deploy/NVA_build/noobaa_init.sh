@@ -180,22 +180,12 @@ init_noobaa_agent() {
   run_internal_process node --unhandled-rejections=warn ./src/agent/agent_cli
 }
 
-migrate_dbs() {
-  fix_non_root_user
-  
-  cd /root/node_modules/noobaa-core/
-  /usr/local/bin/node --unhandled-rejections=warn src/upgrade/migration_to_postgres.js
-}
-
 if [ "${RUN_INIT}" == "agent" ]
 then
   init_noobaa_agent
 elif [ "${RUN_INIT}" == "init_mongo" ]
 then
   prepare_mongo_pv
-elif [ "${RUN_INIT}" == "db_migrate" ]
-then
-  migrate_dbs
 elif [ "${RUN_INIT}" == "init_endpoint" ]
 then
   init_endpoint

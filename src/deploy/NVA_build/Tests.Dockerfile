@@ -72,4 +72,4 @@ RUN mkdir -p /.npm && \
     chmod -R g=u /.npm 
 
 USER 10001:0
-CMD ["./src/test/unit_tests/run_npm_test_on_test_container.sh"]
+CMD ["./src/test/framework/run_npm_test_on_test_container.sh"]

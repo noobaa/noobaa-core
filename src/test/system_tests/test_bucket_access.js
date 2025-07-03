@@ -18,6 +18,7 @@ const fs = require('fs');
 const { S3 } = require('@aws-sdk/client-s3');
 const crypto = require('crypto');
 const assert = require('assert');
+const config = require('../../../config');
 
 
 dotenv.load();
@@ -31,7 +32,6 @@ const {
 } = argv;
 
 const target_s3_endpoint = `http://${s3_ip}:${s3_port}`;
-const POOL_NAME = 'test-pool';
 
 const client = rpc.new_client({
     address: `ws://${mgmt_ip}:${mgmt_port}`
@@ -42,11 +42,6 @@ const full_access_user = {
     email: 'full_access@noobaa.com',
     has_login: false,
     s3_access: true,
-    allowed_buckets: {
-        full_permission: false,
-        permission_list: ['bucket1', 'bucket2']
-    },
-    default_resource: POOL_NAME
 };
 
 const bucket1_user = {
@@ -54,11 +49,6 @@ const bucket1_user = {
     email: 'bucket1_access@noobaa.com',
     has_login: false,
     s3_access: true,
-    allowed_buckets: {
-        full_permission: false,
-        permission_list: ['bucket1']
-    },
-    default_resource: POOL_NAME
 };
 
 const no_access_user = {
@@ -67,6 +57,8 @@ const no_access_user = {
     has_login: false,
     s3_access: false,
 };
+
+const buckets = ['bucket1', 'bucket2'];
 
 module.exports = {
     run_test: run_test
@@ -96,26 +88,31 @@ async function setup() {
         return;
     }
 
-    // Create a default pool for the users.
-    await test_utils.create_hosts_pool(client, POOL_NAME, 3);
+    const system = await client.system.read_system();
+    // We are taking the first host pool, in normal k8s setup is default backing store
+    const test_pool = system.pools.filter(p => p.resource_type === 'HOSTS')[0];
     // Create test buckets.
     await client.bucket.create_bucket({ name: 'bucket1' });
     await client.bucket.create_bucket({ name: 'bucket2' });
     // add new accounts:
-    await client.account.create_account(full_access_user);
-    await client.account.create_account(bucket1_user);
-    await client.account.create_account(no_access_user);
+    await client.account.create_account({...full_access_user,
+        default_resource: test_pool.name
+    });
+    await client.account.create_account({...bucket1_user,
+        default_resource: test_pool.name
+    });
+    await client.account.create_account({...no_access_user,
+        default_resource: test_pool.name
+    });
     const system_info = await client.system.read_system();
 
     let account = account_by_name(system_info.accounts, full_access_user.email);
     full_access_user.access_keys = account.access_keys[0];
 
-    // replicate permission_list - loops over the permission_list and generates 
+    // replicate permission_list - loops over the permission_list and generates
     // S3 policies which gives the user equivalent permissions over the buckets that permission_list was giving.
     await Promise.all(
-        full_access_user
-        .allowed_buckets
-        .permission_list
+        buckets
         .map(bucket => test_utils.generate_s3_policy(full_access_user.email, bucket, ['s3:*']))
         .map(generated => client.bucket.put_bucket_policy({ name: generated.params.bucket, policy: generated.policy }))
     );
@@ -123,12 +120,10 @@ async function setup() {
     account = account_by_name(system_info.accounts, bucket1_user.email);
     bucket1_user.access_keys = account.access_keys[0];
 
-    // replicate permission_list - loops over the permission_list and generates 
+    // replicate permission_list - loops over the permission_list and generates
     // S3 policies which gives the user equivalent permissions over the buckets that permission_list was giving.
     await Promise.all(
-        full_access_user
-        .allowed_buckets
-        .permission_list
+        buckets
         .map(bucket => test_utils.generate_s3_policy(full_access_user.email, bucket, ['s3:*']))
         .map(generated => client.bucket.put_bucket_policy({ name: generated.params.bucket, policy: generated.policy }))
     );
@@ -136,12 +131,10 @@ async function setup() {
     account = account_by_name(system_info.accounts, no_access_user.email);
     no_access_user.access_keys = account.access_keys[0];
 
-    // replicate permission_list - loops over the permission_list and generates 
+    // replicate permission_list - loops over the permission_list and generates
     // S3 policies which gives the user equivalent permissions over the buckets that permission_list was giving.
     await Promise.all(
-        full_access_user
-        .allowed_buckets
-        .permission_list
+        buckets
         .map(bucket => test_utils.generate_s3_policy(full_access_user.email, bucket, ['s3:*']))
         .map(generated => client.bucket.put_bucket_policy({ name: generated.params.bucket, policy: generated.policy }))
     );
@@ -153,6 +146,7 @@ function get_new_server(user) {
     return new S3({
         endpoint: target_s3_endpoint,
         forcePathStyle: true,
+        region: config.DEFAULT_REGION,
         credentials: {
             accessKeyId: access_key.unwrap(),
             secretAccessKey: secret_key.unwrap(),
@@ -163,11 +157,17 @@ function get_new_server(user) {
 }
 
 async function run_test() {
+    dbg.log0("NMNMNMN authenticate");
     await authenticate();
+    dbg.log0("NMNMNMN setup");
     await setup();
+    dbg.log0("NMNMNMN test_bucket_write_allowed");
     await test_bucket_write_allowed();
+    dbg.log0("NMNMNMN test_bucket_read_allowed");
     await test_bucket_read_allowed();
+    dbg.log0("NMNMNMN test_bucket_list_allowed");
     await test_bucket_list_allowed();
+    dbg.log0("NMNMNMN test_bucket_write_denied");
     await test_bucket_write_denied();
     await test_bucket_read_denied();
     await test_bucket_list_denied();
@@ -184,22 +184,27 @@ async function run_test() {
 async function test_bucket_write_allowed() {
     console.log(`Starting test_bucket_write_allowed`);
     // test upload for allowed user
+    console.log("NMNNMNMNMNMNMNMNM0");
     let file_name = await ops.generate_random_file(1);
     // upload with full_access_user to both buckets:
     let server = get_new_server(full_access_user);
+    console.log("NMNNMNMNMNMNMNMNM1");
     const params1 = {
         Bucket: 'bucket1',
         Key: file_name,
         Body: fs.createReadStream(file_name)
     };
+    console.log("NMNNMNMNMNMNMNMNM2");
     const params2 = {
         Bucket: 'bucket2',
         Key: file_name,
         Body: fs.createReadStream(file_name)
     };
+    console.log("NMNNMNMNMNMNMNMNM3");
     await server.putObject({Bucket: params1.Bucket, Key: params1.Key, Body: params1.Body });
     await server.putObject({Bucket: params2.Bucket, Key: params2.Key, Body: params2.Body });
 
+    console.log("NMNNMNMNMNMNMNMNM4");
     file_name = await ops.generate_random_file(1);
     // upload with full_access_user to both buckets:
     server = get_new_server(bucket1_user);
@@ -208,6 +213,7 @@ async function test_bucket_write_allowed() {
         Key: file_name,
         Body: fs.createReadStream(file_name)
     };
+    console.log("NMNNMNMNMNMNMNMNM5");
     await server.putObject({Bucket: params.Bucket, Key: params.Key, Body: params.Body});
     console.log('test_bucket_write_allowed PASSED');
 }
@@ -400,7 +406,8 @@ async function test_ip_restrictions() {
 }
 
 function account_by_name(accounts, email) {
-    return accounts.find(account => account.email.unwrap() === email.unwrap());
+    console.log("NMNM", accounts, email);
+    return accounts.find(account => account.email.unwrap() === email);
 }
 
 if (require.main === module) {

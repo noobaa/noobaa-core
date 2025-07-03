@@ -1,0 +1,14 @@
+name: Non Containerized Unit Tests
+on: [push, pull_request]
+
+jobs:
+  run-nc-unit-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      
+      - name: Skip Tests (No-op)
+        run: true

@@ -223,7 +223,7 @@ function generate_s3_policy(principal, bucket, action) {
             Version: '2012-10-17',
             Statement: [{
                 Effect: 'Allow',
-                Principal: { AWS: [principal] },
+                Principal: { AWS: _.flatten([principal]) },
                 Action: action,
                 Resource: [
                     `arn:aws:s3:::${bucket}/*`,
@@ -248,11 +248,11 @@ function invalid_nsfs_root_permissions() {
 }
 
 /**
- * get_coretest_path returns coretest path according to process.env.NC_CORETEST value
- * @returns {string}
+ * require_coretest returns coretest path according to process.env.NC_CORETEST value
+ * @returns {*}
  */
-function get_coretest_path() {
-    return process.env.NC_CORETEST ? './nc_coretest' : './coretest';
+function require_coretest() {
+    return process.env.NC_CORETEST ? require('../utils/coretest/nc_coretest') : require('../utils/coretest/coretest');
 }
 
 /**
@@ -919,7 +919,7 @@ exports.generate_s3_policy = generate_s3_policy;
 exports.generate_s3_client = generate_s3_client;
 exports.generate_iam_client = generate_iam_client;
 exports.invalid_nsfs_root_permissions = invalid_nsfs_root_permissions;
-exports.get_coretest_path = get_coretest_path;
+exports.require_coretest = require_coretest;
 exports.exec_manage_cli = exec_manage_cli;
 exports.create_fs_user_by_platform = create_fs_user_by_platform;
 exports.delete_fs_user_by_platform = delete_fs_user_by_platform;

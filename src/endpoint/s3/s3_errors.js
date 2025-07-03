@@ -332,7 +332,7 @@ S3Error.NoLoggingStatusForKey = Object.freeze({
 });
 S3Error.NoSuchBucket = Object.freeze({
     code: 'NoSuchBucket',
-    message: 'The specified bucket does not exist.',
+    message: 'The specified bucket does not exist',
     http_code: 404,
 });
 S3Error.NoSuchKey = Object.freeze({

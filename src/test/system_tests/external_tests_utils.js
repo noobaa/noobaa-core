@@ -1,10 +1,9 @@
 /* Copyright (C) 2016 NooBaa */
 "use strict";
 
-const api = require('../../../api');
-const { WARP_TEST } = require('./warp_constants');
-const SensitiveString = require('../../../util/sensitive_string');
-const { get_account, create_account, create_bucket } = require('../nc_test_utils');
+const api = require('../../api');
+const SensitiveString = require('../../util/sensitive_string');
+const { get_account, create_account, create_bucket } = require('./nc_test_utils');
 
 /**
  * get_global_rpc_client returns a global RPC client.
@@ -55,48 +54,48 @@ async function get_account_by_name(account_name) {
 }
 
 /**
- * get_warp_access_keys returns the access keys of the warp account.
+ * get_account_access_keys returns the access keys of an account.
  * @param {String} account_name
  * @returns {Promise<{ access_key: String, secret_key: String }>}
  */
-async function get_warp_access_keys(account_name) {
-    const warp_account = process.env.LOCAL_MD_SERVER === 'true' ?
+async function get_account_access_keys(account_name) {
+    const account = is_containerized_deployment() ?
         await get_account_by_name(account_name) :
         await get_account(account_name);
-    const warp_access_keys = warp_account.access_keys[0];
-    const access_key = new SensitiveString(warp_access_keys.access_key).unwrap();
-    const secret_key = new SensitiveString(warp_access_keys.secret_key).unwrap();
+    const access_keys = account.access_keys[0];
+    const access_key = new SensitiveString(access_keys.access_key).unwrap();
+    const secret_key = new SensitiveString(access_keys.secret_key).unwrap();
     return { access_key, secret_key };
 }
 
 /**
- * create_warp_account creates a warp account.
+ * create_system_test_account creates an account to be used by system test per the deployment type.
+ * @param {Object} account_options - The options for the account.
  * @returns {Promise<void>}
  */
-async function create_warp_account() {
+async function create_system_test_account(account_options) {
     try {
         if (is_containerized_deployment()) {
-            await create_containerized_account();
+            await create_containerized_account(account_options);
         } else {
-            const account_options = WARP_TEST.nc_warp_account_params;
             await create_account(account_options);
         }
-        console.info('WARP account created:', WARP_TEST.warp_account_params);
+        console.info('system test account created:', account_options);
     } catch (err) {
-        throw new Error(`Failed to create account ${err.message}`);
+        throw new Error(`Failed to create account for system tests ${err.message}`);
     }
 }
 
 /**
- * create_warp_bucket creates a bucket in warp.
+ * create_system_test_bucket creates a bucket in warp.
+ * @param {Object} bucket_options - The options for the bucket.
  * @returns {Promise<void>}
  */
-async function create_warp_bucket() {
+async function create_system_test_bucket(account_options, bucket_options) {
     try {
         if (is_containerized_deployment()) {
-            await create_containerized_bucket();
+            await create_containerized_bucket(account_options, bucket_options);
         } else {
-            const bucket_options = WARP_TEST.nc_warp_bucket_params;
             await create_bucket(bucket_options);
         }
     } catch (err) {
@@ -108,29 +107,31 @@ async function create_warp_bucket() {
  * create_containerized_account creates a containerized account.
  * @returns {Promise<void>}
  */
-async function create_containerized_account() {
+async function create_containerized_account(account_options) {
     const global_rpc_client = await get_authenticated_global_rpc_client();
     const system = await global_rpc_client.system.read_system();
     // We are taking the first host pool, in normal k8s setup is default backing store 
     const test_pool = system.pools.filter(p => p.resource_type === 'HOSTS')[0];
     console.log(test_pool);
     await global_rpc_client.account.create_account({
-        ...WARP_TEST.warp_account_params,
+        ...account_options,
         default_resource: test_pool.name
     });
 }
 
 /**
  * create_containerized_bucket creates a bucket in containerized deployment.
+ * @param {Object} account_options - The options for the bucket owner account.
+ * @param {Object} bucket_options - The options for the bucket.
  * @returns {Promise<void>}
  */
-async function create_containerized_bucket() {
-    const { email, password } = WARP_TEST.warp_account_params;
+async function create_containerized_bucket(account_options, bucket_options) {
+    const { email, password } = account_options;
     const warp_account_rpc_client = await get_rpc_client_by_email_and_password(email, password);
     await warp_account_rpc_client.bucket.create_bucket({
-        name: WARP_TEST.warp_bucket_params.name,
+        name: bucket_options.name,
     });
-    console.info('WARP bucket created:', WARP_TEST.warp_bucket_params);
+    console.info('containerized bucket created:', bucket_options);
 }
 
 /**
@@ -142,9 +143,10 @@ function is_containerized_deployment() {
 }
 
 // EXPORTS
-exports.create_warp_bucket = create_warp_bucket;
-exports.create_warp_account = create_warp_account;
-exports.get_warp_access_keys = get_warp_access_keys;
+exports.create_system_test_bucket = create_system_test_bucket;
+exports.create_system_test_account = create_system_test_account;
+exports.get_account_access_keys = get_account_access_keys;
 exports.get_authenticated_global_rpc_client = get_authenticated_global_rpc_client;
 exports.get_rpc_client_by_email_and_password = get_rpc_client_by_email_and_password;
+exports.is_containerized_deployment = is_containerized_deployment;
 

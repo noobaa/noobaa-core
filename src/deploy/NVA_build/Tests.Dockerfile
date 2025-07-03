@@ -30,9 +30,9 @@ WORKDIR /root/node_modules/noobaa-core/
 #   Size: ~ 83.9 MB
 #
 ##############################################################
-RUN ./src/test/system_tests/ceph_s3_tests/test_ceph_s3_deploy.sh $(pwd) 
+RUN ./src/test/external_tests/ceph_s3_tests/test_ceph_s3_deploy.sh $(pwd) 
 # add group permissions to s3-tests directory (tox needs it in order to run)
-RUN cd ./src/test/system_tests/ceph_s3_tests/ && \
+RUN cd ./src/test/external_tests/ceph_s3_tests/ && \
     chgrp -R 0 s3-tests && \
     chmod -R g=u s3-tests
 
@@ -51,10 +51,10 @@ RUN npm install
 #
 ##############################################################
 COPY ./src/deploy/NVA_build/standalone_deploy.sh ./src/deploy/NVA_build/standalone_deploy.sh
-COPY ./src/test/system_tests/ceph_s3_tests/run_ceph_test_on_test_container.sh ./src/test/system_tests/ceph_s3_tests/run_ceph_test_on_test_container.sh
+COPY ./src/test/external_tests/ceph_s3_tests/run_ceph_test_on_test_container.sh ./src/test/external_tests/ceph_s3_tests/run_ceph_test_on_test_container.sh
 COPY ./src/deploy/NVA_build/standalone_deploy_nsfs.sh ./src/deploy/NVA_build/standalone_deploy_nsfs.sh
-COPY ./src/test/system_tests/ceph_s3_tests/run_ceph_nsfs_test_on_test_container.sh ./src/test/system_tests/ceph_s3_tests/run_ceph_nsfs_test_on_test_container.sh
-RUN chmod +x ./src/test/system_tests/ceph_s3_tests/run_ceph_nsfs_test_on_test_container.sh
+COPY ./src/test/external_tests/ceph_s3_tests/run_ceph_nsfs_test_on_test_container.sh ./src/test/external_tests/ceph_s3_tests/run_ceph_nsfs_test_on_test_container.sh
+RUN chmod +x ./src/test/external_tests/ceph_s3_tests/run_ceph_nsfs_test_on_test_container.sh
 COPY ./src/test/system_tests/run_sanity_test_on_test_container.sh ./src/test/system_tests/run_sanity_test_on_test_container.sh
 
 COPY .eslintrc.js /root/node_modules/noobaa-core
@@ -72,4 +72,4 @@ RUN mkdir -p /.npm && \
     chmod -R g=u /.npm 
 
 USER 10001:0
-CMD ["./src/test/unit_tests/run_npm_test_on_test_container.sh"]
+CMD ["./src/test/framework/run_npm_test_on_test_container.sh"]

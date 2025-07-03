@@ -4,7 +4,7 @@
 const _ = require('lodash');
 const util = require('util');
 const argv = require('minimist')(process.argv);
-const http_utils = require('../../../src/util/http_utils');
+const http_utils = require('../../util/http_utils');
 
 const dotenv = require('../../util/dotenv');
 dotenv.load();

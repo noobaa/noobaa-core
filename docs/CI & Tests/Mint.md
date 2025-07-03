@@ -70,3 +70,38 @@ docker run -e SERVER_ENDPOINT=<noobaa-tester-container-id-or-name>:<noobaa-http-
 ```
 
 Replace <sdk-or-tool-name> with the specific SDK or tool you want to test (e.g., aws-sdk-java, minio-go, s3cmd, etc.).
+
+## Debugging Mint on NooBaa locally - 
+Running `make test-mint` will generate the following debug log files - 
+
+```bash
+noobaa-core % tree logs/mint-test-logs
+logs/mint-test-logs
+├── log.json                     // contains the Mint run results
+├── minio-go
+│   └── error.log                // contains errors coming from minio-go run
+├── mint-test-logs
+│   ├── backingstore1.log        // contains noobaa backingstore logs
+│   ├── bg.log                   // contains noobaa BG workers logs
+│   ├── hosted_agents.log        // contains noobaa hosted agents logs
+│   ├── s3.log                   // contains noobaa endpoint logs
+│   └── web.log                  // contains noobaa webserver logs
+└── s3cmd
+    └── error.log                // contains errors coming from s3-cmd run
+
+```
+
+Running `make test-nc-mint` will generate the following debug log files - 
+
+```bash
+noobaa-core % tree /mint-nc-test-logs
+logs/mint-nc-test-logs
+    ├── log.json                 // contains the Mint run results
+    ├── minio-go
+    │   └── error.log            // contains errors coming from minio-go run
+    ├── mint-nc-test-logs
+    │   └── nsfs.log             // contains NC noobaa endpoint logs
+    └── s3cmd 
+        └── error.log            // contains errors coming from s3-cmd run
+
+```

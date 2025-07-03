@@ -32,18 +32,10 @@ jobs:
           cd ./noobaa-core
           mkdir -p logs/mint-nc-test-logs
           chmod 777 logs/mint-nc-test-logs
-
+    
       - name: Run NC Mint tests
         run: |
           set -x
           cd ./noobaa-core
           make test-nc-mint -o tester
-
-      - name: Upload artifact
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: mint-nc-test-logs
-          path: noobaa-core/logs/mint-nc-test-logs
-          retention-days: "1"
 

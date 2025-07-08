@@ -984,7 +984,7 @@ async function delete_multiple_objects_by_filter(req) {
         limit: req.rpc_params.limit,
     };
 
-    const { objects } = await MDStore.instance().find_objects(query);
+    const objects = await MDStore.instance().find_objects(query);
 
     const delete_results = await delete_multiple_objects(_.assign(req, {
         rpc_params: {
@@ -1004,14 +1004,14 @@ async function delete_multiple_objects_by_filter(req) {
         //or incude the error if deletion failed
         reply.deleted_objects = [];
         for (let i = 0; i < objects.length; ++i) {
-             if (delete_results[i].err_code) {
+            if (delete_results[i].err_code) {
                 reply.deleted_objects[i] = {
                     err_code: delete_results[i].err_code,
                     err_message: delete_results[i].err_message
                 };
-             } else {
+            } else {
                 reply.deleted_objects[i] = get_object_info(objects[i]);
-             }
+            }
         }
     }
 
@@ -1022,11 +1022,11 @@ async function delete_multiple_objects_by_filter(req) {
  * delete_multiple_objects_unordered is an internal function which
  * takes a number `limit` and a `bucket_id` and will delete the `limit`
  * objects from the bucket in NO PARTICULAR ORDER.
- * 
+ *
  * This function is inteded to use in the case of a bucket deletion
  * where we want to delete all the objects in the bucket but we don't
  * care about the order in which they are deleted or the versioning, etc.
- * @param {*} req 
+ * @param {*} req
  */
 async function delete_multiple_objects_unordered(req) {
     load_bucket(req, { include_deleting: true });
@@ -1038,7 +1038,7 @@ async function delete_multiple_objects_unordered(req) {
     // find_objects will ensure that it does not return any object
     // which is already marked for deletion and that's all we care
     // about here.
-    const { objects } = await MDStore.instance().find_objects({
+    const objects = await MDStore.instance().find_objects({
         bucket_id: make_md_id(bucket_id),
         limit,
         key: undefined,
@@ -1103,28 +1103,6 @@ async function delete_expired_delete_markers(req) {
     const reply = { num_objects_deleted: delete_count };
     return reply;
 }
-
-// async function delete_all_objects(req) {
-//     dbg.log1('delete_all_objects. limit =', req.params.limit);
-//     load_bucket(req);
-//     const { objects } = await MDStore.instance().find_objects({
-//         bucket_id: req.bucket._id,
-//         limit: req.rpc_params.limit,
-//     });
-//     dbg.log1('delete_all_objects:', _.map(objects, 'key'));
-//     await delete_multiple_objects(_.assign(req, {
-//         rpc_params: {
-//             bucket: req.bucket.name,
-//             objects: _.map(objects, obj => ({
-//                 key: obj.key,
-//                 version_id: MDStore.instance().get_object_version_id(obj),
-//             }))
-//         }
-//     }));
-
-// }
-
-
 
 // The method list_objects is used for s3 access exclusively
 // Read: http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGET.html
@@ -1308,7 +1286,7 @@ function _list_add_results(state, results) {
     // this case avoids another last query when we got less results and no common prefixes
     // with common prefixes we cannot avoid the last query because the results might be
     // less than the requested limit although there are more results to fetch
-    // 
+    //
     // for postgres we should not do another query, since the list command returns the required limit
     if (config.DB_TYPE === 'postgres' || (!has_common_prefixes && count >= state.user_limit)) {
         state.done = true;
@@ -1334,7 +1312,7 @@ async function list_objects_admin(req) {
     let sort = req.rpc_params.sort;
     if (sort === 'state') sort = 'upload_started';
 
-    const { objects, counters } = await MDStore.instance().find_objects({
+    const objects = await MDStore.instance().find_objects({
         bucket_id: req.bucket._id,
         key: key,
         upload_mode: req.rpc_params.upload_mode,
@@ -1398,7 +1376,6 @@ async function list_objects_admin(req) {
 
     return {
         objects: objects_info,
-        counters,
         empty_reason,
     };
 }
@@ -1680,14 +1657,14 @@ function check_object_mode(req, obj, rpc_code) {
 /**
  * Return the etag ("Entity tag") for the given entity.
  * Entity can be ObjectMD or ObjectMultipart or an updates for one of those.
- * 
+ *
  * Notice that if the etag field is returns from md5 hex then we can put it as is,
- * however if we use a sha256 or id we have to add some prefix with a dash so that 
+ * however if we use a sha256 or id we have to add some prefix with a dash so that
  * s3 clients can understand that this is not an md5.
- * 
+ *
  * These fallbacks allow us to configure our endpoints to disable md5 calculations
  * for use cases where performance matters more, see config.IO_CALC_MD5_ENABLED.
- * 
+ *
  * @typedef {{
  *  etag?: string;
  *  md5_b64?: string;

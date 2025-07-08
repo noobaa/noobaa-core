@@ -273,7 +273,7 @@ class MDStore {
     }
 
     /**
-     * 
+     *
      * @param {{
      *  bucket_id: string,
      *  prefix?: string,
@@ -294,6 +294,7 @@ class MDStore {
         limit,
     }) {
         const table_name = this._objects.name;
+
         function convert_mongoid_to_timestamp_sql(field) {
             return `(('x' || substring(${field} FROM 1 FOR 8))::bit(32)::bigint)`;
         }
@@ -321,7 +322,7 @@ class MDStore {
     }
 
     /**
-     * 
+     *
      * @param {{
      *  bucket_id: string,
      *  noncurrent_days: number,
@@ -359,16 +360,16 @@ class MDStore {
 
         const query = `
             WITH ranked AS (
-                SELECT 
+                SELECT
                     _id,
                     (data->>'size')::BIGINT AS size,
                     data->'tagging' AS tags,
                     ROW_NUMBER() OVER (
-                        PARTITION BY data->>'key' 
+                        PARTITION BY data->>'key'
                         ORDER BY (data->>'version_seq')::BIGINT DESC
                     ) AS rn,
                     LEAD((data->>'create_time')::timestamptz) OVER (
-                        PARTITION BY data->>'key' 
+                        PARTITION BY data->>'key'
                         ORDER BY (data->>'version_seq')::BIGINT
                     ) AS successor_time
                 FROM objectmds
@@ -383,7 +384,7 @@ class MDStore {
             SET data = jsonb_set(data, '{deleted}', to_jsonb($1::text), true)
             WHERE _id IN (
                 SELECT ranked._id FROM ranked
-                WHERE 
+                WHERE
                     ${sql_and_conditions(
                         sql_condition1, sql_condition2,
                         sql_condition3, sql_condition4, sql_condition5,
@@ -397,7 +398,7 @@ class MDStore {
     }
 
     /**
-     * 
+     *
      * @param {{
      *  bucket_id: string,
      *  prefix?: string,
@@ -406,7 +407,7 @@ class MDStore {
      *  tags?: Array<string>,
      *  limit: number
      * }} config
-     * 
+     *
      * @returns {Promise<number>}
      */
     async delete_orphaned_delete_marker({
@@ -447,7 +448,7 @@ class MDStore {
                         )
                 )`,
                 sql_condition0, sql_condition1, sql_condition2, sql_condition3
-            )} 
+            )}
             ${sql_limit}
         );`;
 
@@ -630,12 +631,7 @@ class MDStore {
      * @property {1|-1} [order]
      * @property {boolean} [pagination]
      *
-     * @typedef {Object} FindObjectsReply
-     * @property {nb.ObjectMD[]} objects
-     * @property {{ non_paginated: Object, by_mode: Object }} counters
-     *
-     * @param {FindObjectsParams} params
-     * @returns {Promise<FindObjectsReply>}
+     * @returns  {nb.ObjectMD[]}
      */
     async find_objects({
         bucket_id,
@@ -690,31 +686,13 @@ class MDStore {
         const uploading_query = _.omit(query, 'upload_started');
         uploading_query.upload_started = { $exists: true };
 
-        const [objects, non_paginated, completed, uploading] = await Promise.all([
-            this._objects.find(query, {
-                limit: Math.min(limit, 1000),
-                skip: skip,
-                sort: sort ? {
-                    [sort]: (order === -1 ? -1 : 1)
-                } : undefined
-            }),
-            pagination ? this._objects.countDocuments(query) : undefined,
-            // completed uploads count
-            this._objects.countDocuments(completed_query),
-            // uploading count
-            this._objects.countDocuments(uploading_query)
-        ]);
-
-        return {
-            objects,
-            counters: {
-                non_paginated,
-                by_mode: {
-                    completed,
-                    uploading
-                }
-            }
-        };
+        return this._objects.find(query, {
+            limit: Math.min(limit, 1000),
+            skip: skip,
+            sort: sort ? {
+                [sort]: (order === -1 ? -1 : 1)
+            } : undefined
+        });
     }
 
     async find_unreclaimed_objects(limit) {

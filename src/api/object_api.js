@@ -901,25 +901,6 @@ module.exports = {
                 type: 'object',
                 required: ['objects'],
                 properties: {
-                    counters: {
-                        type: 'object',
-                        properties: {
-                            by_mode: {
-                                type: 'object',
-                                properties: {
-                                    completed: {
-                                        type: 'integer'
-                                    },
-                                    uploading: {
-                                        type: 'integer'
-                                    },
-                                }
-                            },
-                            non_paginated: {
-                                type: 'integer'
-                            },
-                        }
-                    },
                     objects: {
                         type: 'array',
                         items: {
@@ -1152,8 +1133,7 @@ module.exports = {
                     deleted_objects: {
                         type: 'array',
                         items: {
-                            oneOf: [
-                                {
+                            oneOf: [{
                                     $ref: '#/definitions/object_info',
                                 },
                                 {
@@ -1586,8 +1566,7 @@ module.exports = {
                 // currently no properties for the object as there is no implementation
                 object_owner: {
                     type: 'object',
-                    properties: {
-                    }
+                    properties: {}
                 },
             }
         },

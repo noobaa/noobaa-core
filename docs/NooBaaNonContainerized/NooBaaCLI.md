@@ -31,8 +31,9 @@
     3. [Connection Status](#connection-status)
     4. [List Connections][#list-connections]
     5. [Delete Connection](#delete-connection)
-11. [Global Options](#global-options)
-12. [Examples](#examples)
+11. [Lifecycle](#lifecycle)
+12. [Global Options](#global-options)
+13. [Examples](#examples)
     1. [Bucket Commands Examples](#bucket-commands-examples)
     2. [Account Commands Examples](#account-commands-examples)
     3. [White List Server IP Command Example](#white-list-server-ip-command-example)
@@ -658,6 +659,38 @@ noobaa-cli connection delete --name <connection_name>
 - `name` (Required)
     - Type: String
     - Description: Specifies the name of the connection to be deleted.
+
+## Lifecycle
+
+The `lifecycle` command is being used for running the lifecycle worker.
+
+For more information about the Lifecycle worker, See - [NC Lifecycle Documentation](./Lifecycle.md)
+
+### Usage
+```sh
+noobaa-cli lifecycle [--disable_service_validation] [--disable_runtime_validation] [--short_status] [--continue]
+```
+
+#### Flags -
+- `disable_service_validation`
+    - Type: Boolean
+    - Description: Specifies if the lifecycle worker should validate that the NooBaa service runs.
+    - Example - `--disable_service_validation`
+
+- `disable_runtime_validation`
+    - Type: Boolean
+    - Description: Specifies if the lifecycle worker should validate the run time.
+    - Example - `--disable_runtime_validation`
+
+- `short_status`
+    - Type: Boolean
+    - Description: Specifies if the lifecycle worker should generate a less detailed lifecycle run status.
+    - Example - `--short_status`
+
+- `continue`
+    - Type: Boolean
+    - Description: Specifies if the lifecycle worker should resume the last lifecycle run. In case there was no last run, a new lifecycle run will start.
+    - Example - `--continue`
 
 ## Global Options
 

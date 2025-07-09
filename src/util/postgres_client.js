@@ -1951,3 +1951,4 @@ PostgresClient._instance = undefined;
 // EXPORTS
 exports.PostgresClient = PostgresClient;
 exports.instance = PostgresClient.instance;
+exports.decode_json = decode_json;

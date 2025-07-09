@@ -171,7 +171,7 @@ async function main(options = {}) {
                 // Load a system store instance for the current process and register for changes.
                 // We do not wait for it in becasue the result or errors are not relevent at
                 // this point (and should not kill the process);
-                system_store.get_instance().load();
+                system_store.get_instance({source: system_store.SOURCE.CORE}).load();
                 // Register the process as an md_server.
                 await md_server.register_rpc();
             }

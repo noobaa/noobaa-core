@@ -459,6 +459,28 @@ module.exports = {
             auth: {
                 system: 'admin'
             }
+        },
+
+        get_system_store: {
+            method: 'GET',
+            /*params: {
+                type: 'object'
+            },*/
+            reply: {
+                type: 'object',
+                /*properites: {
+                    systems: {
+                        type: 'array',
+                        items: {
+                            $ref: '#/definitions/role_info'
+                        }
+                    }
+                }*/
+               // [RPC_BUFFERS].data
+            },
+            auth: {
+                system: false
+            }
         }
     },
 

@@ -59,7 +59,7 @@ class RpcSchema {
         assert(!this[api.$id], 'RPC: api already registered ' + api.$id);
         assert(!this._compiled, 'RPC: schema is already compiled');
 
-        _.each(api.definitions, schema => {
+        /*().each(api.definitions, schema => {
             schema_utils.strictify(schema, {
                 additionalProperties: false
             });
@@ -71,7 +71,7 @@ class RpcSchema {
             schema_utils.strictify(method_api.reply, {
                 additionalProperties: false
             });
-        });
+        });*/
         try {
             this._ajv.addSchema(api);
         } catch (err) {

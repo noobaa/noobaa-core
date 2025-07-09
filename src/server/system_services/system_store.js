@@ -38,8 +38,9 @@ const size_utils = require('../../util/size_utils');
 const os_utils = require('../../util/os_utils');
 const config = require('../../../config');
 const db_client = require('../../util/db_client');
+const { decode_json } = require('../../util/postgres_client');
 
-const { RpcError } = require('../../rpc');
+const { RpcError, RPC_BUFFERS } = require('../../rpc');
 const master_key_manager = require('./master_key_manager');
 
 const COLLECTIONS = [{
@@ -152,6 +153,10 @@ const COLLECTIONS_BY_NAME = _.keyBy(COLLECTIONS, 'name');
 
 const accounts_by_email_lowercase = [];
 
+const SOURCE = Object.freeze({
+    DB: 'DB',
+    CORE: 'CORE',
+});
 
 /**
  *
@@ -352,6 +357,8 @@ class SystemStore extends EventEmitter {
         this.START_REFRESH_THRESHOLD = 10 * 60 * 1000;
         this.FORCE_REFRESH_THRESHOLD = 60 * 60 * 1000;
         this.SYSTEM_STORE_LOAD_CONCURRENCY = config.SYSTEM_STORE_LOAD_CONCURRENCY || 5;
+        this.source = (process.env.HOSTNAME && process.env.HOSTNAME.indexOf("endpoint") === -1) ? SOURCE.DB : SOURCE.CORE;
+        dbg.log0("system store source is", this.source);
         this._load_serial = new semaphore.Semaphore(1, { warning_timeout: this.START_REFRESH_THRESHOLD });
         for (const col of COLLECTIONS) {
             db_client.instance().define_collection(col);
@@ -414,8 +421,6 @@ class SystemStore extends EventEmitter {
             try {
                 dbg.log3('SystemStore: loading ... this.last_update_time  =', this.last_update_time, ", since =", since);
 
-                const new_data = new SystemStoreData();
-
                 // If we get a load request with an timestamp older then our last update time
                 // we ensure we load everyting from that timestamp by updating our last_update_time.
                 if (!_.isUndefined(since) && since < this.last_update_time) {
@@ -423,9 +428,16 @@ class SystemStore extends EventEmitter {
                     this.last_update_time = since;
                 }
                 this.master_key_manager.load_root_key();
+                const new_data = new SystemStoreData();
                 let millistamp = time_utils.millistamp();
                 await this._register_for_changes();
-                await this._read_new_data_from_db(new_data);
+                if (this.source === SOURCE.DB) {
+                    await this._read_new_data_from_db(new_data);
+                } else {
+                    this.data = new SystemStoreData();
+                    await this._read_new_data_from_core(this.data);
+                }
+
                 const secret = await os_utils.read_server_secret();
                 this._server_secret = secret;
                 if (dbg.should_log(1)) { //param should match below logs' level
@@ -435,8 +447,10 @@ class SystemStore extends EventEmitter {
                         depth: 4
                     }));
                 }
-                this.old_db_data = this._update_data_from_new(this.old_db_data || {}, new_data);
-                this.data = _.cloneDeep(this.old_db_data);
+                if (this.source === SOURCE.DB) {
+                    this.old_db_data = this._update_data_from_new(this.old_db_data || {}, new_data);
+                    this.data = _.cloneDeep(this.old_db_data);
+                }
                 millistamp = time_utils.millistamp();
                 this.data.rebuild();
                 dbg.log1('SystemStore: rebuild took', time_utils.millitook(millistamp));
@@ -456,6 +470,11 @@ class SystemStore extends EventEmitter {
                 throw err;
             }
         });
+    }
+
+    //return the latest copy of in-memory data
+    async recent_db_data() {
+        return this._load_serial.surround(async () => this.old_db_data);
     }
 
     _update_data_from_new(data, new_data) {
@@ -521,6 +540,28 @@ class SystemStore extends EventEmitter {
             target[col.name] = res;
         });
         this.last_update_time = now;
+    }
+
+    async _read_new_data_from_core(target) {
+        dbg.log3("_read_new_data_from_core begins");
+        const res = await server_rpc.client.system.get_system_store();
+        const ss = JSON.parse(res[RPC_BUFFERS].data.toString());
+        dbg.log3("_read_new_data_from_core new system store", ss);
+        for (const key of Object.keys(ss)) {
+            const collection = COLLECTIONS_BY_NAME[key];
+            if (collection) {
+                target[key] = [];
+                _.each(ss[key], item => {
+                    //these two lines will transform string values into appropriately typed objects
+                    //(SensitiveString, ObjectId) according to schema
+                    const after = decode_json(collection.schema, item);
+                    db_client.instance().validate(key, after);
+                    target[key].push(after);
+                });
+            } else {
+                target[key] = ss[key];
+            }
+        }
     }
 
     _check_schema(col, item, warn) {
@@ -851,3 +892,4 @@ SystemStore._instance = undefined;
 // EXPORTS
 exports.SystemStore = SystemStore;
 exports.get_instance = SystemStore.get_instance;
+exports.SOURCE = SOURCE;

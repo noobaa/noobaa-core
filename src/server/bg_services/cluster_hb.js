@@ -93,7 +93,7 @@ function do_heartbeat({ skip_server_monitor } = {}) {
                             update: {
                                 clusters: [update]
                             }
-                        }, false);
+                        }, true);
                     });
             })
             .then(() => {

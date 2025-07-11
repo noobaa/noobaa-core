@@ -946,6 +946,57 @@ function set_response_headers_from_request(req, res) {
     if (req.query['response-expires']) res.setHeader('Expires', req.query['response-expires']);
 }
 
+/**
+ * Authenticate JWT bearer token for metrics / version endpoints.
+ * Returns `true` on success, `false` after the function already sent an HTTP
+ * response (401/403) and the caller should terminate the handler early.
+ * 
+ * @param {import('http').IncomingMessage} req
+ * @param {import('http').ServerResponse} res
+ * @param {string[]} [roles]
+ */
+function authorize_bearer(req, res, roles = undefined) {
+    const { authorization, ...rest_headers } = req.headers;
+
+    const populate_response = () => {
+        res.statusCode = 403;
+        res.setHeader('Content-Type', 'text/plain');
+        res.end('Forbidden');
+    };
+
+
+    if (!authorization) {
+        dbg.error('Authentication required:', req.method, req.url, rest_headers);
+        // request lacks authentication, let the client know it's required with 401 Unauthorized
+        res.statusCode = 401;
+        res.setHeader('WWW-Authenticate', 'Bearer');
+        res.setHeader('Content-Type', 'text/plain');
+        res.end('Unauthorized');
+        return false;
+    }
+    if (!authorization.startsWith('Bearer ')) {
+        dbg.error('Authentication scheme must be Bearer:', req.method, req.url, rest_headers);
+        // authentication was provided but is invalid, return 403 Forbidden.
+        populate_response();
+        return false;
+    }
+    const token = authorization.slice('Bearer '.length);
+    let auth;
+    try {
+        auth = jwt_utils.authorize_jwt_token(token);
+    } catch (err) {
+        dbg.error('Authentication failed to verify JWT token:', req.method, req.url, rest_headers, err);
+        populate_response();
+        return false;
+    }
+    if (roles && !roles.includes(auth.role)) {
+        dbg.error('Authentication role is not allowed:', auth, roles, req.method, req.url, rest_headers);
+        populate_response();
+        return false;
+    }
+    return true;
+}
+
 exports.parse_url_query = parse_url_query;
 exports.parse_client_ip = parse_client_ip;
 exports.get_md_conditions = get_md_conditions;
@@ -984,3 +1035,4 @@ exports.CONTENT_TYPE_APP_JSON = CONTENT_TYPE_APP_JSON;
 exports.CONTENT_TYPE_APP_XML = CONTENT_TYPE_APP_XML;
 exports.CONTENT_TYPE_APP_FORM_URLENCODED = CONTENT_TYPE_APP_FORM_URLENCODED;
 exports.set_response_headers_from_request = set_response_headers_from_request;
+exports.authorize_bearer = authorize_bearer;

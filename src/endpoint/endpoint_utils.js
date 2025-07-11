@@ -4,6 +4,7 @@
 const querystring = require('querystring');
 const http_utils = require('../util/http_utils');
 const pkg = require('../../package.json');
+const config = require('../../config');
 
 function prepare_rest_request(req) {
     // generate request id, this is lighter than uuid
@@ -40,7 +41,9 @@ function parse_source_url(source_url) {
 }
 
 function set_noobaa_server_header(res) {
-    res.setHeader('Server', `NooBaa/${pkg.version}`);
+    if (!config.NOOBAA_VERSION_AUTH_ENABLED) {
+        res.setHeader('Server', `NooBaa/${pkg.version}`);
+    }
 }
 
 exports.prepare_rest_request = prepare_rest_request;

@@ -349,6 +349,7 @@ function create_endpoint_handler(server_type, init_request_sdk, { virtual_hosts,
  * @param {import('http').ServerResponse} res 
  */
 function version_handler(req, res) {
+    if (config.NOOBAA_VERSION_AUTH_ENABLED && !http_utils.authorize_bearer(req, res)) return;
     const noobaa_package_version = pkg.version;
     res.statusCode = 200;
     res.setHeader('Content-Type', 'text/plain');

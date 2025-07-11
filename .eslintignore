@@ -1,1 +1,1 @@
-src/test/system_tests/ceph_s3_tests/s3-tests/**
+src/test/external_tests/ceph_s3_tests/s3-tests/**

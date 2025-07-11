@@ -24,7 +24,7 @@
     "test": "npm run lint && npm run mocha",
     "ts": "tsc",
     "lint": "eslint src --quiet",
-    "mocha": "node --allow-natives-syntax ./node_modules/.bin/_mocha src/test/unit_tests/index.js",
+    "mocha": "node --allow-natives-syntax ./node_modules/.bin/_mocha src/test/utils/index/index.js",
     "jest": "sudo npx jest",
     "----": "-----------------------------------------------------------------",
     "start": "node --unhandled-rejections=warn src/cmd",

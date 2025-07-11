@@ -268,7 +268,7 @@ root-perm-test: tester
 	@$(call create_docker_network)
 	@$(call run_mongo)
 	@echo "\033[1;34mRunning root permission tests\033[0m"
-	$(CONTAINER_ENGINE) run $(CPUSET) --network noobaa-net --privileged --user root --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) --env "SUPPRESS_LOGS=$(SUPPRESS_LOGS)" --env "DB_TYPE=mongodb" --env "MONGODB_URL=mongodb://noobaa:noobaa@coretest-mongo-$(GIT_COMMIT)-$(NAME_POSTFIX)" $(TESTER_TAG) ./src/test/unit_tests/run_npm_test_on_test_container.sh -s sudo_index.js
+	$(CONTAINER_ENGINE) run $(CPUSET) --network noobaa-net --privileged --user root --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) --env "SUPPRESS_LOGS=$(SUPPRESS_LOGS)" --env "DB_TYPE=mongodb" --env "MONGODB_URL=mongodb://noobaa:noobaa@coretest-mongo-$(GIT_COMMIT)-$(NAME_POSTFIX)" $(TESTER_TAG) ./src/test/framework/run_npm_test_on_test_container.sh -s utils/index/sudo_index.js
 	@$(call stop_noobaa)
 	@$(call stop_mongo)
 	@$(call remove_docker_network)
@@ -280,7 +280,7 @@ run-single-test: tester
 	@$(call run_mongo)
 	@$(call run_blob_mock)
 	@echo "\033[1;34mRunning tests\033[0m"
-	$(CONTAINER_ENGINE) run $(CPUSET) --network noobaa-net --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) --env "SUPPRESS_LOGS=$(SUPPRESS_LOGS)" --env "DB_TYPE=mongodb" --env "MONGODB_URL=mongodb://noobaa:noobaa@coretest-mongo-$(GIT_COMMIT)-$(NAME_POSTFIX)" --env "BLOB_HOST=blob-mock-$(GIT_COMMIT)-$(NAME_POSTFIX)" --env "NOOBAA_LOG_LEVEL=all" $(TESTER_TAG) ./src/test/unit_tests/run_npm_test_on_test_container.sh -s $(testname)
+	$(CONTAINER_ENGINE) run $(CPUSET) --network noobaa-net --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) --env "SUPPRESS_LOGS=$(SUPPRESS_LOGS)" --env "DB_TYPE=mongodb" --env "MONGODB_URL=mongodb://noobaa:noobaa@coretest-mongo-$(GIT_COMMIT)-$(NAME_POSTFIX)" --env "BLOB_HOST=blob-mock-$(GIT_COMMIT)-$(NAME_POSTFIX)" --env "NOOBAA_LOG_LEVEL=all" $(TESTER_TAG) ./src/test/framework/run_npm_test_on_test_container.sh -s $(testname)
 	@$(call stop_noobaa)
 	@$(call stop_blob_mock)
 	@$(call stop_mongo)
@@ -290,7 +290,7 @@ run-single-test: tester
 run-nc-tests: tester
 	@$(call create_docker_network)
 	@echo "\033[1;34mRunning nc tests\033[0m"
-	$(CONTAINER_ENGINE) run $(CPUSET) --network noobaa-net --privileged --user root --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) --env "NC_CORETEST=true" $(TESTER_TAG) ./src/test/unit_tests/run_npm_test_on_test_container.sh -s nc_index.js
+	$(CONTAINER_ENGINE) run $(CPUSET) --network noobaa-net --privileged --user root --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) --env "NC_CORETEST=true" $(TESTER_TAG) ./src/test/framework/run_npm_test_on_test_container.sh -s utils/index/nc_index.js
 	@$(call stop_noobaa)
 	@$(call remove_docker_network)
 .PHONY: run-nc-tests
@@ -301,7 +301,7 @@ run-single-test-postgres: tester
 	@$(call run_postgres)
 	@$(call run_blob_mock)
 	@echo "\033[1;34mRunning tests\033[0m"
-	$(CONTAINER_ENGINE) run $(CPUSET) --network noobaa-net --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) --env "SUPPRESS_LOGS=$(SUPPRESS_LOGS)" --env "POSTGRES_HOST=coretest-postgres-$(GIT_COMMIT)-$(NAME_POSTFIX)" --env "POSTGRES_USER=noobaa" --env "DB_TYPE=postgres" --env "PG_ENABLE_QUERY_LOG=true" --env "PG_EXPLAIN_QUERIES=true" --env "BLOB_HOST=blob-mock-$(GIT_COMMIT)-$(NAME_POSTFIX)" $(TESTER_TAG)  ./src/test/unit_tests/run_npm_test_on_test_container.sh -s $(testname)
+	$(CONTAINER_ENGINE) run $(CPUSET) --network noobaa-net --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) --env "SUPPRESS_LOGS=$(SUPPRESS_LOGS)" --env "POSTGRES_HOST=coretest-postgres-$(GIT_COMMIT)-$(NAME_POSTFIX)" --env "POSTGRES_USER=noobaa" --env "DB_TYPE=postgres" --env "PG_ENABLE_QUERY_LOG=true" --env "PG_EXPLAIN_QUERIES=true" --env "BLOB_HOST=blob-mock-$(GIT_COMMIT)-$(NAME_POSTFIX)" $(TESTER_TAG)  ./src/test/framework/run_npm_test_on_test_container.sh -s $(testname)
 	@$(call stop_noobaa)
 	@$(call stop_postgres)
 	@$(call stop_blob_mock)
@@ -346,7 +346,7 @@ test-cephs3: tester
 	@$(call create_docker_network)
 	@$(call run_postgres)
 	@echo "\033[1;34mRunning tests\033[0m"
-	$(CONTAINER_ENGINE) run $(CPUSET) --network noobaa-net --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) --env "SUPPRESS_LOGS=$(SUPPRESS_LOGS)" --env "POSTGRES_HOST=coretest-postgres-$(GIT_COMMIT)-$(NAME_POSTFIX)" --env "POSTGRES_USER=noobaa" --env "DB_TYPE=postgres" --env "POSTGRES_DBNAME=coretest" -v $(PWD)/logs:/logs $(TESTER_TAG) "./src/test/system_tests/ceph_s3_tests/run_ceph_test_on_test_container.sh"
+	$(CONTAINER_ENGINE) run $(CPUSET) --network noobaa-net --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) --env "SUPPRESS_LOGS=$(SUPPRESS_LOGS)" --env "POSTGRES_HOST=coretest-postgres-$(GIT_COMMIT)-$(NAME_POSTFIX)" --env "POSTGRES_USER=noobaa" --env "DB_TYPE=postgres" --env "POSTGRES_DBNAME=coretest" -v $(PWD)/logs:/logs $(TESTER_TAG) "./src/test/external_tests/ceph_s3_tests/run_ceph_test_on_test_container.sh"
 	@$(call stop_noobaa)
 	@$(call stop_postgres)
 	@$(call remove_docker_network)
@@ -357,7 +357,7 @@ test-warp: tester
 	@$(call create_docker_network)
 	@$(call run_postgres)
 	@echo "\033[1;34mRunning warp tests\033[0m"
-	$(CONTAINER_ENGINE) run $(CPUSET) --privileged --user root --network noobaa-net --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) --env "SUPPRESS_LOGS=$(SUPPRESS_LOGS)" --env "POSTGRES_HOST=coretest-postgres-$(GIT_COMMIT)-$(NAME_POSTFIX)" --env "POSTGRES_USER=noobaa" --env "DB_TYPE=postgres" --env "POSTGRES_DBNAME=coretest" -v $(PWD)/logs:/logs $(TESTER_TAG) "./src/test/system_tests/warp/run_warp_on_test_container.sh"
+	$(CONTAINER_ENGINE) run $(CPUSET) --privileged --user root --network noobaa-net --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) --env "SUPPRESS_LOGS=$(SUPPRESS_LOGS)" --env "POSTGRES_HOST=coretest-postgres-$(GIT_COMMIT)-$(NAME_POSTFIX)" --env "POSTGRES_USER=noobaa" --env "DB_TYPE=postgres" --env "POSTGRES_DBNAME=coretest" -v $(PWD)/logs:/logs $(TESTER_TAG) "./src/test/external_tests/warp/run_warp_on_test_container.sh"
 	@$(call stop_noobaa)
 	@$(call stop_postgres)
 	@$(call remove_docker_network)
@@ -365,7 +365,7 @@ test-warp: tester
 
 test-nc-warp: tester
 	@echo "\033[1;34mRunning warp tests on NC environment\033[0m"
-	$(CONTAINER_ENGINE) run $(CPUSET) --privileged --user root --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) --env "SUPPRESS_LOGS=$(SUPPRESS_LOGS)" -v $(PWD)/logs:/logs $(TESTER_TAG) "./src/test/system_tests/warp/run_nc_warp_on_test_container.sh"
+	$(CONTAINER_ENGINE) run $(CPUSET) --privileged --user root --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) --env "SUPPRESS_LOGS=$(SUPPRESS_LOGS)" -v $(PWD)/logs:/logs $(TESTER_TAG) "./src/test/external_tests/warp/run_nc_warp_on_test_container.sh"
 .PHONY: test-nc-warp
 
 test-mint: tester
@@ -373,7 +373,7 @@ test-mint: tester
 	@$(call create_docker_network)
 	@$(call run_postgres)
 	@echo "\033[1;34mRunning mint tests\033[0m"
-	$(CONTAINER_ENGINE) run $(CPUSET) --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) -dit --network noobaa-net --env "SUPPRESS_LOGS=$(SUPPRESS_LOGS)" --env "POSTGRES_HOST=coretest-postgres-$(GIT_COMMIT)-$(NAME_POSTFIX)" --env "POSTGRES_USER=noobaa" --env "DB_TYPE=postgres" --env "POSTGRES_DBNAME=coretest" -v $(PWD)/logs/mint-test-logs/:/logs $(TESTER_TAG) bash -c "./src/test/system_tests/mint/run_mint_on_test_container.sh & tail -f /dev/null" 
+	$(CONTAINER_ENGINE) run $(CPUSET) --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) -dit --network noobaa-net --env "SUPPRESS_LOGS=$(SUPPRESS_LOGS)" --env "POSTGRES_HOST=coretest-postgres-$(GIT_COMMIT)-$(NAME_POSTFIX)" --env "POSTGRES_USER=noobaa" --env "DB_TYPE=postgres" --env "POSTGRES_DBNAME=coretest" -v $(PWD)/logs/mint-test-logs/:/logs $(TESTER_TAG) bash -c "./src/test/external_tests/mint/run_mint_on_test_container.sh & tail -f /dev/null" 
 	sleep 180
 	$(CONTAINER_ENGINE) run --name mint-$(GIT_COMMIT)-$(NAME_POSTFIX) --network noobaa-net -v $(PWD)/logs/mint-test-logs/:/mint/log --env SERVER_ENDPOINT=noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX):$(MINT_NOOBAA_HTTP_ENDPOINT_PORT) --env ACCESS_KEY=$(MINT_MOCK_ACCESS_KEY) --env SECRET_KEY=$(MINT_MOCK_SECRET_KEY) --env ENABLE_HTTPS=0 minio/mint minio-go s3cmd
 	@echo "\033[1;34mPrinting noobaa configuration and logs\033[0m"
@@ -391,7 +391,7 @@ test-mint: tester
 test-nc-mint: tester
 	@echo "\033[1;34mRunning mint tests on NC environment\033[0m"
 	@$(call create_docker_network)
-	$(CONTAINER_ENGINE) run $(CPUSET) --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) -dit --privileged --user root --env "SUPPRESS_LOGS=$(SUPPRESS_LOGS)" --network noobaa-net -v $(PWD)/logs/mint-nc-test-logs/:/logs $(TESTER_TAG) bash -c "./src/test/system_tests/mint/run_nc_mint_on_test_container.sh; tail -f /dev/null"
+	$(CONTAINER_ENGINE) run $(CPUSET) --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) -dit --privileged --user root --env "SUPPRESS_LOGS=$(SUPPRESS_LOGS)" --network noobaa-net -v $(PWD)/logs/mint-nc-test-logs/:/logs $(TESTER_TAG) bash -c "./src/test/external_tests/mint/run_nc_mint_on_test_container.sh; tail -f /dev/null"
 	sleep 15
 	$(CONTAINER_ENGINE) run --name mint-$(GIT_COMMIT)-$(NAME_POSTFIX) --network noobaa-net -v $(PWD)/logs/mint-nc-test-logs/:/mint/log --env RUN_ON_FAIL=0 --env SERVER_ENDPOINT=noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX):$(MINT_NOOBAA_HTTP_ENDPOINT_PORT) --env ACCESS_KEY=$(MINT_MOCK_ACCESS_KEY) --env SECRET_KEY=$(MINT_MOCK_SECRET_KEY) --env ENABLE_HTTPS=0 minio/mint minio-go s3cmd
 	@echo "\033[1;34mPrinting noobaa configuration and logs\033[0m"
@@ -406,7 +406,7 @@ test-nc-mint: tester
 
 test-nsfs-cephs3: tester
 	@echo "\033[1;34mRunning Ceph S3 tests on NSFS Standalone platform\033[0m"
-	$(CONTAINER_ENGINE) run $(CPUSET) --privileged --user root --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) --env "SUPPRESS_LOGS=$(SUPPRESS_LOGS)" -v $(PWD)/logs:/logs $(TESTER_TAG) "./src/test/system_tests/ceph_s3_tests/run_ceph_nsfs_test_on_test_container.sh"
+	$(CONTAINER_ENGINE) run $(CPUSET) --privileged --user root --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) --env "SUPPRESS_LOGS=$(SUPPRESS_LOGS)" -v $(PWD)/logs:/logs $(TESTER_TAG) "./src/test/external_tests/ceph_s3_tests/run_ceph_nsfs_test_on_test_container.sh"
 .PHONY: test-nsfs-cephs3
 
 test-sanity: tester
@@ -441,7 +441,7 @@ test-aws-sdk-clients: build-aws-client
 	@$(call create_docker_network)
 	@$(call run_postgres)
 	@echo "\033[1;34mRunning aws sdk clients tests\033[0m"
-	$(CONTAINER_ENGINE) run $(CPUSET) --network noobaa-net --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) --env "SUPPRESS_LOGS=$(SUPPRESS_LOGS)" --env "POSTGRES_HOST=coretest-postgres-$(GIT_COMMIT)-$(NAME_POSTFIX)" --env "POSTGRES_USER=noobaa" --env "DB_TYPE=postgres" --env "POSTGRES_DBNAME=coretest" --env "NOOBAA_LOG_LEVEL=all" -v $(PWD)/logs:/logs  noobaa-aws-client ./src/test/unit_tests/run_npm_test_on_test_container.sh -c ./node_modules/mocha/bin/mocha.js src/test/unit_tests/different_clients/test_go_sdkv2_script.js
+	$(CONTAINER_ENGINE) run $(CPUSET) --network noobaa-net --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) --env "SUPPRESS_LOGS=$(SUPPRESS_LOGS)" --env "POSTGRES_HOST=coretest-postgres-$(GIT_COMMIT)-$(NAME_POSTFIX)" --env "POSTGRES_USER=noobaa" --env "DB_TYPE=postgres" --env "POSTGRES_DBNAME=coretest" --env "NOOBAA_LOG_LEVEL=all" -v $(PWD)/logs:/logs  noobaa-aws-client ./src/test/unit_tests/run_npm_test_on_test_container.sh -c ./node_modules/mocha/bin/mocha.js src/test/external_tests/test_go_sdkv2_script.js
 	@$(call stop_noobaa)
 	@$(call stop_postgres)
 	@$(call remove_docker_network)

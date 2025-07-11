@@ -303,6 +303,9 @@ function get_system_status(req) {
     };
 }
 
+async function get_system_store() {
+    return await system_store.recent_db_data();
+}
 
 async function _update_system_state(system_id, mode) {
     const update = {
@@ -1600,3 +1603,5 @@ exports.rotate_master_key = rotate_master_key;
 exports.disable_master_key = disable_master_key;
 exports.enable_master_key = enable_master_key;
 exports.upgrade_master_keys = upgrade_master_keys;
+
+exports.get_system_store = get_system_store;

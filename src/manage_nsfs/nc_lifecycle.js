@@ -223,6 +223,8 @@ class NCLifecycle {
             dbg.warn(`process_bucket - bucket owner ${bucket_json.owner_account} does not exist for bucket ${bucket_name}. skipping lifecycle for this bucket`);
             return;
         }
+        const bucket_storage_path_exists = await native_fs_utils.is_path_exists(this.config_fs.fs_context, bucket_json.path);
+        if (!bucket_storage_path_exists) throw new Error(`process_bucket - bucket storage path ${bucket_json.path} does not exist for bucket ${bucket_name}.`);
         const object_sdk = new NsfsObjectSDK('', this.config_fs, account, bucket_json.versioning, this.config_fs.config_root, system_json);
         await object_sdk._simple_load_requesting_account();
         const should_notify = notifications_util.should_notify_on_event(bucket_json, notifications_util.OP_TO_EVENT.lifecycle_delete.name);

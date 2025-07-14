@@ -76,10 +76,10 @@ Run `NC mocha tests` with root permissions -
 * Run `NC mocha` tests **locally** -  
   **Warning:** Running tests locally will do changes to your file system.
     * Run **all** NC mocha tests locally -  
-        Command: `sudo NC_CORETEST=true node node_modules/mocha/bin/mocha src/test/unit_tests/nc_index.js`.  
+        Command: `sudo NC_CORETEST=true node node_modules/mocha/bin/mocha src/test/utils/index/nc_index.js`.  
 
     * Run **a single** mocha test locally -  
-        Command: `sudo NC_CORETEST=true node node_modules/mocha/bin/mocha src/test/unit_tests/{test_name}.js`.   
+        Command: `sudo NC_CORETEST=true node node_modules/mocha/bin/mocha src/test/{test_type}/{test_name}.js`.   
 
 * Run `NC jest tests` - 
     * Command: `sudo jest --testRegex=jest_tests/test_nc`. 
@@ -162,10 +162,10 @@ Run `NSFS tests` with root permissions -
 * Run `NSFS mocha` tests **locally** -  
   **Warning:** Running tests locally will do changes to your file system.
     * Run **all** NSFS mocha tests locally -  
-        Command: `sudo node node_modules/mocha/bin/mocha src/test/unit_tests/sudo_index.js`.  
+        Command: `sudo node node_modules/mocha/bin/mocha src/test/utils/index/sudo_index.js`.  
 
     * Run **a single** mocha test locally -  
-        Command: `sudo node node_modules/mocha/bin/mocha src/test/unit_tests/{test_name}.js`.   
+        Command: `sudo node node_modules/mocha/bin/mocha src/test/{test_type}/{test_name}.js`.   
 
 
 #### NSFS Tests Files List

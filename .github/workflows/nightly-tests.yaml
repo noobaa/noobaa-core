@@ -15,4 +15,4 @@ jobs:
           -e NEWAWSPROJSECRET=${{ secrets.NEWAWSPROJSECRET }} \
           -e NEWAZUREPROJKEY=${{ secrets.NEWAZUREPROJKEY }} \
           -e NEWAZUREPROJSECRET=${{ secrets.NEWAZUREPROJSECRET }} \
-          --name test1 noobaa-tester ./src/test/unit_tests/run_npm_test_on_test_container.sh -s test_s3_ops.js
+          --name test1 noobaa-tester ./src/test/framework/run_npm_test_on_test_container.sh -s test_s3_ops.js

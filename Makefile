@@ -441,7 +441,7 @@ test-aws-sdk-clients: build-aws-client
 	@$(call create_docker_network)
 	@$(call run_postgres)
 	@echo "\033[1;34mRunning aws sdk clients tests\033[0m"
-	$(CONTAINER_ENGINE) run $(CPUSET) --network noobaa-net --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) --env "SUPPRESS_LOGS=$(SUPPRESS_LOGS)" --env "POSTGRES_HOST=coretest-postgres-$(GIT_COMMIT)-$(NAME_POSTFIX)" --env "POSTGRES_USER=noobaa" --env "DB_TYPE=postgres" --env "POSTGRES_DBNAME=coretest" --env "NOOBAA_LOG_LEVEL=all" -v $(PWD)/logs:/logs  noobaa-aws-client ./src/test/unit_tests/run_npm_test_on_test_container.sh -c ./node_modules/mocha/bin/mocha.js src/test/external_tests/test_go_sdkv2_script.js
+	$(CONTAINER_ENGINE) run $(CPUSET) --network noobaa-net --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) --env "SUPPRESS_LOGS=$(SUPPRESS_LOGS)" --env "POSTGRES_HOST=coretest-postgres-$(GIT_COMMIT)-$(NAME_POSTFIX)" --env "POSTGRES_USER=noobaa" --env "DB_TYPE=postgres" --env "POSTGRES_DBNAME=coretest" --env "NOOBAA_LOG_LEVEL=all" -v $(PWD)/logs:/logs  noobaa-aws-client ./src/test/framework/run_npm_test_on_test_container.sh -c ./node_modules/mocha/bin/mocha.js src/test/external_tests/different_clients/test_go_sdkv2_script.js
 	@$(call stop_noobaa)
 	@$(call stop_postgres)
 	@$(call remove_docker_network)

@@ -21,7 +21,7 @@ async function run_go_sdk_v2_client_script(bucket_name, key_name, mpu_key_name, 
 
       // run the script
       const command_to_run_go_script = `go run ` +
-         `./src/test/unit_tests/different_clients/go_aws_sdkv2_client.go ` +
+         `./src/test/external_tests/different_clients/go_aws_sdkv2_client.go ` +
          `-bucket ${bucket_name} -key ${key_name} -mpu ${mpu_key_name} -endpoint ${endpoint}`;
         const { stdout } = await async_exec(command_to_run_go_script, { env: { ...process.env } });
         return stdout;

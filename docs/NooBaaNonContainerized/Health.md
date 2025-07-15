@@ -44,6 +44,8 @@ For more details about NooBaa RPM installation, see - [Getting Started](./Gettin
     - returns message if there is no ongoing upgrade and the config directory is unlocked
   - `Bucket event notifications connections health`
     - Sends out a test notification for each connection.
+  - `Lifecycle worker last run health`
+    - checks if the previous run of the lifecycle worker finished successfully.
 
 * Health CLI requires root permissions.
 
@@ -55,7 +57,7 @@ The `health` command is used to analyze NooBaa health with customizable options.
 
 ```sh
 noobaa-cli diagnose health [--deployment_type][--https_port]
-[--all_account_details][--all_bucket_details][--all_connection_details][--notif_storage_threshold][--config_root][--debug]
+[--all_account_details][--all_bucket_details][--all_connection_details][--notif_storage_threshold][--lifecycle][--config_root][--debug]
 ```
 ### Flags -
 
@@ -88,6 +90,11 @@ noobaa-cli diagnose health [--deployment_type][--https_port]
     - Type: Boolean
     - Default: false
     - Description: Whether health ouput should check if notification storage FS is below threshold.
+
+- `lifecycle`
+    - Type: Boolean
+    - Default: false
+    - Description: Indicates if health output should contain lifecycle test result.
 
 - `config_root`
     - Type: String
@@ -182,6 +189,23 @@ The output of the Health CLI is a JSON object containing the following propertie
   - Description: An object that consists config directory information, config directory upgrade information etc.
   - Example: { "phase": "CONFIG_DIR_UNLOCKED", "config_dir_version": "1.0.0", "upgrade_package_version": "5.18.0", "upgrade_status": { "message": "there is no in-progress upgrade" }}
 
+- `latest_lifecycle_run_status`
+   - Type: Object { <br>
+    "total_stats": { "num_objects_deleted": number, "num_objects_delete_failed": number, "objects_delete_errors": array, "num_mpu_aborted": number, "num_mpu_abort_failed": number, "mpu_abort_errors": array  <br>},  <br>
+   "lifecycle_run_times": Object {
+    "run_lifecycle_start_time": number,
+    "list_buckets_start_time": number,
+    "list_buckets_end_time": number,
+    "list_buckets_took_ms": number,
+    "process_buckets_start_time": number,
+    "process_buckets_end_time": number,
+    "process_buckets_took_ms": number,
+    "run_lifecycle_end_time": number,
+    "run_lifecycle_took_ms": number <br>
+   },<br>
+  "errors": array <br> }.
+  - Description: An object that consists total_stats information, lifecycle_run_times information and errors.
+  - Example: see in [Health Output Example](./Lifecycle.md#health-cli)
 ## Example 
 ```sh
 noobaa-cli diagnose health --all_account_details --all_bucket_details

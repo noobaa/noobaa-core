@@ -1,5 +1,5 @@
 name: Run PR Tests
-on: [push, pull_request, workflow_dispatch]
+on: [pull_request, workflow_dispatch]
 concurrency:
       group: ${{ github.workflow }}-${{ github.ref }}
       cancel-in-progress: true
@@ -66,7 +66,7 @@ jobs:
             #on pull request, use target branch
             BRANCH=${{github.base_ref}}
           else
-            #on push, use the pushed branch
+            #on dispach, use the current branch
             BRANCH=${{github.ref_name}}
           fi
           BUILDER_TAGS="${DOCKER_BUILDER_IMAGE}:${BRANCH}-"

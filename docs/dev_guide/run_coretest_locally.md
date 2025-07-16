@@ -10,7 +10,7 @@ Run simply with `sudo NC_CORETEST=true node ./node_modules/mocha/bin/mocha .src/
 More info can be found in [CI & Tests](#ci--tests).
 
 ### B) Containerized deployment (With DB)
-One way is to run it with: `make run-single-test testname=test_s3_bucket_policy.js`  
+One way is to run it with: `make run-single-test testpath=integration_tests/api/s3/test_s3_bucket_policy.js`
 but it would take time to build the needed images, therefore we will focus on another way.
 
 Another way is to create a postgres container and then run the test with the following steps:

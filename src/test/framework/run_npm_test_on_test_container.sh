@@ -22,7 +22,7 @@ function usage() {
     echo -e "Usage:\n\t${0} [options]"
     echo -e "\t-c|--command     -   Replace the unit test command (default: ${command})"
     echo -e "\t-s|--single      -   Get the desired unit test to run and running it,"
-    echo -e "\t                     needs to get the file name for example test_object_io.js"
+    echo -e "\t                     needs to get the relative path from the tests directory for example integration_tests/internal/test_object_io.js"
     exit 0
 }
 

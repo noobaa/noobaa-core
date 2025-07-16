@@ -73,10 +73,10 @@ ifeq ($(USE_HOSTNETWORK), true)
 endif
 
 # running blob mock on - all tests run OR on single test run of test_s3_ops.js
-NAMESPACE_BLOB_TEST?="test_s3_ops.js"
+NAMESPACE_BLOB_TEST?="integration_tests/api/s3/test_s3_ops.js"
 RUN_BLOB_MOCK=true
-ifdef testname
-	ifneq ("$(testname)", $(NAMESPACE_BLOB_TEST))
+ifdef testpath
+	ifneq ("$(testpath)", $(NAMESPACE_BLOB_TEST))
 		RUN_BLOB_MOCK=false
 	endif
 endif
@@ -280,7 +280,7 @@ run-single-test: tester
 	@$(call run_mongo)
 	@$(call run_blob_mock)
 	@echo "\033[1;34mRunning tests\033[0m"
-	$(CONTAINER_ENGINE) run $(CPUSET) --network noobaa-net --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) --env "SUPPRESS_LOGS=$(SUPPRESS_LOGS)" --env "DB_TYPE=mongodb" --env "MONGODB_URL=mongodb://noobaa:noobaa@coretest-mongo-$(GIT_COMMIT)-$(NAME_POSTFIX)" --env "BLOB_HOST=blob-mock-$(GIT_COMMIT)-$(NAME_POSTFIX)" --env "NOOBAA_LOG_LEVEL=all" $(TESTER_TAG) ./src/test/framework/run_npm_test_on_test_container.sh -s $(testname)
+	$(CONTAINER_ENGINE) run $(CPUSET) --network noobaa-net --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) --env "SUPPRESS_LOGS=$(SUPPRESS_LOGS)" --env "DB_TYPE=mongodb" --env "MONGODB_URL=mongodb://noobaa:noobaa@coretest-mongo-$(GIT_COMMIT)-$(NAME_POSTFIX)" --env "BLOB_HOST=blob-mock-$(GIT_COMMIT)-$(NAME_POSTFIX)" --env "NOOBAA_LOG_LEVEL=all" $(TESTER_TAG) ./src/test/framework/run_npm_test_on_test_container.sh -s $(testpath)
 	@$(call stop_noobaa)
 	@$(call stop_blob_mock)
 	@$(call stop_mongo)
@@ -301,7 +301,7 @@ run-single-test-postgres: tester
 	@$(call run_postgres)
 	@$(call run_blob_mock)
 	@echo "\033[1;34mRunning tests\033[0m"
-	$(CONTAINER_ENGINE) run $(CPUSET) --network noobaa-net --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) --env "SUPPRESS_LOGS=$(SUPPRESS_LOGS)" --env "POSTGRES_HOST=coretest-postgres-$(GIT_COMMIT)-$(NAME_POSTFIX)" --env "POSTGRES_USER=noobaa" --env "DB_TYPE=postgres" --env "PG_ENABLE_QUERY_LOG=true" --env "PG_EXPLAIN_QUERIES=true" --env "BLOB_HOST=blob-mock-$(GIT_COMMIT)-$(NAME_POSTFIX)" $(TESTER_TAG)  ./src/test/framework/run_npm_test_on_test_container.sh -s $(testname)
+	$(CONTAINER_ENGINE) run $(CPUSET) --network noobaa-net --name noobaa_$(GIT_COMMIT)_$(NAME_POSTFIX) --env "SUPPRESS_LOGS=$(SUPPRESS_LOGS)" --env "POSTGRES_HOST=coretest-postgres-$(GIT_COMMIT)-$(NAME_POSTFIX)" --env "POSTGRES_USER=noobaa" --env "DB_TYPE=postgres" --env "PG_ENABLE_QUERY_LOG=true" --env "PG_EXPLAIN_QUERIES=true" --env "BLOB_HOST=blob-mock-$(GIT_COMMIT)-$(NAME_POSTFIX)" $(TESTER_TAG)  ./src/test/framework/run_npm_test_on_test_container.sh -s $(testpath)
 	@$(call stop_noobaa)
 	@$(call stop_postgres)
 	@$(call stop_blob_mock)

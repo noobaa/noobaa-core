@@ -394,21 +394,17 @@ class SystemStore extends EventEmitter {
         if (this.data) {
             load_time = this.data.time;
         }
-        let res;
         const since_load = Date.now() - load_time;
         if (since_load < this.START_REFRESH_THRESHOLD) {
-            res = this.data;
+            return this.data;
         } else if (since_load < this.FORCE_REFRESH_THRESHOLD) {
             dbg.warn(`system_store.refresh: system_store.data.time > START_REFRESH_THRESHOLD, since_load = ${since_load}, START_REFRESH_THRESHOLD = ${this.START_REFRESH_THRESHOLD}`);
             this.load().catch(_.noop);
-            res = this.data;
+            return this.data;
         } else {
             dbg.warn(`system_store.refresh: system_store.data.time > FORCE_REFRESH_THRESHOLD, since_load = ${since_load}, FORCE_REFRESH_THRESHOLD = ${this.FORCE_REFRESH_THRESHOLD}`);
-            res = this.load();
+            return this.load();
         }
-        //call refresh periodically
-        P.delay_unblocking(this.START_REFRESH_THRESHOLD).then(this.refresh);
-        return res;
     }
 
     async load(since) {

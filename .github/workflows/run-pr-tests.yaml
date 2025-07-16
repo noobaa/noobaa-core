@@ -1,8 +1,11 @@
 name: Run PR Tests
 on: [pull_request, workflow_dispatch]
 concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}
-      cancel-in-progress: true
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+permissions:
+    actions: read         # download-artifact
+    contents: read        # required for actions/checkout
 jobs:
 
   run-sanity-tests:
@@ -62,7 +65,7 @@ jobs:
         run: |
           DOCKER_BUILDER_IMAGE=noobaa/noobaa-builder
           DOCKER_BASE_IMAGE=noobaa/noobaa-base
-          if [[ -n ${{github.base_ref}} ]]; then
+          if [[ -n "${{github.base_ref}}" ]]; then
             #on pull request, use target branch
             BRANCH=${{github.base_ref}}
           else

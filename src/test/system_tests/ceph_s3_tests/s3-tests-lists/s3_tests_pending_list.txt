@@ -144,3 +144,10 @@ s3tests_boto3/functional/test_s3.py::test_get_bucket_encryption_kms
 s3tests_boto3/functional/test_s3.py::test_delete_bucket_encryption_s3
 s3tests_boto3/functional/test_s3.py::test_delete_bucket_encryption_kms
 s3tests_boto3/functional/test_s3.py::test_lifecycle_expiration_tags1
+s3tests_boto3/functional/test_headers.py::test_bucket_create_bad_ua_empty_aws2
+s3tests_boto3/functional/test_headers.py::test_bucket_create_bad_ua_none_aws2
+s3tests_boto3/functional/test_headers.py::test_object_create_bad_md5_bad
+s3tests_boto3/functional/test_headers.py::test_object_create_bad_md5_none
+s3tests_boto3/functional/test_headers.py::test_object_create_bad_expect_mismatch
+s3tests_boto3/functional/test_headers.py::test_object_create_bad_expect_empty
+s3tests_boto3/functional/test_headers.py::test_object_create_bad_expect_none

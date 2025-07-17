@@ -128,23 +128,6 @@ module.exports = {
             }
         },
 
-        create_mongo_pool: {
-            doc: 'Create Mongo Pool',
-            method: 'POST',
-            params: {
-                type: 'object',
-                required: ['name'],
-                properties: {
-                    name: {
-                        type: 'string',
-                    }
-                }
-            },
-            auth: {
-                system: 'admin'
-            }
-        },
-
         read_pool: {
             doc: 'Read Pool Information',
             method: 'GET',

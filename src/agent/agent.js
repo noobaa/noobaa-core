@@ -28,7 +28,6 @@ const cloud_utils = require('../util/cloud_utils');
 const BlockStoreFs = require('./block_store_services/block_store_fs').BlockStoreFs;
 const BlockStoreS3 = require('./block_store_services/block_store_s3').BlockStoreS3;
 const BlockStoreGoogle = require('./block_store_services/block_store_google').BlockStoreGoogle;
-const BlockStoreMongo = require('./block_store_services/block_store_mongo').BlockStoreMongo;
 const BlockStoreMem = require('./block_store_services/block_store_mem').BlockStoreMem;
 const BlockStoreAzure = require('./block_store_services/block_store_azure').BlockStoreAzure;
 
@@ -132,11 +131,6 @@ class Agent {
                     block_store_options.cloud_info.google = { project_id, private_key, client_email };
                     this.block_store = new BlockStoreGoogle(block_store_options);
                 }
-            } else if (params.mongo_info) {
-                this.mongo_info = params.mongo_info;
-                block_store_options.mongo_path = params.mongo_path;
-                this.node_type = 'BLOCK_STORE_MONGO';
-                this.block_store = new BlockStoreMongo(block_store_options);
             } else {
                 block_store_options.root_path = this.storage_path;
                 this.node_type = 'BLOCK_STORE_FS';
@@ -405,8 +399,6 @@ class Agent {
                     };
                     if (this.cloud_info) {
                         hb_info.pool_name = this.cloud_info.pool_name;
-                    } else if (this.mongo_info) {
-                        hb_info.pool_name = this.mongo_info.pool_name;
                     }
 
                     dbg.log0(`_do_heartbeat called. sending HB to ${this.master_address}`);
@@ -468,7 +460,7 @@ class Agent {
                     if (err.rpc_code === 'DUPLICATE') {
                         dbg.error('This agent appears to be duplicated.',
                             'exiting and starting new agent', err);
-                        if (this.cloud_info || this.mongo_info) {
+                        if (this.cloud_info) {
                             dbg.error(`shouldn't be here. found duplicated node for cloud pool or mongo pool!!`);
                             throw new Error('found duplicated cloud or mongo node');
                         } else {
@@ -479,9 +471,9 @@ class Agent {
                     if (err.rpc_code === 'NODE_NOT_FOUND') {
                         dbg.error('This agent appears to be using an old token.',
                             'cleaning this agent noobaa_storage directory', this.storage_path);
-                        if (this.cloud_info || this.mongo_info) {
-                            dbg.error(`shouldn't be here. node not found for cloud pool or mongo pool!!`);
-                            throw new Error('node not found cloud or mongo node');
+                        if (this.cloud_info) {
+                            dbg.error(`shouldn't be here. node not found for cloud pool pool!!`);
+                            throw new Error('node not found cloud node');
                         } else {
                             // We don't exit the process in order to keep the underlaying pod alive until
                             // the pool statefulset will scale this pod out of existence.

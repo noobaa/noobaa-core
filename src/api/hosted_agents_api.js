@@ -59,7 +59,7 @@ module.exports = {
                         },
                     },
 
-                    mongo_info: {
+                     mongo_info: {
                         type: 'object',
                         additionalProperties: true,
                         properties: {}

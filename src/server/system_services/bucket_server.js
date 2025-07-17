@@ -168,7 +168,6 @@ async function create_bucket(req) {
             update: {}
         };
 
-        const mongo_pool = pool_server.get_internal_mongo_pool(req.system);
         if (req.rpc_params.tiering) {
             tiering_policy = resolve_tiering_policy(req, req.rpc_params.tiering);
         } else if (req.system.namespace_resources_by_name && req.system.namespace_resources_by_name[req.account.default_resource.name]) {
@@ -191,7 +190,7 @@ async function create_bucket(req) {
             // that uses the default_resource of that account
             const default_pool = req.account.default_resource;
             // Do not allow to create S3 buckets that are attached to mongo resource (internal storage)
-            validate_pool_constraints({ mongo_pool, default_pool });
+            validate_pool_constraints({ default_pool });
             const chunk_config = chunk_config_utils.resolve_chunk_config(
                 req.rpc_params.chunk_coder_config, req.account, req.system);
             if (!chunk_config._id) {
@@ -328,10 +327,9 @@ async function create_bucket(req) {
     });
 }
 
-function validate_pool_constraints({ mongo_pool, default_pool }) {
+function validate_pool_constraints({ default_pool }) {
     if (config.ALLOW_BUCKET_CREATE_ON_INTERNAL !== true) {
-        if (!(mongo_pool && mongo_pool._id) || !(default_pool && default_pool._id)) throw new RpcError('SERVICE_UNAVAILABLE', 'Non existing pool');
-        if (String(mongo_pool._id) === String(default_pool._id)) throw new RpcError('SERVICE_UNAVAILABLE', 'Not allowed to create new buckets on internal pool');
+        if (!(default_pool && default_pool._id)) throw new RpcError('SERVICE_UNAVAILABLE', 'Non existing pool');
     }
 }
 
@@ -1323,32 +1321,10 @@ async function get_cloud_buckets(req) {
 
 
 async function update_all_buckets_default_pool(req) {
-    const pool_name = req.rpc_params.pool_name;
-    const pool = req.system.pools_by_name[pool_name];
-    if (!pool) throw new RpcError('INVALID_POOL_NAME');
-    const internal_pool = pool_server.get_internal_mongo_pool(pool.system);
-    if (!internal_pool || !internal_pool._id) return;
-    if (String(pool._id) === String(internal_pool._id)) return;
-    const buckets_with_internal_pool = _.filter(req.system.buckets_by_name, bucket =>
-        is_using_internal_storage(bucket, internal_pool));
-    if (!buckets_with_internal_pool.length) return;
-
-    const updates = [];
-    for (const bucket of buckets_with_internal_pool) {
-        updates.push({
-            _id: bucket.tiering.tiers[0].tier._id,
-            mirrors: [{
-                _id: system_store.new_system_store_id(),
-                spread_pools: [pool._id]
-            }]
-        });
-    }
-    dbg.log0(`Updating ${buckets_with_internal_pool.length} buckets to use ${pool_name} as default resource`);
-    await system_store.make_changes({
-        update: {
-            tiers: updates
-        }
-    });
+    // GAP - Internal mongo_pool no longer supported. This method needs to remove along with Noobaa operator reference.
+    dbg.warn('update_all_buckets_default_pool is deprecated and will be removed in the next release');
+    // No-op: bucket default pools are no longer supported
+    return { success: true };
 }
 
 /**
@@ -1581,21 +1557,6 @@ function get_bucket_info({
     return info;
 }
 
-function is_using_internal_storage(bucket, internal_pool) {
-    if (!internal_pool || !internal_pool._id) return false;
-
-    const tiers = bucket.tiering && bucket.tiering.tiers;
-    if (!tiers || tiers.length !== 1) return false;
-
-    const mirrors = tiers[0].tier.mirrors;
-    if (mirrors.length !== 1) return false;
-
-    const spread_pools = mirrors[0].spread_pools;
-    if (spread_pools.length !== 1) return false;
-
-    return String(spread_pools[0]._id) === String(internal_pool._id);
-}
-
 function _calc_metrics({
     bucket,
     nodes_aggregate_pool,
@@ -1608,7 +1569,6 @@ function _calc_metrics({
     let has_enough_healthy_nodes_for_tiering = false;
     let has_enough_total_nodes_for_tiering = false;
     const any_rebuilds = false;
-    const internal_pool = pool_server.get_internal_mongo_pool(bucket.system);
 
     const objects_aggregate = {
         size: (bucket.storage_stats && bucket.storage_stats.objects_size) || 0,
@@ -1700,7 +1660,7 @@ function _calc_metrics({
     });
 
     return {
-        is_using_internal: is_using_internal_storage(bucket, internal_pool),
+        is_using_internal: false,
         has_any_pool_configured,
         has_enough_healthy_nodes_for_tiering,
         has_enough_total_nodes_for_tiering,

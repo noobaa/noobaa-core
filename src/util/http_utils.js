@@ -630,7 +630,7 @@ function check_headers(req, options) {
 
     const content_encoding = req.headers['content-encoding'] || '';
     req.chunked_content =
-        content_encoding.split(',').includes('aws-chunked') ||
+        content_encoding.split(',').map(encoding => encoding.trim()).includes('aws-chunked') ||
         content_sha256_hdr === STREAMING_PAYLOAD;
 
     const req_time =

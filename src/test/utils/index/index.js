@@ -98,6 +98,7 @@ require('../../integration_tests/internal/test_tiering_ttl_worker');
 //require('./test_s3_worm');
 require('../../integration_tests/api/s3/test_bucket_logging');
 require('../../integration_tests/api/s3/test_notifications');
+require('../../integration_tests/api/s3/test_chunked_upload');
 
 // UPGRADE
 // require('./test_postgres_upgrade'); // TODO currently working with mongo -> once changing to postgres - need to uncomment

@@ -52,3 +52,5 @@ Attached a table with tests that where investigated and their status (this table
 | test_delete_bucket_encryption_s3 | Faulty Test | [613](https://github.com/ceph/s3-tests/issues/613) | 
 | test_delete_bucket_encryption_kms | Faulty Test | [613](https://github.com/ceph/s3-tests/issues/613) |
 | test_lifecycle_expiration_tags1 | Faulty Test | [638](https://github.com/ceph/s3-tests/issues/638) | There can be more such tests having the same issue (`Filter` is not aligned with aws structure in bucket lifecycle configuration) |
+| test_bucket_create_bad_ua_empty_aws2                 | Internal Component | [58059](https://tracker.ceph.com/issues/58059)                    | It is a known issue in ceph tests after updating botocore version (>1.28.0) it brokes v2 signatures |
+| test_bucket_create_bad_ua_none_aws2                 | Internal Component | [58059](https://tracker.ceph.com/issues/58059)                    | It is a known issue in ceph tests after updating botocore version (>1.28.0) it brokes v2 signatures |

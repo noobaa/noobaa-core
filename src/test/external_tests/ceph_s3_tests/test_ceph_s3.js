@@ -76,7 +76,7 @@ async function run_s3_tests() {
 async function run_all_tests() {
     console.info('Running Ceph S3 Tests...');
     const tests_list_command =
-        `S3TEST_CONF=${process.cwd()}/${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config} tox ${TOX_ARGS} -- -q --collect-only --disable-pytest-warnings  2>&1 | awk '{print $1}' | grep test`;
+        `S3TEST_CONF=${process.cwd()}/${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config} tox ${TOX_ARGS} -- -q --collect-only --disable-pytest-warnings  2>&1 | awk '{print $1}' | grep "::test"`;
     try {
         tests_list = await os_utils.exec(tests_list_command, { ignore_rc: false, return_stdout: true });
     } catch (err) {

@@ -62,7 +62,7 @@ class HostedAgents {
     reload() {
         // start agents for all existing cloud pools
         const agents_to_start = system_store.data.pools.filter(pool =>
-            (!_.isUndefined(pool.cloud_pool_info) || !_.isUndefined(pool.mongo_pool_info))
+            (!_.isUndefined(pool.cloud_pool_info))
         );
         dbg.log0(`will start agents for these pools: ${util.inspect(agents_to_start)}`);
         return P.map(agents_to_start, pool => this._start_pool_agent(pool));
@@ -114,8 +114,7 @@ class HostedAgents {
 
         const host_id = config.HOSTED_AGENTS_HOST_ID + pool_id;
         const storage_path = path.join(process.cwd(), 'noobaa_storage', node_name);
-        const pool_property_path = pool.resource_type === 'INTERNAL' ?
-            'mongo_pool_info.agent_info.mongo_path' : 'cloud_pool_info.agent_info.cloud_path';
+        const pool_property_path = 'cloud_pool_info.agent_info.cloud_path';
         const pool_path = _.get(pool, pool_property_path, `noobaa_blocks/${pool_id}`);
         const pool_path_property = pool.resource_type === 'INTERNAL' ? 'mongo_path' : 'cloud_path';
         const pool_info_property = pool.resource_type === 'INTERNAL' ? 'mongo_info' : 'cloud_info';
@@ -131,12 +130,10 @@ class HostedAgents {
             role: 'create_node'
         });
         const { token_wrapper, create_node_token_wrapper } = _get_pool_token_wrapper(pool);
-        const info = pool.resource_type === 'INTERNAL' ?
-            pool.mongo_pool_info : pool.cloud_pool_info;
+        const info = pool.cloud_pool_info;
         if (!info.agent_info || !info.agent_info.create_node_token) {
             const existing_token = info.agent_info ? info.agent_info.node_token : null;
-            const pool_agent_path = pool.resource_type === 'INTERNAL' ?
-                'mongo_pool_info' : 'cloud_pool_info';
+            const pool_agent_path = 'cloud_pool_info';
             const update = {
                 pools: [{
                     _id: pool._id,
@@ -377,8 +374,7 @@ function _get_pool_and_path_for_token(token_pool) {
     const sys = system_store.data.systems[0];
     const pool = sys.pools_by_name[token_pool.name];
     if (!pool) throw new Error(`Pool ${token_pool.name}, ${token_pool._id} does not exist`);
-    const pool_property_path = pool.resource_type === 'INTERNAL' ?
-        'mongo_pool_info.agent_info' : 'cloud_pool_info.agent_info';
+    const pool_property_path = 'cloud_pool_info.agent_info';
     return {
         pool_property_path,
         pool

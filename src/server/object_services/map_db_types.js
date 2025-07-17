@@ -351,7 +351,6 @@ class BlockDB {
                 mount: this.node.drive.mount,
                 online: Boolean(this.node.online),
                 in_cloud_pool: Boolean(this.node.is_cloud_node),
-                in_mongo_pool: Boolean(this.node.is_mongo_node),
             };
         }
         return {

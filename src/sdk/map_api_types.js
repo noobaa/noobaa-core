@@ -357,7 +357,6 @@ class BlockAPI {
             adminfo.mount = node.drive.mount;
             adminfo.online = Boolean(node.online);
             adminfo.in_cloud_pool = Boolean(node.is_cloud_node);
-            adminfo.in_mongo_pool = Boolean(node.is_mongo_node);
         }
     }
 

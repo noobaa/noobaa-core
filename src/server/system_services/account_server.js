@@ -80,7 +80,7 @@ async function create_account(req) {
         const password_hash = await bcrypt_password(account.password.unwrap());
         account.password = password_hash;
     }
-
+    console.log("create_account :: req.rpc_params :: ", req.rpc_params.default_resource, req.rpc_params);
     if (req.rpc_params.s3_access) {
         if (req.rpc_params.new_system_parameters) {
             account.default_resource = system_store.parse_system_store_id(req.rpc_params.new_system_parameters.default_resource);
@@ -1381,7 +1381,9 @@ function validate_create_account_permissions(req) {
 
 function validate_create_account_params(req) {
     // find none-internal pools
-    const has_non_internal_resources = (req.system && req.system.pools_by_name);
+   const has_non_internal_resources = (req.system && req.system.pools_by_name) ?
+        Object.values(req.system.pools_by_name).some(p => !p.mongo_pool_info) :
+        false;
 
     if (req.rpc_params.name.unwrap() !== req.rpc_params.name.unwrap().trim()) {
         throw new RpcError('BAD_REQUEST', 'system name must not contain leading or trailing spaces');

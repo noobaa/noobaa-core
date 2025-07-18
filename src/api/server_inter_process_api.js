@@ -25,24 +25,6 @@ module.exports = {
             }
         },
 
-        update_mongo_connection_string: {
-            method: 'POST',
-            params: {
-                type: 'object',
-                properties: {
-                    rs_name: {
-                        type: 'string',
-                    },
-                    skip_load_system_store: {
-                        type: 'boolean'
-                    }
-                }
-            },
-            auth: {
-                system: false
-            }
-        },
-
         update_master_change: {
             method: 'POST',
             params: {

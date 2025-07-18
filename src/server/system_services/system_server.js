@@ -188,12 +188,7 @@ function new_system_changes(req, name, owner_account_id) {
     system.master_key_id = m_key._id;
 
     let default_pool;
-    if (config.DEFAULT_POOL_TYPE === 'INTERNAL') {
-        const pool_name = `${config.INTERNAL_STORAGE_POOL_NAME}-${system._id}`;
-        const mongo_pool = pool_server.new_pool_defaults(pool_name, system._id, 'INTERNAL', 'BLOCK_STORE_MONGO', owner_account_id);
-        mongo_pool.mongo_pool_info = {};
-        default_pool = mongo_pool;
-    } else if (config.DEFAULT_POOL_TYPE === 'HOSTS') {
+    if (config.DEFAULT_POOL_TYPE === 'HOSTS') {
         const pool_name = config.DEFAULT_POOL_NAME;
         const fs_pool = pool_server.new_pool_defaults(pool_name, system._id, 'HOSTS', 'BLOCK_STORE_FS', owner_account_id);
         fs_pool.hosts_pool_info = { is_managed: false, host_count: 0 };
@@ -607,7 +602,7 @@ async function read_system(req) {
         namespace_resources: _.map(system.namespace_resources_by_name,
             ns => pool_server.get_namespace_resource_info(ns)),
         pools: _.filter(system.pools_by_name,
-                pool => (!_.get(pool, 'cloud_pool_info.pending_delete') && !_.get(pool, 'mongo_pool_info.pending_delete')))
+                pool => (!_.get(pool, 'cloud_pool_info.pending_delete')))
             .map(pool => pool_server.get_pool_info(pool, nodes_aggregate_pool_with_cloud_and_mongo, hosts_aggregate_pool)),
         tiers: _.map(system.tiers_by_name,
             tier => tier_server.get_tier_info(tier,

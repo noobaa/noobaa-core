@@ -53,9 +53,6 @@ async function ceph_test_setup() {
     const cephalt_access_key = cephalt_access_keys.access_key;
     const cephalt_secret_key = cephalt_access_keys.secret_key;
 
-    await os_utils.exec(`echo access_key = ${cephalt_access_key} >> ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`);
-    await os_utils.exec(`echo secret_key = ${cephalt_secret_key} >> ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`);
-
     const cephtenant_access_keys = await get_access_keys(CEPH_TEST.nc_cephtenant_account_params.name);
     const cephtenant_access_key = cephtenant_access_keys.access_key;
     const cephtenant_secret_key = cephtenant_access_keys.secret_key;
@@ -63,6 +60,8 @@ async function ceph_test_setup() {
     if (os_utils.IS_MAC) {
         await os_utils.exec(`sed -i "" "s|tenant_access_key|"${cephtenant_access_key}"|g" ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`);
         await os_utils.exec(`sed -i "" "s|tenant_secret_key|${cephtenant_secret_key}|g" ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`);
+        await os_utils.exec(`sed -i "" "s|s3_access_key|${cephalt_access_key}|g" ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`);
+        await os_utils.exec(`sed -i "" "s|s3_secret_key|${cephalt_secret_key}|g" ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`);
     } else {
         await os_utils.exec(`sed -i -e 's:tenant_access_key:${cephtenant_access_key}:g' ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`);
         await os_utils.exec(`sed -i -e 's:tenant_secret_key:${cephtenant_secret_key}:g' ${CEPH_TEST.test_dir}${CEPH_TEST.ceph_config}`);

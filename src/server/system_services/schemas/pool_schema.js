@@ -54,28 +54,6 @@ module.exports = {
             objectid: true
         },
         pool_node_type: node_schema.properties.node_type,
-        mongo_pool_info: {
-            type: 'object',
-            properties: {
-                agent_info: {
-                    type: 'object',
-                    properties: {
-                        create_node_token: {
-                            type: 'string'
-                        },
-                        node_token: {
-                            type: 'string'
-                        },
-                        mongo_path: {
-                            type: 'string'
-                        }
-                    }
-                },
-                pending_delete: {
-                    type: 'boolean'
-                },
-            }
-        },
         storage_stats: {
             type: 'object',
             required: ['blocks_size', 'last_update'],

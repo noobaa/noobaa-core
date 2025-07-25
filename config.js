@@ -84,7 +84,6 @@ config.EXTERNAL_DB_SERVICE_CERT_PATH = '/etc/external-db-secret';
 // TODO take nodes min and free space reserve from system/pool config
 config.NODES_MIN_COUNT = 3;
 config.NODES_PER_CLOUD_POOL = 1;
-config.NODES_PER_MONGO_POOL = 1;
 // in kubernetes use reserve of 100MB instead of 10GB
 config.NODES_FREE_SPACE_RESERVE = 100 * (1024 ** 2);
 
@@ -243,7 +242,7 @@ config.POSTGRES_MD_MAX_CLIENTS = (process.env.LOCAL_MD_SERVER === 'true') ? 70 :
 // SYSTEM CONFIG //
 ///////////////////
 
-config.DEFAULT_POOL_TYPE = 'INTERNAL'; // use 'HOSTS' for setting up a pool of FS backingstores instead
+config.DEFAULT_POOL_TYPE = 'HOSTS'; // use 'HOSTS' for setting up a pool of FS backingstores instead
 config.DEFAULT_POOL_NAME = 'backingstores'; // only used when config.DEFAULT_POOL_TYPE = 'HOSTS'
 config.DEFAULT_BUCKET_NAME = 'first.bucket';
 config.INTERNAL_STORAGE_POOL_NAME = 'system-internal-storage-pool';

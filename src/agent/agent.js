@@ -480,8 +480,8 @@ class Agent {
                         dbg.error('This agent appears to be using an old token.',
                             'cleaning this agent noobaa_storage directory', this.storage_path);
                         if (this.cloud_info || this.mongo_info) {
-                            dbg.error(`shouldn't be here. node not found for cloud pool or mongo pool!!`);
-                            throw new Error('node not found cloud or mongo node');
+                            dbg.error(`shouldn't be here. node not found for cloud pool pool!!`);
+                            throw new Error('node not found cloud node');
                         } else {
                             // We don't exit the process in order to keep the underlaying pod alive until
                             // the pool statefulset will scale this pod out of existence.

@@ -2,14 +2,36 @@
 'use strict';
 
 const _ = require('lodash');
+const mongodb = require('mongodb');
 const assert = require('assert');
 
+const P = require('../../util/promise');
 //const report_schema = require('./report_schema'); //NBNB TODO add schema verification
 require('../../util/dotenv').load();
 
+const REMOTE_MONGO_URL = 'mongodb://reporter:4*pRw3-vZb@ds139841.mlab.com:39841/test_reports'; // gitleaks:allow
+const REMOTE_MONGO_CONFIG = {
+    promiseLibrary: P,
+    reconnectTries: -1,
+    reconnectInterval: 1000,
+    autoReconnect: true,
+    bufferMaxEntries: 0,
+    keepAlive: 1,
+    connectTimeoutMS: 30000,
+    socketTimeoutMS: 0,
+    ignoreUndefined: true,
+};
 const OMITTED_TEST_CONF = ['server_ip', 'server', 'bucket', 'id', 'location', 'resource', 'storage', 'vnet', 'upgrade_pack', 'access_key', 'secret_key'];
 
 class Reporter {
+    static get REMOTE_MONGO_URL() {
+        return REMOTE_MONGO_URL;
+    }
+
+    static get REMOTE_MONGO_CONFIG() {
+        //see mongo_client for config explanations
+        return REMOTE_MONGO_CONFIG;
+    }
 
     static get OMITTED_TEST_CONF() {
         //Common argv/test config parameters which are not relevant and should be omitted
@@ -110,12 +132,54 @@ Didn't Run: ${JSON.stringify(
         };
     }
 
+    async _connect_to_mongo() {
+        let retries = 5;
+        while (retries > 0) {
+            try {
+                this._mongo_client = await mongodb.MongoClient.connect(REMOTE_MONGO_URL, REMOTE_MONGO_CONFIG);
+                break;
+            } catch (err) {
+                retries -= 1;
+                if (retries) {
+                    console.error(`Failed connecting to mongo, will retry in 30s retry`, err);
+                    await P.delay(this._mongo_connect_delay);
+                } else {
+                    throw new Error('Error connecting to remote mongo');
+                }
+            }
+        }
+
+        this._mongo_client.db().on('reconnect', () => {
+            console.log('got reconnect on mongo connection');
+        });
+        this._mongo_client.db().on('close', () => {
+            console.warn('got close on mongo connection');
+        });
+    }
+
     async _send_report() {
         try {
             const payload = this._prepare_report_payload();
 
             // This is old code that requires more cleanup. For now removed the code that sends the report
             console.log(`payload: ${JSON.stringify(payload)}`);
+
+            // if (this._remote_mongo) {
+            //     await this._connect_to_mongo();
+            //     await this._mongo_client.db().collection('reports').insert(payload);
+            //     console.info('report sent to remote mongo');
+            // } else if (process.env.SEND_REPORT) {
+            //     const options = {
+            //         uri: 'http://' + this.host + ':' + this.port,
+            //         method: 'POST',
+            //         json: payload
+            //     };
+            //     await P.timeout(60 * 1000,
+            //         P.fromCallback(callback => request(options, callback))
+            //     );
+            // } else {
+            //     console.info('skip report send');
+            // }
         } catch (err) {
             console.error('failed sending report', err);
         }

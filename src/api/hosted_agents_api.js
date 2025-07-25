@@ -59,6 +59,11 @@ module.exports = {
                         },
                     },
 
+                     mongo_info: {
+                        type: 'object',
+                        additionalProperties: true,
+                        properties: {}
+                    }
                 }
             },
             auth: {

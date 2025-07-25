@@ -85,6 +85,8 @@ class ServerRpc {
             require('./system_services/pool_server'), options);
         rpc.register_service(schema.cluster_server_api,
             require('./system_services/cluster_server'), options);
+        rpc.register_service(schema.cluster_internal_api,
+            require('./system_services/cluster_server'), options);
         rpc.register_service(schema.stats_api,
             require('./system_services/stats_aggregator'), options);
         rpc.register_service(schema.events_api,

@@ -6,6 +6,9 @@
  */
 'use strict';
 
+const mongo_ctrl = require('../utils/mongo_ctrl');
+const P = require('../../util/promise');
+const dotenv = require('../../util/dotenv');
 const dbg = require('../../util/debug_module')(__filename);
 const system_store = require('../system_services/system_store').get_instance();
 const server_rpc = require('../server_rpc');
@@ -20,6 +23,20 @@ async function load_system_store(req) {
     );
 }
 
+function update_mongo_connection_string(req) {
+    const old_url = process.env.MONGO_RS_URL || '';
+    dotenv.load();
+    dbg.log0('Recieved update mongo string. will update mongo url from', old_url, ' to ', process.env.MONGO_RS_URL);
+    return P.resolve(mongo_ctrl.update_connection_string())
+        .then(() => {
+            if (req.rpc_params.skip_load_system_store === false) {
+                load_system_store();
+            }
+        })
+        .then(() => {
+            // do nothing. 
+        });
+}
 
 function update_master_change(req) {
     system_store.is_cluster_master = req.rpc_params.is_master;
@@ -39,4 +56,5 @@ function update_master_change(req) {
 
 // EXPORTS
 exports.load_system_store = load_system_store;
+exports.update_mongo_connection_string = update_mongo_connection_string;
 exports.update_master_change = update_master_change;

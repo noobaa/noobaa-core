@@ -1321,7 +1321,9 @@ async function get_cloud_buckets(req) {
 
 
 async function update_all_buckets_default_pool(req) {
-    // TODO: Remove method call from operator
+    dbg.warn('update_all_buckets_default_pool is deprecated and will be removed in the next release');
+    // No-op: bucket default pools are no longer supported
+    return { success: true };
 }
 
 /**

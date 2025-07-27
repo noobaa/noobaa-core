@@ -287,18 +287,16 @@ mocha.describe('lifecycle', () => {
             const putLifecycleParams = {
                 Bucket: bucket,
                 LifecycleConfiguration: {
-                    Rules: [
-                        {
-                            AbortIncompleteMultipartUpload: {
-                                // 10 less days have gone by since upload created
-                                DaysAfterInitiation: parts_age + 10,
-                            },
-                            Filter: {
-                                Prefix: ''
-                            },
-                            Status: 'Enabled',
-                        }
-                    ],
+                    Rules: [{
+                        AbortIncompleteMultipartUpload: {
+                            // 10 less days have gone by since upload created
+                            DaysAfterInitiation: parts_age + 10,
+                        },
+                        Filter: {
+                            Prefix: ''
+                        },
+                        Status: 'Enabled',
+                    }],
                 },
             };
 
@@ -329,18 +327,16 @@ mocha.describe('lifecycle', () => {
             const putLifecycleParams = {
                 Bucket: bucket,
                 LifecycleConfiguration: {
-                    Rules: [
-                        {
-                            AbortIncompleteMultipartUpload: {
-                                // 10 less days have gone by since upload created
-                                DaysAfterInitiation: parts_age + 10,
-                            },
-                            Filter: {
-                                Prefix: prefix,
-                            },
-                            Status: 'Enabled',
-                        }
-                    ],
+                    Rules: [{
+                        AbortIncompleteMultipartUpload: {
+                            // 10 less days have gone by since upload created
+                            DaysAfterInitiation: parts_age + 10,
+                        },
+                        Filter: {
+                            Prefix: prefix,
+                        },
+                        Status: 'Enabled',
+                    }],
                 },
             };
 
@@ -407,7 +403,7 @@ mocha.describe('lifecycle', () => {
 
             const mp_list_after = await rpc_client.object.list_multiparts({ obj_id, bucket, key });
             assert.strictEqual(mp_list_after.multiparts.length, num_parts,
-                        `list_multiparts actual ${mp_list_after.multiparts.length} !== ${num_parts}`);
+                `list_multiparts actual ${mp_list_after.multiparts.length} !== ${num_parts}`);
 
             return obj_id;
         }
@@ -495,17 +491,15 @@ mocha.describe('lifecycle', () => {
             const putLifecycleParams = {
                 Bucket: bucket,
                 LifecycleConfiguration: {
-                    Rules: [
-                        {
-                            NoncurrentVersionExpiration: {
-                                NoncurrentDays: age + 10,
-                            },
-                            Filter: {
-                                Prefix: ''
-                            },
-                            Status: 'Enabled',
-                        }
-                    ],
+                    Rules: [{
+                        NoncurrentVersionExpiration: {
+                            NoncurrentDays: age + 10,
+                        },
+                        Filter: {
+                            Prefix: ''
+                        },
+                        Status: 'Enabled',
+                    }],
                 },
             };
 
@@ -535,17 +529,15 @@ mocha.describe('lifecycle', () => {
             const putLifecycleParams = {
                 Bucket: bucket,
                 LifecycleConfiguration: {
-                    Rules: [
-                        {
-                            NoncurrentVersionExpiration: {
-                                NoncurrentDays: age + 10,
-                            },
-                            Filter: {
-                                Prefix: prefix,
-                            },
-                            Status: 'Enabled',
-                        }
-                    ],
+                    Rules: [{
+                        NoncurrentVersionExpiration: {
+                            NoncurrentDays: age + 10,
+                        },
+                        Filter: {
+                            Prefix: prefix,
+                        },
+                        Status: 'Enabled',
+                    }],
                 },
             };
 
@@ -576,20 +568,18 @@ mocha.describe('lifecycle', () => {
             const putLifecycleParams = {
                 Bucket: bucket,
                 LifecycleConfiguration: {
-                    Rules: [
-                        {
-                            NoncurrentVersionExpiration: {
-                                // Age exceeds but newernoncurrent versions doesn't
-                                // so no expiration should happen
-                                NoncurrentDays: age - 10,
-                                NewerNoncurrentVersions: 10
-                            },
-                            Filter: {
-                                Prefix: ''
-                            },
-                            Status: 'Enabled',
-                        }
-                    ],
+                    Rules: [{
+                        NoncurrentVersionExpiration: {
+                            // Age exceeds but newernoncurrent versions doesn't
+                            // so no expiration should happen
+                            NoncurrentDays: age - 10,
+                            NewerNoncurrentVersions: 10
+                        },
+                        Filter: {
+                            Prefix: ''
+                        },
+                        Status: 'Enabled',
+                    }],
                 },
             };
 
@@ -634,7 +624,7 @@ mocha.describe('lifecycle', () => {
             }
         }
 
-        mocha.it('lifecyle - version object expired', async () => {
+        mocha.it('lifecycle - version object expired', async () => {
             const age = 30;
             const version_count = 10;
             const version_bucket_key = 'test-lifecycle-version1-1';
@@ -646,7 +636,7 @@ mocha.describe('lifecycle', () => {
             await verify_version_deleted(version_count + 1, version_bucket_key);
         });
 
-        mocha.it('lifecyle - version object not expired', async () => {
+        mocha.it('lifecycle - version object not expired', async () => {
             const age = 5;
             const version_count = 10;
             const version_bucket_key = 'test-lifecycle-version2-0';
@@ -658,7 +648,7 @@ mocha.describe('lifecycle', () => {
             await verify_version_deleted(version_count, version_bucket_key);
         });
 
-        mocha.it('lifecyle - version not expiration', async () => {
+        mocha.it('lifecycle - version not expiration', async () => {
             const days = 30;
             const version_count = 10;
             const newnon_current_version = 1;
@@ -667,7 +657,7 @@ mocha.describe('lifecycle', () => {
             // create_time updated to 29 days and expire is 30 days and noncurrent expire in 15
             await create_mock_version(version_bucket_key, version_bucket, days - 1, version_count);
             const putLifecycleParams = commonTests.version_lifecycle_configuration(version_bucket,
-                                            version_bucket_key, days, newnon_current_version, noncurrent_days);
+                version_bucket_key, days, newnon_current_version, noncurrent_days);
 
             await s3.putBucketLifecycleConfiguration(putLifecycleParams);
             await lifecycle.background_worker();
@@ -676,7 +666,7 @@ mocha.describe('lifecycle', () => {
             await verify_version_deleted(2, version_bucket_key);
         });
 
-        mocha.it('lifecyle - version expiration - only NewerNoncurrentVersions exceeded', async () => {
+        mocha.it('lifecycle - version expiration - only NewerNoncurrentVersions exceeded', async () => {
             const days = 35;
             const version_count = 10;
             const newnon_current_version = 5;
@@ -685,7 +675,7 @@ mocha.describe('lifecycle', () => {
             // create_time updated to 36 days and expire is 35 days
             await create_mock_version(version_bucket_key, version_bucket, days + 1, version_count, true);
             const putLifecycleParams = commonTests.version_lifecycle_configuration(version_bucket,
-                                            version_bucket_key, days, newnon_current_version, noncurrent_days);
+                version_bucket_key, days, newnon_current_version, noncurrent_days);
 
             await s3.putBucketLifecycleConfiguration(putLifecycleParams);
             await lifecycle.background_worker();
@@ -693,7 +683,7 @@ mocha.describe('lifecycle', () => {
             await verify_version_deleted(7, version_bucket_key);
         });
 
-        mocha.it('lifecyle - version expiration - only NoncurrentDays exceeded', async () => {
+        mocha.it('lifecycle - version expiration - only NoncurrentDays exceeded', async () => {
             const days = 45;
             const version_count = 10;
             const newnon_current_version = 100;
@@ -702,7 +692,7 @@ mocha.describe('lifecycle', () => {
             // create_time updated to 45+30+1= 76 days and expire is 45 days
             await create_mock_version(version_bucket_key, version_bucket, days + noncurrent_days + 1, version_count, true);
             const putLifecycleParams = commonTests.version_lifecycle_configuration(version_bucket,
-                                            version_bucket_key, days, newnon_current_version, noncurrent_days);
+                version_bucket_key, days, newnon_current_version, noncurrent_days);
 
             await s3.putBucketLifecycleConfiguration(putLifecycleParams);
             await lifecycle.background_worker();
@@ -711,7 +701,7 @@ mocha.describe('lifecycle', () => {
             await verify_version_deleted(11, version_bucket_key);
         });
 
-        mocha.it('lifecyle - version expiration - both NoncurrentDays and NewerNoncurrentVersions exceeded', async () => {
+        mocha.it('lifecycle - version expiration - both NoncurrentDays and NewerNoncurrentVersions exceeded', async () => {
             const days = 30;
             const version_count = 10;
             const newnon_current_version = 1;
@@ -720,7 +710,7 @@ mocha.describe('lifecycle', () => {
             // create_time updated to 46 days and expire is 30 days
             await create_mock_version(version_bucket_key, version_bucket, days + noncurrent_days + 1, version_count);
             const putLifecycleParams = commonTests.version_lifecycle_configuration(version_bucket,
-                                            version_bucket_key, days, newnon_current_version, noncurrent_days);
+                version_bucket_key, days, newnon_current_version, noncurrent_days);
 
             await s3.putBucketLifecycleConfiguration(putLifecycleParams);
             await lifecycle.background_worker();
@@ -728,7 +718,7 @@ mocha.describe('lifecycle', () => {
             await verify_version_deleted(2, version_bucket_key);
         });
 
-        mocha.it('lifecyle - version not expiration - delete marker true', async () => {
+        mocha.it('lifecycle - version not expiration - delete marker true', async () => {
             const days = 30;
             const version_count = 10;
             const noncurrent_days = 15;
@@ -736,7 +726,7 @@ mocha.describe('lifecycle', () => {
             // create_time updated to 29 days and expire is 30 days,
             await create_mock_version(version_bucket_key, version_bucket, days - 1, version_count, true);
             const putLifecycleParams = commonTests.version_lifecycle_configuration(version_bucket,
-                                            version_bucket_key, days, undefined, noncurrent_days);
+                version_bucket_key, days, undefined, noncurrent_days);
 
             await s3.putBucketLifecycleConfiguration(putLifecycleParams);
             await lifecycle.background_worker();
@@ -744,14 +734,14 @@ mocha.describe('lifecycle', () => {
             await verify_version_deleted(1, version_bucket_key);
         });
 
-        mocha.it('lifecyle - version expiration all - delete marker true', async () => {
+        mocha.it('lifecycle - version expiration all - delete marker true', async () => {
             const days = 30;
             const version_count = 10;
             const noncurrent_days = 15;
             const version_bucket_key = 'test-lifecycle-version6';
             await create_mock_version(version_bucket_key, version_bucket, days + noncurrent_days + 1, version_count, true);
             const putLifecycleParams = commonTests.version_lifecycle_configuration(version_bucket,
-                                            version_bucket_key, days, undefined, noncurrent_days);
+                version_bucket_key, days, undefined, noncurrent_days);
             await s3.putBucketLifecycleConfiguration(putLifecycleParams);
             await lifecycle.background_worker();
             await verify_version_deleted(2, version_bucket_key);
@@ -776,7 +766,7 @@ mocha.describe('lifecycle', () => {
                 prefix: key,
             };
             const obj_ids = [];
-            const {objects} = await rpc_client.object.list_object_versions(obj_params);
+            const { objects } = await rpc_client.object.list_object_versions(obj_params);
             for (const object of objects) {
                 obj_ids.push(object.obj_id);
             }
@@ -804,7 +794,7 @@ mocha.describe('lifecycle', () => {
     mocha.describe('bucket-lifecycle-expiration-header', function() {
         const bucket = Bucket;
 
-        const run_expiration_test = async ({ rules, expected_id, expected_days, key, tagging = undefined, size = 1000}) => {
+        const run_expiration_test = async ({ rules, expected_id, expected_days, key, tagging = undefined, size = 1000 }) => {
             const putLifecycleParams = {
                 Bucket: bucket,
                 LifecycleConfiguration: { Rules: rules }

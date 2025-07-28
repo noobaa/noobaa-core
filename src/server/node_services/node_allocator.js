@@ -303,10 +303,6 @@ function _get_tier_pools_status(pools, required_valid_nodes) {
             if (num_nodes !== config.NODES_PER_CLOUD_POOL) {
                 valid_for_allocation = false;
             }
-        } else if (pool.mongo_pool_info) {
-            if (num_nodes !== config.NODES_PER_MONGO_POOL) {
-                valid_for_allocation = false;
-            }
         } else if (num_nodes < required_valid_nodes) {
             valid_for_allocation = false;
         }

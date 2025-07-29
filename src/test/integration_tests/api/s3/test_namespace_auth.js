@@ -37,7 +37,7 @@ mocha.describe('Namespace Auth', function() {
             forcePathStyle: true,
             region: config.DEFAULT_REGION,
             requestHandler: new NodeHttpHandler({
-                httpAgent: http_utils.get_unsecured_agent(coretest.get_http_address())
+            httpAgent: http_utils.get_unsecured_agent(coretest.get_http_address())
             }),
         });
         coretest.log('S3 CONFIG', s3.config);

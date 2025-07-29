@@ -15,6 +15,7 @@ const mocha = require('mocha');
 const assert = require('assert');
 const P = require('../../../../util/promise');
 const azure_storage = require('@azure/storage-blob');
+const noobaa_s3_client = require('../../../../sdk/noobaa_s3_client/noobaa_s3_client');
 
 // If any of these variables are not defined,
 // use the noobaa endpoint to create buckets
@@ -71,7 +72,7 @@ mocha.describe('s3_ops', function() {
     mocha.before(async function() {
         const self = this;
         self.timeout(60000);
-
+        const agent = noobaa_s3_client.get_requestHandler_with_suitable_agent(coretest.get_http_address());
         const account_info = await rpc_client.account.read_account({ email: EMAIL, });
         s3_client_params = {
             endpoint: coretest.get_http_address(),
@@ -81,9 +82,7 @@ mocha.describe('s3_ops', function() {
             },
             forcePathStyle: true,
             region: config.DEFAULT_REGION,
-            requestHandler: new NodeHttpHandler({
-                httpAgent: http_utils.get_unsecured_agent(coretest.get_http_address()),
-            }),
+            requestHandler: { agent },
         };
         s3 = new S3(s3_client_params);
         coretest.log('S3 CONFIG', s3.config);

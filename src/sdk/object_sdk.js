@@ -466,7 +466,7 @@ class ObjectSDK {
                     endpoint: r.endpoint,
                     aws_sts_arn: r.aws_sts_arn,
                     credentials: {
-                         accessKeyId: r.access_key.unwrap(),
+                        accessKeyId: r.access_key.unwrap(),
                         secretAccessKey: r.secret_key.unwrap(),
                     },
                     region: config.DEFAULT_REGION, // SDKv3 needs region

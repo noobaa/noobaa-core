@@ -331,7 +331,7 @@ class NamespaceS3 {
             const request = {
                 Bucket: this.bucket,
                 Key: params.key,
-                Body: await params.source_stream.pipe(count_stream),
+                Body: params.source_stream.pipe(count_stream),
                 ContentLength: params.size,
                 ContentType: params.content_type,
                 ContentMD5: params.md5_b64,

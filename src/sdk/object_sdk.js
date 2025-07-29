@@ -25,6 +25,7 @@ const NamespaceMultipart = require('./namespace_multipart');
 const NamespaceNetStorage = require('./namespace_net_storage');
 const BucketSpaceNB = require('./bucketspace_nb');
 const { RpcError } = require('../rpc');
+const noobaa_s3_client = require('../sdk/noobaa_s3_client/noobaa_s3_client');
 
 const anonymous_access_key = Symbol('anonymous_access_key');
 
@@ -457,25 +458,26 @@ class ObjectSDK {
             r.endpoint_type === 'FLASHBLADE' ||
             r.endpoint_type === 'IBM_COS') {
 
-            const agent = r.endpoint_type === 'AWS' ?
-                http_utils.get_default_agent(r.endpoint) :
-                http_utils.get_unsecured_agent(r.endpoint);
+            const agent = noobaa_s3_client.get_requestHandler_with_suitable_agent(r.endpoint);
 
             return new NamespaceS3({
                 namespace_resource_id: r.id,
                 s3_params: {
-                    params: { Bucket: r.target_bucket },
                     endpoint: r.endpoint,
                     aws_sts_arn: r.aws_sts_arn,
-                    accessKeyId: r.access_key.unwrap(),
-                    secretAccessKey: r.secret_key.unwrap(),
-                    // region: 'us-east-1', // TODO needed?
-                    signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(r.endpoint, r.auth_method),
-                    s3ForcePathStyle: true,
-                    // computeChecksums: false, // disabled by default for performance
-                    httpOptions: { agent },
-                    access_mode: r.access_mode
+                    credentials: {
+                         accessKeyId: r.access_key.unwrap(),
+                        secretAccessKey: r.secret_key.unwrap(),
+                    },
+                    region: config.DEFAULT_REGION, // SDKv3 needs region
+                    forcePathStyle: true,
+                    requestHandler: { agent },
+                    requestStreamBufferSize: config.IO_STREAM_SPLIT_SIZE,
+                    computeChecksums: false, // disabled by default for performance
+                    access_mode: r.access_mode,
+                    //signatureVersion: cloud_utils.get_s3_endpoint_signature_ver(r.endpoint, r.auth_method)
                 },
+                bucket: r.target_bucket,
                 stats: this.stats,
             });
         }

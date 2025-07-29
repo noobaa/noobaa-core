@@ -2,7 +2,6 @@
 'use strict';
 
 const _ = require('lodash');
-const AWS = require('aws-sdk');
 const util = require('util');
 
 const dbg = require('../util/debug_module')(__filename);
@@ -12,6 +11,8 @@ const cloud_utils = require('../util/cloud_utils');
 const stream_utils = require('../util/stream_utils');
 const blob_translator = require('./blob_translator');
 const S3Error = require('../endpoint/s3/s3_errors').S3Error;
+const noobaa_s3_client = require('../sdk/noobaa_s3_client/noobaa_s3_client');
+const { PutObjectCommand } = require('@aws-sdk/client-s3');
 
 /**
  * @implements {nb.Namespace}
@@ -21,20 +22,24 @@ class NamespaceS3 {
     /**
      * @param {{
      *      namespace_resource_id: any,
-     *      s3_params: AWS.S3.ClientConfiguration & {
+     *      s3_params: import("@aws-sdk/client-s3").S3ClientConfig & {
      *          access_mode?: string,
      *          aws_sts_arn?: string,
      *      },
+     *      bucket?: string,
      *      stats: import('./endpoint_stats_collector').EndpointStatsCollector,
      * }} args 
      */
-    constructor({ namespace_resource_id, s3_params, stats }) {
+    constructor({ namespace_resource_id, s3_params, bucket, stats }) {
         this.namespace_resource_id = namespace_resource_id;
         this.s3_params = s3_params;
-        this.access_key = s3_params.accessKeyId;
+        this.access_key = s3_params.credentials?.accessKeyId;
         this.endpoint = s3_params.endpoint;
-        this.s3 = new AWS.S3(s3_params);
-        this.bucket = String(this.s3.config.params.Bucket);
+        this.s3 = noobaa_s3_client.get_s3_client_v3_params(s3_params);
+        if (!bucket) {
+            throw new Error('NamespaceS3: bucket is required');
+        }
+        this.bucket = String(bucket);
         this.access_mode = s3_params.access_mode;
         this.stats = stats;
     }
@@ -85,7 +90,7 @@ class NamespaceS3 {
             Delimiter: params.delimiter,
             Marker: params.key_marker,
             MaxKeys: params.limit,
-        }).promise();
+        });
 
         dbg.log0('NamespaceS3.list_objects:', this.bucket, inspect(params),
             'list', inspect(res));
@@ -117,7 +122,7 @@ class NamespaceS3 {
             KeyMarker: params.key_marker,
             UploadIdMarker: params.upload_id_marker,
             MaxUploads: params.limit,
-        }).promise();
+        });
 
         dbg.log0('NamespaceS3.list_uploads:', this.bucket, inspect(params),
             'list', inspect(res));
@@ -142,7 +147,7 @@ class NamespaceS3 {
             KeyMarker: params.key_marker,
             VersionIdMarker: params.version_id_marker,
             MaxKeys: params.limit,
-        }).promise();
+        });
 
         dbg.log0('NamespaceS3.list_object_versions:', this.bucket, inspect(params),
             'list', inspect(res));
@@ -183,7 +188,7 @@ class NamespaceS3 {
             dbg.log0('NamespaceS3.read_object_md:', this.bucket, inspect(params));
             await this._prepare_sts_client();
 
-            /** @type {AWS.S3.HeadObjectRequest | AWS.S3.GetObjectRequest} */
+            /** @type {import("@aws-sdk/client-s3").HeadObjectRequest | import("@aws-sdk/client-s3").GetObjectRequest} */
             const request = {
                 Bucket: this.bucket,
                 Key: params.key,
@@ -203,16 +208,18 @@ class NamespaceS3 {
             let res;
             try {
                 res = can_use_get_inline ?
-                    await this.s3.getObject(request).promise() :
-                    await this.s3.headObject(request).promise();
+                    await this.s3.getObject(request) :
+                    await this.s3.headObject(request);
             } catch (err) {
-                // catch invalid range error for objects of size 0 and trying head object instead
-                if (err.code !== 'InvalidRange') {
+                // catch invalid range error for objects of size 0 and try head object instead
+                const httpCode = err?.$metadata?.httpStatusCode;
+                const isInvalidRange = err?.name === 'InvalidRange' || httpCode === 416;
+                if (!isInvalidRange) {
                     throw err;
                 }
-                res = await this.s3.headObject({ ...request, Range: undefined }).promise();
+                res = await this.s3.headObject({ ...request, Range: undefined });
             }
-            dbg.log0('NamespaceS3.read_object_md:', this.bucket, inspect(params), 'res', inspect(res));
+            dbg.log0('NamespaceS3.read_object_md:', this.bucket, inspect(params), 'metadata', inspect(res.$metadata));
             return this._get_s3_object_info(res, params.bucket, params.part_number);
         } catch (err) {
             this._translate_error_code(params, err);
@@ -240,51 +247,46 @@ class NamespaceS3 {
         dbg.log0('NamespaceS3.read_object_stream:', this.bucket, inspect(_.omit(params, 'object_md.ns')));
         await this._prepare_sts_client();
 
-        return new Promise((resolve, reject) => {
-            /** @type {AWS.S3.HeadObjectRequest & AWS.S3.GetObjectRequest | AWS.S3.CopyObjectRequest} */
-            const request = {
-                Bucket: this.bucket,
-                Key: params.key,
-                Range: params.end ? `bytes=${params.start}-${params.end - 1}` : undefined,
-                PartNumber: params.part_number,
-            };
-            this._set_md_conditions(params, request);
-            this._assign_encryption_to_request(params, request);
-            const req = this.s3.getObject(request)
-                .on('error', err => {
-                    this._translate_error_code(params, err);
-                    dbg.warn('NamespaceS3.read_object_stream:', inspect(err));
-                    reject(err);
-                })
-                .on('httpHeaders', (statusCode, headers, res) => {
-                    dbg.log0('NamespaceS3.read_object_stream:',
+        /** @type {import("@aws-sdk/client-s3").HeadObjectRequest & import("@aws-sdk/client-s3").GetObjectRequest | import("@aws-sdk/client-s3").CopyObjectRequest} */
+        const request = {
+            Bucket: this.bucket,
+            Key: params.key,
+            Range: params.end ? `bytes=${params.start}-${params.end - 1}` : undefined,
+            PartNumber: params.part_number,
+        };
+        this._set_md_conditions(params, request);
+        this._assign_encryption_to_request(params, request);
+        try {
+            const obj_out = await this.s3.getObject(request);
+            dbg.log0('NamespaceS3.read_object_stream:',
                         this.bucket,
                         inspect(_.omit(params, 'object_md.ns')),
-                        'statusCode', statusCode,
-                        'headers', headers
                     );
-                    if (statusCode >= 300) return; // will be handled by error event
-                    req.removeListener('httpData', AWS.EventListeners.Core.HTTP_DATA);
-                    req.removeListener('httpError', AWS.EventListeners.Core.HTTP_ERROR);
-                    let count = 1;
-                    // on s3 read_object_md might not return x-amz-tagging-count header, so we get it here
-                    params.tag_count = headers['x-amz-tagging-count'];
-                    const count_stream = stream_utils.get_tap_stream(data => {
-                        this.stats?.update_namespace_read_stats({
-                            namespace_resource_id: this.namespace_resource_id,
-                            bucket_name: params.bucket,
-                            size: data.length,
-                            count
-                        });
-                        // clear count for next updates
-                        count = 0;
-                    });
-                    const read_stream = /** @type {import('stream').Readable} */
-                        (res.httpResponse.createUnbufferedStream());
-                    return resolve(read_stream.pipe(count_stream));
+            // In v3, non-2xx typically throws; keep this guard harmless.
+            if (obj_out.$metadata.httpStatusCode >= 300) throw new Error(`S3 getObject failed with status ${obj_out.$metadata.httpStatusCode}`);
+            let count = 1;
+            // S3 read_object_md might not return tag count, get TagCount from response
+            params.tag_count = obj_out.TagCount;
+            const count_stream = stream_utils.get_tap_stream(data => {
+                this.stats?.update_namespace_read_stats({
+                    namespace_resource_id: this.namespace_resource_id,
+                    bucket_name: params.bucket,
+                    size: data.length,
+                    count
                 });
-            req.send();
-        });
+                // clear count for next updates
+                count = 0;
+            });
+            const read_stream = /** @type {import('stream').Readable} */ (obj_out.Body);
+            // Bridge errors from source to the returned stream
+            read_stream.on('error', err => count_stream.emit('error', err));
+            // Return a live stream to be piped by the caller (endpoint)
+            return read_stream.pipe(count_stream);
+        } catch (err) {
+            this._translate_error_code(params, err);
+            dbg.warn('NamespaceS3.read_object_stream:', inspect(err));
+            throw err;
+        }
     }
 
 
@@ -297,6 +299,7 @@ class NamespaceS3 {
         await this._prepare_sts_client();
 
         let res;
+        let date;
         const Tagging = params.tagging && params.tagging.map(tag => tag.key + '=' + tag.value).join('&');
         if (params.copy_source) {
             const { copy_source, copy_source_range } = s3_utils.format_copy_source(params.copy_source);
@@ -305,7 +308,7 @@ class NamespaceS3 {
                 throw new Error('NamespaceS3.upload_object: CopySourceRange not supported by s3.copyObject()');
             }
 
-            /** @type {AWS.S3.CopyObjectRequest} */
+            /** @type {import("@aws-sdk/client-s3").CopyObjectRequest} */
             const request = {
                 Bucket: this.bucket,
                 Key: params.key,
@@ -320,7 +323,7 @@ class NamespaceS3 {
 
             this._assign_encryption_to_request(params, request);
 
-            res = await this.s3.copyObject(request).promise();
+            res = await this.s3.copyObject(request);
         } else {
             let count = 1;
             const count_stream = stream_utils.get_tap_stream(data => {
@@ -334,7 +337,7 @@ class NamespaceS3 {
                 count = 0;
             });
 
-            /** @type {AWS.S3.PutObjectRequest} */
+            /** @type {import("@aws-sdk/client-s3").PutObjectRequest} */
             const request = {
                 Bucket: this.bucket,
                 Key: params.key,
@@ -345,11 +348,24 @@ class NamespaceS3 {
                 Metadata: params.xattr,
                 Tagging,
             };
-
             this._assign_encryption_to_request(params, request);
-            try {
-                res = await this.s3.putObject(request).promise();
+             try {
+                const cmd = new PutObjectCommand(request);
+                // Capture Date header on this command only
+                cmd.middlewareStack.add(
+                    (next, context) => async args => {
+                        const result = await next(args);
+                        const hdrs = result?.response?.headers || {};
+                        if (hdrs.date) date = new Date(hdrs.date);
+                        return result;
+                    }, {
+                        step: "deserialize",
+                        name: "saveDateMiddleware" }
+                );
+                res = await this.s3.send(cmd);
             } catch (err) {
+                dbg.error(`upload_object: Object upload failed for bucket ${this.bucket} and 
+                    key : ${params.key}, with erro : `, err);
                 object_sdk.rpc_client.pool.update_issues_report({
                     namespace_resource_id: this.namespace_resource_id,
                     error_code: String(err.code),
@@ -358,10 +374,9 @@ class NamespaceS3 {
                 throw err;
             }
         }
-        dbg.log0('NamespaceS3.upload_object:', this.bucket, inspect(params), 'res', inspect(res));
-        const etag = s3_utils.parse_etag(res.ETag);
-        const last_modified_time = s3_utils.get_http_response_date(res);
-        return { etag, version_id: res.VersionId, last_modified_time };
+        dbg.log0('NamespaceS3.upload_object:', this.bucket, inspect(params), 'res', inspect(res), 'Date', date);
+        const etag = s3_utils.parse_etag(res.ETag || res.CopyObjectResult?.ETag);
+        return { etag, version_id: res.VersionId, date };
     }
 
     ////////////////////////
@@ -389,7 +404,7 @@ class NamespaceS3 {
         await this._prepare_sts_client();
 
         const Tagging = params.tagging && params.tagging.map(tag => tag.key + '=' + tag.value).join('&');
-        /** @type {AWS.S3.CreateMultipartUploadRequest} */
+        /** @type {import("@aws-sdk/client-s3").CreateMultipartUploadRequest} */
         const request = {
             Bucket: this.bucket,
             Key: params.key,
@@ -399,7 +414,7 @@ class NamespaceS3 {
             Tagging
         };
         this._assign_encryption_to_request(params, request);
-        const res = await this.s3.createMultipartUpload(request).promise();
+        const res = await this.s3.createMultipartUpload(request);
 
         dbg.log0('NamespaceS3.create_object_upload:', this.bucket, inspect(params), 'res', inspect(res));
         return { obj_id: res.UploadId };
@@ -410,10 +425,11 @@ class NamespaceS3 {
         await this._prepare_sts_client();
 
         let res;
+        let etag;
         if (params.copy_source) {
             const { copy_source, copy_source_range } = s3_utils.format_copy_source(params.copy_source);
 
-            /** @type {AWS.S3.UploadPartCopyRequest} */
+            /** @type {import("@aws-sdk/client-s3").UploadPartCopyRequest} */
             const request = {
                 Bucket: this.bucket,
                 Key: params.key,
@@ -425,7 +441,9 @@ class NamespaceS3 {
 
             this._assign_encryption_to_request(params, request);
 
-            res = await this.s3.uploadPartCopy(request).promise();
+            res = await this.s3.uploadPartCopy(request);
+            dbg.log0('NamespaceS3.upload_multipart uploadPartCopy:', this.bucket, inspect(params), 'res', inspect(res));
+            etag = s3_utils.parse_etag(res.CopyPartResult.ETag);
         } else {
             let count = 1;
             const count_stream = stream_utils.get_tap_stream(data => {
@@ -438,7 +456,7 @@ class NamespaceS3 {
                 count = 0;
             });
 
-            /** @type {AWS.S3.UploadPartRequest} */
+            /** @type {import("@aws-sdk/client-s3").UploadPartRequest} */
             const request = {
                 Bucket: this.bucket,
                 Key: params.key,
@@ -451,7 +469,7 @@ class NamespaceS3 {
 
             this._assign_encryption_to_request(params, request);
             try {
-                res = await this.s3.uploadPart(request).promise();
+                res = await this.s3.uploadPart(request);
             } catch (err) {
                 object_sdk.rpc_client.pool.update_issues_report({
                     namespace_resource_id: this.namespace_resource_id,
@@ -460,24 +478,24 @@ class NamespaceS3 {
                 });
                 throw err;
             }
+            dbg.log0('NamespaceS3.upload_multipart uploadPart:', this.bucket, inspect(params), 'res', inspect(res));
+            etag = s3_utils.parse_etag(res.ETag);
         }
-        dbg.log0('NamespaceS3.upload_multipart:', this.bucket, inspect(params), 'res', inspect(res));
-        const etag = s3_utils.parse_etag(res.ETag);
         return { etag };
     }
 
     async list_multiparts(params, object_sdk) {
         dbg.log0('NamespaceS3.list_multiparts:', this.bucket, inspect(params));
         await this._prepare_sts_client();
-
-        const res = await this.s3.listParts({
+        /** @type {import("@aws-sdk/client-s3").ListPartsRequest} */
+        const req = {
             Bucket: this.bucket,
             Key: params.key,
             UploadId: params.obj_id,
             MaxParts: params.max,
-            PartNumberMarker: params.num_marker,
-        }).promise();
-
+            PartNumberMarker: params.num_marker?.toString(),
+        };
+        const res = await this.s3.listParts(req);
         dbg.log0('NamespaceS3.list_multiparts:', this.bucket, inspect(params), 'res', inspect(res));
         return {
             is_truncated: res.IsTruncated,
@@ -505,7 +523,7 @@ class NamespaceS3 {
                     ETag: `"${p.etag}"`,
                 }))
             }
-        }).promise();
+        });
 
         dbg.log0('NamespaceS3.complete_object_upload:', this.bucket, inspect(params), 'res', inspect(res));
         const etag = s3_utils.parse_etag(res.ETag);
@@ -520,7 +538,7 @@ class NamespaceS3 {
             Bucket: this.bucket,
             Key: params.key,
             UploadId: params.obj_id,
-        }).promise();
+        });
 
         dbg.log0('NamespaceS3.abort_object_upload:', this.bucket, inspect(params), 'res', inspect(res));
     }
@@ -543,7 +561,7 @@ class NamespaceS3 {
             Key: params.key,
             VersionId: params.version_id,
             Tagging: { TagSet }
-        }).promise();
+        });
 
         dbg.log0('NamespaceS3.put_object_tagging:', this.bucket, inspect(params), 'res', inspect(res));
 
@@ -560,7 +578,7 @@ class NamespaceS3 {
             Bucket: this.bucket,
             Key: params.key,
             VersionId: params.version_id
-        }).promise();
+        });
 
         dbg.log0('NamespaceS3.delete_object_tagging:', this.bucket, inspect(params), 'res', inspect(res));
 
@@ -577,7 +595,7 @@ class NamespaceS3 {
             Bucket: this.bucket,
             Key: params.key,
             VersionId: params.version_id
-        }).promise();
+        });
 
         dbg.log0('NamespaceS3.get_object_tagging:', this.bucket, inspect(params), 'res', inspect(res));
 
@@ -604,7 +622,7 @@ class NamespaceS3 {
             Bucket: this.bucket,
             Key: params.key,
             VersionId: params.version_id
-        }).promise();
+        });
 
         dbg.log0('NamespaceS3.get_object_acl:', this.bucket, inspect(params), 'res', inspect(res));
 
@@ -623,7 +641,7 @@ class NamespaceS3 {
             Key: params.key,
             VersionId: params.version_id,
             ACL: params.acl
-        }).promise();
+        });
 
         dbg.log0('NamespaceS3.put_object_acl:', this.bucket, inspect(params), 'res', inspect(res));
     }
@@ -640,7 +658,7 @@ class NamespaceS3 {
             Bucket: this.bucket,
             Key: params.key,
             VersionId: params.version_id,
-        }).promise();
+        });
 
         dbg.log0('NamespaceS3.delete_object:',
             this.bucket,
@@ -672,7 +690,7 @@ class NamespaceS3 {
                     VersionId: obj.version_id,
                 }))
             }
-        }).promise();
+        });
 
         dbg.log0('NamespaceS3.delete_multiple_objects:',
             this.bucket,
@@ -753,7 +771,7 @@ class NamespaceS3 {
         dbg.log0('NamespaceS3.get_object_attributes:', this.bucket, inspect(params));
         await this._prepare_sts_client();
 
-        /** @type {AWS.S3.GetObjectAttributesRequest} */
+        /** @type {import("@aws-sdk/client-s3").GetObjectAttributesRequest} */
         const request = {
             Bucket: this.bucket,
             Key: params.key,
@@ -763,7 +781,7 @@ class NamespaceS3 {
         this._set_md_conditions(params, request);
         this._assign_encryption_to_request(params, request);
         try {
-            const res = await this.s3.getObjectAttributes(request).promise();
+            const res = await this.s3.getObjectAttributes(request);
             dbg.log0('NamespaceS3.get_object_attributes:', this.bucket, inspect(params), 'res', inspect(res));
             return this._get_s3_object_info(res, params.bucket);
         } catch (err) {
@@ -789,12 +807,12 @@ class NamespaceS3 {
     /**
      * 
      * @param {Omit<Partial<
-     *   AWS.S3.Object &
-     *   AWS.S3.ObjectVersion &
-     *   AWS.S3.DeleteMarkerEntry &
-     *   AWS.S3.MultipartUpload &
-     *   AWS.S3.GetObjectOutput &
-     *   AWS.S3.GetObjectAttributesOutput
+     *   import("@aws-sdk/client-s3")._Object &
+     *   import("@aws-sdk/client-s3").ObjectVersion &
+     *   import("@aws-sdk/client-s3").DeleteMarkerEntry &
+     *   import("@aws-sdk/client-s3").MultipartUpload &
+     *   import("@aws-sdk/client-s3").GetObjectOutput &
+     *   import("@aws-sdk/client-s3").GetObjectAttributesOutput
      * >, 'ChecksumAlgorithm'>} res 
      * @param {string} bucket 
      * @param {number} [part_number]
@@ -806,7 +824,7 @@ class NamespaceS3 {
             'noobaa-namespace-s3-bucket': this.bucket,
         });
         const ranges = res.ContentRange ? Number(res.ContentRange.split('/')[1]) : 0;
-        const size = ranges || res.ContentLength || res.Size || 0;
+        const size = ranges || res.ContentLength || res.Size || res.ObjectSize || 0;
         const last_modified_time = res.LastModified ? res.LastModified.getTime() : Date.now();
         return {
             obj_id: res.UploadId || etag,
@@ -842,15 +860,16 @@ class NamespaceS3 {
     }
 
     _translate_error_code(params, err) {
-        if (err.code === 'NoSuchKey') err.rpc_code = 'NO_SUCH_OBJECT';
-        else if (err.code === 'NotFound') err.rpc_code = 'NO_SUCH_OBJECT';
-        else if (err.code === 'InvalidRange') err.rpc_code = 'INVALID_RANGE';
+        const err_code = err.code || err.Code;
+        if (err_code === 'NoSuchKey') err.rpc_code = 'NO_SUCH_OBJECT';
+        else if (err_code === 'NotFound') err.rpc_code = 'NO_SUCH_OBJECT';
+        else if (err_code === 'InvalidRange') err.rpc_code = 'INVALID_RANGE';
         else if (params.md_conditions) {
             const md_conditions = params.md_conditions;
-            if (err.code === 'PreconditionFailed') {
+            if (err_code === 'PreconditionFailed') {
                 if (md_conditions.if_match_etag) err.rpc_code = 'IF_MATCH_ETAG';
                 else if (md_conditions.if_unmodified_since) err.rpc_code = 'IF_UNMODIFIED_SINCE';
-            } else if (err.code === 'NotModified') {
+            } else if (err_code === 'NotModified') {
                 if (md_conditions.if_modified_since) err.rpc_code = 'IF_MODIFIED_SINCE';
                 else if (md_conditions.if_none_match_etag) err.rpc_code = 'IF_NONE_MATCH_ETAG';
             }

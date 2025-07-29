@@ -666,18 +666,6 @@ function parse_body_logging_xml(req) {
     return logging;
 }
 
-function get_http_response_date(res) {
-    const r = get_http_response_from_resp(res);
-    if (!r.httpResponse.headers.date) throw new Error("date not found in response header");
-    return r.httpResponse.headers.date;
-}
-
-function get_http_response_from_resp(res) {
-    const r = res.$response;
-    if (!r) throw new Error("no $response in s3 returned object");
-    return r;
-}
-
 function get_response_field_encoder(req) {
     const encoding_type = req.query['encoding-type'];
     if ((typeof encoding_type === 'undefined') || (encoding_type === null)) return response_field_encoder_none;
@@ -861,8 +849,6 @@ exports.parse_lock_header = parse_lock_header;
 exports.parse_body_object_lock_conf_xml = parse_body_object_lock_conf_xml;
 exports.parse_to_camel_case = parse_to_camel_case;
 exports._is_valid_retention = _is_valid_retention;
-exports.get_http_response_from_resp = get_http_response_from_resp;
-exports.get_http_response_date = get_http_response_date;
 exports.XATTR_SORT_SYMBOL = XATTR_SORT_SYMBOL;
 exports.get_response_field_encoder = get_response_field_encoder;
 exports.response_field_encoder_url = response_field_encoder_url;

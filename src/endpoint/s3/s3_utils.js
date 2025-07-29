@@ -668,14 +668,13 @@ function parse_body_logging_xml(req) {
 
 function get_http_response_date(res) {
     const r = get_http_response_from_resp(res);
-    if (!r.httpResponse.headers.date) throw new Error("date not found in response header");
-    return r.httpResponse.headers.date;
+    if (!r.LastModified) throw new Error("date not found in response header");
+    return r.LastModified;
 }
 
 function get_http_response_from_resp(res) {
-    const r = res.$response;
-    if (!r) throw new Error("no $response in s3 returned object");
-    return r;
+    if (res.$metadata.httpStatusCode !== 200) throw new Error("Response return with error");
+    return res;
 }
 
 function get_response_field_encoder(req) {

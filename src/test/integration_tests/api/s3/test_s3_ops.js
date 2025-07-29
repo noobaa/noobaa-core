@@ -71,7 +71,6 @@ mocha.describe('s3_ops', function() {
     mocha.before(async function() {
         const self = this;
         self.timeout(60000);
-
         const account_info = await rpc_client.account.read_account({ email: EMAIL, });
         s3_client_params = {
             endpoint: coretest.get_http_address(),

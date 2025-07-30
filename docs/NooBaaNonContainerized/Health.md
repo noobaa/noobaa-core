@@ -26,14 +26,16 @@ For more details about NooBaa RPM installation, see - [Getting Started](./Gettin
   - `NooBaa endpoints health`
     - Ensuring that the NooBaa endpoint is running.
   - `NooBaa accounts Health`
-    - Iterating accounts under the config directory.
+    - Counting and Iterating accounts under the config directory.
     - Confirming the existence of the account's configuration file and its validity as a JSON file.
     - Verifying that the account's `new_buckets_path` is defined and `allow_bucket_creation` is set to true.
     - Ensuring that the account has read and write access to its new_buckets_path.
+    - Verifying that the number of accounts didn't exceed the supported/tested limit.
   - `NooBaa buckets health` 
-    - Iterating buckets under the config directory.
+    - Counting and Iterating buckets under the config directory.
     - Confirming the existence of the bucket's configuration file and its validity as a JSON file.
     - Verifying that the underlying storage path of a bucket exists.
+    - Verifying that the number of buckets didn't exceed the supported/tested limit.
   - `Config directory health`
     - checks if config system and directory data exists
     - returns the config directory status 
@@ -128,6 +130,10 @@ The output of the Health CLI is a JSON object containing the following propertie
     - Enum: See - [Health Errors](#health-errors)
     - Description: Error message describing a health issue uncovered by the Health CLI. Will be displayed in Health response if status is NOTOK.
 
+- `warnings` 
+    - Type: Array [{warning_code: String, warning_message: String}]
+    - Description: Warnings is an array that consists warnings that raised during the health script.
+
 - `service_status`
     - Type: String
     - Enum: "active" | "inactive" | "missing service status info"
@@ -221,6 +227,7 @@ Output:
     "error_code": "NOOBAA_SERVICE_FAILED",
     "error_message": "NooBaa service is not started properly, Please verify the service with status command."
   },
+  "warnings": [],
   "checks": {
     "services": [
       {
@@ -244,6 +251,7 @@ Output:
       "error_type": "TEMPORARY"
     },
     "accounts_status": {
+      "count": 3,
       "invalid_accounts": [
         {
           "name": "account_invalid",
@@ -263,6 +271,7 @@ Output:
       "error_type": "PERSISTENT"
     },
     "buckets_status": {
+      "count": 3,
       "invalid_buckets": [
         {
           "name": "bucket1.json",
@@ -283,7 +292,8 @@ Output:
       ],
       "error_type": "PERSISTENT"
     },
-    "connectoins_status": {
+    "connectins_status": {
+      "count": 2,
       "invalid_connections": [
         {
           "name": "notif_invalid",
@@ -464,3 +474,23 @@ The following error codes will be associated with a specific Bucket or Account s
     - Start NooBaa service
     - Run `noobaa-cli upgrade`
     - Check the in_progress_upgrade the exact reason for the failure.
+
+## Health Warnings
+
+If the Health CLI encounters some issues, the following warnings will be pushed to a warnings array in the health output.
+
+#### 1. Buckets count limit warning
+  - Warning code: `BUCKETS_COUNT_LIMIT_WARNING`
+  - Warning message: Number of buckets exceeds the limit of ${config.NC_HEALTH_BUCKETS_COUNT_LIMIT_WARNING}
+  - Reasons:
+    - The number of buckets exceeds the supported or tested limit, which may lead to unexpected behavior.
+  - Resolutions:
+    - Delete buckets until the total count is below the supported or tested limit.
+
+#### 1. Accounts count limit warning
+  - Warning code: `ACCOUNTS_COUNT_LIMIT_WARNING`
+  - Warning message: Number of accounts exceeds the limit of ${config.NC_HEALTH_ACCOUNTS_COUNT_LIMIT_WARNING}
+  - Reasons:
+    - The number of accounts exceeds the supported or tested limit, which may lead to unexpected behavior.
+  - Resolutions:
+    - Delete accounts until the total count is below the supported or tested limit.

@@ -1133,10 +1133,12 @@ function calc_namespace_resource_mode(namespace_resource) {
     if (!map_issues_and_monitoring_report.has(namespace_resource_id)) {
         map_issues_and_monitoring_report.set(namespace_resource_id, { last_monitoring: undefined, issues: [] });
     }
-    const issues_report = map_issues_and_monitoring_report.get(namespace_resource_id).issues;
+
+    const nsr_report = map_issues_and_monitoring_report.get(namespace_resource_id);
+    const issues_report = nsr_report.issues;
     const errors_count = _.reduce(issues_report, (acc, issue) => {
         // skip if error timestamp is before of the latest monitoring
-        if (issue.time < namespace_resource.last_monitoring) {
+        if (issue.time < nsr_report.last_monitoring) {
             return acc;
         }
         const err_type = map_err_to_type_count[issue.error_code] || 'io_errors';

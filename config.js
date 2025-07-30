@@ -380,8 +380,8 @@ config.BUCKET_RECLAIMER_ERROR_DELAY = 3000;
 config.OBJECT_RECLAIMER_ENABLED = true;
 config.OBJECT_RECLAIMER_EMPTY_DELAY = 60 * 60 * 1000; // 1 hour delay
 config.OBJECT_RECLAIMER_BATCH_SIZE = 100;
-config.OBJECT_RECLAIMER_BATCH_DELAY = 10 * 60 * 1000; // 10 minutes delay between batches
-config.OBJECT_RECLAIMER_ERROR_DELAY = 10 * 60 * 1000; // 10 minutes delay between batches;
+config.OBJECT_RECLAIMER_BATCH_DELAY = 100;
+config.OBJECT_RECLAIMER_ERROR_DELAY = 3000;
 
 
 //////////////////

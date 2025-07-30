@@ -1072,6 +1072,16 @@ class NamespaceFS {
                         dbg.warn('NamespaceFS.read_object_stream mismatch version_id', params.version_id, this._get_version_id_by_xattr(stat));
                         throw error_utils.new_error_code('MISMATCH_VERSION', 'file version does not match the version we asked for');
                     }
+
+                    // Disallow read if the object is in Glacier storage class and isn't restored
+                    const obj_storage_class = Glacier.storage_class_from_xattr(stat.xattr);
+                    const obj_restore_status = Glacier.get_restore_status(stat.xattr, new Date(), file_path);
+                    if (obj_storage_class === s3_utils.STORAGE_CLASS_GLACIER) {
+                        if (obj_restore_status?.ongoing || !obj_restore_status?.expiry_time) {
+                            dbg.warn('read_object_stream: object is not restored yet', obj_restore_status);
+                            throw new S3Error(S3Error.InvalidObjectState);
+                        }
+                    }
                     break;
                 } catch (err) {
                     dbg.warn(`NamespaceFS.read_object_stream: retrying retries=${retries} file_path=${file_path}`, err);

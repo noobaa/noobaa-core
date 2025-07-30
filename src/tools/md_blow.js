@@ -29,6 +29,8 @@ main();
 
 async function main() {
     try {
+        const mkm = system_store.master_key_manager;
+        await mkm.load_root_keys_from_mount();
         await system_store.load();
         await client.create_auth_token({
             email: argv.email,

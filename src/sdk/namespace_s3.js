@@ -352,7 +352,15 @@ class NamespaceS3 {
         }
         dbg.log0('NamespaceS3.upload_object:', this.bucket, inspect(params), 'res', inspect(res));
         const etag = s3_utils.parse_etag(res.ETag);
-        const last_modified_time = await s3_utils.get_http_response_date(res, this.s3, this.bucket, params.key);
+        /** @type {import("@aws-sdk/client-s3").GetObjectAttributesRequest} */
+        const request = {
+            Bucket: this.bucket,
+            Key: params.key,
+            VersionId: params.version_id,
+            ObjectAttributes: params.attributes,
+        };
+        const res_head = await this.s3.headObject(request);
+        const last_modified_time = await s3_utils.get_http_response_date(res_head, this.s3, this.bucket, params.key);
         return { etag, version_id: res.VersionId, last_modified_time };
     }
 

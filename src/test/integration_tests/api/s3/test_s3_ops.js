@@ -15,7 +15,6 @@ const mocha = require('mocha');
 const assert = require('assert');
 const P = require('../../../../util/promise');
 const azure_storage = require('@azure/storage-blob');
-const noobaa_s3_client = require('../../../../sdk/noobaa_s3_client/noobaa_s3_client');
 
 // If any of these variables are not defined,
 // use the noobaa endpoint to create buckets
@@ -72,7 +71,6 @@ mocha.describe('s3_ops', function() {
     mocha.before(async function() {
         const self = this;
         self.timeout(60000);
-        const agent = noobaa_s3_client.get_requestHandler_with_suitable_agent(coretest.get_http_address());
         const account_info = await rpc_client.account.read_account({ email: EMAIL, });
         s3_client_params = {
             endpoint: coretest.get_http_address(),
@@ -82,7 +80,9 @@ mocha.describe('s3_ops', function() {
             },
             forcePathStyle: true,
             region: config.DEFAULT_REGION,
-            requestHandler: { agent },
+            requestHandler: new NodeHttpHandler({
+                httpAgent: http_utils.get_unsecured_agent(coretest.get_http_address()),
+            }),
         };
         s3 = new S3(s3_client_params);
         coretest.log('S3 CONFIG', s3.config);
@@ -777,7 +777,7 @@ mocha.describe('s3_ops', function() {
                 source_namespace_bucket = caching ? SOURCE_BUCKET + '-caching' : SOURCE_BUCKET;
                 target_namespace_bucket = caching ? TARGET_BUCKET + '-caching' : TARGET_BUCKET;
 
-                const ENDPOINT = USE_REMOTE_ENDPOINT ? process.env.ENDPOINT : coretest.get_https_address();
+                const ENDPOINT = USE_REMOTE_ENDPOINT ? process.env.ENDPOINT : coretest.get_http_address();
                 const ENDPOINT_TYPE = USE_REMOTE_ENDPOINT ? process.env.ENDPOINT_TYPE : 'S3_COMPATIBLE';
                 const AWS_ACCESS_KEY_ID = USE_REMOTE_ENDPOINT ? process.env.AWS_ACCESS_KEY_ID : s3_client_params.credentials.accessKeyId;
                 const AWS_SECRET_ACCESS_KEY = USE_REMOTE_ENDPOINT ? process.env.AWS_SECRET_ACCESS_KEY :

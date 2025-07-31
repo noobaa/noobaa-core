@@ -459,6 +459,13 @@ module.exports = {
             auth: {
                 system: 'admin'
             }
+        },
+
+        get_system_store: {
+            method: 'GET',
+            auth: {
+                system: false
+            }
         }
     },
 

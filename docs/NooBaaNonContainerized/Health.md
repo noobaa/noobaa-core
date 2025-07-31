@@ -26,14 +26,16 @@ For more details about NooBaa RPM installation, see - [Getting Started](./Gettin
   - `NooBaa endpoints health`
     - Ensuring that the NooBaa endpoint is running.
   - `NooBaa accounts Health`
-    - Iterating accounts under the config directory.
+    - Counting and Iterating accounts under the config directory.
     - Confirming the existence of the account's configuration file and its validity as a JSON file.
     - Verifying that the account's `new_buckets_path` is defined and `allow_bucket_creation` is set to true.
     - Ensuring that the account has read and write access to its new_buckets_path.
+    - Verifying that the number of accounts didn't exceed the supported/tested limit.
   - `NooBaa buckets health` 
-    - Iterating buckets under the config directory.
+    - Counting and Iterating buckets under the config directory.
     - Confirming the existence of the bucket's configuration file and its validity as a JSON file.
     - Verifying that the underlying storage path of a bucket exists.
+    - Verifying that the number of buckets didn't exceed the supported/tested limit.
   - `Config directory health`
     - checks if config system and directory data exists
     - returns the config directory status 
@@ -244,6 +246,7 @@ Output:
       "error_type": "TEMPORARY"
     },
     "accounts_status": {
+      "count": 3,
       "invalid_accounts": [
         {
           "name": "account_invalid",
@@ -263,6 +266,7 @@ Output:
       "error_type": "PERSISTENT"
     },
     "buckets_status": {
+      "count": 3,
       "invalid_buckets": [
         {
           "name": "bucket1.json",
@@ -283,7 +287,8 @@ Output:
       ],
       "error_type": "PERSISTENT"
     },
-    "connectoins_status": {
+    "connectins_status": {
+      "count": 2,
       "invalid_connections": [
         {
           "name": "notif_invalid",
@@ -464,3 +469,19 @@ The following error codes will be associated with a specific Bucket or Account s
     - Start NooBaa service
     - Run `noobaa-cli upgrade`
     - Check the in_progress_upgrade the exact reason for the failure.
+
+#### 9. Buckets count limit warning
+  - Error code: `BUCKETS_COUNT_LIMIT_WARNING`
+  - Error message: Number of buckets exceeds the limit of ${config.NC_HEALTH_BUCKETS_COUNT_LIMIT_WARNING}
+  - Reasons:
+    - The number of buckets exceeds the supported or tested limit, which may lead to unexpected behavior.
+  - Resolutions:
+    - Delete buckets until the total count is below the supported or tested limit.
+
+#### 10. Accounts count limit warning
+  - Error code: `ACCOUNTS_COUNT_LIMIT_WARNING`
+  - Error message: Number of accounts exceeds the limit of ${config.NC_HEALTH_ACCOUNTS_COUNT_LIMIT_WARNING}
+  - Reasons:
+    - The number of accounts exceeds the supported or tested limit, which may lead to unexpected behavior.
+  - Resolutions:
+    - Delete accounts until the total count is below the supported or tested limit.

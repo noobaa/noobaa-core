@@ -155,3 +155,5 @@ s3tests_boto3/functional/test_s3.py::test_object_presigned_put_object_with_acl_t
 s3tests_boto3/functional/test_s3.py::test_get_undefined_public_block
 s3tests_boto3/functional/test_s3.py::test_get_public_block_deny_bucket_policy
 s3tests_boto3/functional/test_s3.py::test_lifecycle_expiration_tags1
+s3tests_boto3/functional/test_headers.py::test_bucket_create_bad_ua_empty_aws2
+s3tests_boto3/functional/test_headers.py::test_bucket_create_bad_ua_none_aws2

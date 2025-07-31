@@ -20,6 +20,7 @@ const { Glacier } = require('../../../sdk/glacier');
 const { Semaphore } = require('../../../util/semaphore');
 const nb_native = require('../../../util/nb_native');
 const { handler: s3_get_bucket } = require('../../../endpoint/s3/ops/s3_get_bucket');
+const Stream = require('stream');
 
 const inspect = (x, max_arr = 5) => util.inspect(x, { colors: true, depth: null, maxArrayLength: max_arr });
 
@@ -78,6 +79,12 @@ function assert_date(date, from, expected, tz = 'LOCAL') {
         assert(date.getMinutes() === that_if_not_this(expected.min, from.getMinutes()));
         assert(date.getSeconds() === that_if_not_this(expected.sec, from.getSeconds()));
     }
+}
+
+class NoOpWriteStream extends Stream.Writable {
+  _write(chunk, encoding, callback) {
+    callback();
+  }
 }
 
 /* Justification: Disable max-lines-per-function for test functions
@@ -198,42 +205,53 @@ mocha.describe('nsfs_glacier', function() {
 			assert(found);
 		});
 
-		mocha.it('restore-object should successfully restore', async function() {
+        mocha.it('restore-object should successfully restore', async function() {
             const now = Date.now();
             const data = crypto.randomBytes(100);
-			const params = {
+            const params = {
                 bucket: upload_bkt,
                 key: restore_key,
-				storage_class: s3_utils.STORAGE_CLASS_GLACIER,
+                storage_class: s3_utils.STORAGE_CLASS_GLACIER,
                 xattr,
-				days: 1,
+                days: 1,
                 source_stream: buffer_utils.buffer_to_read_stream(data)
             };
 
             const upload_res = await glacier_ns.upload_object(params, dummy_object_sdk);
             console.log('upload_object response', inspect(upload_res));
 
-			const restore_res = await glacier_ns.restore_object(params, dummy_object_sdk);
-			assert(restore_res);
+            const dummy_stream_writer = new NoOpWriteStream();
 
-			// Issue restore
-			await NamespaceFS.restore_wal._process(async file => {
-				const fs_context = glacier_ns.prepare_fs_context(dummy_object_sdk);
-				await backend.restore(fs_context, file);
+            // Ensure that we can't read the object before restore
+            await assert.rejects(glacier_ns.read_object_stream(params, dummy_object_sdk, dummy_stream_writer));
 
-				// Don't delete the file
-				return false;
-			});
+            const restore_res = await glacier_ns.restore_object(params, dummy_object_sdk);
+            assert(restore_res);
 
-			// Ensure object is restored
-			const md = await glacier_ns.read_object_md(params, dummy_object_sdk);
+            // Ensure that we can't read the object before restore
+            await assert.rejects(glacier_ns.read_object_stream(params, dummy_object_sdk, dummy_stream_writer));
 
-			assert(!md.restore_status.ongoing);
+            // Issue restore
+            await NamespaceFS.restore_wal._process(async file => {
+                const fs_context = glacier_ns.prepare_fs_context(dummy_object_sdk);
+                await backend.restore(fs_context, file);
 
-			const expected_expiry = Glacier.generate_expiry(new Date(), params.days, '', config.NSFS_GLACIER_EXPIRY_TZ);
-			assert(expected_expiry.getTime() >= md.restore_status.expiry_time.getTime());
-			assert(now <= md.restore_status.expiry_time.getTime());
-		});
+                // Don't delete the file
+                return false;
+            });
+
+            // Ensure object is restored
+            const md = await glacier_ns.read_object_md(params, dummy_object_sdk);
+
+            assert(!md.restore_status.ongoing);
+
+            const expected_expiry = Glacier.generate_expiry(new Date(), params.days, '', config.NSFS_GLACIER_EXPIRY_TZ);
+            assert(expected_expiry.getTime() >= md.restore_status.expiry_time.getTime());
+            assert(now <= md.restore_status.expiry_time.getTime());
+
+            // Ensure that we can't read the object before restore
+            await assert.doesNotReject(glacier_ns.read_object_stream(params, dummy_object_sdk, dummy_stream_writer));
+        });
 
         mocha.it('restore-object should not restore failed item', async function() {
             const now = Date.now();
@@ -316,10 +334,10 @@ mocha.describe('nsfs_glacier', function() {
             assert(failure_stats.xattr[Glacier.XATTR_RESTORE_REQUEST]);
         });
 
-		mocha.it('_finalize_restore should tolerate deleted objects', async function() {
+        mocha.it('_finalize_restore should tolerate deleted objects', async function() {
             // should not throw error if the path does not exist
             await backend._finalize_restore(glacier_ns.prepare_fs_context(dummy_object_sdk), '/path/does/not/exist');
-		});
+        });
 
         mocha.it('generate_expiry should round up the expiry', function() {
             const now = new Date();

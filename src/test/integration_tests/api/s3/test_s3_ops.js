@@ -71,7 +71,6 @@ mocha.describe('s3_ops', function() {
     mocha.before(async function() {
         const self = this;
         self.timeout(60000);
-
         const account_info = await rpc_client.account.read_account({ email: EMAIL, });
         s3_client_params = {
             endpoint: coretest.get_http_address(),
@@ -778,7 +777,7 @@ mocha.describe('s3_ops', function() {
                 source_namespace_bucket = caching ? SOURCE_BUCKET + '-caching' : SOURCE_BUCKET;
                 target_namespace_bucket = caching ? TARGET_BUCKET + '-caching' : TARGET_BUCKET;
 
-                const ENDPOINT = USE_REMOTE_ENDPOINT ? process.env.ENDPOINT : coretest.get_https_address();
+                const ENDPOINT = USE_REMOTE_ENDPOINT ? process.env.ENDPOINT : coretest.get_http_address();
                 const ENDPOINT_TYPE = USE_REMOTE_ENDPOINT ? process.env.ENDPOINT_TYPE : 'S3_COMPATIBLE';
                 const AWS_ACCESS_KEY_ID = USE_REMOTE_ENDPOINT ? process.env.AWS_ACCESS_KEY_ID : s3_client_params.credentials.accessKeyId;
                 const AWS_SECRET_ACCESS_KEY = USE_REMOTE_ENDPOINT ? process.env.AWS_SECRET_ACCESS_KEY :

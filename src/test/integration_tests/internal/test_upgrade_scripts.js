@@ -11,6 +11,7 @@ const http = require('http');
 const system_store = require('../../../server/system_services/system_store').get_instance();
 const upgrade_bucket_policy = require('../../../upgrade/upgrade_scripts/5.15.6/upgrade_bucket_policy');
 const upgrade_bucket_cors = require('../../../upgrade/upgrade_scripts/5.19.0/upgrade_bucket_cors');
+const remove_mongo_pool = require('../../../upgrade/upgrade_scripts/5.20.0/remove_mongo_pool');
 const dbg = require('../../../util/debug_module')(__filename);
 const assert = require('assert');
 const mocha = require('mocha');
@@ -127,6 +128,37 @@ mocha.describe('test upgrade scripts', async function() {
         assert.deepEqual(cors.CORSRules[0].AllowedMethods, config.S3_CORS_ALLOW_METHODS);
         assert.deepEqual(cors.CORSRules[0].AllowedOrigins, config.S3_CORS_ALLOW_ORIGIN);
         assert.deepEqual(cors.CORSRules[0].ExposeHeaders, config.S3_CORS_EXPOSE_HEADERS);
+    });
+
+    mocha.it('test remove mongo_pool to version 5.20.0', async function() {
+        const system = system_store.data.systems[0];
+        const base = config.INTERNAL_STORAGE_POOL_NAME || config.DEFAULT_POOL_NAME || 'system-internal-storage-pool';
+        const internal_name = `${base}-${system._id}`;
+
+        // Seed an internal mongo pool entry
+        await system_store.make_changes({
+            insert: {
+                pools: [{
+                    _id: system_store.new_system_store_id(),
+                    system: system._id,
+                    name: internal_name,
+                    resource_type: 'INTERNAL',
+                    owner_id: '6899822e9045e9dc216ef812',
+                }]
+            }
+        });
+
+        const before_names = system_store.data.pools.map(e => e.name);
+        dbg.info("Start : List all the pools in system: ", before_names);
+        await remove_mongo_pool.run({ dbg, system_store });
+        const afte_names = system_store.data.pools.map(e => e.name);
+        dbg.info("End : List all the pools in system: ", afte_names);
+
+        // Assert exact seeded name was removed, and no prefixed internal pools remain
+        const exact_removed = system_store.data.pools.find(pool => pool.name === internal_name);
+        const prefix_exists = system_store.data.pools.find(pool => pool.name.startsWith(base));
+        assert.strictEqual(exact_removed, undefined);
+        assert.strictEqual(prefix_exists, undefined);
     });
 
     mocha.after(async function() {

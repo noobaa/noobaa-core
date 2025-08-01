@@ -923,7 +923,7 @@ function get_associated_accounts(pool) {
 
 function find_pool_by_name(req) {
     const name = req.rpc_params.name;
-    const pool = req.system.pools_by_name[name];
+    const pool = req.system.pools_by_name?.[name];
     if (!pool) {
         throw new RpcError('NO_SUCH_POOL', 'No such pool: ' + name);
     }
@@ -1301,9 +1301,20 @@ function _is_cloud_pool(pool) {
     return Boolean(pool.cloud_pool_info);
 }
 
+function _is_optimal_non_default_pool_id(pool) {
+    return Boolean(pool.name === config.DEFAULT_POOL_NAME);
+}
+
+function get_optimal_non_default_pool_id(system) {
+    return system.pools_by_name[config.DEFAULT_POOL_NAME];
+}
+
 async function get_optimal_non_mongo_pool_id() {
     for (const pool of system_store.data.pools) {
-
+        // skip backingstore_pool.
+        if (_is_optimal_non_default_pool_id(pool)) {
+            continue;
+        }
         const aggr_nodes = await nodes_client.instance().aggregate_nodes_by_pool([pool.name], pool.system._id);
         const aggr_hosts = await nodes_client.instance().aggregate_hosts_by_pool([pool.name], pool.system._id);
         const { mode = '' } = get_pool_info(pool, aggr_nodes, aggr_hosts);
@@ -1418,3 +1429,4 @@ exports.update_issues_report = update_issues_report;
 exports.update_last_monitoring = update_last_monitoring;
 exports.calc_namespace_resource_mode = calc_namespace_resource_mode;
 exports.check_deletion_ownership = check_deletion_ownership;
+exports.get_optimal_non_default_pool_id = get_optimal_non_default_pool_id;

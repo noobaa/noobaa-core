@@ -11,6 +11,7 @@ const http = require('http');
 const system_store = require('../../../server/system_services/system_store').get_instance();
 const upgrade_bucket_policy = require('../../../upgrade/upgrade_scripts/5.15.6/upgrade_bucket_policy');
 const upgrade_bucket_cors = require('../../../upgrade/upgrade_scripts/5.19.0/upgrade_bucket_cors');
+const remove_mongo_pool = require('../../../upgrade/upgrade_scripts/5.20.0/remove_mongo_pool');
 const dbg = require('../../../util/debug_module')(__filename);
 const assert = require('assert');
 const mocha = require('mocha');
@@ -127,6 +128,15 @@ mocha.describe('test upgrade scripts', async function() {
         assert.deepEqual(cors.CORSRules[0].AllowedMethods, config.S3_CORS_ALLOW_METHODS);
         assert.deepEqual(cors.CORSRules[0].AllowedOrigins, config.S3_CORS_ALLOW_ORIGIN);
         assert.deepEqual(cors.CORSRules[0].ExposeHeaders, config.S3_CORS_EXPOSE_HEADERS);
+    });
+
+    mocha.it('test remove mongo_pool to version 5.20.0', async function() {
+        console.log("Start : List all the pools in system: ", system_store.data.pools.map(e => e.name));
+
+        await remove_mongo_pool.run({ dbg, system_store });
+        console.log("End : List all the pools in system: ", system_store.data.pools.map(e => e.name));
+        const mongo_pool_exists = system_store.data.pools.find(pool => pool.name.startsWith('system-internal-storage-pool'));
+        assert.equal(mongo_pool_exists, undefined);
     });
 
     mocha.after(async function() {

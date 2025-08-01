@@ -1301,9 +1301,20 @@ function _is_cloud_pool(pool) {
     return Boolean(pool.cloud_pool_info);
 }
 
+function _is_backingstore_pool(pool) {
+    return Boolean(pool.name === config.DEFAULT_POOL_NAME);
+}
+
+function get_internal_backingstore(system) {
+    return system.pools_by_name[config.DEFAULT_POOL_NAME];
+}
+
 async function get_optimal_non_mongo_pool_id() {
     for (const pool of system_store.data.pools) {
-
+        // skip backingstore_pool.
+        if (_is_backingstore_pool(pool)) {
+            continue;
+        }
         const aggr_nodes = await nodes_client.instance().aggregate_nodes_by_pool([pool.name], pool.system._id);
         const aggr_hosts = await nodes_client.instance().aggregate_hosts_by_pool([pool.name], pool.system._id);
         const { mode = '' } = get_pool_info(pool, aggr_nodes, aggr_hosts);
@@ -1418,3 +1429,4 @@ exports.update_issues_report = update_issues_report;
 exports.update_last_monitoring = update_last_monitoring;
 exports.calc_namespace_resource_mode = calc_namespace_resource_mode;
 exports.check_deletion_ownership = check_deletion_ownership;
+exports.get_internal_backingstore = get_internal_backingstore;
